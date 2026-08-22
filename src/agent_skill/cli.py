@@ -62,9 +62,16 @@ def cmd_build(args) -> int:
 
 
 def cmd_install(args) -> int:
-    for skill in discover(args.skills):
-        link, how = build.install(skill)
-        print(f"  {link} -> {skill.root}  ({how})")
+    targets = [t for t in build.TARGETS if not args.target or t.name in args.target]
+    skills = discover(args.skills)
+    for target in targets:
+        if not target.present:
+            print(f"  {target.name:<12} not installed on this machine; skipped")
+            continue
+        print(f"  {target.name}")
+        for skill in skills:
+            link, how = build.install(skill, target)
+            print(f"      {link}  ({how})")
     return 0
 
 
@@ -97,9 +104,14 @@ def main(argv: list[str] | None = None) -> int:
     pack.add_argument("--out", type=Path, default=REPO / "dist")
     pack.set_defaults(func=cmd_build)
 
-    sub.add_parser("install", help="symlink each skill into ~/.claude/skills").set_defaults(
-        func=cmd_install
+    put = sub.add_parser("install", help="symlink each skill into every agent that reads skills")
+    put.add_argument(
+        "--target",
+        action="append",
+        choices=[t.name for t in build.TARGETS],
+        help="limit to one agent (repeatable); default is every one present",
     )
+    put.set_defaults(func=cmd_install)
     sub.add_parser("list", help="what is in this repository").set_defaults(func=cmd_list)
 
     args = parser.parse_args(argv)

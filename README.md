@@ -1,11 +1,12 @@
 # agent-skill
 
-Builds and verifies the Claude Code skills in `skills/`.
+Builds and verifies the agent skills in `skills/`, and links them into every
+agent on this machine that reads them.
 
 ```bash
 uv run agent-skill check          # every check
 uv run agent-skill check --fast   # skip the ones that need cargo or zig
-uv run agent-skill install        # symlink each skill into ~/.claude/skills
+uv run agent-skill install        # symlink each skill into every agent present
 uv run agent-skill build          # package each as dist/<name>.skill
 uv run pytest                     # the same checks, as tests
 ```
@@ -15,7 +16,7 @@ uv run pytest                     # the same checks, as tests
 ## Layout
 
 ```
-skills/<name>/                 content only — symlinked live into ~/.claude/skills
+skills/<name>/                 content only — symlinked live into each agent
 src/agent_skill/
   model.py                     what a skill is made of; one parse, shared
   checks/                      what a skill must be true of
@@ -24,13 +25,34 @@ src/agent_skill/
 ```
 
 A skill directory holds nothing but the skill. Configuration lives in a profile
-inside the package, because `skills/<name>/` is symlinked into `~/.claude/skills`
-and packaged into the shipped `.skill` — tooling settings there would be shipped
-to the reader.
+inside the package, because `skills/<name>/` is symlinked into each agent and
+packaged into the shipped `.skill` — tooling settings there would be shipped to
+the reader.
 
-`install` makes a symlink rather than a copy. There is no installed second copy
-to drift from the source, which is the failure this whole apparatus exists to
-prevent.
+## Installing
+
+`install` symlinks each skill into every agent on this machine that reads the
+same shape — a directory per skill, a `SKILL.md` with `name` and `description`
+frontmatter, optional `references/` beside it:
+
+| Agent | Skills directory |
+|---|---|
+| Claude Code | `~/.claude/skills/` |
+| Codex | `~/.codex/skills/` |
+| Antigravity | `~/.gemini/config/skills/` |
+
+An agent whose config directory is absent is skipped. `--target` limits it to
+one.
+
+A symlink rather than a copy, so there is no installed second copy to drift from
+the source — Antigravity held one taken a week earlier that differed in every
+file, which is the failure this whole apparatus exists to prevent.
+
+A real directory standing in the way is moved to `skills-replaced/` *beside* the
+skills directory rather than renamed inside it: discovery walks
+`skills/*/SKILL.md` and reads the name from the frontmatter, so a
+`rust-style.replaced` sitting next to `rust-style` is a second skill claiming the
+same name.
 
 ## Adding a skill
 
@@ -46,7 +68,7 @@ the time. The note after each is the defect it would have caught.
 
 | Check | Catches | Added because |
 |---|---|---|
-| `frontmatter` | the block Claude Code reads first: spec keys, name, description length, stated rule count | A malformed frontmatter crashed the checker instead of being reported by it — three unguarded `.group(1)` calls. |
+| `frontmatter` | the block an agent reads first: spec keys, name, description length, stated rule count | A malformed frontmatter crashed the checker instead of being reported by it — three unguarded `.group(1)` calls. |
 | `anatomy` | rule shape (Why/Check, or a pointer at the owner), contents agreement and order, duplicate titles, dangling and mis-filed references, per-family counts, near-duplicate rationales | A rule that pointed at the chapter owning its topic then kept a stale two-row copy of that chapter's table — whose rows were already in it. |
 | `layout` | line width, trailing whitespace, tabs, CR, fence balance, doubled blanks, list numbering; long rule titles as notes | A 135-column line shipped and every check passed: nothing measured width. Sole owner of the physical checks, because when a second check repeated them one defect produced two findings at two severities. |
 | `markers` | one block, one marker, and the marker leads it | 56 blocks spelled the marker across two lines, which left the tools unable to recognise the illustration blocks they exist to exempt. |
