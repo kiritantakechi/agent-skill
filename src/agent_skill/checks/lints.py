@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import re
 
-from ..lang.rust import LINTS, UNVERIFIABLE
 from ..report import fail
 from . import check
 
@@ -33,12 +32,13 @@ def table(text: str, prefix: str = "") -> dict[str, str]:
 @check("lints", "the shipped lint table equals the verified one")
 def lints(skill):
     manifest = skill.root / "assets" / "Cargo.toml"
-    if skill.profile.toolchain != "rust" or not manifest.exists():
+    crate = skill.profile.crate
+    if crate is None or not manifest.exists():
         return
     shipped = table(manifest.read_text(), "workspace.")
-    verified = {f"{s}.{k}": v for s, t in LINTS.items() for k, v in t.items()}
+    verified = {f"{s}.{k}": v for s, t in crate.lints.items() for k, v in t.items()}
 
-    for key in sorted(set(shipped) - set(verified) - UNVERIFIABLE):
+    for key in sorted(set(shipped) - set(verified) - crate.unverifiable):
         yield fail(f"assets/Cargo.toml ships `{key}` that nothing verifies", skill.name)
     for key in sorted(set(verified) - set(shipped)):
         yield fail(f"the verified crate has `{key}` the shipped asset does not", skill.name)

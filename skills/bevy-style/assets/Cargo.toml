@@ -1,0 +1,101 @@
+# Canonical workspace manifest for a Bevy 0.19 game.
+# Copy, then delete what does not apply.
+# Referenced by BV-CAR-02, BV-CAR-04, BV-CAR-07, BV-CAR-15.
+
+[workspace]
+resolver = "3"                       # implied by edition 2024; explicit is fine
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.98"                # a tested MSRV, verified by a CI job
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+# An exact pin for a game binary; a caret (`"0.19"`) for a crate others depend
+# on. A 0.x minor bump renames a large fraction of the API, so for a binary the
+# pin turns an upgrade into a scheduled migration. See BV-CAR-04.
+#
+# Start from a feature collection: `2d`, `3d`, `ui`, or the mid-level `2d_api`,
+# `default_app`, `default_platform` when the backends are not wanted. Hand-pick
+# only against a measurement recorded here. See BV-CAR-02 and BV-CAR-03.
+bevy = { version = "=0.19.1", features = ["2d", "ui"] }
+
+# ---------------------------------------------------------------------------
+# Lints. Inherited by every member with `[lints] workspace = true`.
+# Lint *groups* need `priority = -1` so individual entries can override them.
+#
+# This table is `rust-style`'s, with exactly two entries relaxed. Both were
+# measured against a representative plugin, and both say which kind of
+# divergence they are. Adding a third needs the same treatment: the API that
+# forces it, the count, and whether a compliant form exists (BV-CAR-14).
+# ---------------------------------------------------------------------------
+
+[workspace.lints.rust]
+unsafe_code = "forbid"               # survives every Bevy derive; measured
+missing_docs = "deny"
+missing_debug_implementations = "deny"
+unreachable_pub = "warn"
+unused_qualifications = "warn"
+explicit_outlives_requirements = "warn"
+
+# RELAXED (BV-CAR-11). Fires on every system parameter — Query, Res, ResMut,
+# Commands, MessageReader, Local — because each carries the world and state
+# lifetimes: 21 warnings from nine systems on one plugin. A compliant form does
+# exist and does compile (`Query<'_, '_, &mut T>`, `Res<'_, T>`); it buys
+# nothing but two apostrophes per parameter, so this is a noise judgement.
+elided_lifetimes_in_paths = "allow"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+
+# Always defects — deny them.
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+indexing_slicing = "deny"            # BV-ERR-08
+dbg_macro = "deny"                   # BV-ERR-14
+mem_forget = "deny"
+
+# Prefer `#[expect(…, reason = "…")]` to `#[allow]`, and make every remaining
+# allow say why: a suppression that stops being needed becomes a warning.
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+
+# Correctness-adjacent warnings worth keeping loud.
+cast_possible_truncation = "warn"
+cast_precision_loss = "warn"
+cast_sign_loss = "warn"
+float_cmp = "warn"
+
+# Individually justified allows only — never allow the whole group.
+module_name_repetitions = "allow"    # reason: crate re-exports flatten paths anyway
+
+# RELAXED (BV-CAR-12). Fires on every `Res<T>` parameter a system does not
+# consume, and the suggestion does not compile: `&Res<'_, T>` is not a
+# `SystemParam`, so following the lint produces E0277 at the `add_systems`
+# call. This one has no compliant form.
+needless_pass_by_value = "allow"
+
+# NOT relaxed, deliberately: `type_complexity` and `too_many_arguments` both
+# fire on ordinary Bevy code, and upstream Bevy allows both. A `type` alias
+# (BV-ECS-21) and `#[derive(SystemParam)]` (BV-SCH-09) silence them, and both
+# are the better code. See BV-CAR-13.
+
+[profile.dev]
+# The game's own crates stay unoptimised, so the edit-compile-run loop is fast.
+opt-level = 1
+
+[profile.dev.package."*"]
+# An unoptimised Bevy is unusably slow, and dependencies are compiled once.
+opt-level = 3                        # BV-CAR-07
+
+[profile.release]
+# Release must trap wherever debug traps, for any game with replays, rollback,
+# lockstep networking or golden vectors. See BV-CAR-09.
+overflow-checks = true
+lto = "thin"
+codegen-units = 1
+debug = "line-tables-only"           # keep profiles usable; strip separately

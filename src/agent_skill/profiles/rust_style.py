@@ -6,6 +6,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+from ..lang.rust import RUST_STYLE, Crate
 from ..model import repr_c_above
 from ..report import Finding, fail, note
 from ..text import strip_comment
@@ -33,6 +34,7 @@ class RustStyle(Profile):
     languages: tuple[str, ...] = ("rust",)
     marked_languages: tuple[str, ...] = ("toml",)
     toolchain: str | None = "rust"
+    crate: Crate | None = RUST_STYLE
     exempt: dict = field(
         default_factory=lambda: {
             # RS-API-24: "Every hit that is not on a `#[repr(C)]` type is a defect"

@@ -54,6 +54,56 @@ PUB_FIELD = HEADER + (
 
 CONTROLS: list[Control] = [
     Control(
+        "a bevy example using an API the skill forbids",
+        "self-application",
+        lambda t: edit(
+            t,
+            "bevy-style/references/events.md",
+            "mut damage: MessageReader<DamageDealt>",
+            "mut damage: EventReader<DamageDealt>",
+        ),
+    ),
+    Control(
+        "a component that does not derive Debug",
+        "conventions",
+        lambda t: edit(
+            t,
+            "bevy-style/references/ecs.md",
+            "#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]",
+            "#[derive(Component, Clone, Copy, PartialEq, Reflect)]",
+        ),
+    ),
+    Control(
+        "a plugin type without the suffix its trait requires",
+        "conventions",
+        lambda t: edit(
+            t,
+            "bevy-style/references/architecture.md",
+            "impl Plugin for CombatPlugin {",
+            "impl Plugin for Combat {",
+        ),
+    ),
+    Control(
+        "a citation into a standard that has no such rule",
+        "crossref",
+        lambda t: edit(
+            t,
+            "bevy-style/SKILL.md",
+            "`RS-API-24` Keep every struct field private",
+            "`RS-API-99` Keep every struct field private",
+        ),
+    ),
+    Control(
+        "an override row quoting a title the other standard no longer has",
+        "crossref",
+        lambda t: edit(
+            t,
+            "bevy-style/SKILL.md",
+            "`RS-NAM-33` Never suffix a name with the language construct",
+            "`RS-NAM-33` Always suffix a name with the language construct",
+        ),
+    ),
+    Control(
         "frontmatter with no name",
         "frontmatter",
         lambda t: edit(t, "rust-style/SKILL.md", "name: rust-style", "nome: rust-style"),

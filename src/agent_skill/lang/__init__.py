@@ -34,6 +34,8 @@ class Unit:
 class Extraction:
     root: Path
     units: list[Unit] = field(default_factory=list)
+    #: how the extracted crate is built; None for a toolchain that needs no manifest
+    crate: object | None = None
 
     def __bool__(self) -> bool:
         return bool(self.units)

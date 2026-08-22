@@ -1,0 +1,75 @@
+# CI for a Bevy 0.19 game. Referenced by BV-CAR-05, BV-CAR-16, BV-CAR-17,
+# BV-CAR-18 and BV-CAR-20, and by BV-ARC-07 for the boundary job.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_BUILD_WARNINGS: deny
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      # Bevy is most of the build and changes only when the pin changes.
+      - uses: Swatinem/rust-cache@v2
+      # Bevy needs these to build on Linux; without them the job fails in the
+      # dependency build with a linker error that names nothing useful.
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      # Two Bevy versions in the tree are two engines, and the type errors name
+      # neither. See BV-CAR-05.
+      - name: One Bevy version
+        run: |
+          if cargo tree --duplicates | grep -q '^bevy '; then
+            cargo tree --duplicates | grep '^bevy '
+            echo 'more than one bevy version in the tree; see BV-CAR-05' >&2
+            exit 1
+          fi
+      # The rules of the game may not name the engine. See BV-ARC-01.
+      - name: The boundary holds
+        run: |
+          if grep -rn --include='*.rs' -e 'bevy' crates/*-sim/src/; then
+            echo 'a simulation crate named Bevy; see BV-ARC-01' >&2
+            exit 1
+          fi
+
+  shipped-features:
+    # Building only the default feature set proves nothing about the artefact.
+    # This list is the one in the release manifest. See BV-CAR-17.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - run: cargo build --release --no-default-features --features shipping
+
+  wasm:
+    # Only if the game ships to the web. See BV-CAR-18.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --target wasm32-unknown-unknown --no-default-features --features web

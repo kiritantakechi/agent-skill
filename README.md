@@ -6,6 +6,7 @@ agent on this machine that reads them.
 ```bash
 uv run agent-skill check          # every check
 uv run agent-skill check --fast   # skip the ones that need cargo or zig
+uv run agent-skill fmt            # rewrite each rust example as rustfmt would have it
 uv run agent-skill install        # symlink each skill into every agent present
 uv run agent-skill build          # package each as dist/<name>.skill
 uv run pytest                     # the same checks, as tests
@@ -21,6 +22,7 @@ src/agent_skill/
   model.py                     what a skill is made of; one parse, shared
   checks/                      what a skill must be true of
   lang/                        turning examples back into code a compiler accepts
+  fmt.py                       rewriting an example the way the check will demand
   profiles/<name>.py           what a check needs to know about one skill
 ```
 
@@ -59,7 +61,11 @@ same name.
 Drop it in `skills/` and it gets every generic check: frontmatter, rule anatomy,
 contents agreement, cross-references, layout, marker discipline, prose, assets.
 It needs a profile in `src/agent_skill/profiles/` only to have *its own* rules
-applied to its own examples, or to be compiled.
+applied to its own examples, or to be compiled. A profile that names a
+`toolchain` also names the `Crate` its examples are compiled as — the dependency
+line and the lint table are per skill, not per language: `bevy-style` needs Bevy
+on the dependency line and two lint entries `rust-style` does not relax, and one
+shared manifest would have left one of them unverifiable.
 
 ## The checks
 
@@ -77,6 +83,7 @@ the time. The note after each is the defect it would have caught.
 | `assets` | the files a reader copies verbatim: `zig fmt` and `ast-check`, a TOML parse, workflow keys and indentation, and that nothing is shipped unreferenced | Six assets shipped and nothing validated any of them. |
 | `lints` | the shipped lint table equals the one the examples are verified against | The asset set `indexing_slicing = "warn"` where a rule requires deny, and the verified crate quietly omitted a third lint while its comment named two. |
 | `mirror` | rules that say the same thing in two skills agree on tier | A renumbering pass twice pointed the table at unrelated rules. It is anchored on titles now, and notices a pair it does not yet hold. |
+| `crossref` | ids cited into another skill, and the override table that says the two disagree | `bevy-style` is a delta on `rust-style` and cites it by id, which nothing was checking — and its "where this standard departs" table quoted eight `rust-style` titles that nothing compared against the originals. |
 | `self-application` | every `grep` a `**Check:**` ships, run over every `// verified` block | A standard whose examples fail its own greps is not a standard, and nobody was running them. |
 | `toolchain` | every `// verified` block compiles, with every declaration analysed, and the tests it ships run | 210 zig blocks claimed `// verified` and nothing compiled them; only 61 actually did. |
 | `mutation` | statements a shipped test does not pin | A shipped test passed whether or not the function it tested did anything. |
@@ -100,6 +107,14 @@ rules are not applied to them and their lines stay out of the self-application
 corpus — ten `// verified — BAD` blocks sat in it, so a rule whose grep matched
 its own illustration would have failed for demonstrating itself correctly.
 
+## Formatting is a command, not a diff to read
+
+`cargo fmt --check` judges an example as the extractor wrote it — indented inside
+a `pub mod`, where rustfmt's `chain_width` and `struct_lit_width` bite earlier
+than they do at column zero. That made the check report diffs a reader of the
+markdown could not have predicted, so `agent-skill fmt` runs the same extraction,
+formats it, and writes the result back.
+
 ## `self-application` runs the real grep
 
 The greps are run by `grep`, not reimplemented. Compiling a rule's pattern with
@@ -120,6 +135,10 @@ itself contains `//` — a Check that greps for a comment means the comment.
 Hits are reported in three tiers: a shipped `grep` that decides (**fails**), a
 prose span or a Check listed in the profile's `not_decisive` table (notes), and a
 pattern with more hits than `judgement`, which enumerates rather than accuses.
+`bevy-style` uses the first tier deliberately: thirteen of its `**Check:**`
+sections are literal `grep -E` commands over the APIs Bevy removed between 0.15
+and 0.19, so an example written against an older engine fails the build rather
+than being noticed by a reader.
 Each `not_decisive` entry quotes a literal substring of that rule's own Check,
 verified to still be there, so rewriting a rule cannot leave a stale entry
 quietly suppressing its grep.

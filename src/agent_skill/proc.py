@@ -7,6 +7,7 @@ hanging mutant and skipped every one after it.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -25,10 +26,21 @@ class Ran:
         return self.rc == 0 and not self.timed_out
 
 
-def run(cmd: list[str], cwd: Path | None = None, timeout: float = 180) -> Ran:
+def run(
+    cmd: list[str],
+    cwd: Path | None = None,
+    timeout: float = 180,
+    env: dict[str, str] | None = None,
+) -> Ran:
     try:
         p = subprocess.run(
-            cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            env={**os.environ, **env} if env else None,
         )
     except subprocess.TimeoutExpired:
         return Ran(None, "", "", True)

@@ -19,6 +19,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
+from ..lang.rust import Crate
 from ..report import Finding
 
 
@@ -45,6 +46,9 @@ class Profile:
     #: fence tags that carry markers but are not compiled
     marked_languages: tuple[str, ...] = ()
     toolchain: str | None = None
+    #: how this skill's rust blocks are compiled; required when `toolchain == "rust"`,
+    #: because the dependency line and the lint table differ per skill
+    crate: Crate | None = None
     #: above this many hits a grep enumerates rather than accuses
     judgement: int = 15
     #: rule id -> (corpus lines, index, in_test) -> "is this hit the case the rule permits?"
@@ -82,7 +86,7 @@ def register(profile: Profile) -> Profile:
 
 def profile_for(name: str) -> Profile:
     if not _REGISTRY:
-        from . import rust_style, zig_style  # noqa: F401  (registration by import)
+        from . import bevy_style, rust_style, zig_style  # noqa: F401
     if name in _REGISTRY:
         return _REGISTRY[name]
     return Profile(name=name, prefix=_guess_prefix(name))

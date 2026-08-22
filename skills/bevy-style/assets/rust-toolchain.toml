@@ -1,0 +1,7 @@
+# Pin the toolchain so every machine and every CI job compiles the same way.
+# Referenced by BV-CAR-16: `bevy_lint` needs a fixed nightly, and its version
+# tracks the Bevy version — check its release notes for which nightly the
+# release built against this engine expects before bumping either.
+[toolchain]
+channel = "1.98.0"
+components = ["rustfmt", "clippy"]

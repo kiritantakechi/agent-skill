@@ -8,6 +8,7 @@ from pathlib import Path
 
 from . import build
 from .checks import all_checks
+from .fmt import format_skill
 from .model import discover
 from .report import Level, Result
 
@@ -75,6 +76,17 @@ def cmd_install(args) -> int:
     return 0
 
 
+def cmd_fmt(args) -> int:
+    for skill in discover(args.skills):
+        if args.skill and skill.name not in args.skill:
+            continue
+        lines = format_skill(skill)
+        print(f"  {skill.name}")
+        for line in lines or ["already formatted"]:
+            print(f"      {line}")
+    return 0
+
+
 def cmd_list(args) -> int:
     for skill in discover(args.skills):
         rules = len(skill.rules)
@@ -112,6 +124,9 @@ def main(argv: list[str] | None = None) -> int:
         help="limit to one agent (repeatable); default is every one present",
     )
     put.set_defaults(func=cmd_install)
+    fmt = sub.add_parser("fmt", help="rewrite each rust example as rustfmt would have it")
+    fmt.add_argument("--skill", action="append", help="limit to one skill (repeatable)")
+    fmt.set_defaults(func=cmd_fmt)
     sub.add_parser("list", help="what is in this repository").set_defaults(func=cmd_list)
 
     args = parser.parse_args(argv)

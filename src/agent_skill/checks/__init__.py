@@ -48,6 +48,7 @@ def all_checks() -> list[Check]:
         assets,
         controls,
         conventions,
+        crossref,
         frontmatter,
         layout,
         lints,
