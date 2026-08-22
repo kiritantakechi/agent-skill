@@ -41,7 +41,7 @@ explicit_outlives_requirements = "warn"
 
 # RELAXED (BV-CAR-11). Fires on every system parameter — Query, Res, ResMut,
 # Commands, MessageReader, Local — because each carries the world and state
-# lifetimes: 21 warnings from nine systems on one plugin. A compliant form does
+# lifetimes: fourteen warnings in one five-system plugin. A compliant form does
 # exist and does compile (`Query<'_, '_, &mut T>`, `Res<'_, T>`); it buys
 # nothing but two apostrophes per parameter, so this is a noise judgement.
 elided_lifetimes_in_paths = "allow"

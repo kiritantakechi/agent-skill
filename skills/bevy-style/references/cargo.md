@@ -150,10 +150,11 @@ version?
 
 `[profile.dev.package."*"] opt-level = 3`, with the game's own crates left at the dev default.
 
-**Why:** an unoptimised Bevy is unusably slow — a scene that runs at 300 fps in release runs in
-single digits — and the engine is compiled once and then cached, so the cost is paid on the first
-build and never again. The game's own crates stay unoptimised so that the edit-compile-run loop
-stays fast, which is the whole point of the dev profile.
+**Why:** an unoptimised Bevy is slow enough that frame rate stops being a signal about the game at
+all, so every performance judgement made in development is about the wrong build. The engine is
+compiled once and then cached, so the cost is paid on the first build and never again. The game's
+own crates stay unoptimised so that the edit-compile-run loop stays fast, which is the whole point
+of the dev profile.
 
 **Check:** does the workspace manifest have the `[profile.dev.package."*"]` block? Without it,
 everything anyone says about the game's performance in development is about the wrong build.
@@ -207,8 +208,8 @@ inspector or editor is on by default and should not be.
 `elided_lifetimes_in_paths = "allow"` in the `[lints.rust]` table, with a comment saying why.
 
 **Why:** it fires on every single system parameter — `Query`, `Res`, `ResMut`, `Commands`,
-`MessageReader`, `Local` — because each carries the world and state lifetimes. On one representative
-plugin that is 21 warnings from nine systems. The compliant form does exist and does compile:
+`MessageReader`, `Local` — because each carries the world and state lifetimes. In one five-system
+plugin that is fourteen warnings. The compliant form does exist and does compile:
 `Query<'_, '_, &mut Shield>` and `Res<'_, Time>` are valid system parameters. It buys nothing but
 two apostrophes on every parameter of every system in the game, so this standard takes the allow —
 and says so, rather than letting a reader think it was impossible.

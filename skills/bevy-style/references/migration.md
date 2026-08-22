@@ -88,16 +88,19 @@ new name. If it is not there, the chain continued.
 
 ### BV-MIG-04 [M] Replace every `*Bundle` with the components it inserted
 
-Bundles were deprecated in 0.15 and are gone. What replaces them is a tuple of components at the
-spawn site plus `#[require]` on the types that always travel together.
+The `*Bundle` types were deprecated in 0.15 and are gone. What replaces them is a tuple of
+components at the spawn site plus `#[require]` on the types that always travel together. The
+`Bundle` **trait** remains — it is what a spawn tuple implements — and so does its derive, which
+BV-ECS-08 forbids you from using.
 
 **Why:** this is the most visible break between old Bevy material and current Bevy, and the most
 mechanical to fix — every `XBundle::default()` becomes one or two components, and the required
 components supply the rest. The reason it was done is BV-ECS-06: a bundle could be half-applied and
 a `#[require]` cannot.
 
-**Check:** `grep -rn -E '[A-Za-z0-9]Bundle' src/`. Every hit is a removed type, including the ones
-you wrote yourself — BV-ECS-08 forbids those too.
+**Check:** `grep -rn -E '[A-Za-z0-9]Bundle' src/`. Every hit is either a removed type or one you
+wrote yourself, and BV-ECS-08 forbids the second. The two the engine still spells that way,
+`SpawnRelatedBundle` and `ReflectBundle`, are machinery a game does not name.
 
 | Removed | Write instead |
 |---|---|
@@ -307,7 +310,7 @@ src/`, and read any remaining set name that ends in `System`, `Set` or `Steps` r
 | `Animation` | `AnimationSystems` |
 | `AssetEvents` | `AssetEventSystems` |
 | `TrackAssets` | `AssetTrackingSystems` |
-| `EventUpdates` | `EventUpdateSystems` |
+| `EventUpdates` | `MessageUpdateSystems` |
 | `CameraUpdateSystem` | `CameraUpdateSystems` |
 | `RunFixedMainLoopSystem` | `RunFixedMainLoopSystems` |
 
@@ -332,7 +335,7 @@ name contains the old one — so read the `SystemCondition` bound instead.
 | `Gizmos::cuboid` | `Gizmos::cube` |
 | `Transform::compute_matrix` | `Transform::to_matrix` |
 | `GlobalTransform::compute_matrix` | `GlobalTransform::to_matrix` |
-| `RenderGraphApp` | `RenderGraphExt` |
+| `RenderGraphApp` / `RenderGraphExt` | gone: a render pass is a system in the `Core2d` / `Core3d` schedule |
 | `ComputedNodeTarget` | `ComputedUiTargetCamera` |
 | `LightVisibilityClass` | `ClusterVisibilityClass` |
 | `SimpleExecutor` | removed; use the single-threaded executor |
@@ -398,7 +401,7 @@ and now means something else.
 | `SceneInstanceReady` | `WorldInstanceReady` |
 | `SceneSpawner` | `WorldInstanceSpawner` |
 | `SceneLoader` | `WorldAssetLoader` |
-| `ScenePlugin` | `WorldSerializationPlugin` |
+| `ScenePlugin` | `WorldSerializationPlugin` — and `ScenePlugin` still exists, as the new system's |
 | `SceneFilter` | `WorldFilter` |
 | `SceneLoaderError` | `WorldAssetLoaderError` |
 | `SceneSpawnError` | `WorldInstanceSpawnError` |

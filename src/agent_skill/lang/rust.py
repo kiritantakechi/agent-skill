@@ -106,8 +106,8 @@ RUST_STYLE = Crate(
 #: `bevy-style`'s crate. Two entries are looser than `rust-style`'s, and both
 #: were measured rather than assumed:
 #:
-#:   * `elided_lifetimes_in_paths` fires on **every** system parameter — 21 hits
-#:     on one representative plugin. Writing `Query<'_, '_, …>` and `Res<'_, T>`
+#:   * `elided_lifetimes_in_paths` fires on **every** system parameter — fourteen
+#:     hits in one five-system plugin. Writing `Query<'_, '_, …>` and `Res<'_, T>`
 #:     does satisfy it and does stay a valid system, so this is a noise
 #:     judgement, not an impossibility (BV-CAR-11).
 #:   * `needless_pass_by_value` fires on every `Res<T>`, and its suggestion does

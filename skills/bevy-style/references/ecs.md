@@ -175,7 +175,8 @@ If every entity with `Enemy` also needs `Health` and `Transform`, `Enemy` declar
 `#[require(Health, Transform)]`. The spawn site names only what it is choosing.
 
 **Why:** the invariant lives once, on the type that owns it, instead of at every spawn site where
-it can be forgotten. Bundles were the old mechanism and were removed for exactly this: nothing
+it can be forgotten. The `*Bundle` types were the old mechanism and were removed for exactly this:
+nothing
 stopped a caller from spawning half a bundle, and adding a field to a bundle silently changed every
 spawn. A `#[require]` cannot be half-applied.
 
@@ -438,7 +439,7 @@ actually spawns, split by filter instead.
 
 **Why:** zero or two matches is normal — the camera is not spawned on the first frame, and the
 player is despawned on death — so this is a condition to handle, not an invariant. It was made
-fallible in 0.16 precisely because the panicking form was the most common crash in Bevy games.
+fallible in 0.16, and the panicking form no longer exists under that name.
 
 **Check:** grep for `single().unwrap()`, `single_mut().unwrap()` and `.expect(` on a query. Each is
 a crash where a `?` would have skipped a frame.

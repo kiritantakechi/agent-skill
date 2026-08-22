@@ -210,13 +210,14 @@ exactly one required component in the spawn tuple without restating the others.
 
 `Camera { order: 1, .. }` on the UI camera, `0` on the world camera.
 
-**Why:** cameras with equal order render in an unspecified sequence, so a UI camera and a world
-camera with the default order produce a picture that depends on spawn order — which changes when a
-plugin is added. The failure is intermittent and looks like a rendering bug rather than a
-configuration one.
+**Why:** cameras are sorted by `(order, target)`, so two with the same pair are left in query
+iteration order — which is archetype order, not spawn order, and not something a game controls. The
+engine detects this and warns once with "Camera order ambiguities detected", saying the result is
+unpredictable. The failure looks like a rendering bug rather than a configuration one, and the
+warning naming it scrolls past in the log.
 
-**Check:** count the camera entities. If there is more than one and any has the default order, the
-layering is undefined.
+**Check:** grep the startup log for "Camera order ambiguities". Failing that, count the camera
+entities: more than one sharing an order and a render target is the condition.
 
 ### BV-UI-13 [S] Put a render target on the camera as its own component
 

@@ -202,8 +202,9 @@ which removed the last reason people had for not trusting it.
 
 **Why:** it is BV-STA-07 with a resource everything touches: `Assets<Image>` is read by the render
 extraction, by UI, by sprites and by anything else showing a texture, so a system holding it mutably
-to read serialises against all of them. In 0.19 `Assets::get_mut` returns an `AssetMut<A>` whose
-drop raises `Modified`, so taking it also announces a change that did not happen.
+to read serialises against all of them for as long as it runs. The change-detection half is no
+longer a hazard — 0.19's `AssetMut<A>` sets its flag on `DerefMut`, so a `get_mut` that only reads
+raises nothing — which leaves the scheduling cost as the whole of the reason, and it is enough.
 
 **Check:** for each `ResMut<Assets<`, find the mutation. A system that only calls `get` wants `Res`.
 

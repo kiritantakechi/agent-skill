@@ -382,10 +382,11 @@ needs splitting.
 
 `next.set(…)` records a request. The state has not changed when the next line runs.
 
-**Why:** the transition is applied by the state transition systems, which run in `StateTransition`
-before `PreUpdate`. Code that sets the state and then reads `State<S>` in the same system reads the
-old value — and the usual "fix" is to read it in a later system, which works by accident until
-somebody changes the schedule.
+**Why:** the transition is applied by the state transition systems, which run in the
+`StateTransition` schedule — after `PreUpdate` and before `RunFixedMainLoop` and `Update`. Code that
+sets the state and then reads `State<S>` in the same system reads the old value, and so does
+anything else in that schedule. The usual "fix" is to read it in a later system, which works by
+accident until somebody changes the schedule.
 
 **Check:** in each system that calls `set`, look for a subsequent read of `State<S>`. Move the
 dependent work into `OnEnter`.

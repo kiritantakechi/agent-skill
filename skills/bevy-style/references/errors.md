@@ -156,8 +156,8 @@ never `.expect(…)` on a query result.
 
 **Why:** "exactly one camera" and "this entity has a Health" are true right up until the frame where
 they are not — the entity was despawned by a system that ran earlier, or has not been spawned yet
-because loading finished this frame. This is the single most common crash in shipped Bevy games,
-which is why `single` was made fallible in 0.16.
+because loading finished this frame. `single` was made fallible in 0.16 for exactly this reason:
+the panicking form was the shorter name, so it read as the default.
 
 **Check:** grep for `single().unwrap`, `single_mut().unwrap`, `get(`…`).unwrap` and `.expect(` on
 anything derived from a `Query`.

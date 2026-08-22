@@ -60,8 +60,9 @@ If yes it is simulation; if it only changes how smooth something looks it is pre
 
 ### BV-SCH-02 [S] Pick a schedule deliberately, from the whole list
 
-`Update` is not the default; it is one of fourteen. `First`, `PreUpdate`, `Update`, `PostUpdate`,
-`Last` bracket the frame, and `FixedFirst` … `FixedLast` bracket the fixed step.
+`Update` is not the default; it is one entry in a documented order. Each `App::update` runs
+`First`, `PreUpdate`, `StateTransition`, `RunFixedMainLoop`, `Update`, `SpawnScene`, `PostUpdate`,
+`Last` — and inside the fixed loop, `FixedFirst` … `FixedLast`.
 
 **Why:** most ordering problems solved with `.before()` and `.after()` are really "this belongs in
 `PreUpdate`". Input processing in `PreUpdate` is before every consumer without naming any of them,
