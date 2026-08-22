@@ -14,6 +14,9 @@ cannot be: the claim is about a document nobody here can read.
 from __future__ import annotations
 
 import re
+import shutil
+import tempfile
+from pathlib import Path
 
 from ..report import fail, note
 from . import check
@@ -74,6 +77,8 @@ def crossref(skills):
                     skill.name,
                 )
 
+        yield from _anchor_greps(skill, by_prefix, rows)
+
         # A skill that cites another standard at all should say where it
         # disagrees with it; one that cites none needs no table.
         cites_other = any(
@@ -83,3 +88,53 @@ def crossref(skills):
         )
         if cites_other and not rows:
             yield note("cites another standard but states no override table", skill.name)
+
+
+def _anchor_greps(skill, by_prefix, rows):
+    """The other standard's own greps, run over this one's examples.
+
+    A delta claims that everything the anchor says still holds except the rows
+    of its table. That claim is testable, and it was not being tested: two
+    `rust-style` `[M]` rules were firing on nineteen and thirty-five lines of
+    `bevy-style`'s examples with nothing saying so.
+
+    Only the anchor's **decisive** patterns are run — the ones it ships as a
+    literal `grep`. Its prose spans are far too broad to travel: `assert_eq!`
+    and `.iter()` matched a third of the corpus.
+
+    A hit is allowed when the delta's `SKILL.md` names that rule anywhere: in
+    the override table, or in the prose that says why a rule is *not* on it.
+    Either way the reader has been told.
+    """
+    from .selfapply import Corpus, patterns_of
+
+    anchors = {p for p in by_prefix if p != skill.prefix and any(m.group(1)[:2] == p for m in rows)}
+    if not anchors or not skill.profile.languages:
+        return
+    named = set(re.findall(r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b", skill.text))
+    lang = skill.profile.languages[0]
+    work = Path(tempfile.mkdtemp())
+    try:
+        corpus = Corpus().build(skill, lang, work)
+        if not corpus.blocks:
+            return
+        for prefix in sorted(anchors):
+            other = by_prefix[prefix]
+            for rule in other.rules:
+                if not rule.check or rule.id in named:
+                    continue
+                for pattern in patterns_of(rule.check):
+                    if pattern.kind != "command":
+                        continue
+                    lines, used = corpus.hits(pattern)
+                    if not lines:
+                        continue
+                    chapter, owner, line, snippet = corpus.index[lines[0] - 1]
+                    yield fail(
+                        f"{rule.id} {used} /{pattern.text}/ hits {len(lines)} line(s) and "
+                        f"{skill.name}'s SKILL.md never mentions it — {rule.title}\n"
+                        f"      {chapter}:{line} [{owner}] {snippet}",
+                        skill.name,
+                    )
+    finally:
+        shutil.rmtree(work, ignore_errors=True)

@@ -128,6 +128,16 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        "an anchor rule that fires on the delta's examples and is not accounted for",
+        "crossref",
+        lambda t: edit(
+            t,
+            "bevy-style/SKILL.md",
+            "| `RS-API-26` Keep tuple-struct fields private too",
+            "| `RS-API-99` Keep tuple-struct fields private too",
+        ),
+    ),
+    Control(
         "a citation into a standard that has no such rule",
         "crossref",
         lambda t: edit(

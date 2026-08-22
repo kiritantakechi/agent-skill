@@ -116,13 +116,19 @@ Nothing else is relaxed: a divergence not listed here is a defect, not a dialect
 | `rust-style` rule | What applies instead | Why Bevy forces it |
 |---|---|---|
 | `RS-API-24` Keep every struct field private | `BV-ECS-01` — component fields are public | The ECS is the accessor. Reflection, scenes, `bsn!` and the remote protocol all read fields directly, and a component cannot defend an invariant anyway. The exemption is paid for by `BV-ARC-04`. |
+| `RS-API-26` Keep tuple-struct fields private too | `BV-ECS-01` — a component newtype is `pub` too | The newtype's `pub` normally spends the freedom to change the representation. For a component the representation *is* the contract: reflection, scenes and the remote protocol all address the field by name, so there is no freedom left to spend. |
 | `RS-NAM-33` Never suffix a name with the language construct | `BV-ARC-10` — `*Plugin` and `*Systems` | `add_plugins(X)` and `configure_sets(_, X)` are the same shape with different meanings, so the name is the only signal. Bevy addresses both by type — `is_plugin_added::<T>`, `disable::<T>` — and `bevy_lint` enforces the suffix ecosystem-wide. |
+| `RS-ERR-14` Never expose `Box<dyn Error>` or `anyhow::Error` from a library | `BV-ERR-03` — a system returns `BevyError`, the domain does not | `BevyError` is boxed and type-erased, and Bevy's `Result` alias is exactly the aliased form the rule names. Its rationale does not reach here: a system has no caller to match on the error — the schedule hands it to the error handler. Everything a caller could branch on stays a real type on the domain side. |
 | `RS-CAR-27` Run `clippy::pedantic` at warn and answer each warning | `BV-CAR-12` — `needless_pass_by_value` is allowed | It fires on every `Res<T>` parameter and its suggestion does not compile: `&Res<'_, T>` is not a `SystemParam`. |
 | `RS-CAR-31` Never blanket-allow at crate level | `BV-CAR-11` — `elided_lifetimes_in_paths` is allowed | It fires on every `Query`, `Res`, `ResMut`, `Commands`, `MessageReader` and `Local` parameter. Writing the `'_`s does satisfy it, and buys nothing but noise. |
 | `RS-CAR-23` Use caret requirements; never pin exact versions | `BV-CAR-04` — a game binary pins Bevy exactly | A 0.x minor bump renames half the API. Libraries keep the caret; the rule is unchanged for anything published. |
 | `RS-CAR-24` Turn off default features on heavy dependencies | `BV-CAR-02` — start from a feature collection | Bevy's feature graph has 172 entries and moves every release; a hand-picked list goes stale silently, as an unmeasured one always does. |
 | `RS-FP-04` A `for` loop that only pushes is a `collect` | `BV-ECS-20` — iterate a query with `for` | Query iteration is effect, not transformation: the loop writes through `Mut<T>` and the borrow does not survive a collect. |
 | `RS-API-71` Use `#[non_exhaustive]` where the shape may grow | `BV-ECS-05` — components are exhaustive | Struct-literal construction is how components are spawned, and `#[non_exhaustive]` forbids it outside the defining crate. Required components are the growth mechanism instead. |
+
+`RS-STR-46` is not on this list either: it forbids glob imports "outside tests and preludes", and
+`use bevy::prelude::*` is a prelude. It is the first line of nearly every Bevy file, and naming
+twenty imports instead would be worse.
 
 `RS-NAM-03` is **not** on this list, and the temptation is real: Bevy's own packages are
 `bevy_ecs`, `bevy_render`, spelled with underscores. That is upstream's namespace, not a licence to
