@@ -233,7 +233,8 @@ class Rust:
                     (ln for ln in (r.err or r.out).split("\n") if ln.startswith(("error", "Diff"))),
                     (r.err or r.out).strip()[:120],
                 )
-                yield fail(f"{label}: {first[:150]}", "rust")
+                remedy = " — `agent-skill fmt` rewrites the blocks" if label == "rustfmt" else ""
+                yield fail(f"{label}: {first[:150]}{remedy}", "rust")
 
         env_doc = ["cargo", "doc", "--quiet", "--no-deps", "--manifest-path", manifest]
         r = run(env_doc, cwd=ex.root, timeout=900, env=env)

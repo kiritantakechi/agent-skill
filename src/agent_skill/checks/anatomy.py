@@ -77,6 +77,7 @@ def anatomy(skill):
                 skill.name,
             )
 
+    yield from _mis_cited(skill)
     yield from _pointers(skill, seen)
     yield from _references(skill, seen)
     yield from _counts(skill)
@@ -103,6 +104,63 @@ def _shape(skill, rule, where):
     # a second copy to keep in step.
     if rule.pointer and "```" in rule.body:
         yield fail(f"{rule.id} is a pointer rule with an example of its own", where)
+
+
+#: Words that carry no signal when matching a summary to the rule it cites.
+_ID = re.compile(r"`references/[^`]+`|\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b")
+
+
+def _words(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z_]+", text.lower()) if w not in STOP and len(w) > 2}
+
+
+def _jaccard(a: set[str], b: set[str]) -> float:
+    return len(a & b) / len(a | b) if a and b else 0.0
+
+
+def _mis_cited(skill):
+    """A core rule that cites a sibling of the rule it is actually about.
+
+    `BV-CORE-16` summarised the `EntityEvent` rule and cited the rule above it.
+    Everything mechanical passed: the id existed and lived in the cited chapter,
+    which is all `_references` asks.
+
+    The test is **relative**, not a threshold. A well-written summary says the
+    same thing in different words, so absolute overlap separates nothing — a
+    correct citation here scores 0.000. What does separate is another rule in
+    the same chapter scoring much higher, which is what an off-by-one looks
+    like. A note rather than a failure: the metric is text, and two of its five
+    hits over three skills were coincidence.
+    """
+    by_file: dict[str, list] = {}
+    for rule in skill.rules:
+        by_file.setdefault(rule.file, []).append(rule)
+    pre = skill.prefix
+    cite = re.compile(
+        rf"`references/([a-z0-9-]+\.md)` ((?:{pre}-[A-Z]+-\d+[a-z]?)"
+        rf"(?:,? (?:and )?{pre}-[A-Z]+-\d+[a-z]?)*)"
+    )
+    for rid, _tier, body in skill.core_rules:
+        flat = " ".join(body.split())
+        cites = cite.findall(flat)
+        named = {t for _, ids in cites for t in re.findall(rf"{pre}-[A-Z]+-\d+[a-z]?", ids)}
+        summary = _words(_ID.sub("", flat))
+        for fname, ids in cites:
+            for target in re.findall(rf"{pre}-[A-Z]+-\d+[a-z]?", ids):
+                rule = skill.by_id.get(target)
+                if rule is None:
+                    continue
+                mine = _jaccard(summary, _words(f"{rule.title} {rule.statement}"))
+                for other in by_file.get(fname, []):
+                    if other.id in named:
+                        continue
+                    theirs = _jaccard(summary, _words(f"{other.title} {other.statement}"))
+                    if theirs > mine * 2 and theirs - mine > 0.15:
+                        yield note(
+                            f"{rid} cites {target} ({rule.title!r}) but {other.id} "
+                            f"({other.title!r}) is a closer match",
+                            skill.name,
+                        )
 
 
 def _pointers(skill, seen):

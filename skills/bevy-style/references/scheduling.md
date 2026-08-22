@@ -16,6 +16,7 @@ event is in the events chapter.
   - BV-SCH-06 [M] Take the delta from the schedule's own clock
   - BV-SCH-07 [M] Never assume `FixedUpdate` ran exactly once this frame
   - BV-SCH-08 [S] Interpolate between fixed steps rather than raising the rate
+  - BV-SCH-25 [M] Never read per-frame input from a fixed-rate schedule
 
 - **Systems**
   - BV-SCH-09 [M] Group system parameters once there are more than seven
@@ -174,6 +175,98 @@ frame rate. Interpolation costs one lerp per rendered entity and is exact.
 
 **Check:** has the fixed timestep been raised above 64 Hz? If so, what measurement said the
 simulation needed it rather than the picture?
+
+### BV-SCH-25 [M] Never read per-frame input from a fixed-rate schedule
+
+`ButtonInput::just_pressed` and `just_released` are true for exactly one rendered frame. A
+`FixedUpdate` system may not run on that frame, or may run on it twice. Sample input at frame rate,
+accumulate the intent, and let the fixed step read the accumulation.
+
+**Why:** BV-SCH-01 sends simulation to `FixedUpdate`, and following it with input handling produces
+a game that drops jumps on a fast machine and double-fires them on a slow one — silently, with no
+error and nothing in a log. The two failures also look nothing alike, so neither points at the
+cause. `RunFixedMainLoopSystems::BeforeFixedMainLoop` exists for this: it runs at frame rate, before
+the fixed loop that will read what it wrote.
+
+Accumulating is also where input stops being input. A `bool` named `jump_requested` is a decision
+the domain can take, replay, rebind and test; a `KeyCode` is a keyboard (BV-ARC-01).
+
+**Check:** grep `FixedUpdate` systems for `ButtonInput`, `just_pressed`, `just_released` and
+`AccumulatedMouseMotion`. Each is a press the game will miss.
+
+```rust
+// verified
+use bevy::prelude::*;
+
+/// What the simulation acts on. No keyboard in sight.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Intent {
+    pub jump: bool,
+}
+
+/// Frame rate, before the fixed loop: a press on any frame survives to the next step.
+fn sample(keys: Res<ButtonInput<KeyCode>>, mut intent: ResMut<Intent>) {
+    intent.jump |= keys.just_pressed(KeyCode::Space);
+}
+
+/// Fixed rate: consumes the accumulation, so one press is one jump.
+fn jump(mut intent: ResMut<Intent>, mut jumps: ResMut<Jumps>) {
+    if core::mem::take(&mut intent.jump) {
+        jumps.0 += 1;
+    }
+}
+
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Jumps(pub u32);
+
+#[derive(Debug, Default)]
+pub struct InputPlugin;
+
+impl Plugin for InputPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Intent>()
+            .init_resource::<Jumps>()
+            .add_systems(
+                RunFixedMainLoop,
+                sample.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
+            )
+            .add_systems(FixedUpdate, jump);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_press_at_frame_rate_reaches_the_fixed_step_exactly_once() {
+        let mut app = App::new();
+        app.add_plugins(InputPlugin)
+            .init_resource::<ButtonInput<KeyCode>>();
+        app.world_mut()
+            .resource_mut::<ButtonInput<KeyCode>>()
+            .press(KeyCode::Space);
+
+        app.world_mut().run_schedule(RunFixedMainLoop);
+        assert!(
+            app.world().resource::<Intent>().jump,
+            "sampled at frame rate"
+        );
+
+        app.world_mut().run_schedule(FixedUpdate);
+        assert_eq!(app.world().resource::<Jumps>().0, 1);
+
+        app.world_mut().run_schedule(FixedUpdate);
+        assert_eq!(
+            app.world().resource::<Jumps>().0,
+            1,
+            "a second step is not a second jump"
+        );
+    }
+}
+```
 
 ## Systems
 

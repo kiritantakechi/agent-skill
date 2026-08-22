@@ -1,7 +1,7 @@
 ---
 name: bevy-style
 description: >-
-  The Bevy 0.19 engineering standard — a 240-rule delta on top of rust-style covering the ECS,
+  The Bevy 0.19 engineering standard — a 241-rule delta on top of rust-style covering the ECS,
   scheduling, observers and messages, states and resources, assets, error handling, Cargo features
   and the Bevy lint divergences, the user-facing half of UI and rendering, testing, and a forbidden
   API table spanning 0.15 through 0.19. Its spine is keeping the rules of the game out of the
@@ -148,9 +148,11 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **BV-CORE-02 `[M]`** The separation is mandatory at every project size; only its mechanism scales
   — modules for one binary, crates for a workspace — and whichever it is, a CI job enforces it
   rather than a paragraph (`references/architecture.md` BV-ARC-02 and BV-ARC-07).
-- **BV-CORE-03 `[M]`** Data that must satisfy a condition does not live in a component as bare
-  fields. Model it as a domain type with a private field and a fallible constructor, and let the
-  component carry that type (`references/architecture.md` BV-ARC-04).
+- **BV-CORE-03 `[M]`** Data that must satisfy a condition cannot be defended inside a component.
+  Model the condition as a domain type with a private field and a fallible constructor, let the
+  component carry the plain value, and construct the domain type at the one crossing point — which
+  is then the only place that field is read
+  (`references/architecture.md` BV-ARC-04, BV-ARC-03).
 - **BV-CORE-04 `[M]`** Every plugin is a type implementing `Plugin`, named `*Plugin`, and never a
   function or a closure: four of Bevy's own APIs address a plugin by its type, and a function's type
   cannot be written. `main` adds plugins and nothing else
@@ -162,8 +164,8 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
   times, are written by different systems, or are read by different queries are two components
   (`references/ecs.md` BV-ECS-02).
 - **BV-CORE-06 `[M]`** Express "an X always has a Y" with `#[require(Y)]`, never with a hand-kept
-  tuple that callers must remember. Bundles no longer exist
-  (`references/ecs.md` BV-ECS-06).
+  tuple that callers must remember. The `*Bundle` types are gone, and writing your own is the same
+  defect wearing a new name (`references/ecs.md` BV-ECS-06, BV-ECS-08).
 - **BV-CORE-07 `[M]`** A zero-sized marker goes in `With<T>` or `Without<T>`, never in the query's
   data. Querying it fetches nothing and costs a column
   (`references/ecs.md` BV-ECS-17).
@@ -174,15 +176,17 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
   becomes unreadable; name it with a `type` alias. Give a system more than seven parameters and
   group them with `#[derive(SystemParam)]`
   (`references/ecs.md` BV-ECS-21, `references/scheduling.md` BV-SCH-09).
-- **BV-CORE-10 `[M!]`** Every component, resource and message derives `Reflect` and is registered
-  with `app.register_type::<T>()`. Reflection is what the inspector, the scene format and the
-  remote protocol run on (`references/ecs.md` BV-ECS-13).
+- **BV-CORE-10 `[M]`** Every component derives `Reflect` and carries `#[reflect(Component)]`;
+  every reflected type is then registered, unless `reflect_auto_register` is doing it. Reflection is
+  what the inspector, the scene format and the remote protocol run on, and it is opt-in, so it is
+  forgotten silently (`references/ecs.md` BV-ECS-03, BV-ECS-13).
 
 ### Scheduling
 
-- **BV-CORE-11 `[M]`** Simulation runs in `FixedUpdate`; input, animation, camera and anything that
-  must be smooth run in `Update`. A camera modified in `FixedUpdate` visibly stutters
-  (`references/scheduling.md` BV-SCH-01, BV-SCH-04).
+- **BV-CORE-11 `[M]`** Simulation runs in `FixedUpdate`; animation, camera and anything that must
+  be smooth run in `Update`. A camera moved from `FixedUpdate` visibly stutters, and per-frame input
+  read from it is dropped on a fast machine and doubled on a slow one
+  (`references/scheduling.md` BV-SCH-01, BV-SCH-04, BV-SCH-25).
 - **BV-CORE-12 `[M!]`** Ordering between systems goes through named `SystemSet`s configured once,
   not a chain of `.before()` and `.after()` at each `add_systems` call
   (`references/scheduling.md` BV-SCH-11).
@@ -199,8 +203,8 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
   runs now. They are different traits for different jobs, and a type deriving both is almost always
   a design that has not chosen (`references/events.md` BV-EVT-01).
 - **BV-CORE-16 `[M]`** An event that concerns one entity derives `EntityEvent` and carries the
-  entity as a field. `trigger_targets` is gone
-  (`references/events.md` BV-EVT-08).
+  entity as a field, read by that field's name. `trigger_targets` is gone
+  (`references/events.md` BV-EVT-09, BV-EVT-10).
 - **BV-CORE-17 `[M]`** Register a `Message` type with `app.add_message::<M>()`. Inserting
   `Messages<M>` as a resource yourself leaks, because nothing then drops old messages
   (`references/events.md` BV-EVT-04).
@@ -226,11 +230,11 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
   (`references/cargo.md` BV-CAR-04).
 - **BV-CORE-23 `[M]`** Start from a feature collection — `2d`, `3d`, `ui` — and hand-pick features
   only against a measurement recorded in the manifest
-  (`references/cargo.md` BV-CAR-02).
+  (`references/cargo.md` BV-CAR-02 and BV-CAR-03).
 - **BV-CORE-24 `[M]`** Two entries of `rust-style`'s lint table are relaxed for Bevy code and no
   others: `elided_lifetimes_in_paths` and `clippy::needless_pass_by_value`. `type_complexity` and
   `too_many_arguments` stay on, because both have a compliant form that is better code
-  (`references/cargo.md` BV-CAR-11, BV-CAR-12).
+  (`references/cargo.md` BV-CAR-11, BV-CAR-12 and BV-CAR-13).
 
 ## 5. Before handing back a diff
 
@@ -259,7 +263,7 @@ Load the chapter that matches the task.
 |---|---|---|
 | `references/architecture.md` | the boundary, plugins, the app | `BV-ARC` (19) |
 | `references/ecs.md` | components, required components, queries, change detection, reflection | `BV-ECS` (31) |
-| `references/scheduling.md` | schedules, sets, ordering, run conditions, time | `BV-SCH` (24) |
+| `references/scheduling.md` | schedules, sets, ordering, run conditions, time, input | `BV-SCH` (25) |
 | `references/events.md` | messages, events, entity events, observers | `BV-EVT` (20) |
 | `references/state.md` | resources, states, transitions, scoping | `BV-STA` (21) |
 | `references/errors.md` | fallible systems, the error handler, panicking APIs | `BV-ERR` (16) |

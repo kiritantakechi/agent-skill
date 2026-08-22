@@ -207,7 +207,7 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
   the operating system's message; carry the source (`references/errors.md` RS-ERR-09).
 - **RS-CORE-15 `[M]`** A panic means a bug, and a reachable one must be documented in a `# Panics`
   section stating the exact condition. An undocumented panic is an undocumented API contract
-  (`references/errors.md` RS-ERR-35, `references/documentation.md` RS-DOC-13).
+  (`references/errors.md` RS-ERR-35 and RS-ERR-36, `references/documentation.md` RS-DOC-13).
 
 ### Function bodies
 

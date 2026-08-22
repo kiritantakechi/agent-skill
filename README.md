@@ -75,7 +75,7 @@ the time. The note after each is the defect it would have caught.
 | Check | Catches | Added because |
 |---|---|---|
 | `frontmatter` | the block an agent reads first: spec keys, name, description length, stated rule count | A malformed frontmatter crashed the checker instead of being reported by it — three unguarded `.group(1)` calls. |
-| `anatomy` | rule shape (Why/Check, or a pointer at the owner), contents agreement and order, duplicate titles, dangling and mis-filed references, per-family counts, near-duplicate rationales | A rule that pointed at the chapter owning its topic then kept a stale two-row copy of that chapter's table — whose rows were already in it. |
+| `anatomy` | rule shape (Why/Check, or a pointer at the owner), contents agreement and order, duplicate titles, dangling and mis-filed references, per-family counts, near-duplicate rationales, a summary that cites a sibling of the rule it is about | A rule that pointed at the chapter owning its topic then kept a stale two-row copy of that chapter's table — whose rows were already in it. Later, a core rule summarised one rule and cited the one above it: the id existed and lived in the cited chapter, which was all anything asked. |
 | `layout` | line width, trailing whitespace, tabs, CR, fence balance, doubled blanks, list numbering; long rule titles as notes | A 135-column line shipped and every check passed: nothing measured width. Sole owner of the physical checks, because when a second check repeated them one defect produced two findings at two severities. |
 | `markers` | one block, one marker, and the marker leads it | 56 blocks spelled the marker across two lines, which left the tools unable to recognise the illustration blocks they exist to exempt. |
 | `conventions` | the standard's own rules over its own examples | Review rounds each found an example edited to satisfy one rule while breaking a rule in another chapter. Nothing checked across chapters. |
@@ -83,7 +83,7 @@ the time. The note after each is the defect it would have caught.
 | `assets` | the files a reader copies verbatim: `zig fmt` and `ast-check`, a TOML parse, workflow keys and indentation, and that nothing is shipped unreferenced | Six assets shipped and nothing validated any of them. |
 | `lints` | the shipped lint table equals the one the examples are verified against | The asset set `indexing_slicing = "warn"` where a rule requires deny, and the verified crate quietly omitted a third lint while its comment named two. |
 | `mirror` | rules that say the same thing in two skills agree on tier | A renumbering pass twice pointed the table at unrelated rules. It is anchored on titles now, and notices a pair it does not yet hold. |
-| `crossref` | ids cited into another skill, and the override table that says the two disagree | `bevy-style` is a delta on `rust-style` and cites it by id, which nothing was checking — and its "where this standard departs" table quoted eight `rust-style` titles that nothing compared against the originals. |
+| `crossref` | ids cited into another skill, the override table that says the two disagree, and the anchor's own greps run over the delta's examples | `bevy-style` is a delta on `rust-style` and cites it by id, which nothing was checking; its "where this standard departs" table quoted eight `rust-style` titles that nothing compared against the originals; and two `rust-style` `[M]` rules were firing on nineteen and thirty-five lines of its examples with nothing saying so. |
 | `self-application` | every `grep` a `**Check:**` ships, run over every `// verified` block | A standard whose examples fail its own greps is not a standard, and nobody was running them. |
 | `toolchain` | every `// verified` block compiles, with every declaration analysed, and the tests it ships run | 210 zig blocks claimed `// verified` and nothing compiled them; only 61 actually did. |
 | `mutation` | statements a shipped test does not pin | A shipped test passed whether or not the function it tested did anything. |
@@ -149,6 +149,14 @@ quietly suppressing its grep.
 that the check owning it reports a failure. A control that stops firing is itself
 a failure, and so is a fixture whose anchor text has drifted out of the skill.
 `pytest` runs the same table one test per control.
+
+Not every finding becomes a check. A summary that cites the wrong rule looked
+mechanical and is not: a good summary says the same thing in different words, so
+absolute word overlap separates nothing — a correct citation scores 0.000. What
+separates is *relative*, another rule in the same chapter scoring much higher,
+and even that was coincidence twice in five hits. It ships as a note inside
+`anatomy` rather than as a check that fails, because a check people learn to
+route around is worse than no check.
 
 A check that cannot fail looks exactly like a check that passes. An early zig
 probe reported all 375 symbols present, including a deliberately fake one,

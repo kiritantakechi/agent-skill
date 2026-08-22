@@ -131,4 +131,4 @@ def _suffixes(block) -> Iterable[Finding]:
             )
 
 
-PROFILE = register(BevyStyle())
+register(BevyStyle())
