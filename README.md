@@ -135,10 +135,12 @@ itself contains `//` — a Check that greps for a comment means the comment.
 Hits are reported in three tiers: a shipped `grep` that decides (**fails**), a
 prose span or a Check listed in the profile's `not_decisive` table (notes), and a
 pattern with more hits than `judgement`, which enumerates rather than accuses.
-`bevy-style` uses the first tier deliberately: thirteen of its `**Check:**`
-sections are literal `grep -E` commands over the APIs Bevy removed between 0.15
-and 0.19, so an example written against an older engine fails the build rather
+`bevy-style` uses the first tier deliberately: fifteen of its `**Check:**`
+sections are literal `grep` commands — thirteen over the APIs Bevy removed
+between 0.15 and 0.19, and two over the plugin forms it forbids — so an example
+written against an older engine, or written as a function, fails the build rather
 than being noticed by a reader.
+
 Each `not_decisive` entry quotes a literal substring of that rule's own Check,
 verified to still be there, so rewriting a rule cannot leave a stale entry
 quietly suppressing its grep.
