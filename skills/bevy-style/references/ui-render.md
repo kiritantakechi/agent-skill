@@ -96,7 +96,8 @@ text in one place, which is what the old `TextStyle` struct was doing well.
 // verified
 use bevy::prelude::*;
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
 struct ScoreLabel;
 
 fn spawn_hud(mut commands: Commands) {

@@ -182,24 +182,31 @@ same domain type from components means the translation has been copied.
 ### BV-ARC-04 [M] Put invariants behind a constructor, and let the component carry the result
 
 A component's fields are public — the ECS is the accessor, and reflection, scenes and the remote
-protocol all read fields directly. Data that must satisfy a condition therefore cannot live in a
-component as bare fields: model it as a domain type whose fields are private and whose constructor
-is the only way in, and give the component that type.
+protocol all read fields directly. Data that must satisfy a condition therefore cannot be defended
+inside a component. Model the condition as a domain type with a private field and a fallible
+constructor, let the component carry the plain value, and construct the domain type at the crossing
+point (BV-ARC-03). Nothing else may read that field.
 
 **Why:** this standard exempts components from the private-field rule, and the exemption has to buy
 something. What it buys is a sharper line: because a component cannot defend an invariant, needing
-to defend one is now a signal that the type belongs on the domain side. Without the second half,
-the exemption would just be permission to scatter unchecked state through the world.
+to defend one is a signal that the *acting* on that value belongs on the domain side. The component
+is then an unparsed input — the same shape as a config file or a network packet — and the crossing
+point is where it is parsed. Wrapping the domain type in the component instead looks tighter and is
+not available: a domain type with a private field cannot be reflected from the ECS side
+(`#[reflect_remote]` needs field access), so the component would have to give up `Reflect` or the
+domain would have to take a Bevy dependency, and BV-ECS-03 and BV-ARC-06 each forbid one of those.
 
 **Check:** for each component field, ask what value would be wrong. If any answer is more specific
-than "any value of this type", the invariant is currently unenforced and the type belongs behind a
-constructor.
+than "any value of this type", find every read of that field: exactly one, at the crossing point,
+going through a constructor that can say no. A comparison against that field inside a system is the
+defect.
 
 ```rust
-// verified — GOOD: the component is a wrapper; the constructor is the only way in
+// verified — GOOD: the invariant is the domain's; the component is an unparsed input
+use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 
-/// A fraction in `0.0..=1.0`. The field is private, so it cannot be violated.
+/// The domain's type: private field, fallible constructor, no Bevy in sight.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ratio(f32);
 
@@ -215,8 +222,19 @@ impl Ratio {
     }
 }
 
-#[derive(Component, Debug, Clone, Copy)]
-pub struct Throttle(pub Ratio);
+/// The ECS's type: public field, reflectable, and carrying a number nobody has
+/// checked yet.
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component)]
+pub struct Throttle(pub f32);
+
+/// The one crossing point. This is the only place `Throttle.0` is read.
+fn throttles(query: Query<(Entity, &Throttle)>) -> Vec<(Entity, Ratio)> {
+    query
+        .iter()
+        .filter_map(|(entity, t)| Ratio::new(t.0).map(|r| (entity, r)))
+        .collect()
+}
 
 #[cfg(test)]
 mod tests {
@@ -226,6 +244,15 @@ mod tests {
     fn a_ratio_outside_the_unit_interval_does_not_exist() {
         assert!(Ratio::new(1.5).is_none());
         assert_eq!(Ratio::new(0.25).map(Ratio::get), Some(0.25));
+    }
+
+    #[test]
+    fn the_crossing_point_drops_what_the_domain_would_reject() {
+        let mut world = World::new();
+        world.spawn(Throttle(0.5));
+        world.spawn(Throttle(1.5));
+        let parsed = world.run_system_once(throttles).unwrap_or_default();
+        assert_eq!(parsed.len(), 1);
     }
 }
 ```
@@ -318,8 +345,9 @@ and `grep -rn -F 'add_plugins(|' src/` finds one written as a closure. Neither c
 // verified — GOOD: no settings, so the type is a unit struct
 use bevy::prelude::*;
 
-#[derive(Component, Debug)]
-struct Health(f32);
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+struct Health(pub f32);
 
 fn decay(mut healths: Query<&mut Health>) {
     for mut health in &mut healths {

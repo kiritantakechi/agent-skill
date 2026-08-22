@@ -20,6 +20,20 @@ from . import Profile, register
 #: `#[derive(Component, Debug, …)]`, possibly wrapped across lines by rustfmt.
 DERIVE = re.compile(r"#\[derive\(([^)]*)\)\]", re.S)
 
+#: A component declaration, with whatever attributes sit above it.
+COMPONENT = re.compile(
+    r"(?P<attrs>(?:#\[[^\]]*\]\n)*)(?:pub )?struct (?P<name>\w+)"
+    r"(?:\((?P<tuple>[^)]*)\)\s*;|\s*\{(?P<named>[^}]*)\}|\s*;)",
+    re.S,
+)
+
+#: An attribute on a field, which `pub` follows rather than precedes.
+FIELD_ATTR = re.compile(r"#\[[^\]]*\]\s*")
+
+#: BV-ECS-03 on every component; BV-ECS-10 adds the rest on a marker.
+DATA_DERIVES = ("Debug", "Reflect")
+MARKER_DERIVES = ("Debug", "Clone", "Copy", "Default", "Reflect")
+
 #: BV-ARC-10 — the two traits whose implementors carry a suffix.
 SUFFIX = {"Plugin": "Plugin", "SystemSet": "Systems"}
 
@@ -40,20 +54,43 @@ class BevyStyle(Profile):
             # A BAD block and a quotation are evidence rather than advice.
             if b.marker.evidence:
                 continue
-            yield from _debug_on_components(b)
+            yield from _component_shape(b)
             yield from _suffixes(b)
 
 
-def _debug_on_components(block) -> Iterable[Finding]:
-    """BV-ECS-03 — every component derives `Debug`."""
-    for m in DERIVE.finditer(block.body):
-        traits = {t.strip() for t in m.group(1).split(",")}
-        if "Component" in traits and "Debug" not in traits:
-            line = block.at(block.body[: m.start()].count("\n"))
-            yield fail(
-                f"BV-ECS-03: a component whose derive list has no `Debug` — {m.group(1).strip()}",
-                f"{block.file}:{line} [{block.rule}]",
-            )
+def _component_shape(block) -> Iterable[Finding]:
+    """What every component in this standard's own examples must look like.
+
+    BV-ECS-01 public fields, BV-ECS-03 `Debug` and `Reflect` with
+    `#[reflect(Component)]`, BV-ECS-10 the marker set. None of the three is
+    greppable, and all three had drifted: 25 of 33 components carried no
+    `Reflect` at all while BV-ECS-03 was `[M]`.
+    """
+    for m in COMPONENT.finditer(block.body):
+        attrs, name = m.group("attrs"), m.group("name")
+        derives: set[str] = set()
+        for d in DERIVE.finditer(attrs):
+            derives |= {t.strip() for t in d.group(1).split(",")}
+        if "Component" not in derives:
+            continue
+        where = f"{block.file}:{block.at(block.body[: m.start()].count(chr(10)))} [{block.rule}]"
+
+        fields = (m.group("tuple") or m.group("named") or "").strip()
+        want = MARKER_DERIVES if not fields else DATA_DERIVES
+        for trait in want:
+            if trait not in derives:
+                yield fail(f"BV-ECS-03/10: component `{name}` does not derive `{trait}`", where)
+        if "#[reflect(Component)]" not in attrs:
+            yield fail(f"BV-ECS-03: component `{name}` has no `#[reflect(Component)]`", where)
+
+        # The collection side of a relationship is the one component whose field
+        # is private, because the engine maintains it. Bevy's own `Children` is
+        # declared exactly this way.
+        if "relationship_target" in attrs:
+            continue
+        for field in (f.strip() for f in fields.split(",") if f.strip()):
+            if not FIELD_ATTR.sub("", field).strip().startswith("pub "):
+                yield fail(f"BV-ECS-01: `{name}` has a private field — {field}", where)
 
 
 def _suffixes(block) -> Iterable[Finding]:

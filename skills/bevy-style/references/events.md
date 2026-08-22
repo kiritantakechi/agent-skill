@@ -111,8 +111,9 @@ pub struct DamageDealt {
     pub amount: f32,
 }
 
-#[derive(Component, Debug)]
-struct Health(f32);
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+struct Health(pub f32);
 
 fn apply_damage(mut damage: MessageReader<DamageDealt>, mut healths: Query<&mut Health>) {
     for hit in damage.read() {
@@ -208,8 +209,9 @@ pub struct Died {
     pub entity: Entity,
 }
 
-#[derive(Component, Debug)]
-struct Loot(u32);
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+struct Loot(pub u32);
 
 #[derive(Resource, Debug, Default)]
 struct Bank(u32);

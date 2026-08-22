@@ -67,8 +67,9 @@ pub struct GlobalGravity(pub f32);
 #[reflect(Component)]
 pub struct Gravity(pub f32);
 
-#[derive(Component, Debug)]
-struct Velocity(Vec3);
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+struct Velocity(pub Vec3);
 
 /// The per-entity value wins where it exists; the resource is the fallback.
 fn fall(
@@ -316,7 +317,8 @@ enum Screen {
     Playing,
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
 struct Enemy;
 
 /// Nothing has to remember to despawn these.

@@ -64,6 +64,26 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        "a component with a private field",
+        "conventions",
+        lambda t: edit(
+            t,
+            "bevy-style/references/scheduling.md",
+            "struct Velocity(pub Vec3);",
+            "struct Velocity(Vec3);",
+        ),
+    ),
+    Control(
+        "a component that is not reflected",
+        "conventions",
+        lambda t: edit(
+            t,
+            "bevy-style/references/scheduling.md",
+            "#[derive(Component, Debug, Reflect)]\n#[reflect(Component)]\nstruct Velocity",
+            "#[derive(Component, Debug)]\nstruct Velocity",
+        ),
+    ),
+    Control(
         "a component that does not derive Debug",
         "conventions",
         lambda t: edit(

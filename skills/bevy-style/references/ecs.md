@@ -62,9 +62,14 @@ and the remote protocol all read and write fields by name, so a private field is
 inspector, unserialisable, and unpatchable from a scene. Bevy's own components are public-field
 throughout, so a private one is also surprising.
 
+The single exception is a relationship **target** — the collection side of a
+`#[relationship_target]` pair. The engine maintains that vector, so a caller who writes to it is
+writing to something that will be overwritten. Bevy draws the same line in its own hierarchy:
+`ChildOf(pub Entity)` is public and `Children(Vec<Entity>)` is not.
+
 **Check:** does the component have accessor methods that only forward to a field? Delete them. Does
 it have a field that a method is guarding? That is BV-ARC-04's case, and the guard belongs in a
-domain type.
+domain type. A private field on anything but a relationship target is one of those two.
 
 ### BV-ECS-02 [M] Give a component one fact to hold
 
@@ -83,13 +88,16 @@ exists for most pairs, the component is a bag.
 // verified — GOOD: three facts, three components, three independent queries
 use bevy::prelude::*;
 
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component)]
 pub struct Health(pub f32);
 
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component)]
 pub struct Shield(pub f32);
 
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component)]
 pub struct Speed(pub f32);
 
 /// Only touches the entities that actually have a shield.
@@ -264,13 +272,14 @@ The mutating `Transform` methods (`rotate_z`, `translate_around`) do not; the `w
 
 ### BV-ECS-10 [S] Give a marker component the derives a marker needs
 
-A marker is a unit struct: `#[derive(Component, Debug, Clone, Copy, Default, PartialEq, Eq, Hash,
-Reflect)] #[reflect(Component)] pub struct Player;`
+A marker is a unit struct: `#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)] pub struct Player;`
 
-**Why:** `Default` is what lets the marker be named in someone else's `#[require]`; `Copy` and
-`Clone` cost nothing on a zero-sized type and let it be used in a scene patch or cloned with an
-entity; `Eq` and `Hash` let it key a map in tooling. Adding them later is a breaking change to
-anyone who tried and could not.
+**Why:** `Default` is what lets the marker be named in someone else's `#[require]`, and `Copy` and
+`Clone` cost nothing on a zero-sized type while letting it be cloned with an entity or written into
+a scene patch. Adding either later is a breaking change to anyone who tried and could not. The set
+stops there deliberately: `PartialEq`, `Eq` and `Hash` on a type with no data distinguish nothing,
+and `bevy_lint`'s `missing_trait_for_unit_struct` asks for exactly these three.
 
 **Check:** is every unit-struct component `Default`? A marker that is not cannot be required by
 another component.
@@ -306,12 +315,14 @@ relationship or needs a written reason it cannot be one.
 use bevy::prelude::*;
 
 /// The one side. `#[entities]` is what makes the id survive entity remapping.
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
 #[relationship(relationship_target = Crew)]
 pub struct CrewOf(#[entities] pub Entity);
 
 /// The many side. Bevy maintains it; nothing writes to it by hand.
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
 #[relationship_target(relationship = CrewOf)]
 pub struct Crew(Vec<Entity>);
 
@@ -448,10 +459,12 @@ a crash where a `?` would have skipped a frame.
 // verified
 use bevy::prelude::*;
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
 struct Player;
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
 struct Follower;
 
 /// Returns `Result`, so a frame with no player is a skipped frame and not a crash.
@@ -496,13 +509,16 @@ and `'static` lifetimes; that is one-time cost paid at the definition rather tha
 // verified
 use bevy::prelude::*;
 
-#[derive(Component, Debug)]
-struct Health(f32);
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+struct Health(pub f32);
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
 struct Enemy;
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
 struct Invulnerable;
 
 /// The shape three systems share, named once.
@@ -581,7 +597,7 @@ use bevy::prelude::*;
 
 #[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Component)]
-struct Score(u32);
+struct Score(pub u32);
 
 /// `set_if_neq` writes only on a difference, so `Changed<Score>` still means something.
 fn recompute(mut scores: Query<(&mut Score, &Kills)>) {
@@ -590,8 +606,9 @@ fn recompute(mut scores: Query<(&mut Score, &Kills)>) {
     }
 }
 
-#[derive(Component, Debug)]
-struct Kills(u32);
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+struct Kills(pub u32);
 
 #[derive(Resource, Debug, Default)]
 struct Bumps(usize);

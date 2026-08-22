@@ -63,8 +63,9 @@ Anything that can go, should.
 // verified
 use bevy::prelude::*;
 
-#[derive(Component, Debug, PartialEq)]
-struct Health(f32);
+#[derive(Component, Debug, PartialEq, Reflect)]
+#[reflect(Component)]
+struct Health(pub f32);
 
 fn decay(mut healths: Query<&mut Health>) {
     for mut health in &mut healths {

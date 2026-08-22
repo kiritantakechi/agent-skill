@@ -57,10 +57,12 @@ needs to be either a `?` or a documented invariant in test code.
 // verified
 use bevy::prelude::*;
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
 struct Player;
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
 struct Hud;
 
 /// A frame before the player exists is a skipped frame, not a crash.

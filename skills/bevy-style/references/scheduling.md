@@ -126,8 +126,9 @@ gameplay driven by it keeps running while the game is paused.
 // verified
 use bevy::prelude::*;
 
-#[derive(Component, Debug)]
-struct Velocity(Vec3);
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+struct Velocity(pub Vec3);
 
 /// Fixed step: the clock is the fixed one, and the result is frame-rate independent.
 fn integrate(mut bodies: Query<(&mut Transform, &Velocity)>, time: Res<Time<Fixed>>) {
@@ -137,7 +138,8 @@ fn integrate(mut bodies: Query<(&mut Transform, &Velocity)>, time: Res<Time<Fixe
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
 struct Spinner;
 
 /// Presentation: the clock is the frame clock, and the result is as smooth as the display.
@@ -193,8 +195,9 @@ name.
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-#[derive(Component, Debug)]
-struct Health(f32);
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+struct Health(pub f32);
 
 #[derive(Resource, Debug, Default)]
 struct Score(u32);
@@ -357,7 +360,8 @@ use bevy::prelude::*;
 #[derive(Resource, Debug, Default)]
 struct Paused(bool);
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
 struct Enemy;
 
 fn tick_ai() {}
