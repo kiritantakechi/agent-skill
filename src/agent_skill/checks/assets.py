@@ -30,6 +30,7 @@ def assets(skill):
         return
 
     referenced = "\n".join(p.read_text() for p in skill.markdown)
+    rules = {r.id for r in skill.rules} | {rid for rid, _, _ in skill.core_rules}
     for path in skill.assets:
         tag = f"{skill.name}/assets/{path.name}"
         text = path.read_text()
@@ -52,6 +53,12 @@ def assets(skill):
         # An asset nobody points at is not part of the skill.
         if f"assets/{path.name}" not in referenced:
             yield fail("shipped but never referenced from the skill", tag)
+
+        # An asset cites rules to say why it is shaped the way it is, and
+        # nothing was checking those: `_references` reads the chapters and
+        # `SKILL.md`, not `assets/`. Twenty-two citations sat unverified.
+        for rid in sorted(set(re.findall(rf"\b{skill.prefix}-[A-Z]+-\d+[a-z]?\b", text)) - rules):
+            yield fail(f"cites {rid}, which is not a rule", tag)
 
 
 def _zig(path, tag):

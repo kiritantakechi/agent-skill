@@ -54,6 +54,11 @@ PUB_FIELD = HEADER + (
 
 CONTROLS: list[Control] = [
     Control(
+        "an asset citing a rule the skill does not define",
+        "assets",
+        lambda t: edit(t, "bevy-style/assets/ci.yml", "BV-ARC-01", "BV-ARC-99"),
+    ),
+    Control(
         "a bevy example using an API the skill forbids",
         "self-application",
         lambda t: edit(

@@ -1,7 +1,18 @@
-# Pin the toolchain so every machine and every CI job compiles the same way.
-# Referenced by BV-CAR-16: `bevy_lint` needs a fixed nightly, and its version
-# tracks the Bevy version — check its release notes for which nightly the
-# release built against this engine expects before bumping either.
+# The toolchain the game is built with. Pin it so every machine and every CI job
+# compiles the same way. Referenced by BV-CAR-16.
+#
+# This is NOT the toolchain `bevy_lint` runs under, and it must not be changed
+# to become one. The linter imports internal `rustc` crates, so it needs its own
+# pinned nightly plus the `rustc-dev` component, installed alongside this one and
+# kept installed — the linter loads a dynamic library from it at run time. Which
+# nightly is named by the linter's compatibility table, and it changes with the
+# linter, not with the game:
+#
+#     rustup toolchain install nightly-YYYY-MM-DD \
+#         --component rustc-dev --component llvm-tools-preview
+#
+# A game built on nightly is a game whose compiler has no stability promise, so
+# the two stay separate.
 [toolchain]
 channel = "1.98.0"
 components = ["rustfmt", "clippy"]

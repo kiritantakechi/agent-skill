@@ -19,7 +19,12 @@ license = "MIT OR Apache-2.0"
 # Start from a feature collection: `2d`, `3d`, `ui`, or the mid-level `2d_api`,
 # `default_app`, `default_platform` when the backends are not wanted. Hand-pick
 # only against a measurement recorded here. See BV-CAR-02 and BV-CAR-03.
-bevy = { version = "=0.19.1", features = ["2d", "ui"] }
+#
+# `default-features = false` is required for the collection to mean anything:
+# `default` is already `["2d", "3d", "ui", "audio"]`, so naming `2d` on top of
+# it selects nothing and excludes nothing. Note also that since 0.19 `audio` is
+# not implied by `2d`, `3d` or `ui` — a game with sound names it.
+bevy = { version = "=0.19.1", default-features = false, features = ["2d", "ui", "audio"] }
 
 # ---------------------------------------------------------------------------
 # Lints. Inherited by every member with `[lints] workspace = true`.

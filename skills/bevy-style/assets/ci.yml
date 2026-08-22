@@ -63,6 +63,25 @@ jobs:
             libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - run: cargo build --release --no-default-features --features shipping
 
+  bevy-lint:
+    # Optional (BV-CAR-16), and uncommented once the nightly below is the one
+    # the linter's compatibility table names for the version you install. The
+    # linter loads a dynamic library from that toolchain at run time, so the
+    # `rustc-dev` component is not optional and the toolchain must stay
+    # installed. This is deliberately NOT the game's toolchain.
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install the linter's own nightly
+        run: |
+          rustup toolchain install nightly-YYYY-MM-DD \
+            --component rustc-dev --component llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install --locked bevy_cli
+      - run: bevy lint
+
   wasm:
     # Only if the game ships to the web. See BV-CAR-18.
     runs-on: ubuntu-latest

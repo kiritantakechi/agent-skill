@@ -59,8 +59,10 @@ subcrate dependency that needs a reason.
 
 ### BV-CAR-02 [M] Start from a feature collection
 
-`features = ["2d"]`, `["3d", "ui"]`, or the mid-level `2d_api` / `default_app` / `default_platform`
-where the backends are not wanted. Not `default-features = false` plus thirty names.
+`default-features = false` plus `features = ["2d"]`, `["3d", "ui"]`, or the mid-level `2d_api` /
+`default_app` / `default_platform` where the backends are not wanted. Not thirty individual names —
+and not a collection *without* `default-features = false`, which selects nothing: `default` is
+already `["2d", "3d", "ui", "audio"]`.
 
 **Why:** the collections landed in 0.18 precisely because hand-maintained lists rot: a feature gets
 renamed (`animation` became `gltf_animation`, `bevy_sprite_picking_backend` became
@@ -68,8 +70,9 @@ renamed (`animation` became `gltf_animation`, `bevy_sprite_picking_backend` beca
 enabling something different from what it says. Bevy has 172 features in 0.19; nobody re-reads that
 list every release.
 
-**Check:** count the entries in `features`. Past about six, they are describing a collection that
-exists. `assets/Cargo.toml` is a workspace manifest with the collection already chosen.
+**Check:** is `default-features = false` there? Without it the list is decoration. Then count the
+entries: past about six, they are describing a collection that already exists.
+`assets/Cargo.toml` is a workspace manifest with the collection already chosen.
 
 ### BV-CAR-03 [M] Hand-pick features only against a recorded measurement
 
@@ -270,8 +273,9 @@ table. `assets/Cargo.toml` is the table, with both relaxations and their reasons
 
 ### BV-CAR-16 [S] Run `bevy_lint`, pinned to the Bevy version
 
-`bevy_lint` catches the Bevy-specific defects that `clippy` cannot see. It needs a fixed nightly
-toolchain, and its version tracks the engine's.
+`bevy_lint` catches the Bevy-specific defects that `clippy` cannot see. It runs under its own
+pinned nightly with the `rustc-dev` component — not the game's toolchain — and its version tracks
+the engine's.
 
 **Why:** it is the only mechanical check for a dozen rules in this standard — markers in query data,
 `&mut Commands` parameters, `main` without `AppExit`, `Messages` inserted as a resource,
@@ -279,8 +283,9 @@ toolchain, and its version tracks the engine's.
 versions. Everything it checks is also stated here in prose, so the standard holds without it; with
 it, a machine checks a dozen of the rules for free.
 
-**Check:** does CI run `bevy lint`, and is the pinned toolchain in `assets/rust-toolchain.toml` the
-one that version of `bevy_lint` was built for?
+**Check:** does CI run `bevy lint`, and is the nightly it installs the one the linter's
+compatibility table names for this linter version? `assets/rust-toolchain.toml` is the game's
+toolchain and is deliberately not that nightly — a game built on nightly has no stability promise.
 
 ## CI
 
