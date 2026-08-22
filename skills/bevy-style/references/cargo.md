@@ -79,10 +79,11 @@ entries: past about six, they are describing a collection that already exists.
 A hand-picked list is allowed when there is a build-time, binary-size or dependency-count target,
 the measurement is in the manifest as a comment, and each feature says why it is there.
 
-**Why:** the trade is real — a hand-picked 2-D list is meaningfully smaller than the `2d` collection
-— and it is only worth its maintenance cost if somebody knows how much smaller. Without the number,
-the list is an assumption that gets defended forever; with it, the next release can re-measure and
-decide again.
+**Why:** the trade is usually smaller than it feels. Resolved against 0.19.1, a hand-picked 2-D list
+is 289 crates where the `2d` collection is 311 — twenty-two crates, against a list that has to be
+re-read every release. That is sometimes worth it and sometimes not, and the number is the only
+thing that can tell the difference. Without it the list is an assumption that gets defended
+forever; with it, the next release can re-measure and decide again.
 
 **Check:** does the manifest state the number the list buys, and the date or version it was measured
 against? If not, switch to a collection until someone measures.
@@ -90,8 +91,10 @@ against? If not, switch to a collection until someone measures.
 ```toml
 # fragment — a hand-picked list that has earned itself, with the number in it
 [dependencies]
-# 272 crates here against 330 with the `2d` collection, measured against 0.19.1.
-# Each entry says why; anything unexplained goes back to the collection.
+# 289 crates here against 311 with the `2d` collection, resolved against 0.19.1.
+# Twenty-two crates is the whole of what this list buys, which is the number the
+# next person needs in order to decide whether to keep maintaining it. Each entry
+# says why; anything unexplained goes back to the collection.
 bevy = { version = "=0.19.1", default-features = false, features = [
     "std",                 # no_std Bevy exists and this game is not it
     "async_executor",      # the task-pool executor; implied by default_app, which we skip
