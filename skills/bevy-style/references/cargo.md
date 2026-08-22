@@ -244,7 +244,7 @@ allowed here.
 **Why:** upstream Bevy allows both, and copying that is where most projects' allow lists start.
 `type_complexity` fires on a query with two data items and two filters, and the fix is a `type`
 alias with a name from the domain (BV-ECS-21). `too_many_arguments` fires at eight parameters, and
-the fix is `#[derive(SystemParam)]` (BV-SCH-09). In both cases the lint is pointing at something a
+the fix is `#[derive(SystemParam)]` (BV-SCH-10). In both cases the lint is pointing at something a
 reader would also have complained about.
 
 **Check:** grep the lint table for either name. Their presence is the defect.

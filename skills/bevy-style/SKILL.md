@@ -36,7 +36,7 @@ that reason.
 4. **Load `rust-style` as well** for anything that is a Rust question rather than a Bevy question.
 5. **Walk section 5** before handing back a diff.
 
-Rules are cited by ID — `BV-ECS-04`, `BV-SCH-11`. The prefix identifies the owning chapter (section
+Rules are cited by ID — `BV-ECS-04`, `BV-SCH-12`. The prefix identifies the owning chapter (section
 6 maps prefix to file). Rules from the other standard keep their own prefix, so an `RS-` citation is
 always a pointer out of this document.
 
@@ -175,7 +175,7 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **BV-CORE-09 `[M]`** Give a query type more than one data item and more than one filter and it
   becomes unreadable; name it with a `type` alias. Give a system more than seven parameters and
   group them with `#[derive(SystemParam)]`
-  (`references/ecs.md` BV-ECS-21, `references/scheduling.md` BV-SCH-09).
+  (`references/ecs.md` BV-ECS-21, `references/scheduling.md` BV-SCH-10).
 - **BV-CORE-10 `[M]`** Every component derives `Reflect` and carries `#[reflect(Component)]`;
   every reflected type is then registered, unless `reflect_auto_register` is doing it. Reflection is
   what the inspector, the scene format and the remote protocol run on, and it is opt-in, so it is
@@ -186,13 +186,13 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **BV-CORE-11 `[M]`** Simulation runs in `FixedUpdate`; animation, camera and anything that must
   be smooth run in `Update`. A camera moved from `FixedUpdate` visibly stutters, and per-frame input
   read from it is dropped on a fast machine and doubled on a slow one
-  (`references/scheduling.md` BV-SCH-01, BV-SCH-04, BV-SCH-25).
+  (`references/scheduling.md` BV-SCH-01, BV-SCH-04, BV-SCH-09).
 - **BV-CORE-12 `[M!]`** Ordering between systems goes through named `SystemSet`s configured once,
   not a chain of `.before()` and `.after()` at each `add_systems` call
-  (`references/scheduling.md` BV-SCH-11).
+  (`references/scheduling.md` BV-SCH-12).
 - **BV-CORE-13 `[M]`** A system that should not always run says so with `.run_if(…)`. An early
   `return` hides the condition from the schedule, which cannot then skip the system or report it
-  (`references/scheduling.md` BV-SCH-16).
+  (`references/scheduling.md` BV-SCH-17).
 - **BV-CORE-14 `[M]`** Take the time from `Time<Fixed>` in `FixedUpdate` and `Time<Virtual>` in
   `Update`, and never hard-code a per-frame delta
   (`references/scheduling.md` BV-SCH-06).

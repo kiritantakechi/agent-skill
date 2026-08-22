@@ -16,29 +16,29 @@ event is in the events chapter.
   - BV-SCH-06 [M] Take the delta from the schedule's own clock
   - BV-SCH-07 [M] Never assume `FixedUpdate` ran exactly once this frame
   - BV-SCH-08 [S] Interpolate between fixed steps rather than raising the rate
-  - BV-SCH-25 [M] Never read per-frame input from a fixed-rate schedule
+  - BV-SCH-09 [M] Never read per-frame input from a fixed-rate schedule
 
 - **Systems**
-  - BV-SCH-09 [M] Group system parameters once there are more than seven
-  - BV-SCH-10 [S] Make a system a step in the frame, not a container for code
-  - BV-SCH-11 [M!] Express ordering through named sets
-  - BV-SCH-12 [M] Configure a set once and join it at each system
-  - BV-SCH-13 [M] Never order a system against another system's function
-  - BV-SCH-14 [S] Keep `chain` to a short pipeline inside one plugin
-  - BV-SCH-15 [M] Add each system to each schedule exactly once
+  - BV-SCH-10 [M] Group system parameters once there are more than seven
+  - BV-SCH-11 [S] Make a system a step in the frame, not a container for code
+  - BV-SCH-12 [M!] Express ordering through named sets
+  - BV-SCH-13 [M] Configure a set once and join it at each system
+  - BV-SCH-14 [M] Never order a system against another system's function
+  - BV-SCH-15 [S] Keep `chain` to a short pipeline inside one plugin
+  - BV-SCH-16 [M] Add each system to each schedule exactly once
 
 - **Run conditions**
-  - BV-SCH-16 [M] Express a precondition as a run condition, not an early return
-  - BV-SCH-17 [S] Compose the conditions Bevy ships before writing one
-  - BV-SCH-18 [M] Keep a run condition free of effects
-  - BV-SCH-19 [S] Put a shared condition on the set, not on every member
-  - BV-SCH-20 [M] Gate on state with `in_state`, not by reading `State<S>`
+  - BV-SCH-17 [M] Express a precondition as a run condition, not an early return
+  - BV-SCH-18 [S] Compose the conditions Bevy ships before writing one
+  - BV-SCH-19 [M] Keep a run condition free of effects
+  - BV-SCH-20 [S] Put a shared condition on the set, not on every member
+  - BV-SCH-21 [M] Gate on state with `in_state`, not by reading `State<S>`
 
 - **Sync points and parallelism**
-  - BV-SCH-21 [M] Let the schedule insert its own sync points
-  - BV-SCH-22 [S] Answer an ambiguity warning by ordering, not by silencing it
-  - BV-SCH-23 [S] Leave the executor alone
-  - BV-SCH-24 [M] Keep `Local<T>` to state no other system needs
+  - BV-SCH-22 [M] Let the schedule insert its own sync points
+  - BV-SCH-23 [S] Answer an ambiguity warning by ordering, not by silencing it
+  - BV-SCH-24 [S] Leave the executor alone
+  - BV-SCH-25 [M] Keep `Local<T>` to state no other system needs
 
 ---
 
@@ -176,7 +176,7 @@ frame rate. Interpolation costs one lerp per rendered entity and is exact.
 **Check:** has the fixed timestep been raised above 64 Hz? If so, what measurement said the
 simulation needed it rather than the picture?
 
-### BV-SCH-25 [M] Never read per-frame input from a fixed-rate schedule
+### BV-SCH-09 [M] Never read per-frame input from a fixed-rate schedule
 
 `ButtonInput::just_pressed` and `just_released` are true for exactly one rendered frame. A
 `FixedUpdate` system may not run on that frame, or may run on it twice. Sample input at frame rate,
@@ -270,7 +270,7 @@ mod tests {
 
 ## Systems
 
-### BV-SCH-09 [M] Group system parameters once there are more than seven
+### BV-SCH-10 [M] Group system parameters once there are more than seven
 
 Bundle related parameters into a `#[derive(SystemParam)]` struct named for what they are together.
 
@@ -316,7 +316,7 @@ fn decay(mut combat: Combat) {
 }
 ```
 
-### BV-SCH-10 [S] Make a system a step in the frame, not a container for code
+### BV-SCH-11 [S] Make a system a step in the frame, not a container for code
 
 A system is named for the step it performs — `apply_damage`, `spawn_waves` — and does that one
 thing. A system doing three things is three systems.
@@ -327,12 +327,12 @@ single opaque bar where three would have told you which part is slow.
 
 **Check:** write the system's name as a sentence. If it needs an "and", split it.
 
-### BV-SCH-11 [M!] Express ordering through named sets
+### BV-SCH-12 [M!] Express ordering through named sets
 
 Systems that must run in a particular order join `SystemSet`s, and the sets are ordered once.
 
 *Relaxed form:* two systems in one plugin, added in one call, may be ordered with `.chain()` — see
-BV-SCH-14 for the boundary.
+BV-SCH-15 for the boundary.
 
 **Why:** a set is a name for a phase, so the ordering is stated in terms the domain has words for
 — "input, then decisions, then resolution" — and a new system joins a phase without anyone editing
@@ -384,7 +384,7 @@ impl Plugin for CombatPlugin {
 }
 ```
 
-### BV-SCH-12 [M] Configure a set once and join it at each system
+### BV-SCH-13 [M] Configure a set once and join it at each system
 
 `configure_sets` appears once per set per schedule, in the plugin that defines the set. Systems say
 `.in_set(…)` and nothing more.
@@ -396,7 +396,7 @@ to know what "Resolve" runs after has exactly one place to look.
 **Check:** grep for each set name. It should appear in `configure_sets` once, and in `.in_set(…)`
 everywhere else.
 
-### BV-SCH-13 [M] Never order a system against another system's function
+### BV-SCH-14 [M] Never order a system against another system's function
 
 `.after(damage_systems::apply)` names a function. `.after(CombatSystems::Resolve)` names a phase.
 
@@ -408,7 +408,7 @@ not.
 **Check:** each `.before(` and `.after(` argument should be a `SystemSet` variant. A path to a `fn`
 is a dependency on a neighbour's internals.
 
-### BV-SCH-14 [S] Keep `chain` to a short pipeline inside one plugin
+### BV-SCH-15 [S] Keep `chain` to a short pipeline inside one plugin
 
 `(a, b, c).chain()` is right when the three are one pipeline, defined together, and nothing outside
 needs to slot in between them.
@@ -421,7 +421,7 @@ steps, neither cost is real.
 **Check:** does anything outside this plugin need to run between two chained systems? If so, the
 chain needs to become sets.
 
-### BV-SCH-15 [M] Add each system to each schedule exactly once
+### BV-SCH-16 [M] Add each system to each schedule exactly once
 
 A system added twice to the same schedule runs twice.
 
@@ -434,7 +434,7 @@ in the same schedule, is a duplicate.
 
 ## Run conditions
 
-### BV-SCH-16 [M] Express a precondition as a run condition, not an early return
+### BV-SCH-17 [M] Express a precondition as a run condition, not an early return
 
 `system.run_if(condition)`, not an `if !ready { return; }` at the top of the body.
 
@@ -474,7 +474,7 @@ impl Plugin for AiPlugin {
 }
 ```
 
-### BV-SCH-17 [S] Compose the conditions Bevy ships before writing one
+### BV-SCH-18 [S] Compose the conditions Bevy ships before writing one
 
 `resource_exists`, `resource_changed`, `resource_equals`, `any_with_component`, `any_match_filter`,
 `on_message`, `run_once`, `in_state`, and `not` / `and` / `or` to combine them.
@@ -486,7 +486,7 @@ the condition readable at the call site, where a named closure would send the re
 
 **Check:** for each hand-written condition, look for the shipped one it re-implements.
 
-### BV-SCH-18 [M] Keep a run condition free of effects
+### BV-SCH-19 [M] Keep a run condition free of effects
 
 A condition answers a question. It does not write a resource, spawn, queue a command, or consume
 something a system needed.
@@ -499,7 +499,7 @@ exception and is documented as one: it consumes from its own reader, not the sys
 **Check:** does the condition take any `&mut` parameter, or call anything on `Commands`? Either is
 an effect.
 
-### BV-SCH-19 [S] Put a shared condition on the set, not on every member
+### BV-SCH-20 [S] Put a shared condition on the set, not on every member
 
 `configure_sets(Update, GameSystems.run_if(in_state(Playing)))`, not the same `run_if` repeated on
 each of eleven systems.
@@ -511,11 +511,11 @@ that keeps working when a twelfth system is added by someone who did not read th
 **Check:** does the same `run_if` appear on more than two systems in one `add_systems` call? It
 belongs on their set.
 
-### BV-SCH-20 [M] Gate on state with `in_state`, not by reading `State<S>`
+### BV-SCH-21 [M] Gate on state with `in_state`, not by reading `State<S>`
 
 `.run_if(in_state(GameState::Playing))`. Not `Res<State<GameState>>` plus a comparison in the body.
 
-**Why:** it is BV-SCH-16 with a specific case, and the specific case matters because the body form
+**Why:** it is BV-SCH-17 with a specific case, and the specific case matters because the body form
 is so common: the system runs in every state, acquires all its parameters, compares, and returns.
 The condition form also composes with `configure_sets`, so a whole phase can be state-scoped at
 once.
@@ -525,7 +525,7 @@ comparison.
 
 ## Sync points and parallelism
 
-### BV-SCH-21 [M] Let the schedule insert its own sync points
+### BV-SCH-22 [M] Let the schedule insert its own sync points
 
 Do not add `ApplyDeferred` by hand. Order the systems and let the schedule work out where commands
 must be applied.
@@ -537,7 +537,7 @@ anything after it starts — and it is not removed when the ordering that motiva
 **Check:** grep for `ApplyDeferred` and `apply_deferred`. Each occurrence needs a reason the
 automatic pass cannot infer.
 
-### BV-SCH-22 [S] Answer an ambiguity warning by ordering, not by silencing it
+### BV-SCH-23 [S] Answer an ambiguity warning by ordering, not by silencing it
 
 An ambiguity means two systems touch the same data with no order between them, so which one wins
 depends on the executor. Order them, or split the data.
@@ -550,7 +550,7 @@ rather than an annotation worth applying in bulk.
 **Check:** turn on ambiguity detection and read the report once. Every pair is either ordered,
 split, or ignored with a one-line reason.
 
-### BV-SCH-23 [S] Leave the executor alone
+### BV-SCH-24 [S] Leave the executor alone
 
 The multi-threaded executor is the default. Replacing it with `SingleThreadedExecutor` is a
 debugging step, not a configuration.
@@ -562,7 +562,7 @@ hidden, and the game has given up its parallelism to hide it. In 0.19 this is
 
 **Check:** grep for `set_executor`. Anything outside a debugging branch needs a reason.
 
-### BV-SCH-24 [M] Keep `Local<T>` to state no other system needs
+### BV-SCH-25 [M] Keep `Local<T>` to state no other system needs
 
 `Local<T>` is private to one system. Anything a second system reads is a resource.
 

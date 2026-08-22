@@ -188,6 +188,17 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        "a rule appended in the middle of a chapter",
+        "anatomy",
+        lambda t: edit(
+            t,
+            "bevy-style/references/scheduling.md",
+            "BV-SCH-09 [M] Never read per-frame input",
+            "BV-SCH-77 [M] Never read per-frame input",
+            2,
+        ),
+    ),
+    Control(
         "two rules sharing a title",
         "anatomy",
         lambda t: edit(

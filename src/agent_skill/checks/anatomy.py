@@ -62,6 +62,16 @@ def anatomy(skill):
                 if section:
                     blocks[(rule.id, label)] = " ".join(section.split())
 
+    # Ids run in order within a chapter. Appending a rule in the middle passes
+    # every other check — the contents list agrees, because it was edited too —
+    # and leaves a reader scanning 01..08, 25, 09. The other two skills hold the
+    # invariant across 1149 rules; this catches the one that broke it.
+    for chapter in skill.chapters:
+        nums = [int(re.search(r"(\d+)", r.id.rsplit("-", 1)[1]).group(1)) for r in chapter.rules]
+        for a, b in itertools.pairwise(nums):
+            if b < a:
+                yield fail(f"rule ids run backwards: {a} then {b}", f"{skill.name}/{chapter.name}")
+
     # The contents list is ordered like the chapter, or it is not a map of it.
     for chapter in skill.chapters:
         if list(chapter.toc) and list(chapter.toc) != [r.id for r in chapter.rules]:

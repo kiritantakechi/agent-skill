@@ -75,7 +75,7 @@ the time. The note after each is the defect it would have caught.
 | Check | Catches | Added because |
 |---|---|---|
 | `frontmatter` | the block an agent reads first: spec keys, name, description length, stated rule count | A malformed frontmatter crashed the checker instead of being reported by it — three unguarded `.group(1)` calls. |
-| `anatomy` | rule shape (Why/Check, or a pointer at the owner), contents agreement and order, duplicate titles, dangling and mis-filed references, per-family counts, near-duplicate rationales, a summary that cites a sibling of the rule it is about | A rule that pointed at the chapter owning its topic then kept a stale two-row copy of that chapter's table — whose rows were already in it. Later, a core rule summarised one rule and cited the one above it: the id existed and lived in the cited chapter, which was all anything asked. |
+| `anatomy` | rule shape (Why/Check, or a pointer at the owner), contents agreement and order, duplicate titles, dangling and mis-filed references, per-family counts, near-duplicate rationales, ids that run backwards within a chapter, a summary that cites a sibling of the rule it is about | A rule that pointed at the chapter owning its topic then kept a stale two-row copy of that chapter's table — whose rows were already in it. Later, a core rule summarised one rule and cited the one above it: the id existed and lived in the cited chapter, which was all anything asked. |
 | `layout` | line width, trailing whitespace, tabs, CR, fence balance, doubled blanks, list numbering; long rule titles as notes | A 135-column line shipped and every check passed: nothing measured width. Sole owner of the physical checks, because when a second check repeated them one defect produced two findings at two severities. |
 | `markers` | one block, one marker, and the marker leads it | 56 blocks spelled the marker across two lines, which left the tools unable to recognise the illustration blocks they exist to exempt. |
 | `conventions` | the standard's own rules over its own examples | Review rounds each found an example edited to satisfy one rule while breaking a rule in another chapter. Nothing checked across chapters. |
@@ -150,13 +150,20 @@ that the check owning it reports a failure. A control that stops firing is itsel
 a failure, and so is a fixture whose anchor text has drifted out of the skill.
 `pytest` runs the same table one test per control.
 
-Not every finding becomes a check. A summary that cites the wrong rule looked
-mechanical and is not: a good summary says the same thing in different words, so
-absolute word overlap separates nothing — a correct citation scores 0.000. What
-separates is *relative*, another rule in the same chapter scoring much higher,
-and even that was coincidence twice in five hits. It ships as a note inside
-`anatomy` rather than as a check that fails, because a check people learn to
-route around is worse than no check.
+Not every finding becomes a check, and two did not.
+
+A summary that cites the wrong rule looked mechanical and is not: a good summary
+says the same thing in different words, so absolute word overlap separates
+nothing — a correct citation scores 0.000. What separates is *relative*, another
+rule in the same chapter scoring much higher, and even that was coincidence twice
+in five hits. It ships as a note inside `anatomy` rather than as a check that
+fails, because a check people learn to route around is worse than no check.
+
+A title that no longer describes its own body was not built at all. The stale
+title scored 0.50 against its statement and the corrected one scored 0.50 too,
+while fourteen perfectly good titles scored 0.00 — for the same reason, a title
+and its statement deliberately do not repeat each other. That one is caught by
+reading, and saying so here is cheaper than the next person re-deriving it.
 
 A check that cannot fail looks exactly like a check that passes. An early zig
 probe reported all 375 symbols present, including a deliberately fake one,

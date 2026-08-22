@@ -16,7 +16,7 @@ the game do not mention the engine.
   - BV-ARC-01 [M] Keep the rules of the game out of the engine's vocabulary
   - BV-ARC-02 [M] Scale the boundary's mechanism to the project; never the rule
   - BV-ARC-03 [M] Give the boundary exactly one crossing point per direction
-  - BV-ARC-04 [M] Put invariants behind a constructor, and let the component carry the result
+  - BV-ARC-04 [M] Keep the invariant in the domain type, and parse at the crossing
   - BV-ARC-05 [S] Share `glam` across the boundary unless determinism forbids it
   - BV-ARC-06 [M] Do not reach for `bevy_ecs` to get the ECS in through the side door
   - BV-ARC-07 [M] Make the boundary a job, not a paragraph
@@ -179,7 +179,7 @@ point also gives the conversion a name and therefore a place to be tested.
 **Check:** grep the view layer for constructions of domain types. More than one site building the
 same domain type from components means the translation has been copied.
 
-### BV-ARC-04 [M] Put invariants behind a constructor, and let the component carry the result
+### BV-ARC-04 [M] Keep the invariant in the domain type, and parse at the crossing
 
 A component's fields are public — the ECS is the accessor, and reflection, scenes and the remote
 protocol all read fields directly. Data that must satisfy a condition therefore cannot be defended

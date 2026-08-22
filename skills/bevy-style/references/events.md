@@ -374,7 +374,7 @@ is `entity(e).observe(…)` written out.
 
 Observers take run conditions in 0.19: `app.add_observer(handler.run_if(in_state(Playing)))`.
 
-**Why:** it is BV-SCH-16 applied to observers, and the same argument holds — the condition is
+**Why:** it is BV-SCH-17 applied to observers, and the same argument holds — the condition is
 visible at the registration site rather than buried in the first line of the body, and it composes
 with the shipped conditions. Before 0.19 this had to be an early return, which is why so much
 existing code has one.

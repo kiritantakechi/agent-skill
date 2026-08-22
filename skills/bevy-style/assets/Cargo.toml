@@ -86,7 +86,7 @@ needless_pass_by_value = "allow"
 
 # NOT relaxed, deliberately: `type_complexity` and `too_many_arguments` both
 # fire on ordinary Bevy code, and upstream Bevy allows both. A `type` alias
-# (BV-ECS-21) and `#[derive(SystemParam)]` (BV-SCH-09) silence them, and both
+# (BV-ECS-21) and `#[derive(SystemParam)]` (BV-SCH-10) silence them, and both
 # are the better code. See BV-CAR-13.
 
 [profile.dev]
