@@ -1,0 +1,35 @@
+[project]
+name = "agent-skill"
+version = "0.1.0"
+description = "Build and verify Claude Code skills"
+readme = "README.md"
+authors = [
+    { name = "kiritantakechi", email = "kiritantakechi@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = []
+
+[project.scripts]
+agent-skill = "agent_skill.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.9"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# A stop-word list reads as prose, not as a list literal.
+ignore = ["SIM905"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "toolchain: needs cargo or zig; slow",
+]

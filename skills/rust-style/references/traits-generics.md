@@ -1,0 +1,1174 @@
+# Traits, Generics, Dispatch, Type-Level Design
+
+Scope: when a trait should exist at all, how to shape one so implementors and callers both benefit,
+the static-versus-dynamic dispatch decision, coherence and sealing, where to put bounds, and the
+type-level tools — associated types, GATs, const generics, typestate. Naming of traits and their
+parameters is in the naming chapter; the semver consequences of trait changes are in the API
+chapter; the code-size consequences of monomorphization are in the performance chapter.
+
+Traits are Rust's only abstraction mechanism. The discipline here is **trait-first**: name the
+capability as a trait before writing the type that provides it, and program against the trait rather
+than the concrete type.
+
+The Rust API Guidelines and the BurntSushi crates advise the opposite — extract a trait only once a
+second implementation exists. Trait-first buys a boundary that is total and symmetric because no
+concrete type shaped it, and costs indirection, extra rustdoc, and a generic parameter at use sites
+a concrete struct would not need. RS-TRG-06 and RS-TRG-02 keep that cost from becoming damage: if
+either is being bent to make a trait fit, the trait is wrong and the fallback is a concrete type,
+not a partial impl.
+## Contents
+
+- **Designing traits**
+  - RS-TRG-01 [M] Name the capability as a trait before writing the type that provides it
+  - RS-TRG-02 [M] Describe a capability, not a category
+  - RS-TRG-03 [S] Keep the required-method set small and push the rest into defaults
+  - RS-TRG-04 [S] Prefer one required method plus defaults to five required methods
+  - RS-TRG-05 [S] Make provided methods correct by default and overridable for speed
+  - RS-TRG-06 [M] Do not put a method on a trait only one implementor can support
+  - RS-TRG-07 [S] Add functionality to foreign types through a sealed `…Ext` trait
+  - RS-TRG-08 [S] Prefer composition to supertrait hierarchies
+  - RS-TRG-09 [M] Treat a supertrait as a requirement on every implementor
+  - RS-TRG-10 [S] Do not require `Sized` when you do not need it
+  - RS-TRG-11 [S] Mark description-shaped traits `#[must_use]`
+  - RS-TRG-12 [S] Use `#[diagnostic::on_unimplemented]` where the error would be cryptic
+  - RS-TRG-13 [M] Document the trait's contract, not just its signatures
+  - RS-TRG-14 [M] Make the trait `unsafe` when a broken invariant causes unsoundness
+
+- **Static versus dynamic dispatch**
+  - RS-TRG-15 [S] Default to static dispatch
+  - RS-TRG-16 [S] Choose `dyn` for open sets, heterogeneous storage, or measured bloat
+  - RS-TRG-17 [S] Do not use argument-position `impl Trait` where callers may want to name the type
+  - RS-TRG-18 [S] Use return-position `impl Trait` for iterators, futures, and closures
+  - RS-TRG-19 [M] Keep a trait dyn-compatible if it might ever be boxed
+  - RS-TRG-20 [M] Decide and document the `Send` story for `async fn` in traits
+  - RS-TRG-21 [S] Write the lifetime on a borrowing trait object
+  - RS-TRG-22 [M] Prefer an enum to a trait object for a closed set
+  - RS-TRG-23 [S] Do not mix dispatch strategies for one abstraction
+  - RS-TRG-24 [S] Do not nest generics three deep in a public signature
+
+- **Coherence, blanket impls, sealing**
+  - RS-TRG-25 [M] Work with the orphan rule, not around it
+  - RS-TRG-26 [M] Newtype to implement a foreign trait on a foreign type
+  - RS-TRG-27 [M] Treat a blanket impl as permanent
+  - RS-TRG-28 [S] Prefer a blanket extension trait to asking users to wrap values
+  - RS-TRG-29 [S] Bound on a trait rather than impl for each std type
+  - RS-TRG-30 [S] Seal a trait that enumerates a fixed set of types
+  - RS-TRG-31 [M] Document that a trait is sealed and why
+  - RS-TRG-32 [M] Do not seal a trait users are meant to implement
+  - RS-TRG-33 [M] Do not design around specialization
+  - RS-TRG-34 [M] Know that a blanket `From<T>` conflicts with the reflexive impl
+
+- **Bounds, where clauses, inference**
+  - RS-TRG-35 [S] Put simple bounds inline and anything longer in a `where` clause
+  - RS-TRG-36 [S] Bound at the point of use, not on the struct
+  - RS-TRG-37 [M] Minimize bounds
+  - RS-TRG-38 [S] Genericize a parameter only where the flexibility is used
+  - RS-TRG-39 [M] Do not add `'static` unless you spawn, erase, or store
+  - RS-TRG-40 [S] Prefer an associated type where there is one sensible choice
+  - RS-TRG-41 [S] Do not return a type the caller must turbofish
+  - RS-TRG-42 [S] Use type aliases to tame long generic types
+  - RS-TRG-43 [S] Comment a type alias that hides genuine complexity
+  - RS-TRG-44 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
+
+- **Associated types, GATs, const generics**
+  - RS-TRG-45 [M] Associated type for one-per-implementor, parameter for many
+  - RS-TRG-46 [S] Bound associated types at their declaration
+  - RS-TRG-47 [S] Reach for a GAT only after a plain associated type has failed
+  - RS-TRG-48 [S] Use const generics where the size is genuinely compile-time
+  - RS-TRG-49 [S] Do not emulate variadics past a small arity
+  - RS-TRG-50 [S] Prefer a method to an associated constant when `dyn` matters
+  - RS-TRG-51 [S] Use typestate where misuse is costly and the states are few
+  - RS-TRG-52 [S] Do not build a typestate machine with many states
+  - RS-TRG-53 [M] Make marker traits zero-method and documented
+  - RS-TRG-54 [S] Prefer `PhantomData<fn() -> T>` for markers that own nothing
+
+- **Totality and symmetry of impls**
+  - RS-TRG-55 [M] Make every impl total — no `unimplemented!()` arms
+  - RS-TRG-56 [S] Keep the impl set symmetric across a family of types
+
+---
+
+## Designing traits
+
+### RS-TRG-01 [M] Name the capability as a trait before writing the type that provides it
+
+Write the trait first, in terms of what a caller needs, then implement it. Program against the
+trait — take `impl Read`, not `File` — so the first implementation is never privileged.
+
+**Why:** the shape of a boundary is decided by whoever writes it, and a boundary extracted from an
+existing type inherits that type's accidents: its error cases, its argument order, its assumption
+that a handle is always available. Designing it against the caller's need instead produces a surface
+that is total and symmetric because nothing concrete was in the room to distort it. The test double
+then costs nothing, because the seam already exists.
+
+**Check:** for each concrete type used across a module boundary, is the consumer written against a
+trait or against the type? A function taking `&File` where it only reads is the finding.
+
+```rust
+// verified
+use std::io::{self, Read};
+
+/// Program against the capability, not the type that provides it.
+///
+/// # Errors
+/// Propagates any read error from the source.
+pub fn first_line(source: &mut impl Read) -> io::Result<String> {
+    let mut text = String::new();
+    source.read_to_string(&mut text)?;
+    Ok(text.lines().next().unwrap_or_default().to_owned())
+}
+```
+
+### RS-TRG-02 [M] Describe a capability, not a category
+
+`Read`, `Write`, `Display`, `Matcher`, `Sink` — not `Animal`, `Entity`, `Base`.
+
+**Why:** Rust has no inheritance and does not model "is a". A trait says what you can *do* with a
+value, and designing one as a category leads directly to a supertrait hierarchy trying to be a class
+tree — which fights the language at every step (`references/naming.md` RS-NAM-32).
+
+**Check:** does the trait's name and method set describe an action set, or a taxonomy position?
+
+```rust
+// verified
+/// A capability, not a category: it says what you can do, not what the value *is*.
+pub trait Matcher {
+    /// Returns `true` when `haystack` satisfies the matcher.
+    fn matches(&self, haystack: &str) -> bool;
+}
+
+#[derive(Debug, Clone)]
+pub struct Literal(String);
+
+impl Matcher for Literal {
+    fn matches(&self, haystack: &str) -> bool {
+        haystack.contains(&self.0)
+    }
+}
+```
+
+### RS-TRG-03 [S] Keep the required-method set small and push the rest into defaults
+
+**Why:** required methods are the cost of implementing; provided methods are free ergonomics.
+`grep-matcher` exposes a `Matcher` trait with a handful of required methods and a large set of
+provided ones, which is why implementing it is tractable and using it is pleasant.
+
+**Check:** for each required method, could it have a default in terms of the others?
+
+```rust
+// verified
+/// One required method; everything else is a default the implementor may override.
+pub trait Encoder {
+    /// Encodes a single frame.
+    fn encode(&self, frame: &[u8]) -> Vec<u8>;
+
+    /// Encodes many frames. Override when a batch form is cheaper.
+    fn encode_all(&self, frames: &[&[u8]]) -> Vec<u8> {
+        frames.iter().flat_map(|frame| self.encode(frame)).collect()
+    }
+}
+```
+
+### RS-TRG-04 [S] Prefer one required method plus defaults to five required methods
+
+**Why:** each required method multiplies the work of every implementor, including the ones you have
+not met and the ones who arrive after you stop maintaining it. It also multiplies the ways an
+implementation can be subtly inconsistent with itself.
+
+**Check:** count required methods. More than three is worth a redesign pass.
+
+```rust
+// verified
+/// One required method, several derived: implementors write the minimum.
+pub trait Shape {
+    /// Returns the area.
+    fn area(&self) -> f64;
+
+    /// Returns whether the shape encloses any space.
+    fn is_degenerate(&self) -> bool {
+        self.area() <= f64::EPSILON
+    }
+}
+```
+
+### RS-TRG-05 [S] Make provided methods correct by default and overridable for speed
+
+**Why:** `Iterator::size_hint` and `Iterator::fold` are the model — the default is always right, and
+an implementor who can do better overrides it. That is the shape that lets a trait serve both a
+five-line implementor and a highly tuned one.
+
+**Check:** does the rustdoc say when overriding is worthwhile, and what the override must preserve?
+
+```rust
+// verified
+/// The default is correct for everyone; an implementor overrides it only for speed.
+pub trait Counter {
+    /// Counts one item.
+    fn count_one(&self, item: &str) -> usize;
+
+    /// Counts many. The default is correct; override it when a batch form is cheaper.
+    fn count_all(&self, items: &[String]) -> usize {
+        items.iter().map(|item| self.count_one(item)).sum()
+    }
+}
+```
+
+### RS-TRG-06 [M] Do not put a method on a trait only one implementor can support
+
+**Why:** every other implementor must then panic, return an error, or provide a meaningless answer —
+and callers cannot tell which without checking the concrete type, which defeats the trait. That
+method is an inherent method, a separate trait, or a sign the abstraction is wrong.
+
+**Check:** does any provided method's default `panic!`, `unimplemented!`, or return an error meaning
+"not supported"?
+
+```rust
+// verified
+/// Every method is supportable by every implementor, so none of them panics.
+pub trait Storage {
+    /// Reads a value if present.
+    fn read(&self, key: &str) -> Option<String>;
+}
+
+/// Writing is a separate capability, so read-only stores need not pretend.
+pub trait MutableStorage: Storage {
+    /// Writes a value.
+    fn write(&mut self, key: &str, value: String);
+}
+```
+
+### RS-TRG-07 [S] Add functionality to foreign types through a sealed `…Ext` trait
+
+`ItertoolsExt`, `SliceRandom`.
+
+**Why:** it is the only way the orphan rule permits (RS-TRG-25), it keeps the added methods
+discoverable through autocomplete, and sealing it means you can add methods later without breaking
+anyone (RS-TRG-30).
+
+**Check:** is the extension trait sealed? Is the name suffixed so users can tell where the method
+came from?
+
+```rust
+// verified
+mod sealed {
+    pub trait Sealed {}
+    impl Sealed for str {}
+}
+
+/// An extension trait on a foreign type, sealed so the impl set stays closed.
+pub trait StrExt: sealed::Sealed {
+    /// Returns the text with any single trailing newline removed.
+    fn trim_one_newline(&self) -> &str;
+}
+
+impl StrExt for str {
+    fn trim_one_newline(&self) -> &str {
+        self.strip_suffix('\n').unwrap_or(self)
+    }
+}
+```
+
+### RS-TRG-08 [S] Prefer composition to supertrait hierarchies
+
+**Why:** a struct holding a `Matcher` and a `Printer` is easier to understand, test, and change than
+a five-level supertrait chain. Supertraits are for genuine prerequisites — `trait Ord: PartialOrd` —
+not for reuse (`references/functional.md` RS-FP-60).
+
+**Check:** how deep is the deepest supertrait chain? More than one level usually means reuse
+pretending to be a prerequisite.
+
+### RS-TRG-09 [M] Treat a supertrait as a requirement on every implementor
+
+**Why:** adding one is a breaking change, and adding `Debug` or `Clone` "for convenience" excludes
+every implementor that cannot provide them — a type holding a file handle, a closure, or a foreign
+pointer. The convenience is yours; the exclusion is theirs.
+
+**Check:** for each supertrait, is it needed by the trait's own default methods, or only by your
+call sites? If the latter, bound at the call site instead (RS-TRG-36).
+
+```rust
+// verified
+use std::fmt::Debug;
+
+/// A supertrait is a requirement every implementor must already meet.
+pub trait Record: Debug {
+    /// Returns the record's stable identifier.
+    fn id(&self) -> u64;
+}
+
+#[derive(Debug)]
+pub struct Row(u64);
+
+impl Record for Row {
+    fn id(&self) -> u64 {
+        self.0
+    }
+}
+```
+
+### RS-TRG-10 [S] Do not require `Sized` when you do not need it
+
+`T: ?Sized + Display` lets callers pass `str` and `[T]` directly.
+
+**Why:** `Sized` is an implicit default bound, so it is easy to require without noticing. Relaxing
+it costs nothing when the caller has a sized type and enables the unsized case for free.
+
+**Check:** does the body ever move or store a `T` by value? If not, `?Sized` is available.
+
+```rust
+// verified
+/// `?Sized` so the bound also accepts `str` and slices.
+#[must_use]
+pub fn describe<T: std::fmt::Debug + ?Sized>(value: &T) -> String {
+    format!("{value:?}")
+}
+```
+
+### RS-TRG-11 [S] Mark description-shaped traits `#[must_use]`
+
+Matchers, queries, builders — values that describe rather than act.
+
+**Why:** constructing one and discarding it is always a mistake, and the attribute on the trait
+covers every implementor at once (`references/api-design.md` RS-API-47).
+
+**Check:** would discarding a value of this trait ever be correct?
+
+```rust
+// verified
+/// A description-shaped trait: the value exists to be inspected, so it is `#[must_use]`.
+#[must_use = "a plan describes work that only happens once it is executed"]
+pub trait Plan {
+    /// Returns how many steps the plan contains.
+    fn steps(&self) -> usize;
+}
+```
+
+### RS-TRG-12 [S] Use `#[diagnostic::on_unimplemented]` where the error would be cryptic
+
+Stable since 1.78.
+
+**Why:** the default message names the trait and the type and leaves the user to work out which of
+five bounds failed and why. A one-line message here saves every user of the crate a search, and it
+costs nothing at runtime.
+
+**Check:** deliberately break a bound and read the error. Would a new user know what to do?
+
+### RS-TRG-13 [M] Document the trait's contract, not just its signatures
+
+What invariants an implementor must uphold, what a caller may assume, whether methods may be called
+concurrently, and what happens on error.
+
+**Why:** a trait without a documented contract cannot be implemented correctly except by accident,
+because the signatures constrain types and say nothing about behaviour. `Iterator`'s contract
+around `next()` after `None` is the canonical example of why this matters.
+
+**Check:** could someone write a conforming implementation from the rustdoc alone, without reading
+yours?
+
+```rust
+// verified
+/// The contract is documented, not just the signature.
+pub trait Normalizer {
+    /// Returns `input` in canonical form.
+    ///
+    /// Implementors must be idempotent: `normalize(normalize(x)) == normalize(x)`,
+    /// and must never lengthen the input.
+    fn normalize(&self, input: &str) -> String;
+}
+```
+
+### RS-TRG-14 [M] Make the trait `unsafe` when a broken invariant causes unsoundness
+
+**Why:** if unsafe code elsewhere relies on implementors behaving correctly, then a wrong
+implementation is a memory-safety bug — and the `unsafe` keyword is how you require the implementor
+to acknowledge that. If a wrong implementation merely produces wrong answers, keep the trait safe
+and document loudly (`references/unsafe-ffi.md` RS-UNS-20).
+
+**Check:** does any `unsafe` block in the crate assume a trait method returns something specific —
+a correct length, a stable ordering, a valid pointer?
+
+```rust
+// verified
+/// The invariant is load-bearing for unsafe code elsewhere, so the trait is `unsafe`.
+///
+/// # Safety
+/// `LEN` must equal the number of bytes `write_to` initializes.
+pub unsafe trait FixedEncode {
+    /// The exact number of bytes written.
+    const LEN: usize;
+
+    /// Writes exactly `LEN` bytes into `out`.
+    fn write_to(&self, out: &mut Vec<u8>);
+}
+```
+
+## Static versus dynamic dispatch
+
+### RS-TRG-15 [S] Default to static dispatch
+
+`impl Trait` in argument position for simple cases; a named generic parameter when the type appears
+more than once or a caller may want to turbofish it.
+
+**Why:** it is the zero-overhead default, it preserves the concrete type for the optimizer, and it
+keeps the door open — a generic function can always be called with a `&dyn Trait`, but a
+`dyn`-taking function cannot be specialized.
+
+**Check:** is there a measured reason for the vtable? If not, start static.
+
+```rust
+// verified
+/// Static dispatch by default: monomorphized, inlinable, no vtable.
+pub fn count_matching<P: Fn(&str) -> bool>(lines: &[String], predicate: P) -> usize {
+    lines.iter().filter(|line| predicate(line)).count()
+}
+```
+
+### RS-TRG-16 [S] Choose `dyn` for open sets, heterogeneous storage, or measured bloat
+
+**Why:** the vtable call is a few nanoseconds and a predictable indirect branch; forty
+monomorphized copies of a large function are kilobytes of instruction cache. Storing different
+implementations in one `Vec` requires `dyn` outright. Neither direction is free, so the choice needs
+a reason (`references/performance.md` RS-PRF-37).
+
+**Check:** how many instantiations does this generic actually get? `cargo bloat` will tell you if
+you suspect the answer is "too many".
+
+```rust
+// verified
+/// `dyn` where the set is open and the values are stored heterogeneously.
+pub trait Stage {
+    /// Transforms one record.
+    fn apply(&self, input: String) -> String;
+}
+
+#[derive(Default)]
+pub struct Pipeline {
+    stages: Vec<Box<dyn Stage>>,
+}
+
+impl std::fmt::Debug for Pipeline {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Pipeline")
+            .field("stages", &self.stages.len())
+            .finish()
+    }
+}
+
+impl Pipeline {
+    #[must_use]
+    pub fn run(&self, input: String) -> String {
+        self.stages
+            .iter()
+            .fold(input, |value, stage| stage.apply(value))
+    }
+}
+```
+
+### RS-TRG-17 [S] Do not use argument-position `impl Trait` where callers may want to name the type
+
+**Why:** it is sugar for an anonymous generic parameter, which means the caller cannot turbofish it
+— so a call that needs an explicit type has no way to give one. In a public API that is a
+one-way door.
+
+**Check:** would a caller ever need `::<T>` on this function? Then use a named parameter.
+
+```rust
+// verified
+/// A named parameter, so callers can turbofish or store the type if they need to.
+#[must_use]
+pub fn collect_into<C: FromIterator<u32>>(values: &[u32]) -> C {
+    values.iter().copied().collect()
+}
+```
+
+### RS-TRG-18 [S] Use return-position `impl Trait` for iterators, futures, and closures
+
+Including in traits, stable since 1.75.
+
+**Why:** it hides an unnameable or noisy concrete type while preserving static dispatch and
+zero-cost composition. The cost is that users cannot name the type for storage — where they need
+to, return a named type or expose a type alias instead.
+
+**Check:** does a caller need to put this return value in a struct field? Then name the type.
+
+```rust
+// verified
+/// Return-position `impl Trait` keeps the concrete iterator private and unnameable.
+pub fn evens(limit: u32) -> impl Iterator<Item = u32> {
+    (0..limit).filter(|value| value % 2 == 0)
+}
+```
+
+### RS-TRG-19 [M] Keep a trait dyn-compatible if it might ever be boxed
+
+No generic methods, no `Self` in return position, no associated constants.
+
+**Why:** dyn compatibility (formerly "object safety") is not something you can add later without a
+breaking change — and discovering you need `Box<dyn Trait>` after publication is common. Where a
+generic method is genuinely needed, split into a dyn-compatible core trait plus a generic extension
+trait.
+
+**Check:** does `fn _assert(_: &dyn MyTrait) {}` compile? That one line is the whole test.
+
+```rust
+// verified
+/// Dyn-compatible: no generic methods, no `Self` by value, so it can be boxed.
+pub trait Sink {
+    /// Accepts one already-rendered line.
+    fn accept(&mut self, line: &str);
+}
+
+#[derive(Debug, Default)]
+pub struct Collect(Vec<String>);
+
+impl Sink for Collect {
+    fn accept(&mut self, line: &str) {
+        self.0.push(line.to_owned());
+    }
+}
+
+#[must_use]
+pub fn boxed() -> Box<dyn Sink> {
+    Box::new(Collect::default())
+}
+```
+
+### RS-TRG-20 [M] Decide and document the `Send` story for `async fn` in traits
+
+**Why:** `async fn` in traits (1.75) produces a future that is not automatically `Send` and is not
+dyn-compatible. Whether callers can spawn the result on a multi-threaded runtime therefore depends
+on a choice you make — `trait_variant`, an explicit `-> impl Future<Output = _> + Send`, or
+`Pin<Box<dyn Future + Send>>` — and they cannot fix it from outside
+(`references/concurrency-async.md` RS-CNC-36).
+
+**Check:** can a user `tokio::spawn` a call to this trait method? Does the rustdoc say so?
+
+### RS-TRG-21 [S] Write the lifetime on a borrowing trait object
+
+`Box<dyn Matcher + 'a>`.
+
+**Why:** `Box<dyn Trait>` defaults to `+ 'static`, so a trait object holding a borrow fails to
+compile with an error that points at the wrong place. Being explicit turns a confusing lifetime
+error at the call site into a correct signature.
+
+**Check:** does any `dyn` type hold borrowed data? Then the lifetime is not `'static`.
+
+### RS-TRG-22 [M] Prefer an enum to a trait object for a closed set
+
+**Why:** no allocation, no vtable, exhaustive matching when a variant is added, and `Clone`,
+`PartialEq`, `Debug`, and `Serialize` all derivable — none of which a `Box<dyn Trait>` gives you.
+For two to six known implementations the enum wins on every axis except extensibility, which by
+definition is not wanted here.
+
+**Check:** is the set of implementations known at compile time and controlled by you? Then it is an
+enum.
+
+```rust
+// fragment — BAD: allocation, vtable, no derives, no exhaustiveness
+fn make(kind: &str) -> Box<dyn Encoder> { /* … */ }
+```
+
+```rust
+// fragment — GOOD: the set is closed, so name it
+#[derive(Debug, Clone, PartialEq)]
+enum Encoder { Json, Csv, Text }
+```
+
+### RS-TRG-23 [S] Do not mix dispatch strategies for one abstraction
+
+**Why:** if half the API takes `impl Matcher` and half takes `&dyn Matcher`, users must learn which
+is which and convert between them at boundaries. Pick one per abstraction so there is one pattern to
+learn.
+
+**Check:** grep for the trait's name. Is it used both generically and as `dyn` in the public API?
+
+### RS-TRG-24 [S] Do not nest generics three deep in a public signature
+
+`Searcher<M: Matcher, S: Sink<M::Error>>` nested three levels.
+
+**Why:** the type in the error message becomes a paragraph, inference fails in ways that are hard to
+diagnose, and the rustdoc is unreadable. Erase one level with `dyn`, or provide a type alias for the
+default configuration so the common case is one word.
+
+**Check:** read the fully-expanded type from a deliberate error. Does it fit on a line?
+
+## Coherence, blanket impls, sealing
+
+### RS-TRG-25 [M] Work with the orphan rule, not around it
+
+**Why:** it exists so two crates cannot define the same impl and break linking, and there is no
+workaround — only a local trait or a local newtype. Time spent looking for one is time not spent on
+the newtype that would have worked.
+
+**Check:** is either the trait or the type local to this crate? If neither, you need a newtype
+(RS-TRG-26).
+
+### RS-TRG-26 [M] Newtype to implement a foreign trait on a foreign type
+
+**Why:** it is the sanctioned mechanism, it is zero-cost with `#[repr(transparent)]`, and it lets
+you add the impl without any coordination. Add `AsRef`/`Deref` only if the newtype genuinely *is*
+the inner type for all purposes (`references/api-design.md` RS-API-60).
+
+**Check:** does the newtype expose the inner type's whole API, or only the part that makes sense?
+
+```rust
+// verified
+use std::fmt;
+
+/// A newtype is how you implement a foreign trait on a foreign type.
+#[derive(Debug, Clone, Copy)]
+pub struct Hex(u32);
+
+impl Hex {
+    #[must_use]
+    pub fn new(bits: u32) -> Self {
+        Self(bits)
+    }
+}
+
+impl fmt::Display for Hex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:#010x}", self.0)
+    }
+}
+```
+
+### RS-TRG-27 [M] Treat a blanket impl as permanent
+
+`impl<T: Foo> Bar for T`.
+
+**Why:** it forbids every downstream `Bar` impl that could overlap, forever, and removing it is
+breaking. It is the most powerful and least reversible thing in the trait system, so it should only
+express an implication that is genuinely universal.
+
+**Check:** is there any type for which this impl would be wrong or unwanted? One is enough to make
+it a bad blanket.
+
+### RS-TRG-28 [S] Prefer a blanket extension trait to asking users to wrap values
+
+`impl<T: Iterator> MyExt for T`.
+
+**Why:** the method appears on values users already have, with no wrapping and no import beyond the
+trait. Seal it so the blanket impl remains the only one (RS-TRG-30).
+
+**Check:** does using the crate require constructing a wrapper type first? An extension trait
+usually removes that step.
+
+### RS-TRG-29 [S] Bound on a trait rather than impl for each std type
+
+**Why:** `AsRef<[T]>` covers `Vec<T>`, `[T; N]`, `&[T]`, `Box<[T]>`, and types you have never heard
+of, in one impl. Writing separate impls for `Vec<T>` and `String` covers two of them and dates
+immediately.
+
+**Check:** is there a std trait that generalizes the set of impls you are writing?
+
+### RS-TRG-30 [S] Seal a trait that enumerates a fixed set of types
+
+Private-supertrait pattern.
+
+**Why:** sealing means you know every implementor, so you can add methods later without breaking
+anyone — the trait stays evolvable for the life of the crate
+(`references/api-design.md` RS-API-73).
+
+**Check:** is the trait an extension point or an enumeration? Only the second gets sealed.
+
+```rust
+// verified
+use std::borrow::Cow;
+
+mod sealed {
+    pub trait Sealed {}
+}
+
+/// Sealed because the set of encodings is an enumeration, not an extension point.
+pub trait Encoding: sealed::Sealed {
+    /// Decodes bytes, borrowing when the input is already valid.
+    fn decode<'bytes>(&self, bytes: &'bytes [u8]) -> Cow<'bytes, str>;
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Utf8;
+
+impl sealed::Sealed for Utf8 {}
+impl Encoding for Utf8 {
+    fn decode<'bytes>(&self, bytes: &'bytes [u8]) -> Cow<'bytes, str> {
+        String::from_utf8_lossy(bytes)
+    }
+}
+```
+
+### RS-TRG-31 [M] Document that a trait is sealed and why
+
+**Why:** without a note, someone who tries to implement it gets `trait 'Sealed' is private`, which
+names a type they cannot see and explains nothing. One sentence in the rustdoc turns a confusing
+error into an understood constraint.
+
+**Check:** does every sealed trait's rustdoc say so in its first paragraph?
+
+### RS-TRG-32 [M] Do not seal a trait users are meant to implement
+
+**Why:** sealing an extension point is a design error that only a major version can fix, and it
+turns your crate from a library into a closed system. The two categories are decided at design time,
+not discovered later.
+
+**Check:** for each sealed trait, is there a plausible downstream implementor? If yes, unseal it now
+while it is free.
+
+### RS-TRG-33 [M] Do not design around specialization
+
+**Why:** it is unstable with no stabilization date, `min_specialization` is unsound in its general
+form, and code written to "use it later" gets rewritten. Use an enum, an explicit impl per type, or
+a runtime check.
+
+**Check:** grep for `default fn` and `#![feature(specialization)]`. Both mean nightly-only forever.
+
+### RS-TRG-34 [M] Know that a blanket `From<T>` conflicts with the reflexive impl
+
+**Why:** `impl<T> From<T> for MyType` overlaps with core's `impl<T> From<T> for T` and will not
+compile. The error is a coherence message that does not name the reflexive impl, so it is
+routinely misread as a compiler bug.
+
+**Check:** narrow the bound (`impl<T: Display> From<T> for MyType` still conflicts at `T =
+MyType` if `MyType: Display`) or write per-type impls.
+
+## Bounds, where clauses, inference
+
+### RS-TRG-35 [S] Put simple bounds inline and anything longer in a `where` clause
+
+**Why:** a signature that wraps across three lines because of inline bounds is harder to read than
+the same one with the bounds moved below, where they align and can be commented individually.
+
+**Check:** does the signature fit on one line with the bounds inline? If not, use `where`.
+
+```rust
+// verified
+use std::fmt::Display;
+use std::hash::Hash;
+
+/// One bound inline; several go in a `where` clause where they can be read.
+pub fn render<K, V>(pairs: &[(K, V)]) -> Vec<String>
+where
+    K: Display + Eq + Hash,
+    V: Display,
+{
+    pairs
+        .iter()
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect()
+}
+```
+
+### RS-TRG-36 [S] Bound at the point of use, not on the struct
+
+**Why:** `struct Cache<K, V>` with bounds only on the `impl` blocks that need them stays usable in
+contexts where the bound is irrelevant — a field declaration, a `PhantomData`, a `Default` impl.
+Bounds on the struct propagate to every one of those.
+
+**Check:** does the struct definition carry a bound that only one method needs?
+
+```rust
+// verified
+/// The bound is at the point of use, so the struct itself stays unconstrained.
+#[derive(Debug, Default)]
+pub struct Bag<T> {
+    items: Vec<T>,
+}
+
+impl<T> Bag<T> {
+    pub fn push(&mut self, item: T) {
+        self.items.push(item);
+    }
+}
+
+impl<T: std::fmt::Display> Bag<T> {
+    #[must_use]
+    pub fn render(&self) -> String {
+        self.items
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+}
+```
+
+### RS-TRG-37 [M] Minimize bounds
+
+**Why:** each bound is a requirement on every caller. `T: Clone` when you only need `&T` is a
+needless restriction; `T: Ord` when `PartialOrd` suffices excludes floats; `T: Debug` for a log line
+excludes everything without a `Debug` impl.
+
+**Check:** remove each bound and see whether it still compiles. The ones that were unnecessary are
+the ones you would never have found by reading.
+
+```rust
+// verified
+/// Bound only on what the body uses: `Display`, not `Display + Clone + Debug`.
+pub fn render<T: std::fmt::Display>(items: &[T]) -> String {
+    items
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+```
+
+### RS-TRG-38 [S] Genericize a parameter only where the flexibility is used
+
+**Why:** `impl AsRef<Path>` is worth it because callers genuinely hold four different path-like
+types. `impl Into<u32>` is not, because they hold a `u32`. Genericity has an inference cost, a
+documentation cost, and a monomorphization cost (`references/api-design.md` RS-API-11).
+
+**Check:** list the concrete types this parameter will be instantiated with. One means make it
+concrete.
+
+### RS-TRG-39 [M] Do not add `'static` unless you spawn, erase, or store
+
+**Why:** it is the most over-applied bound in Rust, usually added to make one error go away, and it
+rejects every borrowed type for the life of the API (`references/ownership.md` RS-OWN-22).
+
+**Check:** remove it. If it still compiles, it was never needed.
+
+### RS-TRG-40 [S] Prefer an associated type where there is one sensible choice
+
+**Why:** `Iterator::Item` as a type parameter would force every use site to annotate it —
+`fn f<I: Iterator<Item = T>, T>` instead of `fn f<I: Iterator>`. The associated type makes it
+inferred and unambiguous (RS-TRG-45).
+
+**Check:** can one type implement this trait twice with different substitutions? If not, it is an
+associated type.
+
+```rust
+// verified
+/// One sensible output type per implementor, so it is an associated type, not a parameter.
+pub trait Parser {
+    /// The value this parser produces.
+    type Output;
+
+    /// # Errors
+    /// Returns `()` when the input does not parse.
+    fn parse(&self, input: &str) -> Result<Self::Output, ParseFailed>;
+}
+
+/// The input did not match the grammar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ParseFailed;
+```
+
+### RS-TRG-41 [S] Do not return a type the caller must turbofish
+
+**Why:** if users must write `::<Vec<_>>` at every call site, the API is asking them to do
+inference's job. Either return a concrete type or take the target as a parameter they already have.
+
+**Check:** write a call in a doc example without any annotation. Does it compile?
+
+### RS-TRG-42 [S] Use type aliases to tame long generic types
+
+`pub type Result<T> = std::result::Result<T, Error>;`
+
+**Why:** it is the single highest-value alias in most crates — it removes the error type from every
+signature in the crate and from every doc example, and it is what users expect from `io::Result`
+and `fmt::Result`.
+
+**Check:** does the crate's error type appear in more than a handful of signatures?
+
+```rust
+// verified
+/// A type alias tames a signature that would otherwise be unreadable.
+pub type Handler = Box<dyn Fn(&str) -> Option<String> + Send + Sync>;
+
+#[derive(Default)]
+pub struct Router {
+    routes: Vec<(String, Handler)>,
+}
+
+impl std::fmt::Debug for Router {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Router")
+            .field("routes", &self.routes.len())
+            .finish()
+    }
+}
+```
+
+### RS-TRG-43 [S] Comment a type alias that hides genuine complexity
+
+**Why:** an alias for `Box<dyn Fn(&Request) -> Pin<Box<dyn Future<Output = Result<Response, Error>>
++ Send>> + Send + Sync>` is right, and so is a comment explaining the shape — otherwise the alias
+hides the complexity from the maintainer as well as the user.
+
+**Check:** could a new contributor reconstruct the expansion from the alias name alone?
+
+### RS-TRG-44 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
+
+**Why:** this is how `Iterator` keeps `Box<dyn Iterator>` working while still offering `map`,
+`collect`, and the rest — the generic methods are excluded from the vtable rather than excluding the
+trait from `dyn` (RS-TRG-19).
+
+**Check:** which method is breaking dyn compatibility? Can it take `where Self: Sized`?
+
+## Associated types, GATs, const generics
+
+### RS-TRG-45 [M] Associated type for one-per-implementor, parameter for many
+
+`Iterator` has one `Item`; `From<T>` has many `T`.
+
+**Why:** getting this backwards is the most consequential trait-design mistake available. An
+associated type where a parameter belongs makes the trait implementable only once per type; a
+parameter where an associated type belongs makes every use site annotate.
+
+**Check:** would one type reasonably implement this trait more than once? Yes means parameter.
+
+```rust
+// verified
+/// One output type per implementor is an associated type, not a parameter.
+pub trait Source {
+    /// The item this source yields.
+    type Item;
+
+    /// Returns the next item, if any.
+    fn next_item(&mut self) -> Option<Self::Item>;
+}
+```
+
+### RS-TRG-46 [S] Bound associated types at their declaration
+
+`type Error: std::error::Error + Send + Sync + 'static;`
+
+**Why:** the bound then holds everywhere the associated type appears, so no use site has to repeat
+it and no implementor can supply something unusable. Adding the bound later is breaking.
+
+**Check:** does any generic function repeat a bound on `T::Error` or `I::Item`? That bound belongs
+on the declaration.
+
+### RS-TRG-47 [S] Reach for a GAT only after a plain associated type has failed
+
+Stable since 1.65.
+
+**Why:** GATs are the right tool for lending iterators and for associated types that borrow from
+`&self`, and they are a significant complexity cost in error messages and in implementor burden.
+Most designs that reach for them first do not need them.
+
+**Check:** does the associated type genuinely need to name a lifetime from `&self`? Write the plain
+version first and let it fail.
+
+### RS-TRG-48 [S] Use const generics where the size is genuinely compile-time
+
+`struct Chunk<const N: usize>`, `fn hash<const OUT: usize>(…) -> [u8; OUT]`.
+
+**Why:** each distinct `N` is a separate monomorphization, so const generics buy stack allocation
+and unrolling at the cost of code size. That is a good trade when the sizes are few and known and a
+bad one when they come from configuration.
+
+**Check:** how many distinct values of `N` will exist? More than a handful means use a runtime
+length.
+
+```rust
+// verified
+/// Const generics where the size is genuinely compile-time.
+#[derive(Debug, Clone, Copy)]
+pub struct Digest<const BYTES: usize>([u8; BYTES]);
+
+impl<const BYTES: usize> Digest<BYTES> {
+    #[must_use]
+    pub fn as_bytes(&self) -> &[u8; BYTES] {
+        &self.0
+    }
+}
+```
+
+### RS-TRG-49 [S] Do not emulate variadics past a small arity
+
+**Why:** the ecosystem convention is tuple impls up to 12, generated by a macro. Past that the
+compile time and the rustdoc noise grow faster than the convenience, and a slice or a struct is
+clearer anyway.
+
+**Check:** is the macro generating impls for arities nobody uses?
+
+### RS-TRG-50 [S] Prefer a method to an associated constant when `dyn` matters
+
+**Why:** associated constants make a trait non-dyn-compatible (RS-TRG-19). A method returning the
+same value costs one indirect call and keeps `Box<dyn Trait>` available.
+
+**Check:** does the trait have an associated `const`, and would anyone want to box it?
+
+### RS-TRG-51 [S] Use typestate where misuse is costly and the states are few
+
+`Connection<Idle>` → `Connection<Open>`.
+
+**Why:** it turns "write before connect" from a runtime panic into a compile error, which is
+strictly better when the mistake is expensive and the transitions are few
+(`references/functional.md` RS-FP-56).
+
+**Check:** does any method start by checking a state flag and erroring? That check is a type.
+
+```rust
+// verified
+/// Typestate: `send` does not exist until the connection is open.
+#[derive(Debug)]
+pub struct Closed;
+
+#[derive(Debug)]
+pub struct Open;
+
+#[derive(Debug)]
+pub struct Connection<State> {
+    marker: std::marker::PhantomData<fn() -> State>,
+}
+
+impl Connection<Closed> {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            marker: std::marker::PhantomData,
+        }
+    }
+
+    #[must_use]
+    pub fn open(self) -> Connection<Open> {
+        Connection {
+            marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl Default for Connection<Closed> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Connection<Open> {
+    pub fn send(&self, _payload: &[u8]) {}
+}
+```
+
+### RS-TRG-52 [S] Do not build a typestate machine with many states
+
+**Why:** the error messages and the documentation cost grow faster than the safety benefit. Past a
+handful of states, users cannot tell which method is available when, and a runtime state enum with a
+clear error is kinder.
+
+**Check:** count the states. More than about four and the rustdoc becomes a state diagram nobody
+reads.
+
+### RS-TRG-53 [M] Make marker traits zero-method and documented
+
+**Why:** a marker trait's whole content is its invariant, so if the invariant is not written down
+the trait means nothing. If violating it causes unsoundness, it must be `unsafe trait` (RS-TRG-14).
+
+**Check:** does the marker trait's rustdoc state exactly what implementing it asserts?
+
+```rust
+// verified
+/// A marker trait is zero-method and says what it guarantees.
+///
+/// Implementors promise their `Debug` output contains no secrets.
+pub trait RedactionFree {}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RequestId(u64);
+
+impl RedactionFree for RequestId {}
+```
+
+### RS-TRG-54 [S] Prefer `PhantomData<fn() -> T>` for markers that own nothing
+
+**Why:** `PhantomData<T>` inherits `T`'s drop-check behaviour and auto-trait implementations, which
+is almost never what a marker wants — a marker for a type it does not own should not become `!Send`
+because that type is (`references/ownership.md` RS-OWN-25).
+
+**Check:** for each `PhantomData<T>`, does the type genuinely own a `T`?
+
+```rust
+// verified
+use std::marker::PhantomData;
+
+/// `fn() -> T` marks a covariant relationship that owns nothing and affects no auto traits.
+#[derive(Debug)]
+pub struct Tagged<T> {
+    raw: u64,
+    marker: PhantomData<fn() -> T>,
+}
+
+impl<T> Tagged<T> {
+    #[must_use]
+    pub fn new(raw: u64) -> Self {
+        Self {
+            raw,
+            marker: PhantomData,
+        }
+    }
+}
+```
+
+## Totality and symmetry of impls
+
+### RS-TRG-55 [M] Make every impl total — no `unimplemented!()` arms
+
+Every implementor supports every method for real. An impl that panics, returns
+`Err(Unsupported)`, or silently does nothing for part of the trait is a partial impl, and partial
+impls are the failure mode trait-first design has to avoid (RS-TRG-01, RS-TRG-06).
+
+**Why:** the whole value of programming against a trait is that the caller need not know which
+implementor they hold. A partial impl destroys exactly that: the caller must now know, and the
+compiler cannot tell them. The trait is then worse than the concrete types it replaced.
+
+**Check:** grep impls for `unimplemented!`, `todo!`, `panic!`, and error variants meaning
+"not supported". Each says the trait is too wide — split it, or narrow it to what all implementors
+can do.
+
+```rust
+// verified
+/// Every implementor supports every method: no `unimplemented!()` arms.
+pub trait Store {
+    /// Reads a value.
+    fn get(&self, key: &str) -> Option<&str>;
+
+    /// Lists every key, in insertion order.
+    fn keys(&self) -> Vec<&str>;
+}
+
+#[derive(Debug, Default)]
+pub struct MemStore {
+    entries: Vec<(String, String)>,
+}
+
+impl Store for MemStore {
+    fn get(&self, key: &str) -> Option<&str> {
+        self.entries
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+    }
+
+    fn keys(&self) -> Vec<&str> {
+        self.entries.iter().map(|(k, _)| k.as_str()).collect()
+    }
+}
+```
+
+### RS-TRG-56 [S] Keep the impl set symmetric across a family of types
+
+Related types carry the same trait impls: if one wrapper is `Serialize`, `Debug`, and
+`Clone`, its siblings are too, or the omission is documented.
+
+**Why:** a caller writing generic code over the family bounds on the traits they need, and one
+sibling missing one impl excludes it from every such function — usually discovered long after the
+type was added. The asymmetry is almost never deliberate.
+
+**Check:** tabulate the family against the trait set. A missing cell is either an oversight or a
+documented restriction; there is no third case (`RS-API-51`).
+
+```rust
+// verified
+/// The family carries the same impl set, so generic code over it excludes nobody.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Meters(u32);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Seconds(u32);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Bytes(u32);
+```

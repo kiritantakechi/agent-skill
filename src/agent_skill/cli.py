@@ -1,0 +1,110 @@
+"""`agent-skill` — check, package, and install the skills in this repository."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+from . import build
+from .checks import all_checks
+from .model import discover
+from .report import Level, Result
+
+REPO = Path(__file__).resolve().parents[2]
+DEFAULT_SKILLS = REPO / "skills"
+
+
+def _emit(result: Result, *, verbose: bool, limit: int = 25) -> None:
+    label = "ok  " if result.ok else "FAIL"
+    print(f"  {label}  {result.name}")
+    for detail in result.details:
+        print(f"          {detail}")
+    for level, items in ((Level.FAIL, result.fails), (Level.NOTE, result.notes)):
+        shown = items if verbose else items[:limit]
+        for finding in shown:
+            head, *rest = str(finding).split("\n")
+            print(f"          {level.value}  {head}")
+            for line in rest:
+                print(f"          {line}")
+        if len(items) > len(shown):
+            print(f"          …     {len(items) - len(shown)} more {level.value} (--verbose)")
+
+
+def cmd_check(args) -> int:
+    skills = discover(args.skills)
+    if args.skill:
+        skills = [s for s in skills if s.name in args.skill]
+    if not skills:
+        print(f"no skills under {args.skills}", file=sys.stderr)
+        return 2
+
+    print(f"== {', '.join(s.name for s in skills)} ==")
+    failed = False
+    for c in all_checks():
+        if args.only and c.name not in args.only:
+            continue
+        if args.fast and c.slow:
+            continue
+        result = c.run(skills)
+        _emit(result, verbose=args.verbose)
+        failed |= not result.ok
+    print()
+    print("SOME CHECKS FAILED" if failed else "ALL CHECKS PASSED")
+    return 1 if failed else 0
+
+
+def cmd_build(args) -> int:
+    for skill in discover(args.skills):
+        target = build.package(skill, args.out)
+        print(f"  {target.relative_to(REPO) if args.out.is_relative_to(REPO) else target}")
+    return 0
+
+
+def cmd_install(args) -> int:
+    for skill in discover(args.skills):
+        link, how = build.install(skill)
+        print(f"  {link} -> {skill.root}  ({how})")
+    return 0
+
+
+def cmd_list(args) -> int:
+    for skill in discover(args.skills):
+        rules = len(skill.rules)
+        blocks = len(skill.blocks(verified=True))
+        print(
+            f"  {skill.name:<12} prefix={skill.prefix}  {rules} rules  "
+            f"{blocks} verified blocks  toolchain={skill.profile.toolchain}"
+        )
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="agent-skill", description=__doc__)
+    parser.add_argument(
+        "--skills", type=Path, default=DEFAULT_SKILLS, help="directory holding the skills"
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    check = sub.add_parser("check", help="run every check")
+    check.add_argument("--skill", action="append", help="limit to one skill (repeatable)")
+    check.add_argument("--only", action="append", help="limit to one check (repeatable)")
+    check.add_argument("--fast", action="store_true", help="skip the checks that need a compiler")
+    check.add_argument("--verbose", "-v", action="store_true", help="do not truncate findings")
+    check.set_defaults(func=cmd_check)
+
+    pack = sub.add_parser("build", help="package each skill as <name>.skill")
+    pack.add_argument("--out", type=Path, default=REPO / "dist")
+    pack.set_defaults(func=cmd_build)
+
+    sub.add_parser("install", help="symlink each skill into ~/.claude/skills").set_defaults(
+        func=cmd_install
+    )
+    sub.add_parser("list", help="what is in this repository").set_defaults(func=cmd_list)
+
+    args = parser.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

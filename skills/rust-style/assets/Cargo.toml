@@ -1,0 +1,72 @@
+# Canonical workspace manifest. Copy, then delete what does not apply.
+# Referenced by RS-CAR-08, RS-CAR-25, RS-CAR-48.
+
+[workspace]
+resolver = "3"                       # implied by edition 2024; explicit is fine
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.98"                # a tested MSRV, verified by a CI job
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/OWNER/REPO"
+authors = ["Your Name <you@example.com>"]
+
+[workspace.dependencies]
+# One place to bump. Members use `foo.workspace = true`.
+anyhow = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+
+# ---------------------------------------------------------------------------
+# Lints. Inherited by every member with `[lints] workspace = true`.
+# Lint *groups* need `priority = -1` so individual entries can override them.
+# ---------------------------------------------------------------------------
+
+[workspace.lints.rust]
+unsafe_code = "forbid"               # "deny" if the crate genuinely needs unsafe
+missing_docs = "deny"
+missing_debug_implementations = "deny"
+unreachable_pub = "warn"
+unused_qualifications = "warn"
+elided_lifetimes_in_paths = "warn"
+explicit_outlives_requirements = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+
+# Always defects — deny them.
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+indexing_slicing = "deny"            # RS-CAR-28
+dbg_macro = "deny"
+undocumented_unsafe_blocks = "deny"  # only meaningful if unsafe is allowed
+mem_forget = "deny"
+
+# `[lints] workspace = true` is all-or-nothing: a member cannot inherit the
+# table and override one entry. Keep the two below OUT of the workspace table if
+# any member is a binary, and add them to that library member's own [lints]
+# instead — or let the binary member define its own [lints] block entirely.
+# print_stdout = "deny"
+# print_stderr = "deny"
+
+# Correctness-adjacent warnings worth keeping loud.
+cast_possible_truncation = "warn"
+cast_precision_loss = "warn"
+cast_sign_loss = "warn"
+float_cmp = "warn"
+
+# Individually justified allows only — never allow the whole group.
+module_name_repetitions = "allow"    # reason: crate re-exports flatten paths anyway
+
+[profile.release]
+lto = "thin"
+# codegen-units = 1                  # a few percent, much slower builds
+# panic = "abort"                    # application decision only, never in a library
+debug = "line-tables-only"           # keep profiles usable; strip separately
+
+[profile.dev.package."*"]
+opt-level = 3                        # fast dependencies, fast-to-compile own code

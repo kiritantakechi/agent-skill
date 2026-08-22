@@ -1,0 +1,206 @@
+"""Rule anatomy: what a rule is made of, and that the map still matches it."""
+
+from __future__ import annotations
+
+import itertools
+import re
+from collections import Counter, defaultdict
+
+from ..report import fail, note
+from . import check
+
+#: Words that carry no signal when comparing two rationales.
+STOP = frozenset(
+    "the a an and or of to in is it for that this be are as with on not you your which "
+    "what when its than then so but if by at from can cannot".split()
+)
+
+
+def shingles(s: str, n: int = 4) -> set[tuple[str, ...]]:
+    words = [w for w in re.findall(r"[a-z]+", s.lower()) if w not in STOP]
+    return {tuple(words[i : i + n]) for i in range(max(0, len(words) - n + 1))}
+
+
+def overlap(a: set, b: set) -> float:
+    return len(a & b) / len(a | b) if a and b else 0.0
+
+
+@check("anatomy", "rule anatomy, ToC agreement, cross-references")
+def anatomy(skill):
+    seen: dict[str, str] = {}
+    titles: dict[str, list[str]] = defaultdict(list)
+    blocks: dict[tuple[str, str], str] = {}
+
+    for chapter in skill.chapters:
+        if re.search(rf"^\*\*{skill.prefix}-[A-Z]+-\d+\*\*", chapter.text, re.M):
+            yield fail("bold-inline rule definitions", f"{skill.name}/{chapter.name}")
+        for rule in chapter.rules:
+            where = f"{skill.name}/{chapter.name}"
+            if rule.id in seen:
+                yield fail(f"duplicate {rule.id}, also in {seen[rule.id]}", where)
+            seen[rule.id] = chapter.name
+            titles[rule.title].append(rule.id)
+
+            toc = chapter.toc.get(rule.id)
+            if toc is None:
+                yield fail(f"{rule.id} missing from the chapter contents", where)
+            elif toc[0] != rule.tier:
+                yield fail(f"{rule.id} contents tier != heading tier", where)
+            elif toc[1] != rule.title:
+                yield fail(f"{rule.id} contents title != heading title", where)
+
+            if rule.tier == "M!" and "elaxed form" not in rule.body:
+                yield fail(f"{rule.id} is [M!] with no relaxed form", where)
+
+            yield from _shape(skill, rule, where)
+
+            if rule.why and rule.check:
+                a, c = shingles(rule.statement), shingles(rule.why)
+                if overlap(a, c) > 0.42:
+                    yield fail(f"{rule.id} Why merely restates the rule", where)
+            for label, section in (("Why", rule.why), ("Check", rule.check)):
+                if section:
+                    blocks[(rule.id, label)] = " ".join(section.split())
+
+    # The contents list is ordered like the chapter, or it is not a map of it.
+    for chapter in skill.chapters:
+        if list(chapter.toc) and list(chapter.toc) != [r.id for r in chapter.rules]:
+            yield fail("contents order != heading order", f"{skill.name}/{chapter.name}")
+
+    # A title is an anchor, so it has to be unique: `titles[title] = rid`
+    # silently kept whichever chapter sorted last.
+    for title, ids in sorted(titles.items()):
+        if len(ids) > 1:
+            yield fail(
+                f"{len(ids)} rules share the title {title!r} ({', '.join(ids)}); "
+                f"a title is an anchor and must be unique",
+                skill.name,
+            )
+
+    yield from _pointers(skill, seen)
+    yield from _references(skill, seen)
+    yield from _counts(skill)
+    yield from _near_duplicates(skill, blocks)
+
+
+def _shape(skill, rule, where):
+    """A rule states its own Why and Check, or points at the rule that owns them.
+
+    Half of one and half of the other is a rule that duplicated its owner and
+    drifted: ZS-IO-39 pointed at the migration chapter, then kept a two-row copy
+    of that chapter's table whose rows were already in it.
+    """
+    has = ("**Why" in rule.body, "**Check" in rule.body)
+    if rule.pointer and any(has):
+        which = "Why" if has[0] else "Check"
+        yield fail(f"{rule.id} is a pointer rule with a {which} of its own", where)
+    elif not rule.pointer and not all(has):
+        which = "Why" if not has[0] else "Check"
+        yield fail(f"{rule.id} states no {which} and does not point at an owner", where)
+    if rule.pointer and "(see " not in rule.title:
+        yield fail(f"{rule.id} points at an owner without saying so in its title", where)
+    # The owner demonstrates the rule. A pointer that also carries an example is
+    # a second copy to keep in step.
+    if rule.pointer and "```" in rule.body:
+        yield fail(f"{rule.id} is a pointer rule with an example of its own", where)
+
+
+def _pointers(skill, seen):
+    """A pointer cites the chapter only when the owner is in another one."""
+    for rule in skill.rules:
+        if not rule.pointer:
+            continue
+        where = f"{skill.name}/{rule.file}"
+        if not rule.owner:
+            yield fail(f"{rule.id} says 'Owned by' without naming an owner", where)
+            continue
+        owner_file = seen.get(rule.owner)
+        cited = rule.owner_chapter
+        if owner_file is None:
+            yield fail(f"{rule.id} points at {rule.owner}, which is not a rule", where)
+        elif owner_file == rule.file and cited:
+            yield fail(f"{rule.id} cites a chapter for {rule.owner}, its own", where)
+        elif owner_file != rule.file and not cited:
+            yield fail(f"{rule.id} points at {rule.owner} in {owner_file} without citing it", where)
+        elif cited and cited != owner_file:
+            yield fail(f"{rule.id} cites {cited} for {rule.owner}, which is in {owner_file}", where)
+
+
+def _references(skill, seen):
+    pre = skill.prefix
+    defined = set(seen) | {rid for rid, _, _ in skill.core_rules}
+    cited: set[str] = set()
+    for path in skill.markdown:
+        cited |= set(re.findall(rf"\b({pre}-[A-Z]+-\d+[a-z]?)\b", path.read_text()))
+    for rid in sorted(cited - defined):
+        yield fail(f"dangling reference {rid}", skill.name)
+
+    home = {rid: f for rid, f in seen.items()}
+    for path in skill.markdown:
+        text = path.read_text()
+        for ref in re.findall(r"`((?:references|assets)/[A-Za-z0-9._-]+)`", text):
+            if not (skill.root / ref).exists():
+                yield fail(f"missing file {ref}", f"{skill.name}/{path.name}")
+        for i, line in enumerate(text.split("\n"), 1):
+            for m in re.finditer(
+                rf"`references/([a-z0-9-]+\.md)`[^`\n]{{0,40}}?({pre}-[A-Z]+-\d+[a-z]?)", line
+            ):
+                actual = home.get(m.group(2))
+                if actual and actual != m.group(1):
+                    yield fail(
+                        f"says {m.group(1)} for {m.group(2)}, which lives in {actual}",
+                        f"{skill.name}/{path.name}:{i}",
+                    )
+
+    # A core rule is a summary; the reader who wants the full statement needs to
+    # be told where it lives.
+    for rid, _tier, body in skill.core_rules:
+        flat = " ".join(body.split())
+        cites = re.findall(
+            rf"`references/([a-z0-9-]+\.md)` ((?:{pre}-[A-Z]+-\d+[a-z]?)"
+            rf"(?:,? (?:and )?{pre}-[A-Z]+-\d+[a-z]?)*)",
+            flat,
+        )
+        if not cites:
+            yield fail(f"{rid} cites no chapter rule", skill.name)
+            continue
+        for fname, ids in cites:
+            for target in re.findall(rf"{pre}-[A-Z]+-\d+[a-z]?", ids):
+                if target not in home:
+                    yield fail(f"{rid} cites {target}, which is not a rule", skill.name)
+                elif home[target] != fname:
+                    yield fail(
+                        f"{rid} cites {fname} for {target}, which is in {home[target]}",
+                        skill.name,
+                    )
+
+
+def _counts(skill):
+    pre = skill.prefix
+    total = len(skill.rules)
+    per = [int(n) for n in re.findall(rf"`{pre}-[A-Z]+` \((\d+)\)", skill.text)]
+    if sum(per) != total:
+        yield fail(f"reference-map counts sum to {sum(per)}, actual {total}", skill.name)
+
+    stated = dict(re.findall(rf"`{pre}-([A-Z]+)` \((\d+)\)", skill.text))
+    actual = Counter(r.id.split("-")[1] for r in skill.rules)
+    for family in sorted(set(stated) | set(actual)):
+        want = int(stated[family]) if family in stated else None
+        got = actual.get(family)
+        if want != got:
+            yield fail(f"{pre}-{family} stated {want}, actual {got}", skill.name)
+
+    here = re.search(r"the other (\d+) live here", skill.text)
+    if here and int(here.group(1)) != total:
+        yield fail(f"'other {here.group(1)} live here' != {total}", skill.name)
+
+
+def _near_duplicates(skill, blocks):
+    shingled = {k: shingles(v) for k, v in blocks.items() if len(v) > 60}
+    for (k1, a), (k2, b) in itertools.combinations(shingled.items(), 2):
+        if k1[1] == k2[1] and overlap(a, b) > 0.45:
+            yield fail(f"near-duplicate {k1[1]} in {k1[0]} / {k2[0]}", skill.name)
+
+    for junk in (".git", ".DS_Store", "*.pyc", "__pycache__"):
+        if list(skill.root.rglob(junk)):
+            yield note(f"{junk} present in the skill tree", skill.name)
