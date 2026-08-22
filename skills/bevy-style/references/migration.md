@@ -375,9 +375,11 @@ code asks for `ReflectComponent`.
 0.19 renamed the old scene crate to `bevy_world_serialization` and gave the name `bevy_scene` to the
 new `bsn!`-based scene system. The two are unrelated.
 
-**Why:** this is the one rename in the whole table that silently means something else: a manifest or
-a `use` naming `bevy_scene` still resolves, and now refers to a different crate with a different
-purpose. Everything that was `Scene` is `WorldAsset`; `Scene` is now a trait in the new system.
+**Why:** this is the one rename in the whole table that silently means something else. A `use`
+naming `bevy_scene` still resolves, and a cargo feature named `bevy_scene` still exists — in 0.18 it
+enabled the serialization crate, and in 0.19 it enables the new scene system instead, so a manifest
+that was never edited now turns on a different thing. Everything that was `Scene` is `WorldAsset`;
+`Scene` is now a trait in the new system, and the `scene` collection enables both.
 
 **Check:** `grep -rn -E
 'SceneRoot|DynamicScene|SceneSpawner|SceneFilter|SceneInstanceReady|SceneLoader' src/`, and read
