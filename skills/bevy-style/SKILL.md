@@ -116,7 +116,7 @@ Nothing else is relaxed: a divergence not listed here is a defect, not a dialect
 | `rust-style` rule | What applies instead | Why Bevy forces it |
 |---|---|---|
 | `RS-API-24` Keep every struct field private | `BV-ECS-01` — component fields are public | The ECS is the accessor. Reflection, scenes, `bsn!` and the remote protocol all read fields directly, and a component cannot defend an invariant anyway. The exemption is paid for by `BV-ARC-04`. |
-| `RS-NAM-33` Never suffix a name with the language construct | `BV-ARC-10` — `*Plugin` and `*Systems` | `add_plugins(X)` and `configure_sets(_, X)` are the same shape with different meanings, so the name is the only signal. `bevy_lint` enforces it ecosystem-wide. |
+| `RS-NAM-33` Never suffix a name with the language construct | `BV-ARC-10` — `*Plugin` and `*Systems` | `add_plugins(X)` and `configure_sets(_, X)` are the same shape with different meanings, so the name is the only signal. Bevy addresses both by type — `is_plugin_added::<T>`, `disable::<T>` — and `bevy_lint` enforces the suffix ecosystem-wide. |
 | `RS-CAR-27` Run `clippy::pedantic` at warn and answer each warning | `BV-CAR-12` — `needless_pass_by_value` is allowed | It fires on every `Res<T>` parameter and its suggestion does not compile: `&Res<'_, T>` is not a `SystemParam`. |
 | `RS-CAR-31` Never blanket-allow at crate level | `BV-CAR-11` — `elided_lifetimes_in_paths` is allowed | It fires on every `Query`, `Res`, `ResMut`, `Commands`, `MessageReader` and `Local` parameter. Writing the `'_`s does satisfy it, and buys nothing but noise. |
 | `RS-CAR-23` Use caret requirements; never pin exact versions | `BV-CAR-04` — a game binary pins Bevy exactly | A 0.x minor bump renames half the API. Libraries keep the caret; the rule is unchanged for anything published. |
@@ -145,9 +145,10 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **BV-CORE-03 `[M]`** Data that must satisfy a condition does not live in a component as bare
   fields. Model it as a domain type with a private field and a fallible constructor, and let the
   component carry that type (`references/architecture.md` BV-ARC-04).
-- **BV-CORE-04 `[M]`** A plugin with no configuration is a function, not a unit struct with an
-  `impl` block. `main` adds plugins and nothing else
-  (`references/architecture.md` BV-ARC-09, BV-ARC-16).
+- **BV-CORE-04 `[M]`** Every plugin is a type implementing `Plugin`, named `*Plugin`, and never a
+  function or a closure: four of Bevy's own APIs address a plugin by its type, and a function's type
+  cannot be written. `main` adds plugins and nothing else
+  (`references/architecture.md` BV-ARC-09, BV-ARC-10, BV-ARC-16).
 
 ### Components and queries
 

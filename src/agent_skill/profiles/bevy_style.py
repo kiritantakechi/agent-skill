@@ -3,8 +3,8 @@
 Most of this standard's mechanical rules are already `grep` commands in their own
 `**Check:**`, which the self-application check runs — including the whole
 forbidden-API table, so an example written against an older Bevy fails the build.
-What is here is the two that a line-oriented grep cannot decide: whether a derive
-list contains a name, and whether a type's name matches the trait it implements.
+What is here is what a line-oriented grep cannot decide: whether a derive list
+contains a name, and whether a type's name matches the trait it implements.
 """
 
 from __future__ import annotations
@@ -57,14 +57,29 @@ def _debug_on_components(block) -> Iterable[Finding]:
 
 
 def _suffixes(block) -> Iterable[Finding]:
-    """BV-ARC-10 — a `Plugin` type ends in `Plugin`, a `SystemSet` in `Systems`."""
+    """BV-ARC-09 and BV-ARC-10 — what a plugin type is called, and what it derives.
+
+    A plugin written as a function is caught by BV-ARC-09's own `grep`, which the
+    self-application check runs. What is left for here is the type: its name, and
+    that it carries the derives every plugin type carries.
+    """
     for m in IMPL_PLUGIN.finditer(block.body):
-        if not m.group(1).endswith(SUFFIX["Plugin"]):
-            line = block.at(block.body[: m.start()].count("\n"))
+        name = m.group(1)
+        line = block.at(block.body[: m.start()].count("\n"))
+        where = f"{block.file}:{line} [{block.rule}]"
+        if not name.endswith(SUFFIX["Plugin"]):
             yield fail(
-                f"BV-ARC-10: `{m.group(1)}` implements `Plugin` and does not end in `Plugin`",
-                f"{block.file}:{line} [{block.rule}]",
+                f"BV-ARC-10: `{name}` implements `Plugin` and does not end in `Plugin`", where
             )
+        declared = re.search(rf"((?:#\[[^\]]*\]\s*)*)\bpub struct {re.escape(name)}\b", block.body)
+        if declared is None:
+            continue  # declared elsewhere; the block only shows the impl
+        derives = set()
+        for d in DERIVE.finditer(declared.group(1)):
+            derives |= {t.strip() for t in d.group(1).split(",")}
+        for required in ("Debug", "Default"):
+            if required not in derives:
+                yield fail(f"BV-ARC-09: plugin type `{name}` does not derive `{required}`", where)
 
     lines = block.lines
     for i, line in enumerate(lines):

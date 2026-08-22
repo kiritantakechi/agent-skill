@@ -76,8 +76,13 @@ impl FromWorld for SpriteHandles {
     }
 }
 
-pub fn plugin(app: &mut App) {
-    app.init_resource::<SpriteHandles>();
+#[derive(Debug, Default)]
+pub struct SpritesPlugin;
+
+impl Plugin for SpritesPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<SpriteHandles>();
+    }
 }
 ```
 

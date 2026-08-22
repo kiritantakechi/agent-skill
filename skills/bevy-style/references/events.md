@@ -122,9 +122,14 @@ fn apply_damage(mut damage: MessageReader<DamageDealt>, mut healths: Query<&mut 
     }
 }
 
-pub fn plugin(app: &mut App) {
-    app.add_message::<DamageDealt>()
-        .add_systems(FixedUpdate, apply_damage);
+#[derive(Debug, Default)]
+pub struct DamagePlugin;
+
+impl Plugin for DamagePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_message::<DamageDealt>()
+            .add_systems(FixedUpdate, apply_damage);
+    }
 }
 ```
 
@@ -216,8 +221,13 @@ fn collect_loot(died: On<Died>, loot: Query<&Loot>, mut bank: ResMut<Bank>) {
     }
 }
 
-pub fn plugin(app: &mut App) {
-    app.init_resource::<Bank>().add_observer(collect_loot);
+#[derive(Debug, Default)]
+pub struct LootPlugin;
+
+impl Plugin for LootPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Bank>().add_observer(collect_loot);
+    }
 }
 ```
 
@@ -293,10 +303,15 @@ fn count_down(_remove: On<Remove, Enemy>, mut count: ResMut<EnemyCount>) {
     count.0 = count.0.saturating_sub(1);
 }
 
-pub fn plugin(app: &mut App) {
-    app.init_resource::<EnemyCount>()
-        .add_observer(count_up)
-        .add_observer(count_down);
+#[derive(Debug, Default)]
+pub struct EnemyCountPlugin;
+
+impl Plugin for EnemyCountPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<EnemyCount>()
+            .add_observer(count_up)
+            .add_observer(count_down);
+    }
 }
 
 #[cfg(test)]
@@ -306,7 +321,7 @@ mod tests {
     #[test]
     fn the_count_follows_the_component() {
         let mut app = App::new();
-        app.add_plugins(plugin);
+        app.add_plugins(EnemyCountPlugin);
         let entity = app.world_mut().spawn(Enemy).id();
         assert_eq!(app.world().resource::<EnemyCount>().0, 1);
         app.world_mut().entity_mut(entity).despawn();

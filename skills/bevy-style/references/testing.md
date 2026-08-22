@@ -13,7 +13,7 @@ Rust unit tests, in microseconds, with no `World`.
 - **What to test where**
   - BV-TST-01 [M] Test the rules of the game without an `App`
   - BV-TST-02 [M] Build the smallest `App` that exercises the plugin
-  - BV-TST-03 [S] Test a plugin through its plugin function
+  - BV-TST-03 [S] Test a plugin through its own type
   - BV-TST-04 [M] Keep windowing and rendering out of a test
 
 - **Driving the app**
@@ -72,8 +72,13 @@ fn decay(mut healths: Query<&mut Health>) {
     }
 }
 
-pub fn plugin(app: &mut App) {
-    app.add_systems(FixedUpdate, decay);
+#[derive(Debug, Default)]
+pub struct HealthPlugin;
+
+impl Plugin for HealthPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(FixedUpdate, decay);
+    }
 }
 
 #[cfg(test)]
@@ -83,7 +88,7 @@ mod tests {
     #[test]
     fn one_fixed_step_costs_one_health() {
         let mut app = App::new();
-        app.add_plugins(plugin);
+        app.add_plugins(HealthPlugin);
         let entity = app.world_mut().spawn(Health(3.0)).id();
 
         app.world_mut().run_schedule(FixedUpdate);
@@ -96,16 +101,18 @@ mod tests {
 }
 ```
 
-### BV-TST-03 [S] Test a plugin through its plugin function
+### BV-TST-03 [S] Test a plugin through its own type
 
-`app.add_plugins(combat::plugin)`, not `app.add_systems(FixedUpdate, combat::apply_damage)`.
+`app.add_plugins(CombatPlugin)`, not `app.add_systems(FixedUpdate, combat::apply_damage)`.
 
 **Why:** the plugin is the published interface, so testing through it also tests the registration —
 the resource that has to be initialised, the message that has to be added, the set the system has to
 be in. Adding the system directly skips all of that, so the test passes while the plugin is missing
 an `init_resource` and the game crashes on the first frame.
 
-**Check:** does the test name a system function? If so it is not testing what the game runs.
+**Check:** does the test name a system function? If so it is not testing what the game runs. Where
+one plugin depends on another, `assert!(app.is_plugin_added::<T>())` pins that too — a check the
+plugin has to be a type to allow at all (BV-ARC-09).
 
 ### BV-TST-04 [M] Keep windowing and rendering out of a test
 

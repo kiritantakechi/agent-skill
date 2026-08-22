@@ -208,11 +208,16 @@ pub enum Screen {
 
 fn tick_simulation() {}
 
-pub fn plugin(app: &mut App) {
-    app.init_state::<Screen>().add_systems(
-        FixedUpdate,
-        tick_simulation.run_if(in_state(Screen::Playing)),
-    );
+#[derive(Debug, Default)]
+pub struct ScreenPlugin;
+
+impl Plugin for ScreenPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_state::<Screen>().add_systems(
+            FixedUpdate,
+            tick_simulation.run_if(in_state(Screen::Playing)),
+        );
+    }
 }
 ```
 
@@ -325,9 +330,14 @@ fn spawn_wave(mut commands: Commands) {
     }
 }
 
-pub fn plugin(app: &mut App) {
-    app.init_state::<Screen>()
-        .add_systems(OnEnter(Screen::Playing), spawn_wave);
+#[derive(Debug, Default)]
+pub struct LevelPlugin;
+
+impl Plugin for LevelPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_state::<Screen>()
+            .add_systems(OnEnter(Screen::Playing), spawn_wave);
+    }
 }
 ```
 

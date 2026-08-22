@@ -23,13 +23,13 @@ the game do not mention the engine.
   - BV-ARC-08 [S] Name a crate for what it models, not for the engine
 
 - **Plugins**
-  - BV-ARC-09 [M] Write a plugin as a function until it needs configuration
+  - BV-ARC-09 [M] Write every plugin as a type
   - BV-ARC-10 [M] Suffix a `Plugin` type `Plugin` and a `SystemSet` type `Systems`
   - BV-ARC-11 [M] A plugin registers its own things and only its own things
   - BV-ARC-12 [M] Let a duplicate plugin panic rather than opting out of the check
   - BV-ARC-13 [S] Reach for `PluginGroup` only when the group is the unit users add
   - BV-ARC-14 [M] Let the crate that defines a type own its registration
-  - BV-ARC-15 [S] Give each plugin one module and each module one plugin
+  - BV-ARC-15 [S] Give each plugin one module, and re-export it from the crate root
 
 - **The app**
   - BV-ARC-16 [M] Keep `main` to plugins and nothing else
@@ -294,22 +294,28 @@ engines, it is naming the subject.
 
 ## Plugins
 
-### BV-ARC-09 [M] Write a plugin as a function until it needs configuration
+### BV-ARC-09 [M] Write every plugin as a type
 
-`Plugin` is implemented for `Fn(&mut App)`, so a plugin with no settings is a **named** function.
-Reach for a type when the plugin carries fields the caller sets, and never for an inline closure.
+A plugin is a type that implements `Plugin`: `#[derive(Debug, Default)]`, a unit struct when it has
+no settings and named fields when it has. The blanket impl for `Fn(&mut App)` exists; do not reach
+for it, and never pass a closure.
 
-**Why:** a unit struct plus an `impl` block is six lines that carry no information the function did
-not. The type also forces the naming question this standard has to answer at all only because types
-exist: a function is called `plugin`, needs no suffix, and reads as `add_plugins(combat::plugin)` at
-the call site.
+**Why:** four of Bevy's own APIs address a plugin **by its type** — `App::is_plugin_added::<T>()`,
+`App::get_added_plugins::<T>()`, `PluginGroupBuilder::add_before::<T>()` and
+`PluginGroupBuilder::disable::<T>()`. A function's type is a fn-item type, which cannot be written
+in Rust source at all, so a plugin written as a function is unreachable from every one of them:
+nothing can ask whether it was added, read back its configuration, order a group around it, or
+switch it off. The type is what the engine addresses; the function impl is a convenience over it.
 
-**Check:** does the plugin type have fields? If not, it is a function that has been written as a
-type. An inline closure is the other failure: BV-ARC-12's duplicate check keys on the plugin's type
-name, and every closure renders as `{{closure}}`.
+It is also the form that survives growth. A unit-struct plugin that later needs a setting gains a
+field, and its call sites gain `::default()` or a literal; a function that needs one has to become a
+type first, which is that edit plus a rewrite of everything that named it.
+
+**Check:** `grep -rn -E 'fn [a-z_]+\(_?app: &mut App' src/` finds a plugin written as a function,
+and `grep -rn -F 'add_plugins(|' src/` finds one written as a closure. Neither can be named.
 
 ```rust
-// verified — GOOD: a plugin with no settings is a function
+// verified — GOOD: no settings, so the type is a unit struct
 use bevy::prelude::*;
 
 #[derive(Component, Debug)]
@@ -321,8 +327,14 @@ fn decay(mut healths: Query<&mut Health>) {
     }
 }
 
-pub fn plugin(app: &mut App) {
-    app.add_systems(FixedUpdate, decay);
+/// `Default` so a plugin with settings and one without are constructed alike.
+#[derive(Debug, Default)]
+pub struct DecayPlugin;
+
+impl Plugin for DecayPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(FixedUpdate, decay);
+    }
 }
 
 #[cfg(test)]
@@ -330,9 +342,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_function_is_a_plugin() {
+    fn the_plugin_registers_its_system_and_can_be_asked_about() {
         let mut app = App::new();
-        app.add_plugins(plugin);
+        app.add_plugins(DecayPlugin);
+        assert!(app.is_plugin_added::<DecayPlugin>());
+
         let entity = app.world_mut().spawn(Health(3.0)).id();
         app.world_mut().run_schedule(FixedUpdate);
         assert_eq!(
@@ -363,8 +377,9 @@ worse defect than a missing suffix, because it lies.
 // verified
 use bevy::prelude::*;
 
-/// Configuration, which is why this is a type rather than a function.
-#[derive(Debug, Clone, Copy)]
+/// Settings, so the type has fields. `Default` means a caller who wants none
+/// writes `CombatPlugin::default()` — the same shape as a unit-struct plugin.
+#[derive(Debug, Default, Clone, Copy)]
 pub struct CombatPlugin {
     pub friendly_fire: bool,
 }
@@ -411,11 +426,10 @@ override `is_unique` to make it stop.
 step with nothing saying so. Overriding `is_unique` buys exactly that, so it is only correct for a
 plugin whose `build` is genuinely idempotent, and then the `build` is what has to be shown to be.
 
-The check is by plugin **name**, which defaults to the type's `type_name`. That catches a plugin
-type, a named function, and — because they render identically — two unrelated closures. Two inline
-`|app: &mut App| { … }` plugins in one function both print as `{{closure}}`, so the second is
-refused with a message naming neither. It is the strongest practical argument for BV-ARC-09's named
-function over an inline closure.
+The check is by plugin **name**, which defaults to the type's `type_name`. A type gives that
+message something to say. The forms BV-ARC-09 forbids do not: two inline `|app: &mut App| { … }`
+plugins written in one function both render as `{{closure}}`, so the second is refused with a
+message naming neither of them.
 
 **Check:** grep for `fn is_unique`. Each override needs the reason the plugin is meaningfully
 instantiable twice, plus a test that adds it twice and asserts the world is what it should be.
@@ -427,8 +441,13 @@ use bevy::prelude::*;
 #[derive(Resource, Debug, Default)]
 struct WaveCount(u32);
 
-pub fn plugin(app: &mut App) {
-    app.init_resource::<WaveCount>();
+#[derive(Debug, Default)]
+pub struct WavePlugin;
+
+impl Plugin for WavePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<WaveCount>();
+    }
 }
 
 #[cfg(test)]
@@ -438,12 +457,12 @@ mod tests {
     #[test]
     fn adding_the_plugin_twice_is_refused_rather_than_doubled() {
         let mut app = App::new();
-        app.add_plugins(plugin);
+        app.add_plugins(WavePlugin);
         assert!(app.world().get_resource::<WaveCount>().is_some());
 
         // `App` is not `UnwindSafe`, and the panic is the assertion.
         let again = std::panic::AssertUnwindSafe(move || {
-            app.add_plugins(plugin);
+            app.add_plugins(WavePlugin);
         });
         assert!(std::panic::catch_unwind(again).is_err());
     }
@@ -476,16 +495,17 @@ runtime absence rather than a compile error.
 **Check:** for each `#[derive(Message)]`, `#[derive(Resource)]` and `#[reflect(Component)]`, find
 the registration. If it is in a different module from the definition, move it.
 
-### BV-ARC-15 [S] Give each plugin one module and each module one plugin
+### BV-ARC-15 [S] Give each plugin one module, and re-export it from the crate root
 
-`combat.rs` defines `combat::plugin` and the components, systems and sets that plugin registers.
+`combat.rs` defines `CombatPlugin` and the components, systems and sets it registers. The crate
+root re-exports the type, so a call site writes `CombatPlugin` rather than `combat::CombatPlugin`.
 
 **Why:** it makes the module tree and the plugin tree the same tree, so `add_plugins` reads as a
 table of contents for the source. A module with two plugins is two features that have not been
 separated; a plugin spanning two modules has no single place a reader can start.
 
-**Check:** does every `pub fn plugin` or `impl Plugin` sit at the root of its own module, and does
-every feature module have exactly one?
+**Check:** does every `impl Plugin` sit at the root of its own module, does every feature module
+have exactly one, and is each plugin type named in the crate root's re-exports?
 
 ## The app
 
@@ -503,10 +523,12 @@ is a registration that has escaped its plugin.
 
 ```rust
 // fragment — GOOD: the shape of a main
+use mygame::{CombatPlugin, EconomyPlugin, HudPlugin};
+
 fn main() -> AppExit {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins((combat::plugin, economy::plugin, hud::plugin))
+        .add_plugins((CombatPlugin, EconomyPlugin, HudPlugin))
         .run()
 }
 ```
@@ -540,7 +562,8 @@ already running against the wrong directory.
 
 ### BV-ARC-19 [S] Split the binary from the library so the game is testable without a window
 
-`src/lib.rs` holds the plugins; `src/main.rs` is `App::new().add_plugins(mygame::plugin).run()`.
+`src/lib.rs` holds the plugins and re-exports their types; `src/main.rs` is
+`App::new().add_plugins(mygame::GamePlugin).run()`.
 
 **Why:** integration tests, benchmarks and any second binary can depend on a library and cannot
 depend on a binary. Without the split, every test that needs more than one plugin has to be a unit

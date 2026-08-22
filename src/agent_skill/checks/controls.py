@@ -74,6 +74,30 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        "a plugin written as a function rather than a type",
+        "self-application",
+        lambda t: edit(
+            t,
+            "bevy-style/references/assets.md",
+            "#[derive(Debug, Default)]\npub struct SpritesPlugin;\n\n"
+            "impl Plugin for SpritesPlugin {\n"
+            "    fn build(&self, app: &mut App) {\n"
+            "        app.init_resource::<SpriteHandles>();\n"
+            "    }\n}",
+            "pub fn plugin(app: &mut App) {\n    app.init_resource::<SpriteHandles>();\n}",
+        ),
+    ),
+    Control(
+        "a plugin type missing a derive every plugin type carries",
+        "conventions",
+        lambda t: edit(
+            t,
+            "bevy-style/references/architecture.md",
+            "#[derive(Debug, Default)]\npub struct DecayPlugin;",
+            "#[derive(Debug)]\npub struct DecayPlugin;",
+        ),
+    ),
+    Control(
         "a plugin type without the suffix its trait requires",
         "conventions",
         lambda t: edit(

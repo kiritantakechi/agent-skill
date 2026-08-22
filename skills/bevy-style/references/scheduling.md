@@ -261,24 +261,29 @@ fn choose_targets() {}
 fn apply_damage() {}
 fn despawn_dead() {}
 
-pub fn plugin(app: &mut App) {
-    app.configure_sets(
-        FixedUpdate,
-        (
-            CombatSystems::Intent,
-            CombatSystems::Resolve,
-            CombatSystems::Cleanup,
+#[derive(Debug, Default)]
+pub struct CombatPlugin;
+
+impl Plugin for CombatPlugin {
+    fn build(&self, app: &mut App) {
+        app.configure_sets(
+            FixedUpdate,
+            (
+                CombatSystems::Intent,
+                CombatSystems::Resolve,
+                CombatSystems::Cleanup,
+            )
+                .chain(),
         )
-            .chain(),
-    )
-    .add_systems(
-        FixedUpdate,
-        (
-            choose_targets.in_set(CombatSystems::Intent),
-            apply_damage.in_set(CombatSystems::Resolve),
-            despawn_dead.in_set(CombatSystems::Cleanup),
-        ),
-    );
+        .add_systems(
+            FixedUpdate,
+            (
+                choose_targets.in_set(CombatSystems::Intent),
+                apply_damage.in_set(CombatSystems::Resolve),
+                despawn_dead.in_set(CombatSystems::Cleanup),
+            ),
+        );
+    }
 }
 ```
 
@@ -356,13 +361,18 @@ struct Enemy;
 
 fn tick_ai() {}
 
-pub fn plugin(app: &mut App) {
-    app.init_resource::<Paused>().add_systems(
-        FixedUpdate,
-        tick_ai
-            .run_if(any_with_component::<Enemy>)
-            .run_if(not(|paused: Res<Paused>| paused.0)),
-    );
+#[derive(Debug, Default)]
+pub struct AiPlugin;
+
+impl Plugin for AiPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Paused>().add_systems(
+            FixedUpdate,
+            tick_ai
+                .run_if(any_with_component::<Enemy>)
+                .run_if(not(|paused: Res<Paused>| paused.0)),
+        );
+    }
 }
 ```
 
