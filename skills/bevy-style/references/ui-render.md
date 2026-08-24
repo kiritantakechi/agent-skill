@@ -36,6 +36,8 @@ here.
   - BV-UI-16 [S] Reach for a custom `Material` before a custom render node
   - BV-UI-17 [M] Keep shader paths and material types together
   - BV-UI-18 [S] Debug in world space with gizmos
+  - BV-UI-19 [S] Reach for a post-process component before a full-screen pass
+  - BV-UI-20 [S] Draw with a retained gizmo before a sprite you have to despawn
 
 ---
 
@@ -105,7 +107,7 @@ fn spawn_hud(mut commands: Commands) {
         ScoreLabel,
         Text::new("0"),
         TextFont {
-            font_size: 32.0.into(),
+            font_size: FontSize::Px(32.0),
             ..default()
         },
         TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -163,8 +165,48 @@ indentation is the structure and every level adds a closure. `bsn!` is new in 0.
 ergonomics are not yet settled, which is why this is a `[S]` and why a two-component spawn stays a
 plain tuple.
 
+The grammar is not Rust and is worth reading once: components are juxtaposed with no separators, a
+`Component { field: value }` is a partial patch rather than a literal so the other fields keep their
+defaults, `Children [ … ]` takes comma-separated entities, and `{expr}` escapes back to Rust. It is
+spawned with `spawn_scene`, from the `CommandsSceneExt` trait — not `spawn`, because a scene is not
+a `Bundle`.
+
 **Check:** count the closing braces at the end of the spawn. Past three levels, the tuple form has
 stopped being readable.
+
+```rust
+// verified
+use bevy::prelude::*;
+use bevy::scene::{CommandsSceneExt, bsn};
+
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+pub struct Menu;
+
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+pub struct Choice;
+
+fn spawn_menu(mut commands: Commands) {
+    commands.spawn_scene(bsn! {
+        Menu
+        Node { width: Val::Percent(100.0), row_gap: Val::Px(8.0) }
+        Children [
+            (Choice Text("Play")),
+            (Choice Text("Quit")),
+        ]
+    });
+}
+
+#[derive(Debug, Default)]
+pub struct MenuPlugin;
+
+impl Plugin for MenuPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, spawn_menu);
+    }
+}
+```
 
 ## Colour
 
@@ -295,3 +337,34 @@ default, which is why debug text has a habit of shipping.
 
 **Check:** grep for spawned entities whose only purpose is debugging. Anything that has to be
 despawned to stop showing is a gizmo written the long way.
+
+### BV-UI-19 [S] Reach for a post-process component before a full-screen pass
+
+Bloom, motion blur, depth of field, vignette, lens distortion and chromatic aberration are
+components on the camera entity. Spawn them in the camera tuple; animate them by writing a field;
+turn one off by removing it.
+
+**Why:** BV-UI-16 sends a mesh effect to a `Material` and everything else to a render node — but a
+full-screen effect has no mesh, so following it lands the reader on the node it just warned them
+about. 0.19 closed that gap: `bevy_post_process` composes the whole stack into one pass, and
+`Vignette` and `LensDistortion` are new in it. They cost nothing to reach, because the crate is
+inside the `2d` and `3d` collections BV-CAR-02 already mandates. `Bloom` requires `Hdr`, which it
+declares itself.
+
+**Check:** for each custom full-screen pass, name the shipped component it reimplements. If there is
+none, that is the case BV-UI-16 was talking about.
+
+### BV-UI-20 [S] Draw with a retained gizmo before a sprite you have to despawn
+
+`Gizmo` plus a `GizmoAsset` is a line drawing that persists as an entity. Reach for it before
+spawning untextured sprites you redraw every frame.
+
+**Why:** BV-UI-18 keeps immediate-mode gizmos for debugging, and that leaves a gap it does not name:
+a map, an orbit, a selection ring, a debug overlay that has to survive the frame. The shape that
+fills it by default is a marker component, a despawn loop at the top of the system, and a fresh
+sprite per element per frame — which allocates, defeats change detection, and cannot be picked or
+queried because it did not exist a moment ago. A retained gizmo is built once and edited when the
+thing it draws changes.
+
+**Check:** find every system that begins by despawning what it is about to respawn. Each is either a
+retained gizmo or a set of entities that should have persisted.

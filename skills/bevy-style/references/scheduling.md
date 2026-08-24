@@ -40,6 +40,9 @@ event is in the events chapter.
   - BV-SCH-24 [S] Leave the executor alone
   - BV-SCH-25 [M] Keep `Local<T>` to state no other system needs
 
+- **Time control**
+  - BV-SCH-26 [M] Pause and scale the game through `Time<Virtual>`, not a flag
+
 ---
 
 ## Schedules
@@ -116,12 +119,25 @@ screenshot — it is one frame of lag that only shows up when something moves fa
 `Res<Time>` in `Update`, `Res<Time<Fixed>>` in `FixedUpdate`. Never a hard-coded step, and never
 `Time<Real>` for gameplay.
 
-**Why:** `Time` is a generic clock whose default instance is the one for the current schedule, so
-plain `Res<Time>` is right in both places — but naming the clock explicitly in `FixedUpdate` states
-the intent and survives the system being moved. `Time<Real>` ignores pause and time scaling, so
-gameplay driven by it keeps running while the game is paused.
+**Why:** `Time` is a generic clock whose default instance is the one for the current schedule — the
+fixed loop swaps it to `Time<Fixed>` for each step and back to `Time<Virtual>` afterwards — so plain
+`Res<Time>` is the portable form and reads correctly in either place. The explicit form buys clarity
+at the cost of that portability, which is the trade to make deliberately: `Time<Fixed>::delta` is
+the constant timestep in *every* schedule, so a system naming it and then moved to `Update` silently
+integrates at the fixed rate while running at the frame rate. `Time<Real>` ignores pause and time
+scaling, so gameplay driven by it keeps running while the game is paused.
 
-**Check:** grep for `1.0 / 60.0` and similar literals, and for `Time<Real>` outside diagnostics.
+`commands.delayed().secs(t)` is 0.19's replacement for a `Timer` whose only job is to postpone, and
+it belongs to the frame clock: its queue is checked in `PreUpdate` against `Res<Time>`. Use it for
+presentation — a despawn after a hit flash, a delayed sound. Anything a replay or a lockstep peer
+has to reproduce keeps a `Timer` ticked by `Time<Fixed>`: the deadline is stamped from whichever
+clock is default when the queue flushes, which inside the fixed loop is `Time<Fixed>`, and
+`PreUpdate` then compares it against `Time<Virtual>`. The two differ by the accumulated overstep, so
+the delay fires up to one fixed step early, at whatever resolution the frame rate happened to give.
+
+**Check:** grep for `1.0 / 60.0` and similar literals, for `Time<Real>` outside diagnostics, and for
+`.delayed(` inside a `FixedUpdate` system — the last is a simulation decision made on the frame
+clock.
 
 ```rust
 // verified
@@ -451,7 +467,7 @@ state, or an empty query is a run condition in the wrong place.
 use bevy::prelude::*;
 
 #[derive(Resource, Debug, Default)]
-struct Paused(bool);
+struct Alarm(bool);
 
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component)]
@@ -464,11 +480,11 @@ pub struct AiPlugin;
 
 impl Plugin for AiPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Paused>().add_systems(
+        app.init_resource::<Alarm>().add_systems(
             FixedUpdate,
             tick_ai
                 .run_if(any_with_component::<Enemy>)
-                .run_if(not(|paused: Res<Paused>| paused.0)),
+                .run_if(|alarm: Res<Alarm>| alarm.0),
         );
     }
 }
@@ -573,3 +589,23 @@ frames, or a "have I logged this yet" flag has no business in the world.
 
 **Check:** for each `Local<T>`, ask what would break if it were reset to `Default` between frames.
 If the answer involves game state rather than bookkeeping, it is a resource.
+
+## Time control
+
+### BV-SCH-26 [M] Pause and scale the game through `Time<Virtual>`, not a flag
+
+`time.pause()` on a `ResMut<Time<Virtual>>`, and `set_relative_speed(3.0)` for a speed control. Not
+a `Paused(bool)` resource, and not a run condition on every gameplay system.
+
+**Why:** pausing is one call because the virtual clock is what both schedules read.
+`Time<Virtual>::pause` sets the effective speed to zero, the generic `Time` that `Update` reads is
+copied from it, and the fixed loop accumulates its overstep from it — so one call freezes every
+`Timer`, every `Update` delta and every step of `FixedUpdate` at once. A boolean has to be
+remembered by every gameplay system anyone ever adds, which is a rule nothing enforces; and
+BV-STA-10 will tell you to delete the boolean anyway, because two of them are a state enum.
+
+What stays running is what should: `Time<Real>` for diagnostics, the UI, and anything that has to
+respond while the game is stopped.
+
+**Check:** grep for a resource named `paused`, a `run_if` mentioning one, and `is_paused` on
+anything but `Time<Virtual>`. Then pause the game and confirm a `FixedUpdate` counter stops.

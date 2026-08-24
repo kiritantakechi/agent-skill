@@ -64,9 +64,7 @@ class ZigStyle(Profile):
     )
 
     def conventions(self, skill) -> Iterable[Finding]:
-        for b in skill.blocks("zig"):
-            if b.marker.evidence:
-                continue
+        for b in skill.advice("zig"):
             lines = b.lines
             for j, raw in enumerate(lines):
                 where = f"{b.file}:{b.at(j)} [{b.rule}]"

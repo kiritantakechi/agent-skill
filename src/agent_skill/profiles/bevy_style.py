@@ -50,10 +50,7 @@ class BevyStyle(Profile):
     crate: Crate | None = BEVY_STYLE
 
     def conventions(self, skill) -> Iterable[Finding]:
-        for b in skill.blocks("rust"):
-            # A BAD block and a quotation are evidence rather than advice.
-            if b.marker.evidence:
-                continue
+        for b in skill.advice("rust"):
             yield from _component_shape(b)
             yield from _suffixes(b)
 

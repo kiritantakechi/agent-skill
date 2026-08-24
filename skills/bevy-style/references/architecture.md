@@ -128,20 +128,30 @@ mod tests {
 use bevy::prelude::*;
 
 #[derive(Component, Debug)]
-struct Health(f32);
+struct Health(pub f32);
 
 #[derive(Component, Debug)]
-struct Shield(f32);
+struct Shield(pub f32);
 
-fn absorb(mut hits: Query<(&mut Health, &mut Shield)>, amount: f32, pierces: bool) {
-    for (mut health, mut shield) in &mut hits {
-        if pierces {
-            health.0 -= amount;
+#[derive(Message, Debug, Clone, Copy)]
+struct Hit {
+    target: Entity,
+    amount: f32,
+    pierces_shield: bool,
+}
+
+fn absorb(mut hits: MessageReader<Hit>, mut targets: Query<(&mut Health, &mut Shield)>) {
+    for hit in hits.read() {
+        let Ok((mut health, mut shield)) = targets.get_mut(hit.target) else {
+            continue;
+        };
+        if hit.pierces_shield {
+            health.0 -= hit.amount;
             continue;
         }
-        let to_shield = amount.min(shield.0);
+        let to_shield = hit.amount.min(shield.0);
         shield.0 -= to_shield;
-        health.0 -= amount - to_shield;
+        health.0 -= hit.amount - to_shield;
     }
 }
 ```

@@ -440,8 +440,10 @@ branches on combinations that no entity actually has. Two systems with `With<A>`
 say which case each is for, run only over the entities in that case, and can be scheduled
 independently.
 
-**Check:** count the `if let Some(…)` in the body. If the combinations exceed the cases the game
-actually spawns, split by filter instead.
+**Check:** count the `Option<&T>` in the query, which is what the rule is about — the branching
+they force is just as reachable through `map_or`, `zip` or one `match`, so counting `if let Some`
+in the body misses the functional spellings this standard's sibling actively prefers. Three or more
+is the signal; split by `With`/`Without` instead.
 
 ### BV-ECS-19 [M] Treat `single` as fallible, because it is
 
@@ -525,13 +527,15 @@ struct Invulnerable;
 type Combatants<'w, 's> = Query<
     'w,
     's,
-    (Entity, &'static mut Transform, &'static mut Health),
+    (Entity, &'static Health, &'static Transform),
     (With<Enemy>, Without<Invulnerable>, Changed<Health>),
 >;
 
+/// Every item the alias names is read, and nothing asks for `&mut` it will not
+/// write — the alias does not get to opt out of BV-ECS-15 and BV-ECS-16.
 fn cull(mut commands: Commands, combatants: Combatants) {
-    for (entity, _transform, health) in &combatants {
-        if health.0 <= 0.0 {
+    for (entity, health, transform) in &combatants {
+        if health.0 <= 0.0 || transform.translation.y < -100.0 {
             commands.entity(entity).despawn();
         }
     }

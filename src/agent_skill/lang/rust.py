@@ -118,14 +118,17 @@ RUST_STYLE = Crate(
 #: are deliberately **not** here: a `type` alias and `#[derive(SystemParam)]`
 #: silence them, and both are the better code (BV-ECS-21, BV-SCH-10).
 #:
-#: The features are the `*_api` collections: every type a game names, without
-#: `bevy_render`, winit or wgpu. A standard talks about the API surface, and the
-#: backends cost minutes of build time to compile examples that never run.
+#: The features are the `*_api` collections plus `scene`: every type a game
+#: names, without `bevy_render`, winit or wgpu. A standard talks about the API
+#: surface, and the backends cost minutes of build time to compile examples that
+#: never run. `scene` is there for one example — `bsn!` is the newest surface in
+#: 0.19 and the only one whose grammar is not Rust, so it is the one that most
+#: needs a compiler behind it.
 BEVY_STYLE = Crate(
     name="bevy-style-verify",
     dependencies=(
         'bevy = { version = "=0.19.1", default-features = false, features = ['
-        '"std", "2d_api", "3d_api", "ui_api"] }',
+        '"std", "2d_api", "3d_api", "ui_api", "scene"] }',
     ),
     #: `missing_docs` because a block documents items selectively;
     #: `allow_attributes*` because the extractor itself injects a bare

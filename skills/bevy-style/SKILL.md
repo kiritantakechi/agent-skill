@@ -1,7 +1,7 @@
 ---
 name: bevy-style
 description: >-
-  The Bevy 0.19 engineering standard — a 241-rule delta on top of rust-style covering the ECS,
+  The Bevy 0.19 engineering standard — a 245-rule delta on top of rust-style covering the ECS,
   scheduling, observers and messages, states and resources, assets, error handling, Cargo features
   and the Bevy lint divergences, the user-facing half of UI and rendering, testing, and a forbidden
   API table spanning 0.15 through 0.19. Its spine is keeping the rules of the game out of the
@@ -263,14 +263,14 @@ Load the chapter that matches the task.
 |---|---|---|
 | `references/architecture.md` | the boundary, plugins, the app | `BV-ARC` (19) |
 | `references/ecs.md` | components, required components, queries, change detection, reflection | `BV-ECS` (31) |
-| `references/scheduling.md` | schedules, sets, ordering, run conditions, time, input | `BV-SCH` (25) |
+| `references/scheduling.md` | schedules, sets, ordering, run conditions, time, input | `BV-SCH` (26) |
 | `references/events.md` | messages, events, entity events, observers | `BV-EVT` (20) |
 | `references/state.md` | resources, states, transitions, scoping | `BV-STA` (21) |
-| `references/errors.md` | fallible systems, the error handler, panicking APIs | `BV-ERR` (16) |
+| `references/errors.md` | fallible systems, the error handler, panicking APIs | `BV-ERR` (17) |
 | `references/assets.md` | handles, loading, hot reload, asset lifetime | `BV-ASS` (14) |
 | `references/cargo.md` | features, version pinning, the lint divergences, CI | `BV-CAR` (20) |
 | `references/migration.md` | every API forbidden since 0.15, and what replaces it | `BV-MIG` (18) |
-| `references/ui-render.md` | UI nodes, text, cameras, materials, gizmos | `BV-UI` (18) |
+| `references/ui-render.md` | UI nodes, text, cameras, materials, post-process, gizmos | `BV-UI` (20) |
 | `references/testing.md` | headless apps, deterministic ticks, what to assert | `BV-TST` (15) |
 
 The 24 core rules in section 4 are summaries; the full statement is always in the chapter.

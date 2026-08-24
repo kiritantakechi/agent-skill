@@ -32,6 +32,7 @@ the error, and a `Command` declares its output as an associated type.
   - BV-ERR-14 [M] Report through `tracing`, never through `println!`
   - BV-ERR-15 [S] Log once, where the error is handled
   - BV-ERR-16 [M] Exit with `AppExit::error` when startup cannot continue
+  - BV-ERR-17 [M!] Decide the render error policy, because the default quits
 
 ---
 
@@ -282,3 +283,24 @@ plugins get to shut down, and the window closes rather than vanishing.
 
 **Check:** for each `panic!` outside a test, ask whether `AppExit::error()` says the same thing more
 usefully.
+
+### BV-ERR-17 [M!] Decide the render error policy, because the default quits
+
+`bevy::render::error_handler::RenderErrorHandler` decides what happens when the GPU fails. Insert
+your own before `DefaultPlugins`, beside `FallbackErrorHandler`.
+
+*Relaxed form:* a tool or an example may take the default, and then the rule is that nobody reports
+its clean exit as a crash.
+
+**Why:** the 0.19 default logs the error and writes `AppExit::error()` for **every** `RenderError` —
+a wgpu validation fault, an out-of-memory, a lost device — so a transient GPU problem ends the
+session, the player's window closes, and BV-ARC-17 faithfully turns it into a non-zero exit that
+reads as a crash. BV-ERR-16 already makes an unusable GPU *at startup* your decision; this is the
+same GPU failing an hour later, and the engine has decided for you. 0.19 ships the recovery it
+needs: `RenderErrorPolicy::Recover(RenderCreation)` rebuilds the device, `StopRendering` keeps the
+app alive with the image frozen, and `Ignore` keeps drawing — which can strobe if the fault repeats,
+so `Ignore` is the one that has to be justified. `RenderPlugin` registers the resource with
+`init_resource`, so inserting yours first wins.
+
+**Check:** grep for `RenderErrorHandler`. Exactly one insertion, and it branches on the error rather
+than returning one blanket policy.

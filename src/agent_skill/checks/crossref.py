@@ -14,7 +14,6 @@ cannot be: the claim is about a document nobody here can read.
 from __future__ import annotations
 
 import re
-import shutil
 import tempfile
 from pathlib import Path
 
@@ -113,9 +112,8 @@ def _anchor_greps(skill, by_prefix, rows):
         return
     named = set(re.findall(r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b", skill.text))
     lang = skill.profile.languages[0]
-    work = Path(tempfile.mkdtemp())
-    try:
-        corpus = Corpus().build(skill, lang, work)
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
+        corpus = Corpus().build(skill, lang, Path(work))
         if not corpus.blocks:
             return
         for prefix in sorted(anchors):
@@ -136,5 +134,3 @@ def _anchor_greps(skill, by_prefix, rows):
                         f"      {chapter}:{line} [{owner}] {snippet}",
                         skill.name,
                     )
-    finally:
-        shutil.rmtree(work, ignore_errors=True)

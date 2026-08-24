@@ -15,7 +15,6 @@ ERE accused eight correct examples of being the old entry point.
 from __future__ import annotations
 
 import re
-import shutil
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -41,6 +40,17 @@ class Pattern:
     mode: str  #: -F fixed, -E extended, -G basic
     kind: str  #: "command" — the Check ships it; "prose" — a span it names
 
+    @property
+    def over_comments(self) -> bool:
+        """Does this Check mean the comment, rather than the code?
+
+        A fact about the pattern, so it is asked once. `hits` and `lines_for`
+        each spelled it, ten lines apart, and they have to agree: the exemption
+        hook reads line `n` of whichever list `lines_for` returns, numbered by
+        whichever file `hits` grepped.
+        """
+        return "//" in self.text
+
 
 @dataclass
 class Corpus:
@@ -56,10 +66,9 @@ class Corpus:
     def build(self, skill, lang: str, work: Path) -> Corpus:
         from ..text import strip_comment
 
-        for b in skill.blocks(lang, verified=True):
-            if b.marker.evidence:
-                self.excluded += 1
-                continue
+        advice = skill.advice(lang, verified=True)
+        self.excluded = len(skill.blocks(lang, verified=True)) - len(advice)
+        for b in advice:
             self.blocks += 1
             base = len(self.raw)
             self.in_test |= {base + i for i in skill.profile.inside_tests(b.body)}
@@ -77,9 +86,7 @@ class Corpus:
 
     def hits(self, pattern: Pattern):
         """Line numbers, or None when grep rejects the pattern."""
-        # Patterns match the code half of each line unless the pattern itself
-        # contains `//` — a Check that greps for a comment means the comment.
-        target = self.raw_file if "//" in pattern.text else self.code_file
+        target = self.raw_file if pattern.over_comments else self.code_file
         for attempt in (pattern.mode, "-F"):
             r = run(["grep", "-n", attempt, "-e", pattern.text, str(target)], timeout=30)
             if r.rc != 2:
@@ -87,7 +94,7 @@ class Corpus:
         return None, pattern.mode
 
     def lines_for(self, pattern: Pattern) -> list[str]:
-        return self.raw if "//" in pattern.text else self.code
+        return self.raw if pattern.over_comments else self.code
 
 
 def grep_mode(command: str) -> str:
@@ -134,11 +141,8 @@ def selfapply(skill):
     lang = skill.profile.languages[0] if skill.profile.languages else None
     if lang is None:
         return
-    work = Path(tempfile.mkdtemp())
-    try:
-        yield from _run(skill, lang, work)
-    finally:
-        shutil.rmtree(work, ignore_errors=True)
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
+        yield from _run(skill, lang, Path(work))
 
 
 def _run(skill, lang, work):

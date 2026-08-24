@@ -330,9 +330,8 @@ def controls(skills):
         if target is None:
             yield fail(f"{control.name}: no check named {control.check!r}", "controls")
             continue
-        tmp = Path(tempfile.mkdtemp())
-        try:
-            tree = tmp / "skills"
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            tree = Path(tmp) / "skills"
             shutil.copytree(source, tree, symlinks=True)
             try:
                 control.break_it(tree)
@@ -345,8 +344,6 @@ def controls(skills):
                     f"{control.name}: `{control.check}` still passes — the control no longer fires",
                     "controls",
                 )
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
 
     yield from _empty_corpus()
 
@@ -357,13 +354,10 @@ def _empty_corpus():
     from ..model import Skill
 
     for name, toolchain in (("rust-style", "rust"), ("zig-style", "zig")):
-        tmp = Path(tempfile.mkdtemp())
-        try:
-            root = tmp / name
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            root = Path(tmp) / name
             (root / "references").mkdir(parents=True)
             (root / "SKILL.md").write_text("---\nname: x\n---\n")
             tc = toolchain_for(toolchain)
-            if tc and tc.extract(Skill(root), tmp / "out"):
+            if tc and tc.extract(Skill(root), Path(tmp) / "out"):
                 yield fail(f"an empty {toolchain} corpus still extracts blocks", "controls")
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)

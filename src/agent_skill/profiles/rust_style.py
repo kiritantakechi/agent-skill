@@ -43,10 +43,7 @@ class RustStyle(Profile):
     )
 
     def conventions(self, skill) -> Iterable[Finding]:
-        for b in skill.blocks("rust"):
-            # A BAD block and a quotation are evidence rather than advice.
-            if b.marker.evidence:
-                continue
+        for b in skill.advice("rust"):
             lines = b.lines
             for j, raw in enumerate(lines):
                 where = f"{b.file}:{b.at(j)} [{b.rule}]"

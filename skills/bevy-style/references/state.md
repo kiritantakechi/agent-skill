@@ -130,8 +130,16 @@ detection per item, no parallel iteration, no relationships, no reflection of th
 and no despawn. They also serialise every system that touches the collection against every other.
 The usual sign is a resource whose fields are all `Vec` or `HashMap` keyed by something entity-like.
 
+The single exception is a simulation the domain owns — one with its own clock, its own event log,
+and a save that has to replay. BV-ARC-06 forbids its fleets, its star systems and its in-flight
+orders from being components, because that would put `bevy_ecs` inside the domain; so they are one
+resource wrapping one domain type, and the adapter is what queries it. That is the *whole* of the
+exception: a resource holding a `Vec` of things the ECS could have held, on the ECS side of the
+boundary, is the defect this rule is about.
+
 **Check:** for each collection in a resource, ask what the elements are. If they have identity and a
-lifetime, they are entities.
+lifetime, they are entities — unless the collection is the domain's own state, in which case the
+resource is a newtype over one domain type and no system reaches inside it.
 
 ### BV-STA-06 [S] Make a read-only resource immutable
 

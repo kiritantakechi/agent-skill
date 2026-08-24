@@ -11,7 +11,6 @@ back, so the check is actionable rather than merely correct.
 from __future__ import annotations
 
 import re
-import shutil
 import tempfile
 from itertools import groupby
 from pathlib import Path
@@ -51,9 +50,8 @@ def format_skill(skill) -> list[str]:
     """
     if skill.profile.crate is None:
         return []
-    work = Path(tempfile.mkdtemp())
-    try:
-        extraction = RUST.extract(skill, work / "out")
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
+        extraction = RUST.extract(skill, Path(work) / "out")
         if not extraction:
             return []
         r = run(["cargo", "fmt"], cwd=extraction.root, timeout=300, env=extraction.crate.env)
@@ -87,5 +85,3 @@ def format_skill(skill) -> list[str]:
                 path.write_text(text)
                 changed.append(f"{chapter}: {hits} block(s) reformatted")
         return changed
-    finally:
-        shutil.rmtree(work, ignore_errors=True)

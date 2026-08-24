@@ -301,15 +301,22 @@ class Skill:
         out = [b for lg in langs for c in self.chapters for b in c.blocks(lg)]
         return [b for b in out if b.marker.verified] if verified else out
 
-    def corpus(self, lang: str | None = None) -> list[Block]:
-        """The blocks a rule's own grep may be run over.
+    def advice(self, lang: str | None = None, *, verified: bool = False) -> list[Block]:
+        """The blocks this standard offers as advice, not as evidence.
 
         `// verified — BAD` compiles, which is what the marker claims, and exists
         to contain the shape a rule forbids — which is what those greps hunt. Ten
-        of them sat in the corpus, so a rule whose grep matched its own
-        illustration would have failed for demonstrating itself correctly.
+        of them sat in the self-application corpus, so a rule whose grep matched
+        its own illustration would have failed for demonstrating itself
+        correctly.
+
+        One definition, because there were five: this predicate was spelled
+        inline in `checks/selfapply.py` and again in each of the three profiles,
+        while the shared name sat here uncalled — in the module whose own
+        docstring names "a predicate implemented twice and fixed once" as the
+        defect it exists to prevent.
         """
-        return [b for b in self.blocks(lang, verified=True) if not b.marker.evidence]
+        return [b for b in self.blocks(lang, verified=verified) if not b.marker.evidence]
 
 
 def load(root: Path) -> Skill:
