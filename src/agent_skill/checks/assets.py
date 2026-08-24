@@ -11,7 +11,7 @@ import re
 import tomllib
 
 from ..proc import have, run
-from ..report import fail
+from ..report import fail, note
 from . import check
 
 #: A workflow is not YAML we can parse without a dependency, so check the shape a
@@ -63,6 +63,10 @@ def assets(skill):
 
 def _zig(path, tag):
     if not have("zig"):
+        # Silence is not success: `toolchain` says so when its compiler is
+        # missing, and a shipped `build.zig` that nothing parsed is exactly
+        # the case this check exists for.
+        yield note("`zig` is not on PATH, so nothing parsed this file", tag)
         return
     if not run(["zig", "fmt", "--check", str(path)], timeout=60).ok:
         yield fail("not `zig fmt` clean", tag)

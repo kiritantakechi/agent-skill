@@ -46,6 +46,11 @@ dbg_macro = "deny"
 undocumented_unsafe_blocks = "deny"  # only meaningful if unsafe is allowed
 mem_forget = "deny"
 
+# Prefer `#[expect(…, reason = "…")]` to `#[allow]`, and make every remaining
+# allow say why: a suppression that stops being needed becomes a warning.
+allow_attributes = "warn"            # RS-CAR-30
+allow_attributes_without_reason = "warn"
+
 # `[lints] workspace = true` is all-or-nothing: a member cannot inherit the
 # table and override one entry. Keep the two below OUT of the workspace table if
 # any member is a binary, and add them to that library member's own [lints]

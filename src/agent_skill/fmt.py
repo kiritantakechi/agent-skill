@@ -15,7 +15,7 @@ import tempfile
 from itertools import groupby
 from pathlib import Path
 
-from .lang.rust import RUST
+from .lang.rust import RUST, Crate
 from .proc import run
 
 #: The line the extractor injects into every block module.
@@ -24,8 +24,16 @@ INJECTED = "#![allow(dead_code, unused_imports)]"
 _MODULE = re.compile(r"^pub mod (\w+) \{$", re.M)
 
 
-def _bodies(path: Path) -> list[str]:
-    """The dedented body of each `pub mod` in an extracted chapter file."""
+def _bodies(path: Path, crate: Crate) -> list[str]:
+    """The dedented body of each `pub mod`, with the extractor's rebasing undone.
+
+    `lang.rust._module` rewrites `crate::` and `mycrate::` to point inside the
+    wrapper module, so the block compiles where it is put. Writing that back
+    would store the harness's own path in the skill — the leak the extractor's
+    comment warns about, arriving by the other door — so it is inverted here.
+    Round-tripping a block through `fmt` has to be the identity on everything
+    except whitespace.
+    """
     text = path.read_text()
     starts = [m for m in _MODULE.finditer(text)]
     out: list[str] = []
@@ -39,7 +47,12 @@ def _bodies(path: Path) -> list[str]:
         body = [ln.removeprefix("    ") for ln in lines if ln.strip() != INJECTED]
         while body and not body[0].strip():
             body.pop(0)
-        out.append("\n".join(body) + "\n")
+        rebased = f"{path.stem}::{m.group(1)}::"
+        out.append(
+            ("\n".join(body) + "\n")
+            .replace(f"{crate.ident}::{rebased}", "mycrate::")
+            .replace(f"crate::{rebased}", "crate::")
+        )
     return out
 
 
@@ -64,7 +77,7 @@ def format_skill(skill) -> list[str]:
             src = extraction.root / "src" / f"{Path(chapter).stem.replace('-', '_')}.rs"
             if not wanted or not src.exists():
                 continue
-            bodies = _bodies(src)
+            bodies = _bodies(src, extraction.crate)
             if len(bodies) != len(wanted):
                 changed.append(f"{chapter}: {len(wanted)} blocks, {len(bodies)} modules; skipped")
                 continue

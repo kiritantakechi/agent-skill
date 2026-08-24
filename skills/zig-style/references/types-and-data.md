@@ -1168,6 +1168,10 @@ test "dimensionality" {
     registry.names[1] = "primary";
     registry.clear();
     try std.testing.expectEqualStrings("none", registry.nameOr(1, "none"));
+    // A slot past the end is what makes the return type `?[]const u8` rather
+    // than `[]const u8`: a miss, not a panic. Without this case the bounds
+    // guard can be deleted and the test still passes.
+    try std.testing.expectEqualStrings("none", registry.nameOr(4, "none"));
 }
 ```
 

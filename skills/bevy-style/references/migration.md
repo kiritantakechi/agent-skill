@@ -322,7 +322,9 @@ small and collectively the reason a 0.16 project does not compile.
 **Check:** `grep -rn -E
 'compute_matrix|StateScoped|Gizmos::cuboid|RenderGraphApp|ComputedNodeTarget|SimpleExecutor'
 src/`, plus `Timer::paused` and `Timer::finished`. The `Condition` rename is not greppable — the new
-name contains the old one — so read the `SystemCondition` bound instead.
+name contains the old one — so read the `SystemCondition` bound instead. `Pressed` is not greppable
+either, and for the opposite reason: 0.19 has a live `bevy_ui::Pressed` in the prelude, a marker for
+a widget being held down. Only `Pointer<Pressed>` is the removed one.
 
 | Removed | Write instead |
 |---|---|
@@ -401,7 +403,7 @@ and now means something else.
 | `SceneInstanceReady` | `WorldInstanceReady` |
 | `SceneSpawner` | `WorldInstanceSpawner` |
 | `SceneLoader` | `WorldAssetLoader` |
-| `ScenePlugin` | `WorldSerializationPlugin` — and `ScenePlugin` still exists, as the new system's |
+| `ScenePlugin` | `WorldSerializationPlugin` — and `ScenePlugin` still exists, as the `bsn!` system's |
 | `SceneFilter` | `WorldFilter` |
 | `SceneLoaderError` | `WorldAssetLoaderError` |
 | `SceneSpawnError` | `WorldInstanceSpawnError` |
@@ -454,5 +456,5 @@ up much later as a lifetime error in an unrelated function or as a value that tr
 `r.as_ref().clone()`.
 
 The other silent changes are stated where the topic lives: state transitions now fire on a
-same-state `set` (`references/state.md` BV-STA-19), and `Resource` is now a `Component`
+same-state `set` (`references/state.md` BV-STA-20), and `Resource` is now a `Component`
 (`references/state.md` BV-STA-01).

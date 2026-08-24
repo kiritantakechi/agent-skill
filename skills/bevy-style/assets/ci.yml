@@ -1,5 +1,5 @@
-# CI for a Bevy 0.19 game. Referenced by BV-CAR-05, BV-CAR-16, BV-CAR-17,
-# BV-CAR-18 and BV-CAR-20, and by BV-ARC-07 for the boundary job.
+# CI for a Bevy 0.19 game. Referenced by BV-CAR-05, BV-CAR-17, BV-CAR-18,
+# BV-CAR-19 and BV-CAR-21, and by BV-ARC-07 for the boundary job.
 name: ci
 
 on:
@@ -10,6 +10,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_BUILD_WARNINGS: deny
+  RUSTDOCFLAGS: -D warnings           # rustdoc's own lints: broken intra-doc links, bad HTML
 
 jobs:
   check:
@@ -35,8 +36,11 @@ jobs:
       # neither. See BV-CAR-05.
       - name: One Bevy version
         run: |
-          if cargo tree --duplicates | grep -q '^bevy '; then
-            cargo tree --duplicates | grep '^bevy '
+          # No trailing space: `^bevy ` would match only the facade, and the
+          # usual way two engines get into a tree is a plugin depending on
+          # `bevy_ecs` directly. BV-CAR-05 asks about anything named bevy.
+          if cargo tree --duplicates | grep -q '^bevy'; then
+            cargo tree --duplicates | grep '^bevy'
             echo 'more than one bevy version in the tree; see BV-CAR-05' >&2
             exit 1
           fi
@@ -50,7 +54,7 @@ jobs:
 
   shipped-features:
     # Building only the default feature set proves nothing about the artefact.
-    # This list is the one in the release manifest. See BV-CAR-17.
+    # This list is the one in the release manifest. See BV-CAR-18.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,8 +67,36 @@ jobs:
             libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - run: cargo build --release --no-default-features --features shipping
 
+  docs:
+    # `RUSTDOCFLAGS` above only bites if something actually runs rustdoc.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - run: cargo doc --no-deps --workspace
+
+  msrv:
+    # The manifest's `rust-version` is a claim; this is what makes it true.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98        # must match `rust-version`
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - run: cargo check --workspace
+
   bevy-lint:
-    # Optional (BV-CAR-16), and uncommented once the nightly below is the one
+    # Optional (BV-CAR-17), and uncommented once the nightly below is the one
     # the linter's compatibility table names for the version you install. The
     # linter loads a dynamic library from that toolchain at run time, so the
     # `rustc-dev` component is not optional and the toolchain must stay
@@ -83,7 +115,7 @@ jobs:
       - run: bevy lint
 
   wasm:
-    # Only if the game ships to the web. See BV-CAR-18.
+    # Only if the game ships to the web. See BV-CAR-19.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

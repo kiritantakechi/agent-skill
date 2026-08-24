@@ -17,22 +17,23 @@ gating a system on a state is in the scheduling chapter.
   - BV-STA-07 [M] Read a resource with `Res`, and take `ResMut` only to write
   - BV-STA-08 [M] Reach for `Option<Res<T>>` where absence is expected
   - BV-STA-09 [S] Keep configuration and progress in separate resources
+  - BV-STA-10 [S] Persist a settings resource with `#[derive(SettingsGroup)]`
 
 - **States**
-  - BV-STA-10 [M] Model the phases of the game as a `States` enum
-  - BV-STA-11 [M] Derive a dependent state rather than keeping two in step
-  - BV-STA-12 [S] Give loading its own state, not a flag
-  - BV-STA-13 [S] Use `SubStates` for a phase that only exists inside another
-  - BV-STA-14 [M] Register every state exactly once
-  - BV-STA-15 [M] Do not branch on `State<S>` inside a system body (see BV-SCH-21)
+  - BV-STA-11 [M] Model the phases of the game as a `States` enum
+  - BV-STA-12 [M] Derive a dependent state rather than keeping two in step
+  - BV-STA-13 [S] Give loading its own state, not a flag
+  - BV-STA-14 [S] Use `SubStates` for a phase that only exists inside another
+  - BV-STA-15 [M] Register every state exactly once
+  - BV-STA-16 [M] Do not branch on `State<S>` inside a system body (see BV-SCH-21)
 
 - **Transitions**
-  - BV-STA-16 [M] Put setup in `OnEnter` and teardown in `OnExit`
-  - BV-STA-17 [M] Scope an entity to a state with `DespawnOnExit`
-  - BV-STA-18 [M] Write the next state through `NextState`, never `State`
-  - BV-STA-19 [M] Guard a repeated `set` with `set_if_neq`
-  - BV-STA-20 [S] Keep a transition's work bounded
-  - BV-STA-21 [M] Do not assume a transition happens in the frame that requested it
+  - BV-STA-17 [M] Put setup in `OnEnter` and teardown in `OnExit`
+  - BV-STA-18 [M] Scope an entity to a state with `DespawnOnExit`
+  - BV-STA-19 [M] Write the next state through `NextState`, never `State`
+  - BV-STA-20 [M] Guard a repeated `set` with `set_if_neq`
+  - BV-STA-21 [S] Keep a transition's work bounded
+  - BV-STA-22 [M] Do not assume a transition happens in the frame that requested it
 
 ---
 
@@ -159,7 +160,7 @@ no writer possible, no two readers can conflict.
 **Why:** `ResMut` is an exclusive lock for the whole schedule, so a system holding one for reading
 blocks every other system that touches that resource for as long as it runs. Dereferencing it
 mutably also marks the resource changed, which makes `resource_changed` run conditions fire every
-frame — the resource-level version of BV-ECS-25.
+frame — the resource-level version of BV-ECS-26.
 
 **Check:** for each `ResMut`, find the write. If the body only reads, it is a `Res`.
 
@@ -278,9 +279,45 @@ writer. It is BV-ECS-02 for resources, and the same test applies.
 **Check:** for each resource, list the systems that write each field. Fields with disjoint writers
 are separate resources.
 
+### BV-STA-10 [S] Persist a settings resource with `#[derive(SettingsGroup)]`
+
+0.19's `bevy_settings` loads a resource from the platform's own preferences directory at startup and
+gives you two commands to write it back. It replaces the load system, the path constant, and the
+serialisation between them — but not the decision of *when* to save.
+
+**Why:** every game writes this code and writes the same bugs into it: the path that is right on one
+platform, the save that never fires because nothing watched for the change, and the settings file
+that is a bespoke format nobody else can read. Four things about it are worth knowing before it is
+reached for, and none of them are guessable:
+
+- **Saving is explicit.** The plugin loads; it does not save. `commands.queue(SaveSettingsDeferred(
+  Duration::from_secs_f32(0.5)))` debounces a write so a dragged slider does not hammer the disk,
+  and `SaveSettingsSync::IfChanged` blocks until the write lands, which is what save-on-quit needs.
+- **It is a reflected type, so BV-ECS-13 reaches it.** The derive list is
+  `#[derive(Resource, SettingsGroup, Reflect, Default)]` with
+  `#[reflect(Resource, SettingsGroup, Default)]`; without the `reflect` attribute the group is
+  invisible to the loader.
+- **Some platforms do not persist at all.** TOML under `~/.config`, `~/Library/Preferences` or
+  `%LOCALAPPDATA%`, `localStorage` on wasm — and on anything else `preferences_dir()` is `None` and
+  the settings are simply not kept. Code that treats a saved value as certain is wrong there.
+- **The 0.19 release notes name the API wrong.** They say `PreferencesPlugin`,
+  `SavePreferencesDeferred` and `SavePreferencesSync`; the shipped crate spells them
+  `SettingsPlugin`, `SaveSettingsDeferred` and `SaveSettingsSync`. This is BV-MIG-03's hazard on a
+  feature that is one release old, so check the name against the crate and not against the prose.
+
+Two smaller shapes: a group's TOML section is its own type name in snake_case, and two types sharing
+`#[settings_group(group = "…")]` merge into one section; `#[settings_group(key = …)]` is a compile
+error on a struct with named fields, where the keys are the field names. The feature is
+`bevy/bevy_settings`, which is in no collection, so it is named beside one (BV-CAR-11).
+
+**Check:** does anything in the game still build a config path, or serialise settings by hand? Both
+are what this replaces. Then find the save: a `SettingsGroup` with no `SaveSettings*` anywhere is a
+resource that loads once and never persists a change. BV-STA-09 still governs what goes in:
+settings are configuration, so progress does not belong in the same type.
+
 ## States
 
-### BV-STA-10 [M] Model the phases of the game as a `States` enum
+### BV-STA-11 [M] Model the phases of the game as a `States` enum
 
 Menu, loading, playing, paused, game over. `#[derive(States)]` with `Default` on the first phase.
 
@@ -319,7 +356,7 @@ impl Plugin for ScreenPlugin {
 }
 ```
 
-### BV-STA-11 [M] Derive a dependent state rather than keeping two in step
+### BV-STA-12 [M] Derive a dependent state rather than keeping two in step
 
 If "is the world simulating" is a function of the screen and the pause flag, it is a
 `ComputedStates` impl, not a third state somebody has to remember to set.
@@ -422,7 +459,7 @@ mod tests {
 }
 ```
 
-### BV-STA-12 [S] Give loading its own state, not a flag
+### BV-STA-13 [S] Give loading its own state, not a flag
 
 Asset loading is a phase: it has an entry, a progress condition, an exit, and a failure. That is a
 state.
@@ -435,7 +472,7 @@ is not written at all.
 **Check:** does the game have a `loaded: bool` or an `AssetsLoading` collection with a system that
 checks it? That check is a run condition on a transition.
 
-### BV-STA-13 [S] Use `SubStates` for a phase that only exists inside another
+### BV-STA-14 [S] Use `SubStates` for a phase that only exists inside another
 
 Paused, inventory-open and dialogue-open exist only while playing. `#[derive(SubStates)]` with
 `#[source(Screen = Screen::Playing)]` says so.
@@ -448,7 +485,7 @@ gets cleaned up without anyone writing that code.
 **Check:** for each state, ask whether every variant is meaningful in every variant of every other
 state. Where it is not, one is a sub-state of the other.
 
-### BV-STA-14 [M] Register every state exactly once
+### BV-STA-15 [M] Register every state exactly once
 
 `init_state` for a root state, `add_sub_state` for a sub-state, `add_computed_state` for a computed
 one — each called once, in the plugin that defines the type.
@@ -460,7 +497,7 @@ sub-state gives it an independent life, and the `#[source]` relationship silentl
 **Check:** grep each state type name. Exactly one registration call, and its kind matches the
 derive.
 
-### BV-STA-15 [M] Do not branch on `State<S>` inside a system body (see BV-SCH-21)
+### BV-STA-16 [M] Do not branch on `State<S>` inside a system body (see BV-SCH-21)
 
 Owned by `references/scheduling.md` BV-SCH-21. A comparison against `State<S>` in a body is a
 run condition that has been written as an `if`, and the system still pays for every parameter it
@@ -468,7 +505,7 @@ declared.
 
 ## Transitions
 
-### BV-STA-16 [M] Put setup in `OnEnter` and teardown in `OnExit`
+### BV-STA-17 [M] Put setup in `OnEnter` and teardown in `OnExit`
 
 `app.add_systems(OnEnter(Screen::Playing), spawn_level)` and the matching `OnExit`.
 
@@ -576,7 +613,7 @@ mod tests {
 }
 ```
 
-### BV-STA-17 [M] Scope an entity to a state with `DespawnOnExit`
+### BV-STA-18 [M] Scope an entity to a state with `DespawnOnExit`
 
 Spawn level entities with `DespawnOnExit(Screen::Playing)` rather than writing a system that queries
 and despawns them.
@@ -626,7 +663,7 @@ impl Plugin for LevelPlugin {
 }
 ```
 
-### BV-STA-18 [M] Write the next state through `NextState`, never `State`
+### BV-STA-19 [M] Write the next state through `NextState`, never `State`
 
 `next.set(Screen::Menu)` on a `ResMut<NextState<Screen>>`. `State<S>` is read-only by design.
 
@@ -726,7 +763,7 @@ mod tests {
 }
 ```
 
-### BV-STA-19 [M] Guard a repeated `set` with `set_if_neq`
+### BV-STA-20 [M] Guard a repeated `set` with `set_if_neq`
 
 Since 0.18, `next.set(S)` runs `OnExit(S)` and `OnEnter(S)` even when the current state is already
 `S`. A system that calls `set` every frame must use `set_if_neq`.
@@ -739,7 +776,7 @@ exactly what is wanted — which is why the old behaviour has to be asked for.
 **Check:** for each `next.set(`, ask whether the surrounding code can run while already in that
 state. If it can, it needs `set_if_neq`.
 
-### BV-STA-20 [S] Keep a transition's work bounded
+### BV-STA-21 [S] Keep a transition's work bounded
 
 `OnEnter` runs between frames, so everything in it is a frame the player does not get. Spawn what
 must exist; stream the rest.
@@ -752,7 +789,7 @@ hitch constant.
 **Check:** time the transition on the slowest supported machine. Anything over a frame's budget
 needs splitting.
 
-### BV-STA-21 [M] Do not assume a transition happens in the frame that requested it
+### BV-STA-22 [M] Do not assume a transition happens in the frame that requested it
 
 `next.set(…)` records a request. The state has not changed when the next line runs.
 

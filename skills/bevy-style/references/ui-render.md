@@ -19,25 +19,26 @@ here.
   - BV-UI-05 [S] Compose a mixed-style run from `TextSpan` children
   - BV-UI-06 [M] React to a button with an observer, not by polling `Interaction`
   - BV-UI-07 [S] Reach for `bevy_ui_widgets` before writing a widget
-  - BV-UI-08 [S] Build a nested UI tree with `bsn!`
+  - BV-UI-08 [S] Reach for `EditableText` before a text-input crate
+  - BV-UI-09 [S] Build a nested UI tree with `bsn!`
 
 - **Colour**
-  - BV-UI-09 [M] Construct a colour by naming its space
-  - BV-UI-10 [S] Keep the whole game in one colour space until the boundary
+  - BV-UI-10 [M] Construct a colour by naming its space
+  - BV-UI-11 [S] Keep the whole game in one colour space until the boundary
 
 - **Cameras and visibility**
-  - BV-UI-11 [M] Spawn a camera as `Camera2d` or `Camera3d`
-  - BV-UI-12 [M] Give every camera an explicit `order` once there are two
-  - BV-UI-13 [S] Put a render target on the camera as its own component
-  - BV-UI-14 [M] Set `Visibility`, and read `ViewVisibility`
-  - BV-UI-15 [M] Do not maintain `Aabb` by hand
+  - BV-UI-12 [M] Spawn a camera as `Camera2d` or `Camera3d`
+  - BV-UI-13 [M] Give every camera an explicit `order` once there are two
+  - BV-UI-14 [S] Put a render target on the camera as its own component
+  - BV-UI-15 [M] Set `Visibility`, and read `ViewVisibility`
+  - BV-UI-16 [M] Do not maintain `Aabb` by hand
 
 - **Materials and debugging**
-  - BV-UI-16 [S] Reach for a custom `Material` before a custom render node
-  - BV-UI-17 [M] Keep shader paths and material types together
-  - BV-UI-18 [S] Debug in world space with gizmos
-  - BV-UI-19 [S] Reach for a post-process component before a full-screen pass
-  - BV-UI-20 [S] Draw with a retained gizmo before a sprite you have to despawn
+  - BV-UI-17 [S] Reach for a custom `Material` before a custom render node
+  - BV-UI-18 [M] Keep shader paths and material types together
+  - BV-UI-19 [S] Debug in world space with gizmos
+  - BV-UI-20 [S] Reach for a post-process component before a full-screen pass
+  - BV-UI-21 [S] Draw with a retained gizmo before a sprite you have to despawn
 
 ---
 
@@ -115,7 +116,7 @@ fn spawn_hud(mut commands: Commands) {
 }
 
 /// A narrow window stacks the bar. Flex makes that one field; with hand-placed
-/// edges it is every child. The guard is BV-ECS-25 for a single field —
+/// edges it is every child. The guard is BV-ECS-26 for a single field —
 /// `Mut<Node>` marks the whole component, and the engine's layout watches it.
 fn stack_when_narrow(hud: Res<Hud>, mut bars: Query<&mut Node, With<HudBar>>) {
     let wanted = if hud.compact {
@@ -130,6 +131,15 @@ fn stack_when_narrow(hud: Res<Hud>, mut bars: Query<&mut Node, With<HudBar>>) {
     }
 }
 
+/// The plugin's published ordering surface. Anything that needs to run after the
+/// bar has been restacked — another plugin, or the test below — names this, never
+/// `stack_when_narrow`, which stays free to be renamed or split (BV-SCH-14).
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HudSystems {
+    /// Rewrites the bar's `flex_direction` from `Hud::compact`.
+    Stack,
+}
+
 #[derive(Debug, Default)]
 pub struct HudPlugin;
 
@@ -137,7 +147,7 @@ impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Hud>()
             .add_systems(Startup, spawn_hud)
-            .add_systems(Update, stack_when_narrow);
+            .add_systems(Update, stack_when_narrow.in_set(HudSystems::Stack));
     }
 }
 
@@ -179,7 +189,7 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(HudPlugin)
             .init_resource::<Relayouts>()
-            .add_systems(Update, count_relayouts.after(stack_when_narrow));
+            .add_systems(Update, count_relayouts.after(HudSystems::Stack));
         app.update();
         app.update();
         let settled = app.world().resource::<Relayouts>().0;
@@ -351,7 +361,95 @@ are also where upstream's improvements land, so a hand-written one is a fork.
 
 **Check:** is the widget one of the five? Then the question is what the shipped one does not do.
 
-### BV-UI-08 [S] Build a nested UI tree with `bsn!`
+### BV-UI-08 [S] Reach for `EditableText` before a text-input crate
+
+0.19 put a real text field in the engine. `bevy_text::EditableText` holds the content and the
+cursor; `bevy_ui_widgets::EditableTextInputPlugin` wires the keyboard, the pointer, focus and the
+clipboard to it.
+
+**Why:** text editing is Unicode work wearing a string's clothes. Backspace removes a grapheme
+cluster and not a byte, the cursor moves by cluster, and on wasm a paste resolves a frame or more
+after it is asked for — every hand-rolled field gets those wrong in about that order. Two things
+make this component unlike the rest of the chapter, and both are worth knowing before it is wrapped:
+it is not in the prelude, so it is imported by name, and it derives neither `Debug` nor `Reflect`,
+because it holds a `parley::PlainEditor`. BV-ECS-03 therefore cannot reach it, and a component that
+holds one cannot derive `Reflect` either — which is a reason to keep the field's *value* in a
+component of your own and let this one stay the editor.
+
+**Check:** `queue_edit` is the only thing that changes the text. Assigning the string in place
+leaves the cursor pointing into content that no longer exists. The queue drains in `PostUpdate`
+under `EditableTextSystems`, so a reader in `Update` is looking at last frame's text.
+
+```rust
+// verified — GOOD
+use bevy::prelude::*;
+use bevy::text::{EditableText, TextEdit};
+
+/// The game's own fact about the field, which *can* reflect. `EditableText`
+/// next to it owns the cursor and the Unicode; this owns the meaning.
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+pub struct SeedEntry;
+
+/// `EditableText` requires `TextLayout`, `TextFont`, `TextColor`, `LineHeight`
+/// and `FontHinting`, so the spawn names neither — BV-ECS-06 supplies them.
+fn spawn_seed_entry(mut commands: Commands) {
+    commands.spawn((SeedEntry, Node::default(), EditableText::default()));
+}
+
+/// An edit is queued, never applied here: the engine applies it in `PostUpdate`
+/// where it can move the cursor by the same rules that drew the glyphs.
+fn paste_seed(mut fields: Query<&mut EditableText, With<SeedEntry>>) -> Result {
+    let mut field = fields.single_mut()?;
+    field.queue_edit(TextEdit::Insert("42".into()));
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    /// The required components arrive without being named, which is the half
+    /// of this that a reader is most likely to write out by hand.
+    #[test]
+    fn the_field_brings_its_text_components() {
+        let mut app = App::new();
+        app.add_systems(Startup, spawn_seed_entry);
+        app.update();
+
+        let mut fields = app
+            .world_mut()
+            .query_filtered::<(&TextFont, &TextColor, &TextLayout), With<SeedEntry>>();
+        assert_eq!(fields.iter(app.world()).count(), 1);
+    }
+
+    /// Queued, not applied: nothing has drained the queue yet, and that is
+    /// exactly why reading the text back in `Update` would be wrong.
+    #[test]
+    fn an_edit_waits_for_post_update() {
+        let mut app = App::new();
+        app.add_systems(Startup, spawn_seed_entry);
+        app.update();
+        // The annotation is load-bearing: a system returning Bevy's `Result`
+        // satisfies `IntoResult` two ways — as itself and as `Result<T,
+        // BevyError>` — so `Out` is ambiguous without it (E0283). Naming
+        // `()` picks the second, which folds a system error into the outer
+        // `Err` where `is_ok` can see it.
+        let ran: Result<(), _> = app.world_mut().run_system_once(paste_seed);
+        assert!(ran.is_ok());
+
+        let mut fields = app.world_mut().query::<&EditableText>();
+        let queued = fields
+            .single(app.world())
+            .ok()
+            .map(|f| f.pending_edits.len());
+        assert_eq!(queued, Some(1));
+    }
+}
+```
+
+### BV-UI-09 [S] Build a nested UI tree with `bsn!`
 
 `bsn!` from `bevy_scene` expresses a tree with its children inline. Reach for it once the UI nests
 more than two levels.
@@ -406,7 +504,7 @@ impl Plugin for MenuPlugin {
 
 ## Colour
 
-### BV-UI-09 [M] Construct a colour by naming its space
+### BV-UI-10 [M] Construct a colour by naming its space
 
 `Color::srgb(r, g, b)` for a colour picked in a design tool. `Color::linear_rgb` and
 `LinearRgba` for a value that is being computed.
@@ -419,7 +517,7 @@ renamed to `Color::srgb`.
 **Check:** grep for colour construction and check each against where the value came from. Design
 tool and hex codes are sRGB; anything a shader or a lerp produced is linear.
 
-### BV-UI-10 [S] Keep the whole game in one colour space until the boundary
+### BV-UI-11 [S] Keep the whole game in one colour space until the boundary
 
 Pick sRGB for authored values, convert once where they enter the renderer, and do arithmetic in
 linear.
@@ -434,7 +532,7 @@ are in. If the answer varies, the conversions are not at a boundary.
 
 ## Cameras and visibility
 
-### BV-UI-11 [M] Spawn a camera as `Camera2d` or `Camera3d`
+### BV-UI-12 [M] Spawn a camera as `Camera2d` or `Camera3d`
 
 `commands.spawn(Camera2d)`. The bundles are gone, and the required components supply `Camera`,
 `Transform`, `Projection` and the rest.
@@ -445,7 +543,7 @@ exactly one required component in the spawn tuple without restating the others.
 
 **Check:** grep for `Camera2dBundle` and `Camera3dBundle`.
 
-### BV-UI-12 [M] Give every camera an explicit `order` once there are two
+### BV-UI-13 [M] Give every camera an explicit `order` once there are two
 
 `Camera { order: 1, .. }` on the UI camera, `0` on the world camera.
 
@@ -542,7 +640,7 @@ mod tests {
 }
 ```
 
-### BV-UI-13 [S] Put a render target on the camera as its own component
+### BV-UI-14 [S] Put a render target on the camera as its own component
 
 Since 0.18, `RenderTarget` is a component rather than a field on `Camera`.
 
@@ -555,7 +653,7 @@ travel with it is the bad one.
 **Check:** read every `Camera` struct literal in the diff. A `target` field in one is the 0.17
 spelling; too many identifiers are called `target` for a grep to answer this.
 
-### BV-UI-14 [M] Set `Visibility`, and read `ViewVisibility`
+### BV-UI-15 [M] Set `Visibility`, and read `ViewVisibility`
 
 `Visibility::Hidden` to hide something. `InheritedVisibility` and `ViewVisibility` are outputs.
 
@@ -731,7 +829,7 @@ mod tests {
 }
 ```
 
-### BV-UI-15 [M] Do not maintain `Aabb` by hand
+### BV-UI-16 [M] Do not maintain `Aabb` by hand
 
 Since 0.18, Bevy adds and updates an `Aabb` for meshes and sprites, including when the mesh or
 sprite changes.
@@ -745,7 +843,7 @@ looks harmless, which is why it survives upgrades.
 
 ## Materials and debugging
 
-### BV-UI-16 [S] Reach for a custom `Material` before a custom render node
+### BV-UI-17 [S] Reach for a custom `Material` before a custom render node
 
 A `Material` (or `Material2d`) with a fragment shader covers most of what a game wants: a shield
 effect, a dissolve, a palette swap.
@@ -757,7 +855,7 @@ finding out it was not is a rewrite per release.
 
 **Check:** can the effect be expressed as "this mesh, drawn differently"? Then it is a material.
 
-### BV-UI-17 [M] Keep shader paths and material types together
+### BV-UI-18 [M] Keep shader paths and material types together
 
 The `Material` impl naming a shader path lives beside the struct, and the shader lives at a path the
 struct's module name predicts.
@@ -770,7 +868,7 @@ visibly missing on the other.
 **Check:** for each `impl Material`, is the shader path within sight of the struct definition, and
 does the struct's field order match the shader's?
 
-### BV-UI-18 [S] Debug in world space with gizmos
+### BV-UI-19 [S] Debug in world space with gizmos
 
 `Gizmos::line`, `circle`, `cube`, and since 0.19 `Gizmos::text` and `text_2d`. Not a spawned
 `Text2d` that has to be despawned.
@@ -782,13 +880,13 @@ default, which is why debug text has a habit of shipping.
 **Check:** grep for spawned entities whose only purpose is debugging. Anything that has to be
 despawned to stop showing is a gizmo written the long way.
 
-### BV-UI-19 [S] Reach for a post-process component before a full-screen pass
+### BV-UI-20 [S] Reach for a post-process component before a full-screen pass
 
 Bloom, motion blur, depth of field, vignette, lens distortion and chromatic aberration are
 components on the camera entity. Spawn them in the camera tuple; animate them by writing a field;
 turn one off by removing it.
 
-**Why:** BV-UI-16 sends a mesh effect to a `Material` and everything else to a render node — but a
+**Why:** BV-UI-17 sends a mesh effect to a `Material` and everything else to a render node — but a
 full-screen effect has no mesh, so following it lands the reader on the node it just warned them
 about. 0.19 closed that gap: `bevy_post_process` composes the whole stack into one pass, and
 `Vignette` and `LensDistortion` are new in it. They cost nothing to reach, because the crate is
@@ -796,14 +894,14 @@ inside the `2d` and `3d` collections BV-CAR-02 already mandates. `Bloom` require
 declares itself.
 
 **Check:** for each custom full-screen pass, name the shipped component it reimplements. If there is
-none, that is the case BV-UI-16 was talking about.
+none, that is the case BV-UI-17 was talking about.
 
-### BV-UI-20 [S] Draw with a retained gizmo before a sprite you have to despawn
+### BV-UI-21 [S] Draw with a retained gizmo before a sprite you have to despawn
 
 `Gizmo` plus a `GizmoAsset` is a line drawing that persists as an entity. Reach for it before
 spawning untextured sprites you redraw every frame.
 
-**Why:** BV-UI-18 keeps immediate-mode gizmos for debugging, and that leaves a gap it does not name:
+**Why:** BV-UI-19 keeps immediate-mode gizmos for debugging, and that leaves a gap it does not name:
 a map, an orbit, a selection ring, a debug overlay that has to survive the frame. The shape that
 fills it by default is a marker component, a despawn loop at the top of the system, and a fresh
 sprite per element per frame — which allocates, defeats change detection, and cannot be picked or

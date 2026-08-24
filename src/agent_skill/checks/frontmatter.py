@@ -44,7 +44,7 @@ def frontmatter(skill):
     if "<" in desc or ">" in desc:
         yield fail("angle bracket in description", skill.name)
 
-    stated = re.search(r"(\d+)-rule library", desc)
+    stated = re.search(r"(\d+)-rule \w+", desc)
     actual = len(skill.rules) + len(skill.core_rules)
     if stated and int(stated.group(1)) != actual:
         yield fail(f"description says {stated.group(1)} rules, actual {actual}", skill.name)

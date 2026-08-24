@@ -124,10 +124,6 @@ def _words(text: str) -> set[str]:
     return {w for w in re.findall(r"[a-z_]+", text.lower()) if w not in STOP and len(w) > 2}
 
 
-def _jaccard(a: set[str], b: set[str]) -> float:
-    return len(a & b) / len(a | b) if a and b else 0.0
-
-
 def _mis_cited(skill):
     """A core rule that cites a sibling of the rule it is actually about.
 
@@ -160,11 +156,11 @@ def _mis_cited(skill):
                 rule = skill.by_id.get(target)
                 if rule is None:
                     continue
-                mine = _jaccard(summary, _words(f"{rule.title} {rule.statement}"))
+                mine = overlap(summary, _words(f"{rule.title} {rule.statement}"))
                 for other in by_file.get(fname, []):
                     if other.id in named:
                         continue
-                    theirs = _jaccard(summary, _words(f"{other.title} {other.statement}"))
+                    theirs = overlap(summary, _words(f"{other.title} {other.statement}"))
                     if theirs > mine * 2 and theirs - mine > 0.15:
                         yield note(
                             f"{rid} cites {target} ({rule.title!r}) but {other.id} "

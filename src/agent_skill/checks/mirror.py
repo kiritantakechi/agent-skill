@@ -12,6 +12,7 @@ import re
 
 from ..report import fail, note
 from . import check
+from .anatomy import overlap
 
 #: (rule id in the second skill, title of its counterpart in the first)
 MIRROR: list[tuple[str, str]] = [
@@ -75,13 +76,9 @@ def mirror(skills):
             continue
         a = _shingles(rule.title)
         for other in anchor.rules:
-            if a and _shingles(other.title) and _overlap(a, _shingles(other.title)) > 0.5:
+            if a and _shingles(other.title) and overlap(a, _shingles(other.title)) > 0.5:
                 yield note(
                     f"{rule.id} and {other.id} look like a pair MIRROR does not hold "
                     f"({rule.title!r})",
                     "mirror",
                 )
-
-
-def _overlap(a: set, b: set) -> float:
-    return len(a & b) / len(a | b)

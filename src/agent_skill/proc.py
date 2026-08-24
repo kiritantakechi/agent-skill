@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import signal
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,20 +34,41 @@ def run(
     env: dict[str, str] | None = None,
 ) -> Ran:
     try:
-        p = subprocess.run(
+        proc = subprocess.Popen(
             cmd,
             cwd=cwd,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout,
-            check=False,
             env={**os.environ, **env} if env else None,
+            # So a timeout can reach the whole tree, not just the leader.
+            start_new_session=True,
         )
-    except subprocess.TimeoutExpired:
-        return Ran(None, "", "", True)
     except FileNotFoundError:
         return Ran(127, "", f"{cmd[0]}: not found", False)
-    return Ran(p.returncode, p.stdout, p.stderr, False)
+    with proc:
+        try:
+            out, err = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            _kill_tree(proc)
+            proc.communicate()
+            return Ran(None, "", "", True)
+        return Ran(proc.returncode, out, err, False)
+
+
+def _kill_tree(proc: subprocess.Popen) -> None:
+    """Kill the process group, because `Popen.kill` kills only the leader.
+
+    Timing out a `cargo` left nine to twelve `rustc` children alive — measured,
+    and still climbing two seconds later — every one of them writing into the
+    build directory the next invocation was about to use, with cargo's lock
+    already gone. A build directory in an undefined state is how a mutation run
+    reports something impossible.
+    """
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except ProcessLookupError, PermissionError:
+        proc.kill()
 
 
 def have(tool: str) -> bool:

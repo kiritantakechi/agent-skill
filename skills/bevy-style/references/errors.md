@@ -20,7 +20,7 @@ the error, and a `Command` declares its output as an associated type.
   - BV-ERR-06 [S] Override the handler per schedule only where the phase differs
 
 - **The panicking half**
-  - BV-ERR-07 [M] Never unwrap a query
+  - BV-ERR-07 [M] Never unwrap a query (see BV-ECS-19)
   - BV-ERR-08 [M] Never index a collection an entity count can reach
   - BV-ERR-09 [M] Prefer the non-panicking half of every pair
   - BV-ERR-10 [M] Never panic to report bad content
@@ -307,18 +307,11 @@ could not have expressed it.
 
 ## The panicking half
 
-### BV-ERR-07 [M] Never unwrap a query
+### BV-ERR-07 [M] Never unwrap a query (see BV-ECS-19)
 
-`query.single()?`, `query.get(entity)?`, `let Ok(x) = … else { continue }`. Never `.unwrap()` and
-never `.expect(…)` on a query result.
-
-**Why:** "exactly one camera" and "this entity has a Health" are true right up until the frame where
-they are not — the entity was despawned by a system that ran earlier, or has not been spawned yet
-because loading finished this frame. `single` was made fallible in 0.16 for exactly this reason:
-the panicking form was the shorter name, so it read as the default.
-
-**Check:** grep for `single().unwrap`, `single_mut().unwrap`, `get(`…`).unwrap` and `.expect(` on
-anything derived from a `Query`.
+Owned by `references/ecs.md` BV-ECS-19. The query is where the panicking half is taken most often,
+and it needs no machinery of its own: a system that already returns `Result` for BV-ERR-01's sake
+can propagate `single()?` and `get(entity)?` with the `?` it was going to have anyway.
 
 ### BV-ERR-08 [M] Never index a collection an entity count can reach
 
@@ -334,14 +327,17 @@ in this standard's lint table for exactly this.
 
 ### BV-ERR-09 [M] Prefer the non-panicking half of every pair
 
-Bevy ships both halves for most lookups. Take the one that returns `Option` or `Result`.
+Bevy ships both halves for most lookups. Take the one that returns `Option` or `Result`. This is
+about game code: a `#[cfg(test)]` body may take the panicking half, because a test asserting on the
+world wants the panic (BV-TST-10), and routing it through `get_resource` would only add an unwrap
+that BV-ERR-01 forbids.
 
 **Why:** the panicking half exists for examples and for code where the invariant is structural, and
 game code is neither. The pairs are easy to miss because the panicking name is the shorter one — it
 reads as the default when it is the exception. `bevy_lint`'s `panicking_methods` reports the `World`
 ones.
 
-**Check:** grep for the left column.
+**Check:** grep for the left column, outside `#[cfg(test)]`.
 
 | Panicking | Use instead |
 |---|---|

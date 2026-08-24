@@ -87,7 +87,7 @@ progress bar, a retry and a state transition, none of which a `Startup` system c
 
 **Check:** for each `Startup` system, ask how long it takes on the slowest supported machine. If the
 answer is "depends on the disk", it belongs in a loading state
-(`references/state.md` BV-STA-12).
+(`references/state.md` BV-STA-13).
 
 ### BV-SCH-04 [M] Never move a camera from `FixedUpdate`
 
@@ -866,7 +866,7 @@ a `Paused(bool)` resource, and not a run condition on every gameplay system.
 copied from it, and the fixed loop accumulates its overstep from it — so one call freezes every
 `Timer`, every `Update` delta and every step of `FixedUpdate` at once. A boolean has to be
 remembered by every gameplay system anyone ever adds, which is a rule nothing enforces; and
-BV-STA-10 will tell you to delete the boolean anyway, because two of them are a state enum.
+BV-STA-11 will tell you to delete the boolean anyway, because two of them are a state enum.
 
 What stays running is what should: `Time<Real>` for diagnostics, the UI, and anything that has to
 respond while the game is stopped.

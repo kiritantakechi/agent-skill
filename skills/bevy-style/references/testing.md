@@ -164,7 +164,8 @@ mod tests {
 ### BV-TST-02 [M] Build the smallest `App` that exercises the plugin
 
 `App::new()` plus the plugin under test plus whatever it genuinely requires. `MinimalPlugins` when
-the plugin needs a schedule runner; `DefaultPlugins` almost never.
+the plugin needs a schedule runner; `DefaultPlugins` never — BV-TST-04 rules it out on a reason no
+test can argue with.
 
 **Why:** each plugin added is a set of systems that run on every `update()`, so a test built on
 `DefaultPlugins` is slow, needs a display on some platforms, and fails for reasons unrelated to what
@@ -366,7 +367,7 @@ mod tests {
 `app.world_mut().flush()` after a command, or run the schedule that applies it. A spawn queued by a
 command is not visible until then.
 
-**Why:** it is BV-ECS-30 inside a test, and it is the most common reason a Bevy test fails with "the
+**Why:** it is BV-ECS-31 inside a test, and it is the most common reason a Bevy test fails with "the
 entity does not exist" while the game works fine. The test does not have a later system to hide the
 deferral, so it sees the queue directly.
 

@@ -1,6 +1,6 @@
 # Canonical workspace manifest for a Bevy 0.19 game.
 # Copy, then delete what does not apply.
-# Referenced by BV-CAR-02, BV-CAR-04, BV-CAR-07, BV-CAR-15.
+# Referenced by BV-CAR-02, BV-CAR-04, BV-CAR-07, BV-CAR-16.
 
 [workspace]
 resolver = "3"                       # implied by edition 2024; explicit is fine
@@ -33,18 +33,21 @@ bevy = { version = "=0.19.1", default-features = false, features = ["2d", "ui", 
 # This table is `rust-style`'s, with exactly two entries relaxed. Both were
 # measured against a representative plugin, and both say which kind of
 # divergence they are. Adding a third needs the same treatment: the API that
-# forces it, the count, and whether a compliant form exists (BV-CAR-14).
+# forces it, the count, and whether a compliant form exists (BV-CAR-15).
 # ---------------------------------------------------------------------------
 
 [workspace.lints.rust]
-unsafe_code = "forbid"               # survives every Bevy derive; measured
+# `forbid` survives every Bevy derive — measured, none of them emit unsafe.
+# Drop to "deny" only for a game that genuinely needs it: a custom SystemParam,
+# a hand-written WorldQuery, an FFI binding. The lint below is waiting for that.
+unsafe_code = "forbid"
 missing_docs = "deny"
 missing_debug_implementations = "deny"
 unreachable_pub = "warn"
 unused_qualifications = "warn"
 explicit_outlives_requirements = "warn"
 
-# RELAXED (BV-CAR-11). Fires on every system parameter — Query, Res, ResMut,
+# RELAXED (BV-CAR-12). Fires on every system parameter — Query, Res, ResMut,
 # Commands, MessageReader, Local — because each carries the world and state
 # lifetimes: fourteen warnings in one five-system plugin. A compliant form does
 # exist and does compile (`Query<'_, '_, &mut T>`, `Res<'_, T>`); it buys
@@ -62,6 +65,7 @@ todo = "deny"
 unimplemented = "deny"
 indexing_slicing = "deny"            # BV-ERR-08
 dbg_macro = "deny"                   # BV-ERR-14
+undocumented_unsafe_blocks = "deny"  # inert under `forbid`, live the moment that drops to "deny"
 mem_forget = "deny"
 
 # Prefer `#[expect(…, reason = "…")]` to `#[allow]`, and make every remaining
@@ -78,7 +82,7 @@ float_cmp = "warn"
 # Individually justified allows only — never allow the whole group.
 module_name_repetitions = "allow"    # reason: crate re-exports flatten paths anyway
 
-# RELAXED (BV-CAR-12). Fires on every `Res<T>` parameter a system does not
+# RELAXED (BV-CAR-13). Fires on every `Res<T>` parameter a system does not
 # consume, and the suggestion does not compile: `&Res<'_, T>` is not a
 # `SystemParam`, so following the lint produces E0277 at the `add_systems`
 # call. This one has no compliant form.
@@ -87,7 +91,7 @@ needless_pass_by_value = "allow"
 # NOT relaxed, deliberately: `type_complexity` and `too_many_arguments` both
 # fire on ordinary Bevy code, and upstream Bevy allows both. A `type` alias
 # (BV-ECS-21) and `#[derive(SystemParam)]` (BV-SCH-10) silence them, and both
-# are the better code. See BV-CAR-13.
+# are the better code. See BV-CAR-14.
 
 [profile.dev]
 # The game's own crates stay unoptimised, so the edit-compile-run loop is fast.
@@ -102,5 +106,8 @@ opt-level = 3                        # BV-CAR-07
 # lockstep networking or golden vectors. See BV-CAR-09.
 overflow-checks = true
 lto = "thin"
-codegen-units = 1
+# codegen-units = 1                  # a few percent, and much slower builds of a
+                                     # dependency tree that is already the slow
+                                     # part. Turn it on against a number, the way
+                                     # BV-CAR-03 asks of every other hand-pick.
 debug = "line-tables-only"           # keep profiles usable; strip separately

@@ -137,8 +137,9 @@ prose span or a Check listed in the profile's `not_decisive` table (notes), and 
 pattern with more hits than `judgement`, which enumerates rather than accuses.
 `bevy-style` uses the first tier deliberately: fifteen of its `**Check:**`
 sections are literal `grep` commands — thirteen over the APIs Bevy removed
-between 0.15 and 0.19, and two over the plugin forms it forbids — so an example
-written against an older engine, or written as a function, fails the build rather
+between 0.15 and 0.19, one over the plugin forms it forbids, and one over the
+boundary itself — so an example written against an older engine, written as a
+function, or naming the engine from a simulation crate fails the build rather
 than being noticed by a reader.
 
 Each `not_decisive` entry quotes a literal substring of that rule's own Check,

@@ -85,10 +85,19 @@ class Corpus:
         return self
 
     def hits(self, pattern: Pattern):
-        """Line numbers, or None when grep rejects the pattern."""
+        """Line numbers, or None when grep did not answer.
+
+        grep exits 0 for a match, 1 for none, and 2 when it rejects the
+        pattern — which is what the `-F` retry is for. Anything else is not an
+        answer at all: a timeout gives `rc is None` and a missing grep gives
+        127, and both carry an empty stdout. Reading that as zero hits would
+        report a Check as clean on the strength of a run that never happened.
+        """
         target = self.raw_file if pattern.over_comments else self.code_file
         for attempt in (pattern.mode, "-F"):
             r = run(["grep", "-n", attempt, "-e", pattern.text, str(target)], timeout=30)
+            if r.timed_out or r.rc not in (0, 1, 2):
+                return None, attempt
             if r.rc != 2:
                 return [int(ln.split(":", 1)[0]) for ln in r.out.splitlines() if ln], attempt
         return None, pattern.mode
@@ -184,7 +193,9 @@ def _run(skill, lang, work):
             lines, used = corpus.hits(pattern)
             if lines is None:
                 yield fail(
-                    f"{rule.id}: grep rejects its own Check pattern /{pattern.text}/", skill.name
+                    f"{rule.id}: grep gave no answer for its own Check pattern "
+                    f"/{pattern.text}/ — rejected, timed out, or not installed",
+                    skill.name,
                 )
                 continue
             exempt = profile.exempt.get(rule.id)

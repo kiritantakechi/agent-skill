@@ -1,7 +1,7 @@
 ---
 name: bevy-style
 description: >-
-  The Bevy 0.19 engineering standard — a 245-rule delta on top of rust-style covering the ECS,
+  The Bevy 0.19 engineering standard — a 249-rule delta on top of rust-style covering the ECS,
   scheduling, observers and messages, states and resources, assets, error handling, Cargo features
   and the Bevy lint divergences, the user-facing half of UI and rendering, testing, and a forbidden
   API table spanning 0.15 through 0.19. Its spine is keeping the rules of the game out of the
@@ -40,6 +40,11 @@ Rules are cited by ID — `BV-ECS-04`, `BV-SCH-12`. The prefix identifies the ow
 6 maps prefix to file). Rules from the other standard keep their own prefix, so an `RS-` citation is
 always a pointer out of this document.
 
+A handful of rules end in `(see BV-…)`. Those are pointers: the rule belongs to another chapter,
+and this one repeats it because a reader who opened *this* chapter needs it. A pointer states where
+the rule lives and what it means here, and carries no **Why** or **Check** of its own — the owning
+rule has both.
+
 Every fenced example carries a marker on its first line. `// verified` — the block compiles against
 Bevy 0.19.1 on edition 2024, and any test it ships passes. `// fragment` — shown in context rather
 than compiled as a unit, usually because it names things the chapter declares around it.
@@ -71,7 +76,7 @@ rule is acceptable.
 1. **Setting the same state now runs the transition.** Since 0.18, `next_state.set(S)` fires
    `OnExit(S)` and `OnEnter(S)` even when the current state is already `S`. Code that called `set`
    every frame used to be free and now re-runs every setup and teardown system in the game.
-   `set_if_neq` is the old behaviour (`references/state.md` BV-STA-19).
+   `set_if_neq` is the old behaviour (`references/state.md` BV-STA-20).
 2. **`Ref<T>` now clones the `Ref`, not the `T`.** 0.19 gave `Ref` its own `Clone` and `Copy`. A
    `value.clone()` that used to produce a `T` now produces another `Ref<T>`, and only fails to
    compile if the surrounding code was explicit about the type. Write `ref.deref().clone()` for the
@@ -115,16 +120,20 @@ Nothing else is relaxed: a divergence not listed here is a defect, not a dialect
 
 | `rust-style` rule | What applies instead | Why Bevy forces it |
 |---|---|---|
-| `RS-API-24` Keep every struct field private | `BV-ECS-01` — component fields are public | The ECS is the accessor. Reflection, scenes, `bsn!` and the remote protocol all read fields directly, and a component cannot defend an invariant anyway. The exemption is paid for by `BV-ARC-04`. |
+| `RS-API-24` Keep every struct field private, including the ones with no invariant | `BV-ECS-01` — component fields are public | The ECS is the accessor. Reflection, scenes, `bsn!` and the remote protocol all read fields directly, and a component cannot defend an invariant anyway. The exemption is paid for by `BV-ARC-04`. |
 | `RS-API-26` Keep tuple-struct fields private too | `BV-ECS-01` — a component newtype is `pub` too | The newtype's `pub` normally spends the freedom to change the representation. For a component the representation *is* the contract: reflection, scenes and the remote protocol all address the field by name, so there is no freedom left to spend. |
 | `RS-NAM-33` Never suffix a name with the language construct | `BV-ARC-10` — `*Plugin` and `*Systems` | `add_plugins(X)` and `configure_sets(_, X)` are the same shape with different meanings, so the name is the only signal. Bevy addresses both by type — `is_plugin_added::<T>`, `disable::<T>` — and `bevy_lint` enforces the suffix ecosystem-wide. |
 | `RS-ERR-14` Never expose `Box<dyn Error>` or `anyhow::Error` from a library | `BV-ERR-03` — a system returns `BevyError`, the domain does not | `BevyError` is boxed and type-erased, and Bevy's `Result` alias is exactly the aliased form the rule names. Its rationale does not reach here: a system has no caller to match on the error — the schedule hands it to the error handler. Everything a caller could branch on stays a real type on the domain side. |
-| `RS-CAR-27` Run `clippy::pedantic` at warn and answer each warning | `BV-CAR-12` — `needless_pass_by_value` is allowed | It fires on every `Res<T>` parameter and its suggestion does not compile: `&Res<'_, T>` is not a `SystemParam`. |
-| `RS-CAR-31` Never blanket-allow at crate level | `BV-CAR-11` — `elided_lifetimes_in_paths` is allowed | It fires on every `Query`, `Res`, `ResMut`, `Commands`, `MessageReader` and `Local` parameter. Writing the `'_`s does satisfy it, and buys nothing but noise. |
-| `RS-CAR-23` Use caret requirements; never pin exact versions | `BV-CAR-04` — a game binary pins Bevy exactly | A 0.x minor bump renames half the API. Libraries keep the caret; the rule is unchanged for anything published. |
+| `RS-CAR-31` Never blanket-`allow` at crate level to make CI green | `BV-CAR-12` — `elided_lifetimes_in_paths` is allowed | It fires on every `Query`, `Res`, `ResMut`, `Commands`, `MessageReader` and `Local` parameter. Writing the `'_`s does satisfy it, and buys nothing but noise. |
 | `RS-CAR-24` Turn off default features on heavy dependencies | `BV-CAR-02` — start from a feature collection | Bevy's feature graph has 172 entries and moves every release; a hand-picked list goes stale silently, as an unmeasured one always does. |
 | `RS-FP-04` A `for` loop that only pushes is a `collect` | `BV-ECS-20` — iterate a query with `for` | Query iteration is effect, not transformation: the loop writes through `Mut<T>` and the borrow does not survive a collect. |
 | `RS-API-71` Use `#[non_exhaustive]` where the shape may grow | `BV-ECS-05` — components are exhaustive | Struct-literal construction is how components are spawned, and `#[non_exhaustive]` forbids it outside the defining crate. Required components are the growth mechanism instead. |
+
+Two rows that look like they belong here and do not. `RS-CAR-27` asks for `pedantic` at warn and
+allows "individual lints with a comment giving the reason" — which is exactly what `BV-CAR-13` does,
+so allowing `needless_pass_by_value` with its reason obeys that rule rather than overriding it. And
+`RS-CAR-23` is titled "never pin exact versions *in a library*"; `BV-CAR-04` pins in a game binary
+and keeps the caret for anything published, so the two never meet.
 
 `RS-STR-46` is not on this list either: it forbids glob imports "outside tests and preludes", and
 `use bevy::prelude::*` is a prelude. It is the first line of nearly every Bevy file, and naming
@@ -171,7 +180,7 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
   (`references/ecs.md` BV-ECS-17).
 - **BV-CORE-08 `[M!]`** Writing through `Mut<T>` marks the component changed whether or not the
   value differs. Anything a `Changed<T>` filter watches is written with `set_if_neq`
-  (`references/ecs.md` BV-ECS-25).
+  (`references/ecs.md` BV-ECS-26).
 - **BV-CORE-09 `[M]`** Give a query type more than one data item and more than one filter and it
   becomes unreadable; name it with a `type` alias. Give a system more than seven parameters and
   group them with `#[derive(SystemParam)]`
@@ -234,24 +243,25 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **BV-CORE-24 `[M]`** Two entries of `rust-style`'s lint table are relaxed for Bevy code and no
   others: `elided_lifetimes_in_paths` and `clippy::needless_pass_by_value`. `type_complexity` and
   `too_many_arguments` stay on, because both have a compliant form that is better code
-  (`references/cargo.md` BV-CAR-11, BV-CAR-12 and BV-CAR-13).
+  (`references/cargo.md` BV-CAR-12, BV-CAR-13 and BV-CAR-14).
 
 ## 5. Before handing back a diff
 
 1. **Does anything outside the view layer name Bevy?** That is the one defect this standard exists
-   to prevent, and it is invisible until the next upgrade.
+   to prevent, and it is invisible until the next upgrade (BV-ARC-01).
 2. **Is every API in the diff a 0.19 API?** Check anything that looks like a tutorial against
-   `references/migration.md`. `Trigger`, `EventReader`, `Parent` and `*Bundle` are the usual four.
+   `references/migration.md`. `Trigger`, `EventReader`, `Parent` and `*Bundle` are the usual four
+   (BV-MIG-01).
 3. **Is any `Changed<T>` watching something written unconditionally?** If so the filter matches
-   every frame and is doing nothing.
+   every frame and is doing nothing (BV-ECS-26).
 4. **Does every fallible system return `Result`?** Search the diff for `unwrap`, `expect` and
-   `[` on a query or resource.
+   `[` on a query or resource (BV-ERR-01, BV-ERR-09).
 5. **Is the ordering expressed in sets?** A `.after(some_system)` naming a function is a
-   dependency on an implementation detail.
+   dependency on an implementation detail (BV-SCH-12, BV-SCH-14).
 6. **Would each new system be skipped when it should be?** A run condition, a state scope, or
-   neither on purpose.
+   neither on purpose (BV-SCH-17, BV-STA-18).
 7. **Does each new component derive `Reflect` and get registered?** An unregistered type is
-   invisible to every tool.
+   invisible to every tool (BV-ECS-03, BV-ECS-13).
 8. **Is anything `[M!]` relying on its relaxed form?** If so, say which of the shipped-code
    conditions does not hold.
 
@@ -262,15 +272,15 @@ Load the chapter that matches the task.
 | Chapter | Covers | Rules |
 |---|---|---|
 | `references/architecture.md` | the boundary, plugins, the app | `BV-ARC` (19) |
-| `references/ecs.md` | components, required components, queries, change detection, reflection | `BV-ECS` (31) |
+| `references/ecs.md` | components, required components, queries, change detection, reflection | `BV-ECS` (32) |
 | `references/scheduling.md` | schedules, sets, ordering, run conditions, time, input | `BV-SCH` (26) |
 | `references/events.md` | messages, events, entity events, observers | `BV-EVT` (20) |
-| `references/state.md` | resources, states, transitions, scoping | `BV-STA` (21) |
+| `references/state.md` | resources, states, transitions, scoping | `BV-STA` (22) |
 | `references/errors.md` | fallible systems, the error handler, panicking APIs | `BV-ERR` (17) |
 | `references/assets.md` | handles, loading, hot reload, asset lifetime | `BV-ASS` (14) |
-| `references/cargo.md` | features, version pinning, the lint divergences, CI | `BV-CAR` (20) |
+| `references/cargo.md` | features, version pinning, the lint divergences, CI | `BV-CAR` (21) |
 | `references/migration.md` | every API forbidden since 0.15, and what replaces it | `BV-MIG` (18) |
-| `references/ui-render.md` | UI nodes, text, cameras, materials, post-process, gizmos | `BV-UI` (20) |
+| `references/ui-render.md` | UI nodes, text, cameras, materials, post-process, gizmos | `BV-UI` (21) |
 | `references/testing.md` | headless apps, deterministic ticks, what to assert | `BV-TST` (15) |
 
 The 24 core rules in section 4 are summaries; the full statement is always in the chapter.

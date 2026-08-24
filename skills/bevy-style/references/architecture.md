@@ -831,14 +831,17 @@ have exactly one, and is each plugin type named in the crate root's re-exports?
 ### BV-ARC-16 [M] Keep `main` to plugins and nothing else
 
 `main` builds the `App`, adds plugins, and runs it. Systems, resources and configuration belong to
-the plugin that owns them.
+the plugin that owns them. The exception is a build-time decision that must be in place *before*
+`DefaultPlugins` — the two error handlers of BV-ERR-05 and BV-ERR-17 — because no plugin can be
+added early enough to own something the plugin group itself may need.
 
 **Why:** `main` is the one file every reader opens first, and a `main` that adds forty systems tells
 them nothing about how the game is organised. It is also the one place that cannot be reused: a
 headless test, a benchmark and a second binary all want the plugins without the window.
 
-**Check:** count the statements in `main` that are not `add_plugins`, `App::new` or `run`. Each one
-is a registration that has escaped its plugin.
+**Check:** count the statements in `main` that are not `add_plugins`, `App::new`, `run`, or one of
+the two pre-`DefaultPlugins` handler insertions named above. Each one is a registration that has
+escaped its plugin.
 
 ```rust
 // fragment — GOOD: the shape of a main

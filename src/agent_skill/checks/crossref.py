@@ -32,6 +32,42 @@ def _ids(skill) -> set[str]:
     return {r.id for r in skill.rules} | {rid for rid, _, _ in skill.core_rules}
 
 
+#: Everything outside `skills/` that names a rule. `assets.py` validates the ids
+#: a skill ships, and nothing validated these — so renumbering a chapter left
+#: two comments in `lang/rust.py` pointing at the rules that had moved up.
+APPARATUS = ("src", "tests", "README.md")
+
+#: Two files hold ids that are *meant* to be invalid: the negative controls
+#: inject an out-of-range number precisely to prove a check fires on it.
+#: Scanning those would turn each fixture into a failure. (Naming one here
+#: would too — this comment is inside a scanned file.)
+FIXTURES = ("checks/controls.py", "tests/test_crossref.py")
+
+
+def _apparatus_citations(known: dict[str, set[str]], root: Path | None = None):
+    """A rule id named in the code or the README still has to resolve.
+
+    `root` is injectable so this has a real test: the control harness copies
+    `skills/` and nothing else, so it cannot reach the files this reads.
+    """
+    root = root or Path(__file__).resolve().parents[3]
+    files = []
+    for name in APPARATUS:
+        target = root / name
+        files += sorted(target.rglob("*.py")) if target.is_dir() else [target]
+    for path in files:
+        rel = path.relative_to(root).as_posix()
+        if not path.exists() or any(rel.endswith(f) for f in FIXTURES):
+            continue
+        for m in CITATION.finditer(path.read_text()):
+            prefix = m.group(1)
+            if prefix in known and m.group(0) not in known[prefix]:
+                yield fail(
+                    f"cites {m.group(0)}, which is not a rule",
+                    f"{path.relative_to(root)}",
+                )
+
+
 def _plain(s: str) -> str:
     """Titles are quoted with backticks in one place and not the other."""
     return " ".join(s.replace("`", "").split()).lower()
@@ -70,7 +106,11 @@ def crossref(skills):
             actual = titles[theirs[:2]].get(theirs)
             if actual is None:
                 continue  # the citation check above already reported it
-            if quoted and not _plain(actual).startswith(_plain(quoted)):
+            # The whole title, not a prefix of it. A title's tail is where its
+            # scope lives — `RS-CAR-23` ends "in a library" — so a row that
+            # quotes a prefix can invent a divergence by dropping the clause
+            # that rules it out. Two rows did exactly that.
+            if quoted and _plain(actual) != _plain(quoted):
                 yield fail(
                     f"override row quotes {quoted!r} for {theirs}, which is titled {actual!r}",
                     skill.name,
@@ -87,6 +127,8 @@ def crossref(skills):
         )
         if cites_other and not rows:
             yield note("cites another standard but states no override table", skill.name)
+
+    yield from _apparatus_citations(known)
 
 
 def _anchor_greps(skill, by_prefix, rows):

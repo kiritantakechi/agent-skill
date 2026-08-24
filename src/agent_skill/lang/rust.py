@@ -9,7 +9,7 @@ from itertools import groupby
 from pathlib import Path
 
 from ..proc import run
-from ..report import Finding, fail
+from ..report import Finding, fail, note
 from . import Extraction, Unit
 
 #: Shared, gitignored, and safe to delete: cargo rebuilds it.
@@ -73,7 +73,18 @@ class Crate:
 RUST_STYLE = Crate(
     name="rust-style-verify",
     dependencies=('thiserror = "2"',),
-    unverifiable=frozenset({"rust.missing_docs", "rust.unsafe_code"}),
+    #: `allow_attributes*` join the two above for the same reason they are
+    #: unverifiable in `BEVY_STYLE`: the extractor injects a bare
+    #: `#![allow(dead_code, unused_imports)]` into every block module, and a
+    #: lint about the author's attributes cannot be judged on the harness's.
+    unverifiable=frozenset(
+        {
+            "rust.missing_docs",
+            "rust.unsafe_code",
+            "clippy.allow_attributes",
+            "clippy.allow_attributes_without_reason",
+        }
+    ),
     lints={
         "rust": {
             "missing_debug_implementations": '"deny"',
@@ -109,10 +120,10 @@ RUST_STYLE = Crate(
 #:   * `elided_lifetimes_in_paths` fires on **every** system parameter — fourteen
 #:     hits in one five-system plugin. Writing `Query<'_, '_, …>` and `Res<'_, T>`
 #:     does satisfy it and does stay a valid system, so this is a noise
-#:     judgement, not an impossibility (BV-CAR-11).
+#:     judgement, not an impossibility (BV-CAR-12).
 #:   * `needless_pass_by_value` fires on every `Res<T>`, and its suggestion does
 #:     not compile: `&Res<'_, T>` is not a `SystemParam` (E0277). This one has no
-#:     compliant form (BV-CAR-12).
+#:     compliant form (BV-CAR-13).
 #:
 #: `type_complexity` and `too_many_arguments` also fire on ordinary Bevy code and
 #: are deliberately **not** here: a `type` alias and `#[derive(SystemParam)]`
@@ -155,6 +166,7 @@ BEVY_STYLE = Crate(
             "unimplemented": '"deny"',
             "indexing_slicing": '"deny"',
             "dbg_macro": '"deny"',
+            "undocumented_unsafe_blocks": '"deny"',
             "mem_forget": '"deny"',
             "cast_possible_truncation": '"warn"',
             "cast_precision_loss": '"warn"',
@@ -261,16 +273,25 @@ class Rust:
         for path, lineno, stmt in _targets(src):
             original = path.read_text()
             lines = original.split("\n")
+            where = f"{path.name}:{lineno + 1}"
             path.write_text("\n".join(lines[:lineno] + lines[lineno + 1 :]))
             try:
                 # Deleting a loop increment turns a test into a hang; a mutant
-                # that never finishes is one the tests killed.
+                # that never finishes is one the tests killed. But a busy
+                # machine times out too, and that is not a verdict — say so,
+                # or the run goes quiet under load and still reports clean.
                 r = run(["cargo", "test", "-q"], cwd=ex.root, timeout=180, env=env)
-                if r.ok:
-                    yield fail(
-                        f"`{stmt[:56]}` can be deleted and every test still passes",
-                        f"{path.name}:{lineno + 1}",
-                    )
+                if r.timed_out:
+                    yield note(f"`{stmt[:44]}` timed out — hung, or merely slow", where)
+                elif r.ok:
+                    # Survivors are rare, so a second opinion is nearly free —
+                    # and it is what stands between a transient and a reported
+                    # defect that the example does not actually have.
+                    again = run(["cargo", "test", "-q"], cwd=ex.root, timeout=300, env=env)
+                    if again.ok:
+                        yield fail(
+                            f"`{stmt[:56]}` can be deleted and every test still passes", where
+                        )
             finally:
                 path.write_text(original)
 

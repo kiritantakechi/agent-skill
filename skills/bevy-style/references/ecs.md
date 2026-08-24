@@ -35,17 +35,18 @@ chapter.
   - BV-ECS-22 [S] Reach for `iter_many` when the set of entities is already known
   - BV-ECS-23 [M] Never nest a query inside itself
   - BV-ECS-24 [S] Parallelise a query only against a measurement
+  - BV-ECS-25 [S] Reach for `contiguous_iter` only against a measured hot loop
 
 - **Change detection**
-  - BV-ECS-25 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
-  - BV-ECS-26 [M] Put `Changed<T>` in the filter so the system can be skipped
-  - BV-ECS-27 [M] Do not use `Changed<T>` to mean `Added<T>`
-  - BV-ECS-28 [S] Read a change in the same schedule that wrote it
-  - BV-ECS-29 [S] Bypass change detection only where the write is bookkeeping
+  - BV-ECS-26 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
+  - BV-ECS-27 [M] Put `Changed<T>` in the filter so the system can be skipped
+  - BV-ECS-28 [M] Do not use `Changed<T>` to mean `Added<T>`
+  - BV-ECS-29 [S] Read a change in the same schedule that wrote it
+  - BV-ECS-30 [S] Bypass change detection only where the write is bookkeeping
 
 - **Structural change**
-  - BV-ECS-30 [M] Do not read back what a command has not applied yet
-  - BV-ECS-31 [M] Reach for an exclusive system last, and say what forced it
+  - BV-ECS-31 [M] Do not read back what a command has not applied yet
+  - BV-ECS-32 [M] Reach for an exclusive system last, and say what forced it
 
 ---
 
@@ -135,7 +136,7 @@ fn regenerate_shields(mut stats: Query<&mut Stats>) {
 it the value is a hole in the output exactly when it is needed. `Reflect` plus
 `#[reflect(Component)]` is what makes the type visible to an inspector, writable in a scene, and
 readable over the remote protocol — and it is opt-in, so it is forgotten silently. `PartialEq` is a
-precondition for `set_if_neq` (BV-ECS-25), which is why so many components want it.
+precondition for `set_if_neq` (BV-ECS-26), which is why so many components want it.
 
 **Check:** grep for `#[derive(Component` and look for one without `Debug`, and for a `Reflect`
 without the matching `#[reflect(Component)]` — deriving the trait without the registration attribute
@@ -691,9 +692,97 @@ belongs in `FixedUpdate` at a lower rate.
 **Check:** is there a benchmark or a profile naming this system? If not, the serial form is the one
 to ship.
 
+### BV-ECS-25 [S] Reach for `contiguous_iter` only against a measured hot loop
+
+0.19's `Query::contiguous_iter` yields one slice per table rather than one item per entity, which is
+what a SIMD kernel or a cache-blocked pass needs. It replaces a structure-of-arrays kept by hand
+beside the components.
+
+**Why:** it is the only way to get contiguous component slices without leaving the ECS, so the
+parallel `Vec<f32>` a game used to hold in step with its entities can go, and with it the bug where
+the two drift apart. It is not a drop-in for `for x in &query`, and three things say so. The call
+returns `Result`, because a sparse-set component is not contiguously iterable and nothing in the
+type system knows which. The filter is bound by `F: ArchetypeFilter`, so `Changed<T>` does not
+compile here at all. And the mutable form marks every entity in the slice changed unless the write
+goes through `bypass_change_detection` (BV-ECS-30). Upstream's own doc example ends in `.unwrap()`,
+which BV-ERR-01 forbids — take the error with `?`.
+
+**Check:** for each `contiguous_iter`, find the measurement. Without one it is a nested loop that
+reads worse than the flat iteration and starts failing at run time the day a component becomes
+sparse.
+
+```rust
+// verified — GOOD
+use bevy::ecs::query::QueryNotDenseError;
+use bevy::prelude::*;
+
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component)]
+pub struct Health(pub f32);
+
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component)]
+pub struct Decay(pub f32);
+
+/// The outer loop is tables, the inner is entities within one table — that
+/// nesting is the whole shape, and it is the price of the slices. The error
+/// is the query's own: `Health` or `Decay` stored sparsely makes this fail
+/// at run time, having compiled, so it propagates rather than unwrapping.
+fn decay_health(mut lives: Query<(&mut Health, &Decay)>) -> Result<(), QueryNotDenseError> {
+    for (mut health, decay) in lives.contiguous_iter_mut()? {
+        for (health, decay) in health.iter_mut().zip(decay) {
+            health.0 *= decay.0;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::ecs::system::RunSystemOnce as _;
+
+    /// Slices, not items: the assertion is that one call covered every entity
+    /// in one table, which is the property the flat iterator cannot offer.
+    #[test]
+    fn one_table_is_one_slice() {
+        let mut world = World::new();
+        for _ in 0..4 {
+            world.spawn((Health(100.0), Decay(0.5)));
+        }
+        let mut query = world.query::<(&mut Health, &Decay)>();
+        let mut slices = 0;
+        let mut covered = 0;
+        if let Ok(tables) = query.contiguous_iter_mut(&mut world) {
+            for (health, _) in tables {
+                slices += 1;
+                covered += health.len();
+            }
+        }
+        assert_eq!((slices, covered), (1, 4));
+    }
+
+    #[test]
+    fn decay_multiplies_every_entity() {
+        let mut world = World::new();
+        world.spawn((Health(100.0), Decay(0.5)));
+        world.spawn((Health(40.0), Decay(0.25)));
+        // No annotation needed here: `QueryNotDenseError` is not `BevyError`,
+        // so only the identity `IntoResult` impl applies and `Out` is the
+        // system's own `Result`. Both layers are pinned.
+        assert!(matches!(world.run_system_once(decay_health), Ok(Ok(()))));
+
+        let mut query = world.query::<&Health>();
+        let mut got: Vec<f32> = query.iter(&world).map(|h| h.0).collect();
+        got.sort_by(f32::total_cmp);
+        assert_eq!(got, [10.0, 50.0]);
+    }
+}
+```
+
 ## Change detection
 
-### BV-ECS-25 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
+### BV-ECS-26 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
 
 `health.set_if_neq(Health(new))` rather than `*health = Health(new)` when the new value is often the
 old one.
@@ -757,7 +846,7 @@ mod tests {
 }
 ```
 
-### BV-ECS-26 [M] Put `Changed<T>` in the filter so the system can be skipped
+### BV-ECS-27 [M] Put `Changed<T>` in the filter so the system can be skipped
 
 `Query<&Health, Changed<Health>>`, not a full query with `if health.is_changed()` inside the loop.
 
@@ -769,7 +858,7 @@ that behind an early `continue`.
 **Check:** grep for `is_changed()` inside a query loop. Unless the body needs both the changed and
 the unchanged entities, it is a filter that has escaped into the body.
 
-### BV-ECS-27 [M] Do not use `Changed<T>` to mean `Added<T>`
+### BV-ECS-28 [M] Do not use `Changed<T>` to mean `Added<T>`
 
 `Added<T>` matches the frame the component was inserted. `Changed<T>` matches insertion *and* every
 subsequent write.
@@ -780,7 +869,7 @@ subscription. The bug surfaces only when someone starts mutating the component, 
 later and in another module.
 
 **Check:** for each `Changed<T>` filter, ask whether running twice for one entity is acceptable. If
-not, it is `Added<T>` — or, better, an observer on `Add` (`references/events.md` BV-EVT-12).
+not, it is `Added<T>` — or, better, an observer on `Add` (`references/events.md` BV-EVT-13).
 
 ```rust
 // verified — the same body under both filters, counted
@@ -852,7 +941,7 @@ mod tests {
 }
 ```
 
-### BV-ECS-28 [S] Read a change in the same schedule that wrote it
+### BV-ECS-29 [S] Read a change in the same schedule that wrote it
 
 A `Changed<T>` filter sees writes since the reading system last ran. Keep the writer and the reader
 in the same schedule.
@@ -865,14 +954,14 @@ are consistent — but both mean "since you last ran", which across schedules is
 **Check:** for each `Changed<T>` reader, find the writers. Any writer in a different schedule needs
 a stated reason the count does not matter.
 
-### BV-ECS-29 [S] Bypass change detection only where the write is bookkeeping
+### BV-ECS-30 [S] Bypass change detection only where the write is bookkeeping
 
 `Mut::bypass_change_detection` is for writes that are not changes to the game's state — a cached
 value refreshed from its source, a counter nothing reacts to.
 
 **Why:** the bypass is the only way to write without marking, and using it for a real change makes
 the component's history a lie: everything downstream carries on believing the old value. Kept for
-bookkeeping it is precise; used to quiet a noisy filter it hides the fact that BV-ECS-25 was the
+bookkeeping it is precise; used to quiet a noisy filter it hides the fact that BV-ECS-26 was the
 answer.
 
 **Check:** each call needs a comment naming what does *not* need to know about this write. If the
@@ -880,7 +969,7 @@ comment cannot be written, the write is a change.
 
 ## Structural change
 
-### BV-ECS-30 [M] Do not read back what a command has not applied yet
+### BV-ECS-31 [M] Do not read back what a command has not applied yet
 
 `Commands` queue work that runs at the next sync point. Within the same system, the entity spawned
 two lines ago is not in any query.
@@ -965,7 +1054,7 @@ mod tests {
 }
 ```
 
-### BV-ECS-31 [M] Reach for an exclusive system last, and say what forced it
+### BV-ECS-32 [M] Reach for an exclusive system last, and say what forced it
 
 A system taking `&mut World` cannot run in parallel with anything. Write one only when the work
 genuinely needs the whole world at once, and put the reason in a doc comment.
