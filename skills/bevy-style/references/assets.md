@@ -142,6 +142,115 @@ that names the file.
 **Check:** for each match on `LoadState`, is there a `Failed` arm that reports? A `_ => {}` catching
 it is the hang.
 
+```rust
+// verified
+use bevy::asset::LoadState;
+use bevy::prelude::*;
+
+/// One resource, loaded once, holding the screen's paths (BV-ASS-02).
+#[derive(Resource, Debug)]
+pub struct TitleArt {
+    pub logo: Handle<Image>,
+    pub background: Handle<Image>,
+}
+
+impl FromWorld for TitleArt {
+    fn from_world(world: &mut World) -> Self {
+        let assets = world.resource::<AssetServer>();
+        Self {
+            logo: assets.load("ui/logo.png"),
+            background: assets.load("ui/title.png"),
+        }
+    }
+}
+
+/// Three outcomes, not two. A screen that knows only "arrived" and "not yet"
+/// has nowhere to put a file that is never coming, so it waits forever.
+#[derive(Resource, Debug, Default, PartialEq, Eq, Reflect)]
+#[reflect(Resource)]
+pub struct TitleProgress {
+    pub ready: usize,
+    /// One line per asset that will not arrive: the path, then the reason.
+    pub unreachable: Vec<String>,
+}
+
+fn poll_title_art(
+    assets: Res<AssetServer>,
+    art: Res<TitleArt>,
+    mut progress: ResMut<TitleProgress>,
+) {
+    let mut next = TitleProgress::default();
+    for handle in [&art.logo, &art.background] {
+        match assets.load_state(handle) {
+            LoadState::Loaded => next.ready += 1,
+            // Both halves of the bug report are in this arm and nowhere
+            // else. A `_ => {}` catching it is the difference between "the
+            // game hangs on the loading screen" and "ui/logo.png is missing".
+            LoadState::Failed(why) => {
+                let path = handle.path().map_or_else(String::new, ToString::to_string);
+                next.unreachable.push(format!("{path}: {why}"));
+            }
+            // Naming the two states worth waiting on means a variant added
+            // upstream is a compile error rather than a new way to hang.
+            LoadState::NotLoaded | LoadState::Loading => {}
+        }
+    }
+    // Recomputed every frame, so `set_if_neq` is what keeps a
+    // `resource_changed` gate on the loading screen meaningful.
+    progress.set_if_neq(next);
+}
+
+#[derive(Debug, Default)]
+pub struct TitleArtPlugin;
+
+impl Plugin for TitleArtPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<TitleProgress>()
+            .init_resource::<TitleArt>()
+            .init_resource::<TitleProgress>()
+            .add_systems(Update, poll_title_art);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::app::TaskPoolPlugin;
+    use bevy::asset::AssetPlugin;
+
+    #[test]
+    fn a_file_that_is_not_there_is_reported_rather_than_waited_on() {
+        let mut app = App::new();
+        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+        // `ImagePlugin` does this in a real app; its render backend is not
+        // part of a headless test.
+        app.init_asset::<Image>().add_plugins(TitleArtPlugin);
+
+        for _ in 0..64 {
+            app.update();
+            if !app
+                .world()
+                .resource::<TitleProgress>()
+                .unreachable
+                .is_empty()
+            {
+                break;
+            }
+        }
+
+        let progress = app.world().resource::<TitleProgress>();
+        assert_eq!(progress.ready, 0);
+        assert_eq!(progress.unreachable.len(), 2);
+        assert!(
+            progress
+                .unreachable
+                .iter()
+                .any(|line| line.starts_with("ui/logo.png: "))
+        );
+    }
+}
+```
+
 ### BV-ASS-08 [S] Gate play on `is_loaded_with_dependencies`, not on the asset alone
 
 A scene, a glTF or a material is loaded before its textures are. `is_loaded_with_dependencies` is
@@ -195,6 +304,102 @@ which removed the last reason people had for not trusting it.
 
 **Check:** grep for a cached `Handle` or a cached asset value compared each frame. That is an
 `AssetEvent` reader.
+
+```rust
+// verified
+use bevy::prelude::*;
+
+#[derive(Asset, Debug, Default, Reflect)]
+pub struct Dialogue {
+    pub lines: Vec<String>,
+}
+
+/// What the game derives from every `Dialogue` it holds.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct DialogueIndex {
+    pub longest: usize,
+    /// How many times the index was rebuilt, which on a quiet frame is not
+    /// at all. A per-frame comparison could not say that.
+    pub rebuilds: usize,
+}
+
+/// The asset server already knows what changed, so this reads its answer
+/// rather than keeping a copy of every asset and diffing it each frame.
+fn reindex(
+    mut changes: MessageReader<AssetEvent<Dialogue>>,
+    dialogues: Res<Assets<Dialogue>>,
+    mut index: ResMut<DialogueIndex>,
+) {
+    for change in changes.read() {
+        match change {
+            AssetEvent::Added { .. }
+            | AssetEvent::Modified { .. }
+            | AssetEvent::Removed { .. } => {
+                index.longest = dialogues
+                    .iter()
+                    .map(|(_, dialogue)| dialogue.lines.len())
+                    .max()
+                    .unwrap_or(0);
+                index.rebuilds += 1;
+            }
+            // A dropped handle and a finished dependency tree change no
+            // line of dialogue, so they rebuild nothing.
+            AssetEvent::Unused { .. } | AssetEvent::LoadedWithDependencies { .. } => {}
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct DialoguePlugin;
+
+impl Plugin for DialoguePlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<DialogueIndex>()
+            .init_asset::<Dialogue>()
+            .init_resource::<DialogueIndex>()
+            .add_systems(Update, reindex);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::asset::AssetPlugin;
+
+    #[test]
+    fn the_index_is_rebuilt_on_a_change_and_only_on_a_change() {
+        let mut app = App::new();
+        app.add_plugins((AssetPlugin::default(), DialoguePlugin));
+
+        let handle = app
+            .world_mut()
+            .resource_mut::<Assets<Dialogue>>()
+            .add(Dialogue {
+                lines: vec!["hello".to_owned()],
+            });
+        // The message is written in `PostUpdate` and read on the next frame.
+        app.update();
+        app.update();
+        assert_eq!(app.world().resource::<DialogueIndex>().rebuilds, 1);
+        assert_eq!(app.world().resource::<DialogueIndex>().longest, 1);
+
+        // Nothing happened, so nothing is recomputed. A comparison against a
+        // cached copy would have walked every asset here.
+        app.update();
+        assert_eq!(app.world().resource::<DialogueIndex>().rebuilds, 1);
+
+        let mut dialogues = app.world_mut().resource_mut::<Assets<Dialogue>>();
+        if let Some(mut dialogue) = dialogues.get_mut(&handle) {
+            dialogue.lines.push("goodbye".to_owned());
+        }
+        app.update();
+        app.update();
+        assert_eq!(app.world().resource::<DialogueIndex>().rebuilds, 2);
+        assert_eq!(app.world().resource::<DialogueIndex>().longest, 2);
+    }
+}
+```
 
 ### BV-ASS-12 [M] Do not take `ResMut<Assets<T>>` to read
 

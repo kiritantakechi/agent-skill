@@ -177,6 +177,95 @@ then. `resource_exists` as a run condition is the other form and is better when 
 **Check:** for each `Res<T>`, ask when `T` is inserted relative to this system. Anything conditional
 needs the `Option` or a run condition.
 
+```rust
+// verified
+use bevy::prelude::*;
+
+/// Inserted by a plugin the shipping build may leave out.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct SpawnBudget {
+    pub per_tick: u32,
+}
+
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct SpawnQueue {
+    pub pending: u32,
+}
+
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+pub struct Enemy;
+
+/// The `Option` puts "this may be missing" in the signature and lets the body
+/// answer it. A plain `Res<SpawnBudget>` would fail parameter validation on
+/// every tick of a build without the profiling plugin, and the failure would
+/// surface in the fallback error handler rather than here.
+fn drain_spawn_queue(
+    mut commands: Commands,
+    mut queue: ResMut<SpawnQueue>,
+    budget: Option<Res<SpawnBudget>>,
+) {
+    /// What a build without the profiling plugin uses instead.
+    const UNGOVERNED: u32 = 2;
+
+    let cap = budget.map_or(UNGOVERNED, |b| b.per_tick).min(queue.pending);
+    for _ in 0..cap {
+        commands.spawn(Enemy);
+    }
+    queue.pending -= cap;
+}
+
+#[derive(Debug, Default)]
+pub struct SpawningPlugin;
+
+impl Plugin for SpawningPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<SpawnQueue>()
+            .add_systems(FixedUpdate, drain_spawn_queue);
+    }
+}
+
+/// Optional. Nothing in `SpawningPlugin` names it.
+#[derive(Debug, Default)]
+pub struct ProfilingPlugin;
+
+impl Plugin for ProfilingPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(SpawnBudget { per_tick: 5 });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tick(app: &mut App) -> usize {
+        app.world_mut().resource_mut::<SpawnQueue>().pending = 10;
+        app.world_mut().run_schedule(FixedUpdate);
+        let world = app.world_mut();
+        world.query::<&Enemy>().iter(world).len()
+    }
+
+    #[test]
+    fn the_body_names_the_fallback() {
+        let mut app = App::new();
+        app.add_plugins(SpawningPlugin);
+        assert_eq!(tick(&mut app), 2);
+        assert_eq!(app.world().resource::<SpawnQueue>().pending, 8);
+    }
+
+    #[test]
+    fn the_resource_wins_where_the_plugin_supplied_it() {
+        let mut app = App::new();
+        app.add_plugins((SpawningPlugin, ProfilingPlugin));
+        assert_eq!(tick(&mut app), 5);
+        assert_eq!(app.world().resource::<SpawnQueue>().pending, 5);
+    }
+}
+```
+
 ### BV-STA-09 [S] Keep configuration and progress in separate resources
 
 `CombatSettings` is written by the settings screen and read by the simulation; `CombatProgress` is
@@ -243,6 +332,96 @@ transition.
 **Check:** for each pair of states, ask whether one is a function of the other. If yes, and both are
 set by hand, that is the bug waiting.
 
+```rust
+// verified
+use bevy::prelude::*;
+
+#[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect)]
+pub enum Screen {
+    #[default]
+    Menu,
+    Playing,
+}
+
+#[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect)]
+pub enum Pause {
+    #[default]
+    Running,
+    Paused,
+}
+
+/// Not a state anyone sets: `State<Simulating>` exists exactly while both
+/// sources agree, and is removed the moment either stops agreeing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+pub struct Simulating;
+
+impl ComputedStates for Simulating {
+    /// A tuple is a `StateSet`; `compute` re-runs when either source moves.
+    /// Wrap a source in `Option` to keep computing while it does not exist.
+    type SourceStates = (Screen, Pause);
+
+    fn compute((screen, pause): Self::SourceStates) -> Option<Self> {
+        matches!((screen, pause), (Screen::Playing, Pause::Running)).then_some(Self)
+    }
+}
+
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Ticks(pub u32);
+
+fn advance_world(mut ticks: ResMut<Ticks>) {
+    ticks.0 += 1;
+}
+
+#[derive(Debug, Default)]
+pub struct SimulationPlugin;
+
+impl Plugin for SimulationPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_state::<Screen>()
+            .init_state::<Pause>()
+            .add_computed_state::<Simulating>()
+            .init_resource::<Ticks>()
+            .add_systems(Update, advance_world.run_if(in_state(Simulating)));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::state::app::StatesPlugin;
+
+    fn app() -> App {
+        let mut app = App::new();
+        app.add_plugins((StatesPlugin, SimulationPlugin));
+        app
+    }
+
+    #[test]
+    fn simulating_follows_both_sources() {
+        let mut app = app();
+        app.update();
+        assert!(app.world().get_resource::<State<Simulating>>().is_none());
+        assert_eq!(app.world().resource::<Ticks>().0, 0);
+
+        app.world_mut()
+            .resource_mut::<NextState<Screen>>()
+            .set(Screen::Playing);
+        app.update();
+        assert!(app.world().get_resource::<State<Simulating>>().is_some());
+        assert_eq!(app.world().resource::<Ticks>().0, 1);
+
+        // Moving either source alone is enough to end the derived state.
+        app.world_mut()
+            .resource_mut::<NextState<Pause>>()
+            .set(Pause::Paused);
+        app.update();
+        assert!(app.world().get_resource::<State<Simulating>>().is_none());
+        assert_eq!(app.world().resource::<Ticks>().0, 1);
+    }
+}
+```
+
 ### BV-STA-12 [S] Give loading its own state, not a flag
 
 Asset loading is a phase: it has an entry, a progress condition, an exit, and a failure. That is a
@@ -300,6 +479,102 @@ built inside a state machine.
 
 **Check:** grep for `run_once` and for `Local<bool>` used as a "did setup" flag. Each is an
 `OnEnter` system.
+
+```rust
+// verified
+use bevy::prelude::*;
+
+#[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect)]
+pub enum Screen {
+    #[default]
+    Menu,
+    Playing,
+}
+
+/// Exists for exactly one run of the level.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Round {
+    pub kills: u32,
+}
+
+/// Outlives every run.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Career {
+    pub best: u32,
+}
+
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+pub struct Enemy;
+
+/// Runs once, between two frames, so no system ever sees half a level.
+fn open_round(mut commands: Commands) {
+    commands.init_resource::<Round>();
+    for lane in 0..4u8 {
+        commands.spawn((
+            Enemy,
+            Transform::from_xyz(f32::from(lane), 0.0, 0.0),
+            DespawnOnExit(Screen::Playing),
+        ));
+    }
+}
+
+/// The entities are scoped, so teardown is only what scoping cannot do:
+/// keep the one fact that survives the round, drop the rest.
+fn close_round(mut commands: Commands, round: Res<Round>, mut career: ResMut<Career>) {
+    if round.kills > career.best {
+        career.best = round.kills;
+    }
+    commands.remove_resource::<Round>();
+}
+
+#[derive(Debug, Default)]
+pub struct RoundPlugin;
+
+impl Plugin for RoundPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_state::<Screen>()
+            .init_resource::<Career>()
+            .add_systems(OnEnter(Screen::Playing), open_round)
+            .add_systems(OnExit(Screen::Playing), close_round);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::state::app::StatesPlugin;
+
+    fn enemies(world: &mut World) -> usize {
+        world.query::<&Enemy>().iter(world).len()
+    }
+
+    #[test]
+    fn enter_builds_the_round_and_exit_folds_it_away() {
+        let mut app = App::new();
+        app.add_plugins((StatesPlugin, RoundPlugin));
+        app.update();
+        assert!(app.world().get_resource::<Round>().is_none());
+
+        app.world_mut()
+            .resource_mut::<NextState<Screen>>()
+            .set(Screen::Playing);
+        app.update();
+        assert_eq!(enemies(app.world_mut()), 4);
+        app.world_mut().resource_mut::<Round>().kills = 7;
+
+        app.world_mut()
+            .resource_mut::<NextState<Screen>>()
+            .set(Screen::Menu);
+        app.update();
+        assert_eq!(enemies(app.world_mut()), 0);
+        assert!(app.world().get_resource::<Round>().is_none());
+        assert_eq!(app.world().resource::<Career>().best, 7);
+    }
+}
+```
 
 ### BV-STA-17 [M] Scope an entity to a state with `DespawnOnExit`
 
@@ -361,6 +636,95 @@ state directly — where an API allows it — changes it mid-frame, so half the 
 see one state and half see the other.
 
 **Check:** grep for `ResMut<State<`. There should be none.
+
+```rust
+// verified
+use bevy::prelude::*;
+
+#[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect)]
+pub enum Screen {
+    #[default]
+    Menu,
+    Playing,
+}
+
+/// Raised while a run is in progress; the driver below re-asserts it every frame.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct RunInProgress(pub bool);
+
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct LevelBuilds(pub u32);
+
+/// `State<Screen>` is read-only: the request goes through `NextState`, and is
+/// applied in `StateTransition`, not here. Since 0.18 a plain `set` re-enters a
+/// state it is already in — so a system that asks every frame asks with
+/// `set_if_neq`, or it rebuilds the level every frame.
+fn follow_run(run: Res<RunInProgress>, mut next: ResMut<NextState<Screen>>) {
+    if run.0 {
+        // `as_mut` is load-bearing: `DetectChangesMut::set_if_neq` is in
+        // scope on the `ResMut` itself and would try to compare two whole
+        // `NextState`s. The one that takes a state is `NextState`'s own.
+        next.as_mut().set_if_neq(Screen::Playing);
+    }
+}
+
+fn build_level(mut builds: ResMut<LevelBuilds>) {
+    builds.0 += 1;
+}
+
+#[derive(Debug, Default)]
+pub struct RunPlugin;
+
+impl Plugin for RunPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_state::<Screen>()
+            .init_resource::<RunInProgress>()
+            .init_resource::<LevelBuilds>()
+            .add_systems(OnEnter(Screen::Playing), build_level)
+            .add_systems(Update, follow_run);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::state::app::StatesPlugin;
+
+    fn running_app() -> App {
+        let mut app = App::new();
+        app.add_plugins((StatesPlugin, RunPlugin));
+        app.world_mut().resource_mut::<RunInProgress>().0 = true;
+        app
+    }
+
+    #[test]
+    fn asking_every_frame_enters_once() {
+        let mut app = running_app();
+        for _ in 0..4 {
+            app.update();
+        }
+        let screen = app.world().resource::<State<Screen>>();
+        assert_eq!(screen.get(), &Screen::Playing);
+        assert_eq!(app.world().resource::<LevelBuilds>().0, 1);
+    }
+
+    #[test]
+    fn a_plain_set_re_enters_the_state_it_is_already_in() {
+        let mut app = running_app();
+        app.update();
+        app.update();
+        assert_eq!(app.world().resource::<LevelBuilds>().0, 1);
+
+        app.world_mut()
+            .resource_mut::<NextState<Screen>>()
+            .set(Screen::Playing);
+        app.update();
+        assert_eq!(app.world().resource::<LevelBuilds>().0, 2);
+    }
+}
+```
 
 ### BV-STA-19 [M] Guard a repeated `set` with `set_if_neq`
 

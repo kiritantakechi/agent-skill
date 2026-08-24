@@ -270,6 +270,59 @@ the object silently sits at the origin. `bevy_lint`'s `unit_in_bundle` finds eve
 **Check:** for each component expression in a spawn tuple, check that the last call returns `Self`.
 The mutating `Transform` methods (`rotate_z`, `translate_around`) do not; the `with_*` builders do.
 
+```rust
+// verified — one of these two spawns reaches the entity and one silently does not
+use bevy::prelude::*;
+use core::f32::consts::PI;
+
+/// A barrel always carries a transform, so `#[require]` guarantees one is
+/// present — which is precisely what hides the mistake below.
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+#[require(Transform)]
+pub struct Barrel;
+
+/// BAD: `rotate_z` takes `&mut self` and returns `()`, so the bundle is
+/// `(Barrel, ())`. `()` is the bundle that inserts nothing, `#[require]`
+/// fills the hole with `Transform::default()`, and the barrel sits at the
+/// origin unrotated. No line of this function looks wrong.
+fn place_wrong(mut commands: Commands) {
+    commands.spawn((Barrel, Transform::from_xyz(3.0, 1.0, 0.0).rotate_z(PI)));
+}
+
+/// GOOD: every call in the chain returns `Transform`, so the last one *is*
+/// the component. `with_rotation` is the builder that `rotate_z` is not.
+fn place(mut commands: Commands) {
+    commands.spawn((
+        Barrel,
+        Transform::from_xyz(3.0, 1.0, 0.0).with_rotation(Quat::from_rotation_z(PI)),
+    ));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_unit_leaves_the_barrel_at_the_origin() {
+        let mut app = App::new();
+        app.add_systems(Update, (place_wrong, place));
+        app.update();
+
+        let mut barrels = app.world_mut().query_filtered::<&Transform, With<Barrel>>();
+        let placed: Vec<Transform> = barrels.iter(app.world()).copied().collect();
+
+        let spin = Quat::from_rotation_z(PI);
+        let wanted = Transform::from_xyz(3.0, 1.0, 0.0).with_rotation(spin);
+        assert_eq!(placed.len(), 2);
+        // One barrel got the rotation. The other got the required default,
+        // because `()` inserted nothing and nothing said so.
+        assert!(placed.contains(&wanted));
+        assert!(placed.contains(&Transform::default()));
+    }
+}
+```
+
 ### BV-ECS-10 [S] Give a marker component the derives a marker needs
 
 A marker is a unit struct: `#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
@@ -565,6 +618,67 @@ which is usually what collision or attraction code actually wanted.
 **Check:** search for a `for` over a query inside another `for` over a query and check the two are
 different queries with filters that cannot both match one entity.
 
+```rust
+// verified
+use bevy::prelude::*;
+
+#[derive(Component, Debug, Default, Reflect)]
+#[reflect(Component)]
+pub struct Velocity(pub Vec2);
+
+/// Bodies closer together than this push each other apart.
+const PERSONAL_SPACE: f32 = 4.0;
+
+/// A `for` over `bodies` inside another `for` over `bodies` cannot be
+/// written: the outer loop borrows the query for the whole of its body.
+/// `iter_combinations_mut` is the API that hands out `K` disjoint items at
+/// once, and `fetch_next` rather than `for` is what makes that sound — each
+/// array must be dropped before the next is produced, so it cannot be an
+/// `Iterator`. The read-only twin is `for [a, b] in bodies.iter_combinations()`.
+fn separate(mut bodies: Query<(&Transform, &mut Velocity)>) {
+    let mut pairs = bodies.iter_combinations_mut::<2>();
+    while let Some([(here, mut mine), (there, mut theirs)]) = pairs.fetch_next() {
+        let offset = there.translation.truncate() - here.translation.truncate();
+        if offset.length_squared() >= PERSONAL_SPACE * PERSONAL_SPACE {
+            continue;
+        }
+        // Each unordered pair is visited once, never twice, so the
+        // equal-and-opposite impulses are written here as a pair instead of
+        // halved and applied from both ends.
+        let push = offset.normalize_or_zero();
+        mine.0 -= push;
+        theirs.0 += push;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn velocity(app: &App, entity: Entity) -> Option<Vec2> {
+        app.world().entity(entity).get::<Velocity>().map(|v| v.0)
+    }
+
+    #[test]
+    fn only_the_close_pair_is_pushed_apart() {
+        let mut app = App::new();
+        app.add_systems(Update, separate);
+        let body = |x: f32| (Transform::from_xyz(x, 0.0, 0.0), Velocity::default());
+        let left = app.world_mut().spawn(body(-1.0)).id();
+        let right = app.world_mut().spawn(body(1.0)).id();
+        let loner = app.world_mut().spawn(body(100.0)).id();
+
+        app.update();
+
+        // The body is symmetric in the pair, so the result does not depend
+        // on which way round `fetch_next` handed the two back.
+        assert_eq!(velocity(&app, left), Some(Vec2::new(-1.0, 0.0)));
+        assert_eq!(velocity(&app, right), Some(Vec2::new(1.0, 0.0)));
+        assert_eq!(velocity(&app, loner), Some(Vec2::ZERO));
+    }
+}
+```
+
 ### BV-ECS-24 [S] Parallelise a query only against a measurement
 
 `par_iter_mut` is for a loop that has been measured and found hot. Write the serial form first.
@@ -668,6 +782,76 @@ later and in another module.
 **Check:** for each `Changed<T>` filter, ask whether running twice for one entity is acceptable. If
 not, it is `Added<T>` — or, better, an observer on `Add` (`references/events.md` BV-EVT-12).
 
+```rust
+// verified — the same body under both filters, counted
+use bevy::prelude::*;
+
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+pub struct Health(pub f32);
+
+/// How many times the pickup jingle was started, under each spelling of the
+/// filter. One entity picking one thing up should start exactly one sound.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Jingles {
+    /// `Added`: one per entity, for the life of that entity.
+    pub on_added: usize,
+    /// `Changed`: one per entity, plus one for every later write.
+    pub on_changed: usize,
+}
+
+/// GOOD. The body below is identical; only the filter differs.
+fn jingle_on_added(arrived: Query<(), Added<Health>>, mut jingles: ResMut<Jingles>) {
+    jingles.on_added += arrived.iter().count();
+}
+
+/// BAD. `Changed` matches the insertion frame as well, so this passes review
+/// and passes its first test — until somebody, months later and in another
+/// module, subtracts a point of `Health` and the jingle plays again.
+fn jingle_on_changed(touched: Query<(), Changed<Health>>, mut jingles: ResMut<Jingles>) {
+    jingles.on_changed += touched.iter().count();
+}
+
+#[derive(Debug, Default)]
+pub struct PickupPlugin;
+
+impl Plugin for PickupPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Jingles>()
+            .add_systems(Update, (jingle_on_added, jingle_on_changed));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn changed_fires_a_second_time_and_added_does_not() {
+        let mut app = App::new();
+        app.add_plugins(PickupPlugin);
+        let hero = app.world_mut().spawn(Health(100.0)).id();
+
+        app.update();
+
+        // Both filters match the insertion frame. This is where the bug hides.
+        assert_eq!(app.world().resource::<Jingles>().on_added, 1);
+        assert_eq!(app.world().resource::<Jingles>().on_changed, 1);
+
+        let Some(mut health) = app.world_mut().get_mut::<Health>(hero) else {
+            unreachable!()
+        };
+        health.0 -= 1.0;
+
+        app.update();
+
+        assert_eq!(app.world().resource::<Jingles>().on_added, 1);
+        assert_eq!(app.world().resource::<Jingles>().on_changed, 2);
+    }
+}
+```
+
 ### BV-ECS-28 [S] Read a change in the same schedule that wrote it
 
 A `Changed<T>` filter sees writes since the reading system last ran. Keep the writer and the reader
@@ -708,6 +892,78 @@ fix, arrived at without understanding why.
 
 **Check:** in each system, is any id from `commands.spawn(…).id()` used to look something up in the
 same body? Move the read to a later system, or use an exclusive system if it must be immediate.
+
+```rust
+// verified
+use bevy::prelude::*;
+
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+pub struct Shell {
+    pub damage: u32,
+}
+
+/// What each half of the frame managed to read back about the shell.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Sighting {
+    /// Filled in by the system that did the spawning, from the id it holds.
+    pub from_the_spawner: Option<u32>,
+    /// Filled in by a system that runs after the queue was applied.
+    pub after_the_sync_point: Option<u32>,
+}
+
+/// The trap. `shell` is a real, reserved `Entity` — and the lookup still
+/// misses, because `spawn` queued a command rather than changing the world.
+/// Nothing errors: the query simply has nothing to hand back, which is
+/// indistinguishable from "that entity did not match".
+fn fire(mut commands: Commands, shells: Query<&Shell>, mut sighting: ResMut<Sighting>) {
+    let shell = commands.spawn(Shell { damage: 12 }).id();
+    sighting.from_the_spawner = shells.get(shell).ok().map(|found| found.damage);
+}
+
+/// The fix, and the whole of it: read from a system that runs later.
+fn confirm(shells: Query<&Shell, Added<Shell>>, mut sighting: ResMut<Sighting>) {
+    sighting.after_the_sync_point = shells.iter().next().map(|shell| shell.damage);
+}
+
+#[derive(Debug, Default)]
+pub struct GunneryPlugin;
+
+impl Plugin for GunneryPlugin {
+    fn build(&self, app: &mut App) {
+        // `chain` orders the two, and the schedule inserts an
+        // `ApplyDeferred` between them because `fire` has a deferred
+        // parameter. That barrier is where the entity actually appears.
+        app.init_resource::<Sighting>()
+            .add_systems(Update, (fire, confirm).chain());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_spawning_system_cannot_see_its_own_spawn() {
+        let mut app = App::new();
+        app.add_plugins(GunneryPlugin);
+        // Seeded, so that "the system looked and found nothing" cannot be
+        // read as "the system never looked".
+        let unwritten = Some(u32::MAX);
+        app.insert_resource(Sighting {
+            from_the_spawner: unwritten,
+            after_the_sync_point: unwritten,
+        });
+
+        app.update();
+
+        let sighting = app.world().resource::<Sighting>();
+        assert_eq!(sighting.from_the_spawner, None);
+        assert_eq!(sighting.after_the_sync_point, Some(12));
+    }
+}
+```
 
 ### BV-ECS-31 [M] Reach for an exclusive system last, and say what forced it
 

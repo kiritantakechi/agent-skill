@@ -46,6 +46,121 @@ drawn (BV-ARC-01), and the test is telling you so.
 
 **Check:** count the tests that build an `App`. If most of them do, the logic is in the systems.
 
+```rust
+// verified — seven tests, and neither an App nor a World anywhere in them
+// Not one Bevy name appears below, and that is the whole point: these tests
+// need no `App`, no `World` and no schedule, so they run in microseconds and
+// survive an ECS refactor untouched.
+
+/// A purse. The economy is `u32` throughout, so no value here can be `NaN`
+/// and every assertion is an exact equality.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Coins(pub u32);
+
+/// The shelf price of one item.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Price(pub u32);
+
+/// What happened when a quote was taken to the till.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Purchase {
+    /// Paid in full; the purse now holds this much.
+    Bought(Coins),
+    /// Nothing changed hands; the purse is this far short.
+    TooExpensive(Coins),
+}
+
+/// Buy nine, get the tenth free.
+pub const FREE_EVERY: u32 = 10;
+
+/// What a stack of `count` items costs at the shelf price.
+///
+/// The till saturates rather than wrapping: an unpayable quote is a better
+/// answer than a quote of three coins.
+#[must_use]
+pub fn quote(unit: Price, count: u32) -> Coins {
+    let free = count / FREE_EVERY;
+    Coins(unit.0.saturating_mul(count - free))
+}
+
+/// Whether the purse covers the quote, and by how much either way.
+#[must_use]
+pub fn buy(purse: Coins, cost: Coins) -> Purchase {
+    purse.0.checked_sub(cost.0).map_or_else(
+        || Purchase::TooExpensive(Coins(cost.0 - purse.0)),
+        |left| Purchase::Bought(Coins(left)),
+    )
+}
+
+// The ECS side is a system that reads two components, calls `buy`, and
+// writes the result back; it is tested once, through its plugin
+// (BV-TST-02). Had the arithmetic lived inside that system instead, all
+// seven tests below would have needed a `World` to reach it — and the
+// tenth-free rule would have ended up with one test rather than four,
+// because nobody writes four `App` tests for one discount.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nine_items_pay_full_price_and_the_tenth_is_free() {
+        assert_eq!(quote(Price(3), 9), Coins(27));
+        assert_eq!(quote(Price(3), 10), Coins(27));
+        assert_eq!(quote(Price(3), 11), Coins(30));
+    }
+
+    #[test]
+    fn the_discount_repeats_every_tenth_item() {
+        let paid_for = |count| quote(Price(1), count);
+        assert_eq!(paid_for(0), Coins(0));
+        assert_eq!(paid_for(20), Coins(18));
+        assert_eq!(paid_for(100), Coins(90));
+    }
+
+    #[test]
+    fn an_unpayable_stack_saturates_instead_of_wrapping_to_a_bargain() {
+        assert_eq!(quote(Price(u32::MAX), 11), Coins(u32::MAX));
+    }
+
+    #[test]
+    fn an_exact_purse_buys_and_leaves_nothing() {
+        assert_eq!(
+            buy(Coins(27), quote(Price(3), 10)),
+            Purchase::Bought(Coins(0))
+        );
+    }
+
+    #[test]
+    fn one_coin_short_is_a_refusal_that_says_by_how_much() {
+        assert_eq!(
+            buy(Coins(26), quote(Price(3), 10)),
+            Purchase::TooExpensive(Coins(1))
+        );
+    }
+
+    #[test]
+    fn a_bigger_stack_never_costs_less_than_a_smaller_one() {
+        let curve = |count| quote(Price(7), count);
+        assert!((0..40).all(|count| curve(count) <= curve(count + 1)));
+    }
+
+    /// A hundred purchases in one test, and the suite still finishes
+    /// instantly — which is the argument for keeping the rule on this side.
+    #[test]
+    fn a_purse_spent_one_item_at_a_time_runs_out_exactly_when_it_should() {
+        let one = quote(Price(3), 1);
+        let purse = (0..100).fold(Coins(300), |held, _| match buy(held, one) {
+            Purchase::Bought(left) => left,
+            Purchase::TooExpensive(_) => held,
+        });
+
+        assert_eq!(purse, Coins(0));
+        assert_eq!(buy(purse, one), Purchase::TooExpensive(Coins(3)));
+    }
+}
+```
+
 ### BV-TST-02 [M] Build the smallest `App` that exercises the plugin
 
 `App::new()` plus the plugin under test plus whatever it genuinely requires. `MinimalPlugins` when
@@ -163,6 +278,89 @@ a race.
 **Check:** for each test involving `FixedUpdate`, find where the number of steps is decided. If it
 is decided by the clock, the test is not deterministic.
 
+```rust
+// verified
+use bevy::prelude::*;
+
+/// Seconds of fuse left before the charge goes off.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct Fuse(pub f32);
+
+/// Naming `Time<Fixed>` rather than the generic `Time` is what lets a test
+/// drive this with `run_schedule`: the generic clock is only swapped to the
+/// fixed one by the fixed-main loop, which a direct `run_schedule` skips.
+fn burn(mut fuses: Query<&mut Fuse>, time: Res<Time<Fixed>>) {
+    let step = time.delta_secs();
+    for mut fuse in &mut fuses {
+        let left = (fuse.0 - step).max(0.0);
+        fuse.set_if_neq(Fuse(left));
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct FusePlugin;
+
+impl Plugin for FusePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(FixedUpdate, burn);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// One fixed step, decided here: advance the fixed clock by exactly one
+    /// timestep, then run the schedule exactly once.
+    fn step(app: &mut App) {
+        let timestep = app.world().resource::<Time<Fixed>>().timestep();
+        app.world_mut()
+            .resource_mut::<Time<Fixed>>()
+            .advance_by(timestep);
+        app.world_mut().run_schedule(FixedUpdate);
+    }
+
+    /// The plugin does not own the clock, so the test inserts the one it
+    /// wants: 32 Hz, which is an exact 31.25 ms in binary floating point.
+    fn app_at_32_hz() -> App {
+        let mut app = App::new();
+        app.add_plugins(FusePlugin)
+            .insert_resource(Time::<Fixed>::from_hz(32.0));
+        app
+    }
+
+    #[test]
+    fn eight_steps_at_32_hz_burn_exactly_a_quarter_of_a_second() {
+        let mut app = app_at_32_hz();
+        let charge = app.world_mut().spawn(Fuse(1.0)).id();
+
+        for _ in 0..8 {
+            step(&mut app);
+        }
+
+        // 8 x 31.25 ms. The 8 is written in the test; nothing about the
+        // machine the test runs on can change it.
+        assert_eq!(app.world().entity(charge).get::<Fuse>(), Some(&Fuse(0.75)));
+    }
+
+    #[test]
+    fn update_does_not_decide_the_number_of_steps_for_you() {
+        let mut app = app_at_32_hz();
+        let charge = app.world_mut().spawn(Fuse(1.0)).id();
+
+        app.update();
+        app.update();
+
+        // Nothing accumulated any overstep, so `FixedUpdate` ran zero times.
+        // With a real clock plugin it would have run however many times the
+        // frames happened to be long enough for — the machine's answer to a
+        // question that belongs to the test.
+        assert_eq!(app.world().entity(charge).get::<Fuse>(), Some(&Fuse(1.0)));
+    }
+}
+```
+
 ### BV-TST-08 [M] Flush before asserting on anything a command did
 
 `app.world_mut().flush()` after a command, or run the schedule that applies it. A spawn queued by a
@@ -174,6 +372,77 @@ deferral, so it sees the queue directly.
 
 **Check:** does the test query for something a system spawned, without a flush or an `update`
 between? That is the failure.
+
+```rust
+// verified
+use bevy::prelude::*;
+
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+pub struct Muzzle;
+
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+pub struct Bullet;
+
+/// A structural change from a parallel system goes through `Commands`, so
+/// the spawn is queued here and lands at the schedule's sync point.
+fn fire(mut commands: Commands, muzzles: Query<&Transform, With<Muzzle>>) {
+    for transform in &muzzles {
+        commands.spawn((Bullet, *transform));
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct GunPlugin;
+
+impl Plugin for GunPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Update, fire);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bullets(world: &mut World) -> usize {
+        let mut query = world.query_filtered::<(), With<Bullet>>();
+        query.iter(world).count()
+    }
+
+    #[test]
+    fn a_command_the_test_queued_is_invisible_until_the_flush() {
+        let mut world = World::new();
+        world.commands().spawn(Bullet);
+
+        // The spawn is in the queue, not in the world. Asserting here is
+        // what produces "the entity does not exist" in a test of code the
+        // game runs perfectly well.
+        assert_eq!(bullets(&mut world), 0);
+
+        world.flush();
+
+        assert_eq!(bullets(&mut world), 1);
+    }
+
+    #[test]
+    fn running_the_schedule_applies_the_systems_commands() {
+        let mut app = App::new();
+        app.add_plugins(GunPlugin);
+        app.world_mut()
+            .spawn((Muzzle, Transform::from_xyz(0.0, 2.0, 0.0)));
+
+        app.world_mut().run_schedule(Update);
+
+        // The schedule flushed at its own sync point, so the bullet and
+        // everything spawned with it are visible without a `flush` here.
+        let mut query = app.world_mut().query_filtered::<&Transform, With<Bullet>>();
+        let spawned: Vec<Vec3> = query.iter(app.world()).map(|t| t.translation).collect();
+        assert_eq!(spawned, [Vec3::new(0.0, 2.0, 0.0)]);
+    }
+}
+```
 
 ### BV-TST-09 [S] Insert the time the test wants, rather than sleeping
 
@@ -210,6 +479,98 @@ engine upgrade that changed nothing about the game.
 
 **Check:** grep for `entities().len()` and for asserts on a total. Query for the component the test
 cares about instead.
+
+```rust
+// verified — the query survives what the entity total does not
+use bevy::prelude::*;
+
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+pub struct Enemy;
+
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+pub struct Weapon;
+
+/// Kills so far. A fact about the game, so a test may assert on it.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Slain(pub u32);
+
+fn spawn_wave(mut commands: Commands) {
+    for _ in 0..3 {
+        commands.spawn(Enemy).with_child(Weapon);
+    }
+}
+
+fn count_slain(_remove: On<Remove, Enemy>, mut slain: ResMut<Slain>) {
+    slain.0 += 1;
+}
+
+#[derive(Debug, Default)]
+pub struct WavePlugin;
+
+impl Plugin for WavePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Slain>()
+            .add_observer(count_slain)
+            .add_systems(Startup, spawn_wave);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Ask for the component the assertion is about, whatever it is.
+    fn count<C: Component>(world: &mut World) -> usize {
+        let mut query = world.query_filtered::<(), With<C>>();
+        query.iter(world).count()
+    }
+
+    fn wave() -> App {
+        let mut app = App::new();
+        app.add_plugins(WavePlugin);
+        app.update();
+        app
+    }
+
+    #[test]
+    fn the_query_answers_the_question_and_the_total_does_not() {
+        let mut app = wave();
+
+        assert_eq!(count::<Enemy>(app.world_mut()), 3);
+
+        // Three enemies, a weapon under each, and the plugin's observer —
+        // an observer is an entity too. Nothing in that list is a fact
+        // about the game, and all of it is in the total.
+        let total = app.world().entities().len();
+        assert!(total > 3, "{total} entities, and 3 of them are enemies");
+    }
+
+    #[test]
+    fn despawning_an_enemy_does_not_move_the_total_at_all() {
+        let mut app = wave();
+        let before = app.world().entities().len();
+
+        let mut query = app.world_mut().query_filtered::<Entity, With<Enemy>>();
+        let Some(victim) = query.iter(app.world()).next() else {
+            unreachable!("the wave spawned three")
+        };
+        app.world_mut().entity_mut(victim).despawn();
+
+        // The facts: one fewer enemy, its weapon went with it, one kill.
+        assert_eq!(count::<Enemy>(app.world_mut()), 2);
+        assert_eq!(count::<Weapon>(app.world_mut()), 2);
+        assert_eq!(app.world().resource::<Slain>().0, 1);
+
+        // And the count-based assertion, breaking. `Entities::len` counts
+        // allocated indices rather than living entities, so those two
+        // despawns move it by nothing at all.
+        assert_eq!(app.world().entities().len(), before);
+    }
+}
+```
 
 ### BV-TST-12 [S] Assert the fact, not the mechanism that produced it
 

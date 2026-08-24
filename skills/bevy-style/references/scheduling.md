@@ -180,6 +180,100 @@ Accumulating into a resource that `Update` then reads and clears is the shape th
 **Check:** for each `FixedUpdate` system, ask what running it three times in a row would do. If the
 answer is wrong, it is assuming a frame.
 
+```rust
+// verified
+use bevy::prelude::*;
+use bevy::time::{TimePlugin, TimeUpdateStrategy};
+
+/// One fixed step's worth. The step is the unit of simulation; the frame is not.
+const DAMAGE_PER_STEP: u32 = 1;
+
+/// The accumulator. However many steps ran, each one adds its own share.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct PendingDamage(pub u32);
+
+/// What the frame reads: the damage of every step since the frame last looked.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct DamageThisFrame(pub u32);
+
+/// The shape that assumes a frame, kept so the test can catch it lying.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct LatestStepDamage(pub u32);
+
+/// Correct for zero runs, one run and three: each run adds its own step.
+fn accumulate_damage(mut pending: ResMut<PendingDamage>) {
+    pending.0 += DAMAGE_PER_STEP;
+}
+
+/// Wrong in both directions: three steps still report one, and a frame with no
+/// step at all reports whatever the last step left behind.
+fn overwrite_damage(mut latest: ResMut<LatestStepDamage>) {
+    latest.0 = DAMAGE_PER_STEP;
+}
+
+/// Runs once per frame, and leaves the accumulator empty for the next one.
+fn drain_damage(mut pending: ResMut<PendingDamage>, mut frame: ResMut<DamageThisFrame>) {
+    frame.0 = core::mem::take(&mut pending.0);
+}
+
+#[derive(Debug, Default)]
+pub struct DamagePlugin;
+
+impl Plugin for DamagePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<PendingDamage>()
+            .init_resource::<DamageThisFrame>()
+            .init_resource::<LatestStepDamage>()
+            .add_systems(FixedUpdate, (accumulate_damage, overwrite_damage))
+            .add_systems(Update, drain_damage);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `(accumulated, overwritten)` as the frame sees them.
+    fn reported(app: &App) -> (u32, u32) {
+        (
+            app.world().resource::<DamageThisFrame>().0,
+            app.world().resource::<LatestStepDamage>().0,
+        )
+    }
+
+    #[test]
+    fn one_frame_may_hold_zero_steps_one_step_or_three() {
+        let step = Time::<Fixed>::default().timestep();
+        let mut app = App::new();
+        app.add_plugins((TimePlugin, DamagePlugin))
+            .insert_resource(TimeUpdateStrategy::ManualDuration(step * 3));
+
+        // No virtual time has elapsed yet, so the fixed schedule does not run.
+        app.update();
+        assert_eq!(reported(&app), (0, 0));
+
+        // Three steps in one frame: the accumulator has all three, the
+        // assignment kept only the last.
+        app.update();
+        assert_eq!(reported(&app), (3, 1));
+
+        // One step, and the previous frame's three are not counted again.
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(step));
+        app.update();
+        assert_eq!(reported(&app), (1, 1));
+
+        // A frame too short for a step. "Nothing happened" is the truth; the
+        // assignment still reports a hit that landed two frames ago.
+        app.insert_resource(TimeUpdateStrategy::ManualDuration(step / 2));
+        app.update();
+        assert_eq!(reported(&app), (0, 1));
+    }
+}
+```
+
 ### BV-SCH-08 [S] Interpolate between fixed steps rather than raising the rate
 
 When fixed-step motion looks choppy, render an interpolated position in `Update` using
@@ -412,6 +506,97 @@ to know what "Resolve" runs after has exactly one place to look.
 **Check:** grep for each set name. It should appear in `configure_sets` once, and in `.in_set(…)`
 everywhere else.
 
+```rust
+// verified
+use bevy::prelude::*;
+
+/// The phases of a combat round. `CombatPlugin` defines this enum and orders it
+/// once; every other plugin only ever says `.in_set(…)`.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CombatSystems {
+    Resolve,
+    Reward,
+    Cleanup,
+}
+
+/// Each system records that it ran, so the test can read the order back.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct RoundLog(pub Vec<&'static str>);
+
+fn apply_damage(mut log: ResMut<RoundLog>) {
+    log.0.push("apply_damage");
+}
+
+fn despawn_dead(mut log: ResMut<RoundLog>) {
+    log.0.push("despawn_dead");
+}
+
+/// Lives in another plugin and knows one thing: the name of a phase.
+fn drop_loot(mut log: ResMut<RoundLog>) {
+    log.0.push("drop_loot");
+}
+
+#[derive(Debug, Default)]
+pub struct CombatPlugin;
+
+impl Plugin for CombatPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<RoundLog>()
+            // The only `configure_sets` for these sets in this schedule.
+            .configure_sets(
+                FixedUpdate,
+                (
+                    CombatSystems::Resolve,
+                    CombatSystems::Reward,
+                    CombatSystems::Cleanup,
+                )
+                    .chain(),
+            )
+            .add_systems(
+                FixedUpdate,
+                (
+                    apply_damage.in_set(CombatSystems::Resolve),
+                    despawn_dead.in_set(CombatSystems::Cleanup),
+                ),
+            );
+    }
+}
+
+/// A separate plugin joining a phase it did not define: no second
+/// `configure_sets`, no `.before(…)`, and nothing to revisit when combat grows
+/// a fourth phase.
+#[derive(Debug, Default)]
+pub struct LootPlugin;
+
+impl Plugin for LootPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(FixedUpdate, drop_loot.in_set(CombatSystems::Reward));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_joining_plugin_lands_inside_the_owner_s_order() {
+        let mut app = App::new();
+        // Deliberately the wrong way round. The ordering lives in one place, so
+        // the order the plugins were added in cannot reach it.
+        app.add_plugins((LootPlugin, CombatPlugin));
+
+        app.world_mut().run_schedule(FixedUpdate);
+
+        let log = &app.world().resource::<RoundLog>().0;
+        let at = |name: &str| log.iter().position(|entry| *entry == name);
+        assert_eq!(at("apply_damage"), Some(0), "Resolve is first");
+        assert_eq!(at("drop_loot"), Some(1), "the guest sits in Reward");
+        assert_eq!(at("despawn_dead"), Some(2), "Cleanup is last");
+    }
+}
+```
+
 ### BV-SCH-14 [M] Never order a system against another system's function
 
 `.after(damage_systems::apply)` names a function. `.after(CombatSystems::Resolve)` names a phase.
@@ -590,6 +775,85 @@ frames, or a "have I logged this yet" flag has no business in the world.
 **Check:** for each `Local<T>`, ask what would break if it were reset to `Default` between frames.
 If the answer involves game state rather than bookkeeping, it is a resource.
 
+```rust
+// verified
+use bevy::prelude::*;
+
+/// Above this, a reactor core is in trouble.
+const MAX_HEAT: f32 = 90.0;
+
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+pub struct Heat(pub f32);
+
+/// Game state: a second system reads it, the HUD shows it and a save file has
+/// to contain it. `Local<u32>` here would compile, would count correctly, and
+/// would leave the warning light dark forever.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Alarms(pub u32);
+
+#[derive(Component, Debug, Clone, Copy, Default, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct WarningLight(pub bool);
+
+/// `warned` is "have I complained about this yet". No other system can want it,
+/// no tool needs to see it, and losing it on a reload costs one duplicate log
+/// line — that is the whole job description of `Local`.
+fn raise_alarm(mut warned: Local<bool>, cores: Query<&Heat>, mut alarms: ResMut<Alarms>) {
+    for heat in &cores {
+        if heat.0 > MAX_HEAT && !*warned {
+            alarms.0 += 1;
+            *warned = true;
+        }
+    }
+}
+
+/// The second reader. It can see the resource; a `Local` would not exist to it.
+fn drive_warning_light(alarms: Res<Alarms>, mut lights: Query<&mut WarningLight>) {
+    for mut light in &mut lights {
+        light.set_if_neq(WarningLight(alarms.0 > 0));
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct AlarmPlugin;
+
+impl Plugin for AlarmPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Alarms>()
+            .add_systems(Update, (raise_alarm, drive_warning_light).chain());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_flag_stays_private_and_the_count_stays_shared() {
+        let mut app = App::new();
+        app.add_plugins(AlarmPlugin);
+        app.world_mut().spawn(Heat(120.0));
+        app.world_mut().spawn(Heat(150.0));
+        let light = app.world_mut().spawn(WarningLight(false)).id();
+
+        app.update();
+        app.update();
+        app.update();
+
+        // The `Local` survived every run, so two hot cores over three frames
+        // raised one alarm rather than six.
+        assert_eq!(app.world().resource::<Alarms>().0, 1);
+        // And a second system acted on the count, which is why it is not local.
+        assert_eq!(
+            app.world().entity(light).get::<WarningLight>(),
+            Some(&WarningLight(true))
+        );
+    }
+}
+```
+
 ## Time control
 
 ### BV-SCH-26 [M] Pause and scale the game through `Time<Virtual>`, not a flag
@@ -609,3 +873,127 @@ respond while the game is stopped.
 
 **Check:** grep for a resource named `paused`, a `run_if` mentioning one, and `is_paused` on
 anything but `Time<Virtual>`. Then pause the game and confirm a `FixedUpdate` counter stops.
+```rust
+// verified
+use bevy::prelude::*;
+use bevy::state::app::StatesPlugin;
+use bevy::time::{TimePlugin, TimeUpdateStrategy};
+use core::time::Duration;
+
+/// Two phases instead of a `Paused(bool)` nobody remembers to check.
+#[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect)]
+pub enum GameState {
+    #[default]
+    Playing,
+    Paused,
+}
+
+/// Simulation: one increment per fixed step.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Steps(pub u32);
+
+/// Presentation: the frame time the animation layer has consumed.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Presented(pub Duration);
+
+/// Diagnostics: the real clock, which pausing must not touch.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct WallClock(pub Duration);
+
+/// The whole pause feature. No gameplay system below mentions the state.
+fn pause_the_clock(mut virtual_time: ResMut<Time<Virtual>>) {
+    virtual_time.pause();
+}
+
+fn resume_the_clock(mut virtual_time: ResMut<Time<Virtual>>) {
+    virtual_time.unpause();
+}
+
+fn simulate(mut steps: ResMut<Steps>) {
+    steps.0 += 1;
+}
+
+/// `Res<Time>` in `Update` is the virtual clock, so this stops when it does.
+fn animate(mut presented: ResMut<Presented>, time: Res<Time>) {
+    presented.0 += time.delta();
+}
+
+/// `Time<Real>` ignores pause, which is what a frame-time readout needs.
+fn tick_wall_clock(mut wall: ResMut<WallClock>, time: Res<Time<Real>>) {
+    wall.0 += time.delta();
+}
+
+#[derive(Debug, Default)]
+pub struct GamePlugin;
+
+impl Plugin for GamePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_state::<GameState>()
+            .init_resource::<Steps>()
+            .init_resource::<Presented>()
+            .init_resource::<WallClock>()
+            .add_systems(OnEnter(GameState::Paused), pause_the_clock)
+            .add_systems(OnExit(GameState::Paused), resume_the_clock)
+            .add_systems(FixedUpdate, simulate)
+            .add_systems(Update, (animate, tick_wall_clock));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pausing_the_virtual_clock_stops_both_schedules_at_once() {
+        let step = Time::<Fixed>::default().timestep();
+        let mut app = App::new();
+        app.add_plugins((StatesPlugin, TimePlugin, GamePlugin))
+            .insert_resource(TimeUpdateStrategy::ManualDuration(step));
+
+        app.update(); // no virtual time has elapsed yet
+        app.update();
+        assert_eq!(app.world().resource::<Steps>().0, 1);
+
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Paused);
+        // The clock was read in `First`, before the transition ran, so this
+        // frame still steps: a transition is never the frame that asked.
+        app.update();
+        let frozen_steps = app.world().resource::<Steps>().0;
+        let frozen_frame = app.world().resource::<Presented>().0;
+        let wall_at_pause = app.world().resource::<WallClock>().0;
+
+        for _ in 0..3 {
+            app.update();
+        }
+        assert_eq!(app.world().resource::<Steps>().0, frozen_steps);
+        assert_eq!(app.world().resource::<Presented>().0, frozen_frame);
+        assert_eq!(
+            app.world().resource::<WallClock>().0,
+            wall_at_pause + step * 3,
+            "diagnostics and menus keep running"
+        );
+
+        // Resuming is the same one call; the speed control is its neighbour.
+        app.world_mut()
+            .resource_mut::<NextState<GameState>>()
+            .set(GameState::Playing);
+        app.world_mut()
+            .resource_mut::<Time<Virtual>>()
+            .set_relative_speed(3.0);
+        app.update();
+        app.update();
+        assert_eq!(app.world().resource::<Steps>().0, frozen_steps + 3);
+        assert_eq!(
+            app.world().resource::<Presented>().0,
+            frozen_frame + step * 3,
+            "one clock scaled both schedules"
+        );
+    }
+}
+```
+

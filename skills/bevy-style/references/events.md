@@ -61,6 +61,106 @@ would be inconsistent for that frame, it is an event.
 | Readers | any number, each reads all | any number, unordered |
 | Registration | `app.add_message::<M>()` | `app.add_observer(…)` |
 
+```rust
+// verified — the same frame, two mechanisms, two arrival times
+use bevy::prelude::*;
+
+/// A fact about the past, buffered. Two readers want it and neither is urgent,
+/// so it can wait for the schedule.
+#[derive(Message, Debug, Clone, Copy)]
+pub struct DamageDealt {
+    pub target: Entity,
+    pub amount: u32,
+}
+
+/// A demand for immediacy. Nothing may observe a corpse that still counts as
+/// alive, so the reaction has to happen inside the call that announced it.
+#[derive(EntityEvent, Debug, Clone, Copy)]
+pub struct Died {
+    pub entity: Entity,
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Component)]
+pub struct Health(pub u32);
+
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Score(pub u32);
+
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Deaths(pub u32);
+
+/// One of two readers. Each holds its own cursor, so each sees every message.
+fn apply_damage(mut damage: MessageReader<DamageDealt>, mut healths: Query<&mut Health>) {
+    for hit in damage.read() {
+        if let Ok(mut health) = healths.get_mut(hit.target) {
+            health.0 = health.0.saturating_sub(hit.amount);
+        }
+    }
+}
+
+/// The other reader. It knows nothing about the first, and cannot be ordered
+/// against it — that is the whole point of the buffer.
+fn add_score(mut damage: MessageReader<DamageDealt>, mut score: ResMut<Score>) {
+    for hit in damage.read() {
+        score.0 += hit.amount;
+    }
+}
+
+/// Not a system: an observer, run inside `trigger`, before the caller's next line.
+fn count_death(_died: On<Died>, mut deaths: ResMut<Deaths>) {
+    deaths.0 += 1;
+}
+
+#[derive(Debug, Default)]
+pub struct CombatPlugin;
+
+impl Plugin for CombatPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_message::<DamageDealt>()
+            .init_resource::<Score>()
+            .init_resource::<Deaths>()
+            .add_systems(Update, (apply_damage, add_score))
+            .add_observer(count_death);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_message_waits_for_the_schedule_and_the_event_does_not() {
+        let mut app = App::new();
+        app.add_plugins(CombatPlugin);
+        let target = app.world_mut().spawn(Health(30)).id();
+
+        app.world_mut()
+            .write_message(DamageDealt { target, amount: 5 });
+        // Written, and nothing has run: the buffer is a promise about later.
+        assert_eq!(app.world().resource::<Score>().0, 0);
+        assert_eq!(
+            app.world().entity(target).get::<Health>(),
+            Some(&Health(30))
+        );
+
+        app.world_mut().trigger(Died { entity: target });
+        // No `update()` in between — the observer already ran.
+        assert_eq!(app.world().resource::<Deaths>().0, 1);
+
+        app.update();
+        // One message, two independent readers, both of them served.
+        assert_eq!(app.world().resource::<Score>().0, 5);
+        assert_eq!(
+            app.world().entity(target).get::<Health>(),
+            Some(&Health(25))
+        );
+    }
+}
+```
+
 ### BV-EVT-02 [S] Query the state instead, where the state already says it
 
 Before adding a message, check whether a query answers the same question. "Health reached zero" is a
@@ -357,6 +457,93 @@ whatever four observers decided to do.
 **Check:** does the observer iterate a query with no bound, or do work proportional to the number of
 entities? Move that to a system and have the observer record what needs doing.
 
+```rust
+// verified — the observer records, the system iterates
+use bevy::prelude::*;
+
+#[derive(EntityEvent, Debug, Clone, Copy)]
+pub struct Died {
+    pub entity: Entity,
+}
+
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+pub struct Ally;
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Component)]
+pub struct Morale(pub u32);
+
+/// All the observer is allowed to produce: a note of what needs doing. Drained
+/// every `Update`, so it is a work list and not a second copy of the world.
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct DeathQueue(pub Vec<Entity>);
+
+/// Runs inside the flush, holding up every command queued behind it — so it
+/// does one push and returns. `commands.entity(e).despawn()` at the trigger
+/// site should cost roughly what it looks like it costs.
+fn record_death(died: On<Died>, mut queue: ResMut<DeathQueue>) {
+    queue.0.push(died.entity);
+}
+
+/// The unbounded half — work proportional to the number of allies — is a
+/// system: scheduled, parallelisable, and skippable when the queue is empty.
+fn spread_grief(mut queue: ResMut<DeathQueue>, mut allies: Query<&mut Morale, With<Ally>>) {
+    for _dead in queue.0.drain(..) {
+        for mut morale in &mut allies {
+            morale.0 = morale.0.saturating_sub(1);
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct MoralePlugin;
+
+impl Plugin for MoralePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<DeathQueue>()
+            .add_observer(record_death)
+            .add_systems(Update, spread_grief);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_observer_records_and_the_system_does_the_work() {
+        let mut app = App::new();
+        app.add_plugins(MoralePlugin);
+        let ally = app.world_mut().spawn((Ally, Morale(10))).id();
+        let victim = app.world_mut().spawn_empty().id();
+
+        app.world_mut().trigger(Died { entity: victim });
+        // The trigger has returned, and all that happened inside it was the note.
+        assert_eq!(app.world().resource::<DeathQueue>().0.as_slice(), &[victim]);
+        assert_eq!(app.world().entity(ally).get::<Morale>(), Some(&Morale(10)));
+
+        app.update();
+        assert!(app.world().resource::<DeathQueue>().0.is_empty());
+        assert_eq!(app.world().entity(ally).get::<Morale>(), Some(&Morale(9)));
+    }
+
+    #[test]
+    fn the_queue_is_drained_so_a_death_is_mourned_once() {
+        let mut app = App::new();
+        app.add_plugins(MoralePlugin);
+        let ally = app.world_mut().spawn((Ally, Morale(10))).id();
+        let victim = app.world_mut().spawn_empty().id();
+
+        app.world_mut().trigger(Died { entity: victim });
+        app.update();
+        app.update();
+        assert_eq!(app.world().entity(ally).get::<Morale>(), Some(&Morale(9)));
+    }
+}
+```
+
 ### BV-EVT-16 [M] Scope an observer to one entity when one entity is the subject
 
 `commands.entity(e).observe(handler)` for a handler about that entity. `app.add_observer(handler)`
@@ -369,6 +556,123 @@ silently acts on every entity in the game.
 
 **Check:** does the observer's first statement compare the target against something? That comparison
 is `entity(e).observe(…)` written out.
+
+```rust
+// verified — the same handler, scoped and global, side by side
+use bevy::prelude::*;
+
+#[derive(EntityEvent, Debug, Clone, Copy)]
+pub struct Pressed {
+    pub entity: Entity,
+}
+
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+pub struct Lever;
+
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+pub struct Barrel;
+
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct PressLog(pub Vec<Entity>);
+
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct GlobalPressLog(pub Vec<Entity>);
+
+/// Registered against one entity, so its first line is already the work. It
+/// cannot be reached by a press on anything else, and it is despawned with its
+/// lever.
+fn record_press(pressed: On<Pressed>, mut log: ResMut<PressLog>) {
+    log.0.push(pressed.entity);
+}
+
+/// The same handler registered globally. Its first line has to be the guard
+/// that `commands.entity(e).observe(…)` writes for you — forget it and every
+/// barrel in the game is a lever.
+fn record_press_globally(
+    pressed: On<Pressed>,
+    levers: Query<(), With<Lever>>,
+    mut log: ResMut<GlobalPressLog>,
+) {
+    if !levers.contains(pressed.entity) {
+        return;
+    }
+    log.0.push(pressed.entity);
+}
+
+fn spawn_console(mut commands: Commands) {
+    let lever = commands.spawn(Lever).id();
+    // The observer is an entity of its own, linked to the lever by `ObservedBy`
+    // and despawned when the last entity it watches is.
+    commands.entity(lever).observe(record_press);
+    commands.spawn(Barrel);
+}
+
+#[derive(Debug, Default)]
+pub struct ConsolePlugin;
+
+impl Plugin for ConsolePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<PressLog>()
+            .init_resource::<GlobalPressLog>()
+            .add_observer(record_press_globally)
+            .add_systems(Startup, spawn_console);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn only<C: Component>(app: &mut App) -> Entity {
+        let mut query = app.world_mut().query_filtered::<Entity, With<C>>();
+        let Ok(entity) = query.single(app.world()) else {
+            unreachable!()
+        };
+        entity
+    }
+
+    #[test]
+    fn the_scoped_observer_hears_only_its_own_entity() {
+        let mut app = App::new();
+        app.add_plugins(ConsolePlugin);
+        app.update();
+        let lever = only::<Lever>(&mut app);
+        let barrel = only::<Barrel>(&mut app);
+
+        app.world_mut().trigger(Pressed { entity: barrel });
+        app.world_mut().trigger(Pressed { entity: lever });
+
+        // The scoped observer ran once, for the lever, without asking anything.
+        assert_eq!(app.world().resource::<PressLog>().0.as_slice(), &[lever]);
+        // The global one ran twice and its guard threw the barrel away.
+        assert_eq!(
+            app.world().resource::<GlobalPressLog>().0.as_slice(),
+            &[lever]
+        );
+    }
+
+    #[test]
+    fn the_scoped_observer_is_despawned_with_its_lever() {
+        let mut app = App::new();
+        app.add_plugins(ConsolePlugin);
+        app.update();
+        let lever = only::<Lever>(&mut app);
+
+        let mut observers = app.world_mut().query_filtered::<Entity, With<Observer>>();
+        // One global, one scoped.
+        assert_eq!(observers.iter(app.world()).count(), 2);
+
+        app.world_mut().entity_mut(lever).despawn();
+        app.world_mut().flush();
+        // The scoped one went with its lever; it cannot outlive its subject.
+        assert_eq!(observers.iter(app.world()).count(), 1);
+    }
+}
+```
 
 ### BV-EVT-17 [S] Gate an observer with `run_if`
 
@@ -406,6 +710,122 @@ triggers B, B's observer triggers A. Neither is diagnosed; the game simply stops
 
 **Check:** for each `trigger` inside an observer, follow the event to its observers and back. Any
 cycle needs a guard, and the guard needs to be a value the observer reads, not a comment.
+
+```rust
+// verified — the cycle is real; the guard is the value that ends it
+use bevy::prelude::*;
+
+#[derive(EntityEvent, Debug, Clone, Copy)]
+pub struct Damaged {
+    pub entity: Entity,
+    pub amount: u32,
+}
+
+#[derive(EntityEvent, Debug, Clone, Copy)]
+pub struct Died {
+    pub entity: Entity,
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Component)]
+pub struct Health(pub u32);
+
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct DamageMeter(pub u32);
+
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Blasts(pub u32);
+
+/// The guard, and the only reason the cycle below has an end: `Died` fires on
+/// the *transition* to zero, never on a hit that lands on a corpse. `before` is
+/// a value read out of the world — the thing the observer can actually test.
+fn take_damage(
+    damaged: On<Damaged>,
+    mut healths: Query<&mut Health>,
+    mut meter: ResMut<DamageMeter>,
+    mut commands: Commands,
+) -> Result {
+    let mut health = healths.get_mut(damaged.entity)?;
+    let before = health.0;
+    health.0 = before.saturating_sub(damaged.amount);
+    meter.0 += damaged.amount;
+    if before > 0 && health.0 == 0 {
+        commands.trigger(Died {
+            entity: damaged.entity,
+        });
+    }
+    Ok(())
+}
+
+/// Handling `Died` by triggering `Died` would never return — observers run
+/// inside the trigger, so it is plain recursion with the stack as its only
+/// limit. This triggers the *other* event, and the blast still reaches its own
+/// corpse: the cycle closes here, and the guard above is what ends it.
+fn explode_on_death(died: On<Died>, mut blasts: ResMut<Blasts>, mut commands: Commands) {
+    blasts.0 += 1;
+    commands.trigger(Damaged {
+        entity: died.entity,
+        amount: 10,
+    });
+}
+
+#[derive(Debug, Default)]
+pub struct ExplosivePlugin;
+
+impl Plugin for ExplosivePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<DamageMeter>()
+            .init_resource::<Blasts>()
+            .add_observer(take_damage)
+            .add_observer(explode_on_death);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_blast_catches_its_own_corpse_exactly_once() {
+        let mut app = App::new();
+        app.add_plugins(ExplosivePlugin);
+        let charge = app.world_mut().spawn(Health(30)).id();
+
+        app.world_mut().trigger(Damaged {
+            entity: charge,
+            amount: 30,
+        });
+        app.update();
+
+        // Damaged(30) -> Died -> Damaged(10) -> guard -> stop. Two hits landed.
+        assert_eq!(app.world().resource::<DamageMeter>().0, 40);
+        assert_eq!(app.world().resource::<Blasts>().0, 1);
+        assert_eq!(app.world().entity(charge).get::<Health>(), Some(&Health(0)));
+    }
+
+    #[test]
+    fn a_survivable_hit_announces_nothing() {
+        let mut app = App::new();
+        app.add_plugins(ExplosivePlugin);
+        let charge = app.world_mut().spawn(Health(30)).id();
+
+        app.world_mut().trigger(Damaged {
+            entity: charge,
+            amount: 10,
+        });
+        app.update();
+
+        assert_eq!(app.world().resource::<DamageMeter>().0, 10);
+        assert_eq!(app.world().resource::<Blasts>().0, 0);
+        assert_eq!(
+            app.world().entity(charge).get::<Health>(),
+            Some(&Health(20))
+        );
+    }
+}
+```
 
 ### BV-EVT-20 [S] Name the observer's parameter after its event
 

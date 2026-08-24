@@ -99,17 +99,13 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
-        "a plugin written as a function rather than a type",
+        "a plugin added as a function rather than a type",
         "self-application",
         lambda t: edit(
             t,
-            "bevy-style/references/assets.md",
-            "#[derive(Debug, Default)]\npub struct SpritesPlugin;\n\n"
-            "impl Plugin for SpritesPlugin {\n"
-            "    fn build(&self, app: &mut App) {\n"
-            "        app.init_resource::<SpriteHandles>();\n"
-            "    }\n}",
-            "pub fn plugin(app: &mut App) {\n    app.init_resource::<SpriteHandles>();\n}",
+            "bevy-style/references/testing.md",
+            "app.add_plugins(HealthPlugin);",
+            "app.add_plugins(health_plugin);",
         ),
     ),
     Control(

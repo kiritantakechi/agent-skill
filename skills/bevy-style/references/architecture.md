@@ -189,6 +189,189 @@ point also gives the conversion a name and therefore a place to be tested.
 **Check:** grep the view layer for constructions of domain types. More than one site building the
 same domain type from components means the translation has been copied.
 
+```rust
+// verified
+use bevy::ecs::system::RunSystemOnce;
+use bevy::math::Vec2;
+use bevy::prelude::*;
+
+/// The simulation works in metres and seconds and knows nothing else. In a
+/// workspace this type lives in a crate whose manifest names `glam` and does
+/// not name `bevy` (BV-ARC-05).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Body {
+    pub metres: Vec2,
+    pub metres_per_second: Vec2,
+}
+
+#[must_use]
+pub fn fall(body: Body, seconds: f32) -> Body {
+    let metres_per_second = body.metres_per_second - Vec2::Y * 9.81 * seconds;
+    Body {
+        metres: body.metres + metres_per_second * seconds,
+        metres_per_second,
+    }
+}
+
+/// The view works in pixels. The scale is named twice — once per direction —
+/// and both times in this file.
+const PIXELS_PER_METRE: f32 = 64.0;
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct Velocity(pub Vec2);
+
+/// ECS to domain: the only place a `Body` is built from components.
+fn read_bodies(movers: Query<(Entity, &Transform, &Velocity)>) -> Vec<(Entity, Body)> {
+    movers
+        .iter()
+        .map(|(entity, transform, velocity)| {
+            let body = Body {
+                metres: transform.translation.truncate() / PIXELS_PER_METRE,
+                metres_per_second: velocity.0 / PIXELS_PER_METRE,
+            };
+            (entity, body)
+        })
+        .collect()
+}
+
+/// Domain to ECS: the only place a `Body` is spent.
+fn write_bodies(
+    In(bodies): In<Vec<(Entity, Body)>>,
+    mut movers: Query<(&mut Transform, &mut Velocity)>,
+) {
+    for (entity, body) in bodies {
+        let Ok((mut transform, mut velocity)) = movers.get_mut(entity) else {
+            continue;
+        };
+        let pixels = body.metres * PIXELS_PER_METRE;
+        transform.translation = pixels.extend(transform.translation.z);
+        velocity.set_if_neq(Velocity(body.metres_per_second * PIXELS_PER_METRE));
+    }
+}
+
+/// Engine-side glue: it decides *when*, and `fall` decides *what*.
+fn integrate(In(bodies): In<Vec<(Entity, Body)>>) -> Vec<(Entity, Body)> {
+    const STEP_SECONDS: f32 = 1.0 / 64.0;
+    bodies
+        .into_iter()
+        .map(|(entity, body)| (entity, fall(body, STEP_SECONDS)))
+        .collect()
+}
+
+#[derive(Debug, Default)]
+pub struct FlightPlugin;
+
+impl Plugin for FlightPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<Velocity>()
+            .add_systems(FixedUpdate, read_bodies.pipe(integrate).pipe(write_bodies));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_rule_of_the_game_needs_no_world() {
+        let start = Body {
+            metres: Vec2::ZERO,
+            metres_per_second: Vec2::ZERO,
+        };
+        let after = fall(start, 1.0);
+        assert_eq!(after.metres_per_second, Vec2::new(0.0, -9.81));
+        assert_eq!(after.metres, Vec2::new(0.0, -9.81));
+    }
+
+    #[test]
+    fn the_two_crossings_agree_on_the_scale() {
+        let mut world = World::new();
+        let entity = world
+            .spawn((
+                Transform::from_xyz(128.0, 64.0, 5.0),
+                Velocity(Vec2::new(0.0, 32.0)),
+            ))
+            .id();
+
+        let crossed = world.run_system_once(read_bodies).unwrap_or_default();
+        assert_eq!(
+            crossed.first(),
+            Some(&(
+                entity,
+                Body {
+                    metres: Vec2::new(2.0, 1.0),
+                    metres_per_second: Vec2::new(0.0, 0.5),
+                }
+            ))
+        );
+
+        // Move it by one metre and one metre per second, in the domain's
+        // units, and send it back out.
+        let moved: Vec<_> = crossed
+            .iter()
+            .map(|&(entity, body)| {
+                let nudged = Body {
+                    metres: body.metres + Vec2::X,
+                    metres_per_second: body.metres_per_second + Vec2::Y,
+                };
+                (entity, nudged)
+            })
+            .collect();
+        assert!(
+            world
+                .run_system_once_with(write_bodies, moved.clone())
+                .is_ok()
+        );
+
+        // Out and back in is the identity, which a scale dropped on one
+        // side only would not survive.
+        assert_eq!(world.run_system_once(read_bodies).ok(), Some(moved));
+
+        // And in pixels one metre is sixty-four, with the `z` the domain
+        // never saw still where it was.
+        let entity_ref = world.entity(entity);
+        let translation = entity_ref.get::<Transform>().map(|t| t.translation);
+        assert_eq!(translation, Some(Vec3::new(192.0, 64.0, 5.0)));
+        assert_eq!(
+            entity_ref.get::<Velocity>(),
+            Some(&Velocity(Vec2::new(0.0, 96.0)))
+        );
+    }
+
+    #[test]
+    fn one_fixed_step_puts_the_domains_answer_on_the_entity() {
+        let mut app = App::new();
+        app.add_plugins(FlightPlugin);
+        let entity = app
+            .world_mut()
+            .spawn((Transform::default(), Velocity(Vec2::ZERO)))
+            .id();
+
+        app.world_mut().run_schedule(FixedUpdate);
+
+        let rest = Body {
+            metres: Vec2::ZERO,
+            metres_per_second: Vec2::ZERO,
+        };
+        let expected = fall(rest, 1.0 / 64.0);
+        let world = app.world();
+        let translation = world
+            .entity(entity)
+            .get::<Transform>()
+            .map(|t| t.translation);
+        assert_eq!(
+            translation,
+            Some((expected.metres * PIXELS_PER_METRE).extend(0.0))
+        );
+        assert_eq!(
+            world.entity(entity).get::<Velocity>(),
+            Some(&Velocity(expected.metres_per_second * PIXELS_PER_METRE))
+        );
+    }
+}
+```
+
 ### BV-ARC-04 [M] Keep the invariant in the domain type, and parse at the crossing
 
 A component's fields are public — the ECS is the accessor, and reflection, scenes and the remote
@@ -348,8 +531,11 @@ It is also the form that survives growth. A unit-struct plugin that later needs 
 field, and its call sites gain `::default()` or a literal; a function that needs one has to become a
 type first, which is that edit plus a rewrite of everything that named it.
 
-**Check:** `grep -rn -E 'fn [a-z_]+\(_?app: &mut App' src/` finds a plugin written as a function,
-and `grep -rn -F 'add_plugins(|' src/` finds one written as a closure. Neither can be named.
+**Check:** `grep -rn -E 'add_plugins\(\(?[a-z_|]' src/`. After `add_plugins(` a type starts with a
+capital, so a lowercase name is a function, a module-qualified function, or a closure — all three of
+the forms that cannot be named. The *declaration* has no grep of its own, and deliberately:
+`fn f(app: &mut App)` is what a plugin function looks like and also what a test helper that drives
+an `App` looks like, so those are read rather than matched.
 
 ```rust
 // verified — GOOD: no settings, so the type is a unit struct
@@ -454,6 +640,101 @@ makes the two impossible to add independently, which is the one thing plugins ar
 
 **Check:** read each `build` and list the types it names. Every one should be defined in that
 plugin's module or below it.
+
+```rust
+// verified
+use bevy::prelude::*;
+
+#[derive(Message, Debug, Clone, Copy)]
+pub struct DamageDealt {
+    pub target: Entity,
+    pub amount: u32,
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct Health(pub u32);
+
+fn apply_damage(mut dealt: MessageReader<DamageDealt>, mut healths: Query<&mut Health>) {
+    for hit in dealt.read() {
+        if let Ok(mut health) = healths.get_mut(hit.target) {
+            let remaining = Health(health.0.saturating_sub(hit.amount));
+            health.set_if_neq(remaining);
+        }
+    }
+}
+
+/// Registers the message it defines, the component it defines, and the system
+/// that reads them. Nothing that belongs to anyone else.
+#[derive(Debug, Default)]
+pub struct CombatPlugin;
+
+impl Plugin for CombatPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<Health>()
+            .add_message::<DamageDealt>()
+            .add_systems(FixedUpdate, apply_damage);
+    }
+}
+
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Score(pub u32);
+
+fn award_points(mut dealt: MessageReader<DamageDealt>, mut score: ResMut<Score>) {
+    for hit in dealt.read() {
+        score.0 += hit.amount;
+    }
+}
+
+/// Reads combat's message and registers none of combat's things — no
+/// `add_message::<DamageDealt>()` here, because that line is combat's answer
+/// to "what is this feature made of". What score *is* responsible for is
+/// saying that it cannot run without combat.
+#[derive(Debug, Default)]
+pub struct ScorePlugin;
+
+impl Plugin for ScorePlugin {
+    fn build(&self, app: &mut App) {
+        if !app.is_plugin_added::<CombatPlugin>() {
+            app.add_plugins(CombatPlugin);
+        }
+        app.register_type::<Score>()
+            .init_resource::<Score>()
+            .add_systems(FixedUpdate, award_points);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn score_depends_on_combat_instead_of_re_registering_it() {
+        let mut app = App::new();
+        app.add_plugins(ScorePlugin);
+        assert!(app.is_plugin_added::<CombatPlugin>());
+
+        let entity = app.world_mut().spawn(Health(10)).id();
+        let written = app.world_mut().write_message(DamageDealt {
+            target: entity,
+            amount: 3,
+        });
+        assert!(written.is_some());
+        app.world_mut().run_schedule(FixedUpdate);
+
+        assert_eq!(app.world().entity(entity).get::<Health>(), Some(&Health(7)));
+        assert_eq!(app.world().resource::<Score>().0, 3);
+    }
+
+    #[test]
+    fn adding_both_plugins_is_not_a_duplicate() {
+        let mut app = App::new();
+        app.add_plugins((CombatPlugin, ScorePlugin));
+        assert!(app.is_plugin_added::<ScorePlugin>());
+    }
+}
+```
 
 ### BV-ARC-12 [M] Let a duplicate plugin panic rather than opting out of the check
 
