@@ -1,0 +1,59 @@
+# The modern shape for a typed, published Python library. Referenced by PS-FT-01
+# for the free-threading classifier; the packaging chapter owns the rest.
+[build-system]
+# PS-PKG-12: one backend, upper-bounded because uv_build follows uv's
+# versioning policy. Not the ceiling PS-PKG-04 forbids — that rule is about
+# requires-python, which is a claim about interpreters you cannot test.
+requires = ["uv_build>=0.12.6,<0.13"]
+build-backend = "uv_build"
+
+[project]
+name = "acmewidget"
+version = "0.1.0"
+description = "Widgets, assembled."
+readme = "README.md"
+requires-python = ">=3.15"
+# PEP 639: an SPDX expression as a STRING. The table forms and the
+# "License :: OSI Approved ::" classifiers are both deprecated.
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "A. Maintainer", email = "a@example.com" }]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: Free Threading :: 2 - Beta",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+# PEP 753 well-known labels, normalised lowercase.
+homepage = "https://example.com/acmewidget"
+source = "https://github.com/acme/acmewidget"
+issues = "https://github.com/acme/acmewidget/issues"
+changelog = "https://github.com/acme/acmewidget/blob/main/CHANGELOG.md"
+
+# Runtime extras. SHIPPED in the published metadata, so only put things a user
+# might actually install here.
+[project.optional-dependencies]
+cli = ["typer>=0.15"]
+
+# PEP 735. Development tooling, NOT shipped in the metadata — that is the whole
+# difference from extras, and the reason dev dependencies do not belong above.
+# Every tool is pinned exactly: each one decides whether the build passes.
+[dependency-groups]
+test = ["pytest==9.1.1"]
+lint = ["ruff==0.16.4"]
+typecheck = ["ty==0.0.74"]
+dev = [
+  { include-group = "test" },
+  { include-group = "lint" },
+  { include-group = "typecheck" },
+]
+
+# pytest 9 native TOML. NOT [tool.pytest.ini_options], which takes INI strings —
+# the two cannot coexist, and pytest's own error names this one as recommended.
+[tool.pytest]
+testpaths = ["tests"]
+# One switch for strict_config, strict_markers, strict_parametrization_ids and
+# strict_xfail.
+strict = true

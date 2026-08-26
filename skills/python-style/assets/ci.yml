@@ -1,0 +1,45 @@
+# Minimal CI that enforces this standard. Every tool is pinned to the exact
+# version the standard was verified against; a bump is a reviewed change, not a
+# resolver decision. Referenced by the packaging chapter.
+name: ci
+
+on:
+  push: { branches: [main] }
+  pull_request:
+  schedule: [{ cron: "0 6 * * 1" }]   # weekly, so new advisories surface
+
+env:
+  UV_FROZEN: "1"
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { version: "0.12.6" }
+      # The free-threaded build is a separate interpreter, not a flag.
+      - run: uv python install cpython-3.15.0rc1+freethreaded
+      - run: uv sync --group dev
+      - run: uv run pytest
+      # The GIL can be re-enabled at import time, process-wide, permanently
+      # and with only a RuntimeWarning. One unported dependency silently
+      # costs the whole feature, so assert it rather than hoping.
+      - run: uv run python -c "import sys; assert not sys._is_gil_enabled()"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { version: "0.12.6" }
+      - run: uv python install cpython-3.15.0rc1+freethreaded
+      - run: uv sync --group dev
+      - run: uv run ruff check
+      # Zero stderr here is ruff's own proof that no enabled lint rule conflicts
+      # with the formatter.
+      - run: uv run ruff format --check
+      - run: uv run ty check

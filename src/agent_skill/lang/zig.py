@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from ..model import inside_tests, needs_c_object
-from ..proc import run
+from ..proc import have, run
 from ..report import Finding, fail, note
 from . import Extraction, Unit
 
@@ -43,6 +43,9 @@ _ASSERT = re.compile(r"^(std\.debug\.)?assert\s*\(")
 class Zig:
     name = "zig"
     tool = "zig"
+
+    def missing(self) -> list[str]:
+        return [] if have(self.tool) else [f"`{self.tool}` is not on PATH"]
 
     def extract(self, skill, out: Path) -> Extraction:
         out = out.resolve()

@@ -20,6 +20,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
 from ..lang.rust import Crate
+from ..model import MARKERS
 from ..report import Finding
 
 
@@ -45,6 +46,8 @@ class Profile:
     languages: tuple[str, ...] = ()
     #: fence tags that carry markers but are not compiled
     marked_languages: tuple[str, ...] = ()
+    #: the marker words this skill's blocks may use, in its own comment syntax
+    markers: tuple[str, ...] = MARKERS
     toolchain: str | None = None
     #: how this skill's rust blocks are compiled; required when `toolchain == "rust"`,
     #: because the dependency line and the lint table differ per skill
@@ -84,11 +87,26 @@ def register(profile: Profile) -> Profile:
     return profile
 
 
-def profile_for(name: str) -> Profile:
+def _load() -> dict[str, Profile]:
     if not _REGISTRY:
-        from . import bevy_style, rust_style, zig_style  # noqa: F401
-    if name in _REGISTRY:
-        return _REGISTRY[name]
+        from . import bevy_style, python_style, rust_style, zig_style  # noqa: F401
+    return _REGISTRY
+
+
+def registered() -> tuple[Profile, ...]:
+    """Every profile this build knows about.
+
+    A check that needs the roster asks for it rather than restating it: the
+    empty-corpus guard named rust and zig literally, so a third toolchain that
+    silently extracted nothing would have reported clean.
+    """
+    return tuple(_load().values())
+
+
+def profile_for(name: str) -> Profile:
+    registry = _load()
+    if name in registry:
+        return registry[name]
     return Profile(name=name, prefix=_guess_prefix(name))
 
 

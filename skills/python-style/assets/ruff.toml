@@ -1,0 +1,85 @@
+# Validated against ruff 0.16.4. Pin this version: `select = ["ALL"]` means a
+# release that adds a rule changes what your build enforces.
+target-version = "py315"
+line-length = 88
+indent-width = 4
+src = ["src", "tests"]
+
+# 0.16 prints rule NAMES rather than codes when preview is on. Tooling that
+# parses ruff output wants codes, so ask for them. This is a TOP-LEVEL option —
+# under [lint] it is a hard config parse error.
+output-format = "concise"
+output-prefer-rule-codes = true
+
+[lint]
+# preview: required for Python 3.15 semantics, and without it every run prints
+#   "Support for Python 3.15 is under development and may be unstable."
+# explicit-preview-rules: preview rules then become unreachable through `ALL` or
+#   any prefix, and can only be selected by their exact code. The two together
+#   give py315 support with an enabled set byte-identical to preview = false.
+# Scoped to [lint] deliberately: [format] preview does not silence the warning
+# and would opt into an unstable formatter style for nothing.
+preview = true
+explicit-preview-rules = true
+
+select = ["ALL"]
+
+ignore = [
+  # Ruff's own documented formatter-conflict list.
+  # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+  "W191", "E111", "E114", "E117",  # indentation is the formatter's job
+  "D206", "D300",                  # docstring indent and quotes likewise
+  "Q000", "Q001", "Q002", "Q003", "Q004",
+  "COM812", "COM819",
+  "ISC002",
+  # ISC001 is deliberately NOT ignored: ruff recommends enabling it, and it is
+  # not on the conflict list despite older documentation saying so.
+  # E501 is deliberately NOT ignored: the formatter makes only a best-effort
+  # attempt at the line limit, so E501 is the backstop that catches the rest.
+
+  # Mutually exclusive pairs. Ruff drops one and says which in a warning; choose
+  # deliberately instead. D211 and D212 are the formatter-compatible side.
+  "D203",
+  "D213",
+
+  # Redundant with the formatter.
+  "D207", "D208",
+
+  # Policy, not correctness.
+  "CPY001",
+]
+
+[lint.flake8-implicit-str-concat]
+# Safe only because ISC001 is enabled; the two are documented as a pair.
+allow-multiline = false
+
+[lint.pydocstyle]
+# The only convention that keeps D417 (undocumented-param). Leaving it unset
+# enables mutually contradictory rules.
+convention = "google"
+
+[lint.flake8-type-checking]
+# At py314+ a TC001-TC003 fix moves the import into TYPE_CHECKING and leaves the
+# annotation UNQUOTED, because PEP 649 made annotations lazy. Static checkers are
+# satisfied; anything resolving annotations at runtime breaks. Name those bases.
+runtime-evaluated-base-classes = [
+  "pydantic.BaseModel",
+  "sqlalchemy.orm.DeclarativeBase",
+]
+runtime-evaluated-decorators = [
+  "attrs.define",
+  "pydantic.validate_call",
+]
+
+[lint.per-file-ignores]
+# S101 makes flake8-bandit unusable in a pytest suite.
+"tests/**/*.py" = ["S101", "S105", "S106", "S107", "PLR2004", "SLF001", "INP001"]
+"**/conftest.py" = ["INP001"]
+
+[format]
+preview = false            # keep the stable formatter style
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"         # "auto" is detected per file, so it is not reproducible
+docstring-code-format = true
+skip-magic-trailing-comma = false

@@ -60,8 +60,19 @@ def layout(skill):
             yield fail("hard tab", tag)
         if not text.endswith("\n"):
             yield fail("no trailing newline", tag)
+        # Fence-aware: `#` opens a heading in markdown and a comment in Python,
+        # and `ruff format` puts two blank lines before a top-level statement —
+        # so an unfenced test reads correct formatting as a doubled blank.
+        in_fence = False
         for i in range(2, len(lines)):
-            if lines[i].startswith("#") and lines[i - 1] == "" and lines[i - 2] == "":
+            if lines[i].startswith("```"):
+                in_fence = not in_fence
+            elif (
+                not in_fence
+                and lines[i].startswith("#")
+                and lines[i - 1] == ""
+                and lines[i - 2] == ""
+            ):
                 yield fail("blank line doubled before a heading", f"{tag}:{i + 1}")
 
         yield from _ordered_lists(text, tag)

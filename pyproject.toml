@@ -17,7 +17,11 @@ requires = ["uv_build>=0.12.3,<0.13.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.9"]
+# ruff and ty are pinned exactly, not floored: every measurement this repository
+# makes about their catalogues was taken at these versions, and ty states that
+# breaking changes — including changes to diagnostics — may occur between any
+# two releases. Moving either pin is a reviewed event, not a resolver decision.
+dev = ["pytest>=9", "ruff==0.16.4", "ty==0.0.74"]
 
 [tool.ruff]
 line-length = 100
@@ -28,8 +32,9 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 # A stop-word list reads as prose, not as a list literal.
 ignore = ["SIM905"]
 
-[tool.pytest.ini_options]
+[tool.pytest]
 testpaths = ["tests"]
+strict = true
 markers = [
-    "toolchain: needs cargo or zig; slow",
+    "toolchain: needs cargo, zig, or the pinned free-threaded Python; slow, and must run alone",
 ]

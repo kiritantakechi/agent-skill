@@ -45,6 +45,17 @@ class Toolchain(Protocol):
     name: str
     tool: str
 
+    def missing(self) -> list[str]:
+        """What this toolchain needs and cannot find.
+
+        A `shutil.which` on one name answered for Rust and Zig, where one binary
+        does everything. It cannot answer for a toolchain that needs an exact
+        interpreter build plus two separate tools, and it cannot see an
+        interpreter that is deliberately resolved through a version manager
+        rather than through PATH.
+        """
+        ...
+
     def extract(self, skill, out: Path) -> Extraction: ...
 
     def verify(self, ex: Extraction) -> Iterable[Finding]: ...
@@ -55,6 +66,6 @@ class Toolchain(Protocol):
 def toolchain_for(name: str | None) -> Toolchain | None:
     if name is None:
         return None
-    from . import rust, zig
+    from . import python, rust, zig
 
-    return {"rust": rust.RUST, "zig": zig.ZIG}.get(name)
+    return {"rust": rust.RUST, "zig": zig.ZIG, "python": python.PYTHON_TOOLCHAIN}.get(name)

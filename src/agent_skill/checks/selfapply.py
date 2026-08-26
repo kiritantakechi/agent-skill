@@ -28,7 +28,17 @@ CODEISH = re.compile(r"[\[\](){}<>:\\|*+?^$]|_")
 #: Patterns this broad match everything and teach nothing.
 TOO_BROAD = {"pub ", "fn ", r"\.clone\(\)", "unsafe", "mut ", "&mut ", "impl "}
 #: The quoted token in `grep -n 'pat' *.zig` that is the file, not the pattern.
-FILE_ARG = re.compile(r"\*\.(zig|rs|md|toml|zon)$|^src/|^references/|^build\.zig")
+#:
+#: A miss here is not a false negative, it is a build break: an unrecognised file
+#: argument becomes a `kind="command"` pattern, and a command-kind hit is tier 1
+#: — so every example mentioning the filename would fail the standard. Python
+#: configuration lives in bare top-level files rather than behind a glob, so the
+#: names have to be listed the way `build.zig` already is.
+FILE_ARG = re.compile(
+    r"\*\.(zig|rs|py|md|toml|zon)$"
+    r"|^src/|^references/"
+    r"|^(build\.zig|pyproject\.toml|pytest\.toml|ruff\.toml|ty\.toml)$"
+)
 
 COMMAND = re.compile(r"`((?:grep|rg)\s[^`]*)`")
 QUOTED = re.compile(r"'([^']*)'|\"([^\"]*)\"")
@@ -64,7 +74,9 @@ class Corpus:
     excluded: int = 0
 
     def build(self, skill, lang: str, work: Path) -> Corpus:
-        from ..text import strip_comment
+        from ..text import strip_comment, syntax_for
+
+        comment, quotes = syntax_for(lang)
 
         advice = skill.advice(lang, verified=True)
         self.excluded = len(skill.blocks(lang, verified=True)) - len(advice)
@@ -76,7 +88,7 @@ class Corpus:
                 # The marker classifies the block; it is not part of the example.
                 kept = "" if line == b.marker.raw else line
                 self.raw.append(kept)
-                self.code.append(strip_comment(kept))
+                self.code.append(strip_comment(kept, comment, quotes))
                 self.index.append((b.file, b.rule, b.at(j), line.strip()[:64]))
         self.raw_file = work / "raw.txt"
         self.code_file = work / "code.txt"

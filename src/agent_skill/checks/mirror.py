@@ -14,7 +14,9 @@ from ..report import fail, note
 from . import check
 from .anatomy import overlap
 
-#: (rule id in the second skill, title of its counterpart in the first)
+#: (rule id in another skill, title of its counterpart in the anchor). The id's
+#: prefix names which skill it belongs to, so a fourth standard joins the table
+#: without restructuring it — and gets the unheld-pair note for free.
 MIRROR: list[tuple[str, str]] = [
     ("ZS-TYPE-39", "Give every operation its inverse, or document why there is none"),
     ("ZS-TYPE-40", "Keep argument order identical across sibling functions"),
@@ -30,7 +32,7 @@ MIRROR: list[tuple[str, str]] = [
     ("ZS-NAME-02", "Capitalize acronyms as ordinary English words"),
 ]
 
-ANCHOR, MIRRORED = "rust-style", "zig-style"
+ANCHOR = "rust-style"
 
 
 def _shingles(s: str, n: int = 3) -> set[tuple[str, ...]]:
@@ -41,9 +43,10 @@ def _shingles(s: str, n: int = 3) -> set[tuple[str, ...]]:
 @check("mirror", "mirrored rules agree on tier", scope="all")
 def mirror(skills):
     by_name = {s.name: s for s in skills}
-    if ANCHOR not in by_name or MIRRORED not in by_name:
+    anchor = by_name.get(ANCHOR)
+    if anchor is None:
         return
-    anchor, mirrored = by_name[ANCHOR], by_name[MIRRORED]
+    by_prefix = {s.prefix: s for s in skills if s.name != ANCHOR}
 
     titles: dict[str, list] = {}
     for rule in anchor.rules:
@@ -52,6 +55,9 @@ def mirror(skills):
     held = {rid for rid, _ in MIRROR}
     for rid, title in MIRROR:
         matches = titles.get(title, [])
+        mirrored = by_prefix.get(rid.split("-")[0])
+        if mirrored is None:
+            continue  # that skill is not in this run; nothing to compare against
         other = mirrored.by_id.get(rid)
         if not matches:
             yield fail(f"no {ANCHOR} rule titled {title!r}", "mirror")
@@ -62,7 +68,7 @@ def mirror(skills):
                 "mirror",
             )
         elif other is None:
-            yield fail(f"{rid} is not a rule in {MIRRORED}", "mirror")
+            yield fail(f"{rid} is not a rule in {mirrored.name}", "mirror")
         elif matches[0].tier != other.tier:
             yield fail(
                 f"tier mismatch: {matches[0].id}[{matches[0].tier}] vs {rid}[{other.tier}]",
@@ -71,14 +77,20 @@ def mirror(skills):
 
     # The table is hand-maintained, so it needs something that notices a pair it
     # does not yet hold: three mirrored rules were guarded by nothing at all.
-    for rule in mirrored.rules:
-        if rule.id in held:
-            continue
-        a = _shingles(rule.title)
-        for other in anchor.rules:
-            if a and _shingles(other.title) and overlap(a, _shingles(other.title)) > 0.5:
-                yield note(
-                    f"{rule.id} and {other.id} look like a pair MIRROR does not hold "
-                    f"({rule.title!r})",
-                    "mirror",
-                )
+    # Every non-anchor skill is searched, not just the one the table was written
+    # for — a pair the table misses is the same defect whichever standard it is in.
+    anchor_shingles = [(r, _shingles(r.title)) for r in anchor.rules]
+    for mirrored in by_prefix.values():
+        for rule in mirrored.rules:
+            if rule.id in held:
+                continue
+            a = _shingles(rule.title)
+            if not a:
+                continue
+            for other, b in anchor_shingles:
+                if b and overlap(a, b) > 0.5:
+                    yield note(
+                        f"{rule.id} and {other.id} look like a pair MIRROR does not hold "
+                        f"({rule.title!r})",
+                        "mirror",
+                    )

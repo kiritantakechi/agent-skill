@@ -54,6 +54,67 @@ PUB_FIELD = HEADER + (
 
 CONTROLS: list[Control] = [
     Control(
+        "a workflow installing an interpreter the harness did not verify against",
+        "pins",
+        lambda t: edit(
+            t,
+            "python-style/assets/ci.yml",
+            "uv python install cpython-3.15.0rc1+freethreaded",
+            "uv python install 3.15t",
+        ),
+    ),
+    Control(
+        "a python rule citing a lint code the shipped config disables",
+        "citations",
+        lambda t: edit(
+            t,
+            "python-style/references/free-threading.md",
+            "**Check:** `grep -rn 'f_locals' src/`",
+            "**Check:** COM812 decides this. `grep -rn 'f_locals' src/`",
+        ),
+    ),
+    Control(
+        "a ty rule the asset ships and the harness does not verify",
+        "citations",
+        lambda t: edit(
+            t,
+            "python-style/assets/ty.toml",
+            "[analysis]",
+            'redundant-cast = "error"\n\n[analysis]',
+        ),
+    ),
+    Control(
+        "a python example using the future import the standard forbids",
+        "conventions",
+        lambda t: edit(
+            t,
+            "python-style/references/free-threading.md",
+            "import sys\nimport sysconfig",
+            "from __future__ import annotations\n\nimport sys\nimport sysconfig",
+        ),
+    ),
+    Control(
+        "prose naming the forbidden future import without condemning it",
+        "prose",
+        lambda t: edit(
+            t,
+            "python-style/references/free-threading.md",
+            "Unless a block shows its own imports,",
+            "Reach for `from __future__ import annotations` here. Unless a block shows its own"
+            " imports,",
+        ),
+    ),
+    Control(
+        "a python block whose marker is outside this skill's vocabulary",
+        "markers",
+        lambda t: edit(
+            t,
+            "python-style/references/free-threading.md",
+            "# verified — GOOD\nimport sys\nimport sysconfig",
+            "# does-not-compile — GOOD\nimport sys\nimport sysconfig",
+        ),
+    ),
+    Control(
         "an asset citing a rule the skill does not define",
         "assets",
         lambda t: edit(t, "bevy-style/assets/ci.yml", "BV-ARC-01", "BV-ARC-99"),
@@ -288,6 +349,18 @@ CONTROLS: list[Control] = [
         lambda t: (t / "rust-style/assets/orphan.toml").write_text("x = 1\n"),
     ),
     Control(
+        # The defect verbatim: the shipped template named itself `acme-widget`
+        # and its package `acmewidget`, so no backend could find the package.
+        "a project template whose distribution name does not match its module",
+        "assets",
+        lambda t: edit(
+            t,
+            "python-style/assets/pyproject.toml",
+            'name = "acmewidget"',
+            'name = "acme-widget"',
+        ),
+    ),
+    Control(
         "a rule its own grep would catch",
         "self-application",
         lambda t: edit(t, "rust-style/references/unsafe-ffi.md", HEADER, PUB_FIELD),
@@ -313,7 +386,7 @@ CONTROLS: list[Control] = [
 
 
 @check("controls", "each check still fails on the defect it owns", scope="all")
-def controls(skills):
+def controls(skills, *, fast: bool = False):
     """Yields a finding per control that no longer fires, and nothing when they all do."""
     from ..model import discover
     from . import by_name
@@ -325,6 +398,11 @@ def controls(skills):
         target = by_name(control.check)
         if target is None:
             yield fail(f"{control.name}: no check named {control.check!r}", "controls")
+            continue
+        if target.slow and fast:
+            # `controls` is not marked slow itself, so without this `--fast`
+            # would compile and run every example once per control — the exact
+            # cost `--fast` exists to avoid.
             continue
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             tree = Path(tmp) / "skills"
@@ -345,15 +423,23 @@ def controls(skills):
 
 
 def _empty_corpus():
-    """Extraction is the only place that can tell "no defects" from "no input"."""
+    """Extraction is the only place that can tell "no defects" from "no input".
+
+    Every profile that names a toolchain is exercised, not a hardcoded pair: an
+    extractor that silently yields nothing makes the whole toolchain check report
+    clean, which is the one failure mode this guard exists for.
+    """
     from ..lang import toolchain_for
     from ..model import Skill
+    from ..profiles import registered
 
-    for name, toolchain in (("rust-style", "rust"), ("zig-style", "zig")):
+    for profile in registered():
+        if profile.toolchain is None:
+            continue
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
-            root = Path(tmp) / name
+            root = Path(tmp) / profile.name
             (root / "references").mkdir(parents=True)
             (root / "SKILL.md").write_text("---\nname: x\n---\n")
-            tc = toolchain_for(toolchain)
+            tc = toolchain_for(profile.toolchain)
             if tc and tc.extract(Skill(root), Path(tmp) / "out"):
-                yield fail(f"an empty {toolchain} corpus still extracts blocks", "controls")
+                yield fail(f"an empty {profile.toolchain} corpus still extracts blocks", "controls")

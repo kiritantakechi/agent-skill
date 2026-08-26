@@ -1,0 +1,40 @@
+# Validated against ty 0.0.74. Pin this version exactly: ty is 0.0.x and states
+# that breaking changes, INCLUDING CHANGES TO DIAGNOSTICS, may occur between any
+# two releases. Moving the pin is a reviewed event.
+[environment]
+python-version = "3.15"
+
+[rules]
+# ty ships no `strict` preset. What it ships is twelve rules that are off by
+# default; these are them, named one at a time.
+#
+# `all = "error"` is deliberately NOT used. Since 0.0.52 `error-on-warning`
+# defaults true, so every level above `ignore` already exits 1 — promoting the
+# warn-level rules changes the printed label and nothing else. And `all` would
+# silently enrol every rule a future release adds, which for a project with no
+# stability guarantee means an upgrade can fail your build for reasons nobody
+# chose.
+blanket-ignore-comment = "error"
+dynamic-function-decorator-return = "error"
+missing-override-decorator = "error"
+missing-type-argument = "error"
+unsound-assignment = "error"
+unsound-return-statement = "error"
+unsound-yield = "error"
+unsupported-dynamic-base = "error"
+
+# Astral documents these four as false-positive-prone. `warn` is still a
+# promotion from their `ignore` default, and warn exits 1, so they still block —
+# they simply read differently in the output.
+division-by-zero = "warn"
+possibly-missing-attribute = "warn"
+possibly-missing-import = "warn"
+possibly-unresolved-reference = "warn"
+
+[analysis]
+strict-equality-semantics = true
+strict-generic-narrowing = true
+
+[terminal]
+error-on-warning = true    # already the default since 0.0.52; pinned explicitly
+output-format = "concise"  # the cheapest stable line format to parse

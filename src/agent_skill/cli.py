@@ -17,11 +17,15 @@ DEFAULT_SKILLS = REPO / "skills"
 
 
 def _emit(result: Result, *, verbose: bool, limit: int = 25) -> None:
-    label = "ok  " if result.ok else "FAIL"
+    label = "ok  " if result.ok else ("FAIL" if result.fails else "????")
     print(f"  {label}  {result.name}")
     for detail in result.details:
         print(f"          {detail}")
-    for level, items in ((Level.FAIL, result.fails), (Level.NOTE, result.notes)):
+    for level, items in (
+        (Level.FAIL, result.fails),
+        (Level.UNRUN, result.unrun),
+        (Level.NOTE, result.notes),
+    ):
         shown = items if verbose else items[:limit]
         for finding in shown:
             head, *rest = str(finding).split("\n")
@@ -42,16 +46,20 @@ def cmd_check(args) -> int:
 
     print(f"== {', '.join(s.name for s in skills)} ==")
     failed = False
+    results: list[Result] = []
     for c in all_checks():
         if args.only and c.name not in args.only:
             continue
         if args.fast and c.slow:
             continue
-        result = c.run(skills)
+        result = c.run(skills, **({"fast": args.fast} if c.name == "controls" else {}))
+        results.append(result)
         _emit(result, verbose=args.verbose)
         failed |= not result.ok
     print()
     print("SOME CHECKS FAILED" if failed else "ALL CHECKS PASSED")
+    if failed and not any(r.fails for r in results):
+        print("(nothing failed; something could not be run)")
     return 1 if failed else 0
 
 
@@ -124,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
         help="limit to one agent (repeatable); default is every one present",
     )
     put.set_defaults(func=cmd_install)
-    fmt = sub.add_parser("fmt", help="rewrite each rust example as rustfmt would have it")
+    fmt = sub.add_parser("fmt", help="rewrite each verified example as its formatter would have it")
     fmt.add_argument("--skill", action="append", help="limit to one skill (repeatable)")
     fmt.set_defaults(func=cmd_fmt)
     sub.add_parser("list", help="what is in this repository").set_defaults(func=cmd_list)

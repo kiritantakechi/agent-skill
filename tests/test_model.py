@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 
 from agent_skill.model import Marker, inside_tests, needs_c_object, repr_c_above
-from agent_skill.text import code_only, strip_comment
+from agent_skill.text import code_only, strip_comment, syntax_for
 
 
 @pytest.mark.parametrize(
@@ -50,6 +50,31 @@ def test_strip_comment_keeps_a_url():
 def test_code_only_preserves_line_count():
     body = "a // x\n// y\nb"
     assert len(code_only(body).split("\n")) == 3
+
+
+def test_python_floor_division_is_not_a_comment():
+    """`//` is an operator in Python, and reading it as a comment truncated code.
+
+    Under the default syntax this line becomes `q = total `, so any Check
+    grepping for something after a floor division could not fire at all.
+    """
+    line = "q = total // count"
+    assert strip_comment(line) == "q = total "
+    assert strip_comment(line, *syntax_for("python")) == line
+
+
+def test_python_hash_comment_is_stripped_but_not_inside_a_string():
+    py = syntax_for("python")
+    assert strip_comment("x = a // b  # note", *py) == "x = a // b  "
+    assert strip_comment("u = 'http://x'  # n", *py) == "u = 'http://x'  "
+    assert strip_comment('d = {"#": 1}  # y', *py) == 'd = {"#": 1}  '
+
+
+def test_rust_keeps_the_default_and_single_quotes_stay_lifetimes():
+    """Enabling `'` as a delimiter for Rust would swallow the rest of the line."""
+    assert strip_comment("fn f<'a>(s: &'a str) -> &'a str { s } // tail") == (
+        "fn f<'a>(s: &'a str) -> &'a str { s } "
+    )
 
 
 def test_repr_c_is_per_item_not_per_block():

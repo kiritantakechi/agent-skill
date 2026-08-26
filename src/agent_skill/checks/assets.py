@@ -8,7 +8,10 @@ parse is worse than a wrong example: it is handed over as ready to use.
 from __future__ import annotations
 
 import re
+import tempfile
 import tomllib
+import zipfile
+from pathlib import Path
 
 from ..proc import have, run
 from ..report import fail, note
@@ -44,9 +47,11 @@ def assets(skill):
                 yield from _zig(path, tag)
             case ".toml":
                 try:
-                    tomllib.loads(text)
+                    data = tomllib.loads(text)
                 except tomllib.TOMLDecodeError as e:
                     yield fail(str(e), tag)
+                else:
+                    yield from _build(data, text, tag)
             case ".yml" | ".yaml":
                 yield from _workflow(text, tag)
 
@@ -59,6 +64,63 @@ def assets(skill):
         # `SKILL.md`, not `assets/`. Twenty-two citations sat unverified.
         for rid in sorted(set(re.findall(rf"\b{skill.prefix}-[A-Z]+-\d+[a-z]?\b", text)) - rules):
             yield fail(f"cites {rid}, which is not a rule", tag)
+
+
+def _build(data, text, tag):
+    """Build the project the metadata describes, if it describes one.
+
+    Parsing is not verification. `assets/pyproject.toml` was valid TOML, agreed
+    with every rule that owned it, was cited by name from three chapters, and
+    could not be built at all: the distribution was `acme-widget`, so the
+    backend looked for `src/acme_widget/` and the package was `acmewidget`.
+    Sixteen checks and 109 tests passed over it, because none of them ever
+    handed it to a backend.
+    """
+    name = data.get("project", {}).get("name")
+    if not name or "build-system" not in data:
+        return  # a config file, not a project
+    if not have("uv"):
+        # Same reason `_zig` says so: a template nothing built is exactly the
+        # case this check exists for, and silence reads as success.
+        yield note("`uv` is not on PATH, so nothing built this project", tag)
+        return
+
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        # The directory is the *distribution* name, not the name a backend
+        # normalises it to. That is the point: PS-PKG-14 requires the two to
+        # match, so a name needing an override fails here rather than silently
+        # working because the fixture was built to suit it.
+        package = root / "src" / name
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("")
+        (package / "py.typed").write_text("")
+        (root / "pyproject.toml").write_text(text)
+        readme = data["project"].get("readme")
+        if isinstance(readme, str):
+            (root / readme).write_text(f"# {name}\n")
+        for licence in data["project"].get("license-files", []):
+            if not set(licence) & set("*?["):
+                (root / licence).write_text("Copyright\n")
+
+        result = run(["uv", "build", "--wheel", "--out-dir", str(root / "dist")], cwd=root, timeout=300)
+        if not result.ok:
+            first = next(
+                (ln for ln in result.err.split("\n") if ln.strip().startswith(("Error", "error:"))),
+                result.err.strip()[:90],
+            )
+            yield fail(f"does not build: {first.strip()[:88]}", tag)
+            return
+
+        # A rule claims the marker ships. Read it off the artefact rather than
+        # off the backend's documentation, which is where the claim came from.
+        wheels = list((root / "dist").glob("*.whl"))
+        if not wheels:
+            yield fail("build reported success but produced no wheel", tag)
+            return
+        shipped = zipfile.ZipFile(wheels[0]).namelist()
+        if not any(n.endswith("/py.typed") for n in shipped):
+            yield fail("built wheel ships no `py.typed`", tag)
 
 
 def _zig(path, tag):

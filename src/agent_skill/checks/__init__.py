@@ -21,10 +21,16 @@ class Check:
     scope: str = "skill"  #: "skill" — once per skill; "all" — once, over every skill
     slow: bool = False  #: needs cargo or zig
 
-    def run(self, skills) -> Result:
+    def run(self, skills, **kw) -> Result:
+        """`kw` reaches only an "all"-scope check, and only if the caller sends it.
+
+        `controls` needs to know whether this is a `--fast` run, because it
+        re-runs the check each control owns and a control on a slow check would
+        drag the whole toolchain into a run that asked to skip it.
+        """
         result = Result(self.name)
         if self.scope == "all":
-            result.extend(self.fn(skills))
+            result.extend(self.fn(skills, **kw))
         else:
             for skill in skills:
                 result.extend(self.fn(skill))
@@ -46,6 +52,7 @@ def all_checks() -> list[Check]:
     from . import (  # noqa: F401  (registration by import)
         anatomy,
         assets,
+        citations,
         controls,
         conventions,
         crossref,
@@ -54,6 +61,7 @@ def all_checks() -> list[Check]:
         lints,
         markers,
         mirror,
+        pins,
         prose,
         selfapply,
         toolchain,

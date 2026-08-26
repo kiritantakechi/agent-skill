@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from itertools import groupby
 from pathlib import Path
 
-from ..proc import run
+from ..proc import have, run
 from ..report import Finding, fail, note
 from . import Extraction, Unit
 
@@ -182,6 +182,9 @@ BEVY_STYLE = Crate(
 class Rust:
     name = "rust"
     tool = "cargo"
+
+    def missing(self) -> list[str]:
+        return [] if have(self.tool) else [f"`{self.tool}` is not on PATH"]
 
     def extract(self, skill, out: Path) -> Extraction:
         crate = skill.profile.crate

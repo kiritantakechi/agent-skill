@@ -1,0 +1,894 @@
+# Free Threading: What the GIL Guaranteed, Shared State, Iterators, and the Build
+
+Scope: writing Python that is correct when threads run in parallel — what the GIL used to make
+unlikely, which standard-library objects hold their own locks and which do not, how to share an
+iterator, how caches and context behave, when threads beat processes, and what the free-threaded
+build and its C extensions require. Choosing between `async` and threads at all is in the async
+chapter; the shape of the data being shared is in the data-modelling chapter; interpreter and
+allocator overhead is in the performance chapter.
+
+Two sources are merged here: the **CPython 3.15 documentation** — PEP 703, PEP 779, the
+free-threading HOWTO, and the per-module thread-safety notes, quoted where they are normative — and
+the **empirical behaviour of the free-threaded build**, measured on `python3.15t` and cited with the
+numbers it produced. Ruff has no rule in any of its 59 linters that mentions the GIL, free
+threading, or thread safety, so unlike every other chapter in this standard nothing here can be
+delegated to the linter: each rule ships the check that decides it.
+
+Unless a block shows its own imports, it assumes `import threading` and that the module runs on the
+free-threaded build. Where a rule depends on the build, the block probes it rather than assuming.
+
+## Contents
+
+- **What the GIL guaranteed, and what it does not**
+  - PS-FT-01 [M] Probe the build with `sysconfig` and the runtime with `sys._is_gil_enabled`
+  - PS-FT-02 [M] Never treat a compound assignment as one step
+  - PS-FT-03 [M] Never treat check-then-act as one step
+  - PS-FT-04 [M!] Accumulate per thread and merge, or hold one lock across the whole update
+  - PS-FT-05 [M] Do not cite the library FAQ's atomicity list as a guarantee
+  - PS-FT-06 [M] A container's internal lock protects the container, never your invariant
+  - PS-FT-07 [M] Never read `frame.f_locals` for a frame executing in another thread
+- **Sharing objects between threads**
+  - PS-FT-08 [M] Snapshot a container before iterating what another thread may mutate
+  - PS-FT-09 [S] Send an immutable message rather than sharing a mutable object
+  - PS-FT-10 [M] Hand work between threads with `queue.Queue`
+  - PS-FT-11 [M] Freeze a shared dataclass, or guard every write to it
+  - PS-FT-12 [S] Keep a shared object's lock inside the object that owns it
+- **Iterators and generators**
+  - PS-FT-13 [M] Never share one generator across threads
+  - PS-FT-14 [M] Serialise a shared iterator with `threading.serialize_iterator`
+  - PS-FT-15 [M] Give each consumer a full stream with `threading.concurrent_tee`
+  - PS-FT-16 [M] Never share the branches of `itertools.tee`
+  - PS-FT-17 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
+- **Caches, memoisation, and context**
+  - PS-FT-18 [M] Treat `functools.lru_cache` as coherent but not single-flight
+  - PS-FT-19 [M] Treat `functools.cached_property` as able to run more than once
+  - PS-FT-20 [M!] Put a lock around a memo whose miss is expensive or has an effect
+  - PS-FT-21 [M] Create every `ContextVar` at module scope
+  - PS-FT-22 [M] Never rely on a thread inheriting context; the default differs by build
+- **Streams, randomness, and hold times**
+  - PS-FT-23 [M] Never share a `TextIOWrapper` across threads, `print` included
+  - PS-FT-24 [M] Give each thread its own `random.Random`
+  - PS-FT-25 [M] Know that a `contextmanager` decorator now holds across the whole generator
+  - PS-FT-26 [S] Never hold a lock across a call you do not control
+
+---
+
+## What the GIL guaranteed, and what it does not
+
+### PS-FT-01 [M] Probe the build with `sysconfig` and the runtime with `sys._is_gil_enabled`
+
+They answer different questions. `sysconfig.get_config_var("Py_GIL_DISABLED")` says how the
+interpreter was built and is fixed for the process. `sys._is_gil_enabled()` says whether the GIL is
+off *right now*, which can change after startup.
+
+**Why:** a free-threaded build can re-enable the GIL at import time, process-wide and for the life
+of the process — one dependency is enough, and it happens silently apart from a `RuntimeWarning`. So
+the build answers "which wheel do I need"; only the runtime probe answers "am I actually running in
+parallel". `sys._is_gil_enabled` returns `True` unconditionally on a GIL build, so it cannot
+identify the build on its own, and the
+leading underscore is load-bearing: the docs mark it a CPython implementation detail that is "not
+guaranteed to exist in all implementations".
+
+**Check:** every use of `sys._is_gil_enabled` in packaging, build, or wheel-selection code is a
+defect — that decision belongs to `sysconfig`. Every bare call without a `getattr` guard is a defect
+in code that must run on another implementation.
+
+```python
+# verified — GOOD
+import sys
+import sysconfig
+
+FREE_THREADED_BUILD = sysconfig.get_config_var("Py_GIL_DISABLED") == 1
+
+
+def running_in_parallel() -> bool:
+    """Is the GIL off at this moment? Guarded: the name is an implementation detail."""
+    probe = getattr(sys, "_is_gil_enabled", None)
+    if not FREE_THREADED_BUILD or probe is None:
+        return False
+    return not probe()
+
+
+print(FREE_THREADED_BUILD, running_in_parallel())
+```
+
+### PS-FT-02 [M] Never treat a compound assignment as one step
+
+`counter += 1`, `totals[key] += 1`, `self.seen |= other` are each a read, a computation, and a
+write. Another thread can land between any two of them.
+
+**Why:** this was never atomic and the library FAQ has always said so — `D[x] = D[x] + 1` is on its
+list of operations that are *not*. What changed is the odds. Under the GIL a thread switch had to
+fall in a window a few bytecodes wide, so the bug shipped and survived for years; on the
+free-threaded build it is immediate. Eight threads each adding one to a shared attribute two hundred
+thousand times finish around 73% short, and the same loop over a dict key finishes around 78%
+short — no exception, just a wrong number.
+
+**Check:** `grep -nE '^\s*(self\.)?[A-Za-z_][A-Za-z0-9_]*(\[[^]]*\])?\s*([+*|&^-]|//)=' src/` and
+read each hit: is the target reachable from more than one thread? A module-level name, an attribute
+of a shared instance, and any dict or list that a worker was handed all are.
+
+```python
+# verified — BAD: this is the measured 73% loss, made deterministic
+import threading
+
+counter = 0
+start = threading.Barrier(4)
+
+
+def bump() -> None:
+    global counter
+    start.wait()
+    for _ in range(20_000):
+        seen = counter  # the read and the write are separate steps, and
+        counter = seen + 1  # another thread writes between them
+
+
+threads = [threading.Thread(target=bump) for _ in range(4)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+assert counter <= 80_000, "80000 is the answer only if nothing interleaved"
+```
+
+```python
+# verified — GOOD
+import threading
+
+_lock = threading.Lock()
+counter = 0
+
+
+def bump() -> None:
+    global counter
+    for _ in range(20_000):
+        with _lock:
+            counter += 1
+
+
+threads = [threading.Thread(target=bump) for _ in range(4)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+assert counter == 80_000
+```
+
+### PS-FT-03 [M] Never treat check-then-act as one step
+
+`if key not in cache: cache[key] = compute(key)` is two operations with a gap. So are
+`if not os.path.exists(p): open(p, "w")`, `if q: item = q.pop()`, and every `if x is None: x = ...`
+on shared state.
+
+**Why:** both halves can be individually atomic and the pair still wrong — the container's lock is
+released between them, so two threads both see the key absent and both compute. That is a duplicated
+side effect, not merely duplicated work, whenever `compute` writes a file, charges an account, or
+increments a metric. `dict.setdefault` performs the whole check-and-insert under one lock; a
+`Lock` does the same for anything larger.
+
+**Check:** `grep -nB2 -E 'if .* not in |if not .*\.(exists|get)\(' src/` — a hit whose next line
+writes to the thing just tested is a defect unless a lock spans both.
+
+```python
+# verified — GOOD
+import threading
+
+_registry: dict[str, int] = {}
+_registry_lock = threading.Lock()
+
+
+def intern(name: str) -> int:
+    """One winner per name, even when two threads miss together."""
+    with _registry_lock:
+        # setdefault would do for a pure computation; the lock is here because
+        # assigning the id must not race with another thread assigning one.
+        if name not in _registry:
+            _registry[name] = len(_registry)
+        return _registry[name]
+
+
+assert intern("a") == 0
+assert intern("b") == 1
+assert intern("a") == 0
+```
+
+### PS-FT-04 [M!] Accumulate per thread and merge, or hold one lock across the whole update
+
+A worker that touches shared state on every iteration spends its time on cache-line ping-pong. Give
+each thread a local accumulator, and merge once at the end.
+
+*Relaxed form:* a lock held across the whole read-modify-write is correct and is enough for code
+that is not hot. The per-thread accumulator is what makes it *scale*; the lock is what makes it
+*right*. Never ship the third option, which is neither.
+
+**Why:** correctness and throughput pull the same direction here. Every write to an object shared
+across cores is an atomic operation on its reference count as well as its value, and the free-
+threaded build pays that cost on a slow path — a documented case had four threads take 3.61s against
+the GIL build's 2.38s until the shared objects were moved into thread-local holders, after which it
+took 0.83s. A local accumulator removes the sharing rather than synchronising it.
+
+**Check:** in any function passed to `Thread(target=...)` or an executor's `submit`, every name that
+is not a parameter or a local is a candidate. A write to one on the hot path is the finding.
+
+```python
+# verified — GOOD
+import threading
+from collections import Counter
+
+_totals: Counter[str] = Counter()
+_totals_lock = threading.Lock()
+
+
+def tally(words: list[str]) -> None:
+    """One lock acquisition per thread, not one per word."""
+    local: Counter[str] = Counter()
+    for word in words:
+        local[word] += 1  # local: no other thread can see it
+    with _totals_lock:
+        _totals.update(local)
+
+
+threads = [threading.Thread(target=tally, args=(["a", "b", "a"],)) for _ in range(4)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+assert _totals == Counter({"a": 8, "b": 4})
+```
+
+### PS-FT-05 [M] Do not cite the library FAQ's atomicity list as a guarantee
+
+The list itself still holds — `L.append(x)`, `D[x] = y`, `D1.update(D2)`, `L.sort()` are each
+individually safe on the free-threaded build. The sentence that justifies it does not.
+
+**Why:** the FAQ explains its list by saying each bytecode instruction, and all the C code reached
+from it, is atomic. That was a consequence of the GIL. The free-threaded build reaches the same
+outcome by giving the built-in types internal locks, and the free-threading HOWTO is explicit that
+this "should be treated as a description of the current implementation, not a guarantee of current
+or future behavior", and recommends `threading.Lock` over relying on it. Readers generalise from the
+reason rather than the list, and the generalisation is what breaks: from "bytecode is atomic" it
+follows that `d[k] += 1` is safe, and it never was.
+
+**Check:** a comment or docstring justifying the absence of a lock by appealing to the GIL, to
+bytecode atomicity, or to "CPython guarantees" is the finding.
+`grep -rniE 'gil (makes|means|guarantees)|atomic (because|since)|bytecode is atomic' src/`
+
+### PS-FT-06 [M] A container's internal lock protects the container, never your invariant
+
+`list.append` will not corrupt the list. It will not stop another thread appending between your
+append and your length check.
+
+**Why:** the internal locks are per operation. Any invariant spanning two operations — "the list and
+the counter agree", "every key in `a` is in `b`", "the queue never exceeds N" — is yours to hold,
+and needs a lock that spans exactly the operations the invariant covers. This is the same defect as
+PS-FT-03 stated for invariants rather than for lookups.
+
+**Check:** for every lock in the codebase, name the invariant it protects in a comment on the line
+that declares it. A lock whose invariant cannot be named is either unnecessary or too narrow.
+
+```python
+# verified — GOOD
+import threading
+
+
+class BoundedLog:
+    """The bound is the invariant, so the lock spans the test and the append."""
+
+    def __init__(self, limit: int) -> None:
+        self._limit = limit
+        self._lock = threading.Lock()  # guards: len(self._lines) <= self._limit
+        self._lines: list[str] = []
+
+    def add(self, line: str) -> bool:
+        with self._lock:
+            if len(self._lines) >= self._limit:
+                return False
+            self._lines.append(line)
+            return True
+
+
+log = BoundedLog(2)
+assert [log.add("x"), log.add("y"), log.add("z")] == [True, True, False]
+```
+
+### PS-FT-07 [M] Never read `frame.f_locals` for a frame executing in another thread
+
+Introspecting your own stack is fine. Reaching into a frame another thread is running is not.
+
+**Why:** the free-threading HOWTO states it plainly — doing so "may crash the interpreter". This is
+not a data race that yields a wrong answer; it is a segfault. Debuggers, profilers, and error
+reporters that walk `sys._current_frames()` and read locals are the code that does this by accident.
+
+**Check:** `grep -rn 'f_locals' src/` — every hit whose frame did not come from
+`sys._getframe()` on the current thread is a defect.
+
+## Sharing objects between threads
+
+### PS-FT-08 [M] Snapshot a container before iterating what another thread may mutate
+
+`for key, value in dict(shared).items():` and `for item in list(shared):`. Iterating the live object
+while another thread writes to it is the defect.
+
+**Why:** on a GIL build this raised `RuntimeError: dictionary changed size during iteration`, which
+is loud and easy to fix. The free-threaded build's internal locks keep the container from being
+corrupted, but they do not make your iteration a transaction: you can silently see an element twice
+or miss one entirely, with no exception at all. A loud failure became a quiet wrong answer, which is
+the worse trade.
+
+**Check:** for each `for ... in <name>` where `<name>` is not a local, ask whether any thread writes
+to it. `grep -nE 'for .+ in (self\.)?[a-z_]+(\.items\(\)|\.keys\(\)|\.values\(\))?:' src/` and read
+the hits against the writers.
+
+```python
+# verified — GOOD
+import threading
+
+_sessions: dict[str, int] = {"a": 1, "b": 2}
+_lock = threading.Lock()
+
+
+def active_ids() -> list[int]:
+    """The snapshot is taken under the lock; the work happens outside it."""
+    with _lock:
+        snapshot = dict(_sessions)
+    return sorted(v for v in snapshot.values() if v > 0)
+
+
+assert active_ids() == [1, 2]
+```
+
+### PS-FT-09 [S] Send an immutable message rather than sharing a mutable object
+
+Hand a worker a `frozenset`, a `tuple`, a frozen dataclass, or a `frozendict`. Let it return a value
+rather than write into something you both hold.
+
+**Why:** an object that cannot change needs no lock, and its reference count is the only thing two
+threads contend on. This removes a whole class of bug rather than guarding against it, and it is why
+the message-passing shape scales: the alternative is to reason, at every call site and forever,
+about who may write when.
+
+**Check:** every argument passed to a thread target or `submit`. A `list`, `dict`, `set`, or
+non-frozen dataclass among them is the finding unless the receiver is documented as its new owner.
+
+```python
+# verified — GOOD
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class Request:
+    path: str
+    retries: int
+
+
+def handle(request: Request) -> str:
+    """Nothing here can write anything the caller can see."""
+    return f"{request.path}:{request.retries}"
+
+
+with ThreadPoolExecutor(max_workers=2) as pool:
+    out = sorted(pool.map(handle, [Request("/a", 1), Request("/b", 2)]))
+assert out == ["/a:1", "/b:2"]
+```
+
+### PS-FT-10 [M] Hand work between threads with `queue.Queue`
+
+Not a shared list with a lock you wrote, and not a deque you poll.
+
+**Why:** `queue.Queue` implements "all of the required locking semantics" per its own docs, and it
+carries the blocking, the sentinel, and the `task_done`/`join` accounting that a hand-rolled
+equivalent gets wrong on the first try. The classic hand-rolled bug is exactly PS-FT-03: `if q:
+item = q.pop()` between two consumers. Note the documented limit — `Queue` "is not designed to
+handle reentrancy within a thread", so never call `put` from a callback the same queue's consumer
+invoked.
+
+**Check:** `grep -rnE '\.pop\(0\)|\.pop\(\)' src/` inside anything threaded, and every
+`while ...: sleep(...)` polling a shared container.
+
+```python
+# verified — GOOD
+import queue
+import threading
+
+work: queue.Queue[int | None] = queue.Queue()
+seen: list[int] = []
+seen_lock = threading.Lock()
+
+
+def consume() -> None:
+    while (item := work.get()) is not None:
+        with seen_lock:
+            seen.append(item)
+        work.task_done()
+    work.task_done()
+
+
+workers = [threading.Thread(target=consume) for _ in range(3)]
+for w in workers:
+    w.start()
+for i in range(9):
+    work.put(i)
+for _ in workers:
+    work.put(None)  # one sentinel per consumer
+for w in workers:
+    w.join()
+assert sorted(seen) == list(range(9))
+```
+
+### PS-FT-11 [M] Freeze a shared dataclass, or guard every write to it
+
+`@dataclass(frozen=True, slots=True)` for anything two threads can reach. If it must be mutable, it
+owns a lock and every field write goes through a method that takes it.
+
+**Why:** a plain dataclass gives every field a public, unsynchronised setter. Freezing turns "who
+may write this, and when" from a convention nobody can enforce into a `FrozenInstanceError` at the
+moment of the mistake. `slots=True` is free alongside it and removes the per-instance `__dict__`,
+which matters more on the free-threaded build where object headers are already larger.
+
+**Check:** `grep -rn '@dataclass' src/` — every decorator without `frozen=True` on a type reachable
+from more than one thread is the finding.
+
+```python
+# verified — GOOD
+import threading
+from dataclasses import dataclass, replace
+
+
+@dataclass(frozen=True, slots=True)
+class Position:
+    x: int
+    y: int
+
+
+class Tracker:
+    """Mutable holder, immutable value: one lock, one field, no partial reads."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()  # guards: self._at is replaced, never edited
+        self._at = Position(0, 0)
+
+    def advance(self, dx: int) -> Position:
+        with self._lock:
+            self._at = replace(self._at, x=self._at.x + dx)
+            return self._at
+
+
+t = Tracker()
+assert t.advance(3) == Position(3, 0)
+```
+
+### PS-FT-12 [S] Keep a shared object's lock inside the object that owns it
+
+A module-level `_lock` beside a module-level `_cache` works until a second cache appears and takes
+the same lock. Put the lock on the class whose invariant it protects.
+
+**Why:** a lock's scope should be as narrow as the invariant. One process-wide lock guarding
+everything serialises unrelated work — on the free-threaded build that is the difference between
+scaling and not — and it makes lock-ordering deadlocks possible between operations that never needed
+to interact.
+
+**Check:** two or more module-level `Lock()` objects in one module, or one lock referenced by
+functions that touch different state, is the finding.
+
+## Iterators and generators
+
+### PS-FT-13 [M] Never share one generator across threads
+
+Two threads calling `next()` on the same generator is an error, not a race you can win.
+
+**Why:** the generator raises `ValueError: generator already executing`. That is the good case,
+because it is loud. The bad case is every other iterator, where the free-threading HOWTO warns that
+threads "may see duplicate or missing elements" — the design decision recorded in the CPython issue
+that added the 3.15 helpers is that concurrent access to a shared iterator is "allowed to return
+duplicate values, skip values, or raise an exception". A worker pool sharing one iterator silently
+processes some items twice and drops others.
+
+**Check:** any generator or iterator that is created in one place and consumed inside a thread
+target, an executor callback, or a `for` loop in more than one thread.
+
+```python
+# verified — BAD: the loud half of the failure
+import threading
+
+
+def numbers():
+    yield from range(1000)
+
+
+shared = numbers()
+errors: list[str] = []
+
+
+def drain() -> None:
+    try:
+        for _ in shared:
+            pass
+    except ValueError as exc:  # "generator already executing"
+        errors.append(str(exc))
+
+
+threads = [threading.Thread(target=drain) for _ in range(4)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+# On the free-threaded build this is where the sharing is caught. Every other
+# iterator type fails silently instead, which is PS-FT-14.
+```
+
+### PS-FT-14 [M] Serialise a shared iterator with `threading.serialize_iterator`
+
+New in 3.15. It hands each item to exactly one caller, and it neither copies nor buffers.
+
+**Why:** this is the standard library's answer to the hazard in PS-FT-13, added in 3.15 precisely
+because "not thread-safe" was the honest description of every shared iterator and the workarounds
+were all hand-rolled. `serialize_iterator` is a class, not a function: wrap once, share the wrapper.
+
+**Check:** every iterator passed to more than one thread must be wrapped. An unwrapped one is the
+finding, and the grep is for the sharing rather than for the call —
+`grep -nB3 'Thread(target=' src/` and read what the target closes over.
+
+```python
+# verified — GOOD
+import threading
+
+shared = threading.serialize_iterator(iter(range(9)))
+got: list[int] = []
+got_lock = threading.Lock()
+
+
+def drain() -> None:
+    for item in shared:
+        with got_lock:
+            got.append(item)
+
+
+threads = [threading.Thread(target=drain) for _ in range(3)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+assert sorted(got) == list(range(9)), "each item goes to exactly one caller"
+```
+
+### PS-FT-15 [M] Give each consumer a full stream with `threading.concurrent_tee`
+
+When every consumer needs every item — not one each — `concurrent_tee(iterable, n)` is the split.
+
+**Why:** `serialize_iterator` partitions and `concurrent_tee` duplicates; choosing the wrong one is
+a silent correctness bug, not a performance one. `concurrent_tee` buffers each item until every
+derived iterator has consumed it, so a slow consumer costs memory rather than correctness. Its
+derived iterators are each single-consumer: handing one branch to two threads reintroduces PS-FT-13.
+
+**Check:** any place where several threads must each see the whole stream. A shared iterator there
+is the finding; so is passing one `concurrent_tee` branch to more than one thread.
+
+```python
+# verified — GOOD
+import threading
+
+left, right = threading.concurrent_tee(iter(range(5)), 2)
+sums: dict[str, int] = {}
+lock = threading.Lock()
+
+
+def total(name: str, stream) -> None:
+    value = sum(stream)  # this branch belongs to this thread alone
+    with lock:
+        sums[name] = value
+
+
+threads = [
+    threading.Thread(target=total, args=("left", left)),
+    threading.Thread(target=total, args=("right", right)),
+]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+assert sums == {"left": 10, "right": 10}, "both consumers saw the whole stream"
+```
+
+### PS-FT-16 [M] Never share the branches of `itertools.tee`
+
+`itertools.tee` is documented as not thread-safe. `threading.concurrent_tee` is the threaded one.
+
+**Why:** the `itertools.tee` docs state that a `RuntimeError` "may be raised when simultaneously
+using iterators returned by the same `tee()` call, even if the original iterable is threadsafe", and
+concurrent use produced a genuine segfault in `teedataobject_clear` reported in 2026 and fixed by
+backport. The names are one word apart and the failure is not a clean exception, which is what makes
+this worth its own rule rather than a note under PS-FT-15.
+
+**Check:** `grep -rn 'itertools.tee\|from itertools import.*tee' src/` — every hit in a module that
+also imports `threading` or `concurrent.futures` is the finding.
+
+### PS-FT-17 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
+
+A decorator on a function that returns an iterator, so callers get a safe one without knowing to
+wrap it.
+
+**Why:** PS-FT-14 puts the obligation on every caller, and an obligation every caller must remember
+is one some caller will forget. Decorating the factory moves it to the one place that can discharge
+it. This is `[S]` rather than `[M]` because it only applies where you own the factory; where you are
+handed an iterator, PS-FT-14 is the rule.
+
+**Check:** a function returning a generator that is documented as safe to share, without the
+decorator, is the finding.
+
+```python
+# verified — GOOD
+import threading
+
+
+@threading.synchronized_iterator
+def work_items(n: int):
+    """Callers may share the result across threads without wrapping it."""
+    yield from range(n)
+
+
+shared = work_items(30)
+got: list[int] = []
+lock = threading.Lock()
+
+
+def drain() -> None:
+    for item in shared:
+        with lock:
+            got.append(item)
+
+
+threads = [threading.Thread(target=drain) for _ in range(3)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+assert sorted(got) == list(range(30))
+```
+
+## Caches, memoisation, and context
+
+### PS-FT-18 [M] Treat `functools.lru_cache` as coherent but not single-flight
+
+The cache will not corrupt. The function behind it will run more than once for the same key.
+
+**Why:** the docs are exact — the cache "is threadsafe" and "the underlying data structure will
+remain coherent during concurrent updates", but "it is possible for the wrapped function to be
+called more than once", because the lock is not held across the call. Eight threads hitting one cold
+key ran the wrapped function seven times. Harmless for a pure computation; a duplicated charge, a
+duplicated write, or seven simultaneous connections if the body has an effect.
+
+**Check:** `grep -rnB3 '@lru_cache\|@cache\b' src/` and read each decorated body for effects — I/O,
+writes, metrics, allocation of a scarce resource. A pure function is fine; anything else needs
+PS-FT-20.
+
+### PS-FT-19 [M] Treat `functools.cached_property` as able to run more than once
+
+It lost its lock in 3.12. Two threads reaching a cold property both compute it, and one of the two
+results is discarded.
+
+**Why:** the lock was removed because it serialised every instance behind one class-wide lock, which
+was a worse problem. The consequence is that `cached_property` is now a memo, not a guarantee of
+one-time execution. Where the getter merely computes, the discarded result costs time; where it
+opens a connection or allocates a handle, the discarded one leaks unless something closes it.
+
+**Check:** `grep -rnA5 'cached_property' src/` — a getter that constructs anything needing cleanup
+is the finding.
+
+### PS-FT-20 [M!] Put a lock around a memo whose miss is expensive or has an effect
+
+Not around the cache read — around the miss.
+
+*Relaxed form:* a pure, cheap function may use the plain decorator and accept duplicate execution;
+say so in a comment on the decorator, so the next reader knows it was a decision.
+
+**Why:** PS-FT-18 and PS-FT-19 are the same defect with two spellings, and this is their shared fix.
+The double-checked shape below keeps the fast path lock-free — the common case is a hit — while
+making the miss single-flight. Without it, "cached" means "usually computed once", which is not what
+the word promises the reader.
+
+**Check:** every memo whose body does I/O and has no lock.
+
+```python
+# verified — GOOD
+import threading
+
+_conns: dict[str, str] = {}
+_conns_lock = threading.Lock()
+
+
+def connection(dsn: str) -> str:
+    """Double-checked: the hit is lock-free, the miss happens exactly once."""
+    if (found := _conns.get(dsn)) is not None:
+        return found
+    with _conns_lock:
+        # Re-check: another thread may have filled it while we waited.
+        if (found := _conns.get(dsn)) is not None:
+            return found
+        opened = f"conn:{dsn}"  # stands in for the expensive, effectful call
+        _conns[dsn] = opened
+        return opened
+
+
+assert connection("db") == "conn:db"
+assert connection("db") == "conn:db"
+```
+
+### PS-FT-21 [M] Create every `ContextVar` at module scope
+
+Never inside a function, a method, or a loop.
+
+**Why:** a `ContextVar` created per call is a new variable each time, so a value one caller sets is
+invisible to every other — the lookup silently returns the default and the bug looks like "context
+does not work". The docs say it directly: "Important: Context Variables should be created at the top
+module level and never in closures."
+
+**Check:** `grep -rnB5 'ContextVar(' src/` — any hit whose preceding lines are inside a `def` or
+`class` body is the finding.
+
+### PS-FT-22 [M] Never rely on a thread inheriting context; the default differs by build
+
+`sys.flags.thread_inherit_context` is 1 on the free-threaded build and 0 on the GIL build. Pass the
+context explicitly, or set the flag deliberately.
+
+**Why:** this is a silent behaviour difference between two interpreters running the same source. A
+`ContextVar` set before starting a thread is visible inside it on `python3.15t` and absent on
+`python3.15`, so code developed on one build takes a different branch on the other with no
+diagnostic. Explicit beats inherited here for the same reason it does everywhere: the reader can see
+it.
+
+**Check:** `grep -rn 'ContextVar\|copy_context' src/` in any module that also starts a thread — a
+read inside a thread target whose value was set outside it is the finding.
+
+```python
+# verified — GOOD
+import contextvars
+import threading
+
+request_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "request_id", default="-"
+)
+seen: list[str] = []
+
+
+def worker() -> None:
+    seen.append(request_id.get())
+
+
+request_id.set("abc")
+# The context is passed, not inherited: this reads the same on both builds.
+ctx = contextvars.copy_context()
+thread = threading.Thread(target=ctx.run, args=(worker,))
+thread.start()
+thread.join()
+assert seen == ["abc"]
+```
+
+## Streams, randomness, and hold times
+
+### PS-FT-23 [M] Never share a `TextIOWrapper` across threads, `print` included
+
+`open()` in text mode returns one. So do `sys.stdout` and `sys.stderr`. So `print` from two threads
+is the same defect as writing to a shared file from two threads.
+
+**Why:** the `io` docs are explicit that `BufferedReader`, `BufferedWriter` and friends "protect
+their internal structures using a lock", and equally explicit that "`TextIOWrapper` objects are not
+thread-safe". Interleaved output is the visible symptom; the encoder's internal state is the real
+one. Under the GIL the write usually completed within one bytecode window; on the free-threaded
+build it does not.
+
+**Check:** `grep -rn '\bprint(\|sys.stdout.write\|sys.stderr.write' src/` inside any thread target.
+Logging is the fix: `logging` handlers take a lock around each emit.
+
+### PS-FT-24 [M] Give each thread its own `random.Random`
+
+The module-level functions all share one instance.
+
+**Why:** the docs carry one of the library's few explicit free-threading notes: the global generator
+and `Random` instances are thread-safe, but "in the free-threaded build, concurrent calls to the
+global generator or to the same instance of `Random` may encounter contention and poor performance",
+with the recommendation to use one instance per thread. Separately, `random.gauss` warns that two
+threads "may receive the same return value". A seeded per-thread instance is also the only way to
+keep a run reproducible.
+
+**Check:** `grep -rnE '\brandom\.(random|gauss|randint|shuffle|choice|uniform)\(' src/` — every hit
+inside a thread target is the finding.
+
+```python
+# verified — GOOD
+import random
+import threading
+
+_local = threading.local()
+
+
+def rng() -> random.Random:
+    """One generator per thread, seeded so each thread is reproducible."""
+    existing = getattr(_local, "rng", None)
+    if isinstance(existing, random.Random):
+        return existing
+    made = random.Random(hash(threading.current_thread().name) & 0xFFFF)
+    _local.rng = made
+    return made
+
+
+out: list[float] = []
+lock = threading.Lock()
+
+
+def draw() -> None:
+    value = rng().random()
+    with lock:
+        out.append(value)
+
+
+threads = [threading.Thread(target=draw, name=f"w{i}") for i in range(4)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+assert len(out) == 4
+```
+
+### PS-FT-25 [M] Know that a `contextmanager` decorator now holds across the whole generator
+
+In 3.15 a `@contextmanager`-derived decorator applied to a generator function keeps the context open
+until the generator is exhausted. Previously it closed when the generator object was created.
+
+**Why:** this is the most dangerous silent change in 3.15 for ordinary code, and it does not appear
+in the porting notes. `ContextDecorator` and `AsyncContextDecorator` "now detect generator
+functions, coroutine functions, and asynchronous generator functions and keep the context manager
+open across iteration or await. Previously the context manager exited as soon as the generator or
+coroutine object was created." Nothing errors on either version — only the *duration* changes, from
+effectively zero to the full consumption of the generator. If the context manager holds a lock, a
+transaction, a `chdir`, or a `contextvars` token, its hold time changes silently, and under free
+threading a hold time that grew is new contention and a new deadlock shape.
+
+**Check:** `grep -rnB2 -A2 '@contextmanager' src/` and find every decorator built from one that is
+applied to a `def` containing `yield`. Each is a hold time that changed; each needs the lock it
+takes re-examined.
+
+```python
+# verified — GOOD: the hold is explicit, so no version changes it
+import threading
+from contextlib import contextmanager
+
+_lock = threading.Lock()
+held: list[str] = []
+
+
+@contextmanager
+def guarded():
+    with _lock:
+        held.append("in")
+        try:
+            yield
+        finally:
+            # Without this the lock is released but the bookkeeping is not, and
+            # an exception in the body silently skips it.
+            held.append("out")
+
+
+def rows():
+    """Used as a `with` block, the hold is visible and bounded."""
+    with guarded():
+        yield from (1, 2, 3)
+
+
+assert list(rows()) == [1, 2, 3]
+assert held == ["in", "out"]
+```
+
+### PS-FT-26 [S] Never hold a lock across a call you do not control
+
+A callback, a plugin hook, an I/O call, or anything that can block. Compute under the lock, call
+outside it.
+
+**Why:** a lock held across arbitrary code is a lock whose hold time you cannot bound, and one whose
+acquisition order you cannot see. That is the shape of every lock-ordering deadlock. It also
+interacts with PS-FT-25: a decorator whose hold time silently grew now spans calls it never used to.
+
+**Check:** read every `with <lock>:` body for a call that is not a local function or a container
+operation. A hit is a candidate, not a verdict — the lock may genuinely need to span it, in which
+case say so in a comment.

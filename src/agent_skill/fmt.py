@@ -56,11 +56,24 @@ def _bodies(path: Path, crate: Crate) -> list[str]:
     return out
 
 
+#: Toolchain name -> the function that rewrites that language's blocks. A
+#: formatter is a fact about a language, so the dispatch is by toolchain rather
+#: than by whether the profile happens to carry a `Crate` — that gate returned
+#: early for every non-Rust skill before the branch was even reached.
+FORMATTERS: dict[str, object] = {}
+
+
 def format_skill(skill) -> list[str]:
-    """Rewrite each `// verified` rust block as rustfmt would have it.
+    """Rewrite each verified block the way that language's formatter would.
 
     Returns one line per chapter changed.
     """
+    formatter = FORMATTERS.get(skill.profile.toolchain or "")
+    return formatter(skill) if formatter else []
+
+
+def _format_rust(skill) -> list[str]:
+    """Rewrite each `// verified` rust block as rustfmt would have it."""
     if skill.profile.crate is None:
         return []
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
@@ -98,3 +111,57 @@ def format_skill(skill) -> list[str]:
                 path.write_text(text)
                 changed.append(f"{chapter}: {hits} block(s) reformatted")
         return changed
+
+
+def _format_python(skill) -> list[str]:
+    """Rewrite each `# verified` python block as `ruff format` would have it.
+
+    Simpler than the Rust path because each block is already its own file: there
+    is no crate to reassemble, so a block that fails to format is reported alone
+    rather than taking its chapter's siblings with it.
+    """
+    from .lang.python import PYTHON_TOOLCHAIN
+
+    config = skill.root / "assets" / "ruff.toml"
+    if not config.exists():
+        return []
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
+        extraction = PYTHON_TOOLCHAIN.extract(skill, Path(work) / "out")
+        if not extraction:
+            return []
+        r = run(
+            ["ruff", "format", "--no-cache", "--config", str(config), str(extraction.root)],
+            timeout=300,
+        )
+        if not r.ok:
+            return [f"ruff format failed: {(r.err or r.out).strip()[:160]}"]
+
+        changed: list[str] = []
+        by_chapter: dict[str, list] = {}
+        for unit in extraction.units:
+            by_chapter.setdefault(unit.chapter, []).append(unit)
+        for chapter, units in by_chapter.items():
+            path = skill.root / "references" / chapter
+            text = path.read_text()
+            hits = 0
+            # Last first, so an earlier replacement cannot move a later block.
+            for unit in sorted(units, key=lambda u: u.line, reverse=True):
+                body = unit.path.read_text()
+                same = (b for b in skill.blocks("python") if b.file == chapter)
+                block = next((b for b in same if b.line == unit.line), None)
+                if block is None or block.body == body:
+                    continue
+                old_fence = f"```python\n{block.body}```"
+                if text.count(old_fence) != 1:
+                    changed.append(f"{chapter}:{unit.line} is not uniquely locatable; skipped")
+                    continue
+                text = text.replace(old_fence, f"```python\n{body}```")
+                hits += 1
+            if hits:
+                path.write_text(text)
+                changed.append(f"{chapter}: {hits} block(s) reformatted")
+        return changed
+
+
+FORMATTERS["rust"] = _format_rust
+FORMATTERS["python"] = _format_python

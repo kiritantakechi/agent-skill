@@ -18,6 +18,9 @@ uv run pytest                     # the same checks, as tests
 
 ```
 skills/<name>/                 content only — symlinked live into each agent
+  rust-style/ zig-style/         anchors
+  bevy-style/                    a delta on rust-style
+  python-style/                  an anchor; its toolchain runs rather than compiles
 src/agent_skill/
   model.py                     what a skill is made of; one parse, shared
   checks/                      what a skill must be true of
@@ -61,11 +64,14 @@ same name.
 Drop it in `skills/` and it gets every generic check: frontmatter, rule anatomy,
 contents agreement, cross-references, layout, marker discipline, prose, assets.
 It needs a profile in `src/agent_skill/profiles/` only to have *its own* rules
-applied to its own examples, or to be compiled. A profile that names a
-`toolchain` also names the `Crate` its examples are compiled as — the dependency
+applied to its own examples, or to be compiled. A profile that names the `rust`
+toolchain also names the `Crate` its examples are compiled as — the dependency
 line and the lint table are per skill, not per language: `bevy-style` needs Bevy
 on the dependency line and two lint entries `rust-style` does not relax, and one
-shared manifest would have left one of them unverifiable.
+shared manifest would have left one of them unverifiable. A toolchain that needs
+no manifest carries none: `python-style` names `toolchain = "python"` and
+`crate = None`, and declares instead the ruff selection and the `ty` rule levels
+its examples are checked under.
 
 ## The checks
 
@@ -86,6 +92,8 @@ the time. The note after each is the defect it would have caught.
 | `crossref` | ids cited into another skill, the override table that says the two disagree, and the anchor's own greps run over the delta's examples | `bevy-style` is a delta on `rust-style` and cites it by id, which nothing was checking; its "where this standard departs" table quoted eight `rust-style` titles that nothing compared against the originals; and two `rust-style` `[M]` rules were firing on nineteen and thirty-five lines of its examples with nothing saying so. |
 | `self-application` | every `grep` a `**Check:**` ships, run over every `// verified` block | A standard whose examples fail its own greps is not a standard, and nobody was running them. |
 | `toolchain` | every `// verified` block compiles, with every declaration analysed, and the tests it ships run | 210 zig blocks claimed `// verified` and nothing compiled them; only 61 actually did. |
+| `citations` | a rule's cited check is one the shipped configuration actually enables | A standard that cites its checks by tool code can cite one the config disables, one the tool withdrew, or one that never existed — `ASYNC101` was invented, four more were preview and therefore unreachable, and every one of them read as enforced. |
+| `pins` | a pinned version that has been superseded, and an asset installing a build the harness did not verify against | The plan said "on 1 September, move the interpreter pin" — a note nobody reads, in a place nobody looks, about a date nobody remembers. |
 | `mutation` | statements a shipped test does not pin | A shipped test passed whether or not the function it tested did anything. |
 | `controls` | that every other check still fails on the defect it owns | "Every check carries a negative control" was a claim in a file, verified by hand once and never again. |
 
@@ -98,6 +106,17 @@ comment syntax:
 // verified            compiles as written, and any test it ships passes
 // fragment — …        shown in context rather than compiled as a unit
 // does-not-compile    the error is the point
+```
+
+The vocabulary is per skill, declared on the profile, because the third word is
+a fact about the language. Python has three ways to be wrong — the interpreter,
+the type checker, the linter — and one word names none of them, so `python-style`
+declares `rejected` instead and its marker says which tool does the rejecting:
+
+```
+# verified             runs as written on the pinned build, and its tests pass
+# fragment — …         shown in context rather than run as a unit
+# rejected — ty: …     the rejection is the point, and the tool is named
 ```
 
 A trailing `— GOOD` or `— BAD` names which side of the rule the block

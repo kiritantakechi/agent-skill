@@ -13,17 +13,24 @@ from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 
-from .text import code_only, strip_comment
+from .text import code_only, strip_comment, syntax_for
 
 #: Every fenced example declares what it is, and the marker leads the block.
 #: A `//!` container-doc run may precede it, because that is where a real Zig or
 #: Rust file puts its module documentation; nothing else may.
+#:
+#: This is the default vocabulary, not the only one: a language whose failures
+#: do not divide the way `does-not-compile` divides them says so in its profile.
+#: Python has three ways to be wrong — the interpreter, the type checker, the
+#: linter — and one word for all of them names none of them.
 MARKERS = ("verified", "fragment", "does-not-compile")
 
-#: `// verified — GOOD: the qualifier`. The comment syntax varies by language;
-#: the shape does not.
+#: `// verified — GOOD: the qualifier`. The comment syntax varies by language and
+#: so does the vocabulary; the shape does not. `kind` is matched loosely here and
+#: judged against the owning profile in `checks/markers.py`, because a grammar
+#: that hardcodes the words cannot be extended without being rewritten.
 _MARKER = re.compile(
-    r"^(?://|#) (?P<kind>verified|fragment|does-not-compile)"
+    r"^(?://|#) (?P<kind>[a-z][a-z-]*)"
     r"(?: — (?P<verdict>GOOD|BAD))?"
     r"(?:[ :—] ?(?P<qualifier>.*))?$"
 )
@@ -101,7 +108,7 @@ class Block:
 
     @property
     def code(self) -> str:
-        return code_only(self.body)
+        return code_only(self.body, *syntax_for(self.lang))
 
     def at(self, index: int) -> int:
         """The file line number of body line `index`."""
