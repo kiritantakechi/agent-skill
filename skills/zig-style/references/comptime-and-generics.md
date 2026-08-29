@@ -1076,7 +1076,7 @@ everyone's build, and it can never be committed. Three consequences:
 For a check that should *stay* in the source, use `comptime { assert(...) }` or `@compileError`
 with a message naming the requirement (ZS-CT-10), not `@compileLog`.
 
-**Check:** `grep -n "@compileLog"` over the diff must return nothing. If a comptime bug report in a
+**Check:** `rg -n "@compileLog"` over the diff must return nothing. If a comptime bug report in a
 review says only "unable to resolve comptime value", ask for the output with `-freference-trace`
 raised — the bare diagnostic does not identify the caller.
 

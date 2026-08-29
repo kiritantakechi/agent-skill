@@ -502,8 +502,8 @@ struct, be memcpy'd, and be stored in a `MultiArrayList`.
 an empty argument list **on one of those containers**; and any `append`/`appendSlice`/
 `ensureTotalCapacity` whose first argument is not an allocator. All three are pre-0.16 container
 shapes. Do not flag a bare `.deinit()` generally: a type that owns its allocator or holds none
-correctly declares a `deinit` taking only the receiver — 48 `pub fn deinit` in 0.16 std do (`grep
--rE 'pub fn deinit\(\w+: [^,)]+\) [^{]+\{' --include='*.zig'`). The exact shape varies:
+correctly declares a `deinit` taking only the receiver — 48 `pub fn deinit` in 0.16 std do (`rg
+ 'pub fn deinit\(\w+: [^,)\n]+\) [^{\n]+\{' -g '*.zig'`). The exact shape varies:
 `Io.Threaded.deinit(t: *Threaded) void` is the common one, `ArenaAllocator` takes its receiver *by
 value* (`deinit(arena: ArenaAllocator) void`), and `DebugAllocator.deinit` returns `std.heap.Check`
 rather than `void`. All are correct. The finding is an *unmanaged container* deinit-ed without the
@@ -929,7 +929,7 @@ exactly TigerStyle's static-allocation rule expressed in modern std. `appendAssu
 0.16 linked lists are intrusive: the list holds `?*Node`, the node holds only `prev`/`next`, and you
 recover the payload with `@fieldParentPtr`.
 
-**Check:** `grep -n "BoundedArray\|SegmentedList"` over the diff must return nothing. On the
+**Check:** `rg -n "BoundedArray|SegmentedList"` over the diff must return nothing. On the
 replacement, check that each call site picked the right failure mode: `*AssumeCapacity` where
 overflow is a programmer error, `append*Bounded` where the size came from outside.
 

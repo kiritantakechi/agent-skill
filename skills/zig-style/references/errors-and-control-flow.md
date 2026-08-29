@@ -219,7 +219,7 @@ private callee three levels down silently widens a public signature, and every d
 `catch |e| switch (e)` that was exhaustive is now non-exhaustive — a compile error in someone
 else's repo caused by a change you did not think was public. std is **not** a model here, and
 pretending otherwise weakens the rule: counted over single-line signatures at 0.16.0
-(`grep -rE 'pub fn \w+\([^)]*\) !' --include='*.zig'` for bare; swap the trailing `!` for
+(`rg 'pub fn \w+\([^)\n]*\) !' -g '*.zig'` for bare; swap the trailing `!` for
 `[A-Za-z][A-Za-z0-9_.()]*!` for named), 1157 `pub fn` declare a named set but **416 still return a
 bare `!`** — `priority_queue`'s `ensureTotalCapacity` and `pushSlice` among them, though the
 flagship containers are clean: every `ArrayList`/`HashMap` `ensureTotalCapacity` returns

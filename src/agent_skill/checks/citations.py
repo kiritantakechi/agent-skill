@@ -75,7 +75,7 @@ def _withdrawn() -> set[str]:
     return {rule["code"] for rule in json.loads(r.out) if "Removed" in str(rule.get("status", ""))}
 
 
-@check("citations", "a cited check must be one the shipped config enables")
+@check("citations", "a cited check must be one the shipped config enables", needs=("ruff", "ty"))
 def citations(skill):
     if skill.profile.toolchain != "python":
         return

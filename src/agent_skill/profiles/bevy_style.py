@@ -1,9 +1,9 @@
 """bevy-style: its own `[M]` rules, applied to its own examples.
 
-Most of this standard's mechanical rules are already `grep` commands in their own
+Most of this standard's mechanical rules are already `rg` commands in their own
 `**Check:**`, which the self-application check runs — including the whole
 forbidden-API table, so an example written against an older Bevy fails the build.
-What is here is what a line-oriented grep cannot decide: whether a derive list
+What is here is what a line-oriented pattern cannot decide: whether a derive list
 contains a name, and whether a type's name matches the trait it implements.
 """
 
@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..lang.rust import BEVY_STYLE, Crate
 from ..report import Finding, fail
-from . import Profile, register
+from . import NotDecisive, Profile, register
 
 #: `#[derive(Component, Debug, …)]`, possibly wrapped across lines by rustfmt.
 DERIVE = re.compile(r"#\[derive\(([^)]*)\)\]", re.S)
@@ -48,6 +48,68 @@ class BevyStyle(Profile):
     marked_languages: tuple[str, ...] = ("toml", "bash", "yaml")
     toolchain: str | None = "rust"
     crate: Crate | None = BEVY_STYLE
+    #: Each snippet is the defect its rule forbids, written the way it turns up
+    #: in real code. A fixture shaped to match proves the fixture, not the pattern.
+    fires: dict = field(
+        default_factory=lambda: {
+            "BV-ECS-19": ("let player = query.single().unwrap();",),
+            "BV-EVT-09": ("commands.trigger_targets(Damage(5), target);",),
+        }
+    )
+    #: Measured, not judged: each of these was promoted to accuse and hit the
+    #: standard's own compliant examples. The reason names what the span finds
+    #: and what, outside the match, decides whether the hit is a defect — never
+    #: how many examples it hit the day someone measured, which is a number
+    #: `_render` already prints live two fields away and nothing re-measures.
+    not_decisive: dict = field(
+        default_factory=lambda: {
+            "BV-ECS-12": NotDecisive(
+                "Vec<Entity>",
+                "the span finds every `Vec<Entity>`; whether that link is a relationship, or "
+                "carries a written reason it cannot be one, decides",
+            ),
+            "BV-ECS-14": NotDecisive(
+                "Handle<",
+                "the span finds every handle; whether it sits bare inside a `spawn` tuple rather "
+                "than in a component of its own decides",
+            ),
+            "BV-MIG-18": NotDecisive(
+                ".clone()",
+                "the span finds every `.clone()`; whether the receiver is a `Ref<`, where the "
+                "call's meaning changed, decides — and the type is not on the line",
+            ),
+            "BV-SCH-09": NotDecisive(
+                "just_pressed",
+                "the span finds every input read; whether the system runs in `FixedUpdate` rather "
+                "than `Update` decides, and the schedule is not on the line",
+            ),
+            "BV-SCH-13": NotDecisive(
+                "configure_sets",
+                "the span finds every set configuration; whether that set is configured more than "
+                "once decides, which is a fact about the whole file",
+            ),
+            "BV-SCH-26": NotDecisive(
+                "run_if",
+                "the span finds every run condition; whether it gates on a `paused` flag rather "
+                "than on `Time<Virtual>` decides",
+            ),
+            "BV-STA-04": NotDecisive(
+                "insert_resource",
+                "the span finds every `insert_resource`; whether it is inside a `Startup` system, "
+                "and whether the value depends on the world, decides",
+            ),
+            "BV-TST-11": NotDecisive(
+                "entities().len()",
+                "the span finds every entity count; whether the assert is about a total rather "
+                "than about the component the test cares about decides",
+            ),
+            "BV-UI-04": NotDecisive(
+                "Text::new",
+                "the span finds every text spawn; whether the same tuple also carries a font and a "
+                "colour decides, which the matched line does not show",
+            ),
+        }
+    )
 
     def conventions(self, skill) -> Iterable[Finding]:
         for b in skill.advice("rust"):
@@ -60,7 +122,7 @@ def _component_shape(block) -> Iterable[Finding]:
 
     BV-ECS-01 public fields, BV-ECS-03 `Debug` and `Reflect` with
     `#[reflect(Component)]`, BV-ECS-10 the marker set. None of the three is
-    greppable, and all three had drifted: 25 of 33 components carried no
+    searchable, and all three had drifted: 25 of 33 components carried no
     `Reflect` at all while BV-ECS-03 was `[M]`.
     """
     for m in COMPONENT.finditer(block.body):
@@ -85,15 +147,15 @@ def _component_shape(block) -> Iterable[Finding]:
         # declared exactly this way.
         if "relationship_target" in attrs:
             continue
-        for field in (f.strip() for f in fields.split(",") if f.strip()):
-            if not FIELD_ATTR.sub("", field).strip().startswith("pub "):
-                yield fail(f"BV-ECS-01: `{name}` has a private field — {field}", where)
+        for member in (f.strip() for f in fields.split(",") if f.strip()):
+            if not FIELD_ATTR.sub("", member).strip().startswith("pub "):
+                yield fail(f"BV-ECS-01: `{name}` has a private field — {member}", where)
 
 
 def _suffixes(block) -> Iterable[Finding]:
     """BV-ARC-09 and BV-ARC-10 — what a plugin type is called, and what it derives.
 
-    A plugin written as a function is caught by BV-ARC-09's own `grep`, which the
+    A plugin written as a function is caught by BV-ARC-09's own pattern, which the
     self-application check runs. What is left for here is the type: its name, and
     that it carries the derives every plugin type carries.
     """

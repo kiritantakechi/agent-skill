@@ -21,7 +21,7 @@ build-backend = "uv_build"
 # makes about their catalogues was taken at these versions, and ty states that
 # breaking changes — including changes to diagnostics — may occur between any
 # two releases. Moving either pin is a reviewed event, not a resolver decision.
-dev = ["pytest>=9", "ruff==0.16.4", "ty==0.0.74"]
+dev = ["pytest==9.1.1", "ruff==0.16.5", "ty==0.0.75", "ripgrep-bin==15.2.0"]
 
 [tool.ruff]
 line-length = 100

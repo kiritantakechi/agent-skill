@@ -129,7 +129,7 @@ test go { // error: use of undeclared identifier 'go'
 }
 ```
 
-**Check:** `grep 'test "'` in a diff — each hit must span several declarations or describe a
+**Check:** `rg 'test "'` in a diff — each hit must span several declarations or describe a
 scenario; a string that merely repeats an identifier should be a decltest.
 
 When a string name *is* right, make it read as a claim that can be true or false — what happens,
@@ -245,7 +245,7 @@ expected.ptr) return error.TestExpectedEqual;`. Two slices holding identical byt
 addresses fail, and the diagnostic is `expected slice ptr u8@102c3328c, found u8@16d321880`, which
 reads like a memory bug rather than what it is: the wrong matcher.
 
-**Check:** `grep -n 'expectEqual('` and read the argument types. A string literal, a `[]const u8`, a
+**Check:** `rg -n 'expectEqual\('` and read the argument types. A string literal, a `[]const u8`, a
 `[]T`, or a many-pointer on either side is the finding. A failure message containing the words
 `slice ptr` is the same bug found the slow way.
 
@@ -284,7 +284,7 @@ code. Assertions in *production* code are the assertions chapter's subject and a
 ban is on assertions written in the test itself. The one documented deviation is the simulation loop
 below, where stopping the process at the first divergence is the point.
 
-**Check:** `grep -n 'assert('` inside `test` blocks in the diff; also `expect(std.mem.eql(`, which
+**Check:** `rg -n 'assert\('` inside `test` blocks in the diff; also `expect(std.mem.eql(`, which
 is `expectEqualSlices` spelled the lossy way.
 
 ```zig
@@ -333,7 +333,7 @@ some backends its `deinit` does not even compile in 0.16.0. The `builtin.is_test
 surprise. Filesystem access additionally goes through `testing.tmpDir` (ZS-TEST-10), which is where
 the `io` argument usually first appears.
 
-**Check:** `grep -n 'Io.Threaded\|Io.Uring\|Io.Kqueue'` in test files — any hit is a privately
+**Check:** `rg -n 'Io.Threaded|Io.Uring|Io.Kqueue'` in test files — any hit is a privately
 constructed backend that the runner's leak check cannot see.
 
 ```zig
@@ -389,7 +389,7 @@ the message appears directly above the failing test's stack trace in the runner'
 build runner's own footer echoes the same `--seed`, so the reproduction command you printed and the
 one the tool printed agree.
 
-**Check:** `grep -n 'std.debug.print\|std.log\.'` inside `test` blocks — every hit must be on an
+**Check:** `rg -n 'std.debug.print|std.log\.'` inside `test` blocks — every hit must be on an
 `errdefer` line or inside a function only an `errdefer` reaches. A green `zig build test` that emits
 anything under a `failed command:` line is the same finding observed at runtime.
 
@@ -577,7 +577,7 @@ also why an un-reported seed is useless: the failure will not reproduce. Passing
 `zig build` pins it, and the build runner echoes the seed in its footer, so the errdefer line and
 the tool's own output agree.
 
-**Check:** `grep -n 'DefaultPrng\|Xoshiro\|std.crypto.random'` in test files. Any `.init(` argument
+**Check:** `rg -n 'DefaultPrng|Xoshiro|std.crypto.random'` in test files. Any `.init(` argument
 that is a literal, a timestamp, or anything other than `std.testing.random_seed` is the finding, as
 is a seeded test with no `errdefer` printing the seed.
 
@@ -1015,7 +1015,7 @@ steps, and it will stay skipped forever. Note `std.testing.fuzz`'s `testOne` als
 moves on instead of recording a failure — but in ordinary corpus mode it propagates and skips the
 whole test, so do not use it as a per-input filter for logic you actually want covered.
 
-**Check:** `grep -n 'SkipZigTest'` — every hit must sit under a condition on `builtin.os`,
+**Check:** `rg -n 'SkipZigTest'` — every hit must sit under a condition on `builtin.os`,
 `builtin.cpu`, `builtin.target`, or a backend capability. A skip guarded by nothing, by a build
 option, or by a `TODO` comment is a parked failure wearing a skip.
 

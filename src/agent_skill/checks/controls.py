@@ -26,17 +26,61 @@ class FixtureGone(LookupError):
     """The text a control edits is no longer in the skill."""
 
 
+#: Which skill each control's injection landed in, recorded as it happens.
+#:
+#: A control edits one skill and then the check ran over all four, which is
+#: three quarters of the work thrown away — `self-application` alone was 24s of
+#: a 39s `controls` run. Recorded rather than declared per control, so it cannot
+#: drift away from what the control actually edits.
+TOUCHED: list[str] = []
+
+
 def edit(tree: Path, rel: str, old: str, new: str, count: int = 1) -> None:
     path = tree / rel
     text = path.read_text()
     if text.count(old) < count:
         raise FixtureGone(f"{rel}: {old[:60]!r}")
     path.write_text(text.replace(old, new, count))
+    TOUCHED.append(rel)
 
 
 def append(tree: Path, rel: str, text: str) -> None:
     path = tree / rel
     path.write_text(path.read_text() + text)
+    TOUCHED.append(rel)
+
+
+#: Why a check has no control, for the checks that have none.
+#:
+#: A mapping rather than a set, for the same reason `not_decisive` is one: a bare
+#: list of names records that an exemption exists and nothing about whether it
+#: still should. Two of these say the reason is not knowable from the code, which
+#: is what is true — inventing a plausible one would read better and be worse.
+WITHOUT_A_CONTROL = {
+    "controls": "it is the mechanism the controls run through; a control on it would assert "
+    "that the asserting works by asserting",
+    "toolchain": "not knowable from the code. It compiles and runs every example, so a control "
+    "would cost a full toolchain run — but nothing records whether that is the reason or "
+    "whether nobody got to it",
+    "mutation": "not knowable from the code. Same shape as `toolchain`, and the same gap",
+}
+
+
+def throwaway_tree(source: Path, into: Path) -> Path:
+    """A copy of the skills tree, plus what a check reads from beside it.
+
+    One definition, because there were two: this loop and the `scratch` fixture
+    in the tests, each deciding what a throwaway tree contains. They agreed until
+    `documented` started reading the README, at which point the same control
+    fired here and not there — and a control that fires in one runner and not the
+    other is a control nobody can trust in either.
+    """
+    tree = into / "skills"
+    shutil.copytree(source, tree, symlinks=True)
+    beside = source.parent / "README.md"
+    if beside.is_file():
+        shutil.copy2(beside, into / "README.md")
+    return tree
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +95,47 @@ PUB_FIELD = HEADER + (
     "\n/// Not layout-sensitive; this field must not be public.\n"
     "#[derive(Debug)]\npub struct Cursor {\n    pub offset: usize,\n}\n"
 )
+
+#: The one line of a `bevy-style` example this control appends to.
+_TEST_BODY = "        let mut app = App::new();\n        app.add_plugins(HealthPlugin);"
+
+#: PS-FMT-07's command as the standard now prints it, and as it used to be
+#: written — wrapped at the column limit, which put a literal newline into the
+#: pattern. Derived from the first rather than spelled twice: the two differ by
+#: exactly the defect, and nothing else.
+SQL_COMMAND = r"""`rg -n 'f"[^"\n]*(SELECT|INSERT|UPDATE|DELETE) ' src/`"""
+SQL_WRAPPED = SQL_COMMAND.replace("UPDATE|DELETE", "UPDATE|\nDELETE")
+
+
+def _unaccounted_anchor_rule(tree: Path) -> None:
+    """An anchor standard's own defect, in the delta's examples, unmentioned by it.
+
+    `crossref` reaches its verdict by four branches over the same input, and this
+    control used to edit `SKILL.md` — which trips the citation branch too. It
+    reported two failures and passed on the citation one alone for as long as the
+    anchor sweep was unreachable, which is how the sweep stayed dead.
+
+    So the injection lands in an example and leaves `SKILL.md` untouched: the
+    anchor sweep is then the only branch that can report, and the control fails
+    when it stops running.
+
+    The rule is chosen for a property that could stop holding, so the property is
+    asserted rather than assumed. `RS-OWN-43` works because `bevy-style` never
+    names it; the day it does, the injection would be accounted for and this
+    control would pass while proving nothing.
+    """
+    if "RS-OWN-43" in (tree / "bevy-style/SKILL.md").read_text():
+        raise FixtureGone(
+            "bevy-style/SKILL.md now names RS-OWN-43, so its defect is accounted "
+            "for and no longer reaches the anchor sweep"
+        )
+    edit(
+        tree,
+        "bevy-style/references/testing.md",
+        _TEST_BODY,
+        f"{_TEST_BODY}\n        let _ = app.world().resource::<AppTypeRegistry>().read();",
+    )
+
 
 CONTROLS: list[Control] = [
     Control(
@@ -69,8 +154,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "python-style/references/free-threading.md",
-            "**Check:** `grep -rn 'f_locals' src/`",
-            "**Check:** COM812 decides this. `grep -rn 'f_locals' src/`",
+            "**Check:** `rg -n 'f_locals' src/`",
+            "**Check:** COM812 decides this. `rg -n 'f_locals' src/`",
         ),
     ),
     Control(
@@ -192,12 +277,7 @@ CONTROLS: list[Control] = [
     Control(
         "an anchor rule that fires on the delta's examples and is not accounted for",
         "crossref",
-        lambda t: edit(
-            t,
-            "bevy-style/SKILL.md",
-            "| `RS-API-26` Keep tuple-struct fields private too",
-            "| `RS-API-99` Keep tuple-struct fields private too",
-        ),
+        lambda t: _unaccounted_anchor_rule(t),
     ),
     Control(
         "a citation into a standard that has no such rule",
@@ -344,6 +424,66 @@ CONTROLS: list[Control] = [
         lambda t: append(t, "rust-style/assets/rustfmt.toml", "\nbroken = = 1\n"),
     ),
     Control(
+        # The defect this check exists for: a check ships, and the README's
+        # promise of a reason for every one quietly stops being true.
+        "a check registered with no row in the README that promises one for every check",
+        "documented",
+        lambda t: edit(t.parent, "README.md", "| `documented` |", "| `renamed-away` |"),
+    ),
+    Control(
+        # A pattern narrowed until it no longer catches the defect it was written
+        # for still reports clean, because clean is what an empty result looks like.
+        "a pattern narrowed until it no longer catches its own defect",
+        "sensitivity",
+        lambda t: edit(
+            t,
+            "python-style/references/async.md",
+            "rg -n 'create_task|ensure_future' src/",
+            "rg -n 'ensure_future' src/",
+        ),
+    ),
+    Control(
+        # The one above narrows a rule's only pattern, which `any` and every both
+        # report. This narrows one of four, leaving three still matching — which
+        # `any` read as covered. That is how three of `ZS-MIG-13`'s four patterns
+        # were counted as proven by a fixture none of them touched.
+        "one pattern of several narrowed until its own fixture no longer matches",
+        "sensitivity",
+        lambda t: edit(
+            t,
+            "zig-style/references/migration-and-dead-apis.md",
+            "rg -n 'captureStackTrace|dumpStackTraceFromBase|walkStackWindows' src/",
+            "rg -n 'dumpStackTraceFromBase|walkStackWindows' src/",
+        ),
+    ),
+    Control(
+        # The other direction of the cover, isolated. Pointing one pattern at a
+        # fixture another already covers leaves *every pattern* matching
+        # something, so only the orphaned fixture is left to report — which is
+        # the branch that stops an uncovered pattern from being "covered" by
+        # adding a snippet nobody related to the rule.
+        "a fixture no pattern in its rule matches",
+        "sensitivity",
+        lambda t: edit(
+            t,
+            "zig-style/references/migration-and-dead-apis.md",
+            "rg -n 'captureStackTrace|dumpStackTraceFromBase|walkStackWindows' src/",
+            "rg -n 'utf8Decode\\b' src/",
+        ),
+    ),
+    Control(
+        # The reader installs what the asset says; the harness verified against
+        # what pyproject says. A silent disagreement hands them a different build.
+        "a shipped asset pinning a tool version the harness never verified against",
+        "pins",
+        lambda t: edit(
+            t,
+            "python-style/assets/pyproject.toml",
+            'typecheck = ["ty==0.0.75"]',
+            'typecheck = ["ty==0.0.60"]',
+        ),
+    ),
+    Control(
         "an asset nothing references",
         "assets",
         lambda t: (t / "rust-style/assets/orphan.toml").write_text("x = 1\n"),
@@ -361,7 +501,30 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
-        "a rule its own grep would catch",
+        # The silent class: the command moved to `rg`, the dialect did not.
+        # `\\|` compiles, runs, exits 1, and matches nothing.
+        "an `rg` pattern still carrying BRE's escaped alternation",
+        "dialect",
+        lambda t: edit(
+            t,
+            "zig-style/references/testing-and-fuzzing.md",
+            "rg -n 'Io.Threaded|Io.Uring|Io.Kqueue'",
+            "rg -n 'Io.Threaded\\|Io.Uring\\|Io.Kqueue'",
+        ),
+    ),
+    Control(
+        # The same class from the other side. The harness passes `--multiline`
+        # and the printed command does not, so a command wrapped across a line
+        # of the markdown runs here and exits 2 for the reader. Two shipped that
+        # way, and in one the alternative after the newline was dead even here.
+        "an `rg` command wrapped across a line of the source",
+        "dialect",
+        lambda t: edit(
+            t, "python-style/references/strings-and-output.md", SQL_COMMAND, SQL_WRAPPED
+        ),
+    ),
+    Control(
+        "a rule its own pattern would catch",
         "self-application",
         lambda t: edit(t, "rust-style/references/unsafe-ffi.md", HEADER, PUB_FIELD),
     ),
@@ -405,14 +568,25 @@ def controls(skills, *, fast: bool = False):
             # cost `--fast` exists to avoid.
             continue
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
-            tree = Path(tmp) / "skills"
-            shutil.copytree(source, tree, symlinks=True)
+            tree = throwaway_tree(source, Path(tmp))
+            TOUCHED.clear()
             try:
                 control.break_it(tree)
             except FixtureGone as e:
                 yield fail(f"{control.name}: cannot be injected any more — {e}", "controls")
                 continue
-            result = target.run(discover(tree))
+            found = discover(tree)
+            # A control that writes a file directly records nothing, and a
+            # cross-skill check needs its siblings; both fall back to the set.
+            # An "all"-scope check reads one skill against another, so it needs
+            # the whole set even when the injection landed in one of them. Read
+            # from the check rather than from a list of names beside it: a list
+            # would have to be remembered when a cross-skill check is added, and
+            # forgetting scopes its control to one skill while it still passes.
+            injected = {rel.split("/")[0] for rel in TOUCHED}
+            if injected and target.scope != "all":
+                found = [s for s in found if s.name in injected] or found
+            result = target.run(found)
             if not any(f.level is Level.FAIL for f in result.findings):
                 yield fail(
                     f"{control.name}: `{control.check}` still passes — the control no longer fires",

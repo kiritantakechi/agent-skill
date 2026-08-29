@@ -132,9 +132,10 @@ you compile against 3.15 before shipping. A project that builds against 3.14 and
 finds out later. The borrowed-reference removals are also the ones a free-threaded build most
 needs gone.
 
-**Check:** `grep -rnE 'PyUnicode_As(Decoded|Encoded)(Object|Unicode)|PyImport_ImportModuleNoBlock|
-PyWeakref_GET?_?Object|PySys_ResetWarnOptions|Py_Get(ExecPrefix|Path|Prefix|ProgramFullPath|
-ProgramName|PythonHome)' -- '*.c' '*.h'`
+**Check:** `rg -n 'PyUnicode_As(Decoded|Encoded)(Object|Unicode)' -g '*.c' -g '*.h'`,
+`rg -n 'PyImport_ImportModuleNoBlock|PyWeakref_GET?_?Object' -g '*.c' -g '*.h'`,
+`rg -n 'PySys_ResetWarnOptions' -g '*.c' -g '*.h'`, and
+`rg -n 'Py_Get(ExecPrefix|Path|Prefix|ProgramFullPath|ProgramName|PythonHome)' -g '*.c' -g '*.h'`.
 
 ## Rejected spellings of live names
 
@@ -147,7 +148,7 @@ still exist.
 keyword-argument call form is not. It raises at class-creation time, which is import time, so at
 least it fails early. PS-DATA-05 and PS-DATA-06 prefer the class form anyway.
 
-**Check:** `grep -rnE 'NamedTuple\([^)]*=|TypedDict\((["\x27][A-Za-z_]+["\x27])\s*\)' src/`
+**Check:** `rg -n 'NamedTuple\([^)\n]*=|TypedDict\((["\x27][A-Za-z_]+["\x27])[ \t]*\)' src/`
 
 ### PS-MIG-07 [M] Give `strptime` a year directive when the format has `%d`
 
@@ -157,7 +158,7 @@ least it fails early. PS-DATA-05 and PS-DATA-06 prefer the class form anyway.
 than an error — so this change turns a quiet bug into a loud one. Code that relied on the default is
 code that was wrong.
 
-**Check:** `grep -rn 'strptime' src/` and read each format string for `%d` without `%Y` or `%y`.
+**Check:** `rg -n 'strptime' src/` and read each format string for `%d` without `%Y` or `%y`.
 
 ## Unlisted but importable
 
@@ -171,7 +172,7 @@ two releases. Treating it as fine because it works is how a project arrives at 3
 import; treating it as removed is how a reviewer loses faith in the table. Use `bytes | bytearray
 | memoryview`.
 
-**Check:** `grep -rn 'ByteString' src/` — a hit warns today and fails in 3.17.
+**Check:** `rg -n 'ByteString' src/` — a hit warns today and fails in 3.17.
 
 ### PS-MIG-09 [M] Stop reading `__version__` from a standard-library module
 
@@ -182,7 +183,7 @@ Deprecated across twenty-three modules in 3.15 — `argparse`, `csv`, `ctypes`, 
 the interpreter's — and code reading it was almost always answering the wrong question. Use
 `sys.version_info` for the interpreter, `importlib.metadata.version()` for a distribution.
 
-**Check:** `grep -rnE
+**Check:** `rg -n
 '\b(argparse|csv|ctypes|decimal|json|logging|pickle|platform|re|tarfile|zlib)\. __version__'
 src/`
 
@@ -199,7 +200,7 @@ to the full consumption of the generator. Anything holding a lock, a transaction
 `contextvars` token that way now holds it far longer, which under free threading is new contention
 and a new deadlock shape.
 
-**Check:** `grep -rnB2 -A2 '@contextmanager' src/` and find every decorator derived from one that is
+**Check:** `rg -nB2 -A2 '@contextmanager' src/` and find every decorator derived from one that is
 applied to a function containing `yield`.
 
 ### PS-MIG-11 [M] Re-examine every `isinstance(x, dict)`
@@ -211,7 +212,7 @@ matters, so a function that accepted a dict silently rejects one. The standard l
 for this — `copy`, `json`, `pickle`, `pprint` and others — and third-party code was not. Test
 `collections.abc.Mapping`.
 
-**Check:** `grep -rn 'isinstance(.*, dict)' src/`
+**Check:** `rg -n 'isinstance\(.*, dict\)' src/`
 
 ### PS-MIG-12 [M] Re-examine every default-encoding dependence
 
@@ -241,7 +242,7 @@ The event-loop policy system is removed in 3.16, and the replacements already wo
 **Why:** these cost nothing to adopt now and are a forced migration later. Writing them today means
 the 3.16 bump is a version number rather than a project.
 
-**Check:** `grep -rnE 'get_event_loop|EventLoopPolicy|asyncio\.iscoroutinefunction' src/`
+**Check:** `rg -n 'get_event_loop|EventLoopPolicy|asyncio\.iscoroutinefunction' src/`
 
 ### PS-MIG-14 [S] Do not write against 3.16's other changes yet
 

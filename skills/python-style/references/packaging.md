@@ -78,7 +78,7 @@ expression, which is machine-readable and unambiguous — `"MIT"` means exactly 
 classifier and the free-text field between them could disagree. `license-files` is what puts the
 actual text in the distribution, which several licences require.
 
-**Check:** `grep -n 'License ::' pyproject.toml` and `grep -n 'license' pyproject.toml` — a table
+**Check:** `rg -n 'License ::' pyproject.toml` and `rg -n 'license' pyproject.toml` — a table
 form or a classifier is the finding.
 
 ```toml
@@ -104,7 +104,7 @@ default — it makes your package uninstallable on the next release even when it
 and the fix requires a new release from you. PyPA advises against it for exactly this reason. If
 a future version genuinely breaks you, yank or patch then.
 
-**Check:** `grep -n 'requires-python' pyproject.toml` — any `<` is the finding.
+**Check:** `rg -n 'requires-python' pyproject.toml` — any `<` is the finding.
 
 ### PS-PKG-05 [M] Use the well-known `[project.urls]` labels
 
@@ -142,7 +142,7 @@ extras publishes your development choices as part of your API.
 
 ### PS-PKG-08 [M] Pin every tool that decides whether the build passes
 
-`ruff==0.16.4`, `ty==0.0.74`, `pytest==9.1.1` — exact, in the dependency group.
+`ruff==0.16.5`, `ty==0.0.75`, `pytest==9.1.1` — exact, in the dependency group.
 
 **Why:** a linter version is part of the build's definition: a floor means a new release can fail
 your CI on code nobody touched, and can do it differently for two developers on the same commit.
@@ -161,7 +161,7 @@ the finding.
 resolved alongside everyone else's, so an exact pin makes your package uninstallable next to any
 other package with a different pin. Applications pin, through the lock file; libraries constrain.
 
-**Check:** `grep -n '==' pyproject.toml` inside `[project.dependencies]`.
+**Check:** `rg -n '==' pyproject.toml` inside `[project.dependencies]`.
 
 ### PS-PKG-10 [M] Commit `uv.lock`, and keep it the only lock artefact
 
@@ -205,7 +205,7 @@ upper bound is required: `uv_build` follows uv's versioning policy and may break
 versions. That is not the ceiling PS-PKG-04 forbids — that rule governs `requires-python`, a claim
 about interpreters you cannot test, while this is a build dependency you do.
 
-**Check:** `grep -rn 'setup.py' .` — every invocation is the finding. `setup.py` may still exist
+**Check:** `rg -n 'setup.py' .` — every invocation is the finding. `setup.py` may still exist
 as a shim; calling it directly may not.
 
 ### PS-PKG-13 [M] Build the package from `src/`, and ship `py.typed`
@@ -231,7 +231,7 @@ fails outright until you add a `module-name` override to paper over it. Matched,
 inferred and `[build-system]` is the only thing in the file that names a backend at all. PS-NAME-09
 already forbids a separator in the importable name; this is that same name, spelled once.
 
-**Check:** `grep -n '^name' pyproject.toml` against the directory under `src/`. Any difference is
+**Check:** `rg -n '^name' pyproject.toml` against the directory under `src/`. Any difference is
 the finding.
 
 ### PS-PKG-15 [M] Keep the built artefact reproducible from the repository alone
@@ -317,5 +317,5 @@ without the GIL anyway, which is precisely the situation the check exists to pre
 suppresses the warning, so the one signal you had is gone. CPython's own message says "at your own
 risk"; the risk is memory corruption rather than a wrong answer.
 
-**Check:** `grep -rn 'PYTHON_GIL\|gil=0' .github/ Dockerfile* 2>/dev/null` — every hit is the
+**Check:** `rg -n 'PYTHON_GIL|gil=0' .github/ Dockerfile* 2>/dev/null` — every hit is the
 finding.

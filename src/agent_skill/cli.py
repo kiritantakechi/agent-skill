@@ -52,7 +52,7 @@ def cmd_check(args) -> int:
             continue
         if args.fast and c.slow:
             continue
-        result = c.run(skills, **({"fast": args.fast} if c.name == "controls" else {}))
+        result = c.run(skills, fast=args.fast)
         results.append(result)
         _emit(result, verbose=args.verbose)
         failed |= not result.ok

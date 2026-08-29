@@ -568,7 +568,7 @@ a constructor or builder replaces the struct literal, a method replaces field ac
 `#[non_exhaustive]` plus `Default` replaces `..Default::default()`. The representation freedom that
 public fields spend is not recoverable at all.
 
-**Check:** `grep -rn 'pub [a-z_]*:' --include='*.rs' src/` over struct bodies. Every hit that is
+**Check:** `rg -n 'pub [a-z_]*:' -g '*.rs' src/` over struct bodies. Every hit that is
 not on a `#[repr(C)]` type is a defect, whatever invariant it does or does not carry today.
 
 ```rust
@@ -644,7 +644,7 @@ public field plus an unreadable call site. The newtype exists to make the repres
 changeable — to `NonZeroU16`, to an index, to a packed field — and `pub` on the inner value
 spends exactly the freedom the newtype was created to buy.
 
-**Check:** `grep -rn 'struct [A-Za-z_]*(pub ' --include='*.rs' src/`. Every hit is a defect.
+**Check:** `rg -n 'struct [A-Za-z_]*\(pub ' -g '*.rs' src/`. Every hit is a defect.
 
 ```rust
 // verified

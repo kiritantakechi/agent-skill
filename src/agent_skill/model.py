@@ -312,8 +312,8 @@ class Skill:
         """The blocks this standard offers as advice, not as evidence.
 
         `// verified — BAD` compiles, which is what the marker claims, and exists
-        to contain the shape a rule forbids — which is what those greps hunt. Ten
-        of them sat in the self-application corpus, so a rule whose grep matched
+        to contain the shape a rule forbids — which is what those patterns hunt. Ten
+        of them sat in the self-application corpus, so a rule whose pattern matched
         its own illustration would have failed for demonstrating itself
         correctly.
 

@@ -527,8 +527,7 @@ Delete commented-out code. Version control remembers it; the file should not.
 work-in-progress, a rollback, or dead weight, and nobody can tell which without archaeology. It also
 never gets updated with the code around it.
 
-**Check:** grep for lines that are commented-out statements — `// let `, `// if `, `// }`. Each is a
-finding.
+**Check:** `rg -n '^[ \t]*// (let |if |\})' src/` — each is a finding.
 
 ### RS-DOC-24 [M] Update comments in the same edit as the code they describe
 
@@ -634,7 +633,7 @@ They are checked at build time, so they never rot, unlike manual URLs.
 **Why:** a hand-written docs.rs URL encodes a version and a path that will both change, and nothing
 tells you when it breaks. An intra-doc link is verified by the same command that builds the docs.
 
-**Check:** grep doc comments for `https://docs.rs`. Each is a link that should be an intra-doc link.
+**Check:** `rg -n 'https://docs\.rs' src/` — each is a link that should be an intra-doc link.
 
 ```rust
 // verified

@@ -58,7 +58,7 @@ dict key or live in a set without further thought. The cost is one call to `repl
 would have written an assignment, which is a smaller cost than it looks because it makes the
 change visible at the call site.
 
-**Check:** `grep -rn '@dataclass' src/` — every decorator without `frozen=True` needs a reason on
+**Check:** `rg -n '@dataclass' src/` — every decorator without `frozen=True` needs a reason on
 the line above it.
 
 ```python
@@ -88,7 +88,7 @@ free-threaded build the memory saving matters more than it used to, because obje
 already larger there.
 
 **Check:** ruff `SLOT000`–`SLOT002` for the subclass cases. For dataclasses,
-`grep -rn '@dataclass' src/` and read for `slots=`.
+`rg -n '@dataclass' src/` and read for `slots=`.
 
 ### PS-DATA-03 [M] Model a closed set of alternatives as an enum
 
@@ -99,7 +99,7 @@ in a traceback, and — with PS-TYPE-17's `assert_never` — makes adding a memb
 place that consumes it. A `Literal["read", "write"]` gets you the narrowing but not the name, the
 repr, or the single place to add the third member.
 
-**Check:** `grep -rnE '^[A-Z_]+\s*[:=]\s*["\x27]' src/` — a group of module-level string constants
+**Check:** `rg -n '^[A-Z_]+[ \t]*[:=][ \t]*["\x27]' src/` — a group of module-level string constants
 that are only ever compared against each other is an enum.
 
 ### PS-DATA-04 [M] Use `StrEnum` or `IntEnum` only when the value crosses a boundary
@@ -251,7 +251,7 @@ environment variable, or a file, or a random seed.
 PEP 810's lazy imports make genuinely unpredictable. Every instance then shares one stale value. The
 factory form defers it to construction, which is when the caller meant it.
 
-**Check:** `grep -rnE 'field\(default=|=\s*[a-z_]+\.[a-z_]+\(\)' src/` inside class bodies — a call
+**Check:** `rg -n 'field\(default=|=[ \t]*[a-z_]+\.[a-z_]+\(\)' src/` inside class bodies — a call
 in a default is the finding unless it is `default_factory`.
 
 ### PS-DATA-11 [M] Order fields so every default follows every required field
@@ -316,7 +316,7 @@ other, and produces a new object rather than making the old one's history unknow
 Hand-writing the constructor call instead is the same thing minus the validation and plus a
 maintenance burden every time a field is added.
 
-**Check:** `grep -rn 'replace(' src/` should be roughly as common as frozen dataclasses are. Their
+**Check:** `rg -n 'replace\(' src/` should be roughly as common as frozen dataclasses are. Their
 absence, alongside frozen types, means someone is rebuilding by hand.
 
 ### PS-DATA-15 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
@@ -329,8 +329,8 @@ anything immutable. The trap is that `frozendict` is **not a `dict` subclass**; 
 from `object`. So every `isinstance(x, dict)` in the codebase is now potentially wrong. The standard
 library was updated for this; third-party code was not.
 
-**Check:** `grep -rn 'isinstance(.*, dict)' src/` — every hit is a place a `frozendict` would fail
-the test. `grep -rn 'MappingProxyType' src/` finds the spelling it replaces.
+**Check:** `rg -n 'isinstance\(.*, dict\)' src/` — every hit is a place a `frozendict` would fail
+the test. `rg -n 'MappingProxyType' src/` finds the spelling it replaces.
 
 ```python
 # verified — GOOD
@@ -445,7 +445,7 @@ with different hashes lands in different buckets and the lookup silently misses.
 this right for you — `eq=True` without `frozen=True` sets `__hash__` to `None`, which makes the type
 unhashable rather than subtly broken. Hand-written `__eq__` is where it goes wrong.
 
-**Check:** `grep -rn 'def __eq__' src/` — every hit needs a matching `__hash__` or a documented
+**Check:** `rg -n 'def __eq__' src/` — every hit needs a matching `__hash__` or a documented
 reason the type is unhashable.
 
 ## Symmetry of a data type

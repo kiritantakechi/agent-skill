@@ -23,7 +23,7 @@ def strip_comment(line: str, comment: str = "//", quotes: str = '"') -> str:
     """Everything before the first `comment` token not inside a string literal.
 
     `const url = "https://example.com";` keeps its value. Splitting on the token
-    does not, and a Check grepping for a path would miss it.
+    does not, and a Check searching for a path would miss it.
 
     The token is a parameter because it is not a property of source text in
     general. `strip_comment("q = total // count")` returns `"q = total "` under

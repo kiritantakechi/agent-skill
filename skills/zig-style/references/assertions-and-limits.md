@@ -435,7 +435,7 @@ fn writeBlock(target: []u8, header: *const Header, body: []const u8) void {
 embedded or kernel firmware — anything where a crash beats a wrong answer. There the assertion
 density of the codebase must average a minimum of two assertions per function. Measured in real
 TigerBeetle source the control plane runs well above that floor — counted at tigerbeetle 97c7a8e,
-`grep -c 'assert('` over `grep -cE '^\s*(pub )?fn '`: `src/vsr/replica.zig` 5.90 per function
+`rg -c 'assert\('` over `rg -c '^[ \t]*(pub )?fn '`: `src/vsr/replica.zig` 5.90 per function
 (1582/268, one per 7.8 lines), `src/vsr/journal.zig` 4.15, `src/state_machine.zig` 3.87.
 
 *Relaxed form:* in ordinary application code the honest rule is: **every function whose contract is
@@ -447,7 +447,8 @@ none. A function taking `(offset: usize, len: usize)` into a buffer needs two.
 written down. But the count is the only proxy that survives code review, and it forces the
 question "what do I actually know here?" on every function rather than only the scary ones.
 
-**Check:** ratio of `rg -c '\bassert\('` to `rg -c '^\s*(pub )?fn '` over the module. Per diff, the
+**Check:** ratio of `rg -c '\bassert\('` to `rg -c '^[ \t]*(pub )?fn '` over the module. Per diff,
+the
 finding is any added function that takes a relationship between two parameters — an `offset` and a
 `len`, an index and a count, two slices that must be the same length — and asserts none of it.
 

@@ -49,7 +49,7 @@ Unless a block shows its own imports, it assumes `from typing import …` for th
 
 ### PS-TYPE-01 [M] Run `ty` at the pinned version, with the shipped configuration
 
-`ty==0.0.74`, `assets/ty.toml`, in CI, as a gate. Not as an editor convenience.
+`ty==0.0.75`, `assets/ty.toml`, in CI, as a gate. Not as an editor convenience.
 
 **Why:** an annotation nothing checks is a comment with syntax. `ty` is mandated for the same
 reason `ruff` is: a standard that ships a configuration while declining to say whether you should
@@ -117,7 +117,7 @@ deprecated and expect it to be removed.
 
 Note that ruff has no rule for this yet, so it is a written rule and a grep rather than a lint.
 
-**Check:** `grep -rn 'from __future__ import annotations' src/` — every hit is the finding.
+**Check:** `rg -n 'from __future__ import annotations' src/` — every hit is the finding.
 
 ### PS-TYPE-05 [M] Never quote a forward reference inside an annotation
 
@@ -129,7 +129,7 @@ annotation from anything reading it as a value, and if the module also carries t
 string ends up quoted twice. Quotes remain necessary outside annotations, which is what the `type`
 statement in PS-TYPE-11 is for.
 
-**Check:** `grep -rnE '->\s*"' src/` and `grep -rnE ':\s*"[A-Z]' src/`. Ruff `UP037` removes the
+**Check:** `rg -n '->[ \t]*"' src/` and `rg -n ':[ \t]*"[A-Z]' src/`. Ruff `UP037` removes the
 quotes automatically.
 
 ```python
@@ -163,7 +163,7 @@ is computed on access, so reading the raw dict off a class namespace during clas
 something different from reading it afterwards. `annotationlib` is the supported door, and it is the
 only one that offers the formats PS-TYPE-07 needs.
 
-**Check:** `grep -rn '__annotations__' src/` — every hit outside a test of the machinery itself
+**Check:** `rg -n '__annotations__' src/` — every hit outside a test of the machinery itself
 is the finding.
 
 ### PS-TYPE-07 [M!] Use `FORWARDREF` when a name may not resolve
@@ -292,7 +292,7 @@ No `covariant=True`, no `contravariant=True`, no `infer_variance=True`.
 correct more often than a human is and impossible to get out of sync with the class body.
 Hand-written variance is a second source of truth about the same fact.
 
-**Check:** `grep -rnE '(co|contra)variant\s*=|infer_variance' src/` — every hit is either legacy
+**Check:** `rg -n '(co|contra)variant[ \t]*=|infer_variance' src/` — every hit is either legacy
 `TypeVar` (PS-TYPE-10) or a hand-written variance.
 
 ### PS-TYPE-13 [M] Do not use the spellings 3.15 retired
@@ -348,7 +348,7 @@ narrows both ways, which is what everyone assumed `TypeGuard` did. PEP 742 says 
 "most users should reach for `TypeIs` first"; PEP 724, the attempt to fix `TypeGuard` in place,
 was withdrawn in its favour.
 
-**Check:** `grep -rn 'TypeGuard' src/` — every hit needs the docstring sentence explaining why the
+**Check:** `rg -n 'TypeGuard' src/` — every hit needs the docstring sentence explaining why the
 constraint cannot hold.
 
 ```python
@@ -470,4 +470,4 @@ distinction the sentinel exists to draw — or `Any`, which erases it. PEP 661 g
 spelling the type system understands, with narrowing by `is`, and a `repr` that is readable in a
 traceback. They also survive copying and pickling, which `object()` does not.
 
-**Check:** `grep -rnE '=\s*object\(\)' src/` — every hit is a sentinel that should be declared.
+**Check:** `rg -n '=[ \t]*object\(\)' src/` — every hit is a sentinel that should be declared.

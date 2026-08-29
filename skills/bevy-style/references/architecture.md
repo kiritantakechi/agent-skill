@@ -531,7 +531,7 @@ It is also the form that survives growth. A unit-struct plugin that later needs 
 field, and its call sites gain `::default()` or a literal; a function that needs one has to become a
 type first, which is that edit plus a rewrite of everything that named it.
 
-**Check:** `grep -rn -E 'add_plugins\(\(?[a-z_|]' src/`. After `add_plugins(` a type starts with a
+**Check:** `rg -n  'add_plugins\(\(?[a-z_|]' src/`. After `add_plugins(` a type starts with a
 capital, so a lowercase name is a function, a module-qualified function, or a closure — all three of
 the forms that cannot be named. The *declaration* has no grep of its own, and deliberately:
 `fn f(app: &mut App)` is what a plugin function looks like and also what a test helper that drives

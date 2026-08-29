@@ -1,5 +1,6 @@
-## Purpose
+# python-style Specification
 
+## Purpose
 A single Python engineering standard an agent loads before writing, reviewing, or migrating any
 Python, stating the rules of modern CPython with each rule attributed to the source it comes from
 and paired with a check that decides it.
@@ -8,7 +9,7 @@ The standard's subject is pure Python. Authoring, building, and distributing com
 modules are out of scope and the standard does not cover them; a project that ships an extension
 module is served by this standard only for the Python it also contains.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Single target version, with an explicit floor
 
@@ -154,7 +155,7 @@ to another rule SHALL point at the owning ID rather than restating it.
 
 #### Scenario: A check is a runnable command
 
-- **WHEN** the check can be expressed as a `ruff` selection, a `ty` rule, or a grep
+- **WHEN** the check can be expressed as a `ruff` selection, a `ty` rule, or a pattern
 - **THEN** the check is written as that command, so it decides rather than advises
 
 #### Scenario: IDs are cited across chapters

@@ -101,7 +101,7 @@ Not `from other._internal import thing`, however convenient.
 breaks on their patch release and the breakage is your problem. If you need it, ask them to make it
 public; if you cannot wait, vendor it and own the copy.
 
-**Check:** ruff `SLF001` for private member access. `grep -rnE 'from [a-z_.]+\._' src/` for the
+**Check:** ruff `SLF001` for private member access. `rg -n 'from [a-z_.]+\._' src/` for the
 import form.
 
 ## Signatures
@@ -250,7 +250,7 @@ finding.
 `acme.reader`. Python sometimes tolerates it and sometimes raises a partially-initialised-module
 error depending on which module was imported first — so it works until the import order changes.
 
-**Check:** `grep -rn 'from <package> import\|import <package>$' src/<package>/` — any self-reference
+**Check:** `rg -n 'from <package> import|import <package>$' src/<package>/` — any self-reference
 is the finding.
 
 ### PS-API-18 [S] Split a module when it has two audiences, not when it is long

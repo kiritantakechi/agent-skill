@@ -58,7 +58,7 @@ management gets the shutdown half wrong, which is where "task was destroyed but 
 comes from. Where the loop needs configuring, `loop_factory` is the supported hook and is what
 survives 3.16.
 
-**Check:** `grep -rn 'new_event_loop\|run_until_complete\|loop.close()' src/` — every hit is
+**Check:** `rg -n 'new_event_loop|run_until_complete|loop.close\(\)' src/` — every hit is
 hand-rolled lifecycle.
 
 ```python
@@ -85,7 +85,7 @@ classes.
 silently is already broken. Inside a coroutine the correct call is `asyncio.get_running_loop()`,
 which fails loudly rather than conjuring a second loop nobody will run.
 
-**Check:** `grep -rnE 'get_event_loop|EventLoopPolicy|set_event_loop' src/` — every hit is the
+**Check:** `rg -n 'get_event_loop|EventLoopPolicy|set_event_loop' src/` — every hit is the
 finding.
 
 ### PS-ASYNC-03 [M] Test with `inspect.iscoroutinefunction`
@@ -95,7 +95,7 @@ Not `asyncio.iscoroutinefunction`, which is removed in 3.16.
 **Why:** the two behave the same and one of them is going away. The `inspect` version is also the
 right home for it: it is a question about a function object, not about the event loop.
 
-**Check:** `grep -rn 'asyncio.iscoroutinefunction' src/`.
+**Check:** `rg -n 'asyncio.iscoroutinefunction' src/`.
 
 ## Owning tasks
 
@@ -108,7 +108,7 @@ raises, the rest are cancelled and the group re-raises as an `ExceptionGroup`; i
 normally, every task has finished. Loose tasks have neither property, so a failure in one is noticed
 — if at all — as a warning at interpreter shutdown.
 
-**Check:** `grep -rn 'create_task\|ensure_future' src/` — every hit outside a `TaskGroup` needs
+**Check:** `rg -n 'create_task|ensure_future' src/` — every hit outside a `TaskGroup` needs
 PS-ASYNC-05's justification.
 
 ```python
@@ -161,7 +161,7 @@ which conflates "we are done" with "something went wrong" and leaves a `Cancelle
 traceback of a successful run. `TaskGroup.cancel` is a non-exceptional early exit: idempotent,
 callable before entry, and the group exits without `CancelledError` being raised.
 
-**Check:** `grep -rnB4 'raise .*Done\|raise .*Stop' src/` inside a `TaskGroup` — a sentinel
+**Check:** `rg -nB4 'raise .*Done|raise .*Stop' src/` inside a `TaskGroup` — a sentinel
 exception used for control flow is what this replaces.
 
 ## Cancellation
@@ -175,7 +175,7 @@ Catch it to clean up, then re-raise. It inherits from `BaseException` precisely 
 into a hang and a timeout into a lie. `asyncio.run` cancels remaining tasks at exit, so a
 swallowing task prevents the process from exiting cleanly.
 
-**Check:** `grep -rn 'except.*CancelledError' src/` — every handler must end in `raise`. Ruff
+**Check:** `rg -n 'except.*CancelledError' src/` — every handler must end in `raise`. Ruff
 `ASYNC` and `BLE001` catch the `except Exception` variants that would also take it on older code.
 
 ### PS-ASYNC-09 [M] Assume every `await` is a cancellation point
@@ -269,7 +269,7 @@ the bound is the point.
 retry loops, which are exactly where the program is already degraded. A `time.sleep` in a retry
 blocks every other task for the backoff.
 
-**Check:** ruff `ASYNC251`. `grep -rn 'time.sleep' src/` for anything the linter cannot reach.
+**Check:** ruff `ASYNC251`. `rg -n 'time.sleep' src/` for anything the linter cannot reach.
 
 ### PS-ASYNC-15 [S] Keep a coroutine's synchronous stretches short
 
@@ -303,7 +303,7 @@ Those two, and nothing else, are safe to call on a loop from another thread.
 from outside corrupts the loop's internal state rather than raising. These two exist precisely
 because the boundary needs a door; using anything else is going through the wall.
 
-**Check:** `grep -rn 'loop\.' src/` inside a thread target. Anything but those two is the finding.
+**Check:** `rg -n 'loop\.' src/` inside a thread target. Anything but those two is the finding.
 
 ### PS-ASYNC-18 [M] Use `queue.Queue` between threads and `asyncio.Queue` within a loop
 
@@ -313,7 +313,7 @@ They are not interchangeable and neither substitutes for the other.
 is fatal inside a coroutine. Crossing the boundary means a `queue.Queue` plus a `to_thread` call
 to read it, or `call_soon_threadsafe` to push into the loop.
 
-**Check:** `grep -rn 'asyncio.Queue' src/` — a hit reachable from a plain thread is the finding.
+**Check:** `rg -n 'asyncio.Queue' src/` — a hit reachable from a plain thread is the finding.
 
 ### PS-ASYNC-19 [M] Never use an `asyncio` primitive across threads
 
@@ -323,7 +323,7 @@ to read it, or `call_soon_threadsafe` to push into the loop.
 asyncio objects are not thread safe". They coordinate by scheduling on the loop, so from another
 thread they are simply the wrong mechanism — use `threading.Lock` there.
 
-**Check:** `grep -rnE 'asyncio\.(Lock|Event|Semaphore|Condition)\b' src/` inside a thread target.
+**Check:** `rg -n 'asyncio\.(Lock|Event|Semaphore|Condition)\b' src/` inside a thread target.
 The word boundary matters: without it the pattern also matches `asyncio.EventLoop`, which is not
 one.
 
@@ -360,5 +360,5 @@ the ones it knows about.
 runs at an unpredictable time or not at all. `contextlib.aclosing` makes the close explicit at the
 call site, which is where the reader can see it.
 
-**Check:** `grep -rn 'async def.*yield\|__anext__' src/` — every async iterator over a resource
+**Check:** `rg -n 'async def.*yield|__anext__' src/` — every async iterator over a resource
 needs an `aclose` and a caller using `aclosing`.

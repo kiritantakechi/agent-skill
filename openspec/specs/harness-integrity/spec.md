@@ -1,0 +1,168 @@
+# harness-integrity Specification
+
+## Purpose
+The discipline the harness applies to itself: that suppressing one of its own checks justifies
+itself the way suppressing a rule does, and that a list of what must be verified is derived from the
+thing it verifies rather than maintained beside it.
+
+## Requirements
+
+### Requirement: A check exempted from a guarantee records why
+
+Where a check is excluded from a property the harness otherwise requires of every check, the
+exclusion SHALL name the check and state the reason. An exclusion SHALL NOT be expressed as a bare
+list of names. An exclusion naming a check that no longer exists SHALL be reported.
+
+#### Scenario: A check has no negative control
+
+- **WHEN** a check is not covered by any control that proves it can fail
+- **THEN** the exclusion records why that check is different, so a reader can tell whether the reason
+  still holds
+
+#### Scenario: An exclusion outlives its check
+
+- **WHEN** a check named by an exclusion is renamed or removed
+- **THEN** the exclusion is reported, because an exemption standing over nothing is an exemption
+  nobody re-examined
+
+#### Scenario: A new check is added
+
+- **WHEN** a check is added and given no control
+- **THEN** it fails the guarantee rather than being absorbed by an existing exclusion
+
+### Requirement: What must be verified is derived from what is being verified
+
+A list of subjects a guarantee applies to SHALL be computed from those subjects rather than written
+alongside them. A subject that acquires the property the guarantee is about SHALL be covered by that
+guarantee without anyone editing a list.
+
+A derivation SHALL NOT skip a subject it fails to resolve. Where a derived guarantee locates each
+subject by some means — a lookup, a search, a name — failing to locate one SHALL be a failure of the
+guarantee, not an omission from it.
+
+#### Scenario: A check gains a dependency on an external tool
+
+- **WHEN** a check begins to require a tool it did not require before
+- **THEN** the guarantee that a missing tool withholds the pass covers it immediately, without a
+  separate list being updated
+
+#### Scenario: A derivation produces nothing
+
+- **WHEN** the computed set of subjects is empty, or smaller than the set known to qualify
+- **THEN** that is a failure, because a guarantee that applies to nothing passes trivially and reads
+  exactly like one that applies to everything
+
+#### Scenario: A subject cannot be located
+
+- **WHEN** a derived guarantee cannot resolve one of its subjects — the lookup that finds it returns
+  nothing
+- **THEN** the guarantee fails naming that subject, rather than passing over it, because a subject
+  silently skipped is indistinguishable from a subject that satisfied the guarantee
+
+#### Scenario: The means of locating a subject is incidental to it
+
+- **WHEN** a guarantee resolves a subject by matching against how it happens to be written rather
+  than by asking the thing itself
+- **THEN** a reformatting that changes nothing about the subject silently removes it from coverage,
+  so the resolution is made from the registered object rather than from its source text
+
+#### Scenario: A category of check needs different treatment
+
+- **WHEN** a guarantee must treat some checks differently — those that read one skill against
+  another, for instance
+- **THEN** the distinction is declared by the check itself rather than by a set of names maintained
+  elsewhere
+
+### Requirement: Machinery that nothing reaches is removed, not carried
+
+Code that nothing calls or reads SHALL be deleted rather than moved. A restructuring SHALL NOT
+preserve a member solely because it was there before.
+
+#### Scenario: A refactor moves a module's contents
+
+- **WHEN** code is split or relocated
+- **THEN** what nothing reaches is removed as part of the move, because a restructuring that
+  relocates without examining has changed where the code is and not what it is
+
+#### Scenario: A member is computed and never read
+
+- **WHEN** a value is assigned and no caller reads it
+- **THEN** it is deleted, and the work that produced it with it
+
+### Requirement: A claim the repository makes about its own checks is verified against them
+
+Where the repository states in prose which checks exist, what they cover, or that something holds of
+every check, that statement SHALL be compared against the registry and SHALL fail when the two
+disagree. A claim written for a reader SHALL NOT be exempt from verification because its audience is
+a person.
+
+Where the verification asks whether a field is present, it SHALL read the whole field. A parse that
+truncates the field it is judging can find content in what is empty, or emptiness in what is not, and
+either way it decides something other than the question it was asked.
+
+#### Scenario: A check ships without being documented
+
+- **WHEN** a check is registered and the documented list does not name it
+- **THEN** the run fails, because the file that promises a reason for every check is missing one
+
+#### Scenario: Documentation names a check that no longer exists
+
+- **WHEN** the documented list names something the registry does not
+- **THEN** the run fails, the same way an exemption outliving its check does
+
+#### Scenario: A universal claim is made about checks
+
+- **WHEN** prose states that something holds of every check
+- **THEN** what it quantifies over is derived from the registry, so the claim cannot become false by
+  a check being added
+
+#### Scenario: A documented scope is narrower than the claim
+
+- **WHEN** a check covers some checks and not others, and the prose says it covers all of them
+- **THEN** the run fails, and the number or the exemptions it names come from the registry rather
+  than from what someone typed
+
+#### Scenario: A documented field contains the delimiter of the format it is written in
+
+- **WHEN** a recorded reason contains a character the surrounding format uses as a separator, escaped
+  the way that format requires
+- **THEN** the whole reason is read, because a check that stops at the escape judges a fragment and
+  reports that a reason is present when only its first character is
+
+#### Scenario: Prose drifts for reasons that are not defects
+
+- **WHEN** wording, column order, or style changes without changing which checks are named or
+  whether each carries a note
+- **THEN** nothing fails, because the claim has not changed
+
+### Requirement: A negative control exercises the mechanism it names
+
+A control SHALL fail when the mechanism it is named for stops working, and SHALL NOT be satisfied by
+a different part of the same check reporting on the same injected defect. Where a check reaches its
+verdict by more than one branch, the injected defect SHALL be one that only the named branch can
+report.
+
+A control is the evidence that a check can fail. A control that passes through a sibling branch
+proves that the check can fail, which was never in doubt, and proves nothing about the branch it
+claims to cover — so the branch can be deleted, made unreachable, or narrowed to nothing while the
+control stays green.
+
+#### Scenario: A check reaches its verdict by several branches
+
+- **WHEN** a check reports on more than one property of its input, and a control is written for one
+  of them
+- **THEN** the injected defect is one the other branches do not report, so the control's passing is
+  evidence about the branch it names
+
+#### Scenario: The named mechanism is made unreachable
+
+- **WHEN** the code path a control covers stops executing — by a restructuring, a misplaced early
+  return, or a narrowed condition
+- **THEN** that control fails, rather than continuing to pass because the injected defect also trips
+  something else
+
+#### Scenario: A control is written or rewritten
+
+- **WHEN** a control is added for a branch of an existing check
+- **THEN** it is verified against the working code and against the code with that branch disabled,
+  and it must fail in the second case before it is accepted

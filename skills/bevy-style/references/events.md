@@ -298,7 +298,8 @@ never see it. `EntityEvent` stores the target on the event, which is what makes
 `trigger_targets(E, entity)` form was removed in 0.17 precisely because the target was invisible in
 the type.
 
-**Check:** grep for `trigger_targets`. Each one is an `EntityEvent` that has not been converted.
+**Check:** `rg -n 'trigger_targets' src/` — each one is an `EntityEvent` that has not been
+converted.
 
 ```rust
 // verified
@@ -442,7 +443,7 @@ names read as `On<OnAdd, T>`. This is the single most common stale spelling in B
 against a tutorial. Where `Add` collides with `std::ops::Add`, disambiguate the trait as `ops::Add`
 rather than renaming the event.
 
-**Check:** `grep -rn -E 'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|Trigger<' src/`.
+**Check:** `rg -n  'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|Trigger<' src/`.
 
 ### BV-EVT-15 [M] Keep an observer short, because it runs inside the flush
 

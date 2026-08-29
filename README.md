@@ -89,13 +89,16 @@ the time. The note after each is the defect it would have caught.
 | `assets` | the files a reader copies verbatim: `zig fmt` and `ast-check`, a TOML parse, workflow keys and indentation, and that nothing is shipped unreferenced | Six assets shipped and nothing validated any of them. |
 | `lints` | the shipped lint table equals the one the examples are verified against | The asset set `indexing_slicing = "warn"` where a rule requires deny, and the verified crate quietly omitted a third lint while its comment named two. |
 | `mirror` | rules that say the same thing in two skills agree on tier | A renumbering pass twice pointed the table at unrelated rules. It is anchored on titles now, and notices a pair it does not yet hold. |
-| `crossref` | ids cited into another skill, the override table that says the two disagree, and the anchor's own greps run over the delta's examples | `bevy-style` is a delta on `rust-style` and cites it by id, which nothing was checking; its "where this standard departs" table quoted eight `rust-style` titles that nothing compared against the originals; and two `rust-style` `[M]` rules were firing on nineteen and thirty-five lines of its examples with nothing saying so. |
-| `self-application` | every `grep` a `**Check:**` ships, run over every `// verified` block | A standard whose examples fail its own greps is not a standard, and nobody was running them. |
+| `crossref` | ids cited into another skill, the override table that says the two disagree, and the anchor's own patterns run over the delta's examples | `bevy-style` is a delta on `rust-style` and cites it by id, which nothing was checking; its "where this standard departs" table quoted eight `rust-style` titles that nothing compared against the originals; and two `rust-style` `[M]` rules were firing on nineteen and thirty-five lines of its examples with nothing saying so. |
+| `self-application` | every `rg` command a `**Check:**` ships, run over every `// verified` block | A standard whose examples fail its own patterns is not a standard, and nobody was running them. |
 | `toolchain` | every `// verified` block compiles, with every declaration analysed, and the tests it ships run | 210 zig blocks claimed `// verified` and nothing compiled them; only 61 actually did. |
 | `citations` | a rule's cited check is one the shipped configuration actually enables | A standard that cites its checks by tool code can cite one the config disables, one the tool withdrew, or one that never existed — `ASYNC101` was invented, four more were preview and therefore unreachable, and every one of them read as enforced. |
 | `pins` | a pinned version that has been superseded, and an asset installing a build the harness did not verify against | The plan said "on 1 September, move the interpreter pin" — a note nobody reads, in a place nobody looks, about a date nobody remembers. |
+| `dialect` | a pattern carrying syntax from a grammar it will not be read in | `\|` is alternation to `grep` and a literal pipe to `rg`. Twenty patterns carried it through the migration, and each one matched nothing while reporting clean. The same defect from the reader's side: two commands wrapped at the column limit put a raw newline in the pattern, which the harness accepts under `--multiline` and `rg` rejects for anyone running the command as printed. |
+| `sensitivity` | every pattern a rule ships, shown to catch the defect it was written for | `self-application` proves a pattern does not fire on compliant code. Nothing proved one fires at all, and a pattern that matches nothing passes that test perfectly. It then asserted `any`: `ZS-MIG-13` ships four patterns over four disjoint families and one fixture, so three were counted as proven by a snippet none of them matched. |
+| `documented` | the README's claims about the checks, against the checks | This table said sixteen rows against eighteen checks, and the `controls` row claimed "every other check" while three were exempt — in the file whose note on `controls` records that an unverified claim in a README is what `controls` exists for. |
 | `mutation` | statements a shipped test does not pin | A shipped test passed whether or not the function it tested did anything. |
-| `controls` | that every other check still fails on the defect it owns | "Every check carries a negative control" was a claim in a file, verified by hand once and never again. |
+| `controls` | that every check except those exempted still fails on the defect it owns, with each exemption naming its reason | "Every check carries a negative control" was a claim in a file, verified by hand once and never again. |
 
 ## Block markers
 
@@ -123,7 +126,7 @@ A trailing `— GOOD` or `— BAD` names which side of the rule the block
 illustrates. Two qualifiers carry meaning to the tools: a `BAD` block and a
 `(quoted from …)` block are evidence rather than advice, so the standard's own
 rules are not applied to them and their lines stay out of the self-application
-corpus — ten `// verified — BAD` blocks sat in it, so a rule whose grep matched
+corpus — ten `// verified — BAD` blocks sat in it, so a rule whose pattern matched
 its own illustration would have failed for demonstrating itself correctly.
 
 ## Formatting is a command, not a diff to read
@@ -134,28 +137,32 @@ than they do at column zero. That made the check report diffs a reader of the
 markdown could not have predicted, so `agent-skill fmt` runs the same extraction,
 formats it, and writes the result back.
 
-## `self-application` runs the real grep
+## `self-application` runs the real `rg`
 
-The greps are run by `grep`, not reimplemented. Compiling a rule's pattern with
-Python's `re` looked equivalent and was not:
+The patterns are run by `rg`, not reimplemented. Compiling one with Python's `re`
+looked equivalent and was not:
 
 - `[[:space:]]` parses as a character class of `[:space` plus a literal `]` and
   matches nothing, so one Check was reported as ran-and-clean while being
   incapable of firing.
 - Five Checks whose pattern ends in a bare `(` were dropped as "unparseable".
-- `grep` without `-E` is **BRE**, where `(` and `)` are literal. Reading
-  `grep -rn 'pub fn main()' src/` as an ERE accused eight correct examples of
-  being the old entry point.
+There is one dialect. The library used to hold two, selected by whether a command
+happened to carry `-E`, and the basic half is where the silent failures lived:
+`\|` is alternation there and a literal pipe everywhere else, so a pattern read in
+the wrong grammar matches nothing and reports clean. A pattern `rg` rejects is now
+a failure rather than a retry as a fixed string — turning a broken regex into a
+literal is how a check stops being able to fire while still reporting.
 
-The command's own flags select the dialect, and a pattern grep rejects is retried
-as a fixed string. Patterns match the code half of each line unless the pattern
-itself contains `//` — a Check that greps for a comment means the comment.
+Each example is written to its own file, because `--multiline` matches across
+whatever it is given and a concatenated corpus manufactures hits that straddle two
+unrelated examples. Patterns match the code half of each line unless the pattern
+itself contains `//` — a Check that searches for a comment means the comment.
 
-Hits are reported in three tiers: a shipped `grep` that decides (**fails**), a
+Hits are reported in three tiers: a shipped `rg` command that decides (**fails**), a
 prose span or a Check listed in the profile's `not_decisive` table (notes), and a
 pattern with more hits than `judgement`, which enumerates rather than accuses.
 `bevy-style` uses the first tier deliberately: fifteen of its `**Check:**`
-sections are literal `grep` commands — thirteen over the APIs Bevy removed
+sections are literal `rg` commands — thirteen over the APIs Bevy removed
 between 0.15 and 0.19, one over the plugin forms it forbids, and one over the
 boundary itself — so an example written against an older engine, written as a
 function, or naming the engine from a simulation crate fails the build rather
@@ -163,7 +170,7 @@ than being noticed by a reader.
 
 Each `not_decisive` entry quotes a literal substring of that rule's own Check,
 verified to still be there, so rewriting a rule cannot leave a stale entry
-quietly suppressing its grep.
+quietly suppressing its pattern.
 
 ## The negative controls run
 

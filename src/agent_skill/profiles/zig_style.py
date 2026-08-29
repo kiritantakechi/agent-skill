@@ -26,14 +26,109 @@ class ZigStyle(Profile):
         default_factory=lambda: {
             # ZS-NAME-14: "keep `self` for anonymous generic containers" — a
             # receiver typed `Self` is the case the rule permits.
-            "ZS-NAME-14": lambda lines, j, in_test: "Self" in lines[j],
-            # ZS-TEST-11: "`grep …` inside `test` blocks — every hit must be on
+            "ZS-NAME-14": lambda lines, at, in_test: "Self" in lines[at.start - 1],
+            # ZS-TEST-11: "`rg …` inside `test` blocks — every hit must be on
             # an `errdefer` line". Container-scope logging is not the target.
-            "ZS-TEST-11": lambda lines, j, in_test: j not in in_test or "errdefer" in lines[j],
+            "ZS-TEST-11": lambda lines, at, in_test: (
+                (at.start - 1) not in in_test or "errdefer" in lines[at.start - 1]
+            ),
         }
     )
+    #: Each snippet is the defect its rule forbids, written the way it turns up
+    #: in real code. A fixture shaped to match proves the fixture, not the pattern.
+    fires: dict = field(
+        default_factory=lambda: {
+            # Four patterns, because one line of alternation is unreadable — so
+            # four fixtures. While there was one, three of the four were counted
+            # as proven by a snippet none of them matched, and any of the three
+            # could have been narrowed to match nothing without this noticing.
+            # Each is the *old* spelling from that pattern's own row in the
+            # table, written as the call site had it.
+            "ZS-MIG-13": (
+                "const seen = EnumSet(Color).initEmpty();",
+                "try std.tar.pipeToFileSystem(dest, reader, .{ .mode_mode = .ignore });",
+                "std.debug.captureStackTrace(@returnAddress(), &trace);",
+                "const cp = try std.unicode.utf8Decode(bytes[i..][0..len]);",
+            ),
+        }
+    )
+    #: Measured, not judged: each of these was promoted to accuse and hit the
+    #: standard's own compliant examples. The reason names what the span finds
+    #: and what, outside the match, decides whether the hit is a defect — never
+    #: how many examples it hit the day someone measured, which is a number
+    #: `_render` already prints live two fields away and nothing re-measures.
     not_decisive: dict = field(
         default_factory=lambda: {
+            "ZS-CAPI-09": NotDecisive(
+                "c_int",
+                "the span finds every C type; whether the hit is inside the designated boundary "
+                "module decides, and a line does not say which file it is in",
+            ),
+            "ZS-CAPI-10": NotDecisive(
+                "[*c]",
+                "the span finds every `[*c]`; whether it is a parameter of an `export fn` or a "
+                "`callconv(.c)` function — the one place it is allowed — decides",
+            ),
+            "ZS-CT-13": NotDecisive(
+                "comptime T: type",
+                "the span finds every `comptime` parameter; how many distinct arguments its call "
+                "sites pass decides, which is a count over the whole tree",
+            ),
+            "ZS-ERR-03": NotDecisive(
+                "@panic(",
+                "the span finds every `@panic(`; whether the file is a library rather than `main` "
+                "or `build.zig` decides",
+            ),
+            "ZS-ERR-04": NotDecisive(
+                ") ![",
+                "the span finds every inferred error set; whether the function is `pub`, and "
+                "neither `main` nor a test, decides",
+            ),
+            "ZS-FMT-10": NotDecisive(
+                "{b64}",
+                "the span finds every `{b64}`; whether a width or precision is applied to it over "
+                "a slice decides, and both spellings build cleanly",
+            ),
+            "ZS-IO-18": NotDecisive(
+                "w.buffered()",
+                "the span finds every `w.buffered()`; whether it runs before the first emit in a "
+                "`drain` body decides, which is an ordering the line does not carry",
+            ),
+            "ZS-MEM-08": NotDecisive(
+                ".allocator()",
+                "the span finds every `.allocator()`; whether its receiver is a local `var` in the "
+                "same frame that returns decides, which is a fact about the declaration above it",
+            ),
+            "ZS-MIG-12": NotDecisive(
+                "root_source_file",
+                "the span finds every `root_source_file`; whether it sits inside a `createModule` "
+                "literal rather than an `addExecutable` one decides",
+            ),
+            "ZS-NAME-04": NotDecisive(
+                "len_",
+                "the span finds every truncated identifier; whether it is on the sanctioned "
+                "abbreviation list decides",
+            ),
+            "ZS-PERF-12": NotDecisive(
+                "*Self",
+                "the span finds every `*Self` receiver; whether the helper assigns to a field the "
+                "parent could apply instead decides",
+            ),
+            "ZS-PERF-18": NotDecisive(
+                "@prefetch(",
+                "the span finds every `@prefetch(`; whether its options literal spells every field "
+                "out, rather than leaning on defaults, decides",
+            ),
+            "ZS-TEST-06": NotDecisive(
+                "@as(",
+                "the span finds every `@as(`; whether it wraps an `expectEqual` argument, where it "
+                "is the wrapper the rule removes, decides",
+            ),
+            "ZS-TEST-18": NotDecisive(
+                ".init(seed)",
+                "the span finds every seeded PRNG; whether it is the simulation's *second* one "
+                "decides, which is a count over the test body",
+            ),
             "ZS-BUILD-19": NotDecisive(
                 "returns hits only from that file",
                 "the Check asks which file a `_max` lives in, which a standalone "
@@ -41,12 +136,12 @@ class ZigStyle(Profile):
             ),
             "ZS-MIG-04": NotDecisive(
                 "every hit must read",
-                "the grep finds `format` methods; the signature decides",
+                "the pattern finds `format` methods; the signature decides",
             ),
             "ZS-BUILD-27": NotDecisive(
                 ".github/ build.zig scripts/",
                 "scoped to the build and release scripts, where a hit is licensed "
-                "by a benchmark the grep cannot see",
+                "by a benchmark the pattern cannot see",
             ),
             # Polarity: this Check asserts the shape is *present*, so its hits are
             # evidence of compliance and reading them as defects inverts the rule.
@@ -57,7 +152,7 @@ class ZigStyle(Profile):
             ),
             "ZS-TEST-15": NotDecisive(
                 "is the finding",
-                "the grep finds every PRNG; the `.init(` seed argument decides, and "
+                "the pattern finds every PRNG; the `.init(` seed argument decides, and "
                 "`std.testing.random_seed` is the compliant one",
             ),
         }

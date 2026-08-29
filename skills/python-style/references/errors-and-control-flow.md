@@ -293,7 +293,7 @@ returns normally and the failure that was propagating simply disappears — no t
 nothing. This was legal for the whole history of the language and is one of the quietest ways to
 lose an error. PEP 765 exists because the pattern is essentially always a mistake.
 
-**Check:** `grep -rnA6 'finally:' src/` and read each block for a `return`, `break` or `continue`.
+**Check:** `rg -nA6 'finally:' src/` and read each block for a `return`, `break` or `continue`.
 The interpreter now warns, so a build that turns warnings into errors catches it too.
 
 ### PS-ERR-16 [M] Release with a context manager rather than with `finally`
@@ -306,7 +306,7 @@ drift apart, and it makes the pair impossible to forget at a new call site. Hand
 PS-FT-25: on 3.15 a `contextmanager`-derived *decorator* on a generator holds until the generator
 is exhausted, so prefer the `with` form where the hold time matters.
 
-**Check:** `grep -rn 'finally:' src/` — each hit that only releases a resource should be a `with`.
+**Check:** `rg -n 'finally:' src/` — each hit that only releases a resource should be a `with`.
 
 ### PS-ERR-17 [M] Make a cleanup path idempotent
 

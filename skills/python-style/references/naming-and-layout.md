@@ -98,7 +98,7 @@ Treating the acronym as a word makes the boundary mechanical. The standard libra
 inconsistent here for historical reasons — `HTTPServer` alongside `JsonDecodeError` — so this is
 a rule the language itself does not settle for you.
 
-**Check:** `grep -rnE '\b[A-Z]{2,}[A-Z][a-z]' src/` — two or more capitals followed by a capital and
+**Check:** `rg -n '\b[A-Z]{2,}[A-Z][a-z]' src/` — two or more capitals followed by a capital and
 a lowercase letter is an acronym that has not been folded.
 
 ### PS-NAME-03 [M] One leading underscore for non-public, two only to avoid a subclass collision
@@ -111,7 +111,7 @@ your class is intended to be subclassed, and you have attributes that you do not
 use". Using it for privacy makes the attribute painful to reach in a debugger and in a test without
 making it any more private, since `_Class__name` is right there.
 
-**Check:** `grep -rnE 'self\.__[a-z]' src/` — every hit must be a name a subclass could plausibly
+**Check:** `rg -n 'self\.__[a-z]' src/` — every hit must be a name a subclass could plausibly
 collide with. `SLF001` catches the other side: reaching into someone else's underscore.
 
 ### PS-NAME-04 [M] Spell names out; abbreviate only as scope tightens
@@ -254,7 +254,7 @@ better behaved". The concrete misbehaviour is that a relative import makes a mod
 on where it sits, so moving a file changes what it imports without changing a character of it. PEP 8
 does permit explicit relative imports for complex layouts; the standard library requires absolute.
 
-**Check:** ruff `TID252` bans relative imports beyond a configurable depth. `grep -rn '^from \.'
+**Check:** ruff `TID252` bans relative imports beyond a configurable depth. `rg -n '^from \.'
 src/` finds the rest.
 
 ### PS-NAME-12 [M] Never use a wildcard import
@@ -307,7 +307,7 @@ instead consider keeping them where they are but adding the `lazy` keyword". `la
 module-scope only; inside a function, a class body, or a `try` it is a `SyntaxError`, which is
 the language enforcing this rule for you.
 
-**Check:** `grep -rnB2 '^\s\+import \|^\s\+from .* import ' src/`, then read each hit for what
+**Check:** `rg -nB2 '^[ \t]+import |^[ \t]+from .* import ' src/`, then read each hit for what
 encloses it — indentation alone cannot tell a function body from an `if` block. An import under
 `if TYPE_CHECKING:` is the documented way to keep a name out of the runtime and is not a hit. One
 inside a function is the finding unless it exists to break a cycle, which needs a comment saying so.

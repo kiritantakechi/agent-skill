@@ -83,7 +83,7 @@ now round-trips silently. That last one converts a loud failure into a quiet one
 wrong direction. PEP 686 itself warns the change "may cause `UnicodeError`, mojibake, or even
 silent data corruption".
 
-**Check:** `grep -rnE 'getpreferredencoding|getfilesystemencoding|fsencode|fsdecode' src/` —
+**Check:** `rg -n 'getpreferredencoding|getfilesystemencoding|fsencode|fsdecode' src/` —
 every hit is a place the meaning changed.
 
 ### PS-FMT-03 [M] Never rely on `locale.getpreferredencoding`
@@ -95,7 +95,7 @@ forever — including code written to handle a legacy encoding, which now silent
 If you need to know the platform's encoding for interoperating with another program, ask for that
 specifically rather than for "the preferred" one.
 
-**Check:** `grep -rn 'getpreferredencoding' src/` — every hit is the finding.
+**Check:** `rg -n 'getpreferredencoding' src/` — every hit is the finding.
 
 ### PS-FMT-04 [M!] Choose the error handler deliberately
 
@@ -146,8 +146,8 @@ list.
 makes it one keystroke easier than the safe form. The safe forms all exist and are not harder: a
 parameterised query is the same length as the interpolated one.
 
-**Check:** ruff `S608` for SQL, `S602`–`S607` for shell. `grep -rnE 'f"[^"]*(SELECT|INSERT|UPDATE|
-DELETE) ' src/` for what the linter misses.
+**Check:** ruff `S608` for SQL, `S602`–`S607` for shell.
+`rg -n 'f"[^"\n]*(SELECT|INSERT|UPDATE|DELETE) ' src/` for what the linter misses.
 
 ### PS-FMT-08 [S] Reach for a template string when the interpolation must be inspected
 
@@ -183,7 +183,7 @@ between a five-second diagnosis and a session with a debugger.
 expression text is exactly what makes it wrong to ship — a rename changes the output. Its
 presence in committed code is a debug line someone forgot.
 
-**Check:** `grep -rn '=}' src/` — every hit is either a debug line or a deliberate choice needing a
+**Check:** `rg -n '=\}' src/` — every hit is either a debug line or a deliberate choice needing a
 comment.
 
 ## Logging
@@ -224,7 +224,7 @@ mirror the package hierarchy — so an operator can raise the level for one subp
 your naming scheme. `logging.info(...)` at module level uses the root logger, which cannot be
 configured per component.
 
-**Check:** ruff `LOG015` for the root-logger calls. `grep -rn 'getLogger("' src/` for hand-written
+**Check:** ruff `LOG015` for the root-logger calls. `rg -n 'getLogger\("' src/` for hand-written
 names.
 
 ### PS-FMT-13 [M] Use `logger.exception` inside a handler
@@ -249,7 +249,7 @@ import happens last — so behaviour depends on import order. The library's obli
 records; where they go is not its business. Adding a `NullHandler` is the one permitted exception,
 and only to silence the no-handler warning.
 
-**Check:** `grep -rnE 'basicConfig|dictConfig|setLevel|addHandler' src/` — every hit outside the
+**Check:** `rg -n 'basicConfig|dictConfig|setLevel|addHandler' src/` — every hit outside the
 application entry point is the finding.
 
 ### PS-FMT-15 [S] Log the identifier, not the object
@@ -315,5 +315,5 @@ No `locale.format_string`, no `%c`/`%x` date codes, no thousands separators from
 failure only appears on a machine configured differently from yours. Format explicitly:
 `f"{value:,.2f}"` chooses the separator rather than inheriting one.
 
-**Check:** `grep -rnE 'locale\.|strftime\(.*%[cxX]' src/` — every hit is environment-dependent
+**Check:** `rg -n 'locale\.|strftime\(.*%[cxX]' src/` — every hit is environment-dependent
 output.

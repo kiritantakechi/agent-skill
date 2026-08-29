@@ -4,7 +4,7 @@ The generic checks know what a skill *is*: a `SKILL.md` with frontmatter, a
 `references/` of chapters, an `assets/`, and fenced examples that carry a marker.
 Everything a check needs to know about *this particular* standard — its rule
 prefix, its languages, the exemptions its own rules state, the predicates that
-turn its `[M]` rules into greps — lives in a profile here.
+turn its `[M]` rules into patterns — lives in a profile here.
 
 A skill with no profile still gets every generic check. It needs a profile only
 to have its own rules applied to its own examples.
@@ -18,19 +18,23 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from ..lang.rust import Crate
 from ..model import MARKERS
 from ..report import Finding
 
+if TYPE_CHECKING:
+    from ..checks.search import Span
+
 
 @dataclass(frozen=True, slots=True)
 class NotDecisive:
-    """A grep whose hits are candidates rather than defects.
+    """A pattern whose hits are candidates rather than defects.
 
     `anchor` is a literal substring of that rule's own `**Check:**` — the words
     `reason` is drawn from — and is verified to still be there, so rewriting a
-    rule cannot leave a stale entry quietly suppressing its grep.
+    rule cannot leave a stale entry quietly suppressing its pattern.
     """
 
     anchor: str
@@ -52,11 +56,37 @@ class Profile:
     #: how this skill's rust blocks are compiled; required when `toolchain == "rust"`,
     #: because the dependency line and the lint table differ per skill
     crate: Crate | None = None
-    #: above this many hits a grep enumerates rather than accuses
+    #: above this many hits a pattern enumerates rather than accuses
     judgement: int = 15
-    #: rule id -> (corpus lines, index, in_test) -> "is this hit the case the rule permits?"
-    exempt: dict[str, Callable[[list[str], int, set[int]], bool]] = field(default_factory=dict)
+    #: rule id -> (corpus lines, the hit's span, in_test) -> "is this hit the case
+    #: the rule permits?"
+    #:
+    #: A `Span`, not an index. It became one when a hit stopped being a line, and
+    #: this said `int` for as long afterwards as nobody wrote a new exemption —
+    #: the lambdas are untyped, so `ty` could not see the disagreement, and the
+    #: next one written against the documented signature would have indexed
+    #: `lines[at]` with a dataclass. That raises only when a rule actually fires.
+    exempt: dict[str, Callable[[list[str], Span, set[int]], bool]] = field(default_factory=dict)
     not_decisive: dict[str, NotDecisive] = field(default_factory=dict)
+    #: Rule id -> snippets containing the defects that rule exists to catch.
+    #:
+    #: `selfapply` proves a pattern does not fire on compliant code. Nothing
+    #: proved it fires on anything at all, and a pattern that cannot match looks
+    #: exactly like a pattern that correctly found nothing. An entry here is the
+    #: other half: the pattern must hit this.
+    #:
+    #: Several snippets, not one, because a rule's Check may ship several
+    #: patterns and one snippet cannot exhibit them all — `ZS-MIG-13` covers four
+    #: disjoint families of dead API. While this was one snippet the assertion
+    #: could only be `any`, so three of that rule's four patterns were counted as
+    #: proven by a fixture none of them matched.
+    #:
+    #: Matched as a cover in both directions: every command pattern hits some
+    #: snippet, and every snippet is hit by some pattern. The second direction is
+    #: what keeps the first honest — without it, a pattern narrowed until it
+    #: stops matching can be "fixed" by adding a snippet nothing relates to the
+    #: rule.
+    fires: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     @property
     def all_marked(self) -> tuple[str, ...]:

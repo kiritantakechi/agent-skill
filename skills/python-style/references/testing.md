@@ -56,7 +56,7 @@ pytest errors out and names its preference in the message: *"Please use `[tool.p
 native TOML types (recommended)."* Migrating is mechanical, and the INI table exists now only for
 backwards compatibility.
 
-**Check:** `grep -rn 'tool.pytest.ini_options' .` — every hit is the legacy table.
+**Check:** `rg -n 'tool.pytest.ini_options' .` — every hit is the legacy table.
 
 ```toml
 # verified — GOOD
@@ -145,7 +145,7 @@ No `if`, no `for`, no `try` around the assertion.
 assertion — a `for` over an empty list asserts nothing and reports success. Loops over cases are
 parametrisation; branches are two tests.
 
-**Check:** `grep -rnE '^\s+(if|for|while) ' tests/` — every hit inside a test function is the
+**Check:** `rg -n '^[ \t]+(if|for|while) ' tests/` — every hit inside a test function is the
 finding.
 
 ### PS-TEST-09 [M] Assert on values, not on the shape of a call
@@ -248,7 +248,7 @@ directory.
 state. Writing to a real path or setting a real environment variable makes the suite order-dependent
 and machine-dependent, and the failure appears somewhere other than the test that caused it.
 
-**Check:** `grep -rnE 'os\.environ\[|open\(["\x27]/|Path\(["\x27]/' tests/` — every hit is the
+**Check:** `rg -n 'os\.environ\[|open\(["\x27]/|Path\(["\x27]/' tests/` — every hit is the
 finding.
 
 ### PS-TEST-16 [M] Never let a fixture assert
@@ -259,7 +259,7 @@ A fixture arranges. Assertions belong in the test.
 problem to every test that uses the fixture rather than to the thing that is wrong. If the setup can
 fail meaningfully, that is a test of the setup.
 
-**Check:** `grep -rnA10 '@pytest.fixture' tests/` for an `assert` in the body.
+**Check:** `rg -nA10 '@pytest.fixture' tests/` for an `assert` in the body.
 
 ### PS-TEST-17 [S] Prefer a factory fixture to a fixture per variation
 
@@ -310,7 +310,7 @@ No `time.sleep` to wait for something. Poll with a deadline, or make the thing s
 the suite is slow, and usually both at different times. It is also the single largest contributor
 to a suite that people stop running. Wait on the condition instead of on the clock.
 
-**Check:** `grep -rn 'sleep(' tests/` — every hit is the finding.
+**Check:** `rg -n 'sleep\(' tests/` — every hit is the finding.
 
 ### PS-TEST-20 [M] Inject the clock rather than reading it
 
@@ -320,7 +320,7 @@ Take `now: Callable[[], datetime]` as a parameter, or freeze it with `monkeypatc
 leap day, a timezone transition — without waiting for one. Injecting makes those cases ordinary
 tests. It also removes a source of flakiness where a test straddles a second boundary.
 
-**Check:** ruff `DTZ005` for a naive `datetime.now()`. `grep -rn 'datetime.now\|time.time' src/` for
+**Check:** ruff `DTZ005` for a naive `datetime.now()`. `rg -n 'datetime.now|time.time' src/` for
 the injection question.
 
 ## Concurrency

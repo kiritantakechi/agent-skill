@@ -14,7 +14,7 @@ import zipfile
 from pathlib import Path
 
 from ..proc import have, run
-from ..report import fail, note
+from ..report import fail, unrun
 from . import check
 
 #: A workflow is not YAML we can parse without a dependency, so check the shape a
@@ -22,7 +22,7 @@ from . import check
 WORKFLOW_KEYS = ("name:", "on:", "jobs:")
 
 
-@check("assets", "the files a reader copies verbatim")
+@check("assets", "the files a reader copies verbatim", needs=("uv", "zig"))
 def assets(skill):
     directory = skill.root / "assets"
     if not directory.is_dir():
@@ -80,9 +80,12 @@ def _build(data, text, tag):
     if not name or "build-system" not in data:
         return  # a config file, not a project
     if not have("uv"):
-        # Same reason `_zig` says so: a template nothing built is exactly the
-        # case this check exists for, and silence reads as success.
-        yield note("`uv` is not on PATH, so nothing built this project", tag)
+        # `UNRUN`, not `NOTE`: `Result.ok` is `not fails and not unrun`, so a
+        # note lets a run where nothing built this template report ALL CHECKS
+        # PASSED. `citations`, `pins` and `toolchain` all use `unrun` here; this
+        # path and `_zig` were the two that did not, and both were copied from
+        # the same wrong precedent.
+        yield unrun("`uv` is not on PATH, so nothing built this project", tag)
         return
 
     with tempfile.TemporaryDirectory() as directory:
@@ -103,7 +106,9 @@ def _build(data, text, tag):
             if not set(licence) & set("*?["):
                 (root / licence).write_text("Copyright\n")
 
-        result = run(["uv", "build", "--wheel", "--out-dir", str(root / "dist")], cwd=root, timeout=300)
+        result = run(
+            ["uv", "build", "--wheel", "--out-dir", str(root / "dist")], cwd=root, timeout=300
+        )
         if not result.ok:
             first = next(
                 (ln for ln in result.err.split("\n") if ln.strip().startswith(("Error", "error:"))),
@@ -125,10 +130,10 @@ def _build(data, text, tag):
 
 def _zig(path, tag):
     if not have("zig"):
-        # Silence is not success: `toolchain` says so when its compiler is
-        # missing, and a shipped `build.zig` that nothing parsed is exactly
-        # the case this check exists for.
-        yield note("`zig` is not on PATH, so nothing parsed this file", tag)
+        # Silence is not success, and a `NOTE` is silence: it does not withhold
+        # the pass. A shipped `build.zig` that nothing parsed is exactly the case
+        # this check exists for.
+        yield unrun("`zig` is not on PATH, so nothing parsed this file", tag)
         return
     if not run(["zig", "fmt", "--check", str(path)], timeout=60).ok:
         yield fail("not `zig fmt` clean", tag)

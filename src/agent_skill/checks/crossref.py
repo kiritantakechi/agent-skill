@@ -14,10 +14,9 @@ cannot be: the claim is about a document nobody here can read.
 from __future__ import annotations
 
 import re
-import tempfile
 from pathlib import Path
 
-from ..report import fail, note
+from ..report import fail, note, unrun
 from . import check
 
 #: `| `RS-API-24` Keep every struct field private | `BV-ECS-01` — … | … |`
@@ -73,7 +72,9 @@ def _plain(s: str) -> str:
     return " ".join(s.replace("`", "").split()).lower()
 
 
-@check("crossref", "citations into another skill, and the override table", scope="all")
+@check(
+    "crossref", "citations into another skill, and the override table", scope="all", needs=("rg",)
+)
 def crossref(skills):
     by_prefix = {s.prefix: s for s in skills}
     known = {p: _ids(s) for p, s in by_prefix.items()}
@@ -116,7 +117,7 @@ def crossref(skills):
                     skill.name,
                 )
 
-        yield from _anchor_greps(skill, by_prefix, rows)
+        yield from _anchor_patterns(skill, by_prefix, rows)
 
         # A skill that cites another standard at all should say where it
         # disagrees with it; one that cites none needs no table.
@@ -131,8 +132,8 @@ def crossref(skills):
     yield from _apparatus_citations(known)
 
 
-def _anchor_greps(skill, by_prefix, rows):
-    """The other standard's own greps, run over this one's examples.
+def _anchor_patterns(skill, by_prefix, rows):
+    """The other standard's own patterns, run over this one's examples.
 
     A delta claims that everything the anchor says still holds except the rows
     of its table. That claim is testable, and it was not being tested: two
@@ -140,39 +141,54 @@ def _anchor_greps(skill, by_prefix, rows):
     `bevy-style`'s examples with nothing saying so.
 
     Only the anchor's **decisive** patterns are run — the ones it ships as a
-    literal `grep`. Its prose spans are far too broad to travel: `assert_eq!`
+    literal `rg` command. Its prose spans are far too broad to travel: `assert_eq!`
     and `.iter()` matched a third of the corpus.
 
     A hit is allowed when the delta's `SKILL.md` names that rule anywhere: in
     the override table, or in the prose that says why a rule is *not* on it.
     Either way the reader has been told.
     """
-    from .selfapply import Corpus, patterns_of
+    from .corpus import corpus_for
+    from .patterns import patterns_of
+    from .search import find, searcher_problem
 
     anchors = {p for p in by_prefix if p != skill.prefix and any(m.group(1)[:2] == p for m in rows)}
     if not anchors or not skill.profile.languages:
         return
     named = set(re.findall(r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b", skill.text))
     lang = skill.profile.languages[0]
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
-        corpus = Corpus().build(skill, lang, Path(work))
-        if not corpus.blocks:
-            return
-        for prefix in sorted(anchors):
-            other = by_prefix[prefix]
-            for rule in other.rules:
-                if not rule.check or rule.id in named:
+    if problem := searcher_problem():
+        yield unrun(problem, skill.name)
+        return
+    corpus = corpus_for(skill, lang)
+    if not corpus.blocks:
+        return
+    for prefix in sorted(anchors):
+        other = by_prefix[prefix]
+        for rule in other.rules:
+            if not rule.check or rule.id in named:
+                continue
+            for pattern in patterns_of(rule.check):
+                if pattern.kind != "command":
                     continue
-                for pattern in patterns_of(rule.check):
-                    if pattern.kind != "command":
-                        continue
-                    lines, used = corpus.hits(pattern)
-                    if not lines:
-                        continue
-                    chapter, owner, line, snippet = corpus.index[lines[0] - 1]
+                lines, used = find(corpus, pattern)
+                # `None` is the absence of an answer and `[]` is an answer of
+                # nothing. Both are falsy, so `if not lines` reads a search that
+                # never ran as a delta with nothing to account for — which is the
+                # same silence this whole capability exists to refuse.
+                if lines is None:
                     yield fail(
-                        f"{rule.id} {used} /{pattern.text}/ hits {len(lines)} line(s) and "
-                        f"{skill.name}'s SKILL.md never mentions it — {rule.title}\n"
-                        f"      {chapter}:{line} [{owner}] {snippet}",
+                        f"{rule.id}: {other.name}'s pattern /{pattern.text}/ gave no answer over "
+                        f"{skill.name}'s examples — rejected, timed out, or not installed",
                         skill.name,
                     )
+                    continue
+                if not lines:
+                    continue
+                chapter, owner, line, snippet = corpus.origin(lines[0].start)
+                yield fail(
+                    f"{rule.id} {used} /{pattern.text}/ hits {len(lines)} line(s) and "
+                    f"{skill.name}'s SKILL.md never mentions it — {rule.title}\n"
+                    f"      {chapter}:{line} [{owner}] {snippet}",
+                    skill.name,
+                )

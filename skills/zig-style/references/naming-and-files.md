@@ -324,7 +324,7 @@ a *struct field* holding an allocator.
 Placement follows std: receiver first, then the resource, then the data —
 `deinit(self, gpa)`, `append(self, gpa, item)`. A constructor with no receiver takes `gpa` first.
 
-**Check:** `grep -nE '[(,] *allocator: '` over the diff — anchored, so it does not report a
+**Check:** `rg -n '[(,] *allocator: '` over the diff — anchored, so it does not report a
 variable such as `debug_allocator`. A *parameter* named `allocator` is the finding; a
 struct field named `allocator` is not. Second grep: an `Allocator` parameter that is not the first
 argument of a constructor, or not the second of a method taking a receiver.
@@ -562,19 +562,19 @@ In a file that *is* a type, write `const Journal = @This();` and name receivers 
 (or a consistent 1–2 letter abbreviation like `w: *Writer`). Use `const Self = @This();` and
 `self:` only inside a `fn Foo(comptime T: type) type` body, where the type has no name.
 
-**Why:** std and TigerStyle agree on this, and a naive grep hides it. `grep "(self: *"` over std
+**Why:** std and TigerStyle agree on this, and a naive grep hides it. `rg "\(self: *"` over std
 returns ~2100 hits, but counting only *true* receivers — a first parameter whose type is the file's
 own `TitleCase` name or a `@This()` alias declared in that file — the 3218 receivers in 0.16 std
 split `self` **41.5%** vs named after the type **58.5%**. The split is by file kind, not taste: only
 **6 of 142** `TitleCase.zig` files
 still declare `const Self = @This();`, while every generic container does. Per-file receiver
-histograms, counted as `grep -cE 'fn \w+\(<recv>: <Type>' <file>`: `Io/Writer.zig` → `w: *Writer`
+histograms, counted as `rg -c 'fn \w+\(<recv>: <Type>' <file>`: `Io/Writer.zig` → `w: *Writer`
 ×68, `Io/Reader.zig` → `r: *Reader` ×69, `Build.zig` → `b: *Build` ×66, `Build/Module.zig` →
 `m: *Module` ×24, `Target.zig` → `target: *const Target` ×29. TigerBeetle
 bans `Self` outright and enforces it with a lint. A named receiver also survives copy-paste into a
 different type — `self` silently reads correctly in the wrong file.
 
-**Check:** `grep -n 'self:' ` in any `TitleCase.zig` file, and `grep -n 'const Self = @This();'`
+**Check:** `rg -n 'self:'` in any `TitleCase.zig` file, and `rg -n 'const Self = @This\(\);'`
 anywhere outside the body of a `fn Name(comptime …) type`. Both are the finding; the second is the
 one that produces the first.
 
@@ -730,7 +730,7 @@ Splitting imports across the file is not: `zig fmt` never reorders or moves impo
 block stays scattered forever and a reader cannot answer "what does this file depend on?" without
 reading all of it.
 
-**Check:** `grep -n '@import(' <file>` — the line numbers must form one contiguous run (allowing the
+**Check:** `rg -n '@import\(' <file>` — the line numbers must form one contiguous run (allowing the
 alias lines derived from them). A second run further down the file is a split block, and the
 `const Foo = @This();` line must sit at the same end as that run.
 
@@ -989,7 +989,7 @@ implementation reason ("we do it this way because…") rather than a contract �
 Reuse the house sentences rather than inventing synonyms:
 
 Counts are occurrences of the **bolded stem** of each phrase over `lib/zig/std/**/*.zig` at 0.16.0,
-case-sensitive — reproduce any row with `grep -rho '<stem>' --include='*.zig' . | wc -l`. They count
+case-sensitive — reproduce any row with `rg -ho '<stem>' -g '*.zig' . | wc -l`. They count
 the phrase family, not the full sentence in the left column.
 
 | Phrase | Meaning | std count |
@@ -1071,7 +1071,7 @@ what follows: `// Two cases:`. End-of-line comments may be unpunctuated phrases:
 fragments let half-formed ones through. The cost is zero and the consistency is visible at a
 distance.
 
-**Check:** `grep -n '//[^ /!]'` catches the missing space. Then scan standalone comment lines for a
+**Check:** `rg -n '//[^ /!\n]'` catches the missing space. Then scan standalone comment lines for a
 lower-case first word or a missing `.`/`:` terminator. End-of-line comments are exempt, so restrict
 the scan to comments that start their own line.
 
@@ -1168,7 +1168,7 @@ term is not paid once at naming time; it is paid on every future reading, and it
 the derived identifiers inherit the ambiguity (`two_phase_timeout` — whose?). Distinct words also
 make grep exact, which matters far more in a codebase than in prose.
 
-**Check:** for each new domain noun in a diff, `grep -ri '<term>'` over `src/` and `docs/`. Hits in
+**Check:** for each new domain noun in a diff, `rg -i '<term>'` over `src/` and `docs/`. Hits in
 an unrelated subsystem mean the term is taken. Qualifying it (`transfer_two_phase_commit`) does not
 fix it — the reader still has to disambiguate.
 

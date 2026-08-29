@@ -440,7 +440,7 @@ edit to the file whose job is to own it. Spread across modules, the API is the u
 nobody made together, and the only way to learn it is to read every file
 (`references/api-design.md` RS-API-01, RS-API-02).
 
-**Check:** `grep -rn 'pub use' --include='*.rs' src/ | grep -vE '^src/(lib|prelude)\.rs'`. Each
+**Check:** `rg -n 'pub use' -g '*.rs' src/ | rg -v '^src/(lib|prelude)\.rs'`. Each
 surviving hit must be a module assembling its own internals, never widening the crate's surface.
 
 ```rust

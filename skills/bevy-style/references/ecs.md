@@ -508,8 +508,9 @@ is the signal; split by `With`/`Without` instead.
 player is despawned on death — so this is a condition to handle, not an invariant. It was made
 fallible in 0.16, and the panicking form no longer exists under that name.
 
-**Check:** grep for `single().unwrap()`, `single_mut().unwrap()` and `.expect(` on a query. Each is
-a crash where a `?` would have skipped a frame.
+**Check:** `rg -n 'single\(\)\.unwrap\(\)|single_mut\(\)\.unwrap\(\)' src/` — each is a crash
+where a `?` would have skipped a frame. Read every `.expect(` too: whether its receiver is a query
+is what decides, and the pattern cannot see that.
 
 ```rust
 // verified

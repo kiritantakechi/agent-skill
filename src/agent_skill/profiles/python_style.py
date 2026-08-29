@@ -64,77 +64,89 @@ class PythonStyle(Profile):
     markers: tuple[str, ...] = ("verified", "fragment", "rejected")
     toolchain: str | None = "python"
     exempt: dict = field(default_factory=dict)
+    #: Each snippet is the defect its rule forbids, written the way it appears in
+    #: real code rather than tailored to the pattern — a fixture shaped to match
+    #: proves the fixture, not the pattern.
+    fires: dict = field(
+        default_factory=lambda: {
+            "PS-API-05": ("from acmewidget._internal import helper",),
+            "PS-ASYNC-01": ("loop = asyncio.new_event_loop()",),
+            "PS-ASYNC-02": ("loop = asyncio.get_event_loop()",),
+            "PS-ASYNC-03": ("if asyncio.iscoroutinefunction(fn):",),
+            "PS-ASYNC-04": ("task = asyncio.create_task(worker())",),
+        }
+    )
     not_decisive: dict = field(
         default_factory=lambda: {
             # Each anchor is a literal fragment of that rule's own **Check:**, so
             # rewriting the rule cannot leave a stale entry quietly suppressing
-            # its grep. Every one of these greps finds the shape; something the
-            # grep cannot see decides whether the shape is a defect.
+            # its pattern. Every one of these finds the shape; something the
+            # pattern cannot see decides whether the shape is a defect.
             "PS-FT-02": NotDecisive(
                 "read each hit",
-                "the grep finds every compound assignment; whether the target is "
+                "the pattern finds every compound assignment; whether the target is "
                 "reachable from a second thread decides, and a lock or a local "
                 "accumulator makes it compliant",
             ),
             "PS-FT-03": NotDecisive(
                 "unless a lock spans both",
-                "the grep finds the test; whether a lock spans the test and the write decides",
+                "the pattern finds the test; whether a lock spans the test and the write decides",
             ),
             "PS-FT-11": NotDecisive(
                 "every decorator without `frozen=True`",
-                "the grep finds every dataclass; the `frozen=True` argument decides",
+                "the pattern finds every dataclass; the `frozen=True` argument decides",
             ),
             "PS-FT-21": NotDecisive(
                 "any hit whose preceding lines are inside",
-                "the grep finds every ContextVar; the scope it is created in "
-                "decides, which a line-oriented grep cannot see",
+                "the pattern finds every ContextVar; the scope it is created in "
+                "decides, which a line-oriented pattern cannot see",
             ),
             "PS-FT-22": NotDecisive(
                 "whose value was set outside it",
-                "the grep finds every context read; passing the context explicitly "
+                "the pattern finds every context read; passing the context explicitly "
                 "is the compliant form and matches the same pattern",
             ),
             "PS-MIG-10": NotDecisive(
                 "find every decorator derived from one that is",
-                "the grep finds every `@contextmanager`; what it decorates decides, "
+                "the pattern finds every `@contextmanager`; what it decorates decides, "
                 "and the `with` form the standard recommends matches too",
             ),
             "PS-MIG-11": NotDecisive(
-                "isinstance(.*, dict)",
-                "the grep finds every dict test; a narrowing check on parsed JSON "
+                "isinstance\\(.*, dict\\)",
+                "the pattern finds every dict test; a narrowing check on parsed JSON "
                 "is correct, and so is a test demonstrating that a `frozendict` "
                 "fails it",
             ),
             "PS-TEST-19": NotDecisive(
-                "sleep(' tests/",
+                "sleep\\(' tests/",
                 "scoped to the test suite: `await asyncio.sleep(...)` in ordinary "
-                "code is correct, and the grep cannot see which tree it is in",
+                "code is correct, and the pattern cannot see which tree it is in",
             ),
             "PS-DOC-08": NotDecisive(
                 "a parenthesised type is the",
-                "the grep finds any indented name followed by a parenthesis, which "
+                "the pattern finds any indented name followed by a parenthesis, which "
                 "matches ordinary prose as readily as a docstring type",
             ),
             "PS-ASYNC-04": NotDecisive(
                 "every hit outside a `TaskGroup`",
-                "the grep finds every task start; being inside a `TaskGroup` is "
-                "what makes it compliant, and the grep cannot see the block",
+                "the pattern finds every task start; being inside a `TaskGroup` is "
+                "what makes it compliant, and the pattern cannot see the block",
             ),
             "PS-ERR-15": NotDecisive(
                 "and read each block for a",
-                "the grep finds every `finally`; what is inside it decides, and "
+                "the pattern finds every `finally`; what is inside it decides, and "
                 "most blocks contain nothing of the kind",
             ),
             "PS-ERR-16": NotDecisive(
                 "each hit that only releases a resource",
-                "the grep finds every `finally`; the one inside a `@contextmanager` "
+                "the pattern finds every `finally`; the one inside a `@contextmanager` "
                 "is how a context manager is implemented, not a call site that "
                 "should have used one",
             ),
             "PS-DATA-10": NotDecisive(
                 "inside class bodies",
-                "the grep finds every call on the right of an assignment; being "
-                "inside a class body is what makes it a default, which the grep "
+                "the pattern finds every call on the right of an assignment; being "
+                "inside a class body is what makes it a default, which the pattern "
                 "cannot see",
             ),
             # Polarity: this Check asserts the shape is *present*, so its hits are
@@ -151,31 +163,31 @@ class PythonStyle(Profile):
             ),
             "PS-DATA-01": NotDecisive(
                 "needs a reason on the line above it",
-                "the grep finds every dataclass; the `frozen=True` argument decides, "
+                "the pattern finds every dataclass; the `frozen=True` argument decides, "
                 "and a frozen one matches the same pattern",
             ),
             "PS-DATA-02": NotDecisive(
                 "read for `slots=`",
-                "the grep finds every dataclass; the `slots=` argument decides",
+                "the pattern finds every dataclass; the `slots=` argument decides",
             ),
             "PS-NAME-15": NotDecisive(
                 "read each hit for what",
-                "the grep finds every indented import; what encloses it decides, "
+                "the pattern finds every indented import; what encloses it decides, "
                 "and an `if TYPE_CHECKING:` block is indented too",
             ),
             "PS-FT-14": NotDecisive(
                 "read what the target closes over",
-                "the grep finds every thread start; what the target closes over "
+                "the pattern finds every thread start; what the target closes over "
                 "decides, and starting a thread is not itself a defect",
             ),
             "PS-FT-23": NotDecisive(
                 "inside any thread target",
-                "the grep finds every `print`; the calling thread decides, and a "
+                "the pattern finds every `print`; the calling thread decides, and a "
                 "module-level print is not a hit",
             ),
             "PS-FT-25": NotDecisive(
                 "applied to a `def` containing `yield`",
-                "the grep finds every `@contextmanager`; what it decorates decides, "
+                "the pattern finds every `@contextmanager`; what it decorates decides, "
                 "and the `with` form the rule recommends matches too",
             ),
         }

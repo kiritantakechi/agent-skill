@@ -66,7 +66,7 @@ call-heavy code, which is exactly the code you are most likely to be profiling, 
 answers "where does the time go" and the tool that answers "how many times is this called" are
 genuinely different tools.
 
-**Check:** `grep -rn 'cProfile\|import profile' src/` — every hit has a replacement in `profiling`.
+**Check:** `rg -n 'cProfile|import profile' src/` — every hit has a replacement in `profiling`.
 
 ### PS-PERF-03 [M] Fix the complexity before fixing the constant
 
@@ -114,7 +114,8 @@ which makes building an n-character string O(n²). CPython has an optimisation t
 the simplest case in-place, which is worse than no optimisation: it makes the quadratic version fast
 enough in the test and quadratic in production where the string is aliased.
 
-**Check:** `grep -rnE '^\s*\w+\s*\+=\s*.*["\x27]' src/` and read each hit for an enclosing loop.
+**Check:** `rg -n '^[ \t]*\w+[ \t]*\+=[ \t]*.*["\x27]' src/` and read each hit for an
+enclosing loop.
 The ruff rules that catch the mechanical cases are preview, so this is a grep and a review.
 
 ```python
@@ -136,7 +137,7 @@ assert render(["a", "b"]) == "a\nb"
 module-level constant is where this is most often wrong, because a literal list looks like the
 obvious thing to write.
 
-**Check:** `grep -rnE 'in \[' src/` — a literal list on the right of `in` is always the finding.
+**Check:** `rg -n 'in \[' src/` — a literal list on the right of `in` is always the finding.
 The ruff rule for it is preview and therefore not enabled here.
 
 ### PS-PERF-08 [M] Batch I/O rather than looping over single operations

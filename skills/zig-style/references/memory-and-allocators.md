@@ -199,7 +199,7 @@ non-zero exit; never `_ = da.deinit();`.
 it means a leaking build exits 0 and CI stays green. Also construct with the decl literal `.init` —
 default struct initialization is marked deprecated in the source.
 
-**Check:** `grep -n '_ = .*\.deinit()'` — a discarded `Check` is the whole defect.
+**Check:** `rg -n '_ = .*\.deinit\(\)'` — a discarded `Check` is the whole defect.
 
 Applies **only when you cannot take `init.gpa`** (see ZS-MEM-01) — a benchmark harness, a custom
 runtime, a `build.zig` step, a test that must exercise a non-default config. `main` takes

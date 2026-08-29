@@ -629,7 +629,7 @@ from `root.zig` makes the project's bounds part of the reviewable public surface
 rather than something each consumer re-derives.
 
 **Check:** exactly one `src/constants.zig`;
-`grep -rEn '_(max|min)[[:space:]]*(:[^=]*)?=[^=]' src/ --include='*.zig'`
+`rg -n '_(max|min)[ \t]*(:[^=\n]*)?=[^=\n]' src/ -g '*.zig'`
 returns hits only from that file; and it appears in both `root.zig`'s re-exports and its `comptime`
 import block.
 
@@ -802,7 +802,7 @@ as if it is checked and none of it is.
 
 **Check:** the release command in CI or the release script names an explicit `-Doptimize=`; if it
 names `ReleaseFast` or `ReleaseSmall`, the same commit contains a benchmark number or a one-line
-comment naming the constraint. `grep -rn 'ReleaseFast\|ReleaseSmall' .github/ build.zig scripts/`.
+comment naming the constraint. `rg -n 'ReleaseFast|ReleaseSmall' .github/ build.zig scripts/`.
 
 ### ZS-BUILD-28 [S] Know what `.preferred_optimize_mode` takes away before you set it
 `b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseSafe })` **removes `-Doptimize=`
@@ -820,7 +820,7 @@ artifacts.
 Bare `--release` against a project with no declared preference exits 1 with `the project does not
 declare a preferred optimization mode. choose: --release=fast, --release=safe, or --release=small`.
 
-**Check:** `grep -n 'preferred_optimize_mode' build.zig`. If it is set, no README line, CI workflow,
+**Check:** `rg -n 'preferred_optimize_mode' build.zig`. If it is set, no README line, CI workflow,
 or release script in the repository may pass `-Doptimize=` — that flag does not exist in that
 project, and every such invocation exits 1.
 
@@ -1024,7 +1024,7 @@ one machine. The `zig init` template's own "Try passing `--fuzz`" suggestion doe
 > [!NOTE] Only reproduced on aarch64-macos, but both failures are in target-independent bundled
 > source, so they should be universal to 0.16.0.
 
-**Check:** `grep -rn -- '--fuzz\|-ffuzz\|zig reduce' .github/ build.zig scripts/` returns nothing
+**Check:** `rg -n -- '--fuzz|-ffuzz|zig reduce' .github/ build.zig scripts/` returns nothing
 while the toolchain is 0.16.0. On every toolchain bump, run `zig build test --fuzz=100` once by
 hand — the day it builds, this rule is deleted rather than edited.
 
@@ -1037,7 +1037,7 @@ every `@cImport` site. It matters in practice: the first `zig translate-c` invoc
 compiles the translate-c tool from source and is extremely slow (measured: >10 minutes of CPU on a
 two-line header before being killed, twice). Going through the build step means you pay that once.
 
-**Check:** `grep -rn '@cImport' src/` returns nothing, and the include paths and `-D` macros for a
+**Check:** `rg -n '@cImport' src/` returns nothing, and the include paths and `-D` macros for a
 given C header appear exactly once, in `build.zig`, rather than being repeated at each import site.
 
 ```zig
@@ -1222,7 +1222,7 @@ Note the `{f}`, not `{}`: `SemanticVersion` has a custom `format` method, and in
 dispatches to it (`references/formatting-and-output.md`). Use `.order(...) != .eq` for an exact pin;
 use `.order(...) == .lt` if you want a floor rather than a pin.
 
-**Check:** `grep -n 'zig_version' build.zig` — a project that claims a pinned toolchain in its
+**Check:** `rg -n 'zig_version' build.zig` — a project that claims a pinned toolchain in its
 README or CI has this block, and its version literal matches the one CI installs.
 
 ### ZS-BUILD-41 [S] Leave the codegen backend and linker alone; know what the three flags cost
@@ -1278,7 +1278,7 @@ tuning scalar loops to coax an auto-vectorizer that is switched off.
 All three are `?bool` fields on `Step.Compile` (`use_llvm`, `use_lld`, `use_new_linker`), assigned
 after `addExecutable` returns — none of them is a field of `ExecutableOptions` or of `Module`.
 
-**Check:** `grep -rn 'use_new_linker\|use_llvm\|use_lld\|fincremental\|fnew-linker' build.zig
+**Check:** `rg -n 'use_new_linker|use_llvm|use_lld|fincremental|fnew-linker' build.zig
 .github/` returns nothing, or every hit has a comment saying why and is confined to a local-only
 step.
 

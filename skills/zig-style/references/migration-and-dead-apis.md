@@ -66,7 +66,7 @@ type a signature. The 0.13/0.14 era is the single largest source of wrong Zig.
 Deprecated` in the source.
 
 **Check:** run the denylist grep of ZS-MIG-14 over the diff — it collects the alias rows from every
-table below. Separately, every `std.*` signature new to the diff must be findable by `grep -rn` in
+table below. Separately, every `std.*` signature new to the diff must be findable by `rg -n` in
 the local std tree; one that is not is misremembered, not merely misspelled.
 
 ```sh
@@ -240,7 +240,7 @@ options. `{}` does **not** dispatch to it.
 nor an alias warning — `{}` silently falls back to the compiler's default aggregate dump. The
 output for `w.print("[{}] [{f}]", .{ P{ .x = 1 }, P{ .x = 3 } })` is `[.{ .x = 1 }] [CUSTOM3]`.
 
-**Check:** `grep -rn 'pub fn format(' src/` — every hit must read
+**Check:** `rg -n 'pub fn format\(' src/` — every hit must read
 `(value, w: *std.Io.Writer) std.Io.Writer.Error!void`; a four-parameter signature is the loud half
 of this rule. The silent half: for each type that declares `format`, grep its name at call sites and
 confirm the specifier is `{f}` and not `{}`. Also `{D}` anywhere, and `{}`/`{any}` on an enum where
@@ -277,7 +277,7 @@ There is no `std.fs.cwd()`, no `std.fs.Dir`, no `std.fs.File`: `root source file
 perform an operation — it needs the `Io` that owns the syscall/green-thread strategy. That is why
 `io` is the parameter immediately after the receiver on essentially every call.
 
-**Check:** `grep -rn 'std\.fs\.' src/` — every hit is either a `gone` row (a hard error) or one of
+**Check:** `rg -n 'std\.fs\.' src/` — every hit is either a `gone` row (a hard error) or one of
 the six deprecated aliases below, and both are findings. Then the structural check: every `Io.Dir`
 or `Io.File` method call whose first argument after the receiver is not `io`, and any `makeDir`,
 `makePath`, `makeOpenPath`, `realpath`, `getEndPos`, `setEndPos`, or `writeAll` on a directory or
@@ -553,7 +553,7 @@ named 'argsAlloc'`. The only supported way to reach them is through the paramete
 you. `Init` also hands you a leak-checked `gpa` and a target-appropriate `Io`, which is the whole
 GPA-setup boilerplate deleted.
 
-**Check:** `grep -rn 'pub fn main()' src/` returns nothing, and neither does a grep for
+**Check:** `rg -n 'pub fn main\(\)' src/` returns nothing, and neither does a grep for
 `argsAlloc`, `argsFree`, `getEnvMap`, `std.ChildProcess`, `process.Child.init(`, or
 `process.Child.run(`. A `DebugAllocator` constructed in `main` when `init.gpa` is in scope is the
 milder form of the same finding.
@@ -800,7 +800,14 @@ sharpest row and is not an alias at all: its return type changed, so old call si
 and produce a different value. Beyond the shared mechanism each row is its own small story, and the
 row's right-hand column is the whole answer.
 
-**Check:** grep the diff for `bufPrintZ`, `std.meta.Int`, `std.meta.Tuple`, `std.meta.declList`,
+**Check:** two patterns, because one line of alternation is unreadable —
+`rg -n 'bufPrintZ|std\.meta\.(Int|Tuple|declList)|initEmpty\(\)|initFull\(\)' src/` and
+`rg -n 'pipeToFileSystem|PipeOptions|std\.rand\.|CrossTarget|StackIterator' src/` and
+`rg -n 'captureStackTrace|dumpStackTraceFromBase|walkStackWindows' src/` and
+`rg -n 'wtf8Decode\b|utf8Decode\b|std\.debug\.runtime_safety' src/`
+— each hit is a row above; `utf8Decode2` and its siblings are live, which is why the
+boundary is there. The same names spelled out: `bufPrintZ`, `std.meta.Int`,
+`std.meta.Tuple`,`std.meta.declList`,
 `initEmpty()`, `initFull()`, `pipeToFileSystem`, `PipeOptions`, `std.rand.`, `CrossTarget`,
 `captureStackTrace`, `dumpStackTraceFromBase`, `walkStackWindows`, `StackIterator`, `utf8Decode`,
 `wtf8Decode`, and `std.debug.runtime_safety` — each is a row above. `std.math.sign` deserves a

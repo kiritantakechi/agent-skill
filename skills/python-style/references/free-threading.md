@@ -104,7 +104,8 @@ free-threaded build it is immediate. Eight threads each adding one to a shared a
 thousand times finish around 73% short, and the same loop over a dict key finishes around 78%
 short — no exception, just a wrong number.
 
-**Check:** `grep -nE '^\s*(self\.)?[A-Za-z_][A-Za-z0-9_]*(\[[^]]*\])?\s*([+*|&^-]|//)=' src/` and
+**Check:** `rg -n '^[ \t]*(self\.)?[A-Za-z_][A-Za-z0-9_]*(\[[^]\n]*\])?[ \t]*([+*|&^-]|//)=' src/`
+and
 read each hit: is the target reachable from more than one thread? A module-level name, an attribute
 of a shared instance, and any dict or list that a worker was handed all are.
 
@@ -167,7 +168,7 @@ side effect, not merely duplicated work, whenever `compute` writes a file, charg
 increments a metric. `dict.setdefault` performs the whole check-and-insert under one lock; a
 `Lock` does the same for anything larger.
 
-**Check:** `grep -nB2 -E 'if .* not in |if not .*\.(exists|get)\(' src/` — a hit whose next line
+**Check:** `rg -nB2  'if .* not in |if not .*\.(exists|get)\(' src/` — a hit whose next line
 writes to the thing just tested is a defect unless a lock spans both.
 
 ```python
@@ -252,7 +253,7 @@ follows that `d[k] += 1` is safe, and it never was.
 
 **Check:** a comment or docstring justifying the absence of a lock by appealing to the GIL, to
 bytecode atomicity, or to "CPython guarantees" is the finding.
-`grep -rniE 'gil (makes|means|guarantees)|atomic (because|since)|bytecode is atomic' src/`
+`rg -ni 'gil (makes|means|guarantees)|atomic (because|since)|bytecode is atomic' src/`
 
 ### PS-FT-06 [M] A container's internal lock protects the container, never your invariant
 
@@ -300,7 +301,7 @@ Introspecting your own stack is fine. Reaching into a frame another thread is ru
 not a data race that yields a wrong answer; it is a segfault. Debuggers, profilers, and error
 reporters that walk `sys._current_frames()` and read locals are the code that does this by accident.
 
-**Check:** `grep -rn 'f_locals' src/` — every hit whose frame did not come from
+**Check:** `rg -n 'f_locals' src/` — every hit whose frame did not come from
 `sys._getframe()` on the current thread is a defect.
 
 ## Sharing objects between threads
@@ -317,7 +318,7 @@ or miss one entirely, with no exception at all. A loud failure became a quiet wr
 the worse trade.
 
 **Check:** for each `for ... in <name>` where `<name>` is not a local, ask whether any thread writes
-to it. `grep -nE 'for .+ in (self\.)?[a-z_]+(\.items\(\)|\.keys\(\)|\.values\(\))?:' src/` and read
+to it. `rg -n 'for .+ in (self\.)?[a-z_]+(\.items\(\)|\.keys\(\)|\.values\(\))?:' src/` and read
 the hits against the writers.
 
 ```python
@@ -384,7 +385,7 @@ item = q.pop()` between two consumers. Note the documented limit — `Queue` "is
 handle reentrancy within a thread", so never call `put` from a callback the same queue's consumer
 invoked.
 
-**Check:** `grep -rnE '\.pop\(0\)|\.pop\(\)' src/` inside anything threaded, and every
+**Check:** `rg -n '\.pop\(0\)|\.pop\(\)' src/` inside anything threaded, and every
 `while ...: sleep(...)` polling a shared container.
 
 ```python
@@ -427,7 +428,7 @@ may write this, and when" from a convention nobody can enforce into a `FrozenIns
 moment of the mistake. `slots=True` is free alongside it and removes the per-instance `__dict__`,
 which matters more on the free-threaded build where object headers are already larger.
 
-**Check:** `grep -rn '@dataclass' src/` — every decorator without `frozen=True` on a type reachable
+**Check:** `rg -n '@dataclass' src/` — every decorator without `frozen=True` on a type reachable
 from more than one thread is the finding.
 
 ```python
@@ -528,7 +529,7 @@ were all hand-rolled. `serialize_iterator` is a class, not a function: wrap once
 
 **Check:** every iterator passed to more than one thread must be wrapped. An unwrapped one is the
 finding, and the grep is for the sharing rather than for the call —
-`grep -nB3 'Thread(target=' src/` and read what the target closes over.
+`rg -nB3 'Thread\(target=' src/` and read what the target closes over.
 
 ```python
 # verified — GOOD
@@ -601,7 +602,7 @@ concurrent use produced a genuine segfault in `teedataobject_clear` reported in 
 backport. The names are one word apart and the failure is not a clean exception, which is what makes
 this worth its own rule rather than a note under PS-FT-15.
 
-**Check:** `grep -rn 'itertools.tee\|from itertools import.*tee' src/` — every hit in a module that
+**Check:** `rg -n 'itertools.tee|from itertools import.*tee' src/` — every hit in a module that
 also imports `threading` or `concurrent.futures` is the finding.
 
 ### PS-FT-17 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
@@ -659,7 +660,7 @@ called more than once", because the lock is not held across the call. Eight thre
 key ran the wrapped function seven times. Harmless for a pure computation; a duplicated charge, a
 duplicated write, or seven simultaneous connections if the body has an effect.
 
-**Check:** `grep -rnB3 '@lru_cache\|@cache\b' src/` and read each decorated body for effects — I/O,
+**Check:** `rg -nB3 '@lru_cache|@cache\b' src/` and read each decorated body for effects — I/O,
 writes, metrics, allocation of a scarce resource. A pure function is fine; anything else needs
 PS-FT-20.
 
@@ -673,7 +674,7 @@ was a worse problem. The consequence is that `cached_property` is now a memo, no
 one-time execution. Where the getter merely computes, the discarded result costs time; where it
 opens a connection or allocates a handle, the discarded one leaks unless something closes it.
 
-**Check:** `grep -rnA5 'cached_property' src/` — a getter that constructs anything needing cleanup
+**Check:** `rg -nA5 'cached_property' src/` — a getter that constructs anything needing cleanup
 is the finding.
 
 ### PS-FT-20 [M!] Put a lock around a memo whose miss is expensive or has an effect
@@ -724,7 +725,7 @@ invisible to every other — the lookup silently returns the default and the bug
 does not work". The docs say it directly: "Important: Context Variables should be created at the top
 module level and never in closures."
 
-**Check:** `grep -rnB5 'ContextVar(' src/` — any hit whose preceding lines are inside a `def` or
+**Check:** `rg -nB5 'ContextVar\(' src/` — any hit whose preceding lines are inside a `def` or
 `class` body is the finding.
 
 ### PS-FT-22 [M] Never rely on a thread inheriting context; the default differs by build
@@ -738,7 +739,7 @@ context explicitly, or set the flag deliberately.
 diagnostic. Explicit beats inherited here for the same reason it does everywhere: the reader can see
 it.
 
-**Check:** `grep -rn 'ContextVar\|copy_context' src/` in any module that also starts a thread — a
+**Check:** `rg -n 'ContextVar|copy_context' src/` in any module that also starts a thread — a
 read inside a thread target whose value was set outside it is the finding.
 
 ```python
@@ -746,9 +747,7 @@ read inside a thread target whose value was set outside it is the finding.
 import contextvars
 import threading
 
-request_id: contextvars.ContextVar[str] = contextvars.ContextVar(
-    "request_id", default="-"
-)
+request_id: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
 seen: list[str] = []
 
 
@@ -778,7 +777,7 @@ thread-safe". Interleaved output is the visible symptom; the encoder's internal 
 one. Under the GIL the write usually completed within one bytecode window; on the free-threaded
 build it does not.
 
-**Check:** `grep -rn '\bprint(\|sys.stdout.write\|sys.stderr.write' src/` inside any thread target.
+**Check:** `rg -n '\bprint\(|sys.stdout.write|sys.stderr.write' src/` inside any thread target.
 Logging is the fix: `logging` handlers take a lock around each emit.
 
 ### PS-FT-24 [M] Give each thread its own `random.Random`
@@ -792,7 +791,7 @@ with the recommendation to use one instance per thread. Separately, `random.gaus
 threads "may receive the same return value". A seeded per-thread instance is also the only way to
 keep a run reproducible.
 
-**Check:** `grep -rnE '\brandom\.(random|gauss|randint|shuffle|choice|uniform)\(' src/` — every hit
+**Check:** `rg -n '\brandom\.(random|gauss|randint|shuffle|choice|uniform)\(' src/` — every hit
 inside a thread target is the finding.
 
 ```python
@@ -845,7 +844,7 @@ effectively zero to the full consumption of the generator. If the context manage
 transaction, a `chdir`, or a `contextvars` token, its hold time changes silently, and under free
 threading a hold time that grew is new contention and a new deadlock shape.
 
-**Check:** `grep -rnB2 -A2 '@contextmanager' src/` and find every decorator built from one that is
+**Check:** `rg -nB2 -A2 '@contextmanager' src/` and find every decorator built from one that is
 applied to a `def` containing `yield`. Each is a hold time that changed; each needs the lock it
 takes re-examined.
 

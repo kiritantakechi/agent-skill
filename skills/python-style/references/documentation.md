@@ -146,7 +146,7 @@ at all.
 verified by `ty` on every run; the docstring is verified by nobody. Documentation tooling reads the
 annotation, so repeating it also renders twice.
 
-**Check:** `grep -rnE '^\s+\w+ \([A-Za-z]' src/` inside docstrings — a parenthesised type is the
+**Check:** `rg -n '^[ \t]+\w+ \([A-Za-z]' src/` inside docstrings — a parenthesised type is the
 finding.
 
 ### PS-DOC-09 [M] Document what is raised, and only what the caller can act on
@@ -219,7 +219,7 @@ them also makes the docstring a test of the API's ergonomics — an example that
 write is an API that is awkward to use. The shipped `ruff.toml` sets `docstring-code-format =
 true`, so the formatter keeps them formatted too.
 
-**Check:** `grep -rn '>>>' src/` against the test configuration. Doctests present but not run is the
+**Check:** `rg -n '>>>' src/` against the test configuration. Doctests present but not run is the
 finding.
 
 ## Beyond the code
@@ -264,5 +264,5 @@ absence is not a defect, but its presence pays repeatedly.
 writing the thing rather than content of the thing, and it goes stale in a way the statement itself
 does not. State the property; if it needs evidence, that is a test.
 
-**Check:** `grep -rniE 'we (verified|checked|tested)|as of [0-9]{4}' src/`, plus any sentence
+**Check:** `rg -ni 'we (verified|checked|tested)|as of [0-9]{4}' src/`, plus any sentence
 naming a date, a host, or a person. Every hit is provenance rather than content.

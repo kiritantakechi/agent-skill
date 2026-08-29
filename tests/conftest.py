@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 import pytest
@@ -18,7 +17,11 @@ def skills():
 
 @pytest.fixture
 def scratch(tmp_path) -> Path:
-    """A throwaway copy of the skills tree, for injecting a defect into."""
-    target = tmp_path / "skills"
-    shutil.copytree(SKILLS_DIR, target, symlinks=True)
-    return target
+    """A throwaway copy of the skills tree, for injecting a defect into.
+
+    Built by the same function `controls` uses, so a control cannot fire in one
+    runner and not the other.
+    """
+    from agent_skill.checks.controls import throwaway_tree
+
+    return throwaway_tree(SKILLS_DIR, tmp_path)

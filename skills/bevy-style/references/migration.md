@@ -58,7 +58,7 @@ overwhelming majority of Bevy material on the internet was written before it. Th
 not a compile error — it is half an hour spent adapting a pattern that no longer exists, and a
 mental model that keeps producing the old names.
 
-**Check:** `grep -rn -E 'Trigger<|EventReader|EventWriter|[A-Za-z0-9]Bundle' src/` over the sample.
+**Check:** `rg -n  'Trigger<|EventReader|EventWriter|[A-Za-z0-9]Bundle' src/` over the sample.
 Any hit dates it, and so does a system set whose name does not end in `Systems`.
 
 ### BV-MIG-02 [M] Treat a deprecated API as removed
@@ -98,7 +98,7 @@ mechanical to fix — every `XBundle::default()` becomes one or two components, 
 components supply the rest. The reason it was done is BV-ECS-06: a bundle could be half-applied and
 a `#[require]` cannot.
 
-**Check:** `grep -rn -E '[A-Za-z0-9]Bundle' src/`. Every hit is either a removed type or one you
+**Check:** `rg -n  '[A-Za-z0-9]Bundle' src/`. Every hit is either a removed type or one you
 wrote yourself, and BV-ECS-08 forbids the second. The two the engine still spells that way,
 `SpawnRelatedBundle` and `ReflectBundle`, are machinery a game does not name.
 
@@ -133,7 +133,7 @@ a run. The component form makes each of those an ordinary ECS operation — and 
 internals again, moving from `cosmic-text` to `parley`, which the component API absorbed without a
 further break for game code.
 
-**Check:** `grep -rn -E 'TextStyle|TextSection|from_section|JustifyText|BreakLineOn|new_with_'
+**Check:** `rg -n  'TextStyle|TextSection|from_section|JustifyText|BreakLineOn|new_with_'
 src/`.
 
 | Removed | Write instead |
@@ -161,7 +161,7 @@ output, and in 0.15 it became the *input*. Old code that reads a `Node` to get a
 compiles against the new type and reads the wrong thing — the computed values are now
 `ComputedNode`.
 
-**Check:** `grep -rn -E 'UiImage|UiImageSize|stack_index' src/`, and read every use of `Node` that
+**Check:** `rg -n  'UiImage|UiImageSize|stack_index' src/`, and read every use of `Node` that
 is asking for a computed size — that value is on `ComputedNode` and no grep can tell them apart.
 
 | Removed | Write instead |
@@ -186,7 +186,7 @@ which is what makes `despawn` recursive by default and what lets a game define i
 links (BV-ECS-12). The knock-on renames are extensive because every hierarchy-specific method became
 a relationship method.
 
-**Check:** `grep -rn -E
+**Check:** `rg -n
 'despawn_(recursive|descendants)|push_children|set_parent|ChildBuilder|clear_(children|related)'
 src/`.
 
@@ -216,7 +216,7 @@ src/`.
 `get_single().unwrap()` — the fallible method used to be the long-named one, so the short name was
 the panicking one and everybody reached for it.
 
-**Check:** `grep -rn -E
+**Check:** `rg -n
 'get_single|to_readonly|ManualEventReader|init_component|weak_from_u128|EntityFetchError' src/`.
 
 | Removed | Write instead |
@@ -252,7 +252,7 @@ What 0.16 called an event, sent with `EventWriter` and read with `EventReader`, 
 ones and every tutorial uses them. The split is described in `references/events.md` BV-EVT-01; this
 table is the mechanical half.
 
-**Check:** `grep -rn -E
+**Check:** `rg -n
 'EventReader|EventWriter|Events<|send_event|add_event|on_event|RemovedComponentEvents' src/`.
 
 | Removed | Write instead |
@@ -287,7 +287,7 @@ their `On` prefix because the prefix moved to the parameter type, and an event w
 against — so a `.after(TransformSystem::TransformPropagate)` in old code names a type that no longer
 exists. The rename is mechanical but there are a lot of them.
 
-**Check:** `grep -rn -E
+**Check:** `rg -n
 '(Transform|Ui|Input|Sprite|Time)System\b|(Render|Pick|Remote)Set\b|StateTransitionSteps'
 src/`, and read any remaining set name that ends in `System`, `Set` or `Steps` rather than
 `Systems`.
@@ -319,7 +319,7 @@ src/`, and read any remaining set name that ends in `System`, `Set` or `Steps` r
 **Why:** these are the 0.17 changes outside the event and system-set families. They are individually
 small and collectively the reason a 0.16 project does not compile.
 
-**Check:** `grep -rn -E
+**Check:** `rg -n
 'compute_matrix|StateScoped|Gizmos::cuboid|RenderGraphApp|ComputedNodeTarget|SimpleExecutor'
 src/`, plus `Timer::paused` and `Timer::finished`. The `Condition` rename is not greppable — the new
 name contains the old one — so read the `SystemCondition` bound instead. `Pressed` is not greppable
@@ -350,7 +350,7 @@ a widget being held down. Only `Pointer<Pressed>` is the removed one.
 — which fail as "unknown feature" rather than as a type error, and are therefore easy to leave
 behind in a manifest that still builds.
 
-**Check:** `grep -rn -E
+**Check:** `rg -n
 'bevy_(sprite|ui|mesh)_picking_backend|event_target_mut|FontAtlasSets|AnimationTarget'
 src/`, and the manifest for the renamed feature names.
 
@@ -386,7 +386,7 @@ enabled the serialization crate, and in 0.19 it enables the new scene system ins
 that was never edited now turns on a different thing. Everything that was `Scene` is `WorldAsset`;
 `Scene` is now a trait in the new system, and the `scene` collection enables both.
 
-**Check:** `grep -rn -E
+**Check:** `rg -n
 'SceneRoot|DynamicScene|SceneSpawner|SceneFilter|SceneInstanceReady|SceneLoader' src/`, and read
 every `bevy_scene` against this table rather than assuming — it is the one name that still resolves
 and now means something else.
@@ -414,7 +414,7 @@ and now means something else.
 **Why:** these are the 0.19 changes a game touches. The non-send and executor entries are the ones
 most likely to appear in an existing project's own plugin code.
 
-**Check:** `grep -rn -E
+**Check:** `rg -n
 'DefaultErrorHandler|ExecutorKind|non_send_resource|ShaderStorageBuffer|earthlike|experimental_'
 src/`.
 
