@@ -34,7 +34,7 @@ class RustStyle(Profile):
     languages: tuple[str, ...] = ("rust",)
     marked_languages: tuple[str, ...] = ("toml",)
     toolchain: str | None = "rust"
-    tools: tuple[str, ...] = ("rustc", "clippy")
+    tools: tuple[str, ...] = ("rustc", "clippy", "rustdoc")
     exempt_from_structure: str | None = "converted in milestone 2 of refresh-skills"
     language: str = "Rust"
     verified_as: str = "compiles as written against Rust {rust}, edition 2024"

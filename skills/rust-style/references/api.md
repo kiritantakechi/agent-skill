@@ -102,7 +102,6 @@ and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
 - **Future-proofing and evolution**
   - RS-API-71 [M!] Use `#[non_exhaustive]` where the shape may grow
   - RS-API-72 [S] Do not apply `#[non_exhaustive]` reflexively
-  - RS-API-73 [S] Seal a public trait rather than let downstream implement it (see RS-TRAIT-30)
   - RS-API-74 [S] Prefer sealing up front to regretting it later
   - RS-API-75 [M] Know which changes are breaking before promising semver
   - RS-API-76 [M] Run `cargo semver-checks` and trust it over intuition
@@ -456,7 +455,7 @@ elements share a type.
 
 **Why:** out-parameters break composition — the result cannot be fed into an adapter, and the
 function cannot be used in an expression. Reuse across a loop is a real reason
-(`references/performance.md` RS-PERF-11); "it was easier to write" is not.
+(`references/ownership.md` RS-OWN-17); "it was easier to write" is not.
 
 **Check:** is the buffer reused across calls by the intended caller? Say so in the docs and name the
 parameter `buf` or `out`.
@@ -1675,12 +1674,6 @@ arm they are forced to write is where a future bug hides.
 
 **Check:** can you name a plausible third variant? If not, leave it exhaustive and say so in the
 rustdoc.
-
-### RS-API-73 [S] Seal a public trait rather than let downstream implement it (see RS-TRAIT-30)
-
-Owned by `references/traits.md` RS-TRAIT-30. The private-supertrait pattern: sealing means
-you know every implementor, so you can add methods later without breaking anyone. Seal a trait that
-enumerates a fixed set of types; leave an extension point open.
 
 ### RS-API-74 [S] Prefer sealing up front to regretting it later
 

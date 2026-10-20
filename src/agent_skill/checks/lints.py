@@ -1,7 +1,7 @@
 """The shipped lint table and the one the examples are verified against.
 
 They must be the same table. The asset once set `indexing_slicing = "warn"` where
-RS-BUILD-28 requires deny, and the verified crate quietly omitted a third lint
+a rule requires deny, and the verified crate quietly omitted a third lint
 while its comment named two.
 """
 

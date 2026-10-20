@@ -42,14 +42,9 @@ release cadence, and no LTS channel.
 
 - **Lints and warnings**
   - RS-BUILD-25 [M] Put lints in the manifest's `[lints]` table, not in `lib.rs`
-  - RS-BUILD-26 [M] Give lint groups `priority = -1`
   - RS-BUILD-27 [M] Run `clippy::pedantic` at `warn` and answer each warning
-  - RS-BUILD-28 [M!] Deny the panicking-API lints in libraries
-  - RS-BUILD-29 [M] Deny `undocumented_unsafe_blocks` wherever `unsafe` is permitted
-  - RS-BUILD-30 [S] Prefer `#[expect(…, reason = "…")]` to `#[allow]`
   - RS-BUILD-31 [M] Never blanket-`allow` at crate level to make CI green
   - RS-BUILD-32 [M] Deny warnings through Cargo config, not `RUSTFLAGS`
-  - RS-BUILD-33 [S] Read `linker_messages` rather than silencing it
   - RS-BUILD-34 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
 
 - **Supply chain, versioning, release**
@@ -75,6 +70,7 @@ release cadence, and no LTS channel.
   - RS-BUILD-52 [S] Prefer `cargo xtask` to shell scripts
   - RS-BUILD-53 [S] Measure build time with `cargo build --timings` before optimizing it
   - RS-BUILD-54 [S] Keep the proc-macro dependency count down
+- Decided by tools
 
 ---
 
@@ -493,22 +489,9 @@ expect_used = "deny"
 panic = "deny"
 todo = "deny"
 dbg_macro = "deny"
-print_stdout = "deny"          # library members only — see RS-BUILD-26
+# print_stdout = "deny"        # library members only: a binary member must print
 undocumented_unsafe_blocks = "deny"
 ```
-
-### RS-BUILD-26 [M] Give lint groups `priority = -1`
-
-Lint groups need `priority = -1` so that individual lint settings in the same table override them.
-Without it, Cargo rejects the manifest.
-
-**Why:** entries in the table are applied in priority order, and a group at the same priority as one
-of its members has no defined winner — so Cargo refuses rather than picking one. The negative
-priority makes the group apply first, leaving the specific settings to override it.
-
-**Check:** every group entry (`pedantic`, `nursery`, `future_incompatible`) carries `priority = -1`.
-Setting `pedantic = "warn"` alongside `unwrap_used = "deny"` fails the build with
-`error: lint group 'pedantic' has the same priority (0) as a lint`; adding `priority = -1` compiles.
 
 ### RS-BUILD-27 [M] Run `clippy::pedantic` at `warn` and answer each warning
 
@@ -520,45 +503,7 @@ so the group is worth enabling and the exceptions are worth recording. Allowing 
 discards the valuable ones to avoid arguing with a handful.
 
 **Check:** grep for `pedantic = "allow"`. Each individual allow should carry a reason
-(`RS-BUILD-30`).
-
-### RS-BUILD-28 [M!] Deny the panicking-API lints in libraries
-
-Deny `clippy::unwrap_used`, `expect_used`, `panic`, `todo`, `unimplemented`, and `indexing_slicing`
-in libraries; relax `expect_used` in tests and binaries via a `[lints]` override on that target or
-an `#![allow]` inside `#[cfg(test)]` (`RS-ERR-04`).
-
-**Why:** a panic in a library takes down a process the library does not own, and the caller has no
-way to catch it as an error. These lints are the mechanical enforcement of that boundary.
-
-**Check:** grep library source for `unwrap()` outside tests. Each is either a lint gap or a
-documented panic (`RS-DOC-13`).
-
-*Relaxed form:* in a binary you own end to end, `expect_used` at `warn` with a message convention is
-enough. `unwrap_used` earns its `deny` almost everywhere, because the message is the difference
-between a bug report and a mystery.
-
-### RS-BUILD-29 [M] Deny `undocumented_unsafe_blocks` wherever `unsafe` is permitted
-
-Deny `clippy::undocumented_unsafe_blocks` in any crate that permits `unsafe`. A `// SAFETY:` comment
-per block is the minimum bar (`RS-UNSAFE-03`).
-
-**Why:** the comment is the proof obligation made visible, and a lint is the only thing that makes
-writing it non-optional. Without the lint, the comments appear on the blocks the author found
-interesting and not on the ones that turned out to matter.
-
-**Check:** is the lint denied, and does the crate build clean under it?
-
-### RS-BUILD-30 [S] Prefer `#[expect(…, reason = "…")]` to `#[allow]`
-
-Prefer `#[expect(lint, reason = "…")]` (stable since 1.81) over `#[allow]` for local suppressions:
-it warns when the suppression becomes unnecessary, so dead exceptions get cleaned up automatically.
-
-**Why:** an `#[allow]` is permanent and invisible once the underlying issue is fixed, so
-suppressions accumulate and eventually hide real findings. `#[expect]` fails loudly when it stops
-being needed.
-
-**Check:** grep for `#[allow(`. Each is a candidate for `#[expect]` plus a reason.
+(clippy `allow_attributes`).
 
 ### RS-BUILD-31 [M] Never blanket-`allow` at crate level to make CI green
 
@@ -583,19 +528,6 @@ denied" a cheap local check rather than a CI-only step.
 **Check:** both `CARGO_BUILD_WARNINGS=deny` and `[build] warnings = "deny"` fail the build with
 `error: warnings are denied by 'build.warnings' configuration`. Grep CI config for
 `RUSTFLAGS="-Dwarnings"` and replace it.
-
-### RS-BUILD-33 [S] Read `linker_messages` rather than silencing it
-
-`linker_messages` is a default-on warning and is deliberately not part of the `warnings` group. Read
-the output rather than silencing it; if a message is a known false positive on your platform, allow
-it in `[lints.rust]` with a comment.
-
-**Why:** it is excluded from the group precisely because the messages are platform-specific and not
-always actionable, which also means a blanket deny would break builds for reasons outside your
-control. They do surface real linking problems, so they are worth reading.
-
-**Check:** `linker_messages` is a recognized lint name — `-A linker_messages` produces no
-"unknown lint" diagnostic. Any allow of it carries a comment naming the platform.
 
 ### RS-BUILD-34 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
 
@@ -877,3 +809,21 @@ which are themselves substantial.
 
 **Check:** `cargo tree` for proc-macro crates. For each, weigh the generated code against the build
 cost.
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| clippy | `lint_groups_priority` | deny | a lint group at the same priority as a lint in it — give groups `priority = -1` |
+| clippy | `unwrap_used` | deny | `unwrap()` outside tests |
+| clippy | `expect_used` | deny | `expect()` outside tests |
+| clippy | `panic` | deny | `panic!` in library code |
+| clippy | `todo` | deny | `todo!` |
+| clippy | `unimplemented` | deny | `unimplemented!` |
+| clippy | `indexing_slicing` | deny | indexing or slicing that can panic — `get` instead |
+| clippy | `undocumented_unsafe_blocks` | deny | an `unsafe` block without a `// SAFETY:` comment |
+| clippy | `allow_attributes` | warn | `#[allow]` — `#[expect(…, reason = "…")]` warns once it is no longer needed |
+| clippy | `allow_attributes_without_reason` | warn | a lint attribute without `reason = "…"` |
+| rustc | `linker_messages` | warn | linker output, which sits outside `warnings` — read it, and allow it only per platform |

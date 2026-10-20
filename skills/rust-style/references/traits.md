@@ -63,7 +63,6 @@ not a partial impl.
   - RS-TRAIT-36 [S] Bound at the point of use, not on the struct
   - RS-TRAIT-37 [M] Minimize bounds
   - RS-TRAIT-38 [S] Genericize a parameter only where the flexibility is used
-  - RS-TRAIT-39 [M] Do not add `'static` unless you spawn, erase, or store
   - RS-TRAIT-40 [S] Prefer an associated type where there is one sensible choice
   - RS-TRAIT-41 [S] Do not return a type the caller must turbofish
   - RS-TRAIT-42 [S] Use type aliases to tame long generic types
@@ -667,8 +666,7 @@ immediately.
 Private-supertrait pattern.
 
 **Why:** sealing means you know every implementor, so you can add methods later without breaking
-anyone — the trait stays evolvable for the life of the crate
-(`references/api.md` RS-API-73).
+anyone — the trait stays evolvable for the life of the crate.
 
 **Check:** is the trait an extension point or an enumeration? Only the second gets sealed.
 
@@ -821,13 +819,6 @@ documentation cost, and a monomorphization cost (`references/api.md` RS-API-11).
 
 **Check:** list the concrete types this parameter will be instantiated with. One means make it
 concrete.
-
-### RS-TRAIT-39 [M] Do not add `'static` unless you spawn, erase, or store
-
-**Why:** it is the most over-applied bound in Rust, usually added to make one error go away, and it
-rejects every borrowed type for the life of the API (`references/ownership.md` RS-OWN-22).
-
-**Check:** remove it. If it still compiles, it was never needed.
 
 ### RS-TRAIT-40 [S] Prefer an associated type where there is one sensible choice
 
@@ -1077,7 +1068,7 @@ impl RedactionFree for RequestId {}
 
 **Why:** `PhantomData<T>` inherits `T`'s drop-check behaviour and auto-trait implementations, which
 is almost never what a marker wants — a marker for a type it does not own should not become `!Send`
-because that type is (`references/ownership.md` RS-OWN-25).
+because that type is (`references/unsafe.md` RS-UNSAFE-18).
 
 **Check:** for each `PhantomData<T>`, does the type genuinely own a `T`?
 

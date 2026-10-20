@@ -17,14 +17,12 @@ that can be wrong, fewer places where an early `return` skips a cleanup.
 
 - **Expression orientation**
   - RS-FUNC-01 [M] Make everything that can be an expression one
-  - RS-FUNC-02 [S] Omit the trailing `return`
   - RS-FUNC-03 [M] Prefer `match` to an `if`/`else if` chain on one value
   - RS-FUNC-04 [S] A `for` loop that only pushes is a `collect`
   - RS-FUNC-05 [S] A `for` loop that only accumulates a scalar is a fold
   - RS-FUNC-06 [S] A `for` loop that searches and breaks is `find`, `any`, or `position`
   - RS-FUNC-07 [M] Keep `for` for the three things it is actually better at
   - RS-FUNC-08 [S] Use `let ... else` for destructure-or-bail
-  - RS-FUNC-09 [S] Use `matches!` for boolean tests on shape
   - RS-FUNC-10 [S] Flatten nested `if let` with let-chains
 
 - **Iterators and pipelines**
@@ -37,7 +35,6 @@ that can be wrong, fewer places where an early `return` skips a cleanup.
   - RS-FUNC-17 [M] Short-circuit fallible iteration with `try_fold` / `try_for_each`
   - RS-FUNC-18 [S] Use `scan` only when the state belongs to the pipeline
   - RS-FUNC-19 [S] Use `peekable` and `by_ref` instead of a manual buffer
-  - RS-FUNC-20 [S] Prefer the one-word adapter to the equivalent closure
   - RS-FUNC-21 [M] Keep iterators lazy as far up the stack as you can
   - RS-FUNC-22 [S] Pre-size when `size_hint` cannot
   - RS-FUNC-23 [S] Collect directly into the collection the caller needs
@@ -51,18 +48,15 @@ that can be wrong, fewer places where an early `return` skips a cleanup.
   - RS-FUNC-29 [S] Treat every `let mut` as a proof obligation
   - RS-FUNC-30 [S] Prefer shadowing to mutation for stepwise refinement
   - RS-FUNC-31 [M] Do not shadow across a large scope or with a new meaning
-  - RS-FUNC-32 [M] Declare a binding where it is initialized
   - RS-FUNC-33 [S] Push constants into `const` and `const fn`
   - RS-FUNC-34 [S] Use the in-place operations that have functional signatures
   - RS-FUNC-35 [M] Never mutate a captured variable from inside `map`
-  - RS-FUNC-36 [S] Use `inspect` for legitimate mid-pipeline observation
   - RS-FUNC-37 [S] Return finished data as `Box<[T]>` or `Arc<[T]>`
   - RS-FUNC-38 [M] Justify each use of interior mutability in a comment
   - RS-FUNC-39 [S] Reserve `mem::take` / `mem::replace` for state machines
   - RS-FUNC-40 [S] Give a build-once type no `&mut self` methods at all
 
 - **Closures and functions as values**
-  - RS-FUNC-41 [S] Pass function paths, not forwarding closures
   - RS-FUNC-42 [M] Choose the loosest closure bound the callee needs
   - RS-FUNC-43 [S] Take closures generically when hot, boxed when stored
   - RS-FUNC-44 [S] Capture as little as possible
@@ -90,6 +84,7 @@ that can be wrong, fewer places where an early `return` skips a cleanup.
 - **Closure and uniformity**
   - RS-FUNC-63 [M] Prefer operations closed under their own type
   - RS-FUNC-64 [S] Keep the stages of a pipeline uniform in shape
+- Decided by tools
 
 ---
 
@@ -116,15 +111,6 @@ if n == 1 { label = "file"; } else { label = "files"; }
 // fragment — GOOD
 let label = if n == 1 { "file" } else { "files" };
 ```
-
-### RS-FUNC-02 [S] Omit the trailing `return`
-
-**Why:** a function's value is its final expression, so a trailing `return` is a keyword that adds
-no information. Reserving `return` for genuine early exits makes it a signal — when you see it, you
-know control is leaving before the end.
-
-**Check:** grep for `return` on the last statement of a function body. Also
-`clippy::needless_return` catches it.
 
 ### RS-FUNC-03 [M] Prefer `match` to an `if`/`else if` chain on one value
 
@@ -195,19 +181,9 @@ Does it produce a value and nothing else? Then it is a pipeline.
 
 **Why:** it keeps the happy path unindented and puts the failure next to the condition. The
 alternatives — a `match` with a `_ => return` arm, or an `if let` wrapping the rest of the function
-— push the main line one level deeper for no benefit (`references/errors.md` RS-ERR-34).
+— push the main line one level deeper for no benefit.
 
 **Check:** grep for `if let Some(x) = …` whose block runs to the end of the function.
-
-### RS-FUNC-09 [S] Use `matches!` for boolean tests on shape
-
-`matches!(tok, Token::Ident(_) | Token::Keyword(_))`.
-
-**Why:** it is one expression, it composes inside `filter` and `retain`, and it is clearer than an
-`if let` whose arms return `true` and `false`. It also accepts a guard, which covers most of the
-cases where people reach for a full `match`.
-
-**Check:** grep for `match` or `if let` whose only outputs are `true` and `false`.
 
 ### RS-FUNC-10 [S] Flatten nested `if let` with let-chains
 
@@ -247,7 +223,7 @@ pub fn all_ascii(values: &[String]) -> bool {
 
 **Why:** `for i in 0..v.len() { v[i] }` re-checks bounds on every access, breaks the moment the
 collection type changes to something without `Index`, and reads worse than the alternative. The
-iterator form has no bounds check at all (`references/performance.md` RS-PERF-23).
+iterator form has no bounds check at all (clippy `needless_range_loop`).
 
 **Check:** grep `for .* in 0\.\.` followed by an index of the same collection.
 `clippy::needless_range_loop` catches the common shape.
@@ -391,25 +367,6 @@ losing the rest — which is otherwise the reason people reach for indices.
 
 **Check:** grep for `Option<Item>` fields or locals named `next`, `pending`, `lookahead`, or
 `buffered`.
-
-### RS-FUNC-20 [S] Prefer the one-word adapter to the equivalent closure
-
-`copied()` over `map(|&x| x)`, `cloned()` over `map(|x| x.clone())`, `flatten()` over
-`filter_map(|x| x)`.
-
-**Why:** the named form says what happens without the reader parsing a pattern, and `clippy` has a
-lint for each because they are recognizable enough to be mechanical.
-
-**Check:** `clippy::map_clone`, `clippy::filter_map_identity`, `clippy::flat_map_identity`.
-
-```rust
-// verified
-/// `position` says what is wanted; an indexed loop says how to find it.
-#[must_use]
-pub fn first_blank(lines: &[String]) -> Option<usize> {
-    lines.iter().position(|line| line.trim().is_empty())
-}
-```
 
 ### RS-FUNC-21 [M] Keep iterators lazy as far up the stack as you can
 
@@ -594,27 +551,6 @@ strictly worse than a second name, because it looks correct.
 **Check:** does each shadow refine the same concept, and does it occur within a few lines of the
 binding it shadows?
 
-### RS-FUNC-32 [M] Declare a binding where it is initialized
-
-**Why:** `let x;` with the assignment ten lines later is a mutable slot in disguise. It also defeats
-the compiler's move analysis, so a value that could have been moved gets cloned or borrowed
-unnecessarily (RS-FUNC-01).
-
-**Check:** grep for `let \w+;` with no initializer.
-
-```rust
-// verified
-/// `match` is an expression, so the binding is initialized exactly once.
-#[must_use]
-pub fn tier(score: u32) -> &'static str {
-    match score {
-        0..=9 => "low",
-        10..=99 => "medium",
-        _ => "high",
-    }
-}
-```
-
 ### RS-FUNC-33 [S] Push constants into `const` and `const fn`
 
 **Why:** a `const` is computed at compile time, has no address, and cannot be accidentally mutated
@@ -654,30 +590,6 @@ nothing about order or about being run at all.
 
 **Check:** does any `map` closure assign to something declared outside it, or call a method taking
 `&mut` on a captured value?
-
-### RS-FUNC-36 [S] Use `inspect` for legitimate mid-pipeline observation
-
-**Why:** logging, counting, and tracing mid-pipeline are real needs, and `inspect` is the adapter
-that does them without pretending to transform. Using `map` for it is the violation in RS-FUNC-35;
-using `inspect` is the sanctioned form.
-
-**Check:** does any `map` closure return its input unchanged?
-
-```rust
-// verified
-/// `inspect` observes without changing the value or the type.
-#[must_use]
-pub fn sum_reported(values: &[u32]) -> u32 {
-    values
-        .iter()
-        .inspect(|value| {
-            if **value == 0 {
-                eprintln!("zero encountered");
-            }
-        })
-        .sum()
-}
-```
 
 ### RS-FUNC-37 [S] Return finished data as `Box<[T]>` or `Arc<[T]>`
 
@@ -719,24 +631,6 @@ A single `&mut self` method removes that guarantee for every user.
 fold them into the builder.
 
 ## Closures and functions as values
-
-### RS-FUNC-41 [S] Pass function paths, not forwarding closures
-
-`map(str::len)`, `filter(char::is_alphanumeric)`, `map(Some)`, `and_then(Result::ok)`.
-
-**Why:** a closure that only forwards its argument is four characters of syntax around a name, and
-it makes the reader check whether it does anything else. The path form cannot.
-
-**Check:** grep for closures of the shape `|x| f(x)`. `clippy::redundant_closure` catches most.
-
-```rust
-// verified
-/// `unzip` splits one pass into two collections without a second traversal.
-#[must_use]
-pub fn split(pairs: &[(u32, String)]) -> (Vec<u32>, Vec<String>) {
-    pairs.iter().cloned().unzip()
-}
-```
 
 ### RS-FUNC-42 [M] Choose the loosest closure bound the callee needs
 
@@ -1081,3 +975,19 @@ pub fn normalize(lines: &[String]) -> Vec<String> {
         .collect()
 }
 ```
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| clippy | `needless_return` | warn | a trailing `return` |
+| clippy | `match_like_matches_macro` | warn | a `match` that returns `true` or `false` — `matches!` |
+| clippy | `map_clone` | warn | `.map(|x| x.clone())` — `.cloned()` |
+| clippy | `filter_map_identity` | warn | `.filter_map(|x| x)` — `.flatten()` |
+| clippy | `flat_map_identity` | warn | `.flat_map(|x| x)` — `.flatten()` |
+| clippy | `needless_late_init` | warn | a binding declared before it is initialised |
+| clippy | `manual_inspect` | warn | a `map` that returns its argument unchanged — `inspect` |
+| clippy | `redundant_closure` | warn | `|x| f(x)` — pass `f` |
+| clippy | `redundant_closure_for_method_calls` | warn | `|x| x.method()` — pass `T::method` |

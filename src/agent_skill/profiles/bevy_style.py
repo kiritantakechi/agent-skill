@@ -47,7 +47,7 @@ class BevyStyle(Profile):
     languages: tuple[str, ...] = ("rust",)
     marked_languages: tuple[str, ...] = ("toml", "bash", "yaml")
     toolchain: str | None = "rust"
-    tools: tuple[str, ...] = ("rustc", "clippy")
+    tools: tuple[str, ...] = ("rustc", "clippy", "rustdoc")
     exempt_from_structure: str | None = "converted in milestone 3 of refresh-skills"
     language: str = "Bevy"
     verified_as: str = "compiles as written against Bevy {pin} on Rust {rust}, edition 2024"

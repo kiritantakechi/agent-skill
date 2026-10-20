@@ -46,7 +46,6 @@ problem — which is very often "not async" and quite often "not concurrent".
   - RS-CONC-31 [M] Remember futures are inert until polled
   - RS-CONC-32 [M] Keep libraries runtime-agnostic where possible
   - RS-CONC-33 [M] Do not block in async
-  - RS-CONC-34 [M] Do not mark a function `async` if it never `.await`s
   - RS-CONC-35 [M] Prefer `async fn` and `impl Future` to hand-written state machines
   - RS-CONC-36 [M] Decide explicitly whether your trait needs `Send` futures
   - RS-CONC-37 [M!] Make every function correct when dropped at an `.await`
@@ -69,6 +68,7 @@ problem — which is very often "not async" and quite often "not concurrent".
   - RS-CONC-50 [S] Reproduce deadlocks by capturing backtraces, not by reasoning
   - RS-CONC-51 [M] Prefer structured concurrency
   - RS-CONC-52 [M] Document the threading contract of every public type
+- Decided by tools
 
 ---
 
@@ -750,27 +750,6 @@ runtime deadlocks.
 
 **Check:** grep async bodies for `std::fs`, `std::net`, `thread::sleep`, and `std::sync::Mutex`.
 
-### RS-CONC-34 [M] Do not mark a function `async` if it never `.await`s
-
-`async` on a function that never `.await`s is pure overhead: it returns a future, colours every
-caller, and gains nothing. Make it a normal function.
-
-**Why:** the `async` keyword changes the signature and forces every caller into an async context.
-When there is no suspension point, that constraint is imposed for no benefit.
-
-**Check:** grep for `async fn` bodies containing no `.await`.
-
-```rust
-// verified
-/// No `.await` in the body, so it is a normal function and colours no caller.
-#[must_use]
-pub fn checksum(bytes: &[u8]) -> u32 {
-    bytes.iter().fold(0_u32, |acc, &b| {
-        acc.wrapping_mul(31).wrapping_add(u32::from(b))
-    })
-}
-```
-
 ### RS-CONC-35 [M] Prefer `async fn` and `impl Future` to hand-written state machines
 
 Prefer `async fn` and `impl Future` over hand-written `Poll` state machines. Implement `Future` by
@@ -1079,3 +1058,11 @@ impl Registry {
     }
 }
 ```
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| clippy | `unused_async` | warn | an `async fn` that never awaits |

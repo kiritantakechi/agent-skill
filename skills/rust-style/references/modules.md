@@ -16,10 +16,8 @@ wiring. Structure is what keeps a codebase comprehensible past ten thousand line
   - RS-MOD-03 [S] Prefer a few substantial modules to many tiny ones
   - RS-MOD-04 [S] Split a file on a seam, not on a line count
   - RS-MOD-05 [S] Keep a type, its impls, and its unit tests in one file
-  - RS-MOD-06 [M] Use `foo.rs` + `foo/`, never `foo/mod.rs`
   - RS-MOD-07 [S] Nest public modules at most two levels deep
   - RS-MOD-08 [S] Nest private modules as deeply as is useful
-  - RS-MOD-09 [M] Put `#[cfg(test)] mod tests` at the bottom of the file it tests
   - RS-MOD-10 [M] Confine platform differences to a `sys` module
   - RS-MOD-11 [S] Isolate generated code in its own module
   - RS-MOD-12 [S] Lead each module with its public items and its role
@@ -76,6 +74,7 @@ wiring. Structure is what keeps a codebase comprehensible past ten thousand line
   - RS-MOD-55 [M] Absorb a special case into the general path, or give it its own type
   - RS-MOD-56 [M] Split a function rather than adding a mode parameter
   - RS-MOD-57 [S] Keep sibling modules structurally parallel
+- Decided by tools
 
 ---
 
@@ -214,17 +213,6 @@ impl Position {
 }
 ```
 
-### RS-MOD-06 [M] Use `foo.rs` + `foo/`, never `foo/mod.rs`
-
-**Why:** the 2018-style layout keeps the module's own code visible in the file tree instead of
-hidden behind a directory, and it avoids an editor full of tabs all named `mod.rs`. Mixing the two
-styles in one crate is worse than either alone. The rule has no exception for `tests/`: Cargo's
-one-binary-per-top-level-file behaviour is the usual reason given for a `tests/common/mod.rs`, and
-`#[path]` answers it without reintroducing the filename (`references/testing.md` RS-TEST-07).
-
-**Check:** `find . -name mod.rs`. The answer is empty, including under `tests/`. In old code,
-convert in one commit rather than gradually.
-
 ### RS-MOD-07 [S] Nest public modules at most two levels deep
 
 **Why:** `crate::search::matcher::regex::inner::Config` is a path nobody will type, and every
@@ -240,16 +228,6 @@ reorganized at any time. The two-level limit is about the *public* surface, not 
 arrange your own files.
 
 **Check:** are you flattening internals for consistency with the public rule? Do not.
-
-### RS-MOD-09 [M] Put `#[cfg(test)] mod tests` at the bottom of the file it tests
-
-With `use super::*;`.
-
-**Why:** proximity is what keeps unit tests updated, and being inside the module is what gives them
-access to private items — which is the whole reason unit tests exist as a separate layer from
-integration tests (`references/testing.md` RS-TEST-04).
-
-**Check:** is there a `tests/unit/` directory duplicating what belongs inline?
 
 ### RS-MOD-10 [M] Confine platform differences to a `sys` module
 
@@ -1093,3 +1071,11 @@ pub mod renderer {
     }
 }
 ```
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| clippy | `mod_module_files` | warn | `foo/mod.rs` — `foo.rs` beside `foo/` |

@@ -44,7 +44,6 @@ without reading the source.
 
 - **Linking, rendering, README**
   - RS-DOC-31 [M] Use intra-doc links everywhere
-  - RS-DOC-32 [M] Deny broken intra-doc links in CI
   - RS-DOC-33 [S] Link the first mention, not every mention
   - RS-DOC-34 [M] Enable docs.rs metadata and the `docsrs` cfg
   - RS-DOC-35 [S] Add `#[doc(alias)]` for names users will search for
@@ -53,6 +52,7 @@ without reading the source.
   - RS-DOC-38 [S] Add a diagram or walkthrough for non-obvious data flow
   - RS-DOC-39 [M] Document supported platforms, MSRV, and semver policy
   - RS-DOC-40 [M!] Write the documentation before finalizing the API
+- Decided by tools
 
 ---
 
@@ -665,16 +665,6 @@ pub fn is_match(compiled: usize, haystack: &str) -> bool {
 pub struct CompileError;
 ```
 
-### RS-DOC-32 [M] Deny broken intra-doc links in CI
-
-Deny broken intra-doc links in CI: `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features`.
-
-**Why:** intra-doc links are only self-maintaining if something fails when they break. Without the
-CI gate, the guarantee in RS-DOC-31 is theoretical.
-
-**Check:** the pipeline contains that command, and it runs with `--all-features` so feature-gated
-items are included (`RS-BUILD-46`).
-
 ### RS-DOC-33 [S] Link the first mention, not every mention
 
 Link the first mention of each significant type in a doc block, not every mention. Over-linking
@@ -800,3 +790,11 @@ pub fn matching<'lines>(lines: &'lines [String], needle: &str) -> Vec<&'lines st
         .collect()
 }
 ```
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| rustdoc | `broken_intra_doc_links` | deny | an intra-doc link that no longer resolves |

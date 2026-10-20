@@ -21,7 +21,6 @@ follow.
   - RS-PERF-08 [M] Hoist allocations out of loops
   - RS-PERF-09 [M] Avoid intermediate collections in pipelines
   - RS-PERF-10 [M] Prefer slicing to building new `String`s
-  - RS-PERF-11 [M] Reuse buffers across iterations (see RS-OWN-17)
   - RS-PERF-12 [M] Write into a reused buffer instead of `format!` in a hot loop
   - RS-PERF-13 [M] Do not `to_string()` something you only compare or search
   - RS-PERF-14 [S] Prefer `Box<str>`/`Box<[T]>`/`Arc<[T]>` for finished data
@@ -31,11 +30,9 @@ follow.
 - **Data structures and layout**
   - RS-PERF-17 [M] Pick the collection for the access pattern
   - RS-PERF-18 [S] Swap SipHash for a faster hasher only when keys are trusted
-  - RS-PERF-19 [M] Prefer `entry()` over `contains_key` + `insert`
   - RS-PERF-20 [S] Prefer struct-of-arrays when you iterate one field over many elements
   - RS-PERF-21 [M] Keep hot structs small and box the rare large variant
   - RS-PERF-22 [M] Watch enum size — it is the largest variant plus a discriminant
-  - RS-PERF-23 [M] Prefer iteration over indexing so bounds checks are elided
   - RS-PERF-24 [S] Escalate bounds-check removal in order, `unsafe` last
   - RS-PERF-25 [M] Choose the right sort: unstable, by-key, cached-key, or select-nth
   - RS-PERF-26 [S] Binary-search a sorted `Vec` for build-once, query-many data
@@ -51,7 +48,6 @@ follow.
 
 - **Codegen and the compiler**
   - RS-PERF-34 [M] Use `#[inline]` for small cross-crate non-generic functions only
-  - RS-PERF-35 [M] Require a measurement before `#[inline(always)]`
   - RS-PERF-36 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
   - RS-PERF-37 [S] Do not assume static dispatch beats dynamic
   - RS-PERF-38 [M] Hoist loop invariants the compiler cannot
@@ -69,6 +65,7 @@ follow.
   - RS-PERF-48 [M] Pin CI benchmark comparisons to one machine class, or distrust them
   - RS-PERF-49 [S] Track binary size and compile time alongside runtime
   - RS-PERF-50 [S] Record every optimization attempt, including the failures
+- Decided by tools
 
 ---
 
@@ -281,12 +278,6 @@ pub fn key_of(line: &str) -> Option<&str> {
 }
 ```
 
-### RS-PERF-11 [M] Reuse buffers across iterations (see RS-OWN-17)
-
-Owned by `references/ownership.md` RS-OWN-17. `clear()` keeps the capacity, so after the first few
-iterations the loop stops allocating entirely. `BufRead::read_line` and `read_until` are designed
-for exactly this, and are why line-oriented tools can process gigabytes without allocating per line.
-
 ### RS-PERF-12 [M] Write into a reused buffer instead of `format!` in a hot loop
 
 `format!` allocates. In a hot loop, `write!` into a reused `String` (via `fmt::Write`) or a reused
@@ -454,31 +445,6 @@ needs to be a recorded decision rather than an unnoticed default.
 **Check:** for each non-default hasher, can any key come from outside the process? If so, the swap
 is a vulnerability.
 
-### RS-PERF-19 [M] Prefer `entry()` over `contains_key` + `insert`
-
-Prefer `entry()` over `contains_key` + `insert`: one lookup rather than two, and it composes with
-`or_insert_with` and `and_modify`.
-
-**Why:** the check-then-insert pattern hashes and probes twice for one logical operation. `entry`
-also removes the window in which the two operations could disagree after a refactor.
-
-**Check:** grep for `contains_key` followed by `insert` or `get_mut` on the same key.
-
-```rust
-// verified
-use std::collections::HashMap;
-
-/// `entry` hashes once; `contains_key` then `insert` hashes twice.
-#[must_use]
-pub fn tally(words: &[&str]) -> HashMap<String, usize> {
-    let mut counts: HashMap<String, usize> = HashMap::new();
-    for word in words {
-        *counts.entry((*word).to_owned()).or_default() += 1;
-    }
-    counts
-}
-```
-
 ### RS-PERF-20 [S] Prefer struct-of-arrays when you iterate one field over many elements
 
 Prefer struct-of-arrays over array-of-structs when you iterate one field over many elements. Cache
@@ -563,32 +529,6 @@ pub enum Token {
 }
 
 const _: () = assert!(size_of::<Token>() == 8);
-```
-
-### RS-PERF-23 [M] Prefer iteration over indexing so bounds checks are elided
-
-Prefer iteration over indexing so bounds checks are elided. `for x in &v` has no check;
-`for i in 0..v.len() { v[i] }` relies on the optimizer noticing (`RS-FUNC-12`).
-
-**Why:** the iterator carries the proof that each element exists, so there is nothing to check. The
-indexed form re-proves it per access and only becomes free if LLVM can follow the reasoning, which
-it usually but not always can.
-
-**Check:** grep for `for i in 0..` followed by indexing. Each is an iterator that was not used.
-
-```rust
-// verified
-/// Iterating carries the proof each element exists, so no bounds check survives.
-#[must_use]
-pub fn max_run(values: &[u8]) -> usize {
-    let mut best = 0;
-    let mut run = 0;
-    for &value in values {
-        run = if value == 0 { 0 } else { run + 1 };
-        best = best.max(run);
-    }
-    best
-}
 ```
 
 ### RS-PERF-24 [S] Escalate bounds-check removal in order, `unsafe` last
@@ -824,18 +764,6 @@ is what makes it available. Generic functions are instantiated in the caller's c
 visible, so the attribute adds nothing.
 
 **Check:** grep for `#[inline]` on generic functions and on private ones. Both are usually noise.
-
-### RS-PERF-35 [M] Require a measurement before `#[inline(always)]`
-
-`#[inline(always)]` needs a measurement, not an intuition. It overrides the optimizer's cost model,
-which is right more often than you are.
-
-**Why:** forced inlining of anything non-trivial increases code size, which costs i-cache and can
-make the program slower overall. The optimizer sees the call graph and the sizes; the attribute
-discards that.
-
-**Check:** for each `#[inline(always)]`, find the benchmark. Without one, downgrade it to
-`#[inline]`.
 
 ### RS-PERF-36 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
 
@@ -1091,3 +1019,13 @@ couple of years.
 
 **Check:** does the hot module have a comment or commit history explaining what was tried and
 rejected?
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| clippy | `map_entry` | warn | `contains_key` then `insert` — one lookup with `entry()` |
+| clippy | `needless_range_loop` | warn | a range loop that only indexes — iterate, and the bounds checks go |
+| clippy | `inline_always` | warn | `#[inline(always)]` — `#[expect]` it, citing the benchmark that justifies it |

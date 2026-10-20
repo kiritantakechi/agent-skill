@@ -59,13 +59,13 @@ tie-break is section 3 of `SKILL.md`.
   - RS-NAME-37 [S] Use the conventional single letters where the role is universal
   - RS-NAME-38 [S] Name a lifetime for the source of the borrow once several coexist
   - RS-NAME-39 [M] Never restate the kind in a parameter's name
-  - RS-NAME-40 [S] Spell const generic parameters in `SCREAMING_SNAKE_CASE`
   - RS-NAME-41 [S] Name an associated type for the thing it produces
   - RS-NAME-42 [S] Name a generic parameter for its bound in a crowded signature
 
 - **Symmetry of names**
   - RS-NAME-43 [M] Name the two halves of a pair symmetrically
   - RS-NAME-44 [S] Keep the same word order across parallel names
+- Decided by tools
 
 ---
 
@@ -814,7 +814,7 @@ pub fn first_line<T: Display, E>(
 ### RS-NAME-38 [S] Name a lifetime for the source of the borrow once several coexist
 
 `'a` when there is one. `'src`, `'input`, `'haystack` when there are several and it matters which is
-which. Use `'_` wherever it is accepted (`references/ownership.md` RS-OWN-06).
+which. Use `'_` wherever it is accepted (rustc `elided_lifetimes_in_paths`).
 
 **Why:** `fn find<'a, 'b>(h: &'a str, n: &'b str) -> &'a str` requires the reader to track two
 letters back to their bindings; `<'haystack, 'needle>` does not.
@@ -859,33 +859,6 @@ use std::path::Path;
 #[must_use]
 pub fn read_config(config: &Path) -> Option<&str> {
     config.to_str()
-}
-```
-
-### RS-NAME-40 [S] Spell const generic parameters in `SCREAMING_SNAKE_CASE`
-
-`struct Matrix<const ROWS: usize, const COLS: usize>`, `struct Chunk<const N: usize>`. A single
-uppercase letter is fine when the domain uses one.
-
-**Why:** it matches the casing of the constants they are instantiated with, so the connection
-between `Chunk::<64>::new()` and `const N` is visible. The compiler warns on `snake_case` here
-anyway.
-
-**Check:** the `non_upper_case_globals` lint covers it.
-
-```rust
-// verified
-/// Const generic parameters are `SCREAMING_SNAKE_CASE`.
-#[derive(Debug)]
-pub struct RingBuffer<T, const CAPACITY: usize> {
-    slots: [Option<T>; CAPACITY],
-}
-
-impl<T, const CAPACITY: usize> RingBuffer<T, CAPACITY> {
-    #[must_use]
-    pub fn capacity(&self) -> usize {
-        CAPACITY
-    }
 }
 ```
 
@@ -1001,3 +974,11 @@ impl Limits {
     }
 }
 ```
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| rustc | `non_upper_case_globals` | warn | a constant, static or const generic parameter not in `SCREAMING_SNAKE_CASE` |

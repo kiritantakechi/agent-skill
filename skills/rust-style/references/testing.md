@@ -24,7 +24,6 @@ broke. Coverage percentage is a byproduct, not a goal.
   - RS-TEST-14 [M] Match on the error variant, not its `Display` string
   - RS-TEST-15 [M] Test the boundaries, because they are enumerable
   - RS-TEST-16 [S] Use table-driven tests for families of similar cases
-  - RS-TEST-17 [M] Always give `#[should_panic]` an `expected = "…"`
   - RS-TEST-18 [M] Keep tests deterministic and order-independent
   - RS-TEST-19 [M] Use `tempfile::TempDir`, never a fixed path
   - RS-TEST-20 [M] Do not test the standard library or your dependencies
@@ -54,6 +53,7 @@ broke. Coverage percentage is a byproduct, not a goal.
   - RS-TEST-40 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
   - RS-TEST-41 [S] Measure coverage to find untested branches, not to hit a number
   - RS-TEST-42 [S] Delete tests that no longer test anything
+- Decided by tools
 
 ---
 
@@ -199,7 +199,7 @@ mod helpers;`, or promote them to a `testutil` workspace crate once several suit
 **Why:** Cargo compiles every *top-level* file in `tests/` as its own test binary, so
 `tests/helpers.rs` becomes a test crate with no tests — a wasted link and a `running 0 tests` line.
 A subdirectory escapes that, and `#[path]` reaches into it without the `mod.rs` filename this
-standard rejects everywhere else (`references/modules.md` RS-MOD-06). The `testutil` crate is the
+standard rejects everywhere else (clippy `mod_module_files`). The `testutil` crate is the
 better answer once the helpers have their own dependencies or their own tests.
 
 **Check:** `ls tests/*.rs` — every file listed must contain at least one `#[test]`. Helper-only
@@ -476,40 +476,6 @@ mod tests {
         for (input, want) in cases {
             assert_eq!(is_ident(input), want, "input {input:?}");
         }
-    }
-}
-```
-
-### RS-TEST-17 [M] Always give `#[should_panic]` an `expected = "…"`
-
-`#[should_panic]` is a weak assertion — it passes if *any* panic occurs, including one from a typo
-in the test setup. Always give it `expected = "…"`, and prefer testing a returned `Err` over a panic
-entirely.
-
-**Why:** a bare `#[should_panic]` passes when the test panics for the wrong reason, including an
-`unwrap` in the setup, so it can pass while the behaviour under test is entirely broken. The
-`expected` string is what makes it an actual assertion.
-
-**Check:** grep for `#[should_panic]` with no `expected`. Each is a test that may be asserting
-nothing.
-
-```rust
-// verified
-/// `expected` is what turns `#[should_panic]` from a wish into an assertion.
-#[must_use]
-pub fn split_at_half(input: &str) -> (&str, &str) {
-    let mid = input.len() / 2;
-    input.split_at(mid)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::split_at_half;
-
-    #[test]
-    #[should_panic(expected = "byte index")]
-    fn panics_when_the_midpoint_is_not_a_char_boundary() {
-        let _ = split_at_half("é");
     }
 }
 ```
@@ -939,3 +905,11 @@ signal from the ones that matter.
 
 **Check:** for each test, name the change that would make it fail. If nothing plausible would,
 delete it (`RS-TEST-20`).
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| clippy | `should_panic_without_expect` | warn | `#[should_panic]` without `expected = "…"` — or return an `Err` instead |

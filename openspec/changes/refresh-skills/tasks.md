@@ -188,7 +188,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
     review-checklist PRF-11, and `cargo-toolchain.md:499`).
 
   Verify: `--fast` passes. `toolchain` is deferred to 8.9.
-- [ ] 8.6 Lint rows and merges:
+- [x] 8.6 Lint rows and merges:
   - demote the LINT rules in `rust-lints-1.md` and `rust-lints-2.md` that the shipped config now
     enforces;
   - merge the duplicate pairs (ERR-03/CAR-28, ERR-34/FP-08, ERR-46/CLI-20, ERR-50/CLI-22,

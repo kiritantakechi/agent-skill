@@ -429,11 +429,13 @@ CONTROLS: list[Control] = [
     Control(
         "pointer rule that grew a Why",
         "anatomy",
+        # zig-style is where pointer rules still live: the standards brought
+        # over to standard-structure removed theirs.
         lambda t: edit(
             t,
-            "rust-style/references/cli.md",
-            "ten-thousand-file traversal because one file is unreadable is the wrong default.",
-            "ten-thousand-file traversal is the wrong default.\n\n**Why:** it is.",
+            "zig-style/references/comptime-and-generics.md",
+            "constant, and nothing in the build output says so. See also ZS-CT-07 on bounding",
+            "constant.\n\n**Why:** it is. See also ZS-CT-07 on bounding",
         ),
     ),
     Control(

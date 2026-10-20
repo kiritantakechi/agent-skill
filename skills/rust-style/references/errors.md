@@ -17,7 +17,6 @@ and an exit code.
   - RS-ERR-02 [M] Never discard a `Result` silently
   - RS-ERR-03 [M!] No `unwrap`, `expect`, or `panic!` on a recoverable path
   - RS-ERR-04 [M] Make an `expect` message state the invariant, not the symptom
-  - RS-ERR-05 [S] Reserve bare `unwrap()` for tests and throwaway examples
   - RS-ERR-06 [M] Implement `Error` with a correct `source()`
   - RS-ERR-07 [M] Make `Display` describe this layer only
   - RS-ERR-08 [M!] Keep error types `Send + Sync + 'static`
@@ -50,14 +49,12 @@ and an exit code.
   - RS-ERR-31 [S] Accumulate errors when the user should see all of them at once
   - RS-ERR-32 [S] Put retry policy above the error type, not inside it
   - RS-ERR-33 [M] Do not use `Option` as an error channel
-  - RS-ERR-34 [S] Use `let ... else` for extract-or-bail
 
 - **Panics**
   - RS-ERR-35 [M] A panic means a bug
   - RS-ERR-36 [M] Document every reachable panic
   - RS-ERR-37 [S] Prefer restructuring, then `unreachable!`, then `panic!`
   - RS-ERR-38 [M] Know which assertions survive `--release`
-  - RS-ERR-39 [M] Never unwind across an FFI boundary (see RS-UNSAFE-24)
   - RS-ERR-40 [M] Make `Drop` infallible in practice
   - RS-ERR-41 [M!] Make overflow behaviour explicit on untrusted arithmetic
   - RS-ERR-42 [M] Do not choose `panic = "abort"` on a library's behalf
@@ -66,11 +63,9 @@ and an exit code.
   - RS-ERR-43 [S] Use `anyhow` inside binaries and only there
   - RS-ERR-44 [S] Keep `main` to four lines
   - RS-ERR-45 [S] Return `ExitCode` and format the error yourself
-  - RS-ERR-46 [M] Results to stdout, diagnostics to stderr
   - RS-ERR-47 [M] Treat exit codes as part of the interface
   - RS-ERR-48 [S] Print the cause chain, not a backtrace
   - RS-ERR-49 [M] Collect per-input failures instead of aborting the run
-  - RS-ERR-50 [M] Exit quietly on `BrokenPipe`
 
 ---
 
@@ -142,12 +137,12 @@ Also `todo!`, `unimplemented!`, fallible indexing (`v[i]`), and slicing (`&s[a..
 someone else's server. This is the highest-cost defect in this standard, because the damage lands on
 a party who had no say in the decision and cannot work around it. *Relaxed form:* in tests,
 `build.rs`, examples, and binaries, `expect` is permitted where the condition is a genuine
-invariant — see RS-ERR-04 for the message and RS-ERR-05 for bare `unwrap`.
+invariant — see RS-ERR-04 for the message; clippy denies a bare `unwrap` outside tests.
 
 **Check:** enforce mechanically rather than by review, with
 `clippy::unwrap_used`, `expect_used`, `panic`, `todo`, `unimplemented`, and `indexing_slicing` at
-deny in `[lints.clippy]` (`references/build.md` RS-BUILD-28). The grep for a codebase that
-has not adopted them yet:
+deny in `[lints.clippy]` (clippy `unwrap_used`, `expect_used`, `panic`). The grep for a codebase
+that has not adopted them yet:
 
 ```bash
 rg -n '\.unwrap\(\)|\.expect\(|panic!|todo!|unimplemented!' \
@@ -173,17 +168,6 @@ locate the broken assumption. A message that restates the call adds nothing to t
 
 **Check:** read each message with "…but it did" appended. "Failed to compile regex, but it did" is
 nonsense; "regex was validated at construction, but it was not" names the bug.
-
-### RS-ERR-05 [S] Reserve bare `unwrap()` for tests and throwaway examples
-
-Everywhere else, if an invariant is worth relying on, it is worth naming with `expect`.
-
-**Why:** a bare `unwrap` in a backtrace gives a file and line and nothing else, so diagnosing it
-means reading the surrounding code and reconstructing the author's reasoning. Even in tests, an
-`expect` pays for itself the first time the test fails in CI on a machine you cannot inspect.
-
-**Check:** grep `.unwrap()` outside `#[cfg(test)]`. In doc examples, prefer `?` with the hidden-main
-trick over `unwrap`, because examples get copied (`references/testing.md` RS-TEST-34).
 
 ### RS-ERR-06 [M] Implement `Error` with a correct `source()`
 
@@ -698,40 +682,6 @@ impl Headers {
 }
 ```
 
-### RS-ERR-34 [S] Use `let ... else` for extract-or-bail
-
-**Why:** it keeps the happy path unindented and puts the failure next to the condition that caused
-it, which is where the reader looks. The alternatives — a `match` with a `_ => return` arm, or an
-`if let` wrapping the entire rest of the function — both bury the main line one level deeper.
-
-**Check:** grep for `if let Some(x) = … {` whose block extends to the end of the function. Each is a
-`let ... else`.
-
-```rust
-// verified
-#[derive(Debug, thiserror::Error)]
-#[error("not configured")]
-pub struct NotConfigured;
-
-#[derive(Debug, Default)]
-pub struct Service {
-    config: Option<String>,
-}
-
-impl Service {
-    /// `let ... else` keeps the happy path flat and names the exit.
-    ///
-    /// # Errors
-    /// Returns [`NotConfigured`] when no configuration has been installed.
-    pub fn endpoint(&self) -> Result<&str, NotConfigured> {
-        let Some(config) = self.config.as_deref() else {
-            return Err(NotConfigured);
-        };
-        Ok(config)
-    }
-}
-```
-
 ## Panics
 
 ### RS-ERR-35 [M] A panic means a bug
@@ -814,12 +764,6 @@ pub fn midpoint(low: u32, high: u32) -> u32 {
 }
 ```
 
-### RS-ERR-39 [M] Never unwind across an FFI boundary (see RS-UNSAFE-24)
-
-Owned by `references/unsafe.md` RS-UNSAFE-24. Wrap every exported entry point in `catch_unwind` and
-convert the panic into an error code. This is one of the few rules in this chapter whose violation
-is memory-unsafe rather than merely rude.
-
 ### RS-ERR-40 [M] Make `Drop` infallible in practice
 
 A panic during unwinding aborts the process.
@@ -877,9 +821,10 @@ pub fn total_len(parts: &[usize]) -> Option<usize> {
 It is the application's decision, set in its own profile.
 
 **Why:** `panic = "abort"` removes `catch_unwind` from the whole dependency graph, which silently
-breaks any crate relying on it — test harnesses, FFI wrappers (RS-ERR-39), and worker pools that
-isolate task failures. A library that sets it in its own `Cargo.toml` is also simply ignored, since
-profiles only apply from the workspace root, so the setting is both wrong and ineffective.
+breaks any crate relying on it — test harnesses, FFI wrappers (`references/unsafe.md` RS-UNSAFE-24),
+and worker pools that isolate task failures. A library that sets it in its own `Cargo.toml` is also
+simply ignored, since profiles only apply from the workspace root, so the setting is both wrong and
+ineffective.
 
 **Check:** grep `panic = "abort"` outside the top-level binary's profile.
 
@@ -938,17 +883,6 @@ user-facing channel: `Error: Read { path: "/etc/x", source: Os { code: 2, kind: 
 control over the exit code.
 
 **Check:** does the program's failure output look like something you would show a user?
-
-### RS-ERR-46 [M] Results to stdout, diagnostics to stderr
-
-Never interleave the two.
-
-**Why:** it is what makes a tool composable. `tool | grep`, `tool > file`, and `tool 2> log` all
-depend on the separation, and a single diagnostic on stdout corrupts every downstream consumer's
-parse (`references/cli.md` RS-CLI-20).
-
-**Check:** run the tool with a deliberate error and `1>/dev/null`. Only diagnostics should appear.
-Then run it successfully with `2>/dev/null` — the full result should still appear.
 
 ### RS-ERR-47 [M] Treat exit codes as part of the interface
 
@@ -1029,35 +963,5 @@ pub fn run_all(inputs: &[Result<u32, String>]) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
-}
-```
-
-### RS-ERR-50 [M] Exit quietly on `BrokenPipe`
-
-Handle `ErrorKind::BrokenPipe` explicitly and exit with success.
-
-**Why:** every `tool | head` closes the pipe early, and without this the tool prints an error and
-exits non-zero on what the user experiences as a completely normal operation. It is the single most
-common polish defect in Rust CLI tools, and it is about five lines to fix
-(`references/cli.md` RS-CLI-22).
-
-**Check:** run `yourtool <big input> | head -1`. Anything on stderr, or a non-zero exit, is the bug.
-
-```rust
-// verified
-use std::io::{self, ErrorKind, Write};
-
-/// A closed downstream pipe is normal termination, not a failure.
-///
-/// # Errors
-/// Propagates every write error except [`ErrorKind::BrokenPipe`].
-pub fn emit(mut sink: impl Write, lines: &[String]) -> io::Result<()> {
-    for line in lines {
-        match writeln!(sink, "{line}") {
-            Err(error) if error.kind() == ErrorKind::BrokenPipe => return Ok(()),
-            other => other?,
-        }
-    }
-    Ok(())
 }
 ```

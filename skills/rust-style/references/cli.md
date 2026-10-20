@@ -44,7 +44,6 @@ and shell completions, and obsessive attention to stream behaviour — is what
 
 - **Behaviour, environment, signals**
   - RS-CLI-30 [M] Read stdin when given no files, and treat `-` as stdin
-  - RS-CLI-31 [M] Continue past per-input failures and exit non-zero (see RS-ERR-49)
   - RS-CLI-32 [M!] Make destructive operations opt-in, and never prompt when not a terminal
   - RS-CLI-33 [M!] Write output atomically where a partial file would be harmful
   - RS-CLI-34 [M] Install process-wide state once, at the top of `main`
@@ -574,7 +573,7 @@ pub fn usage_error(flag: &str) -> ExitCode {
 ### RS-CLI-20 [M] Send results to stdout and diagnostics to stderr
 
 Results go to stdout, diagnostics to stderr. This single rule is what makes a tool composable:
-`tool | grep`, `tool > file`, and `tool 2> log` all behave as the user expects (`RS-ERR-46`).
+`tool | grep`, `tool > file`, and `tool 2> log` all behave as the user expects.
 
 **Why:** the two streams exist precisely so that data and commentary can be routed separately. A
 warning on stdout corrupts every pipeline the tool appears in, and the corruption is silent.
@@ -642,7 +641,7 @@ error, and this is the most common polish defect in Rust CLIs.
 
 **Why:** `head` closing the pipe is normal, expected termination, not a failure — the user got what
 they asked for. Rust does not ignore `SIGPIPE` by default the way C programs typically do, so this
-has to be handled explicitly (`RS-ERR-50`).
+has to be handled explicitly.
 
 **Check:** run `tool | head -1`. Any error output or non-zero exit is a violation.
 
@@ -941,12 +940,6 @@ pub fn sources(args: &[PathBuf]) -> Vec<Source> {
         .collect()
 }
 ```
-
-### RS-CLI-31 [M] Continue past per-input failures and exit non-zero (see RS-ERR-49)
-
-Owned by `references/errors.md` RS-ERR-49. Across many inputs partial failure is the normal case:
-report each on stderr, keep going, and let the exit code carry the failure. Aborting a
-ten-thousand-file traversal because one file is unreadable is the wrong default.
 
 ### RS-CLI-32 [M!] Make destructive operations opt-in, and never prompt when not a terminal
 

@@ -122,7 +122,7 @@ impl Slots {
 
 Every `unsafe` block carries a `// SAFETY:` comment stating which precondition holds and *why it
 holds here* — referencing the specific invariant, bound check, or earlier assertion. Enforce it with
-`clippy::undocumented_unsafe_blocks` at deny (`RS-BUILD-29`).
+`clippy::undocumented_unsafe_blocks` at deny.
 
 **Why:** the comment is the proof. Restating the precondition ("the pointer must be valid") without
 saying what establishes it is not a proof, and it is exactly the form that survives a refactor which
@@ -590,7 +590,7 @@ block mirroring a non-trivial C struct is a finding.
 ### RS-UNSAFE-24 [M] Never unwind across an `extern "C"` boundary
 
 Never unwind across an `extern "C"` boundary — it is undefined behaviour. Wrap every exported entry
-point in `catch_unwind` and convert a panic into an error code (`RS-ERR-39`).
+point in `catch_unwind` and convert a panic into an error code.
 
 **Why:** the C frames have no unwinding tables and no destructors to run, so the unwinder cannot
 proceed correctly. Edition 2024 aborts rather than corrupting, but an abort is still a process death

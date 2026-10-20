@@ -159,7 +159,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-API-70` | `RS-API-70` |
 | `RS-API-71` | `RS-API-71` |
 | `RS-API-72` | `RS-API-72` |
-| `RS-API-73` | `RS-API-73` |
+| `RS-API-73` | `RS-TRAIT-30` |
 | `RS-API-74` | `RS-API-74` |
 | `RS-API-75` | `RS-API-75` |
 | `RS-API-76` | `RS-API-76` |
@@ -196,14 +196,14 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-CAR-23` | `RS-BUILD-23` |
 | `RS-CAR-24` | `RS-BUILD-24` |
 | `RS-CAR-25` | `RS-BUILD-25` |
-| `RS-CAR-26` | `RS-BUILD-26` |
+| `RS-CAR-26` | lint `clippy:lint_groups_priority` |
 | `RS-CAR-27` | `RS-BUILD-27` |
-| `RS-CAR-28` | `RS-BUILD-28` |
-| `RS-CAR-29` | `RS-BUILD-29` |
-| `RS-CAR-30` | `RS-BUILD-30` |
+| `RS-CAR-28` | lint `clippy:unwrap_used` |
+| `RS-CAR-29` | lint `clippy:undocumented_unsafe_blocks` |
+| `RS-CAR-30` | lint `clippy:allow_attributes` |
 | `RS-CAR-31` | `RS-BUILD-31` |
 | `RS-CAR-32` | `RS-BUILD-32` |
-| `RS-CAR-33` | `RS-BUILD-33` |
+| `RS-CAR-33` | lint `rustc:linker_messages` |
 | `RS-CAR-34` | `RS-BUILD-34` |
 | `RS-CAR-35` | `RS-BUILD-35` |
 | `RS-CAR-36` | `RS-BUILD-36` |
@@ -255,7 +255,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-CLI-28` | `RS-CLI-28` |
 | `RS-CLI-29` | `RS-CLI-29` |
 | `RS-CLI-30` | `RS-CLI-30` |
-| `RS-CLI-31` | `RS-CLI-31` |
+| `RS-CLI-31` | `RS-ERR-49` |
 | `RS-CLI-32` | `RS-CLI-32` |
 | `RS-CLI-33` | `RS-CLI-33` |
 | `RS-CLI-34` | `RS-CLI-34` |
@@ -298,7 +298,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-CNC-31` | `RS-CONC-31` |
 | `RS-CNC-32` | `RS-CONC-32` |
 | `RS-CNC-33` | `RS-CONC-33` |
-| `RS-CNC-34` | `RS-CONC-34` |
+| `RS-CNC-34` | lint `clippy:unused_async` |
 | `RS-CNC-35` | `RS-CONC-35` |
 | `RS-CNC-36` | `RS-CONC-36` |
 | `RS-CNC-37` | `RS-CONC-37` |
@@ -348,7 +348,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-DOC-29` | `RS-DOC-29` |
 | `RS-DOC-30` | `RS-DOC-30` |
 | `RS-DOC-31` | `RS-DOC-31` |
-| `RS-DOC-32` | `RS-DOC-32` |
+| `RS-DOC-32` | lint `rustdoc:broken_intra_doc_links` |
 | `RS-DOC-33` | `RS-DOC-33` |
 | `RS-DOC-34` | `RS-DOC-34` |
 | `RS-DOC-35` | `RS-DOC-35` |
@@ -361,7 +361,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-ERR-02` | `RS-ERR-02` |
 | `RS-ERR-03` | `RS-ERR-03` |
 | `RS-ERR-04` | `RS-ERR-04` |
-| `RS-ERR-05` | `RS-ERR-05` |
+| `RS-ERR-05` | lint `clippy:unwrap_used` |
 | `RS-ERR-06` | `RS-ERR-06` |
 | `RS-ERR-07` | `RS-ERR-07` |
 | `RS-ERR-08` | `RS-ERR-08` |
@@ -390,32 +390,32 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-ERR-31` | `RS-ERR-31` |
 | `RS-ERR-32` | `RS-ERR-32` |
 | `RS-ERR-33` | `RS-ERR-33` |
-| `RS-ERR-34` | `RS-ERR-34` |
+| `RS-ERR-34` | `RS-FUNC-08` |
 | `RS-ERR-35` | `RS-ERR-35` |
 | `RS-ERR-36` | `RS-ERR-36` |
 | `RS-ERR-37` | `RS-ERR-37` |
 | `RS-ERR-38` | `RS-ERR-38` |
-| `RS-ERR-39` | `RS-ERR-39` |
+| `RS-ERR-39` | `RS-UNSAFE-24` |
 | `RS-ERR-40` | `RS-ERR-40` |
 | `RS-ERR-41` | `RS-ERR-41` |
 | `RS-ERR-42` | `RS-ERR-42` |
 | `RS-ERR-43` | `RS-ERR-43` |
 | `RS-ERR-44` | `RS-ERR-44` |
 | `RS-ERR-45` | `RS-ERR-45` |
-| `RS-ERR-46` | `RS-ERR-46` |
+| `RS-ERR-46` | `RS-CLI-20` |
 | `RS-ERR-47` | `RS-ERR-47` |
 | `RS-ERR-48` | `RS-ERR-48` |
 | `RS-ERR-49` | `RS-ERR-49` |
-| `RS-ERR-50` | `RS-ERR-50` |
+| `RS-ERR-50` | `RS-CLI-22` |
 | `RS-FP-01` | `RS-FUNC-01` |
-| `RS-FP-02` | `RS-FUNC-02` |
+| `RS-FP-02` | lint `clippy:needless_return` |
 | `RS-FP-03` | `RS-FUNC-03` |
 | `RS-FP-04` | `RS-FUNC-04` |
 | `RS-FP-05` | `RS-FUNC-05` |
 | `RS-FP-06` | `RS-FUNC-06` |
 | `RS-FP-07` | `RS-FUNC-07` |
 | `RS-FP-08` | `RS-FUNC-08` |
-| `RS-FP-09` | `RS-FUNC-09` |
+| `RS-FP-09` | lint `clippy:match_like_matches_macro` |
 | `RS-FP-10` | `RS-FUNC-10` |
 | `RS-FP-11` | `RS-FUNC-11` |
 | `RS-FP-12` | `RS-FUNC-12` |
@@ -426,7 +426,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-FP-17` | `RS-FUNC-17` |
 | `RS-FP-18` | `RS-FUNC-18` |
 | `RS-FP-19` | `RS-FUNC-19` |
-| `RS-FP-20` | `RS-FUNC-20` |
+| `RS-FP-20` | lint `clippy:map_clone` |
 | `RS-FP-21` | `RS-FUNC-21` |
 | `RS-FP-22` | `RS-FUNC-22` |
 | `RS-FP-23` | `RS-FUNC-23` |
@@ -438,16 +438,16 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-FP-29` | `RS-FUNC-29` |
 | `RS-FP-30` | `RS-FUNC-30` |
 | `RS-FP-31` | `RS-FUNC-31` |
-| `RS-FP-32` | `RS-FUNC-32` |
+| `RS-FP-32` | lint `clippy:needless_late_init` |
 | `RS-FP-33` | `RS-FUNC-33` |
 | `RS-FP-34` | `RS-FUNC-34` |
 | `RS-FP-35` | `RS-FUNC-35` |
-| `RS-FP-36` | `RS-FUNC-36` |
+| `RS-FP-36` | lint `clippy:manual_inspect` |
 | `RS-FP-37` | `RS-FUNC-37` |
 | `RS-FP-38` | `RS-FUNC-38` |
 | `RS-FP-39` | `RS-FUNC-39` |
 | `RS-FP-40` | `RS-FUNC-40` |
-| `RS-FP-41` | `RS-FUNC-41` |
+| `RS-FP-41` | lint `clippy:redundant_closure` |
 | `RS-FP-42` | `RS-FUNC-42` |
 | `RS-FP-43` | `RS-FUNC-43` |
 | `RS-FP-44` | `RS-FUNC-44` |
@@ -536,18 +536,18 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-NAM-37` | `RS-NAME-37` |
 | `RS-NAM-38` | `RS-NAME-38` |
 | `RS-NAM-39` | `RS-NAME-39` |
-| `RS-NAM-40` | `RS-NAME-40` |
+| `RS-NAM-40` | lint `rustc:non_upper_case_globals` |
 | `RS-NAM-41` | `RS-NAME-41` |
 | `RS-NAM-42` | `RS-NAME-42` |
 | `RS-NAM-43` | `RS-NAME-43` |
 | `RS-NAM-44` | `RS-NAME-44` |
 | `RS-OWN-01` | `RS-OWN-01` |
-| `RS-OWN-02` | `RS-OWN-02` |
+| `RS-OWN-02` | lint `clippy:ptr_arg` |
 | `RS-OWN-03` | `RS-OWN-03` |
 | `RS-OWN-04` | `RS-OWN-04` |
 | `RS-OWN-05` | `RS-OWN-05` |
-| `RS-OWN-06` | `RS-OWN-06` |
-| `RS-OWN-07` | `RS-OWN-07` |
+| `RS-OWN-06` | lint `rustc:elided_lifetimes_in_paths` |
+| `RS-OWN-07` | lint `clippy:needless_lifetimes` |
 | `RS-OWN-08` | `RS-OWN-08` |
 | `RS-OWN-09` | `RS-OWN-09` |
 | `RS-OWN-10` | `RS-OWN-10` |
@@ -565,7 +565,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-OWN-22` | `RS-OWN-22` |
 | `RS-OWN-23` | `RS-OWN-23` |
 | `RS-OWN-24` | `RS-OWN-24` |
-| `RS-OWN-25` | `RS-OWN-25` |
+| `RS-OWN-25` | `RS-UNSAFE-18` |
 | `RS-OWN-26` | `RS-OWN-26` |
 | `RS-OWN-27` | `RS-OWN-27` |
 | `RS-OWN-28` | `RS-OWN-28` |
@@ -597,7 +597,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-PRF-08` | `RS-PERF-08` |
 | `RS-PRF-09` | `RS-PERF-09` |
 | `RS-PRF-10` | `RS-PERF-10` |
-| `RS-PRF-11` | `RS-PERF-11` |
+| `RS-PRF-11` | `RS-OWN-17` |
 | `RS-PRF-12` | `RS-PERF-12` |
 | `RS-PRF-13` | `RS-PERF-13` |
 | `RS-PRF-14` | `RS-PERF-14` |
@@ -605,11 +605,11 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-PRF-16` | `RS-PERF-16` |
 | `RS-PRF-17` | `RS-PERF-17` |
 | `RS-PRF-18` | `RS-PERF-18` |
-| `RS-PRF-19` | `RS-PERF-19` |
+| `RS-PRF-19` | lint `clippy:map_entry` |
 | `RS-PRF-20` | `RS-PERF-20` |
 | `RS-PRF-21` | `RS-PERF-21` |
 | `RS-PRF-22` | `RS-PERF-22` |
-| `RS-PRF-23` | `RS-PERF-23` |
+| `RS-PRF-23` | lint `clippy:needless_range_loop` |
 | `RS-PRF-24` | `RS-PERF-24` |
 | `RS-PRF-25` | `RS-PERF-25` |
 | `RS-PRF-26` | `RS-PERF-26` |
@@ -621,7 +621,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-PRF-32` | `RS-PERF-32` |
 | `RS-PRF-33` | `RS-PERF-33` |
 | `RS-PRF-34` | `RS-PERF-34` |
-| `RS-PRF-35` | `RS-PERF-35` |
+| `RS-PRF-35` | lint `clippy:inline_always` |
 | `RS-PRF-36` | `RS-PERF-36` |
 | `RS-PRF-37` | `RS-PERF-37` |
 | `RS-PRF-38` | `RS-PERF-38` |
@@ -642,10 +642,10 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-STR-03` | `RS-MOD-03` |
 | `RS-STR-04` | `RS-MOD-04` |
 | `RS-STR-05` | `RS-MOD-05` |
-| `RS-STR-06` | `RS-MOD-06` |
+| `RS-STR-06` | lint `clippy:mod_module_files` |
 | `RS-STR-07` | `RS-MOD-07` |
 | `RS-STR-08` | `RS-MOD-08` |
-| `RS-STR-09` | `RS-MOD-09` |
+| `RS-STR-09` | `RS-TEST-04` |
 | `RS-STR-10` | `RS-MOD-10` |
 | `RS-STR-11` | `RS-MOD-11` |
 | `RS-STR-12` | `RS-MOD-12` |
@@ -710,7 +710,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-TST-14` | `RS-TEST-14` |
 | `RS-TST-15` | `RS-TEST-15` |
 | `RS-TST-16` | `RS-TEST-16` |
-| `RS-TST-17` | `RS-TEST-17` |
+| `RS-TST-17` | lint `clippy:should_panic_without_expect` |
 | `RS-TST-18` | `RS-TEST-18` |
 | `RS-TST-19` | `RS-TEST-19` |
 | `RS-TST-20` | `RS-TEST-20` |
@@ -774,7 +774,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-TRG-36` | `RS-TRAIT-36` |
 | `RS-TRG-37` | `RS-TRAIT-37` |
 | `RS-TRG-38` | `RS-TRAIT-38` |
-| `RS-TRG-39` | `RS-TRAIT-39` |
+| `RS-TRG-39` | `RS-OWN-22` |
 | `RS-TRG-40` | `RS-TRAIT-40` |
 | `RS-TRG-41` | `RS-TRAIT-41` |
 | `RS-TRG-42` | `RS-TRAIT-42` |

@@ -42,14 +42,14 @@ expect_used = "deny"
 panic = "deny"
 todo = "deny"
 unimplemented = "deny"
-indexing_slicing = "deny"            # RS-BUILD-28
+indexing_slicing = "deny"            # `get` returns an `Option` instead
 dbg_macro = "deny"
 undocumented_unsafe_blocks = "deny"  # only meaningful if unsafe is allowed
 mem_forget = "deny"
 
 # Prefer `#[expect(…, reason = "…")]` to `#[allow]`, and make every remaining
 # allow say why: a suppression that stops being needed becomes a warning.
-allow_attributes = "warn"            # RS-BUILD-30
+allow_attributes = "warn"            # `#[expect]` warns once it is no longer needed
 allow_attributes_without_reason = "warn"
 
 # `[lints] workspace = true` is all-or-nothing: a member cannot inherit the

@@ -13,12 +13,9 @@ one thing, or one owner for two things. The fix is almost never `.clone()`.
 
 - **Borrowing and signatures**
   - RS-OWN-01 [M] Let the signature declare the ownership contract
-  - RS-OWN-02 [M] Prefer borrowed parameter types for read-only access
   - RS-OWN-03 [M] Take by value when you store, transform, or consume
   - RS-OWN-04 [S] Return borrows for views and owned values for computations
   - RS-OWN-05 [M] Do not put a lifetime on a struct unless the borrow is the point
-  - RS-OWN-06 [M] Use the anonymous lifetime wherever it is accepted
-  - RS-OWN-07 [S] Do not name a lifetime you can elide
   - RS-OWN-08 [S] Treat two input references and one output as a design question
   - RS-OWN-09 [S] Prefer one coherent `&mut self` method to a row of `&mut` accessors
   - RS-OWN-10 [M] Split borrows by destructuring instead of fighting them
@@ -40,7 +37,6 @@ one thing, or one owner for two things. The fix is almost never `.clone()`.
   - RS-OWN-22 [S] Do not require `'static` unless you spawn, erase, or store
   - RS-OWN-23 [M] Do not leak to satisfy a `'static` bound
   - RS-OWN-24 [S] Write higher-ranked bounds rather than avoiding borrowed callbacks
-  - RS-OWN-25 [M] Choose the `PhantomData` that expresses the real relationship
   - RS-OWN-26 [M] Do not build self-referential structs
   - RS-OWN-27 [S] Prefer indices to references for graph-shaped data
   - RS-OWN-28 [M] Narrow edition-2024 `impl Trait` capture with `use<>`
@@ -66,6 +62,7 @@ one thing, or one owner for two things. The fix is almost never `.clone()`.
   - RS-OWN-44 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
   - RS-OWN-45 [S] Prefer scope-based cleanup to defer-style crates
   - RS-OWN-46 [M] Install process-wide resources once, at the top of `main`
+- Decided by tools
 
 ---
 
@@ -90,25 +87,6 @@ use std::path::Path;
 #[must_use]
 pub fn extension_of(path: &Path) -> Option<&str> {
     path.extension().and_then(std::ffi::OsStr::to_str)
-}
-```
-
-### RS-OWN-02 [M] Prefer borrowed parameter types for read-only access
-
-`&str`, `&[T]`, `&Path` (`references/api.md` RS-API-12).
-
-**Why:** owned parameters force an allocation on every caller who already has a borrow, and that is
-the common case — a substring, a slice of a larger buffer, a `&'static str` literal.
-
-**Check:** `rg -n '&Vec<|&String\b|&PathBuf\b'`, plus by-value `String`/`Vec` parameters whose body
-only reads them.
-
-```rust
-// verified
-/// `&[T]` accepts `Vec`, arrays, and slices alike; `&Vec<T>` accepts only one of them.
-#[must_use]
-pub fn longest<'a>(words: &[&'a str]) -> Option<&'a str> {
-    words.iter().copied().max_by_key(|word| word.len())
 }
 ```
 
@@ -161,25 +139,6 @@ the ergonomic tax it imposes.
 
 **Check:** for each `struct Foo<'a>`, what does the borrow buy? If the answer is "avoids one clone
 at construction", the trade is almost certainly wrong.
-
-### RS-OWN-06 [M] Use the anonymous lifetime wherever it is accepted
-
-`fn iter(&self) -> Iter<'_, T>`, `impl Debug for Wrapper<'_>`.
-
-**Why:** it documents "there is a borrow here" without inventing a name nobody reads, and it makes
-the elided-lifetime-in-path case visible — writing `Iter<T>` where `Iter<'_, T>` is meant hides a
-borrow, which edition 2024 lints against.
-
-**Check:** grep for a path to a type with a lifetime parameter that omits it entirely.
-`elided_lifetimes_in_paths` catches these.
-
-### RS-OWN-07 [S] Do not name a lifetime you can elide
-
-**Why:** explicit `<'a>` on a single-reference function is noise that implies a subtlety which is
-not there. Elision handles the common cases correctly by construction, so the presence of a named
-lifetime should mean "read carefully".
-
-**Check:** does removing the lifetime parameter still compile? Then remove it.
 
 ### RS-OWN-08 [S] Treat two input references and one output as a design question
 
@@ -327,8 +286,8 @@ pub fn has_prefix(haystack: &str, prefix: &str) -> bool {
 Hoist a `String` or `Vec<u8>`, `clear()` it each pass, read into it.
 
 **Why:** this is the pattern behind every fast line-oriented tool, ripgrep included: one allocation
-for the whole run instead of one per line. `BufRead::read_line` and `read_until` are designed for it
-(`references/performance.md` RS-PERF-11).
+for the whole run instead of one per line. `BufRead::read_line` and `read_until` are designed for
+it.
 
 **Check:** is there a `String::new()`, `Vec::new()`, or `format!` inside a loop body?
 
@@ -434,8 +393,7 @@ will reasonably keep alive?
 
 **Why:** `T: 'static` means "contains no borrows", which is normal for thread spawning and type
 erasure and needlessly exclusionary everywhere else. It is the most over-applied bound in Rust, and
-it rejects perfectly good borrowed types for no reason
-(`references/traits.md` RS-TRAIT-39).
+it rejects perfectly good borrowed types for no reason.
 
 **Check:** for each `'static`, does the value cross a thread boundary, get boxed into a `dyn`, or
 outlive the call? If not, remove it.
@@ -458,17 +416,6 @@ purely to avoid it — imposes an allocation on every call for the sake of not w
 characters.
 
 **Check:** does a callback signature force `String` where `&str` would do?
-
-### RS-OWN-25 [M] Choose the `PhantomData` that expresses the real relationship
-
-`PhantomData<T>` owns, `PhantomData<&'a T>` borrows, `PhantomData<*mut T>` opts out of
-`Send`/`Sync`, `PhantomData<fn() -> T>` is a covariant marker owning nothing.
-
-**Why:** the choice affects drop check, variance, and auto-trait derivation — all silently. A marker
-that accidentally claims ownership changes when the compiler thinks the value must be alive
-(`references/unsafe.md` RS-UNSAFE-18).
-
-**Check:** for each `PhantomData`, state which of the four cases it is and why.
 
 ### RS-OWN-26 [M] Do not build self-referential structs
 
@@ -742,3 +689,16 @@ impl<W: std::io::Write> Reporter<W> {
     }
 }
 ```
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| clippy | `ptr_arg` | warn | `&Vec<T>`, `&String` or `&PathBuf` where `&[T]`, `&str` or `&Path` serves |
+| clippy | `needless_pass_by_value` | warn | an owned parameter the body only reads — borrow it |
+| rustc | `elided_lifetimes_in_paths` | warn | a type whose lifetime the path hides — write `Iter<'_, T>` |
+| rustc | `mismatched_lifetime_syntaxes` | warn | a lifetime hidden in the return type while the input names it |
+| clippy | `elidable_lifetime_names` | warn | a named lifetime where `'_` says the same |
+| clippy | `needless_lifetimes` | warn | a lifetime parameter elision would supply |
