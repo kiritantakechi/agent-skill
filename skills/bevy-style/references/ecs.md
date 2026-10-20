@@ -29,7 +29,6 @@ chapter.
   - BV-ECS-16 [M] Ask for `&mut` only where the system writes
   - BV-ECS-17 [M] Put a zero-sized marker in the filter, never in the data
   - BV-ECS-18 [S] Split a system before reaching for a third `Option<&T>`
-  - BV-ECS-19 [M] Treat `single` as fallible, because it is
   - BV-ECS-20 [S] Iterate a query with `for`, not a combinator chain
   - BV-ECS-21 [M] Name a query type once it needs two lines
   - BV-ECS-22 [S] Reach for `iter_many` when the set of entities is already known
@@ -47,6 +46,7 @@ chapter.
 - **Structural change**
   - BV-ECS-31 [M] Do not read back what a command has not applied yet
   - BV-ECS-32 [M] Reach for an exclusive system last, and say what forced it
+- Decided by tools
 
 ---
 
@@ -498,44 +498,6 @@ independently.
 they force is just as reachable through `map_or`, `zip` or one `match`, so counting `if let Some`
 in the body misses the functional spellings this standard's sibling actively prefers. Three or more
 is the signal; split by `With`/`Without` instead.
-
-### BV-ECS-19 [M] Treat `single` as fallible, because it is
-
-`Query::single` and `single_mut` return `Result`. Propagate it with `?` from a system that returns
-`Result`.
-
-**Why:** zero or two matches is normal — the camera is not spawned on the first frame, and the
-player is despawned on death — so this is a condition to handle, not an invariant. It was made
-fallible in 0.16, and the panicking form no longer exists under that name.
-
-**Check:** `rg -n 'single\(\)\.unwrap\(\)|single_mut\(\)\.unwrap\(\)' src/` — each is a crash
-where a `?` would have skipped a frame. Read every `.expect(` too: whether its receiver is a query
-is what decides, and the pattern cannot see that.
-
-```rust
-// verified
-use bevy::prelude::*;
-
-#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
-#[reflect(Component)]
-struct Player;
-
-#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
-#[reflect(Component)]
-struct Follower;
-
-/// Returns `Result`, so a frame with no player is a skipped frame and not a crash.
-fn follow_player(
-    players: Query<&Transform, With<Player>>,
-    mut followers: Query<&mut Transform, (With<Follower>, Without<Player>)>,
-) -> Result {
-    let target = players.single()?.translation;
-    for mut transform in &mut followers {
-        transform.translation = transform.translation.lerp(target, 0.1);
-    }
-    Ok(())
-}
-```
 
 ### BV-ECS-20 [S] Iterate a query with `for`, not a combinator chain
 
@@ -1067,3 +1029,11 @@ together, needing a command applied now — have a non-exclusive form.
 
 **Check:** for each `&mut World` parameter, name what makes `SystemParam`s insufficient. "Needed a
 resource and a query" is not one of them; "runs a scene through the type registry" is.
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| clippy | `unwrap_used` | deny | `query.single().unwrap()` — `single()` returns a `Result`; propagate it with `?` |

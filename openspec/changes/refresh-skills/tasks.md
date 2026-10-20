@@ -241,7 +241,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
     BV-MIG-05 grep.
 
   Verify that `sensitivity` proves every new pattern fires.
-- [ ] 10.5 Lint rows: demote the five LINT rules the asset enables, and delete BV-ECS-19's `fires`
+- [x] 10.5 Lint rows: demote the five LINT rules the asset enables, and delete BV-ECS-19's `fires`
   fixture if it is demoted. Delete the six pointer rules and record their dispositions. Verify:
   `citations`, `anatomy` and `sensitivity` pass.
 - [ ] 10.6 Cut every **Why** to three lines or fewer. Verify: `anatomy` passes with bevy-style not

@@ -16,7 +16,6 @@ as much, and the upstream migration guides are the reference for those.
 
 - **Using this chapter**
   - BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.17 until checked
-  - BV-MIG-02 [M] Treat a deprecated API as removed
   - BV-MIG-03 [M] Follow a rename to its 0.19 spelling, not its first hop
 
 - **0.15: bundles and text**
@@ -27,22 +26,20 @@ as much, and the upstream migration guides are the reference for those.
 - **0.16: hierarchy, queries, errors**
   - BV-MIG-07 [M] Replace `Parent` and the hierarchy commands with relationships
   - BV-MIG-08 [M] Replace the panicking and deprecated query methods
-  - BV-MIG-09 [M] Replace `Handle` used directly as a component (see BV-ECS-14)
 
 - **0.17: the big rename**
   - BV-MIG-10 [M] Replace the buffered-event vocabulary with messages
-  - BV-MIG-11 [M] Replace `Trigger` and the `On`-prefixed lifecycle events (see BV-EVENT-14)
   - BV-MIG-12 [M] Rename every system set to end in `Systems`
   - BV-MIG-13 [M] Replace the remaining 0.17 renames
 
 - **0.18 and 0.19**
   - BV-MIG-14 [M] Replace the 0.18 renames
-  - BV-MIG-15 [M] Split a type that was both a component and a resource (see BV-STATE-01)
   - BV-MIG-16 [M] Replace the old scene vocabulary, and know which `bevy_scene` you mean
   - BV-MIG-17 [M] Replace the remaining 0.19 renames
 
 - **Changes that do not show up as a compile error**
   - BV-MIG-18 [M] Re-read every `Ref` that is cloned
+- Decided by tools
 
 ---
 
@@ -60,17 +57,6 @@ mental model that keeps producing the old names.
 
 **Check:** `rg -n  'Trigger<|EventReader|EventWriter|[A-Za-z0-9]Bundle' src/` over the sample.
 Any hit dates it, and so does a system set whose name does not end in `Systems`.
-
-### BV-MIG-02 [M] Treat a deprecated API as removed
-
-A `#[deprecated]` item in Bevy has one release to live. Write the replacement.
-
-**Why:** Bevy deprecates for one minor version and then deletes, so a deprecation warning is a
-notice that this code will not compile against the next release — six to twelve weeks away. Leaving
-it also means the migration happens later, in a batch, at the same time as everything else that
-release changed.
-
-**Check:** build with warnings visible and read every `deprecated` note. There should be none.
 
 ### BV-MIG-03 [M] Follow a rename to its 0.19 spelling, not its first hop
 
@@ -235,12 +221,6 @@ the panicking one and everybody reached for it.
 | `bevy::a11y::Focus` | `bevy::input_focus::InputFocus` |
 | `Handle::weak_from_u128(..)` | the `weak_handle!("…")` macro |
 
-### BV-MIG-09 [M] Replace `Handle` used directly as a component (see BV-ECS-14)
-
-Owned by `references/ecs.md` BV-ECS-14. `Handle<T>` stopped implementing `Component` in 0.15, and
-the replacement is a named wrapper — which is what the engine did to its own: `Mesh3d`,
-`MeshMaterial3d`, `AudioPlayer`, `AnimationGraphHandle`.
-
 ## 0.17: the big rename
 
 ### BV-MIG-10 [M] Replace the buffered-event vocabulary with messages
@@ -272,12 +252,6 @@ this table is the mechanical half.
 | `RemovedComponents::events` | `RemovedComponents::messages` |
 | `RemovedComponentEvents` | `RemovedComponentMessages` |
 | `SendBatchIds` | `WriteBatchIds` |
-
-### BV-MIG-11 [M] Replace `Trigger` and the `On`-prefixed lifecycle events (see BV-EVENT-14)
-
-Owned by `references/events.md` BV-EVENT-14. `Trigger<E>` is `On<E>`, the five lifecycle events lost
-their `On` prefix because the prefix moved to the parameter type, and an event with a target is an
-`EntityEvent` carrying the entity as a field.
 
 ### BV-MIG-12 [M] Rename every system set to end in `Systems`
 
@@ -369,12 +343,6 @@ src/`, and the manifest for the renamed feature names.
 | `AnimationTarget` | the separate components that replaced it |
 | `FontAtlasSets` | removed |
 
-### BV-MIG-15 [M] Split a type that was both a component and a resource (see BV-STATE-01)
-
-Owned by `references/state.md` BV-STATE-01. In 0.19 `Resource` is a subtrait of `Component`, so one
-type can no longer be both — and `#[reflect(Resource)]` now also reflects `Component`, so reflection
-code asks for `ReflectComponent`.
-
 ### BV-MIG-16 [M] Replace the old scene vocabulary, and know which `bevy_scene` you mean
 
 0.19 renamed the old scene crate to `bevy_world_serialization` and gave the name `bevy_scene` to the
@@ -459,6 +427,14 @@ The other silent changes are stated where the topic lives: state transitions now
 same-state `set` (`references/state.md` BV-STATE-20), and `Resource` is now a `Component`
 (`references/state.md` BV-STATE-01).
 
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| rustc | `deprecated` | warn | a deprecated Bevy API — CI denies warnings, so treat it as already removed |
+
 ## Rule IDs before the Bevy 0.20.0 revision
 
 Every rule ID this standard used before the revision, and what it is now.
@@ -487,7 +463,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-ASS-01` | `BV-ASSET-01` |
 | `BV-ASS-02` | `BV-ASSET-02` |
 | `BV-ASS-03` | `BV-ASSET-03` |
-| `BV-ASS-04` | `BV-ASSET-04` |
+| `BV-ASS-04` | `BV-ECS-14` |
 | `BV-ASS-05` | `BV-ASSET-05` |
 | `BV-ASS-06` | `BV-ASSET-06` |
 | `BV-ASS-07` | `BV-ASSET-07` |
@@ -537,7 +513,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-ECS-16` | `BV-ECS-16` |
 | `BV-ECS-17` | `BV-ECS-17` |
 | `BV-ECS-18` | `BV-ECS-18` |
-| `BV-ECS-19` | `BV-ECS-19` |
+| `BV-ECS-19` | lint `clippy:unwrap_used` |
 | `BV-ECS-20` | `BV-ECS-20` |
 | `BV-ECS-21` | `BV-ECS-21` |
 | `BV-ECS-22` | `BV-ECS-22` |
@@ -557,8 +533,8 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-ERR-04` | `BV-ERR-04` |
 | `BV-ERR-05` | `BV-ERR-05` |
 | `BV-ERR-06` | `BV-ERR-06` |
-| `BV-ERR-07` | `BV-ERR-07` |
-| `BV-ERR-08` | `BV-ERR-08` |
+| `BV-ERR-07` | lint `clippy:unwrap_used` |
+| `BV-ERR-08` | lint `clippy:indexing_slicing` |
 | `BV-ERR-09` | `BV-ERR-09` |
 | `BV-ERR-10` | `BV-ERR-10` |
 | `BV-ERR-11` | `BV-ERR-11` |
@@ -589,20 +565,20 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-EVT-19` | `BV-EVENT-19` |
 | `BV-EVT-20` | `BV-EVENT-20` |
 | `BV-MIG-01` | `BV-MIG-01` |
-| `BV-MIG-02` | `BV-MIG-02` |
+| `BV-MIG-02` | lint `rustc:deprecated` |
 | `BV-MIG-03` | `BV-MIG-03` |
 | `BV-MIG-04` | `BV-MIG-04` |
 | `BV-MIG-05` | `BV-MIG-05` |
 | `BV-MIG-06` | `BV-MIG-06` |
 | `BV-MIG-07` | `BV-MIG-07` |
 | `BV-MIG-08` | `BV-MIG-08` |
-| `BV-MIG-09` | `BV-MIG-09` |
+| `BV-MIG-09` | `BV-ECS-14` |
 | `BV-MIG-10` | `BV-MIG-10` |
-| `BV-MIG-11` | `BV-MIG-11` |
+| `BV-MIG-11` | `BV-EVENT-14` |
 | `BV-MIG-12` | `BV-MIG-12` |
 | `BV-MIG-13` | `BV-MIG-13` |
 | `BV-MIG-14` | `BV-MIG-14` |
-| `BV-MIG-15` | `BV-MIG-15` |
+| `BV-MIG-15` | `BV-STATE-01` |
 | `BV-MIG-16` | `BV-MIG-16` |
 | `BV-MIG-17` | `BV-MIG-17` |
 | `BV-MIG-18` | `BV-MIG-18` |
@@ -647,7 +623,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-STA-13` | `BV-STATE-13` |
 | `BV-STA-14` | `BV-STATE-14` |
 | `BV-STA-15` | `BV-STATE-15` |
-| `BV-STA-16` | `BV-STATE-16` |
+| `BV-STA-16` | `BV-SCHED-21` |
 | `BV-STA-17` | `BV-STATE-17` |
 | `BV-STA-18` | `BV-STATE-18` |
 | `BV-STA-19` | `BV-STATE-19` |

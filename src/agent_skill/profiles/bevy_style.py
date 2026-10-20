@@ -62,7 +62,6 @@ class BevyStyle(Profile):
     #: in real code. A fixture shaped to match proves the fixture, not the pattern.
     fires: dict = field(
         default_factory=lambda: {
-            "BV-ECS-19": ("let player = query.single().unwrap();",),
             "BV-EVENT-09": ("commands.trigger_targets(Damage(5), target);",),
         }
     )

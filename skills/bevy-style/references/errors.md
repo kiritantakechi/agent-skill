@@ -20,8 +20,6 @@ the error, and a `Command` declares its output as an associated type.
   - BV-ERR-06 [S] Override the handler per schedule only where the phase differs
 
 - **The panicking half**
-  - BV-ERR-07 [M] Never unwrap a query (see BV-ECS-19)
-  - BV-ERR-08 [M] Never index a collection an entity count can reach
   - BV-ERR-09 [M] Prefer the non-panicking half of every pair
   - BV-ERR-10 [M] Never panic to report bad content
   - BV-ERR-11 [M] Do not discard a `Result` with `let _ =`
@@ -33,6 +31,7 @@ the error, and a `Command` declares its output as an associated type.
   - BV-ERR-15 [S] Log once, where the error is handled
   - BV-ERR-16 [M] Exit with `AppExit::error` when startup cannot continue
   - BV-ERR-17 [M!] Decide the render error policy, because the default quits
+- Decided by tools
 
 ---
 
@@ -306,24 +305,6 @@ severity (BV-ERR-04) covers nearly every case and keeps the answer in one place.
 could not have expressed it.
 
 ## The panicking half
-
-### BV-ERR-07 [M] Never unwrap a query (see BV-ECS-19)
-
-Owned by `references/ecs.md` BV-ECS-19. The query is where the panicking half is taken most often,
-and it needs no machinery of its own: a system that already returns `Result` for BV-ERR-01's sake
-can propagate `single()?` and `get(entity)?` with the `?` it was going to have anyway.
-
-### BV-ERR-08 [M] Never index a collection an entity count can reach
-
-`slice[i]` where `i` came from a component, a message, or an entity count is a panic waiting for the
-frame the counts disagree. Use `get`.
-
-**Why:** the index and the collection are updated by different systems, so they are consistent only
-between them — a wave counter incremented in `FixedUpdate` and a `Vec` of wave definitions loaded
-from an asset will disagree the first time content is edited. `clippy::indexing_slicing` is at deny
-in this standard's lint table for exactly this.
-
-**Check:** grep for `[` applied to a `Vec`, a slice or an array inside a system.
 
 ### BV-ERR-09 [M] Prefer the non-panicking half of every pair
 
@@ -748,3 +729,10 @@ fn main() -> AppExit {
 }
 ```
 
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| clippy | `indexing_slicing` | deny | indexing a `Vec` or slice an entity count reaches — `get` returns an `Option` |

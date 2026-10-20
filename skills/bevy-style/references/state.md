@@ -25,7 +25,6 @@ gating a system on a state is in the scheduling chapter.
   - BV-STATE-13 [S] Give loading its own state, not a flag
   - BV-STATE-14 [S] Use `SubStates` for a phase that only exists inside another
   - BV-STATE-15 [M] Register every state exactly once
-  - BV-STATE-16 [M] Do not branch on `State<S>` inside a system body (see BV-SCHED-21)
 
 - **Transitions**
   - BV-STATE-17 [M] Put setup in `OnEnter` and teardown in `OnExit`
@@ -496,12 +495,6 @@ sub-state gives it an independent life, and the `#[source]` relationship silentl
 
 **Check:** grep each state type name. Exactly one registration call, and its kind matches the
 derive.
-
-### BV-STATE-16 [M] Do not branch on `State<S>` inside a system body (see BV-SCHED-21)
-
-Owned by `references/scheduling.md` BV-SCHED-21. A comparison against `State<S>` in a body is a
-run condition that has been written as an `if`, and the system still pays for every parameter it
-declared.
 
 ## Transitions
 

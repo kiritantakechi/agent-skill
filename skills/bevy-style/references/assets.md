@@ -10,7 +10,6 @@ this chapter is about the handles.
   - BV-ASSET-01 [M] Treat a handle as a reference count, not a path
   - BV-ASSET-02 [M] Load once and store the handle, never per frame
   - BV-ASSET-03 [S] Keep the handles for a feature in one resource
-  - BV-ASSET-04 [M] Wrap a handle in a named component (see BV-ECS-14)
   - BV-ASSET-05 [S] Reach for the `weak_handle!` macro only for a built-in
 
 - **Loading**
@@ -97,11 +96,6 @@ this feature need on disk".
 
 **Check:** for each feature, is there a single type holding its handles? If handles are constructed
 in more than one system, they are scattered.
-
-### BV-ASSET-04 [M] Wrap a handle in a named component (see BV-ECS-14)
-
-Owned by `references/ecs.md` BV-ECS-14. An entity may want two handles of the same asset type, so
-the component type has to be the meaning rather than the asset kind.
 
 ### BV-ASSET-05 [S] Reach for the `weak_handle!` macro only for a built-in
 
