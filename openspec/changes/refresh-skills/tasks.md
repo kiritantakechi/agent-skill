@@ -304,8 +304,8 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 15. Close
 
-- [ ] 15.1 One full run, alone. Verify: `ALL CHECKS PASSED`, and `openspec validate --strict`.
-- [ ] 15.2 Machine cleanup: remove `.cache/target` and uninstall the `3.15.0rc1+freethreaded`
+- [x] 15.1 One full run, alone. Verify: `ALL CHECKS PASSED`, and `openspec validate --strict`.
+- [x] 15.2 Machine cleanup: remove `.cache/target` and uninstall the `3.15.0rc1+freethreaded`
   interpreter. Verify: `du -sh .cache` and `uv python list --only-installed`.
 
 ## Workflow follow-up
