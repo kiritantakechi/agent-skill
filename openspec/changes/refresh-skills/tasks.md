@@ -275,9 +275,9 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 13. Content leftovers
 
-- [ ] 13.1 bevy-style rules that cite `bevy_lint` lints say the lint cannot yet run on 0.20,
+- [x] 13.1 bevy-style rules that cite `bevy_lint` lints say the lint cannot yet run on 0.20,
   unless a release now supports it. Verify: `--fast`, and nothing claims a lint runs that cannot.
-- [ ] 13.2 The unconfirmed Bevy claims, checked against the 0.20.0 source and corrected:
+- [x] 13.2 The unconfirmed Bevy claims, checked against the 0.20.0 source and corrected:
   - the dropped-handle claim;
   - the `load_with_settings` "old spelling";
   - the inferred shader-migration rows;

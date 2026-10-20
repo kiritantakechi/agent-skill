@@ -197,7 +197,7 @@ impl Plugin for CombatPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::ecs::error::warn;
+    use bevy::ecs::system::{RunSystemError, RunSystemOnce};
 
     #[test]
     fn the_domain_answers_without_an_ecs() {
@@ -232,9 +232,9 @@ mod tests {
     }
 
     #[test]
-    fn a_bad_tier_ends_the_system_instead_of_the_process() {
+    fn a_bad_tier_is_returned_as_the_domain_error() {
         let mut app = App::new();
-        app.add_plugins(CombatPlugin).set_error_handler(warn);
+        app.add_plugins(CombatPlugin);
         let target = app
             .world_mut()
             .spawn((PendingHit, Armor(3), Health(20)))
@@ -247,8 +247,16 @@ mod tests {
             Ok(Some(&Health(14)))
         );
 
+        // Since 0.20 the handler also receives panics, so surviving `update`
+        // proves nothing. Run once, the system hands back what it returned,
+        // and a panic would unwind through the test instead.
         app.world_mut().insert_resource(EquippedWeapon { tier: 9 });
-        app.update();
+        let ran: Result<(), _> = app.world_mut().run_system_once(apply_pending_hits);
+        assert!(matches!(
+            &ran,
+            Err(RunSystemError::Failed(error))
+                if error.downcast_ref::<CombatError>() == Some(&CombatError::UnknownTier(9))
+        ));
         assert_eq!(
             app.world().get_entity(target).map(|e| e.get::<Health>()),
             Ok(Some(&Health(14)))
@@ -341,7 +349,7 @@ reads as the default when it is the exception.
 
 **Check:** grep for the left column, outside `#[cfg(test)]`. `bevy_lint`'s `panicking_methods` is
 no substitute: it knows the `World` rows by their 0.18 names, so it misses `World::non_send`, and
-no release of it runs on 0.20 (BV-BUILD-17).
+it cannot run on 0.20 yet (BV-BUILD-17).
 
 | Panicking | Use instead |
 |---|---|
@@ -415,12 +423,14 @@ impl Plugin for CameraRigPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::ecs::error::warn;
+    use bevy::ecs::entity::EntityNotSpawnedError;
+    use bevy::ecs::query::QuerySingleError;
+    use bevy::ecs::system::{RunSystemError, RunSystemOnce};
 
     #[test]
-    fn the_frame_after_the_player_dies_is_skipped_and_not_fatal() {
+    fn the_frame_after_the_player_dies_returns_errors_and_keeps_the_rig() {
         let mut app = App::new();
-        app.add_plugins(CameraRigPlugin).set_error_handler(warn);
+        app.add_plugins(CameraRigPlugin);
         let player = app
             .world_mut()
             .spawn((Player, Transform::from_xyz(1.0, 2.0, 3.0)))
@@ -429,9 +439,16 @@ mod tests {
         app.update();
 
         // Both halves fail this frame: `single` finds nothing and
-        // `get_entity` finds a despawned id. Neither ends the process.
+        // `get_entity` finds a despawned id. Run once, each system hands
+        // back the error it returned; the panicking half would unwind.
         assert!(app.world_mut().despawn(player));
-        app.update();
+        let aimed: Result<(), _> = app.world_mut().run_system_once(aim_rig);
+        assert!(matches!(&aimed, Err(RunSystemError::Failed(e)) if e.is::<QuerySingleError>()));
+        let focused: Result<(), _> = app.world_mut().run_system_once(record_focus);
+        assert!(matches!(
+            &focused,
+            Err(RunSystemError::Failed(e)) if e.is::<EntityNotSpawnedError>()
+        ));
 
         let Some(rig) = app.world().get_resource::<CameraRig>() else {
             unreachable!()
@@ -446,9 +463,11 @@ mod tests {
     #[test]
     fn a_watched_entity_without_a_transform_is_a_skipped_frame() {
         let mut app = App::new();
-        app.add_plugins(CameraRigPlugin).set_error_handler(warn);
+        app.add_plugins(CameraRigPlugin);
         app.world_mut().spawn(Player);
 
+        // The default handler panics on a returned error, so an `update`
+        // that completes is one in which neither system failed.
         app.update();
 
         let Some(rig) = app.world().get_resource::<CameraRig>() else {

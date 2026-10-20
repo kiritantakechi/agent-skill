@@ -83,6 +83,7 @@ class BevyStyle(Profile):
                 "commands.spawn((Mesh3d(mesh), MeshMaterial3d(material), MeshTag(7)));",
                 "let default = <ReflectDefault as FromType<Settings>>::from_type();",
                 "use bevy_math::primitives::Circle;",
+                'let atlas = server.load_with_settings("atlas.png", srgb);',
                 "#import bevy_pbr::forward_io::VertexOutput",
             ),
         }

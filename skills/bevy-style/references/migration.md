@@ -493,13 +493,14 @@ WESL now (`references/view.md` BV-VIEW-18), and a domain crate that names `glam`
 `compressed_image_saver` feature now selects a BCn/ASTC backend, and `SpriteMaterial` is a new
 public type unrelated to the old internal one.
 
-**Check:** six searches over the Rust,
+**Check:** seven searches over the Rust,
 `rg -n 'EditableTextInputPlugin|TextScroll|scroll_editable_text|resolve_font_source' src/`,
 `rg -n 'FontSource::(Ui)?(Serif|SansSerif|Monospace)\b' src/`,
 `rg -n 'FontSource::(Cursive|Fantasy|SystemUi|UiRounded|Emoji|Math|FangSong)\b' src/`,
 `rg -n 'MeshTag\(|compute_aabb|with_attribute|Exclusive(SystemParam|Marker|FunctionSystem)' src/`,
-`rg -n '\bFromType\b|meta_transform|UnpreparedBindGroup|ExtractedWindows' src/` and
-`rg -n 'resolve_single_corner|VariantDefaults|bevy_math::(curve|cubic_splines|primitives)' src/`;
+`rg -n '\bFromType\b|meta_transform|UnpreparedBindGroup|ExtractedWindows' src/`,
+`rg -n 'resolve_single_corner|VariantDefaults|bevy_math::(curve|cubic_splines|primitives)' src/` and
+`rg -n '\.load_(override|acquire|with_settings)' src/`;
 one over the shaders, `rg -n -t wgsl '#import|#ifdef|#define_import_path|#\{'`; then read the
 manifest for `shader_format_(wesl|glsl)`, which is gone, every `compressed_image_saver`, which kept
 its name, and a domain crate's `glam = "0.32"`, which moves to `"0.33"` with Bevy 0.20.
@@ -529,6 +530,8 @@ its name, and a domain crate's `glam = "0.32"`, which moves to `"0.33"` with Bev
 | `from_ptr(_mut)` | `raw_pointer_cast` |
 | `PartialReflect::to_dynamic` returning a value | it returns `Result` |
 | `UntypedHandle::meta_transform` | removed |
+| `AssetServer::load_with_settings`, `load_override`, `load_acquire` and their combinations | `load_builder()` with `with_settings`, `override_unapproved` or `with_guard` (BV-ASSET-08) |
+| `AssetServer::load_untyped`, `load_erased` | the same call on `load_builder()` |
 | `Name::from(&str)` on a non-`'static` string | `Name::new(s.to_owned())` |
 | `Ptr::as_ptr` returning `*mut u8` | it returns `*const u8` |
 | `UiCameraMapper::current_camera()` returning `Entity::PLACEHOLDER` | it returns `Option<Entity>` |

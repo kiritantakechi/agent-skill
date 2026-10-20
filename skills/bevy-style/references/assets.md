@@ -31,10 +31,12 @@ this chapter is about the handles.
 
 ### BV-ASSET-01 [M] Treat a handle as a reference count, not a path
 
-A `Handle<T>` keeps the asset alive. Dropping the last one unloads it.
+A strong `Handle<T>` is a reference count: every clone keeps the asset alive, the one in an
+entity's component included, and dropping the last one frees it.
 
-**Why:** a handle stored in a local, used to spawn, and then dropped can unload the asset out from
-under the entity still using it, and the symptom is a missing texture rather than an error.
+**Why:** the trap is the handle nothing else holds — a preload whose handle is discarded, or an
+`AssetId` kept in its place. Its drop cancels the load or frees the asset, so the next `load` of the
+path reads the disk again and the id finds nothing: a hitch or a missing texture, never an error.
 
 **Check:** for each `AssetServer::load`, follow the handle. If it is not stored anywhere that
 outlives its use, the asset can be dropped.
@@ -254,15 +256,16 @@ and materials all do.
 
 ### BV-ASSET-08 [S] Reach for the load builder when a load needs settings
 
-0.20 exposes the advanced load variants through `AssetServer::load_builder`. Use it rather than
-reaching for `load_with_settings` plus a chain of overrides.
+Loader settings, an unapproved path and a guard all go through `AssetServer::load_builder`:
+`load_builder().with_settings(…).load(path)`. 0.19 added the builder and deprecated the variants it
+replaced; 0.20 removed them.
 
 **Why:** the builder replaced a combinatorial family — `load_*_override`, `load_with_settings`,
 `load_with_settings_override` — and is the form upstream extends, so code written against it
 survives the next option being added. It also keeps a load with five options readable.
 
-**Check:** grep for `load_with_settings` and `load_override`. Each is a builder call in the old
-spelling.
+**Check:** grep for `load_with_settings`, `load_override` and `load_acquire`. Each is a call 0.20
+removed; the builder's `with_settings`, `override_unapproved` and `with_guard` replace them.
 
 ### BV-ASSET-09 [M] Keep asset paths out of the code that uses them
 

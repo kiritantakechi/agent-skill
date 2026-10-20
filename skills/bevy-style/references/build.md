@@ -129,8 +129,8 @@ satisfy a parameter expecting 0.20's, and the error shows two identical type nam
 explanation. It also doubles the compile time of the largest dependency in the project.
 
 **Check:** run `cargo tree --duplicates | grep bevy` in CI. Any output fails the build.
-`bevy_lint`'s `duplicate_bevy_dependencies` sees only the facade, and no release of it runs on
-0.20 (BV-BUILD-17).
+`bevy_lint`'s `duplicate_bevy_dependencies` sees only the facade, and cannot run on 0.20 yet
+(BV-BUILD-17).
 
 ### BV-BUILD-06 [S] Check a plugin crate's compatibility table before adding it
 
@@ -297,8 +297,9 @@ table. `assets/Cargo.toml` is the table, with both relaxations and their reasons
 
 `bevy_lint` catches the Bevy-specific defects that `clippy` cannot see. It runs under its own
 pinned nightly with the `rustc-dev` component — not the game's toolchain — and only in a version
-whose compatibility table names the engine's. No release supports Bevy 0.19 or 0.20 (v0.6.0, the
-latest, targets 0.18), so the job stays in CI, disabled, until one does.
+whose compatibility table names the engine's. No release supports Bevy 0.19 or 0.20: v0.6.0, the
+latest, targets 0.18, and support for both is in the open pull requests TheBevyFlock/bevy_cli #835,
+#925 and #943. The job stays in CI, disabled, until a release ships that support.
 
 **Why:** it is the only mechanical check for a dozen rules in this standard — markers in query data,
 `main` without `AppExit`, `Messages` inserted as a resource, the `*Plugin` and `*Systems`
