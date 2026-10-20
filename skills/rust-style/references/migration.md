@@ -65,7 +65,6 @@ Each of these compiles before and after, and behaves differently:
 
 | Since | What changed |
 |---|---|
-| 1.99 | `default-features = false` on an inherited workspace dependency takes effect in edition-2024 members, so a 1.98 MSRV job and a 1.99 job build different features |
 | 1.99 | Cargo turns incremental compilation off when `CI` is set |
 | 1.99 | an exhausted `RangeInclusive` reports different `start()` and `end()`, and slices differently |
 | 1.98 | a derived `PartialOrd` beside a derived `Ord` takes the `Ord` path, so the two can no longer disagree |

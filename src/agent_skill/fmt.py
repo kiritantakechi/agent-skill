@@ -16,7 +16,7 @@ from itertools import groupby
 from pathlib import Path
 
 from . import shared
-from .lang.rust import RUST, Crate
+from .lang.rust import RUST, Crate, module_name
 from .proc import run
 
 #: The line the extractor injects into every block module.
@@ -91,7 +91,7 @@ def _format_rust(skill) -> list[str]:
         changed: list[str] = []
         for chapter, blocks in groupby(skill.blocks("rust"), key=lambda b: b.file):
             wanted = [b for b in blocks if b.marker.verified and b.rule != "?"]
-            src = extraction.root / "src" / f"{Path(chapter).stem.replace('-', '_')}.rs"
+            src = extraction.root / "src" / f"{module_name(chapter)}.rs"
             if not wanted or not src.exists():
                 continue
             bodies = _bodies(src, extraction.crate)

@@ -197,7 +197,9 @@ include = ["src/**/*.rs", "Cargo.toml", "README.md", "LICENSE-*"]
 
 In a workspace, declare shared dependencies once in `[workspace.dependencies]` and inherit with
 `dep.workspace = true`. Also inherit `version`, `edition`, `license`, `repository`, and
-`rust-version` via `[workspace.package]` — one place to bump, no drift.
+`rust-version` via `[workspace.package]` — one place to bump, no drift. A member may write
+`dep = { workspace = true, default-features = false }` only with `rust-version` at 1.99 or later:
+Cargo 1.99 honours it on an edition-2024 member, and older Cargo rejects that manifest.
 
 **Why:** duplicated version requirements across members drift, and the drift produces duplicate
 versions in the graph (`RS-BUILD-36`). One declaration makes divergence impossible rather than a
@@ -236,21 +238,25 @@ can be deleted.
 ### RS-BUILD-10 [M] Configure `[package.metadata.docs.rs]` and the `docsrs` cfg
 
 `[package.metadata.docs.rs]` should enable the features docs.rs should build with (`all-features =
-true`, or an explicit list) and `rustdoc-args = ["--cfg", "docsrs"]` so `#[cfg_attr(docsrs,
-doc(cfg(feature = "…")))]` annotations render.
+true`, or an explicit list) and `rustdoc-args = ["--cfg", "docsrs"]` so the `docsrs`-gated
+`doc_cfg` line takes effect (`RS-BUILD-19`). Since 2026-05-01 docs.rs builds only
+`x86_64-unknown-linux-gnu` unless `targets` lists more, so a crate with platform-gated API sets
+`targets` to cover it.
 
 **Why:** docs.rs builds with default features unless told otherwise, so a crate whose interesting
 API is feature-gated publishes documentation missing most of itself. The `docsrs` cfg is what makes
 the feature badges appear (`RS-DOC-34`).
 
-**Check:** open the published docs and look for a feature-gated item. Missing or unbadged means the
-metadata is absent.
+**Check:** open the published docs and look for a feature-gated item and a platform-gated one.
+Missing or unbadged means the metadata is absent.
 
 ```toml
 # fragment — Cargo.toml
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
+# Only the default target is built unless `targets` lists every one to document:
+# targets = ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
 ```
 
 ### RS-BUILD-11 [M] Commit `Cargo.lock`, for libraries too
@@ -373,14 +379,17 @@ survive unification.
 
 ### RS-BUILD-19 [M] Annotate feature-gated public items for docs.rs
 
-Annotate feature-gated public items with `#[cfg_attr(docsrs, doc(cfg(feature = "x")))]` so docs.rs
-shows the badge. An item that appears in docs but does not exist by default is a support ticket.
+Put `#![cfg_attr(docsrs, feature(doc_cfg))]` at the crate root so docs.rs shows the badge on every
+feature-gated public item. `doc_cfg` is nightly-only and docs.rs builds on nightly; with it on,
+rustdoc derives each badge from the item's own `#[cfg]`, so an explicit
+`#[cfg_attr(docsrs, doc(cfg(feature = "x")))]` is needed only to override a derived badge. An item
+that appears in docs but does not exist by default is a support ticket.
 
 **Why:** with `all-features` documentation, every gated item appears as though it is always
 available. The badge is the only thing that tells the reader they need to enable something.
 
-**Check:** for each `#[cfg(feature = …)]` on a public item, is there a matching `cfg_attr` doc
-annotation?
+**Check:** does the crate root carry the `doc_cfg` line, and does `RUSTDOCFLAGS="--cfg docsrs"
+cargo +nightly doc --all-features` show a badge on a feature-gated item?
 
 ### RS-BUILD-20 [M] Test the feature powerset that matters, not just `--all-features`
 
@@ -437,7 +446,8 @@ yours, which is an unresolvable conflict for the user. Reproducibility belongs i
 
 Turn off default features on heavy dependencies and enable only what you use: `tokio = { version =
 "1", default-features = false, features = ["rt", "macros"] }`. This is often the single largest
-build-time win available.
+build-time win available. In a workspace, turn them off in `[workspace.dependencies]`; turning them
+off on one member's inherited dependency needs `rust-version` 1.99 (`RS-BUILD-08`).
 
 **Why:** default features are chosen for the dependency's typical user, not for you, and they
 frequently pull in most of the crate. Because features unify, your choice also affects everyone
@@ -459,15 +469,14 @@ tokio = { version = "1", default-features = false, features = ["rt", "macros"] }
 
 Lints belong in the manifest's `[lints]` table (stable since 1.74), inherited from
 `[workspace.lints]`, not in a wall of `#![deny(...)]` attributes in `lib.rs`. The manifest is where
-a reviewer looks for policy, and it applies to every target automatically.
+a reviewer looks for policy, and it applies to every target automatically. `[lints] workspace =
+true` is all-or-nothing, so a lint only some members want stays out of the workspace table, as
+`print_stdout` does below. Name `elided_lifetimes_in_paths` and `explicit_outlives_requirements`
+individually rather than enabling `rust_2018_idioms`: its other three members cover what edition
+2024 already rejects or has made unnecessary.
 
 **Why:** crate-level attributes apply only to that crate root, so tests, benches, and examples
 silently miss them. The manifest table covers every target and is inheritable across a workspace.
-
-Do not reach for the `rust_2018_idioms` group on edition 2024: three of its five members —
-`bare_trait_objects`, `ellipsis_inclusive_range_patterns`, and `unused_extern_crates` — describe
-things the edition already rejects or has made unnecessary, so the group is mostly inert and its
-name misdates the crate. The two members that still earn their place are named individually above.
 
 **Check:** grep for `#![deny(` and `#![warn(` in source. Each belongs in the manifest.
 
@@ -496,14 +505,16 @@ undocumented_unsafe_blocks = "deny"
 ### RS-BUILD-27 [M] Run `clippy::pedantic` at `warn` and answer each warning
 
 `clippy::pedantic` at `warn` is the right default. Treat each resulting warning as a question to
-answer, and allow individual lints with a comment giving the reason — never allow the group.
+answer, and allow individual lints with a comment giving the reason — never allow the group. The
+group changes with the toolchain — `collapsible_else_if` joined it in 1.94, `nonminimal_bool` and
+the new `manual_assert_eq` in 1.97 — so each toolchain bump brings new warnings to answer.
 
 **Why:** pedantic contains genuinely valuable lints mixed with ones that will not suit your crate,
 so the group is worth enabling and the exceptions are worth recording. Allowing the whole group
 discards the valuable ones to avoid arguing with a handful.
 
-**Check:** grep for `pedantic = "allow"`. Each individual allow should carry a reason
-(clippy `allow_attributes`).
+**Check:** grep for `pedantic = "allow"`. Each individual allow in the manifest carries a comment
+giving its reason — no lint reads a manifest comment, so this one is review.
 
 ### RS-BUILD-31 [M] Never blanket-`allow` at crate level to make CI green
 
@@ -520,14 +531,16 @@ would have been most useful. It converts a temporary annoyance into a permanent 
 Deny warnings in CI through Cargo's own configuration rather than `RUSTFLAGS`:
 `CARGO_BUILD_WARNINGS=deny` (or `[build] warnings = "deny"` in `.cargo/config.toml`) controls this
 without invalidating the build cache, so developers can flip it locally without a full rebuild.
+It also fails `cargo doc` on a rustdoc warning. Cargo honours it from 1.97 and ignores it before,
+so an MSRV job on an older toolchain does not deny warnings.
 
 **Why:** `RUSTFLAGS` is part of the fingerprint Cargo uses to decide what to rebuild, so setting it
 invalidates the entire cache. The dedicated setting does not, which makes "build with warnings
 denied" a cheap local check rather than a CI-only step.
 
 **Check:** both `CARGO_BUILD_WARNINGS=deny` and `[build] warnings = "deny"` fail the build with
-`error: warnings are denied by 'build.warnings' configuration`. Grep CI config for
-`RUSTFLAGS="-Dwarnings"` and replace it.
+``error: warnings are denied by `build.warnings` configuration``. Grep CI config for
+`RUSTFLAGS="-Dwarnings"` and `RUSTDOCFLAGS="-D warnings"`, and replace both.
 
 ### RS-BUILD-34 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
 
@@ -537,10 +550,9 @@ are `group_imports = "StdExternalCrate"` and `imports_granularity = "Crate"`; ch
 toolchain accepts them on stable with `cargo fmt -- --help=config`, and run the format job on
 nightly if not.
 
-**Why:** formatting arguments consume review attention that should go to behaviour, and the only way
-to end them is a mechanical check. Overrides reintroduce the argument in a smaller form, so the
-default is worth keeping except where the benefit is concrete — import grouping genuinely reduces
-diff noise.
+**Why:** formatting arguments consume review attention that should go to behaviour, and only a
+mechanical check ends them. Each override reintroduces the argument in a smaller form, so it needs a
+concrete benefit — import grouping is one, because it reduces diff noise.
 
 **Check:** both options are nightly-only. Stable rustfmt reports `can't set imports_granularity =
 Crate, unstable features are only available in nightly channel` and continues with the default, so
@@ -588,7 +600,9 @@ something breaks.
 
 Verify the MSRV claim with a dedicated CI job pinned to that toolchain, and test minimal versions
 (`cargo +nightly update -Z minimal-versions`) at least occasionally — under-specified lower bounds
-are a common latent breakage.
+are a common latent breakage. Running
+`cargo hack check --rust-version --workspace --all-targets --ignore-private` takes the toolchain
+from each package's `rust-version`, so the job cannot drift from the manifest.
 
 **Why:** normal CI runs the latest toolchain and the newest permitted dependency versions, so
 neither the MSRV nor the declared lower bounds are ever exercised. Both fail only for users, who are
@@ -629,10 +643,9 @@ it?
 `cargo publish --dry-run` and inspect `cargo package --list` before a real publish. Publishing is
 irreversible; yanking does not remove anything.
 
-**Why:** a yanked version remains downloadable and remains in every existing lockfile, so
-publication is permanent in practice. A leaked file or a missing module is therefore unfixable after
-the fact — the only remedy is publishing another version, with the mistake still available. Two
-commands prevent it.
+**Why:** a yanked version stays downloadable and stays in every existing lockfile, so a leaked file
+or a missing module cannot be withdrawn — only superseded by another version, with the mistake still
+available.
 
 **Check:** does the release process include both commands before the publish step?
 
@@ -707,7 +720,11 @@ benches are not linted.
 ### RS-BUILD-47 [S] Cache the registry and `target/`, and use `cargo nextest`
 
 Cache the Cargo registry and `target/` directory in CI (for example with `Swatinem/rust-cache`), and
-use `cargo nextest` for faster, clearer test output on large suites.
+use `cargo nextest` for faster, clearer test output on large suites. A job that runs Miri, or that
+writes a `target/` cache pull requests can read, holds no secrets in its environment: a tool may
+save the environment into `target/`, as Miri did, and the cache hands it to the next pull request.
+Cargo 1.99 turns incremental compilation off when `CI` is set, so CI needs no
+`CARGO_INCREMENTAL=0`.
 
 **Why:** CI time is the length of the feedback loop, and a cold dependency build dominates it.
 `nextest` runs each test in its own process, which both parallelizes better and isolates failures.

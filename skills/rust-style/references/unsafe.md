@@ -63,9 +63,8 @@ Justify `unsafe` with a measurement or a capability, never with "it should be fa
 written for performance is neutral, because the safe version already optimized to the same code.
 
 **Why:** `unsafe` buys exactly two things — access to a capability safe Rust cannot express (FFI,
-raw memory, a lock-free algorithm) and, occasionally, speed. The second is usually an illusion,
-because LLVM already elided the bounds check. Requiring evidence keeps the proof obligations you
-take on proportional to what you actually get.
+raw memory, a lock-free algorithm) and, occasionally, speed. Requiring evidence keeps the proof
+obligations you take on proportional to what you actually get.
 
 **Check:** for each `unsafe` block, ask which of the two justifications applies. If the answer is
 "speed", find the benchmark; if there is no benchmark, delete the block and rerun the tests.
@@ -134,8 +133,7 @@ on line N, a type invariant, a caller obligation — not a restatement of the ru
 ### RS-UNSAFE-04 [M] Give every `unsafe fn` a mechanically checkable `# Safety` section
 
 Every `unsafe fn` has a `# Safety` section listing the caller's obligations precisely enough to be
-checked mechanically. Every `*_unchecked` method is `unsafe` and documents the check it skips
-(`RS-DOC-14`).
+checked mechanically. Every `*_unchecked` method is `unsafe` and documents the check it skips.
 
 **Why:** `unsafe fn` moves the obligation to the caller, and a caller can only discharge an
 obligation that is written down in checkable terms. "Must be valid" is not checkable; "`idx` must be
@@ -285,8 +283,13 @@ flag. What matters is that an independent implementation exists to disagree with
 
 Know the list and check against it: dereferencing a dangling or misaligned pointer, aliasing `&mut`
 with anything, producing an invalid value (a `bool` that is not 0/1, an out-of-range `char`, a null
-`&T`, an uninitialized integer), breaking pointer provenance, data races, and unwinding across an
-`extern "C"` boundary.
+`&T`, an uninitialized integer), breaking pointer provenance, data races, and a foreign exception
+unwinding into Rust through an `extern "C"` boundary.
+
+Reading a union field produces a value of its type, and a pattern that names a union field beside
+other subpatterns may read it even when the rest does not match: test the tag first, then read the
+field inside the matched arm. Accessing an `UnsafeCell`'s contents without going through `get` is
+not on the list; std guarantees it since 1.99.
 
 **Why:** UB is not "might crash" — it is a licence for the optimizer to assume the case cannot
 happen and delete the code around it. Reasoning about what the machine "would" do is the mistake;
@@ -343,7 +346,7 @@ pub fn filled(value: u8) -> [u8; 8] {
         slot.write(value);
     }
     // SAFETY: the loop above wrote every one of the eight slots.
-    unsafe { std::mem::transmute::<[MaybeUninit<u8>; 8], [u8; 8]>(buf) }
+    unsafe { MaybeUninit::<[u8; 8]>::from(buf).assume_init() }
 }
 ```
 
@@ -440,13 +443,14 @@ through `usize` discards that, and the optimizer is entitled to conclude the res
 cannot alias the object you meant.
 
 **Check:** grep for `as usize` on pointers followed by `as *const`/`as *mut`. Each is a provenance
-break unless it uses `with_addr`/`map_addr`.
+break unless it uses `with_addr`/`map_addr`. An integer-to-pointer `transmute` needs no grep:
+`integer_to_ptr_transmutes` warns on it by default.
 
 ### RS-UNSAFE-18 [M] Choose the `PhantomData` that matches the real relationship
 
 Choose `PhantomData` to match the real relationship: `PhantomData<T>` for ownership (affects drop
 check and auto traits), `PhantomData<&'a T>` for a shared borrow, `PhantomData<*mut T>` to opt out
-of `Send`/`Sync`, `PhantomData<fn() -> T>` for a covariant marker that owns nothing (`RS-TRAIT-54`).
+of `Send`/`Sync`, `PhantomData<fn() -> T>` for a covariant marker that owns nothing.
 
 **Why:** each spelling declares a different thing to drop check, variance, and the auto traits.
 Picking one because it silences the "unused parameter" error means declaring a relationship you did
@@ -493,7 +497,7 @@ the property is not pinned.
 ### RS-UNSAFE-20 [M] Make a trait `unsafe` when unsafe code relies on its implementors
 
 A trait whose implementors must uphold an invariant that unsafe code relies on is an `unsafe trait`,
-with the obligation documented in a `# Safety` section on the trait itself (`RS-TRAIT-14`).
+with the obligation documented in a `# Safety` section on the trait itself.
 
 **Why:** if safe code can write a wrong implementation and thereby cause UB elsewhere, the trait is
 the unsound part. `unsafe trait` is how the obligation is transferred to the implementor, which is
@@ -521,7 +525,7 @@ pub unsafe trait FixedWidth {
 
 Manual `unsafe impl Send`/`Sync` requires a written argument for why concurrent access is sound,
 next to the impl. The auto-derive is almost always right; overriding it is where "it works on my
-machine" races come from (`RS-CONC-29`).
+machine" races come from.
 
 **Why:** the compiler withheld the auto impl for a reason — usually a raw pointer or a `Cell`.
 Asserting it manually claims you have synchronized what the compiler could not see, and that claim
@@ -589,12 +593,18 @@ block mirroring a non-trivial C struct is a finding.
 
 ### RS-UNSAFE-24 [M] Never unwind across an `extern "C"` boundary
 
-Never unwind across an `extern "C"` boundary — it is undefined behaviour. Wrap every exported entry
-point in `catch_unwind` and convert a panic into an error code.
+Never unwind across an `extern "C"` boundary. Since 1.81 a Rust panic escaping an `extern "C"`
+function aborts the process, and a foreign exception unwinding into Rust through `extern "C"` is
+still undefined behaviour. Wrap every exported entry point in `catch_unwind` and convert a panic
+into an error code; where unwinding across the boundary is intended, declare `extern "C-unwind"`.
+
+An exported `#[unsafe(no_mangle)]` function is never generic (a hard error since 1.99), and it never
+takes the name of a symbol std relies on — `memcpy`, `strlen`, `malloc` — with a different
+signature, which `invalid_runtime_symbol_definitions` denies.
 
 **Why:** the C frames have no unwinding tables and no destructors to run, so the unwinder cannot
-proceed correctly. Edition 2024 aborts rather than corrupting, but an abort is still a process death
-inside someone else's program.
+proceed through them. The abort Rust substitutes is still a process death inside someone else's
+program, which an error code avoids.
 
 **Check:** every `pub extern "C" fn` and every `#[unsafe(no_mangle)]` function body is wrapped in
 `catch_unwind`, and the error path maps to a documented return code.
@@ -606,7 +616,7 @@ use std::panic::catch_unwind;
 
 const ERR_PANIC: c_int = -1;
 
-/// Unwinding across `extern "C"` is undefined, so the boundary catches it.
+/// A panic escaping `extern "C"` aborts the host process, so the boundary catches it.
 #[unsafe(no_mangle)]
 pub extern "C" fn mylib_length(len: c_int) -> c_int {
     catch_unwind(|| len.saturating_mul(2)).unwrap_or(ERR_PANIC)
@@ -616,7 +626,9 @@ pub extern "C" fn mylib_length(len: c_int) -> c_int {
 ### RS-UNSAFE-25 [M] Validate every pointer crossing the boundary
 
 Validate every pointer crossing the boundary: null checks, alignment, and the length contract. A C
-caller is not bound by your invariants and will eventually violate them.
+caller is not bound by your invariants and will eventually violate them. A C-variadic definition
+(`...`, stable since 1.99, read through `core::ffi::VaList`) checks nothing at all: each
+`next_arg::<T>()` trusts the caller for both the count and the type, so `# Safety` must state both.
 
 **Why:** on the Rust side of an FFI boundary you are the trusted component, and the caller is
 untrusted input in the security sense. Assuming a non-null, correctly sized pointer is assuming the
@@ -649,7 +661,10 @@ pub unsafe fn c_str_len(ptr: *const c_char) -> usize {
 
 Own the memory-management contract explicitly: whoever allocates, frees. Export a `mylib_free` for
 anything you allocate, document it, and never free a pointer that C allocated with its own
-allocator.
+allocator. Hand memory out with `Box::into_raw` or `Box::into_non_null` (1.99) and take it back with
+`from_raw`/`from_non_null`; for a buffer, `Vec::into_raw_parts` (1.93) or `Vec::into_parts` (1.99)
+and the matching `from_*` keep the capacity the free function needs. Never `Box::leak` and then
+rebuild a `Box` from the leaked reference.
 
 **Why:** Rust's allocator and the C allocator are different, and freeing across them is UB even when
 both are "malloc" on your machine. Making the ownership explicit in the API is what prevents the
@@ -688,7 +703,9 @@ pub fn as_text(raw: &CStr) -> Result<&str, std::str::Utf8Error> {
 ### RS-UNSAFE-28 [M] Mark FFI structs `#[repr(C)]` and assert their layout
 
 Mark FFI structs `#[repr(C)]` and assert their size and alignment against the C definition in a
-test. A silent layout mismatch produces garbage that looks like a logic bug.
+test. A silent layout mismatch produces garbage that looks like a logic bug. Declare a C function
+that returns `void` with no return type, never `-> c_void` (`c_void_returns` warns since 1.98). On
+x86_64, build FFI crates with 1.99.1 or later, which fixes a miscompilation of FFI `bool` returns.
 
 **Why:** `repr(C)` fixes the field order but does not verify that your field *types* match the C
 header. The assertion is what catches a `long` that is 32 bits on one platform and 64 on another.
@@ -727,7 +744,8 @@ wrapper, and it lets a consumer who needs the raw API skip your abstraction with
 
 Run the test suite under Miri (`cargo +nightly miri test`) in CI for every crate containing
 `unsafe`. It catches UB that produces correct behaviour on your machine today and a crash on a
-user's machine next year.
+user's machine next year. Keep secrets out of the Miri job's environment, and out of any job that
+writes a `target/` cache a pull request can read.
 
 **Why:** Miri is an interpreter that checks the rules the optimizer assumes — aliasing, provenance,
 alignment, initialization. It finds the class of bug that testing cannot, because testing observes
@@ -755,8 +773,8 @@ tool, the FFI paths are unverified.
 Fuzz every unsafe parsing path, and treat any crash as a release-blocking bug (`RS-TEST-26`).
 
 **Why:** parsers with `unsafe` are where hostile input meets manual memory management, which is the
-single highest-severity combination in the language. Fuzzing is the only technique that explores the
-input space adversarially.
+single highest-severity combination in the language: a bug there is not a wrong answer but memory
+corruption whose trigger an attacker chooses.
 
 **Check:** each parsing entry point that touches `unsafe` has a fuzz target, and the corpus is
 retained so past findings stay covered.
@@ -767,11 +785,11 @@ acceptable substitute for a continuous fuzzing job.
 ### RS-UNSAFE-33 [S] Pin forbidden misuses with `compile_fail` doc tests
 
 Add `compile_fail` doc tests for the misuses your invariants forbid — a `Send` that must not be, a
-lifetime that must not escape. It pins soundness properties the type system enforces (`RS-TEST-36`).
+lifetime that must not escape. It pins soundness properties the type system enforces.
 
-**Why:** these properties are enforced by the absence of an impl or by a variance, both of which can
-be reintroduced accidentally. A `compile_fail` test is the only kind that fails when a restriction
-is *relaxed*.
+**Why:** these properties are enforced by the absence of an impl or by a variance, both of which a
+refactor can change with every other test still green. Here a relaxed restriction is not a
+usability change but unsoundness that safe code can reach.
 
 **Check:** for each "this must not compile" property, is there a test? Properties held only by
 intention are not held.

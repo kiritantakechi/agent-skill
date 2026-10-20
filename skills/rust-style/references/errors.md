@@ -77,10 +77,9 @@ A failure a caller could reasonably handle is a `Result`. A failure that indicat
 caller is a panic. A failure that indicates a bug in you is also a panic — but it must be
 unreachable, not merely unlikely.
 
-**Why:** the choice is a contract, not a convenience. `Result` says "you may recover"; a panic says
-"there is nothing to recover from, the program is already wrong". Getting it backwards produces
-either a server that aborts on a malformed request, or a `Result` nobody can act on because the only
-correct response is to fix the code.
+**Why:** `Result` says "you may recover"; a panic says "the program is already wrong". Getting it
+backwards produces either a server that aborts on a malformed request, or a `Result` nobody can act
+on because the only correct response is to fix the code.
 
 **Check:** for each `Result`-returning function, name the caller action for at least one error
 variant. If the only sane action is "file a bug", it should have been an assertion. For each panic,
@@ -107,7 +106,8 @@ pub struct Empty;
 
 ### RS-ERR-02 [M] Never discard a `Result` silently
 
-`Result` is `#[must_use]`. If a failure is genuinely ignorable, say so explicitly and record why.
+`Result` is `#[must_use]`. If a failure is genuinely ignorable, say so explicitly and record why. A
+`Result<(), Infallible>` cannot fail, and `unused_must_use` does not ask for it to be handled.
 
 **Why:** `let _ = f();` and `#[allow(unused_must_use)]` both suppress the compiler's only warning
 about an unhandled failure, and they read identically whether the author thought about it or not.
@@ -133,16 +133,17 @@ let _ = writeln!(stderr, "{err}");
 
 Also `todo!`, `unimplemented!`, fallible indexing (`v[i]`), and slicing (`&s[a..b]`).
 
+*Relaxed form:* `unwrap` and `expect` are allowed in tests (the shipped `clippy.toml`). A binary,
+`build.rs` or example member that wants `expect` on a genuine invariant relaxes `expect_used` in its
+own `[lints]` table, with the reason — see RS-ERR-04 for the message.
+
 **Why:** each one converts a handleable failure inside your crate into a process abort inside
 someone else's server. This is the highest-cost defect in this standard, because the damage lands on
-a party who had no say in the decision and cannot work around it. *Relaxed form:* in tests,
-`build.rs`, examples, and binaries, `expect` is permitted where the condition is a genuine
-invariant — see RS-ERR-04 for the message; clippy denies a bare `unwrap` outside tests.
+a party who had no say in the decision and cannot work around it.
 
-**Check:** enforce mechanically rather than by review, with
-`clippy::unwrap_used`, `expect_used`, `panic`, `todo`, `unimplemented`, and `indexing_slicing` at
-deny in `[lints.clippy]` (clippy `unwrap_used`, `expect_used`, `panic`). The grep for a codebase
-that has not adopted them yet:
+**Check:** mechanically: `references/build.md` denies `unwrap_used`, `expect_used`, `panic`,
+`todo`, `unimplemented` and `indexing_slicing`. The grep for a codebase that has not adopted them
+yet:
 
 ```bash
 rg -n '\.unwrap\(\)|\.expect\(|panic!|todo!|unimplemented!' \
@@ -174,10 +175,9 @@ nonsense; "regex was validated at construction, but it was not" names the bug.
 Public error types implement `std::error::Error` — or `core::error::Error`, stable since 1.81, in
 no-std — and return the underlying cause from `source()`.
 
-**Why:** `source()` is how every reporting layer in the ecosystem walks the chain: `anyhow`'s
-`{:#}`, `eyre`'s report handlers, `tracing`'s error fields, and every hand-written loop over
-`err.source()`. Omitting it truncates the diagnostics of every downstream user, and they cannot fix
-it from their side.
+**Why:** `source()` is how every reporter walks the chain — `anyhow`'s `{:#}`, `eyre`'s handlers,
+`tracing`'s error fields. Omitting it truncates the diagnostics of every downstream user, and they
+cannot fix it from their side.
 
 **Check:** for each error variant that wraps another error, is that error reachable through
 `source()`? With `thiserror`, that means a `#[source]` or `#[from]` attribute on the field — a
@@ -187,10 +187,9 @@ plain field is not enough.
 
 One lowercase clause, no trailing period, no cause text: `"failed to read config file"`.
 
-**Why:** the reporter concatenates the chain. If your `Display` also embeds the source's message,
-users see each cause twice — `failed to read config: No such file: No such file`. Lowercase and
-no-period is the `std` convention precisely because the string is a fragment that gets composed, not
-a sentence.
+**Why:** the reporter concatenates the chain, so a `Display` that embeds its source shows each cause
+twice: `failed to read config: No such file: No such file`. Lowercase and no period, because the
+string is a fragment that gets composed, not a sentence.
 
 **Check:** does any `Display` impl (or `#[error("…")]` string) interpolate a field that is itself an
 error? Print the full chain with `{:#}` and look for repetition.
@@ -211,11 +210,12 @@ Read { path: PathBuf, #[source] source: io::Error },
 
 Unless there is a compelling, documented reason otherwise.
 
-**Why:** without those bounds the error cannot cross a thread boundary, be stored in
-`anyhow::Error`, be returned from a spawned task, or be put in a `Box<dyn Error + Send + Sync>` —
-and callers discover this at the worst moment, deep in a refactor, with no way to fix it except
-wrapping your type in theirs. *Relaxed form:* an error that is genuinely tied to a `!Send` resource
-(a raw handle, a single-threaded runtime object) may omit them, but must say so in its rustdoc.
+*Relaxed form:* an error that is genuinely tied to a `!Send` resource (a raw handle, a
+single-threaded runtime object) may omit them, but must say so in its rustdoc.
+
+**Why:** without those bounds the error cannot cross a thread, be stored in `anyhow::Error`, or be
+returned from a spawned task — and callers discover this deep in a refactor, with no fix except
+wrapping your type in theirs.
 
 **Check:** add a compile-time assertion in the test module — it costs one line and catches the
 regression the day a `Rc` or a `dyn Trait` field sneaks in.
@@ -273,10 +273,9 @@ flow — say so in a comment.
 
 Not one variant per call site, and not one variant total.
 
-**Why:** the variant set is the caller's vocabulary for recovery. Too few and they cannot
-distinguish "file missing" from "file corrupt" — one is retryable, the other is not. Too many and
-the enum becomes a log of your internal call graph, which is both a semver liability and useless to
-match on.
+**Why:** the variant set is the caller's vocabulary for recovery. Too few, and "file missing"
+(retryable) cannot be told from "file corrupt" (not); too many, and the enum is a log of your
+internal call graph — a semver liability that is useless to match on.
 
 **Check:** for each variant, name a caller who would branch on it and what they would do. A variant
 nobody branches on either merges into a neighbour or becomes a field on one.
@@ -287,9 +286,8 @@ It generates `Display`, `Error`, `source()`, and `From` from attributes, and add
 runtime.
 
 **Why:** hand-written error impls are twenty lines of mechanical code per type, and the mechanical
-part is where `source()` gets forgotten (RS-ERR-06). `thiserror` is a proc macro, so it costs
-compile time — that is the trade, and for an error type it is worth it
-(`references/build.md` RS-BUILD-54).
+part is where `source()` gets forgotten (RS-ERR-06). The proc macro costs compile time, a trade
+worth making for an error type (`references/build.md` RS-BUILD-54).
 
 **Check:** a hand-written error impl is fine, but it must have `source()`, and the `Display` must
 satisfy RS-ERR-07.
@@ -297,7 +295,8 @@ satisfy RS-ERR-07.
 ### RS-ERR-13 [M] Carry the context that identifies which operation failed
 
 The path, the key, the byte offset, the line number, the URL — whatever distinguishes this
-invocation from the other forty.
+invocation from the other forty. Print a path or an `OsStr` with `.display()`, never `{:?}`, which
+quotes and escapes it; `clippy::unnecessary_debug_formatting` (pedantic) flags the `{:?}`.
 
 **Why:** "file not found" forces the user to guess which of their files. The information is free at
 the point of failure and unrecoverable afterwards, because the stack that knew the path has already
@@ -308,13 +307,15 @@ If not, the variant needs a field.
 
 ### RS-ERR-14 [M!] Never expose `Box<dyn Error>` or `anyhow::Error` from a library
 
-Not as the error type, not as a variant payload, not behind a type alias.
+Not as the error type, not as a variant payload, not behind a type alias. In a binary, where
+nobody matches, they are correct (RS-ERR-43).
+
+*Relaxed form:* an internal crate consumed only inside your own workspace may use them in
+`pub(crate)` boundaries, but not in anything a downstream crate can name.
 
 **Why:** it erases the variant set, so callers cannot match, cannot recover selectively, and cannot
 write a test that asserts a specific failure. It also makes every future error a non-breaking change
-in the worst way — invisible. Those types are correct in binaries, where nobody matches
-(RS-ERR-43). *Relaxed form:* an internal crate consumed only inside your own workspace may use them
-in `pub(crate)` boundaries, but not in anything a downstream crate can name.
+in the worst way — invisible.
 
 **Check:** grep `Box<dyn Error` and `anyhow::` in `src/lib.rs` and anything reachable from a `pub`
 signature. `cargo public-api` will list them if you are unsure what is reachable.
@@ -334,11 +335,12 @@ pub enum ParseError {
 
 ### RS-ERR-15 [M!] Mark public error enums `#[non_exhaustive]`
 
+*Relaxed form:* omit it on a genuinely closed set (`enum Endianness { Big, Little }`), where it only
+removes the caller's exhaustiveness checking for no benefit.
+
 **Why:** adding a failure mode is inevitable, and without the attribute it is a major version bump —
 which means you will be tempted to smuggle the new case into an existing variant instead, and the
 taxonomy degrades. The cost to callers is one wildcard arm (`references/api.md` RS-API-71).
-*Relaxed form:* omit it on a genuinely closed set (`enum Endianness { Big, Little }`), where it only
-removes the caller's exhaustiveness checking for no benefit.
 
 **Check:** does the enum model something that could grow a case — a protocol, a parser, a
 filesystem, anything with a vendor? If yes, the attribute is not optional.
@@ -367,10 +369,9 @@ pub enum Error {
 
 A variant payload of `regex::Error` makes `regex`'s semver your semver.
 
-**Why:** a major version of the dependency becomes a major version of you, and two of your users on
-different versions of it can no longer be linked together. This is the same coupling rule as
-`references/api.md` RS-API-05, and error types are where it happens most because `#[from]`
-makes it one line.
+**Why:** a major version of the dependency becomes a major version of you. It is the coupling of
+`references/api.md` RS-API-05, and error types are where it happens most, because `#[from]` makes it
+one line.
 
 **Check:** for each `#[from]`, is the source type from a dependency? If so, either the dependency is
 re-exported and the coupling documented, or the error is converted to your own representation.
@@ -734,17 +735,17 @@ pub struct DivideByZero;
 
 ### RS-ERR-37 [S] Prefer restructuring, then `unreachable!`, then `panic!`
 
-**Why:** a branch that "cannot happen" is usually a type that is too wide. Making it
-unrepresentable removes the branch entirely, which is strictly better than documenting it
-(`references/api.md` RS-API-32). Where the branch must exist, `unreachable!("…")` with an
-explanation says *why* you believe it, which is the same information RS-ERR-04 asks for.
+**Why:** a branch that "cannot happen" is usually a type that is too wide, and making it
+unrepresentable removes the branch entirely (`references/api.md` RS-API-32). Where the branch must
+exist, `unreachable!("…")` says *why* you believe it, the information RS-ERR-04 asks for.
 
 **Check:** for each `unreachable!`, can the enum, the newtype, or the signature be narrowed so the
 arm disappears?
 
 ### RS-ERR-38 [M] Know which assertions survive `--release`
 
-`assert!`/`assert_eq!` run in release; `debug_assert!` does not.
+`assert!`/`assert_eq!` run in release; `debug_assert!`, `debug_assert_eq!`, and
+`debug_assert_matches!` (1.96, imported with `use std::debug_assert_matches;`) do not.
 
 **Why:** `debug_assert!` compiles to nothing in release, so anything a release build depends on must
 not live there. Conversely, an expensive O(n) invariant check inside `assert!` is a release-mode
@@ -794,16 +795,19 @@ impl Drop for Guard {
 
 ### RS-ERR-41 [M!] Make overflow behaviour explicit on untrusted arithmetic
 
-Integer overflow panics in debug and wraps in release, by default.
+Integer overflow panics in debug and wraps in release, by default. `strict_*` (1.91) panics on
+overflow in both profiles, so the two agree where overflow is a bug rather than an input.
+
+*Relaxed form:* on values with a proven internal bound (a loop counter over a fixed array), the
+default is acceptable — assert the bound instead.
 
 **Why:** that is a correctness fork: debug and release are two different programs on the same input.
 On attacker-influenced values the release behaviour is a silent wrong answer that frequently becomes
-a bounds bug two lines later. *Relaxed form:* on values with a proven internal bound (a loop counter
-over a fixed array), the default is acceptable — assert the bound instead.
+a bounds bug two lines later.
 
 **Check:** for each arithmetic expression, can either operand originate outside the process? If yes,
-it must be `checked_*`, `saturating_*`, or `wrapping_*` — chosen deliberately, not whichever
-compiles (`references/performance.md` RS-PERF-40).
+it must be `checked_*`, `saturating_*`, `wrapping_*`, or `strict_*` — chosen deliberately, not
+whichever compiles (`references/performance.md` RS-PERF-40).
 
 ```rust
 // verified
@@ -820,11 +824,9 @@ pub fn total_len(parts: &[usize]) -> Option<usize> {
 
 It is the application's decision, set in its own profile.
 
-**Why:** `panic = "abort"` removes `catch_unwind` from the whole dependency graph, which silently
-breaks any crate relying on it — test harnesses, FFI wrappers (`references/unsafe.md` RS-UNSAFE-24),
-and worker pools that isolate task failures. A library that sets it in its own `Cargo.toml` is also
-simply ignored, since profiles only apply from the workspace root, so the setting is both wrong and
-ineffective.
+**Why:** it removes `catch_unwind` from the whole dependency graph, silently breaking test
+harnesses, FFI wrappers (`references/unsafe.md` RS-UNSAFE-24), and worker pools that isolate task
+failures. In a library's `Cargo.toml` it is ignored anyway: only the workspace root sets profiles.
 
 **Check:** grep `panic = "abort"` outside the top-level binary's profile.
 
@@ -878,9 +880,8 @@ fn main() -> ExitCode {
 Rather than `fn main() -> Result<…>`, which prints the `Debug` representation.
 
 **Why:** `Debug` output is developer-facing and leaks the error's internal structure into a
-user-facing channel: `Error: Read { path: "/etc/x", source: Os { code: 2, kind: NotFound, message:
-"No such file or directory" } }`. Formatting it yourself gives you the cause chain in prose, and
-control over the exit code.
+user-facing channel: `Error: Read { path: "/etc/x", source: Os { code: 2, kind: NotFound, … } }`.
+Formatting it yourself gives you the cause chain in prose, and control over the exit code.
 
 **Check:** does the program's failure output look like something you would show a user?
 

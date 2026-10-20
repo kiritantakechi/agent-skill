@@ -623,7 +623,9 @@ broken. A library that unwraps decides on the application's behalf that the proc
 
 Atomics are for counters, flags, and lock-free algorithms written by people who can prove them
 correct. Use `Relaxed` for statistics, `Acquire`/`Release` for handoff, and `SeqCst` when you are
-not sure — then learn why you were not sure.
+not sure — then learn why you were not sure. For a read-modify-write no single `fetch_*` method
+covers, call `update` or `try_update` (1.95) rather than writing a `compare_exchange` loop;
+`fetch_update` is deprecated since 1.99, and its warning fails a build that denies warnings.
 
 **Why:** memory orderings are a formal contract about what other threads observe, and the failure
 mode of getting one wrong is a bug that appears only on weakly-ordered hardware. `SeqCst` is the
@@ -664,7 +666,8 @@ testing cannot observe, and peer-reviewed algorithms have shipped with bugs foun
 libraries have been verified with `loom` and used at scale.
 
 **Check:** is there hand-written `compare_exchange` in the crate? If so, is it a published
-algorithm, and is it `loom`-tested (`RS-CONC-45`)?
+algorithm, and is it `loom`-tested (`RS-CONC-45`)? A retry loop that only recomputes one value is an
+`update` or `try_update` call (`RS-CONC-27`).
 
 ### RS-CONC-29 [M] Treat a manual `Send`/`Sync` impl as a proof obligation
 
@@ -685,7 +688,8 @@ Use `OnceLock`/`LazyLock` for lazily initialized globals rather than `static mut
 **Why:** these types give a safe, race-free single initialization with no lock on the read path
 after it. A `Mutex<Option<T>>` pays for a lock on every access to emulate the same thing.
 
-**Check:** grep for `static mut` and `Mutex<Option<`.
+**Check:** grep for `static mut` and `Mutex<Option<`. Clippy's `non_std_lazy_statics` (pedantic)
+already flags `lazy_static!` and `once_cell::sync::Lazy`.
 
 ```rust
 // verified
@@ -766,7 +770,9 @@ never wakes — a hang with no diagnostic.
 
 `async fn` in traits (stable since 1.75) does not produce a `Send` future automatically, and is not
 dyn-compatible. Decide explicitly whether your trait needs `Send` futures (`trait_variant`, or an
-explicit `-> impl Future<Output = _> + Send`) and document it (`RS-TRAIT-20`).
+explicit `-> impl Future<Output = _> + Send`) and document it (`RS-TRAIT-20`). The same decision
+governs an async callback: take an `AsyncFn` bound (1.85) rather than `F: Fn() -> Fut, Fut: Future`,
+unless the callback's future must be `Send` — stable Rust cannot yet state that of an `AsyncFn`.
 
 **Why:** a multi-threaded runtime requires `Send` futures to spawn them, and the bound cannot be
 added by the caller afterwards. Discovering this after publishing means a breaking change.
@@ -821,9 +827,8 @@ detached task that panics disappears silently, and its failure becomes an unexpl
 output.
 
 **Why:** the handle is the only channel through which a task's panic or result is reported — the
-same reason `JoinHandle::join` must be handled (`RS-CONC-12`). Dropping it discards both, so a
-failure becomes a missing side effect rather than an error, and silence is indistinguishable from
-success.
+same reason `JoinHandle::join` must be handled (`RS-CONC-12`). Dropping it discards both, so the
+failure is indistinguishable from success.
 
 **Check:** grep for `spawn(` whose result is dropped without a comment.
 
@@ -981,7 +986,9 @@ without making it correct (`RS-TEST-18`).
 ### RS-CONC-48 [S] Stress-test beyond core count, behind `#[ignore]`
 
 Stress-test with more threads than cores and with a loop count high enough to shake out races, but
-keep that test behind `#[ignore]` or a feature so the fast suite stays fast (`RS-TEST-40`).
+keep that test behind `#[ignore = "stress test: run with --ignored"]` or a feature so the fast suite
+stays fast (`RS-TEST-40`). The reason is not optional: clippy's `ignore_without_reason` (pedantic)
+rejects a bare `#[ignore]`.
 
 **Why:** oversubscription forces preemption at points a well-behaved run never reaches, which is
 what makes rare interleavings appear. It is also slow, so it belongs outside the inner loop.

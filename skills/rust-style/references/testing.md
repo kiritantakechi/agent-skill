@@ -181,8 +181,8 @@ README shows it?
 ### RS-TEST-06 [M] Let integration tests use only the public API
 
 Integration tests may use only the public API. If a test needs a private item, either the item
-should be public, or the test belongs in the unit layer — never add `pub` purely to satisfy `tests/`
-(`RS-MOD-18`).
+should be public, or the test belongs in the unit layer — never add `pub` purely to satisfy
+`tests/`.
 
 **Why:** widening visibility for a test permanently enlarges the API you must support, in exchange
 for a test that could have lived one directory away. The forced choice is the useful part: it makes
@@ -194,13 +194,12 @@ probably a unit test in the wrong place.
 ### RS-TEST-07 [M] Share integration helpers through `#[path]`, not a `mod.rs`
 
 Put helpers in a subdirectory of `tests/` and pull them in with `#[path = "support/helpers.rs"]
-mod helpers;`, or promote them to a `testutil` workspace crate once several suites need them.
+mod helpers;`, or promote them to a `testutil` workspace crate once several suites need them or the
+helpers gain dependencies or tests of their own.
 
 **Why:** Cargo compiles every *top-level* file in `tests/` as its own test binary, so
-`tests/helpers.rs` becomes a test crate with no tests — a wasted link and a `running 0 tests` line.
-A subdirectory escapes that, and `#[path]` reaches into it without the `mod.rs` filename this
-standard rejects everywhere else (clippy `mod_module_files`). The `testutil` crate is the
-better answer once the helpers have their own dependencies or their own tests.
+`tests/helpers.rs` becomes a test crate with no tests. A subdirectory escapes that, and `#[path]`
+reaches into it without the `mod.rs` filename this standard rejects (clippy `mod_module_files`).
 
 **Check:** `ls tests/*.rs` — every file listed must contain at least one `#[test]`. Helper-only
 files belong in a subdirectory reached by `#[path]`.
@@ -208,8 +207,8 @@ files belong in a subdirectory reached by `#[path]`.
 ### RS-TEST-08 [M] Name tests as sentences about behaviour
 
 Name tests as sentences about behaviour: `returns_none_for_empty_input`,
-`preserves_order_of_equal_keys`, `errors_when_depth_exceeds_limit`. Do not prefix with `test_`, and
-do not number them (`RS-NAME-36`).
+`preserves_order_of_equal_keys`, `errors_when_depth_exceeds_limit`. Do not prefix with `test_`
+(clippy `redundant_test_prefix`), and do not number them.
 
 **Why:** the name is what you read in the failure output, often months later and without context. A
 name that states the expected behaviour turns a failure line into a diagnosis; `test_parse_2` turns
@@ -316,7 +315,8 @@ Assert on values, not on shapes. `assert_eq!(result, vec!["a", "b"])` beats
 debugger.
 
 **Check:** grep for `assert!(` containing `==`, `.len()`, or `&&`. Each is usually an `assert_eq!`
-that would print more.
+that would print more. Clippy's `manual_assert_eq` and `assert_is_empty` (pedantic) already flag
+an assertion that is a single comparison or a single emptiness test.
 
 ```rust
 // verified
@@ -371,14 +371,16 @@ mod tests {
 ### RS-TEST-14 [M] Match on the error variant, not its `Display` string
 
 Test the error path as carefully as the success path. Match on the error variant, not on its
-`Display` string — the string is allowed to change, the variant is the contract.
+`Display` string — the string is allowed to change, the variant is the contract. Use
+`assert_matches!` (1.96), which prints the actual value on failure; it is not in the prelude, so
+import it with `use std::assert_matches;`.
 
 **Why:** the message is presentation and may be reworded, translated, or given more context at any
 time; the variant is the part semver protects. Asserting on the string couples the suite to prose
 and breaks on improvements.
 
-**Check:** grep tests for `err.to_string()` and `format!("{e}")` in assertions. Each should be a
-`matches!` on the variant.
+**Check:** grep tests for `err.to_string()` and `format!("{e}")` in assertions. Each should be an
+`assert_matches!` on the variant.
 
 ```rust
 // verified
@@ -400,11 +402,13 @@ pub fn compile(pattern: &str) -> Result<usize, Error> {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::{Error, compile};
 
     #[test]
     fn reports_the_offset_of_the_bad_byte() {
-        assert!(matches!(compile("ab?c"), Err(Error::Pattern { offset: 2 })));
+        assert_matches!(compile("ab?c"), Err(Error::Pattern { offset: 2 }));
     }
 }
 ```
@@ -765,7 +769,8 @@ sort.
 
 For CLI tools, test the binary end to end: run it with arguments in a temporary directory and assert
 on stdout, stderr, and the exit code (`assert_cmd`, `trycmd`, or a hand-rolled harness as ripgrep
-uses). This is the only layer that catches argument-parsing and exit-code regressions.
+uses). This is the only layer that catches argument-parsing and exit-code regressions. A
+hand-rolled harness finds the binary through `CARGO_BIN_EXE_<name>`.
 
 **Why:** argument parsing, stream routing, and exit codes exist only in the assembled binary, so no
 unit test reaches them. They are also the surface scripts depend on, which makes regressions there
@@ -777,7 +782,7 @@ especially expensive.
 ### RS-TEST-32 [S] Build benchmarks in CI even when you do not time them
 
 Benchmarks are not tests, but a benchmark that fails to compile is still a broken build — build them
-in CI even if you do not run them for timing (`RS-PERF-44`).
+in CI even if you do not run them for timing.
 
 **Why:** benchmarks are excluded from a default `cargo test`, so they rot silently until the day you
 need to measure something and first have to fix the harness. Compiling them is nearly free.
@@ -873,8 +878,9 @@ is the bug rather than a property of the test.
 ### RS-TEST-40 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
 
 Keep the fast suite fast. If `cargo test` takes more than a minute or two, split the slow cases
-behind `#[ignore]` plus a nightly CI job that runs `cargo test -- --ignored`, and say so in
-`CONTRIBUTING.md`.
+behind `#[ignore = "slow: run with --ignored"]` plus a nightly CI job that runs
+`cargo test -- --ignored`, and say so in `CONTRIBUTING.md`. The reason string is required:
+clippy's `ignore_without_reason` (pedantic) rejects a bare `#[ignore]`.
 
 **Why:** a suite slower than the developer's patience stops being run before committing, which moves
 every failure to CI and lengthens the feedback loop enormously. Speed is a feature of the suite.

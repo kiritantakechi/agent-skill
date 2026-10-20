@@ -73,7 +73,6 @@ def test_the_two_bevy_relaxations_are_the_only_ones():
     assert allowed == {
         "rust.elided_lifetimes_in_paths",
         "clippy.needless_pass_by_value",
-        "clippy.module_name_repetitions",
     }
     for kept in ("type_complexity", "too_many_arguments"):
         assert kept not in BEVY_STYLE.lints["clippy"]

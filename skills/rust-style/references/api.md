@@ -183,10 +183,9 @@ pub fn doubled(value: u32) -> u32 {
 
 If the README needs "and" twice, split it into a workspace of focused crates with a thin facade.
 
-**Why:** this is exactly what ripgrep does — `grep-matcher`, `grep-regex`, `grep-searcher`,
-`grep-printer`, and the `grep` facade — and it is why each piece is independently usable, testable,
-and versionable. A monolith forces every consumer to compile everything and to accept every
-dependency.
+**Why:** ripgrep's split into `grep-matcher`, `grep-regex`, `grep-searcher`, `grep-printer`, and
+the `grep` facade is why each piece is independently usable, testable, and versionable. A monolith
+makes every consumer compile everything and accept every dependency.
 
 **Check:** can you describe the crate in one sentence with no conjunction?
 (`references/modules.md` RS-MOD-24.)
@@ -228,8 +227,8 @@ If the answer is "one is more convenient", make it the only one.
 ### RS-API-05 [M] Do not expose a dependency's types without adopting its semver
 
 **Why:** if `regex::Regex` appears in your signature, a `regex` 2.0 is a breaking change for you
-too — and worse, two of your users on different `regex` majors can no longer be linked into one
-binary. Wrap the type, or re-export it explicitly and document the coupling so users can plan.
+too, and a user already on the other major holds a `Regex` your signature does not accept. Wrap the
+type, or re-export it explicitly and document the coupling so users can plan.
 
 **Check:** list the types in your public signatures. Which come from dependencies? For each, is the
 coupling deliberate and documented, or accidental?
@@ -261,10 +260,11 @@ impl Index {
 
 ### RS-API-07 [M] Attach every function to the type it concerns
 
+A free function is right only for an operation that belongs to no type you own
+(`fs::read_to_string`) or for the crate's single entry point; everything else has a receiver.
+
 **Why:** methods are discoverable — they appear in autocomplete and on the type's rustdoc page — and
-a function that takes your type but sits beside it is hidden from the person holding the value. A
-free function is right only for an operation that belongs to no type you own (`fs::read_to_string`)
-or the crate's single entry point; everything else has a receiver and should say so.
+a function that takes your type but sits beside it is hidden from the person holding the value.
 
 **Check:** for each free function, does any parameter have a type you own? Then it is a method on
 that type. If several qualify, the first one it would read as a sentence with.
@@ -274,10 +274,9 @@ that type. If several qualify, the first one it would read as a sentence with.
 `//!` on `lib.rs` states what the crate is for, shows a complete working example, and links to the
 two or three types a new user should read first.
 
-**Why:** it is the most-read page you will ever write, and it is the only one a user sees before
-deciding whether to depend on you. An empty crate root pushes them into the item index, which is
-sorted alphabetically and therefore useless as an introduction
-(`references/documentation.md` RS-DOC-02).
+**Why:** it is the most-read page you will ever write and the only one a user sees before deciding
+to depend on you. Without it they land in the item index, which is alphabetical and so useless as
+an introduction (`references/documentation.md` RS-DOC-02).
 
 **Check:** can someone accomplish the primary use case from docs.rs alone, without opening the
 source?
@@ -287,12 +286,9 @@ source?
 What a crate exports is a small set of types with methods. A free function at the root is the
 exception, and it is one you can justify in a sentence.
 
-**Why:** a type is a place for a reader to stand: its rustdoc page lists everything that can be done
-with it, autocomplete offers exactly the operations that apply, and adding an operation later is a
-method rather than a new name in a flat namespace nobody is watching. A crate that exports thirty
-loose functions has no such centre — the reader must hold the whole list, and any two of those
-functions can drift apart in naming, argument order, and error type without anything noticing
-(RS-API-80, RS-API-84).
+**Why:** a crate of thirty loose functions has no centre: the reader must hold the whole list, a new
+operation is one more name in a flat namespace nobody watches, and any two functions can drift
+apart in naming, argument order, and error type unnoticed (RS-API-80, RS-API-84).
 
 **Check:** list what the crate root exports. What is the ratio of types to free functions? For each
 free function, name the type it would be a method on — if you can name one, it belongs there
@@ -328,7 +324,8 @@ impl Index {
 ### RS-API-10 [M] Be generic in what you accept, concrete in what you return
 
 Accept `impl AsRef<Path>`, `impl IntoIterator<Item = T>`, `impl Into<String>`; return a named type
-or `impl Trait`.
+or `impl Trait`. A range parameter is `impl RangeBounds<usize>`, which takes every range syntax; a
+range a type stores is `core::range::Range` (1.96), which is `Copy`.
 
 **Why:** genericity on the input side removes conversions from every call site; genericity on the
 output side pushes inference work onto the caller and often forces a turbofish. The asymmetry is
@@ -348,10 +345,9 @@ pub fn shortest<'a>(candidates: impl IntoIterator<Item = &'a str>) -> Option<&'a
 
 ### RS-API-11 [S] Do not over-genericize
 
-**Why:** each type parameter is a monomorphization, a documentation burden, and an inference
-hazard. `impl AsRef<Path>` is worth it because callers genuinely hold `&str`, `String`, `Path`, and
-`PathBuf`. `impl Into<u32>` almost never is, because callers hold a `u32`
-(`references/traits.md` RS-TRAIT-38).
+**Why:** each type parameter costs a monomorphization per instantiation, rustdoc every reader must
+decode, and an inference hazard at every call site. It pays only when callers really hold different
+types (`references/traits.md` RS-TRAIT-38).
 
 **Check:** for each type parameter, list the instantiations that will actually occur. One means it
 should be concrete.
@@ -388,10 +384,9 @@ cloned in the body?
 
 ### RS-API-14 [S] Take `impl Into<String>` when you store, `&str` when you read
 
-**Why:** `Into<String>` lets a caller with an owned `String` move it in and a caller with a literal
-convert once. Taking `String` forces the literal caller to allocate; taking `&str` and cloning
-forces the owned caller to allocate. Neither is free in both directions, so match the parameter to
-what you do with it.
+**Why:** `Into<String>` lets a caller holding a `String` move it in and one holding a literal
+convert once, where `&str` plus an internal clone makes the owned caller allocate again. A function
+that only reads needs no ownership, so `&str` serves both callers with no allocation.
 
 **Check:** grep for `String` parameters that are immediately borrowed, and `&str` parameters that
 are immediately `to_owned()`.
@@ -412,10 +407,9 @@ pub fn stem(path: impl AsRef<Path>) -> Option<String> {
 
 ### RS-API-15 [S] Return `impl Iterator` rather than `Vec` where the caller may not need all of it
 
-**Why:** materialization is a decision that belongs to whoever knows how much is needed. Returning
-`Vec` computes and stores everything even when the caller wanted `.next()`, and it prevents feeding
-the result into another adapter without a second allocation
-(`references/functional.md` RS-FUNC-21).
+**Why:** materialization belongs to whoever knows how much is needed. A `Vec` computes and stores
+everything even when the caller wanted `.next()`, and feeding it to another adapter costs a second
+allocation (`references/functional.md` RS-FUNC-21).
 
 **Check:** does the caller immediately `.iter()`, `.into_iter()`, or index only the first element?
 
@@ -433,18 +427,16 @@ pub fn non_empty(lines: &[String]) -> impl Iterator<Item = &str> {
 ### RS-API-16 [S] Return owned data only when the caller needs ownership
 
 **Why:** a method that has the `&str` in hand and returns `String` charges every caller for an
-allocation they may not want. Where the answer is sometimes borrowed and sometimes computed,
-`Cow<'_, str>` gives the zero-allocation fast path without forcing anyone
-(`references/ownership.md` RS-OWN-18).
+allocation they may not want. Where the answer is only sometimes computed, `Cow<'_, str>` keeps the
+borrowed path free (`references/ownership.md` RS-OWN-18).
 
 **Check:** does the function allocate on a path where it could have returned a borrow of `self`?
 
 ### RS-API-17 [M] Return a struct, not a three-element tuple
 
-**Why:** `(usize, usize, bool)` at a call site is unreadable and silently transposable —
-`let (start, end, empty) = m;` compiles just as well with the first two swapped. A
-`Match` with named accessors is self-documenting — `m.start()` cannot be mistaken for `m.end()` —
-and a fourth piece of information is one more method rather than a changed arity.
+**Why:** `(usize, usize, bool)` is unreadable and silently transposable, since
+`let (start, end, empty) = m;` compiles just as well with the first two swapped. Named accessors
+cannot be misread, and a fourth piece of information is one more method, not a changed arity.
 
 **Check:** grep public return types for tuples of arity three or more, and for two-tuples whose
 elements share a type.
@@ -468,11 +460,9 @@ Any constraint the type maintains — a sorted `Vec`, a cached length that must 
 confined to a range, an index into a sibling field — is a contract the type owes, and it decides
 which methods may exist.
 
-**Why:** privacy decides nothing on its own — every field is private either way (RS-API-24). What
-it leaves open is which operations the type may offer. An invariant nobody has named is one the
-next `&mut` method quietly breaks, while a named one tells you construction must be fallible, that
-there can be no setter for the field, and which accessor would hand the invariant away
-(RS-API-20, RS-API-22).
+**Why:** every field is private either way (RS-API-24), so privacy decides nothing; the invariant
+decides which operations may exist. Unnamed, the next `&mut` method breaks it; named, it tells you
+construction is fallible, the field has no setter, and which accessor would leak it (RS-API-22).
 
 **Check:** for each type, state its invariant in one sentence. If you can state one and no method
 mentions it, the type has a contract nobody is enforcing.
@@ -507,10 +497,9 @@ impl Percent {
 
 ### RS-API-20 [M] Validate once, at construction, and let the type carry the proof
 
-**Why:** a `Port(u16)` whose constructor rejects zero means no downstream function re-checks, no
-downstream function *forgets* to re-check, and the invariant appears once in the code instead of at
-every entry point. This is the same rule as `references/functional.md` RS-FUNC-53, seen from the
-type's side.
+**Why:** a `Port(u16)` whose constructor rejects zero means no downstream function re-checks or
+*forgets* to re-check, and the invariant lives in one place instead of at every entry point. This
+is `references/functional.md` RS-FUNC-53 seen from the type's side.
 
 **Check:** grep for the same validation appearing in more than one function. That repetition is a
 constructor that has not been written.
@@ -519,10 +508,9 @@ constructor that has not been written.
 
 `fn buffer(&self) -> &[u8]`, never `fn buffer(&self) -> &Vec<u8>`.
 
-**Why:** privacy alone does not buy the freedom to change a representation. An accessor handing back
-`&Vec<u8>` has published `Vec` exactly as a public field would, and switching to `SmallVec`, a ring
-buffer, or a memory map still breaks every caller. The borrowed view names what the caller may do
-instead of what you happen to store, and all three representations can produce it (RS-CORE-07).
+**Why:** an accessor returning `&Vec<u8>` publishes `Vec` exactly as a public field would, so
+switching to `SmallVec`, a ring buffer, or a memory map still breaks every caller. `&[u8]` names
+what the caller may do, not what you store, and all three can produce it (RS-CORE-07).
 
 **Check:** grep accessor return types for `&Vec<T>`, `&String`, and `&PathBuf` — the slice, `&str`,
 and `&Path` say the same thing without naming the container. A map or a set has no borrowed view in
@@ -557,15 +545,13 @@ a `Deserialize` impl, a `Default`? `serde` in particular bypasses your construct
 There is no "pure data bag" exemption. A struct whose fields are independent today is still a
 struct whose representation you have published. The single exception is a type whose layout is
 already the contract — `#[repr(C)]` or `extern` types crossing an ABI boundary
-(`references/unsafe.md` RS-UNSAFE-14).
+(`references/unsafe.md` RS-UNSAFE-14). A constructor or builder replaces the struct literal, a
+method replaces field access, and `#[non_exhaustive]` plus `Default` replaces
+`..Default::default()`.
 
-**Why:** a public field is a permanent commitment to a *representation*, not merely to a value.
-`pub threads: usize` cannot later become `NonZeroUsize`, a validated newtype, or a computed value
-without a major version, and the absence of an invariant today is not evidence that none arrives —
-it is the normal history of a config struct. The ergonomics that public fields buy are recoverable:
-a constructor or builder replaces the struct literal, a method replaces field access, and
-`#[non_exhaustive]` plus `Default` replaces `..Default::default()`. The representation freedom that
-public fields spend is not recoverable at all.
+**Why:** a public field commits to a *representation*: `pub threads: usize` cannot later become
+`NonZeroUsize` or a computed value without a major version, and invariants usually arrive later.
+What public fields buy, methods give back; the representation they spend is gone for good.
 
 **Check:** `rg -n 'pub [a-z_]*:' -g '*.rs' src/` over struct bodies. Every hit that is
 not on a `#[repr(C)]` type is a defect, whatever invariant it does or does not carry today.
@@ -603,11 +589,9 @@ impl Config {
 A method names the decision — `thread_count()`, `is_saturated()`, `remaining()` — rather than
 mirroring storage one accessor per field.
 
-**Why:** a full row of `fn x(&self) -> T { self.x }` is the public-field commitment restated in more
-lines: it pins the same representation, and it hands the caller the arithmetic that belongs to the
-type. Naming the question instead lets the answer be stored, computed, or cached differently later,
-and it moves logic that would otherwise be duplicated at every call site into the one place that
-owns the data (`references/ownership.md` RS-OWN-09).
+**Why:** a row of `fn x(&self) -> T { self.x }` pins the representation as a public field would and
+hands the caller arithmetic that belongs to the type. A named question can be answered differently
+later, and its logic lives once, beside the data (`references/ownership.md` RS-OWN-09).
 
 **Check:** for each accessor, find the expression the caller writes around it. If callers all wrap
 it in the same arithmetic or comparison, that expression is the method you owe them.
@@ -638,10 +622,9 @@ impl Budget {
 
 `struct Port(u16)` with an inherent accessor, never `struct Port(pub u16)`.
 
-**Why:** `.0` is a public field that additionally names nothing, so it carries every cost of a
-public field plus an unreadable call site. The newtype exists to make the representation
-changeable — to `NonZeroU16`, to an index, to a packed field — and `pub` on the inner value
-spends exactly the freedom the newtype was created to buy.
+**Why:** `.0` is a public field that also names nothing, so it adds an unreadable call site to every
+cost of RS-API-24. The newtype exists so the representation can change, to `NonZeroU16` or a packed
+field, and `pub` on the inner value spends exactly that freedom.
 
 **Check:** `rg -n 'struct [A-Za-z_]*\(pub ' -g '*.rs' src/`. Every hit is a defect.
 
@@ -670,10 +653,8 @@ A struct literal is not available once fields are private, so the type states ho
 `new`, a named alternative constructor, a builder, or a `TryFrom`.
 
 **Why:** a named entry point is where validation lives (RS-API-20), where defaults are decided, and
-where a later invariant can be enforced without touching a call site. It also makes construction
-greppable: every instance of the type traces back to a function you can read, which a literal
-scattered across the crate never does. The name is what tells the reader which of several valid
-starting states this one is (`references/naming.md` RS-NAME-22).
+where a later invariant is enforced without touching a call site. Every instance traces back to a
+function you can grep, named for its starting state (`references/naming.md` RS-NAME-22).
 
 **Check:** can the type be built without calling one of its own functions? Inside the defining
 module a literal is still legal — is one being used where a constructor should be?
@@ -843,10 +824,9 @@ name it.
 Two `Option`s where exactly one is always `Some`; a `bool` plus a field only meaningful when it is
 set.
 
-**Why:** the correlation is an invariant the compiler cannot see, so every reader has to learn it
-and every code path has to handle the impossible combination — usually with an `unwrap` or an
-`unreachable!` (`references/errors.md` RS-ERR-37). Modelling the sum type directly deletes those
-branches.
+**Why:** the correlation is an invariant the compiler cannot see, so every reader must learn it and
+every path must handle the impossible combination, usually with an `unwrap` or an `unreachable!`
+(`references/errors.md` RS-ERR-37). The sum type deletes those branches.
 
 **Check:** for each pair of fields, is there a combination of values that cannot legally occur? That
 pair is an enum.
@@ -910,11 +890,9 @@ distinguish them the moment you let it (`references/ownership.md` RS-OWN-27).
 Protocol phases, parser modes, retry outcomes, file kinds. Not an integer with named constants, not
 a string tag, not a group of booleans.
 
-**Why:** an enum makes the set closed, so `match` proves at compile time that every state is
-handled and adding a state turns every incomplete site into a compile error. The alternatives all
-push that proof to runtime: an integer admits values the set never had, a string admits typos, and
-*n* booleans admit 2ⁿ combinations of which most are meaningless (RS-API-30, RS-API-32). The enum
-is also the only spelling under which the state set is documented by the type itself.
+**Why:** an enum closes the set, so `match` proves every state handled and a new state breaks every
+incomplete site at compile time. The alternatives defer that to runtime: an integer admits values
+the set never had, a string admits typos, and *n* booleans admit 2ⁿ combinations (RS-API-32).
 
 **Check:** for each state-like value, can you name a representable value that is not a legal
 state? Then the type is wrong. Count the booleans that travel together — three of them is eight
@@ -944,12 +922,9 @@ impl Phase {
 Three tiers, in order: the type cannot express the bad value; the constructor refuses it; a runtime
 check catches it. Reach for the earliest tier the situation allows.
 
-**Why:** each tier costs strictly more than the one before it. Unrepresentable costs nothing at
-runtime and cannot be forgotten. Rejection at construction costs one check per value and holds for
-the value's whole life (RS-API-20). A runtime check costs one per use, has to be repeated at every
-site, and is only as good as the discipline of whoever writes the next call site. Choosing a later
-tier when an earlier one was available is how a crate accumulates defensive branches that can
-never be deleted, because nobody can prove they are unreachable.
+**Why:** each tier costs more than the last: unrepresentable costs nothing and cannot be forgotten,
+rejection costs one check per value (RS-API-20), and a runtime check costs one per use at every
+site. A later tier leaves defensive branches nobody can prove unreachable, so none is ever deleted.
 
 **Check:** for each validation in the body of a function, ask which tier it belongs to and whether
 an earlier tier was available. A check that could have been a `NonZeroUsize` is a defect
@@ -983,11 +958,9 @@ impl Chunking {
 A constraint stated in prose — "must be non-empty", "must be sorted", "must be a valid UTF-8
 path", "in the range 1..=100" — is a type you have not written yet.
 
-**Why:** prose is not checked, is not visible at the call site, and is re-verified by every reader
-who is not sure it still holds. The same constraint as a type is enforced once, at the boundary,
-and every function downstream receives the proof rather than the obligation
-(`references/errors.md` RS-ERR-03). It also deletes the error path: a function taking `NonEmpty<T>`
-has no empty case to document, test, or handle.
+**Why:** prose is unchecked, invisible at the call site, and re-verified by every reader unsure it
+still holds. As a type, the constraint is enforced once at the boundary, and a function taking
+`NonEmpty<T>` has no empty case left to document, test, or handle.
 
 **Check:** grep doc comments for "must", "should be", "expects", and range notation. Each hit is
 either a type you have not introduced or a `# Panics` section you owe (`RS-DOC-13`).
@@ -1101,10 +1074,9 @@ pub fn first_line(text: &str) -> &str {
 
 ### RS-API-45 [S] Do not implement `Default` where there is no meaningful default
 
-**Why:** `Default` on a `Connection` or a `File` produces a value that is not usable, which then
-flows through `unwrap_or_default()` and `#[derive(Default)]` on containing structs into places
-nobody intended. A `Config` with sensible zero values should implement it; a resource handle should
-not.
+**Why:** `Default` on a `Connection` or a `File` yields an unusable value, which then flows through
+`unwrap_or_default()` and every containing `#[derive(Default)]` into places nobody intended. A
+`Config` with sensible zero values implements it; a resource handle does not.
 
 **Check:** is `Default::default()` a value you would be happy to see used?
 
@@ -1198,10 +1170,9 @@ says *what will silently not happen*, which is the information they are missing.
 
 ### RS-API-49 [S] Treat `#[inline]` as a cross-crate codegen claim
 
-**Why:** it is not a performance incantation. It matters for small non-generic functions that must
-inline across a crate boundary, because without it their MIR is not available to downstream
-crates. Generic functions are already available. Applying it wholesale bloats the binary and slows
-compilation (`references/performance.md` RS-PERF-34).
+**Why:** since 1.75 rustc makes the smallest non-generic functions inlinable downstream on its own,
+and generic ones always were; anything larger needs `#[inline]` to cross the boundary. Applied
+wholesale it bloats the binary and slows compilation (`references/performance.md` RS-PERF-34).
 
 **Check:** is the function non-generic, small, and on a hot path in another crate? Otherwise remove
 the attribute.
@@ -1230,10 +1201,9 @@ fields. The blast radius is far larger than the one type.
 
 ### RS-API-52 [M] Keep `Debug` for programmers and `Display` for users
 
-**Why:** `Debug` output may change at any time and should prioritize completeness; `Display` is part
-of the contract and should prioritize clarity. Implementing `Display` by delegating to `Debug` makes
-internal structure part of your public output — which is exactly the defect in
-`references/errors.md` RS-ERR-45.
+**Why:** `Debug` output may change at any time and favours completeness; `Display` is part of the
+contract and favours clarity. A `Display` that delegates to `Debug` publishes internal structure,
+the defect in `references/errors.md` RS-ERR-45.
 
 **Check:** does any `Display` impl call `{:?}`? Does any `Debug` impl omit a field to look tidier?
 
@@ -1268,10 +1238,9 @@ impl fmt::Display for Bytes {
 
 ### RS-API-54 [M] Implement `Clone` where possible and `Copy` where it is also a value
 
-**Why:** `Clone` is nearly always implementable and its absence blocks users from patterns you did
-not anticipate. `Copy` is different: it is a promise that the type will never own a heap allocation,
-and *removing* `Copy` later is a breaking change that silently turns moves into borrows at every
-call site.
+**Why:** `Clone` is nearly always implementable, and its absence blocks patterns you did not
+anticipate. `Copy` promises the type will never own a heap allocation, and removing it is breaking:
+every implicit copy becomes a move, and code that reuses the value stops compiling.
 
 **Check:** could this type ever grow a `String`, a `Vec`, or a handle? Then do not make it `Copy`
 today.
@@ -1280,9 +1249,9 @@ today.
 
 Equal values must hash equally; `Ord` must agree with `PartialOrd` and `Eq`.
 
-**Why:** inconsistency does not fail loudly — it produces a `HashMap` where a key cannot be found
-with an equal key, or a `BTreeMap` that loses entries. The corruption is silent and shows up far
-from the impl.
+**Why:** inconsistency fails silently and far from the impl: a `HashMap` misses a key looked up by
+an equal one, a `BTreeMap` loses entries, `BTreeMap::append` may panic (1.96), and a derived
+`PartialOrd` beside a derived `Ord` answers with `cmp` (1.98), not with each field's `partial_cmp`.
 
 **Check:** if you hand-implement one of the four, review all four in the same commit. Property-test
 the laws (`references/testing.md` RS-TEST-23).
@@ -1315,10 +1284,9 @@ impl PartialOrd for Priority {
 
 ### RS-API-56 [S] Implement `FromStr` for any type with a canonical textual form
 
-**Why:** it makes `"1.2.3".parse::<Version>()` work, composes with `?`, and plugs into every
-argument parser and config deserializer in the ecosystem without them knowing about your type. The
-alternative — an inherent `parse` — works only for callers who read your docs
-(`references/naming.md` RS-NAME-23).
+**Why:** it makes `"1.2.3".parse::<Version>()` work and plugs into every argument parser and config
+deserializer without them knowing your type. An inherent `parse` works only for callers who read
+your docs (`references/naming.md` RS-NAME-23).
 
 **Check:** does the type have a textual form used in config, CLI flags, or serialization?
 
@@ -1374,10 +1342,9 @@ impl FromIterator<String> for Tags {
 
 ### RS-API-59 [S] Implement `AsRef` and `Borrow` only when the type genuinely is the target
 
-**Why:** `AsRef<T>` claims a cheap reference conversion; `Borrow<T>` additionally requires that
-`Eq`, `Ord`, and `Hash` agree between the borrowed and owned forms — which is what makes
-`HashMap<String, _>::get(&str)` sound. Implementing `Borrow` casually breaks that guarantee
-silently.
+**Why:** `AsRef<T>` claims a cheap reference conversion; `Borrow<T>` also requires `Eq`, `Ord`, and
+`Hash` to agree between the two forms, which is what makes `HashMap<String, _>::get(&str)` work. A
+casual `Borrow` impl breaks that guarantee silently.
 
 **Check:** for each `Borrow` impl, do the three traits agree between the two forms? If you are not
 sure, implement `AsRef` only.
@@ -1480,12 +1447,10 @@ impl Ratio {
     /// # Errors
     /// Returns [`ZeroDenominator`] when `denominator` is zero.
     pub fn try_new(numerator: u32, denominator: u32) -> Result<Self, ZeroDenominator> {
-        (denominator != 0)
-            .then_some(Self {
-                numerator,
-                denominator,
-            })
-            .ok_or(ZeroDenominator)
+        (denominator != 0).ok_or(ZeroDenominator).map(|()| Self {
+            numerator,
+            denominator,
+        })
     }
 }
 ```
@@ -1616,10 +1581,9 @@ the same input need names. Everything else should be the trait, so callers get `
 
 And document the precondition in a `# Safety` section.
 
-**Why:** a constructor that skips validation is exactly the tool for a caller who has already
-validated — and exactly the way to produce an invalid value silently for one who has not. The name
-and the keyword are what make the difference visible at the call site
-(`references/unsafe.md` RS-UNSAFE-04).
+**Why:** a constructor that skips validation is the right tool for a caller who has validated and a
+silent source of invalid values for one who has not. The name and the keyword make the difference
+visible at the call site (`references/unsafe.md` RS-UNSAFE-04).
 
 **Check:** does any safe constructor skip a check that the normal one performs?
 
@@ -1628,11 +1592,11 @@ and the keyword are what make the difference visible at the call site
 ### RS-API-71 [M!] Use `#[non_exhaustive]` where the shape may grow
 
 On public enums whose variant set may grow and public structs whose field set may grow.
+*Relaxed form:* internal crates within one workspace, where you control every consumer, can omit it.
 
 **Why:** it costs downstream users a wildcard arm and a constructor call, and it buys you the
 ability to ship additions as minor versions for the life of the crate. Without it, every new variant
 is a major release — which in practice means the variant gets smuggled into an existing one instead.
-*Relaxed form:* internal crates within one workspace, where you control every consumer, can omit it.
 
 **Check:** for each public enum and struct, could a new case or field plausibly appear? Protocols,
 parsers, error types, and config structs almost always can.
@@ -1685,10 +1649,13 @@ The decision is cheap before release and expensive after.
 
 ### RS-API-75 [M] Know which changes are breaking before promising semver
 
-**Why:** the categories are not intuitive. Breaking: adding a type parameter, changing a concrete
-return type, narrowing a bound, adding a non-defaulted trait method, removing a derive, making a
-public item private. Not breaking: widening a bound, adding an inherent method, adding a variant to
-a `#[non_exhaustive]` enum, adding a defaulted method to a sealed trait.
+Breaking: adding a type parameter, changing a concrete return type, narrowing a bound, adding a
+non-defaulted trait method, removing a derive, making a public item private. Not breaking: widening
+a bound, adding an inherent method, adding a variant to a `#[non_exhaustive]` enum, adding a
+defaulted method to a sealed trait.
+
+**Why:** the categories are not intuitive — several changes that look additive break callers — and a
+break shipped as a minor version fails every downstream build that trusted the version number.
 
 **Check:** before tagging, classify every change in the diff. If you are unsure, RS-API-76 is the
 answer.
@@ -1737,10 +1704,9 @@ cycle so upgraders get a warning rather than a compile error.
 
 ### RS-API-78 [S] Prefer additive evolution; batch the breaking changes
 
-**Why:** every major version is a migration cost imposed on every user, and they do not all pay it —
-the ecosystem splits across majors, and crates depending on both cannot be linked. When breaking is
-genuinely necessary, batching means paying that cost once instead of three times, as `regex` and
-`rand` do.
+**Why:** every major version is a migration cost on every user, and not all of them pay it: the
+ecosystem splits across majors whose types do not interoperate. Batching the necessary breaks pays
+that cost once instead of three times, as `regex` and `rand` do.
 
 **Check:** does the release contain exactly one breaking change that could have waited? Is there a
 migration section in the changelog (`references/build.md` RS-BUILD-12)?
@@ -1753,10 +1719,9 @@ If a type can be built from bytes it should be convertible back to them; `insert
 `remove`, `push` implies `pop`, `open` implies `close`, `encode` implies `decode`, `subscribe`
 implies `unsubscribe`.
 
-**Why:** a caller who learns half a pair assumes the other half exists, and looks for it before
-concluding it does not. When it is genuinely absent the absence is usually meaningful — the
-operation is lossy, or irreversible, or belongs to a different type — and that is information the
-caller needs. Silence makes them assume an oversight and work around it.
+**Why:** a caller who learns half a pair looks for the other half. A genuine absence usually means
+something — the operation is lossy, irreversible, or belongs to another type — and silence makes
+the caller assume an oversight and work around it.
 
 **Check:** list the operations on each public type in pairs. For every unpaired one, either add the
 inverse or state in the docs why it cannot exist ("hashing is one-way", "the handle is consumed").
@@ -1783,10 +1748,9 @@ pub fn decode(bytes: [u8; 8]) -> Key {
 If `copy(src, dst)` takes source first, then `move`, `link`, and `render` in the same module do
 too. Fix the order once per crate and never vary it.
 
-**Why:** sibling functions are called from the same code, often on the same line, and the reader
-generalizes from the first one they learn. An inconsistent order is not caught by the compiler when
-the types match, so it produces a silent argument swap — the most expensive kind of bug, because the
-code looks right.
+**Why:** siblings are called from the same code, and the reader generalizes from the first one they
+learn. When the types match, the compiler cannot catch an inconsistent order, so it becomes a
+silent argument swap in code that looks right.
 
 **Check:** list every function in the module with two or more parameters of related type and compare
 their orders. Any disagreement is the finding, and the fix is to change the outlier.
@@ -1813,10 +1777,9 @@ pub fn move_len(source: &mut Vec<u8>, target: &mut Vec<u8>) -> usize {
 Variants of one error enum carry comparable context: if `Read` records the path, `Write` records
 it too. Do not mix one variant with four fields and one with none unless the difference is real.
 
-**Why:** the caller writes one `match` over all of them, and asymmetric variants make that match
-asymmetric — some arms can report a path, some cannot, so the reporting code grows special cases for
-the deficient variants. Uniform shape is what lets the error be rendered by one function
-(`RS-ERR-24`).
+**Why:** the caller writes one `match` over all the variants, and when some carry a path and some
+do not, the reporting code grows a special case per deficient variant. Uniform shape lets one
+function render them all (`RS-ERR-24`).
 
 **Check:** tabulate the enum's variants against their fields. A column that is populated for most
 variants and empty for one is either a missing field or a variant that belongs elsewhere.

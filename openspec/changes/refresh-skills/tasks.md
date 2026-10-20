@@ -178,7 +178,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
     table moves to D8, adding Stale.
 
   Then `fmt`. Verify that `skeleton` and `shared-text` pass for rust-style.
-- [ ] 8.5 Content from `research/rust-1.99.md`:
+- [x] 8.5 Content from `research/rust-1.99.md`:
   - **Required fixes 1–6:** including RS-TST-40 and RS-CNC-48 `#[ignore = "…"]`, RS-TST-14
     `assert_matches!`, RS-OWN-06, RS-CAR-26, RS-CLI-22 SIGPIPE, RS-CAR-10/RS-DOC-34 docs.rs, and
     RS-CAR-08 default-features.
@@ -197,7 +197,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
   - trim trailing cross-references that restate their target.
 
   Record every disposition in the rename table. Verify: `citations` and `anatomy` pass.
-- [ ] 8.7 Cut every **Why** to three lines or fewer. Verify: `anatomy` passes with rust-style not
+- [x] 8.7 Cut every **Why** to three lines or fewer. Verify: `anatomy` passes with rust-style not
   exempt.
 - [ ] 8.8 Step C: `agent-skill renumber rust-style`. Remove rust-style's exemption, update the
   frontmatter count and the §6 counts, and update `mirror`'s anchor titles where trimming changed

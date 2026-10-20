@@ -180,18 +180,26 @@ single most common `macro_rules!` bug.
 
 ```rust
 // verified
-/// Hygiene: the macro's own binding cannot capture or be captured by the caller's.
-macro_rules! swapped {
-    ($left:expr, $right:expr) => {{
-        let tmp = $left;
-        ($right, tmp)
-    }};
+/// The ceiling every caller is clamped to.
+pub mod limits {
+    /// The largest batch the pipeline accepts.
+    pub const MAX: u32 = 64;
 }
 
-#[must_use]
-pub fn sample() -> (u32, u32) {
-    let tmp = 7;
-    swapped!(tmp, 9)
+/// `$crate` names this crate from wherever the macro is expanded, and `::core` the real `core`.
+#[macro_export]
+macro_rules! clamp_to_max {
+    ($value:expr) => {
+        ::core::cmp::min($value, $crate::limits::MAX)
+    };
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn clamps_from_another_module() {
+        assert_eq!(clamp_to_max!(100), 64);
+    }
 }
 ```
 
@@ -217,10 +225,10 @@ positions, but the habit costs nothing and the exceptions are subtle.
 
 ```rust
 // verified
-/// `expr` binds as a unit, so precedence at the call site cannot leak in.
+/// Parenthesized, so the caller's expression is one operand wherever it is spliced.
 macro_rules! doubled {
     ($value:expr) => {
-        $value * 2
+        ($value) * 2
     };
 }
 
@@ -242,7 +250,8 @@ makes it dangerous rather than merely wrong.
 
 ### RS-MACRO-13 [S] Wrap multi-statement expansions in a block
 
-`{{ … }}`.
+`{{ … }}`, ending in an expression with no `;` after it. In expression position that trailing `;`
+is an error since 1.91 (`semicolon_in_expressions_from_macros`, deny by default).
 
 **Why:** the outer braces make the macro usable in expression position, and the inner ones scope the
 temporaries so they do not leak into the caller's namespace or collide with their bindings.
@@ -281,22 +290,21 @@ user nothing about what shape was expected. A final arm with
 
 ### RS-MACRO-16 [S] Test macros with `trybuild` and ordinary unit tests
 
-**Why:** a macro's error messages are part of its interface and they regress silently — a
-refactoring that changes arm order can turn a good message into the default one with nothing
-failing. `trybuild` pins the messages; unit tests pin the success cases
-(`references/testing.md` RS-TEST-36).
+**Why:** a macro's error messages are part of its interface and regress silently: reordering arms
+can turn a good message into the default one with nothing failing. `trybuild` pins the messages and
+unit tests pin the success cases (`references/testing.md` RS-TEST-36).
 
 **Check:** is there a `tests/ui/` directory with a `.stderr` file per failure case?
 
 ### RS-MACRO-17 [M] Do not rely on hygiene to protect you from caller identifiers
 
-**Why:** `macro_rules!` hygiene covers identifiers the *macro* introduces. Anything captured as
-`$ident` belongs to the caller and can collide with the locals you named — so a caller passing an
-identifier called `a` breaks the `max!` above. Prefix internal bindings distinctively when the macro
-takes identifiers.
+An item the expansion names itself, such as a helper `fn`, gets a distinctive prefix.
 
-**Check:** does the macro take an `ident` fragment and also declare locals? Then the locals need
-unlikely names.
+**Why:** `macro_rules!` hygiene covers only local variables and labels. An item the expansion
+defines lands in the caller's module and collides with any caller item of the same name.
+
+**Check:** does the expansion define an item under a name the caller did not pass in? Then that
+name needs the prefix.
 
 ## Procedural macros
 
@@ -353,7 +361,7 @@ slower.
 
 **Why:** proc macros have no hygiene by default for the paths they emit, so generated code that says
 `Result` resolves to whatever the user has in scope — including a local type alias with different
-type parameters. Generated locals collide the same way (RS-MACRO-17).
+type parameters. Generated locals collide too, which in `macro_rules!` they do not (RS-MACRO-17).
 
 **Check:** does the `quote!` output name any path without a leading `::` or crate root?
 

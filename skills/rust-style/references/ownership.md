@@ -94,8 +94,7 @@ pub fn extension_of(path: &Path) -> Option<&str> {
 
 **Why:** taking `&T` and cloning inside is strictly worse than taking `T`: the caller who had an
 owned value now pays for a clone they could have avoided by moving, and the caller who had a borrow
-pays exactly what they would have paid anyway. Taking `T` pushes the decision to where the
-information is.
+pays exactly what they would have paid anyway.
 
 **Check:** grep for `.clone()` and `.to_owned()` on a parameter in the first few lines of a
 function. Each is a signature that should have taken ownership.
@@ -132,10 +131,9 @@ an allocation, including the ones who only compare it. Returning a borrow ties t
 
 ### RS-OWN-05 [M] Do not put a lifetime on a struct unless the borrow is the point
 
-**Why:** a lifetime parameter propagates into every user's type signatures, their struct fields,
-their trait impls, and their function returns. It is one of the most contagious decisions in the
-language. Owning the data, holding an `Arc`, or using an index into an arena usually costs less than
-the ergonomic tax it imposes.
+**Why:** a lifetime parameter is one of the most contagious decisions in the language: it spreads
+into every type that holds yours and every impl written over it. Owning the data, holding an `Arc`,
+or using an index into an arena usually costs less than the ergonomic tax it imposes.
 
 **Check:** for each `struct Foo<'a>`, what does the borrow buy? If the answer is "avoids one clone
 at construction", the trade is almost certainly wrong.
@@ -164,8 +162,7 @@ the type invalid?
 
 **Why:** the compiler tracks borrows per field but not through a method call, so
 `self.parse(&self.input)` fails while destructuring first succeeds. This resolves the majority of
-"cannot borrow `self` as mutable more than once" errors without a clone, and it is the technique
-people most often do not know.
+"cannot borrow `self` as mutable more than once" errors without a clone.
 
 **Check:** for each "second mutable borrow" error, try destructuring before reaching for `clone` or
 `RefCell`.
@@ -206,10 +203,12 @@ pub fn reverse_halves(values: &mut [u32]) {
 
 ### RS-OWN-12 [M] Never clone to silence the borrow checker
 
+Try, in order: shortening the borrow's scope, splitting the borrow (RS-OWN-10), giving the data one
+owner, using an index or a handle — and only then cloning, with a comment saying which of those you
+rejected and why.
+
 **Why:** a clone that exists to make an error go away is an unexamined design flaw plus a permanent
-runtime cost, and it hides the signal the compiler was sending. Try, in order: shortening the
-borrow's scope, splitting the borrow (RS-OWN-10), giving the data one owner, using an index or a
-handle — and only then cloning, with a comment saying which of those you rejected and why.
+runtime cost, and it hides the signal the compiler was sending.
 
 **Check:** for each `.clone()`, would the code compile without it after one of the four moves above?
 This is worth doing as an exercise on any codebase you inherit; the hit rate is high.
@@ -400,6 +399,10 @@ outlive the call? If not, remove it.
 
 ### RS-OWN-23 [M] Do not leak to satisfy a `'static` bound
 
+Memory you mean to reclaim leaves through `Box::into_raw` or `Box::into_non_null` (1.99) and comes
+back through `from_raw`/`from_non_null`. Never rebuild a `Box` from a leaked reference: std's docs
+call that "unleaking" and say to avoid it.
+
 **Why:** `Box::leak` to make a `&'static str` is a memory leak dressed as a type fix, and in a
 server it is an unbounded one. It is acceptable exactly once, at program start, for genuinely
 process-lifetime configuration — and then it should be commented as such.
@@ -467,10 +470,11 @@ impl Tree {
 
 ### RS-OWN-28 [M] Narrow edition-2024 `impl Trait` capture with `use<>`
 
+Write `+ use<'a, T>` (precise capturing, stable since 1.82) to state what is actually borrowed.
+
 **Why:** in edition 2024 an `impl Trait` return captures *all* in-scope lifetimes by default, so a
 returned iterator borrows every argument whether it needs to or not — and the caller cannot then
-mutate an unrelated argument while holding it. Precise capturing (`+ use<'a, T>`, stable since 1.82)
-states what is actually borrowed.
+mutate an unrelated argument while holding it.
 
 **Check:** does a returned `impl Trait` keep an argument borrowed that its implementation never
 touches?
@@ -488,11 +492,12 @@ index?
 
 ### RS-OWN-30 [M] Justify every use of interior mutability in a comment
 
+When the honest note is "this could be threaded through `&mut self`, but the refactor is large",
+write that down rather than leaving it implied.
+
 **Why:** `Cell`, `RefCell`, `Mutex`, and `OnceLock` all move a compile-time check to runtime or
-remove it. That is sometimes right and never obvious, and the comment is what distinguishes a
-decision from a workaround. Frequently the honest note is "this could be threaded through
-`&mut self`, but the refactor is large" — write that down rather than leaving it implied
-(`references/functional.md` RS-FUNC-38).
+remove it, and every `&self` method that mutates through them still reads as a pure query. The
+declaration is the one place a reader can learn that state changes behind a shared reference.
 
 **Check:** does every such field have a comment on its declaration?
 
@@ -505,14 +510,14 @@ across threads, `OnceLock`/`LazyLock` for one-time initialization.
 `LazyLock` (1.80) are in `std`, so `lazy_static` and `once_cell` are no longer needed for the common
 cases and are pure dependency weight.
 
-**Check:** grep for `lazy_static!` and `once_cell::`. Grep for `RefCell<T>` where `T: Copy`.
+**Check:** `clippy::non_std_lazy_statics` (pedantic) flags `lazy_static!` and `once_cell`. Grep for
+`RefCell<T>` where `T: Copy`.
 
 ### RS-OWN-32 [M] Keep `RefCell` borrows short and out of `Drop`
 
-**Why:** `RefCell` moves borrow checking to runtime, which means violating it is a panic rather than
-a compile error — and a panic inside `Drop` during unwinding aborts the process
-(`references/errors.md` RS-ERR-40). Holding a `Ref` across a call that can re-enter is the classic
-way to hit it.
+**Why:** a `RefCell` borrow conflict is a panic rather than a compile error, and a panic inside
+`Drop` during unwinding aborts the process (`references/errors.md` RS-ERR-40). Holding a `Ref`
+across a call that can re-enter is the classic way to hit it.
 
 **Check:** does any `borrow()`/`borrow_mut()` result live across a function call? Bind it in the
 smallest possible scope.
@@ -584,10 +589,11 @@ call? That is a guard type.
 
 ### RS-OWN-40 [M] Make `Drop` infallible and offer an explicit `finish`
 
+Offer `fn finish(self) -> Result<T, Error>` for the path that can fail, and let `Drop` be the
+best-effort fallback for the path that forgot.
+
 **Why:** `Drop` cannot return a `Result`, so a failing flush or commit is silently swallowed —
-`BufWriter` loses the last block and nobody finds out. Offer `fn finish(self) -> Result<T, Error>`
-for the path that can fail, and let `Drop` be the best-effort fallback for the path that forgot
-(`references/errors.md` RS-ERR-40).
+`BufWriter` loses the last block and nobody finds out.
 
 **Check:** does any `Drop` impl perform I/O, commit, or flush? Is there a fallible alternative the
 caller can use?

@@ -86,8 +86,7 @@ A `//!` block stating what belongs in it, and a name that is a singular noun.
 
 **Why:** the module boundary is a claim about cohesion, and if you cannot write one sentence
 describing what belongs inside and what does not, the boundary is in the wrong place. The sentence
-is also what future contributors use to decide where to put new code
-(`references/documentation.md` RS-DOC-03).
+also tells contributors where new code goes (`references/documentation.md` RS-DOC-03).
 
 **Check:** for each module, write the sentence. If it needs "and", the module is two.
 
@@ -113,10 +112,9 @@ impl Pattern {
 
 Also `shared`, `types`, `lib`, and `core` as a grab-bag.
 
-**Why:** these are not names — they are admissions that the boundary has not been found. Every
-function in such a module belongs next to the thing it serves, and until it moves there nobody can
-predict where to look for it. They also grow monotonically, because nothing is ever obviously *not*
-a utility (`references/naming.md` RS-NAME-06).
+**Why:** these are not names — they are admissions that the boundary has not been found, so nobody
+can predict which function landed in one. They also grow monotonically, because nothing is ever
+obviously *not* a utility (`references/naming.md` RS-NAME-06).
 
 **Check:** grep the module tree for these names. For each function inside, name the type or concept
 it actually serves.
@@ -231,7 +229,8 @@ arrange your own files.
 
 ### RS-MOD-10 [M] Confine platform differences to a `sys` module
 
-`sys/unix.rs`, `sys/windows.rs`, selected by `#[cfg]` in one place behind a shared interface.
+`sys/unix.rs`, `sys/windows.rs`, selected by `#[cfg]` in one place behind a shared interface. Where
+one item needs an arm per platform, write `cfg_select!` (1.95) rather than depending on `cfg-if`.
 
 **Why:** `#[cfg(unix)]` scattered through business logic means no single file can be read without
 mentally running the preprocessor, and the Windows path silently rots because nobody reads it. One
@@ -273,14 +272,12 @@ with a public surface nobody chose (`references/api.md` RS-API-01).
 ### RS-MOD-14 [M] Cross a parent-child edge with `pub(super)`, not `pub(crate)`
 
 An item a child module shares with its parent, or a parent shares with one child, is `pub(super)`.
+The two spellings coincide for a module directly under the crate root, where `super` *is* the root;
+the distinction starts one level further down, and so does this rule.
 
-**Why:** `pub(crate)` on a parent-child edge states that any of the crate's modules may depend on
-the item, which is almost never what the code means and is not what the module tree shows. The
-narrower keyword makes the actual dependency visible in the module tree: a reader who sees
-`pub(super)` knows the coupling stops one level up, and a reviewer who sees it spreading knows the
-seam is wrong before the coupling is load-bearing. The one place the two spellings coincide is a
-module directly under the crate root, where `super` *is* the root and `pub(super)` reaches the whole
-crate; the distinction starts one level further down, and so does this rule.
+**Why:** `pub(crate)` on a parent-child edge says any module may depend on the item, which is almost
+never what the code means. A reader who sees `pub(super)` knows the coupling stops one level up, and
+a reviewer who sees it spreading knows the seam is wrong before the coupling is load-bearing.
 
 **Check:** for each `pub(crate)` item, list the modules that name it. If they all sit under one
 parent, it is a `pub(super)`.
@@ -357,11 +354,9 @@ mod back {
 `pub(crate)` cannot be re-exported — `pub use` of one is `error[E0364]` — so an item on the
 public API is `pub` where it is defined. Every other `pub` in a module is a mistake.
 
-**Why:** that error is why `pub` appears below the root at all, and it is the whole reason the
-keyword cannot simply be banned outside `lib.rs`. It also means a stray `pub` is invisible to the
-compiler's ordinary checks: the item is not exported, nothing fails, and the module quietly claims a
-surface it does not have. `unreachable_pub` is what turns that silence into a diagnostic, which is
-why it is in the mandatory lint table (`references/build.md` RS-BUILD-25).
+**Why:** a stray `pub` is invisible to the compiler's ordinary checks: the item is not exported,
+nothing fails, and the module quietly claims a surface it does not have. `unreachable_pub` is what
+turns that silence into a diagnostic (`references/build.md` RS-BUILD-25).
 
 **Check:** is `unreachable_pub` enabled and clean? Each surviving `pub` must be re-exported from the
 crate root — trace it there.
@@ -415,8 +410,7 @@ single exception is `prelude.rs`, which may only re-export names `lib.rs` has al
 
 **Why:** the surface is then one file long and reviewable as a unit, and adding to it is a visible
 edit to the file whose job is to own it. Spread across modules, the API is the union of decisions
-nobody made together, and the only way to learn it is to read every file
-(`references/api.md` RS-API-01, RS-API-02).
+nobody made together (`references/api.md` RS-API-02).
 
 **Check:** `rg -n 'pub use' -g '*.rs' src/ | rg -v '^src/(lib|prelude)\.rs'`. Each
 surviving hit must be a module assembling its own internals, never widening the crate's surface.
@@ -503,7 +497,7 @@ getting long.
 // verified
 /// Re-export so the caller writes one path, not the internal one.
 mod inner {
-    #[derive(Debug, Clone, Copy, Default)]
+    #[derive(Debug, Clone, Default)]
     pub struct Counter {
         hits: u64,
     }
@@ -585,9 +579,8 @@ design error, not a documentation problem.
 Split into a workspace when a piece is independently useful, has a different dependency footprint,
 or must be versioned separately.
 
-**Why:** those three criteria are the whole test. A crate that is split for tidiness adds
-compilation units and version coordination for nothing; a crate that should have been split forces
-every consumer to take dependencies they do not use
+**Why:** a crate split for tidiness adds compilation units and version coordination for nothing; a
+crate that should have been split forces every consumer to take dependencies they do not use
 (`references/api.md` RS-API-03).
 
 **Check:** for each candidate split, which of the three criteria applies?
@@ -736,15 +729,14 @@ orientation. Everything else has a home inside one of those directories.
 
 ### RS-MOD-36 [M] Name the resolver explicitly in a virtual manifest
 
-A root with no `[package]` has no edition to infer the resolver from.
+A root with no `[package]` has no edition to infer the resolver from, so Cargo falls back to
+`resolver = "1"`, the pre-2021 algorithm, however new the members are. It says so only in a warning:
+`virtual workspace defaulting to resolver = "1" despite one or more workspace members being on
+edition 2024`.
 
-**Why:** Cargo falls back to `resolver = "1"`, the pre-2021 algorithm, however new the members are —
-it emits `virtual workspace defaulting to resolver = "1" despite one or more workspace members being
-on edition 2024`, and a warning is not a floor. The versions are not interchangeable: `"2"` stops
-features unifying across build-dependencies, dev-dependencies, and inactive target-specific
-dependencies; `"3"` additionally makes version selection MSRV-aware, so a dependency release that
-raises its `rust-version` past yours is passed over rather than picked
-(`references/build.md` RS-BUILD-02).
+**Why:** the versions are not interchangeable: `"2"` stops features unifying across build-, dev-,
+and inactive target-specific dependencies, and `"3"` passes over a dependency release that raises
+its `rust-version` past yours rather than picking it (`references/build.md` RS-BUILD-02).
 
 **Check:** does the workspace root name a resolver? A build that prints that warning is not
 configured, it is defaulted.
@@ -752,46 +744,44 @@ configured, it is defaulted.
 ### RS-MOD-37 [M] Expect features to unify across everything built in one invocation
 
 Two members built together each see the union of their features on every shared dependency.
+Per-package unification (`resolver.feature-unification`) is nightly-only, so the working remedies
+are separate invocations or `cargo hack`.
 
 **Why:** the member that asked for less is compiled against the larger dependency anyway, so adding
-a feature in one member silently changes another member's binary. `cargo tree -p a -e features`
-alone and under `--workspace` prints different graphs for the same `a`. Per-package unification
-exists but is nightly — a stable Cargo answers `ignoring resolver.feature-unification without
--Zfeature-unification` — so the working remedies are separate invocations or `cargo hack`.
+a feature in one member silently changes another member's binary.
 
 **Check:** for a dependency two members configure differently, compare `cargo tree -e features`
 alone against `--workspace`. Any difference is a member being built in a way nobody declared.
 
 ### RS-MOD-38 [M] Build every member alone in CI, not only `--workspace`
 
-**Why:** unification hides a missing feature declaration. A member that forgot to ask for
-`serde/derive` still compiles when a sibling asks for it, so `--workspace` is green while the
-published crate fails for the first user who depends on it by itself. Building each member alone is
-the only way that gap is visible before release
-(`references/build.md` RS-BUILD-46).
+**Why:** unification hides a missing feature declaration: a member that forgot `serde/derive` still
+compiles when a sibling asks for it, so `--workspace` is green while the published crate fails for
+the first user who depends on it alone (`references/build.md` RS-BUILD-46).
 
 **Check:** does CI build members individually — `cargo hack --each-feature`, or one `-p` per member
 — or only `--workspace`?
 
 ### RS-MOD-39 [M] Count the encapsulation a split costs, not only what it buys
 
-Everything the new crate's siblings reach for must become `pub`.
+Everything the new crate's siblings reach for must become `pub`. A seam that turns a handful of
+items public is a seam; a seam that turns dozens public is the wrong seam, whatever RS-MOD-24's
+three criteria say about it.
 
 **Why:** a crate boundary is the one boundary `pub(crate)` cannot cross, so a split converts
-internal items into public API — visible to every consumer, and bound by semver from then on. The
-default-private discipline holds inside a crate and is simply unavailable across one
-(RS-MOD-13, RS-MOD-14). A seam that turns a handful of items public is a seam; a seam that turns
-dozens public is the wrong seam, whatever RS-MOD-24's three criteria say about it.
+internal items into public API — visible to every consumer, and bound by semver from then on.
 
 **Check:** list the items the split forces from `pub(crate)` to `pub`. Would you have made each one
 public on its own merits?
 
 ### RS-MOD-40 [M] Mark unpublished members `publish = false` with `version = "0.0.0"`
 
+Members that *are* published carry real versions and the full metadata
+(`references/build.md` RS-BUILD-04).
+
 **Why:** `publish = false` is what stops `cargo publish` from shipping an internal crate by
 accident, and `0.0.0` states that the number carries no promise — an internal member versioned
-`0.3.1` invites readers to reason about compatibility that nobody maintains. Members that *are*
-published carry real versions and the full metadata (`references/build.md` RS-BUILD-04).
+`0.3.1` invites readers to reason about compatibility that nobody maintains.
 
 **Check:** for each member, is it published? If not, does the manifest say so in both places?
 
@@ -813,13 +803,13 @@ decays into arguments about where a new crate belongs. Flat keeps `ls crates/` t
 
 ### RS-MOD-43 [M] Point every dependency edge away from the facade
 
-Members do not depend on the crate that re-exports them.
+Members do not depend on the crate that re-exports them. `dev-dependencies` are the documented
+exception: a cycle through them compiles, and it is the supported way for a member's tests to drive
+the assembled facade.
 
 **Why:** Cargo rejects the cycle outright — `error: cyclic package dependency` — so the edge cannot
 exist, and reaching for the facade from inside a member is a sign the shared item belongs in a
-lower member instead. `dev-dependencies` are the documented exception, and cycle through them
-compiles, which is the supported way for a member's tests to drive the assembled facade
-(RS-MOD-28, RS-MOD-29).
+lower member instead (RS-MOD-28, RS-MOD-29).
 
 **Check:** grep the member manifests for the facade's name. Outside `[dev-dependencies]`, each hit
 is a layering error.
@@ -924,10 +914,11 @@ communication decision — use it to tell the reader what the type is about
 
 ### RS-MOD-53 [S] Keep functions short enough to see whole
 
-**Why:** there is no line limit worth enforcing, but four levels of indentation or eight local
-mutable bindings means the reader is simulating the function rather than reading it. The fix is
-almost always extracting a pure helper and leaving a thin caller
+When one is not, the fix is almost always extracting a pure helper and leaving a thin caller
 (`references/functional.md` RS-FUNC-51).
+
+**Why:** there is no line limit worth enforcing, but four levels of indentation or eight local
+mutable bindings means the reader is simulating the function rather than reading it.
 
 **Check:** what is the maximum indentation depth in the function, and how many `let mut` are live at
 once?
@@ -977,8 +968,7 @@ different enough to deserve its own type and its own function.
 
 **Why:** special-case branches compound. Each is locally cheap and globally expensive, because every
 later change must be tested against every branch, and nothing marks which combinations are
-reachable. This is the concrete form of the patch-code problem: the code works and cannot be
-reasoned about.
+reachable.
 
 **Check:** for each `if` whose condition names a specific input — a particular filename, an empty
 collection treated unlike others, a magic value — ask what the general case would have to be for the

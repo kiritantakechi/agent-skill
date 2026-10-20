@@ -123,10 +123,9 @@ this is a missing exhaustiveness check, not a style preference.
 
 ### RS-FUNC-04 [S] A `for` loop that only pushes is a `collect`
 
-**Why:** it is the single most common non-idiomatic shape in generated Rust. The loop form declares
-a mutable binding, decides capacity implicitly, and separates the transformation from its result by
-three lines; the pipeline form is one expression, sized from the iterator's `size_hint`, and reads
-in the order the data flows.
+**Why:** the loop declares a mutable binding, decides capacity implicitly, and separates the
+transformation from its result by three lines; the pipeline is one expression, sized from the
+iterator's `size_hint`, and reads in the order the data flows.
 
 **Check:** grep for `Vec::new()` or `vec![]` immediately followed by a `for` whose body is a single
 `push`.
@@ -187,7 +186,8 @@ alternatives — a `match` with a `_ => return` arm, or an `if let` wrapping the
 
 ### RS-FUNC-10 [S] Flatten nested `if let` with let-chains
 
-`if let Some(x) = a && x > 3` — stable since 1.88, edition 2024 only.
+`if let Some(x) = a && x > 3` — stable since 1.88, edition 2024 only. A match arm takes an `if let`
+guard the same way (1.95): `Some(text) if let Ok(n) = text.parse::<u32>() => n`.
 
 **Why:** the pyramid of nested `if let` blocks is the most common source of four-level indentation
 in Rust, and every level of it is a `}` the reader has to match up at the bottom.
@@ -310,8 +310,7 @@ just compare one projected field?
 
 **Why:** when the accumulator is a collection, `collect` with the right `FromIterator` is both
 shorter and better optimized — including into `String`, `HashMap`, `BTreeMap`,
-`Result<Vec<_>, _>`, and `(Vec<_>, Vec<_>)`. A `fold` that pushes into a `Vec` is `collect` written
-the long way.
+`Result<Vec<_>, _>`, and `(Vec<_>, Vec<_>)`.
 
 **Check:** does the fold's accumulator end up being a collection? Try `collect` first.
 
@@ -360,10 +359,9 @@ pub fn running_total(values: &[u32]) -> Vec<u32> {
 
 ### RS-FUNC-19 [S] Use `peekable` and `by_ref` instead of a manual buffer
 
-**Why:** `peekable` gives one-token lookahead with the buffering handled and the borrow rules
-enforced; a hand-rolled `Option<T>` buffer has to be drained correctly at three call sites and
-usually is not. `by_ref` lets you consume a prefix (with `take`, `take_while`, or a `for`) without
-losing the rest — which is otherwise the reason people reach for indices.
+**Why:** `peekable` handles one-token lookahead; a hand-rolled `Option<T>` buffer has to be drained
+correctly at three call sites and usually is not. `by_ref` consumes a prefix (`take`, `take_while`,
+a `for`) without losing the rest, which is otherwise the reason people reach for indices.
 
 **Check:** grep for `Option<Item>` fields or locals named `next`, `pending`, `lookahead`, or
 `buffered`.
@@ -372,9 +370,8 @@ losing the rest — which is otherwise the reason people reach for indices.
 
 Take `impl IntoIterator<Item = T>`, return `impl Iterator<Item = T>`.
 
-**Why:** materialization is a decision that belongs to whoever knows how much of the sequence is
-needed — and that is the caller, not you. A function that returns `Vec<T>` has decided on the
-caller's behalf that all of it will be computed and all of it will be stored
+**Why:** materialization belongs to whoever knows how much of the sequence is needed, which is the
+caller. Returning `Vec<T>` decides on their behalf that all of it is computed and all of it stored
 (`references/api.md` RS-API-15).
 
 **Check:** does the function return a collection the caller might only partially consume, or might
@@ -385,9 +382,8 @@ immediately feed into another adapter?
 `Vec::with_capacity(n)` plus `extend` when the count is known independently of the iterator.
 
 **Why:** `collect` pre-sizes from `size_hint`, which is exact for slices, ranges, and `map` over
-them — and useless after `filter`, `flat_map`, or `chars`. In those cases the `Vec` grows by
-repeated doubling, copying everything so far each time
-(`references/performance.md` RS-PERF-06).
+them and useless after `filter`, `flat_map`, or `chars` — there the `Vec` grows by repeated
+doubling, copying everything so far each time (`references/performance.md` RS-PERF-06).
 
 **Check:** is there a `filter` or `flat_map` in the chain, and do you know the output size from
 somewhere else?
@@ -443,10 +439,9 @@ pub fn dot(left: &[i64], right: &[i64]) -> i64 {
 
 ### RS-FUNC-26 [S] Justify `itertools` by naming the adapters you use
 
-**Why:** it is worth the dependency for `chunk_by`, `dedup_by`, `tuple_windows`, `sorted_by`,
-`partition_map`, and `izip!` — all genuinely absent from `std` and genuinely fiddly to hand-roll. It
-is not worth it for something `std` already has, and "we already depend on it" is not a
-justification for the next crate (`references/build.md` RS-BUILD-21).
+**Why:** `chunk_by`, `dedup_by`, `tuple_windows`, `sorted_by`, `partition_map`, and `izip!` have no
+`std` iterator equivalent and are fiddly to hand-roll, so they earn the dependency; what `std` has
+does not, and "we already depend on it" is no justification (`references/build.md` RS-BUILD-21).
 
 **Check:** grep the crate for `itertools::` and list the distinct adapters. If the list is one entry
 and `std` has an equivalent, drop the dependency.
@@ -479,8 +474,7 @@ pub fn report(lines: &[String]) -> String {
 ### RS-FUNC-28 [S] Keep the pipeline shape that `rayon` can parallelize
 
 **Why:** `iter()` → `par_iter()` is a one-word change on a functional pipeline and a redesign on
-loop-and-mutate code. That is a concrete argument for the pipeline form even when today's data is
-small, because the day the data grows you want the change to be one word
+loop-and-mutate code, which argues for the pipeline form even while the data is small
 (`references/concurrency.md` RS-CONC-41).
 
 **Check:** would `par_iter()` compile here? If not, what state is shared — and does it need to be?
@@ -573,14 +567,18 @@ pub const BUFFER: u64 = kib(64);
 
 ### RS-FUNC-34 [S] Use the in-place operations that have functional signatures
 
-`retain`, `sort_unstable_by_key`, `dedup`, `truncate`, `fill`.
+`retain`, `sort_unstable_by_key`, `dedup`, `truncate`, `fill`. To remove by predicate and keep what
+was removed, `extract_if` (`Vec` 1.87, `HashMap`/`HashSet` 1.88, `BTreeMap`/`BTreeSet` 1.91). To pop
+an end only when it matches, `Vec::pop_if` (1.86) and `VecDeque::pop_front_if`/`pop_back_if` (1.93);
+to keep only the last `n` of a `VecDeque`, `retain_back` (1.99).
 
 **Why:** in-place mutation is the right answer for large data — it avoids the copy — but it does not
 have to mean manual index shuffling. These methods take a predicate or a key function and do the
 shuffling correctly, which hand-written versions frequently do not.
 
 **Check:** grep for loops that `remove(i)` inside iteration, or that build a second `Vec` in order
-to delete from the first. Both are `retain`.
+to delete from the first. Both are `retain`, or `extract_if` when the removed items are used.
+`clippy::manual_pop_if` flags a `last()` test followed by a `pop()`.
 
 ### RS-FUNC-35 [M] Never mutate a captured variable from inside `map`
 
@@ -602,12 +600,11 @@ call.
 
 ### RS-FUNC-38 [M] Justify each use of interior mutability in a comment
 
-`Cell`, `RefCell`, `Mutex`, `OnceLock`.
+`Cell`, `RefCell`, `Mutex`, `OnceLock`. Frequently the honest note is "this can be threaded through
+`&mut self`, but the refactor is large" — write that down.
 
 **Why:** interior mutability moves a check the compiler was doing to runtime — or to nowhere. It is
-sometimes the right answer, but it is never the *obvious* answer, and the comment is what
-distinguishes a decision from a workaround. Frequently the honest note is "this can be threaded
-through `&mut self`, but the refactor is large" — write that down
+never the *obvious* answer, so the comment is what distinguishes a decision from a workaround
 (`references/ownership.md` RS-OWN-30).
 
 **Check:** does every `RefCell`/`Cell`/`Mutex` field have a comment on the field declaration?
@@ -635,7 +632,8 @@ fold them into the builder.
 ### RS-FUNC-42 [M] Choose the loosest closure bound the callee needs
 
 `FnOnce` if it is called once, `FnMut` if repeatedly with state, `Fn` only when it must be callable
-from a shared reference or in parallel.
+from a shared reference or in parallel. An async callback takes the same order over `AsyncFnOnce`,
+`AsyncFnMut`, and `AsyncFn` (1.85).
 
 **Why:** the bound is a requirement on every caller. Demanding `Fn` when `FnOnce` suffices rejects
 closures that consume their captures — which is most of the interesting ones — and the caller's only
@@ -647,7 +645,9 @@ not, loosen it.
 ### RS-FUNC-43 [S] Take closures generically when hot, boxed when stored
 
 `f: impl Fn(&T) -> U` for small, frequently called callbacks; `Box<dyn Fn(&T) -> U>` when it must
-live in a struct field or when monomorphization bloat is measurable.
+live in a struct field or when monomorphization bloat is measurable. Take an async callback as
+`impl AsyncFn(&T) -> U`, not as `F: Fn(&T) -> Fut` with `Fut: Future`, whose future cannot borrow
+the argument (nor, under `FnMut`, the captured state).
 
 **Why:** the generic form inlines and costs a monomorphization per call site; the boxed form costs
 an indirect call and an allocation but keeps the code size flat and the type nameable
@@ -658,22 +658,25 @@ answer points at boxing.
 
 ### RS-FUNC-44 [S] Capture as little as possible
 
-**Why:** a closure that captures `self` borrows all of `self`, which blocks every other borrow for
-as long as the closure lives — the most common cause of "cannot borrow `self` as mutable more than
-once". Binding the specific fields first gives the compiler disjoint borrows
-(`references/ownership.md` RS-OWN-10).
+Since edition 2021 a closure captures only the fields it names, so `self.filter` inside it borrows
+that field alone. A method call on `self` still borrows all of it.
 
-**Check:** does the closure mention `self.` at all? Hoist those fields to locals before it.
+**Why:** a closure that calls `self.keeps(item)` holds `&self` while it lives, which blocks the
+`&mut self.items` beside it — the usual cause of "cannot borrow `self` as mutable". Binding what
+the method reads first leaves disjoint borrows (`references/ownership.md` RS-OWN-10).
+
+**Check:** does the closure call a method on `self`? Bind what it reads to a local before the
+closure, or make the method a function of those fields.
 
 ```rust
-// fragment — BAD: borrows all of self
-self.items.retain(|item| self.filter.matches(item));
+// fragment — BAD: the method call borrows all of self while `items` is borrowed mutably
+self.items.retain(|&item| self.keeps(item));
 ```
 
 ```rust
-// fragment — GOOD: two disjoint borrows
-let filter = &self.filter;
-self.items.retain(|item| filter.matches(item));
+// fragment — GOOD: the closure reads one local
+let limit = self.limit;
+self.items.retain(|&item| item <= limit);
 ```
 
 ### RS-FUNC-45 [M] Understand that `move` moves everything captured
@@ -719,25 +722,24 @@ The boolean row is also the defect in `references/api.md` RS-API-30 seen from th
 
 ### RS-FUNC-49 [M] Clone explicitly before a closure that is spawned
 
-**Why:** relying on `move` to capture the right thing from a loop is where the shared-instead-of-
-cloned bug lives, and it produces either a borrow error you "fix" with an `Arc` you did not need, or
-a subtle sharing of state you did not intend
-(`references/concurrency.md` RS-CONC-13).
+**Why:** relying on `move` to capture the right thing from a loop is where the
+shared-instead-of-cloned bug lives: a borrow error "fixed" with an `Arc` you did not need, or a
+subtle sharing of state you did not intend (`references/concurrency.md` RS-CONC-13).
 
 **Check:** for each `spawn`, are the clones visible on their own lines above the closure?
 
 ```rust
 // verified
-/// Clone before the closure so the capture is explicit and the loop variable is not shared.
+use std::sync::Arc;
+use std::thread;
+
+/// Clone before the closure, so what each thread owns is visible above it.
 #[must_use]
-pub fn prefixed(prefix: &str, items: &[String]) -> Vec<String> {
-    items
-        .iter()
-        .map(|item| {
-            let mut line = String::with_capacity(prefix.len() + item.len());
-            line.push_str(prefix);
-            line.push_str(item);
-            line
+pub fn spawn_lengths(names: &Arc<Vec<String>>) -> Vec<thread::JoinHandle<usize>> {
+    (0..2)
+        .map(|i| {
+            let names = Arc::clone(names);
+            thread::spawn(move || names.get(i).map_or(0, String::len))
         })
         .collect()
 }
@@ -778,10 +780,9 @@ should be pure.
 Convert untrusted input into a type that cannot be invalid, at the boundary, and let every
 downstream function take the parsed type.
 
-**Why:** `validate(&str) -> Result<(), Error>` followed by code that still handles `&str` will drift
-out of sync — someone will call the second without the first, and nothing will catch it. Parsing
-into a type makes the check unskippable, because the type cannot be constructed without it
-(`references/api.md` RS-API-34).
+**Why:** after `validate(&str) -> Result<(), Error>` the code still handles `&str`, and someone will
+call it without the check. Parsing into a type makes the check unskippable, because the type cannot
+be constructed without it (`references/api.md` RS-API-34).
 
 **Check:** grep for functions named `validate_*` or `check_*` returning `Result<(), _>`. Each is a
 parse waiting to be written.
@@ -872,11 +873,12 @@ it (RS-FUNC-27) or write the `match`.
 
 ### RS-FUNC-59 [M!] Use an explicit worklist where recursion depth is unbounded
 
+*Relaxed form:* recursion is fine for tree-shaped data whose depth is bounded by a constant you
+assert at entry — an expression AST from your own builder, a directory walk with a depth cap.
+
 **Why:** Rust has no guaranteed tail-call elimination, so recursion over attacker-controlled depth
 is a stack overflow — which aborts immediately and cannot be caught. A `Vec` used as a worklist is
 still functional in spirit, is bounded by the heap, and can be depth-limited with one comparison.
-*Relaxed form:* recursion is fine for tree-shaped data whose depth is bounded by a constant you
-assert at entry — an expression AST from your own builder, a directory walk with a depth cap.
 
 **Check:** for each recursive function, what bounds the depth? If the answer is "the input", it
 needs a worklist or an asserted cap.
@@ -900,10 +902,9 @@ for them (RS-FUNC-21).
 
 ### RS-FUNC-62 [S] Treat a hard-to-write pipeline as information about the data model
 
-**Why:** when a pipeline resists being written functionally, the usual cause is not that the problem
-is imperative — it is that the data has the wrong shape. Flags that should be an enum, a nested loop
-that should be a group-by, a pair of parallel `Vec`s that should be one `Vec` of structs. The
-functional form falls out once the shape is right.
+**Why:** a pipeline that resists being written usually means the data has the wrong shape, not that
+the problem is imperative: flags that should be an enum, parallel `Vec`s that should be one `Vec` of
+structs. Once the shape is right, the functional form falls out.
 
 **Check:** before adding a `mut`, spend one minute on the question: what shape would make this a
 `map`? If an answer exists, it is usually also the better data model.
@@ -916,9 +917,8 @@ An operation on `T` that returns `T` composes with itself; one that returns a ne
 `Result<U, _>` where `T` would do, or a tuple that must be unpacked and rebuilt — does not.
 
 **Why:** closure is what makes a chain possible at all. Each escape from the type forces the caller
-to unpack, adapt, and repack, and that adapter code is the patch code this standard exists to
-remove. Designing the operation to land back in `T` moves the conversion into the operation, where
-it is written once.
+to unpack, adapt, and repack — the patch code this standard exists to remove — while an operation
+that lands back in `T` writes the conversion once, inside itself.
 
 **Check:** for each transformation in a pipeline, compare its input and output types. Every mismatch
 that is not carrying real information is an adapter waiting to be deleted.
@@ -954,10 +954,9 @@ Stages take one value and return one value. Resist a stage that also mutates a c
 accumulator, one that returns a tuple only the next stage understands, or one that is a `for` loop
 because it was easier.
 
-**Why:** uniform stages can be reordered, tested individually, and parallelized (`RS-CONC-41`); a
-stage with a side channel can do none of the three, and it removes those properties from the whole
-chain rather than from itself. The irregular stage is also where the bugs are, because it is the one
-nobody can reason about locally.
+**Why:** uniform stages can be reordered, tested individually, and parallelized (`RS-CONC-41`); one
+stage with a side channel takes those properties from the whole chain, and it is where the bugs are,
+because nobody can reason about it locally.
 
 **Check:** read the pipeline and name each stage's input and output. A stage that needs a sentence
 containing "and also" is the one to fix.

@@ -678,7 +678,8 @@ and the useful links stop standing out.
 ### RS-DOC-34 [M] Enable docs.rs metadata and the `docsrs` cfg
 
 Enable docs.rs metadata (`RS-BUILD-10`) and the `docsrs` cfg so feature-gated items show their
-required feature badge (`RS-BUILD-19`).
+required feature badge (`RS-BUILD-19`). List `targets` there for any platform-gated API: since
+2026-05-01 docs.rs builds only `x86_64-unknown-linux-gnu` otherwise.
 
 **Why:** without it docs.rs builds with default features and silently omits part of your API, or
 shows items with no indication that they need a feature. Both produce support questions that a

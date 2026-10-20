@@ -94,11 +94,9 @@ not a partial impl.
 Write the trait first, in terms of what a caller needs, then implement it. Program against the
 trait — take `impl Read`, not `File` — so the first implementation is never privileged.
 
-**Why:** the shape of a boundary is decided by whoever writes it, and a boundary extracted from an
-existing type inherits that type's accidents: its error cases, its argument order, its assumption
-that a handle is always available. Designing it against the caller's need instead produces a surface
-that is total and symmetric because nothing concrete was in the room to distort it. The test double
-then costs nothing, because the seam already exists.
+**Why:** a boundary extracted from an existing type inherits its accidents: its error cases, its
+argument order, its assumption that a handle is always available. Designed against the caller's
+need, it comes out total and symmetric, and the test double is free because the seam exists.
 
 **Check:** for each concrete type used across a module boundary, is the consumer written against a
 trait or against the type? A function taking `&File` where it only reads is the finding.
@@ -344,7 +342,8 @@ pub trait Plan {
 
 ### RS-TRAIT-12 [S] Use `#[diagnostic::on_unimplemented]` where the error would be cryptic
 
-Stable since 1.78.
+Stable since 1.78. On a blanket impl, add `#[diagnostic::do_not_recommend]` (1.85), so the error
+names the trait the bound asked for rather than the blanket impl's own bound.
 
 **Why:** the default message names the trait and the type and leaves the user to work out which of
 five bounds failed and why. A one-line message here saves every user of the crate a search, and it
@@ -378,10 +377,12 @@ pub trait Normalizer {
 
 ### RS-TRAIT-14 [M] Make the trait `unsafe` when a broken invariant causes unsoundness
 
-**Why:** if unsafe code elsewhere relies on implementors behaving correctly, then a wrong
-implementation is a memory-safety bug — and the `unsafe` keyword is how you require the implementor
-to acknowledge that. If a wrong implementation merely produces wrong answers, keep the trait safe
-and document loudly (`references/unsafe.md` RS-UNSAFE-20).
+If a wrong implementation merely produces wrong answers, keep the trait safe and document the
+contract loudly (`references/unsafe.md` RS-UNSAFE-20).
+
+**Why:** when unsafe code elsewhere relies on implementors behaving correctly, a wrong
+implementation is a memory-safety bug, and the `unsafe` keyword is how the implementor is made to
+acknowledge that.
 
 **Check:** does any `unsafe` block in the crate assume a trait method returns something specific —
 a correct length, a stable ordering, a valid pointer?
@@ -424,10 +425,9 @@ pub fn count_matching<P: Fn(&str) -> bool>(lines: &[String], predicate: P) -> us
 
 ### RS-TRAIT-16 [S] Choose `dyn` for open sets, heterogeneous storage, or measured bloat
 
-**Why:** the vtable call is a few nanoseconds and a predictable indirect branch; forty
-monomorphized copies of a large function are kilobytes of instruction cache. Storing different
-implementations in one `Vec` requires `dyn` outright. Neither direction is free, so the choice needs
-a reason (`references/performance.md` RS-PERF-37).
+**Why:** a vtable call costs a few nanoseconds and a predictable indirect branch; forty
+monomorphized copies of a large function cost kilobytes of instruction cache. A `Vec` of mixed
+implementations needs `dyn` outright (`references/performance.md` RS-PERF-37).
 
 **Check:** how many instantiations does this generic actually get? `cargo bloat` will tell you if
 you suspect the answer is "too many".
@@ -500,12 +500,11 @@ pub fn evens(limit: u32) -> impl Iterator<Item = u32> {
 
 ### RS-TRAIT-19 [M] Keep a trait dyn-compatible if it might ever be boxed
 
-No generic methods, no `Self` in return position, no associated constants.
+No generic methods, no `Self` in return position, no associated constants. Where a generic method
+is genuinely needed, split the trait into a dyn-compatible core plus a generic extension trait.
 
-**Why:** dyn compatibility (formerly "object safety") is not something you can add later without a
-breaking change — and discovering you need `Box<dyn Trait>` after publication is common. Where a
-generic method is genuinely needed, split into a dyn-compatible core trait plus a generic extension
-trait.
+**Why:** dyn compatibility (formerly "object safety") cannot be added later without a breaking
+change, and discovering you need `Box<dyn Trait>` after publication is common.
 
 **Check:** does `fn _assert(_: &dyn MyTrait) {}` compile? That one line is the whole test.
 
@@ -534,11 +533,12 @@ pub fn boxed() -> Box<dyn Sink> {
 
 ### RS-TRAIT-20 [M] Decide and document the `Send` story for `async fn` in traits
 
-**Why:** `async fn` in traits (1.75) produces a future that is not automatically `Send` and is not
-dyn-compatible. Whether callers can spawn the result on a multi-threaded runtime therefore depends
-on a choice you make — `trait_variant`, an explicit `-> impl Future<Output = _> + Send`, or
-`Pin<Box<dyn Future + Send>>` — and they cannot fix it from outside
-(`references/concurrency.md` RS-CONC-36).
+Pick one of `trait_variant`, an explicit `-> impl Future<Output = _> + Send`, or
+`Pin<Box<dyn Future + Send>>`, and say which in the rustdoc.
+
+**Why:** `async fn` in traits (1.75) returns a future that is neither automatically `Send` nor
+dyn-compatible, so whether callers can spawn it on a multi-threaded runtime is your decision, and
+they cannot fix it from outside (`references/concurrency.md` RS-CONC-36).
 
 **Check:** can a user `tokio::spawn` a call to this trait method? Does the rustdoc say so?
 
@@ -554,10 +554,9 @@ error at the call site into a correct signature.
 
 ### RS-TRAIT-22 [M] Prefer an enum to a trait object for a closed set
 
-**Why:** no allocation, no vtable, exhaustive matching when a variant is added, and `Clone`,
-`PartialEq`, `Debug`, and `Serialize` all derivable — none of which a `Box<dyn Trait>` gives you.
-For two to six known implementations the enum wins on every axis except extensibility, which by
-definition is not wanted here.
+**Why:** an enum has no allocation, no vtable, exhaustive matching when a variant is added, and
+derivable `Clone`, `PartialEq`, `Debug`, and `Serialize`, none of which `Box<dyn Trait>` gives. For
+two to six known implementations it loses only on extensibility, which a closed set does not want.
 
 **Check:** is the set of implementations known at compile time and controlled by you? Then it is an
 enum.
@@ -996,6 +995,8 @@ strictly better when the mistake is expensive and the transitions are few
 ```rust
 // verified
 /// Typestate: `send` does not exist until the connection is open.
+use std::marker::PhantomData;
+
 #[derive(Debug)]
 pub struct Closed;
 
@@ -1004,33 +1005,45 @@ pub struct Open;
 
 #[derive(Debug)]
 pub struct Connection<State> {
-    marker: std::marker::PhantomData<fn() -> State>,
+    addr: String,
+    sent: usize,
+    state: PhantomData<fn() -> State>,
 }
 
 impl Connection<Closed> {
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(addr: impl Into<String>) -> Self {
         Self {
-            marker: std::marker::PhantomData,
+            addr: addr.into(),
+            sent: 0,
+            state: PhantomData,
         }
     }
 
     #[must_use]
     pub fn open(self) -> Connection<Open> {
         Connection {
-            marker: std::marker::PhantomData,
+            addr: self.addr,
+            sent: self.sent,
+            state: PhantomData,
         }
     }
 }
 
-impl Default for Connection<Closed> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Connection<Open> {
-    pub fn send(&self, _payload: &[u8]) {}
+    pub fn send(&mut self, payload: &[u8]) {
+        self.sent += payload.len();
+    }
+
+    #[must_use]
+    pub fn sent(&self) -> usize {
+        self.sent
+    }
+
+    #[must_use]
+    pub fn addr(&self) -> &str {
+        &self.addr
+    }
 }
 ```
 

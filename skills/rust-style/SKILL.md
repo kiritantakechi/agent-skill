@@ -107,9 +107,9 @@ RS-MIG-01 has every one, with the release it arrived in.
    across an await must be correct when dropped there; `select!` makes this routine rather than
    exotic (`RS-CONC-37`).
 
-Releases change things silently too — Cargo's inherited `default-features` in 1.99, the derived
-`PartialOrd` path in 1.98, drop timing in 1.91 to 1.95. `references/migration.md` RS-MIG-03 lists
-them by release, to read on every toolchain bump.
+Releases change things silently too — CI builds without incremental compilation in 1.99, the
+derived `PartialOrd` path in 1.98, drop timing in 1.91 to 1.95. `references/migration.md` RS-MIG-03
+lists them by release, to read on every toolchain bump.
 
 ## 3. Design principles
 

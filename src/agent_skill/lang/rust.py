@@ -117,7 +117,6 @@ RUST_STYLE = Crate(
             "unused_qualifications": '"warn"',
             "elided_lifetimes_in_paths": '"warn"',
             "explicit_outlives_requirements": '"warn"',
-            "dead_code_pub_in_binary": '"warn"',
         },
         "clippy": {
             "pedantic": '{ level = "warn", priority = -1 }',
@@ -238,7 +237,7 @@ class Rust:
                 ex.units.append(Unit(src, chapter, b.line, b.rule))
             if not mods:
                 continue
-            stem = Path(chapter).stem.replace("-", "_")
+            stem = module_name(chapter)
             chapters.append(stem)
             (src / f"{stem}.rs").write_text(_module(crate, stem, chapter, mods))
 
@@ -330,6 +329,23 @@ class Rust:
                 path.write_text(original)
 
 
+#: Words a chapter may be named that Rust will not take as a module name.
+KEYWORDS = frozenset(
+    "as async await break const continue crate dyn else enum extern false fn for gen if impl in "
+    "let loop match mod move mut pub ref return self static struct super trait true type unsafe "
+    "use where while".split()
+)
+
+
+def module_name(chapter: str) -> str:
+    """The module a chapter's blocks are compiled as: `unsafe.md` -> `unsafe_`.
+
+    The shared vocabulary names a chapter `unsafe`, and `pub mod unsafe;` does not parse.
+    """
+    stem = Path(chapter).stem.replace("-", "_")
+    return f"{stem}_" if stem in KEYWORDS else stem
+
+
 def _module(crate: Crate, stem: str, chapter: str, mods: list[tuple[str, str]]) -> str:
     out = [f"//! Blocks extracted from `references/{chapter}`.", ""]
     for mod, body in mods:
@@ -339,13 +355,10 @@ def _module(crate: Crate, stem: str, chapter: str, mods: list[tuple[str, str]]) 
         body = body.replace("mycrate::", f"{crate.ident}::{stem}::{mod}::")
         # `crate::` in a block means the reader's own crate root. Wrapping the
         # block in a module moves that root, so rebase it here rather than making
-        # the published example spell a path it does not mean. `$crate::` is
-        # macro syntax and must survive untouched.
-        body = (
-            body.replace("$crate::", "\x00")
-            .replace("crate::", f"crate::{stem}::{mod}::")
-            .replace("\x00", "$crate::")
-        )
+        # the published example spell a path it does not mean. `$crate::` names
+        # the same root from inside a macro, so it moves with it — the replace
+        # covers both spellings, and `fmt` undoes both the same way.
+        body = body.replace("crate::", f"crate::{stem}::{mod}::")
         out.append(f"pub mod {mod} {{")
         out.append("    #![allow(dead_code, unused_imports)]")
         out += [("    " + ln) if ln.strip() else "" for ln in body.rstrip("\n").split("\n")]

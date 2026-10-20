@@ -31,7 +31,6 @@ unreachable_pub = "warn"
 unused_qualifications = "warn"
 elided_lifetimes_in_paths = "warn"
 explicit_outlives_requirements = "warn"
-dead_code_pub_in_binary = "warn"     # an unused `pub` item in a binary is dead code
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }

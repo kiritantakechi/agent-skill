@@ -77,7 +77,7 @@ tie-break is section 3 of `SKILL.md`.
 modules, and crates. `SCREAMING_SNAKE_CASE` for constants and statics.
 
 **Why:** casing carries information. Seeing `foo::Bar` you know `Bar` is a type without looking it
-up; seeing `foo::bar()` you know it is not. Mixed conventions destroy that signal, and `clippy`'s
+up; seeing `foo::bar()` you know it is not. Mixed conventions destroy that signal, and rustc's
 `non_camel_case_types` / `non_snake_case` exist precisely because the ecosystem depends on it.
 
 **Check:** the compiler's default lints catch every case. If any `#[allow(non_snake_case)]` appears
@@ -169,11 +169,9 @@ problem (`references/modules.md` RS-MOD-24).
 
 Module names are singular nouns describing one concept: `matcher`, `printer`, `config`, `walk`.
 
-**Why:** the module name is the first half of every path a reader sees — `matcher::Config` tells
-them which concept `Config` belongs to before they open anything. A singular noun forces that
-concept to exist and to be one thing; a plural or a category name (`utils`, `helpers`, `common`)
-names a container instead, and a container can hold anything. `references/modules.md` RS-MOD-02
-owns the argument for why those particular names never converge.
+**Why:** the module name is the first half of every path — `matcher::Config` says which concept
+`Config` belongs to. A singular noun forces that concept to exist and to be one thing; a category
+name names a container, and a container can hold anything (`references/modules.md` RS-MOD-02).
 
 **Check:** for each module, write one sentence describing what belongs in it and what does not. If
 the sentence is "things used in more than one place", the module needs dissolving.
@@ -550,11 +548,13 @@ impl Retry {
 
 Implementing the trait gives callers `.into()`, `?` conversion, and generic code for free.
 
+*Relaxed form:* keep an inherent `from_*` when the trait impl would be ambiguous (several sources of
+the same type, as with `from_utf8` and `from_utf8_lossy`) or would leak a type parameter — and then
+name it for the source, not the target.
+
 **Why:** an inherent `Config::from_path(p)` works only when the caller knows to look for it; a
 `TryFrom<&Path> for Config` also works inside `collect::<Result<Vec<_>, _>>()`, behind
-`impl TryInto<Config>`, and through `?`. *Relaxed form:* keep an inherent `from_*` when the trait
-impl would be ambiguous (several sources of the same type, as with `from_utf8` and
-`from_utf8_lossy`) or would leak a type parameter — and then name it for the source, not the target.
+`impl TryInto<Config>`, and through `?`.
 
 **Check:** for each inherent `from_*`, could it be a `From`/`TryFrom` impl without ambiguity? If
 yes, make it one and keep the inherent version only as a thin forwarder.
@@ -664,10 +664,11 @@ boundary? Give it a name.
 
 `Duration` rather than `timeout_ms: u64`; a `Bytes`/`ByteSize` newtype rather than `size: u64`.
 
-**Why:** unit confusion is a bug class the type system can eliminate completely — the compiler
-rejects `sleep(retry_count)` if the parameter is a `Duration`, and cannot if it is a `u64`.
 *Relaxed form:* where a newtype would be disproportionate (a private helper, a single call site),
 the unit suffix in the name is acceptable — but never omit both.
+
+**Why:** unit confusion is a bug class the type system can eliminate completely — the compiler
+rejects `sleep(retry_count)` if the parameter is a `Duration`, and cannot if it is a `u64`.
 
 **Check:** grep for numeric parameters and fields whose type is a bare integer or float. For each,
 is the unit recoverable from the type or the name without reading a comment?
@@ -684,12 +685,12 @@ fn retry(timeout: Duration, backoff: Duration) {}
 
 ### RS-NAME-31 [S] Name the positive; convert negations once, at the boundary
 
-`no_color`, `disable_cache`, and `skip_hidden` compose into double negation: `if !no_color`.
+`no_color`, `disable_cache`, and `skip_hidden` compose into double negation: `if !no_color`. The
+CLI flag may be negative because the convention demands it — convert to a positive field once, where
+the flag is parsed (`references/cli.md` RS-CLI-14).
 
 **Why:** every reader of `if !no_color` performs a small logic operation to recover the intent, and
-under an `&&` with a second negation they will eventually get it wrong. The CLI flag may be negative
-because the convention demands it — convert to a positive field once, where the flag is parsed
-(`references/cli.md` RS-CLI-14).
+under an `&&` with a second negation they will eventually get it wrong.
 
 **Check:** grep for `!` applied to an identifier containing `no_`, `not_`, `disable`, `skip`, or
 `without`.
@@ -934,7 +935,7 @@ Parallel names put their words in the same order: `read_timeout` and `write_time
 
 **Why:** consistent order makes names sort together, complete together, and grep together, so the
 family is discoverable from any one member. It also removes the pause where the reader wonders
-whether the different order signals a different meaning (`RS-NAME-06`).
+whether the different order signals a different meaning (`RS-NAME-27`).
 
 **Check:** sort the identifiers in each module alphabetically. Members of one family should end up
 adjacent; a stray is a name whose word order differs.

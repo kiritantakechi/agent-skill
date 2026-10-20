@@ -237,7 +237,7 @@ pub fn render_all(rows: &[Vec<u8>]) -> usize {
 ### RS-PERF-09 [M] Avoid intermediate collections in pipelines
 
 Avoid intermediate collections in pipelines. Each `.collect::<Vec<_>>()` in the middle of a chain is
-an allocation plus a full materialization the laziness would have avoided (`RS-FUNC-14`).
+an allocation plus a full materialization the laziness would have avoided.
 
 **Why:** iterators are lazy precisely so that a chain of adapters is one pass with no storage.
 Collecting in the middle forces the whole intermediate to exist, which costs both the allocation and
@@ -281,7 +281,9 @@ pub fn key_of(line: &str) -> Option<&str> {
 ### RS-PERF-12 [M] Write into a reused buffer instead of `format!` in a hot loop
 
 `format!` allocates. In a hot loop, `write!` into a reused `String` (via `fmt::Write`) or a reused
-`Vec<u8>` (via `io::Write`), and reach for `push_str`/`push` where no formatting is needed.
+`Vec<u8>` (via `io::Write`), and reach for `push_str`/`push` where no formatting is needed. For a
+bare integer, `format_into` with a reused `NumBuffer` (`core::fmt` since 1.98, `std::fmt` since
+1.99) skips the formatting machinery and replaces `itoa`.
 
 **Why:** `format!` is `String::new` plus formatting plus a return by value, so it allocates every
 call. `write!` into an existing buffer does the same formatting with no allocation.
@@ -290,17 +292,18 @@ call. `write!` into an existing buffer does the same formatting with no allocati
 
 ```rust
 // verified
-use std::fmt::Write as _;
+use std::fmt::NumBuffer;
 
-/// `write!` into a reused buffer instead of `format!` per iteration.
+/// One reused `String` and one reused `NumBuffer` instead of `format!` per iteration.
 #[must_use]
 pub fn join_ids(ids: &[u32]) -> String {
     let mut out = String::with_capacity(ids.len() * 4);
+    let mut digits = NumBuffer::new();
     for (index, id) in ids.iter().enumerate() {
         if index > 0 {
             out.push(',');
         }
-        let _ = write!(out, "{id}");
+        out.push_str(id.format_into(&mut digits));
     }
     out
 }
@@ -329,7 +332,7 @@ pub fn count_equal(values: &[String], needle: &str) -> usize {
 ### RS-PERF-14 [S] Prefer `Box<str>`/`Box<[T]>`/`Arc<[T]>` for finished data
 
 Prefer `Box<str>`/`Box<[T]>`/`Arc<[T]>` for finished data: one less word per value and no spare
-capacity (`RS-OWN-20`).
+capacity.
 
 **Why:** `String` and `Vec` carry a capacity field and usually over-allocate, which is the right
 trade while growing and pure overhead afterwards. For a million small values the difference in
@@ -535,17 +538,18 @@ const _: () = assert!(size_of::<Token>() == 8);
 
 Where bounds checks genuinely dominate and the profile proves it, reach for slice patterns,
 `as_chunks`, `iter().zip()`, or `get_unchecked` inside a narrowly scoped `unsafe` with a
-`// SAFETY:` proof — in that order.
+`// SAFETY:` proof — in that order. At a constant width use `as_chunks::<N>()` rather than
+`chunks_exact(N)`: it yields `&[[T; N]]`, so the width is carried by the type and the pattern needs
+no `_ =>` arm (`RS-API-39`). `as_array` (a slice of exactly `N`) and `array_windows` (overlapping
+windows) carry the width the same way.
 
-**Why:** the first three give the optimizer the same proof the `unsafe` would assert, at zero
-soundness cost. At a constant width `as_chunks::<N>()` is the one to reach for: it yields
-`&[[T; N]]`, so the width is carried by the type and the pattern is irrefutable, where
-`chunks_exact(N)` yields `&[T]` and forces a `_ =>` arm for a length the call already excluded
-(RS-API-39). `get_unchecked` should be reached only when the safe formulations have been tried and
-measured, because it converts a panic into UB.
+**Why:** the safe forms give the optimizer the same proof the `unsafe` would assert, at zero
+soundness cost. `get_unchecked` converts a panic into UB, so it waits until the safe forms have
+been tried and measured.
 
 **Check:** if `get_unchecked` appears, was `as_chunks` or `zip` tried first, and is there a
-benchmark showing the difference? A `chunks_exact` with a literal width is an `as_chunks`.
+benchmark showing the difference? Clippy's `chunks_exact_to_as_chunks` flags a `chunks_exact` with
+a literal width.
 
 ```rust
 // verified
@@ -757,7 +761,7 @@ path.
 
 `#[inline]` is for small functions that must inline *across crate boundaries* — non-generic
 functions in a library. Generic functions are already available for inlining. Applying it everywhere
-bloats the binary and slows compilation without helping (`RS-API-49`).
+bloats the binary and slows compilation without helping.
 
 **Why:** without LTO, a non-generic function's body is not visible to other crates, so `#[inline]`
 is what makes it available. Generic functions are instantiated in the caller's crate and already
@@ -849,8 +853,9 @@ usually can be hoisted (`RS-OWN-13`).
 ### RS-PERF-40 [M] Make overflow behaviour explicit on untrusted or computed sizes
 
 Integer overflow panics in debug and wraps in release. On any path handling untrusted or computed
-sizes, use `checked_*`, `saturating_*`, or `wrapping_*` explicitly so the behaviour is the same in
-both profiles (`RS-ERR-41`).
+sizes, use `checked_*`, `saturating_*`, or `wrapping_*` explicitly — or `strict_*` (1.91), which
+panics in both profiles, where overflow is a bug rather than an input — so the behaviour is the
+same in both profiles (`RS-ERR-41`).
 
 **Why:** the profile-dependent default means the debug build and the shipped build disagree about a
 security-relevant behaviour, and testing happens in the one that panics. An explicit method makes
@@ -872,7 +877,8 @@ pub fn offset(base: usize, delta: usize) -> Option<usize> {
 
 Prefer `u32`/`u64` deliberately over `usize` for values that are serialized or bounded, and `usize`
 for lengths and indices. Casting with `as` truncates silently — use `try_from` on any conversion
-that could lose data.
+that could lose data. A same-width sign change loses no bits and is not a `try_from` case: spell it
+`cast_signed()` or `cast_unsigned()` (1.87) rather than `as`.
 
 **Why:** `usize` varies by platform, so a serialized `usize` has a different width on a 32-bit
 target — a portability bug that only appears there. `as` performs the truncation without any

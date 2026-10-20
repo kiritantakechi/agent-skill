@@ -390,7 +390,8 @@ violating this.
 
 Accept file paths as `OsString`/`PathBuf`, never as `String`. Not all filenames are valid UTF-8 on
 either Unix or Windows, and rejecting them is a bug that surfaces only in the users' most annoying
-directories.
+directories. Print them with `Path::display` or `OsStr::display` (1.87), never `{:?}`, which
+`clippy::unnecessary_debug_formatting` (pedantic) flags.
 
 **Why:** on Unix a filename is bytes and on Windows it is UTF-16; neither is guaranteed to be UTF-8.
 Forcing `String` makes the tool fail on exactly the files the user most needs a tool for, and the
@@ -442,18 +443,16 @@ pub struct Flags {
 impl Flags {
     /// `--colour`.
     #[must_use]
-    pub fn with_colour(self) -> Self {
-        Self {
-            colour: Some(Colour::On),
-        }
+    pub fn with_colour(mut self) -> Self {
+        self.colour = Some(Colour::On);
+        self
     }
 
     /// `--no-colour`.
     #[must_use]
-    pub fn with_no_colour(self) -> Self {
-        Self {
-            colour: Some(Colour::Off),
-        }
+    pub fn with_no_colour(mut self) -> Self {
+        self.colour = Some(Colour::Off);
+        self
     }
 
     /// The command line wins where it spoke; the config file is the fallback.
@@ -637,11 +636,13 @@ pub fn print_all(lines: &[String]) -> io::Result<()> {
 ### RS-CLI-22 [M] Handle `BrokenPipe` by exiting quietly with success
 
 Handle `BrokenPipe` by exiting quietly with success. Every `tool | head` will otherwise print an
-error, and this is the most common polish defect in Rust CLIs.
+error, and this is the most common polish defect in Rust CLIs. Match on `io::ErrorKind::BrokenPipe`
+(since 1.97 Windows also reports it for a write after a socket `shutdown`); the flag that restores
+C's behaviour, `-Zon-broken-pipe=kill`, is nightly-only.
 
-**Why:** `head` closing the pipe is normal, expected termination, not a failure — the user got what
-they asked for. Rust does not ignore `SIGPIPE` by default the way C programs typically do, so this
-has to be handled explicitly.
+**Why:** `head` closing the pipe is normal termination, not a failure — the user got what they asked
+for. Rust sets `SIGPIPE` to `SIG_IGN` before `main`, so where a C program is killed silently by the
+signal, a Rust write returns `BrokenPipe` and `println!` panics on it.
 
 **Check:** run `tool | head -1`. Any error output or non-zero exit is a violation.
 
@@ -1045,7 +1046,8 @@ gone, and `$?` should be `130`.
 ### RS-CLI-36 [S] Respect the platform's directory conventions
 
 Respect the platform's directory conventions with `directories` or `etcetera` — `$XDG_CONFIG_HOME`,
-`~/Library/Application Support`, `%APPDATA%` — rather than hard-coding `~/.toolrc`.
+`~/Library/Application Support`, `%APPDATA%` — rather than hard-coding `~/.toolrc`. For `$HOME`
+alone, `std::env::home_dir` (undeprecated in 1.87) needs no crate.
 
 **Why:** users expect config, cache, and data to land where their platform puts them, so backups and
 sync tools handle them correctly. A hard-coded dotfile also breaks on Windows entirely.
