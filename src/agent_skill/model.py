@@ -266,9 +266,7 @@ def _section(body: str, name: str) -> str:
     holding a bolded phrase at the start of a line was read as ending there, so a
     long Why measured short.
     """
-    m = re.search(
-        rf"\*\*{name}:?\*\*(.*?)(?=\n\*\*[^*\n]+:\*\*|\n### |\n## |\n```|\Z)", body, re.S
-    )
+    m = re.search(rf"\*\*{name}:?\*\*(.*?)(?=\n\*\*[^*\n]+:\*\*|\n### |\n## |\n```|\Z)", body, re.S)
     return m.group(1) if m else ""
 
 

@@ -123,7 +123,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 - [x] 6.8 Step C: `agent-skill renumber python-style`. Remove python-style's exemption, and update
   the frontmatter rule count and the §6 counts. Verify: `uv run agent-skill check --fast` passes,
   with nothing reporting an outlived exemption.
-- [ ] 6.9 Add controls in `checks/controls.py`, injecting into `python-style`, which now conforms:
+- [x] 6.9 Add controls in `checks/controls.py`, injecting into `python-style`, which now conforms:
   - **`skeleton`:** one control per branch — a renamed H2, a chapter missing from the vocabulary, a
     wrong family code, a severity label, §5 drifting from the review order, and a rename-table row
     naming a deleted rule;

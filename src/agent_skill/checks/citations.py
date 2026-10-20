@@ -287,6 +287,12 @@ def citations(skill):
 
 
 def _rust(skill):
+    # Asked before looking for rows: a check that declares a tool and returns
+    # early without it reports clean while it could not have looked.
+    for tool in ("clippy-driver", "rustdoc"):
+        if not have(tool):
+            yield unrun(f"`{tool}` is not available, so no Rust lint row was compared", skill.name)
+            return
     rows = [row for row in skill.lint_rows if row.tool in SECTION]
     manifest = skill.root / "assets" / "Cargo.toml"
     if not rows:

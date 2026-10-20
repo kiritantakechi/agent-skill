@@ -48,3 +48,49 @@ def test_no_exemption_outlives_its_check():
 def test_every_exemption_gives_a_reason():
     for name, reason in WITHOUT_A_CONTROL.items():
         assert reason and len(reason) > 20, f"{name} is exempt with no reason worth reading"
+
+
+#: Each structure control, and the branch it is named for. Stubbing the branch
+#: out must make the control stop firing: a control that still fires has been
+#: satisfied by some other branch, and proves nothing about its own.
+BRANCHES = {
+    "a section title with a subtitle the other standards do not have": (
+        "agent_skill.checks.skeleton",
+        "_skill_md",
+    ),
+    "a chapter named outside the shared vocabulary": ("agent_skill.checks.skeleton", "_chapters"),
+    "a rule filed in a chapter whose family is another": (
+        "agent_skill.checks.skeleton",
+        "_chapters",
+    ),
+    "a severity label the shared model does not have": ("agent_skill.checks.skeleton", "_review"),
+    "section 5 drifting from the protocol's review order": (
+        "agent_skill.checks.skeleton",
+        "_skill_md",
+    ),
+    "a rename row leading to a rule that does not exist": (
+        "agent_skill.checks.skeleton",
+        "_renames",
+    ),
+    "a shared sentence edited in one standard's copy": ("agent_skill.shared", "compare"),
+    "a gap in a chapter's numbering": ("agent_skill.checks.anatomy", "structural"),
+    "a Why that runs to a fourth line": ("agent_skill.checks.anatomy", "structural"),
+    "a ty lint row at a level the shipped configuration does not set": (
+        "agent_skill.checks.citations",
+        "python_rows",
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(BRANCHES))
+def test_a_structure_control_needs_its_own_branch(name, scratch, monkeypatch):
+    import importlib
+
+    control = next(c for c in CONTROLS if c.name == name)
+    module, attr = BRANCHES[name]
+    monkeypatch.setattr(importlib.import_module(module), attr, lambda *a, **k: iter(()))
+    control.break_it(scratch)
+    result = by_name(control.check).run(discover(scratch))
+    assert not any(f.level is Level.FAIL for f in result.findings), (
+        f"`{name}` still fires with `{attr}` stubbed out — another branch is reporting it"
+    )

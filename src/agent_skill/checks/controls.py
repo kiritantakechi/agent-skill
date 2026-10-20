@@ -63,13 +63,16 @@ WITHOUT_A_CONTROL = {
     "would cost a full toolchain run — but nothing records whether that is the reason or "
     "whether nobody got to it",
     "mutation": "not knowable from the code. Same shape as `toolchain`, and the same gap",
-    # Both skip a standard that is exempt from standard-structure, and until
-    # refresh-skills converts `python-style` every standard is. A defect injected
-    # now would land in a standard these checks do not read. Task 6.9 adds the
-    # controls and removes these two lines.
-    "skeleton": "no standard conforms yet, so there is nowhere to inject that it reads",
-    "shared-text": "no standard conforms yet, so there is nowhere to inject that it reads",
 }
+
+
+def move(tree: Path, rel: str, name: str) -> None:
+    """Rename a file in the throwaway tree, for a defect that is a file's name."""
+    path = tree / rel
+    if not path.exists():
+        raise FixtureGone(rel)
+    path.rename(path.with_name(name))
+    TOUCHED.append(rel)
 
 
 def throwaway_tree(source: Path, into: Path) -> Path:
@@ -151,7 +154,89 @@ def _rust_row(lint: str, level: str) -> str:
     )
 
 
+#: `python-style` is the standard the structure controls inject into: it was the
+#: first to conform, and a defect injected into an exempt one reaches nothing.
+PY = "python-style"
+
+#: A rule of the async family, filed in the testing chapter. New, so no rename
+#: row names it and only the family branch of `skeleton` can report it.
+MISFILED = "\n### PS-ASYNC-99 [M] Misfiled\n\nX.\n\n**Why:** y.\n\n**Check:** z.\n"
+
+STRUCTURE: list[Control] = [
+    Control(
+        "a section title with a subtitle the other standards do not have",
+        "skeleton",
+        lambda t: edit(
+            t, f"{PY}/SKILL.md", "## 3. Design principles\n", "## 3. Design principles — less\n"
+        ),
+    ),
+    Control(
+        "a chapter named outside the shared vocabulary",
+        "skeleton",
+        lambda t: move(t, f"{PY}/references/async.md", "asyncio.md"),
+    ),
+    Control(
+        "a rule filed in a chapter whose family is another",
+        "skeleton",
+        lambda t: append(t, f"{PY}/references/testing.md", MISFILED),
+    ),
+    Control(
+        "a severity label the shared model does not have",
+        "skeleton",
+        lambda t: edit(t, f"{PY}/references/review-checklist.md", "| **Style** |", "| **Nit** |"),
+    ),
+    Control(
+        "section 5 drifting from the protocol's review order",
+        "skeleton",
+        lambda t: edit(t, f"{PY}/SKILL.md", "10. **The build.**", "10. **The release.**"),
+    ),
+    Control(
+        "a rename row leading to a rule that does not exist",
+        "skeleton",
+        lambda t: edit(
+            t,
+            f"{PY}/references/migration.md",
+            "| `PS-ERR-09` | lint `ruff:E722` |",
+            "| `PS-ERR-09` | `PS-ERR-99` |",
+        ),
+    ),
+    Control(
+        "a shared sentence edited in one standard's copy",
+        "shared-text",
+        lambda t: edit(t, f"{PY}/SKILL.md", "Apply it literally.", "Apply it with judgement."),
+    ),
+    Control(
+        # The chapter's last rule, cited nowhere but its heading and its contents
+        # line, so moving its number leaves no dangling citation behind.
+        "a gap in a chapter's numbering",
+        "anatomy",
+        lambda t: edit(t, f"{PY}/references/migration.md", "PS-MIG-15 [M]", "PS-MIG-17 [M]", 2),
+    ),
+    Control(
+        "a Why that runs to a fourth line",
+        "anatomy",
+        lambda t: edit(
+            t,
+            f"{PY}/references/api.md",
+            "**Why:** without it the public surface is",
+            "**Why:** one line more.\nwithout it the public surface is",
+        ),
+    ),
+    Control(
+        "a ty lint row at a level the shipped configuration does not set",
+        "citations",
+        lambda t: edit(
+            t,
+            f"{PY}/references/async.md",
+            "| ty | `deprecated` | warn |",
+            "| ty | `deprecated` | error |",
+        ),
+    ),
+]
+
+
 CONTROLS: list[Control] = [
+    *STRUCTURE,
     Control(
         # The asset denies it; a row saying `warn` describes a build that is not shipped.
         "a Rust lint row at a level the shipped table does not set",
