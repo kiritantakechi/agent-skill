@@ -253,7 +253,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 11. Integration
 
-- [ ] 11.1 Update the README layout for the renamed chapters. Confirm that `zig-style` is the only
+- [x] 11.1 Update the README layout for the renamed chapters. Confirm that `zig-style` is the only
   exempt skill, and that its exemption and local-following pin carry their reasons. Verify:
   `--only documented --only skeleton` passes.
 - [ ] 11.2 Run `uv run agent-skill build` and `uv run agent-skill install`. Confirm that each
