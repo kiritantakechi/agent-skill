@@ -10,20 +10,17 @@ the author what must change before merge.
 
 | Severity | Meaning | Examples |
 |---|---|---|
-| **Unsound** | Loses or corrupts data under concurrency, or crashes the interpreter | A compound assignment on shared state, check-then-act across a lock boundary, a shared generator, `frame.f_locals` from another thread |
-| **Stale** | A pre-3.14 spelling — either wrong now or silently different | `from __future__ import annotations`, `typing.List`, `Optional[X]`, `TypeGuard` where `TypeIs` fits, `isinstance(x, dict)` against a `frozendict` |
-| **Silent** | Behaves differently on 3.15 than the author intended, with no diagnostic | A `contextmanager` decorator on a generator, an `open()` without `encoding=`, `singledispatchmethod` dispatch, context inheritance assumed |
-| **Incorrect** | Produces wrong results on reachable input | Off-by-one, a swallowed exception, an unreachable branch |
+| **Unsound** | Corrupts memory or data, or crashes the runtime, from code that looks safe | A compound assignment on shared state, check-then-act across a lock boundary, a shared generator, `frame.f_locals` from another thread |
+| **Stale** | A spelling the target superseded — fails to build, or worse, builds and means something else | `from __future__ import annotations`, `typing.List`, `Optional[X]`, `TypeGuard` where `TypeIs` fits, `isinstance(x, dict)` against a `frozendict`, a `contextmanager` decorator on a generator, an `open()` without `encoding=`, `singledispatchmethod` dispatch, context inheritance assumed |
+| **Incorrect** | Produces wrong results or crashes on reachable input | Off-by-one, a swallowed exception, an unreachable branch |
 | **Contract** | Breaks or under-specifies the public surface | An unannotated public function, a mutable default, an implicit re-export, a missing `py.typed` |
 | **Design** | Works, but the shape will cost later | Shared mutable state where a message would do, a lock whose invariant cannot be named, one mechanism spelled two ways |
 | **Performance** | Measurable, avoidable cost | Per-iteration allocation, a lock on the hot path where a thread-local would serve, an unbuffered write |
 | **Style** | Idiom and readability | Naming, import order, docstring shape, anything `ruff format` settles |
 
-Unsound and Stale findings block — Stale because a superseded spelling means the author's model of
-the language is wrong and every other judgement they made is suspect. Silent blocks, because nothing
-else will catch it. Incorrect blocks. Contract findings block a release. Design and Performance
-findings need a decision, not necessarily a change. Style findings are batched — do not spend a
-review's attention on them while a lost-update bug sits unaddressed.
+Unsound, Stale and Incorrect findings block a merge. Contract findings block a release. Design and
+Performance findings need a decision, not necessarily a change. Style findings are batched — do not
+spend a review's attention on them while an Unsound or Incorrect finding sits unaddressed.
 
 ## Review order
 
@@ -86,3 +83,20 @@ Unsound  worker.py:41   `self.count += 1` is a read-modify-write on state three
 Group by severity, not by file. Cite the rule ID so the author can read the reason rather than
 taking the reviewer's word for it. Where a finding is a judgement rather than a verdict — the greps
 above mostly are — say which way you read it and why.
+
+## Refactoring a codebase to this standard
+
+Do it in this order, one mechanical step per commit, so that each commit is reviewable and
+revertible:
+
+1. Pin `ruff`, `ty` and `pytest` exactly and ship the two configuration assets. Commit the noise as
+   it stands, then fix by ruff linter family, one family per commit.
+2. Run CI on the free-threaded interpreter with the GIL assertion, so every later step is tested
+   where it will run.
+3. Remove the stale spellings. `ruff check --fix --select UP` does most of it, as one commit.
+4. Find the shared state, one module per commit: guard it or partition it, each with a test that
+   asserts an invariant under contention rather than merely starting threads.
+5. Annotate the public surface and ship `py.typed`, then make `ty` a gate.
+
+State up front which of these steps you are doing, and do not mix a behavioural change into any of
+them.

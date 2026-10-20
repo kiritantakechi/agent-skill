@@ -92,7 +92,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 - [x] 6.3 Step A: `agent-skill renumber python-style --chapters` mapping each old name to its D3
   name. Verify: `uv run agent-skill check --fast` is no worse than before the run, and
   `migration.md` has the table.
-- [ ] 6.4 Bring `SKILL.md` and `review-checklist.md` onto the skeleton and the templates:
+- [x] 6.4 Bring `SKILL.md` and `review-checklist.md` onto the skeleton and the templates:
   - **Titles:** the H1 is `Python Style — 3.15`, §2 is `2. Python 3.15 reality check`, and §3
     drops its subtitle.
   - **Review protocol:** §5 is the review-order stages, the severity table moves to D8 with Silent

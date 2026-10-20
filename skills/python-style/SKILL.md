@@ -27,26 +27,30 @@ produces silently different behaviour rather than an error, so nothing catches i
 
 ## How to use this standard
 
-1. **Read section 2** before emitting Python. It is the 3.15 reality check, and most of its entries
-   change behaviour rather than producing a diagnostic.
+1. **Read section 2** before emitting Python code. It is the Python 3.15 reality check, and some of
+   its entries change behaviour without producing an error, so nothing else will catch them.
 2. **Apply section 4.** Those core rules bind on their own and reach nearly every file.
 3. **Load one chapter** from the reference map in section 6 — the one that matches the task. Each
    opens with a table of contents listing every rule it owns, so you can jump straight to the rule.
    Load a second chapter only when the task genuinely spans two; never load all of them.
 4. **Walk section 5** before handing back a diff.
 
-Rules are cited by ID — `PS-CONC-14`, `PS-CORE-03`. The prefix identifies the owning chapter
-(section 6 maps prefix to file), so cite the ID when justifying a change and the reader can find the
-full rule and its rationale. When a rule in a chapter and a rule here appear to conflict, the
-chapter is the detailed statement and wins; sections 1 and 3 govern how to break a genuine tie.
+Rules are cited by ID — `PS-ERR-03`, `PS-TEST-05`. The prefix identifies the owning chapter (section
+6 maps prefix to file), so cite the ID when justifying a change and the reader can find the full
+rule and its rationale. When a rule in a chapter and a rule here appear to conflict, the chapter is
+the detailed statement and wins; sections 1 and 3 govern how to break a genuine tie.
+
+A chapter ends with **Decided by tools** when a tool settles part of its subject on its own: each
+lint, the level the shipped configuration sets it at, and what it forbids. Those are not rules — the
+tool enforces them, so they carry no Why and no Check. When rules are renumbered,
+`references/migration.md` maps every old ID to its new one.
 
 Every fenced example carries a marker on its first line. `# verified` — the block runs as written on
-free-threaded CPython 3.15, and any test it ships passes. `# fragment` — shown in context rather
-than compiled as a unit, usually because it uses names the chapter declares around it. `# rejected`
-— the rejection is the point, and the marker names which tool does the rejecting, because Python has
-three ways to be wrong and one word for all of them names none of them. A trailing `— GOOD` or `—
-BAD` names which side of the rule the block illustrates. A block in another language carries its
-marker in that language's comment syntax.
+free-threaded CPython 3.15.0, and any test it ships passes. `# fragment` — shown in context rather
+than run as a unit, usually because it uses names the chapter declares around it. `# rejected —
+<tool>: …` — the rejection is the point, and the marker names the tool that rejects it: `python`,
+`ty`, `ruff`. A trailing `— GOOD` or `— BAD` names which side of the rule the block illustrates. A
+block in another language carries its marker in that language's comment syntax.
 
 ## 1. Tiers
 
@@ -68,7 +72,7 @@ rule is acceptable.
 When you cannot tell which category the code is in, ask, or state your assumption in one line and
 proceed with the stricter reading.
 
-## 2. Python 3.15 reality check — read before writing code
+## 2. Python 3.15 reality check
 
 Most Python on the public internet predates these. The entries that **run either way** are the
 dangerous ones, because nothing catches them for you.
@@ -121,7 +125,7 @@ Two of these — `extra_items` and `sentinel` in a type expression — are speci
 implemented by every checker. Specified is the bar this standard uses, so it uses them; see
 `references/types.md` PS-TYPE-02 for where that boundary is drawn.
 
-## 3. Design principles — one obvious way, and symmetry
+## 3. Design principles
 
 Elegance in Python has two axes, and a design needs both. **One obvious way** is PEP 20's claim and
 it is a constraint on the *author*: if two spellings of a thing both exist in your codebase, one of
@@ -251,8 +255,8 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 
 ## 5. Review checklist
 
-When reviewing or self-reviewing a Python diff, walk this list. The full protocol — severity model,
-review order, commands, output format — is `references/review-checklist.md`.
+When reviewing or self-reviewing a Python diff, walk this list. It is the review order of the full
+protocol — severity model, mechanical pass, output format — in `references/review-checklist.md`.
 
 1. **Stale spellings.** Any `from __future__ import annotations`, `typing.List`, `Optional[X]`,
    `TypeVar` where PEP 695 syntax fits, or `TypeGuard` where `TypeIs` does?
@@ -260,10 +264,17 @@ review order, commands, output format — is `references/review-checklist.md`.
    writes it, and what holds them apart?
 3. **Compound operations.** Every `+=`, every check-then-act, every "read it then use it".
 4. **Iterators.** Any iterator, generator, or `tee` branch reachable from two threads?
-5. **Caches.** Any `lru_cache` or `cached_property` whose body does I/O or allocates a resource?
-6. **Encoding.** Any `open()` without an explicit `encoding=`, now that the default moved?
-7. **Hold times.** Any `contextmanager` used as a decorator on a generator function?
-8. **The build.** Does CI assert the GIL is actually off, or only hope?
+5. **Things that look safe.** Any `lru_cache` or `cached_property` whose body does I/O, any `open()`
+   without an explicit `encoding=`, any `ContextVar` read where it was never set?
+6. **Hold times.** Any `contextmanager` used as a decorator on a generator function, or a lock held
+   across a call you do not control?
+7. **The public surface.** What is newly public — annotated, its ownership documented, `py.typed`
+   shipped?
+8. **Function bodies.** A loop that is a comprehension, a `try` wider than the statement that
+   raises, a mutable default?
+9. **Tests.** Does the change ship the test that would have caught the bug, and does a concurrency
+   test assert an invariant rather than merely run threads?
+10. **The build.** Are the tools pinned exactly, and does CI assert the GIL is actually off?
 
 ## 6. Reference map
 
