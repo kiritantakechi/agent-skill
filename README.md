@@ -16,6 +16,14 @@ uv run pytest                        # the same checks, as tests
 
 `ALL CHECKS PASSED` means every check ran and every one of them passed.
 
+## The harness keeps the standard it ships
+
+`pyproject.toml` extends `skills/python-style/assets/ruff.toml`, and ty runs under
+`skills/python-style/assets/ty.toml`, so the harness is held to exactly what `python-style`
+asks of a reader's code, on the interpreter it names. `tests/test_own_standard.py` runs both
+tools over `src/` and `tests/`. The one relaxation, `print` in `cli.py`, is listed there with
+its reason, so adding another is an edit beside its reason rather than a line in passing.
+
 ## Renumbering is a command, never an edit
 
 Rules are numbered densely, so a renumbering reuses IDs: the old `-03` is the new

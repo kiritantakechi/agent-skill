@@ -294,12 +294,12 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 - [x] 14.1 Move the repository to Python 3.15 and `uv_build` 0.13 (`.python-version`,
   `requires-python`, the ruff target). Verify: `uv sync`, and `pytest -m "not toolchain"` passes.
-- [ ] 14.2 Make the repository's ruff configuration extend the shipped `ruff.toml`, with each
+- [x] 14.2 Make the repository's ruff configuration extend the shipped `ruff.toml`, with each
   harness relaxation carrying its reason. Bring `src/` and `tests/` to zero findings. Verify:
   `uv run ruff check src tests` and `uv run ruff format --check src tests` both pass.
-- [ ] 14.3 Bring `src/` and `tests/` to zero `ty` diagnostics under the shipped rules. Verify:
+- [x] 14.3 Bring `src/` and `tests/` to zero `ty` diagnostics under the shipped rules. Verify:
   `uv run ty check src tests`.
-- [ ] 14.4 Add a test that runs both tools over the harness, as the harness-integrity requirement
+- [x] 14.4 Add a test that runs both tools over the harness, as the harness-integrity requirement
   asks. Verify: it fails when a finding is injected, and passes otherwise.
 
 ## 15. Close
