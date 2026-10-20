@@ -24,35 +24,35 @@ broke. Coverage percentage is a byproduct, not a goal.
   - RS-TEST-14 [M] Match on the error variant, not its `Display` string
   - RS-TEST-15 [M] Test the boundaries, because they are enumerable
   - RS-TEST-16 [S] Use table-driven tests for families of similar cases
-  - RS-TEST-18 [M] Keep tests deterministic and order-independent
-  - RS-TEST-19 [M] Use `tempfile::TempDir`, never a fixed path
-  - RS-TEST-20 [M] Do not test the standard library or your dependencies
-  - RS-TEST-21 [S] Test at the highest level that still gives a precise failure
-  - RS-TEST-22 [M] Give every bug fix a regression test that failed before it
+  - RS-TEST-17 [M] Keep tests deterministic and order-independent
+  - RS-TEST-18 [M] Use `tempfile::TempDir`, never a fixed path
+  - RS-TEST-19 [M] Do not test the standard library or your dependencies
+  - RS-TEST-20 [S] Test at the highest level that still gives a precise failure
+  - RS-TEST-21 [M] Give every bug fix a regression test that failed before it
 
 - **Property, fuzz, and snapshot testing**
-  - RS-TEST-23 [S] Use property testing where a law holds over a domain
-  - RS-TEST-24 [S] Reach for differential testing first for parsers, matchers, and codecs
-  - RS-TEST-25 [M] Treat the shrunk counterexample as the deliverable
-  - RS-TEST-26 [M!] Fuzz anything that parses untrusted input
-  - RS-TEST-27 [S] Run fuzz targets briefly per PR and long on a schedule
-  - RS-TEST-28 [S] Use snapshot testing for large, exact, human-reviewable output
-  - RS-TEST-29 [M] Review snapshot diffs; never `--accept` reflexively
-  - RS-TEST-30 [M] Normalize timestamps, paths, hashes, and map order before snapshotting
-  - RS-TEST-31 [M] Test a CLI binary end to end, including its exit code
-  - RS-TEST-32 [S] Build benchmarks in CI even when you do not time them
+  - RS-TEST-22 [S] Use property testing where a law holds over a domain
+  - RS-TEST-23 [S] Reach for differential testing first for parsers, matchers, and codecs
+  - RS-TEST-24 [M] Treat the shrunk counterexample as the deliverable
+  - RS-TEST-25 [M!] Fuzz anything that parses untrusted input
+  - RS-TEST-26 [S] Run fuzz targets briefly per PR and long on a schedule
+  - RS-TEST-27 [S] Use snapshot testing for large, exact, human-reviewable output
+  - RS-TEST-28 [M] Review snapshot diffs; never `--accept` reflexively
+  - RS-TEST-29 [M] Normalize timestamps, paths, hashes, and map order before snapshotting
+  - RS-TEST-30 [M] Test a CLI binary end to end, including its exit code
+  - RS-TEST-31 [S] Build benchmarks in CI even when you do not time them
 
 - **Doc tests, CI, and hygiene**
-  - RS-TEST-33 [M] Make every public item's example a passing doc test
-  - RS-TEST-34 [M] Prefer `?` to `unwrap()` in doc tests
-  - RS-TEST-35 [M] Use `no_run` for examples that must not execute, and `ignore` almost never
-  - RS-TEST-36 [S] Use `compile_fail` doc tests to prove misuse is rejected
-  - RS-TEST-37 [M] Run the whole feature matrix in CI
-  - RS-TEST-38 [M!] Run Miri for `unsafe`, and `loom` or TSan for concurrency
-  - RS-TEST-39 [M] Treat a flaky test as a bug of the same severity as the code
-  - RS-TEST-40 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
-  - RS-TEST-41 [S] Measure coverage to find untested branches, not to hit a number
-  - RS-TEST-42 [S] Delete tests that no longer test anything
+  - RS-TEST-32 [M] Make every public item's example a passing doc test
+  - RS-TEST-33 [M] Prefer `?` to `unwrap()` in doc tests
+  - RS-TEST-34 [M] Use `no_run` for examples that must not execute, and `ignore` almost never
+  - RS-TEST-35 [S] Use `compile_fail` doc tests to prove misuse is rejected
+  - RS-TEST-36 [M] Run the whole feature matrix in CI
+  - RS-TEST-37 [M!] Run Miri for `unsafe`, and `loom` or TSan for concurrency
+  - RS-TEST-38 [M] Treat a flaky test as a bug of the same severity as the code
+  - RS-TEST-39 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
+  - RS-TEST-40 [S] Measure coverage to find untested branches, not to hit a number
+  - RS-TEST-41 [S] Delete tests that no longer test anything
 - Decided by tools
 
 ---
@@ -484,7 +484,7 @@ mod tests {
 }
 ```
 
-### RS-TEST-18 [M] Keep tests deterministic and order-independent
+### RS-TEST-17 [M] Keep tests deterministic and order-independent
 
 Tests must be deterministic and order-independent. `cargo test` runs them in parallel on multiple
 threads; anything relying on a shared directory, a fixed port, an environment variable, or the
@@ -518,7 +518,7 @@ mod tests {
 }
 ```
 
-### RS-TEST-19 [M] Use `tempfile::TempDir`, never a fixed path
+### RS-TEST-18 [M] Use `tempfile::TempDir`, never a fixed path
 
 Use `tempfile::TempDir` for filesystem tests, never a fixed path under `/tmp` or the repository.
 Cleanup happens on drop, including on failure.
@@ -529,7 +529,7 @@ teardown code.
 
 **Check:** grep tests for `/tmp/` and for paths relative to the repository root.
 
-### RS-TEST-20 [M] Do not test the standard library or your dependencies
+### RS-TEST-19 [M] Do not test the standard library or your dependencies
 
 Do not test the standard library, the compiler, or your dependencies. A test that asserts
 `Vec::push` increases length is noise in every future test run.
@@ -563,7 +563,7 @@ mod tests {
 }
 ```
 
-### RS-TEST-21 [S] Test at the highest level that still gives a precise failure
+### RS-TEST-20 [S] Test at the highest level that still gives a precise failure
 
 Test at the highest level that still gives a precise failure. An end-to-end test that fails with
 "output differs" is less useful than a unit test that fails with "escaping of `\t` is wrong" — but
@@ -576,7 +576,7 @@ coverage per test without giving up diagnosis.
 **Check:** when a test fails, does the name and message tell you where to look? If it says only
 "output differs", a lower-level test is missing.
 
-### RS-TEST-22 [M] Give every bug fix a regression test that failed before it
+### RS-TEST-21 [M] Give every bug fix a regression test that failed before it
 
 Every bug fix gets a regression test that fails before the fix and passes after, named for the
 behaviour, with the issue number in a comment. This is the highest-value test you will ever write.
@@ -609,7 +609,7 @@ mod tests {
 
 ## Property, fuzz, and snapshot testing
 
-### RS-TEST-23 [S] Use property testing where a law holds over a domain
+### RS-TEST-22 [S] Use property testing where a law holds over a domain
 
 Use property testing (`proptest`, `quickcheck`) where a law holds over a domain: round-trips
 (`parse(render(x)) == x`), invariants (a sorted output is sorted), and equivalences (the optimized
@@ -648,7 +648,7 @@ mod tests {
 }
 ```
 
-### RS-TEST-24 [S] Reach for differential testing first for parsers, matchers, and codecs
+### RS-TEST-23 [S] Reach for differential testing first for parsers, matchers, and codecs
 
 The differential-testing pattern — run a simple reference implementation and the fast one on the
 same random input and compare — is the highest-yield property test for parsers, matchers, and
@@ -691,10 +691,10 @@ mod tests {
 }
 ```
 
-### RS-TEST-25 [M] Treat the shrunk counterexample as the deliverable
+### RS-TEST-24 [M] Treat the shrunk counterexample as the deliverable
 
 Shrinking is the point of property testing: when a case fails, report the minimal input, and add it
-as a fixed regression test (`RS-TEST-22`).
+as a fixed regression test (`RS-TEST-21`).
 
 **Why:** a 4KB random failing input is nearly undebuggable; the three-byte shrunk version usually
 makes the bug obvious. Pinning it as a fixed test also means the property test does not have to
@@ -703,7 +703,7 @@ rediscover it by chance.
 **Check:** for each historical property-test failure, is there now a deterministic test with the
 minimal input?
 
-### RS-TEST-26 [M!] Fuzz anything that parses untrusted input
+### RS-TEST-25 [M!] Fuzz anything that parses untrusted input
 
 Fuzz anything that parses untrusted input: `cargo fuzz` with `libfuzzer`, or `afl`. Check the corpus
 into a separate repository or CI cache, and add every crash as a unit test.
@@ -718,7 +718,7 @@ retained between runs, so progress accumulates?
 *Relaxed form:* for a tool that only ever sees input you generate, a seeded property test over the
 same grammar is enough. The rule binds the moment the input crosses a trust boundary.
 
-### RS-TEST-27 [S] Run fuzz targets briefly per PR and long on a schedule
+### RS-TEST-26 [S] Run fuzz targets briefly per PR and long on a schedule
 
 Run fuzz targets in CI for a bounded time on every pull request and for a long time on a schedule.
 Five minutes per PR finds the shallow bugs that would otherwise reach users.
@@ -729,7 +729,7 @@ one means regressions land and are found days later.
 
 **Check:** are both jobs configured? A fuzzing setup that only runs manually is one nobody runs.
 
-### RS-TEST-28 [S] Use snapshot testing for large, exact, human-reviewable output
+### RS-TEST-27 [S] Use snapshot testing for large, exact, human-reviewable output
 
 Use snapshot testing (`insta`) for output that is large, exact, and human-reviewable: rendered
 reports, error messages, generated code, CLI help text. It makes intentional changes a one-line
@@ -741,7 +741,7 @@ diff.
 
 **Check:** is there any large output asserted with string concatenation? It wants a snapshot.
 
-### RS-TEST-29 [M] Review snapshot diffs; never `--accept` reflexively
+### RS-TEST-28 [M] Review snapshot diffs; never `--accept` reflexively
 
 Review snapshot diffs; do not accept them reflexively. `cargo insta review` exists because
 `--accept` on every change turns the snapshot suite into a change log rather than a test.
@@ -753,19 +753,19 @@ code happened to produce.
 **Check:** does CI run with `--check` so unreviewed snapshots fail? A pipeline that accepts
 automatically has no snapshot testing.
 
-### RS-TEST-30 [M] Normalize timestamps, paths, hashes, and map order before snapshotting
+### RS-TEST-29 [M] Normalize timestamps, paths, hashes, and map order before snapshotting
 
 Do not snapshot anything containing timestamps, paths, hashes, or iteration order of a `HashMap`.
 Normalize those first, or the suite becomes a flake generator.
 
 **Why:** each of these varies between runs and machines for reasons unrelated to correctness. A
 snapshot containing them fails constantly, and the team learns to accept diffs without reading them
-— which destroys `RS-TEST-29`.
+— which destroys `RS-TEST-28`.
 
 **Check:** grep snapshots for absolute paths, dates, and hex digests. Each needs a redaction or a
 sort.
 
-### RS-TEST-31 [M] Test a CLI binary end to end, including its exit code
+### RS-TEST-30 [M] Test a CLI binary end to end, including its exit code
 
 For CLI tools, test the binary end to end: run it with arguments in a temporary directory and assert
 on stdout, stderr, and the exit code (`assert_cmd`, `trycmd`, or a hand-rolled harness as ripgrep
@@ -777,9 +777,9 @@ unit test reaches them. They are also the surface scripts depend on, which makes
 especially expensive.
 
 **Check:** does any test assert on the exit code? Asserting only on stdout misses half the contract
-(`RS-CLI-38`).
+(`RS-CLI-37`).
 
-### RS-TEST-32 [S] Build benchmarks in CI even when you do not time them
+### RS-TEST-31 [S] Build benchmarks in CI even when you do not time them
 
 Benchmarks are not tests, but a benchmark that fails to compile is still a broken build — build them
 in CI even if you do not run them for timing.
@@ -791,7 +791,7 @@ need to measure something and first have to fix the harness. Compiling them is n
 
 ## Doc tests, CI, and hygiene
 
-### RS-TEST-33 [M] Make every public item's example a passing doc test
+### RS-TEST-32 [M] Make every public item's example a passing doc test
 
 Every public item's example is a doc test, and it must compile and pass. This is the cheapest
 guarantee that the documentation is not lying (`RS-DOC-08`).
@@ -802,7 +802,7 @@ example.
 
 **Check:** `cargo test --doc` passes and its count is close to the number of public items.
 
-### RS-TEST-34 [M] Prefer `?` to `unwrap()` in doc tests
+### RS-TEST-33 [M] Prefer `?` to `unwrap()` in doc tests
 
 Prefer `?` in doc tests over `unwrap()`, using the `# fn main() -> Result<(), Box<dyn Error>> {`
 hidden-line trick, so examples model the error handling you want users to copy.
@@ -813,7 +813,7 @@ production code.
 
 **Check:** grep doc comments for `unwrap()`. Each needs the hidden `main` and a `?`.
 
-### RS-TEST-35 [M] Use `no_run` for examples that must not execute, and `ignore` almost never
+### RS-TEST-34 [M] Use `no_run` for examples that must not execute, and `ignore` almost never
 
 Use `no_run` for examples that must compile but should not execute (network calls, long
 computations), and `ignore` almost never — an `ignore`d example is unverified documentation. Explain
@@ -826,7 +826,7 @@ difference between verified and decorative.
 **Check:** grep doc comments for fenced blocks tagged `ignore`. Each needs a justification, and most
 should be `no_run`.
 
-### RS-TEST-36 [S] Use `compile_fail` doc tests to prove misuse is rejected
+### RS-TEST-35 [S] Use `compile_fail` doc tests to prove misuse is rejected
 
 Use `compile_fail` doc tests to prove that misuse is rejected: a typestate that forbids
 write-before-connect, a sealed trait, a lifetime that must not escape.
@@ -838,7 +838,7 @@ is accidentally relaxed.
 **Check:** for each "this must not compile" claim in the docs, is there a test? Unpinned claims
 drift.
 
-### RS-TEST-37 [M] Run the whole feature matrix in CI
+### RS-TEST-36 [M] Run the whole feature matrix in CI
 
 Run the whole matrix in CI: default features, `--all-features`, and `--no-default-features`. A
 feature-gated `cfg` that nobody compiles is a feature-gated `cfg` that does not build
@@ -850,10 +850,10 @@ type-checked by a default build. The failure surfaces for the one user who enabl
 **Check:** does the pipeline build all three configurations? `--all-features` alone hides the
 `--no-default-features` breakage.
 
-### RS-TEST-38 [M!] Run Miri for `unsafe`, and `loom` or TSan for concurrency
+### RS-TEST-37 [M!] Run Miri for `unsafe`, and `loom` or TSan for concurrency
 
 Run tests under Miri for any crate containing `unsafe`, and under ThreadSanitizer or `loom` for
-concurrent data structures (`RS-UNSAFE-30`, `RS-CONC-45`).
+concurrent data structures (`RS-UNSAFE-30`, `RS-CONC-44`).
 
 **Why:** ordinary tests observe one compilation on one machine, and both UB and races are invisible
 under that observation. These tools change what is being checked rather than adding more cases.
@@ -864,7 +864,7 @@ Miri job has an unverified soundness claim.
 *Relaxed form:* run them before each release rather than on every push. For a crate with no `unsafe`
 and no hand-rolled synchronization, the rule is vacuous.
 
-### RS-TEST-39 [M] Treat a flaky test as a bug of the same severity as the code
+### RS-TEST-38 [M] Treat a flaky test as a bug of the same severity as the code
 
 Treat a flaky test as a bug of the same severity as the code it tests. Quarantining is a temporary
 measure with an owner and a deadline, not a resolution.
@@ -875,7 +875,7 @@ is the bug rather than a property of the test.
 
 **Check:** is there a quarantine list? Every entry needs an owner and a date, or it is permanent.
 
-### RS-TEST-40 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
+### RS-TEST-39 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
 
 Keep the fast suite fast. If `cargo test` takes more than a minute or two, split the slow cases
 behind `#[ignore = "slow: run with --ignored"]` plus a nightly CI job that runs
@@ -887,7 +887,7 @@ every failure to CI and lengthens the feedback loop enormously. Speed is a featu
 
 **Check:** time `cargo test`. Past a couple of minutes, find the slow tests and move them.
 
-### RS-TEST-41 [S] Measure coverage to find untested branches, not to hit a number
+### RS-TEST-40 [S] Measure coverage to find untested branches, not to hit a number
 
 Measure coverage (`cargo llvm-cov`) to find untested branches, not to hit a number. Uncovered error
 paths are the finding that matters; a coverage target invites tests that execute code without
@@ -900,7 +900,7 @@ gaps.
 **Check:** look at the uncovered lines rather than the percentage. Uncovered `Err` arms are the list
 worth working through.
 
-### RS-TEST-42 [S] Delete tests that no longer test anything
+### RS-TEST-41 [S] Delete tests that no longer test anything
 
 Delete tests that no longer test anything. A suite that everyone has learned to skim is worse than a
 smaller suite that everyone reads.
@@ -910,7 +910,7 @@ another, or cover deleted behaviour spend that budget without paying it back, an
 signal from the ones that matter.
 
 **Check:** for each test, name the change that would make it fail. If nothing plausible would,
-delete it (`RS-TEST-20`).
+delete it (`RS-TEST-19`).
 
 ## Decided by tools
 

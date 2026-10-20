@@ -44,15 +44,15 @@ and shell completions, and obsessive attention to stream behaviour — is what
 
 - **Behaviour, environment, signals**
   - RS-CLI-30 [M] Read stdin when given no files, and treat `-` as stdin
-  - RS-CLI-32 [M!] Make destructive operations opt-in, and never prompt when not a terminal
-  - RS-CLI-33 [M!] Write output atomically where a partial file would be harmful
-  - RS-CLI-34 [M] Install process-wide state once, at the top of `main`
-  - RS-CLI-35 [M] Handle `SIGINT` by restoring the terminal and exiting `130`
-  - RS-CLI-36 [S] Respect the platform's directory conventions
-  - RS-CLI-37 [M] Namespace and document every environment variable you read
-  - RS-CLI-38 [M] Test the binary end to end, including the pipe and non-UTF-8 cases
-  - RS-CLI-39 [M] Do not phone home, auto-update, or collect telemetry without opt-in
-  - RS-CLI-40 [S] Ship a single binary with artifacts and checksums for three platforms
+  - RS-CLI-31 [M!] Make destructive operations opt-in, and never prompt when not a terminal
+  - RS-CLI-32 [M!] Write output atomically where a partial file would be harmful
+  - RS-CLI-33 [M] Install process-wide state once, at the top of `main`
+  - RS-CLI-34 [M] Handle `SIGINT` by restoring the terminal and exiting `130`
+  - RS-CLI-35 [S] Respect the platform's directory conventions
+  - RS-CLI-36 [M] Namespace and document every environment variable you read
+  - RS-CLI-37 [M] Test the binary end to end, including the pipe and non-UTF-8 cases
+  - RS-CLI-38 [M] Do not phone home, auto-update, or collect telemetry without opt-in
+  - RS-CLI-39 [S] Ship a single binary with artifacts and checksums for three platforms
 
 ---
 
@@ -62,7 +62,7 @@ and shell completions, and obsessive attention to stream behaviour — is what
 
 The interesting logic lives in a library crate; the binary is wiring. This makes everything
 testable, reusable, and benchmarkable — and it is why ripgrep's search engine exists as
-`grep-searcher` rather than as a module in `main.rs` (`RS-MOD-26`).
+`grep-searcher` rather than as a module in `main.rs` (`RS-MOD-24`).
 
 **Why:** anything inside `main.rs` can only be tested by running the process, which is slow,
 awkward, and cannot be benchmarked. The split is what turns a tool into a component other people can
@@ -113,7 +113,7 @@ pub fn scan(lines: &[String], needle: &str) -> Summary {
 ### RS-CLI-02 [M] Let `main` do exactly four things
 
 `main` does four things: parse arguments, build the configuration, call `run() -> Result<()>`,
-report and exit. Everything else is delegated (`RS-ERR-44`).
+report and exit. Everything else is delegated (`RS-ERR-41`).
 
 **Why:** `main` is the one function that cannot return a `Result` to anybody, so it is the wrong
 place for logic. Keeping it to four steps means the error-reporting and exit-code policy lives in
@@ -350,7 +350,7 @@ hand-edited? Hand-edited is the finding.
 Long-running work belongs behind a trait or a callback so the CLI layer can be tested without doing
 it. A CLI whose only test is "run the binary" has no fast tests.
 
-**Why:** end-to-end tests are necessary (`RS-CLI-38`) but too slow to run per keystroke. A seam
+**Why:** end-to-end tests are necessary (`RS-CLI-37`) but too slow to run per keystroke. A seam
 between "decide what to do" and "do it" gives you fast tests for the decisions, which is where most
 of the bugs are.
 
@@ -398,7 +398,7 @@ Forcing `String` makes the tool fail on exactly the files the user most needs a 
 failure looks like the tool is broken rather than opinionated.
 
 **Check:** grep the argument types for `String` on anything path-shaped. Test with a non-UTF-8
-filename (`RS-CLI-38`).
+filename (`RS-CLI-37`).
 
 ```rust
 // verified
@@ -466,7 +466,7 @@ impl Flags {
 ### RS-CLI-15 [M] Validate arguments at parse time into rich types
 
 Validate arguments at parse time into rich types — a `Duration`, a `PathBuf` that exists, an enum, a
-`NonZeroUsize` — so the rest of the program cannot receive nonsense (`RS-FUNC-53`).
+`NonZeroUsize` — so the rest of the program cannot receive nonsense (`RS-FUNC-47`).
 
 **Why:** this is parse-don't-validate at the process boundary. Validating once at the edge means the
 rest of the program has no error paths for malformed input, and the error the user sees names the
@@ -546,7 +546,7 @@ flag.
 ### RS-CLI-19 [M] Reserve exit code `2` for usage errors and print the specific problem
 
 Reserve exit code `2` for usage errors and print the specific problem plus a pointer to `--help` —
-never dump the entire help text on a typo (`RS-ERR-47`).
+never dump the entire help text on a typo (`RS-ERR-43`).
 
 **Why:** the convention lets scripts distinguish "you called me wrong" from "the operation failed",
 which are different recovery paths. Dumping the full help scrolls the actual error off the screen,
@@ -607,7 +607,7 @@ pub fn emit(
 ### RS-CLI-21 [M] Lock stdout once and write through a `BufWriter`
 
 Lock stdout once and write through a `BufWriter`. `println!` in a loop locks and flushes per line
-and is frequently the reason a tool is ten times slower than it should be (`RS-PERF-28`).
+and is frequently the reason a tool is ten times slower than it should be (`RS-PERF-25`).
 
 **Why:** `println!` acquires the lock, formats, writes, and — on a terminal — flushes, every call.
 For line-oriented output that is three avoidable costs per line, and it dominates the runtime of
@@ -881,7 +881,7 @@ finding.
 ### RS-CLI-29 [M] Flush and check the result before exiting
 
 Flush explicitly before exiting, and check the result. A buffered writer dropped at process exit can
-lose the last block silently (`RS-PERF-29`).
+lose the last block silently (`RS-PERF-26`).
 
 **Why:** `BufWriter`'s `Drop` flushes but discards the error, so a full disk or a closed pipe
 silently truncates the output. Since buffering was introduced for speed (`RS-CLI-21`), this is the
@@ -942,7 +942,7 @@ pub fn sources(args: &[PathBuf]) -> Vec<Source> {
 }
 ```
 
-### RS-CLI-32 [M!] Make destructive operations opt-in, and never prompt when not a terminal
+### RS-CLI-31 [M!] Make destructive operations opt-in, and never prompt when not a terminal
 
 Make destructive operations opt-in: a dry-run mode by default for anything that deletes or
 overwrites, or at minimum a `--force`/`-i` prompt when interactive. Never prompt when not a terminal
@@ -990,7 +990,7 @@ pub fn decide(force: Force, terminal: Terminal) -> Decision {
 }
 ```
 
-### RS-CLI-33 [M!] Write output atomically where a partial file would be harmful
+### RS-CLI-32 [M!] Write output atomically where a partial file would be harmful
 
 Write output atomically where a partial file would be harmful: write to a temporary file in the same
 directory, then rename. A crash mid-write should not destroy the user's input.
@@ -1018,11 +1018,11 @@ pub fn staging_path(target: &Path) -> PathBuf {
 }
 ```
 
-### RS-CLI-34 [M] Install process-wide state once, at the top of `main`
+### RS-CLI-33 [M] Install process-wide state once, at the top of `main`
 
 Install process-wide state (signal handlers, terminal raw mode, a global logger) exactly once, at
 the top of `main`, and pass handles downward. A library that installs a signal handler on
-construction is unusable inside another program (`RS-OWN-46`).
+construction is unusable inside another program (`RS-OWN-42`).
 
 **Why:** process-global state is a singleton the whole process shares, so whoever installs it is
 making a decision for code they do not own. Confining it to `main` keeps the library reusable and
@@ -1031,7 +1031,7 @@ makes the effects visible in one place.
 **Check:** grep the library for signal-handler installation, logger initialization, and terminal
 mode changes. Each belongs to the binary.
 
-### RS-CLI-35 [M] Handle `SIGINT` by restoring the terminal and exiting `130`
+### RS-CLI-34 [M] Handle `SIGINT` by restoring the terminal and exiting `130`
 
 Handle `SIGINT`/`Ctrl-C` by restoring the terminal, cleaning up temporary files, and exiting with
 `130`. A tool that leaves the terminal without an echo is remembered for it.
@@ -1043,7 +1043,7 @@ distinguish it from a real failure.
 **Check:** interrupt the tool mid-run. The terminal should echo afterwards, temp files should be
 gone, and `$?` should be `130`.
 
-### RS-CLI-36 [S] Respect the platform's directory conventions
+### RS-CLI-35 [S] Respect the platform's directory conventions
 
 Respect the platform's directory conventions with `directories` or `etcetera` — `$XDG_CONFIG_HOME`,
 `~/Library/Application Support`, `%APPDATA%` — rather than hard-coding `~/.toolrc`. For `$HOME`
@@ -1054,7 +1054,7 @@ sync tools handle them correctly. A hard-coded dotfile also breaks on Windows en
 
 **Check:** grep for `~/.` and `$HOME` string concatenation. Each is a hard-coded path.
 
-### RS-CLI-37 [M] Namespace and document every environment variable you read
+### RS-CLI-36 [M] Namespace and document every environment variable you read
 
 Namespace environment variables with the tool's name (`RIPGREP_CONFIG_PATH`, `MYTOOL_LOG`), document
 every one in `--help`, and never read an undocumented variable.
@@ -1095,10 +1095,10 @@ pub fn read(lookup: impl Fn(&str) -> Option<String>) -> Environment {
 }
 ```
 
-### RS-CLI-38 [M] Test the binary end to end, including the pipe and non-UTF-8 cases
+### RS-CLI-37 [M] Test the binary end to end, including the pipe and non-UTF-8 cases
 
 Test the binary end to end: arguments in, stdout/stderr/exit code out, in a temporary directory
-(`RS-TEST-31`). Cover the pipe case, the not-a-terminal case, and the non-UTF-8 filename case.
+(`RS-TEST-30`). Cover the pipe case, the not-a-terminal case, and the non-UTF-8 filename case.
 
 **Why:** argument parsing, stream behaviour, and exit codes are the layer unit tests cannot reach,
 and they are where the user-visible regressions live. The three named cases are the ones that never
@@ -1107,7 +1107,7 @@ get tested by hand.
 **Check:** does the suite assert on exit codes and on stderr, not just stdout? And does any test use
 a non-UTF-8 filename?
 
-### RS-CLI-39 [M] Do not phone home, auto-update, or collect telemetry without opt-in
+### RS-CLI-38 [M] Do not phone home, auto-update, or collect telemetry without opt-in
 
 Do not phone home, auto-update, or collect telemetry without an explicit, documented opt-in. A CLI
 that makes a network call the user did not ask for will be removed from their machine.
@@ -1118,7 +1118,7 @@ servers. An unexpected network call is a security finding in all three, regardle
 **Check:** run the tool with the network blocked. Any behaviour change means there is a call you did
 not declare.
 
-### RS-CLI-40 [S] Ship a single binary with artifacts and checksums for three platforms
+### RS-CLI-39 [S] Ship a single binary with artifacts and checksums for three platforms
 
 Ship the tool as a static-ish single binary where possible, with release artifacts for the three
 major platforms and a checksum. Distribution friction is the main reason good tools go unused.

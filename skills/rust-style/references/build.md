@@ -42,34 +42,34 @@ release cadence, and no LTS channel.
 
 - **Lints and warnings**
   - RS-BUILD-25 [M] Put lints in the manifest's `[lints]` table, not in `lib.rs`
-  - RS-BUILD-27 [M] Run `clippy::pedantic` at `warn` and answer each warning
-  - RS-BUILD-31 [M] Never blanket-`allow` at crate level to make CI green
-  - RS-BUILD-32 [M] Deny warnings through Cargo config, not `RUSTFLAGS`
-  - RS-BUILD-34 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
+  - RS-BUILD-26 [M] Run `clippy::pedantic` at `warn` and answer each warning
+  - RS-BUILD-27 [M] Never blanket-`allow` at crate level to make CI green
+  - RS-BUILD-28 [M] Deny warnings through Cargo config, not `RUSTFLAGS`
+  - RS-BUILD-29 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
 
 - **Supply chain, versioning, release**
-  - RS-BUILD-35 [M!] Run `cargo audit` on a schedule as well as on pull requests
-  - RS-BUILD-36 [S] Enforce license policy and duplicate limits with `cargo deny`
-  - RS-BUILD-37 [S] Run `cargo update` deliberately and review the diff
-  - RS-BUILD-38 [M] Verify the MSRV claim with a pinned CI job
-  - RS-BUILD-39 [M!] Run `cargo semver-checks` before every release
-  - RS-BUILD-40 [M] Follow semver strictly, including the 0.x rule
-  - RS-BUILD-41 [M] Dry-run and inspect the package list before publishing
-  - RS-BUILD-42 [S] Keep the git tag, changelog entry, and published version in agreement
+  - RS-BUILD-30 [M!] Run `cargo audit` on a schedule as well as on pull requests
+  - RS-BUILD-31 [S] Enforce license policy and duplicate limits with `cargo deny`
+  - RS-BUILD-32 [S] Run `cargo update` deliberately and review the diff
+  - RS-BUILD-33 [M] Verify the MSRV claim with a pinned CI job
+  - RS-BUILD-34 [M!] Run `cargo semver-checks` before every release
+  - RS-BUILD-35 [M] Follow semver strictly, including the 0.x rule
+  - RS-BUILD-36 [M] Dry-run and inspect the package list before publishing
+  - RS-BUILD-37 [S] Keep the git tag, changelog entry, and published version in agreement
 
 - **Toolchain, profiles, CI**
-  - RS-BUILD-43 [M] Commit a `rust-toolchain.toml`
-  - RS-BUILD-44 [M] Test on stable at minimum; add beta and nightly where they earn it
-  - RS-BUILD-45 [M] Cover Linux, macOS, and Windows for anything touching the OS
-  - RS-BUILD-46 [M] Run the full seven-step CI pipeline
-  - RS-BUILD-47 [S] Cache the registry and `target/`, and use `cargo nextest`
-  - RS-BUILD-48 [M] Change release profile defaults only with measurements
-  - RS-BUILD-49 [S] Keep debug info in profiling builds and strip separately
-  - RS-BUILD-50 [S] Raise `opt-level` for dependencies when tests are slow
-  - RS-BUILD-51 [M] Keep `target/` and local `.cargo/config.toml` paths out of version control
-  - RS-BUILD-52 [S] Prefer `cargo xtask` to shell scripts
-  - RS-BUILD-53 [S] Measure build time with `cargo build --timings` before optimizing it
-  - RS-BUILD-54 [S] Keep the proc-macro dependency count down
+  - RS-BUILD-38 [M] Commit a `rust-toolchain.toml`
+  - RS-BUILD-39 [M] Test on stable at minimum; add beta and nightly where they earn it
+  - RS-BUILD-40 [M] Cover Linux, macOS, and Windows for anything touching the OS
+  - RS-BUILD-41 [M] Run the full seven-step CI pipeline
+  - RS-BUILD-42 [S] Cache the registry and `target/`, and use `cargo nextest`
+  - RS-BUILD-43 [M] Change release profile defaults only with measurements
+  - RS-BUILD-44 [S] Keep debug info in profiling builds and strip separately
+  - RS-BUILD-45 [S] Raise `opt-level` for dependencies when tests are slow
+  - RS-BUILD-46 [M] Keep `target/` and local `.cargo/config.toml` paths out of version control
+  - RS-BUILD-47 [S] Prefer `cargo xtask` to shell scripts
+  - RS-BUILD-48 [S] Measure build time with `cargo build --timings` before optimizing it
+  - RS-BUILD-49 [S] Keep the proc-macro dependency count down
 - Decided by tools
 
 ---
@@ -106,7 +106,7 @@ toolchain, or the field is a lie that Cargo will enforce against your users.
 resolution, so an untested value produces a hard failure for someone. Since it is enforced, it has
 to be a fact rather than an aspiration.
 
-**Check:** is there a CI job pinned to exactly that version (`RS-BUILD-38`)? Without one the field
+**Check:** is there a CI job pinned to exactly that version (`RS-BUILD-33`)? Without one the field
 is unverified.
 
 ### RS-BUILD-03 [S] Choose an MSRV policy and publish it
@@ -202,7 +202,7 @@ In a workspace, declare shared dependencies once in `[workspace.dependencies]` a
 Cargo 1.99 honours it on an edition-2024 member, and older Cargo rejects that manifest.
 
 **Why:** duplicated version requirements across members drift, and the drift produces duplicate
-versions in the graph (`RS-BUILD-36`). One declaration makes divergence impossible rather than a
+versions in the graph (`RS-BUILD-31`). One declaration makes divergence impossible rather than a
 review responsibility.
 
 **Check:** grep member manifests for version literals. Each is a value that should be inherited.
@@ -245,7 +245,7 @@ true`, or an explicit list) and `rustdoc-args = ["--cfg", "docsrs"]` so the `doc
 
 **Why:** docs.rs builds with default features unless told otherwise, so a crate whose interesting
 API is feature-gated publishes documentation missing most of itself. The `docsrs` cfg is what makes
-the feature badges appear (`RS-DOC-34`).
+the feature badges appear (`RS-DOC-33`).
 
 **Check:** open the published docs and look for a feature-gated item and a platform-gated one.
 Missing or unbadged means the metadata is absent.
@@ -401,7 +401,7 @@ this.
 so a missing import behind `#[cfg(not(feature))]` goes undetected. Each feature alone is the
 configuration real users pick.
 
-**Check:** does CI build all three configurations (`RS-TEST-37`)?
+**Check:** does CI build all three configurations (`RS-TEST-36`)?
 
 ## Dependencies
 
@@ -502,7 +502,7 @@ dbg_macro = "deny"
 undocumented_unsafe_blocks = "deny"
 ```
 
-### RS-BUILD-27 [M] Run `clippy::pedantic` at `warn` and answer each warning
+### RS-BUILD-26 [M] Run `clippy::pedantic` at `warn` and answer each warning
 
 `clippy::pedantic` at `warn` is the right default. Treat each resulting warning as a question to
 answer, and allow individual lints with a comment giving the reason — never allow the group. The
@@ -516,7 +516,7 @@ discards the valuable ones to avoid arguing with a handful.
 **Check:** grep for `pedantic = "allow"`. Each individual allow in the manifest carries a comment
 giving its reason — no lint reads a manifest comment, so this one is review.
 
-### RS-BUILD-31 [M] Never blanket-`allow` at crate level to make CI green
+### RS-BUILD-27 [M] Never blanket-`allow` at crate level to make CI green
 
 Never blanket-`allow` at crate level to make CI green. A crate that allows
 `clippy::too_many_arguments` globally has decided never to notice a nine-argument function again.
@@ -526,7 +526,7 @@ would have been most useful. It converts a temporary annoyance into a permanent 
 
 **Check:** for each crate-level allow, could it be scoped to the handful of items that need it?
 
-### RS-BUILD-32 [M] Deny warnings through Cargo config, not `RUSTFLAGS`
+### RS-BUILD-28 [M] Deny warnings through Cargo config, not `RUSTFLAGS`
 
 Deny warnings in CI through Cargo's own configuration rather than `RUSTFLAGS`:
 `CARGO_BUILD_WARNINGS=deny` (or `[build] warnings = "deny"` in `.cargo/config.toml`) controls this
@@ -542,7 +542,7 @@ denied" a cheap local check rather than a CI-only step.
 ``error: warnings are denied by `build.warnings` configuration``. Grep CI config for
 `RUSTFLAGS="-Dwarnings"` and `RUSTDOCFLAGS="-D warnings"`, and replace both.
 
-### RS-BUILD-34 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
+### RS-BUILD-29 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
 
 Enforce formatting in CI with `cargo fmt --check`, and keep `rustfmt.toml` minimal — the default
 style is a coordination win, and every override costs new contributors. The overrides worth having
@@ -560,7 +560,7 @@ the format job needs nightly to enforce them.
 
 ## Supply chain, versioning, release
 
-### RS-BUILD-35 [M!] Run `cargo audit` on a schedule as well as on pull requests
+### RS-BUILD-30 [M!] Run `cargo audit` on a schedule as well as on pull requests
 
 Run `cargo audit` (or `cargo deny check advisories`) in CI on a schedule as well as on pull
 requests, so a new advisory against an unchanged dependency is noticed.
@@ -574,7 +574,7 @@ next change" into "we caught it".
 *Relaxed form:* for a tool with no network or untrusted input, a monthly manual run is acceptable.
 Anything that parses data you did not create wants the schedule.
 
-### RS-BUILD-36 [S] Enforce license policy and duplicate limits with `cargo deny`
+### RS-BUILD-31 [S] Enforce license policy and duplicate limits with `cargo deny`
 
 Use `cargo deny` to enforce license policy, banned crates, and duplicate-version limits. Multiple
 major versions of the same crate in one graph is a compile-time and binary-size tax worth measuring.
@@ -585,7 +585,7 @@ neither is visible in a normal build. A configured check turns both into a revie
 **Check:** does `cargo deny check` pass, and does the config actually list the allowed licenses
 rather than allowing everything?
 
-### RS-BUILD-37 [S] Run `cargo update` deliberately and review the diff
+### RS-BUILD-32 [S] Run `cargo update` deliberately and review the diff
 
 Run `cargo update` deliberately and review the diff, rather than letting it happen implicitly during
 an unrelated change.
@@ -596,7 +596,7 @@ something breaks.
 
 **Check:** do lockfile updates appear in their own commits?
 
-### RS-BUILD-38 [M] Verify the MSRV claim with a pinned CI job
+### RS-BUILD-33 [M] Verify the MSRV claim with a pinned CI job
 
 Verify the MSRV claim with a dedicated CI job pinned to that toolchain, and test minimal versions
 (`cargo +nightly update -Z minimal-versions`) at least occasionally — under-specified lower bounds
@@ -610,11 +610,11 @@ the least equipped to diagnose them.
 
 **Check:** is there a job pinned to `rust-version`, and has minimal-versions ever been run?
 
-### RS-BUILD-39 [M!] Run `cargo semver-checks` before every release
+### RS-BUILD-34 [M!] Run `cargo semver-checks` before every release
 
 Run `cargo semver-checks` before every release and trust it over intuition about what is breaking.
 It catches removed impls, narrowed bounds, and newly private items that human review misses
-(`RS-API-76`).
+(`RS-API-75`).
 
 **Why:** semver breakage in Rust is subtle — adding a trait impl, tightening a bound, or making an
 enum non-exhaustive can all break dependents in ways that are invisible in a diff. The tool checks
@@ -626,7 +626,7 @@ remembers?
 *Relaxed form:* an unpublished internal crate with one consumer can rely on that consumer's build.
 The moment there are two, the tool is cheaper than the coordination.
 
-### RS-BUILD-40 [M] Follow semver strictly, including the 0.x rule
+### RS-BUILD-35 [M] Follow semver strictly, including the 0.x rule
 
 Follow semver strictly, including the 0.x rule that 0.y.z treats `y` as the major. Do not ship a
 breaking change as a patch because "nobody uses it yet".
@@ -638,7 +638,7 @@ observable from your side.
 **Check:** does the version bump match the nature of the change, as `cargo semver-checks` classifies
 it?
 
-### RS-BUILD-41 [M] Dry-run and inspect the package list before publishing
+### RS-BUILD-36 [M] Dry-run and inspect the package list before publishing
 
 `cargo publish --dry-run` and inspect `cargo package --list` before a real publish. Publishing is
 irreversible; yanking does not remove anything.
@@ -649,7 +649,7 @@ available.
 
 **Check:** does the release process include both commands before the publish step?
 
-### RS-BUILD-42 [S] Keep the git tag, changelog entry, and published version in agreement
+### RS-BUILD-37 [S] Keep the git tag, changelog entry, and published version in agreement
 
 Tag releases in git, and make the tag, the `CHANGELOG.md` entry, and the published version agree.
 `cargo release` or `release-plz` automates this consistently.
@@ -662,7 +662,7 @@ actually shipped.
 
 ## Toolchain, profiles, CI
 
-### RS-BUILD-43 [M] Commit a `rust-toolchain.toml`
+### RS-BUILD-38 [M] Commit a `rust-toolchain.toml`
 
 Commit a `rust-toolchain.toml` pinning `channel`, `components = ["rustfmt", "clippy"]`, and required
 `targets`. It makes every contributor's first build identical to CI's.
@@ -681,7 +681,7 @@ components = ["rustfmt", "clippy"]
 targets = ["x86_64-unknown-linux-musl"]
 ```
 
-### RS-BUILD-44 [M] Test on stable at minimum; add beta and nightly where they earn it
+### RS-BUILD-39 [M] Test on stable at minimum; add beta and nightly where they earn it
 
 Test on stable at minimum; add beta to catch upcoming regressions and nightly only for the jobs that
 need it (Miri, `-Z` flags, fuzzing).
@@ -692,7 +692,7 @@ unrelated to your code.
 
 **Check:** is nightly required for anything other than the tools that genuinely need it?
 
-### RS-BUILD-45 [M] Cover Linux, macOS, and Windows for anything touching the OS
+### RS-BUILD-40 [M] Cover Linux, macOS, and Windows for anything touching the OS
 
 CI matrix covers Linux, macOS, and Windows for anything touching paths, processes, terminals, or
 filesystem metadata. Path handling that was never run on Windows is path handling that is broken on
@@ -704,7 +704,7 @@ test.
 
 **Check:** does the matrix include all three for any crate touching the filesystem?
 
-### RS-BUILD-46 [M] Run the full seven-step CI pipeline
+### RS-BUILD-41 [M] Run the full seven-step CI pipeline
 
 The CI pipeline is: `fmt --check`, `clippy --all-targets --all-features` with warnings denied, `test
 --all-features`, `test --no-default-features`, `doc --no-deps` with rustdoc warnings denied, then
@@ -717,7 +717,7 @@ entirely unchecked.
 **Check:** compare the pipeline against the seven. `--all-targets` matters: without it, tests and
 benches are not linted.
 
-### RS-BUILD-47 [S] Cache the registry and `target/`, and use `cargo nextest`
+### RS-BUILD-42 [S] Cache the registry and `target/`, and use `cargo nextest`
 
 Cache the Cargo registry and `target/` directory in CI (for example with `Swatinem/rust-cache`), and
 use `cargo nextest` for faster, clearer test output on large suites. A job that runs Miri, or that
@@ -731,11 +731,11 @@ Cargo 1.99 turns incremental compilation off when `CI` is set, so CI needs no
 
 **Check:** how long is a no-op CI run? Several minutes means the cache is missing or ineffective.
 
-### RS-BUILD-48 [M] Change release profile defaults only with measurements
+### RS-BUILD-43 [M] Change release profile defaults only with measurements
 
 `[profile.release]` defaults are reasonable; change them with measurements. `lto = "thin"` is
 usually a good trade, `codegen-units = 1` buys a few percent for much slower builds, and `panic =
-"abort"` is an application decision (`RS-ERR-42`).
+"abort"` is an application decision (`RS-ERR-39`).
 
 **Why:** each of these trades build time or behaviour for runtime, and the sizes of both sides are
 project-specific. `panic = "abort"` in particular changes semantics — `catch_unwind` stops working —
@@ -752,7 +752,7 @@ debug = "line-tables-only"      # keep profiles usable; strip separately
 # panic = "abort"               # an application decision, never a library's
 ```
 
-### RS-BUILD-49 [S] Keep debug info in profiling builds and strip separately
+### RS-BUILD-44 [S] Keep debug info in profiling builds and strip separately
 
 Keep `debug = true` (or `debug = "line-tables-only"`) in release builds you intend to profile, and
 strip separately. Profiling a stripped binary wastes more time than the build costs.
@@ -762,7 +762,7 @@ they mean. `line-tables-only` gives usable stacks at a fraction of the size of f
 
 **Check:** does the profiling build carry symbols, and is stripping a separate release step?
 
-### RS-BUILD-50 [S] Raise `opt-level` for dependencies when tests are slow
+### RS-BUILD-45 [S] Raise `opt-level` for dependencies when tests are slow
 
 Use `[profile.dev.package."*"] opt-level = 3` when tests are slow because of dependencies
 (compression, crypto, image decoding) while keeping your own crate at `opt-level = 0` for fast
@@ -780,7 +780,7 @@ the edit-compile loop fast.
 opt-level = 3
 ```
 
-### RS-BUILD-51 [M] Keep `target/` and local `.cargo/config.toml` paths out of version control
+### RS-BUILD-46 [M] Keep `target/` and local `.cargo/config.toml` paths out of version control
 
 Do not check `target/` into version control, and do not commit `.cargo/config.toml` settings that
 hard-code a local path or a private registry into a public repository.
@@ -791,7 +791,7 @@ contributor's build. A private registry URL in a public repo is also an informat
 **Check:** is `target/` in `.gitignore`, and does any committed `.cargo/config.toml` contain an
 absolute path?
 
-### RS-BUILD-52 [S] Prefer `cargo xtask` to shell scripts
+### RS-BUILD-47 [S] Prefer `cargo xtask` to shell scripts
 
 Prefer `cargo` subcommands over shell scripts for repeatable tasks (`cargo xtask` pattern) so
 contributors on all platforms run the same thing.
@@ -803,7 +803,7 @@ cross-platform, and can reuse project code.
 **Check:** are there `.sh` scripts that contributors must run? Each is a Windows contributor
 blocked.
 
-### RS-BUILD-53 [S] Measure build time with `cargo build --timings` before optimizing it
+### RS-BUILD-48 [S] Measure build time with `cargo build --timings` before optimizing it
 
 Measure build time before optimizing it: `cargo build --timings` identifies the crate that costs 40%
 of the build, which is usually one heavy default feature away from being cheap (`RS-BUILD-24`).
@@ -814,7 +814,7 @@ rarely helps.
 
 **Check:** has `--timings` been run? The report names the crate and shows what blocks pipelining.
 
-### RS-BUILD-54 [S] Keep the proc-macro dependency count down
+### RS-BUILD-49 [S] Keep the proc-macro dependency count down
 
 Keep the number of proc-macro dependencies down; each one is a compile-time dependency that must be
 built for the host and blocks pipelining. `serde_derive` and `thiserror` are worth it; a proc macro

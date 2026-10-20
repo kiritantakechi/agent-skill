@@ -59,12 +59,12 @@ tie-break is section 3 of `SKILL.md`.
   - RS-NAME-37 [S] Use the conventional single letters where the role is universal
   - RS-NAME-38 [S] Name a lifetime for the source of the borrow once several coexist
   - RS-NAME-39 [M] Never restate the kind in a parameter's name
-  - RS-NAME-41 [S] Name an associated type for the thing it produces
-  - RS-NAME-42 [S] Name a generic parameter for its bound in a crowded signature
+  - RS-NAME-40 [S] Name an associated type for the thing it produces
+  - RS-NAME-41 [S] Name a generic parameter for its bound in a crowded signature
 
 - **Symmetry of names**
-  - RS-NAME-43 [M] Name the two halves of a pair symmetrically
-  - RS-NAME-44 [S] Keep the same word order across parallel names
+  - RS-NAME-42 [M] Name the two halves of a pair symmetrically
+  - RS-NAME-43 [S] Keep the same word order across parallel names
 - Decided by tools
 
 ---
@@ -160,7 +160,7 @@ Two words is the ceiling for a leaf crate; three for a facade (`regex-automata`,
 
 **Why:** the name appears in every dependent's manifest, in every `use`, and in conversation. If it
 needs four words to describe the crate, the crate does too much — the name is reporting a design
-problem (`references/modules.md` RS-MOD-24).
+problem (`references/modules.md` RS-MOD-22).
 
 **Check:** say the name out loud. If you have to spell it, or if it does not fit in the
 `Cargo.toml` line without wrapping, shorten it or split the crate.
@@ -772,7 +772,7 @@ when several coexist. Never both spellings in one crate.
 
 **Why:** with both, `use` statements collide unpredictably and readers cannot guess the path of an
 error they have not met. The module-scoped spelling scales better; the flat one is fine for a crate
-with two error types (`references/errors.md` RS-ERR-19).
+with two error types (`references/errors.md` RS-ERR-18).
 
 **Check:** grep for `Error` in type positions. Are all of them the same shape?
 
@@ -863,7 +863,7 @@ pub fn read_config(config: &Path) -> Option<&str> {
 }
 ```
 
-### RS-NAME-41 [S] Name an associated type for the thing it produces
+### RS-NAME-40 [S] Name an associated type for the thing it produces
 
 `type Item`, `type Output`, `type Error`, `type Iter<'a>`. Do not prefix with the trait name.
 
@@ -885,7 +885,7 @@ pub trait Decoder {
 }
 ```
 
-### RS-NAME-42 [S] Name a generic parameter for its bound in a crowded signature
+### RS-NAME-41 [S] Name a generic parameter for its bound in a crowded signature
 
 `fn copy<R: Read, W: Write>(reader: R, writer: W)`. The letter matches the bound so the reader can
 pair parameter to constraint at a glance.
@@ -898,14 +898,14 @@ without moving their eyes to the `where` clause?
 
 ## Symmetry of names
 
-### RS-NAME-43 [M] Name the two halves of a pair symmetrically
+### RS-NAME-42 [M] Name the two halves of a pair symmetrically
 
 A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`close`, not
 `open`/`release`; `lock`/`unlock`, not `lock`/`release`. Reuse the ecosystem's pair where one
 exists.
 
 **Why:** matched names are what make a pair recognizable as a pair, which is how a reader knows the
-inverse exists without looking (`RS-API-79`). Mismatched halves read as unrelated operations, and
+inverse exists without looking (`RS-API-78`). Mismatched halves read as unrelated operations, and
 the reader searches for a `decode` that is spelled `parse`.
 
 **Check:** list every operation with an inverse and read the two names together. If they do not
@@ -928,7 +928,7 @@ pub fn decode(bytes: [u8; 4]) -> Frame {
 }
 ```
 
-### RS-NAME-44 [S] Keep the same word order across parallel names
+### RS-NAME-43 [S] Keep the same word order across parallel names
 
 Parallel names put their words in the same order: `read_timeout` and `write_timeout`, not
 `read_timeout` and `timeout_write`; `max_depth` and `max_width`, not `max_depth` and `width_limit`.

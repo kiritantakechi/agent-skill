@@ -44,14 +44,14 @@ without reading the source.
 
 - **Linking, rendering, README**
   - RS-DOC-31 [M] Use intra-doc links everywhere
-  - RS-DOC-33 [S] Link the first mention, not every mention
-  - RS-DOC-34 [M] Enable docs.rs metadata and the `docsrs` cfg
-  - RS-DOC-35 [S] Add `#[doc(alias)]` for names users will search for
-  - RS-DOC-36 [S] Keep the README and the crate docs in sync
-  - RS-DOC-37 [S] Cover seven things in the README, above the fold
-  - RS-DOC-38 [S] Add a diagram or walkthrough for non-obvious data flow
-  - RS-DOC-39 [M] Document supported platforms, MSRV, and semver policy
-  - RS-DOC-40 [M!] Write the documentation before finalizing the API
+  - RS-DOC-32 [S] Link the first mention, not every mention
+  - RS-DOC-33 [M] Enable docs.rs metadata and the `docsrs` cfg
+  - RS-DOC-34 [S] Add `#[doc(alias)]` for names users will search for
+  - RS-DOC-35 [S] Keep the README and the crate docs in sync
+  - RS-DOC-36 [S] Cover seven things in the README, above the fold
+  - RS-DOC-37 [S] Add a diagram or walkthrough for non-obvious data flow
+  - RS-DOC-38 [M] Document supported platforms, MSRV, and semver policy
+  - RS-DOC-39 [M!] Write the documentation before finalizing the API
 - Decided by tools
 
 ---
@@ -162,7 +162,7 @@ the API could have absorbed.
 
 Every public item gets a summary line, and every non-trivial one gets an example. Examples are doc
 tests, so they are verified on every CI run — this is the mechanism that keeps documentation honest
-(`RS-TEST-33`).
+(`RS-TEST-32`).
 
 **Why:** an example is the only documentation that cannot silently rot, because the compiler checks
 it. Prose describing an API that changed last release is worse than no prose, since the reader
@@ -300,7 +300,7 @@ pub enum Error {
 
 Every function that can panic has a `# Panics` section naming the exact condition — index out of
 bounds, capacity overflow, a violated precondition. An undocumented panic is an undocumented API
-contract (`RS-ERR-36`).
+contract (`RS-ERR-34`).
 
 **Why:** a panic is part of the signature that the type system does not express. A caller in a
 server or a plugin needs to know which calls can take the process down, and the docs are the only
@@ -376,7 +376,7 @@ pub fn unique(values: &[u32]) -> Vec<u32> {
 ### RS-DOC-16 [S] Document the error type once and link to it
 
 Document the error type thoroughly in one place and link to it with intra-doc links from every
-`# Errors` section, rather than restating the taxonomy at each call site (`RS-ERR-24`).
+`# Errors` section, rather than restating the taxonomy at each call site (`RS-ERR-23`).
 
 **Why:** the taxonomy is one thing, so it should have one description. Restating it per function
 produces copies that disagree after the third variant is added.
@@ -579,7 +579,7 @@ pub fn split_setting(line: &str) -> Option<(&str, &str)> {
 ### RS-DOC-27 [M] Keep examples idiomatic — they will be copied
 
 Keep examples idiomatic — they will be copied. An example using `unwrap()` teaches `unwrap()`; an
-example that ignores an error teaches ignoring errors (`RS-TEST-34`).
+example that ignores an error teaches ignoring errors (`RS-TEST-33`).
 
 **Why:** documentation examples are the most-copied code you will ever write, and they are copied
 without the surrounding context that made the shortcut acceptable. Whatever the example does becomes
@@ -665,7 +665,7 @@ pub fn is_match(compiled: usize, haystack: &str) -> bool {
 pub struct CompileError;
 ```
 
-### RS-DOC-33 [S] Link the first mention, not every mention
+### RS-DOC-32 [S] Link the first mention, not every mention
 
 Link the first mention of each significant type in a doc block, not every mention. Over-linking
 makes prose unreadable.
@@ -675,7 +675,7 @@ and the useful links stop standing out.
 
 **Check:** read a rendered paragraph. If more than a few words are coloured, cut the repeats.
 
-### RS-DOC-34 [M] Enable docs.rs metadata and the `docsrs` cfg
+### RS-DOC-33 [M] Enable docs.rs metadata and the `docsrs` cfg
 
 Enable docs.rs metadata (`RS-BUILD-10`) and the `docsrs` cfg so feature-gated items show their
 required feature badge (`RS-BUILD-19`). List `targets` there for any platform-gated API: since
@@ -688,7 +688,7 @@ manifest stanza would have prevented.
 **Check:** open the crate on docs.rs and find a feature-gated item. It should carry a badge naming
 the feature.
 
-### RS-DOC-35 [S] Add `#[doc(alias)]` for names users will search for
+### RS-DOC-34 [S] Add `#[doc(alias)]` for names users will search for
 
 Use `#[doc(alias = "…")]` for names users will search for but that you did not choose:
 `#[doc(alias = "grep")]` on a search function, `#[doc(alias = "sizeof")]` on `size_of`.
@@ -710,7 +710,7 @@ pub fn byte_len(value: &str) -> usize {
 }
 ```
 
-### RS-DOC-36 [S] Keep the README and the crate docs in sync
+### RS-DOC-35 [S] Keep the README and the crate docs in sync
 
 The README is the crate's landing page on GitHub and often the first paragraph on crates.io. Keep it
 in sync with the crate docs — or generate one from the other with
@@ -723,7 +723,7 @@ the README's examples into tested code.
 **Check:** does the README example still compile? If it is not included via `include_str!`, nothing
 is checking.
 
-### RS-DOC-37 [S] Cover seven things in the README, above the fold
+### RS-DOC-36 [S] Cover seven things in the README, above the fold
 
 The README covers: what and why in two sentences, installation, a working example, a link to the
 docs, feature flags, MSRV, and license. In that order, above the fold.
@@ -734,7 +734,7 @@ arrive in, and anything below the fold is not part of the decision.
 **Check:** each of the seven items is present, and appears before the reader would have to scroll
 twice.
 
-### RS-DOC-38 [S] Add a diagram or walkthrough for non-obvious data flow
+### RS-DOC-37 [S] Add a diagram or walkthrough for non-obvious data flow
 
 Include a diagram or a worked walkthrough for anything with non-obvious data flow — a search
 pipeline, a state machine, a plugin protocol. An `ARCHITECTURE.md` at the repository root is the
@@ -747,7 +747,7 @@ document pays for itself.
 **Check:** could a new contributor name the major components and how data moves between them after
 reading the repository's docs? If only the source answers that, the document is missing.
 
-### RS-DOC-39 [M] Document supported platforms, MSRV, and semver policy
+### RS-DOC-38 [M] Document supported platforms, MSRV, and semver policy
 
 Document the supported platforms, the MSRV, and the semver policy explicitly. Users make purchasing
 decisions on these and should not have to infer them from CI configuration.
@@ -759,7 +759,7 @@ evaluation.
 **Check:** all three appear in the README or crate docs, and the MSRV matches `rust-version` in the
 manifest (`RS-BUILD-02`).
 
-### RS-DOC-40 [M!] Write the documentation before finalizing the API
+### RS-DOC-39 [M!] Write the documentation before finalizing the API
 
 Write the documentation before finalizing the API. If a function is hard to describe in one
 sentence, it is doing two things — and you have just found that out for the price of a sentence

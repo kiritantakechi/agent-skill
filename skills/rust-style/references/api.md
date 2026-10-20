@@ -102,19 +102,19 @@ and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
 - **Future-proofing and evolution**
   - RS-API-71 [M!] Use `#[non_exhaustive]` where the shape may grow
   - RS-API-72 [S] Do not apply `#[non_exhaustive]` reflexively
-  - RS-API-74 [S] Prefer sealing up front to regretting it later
-  - RS-API-75 [M] Know which changes are breaking before promising semver
-  - RS-API-76 [M] Run `cargo semver-checks` and trust it over intuition
-  - RS-API-77 [M] Deprecate before removing, and say what to use instead
-  - RS-API-78 [S] Prefer additive evolution; batch the breaking changes
+  - RS-API-73 [S] Prefer sealing up front to regretting it later
+  - RS-API-74 [M] Know which changes are breaking before promising semver
+  - RS-API-75 [M] Run `cargo semver-checks` and trust it over intuition
+  - RS-API-76 [M] Deprecate before removing, and say what to use instead
+  - RS-API-77 [S] Prefer additive evolution; batch the breaking changes
 
 - **Symmetry of the public surface**
-  - RS-API-79 [M] Give every operation its inverse, or document why there is none
-  - RS-API-80 [M] Keep argument order identical across sibling functions
-  - RS-API-81 [M] Give sibling error variants a uniform shape
-  - RS-API-82 [M] Choose `Option` or `Result` uniformly for the same kind of absence
-  - RS-API-83 [S] Give comparable sibling methods the same receiver
-  - RS-API-84 [M] Use one term for one concept across the whole surface
+  - RS-API-78 [M] Give every operation its inverse, or document why there is none
+  - RS-API-79 [M] Keep argument order identical across sibling functions
+  - RS-API-80 [M] Give sibling error variants a uniform shape
+  - RS-API-81 [M] Choose `Option` or `Result` uniformly for the same kind of absence
+  - RS-API-82 [S] Give comparable sibling methods the same receiver
+  - RS-API-83 [M] Use one term for one concept across the whole surface
 
 ---
 
@@ -162,7 +162,7 @@ Users should write `grep::Searcher`, not `grep::searcher::internal::Searcher`.
 two, so you can move the file without a breaking change.
 
 **Check:** read the crate's own doc examples. Does any path have more than one module segment?
-Enumerate the re-exports rather than globbing (`references/modules.md` RS-MOD-20).
+Enumerate the re-exports rather than globbing (`references/modules.md` RS-MOD-18).
 
 ```rust
 // verified
@@ -188,7 +188,7 @@ the `grep` facade is why each piece is independently usable, testable, and versi
 makes every consumer compile everything and accept every dependency.
 
 **Check:** can you describe the crate in one sentence with no conjunction?
-(`references/modules.md` RS-MOD-24.)
+(`references/modules.md` RS-MOD-22.)
 
 ```rust
 // verified
@@ -288,7 +288,7 @@ exception, and it is one you can justify in a sentence.
 
 **Why:** a crate of thirty loose functions has no centre: the reader must hold the whole list, a new
 operation is one more name in a flat namespace nobody watches, and any two functions can drift
-apart in naming, argument order, and error type unnoticed (RS-API-80, RS-API-84).
+apart in naming, argument order, and error type unnoticed (RS-API-79, RS-API-83).
 
 **Check:** list what the crate root exports. What is the ratio of types to free functions? For each
 free function, name the type it would be a method on — if you can name one, it belongs there
@@ -409,7 +409,7 @@ pub fn stem(path: impl AsRef<Path>) -> Option<String> {
 
 **Why:** materialization belongs to whoever knows how much is needed. A `Vec` computes and stores
 everything even when the caller wanted `.next()`, and feeding it to another adapter costs a second
-allocation (`references/functional.md` RS-FUNC-21).
+allocation (`references/functional.md` RS-FUNC-18).
 
 **Check:** does the caller immediately `.iter()`, `.into_iter()`, or index only the first element?
 
@@ -428,7 +428,7 @@ pub fn non_empty(lines: &[String]) -> impl Iterator<Item = &str> {
 
 **Why:** a method that has the `&str` in hand and returns `String` charges every caller for an
 allocation they may not want. Where the answer is only sometimes computed, `Cow<'_, str>` keeps the
-borrowed path free (`references/ownership.md` RS-OWN-18).
+borrowed path free (`references/ownership.md` RS-OWN-15).
 
 **Check:** does the function allocate on a path where it could have returned a borrow of `self`?
 
@@ -447,7 +447,7 @@ elements share a type.
 
 **Why:** out-parameters break composition — the result cannot be fed into an adapter, and the
 function cannot be used in an expression. Reuse across a loop is a real reason
-(`references/ownership.md` RS-OWN-17); "it was easier to write" is not.
+(`references/ownership.md` RS-OWN-14); "it was easier to write" is not.
 
 **Check:** is the buffer reused across calls by the intended caller? Say so in the docs and name the
 parameter `buf` or `out`.
@@ -499,7 +499,7 @@ impl Percent {
 
 **Why:** a `Port(u16)` whose constructor rejects zero means no downstream function re-checks or
 *forgets* to re-check, and the invariant lives in one place instead of at every entry point. This
-is `references/functional.md` RS-FUNC-53 seen from the type's side.
+is `references/functional.md` RS-FUNC-47 seen from the type's side.
 
 **Check:** grep for the same validation appearing in more than one function. That repetition is a
 constructor that has not been written.
@@ -591,7 +591,7 @@ mirroring storage one accessor per field.
 
 **Why:** a row of `fn x(&self) -> T { self.x }` pins the representation as a public field would and
 hands the caller arithmetic that belongs to the type. A named question can be answered differently
-later, and its logic lives once, beside the data (`references/ownership.md` RS-OWN-09).
+later, and its logic lives once, beside the data (`references/ownership.md` RS-OWN-06).
 
 **Check:** for each accessor, find the expression the caller writes around it. If callers all wrap
 it in the same arithmetic or comparison, that expression is the method you owe them.
@@ -784,7 +784,7 @@ runtime difference.
 
 **Check:** grep public signatures for `: bool`. Each one is either a two-variant enum or, if there
 are three or more of them, an options struct or a policy closure
-(`references/functional.md` RS-FUNC-48).
+(`references/functional.md` RS-FUNC-42).
 
 ```rust
 // verified
@@ -826,7 +826,7 @@ set.
 
 **Why:** the correlation is an invariant the compiler cannot see, so every reader must learn it and
 every path must handle the impossible combination, usually with an `unwrap` or an `unreachable!`
-(`references/errors.md` RS-ERR-37). The sum type deletes those branches.
+(`references/errors.md` RS-ERR-35). The sum type deletes those branches.
 
 **Check:** for each pair of fields, is there a combination of values that cannot legally occur? That
 pair is an enum.
@@ -850,7 +850,7 @@ the enum via `FromStr` at the edge, and let nothing downstream see the string.
 
 **Why:** this is parse-don't-validate applied to the API surface. If the parsed type only exists
 inside the parser, every downstream function re-derives the meaning, and they will not all agree
-(`references/functional.md` RS-FUNC-53).
+(`references/functional.md` RS-FUNC-47).
 
 **Check:** how deep does the raw `&str` travel from the entry point? Anything past the first layer
 is a missing type.
@@ -881,7 +881,7 @@ transposition (`references/naming.md` RS-NAME-30).
 
 **Why:** mixing byte offsets and char offsets is the classic Unicode bug, and it is a type error
 waiting to be declared. The same applies to indices into two parallel arenas — the compiler can
-distinguish them the moment you let it (`references/ownership.md` RS-OWN-27).
+distinguish them the moment you let it (`references/ownership.md` RS-OWN-23).
 
 **Check:** does the crate hold more than one `Vec` indexed by `usize`? Those are distinct types.
 
@@ -1172,7 +1172,7 @@ says *what will silently not happen*, which is the information they are missing.
 
 **Why:** since 1.75 rustc makes the smallest non-generic functions inlinable downstream on its own,
 and generic ones always were; anything larger needs `#[inline]` to cross the boundary. Applied
-wholesale it bloats the binary and slows compilation (`references/performance.md` RS-PERF-34).
+wholesale it bloats the binary and slows compilation (`references/performance.md` RS-PERF-31).
 
 **Check:** is the function non-generic, small, and on a hot path in another crate? Otherwise remove
 the attribute.
@@ -1183,7 +1183,7 @@ the attribute.
 your crate for a mistake in theirs. `Vec::remove` and `slice` indexing both use it, which is why
 their panics are actionable.
 
-**Check:** for each documented panic (`references/errors.md` RS-ERR-36), does the message name the
+**Check:** for each documented panic (`references/errors.md` RS-ERR-34), does the message name the
 caller's line?
 
 ## Standard trait implementations
@@ -1203,7 +1203,7 @@ fields. The blast radius is far larger than the one type.
 
 **Why:** `Debug` output may change at any time and favours completeness; `Display` is part of the
 contract and favours clarity. A `Display` that delegates to `Debug` publishes internal structure,
-the defect in `references/errors.md` RS-ERR-45.
+the defect in `references/errors.md` RS-ERR-42.
 
 **Check:** does any `Display` impl call `{:?}`? Does any `Debug` impl omit a field to look tidier?
 
@@ -1254,7 +1254,7 @@ an equal one, a `BTreeMap` loses entries, `BTreeMap::append` may panic (1.96), a
 `PartialOrd` beside a derived `Ord` answers with `cmp` (1.98), not with each field's `partial_cmp`.
 
 **Check:** if you hand-implement one of the four, review all four in the same commit. Property-test
-the laws (`references/testing.md` RS-TEST-23).
+the laws (`references/testing.md` RS-TEST-22).
 
 ```rust
 // verified
@@ -1376,7 +1376,7 @@ inheritance, not a smart pointer.
 With a correct `source()`; `core::error::Error` in no-std, stable since 1.81.
 
 **Why:** the error type is part of every fallible signature, so it is public whether you documented
-it or not, and every reporting layer walks `source()` (`references/errors.md` RS-ERR-06).
+it or not, and every reporting layer walks `source()` (`references/errors.md` RS-ERR-05).
 
 **Check:** is the error type reachable and nameable from outside the crate, and does it implement
 `Error`?
@@ -1639,7 +1639,7 @@ arm they are forced to write is where a future bug hides.
 **Check:** can you name a plausible third variant? If not, leave it exhaustive and say so in the
 rustdoc.
 
-### RS-API-74 [S] Prefer sealing up front to regretting it later
+### RS-API-73 [S] Prefer sealing up front to regretting it later
 
 **Why:** adding a defaulted method to an unsealed trait is technically breaking — it can conflict
 with an inherent method on a downstream type. Sealing after publication is unambiguously breaking.
@@ -1647,7 +1647,7 @@ The decision is cheap before release and expensive after.
 
 **Check:** at release time, for each public trait: extension point, or enumeration?
 
-### RS-API-75 [M] Know which changes are breaking before promising semver
+### RS-API-74 [M] Know which changes are breaking before promising semver
 
 Breaking: adding a type parameter, changing a concrete return type, narrowing a bound, adding a
 non-defaulted trait method, removing a derive, making a public item private. Not breaking: widening
@@ -1657,7 +1657,7 @@ defaulted method to a sealed trait.
 **Why:** the categories are not intuitive — several changes that look additive break callers — and a
 break shipped as a minor version fails every downstream build that trusted the version number.
 
-**Check:** before tagging, classify every change in the diff. If you are unsure, RS-API-76 is the
+**Check:** before tagging, classify every change in the diff. If you are unsure, RS-API-75 is the
 answer.
 
 ```rust
@@ -1683,16 +1683,16 @@ impl Report {
 }
 ```
 
-### RS-API-76 [M] Run `cargo semver-checks` and trust it over intuition
+### RS-API-75 [M] Run `cargo semver-checks` and trust it over intuition
 
 **Why:** it catches removed impls, narrowed bounds, changed variant shapes, and newly private items
 that human review misses — and it does so mechanically, on every release, without anyone having to
-remember RS-API-75.
+remember RS-API-74.
 
-**Check:** is it in CI on release branches (`references/build.md` RS-BUILD-39)? A green run
+**Check:** is it in CI on release branches (`references/build.md` RS-BUILD-34)? A green run
 is a claim you can make; intuition is not.
 
-### RS-API-77 [M] Deprecate before removing, and say what to use instead
+### RS-API-76 [M] Deprecate before removing, and say what to use instead
 
 `#[deprecated(since = "1.4.0", note = "use `Searcher::search_reader` instead")]`.
 
@@ -1702,7 +1702,7 @@ cycle so upgraders get a warning rather than a compile error.
 
 **Check:** does every `#[deprecated]` carry both `since` and a `note` naming the replacement?
 
-### RS-API-78 [S] Prefer additive evolution; batch the breaking changes
+### RS-API-77 [S] Prefer additive evolution; batch the breaking changes
 
 **Why:** every major version is a migration cost on every user, and not all of them pay it: the
 ecosystem splits across majors whose types do not interoperate. Batching the necessary breaks pays
@@ -1713,7 +1713,7 @@ migration section in the changelog (`references/build.md` RS-BUILD-12)?
 
 ## Symmetry of the public surface
 
-### RS-API-79 [M] Give every operation its inverse, or document why there is none
+### RS-API-78 [M] Give every operation its inverse, or document why there is none
 
 If a type can be built from bytes it should be convertible back to them; `insert` implies
 `remove`, `push` implies `pop`, `open` implies `close`, `encode` implies `decode`, `subscribe`
@@ -1743,7 +1743,7 @@ pub fn decode(bytes: [u8; 8]) -> Key {
 }
 ```
 
-### RS-API-80 [M] Keep argument order identical across sibling functions
+### RS-API-79 [M] Keep argument order identical across sibling functions
 
 If `copy(src, dst)` takes source first, then `move`, `link`, and `render` in the same module do
 too. Fix the order once per crate and never vary it.
@@ -1772,14 +1772,14 @@ pub fn move_len(source: &mut Vec<u8>, target: &mut Vec<u8>) -> usize {
 }
 ```
 
-### RS-API-81 [M] Give sibling error variants a uniform shape
+### RS-API-80 [M] Give sibling error variants a uniform shape
 
 Variants of one error enum carry comparable context: if `Read` records the path, `Write` records
 it too. Do not mix one variant with four fields and one with none unless the difference is real.
 
 **Why:** the caller writes one `match` over all the variants, and when some carry a path and some
 do not, the reporting code grows a special case per deficient variant. Uniform shape lets one
-function render them all (`RS-ERR-24`).
+function render them all (`RS-ERR-23`).
 
 **Check:** tabulate the enum's variants against their fields. A column that is populated for most
 variants and empty for one is either a missing field or a variant that belongs elsewhere.
@@ -1799,7 +1799,7 @@ pub enum Error {
 }
 ```
 
-### RS-API-82 [M] Choose `Option` or `Result` uniformly for the same kind of absence
+### RS-API-81 [M] Choose `Option` or `Result` uniformly for the same kind of absence
 
 Within one type, "not found" is always `Option` or always `Result` — never `get` returning
 `Option` while `lookup` returns `Result<_, NotFound>` for the same condition.
@@ -1838,7 +1838,7 @@ impl Registry {
 }
 ```
 
-### RS-API-83 [S] Give comparable sibling methods the same receiver
+### RS-API-82 [S] Give comparable sibling methods the same receiver
 
 Methods doing comparable work take comparable receivers: if `len` takes `&self`, `capacity`
 does too; if one builder step takes `self`, they all do.
@@ -1885,14 +1885,14 @@ impl Buffer {
 }
 ```
 
-### RS-API-84 [M] Use one term for one concept across the whole surface
+### RS-API-83 [M] Use one term for one concept across the whole surface
 
 One concept gets one word, everywhere: not `path` here and `file` there for the same argument,
 nor `id`, `key`, and `handle` for one identifier.
 
 **Why:** synonyms make the reader ask whether the difference is meaningful, and they have to read
 the implementation to find out that it is not. It also defeats search: nobody can find every site
-that touches the concept if it is spelled three ways (`RS-NAME-43`).
+that touches the concept if it is spelled three ways (`RS-NAME-42`).
 
 **Check:** list the nouns in the public surface and group them by referent. Any group with more than
 one spelling needs a decision and a rename.

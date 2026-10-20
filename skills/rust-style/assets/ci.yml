@@ -1,4 +1,4 @@
-# Minimal CI that enforces this standard. Referenced by RS-BUILD-46.
+# Minimal CI that enforces this standard. Referenced by RS-BUILD-41.
 name: ci
 
 on:

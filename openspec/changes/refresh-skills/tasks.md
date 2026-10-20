@@ -199,7 +199,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
   Record every disposition in the rename table. Verify: `citations` and `anatomy` pass.
 - [x] 8.7 Cut every **Why** to three lines or fewer. Verify: `anatomy` passes with rust-style not
   exempt.
-- [ ] 8.8 Step C: `agent-skill renumber rust-style`. Remove rust-style's exemption, update the
+- [x] 8.8 Step C: `agent-skill renumber rust-style`. Remove rust-style's exemption, update the
   frontmatter count and the §6 counts, and update `mirror`'s anchor titles where trimming changed
   them. Verify: `--fast` passes.
 - [ ] 8.9 Milestone 2: one full run, alone. Verify: `ALL CHECKS PASSED`. Commit.

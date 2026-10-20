@@ -190,3 +190,18 @@ def test_a_bold_phrase_inside_a_why_does_not_end_it(demo):
     long_why = "**Why:** one.\n**Two** is bold.\nthree.\nfour."
     broken = edit(demo, "references/errors.md", "**Why:** one line of reason.", long_why)
     assert any("Why runs 4 lines" in m for m in structural_messages(broken))
+
+
+def test_an_escaped_pipe_stays_inside_its_cell(demo):
+    rows = """
+
+## Decided by tools
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| clippy | `map_clone` | warn | `.map(\\|x\\| x.clone())` — `.cloned()` |
+"""
+    path = demo.root / "references" / "errors.md"
+    path.write_text(path.read_text() + rows)
+    (row,) = reparse(demo).lint_rows
+    assert (row.lint, row.forbids) == ("map_clone", "`.map(|x| x.clone())` — `.cloned()`")

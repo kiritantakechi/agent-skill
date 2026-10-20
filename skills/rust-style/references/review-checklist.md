@@ -34,7 +34,7 @@ each stage can invalidate the work of reading the next.
 2. **Panics and error handling.** Grep for `unwrap`, `expect`, `panic!`,
    `todo!`, `unreachable!`, `[` indexing, integer arithmetic on untrusted
    values, and `as` casts. Each one is either justified in a comment or a
-   finding. (`RS-ERR`, `RS-PERF-40`)
+   finding. (`RS-ERR`, `RS-PERF-36`)
 3. **Public API.** What is newly `pub`? Is it documented? Is it the surface you
    would want to support for five years? Does it leak a dependency's types?
    Would `cargo semver-checks` complain? (`RS-API`, `RS-DOC`)
@@ -50,7 +50,7 @@ each stage can invalidate the work of reading the next.
    covered? Would they catch the bug this change fixes? (`RS-TEST`)
 8. **Symmetry.** Unpaired operations, sibling functions disagreeing on argument order, error
    variants with uneven context, two mechanisms for one concept, a branch that exists for one
-   input. (`RS-API-79` … `RS-API-84`, `RS-MOD-54` … `RS-MOD-57`)
+   input. (`RS-API-78` … `RS-API-83`, `RS-MOD-52` … `RS-MOD-55`)
 9. **Manifest and lints.** New dependencies justified? Features additive? Lints
    still enforced? (`RS-BUILD`)
 
@@ -95,7 +95,7 @@ the two or three findings that deserve discussion.
 |---|---|---|---|---|
 | Incorrect | RS-ERR-03 | `src/config.rs:88` | `unwrap()` on a user-supplied path | Return `Error::Config` and propagate with `?` |
 | Design | RS-API-30 | `src/search.rs:31` | Three `bool` parameters in `search()` | Replace with `SearchOptions` or three two-variant enums |
-| Performance | RS-OWN-17 | `src/scan.rs:54` | `String` allocated per line | Hoist the buffer and `clear()` per iteration |
+| Performance | RS-OWN-14 | `src/scan.rs:54` | `String` allocated per line | Hoist the buffer and `clear()` per iteration |
 
 ## Discussion
 

@@ -265,7 +265,7 @@ pub fn first_index(haystack: &str, needle: char) -> Option<usize> {
 ### RS-UNSAFE-10 [M!] Write the safe version first, keep it, and test the two against each other
 
 Write the safe version first, test it, keep it, and gate the `unsafe` version behind a feature with
-a differential test proving they agree (`RS-TEST-24`).
+a differential test proving they agree (`RS-TEST-23`).
 
 **Why:** the safe implementation is both the specification and the oracle. Without it you are
 testing the fast path against your own expectations, which are exactly what the bug is in. With it,
@@ -485,7 +485,7 @@ impl<T> ThreadBound<T> {
 
 Variance mistakes are silent unsoundness. If your type contains a raw pointer, decide deliberately
 whether it should be covariant, contravariant, or invariant, and add a `compile_fail` test pinning
-the decision (`RS-TEST-36`).
+the decision (`RS-TEST-35`).
 
 **Why:** variance is inferred from the fields, so an innocuous field change can widen it and let a
 caller shorten a lifetime that the `unsafe` code assumed was long. Nothing warns, and the resulting
@@ -770,7 +770,7 @@ tool, the FFI paths are unverified.
 
 ### RS-UNSAFE-32 [M!] Fuzz every unsafe parsing path
 
-Fuzz every unsafe parsing path, and treat any crash as a release-blocking bug (`RS-TEST-26`).
+Fuzz every unsafe parsing path, and treat any crash as a release-blocking bug (`RS-TEST-25`).
 
 **Why:** parsers with `unsafe` are where hostile input meets manual memory management, which is the
 single highest-severity combination in the language: a bug there is not a wrong answer but memory

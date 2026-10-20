@@ -249,7 +249,10 @@ def _rows(text: str, start: int) -> list[tuple[int, list[str]]]:
             if seen_header and out:
                 break
             continue
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        # A pipe inside a cell is written `\|`, as markdown requires even inside
+        # a code span; only an unescaped pipe divides cells.
+        inner = line.strip().removeprefix("|").removesuffix("|")
+        cells = [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", inner)]
         if not seen_header:
             seen_header = True
             continue

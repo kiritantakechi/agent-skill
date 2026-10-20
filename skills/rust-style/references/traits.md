@@ -63,27 +63,27 @@ not a partial impl.
   - RS-TRAIT-36 [S] Bound at the point of use, not on the struct
   - RS-TRAIT-37 [M] Minimize bounds
   - RS-TRAIT-38 [S] Genericize a parameter only where the flexibility is used
-  - RS-TRAIT-40 [S] Prefer an associated type where there is one sensible choice
-  - RS-TRAIT-41 [S] Do not return a type the caller must turbofish
-  - RS-TRAIT-42 [S] Use type aliases to tame long generic types
-  - RS-TRAIT-43 [S] Comment a type alias that hides genuine complexity
-  - RS-TRAIT-44 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
+  - RS-TRAIT-39 [S] Prefer an associated type where there is one sensible choice
+  - RS-TRAIT-40 [S] Do not return a type the caller must turbofish
+  - RS-TRAIT-41 [S] Use type aliases to tame long generic types
+  - RS-TRAIT-42 [S] Comment a type alias that hides genuine complexity
+  - RS-TRAIT-43 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
 
 - **Associated types, GATs, const generics**
-  - RS-TRAIT-45 [M] Associated type for one-per-implementor, parameter for many
-  - RS-TRAIT-46 [S] Bound associated types at their declaration
-  - RS-TRAIT-47 [S] Reach for a GAT only after a plain associated type has failed
-  - RS-TRAIT-48 [S] Use const generics where the size is genuinely compile-time
-  - RS-TRAIT-49 [S] Do not emulate variadics past a small arity
-  - RS-TRAIT-50 [S] Prefer a method to an associated constant when `dyn` matters
-  - RS-TRAIT-51 [S] Use typestate where misuse is costly and the states are few
-  - RS-TRAIT-52 [S] Do not build a typestate machine with many states
-  - RS-TRAIT-53 [M] Make marker traits zero-method and documented
-  - RS-TRAIT-54 [S] Prefer `PhantomData<fn() -> T>` for markers that own nothing
+  - RS-TRAIT-44 [M] Associated type for one-per-implementor, parameter for many
+  - RS-TRAIT-45 [S] Bound associated types at their declaration
+  - RS-TRAIT-46 [S] Reach for a GAT only after a plain associated type has failed
+  - RS-TRAIT-47 [S] Use const generics where the size is genuinely compile-time
+  - RS-TRAIT-48 [S] Do not emulate variadics past a small arity
+  - RS-TRAIT-49 [S] Prefer a method to an associated constant when `dyn` matters
+  - RS-TRAIT-50 [S] Use typestate where misuse is costly and the states are few
+  - RS-TRAIT-51 [S] Do not build a typestate machine with many states
+  - RS-TRAIT-52 [M] Make marker traits zero-method and documented
+  - RS-TRAIT-53 [S] Prefer `PhantomData<fn() -> T>` for markers that own nothing
 
 - **Totality and symmetry of impls**
-  - RS-TRAIT-55 [M] Make every impl total — no `unimplemented!()` arms
-  - RS-TRAIT-56 [S] Keep the impl set symmetric across a family of types
+  - RS-TRAIT-54 [M] Make every impl total — no `unimplemented!()` arms
+  - RS-TRAIT-55 [S] Keep the impl set symmetric across a family of types
 
 ---
 
@@ -269,7 +269,7 @@ impl StrExt for str {
 
 **Why:** a struct holding a `Matcher` and a `Printer` is easier to understand, test, and change than
 a five-level supertrait chain. Supertraits are for genuine prerequisites — `trait Ord: PartialOrd` —
-not for reuse (`references/functional.md` RS-FUNC-60).
+not for reuse (`references/functional.md` RS-FUNC-54).
 
 **Check:** how deep is the deepest supertrait chain? More than one level usually means reuse
 pretending to be a prerequisite.
@@ -427,7 +427,7 @@ pub fn count_matching<P: Fn(&str) -> bool>(lines: &[String], predicate: P) -> us
 
 **Why:** a vtable call costs a few nanoseconds and a predictable indirect branch; forty
 monomorphized copies of a large function cost kilobytes of instruction cache. A `Vec` of mixed
-implementations needs `dyn` outright (`references/performance.md` RS-PERF-37).
+implementations needs `dyn` outright (`references/performance.md` RS-PERF-33).
 
 **Check:** how many instantiations does this generic actually get? `cargo bloat` will tell you if
 you suspect the answer is "too many".
@@ -538,7 +538,7 @@ Pick one of `trait_variant`, an explicit `-> impl Future<Output = _> + Send`, or
 
 **Why:** `async fn` in traits (1.75) returns a future that is neither automatically `Send` nor
 dyn-compatible, so whether callers can spawn it on a multi-threaded runtime is your decision, and
-they cannot fix it from outside (`references/concurrency.md` RS-CONC-36).
+they cannot fix it from outside (`references/concurrency.md` RS-CONC-35).
 
 **Check:** can a user `tokio::spawn` a call to this trait method? Does the rustdoc say so?
 
@@ -819,11 +819,11 @@ documentation cost, and a monomorphization cost (`references/api.md` RS-API-11).
 **Check:** list the concrete types this parameter will be instantiated with. One means make it
 concrete.
 
-### RS-TRAIT-40 [S] Prefer an associated type where there is one sensible choice
+### RS-TRAIT-39 [S] Prefer an associated type where there is one sensible choice
 
 **Why:** `Iterator::Item` as a type parameter would force every use site to annotate it —
 `fn f<I: Iterator<Item = T>, T>` instead of `fn f<I: Iterator>`. The associated type makes it
-inferred and unambiguous (RS-TRAIT-45).
+inferred and unambiguous (RS-TRAIT-44).
 
 **Check:** can one type implement this trait twice with different substitutions? If not, it is an
 associated type.
@@ -845,14 +845,14 @@ pub trait Parser {
 pub struct ParseFailed;
 ```
 
-### RS-TRAIT-41 [S] Do not return a type the caller must turbofish
+### RS-TRAIT-40 [S] Do not return a type the caller must turbofish
 
 **Why:** if users must write `::<Vec<_>>` at every call site, the API is asking them to do
 inference's job. Either return a concrete type or take the target as a parameter they already have.
 
 **Check:** write a call in a doc example without any annotation. Does it compile?
 
-### RS-TRAIT-42 [S] Use type aliases to tame long generic types
+### RS-TRAIT-41 [S] Use type aliases to tame long generic types
 
 `pub type Result<T> = std::result::Result<T, Error>;`
 
@@ -881,7 +881,7 @@ impl std::fmt::Debug for Router {
 }
 ```
 
-### RS-TRAIT-43 [S] Comment a type alias that hides genuine complexity
+### RS-TRAIT-42 [S] Comment a type alias that hides genuine complexity
 
 **Why:** an alias for `Box<dyn Fn(&Request) -> Pin<Box<dyn Future<Output = Result<Response, Error>>
 + Send>> + Send + Sync>` is right, and so is a comment explaining the shape — otherwise the alias
@@ -889,7 +889,7 @@ hides the complexity from the maintainer as well as the user.
 
 **Check:** could a new contributor reconstruct the expansion from the alias name alone?
 
-### RS-TRAIT-44 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
+### RS-TRAIT-43 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
 
 **Why:** this is how `Iterator` keeps `Box<dyn Iterator>` working while still offering `map`,
 `collect`, and the rest — the generic methods are excluded from the vtable rather than excluding the
@@ -899,7 +899,7 @@ trait from `dyn` (RS-TRAIT-19).
 
 ## Associated types, GATs, const generics
 
-### RS-TRAIT-45 [M] Associated type for one-per-implementor, parameter for many
+### RS-TRAIT-44 [M] Associated type for one-per-implementor, parameter for many
 
 `Iterator` has one `Item`; `From<T>` has many `T`.
 
@@ -921,7 +921,7 @@ pub trait Source {
 }
 ```
 
-### RS-TRAIT-46 [S] Bound associated types at their declaration
+### RS-TRAIT-45 [S] Bound associated types at their declaration
 
 `type Error: std::error::Error + Send + Sync + 'static;`
 
@@ -931,7 +931,7 @@ it and no implementor can supply something unusable. Adding the bound later is b
 **Check:** does any generic function repeat a bound on `T::Error` or `I::Item`? That bound belongs
 on the declaration.
 
-### RS-TRAIT-47 [S] Reach for a GAT only after a plain associated type has failed
+### RS-TRAIT-46 [S] Reach for a GAT only after a plain associated type has failed
 
 Stable since 1.65.
 
@@ -942,7 +942,7 @@ Most designs that reach for them first do not need them.
 **Check:** does the associated type genuinely need to name a lifetime from `&self`? Write the plain
 version first and let it fail.
 
-### RS-TRAIT-48 [S] Use const generics where the size is genuinely compile-time
+### RS-TRAIT-47 [S] Use const generics where the size is genuinely compile-time
 
 `struct Chunk<const N: usize>`, `fn hash<const OUT: usize>(…) -> [u8; OUT]`.
 
@@ -967,7 +967,7 @@ impl<const BYTES: usize> Digest<BYTES> {
 }
 ```
 
-### RS-TRAIT-49 [S] Do not emulate variadics past a small arity
+### RS-TRAIT-48 [S] Do not emulate variadics past a small arity
 
 **Why:** the ecosystem convention is tuple impls up to 12, generated by a macro. Past that the
 compile time and the rustdoc noise grow faster than the convenience, and a slice or a struct is
@@ -975,20 +975,20 @@ clearer anyway.
 
 **Check:** is the macro generating impls for arities nobody uses?
 
-### RS-TRAIT-50 [S] Prefer a method to an associated constant when `dyn` matters
+### RS-TRAIT-49 [S] Prefer a method to an associated constant when `dyn` matters
 
 **Why:** associated constants make a trait non-dyn-compatible (RS-TRAIT-19). A method returning the
 same value costs one indirect call and keeps `Box<dyn Trait>` available.
 
 **Check:** does the trait have an associated `const`, and would anyone want to box it?
 
-### RS-TRAIT-51 [S] Use typestate where misuse is costly and the states are few
+### RS-TRAIT-50 [S] Use typestate where misuse is costly and the states are few
 
 `Connection<Idle>` → `Connection<Open>`.
 
 **Why:** it turns "write before connect" from a runtime panic into a compile error, which is
 strictly better when the mistake is expensive and the transitions are few
-(`references/functional.md` RS-FUNC-56).
+(`references/functional.md` RS-FUNC-50).
 
 **Check:** does any method start by checking a state flag and erroring? That check is a type.
 
@@ -1047,7 +1047,7 @@ impl Connection<Open> {
 }
 ```
 
-### RS-TRAIT-52 [S] Do not build a typestate machine with many states
+### RS-TRAIT-51 [S] Do not build a typestate machine with many states
 
 **Why:** the error messages and the documentation cost grow faster than the safety benefit. Past a
 handful of states, users cannot tell which method is available when, and a runtime state enum with a
@@ -1056,7 +1056,7 @@ clear error is kinder.
 **Check:** count the states. More than about four and the rustdoc becomes a state diagram nobody
 reads.
 
-### RS-TRAIT-53 [M] Make marker traits zero-method and documented
+### RS-TRAIT-52 [M] Make marker traits zero-method and documented
 
 **Why:** a marker trait's whole content is its invariant, so if the invariant is not written down
 the trait means nothing. If violating it causes unsoundness, it must be `unsafe trait`
@@ -1077,7 +1077,7 @@ pub struct RequestId(u64);
 impl RedactionFree for RequestId {}
 ```
 
-### RS-TRAIT-54 [S] Prefer `PhantomData<fn() -> T>` for markers that own nothing
+### RS-TRAIT-53 [S] Prefer `PhantomData<fn() -> T>` for markers that own nothing
 
 **Why:** `PhantomData<T>` inherits `T`'s drop-check behaviour and auto-trait implementations, which
 is almost never what a marker wants — a marker for a type it does not own should not become `!Send`
@@ -1109,7 +1109,7 @@ impl<T> Tagged<T> {
 
 ## Totality and symmetry of impls
 
-### RS-TRAIT-55 [M] Make every impl total — no `unimplemented!()` arms
+### RS-TRAIT-54 [M] Make every impl total — no `unimplemented!()` arms
 
 Every implementor supports every method for real. An impl that panics, returns
 `Err(Unsupported)`, or silently does nothing for part of the trait is a partial impl, and partial
@@ -1153,7 +1153,7 @@ impl Store for MemStore {
 }
 ```
 
-### RS-TRAIT-56 [S] Keep the impl set symmetric across a family of types
+### RS-TRAIT-55 [S] Keep the impl set symmetric across a family of types
 
 Related types carry the same trait impls: if one wrapper is `Serialize`, `Debug`, and
 `Clone`, its siblings are too, or the omission is documented.

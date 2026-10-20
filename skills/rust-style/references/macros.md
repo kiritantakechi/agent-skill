@@ -125,7 +125,7 @@ means a helper function is hiding inside.
 
 **Why:** generated `.rs` files you can read, diff, and set a breakpoint in beat a proc macro nobody
 can inspect — especially for large, stable output like tables, FFI bindings, or protocol types. The
-cost is a regeneration step (`references/modules.md` RS-MOD-11).
+cost is a regeneration step (`references/modules.md` RS-MOD-09).
 
 **Check:** does the generated code change less often than the crate does? Then generating it once is
 cheaper than generating it on every build.
@@ -136,7 +136,7 @@ cheaper than generating it on every build.
 
 **Why:** no extra crate, no `syn`/`quote` in the build graph, no host-target compilation step that
 blocks pipelining. The proc macro is a real cost imposed on every downstream build
-(`references/build.md` RS-BUILD-54).
+(`references/build.md` RS-BUILD-49).
 
 **Check:** does the macro need to inspect types, parse attributes, or generate impls from a struct's
 fields? If not, `macro_rules!` will do.
@@ -292,7 +292,7 @@ user nothing about what shape was expected. A final arm with
 
 **Why:** a macro's error messages are part of its interface and regress silently: reordering arms
 can turn a good message into the default one with nothing failing. `trybuild` pins the messages and
-unit tests pin the success cases (`references/testing.md` RS-TEST-36).
+unit tests pin the success cases (`references/testing.md` RS-TEST-35).
 
 **Check:** is there a `tests/ui/` directory with a `.stderr` file per failure case?
 
@@ -350,7 +350,7 @@ will see.
 `syn::Error::combine`.
 
 **Why:** a user with five bad field attributes otherwise gets five build-edit cycles. Accumulating
-is the same argument as `references/errors.md` RS-ERR-31, applied at compile time where the cycle is
+is the same argument as `references/errors.md` RS-ERR-30, applied at compile time where the cycle is
 slower.
 
 **Check:** does the macro return on the first bad field?
@@ -391,7 +391,7 @@ messages.
 
 **Why:** the expansion is the actual code that ships, and without a snapshot nobody notices when a
 refactor changes it. `cargo expand` in `CONTRIBUTING.md` is what lets a contributor debug the macro
-at all (`references/testing.md` RS-TEST-28).
+at all (`references/testing.md` RS-TEST-27).
 
 **Check:** is there a snapshot test for at least one representative input, and is it reviewed rather
 than auto-accepted?

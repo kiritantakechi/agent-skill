@@ -35,7 +35,6 @@ class RustStyle(Profile):
     marked_languages: tuple[str, ...] = ("toml",)
     toolchain: str | None = "rust"
     tools: tuple[str, ...] = ("rustc", "clippy", "rustdoc")
-    exempt_from_structure: str | None = "converted in milestone 2 of refresh-skills"
     language: str = "Rust"
     verified_as: str = "compiles as written against Rust {rust}, edition 2024"
     strict_scope: str = "library and high-reliability"
@@ -87,7 +86,7 @@ class RustStyle(Profile):
                 "the span finds every environment read, the sanctioned one included; whether it "
                 "sits outside the single construction path decides",
             ),
-            "RS-CLI-37": NotDecisive(
+            "RS-CLI-36": NotDecisive(
                 "env::var",
                 "the span finds every environment read; whether that name is prefixed and "
                 "documented in the help output decides, and neither fact is on the line",
@@ -107,7 +106,7 @@ class RustStyle(Profile):
                 "the span finds every `std::fs`; whether the enclosing body is `async` decides, "
                 "which the matched line does not say",
             ),
-            "RS-CONC-39": NotDecisive(
+            "RS-CONC-38": NotDecisive(
                 "spawn(",
                 "the span finds every `spawn(`; whether its handle is kept, joined, or detached "
                 "with a comment decides",
@@ -117,32 +116,32 @@ class RustStyle(Profile):
                 "the span finds every discarded binding; whether what it discards is a `Result`, "
                 "and whether a comment names why that failure does not matter, decides",
             ),
-            "RS-ERR-09": NotDecisive(
+            "RS-ERR-08": NotDecisive(
                 "map_err(|_|",
                 "the span finds every erased error; whether the erasure is a commented decision "
                 "rather than an oversight decides",
             ),
-            "RS-ERR-29": NotDecisive(
+            "RS-ERR-28": NotDecisive(
                 "ok_or(",
                 "the span finds every eager combinator; whether its argument is a `Copy` constant, "
                 "rather than something that allocates or calls, decides",
             ),
-            "RS-FUNC-04": NotDecisive(
+            "RS-FUNC-03": NotDecisive(
                 "Vec::new()",
                 "the span finds every `Vec::new()`; whether a `for` whose body is a single `push` "
                 "follows decides",
             ),
-            "RS-FUNC-05": NotDecisive(
+            "RS-FUNC-04": NotDecisive(
                 "sum()",
                 "the span matches `sum()`, which is the spelling this rule asks for; whether a "
                 "hand-written `for` accumulating a scalar remains beside it decides",
             ),
-            "RS-FUNC-23": NotDecisive(
+            "RS-FUNC-20": NotDecisive(
                 "into_iter().collect()",
                 "the span finds every round trip through `into_iter().collect()`; whether the "
                 "collection the caller needs could have been collected into directly decides",
             ),
-            "RS-FUNC-25": NotDecisive(
+            "RS-FUNC-22": NotDecisive(
                 "len() - 1",
                 "the span finds every `len() - 1`; whether an adapter encodes the same arithmetic "
                 "decides, and the loop it belongs to is not on the line",
@@ -157,17 +156,17 @@ class RustStyle(Profile):
                 "the span finds every negated name; whether it is the one conversion at the "
                 "boundary the rule allows decides",
             ),
-            "RS-OWN-03": NotDecisive(
+            "RS-OWN-02": NotDecisive(
                 ".clone()",
                 "the span finds every `.clone()`; whether it is applied to a parameter in the "
                 "opening lines of a function that should have taken ownership decides",
             ),
-            "RS-OWN-14": NotDecisive(
+            "RS-OWN-11": NotDecisive(
                 ".clone()",
                 "the span finds every `.clone()`; whether the receiver's type is `Arc` or `Rc` "
                 "decides, and the type is not on the line",
             ),
-            "RS-OWN-16": NotDecisive(
+            "RS-OWN-13": NotDecisive(
                 "to_lowercase()",
                 "the span finds every `to_lowercase()`; whether it is inside a condition or a "
                 "comparison, rather than producing a value that is kept, decides",
@@ -187,18 +186,18 @@ class RustStyle(Profile):
                 "the span finds every `.collect::<Vec<_>>()`; whether an `.iter()` follows it, "
                 "making the pair a deletable round trip, decides",
             ),
-            "RS-PERF-41": NotDecisive(
+            "RS-PERF-37": NotDecisive(
                 "try_from",
                 "the span matches `try_from`, which is the conversion this rule asks for; the "
                 "defect is an `as` cast that could exceed the target range, which this span does "
                 "not find",
             ),
-            "RS-MOD-13": NotDecisive(
+            "RS-MOD-11": NotDecisive(
                 "pub(crate)",
                 "the span matches `pub(crate)`, which is the visibility this rule asks for; "
                 "whether a plain `pub` outside the crate root should have been one decides",
             ),
-            "RS-MOD-18": NotDecisive(
+            "RS-MOD-16": NotDecisive(
                 "pub(crate)",
                 "the span matches `pub(crate)`; whether the item is used only from `#[cfg(test)]`, "
                 "and was widened to satisfy a test, decides",

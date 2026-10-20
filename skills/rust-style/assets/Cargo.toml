@@ -1,5 +1,5 @@
 # Canonical workspace manifest. Copy, then delete what does not apply.
-# Referenced by RS-BUILD-08, RS-BUILD-25, RS-BUILD-48.
+# Referenced by RS-BUILD-08, RS-BUILD-25, RS-BUILD-43.
 
 [workspace]
 resolver = "3"                       # implied by edition 2024; explicit is fine
