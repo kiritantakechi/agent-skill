@@ -53,11 +53,9 @@ Physics, damage, economy, AI decisions and anything else that changes the game s
 `FixedUpdate`. Input sampling, animation, camera work, UI and anything a player perceives as smooth
 run in `Update`.
 
-**Why:** `FixedUpdate` runs at a fixed rate independent of frame rate, so the simulation is the same
-on a 30 Hz laptop and a 240 Hz desktop; `Update` runs once per rendered frame, so presentation is as
-smooth as the display allows. Putting simulation in `Update` makes the game's behaviour a function
-of the player's hardware, which shows up as different damage totals and different jump heights on
-different machines.
+**Why:** `FixedUpdate` runs at a fixed rate whatever the frame rate; `Update` runs once per rendered
+frame. Simulation in `Update` makes the game a function of the player's hardware: different damage
+totals and jump heights on a 30 Hz laptop and a 240 Hz desktop.
 
 **Check:** for each system, ask whether running it twice as often would change what the game does.
 If yes it is simulation; if it only changes how smooth something looks it is presentation.
@@ -68,10 +66,9 @@ If yes it is simulation; if it only changes how smooth something looks it is pre
 `First`, `PreUpdate`, `StateTransition`, `RunFixedMainLoop`, `Update`, `SpawnScene`, `PostUpdate`,
 `Last` — and inside the fixed loop, `FixedFirst` … `FixedLast`.
 
-**Why:** most ordering problems solved with `.before()` and `.after()` are really "this belongs in
-`PreUpdate`". Input processing in `PreUpdate` is before every consumer without naming any of them,
-and cleanup in `Last` is after everything without a list that goes stale. The bracket schedules are
-ordering that needs no maintenance.
+**Why:** most `.before()` and `.after()` calls really mean "this belongs in `PreUpdate`". Input
+processed in `PreUpdate` precedes every consumer without naming one, and cleanup in `Last` follows
+everything without a list that goes stale.
 
 **Check:** for each `.before()` or `.after()` that names a system in another plugin, ask which
 bracket schedule expresses the same thing. Usually one does.
@@ -94,13 +91,13 @@ answer is "depends on the disk", it belongs in a loading state
 Camera transforms are written in `Update` (or `PostUpdate`), following the target that `FixedUpdate`
 moved.
 
-**Why:** `FixedUpdate` does not run on every rendered frame. A camera moved there holds still for
-the frames where it did not run and jumps on the frames where it ran twice, which reads as stutter
-on precisely the object the player's eye is locked to. `bevy_lint`'s
-`camera_modification_in_fixed_update` reports the common form.
+**Why:** `FixedUpdate` does not run on every rendered frame. A camera moved there holds still on the
+frames where it did not run and jumps on those where it ran twice: stutter on precisely the object
+the player's eye is locked to.
 
 **Check:** search `FixedUpdate` systems for `With<Camera>`, `Camera2d`, `Camera3d` and any query
-that could match the camera entity. Follow the target in `Update` instead.
+that could match the camera entity; `bevy_lint`'s `camera_modification_in_fixed_update` reports only
+the `With<Camera>` form. Follow the target in `Update` instead.
 
 ### BV-SCHED-05 [S] Derive from this frame's transforms in `PostUpdate`
 
@@ -117,23 +114,21 @@ screenshot — it is one frame of lag that only shows up when something moves fa
 ### BV-SCHED-06 [M] Take the delta from the schedule's own clock
 
 `Res<Time>` in `Update`, `Res<Time<Fixed>>` in `FixedUpdate`. Never a hard-coded step, and never
-`Time<Real>` for gameplay.
+`Time<Real>` for gameplay: it ignores pause and time scaling, so gameplay driven by it keeps running
+while the game is paused.
 
-**Why:** `Time` is a generic clock whose default instance is the one for the current schedule — the
-fixed loop swaps it to `Time<Fixed>` for each step and back to `Time<Virtual>` afterwards — so plain
-`Res<Time>` is the portable form and reads correctly in either place. The explicit form buys clarity
-at the cost of that portability, which is the trade to make deliberately: `Time<Fixed>::delta` is
-the constant timestep in *every* schedule, so a system naming it and then moved to `Update` silently
-integrates at the fixed rate while running at the frame rate. `Time<Real>` ignores pause and time
-scaling, so gameplay driven by it keeps running while the game is paused.
+Plain `Res<Time>` is the portable form, because the fixed loop swaps the default clock to
+`Time<Fixed>` for each step and back to `Time<Virtual>` afterwards. Naming `Time<Fixed>` buys
+clarity at the cost of that portability; make the trade deliberately.
 
-`commands.delayed().secs(t)` is 0.19's replacement for a `Timer` whose only job is to postpone, and
-it belongs to the frame clock: its queue is checked in `PreUpdate` against `Res<Time>`. Use it for
+`commands.delayed().secs(t)`, since 0.19, replaces a `Timer` whose only job is to postpone, and it
+belongs to the frame clock: its queue is checked in `PreUpdate` against `Res<Time>`. Use it for
 presentation — a despawn after a hit flash, a delayed sound. Anything a replay or a lockstep peer
-has to reproduce keeps a `Timer` ticked by `Time<Fixed>`: the deadline is stamped from whichever
-clock is default when the queue flushes, which inside the fixed loop is `Time<Fixed>`, and
-`PreUpdate` then compares it against `Time<Virtual>`. The two differ by the accumulated overstep, so
-the delay fires up to one fixed step early, at whatever resolution the frame rate happened to give.
+has to reproduce keeps a `Timer` ticked by `Time<Fixed>`.
+
+**Why:** `Time<Fixed>::delta` is the fixed step in every schedule, so a system naming it, moved to
+`Update`, advances one fixed step per rendered frame. A `delayed` deadline queued in the fixed loop
+is stamped from `Time<Fixed>` but checked against `Time<Virtual>`, so it fires up to one step early.
 
 **Check:** grep for `1.0 / 60.0` and similar literals, for `Time<Real>` outside diagnostics, and for
 `.delayed(` inside a `FixedUpdate` system — the last is a simulation decision made on the frame
@@ -170,12 +165,11 @@ fn spin(mut spinners: Query<&mut Transform, With<Spinner>>, time: Res<Time>) {
 ### BV-SCHED-07 [M] Never assume `FixedUpdate` ran exactly once this frame
 
 In one frame the fixed schedule may run zero times, once, or several. A `FixedUpdate` system must be
-correct for all three.
+correct for all three: it accumulates into a resource that `Update` then reads and clears.
 
-**Why:** the fixed loop catches up after a long frame by running repeatedly, and skips entirely when
-the frame was short. Anything written as "once per frame" breaks in both directions: a message
-written per fixed step arrives in bursts, and a counter incremented there is not a frame counter.
-Accumulating into a resource that `Update` then reads and clears is the shape that works.
+**Why:** the fixed loop catches up after a long frame by running repeatedly, and skips a short one
+entirely. Code written as "once per frame" breaks both ways: a message written per step arrives in
+bursts, and a counter incremented there is not a frame counter.
 
 **Check:** for each `FixedUpdate` system, ask what running it three times in a row would do. If the
 answer is wrong, it is assuming a frame.
@@ -289,17 +283,16 @@ simulation needed it rather than the picture?
 ### BV-SCHED-09 [M] Never read per-frame input from a fixed-rate schedule
 
 `ButtonInput::just_pressed` and `just_released` are true for exactly one rendered frame. A
-`FixedUpdate` system may not run on that frame, or may run on it twice. Sample input at frame rate,
-accumulate the intent, and let the fixed step read the accumulation.
-
-**Why:** BV-SCHED-01 sends simulation to `FixedUpdate`, and following it with input handling
-produces a game that drops jumps on a fast machine and double-fires them on a slow one — silently,
-with no error and nothing in a log. The two failures also look nothing alike, so neither points at
-the cause. `RunFixedMainLoopSystems::BeforeFixedMainLoop` exists for this: it runs at frame rate,
-before the fixed loop that will read what it wrote.
+`FixedUpdate` system may not run on that frame, or may run on it twice. Sample input at frame rate
+in `RunFixedMainLoopSystems::BeforeFixedMainLoop`, which runs before the fixed loop that reads what
+it wrote; accumulate the intent; and let the fixed step consume the accumulation.
 
 Accumulating is also where input stops being input. A `bool` named `jump_requested` is a decision
 the domain can take, replay, rebind and test; a `KeyCode` is a keyboard (BV-ARCH-01).
+
+**Why:** input handled in `FixedUpdate`, where BV-SCHED-01 sends simulation, drops jumps on a fast
+machine and double-fires them on a slow one, with no error and nothing in a log. The two failures
+look nothing alike, so neither points at the cause.
 
 **Check:** grep `FixedUpdate` systems for `ButtonInput`, `just_pressed`, `just_released` and
 `AccumulatedMouseMotion`. Each is a press the game will miss.
@@ -383,12 +376,12 @@ mod tests {
 ### BV-SCHED-10 [M] Group system parameters once there are more than seven
 
 Bundle related parameters into a `#[derive(SystemParam)]` struct named for what they are together.
+`clippy::too_many_arguments` stays switched on (BV-BUILD-14), and this grouping is its compliant
+form, never a suppression.
 
 **Why:** the parameter list is the system's whole interface, and past about seven entries a reader
-cannot hold it. The grouping is also reusable: three systems that all need the same four combat
-parameters take one `Combat<'w, 's>` instead of repeating the list. This standard keeps
-`clippy::too_many_arguments` switched on for that reason — the lint's compliant form is better code
-rather than a suppression.
+cannot hold it. The group is also reusable: three systems needing the same four combat parameters
+take one `Combat<'w, 's>` instead of repeating the list.
 
 **Check:** count the parameters. Past seven, look for the subset that shares a subject and give it a
 name.
@@ -444,10 +437,9 @@ Systems that must run in a particular order join `SystemSet`s, and the sets are 
 *Relaxed form:* two systems in one plugin, added in one call, may be ordered with `.chain()` — see
 BV-SCHED-15 for the boundary.
 
-**Why:** a set is a name for a phase, so the ordering is stated in terms the domain has words for
-— "input, then decisions, then resolution" — and a new system joins a phase without anyone editing
-an ordering graph. Pairwise ordering has the opposite property: every added system needs its
-relationship to every existing one, and the graph is written in several places at once.
+**Why:** a set names a phase — "input, then decisions, then resolution" — so a new system joins a
+phase without anyone editing an ordering graph. Pairwise ordering needs every added system related
+to every existing one, and writes the graph in several places at once.
 
 **Check:** count the `.before(` and `.after(` calls. Past a handful, they are describing phases that
 have not been named.
@@ -601,10 +593,9 @@ mod tests {
 
 `.after(damage_systems::apply)` names a function. `.after(CombatSystems::Resolve)` names a phase.
 
-**Why:** the function is an implementation detail of the other plugin — renaming it, splitting it in
-two, or replacing it with three systems all break the caller, and the breakage is a compile error at
-best and a silently dropped ordering at worst. A set is the published interface; a function name is
-not.
+**Why:** the function is the other plugin's implementation detail: renaming, splitting or replacing
+it breaks the caller, as a compile error at best and a silently dropped ordering at worst. A set is
+the published interface; a function name is not.
 
 **Check:** each `.before(` and `.after(` argument should be a `SystemSet` variant. A path to a `fn`
 is a dependency on a neighbour's internals.
@@ -612,15 +603,21 @@ is a dependency on a neighbour's internals.
 ### BV-SCHED-15 [S] Keep `chain` to a short pipeline inside one plugin
 
 `(a, b, c).chain()` is right when the three are one pipeline, defined together, and nothing outside
-needs to slot in between them.
+needs to slot in between them. Where only data dependencies matter, `chain_weak()`, `before_weak()`
+and `after_weak()` keep an order only between systems that actually conflict.
 
-**Why:** `chain` is ordering without names, which is exactly what makes it compact and exactly what
-makes it unextendable: a fourth system that must run between `b` and `c` has nowhere to go, and a
-reader outside the plugin cannot refer to any position in the chain. Inside one plugin, with three
-steps, neither cost is real.
+0.20 made the engine's own set chains weak: `PostUpdate`'s `UiSystems`, and the system sets of the
+`Render`, `RenderGraph`, `Core2d`, `Core3d` and `ExtractSchedule` schedules. A game system that
+joins one of those sets and depends on a neighbour through a channel, an atomic, interior mutability
+or `NonSend` states that ordering itself, with `.before(…)` or `.after(…)` on the set it depends on.
+
+**Why:** `chain` is ordering without names, so nothing outside the plugin can slot between `b` and
+`c` or name a position in it. A weak edge holds only where the ECS sees a conflict, so ordering that
+rested on state it cannot see is gone, and the race that follows compiles and logs nothing.
 
 **Check:** does anything outside this plugin need to run between two chained systems? If so, the
-chain needs to become sets.
+chain needs to become sets. For each system placed in `UiSystems` or a render set, look for state it
+shares with a neighbour outside the ECS; an order that state needs must be written down.
 
 ### BV-SCHED-16 [M] Add each system to each schedule exactly once
 
@@ -639,10 +636,9 @@ in the same schedule, is a duplicate.
 
 `system.run_if(condition)`, not an `if !ready { return; }` at the top of the body.
 
-**Why:** a run condition is evaluated by the scheduler, so a system that will not run does not
-acquire its parameters, does not occupy a worker, and appears as skipped in the schedule. An early
-return does all the work of running the system and then does nothing, and hides the condition from
-anyone reading `add_systems` to find out when the system runs.
+**Why:** the scheduler evaluates a run condition, so a system that will not run acquires no
+parameters, occupies no worker and shows as skipped. An early return pays for the run, does nothing,
+and hides the condition from anyone reading `add_systems` to learn when the system runs.
 
 **Check:** look at the first statement of each system body. A `return` guarded by a resource, a
 state, or an empty query is a run condition in the wrong place.
@@ -678,24 +674,25 @@ impl Plugin for AiPlugin {
 ### BV-SCHED-18 [S] Compose the conditions Bevy ships before writing one
 
 `resource_exists`, `resource_changed`, `resource_equals`, `any_with_component`, `any_match_filter`,
-`on_message`, `run_once`, `in_state`, and `not` / `and` / `or` to combine them.
+`on_message`, `run_once`, `in_state`, and `not` / `and` / `or` to combine them. Neighbours
+differ: `resource_changed` panics if the resource is absent, and `resource_exists_and_changed` does
+not.
 
-**Why:** the shipped conditions are already correct about the subtleties — `resource_changed` panics
-if the resource is absent and `resource_exists_and_changed` does not, `on_message` consumes from its
-own reader — and a hand-written closure re-derives those decisions each time. Composition also keeps
-the condition readable at the call site, where a named closure would send the reader elsewhere.
+**Why:** the shipped conditions have already settled such subtleties, and a hand-written closure
+re-derives them each time. Composition also keeps the condition readable at the call site, where a
+named closure would send the reader elsewhere.
 
 **Check:** for each hand-written condition, look for the shipped one it re-implements.
 
 ### BV-SCHED-19 [M] Keep a run condition free of effects
 
 A condition answers a question. It does not write a resource, spawn, queue a command, or consume
-something a system needed.
+something a system needed. `on_message` is the documented exception: it consumes from its own
+reader, not the system's.
 
-**Why:** conditions are evaluated by the scheduler on its own terms — possibly more than once for a
-set and its members, possibly not at all if an enclosing set was already false. Anything the
-condition changes therefore happens an unpredictable number of times. `on_message` is the deliberate
-exception and is documented as one: it consumes from its own reader, not the system's.
+**Why:** the scheduler evaluates conditions on its own terms — possibly more than once for a set and
+its members, possibly not at all if an enclosing set was already false — so anything a condition
+changes happens an unpredictable number of times.
 
 **Check:** does the condition take any `&mut` parameter, or call anything on `Commands`? Either is
 an effect.
@@ -716,10 +713,9 @@ belongs on their set.
 
 `.run_if(in_state(GameState::Playing))`. Not `Res<State<GameState>>` plus a comparison in the body.
 
-**Why:** it is BV-SCHED-17 with a specific case, and the specific case matters because the body form
-is so common: the system runs in every state, acquires all its parameters, compares, and returns.
-The condition form also composes with `configure_sets`, so a whole phase can be state-scoped at
-once.
+**Why:** the body form is the commonest case of BV-SCHED-17: the system runs in every state,
+acquires all its parameters, compares and returns. The condition also composes with
+`configure_sets`, so a whole phase can be state-scoped at once.
 
 **Check:** grep for `Res<State<` in a system body. Each one is a run condition that was written as a
 comparison.
@@ -740,37 +736,39 @@ automatic pass cannot infer.
 
 ### BV-SCHED-23 [S] Answer an ambiguity warning by ordering, not by silencing it
 
-An ambiguity means two systems touch the same data with no order between them, so which one wins
-depends on the executor. Order them, or split the data.
+An ambiguity means two systems touch the same data with no order between them, so they run in an
+order that is deterministic but arbitrary. Order them, or split the data.
+`ScheduleBuildSettings::shuffle_seed`, which needs the `debug` feature from Bevy's `dev` collection,
+randomises the order of ambiguous systems to expose a result that depends on it.
 
-**Why:** the report is a genuine non-determinism: the same input can produce different output on the
-same machine on a different run. Ignoring the pair records that someone looked, which is worth
-something, but only where the two writes genuinely commute — and that is a claim worth writing down
-rather than an annotation worth applying in bulk.
+**Why:** no line of code chose that order, so nothing keeps it when the schedule changes. Ignoring a
+pair records that someone looked, but it is honest only where the two writes genuinely commute — a
+claim worth writing down rather than an annotation worth applying in bulk.
 
 **Check:** turn on ambiguity detection and read the report once. Every pair is either ordered,
-split, or ignored with a one-line reason.
+split, or ignored with a one-line reason. Then run the tests under a few `shuffle_seed` values; a
+result that changes with the seed is an order nobody configured.
 
 ### BV-SCHED-24 [S] Leave the executor alone
 
 The multi-threaded executor is the default. Replacing it with `SingleThreadedExecutor` is a
-debugging step, not a configuration.
+debugging step, not a configuration. In 0.20 that is `Schedule::set_executor`; `ExecutorKind` is
+gone.
 
-**Why:** single-threading the schedule makes an ordering bug reproducible, which is exactly why it
-is useful while hunting one — and exactly why it must not be left in: the bug is still there, now
-hidden, and the game has given up its parallelism to hide it. In 0.19 this is
-`Schedule::set_executor`; `ExecutorKind` is gone.
+**Why:** single-threading makes an ordering bug reproducible, which is why it helps while hunting
+one and why it must not stay: the bug is still there, now hidden, and the game has given up its
+parallelism to hide it.
 
 **Check:** grep for `set_executor`. Anything outside a debugging branch needs a reason.
 
 ### BV-SCHED-25 [M] Keep `Local<T>` to state no other system needs
 
-`Local<T>` is private to one system. Anything a second system reads is a resource.
+`Local<T>` is private to one system. Anything a second system reads is a resource. What `Local`
+exists for is bookkeeping that has no business in the world: a cursor into a message queue, a
+scratch `Vec` reused across frames, a "have I logged this yet" flag.
 
-**Why:** a `Local` is not addressable from outside — it cannot be inspected, reset, saved, or
-reflected — so state that matters to the game hidden in one is state no tool can see. The reverse is
-also true and is why `Local` exists: a cursor into a message queue, a scratch `Vec` reused across
-frames, or a "have I logged this yet" flag has no business in the world.
+**Why:** a `Local` is not addressable from outside: it cannot be inspected, reset, saved or
+reflected. Game state hidden in one is state no tool and no second system can see.
 
 **Check:** for each `Local<T>`, ask what would break if it were reset to `Default` between frames.
 If the answer involves game state rather than bookkeeping, it is a resource.
@@ -859,20 +857,17 @@ mod tests {
 ### BV-SCHED-26 [M] Pause and scale the game through `Time<Virtual>`, not a flag
 
 `time.pause()` on a `ResMut<Time<Virtual>>`, and `set_relative_speed(3.0)` for a speed control. Not
-a `Paused(bool)` resource, and not a run condition on every gameplay system.
+a `Paused(bool)` resource, and not a run condition on every gameplay system; a pause the game models
+as a phase is a state (BV-STATE-11) whose `OnEnter` pauses the clock. Diagnostics, the UI and
+anything that has to respond while the game is stopped read `Time<Real>`, which keeps running.
 
-**Why:** pausing is one call because the virtual clock is what both schedules read.
-`Time<Virtual>::pause` sets the effective speed to zero, the generic `Time` that `Update` reads is
-copied from it, and the fixed loop accumulates its overstep from it — so one call freezes every
-`Timer`, every `Update` delta and every step of `FixedUpdate` at once. A boolean has to be
-remembered by every gameplay system anyone ever adds, which is a rule nothing enforces; and
-BV-STATE-11 will tell you to delete the boolean anyway, because two of them are a state enum.
-
-What stays running is what should: `Time<Real>` for diagnostics, the UI, and anything that has to
-respond while the game is stopped.
+**Why:** `pause` sets the virtual clock's speed to zero; `Update`'s `Time` is copied from that clock
+and the fixed loop accumulates from it, so one call freezes every `Timer`, delta and fixed step. A
+boolean must be remembered by every gameplay system anyone adds, which nothing enforces.
 
 **Check:** grep for a resource named `paused`, a `run_if` mentioning one, and `is_paused` on
 anything but `Time<Virtual>`. Then pause the game and confirm a `FixedUpdate` counter stops.
+
 ```rust
 // verified
 use bevy::prelude::*;

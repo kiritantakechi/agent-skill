@@ -19,7 +19,7 @@ here.
   - BV-VIEW-05 [S] Compose a mixed-style run from `TextSpan` children
   - BV-VIEW-06 [M] React to a button with an observer, not by polling `Interaction`
   - BV-VIEW-07 [S] Reach for `bevy_ui_widgets` before writing a widget
-  - BV-VIEW-08 [S] Reach for `EditableText` before a text-input crate
+  - BV-VIEW-08 [S] Reach for `TextInput` before a text-input crate
   - BV-VIEW-09 [S] Build a nested UI tree with `bsn!`
 
 - **Colour**
@@ -49,10 +49,9 @@ here.
 `Node` is a flexbox node. Rows, columns, gaps and alignment do the layout; `PositionType::Absolute`
 is for overlays.
 
-**Why:** absolute positions are a layout that has been evaluated once, at one window size, by hand.
-They break on every other resolution, on every UI scale factor, and whenever a string gets longer —
-and the breakage is a design that looks fine to whoever wrote it. The flex layout is the mechanism
-that already solves this and is the reason `Node` exists.
+**Why:** an absolute position is a layout evaluated once, by hand, at one window size. It breaks at
+every other resolution, every UI scale factor and every longer string, and still looks right to
+whoever wrote it.
 
 **Check:** count the `Val::Px` values in `left`, `top`, `right` and `bottom`. Each one is a position
 that will be wrong at another size.
@@ -210,25 +209,24 @@ mod tests {
 ### BV-VIEW-02 [S] Choose the `Val` unit for what the value means
 
 `Px` for something that should stay the same size, `Percent` for something that should scale with
-its parent, `Vw`/`Vh` for something that should scale with the window, `Auto` for something the
-content decides.
+its parent, `Vw`/`Vh` for something that should scale with the window, `Em`/`Rem` (`em()`, `rem()`)
+for something that should scale with the text size, `Auto` for something the content decides. Since
+0.20 `Val::Em` resolves against the node's `EmSize`, which `Node` requires, and `Val::Rem` against
+the `RemSize` resource.
 
-**Why:** the unit is the only place the intent is recorded, so a `Px` where a `Percent` was meant
-looks correct until the window changes and then looks broken with no clue why. Mixing them
-arbitrarily also makes the layout unpredictable to the next person: they cannot tell which values
-are load-bearing.
+**Why:** the unit is the only place the intent is recorded. A `Px` where a `Percent` was meant looks
+right until the window changes, then looks broken with nothing to say why.
 
-**Check:** for each `Val`, resize the window in your head. If the value should have changed and did
-not, the unit is wrong.
+**Check:** for each `Val`, resize the window and the text in your head. If the value should have
+changed and did not, the unit is wrong.
 
 ### BV-VIEW-03 [M] Read computed layout from `ComputedNode`, never from `Node`
 
 `Node` is the input to layout. `ComputedNode` is the output.
 
-**Why:** `Node` used to be the computed output — before 0.15 the input was called `Style` — so old
-code that reads a size from `Node` compiles against the current type and reads the requested value
-rather than the actual one. For anything with `Auto`, a percentage or a flex-grow, those are
-different numbers.
+**Why:** for anything sized by `Auto`, a percentage or a flex-grow, the requested value and the
+laid-out one are different numbers. `Node` was the computed output before 0.15, so an old read of a
+size from it still compiles.
 
 **Check:** grep for reads of `Node` that are looking for a size or a position. Those fields are on
 `ComputedNode`.
@@ -236,12 +234,12 @@ different numbers.
 ### BV-VIEW-04 [M] Give text its components together
 
 `Text::new(s)` plus `TextFont` plus `TextColor`, spawned as one tuple. `Text2d` for world-space
-text.
+text. Since 0.20 `TextFont::default()` sizes text at `FontSize::Rem(1.)`, not `Px(20.)`: it renders
+the same until `RemSize` changes, so a size that must stay fixed is written as `FontSize::Px`.
 
-**Why:** the components are required components of one another in part, so a missing one gets a
-default — which for `TextColor` is a colour the author did not choose and for `TextFont` is a size
-they did not choose. Spawning them together also keeps the three lines that describe one piece of
-text in one place, which is what the old `TextStyle` struct was doing well.
+**Why:** a missing component arrives as a required-component default: a colour nobody chose, and
+since 0.20 a size that follows `RemSize`. One tuple also keeps the lines that describe one piece of
+text together.
 
 **Check:** grep for `Text::new` and check the same tuple carries a font and a colour.
 
@@ -275,29 +273,31 @@ fn spawn_hud(mut commands: Commands) {
 A line with two colours or two sizes is a `Text` root with `TextSpan` children, not a formatted
 string.
 
-**Why:** each span is an entity, so the styled parts can be queried, changed and animated
-independently — updating a score inside a sentence is a write to one span rather than a rebuild of
-the whole string. It is also the only way to have two styles at all, since `TextFont` and
-`TextColor` apply to a whole entity.
+**Why:** each span is an entity, so a styled part is queried, changed and animated alone: a score
+inside a sentence is a write to one span, not a rebuild of the string. `TextFont` and `TextColor`
+cover a whole entity, so spans are also the only way to get two styles.
 
 **Check:** does the text change one part of a line frequently? If it is being rebuilt with
 `format!`, that part is a span.
 
 ### BV-VIEW-06 [M] React to a button with an observer, not by polling `Interaction`
 
-`commands.entity(button).observe(on_click)` with a `Pointer<Click>` event.
+`commands.entity(button).observe(on_click)` with a `PointerClick` event, whose fields are flat:
+`click.button`, not `click.event.button`. The button is `bevy::ui_widgets::Button`, imported by
+name, because 0.20 deprecates the prelude `Button` and `Interaction`; `Hovered` and `Pressed` carry
+the state a style needs, and under `UiWidgetsPlugins` the widget `Button` also emits `Activate`.
 
-**Why:** it is BV-EVENT-13's argument in the place it matters most: the polling form is a system
-running every frame over every button, testing a component that changed for one of them, and the
-handler ends up in a different file from the button. An entity-scoped observer puts the reaction
-beside the spawn, dies with the button, and runs only when the button is used.
+**Why:** a polling system runs every frame over every button to find the one that changed, and its
+handler lives in another file. An entity-scoped observer sits beside the spawn, dies with the
+button, and runs only when it is used.
 
 **Check:** grep for `Query<&Interaction`. Each is a set of buttons whose handlers have been gathered
 into one system.
 
 ```rust
-// fragment — `Pointer<Click>` comes from `bevy_picking`
+// fragment — `PointerClick` comes from `bevy_picking`
 use bevy::prelude::*;
+use bevy::ui_widgets::Button;
 
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component)]
@@ -308,9 +308,8 @@ pub struct StartButton;
 pub struct Starts(pub u32);
 
 /// The reaction is registered on the entity that owns it, one line below the
-/// spawn, and is despawned with it. The polled form —
-/// `Query<&Interaction, (Changed<Interaction>, With<StartButton>)>` — runs
-/// every frame over every button and puts this body in another file.
+/// spawn, and is despawned with it. A polled form runs every frame over every
+/// button and puts this body in another file.
 fn spawn_start_button(mut commands: Commands) {
     commands
         .spawn((
@@ -333,8 +332,8 @@ fn spawn_start_button(mut commands: Commands) {
 }
 
 /// Named after its event, and it runs only when this button is clicked.
-fn start_game(click: On<Pointer<Click>>, mut starts: ResMut<Starts>) {
-    if click.event.button == PointerButton::Primary {
+fn start_game(click: On<PointerClick>, mut starts: ResMut<Starts>) {
+    if click.button == PointerButton::Primary {
         starts.0 += 1;
     }
 }
@@ -352,38 +351,44 @@ impl Plugin for StartButtonPlugin {
 
 ### BV-VIEW-07 [S] Reach for `bevy_ui_widgets` before writing a widget
 
-Buttons, checkboxes, radio buttons, sliders and scrollbars ship in `bevy_ui_widgets`, which stopped
-being experimental in 0.19. `bevy_feathers` is the styled layer above it.
+Buttons, checkboxes, radio buttons, sliders, scrollbars, tabs (`TabList`/`Tab`), list boxes, menus,
+dialogs, modals, popovers and text input ship in `bevy_ui_widgets`, which stopped being experimental
+in 0.19. `bevy_feathers` is the styled layer above it.
 
 **Why:** a hand-written slider is a week of edge cases — drag capture, keyboard focus,
 accessibility, scroll interaction — and the shipped ones have had those weeks spent on them. They
 are also where upstream's improvements land, so a hand-written one is a fork.
 
-**Check:** is the widget one of the five? Then the question is what the shipped one does not do.
+**Check:** is the widget on that list? Then the question is what the shipped one does not do.
 
-### BV-VIEW-08 [S] Reach for `EditableText` before a text-input crate
+### BV-VIEW-08 [S] Reach for `TextInput` before a text-input crate
 
-0.19 put a real text field in the engine. `bevy_text::EditableText` holds the content and the
-cursor; `bevy_ui_widgets::EditableTextInputPlugin` wires the keyboard, the pointer, focus and the
-clipboard to it.
+0.19 put a real text field in the engine. Spawn `bevy::ui_widgets::TextInput`, which requires
+`bevy_text::EditableText`: `EditableText` holds the content and the cursor, and `TextInputPlugin`,
+part of `UiWidgetsPlugins` and called `EditableTextInputPlugin` before 0.20, wires the keyboard, the
+pointer, focus and the clipboard to it. Since 0.20 an `EditableText` without `TextInput` compiles,
+spawns and ignores the keyboard, and Escape in a focused field releases `InputFocus` and propagates
+to its ancestors and the window.
+
+`EditableText` is not in the prelude, so it is imported by name, and it derives neither `Debug` nor
+`Reflect`, because it holds a `parley::PlainEditor`. BV-ECS-03 therefore cannot reach it, and a
+component that holds one cannot derive `Reflect` either: keep the field's *value* in a component of
+your own and let this one stay the editor.
 
 **Why:** text editing is Unicode work wearing a string's clothes. Backspace removes a grapheme
-cluster and not a byte, the cursor moves by cluster, and on wasm a paste resolves a frame or more
-after it is asked for — every hand-rolled field gets those wrong in about that order. Two things
-make this component unlike the rest of the chapter, and both are worth knowing before it is wrapped:
-it is not in the prelude, so it is imported by name, and it derives neither `Debug` nor `Reflect`,
-because it holds a `parley::PlainEditor`. BV-ECS-03 therefore cannot reach it, and a component that
-holds one cannot derive `Reflect` either — which is a reason to keep the field's *value* in a
-component of your own and let this one stay the editor.
+cluster, the cursor moves by cluster, and on wasm a paste lands a frame or more after it is asked
+for — every hand-rolled field gets those wrong in about that order.
 
 **Check:** `queue_edit` is the only thing that changes the text. Assigning the string in place
 leaves the cursor pointing into content that no longer exists. The queue drains in `PostUpdate`
-under `EditableTextSystems`, so a reader in `Update` is looking at last frame's text.
+under `EditableTextSystems`, so a reader in `Update` is looking at last frame's text. A spawn that
+names `EditableText` and not `TextInput` is the inert field.
 
 ```rust
 // verified — GOOD
 use bevy::prelude::*;
 use bevy::text::{EditableText, TextEdit};
+use bevy::ui_widgets::TextInput;
 
 /// The game's own fact about the field, which *can* reflect. `EditableText`
 /// next to it owns the cursor and the Unicode; this owns the meaning.
@@ -391,10 +396,12 @@ use bevy::text::{EditableText, TextEdit};
 #[reflect(Component)]
 pub struct SeedEntry;
 
-/// `EditableText` requires `TextLayout`, `TextFont`, `TextColor`, `LineHeight`
-/// and `FontHinting`, so the spawn names neither — BV-ECS-06 supplies them.
+/// `TextInput` requires `EditableText`, which requires `TextLayout`,
+/// `TextFont`, `TextColor`, `LineHeight` and `FontHinting`, so the spawn names
+/// none of them — BV-ECS-06 supplies them. `EditableText` alone would spawn
+/// and ignore the keyboard.
 fn spawn_seed_entry(mut commands: Commands) {
-    commands.spawn((SeedEntry, Node::default(), EditableText::default()));
+    commands.spawn((SeedEntry, Node::default(), TextInput));
 }
 
 /// An edit is queued, never applied here: the engine applies it in `PostUpdate`
@@ -452,18 +459,20 @@ mod tests {
 ### BV-VIEW-09 [S] Build a nested UI tree with `bsn!`
 
 `bsn!` from `bevy_scene` expresses a tree with its children inline. Reach for it once the UI nests
-more than two levels.
+more than two levels; a two-component spawn stays a plain tuple.
 
-**Why:** the alternative is `with_children` closures nested to the depth of the tree, where the
-indentation is the structure and every level adds a closure. `bsn!` is new in 0.19 and its
-ergonomics are not yet settled, which is why this is a `[S]` and why a two-component spawn stays a
-plain tuple.
+The grammar is not Rust and is worth reading once, in its 0.20 form. Components are juxtaposed with
+no separators. A `Component { field: value }` is a partial patch rather than a literal, so the other
+fields keep their defaults, but an enum variant names every field. Entities in `Children [ … ]` are
+separated by `--`; the commas and parentheses of 0.19 are deprecated. `{expr}` escapes back to Rust,
+and a scene reference takes `@`: `@name`, `@make()`, `@{expr}`. `template_value(x)` is now just `x`,
+and a bare list of entities is `bsn_list! { … }`. The tree is spawned with `spawn_scene`, from the
+`CommandsSceneExt` trait — not `spawn`, because a scene is not a `Bundle` — and an `On<Ready>`
+observer on it runs once the whole subtree has spawned.
 
-The grammar is not Rust and is worth reading once: components are juxtaposed with no separators, a
-`Component { field: value }` is a partial patch rather than a literal so the other fields keep their
-defaults, `Children [ … ]` takes comma-separated entities, and `{expr}` escapes back to Rust. It is
-spawned with `spawn_scene`, from the `CommandsSceneExt` trait — not `spawn`, because a scene is not
-a `Bundle`.
+**Why:** the alternative nests a `with_children` closure per level, so the indentation is the
+structure. It is `[S]` because the grammar still moves: 0.20 deprecated the entity separators 0.19
+introduced.
 
 **Check:** count the closing braces at the end of the spawn. Past three levels, the tuple form has
 stopped being readable.
@@ -486,8 +495,9 @@ fn spawn_menu(mut commands: Commands) {
         Menu
         Node { width: Val::Percent(100.0), row_gap: Val::Px(8.0) }
         Children [
-            (Choice Text("Play")),
-            (Choice Text("Quit")),
+            Choice Text("Play")
+            --
+            Choice Text("Quit")
         ]
     });
 }
@@ -509,10 +519,9 @@ impl Plugin for MenuPlugin {
 `Color::srgb(r, g, b)` for a colour picked in a design tool. `Color::linear_rgb` and
 `LinearRgba` for a value that is being computed.
 
-**Why:** the two are different numbers for the same colour, and the constructors do not warn — a
-value copied from a palette and passed to the linear constructor is a visibly different colour, most
-obviously in the mid-tones. Naming the space is the only defence, which is why `Color::rgb` was
-renamed to `Color::srgb`.
+**Why:** the two spaces give different numbers for one colour, and neither constructor warns: a
+palette value passed to the linear one is visibly wrong, most of all in the mid-tones. Naming the
+space is the only defence.
 
 **Check:** grep for colour construction and check each against where the value came from. Design
 tool and hex codes are sRGB; anything a shader or a lerp produced is linear.
@@ -520,12 +529,11 @@ tool and hex codes are sRGB; anything a shader or a lerp produced is linear.
 ### BV-VIEW-11 [S] Keep the whole game in one colour space until the boundary
 
 Pick sRGB for authored values, convert once where they enter the renderer, and do arithmetic in
-linear.
+linear. Bloom's luminance has been computed in linear since 0.19, so a tint that compensated for
+the old behaviour now over-blooms.
 
-**Why:** mixing the spaces means every blend, lerp and tint has to be checked individually for which
-space it is in, and the errors are subtle enough to survive review. It also matters more in 0.19,
-which moved bloom's luminance calculation into linear space — a game that was compensating for the
-old behaviour now over-blooms.
+**Why:** once the spaces mix, every blend, lerp and tint has to be checked for which space it is in,
+and the errors are subtle enough to survive review.
 
 **Check:** for each colour arithmetic — a lerp, a multiply, a fade — ask which space the operands
 are in. If the answer varies, the conversions are not at a boundary.
@@ -535,11 +543,13 @@ are in. If the answer varies, the conversions are not at a boundary.
 ### BV-VIEW-12 [M] Spawn a camera as `Camera2d` or `Camera3d`
 
 `commands.spawn(Camera2d)`. The bundles are gone, and the required components supply `Camera`,
-`Transform`, `Projection` and the rest.
+`Transform`, `Projection` and the rest. Two defaults changed in 0.20: `Camera2d` brings
+`Tonemapping::Linear` and, with `Hdr`, runs the tonemapping pass; and `Camera3d` no longer requires
+`ScreenSpaceTransmission`, so a camera that draws transmissive materials adds it to its tuple.
 
-**Why:** it is the most common single line in old Bevy material — `Camera2dBundle::default()` — so
-it is the one most likely to be reproduced from memory. The component form also lets a game override
-exactly one required component in the spawn tuple without restating the others.
+**Why:** `Camera2dBundle::default()` is the most common single line in old Bevy material, so it is
+the one most often reproduced from memory. The component form also overrides one required component
+in the spawn tuple without restating the rest.
 
 **Check:** grep for `Camera2dBundle` and `Camera3dBundle`.
 
@@ -547,11 +557,9 @@ exactly one required component in the spawn tuple without restating the others.
 
 `Camera { order: 1, .. }` on the UI camera, `0` on the world camera.
 
-**Why:** cameras are sorted by `(order, target)`, so two with the same pair are left in query
-iteration order — which is archetype order, not spawn order, and not something a game controls. The
-engine detects this and warns once with "Camera order ambiguities detected", saying the result is
-unpredictable. The failure looks like a rendering bug rather than a configuration one, and the
-warning naming it scrolls past in the log.
+**Why:** cameras sort by `(order, target)`, so a tie falls back to archetype order, which no game
+controls. The result looks like a rendering bug, and the one warning that names it scrolls past in
+the log.
 
 **Check:** grep the startup log for "Camera order ambiguities". Failing that, count the camera
 entities: more than one sharing an order and a render target is the condition.
@@ -644,11 +652,9 @@ mod tests {
 
 Since 0.18, `RenderTarget` is a component rather than a field on `Camera`.
 
-**Why:** as a component it can be added, removed and queried independently — a camera that renders
-to a texture this frame and to the window the next is a component swap rather than a struct edit,
-and a system can find every off-screen camera with a filter. Old code setting `Camera { target, ..
-}` no longer compiles, which is the good case; code copying a `Camera` and expecting the target to
-travel with it is the bad one.
+**Why:** as a component the target is swapped, removed and queried on its own: retargeting is an
+insert, and a filter finds every off-screen camera. Code that copies a `Camera` and expects the
+target to travel with it still compiles, and loses it.
 
 **Check:** read every `Camera` struct literal in the diff. A `target` field in one is the 0.17
 spelling; too many identifiers are called `target` for a grep to answer this.
@@ -657,10 +663,9 @@ spelling; too many identifiers are called `target` for a grep to answer this.
 
 `Visibility::Hidden` to hide something. `InheritedVisibility` and `ViewVisibility` are outputs.
 
-**Why:** the three are a pipeline — the authored value, the value after inheriting from the parent,
-and the value after culling for a particular view — and writing to either of the last two is
-overwritten by the propagation system in the same frame. Reading `Visibility` to find out whether
-something is on screen is the mirror mistake: it says what was asked for, not what happened.
+**Why:** the three are a pipeline — authored, inherited, culled per view — and propagation
+overwrites a write to either of the last two in the same frame. Reading `Visibility` to learn
+whether something is on screen is the mirror mistake: it says what was asked for.
 
 **Check:** grep for writes to `InheritedVisibility` and `ViewVisibility`, and for reads of
 `Visibility` that are asking about culling.
@@ -834,10 +839,9 @@ mod tests {
 Since 0.18, Bevy adds and updates an `Aabb` for meshes and sprites, including when the mesh or
 sprite changes.
 
-**Why:** the hand-maintained workarounds this replaced — removing the `Aabb` so it gets recomputed,
-or recomputing it in a system — now fight the engine's own updates, and the result is either a
-duplicate computation every frame or an entity that is culled when it should not be. The workaround
-looks harmless, which is why it survives upgrades.
+**Why:** the old workarounds — removing the `Aabb` to force a recompute, or recomputing it in a
+system — now fight the engine's own updates, costing a duplicate computation every frame or culling
+an entity that should be drawn.
 
 **Check:** grep for `Aabb`. In game code there should be reads and no writes.
 
@@ -846,24 +850,27 @@ looks harmless, which is why it survives upgrades.
 ### BV-VIEW-17 [S] Reach for a custom `Material` before a custom render node
 
 A `Material` (or `Material2d`) with a fragment shader covers most of what a game wants: a shield
-effect, a dissolve, a palette swap.
+effect, a dissolve, a palette swap. Since 0.20 a sprite takes a custom shader too, through
+`SpriteMaterial` and `MaterialExtension2d`, rather than a `Mesh2d` quad built to shade it, and
+`ExtendedMaterial2d` extends a 2D material.
 
-**Why:** the material API is stable across releases in a way the render graph is not — 0.19 turned
-every render-graph node into a system, which rewrote every custom node in the ecosystem and left
-materials alone. A custom node is for something genuinely outside the mesh pipeline, and the cost of
-finding out it was not is a rewrite per release.
+**Why:** the material API survives releases the render graph does not: 0.19 rewrote every custom
+render node in the ecosystem and left materials alone. A node built for a mesh effect pays that
+rewrite every release.
 
 **Check:** can the effect be expressed as "this mesh, drawn differently"? Then it is a material.
 
 ### BV-VIEW-18 [M] Keep shader paths and material types together
 
 The `Material` impl naming a shader path lives beside the struct, and the shader lives at a path the
-struct's module name predicts.
+struct's module name predicts. Since 0.20 that shader is WESL: a 0.19 `.wgsl` that used `#import`
+or `#ifdef` becomes a `.wesl` with `import …;`, `@if(…)` and `constants::MATERIAL_BIND_GROUP`.
+GLSL is gone, with the `shader_format_glsl` and `shader_format_wesl` features, and the module paths
+that moved are in `references/migration.md` BV-MIG-94.
 
-**Why:** the binding between a Rust struct's fields and a WGSL uniform block is not checked by the
-compiler — the shader fails at pipeline compilation, at run time, with an error about a binding
-index. Keeping the two next to each other is the only thing that makes a field added on one side
-visibly missing on the other.
+**Why:** nothing checks a struct's fields against the shader's bindings at compile time: a mismatch
+fails at pipeline compilation, at run time, naming a binding index. Side by side, a field added on
+one side is visibly missing on the other.
 
 **Check:** for each `impl Material`, is the shader path within sight of the struct definition, and
 does the struct's field order match the shader's?
@@ -884,14 +891,14 @@ despawned to stop showing is a gizmo written the long way.
 
 Bloom, motion blur, depth of field, vignette, lens distortion and chromatic aberration are
 components on the camera entity. Spawn them in the camera tuple; animate them by writing a field;
-turn one off by removing it.
+turn one off by removing it. `bevy_post_process` composes them into one pass and sits inside the
+`2d` and `3d` collections BV-BUILD-02 mandates, and `Bloom` declares the `Hdr` it requires. For no
+tonemapping curve write `Tonemapping::Linear`: since 0.20 `Tonemapping::None` is a full
+passthrough, with no `ColorGrading`, no `DebandDither` and no clamping of negative values.
 
-**Why:** BV-VIEW-17 sends a mesh effect to a `Material` and everything else to a render node — but a
-full-screen effect has no mesh, so following it lands the reader on the node it just warned them
-about. 0.19 closed that gap: `bevy_post_process` composes the whole stack into one pass, and
-`Vignette` and `LensDistortion` are new in it. They cost nothing to reach, because the crate is
-inside the `2d` and `3d` collections BV-BUILD-02 already mandates. `Bloom` requires `Hdr`, which it
-declares itself.
+**Why:** BV-VIEW-17 sends a mesh effect to a `Material` and the rest to a render node, but a
+full-screen effect has no mesh, so it would land on the node that rule warns against. These
+components fill that gap with no dependency the game does not already have.
 
 **Check:** for each custom full-screen pass, name the shipped component it reimplements. If there is
 none, that is the case BV-VIEW-17 was talking about.
@@ -899,14 +906,12 @@ none, that is the case BV-VIEW-17 was talking about.
 ### BV-VIEW-21 [S] Draw with a retained gizmo before a sprite you have to despawn
 
 `Gizmo` plus a `GizmoAsset` is a line drawing that persists as an entity. Reach for it before
-spawning untextured sprites you redraw every frame.
+spawning untextured sprites you redraw every frame — for a map, an orbit, a selection ring, or a
+debug overlay that has to survive the frame.
 
-**Why:** BV-VIEW-19 keeps immediate-mode gizmos for debugging, and that leaves a gap it does not
-name: a map, an orbit, a selection ring, a debug overlay that has to survive the frame. The shape
-that fills it by default is a marker component, a despawn loop at the top of the system, and a fresh
-sprite per element per frame — which allocates, defeats change detection, and cannot be picked or
-queried because it did not exist a moment ago. A retained gizmo is built once and edited when the
-thing it draws changes.
+**Why:** the default for a drawing that outlives the frame is a despawn loop and a fresh sprite per
+element per frame, which allocates, defeats change detection, and leaves nothing to pick or query. A
+retained gizmo is built once and edited when its subject changes.
 
 **Check:** find every system that begins by despawning what it is about to respawn. Each is either a
 retained gizmo or a set of entities that should have persisted.

@@ -1,10 +1,10 @@
 ---
 name: bevy-style
 description: >-
-  The Bevy 0.19 engineering standard — a 249-rule delta on top of rust-style covering the ECS,
+  The Bevy 0.20 engineering standard — a 249-rule delta on top of rust-style covering the ECS,
   scheduling, observers and messages, states and resources, assets, error handling, Cargo features
   and the Bevy lint divergences, the user-facing half of UI and rendering, testing, and a forbidden
-  API table spanning 0.15 through 0.19. Its spine is keeping the rules of the game out of the
+  API table spanning 0.15 through 0.20. Its spine is keeping the rules of the game out of the
   engine's vocabulary, so an engine upgrade rewrites signatures and not arithmetic. Use this
   whenever writing, reviewing, refactoring, scaffolding, porting, or debugging ANY Bevy code — a
   plugin, a system, a component, a query, a schedule, an observer, a Cargo.toml with bevy in it —
@@ -79,12 +79,12 @@ proceed with the stricter reading.
 
 ## 2. Bevy 0.20 reality check
 
-### 2.1 The three that change behaviour without changing whether it compiles
+### 2.1 The ones that change behaviour without changing whether it compiles
 
 1. **Setting the same state now runs the transition.** Since 0.18, `next_state.set(S)` fires
    `OnExit(S)` and `OnEnter(S)` even when the current state is already `S`. Code that called `set`
    every frame used to be free and now re-runs every setup and teardown system in the game.
-   `set_if_neq` is the old behaviour (`references/state.md` BV-STATE-20).
+   `set_if_different` is the old behaviour (`references/state.md` BV-STATE-20).
 2. **`Ref<T>` now clones the `Ref`, not the `T`.** 0.19 gave `Ref` its own `Clone` and `Copy`. A
    `value.clone()` that used to produce a `T` now produces another `Ref<T>`, and only fails to
    compile if the surrounding code was explicit about the type. Write `ref.deref().clone()` for the
@@ -93,6 +93,17 @@ proceed with the stricter reading.
    type used as both is now impossible; worse, inserting one as a component despawns the copy on
    any other entity, and resources appear in `&T` queries. Split the type
    (`references/state.md` BV-STATE-01).
+4. **A logging error handler now swallows panics.** 0.20 hands every panic in a system, observer or
+   command to the `FallbackErrorHandler`, so a release handler that logs keeps the app running past
+   it — overflow traps included. Re-panic when the error carries a panic payload
+   (`references/errors.md` BV-ERR-05).
+5. **`iter_many` yields `Result`.** `.count()` and `for _ in` still compile, and now count ids that
+   do not match the query; `.matched()` is the old meaning (`references/ecs.md` BV-ECS-22).
+6. **`EditableText` on its own is inert.** It spawns and ignores the keyboard. Spawn `TextInput`,
+   which requires it, under `TextInputPlugin` (`references/view.md` BV-VIEW-08).
+7. **The engine's own set chains are weak.** Inside `PostUpdate`'s `UiSystems` and the render
+   schedules, systems with no conflict the ECS can see are no longer ordered, so one relying on
+   hidden ordering can race (`references/scheduling.md` BV-SCHED-15).
 
 ### 2.2 Engine features that replaced what games used to hand-roll
 
@@ -108,14 +119,18 @@ proceed with the stricter reading.
 | `commands.delayed()` | a `Timer` resource whose only job is to postpone a spawn | 0.19 |
 | `DiagnosticsOverlayPlugin` | a hand-written FPS `Text` system | 0.19 |
 | `Gizmos::text()` / `text_2d()` | spawning a `Text2d` to print a debug value | 0.19 |
-| `EditableText` | a third-party text-input crate | 0.19 |
+| `TextInput` from `bevy_ui_widgets` | a third-party text-input crate | 0.20 |
 | `#[derive(SettingsGroup)]` (`bevy_settings`) | hand-rolled settings load and save | 0.19 |
 | `Query::contiguous_iter()` | hand-written structure-of-arrays for a hot loop | 0.19 |
 | `.run_if(…)` on an observer | an early `return` at the top of the observer | 0.19 |
+| `.context(…)` on a `Result` or `Option` | `ok_or(…)` at the system boundary | 0.20 |
+| `chain_weak()`, `after_weak()` | strong ordering between systems that never conflict | 0.20 |
+| `Val::Em`, `Val::Rem` | scaling a node by hand with the text size | 0.20 |
 
 ### 2.3 Names that moved, and are still written the old way everywhere
 
-`Trigger<E>` is `On<E>`; `OnAdd` is `Add`; `EventReader`/`EventWriter` are
+`Trigger<E>` is `On<E>`, and `On<Add, T>` is `On<Add<T>>`; `Pointer<Click>` is `PointerClick`;
+`NextState::set_if_neq` is `set_if_different`; `OnAdd` is `Add`; `EventReader`/`EventWriter` are
 `MessageReader`/`MessageWriter`; `Parent` is `ChildOf`; every `*Bundle` is a set of components; the
 old `bevy_scene` is `bevy_world_serialization`, and `bevy_scene` is now the new scene system.
 `references/migration.md` is the full table, and it is the first thing to check when porting code
@@ -140,7 +155,7 @@ Nothing else is relaxed: a divergence not listed here is a defect, not a dialect
 | `RS-NAME-33` Never suffix a name with the language construct | `BV-ARCH-10` — `*Plugin` and `*Systems` | `add_plugins(X)` and `configure_sets(_, X)` are the same shape with different meanings, so the name is the only signal. Bevy addresses both by type — `is_plugin_added::<T>`, `disable::<T>` — and `bevy_lint` enforces the suffix ecosystem-wide. |
 | `RS-ERR-13` Never expose `Box<dyn Error>` or `anyhow::Error` from a library | `BV-ERR-03` — a system returns `BevyError`, the domain does not | `BevyError` is boxed and type-erased, and Bevy's `Result` alias is exactly the aliased form the rule names. Its rationale does not reach here: a system has no caller to match on the error — the schedule hands it to the error handler. Everything a caller could branch on stays a real type on the domain side. |
 | `RS-BUILD-27` Never blanket-`allow` at crate level to make CI green | `BV-BUILD-12` — `elided_lifetimes_in_paths` is allowed | It fires on every `Query`, `Res`, `ResMut`, `Commands`, `MessageReader` and `Local` parameter. Writing the `'_`s does satisfy it, and buys nothing but noise. |
-| `RS-BUILD-24` Turn off default features on heavy dependencies | `BV-BUILD-02` — start from a feature collection | Bevy's feature graph has 172 entries and moves every release; a hand-picked list goes stale silently, as an unmeasured one always does. |
+| `RS-BUILD-24` Turn off default features on heavy dependencies | `BV-BUILD-02` — start from a feature collection | Bevy's feature graph has 177 entries in 0.20 and moves every release; a hand-picked list goes stale silently, as an unmeasured one always does. |
 | `RS-FUNC-03` A `for` loop that only pushes is a `collect` | `BV-ECS-20` — iterate a query with `for` | Query iteration is effect, not transformation: the loop writes through `Mut<T>` and the borrow does not survive a collect. |
 | `RS-API-71` Use `#[non_exhaustive]` where the shape may grow | `BV-ECS-05` — components are exhaustive | Struct-literal construction is how components are spawned, and `#[non_exhaustive]` forbids it outside the defining crate. Required components are the growth mechanism instead. |
 
@@ -238,9 +253,9 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **BV-CORE-18 `[M!]`** A system that can fail returns `Result` and uses `?`. No `unwrap`, no
   `expect`, no indexing on a path a player can reach
   (`references/errors.md` BV-ERR-01).
-- **BV-CORE-19 `[M]`** Set the `FallbackErrorHandler` explicitly at startup, and make it panic in
-  debug and log in release. The default is a decision, so make it yours
-  (`references/errors.md` BV-ERR-05).
+- **BV-CORE-19 `[M]`** Set the `FallbackErrorHandler` explicitly at startup. Since 0.20 it also
+  receives panics, so a release handler that logs must re-panic when the error carries a panic
+  payload, or every panic becomes a log line (`references/errors.md` BV-ERR-05).
 - **BV-CORE-20 `[M]`** Prefer the non-panicking half of every pair: `get_resource` over `resource`,
   `get` over `entity`, `?` over `single().unwrap()`
   (`references/errors.md` BV-ERR-09).

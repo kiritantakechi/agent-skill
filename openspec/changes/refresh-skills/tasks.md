@@ -232,7 +232,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
     from D5.
 
   Then `fmt`. Verify that `skeleton` and `shared-text` pass for bevy-style.
-- [ ] 10.4 Content from `research/bevy-0.20.md`:
+- [x] 10.4 Content from `research/bevy-0.20.md`:
   - every row of § Rule impacts;
   - §2.1 additions A–F, plus the `set_if_different` rename;
   - in § Forbidden-API additions: the four new rules with their `rg` Checks and `fires` fixtures,
@@ -244,7 +244,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 - [x] 10.5 Lint rows: demote the five LINT rules the asset enables, and delete BV-ECS-19's `fires`
   fixture if it is demoted. Delete the six pointer rules and record their dispositions. Verify:
   `citations`, `anatomy` and `sensitivity` pass.
-- [ ] 10.6 Cut every **Why** to three lines or fewer. Verify: `anatomy` passes with bevy-style not
+- [x] 10.6 Cut every **Why** to three lines or fewer. Verify: `anatomy` passes with bevy-style not
   exempt.
 - [ ] 10.7 Step C: `agent-skill renumber bevy-style`. Remove bevy-style's exemption, update the
   frontmatter count and the §6 counts, and make the README's count of literal `rg` Checks derived

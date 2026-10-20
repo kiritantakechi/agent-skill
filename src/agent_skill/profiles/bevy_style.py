@@ -63,6 +63,29 @@ class BevyStyle(Profile):
     fires: dict = field(
         default_factory=lambda: {
             "BV-EVENT-09": ("commands.trigger_targets(Damage(5), target);",),
+            "BV-MIG-91": (
+                "fn on_enemy_added(add: On<Add, Enemy>, mut commands: Commands) {",
+                'let observer = Observer::new(|add: On<Add>| info!("{}", add.entity))'
+                ".with_component(health);",
+            ),
+            "BV-MIG-92": (
+                "fn start_game(click: On<Pointer<Click>>, mut starts: ResMut<Starts>) {",
+                'info!("{:?} at {}", press.pointer_id, press.pointer_location.position);',
+            ),
+            "BV-MIG-93": (
+                "next.as_mut().set_if_neq(Screen::Playing);",
+                "fn style_buttons(mut buttons: Query<(&Interaction, &mut BackgroundColor)>) {",
+                "let mut placeholder: AssetId<Image> = AssetId::invalid();",
+            ),
+            "BV-MIG-94": (
+                "app.add_plugins(EditableTextInputPlugin);",
+                "TextFont { font: FontSource::SansSerif, ..default() },",
+                "TextFont { font: FontSource::SystemUi, ..default() },",
+                "commands.spawn((Mesh3d(mesh), MeshMaterial3d(material), MeshTag(7)));",
+                "let default = <ReflectDefault as FromType<Settings>>::from_type();",
+                "use bevy_math::primitives::Circle;",
+                "#import bevy_pbr::forward_io::VertexOutput",
+            ),
         }
     )
     #: Measured, not judged: each of these was promoted to accuse and hit the
@@ -86,6 +109,12 @@ class BevyStyle(Profile):
                 ".clone()",
                 "the span finds every `.clone()`; whether the receiver is a `Ref<`, where the "
                 "call's meaning changed, decides — and the type is not on the line",
+            ),
+            "BV-MIG-95": NotDecisive(
+                "iter_many",
+                "the span finds every `iter_many` call; whether the iterator is counted or tested "
+                "for presence, where a `Result` item still counts, rather than consumed item by "
+                "item, decides — and the consumer is often not on the line",
             ),
             "BV-SCHED-09": NotDecisive(
                 "just_pressed",

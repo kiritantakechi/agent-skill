@@ -44,11 +44,9 @@ the state chapter; when a reader runs is in the scheduling chapter.
 A `Message` is buffered: it is written now and read by whichever systems get to it, in their own
 schedule. An `Event` is a trigger: observers run immediately, inside the call that triggered it.
 
-**Why:** the two answer different questions. "Damage happened; the score, the audio and the log each
-care" is fan-out with no ordering requirement and belongs in a buffer. "This entity died; despawn
-its turret before anything else sees it" needs to happen before the next system observes a half-dead
-entity, and belongs in an observer. Choosing the wrong one produces either a one-frame lag where
-immediacy was needed, or reentrancy where a queue was wanted.
+**Why:** "damage happened, and the score and the audio care" is fan-out with no ordering; "this
+entity died, despawn its turret before anything sees it" cannot wait. The wrong choice is a
+one-frame lag where immediacy was needed, or reentrancy where a queue was wanted.
 
 **Check:** ask whether the reaction may happen next frame. If yes it is a message; if the world
 would be inconsistent for that frame, it is an event.
@@ -164,13 +162,13 @@ mod tests {
 ### BV-EVENT-02 [S] Query the state instead, where the state already says it
 
 Before adding a message, check whether a query answers the same question. "Health reached zero" is a
-query; it does not need an announcement.
+query; it does not need an announcement. A message earns its place when the fact is *not*
+recoverable from the world: a key was pressed, a collision occurred, a value crossed a threshold
+between two frames.
 
-**Why:** a message duplicates information the world already holds, and the duplicate can disagree —
-the message says the entity died and the entity is alive again by the time somebody reads it. It
-also adds a frame of latency and a type nobody can inspect. The case for a message is real when the
-fact is *not* recoverable from the world: a key was pressed, a collision occurred, a value crossed a
-threshold between two frames.
+**Why:** a message duplicates what the world already holds, and the duplicate can disagree: it says
+the entity died, and by the time somebody reads it the entity is alive again. It also adds a frame
+of latency and a type nobody can inspect.
 
 **Check:** can a system reconstruct the fact by looking at the world when it runs? If yes, and the
 timing does not matter, the message is a cache.
@@ -178,12 +176,12 @@ timing does not matter, the message is a cache.
 ### BV-EVENT-03 [M] Do not derive both `Message` and `Event` on one type
 
 A type is buffered or it is observed. Deriving both is legal and almost always means the decision
-was postponed.
+was postponed. A fact that genuinely needs both is two types with a converter, which is where the
+mapping is written down.
 
-**Why:** the two have different delivery, different registration and different failure modes, so a
-type that is both has readers making incompatible assumptions about when it arrives — and nothing in
-the signature says which mechanism any given call site used. If a fact genuinely needs both, it is
-two types with a converter, and the converter is the place the mapping is written down.
+**Why:** the two differ in delivery, registration and failure modes, so the readers of a type that
+is both make incompatible assumptions about when it arrives, and no signature says which mechanism
+a given call site used.
 
 **Check:** grep for `#[derive(` lines naming both. Each is a choice that has not been made.
 
@@ -191,12 +189,12 @@ two types with a converter, and the converter is the place the mapping is writte
 
 ### BV-EVENT-04 [M] Register a message type with `add_message`
 
-`app.add_message::<DamageDealt>()`. Never `init_resource::<Messages<DamageDealt>>()`.
+`app.add_message::<DamageDealt>()`. Never `init_resource::<Messages<DamageDealt>>()`, which
+`bevy_lint`'s `insert_message_resource` reports.
 
 **Why:** `add_message` also adds the update system that drops messages older than two frames.
-Inserting the resource directly gives you the buffer without the cleanup, so the `Vec` grows for the
-life of the process — a leak whose only symptom is memory, and only after a long session.
-`bevy_lint`'s `insert_message_resource` reports it.
+Without it the buffer grows for the life of the process — a leak whose only symptom is memory, and
+only after a long session.
 
 **Check:** grep for `Messages<` outside a `MessageReader`/`MessageWriter` type. Each occurrence is
 either the registration bug or a good reason that should be written down.
@@ -236,24 +234,23 @@ impl Plugin for DamagePlugin {
 
 ### BV-EVENT-05 [M] Read messages through a `MessageReader`
 
-`MessageReader<M>` and `read()`. Not `Res<Messages<M>>` and `iter_current_update_messages()`.
+`MessageReader<M>` and `read()`. Not `Res<Messages<M>>` and `iter_current_update_messages()`, which
+`bevy_lint`'s `iter_current_update_messages` reports.
 
-**Why:** the reader holds a cursor, so each system sees each message exactly once regardless of when
-it runs or how often. `iter_current_update_messages` has no cursor: a system that runs twice between
-updates sees the same messages twice, and one that misses an update sees nothing. `bevy_lint`'s
-`iter_current_update_messages` exists because the failure is silent in both directions.
+**Why:** the reader holds a cursor, so each system sees each message exactly once however often it
+runs. Without one, a system that runs twice between updates sees the same messages twice, and one
+that misses an update sees nothing — silently, both ways.
 
 **Check:** grep for `iter_current_update_messages`. There should be none.
 
 ### BV-EVENT-06 [M] Make a message a statement about the past
 
-`DamageDealt`, `WaveCleared`, `ButtonPressed` — not `ApplyDamage`, `ClearWave`, `SpawnEnemy`.
+`DamageDealt`, `WaveCleared`, `ButtonPressed` — not `ApplyDamage`, `ClearWave`, `SpawnEnemy`. When
+a single specific effect is wanted, that is a command or an observed event.
 
-**Why:** a message has any number of readers and no guarantee about ordering, so it cannot be an
-instruction: two readers acting on `SpawnEnemy` spawn two enemies, and there is nothing in the type
-to say which one was supposed to. A past-tense fact is safe to read any number of times, which is
-what the mechanism actually provides. When a single specific effect is wanted, that is a command or
-an observed event.
+**Why:** a message has any number of readers and no ordering, so it cannot be an instruction: two
+readers acting on `SpawnEnemy` spawn two enemies. A past-tense fact is safe to read any number of
+times, which is what the mechanism provides.
 
 **Check:** read each message name as a sentence starting "the fact that". If it does not fit, the
 type is an instruction.
@@ -263,10 +260,9 @@ type is an instruction.
 A message written in `FixedUpdate` and read in `Update` arrives in bursts. A message written in
 `Update` and read in `FixedUpdate` may not be read at all before it expires.
 
-**Why:** messages live two frames, where "frame" means a run of the message update system in
-`First`. The fixed schedule may run several times per frame or none, so the two clocks do not line
-up in either direction — and the loss is silent, because a reader that saw nothing looks exactly
-like a frame where nothing happened.
+**Why:** a message lives two runs of the update system in `First`, and the fixed schedule runs
+several times per frame or none, so the clocks never line up. The loss is silent: a reader that saw
+nothing looks like a frame where nothing happened.
 
 **Check:** for each message type, list the writers' schedules and the readers'. A reader in a
 slower-running schedule than its writer needs a stated reason bursts are acceptable.
@@ -276,11 +272,9 @@ slower-running schedule than its writer needs a stated reason bursts are accepta
 If every reader immediately queries the same three components off the entity, put those values in
 the message.
 
-**Why:** the entity may be gone by the time a reader runs — despawned in the same frame, by a system
-that ran in between — so every reader carries a `let Ok(x) = query.get(e) else { continue }` whose
-failure means "the message is now unreadable" and is indistinguishable from "this entity did not
-match". Carrying the values makes the message self-contained, which is what makes it safe to read
-late.
+**Why:** the entity may be despawned before a reader runs, so every reader carries a
+`let Ok(x) = query.get(e) else { continue }` whose failure cannot be told from "this entity did not
+match". Carrying the values makes the message self-contained, and so safe to read late.
 
 **Check:** look at what each reader does first. If they all do the same lookup, the message is
 missing a field.
@@ -290,13 +284,12 @@ missing a field.
 ### BV-EVENT-09 [M] Give an event about one entity the `EntityEvent` derive and an entity field
 
 `#[derive(EntityEvent)] struct Died { entity: Entity }`, triggered with
-`commands.trigger(Died { entity })`.
+`commands.trigger(Died { entity })` — not the `trigger_targets(E, entity)` that 0.17 removed, whose
+target was invisible in the type.
 
-**Why:** `Event` on its own is global — it has no target, and observers registered against an entity
+**Why:** `Event` on its own is global: it has no target, so observers registered against an entity
 never see it. `EntityEvent` stores the target on the event, which is what makes
-`commands.entity(e).observe(…)` work and what makes propagation possible. The old
-`trigger_targets(E, entity)` form was removed in 0.17 precisely because the target was invisible in
-the type.
+`commands.entity(e).observe(…)` work and what makes propagation possible.
 
 **Check:** `rg -n 'trigger_targets' src/` — each one is an `EntityEvent` that has not been
 converted.
@@ -337,24 +330,24 @@ impl Plugin for LootPlugin {
 ### BV-EVENT-10 [M] Read the target from the named field
 
 `died.entity`, not `died.event_target()`, and never `trigger.target()` — which no longer exists for
-every event type.
+every event type. `event_target()` is for generic code.
 
-**Why:** the field is named by the event's author, so it says what the entity *is* in this event —
-`attacker`, `victim`, `container` — where the trait method can only say "the target". On an event
-with several entities that distinction is the whole meaning. The trait method remains available for
-generic code, which is what it is for.
+**Why:** the event's author named the field for what the entity *is* in this event — `attacker`,
+`victim`, `container` — where the trait method can only say "the target". On an event with several
+entities, that distinction is the whole meaning.
 
 **Check:** grep for `.event_target()` in non-generic observers, and for `.target()` anywhere.
 
 ### BV-EVENT-11 [S] Turn propagation on deliberately, and stop it deliberately
 
 `#[entity_event(propagate)]` walks `ChildOf` toward the root. An observer that has handled the event
-calls `propagate(false)`.
+calls `propagate(false)`. The engine's own input propagates too: since 0.20, Escape in a focused
+text input clears `InputFocus` and is not consumed, so an ancestor's or the window's Escape observer
+runs on the same press.
 
-**Why:** propagation is what makes a click on a child reach the panel that handles it, and it is
-also what makes a click handled by the child reach the panel *as well*. Without an explicit stop, an
-event consumed at one level keeps travelling and gets consumed again, which is how a single click
-closes two menus.
+**Why:** propagation carries a click on a child to the panel that handles it, and carries a click
+the child already handled there *as well*. Without an explicit stop, an event consumed at one level
+is consumed again above it, which is how a single click closes two menus.
 
 **Check:** for each propagating event, find the observers that act on it. Any that fully handles the
 event and does not call `propagate(false)` is letting it continue.
@@ -364,10 +357,9 @@ event and does not call `propagate(false)` is letting it continue.
 Since 0.18 the mutating half of `EntityEvent` lives in a separate trait, `SetEntityEventTarget`.
 Retargeting an event in flight is not something game code does.
 
-**Why:** every observer for an event sees the same value, so mutating the target mid-flight changes
-what later observers are told happened — and which observers those are depends on registration
-order, which is not defined. The split into a second trait made the default immutable so that
-reaching for the capability is now a visible act.
+**Why:** every observer for an event sees the same value, so retargeting it mid-flight changes what
+later observers are told happened — and which observers count as later depends on registration
+order, which is not defined.
 
 **Check:** grep for `SetEntityEventTarget`. Anything outside propagation machinery needs an
 explanation.
@@ -376,16 +368,17 @@ explanation.
 
 ### BV-EVENT-13 [M] Observe a lifecycle event rather than polling for it
 
-Setup when a component appears is `On<Add, T>`, not a system with `Query<…, Added<T>>`.
+Setup when a component appears is `On<Add<T>>`, not a system with `Query<…, Added<T>>`. Since 0.20
+the component is the lifecycle event's parameter, not `On`'s, and an observer of dynamic components
+(`.with_component(id)`) is `On<Add<()>>`.
 
-**Why:** the observer runs at the moment the component is inserted, so the entity is never observed
-by anything else in the half-initialised state; the polling system runs at some later point in the
-frame, and everything scheduled in between sees the gap. The observer also cannot be missed:
-`Added<T>` only matches for systems that run before the next update, so a system with a run
-condition that was false that frame never sees it at all.
+**Why:** the observer runs at the moment the component is inserted, so nothing else ever sees the
+entity half-initialised. A polling system runs at some later point in the frame, and everything
+scheduled in between sees the gap.
 
-**Check:** for each `Added<T>` filter, ask what happens if the system does not run that frame. If
-the answer is "the setup never happens", it is an observer.
+**Check:** for each `Added<T>` filter, ask whether the work must happen as the component arrives. A
+system skipped that frame still sees the addition when it next runs; work that cannot wait for that
+is an observer.
 
 ```rust
 // verified
@@ -398,11 +391,11 @@ pub struct Enemy;
 #[derive(Resource, Debug, Default)]
 pub struct EnemyCount(pub usize);
 
-fn count_up(_add: On<Add, Enemy>, mut count: ResMut<EnemyCount>) {
+fn count_up(_add: On<Add<Enemy>>, mut count: ResMut<EnemyCount>) {
     count.0 += 1;
 }
 
-fn count_down(_remove: On<Remove, Enemy>, mut count: ResMut<EnemyCount>) {
+fn count_down(_remove: On<Remove<Enemy>>, mut count: ResMut<EnemyCount>) {
     count.0 = count.0.saturating_sub(1);
 }
 
@@ -435,25 +428,26 @@ mod tests {
 
 ### BV-EVENT-14 [M] Spell the lifecycle events without their old `On` prefix
 
-`Add`, `Insert`, `Replace`, `Remove`, `Despawn`. Not `OnAdd`, `OnInsert`, `OnReplace`, `OnRemove`,
-`OnDespawn`.
-
-**Why:** the prefix moved to the observer parameter in 0.17 — the type is `On<Add, T>`, so the old
-names read as `On<OnAdd, T>`. This is the single most common stale spelling in Bevy code written
-against a tutorial. Where `Add` collides with `std::ops::Add`, disambiguate the trait as `ops::Add`
+`Add`, `Insert`, `Discard`, `Remove`, `Despawn`. Not `OnAdd`, `OnInsert`, `OnReplace`, `OnRemove`,
+`OnDespawn`, and not `Replace`, which 0.19 renamed `Discard` (and `on_replace` became
+`on_discard`). Where `Add` collides with `std::ops::Add`, disambiguate the trait as `ops::Add`
 rather than renaming the event.
 
-**Check:** `rg -n  'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|Trigger<' src/`.
+**Why:** the prefix moved to the observer parameter in 0.17 — the type is `On<Add<T>>`, so the old
+names read as `On<OnAdd<T>>`. This is the single most common stale spelling in Bevy code written
+against a tutorial.
+
+**Check:** `rg -n 'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|Trigger<' src/`. An `OnReplace` is
+`Discard`, not `Replace`.
 
 ### BV-EVENT-15 [M] Keep an observer short, because it runs inside the flush
 
 An observer runs synchronously, in the middle of applying the command that triggered it. Update a
 resource, queue a command, trigger another event — do not run a loop over the world.
 
-**Why:** the work happens while the world is mid-change, so it is not parallelised with anything and
-it delays every command queued behind it. Long observers also make the trigger site expensive in a
-way that is invisible there: `commands.entity(e).despawn()` looks like a queue push and is actually
-whatever four observers decided to do.
+**Why:** the work runs while the world is mid-change, parallel with nothing, and delays every
+command queued behind it. The cost is invisible at the trigger site: `commands.entity(e).despawn()`
+looks like a queue push and is actually whatever four observers decided to do.
 
 **Check:** does the observer iterate a query with no bound, or do work proportional to the number of
 entities? Move that to a system and have the observer record what needs doing.
@@ -551,9 +545,8 @@ mod tests {
 is global and runs for every trigger of that event.
 
 **Why:** the entity-scoped observer is despawned with the entity, so it cannot outlive its subject
-and cannot fire for somebody else's. The global form has to open with a check that the target is the
-one it cares about — a guard that is easy to forget and, when forgotten, produces a handler that
-silently acts on every entity in the game.
+or fire for somebody else's. The global form has to open with a guard on the target, and a guard
+forgotten is a handler that silently acts on every entity in the game.
 
 **Check:** does the observer's first statement compare the target against something? That comparison
 is `entity(e).observe(…)` written out.
@@ -677,12 +670,10 @@ mod tests {
 
 ### BV-EVENT-17 [S] Gate an observer with `run_if`
 
-Observers take run conditions in 0.19: `app.add_observer(handler.run_if(in_state(Playing)))`.
+Observers take run conditions since 0.19: `app.add_observer(handler.run_if(in_state(Playing)))`.
 
-**Why:** it is BV-SCHED-17 applied to observers, and the same argument holds — the condition is
-visible at the registration site rather than buried in the first line of the body, and it composes
-with the shipped conditions. Before 0.19 this had to be an early return, which is why so much
-existing code has one.
+**Why:** it is BV-SCHED-17 applied to observers: the condition is visible at the registration site
+rather than buried in the first line of the body, and it composes with the shipped conditions.
 
 **Check:** an observer whose body starts with a `return` guarded by a resource or state has a run
 condition in the wrong place.
@@ -690,12 +681,11 @@ condition in the wrong place.
 ### BV-EVENT-18 [M] Never depend on the order two observers run in
 
 Several observers for one event run in an unspecified order. If B must follow A, that is not two
-observers.
+observers: it is one observer that does both things in order, or an observer that triggers a second
+event which the second observer handles, so the dependency is explicit in the types.
 
 **Why:** the order is an implementation detail of registration and is not part of the API, so code
-that works today breaks when a plugin is added earlier. The two shapes that do work: one observer
-that does both things in order, or an observer that triggers a second event which the second
-observer handles — making the dependency explicit in the types.
+that works today breaks when a plugin is added earlier.
 
 **Check:** for each event with more than one observer, ask whether swapping them changes the result.
 If it does, the ordering needs to be expressed rather than assumed.

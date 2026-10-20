@@ -39,10 +39,9 @@ Rust unit tests, in microseconds, with no `World`.
 
 Damage, economy, pathfinding, save formats: plain functions, plain values, plain `#[test]`.
 
-**Why:** a test that needs a `World` is slower by orders of magnitude, harder to read, and couples
-the assertion to the ECS layout — so it has to be rewritten when a component is split, even though
-the rule it tests did not change. If a rule cannot be tested this way, the boundary has not been
-drawn (BV-ARCH-01), and the test is telling you so.
+**Why:** a test that needs a `World` is slower by orders of magnitude and couples the assertion to
+the ECS layout, so splitting a component rewrites a test whose rule did not change. A rule that
+cannot be tested this way is a boundary not yet drawn (BV-ARCH-01).
 
 **Check:** count the tests that build an `App`. If most of them do, the logic is in the systems.
 
@@ -167,10 +166,9 @@ mod tests {
 the plugin needs a schedule runner; `DefaultPlugins` never — BV-TEST-04 rules it out on a reason no
 test can argue with.
 
-**Why:** each plugin added is a set of systems that run on every `update()`, so a test built on
-`DefaultPlugins` is slow, needs a display on some platforms, and fails for reasons unrelated to what
-it is testing. Starting from nothing also documents the plugin's real dependencies: whatever has to
-be added for the test to pass is what the plugin needs.
+**Why:** each plugin added is a set of systems that run on every `update()`, so a test built on more
+than it needs is slow and fails for reasons unrelated to what it tests. Starting from nothing also
+documents the plugin's real dependencies: whatever the test had to add is what the plugin needs.
 
 **Check:** for each plugin in the test's setup, remove it and see whether the test still passes.
 Anything that can go, should.
@@ -222,10 +220,9 @@ mod tests {
 
 `app.add_plugins(CombatPlugin)`, not `app.add_systems(FixedUpdate, combat::apply_damage)`.
 
-**Why:** the plugin is the published interface, so testing through it also tests the registration —
-the resource that has to be initialised, the message that has to be added, the set the system has to
-be in. Adding the system directly skips all of that, so the test passes while the plugin is missing
-an `init_resource` and the game crashes on the first frame.
+**Why:** the plugin is the published interface, so testing through it also tests the registration:
+the resource initialised, the message added, the set joined. Adding the system directly skips that,
+and the test passes while the plugin misses an `init_resource` and the game crashes on frame one.
 
 **Check:** does the test name a system function? If so it is not testing what the game runs. Where
 one plugin depends on another, `assert!(app.is_plugin_added::<T>())` pins that too — a check the
@@ -258,10 +255,8 @@ the test. `update` is one frame, synchronously, which is what an assertion needs
 
 `app.world_mut().run_schedule(FixedUpdate)` runs exactly that schedule, exactly once.
 
-**Why:** `update()` runs the whole main schedule, so a test of one `FixedUpdate` system also runs
-every `Update` system in the app — and how many times `FixedUpdate` ran depends on the elapsed time,
-which is not something a test should be at the mercy of. Running the schedule directly makes the
-number of steps a fact of the test.
+**Why:** `update()` runs the whole main schedule: a test of one `FixedUpdate` system also runs every
+`Update` system in the app, and the elapsed time decides how many fixed steps ran (BV-TEST-07).
 
 **Check:** does the test call `update()` and then assert on a `FixedUpdate` system's effect? The
 number of steps is not what the test thinks it is.
@@ -271,10 +266,9 @@ number of steps is not what the test thinks it is.
 Either run the schedule directly N times, or set `Time<Fixed>`'s timestep and advance virtual time
 by a known amount.
 
-**Why:** `update()` advances real time, so the fixed schedule runs however many times fit — zero on
-a fast machine, several on a slow one. A test asserting "after one frame, health is 2.0" is
-asserting something about the machine it ran on, and it will be flaky in CI in a way that looks like
-a race.
+**Why:** `update()` advances real time, so the fixed schedule runs however many times fit: zero on
+a fast machine, several on a slow one. A test asserting "after one frame, health is 2.0" asserts
+something about the machine it ran on, and flakes in CI in a way that looks like a race.
 
 **Check:** for each test involving `FixedUpdate`, find where the number of steps is decided. If it
 is decided by the clock, the test is not deterministic.
@@ -473,10 +467,9 @@ asserting on a description.
 
 `world.query::<&Enemy>().iter(&world).count()` is fine; "the world has 4 entities" is not.
 
-**Why:** the total count includes whatever the engine and every added plugin spawned — observers,
-one-shot systems and internal entities have all been in that number at different versions, and 0.18
-removed the `Internal` marker that used to hide them. A count-based assertion therefore breaks on an
-engine upgrade that changed nothing about the game.
+**Why:** the total includes whatever the engine and every added plugin spawned, and observers,
+one-shot systems and internal entities have each been in it at different versions. A count-based
+assertion therefore breaks on an engine upgrade that changed nothing about the game.
 
 **Check:** grep for `entities().len()` and for asserts on a total. Query for the component the test
 cares about instead.
@@ -504,7 +497,7 @@ fn spawn_wave(mut commands: Commands) {
     }
 }
 
-fn count_slain(_remove: On<Remove, Enemy>, mut slain: ResMut<Slain>) {
+fn count_slain(_remove: On<Remove<Enemy>>, mut slain: ResMut<Slain>) {
     slain.0 += 1;
 }
 
@@ -576,12 +569,11 @@ mod tests {
 ### BV-TEST-12 [S] Assert the fact, not the mechanism that produced it
 
 Assert that the enemy is gone, not that a `Despawn` observer ran. Assert the score, not that a
-message was written.
+message was written. The exception is a mechanism that is the interface: a plugin whose job is to
+emit a message for other plugins is tested on the message.
 
-**Why:** the mechanism is an implementation choice the test should not pin — replacing a message
-with an observer is a refactor, and a test that asserts on the message calls it a regression. The
-exception is when the mechanism is the interface: a plugin whose job is to emit a message for other
-plugins is tested on the message.
+**Why:** the mechanism is an implementation choice the test should not pin: replacing a message
+with an observer is a refactor, and a test that asserts on the message calls it a regression.
 
 **Check:** for each assertion, ask whether it would survive rewriting the system in a different
 style. If not, it is testing the shape.
@@ -611,10 +603,11 @@ observer.
 
 If the test needs A before B, the test's app configures that ordering — the same way the game does.
 
-**Why:** systems with no ordering run in an unspecified order, and in a two-system test they will
-often happen to run in the right one. That makes the test pass, and it makes it fail later on a
-different machine or after an unrelated system is added — as a flake, in CI, weeks from the change
-that caused it.
+**Why:** systems with no ordering run in an arbitrary order, and in a two-system test it is often
+the right one. The test passes, then fails after an unrelated system is added, as a flake in CI
+weeks from the change that caused it.
 
 **Check:** for each test with more than one system, is the order configured or assumed? Assumed is a
-flake that has not happened yet.
+flake that has not happened yet. To surface one, set 0.20's `ScheduleBuildSettings::shuffle_seed`,
+which randomises the order of ambiguous systems; it needs the `debug` feature, which bevy's `dev`
+collection includes.

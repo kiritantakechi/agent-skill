@@ -47,11 +47,9 @@ Damage numbers, economy, pathfinding, turn order, save format — the code that 
 happens* takes and returns plain Rust data. `Query`, `Commands`, `Res`, `Entity`, `Component` and
 every other Bevy name belong to the code that decides *when* it happens.
 
-**Why:** an engine upgrade rewrites signatures, not arithmetic. Bevy 0.17 renamed `Trigger` to
-`On`, split `Event` three ways and re-suffixed every system set; 0.19 made `Resource` a subtrait of
-`Component` and renamed the whole scene crate. Each of those touched every file that named a Bevy
-type and no file that did not. The same separation is what lets the rules be unit-tested in
-microseconds without a `World`.
+**Why:** an engine upgrade rewrites signatures, not arithmetic: 0.20's `On<Add<T>>` and
+`PointerClick` touched every file that named the old spellings and no file that did not. The same
+separation is what lets the rules be unit-tested in microseconds without a `World`.
 
 **Check:** for each function, ask what it would take to call it from a test with no `App`. If the
 answer involves building a `World`, and the function computes a game outcome rather than moving
@@ -162,10 +160,9 @@ The separation is mandatory at every size. How it is enforced is not: a single-b
 between modules, a workspace draws it between crates, and only the crate form can be enforced by
 the compiler.
 
-**Why:** a rule that demands a seven-crate workspace from a game jam prototype gets ignored
-wholesale, and a rule that is satisfied by good intentions gets eroded one `use bevy::prelude::*`
-at a time. Making the requirement constant and the mechanism proportional is what keeps it alive
-across both.
+**Why:** a rule demanding a seven-crate workspace of a game jam prototype is ignored wholesale, and
+one satisfied by good intentions erodes one `use bevy::prelude::*` at a time. A constant
+requirement with a proportional mechanism survives both.
 
 **Check:** name the mechanism in the repository's own words — a module list, a crate list, a lint.
 If nobody can say which files are forbidden to name Bevy, the boundary does not exist yet.
@@ -378,16 +375,14 @@ A component's fields are public — the ECS is the accessor, and reflection, sce
 protocol all read fields directly. Data that must satisfy a condition therefore cannot be defended
 inside a component. Model the condition as a domain type with a private field and a fallible
 constructor, let the component carry the plain value, and construct the domain type at the crossing
-point (BV-ARCH-03). Nothing else may read that field.
+point (BV-ARCH-03). Nothing else may read that field. Do not wrap the domain type in the component
+instead: a private field cannot be reflected from the ECS side (`#[reflect_remote]` needs field
+access), so it would cost the component `Reflect` (BV-ECS-03) or the domain a Bevy dependency
+(BV-ARCH-06).
 
-**Why:** this standard exempts components from the private-field rule, and the exemption has to buy
-something. What it buys is a sharper line: because a component cannot defend an invariant, needing
-to defend one is a signal that the *acting* on that value belongs on the domain side. The component
-is then an unparsed input — the same shape as a config file or a network packet — and the crossing
-point is where it is parsed. Wrapping the domain type in the component instead looks tighter and is
-not available: a domain type with a private field cannot be reflected from the ECS side
-(`#[reflect_remote]` needs field access), so the component would have to give up `Reflect` or the
-domain would have to take a Bevy dependency, and BV-ECS-03 and BV-ARCH-06 each forbid one of those.
+**Why:** a component cannot defend an invariant, so needing to defend one signals that *acting* on
+the value belongs on the domain side. The component is then an unparsed input, the same shape as a
+config file or a network packet, and the crossing point is where it is parsed.
 
 **Check:** for each component field, ask what value would be wrong. If any answer is more specific
 than "any value of this type", find every read of that field: exactly one, at the crossing point,
@@ -454,13 +449,14 @@ mod tests {
 
 `Vec2`, `Vec3`, `Quat` and `Mat4` come from `glam`, which is an ordinary crate that Bevy happens to
 re-export. Domain code may name them directly, and should, so a position does not have to be
-rebuilt at every crossing.
+rebuilt at every crossing. Name the `glam` Bevy uses — 0.33 under Bevy 0.20 — and move it with
+every engine bump: a `Vec2` from another `glam` is a different type at the crossing point, with the
+error BV-BUILD-05 describes. A game that ships replays or lockstep multiplayer takes its own
+numeric types instead, and says so where the dependency is declared.
 
-**Why:** the boundary exists to keep the *engine* out, and `glam` is not the engine — it has no
-`World`, no schedule and its own release cadence. Duplicating a vector type buys nothing and costs a
-conversion on every field of every message. The exception is real, though: `glam`'s float paths are
-not bit-identical across targets, so a game that ships replays or lockstep multiplayer needs its
-own arithmetic and must say so where the dependency is declared.
+**Why:** the boundary keeps the *engine* out, and `glam` has no `World`, no schedule and its own
+release cadence; a duplicate vector type costs a conversion on every field of every message. The
+exception is determinism: `glam`'s float paths are not bit-identical across targets.
 
 **Check:** does the project have a stated determinism requirement — replays, rollback, lockstep,
 golden vectors? If not, use `glam`. If so, the domain gets its own numeric types and the manifest
@@ -468,13 +464,14 @@ comment says which crates can reach produced bytes.
 
 ### BV-ARCH-06 [M] Do not reach for `bevy_ecs` to get the ECS in through the side door
 
-Depending on `bevy_ecs` rather than `bevy` does not put a crate on the domain side of the boundary.
-The domain uses plain data structures.
+Depending on `bevy_ecs` rather than `bevy` does not put a crate on the domain side of the boundary,
+and neither does any other subcrate: 0.20 moved `bevy_math`'s primitives into `bevy_shape` and its
+curves into `bevy_curve`, while their `bevy::prelude` path stayed put. The domain uses plain data
+structures.
 
 **Why:** `bevy_ecs` is where nearly all of the churn lives — the `Event`/`Message` split, the
-observer rewrite, `Resource: Component`, the `Access` API. A crate that derives `Component` is on
-the engine's release schedule whether or not it names the facade, so the version pin, the migration
-work and the loss of ECS-free testing all arrive anyway.
+observer rewrite, `Resource: Component`. A crate that derives `Component` is on the engine's release
+schedule whatever it names, so the pin, the migration and the loss of ECS-free tests arrive anyway.
 
 **Check:** search every domain manifest for `bevy`. Any match, facade or subcrate, is a boundary
 violation.
@@ -501,13 +498,13 @@ fi
 
 ### BV-ARCH-08 [S] Name a crate for what it models, not for the engine
 
-`combat`, `economy`, `navigation` — not `bevy_combat`, `game_ecs`, `sim_components`.
-
-**Why:** a name that mentions the engine claims a dependency the crate is required not to have, and
-a name that mentions the ECS describes the mechanism rather than the subject. Both mislead a reader
-deciding where a change belongs, which is the one job a crate name has. Bevy's own `bevy_*` packages
-are upstream's namespace, not a pattern to copy — and note they are also spelled with underscores,
+`combat`, `economy`, `navigation` — not `bevy_combat`, `game_ecs`, `sim_components`. Bevy's own
+`bevy_*` packages are upstream's namespace, not a pattern to copy, and are spelled with underscores
 where a package published from this standard uses hyphens.
+
+**Why:** a name that mentions the engine claims a dependency the crate must not have, and one that
+mentions the ECS names the mechanism rather than the subject. Both mislead a reader deciding where a
+change belongs, which is the one job a crate name has.
 
 **Check:** read the crate list aloud. If a name would still be accurate after the game switched
 engines, it is naming the subject.
@@ -518,18 +515,13 @@ engines, it is naming the subject.
 
 A plugin is a type that implements `Plugin`: `#[derive(Debug, Default)]`, a unit struct when it has
 no settings and named fields when it has. The blanket impl for `Fn(&mut App)` exists; do not reach
-for it, and never pass a closure.
+for it, and never pass a closure. Bevy addresses a plugin **by its type**:
+`App::is_plugin_added::<T>()`, `App::get_added_plugins::<T>()`,
+`PluginGroupBuilder::add_before::<T>()` and `PluginGroupBuilder::disable::<T>()`.
 
-**Why:** four of Bevy's own APIs address a plugin **by its type** — `App::is_plugin_added::<T>()`,
-`App::get_added_plugins::<T>()`, `PluginGroupBuilder::add_before::<T>()` and
-`PluginGroupBuilder::disable::<T>()`. A function's type is a fn-item type, which cannot be written
-in Rust source at all, so a plugin written as a function is unreachable from every one of them:
-nothing can ask whether it was added, read back its configuration, order a group around it, or
-switch it off. The type is what the engine addresses; the function impl is a convenience over it.
-
-It is also the form that survives growth. A unit-struct plugin that later needs a setting gains a
-field, and its call sites gain `::default()` or a literal; a function that needs one has to become a
-type first, which is that edit plus a rewrite of everything that named it.
+**Why:** a function's type is a fn-item type, which Rust source cannot name, so nothing can ask
+whether a function plugin was added, read its configuration, order a group around it or switch it
+off. A unit struct that later needs a setting gains a field; a function first has to become a type.
 
 **Check:** `rg -n  'add_plugins\(\(?[a-z_|]' src/`. After `add_plugins(` a type starts with a
 capital, so a lowercase name is a function, a module-qualified function, or a closure — all three of
@@ -585,13 +577,11 @@ mod tests {
 
 `CombatPlugin`, `MovementSystems`. This standard's general rule is that a name does not end in the
 language construct it is; these two types are the exception, and the exception is exactly these two
-traits.
+traits. `bevy_lint`'s `unconventional_naming` warns on a missing suffix (BV-BUILD-17).
 
-**Why:** both suffixes are load-bearing at the call site rather than decorative. `add_plugins` and
-`configure_sets` take anything convertible, so the name is the only thing telling a reader which
-kind of thing is being added — and `add_systems(Update, X)` versus `configure_sets(Update, X)` are
-the same shape with different meanings. The convention is also enforced by `bevy_lint`, so
-deviating means a warning in every project that runs it.
+**Why:** `add_plugins` and `configure_sets` take anything convertible, so at the call site the name
+is the only thing telling a reader what kind of thing is added — and `add_systems(Update, X)` and
+`configure_sets(Update, X)` are the same shape with different meanings.
 
 **Check:** for each type implementing `Plugin` or `SystemSet`, does the name end in `Plugin` or
 `Systems`? Any other type that ends in either word and does not implement the matching trait is a
@@ -739,16 +729,13 @@ mod tests {
 ### BV-ARCH-12 [M] Let a duplicate plugin panic rather than opting out of the check
 
 Adding a plugin that is already in the `App` panics at `add_plugins`. Fix the double add; do not
-override `is_unique` to make it stop.
+override `is_unique` to make it stop, unless the plugin's `build` is genuinely idempotent and is
+shown to be. The check is by plugin **name**, the type's `type_name` by default, so two inline
+`|app: &mut App| { … }` plugins in one function are both `{{closure}}`, and the refusal names
+neither.
 
 **Why:** the refusal is the good outcome — the alternative is a game that applies gravity twice per
-step with nothing saying so. Overriding `is_unique` buys exactly that, so it is only correct for a
-plugin whose `build` is genuinely idempotent, and then the `build` is what has to be shown to be.
-
-The check is by plugin **name**, which defaults to the type's `type_name`. A type gives that
-message something to say. The forms BV-ARCH-09 forbids do not: two inline `|app: &mut App| { … }`
-plugins written in one function both render as `{{closure}}`, so the second is refused with a
-message naming neither of them.
+step with nothing saying so, which is exactly what overriding `is_unique` buys.
 
 **Check:** grep for `fn is_unique`. Each override needs the reason the plugin is meaningfully
 instantiable twice, plus a test that adds it twice and asserts the world is what it should be.
@@ -806,10 +793,9 @@ same feature.
 `register_type`, `init_resource`, `add_message` and `add_observer` for a type go in the plugin of
 the module that defines it.
 
-**Why:** the alternative is a central `register_everything` that grows a line per type and has to be
-edited by everyone. Worse, it silently decouples defining from registering: a type gets added, the
-central list does not, and reflection or message cleanup is missing in a way that shows up as a
-runtime absence rather than a compile error.
+**Why:** the alternative is a central `register_everything` that everyone edits, and that decouples
+defining from registering: a type is added, the list is not, and reflection or message cleanup goes
+missing as a runtime absence rather than a compile error.
 
 **Check:** for each `#[derive(Message)]`, `#[derive(Resource)]` and `#[reflect(Component)]`, find
 the registration. If it is in a different module from the definition, move it.
@@ -864,7 +850,8 @@ CI job and a crash reporter read to find out whether the game ended or died. Dis
 every failure look like a clean shutdown to everything outside the process.
 
 **Check:** does `fn main` return `AppExit`, and is the value the one `run` returned? `bevy_lint`'s
-`main_return_without_appexit` finds every case.
+`main_return_without_appexit` finds a `main` that returns nothing and passes one that returns a
+fabricated `AppExit` (BV-BUILD-17).
 
 ### BV-ARCH-18 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
 
@@ -874,10 +861,9 @@ at the point it is added.
 *Relaxed form:* a value that is genuinely only known at runtime — a window size read from a settings
 file — is inserted afterwards, and the code that does so sits next to the `add_plugins` call.
 
-**Why:** `.set()` replaces the plugin's configuration before it builds, whereas mutating the
-resource afterwards runs the original configuration first. For a window that means it is created at
-the default size and then resized, which users see; for the asset plugin it means a watcher is
-already running against the wrong directory.
+**Why:** `.set()` replaces the configuration before the plugin builds; mutating the resource
+afterwards runs the original first. The window is created at the default size and visibly resized,
+and the asset watcher is already running against the wrong directory.
 
 **Check:** search for writes to `WindowPlugin`, `AssetPlugin` or `LogPlugin` state outside the
 `add_plugins` call. Each one either belongs in `.set()` or needs the reason it cannot be.

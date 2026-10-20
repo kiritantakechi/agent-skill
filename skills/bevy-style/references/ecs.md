@@ -57,16 +57,13 @@ chapter.
 Component fields are `pub`. This is the one place a struct in this standard is allowed to expose
 its storage.
 
-**Why:** the ECS *is* the accessor — `transform.translation.x += 1.0` is how the engine is used,
-and accessor methods on a component add a layer over a layer. Reflection, the scene format, `bsn!`
-and the remote protocol all read and write fields by name, so a private field is invisible to the
-inspector, unserialisable, and unpatchable from a scene. Bevy's own components are public-field
-throughout, so a private one is also surprising.
+The single exception is a relationship **target**, the collection side of a
+`#[relationship_target]` pair. The engine maintains that vector and overwrites what a caller writes
+to it, so Bevy's own hierarchy has `ChildOf(pub Entity)` public and `Children(Vec<Entity>)` not.
 
-The single exception is a relationship **target** — the collection side of a
-`#[relationship_target]` pair. The engine maintains that vector, so a caller who writes to it is
-writing to something that will be overwritten. Bevy draws the same line in its own hierarchy:
-`ChildOf(pub Entity)` is public and `Children(Vec<Entity>)` is not.
+**Why:** the ECS *is* the accessor: `transform.translation.x += 1.0` is how the engine is used.
+Reflection, the scene format, `bsn!` and the remote protocol read and write fields by name, so a
+private field is invisible to the inspector, unserialisable and unpatchable from a scene.
 
 **Check:** does the component have accessor methods that only forward to a field? Delete them. Does
 it have a field that a method is guarding? That is BV-ARCH-04's case, and the guard belongs in a
@@ -77,10 +74,9 @@ domain type. A private field on anything but a relationship target is one of tho
 A component holds one thing about an entity. Two fields written by different systems, changing at
 different rates, or read by different queries are two components.
 
-**Why:** the component is the unit of both querying and change detection, so a field bundled with
-an unrelated one cannot be queried without the other and cannot be marked changed without falsely
-marking it too. It is also the unit of archetype layout: a system that reads a single `f32` pays
-for the whole struct's cache line.
+**Why:** the component is the unit of querying, of change detection and of archetype layout, so a
+field bundled with an unrelated one cannot be queried or marked changed without the other, and a
+system that reads a single `f32` pays for the whole struct's cache line.
 
 **Check:** for each pair of fields, name a system that reads exactly one of them. If such a system
 exists for most pairs, the component is a bag.
@@ -130,13 +126,12 @@ fn regenerate_shields(mut stats: Query<&mut Stats>) {
 ### BV-ECS-03 [M] Derive `Debug` and `Reflect` on every component
 
 `#[derive(Component, Debug, Reflect)]`, plus `#[reflect(Component)]`. Add `Clone`, `Copy`,
-`PartialEq` and `Default` where each of them means something for the type.
+`PartialEq` and `Default` where each of them means something for the type; `PartialEq` is what
+`set_if_neq` (BV-ECS-26) needs.
 
-**Why:** `Debug` is what every panic message, every `info!`, and every test failure prints; without
-it the value is a hole in the output exactly when it is needed. `Reflect` plus
-`#[reflect(Component)]` is what makes the type visible to an inspector, writable in a scene, and
-readable over the remote protocol — and it is opt-in, so it is forgotten silently. `PartialEq` is a
-precondition for `set_if_neq` (BV-ECS-26), which is why so many components want it.
+**Why:** `Debug` is what every panic, `info!` and test failure prints, so without it the value is a
+hole in the output exactly when it is needed. `Reflect` with `#[reflect(Component)]` is what an
+inspector, a scene and the remote protocol see, and being opt-in it is forgotten silently.
 
 **Check:** grep for `#[derive(Component` and look for one without `Debug`, and for a `Reflect`
 without the matching `#[reflect(Component)]` — deriving the trait without the registration attribute
@@ -158,22 +153,21 @@ pub struct Health {
 
 `Speed(pub f32)`, not a component called `Value`, and never a raw `f32` as the component type.
 
-**Why:** the component type is the query key, so a bare primitive can only ever appear once per
-entity and collides across every feature that wanted one. The name is also the only place the unit
-can live: `Speed` says what the number is, and a query for `&Speed` reads as a sentence where a
-query for `&f32` reads as a type puzzle.
+**Why:** the component type is the query key, so a bare primitive can appear only once per entity
+and collides across every feature that wanted one. The name is also the only place the unit can
+live: a query for `&Speed` reads as a sentence, and one for `&f32` as a type puzzle.
 
 **Check:** does any component name fail to say what the value means — `Value`, `Data`, `Amount`,
 `Inner`? Rename it after the quantity.
 
 ### BV-ECS-05 [M] Never mark a component `#[non_exhaustive]`
 
-Components are constructed by struct literal, at every spawn site, in every crate.
+Components are constructed by struct literal, at every spawn site, in every crate. Grow one by
+adding a *new component* plus a `#[require]`, which breaks no existing spawn.
 
-**Why:** `#[non_exhaustive]` forbids literal construction outside the defining crate, which is the
-only construction a component has. This standard's general rule is to apply the attribute where a
-struct's shape may grow; for components the growth mechanism is a *new component* plus a
-`#[require]`, which is additive without breaking any existing spawn.
+**Why:** `#[non_exhaustive]` forbids literal construction outside the defining crate, and a literal
+is the only construction a component has. The attribute that protects a growing struct elsewhere in
+this standard here breaks every spawn site in another crate.
 
 **Check:** grep for `#[non_exhaustive]` immediately above a `#[derive(…Component…)]`. There should
 be none.
@@ -184,10 +178,8 @@ If every entity with `Enemy` also needs `Health` and `Transform`, `Enemy` declar
 `#[require(Health, Transform)]`. The spawn site names only what it is choosing.
 
 **Why:** the invariant lives once, on the type that owns it, instead of at every spawn site where
-it can be forgotten. The `*Bundle` types were the old mechanism and were removed for exactly this:
-nothing
-stopped a caller from spawning half a bundle, and adding a field to a bundle silently changed every
-spawn. A `#[require]` cannot be half-applied.
+it can be forgotten. The engine applies it on every spawn of that type, so unlike a group of
+components passed by hand, a `#[require]` cannot be half-applied.
 
 **Check:** look at every `spawn` for the same component appearing beside the same other component
 more than twice. That repetition is a `#[require]` that has not been written.
@@ -237,9 +229,8 @@ mod tests {
 that value must be a state the game can be in for a frame.
 
 **Why:** a required component is inserted before any of your code runs, so its initial value is
-live: an entity spawned with `#[require(Health)]` and `Health(0.0)` as the `Default` is dead on the
-frame it appears, and a death system running that frame will act on it. The inline-value form exists
-precisely so the sensible starting value does not have to be the type's `Default`.
+live: with `Health(0.0)` as the `Default`, `#[require(Health)]` spawns an entity that is dead on the
+frame it appears, and a death system running that frame acts on it.
 
 **Check:** for each `#[require(T)]` with no value, read `T::default()` and ask whether an entity in
 that state for one frame is harmless. If not, give the requirement a value.
@@ -250,23 +241,21 @@ A struct or type alias whose only purpose is to be spawned as a group is the rem
 reintroduced. Use `#[require]` for what is always true and a tuple at the spawn site for what is
 being chosen.
 
-**Why:** the group type reproduces the failure the engine removed it for. It cannot be queried, it
-cannot be inserted partially without a second definition, and adding a field to it changes every
-call site silently — while `#[require]` puts the same information where the query, the inspector and
-the scene format can all see it.
+**Why:** the group type cannot be queried, cannot be inserted in part without a second definition,
+and changes every call site silently when it gains a field. A `#[require]` puts the same
+information where the query, the inspector and the scene format can see it.
 
 **Check:** search for structs deriving `Bundle`, and for `fn *_bundle() -> impl Bundle`. Each one is
 either a `#[require]` or a tuple.
 
 ### BV-ECS-09 [M] Never spawn a unit
 
-`commands.spawn(())` and a `()` sitting inside a spawn tuple are mistakes. Use `spawn_empty()` when
-an entity really has no components.
+`commands.spawn(())` and a `()` sitting inside a spawn tuple are mistakes, and `bevy_lint`'s
+`bevy::unit_in_bundle` reports them. Use `spawn_empty()` when an entity really has no components.
 
 **Why:** `()` implements `Bundle` and inserts nothing, so it compiles and does nothing. The usual
-cause is a method that returns `()` where a component was expected —
-`Transform::from_xyz(…).rotate_z(PI)` returns a unit, so the transform never reaches the entity and
-the object silently sits at the origin. `bevy_lint`'s `unit_in_bundle` finds every case.
+cause is a method returning `()` where a component was expected:
+`Transform::from_xyz(…).rotate_z(PI)` is a unit, so the transform never reaches the entity.
 
 **Check:** for each component expression in a spawn tuple, check that the last call returns `Self`.
 The mutating `Transform` methods (`rotate_z`, `translate_around`) do not; the `with_*` builders do.
@@ -329,11 +318,13 @@ mod tests {
 A marker is a unit struct: `#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component)] pub struct Player;`
 
-**Why:** `Default` is what lets the marker be named in someone else's `#[require]`, and `Copy` and
-`Clone` cost nothing on a zero-sized type while letting it be cloned with an entity or written into
-a scene patch. Adding either later is a breaking change to anyone who tried and could not. The set
-stops there deliberately: `PartialEq`, `Eq` and `Hash` on a type with no data distinguish nothing,
-and `bevy_lint`'s `missing_trait_for_unit_struct` asks for exactly these three.
+The set stops there: `PartialEq`, `Eq` and `Hash` on a type with no data distinguish nothing.
+`bevy_lint`'s restriction lints `bevy::missing_default`, `bevy::missing_clone` and
+`bevy::missing_copy` ask for `Default`, `Clone` and `Copy` on a unit struct.
+
+**Why:** `Default` is what lets the marker be named in someone else's `#[require]`, and `Clone` and
+`Copy` cost nothing on a zero-sized type while letting it be cloned with an entity or written into a
+scene patch. A crate downstream cannot add one that is missing.
 
 **Check:** is every unit-struct component `Default`? A marker that is not cannot be required by
 another component.
@@ -357,9 +348,8 @@ squad's members — is a `#[relationship]` / `#[relationship_target]` pair, not 
 plus a `Vec<Entity>` kept in step by hand.
 
 **Why:** a relationship maintains both sides, so removing the target cannot leave a dangling id on
-the other side, and despawning follows the link. Hand-maintained `Entity` fields have neither
-property: the classic bug is a `Vec<Entity>` holding ids of entities that were despawned three
-frames ago, which produces a `get` returning `None` in a place that never expected one.
+the other, and despawning follows the link. A hand-kept `Vec<Entity>` does neither, and holds ids
+despawned frames ago until a `get` returns `None` where nothing expected one.
 
 **Check:** search for `Vec<Entity>` and for `Entity` fields in components. Each is either a
 relationship or needs a written reason it cannot be one.
@@ -412,10 +402,9 @@ mod tests {
 *Relaxed form:* a project that has enabled `reflect_auto_register` may rely on it, and then the rule
 is that the feature is on, not that each call exists.
 
-**Why:** `#[derive(Reflect)]` makes a type reflectable; registration makes it *findable*. The
-inspector lists registered types, the scene loader resolves type names against the registry, and
-the remote protocol can only see what is in it. An unregistered type does not error — it is simply
-absent, which reads as "the tool is broken".
+**Why:** `#[derive(Reflect)]` makes a type reflectable and registration makes it *findable*: the
+inspector, the scene loader and the remote protocol all look types up in the registry. An
+unregistered type does not error; it is simply absent, which reads as "the tool is broken".
 
 **Check:** count `#[derive(…Reflect…)]` in the crate and `register_type::<` calls in the plugins. If
 the second number is smaller and `reflect_auto_register` is off, the difference is invisible types.
@@ -424,10 +413,9 @@ the second number is smaller and `reflect_auto_register` is off, the difference 
 
 `Handle<T>` is not a component. Wrap it: `#[derive(Component)] struct Portrait(pub Handle<Image>);`
 
-**Why:** an entity may want two handles of the same asset type — a portrait and an icon are both
-`Handle<Image>` — and a bare handle as the component type allows only one, chosen by whichever
-system inserted last. The wrapper also gives the handle a name, which is the only place the meaning
-of the asset can be recorded. Bevy removed the blanket `Component` impl on `Handle` for this reason.
+**Why:** an entity may want two handles of one asset type, a portrait and an icon both
+`Handle<Image>`, and a bare handle as the component type allows only one, whichever was inserted
+last. The wrapper's name is also the only place the meaning of the asset can be recorded.
 
 **Check:** grep for `Handle<` inside a `spawn` tuple with no wrapper around it.
 
@@ -449,22 +437,21 @@ constraint with no reader.
 
 `&T` for reading. `&mut T` exclusively for components the body assigns to.
 
-**Why:** `&mut` is both an exclusive lock for the scheduler and a change-detection trigger.
-Requesting it to read means no other system touching that component can run concurrently, and — if
-the body ever derefs it mutably — every entity is marked changed every frame, which turns every
-downstream `Changed<T>` filter into a no-op.
+**Why:** `&mut` is both an exclusive lock for the scheduler and a change-detection trigger, so
+asking for it only to read keeps every system touching that component from running alongside this
+one, and lets one stray mutable deref mark every entity changed.
 
 **Check:** for each `&mut` in a query, find the assignment. If the body only reads, the `mut` is two
 bugs waiting.
 
 ### BV-ECS-17 [M] Put a zero-sized marker in the filter, never in the data
 
-`Query<&Transform, With<Player>>`, not `Query<(&Transform, &Player)>`.
+`Query<&Transform, With<Player>>`, not `Query<(&Transform, &Player)>`. `bevy_lint`'s
+`bevy::zst_query` reports the data form.
 
 **Why:** a marker has no runtime data, so fetching it retrieves nothing while still adding a column
-to the query's access set and a binding to the loop that is immediately discarded — the `_` in
-`for (transform, _) in &query` is the giveaway. `With` expresses the same restriction as a filter,
-which is what it is. `bevy_lint`'s `zst_query` reports the data form.
+to the query's access set and a binding the loop discards: the `_` in `for (transform, _) in &query`
+is the giveaway. `With` states the same restriction as what it is, a filter.
 
 **Check:** for each item in a query's data tuple, is its type a unit struct? If so it belongs in the
 filter.
@@ -489,10 +476,9 @@ fn recentre(mut players: Query<&mut Transform, With<Player>>) {
 One or two `Option<&T>` in a query describe a genuinely optional part. Three describe several
 different jobs that have been written as one.
 
-**Why:** each `Option` doubles the number of shapes the body has to handle, and the body then
-branches on combinations that no entity actually has. Two systems with `With<A>` and `Without<A>`
-say which case each is for, run only over the entities in that case, and can be scheduled
-independently.
+**Why:** each `Option` doubles the shapes the body must handle, most of them combinations no entity
+has. Two systems split by `With<A>` and `Without<A>` say which case each is for, visit only the
+entities in that case, and can be scheduled independently.
 
 **Check:** count the `Option<&T>` in the query, which is what the rule is about — the branching
 they force is just as reachable through `map_or`, `zip` or one `match`, so counting `if let Some`
@@ -502,12 +488,12 @@ is the signal; split by `With`/`Without` instead.
 ### BV-ECS-20 [S] Iterate a query with `for`, not a combinator chain
 
 `for item in &query` and `for item in &mut query`. This standard's general preference for `map`,
-`filter` and `collect` over loops does not extend to query iteration.
+`filter` and `collect` over loops does not extend to query iteration. A restriction goes in the
+query's filter, which skips entities before they are fetched, rather than in a `.filter()`.
 
 **Why:** the loop is doing effects, which is the case the general rule reserves `for` for: the item
 is a `Mut<T>` whose borrow of the query cannot outlive the iteration, so there is nothing to collect
-and no value to return. Restrictions belong in the query's filter rather than in a `.filter()`,
-because the filter form skips entities before they are fetched.
+and no value to return.
 
 **Check:** a `.for_each(` or a `.filter(` on a query iterator is either a filter that belongs in the
 type, or a loop that has been written the long way.
@@ -516,10 +502,9 @@ type, or a loop that has been written the long way.
 
 A query with several data items and several filters gets a `type` alias with a name from the domain.
 
-**Why:** the alias is a name for a concept — `Combatants`, `VisibleSprites` — which the inline type
-never is, and it is reusable across the systems that share the shape. It also silences
-`clippy::type_complexity`, which this standard keeps switched on for exactly this reason: the lint
-is right, and the compliant form is better code rather than a suppression.
+**Why:** the alias names a concept, `Combatants` or `VisibleSprites`, which the inline type never
+does, and the systems that share the shape reuse it. It also satisfies `clippy::type_complexity`,
+which this standard keeps on because the compliant form is better code than a suppression.
 
 **Check:** if the query type wraps onto a second line, name it. The alias needs explicit `'w`, `'s`
 and `'static` lifetimes; that is one-time cost paid at the definition rather than at each use.
@@ -561,14 +546,20 @@ fn cull(mut commands: Commands, combatants: Combatants) {
 
 ### BV-ECS-22 [S] Reach for `iter_many` when the set of entities is already known
 
-Given a `Children`, a relationship target, or a stored list of ids, `query.iter_many(ids)` fetches
-exactly those. Iterating the whole query and testing membership does not.
+Given a `Children`, a relationship target, or a stored list of ids, `query.iter_many(ids).matched()`
+fetches exactly those that match. Iterating the whole query and testing membership does not.
+
+Since 0.20, `iter_many`, `iter_many_mut`, `iter_many_unique(_mut)` and their sorted and `par_`
+variants yield `Result<Item, QueryEntityError>`, one per id, and `.matched()` keeps the old
+meaning. A bare `.count()`, `.next().is_some()` or `for _ in` still compiles, and now counts ids
+that do not match.
 
 **Why:** the cost of the loop should be the number of entities you care about, not the number that
 exist. A membership test inside a full iteration is `O(all)` where the direct form is `O(wanted)`,
 and it reads as a search where the code already knows the answer.
 
 **Check:** look for `if ids.contains(&entity)` inside a query loop. That is `iter_many` written out.
+Then, for each `iter_many`, check that its items go through `.matched()` or are handled as `Result`.
 
 ### BV-ECS-23 [M] Never nest a query inside itself
 
@@ -648,27 +639,29 @@ mod tests {
 `par_iter_mut` is for a loop that has been measured and found hot. Write the serial form first.
 
 **Why:** the parallel form has per-batch overhead and forces the body to be `Send`, and below a few
-thousand entities it is reliably slower. Reaching for it before measuring also hides the usual real
-answer, which is that the query is fetching more components than it reads (BV-ECS-15) or the work
-belongs in `FixedUpdate` at a lower rate.
+thousand entities it is reliably slower. It also hides the usual real answer: a query fetching more
+than it reads (BV-ECS-15), or work that belongs in `FixedUpdate` at a lower rate.
 
 **Check:** is there a benchmark or a profile naming this system? If not, the serial form is the one
 to ship.
 
 ### BV-ECS-25 [S] Reach for `contiguous_iter` only against a measured hot loop
 
-0.19's `Query::contiguous_iter` yields one slice per table rather than one item per entity, which is
-what a SIMD kernel or a cache-blocked pass needs. It replaces a structure-of-arrays kept by hand
-beside the components.
+`Query::contiguous_iter`, added in 0.19, yields one slice per table rather than one item per entity,
+which is what a SIMD kernel or a cache-blocked pass needs. It replaces a structure-of-arrays kept by
+hand beside the components.
 
-**Why:** it is the only way to get contiguous component slices without leaving the ECS, so the
-parallel `Vec<f32>` a game used to hold in step with its entities can go, and with it the bug where
-the two drift apart. It is not a drop-in for `for x in &query`, and three things say so. The call
-returns `Result`, because a sparse-set component is not contiguously iterable and nothing in the
-type system knows which. The filter is bound by `F: ArchetypeFilter`, so `Changed<T>` does not
-compile here at all. And the mutable form marks every entity in the slice changed unless the write
-goes through `bypass_change_detection` (BV-ECS-30). Upstream's own doc example ends in `.unwrap()`,
-which BV-ERR-01 forbids — take the error with `?`.
+It is not a drop-in for `for x in &query`:
+
+- The call returns `Result`, because a sparse-set component is not contiguously iterable and
+  nothing in the type system knows which. Take the error with `?`, never `.unwrap()` (BV-ERR-01).
+- The filter is bound by `F: ArchetypeFilter`, so `Changed<T>` does not compile here at all.
+- The mutable form marks every entity in the slice changed unless the write goes through
+  `bypass_change_detection` (BV-ECS-30).
+
+**Why:** it is the only way to get contiguous slices without leaving the ECS, so a hand-kept
+`Vec<f32>` can go, and with it the bug where it drifts from the entities. The price is a nested loop
+and a run-time failure the day a component turns sparse, which only a hot loop repays.
 
 **Check:** for each `contiguous_iter`, find the measurement. Without one it is a nested loop that
 reads worse than the flat iteration and starts failing at run time the day a component becomes
@@ -755,8 +748,7 @@ but that is a fact about today's readers, and it changes the moment someone adds
 
 **Why:** `DerefMut` on `Mut<T>` marks the component changed, so assigning the same value every frame
 marks every entity changed every frame. Every downstream `Changed<T>` filter then matches
-everything, which is not a slow path — it is a silent loss of the mechanism, because the filter goes
-on compiling and matching and no longer means anything.
+everything: it goes on compiling and matching, and no longer means anything.
 
 **Check:** for each `*component = …` in a system that runs every frame, ask whether the value can be
 unchanged. If so, and anything filters on it, that is the defect.
@@ -812,11 +804,12 @@ mod tests {
 ### BV-ECS-27 [M] Put `Changed<T>` in the filter so the system can be skipped
 
 `Query<&Health, Changed<Health>>`, not a full query with `if health.is_changed()` inside the loop.
+On a component that is written rarely, `#[component(summary_tick)]` (new in 0.20) keeps a
+per-column change tick, so the filter can skip whole columns.
 
 **Why:** as a filter it is applied during iteration, so unchanged entities are never fetched; in the
-body it is applied after the fetch, so the loop still visits everything. The filter form is also the
-declaration a reader needs — the system's signature says it is reactive, where the body form hides
-that behind an early `continue`.
+body it is applied after the fetch, so the loop still visits everything. The filter also puts
+"reactive" in the system's signature, where the body form hides it behind an early `continue`.
 
 **Check:** grep for `is_changed()` inside a query loop. Unless the body needs both the changed and
 the unchanged entities, it is a filter that has escaped into the body.
@@ -826,10 +819,9 @@ the unchanged entities, it is a filter that has escaped into the body.
 `Added<T>` matches the frame the component was inserted. `Changed<T>` matches insertion *and* every
 subsequent write.
 
-**Why:** `Changed` also matches on the first frame, so setup code written under it appears to work
-and then runs again on every later write — spawning a second sound, a second child, a second
-subscription. The bug surfaces only when someone starts mutating the component, which may be months
-later and in another module.
+**Why:** `Changed` also matches the insertion frame, so setup code under it appears to work and then
+runs again on every later write, spawning a second sound or a second child. The bug surfaces only
+when someone starts mutating the component, which may be months later and in another module.
 
 **Check:** for each `Changed<T>` filter, ask whether running twice for one entity is acceptable. If
 not, it is `Added<T>` — or, better, an observer on `Add` (`references/events.md` BV-EVENT-13).
@@ -909,10 +901,9 @@ mod tests {
 A `Changed<T>` filter sees writes since the reading system last ran. Keep the writer and the reader
 in the same schedule.
 
-**Why:** `FixedUpdate` may run zero times or several times in one frame. A write in `FixedUpdate`
-read by an `Update` system is seen once no matter how many times it happened; a write in `Update`
-read by a `FixedUpdate` system may be seen by no run at all. Neither is a race — the change ticks
-are consistent — but both mean "since you last ran", which across schedules is not "this frame".
+**Why:** `FixedUpdate` runs zero or several times a frame, so an `Update` reader sees a fixed-step
+write once however often it happened, and a fixed-step reader may miss an `Update` write entirely.
+The ticks are consistent, but "since you last ran" across schedules is not "this frame".
 
 **Check:** for each `Changed<T>` reader, find the writers. Any writer in a different schedule needs
 a stated reason the count does not matter.
@@ -922,10 +913,9 @@ a stated reason the count does not matter.
 `Mut::bypass_change_detection` is for writes that are not changes to the game's state — a cached
 value refreshed from its source, a counter nothing reacts to.
 
-**Why:** the bypass is the only way to write without marking, and using it for a real change makes
-the component's history a lie: everything downstream carries on believing the old value. Kept for
-bookkeeping it is precise; used to quiet a noisy filter it hides the fact that BV-ECS-26 was the
-answer.
+**Why:** the bypass is the only way to write without marking, so using it for a real change leaves
+everything downstream believing the old value. Used to quiet a noisy filter, it hides that
+`set_if_neq` (BV-ECS-26) was the answer.
 
 **Check:** each call needs a comment naming what does *not* need to know about this write. If the
 comment cannot be written, the write is a change.
@@ -938,12 +928,10 @@ comment cannot be written, the write is a change.
 two lines ago is not in any query.
 
 **Why:** the deferral is what lets systems run in parallel, and it is invisible: the code reads as
-if it were immediate, and the query simply returns nothing. The usual symptom is a spawn followed by
-a `get` that returns `None`, "fixed" by moving the read into a second system — which is the correct
-fix, arrived at without understanding why.
+if it were immediate, and a `get` on the id just spawned returns `None` with no error to say why.
 
 **Check:** in each system, is any id from `commands.spawn(…).id()` used to look something up in the
-same body? Move the read to a later system, or use an exclusive system if it must be immediate.
+same body? Move the read to a later system: the schedule puts a sync point between the two.
 
 ```rust
 // verified
@@ -1022,13 +1010,17 @@ mod tests {
 A system taking `&mut World` cannot run in parallel with anything. Write one only when the work
 genuinely needs the whole world at once, and put the reason in a doc comment.
 
+Since 0.20, `&mut World` is itself a `SystemParam` and may appear anywhere in the parameter list.
+`ExclusiveSystemParam` is gone, and exclusivity is tracked at run time rather than compile time, so
+a parameter that conflicts with `&mut World` is a run-time error, not a compile error.
+
 **Why:** an exclusive system is a global barrier in the schedule: everything before it finishes,
 it runs alone, everything after starts. One is usually fine and four is a game that no longer runs
-its systems in parallel. Most reasons for reaching for one — needing a resource and a query
-together, needing a command applied now — have a non-exclusive form.
+its systems in parallel.
 
-**Check:** for each `&mut World` parameter, name what makes `SystemParam`s insufficient. "Needed a
-resource and a query" is not one of them; "runs a scene through the type registry" is.
+**Check:** for each `&mut World` parameter, name what the system could not do without it. "Needed a
+resource and a query" and "needed a command applied now" both have a non-exclusive form; "runs a
+scene through the type registry" does not.
 
 ## Decided by tools
 

@@ -163,12 +163,13 @@ RUST_STYLE = Crate(
 #: surface, and the backends cost minutes of build time to compile examples that
 #: never run. `scene` is there for one example — `bsn!` is the newest surface in
 #: Bevy and the only one whose grammar is not Rust, so it is the one that most
-#: needs a compiler behind it.
+#: needs a compiler behind it. `bevy_ui_widgets` is there because 0.20's text
+#: input is a widget: the `ui` collection a game uses includes it, `ui_api` does not.
 BEVY_STYLE = Crate(
     name="bevy-style-verify",
     dependencies=(
         'bevy = { version = "=0.20.0", default-features = false, features = ['
-        '"std", "2d_api", "3d_api", "ui_api", "scene"] }',
+        '"std", "2d_api", "3d_api", "ui_api", "scene", "bevy_ui_widgets"] }',
     ),
     #: `missing_docs` because a block documents items selectively;
     #: `allow_attributes*` because the extractor itself injects a bare

@@ -7,7 +7,9 @@ the other standard; this chapter is about the paths Bevy adds.
 
 Since 0.16 a system may return `Result`, which removed the last reason for `unwrap` in game code.
 Since 0.19 the handler is `FallbackErrorHandler`, its default dispatches on a `Severity` carried by
-the error, and a `Command` declares its output as an associated type.
+the error (`Severity::Panic` unless annotated), and a `Command` declares its output as an
+associated type. Since 0.20 a panic in a system, observer or command reaches that handler too, as
+an error carrying the panic's payload.
 
 ## Contents
 
@@ -45,10 +47,9 @@ path the game reaches.
 *Relaxed form:* a debug tool, an example, or a `#[cfg(test)]` system may `expect` where the
 condition is a genuine invariant of the test, and the message states the invariant.
 
-**Why:** every panic in a Bevy system takes the whole app down, including the player's unsaved
-progress, and the conditions that produce one are ordinary: the camera is not spawned yet, the
-player just died, an asset is still loading. Returning `Result` costs one character per fallible
-call and hands the decision to the error handler, which can log and continue.
+**Why:** the conditions that fail are ordinary — the camera is not spawned yet, the player just
+died, an asset is still loading. A returned error reaches a handler that can log it and carry on; a
+panic stays fatal under BV-ERR-05 and takes the player's unsaved progress with it.
 
 **Check:** grep the diff for `unwrap(`, `expect(`, `panic!`, `todo!` and `unimplemented!`. Each one
 needs to be either a `?` or a documented invariant in test code.
@@ -82,22 +83,22 @@ fn update_hud(
 `-> Result` — which is `Result<(), BevyError>`. Not `-> Result<(), MyError>` and not
 `-> anyhow::Result<()>`.
 
-**Why:** the schedule accepts systems returning `Result<(), BevyError>` and nothing else, so any
-other error type has to be converted at the boundary anyway — writing it in the signature just moves
-the conversion into every `?`. `BevyError` converts from anything implementing `Error`, so the alias
-costs nothing and makes every fallible system look the same.
+**Why:** the schedule accepts `Result<(), BevyError>` and no other error type, so any other type is
+converted at the boundary anyway. `BevyError` converts from anything implementing `Error`, so the
+alias costs nothing and every fallible system looks the same.
 
 **Check:** grep for `-> Result<` in system signatures. Anything with explicit parameters is either
 not a system or is fighting the schedule.
 
 ### BV-ERR-03 [M] Keep `BevyError` at the boundary and a real type underneath
 
-Domain code returns its own error enum. The system that calls it converts with `?`.
+Domain code returns its own error enum. The system that calls it converts with `?`, and adds what
+it knows with `.context("…")` or `.with_context(|| …)` — `ContextExt`, in the prelude since 0.20.
+On an `Option` the same call builds the error, where `ok_or(…)` needed an error type of its own.
 
-**Why:** `BevyError` is a boxed, type-erased error — the right shape for something whose only reader
-is a log line, and the wrong shape for anything a caller branches on. Domain code that returns
-`BevyError` cannot be matched on, cannot be tested for a specific failure, and drags a Bevy type
-across the boundary that BV-ARCH-01 exists to keep clean.
+**Why:** `BevyError` is boxed and type-erased: the right shape when the only reader is a log line,
+the wrong one for a caller that branches. Domain code returning it cannot be matched on or tested
+for one failure, and drags a Bevy type across the boundary BV-ARCH-01 keeps clean.
 
 **Check:** grep the domain crates for `BevyError`. There should be none.
 
@@ -171,13 +172,13 @@ pub struct EquippedWeapon {
 }
 
 /// The boundary, and the only place `CombatError` becomes a `BevyError`:
-/// one `?`, in the one function the schedule can see.
+/// one `.context(..)?`, in the one function the schedule can see.
 fn apply_pending_hits(
     mut targets: Query<(&Armor, &mut Health), With<PendingHit>>,
     weapon: Res<EquippedWeapon>,
 ) -> Result {
     for (armor, mut health) in &mut targets {
-        let damage = resolve_hit(weapon.tier, armor.0)?;
+        let damage = resolve_hit(weapon.tier, armor.0).context("applying a pending hit")?;
         health.0 = health.0.saturating_sub(damage);
     }
     Ok(())
@@ -258,33 +259,54 @@ mod tests {
 
 ### BV-ERR-04 [S] Annotate a severity where the default reading is wrong
 
-`result.with_severity(Severity::Warning)?` when a failure is expected and recoverable, or
-`Severity::Panic` when continuing would corrupt something.
+`result.with_severity(Severity::Warning)?` when a failure is expected and recoverable. Never
+annotate `Severity::Panic`: an un-annotated error already carries it, and BV-ERR-05's shipped
+handler logs it like any returned error. A failure that must stop even a shipped build writes
+`AppExit::error()`, as BV-ERR-16 does.
 
-**Why:** 0.19's default handler dispatches on the error's severity, so annotating is how a specific
-failure gets a different treatment without replacing the handler for everything. It is also
-documentation at the point of the decision: "this parse can fail on user content and that is fine"
-is a claim worth writing where the parse is.
+**Why:** `match_severity` and BV-ERR-05's shipped handler log an error at its own severity, so the
+annotation gives one failure its own level without replacing the handler for all of them. It also
+records the decision where it is made: this parse may fail on user content, and that is fine.
 
 **Check:** for each `?` in a system, ask what the log would look like if it fired every frame. An
 expected failure logged at error level is a severity that needs stating.
 
 ### BV-ERR-05 [M] Choose the fallback error handler deliberately
 
-Set `FallbackErrorHandler` at startup. Loud in development, recoverable in a shipped build.
+Set `FallbackErrorHandler` at startup: `panic` in development, and in a shipped build a handler
+that logs a returned error and resumes a panic. Since 0.20 a panic in a system, observer or command
+reaches the handler as an error carrying its payload, so the shipped handler resumes unwinding
+whenever `BevyError::take_payload` returns one. It cannot test `Severity::Panic` instead: that is
+also what every un-annotated returned error carries.
 
-**Why:** the default in 0.19 dispatches on severity, which is a reasonable default and is still
-somebody else's decision about your game. A development build wants a failure to stop the world at
-the point it happened; a shipped build wants the log line and the next frame. Leaving it unset means
-both builds behave the same, and one of them is wrong.
+**Why:** a development build wants a failure to stop the world where it happened, a shipped build
+the log line and the next frame. The default, `match_severity`, panics on every un-annotated error
+in both, and a handler that only logs, such as `error`, logs each panic and keeps running.
 
 **Check:** grep for `FallbackErrorHandler`. Exactly one insertion, before `DefaultPlugins`, and it
-distinguishes the two builds.
+distinguishes the two builds. The shipped handler calls `take_payload` before it logs anything.
 
 ```rust
 // fragment — the handler is a build-time decision, so it is made in main
+use bevy::ecs::error::{ErrorContext, FallbackErrorHandler, error, match_severity, panic};
+use bevy::prelude::*;
+
+/// Logs a returned error and runs the next frame; a panic stays fatal.
+fn shipped(mut err: BevyError, ctx: ErrorContext) {
+    // A caught panic: an overflow trap, an index out of range, an engine assert.
+    if let Some(payload) = err.take_payload() {
+        std::panic::resume_unwind(payload);
+    }
+    // With no payload, `Severity::Panic` is an un-annotated `?`: log it. A lower
+    // severity (BV-ERR-04) is logged at its own level.
+    match err.severity() {
+        Severity::Panic => error(err, ctx),
+        _ => match_severity(err, ctx),
+    }
+}
+
 fn main() -> AppExit {
-    let handler = if cfg!(debug_assertions) { panic } else { error };
+    let handler = if cfg!(debug_assertions) { panic } else { shipped };
     App::new()
         .insert_resource(FallbackErrorHandler(handler))
         .add_plugins(DefaultPlugins)
@@ -315,10 +337,11 @@ that BV-ERR-01 forbids.
 
 **Why:** the panicking half exists for examples and for code where the invariant is structural, and
 game code is neither. The pairs are easy to miss because the panicking name is the shorter one — it
-reads as the default when it is the exception. `bevy_lint`'s `panicking_methods` reports the `World`
-ones.
+reads as the default when it is the exception.
 
-**Check:** grep for the left column, outside `#[cfg(test)]`.
+**Check:** grep for the left column, outside `#[cfg(test)]`. `bevy_lint`'s `panicking_methods` is
+no substitute: it knows the `World` rows by their 0.18 names, so it misses `World::non_send`, and
+no release of it runs on 0.20 (BV-BUILD-17).
 
 | Panicking | Use instead |
 |---|---|
@@ -442,10 +465,9 @@ mod tests {
 A malformed level file, a missing texture, a negative value in a config — these are inputs, and an
 input is never a bug in the program.
 
-**Why:** content is edited by people who are not looking at a stack trace, often while the game is
-running under hot reload. A panic tells them the game is broken; a logged error naming the file and
-the field tells them what to fix, and lets everything else keep working. The distinction is exactly
-the standard's usual one — a panic means a bug in the code — and content is not code.
+**Why:** content is edited by people who are not looking at a stack trace, often under hot reload.
+A panic tells them the game is broken; a logged error naming the file and the field tells them what
+to fix while everything else keeps working. A panic means a bug in code, and content is not code.
 
 **Check:** for each panic path, ask whether an artist could cause it by saving a file. If so it is a
 `Result` with the path in the message.
@@ -465,7 +487,7 @@ ones. The comment is what makes a deliberate discard reviewable.
 
 ### BV-ERR-12 [M] Give a command's output the `Out` associated type
 
-In 0.19, `Command` takes its output as an associated type: `impl Command for Foo { type Out =
+Since 0.19, `Command` takes its output as an associated type: `impl Command for Foo { type Out =
 Result; … }`. The old `impl Command<Result>` no longer exists.
 
 **Why:** this is a compile error rather than a silent change, but it is the shape most existing code
@@ -612,9 +634,9 @@ mod tests {
 
 An observer may return `Result`, and it goes to the same handler.
 
-**Why:** observers run in the middle of a command flush, so a panic there unwinds through the ECS's
-own machinery — a strictly worse place to fail than a system. There is no reason to write an
-observer differently: the return type, the `?`, and the handler are the same.
+**Why:** an observer runs inside a command flush, and since 0.20 its failure, returned or panicked,
+goes to the same handler as a system's. The return type, the `?` and the handler are all the same,
+so nothing calls for writing an observer differently.
 
 **Check:** search observers for `unwrap` and `expect`. They are as unacceptable there as in a
 system.
@@ -623,10 +645,9 @@ system.
 
 `info!`, `warn!`, `error!`, `debug!`, `trace!`. Not `println!`, not `eprintln!`, not `dbg!`.
 
-**Why:** `LogPlugin` gives every record a level, a target and a filter, so a shipped build can turn
-the noisy ones off and a developer can turn one module's on. `println!` bypasses all of it, does not
-appear in the browser console on a wasm build, and is not filtered — so it either spams the log or
-gets deleted, and deleting it loses the information.
+**Why:** `LogPlugin` gives every record a level, a target and a filter, so a shipped build turns the
+noisy ones off and a developer turns one module's on. `println!` bypasses all of it and never
+reaches the browser console on wasm, so it either spams the log or is deleted, information and all.
 
 **Check:** grep for `println!`, `eprintln!` and `dbg!` outside `build.rs` and a CLI tool's output.
 
@@ -636,9 +657,8 @@ An error logged where it is produced and again where it is handled appears twice
 cause and two different framings.
 
 **Why:** the handler is where the context lives — which entity, which asset, what the game did about
-it — so the log line written there is the useful one. A line at the production site has only the
-local view, and the two together make the log's volume a function of the call stack's depth rather
-than of what happened.
+it — so its line is the useful one. A second line at the production site has only the local view,
+and makes the log's volume track the depth of the call stack rather than what happened.
 
 **Check:** follow one error from its source to the handler. If it is logged at more than one level,
 delete all but the outermost.
@@ -648,10 +668,9 @@ delete all but the outermost.
 A missing required asset directory, an unusable GPU, a corrupt configuration: write
 `AppExit::error()` to the message and let the app shut down.
 
-**Why:** this is the one case where continuing is worse than stopping, and Bevy already has the
-mechanism — the exit code reaches the launcher, the test harness and the crash reporter, which a
-panic also does but with a stack trace nobody can act on. It is also the only way to stop cleanly:
-plugins get to shut down, and the window closes rather than vanishing.
+**Why:** here continuing is worse than stopping, and the exit code reaches the launcher, the test
+harness and the crash reporter as a panic's would, minus a stack trace nobody can act on. It is
+also the clean stop: plugins shut down, and the window closes rather than vanishing.
 
 **Check:** for each `panic!` outside a test, ask whether `AppExit::error()` says the same thing more
 usefully.
@@ -659,20 +678,17 @@ usefully.
 ### BV-ERR-17 [M!] Decide the render error policy, because the default quits
 
 `bevy::render::error_handler::RenderErrorHandler` decides what happens when the GPU fails. Insert
-your own before `DefaultPlugins`, beside `FallbackErrorHandler`.
+your own before `DefaultPlugins`, beside `FallbackErrorHandler`; `RenderPlugin` registers it with
+`init_resource`, so yours wins. `RenderErrorPolicy::Recover(RenderCreation)` rebuilds the device,
+`StopRendering` keeps the app alive with the image frozen, and `Ignore` keeps drawing, which can
+strobe when the fault repeats — so `Ignore` is the one that has to be justified.
 
 *Relaxed form:* a tool or an example may take the default, and then the rule is that nobody reports
 its clean exit as a crash.
 
-**Why:** the 0.19 default logs the error and writes `AppExit::error()` for **every** `RenderError` —
-a wgpu validation fault, an out-of-memory, a lost device — so a transient GPU problem ends the
-session, the player's window closes, and BV-ARCH-17 faithfully turns it into a non-zero exit that
-reads as a crash. BV-ERR-16 already makes an unusable GPU *at startup* your decision; this is the
-same GPU failing an hour later, and the engine has decided for you. 0.19 ships the recovery it
-needs: `RenderErrorPolicy::Recover(RenderCreation)` rebuilds the device, `StopRendering` keeps the
-app alive with the image frozen, and `Ignore` keeps drawing — which can strobe if the fault repeats,
-so `Ignore` is the one that has to be justified. `RenderPlugin` registers the resource with
-`init_resource`, so inserting yours first wins.
+**Why:** the 0.20 default logs and writes `AppExit::error()` for **every** `RenderError`, so a
+transient GPU fault closes the player's window and BV-ARCH-17 turns it into an exit that reads as a
+crash. BV-ERR-16 makes an unusable GPU at startup your decision; this is the same GPU an hour later.
 
 **Check:** grep for `RenderErrorHandler`. Exactly one insertion, and it branches on the error rather
 than returning one blanket policy.
@@ -684,7 +700,7 @@ use bevy::render::error_handler::{
 };
 use bevy::render::settings::{RenderCreation, WgpuSettings};
 
-/// One decision per failure kind. The 0.19 default is a single blanket policy
+/// One decision per failure kind. The 0.20 default is a single blanket policy
 /// — log, `AppExit::error()`, stop — for all four.
 ///
 /// `RenderErrorPolicy::Ignore` appears nowhere below on purpose: it keeps
