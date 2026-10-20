@@ -241,7 +241,7 @@ def reflow(text: str, width: int = WIDTH) -> str:
             continue
         moved = line[cut + 1 :]
         item = re.match(r"^(\s*)(?:[-*] |\d+\. )", line)
-        indent = " " * len(item.group(0)) if item else re.match(r"^\s*", line).group(0)
+        indent = " " * len(item.group(0) if item else line[: len(line) - len(line.lstrip())])
         nxt = lines[i + 1] if i + 1 < len(lines) else ""
         lines[i] = head
         if nxt.strip() and not _STARTS_BLOCK.match(nxt):
