@@ -292,7 +292,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 14. The harness on its own standard
 
-- [ ] 14.1 Move the repository to Python 3.15 and `uv_build` 0.13 (`.python-version`,
+- [x] 14.1 Move the repository to Python 3.15 and `uv_build` 0.13 (`.python-version`,
   `requires-python`, the ruff target). Verify: `uv sync`, and `pytest -m "not toolchain"` passes.
 - [ ] 14.2 Make the repository's ruff configuration extend the shipped `ruff.toml`, with each
   harness relaxation carrying its reason. Bring `src/` and `tests/` to zero findings. Verify:

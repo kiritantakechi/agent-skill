@@ -6,14 +6,14 @@ readme = "README.md"
 authors = [
     { name = "kiritantakechi", email = "kiritantakechi@gmail.com" }
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 dependencies = []
 
 [project.scripts]
 agent-skill = "agent_skill.cli:main"
 
 [build-system]
-requires = ["uv_build>=0.12.3,<0.13.0"]
+requires = ["uv_build>=0.13.3,<0.14"]
 build-backend = "uv_build"
 
 [dependency-groups]
@@ -25,7 +25,7 @@ dev = ["pytest==9.1.1", "ruff==0.17.1", "ty==0.0.90", "ripgrep-bin==15.2.0"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py314"
+target-version = "py315"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
