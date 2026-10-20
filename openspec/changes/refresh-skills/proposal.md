@@ -87,7 +87,8 @@ of twice.
 - `python-style`: the rule-anatomy requirement changes. A tool-decided claim is a lint-table row
   rather than a rule. A Why is bounded. An ID is dense within its chapter, and a renumbering ships
   its rename table instead of promising that IDs never change. The scenario "a rule restates a Ruff
-  rule" changes to match.
+  rule" changes to match. The stale-idiom scenario stops listing an explicit `encoding="utf-8"`,
+  which What's New in 3.15 still asks for and `PS-OUT-01` requires.
 - `harness-integrity`: gains one requirement. The harness passes the Python configuration
   `python-style` ships — its ruff selection, its `ty` rules, its target version. Any rule it turns
   off is turned off in the repository's own configuration, with a reason.

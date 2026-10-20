@@ -2,6 +2,39 @@
 
 ## MODIFIED Requirements
 
+### Requirement: Single target version, with an explicit floor
+
+The standard SHALL target exactly one CPython version — 3.15, free-threaded — and SHALL state that
+floor in its own text. It SHALL NOT describe compatibility shims, version guards, or fallbacks for
+any interpreter below 3.14t, and SHALL NOT present a pre-3.14 spelling as an acceptable
+alternative.
+
+#### Scenario: A rule offers a fallback for an older interpreter
+
+- **WHEN** a rule presents `sys.version_info` branching, a `try: ... except ImportError:` import
+  shim, or a "on older Pythons, write it this way" alternative for an interpreter below 3.14t
+- **THEN** the standard is non-conforming, and the rule states the 3.15 spelling only
+
+#### Scenario: A reader asks which interpreter the examples were verified against
+
+- **WHEN** the reader reads the standard's opening section
+- **THEN** the exact interpreter build is named, including that it is the free-threaded build
+
+#### Scenario: A stale idiom is described
+
+- **WHEN** the standard mentions an idiom that 3.14 or 3.15 superseded — `from __future__ import
+  annotations`, a hand-rolled sentinel, `MappingProxyType` for an immutable mapping,
+  GIL-dependent thread-safety reasoning
+- **THEN** it appears only as the *dead* side of a migration table or a `BAD` example, never as
+  advice
+
+#### Scenario: An explicit encoding is described
+
+- **WHEN** a rule passes `encoding="utf-8"` to a text open, although 3.15 made UTF-8 the default
+- **THEN** it is advice and not a superseded idiom. The default holds only while UTF-8 mode is on,
+  and `PYTHONUTF8=0` or `-X utf8=0` turns it off; What's New in 3.15 itself asks for an explicit
+  `encoding`, and `-X warn_default_encoding` still flags every call that omits one
+
 ### Requirement: Three attributed sources, with conflicts resolved in the open
 
 The standard SHALL merge exactly three sources and SHALL name them: the normative Python

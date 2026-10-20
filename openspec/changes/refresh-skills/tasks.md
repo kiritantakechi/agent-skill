@@ -286,7 +286,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
   Verify: the Bevy `toolchain` passes alone.
 - [x] 13.3 Merge the two near-duplicate Rust pairs (API/DOC and API/ERR), then
   `agent-skill renumber rust-style`. Verify: `--fast` passes.
-- [ ] 13.4 Settle the explicit-`encoding=` contradiction between the python-style spec and
+- [x] 13.4 Settle the explicit-`encoding=` contradiction between the python-style spec and
   PS-OUT-01 against PEP 686 and What's New 3.15, and fix whichever is wrong. Verify:
   `openspec validate --strict`.
 
