@@ -202,7 +202,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 - [x] 8.8 Step C: `agent-skill renumber rust-style`. Remove rust-style's exemption, update the
   frontmatter count and the §6 counts, and update `mirror`'s anchor titles where trimming changed
   them. Verify: `--fast` passes.
-- [ ] 8.9 Milestone 2: one full run, alone. Verify: `ALL CHECKS PASSED`. Commit.
+- [x] 8.9 Milestone 2: one full run, alone. Verify: `ALL CHECKS PASSED`. Commit.
 
 ## 9. Harness for Bevy
 
