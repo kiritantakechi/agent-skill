@@ -1,20 +1,21 @@
 """Renumber a standard's rules, rename its chapters, and rewrite every citation.
 
-One operation, because the defect it prevents is the one a hand edit makes. Dense
-numbering reuses IDs routinely — the old `-03` is the new `-02` while a different
-rule becomes the new `-03` — so a rewrite done as a chain of replacements turns
-every overlap into a citation of the wrong rule, and the result is indistinguishable
-from a correct one. Here every citation is rewritten in a single pass from one
-dictionary built from the old numbering, and the result is verified by identity:
-each rule keeps its title, so every old ID must reach a rule with the same title
-after the rewrite. Nothing is written until that holds.
+One operation, because the defect it prevents is the one a hand edit
+makes. Dense numbering reuses IDs routinely — the old `-03` is the new
+`-02` while a different rule becomes the new `-03` — so a rewrite done
+as a chain of replacements turns every overlap into a citation of the
+wrong rule, and the result is indistinguishable from a correct one. Here
+every citation is rewritten in a single pass from one dictionary built
+from the old numbering, and the result is verified by identity: each
+rule keeps its title, so every old ID must reach a rule with the same
+title after the rewrite. Nothing is written until that holds.
 
-A rename table in the migration chapter states the range each family ran before
-the revision, and lists every old ID that changed. Run twice over one revision, the
-second run composes onto the first against those ranges: a row whose new ID moves
-again is updated in place, and an original that moves for the first time gains a
-row, so the table always maps the IDs a reader had before the revision to the IDs
-they have now.
+A rename table in the migration chapter states the range each family ran
+before the revision, and lists every old ID that changed. Run twice over
+one revision, the second run composes onto the first against those
+ranges: a row whose new ID moves again is updated in place, and an
+original that moves for the first time gains a row, so the table always
+maps the IDs a reader had before the revision to the IDs they have now.
 """
 
 import re
@@ -46,7 +47,8 @@ class Plan:
     writes: dict[Path, str]
     #: things the rewrite could not decide and a person should look at
     leftovers: list[str] = field(default_factory=list)
-    #: the profile the skill was read with, for reading it again once written
+    #: the profile the skill was read with, for reading it again once
+    #: written
     profile: object = None
 
     @property
@@ -103,8 +105,9 @@ def plan(
     for path in _corpus(repo):
         text = path.read_text()
         own = skill.root in path.parents or path == profile_file
-        # Another skill naming `references/x.md` means its own chapter; only code
-        # and prose outside the skills can name this one's without saying so.
+        # Another skill naming `references/x.md` means its own chapter;
+        # only code and prose outside the skills can name this one's
+        # without saying so.
         outside = skills_dir not in path.parents
         new = _rewrite(
             text, prefix, ids, family_map, renamed_stems, name, own, outside, plan, path
@@ -142,8 +145,8 @@ def _counts(skill: Skill, chapters: dict[str, str], plan: Plan) -> None:
 def apply(repo: Path, plan: Plan) -> None:
     """Move the chapters and write every rewritten file. `plan` is already verified.
 
-    Then restate the shared passages, which carry a rule count of their own: the change that
-    left a gap to close, a demotion, moved it.
+    Then restate the shared passages, which carry a rule count of their
+    own: the change that left a gap to close, a demotion, moved it.
     """
     for old, new in plan.moves.items():
         tracked = subprocess.run(
@@ -163,7 +166,8 @@ def apply(repo: Path, plan: Plan) -> None:
         shared.rewrite(skill)
 
 
-# ------------------------------------------------------------------ the rewrite
+# ------------------------------------------------------------------ the
+# rewrite
 
 
 def _corpus(repo: Path) -> list[Path]:
@@ -250,7 +254,8 @@ def _segments(text: str):
     yield text[pos:], False
 
 
-# ------------------------------------------------------------------ the table
+# ------------------------------------------------------------------ the
+# table
 
 
 def _compose(skill: Skill, plan: Plan) -> None:
@@ -275,13 +280,15 @@ def carry(text: str, revision: str, now: dict[str, str]) -> str:
     """`text` with every rename table carried through one change to the rule IDs, and the
     table headed `revision` started if it is missing and an ID changed.
 
-    `now` maps every rule ID there is to what it becomes: a rule ID in backticks, a lint
-    `` lint `tool:name` ``, or `removed — reason`. Each table maps the IDs from before one
-    revision to the IDs now, so every change moves each of its originals forward: an ID with
-    a row goes where its row leads, and an ID in range without one is still itself. A row is
-    kept only where the result differs from the original. An original that no longer exists
-    is a rule deleted without its disposition being recorded, and stops the run: nothing else
-    knows what that rule became.
+    `now` maps every rule ID there is to what it becomes: a rule ID in
+    backticks, a lint `` lint `tool:name` ``, or `removed — reason`.
+    Each table maps the IDs from before one revision to the IDs now, so
+    every change moves each of its originals forward: an ID with a row
+    goes where its row leads, and an ID in range without one is still
+    itself. A row is kept only where the result differs from the
+    original. An original that no longer exists is a rule deleted
+    without its disposition being recorded, and stops the run: nothing
+    else knows what that rule became.
     """
     out, pos = [], 0
     for table in rename_tables(text):
@@ -384,14 +391,16 @@ def _table(
     )
 
 
-# ------------------------------------------------------------------ verification
+# ------------------------------------------------------------------
+# verification
 
 
 def _verify(repo: Path, skill: Skill, plan: Plan) -> None:
     """Apply the plan to a copy and check that every old ID reaches the same rule.
 
-    A title can itself cite a rule — a pointer's title names the rule it points at — so the title
-    expected afterwards is the old one with the same rewrite applied.
+    A title can itself cite a rule — a pointer's title names the rule it
+    points at — so the title expected afterwards is the old one with the
+    same rewrite applied.
     """
     pattern = re.compile(rf"\b{skill.prefix}-([A-Z]+)(?:-(\d+[a-z]?))?\b")
 

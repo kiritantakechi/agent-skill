@@ -1,8 +1,8 @@
 """What a check produces, and how it is shown.
 
-A check returns findings. It does not print and it does not exit, so the same
-function backs a command-line report, a pytest assertion, and a negative control
-that asserts the check *can* fail.
+A check returns findings. It does not print and it does not exit, so the
+same function backs a command-line report, a pytest assertion, and a
+negative control that asserts the check *can* fail.
 """
 
 from dataclasses import dataclass, field
@@ -12,12 +12,13 @@ from enum import Enum
 class Level(Enum):
     """A finding blocks, informs, or reports that the check could not look.
 
-    The third one was added because a check that cannot run looks exactly like a
-    check that passes, and the repository has already paid for that twice: a zig
-    probe that reported 375 symbols present including a fake one, and clippy
-    reported clean because it exits 0 on a warning. `UNRUN` blocks like `FAIL`
-    but reads differently, because "there is a defect here" and "nobody looked"
-    call for different actions.
+    The third one was added because a check that cannot run looks
+    exactly like a check that passes, and the repository has already
+    paid for that twice: a zig probe that reported 375 symbols present
+    including a fake one, and clippy reported clean because it exits 0
+    on a warning. `UNRUN` blocks like `FAIL` but reads differently,
+    because "there is a defect here" and "nobody looked" call for
+    different actions.
     """
 
     FAIL = "FAIL"
@@ -72,8 +73,8 @@ class Result:
     def ok(self) -> bool:
         """Green means every check ran and every one of them passed.
 
-        Work that could not be done is not work that succeeded, so `UNRUN`
-        withholds the pass exactly as `FAIL` does.
+        Work that could not be done is not work that succeeded, so
+        `UNRUN` withholds the pass exactly as `FAIL` does.
         """
         return not self.fails and not self.unrun
 

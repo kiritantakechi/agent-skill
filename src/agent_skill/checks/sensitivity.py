@@ -1,26 +1,30 @@
 """Every authored pattern, shown to catch the defect it was written for.
 
-`self-application` proves **specificity**: a deciding pattern must not fire on
-the standard's own compliant examples, so tier 1 is required to be empty.
-Nothing proved **sensitivity**. A pattern that matches nothing anywhere passes
-that test perfectly, and in a report it is indistinguishable from a pattern that
-ran and correctly found the code clean.
+`self-application` proves **specificity**: a deciding pattern must not
+fire on the standard's own compliant examples, so tier 1 is required to
+be empty. Nothing proved **sensitivity**. A pattern that matches nothing
+anywhere passes that test perfectly, and in a report it is
+indistinguishable from a pattern that ran and correctly found the code
+clean.
 
-So a rule may declare snippets containing its own defect, and its patterns are
-asserted to hit them. Declared per rule rather than derived, because what counts
-as the defect is the rule's claim and not something the harness can infer.
+So a rule may declare snippets containing its own defect, and its
+patterns are asserted to hit them. Declared per rule rather than
+derived, because what counts as the defect is the rule's claim and not
+something the harness can infer.
 
-**Every** pattern, which is what the title says and what the code did not do. It
-asserted `any`, so one pattern matching stood as evidence for the rest: measured,
-`ZS-MIG-13` ships four patterns over four disjoint families of dead API and its
-one fixture matched the first, leaving three counted as proven by a snippet none
-of them touched. Any of those three could have been narrowed until it matched
-nothing at all and this check would have kept reporting the rule covered.
+**Every** pattern, which is what the title says and what the code did
+not do. It asserted `any`, so one pattern matching stood as evidence for
+the rest: measured, `ZS-MIG-13` ships four patterns over four disjoint
+families of dead API and its one fixture matched the first, leaving
+three counted as proven by a snippet none of them touched. Any of those
+three could have been narrowed until it matched nothing at all and this
+check would have kept reporting the rule covered.
 
-The cover is asserted in both directions — every pattern hits some fixture, and
-every fixture is hit by some pattern. The second is what keeps the first honest:
-without it, an uncovered pattern is "fixed" by adding a snippet nobody has
-related to the rule, which proves the snippet.
+The cover is asserted in both directions — every pattern hits some
+fixture, and every fixture is hit by some pattern. The second is what
+keeps the first honest: without it, an uncovered pattern is "fixed" by
+adding a snippet nobody has related to the rule, which proves the
+snippet.
 """
 
 from agent_skill.checks import check
@@ -78,7 +82,8 @@ def sensitivity(skill):
             continue
 
         # A grid rather than a list: one row per pattern, one column per
-        # fixture, so both directions of the cover are read off the same answers.
+        # fixture, so both directions of the cover are read off the same
+        # answers.
         grid = [[matches(fixture, p, lang) for fixture in fixtures] for p in runnable]
         if any(a is None for row in grid for a in row):
             yield fail(

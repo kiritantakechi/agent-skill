@@ -2,11 +2,12 @@
 
 import re
 
-#: How a language spells a line comment, and which characters delimit a string.
-#: Rust and Zig keep the default on purpose: in Rust `'` opens a lifetime
-#: (`&'a str`), not a string, so treating it as a delimiter swallows the rest of
-#: the line. Python needs its own entry for the opposite reason — `//` is floor
-#: division there, and reading it as a comment truncated every line after one.
+#: How a language spells a line comment, and which characters delimit a
+#: string. Rust and Zig keep the default on purpose: in Rust `'` opens a
+#: lifetime (`&'a str`), not a string, so treating it as a delimiter
+#: swallows the rest of the line. Python needs its own entry for the
+#: opposite reason — `//` is floor division there, and reading it as a
+#: comment truncated every line after one.
 _SYNTAX: dict[str, tuple[str, str]] = {
     "python": ("#", "\"'"),
     "py": ("#", "\"'"),
@@ -22,12 +23,13 @@ def syntax_for(lang: str) -> tuple[str, str]:
 def strip_comment(line: str, comment: str = "//", quotes: str = '"') -> str:
     """Everything before the first `comment` token not inside a string literal.
 
-    `const url = "https://example.com";` keeps its value. Splitting on the token
-    does not, and a Check searching for a path would miss it.
+    `const url = "https://example.com";` keeps its value. Splitting on
+    the token does not, and a Check searching for a path would miss it.
 
-    The token is a parameter because it is not a property of source text in
-    general. `strip_comment("q = total // count")` returns `"q = total "` under
-    the default, which is right for Rust and silently wrong for Python.
+    The token is a parameter because it is not a property of source text
+    in general. `strip_comment("q = total // count")` returns
+    `"q = total "` under the default, which is right for Rust and
+    silently wrong for Python.
     """
     i, opener = 0, ""
     width = len(comment)
@@ -61,10 +63,11 @@ _STARTS_BLOCK = re.compile(r"^\s*(?:[-*] |\d+\. |#|\||```|>|\*\*[A-Z][a-z]+:\*\*
 def reflow(text: str, width: int = WIDTH) -> str:
     """Push the words of every over-long prose line down into the next line.
 
-    The smallest edit that brings a paragraph back under the limit: the rest of
-    the paragraph keeps its line breaks, so the diff shows what the rename moved
-    and nothing else. Code, tables and headings are left alone — `layout` decides
-    those, and a code line is not this function's to rewrite.
+    The smallest edit that brings a paragraph back under the limit: the
+    rest of the paragraph keeps its line breaks, so the diff shows what
+    the rename moved and nothing else. Code, tables and headings are
+    left alone — `layout` decides those, and a code line is not this
+    function's to rewrite.
     """
     lines = text.split("\n")
     fenced = False
@@ -73,8 +76,9 @@ def reflow(text: str, width: int = WIDTH) -> str:
         line = lines[i]
         if line.startswith("```"):
             fenced = not fenced
-        # A contents line is a rule's ID, tier and title by construction, and
-        # `layout` exempts it for that reason: wrapping it breaks the contents.
+        # A contents line is a rule's ID, tier and title by
+        # construction, and `layout` exempts it for that reason:
+        # wrapping it breaks the contents.
         contents = re.match(r"^\s*- [A-Z]{2}-[A-Z]+-\d+", line)
         if (
             fenced
@@ -107,8 +111,8 @@ def reflow(text: str, width: int = WIDTH) -> str:
 def _cut(line: str, width: int) -> int:
     """The last space at or before `width` that is outside a code span, or -1.
 
-    A break inside `` `rg -n '… *='` `` puts a newline into the command a reader
-    copies, and `dialect` rightly fails it.
+    A break inside `` `rg -n '… *='` `` puts a newline into the command
+    a reader copies, and `dialect` rightly fails it.
     """
     best, ticks = -1, 0
     for i, ch in enumerate(line[: width + 1]):

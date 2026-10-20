@@ -1,8 +1,9 @@
 """A minimal standard that follows standard-structure, for the structure checks to be tried on.
 
-Built through the template machinery itself: the headings and the skill's own
-text are written by hand, and `shared.rewrite` fills in every shared passage —
-which also makes building it a round trip through `fmt`.
+Built through the template machinery itself: the headings and the
+skill's own text are written by hand, and `shared.rewrite` fills in
+every shared passage — which also makes building it a round trip through
+`fmt`.
 """
 
 from dataclasses import dataclass

@@ -13,9 +13,10 @@ HOME = Path.home()
 class Target:
     """An agent that reads `<dir>/<name>/SKILL.md`.
 
-    Claude Code, Codex and Antigravity all read the same shape: a directory per
-    skill, a `SKILL.md` with `name` and `description` frontmatter, and optional
-    `references/` beside it. So one source can serve all three.
+    Claude Code, Codex and Antigravity all read the same shape: a
+    directory per skill, a `SKILL.md` with `name` and `description`
+    frontmatter, and optional `references/` beside it. So one source can
+    serve all three.
     """
 
     name: str
@@ -31,8 +32,8 @@ class Target:
     def displaced(self) -> Path:
         """Where a copy that was standing in the way is moved to.
 
-        Beside the skills directory rather than inside it, so nothing there is
-        still discovered.
+        Beside the skills directory rather than inside it, so nothing
+        there is still discovered.
         """
         return self.skills.parent / "skills-replaced"
 
@@ -64,12 +65,13 @@ def package(skill, out_dir: Path) -> Path:
 def install(skill, target: Target) -> tuple[Path, str]:
     """Point `<target>/<name>` at the working copy.
 
-    A symlink rather than a copy, so there is no installed second copy to drift
-    from the source. Antigravity held a copy taken a week earlier that differed
-    in every file — which is the failure this whole apparatus exists to prevent.
+    A symlink rather than a copy, so there is no installed second copy
+    to drift from the source. Antigravity held a copy taken a week
+    earlier that differed in every file — which is the failure this
+    whole apparatus exists to prevent.
 
-    An existing real directory is moved aside rather than deleted, and never
-    overwritten twice.
+    An existing real directory is moved aside rather than deleted, and
+    never overwritten twice.
     """
     target.skills.mkdir(parents=True, exist_ok=True)
     link = target.skills / skill.name
@@ -79,10 +81,10 @@ def install(skill, target: Target) -> tuple[Path, str]:
             return link, "already linked"
         link.unlink()
     elif link.exists():
-        # Out of the skills directory, not merely renamed inside it: discovery
-        # walks `skills/*/SKILL.md` and reads the name from the frontmatter, so
-        # a `rust-style.replaced` beside `rust-style` is a second skill claiming
-        # the same name.
+        # Out of the skills directory, not merely renamed inside it:
+        # discovery walks `skills/*/SKILL.md` and reads the name from
+        # the frontmatter, so a `rust-style.replaced` beside
+        # `rust-style` is a second skill claiming the same name.
         aside = target.displaced / skill.name
         if aside.exists():
             return (

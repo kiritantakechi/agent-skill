@@ -1,19 +1,20 @@
 """The text every standard shares, kept once.
 
-Four `SKILL.md` files carried the same reading procedure, tier table and marker
-legend, and nothing kept them the same, so they were the same only *nearly*:
-"several of its entries" in one and "most of its entries" in the next, a closing
-line under the tier table in three of four, and two orders for one table's
-columns. Each skill still carries its own copy, because a skill is installed
-alone and must read completely without its siblings. The copy is what the
-template says, filled in with that skill's values, and `shared-text` fails when
-it is not.
+Four `SKILL.md` files carried the same reading procedure, tier table and
+marker legend, and nothing kept them the same, so they were the same
+only *nearly*: "several of its entries" in one and "most of its entries"
+in the next, a closing line under the tier table in three of four, and
+two orders for one table's columns. Each skill still carries its own
+copy, because a skill is installed alone and must read completely
+without its siblings. The copy is what the template says, filled in with
+that skill's values, and `shared-text` fails when it is not.
 
-A template is markdown. `{name}` is a short value the profile declares or the
-skill's own parse supplies. A block that is only `…` is a free region: the
-skill writes its own paragraphs there, and the comparison skips them. Everything
-else must appear verbatim and in order, compared with whitespace collapsed, so
-re-wrapping a paragraph is never a finding but changing a word is.
+A template is markdown. `{name}` is a short value the profile declares
+or the skill's own parse supplies. A block that is only `…` is a free
+region: the skill writes its own paragraphs there, and the comparison
+skips them. Everything else must appear verbatim and in order, compared
+with whitespace collapsed, so re-wrapping a paragraph is never a finding
+but changing a word is.
 """
 
 import difflib
@@ -26,13 +27,14 @@ from agent_skill.text import syntax_for
 
 HERE = Path(__file__).parent
 
-#: Matches the `layout` check's limit, so `fmt` never writes what `layout` rejects.
+#: Matches the `layout` check's limit, so `fmt` never writes what
+#: `layout` rejects.
 WIDTH = 100
 
 FREE = "…"
 
-#: The severity model every review protocol uses: label, then meaning. The
-#: examples column is each standard's own.
+#: The severity model every review protocol uses: label, then meaning.
+#: The examples column is each standard's own.
 SEVERITIES: tuple[tuple[str, str], ...] = (
     (
         "Unsound",
@@ -140,8 +142,9 @@ def render(passage: Passage, values: dict[str, str]) -> list[str]:
     """The passage's blocks, filled in: fixed text, or `FREE`."""
     lines: list[str] = []
     for line in passage.text().split("\n"):
-        # An empty slot on a line of its own leaves the line out. Substituted
-        # first, it would leave a blank line, which ends the list it was in.
+        # An empty slot on a line of its own leaves the line out.
+        # Substituted first, it would leave a blank line, which ends the
+        # list it was in.
         alone = re.fullmatch(r"\{([a-z_]+)\}", line.strip())
         if alone and not values.get(alone.group(1)):
             continue
@@ -215,14 +218,15 @@ class Alignment:
 
     template: list[str]
     actual: list[str]
-    #: template index -> actual index, for fixed blocks that have a counterpart
+    #: template index -> actual index, for fixed blocks that have a
+    #: counterpart
     pairs: dict[int, int]
 
     def gaps(self) -> list[tuple[int, list[int]]]:
         """For each template position, the unpaired actual blocks that sit there.
 
-        A gap is keyed by the template index of the block that follows it, or by
-        `len(template)` for the tail.
+        A gap is keyed by the template index of the block that follows
+        it, or by `len(template)` for the tail.
         """
         out: list[tuple[int, list[int]]] = []
         prev = -1
@@ -246,9 +250,10 @@ def align(template: list[str], actual: list[str]) -> Alignment:
     """Pair each fixed template block with the actual block that is its copy.
 
     Exact matches first, in order. A block that was edited still has a
-    counterpart — the closest unpaired block between its neighbours' — so a
-    drifted sentence is reported as drifted rather than as missing beside some
-    unexplained text, and `fmt` can put the template's version in its place.
+    counterpart — the closest unpaired block between its neighbours' —
+    so a drifted sentence is reported as drifted rather than as missing
+    beside some unexplained text, and `fmt` can put the template's
+    version in its place.
     """
     pairs: dict[int, int] = {}
     cursor = 0
@@ -361,9 +366,9 @@ def compare(skill):
 def rewrite(skill) -> list[str]:
     """Rewrite every copy from the template, keeping what the skill wrote in the free regions.
 
-    A section with text outside any free region is left alone and reported: the
-    rewrite would have to drop that text or guess where it goes, and neither is a
-    formatter's decision.
+    A section with text outside any free region is left alone and
+    reported: the rewrite would have to drop that text or guess where it
+    goes, and neither is a formatter's decision.
     """
     changed: list[str] = []
     for copy in copies(skill):

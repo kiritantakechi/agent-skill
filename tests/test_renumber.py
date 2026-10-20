@@ -111,7 +111,8 @@ def test_a_run_that_changes_nothing_starts_no_table(repo):
 def test_an_unlisted_original_gains_a_row_when_it_moves(repo):
     run(repo, **THREADS)
     migration = repo / "skills/demo-style/references/migration.md"
-    # A rule added during the revision, ahead of the original DS-MIG-01 under a free ID.
+    # A rule added during the revision, ahead of the original DS-MIG-01
+    # under a free ID.
     text = migration.read_text()
     first = RULE.format(id="DS-MIG-02", title="Read the table")
     text = text.replace("- DS-MIG-01", "- DS-MIG-02 [M] Read the table\n- DS-MIG-01", 1)
@@ -141,7 +142,8 @@ def test_an_unlisted_original_that_is_gone_stops_the_run(repo):
 def test_a_second_run_composes_onto_the_first(repo):
     run(repo, **THREADS)
     errors = repo / "skills/demo-style/references/errors.md"
-    # A content edit: the first errors rule goes, and its row records why.
+    # A content edit: the first errors rule goes, and its row records
+    # why.
     errors.write_text(chapter("Errors", [("DS-ERR-02", "Wrap them")]))
     migration = repo / "skills/demo-style/references/migration.md"
     row = "| `DS-ERR-02` | `DS-ERR-01` |"

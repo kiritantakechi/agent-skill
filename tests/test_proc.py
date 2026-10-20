@@ -1,13 +1,17 @@
 """Reading the pins, including where there is nothing to read.
 
-`pinned_version` resolves `pyproject.toml` relative to the package, three directories up. That is
-where the file is when the harness runs from its own source tree, and nowhere at all once the
-package is installed — `uv build --wheel` does not ship it. Reproduced: installing the built wheel
-into a clean 3.14 venv and calling `pinned_version('rg')` raised `FileNotFoundError`, out of
-`searcher_problem`, on the default path of `agent-skill check`. `[project.scripts]` declares that
-entry point, so running it installed is a supported thing to do.
+`pinned_version` resolves `pyproject.toml` relative to the package,
+three directories up. That is where the file is when the harness runs
+from its own source tree, and nowhere at all once the package is
+installed — `uv build --wheel` does not ship it. Reproduced: installing
+the built wheel into a clean 3.14 venv and calling
+`pinned_version('rg')` raised `FileNotFoundError`, out of
+`searcher_problem`, on the default path of `agent-skill check`.
+`[project.scripts]` declares that entry point, so running it installed
+is a supported thing to do.
 
-Unreadable pins are a complaint. Not a crash, and — the older bug one function away — not a pass.
+Unreadable pins are a complaint. Not a crash, and — the older bug one
+function away — not a pass.
 """
 
 import pytest

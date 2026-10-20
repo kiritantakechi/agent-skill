@@ -20,8 +20,8 @@ MAX_DESCRIPTION = 1024
 def frontmatter(skill):
     """A missing or reshaped field is a finding, not a traceback.
 
-    This was three unguarded `.group(1)` calls, so a malformed frontmatter
-    crashed the checker instead of being reported by it.
+    This was three unguarded `.group(1)` calls, so a malformed
+    frontmatter crashed the checker instead of being reported by it.
     """
     text = skill.text
     m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)

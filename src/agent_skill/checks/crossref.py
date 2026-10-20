@@ -1,14 +1,14 @@
 """Citations into another skill, and the table that says the two disagree.
 
-`bevy-style` is a delta on `rust-style`: it states what changes when Bevy is in
-the dependency list and defers for everything else. That makes an `RS-…` id
-inside `bevy-style` a link across documents with nothing checking it, and it
-makes the "where this standard departs" table a claim about two standards that
-nothing was checking either — the exact shape of the defect this apparatus
-exists to catch, one level up.
+`bevy-style` is a delta on `rust-style`: it states what changes when
+Bevy is in the dependency list and defers for everything else. That
+makes an `RS-…` id inside `bevy-style` a link across documents with
+nothing checking it, and it makes the "where this standard departs"
+table a claim about two standards that nothing was checking either — the
+exact shape of the defect this apparatus exists to catch, one level up.
 
-A citation into a skill that is not in the tree is not checked, because it
-cannot be: the claim is about a document nobody here can read.
+A citation into a skill that is not in the tree is not checked, because
+it cannot be: the claim is about a document nobody here can read.
 """
 
 import re
@@ -33,23 +33,25 @@ def _ids(skill) -> set[str]:
     return {r.id for r in skill.rules} | {rid for rid, _, _ in skill.core_rules}
 
 
-#: Everything outside `skills/` that names a rule. `assets.py` validates the ids
-#: a skill ships, and nothing validated these — so renumbering a chapter left
-#: two comments in `lang/rust.py` pointing at the rules that had moved up.
+#: Everything outside `skills/` that names a rule. `assets.py` validates
+#: the ids a skill ships, and nothing validated these — so renumbering a
+#: chapter left two comments in `lang/rust.py` pointing at the rules
+#: that had moved up.
 APPARATUS = ("src", "tests", "README.md")
 
-#: Two files hold ids that are *meant* to be invalid: the negative controls
-#: inject an out-of-range number precisely to prove a check fires on it.
-#: Scanning those would turn each fixture into a failure. (Naming one here
-#: would too — this comment is inside a scanned file.)
+#: Two files hold ids that are *meant* to be invalid: the negative
+#: controls inject an out-of-range number precisely to prove a check
+#: fires on it. Scanning those would turn each fixture into a failure.
+#: (Naming one here would too — this comment is inside a scanned file.)
 FIXTURES = ("checks/controls.py", "tests/test_crossref.py")
 
 
 def _apparatus_citations(known: dict[str, set[str]], root: Path | None = None):
     """A rule id named in the code or the README still has to resolve.
 
-    `root` is injectable so this has a real test: the control harness copies
-    `skills/` and nothing else, so it cannot reach the files this reads.
+    `root` is injectable so this has a real test: the control harness
+    copies `skills/` and nothing else, so it cannot reach the files this
+    reads.
     """
     root = root or Path(__file__).resolve().parents[3]
     files = []
@@ -99,9 +101,10 @@ def crossref(skills):
                         where,
                     )
 
-        # The override table: each row names a rule of the other standard, the
-        # rule that applies instead, and enough of the other's title to prove
-        # the row still points where it did when it was written.
+        # The override table: each row names a rule of the other
+        # standard, the rule that applies instead, and enough of the
+        # other's title to prove the row still points where it did when
+        # it was written.
         rows = list(OVERRIDE_ROW.finditer(skill.text))
         for m in rows:
             theirs, quoted, ours = m.group(1), m.group(2), m.group(3)
@@ -114,10 +117,11 @@ def crossref(skills):
             actual = titles[theirs[:2]].get(theirs)
             if actual is None:
                 continue  # the citation check above already reported it
-            # The whole title, not a prefix of it. A title's tail is where its
-            # scope lives — `RS-BUILD-23` ends "in a library" — so a row that
-            # quotes a prefix can invent a divergence by dropping the clause
-            # that rules it out. Two rows did exactly that.
+            # The whole title, not a prefix of it. A title's tail is
+            # where its scope lives — `RS-BUILD-23` ends "in a library"
+            # — so a row that quotes a prefix can invent a divergence by
+            # dropping the clause that rules it out. Two rows did
+            # exactly that.
             if quoted and _plain(actual) != _plain(quoted):
                 yield fail(
                     f"override row quotes {quoted!r} for {theirs}, which is titled {actual!r}",
@@ -144,18 +148,18 @@ def crossref(skills):
 def _anchor_patterns(skill, by_prefix, rows):
     """The other standard's own patterns, run over this one's examples.
 
-    A delta claims that everything the anchor says still holds except the rows
-    of its table. That claim is testable, and it was not being tested: two
-    `rust-style` `[M]` rules were firing on nineteen and thirty-five lines of
-    `bevy-style`'s examples with nothing saying so.
+    A delta claims that everything the anchor says still holds except
+    the rows of its table. That claim is testable, and it was not being
+    tested: two `rust-style` `[M]` rules were firing on nineteen and
+    thirty-five lines of `bevy-style`'s examples with nothing saying so.
 
-    Only the anchor's **decisive** patterns are run — the ones it ships as a
-    literal `rg` command. Its prose spans are far too broad to travel: `assert_eq!`
-    and `.iter()` matched a third of the corpus.
+    Only the anchor's **decisive** patterns are run — the ones it ships
+    as a literal `rg` command. Its prose spans are far too broad to
+    travel: `assert_eq!` and `.iter()` matched a third of the corpus.
 
-    A hit is allowed when the delta's `SKILL.md` names that rule anywhere: in
-    the override table, or in the prose that says why a rule is *not* on it.
-    Either way the reader has been told.
+    A hit is allowed when the delta's `SKILL.md` names that rule
+    anywhere: in the override table, or in the prose that says why a
+    rule is *not* on it. Either way the reader has been told.
     """
     anchors = {
         p
@@ -181,10 +185,11 @@ def _anchor_patterns(skill, by_prefix, rows):
                 if pattern.kind != "command":
                     continue
                 lines, used = find(corpus, pattern)
-                # `None` is the absence of an answer and `[]` is an answer of
-                # nothing. Both are falsy, so `if not lines` reads a search that
-                # never ran as a delta with nothing to account for — which is the
-                # same silence this whole capability exists to refuse.
+                # `None` is the absence of an answer and `[]` is an
+                # answer of nothing. Both are falsy, so `if not lines`
+                # reads a search that never ran as a delta with nothing
+                # to account for — which is the same silence this whole
+                # capability exists to refuse.
                 if lines is None:
                     yield fail(
                         f"{rule.id}: {other.name}'s pattern /{pattern.text}/ gave no answer over "

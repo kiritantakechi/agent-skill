@@ -18,26 +18,30 @@ CACHE = Path(__file__).resolve().parents[3] / ".cache" / "target"
 class Crate:
     """The crate one skill's `// verified` blocks are compiled as.
 
-    Per **skill**, not per language. `bevy-style`'s examples need Bevy on the
-    dependency line and a lint table two entries looser than `rust-style`'s, and
-    a single shared manifest would have left one of the two skills unverifiable —
-    which is indistinguishable from verified.
+    Per **skill**, not per language. `bevy-style`'s examples need Bevy
+    on the dependency line and a lint table two entries looser than
+    `rust-style`'s, and a single shared manifest would have left one of
+    the two skills unverifiable — which is indistinguishable from
+    verified.
     """
 
     name: str
-    #: the table the extracted crate is compiled under; `checks/lints.py`
-    #: compares it against the one the skill ships in `assets/Cargo.toml`
+    #: the table the extracted crate is compiled under;
+    #: `checks/lints.py` compares it against the one the skill ships in
+    #: `assets/Cargo.toml`
     lints: dict[str, dict[str, str]]
     #: shipped entries the extracted crate legitimately cannot carry
     unverifiable: frozenset[str] = frozenset()
     dependencies: tuple[str, ...] = ()
-    #: `clippy.toml` beside the manifest; `checks/lints.py` compares it with the
-    #: one the skill ships, the same way it compares the lint table
+    #: `clippy.toml` beside the manifest; `checks/lints.py` compares it
+    #: with the one the skill ships, the same way it compares the lint
+    #: table
     clippy: dict[str, object] = field(default_factory=dict)
-    #: The Rust release the examples are verified against, at the precision
-    #: `rust-version` takes. `pins` compares it with `rustc -V` and with the
-    #: newest stable release, at that same precision: a patch release is not a
-    #: new target, a minor release is.
+    #: The Rust release the examples are verified against, at the
+    #: precision `rust-version` takes. `pins` compares it with
+    #: `rustc -V` and with the newest stable release, at that same
+    #: precision: a patch release is not a new target, a minor release
+    #: is.
     rust_version: str = "1.99"
 
     @property
@@ -48,11 +52,12 @@ class Crate:
     def env(self) -> dict[str, str]:
         """A build directory that outlives the extraction.
 
-        Extraction goes to a fresh temporary directory every run, so without
-        this every check rebuilds the dependency tree from scratch — 47
-        seconds for Bevy, five times over (build, clippy, test, doc, and
-        again for the mutation pass). Keyed by crate name so two skills
-        with different dependency sets do not evict each other.
+        Extraction goes to a fresh temporary directory every run, so
+        without this every check rebuilds the dependency tree from
+        scratch — 47 seconds for Bevy, five times over (build, clippy,
+        test, doc, and again for the mutation pass). Keyed by crate name
+        so two skills with different dependency sets do not evict each
+        other.
         """
         return {"CARGO_TARGET_DIR": str(CACHE / self.name)}
 
@@ -81,12 +86,13 @@ class Crate:
         )
 
 
-#: The table `rust-style` ships (`assets/Cargo.toml`) minus the two entries a
-#: fragment cannot satisfy: `missing_docs` (blocks document items selectively)
-#: and `unsafe_code = "forbid"` (the unsafe-ffi chapter exists). Everything else
-#: is enforced verbatim, and checks/lints.py compares the two so they cannot
-#: drift — `undocumented_unsafe_blocks` was once dropped here with nothing saying
-#: so, which left `undocumented_unsafe_blocks` unverified.
+#: The table `rust-style` ships (`assets/Cargo.toml`) minus the two
+#: entries a fragment cannot satisfy: `missing_docs` (blocks document
+#: items selectively) and `unsafe_code = "forbid"` (the unsafe-ffi
+#: chapter exists). Everything else is enforced verbatim, and
+#: checks/lints.py compares the two so they cannot drift —
+#: `undocumented_unsafe_blocks` was once dropped here with nothing
+#: saying so, which left `undocumented_unsafe_blocks` unverified.
 RUST_STYLE = Crate(
     name="rust-style-verify",
     dependencies=('thiserror = "2"',),
@@ -96,10 +102,11 @@ RUST_STYLE = Crate(
         "allow-expect-in-tests": True,
         "upper-case-acronyms-aggressive": True,
     },
-    #: `allow_attributes*` join the two above for the same reason they are
-    #: unverifiable in `BEVY_STYLE`: the extractor injects a bare
-    #: `#![allow(dead_code, unused_imports)]` into every block module, and a
-    #: lint about the author's attributes cannot be judged on the harness's.
+    #: `allow_attributes*` join the two above for the same reason they
+    #: are unverifiable in `BEVY_STYLE`: the extractor injects a bare
+    #: `#![allow(dead_code, unused_imports)]` into every block module,
+    #: and a lint about the author's attributes cannot be judged on the
+    #: harness's.
     unverifiable=frozenset(
         {
             "rust.missing_docs",
@@ -141,8 +148,8 @@ RUST_STYLE = Crate(
 )
 
 
-#: `bevy-style`'s crate. Two entries are looser than `rust-style`'s, and both
-#: were measured rather than assumed:
+#: `bevy-style`'s crate. Two entries are looser than `rust-style`'s, and
+#: both were measured rather than assumed:
 #:
 #:   * `elided_lifetimes_in_paths` fires on **every** system parameter — fourteen
 #:     hits in one five-system plugin. Writing `Query<'_, '_, …>` and `Res<'_, T>`
@@ -152,17 +159,19 @@ RUST_STYLE = Crate(
 #:     not compile: `&Res<'_, T>` is not a `SystemParam` (E0277). This one has no
 #:     compliant form (BV-BUILD-13).
 #:
-#: `type_complexity` and `too_many_arguments` also fire on ordinary Bevy code and
-#: are deliberately **not** here: a `type` alias and `#[derive(SystemParam)]`
-#: silence them, and both are the better code (BV-ECS-20, BV-SCHED-10).
+#: `type_complexity` and `too_many_arguments` also fire on ordinary Bevy
+#: code and are deliberately **not** here: a `type` alias and
+#: `#[derive(SystemParam)]` silence them, and both are the better code
+#: (BV-ECS-20, BV-SCHED-10).
 #:
-#: The features are the `*_api` collections plus `scene`: every type a game
-#: names, without `bevy_render`, winit or wgpu. A standard talks about the API
-#: surface, and the backends cost minutes of build time to compile examples that
-#: never run. `scene` is there for one example — `bsn!` is the newest surface in
-#: Bevy and the only one whose grammar is not Rust, so it is the one that most
-#: needs a compiler behind it. `bevy_ui_widgets` is there because 0.20's text
-#: input is a widget: the `ui` collection a game uses includes it, `ui_api` does not.
+#: The features are the `*_api` collections plus `scene`: every type a
+#: game names, without `bevy_render`, winit or wgpu. A standard talks
+#: about the API surface, and the backends cost minutes of build time to
+#: compile examples that never run. `scene` is there for one example —
+#: `bsn!` is the newest surface in Bevy and the only one whose grammar
+#: is not Rust, so it is the one that most needs a compiler behind it.
+#: `bevy_ui_widgets` is there because 0.20's text input is a widget: the
+#: `ui` collection a game uses includes it, `ui_api` does not.
 BEVY_STYLE = Crate(
     name="bevy-style-verify",
     dependencies=(
@@ -171,8 +180,9 @@ BEVY_STYLE = Crate(
     ),
     #: `missing_docs` because a block documents items selectively;
     #: `allow_attributes*` because the extractor itself injects a bare
-    #: `#![allow(dead_code, unused_imports)]` into every block module, and a
-    #: lint about the author's attributes cannot be judged on the harness's.
+    #: `#![allow(dead_code, unused_imports)]` into every block module,
+    #: and a lint about the author's attributes cannot be judged on the
+    #: harness's.
     unverifiable=frozenset(
         {
             "rust.missing_docs",
@@ -221,9 +231,10 @@ class Rust:
         crate = skill.profile.crate
         src = out / "src"
         src.mkdir(parents=True, exist_ok=True)
-        # A renamed chapter otherwise leaves a module lib.rs never declares,
-        # which the mutation pass still globs: deleting a line in a file nothing
-        # compiles can never change a test result, so every statement survives.
+        # A renamed chapter otherwise leaves a module lib.rs never
+        # declares, which the mutation pass still globs: deleting a line
+        # in a file nothing compiles can never change a test result, so
+        # every statement survives.
         for stale in src.glob("*.rs"):
             stale.unlink()
 
@@ -259,9 +270,9 @@ class Rust:
         env = ex.crate.env
         steps = [
             ("compiles", ["cargo", "build", "--quiet", "--manifest-path", manifest]),
-            # `-D warnings` so the whole shipped table binds. Half of it is
-            # `warn`, and clippy exits 0 on a warning — so without this the check
-            # could only ever fail on the `deny` half.
+            # `-D warnings` so the whole shipped table binds. Half of it
+            # is `warn`, and clippy exits 0 on a warning — so without
+            # this the check could only ever fail on the `deny` half.
             (
                 "clippy",
                 [
@@ -305,9 +316,9 @@ class Rust:
     def mutate(self, ex: Extraction) -> Iterable[Finding]:
         """A shipped test must be able to fail.
 
-        A block once carried a test that passed whether or not the function did
-        anything: the assertion only checked that a buffer stayed empty, and
-        gutting the function kept it empty.
+        A block once carried a test that passed whether or not the
+        function did anything: the assertion only checked that a buffer
+        stayed empty, and gutting the function kept it empty.
         """
         src = ex.root / "src"
         env = ex.crate.env
@@ -322,17 +333,19 @@ class Rust:
             where = f"{path.name}:{lineno + 1}"
             path.write_text("\n".join(lines[:lineno] + lines[lineno + 1 :]))
             try:
-                # Deleting a loop increment turns a test into a hang; a mutant
-                # that never finishes is one the tests killed. But a busy
-                # machine times out too, and that is not a verdict — say so,
-                # or the run goes quiet under load and still reports clean.
+                # Deleting a loop increment turns a test into a hang; a
+                # mutant that never finishes is one the tests killed.
+                # But a busy machine times out too, and that is not a
+                # verdict — say so, or the run goes quiet under load and
+                # still reports clean.
                 r = run(["cargo", "test", "-q"], cwd=ex.root, timeout=180, env=env)
                 if r.timed_out:
                     yield note(f"`{stmt[:44]}` timed out — hung, or merely slow", where)
                 elif r.ok:
-                    # Survivors are rare, so a second opinion is nearly free —
-                    # and it is what stands between a transient and a reported
-                    # defect that the example does not actually have.
+                    # Survivors are rare, so a second opinion is nearly
+                    # free — and it is what stands between a transient
+                    # and a reported defect that the example does not
+                    # actually have.
                     again = run(
                         ["cargo", "test", "-q"], cwd=ex.root, timeout=300, env=env
                     )
@@ -345,7 +358,8 @@ class Rust:
                 path.write_text(original)
 
 
-#: Words a chapter may be named that Rust will not take as a module name.
+#: Words a chapter may be named that Rust will not take as a module
+#: name.
 KEYWORDS = frozenset(
     [
         "as",
@@ -393,7 +407,8 @@ KEYWORDS = frozenset(
 def module_name(chapter: str) -> str:
     """The module a chapter's blocks are compiled as: `unsafe.md` -> `unsafe_`.
 
-    The shared vocabulary names a chapter `unsafe`, and `pub mod unsafe;` does not parse.
+    The shared vocabulary names a chapter `unsafe`, and
+    `pub mod unsafe;` does not parse.
     """
     stem = Path(chapter).stem.replace("-", "_")
     return f"{stem}_" if stem in KEYWORDS else stem
@@ -402,15 +417,17 @@ def module_name(chapter: str) -> str:
 def _module(crate: Crate, stem: str, chapter: str, mods: list[tuple[str, str]]) -> str:
     out = [f"//! Blocks extracted from `references/{chapter}`.", ""]
     for mod, body in mods:
-        # `mycrate::` is the placeholder a reader replaces with their own crate.
-        # Point it at this crate so the doctest runs; the skill keeps the
-        # placeholder, which is why the old apparatus leaked its own crate name.
+        # `mycrate::` is the placeholder a reader replaces with their
+        # own crate. Point it at this crate so the doctest runs; the
+        # skill keeps the placeholder, which is why the old apparatus
+        # leaked its own crate name.
         body = body.replace("mycrate::", f"{crate.ident}::{stem}::{mod}::")
-        # `crate::` in a block means the reader's own crate root. Wrapping the
-        # block in a module moves that root, so rebase it here rather than making
-        # the published example spell a path it does not mean. `$crate::` names
-        # the same root from inside a macro, so it moves with it — the replace
-        # covers both spellings, and `fmt` undoes both the same way.
+        # `crate::` in a block means the reader's own crate root.
+        # Wrapping the block in a module moves that root, so rebase it
+        # here rather than making the published example spell a path it
+        # does not mean. `$crate::` names the same root from inside a
+        # macro, so it moves with it — the replace covers both
+        # spellings, and `fmt` undoes both the same way.
         body = body.replace("crate::", f"crate::{stem}::{mod}::")
         out.append(f"pub mod {mod} {{")
         out.append("    #![allow(dead_code, unused_imports)]")
@@ -421,10 +438,11 @@ def _module(crate: Crate, stem: str, chapter: str, mods: list[tuple[str, str]]) 
     return "\n".join(out).rstrip("\n") + "\n"
 
 
-#: A statement worth deleting: not a declaration, brace, attribute, or doc.
-#: Excluding `let mut ` but not `let ` was arbitrary — deleting either breaks
-#: compilation, so both are mutants that cost a full `cargo test` and can only
-#: ever be killed. The zig side draws the same line at `const`/`var`.
+#: A statement worth deleting: not a declaration, brace, attribute, or
+#: doc. Excluding `let mut ` but not `let ` was arbitrary — deleting
+#: either breaks compilation, so both are mutants that cost a full
+#: `cargo test` and can only ever be killed. The zig side draws the same
+#: line at `const`/`var`.
 _SKIP = ("use ", "//", "#", "let ", "pub ", "}")
 
 

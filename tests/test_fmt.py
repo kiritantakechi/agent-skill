@@ -31,9 +31,9 @@ def test_bodies_dedents_and_drops_the_injected_attribute(tmp_path):
 def test_bodies_undoes_the_extractor_rebasing(tmp_path):
     """`fmt` writes bodies back into the skill, so it must not store harness paths.
 
-    `lang.rust._module` rewrites `crate::` and `mycrate::` to reach inside the
-    wrapper module. Storing that rewrite is how the apparatus leaks its own
-    crate name into an example a reader copies.
+    `lang.rust._module` rewrites `crate::` and `mycrate::` to reach
+    inside the wrapper module. Storing that rewrite is how the apparatus
+    leaks its own crate name into an example a reader copies.
     """
     src = tmp_path / "structure.rs"
     src.write_text(

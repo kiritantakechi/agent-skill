@@ -1,8 +1,8 @@
 """Every block declares what it is, exactly once, and the marker leads it.
 
-Ran for one language only until a sweep found 56 blocks spelling the marker
-across two lines (`// fragment` then `// BAD`), which left the tools unable to
-recognise the illustration blocks they exist to exempt.
+Ran for one language only until a sweep found 56 blocks spelling the
+marker across two lines (`// fragment` then `// BAD`), which left the
+tools unable to recognise the illustration blocks they exist to exempt.
 """
 
 import re
@@ -10,10 +10,10 @@ import re
 from agent_skill.checks import check
 from agent_skill.report import fail
 
-#: A verdict on its own line used to open a section inside a fence: rust spelled
-#: the two halves `// bad` / `// good` in one block, zig spelled them `// BAD` /
-#: `// GOOD`. Both are one fence per half now, so a verdict line that is not the
-#: marker is a leftover.
+#: A verdict on its own line used to open a section inside a fence: rust
+#: spelled the two halves `// bad` / `// good` in one block, zig spelled
+#: them `// BAD` / `// GOOD`. Both are one fence per half now, so a
+#: verdict line that is not the marker is a leftover.
 STRAY_VERDICT = re.compile(r"^(?://|#) (GOOD|BAD)( —|:|$)", re.IGNORECASE)
 
 
@@ -34,7 +34,8 @@ def markers(skill):
             elif not b.marker.valid:
                 yield fail(f"marker off-grammar: `{b.marker.raw[:60]}`", where)
             elif b.marker.kind not in words:
-                # The grammar is deliberately loose; this is where the word is judged.
+                # The grammar is deliberately loose; this is where the
+                # word is judged.
                 yield fail(f"marker `{b.marker.kind}` is not one of {named}", where)
             if b.marker.kind == "verified" and "fragment" in b.marker.raw:
                 yield fail("marked both verified and fragment", where)

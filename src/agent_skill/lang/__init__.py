@@ -1,9 +1,10 @@
 """Turning a skill's examples back into code a compiler will accept.
 
-The markdown is the source of truth, not a crate kept alongside it. The previous
-apparatus inverted that: examples lived in a crate, were injected into the
-markdown, and a block deleted from the markdown left an orphan module the orphan
-check could not see. Extracting in this direction makes that state unreachable.
+The markdown is the source of truth, not a crate kept alongside it. The
+previous apparatus inverted that: examples lived in a crate, were
+injected into the markdown, and a block deleted from the markdown left
+an orphan module the orphan check could not see. Extracting in this
+direction makes that state unreachable.
 """
 
 from collections.abc import Iterable
@@ -33,7 +34,8 @@ class Unit:
 class Extraction:
     root: Path
     units: list[Unit] = field(default_factory=list)
-    #: how the extracted crate is built; None for a toolchain that needs no manifest
+    #: how the extracted crate is built; None for a toolchain that needs
+    #: no manifest
     crate: object | None = None
 
     def __bool__(self) -> bool:
@@ -47,11 +49,11 @@ class Toolchain(Protocol):
     def missing(self) -> list[str]:
         """What this toolchain needs and cannot find.
 
-        A `shutil.which` on one name answered for Rust and Zig, where one binary
-        does everything. It cannot answer for a toolchain that needs an exact
-        interpreter build plus two separate tools, and it cannot see an
-        interpreter that is deliberately resolved through a version manager
-        rather than through PATH.
+        A `shutil.which` on one name answered for Rust and Zig, where
+        one binary does everything. It cannot answer for a toolchain
+        that needs an exact interpreter build plus two separate tools,
+        and it cannot see an interpreter that is deliberately resolved
+        through a version manager rather than through PATH.
         """
         ...
 

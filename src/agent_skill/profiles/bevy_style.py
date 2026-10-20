@@ -1,10 +1,11 @@
 """bevy-style: its own `[M]` rules, applied to its own examples.
 
-Most of this standard's mechanical rules are already `rg` commands in their own
-`**Check:**`, which the self-application check runs — including the whole
-forbidden-API table, so an example written against an older Bevy fails the build.
-What is here is what a line-oriented pattern cannot decide: whether a derive list
-contains a name, and whether a type's name matches the trait it implements.
+Most of this standard's mechanical rules are already `rg` commands in
+their own `**Check:**`, which the self-application check runs —
+including the whole forbidden-API table, so an example written against
+an older Bevy fails the build. What is here is what a line-oriented
+pattern cannot decide: whether a derive list contains a name, and
+whether a type's name matches the trait it implements.
 """
 
 import re
@@ -15,7 +16,8 @@ from agent_skill.lang.rust import BEVY_STYLE, Crate
 from agent_skill.profiles import NotDecisive, Profile, register
 from agent_skill.report import Finding, fail
 
-#: `#[derive(Component, Debug, …)]`, possibly wrapped across lines by rustfmt.
+#: `#[derive(Component, Debug, …)]`, possibly wrapped across lines by
+#: rustfmt.
 DERIVE = re.compile(r"#\[derive\(([^)]*)\)\]", re.DOTALL)
 
 #: A component declaration, with whatever attributes sit above it.
@@ -57,8 +59,9 @@ class BevyStyle(Profile):
         "question."
     )
     crate: Crate | None = BEVY_STYLE
-    #: Each snippet is the defect its rule forbids, written the way it turns up
-    #: in real code. A fixture shaped to match proves the fixture, not the pattern.
+    #: Each snippet is the defect its rule forbids, written the way it
+    #: turns up in real code. A fixture shaped to match proves the
+    #: fixture, not the pattern.
     fires: dict = field(
         default_factory=lambda: {
             "BV-EVENT-09": ("commands.trigger_targets(Damage(5), target);",),
@@ -88,11 +91,12 @@ class BevyStyle(Profile):
             ),
         }
     )
-    #: Measured, not judged: each of these was promoted to accuse and hit the
-    #: standard's own compliant examples. The reason names what the span finds
-    #: and what, outside the match, decides whether the hit is a defect — never
-    #: how many examples it hit the day someone measured, which is a number
-    #: `_render` already prints live two fields away and nothing re-measures.
+    #: Measured, not judged: each of these was promoted to accuse and
+    #: hit the standard's own compliant examples. The reason names what
+    #: the span finds and what, outside the match, decides whether the
+    #: hit is a defect — never how many examples it hit the day someone
+    #: measured, which is a number `_render` already prints live two
+    #: fields away and nothing re-measures.
     not_decisive: dict = field(
         default_factory=lambda: {
             "BV-ECS-12": NotDecisive(
@@ -166,9 +170,9 @@ def _component_shape(block) -> Iterable[Finding]:
     """What every component in this standard's own examples must look like.
 
     BV-ECS-01 public fields, BV-ECS-03 `Debug` and `Reflect` with
-    `#[reflect(Component)]`, BV-ECS-10 the marker set. None of the three is
-    searchable, and all three had drifted: 25 of 33 components carried no
-    `Reflect` at all while BV-ECS-03 was `[M]`.
+    `#[reflect(Component)]`, BV-ECS-10 the marker set. None of the three
+    is searchable, and all three had drifted: 25 of 33 components
+    carried no `Reflect` at all while BV-ECS-03 was `[M]`.
     """
     for m in COMPONENT.finditer(block.body):
         attrs, name = m.group("attrs"), m.group("name")
@@ -191,9 +195,9 @@ def _component_shape(block) -> Iterable[Finding]:
                 f"BV-ECS-03: component `{name}` has no `#[reflect(Component)]`", where
             )
 
-        # The collection side of a relationship is the one component whose field
-        # is private, because the engine maintains it. Bevy's own `Children` is
-        # declared exactly this way.
+        # The collection side of a relationship is the one component
+        # whose field is private, because the engine maintains it.
+        # Bevy's own `Children` is declared exactly this way.
         if "relationship_target" in attrs:
             continue
         for member in (f.strip() for f in fields.split(",") if f.strip()):
@@ -204,9 +208,10 @@ def _component_shape(block) -> Iterable[Finding]:
 def _suffixes(block) -> Iterable[Finding]:
     """BV-ARCH-09 and BV-ARCH-10 — what a plugin type is called, and what it derives.
 
-    A plugin written as a function is caught by BV-ARCH-09's own pattern, which the
-    self-application check runs. What is left for here is the type: its name, and
-    that it carries the derives every plugin type carries.
+    A plugin written as a function is caught by BV-ARCH-09's own
+    pattern, which the self-application check runs. What is left for
+    here is the type: its name, and that it carries the derives every
+    plugin type carries.
     """
     for m in IMPL_PLUGIN.finditer(block.body):
         name = m.group(1)

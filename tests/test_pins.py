@@ -1,12 +1,15 @@
 """Ordering releases, and what happens to one that cannot be ordered.
 
-`_sort_key` used to answer `(0, 0, 0, 0, 0)` for anything it did not parse, which sorts below every
-real release. So an index answer of `1.2.3.post1` compared as *older than the pin*, the staleness
-check emitted nothing, and the run reported the pin current — on a comparison it had not made.
+`_sort_key` used to answer `(0, 0, 0, 0, 0)` for anything it did not
+parse, which sorts below every real release. So an index answer of
+`1.2.3.post1` compared as *older than the pin*, the staleness check
+emitted nothing, and the run reported the pin current — on a comparison
+it had not made.
 
-That is the failure `version_mismatch` was already fixed for one function away: *"an unfindable pin
-is itself the complaint"*. A value that could not be read must not be resolved into one that happens
-to compare as agreement.
+That is the failure `version_mismatch` was already fixed for one
+function away: *"an unfindable pin is itself the complaint"*. A value
+that could not be read must not be resolved into one that happens to
+compare as agreement.
 """
 
 import pytest
@@ -22,7 +25,8 @@ def _greater(a, b):
     return a > b
 
 
-#: Forms a real index answers with, none of which `_sort_key` understands.
+#: Forms a real index answers with, none of which `_sort_key`
+#: understands.
 UNORDERABLE = ["1.2.3.post1", "0.16.5.dev0", "2024.1", "15.2", "0.0.75+local", ""]
 
 
@@ -35,8 +39,9 @@ def test_a_version_it_cannot_parse_gets_no_answer(version):
 def test_no_unparseable_version_compares_as_older_than_a_pin(version):
     """The defect stated as its consequence rather than as its cause.
 
-    Comparing `None` against a tuple raises, which is the point: the caller has to decide, and
-    cannot fall through to "the pin is current" by arithmetic.
+    Comparing `None` against a tuple raises, which is the point: the
+    caller has to decide, and cannot fall through to "the pin is
+    current" by arithmetic.
     """
     with pytest.raises(TypeError):
         _greater(_sort_key(version), _sort_key("0.16.5"))

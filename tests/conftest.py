@@ -18,7 +18,7 @@ def skills():
 def scratch(tmp_path) -> Path:
     """A throwaway copy of the skills tree, for injecting a defect into.
 
-    Built by the same function `controls` uses, so a control cannot fire in one
-    runner and not the other.
+    Built by the same function `controls` uses, so a control cannot fire
+    in one runner and not the other.
     """
     return throwaway_tree(SKILLS_DIR, tmp_path)

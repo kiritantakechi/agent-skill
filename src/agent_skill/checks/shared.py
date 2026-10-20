@@ -1,10 +1,10 @@
 """Every passage the standards share is the template, filled in.
 
-The passages were copied from one `SKILL.md` to the next and then edited in
-place, so they agreed only nearly, and nothing noticed. The template is kept once
-in the package (`agent_skill/shared/`); each skill carries the filled-in copy,
-because a skill is installed alone and must read without its siblings.
-`agent-skill fmt` rewrites a drifted copy.
+The passages were copied from one `SKILL.md` to the next and then edited
+in place, so they agreed only nearly, and nothing noticed. The template
+is kept once in the package (`agent_skill/shared/`); each skill carries
+the filled-in copy, because a skill is installed alone and must read
+without its siblings. `agent-skill fmt` rewrites a drifted copy.
 """
 
 from agent_skill import shared

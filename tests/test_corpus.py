@@ -1,8 +1,9 @@
 """`origin` maps a global line back to where it came from.
 
-Two offset subtractions around a `bisect`, exercised until now only end-to-end.
-An off-by-one here does not fail anything: it reports a real hit at the wrong
-line, in the wrong rule, and reads exactly like a correct report.
+Two offset subtractions around a `bisect`, exercised until now only
+end-to-end. An off-by-one here does not fail anything: it reports a real
+hit at the wrong line, in the wrong rule, and reads exactly like a
+correct report.
 """
 
 import pytest

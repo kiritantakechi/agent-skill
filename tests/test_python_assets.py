@@ -1,7 +1,7 @@
 """The shipped Python configuration must mean what the standard says it means.
 
-Every case here is a claim the standard makes in prose. A claim nobody runs is a
-claim that stops being true without anyone noticing.
+Every case here is a claim the standard makes in prose. A claim nobody
+runs is a claim that stops being true without anyone noticing.
 """
 
 import json
@@ -51,8 +51,9 @@ def enabled(config: Path, cwd: Path) -> set[str]:
 def test_no_preview_rule_is_enabled(tmp_path):
     """The asset runs stable rules only, which is what lets a rule cite a code as enforced.
 
-    A preview rule can change or vanish in any release; one enabled here would make
-    the standard's enforcement depend on which ruff happened to run.
+    A preview rule can change or vanish in any release; one enabled here
+    would make the standard's enforcement depend on which ruff happened
+    to run.
     """
     (tmp_path / "m.py").write_text("x = 1\n")
     rules = json.loads(
@@ -108,9 +109,10 @@ FORMATTER_CONFLICTS = frozenset(
 def test_no_formatter_conflicting_rule_is_enabled(tmp_path):
     """Checked against ruff's documented list, not against `ruff format --check`.
 
-    Of the fifteen, only COM812 and D203 actually make `ruff format` warn under
-    default formatter settings — so a config that disabled just those two would
-    pass the "zero stderr" test while leaving thirteen conflicts enabled.
+    Of the fifteen, only COM812 and D203 actually make `ruff format`
+    warn under default formatter settings — so a config that disabled
+    just those two would pass the "zero stderr" test while leaving
+    thirteen conflicts enabled.
     """
     (tmp_path / "m.py").write_text("x = 1\n")
     assert not (enabled(RUFF_TOML, tmp_path) & FORMATTER_CONFLICTS)
@@ -119,8 +121,9 @@ def test_no_formatter_conflicting_rule_is_enabled(tmp_path):
 def test_isc001_is_enabled_because_it_is_not_a_conflict(tmp_path):
     """A belief worth pinning: older documentation listed ISC001 as conflicting.
 
-    Current ruff does not, and its ISC002 documentation actively recommends
-    enabling ISC001. The asset's `allow-multiline = false` is only safe with it.
+    Current ruff does not, and its ISC002 documentation actively
+    recommends enabling ISC001. The asset's `allow-multiline = false` is
+    only safe with it.
     """
     (tmp_path / "m.py").write_text("x = 1\n")
     assert "ISC001" in enabled(RUFF_TOML, tmp_path)

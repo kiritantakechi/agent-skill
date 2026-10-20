@@ -1,12 +1,12 @@
 """Whether a `\\|` is an operator or a literal.
 
-`outside_brackets` decides whether the `dialect` check reports a pattern. Wrong
-in the permissive direction, the check stops reporting the defect it exists for
-— and a `\\|` left in an `rg` pattern matches a literal pipe, finds nothing, and
-reads as clean.
+`outside_brackets` decides whether the `dialect` check reports a
+pattern. Wrong in the permissive direction, the check stops reporting
+the defect it exists for — and a `\\|` left in an `rg` pattern matches a
+literal pipe, finds nothing, and reads as clean.
 
-Written from scratch in `migrate-checks-to-ripgrep` and touched by exactly one
-negative control until now.
+Written from scratch in `migrate-checks-to-ripgrep` and touched by
+exactly one negative control until now.
 """
 
 import pytest

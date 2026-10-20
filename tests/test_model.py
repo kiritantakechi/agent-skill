@@ -53,8 +53,9 @@ def test_code_only_preserves_line_count():
 def test_python_floor_division_is_not_a_comment():
     """`//` is an operator in Python, and reading it as a comment truncated code.
 
-    Under the default syntax this line becomes `q = total `, so any Check
-    a pattern searching for something after a floor division could not fire at all.
+    Under the default syntax this line becomes `q = total `, so any
+    Check a pattern searching for something after a floor division could
+    not fire at all.
     """
     line = "q = total // count"
     assert strip_comment(line) == "q = total "

@@ -1,7 +1,7 @@
 """Each control injects one defect and asserts the check owning it notices.
 
-A check that cannot fail looks exactly like a check that passes, so the controls
-are tests in their own right rather than a claim in a README.
+A check that cannot fail looks exactly like a check that passes, so the
+controls are tests in their own right rather than a claim in a README.
 """
 
 import importlib
@@ -54,9 +54,10 @@ def test_every_exemption_gives_a_reason():
         )
 
 
-#: Each structure control, and the branch it is named for. Stubbing the branch
-#: out must make the control stop firing: a control that still fires has been
-#: satisfied by some other branch, and proves nothing about its own.
+#: Each structure control, and the branch it is named for. Stubbing the
+#: branch out must make the control stop firing: a control that still
+#: fires has been satisfied by some other branch, and proves nothing
+#: about its own.
 BRANCHES = {
     "a section title with a subtitle the other standards do not have": (
         "agent_skill.checks.skeleton",

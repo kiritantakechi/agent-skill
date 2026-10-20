@@ -1,9 +1,11 @@
 """Reading the check table, including the cells that contain the table's own separator.
 
-The reason column was scanned as `[^|]*`, which stops at the first `|` — including the `\\|` a GFM
-table requires for a literal pipe. Measured on the shipped README: the `dialect` row's reason, 159
-characters describing what `\\|` means in two grammars, read back as the two characters `` ` \\ ``
-and satisfied "every row carries a reason" on them.
+The reason column was scanned as `[^|]*`, which stops at the first `|` —
+including the `\\|` a GFM table requires for a literal pipe. Measured on
+the shipped README: the `dialect` row's reason, 159 characters
+describing what `\\|` means in two grammars, read back as the two
+characters `` ` \\ `` and satisfied "every row carries a reason" on
+them.
 
 A check that asks whether a field is present has to read the field.
 """

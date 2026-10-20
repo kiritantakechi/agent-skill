@@ -1,9 +1,9 @@
 """What a match covers, and the difference between "no" and "could not tell".
 
-`find` turns a `--json` event into a span by counting newlines in the matched
-text. `matches` answers True, False, or **None** — and the None is the whole
-point of the `UNRUN` level: a search that could not run must not be read as a
-search that found nothing.
+`find` turns a `--json` event into a span by counting newlines in the
+matched text. `matches` answers True, False, or **None** — and the None
+is the whole point of the `UNRUN` level: a search that could not run
+must not be read as a search that found nothing.
 """
 
 import pytest
@@ -89,9 +89,10 @@ def test_none_is_distinguishable_from_false_by_a_caller():
 def test_a_fixture_is_stripped_the_way_the_corpus_is():
     """`find` searches the comment-stripped copy; the fixture must be the same text.
 
-    Otherwise a fixture whose match depends on comment content certifies a pattern that the corpus
-    path can never fire on — the positive control and the specificity check would be answering about
-    two different inputs.
+    Otherwise a fixture whose match depends on comment content certifies
+    a pattern that the corpus path can never fire on — the positive
+    control and the specificity check would be answering about two
+    different inputs.
     """
     code_only = Pattern(r"let unused", "-E", "command")
     assert code_only.over_comments is False

@@ -1,9 +1,9 @@
 """Rules that say the same thing in two skills must agree on tier.
 
 The table is anchored on rule **titles**, which survive renumbering — a
-renumbering pass twice pointed it at unrelated rules. Titles only anchor if they
-are unique, which the anatomy check enforces; ambiguity here is a failure rather
-than a silent pick.
+renumbering pass twice pointed it at unrelated rules. Titles only anchor
+if they are unique, which the anatomy check enforces; ambiguity here is
+a failure rather than a silent pick.
 """
 
 import re
@@ -12,9 +12,10 @@ from agent_skill.checks import check
 from agent_skill.checks.anatomy import overlap
 from agent_skill.report import fail, note
 
-#: (rule id in another skill, title of its counterpart in the anchor). The id's
-#: prefix names which skill it belongs to, so a fourth standard joins the table
-#: without restructuring it — and gets the unheld-pair note for free.
+#: (rule id in another skill, title of its counterpart in the anchor).
+#: The id's prefix names which skill it belongs to, so a fourth standard
+#: joins the table without restructuring it — and gets the unheld-pair
+#: note for free.
 MIRROR: list[tuple[str, str]] = [
     ("ZS-TYPE-39", "Give every operation its inverse, or document why there is none"),
     ("ZS-TYPE-40", "Keep argument order identical across sibling functions"),
@@ -79,10 +80,11 @@ def mirror(skills):
                 "mirror",
             )
 
-    # The table is hand-maintained, so it needs something that notices a pair it
-    # does not yet hold: three mirrored rules were guarded by nothing at all.
-    # Every non-anchor skill is searched, not just the one the table was written
-    # for — a pair the table misses is the same defect whichever standard it is in.
+    # The table is hand-maintained, so it needs something that notices a
+    # pair it does not yet hold: three mirrored rules were guarded by
+    # nothing at all. Every non-anchor skill is searched, not just the
+    # one the table was written for — a pair the table misses is the
+    # same defect whichever standard it is in.
     anchor_shingles = [(r, _shingles(r.title)) for r in anchor.rules]
     for mirrored in by_prefix.values():
         for rule in mirrored.rules:

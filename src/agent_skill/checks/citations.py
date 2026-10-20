@@ -1,14 +1,15 @@
 """A rule's check must be one the shipped configuration actually turns on.
 
-`lints` already does this for Rust, comparing the crate's declared table against
-the shipped `Cargo.toml`. Python needs a second comparison the Rust side never
-had: this standard cites its checks by tool code, so a rule can name a code the
-asset disables — or one the tool withdrew — and read as enforced while nothing
-enforces it.
+`lints` already does this for Rust, comparing the crate's declared table
+against the shipped `Cargo.toml`. Python needs a second comparison the
+Rust side never had: this standard cites its checks by tool code, so a
+rule can name a code the asset disables — or one the tool withdrew — and
+read as enforced while nothing enforces it.
 
-The reverse direction is deliberately absent. The asset selects `ALL`, so the
-enabled set is most of ruff's catalogue and the standard cites a fraction of it;
-"enabled but uncited" is the normal case rather than a defect.
+The reverse direction is deliberately absent. The asset selects `ALL`,
+so the enabled set is most of ruff's catalogue and the standard cites a
+fraction of it; "enabled but uncited" is the normal case rather than a
+defect.
 """
 
 import json
@@ -24,11 +25,12 @@ from agent_skill.report import fail, unrun
 lazy from agent_skill.checks.lints import table
 
 #: `PS-CONC-02` and `3.15` are not ruff codes; `ANN401` and `B008` are.
-#: `ASYNC251` is five letters, and a cap of four hid every citation of that
-#: family — including one to a code that does not exist.
+#: `ASYNC251` is five letters, and a cap of four hid every citation of
+#: that family — including one to a code that does not exist.
 CODE = re.compile(r"(?<![A-Za-z0-9-])([A-Z]{1,5}[0-9]{3,4})(?![0-9])")
 
-#: Prefixes that are ruff linters. Anything else matching the shape is prose.
+#: Prefixes that are ruff linters. Anything else matching the shape is
+#: prose.
 LINTERS = frozenset(
     [
         "A",
@@ -165,9 +167,10 @@ def _withdrawn() -> set[str]:
     }
 
 
-#: The levels a `Decided by tools` row may state, per tool: the ones at which the
-#: tool fails a run. A row at a level that lets the run pass is a lint nothing
-#: enforces, which is a rule with its Why and Check deleted.
+#: The levels a `Decided by tools` row may state, per tool: the ones at
+#: which the tool fails a run. A row at a level that lets the run pass
+#: is a lint nothing enforces, which is a rule with its Why and Check
+#: deleted.
 LEVELS: dict[str, frozenset[str]] = {
     "ruff": frozenset({"error"}),
     "ty": frozenset({"error", "warn"}),
@@ -195,8 +198,8 @@ def row_shape(rows, tools: tuple[str, ...]):
 def python_rows(rows, enabled: set[str], ty_levels: dict[str, str]):
     """(row, message) for python rows the shipped configuration does not enforce as stated.
 
-    `ty_levels` is every rule ty knows, at the level the asset leaves it — its own
-    entry, or the default.
+    `ty_levels` is every rule ty knows, at the level the asset leaves it
+    — its own entry, or the default.
     """
     for row in rows:
         if row.tool == "ruff" and row.lint not in enabled:
@@ -224,11 +227,13 @@ def rust_rows(
 ):
     """(row, message) for Rust rows the shipped `[workspace.lints]` does not enforce as stated.
 
-    `shipped` is the asset's table as `lints.table` reads it (`clippy.unwrap_used` ->
-    `"deny"`). `catalogue` maps every lint the pinned toolchain knows, spelled as a
-    `[lints]` key under its tool's section, to its default level and its groups. A
-    lint's level is its own entry, else the entry of a group it belongs to, else its
-    default — the order Cargo applies them in, given the groups' `priority = -1`.
+    `shipped` is the asset's table as `lints.table` reads it
+    (`clippy.unwrap_used` -> `"deny"`). `catalogue` maps every lint the
+    pinned toolchain knows, spelled as a `[lints]` key under its tool's
+    section, to its default level and its groups. A lint's level is its
+    own entry, else the entry of a group it belongs to, else its default
+    — the order Cargo applies them in, given the groups'
+    `priority = -1`.
     """
     for row in rows:
         section = SECTION.get(row.tool)
@@ -323,9 +328,9 @@ def citations(skill):
         )
         return
 
-    # A rule's own body is where it cites its checks; the `**Check:**` section is
-    # part of it. Core rules in SKILL.md point at the chapter that owns them, so
-    # they carry no citation of their own.
+    # A rule's own body is where it cites its checks; the `**Check:**`
+    # section is part of it. Core rules in SKILL.md point at the chapter
+    # that owns them, so they carry no citation of their own.
     cited = {rule.id: _codes_in(rule.body) for rule in skill.rules}
 
     enabled, problem = _enabled(ruff_toml)
@@ -356,9 +361,10 @@ def citations(skill):
                         skill.name,
                     )
 
-    # The harness declares the ty levels it verifies under; the asset ships one
-    # for the reader. Two tables, compared — an asset that were also the
-    # configuration in force could not be checked against anything.
+    # The harness declares the ty levels it verifies under; the asset
+    # ships one for the reader. Two tables, compared — an asset that
+    # were also the configuration in force could not be checked against
+    # anything.
     shipped = tomllib.loads(ty_toml.read_text()).get("rules", {})
     declared = PYTHON_STYLE.ty_rules
     for name in sorted(set(shipped) - set(declared)):
@@ -391,8 +397,9 @@ def citations(skill):
 
 
 def _rust(skill):
-    # Asked before looking for rows: a check that declares a tool and returns
-    # early without it reports clean while it could not have looked.
+    # Asked before looking for rows: a check that declares a tool and
+    # returns early without it reports clean while it could not have
+    # looked.
     for tool in ("clippy-driver", "rustdoc"):
         if not have(tool):
             yield unrun(

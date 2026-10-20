@@ -1,8 +1,9 @@
 """zig-style's examples, one standalone file each.
 
-The rust side compiles its blocks as modules of one crate; Zig has no such
-container, so each block becomes a standalone file — which is also the stronger
-claim, and the one `// verified` should mean: this text compiles as written.
+The rust side compiles its blocks as modules of one crate; Zig has no
+such container, so each block becomes a standalone file — which is also
+the stronger claim, and the one `// verified` should mean: this text
+compiles as written.
 """
 
 import re
@@ -15,15 +16,17 @@ from agent_skill.model import inside_tests, needs_c_object
 from agent_skill.proc import have, run
 from agent_skill.report import Finding, fail, note
 
-#: The compiler `zig-style` is verified against. It follows this machine's
-#: `zig` rather than upstream's newest release, so `pins` compares it with
-#: `zig version` only: the skill moves when the compiler here does.
+#: The compiler `zig-style` is verified against. It follows this
+#: machine's `zig` rather than upstream's newest release, so `pins`
+#: compares it with `zig version` only: the skill moves when the
+#: compiler here does.
 ZIG_VERSION = "0.16.0"
 
-#: A `comptime` block at file scope is analysed by `zig build-obj`, so forcing
-#: analysis costs a tenth of a second per block instead of a link and a launch.
-#: Without it Zig never analyses the body of a function nobody calls, and a block
-#: with a type error in it reports success.
+#: A `comptime` block at file scope is analysed by `zig build-obj`, so
+#: forcing analysis costs a tenth of a second per block instead of a
+#: link and a launch. Without it Zig never analyses the body of a
+#: function nobody calls, and a block with a type error in it reports
+#: success.
 FORCE_ANALYSIS = """
 comptime {
     // The capture is named for this harness: Zig makes a capture that shadows a
@@ -38,8 +41,8 @@ comptime {
 #: A statement worth deleting: not a declaration, a brace, or a discard.
 _SKIP = ("//", "const ", "var ", "pub const", "pub var", "}", "_ = ")
 
-#: A defensive assertion earns its place on the path the tests do *not* reach —
-#: deleting one and staying green is what it is for, not a gap.
+#: A defensive assertion earns its place on the path the tests do *not*
+#: reach — deleting one and staying green is what it is for, not a gap.
 _ASSERT = re.compile(r"^(std\.debug\.)?assert\s*\(")
 
 
@@ -70,7 +73,8 @@ class Zig:
     def verify(self, ex: Extraction) -> Iterable[Finding]:
         for unit in ex.units:
             source = unit.path.read_text()
-            # semantic analysis of every declaration, without linking or running
+            # semantic analysis of every declaration, without linking or
+            # running
             r = run(
                 ["zig", "build-obj", str(unit.path), "-fno-emit-bin"],
                 cwd=ex.root,
@@ -88,10 +92,11 @@ class Zig:
                 )
                 continue
 
-            # A block that ships a `test` gets its assertions executed — unless
-            # it declares an `extern fn`, which needs a C object to link against.
-            # `extern struct` is a layout qualifier and links fine; testing for
-            # the substring `extern ` excluded two blocks whose four tests pass.
+            # A block that ships a `test` gets its assertions executed —
+            # unless it declares an `extern fn`, which needs a C object
+            # to link against. `extern struct` is a layout qualifier and
+            # links fine; testing for the substring `extern ` excluded
+            # two blocks whose four tests pass.
             if _has_test(source) and not needs_c_object(source):
                 t = run(["zig", "test", str(unit.path)], cwd=ex.root, timeout=180)
                 if t.timed_out:
@@ -107,8 +112,9 @@ class Zig:
                     )
                     yield fail(f"test run: {first.strip()[:84]}", unit.where)
 
-        # One invocation for the whole directory. Spawning `zig fmt` per block
-        # cost 215 process launches for a check that names each file anyway.
+        # One invocation for the whole directory. Spawning `zig fmt` per
+        # block cost 215 process launches for a check that names each
+        # file anyway.
         r = run(["zig", "fmt", "--check", str(ex.root)], cwd=ex.root, timeout=180)
         by_file = {u.path.name: u for u in ex.units}
         for line in r.out.splitlines():
@@ -118,11 +124,12 @@ class Zig:
     def mutate(self, ex: Extraction) -> Iterable[Finding]:
         """Statements a shipped test does not pin.
 
-        A survivor is a question, not a verdict: an illustrative example's test
-        pins the case its name describes, and a guard clause outside that case is
-        expected to survive. The defect this catches — a test that cannot fail on
-        its *own* stated case — shows up as a survivor inside the very function
-        the test is named for. So survivors are notes.
+        A survivor is a question, not a verdict: an illustrative
+        example's test pins the case its name describes, and a guard
+        clause outside that case is expected to survive. The defect this
+        catches — a test that cannot fail on its *own* stated case —
+        shows up as a survivor inside the very function the test is
+        named for. So survivors are notes.
         """
         for unit in ex.units:
             text = unit.path.read_text()

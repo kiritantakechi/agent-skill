@@ -1,14 +1,17 @@
 """Demote a standard's rules: to a lint-table row, into another rule, or out of it.
 
-A rule whose whole content is one lint the shipped configuration enables is a row in its
-chapter's `Decided by tools` table, not a rule. Demoting one is three edits that have to agree:
-the rule and its contents line go, the row arrives, and the rename table records what the old ID
-became. So they are one operation, and nothing is written unless every edit can be made.
+A rule whose whole content is one lint the shipped configuration enables
+is a row in its chapter's `Decided by tools` table, not a rule. Demoting
+one is three edits that have to agree: the rule and its contents line
+go, the row arrives, and the rename table records what the old ID
+became. So they are one operation, and nothing is written unless every
+edit can be made.
 
-It leaves two things. One is a gap in the chapter's numbering, which `agent-skill renumber`
-closes. The other is any citation of a demoted ID, which it reports for a person to resolve:
-whether a pointer to a rule that is now a lint should name the lint, the rule it merged into, or
-nothing, is a reading decision.
+It leaves two things. One is a gap in the chapter's numbering, which
+`agent-skill renumber` closes. The other is any citation of a demoted
+ID, which it reports for a person to resolve: whether a pointer to a
+rule that is now a lint should name the lint, the rule it merged into,
+or nothing, is a reading decision.
 """
 
 import re
@@ -34,7 +37,8 @@ class Demotion:
     leftovers: list[str] = field(default_factory=list)
 
 
-#: The four things a rule can become, each with the plan key that asks for it.
+#: The four things a rule can become, each with the plan key that asks
+#: for it.
 KINDS = ("rows", "lint", "merge", "remove")
 
 LEAD = "A tool settles these on its own; the shipped configuration enables each at the level shown."
@@ -43,9 +47,11 @@ LEAD = "A tool settles these on its own; the shipped configuration enables each 
 def plan(repo: Path, name: str, asked: dict[str, dict], profile=None) -> Demotion:
     """Everything the demotion would do, checked, and nothing done yet.
 
-    `asked` maps each rule ID to one of: `{"rows": [[tool, lint, level, forbids], …]}`, the
-    rows that replace it, the first of which it becomes; `{"lint": [tool, lint]}`, a row that
-    already exists; `{"merge": "ID"}`, the rule it was folded into; or `{"remove": "reason"}`.
+    `asked` maps each rule ID to one of:
+    `{"rows": [[tool, lint, level, forbids], …]}`, the rows that replace
+    it, the first of which it becomes; `{"lint": [tool, lint]}`, a row
+    that already exists; `{"merge": "ID"}`, the rule it was folded into;
+    or `{"remove": "reason"}`.
     """
     skill = Skill(repo / "skills" / name, profile)
     by_id = skill.by_id
@@ -153,8 +159,8 @@ def _prune(text: str) -> str:
 def _add_rows(text: str, rows: list[list[str]]) -> str:
     """`text` with `rows` in its `Decided by tools` table, which is started if it has none.
 
-    A new table goes before the rename tables, which close the migration chapter, and its
-    contents line closes the contents list.
+    A new table goes before the rename tables, which close the migration
+    chapter, and its contents line closes the contents list.
     """
     cells = [[c.replace("|", "\\|") for c in row] for row in rows]
     lines = [

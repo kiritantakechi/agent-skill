@@ -1,9 +1,10 @@
 """What a skill is made of.
 
-One parse, shared by every check. The recurring defect this replaces was a
-predicate implemented twice and fixed once: `#[repr(C)]` per-line in one tool and
-block-wide in another, a marker contract relaxed in three tools and not the
-fourth, which silently dropped two blocks from a corpus of 215.
+One parse, shared by every check. The recurring defect this replaces was
+a predicate implemented twice and fixed once: `#[repr(C)]` per-line in
+one tool and block-wide in another, a marker contract relaxed in three
+tools and not the fourth, which silently dropped two blocks from a
+corpus of 215.
 """
 
 import re
@@ -14,22 +15,25 @@ from pathlib import Path
 from agent_skill.text import code_only, strip_comment, syntax_for
 lazy from agent_skill.profiles import profile_for
 
-#: Every fenced example declares what it is, and the marker leads the block.
-#: A `//!` container-doc run may precede it, because that is where a real Zig or
-#: Rust file puts its module documentation; nothing else may.
+#: Every fenced example declares what it is, and the marker leads the
+#: block. A `//!` container-doc run may precede it, because that is
+#: where a real Zig or Rust file puts its module documentation; nothing
+#: else may.
 #:
-#: `rejected` names the tool that does the rejecting — `// rejected — clippy: …`
-#: — because a language has several ways to be wrong and one word for all of
-#: them names none of them: Python has the interpreter, the type checker and the
-#: linter, and Rust has `rustc` and `clippy`. `does-not-compile` said "the
-#: compiler" in a standard whose reader also runs a linter. A standard that has
-#: not been brought over yet declares its old vocabulary in its profile.
+#: `rejected` names the tool that does the rejecting —
+#: `// rejected — clippy: …` — because a language has several ways to be
+#: wrong and one word for all of them names none of them: Python has the
+#: interpreter, the type checker and the linter, and Rust has `rustc`
+#: and `clippy`. `does-not-compile` said "the compiler" in a standard
+#: whose reader also runs a linter. A standard that has not been brought
+#: over yet declares its old vocabulary in its profile.
 MARKERS = ("verified", "fragment", "rejected")
 
-#: `// verified — GOOD: the qualifier`. The comment syntax varies by language and
-#: so does the vocabulary; the shape does not. `kind` is matched loosely here and
-#: judged against the owning profile in `checks/markers.py`, because a grammar
-#: that hardcodes the words cannot be extended without being rewritten.
+#: `// verified — GOOD: the qualifier`. The comment syntax varies by
+#: language and so does the vocabulary; the shape does not. `kind` is
+#: matched loosely here and judged against the owning profile in
+#: `checks/markers.py`, because a grammar that hardcodes the words
+#: cannot be extended without being rewritten.
 _MARKER = re.compile(
     r"^(?://|#) (?P<kind>[a-z][a-z-]*)"
     r"(?: — (?P<verdict>GOOD|BAD))?"
@@ -78,8 +82,9 @@ class Marker:
     def bad(self) -> bool:
         """The block that shows the wrong form.
 
-        The marker classifies the block; the word appearing inside a prose
-        qualifier does not. `// verified — BAD` yes, `… a BAD frame` no.
+        The marker classifies the block; the word appearing inside a
+        prose qualifier does not. `// verified — BAD` yes,
+        `… a BAD frame` no.
         """
         return self.verdict == "BAD"
 
@@ -151,8 +156,9 @@ class Rule:
     def pointer(self) -> bool:
         """Does this rule point at the rule that owns the topic?
 
-        A pointer states no Why and no Check: the owner has them. Half of one and
-        half of the other is a rule that duplicated its owner and drifted.
+        A pointer states no Why and no Check: the owner has them. Half
+        of one and half of the other is a rule that duplicated its owner
+        and drifted.
         """
         return self.statement.lstrip().startswith("Owned by")
 
@@ -187,8 +193,8 @@ class LintRow:
 class Rename:
     """One row of a rename table: an old ID and what it became.
 
-    `now` is a rule ID, `lint <tool>:<name>` for a rule demoted to a lint-table
-    row, or `removed — <reason>`.
+    `now` is a rule ID, `lint <tool>:<name>` for a rule demoted to a
+    lint-table row, or `removed — <reason>`.
     """
 
     before: str
@@ -216,13 +222,16 @@ class Rename:
 #: The section a chapter lists its tool-decided claims under.
 DECIDED = "Decided by tools"
 
-#: The section a migration chapter keeps a renumbering's rename table under.
+#: The section a migration chapter keeps a renumbering's rename table
+#: under.
 RENAMED = re.compile(r"^## Rule IDs before the .+ revision$", re.MULTILINE)
 
-#: The en dash a range is written with, as prose writes a range of numbers.
+#: The en dash a range is written with, as prose writes a range of
+#: numbers.
 DASH = "\u2013"
 
-#: A family's range as a rename table states it: first and last ID joined by the dash, or one ID.
+#: A family's range as a rename table states it: first and last ID
+#: joined by the dash, or one ID.
 _RANGE = re.compile(rf"`([A-Z]{{2}}-[A-Z]+)-(\d+)`(?:{DASH}`\1-(\d+)`)?")
 
 
@@ -231,7 +240,8 @@ class RenameTable:
     """One revision's rename table: the range each family ran before it, and a row for each
     old ID that changed. An ID in range with no row still names the rule it named.
 
-    `span` is where the section sits in its file, for the renumbering that rewrites it.
+    `span` is where the section sits in its file, for the renumbering
+    that rewrites it.
     """
 
     heading: str
@@ -277,8 +287,9 @@ def rename_tables(text: str) -> list[RenameTable]:
 def without_renames(text: str) -> str:
     """`text` with every rename table blanked, line count kept.
 
-    A rename table lists IDs that no longer exist, on purpose: they are what a
-    reader holding an old citation looks up. Read as citations they are dangling.
+    A rename table lists IDs that no longer exist, on purpose: they are
+    what a reader holding an old citation looks up. Read as citations
+    they are dangling.
     """
 
     def blank(m: re.Match[str]) -> str:
@@ -302,8 +313,8 @@ def _rows(text: str, start: int) -> list[tuple[int, list[str]]]:
             if seen_header and out:
                 break
             continue
-        # A pipe inside a cell is written `\|`, as markdown requires even inside
-        # a code span; only an unescaped pipe divides cells.
+        # A pipe inside a cell is written `\|`, as markdown requires
+        # even inside a code span; only an unescaped pipe divides cells.
         inner = line.strip().removeprefix("|").removesuffix("|")
         cells = [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", inner)]
         if not seen_header:
@@ -318,9 +329,9 @@ def _rows(text: str, start: int) -> list[tuple[int, list[str]]]:
 def _section(body: str, name: str) -> str:
     """The text of a labelled section, up to the next label, heading or example.
 
-    The next *label* — `**Check:**` — not the next line that opens with `**`. A Why
-    holding a bolded phrase at the start of a line was read as ending there, so a
-    long Why measured short.
+    The next *label* — `**Check:**` — not the next line that opens with
+    `**`. A Why holding a bolded phrase at the start of a line was read
+    as ending there, so a long Why measured short.
     """
     m = re.search(
         rf"\*\*{name}:?\*\*(.*?)(?=\n\*\*[^*\n]+:\*\*|\n### |\n## |\n```|\Z)",
@@ -522,17 +533,17 @@ class Skill:
     def advice(self, lang: str | None = None, *, verified: bool = False) -> list[Block]:
         """The blocks this standard offers as advice, not as evidence.
 
-        `// verified — BAD` compiles, which is what the marker claims, and exists
-        to contain the shape a rule forbids — which is what those patterns hunt. Ten
-        of them sat in the self-application corpus, so a rule whose pattern matched
-        its own illustration would have failed for demonstrating itself
-        correctly.
+        `// verified — BAD` compiles, which is what the marker claims,
+        and exists to contain the shape a rule forbids — which is what
+        those patterns hunt. Ten of them sat in the self-application
+        corpus, so a rule whose pattern matched its own illustration
+        would have failed for demonstrating itself correctly.
 
-        One definition, because there were five: this predicate was spelled
-        inline in `checks/selfapply.py` and again in each of the three profiles,
-        while the shared name sat here uncalled — in the module whose own
-        docstring names "a predicate implemented twice and fixed once" as the
-        defect it exists to prevent.
+        One definition, because there were five: this predicate was
+        spelled inline in `checks/selfapply.py` and again in each of the
+        three profiles, while the shared name sat here uncalled — in the
+        module whose own docstring names "a predicate implemented twice
+        and fixed once" as the defect it exists to prevent.
         """
         return [
             b for b in self.blocks(lang, verified=verified) if not b.marker.evidence
@@ -549,14 +560,15 @@ def discover(skills_dir: Path) -> list[Skill]:
     ]
 
 
-# ------------------------------------------------------------------ predicates
+# ------------------------------------------------------------------
+# predicates
 
 
 def repr_c_above(lines: list[str], j: int) -> bool:
     """Is the item containing line `j` declared `#[repr(C)]`?
 
-    Per line, not per block: a block that mixes a layout-sensitive type with an
-    ordinary one must still report the ordinary one.
+    Per line, not per block: a block that mixes a layout-sensitive type
+    with an ordinary one must still report the ordinary one.
     """
     for k in range(j - 1, max(-1, j - 14), -1):
         s = lines[k].strip()
@@ -570,9 +582,10 @@ def repr_c_above(lines: list[str], j: int) -> bool:
 def inside_tests(body: str) -> set[int]:
     """Indices of the lines inside a zig `test` block, by brace depth.
 
-    Several rules are scoped to test bodies ("no `std.debug.print` in a test"),
-    and a `const log = std.log.scoped(...)` at container scope is not what they
-    hunt. Container scope is order-independent, so a `test` may sit anywhere.
+    Several rules are scoped to test bodies ("no `std.debug.print` in a
+    test"), and a `const log = std.log.scoped(...)` at container scope
+    is not what they hunt. Container scope is order-independent, so a
+    `test` may sit anywhere.
     """
     inside: set[int] = set()
     depth, active = 0, False
@@ -594,7 +607,8 @@ _EXTERN_FN = re.compile(r'\bextern\s+(?:"[^"]*"\s+)?fn\b')
 def needs_c_object(source: str) -> bool:
     """Does this block declare a symbol only a C object can supply?
 
-    `extern struct` and `extern union` are layout qualifiers and link fine.
-    Testing for the substring `extern ` excluded two blocks whose four tests pass.
+    `extern struct` and `extern union` are layout qualifiers and link
+    fine. Testing for the substring `extern ` excluded two blocks whose
+    four tests pass.
     """
     return bool(_EXTERN_FN.search(code_only(source)))

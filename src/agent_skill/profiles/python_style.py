@@ -9,14 +9,16 @@ from agent_skill.report import Finding, fail
 from agent_skill.text import strip_comment, syntax_for
 lazy from agent_skill.lang.python import INTERPRETER
 
-#: PS-TYPE — PEP 563 is Superseded, and the future import does not merely fail to
-#: help on 3.14+: it silently degrades `annotationlib` `VALUE` and `FORWARDREF`
-#: to bare strings, so a library reading annotations gets text it must `eval`.
+#: PS-TYPE — PEP 563 is Superseded, and the future import does not
+#: merely fail to help on 3.14+: it silently degrades `annotationlib`
+#: `VALUE` and `FORWARDREF` to bare strings, so a library reading
+#: annotations gets text it must `eval`.
 FUTURE_ANNOTATIONS = re.compile(r"^\s*from\s+__future__\s+import\s+.*\bannotations\b")
 
-#: PS-CONC — the GIL made a read-modify-write on shared state *unlikely* to
-#: interleave rather than atomic. Free-threading removes the luck, not a
-#: guarantee: eight threads lose roughly three quarters of the updates.
+#: PS-CONC — the GIL made a read-modify-write on shared state *unlikely*
+#: to interleave rather than atomic. Free-threading removes the luck,
+#: not a guarantee: eight threads lose roughly three quarters of the
+#: updates.
 AUGMENTED_ON_SHARED = re.compile(
     r"^\s*(?:self|cls)\.\w+\s*(?:[+\-*/|&^]|//|\*\*|>>|<<)="
 )
@@ -31,8 +33,8 @@ META = re.compile(
 def _inside_tests(body: str) -> set[int]:
     """Body-line indices inside a `def test_*` function, by indentation.
 
-    Python has no block delimiter to count, so the end of a test is the next
-    line at or below the `def`'s own indentation that is not blank.
+    Python has no block delimiter to count, so the end of a test is the
+    next line at or below the `def`'s own indentation that is not blank.
     """
     inside: set[int] = set()
     lines = body.split("\n")
@@ -56,9 +58,9 @@ class PythonStyle(Profile):
     name: str = "python-style"
     prefix: str = "PS"
     languages: tuple[str, ...] = ("python",)
-    #: `pyproject.toml`, `ruff.toml`, `ty.toml` and `pytest.toml` examples carry
-    #: markers too, and were invisible to every tool while the marked set was
-    #: derived from the fence tag alone.
+    #: `pyproject.toml`, `ruff.toml`, `ty.toml` and `pytest.toml`
+    #: examples carry markers too, and were invisible to every tool
+    #: while the marked set was derived from the fence tag alone.
     marked_languages: tuple[str, ...] = ("toml",)
     tools: tuple[str, ...] = ("python", "ty", "ruff")
     language: str = "Python"
@@ -66,26 +68,28 @@ class PythonStyle(Profile):
     strict_scope: str = "library and high-reliability"
     toolchain: str | None = "python"
     exempt: dict = field(default_factory=dict)
-    #: Each snippet is the defect its rule forbids, written the way it appears in
-    #: real code rather than tailored to the pattern — a fixture shaped to match
-    #: proves the fixture, not the pattern.
+    #: Each snippet is the defect its rule forbids, written the way it
+    #: appears in real code rather than tailored to the pattern — a
+    #: fixture shaped to match proves the fixture, not the pattern.
     fires: dict = field(
         default_factory=lambda: {
             "PS-API-05": ("from acmewidget._internal import helper",),
             "PS-ASYNC-01": ("loop = asyncio.new_event_loop()",),
             "PS-ASYNC-02": ("loop = asyncio.get_event_loop()",),
             "PS-ASYNC-03": ("task = asyncio.create_task(worker())",),
-            # The pattern carried a stray space for as long as it shipped, and
-            # matched nothing; this is the line it was written to find.
+            # The pattern carried a stray space for as long as it
+            # shipped, and matched nothing; this is the line it was
+            # written to find.
             "PS-MIG-08": ("if json.__version__ < (2, 0):",),
         }
     )
     not_decisive: dict = field(
         default_factory=lambda: {
-            # Each anchor is a literal fragment of that rule's own **Check:**, so
-            # rewriting the rule cannot leave a stale entry quietly suppressing
-            # its pattern. Every one of these finds the shape; something the
-            # pattern cannot see decides whether the shape is a defect.
+            # Each anchor is a literal fragment of that rule's own
+            # **Check:**, so rewriting the rule cannot leave a stale
+            # entry quietly suppressing its pattern. Every one of these
+            # finds the shape; something the pattern cannot see decides
+            # whether the shape is a defect.
             "PS-CONC-02": NotDecisive(
                 "read each hit",
                 "the pattern finds every compound assignment; whether the target is "
@@ -148,8 +152,9 @@ class PythonStyle(Profile):
                 "inside a class body is what makes it a default, which the pattern "
                 "cannot see",
             ),
-            # Polarity: this Check asserts the shape is *present*, so its hits are
-            # evidence of compliance and reading them as defects inverts the rule.
+            # Polarity: this Check asserts the shape is *present*, so
+            # its hits are evidence of compliance and reading them as
+            # defects inverts the rule.
             "PS-DATA-14": NotDecisive(
                 "should be roughly as common as",
                 "a presence assertion: the finding is an absence, which no hit can show",
@@ -229,16 +234,18 @@ class PythonStyle(Profile):
     def prose(self, skill) -> Iterable[Finding]:
         """The standard must not recommend a spelling it forbids.
 
-        `from __future__ import annotations` is banned outright, so prose naming
-        it is either hunting it (inside a `**Check:**`) or is the rule that bans
-        it. Anything else is the standard teaching the thing it exists to stop —
-        which is how three passages survived the same rule being tightened in
-        `zig-style`. Scoped per rule and per Check block, because both wrap.
+        `from __future__ import annotations` is banned outright, so
+        prose naming it is either hunting it (inside a `**Check:**`) or
+        is the rule that bans it. Anything else is the standard teaching
+        the thing it exists to stop — which is how three passages
+        survived the same rule being tightened in `zig-style`. Scoped
+        per rule and per Check block, because both wrap.
         """
         span = re.compile(r"__future__")
-        # A table row is the standard's own dead-API listing, and a line already
-        # calling the spelling stale, superseded or forbidden is the rule doing
-        # its job. What is left is prose that names it without condemning it.
+        # A table row is the standard's own dead-API listing, and a line
+        # already calling the spelling stale, superseded or forbidden is
+        # the rule doing its job. What is left is prose that names it
+        # without condemning it.
         condemned = re.compile(
             r"\b(stale|superseded|forbidden|deprecat|never|no longer|degrade|"
             r"wrong|dead|remove)",

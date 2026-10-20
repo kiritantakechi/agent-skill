@@ -37,11 +37,13 @@ class RustStyle(Profile):
     verified_as: str = "compiles as written against Rust {rust}, edition 2024"
     strict_scope: str = "library and high-reliability"
     crate: Crate | None = RUST_STYLE
-    #: Each snippet is the defect its rule forbids, written the way it turns up
-    #: in real code. A fixture shaped to match proves the fixture, not the pattern.
+    #: Each snippet is the defect its rule forbids, written the way it
+    #: turns up in real code. A fixture shaped to match proves the
+    #: fixture, not the pattern.
     fires: dict = field(
         default_factory=lambda: {
-            # A dependency the standard library replaced, one per pattern.
+            # A dependency the standard library replaced, one per
+            # pattern.
             "RS-MIG-01": ('lazy_static = "1.5"', 'async-trait = "0.1"'),
             "RS-MIG-02": (
                 "counter.fetch_update(Ordering::SeqCst, Ordering::SeqCst, step)",
@@ -51,11 +53,12 @@ class RustStyle(Profile):
             "RS-DOC-31": ("/// See [the guide](https://docs.rs/serde/latest/serde/).",),
         }
     )
-    #: Measured, not judged: each of these was promoted to accuse and hit the
-    #: standard's own compliant examples. The reason names what the span finds
-    #: and what, outside the match, decides whether the hit is a defect — never
-    #: how many examples it hit the day someone measured, which is a number
-    #: `_render` already prints live two fields away and nothing re-measures.
+    #: Measured, not judged: each of these was promoted to accuse and
+    #: hit the standard's own compliant examples. The reason names what
+    #: the span finds and what, outside the match, decides whether the
+    #: hit is a defect — never how many examples it hit the day someone
+    #: measured, which is a number `_render` already prints live two
+    #: fields away and nothing re-measures.
     not_decisive: dict = field(
         default_factory=lambda: {
             "RS-API-06": NotDecisive(
@@ -209,7 +212,8 @@ class RustStyle(Profile):
     )
     exempt: dict = field(
         default_factory=lambda: {
-            # RS-API-23: "Every hit that is not on a `#[repr(C)]` type is a defect"
+            # RS-API-23: "Every hit that is not on a `#[repr(C)]` type
+            # is a defect"
             "RS-API-23": lambda lines, at, in_test: repr_c_above(lines, at.start - 1),
         }
     )
@@ -224,7 +228,8 @@ class RustStyle(Profile):
                 where = f"{b.file}:{b.at(j)} [{b.rule}]"
                 code = strip_comment(raw)
 
-                # RS-API-29 — a public signature never takes a bare `bool`
+                # RS-API-29 — a public signature never takes a bare
+                # `bool`
                 m = re.search(
                     r"\bpub (?:async )?fn (\w+)\s*(?:<[^>]*>)?\(([^)]*)\)", code
                 )
@@ -233,7 +238,8 @@ class RustStyle(Profile):
                         f"`{m.group(1)}` takes a bool parameter (RS-API-29)", where
                     )
 
-                # RS-NAME-24 — a `bool`-returning method reads as a question
+                # RS-NAME-24 — a `bool`-returning method reads as a
+                # question
                 m = re.search(r"\bpub (?:async )?fn (\w+)\([^)]*\)\s*->\s*bool\b", code)
                 if m and not QUESTION.match(m.group(1)):
                     yield note(
@@ -241,7 +247,8 @@ class RustStyle(Profile):
                         where,
                     )
 
-                # RS-API-23 / RS-API-25 — no public field, no public tuple field
+                # RS-API-23 / RS-API-25 — no public field, no public
+                # tuple field
                 if re.match(r"^\s+pub [a-z_]\w*:", raw) and not repr_c_above(lines, j):
                     yield fail(
                         "public struct field outside `#[repr(C)]` (RS-API-23)", where

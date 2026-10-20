@@ -1,8 +1,8 @@
 """The shipped lint table and the one the examples are verified against.
 
-They must be the same table. The asset once set `indexing_slicing = "warn"` where
-a rule requires deny, and the verified crate quietly omitted a third lint
-while its comment named two.
+They must be the same table. The asset once set
+`indexing_slicing = "warn"` where a rule requires deny, and the verified
+crate quietly omitted a third lint while its comment named two.
 """
 
 import re
@@ -50,7 +50,8 @@ def lints(skill):
                 skill.name,
             )
 
-    # clippy's own configuration: the same two tables, compared the same way.
+    # clippy's own configuration: the same two tables, compared the same
+    # way.
     asset = skill.root / "assets" / "clippy.toml"
     shipped_clippy = tomllib.loads(asset.read_text()) if asset.exists() else {}
     if shipped_clippy != crate.clippy:

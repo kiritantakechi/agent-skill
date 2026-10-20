@@ -1,9 +1,9 @@
 """The text around the examples.
 
-A standard states facts and cites sources. It does not narrate how it was built:
-which machine ran a probe, on what date, how many times. A reader cannot act on
-any of that, and the marker legend belongs in `SKILL.md` once rather than
-restated in every chapter.
+A standard states facts and cites sources. It does not narrate how it
+was built: which machine ran a probe, on what date, how many times. A
+reader cannot act on any of that, and the marker legend belongs in
+`SKILL.md` once rather than restated in every chapter.
 """
 
 import re
@@ -56,8 +56,8 @@ def prose(skill):
                     yield fail(why, f"{tag}:{i}")
                     break  # one line, one finding
 
-        # A `>` blockquote whose continuation lost its marker renders as a
-        # separate paragraph, and nothing else measures it.
+        # A `>` blockquote whose continuation lost its marker renders as
+        # a separate paragraph, and nothing else measures it.
         quoted = False
         for i, line in enumerate(text.split("\n"), 1):
             if line.startswith(">"):
@@ -68,7 +68,8 @@ def prose(skill):
                 yield fail("blockquote continuation lost its `>`", f"{tag}:{i}")
                 quoted = False
 
-        # A cross-reference is an ID; `the rule below` breaks when a rule moves.
+        # A cross-reference is an ID; `the rule below` breaks when a
+        # rule moves.
         positional = re.compile(POSITIONAL.format(pre=skill.prefix))
         for i, line in enumerate(text.split("\n"), 1):
             if positional.search(line):

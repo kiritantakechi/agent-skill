@@ -1,10 +1,10 @@
 """The anchor sweep: that it runs at all, and what it does with a search that could not answer.
 
-Both cases here shipped. The sweep was unreachable — a `return` above it and the loop indented into
-its branch — for as long as its negative control passed through a different branch of the same
-check.
-And the surviving call site read `find`'s `None` as an empty hit set, which is the failure the
-`UNRUN` level exists to make impossible everywhere else.
+Both cases here shipped. The sweep was unreachable — a `return` above it
+and the loop indented into its branch — for as long as its negative
+control passed through a different branch of the same check. And the
+surviving call site read `find`'s `None` as an empty hit set, which is
+the failure the `UNRUN` level exists to make impossible everywhere else.
 """
 
 import ast
@@ -30,9 +30,10 @@ def bevy(skills):
 def test_the_sweep_is_reachable():
     """Asserted on the syntax tree, because it reads correct at every other level.
 
-    The loop is indented, spelled and typed exactly as it would be if it ran. Nothing short of
-    asking where it sits relative to the `return` above it can tell the difference, which is why
-    reading the function did not.
+    The loop is indented, spelled and typed exactly as it would be if it
+    ran. Nothing short of asking where it sits relative to the `return`
+    above it can tell the difference, which is why reading the function
+    did not.
     """
     tree = ast.parse(SOURCE.read_text())
     fn = next(
@@ -79,9 +80,10 @@ def test_a_search_that_answers_nothing_is_a_clean_result(bevy, monkeypatch):
 def test_the_sweep_has_something_to_sweep(bevy):
     """A guard over an empty subject set passes for the wrong reason.
 
-    The sweep only runs an anchor's patterns when the delta cites that anchor and the rule is not
-    named in the delta's `SKILL.md`. If that population ever reached zero, every assertion above
-    would still pass over nothing at all.
+    The sweep only runs an anchor's patterns when the delta cites that
+    anchor and the rule is not named in the delta's `SKILL.md`. If that
+    population ever reached zero, every assertion above would still pass
+    over nothing at all.
     """
     delta, by_prefix, rows = bevy
 

@@ -1,7 +1,7 @@
 """The pattern engine.
 
-Every case here is a defect that shipped: a pattern that could not fire, a
-pattern that was dropped, and a pattern read in the wrong dialect.
+Every case here is a defect that shipped: a pattern that could not fire,
+a pattern that was dropped, and a pattern read in the wrong dialect.
 """
 
 import re
@@ -23,10 +23,10 @@ from agent_skill.checks.patterns import dialect_of, patterns_of
 def test_a_command_is_a_regex_unless_it_says_fixed(command, mode):
     """Two values, not three.
 
-    The library used to hold basic and extended expressions at once, chosen by
-    whether a command happened to carry `-E`, and a pattern read in the wrong
-    one matches nothing while reporting clean. What is left is a real
-    distinction: a regex, or literal text.
+    The library used to hold basic and extended expressions at once,
+    chosen by whether a command happened to carry `-E`, and a pattern
+    read in the wrong one matches nothing while reporting clean. What is
+    left is a real distinction: a regex, or literal text.
     """
     assert dialect_of(command) == mode
 
@@ -41,9 +41,9 @@ def test_a_shipped_command_is_taken_as_written():
 def test_a_filename_argument_is_not_a_pattern():
     """A file argument read as a pattern is a build break, not a missed hit.
 
-    A command-kind hit is tier 1, so every example naming the file would fail
-    the standard. `*.c` and `*.h` were missing from the list and did exactly
-    that once the dialect stopped tolerating a leading `*`.
+    A command-kind hit is tier 1, so every example naming the file would
+    fail the standard. `*.c` and `*.h` were missing from the list and
+    did exactly that once the dialect stopped tolerating a leading `*`.
     """
     assert [p.text for p in patterns_of("`rg -n 'pub fn' src/ -g '*.zig'`")] == [
         "pub fn"
@@ -64,8 +64,9 @@ def test_a_prose_span_is_a_fixed_string():
 def test_a_prose_check_still_phrased_as_grep_is_read():
     """Most Checks that name a search say it in prose rather than shipping a command.
 
-    Rewriting those is not part of the migration to `rg`, so the trigger still
-    recognises the word — a verb in prose is not a tool invocation.
+    Rewriting those is not part of the migration to `rg`, so the trigger
+    still recognises the word — a verb in prose is not a tool
+    invocation.
     """
     [p] = patterns_of("**Check:** grep for `weak_handle!` in every plugin.")
     assert (p.text, p.kind) == ("weak_handle!", "prose")
@@ -78,12 +79,13 @@ def test_a_check_that_names_no_pattern_yields_none():
 def test_the_prose_fallback_has_something_to_fall_back_on(skills):
     """The branch that reads a prose Check is dead code if nothing reaches it.
 
-    `patterns_of` only looks for a backticked span when the Check names a search
-    without shipping a command. That population shrinks every time a Check is
-    promoted, and the day it reaches zero the branch stops being exercised while
-    every test still passes. Asserted rather than counted in a comment: a number
-    in a comment is a claim nothing checks, which is what put `247` there and
-    left it there after the real figure was measured at 280.
+    `patterns_of` only looks for a backticked span when the Check names
+    a search without shipping a command. That population shrinks every
+    time a Check is promoted, and the day it reaches zero the branch
+    stops being exercised while every test still passes. Asserted rather
+    than counted in a comment: a number in a comment is a claim nothing
+    checks, which is what put `247` there and left it there after the
+    real figure was measured at 280.
     """
     trigger = re.compile(
         r"\bgrep\b|\brg\b|\bscan\b|\bsearch for\b|\blook for\b", re.IGNORECASE

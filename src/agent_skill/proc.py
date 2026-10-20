@@ -1,8 +1,8 @@
 """Subprocesses whose timeout is a result, not an exception.
 
-Deleting a loop increment turns a test into a hang. Handled on one side and left
-to raise on the other, that asymmetry aborted a whole mutation pass on the first
-hanging mutant and skipped every one after it.
+Deleting a loop increment turns a test into a hang. Handled on one side
+and left to raise on the other, that asymmetry aborted a whole mutation
+pass on the first hanging mutant and skipped every one after it.
 """
 
 import os
@@ -43,7 +43,8 @@ def run(
             stderr=subprocess.PIPE,
             text=True,
             env={**os.environ, **env} if env else None,
-            # So a timeout can reach the whole tree, not just the leader.
+            # So a timeout can reach the whole tree, not just the
+            # leader.
             start_new_session=True,
         )
     except FileNotFoundError:
@@ -61,11 +62,11 @@ def run(
 def _kill_tree(proc: subprocess.Popen) -> None:
     """Kill the process group, because `Popen.kill` kills only the leader.
 
-    Timing out a `cargo` left nine to twelve `rustc` children alive — measured,
-    and still climbing two seconds later — every one of them writing into the
-    build directory the next invocation was about to use, with cargo's lock
-    already gone. A build directory in an undefined state is how a mutation run
-    reports something impossible.
+    Timing out a `cargo` left nine to twelve `rustc` children alive —
+    measured, and still climbing two seconds later — every one of them
+    writing into the build directory the next invocation was about to
+    use, with cargo's lock already gone. A build directory in an
+    undefined state is how a mutation run reports something impossible.
     """
     try:
         os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
@@ -76,11 +77,12 @@ def _kill_tree(proc: subprocess.Popen) -> None:
 def tool_path(tool: str) -> str | None:
     """Where this tool actually is, preferring the pinned copy over the host's.
 
-    `shutil.which` answers "what would a shell run", which is the host's binary
-    whenever `PATH` puts it first. Measured: with `ripgrep-bin` pinned into the
-    environment, `which("rg")` still resolved to `/run/current-system/sw/bin/rg`
-    outside an activated venv. A tool is pinned so that *it* runs; a pin that
-    does not decide which binary executes describes an install nobody uses.
+    `shutil.which` answers "what would a shell run", which is the host's
+    binary whenever `PATH` puts it first. Measured: with `ripgrep-bin`
+    pinned into the environment, `which("rg")` still resolved to
+    `/run/current-system/sw/bin/rg` outside an activated venv. A tool is
+    pinned so that *it* runs; a pin that does not decide which binary
+    executes describes an install nobody uses.
     """
     local = Path(sys.prefix) / "bin" / tool
     if local.is_file() and os.access(local, os.X_OK):
@@ -91,9 +93,9 @@ def tool_path(tool: str) -> str | None:
 def have(tool: str) -> bool:
     """Is this tool available at all?
 
-    By lookup, not by running it: `zig --version` is not how zig spells it, so
-    probing with `--version` reported zig as absent and silently skipped every
-    check that needed it.
+    By lookup, not by running it: `zig --version` is not how zig spells
+    it, so probing with `--version` reported zig as absent and silently
+    skipped every check that needed it.
     """
     return tool_path(tool) is not None
 
@@ -102,23 +104,25 @@ def have(tool: str) -> bool:
 _VERSION = re.compile(r"(\d+\.\d+\.\d+)")
 
 #: The distribution that ships each binary, where the two are spelled
-#: differently. `rg` comes from `ripgrep-bin`; neither name derives from the
-#: other, and guessing produced a `pinned_version` that found nothing and
-#: reported agreement.
+#: differently. `rg` comes from `ripgrep-bin`; neither name derives from
+#: the other, and guessing produced a `pinned_version` that found
+#: nothing and reported agreement.
 PACKAGE = {"rg": "ripgrep-bin"}
 
 
 def declared_pins() -> str | None:
     """The file the tool pins are declared in, or None when it cannot be read.
 
-    It sits beside the package in the source tree and nowhere at all once the
-    package is installed: `uv build --wheel` does not ship `pyproject.toml`.
-    Reading it unguarded raised `FileNotFoundError` out of `searcher_problem`, so
-    `agent-skill check` from an installed distribution died with a traceback
-    instead of reporting — and `[project.scripts]` declares that entry point, so
-    that is a supported way to run it.
+    It sits beside the package in the source tree and nowhere at all
+    once the package is installed: `uv build --wheel` does not ship
+    `pyproject.toml`. Reading it unguarded raised `FileNotFoundError`
+    out of `searcher_problem`, so `agent-skill check` from an installed
+    distribution died with a traceback instead of reporting — and
+    `[project.scripts]` declares that entry point, so that is a
+    supported way to run it.
 
-    Not being able to read the pins is a complaint, not a crash and not a pass.
+    Not being able to read the pins is a complaint, not a crash and not
+    a pass.
     """
     try:
         return (Path(__file__).resolve().parents[2] / "pyproject.toml").read_text()
@@ -129,9 +133,9 @@ def declared_pins() -> str | None:
 def pinned_version(tool: str) -> str | None:
     """The version `pyproject.toml` pins this tool to, read rather than repeated.
 
-    Declared once. A constant here and a pin there is two declarations that
-    agree until someone edits one, which is the shape of every drift this
-    repository has had to chase.
+    Declared once. A constant here and a pin there is two declarations
+    that agree until someone edits one, which is the shape of every
+    drift this repository has had to chase.
     """
     package = PACKAGE.get(tool, tool)
     text = declared_pins()
@@ -144,17 +148,19 @@ def pinned_version(tool: str) -> str | None:
 def version_mismatch(tool: str, reported: str) -> str | None:
     """The complaint, if the binary that will run is not the one pinned.
 
-    A standard claiming verification against a version the harness was not
-    running is a false statement about work that was done. This is the check
-    that makes the claim true rather than aspirational.
+    A standard claiming verification against a version the harness was
+    not running is a false statement about work that was done. This is
+    the check that makes the claim true rather than aspirational.
 
-    An unfindable pin is itself the complaint. Returning "no mismatch" when the
-    pin cannot be read is how the first version of this function reported that
-    an unpinned `rg` agreed with a pin that did not exist.
+    An unfindable pin is itself the complaint. Returning "no mismatch"
+    when the pin cannot be read is how the first version of this
+    function reported that an unpinned `rg` agreed with a pin that did
+    not exist.
 
-    Two ways to be unfindable, told apart because they call for different things:
-    a pin missing from a file that is there is something to add, and a file that
-    is not there at all is how this runs when installed rather than checked out.
+    Two ways to be unfindable, told apart because they call for
+    different things: a pin missing from a file that is there is
+    something to add, and a file that is not there at all is how this
+    runs when installed rather than checked out.
     """
     want = pinned_version(tool)
     if want is None:

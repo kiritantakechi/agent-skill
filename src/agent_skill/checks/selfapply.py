@@ -1,12 +1,14 @@
 """The standard's own Checks, run against its own examples.
 
-Many rules end in a Check that is a literal `rg`. A standard whose examples fail
-its own patterns is not a standard, and nothing was running them.
+Many rules end in a Check that is a literal `rg`. A standard whose
+examples fail its own patterns is not a standard, and nothing was
+running them.
 
-What is left here is the judgement: which tier a hit belongs to, and how it
-reads. Turning a Check into patterns is `patterns`, what they run over is
-`corpus`, and running them is `search` — three concerns that were in this file
-and that `crossref` was importing from a module named after a different check.
+What is left here is the judgement: which tier a hit belongs to, and how
+it reads. Turning a Check into patterns is `patterns`, what they run
+over is `corpus`, and running them is `search` — three concerns that
+were in this file and that `crossref` was importing from a module named
+after a different check.
 """
 
 import re
@@ -52,9 +54,10 @@ def _run(skill, lang):
     for rule in skill.rules:
         if not rule.check:
             continue
-        # An entry suppresses this rule's pattern, so it has to keep quoting words
-        # the rule still says. Claimed before the path-scoped skip below, or a
-        # `rg -v` rule with an entry would look like a rule that vanished.
+        # An entry suppresses this rule's pattern, so it has to keep
+        # quoting words the rule still says. Claimed before the
+        # path-scoped skip below, or a `rg -v` rule with an entry would
+        # look like a rule that vanished.
         if entry := profile.not_decisive.get(rule.id):
             claimed.add(rule.id)
             if entry.anchor not in " ".join(rule.check.split()):
@@ -63,8 +66,9 @@ def _run(skill, lang):
                     f"**Check:** no longer says",
                     skill.name,
                 )
-        # `rg … | rg -v '^src/lib.rs'` asks *which file* the hit is in. An
-        # example block is a single crate root, so it cannot be evaluated here.
+        # `rg … | rg -v '^src/lib.rs'` asks *which file* the hit is in.
+        # An example block is a single crate root, so it cannot be
+        # evaluated here.
         if re.search(r"\brg -v\b", rule.check):
             continue
 
@@ -92,8 +96,8 @@ def _run(skill, lang):
             else:
                 tier2.append(row)
 
-    # Only this skill's own entries: an entry naming a rule the skill no longer
-    # defines is a suppression standing over nothing.
+    # Only this skill's own entries: an entry naming a rule the skill no
+    # longer defines is a suppression standing over nothing.
     for rid in sorted(set(profile.not_decisive) - claimed):
         yield fail(
             f"{rid}: the exemption names a rule this skill does not define", skill.name

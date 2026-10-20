@@ -1,9 +1,10 @@
 """Mirrored rules agree on tier, in every standard rather than in one pair.
 
-The check was written for `rust-style` against `zig-style` and named both
-skills as module constants, so a third standard could disagree with the anchor
-about a tier and nothing would look. These cases pin the routing: the skill a
-table entry refers to comes from the rule id's prefix.
+The check was written for `rust-style` against `zig-style` and named
+both skills as module constants, so a third standard could disagree with
+the anchor about a tier and nothing would look. These cases pin the
+routing: the skill a table entry refers to comes from the rule id's
+prefix.
 """
 
 from dataclasses import dataclass

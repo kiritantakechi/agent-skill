@@ -1,8 +1,8 @@
 """The examples, compiled.
 
-`// verified` is a claim about a compiler, so a compiler is what settles it.
-Extraction is also the only place that can tell "no defects" from "no input": an
-empty crate builds, lints, tests and mutates clean.
+`// verified` is a claim about a compiler, so a compiler is what settles
+it. Extraction is also the only place that can tell "no defects" from
+"no input": an empty crate builds, lints, tests and mutates clean.
 """
 
 import tempfile
@@ -42,9 +42,10 @@ def mutation(skill):
     if tc.missing():
         yield note("the toolchain check already says what is absent", skill.name)
         return
-    # `Toolchain` is a Protocol, so nothing enforces `mutate` at runtime and a
-    # toolchain without it raised `AttributeError` inside a check with no `try` —
-    # aborting the whole run rather than reporting one gap.
+    # `Toolchain` is a Protocol, so nothing enforces `mutate` at runtime
+    # and a toolchain without it raised `AttributeError` inside a check
+    # with no `try` — aborting the whole run rather than reporting one
+    # gap.
     mutate = getattr(tc, "mutate", None)
     if mutate is None:
         yield unrun(

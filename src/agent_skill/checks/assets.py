@@ -1,8 +1,9 @@
 """The files a skill ships in `assets/`, checked as files.
 
-Six assets shipped and nothing validated any of them. They are the one part of a
-skill a reader copies verbatim rather than adapts, so a `build.zig` that does not
-parse is worse than a wrong example: it is handed over as ready to use.
+Six assets shipped and nothing validated any of them. They are the one
+part of a skill a reader copies verbatim rather than adapts, so a
+`build.zig` that does not parse is worse than a wrong example: it is
+handed over as ready to use.
 """
 
 import re
@@ -15,8 +16,9 @@ from agent_skill.checks import check
 from agent_skill.proc import have, run
 from agent_skill.report import fail, unrun
 
-#: A workflow is not YAML we can parse without a dependency, so check the shape a
-#: broken one loses first: the top-level keys and the absence of tabs.
+#: A workflow is not YAML we can parse without a dependency, so check
+#: the shape a broken one loses first: the top-level keys and the
+#: absence of tabs.
 WORKFLOW_KEYS = ("name:", "on:", "jobs:")
 
 
@@ -57,9 +59,10 @@ def assets(skill):
         if f"assets/{path.name}" not in referenced:
             yield fail("shipped but never referenced from the skill", tag)
 
-        # An asset cites rules to say why it is shaped the way it is, and
-        # nothing was checking those: `_references` reads the chapters and
-        # `SKILL.md`, not `assets/`. Twenty-two citations sat unverified.
+        # An asset cites rules to say why it is shaped the way it is,
+        # and nothing was checking those: `_references` reads the
+        # chapters and `SKILL.md`, not `assets/`. Twenty-two citations
+        # sat unverified.
         for rid in sorted(
             set(re.findall(rf"\b{skill.prefix}-[A-Z]+-\d+[a-z]?\b", text)) - rules
         ):
@@ -69,31 +72,32 @@ def assets(skill):
 def _build(data, text, tag):
     """Build the project the metadata describes, if it describes one.
 
-    Parsing is not verification. `assets/pyproject.toml` was valid TOML, agreed
-    with every rule that owned it, was cited by name from three chapters, and
-    could not be built at all: the distribution was `acme-widget`, so the
-    backend looked for `src/acme_widget/` and the package was `acmewidget`.
-    Sixteen checks and 109 tests passed over it, because none of them ever
-    handed it to a backend.
+    Parsing is not verification. `assets/pyproject.toml` was valid TOML,
+    agreed with every rule that owned it, was cited by name from three
+    chapters, and could not be built at all: the distribution was
+    `acme-widget`, so the backend looked for `src/acme_widget/` and the
+    package was `acmewidget`. Sixteen checks and 109 tests passed over
+    it, because none of them ever handed it to a backend.
     """
     name = data.get("project", {}).get("name")
     if not name or "build-system" not in data:
         return  # a config file, not a project
     if not have("uv"):
-        # `UNRUN`, not `NOTE`: `Result.ok` is `not fails and not unrun`, so a
-        # note lets a run where nothing built this template report ALL CHECKS
-        # PASSED. `citations`, `pins` and `toolchain` all use `unrun` here; this
-        # path and `_zig` were the two that did not, and both were copied from
-        # the same wrong precedent.
+        # `UNRUN`, not `NOTE`: `Result.ok` is `not fails and not unrun`,
+        # so a note lets a run where nothing built this template report
+        # ALL CHECKS PASSED. `citations`, `pins` and `toolchain` all use
+        # `unrun` here; this path and `_zig` were the two that did not,
+        # and both were copied from the same wrong precedent.
         yield unrun("`uv` is not on PATH, so nothing built this project", tag)
         return
 
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
-        # The directory is the *distribution* name, not the name a backend
-        # normalises it to. That is the point: PS-BUILD-14 requires the two to
-        # match, so a name needing an override fails here rather than silently
-        # working because the fixture was built to suit it.
+        # The directory is the *distribution* name, not the name a
+        # backend normalises it to. That is the point: PS-BUILD-14
+        # requires the two to match, so a name needing an override fails
+        # here rather than silently working because the fixture was
+        # built to suit it.
         package = root / "src" / name
         package.mkdir(parents=True)
         (package / "__init__.py").write_text("")
@@ -123,8 +127,9 @@ def _build(data, text, tag):
             yield fail(f"does not build: {first.strip()[:88]}", tag)
             return
 
-        # A rule claims the marker ships. Read it off the artefact rather than
-        # off the backend's documentation, which is where the claim came from.
+        # A rule claims the marker ships. Read it off the artefact
+        # rather than off the backend's documentation, which is where
+        # the claim came from.
         wheels = list((root / "dist").glob("*.whl"))
         if not wheels:
             yield fail("build reported success but produced no wheel", tag)
@@ -136,9 +141,9 @@ def _build(data, text, tag):
 
 def _zig(path, tag):
     if not have("zig"):
-        # Silence is not success, and a `NOTE` is silence: it does not withhold
-        # the pass. A shipped `build.zig` that nothing parsed is exactly the case
-        # this check exists for.
+        # Silence is not success, and a `NOTE` is silence: it does not
+        # withhold the pass. A shipped `build.zig` that nothing parsed
+        # is exactly the case this check exists for.
         yield unrun("`zig` is not on PATH, so nothing parsed this file", tag)
         return
     if not run(["zig", "fmt", "--check", str(path)], timeout=60).ok:

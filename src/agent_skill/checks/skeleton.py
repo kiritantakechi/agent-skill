@@ -1,16 +1,17 @@
 """Every standard has the same shape.
 
-Four standards written at different times shared a shape because each copied the
-last, which held until it did not: a fifth section numbered and titled
-differently in one of them, a §7 missing from another, a review protocol in three
-of four, two conventions for naming a chapter, and family codes of three letters
-in one standard and four in the next for the same concept. A reader who knows one
-standard should find their way around any other by position alone.
+Four standards written at different times shared a shape because each
+copied the last, which held until it did not: a fifth section numbered
+and titled differently in one of them, a §7 missing from another, a
+review protocol in three of four, two conventions for naming a chapter,
+and family codes of three letters in one standard and four in the next
+for the same concept. A reader who knows one standard should find their
+way around any other by position alone.
 
-What is checked is position and naming — the H1, the H2s and their order, chapter
-names and family codes, the review protocol's sections and severity model, and
-the agreement between §5 and the protocol's review order. The words of the shared
-passages belong to `shared-text`.
+What is checked is position and naming — the H1, the H2s and their
+order, chapter names and family codes, the review protocol's sections
+and severity model, and the agreement between §5 and the protocol's
+review order. The words of the shared passages belong to `shared-text`.
 """
 
 import re
@@ -31,8 +32,9 @@ def skeleton(skill):
         yield fail(problem, skill.name)
         return
     if reason := skill.profile.exempt_from_structure:
-        # An exemption is a promise that the standard does not conform yet. One
-        # standing over a standard that does is one nobody re-examined.
+        # An exemption is a promise that the standard does not conform
+        # yet. One standing over a standard that does is one nobody
+        # re-examined.
         if not any(True for _ in structure(skill)):
             yield fail(
                 f"exempt from standard-structure ({reason}), but already conforms — "

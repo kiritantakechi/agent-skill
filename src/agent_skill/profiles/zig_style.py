@@ -18,13 +18,14 @@ class ZigStyle(Profile):
     name: str = "zig-style"
     prefix: str = "ZS"
     languages: tuple[str, ...] = ("zig",)
-    #: `build.zig.zon` examples carry markers too, and were invisible to every
-    #: tool while the rule prefix was derived from the fence tag.
+    #: `build.zig.zon` examples carry markers too, and were invisible to
+    #: every tool while the rule prefix was derived from the fence tag.
     marked_languages: tuple[str, ...] = ("zon",)
     toolchain: str | None = "zig"
-    #: Still the vocabulary from before `rejected` named its tool, and still the
-    #: chapter names and family codes from before the shared table. Both move with
-    #: the zig bump, which waits for this machine's `zig` rather than upstream.
+    #: Still the vocabulary from before `rejected` named its tool, and
+    #: still the chapter names and family codes from before the shared
+    #: table. Both move with the zig bump, which waits for this
+    #: machine's `zig` rather than upstream.
     markers: tuple[str, ...] = ("verified", "fragment", "does-not-compile")
     tools: tuple[str, ...] = ("zig",)
     language: str = "Zig"
@@ -36,25 +37,28 @@ class ZigStyle(Profile):
     )
     exempt: dict = field(
         default_factory=lambda: {
-            # ZS-NAME-14: "keep `self` for anonymous generic containers" — a
-            # receiver typed `Self` is the case the rule permits.
+            # ZS-NAME-14: "keep `self` for anonymous generic containers"
+            # — a receiver typed `Self` is the case the rule permits.
             "ZS-NAME-14": lambda lines, at, in_test: "Self" in lines[at.start - 1],
-            # ZS-TEST-11: "`rg …` inside `test` blocks — every hit must be on
-            # an `errdefer` line". Container-scope logging is not the target.
+            # ZS-TEST-11: "`rg …` inside `test` blocks — every hit must
+            # be on an `errdefer` line". Container-scope logging is not
+            # the target.
             "ZS-TEST-11": lambda lines, at, in_test: (
                 (at.start - 1) not in in_test or "errdefer" in lines[at.start - 1]
             ),
         }
     )
-    #: Each snippet is the defect its rule forbids, written the way it turns up
-    #: in real code. A fixture shaped to match proves the fixture, not the pattern.
+    #: Each snippet is the defect its rule forbids, written the way it
+    #: turns up in real code. A fixture shaped to match proves the
+    #: fixture, not the pattern.
     fires: dict = field(
         default_factory=lambda: {
-            # Four patterns, because one line of alternation is unreadable — so
-            # four fixtures. While there was one, three of the four were counted
-            # as proven by a snippet none of them matched, and any of the three
-            # could have been narrowed to match nothing without this noticing.
-            # Each is the *old* spelling from that pattern's own row in the
+            # Four patterns, because one line of alternation is
+            # unreadable — so four fixtures. While there was one, three
+            # of the four were counted as proven by a snippet none of
+            # them matched, and any of the three could have been
+            # narrowed to match nothing without this noticing. Each is
+            # the *old* spelling from that pattern's own row in the
             # table, written as the call site had it.
             "ZS-MIG-13": (
                 "const seen = EnumSet(Color).initEmpty();",
@@ -64,11 +68,12 @@ class ZigStyle(Profile):
             ),
         }
     )
-    #: Measured, not judged: each of these was promoted to accuse and hit the
-    #: standard's own compliant examples. The reason names what the span finds
-    #: and what, outside the match, decides whether the hit is a defect — never
-    #: how many examples it hit the day someone measured, which is a number
-    #: `_render` already prints live two fields away and nothing re-measures.
+    #: Measured, not judged: each of these was promoted to accuse and
+    #: hit the standard's own compliant examples. The reason names what
+    #: the span finds and what, outside the match, decides whether the
+    #: hit is a defect — never how many examples it hit the day someone
+    #: measured, which is a number `_render` already prints live two
+    #: fields away and nothing re-measures.
     not_decisive: dict = field(
         default_factory=lambda: {
             "ZS-CAPI-09": NotDecisive(
@@ -155,8 +160,9 @@ class ZigStyle(Profile):
                 "scoped to the build and release scripts, where a hit is licensed "
                 "by a benchmark the pattern cannot see",
             ),
-            # Polarity: this Check asserts the shape is *present*, so its hits are
-            # evidence of compliance and reading them as defects inverts the rule.
+            # Polarity: this Check asserts the shape is *present*, so
+            # its hits are evidence of compliance and reading them as
+            # defects inverts the rule.
             "ZS-BUILD-40": NotDecisive(
                 "has this block",
                 "a presence assertion, and scoped to `build.zig`: the finding is a "
@@ -186,8 +192,9 @@ class ZigStyle(Profile):
                 where = f"{b.file}:{b.at(j)} [{b.rule}]"
                 code = strip_comment(raw)
 
-                # ZS-ERR-08 [M] — every `catch {}` or `catch unreachable` carries
-                # a comment. The comment may sit on the line above.
+                # ZS-ERR-08 [M] — every `catch {}` or
+                # `catch unreachable` carries a comment. The comment may
+                # sit on the line above.
                 justified = "//" in raw or any(
                     ln.strip().startswith("//") for ln in lines[max(0, j - 3) : j]
                 )
@@ -196,8 +203,8 @@ class ZigStyle(Profile):
                         "`catch` swallows without the comment ZS-ERR-08 requires", where
                     )
 
-                # ZS-ERR-30 [M] — "every hit is a defect, including inside
-                # `comptime` blocks and `const` initializers"
+                # ZS-ERR-30 [M] — "every hit is a defect, including
+                # inside `comptime` blocks and `const` initializers"
                 if ".?" in code and b.rule != "ZS-ERR-30":
                     yield fail(
                         "`.?` unwrap; ZS-ERR-30 asks for `orelse`, a capture, or "
@@ -205,8 +212,8 @@ class ZigStyle(Profile):
                         where,
                     )
 
-                # ZS-TEST-06 [M] — "drop the `@as` wrapper": peer resolution
-                # already handles a literal on the other side
+                # ZS-TEST-06 [M] — "drop the `@as` wrapper": peer
+                # resolution already handles a literal on the other side
                 if re.search(r"expectEqual\(@as\([a-zA-Z0-9_]+, [^()]*\), ", code):
                     yield fail(
                         "`@as` wrapper inside `expectEqual`; peer resolution already "
@@ -219,9 +226,10 @@ class ZigStyle(Profile):
                         "doc comment discusses the example rather than the API", where
                     )
 
-            # ZS-NAME-19 — "Order imports `@This()` → `builtin` → `std` → local".
-            # The rule is [S], but a suggestion the library declines to follow in
-            # its own examples is not a suggestion.
+            # ZS-NAME-19 — "Order imports `@This()` → `builtin` → `std`
+            # → local". The rule is [S], but a suggestion the library
+            # declines to follow in its own examples is not a
+            # suggestion.
             imports = {
                 kind: i
                 for i in range(len(lines) - 1, -1, -1)
@@ -244,10 +252,11 @@ class ZigStyle(Profile):
     def prose(self, skill) -> Iterable[Finding]:
         """ZS-ERR-30 forbids `.?` outright.
 
-        Prose naming it is therefore either hunting it (inside a `**Check:**`) or
-        is the rule that bans it. Anything else is the standard recommending a
-        spelling it forbids, which is how three passages survived the rule being
-        tightened. Scoped per rule and per Check block, because both wrap.
+        Prose naming it is therefore either hunting it (inside a
+        `**Check:**`) or is the rule that bans it. Anything else is the
+        standard recommending a spelling it forbids, which is how three
+        passages survived the rule being tightened. Scoped per rule and
+        per Check block, because both wrap.
         """
         span = re.compile(r"`[^`\n]*\.\?[^`\n]*`")
         for chapter in skill.chapters:

@@ -1,14 +1,15 @@
 """python-style's examples, one standalone file each, run on the pinned build.
 
-Rust compiles its blocks as modules of one crate; Python, like Zig, has no such
-container, so each block becomes a file — the stronger claim, and the one
-`# verified` should mean: this text runs as written.
+Rust compiles its blocks as modules of one crate; Python, like Zig, has
+no such container, so each block becomes a file — the stronger claim,
+and the one `# verified` should mean: this text runs as written.
 
-Two tools are needed rather than one, and for a reason worth stating. Running a
-block exercises only the lines it reaches, and Python reaches none of an
-unexercised branch: a block whose error is inside `if never():` runs clean. A
-type checker analyses every declaration whether or not it executes. Execution
-covers what runs; `ty` covers what does not. Neither alone is enough.
+Two tools are needed rather than one, and for a reason worth stating.
+Running a block exercises only the lines it reaches, and Python reaches
+none of an unexercised branch: a block whose error is inside
+`if never():` runs clean. A type checker analyses every declaration
+whether or not it executes. Execution covers what runs; `ty` covers what
+does not. Neither alone is enough.
 """
 
 import re
@@ -21,14 +22,16 @@ from agent_skill.lang import Extraction, Unit
 from agent_skill.proc import have, run
 from agent_skill.report import Finding, fail, note
 
-#: The interpreter the examples are written for, resolved through `uv` rather
-#: than through PATH. PATH here is a GIL build, and verifying free-threading
-#: rules against one is the shape of failure the README records for
-#: `zig --version`: a probe that cannot fail reports success.
+#: The interpreter the examples are written for, resolved through `uv`
+#: rather than through PATH. PATH here is a GIL build, and verifying
+#: free-threading rules against one is the shape of failure the README
+#: records for `zig --version`: a probe that cannot fail reports
+#: success.
 INTERPRETER = "cpython-3.15.0+freethreaded"
 
-#: A venv on that interpreter, holding the pinned `pytest`. Persistent for the
-#: same reason `.cache/target` is: resolving it per run costs more than it saves.
+#: A venv on that interpreter, holding the pinned `pytest`. Persistent
+#: for the same reason `.cache/target` is: resolving it per run costs
+#: more than it saves.
 VENV = Path(__file__).resolve().parents[3] / ".cache" / "python315t"
 PYTHON = VENV / "bin" / "python"
 
@@ -37,15 +40,17 @@ PYTHON = VENV / "bin" / "python"
 class Snippet:
     """How the examples are checked, declared here and compared to the assets.
 
-    This is deliberately *not* read from `assets/ruff.toml`. An asset that is
-    also the configuration in force cannot be checked against anything — the
-    comparison would have the asset on both sides. `checks/lints.py` already
-    works this way for Rust: the crate declares its table, the asset ships one,
-    and the check compares them.
+    This is deliberately *not* read from `assets/ruff.toml`. An asset
+    that is also the configuration in force cannot be checked against
+    anything — the comparison would have the asset on both sides.
+    `checks/lints.py` already works this way for Rust: the crate
+    declares its table, the asset ships one, and the check compares
+    them.
 
-    The selection is narrower than the asset because these are snippets, not a
-    project: a fenced example has no module docstring and no `__init__.py`, and
-    holding it to rules about project shape would teach nothing.
+    The selection is narrower than the asset because these are snippets,
+    not a project: a fenced example has no module docstring and no
+    `__init__.py`, and holding it to rules about project shape would
+    teach nothing.
     """
 
     select: tuple[str, ...] = (
@@ -63,8 +68,9 @@ class Snippet:
         "B008",  # a call in a default is the point of some examples
         "RUF001",  # the prose uses en-dashes deliberately
     )
-    #: `ty` rule levels: every rule that is off by default and that the asset
-    #: enables, named one at a time for the reason `assets/ty.toml` gives.
+    #: `ty` rule levels: every rule that is off by default and that the
+    #: asset enables, named one at a time for the reason
+    #: `assets/ty.toml` gives.
     ty_rules: dict[str, str] = field(
         default_factory=lambda: {
             "blanket-ignore-comment": "error",
@@ -109,12 +115,12 @@ class Snippet:
 
 PYTHON_STYLE = Snippet()
 
-#: `path:line:col: CODE message` — the one output shape both tools share, and
-#: the only `ty` format that keeps warn distinct from error.
+#: `path:line:col: CODE message` — the one output shape both tools
+#: share, and the only `ty` format that keeps warn distinct from error.
 DIAGNOSTIC = re.compile(r"^(?P<file>[^:]+):(?P<line>\d+):\d+:\s*(?P<rest>.+)$")
 
-#: A statement worth deleting when hunting for a test that cannot fail: not a
-#: declaration, an import, or a bare expression.
+#: A statement worth deleting when hunting for a test that cannot fail:
+#: not a declaration, an import, or a bare expression.
 _SKIP = ("def ", "class ", "import ", "from ", "@", "#", "assert ", "return", "yield")
 
 
@@ -125,9 +131,10 @@ def _has_tests(source: str) -> bool:
 def _reaches_outside(source: str) -> bool:
     """Does the block need something a sealed temp directory cannot give it?
 
-    Such a block is not eligible to be `# verified`; the rule that shows it
-    marks it `# fragment`. Checked rather than trusted, because "it worked on my
-    machine" is exactly the claim `# verified` is supposed to replace.
+    Such a block is not eligible to be `# verified`; the rule that shows
+    it marks it `# fragment`. Checked rather than trusted, because "it
+    worked on my machine" is exactly the claim `# verified` is supposed
+    to replace.
     """
     return bool(
         re.search(r"\b(urlopen|requests\.|socket\.|time\.sleep|input\()", source)
@@ -155,8 +162,9 @@ class Python:
         if not PYTHON.exists():
             absent.append(f"the pinned interpreter is not built — {rebuild}")
         elif (running := _running()) != (pinned := _pinned()):
-            # The venv outlives a pin move. Without this, moving the pin left the
-            # examples verified on the old build while the harness reported the new.
+            # The venv outlives a pin move. Without this, moving the pin
+            # left the examples verified on the old build while the
+            # harness reported the new.
             absent.append(
                 f"the venv runs Python {running} and the pin is {pinned} — {rebuild}"
             )
@@ -211,8 +219,9 @@ class Python:
                 if _has_tests(source)
                 else [str(PYTHON), unit.path.name]
             )
-            # cwd is the extraction directory, so a block that writes a file
-            # writes it somewhere the run owns and the caller deletes.
+            # cwd is the extraction directory, so a block that writes a
+            # file writes it somewhere the run owns and the caller
+            # deletes.
             r = run(cmd, cwd=ex.root, timeout=120)
             if r.timed_out:
                 yield fail("the block did not finish in 120s", unit.where)
@@ -257,11 +266,12 @@ class Python:
     def _report(self, ex: Extraction, r, label: str) -> Iterable[Finding]:
         """Diagnostics decide; the exit code only corroborates.
 
-        The README records what reading the exit status costs: clippy was
-        reported clean because half the table is `warn` and it exits 0 on a
-        warning. So the output is parsed, and a non-zero exit that produced no
-        parsed diagnostic is its own finding — that combination means the harness
-        did not understand the output, which is worse than either answer.
+        The README records what reading the exit status costs: clippy
+        was reported clean because half the table is `warn` and it exits
+        0 on a warning. So the output is parsed, and a non-zero exit
+        that produced no parsed diagnostic is its own finding — that
+        combination means the harness did not understand the output,
+        which is worse than either answer.
         """
         by_name = {u.path.name: u for u in ex.units}
         found = 0
@@ -288,10 +298,10 @@ class Python:
     def mutate(self, ex: Extraction) -> Iterable[Finding]:
         """A shipped test must be able to fail.
 
-        Survivors are notes, not verdicts: an illustrative example's test pins
-        the case its name describes, and a guard outside that case is expected to
-        survive. The defect this catches is a test that cannot fail on its own
-        stated case.
+        Survivors are notes, not verdicts: an illustrative example's
+        test pins the case its name describes, and a guard outside that
+        case is expected to survive. The defect this catches is a test
+        that cannot fail on its own stated case.
         """
         for unit in ex.units:
             original = unit.path.read_text()

@@ -1,11 +1,12 @@
 """Format a skill's rust examples the way the toolchain check demands.
 
-`cargo fmt --check` decides whether a block is formatted, and it judges the
-block as the extractor wrote it — indented inside a `pub mod`, where rustfmt's
-`chain_width` and `struct_lit_width` bite earlier than they do at column zero.
-That made the check report diffs a reader of the markdown could not have
-predicted. This runs the same extraction, formats it, and writes the result
-back, so the check is actionable rather than merely correct.
+`cargo fmt --check` decides whether a block is formatted, and it judges
+the block as the extractor wrote it — indented inside a `pub mod`, where
+rustfmt's `chain_width` and `struct_lit_width` bite earlier than they do
+at column zero. That made the check report diffs a reader of the
+markdown could not have predicted. This runs the same extraction,
+formats it, and writes the result back, so the check is actionable
+rather than merely correct.
 """
 
 import re
@@ -28,12 +29,12 @@ _MODULE = re.compile(r"^pub mod (\w+) \{$", re.MULTILINE)
 def _bodies(path: Path, crate: Crate) -> list[str]:
     """The dedented body of each `pub mod`, with the extractor's rebasing undone.
 
-    `lang.rust._module` rewrites `crate::` and `mycrate::` to point inside the
-    wrapper module, so the block compiles where it is put. Writing that back
-    would store the harness's own path in the skill — the leak the extractor's
-    comment warns about, arriving by the other door — so it is inverted here.
-    Round-tripping a block through `fmt` has to be the identity on everything
-    except whitespace.
+    `lang.rust._module` rewrites `crate::` and `mycrate::` to point
+    inside the wrapper module, so the block compiles where it is put.
+    Writing that back would store the harness's own path in the skill —
+    the leak the extractor's comment warns about, arriving by the other
+    door — so it is inverted here. Round-tripping a block through `fmt`
+    has to be the identity on everything except whitespace.
     """
     text = path.read_text()
     starts = [m for m in _MODULE.finditer(text)]
@@ -57,10 +58,11 @@ def _bodies(path: Path, crate: Crate) -> list[str]:
     return out
 
 
-#: Toolchain name -> the function that rewrites that language's blocks. A
-#: formatter is a fact about a language, so the dispatch is by toolchain rather
-#: than by whether the profile happens to carry a `Crate` — that gate returned
-#: early for every non-Rust skill before the branch was even reached.
+#: Toolchain name -> the function that rewrites that language's blocks.
+#: A formatter is a fact about a language, so the dispatch is by
+#: toolchain rather than by whether the profile happens to carry a
+#: `Crate` — that gate returned early for every non-Rust skill before
+#: the branch was even reached.
 FORMATTERS: dict[str, object] = {}
 
 
@@ -68,8 +70,8 @@ def format_skill(skill) -> list[str]:
     """Rewrite each verified block the way that language's formatter would, and
     each shared passage the way its template says.
 
-    Returns one line per passage or chapter changed. The shared passages come
-    first: they are text, and need no toolchain to rewrite.
+    Returns one line per passage or chapter changed. The shared passages
+    come first: they are text, and need no toolchain to rewrite.
     """
     if skill.profile.exempt_from_structure is not None:
         changed: list[str] = []
@@ -82,8 +84,9 @@ def format_skill(skill) -> list[str]:
 def _reflow(skill) -> list[str]:
     """Bring every prose line of the skill back under the `layout` limit.
 
-    A renaming lengthens a code inside a sentence, and an edit lengthens a line; either way the
-    finding is a formatting one, and `fmt` is where formatting findings are fixed.
+    A renaming lengthens a code inside a sentence, and an edit lengthens
+    a line; either way the finding is a formatting one, and `fmt` is
+    where formatting findings are fixed.
     """
     changed: list[str] = []
     for path in skill.markdown:
@@ -122,7 +125,8 @@ def _format_rust(skill) -> list[str]:
                 continue
             path = skill.root / "references" / chapter
             text = path.read_text()
-            # Last first, so an earlier replacement cannot move a later block.
+            # Last first, so an earlier replacement cannot move a later
+            # block.
             hits = 0
             for block, body in reversed(list(zip(wanted, bodies, strict=True))):
                 if block.body == body:
@@ -144,9 +148,10 @@ def _format_rust(skill) -> list[str]:
 def _format_python(skill) -> list[str]:
     """Rewrite each `# verified` python block as `ruff format` would have it.
 
-    Simpler than the Rust path because each block is already its own file: there
-    is no crate to reassemble, so a block that fails to format is reported alone
-    rather than taking its chapter's siblings with it.
+    Simpler than the Rust path because each block is already its own
+    file: there is no crate to reassemble, so a block that fails to
+    format is reported alone rather than taking its chapter's siblings
+    with it.
     """
     config = skill.root / "assets" / "ruff.toml"
     if not config.exists():
@@ -177,7 +182,8 @@ def _format_python(skill) -> list[str]:
             path = skill.root / "references" / chapter
             text = path.read_text()
             hits = 0
-            # Last first, so an earlier replacement cannot move a later block.
+            # Last first, so an earlier replacement cannot move a later
+            # block.
             for unit in sorted(units, key=lambda u: u.line, reverse=True):
                 body = unit.path.read_text()
                 same = (b for b in skill.blocks("python") if b.file == chapter)

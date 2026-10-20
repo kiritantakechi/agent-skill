@@ -98,13 +98,14 @@ def anatomy(skill):
                 if section:
                     blocks[(rule.id, label)] = " ".join(section.split())
 
-    # Ids run in order within a chapter. Appending a rule in the middle passes
-    # every other check — the contents list agrees, because it was edited too —
-    # and leaves a reader scanning 01..08, 25, 09. The other two skills hold the
-    # invariant across 1149 rules; this catches the one that broke it.
+    # Ids run in order within a chapter. Appending a rule in the middle
+    # passes every other check — the contents list agrees, because it
+    # was edited too — and leaves a reader scanning 01..08, 25, 09. The
+    # other two skills hold the invariant across 1149 rules; this
+    # catches the one that broke it.
     #
-    # A standard that follows standard-structure numbers densely, which decides
-    # this and more, so the order is judged there and not twice.
+    # A standard that follows standard-structure numbers densely, which
+    # decides this and more, so the order is judged there and not twice.
     conforming = skill.profile.exempt_from_structure is None
     for chapter in [] if conforming else skill.chapters:
         nums = [
@@ -121,15 +122,16 @@ def anatomy(skill):
         for message, where in structural(skill):
             yield fail(message, where)
 
-    # The contents list is ordered like the chapter, or it is not a map of it.
+    # The contents list is ordered like the chapter, or it is not a map
+    # of it.
     for chapter in skill.chapters:
         if list(chapter.toc) and list(chapter.toc) != [r.id for r in chapter.rules]:
             yield fail(
                 "contents order != heading order", f"{skill.name}/{chapter.name}"
             )
 
-    # A title is an anchor, so it has to be unique: `titles[title] = rid`
-    # silently kept whichever chapter sorted last.
+    # A title is an anchor, so it has to be unique:
+    # `titles[title] = rid` silently kept whichever chapter sorted last.
     for title, ids in sorted(titles.items()):
         if len(ids) > 1:
             yield fail(
@@ -148,9 +150,10 @@ def anatomy(skill):
 def _shape(skill, rule, where):
     """A rule states its own Why and Check, or points at the rule that owns them.
 
-    Half of one and half of the other is a rule that duplicated its owner and
-    drifted: ZS-IO-39 pointed at the migration chapter, then kept a two-row copy
-    of that chapter's table whose rows were already in it.
+    Half of one and half of the other is a rule that duplicated its
+    owner and drifted: ZS-IO-39 pointed at the migration chapter, then
+    kept a two-row copy of that chapter's table whose rows were already
+    in it.
     """
     has = ("**Why" in rule.body, "**Check" in rule.body)
     if rule.pointer and any(has):
@@ -163,13 +166,14 @@ def _shape(skill, rule, where):
         yield fail(
             f"{rule.id} points at an owner without saying so in its title", where
         )
-    # The owner demonstrates the rule. A pointer that also carries an example is
-    # a second copy to keep in step.
+    # The owner demonstrates the rule. A pointer that also carries an
+    # example is a second copy to keep in step.
     if rule.pointer and "```" in rule.body:
         yield fail(f"{rule.id} is a pointer rule with an example of its own", where)
 
 
-#: Words that carry no signal when matching a summary to the rule it cites.
+#: Words that carry no signal when matching a summary to the rule it
+#: cites.
 _ID = re.compile(r"`references/[^`]+`|\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b")
 
 
@@ -182,16 +186,17 @@ def _words(text: str) -> set[str]:
 def _mis_cited(skill):
     """A core rule that cites a sibling of the rule it is actually about.
 
-    `BV-CORE-16` summarised the `EntityEvent` rule and cited the rule above it.
-    Everything mechanical passed: the id existed and lived in the cited chapter,
-    which is all `_references` asks.
+    `BV-CORE-16` summarised the `EntityEvent` rule and cited the rule
+    above it. Everything mechanical passed: the id existed and lived in
+    the cited chapter, which is all `_references` asks.
 
-    The test is **relative**, not a threshold. A well-written summary says the
-    same thing in different words, so absolute overlap separates nothing — a
-    correct citation here scores 0.000. What does separate is another rule in
-    the same chapter scoring much higher, which is what an off-by-one looks
-    like. A note rather than a failure: the metric is text, and two of its five
-    hits over three skills were coincidence.
+    The test is **relative**, not a threshold. A well-written summary
+    says the same thing in different words, so absolute overlap
+    separates nothing — a correct citation here scores 0.000. What does
+    separate is another rule in the same chapter scoring much higher,
+    which is what an off-by-one looks like. A note rather than a
+    failure: the metric is text, and two of its five hits over three
+    skills were coincidence.
     """
     by_file: dict[str, list] = {}
     for rule in skill.rules:
@@ -283,8 +288,8 @@ def _references(skill, seen):
                         f"{skill.name}/{path.name}:{i}",
                     )
 
-    # A core rule is a summary; the reader who wants the full statement needs to
-    # be told where it lives.
+    # A core rule is a summary; the reader who wants the full statement
+    # needs to be told where it lives.
     for rid, _tier, body in skill.core_rules:
         flat = " ".join(body.split())
         cites = re.findall(
@@ -339,16 +344,16 @@ def _near_duplicates(skill, blocks):
             yield note(f"{junk} present in the skill tree", skill.name)
 
 
-#: A Why is a reason, not an essay. Longer than this, and the excess belongs in
-#: the rule's statement, in an example, or in a second rule.
+#: A Why is a reason, not an essay. Longer than this, and the excess
+#: belongs in the rule's statement, in an example, or in a second rule.
 WHY_LINES = 3
 
 
 def structural(skill):
     """(message, where) for the rule-shape half of standard-structure.
 
-    Dense numbering and a short Why. Separate from `anatomy` proper because an
-    exempt standard skips these and keeps every other branch.
+    Dense numbering and a short Why. Separate from `anatomy` proper
+    because an exempt standard skips these and keeps every other branch.
     """
     for chapter in skill.chapters:
         where = f"{skill.name}/{chapter.name}"

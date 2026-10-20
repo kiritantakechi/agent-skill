@@ -1,8 +1,9 @@
 """The physical shape of the markdown.
 
-Exists because a 135-column line shipped and every check passed — nothing
-measured width. This is the sole owner of the physical checks; when a second
-check repeated them at a different severity, one defect produced two findings.
+Exists because a 135-column line shipped and every check passed —
+nothing measured width. This is the sole owner of the physical checks;
+when a second check repeated them at a different severity, one defect
+produced two findings.
 """
 
 import re
@@ -12,10 +13,10 @@ from agent_skill.report import fail, note
 
 WIDTH = 100
 
-#: A rule heading and its contents entry are one line by construction: the ID,
-#: the tier, the title. Rewrapping either corrupts it — that is how nineteen zig
-#: contents entries were once truncated. Over-length there is a title-length
-#: problem, reported separately.
+#: A rule heading and its contents entry are one line by construction:
+#: the ID, the tier, the title. Rewrapping either corrupts it — that is
+#: how nineteen zig contents entries were once truncated. Over-length
+#: there is a title-length problem, reported separately.
 HEADING = re.compile(r"^#{1,6} [A-Z]{2}-[A-Z]+-\d+[a-z]? \[")
 TOC = re.compile(r"^\s*- [A-Z]{2}-[A-Z]+-\d+[a-z]? \[")
 
@@ -62,9 +63,10 @@ def layout(skill):
             yield fail("hard tab", tag)
         if not text.endswith("\n"):
             yield fail("no trailing newline", tag)
-        # Fence-aware: `#` opens a heading in markdown and a comment in Python,
-        # and `ruff format` puts two blank lines before a top-level statement —
-        # so an unfenced test reads correct formatting as a doubled blank.
+        # Fence-aware: `#` opens a heading in markdown and a comment in
+        # Python, and `ruff format` puts two blank lines before a
+        # top-level statement — so an unfenced test reads correct
+        # formatting as a doubled blank.
         in_fence = False
         for i in range(2, len(lines)):
             if lines[i].startswith("```"):

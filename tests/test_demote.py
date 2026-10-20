@@ -41,8 +41,9 @@ MIGRATION = f"""# Migration
 
 {RULE.format(id="DS-MIG-01", title="Use the new name")}"""
 
-#: The current revision's table, part-way through: the old -02 was removed, the old -03
-#: is the new -02, and the -03 there is now is a rule the revision added.
+#: The current revision's table, part-way through: the old -02 was
+#: removed, the old -03 is the new -02, and the -03 there is now is a
+#: rule the revision added.
 TABLE = f"""
 ## Rule IDs before the Demo 1.2.3 revision
 
