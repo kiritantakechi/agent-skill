@@ -13,7 +13,7 @@ out of the skill.
 
 import shutil
 import tempfile
-from collections.abc import Callable
+lazy from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -445,7 +445,7 @@ CONTROLS: list[Control] = [
     Control(
         "an anchor rule that fires on the delta's examples and is not accounted for",
         "crossref",
-        lambda t: _unaccounted_anchor_rule(t),
+        _unaccounted_anchor_rule,
     ),
     Control(
         "a citation into a standard that has no such rule",

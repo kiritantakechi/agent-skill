@@ -37,7 +37,7 @@ def _bodies(path: Path, crate: Crate) -> list[str]:
     has to be the identity on everything except whitespace.
     """
     text = path.read_text()
-    starts = [m for m in _MODULE.finditer(text)]
+    starts = list(_MODULE.finditer(text))
     out: list[str] = []
     for i, m in enumerate(starts):
         end = starts[i + 1].start() if i + 1 < len(starts) else len(text)

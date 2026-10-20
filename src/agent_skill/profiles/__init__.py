@@ -17,16 +17,13 @@ to the reader.
 """
 
 import importlib
-from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+lazy from collections.abc import Callable, Iterable
 
-from agent_skill.lang.rust import Crate
 from agent_skill.model import MARKERS
-from agent_skill.report import Finding
-
-if TYPE_CHECKING:
-    from agent_skill.checks.search import Span
+lazy from agent_skill.checks.search import Span
+lazy from agent_skill.lang.rust import Crate
+lazy from agent_skill.report import Finding
 
 
 @dataclass(frozen=True, slots=True)

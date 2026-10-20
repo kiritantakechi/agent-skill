@@ -7,12 +7,12 @@ an orphan module the orphan check could not see. Extracting in this
 direction makes that state unreachable.
 """
 
-from collections.abc import Iterable
+lazy from collections.abc import Iterable
 from dataclasses import dataclass, field
-from pathlib import Path
+lazy from pathlib import Path
 from typing import Protocol
 
-from agent_skill.report import Finding
+lazy from agent_skill.report import Finding
 lazy from agent_skill.lang import python, rust, zig
 
 

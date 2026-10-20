@@ -1,4 +1,4 @@
-"""A pattern carrying syntax from a grammar it will not be read in.
+r"""A pattern carrying syntax from a grammar it will not be read in.
 
 `\\|` is alternation in a basic regular expression and a literal pipe to
 every modern engine. A Check that moved from `grep` to `rg` without that

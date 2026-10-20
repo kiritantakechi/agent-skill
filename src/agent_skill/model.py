@@ -10,7 +10,7 @@ corpus of 215.
 import re
 from dataclasses import dataclass
 from functools import cached_property
-from pathlib import Path
+lazy from pathlib import Path
 
 from agent_skill.text import code_only, strip_comment, syntax_for
 lazy from agent_skill.profiles import profile_for
@@ -455,7 +455,7 @@ def marker_line(body: str) -> str:
 class Skill:
     """A skill directory, parsed once."""
 
-    def __init__(self, root: Path, profile=None):
+    def __init__(self, root: Path, profile=None) -> None:
         self.root = root
         self.name = root.name
 

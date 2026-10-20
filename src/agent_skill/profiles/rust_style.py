@@ -1,7 +1,7 @@
 """rust-style: its own `[M]` rules, applied to its own examples."""
 
 import re
-from collections.abc import Iterable
+lazy from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from agent_skill.lang.rust import RUST_STYLE, Crate

@@ -1,7 +1,7 @@
 """python-style: its own `[M]` rules, applied to its own examples and prose."""
 
 import re
-from collections.abc import Iterable
+lazy from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from agent_skill.profiles import NotDecisive, Profile, register

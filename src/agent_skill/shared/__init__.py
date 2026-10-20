@@ -42,8 +42,10 @@ SEVERITIES: tuple[tuple[str, str], ...] = (
     ),
     (
         "Stale",
-        "A spelling the target superseded — fails to build, or worse, builds and means "
-        "something else",
+        (
+            "A spelling the target superseded — fails to build, or worse, builds and means "
+            "something else"
+        ),
     ),
     ("Incorrect", "Produces wrong results or crashes on reachable input"),
     ("Contract", "Breaks or under-specifies the public surface"),

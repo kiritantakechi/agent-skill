@@ -14,7 +14,7 @@ does not. Neither alone is enough.
 
 import re
 from collections import Counter
-from collections.abc import Iterable
+lazy from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 

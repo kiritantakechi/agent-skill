@@ -7,7 +7,7 @@ from agent_skill.profiles import _REGISTRY, profile_for
 from structure_fixture import build, edit
 
 
-def test_bodies_dedents_and_drops_the_injected_attribute(tmp_path):
+def test_bodies_dedents_and_drops_the_injected_attribute(tmp_path) -> None:
     src = tmp_path / "chapter.rs"
     src.write_text(
         "//! header\n\n"
@@ -28,7 +28,7 @@ def test_bodies_dedents_and_drops_the_injected_attribute(tmp_path):
     ]
 
 
-def test_bodies_undoes_the_extractor_rebasing(tmp_path):
+def test_bodies_undoes_the_extractor_rebasing(tmp_path) -> None:
     """`fmt` writes bodies back into the skill, so it must not store harness paths.
 
     `lang.rust._module` rewrites `crate::` and `mycrate::` to reach
@@ -57,14 +57,14 @@ def test_bodies_undoes_the_extractor_rebasing(tmp_path):
     assert "rs_str_15" not in body
 
 
-def test_each_skill_compiles_as_its_own_crate():
+def test_each_skill_compiles_as_its_own_crate() -> None:
     """One shared manifest would leave one of the two unverifiable."""
     assert RUST_STYLE.name != BEVY_STYLE.name
     assert "bevy" in "".join(BEVY_STYLE.dependencies)
     assert "bevy" not in "".join(RUST_STYLE.dependencies)
 
 
-def test_the_two_bevy_relaxations_are_the_only_ones():
+def test_the_two_bevy_relaxations_are_the_only_ones() -> None:
     allowed = {
         f"{section}.{name}"
         for section, table in BEVY_STYLE.lints.items()
@@ -79,14 +79,14 @@ def test_the_two_bevy_relaxations_are_the_only_ones():
         assert kept not in BEVY_STYLE.lints["clippy"]
 
 
-def test_every_rust_profile_names_a_crate():
+def test_every_rust_profile_names_a_crate() -> None:
     profile_for("rust-style")  # force registration by import
     for profile in _REGISTRY.values():
         if profile.toolchain == "rust":
             assert profile.crate is not None, profile.name
 
 
-def test_a_drifted_shared_passage_is_reported_and_rewritten(tmp_path):
+def test_a_drifted_shared_passage_is_reported_and_rewritten(tmp_path) -> None:
     """The round trip `shared-text` promises: drift is found, `fmt` repairs it, and
     the text the skill wrote in a free region survives the repair.
     """
@@ -103,7 +103,7 @@ def test_a_drifted_shared_passage_is_reported_and_rewritten(tmp_path):
     assert '**Code is "library"** — if it is published.' in text
 
 
-def test_text_outside_a_free_region_is_left_for_a_person(tmp_path):
+def test_text_outside_a_free_region_is_left_for_a_person(tmp_path) -> None:
     demo = build(tmp_path)
     stray = edit(
         demo, "SKILL.md", "Rules are cited by ID", "An aside.\n\nRules are cited by ID"
@@ -114,7 +114,7 @@ def test_text_outside_a_free_region_is_left_for_a_person(tmp_path):
     assert stray.skill_md.read_text() == before
 
 
-def test_fmt_brings_a_prose_line_back_under_the_limit(tmp_path):
+def test_fmt_brings_a_prose_line_back_under_the_limit(tmp_path) -> None:
     demo = build(tmp_path)
     long_line = "Subtract. " + "word " * 25 + "end."
     drifted = edit(demo, "SKILL.md", "Subtract.", long_line)

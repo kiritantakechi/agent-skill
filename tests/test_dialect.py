@@ -1,4 +1,4 @@
-"""Whether a `\\|` is an operator or a literal.
+r"""Whether a `\\|` is an operator or a literal.
 
 `outside_brackets` decides whether the `dialect` check reports a
 pattern. Wrong in the permissive direction, the check stops reporting
@@ -30,21 +30,21 @@ from agent_skill.checks.dialect import outside_brackets
         (r"[]|]", False),  # …and the `|` inside that class is still a literal
     ],
 )
-def test_an_operator_is_told_from_a_literal(pattern, found):
+def test_an_operator_is_told_from_a_literal(pattern, found) -> None:
     assert outside_brackets(pattern, "\\|") is found
 
 
-def test_a_posix_class_does_not_swallow_the_rest_of_the_pattern():
-    """Stopping at the first `]` reads `]*\\|` as pattern text and accuses it."""
+def test_a_posix_class_does_not_swallow_the_rest_of_the_pattern() -> None:
+    r"""Stopping at the first `]` reads `]*\\|` as pattern text and accuses it."""
     assert outside_brackets(r"[[:alpha:]]x", "\\|") is False
     assert outside_brackets(r"[[:alpha:]]\|x", "\\|") is True
 
 
-def test_an_unterminated_bracket_does_not_run_off_the_end():
+def test_an_unterminated_bracket_does_not_run_off_the_end() -> None:
     assert outside_brackets(r"[abc", "\\|") is False
     assert outside_brackets(r"[[:space:", "\\|") is False
 
 
-def test_an_escaped_backslash_is_not_an_escape_of_what_follows():
+def test_an_escaped_backslash_is_not_an_escape_of_what_follows() -> None:
     r"""`\\` is a literal backslash, so the `|` after it is bare, not escaped."""
     assert outside_brackets(r"a\\|b", "\\|") is False

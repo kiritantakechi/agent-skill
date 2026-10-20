@@ -21,26 +21,26 @@ def skill(scratch):
     return Skill(scratch / "rust-style")
 
 
-def test_links_rather_than_copies(target, skill):
+def test_links_rather_than_copies(target, skill) -> None:
     link, how = install(skill, target)
     assert how == "linked"
     assert link.is_symlink() and link.readlink() == skill.root
 
 
-def test_relinking_is_a_no_op(target, skill):
+def test_relinking_is_a_no_op(target, skill) -> None:
     install(skill, target)
     _, how = install(skill, target)
     assert how == "already linked"
 
 
-def test_a_stale_link_is_repointed(target, skill, tmp_path):
+def test_a_stale_link_is_repointed(target, skill, tmp_path) -> None:
     (target.skills / skill.name).symlink_to(tmp_path / "somewhere-else")
     link, how = install(skill, target)
     assert how == "linked"
     assert link.readlink() == skill.root
 
 
-def test_a_copy_in_the_way_leaves_the_discovery_path(target, skill):
+def test_a_copy_in_the_way_leaves_the_discovery_path(target, skill) -> None:
     """`skills/<name>.replaced` beside `skills/<name>` is a second skill
     claiming the same name, because discovery reads the name from frontmatter.
     """
@@ -56,7 +56,7 @@ def test_a_copy_in_the_way_leaves_the_discovery_path(target, skill):
     assert [p.name for p in target.skills.iterdir()] == [skill.name]
 
 
-def test_a_second_displacement_refuses_rather_than_clobbering(target, skill):
+def test_a_second_displacement_refuses_rather_than_clobbering(target, skill) -> None:
     (target.displaced / skill.name).mkdir(parents=True)
     stale = target.skills / skill.name
     stale.mkdir()
@@ -65,12 +65,12 @@ def test_a_second_displacement_refuses_rather_than_clobbering(target, skill):
     assert not (target.skills / skill.name).is_symlink()
 
 
-def test_targets_are_distinct():
+def test_targets_are_distinct() -> None:
     assert len({t.name for t in TARGETS}) == len(TARGETS)
     assert len({t.skills for t in TARGETS}) == len(TARGETS)
 
 
-def test_the_package_holds_only_the_skill(tmp_path, skill):
+def test_the_package_holds_only_the_skill(tmp_path, skill) -> None:
     archive = package(skill, tmp_path)
     with zipfile.ZipFile(archive) as z:
         names = z.namelist()

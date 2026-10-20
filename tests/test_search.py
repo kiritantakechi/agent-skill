@@ -29,21 +29,21 @@ def corpus_at(tmp_path, *bodies: str) -> Corpus:
     return built
 
 
-def test_a_single_line_match_is_a_span_of_one_line(tmp_path):
+def test_a_single_line_match_is_a_span_of_one_line(tmp_path) -> None:
     built = corpus_at(tmp_path, "alpha\nbeta\ngamma")
     spans, _ = find(built, Pattern("beta", "-E", "command"))
     assert spans == [Span(2, 2)]
     assert len(spans[0]) == 1
 
 
-def test_a_multi_line_match_covers_exactly_its_lines(tmp_path):
+def test_a_multi_line_match_covers_exactly_its_lines(tmp_path) -> None:
     built = corpus_at(tmp_path, "try:\n    go()\nfinally:\n    stop()")
     spans, _ = find(built, Pattern("try:(?s).*finally:", "-E", "command"))
     assert spans == [Span(1, 3)], "the span must end on the line the match ends on"
     assert len(spans[0]) == 3
 
 
-def test_a_span_is_numbered_across_units(tmp_path):
+def test_a_span_is_numbered_across_units(tmp_path) -> None:
     built = corpus_at(tmp_path, "one\ntwo", "three\nfour")
     spans, _ = find(built, Pattern("four", "-E", "command"))
     assert spans == [Span(4, 4)], (
@@ -51,13 +51,13 @@ def test_a_span_is_numbered_across_units(tmp_path):
     )
 
 
-def test_a_pattern_the_searcher_rejects_gives_no_answer(tmp_path):
+def test_a_pattern_the_searcher_rejects_gives_no_answer(tmp_path) -> None:
     """Not zero hits — no answer. The two must never collapse."""
     spans, _ = find(corpus_at(tmp_path, "anything"), Pattern("a(", "-E", "command"))
     assert spans is None
 
 
-def test_a_pattern_that_matches_nothing_gives_an_empty_list(tmp_path):
+def test_a_pattern_that_matches_nothing_gives_an_empty_list(tmp_path) -> None:
     spans, _ = find(corpus_at(tmp_path, "anything"), Pattern("absent", "-E", "command"))
     assert spans == []
     assert spans is not None, "an empty result is an answer; None is the absence of one"
@@ -72,11 +72,11 @@ def test_a_pattern_that_matches_nothing_gives_an_empty_list(tmp_path):
         ("anything", Pattern("a(", "-E", "command"), None),
     ],
 )
-def test_matches_is_three_valued(snippet, pattern, expected):
+def test_matches_is_three_valued(snippet, pattern, expected) -> None:
     assert matches(snippet, pattern, "rust") is expected
 
 
-def test_none_is_distinguishable_from_false_by_a_caller():
+def test_none_is_distinguishable_from_false_by_a_caller() -> None:
     """`if not matches(...)` reads None and False the same; callers must not."""
     unanswerable = matches("anything", Pattern("a(", "-E", "command"), "rust")
     negative = matches("x = 1", Pattern(r"\.unwrap\(\)", "-E", "command"), "rust")
@@ -86,7 +86,7 @@ def test_none_is_distinguishable_from_false_by_a_caller():
     )
 
 
-def test_a_fixture_is_stripped_the_way_the_corpus_is():
+def test_a_fixture_is_stripped_the_way_the_corpus_is() -> None:
     """`find` searches the comment-stripped copy; the fixture must be the same text.
 
     Otherwise a fixture whose match depends on comment content certifies
@@ -102,7 +102,7 @@ def test_a_fixture_is_stripped_the_way_the_corpus_is():
     )
 
 
-def test_a_pattern_that_names_a_comment_keeps_its_fixture_whole():
+def test_a_pattern_that_names_a_comment_keeps_its_fixture_whole() -> None:
     """The rule is that the two agree, not that either is always stripped."""
     over_comments = Pattern(r"^[ \t]*// (let |if |\})", "-E", "command")
     assert over_comments.over_comments is True
@@ -112,7 +112,7 @@ def test_a_pattern_that_names_a_comment_keeps_its_fixture_whole():
     )
 
 
-def test_stripping_follows_the_language():
+def test_stripping_follows_the_language() -> None:
     """`//` is a comment in Rust and floor division in Python, and `find` already knows that."""
     after_slashes = Pattern(r"count", "-E", "command")
     assert matches("q = total // count", after_slashes, "python") is True

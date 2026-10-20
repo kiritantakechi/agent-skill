@@ -62,7 +62,7 @@ def snapshot(root):
 THREADS = {"free-threading": "concurrency"}
 
 
-def test_overlapping_ids_are_rewritten_in_one_pass(repo):
+def test_overlapping_ids_are_rewritten_in_one_pass(repo) -> None:
     run(repo, **THREADS)
     skill_md = (repo / "skills/demo-style/SKILL.md").read_text()
     # A chain of replacements would turn both into -01.
@@ -71,7 +71,7 @@ def test_overlapping_ids_are_rewritten_in_one_pass(repo):
     assert {r.id: r.title for r in skill.rules}["DS-ERR-01"] == "Name them"
 
 
-def test_a_chapter_rename_moves_the_file_the_code_and_every_path(repo):
+def test_a_chapter_rename_moves_the_file_the_code_and_every_path(repo) -> None:
     run(repo, **THREADS)
     refs = repo / "skills/demo-style/references"
     assert not (refs / "free-threading.md").exists()
@@ -85,7 +85,7 @@ def test_a_chapter_rename_moves_the_file_the_code_and_every_path(repo):
     assert "demo-style/references/concurrency.md" in test and "DS-CONC-01" in test
 
 
-def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo):
+def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo) -> None:
     run(repo, **THREADS)
     (table,) = Skill(repo / "skills/demo-style", Demo()).rename_tables
     assert table.ranges == (("DS-ERR", 2, 3), ("DS-FT", 1, 1), ("DS-MIG", 1, 1))
@@ -97,7 +97,7 @@ def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo):
     assert table.unchanged == ["DS-MIG-01"]
 
 
-def test_a_run_that_changes_nothing_starts_no_table(repo):
+def test_a_run_that_changes_nothing_starts_no_table(repo) -> None:
     run(repo, **THREADS)
     migration = repo / "skills/demo-style/references/migration.md"
     migration.write_text(
@@ -108,7 +108,7 @@ def test_a_run_that_changes_nothing_starts_no_table(repo):
     assert migration.read_text() == before
 
 
-def test_an_unlisted_original_gains_a_row_when_it_moves(repo):
+def test_an_unlisted_original_gains_a_row_when_it_moves(repo) -> None:
     run(repo, **THREADS)
     migration = repo / "skills/demo-style/references/migration.md"
     # A rule added during the revision, ahead of the original DS-MIG-01
@@ -125,7 +125,7 @@ def test_an_unlisted_original_gains_a_row_when_it_moves(repo):
     assert table.ranges[-1] == ("DS-MIG", 1, 1)
 
 
-def test_an_unlisted_original_that_is_gone_stops_the_run(repo):
+def test_an_unlisted_original_that_is_gone_stops_the_run(repo) -> None:
     run(repo, **THREADS)
     migration = repo / "skills/demo-style/references/migration.md"
     text = migration.read_text()
@@ -139,7 +139,7 @@ def test_an_unlisted_original_that_is_gone_stops_the_run(repo):
     assert snapshot(repo) == before
 
 
-def test_a_second_run_composes_onto_the_first(repo):
+def test_a_second_run_composes_onto_the_first(repo) -> None:
     run(repo, **THREADS)
     errors = repo / "skills/demo-style/references/errors.md"
     # A content edit: the first errors rule goes, and its row records
@@ -157,7 +157,7 @@ def test_a_second_run_composes_onto_the_first(repo):
     assert "### DS-ERR-01 [M] Wrap them" in errors.read_text()
 
 
-def test_a_deleted_rule_without_a_disposition_stops_the_run(repo):
+def test_a_deleted_rule_without_a_disposition_stops_the_run(repo) -> None:
     run(repo, **THREADS)
     (repo / "skills/demo-style/references/errors.md").write_text(
         chapter("Errors", [("DS-ERR-02", "Wrap them")])
@@ -168,20 +168,20 @@ def test_a_deleted_rule_without_a_disposition_stops_the_run(repo):
     assert snapshot(repo) == before
 
 
-def test_a_name_outside_the_vocabulary_stops_the_run(repo):
+def test_a_name_outside_the_vocabulary_stops_the_run(repo) -> None:
     before = snapshot(repo)
     with pytest.raises(renumber.RenumberError, match="vocabulary"):
         run(repo, **{"free-threading": "free-threading-2"})
     assert snapshot(repo) == before
 
 
-def test_an_unknown_id_is_reported_and_left_alone(repo):
+def test_an_unknown_id_is_reported_and_left_alone(repo) -> None:
     plan = run(repo, **THREADS)
     assert any("DS-ERR-99" in line for line in plan.leftovers)
     assert "DS-ERR-99" in (repo / "tests/test_demo.py").read_text()
 
 
-def test_reflow_pushes_overflow_into_the_next_line():
+def test_reflow_pushes_overflow_into_the_next_line() -> None:
     text = (
         "word " * 19 + "end-of-the-line-word"
     ).rstrip() + "\nnext line of the same paragraph.\n"
@@ -192,7 +192,7 @@ def test_reflow_pushes_overflow_into_the_next_line():
     assert " ".join(out.split()) == " ".join(text.split())
 
 
-def test_reflow_keeps_a_list_items_hanging_indent_and_leaves_code_alone():
+def test_reflow_keeps_a_list_items_hanging_indent_and_leaves_code_alone() -> None:
     item = "1. **Read.** " + "word " * 19 + "tail"
     code = "```\n" + "x" * 120 + "\n```"
     out = reflow(f"{item}\n\n{code}\n", width=100)
@@ -200,14 +200,14 @@ def test_reflow_keeps_a_list_items_hanging_indent_and_leaves_code_alone():
     assert "x" * 120 in out
 
 
-def test_reflow_does_not_join_a_new_list_item_or_a_why():
+def test_reflow_does_not_join_a_new_list_item_or_a_why() -> None:
     para = "word " * 20 + "tail"
     for nxt in ("- a list item", "2. next", "**Why:** because"):
         out = reflow(f"{para}\n{nxt}\n", width=100)
         assert f"\ntail\n{nxt}" in out
 
 
-def test_the_counts_skill_md_states_follow_the_rules(repo):
+def test_the_counts_skill_md_states_follow_the_rules(repo) -> None:
     skill_md = repo / "skills/demo-style/SKILL.md"
     skill_md.write_text(
         "---\nname: demo-style\ndescription: >-\n  A 9-rule library.\n---\n\n"
@@ -220,12 +220,12 @@ def test_the_counts_skill_md_states_follow_the_rules(repo):
     assert "`DS-ERR` (2)" in text and "`DS-CONC` (1)" in text
 
 
-def test_reflow_leaves_a_contents_line_whole():
+def test_reflow_leaves_a_contents_line_whole() -> None:
     line = "  - RS-TRAIT-17 [S] " + "word " * 18 + "type"
     assert reflow(line + "\n", width=100) == line + "\n"
 
 
-def test_reflow_never_breaks_inside_a_code_span():
+def test_reflow_never_breaks_inside_a_code_span() -> None:
     line = (
         "**Check:** "
         + "word " * 10

@@ -16,7 +16,7 @@ import json
 import re
 import tomllib
 from functools import cache
-from pathlib import Path
+lazy from pathlib import Path
 
 from agent_skill.checks import check
 from agent_skill.lang.python import PYTHON_STYLE

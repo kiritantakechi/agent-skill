@@ -92,8 +92,10 @@ def _renames(skill):
                 yield f"{r.before} was removed and the table gives no reason", where
         else:
             yield (
-                f"{r.before} became `{r.now}`; a rename is a rule ID, "
-                f"lint `tool:name`, or removed — reason",
+                (
+                    f"{r.before} became `{r.now}`; a rename is a rule ID, "
+                    f"lint `tool:name`, or removed — reason"
+                ),
                 where,
             )
 
@@ -148,8 +150,10 @@ def _skill_md(skill):
         listed = _items(text, "5. Review checklist")
         if stages != listed:
             yield (
-                f"section 5 lists {listed} and the protocol's review order is {stages}; "
-                f"section 5 is that order",
+                (
+                    f"section 5 lists {listed} and the protocol's review order is {stages}; "
+                    f"section 5 is that order"
+                ),
                 where,
             )
 
@@ -195,9 +199,11 @@ def _review(skill):
     rows = _severity_rows(text)
     if rows != list(shared.SEVERITIES):
         yield (
-            "the severity model is "
-            f"{[label for label, _ in rows]}, expected {[label for label, _ in shared.SEVERITIES]} "
-            "with the shared meanings",
+            (
+                "the severity model is "
+                f"{[label for label, _ in rows]}, expected {[label for label, _ in shared.SEVERITIES]} "
+                "with the shared meanings"
+            ),
             where,
         )
 
@@ -214,7 +220,7 @@ def _severity_rows(text: str) -> list[tuple[str, str]]:
 
 
 def _items(text: str, heading: str) -> list[str]:
-    """The bold titles of a section's numbered items: `1. **Soundness.**` -> `Soundness.`"""
+    """The bold titles of a section's numbered items: `1. **Soundness.**` -> `Soundness.`."""
     span = shared.section(text, heading)
     if span is None:
         return []

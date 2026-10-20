@@ -48,7 +48,7 @@ def enabled(config: Path, cwd: Path) -> set[str]:
     return codes
 
 
-def test_no_preview_rule_is_enabled(tmp_path):
+def test_no_preview_rule_is_enabled(tmp_path) -> None:
     """The asset runs stable rules only, which is what lets a rule cite a code as enforced.
 
     A preview rule can change or vanish in any release; one enabled here
@@ -71,7 +71,7 @@ def test_no_preview_rule_is_enabled(tmp_path):
     assert not (enabled(RUFF_TOML, tmp_path) & preview)
 
 
-def test_py315_target_does_not_warn(tmp_path):
+def test_py315_target_does_not_warn(tmp_path) -> None:
     """A warning on every run is a warning nobody reads."""
     (tmp_path / "m.py").write_text("x = 1\n")
     r = subprocess.run(
@@ -106,7 +106,7 @@ FORMATTER_CONFLICTS = frozenset(
 )
 
 
-def test_no_formatter_conflicting_rule_is_enabled(tmp_path):
+def test_no_formatter_conflicting_rule_is_enabled(tmp_path) -> None:
     """Checked against ruff's documented list, not against `ruff format --check`.
 
     Of the fifteen, only COM812 and D203 actually make `ruff format`
@@ -118,7 +118,7 @@ def test_no_formatter_conflicting_rule_is_enabled(tmp_path):
     assert not (enabled(RUFF_TOML, tmp_path) & FORMATTER_CONFLICTS)
 
 
-def test_isc001_is_enabled_because_it_is_not_a_conflict(tmp_path):
+def test_isc001_is_enabled_because_it_is_not_a_conflict(tmp_path) -> None:
     """A belief worth pinning: older documentation listed ISC001 as conflicting.
 
     Current ruff does not, and its ISC002 documentation actively
@@ -129,7 +129,7 @@ def test_isc001_is_enabled_because_it_is_not_a_conflict(tmp_path):
     assert "ISC001" in enabled(RUFF_TOML, tmp_path)
 
 
-def test_e501_is_enabled_as_the_line_length_backstop(tmp_path):
+def test_e501_is_enabled_as_the_line_length_backstop(tmp_path) -> None:
     """The formatter makes only a best-effort attempt at the limit."""
     (tmp_path / "m.py").write_text("x = 1\n")
     assert "E501" in enabled(RUFF_TOML, tmp_path)

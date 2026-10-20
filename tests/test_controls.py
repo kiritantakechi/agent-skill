@@ -15,7 +15,7 @@ from agent_skill.report import Level
 
 
 @pytest.mark.parametrize("control", CONTROLS, ids=lambda c: c.name)
-def test_control_fires(control, scratch):
+def test_control_fires(control, scratch) -> None:
     all_checks()
     check = by_name(control.check)
     assert check is not None, f"no check named {control.check!r}"
@@ -29,7 +29,7 @@ def test_control_fires(control, scratch):
     )
 
 
-def test_every_check_has_a_control():
+def test_every_check_has_a_control() -> None:
     """A check nothing can break is a check nothing verifies."""
     owned = {c.check for c in CONTROLS}
     missing = [
@@ -40,14 +40,14 @@ def test_every_check_has_a_control():
     assert not missing, f"no negative control for: {missing}"
 
 
-def test_no_exemption_outlives_its_check():
+def test_no_exemption_outlives_its_check() -> None:
     """An exemption standing over nothing is an exemption nobody re-examined."""
     known = {c.name for c in all_checks()}
     stale = sorted(set(WITHOUT_A_CONTROL) - known)
     assert not stale, f"exemption names a check that no longer exists: {stale}"
 
 
-def test_every_exemption_gives_a_reason():
+def test_every_exemption_gives_a_reason() -> None:
     for name, reason in WITHOUT_A_CONTROL.items():
         assert reason and len(reason) > 20, (
             f"{name} is exempt with no reason worth reading"
@@ -102,7 +102,7 @@ BRANCHES = {
 
 
 @pytest.mark.parametrize("name", sorted(BRANCHES))
-def test_a_structure_control_needs_its_own_branch(name, scratch, monkeypatch):
+def test_a_structure_control_needs_its_own_branch(name, scratch, monkeypatch) -> None:
     control = next(c for c in CONTROLS if c.name == name)
     module, attr = BRANCHES[name]
     monkeypatch.setattr(importlib.import_module(module), attr, lambda *a, **k: iter(()))

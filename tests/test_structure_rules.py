@@ -48,19 +48,19 @@ def structural_messages(skill) -> list[str]:
     return [m for m, _ in structural(skill)]
 
 
-def test_a_gap_in_the_numbering(demo):
+def test_a_gap_in_the_numbering(demo) -> None:
     broken = edit(demo, "references/errors.md", "DS-ERR-02", "DS-ERR-03")
     broken = edit(broken, "references/errors.md", "DS-ERR-02", "DS-ERR-03")
     assert any("should be DS-ERR-02" in m for m in structural_messages(broken))
 
 
-def test_a_suffixed_number(demo):
+def test_a_suffixed_number(demo) -> None:
     broken = edit(demo, "references/errors.md", "### DS-ERR-02", "### DS-ERR-01a")
     broken = edit(broken, "references/errors.md", "- DS-ERR-02", "- DS-ERR-01a")
     assert any("no suffix" in m for m in structural_messages(broken))
 
 
-def test_a_four_line_why(demo):
+def test_a_four_line_why(demo) -> None:
     broken = edit(
         demo,
         "references/errors.md",
@@ -70,7 +70,7 @@ def test_a_four_line_why(demo):
     assert any("Why runs 4 lines" in m for m in structural_messages(broken))
 
 
-def test_a_three_line_why_is_fine(demo):
+def test_a_three_line_why_is_fine(demo) -> None:
     fine = edit(
         demo,
         "references/errors.md",
@@ -80,7 +80,7 @@ def test_a_three_line_why_is_fine(demo):
     assert structural_messages(fine) == []
 
 
-def test_lint_rows_are_parsed_and_are_not_rules(demo):
+def test_lint_rows_are_parsed_and_are_not_rules(demo) -> None:
     path = demo.root / "references" / "errors.md"
     path.write_text(path.read_text() + ROWS)
     skill = reparse(demo)
@@ -93,7 +93,7 @@ def test_lint_rows_are_parsed_and_are_not_rules(demo):
     assert "Decided by tools" not in skill.by_id["DS-ERR-02"].body
 
 
-def test_a_row_for_a_tool_the_standard_does_not_require(demo):
+def test_a_row_for_a_tool_the_standard_does_not_require(demo) -> None:
     path = demo.root / "references" / "errors.md"
     path.write_text(path.read_text() + ROWS)
     skill = reparse(demo)
@@ -101,7 +101,7 @@ def test_a_row_for_a_tool_the_standard_does_not_require(demo):
     assert found == ["`ty` is not a tool this standard requires"]
 
 
-def test_a_row_at_a_level_that_fails_nothing(demo):
+def test_a_row_at_a_level_that_fails_nothing(demo) -> None:
     path = demo.root / "references" / "errors.md"
     path.write_text(path.read_text() + ROWS.replace("| warn |", "| ignore |"))
     skill = reparse(demo)
@@ -109,7 +109,7 @@ def test_a_row_at_a_level_that_fails_nothing(demo):
     assert any("fails no run" in m for m in found)
 
 
-def test_python_rows_against_the_shipped_configuration(demo):
+def test_python_rows_against_the_shipped_configuration(demo) -> None:
     path = demo.root / "references" / "errors.md"
     path.write_text(path.read_text() + ROWS)
     rows = reparse(demo).lint_rows
@@ -137,13 +137,13 @@ def test_python_rows_against_the_shipped_configuration(demo):
     ]
 
 
-def test_rename_rows_parse_three_ways():
+def test_rename_rows_parse_three_ways() -> None:
     assert Rename("A", "`DS-ERR-02`", 1).target == "DS-ERR-02"
     assert Rename("A", "lint `ruff:B006`", 1).lint == ("ruff", "B006")
     assert Rename("A", "removed — said nothing", 1).removed == "said nothing"
 
 
-def test_a_rename_table_that_resolves(demo):
+def test_a_rename_table_that_resolves(demo) -> None:
     rows = demo.root / "references" / "errors.md"
     rows.write_text(rows.read_text() + ROWS)
     path = demo.root / "references" / "migration.md"
@@ -155,7 +155,7 @@ def test_a_rename_table_that_resolves(demo):
     ] == []
 
 
-def test_a_rename_table_states_its_ranges(demo):
+def test_a_rename_table_states_its_ranges(demo) -> None:
     path = demo.root / "references" / "migration.md"
     path.write_text(
         path.read_text()
@@ -167,7 +167,7 @@ def test_a_rename_table_states_its_ranges(demo):
     assert table.unchanged[-1] == "DS-MIG-01"
 
 
-def test_an_unlisted_id_no_rule_carries(demo):
+def test_an_unlisted_id_no_rule_carries(demo) -> None:
     path = demo.root / "references" / "migration.md"
     path.write_text(path.read_text() + RENAMES)
     found = [m for m, _ in shape(reparse(demo))]
@@ -175,19 +175,19 @@ def test_an_unlisted_id_no_rule_carries(demo):
     assert any(m.startswith("DS-ERR-03 has no row") for m in found)
 
 
-def test_a_table_that_states_no_ranges(demo):
+def test_a_table_that_states_no_ranges(demo) -> None:
     path = demo.root / "references" / "migration.md"
     path.write_text(path.read_text() + RENAMES.replace(f"{RANGES}\n\n", ""))
     assert any("states no ranges" in m for m, _ in shape(reparse(demo)))
 
 
-def test_a_row_mapping_an_id_to_itself(demo):
+def test_a_row_mapping_an_id_to_itself(demo) -> None:
     path = demo.root / "references" / "migration.md"
     path.write_text(path.read_text() + RENAMES + "| `DS-ERR-01` | `DS-ERR-01` |\n")
     assert any("becoming itself" in m for m, _ in shape(reparse(demo)))
 
 
-def test_a_rename_into_a_rule_that_was_deleted(demo):
+def test_a_rename_into_a_rule_that_was_deleted(demo) -> None:
     path = demo.root / "references" / "migration.md"
     path.write_text(
         path.read_text() + RENAMES.replace("`DS-ERR-02` |", "`DS-ERR-05` |")
@@ -196,14 +196,14 @@ def test_a_rename_into_a_rule_that_was_deleted(demo):
     assert any("which no rule carries" in m for m, _ in shape(skill))
 
 
-def test_a_demotion_into_a_row_no_chapter_lists(demo):
+def test_a_demotion_into_a_row_no_chapter_lists(demo) -> None:
     path = demo.root / "references" / "migration.md"
     path.write_text(path.read_text() + RENAMES)
     skill = reparse(demo)
     assert any("which no chapter lists" in m for m, _ in shape(skill))
 
 
-def test_a_removal_without_a_reason(demo):
+def test_a_removal_without_a_reason(demo) -> None:
     path = demo.root / "references" / "migration.md"
     text = RENAMES.replace("removed — said nothing the compiler does not", "removed — ")
     path.write_text(path.read_text() + text)
@@ -211,7 +211,7 @@ def test_a_removal_without_a_reason(demo):
     assert any("gives no reason" in m for m, _ in shape(skill))
 
 
-def test_rust_rows_against_the_shipped_lint_table(demo):
+def test_rust_rows_against_the_shipped_lint_table(demo) -> None:
     def row(tool, lint, level):
         return LintRow(tool, lint, level, "x", "errors.md", 1)
 
@@ -247,7 +247,7 @@ def test_rust_rows_against_the_shipped_lint_table(demo):
     assert unknown == ["`unwarp_used` is not a clippy lint the pinned toolchain knows"]
 
 
-def test_the_rust_catalogue_reads_the_toolchain():
+def test_the_rust_catalogue_reads_the_toolchain() -> None:
 
     catalogue = rust_catalogue()
     if catalogue is None:
@@ -258,7 +258,7 @@ def test_the_rust_catalogue_reads_the_toolchain():
     assert "rustdoc.broken_intra_doc_links" in catalogue
 
 
-def test_a_bold_phrase_inside_a_why_does_not_end_it(demo):
+def test_a_bold_phrase_inside_a_why_does_not_end_it(demo) -> None:
     """A Why ends at the next label, not at the next line that opens with `**`."""
     long_why = "**Why:** one.\n**Two** is bold.\nthree.\nfour."
     broken = edit(
@@ -267,7 +267,7 @@ def test_a_bold_phrase_inside_a_why_does_not_end_it(demo):
     assert any("Why runs 4 lines" in m for m in structural_messages(broken))
 
 
-def test_an_escaped_pipe_stays_inside_its_cell(demo):
+def test_an_escaped_pipe_stays_inside_its_cell(demo) -> None:
     rows = """
 
 ## Decided by tools

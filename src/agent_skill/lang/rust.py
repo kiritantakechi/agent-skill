@@ -1,7 +1,7 @@
 """A skill's rust examples, as a crate."""
 
 import re
-from collections.abc import Iterable
+lazy from collections.abc import Iterable
 from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path
@@ -175,8 +175,10 @@ RUST_STYLE = Crate(
 BEVY_STYLE = Crate(
     name="bevy-style-verify",
     dependencies=(
-        'bevy = { version = "=0.20.0", default-features = false, features = ['
-        '"std", "2d_api", "3d_api", "ui_api", "scene", "bevy_ui_widgets"] }',
+        (
+            'bevy = { version = "=0.20.0", default-features = false, features = ['
+            '"std", "2d_api", "3d_api", "ui_api", "scene", "bevy_ui_widgets"] }'
+        ),
     ),
     #: `missing_docs` because a block documents items selectively;
     #: `allow_attributes*` because the extractor itself injects a bare

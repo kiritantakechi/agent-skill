@@ -38,18 +38,18 @@ def messages(skill) -> list[str]:
     return [f.message for f in sensitivity(skill)]
 
 
-def test_a_full_cover_passes():
+def test_a_full_cover_passes() -> None:
     assert messages(fake({"XX-Y-01": ("x = alpha_call()", "y = beta_call()")})) == []
 
 
-def test_one_fixture_no_longer_stands_for_every_pattern():
+def test_one_fixture_no_longer_stands_for_every_pattern() -> None:
     """The regression, stated as the defect it was: this used to pass."""
     found = messages(fake({"XX-Y-01": ("x = alpha_call()",)}))
     assert len(found) == 1, found
     assert "/beta_call/ matches none of this rule's fixtures" in found[0]
 
 
-def test_a_fixture_no_pattern_matches_is_reported():
+def test_a_fixture_no_pattern_matches_is_reported() -> None:
     found = messages(
         fake({"XX-Y-01": ("x = alpha_call()", "y = beta_call()", "z = gamma_call()")})
     )
@@ -57,7 +57,7 @@ def test_a_fixture_no_pattern_matches_is_reported():
     assert "'z = gamma_call()' is matched by none" in found[0]
 
 
-def test_both_directions_report_together():
+def test_both_directions_report_together() -> None:
     """A cover that fails each way names each failure, rather than stopping at the first."""
     found = messages(fake({"XX-Y-01": ("x = alpha_call()", "z = gamma_call()")}))
     assert len(found) == 2, found
@@ -65,7 +65,7 @@ def test_both_directions_report_together():
     assert any("'z = gamma_call()' is matched by none" in m for m in found)
 
 
-def test_one_pattern_and_one_fixture_still_works():
+def test_one_pattern_and_one_fixture_still_works() -> None:
     assert (
         messages(
             fake(
@@ -77,7 +77,7 @@ def test_one_pattern_and_one_fixture_still_works():
     )
 
 
-def test_a_rule_listed_with_no_fixture_is_reported():
+def test_a_rule_listed_with_no_fixture_is_reported() -> None:
     found = messages(fake({"XX-Y-01": ()}))
     assert found and "listed with no fixture" in found[0]
 
@@ -89,18 +89,18 @@ def test_a_rule_listed_with_no_fixture_is_reported():
         ("", "no **Check:** to run against it"),
     ],
 )
-def test_a_fixture_with_nothing_to_run_against_is_reported(check, expected):
+def test_a_fixture_with_nothing_to_run_against_is_reported(check, expected) -> None:
     found = messages(fake({"XX-Y-01": ("x = alpha_call()",)}, check))
     assert found and expected in found[0]
 
 
-def test_a_fixture_naming_an_unknown_rule_is_reported():
+def test_a_fixture_naming_an_unknown_rule_is_reported() -> None:
     skill = fake({"XX-Y-99": ("anything",)})
     found = messages(skill)
     assert found and "a fixture names a rule this skill does not define" in found[0]
 
 
-def test_the_shipped_standards_are_covered(skills):
+def test_the_shipped_standards_are_covered(skills) -> None:
     """The rule this change exists to enforce, asserted against the real profiles."""
     for skill in skills:
         if skill.profile.fires:

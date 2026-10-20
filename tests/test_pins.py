@@ -31,12 +31,12 @@ UNORDERABLE = ["1.2.3.post1", "0.16.5.dev0", "2024.1", "15.2", "0.0.75+local", "
 
 
 @pytest.mark.parametrize("version", UNORDERABLE)
-def test_a_version_it_cannot_parse_gets_no_answer(version):
+def test_a_version_it_cannot_parse_gets_no_answer(version) -> None:
     assert _sort_key(version) is None
 
 
 @pytest.mark.parametrize("version", UNORDERABLE)
-def test_no_unparseable_version_compares_as_older_than_a_pin(version):
+def test_no_unparseable_version_compares_as_older_than_a_pin(version) -> None:
     """The defect stated as its consequence rather than as its cause.
 
     Comparing `None` against a tuple raises, which is the point: the
@@ -57,7 +57,7 @@ def test_no_unparseable_version_compares_as_older_than_a_pin(version):
         ("0.16.4", "0.16.5"),
     ],
 )
-def test_releases_still_order(lower, higher):
+def test_releases_still_order(lower, higher) -> None:
     low, high = _sort_key(lower), _sort_key(higher)
     assert low is not None and high is not None
     assert low < high
@@ -74,7 +74,7 @@ def canned(index_answer: str, pinned: str):
     return fake
 
 
-def test_an_index_answer_it_cannot_order_withholds_the_pass(monkeypatch):
+def test_an_index_answer_it_cannot_order_withholds_the_pass(monkeypatch) -> None:
     pinned = mod.pinned_version("ruff")
     assert pinned, "the source tree declares the ruff pin"
     monkeypatch.setattr(mod, "TOOLS", ("ruff",))
@@ -88,7 +88,7 @@ def test_an_index_answer_it_cannot_order_withholds_the_pass(monkeypatch):
     assert "not a version this can order" in findings[0].message
 
 
-def test_an_index_answer_it_can_order_still_decides(monkeypatch):
+def test_an_index_answer_it_can_order_still_decides(monkeypatch) -> None:
     """The other half: the check still fires when it genuinely can compare."""
     pinned = mod.pinned_version("ruff")
     assert pinned, "the source tree declares the ruff pin"
@@ -104,37 +104,37 @@ def test_an_index_answer_it_can_order_still_decides(monkeypatch):
     assert "is available" in findings[0].message
 
 
-def test_a_rust_pin_matching_rustc_and_stable_is_quiet():
+def test_a_rust_pin_matching_rustc_and_stable_is_quiet() -> None:
     assert list(rust_pin("1.99", "1.99.0", "1.99.1")) == []
 
 
-def test_a_rust_pin_behind_stable_fails():
+def test_a_rust_pin_behind_stable_fails() -> None:
     found = list(rust_pin("1.98", "1.98.1", "1.99.1"))
     assert [level for level, _ in found] == [fail]
     assert "1.99.1 is stable" in found[0][1]
 
 
-def test_a_rust_pin_rustc_disagrees_with_fails():
+def test_a_rust_pin_rustc_disagrees_with_fails() -> None:
     assert [level for level, _ in rust_pin("1.98", "1.99.0", "1.98.1")] == [fail]
 
 
-def test_a_rust_pin_nothing_answered_for_is_unrun():
+def test_a_rust_pin_nothing_answered_for_is_unrun() -> None:
     assert [level for level, _ in rust_pin("1.99", None, None)] == [unrun, unrun]
 
 
-def test_a_library_pin_must_be_exact():
+def test_a_library_pin_must_be_exact() -> None:
     assert [level for level, _ in library_pin("bevy", "0.20", "0.20.0")] == [fail]
 
 
-def test_a_library_pin_behind_the_newest_release_fails():
+def test_a_library_pin_behind_the_newest_release_fails() -> None:
     found = list(library_pin("bevy", "=0.19.1", "0.20.0"))
     assert [level for level, _ in found] == [fail]
     assert "0.20.0 is released" in found[0][1]
 
 
-def test_a_current_library_pin_is_quiet():
+def test_a_current_library_pin_is_quiet() -> None:
     assert list(library_pin("bevy", "=0.20.0", "0.20.0")) == []
 
 
-def test_a_library_pin_crates_io_did_not_answer_for_is_unrun():
+def test_a_library_pin_crates_io_did_not_answer_for_is_unrun() -> None:
     assert [level for level, _ in library_pin("bevy", "=0.20.0", None)] == [unrun]

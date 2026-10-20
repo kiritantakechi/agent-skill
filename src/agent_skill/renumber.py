@@ -380,8 +380,10 @@ def _table(
         [
             heading,
             "",
-            f"Before the revision the families ran {stated}. The table lists every ID in those "
-            "ranges that changed, and what it is now; an ID it does not list is unchanged.",
+            (
+                f"Before the revision the families ran {stated}. The table lists every ID in those "
+                "ranges that changed, and what it is now; an ID it does not list is unchanged."
+            ),
             "",
             "| Before | Now |",
             "|---|---|",

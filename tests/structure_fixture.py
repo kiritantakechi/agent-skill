@@ -7,7 +7,7 @@ every shared passage — which also makes building it a round trip through
 """
 
 from dataclasses import dataclass
-from pathlib import Path
+lazy from pathlib import Path
 
 from agent_skill import shared
 from agent_skill.model import Skill

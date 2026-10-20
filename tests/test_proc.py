@@ -19,19 +19,19 @@ import pytest
 from agent_skill.proc import declared_pins, pinned_version, version_mismatch
 
 
-def test_the_pins_are_readable_from_the_source_tree():
+def test_the_pins_are_readable_from_the_source_tree() -> None:
     assert declared_pins() is not None
     assert pinned_version("rg"), (
         "the `rg` pin is read through PACKAGE's `ripgrep-bin` spelling"
     )
 
 
-def test_an_unreadable_declaration_is_not_an_exception(monkeypatch):
+def test_an_unreadable_declaration_is_not_an_exception(monkeypatch) -> None:
     monkeypatch.setattr("agent_skill.proc.declared_pins", lambda: None)
     assert pinned_version("rg") is None
 
 
-def test_an_unreadable_declaration_is_not_agreement(monkeypatch):
+def test_an_unreadable_declaration_is_not_agreement(monkeypatch) -> None:
     """The whole point: silence here used to be a traceback, and before that, a pass."""
     monkeypatch.setattr("agent_skill.proc.declared_pins", lambda: None)
     complaint = version_mismatch("rg", "ripgrep 15.2.0")
@@ -41,7 +41,7 @@ def test_an_unreadable_declaration_is_not_agreement(monkeypatch):
     assert "installed distribution" in complaint
 
 
-def test_a_missing_pin_reads_differently_from_a_missing_file(monkeypatch):
+def test_a_missing_pin_reads_differently_from_a_missing_file(monkeypatch) -> None:
     """One is something to add; the other is how this runs when installed."""
     monkeypatch.setattr(
         "agent_skill.proc.declared_pins", lambda: 'dev = ["ruff==0.16.5"]'
@@ -56,5 +56,5 @@ def test_a_missing_pin_reads_differently_from_a_missing_file(monkeypatch):
     ("reported", "mismatched"),
     [("ripgrep 15.2.0 (rev e89fff89ac)", False), ("ripgrep 14.1.1", True), ("", True)],
 )
-def test_the_running_version_is_still_compared(reported, mismatched):
+def test_the_running_version_is_still_compared(reported, mismatched) -> None:
     assert (version_mismatch("rg", reported) is not None) is mismatched

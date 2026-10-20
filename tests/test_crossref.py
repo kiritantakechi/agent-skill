@@ -27,7 +27,7 @@ def bevy(skills):
     return delta, by_prefix, list(crossref.OVERRIDE_ROW.finditer(delta.text))
 
 
-def test_the_sweep_is_reachable():
+def test_the_sweep_is_reachable() -> None:
     """Asserted on the syntax tree, because it reads correct at every other level.
 
     The loop is indented, spelled and typed exactly as it would be if it
@@ -57,7 +57,9 @@ def test_the_sweep_is_reachable():
     )
 
 
-def test_a_search_that_cannot_answer_is_not_an_accounted_for_delta(bevy, monkeypatch):
+def test_a_search_that_cannot_answer_is_not_an_accounted_for_delta(
+    bevy, monkeypatch
+) -> None:
     """`None` and `[]` are both falsy; this caller used to collapse them."""
     delta, by_prefix, rows = bevy
     monkeypatch.setattr(crossref, "find", lambda corpus, pattern: (None, pattern.mode))
@@ -69,7 +71,7 @@ def test_a_search_that_cannot_answer_is_not_an_accounted_for_delta(bevy, monkeyp
     assert all("gave no answer" in f.message for f in findings)
 
 
-def test_a_search_that_answers_nothing_is_a_clean_result(bevy, monkeypatch):
+def test_a_search_that_answers_nothing_is_a_clean_result(bevy, monkeypatch) -> None:
     """The other half: an empty answer is an answer, and must stay silent."""
     delta, by_prefix, rows = bevy
     monkeypatch.setattr(crossref, "find", lambda corpus, pattern: ([], pattern.mode))
@@ -77,7 +79,7 @@ def test_a_search_that_answers_nothing_is_a_clean_result(bevy, monkeypatch):
     assert list(crossref._anchor_patterns(delta, by_prefix, rows)) == []
 
 
-def test_the_sweep_has_something_to_sweep(bevy):
+def test_the_sweep_has_something_to_sweep(bevy) -> None:
     """A guard over an empty subject set passes for the wrong reason.
 
     The sweep only runs an anchor's patterns when the delta cites that

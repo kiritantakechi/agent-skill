@@ -270,7 +270,7 @@ def _references(skill, seen):
     for rid in sorted(cited - defined):
         yield fail(f"dangling reference {rid}", skill.name)
 
-    home = {rid: f for rid, f in seen.items()}
+    home = dict(seen.items())
     for path in skill.markdown:
         text = path.read_text()
         for ref in re.findall(r"`((?:references|assets)/[A-Za-z0-9._-]+)`", text):
@@ -371,8 +371,10 @@ def structural(skill):
             for i, number in enumerate(seen, 1):
                 if number != f"{i:02d}":
                     yield (
-                        f"{skill.prefix}-{family}-{number} should be {skill.prefix}-{family}-"
-                        f"{i:02d}: numbers run 01, 02, … with no gap and no suffix",
+                        (
+                            f"{skill.prefix}-{family}-{number} should be {skill.prefix}-{family}-"
+                            f"{i:02d}: numbers run 01, 02, … with no gap and no suffix"
+                        ),
                         where,
                     )
                     break

@@ -37,7 +37,7 @@ def declaring() -> list:
     return [c for c in all_checks() if c.needs]
 
 
-def test_the_declared_set_covers_the_floor():
+def test_the_declared_set_covers_the_floor() -> None:
     declared = {c.name for c in declaring()}
     assert declared >= FLOOR, (
         f"checks known to need a tool are no longer declaring one: {sorted(FLOOR - declared)}"
@@ -63,7 +63,7 @@ def source_of(check) -> Path:
     return Path(found)
 
 
-def test_a_declaration_is_not_missing_a_tool():
+def test_a_declaration_is_not_missing_a_tool() -> None:
     """What the source visibly asks for must appear in what the check declares.
 
     Inspection is the weaker of the two — `pins` asks `have(tool)` in a
@@ -80,7 +80,7 @@ def test_a_declaration_is_not_missing_a_tool():
         )
 
 
-def test_every_declaring_check_is_actually_read():
+def test_every_declaring_check_is_actually_read() -> None:
     """The cross-check is worth what it covers, and it used to cover half of it.
 
     Resolution by source text meant a subject's coverage depended on how
@@ -99,7 +99,7 @@ def test_every_declaring_check_is_actually_read():
 
 
 @pytest.mark.parametrize("check", [c.name for c in declaring()], ids=lambda n: n)
-def test_a_missing_tool_withholds_the_pass(check, skills, monkeypatch):
+def test_a_missing_tool_withholds_the_pass(check, skills, monkeypatch) -> None:
     """Every tool a check declares, removed one at a time."""
     target = by_name(check)
     assert target is not None, f"{check} is registered"

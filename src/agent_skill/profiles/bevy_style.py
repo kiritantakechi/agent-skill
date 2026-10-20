@@ -9,7 +9,7 @@ whether a type's name matches the trait it implements.
 """
 
 import re
-from collections.abc import Iterable
+lazy from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from agent_skill.lang.rust import BEVY_STYLE, Crate
@@ -67,8 +67,10 @@ class BevyStyle(Profile):
             "BV-EVENT-09": ("commands.trigger_targets(Damage(5), target);",),
             "BV-MIG-14": (
                 "fn on_enemy_added(add: On<Add, Enemy>, mut commands: Commands) {",
-                'let observer = Observer::new(|add: On<Add>| info!("{}", add.entity))'
-                ".with_component(health);",
+                (
+                    'let observer = Observer::new(|add: On<Add>| info!("{}", add.entity))'
+                    ".with_component(health);"
+                ),
             ),
             "BV-MIG-15": (
                 "fn start_game(click: On<Pointer<Click>>, mut starts: ResMut<Starts>) {",

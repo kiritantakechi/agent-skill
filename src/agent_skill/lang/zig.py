@@ -8,7 +8,7 @@ compiles as written.
 
 import re
 from collections import Counter
-from collections.abc import Iterable
+lazy from collections.abc import Iterable
 from pathlib import Path
 
 from agent_skill.lang import Extraction, Unit

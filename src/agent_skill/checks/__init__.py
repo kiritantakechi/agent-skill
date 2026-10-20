@@ -7,8 +7,8 @@ negative controls all drive the same code.
 
 import importlib
 import inspect
-from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+lazy from collections.abc import Callable, Iterable
 
 from agent_skill.report import Finding, Result
 

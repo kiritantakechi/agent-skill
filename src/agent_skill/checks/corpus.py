@@ -10,7 +10,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from agent_skill.checks.patterns import Pattern
+lazy from agent_skill.checks.patterns import Pattern
 lazy from agent_skill.text import strip_comment, syntax_for
 
 

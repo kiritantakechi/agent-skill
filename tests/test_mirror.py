@@ -20,7 +20,7 @@ class Rule:
 
 
 class Skill:
-    def __init__(self, name, prefix, rules):
+    def __init__(self, name, prefix, rules) -> None:
         self.name, self.prefix, self.rules = name, prefix, rules
         self.by_id = {r.id: r for r in rules}
 
@@ -40,7 +40,7 @@ def anchor(tier="[M]"):
     return Skill("rust-style", "RS", [Rule("RS-NAME-01", tier, TITLE)])
 
 
-def test_a_third_skill_is_routed_by_its_prefix():
+def test_a_third_skill_is_routed_by_its_prefix() -> None:
     third = Skill("third-style", "XX", [Rule("XX-NAME-09", "[S]", TITLE)])
     findings = run([("XX-NAME-09", TITLE)], [anchor(), third])
     assert [f.message for f in findings] == [
@@ -48,17 +48,17 @@ def test_a_third_skill_is_routed_by_its_prefix():
     ]
 
 
-def test_a_third_skill_that_agrees_is_silent():
+def test_a_third_skill_that_agrees_is_silent() -> None:
     third = Skill("third-style", "XX", [Rule("XX-NAME-09", "[M]", TITLE)])
     assert run([("XX-NAME-09", TITLE)], [anchor(), third]) == []
 
 
-def test_an_entry_for_a_skill_not_in_this_run_is_skipped():
+def test_an_entry_for_a_skill_not_in_this_run_is_skipped() -> None:
     """A partial run must not report every absent skill as a missing rule."""
     assert run([("ZS-NAME-36", TITLE)], [anchor()]) == []
 
 
-def test_an_unheld_pair_is_noticed_in_any_skill_not_only_the_first():
+def test_an_unheld_pair_is_noticed_in_any_skill_not_only_the_first() -> None:
     third = Skill("third-style", "XX", [Rule("XX-NAME-09", "[M]", TITLE)])
     [found] = run([], [anchor(), third])
     assert found.level.value == "note"

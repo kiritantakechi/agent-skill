@@ -90,7 +90,7 @@ def snapshot(root):
     return {p: p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
 
 
-def test_rows_replace_the_rule_and_start_the_table(repo):
+def test_rows_replace_the_rule_and_start_the_table(repo) -> None:
     run(repo, {"DS-ERR-02": {"rows": [ROW]}})
     errors = text(repo, "errors.md")
     assert "DS-ERR-02" not in errors
@@ -106,7 +106,7 @@ def test_rows_replace_the_rule_and_start_the_table(repo):
     }
 
 
-def test_a_lint_row_already_listed_and_a_merge(repo):
+def test_a_lint_row_already_listed_and_a_merge(repo) -> None:
     run(repo, {"DS-ERR-02": {"rows": [ROW]}, "DS-ERR-03": {"merge": "DS-ERR-01"}})
     run(repo, {"DS-ERR-01": {"lint": ["clippy", "unwrap_used"]}})
     errors = text(repo, "errors.md")
@@ -121,7 +121,7 @@ def test_a_lint_row_already_listed_and_a_merge(repo):
     }
 
 
-def test_a_demotion_composes_with_the_table_it_finds(repo):
+def test_a_demotion_composes_with_the_table_it_finds(repo) -> None:
     migration = repo / "skills/demo-style/references/migration.md"
     migration.write_text(MIGRATION + TABLE)
     run(repo, {"DS-ERR-02": {"remove": "y"}, "DS-ERR-01": {"merge": "DS-ERR-03"}})
@@ -133,7 +133,7 @@ def test_a_demotion_composes_with_the_table_it_finds(repo):
     }
 
 
-def test_demote_then_renumber_closes_the_gap(repo):
+def test_demote_then_renumber_closes_the_gap(repo) -> None:
     run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
     renumber.apply(repo, renumber.plan(repo, "demo-style", {}, Demo()))
     demo = skill(repo)
@@ -146,7 +146,7 @@ def test_demote_then_renumber_closes_the_gap(repo):
     }
 
 
-def test_a_citation_left_behind_is_reported(repo):
+def test_a_citation_left_behind_is_reported(repo) -> None:
     demotion = run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
     assert demotion.leftovers == [
         "skills/demo-style/SKILL.md:7 cites DS-ERR-02, which is now removed — said nothing"
@@ -166,14 +166,14 @@ def test_a_citation_left_behind_is_reported(repo):
         ({"DS-ERR-02": {"merge": "DS-ERR-03"}, "DS-ERR-03": {"remove": "x"}}, "keeps"),
     ],
 )
-def test_a_plan_that_cannot_be_done_writes_nothing(repo, asked, message):
+def test_a_plan_that_cannot_be_done_writes_nothing(repo, asked, message) -> None:
     before = snapshot(repo)
     with pytest.raises(demote.DemoteError, match=message):
         run(repo, asked)
     assert snapshot(repo) == before
 
 
-def test_demote_then_renumber_leaves_a_conforming_skill_conforming(tmp_path):
+def test_demote_then_renumber_leaves_a_conforming_skill_conforming(tmp_path) -> None:
     demo = build(tmp_path / "skills")
     (tmp_path / "src").mkdir()
     (tmp_path / "tests").mkdir()

@@ -16,7 +16,7 @@ or nothing, is a reading decision.
 
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
+lazy from pathlib import Path
 
 from agent_skill.model import DECIDED, Skill
 from agent_skill.renumber import RenumberError, _corpus, _segments, carry, heading

@@ -38,12 +38,12 @@ def corpus_of(*sizes: int) -> Corpus:
         (9, "ch2.md", "XX-Y-02", 103),  # last line of the corpus — unit2 spans 6..9
     ],
 )
-def test_a_global_line_resolves_to_its_unit(line, chapter, rule, at):
+def test_a_global_line_resolves_to_its_unit(line, chapter, rule, at) -> None:
     found_chapter, found_rule, found_at, _ = corpus_of(3, 2, 4).origin(line)
     assert (found_chapter, found_rule, found_at) == (chapter, rule, at)
 
 
-def test_every_line_round_trips():
+def test_every_line_round_trips() -> None:
     """No line resolves into a neighbour, which is what an off-by-one looks like."""
     built = corpus_of(3, 2, 4)
     seen = [built.origin(n)[:3] for n in range(1, 10)]
@@ -54,5 +54,5 @@ def test_every_line_round_trips():
     assert all(c == "ch2.md" for c, _, _ in seen[5:])
 
 
-def test_a_single_unit_corpus_resolves_from_one():
+def test_a_single_unit_corpus_resolves_from_one() -> None:
     assert corpus_of(1).origin(1)[:3] == ("ch0.md", "XX-Y-00", 100)
