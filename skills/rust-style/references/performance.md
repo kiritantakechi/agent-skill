@@ -1,4 +1,4 @@
-# RS-PRF — Performance
+# RS-PERF — Performance
 
 Rust's promise is that you do not pay for what you do not use, and that you can
 have the fast version without giving up safety. Delivering on that requires
@@ -9,72 +9,72 @@ follow.
 ## Contents
 
 - **Measure first**
-  - RS-PRF-01 [M] Do not optimize without a profile
-  - RS-PRF-02 [M] Optimize the algorithm before the constant factor
-  - RS-PRF-03 [M] Establish a baseline and report the delta
-  - RS-PRF-04 [S] Optimize for the realistic input distribution
-  - RS-PRF-05 [M] Measure in release mode with the profile you ship
+  - RS-PERF-01 [M] Do not optimize without a profile
+  - RS-PERF-02 [M] Optimize the algorithm before the constant factor
+  - RS-PERF-03 [M] Establish a baseline and report the delta
+  - RS-PERF-04 [S] Optimize for the realistic input distribution
+  - RS-PERF-05 [M] Measure in release mode with the profile you ship
 
 - **Allocation**
-  - RS-PRF-06 [M] Pre-size collections when the size is known
-  - RS-PRF-07 [S] Know when `collect()` can pre-size and when it cannot
-  - RS-PRF-08 [M] Hoist allocations out of loops
-  - RS-PRF-09 [M] Avoid intermediate collections in pipelines
-  - RS-PRF-10 [M] Prefer slicing to building new `String`s
-  - RS-PRF-11 [M] Reuse buffers across iterations (see RS-OWN-17)
-  - RS-PRF-12 [M] Write into a reused buffer instead of `format!` in a hot loop
-  - RS-PRF-13 [M] Do not `to_string()` something you only compare or search
-  - RS-PRF-14 [S] Prefer `Box<str>`/`Box<[T]>`/`Arc<[T]>` for finished data
-  - RS-PRF-15 [S] Reach for `SmallVec`/`ArrayVec` only on profiler evidence
-  - RS-PRF-16 [S] Use an arena for arena-shaped workloads
+  - RS-PERF-06 [M] Pre-size collections when the size is known
+  - RS-PERF-07 [S] Know when `collect()` can pre-size and when it cannot
+  - RS-PERF-08 [M] Hoist allocations out of loops
+  - RS-PERF-09 [M] Avoid intermediate collections in pipelines
+  - RS-PERF-10 [M] Prefer slicing to building new `String`s
+  - RS-PERF-11 [M] Reuse buffers across iterations (see RS-OWN-17)
+  - RS-PERF-12 [M] Write into a reused buffer instead of `format!` in a hot loop
+  - RS-PERF-13 [M] Do not `to_string()` something you only compare or search
+  - RS-PERF-14 [S] Prefer `Box<str>`/`Box<[T]>`/`Arc<[T]>` for finished data
+  - RS-PERF-15 [S] Reach for `SmallVec`/`ArrayVec` only on profiler evidence
+  - RS-PERF-16 [S] Use an arena for arena-shaped workloads
 
 - **Data structures and layout**
-  - RS-PRF-17 [M] Pick the collection for the access pattern
-  - RS-PRF-18 [S] Swap SipHash for a faster hasher only when keys are trusted
-  - RS-PRF-19 [M] Prefer `entry()` over `contains_key` + `insert`
-  - RS-PRF-20 [S] Prefer struct-of-arrays when you iterate one field over many elements
-  - RS-PRF-21 [M] Keep hot structs small and box the rare large variant
-  - RS-PRF-22 [M] Watch enum size — it is the largest variant plus a discriminant
-  - RS-PRF-23 [M] Prefer iteration over indexing so bounds checks are elided
-  - RS-PRF-24 [S] Escalate bounds-check removal in order, `unsafe` last
-  - RS-PRF-25 [M] Choose the right sort: unstable, by-key, cached-key, or select-nth
-  - RS-PRF-26 [S] Binary-search a sorted `Vec` for build-once, query-many data
+  - RS-PERF-17 [M] Pick the collection for the access pattern
+  - RS-PERF-18 [S] Swap SipHash for a faster hasher only when keys are trusted
+  - RS-PERF-19 [M] Prefer `entry()` over `contains_key` + `insert`
+  - RS-PERF-20 [S] Prefer struct-of-arrays when you iterate one field over many elements
+  - RS-PERF-21 [M] Keep hot structs small and box the rare large variant
+  - RS-PERF-22 [M] Watch enum size — it is the largest variant plus a discriminant
+  - RS-PERF-23 [M] Prefer iteration over indexing so bounds checks are elided
+  - RS-PERF-24 [S] Escalate bounds-check removal in order, `unsafe` last
+  - RS-PERF-25 [M] Choose the right sort: unstable, by-key, cached-key, or select-nth
+  - RS-PERF-26 [S] Binary-search a sorted `Vec` for build-once, query-many data
 
 - **I/O and syscalls**
-  - RS-PRF-27 [M] Always buffer
-  - RS-PRF-28 [M] Lock stdout once and hold the lock
-  - RS-PRF-29 [M] Flush explicitly before exiting, and check the result
-  - RS-PRF-30 [M] Read in large chunks, never byte-at-a-time
-  - RS-PRF-31 [S] Treat memory maps as a per-file runtime choice, not a default
-  - RS-PRF-32 [M] Work on `&[u8]` and validate UTF-8 only where required
-  - RS-PRF-33 [S] Batch syscalls
+  - RS-PERF-27 [M] Always buffer
+  - RS-PERF-28 [M] Lock stdout once and hold the lock
+  - RS-PERF-29 [M] Flush explicitly before exiting, and check the result
+  - RS-PERF-30 [M] Read in large chunks, never byte-at-a-time
+  - RS-PERF-31 [S] Treat memory maps as a per-file runtime choice, not a default
+  - RS-PERF-32 [M] Work on `&[u8]` and validate UTF-8 only where required
+  - RS-PERF-33 [S] Batch syscalls
 
 - **Codegen and the compiler**
-  - RS-PRF-34 [M] Use `#[inline]` for small cross-crate non-generic functions only
-  - RS-PRF-35 [M] Require a measurement before `#[inline(always)]`
-  - RS-PRF-36 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
-  - RS-PRF-37 [S] Do not assume static dispatch beats dynamic
-  - RS-PRF-38 [M] Hoist loop invariants the compiler cannot
-  - RS-PRF-39 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
-  - RS-PRF-40 [M] Make overflow behaviour explicit on untrusted or computed sizes
-  - RS-PRF-41 [M] Choose integer widths deliberately and convert with `try_from`
-  - RS-PRF-42 [M!] Treat SIMD as a last resort with a scalar fallback and a differential test
+  - RS-PERF-34 [M] Use `#[inline]` for small cross-crate non-generic functions only
+  - RS-PERF-35 [M] Require a measurement before `#[inline(always)]`
+  - RS-PERF-36 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
+  - RS-PERF-37 [S] Do not assume static dispatch beats dynamic
+  - RS-PERF-38 [M] Hoist loop invariants the compiler cannot
+  - RS-PERF-39 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
+  - RS-PERF-40 [M] Make overflow behaviour explicit on untrusted or computed sizes
+  - RS-PERF-41 [M] Choose integer widths deliberately and convert with `try_from`
+  - RS-PERF-42 [M!] Treat SIMD as a last resort with a scalar fallback and a differential test
 
 - **Benchmarking**
-  - RS-PRF-43 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
-  - RS-PRF-44 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
-  - RS-PRF-45 [M] Wrap inputs and results in `black_box`
-  - RS-PRF-46 [M] Benchmark realistic sizes
-  - RS-PRF-47 [S] Report throughput rather than latency for data-processing code
-  - RS-PRF-48 [M] Pin CI benchmark comparisons to one machine class, or distrust them
-  - RS-PRF-49 [S] Track binary size and compile time alongside runtime
-  - RS-PRF-50 [S] Record every optimization attempt, including the failures
+  - RS-PERF-43 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
+  - RS-PERF-44 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
+  - RS-PERF-45 [M] Wrap inputs and results in `black_box`
+  - RS-PERF-46 [M] Benchmark realistic sizes
+  - RS-PERF-47 [S] Report throughput rather than latency for data-processing code
+  - RS-PERF-48 [M] Pin CI benchmark comparisons to one machine class, or distrust them
+  - RS-PERF-49 [S] Track binary size and compile time alongside runtime
+  - RS-PERF-50 [S] Record every optimization attempt, including the failures
 
 ---
 
 ## Measure first
 
-### RS-PRF-01 [M] Do not optimize without a profile
+### RS-PERF-01 [M] Do not optimize without a profile
 
 Do not optimize without a profile. `perf`, `samply`, `cargo flamegraph`, and Instruments all take
 minutes to set up and routinely show that the hot spot is somewhere nobody guessed.
@@ -96,7 +96,7 @@ pub fn first_byte(haystack: &[u8], needle: u8) -> Option<usize> {
 }
 ```
 
-### RS-PRF-02 [M] Optimize the algorithm before the constant factor
+### RS-PERF-02 [M] Optimize the algorithm before the constant factor
 
 Optimize the algorithm before the constant factor. Replacing an accidental O(n²) with a `HashMap`
 beats every micro-optimization in this file combined, and it is usually less code.
@@ -124,7 +124,7 @@ pub fn duplicates(values: &[u32]) -> Vec<u32> {
 }
 ```
 
-### RS-PRF-03 [M] Establish a baseline and report the delta
+### RS-PERF-03 [M] Establish a baseline and report the delta
 
 Establish a baseline number before the change and report the delta after. "Feels faster" is not a
 result; "3.4× on the 1 GB corpus, unchanged on small inputs" is.
@@ -135,7 +135,7 @@ judge whether the trade was worth it.
 
 **Check:** does the commit message or PR contain before and after numbers with the input described?
 
-### RS-PRF-04 [S] Optimize for the realistic input distribution
+### RS-PERF-04 [S] Optimize for the realistic input distribution
 
 Optimize for the realistic input distribution, not the benchmark you happen to have. A search tool
 is dominated by files that do not match; a parser by inputs that are valid. Make the common case
@@ -148,7 +148,7 @@ not a detail.
 **Check:** describe the input distribution the benchmark uses and compare it to production. A
 benchmark where every input matches is measuring the rare case.
 
-### RS-PRF-05 [M] Measure in release mode with the profile you ship
+### RS-PERF-05 [M] Measure in release mode with the profile you ship
 
 Measure in release mode with the profile you ship. Debug-build timings are meaningless — bounds
 checks, no inlining, and overflow checks make them differ by an order of magnitude.
@@ -158,11 +158,11 @@ completely different. A debug measurement can rank two implementations in the op
 release.
 
 **Check:** was the measurement taken with `--release` and with the same `[profile.release]` settings
-that ship (`RS-CAR-48`)?
+that ship (`RS-BUILD-48`)?
 
 ## Allocation
 
-### RS-PRF-06 [M] Pre-size collections when the size is known
+### RS-PERF-06 [M] Pre-size collections when the size is known
 
 Pre-size collections when the size is known: `Vec::with_capacity(n)`, `String::with_capacity(n)`,
 `HashMap::with_capacity(n)`. Growth reallocates and copies; each doubling is a memcpy of everything
@@ -185,11 +185,11 @@ pub fn widen(values: &[u16]) -> Vec<u32> {
 }
 ```
 
-### RS-PRF-07 [S] Know when `collect()` can pre-size and when it cannot
+### RS-PERF-07 [S] Know when `collect()` can pre-size and when it cannot
 
 `collect()` uses the iterator's `size_hint`, so it pre-sizes correctly for slices, ranges, and `map`
 over them — but not after `filter`, `flat_map`, or `chars`. Where the count is known independently,
-size it yourself (`RS-FP-22`).
+size it yourself (`RS-FUNC-22`).
 
 **Why:** knowing which adapters preserve an exact `size_hint` is what lets you use `collect` freely
 without wondering about allocations. After a `filter` the hint is a range, so `collect` allocates
@@ -209,7 +209,7 @@ pub fn evens(values: &[u32], expected: usize) -> Vec<u32> {
 }
 ```
 
-### RS-PRF-08 [M] Hoist allocations out of loops
+### RS-PERF-08 [M] Hoist allocations out of loops
 
 Do not allocate inside a loop when the allocation can be hoisted. This is the highest-frequency
 performance defect in otherwise good Rust.
@@ -237,10 +237,10 @@ pub fn render_all(rows: &[Vec<u8>]) -> usize {
 }
 ```
 
-### RS-PRF-09 [M] Avoid intermediate collections in pipelines
+### RS-PERF-09 [M] Avoid intermediate collections in pipelines
 
 Avoid intermediate collections in pipelines. Each `.collect::<Vec<_>>()` in the middle of a chain is
-an allocation plus a full materialization the laziness would have avoided (`RS-FP-14`).
+an allocation plus a full materialization the laziness would have avoided (`RS-FUNC-14`).
 
 **Why:** iterators are lazy precisely so that a chain of adapters is one pass with no storage.
 Collecting in the middle forces the whole intermediate to exist, which costs both the allocation and
@@ -260,7 +260,7 @@ pub fn longest_word(text: &str) -> Option<&str> {
 }
 ```
 
-### RS-PRF-10 [M] Prefer slicing to building new `String`s
+### RS-PERF-10 [M] Prefer slicing to building new `String`s
 
 Prefer `&str`/`&[u8]` slicing to building new `String`s. `trim`, `strip_prefix`, `split_once`, and
 `find` all return borrows.
@@ -281,13 +281,13 @@ pub fn key_of(line: &str) -> Option<&str> {
 }
 ```
 
-### RS-PRF-11 [M] Reuse buffers across iterations (see RS-OWN-17)
+### RS-PERF-11 [M] Reuse buffers across iterations (see RS-OWN-17)
 
 Owned by `references/ownership.md` RS-OWN-17. `clear()` keeps the capacity, so after the first few
 iterations the loop stops allocating entirely. `BufRead::read_line` and `read_until` are designed
 for exactly this, and are why line-oriented tools can process gigabytes without allocating per line.
 
-### RS-PRF-12 [M] Write into a reused buffer instead of `format!` in a hot loop
+### RS-PERF-12 [M] Write into a reused buffer instead of `format!` in a hot loop
 
 `format!` allocates. In a hot loop, `write!` into a reused `String` (via `fmt::Write`) or a reused
 `Vec<u8>` (via `io::Write`), and reach for `push_str`/`push` where no formatting is needed.
@@ -315,7 +315,7 @@ pub fn join_ids(ids: &[u32]) -> String {
 }
 ```
 
-### RS-PRF-13 [M] Do not `to_string()` something you only compare or search
+### RS-PERF-13 [M] Do not `to_string()` something you only compare or search
 
 `to_string()` on something that is already a `&str` you only compare or search is a wasted
 allocation (`RS-OWN-16`).
@@ -335,7 +335,7 @@ pub fn count_equal(values: &[String], needle: &str) -> usize {
 }
 ```
 
-### RS-PRF-14 [S] Prefer `Box<str>`/`Box<[T]>`/`Arc<[T]>` for finished data
+### RS-PERF-14 [S] Prefer `Box<str>`/`Box<[T]>`/`Arc<[T]>` for finished data
 
 Prefer `Box<str>`/`Box<[T]>`/`Arc<[T]>` for finished data: one less word per value and no spare
 capacity (`RS-OWN-20`).
@@ -365,7 +365,7 @@ impl Interned {
 }
 ```
 
-### RS-PRF-15 [S] Reach for `SmallVec`/`ArrayVec` only on profiler evidence
+### RS-PERF-15 [S] Reach for `SmallVec`/`ArrayVec` only on profiler evidence
 
 Consider `SmallVec`/`ArrayVec`/`SmallString` when profiling shows many short-lived small collections
 — but only then. The complexity and the extra dependency need evidence.
@@ -375,9 +375,9 @@ spill, and it complicates the types. It is a real win in the measured case and a
 otherwise.
 
 **Check:** is there a profile showing allocator time dominated by small, short-lived collections?
-Without one, the dependency is not earning its place (`RS-CAR-21`).
+Without one, the dependency is not earning its place (`RS-BUILD-21`).
 
-### RS-PRF-16 [S] Use an arena for arena-shaped workloads
+### RS-PERF-16 [S] Use an arena for arena-shaped workloads
 
 For arena-shaped workloads (a parser producing a tree, a graph built once and read many times), an
 arena (`bumpalo`, or a `Vec` plus index newtypes) turns thousands of allocations into one and
@@ -413,7 +413,7 @@ impl Arena {
 
 ## Data structures and layout
 
-### RS-PRF-17 [M] Pick the collection for the access pattern
+### RS-PERF-17 [M] Pick the collection for the access pattern
 
 Pick the collection for the access pattern: `Vec` for iteration and indexed access, `VecDeque` for
 queues, `HashMap` for lookup, `BTreeMap` for ordered iteration and range queries,
@@ -441,7 +441,7 @@ pub fn sorted_counts(words: &[&str]) -> BTreeMap<String, usize> {
 }
 ```
 
-### RS-PRF-18 [S] Swap SipHash for a faster hasher only when keys are trusted
+### RS-PERF-18 [S] Swap SipHash for a faster hasher only when keys are trusted
 
 `std`'s `HashMap` uses SipHash for DoS resistance. When keys are trusted and hashing is hot, swap in
 `rustc-hash`/`FxHashMap` or `ahash` — and document the trade, because it is a security-relevant
@@ -454,7 +454,7 @@ needs to be a recorded decision rather than an unnoticed default.
 **Check:** for each non-default hasher, can any key come from outside the process? If so, the swap
 is a vulnerability.
 
-### RS-PRF-19 [M] Prefer `entry()` over `contains_key` + `insert`
+### RS-PERF-19 [M] Prefer `entry()` over `contains_key` + `insert`
 
 Prefer `entry()` over `contains_key` + `insert`: one lookup rather than two, and it composes with
 `or_insert_with` and `and_modify`.
@@ -479,7 +479,7 @@ pub fn tally(words: &[&str]) -> HashMap<String, usize> {
 }
 ```
 
-### RS-PRF-20 [S] Prefer struct-of-arrays when you iterate one field over many elements
+### RS-PERF-20 [S] Prefer struct-of-arrays when you iterate one field over many elements
 
 Prefer struct-of-arrays over array-of-structs when you iterate one field over many elements. Cache
 lines carry data you actually use.
@@ -512,7 +512,7 @@ impl Particles {
 }
 ```
 
-### RS-PRF-21 [M] Keep hot structs small and box the rare large variant
+### RS-PERF-21 [M] Keep hot structs small and box the rare large variant
 
 Keep hot structs small. A struct that no longer fits in a cache line, or that pushes an enum's size
 up for every variant, costs on every access — box the rare large variant instead (`RS-ERR-21`).
@@ -541,7 +541,7 @@ pub enum Outcome {
 const _: () = assert!(size_of::<Outcome>() <= 16);
 ```
 
-### RS-PRF-22 [M] Watch enum size — it is the largest variant plus a discriminant
+### RS-PERF-22 [M] Watch enum size — it is the largest variant plus a discriminant
 
 Enum size is the largest variant plus a discriminant. Check with `size_of` in a test if it matters;
 a `Result<(), BigError>` returned from a hot function moves `BigError`-many bytes on every success.
@@ -549,7 +549,7 @@ a `Result<(), BigError>` returned from a hot function moves `BigError`-many byte
 **Why:** the success path pays for the error path's size on every call, which is exactly backwards —
 errors are the rare case. Boxing the large variant makes the common return cheap.
 
-**Check:** add a `const` assertion on `size_of` for hot `Result` and enum types (`RS-UNS-34`), so
+**Check:** add a `const` assertion on `size_of` for hot `Result` and enum types (`RS-UNSAFE-34`), so
 growth fails the build.
 
 ```rust
@@ -565,10 +565,10 @@ pub enum Token {
 const _: () = assert!(size_of::<Token>() == 8);
 ```
 
-### RS-PRF-23 [M] Prefer iteration over indexing so bounds checks are elided
+### RS-PERF-23 [M] Prefer iteration over indexing so bounds checks are elided
 
 Prefer iteration over indexing so bounds checks are elided. `for x in &v` has no check;
-`for i in 0..v.len() { v[i] }` relies on the optimizer noticing (`RS-FP-12`).
+`for i in 0..v.len() { v[i] }` relies on the optimizer noticing (`RS-FUNC-12`).
 
 **Why:** the iterator carries the proof that each element exists, so there is nothing to check. The
 indexed form re-proves it per access and only becomes free if LLVM can follow the reasoning, which
@@ -591,7 +591,7 @@ pub fn max_run(values: &[u8]) -> usize {
 }
 ```
 
-### RS-PRF-24 [S] Escalate bounds-check removal in order, `unsafe` last
+### RS-PERF-24 [S] Escalate bounds-check removal in order, `unsafe` last
 
 Where bounds checks genuinely dominate and the profile proves it, reach for slice patterns,
 `as_chunks`, `iter().zip()`, or `get_unchecked` inside a narrowly scoped `unsafe` with a
@@ -620,7 +620,7 @@ pub fn sum_pairs(values: &[u32]) -> u64 {
 }
 ```
 
-### RS-PRF-25 [M] Choose the right sort: unstable, by-key, cached-key, or select-nth
+### RS-PERF-25 [M] Choose the right sort: unstable, by-key, cached-key, or select-nth
 
 Sorting: `sort_unstable` unless stability is required (it is faster and allocation-free),
 `sort_unstable_by_key` for projections, `sort_by_cached_key` when the key is expensive to compute,
@@ -641,7 +641,7 @@ pub fn sort_by_len(items: &mut [String]) {
 }
 ```
 
-### RS-PRF-26 [S] Binary-search a sorted `Vec` for build-once, query-many data
+### RS-PERF-26 [S] Binary-search a sorted `Vec` for build-once, query-many data
 
 Binary search a sorted `Vec` rather than maintaining a `BTreeMap` when the data is built once and
 queried many times: better locality, less memory, and `partition_point` reads well.
@@ -663,7 +663,7 @@ pub fn contains(sorted: &[u32], needle: u32) -> bool {
 
 ## I/O and syscalls
 
-### RS-PRF-27 [M] Always buffer
+### RS-PERF-27 [M] Always buffer
 
 Always buffer. `BufReader`/`BufWriter` around files, sockets, and pipes; an unbuffered `Write` in a
 loop is one syscall per call and is the most common reason a Rust CLI is slower than its C
@@ -691,7 +691,7 @@ pub fn emit(sink: impl Write, lines: &[String]) -> io::Result<()> {
 }
 ```
 
-### RS-PRF-28 [M] Lock stdout once and hold the lock
+### RS-PERF-28 [M] Lock stdout once and hold the lock
 
 Lock stdout once and hold the lock: `let mut out = io::stdout().lock();` then write to `out`. Every
 `println!` locks, formats, and (on line-buffered terminals) flushes.
@@ -720,18 +720,18 @@ pub fn write_lines(lines: &[String]) -> io::Result<()> {
 }
 ```
 
-### RS-PRF-29 [M] Flush explicitly before exiting, and check the result
+### RS-PERF-29 [M] Flush explicitly before exiting, and check the result
 
 Flush explicitly before exiting, and check the result. `BufWriter` flushes on drop but swallows the
 error (`RS-OWN-40`).
 
 **Why:** buffering means the last write is still in memory when `main` returns, and `Drop` cannot
 report a failure. A full disk or a closed pipe silently truncates the output — the failure
-introduced by the optimization in RS-PRF-27.
+introduced by the optimization in RS-PERF-27.
 
 **Check:** is there an explicit `flush()` whose `Result` is handled before exit?
 
-### RS-PRF-30 [M] Read in large chunks, never byte-at-a-time
+### RS-PERF-30 [M] Read in large chunks, never byte-at-a-time
 
 Prefer reading in large chunks over byte-at-a-time. `read_until`, `read_to_end`, and
 `fill_buf`/`consume` give you the bytes without a syscall per byte.
@@ -764,7 +764,7 @@ pub fn count_lines(mut source: impl BufRead) -> io::Result<usize> {
 }
 ```
 
-### RS-PRF-31 [S] Treat memory maps as a per-file runtime choice, not a default
+### RS-PERF-31 [S] Treat memory maps as a per-file runtime choice, not a default
 
 Memory maps are not automatically faster. They win for large files read repeatedly and lose for
 small files, for pipes, and for network filesystems — and they introduce SIGBUS risk if the file is
@@ -778,7 +778,7 @@ from an error into a process death.
 **Check:** is `mmap` used unconditionally? If so, measure it against buffered reads on the
 small-file case.
 
-### RS-PRF-32 [M] Work on `&[u8]` and validate UTF-8 only where required
+### RS-PERF-32 [M] Work on `&[u8]` and validate UTF-8 only where required
 
 Work on `&[u8]` and validate UTF-8 only where required. `memchr`, `memmem`, and `bstr` operate on
 bytes at SIMD speed; forcing every input through `str::from_utf8` costs a pass over the data and
@@ -799,7 +799,7 @@ pub fn first_field(line: &[u8]) -> &[u8] {
 }
 ```
 
-### RS-PRF-33 [S] Batch syscalls
+### RS-PERF-33 [S] Batch syscalls
 
 Batch syscalls: `write_vectored` for scattered buffers, one `stat` instead of `exists()` followed by
 `metadata()`, and directory traversal via a crate (`ignore`, `walkdir`) that already minimizes them.
@@ -813,7 +813,7 @@ path.
 
 ## Codegen and the compiler
 
-### RS-PRF-34 [M] Use `#[inline]` for small cross-crate non-generic functions only
+### RS-PERF-34 [M] Use `#[inline]` for small cross-crate non-generic functions only
 
 `#[inline]` is for small functions that must inline *across crate boundaries* — non-generic
 functions in a library. Generic functions are already available for inlining. Applying it everywhere
@@ -825,7 +825,7 @@ visible, so the attribute adds nothing.
 
 **Check:** grep for `#[inline]` on generic functions and on private ones. Both are usually noise.
 
-### RS-PRF-35 [M] Require a measurement before `#[inline(always)]`
+### RS-PERF-35 [M] Require a measurement before `#[inline(always)]`
 
 `#[inline(always)]` needs a measurement, not an intuition. It overrides the optimizer's cost model,
 which is right more often than you are.
@@ -837,7 +837,7 @@ discards that.
 **Check:** for each `#[inline(always)]`, find the benchmark. Without one, downgrade it to
 `#[inline]`.
 
-### RS-PRF-36 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
+### RS-PERF-36 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
 
 Monomorphization is a size/speed trade. A large generic function instantiated for twenty types is
 twenty copies; extract the type-independent body into a non-generic inner function and keep the
@@ -866,11 +866,11 @@ pub fn read_config(path: impl AsRef<Path>) -> std::io::Result<String> {
 }
 ```
 
-### RS-PRF-37 [S] Do not assume static dispatch beats dynamic
+### RS-PERF-37 [S] Do not assume static dispatch beats dynamic
 
 Static dispatch is not automatically faster than dynamic: a vtable call is a predictable indirect
 branch, while twenty monomorphized copies can evict the i-cache. Measure before converting `dyn` to
-generics for speed (`RS-TRG-16`).
+generics for speed (`RS-TRAIT-16`).
 
 **Why:** modern branch predictors handle a monomorphic indirect call well, so the vtable cost is
 often near zero. The code-size cost of monomorphization, by contrast, is paid in cache misses across
@@ -879,7 +879,7 @@ the whole program.
 **Check:** was a `dyn` to generic conversion justified by a benchmark, or by the belief that static
 is faster?
 
-### RS-PRF-38 [M] Hoist loop invariants the compiler cannot
+### RS-PERF-38 [M] Hoist loop invariants the compiler cannot
 
 Hoist invariants out of loops explicitly when the compiler cannot: a regex compiled once outside the
 loop rather than per iteration, a `OnceLock` for an expensive global, a length computed once.
@@ -907,7 +907,7 @@ pub fn field_count(lines: &[String]) -> usize {
 }
 ```
 
-### RS-PRF-39 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
+### RS-PERF-39 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
 
 Avoid `Rc`/`Arc` clone traffic in hot loops. Atomic increments are cheap but not free, and
 contention on a shared refcount across threads is measurable.
@@ -918,7 +918,7 @@ several threads cloning the same `Arc`, that line ping-pongs between cores and c
 **Check:** for hot paths, could the value be borrowed instead of cloned? A clone per iteration
 usually can be hoisted (`RS-OWN-13`).
 
-### RS-PRF-40 [M] Make overflow behaviour explicit on untrusted or computed sizes
+### RS-PERF-40 [M] Make overflow behaviour explicit on untrusted or computed sizes
 
 Integer overflow panics in debug and wraps in release. On any path handling untrusted or computed
 sizes, use `checked_*`, `saturating_*`, or `wrapping_*` explicitly so the behaviour is the same in
@@ -940,7 +940,7 @@ pub fn offset(base: usize, delta: usize) -> Option<usize> {
 }
 ```
 
-### RS-PRF-41 [M] Choose integer widths deliberately and convert with `try_from`
+### RS-PERF-41 [M] Choose integer widths deliberately and convert with `try_from`
 
 Prefer `u32`/`u64` deliberately over `usize` for values that are serialized or bounded, and `usize`
 for lengths and indices. Casting with `as` truncates silently — use `try_from` on any conversion
@@ -964,7 +964,7 @@ pub fn header_len(len: usize) -> Result<u32, std::num::TryFromIntError> {
 }
 ```
 
-### RS-PRF-42 [M!] Treat SIMD as a last resort with a scalar fallback and a differential test
+### RS-PERF-42 [M!] Treat SIMD as a last resort with a scalar fallback and a differential test
 
 SIMD is a last resort with a scalar fallback and a correctness test comparing the two. Before
 hand-writing it, check whether `memchr`, `bstr`, or `regex-automata` already does it for you — they
@@ -983,7 +983,7 @@ it are not relaxable — they are what makes the fast path reviewable.
 
 ## Benchmarking
 
-### RS-PRF-43 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
+### RS-PERF-43 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
 
 Benchmark with `criterion` or `divan`, not `std::time::Instant` in a loop. They handle warmup,
 outlier detection, and statistical comparison — without which small differences are
@@ -996,19 +996,19 @@ loops are noise.
 **Check:** does the benchmark report a distribution or a single number? A single number is not a
 measurement.
 
-### RS-PRF-44 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
+### RS-PERF-44 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
 
 Keep benchmarks in `benches/` with fixed, reproducible inputs so results are comparable across
-commits, and build them in CI even if you do not time them there (`RS-STR-33`).
+commits, and build them in CI even if you do not time them there (`RS-MOD-33`).
 
 **Why:** comparability across commits requires the input to be identical, which a generated or
 downloaded corpus is not. Building them in CI keeps them compiling, since they are excluded from a
-default `cargo test` (`RS-TST-32`).
+default `cargo test` (`RS-TEST-32`).
 
-**Check:** are the benchmark inputs checked in or seeded (`RS-TST-10`), and does CI compile the
+**Check:** are the benchmark inputs checked in or seeded (`RS-TEST-10`), and does CI compile the
 benchmarks?
 
-### RS-PRF-45 [M] Wrap inputs and results in `black_box`
+### RS-PERF-45 [M] Wrap inputs and results in `black_box`
 
 Use `std::hint::black_box` around inputs and results so the optimizer cannot delete the work being
 measured. A benchmark that got 1000× faster deleted itself.
@@ -1035,7 +1035,7 @@ pub fn bench_once(input: &[u8]) -> u32 {
 }
 ```
 
-### RS-PRF-46 [M] Benchmark realistic sizes
+### RS-PERF-46 [M] Benchmark realistic sizes
 
 Benchmark realistic sizes. Microbenchmarks on ten-element inputs measure function-call overhead; the
 algorithmic difference only appears at scale.
@@ -1047,7 +1047,7 @@ point is often well above the size people benchmark.
 **Check:** does the benchmark sweep several sizes? A single small size cannot show an asymptotic
 difference.
 
-### RS-PRF-47 [S] Report throughput rather than latency for data-processing code
+### RS-PERF-47 [S] Report throughput rather than latency for data-processing code
 
 Report throughput (`Throughput::Bytes`) rather than latency for data-processing code, so results are
 comparable across input sizes.
@@ -1057,7 +1057,7 @@ the history. Bytes per second normalizes that and makes the number meaningful on
 
 **Check:** are the benchmark results expressed in a unit that survives an input change?
 
-### RS-PRF-48 [M] Pin CI benchmark comparisons to one machine class, or distrust them
+### RS-PERF-48 [M] Pin CI benchmark comparisons to one machine class, or distrust them
 
 Pin CI benchmark comparisons to the same machine class, or do not trust them. Cross-runner
 comparisons are noise, and treating them as signal produces a permanent stream of false regressions.
@@ -1069,7 +1069,7 @@ it is right.
 **Check:** does the benchmark job pin the runner type, and does it compare against a baseline from
 the same class?
 
-### RS-PRF-49 [S] Track binary size and compile time alongside runtime
+### RS-PERF-49 [S] Track binary size and compile time alongside runtime
 
 Track binary size and compile time alongside runtime if you ship a CLI. Users notice a 40 MB binary
 and a five-minute build.
@@ -1080,7 +1080,7 @@ the same dashboard.
 
 **Check:** is release binary size recorded per release? A number nobody tracks only grows.
 
-### RS-PRF-50 [S] Record every optimization attempt, including the failures
+### RS-PERF-50 [S] Record every optimization attempt, including the failures
 
 Record the result of every optimization attempt, including the ones that did not work, in the commit
 message or a comment. The next person will otherwise try the same thing.

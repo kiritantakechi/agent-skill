@@ -228,7 +228,10 @@ def reflow(text: str, width: int = WIDTH) -> str:
         line = lines[i]
         if line.startswith("```"):
             fenced = not fenced
-        if fenced or len(line) <= width or line.lstrip().startswith(("|", "#")):
+        # A contents line is a rule's ID, tier and title by construction, and
+        # `layout` exempts it for that reason: wrapping it breaks the contents.
+        contents = re.match(r"^\s*- [A-Z]{2}-[A-Z]+-\d+", line)
+        if fenced or len(line) <= width or line.lstrip().startswith(("|", "#")) or contents:
             i += 1
             continue
         cut = line.rfind(" ", 0, width + 1)
@@ -330,8 +333,23 @@ def _table(heading: str, rows: list[Rename]) -> str:
 
 
 def _verify(repo: Path, skill: Skill, plan: Plan) -> None:
-    """Apply the plan to a copy and check that every old ID reaches the same rule."""
-    before = {r.id: r.title for r in skill.rules}
+    """Apply the plan to a copy and check that every old ID reaches the same rule.
+
+    A title can itself cite a rule — a pointer's title names the rule it points at — so the title
+    expected afterwards is the old one with the same rewrite applied.
+    """
+    pattern = re.compile(rf"\b{skill.prefix}-([A-Z]+)(?:-(\d+[a-z]?))?\b")
+
+    def retitle(title: str) -> str:
+        def swap(m: re.Match[str]) -> str:
+            if m.group(2) is not None:
+                return plan.ids.get(m.group(0), m.group(0))
+            code = m.group(1)
+            return f"{skill.prefix}-{plan.families[code]}" if code in plan.families else m.group(0)
+
+        return pattern.sub(swap, title)
+
+    before = {r.id: retitle(r.title) for r in skill.rules}
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         root = Path(tmp)
         shutil.copytree(repo / "skills", root / "skills", symlinks=True)

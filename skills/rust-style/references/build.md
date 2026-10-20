@@ -1,4 +1,4 @@
-# RS-CAR — Cargo, dependencies, lints, toolchain
+# RS-BUILD — Cargo, dependencies, lints, toolchain
 
 The manifest is part of the API. It determines what your users can build, on
 which compilers, with which transitive risk. A sloppy `Cargo.toml` produces a
@@ -11,76 +11,76 @@ release cadence, and no LTS channel.
 ## Contents
 
 - **Manifest and metadata**
-  - RS-CAR-01 [M] Use `edition = "2024"` for anything new
-  - RS-CAR-02 [M] Set `rust-version` to a real, tested MSRV
-  - RS-CAR-03 [S] Choose an MSRV policy and publish it
-  - RS-CAR-04 [M] Fill in the full publish metadata
-  - RS-CAR-05 [M] Write `description` as one plain sentence
-  - RS-CAR-06 [S] Dual-license `MIT OR Apache-2.0` unless you have a reason not to
-  - RS-CAR-07 [M] Restrict the published tarball with `include`, not `exclude`
-  - RS-CAR-08 [M] Declare shared dependencies and package fields once in the workspace
-  - RS-CAR-09 [S] Rely on target auto-discovery rather than hand-listing targets
-  - RS-CAR-10 [M] Configure `[package.metadata.docs.rs]` and the `docsrs` cfg
-  - RS-CAR-11 [M] Commit `Cargo.lock`, for libraries too
-  - RS-CAR-12 [S] Keep a `CHANGELOG.md` in Keep-a-Changelog form
+  - RS-BUILD-01 [M] Use `edition = "2024"` for anything new
+  - RS-BUILD-02 [M] Set `rust-version` to a real, tested MSRV
+  - RS-BUILD-03 [S] Choose an MSRV policy and publish it
+  - RS-BUILD-04 [M] Fill in the full publish metadata
+  - RS-BUILD-05 [M] Write `description` as one plain sentence
+  - RS-BUILD-06 [S] Dual-license `MIT OR Apache-2.0` unless you have a reason not to
+  - RS-BUILD-07 [M] Restrict the published tarball with `include`, not `exclude`
+  - RS-BUILD-08 [M] Declare shared dependencies and package fields once in the workspace
+  - RS-BUILD-09 [S] Rely on target auto-discovery rather than hand-listing targets
+  - RS-BUILD-10 [M] Configure `[package.metadata.docs.rs]` and the `docsrs` cfg
+  - RS-BUILD-11 [M] Commit `Cargo.lock`, for libraries too
+  - RS-BUILD-12 [S] Keep a `CHANGELOG.md` in Keep-a-Changelog form
 
 - **Features**
-  - RS-CAR-13 [M] Keep features additive only
-  - RS-CAR-14 [S] Default to `default = []`, and document what each feature costs
-  - RS-CAR-15 [S] Name features for capabilities, not dependencies
-  - RS-CAR-16 [M] Use `dep:` syntax for optional dependencies
-  - RS-CAR-17 [M] Use the weak dependency syntax `optional-dep?/feature`
-  - RS-CAR-18 [M] Never use features for mutually exclusive choices
-  - RS-CAR-19 [M] Annotate feature-gated public items for docs.rs
-  - RS-CAR-20 [M] Test the feature powerset that matters, not just `--all-features`
+  - RS-BUILD-13 [M] Keep features additive only
+  - RS-BUILD-14 [S] Default to `default = []`, and document what each feature costs
+  - RS-BUILD-15 [S] Name features for capabilities, not dependencies
+  - RS-BUILD-16 [M] Use `dep:` syntax for optional dependencies
+  - RS-BUILD-17 [M] Use the weak dependency syntax `optional-dep?/feature`
+  - RS-BUILD-18 [M] Never use features for mutually exclusive choices
+  - RS-BUILD-19 [M] Annotate feature-gated public items for docs.rs
+  - RS-BUILD-20 [M] Test the feature powerset that matters, not just `--all-features`
 
 - **Dependencies**
-  - RS-CAR-21 [M] Justify every dependency by more than an hour of saved work
-  - RS-CAR-22 [S] Prefer small, widely audited, actively maintained dependencies
-  - RS-CAR-23 [M] Use caret requirements; never pin exact versions in a library
-  - RS-CAR-24 [M] Turn off default features on heavy dependencies
+  - RS-BUILD-21 [M] Justify every dependency by more than an hour of saved work
+  - RS-BUILD-22 [S] Prefer small, widely audited, actively maintained dependencies
+  - RS-BUILD-23 [M] Use caret requirements; never pin exact versions in a library
+  - RS-BUILD-24 [M] Turn off default features on heavy dependencies
 
 - **Lints and warnings**
-  - RS-CAR-25 [M] Put lints in the manifest's `[lints]` table, not in `lib.rs`
-  - RS-CAR-26 [M] Give lint groups `priority = -1`
-  - RS-CAR-27 [M] Run `clippy::pedantic` at `warn` and answer each warning
-  - RS-CAR-28 [M!] Deny the panicking-API lints in libraries
-  - RS-CAR-29 [M] Deny `undocumented_unsafe_blocks` wherever `unsafe` is permitted
-  - RS-CAR-30 [S] Prefer `#[expect(…, reason = "…")]` to `#[allow]`
-  - RS-CAR-31 [M] Never blanket-`allow` at crate level to make CI green
-  - RS-CAR-32 [M] Deny warnings through Cargo config, not `RUSTFLAGS`
-  - RS-CAR-33 [S] Read `linker_messages` rather than silencing it
-  - RS-CAR-34 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
+  - RS-BUILD-25 [M] Put lints in the manifest's `[lints]` table, not in `lib.rs`
+  - RS-BUILD-26 [M] Give lint groups `priority = -1`
+  - RS-BUILD-27 [M] Run `clippy::pedantic` at `warn` and answer each warning
+  - RS-BUILD-28 [M!] Deny the panicking-API lints in libraries
+  - RS-BUILD-29 [M] Deny `undocumented_unsafe_blocks` wherever `unsafe` is permitted
+  - RS-BUILD-30 [S] Prefer `#[expect(…, reason = "…")]` to `#[allow]`
+  - RS-BUILD-31 [M] Never blanket-`allow` at crate level to make CI green
+  - RS-BUILD-32 [M] Deny warnings through Cargo config, not `RUSTFLAGS`
+  - RS-BUILD-33 [S] Read `linker_messages` rather than silencing it
+  - RS-BUILD-34 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
 
 - **Supply chain, versioning, release**
-  - RS-CAR-35 [M!] Run `cargo audit` on a schedule as well as on pull requests
-  - RS-CAR-36 [S] Enforce license policy and duplicate limits with `cargo deny`
-  - RS-CAR-37 [S] Run `cargo update` deliberately and review the diff
-  - RS-CAR-38 [M] Verify the MSRV claim with a pinned CI job
-  - RS-CAR-39 [M!] Run `cargo semver-checks` before every release
-  - RS-CAR-40 [M] Follow semver strictly, including the 0.x rule
-  - RS-CAR-41 [M] Dry-run and inspect the package list before publishing
-  - RS-CAR-42 [S] Keep the git tag, changelog entry, and published version in agreement
+  - RS-BUILD-35 [M!] Run `cargo audit` on a schedule as well as on pull requests
+  - RS-BUILD-36 [S] Enforce license policy and duplicate limits with `cargo deny`
+  - RS-BUILD-37 [S] Run `cargo update` deliberately and review the diff
+  - RS-BUILD-38 [M] Verify the MSRV claim with a pinned CI job
+  - RS-BUILD-39 [M!] Run `cargo semver-checks` before every release
+  - RS-BUILD-40 [M] Follow semver strictly, including the 0.x rule
+  - RS-BUILD-41 [M] Dry-run and inspect the package list before publishing
+  - RS-BUILD-42 [S] Keep the git tag, changelog entry, and published version in agreement
 
 - **Toolchain, profiles, CI**
-  - RS-CAR-43 [M] Commit a `rust-toolchain.toml`
-  - RS-CAR-44 [M] Test on stable at minimum; add beta and nightly where they earn it
-  - RS-CAR-45 [M] Cover Linux, macOS, and Windows for anything touching the OS
-  - RS-CAR-46 [M] Run the full seven-step CI pipeline
-  - RS-CAR-47 [S] Cache the registry and `target/`, and use `cargo nextest`
-  - RS-CAR-48 [M] Change release profile defaults only with measurements
-  - RS-CAR-49 [S] Keep debug info in profiling builds and strip separately
-  - RS-CAR-50 [S] Raise `opt-level` for dependencies when tests are slow
-  - RS-CAR-51 [M] Keep `target/` and local `.cargo/config.toml` paths out of version control
-  - RS-CAR-52 [S] Prefer `cargo xtask` to shell scripts
-  - RS-CAR-53 [S] Measure build time with `cargo build --timings` before optimizing it
-  - RS-CAR-54 [S] Keep the proc-macro dependency count down
+  - RS-BUILD-43 [M] Commit a `rust-toolchain.toml`
+  - RS-BUILD-44 [M] Test on stable at minimum; add beta and nightly where they earn it
+  - RS-BUILD-45 [M] Cover Linux, macOS, and Windows for anything touching the OS
+  - RS-BUILD-46 [M] Run the full seven-step CI pipeline
+  - RS-BUILD-47 [S] Cache the registry and `target/`, and use `cargo nextest`
+  - RS-BUILD-48 [M] Change release profile defaults only with measurements
+  - RS-BUILD-49 [S] Keep debug info in profiling builds and strip separately
+  - RS-BUILD-50 [S] Raise `opt-level` for dependencies when tests are slow
+  - RS-BUILD-51 [M] Keep `target/` and local `.cargo/config.toml` paths out of version control
+  - RS-BUILD-52 [S] Prefer `cargo xtask` to shell scripts
+  - RS-BUILD-53 [S] Measure build time with `cargo build --timings` before optimizing it
+  - RS-BUILD-54 [S] Keep the proc-macro dependency count down
 
 ---
 
 ## Manifest and metadata
 
-### RS-CAR-01 [M] Use `edition = "2024"` for anything new
+### RS-BUILD-01 [M] Use `edition = "2024"` for anything new
 
 `edition = "2024"` for anything new. The 2024 edition tightens `unsafe_op_in_unsafe_fn`,
 `static_mut_refs`, RPIT lifetime capture, and `if let` temporary scopes — all of which make code
@@ -98,10 +98,10 @@ body. Editions are per-crate, so adopting it costs nothing to dependents.
 name = "myproj"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.99"        # a real, tested MSRV — see RS-CAR-02
+rust-version = "1.99"        # a real, tested MSRV — see RS-BUILD-02
 ```
 
-### RS-CAR-02 [M] Set `rust-version` to a real, tested MSRV
+### RS-BUILD-02 [M] Set `rust-version` to a real, tested MSRV
 
 Set `rust-version` to a real, tested MSRV. It is not a wish: CI must build with exactly that
 toolchain, or the field is a lie that Cargo will enforce against your users.
@@ -110,10 +110,10 @@ toolchain, or the field is a lie that Cargo will enforce against your users.
 resolution, so an untested value produces a hard failure for someone. Since it is enforced, it has
 to be a fact rather than an aspiration.
 
-**Check:** is there a CI job pinned to exactly that version (`RS-CAR-38`)? Without one the field is
-unverified.
+**Check:** is there a CI job pinned to exactly that version (`RS-BUILD-38`)? Without one the field
+is unverified.
 
-### RS-CAR-03 [S] Choose an MSRV policy and publish it
+### RS-BUILD-03 [S] Choose an MSRV policy and publish it
 
 Choose an MSRV policy and publish it in the README: "latest stable", "stable minus two", or a pinned
 old version for distribution packagers. Bumping the MSRV is at least a minor version bump.
@@ -124,7 +124,7 @@ one.
 
 **Check:** does the README state the policy, and does the changelog record MSRV bumps as such?
 
-### RS-CAR-04 [M] Fill in the full publish metadata
+### RS-BUILD-04 [M] Fill in the full publish metadata
 
 Fill in the full publish metadata: `description`, `license` (or `license-file`), `repository`,
 `documentation`, `homepage`, `keywords`, `categories`, `readme`. Missing fields degrade the
@@ -152,7 +152,7 @@ categories = ["text-processing"]
 readme = "README.md"
 ```
 
-### RS-CAR-05 [M] Write `description` as one plain sentence
+### RS-BUILD-05 [M] Write `description` as one plain sentence
 
 `description` is one sentence, no marketing, no crate name repetition, no trailing period-less
 fragment. It appears in search results and is often all a user reads.
@@ -163,7 +163,7 @@ said what the crate does.
 
 **Check:** read the description without the name. Does it say what the crate does, in one sentence?
 
-### RS-CAR-06 [S] Dual-license `MIT OR Apache-2.0` unless you have a reason not to
+### RS-BUILD-06 [S] Dual-license `MIT OR Apache-2.0` unless you have a reason not to
 
 Dual-license `MIT OR Apache-2.0` unless you have a specific reason otherwise; it is what the
 ecosystem expects and what corporate reviewers approve without escalation. Ship both license files.
@@ -175,7 +175,7 @@ unusual triggers a review cycle that can take weeks.
 **Check:** does `license` say `MIT OR Apache-2.0`, and are both files present in the published
 tarball?
 
-### RS-CAR-07 [M] Restrict the published tarball with `include`, not `exclude`
+### RS-BUILD-07 [M] Restrict the published tarball with `include`, not `exclude`
 
 Restrict what gets published with `include = [...]` rather than `exclude`. An allow-list keeps test
 fixtures, benchmark corpora, and CI config out of the `.crate` tarball and cannot be defeated by a
@@ -197,14 +197,14 @@ edition = "2024"
 include = ["src/**/*.rs", "Cargo.toml", "README.md", "LICENSE-*"]
 ```
 
-### RS-CAR-08 [M] Declare shared dependencies and package fields once in the workspace
+### RS-BUILD-08 [M] Declare shared dependencies and package fields once in the workspace
 
 In a workspace, declare shared dependencies once in `[workspace.dependencies]` and inherit with
 `dep.workspace = true`. Also inherit `version`, `edition`, `license`, `repository`, and
 `rust-version` via `[workspace.package]` — one place to bump, no drift.
 
 **Why:** duplicated version requirements across members drift, and the drift produces duplicate
-versions in the graph (`RS-CAR-36`). One declaration makes divergence impossible rather than a
+versions in the graph (`RS-BUILD-36`). One declaration makes divergence impossible rather than a
 review responsibility.
 
 **Check:** grep member manifests for version literals. Each is a value that should be inherited.
@@ -225,7 +225,7 @@ repository = "https://github.com/OWNER/REPO"
 thiserror = "2"
 ```
 
-### RS-CAR-09 [S] Rely on target auto-discovery rather than hand-listing targets
+### RS-BUILD-09 [S] Rely on target auto-discovery rather than hand-listing targets
 
 Set `[package] autobins`/`autotests` behaviour by convention rather than by hand-listing targets;
 explicit `[[bin]]` sections are for binaries whose name differs from the file, or with distinct
@@ -237,7 +237,7 @@ the manifest enumerates them. Convention keeps the manifest short and the discov
 **Check:** are there `[[bin]]` or `[[test]]` sections that only restate the conventional path? They
 can be deleted.
 
-### RS-CAR-10 [M] Configure `[package.metadata.docs.rs]` and the `docsrs` cfg
+### RS-BUILD-10 [M] Configure `[package.metadata.docs.rs]` and the `docsrs` cfg
 
 `[package.metadata.docs.rs]` should enable the features docs.rs should build with (`all-features =
 true`, or an explicit list) and `rustdoc-args = ["--cfg", "docsrs"]` so `#[cfg_attr(docsrs,
@@ -257,7 +257,7 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 ```
 
-### RS-CAR-11 [M] Commit `Cargo.lock`, for libraries too
+### RS-BUILD-11 [M] Commit `Cargo.lock`, for libraries too
 
 Commit `Cargo.lock` for binaries and workspaces that produce binaries; commit it for libraries too —
 modern guidance is that it makes CI reproducible, and it does not affect downstream consumers.
@@ -268,7 +268,7 @@ release schedule. The old advice against it predates that clarification.
 
 **Check:** is `Cargo.lock` in the repository and not in `.gitignore`?
 
-### RS-CAR-12 [S] Keep a `CHANGELOG.md` in Keep-a-Changelog form
+### RS-BUILD-12 [S] Keep a `CHANGELOG.md` in Keep-a-Changelog form
 
 Keep a `CHANGELOG.md` in Keep-a-Changelog form with a section per version and a line per
 user-visible change. "See git log" is not a changelog.
@@ -281,7 +281,7 @@ document with a different audience (`RS-DOC-30`).
 
 ## Features
 
-### RS-CAR-13 [M] Keep features additive only
+### RS-BUILD-13 [M] Keep features additive only
 
 Features are additive only. Enabling a feature must never remove an item, change a signature, or
 alter behaviour, because Cargo unifies features across the whole dependency graph and your user did
@@ -294,7 +294,7 @@ in — and the failure appears at a distance from its cause.
 **Check:** for each feature, does disabling it remove items only? Any `#[cfg(not(feature = …))]`
 providing an alternative implementation is a subtractive feature.
 
-### RS-CAR-14 [S] Default to `default = []`, and document what each feature costs
+### RS-BUILD-14 [S] Default to `default = []`, and document what each feature costs
 
 `default = []` where you can afford it, and document what each feature costs. Every default feature
 is a dependency you impose on `--no-default-features` users who never learned it existed.
@@ -306,10 +306,10 @@ empty default makes cost opt-in and forces the documentation of what each additi
 **Check:** what does `--no-default-features` leave working? If nothing, the defaults are not really
 optional.
 
-### RS-CAR-15 [S] Name features for capabilities, not dependencies
+### RS-BUILD-15 [S] Name features for capabilities, not dependencies
 
 Name features for capabilities, not dependencies, except when the feature exists purely to add that
-dependency's impls (`serde`, `rayon`) (`RS-NAM-07`).
+dependency's impls (`serde`, `rayon`) (`RS-NAME-07`).
 
 **Why:** a feature named after a dependency leaks an implementation choice into your API, so
 swapping the dependency becomes a breaking change. Naming the capability lets the implementation
@@ -318,7 +318,7 @@ change freely.
 **Check:** for each feature named after a crate, does it exist solely to add that crate's impls? If
 not, rename it.
 
-### RS-CAR-16 [M] Use `dep:` syntax for optional dependencies
+### RS-BUILD-16 [M] Use `dep:` syntax for optional dependencies
 
 Optional dependencies use the `dep:` syntax so they do not implicitly create a feature of the same
 name: `serde = { version = "1", optional = true }` plus `serde = ["dep:serde", "chrono?/serde"]`.
@@ -339,7 +339,7 @@ serde = { version = "1", optional = true }
 serde = ["dep:serde"]
 ```
 
-### RS-CAR-17 [M] Use the weak dependency syntax `optional-dep?/feature`
+### RS-BUILD-17 [M] Use the weak dependency syntax `optional-dep?/feature`
 
 Use the weak dependency syntax (`optional-dep?/feature`) to enable a feature on an optional
 dependency only when that dependency is already enabled. Without the `?`, you silently turn the
@@ -362,7 +362,7 @@ serde = { version = "1", optional = true }
 serde = ["dep:serde", "chrono?/serde"]
 ```
 
-### RS-CAR-18 [M] Never use features for mutually exclusive choices
+### RS-BUILD-18 [M] Never use features for mutually exclusive choices
 
 Never use features for mutually exclusive choices. Two crates in the graph will enable both, and
 your `compile_error!` becomes their unfixable build failure. Use runtime selection, separate crates,
@@ -375,7 +375,7 @@ has no resolution short of forking.
 **Check:** grep for `compile_error!` guarded on feature combinations. Each is a design that cannot
 survive unification.
 
-### RS-CAR-19 [M] Annotate feature-gated public items for docs.rs
+### RS-BUILD-19 [M] Annotate feature-gated public items for docs.rs
 
 Annotate feature-gated public items with `#[cfg_attr(docsrs, doc(cfg(feature = "x")))]` so docs.rs
 shows the badge. An item that appears in docs but does not exist by default is a support ticket.
@@ -386,7 +386,7 @@ available. The badge is the only thing that tells the reader they need to enable
 **Check:** for each `#[cfg(feature = …)]` on a public item, is there a matching `cfg_attr` doc
 annotation?
 
-### RS-CAR-20 [M] Test the feature powerset that matters, not just `--all-features`
+### RS-BUILD-20 [M] Test the feature powerset that matters, not just `--all-features`
 
 Test the feature powerset that matters, not just `--all-features`. At minimum: default,
 `--no-default-features`, and each feature alone. `cargo hack --feature-powerset --depth 2` automates
@@ -396,11 +396,11 @@ this.
 so a missing import behind `#[cfg(not(feature))]` goes undetected. Each feature alone is the
 configuration real users pick.
 
-**Check:** does CI build all three configurations (`RS-TST-37`)?
+**Check:** does CI build all three configurations (`RS-TEST-37`)?
 
 ## Dependencies
 
-### RS-CAR-21 [M] Justify every dependency by more than an hour of saved work
+### RS-BUILD-21 [M] Justify every dependency by more than an hour of saved work
 
 Every dependency must be justified by something it does that would take meaningfully more than an
 hour to write and maintain. A crate for left-padding, for `is_even`, or for three lines of `std` is
@@ -413,7 +413,7 @@ hour is one-off and yours.
 **Check:** for each direct dependency, estimate what replacing it would cost. Under an hour, inline
 it.
 
-### RS-CAR-22 [S] Prefer small, widely audited, actively maintained dependencies
+### RS-BUILD-22 [S] Prefer small, widely audited, actively maintained dependencies
 
 Prefer dependencies that are small, widely audited, and maintained by people who ship: `serde`,
 `regex`, `rayon`, `tokio`, `clap`, `thiserror`, `anyhow`, `itertools`, `bstr`, `memchr`. Check last
@@ -426,18 +426,18 @@ is more work than avoiding it now.
 **Check:** for each dependency, when was the last release and how many transitive crates does it
 pull in?
 
-### RS-CAR-23 [M] Use caret requirements; never pin exact versions in a library
+### RS-BUILD-23 [M] Use caret requirements; never pin exact versions in a library
 
 Use caret requirements (`"1.2"`, meaning `^1.2`) and let Cargo resolve. Do not pin exact versions
 (`"=1.2.3"`) in a library — it makes your crate uncombinable with anyone else's constraint.
 
 **Why:** an exact pin means any other crate requiring a different patch version cannot coexist with
 yours, which is an unresolvable conflict for the user. Reproducibility belongs in the lockfile
-(`RS-CAR-11`), not in the requirement.
+(`RS-BUILD-11`), not in the requirement.
 
 **Check:** grep for `=` version requirements in a library manifest.
 
-### RS-CAR-24 [M] Turn off default features on heavy dependencies
+### RS-BUILD-24 [M] Turn off default features on heavy dependencies
 
 Turn off default features on heavy dependencies and enable only what you use: `tokio = { version =
 "1", default-features = false, features = ["rt", "macros"] }`. This is often the single largest
@@ -459,7 +459,7 @@ tokio = { version = "1", default-features = false, features = ["rt", "macros"] }
 
 ## Lints and warnings
 
-### RS-CAR-25 [M] Put lints in the manifest's `[lints]` table, not in `lib.rs`
+### RS-BUILD-25 [M] Put lints in the manifest's `[lints]` table, not in `lib.rs`
 
 Lints belong in the manifest's `[lints]` table (stable since 1.74), inherited from
 `[workspace.lints]`, not in a wall of `#![deny(...)]` attributes in `lib.rs`. The manifest is where
@@ -493,11 +493,11 @@ expect_used = "deny"
 panic = "deny"
 todo = "deny"
 dbg_macro = "deny"
-print_stdout = "deny"          # library members only — see RS-CAR-26
+print_stdout = "deny"          # library members only — see RS-BUILD-26
 undocumented_unsafe_blocks = "deny"
 ```
 
-### RS-CAR-26 [M] Give lint groups `priority = -1`
+### RS-BUILD-26 [M] Give lint groups `priority = -1`
 
 Lint groups need `priority = -1` so that individual lint settings in the same table override them.
 Without it, Cargo rejects the manifest.
@@ -510,7 +510,7 @@ priority makes the group apply first, leaving the specific settings to override 
 Setting `pedantic = "warn"` alongside `unwrap_used = "deny"` fails the build with
 `error: lint group 'pedantic' has the same priority (0) as a lint`; adding `priority = -1` compiles.
 
-### RS-CAR-27 [M] Run `clippy::pedantic` at `warn` and answer each warning
+### RS-BUILD-27 [M] Run `clippy::pedantic` at `warn` and answer each warning
 
 `clippy::pedantic` at `warn` is the right default. Treat each resulting warning as a question to
 answer, and allow individual lints with a comment giving the reason — never allow the group.
@@ -519,9 +519,10 @@ answer, and allow individual lints with a comment giving the reason — never al
 so the group is worth enabling and the exceptions are worth recording. Allowing the whole group
 discards the valuable ones to avoid arguing with a handful.
 
-**Check:** grep for `pedantic = "allow"`. Each individual allow should carry a reason (`RS-CAR-30`).
+**Check:** grep for `pedantic = "allow"`. Each individual allow should carry a reason
+(`RS-BUILD-30`).
 
-### RS-CAR-28 [M!] Deny the panicking-API lints in libraries
+### RS-BUILD-28 [M!] Deny the panicking-API lints in libraries
 
 Deny `clippy::unwrap_used`, `expect_used`, `panic`, `todo`, `unimplemented`, and `indexing_slicing`
 in libraries; relax `expect_used` in tests and binaries via a `[lints]` override on that target or
@@ -537,10 +538,10 @@ documented panic (`RS-DOC-13`).
 enough. `unwrap_used` earns its `deny` almost everywhere, because the message is the difference
 between a bug report and a mystery.
 
-### RS-CAR-29 [M] Deny `undocumented_unsafe_blocks` wherever `unsafe` is permitted
+### RS-BUILD-29 [M] Deny `undocumented_unsafe_blocks` wherever `unsafe` is permitted
 
 Deny `clippy::undocumented_unsafe_blocks` in any crate that permits `unsafe`. A `// SAFETY:` comment
-per block is the minimum bar (`RS-UNS-03`).
+per block is the minimum bar (`RS-UNSAFE-03`).
 
 **Why:** the comment is the proof obligation made visible, and a lint is the only thing that makes
 writing it non-optional. Without the lint, the comments appear on the blocks the author found
@@ -548,7 +549,7 @@ interesting and not on the ones that turned out to matter.
 
 **Check:** is the lint denied, and does the crate build clean under it?
 
-### RS-CAR-30 [S] Prefer `#[expect(…, reason = "…")]` to `#[allow]`
+### RS-BUILD-30 [S] Prefer `#[expect(…, reason = "…")]` to `#[allow]`
 
 Prefer `#[expect(lint, reason = "…")]` (stable since 1.81) over `#[allow]` for local suppressions:
 it warns when the suppression becomes unnecessary, so dead exceptions get cleaned up automatically.
@@ -559,7 +560,7 @@ being needed.
 
 **Check:** grep for `#[allow(`. Each is a candidate for `#[expect]` plus a reason.
 
-### RS-CAR-31 [M] Never blanket-`allow` at crate level to make CI green
+### RS-BUILD-31 [M] Never blanket-`allow` at crate level to make CI green
 
 Never blanket-`allow` at crate level to make CI green. A crate that allows
 `clippy::too_many_arguments` globally has decided never to notice a nine-argument function again.
@@ -569,7 +570,7 @@ would have been most useful. It converts a temporary annoyance into a permanent 
 
 **Check:** for each crate-level allow, could it be scoped to the handful of items that need it?
 
-### RS-CAR-32 [M] Deny warnings through Cargo config, not `RUSTFLAGS`
+### RS-BUILD-32 [M] Deny warnings through Cargo config, not `RUSTFLAGS`
 
 Deny warnings in CI through Cargo's own configuration rather than `RUSTFLAGS`:
 `CARGO_BUILD_WARNINGS=deny` (or `[build] warnings = "deny"` in `.cargo/config.toml`) controls this
@@ -583,7 +584,7 @@ denied" a cheap local check rather than a CI-only step.
 `error: warnings are denied by 'build.warnings' configuration`. Grep CI config for
 `RUSTFLAGS="-Dwarnings"` and replace it.
 
-### RS-CAR-33 [S] Read `linker_messages` rather than silencing it
+### RS-BUILD-33 [S] Read `linker_messages` rather than silencing it
 
 `linker_messages` is a default-on warning and is deliberately not part of the `warnings` group. Read
 the output rather than silencing it; if a message is a known false positive on your platform, allow
@@ -596,7 +597,7 @@ control. They do surface real linking problems, so they are worth reading.
 **Check:** `linker_messages` is a recognized lint name — `-A linker_messages` produces no
 "unknown lint" diagnostic. Any allow of it carries a comment naming the platform.
 
-### RS-CAR-34 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
+### RS-BUILD-34 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
 
 Enforce formatting in CI with `cargo fmt --check`, and keep `rustfmt.toml` minimal — the default
 style is a coordination win, and every override costs new contributors. The overrides worth having
@@ -615,7 +616,7 @@ the format job needs nightly to enforce them.
 
 ## Supply chain, versioning, release
 
-### RS-CAR-35 [M!] Run `cargo audit` on a schedule as well as on pull requests
+### RS-BUILD-35 [M!] Run `cargo audit` on a schedule as well as on pull requests
 
 Run `cargo audit` (or `cargo deny check advisories`) in CI on a schedule as well as on pull
 requests, so a new advisory against an unchanged dependency is noticed.
@@ -629,7 +630,7 @@ next change" into "we caught it".
 *Relaxed form:* for a tool with no network or untrusted input, a monthly manual run is acceptable.
 Anything that parses data you did not create wants the schedule.
 
-### RS-CAR-36 [S] Enforce license policy and duplicate limits with `cargo deny`
+### RS-BUILD-36 [S] Enforce license policy and duplicate limits with `cargo deny`
 
 Use `cargo deny` to enforce license policy, banned crates, and duplicate-version limits. Multiple
 major versions of the same crate in one graph is a compile-time and binary-size tax worth measuring.
@@ -640,7 +641,7 @@ neither is visible in a normal build. A configured check turns both into a revie
 **Check:** does `cargo deny check` pass, and does the config actually list the allowed licenses
 rather than allowing everything?
 
-### RS-CAR-37 [S] Run `cargo update` deliberately and review the diff
+### RS-BUILD-37 [S] Run `cargo update` deliberately and review the diff
 
 Run `cargo update` deliberately and review the diff, rather than letting it happen implicitly during
 an unrelated change.
@@ -651,7 +652,7 @@ something breaks.
 
 **Check:** do lockfile updates appear in their own commits?
 
-### RS-CAR-38 [M] Verify the MSRV claim with a pinned CI job
+### RS-BUILD-38 [M] Verify the MSRV claim with a pinned CI job
 
 Verify the MSRV claim with a dedicated CI job pinned to that toolchain, and test minimal versions
 (`cargo +nightly update -Z minimal-versions`) at least occasionally — under-specified lower bounds
@@ -663,7 +664,7 @@ the least equipped to diagnose them.
 
 **Check:** is there a job pinned to `rust-version`, and has minimal-versions ever been run?
 
-### RS-CAR-39 [M!] Run `cargo semver-checks` before every release
+### RS-BUILD-39 [M!] Run `cargo semver-checks` before every release
 
 Run `cargo semver-checks` before every release and trust it over intuition about what is breaking.
 It catches removed impls, narrowed bounds, and newly private items that human review misses
@@ -679,7 +680,7 @@ remembers?
 *Relaxed form:* an unpublished internal crate with one consumer can rely on that consumer's build.
 The moment there are two, the tool is cheaper than the coordination.
 
-### RS-CAR-40 [M] Follow semver strictly, including the 0.x rule
+### RS-BUILD-40 [M] Follow semver strictly, including the 0.x rule
 
 Follow semver strictly, including the 0.x rule that 0.y.z treats `y` as the major. Do not ship a
 breaking change as a patch because "nobody uses it yet".
@@ -691,7 +692,7 @@ observable from your side.
 **Check:** does the version bump match the nature of the change, as `cargo semver-checks` classifies
 it?
 
-### RS-CAR-41 [M] Dry-run and inspect the package list before publishing
+### RS-BUILD-41 [M] Dry-run and inspect the package list before publishing
 
 `cargo publish --dry-run` and inspect `cargo package --list` before a real publish. Publishing is
 irreversible; yanking does not remove anything.
@@ -703,7 +704,7 @@ commands prevent it.
 
 **Check:** does the release process include both commands before the publish step?
 
-### RS-CAR-42 [S] Keep the git tag, changelog entry, and published version in agreement
+### RS-BUILD-42 [S] Keep the git tag, changelog entry, and published version in agreement
 
 Tag releases in git, and make the tag, the `CHANGELOG.md` entry, and the published version agree.
 `cargo release` or `release-plz` automates this consistently.
@@ -716,7 +717,7 @@ actually shipped.
 
 ## Toolchain, profiles, CI
 
-### RS-CAR-43 [M] Commit a `rust-toolchain.toml`
+### RS-BUILD-43 [M] Commit a `rust-toolchain.toml`
 
 Commit a `rust-toolchain.toml` pinning `channel`, `components = ["rustfmt", "clippy"]`, and required
 `targets`. It makes every contributor's first build identical to CI's.
@@ -735,7 +736,7 @@ components = ["rustfmt", "clippy"]
 targets = ["x86_64-unknown-linux-musl"]
 ```
 
-### RS-CAR-44 [M] Test on stable at minimum; add beta and nightly where they earn it
+### RS-BUILD-44 [M] Test on stable at minimum; add beta and nightly where they earn it
 
 Test on stable at minimum; add beta to catch upcoming regressions and nightly only for the jobs that
 need it (Miri, `-Z` flags, fuzzing).
@@ -746,7 +747,7 @@ unrelated to your code.
 
 **Check:** is nightly required for anything other than the tools that genuinely need it?
 
-### RS-CAR-45 [M] Cover Linux, macOS, and Windows for anything touching the OS
+### RS-BUILD-45 [M] Cover Linux, macOS, and Windows for anything touching the OS
 
 CI matrix covers Linux, macOS, and Windows for anything touching paths, processes, terminals, or
 filesystem metadata. Path handling that was never run on Windows is path handling that is broken on
@@ -758,7 +759,7 @@ test.
 
 **Check:** does the matrix include all three for any crate touching the filesystem?
 
-### RS-CAR-46 [M] Run the full seven-step CI pipeline
+### RS-BUILD-46 [M] Run the full seven-step CI pipeline
 
 The CI pipeline is: `fmt --check`, `clippy --all-targets --all-features` with warnings denied, `test
 --all-features`, `test --no-default-features`, `doc --no-deps` with rustdoc warnings denied, then
@@ -771,7 +772,7 @@ entirely unchecked.
 **Check:** compare the pipeline against the seven. `--all-targets` matters: without it, tests and
 benches are not linted.
 
-### RS-CAR-47 [S] Cache the registry and `target/`, and use `cargo nextest`
+### RS-BUILD-47 [S] Cache the registry and `target/`, and use `cargo nextest`
 
 Cache the Cargo registry and `target/` directory in CI (for example with `Swatinem/rust-cache`), and
 use `cargo nextest` for faster, clearer test output on large suites.
@@ -781,7 +782,7 @@ use `cargo nextest` for faster, clearer test output on large suites.
 
 **Check:** how long is a no-op CI run? Several minutes means the cache is missing or ineffective.
 
-### RS-CAR-48 [M] Change release profile defaults only with measurements
+### RS-BUILD-48 [M] Change release profile defaults only with measurements
 
 `[profile.release]` defaults are reasonable; change them with measurements. `lto = "thin"` is
 usually a good trade, `codegen-units = 1` buys a few percent for much slower builds, and `panic =
@@ -802,7 +803,7 @@ debug = "line-tables-only"      # keep profiles usable; strip separately
 # panic = "abort"               # an application decision, never a library's
 ```
 
-### RS-CAR-49 [S] Keep debug info in profiling builds and strip separately
+### RS-BUILD-49 [S] Keep debug info in profiling builds and strip separately
 
 Keep `debug = true` (or `debug = "line-tables-only"`) in release builds you intend to profile, and
 strip separately. Profiling a stripped binary wastes more time than the build costs.
@@ -812,7 +813,7 @@ they mean. `line-tables-only` gives usable stacks at a fraction of the size of f
 
 **Check:** does the profiling build carry symbols, and is stripping a separate release step?
 
-### RS-CAR-50 [S] Raise `opt-level` for dependencies when tests are slow
+### RS-BUILD-50 [S] Raise `opt-level` for dependencies when tests are slow
 
 Use `[profile.dev.package."*"] opt-level = 3` when tests are slow because of dependencies
 (compression, crypto, image decoding) while keeping your own crate at `opt-level = 0` for fast
@@ -830,7 +831,7 @@ the edit-compile loop fast.
 opt-level = 3
 ```
 
-### RS-CAR-51 [M] Keep `target/` and local `.cargo/config.toml` paths out of version control
+### RS-BUILD-51 [M] Keep `target/` and local `.cargo/config.toml` paths out of version control
 
 Do not check `target/` into version control, and do not commit `.cargo/config.toml` settings that
 hard-code a local path or a private registry into a public repository.
@@ -841,7 +842,7 @@ contributor's build. A private registry URL in a public repo is also an informat
 **Check:** is `target/` in `.gitignore`, and does any committed `.cargo/config.toml` contain an
 absolute path?
 
-### RS-CAR-52 [S] Prefer `cargo xtask` to shell scripts
+### RS-BUILD-52 [S] Prefer `cargo xtask` to shell scripts
 
 Prefer `cargo` subcommands over shell scripts for repeatable tasks (`cargo xtask` pattern) so
 contributors on all platforms run the same thing.
@@ -853,10 +854,10 @@ cross-platform, and can reuse project code.
 **Check:** are there `.sh` scripts that contributors must run? Each is a Windows contributor
 blocked.
 
-### RS-CAR-53 [S] Measure build time with `cargo build --timings` before optimizing it
+### RS-BUILD-53 [S] Measure build time with `cargo build --timings` before optimizing it
 
 Measure build time before optimizing it: `cargo build --timings` identifies the crate that costs 40%
-of the build, which is usually one heavy default feature away from being cheap (`RS-CAR-24`).
+of the build, which is usually one heavy default feature away from being cheap (`RS-BUILD-24`).
 
 **Why:** build time is usually dominated by one or two dependencies rather than spread evenly, so
 the fix is targeted rather than architectural. Guessing leads to splitting your own crate, which
@@ -864,7 +865,7 @@ rarely helps.
 
 **Check:** has `--timings` been run? The report names the crate and shows what blocks pipelining.
 
-### RS-CAR-54 [S] Keep the proc-macro dependency count down
+### RS-BUILD-54 [S] Keep the proc-macro dependency count down
 
 Keep the number of proc-macro dependencies down; each one is a compile-time dependency that must be
 built for the host and blocks pipelining. `serde_derive` and `thiserror` are worth it; a proc macro

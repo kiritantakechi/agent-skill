@@ -1,5 +1,5 @@
 # Canonical workspace manifest. Copy, then delete what does not apply.
-# Referenced by RS-CAR-08, RS-CAR-25, RS-CAR-48.
+# Referenced by RS-BUILD-08, RS-BUILD-25, RS-BUILD-48.
 
 [workspace]
 resolver = "3"                       # implied by edition 2024; explicit is fine
@@ -42,14 +42,14 @@ expect_used = "deny"
 panic = "deny"
 todo = "deny"
 unimplemented = "deny"
-indexing_slicing = "deny"            # RS-CAR-28
+indexing_slicing = "deny"            # RS-BUILD-28
 dbg_macro = "deny"
 undocumented_unsafe_blocks = "deny"  # only meaningful if unsafe is allowed
 mem_forget = "deny"
 
 # Prefer `#[expect(…, reason = "…")]` to `#[allow]`, and make every remaining
 # allow say why: a suppression that stops being needed becomes a warning.
-allow_attributes = "warn"            # RS-CAR-30
+allow_attributes = "warn"            # RS-BUILD-30
 allow_attributes_without_reason = "warn"
 
 # `[lints] workspace = true` is all-or-nothing: a member cannot inherit the

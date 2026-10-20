@@ -1,7 +1,7 @@
 # Keep this file short. Every override is a cost to new contributors.
 # The two below are worth it. Verify your toolchain accepts them on stable with
 # `cargo fmt -- --help=config`; run the format job on nightly if it does not.
-# Referenced by RS-STR-36, RS-CAR-34.
+# Referenced by RS-MOD-36, RS-BUILD-34.
 
 group_imports = "StdExternalCrate"   # std / external / crate, blank-line separated
 imports_granularity = "Crate"        # merge `use` statements per crate

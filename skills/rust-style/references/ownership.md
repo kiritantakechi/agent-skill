@@ -95,7 +95,7 @@ pub fn extension_of(path: &Path) -> Option<&str> {
 
 ### RS-OWN-02 [M] Prefer borrowed parameter types for read-only access
 
-`&str`, `&[T]`, `&Path` (`references/api-design.md` RS-API-12).
+`&str`, `&[T]`, `&Path` (`references/api.md` RS-API-12).
 
 **Why:** owned parameters force an allocation on every caller who already has a borrow, and that is
 the common case — a substring, a slice of a larger buffer, a `&'static str` literal.
@@ -193,7 +193,7 @@ it does, at the cost of one allocation on a path that was not hot.
 ### RS-OWN-09 [S] Prefer one coherent `&mut self` method to a row of `&mut` accessors
 
 **Why:** every `&mut` accessor you expose is an invariant you can no longer maintain
-(`references/api-design.md` RS-API-22), and it forces callers to sequence operations correctly
+(`references/api.md` RS-API-22), and it forces callers to sequence operations correctly
 themselves. One method that performs the whole transition keeps the type consistent between calls.
 
 **Check:** list the `&mut self` accessors. Could a caller use two of them in an order that leaves
@@ -228,7 +228,7 @@ output.extend(transformer.transform(input));
 
 **Why:** they encode the disjointness the compiler needs, so you get mutable access to two parts of
 one slice without `unsafe`. Reaching for raw pointers here is the most common unnecessary `unsafe`
-in Rust (`references/unsafe-ffi.md` RS-UNS-01).
+in Rust (`references/unsafe.md` RS-UNSAFE-01).
 
 **Check:** grep for `unsafe` near slice indexing. Is there a splitting method that expresses it?
 
@@ -328,7 +328,7 @@ Hoist a `String` or `Vec<u8>`, `clear()` it each pass, read into it.
 
 **Why:** this is the pattern behind every fast line-oriented tool, ripgrep included: one allocation
 for the whole run instead of one per line. `BufRead::read_line` and `read_until` are designed for it
-(`references/performance.md` RS-PRF-11).
+(`references/performance.md` RS-PERF-11).
 
 **Check:** is there a `String::new()`, `Vec::new()`, or `format!` inside a loop body?
 
@@ -395,7 +395,7 @@ not, and the field should be `String`.
 
 **Why:** one word less per value than `Vec`/`String`, no spare capacity to carry around, and an
 explicit statement in the type that the length is final — so a reader knows nothing will push into
-it (`references/functional.md` RS-FP-37).
+it (`references/functional.md` RS-FUNC-37).
 
 **Check:** does the collection grow after construction? If not, `into_boxed_slice()` is one call.
 
@@ -435,7 +435,7 @@ will reasonably keep alive?
 **Why:** `T: 'static` means "contains no borrows", which is normal for thread spawning and type
 erasure and needlessly exclusionary everywhere else. It is the most over-applied bound in Rust, and
 it rejects perfectly good borrowed types for no reason
-(`references/traits-generics.md` RS-TRG-39).
+(`references/traits.md` RS-TRAIT-39).
 
 **Check:** for each `'static`, does the value cross a thread boundary, get boxed into a `dyn`, or
 outlive the call? If not, remove it.
@@ -466,7 +466,7 @@ characters.
 
 **Why:** the choice affects drop check, variance, and auto-trait derivation — all silently. A marker
 that accidentally claims ownership changes when the compiler thinks the value must be alive
-(`references/unsafe-ffi.md` RS-UNS-18).
+(`references/unsafe.md` RS-UNSAFE-18).
 
 **Check:** for each `PhantomData`, state which of the four cases it is and why.
 
@@ -484,7 +484,7 @@ under move — which the compiler will not stop you from doing. Use indices into
 
 **Why:** it sidesteps lifetimes entirely, it is cache-friendly, it serializes trivially, and it
 makes cycles representable without `Weak`. Newtype the index so it cannot be confused with a length
-or with an index into a different arena (`references/api-design.md` RS-API-37).
+or with an index into a different arena (`references/api.md` RS-API-37).
 
 **Check:** does the graph type have a lifetime parameter? Indices remove it.
 
@@ -545,7 +545,7 @@ index?
 remove it. That is sometimes right and never obvious, and the comment is what distinguishes a
 decision from a workaround. Frequently the honest note is "this could be threaded through
 `&mut self`, but the refactor is large" — write that down rather than leaving it implied
-(`references/functional.md` RS-FP-38).
+(`references/functional.md` RS-FUNC-38).
 
 **Check:** does every such field have a comment on its declaration?
 
@@ -609,7 +609,7 @@ the fat pointer.
 
 **Why:** it is the reflex answer to shared state and usually the wrong one. Message passing, giving
 each worker a partition, or sharing an immutable `Arc<T>` solve most cases with less contention and
-a simpler failure model (`references/concurrency-async.md` RS-CNC-21).
+a simpler failure model (`references/concurrency.md` RS-CONC-21).
 
 **Check:** for each `Arc<Mutex<_>>`, ask in order: can each worker own a partition? Can this be
 built once and shared immutably? Can updates be a channel to one owner?
@@ -717,7 +717,7 @@ Signal handlers, terminal raw mode, the global logger, panic hooks.
 
 **Why:** installing from a library constructor makes the crate unusable inside another program —
 two callers fight over one handler, and the second silently wins. Pass handles downward instead
-(`references/cli-apps.md` RS-CLI-34).
+(`references/cli.md` RS-CLI-34).
 
 **Check:** grep for `set_hook`, `signal`, `set_logger`, and terminal-mode calls outside `main`.
 

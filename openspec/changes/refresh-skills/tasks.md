@@ -160,7 +160,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
     - add `[workspace.lints.rustdoc]`, and drop `RUSTDOCFLAGS` from `ci.yml`.
 
   Verify: `--only lints --only assets` passes.
-- [ ] 8.2 Step A: `agent-skill renumber rust-style --chapters` per D3 (`api-design=api`,
+- [x] 8.2 Step A: `agent-skill renumber rust-style --chapters` per D3 (`api-design=api`,
   `cargo-toolchain=build`, `cli-apps=cli`, `concurrency-async=concurrency`, `structure=modules`,
   `traits-generics=traits`, `unsafe-ffi=unsafe`). This also rewrites `bevy-style`'s twelve `RS-`
   citations. Verify: `--fast` is no worse, and `mirror` still resolves every title.

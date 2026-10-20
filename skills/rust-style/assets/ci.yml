@@ -1,4 +1,4 @@
-# Minimal CI that enforces this standard. Referenced by RS-CAR-46.
+# Minimal CI that enforces this standard. Referenced by RS-BUILD-46.
 name: ci
 
 on:

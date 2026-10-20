@@ -63,7 +63,7 @@ and shell completions, and obsessive attention to stream behaviour — is what
 
 The interesting logic lives in a library crate; the binary is wiring. This makes everything
 testable, reusable, and benchmarkable — and it is why ripgrep's search engine exists as
-`grep-searcher` rather than as a module in `main.rs` (`RS-STR-26`).
+`grep-searcher` rather than as a module in `main.rs` (`RS-MOD-26`).
 
 **Why:** anything inside `main.rs` can only be tested by running the process, which is slow,
 awkward, and cannot be benchmarked. The split is what turns a tool into a component other people can
@@ -416,7 +416,7 @@ pub fn to_paths(raw: Vec<OsString>) -> Vec<PathBuf> {
 
 Provide a negation for every boolean flag that a config file can enable (`--color` / `--no-color`,
 `--hidden` / `--no-hidden`), so a user can override their own configuration on the command line
-(`RS-NAM-31`).
+(`RS-NAME-31`).
 
 **Why:** precedence (`RS-CLI-05`) is only useful if the higher-precedence level can express both
 values. Without a negation, a config-file `true` is unreachable from the command line, which makes
@@ -468,7 +468,7 @@ impl Flags {
 ### RS-CLI-15 [M] Validate arguments at parse time into rich types
 
 Validate arguments at parse time into rich types — a `Duration`, a `PathBuf` that exists, an enum, a
-`NonZeroUsize` — so the rest of the program cannot receive nonsense (`RS-FP-53`).
+`NonZeroUsize` — so the rest of the program cannot receive nonsense (`RS-FUNC-53`).
 
 **Why:** this is parse-don't-validate at the process boundary. Validating once at the edge means the
 rest of the program has no error paths for malformed input, and the error the user sees names the
@@ -609,7 +609,7 @@ pub fn emit(
 ### RS-CLI-21 [M] Lock stdout once and write through a `BufWriter`
 
 Lock stdout once and write through a `BufWriter`. `println!` in a loop locks and flushes per line
-and is frequently the reason a tool is ten times slower than it should be (`RS-PRF-28`).
+and is frequently the reason a tool is ten times slower than it should be (`RS-PERF-28`).
 
 **Why:** `println!` acquires the lock, formats, writes, and — on a terminal — flushes, every call.
 For line-oriented output that is three avoidable costs per line, and it dominates the runtime of
@@ -869,7 +869,7 @@ mod tests {
 
 Use structured logging (`tracing` or `log` plus `env_logger`) for diagnostics, controlled by
 `-v`/`-vv` or `RUST_LOG`. Never `println!` for debugging in shipped code, and deny
-`clippy::dbg_macro` (`RS-CAR-25`).
+`clippy::dbg_macro` (`RS-BUILD-25`).
 
 **Why:** logging gives levels, targets, and runtime filtering; `println!` gives none of those and
 cannot be turned off by the user. Debug prints that ship are also the most common way secrets end up
@@ -881,7 +881,7 @@ finding.
 ### RS-CLI-29 [M] Flush and check the result before exiting
 
 Flush explicitly before exiting, and check the result. A buffered writer dropped at process exit can
-lose the last block silently (`RS-PRF-29`).
+lose the last block silently (`RS-PERF-29`).
 
 **Why:** `BufWriter`'s `Drop` flushes but discards the error, so a full disk or a closed pipe
 silently truncates the output. Since buffering was introduced for speed (`RS-CLI-21`), this is the
@@ -1103,7 +1103,7 @@ pub fn read(lookup: impl Fn(&str) -> Option<String>) -> Environment {
 ### RS-CLI-38 [M] Test the binary end to end, including the pipe and non-UTF-8 cases
 
 Test the binary end to end: arguments in, stdout/stderr/exit code out, in a temporary directory
-(`RS-TST-31`). Cover the pipe case, the not-a-terminal case, and the non-UTF-8 filename case.
+(`RS-TEST-31`). Cover the pipe case, the not-a-terminal case, and the non-UTF-8 filename case.
 
 **Why:** argument parsing, stream behaviour, and exit codes are the layer unit tests cannot reach,
 and they are where the user-visible regressions live. The three named cases are the ones that never

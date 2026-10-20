@@ -165,3 +165,8 @@ def test_the_counts_skill_md_states_follow_the_rules(repo):
     text = skill_md.read_text()
     assert "A 4-rule library." in text
     assert "`DS-ERR` (2)" in text and "`DS-CONC` (1)" in text
+
+
+def test_reflow_leaves_a_contents_line_whole():
+    line = "  - RS-TRAIT-17 [S] " + "word " * 18 + "type"
+    assert renumber.reflow(line + "\n", width=100) == line + "\n"

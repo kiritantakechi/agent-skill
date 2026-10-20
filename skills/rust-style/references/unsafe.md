@@ -1,4 +1,4 @@
-# RS-UNS — `unsafe` and FFI
+# RS-UNSAFE — `unsafe` and FFI
 
 `unsafe` does not turn off the rules; it transfers responsibility for them from
 the compiler to you. Every `unsafe` block is a proof obligation, and an
@@ -10,54 +10,54 @@ apply when that default has been consciously overridden.
 ## Contents
 
 - **Discipline**
-  - RS-UNS-01 [M] Justify `unsafe` with a measurement or a capability
-  - RS-UNS-02 [M] Confine `unsafe` to the smallest module behind a safe API
-  - RS-UNS-03 [M] Give every `unsafe` block a `// SAFETY:` comment that says why it holds *here*
-  - RS-UNS-04 [M] Give every `unsafe fn` a mechanically checkable `# Safety` section
-  - RS-UNS-05 [M] Keep `unsafe` blocks to one operation
-  - RS-UNS-06 [M] Write the inner `unsafe { }` explicitly inside an `unsafe fn`
-  - RS-UNS-07 [M] Never expose a safe function whose safety depends on the caller
-  - RS-UNS-08 [M] Treat unsoundness as a security bug
-  - RS-UNS-09 [S] Prefer an audited crate to hand-rolled `unsafe`
-  - RS-UNS-10 [M!] Write the safe version first, keep it, and test the two against each other
+  - RS-UNSAFE-01 [M] Justify `unsafe` with a measurement or a capability
+  - RS-UNSAFE-02 [M] Confine `unsafe` to the smallest module behind a safe API
+  - RS-UNSAFE-03 [M] Give every `unsafe` block a `// SAFETY:` comment that says why it holds *here*
+  - RS-UNSAFE-04 [M] Give every `unsafe fn` a mechanically checkable `# Safety` section
+  - RS-UNSAFE-05 [M] Keep `unsafe` blocks to one operation
+  - RS-UNSAFE-06 [M] Write the inner `unsafe { }` explicitly inside an `unsafe fn`
+  - RS-UNSAFE-07 [M] Never expose a safe function whose safety depends on the caller
+  - RS-UNSAFE-08 [M] Treat unsoundness as a security bug
+  - RS-UNSAFE-09 [S] Prefer an audited crate to hand-rolled `unsafe`
+  - RS-UNSAFE-10 [M!] Write the safe version first, keep it, and test the two against each other
 
 - **Undefined behaviour and invariants**
-  - RS-UNS-11 [M] Know the UB list and check against it
-  - RS-UNS-12 [M] Treat `&mut T` as unique for its entire lifetime
-  - RS-UNS-13 [M] Never read uninitialized memory
-  - RS-UNS-14 [M] Give any layout-sensitive type an explicit `repr`
-  - RS-UNS-15 [M] Treat `transmute` as the last resort
-  - RS-UNS-16 [M] Respect alignment
-  - RS-UNS-17 [M] Preserve pointer provenance
-  - RS-UNS-18 [M] Choose the `PhantomData` that matches the real relationship
-  - RS-UNS-19 [M] Decide variance deliberately and pin it with a test
-  - RS-UNS-20 [M] Make a trait `unsafe` when unsafe code relies on its implementors
-  - RS-UNS-21 [M] Write the argument next to a manual `unsafe impl Send`/`Sync`
-  - RS-UNS-22 [M] Uphold `Drop` correctness in unsafe containers
+  - RS-UNSAFE-11 [M] Know the UB list and check against it
+  - RS-UNSAFE-12 [M] Treat `&mut T` as unique for its entire lifetime
+  - RS-UNSAFE-13 [M] Never read uninitialized memory
+  - RS-UNSAFE-14 [M] Give any layout-sensitive type an explicit `repr`
+  - RS-UNSAFE-15 [M] Treat `transmute` as the last resort
+  - RS-UNSAFE-16 [M] Respect alignment
+  - RS-UNSAFE-17 [M] Preserve pointer provenance
+  - RS-UNSAFE-18 [M] Choose the `PhantomData` that matches the real relationship
+  - RS-UNSAFE-19 [M] Decide variance deliberately and pin it with a test
+  - RS-UNSAFE-20 [M] Make a trait `unsafe` when unsafe code relies on its implementors
+  - RS-UNSAFE-21 [M] Write the argument next to a manual `unsafe impl Send`/`Sync`
+  - RS-UNSAFE-22 [M] Uphold `Drop` correctness in unsafe containers
 
 - **FFI**
-  - RS-UNS-23 [S] Generate bindings with `bindgen`, do not hand-transcribe headers
-  - RS-UNS-24 [M] Never unwind across an `extern "C"` boundary
-  - RS-UNS-25 [M] Validate every pointer crossing the boundary
-  - RS-UNS-26 [M] Own the memory-management contract explicitly
-  - RS-UNS-27 [M] Convert strings deliberately at the boundary
-  - RS-UNS-28 [M] Mark FFI structs `#[repr(C)]` and assert their layout
-  - RS-UNS-29 [S] Keep the `-sys` crate thin
+  - RS-UNSAFE-23 [S] Generate bindings with `bindgen`, do not hand-transcribe headers
+  - RS-UNSAFE-24 [M] Never unwind across an `extern "C"` boundary
+  - RS-UNSAFE-25 [M] Validate every pointer crossing the boundary
+  - RS-UNSAFE-26 [M] Own the memory-management contract explicitly
+  - RS-UNSAFE-27 [M] Convert strings deliberately at the boundary
+  - RS-UNSAFE-28 [M] Mark FFI structs `#[repr(C)]` and assert their layout
+  - RS-UNSAFE-29 [S] Keep the `-sys` crate thin
 
 - **Verification**
-  - RS-UNS-30 [M!] Run the suite under Miri in CI
-  - RS-UNS-31 [S] Cover FFI paths with ASan, UBSan, and Valgrind, which Miri cannot reach
-  - RS-UNS-32 [M!] Fuzz every unsafe parsing path
-  - RS-UNS-33 [S] Pin forbidden misuses with `compile_fail` doc tests
-  - RS-UNS-34 [M] Assert layout assumptions at compile time
-  - RS-UNS-35 [M!] Have `unsafe` reviewed by a second person
-  - RS-UNS-36 [S] Track the `unsafe` block count and treat growth as a design signal
+  - RS-UNSAFE-30 [M!] Run the suite under Miri in CI
+  - RS-UNSAFE-31 [S] Cover FFI paths with ASan, UBSan, and Valgrind, which Miri cannot reach
+  - RS-UNSAFE-32 [M!] Fuzz every unsafe parsing path
+  - RS-UNSAFE-33 [S] Pin forbidden misuses with `compile_fail` doc tests
+  - RS-UNSAFE-34 [M] Assert layout assumptions at compile time
+  - RS-UNSAFE-35 [M!] Have `unsafe` reviewed by a second person
+  - RS-UNSAFE-36 [S] Track the `unsafe` block count and treat growth as a design signal
 
 ---
 
 ## Discipline
 
-### RS-UNS-01 [M] Justify `unsafe` with a measurement or a capability
+### RS-UNSAFE-01 [M] Justify `unsafe` with a measurement or a capability
 
 Justify `unsafe` with a measurement or a capability, never with "it should be faster". Most `unsafe`
 written for performance is neutral, because the safe version already optimized to the same code.
@@ -79,7 +79,7 @@ pub fn sum(values: &[u32]) -> u64 {
 }
 ```
 
-### RS-UNS-02 [M] Confine `unsafe` to the smallest module behind a safe API
+### RS-UNSAFE-02 [M] Confine `unsafe` to the smallest module behind a safe API
 
 Confine `unsafe` to the smallest possible module, wrapped in a safe API that upholds the invariant
 for all callers. The unit of review is the module, because that is the unit within which the
@@ -118,11 +118,11 @@ impl Slots {
 }
 ```
 
-### RS-UNS-03 [M] Give every `unsafe` block a `// SAFETY:` comment that says why it holds *here*
+### RS-UNSAFE-03 [M] Give every `unsafe` block a `// SAFETY:` comment that says why it holds *here*
 
 Every `unsafe` block carries a `// SAFETY:` comment stating which precondition holds and *why it
 holds here* — referencing the specific invariant, bound check, or earlier assertion. Enforce it with
-`clippy::undocumented_unsafe_blocks` at deny (`RS-CAR-29`).
+`clippy::undocumented_unsafe_blocks` at deny (`RS-BUILD-29`).
 
 **Why:** the comment is the proof. Restating the precondition ("the pointer must be valid") without
 saying what establishes it is not a proof, and it is exactly the form that survives a refactor which
@@ -131,7 +131,7 @@ invalidates it — because nobody notices that the justification no longer refer
 **Check:** read each `// SAFETY:` comment without the code. It should name a specific fact — a check
 on line N, a type invariant, a caller obligation — not a restatement of the rule.
 
-### RS-UNS-04 [M] Give every `unsafe fn` a mechanically checkable `# Safety` section
+### RS-UNSAFE-04 [M] Give every `unsafe fn` a mechanically checkable `# Safety` section
 
 Every `unsafe fn` has a `# Safety` section listing the caller's obligations precisely enough to be
 checked mechanically. Every `*_unchecked` method is `unsafe` and documents the check it skips
@@ -157,7 +157,7 @@ pub unsafe fn get_unchecked(values: &[u32], index: usize) -> u32 {
 }
 ```
 
-### RS-UNS-05 [M] Keep `unsafe` blocks to one operation
+### RS-UNSAFE-05 [M] Keep `unsafe` blocks to one operation
 
 Keep `unsafe` blocks small — ideally one operation. A twenty-line `unsafe` block means the reviewer
 must verify twenty operations rather than one, and the `// SAFETY:` comment cannot honestly cover
@@ -169,7 +169,7 @@ comment above twenty statements is almost always a comment about the first one.
 **Check:** count statements per `unsafe` block. More than two, and ask which of them actually needed
 to be inside.
 
-### RS-UNS-06 [M] Write the inner `unsafe { }` explicitly inside an `unsafe fn`
+### RS-UNSAFE-06 [M] Write the inner `unsafe { }` explicitly inside an `unsafe fn`
 
 In edition 2024, `unsafe_op_in_unsafe_fn` is on: the body of an `unsafe fn` is not automatically an
 unsafe block. Write the inner `unsafe { }` explicitly. This is a feature — it distinguishes "this
@@ -196,7 +196,7 @@ pub unsafe fn read_one(ptr: *const u32) -> u32 {
 }
 ```
 
-### RS-UNS-07 [M] Never expose a safe function whose safety depends on the caller
+### RS-UNSAFE-07 [M] Never expose a safe function whose safety depends on the caller
 
 Never expose a safe function whose safety depends on the caller doing something. If a function can
 be misused into UB without `unsafe` at the call site, the function is unsound, no matter what the
@@ -231,7 +231,7 @@ impl<'data> Window<'data> {
 }
 ```
 
-### RS-UNS-08 [M] Treat unsoundness as a security bug
+### RS-UNSAFE-08 [M] Treat unsoundness as a security bug
 
 Unsoundness is a security bug: it gets a patch release, an advisory, and a yank if severe — not a
 "fixed on main" note.
@@ -243,7 +243,7 @@ dependency graph.
 **Check:** does the project have a stated process for soundness reports — a `SECURITY.md`, a
 contact, and a commitment to yank? If not, that is the finding.
 
-### RS-UNS-09 [S] Prefer an audited crate to hand-rolled `unsafe`
+### RS-UNSAFE-09 [S] Prefer an audited crate to hand-rolled `unsafe`
 
 Prefer an existing, audited crate to hand-rolled `unsafe`. `bytemuck`, `zerocopy`, `memchr`,
 `crossbeam`, and `slab` have already had the scrutiny your module will not get.
@@ -264,10 +264,10 @@ pub fn first_index(haystack: &str, needle: char) -> Option<usize> {
 }
 ```
 
-### RS-UNS-10 [M!] Write the safe version first, keep it, and test the two against each other
+### RS-UNSAFE-10 [M!] Write the safe version first, keep it, and test the two against each other
 
 Write the safe version first, test it, keep it, and gate the `unsafe` version behind a feature with
-a differential test proving they agree (`RS-TST-24`).
+a differential test proving they agree (`RS-TEST-24`).
 
 **Why:** the safe implementation is both the specification and the oracle. Without it you are
 testing the fast path against your own expectations, which are exactly what the bug is in. With it,
@@ -281,7 +281,7 @@ flag. What matters is that an independent implementation exists to disagree with
 
 ## Undefined behaviour and invariants
 
-### RS-UNS-11 [M] Know the UB list and check against it
+### RS-UNSAFE-11 [M] Know the UB list and check against it
 
 Know the list and check against it: dereferencing a dangling or misaligned pointer, aliasing `&mut`
 with anything, producing an invalid value (a `bool` that is not 0/1, an out-of-range `char`, a null
@@ -295,7 +295,7 @@ the list is short enough to check mechanically.
 **Check:** for each `unsafe` block, walk the seven categories and state which apply and why they are
 satisfied. Anything you cannot answer is the finding.
 
-### RS-UNS-12 [M] Treat `&mut T` as unique for its entire lifetime
+### RS-UNSAFE-12 [M] Treat `&mut T` as unique for its entire lifetime
 
 A `&mut T` is unique for its entire lifetime, even if you never write through it. Creating two from
 the same source is UB immediately, not when they are used.
@@ -319,7 +319,7 @@ pub fn bump_both(values: &mut [u32]) {
 }
 ```
 
-### RS-UNS-13 [M] Never read uninitialized memory
+### RS-UNSAFE-13 [M] Never read uninitialized memory
 
 Uninitialized memory is UB to read, including "I will overwrite it first". Use `MaybeUninit<T>`, and
 `assume_init` only after every byte is actually written.
@@ -347,7 +347,7 @@ pub fn filled(value: u8) -> [u8; 8] {
 }
 ```
 
-### RS-UNS-14 [M] Give any layout-sensitive type an explicit `repr`
+### RS-UNSAFE-14 [M] Give any layout-sensitive type an explicit `repr`
 
 Rust's default layout is unspecified and may be reordered. Any type shared with C, mapped over
 bytes, or relied on for field order needs an explicit `#[repr(C)]`, `#[repr(transparent)]`, or
@@ -358,7 +358,7 @@ has changed between releases. Code that assumes field order without `repr` is co
 a compiler upgrade.
 
 **Check:** for each type crossing an FFI boundary or reinterpreted from bytes, confirm the `repr`
-and the size/alignment assertion (`RS-UNS-34`).
+and the size/alignment assertion (`RS-UNSAFE-34`).
 
 ```rust
 // verified
@@ -375,7 +375,7 @@ const _: () = assert!(size_of::<Header>() == 8);
 const _: () = assert!(align_of::<Header>() == 4);
 ```
 
-### RS-UNS-15 [M] Treat `transmute` as the last resort
+### RS-UNSAFE-15 [M] Treat `transmute` as the last resort
 
 Transmute is the last resort. Prefer `as` casts for numbers, `from_bits`/`to_bits` for floats,
 `bytemuck`/`zerocopy` for plain-old-data reinterpretation, and pointer casts with explicit alignment
@@ -398,7 +398,7 @@ pub fn read_u32(bytes: &[u8]) -> Option<u32> {
 }
 ```
 
-### RS-UNS-16 [M] Respect alignment
+### RS-UNSAFE-16 [M] Respect alignment
 
 Respect alignment. `ptr::read_unaligned`/`write_unaligned` exist because a `*const u64` into a byte
 buffer is not necessarily aligned, and on some targets that is a fault rather than a slowdown.
@@ -429,7 +429,7 @@ pub fn read_u32_unaligned(bytes: &[u8]) -> Option<u32> {
 }
 ```
 
-### RS-UNS-17 [M] Preserve pointer provenance
+### RS-UNSAFE-17 [M] Preserve pointer provenance
 
 Preserve provenance: derive pointers from the pointer that owns the allocation, not by casting an
 integer back. Use `wrapping_add` when the intermediate value may be out of bounds, and the
@@ -442,11 +442,11 @@ cannot alias the object you meant.
 **Check:** grep for `as usize` on pointers followed by `as *const`/`as *mut`. Each is a provenance
 break unless it uses `with_addr`/`map_addr`.
 
-### RS-UNS-18 [M] Choose the `PhantomData` that matches the real relationship
+### RS-UNSAFE-18 [M] Choose the `PhantomData` that matches the real relationship
 
 Choose `PhantomData` to match the real relationship: `PhantomData<T>` for ownership (affects drop
 check and auto traits), `PhantomData<&'a T>` for a shared borrow, `PhantomData<*mut T>` to opt out
-of `Send`/`Sync`, `PhantomData<fn() -> T>` for a covariant marker that owns nothing (`RS-TRG-54`).
+of `Send`/`Sync`, `PhantomData<fn() -> T>` for a covariant marker that owns nothing (`RS-TRAIT-54`).
 
 **Why:** each spelling declares a different thing to drop check, variance, and the auto traits.
 Picking one because it silences the "unused parameter" error means declaring a relationship you did
@@ -477,11 +477,11 @@ impl<T> ThreadBound<T> {
 }
 ```
 
-### RS-UNS-19 [M] Decide variance deliberately and pin it with a test
+### RS-UNSAFE-19 [M] Decide variance deliberately and pin it with a test
 
 Variance mistakes are silent unsoundness. If your type contains a raw pointer, decide deliberately
 whether it should be covariant, contravariant, or invariant, and add a `compile_fail` test pinning
-the decision (`RS-TST-36`).
+the decision (`RS-TEST-36`).
 
 **Why:** variance is inferred from the fields, so an innocuous field change can widen it and let a
 caller shorten a lifetime that the `unsafe` code assumed was long. Nothing warns, and the resulting
@@ -490,10 +490,10 @@ use-after-free appears far from the change.
 **Check:** is there a `compile_fail` test that would fail if the type became covariant? Without one,
 the property is not pinned.
 
-### RS-UNS-20 [M] Make a trait `unsafe` when unsafe code relies on its implementors
+### RS-UNSAFE-20 [M] Make a trait `unsafe` when unsafe code relies on its implementors
 
 A trait whose implementors must uphold an invariant that unsafe code relies on is an `unsafe trait`,
-with the obligation documented in a `# Safety` section on the trait itself (`RS-TRG-14`).
+with the obligation documented in a `# Safety` section on the trait itself (`RS-TRAIT-14`).
 
 **Why:** if safe code can write a wrong implementation and thereby cause UB elsewhere, the trait is
 the unsound part. `unsafe trait` is how the obligation is transferred to the implementor, which is
@@ -517,11 +517,11 @@ pub unsafe trait FixedWidth {
 }
 ```
 
-### RS-UNS-21 [M] Write the argument next to a manual `unsafe impl Send`/`Sync`
+### RS-UNSAFE-21 [M] Write the argument next to a manual `unsafe impl Send`/`Sync`
 
 Manual `unsafe impl Send`/`Sync` requires a written argument for why concurrent access is sound,
 next to the impl. The auto-derive is almost always right; overriding it is where "it works on my
-machine" races come from (`RS-CNC-29`).
+machine" races come from (`RS-CONC-29`).
 
 **Why:** the compiler withheld the auto impl for a reason — usually a raw pointer or a `Cell`.
 Asserting it manually claims you have synchronized what the compiler could not see, and that claim
@@ -560,7 +560,7 @@ impl Default for Shared {
 }
 ```
 
-### RS-UNS-22 [M] Uphold `Drop` correctness in unsafe containers
+### RS-UNSAFE-22 [M] Uphold `Drop` correctness in unsafe containers
 
 Uphold `Drop` correctness in unsafe containers: no double drop, no leak on panic in the middle of a
 partially initialized buffer. Use a guard struct so that unwinding cleans up the prefix that was
@@ -575,7 +575,7 @@ the answer is not "the first `k` elements are dropped exactly once", add the gua
 
 ## FFI
 
-### RS-UNS-23 [S] Generate bindings with `bindgen`, do not hand-transcribe headers
+### RS-UNSAFE-23 [S] Generate bindings with `bindgen`, do not hand-transcribe headers
 
 Generate bindings with `bindgen` rather than hand-transcribing headers, and re-generate them in CI
 or check them in with the exact bindgen version recorded.
@@ -587,7 +587,7 @@ rather than failing to compile.
 **Check:** are the bindings generated, and is the generation reproducible? A hand-written `extern`
 block mirroring a non-trivial C struct is a finding.
 
-### RS-UNS-24 [M] Never unwind across an `extern "C"` boundary
+### RS-UNSAFE-24 [M] Never unwind across an `extern "C"` boundary
 
 Never unwind across an `extern "C"` boundary — it is undefined behaviour. Wrap every exported entry
 point in `catch_unwind` and convert a panic into an error code (`RS-ERR-39`).
@@ -613,7 +613,7 @@ pub extern "C" fn mylib_length(len: c_int) -> c_int {
 }
 ```
 
-### RS-UNS-25 [M] Validate every pointer crossing the boundary
+### RS-UNSAFE-25 [M] Validate every pointer crossing the boundary
 
 Validate every pointer crossing the boundary: null checks, alignment, and the length contract. A C
 caller is not bound by your invariants and will eventually violate them.
@@ -645,7 +645,7 @@ pub unsafe fn c_str_len(ptr: *const c_char) -> usize {
 }
 ```
 
-### RS-UNS-26 [M] Own the memory-management contract explicitly
+### RS-UNSAFE-26 [M] Own the memory-management contract explicitly
 
 Own the memory-management contract explicitly: whoever allocates, frees. Export a `mylib_free` for
 anything you allocate, document it, and never free a pointer that C allocated with its own
@@ -658,7 +658,7 @@ caller from guessing.
 **Check:** for each pointer you return, is there a documented free function? For each pointer you
 free, did your allocator produce it?
 
-### RS-UNS-27 [M] Convert strings deliberately at the boundary
+### RS-UNSAFE-27 [M] Convert strings deliberately at the boundary
 
 Convert strings deliberately at the boundary. `CStr`/`CString` for NUL-terminated C strings, and
 remember that they are bytes, not UTF-8 — use `to_str()` and handle the error rather than
@@ -685,7 +685,7 @@ pub fn as_text(raw: &CStr) -> Result<&str, std::str::Utf8Error> {
 }
 ```
 
-### RS-UNS-28 [M] Mark FFI structs `#[repr(C)]` and assert their layout
+### RS-UNSAFE-28 [M] Mark FFI structs `#[repr(C)]` and assert their layout
 
 Mark FFI structs `#[repr(C)]` and assert their size and alignment against the C definition in a
 test. A silent layout mismatch produces garbage that looks like a logic bug.
@@ -693,7 +693,7 @@ test. A silent layout mismatch produces garbage that looks like a logic bug.
 **Why:** `repr(C)` fixes the field order but does not verify that your field *types* match the C
 header. The assertion is what catches a `long` that is 32 bits on one platform and 64 on another.
 
-**Check:** each FFI struct has a `const` assertion on `size_of` and `align_of` (`RS-UNS-34`), and
+**Check:** each FFI struct has a `const` assertion on `size_of` and `align_of` (`RS-UNSAFE-34`), and
 the expected numbers came from the C side rather than from Rust.
 
 ```rust
@@ -710,7 +710,7 @@ const _: () = assert!(size_of::<Point>() == 16);
 const _: () = assert!(align_of::<Point>() == 8);
 ```
 
-### RS-UNS-29 [S] Keep the `-sys` crate thin
+### RS-UNSAFE-29 [S] Keep the `-sys` crate thin
 
 Keep the `-sys` crate thin: raw declarations, the build script, and nothing else. Put the safe
 wrapper in a separate crate, which is the ecosystem convention (`libgit2-sys` / `git2`) and lets
@@ -723,7 +723,7 @@ wrapper, and it lets a consumer who needs the raw API skip your abstraction with
 
 ## Verification
 
-### RS-UNS-30 [M!] Run the suite under Miri in CI
+### RS-UNSAFE-30 [M!] Run the suite under Miri in CI
 
 Run the test suite under Miri (`cargo +nightly miri test`) in CI for every crate containing
 `unsafe`. It catches UB that produces correct behaviour on your machine today and a crash on a
@@ -739,7 +739,7 @@ paths rather than only the trivial ones.
 *Relaxed form:* run Miri locally before each release rather than on every push. What is not
 acceptable is never having run it.
 
-### RS-UNS-31 [S] Cover FFI paths with ASan, UBSan, and Valgrind, which Miri cannot reach
+### RS-UNSAFE-31 [S] Cover FFI paths with ASan, UBSan, and Valgrind, which Miri cannot reach
 
 Miri cannot see through FFI. For those paths, use ASan, UBSan, and Valgrind on the C side, and keep
 the Rust side thin enough to reason about.
@@ -750,9 +750,9 @@ side of the boundary is what stops "Miri is clean" from being read as "the crate
 **Check:** for a crate with FFI, is there a sanitizer job covering the C side? If Miri is the only
 tool, the FFI paths are unverified.
 
-### RS-UNS-32 [M!] Fuzz every unsafe parsing path
+### RS-UNSAFE-32 [M!] Fuzz every unsafe parsing path
 
-Fuzz every unsafe parsing path, and treat any crash as a release-blocking bug (`RS-TST-26`).
+Fuzz every unsafe parsing path, and treat any crash as a release-blocking bug (`RS-TEST-26`).
 
 **Why:** parsers with `unsafe` are where hostile input meets manual memory management, which is the
 single highest-severity combination in the language. Fuzzing is the only technique that explores the
@@ -764,10 +764,10 @@ retained so past findings stay covered.
 *Relaxed form:* for an internal tool, a seeded property test over the same input space is an
 acceptable substitute for a continuous fuzzing job.
 
-### RS-UNS-33 [S] Pin forbidden misuses with `compile_fail` doc tests
+### RS-UNSAFE-33 [S] Pin forbidden misuses with `compile_fail` doc tests
 
 Add `compile_fail` doc tests for the misuses your invariants forbid — a `Send` that must not be, a
-lifetime that must not escape. It pins soundness properties the type system enforces (`RS-TST-36`).
+lifetime that must not escape. It pins soundness properties the type system enforces (`RS-TEST-36`).
 
 **Why:** these properties are enforced by the absence of an impl or by a variance, both of which can
 be reintroduced accidentally. A `compile_fail` test is the only kind that fails when a restriction
@@ -776,7 +776,7 @@ is *relaxed*.
 **Check:** for each "this must not compile" property, is there a test? Properties held only by
 intention are not held.
 
-### RS-UNS-34 [M] Assert layout assumptions at compile time
+### RS-UNSAFE-34 [M] Assert layout assumptions at compile time
 
 Assert layout assumptions at compile time with `const { assert!(size_of::<T>() == 16) }` (const
 blocks are stable) or a `static_assertions`-style macro, so a `repr` change fails the build rather
@@ -797,7 +797,7 @@ pub struct Handle(u64);
 const _: () = assert!(size_of::<Handle>() == size_of::<u64>());
 ```
 
-### RS-UNS-35 [M!] Have `unsafe` reviewed by a second person
+### RS-UNSAFE-35 [M!] Have `unsafe` reviewed by a second person
 
 Have `unsafe` code reviewed by a second person, and say in the pull request template that `unsafe`
 requires it. Self-review of soundness proofs has a poor track record.
@@ -812,7 +812,7 @@ single-approver policy does not meet this.
 *Relaxed form:* on a solo project, re-review the `unsafe` block in a separate sitting from the one
 that wrote it, with the `// SAFETY:` comment read first and the code checked against it.
 
-### RS-UNS-36 [S] Track the `unsafe` block count and treat growth as a design signal
+### RS-UNSAFE-36 [S] Track the `unsafe` block count and treat growth as a design signal
 
 Track the count of `unsafe` blocks in the crate (`cargo geiger` or a grep in CI) and treat growth as
 a design signal. A number that only goes up means the safe abstraction is not being found.

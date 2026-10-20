@@ -88,7 +88,7 @@ class Crate:
 #: and `unsafe_code = "forbid"` (the unsafe-ffi chapter exists). Everything else
 #: is enforced verbatim, and checks/lints.py compares the two so they cannot
 #: drift — `undocumented_unsafe_blocks` was once dropped here with nothing saying
-#: so, which left RS-CAR-29 unverified.
+#: so, which left RS-BUILD-29 unverified.
 RUST_STYLE = Crate(
     name="rust-style-verify",
     dependencies=('thiserror = "2"',),

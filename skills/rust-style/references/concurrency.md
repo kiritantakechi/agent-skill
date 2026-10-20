@@ -1,4 +1,4 @@
-# RS-CNC — Concurrency and async
+# RS-CONC — Concurrency and async
 
 Rust removes data races, not concurrency bugs. Deadlocks, livelocks, lost
 wakeups, unbounded queues, and cancellation-safety violations are all still
@@ -7,74 +7,74 @@ problem — which is very often "not async" and quite often "not concurrent".
 ## Contents
 
 - **Choosing a model**
-  - RS-CNC-01 [M] Do not add concurrency without a measured reason
-  - RS-CNC-02 [M] Match the model to the bottleneck
-  - RS-CNC-03 [M] Do not adopt async for a CLI that does a handful of file reads
-  - RS-CNC-04 [M] Prefer message passing to shared memory
-  - RS-CNC-05 [M] Prefer immutable sharing to synchronized mutation
-  - RS-CNC-06 [S] Prefer partitioning to synchronization
-  - RS-CNC-07 [M] Keep the concurrency at one layer, ideally the top
-  - RS-CNC-08 [M] Decide the parallelism model before writing the data structures
-  - RS-CNC-09 [M!] Bound every queue
-  - RS-CNC-10 [M] Design shutdown at the start
+  - RS-CONC-01 [M] Do not add concurrency without a measured reason
+  - RS-CONC-02 [M] Match the model to the bottleneck
+  - RS-CONC-03 [M] Do not adopt async for a CLI that does a handful of file reads
+  - RS-CONC-04 [M] Prefer message passing to shared memory
+  - RS-CONC-05 [M] Prefer immutable sharing to synchronized mutation
+  - RS-CONC-06 [S] Prefer partitioning to synchronization
+  - RS-CONC-07 [M] Keep the concurrency at one layer, ideally the top
+  - RS-CONC-08 [M] Decide the parallelism model before writing the data structures
+  - RS-CONC-09 [M!] Bound every queue
+  - RS-CONC-10 [M] Design shutdown at the start
 
 - **Threads**
-  - RS-CNC-11 [M] Use `std::thread::scope` for threads that borrow local data
-  - RS-CNC-12 [M] Always handle `JoinHandle::join`'s result
-  - RS-CNC-13 [M] Clone what a spawned closure needs *before* the closure
-  - RS-CNC-14 [S] Size the pool from `available_parallelism()`, and let the user override
-  - RS-CNC-15 [M] Do not spawn per item
-  - RS-CNC-16 [S] Choose `mpsc` for simple fan-in and `crossbeam-channel` for the rest
-  - RS-CNC-17 [M] Close channels deliberately
-  - RS-CNC-18 [M] Never block on I/O, a send, or another lock while holding a lock
-  - RS-CNC-19 [S] Prefer `park`/`unpark` and condvars to sleep-polling
-  - RS-CNC-20 [M] Give any thread whose work must complete an explicit join
+  - RS-CONC-11 [M] Use `std::thread::scope` for threads that borrow local data
+  - RS-CONC-12 [M] Always handle `JoinHandle::join`'s result
+  - RS-CONC-13 [M] Clone what a spawned closure needs *before* the closure
+  - RS-CONC-14 [S] Size the pool from `available_parallelism()`, and let the user override
+  - RS-CONC-15 [M] Do not spawn per item
+  - RS-CONC-16 [S] Choose `mpsc` for simple fan-in and `crossbeam-channel` for the rest
+  - RS-CONC-17 [M] Close channels deliberately
+  - RS-CONC-18 [M] Never block on I/O, a send, or another lock while holding a lock
+  - RS-CONC-19 [S] Prefer `park`/`unpark` and condvars to sleep-polling
+  - RS-CONC-20 [M] Give any thread whose work must complete an explicit join
 
 - **Shared state**
-  - RS-CNC-21 [M] Ask three questions before reaching for `Arc<Mutex<…>>`
-  - RS-CNC-22 [M] Hold locks briefly, and never across an `.await` or a blocking call
-  - RS-CNC-23 [S] Treat lock granularity as a tuning parameter with evidence
-  - RS-CNC-24 [S] Use `RwLock` only for read-dominated, long critical sections
-  - RS-CNC-25 [M] Establish a lock order and document it
-  - RS-CNC-26 [M] Decide deliberately what a poisoned `Mutex` means for your crate
-  - RS-CNC-27 [M] Reserve atomics for counters, flags, and provable algorithms
-  - RS-CNC-28 [M] Do not hand-build lock-free data structures
-  - RS-CNC-29 [M] Treat a manual `Send`/`Sync` impl as a proof obligation
-  - RS-CNC-30 [M] Use `OnceLock`/`LazyLock` for lazily initialized globals
+  - RS-CONC-21 [M] Ask three questions before reaching for `Arc<Mutex<…>>`
+  - RS-CONC-22 [M] Hold locks briefly, and never across an `.await` or a blocking call
+  - RS-CONC-23 [S] Treat lock granularity as a tuning parameter with evidence
+  - RS-CONC-24 [S] Use `RwLock` only for read-dominated, long critical sections
+  - RS-CONC-25 [M] Establish a lock order and document it
+  - RS-CONC-26 [M] Decide deliberately what a poisoned `Mutex` means for your crate
+  - RS-CONC-27 [M] Reserve atomics for counters, flags, and provable algorithms
+  - RS-CONC-28 [M] Do not hand-build lock-free data structures
+  - RS-CONC-29 [M] Treat a manual `Send`/`Sync` impl as a proof obligation
+  - RS-CONC-30 [M] Use `OnceLock`/`LazyLock` for lazily initialized globals
 
 - **Async fundamentals**
-  - RS-CNC-31 [M] Remember futures are inert until polled
-  - RS-CNC-32 [M] Keep libraries runtime-agnostic where possible
-  - RS-CNC-33 [M] Do not block in async
-  - RS-CNC-34 [M] Do not mark a function `async` if it never `.await`s
-  - RS-CNC-35 [M] Prefer `async fn` and `impl Future` to hand-written state machines
-  - RS-CNC-36 [M] Decide explicitly whether your trait needs `Send` futures
-  - RS-CNC-37 [M!] Make every function correct when dropped at an `.await`
-  - RS-CNC-38 [M] Do not `select!` over branches that lose data on cancellation
-  - RS-CNC-39 [M] Keep, join, or deliberately detach every task handle
-  - RS-CNC-40 [M] Apply a caller-supplied timeout at every boundary that can hang
+  - RS-CONC-31 [M] Remember futures are inert until polled
+  - RS-CONC-32 [M] Keep libraries runtime-agnostic where possible
+  - RS-CONC-33 [M] Do not block in async
+  - RS-CONC-34 [M] Do not mark a function `async` if it never `.await`s
+  - RS-CONC-35 [M] Prefer `async fn` and `impl Future` to hand-written state machines
+  - RS-CONC-36 [M] Decide explicitly whether your trait needs `Send` futures
+  - RS-CONC-37 [M!] Make every function correct when dropped at an `.await`
+  - RS-CONC-38 [M] Do not `select!` over branches that lose data on cancellation
+  - RS-CONC-39 [M] Keep, join, or deliberately detach every task handle
+  - RS-CONC-40 [M] Apply a caller-supplied timeout at every boundary that can hang
 
 - **Data parallelism**
-  - RS-CNC-41 [S] Reach for `rayon` — it is the highest return-on-effort parallelism in Rust
-  - RS-CNC-42 [M] Parallelize at a coarse granularity
-  - RS-CNC-43 [M] Keep the closure passed to a parallel iterator pure
-  - RS-CNC-44 [M] Reorder or serialize parallel output deliberately
+  - RS-CONC-41 [S] Reach for `rayon` — it is the highest return-on-effort parallelism in Rust
+  - RS-CONC-42 [M] Parallelize at a coarse granularity
+  - RS-CONC-43 [M] Keep the closure passed to a parallel iterator pure
+  - RS-CONC-44 [M] Reorder or serialize parallel output deliberately
 
 - **Testing and debugging**
-  - RS-CNC-45 [M!] Test concurrent data structures with `loom`
-  - RS-CNC-46 [M!] Run the suite under ThreadSanitizer and Miri where supported
-  - RS-CNC-47 [M] Make concurrency tests deterministic — no `sleep`
-  - RS-CNC-48 [S] Stress-test beyond core count, behind `#[ignore]`
-  - RS-CNC-49 [M] Log with a task or thread identifier
-  - RS-CNC-50 [S] Reproduce deadlocks by capturing backtraces, not by reasoning
-  - RS-CNC-51 [M] Prefer structured concurrency
-  - RS-CNC-52 [M] Document the threading contract of every public type
+  - RS-CONC-45 [M!] Test concurrent data structures with `loom`
+  - RS-CONC-46 [M!] Run the suite under ThreadSanitizer and Miri where supported
+  - RS-CONC-47 [M] Make concurrency tests deterministic — no `sleep`
+  - RS-CONC-48 [S] Stress-test beyond core count, behind `#[ignore]`
+  - RS-CONC-49 [M] Log with a task or thread identifier
+  - RS-CONC-50 [S] Reproduce deadlocks by capturing backtraces, not by reasoning
+  - RS-CONC-51 [M] Prefer structured concurrency
+  - RS-CONC-52 [M] Document the threading contract of every public type
 
 ---
 
 ## Choosing a model
 
-### RS-CNC-01 [M] Do not add concurrency without a measured reason
+### RS-CONC-01 [M] Do not add concurrency without a measured reason
 
 Do not add concurrency without a measured reason. It multiplies the state space, complicates every
 error path, and makes failures non-reproducible. Sequential code that is fast enough is the right
@@ -96,7 +96,7 @@ pub fn total(values: &[u64]) -> u64 {
 }
 ```
 
-### RS-CNC-02 [M] Match the model to the bottleneck
+### RS-CONC-02 [M] Match the model to the bottleneck
 
 Match the model to the bottleneck: threads and `rayon` for CPU-bound work, async for I/O-bound work
 with many concurrent operations, and a thread pool with blocking I/O for a few dozen connections —
@@ -109,7 +109,7 @@ about a megabyte of stack each, which only matters in the thousands.
 **Check:** name the bottleneck — CPU or waiting — and the expected concurrency count. The pair
 determines the model.
 
-### RS-CNC-03 [M] Do not adopt async for a CLI that does a handful of file reads
+### RS-CONC-03 [M] Do not adopt async for a CLI that does a handful of file reads
 
 Do not adopt async for a CLI that does a handful of file reads. `tokio` brings a runtime, a
 scheduler, coloured functions, and a large dependency tree; a CLI that opens fifty files should just
@@ -117,12 +117,12 @@ open them.
 
 **Why:** async's benefit appears at high concurrency, and fifty sequential file reads have none.
 What you do get is a function-colouring constraint through the whole codebase and a much larger
-build (`RS-CAR-21`).
+build (`RS-BUILD-21`).
 
 **Check:** how many operations are in flight at once? Below a few hundred, blocking I/O on a small
 pool is simpler and usually faster.
 
-### RS-CNC-04 [M] Prefer message passing to shared memory
+### RS-CONC-04 [M] Prefer message passing to shared memory
 
 Prefer message passing to shared memory. Channels give you one owner per value, backpressure, and a
 shutdown protocol; shared mutable state gives you locks and a graph of who may touch what.
@@ -155,7 +155,7 @@ pub fn total(chunks: Vec<Vec<u32>>) -> u32 {
 }
 ```
 
-### RS-CNC-05 [M] Prefer immutable sharing to synchronized mutation
+### RS-CONC-05 [M] Prefer immutable sharing to synchronized mutation
 
 Prefer immutable sharing to synchronized mutation. `Arc<T>` where `T` never changes needs no lock at
 all, and the vast majority of "shared state" is configuration that is written once at startup.
@@ -190,7 +190,7 @@ pub fn count_matches(haystacks: &[String], needle: &Arc<str>) -> usize {
 }
 ```
 
-### RS-CNC-06 [S] Prefer partitioning to synchronization
+### RS-CONC-06 [S] Prefer partitioning to synchronization
 
 Prefer partitioning to synchronization: give each worker its own slice of the data and merge at the
 end. No lock is faster than any lock.
@@ -222,11 +222,11 @@ pub fn sum_partitioned(values: &[u64], workers: usize) -> u64 {
 }
 ```
 
-### RS-CNC-07 [M] Keep the concurrency at one layer, ideally the top
+### RS-CONC-07 [M] Keep the concurrency at one layer, ideally the top
 
 Keep the concurrency at one layer, ideally the top. A library that spawns its own threads or
 requires a specific runtime constrains every application that uses it. Offer a synchronous API and
-let the caller parallelize (`RS-CNC-32`).
+let the caller parallelize (`RS-CONC-32`).
 
 **Why:** the application knows its own thread budget and runtime; the library does not. A library
 that spawns threads cannot be used inside another parallel context without oversubscribing, and one
@@ -235,7 +235,7 @@ that requires a runtime cannot be used outside it at all.
 **Check:** does the library spawn threads or require a runtime? If so, can the parallelism be lifted
 to the caller?
 
-### RS-CNC-08 [M] Decide the parallelism model before writing the data structures
+### RS-CONC-08 [M] Decide the parallelism model before writing the data structures
 
 Decide the parallelism model before writing the data structures. Retrofitting `Send + Sync` onto a
 design built around `Rc` and `RefCell` is a rewrite, not a refactor.
@@ -247,7 +247,7 @@ ownership model, which touches everything.
 **Check:** if the code might ever be parallel, are the shared types `Send`? Deciding later is much
 more expensive than deciding now.
 
-### RS-CNC-09 [M!] Bound every queue
+### RS-CONC-09 [M!] Bound every queue
 
 Bound every queue. An unbounded channel converts backpressure into memory exhaustion, which surfaces
 as an OOM kill hours later rather than a slow producer immediately.
@@ -274,7 +274,7 @@ pub fn bounded_queue(capacity: usize) -> (SyncSender<u32>, mpsc::Receiver<u32>) 
 }
 ```
 
-### RS-CNC-10 [M] Design shutdown at the start
+### RS-CONC-10 [M] Design shutdown at the start
 
 Design shutdown at the start: how workers learn to stop, how in-flight work drains, and how the main
 thread waits. Retrofitted shutdown is where hangs live.
@@ -310,7 +310,7 @@ impl Shutdown {
 
 ## Threads
 
-### RS-CNC-11 [M] Use `std::thread::scope` for threads that borrow local data
+### RS-CONC-11 [M] Use `std::thread::scope` for threads that borrow local data
 
 Use `std::thread::scope` (stable since 1.63) for threads that borrow local data. It removes the
 `Arc`/`'static` dance and guarantees joins, which is exactly the guarantee that makes borrowing
@@ -336,7 +336,7 @@ pub fn longest(words: &[String]) -> usize {
 }
 ```
 
-### RS-CNC-12 [M] Always handle `JoinHandle::join`'s result
+### RS-CONC-12 [M] Always handle `JoinHandle::join`'s result
 
 Always handle `JoinHandle::join`'s result. Dropping it discards a panic in the worker, turning a
 crash into silently missing work.
@@ -364,11 +364,11 @@ pub fn run<T: Send>(work: impl FnOnce() -> T + Send) -> Result<T, Panicked> {
 pub struct Panicked;
 ```
 
-### RS-CNC-13 [M] Clone what a spawned closure needs *before* the closure
+### RS-CONC-13 [M] Clone what a spawned closure needs *before* the closure
 
 When spawning in a loop, clone what the closure needs *before* the closure and move the clones in.
 Relying on `move` to capture the right thing from a surrounding scope is how loop variables get
-shared or dropped early (`RS-FP-49`).
+shared or dropped early (`RS-FUNC-49`).
 
 **Why:** `move` captures whatever the body names, so a body that names the outer binding moves the
 original on the first iteration and fails to compile — or, with an `Arc`, captures the wrong one.
@@ -376,7 +376,7 @@ Making the clone explicit puts the intent in the source.
 
 **Check:** each spawned closure's captures should be bindings created immediately above it.
 
-### RS-CNC-14 [S] Size the pool from `available_parallelism()`, and let the user override
+### RS-CONC-14 [S] Size the pool from `available_parallelism()`, and let the user override
 
 Size the pool from `std::thread::available_parallelism()`, not a hard-coded number, and let the user
 override it with a flag or environment variable.
@@ -400,7 +400,7 @@ pub fn worker_count(override_to: Option<usize>) -> usize {
 }
 ```
 
-### RS-CNC-15 [M] Do not spawn per item
+### RS-CONC-15 [M] Do not spawn per item
 
 Do not spawn per item. Thread creation costs more than most units of work; use a pool (`rayon`) or
 chunk the work.
@@ -432,7 +432,7 @@ pub fn lengths(items: &[String], workers: usize) -> usize {
 }
 ```
 
-### RS-CNC-16 [S] Choose `mpsc` for simple fan-in and `crossbeam-channel` for the rest
+### RS-CONC-16 [S] Choose `mpsc` for simple fan-in and `crossbeam-channel` for the rest
 
 Use `std::sync::mpsc` for simple fan-in, `crossbeam-channel` when you need `select`, multiple
 consumers, or better throughput. Both are far easier to reason about than a shared
@@ -443,7 +443,7 @@ usually gets the lost-wakeup case wrong. The channel types have solved all three
 
 **Check:** grep for `Mutex<VecDeque<` and `Mutex<Vec<` used as a work queue.
 
-### RS-CNC-17 [M] Close channels deliberately
+### RS-CONC-17 [M] Close channels deliberately
 
 Close channels deliberately. A receiver loop ends when all senders drop; a forgotten clone of the
 sender in the parent scope is the classic "program hangs at the end" bug (see the `drop(tx)` above).
@@ -471,13 +471,14 @@ pub fn drain(values: Vec<u32>) -> Vec<u32> {
 }
 ```
 
-### RS-CNC-18 [M] Never block on I/O, a send, or another lock while holding a lock
+### RS-CONC-18 [M] Never block on I/O, a send, or another lock while holding a lock
 
 Do not block a thread holding a lock on I/O, a channel send, or another lock. Compute the value,
 then take the lock, then store it.
 
 **Why:** the critical section's length determines contention for every other thread, and I/O is
-unbounded. Blocking on a second lock also creates the ordering that produces deadlock (`RS-CNC-25`).
+unbounded. Blocking on a second lock also creates the ordering that produces deadlock
+(`RS-CONC-25`).
 
 **Check:** read each critical section for I/O calls, channel sends, and further lock acquisitions.
 
@@ -500,7 +501,7 @@ pub fn insert_rendered<S: BuildHasher>(
 }
 ```
 
-### RS-CNC-19 [S] Prefer `park`/`unpark` and condvars to sleep-polling
+### RS-CONC-19 [S] Prefer `park`/`unpark` and condvars to sleep-polling
 
 Prefer `park`/`unpark` and condition variables to sleep-polling.
 `thread::sleep(Duration::from_millis(10))` in a loop is both slow to react and wasteful.
@@ -510,7 +511,7 @@ ones add latency. A condvar wakes exactly when the condition changes.
 
 **Check:** grep for `sleep` inside loops. Each is a poll that wants a wakeup primitive.
 
-### RS-CNC-20 [M] Give any thread whose work must complete an explicit join
+### RS-CONC-20 [M] Give any thread whose work must complete an explicit join
 
 Threads that outlive `main` are terminated abruptly. Any thread doing work that must complete needs
 an explicit join or a shutdown handshake.
@@ -519,11 +520,11 @@ an explicit join or a shutdown handshake.
 no unwinding and no flush. A background writer loses its buffer that way.
 
 **Check:** for each detached thread, ask what happens if the process exits during its work. If the
-answer matters, it needs a join (`RS-CNC-51`).
+answer matters, it needs a join (`RS-CONC-51`).
 
 ## Shared state
 
-### RS-CNC-21 [M] Ask three questions before reaching for `Arc<Mutex<…>>`
+### RS-CONC-21 [M] Ask three questions before reaching for `Arc<Mutex<…>>`
 
 `Arc<Mutex<HashMap<..>>>` should not be the first reflex. Ask in order: can each worker own a
 partition? can the map be built once and shared immutably? can updates be a channel to one owner?
@@ -536,7 +537,7 @@ and mutable.
 **Check:** for each `Arc<Mutex<_>>`, answer the three questions in writing. Reaching the lock
 without answering them is the finding.
 
-### RS-CNC-22 [M] Hold locks briefly, and never across an `.await` or a blocking call
+### RS-CONC-22 [M] Hold locks briefly, and never across an `.await` or a blocking call
 
 Hold locks for the shortest possible span, and never across an `.await` or a blocking call. Compute
 outside, mutate inside:
@@ -548,7 +549,7 @@ every other task for the duration of the awaited operation.
 **Check:** grep for `.await` between a `lock()` and the end of its scope. Clippy's
 `await_holding_lock` catches the common shape.
 
-### RS-CNC-23 [S] Treat lock granularity as a tuning parameter with evidence
+### RS-CONC-23 [S] Treat lock granularity as a tuning parameter with evidence
 
 Prefer a `Mutex` per subsystem over one global lock, and per-shard locks over one big map lock when
 contention is measured. Lock granularity is a tuning parameter with evidence behind it, not a
@@ -584,7 +585,7 @@ impl Server {
 }
 ```
 
-### RS-CNC-24 [S] Use `RwLock` only for read-dominated, long critical sections
+### RS-CONC-24 [S] Use `RwLock` only for read-dominated, long critical sections
 
 `RwLock` helps only when reads vastly outnumber writes and the critical sections are long. Otherwise
 its extra bookkeeping loses to a plain `Mutex`, and writer starvation becomes a real risk.
@@ -596,7 +597,7 @@ readers can also starve a waiting writer indefinitely.
 **Check:** what is the read/write ratio and how long is the critical section? Without both numbers,
 `Mutex` is the safer default.
 
-### RS-CNC-25 [M] Establish a lock order and document it
+### RS-CONC-25 [M] Establish a lock order and document it
 
 Establish a lock order and document it. Every deadlock in practice is two code paths taking the same
 two locks in different orders.
@@ -608,7 +609,7 @@ reading.
 **Check:** list every place two locks are held simultaneously and confirm the order matches the
 documented one.
 
-### RS-CNC-26 [M] Decide deliberately what a poisoned `Mutex` means for your crate
+### RS-CONC-26 [M] Decide deliberately what a poisoned `Mutex` means for your crate
 
 `Mutex::lock` returns a `Result` because of poisoning. In a binary, `.expect("lock poisoned")` is
 defensible; in a library, propagate or use a non-poisoning mutex (`parking_lot`) and say so.
@@ -618,7 +619,7 @@ broken. A library that unwraps decides on the application's behalf that the proc
 
 **Check:** grep for `.lock().unwrap()` in library code. Each is an undocumented panic (`RS-DOC-13`).
 
-### RS-CNC-27 [M] Reserve atomics for counters, flags, and provable algorithms
+### RS-CONC-27 [M] Reserve atomics for counters, flags, and provable algorithms
 
 Atomics are for counters, flags, and lock-free algorithms written by people who can prove them
 correct. Use `Relaxed` for statistics, `Acquire`/`Release` for handoff, and `SeqCst` when you are
@@ -653,7 +654,7 @@ impl Metrics {
 }
 ```
 
-### RS-CNC-28 [M] Do not hand-build lock-free data structures
+### RS-CONC-28 [M] Do not hand-build lock-free data structures
 
 Do not build lock-free data structures by hand. Use `crossbeam`, `dashmap`, or an actor with a
 channel. The literature is full of published algorithms that turned out to be wrong.
@@ -663,12 +664,12 @@ testing cannot observe, and peer-reviewed algorithms have shipped with bugs foun
 libraries have been verified with `loom` and used at scale.
 
 **Check:** is there hand-written `compare_exchange` in the crate? If so, is it a published
-algorithm, and is it `loom`-tested (`RS-CNC-45`)?
+algorithm, and is it `loom`-tested (`RS-CONC-45`)?
 
-### RS-CNC-29 [M] Treat a manual `Send`/`Sync` impl as a proof obligation
+### RS-CONC-29 [M] Treat a manual `Send`/`Sync` impl as a proof obligation
 
 `Send` and `Sync` are auto-derived; implementing them manually is `unsafe` and requires a proof
-(`RS-UNS-21`). If a type is not `Send`, the compiler is telling you something true.
+(`RS-UNSAFE-21`). If a type is not `Send`, the compiler is telling you something true.
 
 **Why:** the compiler withheld the impl because of a field it cannot verify — a raw pointer, a
 `Cell`. The manual impl asserts you have synchronized it, and if you have not the result is a data
@@ -676,7 +677,7 @@ race with no diagnostic.
 
 **Check:** each manual impl has an adjacent comment naming what makes concurrent access sound.
 
-### RS-CNC-30 [M] Use `OnceLock`/`LazyLock` for lazily initialized globals
+### RS-CONC-30 [M] Use `OnceLock`/`LazyLock` for lazily initialized globals
 
 Use `OnceLock`/`LazyLock` for lazily initialized globals rather than `static mut` (which edition
 2024 denies via `static_mut_refs`) or a `Mutex<Option<T>>` (`RS-OWN-31`).
@@ -701,7 +702,7 @@ pub fn is_ignored(name: &str) -> bool {
 
 ## Async fundamentals
 
-### RS-CNC-31 [M] Remember futures are inert until polled
+### RS-CONC-31 [M] Remember futures are inert until polled
 
 Futures are inert. Nothing happens until they are polled — so building a future and dropping it does
 no work, and a `Vec<Future>` runs nothing until you `join_all` or spawn.
@@ -724,7 +725,7 @@ pub async fn doubled(value: u32) -> u32 {
 }
 ```
 
-### RS-CNC-32 [M] Keep libraries runtime-agnostic where possible
+### RS-CONC-32 [M] Keep libraries runtime-agnostic where possible
 
 Libraries should be runtime-agnostic where possible: depend on `futures`/`std` traits rather than
 `tokio` internals, and gate runtime-specific code behind features. A library that hard-requires one
@@ -737,7 +738,7 @@ library did not need to expose.
 **Check:** does the library depend on a runtime unconditionally? If so, can the dependency be
 feature-gated?
 
-### RS-CNC-33 [M] Do not block in async
+### RS-CONC-33 [M] Do not block in async
 
 Do not block in async. A synchronous file read, a `std::sync` lock held across a poll, or a
 CPU-bound loop stalls the whole executor thread. Use `spawn_blocking` for blocking work and the
@@ -749,7 +750,7 @@ runtime deadlocks.
 
 **Check:** grep async bodies for `std::fs`, `std::net`, `thread::sleep`, and `std::sync::Mutex`.
 
-### RS-CNC-34 [M] Do not mark a function `async` if it never `.await`s
+### RS-CONC-34 [M] Do not mark a function `async` if it never `.await`s
 
 `async` on a function that never `.await`s is pure overhead: it returns a future, colours every
 caller, and gains nothing. Make it a normal function.
@@ -770,7 +771,7 @@ pub fn checksum(bytes: &[u8]) -> u32 {
 }
 ```
 
-### RS-CNC-35 [M] Prefer `async fn` and `impl Future` to hand-written state machines
+### RS-CONC-35 [M] Prefer `async fn` and `impl Future` to hand-written state machines
 
 Prefer `async fn` and `impl Future` over hand-written `Poll` state machines. Implement `Future` by
 hand only for leaf primitives — and then respect the contract: register the waker on every `Pending`
@@ -782,11 +783,11 @@ never wakes — a hang with no diagnostic.
 
 **Check:** for each manual `impl Future`, confirm every `Pending` path registered the waker first.
 
-### RS-CNC-36 [M] Decide explicitly whether your trait needs `Send` futures
+### RS-CONC-36 [M] Decide explicitly whether your trait needs `Send` futures
 
 `async fn` in traits (stable since 1.75) does not produce a `Send` future automatically, and is not
 dyn-compatible. Decide explicitly whether your trait needs `Send` futures (`trait_variant`, or an
-explicit `-> impl Future<Output = _> + Send`) and document it (`RS-TRG-20`).
+explicit `-> impl Future<Output = _> + Send`) and document it (`RS-TRAIT-20`).
 
 **Why:** a multi-threaded runtime requires `Send` futures to spawn them, and the bound cannot be
 added by the caller afterwards. Discovering this after publishing means a breaking change.
@@ -805,7 +806,7 @@ pub trait Fetch {
 }
 ```
 
-### RS-CNC-37 [M!] Make every function correct when dropped at an `.await`
+### RS-CONC-37 [M!] Make every function correct when dropped at an `.await`
 
 Cancellation in async is a drop, and it can happen at any `.await` point. Any function holding a
 resource across an await must be correct when it is dropped there — this is cancellation safety, and
@@ -822,7 +823,7 @@ there. Is the state still consistent?
 is cancelled only at shutdown, where a leaked temporary is tolerable. The moment either appears, the
 rule is [M].
 
-### RS-CNC-38 [M] Do not `select!` over branches that lose data on cancellation
+### RS-CONC-38 [M] Do not `select!` over branches that lose data on cancellation
 
 Do not use `select!` with branches that lose data on cancellation (a partially consumed read, a
 half-sent message) unless the future is documented as cancel-safe. Prefer a loop over a channel with
@@ -834,14 +835,14 @@ a buffered read that means silently dropped bytes, which shows up much later as 
 **Check:** for each `select!` branch, is the future documented as cancel-safe? `tokio` documents
 this per-method; anything undocumented should be assumed unsafe to cancel.
 
-### RS-CNC-39 [M] Keep, join, or deliberately detach every task handle
+### RS-CONC-39 [M] Keep, join, or deliberately detach every task handle
 
 Every spawned task returns a handle: keep it, join it, or deliberately detach with a comment. A
 detached task that panics disappears silently, and its failure becomes an unexplained absence of
 output.
 
 **Why:** the handle is the only channel through which a task's panic or result is reported — the
-same reason `JoinHandle::join` must be handled (`RS-CNC-12`). Dropping it discards both, so a
+same reason `JoinHandle::join` must be handled (`RS-CONC-12`). Dropping it discards both, so a
 failure becomes a missing side effect rather than an error, and silence is indistinguishable from
 success.
 
@@ -873,7 +874,7 @@ impl Workers {
 }
 ```
 
-### RS-CNC-40 [M] Apply a caller-supplied timeout at every boundary that can hang
+### RS-CONC-40 [M] Apply a caller-supplied timeout at every boundary that can hang
 
 Apply timeouts at the boundary of any operation that can hang — network, IPC, subprocess — and make
 the timeout a parameter, not a constant buried in the implementation.
@@ -887,11 +888,11 @@ mitigation.
 
 ## Data parallelism
 
-### RS-CNC-41 [S] Reach for `rayon` — it is the highest return-on-effort parallelism in Rust
+### RS-CONC-41 [S] Reach for `rayon` — it is the highest return-on-effort parallelism in Rust
 
 `rayon` turns a functional pipeline into a parallel one by changing `iter()` to `par_iter()`. This
 is the highest return-on-effort parallelism available in Rust, and it is available only because the
-pipeline was functional to begin with (`RS-FP-28`).
+pipeline was functional to begin with (`RS-FUNC-28`).
 
 **Why:** a one-word change buys work-stealing parallelism with no synchronization to design, because
 the iterator formulation already proved the operations are independent. This is the concrete payoff
@@ -900,7 +901,7 @@ for writing pipelines rather than loops.
 **Check:** for CPU-bound loops over collections, is the body already a pure `map`/`filter`/`fold`?
 If so, `par_iter` is nearly free.
 
-### RS-CNC-42 [M] Parallelize at a coarse granularity
+### RS-CONC-42 [M] Parallelize at a coarse granularity
 
 Parallelize at a coarse granularity. `par_iter()` over a million one-microsecond items spends its
 time in the scheduler; chunk first (`par_chunks`, `with_min_len`).
@@ -910,7 +911,7 @@ parallel version slower than the sequential one. Chunking amortizes it across ma
 
 **Check:** estimate the per-item cost. Below roughly a microsecond, chunk before parallelizing.
 
-### RS-CNC-43 [M] Keep the closure passed to a parallel iterator pure
+### RS-CONC-43 [M] Keep the closure passed to a parallel iterator pure
 
 Keep the closure passed to a parallel iterator pure. Shared mutation inside means locks, which
 serialize exactly the thing you parallelized; use `map` plus `reduce`/`fold` with an identity
@@ -923,7 +924,7 @@ without any shared state.
 **Check:** does the closure capture anything by mutable reference or take a lock? Both defeat the
 parallelism.
 
-### RS-CNC-44 [M] Reorder or serialize parallel output deliberately
+### RS-CONC-44 [M] Reorder or serialize parallel output deliberately
 
 Parallel output must be reordered or serialized deliberately. Either collect in order
 (`par_iter().map(..).collect::<Vec<_>>()` preserves order) or funnel through a single writer —
@@ -958,7 +959,7 @@ pub fn lengths(inputs: &[String]) -> Vec<usize> {
 
 ## Testing and debugging
 
-### RS-CNC-45 [M!] Test concurrent data structures with `loom`
+### RS-CONC-45 [M!] Test concurrent data structures with `loom`
 
 Test concurrent data structures with `loom`, which explores interleavings exhaustively for small
 models. Ordinary tests pass on broken lock-free code essentially every time.
@@ -973,10 +974,10 @@ interleavings instead of sampling them.
 obvious way, `loom` buys little. It is mandatory the moment you write the algorithm rather than call
 one.
 
-### RS-CNC-46 [M!] Run the suite under ThreadSanitizer and Miri where supported
+### RS-CONC-46 [M!] Run the suite under ThreadSanitizer and Miri where supported
 
 Run the suite under ThreadSanitizer for anything with `unsafe` sharing, and under Miri where it
-supports the operations used (`RS-UNS-30`).
+supports the operations used (`RS-UNSAFE-30`).
 
 **Why:** these tools detect races the test run happened not to trigger, by checking the
 happens-before relation rather than the outcome. That is a categorically stronger observation than
@@ -987,28 +988,28 @@ happens-before relation rather than the outcome. That is a categorically stronge
 *Relaxed form:* run them before each release rather than per push. A crate with no `unsafe` sharing
 has nothing here to check.
 
-### RS-CNC-47 [M] Make concurrency tests deterministic — no `sleep`
+### RS-CONC-47 [M] Make concurrency tests deterministic — no `sleep`
 
 Make concurrency tests deterministic: fixed seeds, injected clocks, and explicit synchronization
 points instead of `sleep`. A test that sleeps to "let the thread finish" is a flake with a timer.
 
 **Why:** a sleep encodes an assumption about timing that holds on your machine and fails on a loaded
 CI runner. The resulting flake is then "fixed" by increasing the sleep, which makes the suite slower
-without making it correct (`RS-TST-18`).
+without making it correct (`RS-TEST-18`).
 
 **Check:** grep tests for `sleep`. Each wants a barrier, a channel, or a condvar instead.
 
-### RS-CNC-48 [S] Stress-test beyond core count, behind `#[ignore]`
+### RS-CONC-48 [S] Stress-test beyond core count, behind `#[ignore]`
 
 Stress-test with more threads than cores and with a loop count high enough to shake out races, but
-keep that test behind `#[ignore]` or a feature so the fast suite stays fast (`RS-TST-40`).
+keep that test behind `#[ignore]` or a feature so the fast suite stays fast (`RS-TEST-40`).
 
 **Why:** oversubscription forces preemption at points a well-behaved run never reaches, which is
 what makes rare interleavings appear. It is also slow, so it belongs outside the inner loop.
 
 **Check:** is there a stress test, and is it excluded from the default run?
 
-### RS-CNC-49 [M] Log with a task or thread identifier
+### RS-CONC-49 [M] Log with a task or thread identifier
 
 Log with a task or thread identifier. Interleaved logs without one are unreadable, and `tracing`
 spans exist precisely to solve this.
@@ -1020,7 +1021,7 @@ debugging job.
 **Check:** does a log line identify which worker produced it? If not, concurrent logs cannot be
 read.
 
-### RS-CNC-50 [S] Reproduce deadlocks by capturing backtraces, not by reasoning
+### RS-CONC-50 [S] Reproduce deadlocks by capturing backtraces, not by reasoning
 
 Reproduce deadlocks by capturing all thread backtraces (`gdb -p`, `rust-gdb`, `tokio-console` for
 async) rather than by reasoning. The stacks name the two locks.
@@ -1032,7 +1033,7 @@ possible orderings is a search.
 **Check:** when a hang occurs, was a backtrace captured before restarting? Restarting destroys the
 evidence.
 
-### RS-CNC-51 [M] Prefer structured concurrency
+### RS-CONC-51 [M] Prefer structured concurrency
 
 Prefer structured concurrency: every task has a parent that outlives it and is responsible for its
 shutdown. `thread::scope`, task groups, and `JoinSet` all encode this; bare `spawn`-and-forget does
@@ -1045,7 +1046,7 @@ properties and no owner to fix them.
 **Check:** for each spawned task, name the scope responsible for awaiting it. "Nobody" is the
 finding.
 
-### RS-CNC-52 [M] Document the threading contract of every public type
+### RS-CONC-52 [M] Document the threading contract of every public type
 
 Document the threading contract of every public type: whether it is `Send`, whether it is `Sync`,
 whether methods may be called concurrently, and whether it spawns anything. Users cannot infer this

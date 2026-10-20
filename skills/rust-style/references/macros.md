@@ -11,42 +11,42 @@ them only when generics, traits, and functions genuinely cannot express the patt
 ## Contents
 
 - **When to use a macro**
-  - RS-MAC-01 [M] Exhaust functions, generics, and traits first
-  - RS-MAC-02 [S] Know the legitimate reasons for a macro
-  - RS-MAC-03 [M] Do not write a macro to save typing at one call site
-  - RS-MAC-04 [M] Hold macro-generated public API to the same documentation standard
-  - RS-MAC-05 [S] Expand to a call into a normal function
-  - RS-MAC-06 [S] Consider committed generated source instead of a proc macro
+  - RS-MACRO-01 [M] Exhaust functions, generics, and traits first
+  - RS-MACRO-02 [S] Know the legitimate reasons for a macro
+  - RS-MACRO-03 [M] Do not write a macro to save typing at one call site
+  - RS-MACRO-04 [M] Hold macro-generated public API to the same documentation standard
+  - RS-MACRO-05 [S] Expand to a call into a normal function
+  - RS-MACRO-06 [S] Consider committed generated source instead of a proc macro
 
 - **`macro_rules!`**
-  - RS-MAC-07 [S] Prefer `macro_rules!` to a proc macro whenever it suffices
-  - RS-MAC-08 [S] Export deliberately and re-export through the module system
-  - RS-MAC-09 [M] Refer to items by absolute path with `$crate`
-  - RS-MAC-10 [M] Choose the tightest fragment specifier
-  - RS-MAC-11 [M] Parenthesize interpolated expressions
-  - RS-MAC-12 [M] Evaluate each captured expression exactly once
-  - RS-MAC-13 [S] Wrap multi-statement expansions in a block
-  - RS-MAC-14 [S] Accept a trailing comma in every list-taking macro
-  - RS-MAC-15 [S] Emit a helpful `compile_error!` from a catch-all arm
-  - RS-MAC-16 [S] Test macros with `trybuild` and ordinary unit tests
-  - RS-MAC-17 [M] Do not rely on hygiene to protect you from caller identifiers
+  - RS-MACRO-07 [S] Prefer `macro_rules!` to a proc macro whenever it suffices
+  - RS-MACRO-08 [S] Export deliberately and re-export through the module system
+  - RS-MACRO-09 [M] Refer to items by absolute path with `$crate`
+  - RS-MACRO-10 [M] Choose the tightest fragment specifier
+  - RS-MACRO-11 [M] Parenthesize interpolated expressions
+  - RS-MACRO-12 [M] Evaluate each captured expression exactly once
+  - RS-MACRO-13 [S] Wrap multi-statement expansions in a block
+  - RS-MACRO-14 [S] Accept a trailing comma in every list-taking macro
+  - RS-MACRO-15 [S] Emit a helpful `compile_error!` from a catch-all arm
+  - RS-MACRO-16 [S] Test macros with `trybuild` and ordinary unit tests
+  - RS-MACRO-17 [M] Do not rely on hygiene to protect you from caller identifiers
 
 - **Procedural macros**
-  - RS-MAC-18 [M] Reserve proc macros for derives and genuine syntax extensions
-  - RS-MAC-19 [M] Split the proc-macro crate from the crate that re-exports it
-  - RS-MAC-20 [S] Enable only the `syn` features you need
-  - RS-MAC-21 [M] Emit errors at the correct span, never by panicking
-  - RS-MAC-22 [S] Report all the errors you can find, not just the first
-  - RS-MAC-23 [M] Generate hygienic code with absolute paths
-  - RS-MAC-24 [M] Do not generate `unsafe` unless the derive's contract makes it sound
-  - RS-MAC-25 [S] Keep generated code small and delegating
-  - RS-MAC-26 [S] Make expansion inspectable and test it
+  - RS-MACRO-18 [M] Reserve proc macros for derives and genuine syntax extensions
+  - RS-MACRO-19 [M] Split the proc-macro crate from the crate that re-exports it
+  - RS-MACRO-20 [S] Enable only the `syn` features you need
+  - RS-MACRO-21 [M] Emit errors at the correct span, never by panicking
+  - RS-MACRO-22 [S] Report all the errors you can find, not just the first
+  - RS-MACRO-23 [M] Generate hygienic code with absolute paths
+  - RS-MACRO-24 [M] Do not generate `unsafe` unless the derive's contract makes it sound
+  - RS-MACRO-25 [S] Keep generated code small and delegating
+  - RS-MACRO-26 [S] Make expansion inspectable and test it
 
 ---
 
 ## When to use a macro
 
-### RS-MAC-01 [M] Exhaust functions, generics, and traits first
+### RS-MACRO-01 [M] Exhaust functions, generics, and traits first
 
 In order: a function, a generic function, a trait with a blanket impl, a const generic, a builder.
 
@@ -66,7 +66,7 @@ pub fn kib(count: u64) -> u64 {
 }
 ```
 
-### RS-MAC-02 [S] Know the legitimate reasons for a macro
+### RS-MACRO-02 [S] Know the legitimate reasons for a macro
 
 Variadic arguments (`vec!`, `format!`); implementing a trait across many concrete types;
 generating code from a declarative table; capturing an expression unevaluated (`assert!`,
@@ -75,7 +75,7 @@ generating code from a declarative table; capturing an expression unevaluated (`
 **Why:** all five are things the type system cannot express. Naming them makes the boundary
 checkable — a macro whose reason is not on this list needs a written justification.
 
-**Check:** which of the five applies? If none, see RS-MAC-03.
+**Check:** which of the five applies? If none, see RS-MACRO-03.
 
 ```rust
 // verified
@@ -92,7 +92,7 @@ pub fn names() -> [&'static str; 3] {
 }
 ```
 
-### RS-MAC-03 [M] Do not write a macro to save typing at one call site
+### RS-MACRO-03 [M] Do not write a macro to save typing at one call site
 
 Nor to avoid a small amount of duplication in a single file, nor to build a DSL because it looks
 clever.
@@ -103,7 +103,7 @@ the reader nothing; a macro that generates them costs everyone who ever has to d
 **Check:** how many call sites does the macro have? One or two, with no variadic or syntactic need,
 means delete it.
 
-### RS-MAC-04 [M] Hold macro-generated public API to the same documentation standard
+### RS-MACRO-04 [M] Hold macro-generated public API to the same documentation standard
 
 **Why:** users read the generated type's rustdoc, hit its errors, and see it in their backtraces —
 they do not care that a macro produced it. Generated items with no docs fail `missing_docs` for a
@@ -112,7 +112,7 @@ reason (`references/documentation.md` RS-DOC-01).
 **Check:** does the generated code carry `///` docs, `Debug`, and error messages you would accept in
 hand-written code?
 
-### RS-MAC-05 [S] Expand to a call into a normal function
+### RS-MACRO-05 [S] Expand to a call into a normal function
 
 **Why:** it keeps the macro to a few lines and keeps the logic type-checked, unit-testable, and
 steppable. The macro then does only the thing a function cannot — capture syntax, be variadic, defer
@@ -121,27 +121,27 @@ evaluation.
 **Check:** how many lines does the expansion contain? More than a handful of statements usually
 means a helper function is hiding inside.
 
-### RS-MAC-06 [S] Consider committed generated source instead of a proc macro
+### RS-MACRO-06 [S] Consider committed generated source instead of a proc macro
 
 **Why:** generated `.rs` files you can read, diff, and set a breakpoint in beat a proc macro nobody
 can inspect — especially for large, stable output like tables, FFI bindings, or protocol types. The
-cost is a regeneration step (`references/structure.md` RS-STR-11).
+cost is a regeneration step (`references/modules.md` RS-MOD-11).
 
 **Check:** does the generated code change less often than the crate does? Then generating it once is
 cheaper than generating it on every build.
 
 ## `macro_rules!`
 
-### RS-MAC-07 [S] Prefer `macro_rules!` to a proc macro whenever it suffices
+### RS-MACRO-07 [S] Prefer `macro_rules!` to a proc macro whenever it suffices
 
 **Why:** no extra crate, no `syn`/`quote` in the build graph, no host-target compilation step that
 blocks pipelining. The proc macro is a real cost imposed on every downstream build
-(`references/cargo-toolchain.md` RS-CAR-54).
+(`references/build.md` RS-BUILD-54).
 
 **Check:** does the macro need to inspect types, parse attributes, or generate impls from a struct's
 fields? If not, `macro_rules!` will do.
 
-### RS-MAC-08 [S] Export deliberately and re-export through the module system
+### RS-MACRO-08 [S] Export deliberately and re-export through the module system
 
 **Why:** `#[macro_export]` puts the macro at the crate root regardless of where it is defined, which
 breaks the module organization you carefully built. `pub use` of the macro path restores it, so the
@@ -168,7 +168,7 @@ pub fn first(values: &[u32]) -> Option<u32> {
 }
 ```
 
-### RS-MAC-09 [M] Refer to items by absolute path with `$crate`
+### RS-MACRO-09 [M] Refer to items by absolute path with `$crate`
 
 `$crate::module::Item`, `::std::vec::Vec`.
 
@@ -195,7 +195,7 @@ pub fn sample() -> (u32, u32) {
 }
 ```
 
-### RS-MAC-10 [M] Choose the tightest fragment specifier
+### RS-MACRO-10 [M] Choose the tightest fragment specifier
 
 `expr`, `ident`, `ty`, `literal`, `path`, `block`, `pat` — not `tt`.
 
@@ -205,7 +205,7 @@ a comprehensible error.
 
 **Check:** grep for `:tt` outside a recursive muncher, where it is genuinely required.
 
-### RS-MAC-11 [M] Parenthesize interpolated expressions
+### RS-MACRO-11 [M] Parenthesize interpolated expressions
 
 `($a) * ($b)`, not `$a * $b`.
 
@@ -230,7 +230,7 @@ pub fn sample() -> u32 {
 }
 ```
 
-### RS-MAC-12 [M] Evaluate each captured expression exactly once
+### RS-MACRO-12 [M] Evaluate each captured expression exactly once
 
 Bind it to a local first.
 
@@ -240,7 +240,7 @@ makes it dangerous rather than merely wrong.
 
 **Check:** count the occurrences of each `$` variable in the expansion. More than one means bind it.
 
-### RS-MAC-13 [S] Wrap multi-statement expansions in a block
+### RS-MACRO-13 [S] Wrap multi-statement expansions in a block
 
 `{{ … }}`.
 
@@ -249,7 +249,7 @@ temporaries so they do not leak into the caller's namespace or collide with thei
 
 **Check:** can the macro be used as the right-hand side of a `let`? If not, it needs the block.
 
-### RS-MAC-14 [S] Accept a trailing comma in every list-taking macro
+### RS-MACRO-14 [S] Accept a trailing comma in every list-taking macro
 
 `$(,)?`
 
@@ -271,7 +271,7 @@ pub fn sample() -> Vec<u32> {
 }
 ```
 
-### RS-MAC-15 [S] Emit a helpful `compile_error!` from a catch-all arm
+### RS-MACRO-15 [S] Emit a helpful `compile_error!` from a catch-all arm
 
 **Why:** the default failure is `no rules expected this token in macro invocation`, which tells the
 user nothing about what shape was expected. A final arm with
@@ -279,16 +279,16 @@ user nothing about what shape was expected. A final arm with
 
 **Check:** invoke the macro wrongly and read the error. Would a new user know what to fix?
 
-### RS-MAC-16 [S] Test macros with `trybuild` and ordinary unit tests
+### RS-MACRO-16 [S] Test macros with `trybuild` and ordinary unit tests
 
 **Why:** a macro's error messages are part of its interface and they regress silently — a
 refactoring that changes arm order can turn a good message into the default one with nothing
 failing. `trybuild` pins the messages; unit tests pin the success cases
-(`references/testing.md` RS-TST-36).
+(`references/testing.md` RS-TEST-36).
 
 **Check:** is there a `tests/ui/` directory with a `.stderr` file per failure case?
 
-### RS-MAC-17 [M] Do not rely on hygiene to protect you from caller identifiers
+### RS-MACRO-17 [M] Do not rely on hygiene to protect you from caller identifiers
 
 **Why:** `macro_rules!` hygiene covers identifiers the *macro* introduces. Anything captured as
 `$ident` belongs to the caller and can collide with the locals you named — so a caller passing an
@@ -300,7 +300,7 @@ unlikely names.
 
 ## Procedural macros
 
-### RS-MAC-18 [M] Reserve proc macros for derives and genuine syntax extensions
+### RS-MACRO-18 [M] Reserve proc macros for derives and genuine syntax extensions
 
 **Why:** they live in a separate crate, must be compiled for the host before anything depending on
 them can build, and therefore block build pipelining for every downstream user. That cost is worth
@@ -309,24 +309,24 @@ it for `serde`'s derive and not worth it for saving ten lines.
 **Check:** how many lines of hand-written code does the macro replace per use, and how many uses are
 there? Multiply before deciding.
 
-### RS-MAC-19 [M] Split the proc-macro crate from the crate that re-exports it
+### RS-MACRO-19 [M] Split the proc-macro crate from the crate that re-exports it
 
 `mycrate-derive` (proc macro only) and `mycrate` (re-exports the derive behind a feature).
 
 **Why:** a `proc-macro = true` crate can export nothing but macros, so it cannot hold your types.
 Splitting also lets users who do not want the derive turn it off and skip the compile cost
-(`references/cargo-toolchain.md` RS-CAR-16).
+(`references/build.md` RS-BUILD-16).
 
 **Check:** does a user depend on one crate, and can they disable the derive?
 
-### RS-MAC-20 [S] Enable only the `syn` features you need
+### RS-MACRO-20 [S] Enable only the `syn` features you need
 
 **Why:** `syn`'s `full` feature parses the entire Rust grammar and is a measurable compile-time tax
 on everyone downstream — for a derive that only reads struct fields, `derive` alone is enough.
 
 **Check:** is `syn` declared with `default-features = false` and an explicit feature list?
 
-### RS-MAC-21 [M] Emit errors at the correct span, never by panicking
+### RS-MACRO-21 [M] Emit errors at the correct span, never by panicking
 
 `syn::Error::new_spanned(field, "…").to_compile_error()`.
 
@@ -337,7 +337,7 @@ under the offending token, which is the whole difference between usable and not.
 **Check:** grep the proc-macro crate for `panic!`, `unwrap`, and `expect`. Each is a message a user
 will see.
 
-### RS-MAC-22 [S] Report all the errors you can find, not just the first
+### RS-MACRO-22 [S] Report all the errors you can find, not just the first
 
 `syn::Error::combine`.
 
@@ -347,43 +347,43 @@ slower.
 
 **Check:** does the macro return on the first bad field?
 
-### RS-MAC-23 [M] Generate hygienic code with absolute paths
+### RS-MACRO-23 [M] Generate hygienic code with absolute paths
 
 `::core`, `::std`, `$crate`-equivalent absolute paths; prefix generated identifiers distinctively.
 
 **Why:** proc macros have no hygiene by default for the paths they emit, so generated code that says
 `Result` resolves to whatever the user has in scope — including a local type alias with different
-type parameters. Generated locals collide the same way (RS-MAC-17).
+type parameters. Generated locals collide the same way (RS-MACRO-17).
 
 **Check:** does the `quote!` output name any path without a leading `::` or crate root?
 
-### RS-MAC-24 [M] Do not generate `unsafe` unless the derive's contract makes it sound
+### RS-MACRO-24 [M] Do not generate `unsafe` unless the derive's contract makes it sound
 
 And then document the contract on the derive itself.
 
 **Why:** a derive that emits `unsafe impl Send` or a transmute is asserting an invariant on behalf
 of a user who wrote one line and read no documentation. If the derive cannot check the invariant, it
-must be an `unsafe` trait the user opts into explicitly (`references/unsafe-ffi.md` RS-UNS-20).
+must be an `unsafe` trait the user opts into explicitly (`references/unsafe.md` RS-UNSAFE-20).
 
 **Check:** grep the `quote!` blocks for `unsafe`. For each, what stops a user from deriving it on a
 type where it is false?
 
-### RS-MAC-25 [S] Keep generated code small and delegating
+### RS-MACRO-25 [S] Keep generated code small and delegating
 
 **Why:** expanding to two hundred lines per field multiplies compile time and binary size across
 every user of the derive. Expanding to a call into a generic helper in the runtime crate keeps the
-generated part to a few lines (RS-MAC-05).
+generated part to a few lines (RS-MACRO-05).
 
 **Check:** run `cargo expand` on a representative type. How many lines per field?
 
-### RS-MAC-26 [S] Make expansion inspectable and test it
+### RS-MACRO-26 [S] Make expansion inspectable and test it
 
 `cargo expand` in the contributor docs; snapshot tests of the output; `trybuild` for the error
 messages.
 
 **Why:** the expansion is the actual code that ships, and without a snapshot nobody notices when a
 refactor changes it. `cargo expand` in `CONTRIBUTING.md` is what lets a contributor debug the macro
-at all (`references/testing.md` RS-TST-28).
+at all (`references/testing.md` RS-TEST-28).
 
 **Check:** is there a snapshot test for at least one representative input, and is it reviewed rather
 than auto-accepted?

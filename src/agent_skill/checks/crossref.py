@@ -108,7 +108,7 @@ def crossref(skills):
             if actual is None:
                 continue  # the citation check above already reported it
             # The whole title, not a prefix of it. A title's tail is where its
-            # scope lives — `RS-CAR-23` ends "in a library" — so a row that
+            # scope lives — `RS-BUILD-23` ends "in a library" — so a row that
             # quotes a prefix can invent a divergence by dropping the clause
             # that rules it out. Two rows did exactly that.
             if quoted and _plain(actual) != _plain(quoted):

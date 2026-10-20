@@ -102,7 +102,7 @@ and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
 - **Future-proofing and evolution**
   - RS-API-71 [M!] Use `#[non_exhaustive]` where the shape may grow
   - RS-API-72 [S] Do not apply `#[non_exhaustive]` reflexively
-  - RS-API-73 [S] Seal a public trait rather than let downstream implement it (see RS-TRG-30)
+  - RS-API-73 [S] Seal a public trait rather than let downstream implement it (see RS-TRAIT-30)
   - RS-API-74 [S] Prefer sealing up front to regretting it later
   - RS-API-75 [M] Know which changes are breaking before promising semver
   - RS-API-76 [M] Run `cargo semver-checks` and trust it over intuition
@@ -163,7 +163,7 @@ Users should write `grep::Searcher`, not `grep::searcher::internal::Searcher`.
 two, so you can move the file without a breaking change.
 
 **Check:** read the crate's own doc examples. Does any path have more than one module segment?
-Enumerate the re-exports rather than globbing (`references/structure.md` RS-STR-20).
+Enumerate the re-exports rather than globbing (`references/modules.md` RS-MOD-20).
 
 ```rust
 // verified
@@ -190,7 +190,7 @@ and versionable. A monolith forces every consumer to compile everything and to a
 dependency.
 
 **Check:** can you describe the crate in one sentence with no conjunction?
-(`references/structure.md` RS-STR-24.)
+(`references/modules.md` RS-MOD-24.)
 
 ```rust
 // verified
@@ -352,7 +352,7 @@ pub fn shortest<'a>(candidates: impl IntoIterator<Item = &'a str>) -> Option<&'a
 **Why:** each type parameter is a monomorphization, a documentation burden, and an inference
 hazard. `impl AsRef<Path>` is worth it because callers genuinely hold `&str`, `String`, `Path`, and
 `PathBuf`. `impl Into<u32>` almost never is, because callers hold a `u32`
-(`references/traits-generics.md` RS-TRG-38).
+(`references/traits.md` RS-TRAIT-38).
 
 **Check:** for each type parameter, list the instantiations that will actually occur. One means it
 should be concrete.
@@ -416,7 +416,7 @@ pub fn stem(path: impl AsRef<Path>) -> Option<String> {
 **Why:** materialization is a decision that belongs to whoever knows how much is needed. Returning
 `Vec` computes and stores everything even when the caller wanted `.next()`, and it prevents feeding
 the result into another adapter without a second allocation
-(`references/functional.md` RS-FP-21).
+(`references/functional.md` RS-FUNC-21).
 
 **Check:** does the caller immediately `.iter()`, `.into_iter()`, or index only the first element?
 
@@ -456,7 +456,7 @@ elements share a type.
 
 **Why:** out-parameters break composition — the result cannot be fed into an adapter, and the
 function cannot be used in an expression. Reuse across a loop is a real reason
-(`references/performance.md` RS-PRF-11); "it was easier to write" is not.
+(`references/performance.md` RS-PERF-11); "it was easier to write" is not.
 
 **Check:** is the buffer reused across calls by the intended caller? Say so in the docs and name the
 parameter `buf` or `out`.
@@ -510,7 +510,7 @@ impl Percent {
 
 **Why:** a `Port(u16)` whose constructor rejects zero means no downstream function re-checks, no
 downstream function *forgets* to re-check, and the invariant appears once in the code instead of at
-every entry point. This is the same rule as `references/functional.md` RS-FP-53, seen from the
+every entry point. This is the same rule as `references/functional.md` RS-FUNC-53, seen from the
 type's side.
 
 **Check:** grep for the same validation appearing in more than one function. That repetition is a
@@ -558,7 +558,7 @@ a `Deserialize` impl, a `Default`? `serde` in particular bypasses your construct
 There is no "pure data bag" exemption. A struct whose fields are independent today is still a
 struct whose representation you have published. The single exception is a type whose layout is
 already the contract — `#[repr(C)]` or `extern` types crossing an ABI boundary
-(`references/unsafe-ffi.md` RS-UNS-14).
+(`references/unsafe.md` RS-UNSAFE-14).
 
 **Why:** a public field is a permanent commitment to a *representation*, not merely to a value.
 `pub threads: usize` cannot later become `NonZeroUsize`, a validated newtype, or a computed value
@@ -674,7 +674,7 @@ A struct literal is not available once fields are private, so the type states ho
 where a later invariant can be enforced without touching a call site. It also makes construction
 greppable: every instance of the type traces back to a function you can read, which a literal
 scattered across the crate never does. The name is what tells the reader which of several valid
-starting states this one is (`references/naming.md` RS-NAM-22).
+starting states this one is (`references/naming.md` RS-NAME-22).
 
 **Check:** can the type be built without calling one of its own functions? Inside the defining
 module a literal is still legal — is one being used where a constructor should be?
@@ -804,7 +804,7 @@ runtime difference.
 
 **Check:** grep public signatures for `: bool`. Each one is either a two-variant enum or, if there
 are three or more of them, an options struct or a policy closure
-(`references/functional.md` RS-FP-48).
+(`references/functional.md` RS-FUNC-48).
 
 ```rust
 // verified
@@ -871,7 +871,7 @@ the enum via `FromStr` at the edge, and let nothing downstream see the string.
 
 **Why:** this is parse-don't-validate applied to the API surface. If the parsed type only exists
 inside the parser, every downstream function re-derives the meaning, and they will not all agree
-(`references/functional.md` RS-FP-53).
+(`references/functional.md` RS-FUNC-53).
 
 **Check:** how deep does the raw `&str` travel from the entry point? Anything past the first layer
 is a missing type.
@@ -882,7 +882,7 @@ is a missing type.
 
 **Why:** unit confusion is a bug class the type system eliminates completely — the compiler rejects
 passing a byte count where a millisecond count belongs, and no test suite reliably catches the
-transposition (`references/naming.md` RS-NAM-30).
+transposition (`references/naming.md` RS-NAME-30).
 
 **Check:** any numeric parameter whose correct value depends on a unit the signature does not state.
 
@@ -1202,7 +1202,7 @@ says *what will silently not happen*, which is the information they are missing.
 **Why:** it is not a performance incantation. It matters for small non-generic functions that must
 inline across a crate boundary, because without it their MIR is not available to downstream
 crates. Generic functions are already available. Applying it wholesale bloats the binary and slows
-compilation (`references/performance.md` RS-PRF-34).
+compilation (`references/performance.md` RS-PERF-34).
 
 **Check:** is the function non-generic, small, and on a hot path in another crate? Otherwise remove
 the attribute.
@@ -1227,7 +1227,7 @@ No exceptions for "internal" types that appear in a public struct.
 fields. The blast radius is far larger than the one type.
 
 **Check:** `missing_debug_implementations` at deny in `[lints.rust]`
-(`references/cargo-toolchain.md` RS-CAR-25). Manual impls are fine; absence is not.
+(`references/build.md` RS-BUILD-25). Manual impls are fine; absence is not.
 
 ### RS-API-52 [M] Keep `Debug` for programmers and `Display` for users
 
@@ -1286,7 +1286,7 @@ with an equal key, or a `BTreeMap` that loses entries. The corruption is silent 
 from the impl.
 
 **Check:** if you hand-implement one of the four, review all four in the same commit. Property-test
-the laws (`references/testing.md` RS-TST-23).
+the laws (`references/testing.md` RS-TEST-23).
 
 ```rust
 // verified
@@ -1319,7 +1319,7 @@ impl PartialOrd for Priority {
 **Why:** it makes `"1.2.3".parse::<Version>()` work, composes with `?`, and plugs into every
 argument parser and config deserializer in the ecosystem without them knowing about your type. The
 alternative — an inherent `parse` — works only for callers who read your docs
-(`references/naming.md` RS-NAM-23).
+(`references/naming.md` RS-NAME-23).
 
 **Check:** does the type have a textual form used in config, CLI flags, or serialization?
 
@@ -1441,7 +1441,7 @@ And derive with `#[serde(deny_unknown_fields)]` for config types.
 
 **Why:** `serde` and `serde_derive` are a substantial compile-time cost for users who do not
 serialize, and `deny_unknown_fields` turns a silently-ignored typo in a config file into an error
-the user can act on (`references/cargo-toolchain.md` RS-CAR-16).
+the user can act on (`references/build.md` RS-BUILD-16).
 
 **Check:** is `serde` in `[dependencies]` without `optional = true`? Does a misspelled config key
 produce an error or a silent default?
@@ -1584,7 +1584,7 @@ fine for small one-shot builders — mark it `#[must_use]` (RS-API-47).
 
 **Why:** the builder call chain reads as a description of the configuration, and `set_` on every
 line is noise. It also matches the convention every major crate uses, so users guess correctly
-(`references/naming.md` RS-NAM-18).
+(`references/naming.md` RS-NAME-18).
 
 **Check:** grep the builder for `fn set_`.
 
@@ -1609,7 +1609,7 @@ enforces is now unenforced on the other path. This is RS-API-23 in a different c
 
 **Why:** `From` can only be implemented once per source type, so genuinely distinct conversions from
 the same input need names. Everything else should be the trait, so callers get `.into()` and `?`
-(`references/naming.md` RS-NAM-23).
+(`references/naming.md` RS-NAME-23).
 
 **Check:** for each inherent `from_*`, is there another conversion from the same input type?
 
@@ -1620,7 +1620,7 @@ And document the precondition in a `# Safety` section.
 **Why:** a constructor that skips validation is exactly the tool for a caller who has already
 validated — and exactly the way to produce an invalid value silently for one who has not. The name
 and the keyword are what make the difference visible at the call site
-(`references/unsafe-ffi.md` RS-UNS-04).
+(`references/unsafe.md` RS-UNSAFE-04).
 
 **Check:** does any safe constructor skip a check that the normal one performs?
 
@@ -1676,9 +1676,9 @@ arm they are forced to write is where a future bug hides.
 **Check:** can you name a plausible third variant? If not, leave it exhaustive and say so in the
 rustdoc.
 
-### RS-API-73 [S] Seal a public trait rather than let downstream implement it (see RS-TRG-30)
+### RS-API-73 [S] Seal a public trait rather than let downstream implement it (see RS-TRAIT-30)
 
-Owned by `references/traits-generics.md` RS-TRG-30. The private-supertrait pattern: sealing means
+Owned by `references/traits.md` RS-TRAIT-30. The private-supertrait pattern: sealing means
 you know every implementor, so you can add methods later without breaking anyone. Seal a trait that
 enumerates a fixed set of types; leave an extension point open.
 
@@ -1729,7 +1729,7 @@ impl Report {
 that human review misses — and it does so mechanically, on every release, without anyone having to
 remember RS-API-75.
 
-**Check:** is it in CI on release branches (`references/cargo-toolchain.md` RS-CAR-39)? A green run
+**Check:** is it in CI on release branches (`references/build.md` RS-BUILD-39)? A green run
 is a claim you can make; intuition is not.
 
 ### RS-API-77 [M] Deprecate before removing, and say what to use instead
@@ -1750,7 +1750,7 @@ genuinely necessary, batching means paying that cost once instead of three times
 `rand` do.
 
 **Check:** does the release contain exactly one breaking change that could have waited? Is there a
-migration section in the changelog (`references/cargo-toolchain.md` RS-CAR-12)?
+migration section in the changelog (`references/build.md` RS-BUILD-12)?
 
 ## Symmetry of the public surface
 
@@ -1936,7 +1936,7 @@ nor `id`, `key`, and `handle` for one identifier.
 
 **Why:** synonyms make the reader ask whether the difference is meaningful, and they have to read
 the implementation to find out that it is not. It also defeats search: nobody can find every site
-that touches the concept if it is spelled three ways (`RS-NAM-43`).
+that touches the concept if it is spelled three ways (`RS-NAME-43`).
 
 **Check:** list the nouns in the public surface and group them by referent. Any group with more than
 one spelling needs a decision and a rename.

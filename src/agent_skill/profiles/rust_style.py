@@ -12,7 +12,7 @@ from ..report import Finding, fail, note
 from ..text import strip_comment
 from . import NotDecisive, Profile, register
 
-#: RS-NAM-24 — a `bool`-returning method reads as a question.
+#: RS-NAME-24 — a `bool`-returning method reads as a question.
 QUESTION = re.compile(
     r"^(is_|has_|can_|should_|may_|will_|wants_|allows_|accepts_|needs_|"
     r"contains|starts_with|ends_with|matches|intersects|all_|any_|"
@@ -86,22 +86,22 @@ class RustStyle(Profile):
                 "the span finds every environment read; whether that name is prefixed and "
                 "documented in the help output decides, and neither fact is on the line",
             ),
-            "RS-CNC-12": NotDecisive(
+            "RS-CONC-12": NotDecisive(
                 "join()",
                 "the span finds every `join()`; whether its result is discarded rather than "
                 "handled decides",
             ),
-            "RS-CNC-22": NotDecisive(
+            "RS-CONC-22": NotDecisive(
                 "lock()",
                 "the span finds every `lock()`; whether an `.await` sits between it and the end of "
                 "its scope decides",
             ),
-            "RS-CNC-33": NotDecisive(
+            "RS-CONC-33": NotDecisive(
                 "std::fs",
                 "the span finds every `std::fs`; whether the enclosing body is `async` decides, "
                 "which the matched line does not say",
             ),
-            "RS-CNC-39": NotDecisive(
+            "RS-CONC-39": NotDecisive(
                 "spawn(",
                 "the span finds every `spawn(`; whether its handle is kept, joined, or detached "
                 "with a comment decides",
@@ -121,32 +121,32 @@ class RustStyle(Profile):
                 "the span finds every eager combinator; whether its argument is a `Copy` constant, "
                 "rather than something that allocates or calls, decides",
             ),
-            "RS-FP-04": NotDecisive(
+            "RS-FUNC-04": NotDecisive(
                 "Vec::new()",
                 "the span finds every `Vec::new()`; whether a `for` whose body is a single `push` "
                 "follows decides",
             ),
-            "RS-FP-05": NotDecisive(
+            "RS-FUNC-05": NotDecisive(
                 "sum()",
                 "the span matches `sum()`, which is the spelling this rule asks for; whether a "
                 "hand-written `for` accumulating a scalar remains beside it decides",
             ),
-            "RS-FP-23": NotDecisive(
+            "RS-FUNC-23": NotDecisive(
                 "into_iter().collect()",
                 "the span finds every round trip through `into_iter().collect()`; whether the "
                 "collection the caller needs could have been collected into directly decides",
             ),
-            "RS-FP-25": NotDecisive(
+            "RS-FUNC-25": NotDecisive(
                 "len() - 1",
                 "the span finds every `len() - 1`; whether an adapter encodes the same arithmetic "
                 "decides, and the loop it belongs to is not on the line",
             ),
-            "RS-NAM-17": NotDecisive(
+            "RS-NAME-17": NotDecisive(
                 "fn get_",
                 "the span finds every `get_`; whether the method returns `Option` or `Result`, or "
                 "is the `_unchecked`/`_mut` sibling of one that does, decides",
             ),
-            "RS-NAM-31": NotDecisive(
+            "RS-NAME-31": NotDecisive(
                 "not_",
                 "the span finds every negated name; whether it is the one conversion at the "
                 "boundary the rule allows decides",
@@ -166,38 +166,38 @@ class RustStyle(Profile):
                 "the span finds every `to_lowercase()`; whether it is inside a condition or a "
                 "comparison, rather than producing a value that is kept, decides",
             ),
-            "RS-PRF-06": NotDecisive(
+            "RS-PERF-06": NotDecisive(
                 "Vec::new()",
                 "the span finds every `Vec::new()`; whether a loop with a known bound follows, "
                 "making it a missing `with_capacity`, decides",
             ),
-            "RS-PRF-08": NotDecisive(
+            "RS-PERF-08": NotDecisive(
                 "Vec::new",
                 "the span finds every `Vec::new`; whether it sits inside a loop body decides, "
                 "which is a fact about what encloses it",
             ),
-            "RS-PRF-09": NotDecisive(
+            "RS-PERF-09": NotDecisive(
                 ".collect::<Vec<_>>()",
                 "the span finds every `.collect::<Vec<_>>()`; whether an `.iter()` follows it, "
                 "making the pair a deletable round trip, decides",
             ),
-            "RS-PRF-41": NotDecisive(
+            "RS-PERF-41": NotDecisive(
                 "try_from",
                 "the span matches `try_from`, which is the conversion this rule asks for; the "
                 "defect is an `as` cast that could exceed the target range, which this span does "
                 "not find",
             ),
-            "RS-STR-13": NotDecisive(
+            "RS-MOD-13": NotDecisive(
                 "pub(crate)",
                 "the span matches `pub(crate)`, which is the visibility this rule asks for; "
                 "whether a plain `pub` outside the crate root should have been one decides",
             ),
-            "RS-STR-18": NotDecisive(
+            "RS-MOD-18": NotDecisive(
                 "pub(crate)",
                 "the span matches `pub(crate)`; whether the item is used only from `#[cfg(test)]`, "
                 "and was widened to satisfy a test, decides",
             ),
-            "RS-TST-12": NotDecisive(
+            "RS-TEST-12": NotDecisive(
                 "assert!(",
                 "the span finds every `assert!(`; whether it contains `==`, `.len()`, or `&&` — an "
                 "`assert_eq!` that would print more — decides",
@@ -226,11 +226,11 @@ class RustStyle(Profile):
                 if m and re.search(r":\s*bool\b", m.group(2)) and b.rule != "RS-API-30":
                     yield fail(f"`{m.group(1)}` takes a bool parameter (RS-API-30)", where)
 
-                # RS-NAM-24 — a `bool`-returning method reads as a question
+                # RS-NAME-24 — a `bool`-returning method reads as a question
                 m = re.search(r"\bpub (?:async )?fn (\w+)\([^)]*\)\s*->\s*bool\b", code)
                 if m and not QUESTION.match(m.group(1)):
                     yield note(
-                        f"`{m.group(1)}` returns bool but does not read as a question (RS-NAM-24)",
+                        f"`{m.group(1)}` returns bool but does not read as a question (RS-NAME-24)",
                         where,
                     )
 

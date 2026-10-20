@@ -3,7 +3,7 @@
 Scope: when a failure is a `Result` and when it is a panic, how a library's error type is shaped and
 what it must carry, how errors propagate and accumulate context, the panic rules including `Drop`
 and FFI, and how a binary reports failure and chooses an exit code. Naming of error types is in the
-naming chapter (RS-NAM-35); the `# Errors` and `# Panics` rustdoc sections are in the documentation
+naming chapter (RS-NAME-35); the `# Errors` and `# Panics` rustdoc sections are in the documentation
 chapter; the `[lints]` entries that mechanically enforce this chapter are in the Cargo chapter.
 
 The dividing line that organizes everything here: **libraries** must hand callers structured,
@@ -57,7 +57,7 @@ and an exit code.
   - RS-ERR-36 [M] Document every reachable panic
   - RS-ERR-37 [S] Prefer restructuring, then `unreachable!`, then `panic!`
   - RS-ERR-38 [M] Know which assertions survive `--release`
-  - RS-ERR-39 [M] Never unwind across an FFI boundary (see RS-UNS-24)
+  - RS-ERR-39 [M] Never unwind across an FFI boundary (see RS-UNSAFE-24)
   - RS-ERR-40 [M] Make `Drop` infallible in practice
   - RS-ERR-41 [M!] Make overflow behaviour explicit on untrusted arithmetic
   - RS-ERR-42 [M] Do not choose `panic = "abort"` on a library's behalf
@@ -146,7 +146,7 @@ invariant — see RS-ERR-04 for the message and RS-ERR-05 for bare `unwrap`.
 
 **Check:** enforce mechanically rather than by review, with
 `clippy::unwrap_used`, `expect_used`, `panic`, `todo`, `unimplemented`, and `indexing_slicing` at
-deny in `[lints.clippy]` (`references/cargo-toolchain.md` RS-CAR-28). The grep for a codebase that
+deny in `[lints.clippy]` (`references/build.md` RS-BUILD-28). The grep for a codebase that
 has not adopted them yet:
 
 ```bash
@@ -183,7 +183,7 @@ means reading the surrounding code and reconstructing the author's reasoning. Ev
 `expect` pays for itself the first time the test fails in CI on a machine you cannot inspect.
 
 **Check:** grep `.unwrap()` outside `#[cfg(test)]`. In doc examples, prefer `?` with the hidden-main
-trick over `unwrap`, because examples get copied (`references/testing.md` RS-TST-34).
+trick over `unwrap`, because examples get copied (`references/testing.md` RS-TEST-34).
 
 ### RS-ERR-06 [M] Implement `Error` with a correct `source()`
 
@@ -305,7 +305,7 @@ runtime.
 **Why:** hand-written error impls are twenty lines of mechanical code per type, and the mechanical
 part is where `source()` gets forgotten (RS-ERR-06). `thiserror` is a proc macro, so it costs
 compile time — that is the trade, and for an error type it is worth it
-(`references/cargo-toolchain.md` RS-CAR-54).
+(`references/build.md` RS-BUILD-54).
 
 **Check:** a hand-written error impl is fine, but it must have `source()`, and the `Display` must
 satisfy RS-ERR-07.
@@ -352,7 +352,7 @@ pub enum ParseError {
 
 **Why:** adding a failure mode is inevitable, and without the attribute it is a major version bump —
 which means you will be tempted to smuggle the new case into an existing variant instead, and the
-taxonomy degrades. The cost to callers is one wildcard arm (`references/api-design.md` RS-API-71).
+taxonomy degrades. The cost to callers is one wildcard arm (`references/api.md` RS-API-71).
 *Relaxed form:* omit it on a genuinely closed set (`enum Endianness { Big, Little }`), where it only
 removes the caller's exhaustiveness checking for no benefit.
 
@@ -385,7 +385,7 @@ A variant payload of `regex::Error` makes `regex`'s semver your semver.
 
 **Why:** a major version of the dependency becomes a major version of you, and two of your users on
 different versions of it can no longer be linked together. This is the same coupling rule as
-`references/api-design.md` RS-API-05, and error types are where it happens most because `#[from]`
+`references/api.md` RS-API-05, and error types are where it happens most because `#[from]`
 makes it one line.
 
 **Check:** for each `#[from]`, is the source type from a dependency? If so, either the dependency is
@@ -465,7 +465,7 @@ crate — including the hot success path, where the error is never constructed. 
 a function returning `Result<(), Error>` moves 200 bytes on every success.
 
 **Check:** assert the size in a test. `size_of::<Error>()` above roughly three words on a hot path
-is worth a look; above a cache line is worth boxing (`references/performance.md` RS-PRF-22).
+is worth a look; above a cache line is worth boxing (`references/performance.md` RS-PERF-22).
 
 ```rust
 // verified
@@ -588,7 +588,7 @@ and the caller's ability to branch disappears without a compile error anywhere.
 
 **Check:** for each public function, does its error type distinguish everything its documentation
 promises to distinguish? Test it by matching the variant, not by reading the code
-(`references/testing.md` RS-TST-14).
+(`references/testing.md` RS-TEST-14).
 
 ### RS-ERR-29 [S] Choose the lazy combinator when constructing the error costs anything
 
@@ -630,7 +630,7 @@ pub struct NotFound {
 
 **Why:** it is the idiomatic form, it short-circuits (so the remaining work is skipped), and it
 keeps the pipeline as an expression instead of forcing a `for` loop with a mutable accumulator
-(`references/functional.md` RS-FP-17).
+(`references/functional.md` RS-FUNC-17).
 
 **Check:** any `for` loop over fallible items that pushes into a `Vec` and returns early is this
 collect.
@@ -756,7 +756,7 @@ why nobody is surprised by it (`references/documentation.md` RS-DOC-13).
 **Check:** grep the crate for panic sources — `unwrap`, `expect`, `panic!`, `assert!`, indexing,
 slicing, integer division, `Duration` arithmetic — and confirm each public function that can reach
 one has the section. Consider `#[track_caller]` so the message points at the caller
-(`references/api-design.md` RS-API-50).
+(`references/api.md` RS-API-50).
 
 ```rust
 // verified
@@ -786,7 +786,7 @@ pub struct DivideByZero;
 
 **Why:** a branch that "cannot happen" is usually a type that is too wide. Making it
 unrepresentable removes the branch entirely, which is strictly better than documenting it
-(`references/api-design.md` RS-API-32). Where the branch must exist, `unreachable!("…")` with an
+(`references/api.md` RS-API-32). Where the branch must exist, `unreachable!("…")` with an
 explanation says *why* you believe it, which is the same information RS-ERR-04 asks for.
 
 **Check:** for each `unreachable!`, can the enum, the newtype, or the signature be narrowed so the
@@ -814,9 +814,9 @@ pub fn midpoint(low: u32, high: u32) -> u32 {
 }
 ```
 
-### RS-ERR-39 [M] Never unwind across an FFI boundary (see RS-UNS-24)
+### RS-ERR-39 [M] Never unwind across an FFI boundary (see RS-UNSAFE-24)
 
-Owned by `references/unsafe-ffi.md` RS-UNS-24. Wrap every exported entry point in `catch_unwind` and
+Owned by `references/unsafe.md` RS-UNSAFE-24. Wrap every exported entry point in `catch_unwind` and
 convert the panic into an error code. This is one of the few rules in this chapter whose violation
 is memory-unsafe rather than merely rude.
 
@@ -859,7 +859,7 @@ over a fixed array), the default is acceptable — assert the bound instead.
 
 **Check:** for each arithmetic expression, can either operand originate outside the process? If yes,
 it must be `checked_*`, `saturating_*`, or `wrapping_*` — chosen deliberately, not whichever
-compiles (`references/performance.md` RS-PRF-40).
+compiles (`references/performance.md` RS-PERF-40).
 
 ```rust
 // verified
@@ -901,7 +901,7 @@ Parse arguments, call `run() -> Result<()>`, report, exit.
 
 **Why:** everything inside `run` is testable; everything inside `main` is not. Four lines is the
 amount of untestable code you are choosing to accept, and there is no reason for it to be more
-(`references/cli-apps.md` RS-CLI-02).
+(`references/cli.md` RS-CLI-02).
 
 **Check:** how many lines of `main` would you have to duplicate to write an end-to-end test in
 process? That is the size of the untested surface.
@@ -945,7 +945,7 @@ Never interleave the two.
 
 **Why:** it is what makes a tool composable. `tool | grep`, `tool > file`, and `tool 2> log` all
 depend on the separation, and a single diagnostic on stdout corrupts every downstream consumer's
-parse (`references/cli-apps.md` RS-CLI-20).
+parse (`references/cli.md` RS-CLI-20).
 
 **Check:** run the tool with a deliberate error and `1>/dev/null`. Only diagnostics should appear.
 Then run it successfully with `2>/dev/null` — the full result should still appear.
@@ -960,7 +960,7 @@ returning `1` for a usage error — breaks `set -e` pipelines in ways that are v
 the other side.
 
 **Check:** are the codes documented in `--help` and the man page, and covered by an end-to-end test
-(`references/testing.md` RS-TST-31)?
+(`references/testing.md` RS-TEST-31)?
 
 ```rust
 // verified
@@ -1039,7 +1039,7 @@ Handle `ErrorKind::BrokenPipe` explicitly and exit with success.
 **Why:** every `tool | head` closes the pipe early, and without this the tool prints an error and
 exits non-zero on what the user experiences as a completely normal operation. It is the single most
 common polish defect in Rust CLI tools, and it is about five lines to fix
-(`references/cli-apps.md` RS-CLI-22).
+(`references/cli.md` RS-CLI-22).
 
 **Check:** run `yourtool <big input> | head -1`. Anything on stderr, or a non-zero exit, is the bug.
 

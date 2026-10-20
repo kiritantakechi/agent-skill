@@ -13,84 +13,84 @@ than the concrete type.
 The Rust API Guidelines and the BurntSushi crates advise the opposite — extract a trait only once a
 second implementation exists. Trait-first buys a boundary that is total and symmetric because no
 concrete type shaped it, and costs indirection, extra rustdoc, and a generic parameter at use sites
-a concrete struct would not need. RS-TRG-06 and RS-TRG-02 keep that cost from becoming damage: if
-either is being bent to make a trait fit, the trait is wrong and the fallback is a concrete type,
+a concrete struct would not need. RS-TRAIT-06 and RS-TRAIT-02 keep that cost from becoming damage:
+if either is being bent to make a trait fit, the trait is wrong and the fallback is a concrete type,
 not a partial impl.
 ## Contents
 
 - **Designing traits**
-  - RS-TRG-01 [M] Name the capability as a trait before writing the type that provides it
-  - RS-TRG-02 [M] Describe a capability, not a category
-  - RS-TRG-03 [S] Keep the required-method set small and push the rest into defaults
-  - RS-TRG-04 [S] Prefer one required method plus defaults to five required methods
-  - RS-TRG-05 [S] Make provided methods correct by default and overridable for speed
-  - RS-TRG-06 [M] Do not put a method on a trait only one implementor can support
-  - RS-TRG-07 [S] Add functionality to foreign types through a sealed `…Ext` trait
-  - RS-TRG-08 [S] Prefer composition to supertrait hierarchies
-  - RS-TRG-09 [M] Treat a supertrait as a requirement on every implementor
-  - RS-TRG-10 [S] Do not require `Sized` when you do not need it
-  - RS-TRG-11 [S] Mark description-shaped traits `#[must_use]`
-  - RS-TRG-12 [S] Use `#[diagnostic::on_unimplemented]` where the error would be cryptic
-  - RS-TRG-13 [M] Document the trait's contract, not just its signatures
-  - RS-TRG-14 [M] Make the trait `unsafe` when a broken invariant causes unsoundness
+  - RS-TRAIT-01 [M] Name the capability as a trait before writing the type that provides it
+  - RS-TRAIT-02 [M] Describe a capability, not a category
+  - RS-TRAIT-03 [S] Keep the required-method set small and push the rest into defaults
+  - RS-TRAIT-04 [S] Prefer one required method plus defaults to five required methods
+  - RS-TRAIT-05 [S] Make provided methods correct by default and overridable for speed
+  - RS-TRAIT-06 [M] Do not put a method on a trait only one implementor can support
+  - RS-TRAIT-07 [S] Add functionality to foreign types through a sealed `…Ext` trait
+  - RS-TRAIT-08 [S] Prefer composition to supertrait hierarchies
+  - RS-TRAIT-09 [M] Treat a supertrait as a requirement on every implementor
+  - RS-TRAIT-10 [S] Do not require `Sized` when you do not need it
+  - RS-TRAIT-11 [S] Mark description-shaped traits `#[must_use]`
+  - RS-TRAIT-12 [S] Use `#[diagnostic::on_unimplemented]` where the error would be cryptic
+  - RS-TRAIT-13 [M] Document the trait's contract, not just its signatures
+  - RS-TRAIT-14 [M] Make the trait `unsafe` when a broken invariant causes unsoundness
 
 - **Static versus dynamic dispatch**
-  - RS-TRG-15 [S] Default to static dispatch
-  - RS-TRG-16 [S] Choose `dyn` for open sets, heterogeneous storage, or measured bloat
-  - RS-TRG-17 [S] Do not use argument-position `impl Trait` where callers may want to name the type
-  - RS-TRG-18 [S] Use return-position `impl Trait` for iterators, futures, and closures
-  - RS-TRG-19 [M] Keep a trait dyn-compatible if it might ever be boxed
-  - RS-TRG-20 [M] Decide and document the `Send` story for `async fn` in traits
-  - RS-TRG-21 [S] Write the lifetime on a borrowing trait object
-  - RS-TRG-22 [M] Prefer an enum to a trait object for a closed set
-  - RS-TRG-23 [S] Do not mix dispatch strategies for one abstraction
-  - RS-TRG-24 [S] Do not nest generics three deep in a public signature
+  - RS-TRAIT-15 [S] Default to static dispatch
+  - RS-TRAIT-16 [S] Choose `dyn` for open sets, heterogeneous storage, or measured bloat
+  - RS-TRAIT-17 [S] Do not use argument-position `impl Trait` where callers may want to name the type
+  - RS-TRAIT-18 [S] Use return-position `impl Trait` for iterators, futures, and closures
+  - RS-TRAIT-19 [M] Keep a trait dyn-compatible if it might ever be boxed
+  - RS-TRAIT-20 [M] Decide and document the `Send` story for `async fn` in traits
+  - RS-TRAIT-21 [S] Write the lifetime on a borrowing trait object
+  - RS-TRAIT-22 [M] Prefer an enum to a trait object for a closed set
+  - RS-TRAIT-23 [S] Do not mix dispatch strategies for one abstraction
+  - RS-TRAIT-24 [S] Do not nest generics three deep in a public signature
 
 - **Coherence, blanket impls, sealing**
-  - RS-TRG-25 [M] Work with the orphan rule, not around it
-  - RS-TRG-26 [M] Newtype to implement a foreign trait on a foreign type
-  - RS-TRG-27 [M] Treat a blanket impl as permanent
-  - RS-TRG-28 [S] Prefer a blanket extension trait to asking users to wrap values
-  - RS-TRG-29 [S] Bound on a trait rather than impl for each std type
-  - RS-TRG-30 [S] Seal a trait that enumerates a fixed set of types
-  - RS-TRG-31 [M] Document that a trait is sealed and why
-  - RS-TRG-32 [M] Do not seal a trait users are meant to implement
-  - RS-TRG-33 [M] Do not design around specialization
-  - RS-TRG-34 [M] Know that a blanket `From<T>` conflicts with the reflexive impl
+  - RS-TRAIT-25 [M] Work with the orphan rule, not around it
+  - RS-TRAIT-26 [M] Newtype to implement a foreign trait on a foreign type
+  - RS-TRAIT-27 [M] Treat a blanket impl as permanent
+  - RS-TRAIT-28 [S] Prefer a blanket extension trait to asking users to wrap values
+  - RS-TRAIT-29 [S] Bound on a trait rather than impl for each std type
+  - RS-TRAIT-30 [S] Seal a trait that enumerates a fixed set of types
+  - RS-TRAIT-31 [M] Document that a trait is sealed and why
+  - RS-TRAIT-32 [M] Do not seal a trait users are meant to implement
+  - RS-TRAIT-33 [M] Do not design around specialization
+  - RS-TRAIT-34 [M] Know that a blanket `From<T>` conflicts with the reflexive impl
 
 - **Bounds, where clauses, inference**
-  - RS-TRG-35 [S] Put simple bounds inline and anything longer in a `where` clause
-  - RS-TRG-36 [S] Bound at the point of use, not on the struct
-  - RS-TRG-37 [M] Minimize bounds
-  - RS-TRG-38 [S] Genericize a parameter only where the flexibility is used
-  - RS-TRG-39 [M] Do not add `'static` unless you spawn, erase, or store
-  - RS-TRG-40 [S] Prefer an associated type where there is one sensible choice
-  - RS-TRG-41 [S] Do not return a type the caller must turbofish
-  - RS-TRG-42 [S] Use type aliases to tame long generic types
-  - RS-TRG-43 [S] Comment a type alias that hides genuine complexity
-  - RS-TRG-44 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
+  - RS-TRAIT-35 [S] Put simple bounds inline and anything longer in a `where` clause
+  - RS-TRAIT-36 [S] Bound at the point of use, not on the struct
+  - RS-TRAIT-37 [M] Minimize bounds
+  - RS-TRAIT-38 [S] Genericize a parameter only where the flexibility is used
+  - RS-TRAIT-39 [M] Do not add `'static` unless you spawn, erase, or store
+  - RS-TRAIT-40 [S] Prefer an associated type where there is one sensible choice
+  - RS-TRAIT-41 [S] Do not return a type the caller must turbofish
+  - RS-TRAIT-42 [S] Use type aliases to tame long generic types
+  - RS-TRAIT-43 [S] Comment a type alias that hides genuine complexity
+  - RS-TRAIT-44 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
 
 - **Associated types, GATs, const generics**
-  - RS-TRG-45 [M] Associated type for one-per-implementor, parameter for many
-  - RS-TRG-46 [S] Bound associated types at their declaration
-  - RS-TRG-47 [S] Reach for a GAT only after a plain associated type has failed
-  - RS-TRG-48 [S] Use const generics where the size is genuinely compile-time
-  - RS-TRG-49 [S] Do not emulate variadics past a small arity
-  - RS-TRG-50 [S] Prefer a method to an associated constant when `dyn` matters
-  - RS-TRG-51 [S] Use typestate where misuse is costly and the states are few
-  - RS-TRG-52 [S] Do not build a typestate machine with many states
-  - RS-TRG-53 [M] Make marker traits zero-method and documented
-  - RS-TRG-54 [S] Prefer `PhantomData<fn() -> T>` for markers that own nothing
+  - RS-TRAIT-45 [M] Associated type for one-per-implementor, parameter for many
+  - RS-TRAIT-46 [S] Bound associated types at their declaration
+  - RS-TRAIT-47 [S] Reach for a GAT only after a plain associated type has failed
+  - RS-TRAIT-48 [S] Use const generics where the size is genuinely compile-time
+  - RS-TRAIT-49 [S] Do not emulate variadics past a small arity
+  - RS-TRAIT-50 [S] Prefer a method to an associated constant when `dyn` matters
+  - RS-TRAIT-51 [S] Use typestate where misuse is costly and the states are few
+  - RS-TRAIT-52 [S] Do not build a typestate machine with many states
+  - RS-TRAIT-53 [M] Make marker traits zero-method and documented
+  - RS-TRAIT-54 [S] Prefer `PhantomData<fn() -> T>` for markers that own nothing
 
 - **Totality and symmetry of impls**
-  - RS-TRG-55 [M] Make every impl total — no `unimplemented!()` arms
-  - RS-TRG-56 [S] Keep the impl set symmetric across a family of types
+  - RS-TRAIT-55 [M] Make every impl total — no `unimplemented!()` arms
+  - RS-TRAIT-56 [S] Keep the impl set symmetric across a family of types
 
 ---
 
 ## Designing traits
 
-### RS-TRG-01 [M] Name the capability as a trait before writing the type that provides it
+### RS-TRAIT-01 [M] Name the capability as a trait before writing the type that provides it
 
 Write the trait first, in terms of what a caller needs, then implement it. Program against the
 trait — take `impl Read`, not `File` — so the first implementation is never privileged.
@@ -119,13 +119,13 @@ pub fn first_line(source: &mut impl Read) -> io::Result<String> {
 }
 ```
 
-### RS-TRG-02 [M] Describe a capability, not a category
+### RS-TRAIT-02 [M] Describe a capability, not a category
 
 `Read`, `Write`, `Display`, `Matcher`, `Sink` — not `Animal`, `Entity`, `Base`.
 
 **Why:** Rust has no inheritance and does not model "is a". A trait says what you can *do* with a
 value, and designing one as a category leads directly to a supertrait hierarchy trying to be a class
-tree — which fights the language at every step (`references/naming.md` RS-NAM-32).
+tree — which fights the language at every step (`references/naming.md` RS-NAME-32).
 
 **Check:** does the trait's name and method set describe an action set, or a taxonomy position?
 
@@ -147,7 +147,7 @@ impl Matcher for Literal {
 }
 ```
 
-### RS-TRG-03 [S] Keep the required-method set small and push the rest into defaults
+### RS-TRAIT-03 [S] Keep the required-method set small and push the rest into defaults
 
 **Why:** required methods are the cost of implementing; provided methods are free ergonomics.
 `grep-matcher` exposes a `Matcher` trait with a handful of required methods and a large set of
@@ -169,7 +169,7 @@ pub trait Encoder {
 }
 ```
 
-### RS-TRG-04 [S] Prefer one required method plus defaults to five required methods
+### RS-TRAIT-04 [S] Prefer one required method plus defaults to five required methods
 
 **Why:** each required method multiplies the work of every implementor, including the ones you have
 not met and the ones who arrive after you stop maintaining it. It also multiplies the ways an
@@ -191,7 +191,7 @@ pub trait Shape {
 }
 ```
 
-### RS-TRG-05 [S] Make provided methods correct by default and overridable for speed
+### RS-TRAIT-05 [S] Make provided methods correct by default and overridable for speed
 
 **Why:** `Iterator::size_hint` and `Iterator::fold` are the model — the default is always right, and
 an implementor who can do better overrides it. That is the shape that lets a trait serve both a
@@ -213,7 +213,7 @@ pub trait Counter {
 }
 ```
 
-### RS-TRG-06 [M] Do not put a method on a trait only one implementor can support
+### RS-TRAIT-06 [M] Do not put a method on a trait only one implementor can support
 
 **Why:** every other implementor must then panic, return an error, or provide a meaningless answer —
 and callers cannot tell which without checking the concrete type, which defeats the trait. That
@@ -237,13 +237,13 @@ pub trait MutableStorage: Storage {
 }
 ```
 
-### RS-TRG-07 [S] Add functionality to foreign types through a sealed `…Ext` trait
+### RS-TRAIT-07 [S] Add functionality to foreign types through a sealed `…Ext` trait
 
 `ItertoolsExt`, `SliceRandom`.
 
-**Why:** it is the only way the orphan rule permits (RS-TRG-25), it keeps the added methods
+**Why:** it is the only way the orphan rule permits (RS-TRAIT-25), it keeps the added methods
 discoverable through autocomplete, and sealing it means you can add methods later without breaking
-anyone (RS-TRG-30).
+anyone (RS-TRAIT-30).
 
 **Check:** is the extension trait sealed? Is the name suffixed so users can tell where the method
 came from?
@@ -268,23 +268,23 @@ impl StrExt for str {
 }
 ```
 
-### RS-TRG-08 [S] Prefer composition to supertrait hierarchies
+### RS-TRAIT-08 [S] Prefer composition to supertrait hierarchies
 
 **Why:** a struct holding a `Matcher` and a `Printer` is easier to understand, test, and change than
 a five-level supertrait chain. Supertraits are for genuine prerequisites — `trait Ord: PartialOrd` —
-not for reuse (`references/functional.md` RS-FP-60).
+not for reuse (`references/functional.md` RS-FUNC-60).
 
 **Check:** how deep is the deepest supertrait chain? More than one level usually means reuse
 pretending to be a prerequisite.
 
-### RS-TRG-09 [M] Treat a supertrait as a requirement on every implementor
+### RS-TRAIT-09 [M] Treat a supertrait as a requirement on every implementor
 
 **Why:** adding one is a breaking change, and adding `Debug` or `Clone` "for convenience" excludes
 every implementor that cannot provide them — a type holding a file handle, a closure, or a foreign
 pointer. The convenience is yours; the exclusion is theirs.
 
 **Check:** for each supertrait, is it needed by the trait's own default methods, or only by your
-call sites? If the latter, bound at the call site instead (RS-TRG-36).
+call sites? If the latter, bound at the call site instead (RS-TRAIT-36).
 
 ```rust
 // verified
@@ -306,7 +306,7 @@ impl Record for Row {
 }
 ```
 
-### RS-TRG-10 [S] Do not require `Sized` when you do not need it
+### RS-TRAIT-10 [S] Do not require `Sized` when you do not need it
 
 `T: ?Sized + Display` lets callers pass `str` and `[T]` directly.
 
@@ -324,12 +324,12 @@ pub fn describe<T: std::fmt::Debug + ?Sized>(value: &T) -> String {
 }
 ```
 
-### RS-TRG-11 [S] Mark description-shaped traits `#[must_use]`
+### RS-TRAIT-11 [S] Mark description-shaped traits `#[must_use]`
 
 Matchers, queries, builders — values that describe rather than act.
 
 **Why:** constructing one and discarding it is always a mistake, and the attribute on the trait
-covers every implementor at once (`references/api-design.md` RS-API-47).
+covers every implementor at once (`references/api.md` RS-API-47).
 
 **Check:** would discarding a value of this trait ever be correct?
 
@@ -343,7 +343,7 @@ pub trait Plan {
 }
 ```
 
-### RS-TRG-12 [S] Use `#[diagnostic::on_unimplemented]` where the error would be cryptic
+### RS-TRAIT-12 [S] Use `#[diagnostic::on_unimplemented]` where the error would be cryptic
 
 Stable since 1.78.
 
@@ -353,7 +353,7 @@ costs nothing at runtime.
 
 **Check:** deliberately break a bound and read the error. Would a new user know what to do?
 
-### RS-TRG-13 [M] Document the trait's contract, not just its signatures
+### RS-TRAIT-13 [M] Document the trait's contract, not just its signatures
 
 What invariants an implementor must uphold, what a caller may assume, whether methods may be called
 concurrently, and what happens on error.
@@ -377,12 +377,12 @@ pub trait Normalizer {
 }
 ```
 
-### RS-TRG-14 [M] Make the trait `unsafe` when a broken invariant causes unsoundness
+### RS-TRAIT-14 [M] Make the trait `unsafe` when a broken invariant causes unsoundness
 
 **Why:** if unsafe code elsewhere relies on implementors behaving correctly, then a wrong
 implementation is a memory-safety bug — and the `unsafe` keyword is how you require the implementor
 to acknowledge that. If a wrong implementation merely produces wrong answers, keep the trait safe
-and document loudly (`references/unsafe-ffi.md` RS-UNS-20).
+and document loudly (`references/unsafe.md` RS-UNSAFE-20).
 
 **Check:** does any `unsafe` block in the crate assume a trait method returns something specific —
 a correct length, a stable ordering, a valid pointer?
@@ -404,7 +404,7 @@ pub unsafe trait FixedEncode {
 
 ## Static versus dynamic dispatch
 
-### RS-TRG-15 [S] Default to static dispatch
+### RS-TRAIT-15 [S] Default to static dispatch
 
 `impl Trait` in argument position for simple cases; a named generic parameter when the type appears
 more than once or a caller may want to turbofish it.
@@ -423,12 +423,12 @@ pub fn count_matching<P: Fn(&str) -> bool>(lines: &[String], predicate: P) -> us
 }
 ```
 
-### RS-TRG-16 [S] Choose `dyn` for open sets, heterogeneous storage, or measured bloat
+### RS-TRAIT-16 [S] Choose `dyn` for open sets, heterogeneous storage, or measured bloat
 
 **Why:** the vtable call is a few nanoseconds and a predictable indirect branch; forty
 monomorphized copies of a large function are kilobytes of instruction cache. Storing different
 implementations in one `Vec` requires `dyn` outright. Neither direction is free, so the choice needs
-a reason (`references/performance.md` RS-PRF-37).
+a reason (`references/performance.md` RS-PERF-37).
 
 **Check:** how many instantiations does this generic actually get? `cargo bloat` will tell you if
 you suspect the answer is "too many".
@@ -464,7 +464,7 @@ impl Pipeline {
 }
 ```
 
-### RS-TRG-17 [S] Do not use argument-position `impl Trait` where callers may want to name the type
+### RS-TRAIT-17 [S] Do not use argument-position `impl Trait` where callers may want to name the type
 
 **Why:** it is sugar for an anonymous generic parameter, which means the caller cannot turbofish it
 — so a call that needs an explicit type has no way to give one. In a public API that is a
@@ -481,7 +481,7 @@ pub fn collect_into<C: FromIterator<u32>>(values: &[u32]) -> C {
 }
 ```
 
-### RS-TRG-18 [S] Use return-position `impl Trait` for iterators, futures, and closures
+### RS-TRAIT-18 [S] Use return-position `impl Trait` for iterators, futures, and closures
 
 Including in traits, stable since 1.75.
 
@@ -499,7 +499,7 @@ pub fn evens(limit: u32) -> impl Iterator<Item = u32> {
 }
 ```
 
-### RS-TRG-19 [M] Keep a trait dyn-compatible if it might ever be boxed
+### RS-TRAIT-19 [M] Keep a trait dyn-compatible if it might ever be boxed
 
 No generic methods, no `Self` in return position, no associated constants.
 
@@ -533,17 +533,17 @@ pub fn boxed() -> Box<dyn Sink> {
 }
 ```
 
-### RS-TRG-20 [M] Decide and document the `Send` story for `async fn` in traits
+### RS-TRAIT-20 [M] Decide and document the `Send` story for `async fn` in traits
 
 **Why:** `async fn` in traits (1.75) produces a future that is not automatically `Send` and is not
 dyn-compatible. Whether callers can spawn the result on a multi-threaded runtime therefore depends
 on a choice you make — `trait_variant`, an explicit `-> impl Future<Output = _> + Send`, or
 `Pin<Box<dyn Future + Send>>` — and they cannot fix it from outside
-(`references/concurrency-async.md` RS-CNC-36).
+(`references/concurrency.md` RS-CONC-36).
 
 **Check:** can a user `tokio::spawn` a call to this trait method? Does the rustdoc say so?
 
-### RS-TRG-21 [S] Write the lifetime on a borrowing trait object
+### RS-TRAIT-21 [S] Write the lifetime on a borrowing trait object
 
 `Box<dyn Matcher + 'a>`.
 
@@ -553,7 +553,7 @@ error at the call site into a correct signature.
 
 **Check:** does any `dyn` type hold borrowed data? Then the lifetime is not `'static`.
 
-### RS-TRG-22 [M] Prefer an enum to a trait object for a closed set
+### RS-TRAIT-22 [M] Prefer an enum to a trait object for a closed set
 
 **Why:** no allocation, no vtable, exhaustive matching when a variant is added, and `Clone`,
 `PartialEq`, `Debug`, and `Serialize` all derivable — none of which a `Box<dyn Trait>` gives you.
@@ -574,7 +574,7 @@ fn make(kind: &str) -> Box<dyn Encoder> { /* … */ }
 enum Encoder { Json, Csv, Text }
 ```
 
-### RS-TRG-23 [S] Do not mix dispatch strategies for one abstraction
+### RS-TRAIT-23 [S] Do not mix dispatch strategies for one abstraction
 
 **Why:** if half the API takes `impl Matcher` and half takes `&dyn Matcher`, users must learn which
 is which and convert between them at boundaries. Pick one per abstraction so there is one pattern to
@@ -582,7 +582,7 @@ learn.
 
 **Check:** grep for the trait's name. Is it used both generically and as `dyn` in the public API?
 
-### RS-TRG-24 [S] Do not nest generics three deep in a public signature
+### RS-TRAIT-24 [S] Do not nest generics three deep in a public signature
 
 `Searcher<M: Matcher, S: Sink<M::Error>>` nested three levels.
 
@@ -594,20 +594,20 @@ default configuration so the common case is one word.
 
 ## Coherence, blanket impls, sealing
 
-### RS-TRG-25 [M] Work with the orphan rule, not around it
+### RS-TRAIT-25 [M] Work with the orphan rule, not around it
 
 **Why:** it exists so two crates cannot define the same impl and break linking, and there is no
 workaround — only a local trait or a local newtype. Time spent looking for one is time not spent on
 the newtype that would have worked.
 
 **Check:** is either the trait or the type local to this crate? If neither, you need a newtype
-(RS-TRG-26).
+(RS-TRAIT-26).
 
-### RS-TRG-26 [M] Newtype to implement a foreign trait on a foreign type
+### RS-TRAIT-26 [M] Newtype to implement a foreign trait on a foreign type
 
 **Why:** it is the sanctioned mechanism, it is zero-cost with `#[repr(transparent)]`, and it lets
 you add the impl without any coordination. Add `AsRef`/`Deref` only if the newtype genuinely *is*
-the inner type for all purposes (`references/api-design.md` RS-API-60).
+the inner type for all purposes (`references/api.md` RS-API-60).
 
 **Check:** does the newtype expose the inner type's whole API, or only the part that makes sense?
 
@@ -633,7 +633,7 @@ impl fmt::Display for Hex {
 }
 ```
 
-### RS-TRG-27 [M] Treat a blanket impl as permanent
+### RS-TRAIT-27 [M] Treat a blanket impl as permanent
 
 `impl<T: Foo> Bar for T`.
 
@@ -644,17 +644,17 @@ express an implication that is genuinely universal.
 **Check:** is there any type for which this impl would be wrong or unwanted? One is enough to make
 it a bad blanket.
 
-### RS-TRG-28 [S] Prefer a blanket extension trait to asking users to wrap values
+### RS-TRAIT-28 [S] Prefer a blanket extension trait to asking users to wrap values
 
 `impl<T: Iterator> MyExt for T`.
 
 **Why:** the method appears on values users already have, with no wrapping and no import beyond the
-trait. Seal it so the blanket impl remains the only one (RS-TRG-30).
+trait. Seal it so the blanket impl remains the only one (RS-TRAIT-30).
 
 **Check:** does using the crate require constructing a wrapper type first? An extension trait
 usually removes that step.
 
-### RS-TRG-29 [S] Bound on a trait rather than impl for each std type
+### RS-TRAIT-29 [S] Bound on a trait rather than impl for each std type
 
 **Why:** `AsRef<[T]>` covers `Vec<T>`, `[T; N]`, `&[T]`, `Box<[T]>`, and types you have never heard
 of, in one impl. Writing separate impls for `Vec<T>` and `String` covers two of them and dates
@@ -662,13 +662,13 @@ immediately.
 
 **Check:** is there a std trait that generalizes the set of impls you are writing?
 
-### RS-TRG-30 [S] Seal a trait that enumerates a fixed set of types
+### RS-TRAIT-30 [S] Seal a trait that enumerates a fixed set of types
 
 Private-supertrait pattern.
 
 **Why:** sealing means you know every implementor, so you can add methods later without breaking
 anyone — the trait stays evolvable for the life of the crate
-(`references/api-design.md` RS-API-73).
+(`references/api.md` RS-API-73).
 
 **Check:** is the trait an extension point or an enumeration? Only the second gets sealed.
 
@@ -697,7 +697,7 @@ impl Encoding for Utf8 {
 }
 ```
 
-### RS-TRG-31 [M] Document that a trait is sealed and why
+### RS-TRAIT-31 [M] Document that a trait is sealed and why
 
 **Why:** without a note, someone who tries to implement it gets `trait 'Sealed' is private`, which
 names a type they cannot see and explains nothing. One sentence in the rustdoc turns a confusing
@@ -705,7 +705,7 @@ error into an understood constraint.
 
 **Check:** does every sealed trait's rustdoc say so in its first paragraph?
 
-### RS-TRG-32 [M] Do not seal a trait users are meant to implement
+### RS-TRAIT-32 [M] Do not seal a trait users are meant to implement
 
 **Why:** sealing an extension point is a design error that only a major version can fix, and it
 turns your crate from a library into a closed system. The two categories are decided at design time,
@@ -714,7 +714,7 @@ not discovered later.
 **Check:** for each sealed trait, is there a plausible downstream implementor? If yes, unseal it now
 while it is free.
 
-### RS-TRG-33 [M] Do not design around specialization
+### RS-TRAIT-33 [M] Do not design around specialization
 
 **Why:** it is unstable with no stabilization date, `min_specialization` is unsound in its general
 form, and code written to "use it later" gets rewritten. Use an enum, an explicit impl per type, or
@@ -722,7 +722,7 @@ a runtime check.
 
 **Check:** grep for `default fn` and `#![feature(specialization)]`. Both mean nightly-only forever.
 
-### RS-TRG-34 [M] Know that a blanket `From<T>` conflicts with the reflexive impl
+### RS-TRAIT-34 [M] Know that a blanket `From<T>` conflicts with the reflexive impl
 
 **Why:** `impl<T> From<T> for MyType` overlaps with core's `impl<T> From<T> for T` and will not
 compile. The error is a coherence message that does not name the reflexive impl, so it is
@@ -733,7 +733,7 @@ MyType` if `MyType: Display`) or write per-type impls.
 
 ## Bounds, where clauses, inference
 
-### RS-TRG-35 [S] Put simple bounds inline and anything longer in a `where` clause
+### RS-TRAIT-35 [S] Put simple bounds inline and anything longer in a `where` clause
 
 **Why:** a signature that wraps across three lines because of inline bounds is harder to read than
 the same one with the bounds moved below, where they align and can be commented individually.
@@ -758,7 +758,7 @@ where
 }
 ```
 
-### RS-TRG-36 [S] Bound at the point of use, not on the struct
+### RS-TRAIT-36 [S] Bound at the point of use, not on the struct
 
 **Why:** `struct Cache<K, V>` with bounds only on the `impl` blocks that need them stays usable in
 contexts where the bound is irrelevant — a field declaration, a `PhantomData`, a `Default` impl.
@@ -792,7 +792,7 @@ impl<T: std::fmt::Display> Bag<T> {
 }
 ```
 
-### RS-TRG-37 [M] Minimize bounds
+### RS-TRAIT-37 [M] Minimize bounds
 
 **Why:** each bound is a requirement on every caller. `T: Clone` when you only need `&T` is a
 needless restriction; `T: Ord` when `PartialOrd` suffices excludes floats; `T: Debug` for a log line
@@ -813,27 +813,27 @@ pub fn render<T: std::fmt::Display>(items: &[T]) -> String {
 }
 ```
 
-### RS-TRG-38 [S] Genericize a parameter only where the flexibility is used
+### RS-TRAIT-38 [S] Genericize a parameter only where the flexibility is used
 
 **Why:** `impl AsRef<Path>` is worth it because callers genuinely hold four different path-like
 types. `impl Into<u32>` is not, because they hold a `u32`. Genericity has an inference cost, a
-documentation cost, and a monomorphization cost (`references/api-design.md` RS-API-11).
+documentation cost, and a monomorphization cost (`references/api.md` RS-API-11).
 
 **Check:** list the concrete types this parameter will be instantiated with. One means make it
 concrete.
 
-### RS-TRG-39 [M] Do not add `'static` unless you spawn, erase, or store
+### RS-TRAIT-39 [M] Do not add `'static` unless you spawn, erase, or store
 
 **Why:** it is the most over-applied bound in Rust, usually added to make one error go away, and it
 rejects every borrowed type for the life of the API (`references/ownership.md` RS-OWN-22).
 
 **Check:** remove it. If it still compiles, it was never needed.
 
-### RS-TRG-40 [S] Prefer an associated type where there is one sensible choice
+### RS-TRAIT-40 [S] Prefer an associated type where there is one sensible choice
 
 **Why:** `Iterator::Item` as a type parameter would force every use site to annotate it —
 `fn f<I: Iterator<Item = T>, T>` instead of `fn f<I: Iterator>`. The associated type makes it
-inferred and unambiguous (RS-TRG-45).
+inferred and unambiguous (RS-TRAIT-45).
 
 **Check:** can one type implement this trait twice with different substitutions? If not, it is an
 associated type.
@@ -855,14 +855,14 @@ pub trait Parser {
 pub struct ParseFailed;
 ```
 
-### RS-TRG-41 [S] Do not return a type the caller must turbofish
+### RS-TRAIT-41 [S] Do not return a type the caller must turbofish
 
 **Why:** if users must write `::<Vec<_>>` at every call site, the API is asking them to do
 inference's job. Either return a concrete type or take the target as a parameter they already have.
 
 **Check:** write a call in a doc example without any annotation. Does it compile?
 
-### RS-TRG-42 [S] Use type aliases to tame long generic types
+### RS-TRAIT-42 [S] Use type aliases to tame long generic types
 
 `pub type Result<T> = std::result::Result<T, Error>;`
 
@@ -891,7 +891,7 @@ impl std::fmt::Debug for Router {
 }
 ```
 
-### RS-TRG-43 [S] Comment a type alias that hides genuine complexity
+### RS-TRAIT-43 [S] Comment a type alias that hides genuine complexity
 
 **Why:** an alias for `Box<dyn Fn(&Request) -> Pin<Box<dyn Future<Output = Result<Response, Error>>
 + Send>> + Send + Sync>` is right, and so is a comment explaining the shape — otherwise the alias
@@ -899,17 +899,17 @@ hides the complexity from the maintainer as well as the user.
 
 **Check:** could a new contributor reconstruct the expansion from the alias name alone?
 
-### RS-TRG-44 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
+### RS-TRAIT-44 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
 
 **Why:** this is how `Iterator` keeps `Box<dyn Iterator>` working while still offering `map`,
 `collect`, and the rest — the generic methods are excluded from the vtable rather than excluding the
-trait from `dyn` (RS-TRG-19).
+trait from `dyn` (RS-TRAIT-19).
 
 **Check:** which method is breaking dyn compatibility? Can it take `where Self: Sized`?
 
 ## Associated types, GATs, const generics
 
-### RS-TRG-45 [M] Associated type for one-per-implementor, parameter for many
+### RS-TRAIT-45 [M] Associated type for one-per-implementor, parameter for many
 
 `Iterator` has one `Item`; `From<T>` has many `T`.
 
@@ -931,7 +931,7 @@ pub trait Source {
 }
 ```
 
-### RS-TRG-46 [S] Bound associated types at their declaration
+### RS-TRAIT-46 [S] Bound associated types at their declaration
 
 `type Error: std::error::Error + Send + Sync + 'static;`
 
@@ -941,7 +941,7 @@ it and no implementor can supply something unusable. Adding the bound later is b
 **Check:** does any generic function repeat a bound on `T::Error` or `I::Item`? That bound belongs
 on the declaration.
 
-### RS-TRG-47 [S] Reach for a GAT only after a plain associated type has failed
+### RS-TRAIT-47 [S] Reach for a GAT only after a plain associated type has failed
 
 Stable since 1.65.
 
@@ -952,7 +952,7 @@ Most designs that reach for them first do not need them.
 **Check:** does the associated type genuinely need to name a lifetime from `&self`? Write the plain
 version first and let it fail.
 
-### RS-TRG-48 [S] Use const generics where the size is genuinely compile-time
+### RS-TRAIT-48 [S] Use const generics where the size is genuinely compile-time
 
 `struct Chunk<const N: usize>`, `fn hash<const OUT: usize>(…) -> [u8; OUT]`.
 
@@ -977,7 +977,7 @@ impl<const BYTES: usize> Digest<BYTES> {
 }
 ```
 
-### RS-TRG-49 [S] Do not emulate variadics past a small arity
+### RS-TRAIT-49 [S] Do not emulate variadics past a small arity
 
 **Why:** the ecosystem convention is tuple impls up to 12, generated by a macro. Past that the
 compile time and the rustdoc noise grow faster than the convenience, and a slice or a struct is
@@ -985,20 +985,20 @@ clearer anyway.
 
 **Check:** is the macro generating impls for arities nobody uses?
 
-### RS-TRG-50 [S] Prefer a method to an associated constant when `dyn` matters
+### RS-TRAIT-50 [S] Prefer a method to an associated constant when `dyn` matters
 
-**Why:** associated constants make a trait non-dyn-compatible (RS-TRG-19). A method returning the
+**Why:** associated constants make a trait non-dyn-compatible (RS-TRAIT-19). A method returning the
 same value costs one indirect call and keeps `Box<dyn Trait>` available.
 
 **Check:** does the trait have an associated `const`, and would anyone want to box it?
 
-### RS-TRG-51 [S] Use typestate where misuse is costly and the states are few
+### RS-TRAIT-51 [S] Use typestate where misuse is costly and the states are few
 
 `Connection<Idle>` → `Connection<Open>`.
 
 **Why:** it turns "write before connect" from a runtime panic into a compile error, which is
 strictly better when the mistake is expensive and the transitions are few
-(`references/functional.md` RS-FP-56).
+(`references/functional.md` RS-FUNC-56).
 
 **Check:** does any method start by checking a state flag and erroring? That check is a type.
 
@@ -1043,7 +1043,7 @@ impl Connection<Open> {
 }
 ```
 
-### RS-TRG-52 [S] Do not build a typestate machine with many states
+### RS-TRAIT-52 [S] Do not build a typestate machine with many states
 
 **Why:** the error messages and the documentation cost grow faster than the safety benefit. Past a
 handful of states, users cannot tell which method is available when, and a runtime state enum with a
@@ -1052,10 +1052,11 @@ clear error is kinder.
 **Check:** count the states. More than about four and the rustdoc becomes a state diagram nobody
 reads.
 
-### RS-TRG-53 [M] Make marker traits zero-method and documented
+### RS-TRAIT-53 [M] Make marker traits zero-method and documented
 
 **Why:** a marker trait's whole content is its invariant, so if the invariant is not written down
-the trait means nothing. If violating it causes unsoundness, it must be `unsafe trait` (RS-TRG-14).
+the trait means nothing. If violating it causes unsoundness, it must be `unsafe trait`
+(RS-TRAIT-14).
 
 **Check:** does the marker trait's rustdoc state exactly what implementing it asserts?
 
@@ -1072,7 +1073,7 @@ pub struct RequestId(u64);
 impl RedactionFree for RequestId {}
 ```
 
-### RS-TRG-54 [S] Prefer `PhantomData<fn() -> T>` for markers that own nothing
+### RS-TRAIT-54 [S] Prefer `PhantomData<fn() -> T>` for markers that own nothing
 
 **Why:** `PhantomData<T>` inherits `T`'s drop-check behaviour and auto-trait implementations, which
 is almost never what a marker wants — a marker for a type it does not own should not become `!Send`
@@ -1104,11 +1105,11 @@ impl<T> Tagged<T> {
 
 ## Totality and symmetry of impls
 
-### RS-TRG-55 [M] Make every impl total — no `unimplemented!()` arms
+### RS-TRAIT-55 [M] Make every impl total — no `unimplemented!()` arms
 
 Every implementor supports every method for real. An impl that panics, returns
 `Err(Unsupported)`, or silently does nothing for part of the trait is a partial impl, and partial
-impls are the failure mode trait-first design has to avoid (RS-TRG-01, RS-TRG-06).
+impls are the failure mode trait-first design has to avoid (RS-TRAIT-01, RS-TRAIT-06).
 
 **Why:** the whole value of programming against a trait is that the caller need not know which
 implementor they hold. A partial impl destroys exactly that: the caller must now know, and the
@@ -1148,7 +1149,7 @@ impl Store for MemStore {
 }
 ```
 
-### RS-TRG-56 [S] Keep the impl set symmetric across a family of types
+### RS-TRAIT-56 [S] Keep the impl set symmetric across a family of types
 
 Related types carry the same trait impls: if one wrapper is `Serialize`, `Debug`, and
 `Clone`, its siblings are too, or the omission is documented.

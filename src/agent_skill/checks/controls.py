@@ -417,8 +417,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "bevy-style/SKILL.md",
-            "`RS-NAM-33` Never suffix a name with the language construct",
-            "`RS-NAM-33` Always suffix a name with the language construct",
+            "`RS-NAME-33` Never suffix a name with the language construct",
+            "`RS-NAME-33` Always suffix a name with the language construct",
         ),
     ),
     Control(
@@ -431,7 +431,7 @@ CONTROLS: list[Control] = [
         "anatomy",
         lambda t: edit(
             t,
-            "rust-style/references/cli-apps.md",
+            "rust-style/references/cli.md",
             "ten-thousand-file traversal because one file is unreadable is the wrong default.",
             "ten-thousand-file traversal is the wrong default.\n\n**Why:** it is.",
         ),
@@ -442,7 +442,7 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "rust-style/SKILL.md",
-            "`references/api-design.md` RS-API-51",
+            "`references/api.md` RS-API-51",
             "`references/errors.md` RS-API-51",
         ),
     ),
@@ -496,7 +496,7 @@ CONTROLS: list[Control] = [
     Control(
         "pub field on a non-repr(C) type",
         "conventions",
-        lambda t: edit(t, "rust-style/references/unsafe-ffi.md", HEADER, PUB_FIELD),
+        lambda t: edit(t, "rust-style/references/unsafe.md", HEADER, PUB_FIELD),
     ),
     Control(
         "`.?` in a GOOD example",
@@ -646,7 +646,7 @@ CONTROLS: list[Control] = [
     Control(
         "a rule its own pattern would catch",
         "self-application",
-        lambda t: edit(t, "rust-style/references/unsafe-ffi.md", HEADER, PUB_FIELD),
+        lambda t: edit(t, "rust-style/references/unsafe.md", HEADER, PUB_FIELD),
     ),
     Control(
         "an exemption quoting words the rule no longer says",

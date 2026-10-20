@@ -60,7 +60,7 @@ without reading the source.
 
 ### RS-DOC-01 [M] Treat `missing_docs` as deny, not warn
 
-`missing_docs` is a deny, not a warn (`RS-CAR-25`). An undocumented public item is an unfinished
+`missing_docs` is a deny, not a warn (`RS-BUILD-25`). An undocumented public item is an unfinished
 public item.
 
 **Why:** a warning is a message nobody reads once there are forty of them. Denying it moves the cost
@@ -88,7 +88,7 @@ under a minute, the block is not doing its job.
 Every module gets a `//!` block stating its role in the crate, not a restatement of its item list —
 rustdoc already lists the items.
 
-**Why:** the module is a claim about cohesion (`references/structure.md` RS-STR-01), and the `//!`
+**Why:** the module is a claim about cohesion (`references/modules.md` RS-MOD-01), and the `//!`
 block is where that claim is written down. A module whose doc comment can only enumerate its
 contents is a module whose boundary has not been found.
 
@@ -119,7 +119,7 @@ dependencies or building for a constrained target is making a decision with real
 the manifest alone tells them the names but never the trade.
 
 **Check:** for each entry in `[features]`, find the sentence in the crate docs that says what
-turning it on adds and what it costs. A missing sentence is a violation (`RS-CAR-14`).
+turning it on adds and what it costs. A missing sentence is a violation (`RS-BUILD-14`).
 
 ### RS-DOC-05 [S] Document crate-wide invariants once and link to them
 
@@ -162,7 +162,7 @@ the API could have absorbed.
 
 Every public item gets a summary line, and every non-trivial one gets an example. Examples are doc
 tests, so they are verified on every CI run — this is the mechanism that keeps documentation honest
-(`RS-TST-33`).
+(`RS-TEST-33`).
 
 **Why:** an example is the only documentation that cannot silently rot, because the compiler checks
 it. Prose describing an API that changed last release is worse than no prose, since the reader
@@ -334,7 +334,7 @@ pub fn get(values: &[u32], index: usize) -> Option<u32> {
 ### RS-DOC-14 [M] Give every `unsafe fn` a `# Safety` section
 
 Every `unsafe fn` has a `# Safety` section stating the preconditions the caller must uphold, in
-enough detail that a caller can verify them mechanically (`RS-UNS-04`).
+enough detail that a caller can verify them mechanically (`RS-UNSAFE-04`).
 
 **Why:** `unsafe fn` transfers a proof obligation to the caller, and an obligation nobody wrote down
 cannot be discharged. This is the difference between an API that can be used soundly and one that
@@ -579,7 +579,7 @@ pub fn split_setting(line: &str) -> Option<(&str, &str)> {
 ### RS-DOC-27 [M] Keep examples idiomatic — they will be copied
 
 Keep examples idiomatic — they will be copied. An example using `unwrap()` teaches `unwrap()`; an
-example that ignores an error teaches ignoring errors (`RS-TST-34`).
+example that ignores an error teaches ignoring errors (`RS-TEST-34`).
 
 **Why:** documentation examples are the most-copied code you will ever write, and they are copied
 without the surrounding context that made the shortcut acceptable. Whatever the example does becomes
@@ -614,7 +614,7 @@ so it accumulates forever. With an issue number it is tracked work; without one 
 
 Keep a changelog entry per user-visible change, written from the user's perspective ("`Searcher` now
 handles CRLF line endings"), not the implementation's ("refactor line-terminator handling")
-(`RS-CAR-12`).
+(`RS-BUILD-12`).
 
 **Why:** the changelog is read by people deciding whether to upgrade. An entry describing an
 internal refactor answers a question nobody asked, while hiding the behaviour change that actually
@@ -673,7 +673,7 @@ Deny broken intra-doc links in CI: `RUSTDOCFLAGS="-D warnings" cargo doc --no-de
 CI gate, the guarantee in RS-DOC-31 is theoretical.
 
 **Check:** the pipeline contains that command, and it runs with `--all-features` so feature-gated
-items are included (`RS-CAR-46`).
+items are included (`RS-BUILD-46`).
 
 ### RS-DOC-33 [S] Link the first mention, not every mention
 
@@ -687,8 +687,8 @@ and the useful links stop standing out.
 
 ### RS-DOC-34 [M] Enable docs.rs metadata and the `docsrs` cfg
 
-Enable docs.rs metadata (`RS-CAR-10`) and the `docsrs` cfg so feature-gated items show their
-required feature badge (`RS-CAR-19`).
+Enable docs.rs metadata (`RS-BUILD-10`) and the `docsrs` cfg so feature-gated items show their
+required feature badge (`RS-BUILD-19`).
 
 **Why:** without it docs.rs builds with default features and silently omits part of your API, or
 shows items with no indication that they need a feature. Both produce support questions that a
@@ -766,7 +766,7 @@ Leaving them implicit means the answer is discovered during integration instead 
 evaluation.
 
 **Check:** all three appear in the README or crate docs, and the MSRV matches `rust-version` in the
-manifest (`RS-CAR-02`).
+manifest (`RS-BUILD-02`).
 
 ### RS-DOC-40 [M!] Write the documentation before finalizing the API
 

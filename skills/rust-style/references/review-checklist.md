@@ -30,29 +30,29 @@ each stage can invalidate the work of reading the next.
 1. **Soundness.** Every `unsafe` block: does the `// SAFETY:` comment state a
    real precondition, and is it actually established at that point? Every
    manual `Send`/`Sync`/`unsafe impl`. Every `transmute`, raw pointer, and
-   `repr`. (`RS-UNS`)
+   `repr`. (`RS-UNSAFE`)
 2. **Panics and error handling.** Grep for `unwrap`, `expect`, `panic!`,
    `todo!`, `unreachable!`, `[` indexing, integer arithmetic on untrusted
    values, and `as` casts. Each one is either justified in a comment or a
-   finding. (`RS-ERR`, `RS-PRF-40`)
+   finding. (`RS-ERR`, `RS-PERF-40`)
 3. **Public API.** What is newly `pub`? Is it documented? Is it the surface you
    would want to support for five years? Does it leak a dependency's types?
    Would `cargo semver-checks` complain? (`RS-API`, `RS-DOC`)
 4. **Concurrency.** Lock scopes, lock ordering, `.await` while holding a lock,
-   unbounded channels, detached tasks, shutdown paths. (`RS-CNC`)
+   unbounded channels, detached tasks, shutdown paths. (`RS-CONC`)
 5. **Data model.** Are illegal states representable? Are there `bool`
    parameters, paired `Option`s, or stringly-typed fields that want an enum?
    (`RS-API-28` … `RS-API-37`)
 6. **Function bodies.** Now read the code. Loops that are pipelines, `mut` that
    folds away, clones that borrows would remove, allocation in loops.
-   (`RS-FP`, `RS-OWN`, `RS-PRF`)
+   (`RS-FUNC`, `RS-OWN`, `RS-PERF`)
 7. **Tests.** Do they test the contract or the implementation? Is the error path
-   covered? Would they catch the bug this change fixes? (`RS-TST`)
+   covered? Would they catch the bug this change fixes? (`RS-TEST`)
 8. **Symmetry.** Unpaired operations, sibling functions disagreeing on argument order, error
    variants with uneven context, two mechanisms for one concept, a branch that exists for one
-   input. (`RS-API-79` … `RS-API-84`, `RS-STR-54` … `RS-STR-57`)
+   input. (`RS-API-79` … `RS-API-84`, `RS-MOD-54` … `RS-MOD-57`)
 9. **Manifest and lints.** New dependencies justified? Features additive? Lints
-   still enforced? (`RS-CAR`)
+   still enforced? (`RS-BUILD`)
 
 ## Mechanical pass
 
@@ -95,7 +95,7 @@ the two or three findings that deserve discussion.
 |---|---|---|---|---|
 | Incorrect | RS-ERR-03 | `src/config.rs:88` | `unwrap()` on a user-supplied path | Return `Error::Config` and propagate with `?` |
 | Design | RS-API-30 | `src/search.rs:31` | Three `bool` parameters in `search()` | Replace with `SearchOptions` or three two-variant enums |
-| Performance | RS-PRF-11 | `src/scan.rs:54` | `String` allocated per line | Hoist the buffer and `clear()` per iteration |
+| Performance | RS-PERF-11 | `src/scan.rs:54` | `String` allocated per line | Hoist the buffer and `clear()` per iteration |
 
 ## Discussion
 

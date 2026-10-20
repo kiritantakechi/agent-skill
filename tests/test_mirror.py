@@ -38,13 +38,13 @@ def run(table, skills):
 
 
 def anchor(tier="[M]"):
-    return Skill("rust-style", "RS", [Rule("RS-NAM-01", tier, TITLE)])
+    return Skill("rust-style", "RS", [Rule("RS-NAME-01", tier, TITLE)])
 
 
 def test_a_third_skill_is_routed_by_its_prefix():
     third = Skill("third-style", "XX", [Rule("XX-NAME-09", "[S]", TITLE)])
     findings = run([("XX-NAME-09", TITLE)], [anchor(), third])
-    assert [f.message for f in findings] == ["tier mismatch: RS-NAM-01[[M]] vs XX-NAME-09[[S]]"]
+    assert [f.message for f in findings] == ["tier mismatch: RS-NAME-01[[M]] vs XX-NAME-09[[S]]"]
 
 
 def test_a_third_skill_that_agrees_is_silent():
@@ -61,4 +61,4 @@ def test_an_unheld_pair_is_noticed_in_any_skill_not_only_the_first():
     third = Skill("third-style", "XX", [Rule("XX-NAME-09", "[M]", TITLE)])
     [found] = run([], [anchor(), third])
     assert found.level.value == "note"
-    assert "XX-NAME-09 and RS-NAM-01" in found.message
+    assert "XX-NAME-09 and RS-NAME-01" in found.message

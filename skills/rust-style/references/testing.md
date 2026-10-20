@@ -1,4 +1,4 @@
-# RS-TST — Testing
+# RS-TEST — Testing
 
 A test suite is a specification that runs. Its job is to make the contract
 explicit, to fail loudly when the contract breaks, and to say clearly what
@@ -6,60 +6,60 @@ broke. Coverage percentage is a byproduct, not a goal.
 ## Contents
 
 - **Organization**
-  - RS-TST-01 [M] Keep all three layers: unit, integration, and doc tests
-  - RS-TST-02 [M] Test behaviour, not implementation
-  - RS-TST-03 [M] Assert one concept per test
-  - RS-TST-04 [M] Put unit tests in `#[cfg(test)] mod tests` at the bottom of the file
-  - RS-TST-05 [M] Put integration tests in `tests/`, one crate per file
-  - RS-TST-06 [M] Let integration tests use only the public API
-  - RS-TST-07 [M] Share integration helpers through `#[path]`, not a `mod.rs`
-  - RS-TST-08 [M] Name tests as sentences about behaviour
-  - RS-TST-09 [S] Group related tests in nested `mod` blocks
-  - RS-TST-10 [S] Keep fixtures small; generate large corpora from a seed
+  - RS-TEST-01 [M] Keep all three layers: unit, integration, and doc tests
+  - RS-TEST-02 [M] Test behaviour, not implementation
+  - RS-TEST-03 [M] Assert one concept per test
+  - RS-TEST-04 [M] Put unit tests in `#[cfg(test)] mod tests` at the bottom of the file
+  - RS-TEST-05 [M] Put integration tests in `tests/`, one crate per file
+  - RS-TEST-06 [M] Let integration tests use only the public API
+  - RS-TEST-07 [M] Share integration helpers through `#[path]`, not a `mod.rs`
+  - RS-TEST-08 [M] Name tests as sentences about behaviour
+  - RS-TEST-09 [S] Group related tests in nested `mod` blocks
+  - RS-TEST-10 [S] Keep fixtures small; generate large corpora from a seed
 
 - **Writing good tests**
-  - RS-TST-11 [S] Arrange, act, assert — visibly
-  - RS-TST-12 [M] Assert on values, not on shapes
-  - RS-TST-13 [S] Give assertions context when the values are not self-explanatory
-  - RS-TST-14 [M] Match on the error variant, not its `Display` string
-  - RS-TST-15 [M] Test the boundaries, because they are enumerable
-  - RS-TST-16 [S] Use table-driven tests for families of similar cases
-  - RS-TST-17 [M] Always give `#[should_panic]` an `expected = "…"`
-  - RS-TST-18 [M] Keep tests deterministic and order-independent
-  - RS-TST-19 [M] Use `tempfile::TempDir`, never a fixed path
-  - RS-TST-20 [M] Do not test the standard library or your dependencies
-  - RS-TST-21 [S] Test at the highest level that still gives a precise failure
-  - RS-TST-22 [M] Give every bug fix a regression test that failed before it
+  - RS-TEST-11 [S] Arrange, act, assert — visibly
+  - RS-TEST-12 [M] Assert on values, not on shapes
+  - RS-TEST-13 [S] Give assertions context when the values are not self-explanatory
+  - RS-TEST-14 [M] Match on the error variant, not its `Display` string
+  - RS-TEST-15 [M] Test the boundaries, because they are enumerable
+  - RS-TEST-16 [S] Use table-driven tests for families of similar cases
+  - RS-TEST-17 [M] Always give `#[should_panic]` an `expected = "…"`
+  - RS-TEST-18 [M] Keep tests deterministic and order-independent
+  - RS-TEST-19 [M] Use `tempfile::TempDir`, never a fixed path
+  - RS-TEST-20 [M] Do not test the standard library or your dependencies
+  - RS-TEST-21 [S] Test at the highest level that still gives a precise failure
+  - RS-TEST-22 [M] Give every bug fix a regression test that failed before it
 
 - **Property, fuzz, and snapshot testing**
-  - RS-TST-23 [S] Use property testing where a law holds over a domain
-  - RS-TST-24 [S] Reach for differential testing first for parsers, matchers, and codecs
-  - RS-TST-25 [M] Treat the shrunk counterexample as the deliverable
-  - RS-TST-26 [M!] Fuzz anything that parses untrusted input
-  - RS-TST-27 [S] Run fuzz targets briefly per PR and long on a schedule
-  - RS-TST-28 [S] Use snapshot testing for large, exact, human-reviewable output
-  - RS-TST-29 [M] Review snapshot diffs; never `--accept` reflexively
-  - RS-TST-30 [M] Normalize timestamps, paths, hashes, and map order before snapshotting
-  - RS-TST-31 [M] Test a CLI binary end to end, including its exit code
-  - RS-TST-32 [S] Build benchmarks in CI even when you do not time them
+  - RS-TEST-23 [S] Use property testing where a law holds over a domain
+  - RS-TEST-24 [S] Reach for differential testing first for parsers, matchers, and codecs
+  - RS-TEST-25 [M] Treat the shrunk counterexample as the deliverable
+  - RS-TEST-26 [M!] Fuzz anything that parses untrusted input
+  - RS-TEST-27 [S] Run fuzz targets briefly per PR and long on a schedule
+  - RS-TEST-28 [S] Use snapshot testing for large, exact, human-reviewable output
+  - RS-TEST-29 [M] Review snapshot diffs; never `--accept` reflexively
+  - RS-TEST-30 [M] Normalize timestamps, paths, hashes, and map order before snapshotting
+  - RS-TEST-31 [M] Test a CLI binary end to end, including its exit code
+  - RS-TEST-32 [S] Build benchmarks in CI even when you do not time them
 
 - **Doc tests, CI, and hygiene**
-  - RS-TST-33 [M] Make every public item's example a passing doc test
-  - RS-TST-34 [M] Prefer `?` to `unwrap()` in doc tests
-  - RS-TST-35 [M] Use `no_run` for examples that must not execute, and `ignore` almost never
-  - RS-TST-36 [S] Use `compile_fail` doc tests to prove misuse is rejected
-  - RS-TST-37 [M] Run the whole feature matrix in CI
-  - RS-TST-38 [M!] Run Miri for `unsafe`, and `loom` or TSan for concurrency
-  - RS-TST-39 [M] Treat a flaky test as a bug of the same severity as the code
-  - RS-TST-40 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
-  - RS-TST-41 [S] Measure coverage to find untested branches, not to hit a number
-  - RS-TST-42 [S] Delete tests that no longer test anything
+  - RS-TEST-33 [M] Make every public item's example a passing doc test
+  - RS-TEST-34 [M] Prefer `?` to `unwrap()` in doc tests
+  - RS-TEST-35 [M] Use `no_run` for examples that must not execute, and `ignore` almost never
+  - RS-TEST-36 [S] Use `compile_fail` doc tests to prove misuse is rejected
+  - RS-TEST-37 [M] Run the whole feature matrix in CI
+  - RS-TEST-38 [M!] Run Miri for `unsafe`, and `loom` or TSan for concurrency
+  - RS-TEST-39 [M] Treat a flaky test as a bug of the same severity as the code
+  - RS-TEST-40 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
+  - RS-TEST-41 [S] Measure coverage to find untested branches, not to hit a number
+  - RS-TEST-42 [S] Delete tests that no longer test anything
 
 ---
 
 ## Organization
 
-### RS-TST-01 [M] Keep all three layers: unit, integration, and doc tests
+### RS-TEST-01 [M] Keep all three layers: unit, integration, and doc tests
 
 Unit tests verify internals; integration tests verify the public contract; doc tests verify that the
 documentation is true. Each layer catches what the others cannot, and a healthy crate has all three.
@@ -71,7 +71,7 @@ stopped being true. Dropping a layer removes a whole class of detection, not jus
 **Check:** does the crate have `#[cfg(test)]` modules, a `tests/` directory, and examples in its doc
 comments? A missing layer is a finding.
 
-### RS-TST-02 [M] Test behaviour, not implementation
+### RS-TEST-02 [M] Test behaviour, not implementation
 
 Test behaviour, not implementation. A test that breaks when you rename a private helper, without any
 change in observable behaviour, is a tax on refactoring rather than a safety net.
@@ -102,7 +102,7 @@ mod tests {
 }
 ```
 
-### RS-TST-03 [M] Assert one concept per test
+### RS-TEST-03 [M] Assert one concept per test
 
 One assertion concept per test. A test named `rejects_empty_pattern` should fail for exactly one
 reason; a test that exercises seven behaviours tells you only that something is wrong.
@@ -138,7 +138,7 @@ mod tests {
 }
 ```
 
-### RS-TST-04 [M] Put unit tests in `#[cfg(test)] mod tests` at the bottom of the file
+### RS-TEST-04 [M] Put unit tests in `#[cfg(test)] mod tests` at the bottom of the file
 
 Unit tests live in `#[cfg(test)] mod tests` at the bottom of the file they test, with `use
 super::*;`. Proximity is what keeps them updated, and they can reach private items.
@@ -167,7 +167,7 @@ mod tests {
 }
 ```
 
-### RS-TST-05 [M] Put integration tests in `tests/`, one crate per file
+### RS-TEST-05 [M] Put integration tests in `tests/`, one crate per file
 
 Integration tests live in `tests/`, each file a separate crate that links your library as an
 external user would. This is the only place that proves your public API is actually usable.
@@ -178,11 +178,11 @@ missing `pub`, an un-exported type, or a trait that is not in scope shows up her
 **Check:** is there at least one test in `tests/` exercising the primary use case exactly as the
 README shows it?
 
-### RS-TST-06 [M] Let integration tests use only the public API
+### RS-TEST-06 [M] Let integration tests use only the public API
 
 Integration tests may use only the public API. If a test needs a private item, either the item
 should be public, or the test belongs in the unit layer — never add `pub` purely to satisfy `tests/`
-(`RS-STR-18`).
+(`RS-MOD-18`).
 
 **Why:** widening visibility for a test permanently enlarges the API you must support, in exchange
 for a test that could have lived one directory away. The forced choice is the useful part: it makes
@@ -191,7 +191,7 @@ you decide whether the item is genuinely part of the contract.
 **Check:** grep for `pub` items with a comment mentioning tests, or `#[doc(hidden)] pub`. Each is
 probably a unit test in the wrong place.
 
-### RS-TST-07 [M] Share integration helpers through `#[path]`, not a `mod.rs`
+### RS-TEST-07 [M] Share integration helpers through `#[path]`, not a `mod.rs`
 
 Put helpers in a subdirectory of `tests/` and pull them in with `#[path = "support/helpers.rs"]
 mod helpers;`, or promote them to a `testutil` workspace crate once several suites need them.
@@ -199,17 +199,17 @@ mod helpers;`, or promote them to a `testutil` workspace crate once several suit
 **Why:** Cargo compiles every *top-level* file in `tests/` as its own test binary, so
 `tests/helpers.rs` becomes a test crate with no tests — a wasted link and a `running 0 tests` line.
 A subdirectory escapes that, and `#[path]` reaches into it without the `mod.rs` filename this
-standard rejects everywhere else (`references/structure.md` RS-STR-06). The `testutil` crate is the
+standard rejects everywhere else (`references/modules.md` RS-MOD-06). The `testutil` crate is the
 better answer once the helpers have their own dependencies or their own tests.
 
 **Check:** `ls tests/*.rs` — every file listed must contain at least one `#[test]`. Helper-only
 files belong in a subdirectory reached by `#[path]`.
 
-### RS-TST-08 [M] Name tests as sentences about behaviour
+### RS-TEST-08 [M] Name tests as sentences about behaviour
 
 Name tests as sentences about behaviour: `returns_none_for_empty_input`,
 `preserves_order_of_equal_keys`, `errors_when_depth_exceeds_limit`. Do not prefix with `test_`, and
-do not number them (`RS-NAM-36`).
+do not number them (`RS-NAME-36`).
 
 **Why:** the name is what you read in the failure output, often months later and without context. A
 name that states the expected behaviour turns a failure line into a diagnosis; `test_parse_2` turns
@@ -241,7 +241,7 @@ mod tests {
 }
 ```
 
-### RS-TST-09 [S] Group related tests in nested `mod` blocks
+### RS-TEST-09 [S] Group related tests in nested `mod` blocks
 
 Group related tests in nested `mod` blocks inside the tests module (`mod parsing { … }`,
 `mod rendering { … }`) so `cargo test parsing` selects a coherent subset.
@@ -252,7 +252,7 @@ are working in. It also gives the suite a visible structure once it passes a few
 **Check:** does `cargo test <area>` select something meaningful? If every name has to be typed in
 full, there is no grouping.
 
-### RS-TST-10 [S] Keep fixtures small; generate large corpora from a seed
+### RS-TEST-10 [S] Keep fixtures small; generate large corpora from a seed
 
 Keep test fixtures small and checked in; generate large corpora deterministically from a seed rather
 than committing megabytes. A fixture nobody can regenerate is a fixture nobody will update.
@@ -265,13 +265,13 @@ the format changes.
 
 ## Writing good tests
 
-### RS-TST-11 [S] Arrange, act, assert — visibly
+### RS-TEST-11 [S] Arrange, act, assert — visibly
 
 Arrange, act, assert — visibly. A blank line between the three phases makes a test skimmable, and
 makes it obvious when a "test" is actually three tests.
 
 **Why:** the structure is already there; the blank lines just make it legible. The diagnostic
-benefit is that a test with three "act" phases becomes visually obvious, which is `RS-TST-03`
+benefit is that a test with three "act" phases becomes visually obvious, which is `RS-TEST-03`
 enforced by layout.
 
 **Check:** can you find the single line under test at a glance? If the act step is buried in setup,
@@ -306,7 +306,7 @@ mod tests {
 }
 ```
 
-### RS-TST-12 [M] Assert on values, not on shapes
+### RS-TEST-12 [M] Assert on values, not on shapes
 
 Assert on values, not on shapes. `assert_eq!(result, vec!["a", "b"])` beats
 `assert!(result.len() == 2 && result[0] == "a")`: the failure message shows both sides.
@@ -337,7 +337,7 @@ mod tests {
 }
 ```
 
-### RS-TST-13 [S] Give assertions context when the values are not self-explanatory
+### RS-TEST-13 [S] Give assertions context when the values are not self-explanatory
 
 Give assertions context when the values are not self-explanatory: `assert_eq!(got, want, "pattern
 {pattern:?} over input {input:?}")`. A bare `assert!(x)` failure tells you nothing.
@@ -368,7 +368,7 @@ mod tests {
 }
 ```
 
-### RS-TST-14 [M] Match on the error variant, not its `Display` string
+### RS-TEST-14 [M] Match on the error variant, not its `Display` string
 
 Test the error path as carefully as the success path. Match on the error variant, not on its
 `Display` string — the string is allowed to change, the variant is the contract.
@@ -409,7 +409,7 @@ mod tests {
 }
 ```
 
-### RS-TST-15 [M] Test the boundaries, because they are enumerable
+### RS-TEST-15 [M] Test the boundaries, because they are enumerable
 
 Test boundaries: empty input, a single element, the exact capacity, one past the limit, maximum
 values, invalid UTF-8 if bytes are accepted. Bugs live at the edges, and edges are enumerable.
@@ -442,14 +442,14 @@ mod tests {
 }
 ```
 
-### RS-TST-16 [S] Use table-driven tests for families of similar cases
+### RS-TEST-16 [S] Use table-driven tests for families of similar cases
 
 Use table-driven tests for families of similar cases: an array of `(input, expected)` and a loop,
 with the input echoed in the assertion message. This gets ten cases for the price of one and makes
 adding the eleventh trivial.
 
 **Why:** when adding a case costs one line, cases get added. When it costs a whole function, they do
-not — and the coverage of exactly the boundary conditions in `RS-TST-15` is what suffers.
+not — and the coverage of exactly the boundary conditions in `RS-TEST-15` is what suffers.
 
 **Check:** are there several near-identical test functions differing only in literals? They want to
 be a table.
@@ -480,7 +480,7 @@ mod tests {
 }
 ```
 
-### RS-TST-17 [M] Always give `#[should_panic]` an `expected = "…"`
+### RS-TEST-17 [M] Always give `#[should_panic]` an `expected = "…"`
 
 `#[should_panic]` is a weak assertion — it passes if *any* panic occurs, including one from a typo
 in the test setup. Always give it `expected = "…"`, and prefer testing a returned `Err` over a panic
@@ -514,7 +514,7 @@ mod tests {
 }
 ```
 
-### RS-TST-18 [M] Keep tests deterministic and order-independent
+### RS-TEST-18 [M] Keep tests deterministic and order-independent
 
 Tests must be deterministic and order-independent. `cargo test` runs them in parallel on multiple
 threads; anything relying on a shared directory, a fixed port, an environment variable, or the
@@ -548,7 +548,7 @@ mod tests {
 }
 ```
 
-### RS-TST-19 [M] Use `tempfile::TempDir`, never a fixed path
+### RS-TEST-19 [M] Use `tempfile::TempDir`, never a fixed path
 
 Use `tempfile::TempDir` for filesystem tests, never a fixed path under `/tmp` or the repository.
 Cleanup happens on drop, including on failure.
@@ -559,7 +559,7 @@ teardown code.
 
 **Check:** grep tests for `/tmp/` and for paths relative to the repository root.
 
-### RS-TST-20 [M] Do not test the standard library or your dependencies
+### RS-TEST-20 [M] Do not test the standard library or your dependencies
 
 Do not test the standard library, the compiler, or your dependencies. A test that asserts
 `Vec::push` increases length is noise in every future test run.
@@ -593,7 +593,7 @@ mod tests {
 }
 ```
 
-### RS-TST-21 [S] Test at the highest level that still gives a precise failure
+### RS-TEST-21 [S] Test at the highest level that still gives a precise failure
 
 Test at the highest level that still gives a precise failure. An end-to-end test that fails with
 "output differs" is less useful than a unit test that fails with "escaping of `\t` is wrong" — but
@@ -606,7 +606,7 @@ coverage per test without giving up diagnosis.
 **Check:** when a test fails, does the name and message tell you where to look? If it says only
 "output differs", a lower-level test is missing.
 
-### RS-TST-22 [M] Give every bug fix a regression test that failed before it
+### RS-TEST-22 [M] Give every bug fix a regression test that failed before it
 
 Every bug fix gets a regression test that fails before the fix and passes after, named for the
 behaviour, with the issue number in a comment. This is the highest-value test you will ever write.
@@ -639,7 +639,7 @@ mod tests {
 
 ## Property, fuzz, and snapshot testing
 
-### RS-TST-23 [S] Use property testing where a law holds over a domain
+### RS-TEST-23 [S] Use property testing where a law holds over a domain
 
 Use property testing (`proptest`, `quickcheck`) where a law holds over a domain: round-trips
 (`parse(render(x)) == x`), invariants (a sorted output is sorted), and equivalences (the optimized
@@ -678,7 +678,7 @@ mod tests {
 }
 ```
 
-### RS-TST-24 [S] Reach for differential testing first for parsers, matchers, and codecs
+### RS-TEST-24 [S] Reach for differential testing first for parsers, matchers, and codecs
 
 The differential-testing pattern — run a simple reference implementation and the fast one on the
 same random input and compare — is the highest-yield property test for parsers, matchers, and
@@ -689,7 +689,7 @@ slowly. The naive implementation is the specification, and any disagreement is a
 — which is a far stronger oracle than a hand-written expectation.
 
 **Check:** does the fast path have a slow reference to disagree with? If the naive version was
-deleted, the oracle went with it (`RS-UNS-10`).
+deleted, the oracle went with it (`RS-UNSAFE-10`).
 
 ```rust
 // verified
@@ -721,10 +721,10 @@ mod tests {
 }
 ```
 
-### RS-TST-25 [M] Treat the shrunk counterexample as the deliverable
+### RS-TEST-25 [M] Treat the shrunk counterexample as the deliverable
 
 Shrinking is the point of property testing: when a case fails, report the minimal input, and add it
-as a fixed regression test (`RS-TST-22`).
+as a fixed regression test (`RS-TEST-22`).
 
 **Why:** a 4KB random failing input is nearly undebuggable; the three-byte shrunk version usually
 makes the bug obvious. Pinning it as a fixed test also means the property test does not have to
@@ -733,7 +733,7 @@ rediscover it by chance.
 **Check:** for each historical property-test failure, is there now a deterministic test with the
 minimal input?
 
-### RS-TST-26 [M!] Fuzz anything that parses untrusted input
+### RS-TEST-26 [M!] Fuzz anything that parses untrusted input
 
 Fuzz anything that parses untrusted input: `cargo fuzz` with `libfuzzer`, or `afl`. Check the corpus
 into a separate repository or CI cache, and add every crash as a unit test.
@@ -748,7 +748,7 @@ retained between runs, so progress accumulates?
 *Relaxed form:* for a tool that only ever sees input you generate, a seeded property test over the
 same grammar is enough. The rule binds the moment the input crosses a trust boundary.
 
-### RS-TST-27 [S] Run fuzz targets briefly per PR and long on a schedule
+### RS-TEST-27 [S] Run fuzz targets briefly per PR and long on a schedule
 
 Run fuzz targets in CI for a bounded time on every pull request and for a long time on a schedule.
 Five minutes per PR finds the shallow bugs that would otherwise reach users.
@@ -759,7 +759,7 @@ one means regressions land and are found days later.
 
 **Check:** are both jobs configured? A fuzzing setup that only runs manually is one nobody runs.
 
-### RS-TST-28 [S] Use snapshot testing for large, exact, human-reviewable output
+### RS-TEST-28 [S] Use snapshot testing for large, exact, human-reviewable output
 
 Use snapshot testing (`insta`) for output that is large, exact, and human-reviewable: rendered
 reports, error messages, generated code, CLI help text. It makes intentional changes a one-line
@@ -771,7 +771,7 @@ diff.
 
 **Check:** is there any large output asserted with string concatenation? It wants a snapshot.
 
-### RS-TST-29 [M] Review snapshot diffs; never `--accept` reflexively
+### RS-TEST-29 [M] Review snapshot diffs; never `--accept` reflexively
 
 Review snapshot diffs; do not accept them reflexively. `cargo insta review` exists because
 `--accept` on every change turns the snapshot suite into a change log rather than a test.
@@ -783,19 +783,19 @@ code happened to produce.
 **Check:** does CI run with `--check` so unreviewed snapshots fail? A pipeline that accepts
 automatically has no snapshot testing.
 
-### RS-TST-30 [M] Normalize timestamps, paths, hashes, and map order before snapshotting
+### RS-TEST-30 [M] Normalize timestamps, paths, hashes, and map order before snapshotting
 
 Do not snapshot anything containing timestamps, paths, hashes, or iteration order of a `HashMap`.
 Normalize those first, or the suite becomes a flake generator.
 
 **Why:** each of these varies between runs and machines for reasons unrelated to correctness. A
 snapshot containing them fails constantly, and the team learns to accept diffs without reading them
-— which destroys `RS-TST-29`.
+— which destroys `RS-TEST-29`.
 
 **Check:** grep snapshots for absolute paths, dates, and hex digests. Each needs a redaction or a
 sort.
 
-### RS-TST-31 [M] Test a CLI binary end to end, including its exit code
+### RS-TEST-31 [M] Test a CLI binary end to end, including its exit code
 
 For CLI tools, test the binary end to end: run it with arguments in a temporary directory and assert
 on stdout, stderr, and the exit code (`assert_cmd`, `trycmd`, or a hand-rolled harness as ripgrep
@@ -808,10 +808,10 @@ especially expensive.
 **Check:** does any test assert on the exit code? Asserting only on stdout misses half the contract
 (`RS-CLI-38`).
 
-### RS-TST-32 [S] Build benchmarks in CI even when you do not time them
+### RS-TEST-32 [S] Build benchmarks in CI even when you do not time them
 
 Benchmarks are not tests, but a benchmark that fails to compile is still a broken build — build them
-in CI even if you do not run them for timing (`RS-PRF-44`).
+in CI even if you do not run them for timing (`RS-PERF-44`).
 
 **Why:** benchmarks are excluded from a default `cargo test`, so they rot silently until the day you
 need to measure something and first have to fix the harness. Compiling them is nearly free.
@@ -820,7 +820,7 @@ need to measure something and first have to fix the harness. Compiling them is n
 
 ## Doc tests, CI, and hygiene
 
-### RS-TST-33 [M] Make every public item's example a passing doc test
+### RS-TEST-33 [M] Make every public item's example a passing doc test
 
 Every public item's example is a doc test, and it must compile and pass. This is the cheapest
 guarantee that the documentation is not lying (`RS-DOC-08`).
@@ -831,7 +831,7 @@ example.
 
 **Check:** `cargo test --doc` passes and its count is close to the number of public items.
 
-### RS-TST-34 [M] Prefer `?` to `unwrap()` in doc tests
+### RS-TEST-34 [M] Prefer `?` to `unwrap()` in doc tests
 
 Prefer `?` in doc tests over `unwrap()`, using the `# fn main() -> Result<(), Box<dyn Error>> {`
 hidden-line trick, so examples model the error handling you want users to copy.
@@ -842,7 +842,7 @@ production code.
 
 **Check:** grep doc comments for `unwrap()`. Each needs the hidden `main` and a `?`.
 
-### RS-TST-35 [M] Use `no_run` for examples that must not execute, and `ignore` almost never
+### RS-TEST-35 [M] Use `no_run` for examples that must not execute, and `ignore` almost never
 
 Use `no_run` for examples that must compile but should not execute (network calls, long
 computations), and `ignore` almost never — an `ignore`d example is unverified documentation. Explain
@@ -855,7 +855,7 @@ difference between verified and decorative.
 **Check:** grep doc comments for fenced blocks tagged `ignore`. Each needs a justification, and most
 should be `no_run`.
 
-### RS-TST-36 [S] Use `compile_fail` doc tests to prove misuse is rejected
+### RS-TEST-36 [S] Use `compile_fail` doc tests to prove misuse is rejected
 
 Use `compile_fail` doc tests to prove that misuse is rejected: a typestate that forbids
 write-before-connect, a sealed trait, a lifetime that must not escape.
@@ -867,10 +867,11 @@ is accidentally relaxed.
 **Check:** for each "this must not compile" claim in the docs, is there a test? Unpinned claims
 drift.
 
-### RS-TST-37 [M] Run the whole feature matrix in CI
+### RS-TEST-37 [M] Run the whole feature matrix in CI
 
 Run the whole matrix in CI: default features, `--all-features`, and `--no-default-features`. A
-feature-gated `cfg` that nobody compiles is a feature-gated `cfg` that does not build (`RS-CAR-20`).
+feature-gated `cfg` that nobody compiles is a feature-gated `cfg` that does not build
+(`RS-BUILD-20`).
 
 **Why:** feature combinations are compiled independently, so code behind a rarely-used flag is never
 type-checked by a default build. The failure surfaces for the one user who enabled it.
@@ -878,10 +879,10 @@ type-checked by a default build. The failure surfaces for the one user who enabl
 **Check:** does the pipeline build all three configurations? `--all-features` alone hides the
 `--no-default-features` breakage.
 
-### RS-TST-38 [M!] Run Miri for `unsafe`, and `loom` or TSan for concurrency
+### RS-TEST-38 [M!] Run Miri for `unsafe`, and `loom` or TSan for concurrency
 
 Run tests under Miri for any crate containing `unsafe`, and under ThreadSanitizer or `loom` for
-concurrent data structures (`RS-UNS-30`, `RS-CNC-45`).
+concurrent data structures (`RS-UNSAFE-30`, `RS-CONC-45`).
 
 **Why:** ordinary tests observe one compilation on one machine, and both UB and races are invisible
 under that observation. These tools change what is being checked rather than adding more cases.
@@ -892,7 +893,7 @@ Miri job has an unverified soundness claim.
 *Relaxed form:* run them before each release rather than on every push. For a crate with no `unsafe`
 and no hand-rolled synchronization, the rule is vacuous.
 
-### RS-TST-39 [M] Treat a flaky test as a bug of the same severity as the code
+### RS-TEST-39 [M] Treat a flaky test as a bug of the same severity as the code
 
 Treat a flaky test as a bug of the same severity as the code it tests. Quarantining is a temporary
 measure with an owner and a deadline, not a resolution.
@@ -903,7 +904,7 @@ is the bug rather than a property of the test.
 
 **Check:** is there a quarantine list? Every entry needs an owner and a date, or it is permanent.
 
-### RS-TST-40 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
+### RS-TEST-40 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
 
 Keep the fast suite fast. If `cargo test` takes more than a minute or two, split the slow cases
 behind `#[ignore]` plus a nightly CI job that runs `cargo test -- --ignored`, and say so in
@@ -914,7 +915,7 @@ every failure to CI and lengthens the feedback loop enormously. Speed is a featu
 
 **Check:** time `cargo test`. Past a couple of minutes, find the slow tests and move them.
 
-### RS-TST-41 [S] Measure coverage to find untested branches, not to hit a number
+### RS-TEST-41 [S] Measure coverage to find untested branches, not to hit a number
 
 Measure coverage (`cargo llvm-cov`) to find untested branches, not to hit a number. Uncovered error
 paths are the finding that matters; a coverage target invites tests that execute code without
@@ -927,7 +928,7 @@ gaps.
 **Check:** look at the uncovered lines rather than the percentage. Uncovered `Err` arms are the list
 worth working through.
 
-### RS-TST-42 [S] Delete tests that no longer test anything
+### RS-TEST-42 [S] Delete tests that no longer test anything
 
 Delete tests that no longer test anything. A suite that everyone has learned to skim is worse than a
 smaller suite that everyone reads.
@@ -937,4 +938,4 @@ another, or cover deleted behaviour spend that budget without paying it back, an
 signal from the ones that matter.
 
 **Check:** for each test, name the change that would make it fail. If nothing plausible would,
-delete it (`RS-TST-20`).
+delete it (`RS-TEST-20`).
