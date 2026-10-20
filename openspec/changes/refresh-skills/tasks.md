@@ -206,7 +206,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 9. Harness for Bevy
 
-- [ ] 9.1 Add the library pin kind (D11). The `bevy` requirement must be exact, and it is compared
+- [x] 9.1 Add the library pin kind (D11). The `bevy` requirement must be exact, and it is compared
   against crates.io's newest stable release. Verify: `pins` reports `0.19.1` as superseded by
   `0.20.0` before 10.1, and passes after it.
 

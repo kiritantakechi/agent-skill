@@ -183,6 +183,55 @@ def _stable() -> str | None:
     return m.group(1) if m else None
 
 
+def library_pin(name: str, requirement: str | None, newest: str | None):
+    """(level, message) for a library a standard is verified against.
+
+    The requirement must be exact (`=0.20.0`): a caret requirement lets the
+    resolver pick a release the examples were never compiled against, so the
+    running version would no longer be the pinned one.
+    """
+    if requirement is None or not requirement.startswith("="):
+        yield fail, f"`{name}` must be pinned exactly (`=x.y.z`), and is `{requirement}`"
+        return
+    pinned = requirement.removeprefix("=")
+    if newest is None:
+        yield unrun, f"crates.io did not answer, so the `{name}` pin {pinned} was not compared"
+        return
+    here, there = _sort_key(pinned), _sort_key(newest)
+    if here is None or there is None:
+        yield unrun, f"`{name}` was not compared: {pinned} or {newest} is not a version this orders"
+    elif there > here:
+        yield (
+            fail,
+            (
+                f"`{name}` is pinned to {pinned} and {newest} is released — move the pin in "
+                f"`lang/rust.py` and the assets, read the migration guide, and re-run the suite"
+            ),
+        )
+
+
+def _requirement(crate, name: str) -> str | None:
+    for dep in crate.dependencies if crate else ():
+        if m := re.match(rf'{re.escape(name)} = \{{ version = "([^"]+)"', dep):
+            return m.group(1)
+    return None
+
+
+def _crates_io(name: str) -> str | None:
+    import json
+    import urllib.request
+
+    request = urllib.request.Request(
+        f"https://crates.io/api/v1/crates/{name}",
+        headers={"User-Agent": "agent-skill pins check"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.load(response)["crate"]["max_stable_version"]
+    except OSError, KeyError, ValueError:
+        return None
+
+
 @check(
     "pins",
     "a superseded pin is a finding, not a diary entry",
@@ -193,6 +242,10 @@ def pins(skill):
         yield level(message, skill.name)
     if skill.profile.crate is not None:
         for level, message in rust_pin(skill.profile.crate.rust_version, _rustc(), _stable()):
+            yield level(message, skill.name)
+    if name := skill.profile.library:
+        requirement = _requirement(skill.profile.crate, name)
+        for level, message in library_pin(name, requirement, _crates_io(name)):
             yield level(message, skill.name)
     if skill.profile.toolchain != "python":
         return

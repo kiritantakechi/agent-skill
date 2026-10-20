@@ -50,6 +50,7 @@ class BevyStyle(Profile):
     tools: tuple[str, ...] = ("rustc", "clippy", "rustdoc")
     exempt_from_structure: str | None = "converted in milestone 3 of refresh-skills"
     language: str = "Bevy"
+    library: str | None = "bevy"
     verified_as: str = "compiles as written against Bevy {pin} on Rust {rust}, edition 2024"
     strict_scope: str = "shipped and long-running"
     delta_step: str = (

@@ -129,3 +129,32 @@ def test_a_rust_pin_nothing_answered_for_is_unrun():
     from agent_skill.report import unrun
 
     assert [level for level, _ in rust_pin("1.99", None, None)] == [unrun, unrun]
+
+
+def test_a_library_pin_must_be_exact():
+    from agent_skill.checks.pins import library_pin
+    from agent_skill.report import fail
+
+    assert [level for level, _ in library_pin("bevy", "0.20", "0.20.0")] == [fail]
+
+
+def test_a_library_pin_behind_the_newest_release_fails():
+    from agent_skill.checks.pins import library_pin
+    from agent_skill.report import fail
+
+    found = list(library_pin("bevy", "=0.19.1", "0.20.0"))
+    assert [level for level, _ in found] == [fail]
+    assert "0.20.0 is released" in found[0][1]
+
+
+def test_a_current_library_pin_is_quiet():
+    from agent_skill.checks.pins import library_pin
+
+    assert list(library_pin("bevy", "=0.20.0", "0.20.0")) == []
+
+
+def test_a_library_pin_crates_io_did_not_answer_for_is_unrun():
+    from agent_skill.checks.pins import library_pin
+    from agent_skill.report import unrun
+
+    assert [level for level, _ in library_pin("bevy", "=0.20.0", None)] == [unrun]

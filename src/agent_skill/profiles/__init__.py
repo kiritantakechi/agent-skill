@@ -72,6 +72,9 @@ class Profile:
     #: release, or None when it follows upstream. Such a pin is compared with the
     #: running version only, and the toolchain moving past it is the cue to bump.
     follows_local: str | None = None
+    #: The crates.io crate `pin()` names, for a standard whose subject is a
+    #: library rather than a toolchain; None for a language standard.
+    library: str | None = None
     toolchain: str | None = None
     #: how this skill's rust blocks are compiled; required when `toolchain == "rust"`,
     #: because the dependency line and the lint table differ per skill
