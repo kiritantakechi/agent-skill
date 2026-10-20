@@ -95,6 +95,30 @@ def cmd_fmt(args) -> int:
     return 0
 
 
+def cmd_renumber(args) -> int:
+    from . import renumber
+
+    chapters = dict(pair.split("=", 1) for pair in args.chapters or [])
+    try:
+        plan = renumber.plan(REPO, args.skill, chapters)
+    except renumber.RenumberError as e:
+        print(f"renumber: {e}", file=sys.stderr)
+        print("nothing was written", file=sys.stderr)
+        return 1
+    for old, new in plan.moves.items():
+        print(f"  move    {old.relative_to(REPO)} -> {new.name}")
+    print(f"  ids     {plan.changed} of {len(plan.ids)} renumbered")
+    for path in sorted(plan.writes):
+        print(f"  write   {path.relative_to(REPO)}")
+    for line in plan.leftovers:
+        print(f"  look    {line}")
+    if args.dry_run:
+        print("dry run: nothing was written")
+        return 0
+    renumber.apply(REPO, plan)
+    return 0
+
+
 def cmd_list(args) -> int:
     for skill in discover(args.skills):
         rules = len(skill.rules)
@@ -135,6 +159,15 @@ def main(argv: list[str] | None = None) -> int:
     fmt = sub.add_parser("fmt", help="rewrite each verified example as its formatter would have it")
     fmt.add_argument("--skill", action="append", help="limit to one skill (repeatable)")
     fmt.set_defaults(func=cmd_fmt)
+    num = sub.add_parser(
+        "renumber", help="rename chapters, renumber rules densely, rewrite every citation"
+    )
+    num.add_argument("skill", help="the skill to renumber")
+    num.add_argument(
+        "--chapters", action="append", metavar="OLD=NEW", help="rename a chapter (repeatable)"
+    )
+    num.add_argument("--dry-run", action="store_true", help="show the plan and write nothing")
+    num.set_defaults(func=cmd_renumber)
     sub.add_parser("list", help="what is in this repository").set_defaults(func=cmd_list)
 
     args = parser.parse_args(argv)

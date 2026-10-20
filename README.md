@@ -6,13 +6,29 @@ agent on this machine that reads them.
 ```bash
 uv run agent-skill check          # every check
 uv run agent-skill check --fast   # skip the ones that need cargo or zig
-uv run agent-skill fmt            # rewrite each rust example as rustfmt would have it
+uv run agent-skill fmt            # rewrite examples and shared text as they are required to read
+uv run agent-skill renumber NAME  # rename chapters, renumber rules densely, rewrite every citation
 uv run agent-skill install        # symlink each skill into every agent present
 uv run agent-skill build          # package each as dist/<name>.skill
 uv run pytest                     # the same checks, as tests
 ```
 
 `ALL CHECKS PASSED` means every check ran and every one of them passed.
+
+## Renumbering is a command, never an edit
+
+Rules are numbered densely, so a renumbering reuses IDs: the old `-03` is the new
+`-02` while a different rule becomes the new `-03`. Done as a chain of
+replacements, every overlap turns into a citation of the wrong rule, and the result
+reads exactly like a correct one. `agent-skill renumber` rewrites every citation in
+`skills/`, `src/`, `tests/` and this file in one pass from one dictionary, checks
+that each old ID still reaches a rule with the same title, and writes nothing
+unless it does. It keeps the standard's `migration.md` rename table current, so a
+reader holding an old ID can look it up.
+
+What it cannot do is catch an old ID typed in by hand afterwards: under dense
+numbering that ID is now another rule's, and nothing can tell the two apart. So a
+citation is never rewritten by hand.
 
 ## Layout
 

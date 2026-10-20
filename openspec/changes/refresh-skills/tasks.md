@@ -52,13 +52,13 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 4. Harness: the renumber command
 
-- [ ] 4.1 Implement `agent-skill renumber <skill> [--chapters old=new …]` per D10. It renames files
+- [x] 4.1 Implement `agent-skill renumber <skill> [--chapters old=new …]` per D10. It renames files
   through git, re-codes families from D3, numbers densely, rewrites `skills/`, `src/`, `tests/` and
   `README.md` in a single pass from one dictionary, composes the rename table, verifies identity by
   title before and after, and writes all or nothing. Verify with tests on a fixture tree covering:
   an overlapping old/new ID, a chapter rename, composing onto an existing table, and refusal leaving
   the tree byte-identical.
-- [ ] 4.2 Document `renumber` in the README's command block. Next to it, note that a stale ID cited
+- [x] 4.2 Document `renumber` in the README's command block. Next to it, note that a stale ID cited
   by hand after a renumbering cannot be detected, so citations are never rewritten by hand.
 
 ## 5. Harness: pins

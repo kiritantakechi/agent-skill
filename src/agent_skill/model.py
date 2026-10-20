@@ -221,6 +221,20 @@ DECIDED = "Decided by tools"
 RENAMED = re.compile(r"^## Rule IDs before the .+ revision$", re.M)
 
 
+def without_renames(text: str) -> str:
+    """`text` with every rename table blanked, line count kept.
+
+    A rename table lists IDs that no longer exist, on purpose: they are what a
+    reader holding an old citation looks up. Read as citations they are dangling.
+    """
+
+    def blank(m: re.Match[str]) -> str:
+        return "\n" * m.group(0).count("\n")
+
+    table = r"^## Rule IDs before the .+ revision$.*?(?=^## |\Z)"
+    return re.sub(table, blank, text, flags=re.M | re.S)
+
+
 def _rows(text: str, start: int) -> list[tuple[int, list[str]]]:
     """(line number, cells) for each body row of the first table after `start`."""
     out: list[tuple[int, list[str]]] = []

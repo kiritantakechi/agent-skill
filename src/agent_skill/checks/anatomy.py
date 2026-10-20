@@ -6,6 +6,7 @@ import itertools
 import re
 from collections import Counter, defaultdict
 
+from ..model import without_renames
 from ..report import fail, note
 from . import check
 
@@ -202,7 +203,8 @@ def _references(skill, seen):
     defined = set(seen) | {rid for rid, _, _ in skill.core_rules}
     cited: set[str] = set()
     for path in skill.markdown:
-        cited |= set(re.findall(rf"\b({pre}-[A-Z]+-\d+[a-z]?)\b", path.read_text()))
+        text = without_renames(path.read_text())
+        cited |= set(re.findall(rf"\b({pre}-[A-Z]+-\d+[a-z]?)\b", text))
     for rid in sorted(cited - defined):
         yield fail(f"dangling reference {rid}", skill.name)
 
