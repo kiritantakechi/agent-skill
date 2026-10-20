@@ -266,7 +266,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 - [ ] 12.1 Rename tables list only changed IDs and state each family's range before the revision
   (D13). This covers `renumber`, the model, the skeleton check, and the three existing tables.
   Verify: `tests/test_renumber.py` covers the ranges and composing against them, and `--fast` passes.
-- [ ] 12.2 Move `reflow` to `text.py` and have `agent-skill fmt` apply it to a skill's markdown
+- [x] 12.2 Move `reflow` to `text.py` and have `agent-skill fmt` apply it to a skill's markdown
   (D14). Verify: a test in `test_fmt.py` fixes a prose line pushed past the limit.
 - [ ] 12.3 Add `agent-skill demote <skill> <plan.json>` (D14), with tests for rows, `lint`, `merge`
   and `remove`. Verify: `tests/test_demote.py`.

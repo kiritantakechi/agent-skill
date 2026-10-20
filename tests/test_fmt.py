@@ -108,3 +108,12 @@ def test_text_outside_a_free_region_is_left_for_a_person(tmp_path):
     before = stray.skill_md.read_text()
     assert any("not rewritten" in line for line in shared.rewrite(stray))
     assert stray.skill_md.read_text() == before
+
+
+def test_fmt_brings_a_prose_line_back_under_the_limit(tmp_path):
+    demo = build(tmp_path)
+    long_line = "Subtract. " + "word " * 25 + "end."
+    drifted = edit(demo, "SKILL.md", "Subtract.", long_line)
+    assert format_skill(drifted)
+    prose = [ln for ln in drifted.skill_md.read_text().split("\n") if not ln.startswith("|")]
+    assert all(len(line) <= 100 for line in prose)

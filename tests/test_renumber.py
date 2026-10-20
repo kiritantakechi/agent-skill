@@ -7,6 +7,7 @@ from structure_fixture import RULE, Demo
 
 from agent_skill import renumber
 from agent_skill.model import Skill
+from agent_skill.text import reflow
 
 
 def chapter(title: str, rules: list[tuple[str, str]], extra: str = "") -> str:
@@ -132,7 +133,7 @@ def test_an_unknown_id_is_reported_and_left_alone(repo):
 
 def test_reflow_pushes_overflow_into_the_next_line():
     text = ("word " * 19 + "end-of-the-line-word").rstrip() + "\nnext line of the same paragraph.\n"
-    out = renumber.reflow(text, width=100)
+    out = reflow(text, width=100)
     lines = out.split("\n")
     assert all(len(ln) <= 100 for ln in lines)
     assert lines[1].startswith("end-of-the-line-word next line")
@@ -142,7 +143,7 @@ def test_reflow_pushes_overflow_into_the_next_line():
 def test_reflow_keeps_a_list_items_hanging_indent_and_leaves_code_alone():
     item = "1. **Read.** " + "word " * 19 + "tail"
     code = "```\n" + "x" * 120 + "\n```"
-    out = renumber.reflow(f"{item}\n\n{code}\n", width=100)
+    out = reflow(f"{item}\n\n{code}\n", width=100)
     assert "\n   word word tail" in out
     assert "x" * 120 in out
 
@@ -150,7 +151,7 @@ def test_reflow_keeps_a_list_items_hanging_indent_and_leaves_code_alone():
 def test_reflow_does_not_join_a_new_list_item_or_a_why():
     para = "word " * 20 + "tail"
     for nxt in ("- a list item", "2. next", "**Why:** because"):
-        out = renumber.reflow(f"{para}\n{nxt}\n", width=100)
+        out = reflow(f"{para}\n{nxt}\n", width=100)
         assert f"\ntail\n{nxt}" in out
 
 
@@ -169,10 +170,10 @@ def test_the_counts_skill_md_states_follow_the_rules(repo):
 
 def test_reflow_leaves_a_contents_line_whole():
     line = "  - RS-TRAIT-17 [S] " + "word " * 18 + "type"
-    assert renumber.reflow(line + "\n", width=100) == line + "\n"
+    assert reflow(line + "\n", width=100) == line + "\n"
 
 
 def test_reflow_never_breaks_inside_a_code_span():
     line = "**Check:** " + "word " * 10 + "`rg -n '^(alpha|beta|gamma|delta) *=' Cargo.toml` tail"
-    out = renumber.reflow(line + "\n", width=100)
+    out = reflow(line + "\n", width=100)
     assert "`rg -n '^(alpha|beta|gamma|delta) *=' Cargo.toml`" in out

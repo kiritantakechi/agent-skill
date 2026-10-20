@@ -18,6 +18,7 @@ from pathlib import Path
 from . import shared
 from .lang.rust import RUST, Crate, module_name
 from .proc import run
+from .text import reflow
 
 #: The line the extractor injects into every block module.
 INJECTED = "#![allow(dead_code, unused_imports)]"
@@ -71,9 +72,27 @@ def format_skill(skill) -> list[str]:
     Returns one line per passage or chapter changed. The shared passages come
     first: they are text, and need no toolchain to rewrite.
     """
-    changed = [] if skill.profile.exempt_from_structure is not None else shared.rewrite(skill)
+    if skill.profile.exempt_from_structure is not None:
+        changed: list[str] = []
+    else:
+        changed = shared.rewrite(skill) + _reflow(skill)
     formatter = FORMATTERS.get(skill.profile.toolchain or "")
     return changed + (formatter(skill) if formatter else [])
+
+
+def _reflow(skill) -> list[str]:
+    """Bring every prose line of the skill back under the `layout` limit.
+
+    A renaming lengthens a code inside a sentence, and an edit lengthens a line; either way the
+    finding is a formatting one, and `fmt` is where formatting findings are fixed.
+    """
+    changed: list[str] = []
+    for path in skill.markdown:
+        text = path.read_text()
+        if (reflowed := reflow(text)) != text:
+            path.write_text(reflowed)
+            changed.append(f"{path.name}: prose reflowed to the line limit")
+    return changed
 
 
 def _format_rust(skill) -> list[str]:
