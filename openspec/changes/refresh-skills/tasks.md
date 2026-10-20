@@ -256,10 +256,10 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 - [x] 11.1 Update the README layout for the renamed chapters. Confirm that `zig-style` is the only
   exempt skill, and that its exemption and local-following pin carry their reasons. Verify:
   `--only documented --only skeleton` passes.
-- [ ] 11.2 Run `uv run agent-skill build` and `uv run agent-skill install`. Confirm that each
+- [x] 11.2 Run `uv run agent-skill build` and `uv run agent-skill install`. Confirm that each
   installed skill resolves to `skills/<name>`. Verify: `ls -l ~/.claude/skills/` shows the
   symlinks, and `dist/*.skill` rebuilds.
-- [ ] 11.3 Verify: `openspec validate refresh-skills --strict` passes.
+- [x] 11.3 Verify: `openspec validate refresh-skills --strict` passes.
 
 ## Workflow follow-up
 
