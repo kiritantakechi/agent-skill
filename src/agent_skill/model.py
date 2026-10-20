@@ -168,6 +168,83 @@ class Rule:
         return m.group(1) if m else ""
 
 
+@dataclass(frozen=True, slots=True)
+class LintRow:
+    """One row of a chapter's `Decided by tools` table: a claim a tool settles alone."""
+
+    tool: str
+    lint: str
+    level: str
+    forbids: str
+    file: str
+    line: int
+
+    @property
+    def where(self) -> str:
+        return f"{self.file}:{self.line}"
+
+
+@dataclass(frozen=True, slots=True)
+class Rename:
+    """One row of a rename table: an old ID and what it became.
+
+    `now` is a rule ID, `lint <tool>:<name>` for a rule demoted to a lint-table
+    row, or `removed — <reason>`.
+    """
+
+    before: str
+    now: str
+    line: int
+
+    @property
+    def lint(self) -> tuple[str, str] | None:
+        m = re.fullmatch(r"lint `([a-z]+):([^`]+)`", self.now)
+        return (m.group(1), m.group(2)) if m else None
+
+    @property
+    def removed(self) -> str | None:
+        """The reason, for a rule removed outright; None for anything else."""
+        m = re.fullmatch(r"removed —\s*(.*)", self.now)
+        return m.group(1).strip() if m else None
+
+    @property
+    def target(self) -> str:
+        """The new ID, for a rule that was renumbered or merged; "" otherwise."""
+        m = re.fullmatch(r"`([A-Z]{2}-[A-Z]+-\d+)`", self.now)
+        return m.group(1) if m else ""
+
+
+#: The section a chapter lists its tool-decided claims under.
+DECIDED = "Decided by tools"
+
+#: The section a migration chapter keeps a renumbering's rename table under.
+RENAMED = re.compile(r"^## Rule IDs before the .+ revision$", re.M)
+
+
+def _rows(text: str, start: int) -> list[tuple[int, list[str]]]:
+    """(line number, cells) for each body row of the first table after `start`."""
+    out: list[tuple[int, list[str]]] = []
+    lines = text.split("\n")
+    first = text[:start].count("\n")
+    seen_header = False
+    for i in range(first, len(lines)):
+        line = lines[i]
+        if line.startswith("## ") and i > first:
+            break
+        if not line.startswith("|"):
+            if seen_header and out:
+                break
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if not seen_header:
+            seen_header = True
+            continue
+        if set("".join(cells)) <= set("-: "):
+            continue
+        out.append((i + 1, cells))
+    return out
+
+
 def _section(body: str, name: str) -> str:
     m = re.search(rf"\*\*{name}:?\*\*(.*?)(?=\n\*\*|\n### |\n## |\n```|\Z)", body, re.S)
     return m.group(1) if m else ""
@@ -223,6 +300,28 @@ class Chapter:
                 rf"^\s*- ({self.prefix}-[A-Z]+-\d+[a-z]?) \[(M!|M|S)\] (.+)$", head, re.M
             )
         }
+
+    @cached_property
+    def lint_rows(self) -> list[LintRow]:
+        """The `Decided by tools` table: `| Tool | Lint | Level | Forbids |`."""
+        m = re.search(rf"^## {DECIDED}$", self.text, re.M)
+        if not m:
+            return []
+        return [
+            LintRow(cells[0], cells[1].strip("`"), cells[2], cells[3], self.name, line)
+            for line, cells in _rows(self.text, m.start())
+            if len(cells) == 4
+        ]
+
+    @cached_property
+    def renames(self) -> list[Rename]:
+        """Every row of every rename table this chapter carries: `| Before | Now |`."""
+        out: list[Rename] = []
+        for m in RENAMED.finditer(self.text):
+            for line, cells in _rows(self.text, m.start()):
+                if len(cells) == 2:
+                    out.append(Rename(cells[0].strip("`"), cells[1], line))
+        return out
 
     def blocks(self, lang: str) -> list[Block]:
         out: list[Block] = []
@@ -284,6 +383,14 @@ class Skill:
     @cached_property
     def rules(self) -> list[Rule]:
         return [r for c in self.chapters for r in c.rules]
+
+    @cached_property
+    def lint_rows(self) -> list[LintRow]:
+        return [row for c in self.chapters for row in c.lint_rows]
+
+    @cached_property
+    def renames(self) -> list[Rename]:
+        return [r for c in self.chapters for r in c.renames]
 
     @cached_property
     def by_id(self) -> dict[str, Rule]:

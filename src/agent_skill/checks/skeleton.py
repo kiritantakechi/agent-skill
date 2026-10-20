@@ -59,6 +59,31 @@ def shape(skill):
     yield from _skill_md(skill)
     yield from _chapters(skill)
     yield from _review(skill)
+    yield from _renames(skill)
+
+
+def _renames(skill):
+    """Every row of a rename table leads somewhere a reader can follow."""
+    rows = {(row.tool, row.lint) for row in skill.lint_rows}
+    ids = set(skill.by_id) | {rid for rid, _, _ in skill.core_rules}
+    where = f"{skill.name}/references/migration.md"
+    for r in skill.renames:
+        if r.target:
+            if r.target not in ids:
+                yield f"{r.before} is renamed to {r.target}, which no rule carries", where
+        elif lint := r.lint:
+            if lint not in rows:
+                named = f"`{lint[0]}:{lint[1]}`"
+                yield f"{r.before} became the lint {named}, which no chapter lists", where
+        elif r.removed is not None:
+            if not r.removed:
+                yield f"{r.before} was removed and the table gives no reason", where
+        else:
+            yield (
+                f"{r.before} became `{r.now}`; a rename is a rule ID, "
+                f"lint `tool:name`, or removed — reason",
+                where,
+            )
 
 
 def _skill_md(skill):

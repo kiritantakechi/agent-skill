@@ -38,15 +38,15 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 3. Harness: rule anatomy, lint rows, rename table
 
-- [ ] 3.1 Make `anatomy` require dense numbering with no letter suffix, and a **Why** of at most
+- [x] 3.1 Make `anatomy` require dense numbering with no letter suffix, and a **Why** of at most
   three non-blank lines (D7), for skills that are not exempt. Verify with a unit test for a gap, a
   suffix, and a four-line Why.
-- [ ] 3.2 Parse `## Decided by tools` rows into `Chapter.lint_rows` (D6), keep them out of the rule
+- [x] 3.2 Parse `## Decided by tools` rows into `Chapter.lint_rows` (D6), keep them out of the rule
   set, and accept a `- Decided by tools (N)` contents line. Verify in `tests/test_model.py`.
-- [ ] 3.3 Extend `citations` so that ruff and ty rows are verified against the catalogue and the
+- [x] 3.3 Extend `citations` so that ruff and ty rows are verified against the catalogue and the
   shipped asset at the stated level (D6). Verify with a unit test whose row's level differs from
   the fixture's `ruff.toml` or `ty.toml`.
-- [ ] 3.4 Parse the `## Rule IDs before the <target> revision` table in `migration.md`, and make
+- [x] 3.4 Parse the `## Rule IDs before the <target> revision` table in `migration.md`, and make
   `skeleton` fail any `Now` value that resolves to no rule and no lint row. Verify with a unit test
   in which a rule is deleted while its row still names it.
 

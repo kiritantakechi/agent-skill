@@ -65,6 +65,18 @@ def _enabled(config: Path) -> tuple[set[str], str]:
     return codes, ""
 
 
+def _ty_levels(ty_toml: Path) -> dict[str, str] | None:
+    """Every rule the pinned ty knows, at the level the shipped asset leaves it."""
+    import json
+
+    r = run(["ty", "explain", "rule", "--output-format", "json"], timeout=120)
+    if not r.ok or not r.out:
+        return None
+    shipped = tomllib.loads(ty_toml.read_text()).get("rules", {})
+    rules = json.loads(r.out)
+    return {rule["name"]: shipped.get(rule["name"], rule["default_level"]) for rule in rules}
+
+
 def _withdrawn() -> set[str]:
     """Codes ruff has removed. Selecting one is a hard failure, not a warning."""
     r = run(["ruff", "rule", "--all", "--output-format", "json"], timeout=120)
@@ -75,8 +87,50 @@ def _withdrawn() -> set[str]:
     return {rule["code"] for rule in json.loads(r.out) if "Removed" in str(rule.get("status", ""))}
 
 
+#: The levels a `Decided by tools` row may state, per tool: the ones at which the
+#: tool fails a run. A row at a level that lets the run pass is a lint nothing
+#: enforces, which is a rule with its Why and Check deleted.
+LEVELS: dict[str, frozenset[str]] = {
+    "ruff": frozenset({"error"}),
+    "ty": frozenset({"error", "warn"}),
+    "rustc": frozenset({"warn", "deny", "forbid"}),
+    "clippy": frozenset({"warn", "deny", "forbid"}),
+    "rustdoc": frozenset({"warn", "deny", "forbid"}),
+}
+
+
+def row_shape(rows, tools: tuple[str, ...]):
+    """(row, message) for rows naming a tool the standard does not require, or a level
+    at which the tool would let the run pass."""
+    for row in rows:
+        if row.tool not in tools or row.tool not in LEVELS:
+            yield row, f"`{row.tool}` is not a tool this standard requires"
+        elif row.level not in LEVELS[row.tool]:
+            levels = " / ".join(sorted(LEVELS[row.tool]))
+            yield row, f"`{row.lint}` at `{row.level}` fails no run; a row is one of {levels}"
+
+
+def python_rows(rows, enabled: set[str], ty_levels: dict[str, str]):
+    """(row, message) for python rows the shipped configuration does not enforce as stated.
+
+    `ty_levels` is every rule ty knows, at the level the asset leaves it — its own
+    entry, or the default.
+    """
+    for row in rows:
+        if row.tool == "ruff" and row.lint not in enabled:
+            yield row, f"`{row.lint}` is a row, and `assets/ruff.toml` does not enable it"
+        elif row.tool == "ty":
+            level = ty_levels.get(row.lint)
+            if level is None:
+                yield row, f"`{row.lint}` is not a rule the pinned ty recognises"
+            elif level != row.level:
+                yield row, f"`{row.lint}` is `{row.level}` in the row and `{level}` as shipped"
+
+
 @check("citations", "a cited check must be one the shipped config enables", needs=("ruff", "ty"))
 def citations(skill):
+    for row, message in row_shape(skill.lint_rows, skill.profile.tools):
+        yield fail(message, f"{skill.name}/{row.where}")
     if skill.profile.toolchain != "python":
         return
     assets = skill.root / "assets"
@@ -96,6 +150,12 @@ def citations(skill):
     if problem:
         yield unrun(f"could not read the enabled set: {problem}", skill.name)
     else:
+        ty_levels = _ty_levels(ty_toml)
+        if ty_levels is None:
+            yield unrun("`ty` did not list its rules, so no ty row was compared", skill.name)
+            ty_levels = {}
+        for row, message in python_rows(skill.lint_rows, enabled, ty_levels):
+            yield fail(message, f"{skill.name}/{row.where}")
         withdrawn = _withdrawn()
         for rule_id, codes in sorted(cited.items()):
             for code in sorted(codes):
