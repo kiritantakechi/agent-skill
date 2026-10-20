@@ -143,8 +143,9 @@ same order, and the same statement of which labels block a merge.
 ### Requirement: Rule IDs are dense, and a renumbering ships its rename table
 
 Within a chapter, rule numbers SHALL run 01, 02, … with no gaps and no letter suffixes. Whenever IDs
-change, the standard's `migration.md` SHALL carry a table mapping every old ID either to its new ID,
-or to the lint-table row or removal that replaced it.
+change, the standard's `migration.md` SHALL state the range each family ran before the revision, and
+SHALL carry a table mapping every old ID that changed to its new ID, or to the lint-table row or
+removal that replaced it. An old ID in range that the table does not list is unchanged.
 
 #### Scenario: A chapter has a gap
 
@@ -157,6 +158,17 @@ or to the lint-table row or removal that replaced it.
 - **THEN** the chapter is renumbered, and the rename table records the old ID with what replaced it,
   so a citation made before the change can still be resolved
 
+#### Scenario: An ID kept its number
+
+- **WHEN** a renumbering leaves an old ID naming the same rule
+- **THEN** the table has no row for it, because a row mapping an ID to itself tells the reader
+  nothing the stated range does not
+
+#### Scenario: An unlisted ID no longer exists
+
+- **WHEN** an old ID inside a stated range has no row, and no rule carries it any more
+- **THEN** the run fails, because the table claims that ID is unchanged
+
 #### Scenario: A rename table names a rule that does not exist
 
 - **WHEN** a row of the rename table maps an old ID to a new ID that no rule carries, or to a
@@ -168,7 +180,7 @@ or to the lint-table row or removal that replaced it.
 Renumbering SHALL be performed by one operation. That operation SHALL rewrite every citation in the
 repository and write the rename table. It SHALL fail unless every citation refers to the same rule
 after the rewrite as before, comparing rules by identity rather than by ID. It SHALL also fail
-unless every ID that existed before appears in the table.
+unless every ID that existed before the revision is either still the same rule or has a row.
 
 #### Scenario: Old and new IDs overlap
 

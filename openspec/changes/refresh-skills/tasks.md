@@ -261,6 +261,53 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
   symlinks, and `dist/*.skill` rebuilds.
 - [x] 11.3 Verify: `openspec validate refresh-skills --strict` passes.
 
+## 12. Structure
+
+- [ ] 12.1 Rename tables list only changed IDs and state each family's range before the revision
+  (D13). This covers `renumber`, the model, the skeleton check, and the three existing tables.
+  Verify: `tests/test_renumber.py` covers the ranges and composing against them, and `--fast` passes.
+- [ ] 12.2 Move `reflow` to `text.py` and have `agent-skill fmt` apply it to a skill's markdown
+  (D14). Verify: a test in `test_fmt.py` fixes a prose line pushed past the limit.
+- [ ] 12.3 Add `agent-skill demote <skill> <plan.json>` (D14), with tests for rows, `lint`, `merge`
+  and `remove`. Verify: `tests/test_demote.py`.
+- [ ] 12.4 Polish: the ragged docstrings this change wrote, and `citations` asking `ty explain rule`
+  twice. Verify: `--fast` passes.
+
+## 13. Content leftovers
+
+- [ ] 13.1 bevy-style rules that cite `bevy_lint` lints say the lint cannot yet run on 0.20,
+  unless a release now supports it. Verify: `--fast`, and nothing claims a lint runs that cannot.
+- [ ] 13.2 The unconfirmed Bevy claims, checked against the 0.20.0 source and corrected:
+  - the dropped-handle claim;
+  - the `load_with_settings` "old spelling";
+  - the inferred shader-migration rows;
+  - the `set_error_handler(warn)` tests.
+
+  Verify: the Bevy `toolchain` passes alone.
+- [ ] 13.3 Merge the two near-duplicate Rust pairs (API/DOC and API/ERR), then
+  `agent-skill renumber rust-style`. Verify: `--fast` passes.
+- [ ] 13.4 Settle the explicit-`encoding=` contradiction between the python-style spec and
+  PS-OUT-01 against PEP 686 and What's New 3.15, and fix whichever is wrong. Verify:
+  `openspec validate --strict`.
+
+## 14. The harness on its own standard
+
+- [ ] 14.1 Move the repository to Python 3.15 and `uv_build` 0.13 (`.python-version`,
+  `requires-python`, the ruff target). Verify: `uv sync`, and `pytest -m "not toolchain"` passes.
+- [ ] 14.2 Make the repository's ruff configuration extend the shipped `ruff.toml`, with each
+  harness relaxation carrying its reason. Bring `src/` and `tests/` to zero findings. Verify:
+  `uv run ruff check src tests` and `uv run ruff format --check src tests` both pass.
+- [ ] 14.3 Bring `src/` and `tests/` to zero `ty` diagnostics under the shipped rules. Verify:
+  `uv run ty check src tests`.
+- [ ] 14.4 Add a test that runs both tools over the harness, as the harness-integrity requirement
+  asks. Verify: it fails when a finding is injected, and passes otherwise.
+
+## 15. Close
+
+- [ ] 15.1 One full run, alone. Verify: `ALL CHECKS PASSED`, and `openspec validate --strict`.
+- [ ] 15.2 Machine cleanup: remove `.cache/target` and uninstall the `3.15.0rc1+freethreaded`
+  interpreter. Verify: `du -sh .cache` and `uv python list --only-installed`.
+
 ## Workflow follow-up
 
 - Archive the change with `/opsx:archive` after review, which syncs `standard-structure`,

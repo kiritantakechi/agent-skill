@@ -322,6 +322,36 @@ and the rename table points the pointer's old ID at it. The research also found 
 rules say one thing. Each pair keeps one owner, and the other's ID maps to that owner. The pointer
 machinery in `anatomy` stays, because `zig-style` still uses it.
 
+### D13. A rename table lists only what changed
+
+A row mapping an ID to itself tells a reader nothing. The rename table states once, in one sentence,
+the range each family ran before the revision: `` `PS-API-01`–`PS-API-22` ``, and so on. It then
+lists only the IDs whose meaning moved. An ID inside a range without a row is unchanged, and
+`skeleton` fails if no rule carries it any more.
+
+The ranges are also what a second renumbering inside the same revision composes against. An
+original ID with no row is the rule it always was, so that run can still tell it from a rule added
+during the revision.
+
+### D14. Formatting and demotion are commands
+
+`reflow` moves to `text.py`, and `agent-skill fmt` applies it to every markdown file in a skill. A
+prose line pushed past the limit is then fixed the way every other formatting finding is.
+
+Demoting a rule to a lint row, merging it into another, or removing it becomes
+`agent-skill demote <skill> <plan.json>`. It records each disposition in the rename table. Before,
+this was a script outside the repository, and the next refresh would have had to rewrite it.
+
+### D15. The harness lives by `python-style`
+
+The repository's ruff configuration extends `skills/python-style/assets/ruff.toml` rather than
+restating it. Any harness-specific relaxation sits beside the `extend` line with its reason, for
+example `print` in `cli.py`, which is the program's output.
+
+`ty` checks `src/` and `tests/` under the shipped `ty.toml` rules. The repository moves to Python
+3.15 and `uv_build` 0.13, which is what the standard prescribes. A test in the suite runs both
+tools, so a regression fails `pytest` rather than waiting to be noticed.
+
 ## Risks / Trade-offs
 
 - **A citation rewrite corrupts an ID.** → The single-pass dictionary rewrite (D10), the

@@ -88,6 +88,9 @@ of twice.
   rather than a rule. A Why is bounded. An ID is dense within its chapter, and a renumbering ships
   its rename table instead of promising that IDs never change. The scenario "a rule restates a Ruff
   rule" changes to match.
+- `harness-integrity`: gains one requirement. The harness passes the Python configuration
+  `python-style` ships — its ruff selection, its `ty` rules, its target version. Any rule it turns
+  off is turned off in the repository's own configuration, with a reason.
 - `check-execution`: the pinned-tool requirement is extended in two ways.
   - It now covers the libraries a standard's examples are verified against, such as the Bevy crate,
     and it says outright that an unpinned language toolchain is an unfindable pin.
