@@ -32,13 +32,12 @@ is the usual justification for an allow list forty entries long that hides real 
   - BV-BUILD-14 [M] Keep `type_complexity` and `too_many_arguments` switched on
   - BV-BUILD-15 [M] Add nothing else to the allow list without measuring it
   - BV-BUILD-16 [M] Put the table in the workspace and inherit it
-  - BV-BUILD-17 [S] Run `bevy_lint`, pinned to the Bevy version
 
 - **CI**
-  - BV-BUILD-18 [M] Build the feature set you ship
-  - BV-BUILD-19 [S] Build the wasm target if the game ships to the web
-  - BV-BUILD-20 [M] Keep `assets/` out of a published package
-  - BV-BUILD-21 [S] Cache the target directory, because Bevy is most of the build
+  - BV-BUILD-17 [M] Build the feature set you ship
+  - BV-BUILD-18 [S] Build the wasm target if the game ships to the web
+  - BV-BUILD-19 [M] Keep `assets/` out of a published package
+  - BV-BUILD-20 [S] Cache the target directory, because Bevy is most of the build
 
 ---
 
@@ -129,8 +128,6 @@ satisfy a parameter expecting 0.20's, and the error shows two identical type nam
 explanation. It also doubles the compile time of the largest dependency in the project.
 
 **Check:** run `cargo tree --duplicates | grep bevy` in CI. Any output fails the build.
-`bevy_lint`'s `duplicate_bevy_dependencies` sees only the facade, and cannot run on 0.20 yet
-(BV-BUILD-17).
 
 ### BV-BUILD-06 [S] Check a plugin crate's compatibility table before adding it
 
@@ -293,26 +290,9 @@ needs something different has to say so visibly.
 **Check:** grep for `[lints.` in member manifests. Each is a member that has opted out of the shared
 table. `assets/Cargo.toml` is the table, with both relaxations and their reasons already in place.
 
-### BV-BUILD-17 [S] Run `bevy_lint`, pinned to the Bevy version
-
-`bevy_lint` catches the Bevy-specific defects that `clippy` cannot see. It runs under its own
-pinned nightly with the `rustc-dev` component — not the game's toolchain — and only in a version
-whose compatibility table names the engine's. No release supports Bevy 0.19 or 0.20: v0.6.0, the
-latest, targets 0.18, and support for both is in the open pull requests TheBevyFlock/bevy_cli #835,
-#925 and #943. The job stays in CI, disabled, until a release ships that support.
-
-**Why:** it is the only mechanical check for a dozen rules in this standard — markers in query data,
-`main` without `AppExit`, `Messages` inserted as a resource, the `*Plugin` and `*Systems`
-conventions. Each is also stated here in prose, so the standard holds without it.
-
-**Check:** does CI run `bevy lint`, and is the nightly it installs the one the linter's
-compatibility table names for this linter version? While no release supports the pinned Bevy, the
-job is present and off (`if: false` in `assets/ci.yml`). `assets/rust-toolchain.toml` is the game's
-toolchain and is deliberately not that nightly — a game built on nightly has no stability promise.
-
 ## CI
 
-### BV-BUILD-18 [M] Build the feature set you ship
+### BV-BUILD-17 [M] Build the feature set you ship
 
 If the release build uses `default-features = false` and a list, CI builds that list. Building only
 the default feature set proves nothing about the artefact.
@@ -324,7 +304,7 @@ fastest, because the compiler never sees it.
 **Check:** compare the feature list in the CI job with the one in the release manifest or workflow.
 They should be the same string; `assets/ci.yml` has the job.
 
-### BV-BUILD-19 [S] Build the wasm target if the game ships to the web
+### BV-BUILD-18 [S] Build the wasm target if the game ships to the web
 
 `cargo build --target wasm32-unknown-unknown` in CI, with the same features as the web build.
 
@@ -335,7 +315,7 @@ rather than detaching. None of that shows on a native build, so a green desktop 
 **Check:** is the web target in the CI matrix? If the game ships to the web and it is not, the web
 build is untested.
 
-### BV-BUILD-20 [M] Keep `assets/` out of a published package
+### BV-BUILD-19 [M] Keep `assets/` out of a published package
 
 A published crate uses `include`, not `exclude`, to list what ships. A game's asset directory is
 not part of it.
@@ -346,7 +326,7 @@ and can exceed the registry's size limit.
 
 **Check:** run `cargo package --list` and look for asset paths.
 
-### BV-BUILD-21 [S] Cache the target directory, because Bevy is most of the build
+### BV-BUILD-20 [S] Cache the target directory, because Bevy is most of the build
 
 CI caches `~/.cargo` and `target/`, keyed on the lockfile.
 

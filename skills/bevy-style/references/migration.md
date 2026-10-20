@@ -666,11 +666,11 @@ now; an ID it does not list is unchanged.
 | `BV-CAR-14` | `BV-BUILD-14` |
 | `BV-CAR-15` | `BV-BUILD-15` |
 | `BV-CAR-16` | `BV-BUILD-16` |
-| `BV-CAR-17` | `BV-BUILD-17` |
-| `BV-CAR-18` | `BV-BUILD-18` |
-| `BV-CAR-19` | `BV-BUILD-19` |
-| `BV-CAR-20` | `BV-BUILD-20` |
-| `BV-CAR-21` | `BV-BUILD-21` |
+| `BV-CAR-17` | removed — `bevy_lint` is a community linter the Bevy project does not maintain, and it has stalled; every rule it backed keeps its own Check |
+| `BV-CAR-18` | `BV-BUILD-17` |
+| `BV-CAR-19` | `BV-BUILD-18` |
+| `BV-CAR-20` | `BV-BUILD-19` |
+| `BV-CAR-21` | `BV-BUILD-20` |
 | `BV-ECS-19` | lint `clippy:unwrap_used` |
 | `BV-ECS-20` | `BV-ECS-19` |
 | `BV-ECS-21` | `BV-ECS-20` |

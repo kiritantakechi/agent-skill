@@ -347,9 +347,7 @@ that BV-ERR-01 forbids.
 game code is neither. The pairs are easy to miss because the panicking name is the shorter one — it
 reads as the default when it is the exception.
 
-**Check:** grep for the left column, outside `#[cfg(test)]`. `bevy_lint`'s `panicking_methods` is
-no substitute: it knows the `World` rows by their 0.18 names, so it misses `World::non_send`, and
-it cannot run on 0.20 yet (BV-BUILD-17).
+**Check:** grep for the left column, outside `#[cfg(test)]`.
 
 | Panicking | Use instead |
 |---|---|

@@ -1,7 +1,7 @@
 ---
 name: bevy-style
 description: >-
-  The Bevy 0.20 engineering standard — a 245-rule delta on top of rust-style covering the ECS,
+  The Bevy 0.20 engineering standard — a 244-rule delta on top of rust-style covering the ECS,
   scheduling, observers and messages, states and resources, assets, error handling, Cargo features
   and the Bevy lint divergences, the user-facing half of UI and rendering, testing, and a forbidden
   API table spanning 0.15 through 0.20. Its spine is keeping the rules of the game out of the
@@ -152,7 +152,7 @@ Nothing else is relaxed: a divergence not listed here is a defect, not a dialect
 |---|---|---|
 | `RS-API-23` Keep every struct field private, including the ones with no invariant | `BV-ECS-01` — component fields are public | The ECS is the accessor. Reflection, scenes, `bsn!` and the remote protocol all read fields directly, and a component cannot defend an invariant anyway. The exemption is paid for by `BV-ARCH-04`. |
 | `RS-API-25` Keep tuple-struct fields private too | `BV-ECS-01` — a component newtype is `pub` too | The newtype's `pub` normally spends the freedom to change the representation. For a component the representation *is* the contract: reflection, scenes and the remote protocol all address the field by name, so there is no freedom left to spend. |
-| `RS-NAME-33` Never suffix a name with the language construct | `BV-ARCH-10` — `*Plugin` and `*Systems` | `add_plugins(X)` and `configure_sets(_, X)` are the same shape with different meanings, so the name is the only signal. Bevy addresses both by type — `is_plugin_added::<T>`, `disable::<T>` — and `bevy_lint` enforces the suffix ecosystem-wide. |
+| `RS-NAME-33` Never suffix a name with the language construct | `BV-ARCH-10` — `*Plugin` and `*Systems` | `add_plugins(X)` and `configure_sets(_, X)` are the same shape with different meanings, so the name is the only signal. Bevy addresses both by type — `is_plugin_added::<T>`, `disable::<T>` — and its own plugins and sets carry the same suffixes. |
 | `RS-ERR-13` Never expose `Box<dyn Error>` or `anyhow::Error` from a library | `BV-ERR-03` — a system returns `BevyError`, the domain does not | `BevyError` is boxed and type-erased, and Bevy's `Result` alias is exactly the aliased form the rule names. Its rationale does not reach here: a system has no caller to match on the error — the schedule hands it to the error handler. Everything a caller could branch on stays a real type on the domain side. |
 | `RS-BUILD-27` Never blanket-`allow` at crate level to make CI green | `BV-BUILD-12` — `elided_lifetimes_in_paths` is allowed | It fires on every `Query`, `Res`, `ResMut`, `Commands`, `MessageReader` and `Local` parameter. Writing the `'_`s does satisfy it, and buys nothing but noise. |
 | `RS-BUILD-24` Turn off default features on heavy dependencies | `BV-BUILD-02` — start from a feature collection | Bevy's feature graph has 177 entries in 0.20 and moves every release; a hand-picked list goes stale silently, as an unmeasured one always does. |
@@ -302,7 +302,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The 24
-`BV-CORE-*` rules live in section 4 above; the other 221 live here.
+`BV-CORE-*` rules live in section 4 above; the other 220 live here.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -313,7 +313,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/state.md` | `BV-STATE` (21) | resources, states, transitions, scoping |
 | `references/errors.md` | `BV-ERR` (15) | fallible systems, the error handler, panicking APIs |
 | `references/assets.md` | `BV-ASSET` (13) | handles, loading, hot reload, asset lifetime |
-| `references/build.md` | `BV-BUILD` (21) | features, version pinning, the lint divergences, CI |
+| `references/build.md` | `BV-BUILD` (20) | features, version pinning, the lint divergences, CI |
 | `references/migration.md` | `BV-MIG` (19) | every API forbidden since 0.15, and what replaces it |
 | `references/view.md` | `BV-VIEW` (21) | UI nodes, text, cameras, materials, post-process, gizmos |
 | `references/testing.md` | `BV-TEST` (15) | headless apps, deterministic ticks, what to assert |
@@ -328,5 +328,5 @@ asset and the rule cannot drift apart.
 | File | Contents |
 |---|---|
 | `assets/Cargo.toml` | The workspace manifest for a game: an exact Bevy pin with a feature collection, the lint table with its two Bevy relaxations and their reasons, and the profiles that keep debug builds playable |
-| `assets/ci.yml` | The workflow: the boundary and one-Bevy checks, clippy and tests under deny-warnings, docs, the MSRV job, the release build, and the `bevy_lint` job kept off until a release supports 0.20 |
-| `assets/rust-toolchain.toml` | The pinned stable toolchain the game builds with, kept apart from any nightly the linter needs |
+| `assets/ci.yml` | The workflow: the boundary and one-Bevy checks, clippy and tests under deny-warnings, docs, the MSRV job and the release build |
+| `assets/rust-toolchain.toml` | The pinned stable toolchain the game builds with |

@@ -189,9 +189,7 @@ a given call site used.
 
 ### BV-EVENT-04 [M] Register a message type with `add_message`
 
-`app.add_message::<DamageDealt>()`. Never `init_resource::<Messages<DamageDealt>>()`, which
-`bevy_lint`'s `insert_message_resource` reports — a lint that cannot run on 0.20 yet
-(BV-BUILD-17), so the Check is the grep.
+`app.add_message::<DamageDealt>()`. Never `init_resource::<Messages<DamageDealt>>()`.
 
 **Why:** `add_message` also adds the update system that drops messages older than two frames.
 Without it the buffer grows for the life of the process — a leak whose only symptom is memory, and
@@ -235,9 +233,7 @@ impl Plugin for DamagePlugin {
 
 ### BV-EVENT-05 [M] Read messages through a `MessageReader`
 
-`MessageReader<M>` and `read()`. Not `Res<Messages<M>>` and `iter_current_update_messages()`, which
-`bevy_lint`'s `iter_current_update_messages` reports — a lint that cannot run on 0.20 yet
-(BV-BUILD-17), so the Check is the grep.
+`MessageReader<M>` and `read()`. Not `Res<Messages<M>>` and `iter_current_update_messages()`.
 
 **Why:** the reader holds a cursor, so each system sees each message exactly once however often it
 runs. Without one, a system that runs twice between updates sees the same messages twice, and one

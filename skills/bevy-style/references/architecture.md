@@ -577,8 +577,7 @@ mod tests {
 
 `CombatPlugin`, `MovementSystems`. This standard's general rule is that a name does not end in the
 language construct it is; these two types are the exception, and the exception is exactly these two
-traits. `bevy_lint`'s `unconventional_naming` warns on a missing suffix, but cannot run on 0.20 yet
-(BV-BUILD-17), so the Check is the review.
+traits.
 
 **Why:** `add_plugins` and `configure_sets` take anything convertible, so at the call site the name
 is the only thing telling a reader what kind of thing is added — and `add_systems(Update, X)` and
@@ -850,9 +849,8 @@ fn main() -> AppExit {
 CI job and a crash reporter read to find out whether the game ended or died. Discarding it makes
 every failure look like a clean shutdown to everything outside the process.
 
-**Check:** does `fn main` return `AppExit`, and is the value the one `run` returned? `bevy_lint`'s
-`main_return_without_appexit` finds a `main` that returns nothing and passes one that returns a
-fabricated `AppExit`, and cannot run on 0.20 yet (BV-BUILD-17).
+**Check:** does `fn main` return `AppExit`, and is the value the one `run` returned? A `main` that
+returns a fabricated `AppExit` has the right signature and still discards the real one.
 
 ### BV-ARCH-18 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
 

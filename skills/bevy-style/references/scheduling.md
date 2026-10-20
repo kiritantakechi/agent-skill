@@ -96,9 +96,7 @@ frames where it did not run and jumps on those where it ran twice: stutter on pr
 the player's eye is locked to.
 
 **Check:** search `FixedUpdate` systems for `With<Camera>`, `Camera2d`, `Camera3d` and any query
-that could match the camera entity; `bevy_lint`'s `camera_modification_in_fixed_update` reports only
-the `With<Camera>` form, and cannot run on 0.20 yet (BV-BUILD-17). Follow the target in `Update`
-instead.
+that could match the camera entity. Follow the target in `Update` instead.
 
 ### BV-SCHED-05 [S] Derive from this frame's transforms in `PostUpdate`
 

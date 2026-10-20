@@ -251,8 +251,7 @@ either a `#[require]` or a tuple.
 ### BV-ECS-09 [M] Never spawn a unit
 
 `commands.spawn(())` and a `()` sitting inside a spawn tuple are mistakes. Use `spawn_empty()` when
-an entity really has no components. `bevy_lint`'s `bevy::unit_in_bundle` reports them, but cannot
-run on 0.20 yet (BV-BUILD-17), so the Check is the review.
+an entity really has no components.
 
 **Why:** `()` implements `Bundle` and inserts nothing, so it compiles and does nothing. The usual
 cause is a method returning `()` where a component was expected:
@@ -320,9 +319,6 @@ A marker is a unit struct: `#[derive(Component, Debug, Clone, Copy, Default, Ref
 #[reflect(Component)] pub struct Player;`
 
 The set stops there: `PartialEq`, `Eq` and `Hash` on a type with no data distinguish nothing.
-`bevy_lint`'s restriction lints `bevy::missing_default`, `bevy::missing_clone` and
-`bevy::missing_copy` ask for `Default`, `Clone` and `Copy` on a unit struct, but cannot run on 0.20
-yet (BV-BUILD-17), so the Check is the review.
 
 **Why:** `Default` is what lets the marker be named in someone else's `#[require]`, and `Clone` and
 `Copy` cost nothing on a zero-sized type while letting it be cloned with an entity or written into a
@@ -448,9 +444,7 @@ bugs waiting.
 
 ### BV-ECS-17 [M] Put a zero-sized marker in the filter, never in the data
 
-`Query<&Transform, With<Player>>`, not `Query<(&Transform, &Player)>`. `bevy_lint`'s
-`bevy::zst_query` reports the data form, but cannot run on 0.20 yet (BV-BUILD-17), so the Check is
-the review.
+`Query<&Transform, With<Player>>`, not `Query<(&Transform, &Player)>`.
 
 **Why:** a marker has no runtime data, so fetching it retrieves nothing while still adding a column
 to the query's access set and a binding the loop discards: the `_` in `for (transform, _) in &query`

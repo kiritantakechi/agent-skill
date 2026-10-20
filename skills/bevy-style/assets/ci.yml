@@ -1,5 +1,5 @@
-# CI for a Bevy 0.20 game. Referenced by BV-BUILD-05, BV-BUILD-17, BV-BUILD-18,
-# BV-BUILD-19 and BV-BUILD-21, and by BV-ARCH-07 for the boundary job.
+# CI for a Bevy 0.20 game. Referenced by BV-BUILD-05, BV-BUILD-17,
+# BV-BUILD-18 and BV-BUILD-20, and by BV-ARCH-07 for the boundary job.
 name: ci
 
 on:
@@ -53,7 +53,7 @@ jobs:
 
   shipped-features:
     # Building only the default feature set proves nothing about the artefact.
-    # This list is the one in the release manifest. See BV-BUILD-18.
+    # This list is the one in the release manifest. See BV-BUILD-17.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -94,29 +94,8 @@ jobs:
             libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - run: cargo check --workspace
 
-  bevy-lint:
-    # Optional (BV-BUILD-17), and off: no `bevy_lint` release supports Bevy 0.19
-    # or 0.20 — v0.6.0 targets 0.18, and support is in open pull requests
-    # (TheBevyFlock/bevy_cli #835, #925, #943). Turn it on with the first
-    # release whose compatibility table names 0.20, and the nightly that table
-    # names. The linter loads a dynamic library from that toolchain at run
-    # time, so `rustc-dev` is not optional and the toolchain must stay
-    # installed. This is deliberately NOT the game's toolchain.
-    if: false
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install the linter's own nightly
-        run: |
-          rustup toolchain install nightly-YYYY-MM-DD \
-            --component rustc-dev --component llvm-tools-preview
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo install --locked bevy_cli
-      - run: bevy lint
-
   wasm:
-    # Only if the game ships to the web. See BV-BUILD-19.
+    # Only if the game ships to the web. See BV-BUILD-18.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
