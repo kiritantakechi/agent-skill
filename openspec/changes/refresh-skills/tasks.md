@@ -164,7 +164,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
   `cargo-toolchain=build`, `cli-apps=cli`, `concurrency-async=concurrency`, `structure=modules`,
   `traits-generics=traits`, `unsafe-ffi=unsafe`). This also rewrites `bevy-style`'s twelve `RS-`
   citations. Verify: `--fast` is no worse, and `mirror` still resolves every title.
-- [ ] 8.3 Create `references/migration.md` (`RS-MIG`). It holds:
+- [x] 8.3 Create `references/migration.md` (`RS-MIG`). It holds:
   - the edition-2024 changes and the crates std replaced (moved out of SKILL.md §2, where a summary
     stays);
   - the std APIs deprecated through 1.99 (e.g. `fetch_update`), each with an `rg` Check and a

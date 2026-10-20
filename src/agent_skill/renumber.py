@@ -234,7 +234,7 @@ def reflow(text: str, width: int = WIDTH) -> str:
         if fenced or len(line) <= width or line.lstrip().startswith(("|", "#")) or contents:
             i += 1
             continue
-        cut = line.rfind(" ", 0, width + 1)
+        cut = _cut(line, width)
         head = line[:cut].rstrip() if cut > len(line) - len(line.lstrip()) else ""
         if not head:
             i += 1
@@ -250,6 +250,21 @@ def reflow(text: str, width: int = WIDTH) -> str:
             lines.insert(i + 1, f"{indent}{moved}")
         i += 1
     return "\n".join(lines)
+
+
+def _cut(line: str, width: int) -> int:
+    """The last space at or before `width` that is outside a code span, or -1.
+
+    A break inside `` `rg -n '… *='` `` puts a newline into the command a reader
+    copies, and `dialect` rightly fails it.
+    """
+    best, ticks = -1, 0
+    for i, ch in enumerate(line[: width + 1]):
+        if ch == "`":
+            ticks += 1
+        elif ch == " " and ticks % 2 == 0:
+            best = i
+    return best
 
 
 def _segments(text: str):

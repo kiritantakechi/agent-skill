@@ -170,3 +170,9 @@ def test_the_counts_skill_md_states_follow_the_rules(repo):
 def test_reflow_leaves_a_contents_line_whole():
     line = "  - RS-TRAIT-17 [S] " + "word " * 18 + "type"
     assert renumber.reflow(line + "\n", width=100) == line + "\n"
+
+
+def test_reflow_never_breaks_inside_a_code_span():
+    line = "**Check:** " + "word " * 10 + "`rg -n '^(alpha|beta|gamma|delta) *=' Cargo.toml` tail"
+    out = renumber.reflow(line + "\n", width=100)
+    assert "`rg -n '^(alpha|beta|gamma|delta) *=' Cargo.toml`" in out

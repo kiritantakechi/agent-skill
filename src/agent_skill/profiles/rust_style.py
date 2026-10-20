@@ -44,6 +44,12 @@ class RustStyle(Profile):
     #: in real code. A fixture shaped to match proves the fixture, not the pattern.
     fires: dict = field(
         default_factory=lambda: {
+            # A dependency the standard library replaced, one per pattern.
+            "RS-MIG-01": ('lazy_static = "1.5"', 'async-trait = "0.1"'),
+            "RS-MIG-02": (
+                "counter.fetch_update(Ordering::SeqCst, Ordering::SeqCst, step)",
+                "let ceiling = std::i32::MAX;",
+            ),
             "RS-DOC-23": ("    // let unused = compute_total(&items);",),
             "RS-DOC-31": ("/// See [the guide](https://docs.rs/serde/latest/serde/).",),
         }
