@@ -97,7 +97,7 @@ def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo):
 def test_a_run_that_changes_nothing_starts_no_table(repo):
     run(repo, **THREADS)
     migration = repo / "skills/demo-style/references/migration.md"
-    migration.write_text(migration.read_text().replace("1.2 revision", "1.1 revision"))
+    migration.write_text(migration.read_text().replace("1.2.3 revision", "1.2.2 revision"))
     before = migration.read_text()
     run(repo)
     assert migration.read_text() == before

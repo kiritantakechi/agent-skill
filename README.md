@@ -4,13 +4,14 @@ Builds and verifies the agent skills in `skills/`, and links them into every
 agent on this machine that reads them.
 
 ```bash
-uv run agent-skill check          # every check
-uv run agent-skill check --fast   # skip the ones that need cargo or zig
-uv run agent-skill fmt            # rewrite examples and shared text as they are required to read
-uv run agent-skill renumber NAME  # rename chapters, renumber rules densely, rewrite every citation
-uv run agent-skill install        # symlink each skill into every agent present
-uv run agent-skill build          # package each as dist/<name>.skill
-uv run pytest                     # the same checks, as tests
+uv run agent-skill check             # every check
+uv run agent-skill check --fast      # skip the ones that need cargo or zig
+uv run agent-skill fmt               # rewrite examples and shared text as they are required to read
+uv run agent-skill renumber NAME     # rename chapters, renumber rules densely, rewrite every citation
+uv run agent-skill demote NAME PLAN  # turn rules into lint rows, merges or removals
+uv run agent-skill install           # symlink each skill into every agent present
+uv run agent-skill build             # package each as dist/<name>.skill
+uv run pytest                        # the same checks, as tests
 ```
 
 `ALL CHECKS PASSED` means every check ran and every one of them passed.
@@ -31,6 +32,12 @@ unlisted ID in range no longer names a rule.
 What it cannot do is catch an old ID typed in by hand afterwards: under dense
 numbering that ID is now another rule's, and nothing can tell the two apart. So a
 citation is never rewritten by hand.
+
+`agent-skill demote` is the other half. A plan names each rule and what it becomes:
+lint-table rows, a row that already exists, the rule it merged into, or a removal
+with its reason. It removes each rule and its contents line, adds the rows, records
+each disposition in the rename table, and reports every citation left behind.
+`renumber` then closes the gaps.
 
 ## Layout
 

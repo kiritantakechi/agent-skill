@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -119,6 +120,29 @@ def cmd_renumber(args) -> int:
     return 0
 
 
+def cmd_demote(args) -> int:
+    from . import demote
+
+    try:
+        demotion = demote.plan(REPO, args.skill, json.loads(args.plan.read_text()))
+    except demote.DemoteError as e:
+        print(f"demote: {e}", file=sys.stderr)
+        print("nothing was written", file=sys.stderr)
+        return 1
+    for rid, becomes in demotion.dispositions.items():
+        print(f"  demote  {rid} -> {becomes}")
+    for path in sorted(demotion.writes):
+        print(f"  write   {path.relative_to(REPO)}")
+    for line in demotion.leftovers:
+        print(f"  look    {line}")
+    if args.dry_run:
+        print("dry run: nothing was written")
+        return 0
+    demote.apply(demotion)
+    print(f"next: `agent-skill renumber {args.skill}` closes the gaps")
+    return 0
+
+
 def cmd_list(args) -> int:
     for skill in discover(args.skills):
         rules = len(skill.rules)
@@ -168,6 +192,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     num.add_argument("--dry-run", action="store_true", help="show the plan and write nothing")
     num.set_defaults(func=cmd_renumber)
+    dem = sub.add_parser(
+        "demote", help="turn rules into lint-table rows, merges or removals, and record each"
+    )
+    dem.add_argument("skill", help="the skill whose rules are demoted")
+    dem.add_argument("plan", type=Path, help="JSON: rule ID -> rows, lint, merge or remove")
+    dem.add_argument("--dry-run", action="store_true", help="show the plan and write nothing")
+    dem.set_defaults(func=cmd_demote)
     sub.add_parser("list", help="what is in this repository").set_defaults(func=cmd_list)
 
     args = parser.parse_args(argv)

@@ -225,23 +225,33 @@ def _segments(text: str):
 
 
 def _compose(skill: Skill, plan: Plan) -> None:
-    """Keep every rename table in the migration chapter current, and start this
-    revision's table if it has none yet and an ID changed.
-
-    Each table maps the IDs from before one revision to the IDs now, so every
-    renumbering moves each of its originals forward: an ID with a row goes where its
-    row leads, and an ID in range without one is still itself. A row is kept only
-    where the result differs from the original. An original that no longer exists
-    is a rule deleted without its disposition being recorded, and stops the run:
-    nothing else knows what that rule became.
-    """
+    """Carry the migration chapter's rename tables through this renumbering."""
     migration = next((c for c in skill.chapters if c.path.stem == "migration"), None)
     if migration is None:
         raise RenumberError(f"{skill.name} has no references/migration.md for its rename table")
     path = plan.moves.get(migration.path, migration.path)
     text = plan.writes.get(path, migration.text)
-    heading = f"## Rule IDs before the {skill.profile.language} {skill.profile.pin()} revision"
+    now = {old: f"`{new}`" for old, new in plan.ids.items()}
+    plan.writes[path] = carry(text, heading(skill), now)
 
+
+def heading(skill: Skill) -> str:
+    """The heading of the rename table for the revision `skill` is at now."""
+    return f"## Rule IDs before the {skill.profile.language} {skill.profile.pin()} revision"
+
+
+def carry(text: str, revision: str, now: dict[str, str]) -> str:
+    """`text` with every rename table carried through one change to the rule IDs, and the
+    table headed `revision` started if it is missing and an ID changed.
+
+    `now` maps every rule ID there is to what it becomes: a rule ID in backticks, a lint
+    `` lint `tool:name` ``, or `removed — reason`. Each table maps the IDs from before one
+    revision to the IDs now, so every change moves each of its originals forward: an ID with
+    a row goes where its row leads, and an ID in range without one is still itself. A row is
+    kept only where the result differs from the original. An original that no longer exists
+    is a rule deleted without its disposition being recorded, and stops the run: nothing else
+    knows what that rule became.
+    """
     out, pos = [], 0
     for table in rename_tables(text):
         if not table.ranges:
@@ -251,32 +261,31 @@ def _compose(skill: Skill, plan: Plan) -> None:
         rows = [listed.get(rid, Rename(rid, f"`{rid}`", 0)) for rid in table.originals]
         rows += [r for r in table.rows if r.before not in originals]
         tail = "\n" if end < len(text) else ""
-        out += [text[pos:start], _table(table.heading, table.ranges, _forward(rows, plan)) + tail]
+        out += [text[pos:start], _table(table.heading, table.ranges, _forward(rows, now)) + tail]
         pos = end
     out.append(text[pos:])
     text = "".join(out)
 
-    if plan.changed and not re.search(rf"^{re.escape(heading)}$", text, re.M):
-        rows = [Rename(old, f"`{new}`", 0) for old, new in plan.ids.items()]
-        text = text.rstrip("\n") + "\n\n" + _table(heading, _ranges(plan.ids), _changed(rows))
-    plan.writes[path] = reflow(text)
+    rows = [Rename(rid, becomes, 0) for rid, becomes in now.items()]
+    if _changed(rows) and not re.search(rf"^{re.escape(revision)}$", text, re.M):
+        text = text.rstrip("\n") + "\n\n" + _table(revision, _ranges(now), _changed(rows))
+    return reflow(text)
 
 
-def _forward(rows: list[Rename], plan: Plan) -> list[Rename]:
+def _forward(rows: list[Rename], now: dict[str, str]) -> list[Rename]:
     out = []
     for row in rows:
-        if row.target == row.before and row.target not in plan.ids:
+        if row.target == row.before and row.target not in now:
             raise RenumberError(
                 f"{row.before} has no row, so the table says it is unchanged, and no rule carries "
-                f"it — record what it became before renumbering"
+                f"it — record what it became first"
             )
-        if row.target and row.target not in plan.ids:
+        if row.target and row.target not in now:
             raise RenumberError(
                 f"{row.before} became {row.target}, which no longer exists — record what it "
-                f"became (a rule ID, lint `tool:name`, or removed — reason) before renumbering"
+                f"became (a rule ID, lint `tool:name`, or removed — reason) first"
             )
-        now = f"`{plan.ids[row.target]}`" if row.target else row.now
-        out.append(Rename(row.before, now, row.line))
+        out.append(Rename(row.before, now[row.target] if row.target else row.now, row.line))
     return _changed(out)
 
 
