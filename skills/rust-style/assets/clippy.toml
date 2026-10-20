@@ -1,0 +1,15 @@
+# clippy's own configuration, beside the workspace `[lints]` table. Referenced by
+# the build chapter and copied with `assets/Cargo.toml`.
+
+# On by default, and it silences `wrong_self_convention`, `enum_variant_names`,
+# `upper_case_acronyms` and others on every public item — the items the naming
+# rules exist for. A library that must not break its API says so per lint.
+avoid-breaking-exported-api = false
+
+# `unwrap_used` and `expect_used` are denied; a test is where a panic is the
+# assertion, so they stay allowed inside `#[test]` and `#[cfg(test)]`.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+
+# `Http`, not `HTTP`, in every name — including the ones clippy calls ambiguous.
+upper-case-acronyms-aggressive = true

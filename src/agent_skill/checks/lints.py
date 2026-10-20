@@ -8,6 +8,7 @@ while its comment named two.
 from __future__ import annotations
 
 import re
+import tomllib
 
 from ..report import fail
 from . import check
@@ -48,3 +49,12 @@ def lints(skill):
                 f"`{key}` is {shipped[key]} in the asset, {verified[key]} in the verified crate",
                 skill.name,
             )
+
+    # clippy's own configuration: the same two tables, compared the same way.
+    asset = skill.root / "assets" / "clippy.toml"
+    shipped_clippy = tomllib.loads(asset.read_text()) if asset.exists() else {}
+    if shipped_clippy != crate.clippy:
+        yield fail(
+            f"assets/clippy.toml is {shipped_clippy} and the verified crate's is {crate.clippy}",
+            skill.name,
+        )

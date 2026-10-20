@@ -148,7 +148,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 8. rust-style (milestone 2)
 
-- [ ] 8.1 Assets and verified crate:
+- [x] 8.1 Assets and verified crate:
   - **`rust-version`:** set `1.99` in all five places named in `research/rust-1.99.md` § MSRV.
   - **New `assets/clippy.toml`:** `avoid-breaking-exported-api = false`,
     `allow-unwrap-in-tests`, `allow-expect-in-tests`, `upper-case-acronyms-aggressive`. Use it in

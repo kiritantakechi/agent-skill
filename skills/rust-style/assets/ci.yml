@@ -9,7 +9,6 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_BUILD_WARNINGS: deny          # replaces RUSTFLAGS=-Dwarnings; does not bust the cache
-  RUSTDOCFLAGS: -D warnings
 
 jobs:
   test:
@@ -18,7 +17,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with: { components: clippy }
       - uses: Swatinem/rust-cache@v2
@@ -30,7 +29,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@nightly     # only needed if rustfmt.toml uses unstable options
         with: { components: rustfmt }
       - run: cargo fmt --all --check
@@ -38,22 +37,22 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo doc --no-deps --all-features
 
   msrv:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.98        # must match `rust-version`
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.99        # must match `rust-version`
       - run: cargo check --all-features
 
   # Enable when the crate contains `unsafe`.
   # miri:
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v7
   #     - uses: dtolnay/rust-toolchain@nightly
   #       with: { components: miri }
   #     - run: cargo miri test
@@ -61,12 +60,12 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: rustsec/audit-check@v2
         with: { token: "${{ secrets.GITHUB_TOKEN }}" }
 
   semver:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: obi1kenobi/cargo-semver-checks-action@v2

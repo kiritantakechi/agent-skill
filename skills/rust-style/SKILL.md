@@ -337,5 +337,6 @@ describe.
 | File | Contents |
 |---|---|
 | `assets/Cargo.toml` | Workspace manifest with the canonical `[workspace.lints]` block (correct `priority = -1` on groups), profiles, and shared dependencies |
+| `assets/clippy.toml` | clippy's own settings: lints on public items no longer muted by `avoid-breaking-exported-api`, `unwrap` and `expect` allowed inside tests, and acronyms capitalised as words everywhere |
 | `assets/rustfmt.toml` | The two overrides worth having, with the stability caveat |
 | `assets/ci.yml` | GitHub Actions enforcing this standard: clippy with `CARGO_BUILD_WARNINGS=deny`, the feature matrix, three platforms, MSRV, rustdoc, audit, `cargo semver-checks` |

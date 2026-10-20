@@ -98,7 +98,7 @@ body. Editions are per-crate, so adopting it costs nothing to dependents.
 name = "myproj"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.98"        # a real, tested MSRV — see RS-CAR-02
+rust-version = "1.99"        # a real, tested MSRV — see RS-CAR-02
 ```
 
 ### RS-CAR-02 [M] Set `rust-version` to a real, tested MSRV
@@ -217,7 +217,7 @@ members = ["crates/*"]
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.98"
+rust-version = "1.99"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/OWNER/REPO"
 
@@ -487,9 +487,6 @@ explicit_outlives_requirements = "warn"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
-# individually justified allows only:
-module_name_repetitions = "allow"
-
 # deny the ones that are always defects:
 unwrap_used = "deny"
 expect_used = "deny"

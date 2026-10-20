@@ -79,8 +79,6 @@ cast_precision_loss = "warn"
 cast_sign_loss = "warn"
 float_cmp = "warn"
 
-# Individually justified allows only — never allow the whole group.
-module_name_repetitions = "allow"    # reason: crate re-exports flatten paths anyway
 
 # RELAXED (BV-CAR-13). Fires on every `Res<T>` parameter a system does not
 # consume, and the suggestion does not compile: `&Res<'_, T>` is not a

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path
 
@@ -33,6 +33,9 @@ class Crate:
     #: shipped entries the extracted crate legitimately cannot carry
     unverifiable: frozenset[str] = frozenset()
     dependencies: tuple[str, ...] = ()
+    #: `clippy.toml` beside the manifest; `checks/lints.py` compares it with the
+    #: one the skill ships, the same way it compares the lint table
+    clippy: dict[str, object] = field(default_factory=dict)
     #: The Rust release the examples are verified against, at the precision
     #: `rust-version` takes. `pins` compares it with `rustc -V` and with the
     #: newest stable release, at that same precision: a patch release is not a
@@ -54,6 +57,18 @@ class Crate:
         with different dependency sets do not evict each other.
         """
         return {"CARGO_TARGET_DIR": str(CACHE / self.name)}
+
+    def clippy_toml(self) -> str:
+        def value(v: object) -> str:
+            return (
+                str(v).lower()
+                if isinstance(v, bool)
+                else f'"{v}"'
+                if isinstance(v, str)
+                else str(v)
+            )
+
+        return "".join(f"{k} = {value(v)}\n" for k, v in self.clippy.items())
 
     def manifest(self) -> str:
         lints = "\n".join(
@@ -77,6 +92,12 @@ class Crate:
 RUST_STYLE = Crate(
     name="rust-style-verify",
     dependencies=('thiserror = "2"',),
+    clippy={
+        "avoid-breaking-exported-api": False,
+        "allow-unwrap-in-tests": True,
+        "allow-expect-in-tests": True,
+        "upper-case-acronyms-aggressive": True,
+    },
     #: `allow_attributes*` join the two above for the same reason they are
     #: unverifiable in `BEVY_STYLE`: the extractor injects a bare
     #: `#![allow(dead_code, unused_imports)]` into every block module, and a
@@ -96,6 +117,7 @@ RUST_STYLE = Crate(
             "unused_qualifications": '"warn"',
             "elided_lifetimes_in_paths": '"warn"',
             "explicit_outlives_requirements": '"warn"',
+            "dead_code_pub_in_binary": '"warn"',
         },
         "clippy": {
             "pedantic": '{ level = "warn", priority = -1 }',
@@ -112,7 +134,11 @@ RUST_STYLE = Crate(
             "cast_precision_loss": '"warn"',
             "cast_sign_loss": '"warn"',
             "float_cmp": '"warn"',
-            "module_name_repetitions": '"allow"',
+            "redundant_test_prefix": '"warn"',
+            "mod_module_files": '"warn"',
+        },
+        "rustdoc": {
+            "broken_intra_doc_links": '"deny"',
         },
     },
 )
@@ -176,7 +202,6 @@ BEVY_STYLE = Crate(
             "cast_precision_loss": '"warn"',
             "cast_sign_loss": '"warn"',
             "float_cmp": '"warn"',
-            "module_name_repetitions": '"allow"',
             "needless_pass_by_value": '"allow"',
         },
     },
@@ -221,6 +246,8 @@ class Rust:
         lib += [f"pub mod {s};" for s in sorted(chapters)]
         (src / "lib.rs").write_text("\n".join(lib) + "\n")
         (out / "Cargo.toml").write_text(crate.manifest())
+        if crate.clippy:
+            (out / "clippy.toml").write_text(crate.clippy_toml())
         return ex
 
     def verify(self, ex: Extraction) -> Iterable[Finding]:
