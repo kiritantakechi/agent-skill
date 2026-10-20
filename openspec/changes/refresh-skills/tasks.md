@@ -249,7 +249,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 - [x] 10.7 Step C: `agent-skill renumber bevy-style`. Remove bevy-style's exemption, update the
   frontmatter count and the §6 counts, and make the README's count of literal `rg` Checks derived
   rather than stated (the research counts 16 where it says fifteen). Verify: `--fast` passes.
-- [ ] 10.8 Milestone 3: one full run, alone. Verify: `ALL CHECKS PASSED`. Commit.
+- [x] 10.8 Milestone 3: one full run, alone. Verify: `ALL CHECKS PASSED`. Commit.
 
 ## 11. Integration
 
