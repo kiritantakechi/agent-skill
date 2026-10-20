@@ -36,6 +36,9 @@ class RustStyle(Profile):
     toolchain: str | None = "rust"
     tools: tuple[str, ...] = ("rustc", "clippy")
     exempt_from_structure: str | None = "converted in milestone 2 of refresh-skills"
+    language: str = "Rust"
+    verified_as: str = "compiles as written against Rust {rust}, edition 2024"
+    strict_scope: str = "library and high-reliability"
     crate: Crate | None = RUST_STYLE
     #: Each snippet is the defect its rule forbids, written the way it turns up
     #: in real code. A fixture shaped to match proves the fixture, not the pattern.
@@ -207,6 +210,9 @@ class RustStyle(Profile):
             "RS-API-24": lambda lines, at, in_test: repr_c_above(lines, at.start - 1),
         }
     )
+
+    def pin(self) -> str | None:
+        return self.crate.rust_version if self.crate else None
 
     def conventions(self, skill) -> Iterable[Finding]:
         for b in skill.advice("rust"):

@@ -21,19 +21,19 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 2. Harness: skeleton and shared text
 
-- [ ] 2.1 Write the shared templates under `src/agent_skill/shared/`, with `{slot}`s and `…` free
+- [x] 2.1 Write the shared templates under `src/agent_skill/shared/`, with `{slot}`s and `…` free
   regions (D4). Cover: the reading procedure, the tier table plus its opening and closing lines, the
   marker legend, the ID-citation and pointer paragraphs, the §6 and §7 intros, and the
   review-protocol severity table with its blocking paragraph (D8). Add the slot values to each
   profile. Verify that rendering each template for each profile succeeds in a unit test.
-- [ ] 2.2 Implement the `skeleton` check for every item listed in D5, skipping exempt skills, plus
+- [x] 2.2 Implement the `skeleton` check for every item listed in D5, skipping exempt skills, plus
   the dry run that reports an exemption that has outlived its reason (D2). Verify: unit tests cover
   one failing input per item, and one test covers the outlived-exemption report.
-- [ ] 2.3 Implement the `shared-text` check, comparing paragraphs with whitespace collapsed and
+- [x] 2.3 Implement the `shared-text` check, comparing paragraphs with whitespace collapsed and
   free regions honoured. Extend `agent-skill fmt` to re-render, rewrap to the `layout` width and
   write each passage. Verify: `tests/test_fmt.py` gains a round trip in which drift is introduced,
   `fmt` repairs it, and the check passes.
-- [ ] 2.4 Add `skeleton` and `shared-text` rows to the README check table. Verify:
+- [x] 2.4 Add `skeleton` and `shared-text` rows to the README check table. Verify:
   `uv run agent-skill check --fast --only documented`.
 
 ## 3. Harness: rule anatomy, lint rows, rename table
@@ -88,7 +88,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
     as either enabled or deliberately off, with a reason, and correct the "twelve" count in the
     asset, in SKILL.md §7 and in `python.py`.
 
-  Verify: `uv run agent-skill check --fast --only lints,citations,assets`.
+  Verify: `uv run agent-skill check --fast --only lints --only citations --only assets`.
 - [ ] 6.3 Step A: `agent-skill renumber python-style --chapters` mapping each old name to its D3
   name. Verify: `uv run agent-skill check --fast` is no worse than before the run, and
   `migration.md` has the table.
@@ -159,7 +159,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
     - add `dead_code_pub_in_binary = "warn"`;
     - add `[workspace.lints.rustdoc]`, and drop `RUSTDOCFLAGS` from `ci.yml`.
 
-  Verify: `--only lints,assets` passes.
+  Verify: `--only lints --only assets` passes.
 - [ ] 8.2 Step A: `agent-skill renumber rust-style --chapters` per D3 (`api-design=api`,
   `cargo-toolchain=build`, `cli-apps=cli`, `concurrency-async=concurrency`, `structure=modules`,
   `traits-generics=traits`, `unsafe-ffi=unsafe`). This also rewrites `bevy-style`'s twelve `RS-`
@@ -255,7 +255,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 - [ ] 11.1 Update the README layout for the renamed chapters. Confirm that `zig-style` is the only
   exempt skill, and that its exemption and local-following pin carry their reasons. Verify:
-  `--only documented,skeleton` passes.
+  `--only documented --only skeleton` passes.
 - [ ] 11.2 Run `uv run agent-skill build` and `uv run agent-skill install`. Confirm that each
   installed skill resolves to `skills/<name>`. Verify: `ls -l ~/.claude/skills/` shows the
   symlinks, and `dist/*.skill` rebuilds.

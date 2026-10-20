@@ -63,6 +63,12 @@ WITHOUT_A_CONTROL = {
     "would cost a full toolchain run — but nothing records whether that is the reason or "
     "whether nobody got to it",
     "mutation": "not knowable from the code. Same shape as `toolchain`, and the same gap",
+    # Both skip a standard that is exempt from standard-structure, and until
+    # refresh-skills converts `python-style` every standard is. A defect injected
+    # now would land in a standard these checks do not read. Task 6.9 adds the
+    # controls and removes these two lines.
+    "skeleton": "no standard conforms yet, so there is nowhere to inject that it reads",
+    "shared-text": "no standard conforms yet, so there is nowhere to inject that it reads",
 }
 
 

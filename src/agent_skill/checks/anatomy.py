@@ -66,11 +66,18 @@ def anatomy(skill):
     # every other check — the contents list agrees, because it was edited too —
     # and leaves a reader scanning 01..08, 25, 09. The other two skills hold the
     # invariant across 1149 rules; this catches the one that broke it.
-    for chapter in skill.chapters:
+    #
+    # A standard that follows standard-structure numbers densely, which decides
+    # this and more, so the order is judged there and not twice.
+    conforming = skill.profile.exempt_from_structure is None
+    for chapter in [] if conforming else skill.chapters:
         nums = [int(re.search(r"(\d+)", r.id.rsplit("-", 1)[1]).group(1)) for r in chapter.rules]
         for a, b in itertools.pairwise(nums):
             if b < a:
                 yield fail(f"rule ids run backwards: {a} then {b}", f"{skill.name}/{chapter.name}")
+    if conforming:
+        for message, where in structural(skill):
+            yield fail(message, where)
 
     # The contents list is ordered like the chapter, or it is not a map of it.
     for chapter in skill.chapters:
@@ -268,3 +275,34 @@ def _near_duplicates(skill, blocks):
     for junk in (".git", ".DS_Store", "*.pyc", "__pycache__"):
         if list(skill.root.rglob(junk)):
             yield note(f"{junk} present in the skill tree", skill.name)
+
+
+#: A Why is a reason, not an essay. Longer than this, and the excess belongs in
+#: the rule's statement, in an example, or in a second rule.
+WHY_LINES = 3
+
+
+def structural(skill):
+    """(message, where) for the rule-shape half of standard-structure.
+
+    Dense numbering and a short Why. Separate from `anatomy` proper because an
+    exempt standard skips these and keeps every other branch.
+    """
+    for chapter in skill.chapters:
+        where = f"{skill.name}/{chapter.name}"
+        numbers: dict[str, list[str]] = defaultdict(list)
+        for rule in chapter.rules:
+            family, number = rule.id.split("-")[1:]
+            numbers[family].append(number)
+            lines = [ln for ln in rule.why.strip().split("\n") if ln.strip()]
+            if len(lines) > WHY_LINES:
+                yield f"{rule.id}'s Why runs {len(lines)} lines; the limit is {WHY_LINES}", where
+        for family, seen in numbers.items():
+            for i, number in enumerate(seen, 1):
+                if number != f"{i:02d}":
+                    yield (
+                        f"{skill.prefix}-{family}-{number} should be {skill.prefix}-{family}-"
+                        f"{i:02d}: numbers run 01, 02, … with no gap and no suffix",
+                        where,
+                    )
+                    break

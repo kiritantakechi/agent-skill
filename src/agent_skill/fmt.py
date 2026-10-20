@@ -15,6 +15,7 @@ import tempfile
 from itertools import groupby
 from pathlib import Path
 
+from . import shared
 from .lang.rust import RUST, Crate
 from .proc import run
 
@@ -64,12 +65,15 @@ FORMATTERS: dict[str, object] = {}
 
 
 def format_skill(skill) -> list[str]:
-    """Rewrite each verified block the way that language's formatter would.
+    """Rewrite each verified block the way that language's formatter would, and
+    each shared passage the way its template says.
 
-    Returns one line per chapter changed.
+    Returns one line per passage or chapter changed. The shared passages come
+    first: they are text, and need no toolchain to rewrite.
     """
+    changed = [] if skill.profile.exempt_from_structure is not None else shared.rewrite(skill)
     formatter = FORMATTERS.get(skill.profile.toolchain or "")
-    return formatter(skill) if formatter else []
+    return changed + (formatter(skill) if formatter else [])
 
 
 def _format_rust(skill) -> list[str]:

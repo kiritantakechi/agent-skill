@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from agent_skill.fmt import INJECTED, _bodies
+from structure_fixture import build, edit
+
+from agent_skill import shared
+from agent_skill.fmt import INJECTED, _bodies, format_skill
 from agent_skill.lang.rust import BEVY_STYLE, RUST_STYLE
 
 
@@ -83,3 +86,26 @@ def test_every_rust_profile_names_a_crate():
     for profile in _REGISTRY.values():
         if profile.toolchain == "rust":
             assert profile.crate is not None, profile.name
+
+
+def test_a_drifted_shared_passage_is_reported_and_rewritten(tmp_path):
+    """The round trip `shared-text` promises: drift is found, `fmt` repairs it, and
+    the text the skill wrote in a free region survives the repair."""
+    demo = build(tmp_path)
+    assert list(shared.compare(demo)) == []
+    drifted = edit(demo, "SKILL.md", "Apply it literally.", "Apply it with judgement.")
+    assert any("differs from the shared template" in m for m, _ in shared.compare(drifted))
+    assert format_skill(drifted)
+    assert list(shared.compare(drifted)) == []
+    text = drifted.skill_md.read_text()
+    assert "Apply it literally." in text
+    assert '**Code is "library"** — if it is published.' in text
+
+
+def test_text_outside_a_free_region_is_left_for_a_person(tmp_path):
+    demo = build(tmp_path)
+    stray = edit(demo, "SKILL.md", "Rules are cited by ID", "An aside.\n\nRules are cited by ID")
+    assert any("no place for" in m for m, _ in shared.compare(stray))
+    before = stray.skill_md.read_text()
+    assert any("not rewritten" in line for line in shared.rewrite(stray))
+    assert stray.skill_md.read_text() == before

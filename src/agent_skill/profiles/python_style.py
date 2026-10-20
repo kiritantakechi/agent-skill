@@ -61,6 +61,9 @@ class PythonStyle(Profile):
     marked_languages: tuple[str, ...] = ("toml",)
     tools: tuple[str, ...] = ("python", "ty", "ruff")
     exempt_from_structure: str | None = "converted in milestone 1 of refresh-skills"
+    language: str = "Python"
+    verified_as: str = "runs as written on free-threaded CPython {pin}"
+    strict_scope: str = "library and high-reliability"
     toolchain: str | None = "python"
     exempt: dict = field(default_factory=dict)
     #: Each snippet is the defect its rule forbids, written the way it appears in
@@ -191,6 +194,13 @@ class PythonStyle(Profile):
             ),
         }
     )
+
+    def pin(self) -> str | None:
+        """The interpreter's version, from the uv key the harness installs."""
+        from ..lang.python import INTERPRETER
+
+        m = re.match(r"cpython-([0-9][^+]*)", INTERPRETER)
+        return m.group(1) if m else None
 
     def conventions(self, skill) -> Iterable[Finding]:
         comment, quotes = syntax_for("python")

@@ -49,6 +49,13 @@ class BevyStyle(Profile):
     toolchain: str | None = "rust"
     tools: tuple[str, ...] = ("rustc", "clippy")
     exempt_from_structure: str | None = "converted in milestone 3 of refresh-skills"
+    language: str = "Bevy"
+    verified_as: str = "compiles as written against Bevy {pin} on Rust {rust}, edition 2024"
+    strict_scope: str = "shipped and long-running"
+    delta_step: str = (
+        "**Load `rust-style` as well** for anything that is a Rust question rather than a Bevy "
+        "question."
+    )
     crate: Crate | None = BEVY_STYLE
     #: Each snippet is the defect its rule forbids, written the way it turns up
     #: in real code. A fixture shaped to match proves the fixture, not the pattern.
@@ -112,6 +119,13 @@ class BevyStyle(Profile):
             ),
         }
     )
+
+    def pin(self) -> str | None:
+        """The exact `bevy` version the verified crate depends on."""
+        for dep in self.crate.dependencies if self.crate else ():
+            if m := re.match(r'bevy = \{ version = "=([0-9][^"]*)"', dep):
+                return m.group(1)
+        return None
 
     def conventions(self, skill) -> Iterable[Finding]:
         for b in skill.advice("rust"):

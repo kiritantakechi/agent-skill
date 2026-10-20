@@ -17,6 +17,11 @@ from ..proc import have, run
 from ..report import Finding, fail, note
 from . import Extraction, Unit
 
+#: The compiler `zig-style` is verified against. It follows this machine's
+#: `zig` rather than upstream's newest release, so `pins` compares it with
+#: `zig version` only: the skill moves when the compiler here does.
+ZIG_VERSION = "0.16.0"
+
 #: A `comptime` block at file scope is analysed by `zig build-obj`, so forcing
 #: analysis costs a tenth of a second per block instead of a link and a launch.
 #: Without it Zig never analyses the body of a function nobody calls, and a block

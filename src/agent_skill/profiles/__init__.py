@@ -58,6 +58,16 @@ class Profile:
     #: it does. A reason, not a flag: an exemption that says nothing about why
     #: it exists cannot be told apart from one whose reason has lapsed.
     exempt_from_structure: str | None = None
+    #: The language in the H1 and the shared text: "Rust", "Python", "Bevy".
+    language: str = ""
+    #: What `verified` means here, finishing "the block …". `{pin}` is filled
+    #: with `pin()` and `{rust}` with the verified crate's `rust-version`, so the
+    #: sentence cannot name a version the harness does not verify against.
+    verified_as: str = ""
+    #: The code in which `[M!]` binds as `[M]`: "library and high-reliability".
+    strict_scope: str = ""
+    #: A delta standard's extra reading step, or "" for a standard that stands alone.
+    delta_step: str = ""
     toolchain: str | None = None
     #: how this skill's rust blocks are compiled; required when `toolchain == "rust"`,
     #: because the dependency line and the lint table differ per skill
@@ -97,6 +107,15 @@ class Profile:
     @property
     def all_marked(self) -> tuple[str, ...]:
         return tuple(dict.fromkeys(self.languages + self.marked_languages))
+
+    def pin(self) -> str | None:
+        """The exact version this standard is verified against.
+
+        The language toolchain for a language standard, the engine for a delta
+        standard. The H1 names its major.minor, so the title and the harness
+        cannot disagree about what the standard is for.
+        """
+        return None
 
     def conventions(self, skill) -> Iterable[Finding]:
         """This standard's own rules, applied to its own examples."""

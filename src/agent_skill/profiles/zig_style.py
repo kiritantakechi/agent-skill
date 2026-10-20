@@ -27,6 +27,7 @@ class ZigStyle(Profile):
     #: the zig bump, which waits for this machine's `zig` rather than upstream.
     markers: tuple[str, ...] = ("verified", "fragment", "does-not-compile")
     tools: tuple[str, ...] = ("zig",)
+    language: str = "Zig"
     exempt_from_structure: str | None = (
         "conforms with its own bump, once this machine's `zig` moves past 0.16.0"
     )
@@ -165,6 +166,11 @@ class ZigStyle(Profile):
             ),
         }
     )
+
+    def pin(self) -> str | None:
+        from ..lang.zig import ZIG_VERSION
+
+        return ZIG_VERSION
 
     def conventions(self, skill) -> Iterable[Finding]:
         for b in skill.advice("zig"):

@@ -94,6 +94,8 @@ def all_checks() -> list[Check]:
         prose,
         selfapply,
         sensitivity,
+        shared,
+        skeleton,
         toolchain,
     )
 
