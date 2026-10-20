@@ -13,8 +13,10 @@ enabled set is most of ruff's catalogue and the standard cites a fraction of it;
 
 from __future__ import annotations
 
+import json
 import re
 import tomllib
+from functools import cache
 from pathlib import Path
 
 from ..lang.python import PYTHON_STYLE
@@ -65,16 +67,21 @@ def _enabled(config: Path) -> tuple[set[str], str]:
     return codes, ""
 
 
-def _ty_levels(ty_toml: Path) -> dict[str, str] | None:
-    """Every rule the pinned ty knows, at the level the shipped asset leaves it."""
-    import json
-
+@cache
+def _ty_rules() -> dict[str, str] | None:
+    """Every rule the pinned ty knows, with its default level; None if ty would not say."""
     r = run(["ty", "explain", "rule", "--output-format", "json"], timeout=120)
     if not r.ok or not r.out:
         return None
+    return {rule["name"]: rule["default_level"] for rule in json.loads(r.out)}
+
+
+def _ty_levels(ty_toml: Path) -> dict[str, str] | None:
+    """Every rule the pinned ty knows, at the level the shipped asset leaves it."""
+    if (rules := _ty_rules()) is None:
+        return None
     shipped = tomllib.loads(ty_toml.read_text()).get("rules", {})
-    rules = json.loads(r.out)
-    return {rule["name"]: shipped.get(rule["name"], rule["default_level"]) for rule in rules}
+    return {name: shipped.get(name, level) for name, level in rules.items()}
 
 
 def _withdrawn() -> set[str]:
@@ -82,8 +89,6 @@ def _withdrawn() -> set[str]:
     r = run(["ruff", "rule", "--all", "--output-format", "json"], timeout=120)
     if not r.ok:
         return set()
-    import json
-
     return {rule["code"] for rule in json.loads(r.out) if "Removed" in str(rule.get("status", ""))}
 
 
@@ -273,12 +278,8 @@ def citations(skill):
     if not have("ty"):
         yield unrun("`ty` is not on PATH, so no rule name was validated", skill.name)
         return
-    r = run(["ty", "explain", "rule", "--output-format", "json"], timeout=120)
-    if r.ok and r.out:
-        import json
-
-        known = {rule["name"] for rule in json.loads(r.out)}
-        for name in sorted(set(shipped) - known):
+    if (known := _ty_rules()) is not None:
+        for name in sorted(set(shipped) - set(known)):
             yield fail(
                 f"assets/ty.toml names `{name}`, which the pinned ty does not recognise — the "
                 f"setting silently does nothing",

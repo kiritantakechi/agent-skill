@@ -270,7 +270,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
   (D14). Verify: a test in `test_fmt.py` fixes a prose line pushed past the limit.
 - [x] 12.3 Add `agent-skill demote <skill> <plan.json>` (D14), with tests for rows, `lint`, `merge`
   and `remove`. Verify: `tests/test_demote.py`.
-- [ ] 12.4 Polish: the ragged docstrings this change wrote, and `citations` asking `ty explain rule`
+- [x] 12.4 Polish: the ragged docstrings this change wrote, and `citations` asking `ty explain rule`
   twice. Verify: `--fast` passes.
 
 ## 13. Content leftovers

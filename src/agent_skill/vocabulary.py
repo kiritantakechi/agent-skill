@@ -3,9 +3,8 @@
 One table for every standard, so that a reader who knows where `rust-style` keeps
 its errors knows where `python-style` keeps them too. Before it, two standards
 written a year apart spelled the same chapter `errors.md` and
-`errors-and-control-flow.md`, and coded the same family in three letters in one and four in
-the next, because
-each copied whichever sibling its author had open.
+`errors-and-control-flow.md`, and coded the same family in three letters in one and
+four in the next, because each copied whichever sibling its author had open.
 
 A chapter name is one word. A check cannot tell `free-threading` (one concept)
 from `traits-generics` (two), but a table can, so the table is the rule.
