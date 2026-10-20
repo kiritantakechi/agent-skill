@@ -25,7 +25,7 @@ unsound-yield = "error"
 unsupported-dynamic-base = "error"
 # A cast between types no value can inhabit both of is always a mistake.
 disjoint-cast = "error"
-# PS-TYPE-22's sentinels: the name passed must be the name it is bound to.
+# PS-TYPE-21's sentinels: the name passed must be the name it is bound to.
 mismatched-sentinel-name = "error"
 # Was warn by default until 0.0.84; kept at warn rather than lost to the move.
 invalid-legacy-positional-parameter = "warn"

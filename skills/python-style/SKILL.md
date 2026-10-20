@@ -1,7 +1,7 @@
 ---
 name: python-style
 description: >-
-  The modern Python 3.15 engineering standard — a 305-rule library merging the normative Python
+  The modern Python 3.15 engineering standard — a 284-rule library merging the normative Python
   specifications (PEP 8, PEP 257, PEP 20, and the Python Typing Spec), the empirical conventions of
   the CPython standard library, and Ruff's rule catalogue as its house standard. Covers free
   threading and what the GIL stopped guaranteeing, shared state, iterators, caches and context,
@@ -167,15 +167,15 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 
 - **PS-CORE-01 `[M]`** Apply PEP 8's casing mechanically, and let `ruff format` settle everything it
   can. Formatting is a command, not a matter of individual discipline.
-  (`references/naming.md` PS-NAME-01, PS-NAME-17).
+  (`references/naming.md` PS-NAME-01, PS-NAME-14).
 - **PS-CORE-02 `[M]`** Put units and qualifiers last — `latency_ms_max`, not `max_latency_ms` — so
   alphabetical order becomes a semantic grouping and a missing member of a family is visible.
   (`references/naming.md` PS-NAME-05).
 - **PS-CORE-03 `[M]`** Reject at the top with a guard, then proceed unindented. The body should
-  describe only the case that survived. (`references/errors.md` PS-ERR-18).
+  describe only the case that survived. (`references/errors.md` PS-ERR-16).
 - **PS-CORE-04 `[M]`** Say why, not what. Code records what it does; a comment exists for the
   reasoning, the alternative rejected, and the constraint that is not visible locally.
-  (`references/naming.md` PS-NAME-20).
+  (`references/naming.md` PS-NAME-17).
 
 ### Types
 
@@ -186,11 +186,11 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
   (`references/types.md` PS-TYPE-04).
 - **PS-CORE-07 `[M]`** Write `X | None`, `list[int]`, `class Box[T]`, `type Alias = ...`. The
   `typing` aliases, `Optional`, and module-level `TypeVar` are all superseded spellings.
-  (`references/types.md` PS-TYPE-08, PS-TYPE-09, PS-TYPE-10).
+  (`references/types.md` PS-TYPE-07, PS-TYPE-08, PS-TYPE-09).
 - **PS-CORE-08 `[M]`** Use `object` for "anything" and `Any` only with a comment naming what cannot
-  be expressed. They look alike and are opposites. (`references/types.md` PS-TYPE-15).
+  be expressed. They look alike and are opposites. (`references/types.md` PS-TYPE-14).
 - **PS-CORE-09 `[M]`** Narrow with `TypeIs`, not `TypeGuard`: `TypeGuard` leaves the `else` branch
-  un-narrowed, which is not what anyone expects. (`references/types.md` PS-TYPE-16).
+  un-narrowed, which is not what anyone expects. (`references/types.md` PS-TYPE-15).
 
 ### Data
 
@@ -209,16 +209,16 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 
 - **PS-CORE-13 `[M]`** Never swallow an exception and never catch what you cannot handle. Converting
   a loud failure into a quiet wrong answer is the most expensive thing in this standard.
-  (`references/errors.md` PS-ERR-10, PS-ERR-11).
+  (`references/errors.md` PS-ERR-08, PS-ERR-09).
 - **PS-CORE-14 `[M]`** Never `return`, `break` or `continue` inside `finally` — it discards the
   in-flight exception silently. PEP 765 makes it a `SyntaxWarning`.
-  (`references/errors.md` PS-ERR-15).
+  (`references/errors.md` PS-ERR-13).
 - **PS-CORE-15 `[M]`** Never use `assert` to validate input: `python -O` removes it, so the
   validation disappears in exactly the deployment that needed it.
-  (`references/errors.md` PS-ERR-08).
+  (`references/errors.md` PS-ERR-07).
 - **PS-CORE-16 `[M]`** Catch an `ExceptionGroup` with `except*`. A plain `except ValueError` never
   matches one, so the handler you wrote is silently never entered.
-  (`references/errors.md` PS-ERR-13).
+  (`references/errors.md` PS-ERR-11).
 
 ### Concurrency
 
@@ -235,7 +235,7 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **PS-CORE-21 `[M]`** Never share a `TextIOWrapper` across threads, `print` and the standard
   streams included. (`references/concurrency.md` PS-CONC-23).
 - **PS-CORE-22 `[M]`** Start every task inside a `TaskGroup`, give every wait a timeout, and never
-  swallow `CancelledError`. (`references/async.md` PS-ASYNC-04, PS-ASYNC-08, PS-ASYNC-11).
+  swallow `CancelledError`. (`references/async.md` PS-ASYNC-03, PS-ASYNC-06, PS-ASYNC-09).
 
 ### Boundaries
 
@@ -245,7 +245,7 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **PS-CORE-24 `[M]`** Pass `encoding=` explicitly to every text open. 3.15 moved the default, and
   it moved six surfaces rather than one. (`references/output.md` PS-OUT-01, PS-OUT-02).
 - **PS-CORE-25 `[M]`** Log with `%`-style arguments, never an f-string, and never configure logging
-  in a library. (`references/output.md` PS-OUT-11, PS-OUT-14).
+  in a library. (`references/output.md` PS-OUT-11, PS-OUT-13).
 
 ### Knowing which interpreter you are on
 
@@ -281,23 +281,23 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The 26
-`PS-CORE-*` rules live in section 4 above; the other 279 live here.
+`PS-CORE-*` rules live in section 4 above; the other 258 live here.
 
 | File | Rule IDs | Covers |
 |---|---|---|
-| `references/naming.md` | `PS-NAME` (26) | Casing and word choice, module and package names, import grouping and re-export, what `ruff format` settles, comment discipline, and the symmetry of names |
-| `references/types.md` | `PS-TYPE` (22) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, and what 3.15 adds |
+| `references/naming.md` | `PS-NAME` (22) | Casing and word choice, module and package names, import grouping and re-export, what `ruff format` settles, comment discipline, and the symmetry of names |
+| `references/types.md` | `PS-TYPE` (21) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, and what 3.15 adds |
 | `references/data.md` | `PS-DATA` (22) | Choosing between dataclass, enum, protocol and TypedDict, fields and defaults, immutability, validity, and the symmetry of a data type |
-| `references/errors.md` | `PS-ERR` (22) | Designing an exception hierarchy, raising and catching, `except*`, `finally` after PEP 765, and the control-flow shapes that keep a function readable |
+| `references/errors.md` | `PS-ERR` (20) | Designing an exception hierarchy, raising and catching, `except*`, `finally` after PEP 765, and the control-flow shapes that keep a function readable |
 | `references/concurrency.md` | `PS-CONC` (26) | What the GIL guaranteed and no longer does, sharing objects between threads, iterators and generators, caches and context, streams and hold times |
-| `references/async.md` | `PS-ASYNC` (22) | Entering and leaving a loop, owning tasks with `TaskGroup`, cancellation and timeouts, not blocking the loop, and the thread boundary |
-| `references/output.md` | `PS-OUT` (20) | Encoding after PEP 686, interpolation and template strings, logging discipline, and the difference between program output and diagnostics |
-| `references/performance.md` | `PS-PERF` (20) | Measuring with the 3.15 profiling package, complexity before constants, allocation, and what the free-threaded build costs |
-| `references/api.md` | `PS-API` (22) | Declaring the public surface, re-export and `py.typed`, signature and default discipline, module shape, and evolving without breaking |
-| `references/documentation.md` | `PS-DOC` (18) | Docstring shape and content, choosing a convention and what that choice disables, doctests, and the documents outside the code |
-| `references/testing.md` | `PS-TEST` (22) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
+| `references/async.md` | `PS-ASYNC` (19) | Entering and leaving a loop, owning tasks with `TaskGroup`, cancellation and timeouts, not blocking the loop, and the thread boundary |
+| `references/output.md` | `PS-OUT` (18) | Encoding after PEP 686, interpolation and template strings, logging discipline, and the difference between program output and diagnostics |
+| `references/performance.md` | `PS-PERF` (19) | Measuring with the 3.15 profiling package, complexity before constants, allocation, and what the free-threaded build costs |
+| `references/api.md` | `PS-API` (20) | Declaring the public surface, re-export and `py.typed`, signature and default discipline, module shape, and evolving without breaking |
+| `references/documentation.md` | `PS-DOC` (14) | Docstring shape and content, choosing a convention and what that choice disables, doctests, and the documents outside the code |
+| `references/testing.md` | `PS-TEST` (21) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
 | `references/build.md` | `PS-BUILD` (21) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
-| `references/migration.md` | `PS-MIG` (16) | The four tiers of obsolescence, what 3.14 and 3.15 removed and changed, what to write today for 3.16, and pytest's own ladder |
+| `references/migration.md` | `PS-MIG` (15) | The four tiers of obsolescence, what 3.14 and 3.15 removed and changed, what to write today for 3.16, and pytest's own ladder |
 | `references/review-checklist.md` | — | The audit protocol: eight-level severity model, review order, the mechanical pass, and the output format |
 
 ## 7. Bundled assets

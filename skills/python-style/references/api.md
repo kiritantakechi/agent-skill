@@ -23,22 +23,22 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 - **Signatures**
   - PS-API-06 [M] Annotate every parameter and every return of a public function
   - PS-API-07 [M] Make a parameter keyword-only when the call site would not read
-  - PS-API-09 [M] Take the narrowest type that works; return the most specific
-  - PS-API-10 [S] Take a value, not a flag that selects between two behaviours
-  - PS-API-11 [M] Give every parameter a name the caller would choose
+  - PS-API-08 [M] Take the narrowest type that works; return the most specific
+  - PS-API-09 [S] Take a value, not a flag that selects between two behaviours
+  - PS-API-10 [M] Give every parameter a name the caller would choose
 - **Defaults and effects**
-  - PS-API-13 [M] Make a function either return a value or perform an effect
-  - PS-API-14 [M] Document what the function does not do
-  - PS-API-15 [M] Say who owns what the function returns
+  - PS-API-11 [M] Make a function either return a value or perform an effect
+  - PS-API-12 [M] Document what the function does not do
+  - PS-API-13 [M] Say who owns what the function returns
 - **Modules**
-  - PS-API-16 [M] Give every package an `__init__.py` that is a table of contents
-  - PS-API-17 [M] Never let a submodule import its parent package
-  - PS-API-18 [S] Split a module when it has two audiences, not when it is long
-  - PS-API-19 [M] Keep the dependency graph acyclic and shallow
+  - PS-API-14 [M] Give every package an `__init__.py` that is a table of contents
+  - PS-API-15 [M] Never let a submodule import its parent package
+  - PS-API-16 [S] Split a module when it has two audiences, not when it is long
+  - PS-API-17 [M] Keep the dependency graph acyclic and shallow
 - **Evolution**
-  - PS-API-20 [M] Deprecate with `warnings.deprecated`, and enable the check
-  - PS-API-21 [M] Add a keyword-only parameter rather than changing an existing one
-  - PS-API-22 [M] Give every public change a note in the changelog
+  - PS-API-18 [M] Deprecate with `warnings.deprecated`, and enable the check
+  - PS-API-19 [M] Add a keyword-only parameter rather than changing an existing one
+  - PS-API-20 [M] Give every public change a note in the changelog
 - Decided by tools
 
 ---
@@ -134,7 +134,7 @@ def connect(host: str, *, timeout_seconds: float = 5.0, retries: int = 3) -> str
 assert connect("db", retries=1) == "db/5.0/1"
 ```
 
-### PS-API-09 [M] Take the narrowest type that works; return the most specific
+### PS-API-08 [M] Take the narrowest type that works; return the most specific
 
 `Iterable[str]` in, `list[str]` out. Not `list[str]` in and `Iterable[str]` out.
 
@@ -144,7 +144,7 @@ indexing you actually gave.
 
 **Check:** every public signature. A concrete container in, or an abstract one out, is the finding.
 
-### PS-API-10 [S] Take a value, not a flag that selects between two behaviours
+### PS-API-09 [S] Take a value, not a flag that selects between two behaviours
 
 `sort(key=...)` rather than `sort(reverse_and_dedupe=True)`. A flag that genuinely toggles one
 line — `strict=True` — is fine, which is why this is `[S]`.
@@ -155,7 +155,7 @@ value instead makes the variation the caller's to express.
 
 **Check:** every `bool` parameter whose body is `if flag: ... else: ...` at the top level.
 
-### PS-API-11 [M] Give every parameter a name the caller would choose
+### PS-API-10 [M] Give every parameter a name the caller would choose
 
 `path`, not `p`. `timeout_seconds`, not `t`.
 
@@ -167,7 +167,7 @@ public signature is a name the caller must look up every time.
 
 ## Defaults and effects
 
-### PS-API-13 [M] Make a function either return a value or perform an effect
+### PS-API-11 [M] Make a function either return a value or perform an effect
 
 Not both. A function that writes a file and returns the parsed contents is two functions.
 
@@ -178,7 +178,7 @@ each half testable and lets the caller compose them.
 **Check:** every function with a return value and an effect. `command-query separation` is the name
 for the split.
 
-### PS-API-14 [M] Document what the function does not do
+### PS-API-12 [M] Document what the function does not do
 
 "Does not validate the path exists." "Does not retry." "Does not close the stream."
 
@@ -189,7 +189,7 @@ sentence removes a class of misuse.
 **Check:** every public function whose name suggests more than it does — anything with `load`,
 `save`, `ensure`, `sync` in it.
 
-### PS-API-15 [M] Say who owns what the function returns
+### PS-API-13 [M] Say who owns what the function returns
 
 Whether the caller may mutate it, whether it is a view or a copy, whether it must be closed. Say it,
 or return something immutable so the question does not arise.
@@ -202,18 +202,18 @@ are invisible from the signature.
 
 ## Modules
 
-### PS-API-16 [M] Give every package an `__init__.py` that is a table of contents
+### PS-API-14 [M] Give every package an `__init__.py` that is a table of contents
 
 Re-exports and `__all__`, and nothing else. No logic, no state, no work.
 
 **Why:** the `__init__` is what every importer of the package runs, so anything in it is a cost
 paid by everyone including those who wanted one submodule. Keeping it declarative makes it
-readable as the package's index — and per PS-NAME-14 keeps it safe under lazy imports.
+readable as the package's index — and per PS-NAME-11 keeps it safe under lazy imports.
 
 **Check:** every `__init__.py`. Anything other than imports, `__all__` and a docstring is the
 finding.
 
-### PS-API-17 [M] Never let a submodule import its parent package
+### PS-API-15 [M] Never let a submodule import its parent package
 
 `acme/reader.py` must not `from acme import thing`.
 
@@ -224,7 +224,7 @@ error depending on which module was imported first — so it works until the imp
 **Check:** `rg -n 'from <package> import|import <package>$' src/<package>/` — any self-reference
 is the finding.
 
-### PS-API-18 [S] Split a module when it has two audiences, not when it is long
+### PS-API-16 [S] Split a module when it has two audiences, not when it is long
 
 Length is a symptom; two unrelated groups of callers is the cause.
 
@@ -234,7 +234,7 @@ thousand-line module with one audience is fine; a two-hundred-line module servin
 
 **Check:** for each module, name its callers. Two disjoint groups is the finding.
 
-### PS-API-19 [M] Keep the dependency graph acyclic and shallow
+### PS-API-17 [M] Keep the dependency graph acyclic and shallow
 
 No import cycles, and no chain of internal imports deeper than a few levels.
 
@@ -247,7 +247,7 @@ is a design question.
 
 ## Evolution
 
-### PS-API-20 [M] Deprecate with `warnings.deprecated`, and enable the check
+### PS-API-18 [M] Deprecate with `warnings.deprecated`, and enable the check
 
 `@warnings.deprecated("Use X instead; removed in 2.0")` on the function, class or overload. It lives
 in `warnings`, not `typing`. Not every checker reports it unless enabled explicitly; `ty` does so by
@@ -258,7 +258,7 @@ find out at type-check time rather than at runtime — which is when they can st
 
 **Check:** every deprecation. A docstring note without the decorator is invisible to tooling.
 
-### PS-API-21 [M] Add a keyword-only parameter rather than changing an existing one
+### PS-API-19 [M] Add a keyword-only parameter rather than changing an existing one
 
 New behaviour arrives as `*, new_thing: X | None = None`, defaulting to the old behaviour.
 
@@ -269,7 +269,7 @@ you cannot see. PS-API-07's keyword-only discipline is what makes this possible 
 **Check:** every signature change in review. Anything but an added keyword-only parameter is a
 breaking change and needs a version bump.
 
-### PS-API-22 [M] Give every public change a note in the changelog
+### PS-API-20 [M] Give every public change a note in the changelog
 
 Added, changed, deprecated, removed, fixed — with the version.
 

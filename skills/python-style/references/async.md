@@ -19,27 +19,27 @@ Unless a block shows its own imports, it assumes `import asyncio`.
   - PS-ASYNC-01 [M] Enter with `asyncio.run`, and configure with `loop_factory`
   - PS-ASYNC-02 [M] Never call `get_event_loop`, and never touch the policy API
 - **Owning tasks**
-  - PS-ASYNC-04 [M] Start every task inside a `TaskGroup`
-  - PS-ASYNC-06 [M] Catch a group with `except*`
-  - PS-ASYNC-07 [S] End a group early with `TaskGroup.cancel`, not with an exception
+  - PS-ASYNC-03 [M] Start every task inside a `TaskGroup`
+  - PS-ASYNC-04 [M] Catch a group with `except*`
+  - PS-ASYNC-05 [S] End a group early with `TaskGroup.cancel`, not with an exception
 - **Cancellation**
-  - PS-ASYNC-08 [M] Never swallow `CancelledError`
-  - PS-ASYNC-09 [M] Assume every `await` is a cancellation point
-  - PS-ASYNC-10 [M!] Shield only what must not be interrupted, and bound it
-  - PS-ASYNC-11 [M] Give every wait a timeout, with `asyncio.timeout`
+  - PS-ASYNC-06 [M] Never swallow `CancelledError`
+  - PS-ASYNC-07 [M] Assume every `await` is a cancellation point
+  - PS-ASYNC-08 [M!] Shield only what must not be interrupted, and bound it
+  - PS-ASYNC-09 [M] Give every wait a timeout, with `asyncio.timeout`
 - **Not blocking the loop**
-  - PS-ASYNC-12 [M] Never call a blocking function from a coroutine
-  - PS-ASYNC-13 [M] Move blocking work with `asyncio.to_thread`
-  - PS-ASYNC-15 [S] Keep a coroutine's synchronous stretches short
+  - PS-ASYNC-10 [M] Never call a blocking function from a coroutine
+  - PS-ASYNC-11 [M] Move blocking work with `asyncio.to_thread`
+  - PS-ASYNC-12 [S] Keep a coroutine's synchronous stretches short
 - **The thread boundary**
-  - PS-ASYNC-16 [M] Give each thread its own event loop
-  - PS-ASYNC-17 [M] Cross into a loop with `call_soon_threadsafe` or `run_coroutine_threadsafe`
-  - PS-ASYNC-18 [M] Use `queue.Queue` between threads and `asyncio.Queue` within a loop
-  - PS-ASYNC-19 [M] Never use an `asyncio` primitive across threads
+  - PS-ASYNC-13 [M] Give each thread its own event loop
+  - PS-ASYNC-14 [M] Cross into a loop with `call_soon_threadsafe` or `run_coroutine_threadsafe`
+  - PS-ASYNC-15 [M] Use `queue.Queue` between threads and `asyncio.Queue` within a loop
+  - PS-ASYNC-16 [M] Never use an `asyncio` primitive across threads
 - **Shape**
-  - PS-ASYNC-20 [M] Do not mark a function `async` unless it awaits
-  - PS-ASYNC-21 [S] Make an async resource a context manager
-  - PS-ASYNC-22 [M] Give every async iterator an `aclose`
+  - PS-ASYNC-17 [M] Do not mark a function `async` unless it awaits
+  - PS-ASYNC-18 [S] Make an async resource a context manager
+  - PS-ASYNC-19 [M] Give every async iterator an `aclose`
 - Decided by tools
 
 ---
@@ -86,7 +86,7 @@ finding.
 
 ## Owning tasks
 
-### PS-ASYNC-04 [M] Start every task inside a `TaskGroup`
+### PS-ASYNC-03 [M] Start every task inside a `TaskGroup`
 
 `async with asyncio.TaskGroup() as tg: tg.create_task(...)`.
 
@@ -117,17 +117,17 @@ async def main() -> list[int]:
 assert asyncio.run(main()) == [0, 2, 4]
 ```
 
-### PS-ASYNC-06 [M] Catch a group with `except*`
+### PS-ASYNC-04 [M] Catch a group with `except*`
 
 A `TaskGroup` raises `ExceptionGroup`. A plain `except ValueError` around it never matches.
 
-**Why:** this is PS-ERR-13 in its most common setting. The handler you wrote looks right, compiles,
+**Why:** this is PS-ERR-11 in its most common setting. The handler you wrote looks right, compiles,
 and is never entered; the group propagates past it to the top. Because the group is only raised when
 something already failed, the silent miss lands exactly when you needed the handler.
 
 **Check:** every `try` around an `async with TaskGroup`. A plain `except` clause is the finding.
 
-### PS-ASYNC-07 [S] End a group early with `TaskGroup.cancel`, not with an exception
+### PS-ASYNC-05 [S] End a group early with `TaskGroup.cancel`, not with an exception
 
 New in 3.15: `tg.cancel()` ends the group without raising. It is idempotent and callable before
 entry.
@@ -141,7 +141,7 @@ exception used for control flow is what this replaces.
 
 ## Cancellation
 
-### PS-ASYNC-08 [M] Never swallow `CancelledError`
+### PS-ASYNC-06 [M] Never swallow `CancelledError`
 
 Catch it to clean up, then re-raise. It inherits from `BaseException` precisely so that
 `except Exception` will not take it.
@@ -153,7 +153,7 @@ swallowing task prevents the process from exiting cleanly.
 **Check:** `rg -n 'except.*CancelledError' src/` — every handler must end in `raise`. Ruff
 `ASYNC` and `BLE001` catch the `except Exception` variants that would also take it on older code.
 
-### PS-ASYNC-09 [M] Assume every `await` is a cancellation point
+### PS-ASYNC-07 [M] Assume every `await` is a cancellation point
 
 Between the line before an `await` and the line after it, the task may be cancelled and never
 resume. Make the pair atomic with a context manager, or arrange that the half-state is valid.
@@ -164,7 +164,7 @@ can leak.
 
 **Check:** every `await` inside a `try`, a lock, or between two writes to the same object.
 
-### PS-ASYNC-10 [M!] Shield only what must not be interrupted, and bound it
+### PS-ASYNC-08 [M!] Shield only what must not be interrupted, and bound it
 
 `asyncio.shield` around a commit that must complete. Never around a whole operation. Shield the
 smallest thing whose partial completion would be unrecoverable: writing the commit record, not
@@ -178,7 +178,7 @@ A shielded region with no timeout of its own is a task that cannot be stopped by
 
 **Check:** every `shield`. Name what would break if it were interrupted; if you cannot, remove it.
 
-### PS-ASYNC-11 [M] Give every wait a timeout, with `asyncio.timeout`
+### PS-ASYNC-09 [M] Give every wait a timeout, with `asyncio.timeout`
 
 `async with asyncio.timeout(5):`. Not `wait_for`, which is the older spelling.
 
@@ -212,7 +212,7 @@ assert asyncio.run(main()) == "bounded"
 
 ## Not blocking the loop
 
-### PS-ASYNC-12 [M] Never call a blocking function from a coroutine
+### PS-ASYNC-10 [M] Never call a blocking function from a coroutine
 
 No `requests.get`, no `open(...).read()` on a large file, no `subprocess.run`, no `sleep`.
 
@@ -224,7 +224,7 @@ the single most common async defect and it is invisible in a test with one clien
 `ASYNC240` for a blocking `pathlib` method, `ASYNC210` and `ASYNC212` for blocking HTTP, `ASYNC220`
 through `ASYNC222` for subprocesses, and `ASYNC250` for `input`.
 
-### PS-ASYNC-13 [M] Move blocking work with `asyncio.to_thread`
+### PS-ASYNC-11 [M] Move blocking work with `asyncio.to_thread`
 
 `await asyncio.to_thread(blocking_call, arg)`. Not a hand-made executor unless you need to bound it;
 then `loop.run_in_executor` with your own executor is the escape, and the bound is the point.
@@ -232,9 +232,9 @@ then `loop.run_in_executor` with your own executor is the escape, and the bound 
 **Why:** `to_thread` runs the call on the default thread pool and gives you an awaitable, which is
 the whole boundary in one line, and it propagates context variables, which a raw executor does not.
 
-**Check:** every hit from PS-ASYNC-12's greps. Each needs `to_thread` or an explicit executor.
+**Check:** every hit from PS-ASYNC-10's greps. Each needs `to_thread` or an explicit executor.
 
-### PS-ASYNC-15 [S] Keep a coroutine's synchronous stretches short
+### PS-ASYNC-12 [S] Keep a coroutine's synchronous stretches short
 
 CPU work between two `await`s blocks the loop just as I/O does.
 
@@ -247,7 +247,7 @@ inside it.
 
 ## The thread boundary
 
-### PS-ASYNC-16 [M] Give each thread its own event loop
+### PS-ASYNC-13 [M] Give each thread its own event loop
 
 Never share one loop between threads.
 
@@ -257,7 +257,7 @@ linearly with one loop per thread, so the shape that is correct is also the fast
 
 **Check:** every `asyncio.run` or `Runner` that is reachable from more than one thread.
 
-### PS-ASYNC-17 [M] Cross into a loop with `call_soon_threadsafe` or `run_coroutine_threadsafe`
+### PS-ASYNC-14 [M] Cross into a loop with `call_soon_threadsafe` or `run_coroutine_threadsafe`
 
 Those two, and nothing else, are safe to call on a loop from another thread.
 
@@ -267,7 +267,7 @@ because the boundary needs a door; using anything else is going through the wall
 
 **Check:** `rg -n 'loop\.' src/` inside a thread target. Anything but those two is the finding.
 
-### PS-ASYNC-18 [M] Use `queue.Queue` between threads and `asyncio.Queue` within a loop
+### PS-ASYNC-15 [M] Use `queue.Queue` between threads and `asyncio.Queue` within a loop
 
 They are not interchangeable and neither substitutes for the other.
 
@@ -277,7 +277,7 @@ to read it, or `call_soon_threadsafe` to push into the loop.
 
 **Check:** `rg -n 'asyncio.Queue' src/` — a hit reachable from a plain thread is the finding.
 
-### PS-ASYNC-19 [M] Never use an `asyncio` primitive across threads
+### PS-ASYNC-16 [M] Never use an `asyncio` primitive across threads
 
 `asyncio.Lock`, `Event`, `Semaphore` and `Condition` are single-loop objects.
 
@@ -291,7 +291,7 @@ one.
 
 ## Shape
 
-### PS-ASYNC-20 [M] Do not mark a function `async` unless it awaits
+### PS-ASYNC-17 [M] Do not mark a function `async` unless it awaits
 
 An `async def` with no `await` is a synchronous function that forces every caller into a coroutine.
 
@@ -302,17 +302,17 @@ a loop. The exception is an interface a protocol requires to be async — say so
 **Check:** a review matter. The rule that decides it mechanically is **preview**, and the shipped
 configuration runs stable rules only; preview rules move between ruff releases.
 
-### PS-ASYNC-21 [S] Make an async resource a context manager
+### PS-ASYNC-18 [S] Make an async resource a context manager
 
 `__aenter__`/`__aexit__`, used with `async with`.
 
-**Why:** the same argument as PS-ERR-16: acquisition and release in one place, impossible to
+**Why:** the same argument as PS-ERR-14: acquisition and release in one place, impossible to
 forget. For async it matters more, because the release usually has to be awaited and a forgotten
 one leaves a connection open until the process ends.
 
 **Check:** every class with an async `close` or `disconnect`. No `__aexit__` is the finding.
 
-### PS-ASYNC-22 [M] Give every async iterator an `aclose`
+### PS-ASYNC-19 [M] Give every async iterator an `aclose`
 
 An async generator holds its frame until closed, and `asyncio.run` closes them at exit — but only
 the ones it knows about.

@@ -721,7 +721,9 @@ read inside a thread target whose value was set outside it is the finding.
 import contextvars
 import threading
 
-request_id: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
+request_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "request_id", default="-"
+)
 seen: list[str] = []
 
 

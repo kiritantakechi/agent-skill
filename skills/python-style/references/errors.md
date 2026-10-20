@@ -23,23 +23,23 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 - **Raising**
   - PS-ERR-05 [M] Never raise a bare `Exception`
   - PS-ERR-06 [M] Chain with `raise ... from`, and use `from None` deliberately
-  - PS-ERR-08 [M] Never use `assert` to validate input
+  - PS-ERR-07 [M] Never use `assert` to validate input
 - **Catching**
-  - PS-ERR-10 [M] Never catch what you cannot handle
-  - PS-ERR-11 [M] Never swallow an exception silently
-  - PS-ERR-12 [M] Enclose in `try` only the line that can raise
-  - PS-ERR-13 [M] Use `except*` for a group, and never mix it with `except`
-  - PS-ERR-14 [S] Prefer asking forgiveness where the failure is rare
+  - PS-ERR-08 [M] Never catch what you cannot handle
+  - PS-ERR-09 [M] Never swallow an exception silently
+  - PS-ERR-10 [M] Enclose in `try` only the line that can raise
+  - PS-ERR-11 [M] Use `except*` for a group, and never mix it with `except`
+  - PS-ERR-12 [S] Prefer asking forgiveness where the failure is rare
 - **`finally` and cleanup**
-  - PS-ERR-15 [M] Never `return`, `break` or `continue` inside `finally`
-  - PS-ERR-16 [M] Release with a context manager rather than with `finally`
-  - PS-ERR-17 [M] Make a cleanup path idempotent
+  - PS-ERR-13 [M] Never `return`, `break` or `continue` inside `finally`
+  - PS-ERR-14 [M] Release with a context manager rather than with `finally`
+  - PS-ERR-15 [M] Make a cleanup path idempotent
 - **The shape of a function**
-  - PS-ERR-18 [M] Reject at the top with a guard, then proceed unindented
-  - PS-ERR-19 [M] Write the condition as the invariant that holds
-  - PS-ERR-20 [S] Use `match` for structure, not as a switch
-  - PS-ERR-21 [S] Bind with the walrus only where it removes a line without hiding one
-  - PS-ERR-22 [M] Return one type from one function
+  - PS-ERR-16 [M] Reject at the top with a guard, then proceed unindented
+  - PS-ERR-17 [M] Write the condition as the invariant that holds
+  - PS-ERR-18 [S] Use `match` for structure, not as a switch
+  - PS-ERR-19 [S] Bind with the walrus only where it removes a line without hiding one
+  - PS-ERR-20 [M] Return one type from one function
 - Decided by tools
 
 ---
@@ -151,7 +151,7 @@ except ConfigError as exc:
     assert isinstance(exc.__cause__, ValueError)
 ```
 
-### PS-ERR-08 [M] Never use `assert` to validate input
+### PS-ERR-07 [M] Never use `assert` to validate input
 
 `assert` states something the code believes; `raise` reports something the caller did.
 
@@ -164,7 +164,7 @@ shipped configuration ignores `S101` under `tests/`.
 
 ## Catching
 
-### PS-ERR-10 [M] Never catch what you cannot handle
+### PS-ERR-08 [M] Never catch what you cannot handle
 
 Catching to log and re-raise is handling. Catching to continue as if nothing happened is not.
 
@@ -175,7 +175,7 @@ who has the context decides; your job is to let the failure reach them.
 **Check:** every `except`. Name what the handler does about it. "Logs it" without a re-raise is the
 finding unless this is the top-level boundary that owns the process.
 
-### PS-ERR-11 [M] Never swallow an exception silently
+### PS-ERR-09 [M] Never swallow an exception silently
 
 `except X: pass` needs a comment saying why the failure is genuinely uninteresting.
 
@@ -201,7 +201,7 @@ with contextlib.suppress(FileNotFoundError):
 assert not cache.exists()
 ```
 
-### PS-ERR-12 [M] Enclose in `try` only the line that can raise
+### PS-ERR-10 [M] Enclose in `try` only the line that can raise
 
 Not the whole function body. Not the setup and the work together.
 
@@ -212,7 +212,7 @@ which call is the risky one, which the wide form hides.
 **Check:** every `try` with more than about three statements. Each additional line is another source
 the handler now silently claims to cover.
 
-### PS-ERR-13 [M] Use `except*` for a group, and never mix it with `except`
+### PS-ERR-11 [M] Use `except*` for a group, and never mix it with `except`
 
 A `TaskGroup` or a `Barrier` raises `ExceptionGroup`; catch it with `except*`.
 
@@ -240,7 +240,7 @@ except* KeyError as group:
 assert caught == ["value:1", "key:1"]
 ```
 
-### PS-ERR-14 [S] Prefer asking forgiveness where the failure is rare
+### PS-ERR-12 [S] Prefer asking forgiveness where the failure is rare
 
 `try: return d[k] / except KeyError:` beats `if k in d: return d[k]` when the key is usually there.
 Where the failure is *common*, the exception machinery costs more than the check, so check first.
@@ -254,7 +254,7 @@ subset that `dict.get` replaces outright.
 
 ## `finally` and cleanup
 
-### PS-ERR-15 [M] Never `return`, `break` or `continue` inside `finally`
+### PS-ERR-13 [M] Never `return`, `break` or `continue` inside `finally`
 
 New in 3.14: PEP 765 makes it a `SyntaxWarning` at compile time. The PEP leaves open whether it
 ever becomes an error.
@@ -267,7 +267,7 @@ log. PEP 765 exists because the pattern is essentially always a mistake.
 `continue` in a `finally`. The interpreter warns too, so a build that turns warnings into errors
 catches it as well.
 
-### PS-ERR-16 [M] Release with a context manager rather than with `finally`
+### PS-ERR-14 [M] Release with a context manager rather than with `finally`
 
 `with lock:`, `with open(...) as f:`, `with contextlib.closing(x):`. Not `try/finally`. Note
 PS-CONC-25: on 3.15 a `contextmanager`-derived *decorator* on a generator holds until the generator
@@ -275,11 +275,11 @@ is exhausted, so prefer the `with` form where the hold time matters.
 
 **Why:** the context manager puts the acquisition and the release in one place where they cannot
 drift apart, and it makes the pair impossible to forget at a new call site. Hand-written
-`try/finally` repeats the release at every use and is where PS-ERR-15's defect appears.
+`try/finally` repeats the release at every use and is where PS-ERR-13's defect appears.
 
 **Check:** `rg -n 'finally:' src/` — each hit that only releases a resource should be a `with`.
 
-### PS-ERR-17 [M] Make a cleanup path idempotent
+### PS-ERR-15 [M] Make a cleanup path idempotent
 
 Closing twice, unlinking a missing file, releasing an unheld lock: none may raise.
 
@@ -291,7 +291,7 @@ the original exception with its own, and the original is what you needed to see.
 
 ## The shape of a function
 
-### PS-ERR-18 [M] Reject at the top with a guard, then proceed unindented
+### PS-ERR-16 [M] Reject at the top with a guard, then proceed unindented
 
 `if not valid: raise ...` first, then the body at one level of indentation.
 
@@ -318,7 +318,7 @@ def parse_port(raw: str) -> int:
 assert parse_port("8080") == 8080
 ```
 
-### PS-ERR-19 [M] Write the condition as the invariant that holds
+### PS-ERR-17 [M] Write the condition as the invariant that holds
 
 `if index < length:` for the branch that proceeds. An early-return guard is the exception, because
 stating the rejection is its whole point.
@@ -330,11 +330,11 @@ transformations. The guard form is exempt because there the rejection *is* the s
 **Check:** every `if not` whose body is more than a `raise` or a `return`. `SIM103`, `SIM108` and
 `SIM110` catch the mechanical subset.
 
-### PS-ERR-20 [S] Use `match` for structure, not as a switch
+### PS-ERR-18 [S] Use `match` for structure, not as a switch
 
 `match` earns its place when it destructures — a shape, a sequence, a class with fields. Matching a
 single value against constants is an `if`/`elif` chain wearing a costume. The enum case is the
-exception worth naming: `match` over an enum with `assert_never` is the idiom PS-TYPE-17 requires.
+exception worth naming: `match` over an enum with `assert_never` is the idiom PS-TYPE-16 requires.
 
 **Why:** `match` reads well when the patterns show the shape of the data and badly when they are a
 list of equalities, because the reader is primed by the syntax to look for structure that is not
@@ -342,7 +342,7 @@ there.
 
 **Check:** every `match` whose every case is a bare literal and which has no capture pattern.
 
-### PS-ERR-21 [S] Bind with the walrus only where it removes a line without hiding one
+### PS-ERR-19 [S] Bind with the walrus only where it removes a line without hiding one
 
 `if (found := lookup(k)) is not None:` yes. A walrus inside a comprehension condition that is also
 used in the output, usually not.
@@ -354,7 +354,7 @@ parses. The test is whether removing it would need one extra line or three.
 **Check:** every `:=`. If the bound name is used more than twice, or the expression spans more than
 one line, the plain assignment reads better.
 
-### PS-ERR-22 [M] Return one type from one function
+### PS-ERR-20 [M] Return one type from one function
 
 Not `str | None` where `None` means failure, and not a value on success with a `bool` on failure.
 `X | None` is legitimate where `None` is a *value* the domain has, such as an optional field, and

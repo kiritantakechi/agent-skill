@@ -90,7 +90,7 @@ which matters more on the free-threaded build, whose object headers are larger.
 Not string constants, not a `Literal` union of strings, not integers with a comment.
 
 **Why:** an enum names the set, gives each member a readable `repr` in a traceback, and is the one
-place to add a member, which PS-TYPE-17's `assert_never` turns into a type error wherever the set is
+place to add a member, which PS-TYPE-16's `assert_never` turns into a type error wherever the set is
 consumed. A `Literal` union gets the narrowing and none of the rest.
 
 **Check:** `rg -n '^[A-Z_]+[ \t]*[:=][ \t]*["\x27]' src/` — a group of module-level string constants
@@ -451,7 +451,7 @@ class Point:
 
     def to_dict(self) -> dict[str, int]:
         # Not `asdict`: it returns `dict[str, Any]`, and laundering `Any` into an
-        # annotated return is what PS-TYPE-15 exists to stop.
+        # annotated return is what PS-TYPE-14 exists to stop.
         return {"x": self.x, "y": self.y}
 
     @classmethod

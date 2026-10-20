@@ -206,7 +206,7 @@ automatically because it lives inside the package — but verify that against th
 than taking it on trust.
 
 **Why:** `src/` is what makes the tests exercise the installed package rather than the working
-copy — see PS-NAME-16. `py.typed` is what makes your annotations visible downstream at all;
+copy — see PS-NAME-13. `py.typed` is what makes your annotations visible downstream at all;
 without it a type checker ignores them entirely.
 
 **Check:** unpack the built wheel and look for `py.typed`. Its absence is the finding.

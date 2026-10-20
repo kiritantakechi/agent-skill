@@ -30,13 +30,13 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-PERF-12 [S] Reuse a buffer rather than allocating per iteration
   - PS-PERF-13 [M] Cache only what is pure, and say so
 - **What the build costs**
-  - PS-PERF-15 [M] Budget for the free-threaded build's single-threaded overhead
-  - PS-PERF-16 [M] Know that the JIT is unavailable on the free-threaded build
-  - PS-PERF-17 [M] Expect higher memory on the free-threaded build
-  - PS-PERF-18 [M!] Give shared read-mostly data to threads, not to processes
+  - PS-PERF-14 [M] Budget for the free-threaded build's single-threaded overhead
+  - PS-PERF-15 [M] Know that the JIT is unavailable on the free-threaded build
+  - PS-PERF-16 [M] Expect higher memory on the free-threaded build
+  - PS-PERF-17 [M!] Give shared read-mostly data to threads, not to processes
 - **Discipline**
-  - PS-PERF-19 [M] Never optimise without leaving the measurement behind
-  - PS-PERF-20 [M] Keep the readable version when the fast one is not faster
+  - PS-PERF-18 [M] Never optimise without leaving the measurement behind
+  - PS-PERF-19 [M] Keep the readable version when the fast one is not faster
 - Decided by tools
 
 ---
@@ -206,7 +206,7 @@ not single-flight, so under threads the body runs more than once anyway.
 
 ## What the build costs
 
-### PS-PERF-15 [M] Budget for the free-threaded build's single-threaded overhead
+### PS-PERF-14 [M] Budget for the free-threaded build's single-threaded overhead
 
 Somewhere between 5% and 30% depending on the workload, and closer to 30% for allocation-heavy code.
 Budget from your own measurement, and cite its date — these numbers move every release.
@@ -218,7 +218,7 @@ allocation-heavy code pays much more: every reference to another thread's object
 **Check:** benchmark the same workload on both builds before committing to free threading. A
 decision made on the doc's number rather than on yours is the finding.
 
-### PS-PERF-16 [M] Know that the JIT is unavailable on the free-threaded build
+### PS-PERF-15 [M] Know that the JIT is unavailable on the free-threaded build
 
 `--enable-experimental-jit` with `--disable-gil` builds a JIT that is never used; CPython's own
 configure script warns about it.
@@ -229,7 +229,7 @@ parallelism". For code that will not use more than one core, that is a straightf
 
 **Check:** any project on the free-threaded build whose workload is single-threaded.
 
-### PS-PERF-17 [M] Expect higher memory on the free-threaded build
+### PS-PERF-16 [M] Expect higher memory on the free-threaded build
 
 PEP 779's target is 20%, and measurements sit at 1.19–1.22x.
 
@@ -239,7 +239,7 @@ that is a leak or tunable away; `gc.collect()` releasing what QSBR holds is the 
 
 **Check:** measure RSS on both builds before setting a memory limit.
 
-### PS-PERF-18 [M!] Give shared read-mostly data to threads, not to processes
+### PS-PERF-17 [M!] Give shared read-mostly data to threads, not to processes
 
 Where workers read a large structure and write only their own results, threads on the free-threaded
 build avoid the copy entirely.
@@ -256,7 +256,7 @@ threads; small and copied favours processes; large and mutable needs a redesign.
 
 ## Discipline
 
-### PS-PERF-19 [M] Never optimise without leaving the measurement behind
+### PS-PERF-18 [M] Never optimise without leaving the measurement behind
 
 A comment naming the workload, the number, and the date.
 
@@ -266,7 +266,7 @@ not, because the interpreter got faster or the workload changed.
 
 **Check:** every non-obvious construct justified by speed. No number and no date is the finding.
 
-### PS-PERF-20 [M] Keep the readable version when the fast one is not faster
+### PS-PERF-19 [M] Keep the readable version when the fast one is not faster
 
 If the measurement does not show a difference that matters, revert it.
 

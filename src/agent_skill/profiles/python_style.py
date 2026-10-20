@@ -60,7 +60,6 @@ class PythonStyle(Profile):
     #: derived from the fence tag alone.
     marked_languages: tuple[str, ...] = ("toml",)
     tools: tuple[str, ...] = ("python", "ty", "ruff")
-    exempt_from_structure: str | None = "converted in milestone 1 of refresh-skills"
     language: str = "Python"
     verified_as: str = "runs as written on free-threaded CPython {pin}"
     strict_scope: str = "library and high-reliability"
@@ -74,10 +73,10 @@ class PythonStyle(Profile):
             "PS-API-05": ("from acmewidget._internal import helper",),
             "PS-ASYNC-01": ("loop = asyncio.new_event_loop()",),
             "PS-ASYNC-02": ("loop = asyncio.get_event_loop()",),
-            "PS-ASYNC-04": ("task = asyncio.create_task(worker())",),
+            "PS-ASYNC-03": ("task = asyncio.create_task(worker())",),
             # The pattern carried a stray space for as long as it shipped, and
             # matched nothing; this is the line it was written to find.
-            "PS-MIG-09": ("if json.__version__ < (2, 0):",),
+            "PS-MIG-08": ("if json.__version__ < (2, 0):",),
         }
     )
     not_decisive: dict = field(
@@ -110,33 +109,33 @@ class PythonStyle(Profile):
                 "the pattern finds every context read; passing the context explicitly "
                 "is the compliant form and matches the same pattern",
             ),
-            "PS-MIG-10": NotDecisive(
+            "PS-MIG-09": NotDecisive(
                 "find every decorator derived from one that is",
                 "the pattern finds every `@contextmanager`; what it decorates decides, "
                 "and the `with` form the standard recommends matches too",
             ),
-            "PS-MIG-11": NotDecisive(
+            "PS-MIG-10": NotDecisive(
                 "isinstance\\(.*, dict\\)",
                 "the pattern finds every dict test; a narrowing check on parsed JSON "
                 "is correct, and so is a test demonstrating that a `frozendict` "
                 "fails it",
             ),
-            "PS-TEST-19": NotDecisive(
+            "PS-TEST-18": NotDecisive(
                 "sleep\\(' tests/",
                 "scoped to the test suite: `await asyncio.sleep(...)` in ordinary "
                 "code is correct, and the pattern cannot see which tree it is in",
             ),
-            "PS-DOC-08": NotDecisive(
+            "PS-DOC-04": NotDecisive(
                 "a parenthesised type is the",
                 "the pattern finds any indented name followed by a parenthesis, which "
                 "matches ordinary prose as readily as a docstring type",
             ),
-            "PS-ASYNC-04": NotDecisive(
+            "PS-ASYNC-03": NotDecisive(
                 "every hit outside a `TaskGroup`",
                 "the pattern finds every task start; being inside a `TaskGroup` is "
                 "what makes it compliant, and the pattern cannot see the block",
             ),
-            "PS-ERR-16": NotDecisive(
+            "PS-ERR-14": NotDecisive(
                 "each hit that only releases a resource",
                 "the pattern finds every `finally`; the one inside a `@contextmanager` "
                 "is how a context manager is implemented, not a call site that "
@@ -169,7 +168,7 @@ class PythonStyle(Profile):
                 "read for `slots=`",
                 "the pattern finds every dataclass; the `slots=` argument decides",
             ),
-            "PS-NAME-15": NotDecisive(
+            "PS-NAME-12": NotDecisive(
                 "read each hit for what",
                 "the pattern finds every indented import; what encloses it decides, "
                 "and an `if TYPE_CHECKING:` block is indented too",

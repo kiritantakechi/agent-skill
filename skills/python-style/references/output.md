@@ -28,13 +28,13 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 - **Logging**
   - PS-OUT-11 [M] Log with `%`-style arguments, never with an f-string
   - PS-OUT-12 [M] Get the logger by `__name__`, at module scope
-  - PS-OUT-14 [M] Never configure logging in a library
-  - PS-OUT-15 [S] Log the identifier, not the object
+  - PS-OUT-13 [M] Never configure logging in a library
+  - PS-OUT-14 [S] Log the identifier, not the object
 - **Program output**
-  - PS-OUT-16 [M] Send program output to stdout and diagnostics to stderr
-  - PS-OUT-18 [M] Give a type a `__repr__` that says what it is
-  - PS-OUT-19 [S] Give a type a `__str__` only when it has a human form
-  - PS-OUT-20 [M] Never let output formatting depend on the locale
+  - PS-OUT-15 [M] Send program output to stdout and diagnostics to stderr
+  - PS-OUT-16 [M] Give a type a `__repr__` that says what it is
+  - PS-OUT-17 [S] Give a type a `__str__` only when it has a human form
+  - PS-OUT-18 [M] Never let output formatting depend on the locale
 - Decided by tools
 
 ---
@@ -219,7 +219,7 @@ module level uses the root logger, which cannot be configured per component.
 **Check:** ruff `LOG015` for the root-logger calls. `rg -n 'getLogger\("' src/` for hand-written
 names.
 
-### PS-OUT-14 [M] Never configure logging in a library
+### PS-OUT-13 [M] Never configure logging in a library
 
 No `basicConfig`, no handlers, no level setting, no `dictConfig`. Getting a logger is all a library
 does. Adding a `NullHandler` is the one permitted exception, and only to silence the no-handler
@@ -232,7 +232,7 @@ records; where they go is not its business.
 **Check:** `rg -n 'basicConfig|dictConfig|setLevel|addHandler' src/` — every hit outside the
 application entry point is the finding.
 
-### PS-OUT-15 [S] Log the identifier, not the object
+### PS-OUT-14 [S] Log the identifier, not the object
 
 `logger.info("user %s", user.id)`, not `logger.info("user %s", user)`.
 
@@ -244,7 +244,7 @@ type changes every log line that mentions it.
 
 ## Program output
 
-### PS-OUT-16 [M] Send program output to stdout and diagnostics to stderr
+### PS-OUT-15 [M] Send program output to stdout and diagnostics to stderr
 
 The result goes to stdout. Progress, warnings and errors go to stderr.
 
@@ -255,7 +255,7 @@ stdout hides the errors you most needed to see.
 **Check:** every `print` — is what it emits part of the result? If not, it belongs on stderr or in
 `logging`.
 
-### PS-OUT-18 [M] Give a type a `__repr__` that says what it is
+### PS-OUT-16 [M] Give a type a `__repr__` that says what it is
 
 Ideally one that could be evaluated back: `Point(x=1, y=2)`.
 
@@ -266,7 +266,7 @@ one for free, which is one more reason to reach for it.
 **Check:** every class that is not a dataclass and has no `__repr__`. `RUF` does not catch this; it
 is a review matter.
 
-### PS-OUT-19 [S] Give a type a `__str__` only when it has a human form
+### PS-OUT-17 [S] Give a type a `__str__` only when it has a human form
 
 If `str(x)` and `repr(x)` would say the same thing, define only `__repr__`.
 
@@ -276,7 +276,7 @@ amount, a duration — and let `repr` stay the precise one.
 
 **Check:** every class defining both. If the two bodies are the same shape, delete `__str__`.
 
-### PS-OUT-20 [M] Never let output formatting depend on the locale
+### PS-OUT-18 [M] Never let output formatting depend on the locale
 
 No `locale.format_string`, no `%c`/`%x` date codes, no thousands separators from the environment.
 

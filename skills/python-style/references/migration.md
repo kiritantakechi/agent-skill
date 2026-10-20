@@ -21,20 +21,20 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-MIG-04 [M] Do not use a name 3.15 removed
   - PS-MIG-05 [M] Do not use a C API 3.15 removed
 - **Rejected spellings of live names**
-  - PS-MIG-07 [M] Give `strptime` a year directive when the format has `%d`
+  - PS-MIG-06 [M] Give `strptime` a year directive when the format has `%d`
 - **Unlisted but importable**
-  - PS-MIG-08 [M] Treat `ByteString` as gone, not as deprecated
-  - PS-MIG-09 [M] Stop reading `__version__` from a standard-library module
+  - PS-MIG-07 [M] Treat `ByteString` as gone, not as deprecated
+  - PS-MIG-08 [M] Stop reading `__version__` from a standard-library module
 - **Changed underneath you**
-  - PS-MIG-10 [M] Re-examine every `contextmanager` used as a decorator
-  - PS-MIG-11 [M] Re-examine every `isinstance(x, dict)`
-  - PS-MIG-12 [M] Re-examine every default-encoding dependence
+  - PS-MIG-09 [M] Re-examine every `contextmanager` used as a decorator
+  - PS-MIG-10 [M] Re-examine every `isinstance(x, dict)`
+  - PS-MIG-11 [M] Re-examine every default-encoding dependence
 - **Forward compatibility**
-  - PS-MIG-13 [M] Write against 3.16's asyncio today
-  - PS-MIG-14 [S] Do not write against 3.16's other changes yet
+  - PS-MIG-12 [M] Write against 3.16's asyncio today
+  - PS-MIG-13 [S] Do not write against 3.16's other changes yet
 - **Tool migrations**
-  - PS-MIG-15 [M] Follow pytest's own removal ladder
-  - PS-MIG-16 [M] Re-verify this table on every interpreter bump
+  - PS-MIG-14 [M] Follow pytest's own removal ladder
+  - PS-MIG-15 [M] Re-verify this table on every interpreter bump
 - Decided by tools
 
 ---
@@ -140,7 +140,7 @@ out later. The borrowed-reference removals are also the ones a free-threaded bui
 
 ## Rejected spellings of live names
 
-### PS-MIG-07 [M] Give `strptime` a year directive when the format has `%d`
+### PS-MIG-06 [M] Give `strptime` a year directive when the format has `%d`
 
 `datetime.strptime(s, "%d/%m")` now raises `ValueError`.
 
@@ -152,7 +152,7 @@ code that was wrong.
 
 ## Unlisted but importable
 
-### PS-MIG-08 [M] Treat `ByteString` as gone, not as deprecated
+### PS-MIG-07 [M] Treat `ByteString` as gone, not as deprecated
 
 `collections.abc.ByteString` and `typing.ByteString` were dropped from `__all__` in 3.15. The names
 still import — and now emit a `DeprecationWarning` when they do. Removal is 3.17. Use
@@ -164,7 +164,7 @@ reviewer loses faith in the table.
 
 **Check:** `rg -n 'ByteString' src/` — a hit warns today and fails in 3.17.
 
-### PS-MIG-09 [M] Stop reading `__version__` from a standard-library module
+### PS-MIG-08 [M] Stop reading `__version__` from a standard-library module
 
 Deprecated across twenty-four modules in 3.15 — `argparse`, `csv`, `ctypes`, `decimal`, `json`,
 `logging`, `pickle`, `platform`, `re`, `socketserver`, `tarfile`, `zlib` and more. Removal is 3.20.
@@ -179,7 +179,7 @@ src/`
 
 ## Changed underneath you
 
-### PS-MIG-10 [M] Re-examine every `contextmanager` used as a decorator
+### PS-MIG-09 [M] Re-examine every `contextmanager` used as a decorator
 
 In 3.15 the context stays open for the whole generator; it used to close when the generator object
 was created. This is not in the porting notes.
@@ -191,7 +191,7 @@ transaction under free threading, that is new contention and a new deadlock shap
 **Check:** `rg -nB2 -A2 '@contextmanager' src/` and find every decorator derived from one that is
 applied to a function containing `yield`.
 
-### PS-MIG-11 [M] Re-examine every `isinstance(x, dict)`
+### PS-MIG-10 [M] Re-examine every `isinstance(x, dict)`
 
 3.15's `frozendict` inherits from `object`, not from `dict`. Test `collections.abc.Mapping`.
 
@@ -201,7 +201,7 @@ for this — `copy`, `json`, `pickle`, `pprint` and others — and third-party c
 
 **Check:** `rg -n 'isinstance\(.*, dict\)' src/`
 
-### PS-MIG-12 [M] Re-examine every default-encoding dependence
+### PS-MIG-11 [M] Re-examine every default-encoding dependence
 
 UTF-8 mode is on by default, and it moves six surfaces — see PS-OUT-02.
 
@@ -214,7 +214,7 @@ finding.
 
 ## Forward compatibility
 
-### PS-MIG-13 [M] Write against 3.16's asyncio today
+### PS-MIG-12 [M] Write against 3.16's asyncio today
 
 The event-loop policy system is removed in 3.16, and the replacements already work.
 
@@ -230,13 +230,13 @@ the 3.16 bump is a version number rather than a project.
 
 **Check:** `rg -n 'get_event_loop|EventLoopPolicy|asyncio\.iscoroutinefunction' src/`
 
-### PS-MIG-14 [S] Do not write against 3.16's other changes yet
+### PS-MIG-13 [S] Do not write against 3.16's other changes yet
 
 3.16 is in alpha — 3.16.0a1 shipped on 2026-10-13 — and anything in it can still be reverted
 before its first beta. The exceptions worth knowing: `array`'s `'u'` format code goes in 3.16 (use
 `'w'`), as do `shutil.ExecError` and `functools.reduce`'s keyword arguments.
 
-**Why:** PS-MIG-13 is safe because those are removals whose replacements already work on 3.15.
+**Why:** PS-MIG-12 is safe because those are removals whose replacements already work on 3.15.
 Anything that requires a 3.16 *addition* is a bet on unreleased behaviour, and this standard's
 whole position is that examples must run on the interpreter they target.
 
@@ -244,7 +244,7 @@ whole position is that examples must run on the interpreter they target.
 
 ## Tool migrations
 
-### PS-MIG-15 [M] Follow pytest's own removal ladder
+### PS-MIG-14 [M] Follow pytest's own removal ladder
 
 pytest runs the same three-tier process the interpreter does, and it is currently mid-ladder.
 
@@ -260,7 +260,7 @@ exports `CI=` with an empty value used to enable CI mode and now does not.
 
 **Check:** run the suite with `-W error::DeprecationWarning` and read what fires.
 
-### PS-MIG-16 [M] Re-verify this table on every interpreter bump
+### PS-MIG-15 [M] Re-verify this table on every interpreter bump
 
 Not on every release of your own project — on every change to the interpreter you target.
 
@@ -293,42 +293,42 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-API-06` | `PS-API-06` |
 | `PS-API-07` | `PS-API-07` |
 | `PS-API-08` | lint `ruff:FBT001` |
-| `PS-API-09` | `PS-API-09` |
-| `PS-API-10` | `PS-API-10` |
-| `PS-API-11` | `PS-API-11` |
+| `PS-API-09` | `PS-API-08` |
+| `PS-API-10` | `PS-API-09` |
+| `PS-API-11` | `PS-API-10` |
 | `PS-API-12` | `PS-DATA-08` |
-| `PS-API-13` | `PS-API-13` |
-| `PS-API-14` | `PS-API-14` |
-| `PS-API-15` | `PS-API-15` |
-| `PS-API-16` | `PS-API-16` |
-| `PS-API-17` | `PS-API-17` |
-| `PS-API-18` | `PS-API-18` |
-| `PS-API-19` | `PS-API-19` |
-| `PS-API-20` | `PS-API-20` |
-| `PS-API-21` | `PS-API-21` |
-| `PS-API-22` | `PS-API-22` |
+| `PS-API-13` | `PS-API-11` |
+| `PS-API-14` | `PS-API-12` |
+| `PS-API-15` | `PS-API-13` |
+| `PS-API-16` | `PS-API-14` |
+| `PS-API-17` | `PS-API-15` |
+| `PS-API-18` | `PS-API-16` |
+| `PS-API-19` | `PS-API-17` |
+| `PS-API-20` | `PS-API-18` |
+| `PS-API-21` | `PS-API-19` |
+| `PS-API-22` | `PS-API-20` |
 | `PS-ASYNC-01` | `PS-ASYNC-01` |
 | `PS-ASYNC-02` | `PS-ASYNC-02` |
 | `PS-ASYNC-03` | lint `ty:deprecated` |
-| `PS-ASYNC-04` | `PS-ASYNC-04` |
+| `PS-ASYNC-04` | `PS-ASYNC-03` |
 | `PS-ASYNC-05` | lint `ruff:RUF006` |
-| `PS-ASYNC-06` | `PS-ASYNC-06` |
-| `PS-ASYNC-07` | `PS-ASYNC-07` |
-| `PS-ASYNC-08` | `PS-ASYNC-08` |
-| `PS-ASYNC-09` | `PS-ASYNC-09` |
-| `PS-ASYNC-10` | `PS-ASYNC-10` |
-| `PS-ASYNC-11` | `PS-ASYNC-11` |
-| `PS-ASYNC-12` | `PS-ASYNC-12` |
-| `PS-ASYNC-13` | `PS-ASYNC-13` |
+| `PS-ASYNC-06` | `PS-ASYNC-04` |
+| `PS-ASYNC-07` | `PS-ASYNC-05` |
+| `PS-ASYNC-08` | `PS-ASYNC-06` |
+| `PS-ASYNC-09` | `PS-ASYNC-07` |
+| `PS-ASYNC-10` | `PS-ASYNC-08` |
+| `PS-ASYNC-11` | `PS-ASYNC-09` |
+| `PS-ASYNC-12` | `PS-ASYNC-10` |
+| `PS-ASYNC-13` | `PS-ASYNC-11` |
 | `PS-ASYNC-14` | lint `ruff:ASYNC251` |
-| `PS-ASYNC-15` | `PS-ASYNC-15` |
-| `PS-ASYNC-16` | `PS-ASYNC-16` |
-| `PS-ASYNC-17` | `PS-ASYNC-17` |
-| `PS-ASYNC-18` | `PS-ASYNC-18` |
-| `PS-ASYNC-19` | `PS-ASYNC-19` |
-| `PS-ASYNC-20` | `PS-ASYNC-20` |
-| `PS-ASYNC-21` | `PS-ASYNC-21` |
-| `PS-ASYNC-22` | `PS-ASYNC-22` |
+| `PS-ASYNC-15` | `PS-ASYNC-12` |
+| `PS-ASYNC-16` | `PS-ASYNC-13` |
+| `PS-ASYNC-17` | `PS-ASYNC-14` |
+| `PS-ASYNC-18` | `PS-ASYNC-15` |
+| `PS-ASYNC-19` | `PS-ASYNC-16` |
+| `PS-ASYNC-20` | `PS-ASYNC-17` |
+| `PS-ASYNC-21` | `PS-ASYNC-18` |
+| `PS-ASYNC-22` | `PS-ASYNC-19` |
 | `PS-DATA-01` | `PS-DATA-01` |
 | `PS-DATA-02` | `PS-DATA-02` |
 | `PS-DATA-03` | `PS-DATA-03` |
@@ -352,23 +352,23 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-DATA-21` | `PS-DATA-21` |
 | `PS-DATA-22` | `PS-DATA-22` |
 | `PS-DOC-01` | lint `ruff:D100` |
-| `PS-DOC-02` | `PS-DOC-02` |
+| `PS-DOC-02` | `PS-DOC-01` |
 | `PS-DOC-03` | lint `ruff:D205` |
-| `PS-DOC-04` | `PS-DOC-04` |
+| `PS-DOC-04` | `PS-DOC-02` |
 | `PS-DOC-05` | lint `ruff:W505` |
-| `PS-DOC-06` | `PS-DOC-06` |
+| `PS-DOC-06` | `PS-DOC-03` |
 | `PS-DOC-07` | lint `ruff:D417` |
-| `PS-DOC-08` | `PS-DOC-08` |
-| `PS-DOC-09` | `PS-DOC-09` |
-| `PS-DOC-10` | `PS-DOC-10` |
-| `PS-DOC-11` | `PS-DOC-11` |
-| `PS-DOC-12` | `PS-DOC-12` |
-| `PS-DOC-13` | `PS-DOC-13` |
-| `PS-DOC-14` | `PS-DOC-14` |
-| `PS-DOC-15` | `PS-DOC-15` |
-| `PS-DOC-16` | `PS-DOC-16` |
-| `PS-DOC-17` | `PS-DOC-17` |
-| `PS-DOC-18` | `PS-DOC-18` |
+| `PS-DOC-08` | `PS-DOC-04` |
+| `PS-DOC-09` | `PS-DOC-05` |
+| `PS-DOC-10` | `PS-DOC-06` |
+| `PS-DOC-11` | `PS-DOC-07` |
+| `PS-DOC-12` | `PS-DOC-08` |
+| `PS-DOC-13` | `PS-DOC-09` |
+| `PS-DOC-14` | `PS-DOC-10` |
+| `PS-DOC-15` | `PS-DOC-11` |
+| `PS-DOC-16` | `PS-DOC-12` |
+| `PS-DOC-17` | `PS-DOC-13` |
+| `PS-DOC-18` | `PS-DOC-14` |
 | `PS-ERR-01` | `PS-ERR-01` |
 | `PS-ERR-02` | `PS-ERR-02` |
 | `PS-ERR-03` | `PS-ERR-03` |
@@ -376,21 +376,21 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-ERR-05` | `PS-ERR-05` |
 | `PS-ERR-06` | `PS-ERR-06` |
 | `PS-ERR-07` | lint `ruff:EM101` |
-| `PS-ERR-08` | `PS-ERR-08` |
+| `PS-ERR-08` | `PS-ERR-07` |
 | `PS-ERR-09` | lint `ruff:E722` |
-| `PS-ERR-10` | `PS-ERR-10` |
-| `PS-ERR-11` | `PS-ERR-11` |
-| `PS-ERR-12` | `PS-ERR-12` |
-| `PS-ERR-13` | `PS-ERR-13` |
-| `PS-ERR-14` | `PS-ERR-14` |
-| `PS-ERR-15` | `PS-ERR-15` |
-| `PS-ERR-16` | `PS-ERR-16` |
-| `PS-ERR-17` | `PS-ERR-17` |
-| `PS-ERR-18` | `PS-ERR-18` |
-| `PS-ERR-19` | `PS-ERR-19` |
-| `PS-ERR-20` | `PS-ERR-20` |
-| `PS-ERR-21` | `PS-ERR-21` |
-| `PS-ERR-22` | `PS-ERR-22` |
+| `PS-ERR-10` | `PS-ERR-08` |
+| `PS-ERR-11` | `PS-ERR-09` |
+| `PS-ERR-12` | `PS-ERR-10` |
+| `PS-ERR-13` | `PS-ERR-11` |
+| `PS-ERR-14` | `PS-ERR-12` |
+| `PS-ERR-15` | `PS-ERR-13` |
+| `PS-ERR-16` | `PS-ERR-14` |
+| `PS-ERR-17` | `PS-ERR-15` |
+| `PS-ERR-18` | `PS-ERR-16` |
+| `PS-ERR-19` | `PS-ERR-17` |
+| `PS-ERR-20` | `PS-ERR-18` |
+| `PS-ERR-21` | `PS-ERR-19` |
+| `PS-ERR-22` | `PS-ERR-20` |
 | `PS-FT-01` | `PS-CONC-01` |
 | `PS-FT-02` | `PS-CONC-02` |
 | `PS-FT-03` | `PS-CONC-03` |
@@ -423,16 +423,16 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-MIG-04` | `PS-MIG-04` |
 | `PS-MIG-05` | `PS-MIG-05` |
 | `PS-MIG-06` | lint `ruff:UP013` |
-| `PS-MIG-07` | `PS-MIG-07` |
-| `PS-MIG-08` | `PS-MIG-08` |
-| `PS-MIG-09` | `PS-MIG-09` |
-| `PS-MIG-10` | `PS-MIG-10` |
-| `PS-MIG-11` | `PS-MIG-11` |
-| `PS-MIG-12` | `PS-MIG-12` |
-| `PS-MIG-13` | `PS-MIG-13` |
-| `PS-MIG-14` | `PS-MIG-14` |
-| `PS-MIG-15` | `PS-MIG-15` |
-| `PS-MIG-16` | `PS-MIG-16` |
+| `PS-MIG-07` | `PS-MIG-06` |
+| `PS-MIG-08` | `PS-MIG-07` |
+| `PS-MIG-09` | `PS-MIG-08` |
+| `PS-MIG-10` | `PS-MIG-09` |
+| `PS-MIG-11` | `PS-MIG-10` |
+| `PS-MIG-12` | `PS-MIG-11` |
+| `PS-MIG-13` | `PS-MIG-12` |
+| `PS-MIG-14` | `PS-MIG-13` |
+| `PS-MIG-15` | `PS-MIG-14` |
+| `PS-MIG-16` | `PS-MIG-15` |
 | `PS-NAME-01` | `PS-NAME-01` |
 | `PS-NAME-02` | `PS-NAME-02` |
 | `PS-NAME-03` | `PS-NAME-03` |
@@ -440,25 +440,25 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-NAME-05` | `PS-NAME-05` |
 | `PS-NAME-06` | `PS-NAME-06` |
 | `PS-NAME-07` | lint `ruff:A001` |
-| `PS-NAME-08` | `PS-NAME-08` |
-| `PS-NAME-09` | `PS-NAME-09` |
+| `PS-NAME-08` | `PS-NAME-07` |
+| `PS-NAME-09` | `PS-NAME-08` |
 | `PS-NAME-10` | lint `ruff:I001` |
-| `PS-NAME-11` | `PS-NAME-11` |
+| `PS-NAME-11` | `PS-NAME-09` |
 | `PS-NAME-12` | lint `ruff:F403` |
-| `PS-NAME-13` | `PS-NAME-13` |
-| `PS-NAME-14` | `PS-NAME-14` |
-| `PS-NAME-15` | `PS-NAME-15` |
-| `PS-NAME-16` | `PS-NAME-16` |
-| `PS-NAME-17` | `PS-NAME-17` |
-| `PS-NAME-18` | `PS-NAME-18` |
-| `PS-NAME-19` | `PS-NAME-19` |
-| `PS-NAME-20` | `PS-NAME-20` |
-| `PS-NAME-21` | `PS-NAME-21` |
+| `PS-NAME-13` | `PS-NAME-10` |
+| `PS-NAME-14` | `PS-NAME-11` |
+| `PS-NAME-15` | `PS-NAME-12` |
+| `PS-NAME-16` | `PS-NAME-13` |
+| `PS-NAME-17` | `PS-NAME-14` |
+| `PS-NAME-18` | `PS-NAME-15` |
+| `PS-NAME-19` | `PS-NAME-16` |
+| `PS-NAME-20` | `PS-NAME-17` |
+| `PS-NAME-21` | `PS-NAME-18` |
 | `PS-NAME-22` | lint `ruff:ERA001` |
-| `PS-NAME-23` | `PS-NAME-23` |
-| `PS-NAME-24` | `PS-NAME-24` |
-| `PS-NAME-25` | `PS-NAME-25` |
-| `PS-NAME-26` | `PS-NAME-26` |
+| `PS-NAME-23` | `PS-NAME-19` |
+| `PS-NAME-24` | `PS-NAME-20` |
+| `PS-NAME-25` | `PS-NAME-21` |
+| `PS-NAME-26` | `PS-NAME-22` |
 | `PS-PKG-01` | `PS-BUILD-01` |
 | `PS-PKG-02` | `PS-BUILD-02` |
 | `PS-PKG-03` | `PS-BUILD-03` |
@@ -494,12 +494,12 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-PERF-12` | `PS-PERF-12` |
 | `PS-PERF-13` | `PS-PERF-13` |
 | `PS-PERF-14` | lint `ruff:PERF401` |
-| `PS-PERF-15` | `PS-PERF-15` |
-| `PS-PERF-16` | `PS-PERF-16` |
-| `PS-PERF-17` | `PS-PERF-17` |
-| `PS-PERF-18` | `PS-PERF-18` |
-| `PS-PERF-19` | `PS-PERF-19` |
-| `PS-PERF-20` | `PS-PERF-20` |
+| `PS-PERF-15` | `PS-PERF-14` |
+| `PS-PERF-16` | `PS-PERF-15` |
+| `PS-PERF-17` | `PS-PERF-16` |
+| `PS-PERF-18` | `PS-PERF-17` |
+| `PS-PERF-19` | `PS-PERF-18` |
+| `PS-PERF-20` | `PS-PERF-19` |
 | `PS-FMT-01` | `PS-OUT-01` |
 | `PS-FMT-02` | `PS-OUT-02` |
 | `PS-FMT-03` | `PS-OUT-03` |
@@ -513,13 +513,13 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-FMT-11` | `PS-OUT-11` |
 | `PS-FMT-12` | `PS-OUT-12` |
 | `PS-FMT-13` | lint `ruff:TRY400` |
-| `PS-FMT-14` | `PS-OUT-14` |
-| `PS-FMT-15` | `PS-OUT-15` |
-| `PS-FMT-16` | `PS-OUT-16` |
+| `PS-FMT-14` | `PS-OUT-13` |
+| `PS-FMT-15` | `PS-OUT-14` |
+| `PS-FMT-16` | `PS-OUT-15` |
 | `PS-FMT-17` | lint `ruff:T201` |
-| `PS-FMT-18` | `PS-OUT-18` |
-| `PS-FMT-19` | `PS-OUT-19` |
-| `PS-FMT-20` | `PS-OUT-20` |
+| `PS-FMT-18` | `PS-OUT-16` |
+| `PS-FMT-19` | `PS-OUT-17` |
+| `PS-FMT-20` | `PS-OUT-18` |
 | `PS-TEST-01` | `PS-TEST-01` |
 | `PS-TEST-02` | `PS-TEST-02` |
 | `PS-TEST-03` | `PS-TEST-03` |
@@ -538,29 +538,29 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-TEST-16` | `PS-TEST-16` |
 | `PS-TEST-17` | `PS-TEST-17` |
 | `PS-TEST-18` | lint `ruff:PT011` |
-| `PS-TEST-19` | `PS-TEST-19` |
-| `PS-TEST-20` | `PS-TEST-20` |
-| `PS-TEST-21` | `PS-TEST-21` |
-| `PS-TEST-22` | `PS-TEST-22` |
+| `PS-TEST-19` | `PS-TEST-18` |
+| `PS-TEST-20` | `PS-TEST-19` |
+| `PS-TEST-21` | `PS-TEST-20` |
+| `PS-TEST-22` | `PS-TEST-21` |
 | `PS-TYPE-01` | `PS-TYPE-01` |
 | `PS-TYPE-02` | `PS-TYPE-02` |
 | `PS-TYPE-03` | `PS-TYPE-03` |
 | `PS-TYPE-04` | `PS-TYPE-04` |
 | `PS-TYPE-05` | lint `ruff:UP037` |
-| `PS-TYPE-06` | `PS-TYPE-06` |
-| `PS-TYPE-07` | `PS-TYPE-07` |
-| `PS-TYPE-08` | `PS-TYPE-08` |
-| `PS-TYPE-09` | `PS-TYPE-09` |
-| `PS-TYPE-10` | `PS-TYPE-10` |
-| `PS-TYPE-11` | `PS-TYPE-11` |
-| `PS-TYPE-12` | `PS-TYPE-12` |
-| `PS-TYPE-13` | `PS-TYPE-13` |
-| `PS-TYPE-14` | `PS-TYPE-14` |
-| `PS-TYPE-15` | `PS-TYPE-15` |
-| `PS-TYPE-16` | `PS-TYPE-16` |
-| `PS-TYPE-17` | `PS-TYPE-17` |
-| `PS-TYPE-18` | `PS-TYPE-18` |
-| `PS-TYPE-19` | `PS-TYPE-19` |
-| `PS-TYPE-20` | `PS-TYPE-20` |
-| `PS-TYPE-21` | `PS-TYPE-21` |
-| `PS-TYPE-22` | `PS-TYPE-22` |
+| `PS-TYPE-06` | `PS-TYPE-05` |
+| `PS-TYPE-07` | `PS-TYPE-06` |
+| `PS-TYPE-08` | `PS-TYPE-07` |
+| `PS-TYPE-09` | `PS-TYPE-08` |
+| `PS-TYPE-10` | `PS-TYPE-09` |
+| `PS-TYPE-11` | `PS-TYPE-10` |
+| `PS-TYPE-12` | `PS-TYPE-11` |
+| `PS-TYPE-13` | `PS-TYPE-12` |
+| `PS-TYPE-14` | `PS-TYPE-13` |
+| `PS-TYPE-15` | `PS-TYPE-14` |
+| `PS-TYPE-16` | `PS-TYPE-15` |
+| `PS-TYPE-17` | `PS-TYPE-16` |
+| `PS-TYPE-18` | `PS-TYPE-17` |
+| `PS-TYPE-19` | `PS-TYPE-18` |
+| `PS-TYPE-20` | `PS-TYPE-19` |
+| `PS-TYPE-21` | `PS-TYPE-20` |
+| `PS-TYPE-22` | `PS-TYPE-21` |

@@ -120,7 +120,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 - [x] 6.7 Cut every **Why** to three lines or fewer. Move excess text into the statement or an
   example, or split a rule that is carrying two. Verify: `anatomy` passes with python-style not
   exempt.
-- [ ] 6.8 Step C: `agent-skill renumber python-style`. Remove python-style's exemption, and update
+- [x] 6.8 Step C: `agent-skill renumber python-style`. Remove python-style's exemption, and update
   the frontmatter rule count and the §6 counts. Verify: `uv run agent-skill check --fast` passes,
   with nothing reporting an outlived exemption.
 - [ ] 6.9 Add controls in `checks/controls.py`, injecting into `python-style`, which now conforms:

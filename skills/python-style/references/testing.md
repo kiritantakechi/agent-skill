@@ -35,11 +35,11 @@ Unless a block shows its own imports, it assumes `import pytest`.
   - PS-TEST-16 [M] Never let a fixture assert
   - PS-TEST-17 [S] Prefer a factory fixture to a fixture per variation
 - **Failures and time**
-  - PS-TEST-19 [M] Never sleep in a test
-  - PS-TEST-20 [M] Inject the clock rather than reading it
+  - PS-TEST-18 [M] Never sleep in a test
+  - PS-TEST-19 [M] Inject the clock rather than reading it
 - **Concurrency**
-  - PS-TEST-21 [M!] Assert an invariant, not merely that threads ran
-  - PS-TEST-22 [M] Know that pytest itself is not thread-safe
+  - PS-TEST-20 [M!] Assert an invariant, not merely that threads ran
+  - PS-TEST-21 [M] Know that pytest itself is not thread-safe
 - Decided by tools
 
 ---
@@ -264,7 +264,7 @@ and puts the variation at the call site where it is visible in the test that nee
 
 ## Failures and time
 
-### PS-TEST-19 [M] Never sleep in a test
+### PS-TEST-18 [M] Never sleep in a test
 
 No `time.sleep` to wait for something. Poll with a deadline, or make the thing synchronous.
 
@@ -274,7 +274,7 @@ to a suite that people stop running. Wait on the condition instead of on the clo
 
 **Check:** `rg -n 'sleep\(' tests/` — every hit is the finding.
 
-### PS-TEST-20 [M] Inject the clock rather than reading it
+### PS-TEST-19 [M] Inject the clock rather than reading it
 
 Take `now: Callable[[], datetime]` as a parameter, or freeze it with `monkeypatch`.
 
@@ -287,7 +287,7 @@ the injection question.
 
 ## Concurrency
 
-### PS-TEST-21 [M!] Assert an invariant, not merely that threads ran
+### PS-TEST-20 [M!] Assert an invariant, not merely that threads ran
 
 The test must check a property that a race would break — a count, a sum, a set of unique values.
 
@@ -326,7 +326,7 @@ def test_counter_loses_no_updates() -> None:
     assert count == 4_000
 ```
 
-### PS-TEST-22 [M] Know that pytest itself is not thread-safe
+### PS-TEST-21 [M] Know that pytest itself is not thread-safe
 
 `capsys`, `monkeypatch` and `tmp_path` are not safe to use from several threads, and the maintainers
 have said they do not intend to make pytest thread-safe. Code that needs those fixtures must be
