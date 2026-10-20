@@ -48,13 +48,12 @@ Unless a block shows its own imports, it assumes `import asyncio`.
 
 ### PS-ASYNC-01 [M] Enter with `asyncio.run`, and configure with `loop_factory`
 
-`asyncio.run(main())`, or `asyncio.Runner` when you need several entries into one loop.
+`asyncio.run(main())`, or `asyncio.Runner` when you need several entries into one loop. Where the
+loop needs configuring, `loop_factory` is the supported hook and is what survives 3.16.
 
-**Why:** `asyncio.run` creates the loop, runs the coroutine, cancels what is left, shuts down
-async generators and the default executor, and closes the loop — in that order. Hand-rolled loop
-management gets the shutdown half wrong, which is where "task was destroyed but it is pending"
-comes from. Where the loop needs configuring, `loop_factory` is the supported hook and is what
-survives 3.16.
+**Why:** `asyncio.run` creates the loop, runs the coroutine, cancels what is left, shuts down async
+generators and the default executor, and closes the loop, in that order. Hand-rolled lifecycles get
+the shutdown half wrong, which is where "task was destroyed but it is pending" comes from.
 
 **Check:** `rg -n 'new_event_loop|run_until_complete|loop.close\(\)' src/` — every hit is
 hand-rolled lifecycle.
@@ -76,12 +75,11 @@ assert asyncio.run(main(), loop_factory=asyncio.EventLoop) == "done"
 ### PS-ASYNC-02 [M] Never call `get_event_loop`, and never touch the policy API
 
 Not `get_event_loop`, `set_event_loop_policy`, `AbstractEventLoopPolicy`, or the Windows policy
-classes.
+classes. Inside a coroutine the correct call is `asyncio.get_running_loop()`.
 
 **Why:** the whole policy system is **removed in 3.16**, and `get_event_loop` already raises
-`RuntimeError` in 3.14 when there is no running loop — so code relying on it creating one
-silently is already broken. Inside a coroutine the correct call is `asyncio.get_running_loop()`,
-which fails loudly rather than conjuring a second loop nobody will run.
+`RuntimeError` in 3.14 when there is no running loop, so code relying on it to create one is already
+broken. `get_running_loop` fails loudly rather than conjuring a second loop nobody will run.
 
 **Check:** `rg -n 'get_event_loop|EventLoopPolicy|set_event_loop' src/` — every hit is the
 finding.
@@ -92,10 +90,9 @@ finding.
 
 `async with asyncio.TaskGroup() as tg: tg.create_task(...)`.
 
-**Why:** the group is the structured-concurrency guarantee: nothing escapes the block. If one task
-raises, the rest are cancelled and the group re-raises as an `ExceptionGroup`; if the block exits
-normally, every task has finished. Loose tasks have neither property, so a failure in one is noticed
-— if at all — as a warning at interpreter shutdown.
+**Why:** nothing escapes the block: if one task raises, the rest are cancelled and the group
+re-raises as an `ExceptionGroup`; if the block exits normally, every task has finished. A loose task
+has neither property, so its failure is noticed, if at all, as a warning at interpreter shutdown.
 
 **Check:** `rg -n 'create_task|ensure_future' src/` — every hit outside a `TaskGroup` needs a
 reference kept to the task, which ruff `RUF006` checks.
@@ -132,12 +129,12 @@ something already failed, the silent miss lands exactly when you needed the hand
 
 ### PS-ASYNC-07 [S] End a group early with `TaskGroup.cancel`, not with an exception
 
-New in 3.15: `tg.cancel()` ends the group without raising.
+New in 3.15: `tg.cancel()` ends the group without raising. It is idempotent and callable before
+entry.
 
 **Why:** the previous way to stop a group early was to raise something and catch it outside,
 which conflates "we are done" with "something went wrong" and leaves a `CancelledError` in the
-traceback of a successful run. `TaskGroup.cancel` is a non-exceptional early exit: idempotent,
-callable before entry, and the group exits without `CancelledError` being raised.
+traceback of a successful run.
 
 **Check:** `rg -nB4 'raise .*Done|raise .*Stop' src/` inside a `TaskGroup` — a sentinel
 exception used for control flow is what this replaces.
@@ -159,26 +156,25 @@ swallowing task prevents the process from exiting cleanly.
 ### PS-ASYNC-09 [M] Assume every `await` is a cancellation point
 
 Between the line before an `await` and the line after it, the task may be cancelled and never
-resume.
+resume. Make the pair atomic with a context manager, or arrange that the half-state is valid.
 
 **Why:** this is the async analogue of PS-CONC-02: state you mutate in two steps around an `await`
 can be left half-updated forever, and a resource acquired before an `await` and released after it
-can leak. The fix is the same — make the pair atomic with a context manager, or arrange that the
-half-state is valid.
+can leak.
 
 **Check:** every `await` inside a `try`, a lock, or between two writes to the same object.
 
 ### PS-ASYNC-10 [M!] Shield only what must not be interrupted, and bound it
 
-`asyncio.shield` around a commit that must complete. Never around a whole operation.
+`asyncio.shield` around a commit that must complete. Never around a whole operation. Shield the
+smallest thing whose partial completion would be unrecoverable: writing the commit record, not
+fetching the data that goes in it.
 
 *Relaxed form:* application code may shield a slightly larger region provided the region has its own
 timeout, so a shield cannot become an unbounded wait.
 
 **Why:** shielding defeats cancellation, which is the mechanism timeouts and shutdown are built on.
-A shielded region with no timeout of its own is a task that cannot be stopped by any means. Shield
-the smallest thing whose partial completion would be unrecoverable — writing the commit record, not
-fetching the data that goes in it.
+A shielded region with no timeout of its own is a task that cannot be stopped by any means.
 
 **Check:** every `shield`. Name what would break if it were interrupted; if you cannot, remove it.
 
@@ -230,12 +226,11 @@ through `ASYNC222` for subprocesses, and `ASYNC250` for `input`.
 
 ### PS-ASYNC-13 [M] Move blocking work with `asyncio.to_thread`
 
-`await asyncio.to_thread(blocking_call, arg)`. Not a hand-made executor unless you need to bound it.
+`await asyncio.to_thread(blocking_call, arg)`. Not a hand-made executor unless you need to bound it;
+then `loop.run_in_executor` with your own executor is the escape, and the bound is the point.
 
 **Why:** `to_thread` runs the call on the default thread pool and gives you an awaitable, which is
-the whole boundary in one line — and it propagates context variables, which a raw executor does not.
-Where the pool needs bounding, `loop.run_in_executor` with your own executor is the escape, and then
-the bound is the point.
+the whole boundary in one line, and it propagates context variables, which a raw executor does not.
 
 **Check:** every hit from PS-ASYNC-12's greps. Each needs `to_thread` or an explicit executor.
 
@@ -256,10 +251,9 @@ inside it.
 
 Never share one loop between threads.
 
-**Why:** the asyncio documentation is explicit — "each thread should have its own event loop which
-should not be shared across threads", and "tasks and futures created in one thread should not be
-awaited or manipulated from another". Since 3.14 asyncio has first-class free-threading support and
-scales linearly with one loop per thread, so the shape that is correct is also the fast one.
+**Why:** the asyncio docs say "tasks and futures created in one thread should not be awaited or
+manipulated from another". Since 3.14 asyncio has first-class free-threading support and scales
+linearly with one loop per thread, so the shape that is correct is also the fast one.
 
 **Check:** every `asyncio.run` or `Runner` that is reachable from more than one thread.
 

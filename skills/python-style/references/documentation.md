@@ -43,9 +43,8 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 `"""Return the parsed configuration."""` — not "Returns", not "This function returns".
 
 **Why:** PEP 257 specifies the imperative mood, and it is not arbitrary: the docstring completes the
-sentence "call this to ___". "Returns the config" describes the function; "Return the config"
-instructs the reader, which is what they came for. Fitting on one line matters because tooling shows
-the first line alone in listings.
+sentence "call this to ___", so it instructs the reader rather than describing the function. It
+must fit on one line because tooling shows the first line alone in listings.
 
 **Check:** ruff `D200` for the one-line form and `D415` for the closing punctuation. The
 imperative mood is a review matter: the pydocstyle rule for it is one of the twelve that
@@ -84,8 +83,7 @@ The contract, the units, the edge cases, the failure modes. Not a paraphrase of 
 
 **Why:** a docstring restating the implementation is a second copy that drifts, and it is worthless
 to the caller who cannot see the body anyway. The useful content is exactly what is *not* derivable:
-what the units are, what happens on an empty input, whether it retries. This is PS-NAME-20's
-say-why applied to the public surface.
+what the units are, what happens on an empty input, whether it retries.
 
 **Check:** read the docstring with the body hidden. If it no longer says anything useful, it was
 describing the body.
@@ -125,12 +123,12 @@ and reads like a property getter is a latency bug in every caller until someone 
 
 ### PS-DOC-11 [S] Record the decision that is not visible from the code
 
-Why this algorithm, why this default, what was tried and rejected.
+Why this algorithm, why this default, what was tried and rejected. It is `[S]` because not every
+decision has a reason worth recording.
 
 **Why:** the code shows what was decided and never why, so the reasoning is lost at the moment the
 author moves on — and the next person re-derives it, usually by reverting the decision and
-rediscovering the reason. One sentence prevents that. It is `[S]` because not every decision has a
-reason worth recording.
+rediscovering the reason. One sentence prevents that.
 
 **Check:** every non-obvious constant, every hand-rolled algorithm, every `# noqa`.
 
@@ -138,14 +136,13 @@ reason worth recording.
 
 ### PS-DOC-12 [M] Set a docstring convention, and know what the choice disables
 
-`[tool.ruff.lint.pydocstyle] convention = "google"`. `numpy` for array-oriented projects.
+`[tool.ruff.lint.pydocstyle] convention = "google"`. `numpy` for array-oriented projects: the
+ecosystem splits by domain, not by recency — the array stack is uniformly numpydoc and everything
+else is largely Google.
 
-**Why:** not setting one is not neutral — it leaves mutually contradictory rules enabled, and ruff
-resolves the conflict by dropping one and printing a warning. Setting a convention *disables* rules,
-so the choice determines which checks you get. `google` is the only one of the three that keeps
-`D417`, the check that a documented parameter list matches the signature, which is the single most
-valuable docstring rule. The split in the ecosystem is by domain, not by recency: the array stack is
-uniformly numpydoc and everything else is largely Google.
+**Why:** with none, mutually contradictory rules stay enabled and ruff drops one with a warning;
+with one, rules are *disabled*, so the choice decides which checks you get. `google` alone of the
+three keeps `D417`, the check that a documented parameter list matches the signature.
 
 **Check:** the absence of a `convention` setting. Run `ruff check` and read stderr for the
 "incompatible" warnings.
@@ -164,13 +161,12 @@ does not run — so that half is review, with defaults, exceptions and units.
 
 ### PS-DOC-14 [S] Write examples as doctests, and run them
 
-`>>>` in the docstring, and `--doctest-modules` in the test run.
+`>>>` in the docstring, and `--doctest-modules` in the test run. The shipped `ruff.toml` sets
+`docstring-code-format = true`, so the formatter keeps them formatted too.
 
-**Why:** an example that is not executed is an example that will be wrong, usually within two
-releases, and a wrong example is more damaging than none because it is what people copy. Running
-them also makes the docstring a test of the API's ergonomics — an example that is awkward to
-write is an API that is awkward to use. The shipped `ruff.toml` sets `docstring-code-format =
-true`, so the formatter keeps them formatted too.
+**Why:** an example that is not executed will be wrong, usually within two releases, and a wrong
+example is more damaging than none because it is what people copy. Running them also tests the
+API's ergonomics — an example that is awkward to write is an API that is awkward to use.
 
 **Check:** `rg -n '>>>' src/` against the test configuration. Doctests present but not run is the
 finding.

@@ -49,21 +49,15 @@ Unless a block shows its own imports, it assumes `from typing import …` for th
 
 ### PS-TYPE-01 [M] Run `ty` at the pinned version, with the shipped configuration
 
-`ty==0.0.89`, `assets/ty.toml`, in CI, as a gate. Not as an editor convenience.
+`ty==0.0.89`, `assets/ty.toml`, in CI, as a gate. Not as an editor convenience. The pin is exact,
+and moving it is a reviewed change: bump it, run the suite, read what moved, and update the
+configuration in the same commit — never let a resolver do it. Mandated means required, not
+exclusive: a second checker is permitted, nothing here promises the two agree, and **no rule is
+weakened to make one agree**.
 
-**Why:** an annotation nothing checks is a comment with syntax. `ty` is mandated for the same
-reason `ruff` is: a standard that ships a configuration while declining to say whether you should
-run it has not said anything. It also accepts PEP 728 `extra_items` and PEP 661 sentinels in type
-expressions — specified constructs, and part of what makes 3.15 worth targeting at all.
-
-The pin is exact and that is not fussiness. `ty` is `0.0.x` and its own version policy reads:
-*"ty does not yet have a stable API; breaking changes, including changes to diagnostics, may
-occur between any two versions."* It releases every few days, sometimes every two weeks. So moving
-the pin is a reviewed change: bump it, run the suite, read what moved, and update the
-configuration in the same commit — never let a resolver do it.
-
-Mandated means required, not exclusive. A second checker is permitted; nothing here promises the two
-agree, and **no rule is weakened to make one agree**.
+**Why:** an annotation nothing checks is a comment with syntax, and a standard that ships a
+configuration without saying whether to run it has said nothing. The pin is exact because `ty` is
+`0.0.x`, and its policy allows breaking changes, diagnostics included, between any two versions.
 
 **Check:** `ty check` exits non-zero. Note that it exits non-zero on warnings too —
 `error-on-warning` has defaulted true since 0.0.52 — so a `warn` level still blocks and only
@@ -76,14 +70,13 @@ uv run ty check
 ### PS-TYPE-02 [M] Never rely on a construct no specification defines
 
 A checker extension that the Typing Spec does not describe is not portable, however useful. `ty`'s
-intersection types are the current example.
+intersection types are the current example. The line runs one way: **specified-but-unimplemented is
+fine; implemented-but-unspecified is not.** PEP 728's `extra_items` is specified and not every
+checker implements it yet — use it.
 
-**Why:** the whole point of pinning one checker is that the *pin* moves and the *rules* do not. A
-rule that holds only because one tool infers it cannot survive the tool, and it silently makes the
-codebase un-checkable by anything else. The boundary is worth stating precisely, because the obvious
-version of it is wrong in one direction: **specified-but-unimplemented is fine; implemented-but-
-unspecified is not.** PEP 728's `extra_items` is specified and not every checker implements it yet —
-use it. An intersection type is implemented and unspecified — do not.
+**Why:** pinning one checker works only if the *pin* moves and the *rules* do not. A rule that holds
+because one tool infers it cannot survive the tool, and it silently makes the codebase un-checkable
+by anything else.
 
 **Check:** every construct in a public signature must be findable in `typing.python.org/spec`. One
 that is not is the finding.
@@ -94,10 +87,9 @@ that is not is the finding.
 the line saying why. Under `ty` a coded `# type: ignore[…]` suppresses nothing at all, even with
 `ty`'s own code.
 
-**Why:** a bare suppression silences every diagnostic on that line, including the ones that appear
-later for unrelated reasons — so it is a permanent blind spot rather than a targeted exception. The
-coded form expires naturally: when the diagnostic it names stops firing, the suppression itself
-becomes reportable.
+**Why:** a bare suppression silences every diagnostic on its line, including ones that appear later
+for unrelated reasons, so it is a permanent blind spot. The coded form expires: when the diagnostic
+it names stops firing, the suppression itself becomes reportable.
 
 **Check:** `ty`'s `blanket-ignore-comment`, which the shipped configuration promotes to `error`,
 flags a bare `# ty: ignore`; ruff `PGH003` flags a bare `# type: ignore`. Both are enabled because
@@ -107,17 +99,13 @@ this one is easy to reach for under time pressure.
 
 ### PS-TYPE-04 [M] Never write `from __future__ import annotations`
 
-Not in new code, and delete it from old code that no longer supports 3.13.
+Not in new code, and delete it from old code that no longer supports 3.13. The 3.14 porting notes
+call the import deprecated and expect it to be removed. Ruff has no rule for it, so this is a
+written rule and a grep rather than a lint.
 
-**Why:** PEP 563 is **Superseded** by PEP 649 and PEP 749, and on 3.14+ the import is not merely
-unnecessary — it is harmful. It stringifies annotations at compile time, which silently degrades
-`annotationlib`: `Format.VALUE` returns bare strings instead of objects, and `Format.FORWARDREF`
-returns bare strings instead of `ForwardRef`s, violating the format contract without raising. Every
-downstream consumer that reads annotations — dataclasses, validators, dependency injection,
-serialisers — then receives text it must evaluate itself. The 3.14 porting notes call the import
-deprecated and expect it to be removed.
-
-Note that ruff has no rule for this yet, so it is a written rule and a grep rather than a lint.
+**Why:** PEP 563 is **Superseded** by PEP 649 and PEP 749, and on 3.14+ the import is harmful: it
+stringifies annotations at compile time, so `annotationlib`'s `VALUE` and `FORWARDREF` hand back
+bare strings without raising, and every consumer then gets text it must evaluate itself.
 
 **Check:** `rg -n 'from __future__ import annotations' src/` — every hit is the finding.
 
@@ -126,11 +114,9 @@ Note that ruff has no rule for this yet, so it is a written rule and a grep rath
 `annotationlib.get_annotations(obj, format=...)`. Not `obj.__annotations__`, and not
 `typing.get_type_hints` in new code.
 
-**Why:** the annotations HOWTO states it directly — *"You should avoid accessing `__annotations__`
-directly on any object."* The attribute is now backed by a compiler-generated function whose result
-is computed on access, so reading the raw dict off a class namespace during class creation sees
-something different from reading it afterwards. `annotationlib` is the supported door, and it is the
-only one that offers the formats PS-TYPE-07 needs.
+**Why:** `__annotations__` is now backed by a compiler-generated function computed on access, so
+reading it off a class namespace during class creation sees something different from reading it
+afterwards. `annotationlib` is the supported door, and the only one offering PS-TYPE-07's formats.
 
 **Check:** `rg -n '__annotations__' src/` — every hit outside a test of the machinery itself
 is the finding.
@@ -143,11 +129,9 @@ Library code that reads someone else's annotations asks for `Format.FORWARDREF`,
 runtime, may use `VALUE` — and should say so in a comment, because the assumption is invisible
 otherwise.
 
-**Why:** `VALUE` evaluates, so it raises `NameError` on any name imported only under `TYPE_CHECKING`
-— and unquoted annotations (ruff `UP037`) plus PEP 649 mean far more code now contains such names
-legitimately. `FORWARDREF` returns a `ForwardRef` for whatever cannot be resolved and the real
-object for everything else, so the caller decides what to do about the gap rather than the library
-crashing on it.
+**Why:** `VALUE` evaluates, so a name imported only under `TYPE_CHECKING` raises `NameError`, and
+PEP 649 makes such names legitimate in far more code. `FORWARDREF` returns the real object where it
+can and a `ForwardRef` where it cannot, so the caller handles the gap instead of a crash.
 
 **Check:** every `get_annotations` call site. A bare one (defaulting to `VALUE`) in a library is the
 finding.
@@ -185,13 +169,12 @@ assert as_text["amount"] == "Decimal"
 ### PS-TYPE-08 [M] Write unions with `|`, and put `None` last
 
 `int | str`, `Widget | None`. Never `Union[int, str]`, never `Optional[Widget]`, never `None | X`.
+Since 3.14 `typing.Union` and `types.UnionType` are merged and no longer cached, so compare unions
+with `==`, not `is`.
 
-**Why:** PEP 604 syntax is shorter, needs no import, and reads as the alternation it is.
-`Optional` is worse than merely verbose — it reads as "this argument is optional", which is a
-statement about whether it must be *passed*, and that is a different claim. Putting `None` last
-keeps the interesting type where the eye lands first. Note that 3.14 merged `typing.Union` and
-`types.UnionType` and stopped caching them, so unions must be compared with `==` rather than
-`is`.
+**Why:** `Optional` misleads: it reads as "this argument is optional", a claim about whether it must
+be *passed*, not about what it may hold. `|` needs no import and reads as the alternation it is, and
+`None` last keeps the interesting type where the eye lands first.
 
 **Check:** ruff `UP007` and `UP045` rewrite both automatically at this target version.
 
@@ -200,23 +183,20 @@ keeps the interesting type where the eye lands first. Note that 3.14 merged `typ
 `list[int]`, `dict[str, int]`, `collections.abc.Sequence`, `collections.abc.Callable`. Never
 `typing.List`, `typing.Dict`, `typing.Callable`.
 
-**Why:** PEP 585 deprecated the `typing` aliases in 3.9 and they exist now only for code that must
-run on older interpreters, which this standard does not support. Importing from `collections.abc`
-also puts the abstract types where they belong: `Sequence` is a protocol about behaviour, and
-importing it from `typing` suggests it is a typing artefact rather than a real ABC.
+**Why:** PEP 585 deprecated the `typing` aliases in 3.9; they survive only for interpreters this
+standard does not support. And `Sequence` is a real ABC about behaviour, so importing it from
+`typing` misfiles it as a typing artefact.
 
 **Check:** ruff `UP006` and `UP035`.
 
 ### PS-TYPE-10 [M] Declare type parameters with PEP 695 syntax
 
 `class Box[T]:`, `def first[T](items: Sequence[T]) -> T:`. Never a module-level `TypeVar` plus
-`Generic[T]`.
+`Generic[T]`, and never both styles in one declaration: the spec says they "should not be combined".
 
-**Why:** the modern syntax scopes the parameter to the thing it parameterises, which is what it
-always meant; the `TypeVar` form put a module-level name in scope that could be — and was —
-reused across unrelated declarations, silently linking them. The spec is explicit that the two
-styles "should not be combined" in one declaration. Legacy `TypeVar` is not formally deprecated,
-so this is a rule rather than a warning you will see.
+**Why:** the syntax scopes the parameter to what it parameterises; a module-level `TypeVar` is a
+name that can be — and was — reused across unrelated declarations, silently linking them. Legacy
+`TypeVar` is not formally deprecated, so no warning will tell you this.
 
 **Check:** ruff `UP046` and `UP047` for the class and function forms.
 
@@ -247,10 +227,9 @@ assert first([], "none") == "none"
 
 `type Handler = Callable[[Request], Response]`. Never a bare assignment, and never `TypeAlias`.
 
-**Why:** a bare assignment is ambiguous — the checker must guess whether `X = int` declares an alias
-or a variable holding a type — which is why `TypeAlias` existed at all. The `type` statement says it
-in the syntax, and it evaluates lazily, so an alias may reference a name defined later in the file
-without quotes. `typing.TypeAlias` has been deprecated since 3.12.
+**Why:** a bare `X = int` leaves the checker guessing between an alias and a variable holding a
+type. The `type` statement says which in the syntax and evaluates lazily, so an alias may name
+something defined later without quotes. `typing.TypeAlias` has been deprecated since 3.12.
 
 **Check:** ruff `UP040`.
 
@@ -271,10 +250,9 @@ Hand-written variance is a second source of truth about the same fact.
 (removed in 3.15), `# type:` comments, the functional `NamedTuple`/`TypedDict` forms, and
 `Unpack` where PEP 695 variadics fit.
 
-**Why:** each is a spelling with a live replacement, and several are on a removal schedule that will
-turn a warning into an error inside two releases. `ByteString` is the subtle one: 3.15 removed it
-from `__all__` while leaving the name importable, so it now emits a `DeprecationWarning` on plain
-access where previously only subclassing warned — the name works, and warns, until 3.17.
+**Why:** each has a live replacement, and several are on a removal schedule that turns a warning
+into an error within two releases. `ByteString` is the subtle one: 3.15 dropped it from `__all__`
+but left it importable, so plain access now warns where only subclassing did.
 
 **Check:** the migration chapter carries the full table as one runnable grep. Ruff `UP` and `PYI`
 catch the ones that are statically decidable.
@@ -285,10 +263,9 @@ catch the ones that are statically decidable.
 
 `def render(items: Sequence[str]) -> list[str]:`. Not `list[str]` in and not `Sequence[str]` out.
 
-**Why:** the parameter is a constraint on your callers and the return is a promise to them, so the
-two want opposite generality. Accepting `Sequence` lets a caller pass a tuple; returning `Sequence`
-denies the caller the `.append` you actually gave them, and they will cast it back. This is the
-typing form of "be liberal in what you accept".
+**Why:** a parameter constrains your callers and a return makes them a promise, so the two want
+opposite generality. Accepting `Sequence` lets a caller pass a tuple; returning it denies them the
+`.append` you actually gave them, and they will cast it back.
 
 **Check:** every public signature. A concrete container in a parameter, or an abstract one in a
 return, is the finding — a mutable parameter type is the exception, because mutating the argument is
@@ -296,14 +273,14 @@ the point.
 
 ### PS-TYPE-15 [M] Use `object` for "anything", and `Any` only with a reason
 
-If the function truly accepts anything, the type is `object` and you narrow before use. `Any`
-needs a comment naming what cannot be expressed.
+If the function truly accepts anything, the type is `object` and you narrow before use. `Any` needs
+a comment naming what cannot be expressed: the typing best-practices guidance reserves it for "when
+a type cannot be expressed appropriately with the current type system or using the correct type is
+unergonomic".
 
-**Why:** they are opposites that look alike. `object` is the top type — safe, and the checker forces
-you to narrow. `Any` disables checking in both directions and is assignable to everything, so one
-`Any` in a signature quietly erases the types of everything it touches. The typing best-practices
-guidance is to use `Any` only "when a type cannot be expressed appropriately with the current type
-system or using the correct type is unergonomic" — a genuine limit, not a shrug.
+**Why:** the two look alike and are opposites. `object` is the top type, and the checker makes you
+narrow it; `Any` disables checking in both directions and is assignable to everything, so one `Any`
+in a signature quietly erases the types of everything it touches.
 
 **Check:** ruff `ANN401` for `Any` in a public signature. Every surviving `Any` needs a comment.
 
@@ -313,10 +290,8 @@ system or using the correct type is unergonomic" — a genuine limit, not a shru
 assignable to the input type, and say why in the docstring.
 
 **Why:** `TypeGuard` narrows only the positive branch, so the `else` keeps the original union and
-the reader is surprised by a type error in the arm that should have been obvious. `TypeIs`
-narrows both ways, which is what everyone assumed `TypeGuard` did. PEP 742 says outright that
-"most users should reach for `TypeIs` first"; PEP 724, the attempt to fix `TypeGuard` in place,
-was withdrawn in its favour.
+the reader meets a type error in the arm that should have been obvious. `TypeIs` narrows both ways,
+and PEP 742 says "most users should reach for `TypeIs` first".
 
 **Check:** `rg -n 'TypeGuard' src/` — every hit needs the docstring sentence explaining why the
 constraint cannot hold.
@@ -346,10 +321,9 @@ assert width(255) == 8
 Every `match` and every `if`/`elif` chain over a closed set ends with a branch that asserts the
 remainder is `Never`.
 
-**Why:** without it, adding a variant to the enum or the union is silently accepted everywhere it
-is consumed, and the new case falls through to whatever the last branch happens to do. With it,
-adding a variant is a type error at every consumption site — which is the entire value of
-modelling the set as closed in the first place.
+**Why:** without it, a new variant is silently accepted wherever the set is consumed, and falls
+through to whatever the last branch happens to do. With it, adding a variant is a type error at
+every consumption site, which is the whole value of modelling the set as closed.
 
 **Check:** every `match` over an enum or a literal union. A missing `case _:` that calls
 `assert_never` is the finding.
@@ -383,10 +357,9 @@ assert describe(Kind.READ) == "reader"
 
 `@final` on a class nothing should subclass. `Final` on a module constant.
 
-**Why:** both are statements the reader cannot otherwise make, and both are checked. `@final`
-also lets the checker narrow more aggressively, because it knows no subclass can widen the
-behaviour. Without it, every class is an extension point whether or not you meant it to be, and
-every constant is a variable.
+**Why:** without them every class is an extension point whether you meant it or not, and every
+constant is a variable; both markers are checked. `@final` also lets the checker narrow more
+aggressively, because it knows no subclass can widen the behaviour.
 
 **Check:** ruff `PYI` for the stub cases; the rest is review. A module-level name in
 `SCREAMING_SNAKE_CASE` without `Final` is the finding.
@@ -410,36 +383,32 @@ follows that position, a type parameter replaces the group.
 `def parse[T](raw: str, into: TypeForm[T]) -> T:`. Not `type[T]`, and not `object`.
 
 **Why:** `type[T]` means "a class object", so it rejects `int | None`, `list[int]` and
-`Literal["a"]` — all of which are type *expressions* a parser might legitimately be handed.
-Before PEP 747 the only way to accept those was `object`, which is why every deserialisation
-library has an untyped seam where its most interesting argument should be. `TypeForm` is that
-missing spelling.
+`Literal["a"]`, all type expressions a parser may be handed. Before PEP 747 only `object` accepted
+them, which left every deserialisation library an untyped seam at its most interesting argument.
 
 **Check:** every parameter documented as "a type" that is annotated `object` or `type[Any]`.
 
 ### PS-TYPE-21 [S] Close a `TypedDict` that models a fixed wire format
 
 `class Payload(TypedDict, closed=True):` when the schema forbids extra keys, or `extra_items=` when
-it constrains rather than forbids them.
+it constrains rather than forbids them. Where the schema genuinely allows extension, leave it open.
 
 **Why:** a plain `TypedDict` silently permits unknown keys, so a typo in a producer reaches the
-consumer as a missing value rather than as an unexpected one — and the two need different fixes.
-This is `[S]` because "fixed" is a claim about the protocol rather than about the code; where the
-schema genuinely allows extension, closing it is wrong.
+consumer as a missing value rather than an unexpected one, and the two need different fixes. It is
+`[S]` because "fixed" is a claim about the protocol, not about the code.
 
 **Check:** every `TypedDict` that models something crossing a process boundary. A checker that
 rejects `extra_items` is not a reason to avoid it — see PS-TYPE-02.
 
 ### PS-TYPE-22 [M] Build a sentinel with `sentinel`, not with `object()`
 
-`MISSING = sentinel("MISSING")`, and annotate the parameter `int | MISSING`.
+`MISSING = sentinel("MISSING")`, and annotate the parameter `int | MISSING`. Bind it at module or
+class scope under its own name; so bound, it survives copying and pickling, which `object()` does
+not.
 
-**Why:** the hand-rolled `_MISSING = object()` has no type the checker can name, so the parameter
-ends up `int | None` — which conflates "not supplied" with "supplied as None" and is the exact
-distinction the sentinel exists to draw — or `Any`, which erases it. PEP 661 gives sentinels a
-spelling the type system understands, with narrowing by `is`, and a `repr` that is readable in a
-traceback. One bound at module or class scope under its own name also survives copying and
-pickling, which `object()` does not.
+**Why:** a hand-rolled `object()` has no type the checker can name, so the parameter ends up
+`int | None`, conflating "not supplied" with "supplied as None", or `Any`, which erases the
+distinction. PEP 661 sentinels narrow by `is` and have a `repr` readable in a traceback.
 
 **Check:** `rg -n '=[ \t]*object\(\)' src/` — every hit is a sentinel that should be declared.
 `ty`'s `mismatched-sentinel-name`, which the shipped configuration enables, catches a sentinel bound

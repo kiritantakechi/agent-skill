@@ -51,12 +51,12 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 
 `CapWords` for classes and type aliases. `snake_case` for functions, methods, variables, modules and
 packages. `SCREAMING_SNAKE_CASE` for module-level constants. `self` and `cls` always, never renamed.
+A trailing underscore is the documented escape for a keyword collision — `class_`, not `klass` or
+`cls_`.
 
 **Why:** casing carries information, and only if it is uniform. Seeing `foo.Bar` you know `Bar` is a
 type without looking it up; seeing `foo.bar()` you know it is not. Mixed conventions destroy that
-signal for every reader thereafter, which is why PEP 8 spends more words on naming than on anything
-else. A trailing underscore is the documented escape for a keyword collision — `class_`, not `klass`
-or `cls_`.
+signal for every reader thereafter.
 
 **Check:** ruff's `N` family, `N801` through `N818`, decides the casing of classes, functions,
 methods, arguments and variables. No `N` rule checks a module constant, so that one is review. A
@@ -91,9 +91,7 @@ assert policy.next_delay_ms(2) == 2_000
 
 **Why:** an all-capitals acronym has no word boundary against what follows, so `HTTPSError` reads as
 `HTTPS Error` or `HTTP SError` with equal justification, and `parseHTTPURL` has none at all.
-Treating the acronym as a word makes the boundary mechanical. The standard library is
-inconsistent here for historical reasons — `HTTPServer` alongside `JsonDecodeError` — so this is
-a rule the language itself does not settle for you.
+Treating the acronym as a word makes the boundary mechanical.
 
 **Check:** `rg -n '\b[A-Z]{2,}[A-Z][a-z]' src/` — two or more capitals followed by a capital and
 a lowercase letter is an acronym that has not been folded.
@@ -103,10 +101,9 @@ a lowercase letter is an acronym that has not been folded.
 `_helper` means "not part of the interface". `__slot` means "and I need name mangling because a
 subclass might define the same name".
 
-**Why:** PEP 8 is explicit that the double underscore is for the mangling, not for emphasis — "if
-your class is intended to be subclassed, and you have attributes that you do not want subclasses to
-use". Using it for privacy makes the attribute painful to reach in a debugger and in a test without
-making it any more private, since `_Class__name` is right there.
+**Why:** the double underscore buys name mangling and nothing else, since `_Class__name` is right
+there. Using it for privacy makes the attribute painful to reach in a debugger and in a test without
+making it any more private; PEP 8 reserves it for the mangling, not for emphasis.
 
 **Check:** `rg -n 'self\.__[a-z]' src/` — every hit must be a name a subclass could plausibly
 collide with. `SLF001` catches the other side: reaching into someone else's underscore.
@@ -114,13 +111,12 @@ collide with. `SLF001` catches the other side: reaching into someone else's unde
 ### PS-NAME-04 [M] Spell names out; abbreviate only as scope tightens
 
 `connection`, not `conn`, at module scope. `conn` is fine inside a four-line function where the
-declaration is visible.
+declaration is visible. The universally understood exceptions stay: `i`/`j` for indices, `n` for a
+count, `k`/`v` in a dict comprehension, `_` for a value deliberately discarded.
 
 **Why:** a name's cost is paid by every reader who must reconstruct it, and that cost scales with
-the distance from the declaration. At module scope the distance is unbounded. Inside a short
-function it is two lines, and there the shorter name is genuinely easier to read. The universally
-understood exceptions stay: `i`/`j` for indices, `n` for a count, `k`/`v` in a dict
-comprehension, `_` for a value deliberately discarded.
+the distance from the declaration. At module scope the distance is unbounded; inside a short
+function it is two lines, and there the shorter name is genuinely easier to read.
 
 **Check:** every module-level name and every parameter of a public function. A name shorter than
 four characters that is not on the exception list is the finding.
@@ -131,10 +127,8 @@ four characters that is not on the exception list is the finding.
 `seconds_timeout`.
 
 **Why:** big-endian naming makes alphabetical order a *semantic* grouping — `latency_ms_min` and
-`latency_ms_max` land adjacent in autocomplete, in a sorted listing, and in a class body, so a
-missing member of a family is visible. The unit in the name is also the cheapest defence against
-the whole size/count/index confusion: `size_bytes` and `count` cannot be silently swapped, `n`
-and `size` can.
+`latency_ms_max` land adjacent wherever names are sorted, so a missing member of a family shows.
+A unit in the name also stops confusion: `size_bytes` and `count` cannot be silently swapped.
 
 **Check:** any constant, field, or keyword argument that *begins* with `max`, `min`, `num`, `total`,
 or `default`. The word must be qualifying a noun to be a hit — `total_before` and `total_after` name
@@ -183,22 +177,21 @@ pattern its neighbours establish is the finding.
 `retry.py`, not `retry_policy_helpers.py`. `acmewidget`, not `acme_widget`, for the importable
 package.
 
-**Why:** PEP 8 permits underscores in module names "if it improves readability" and discourages them
-in package names outright. The deeper reason is that a long module name is usually a module doing
-more than one thing — `retry_policy_helpers` is three nouns, which is three modules or one badly
-named one.
+**Why:** a long module name is usually a module doing more than one thing — `retry_policy_helpers`
+is three nouns, which is three modules or one badly named one. PEP 8 permits underscores in module
+names "if it improves readability" and discourages them in package names outright.
 
 **Check:** `find src -name '*_*_*.py'` — two or more underscores in a module name is a module worth
 splitting. Any underscore in a directory under `src/` is the finding.
 
 ### PS-NAME-11 [M] Import absolutely
 
-`from acmewidget.retry import RetryPolicy`, not `from .retry import RetryPolicy`.
+`from acmewidget.retry import RetryPolicy`, not `from .retry import RetryPolicy`. PEP 8 does permit
+explicit relative imports for complex layouts; the standard library requires absolute.
 
-**Why:** PEP 8 recommends absolute imports because they are "usually more readable and tend to be
-better behaved". The concrete misbehaviour is that a relative import makes a module's meaning depend
-on where it sits, so moving a file changes what it imports without changing a character of it. PEP 8
-does permit explicit relative imports for complex layouts; the standard library requires absolute.
+**Why:** a relative import makes a module's meaning depend on where it sits, so moving a file
+changes what it imports without changing a character of it. That is the misbehaviour behind PEP 8
+calling absolute imports "usually more readable and tend to be better behaved".
 
 **Check:** ruff `TID252` bans relative imports beyond a configurable depth. `rg -n '^from \.'
 src/` finds the rest.
@@ -208,11 +201,9 @@ src/` finds the rest.
 `from ._core import Widget as Widget`, or `__all__ = ["Widget"]`. Not a bare
 `from ._core import Widget` in an `__init__.py`.
 
-**Why:** this is not a style preference — the typing specification makes imported symbols **private
-by default**, so a bare import in `__init__.py` is not part of your public interface as far as a
-type checker is concerned, and downstream code importing it gets an error. The two spellings
-above are the documented ways to say otherwise. Pick one per project: mixing them means the
-reader must check both places to know whether a name is public.
+**Why:** the typing specification makes imported symbols **private by default**, so a type checker
+rejects downstream code importing a name `__init__.py` merely imported; the two spellings above are
+the documented exceptions. With one per project, a reader checks one place to know what is public.
 
 **Check:** for a package shipping `py.typed`, run the type checker over a file that imports each
 documented name from the package root. A `does not explicitly export` error is the finding.
@@ -222,25 +213,21 @@ documented name from the package root. A `does not explicitly export` error is t
 No registry population, no monkey-patching, no configuration reads, no network, no logging setup.
 Importing a module defines names; it does not do things.
 
-**Why:** import-time effects make the order of imports load-bearing, which makes it fragile in a way
-nothing declares. PEP 810 sharpens this from untidy to broken: under lazy imports the module body
-runs at first *use*, so a registry that populated itself on import populates itself at an
-unpredictable moment or not at all. The PEP says it outright — "users should be wary of modules that
-rely on import time side effects" — and names the registry pattern as the common case.
+**Why:** import-time effects make the order of imports load-bearing in a way nothing declares. Under
+PEP 810's lazy imports the module body runs at first *use*, so a registry that populated itself on
+import populates itself at an unpredictable moment or not at all.
 
 **Check:** read every module body for a statement that is not a definition, a constant, or an
 import. Each is a candidate; a call is the finding.
 
 ### PS-NAME-15 [S] Defer a costly import with `lazy import` at module scope
 
-`lazy import pandas`. Not an import moved inside a function.
+`lazy import pandas`. Not an import moved inside a function. `lazy` is module-scope only; inside a
+function, a class body, or a `try` it is a `SyntaxError`.
 
-**Why:** the function-local import was the only tool available and it has real costs: it hides the
-dependency from every reader of the import block, and it re-resolves the import on each call. PEP
-810 supersedes it — "users who are moving imports into functions to improve startup time should
-instead consider keeping them where they are but adding the `lazy` keyword". `lazy` is
-module-scope only; inside a function, a class body, or a `try` it is a `SyntaxError`, which is
-the language enforcing this rule for you.
+**Why:** a function-local import hides the dependency from every reader of the import block, and it
+re-resolves the import on each call. PEP 810 tells anyone moving imports into functions for startup
+time to "instead consider keeping them where they are but adding the `lazy` keyword".
 
 **Check:** `rg -nB2 '^[ \t]+import |^[ \t]+from .* import ' src/`, then read each hit for what
 encloses it — indentation alone cannot tell a function body from an `if` block. An import under
@@ -254,9 +241,7 @@ Ruff `TID255` flags the opposite mistake: a `lazy` import that module load resol
 
 **Why:** without `src/`, the current directory is on `sys.path`, so your tests import the working
 copy rather than the installed package — which means the packaging is never exercised until someone
-else installs it. The PyPA guidance is that the layout "helps prevent accidental usage of the
-in-development copy" and "helps enforce that an editable installation is only able to import files
-that were meant to be importable". `uv init` produces it for libraries and applications alike.
+else installs it.
 
 **Check:** a `pyproject.toml` whose package directory is a sibling of it rather than under `src/`.
 Ruff `INP001` catches the related defect of a package directory with no `__init__.py`.
@@ -279,14 +264,11 @@ a quiet run.
 ### PS-NAME-18 [M] Hold lines to 88 columns, and know this departs from PEP 8
 
 88 for code. 72 for the text inside a docstring or comment, which is PEP 8's number and which the
-formatter does not enforce for you.
+formatter does not enforce for you. PEP 8 says 79 for code, and CPython itself uses 79.
 
-**Why:** PEP 8 says 79, with 99 permitted only "for code maintained exclusively or primarily by a
-team that can reach agreement on this issue" — and that escape hatch explicitly does not lift the
-72-column limit on docstrings and comments. This standard takes 88 because the house standard is
-Ruff and 88 is its default, and deviating from a formatter's own default is the sort of unmotivated
-divergence this standard exists to argue against. The disagreement is real and is stated here rather
-than hidden. CPython itself uses 79.
+**Why:** 88 is the default of Ruff, the house standard, and deviating from a formatter's own default
+is the unmotivated divergence this standard exists to argue against. PEP 8's 99-column escape hatch
+for an agreeing team explicitly does not lift the 72-column limit on docstrings and comments.
 
 **Check:** ruff `E501` at the configured length. The formatter makes only a best-effort attempt, so
 `E501` stays enabled as the backstop rather than being ignored as redundant.
@@ -298,9 +280,7 @@ means "fit it on one line if it fits".
 
 **Why:** this turns a formatting decision into a semantic one the author makes deliberately and the
 formatter then executes. It is also the single lever that keeps a growing argument list from
-producing a one-line diff that touches every argument. PEP 8's own rule is narrower — a trailing
-comma is mandatory only for a one-element tuple, and forbidden on the same line as the closing
-bracket.
+producing a one-line diff that touches every argument.
 
 **Check:** the formatter enforces this itself, so there is no lint rule to enable — and the one that
 looks like it, flake8-commas, is on ruff's documented formatter-conflict list and must stay
@@ -376,10 +356,9 @@ mechanism. Two mechanisms for one concept is the finding.
 If a row from the database is an `Account`, it is not a `User` in the next module and a
 `Customer` in the one after.
 
-**Why:** synonyms make search useless and make every conversation about the code start with a
-translation step. The cost compounds: a reader who has learned that `Account` and `User` are the
-same thing must then decide, for each new name, whether it is a third synonym or a genuinely
-different concept.
+**Why:** synonyms make search useless and start every conversation about the code with a translation
+step. The cost compounds: a reader who has learned that `Account` and `User` are the same thing must
+then decide, for each new name, whether it is a third synonym or a genuinely different concept.
 
 **Check:** keep a glossary. A name that is not in it is either new — add it — or a synonym, which is
 the finding.

@@ -260,7 +260,15 @@ def _rows(text: str, start: int) -> list[tuple[int, list[str]]]:
 
 
 def _section(body: str, name: str) -> str:
-    m = re.search(rf"\*\*{name}:?\*\*(.*?)(?=\n\*\*|\n### |\n## |\n```|\Z)", body, re.S)
+    """The text of a labelled section, up to the next label, heading or example.
+
+    The next *label* — `**Check:**` — not the next line that opens with `**`. A Why
+    holding a bolded phrase at the start of a line was read as ending there, so a
+    long Why measured short.
+    """
+    m = re.search(
+        rf"\*\*{name}:?\*\*(.*?)(?=\n\*\*[^*\n]+:\*\*|\n### |\n## |\n```|\Z)", body, re.S
+    )
     return m.group(1) if m else ""
 
 

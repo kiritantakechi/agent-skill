@@ -59,15 +59,13 @@ free-threaded build. Where a rule depends on the build, the block probes it rath
 
 They answer different questions. `sysconfig.get_config_var("Py_GIL_DISABLED")` says how the
 interpreter was built and is fixed for the process. `sys._is_gil_enabled()` says whether the GIL is
-off *right now*, which can change after startup.
+off *right now*, which can change after startup. It returns `True` unconditionally on a GIL build,
+so it cannot identify the build on its own, and the leading underscore is load-bearing: the docs
+mark it a CPython implementation detail that is "not guaranteed to exist in all implementations".
 
 **Why:** a free-threaded build can re-enable the GIL at import time, process-wide and for the life
-of the process — one dependency is enough, and it happens silently apart from a `RuntimeWarning`. So
-the build answers "which wheel do I need"; only the runtime probe answers "am I actually running in
-parallel". `sys._is_gil_enabled` returns `True` unconditionally on a GIL build, so it cannot
-identify the build on its own, and the
-leading underscore is load-bearing: the docs mark it a CPython implementation detail that is "not
-guaranteed to exist in all implementations".
+of the process: one dependency is enough, and only a `RuntimeWarning` says so. So the build answers
+"which wheel do I need"; only the runtime probe answers "am I actually running in parallel".
 
 **Check:** every use of `sys._is_gil_enabled` in packaging, build, or wheel-selection code is a
 defect — that decision belongs to `sysconfig`. Every bare call without a `getattr` guard is a defect
@@ -97,12 +95,9 @@ print(FREE_THREADED_BUILD, running_in_parallel())
 `counter += 1`, `totals[key] += 1`, `self.seen |= other` are each a read, a computation, and a
 write. Another thread can land between any two of them.
 
-**Why:** this was never atomic and the library FAQ has always said so — `D[x] = D[x] + 1` is on its
-list of operations that are *not*. What changed is the odds. Under the GIL a thread switch had to
-fall in a window a few bytecodes wide, so the bug shipped and survived for years; on the
-free-threaded build it is immediate. Eight threads each adding one to a shared attribute two hundred
-thousand times finish around 73% short, and the same loop over a dict key finishes around 78%
-short — no exception, just a wrong number.
+**Why:** this was never atomic; what changed is the odds. Under the GIL a switch had to fall in a
+window a few bytecodes wide, so the bug survived for years. On the free-threaded build, eight
+threads each adding one to a shared attribute 200,000 times finish around 73% short, silently.
 
 **Check:** `rg -n '^[ \t]*(self\.)?[A-Za-z_][A-Za-z0-9_]*(\[[^]\n]*\])?[ \t]*([+*|&^-]|//)=' src/`
 and
@@ -160,13 +155,12 @@ assert counter == 80_000
 
 `if key not in cache: cache[key] = compute(key)` is two operations with a gap. So are
 `if not os.path.exists(p): open(p, "w")`, `if q: item = q.pop()`, and every `if x is None: x = ...`
-on shared state.
+on shared state. `dict.setdefault` performs the whole check-and-insert under one lock; a `Lock` does
+the same for anything larger.
 
-**Why:** both halves can be individually atomic and the pair still wrong — the container's lock is
-released between them, so two threads both see the key absent and both compute. That is a duplicated
-side effect, not merely duplicated work, whenever `compute` writes a file, charges an account, or
-increments a metric. `dict.setdefault` performs the whole check-and-insert under one lock; a
-`Lock` does the same for anything larger.
+**Why:** both halves can be individually atomic and the pair still wrong: the container's lock is
+released between them, so two threads both see the key absent and both compute. Whenever `compute`
+writes a file, charges an account, or increments a metric, that is a duplicated side effect.
 
 **Check:** `rg -nB2  'if .* not in |if not .*\.(exists|get)\(' src/` — a hit whose next line
 writes to the thing just tested is a defect unless a lock spans both.
@@ -203,11 +197,9 @@ each thread a local accumulator, and merge once at the end.
 that is not hot. The per-thread accumulator is what makes it *scale*; the lock is what makes it
 *right*. Never ship the third option, which is neither.
 
-**Why:** correctness and throughput pull the same direction here. Every write to an object shared
-across cores is an atomic operation on its reference count as well as its value, and the free-
-threaded build pays that cost on a slow path — a documented case had four threads take 3.61s against
-the GIL build's 2.38s until the shared objects were moved into thread-local holders, after which it
-took 0.83s. A local accumulator removes the sharing rather than synchronising it.
+**Why:** every write to an object shared across cores is an atomic operation on its reference count
+as well as its value, which the free-threaded build pays on a slow path: a documented four-thread
+case took 3.61s against the GIL build's 2.38s, and 0.83s once its shared objects were thread-local.
 
 **Check:** in any function passed to `Thread(target=...)` or an executor's `submit`, every name that
 is not a parameter or a local is a candidate. A write to one on the hot path is the finding.
@@ -258,10 +250,9 @@ bytecode atomicity, or to "CPython guarantees" is the finding.
 `list.append` will not corrupt the list. It will not stop another thread appending between your
 append and your length check.
 
-**Why:** the internal locks are per operation. Any invariant spanning two operations — "the list and
-the counter agree", "every key in `a` is in `b`", "the queue never exceeds N" — is yours to hold,
-and needs a lock that spans exactly the operations the invariant covers. This is the same defect as
-PS-CONC-03 stated for invariants rather than for lookups.
+**Why:** the internal locks are per operation, so an invariant spanning two operations, such as "the
+list and the counter agree", is yours to hold, with a lock that spans exactly the operations it
+covers. This is PS-CONC-03's defect stated for invariants rather than for lookups.
 
 **Check:** for every lock in the codebase, name the invariant it protects in a comment on the line
 that declares it. A lock whose invariant cannot be named is either unnecessary or too narrow.
@@ -309,11 +300,9 @@ reporters that walk `sys._current_frames()` and read locals are the code that do
 `for key, value in dict(shared).items():` and `for item in list(shared):`. Iterating the live object
 while another thread writes to it is the defect.
 
-**Why:** on a GIL build this raised `RuntimeError: dictionary changed size during iteration`, which
-is loud and easy to fix. The free-threaded build's internal locks keep the container from being
-corrupted, but they do not make your iteration a transaction: you can silently see an element twice
-or miss one entirely, with no exception at all. A loud failure became a quiet wrong answer, which is
-the worse trade.
+**Why:** on a GIL build this raised `RuntimeError: dictionary changed size during iteration`. The
+free-threaded build's internal locks keep the container intact but do not make your iteration a
+transaction, so the loud failure became a quiet one: an element seen twice, or missed entirely.
 
 **Check:** for each `for ... in <name>` where `<name>` is not a local, ask whether any thread writes
 to it. `rg -n 'for .+ in (self\.)?[a-z_]+(\.items\(\)|\.keys\(\)|\.values\(\))?:' src/` and read
@@ -343,9 +332,8 @@ Hand a worker a `frozenset`, a `tuple`, a frozen dataclass, or a `frozendict`. L
 rather than write into something you both hold.
 
 **Why:** an object that cannot change needs no lock, and its reference count is the only thing two
-threads contend on. This removes a whole class of bug rather than guarding against it, and it is why
-the message-passing shape scales: the alternative is to reason, at every call site and forever,
-about who may write when.
+threads contend on. That removes a class of bug rather than guarding against it; the alternative is
+to reason, at every call site and forever, about who may write when.
 
 **Check:** every argument passed to a thread target or `submit`. A `list`, `dict`, `set`, or
 non-frozen dataclass among them is the finding unless the receiver is documented as its new owner.
@@ -374,14 +362,13 @@ assert out == ["/a:1", "/b:2"]
 
 ### PS-CONC-10 [M] Hand work between threads with `queue.Queue`
 
-Not a shared list with a lock you wrote, and not a deque you poll.
+Not a shared list with a lock you wrote, and not a deque you poll. Note the documented limit:
+`Queue` "is not designed to handle reentrancy within a thread", so never call `put` from a callback
+the same queue's consumer invoked.
 
 **Why:** `queue.Queue` implements "all of the required locking semantics" per its own docs, and it
-carries the blocking, the sentinel, and the `task_done`/`join` accounting that a hand-rolled
-equivalent gets wrong on the first try. The classic hand-rolled bug is exactly PS-CONC-03: `if q:
-item = q.pop()` between two consumers. Note the documented limit — `Queue` "is not designed to
-handle reentrancy within a thread", so never call `put` from a callback the same queue's consumer
-invoked.
+carries the blocking, the sentinel, and the `task_done`/`join` accounting a hand-rolled equivalent
+gets wrong. The classic hand-rolled bug is PS-CONC-03's: `if q: item = q.pop()` with two consumers.
 
 **Check:** `rg -n '\.pop\(0\)|\.pop\(\)' src/` inside anything threaded, and every
 `while ...: sleep(...)` polling a shared container.
@@ -419,12 +406,13 @@ assert sorted(seen) == list(range(9))
 ### PS-CONC-11 [M] Freeze a shared dataclass, or guard every write to it
 
 `@dataclass(frozen=True, slots=True)` for anything two threads can reach. If it must be mutable, it
-owns a lock and every field write goes through a method that takes it.
+owns a lock and every field write goes through a method that takes it. `slots=True` is free
+alongside it and removes the per-instance `__dict__`, which matters more on the free-threaded build
+where object headers are already larger.
 
 **Why:** a plain dataclass gives every field a public, unsynchronised setter. Freezing turns "who
 may write this, and when" from a convention nobody can enforce into a `FrozenInstanceError` at the
-moment of the mistake. `slots=True` is free alongside it and removes the per-instance `__dict__`,
-which matters more on the free-threaded build where object headers are already larger.
+moment of the mistake.
 
 **Check:** `rg -n '@dataclass' src/` — every decorator without `frozen=True` on a type reachable
 from more than one thread is the finding.
@@ -463,10 +451,9 @@ assert t.advance(3) == Position(3, 0)
 A module-level `_lock` beside a module-level `_cache` works until a second cache appears and takes
 the same lock. Put the lock on the class whose invariant it protects.
 
-**Why:** a lock's scope should be as narrow as the invariant. One process-wide lock guarding
-everything serialises unrelated work — on the free-threaded build that is the difference between
-scaling and not — and it makes lock-ordering deadlocks possible between operations that never needed
-to interact.
+**Why:** one process-wide lock guarding everything serialises unrelated work, which on the
+free-threaded build is the difference between scaling and not, and it makes lock-ordering deadlocks
+possible between operations that never needed to interact.
 
 **Check:** two or more module-level `Lock()` objects in one module, or one lock referenced by
 functions that touch different state, is the finding.
@@ -477,12 +464,9 @@ functions that touch different state, is the finding.
 
 Two threads calling `next()` on the same generator is an error, not a race you can win.
 
-**Why:** the generator raises `ValueError: generator already executing`. That is the good case,
-because it is loud. The bad case is any other iterator, where the free-threading HOWTO warns that
-threads "may see duplicate or missing elements" — the design decision recorded in the CPython issue
-that added the 3.15 helpers is that concurrent access to a shared iterator is "allowed to return
-duplicate values, skip values, or raise an exception". A worker pool sharing one iterator silently
-processes some items twice and drops others.
+**Why:** the generator raises `ValueError: generator already executing`, which is the good case
+because it is loud. With any other iterator the free-threading HOWTO warns that threads "may see
+duplicate or missing elements", so a pool sharing one processes some items twice and drops others.
 
 **Check:** any generator or iterator that is created in one place and consumed inside a thread
 target, an executor callback, or a `for` loop in more than one thread.
@@ -555,12 +539,12 @@ assert sorted(got) == list(range(9)), "each item goes to exactly one caller"
 ### PS-CONC-15 [M] Give each consumer a full stream with `threading.concurrent_tee`
 
 When every consumer needs every item — not one each — `concurrent_tee(iterable, n)` is the split.
+Its derived iterators are each single-consumer: handing one branch to two threads reintroduces
+PS-CONC-13.
 
 **Why:** `serialize_iterator` partitions and `concurrent_tee` duplicates; choosing the wrong one is
 a silent correctness bug, not a performance one. `concurrent_tee` buffers each item until every
-derived iterator has consumed it, so a slow consumer costs memory rather than correctness. Its
-derived iterators are each single-consumer: handing one branch to two threads reintroduces
-PS-CONC-13.
+derived iterator has consumed it, so a slow consumer costs memory rather than correctness.
 
 **Check:** any place where several threads must each see the whole stream. A shared iterator there
 is the finding; so is passing one `concurrent_tee` branch to more than one thread.
@@ -597,9 +581,7 @@ assert sums == {"left": 10, "right": 10}, "both consumers saw the whole stream"
 
 **Why:** the `itertools.tee` docs state that a `RuntimeError` "may be raised when simultaneously
 using iterators returned by the same `tee()` call, even if the original iterable is threadsafe", and
-concurrent use produced a genuine segfault in `teedataobject_clear` reported in 2026 and fixed by
-backport. The names are one word apart and the failure is not a clean exception, which is what makes
-this worth its own rule rather than a note under PS-CONC-15.
+concurrent use has segfaulted in `teedataobject_clear`, and its name is one word from the safe one.
 
 **Check:** `rg -n 'itertools.tee|from itertools import.*tee' src/` — every hit in a module that
 also imports `threading` or `concurrent.futures` is the finding.
@@ -607,12 +589,12 @@ also imports `threading` or `concurrent.futures` is the finding.
 ### PS-CONC-17 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
 
 A decorator on a function that returns an iterator, so callers get a safe one without knowing to
-wrap it.
+wrap it. It applies only where you own the factory; where you are handed an iterator, PS-CONC-14 is
+the rule.
 
 **Why:** PS-CONC-14 puts the obligation on every caller, and an obligation every caller must
 remember is one some caller will forget. Decorating the factory moves it to the one place that can
-discharge it. This is `[S]` rather than `[M]` because it only applies where you own the factory;
-where you are handed an iterator, PS-CONC-14 is the rule.
+discharge it.
 
 **Check:** a function returning a generator that is documented as safe to share, without the
 decorator, is the finding.
@@ -653,11 +635,9 @@ assert sorted(got) == list(range(30))
 
 The cache will not corrupt. The function behind it will run more than once for the same key.
 
-**Why:** the docs are exact — the cache "is threadsafe" and "the underlying data structure will
-remain coherent during concurrent updates", but "it is possible for the wrapped function to be
-called more than once", because the lock is not held across the call. Eight threads hitting one cold
-key ran the wrapped function seven times. Harmless for a pure computation; a duplicated charge, a
-duplicated write, or seven simultaneous connections if the body has an effect.
+**Why:** the lock is not held across the call, so per the docs "it is possible for the wrapped
+function to be called more than once": eight threads hitting one cold key ran it seven times.
+Harmless for a pure function; a duplicated charge, write, or connection if the body has an effect.
 
 **Check:** `rg -nB3 '@lru_cache|@cache\b' src/` and read each decorated body for effects — I/O,
 writes, metrics, allocation of a scarce resource. A pure function is fine; anything else needs
@@ -668,10 +648,9 @@ PS-CONC-20.
 It lost its lock in 3.12. Two threads reaching a cold property both compute it, and one of the two
 results is discarded.
 
-**Why:** the lock was removed because it serialised every instance behind one class-wide lock, which
-was a worse problem. The consequence is that `cached_property` is now a memo, not a guarantee of
-one-time execution. Where the getter merely computes, the discarded result costs time; where it
-opens a connection or allocates a handle, the discarded one leaks unless something closes it.
+**Why:** the lock was removed because it serialised every instance behind one class-wide lock, so
+`cached_property` is now a memo, not a once-only guarantee. A discarded result that only computed
+costs time; one that opened a connection or allocated a handle leaks unless something closes it.
 
 **Check:** `rg -nA5 'cached_property' src/` — a getter that constructs anything needing cleanup
 is the finding.
@@ -683,10 +662,9 @@ Not around the cache read — around the miss.
 *Relaxed form:* a pure, cheap function may use the plain decorator and accept duplicate execution;
 say so in a comment on the decorator, so the next reader knows it was a decision.
 
-**Why:** PS-CONC-18 and PS-CONC-19 are the same defect with two spellings, and this is their shared
-fix. The double-checked shape below keeps the fast path lock-free — the common case is a hit — while
-making the miss single-flight. Without it, "cached" means "usually computed once", which is not what
-the word promises the reader.
+**Why:** PS-CONC-18 and PS-CONC-19 are the same defect with two spellings. The double-checked shape
+keeps the common case, a hit, lock-free while making the miss single-flight; without it, "cached"
+means "usually computed once", which is not what the word promises the reader.
 
 **Check:** every memo whose body does I/O and has no lock.
 
@@ -720,9 +698,8 @@ assert connection("db") == "conn:db"
 Never inside a function, a method, or a loop.
 
 **Why:** a `ContextVar` created per call is a new variable each time, so a value one caller sets is
-invisible to every other — the lookup silently returns the default and the bug looks like "context
-does not work". The docs say it directly: "Important: Context Variables should be created at the top
-module level and never in closures."
+invisible to every other: the lookup silently returns the default and the bug looks like "context
+does not work".
 
 **Check:** `rg -nB5 'ContextVar\(' src/` — any hit whose preceding lines are inside a `def` or
 `class` body is the finding.
@@ -732,11 +709,9 @@ module level and never in closures."
 `sys.flags.thread_inherit_context` is 1 on the free-threaded build and 0 on the GIL build. Pass the
 context explicitly, or set the flag deliberately.
 
-**Why:** this is a silent behaviour difference between two interpreters running the same source. A
-`ContextVar` set before starting a thread is visible inside it on `python3.15t` and absent on
-`python3.15`, so code developed on one build takes a different branch on the other with no
-diagnostic. Explicit beats inherited here for the same reason it does everywhere: the reader can see
-it.
+**Why:** a `ContextVar` set before starting a thread is visible inside it on `python3.15t` and
+absent on `python3.15`, so code developed on one build takes a different branch on the other with
+no diagnostic. A context passed explicitly is visible to the reader and the same on both.
 
 **Check:** `rg -n 'ContextVar|copy_context' src/` in any module that also starts a thread — a
 read inside a thread target whose value was set outside it is the finding.
@@ -770,11 +745,9 @@ assert seen == ["abc"]
 `open()` in text mode returns one. So do `sys.stdout` and `sys.stderr`. So `print` from two threads
 is the same defect as writing to a shared file from two threads.
 
-**Why:** the `io` docs are explicit that `BufferedReader`, `BufferedWriter` and friends "protect
-their internal structures using a lock", and equally explicit that "`TextIOWrapper` objects are not
-thread-safe". Interleaved output is the visible symptom; the encoder's internal state is the real
-one. Under the GIL the write usually completed within one bytecode window; on the free-threaded
-build it does not.
+**Why:** the `io` docs say buffered streams "protect their internal structures using a lock" but
+"`TextIOWrapper` objects are not thread-safe". A write that under the GIL usually finished in one
+bytecode window now interleaves, in the encoder's internal state as well as in the output.
 
 **Check:** `rg -n '\bprint\(|sys.stdout.write|sys.stderr.write' src/` inside any thread target.
 Logging is the fix: `logging` handlers take a lock around each emit.
@@ -783,12 +756,9 @@ Logging is the fix: `logging` handlers take a lock around each emit.
 
 The module-level functions all share one instance.
 
-**Why:** the docs carry one of the library's few explicit free-threading notes: the global generator
-and `Random` instances are thread-safe, but "in the free-threaded build, concurrent calls to the
-global generator or to the same instance of `Random` may encounter contention and poor performance",
-with the recommendation to use one instance per thread. Separately, `random.gauss` warns that two
-threads "may receive the same return value". A seeded per-thread instance is also the only way to
-keep a run reproducible.
+**Why:** the docs warn that concurrent calls to the global generator or one `Random` instance "may
+encounter contention and poor performance" on the free-threaded build, and two threads calling
+`random.gauss` at once can receive the same return value. Seeded per thread, a run is reproducible.
 
 **Check:** `rg -n '\brandom\.(random|gauss|randint|shuffle|choice|uniform)\(' src/` — every hit
 inside a thread target is the finding.
@@ -832,16 +802,13 @@ assert len(out) == 4
 ### PS-CONC-25 [M] Know that a `contextmanager` decorator now holds across the whole generator
 
 In 3.15 a `@contextmanager`-derived decorator applied to a generator function keeps the context open
-until the generator is exhausted. Previously it closed when the generator object was created.
+until the generator is exhausted. Previously it closed when the generator object was created. The
+change is in `ContextDecorator` and `AsyncContextDecorator`, covers coroutine functions and
+asynchronous generator functions too, and does not appear in the porting notes.
 
-**Why:** this is the most dangerous silent change in 3.15 for ordinary code, and it does not appear
-in the porting notes. `ContextDecorator` and `AsyncContextDecorator` "now detect generator
-functions, coroutine functions, and asynchronous generator functions and keep the context manager
-open across iteration or await. Previously the context manager exited as soon as the generator or
-coroutine object was created." Nothing errors on either version — only the *duration* changes, from
-effectively zero to the full consumption of the generator. If the context manager holds a lock, a
-transaction, a `chdir`, or a `contextvars` token, its hold time changes silently, and under free
-threading a hold time that grew is new contention and a new deadlock shape.
+**Why:** nothing errors on either version; only the *duration* changes, from effectively zero to the
+full consumption of the generator, so a lock, a transaction, a `chdir`, or a `contextvars` token it
+holds is held longer, silently: under free threading, new contention and a new deadlock shape.
 
 **Check:** `rg -nB2 -A2 '@contextmanager' src/` and find every decorator built from one that is
 applied to a `def` containing `yield`. Each is a hold time that changed; each needs the lock it
@@ -884,9 +851,8 @@ A callback, a plugin hook, an I/O call, or anything that can block. Compute unde
 outside it.
 
 **Why:** a lock held across arbitrary code is a lock whose hold time you cannot bound, and one whose
-acquisition order you cannot see. That is the shape of every lock-ordering deadlock. It also
-interacts with PS-CONC-25: a decorator whose hold time silently grew now spans calls it never used
-to.
+acquisition order you cannot see: the shape of every lock-ordering deadlock. Under PS-CONC-25, a
+decorator whose hold time silently grew now spans calls it never used to.
 
 **Check:** read every `with <lock>:` body for a call that is not a local function or a container
 operation. A hit is a candidate, not a verdict — the lock may genuinely need to span it, in which

@@ -51,8 +51,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 
 **Why:** without it the public surface is "everything without a leading underscore", which includes
 every name you happened to import — so `from acme import json` works, and now you cannot stop
-importing `json`. Declaring it makes the surface a decision rather than an accident, and it makes
-adding to it deliberate.
+importing `json`. Declaring it makes the surface a decision rather than an accident.
 
 **Check:** every module under the package root. No `__all__` is the finding. Ruff `F822` catches an
 `__all__` naming something that does not exist.
@@ -61,23 +60,21 @@ adding to it deliberate.
 
 `from ._core import Widget as Widget`, or `__all__ = ["Widget"]`. Pick one per project.
 
-**Why:** this is normative, not stylistic: the typing spec says imported symbols are **private by
-default**, so a bare `from ._core import Widget` in `__init__.py` is not part of your public
-interface as far as any type checker is concerned — and downstream code importing it gets an error
-while your own tests pass. The two forms above are the documented ways to say otherwise. Mixing them
-means a reader must check both places to learn whether a name is public.
+**Why:** a bare `from ._core import Widget` in `__init__.py` passes your own tests while every type
+checker rejects downstream code importing it: the typing spec keeps an import private unless one of
+these two forms re-exports it. Mixing the forms means a reader must check both places for a name.
 
 **Check:** type-check a file that imports each documented name from the package root. A
 "not explicitly exported" error is the finding.
 
 ### PS-API-03 [M] Ship `py.typed` in every typed package
 
-An empty file inside the package directory, plus `Typing :: Typed` in the classifiers.
+An empty file inside the package directory, plus `Typing :: Typed` in the classifiers. The marker
+applies recursively, and `uv_build` includes it automatically because it lives inside the package.
 
 **Why:** PEP 561 makes the marker the switch: without it, a downstream type checker ignores your
 annotations entirely and treats every import from you as untyped. The annotations are there and do
-nothing. The marker applies recursively, and `uv_build` includes it
-automatically because it lives inside the package.
+nothing.
 
 **Check:** install the wheel into a clean environment and type-check a file that imports from it. A
 missing-stubs error is the finding.
@@ -109,10 +106,9 @@ import form.
 
 Including `-> None`.
 
-**Why:** the annotation is the contract, and a missing one is a hole the checker cannot see
-through — it infers `Any`, which then propagates to every caller and erases their types too. `->
-None` matters as much as the others: without it the function's return is unannotated, so
-assigning its result type-checks.
+**Why:** a missing annotation is a hole the checker cannot see through — it infers `Any`, which then
+propagates to every caller and erases their types too. Without `-> None` the return is unannotated,
+so assigning the result of a function that returns nothing type-checks.
 
 **Check:** ruff's `ANN` family — `ANN001` for parameters, `ANN201` for returns. `ty` does not
 require annotations at all, which is exactly why Ruff carries this half.
@@ -122,9 +118,8 @@ require annotations at all, which is exactly why Ruff carries this half.
 `def connect(host: str, *, timeout_seconds: float = 5.0, retries: int = 3)`.
 
 **Why:** `connect("db", 5.0, 3)` gives the reader no way to know what the numbers mean, and
-transposing them type-checks. Keyword-only makes the call site self-documenting and — the reason
-that matters more — lets you add, reorder, or deprecate those parameters later without breaking
-anyone, because nobody can be passing them positionally.
+transposing them type-checks. Keyword-only also lets you add, reorder, or deprecate those parameters
+later without breaking anyone, because nobody can be passing them positionally.
 
 **Check:** every function with more than two parameters, and every pair of adjacent parameters
 sharing a type.
@@ -145,19 +140,18 @@ assert connect("db", retries=1) == "db/5.0/1"
 
 **Why:** the parameter constrains your callers and the return constrains you, so they pull opposite
 ways. Accepting `Iterable` lets a caller pass a generator; returning `Iterable` denies them the
-indexing you actually gave. This is PS-TYPE-14 stated as an API rule rather than a typing one,
-because it is a design decision before it is an annotation.
+indexing you actually gave.
 
 **Check:** every public signature. A concrete container in, or an abstract one out, is the finding.
 
 ### PS-API-10 [S] Take a value, not a flag that selects between two behaviours
 
-`sort(key=...)` rather than `sort(reverse_and_dedupe=True)`.
+`sort(key=...)` rather than `sort(reverse_and_dedupe=True)`. A flag that genuinely toggles one
+line — `strict=True` — is fine, which is why this is `[S]`.
 
 **Why:** a flag parameter means the function has two bodies sharing a name, so every reader must
 hold both and every test must cover both. Splitting them gives each an honest name; passing a
-value instead makes the variation the caller's to express. This is `[S]` because a flag that
-genuinely toggles one line — `strict=True` — is fine.
+value instead makes the variation the caller's to express.
 
 **Check:** every `bool` parameter whose body is `if flag: ... else: ...` at the top level.
 
@@ -197,12 +191,12 @@ sentence removes a class of misuse.
 
 ### PS-API-15 [M] Say who owns what the function returns
 
-Whether the caller may mutate it, whether it is a view or a copy, whether it must be closed.
+Whether the caller may mutate it, whether it is a view or a copy, whether it must be closed. Say it,
+or return something immutable so the question does not arise.
 
 **Why:** returning a live internal container silently makes the caller's mutation your bug — see
 PS-DATA-16 — and returning something that must be closed without saying so guarantees a leak. Both
-are invisible from the signature. Say it, or return something immutable so the question does not
-arise.
+are invisible from the signature.
 
 **Check:** every public return of a container or a resource. No ownership sentence is the finding.
 
@@ -245,9 +239,8 @@ thousand-line module with one audience is fine; a two-hundred-line module servin
 No import cycles, and no chain of internal imports deeper than a few levels.
 
 **Why:** a cycle makes import order load-bearing and makes the modules impossible to test or reuse
-separately. Depth is the subtler cost: it means understanding any one module requires understanding
-a chain, and it makes every change ripple. Both are properties of the design, visible only when you
-look at the graph.
+separately. Depth is the subtler cost: understanding any one module requires understanding a chain,
+and every change ripples along it.
 
 **Check:** draw the internal import graph. A cycle is the finding; a chain longer than three or four
 is a design question.
@@ -256,12 +249,12 @@ is a design question.
 
 ### PS-API-20 [M] Deprecate with `warnings.deprecated`, and enable the check
 
-`@warnings.deprecated("Use X instead; removed in 2.0")` on the function, class or overload.
+`@warnings.deprecated("Use X instead; removed in 2.0")` on the function, class or overload. It lives
+in `warnings`, not `typing`. Not every checker reports it unless enabled explicitly; `ty` does so by
+default.
 
 **Why:** PEP 702's decorator is both a runtime `DeprecationWarning` and a static signal, so callers
-find out at type-check time rather than at runtime — which is when they can still act. Note it lives
-in `warnings`, not `typing`. The catch worth knowing: not every checker reports it unless enabled
-explicitly; `ty` does so by default, which is one of the reasons this standard mandates `ty`.
+find out at type-check time rather than at runtime — which is when they can still act.
 
 **Check:** every deprecation. A docstring note without the decorator is invisible to tooling.
 

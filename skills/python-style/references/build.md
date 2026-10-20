@@ -47,12 +47,12 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 
 ### PS-BUILD-01 [M] Cite the living specification, never the PEP
 
-`packaging.python.org/en/latest/specifications/pyproject-toml/`, not PEP 621.
+`packaging.python.org/en/latest/specifications/pyproject-toml/`, not PEP 621. The same applies to
+typing: `typing.python.org/spec`, not PEP 484.
 
 **Why:** every packaging PEP this chapter would otherwise cite now opens with *"This PEP is a
-historical document"* and redirects to the PyPA specifications, which are the maintained text. The
-difference is not academic: a PEP records what was decided once, and the specification records what
-is true now. The same applies to typing — `typing.python.org/spec` rather than PEP 484.
+historical document"* and redirects to the PyPA specifications. A PEP records what was decided
+once; the specification is the maintained text and records what is true now.
 
 **Check:** every packaging or typing reference in the project's own documentation. A bare PEP number
 as the normative citation is the finding; naming the PEP as provenance alongside the spec is fine.
@@ -63,8 +63,7 @@ Version from a VCS tag is a legitimate `dynamic`. Everything else should be writ
 
 **Why:** static metadata can be read without executing anything, which is what lets an index, a
 resolver, or a security scanner answer questions about your package without installing it. Every
-`dynamic` field is one those tools must give up on. `version` is the field with a real case for it;
-`dependencies` and `requires-python` almost never are.
+`dynamic` field is one those tools must give up on.
 
 **Check:** the `dynamic` list. Each entry needs the backend hook that computes it.
 
@@ -74,9 +73,8 @@ resolver, or a security scanner answer questions about your package without inst
 `License :: OSI Approved ::` classifier.
 
 **Why:** the table forms and the licence classifiers are both deprecated in favour of an SPDX
-expression, which is machine-readable and unambiguous — `"MIT"` means exactly one licence, where the
-classifier and the free-text field between them could disagree. `license-files` is what puts the
-actual text in the distribution, which several licences require.
+expression, which names exactly one licence where the classifier and the free-text field could
+disagree. `license-files` puts the actual text in the distribution, which several licences require.
 
 **Check:** `rg -n 'License ::' pyproject.toml` and `rg -n 'license' pyproject.toml` — a table
 form or a classifier is the finding.
@@ -97,23 +95,22 @@ classifiers = [
 
 ### PS-BUILD-04 [M] Give `requires-python` a floor and no ceiling
 
-`>=3.15`. Never `<4`, never `<3.16`.
+`>=3.15`. Never `<4`, never `<3.16`. If a future version genuinely breaks the package, yank or
+patch then.
 
-**Why:** an upper bound is a promise about interpreters that do not exist yet, and it is wrong by
-default — it makes your package uninstallable on the next release even when it would have worked,
-and the fix requires a new release from you. PyPA advises against it for exactly this reason. If
-a future version genuinely breaks you, yank or patch then.
+**Why:** an upper bound is a promise about interpreters that do not exist yet: it makes the package
+uninstallable on the next release even where it would have worked, and only a new release from you
+fixes it. PyPA advises against it for exactly this reason.
 
 **Check:** `rg -n 'requires-python' pyproject.toml` — any `<` is the finding.
 
 ### PS-BUILD-05 [M] Use the well-known `[project.urls]` labels
 
-`homepage`, `source`, `issues`, `changelog`, `documentation` — lowercase.
+`homepage`, `source`, `issues`, `changelog`, `documentation` — lowercase. Normalisation strips
+punctuation and case, so `"Bug Tracker"` does work, but the plain label is the safe spelling.
 
 **Why:** the labels are normalised and recognised, so an index can render the right icons and a
-tool can find your issue tracker without guessing. Ad-hoc labels render as plain text. The
-normalisation strips punctuation and case, so `"Bug Tracker"` does work — but the plain label is
-the safe spelling.
+tool can find your issue tracker without guessing. Ad-hoc labels render as plain text.
 
 **Check:** the `[project.urls]` table against the well-known list.
 
@@ -135,8 +132,7 @@ free-threading classifier in particular is a claim about testing, not about buil
 
 **Why:** extras are shipped runtime metadata — anyone can install `yourpkg[test]`, and the index
 displays them as part of your package. Dependency groups are local to the repository and appear
-nowhere in the built distribution, which is exactly right for a linter. Putting test tooling in
-extras publishes your development choices as part of your API.
+nowhere in the built distribution, which is exactly right for a linter.
 
 **Check:** every extra. If a user would never install it, it is a group.
 
@@ -144,11 +140,9 @@ extras publishes your development choices as part of your API.
 
 `ruff==0.17.1`, `ty==0.0.89`, `pytest==9.1.1` — exact, in the dependency group.
 
-**Why:** a linter version is part of the build's definition: a floor means a new release can fail
-your CI on code nobody touched, and can do it differently for two developers on the same commit.
-Pinning makes the upgrade a reviewed change with its own diff. This matters most for tools with
-no stability guarantee — `ty` states that breaking changes including diagnostics may occur
-between any two versions.
+**Why:** a floor lets a new linter release fail CI on code nobody touched, and differently for two
+developers on the same commit; a pin makes the upgrade a reviewed change with its own diff. `ty`
+states that breaking changes including diagnostics may occur between any two versions.
 
 **Check:** every entry in `[dependency-groups]`. A `>=` on a linter, formatter or type checker is
 the finding.
@@ -167,26 +161,25 @@ other package with a different pin. Applications pin, through the lock file; lib
 
 `uv.lock` in the repository. Nothing else locks, and nothing is exported alongside it.
 
-**Why:** the lock file is what makes a build reproducible, and it belongs in version control for the
-same reason the source does. A second lock artefact is a second source of truth that nothing in this
-toolchain reads — `uv sync` cannot consume one — so it drifts silently and is discovered stale by
-whoever trusted it.
+**Why:** the lock file is what makes a build reproducible, so it belongs in version control with the
+source. A second lock artefact is a source of truth nothing in this toolchain reads — `uv sync`
+cannot consume one — so it drifts silently until whoever trusted it finds it stale.
 
 **Check:** the lock file in `.gitignore` is the finding. A second lock artefact committed beside it
 is the other one.
 
 ### PS-BUILD-11 [M!] Refuse a dependency published in the last few days
 
-`uv lock --exclude-newer`, as a date or a relative duration.
+`uv lock --exclude-newer`, as a date or a relative duration. There is no `--cooldown`;
+`--exclude-newer-package` narrows it to one dependency when a project needs the newest of something
+specific.
 
 *Relaxed form:* a project that reviews every dependency change by hand may skip the cooldown, and
 should say so where the CI configuration would otherwise carry it.
 
 **Why:** the window between a compromised release being published and being pulled is measured in
 hours — a documented incident had malicious versions live for two and a half and three and a half
-hours. A cooldown removes that window entirely for the cost of installing yesterday's version. The
-flag is `--exclude-newer`; there is no `--cooldown`, and `--exclude-newer-package` narrows it to one
-dependency when a project needs the newest of something specific.
+hours. A cooldown removes that window entirely for the cost of installing yesterday's version.
 
 **Check:** the CI install step. No cooldown and no manual review is the finding.
 
@@ -195,28 +188,26 @@ dependency when a project needs the newest of something specific.
 ### PS-BUILD-12 [M] Build with `uv_build`, and never invoke `setup.py`
 
 `requires = ["uv_build>=0.13.3,<0.14"]` and `build-backend = "uv_build"`. Build with `uv build`.
-
-**Why:** `python setup.py install` and its relatives are deprecated and `distutils` was removed from
-the standard library in 3.12, so the old path no longer exists. The backend is declared and the
-frontend calls it, which is what makes the build reproducible from the declaration rather than from
-whatever a script happens to do. One backend is named rather than a choice offered, because a
-standard that lists two has moved the decision to the reader with less information than it had. The
-upper bound is required: `uv_build` follows uv's versioning policy and may break across minor
+The upper bound is required: `uv_build` follows uv's versioning policy and may break across minor
 versions. That is not the ceiling PS-BUILD-04 forbids — that rule governs `requires-python`, a claim
 about interpreters you cannot test, while this is a build dependency you do.
+
+**Why:** `python setup.py install` and its relatives are deprecated, and `distutils` was removed
+from the standard library in 3.12. A declared backend that the frontend calls makes the build
+reproducible from the declaration rather than from whatever a script happens to do.
 
 **Check:** `rg -n 'setup.py' .` — every invocation is the finding. `setup.py` may still exist
 as a shim; calling it directly may not.
 
 ### PS-BUILD-13 [M] Build the package from `src/`, and ship `py.typed`
 
-`src/acmewidget/`, with `py.typed` inside the package directory.
+`src/acmewidget/`, with `py.typed` inside the package directory. `uv_build` includes the marker
+automatically because it lives inside the package — but verify that against the built wheel rather
+than taking it on trust.
 
 **Why:** `src/` is what makes the tests exercise the installed package rather than the working
 copy — see PS-NAME-16. `py.typed` is what makes your annotations visible downstream at all;
-without it a type checker ignores them entirely. `uv_build` includes the marker automatically
-because it lives inside the package — but that is a fact to verify against the built wheel, not to
-take on trust.
+without it a type checker ignores them entirely.
 
 **Check:** unpack the built wheel and look for `py.typed`. Its absence is the finding.
 
@@ -227,9 +218,7 @@ take on trust.
 
 **Why:** a backend finds your package by normalising the distribution name — `acme-widget` becomes
 `acme_widget` — and looking for that directory under `src/`. Name them differently and the build
-fails outright until you add a `module-name` override to paper over it. Matched, the layout is
-inferred and `[build-system]` is the only thing in the file that names a backend at all. PS-NAME-09
-already forbids a separator in the importable name; this is that same name, spelled once.
+fails outright until a `module-name` override papers over it; matched, the layout is inferred.
 
 **Check:** `rg -n '^name' pyproject.toml` against the directory under `src/`. Any difference is
 the finding.
@@ -249,12 +238,12 @@ audited environment, which is increasingly where builds happen.
 
 ### PS-BUILD-16 [M] Publish with Trusted Publishing, never a long-lived token
 
-OIDC from the CI workflow. No API token in a repository secret.
+OIDC from the CI workflow. No API token in a repository secret. PyPI recommends Trusted Publishing
+over tokens wherever the CI provider supports it.
 
 **Why:** a long-lived token is a credential that exists whether or not you are publishing, so it can
 be stolen at any time and used from anywhere. Trusted Publishing mints a short-lived credential
-scoped to one workflow in one repository, so there is nothing durable to steal. PyPI's own guidance
-is explicit that it is recommended over tokens where the CI provider supports it.
+scoped to one workflow in one repository, so there is nothing durable to steal.
 
 **Check:** the publish workflow. A `password:` referencing a secret is the finding.
 
@@ -262,11 +251,9 @@ is explicit that it is recommended over tokens where the CI provider supports it
 
 The PyPA publish action emits them by default under Trusted Publishing. Leave it on.
 
-**Why:** they cost nothing — they are on by default — and they give an auditor a cryptographic link
-from the artefact to the workflow that built it. What they do not do is gate anything: no installer
-verifies them at install time, `uv` included, and the specification deliberately declines to
-recommend mandatory verification. So emit them as evidence, and do not build a security argument
-on consumers checking them.
+**Why:** they cost nothing and give an auditor a cryptographic link from the artefact to the
+workflow that built it. They gate nothing: no installer verifies them at install time, `uv`
+included, and the specification deliberately declines to recommend mandatory verification.
 
 **Check:** `attestations: false` in the publish step is the finding.
 
@@ -274,10 +261,9 @@ on consumers checking them.
 
 A new wheel for a new interpreter goes in a new version.
 
-**Why:** PyPI now rejects new files on a release more than fourteen days old, which was introduced
+**Why:** PyPI now rejects new files on a release more than fourteen days old, a guard introduced
 after supply-chain incidents where an attacker added a poisoned wheel to an established, trusted
-release. The consequence for ordinary work is that back-filling a wheel is no longer possible — plan
-to cut a release instead.
+release. Back-filling a wheel is therefore no longer possible.
 
 **Check:** any process that expects to add artefacts to a published version.
 
@@ -287,12 +273,9 @@ to cut a release instead.
 
 A package can ship a free-threaded wheel and still re-enable the GIL on import, and several do.
 
-**Why:** the wheel tag says only that the artefact was built for the free-threaded ABI. Whether the
-package actually runs with the GIL off is a separate fact, and the two come apart in practice:
-SQLAlchemy 2.0.49 shipped a free-threaded wheel that re-enabled the GIL on import, and lxml has
-shipped `cp314t` wheels while its own tracker says support is not released. Major numerical
-libraries describe their support as "experimental" or "preliminary" in the same documents that
-announce the wheels, and say explicitly that it does not mean the library is thread-safe.
+**Why:** the tag says only that the wheel was built for the free-threaded ABI. SQLAlchemy 2.0.49
+shipped one that re-enabled the GIL on import, and major numerical libraries call their support
+"experimental" or "preliminary" and say explicitly that it does not mean the library is thread-safe.
 
 **Check:** import the whole dependency tree on the free-threaded build and assert the GIL is still
 off — PS-BUILD-20's command. The wheel tag cannot tell you this.
@@ -303,8 +286,7 @@ off — PS-BUILD-20's command. The wheel tag cannot tell you this.
 
 **Why:** the re-enable is silent apart from a `RuntimeWarning` that CI logs swallow, so without this
 assertion a dependency upgrade can quietly turn a free-threaded deployment into a GIL one and
-everything still passes — just slower, and with the parallelism you were relying on gone. This one
-line is the only thing standing between you and that.
+everything still passes — just slower, and with the parallelism you were relying on gone.
 
 **Check:** the CI workflow. No such assertion is the finding.
 
@@ -312,10 +294,9 @@ line is the only thing standing between you and that.
 
 Not in production, not in CI, not in a Dockerfile.
 
-**Why:** the flag does not fix whatever re-enabled the GIL — it skips the runtime check and runs
-without the GIL anyway, which is precisely the situation the check exists to prevent. It also
-suppresses the warning, so the one signal you had is gone. CPython's own message says "at your own
-risk"; the risk is memory corruption rather than a wrong answer.
+**Why:** the flag does not fix whatever re-enabled the GIL — it skips the runtime check, runs
+without the GIL anyway, and suppresses the one warning you had. CPython's own message says "at your
+own risk"; the risk is memory corruption rather than a wrong answer.
 
 **Check:** `rg -n 'PYTHON_GIL|gil=0' .github/ Dockerfile* 2>/dev/null` — every hit is the
 finding.

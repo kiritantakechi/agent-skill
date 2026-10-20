@@ -51,12 +51,9 @@ Unless a block shows its own imports, it assumes `from dataclasses import datacl
 `@dataclass(frozen=True, slots=True)`. Reach for a mutable one, or a plain class, only when you can
 say what it buys.
 
-**Why:** the dataclass gives you `__init__`, `__repr__`, `__eq__` and a field list that tooling
-can read, for one decorator. Freezing it removes the largest class of bug a record can have —
-being changed by something you handed it to — and it makes the value hashable, so it can be a
-dict key or live in a set without further thought. The cost is one call to `replace` where you
-would have written an assignment, which is a smaller cost than it looks because it makes the
-change visible at the call site.
+**Why:** one decorator buys `__init__`, `__repr__`, `__eq__` and a field list tooling can read.
+Freezing removes the largest class of record bug — being changed by whoever you handed it to — and
+makes it hashable; the cost is a `replace` call, which makes the change visible.
 
 **Check:** `rg -n '@dataclass' src/` — every decorator without `frozen=True` needs a reason on
 the line above it.
@@ -81,11 +78,9 @@ assert {price} == {Money(1999, "GBP")}  # hashable, so it works in a set
 Anything assigning attributes dynamically, or using `functools.cached_property`, or being weak-
 referenced by something that predates 3.11, needs the dict. Everything else does not.
 
-**Why:** `slots=True` removes the per-instance `__dict__`, which is both smaller and faster to
-access, and it turns a typo in an attribute name from a silently-created new attribute into an
-`AttributeError` at the moment of the mistake. That second property is the one worth having. On the
-free-threaded build the memory saving matters more than it used to, because object headers are
-already larger there.
+**Why:** without the instance `__dict__`, a misspelt attribute raises `AttributeError` at the moment
+of the mistake instead of silently becoming a new one. The instance is also smaller and faster,
+which matters more on the free-threaded build, whose object headers are larger.
 
 **Check:** ruff `SLOT000`–`SLOT002` for the subclass cases. For dataclasses,
 `rg -n '@dataclass' src/` and read for `slots=`.
@@ -94,10 +89,9 @@ already larger there.
 
 Not string constants, not a `Literal` union of strings, not integers with a comment.
 
-**Why:** an enum gives the set a name, makes the members discoverable, gives each a readable `repr`
-in a traceback, and — with PS-TYPE-17's `assert_never` — makes adding a member a type error at every
-place that consumes it. A `Literal["read", "write"]` gets you the narrowing but not the name, the
-repr, or the single place to add the third member.
+**Why:** an enum names the set, gives each member a readable `repr` in a traceback, and is the one
+place to add a member, which PS-TYPE-17's `assert_never` turns into a type error wherever the set is
+consumed. A `Literal` union gets the narrowing and none of the rest.
 
 **Check:** `rg -n '^[A-Z_]+[ \t]*[:=][ \t]*["\x27]' src/` — a group of module-level string constants
 that are only ever compared against each other is an enum.
@@ -105,12 +99,11 @@ that are only ever compared against each other is an enum.
 ### PS-DATA-04 [M] Use `StrEnum` or `IntEnum` only when the value crosses a boundary
 
 A plain `Enum` inside your own code. `StrEnum` when the member must serialise as its value into
-JSON, a URL, or a database column.
+JSON, a URL, or a database column, and convert at that edge.
 
-**Why:** the mixin classes make the member compare equal to its raw value, which is exactly what you
-want at a boundary and exactly what you do not want inside — because it means `Kind.READ == "read"`
-is true, so a typo'd string silently satisfies a comparison that should have failed. Reach for the
-mixin at the edge, and convert at the edge.
+**Why:** a mixin member compares equal to its raw value, which a boundary wants and the inside does
+not: `Kind.READ == "read"` is true, so a stray string silently satisfies a comparison that should
+have failed.
 
 **Check:** every `StrEnum`/`IntEnum`. If no serialisation crosses a process boundary, it should be a
 plain `Enum`.
@@ -137,10 +130,9 @@ assert Status("active") is Status.ACTIVE
 A `NamedTuple` is right when the value has a natural order and callers legitimately unpack it —
 coordinates, a version triple, the return of `divmod`.
 
-**Why:** a `NamedTuple` is a tuple, so it is iterable, indexable, and compares equal to a plain
-tuple of the same values. That is a feature for a coordinate and a hazard for a record: `if user
-== (1, "a"):` type-checks and works, and nobody meant it to. It also cannot have a mutable
-variant later without changing every unpacking call site.
+**Why:** a `NamedTuple` is a tuple: iterable, indexable, and equal to a plain tuple of the same
+values. That suits a coordinate and endangers a record: `if user == (1, "a"):` type-checks and
+works, and nobody meant it to. Nor can it turn mutable without changing every unpacking site.
 
 **Check:** every `NamedTuple`. If no caller unpacks it and no caller indexes it, it wants to be a
 frozen dataclass.
@@ -148,13 +140,12 @@ frozen dataclass.
 ### PS-DATA-06 [M] Use a `TypedDict` for a wire format, never for a domain object
 
 A `TypedDict` describes a `dict` that already exists — a parsed JSON body, a `**kwargs` bundle. It
-does not describe a thing your code owns.
+does not describe a thing your code owns. Parse it at the boundary into a dataclass; do not carry
+the dict inward.
 
-**Why:** a `TypedDict` is a `dict` at runtime, so it has no methods, no validation, no `repr`
-worth reading, and no identity — and every access is a key lookup that can `KeyError`. Those are
-acceptable properties for the five lines between `json.loads` and constructing the real object,
-and unacceptable for anything that lives longer. Parse at the boundary into a dataclass; do not
-carry the dict inward.
+**Why:** a `TypedDict` is a `dict` at runtime: no methods, no validation, no `repr` worth reading,
+no identity, and every access a lookup that can `KeyError`. That is acceptable for the five lines
+after `json.loads`, and not for anything that lives longer.
 
 **Check:** every `TypedDict`. If an instance is passed to more than one function, it should have
 been a dataclass by then.
@@ -164,11 +155,9 @@ been a dataclass by then.
 `class Reader(Protocol)` when you need a shape. An ABC when you have concrete methods subclasses
 inherit.
 
-**Why:** a protocol is structural, so a caller may satisfy it with a type they already have and
-neither party needs to import the other — which is what makes it usable across a package boundary.
-An ABC requires the implementer to inherit, so it couples them to you and forbids satisfying two
-interfaces whose bases conflict. Use the ABC when the inheritance buys something real: shared
-implementation.
+**Why:** a protocol is structural, so a caller satisfies it with a type they already have and
+neither side imports the other, which is what makes it usable across a package boundary. An ABC
+forces inheritance, coupling the implementer to you and barring two interfaces whose bases conflict.
 
 **Check:** every ABC with no concrete method is a protocol written the coupling way.
 
@@ -207,10 +196,9 @@ assert collector.lines == ["a", "b"]
 
 `def f(items: list[int] = [])` and `field(default=[])` are the same bug.
 
-**Why:** the default is evaluated once, at definition time, and shared by every call that does not
-supply one — so a caller mutating it changes the default for every future caller. This is Python's
-oldest sharp edge and it is still sharp. Under free threading it is worse: the shared default is
-shared across threads too, so the mutation races as well as leaking.
+**Why:** the default is evaluated once, at definition time, and shared by every call that omits it,
+so one caller's mutation changes it for every later caller. Under free threading it is shared across
+threads too, so the mutation races as well as leaking.
 
 **Check:** ruff `B006` for the argument form, `RUF008` for the dataclass field and `RUF012` for the
 class attribute. All three are enabled.
@@ -219,9 +207,8 @@ class attribute. All three are enabled.
 
 `field(default_factory=list)`, `field(default_factory=dict)`.
 
-**Why:** the factory runs per instance, which is what "each object gets its own empty list"
-requires. `dataclasses` refuses a bare mutable default outright, which is the library enforcing
-PS-DATA-08 for you — but only for the types it recognises as unhashable, so a custom mutable
+**Why:** the factory runs per instance, so each object gets its own container. `dataclasses` refuses
+a bare mutable default itself, but only for types it recognises as unhashable, so a custom mutable
 class slips through.
 
 **Check:** every `field(` call. A `default=` holding anything a caller can mutate is the finding.
@@ -258,10 +245,9 @@ in a default is the finding unless it is `default_factory`.
 
 Or make the defaulted ones keyword-only with `KW_ONLY`.
 
-**Why:** `dataclasses` raises `TypeError` at class-definition time otherwise, so this rule is mostly
-the language's. What it does not do for you is the *design* consequence: a field acquiring a default
-must move, and moving it silently changes the meaning of every positional call. Making the defaulted
-fields keyword-only removes that coupling permanently.
+**Why:** `dataclasses` already raises `TypeError` at class definition otherwise. What it misses is
+the design consequence: a field gaining a default must move, which silently changes the meaning of
+every positional call; keyword-only defaults remove that coupling for good.
 
 **Check:** every dataclass with more than three fields, and every one whose defaults are
 interleaved.
@@ -270,10 +256,9 @@ interleaved.
 
 `Rect(width=3, height=4)` reads; `Rect(3, 4)` does not say which is which.
 
-**Why:** two adjacent parameters of the same type are a call site waiting to be transposed, and
-the transposition type-checks. Keyword-only removes the possibility rather than documenting
-against it. This is `[S]` because a two-field value with an obvious order — a coordinate —
-genuinely reads better positionally.
+**Why:** two adjacent fields of the same type are a call site waiting to be transposed, and the
+transposition type-checks; keyword-only removes the possibility rather than documenting against it.
+It is `[S]` because a pair with an obvious order, like a coordinate, reads better positionally.
 
 **Check:** any two adjacent fields of the same type without `KW_ONLY` above them.
 
@@ -299,10 +284,9 @@ assert Rect(width_px=3, height_px=4).width_px == 3
 Anything returned from a public function, stored in a cache, used as a dict key, or handed to a
 thread.
 
-**Why:** once a value leaves your module you no longer know who holds a reference, so mutating it is
-an effect at a distance with no call site to read. Freezing converts the whole question into a
-`FrozenInstanceError` at the moment someone tries. For a threaded caller it is stronger still: an
-immutable value needs no lock at all.
+**Why:** once a value leaves your module you do not know who holds a reference, so a mutation is an
+effect at a distance with no call site to read. Freezing turns that into a `FrozenInstanceError` at
+the attempt, and an immutable value needs no lock at all.
 
 **Check:** every public return type. A mutable dataclass, `list`, `dict` or `set` is the finding
 unless the docstring transfers ownership explicitly.
@@ -312,22 +296,21 @@ unless the docstring transfers ownership explicitly.
 `updated = replace(original, status=Status.RETIRED)`.
 
 **Why:** `replace` keeps the type, runs `__post_init__` so the new value is validated like any
-other, and produces a new object rather than making the old one's history unknowable.
-Hand-writing the constructor call instead is the same thing minus the validation and plus a
-maintenance burden every time a field is added.
+other, and leaves the original intact rather than making its history unknowable. A hand-written
+constructor call is one more site to update every time a field is added.
 
 **Check:** `rg -n 'replace\(' src/` should be roughly as common as frozen dataclasses are. Their
 absence, alongside frozen types, means someone is rebuilding by hand.
 
 ### PS-DATA-15 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
 
-`frozendict` for the value. `isinstance(x, collections.abc.Mapping)` for the check.
+`frozendict`, new in 3.15, for the value, in place of `types.MappingProxyType`.
+`isinstance(x, collections.abc.Mapping)` for the check: `frozendict` is **not a `dict` subclass**;
+it inherits directly from `object`.
 
-**Why:** new in 3.15, and it replaces `types.MappingProxyType`, which was a *view* — it forbade
-writing through the proxy while the underlying dict stayed mutable, so it never actually made
-anything immutable. The trap is that `frozendict` is **not a `dict` subclass**; it inherits directly
-from `object`. So every `isinstance(x, dict)` in the codebase is now potentially wrong. The standard
-library was updated for this; third-party code was not.
+**Why:** `MappingProxyType` is a *view*: it forbids writing through the proxy while the dict behind
+it stays mutable, so it never made anything immutable. Every `isinstance(x, dict)` is now
+potentially wrong; the standard library was updated for this, and third-party code was not.
 
 **Check:** `rg -n 'isinstance\(.*, dict\)' src/` — every hit is a place a `frozendict` would fail
 the test. `rg -n 'MappingProxyType' src/` finds the spelling it replaces.
@@ -347,10 +330,9 @@ assert DEFAULTS["retries"] == 3
 
 `return tuple(self._items)` or `return list(self._items)`. Never `return self._items`.
 
-**Why:** returning the internal container hands the caller a live handle on your state, so a
-caller appending to what they were given mutates you — usually much later, and from a call site
-that reads as read-only. Returning a copy costs an allocation; returning a tuple costs one too
-and also says the result is not meant to be edited.
+**Why:** the internal container is a live handle on your state, so a caller appending to it mutates
+you, usually much later and from a call site that reads as read-only. A copy costs an allocation; a
+tuple costs one too and also says the result is not meant to be edited.
 
 **Check:** every method returning a container held on `self`. A bare `return self._x` is the
 finding.
@@ -361,10 +343,9 @@ finding.
 
 Raise `ValueError`. Do not clamp, coerce, or substitute a default.
 
-**Why:** `__post_init__` runs for every construction path including `replace`, so it is the one
-place that cannot be bypassed. Correcting instead of raising hides the caller's bug and produces
-a value nobody asked for — and the caller then reasons about the value they passed rather than
-the one they got. Raise at the boundary; the traceback names the construction site.
+**Why:** `__post_init__` runs on every construction path, `replace` included, so it is the one place
+that cannot be bypassed. Correcting hides the caller's bug and leaves them reasoning about the value
+they passed, not the one they got; a raise puts the construction site in the traceback.
 
 **Check:** every dataclass with a field whose valid range is narrower than its type. No
 `__post_init__` is the finding.
@@ -400,9 +381,8 @@ instead of one type with a flag that says which it is.
 type, provided the validation happens exactly once and the validated value is not passed on as
 the primitive.
 
-**Why:** validation is a check that must be repeated at every construction site and can be forgotten
-at any of them; a type is a check the compiler performs everywhere for free. The design question is
-the second of this standard's five: what can be made unrepresentable? Every state you remove is a
+**Why:** validation must be repeated at every construction site and can be forgotten at any of them;
+a type is a check the type checker makes everywhere for free. Every state made unrepresentable is a
 branch you never write and a test you never need.
 
 **Check:** every `if not valid: raise` in the codebase. Ask what type would make the check
@@ -412,10 +392,9 @@ unnecessary.
 
 `UserId`, `Email`, `Cents` — a `NewType` at minimum, a frozen dataclass where there is behaviour.
 
-**Why:** `def transfer(from_: str, to: str, amount: int)` has three parameters and six ways to
-call it wrongly, all of which type-check. With distinct types, the transposition is a type error.
-`NewType` costs nothing at runtime — it is the identity function — and buys the whole class of
-confusion.
+**Why:** in `def transfer(from_: str, to: str, amount: int)`, swapping the two accounts type-checks;
+with distinct types, the transposition is a type error. `NewType` costs nothing at runtime — it is
+the identity function — and removes that whole class of confusion.
 
 **Check:** any signature with two adjacent parameters of the same primitive type.
 
@@ -440,10 +419,9 @@ assert credit(UserId(7), Cents(250)) == "7:250"
 If two objects are equal they must hash equal. A mutable object that defines `__eq__` must not
 define `__hash__`.
 
-**Why:** a dict and a set both find a key by hash first and equality second, so a pair that is equal
-with different hashes lands in different buckets and the lookup silently misses. `dataclass` gets
-this right for you — `eq=True` without `frozen=True` sets `__hash__` to `None`, which makes the type
-unhashable rather than subtly broken. Hand-written `__eq__` is where it goes wrong.
+**Why:** a dict or set finds a key by hash first and equality second, so an equal pair with
+different hashes lands in different buckets and the lookup silently misses. `dataclass` gets this
+right: `eq=True` without `frozen=True` sets `__hash__` to `None`, leaving it unhashable, not broken.
 
 **Check:** `rg -n 'def __eq__' src/` — every hit needs a matching `__hash__` or a documented
 reason the type is unhashable.
@@ -454,10 +432,9 @@ reason the type is unhashable.
 
 If `to_json` exists, `from_json` exists. If `__str__` is meant to round-trip, something parses it.
 
-**Why:** a one-way conversion is a value you can produce and never recover, and its absence is
-invisible — nobody notices a missing `from_json` until they need it, at which point the format has
-already shipped. Writing the pair together also tests the format: a round-trip assertion is the
-cheapest schema check there is.
+**Why:** a one-way conversion produces a value you can never recover, and the gap stays invisible
+until someone needs the inverse, by which point the format has already shipped. Writing the pair
+together also tests the format: a round-trip assertion is the cheapest schema check there is.
 
 **Check:** every `to_*` and `__str__` on a data type. A missing inverse is either deliberate —
 say so in the docstring — or the finding.

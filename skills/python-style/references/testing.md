@@ -49,12 +49,11 @@ Unless a block shows its own imports, it assumes `import pytest`.
 ### PS-TEST-01 [M] Configure pytest in the native `[tool.pytest]` table
 
 `[tool.pytest]` in `pyproject.toml`, or a standalone `pytest.toml`. Not `[tool.pytest.ini_options]`.
+The two **cannot coexist**: pytest errors out when it finds both.
 
 **Why:** pytest 9 added a table that takes real TOML types — arrays, booleans, integers — where
-the older one takes INI strings that each option parses itself. The two **cannot coexist**;
-pytest errors out and names its preference in the message: *"Please use `[tool.pytest]` with
-native TOML types (recommended)."* Migrating is mechanical, and the INI table exists now only for
-backwards compatibility.
+the older one takes INI strings that each option parses itself. Migrating is mechanical, and the
+INI table exists now only for backwards compatibility.
 
 **Check:** `rg -n 'tool.pytest.ini_options' .` — every hit is the legacy table.
 
@@ -71,12 +70,9 @@ markers = ["slow: needs a real toolchain"]
 `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`, `pyproject.toml`, `tox.ini`,
 `setup.cfg` — first match wins, and configuration files are **never merged**.
 
-**Why:** an empty `pytest.toml` in the repository root outranks a fully configured
-`pyproject.toml` and discards it entirely. Your `testpaths`, your markers and your `strict`
-setting all stop applying, and the tests still run — differently. pytest does say so, in the
-session header: `configfile: pytest.toml (WARNING: ignoring pytest config in pyproject.toml!)`.
-That is one line in a header nobody reads, which makes this a precedence trap rather than a
-silent change, and worth a rule either way.
+**Why:** an empty `pytest.toml` in the repository root outranks a fully configured `pyproject.toml`
+and discards it: your `testpaths`, markers and `strict` setting stop applying, and the tests still
+run — differently. pytest says so in one line of a session header nobody reads.
 
 **Check:** `ls pytest.toml .pytest.toml pytest.ini .pytest.ini 2>/dev/null` alongside a configured
 `pyproject.toml` — any of them existing is the finding. Confirm with the `configfile:` line in the
@@ -88,9 +84,8 @@ header, which names the file actually in force.
 `strict_parametrization_ids` and `strict_xfail`.
 
 **Why:** each of the four turns a silent tolerance into an error, and each tolerance hides a real
-mistake: an unknown config key that does nothing, an undeclared marker that silently selects
-nothing, duplicate parametrisation ids that quietly renumber, and an `xfail` that passes and is
-ignored. All four are the kind of thing that works until it matters.
+mistake: an unknown config key that does nothing, an undeclared marker that selects nothing,
+duplicate parametrisation ids that quietly renumber, and an `xfail` that passes and is ignored.
 
 **Check:** the `strict` key in the configuration. Its absence is the finding.
 
@@ -111,9 +106,8 @@ success. The description is what makes `pytest --markers` a usable index.
 Assert what the caller observes. Never assert that a private helper was called.
 
 **Why:** a test coupled to the implementation fails on every refactor that changes nothing
-observable, which trains everyone to update tests without reading them — and a test nobody reads
-is a test that no longer checks anything. It also cannot catch the bug where the helper is called
-correctly and the result is wrong.
+observable, which trains everyone to update tests without reading them, and an unread test checks
+nothing. It also cannot catch the bug where the helper is called correctly and the result is wrong.
 
 **Check:** every assertion mentioning a private name, a call count, or a mock's internals.
 
@@ -150,12 +144,13 @@ finding.
 
 ### PS-TEST-09 [M] Assert on values, not on the shape of a call
 
-`assert result == expected`. Not `mock.assert_called_once_with(...)` as the only assertion.
+`assert result == expected`. Not `mock.assert_called_once_with(...)` as the only assertion. Where
+an effect genuinely is the behaviour — a message published, a row written — assert the effect, not
+the call that caused it.
 
 **Why:** asserting the call verifies that you wrote the code you wrote. It passes when the
 collaborator is called perfectly and returns the wrong thing, and it fails when you rename a
-parameter. Where an effect genuinely is the behaviour — a message published, a row written —
-assert the effect, not the call that caused it.
+parameter.
 
 **Check:** every test whose assertions are all on mocks.
 
@@ -163,10 +158,9 @@ assert the effect, not the call that caused it.
 
 Break the code, watch the test fail, restore it.
 
-**Why:** a test that has never failed is a test that might be asserting nothing, and there are many
-ways to write one: an assertion in a skipped branch, a fixture that returns early, an `assert` on a
-truthy object rather than a value. This is the only check that catches all of them, and it takes ten
-seconds.
+**Why:** a test that has never failed might be asserting nothing — an assertion in a skipped
+branch, a fixture that returns early, an `assert` on a truthy object rather than a value — and
+watching it fail is the only check that catches all of them.
 
 **Check:** the repository's own mutation check does this mechanically — delete a statement and see
 whether any test notices.
@@ -208,9 +202,8 @@ New in pytest 9. `with subtests.test(path=p):` inside one test, when the cases a
 than enumerated.
 
 **Why:** `parametrize` needs the cases at collection time, so a check over every file in a directory
-either becomes one test that stops at the first failure or a fixture that fakes parametrisation.
-Subtests give you independent failures inside one test, which is the right shape for "assert this
-property of everything I found".
+becomes one test that stops at the first failure or a fixture that fakes parametrisation. Subtests
+give independent failures inside one test, the right shape for a property of everything you found.
 
 **Check:** every test that loops over discovered items with one assertion inside — see PS-TEST-08.
 That loop is what subtests replace.
@@ -233,9 +226,8 @@ the finding.
 Function scope by default. Widen only when the setup is genuinely expensive, and say why.
 
 **Why:** a session-scoped fixture is shared mutable state between tests, so one test can change
-what another sees and the suite becomes order-dependent — which shows up as a failure that only
-happens in CI. The narrow scope costs setup time and buys independence, and independence is what
-makes a failure mean something.
+what another sees and the suite becomes order-dependent. The narrow scope costs setup time and buys
+independence, and independence is what makes a failure mean something.
 
 **Check:** ruff `PT003` for the redundant explicit scope. Every non-function scope needs a comment.
 
@@ -303,10 +295,8 @@ The test must check a property that a race would break — a count, a sum, a set
 check, provided it is named as one and is not the only concurrency test.
 
 **Why:** running a racy function under eight threads and asserting it did not raise is a test
-that passes on racy code. A demonstration of this is worth internalising: a test whose body raced
-a shared dict passed under a parallel-test plugin until an assertion on the invariant was added,
-at which point it reported tens of thousands of lost updates. The plugin supplies concurrency; it
-does not supply an oracle.
+that passes on racy code, because a lost update raises nothing. A parallel-test plugin supplies
+concurrency; it does not supply an oracle.
 
 **Check:** every test that starts threads. If deleting the assertion would not change the result,
 the assertion is not an invariant.
@@ -339,12 +329,12 @@ def test_counter_loses_no_updates() -> None:
 ### PS-TEST-22 [M] Know that pytest itself is not thread-safe
 
 `capsys`, `monkeypatch` and `tmp_path` are not safe to use from several threads, and the maintainers
-have said they do not intend to make pytest thread-safe.
+have said they do not intend to make pytest thread-safe. Code that needs those fixtures must be
+tested single-threaded.
 
 **Why:** a parallel-test plugin runs your test body in several threads, which means the fixtures run
 there too — so a test that uses `monkeypatch` under parallelism is testing the plugin's interaction
-with pytest rather than your code. The plugins detect and skip the known-unsafe fixtures, which is
-why the marker exists; code that needs those fixtures must be tested single-threaded.
+with pytest rather than your code.
 
 **Check:** every test marked for parallel execution. A `capsys`, `monkeypatch` or `tmp_path` in its
 signature is the finding.

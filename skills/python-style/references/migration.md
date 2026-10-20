@@ -53,10 +53,8 @@ Four categories, and only the first two fail a build.
 | **Discouraged** | Works, warns about nothing, no removal planned. | **No** |
 
 **Why:** conflating them produces a check that cries wolf, and a check people learn to route
-around is worse than no check — which is why this standard states the tiers before the table. The
-fourth tier is the one that gets this wrong: Python has a documented notion of *soft
-deprecation*, where a spelling is discouraged but explicitly never removed, and treating those as
-errors makes the whole table untrustworthy.
+around is worse than no check. The fourth tier is where it goes wrong: a *soft deprecation* is
+discouraged but explicitly never removed, so treating one as an error discredits the whole table.
 
 **Check:** every entry in the table below carries its tier. An entry without one is the finding.
 
@@ -64,12 +62,12 @@ errors makes the whole table untrustworthy.
 
 `re.match` is the canonical example. It is soft-deprecated in favour of `re.prefixmatch`, and the
 documentation says outright: *"We do not plan to remove the older `match()` name, as it has been
-used in code for over 30 years."*
+used in code for over 30 years."* The same applies to `struct`'s `'F'` and `'D'` codes and to the
+`PyGILState` C APIs: all soft-deprecated, all staying.
 
 **Why:** a grep that flags `re.match` fires on almost every codebase in existence, none of which is
 broken. That single false positive is enough to make a reviewer skip the whole table, and then the
-genuine removals go unnoticed too. The same applies to `struct`'s `'F'` and `'D'` codes and to the
-`PyGILState` C APIs: all soft-deprecated, all staying.
+genuine removals go unnoticed too.
 
 **Check:** run the grep against a codebase you know is current. Any hit is either a real finding
 or a tier error in the table.
@@ -132,9 +130,8 @@ The grep finds them all statically.
 `Py_GetPythonHome` — all replaced by `PyConfig_Get()`.
 
 **Why:** these fail at compile time rather than at run time, which is the good case — but only if
-you compile against 3.15 before shipping. A project that builds against 3.14 and runs on 3.15
-finds out later. The borrowed-reference removals are also the ones a free-threaded build most
-needs gone.
+you compile against 3.15 before shipping; a project that builds against 3.14 and runs on 3.15 finds
+out later. The borrowed-reference removals are also the ones a free-threaded build most needs gone.
 
 **Check:** `rg -n 'PyUnicode_As(Decoded|Encoded)(Object|Unicode)' -g '*.c' -g '*.h'`,
 `rg -n 'PyImport_ImportModuleNoBlock|PyWeakref_GET?_?Object' -g '*.c' -g '*.h'`,
@@ -158,12 +155,12 @@ code that was wrong.
 ### PS-MIG-08 [M] Treat `ByteString` as gone, not as deprecated
 
 `collections.abc.ByteString` and `typing.ByteString` were dropped from `__all__` in 3.15. The names
-still import — and now emit a `DeprecationWarning` when they do. Removal is 3.17.
+still import — and now emit a `DeprecationWarning` when they do. Removal is 3.17. Use
+`bytes | bytearray | memoryview`.
 
-**Why:** the middle tier exists for exactly this: the code works, warns, and will stop working in
-two releases. Treating it as fine because it works is how a project arrives at 3.17 with a broken
-import; treating it as removed is how a reviewer loses faith in the table. Use `bytes | bytearray
-| memoryview`.
+**Why:** the code works, warns, and will stop working in two releases. Treating it as fine because
+it works is how a project arrives at 3.17 with a broken import; treating it as removed is how a
+reviewer loses faith in the table.
 
 **Check:** `rg -n 'ByteString' src/` — a hit warns today and fails in 3.17.
 
@@ -185,25 +182,22 @@ src/`
 ### PS-MIG-10 [M] Re-examine every `contextmanager` used as a decorator
 
 In 3.15 the context stays open for the whole generator; it used to close when the generator object
-was created.
+was created. This is not in the porting notes.
 
-**Why:** this is the most dangerous silent change in 3.15 for ordinary code and it is not in the
-porting notes. Nothing errors on either version — only the *duration* changes, from effectively zero
-to the full consumption of the generator. Anything holding a lock, a transaction, a `chdir` or a
-`contextvars` token that way now holds it far longer, which under free threading is new contention
-and a new deadlock shape.
+**Why:** nothing errors on either version, so the upgrade flags none of these sites, yet each now
+keeps its context for the generator's whole consumption instead of an instant. For a lock or a
+transaction under free threading, that is new contention and a new deadlock shape.
 
 **Check:** `rg -nB2 -A2 '@contextmanager' src/` and find every decorator derived from one that is
 applied to a function containing `yield`.
 
 ### PS-MIG-11 [M] Re-examine every `isinstance(x, dict)`
 
-3.15's `frozendict` inherits from `object`, not from `dict`.
+3.15's `frozendict` inherits from `object`, not from `dict`. Test `collections.abc.Mapping`.
 
 **Why:** the check now returns `False` for a mapping that behaves like a dict in every way that
 matters, so a function that accepted a dict silently rejects one. The standard library was updated
-for this — `copy`, `json`, `pickle`, `pprint` and others — and third-party code was not. Test
-`collections.abc.Mapping`.
+for this — `copy`, `json`, `pickle`, `pprint` and others — and third-party code was not.
 
 **Check:** `rg -n 'isinstance\(.*, dict\)' src/`
 
@@ -211,10 +205,9 @@ for this — `copy`, `json`, `pickle`, `pprint` and others — and third-party c
 
 UTF-8 mode is on by default, and it moves six surfaces — see PS-OUT-02.
 
-**Why:** the change most people check is `open`. The ones that bite are `sys.stdout` gaining
-`surrogateescape`, which turns encoding failures into silent mojibake, and
-`locale.getpreferredencoding()` becoming a constant, which makes every branch on it take one path
-forever.
+**Why:** the change most people check is `open`, but the ones that bite are `sys.stdout` gaining
+`surrogateescape`, which turns encoding failures into silent mojibake, and a constant
+`locale.getpreferredencoding()`, which makes every branch on it take one path forever.
 
 **Check:** run the suite with `-X warn_default_encoding` and treat every `EncodingWarning` as a
 finding.
@@ -240,13 +233,12 @@ the 3.16 bump is a version number rather than a project.
 ### PS-MIG-14 [S] Do not write against 3.16's other changes yet
 
 3.16 is in alpha — 3.16.0a1 shipped on 2026-10-13 — and anything in it can still be reverted
-before its first beta.
+before its first beta. The exceptions worth knowing: `array`'s `'u'` format code goes in 3.16 (use
+`'w'`), as do `shutil.ExecError` and `functools.reduce`'s keyword arguments.
 
-**Why:** PS-MIG-13 is safe because those are removals with replacements that already exist — the
-replacement works on 3.15 today. Anything that requires a 3.16 *addition* is a bet on unreleased
-behaviour, and this standard's whole position is that examples must run on the interpreter they
-target. Note the exceptions worth knowing: `array`'s `'u'` format code goes in 3.16 (use `'w'`), as
-do `shutil.ExecError` and `functools.reduce`'s keyword arguments.
+**Why:** PS-MIG-13 is safe because those are removals whose replacements already work on 3.15.
+Anything that requires a 3.16 *addition* is a bet on unreleased behaviour, and this standard's
+whole position is that examples must run on the interpreter they target.
 
 **Check:** any code path guarded on `sys.version_info >= (3, 16)`.
 

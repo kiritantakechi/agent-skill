@@ -117,7 +117,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
   three asset settings it lists (`ban-relative-imports`, `raises-require-match-for`,
   `max-doc-length`). Record each demoted ID's disposition in the rename table. Verify:
   `citations` passes.
-- [ ] 6.7 Cut every **Why** to three lines or fewer. Move excess text into the statement or an
+- [x] 6.7 Cut every **Why** to three lines or fewer. Move excess text into the statement or an
   example, or split a rule that is carrying two. Verify: `anatomy` passes with python-style not
   exempt.
 - [ ] 6.8 Step C: `agent-skill renumber python-style`. Remove python-style's exemption, and update
@@ -138,10 +138,10 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 7. Harness for Rust
 
-- [ ] 7.1 Add the Rust toolchain pin (D11): `Crate.rust_version = "1.99"`, compared at major.minor
+- [x] 7.1 Add the Rust toolchain pin (D11): `Crate.rust_version = "1.99"`, compared at major.minor
   against `rustc -V` and the stable channel manifest, and reported not-run when offline. Verify:
   `pins` passes on rustc 1.99.x, and a control set to `1.98` fails.
-- [ ] 7.2 Extend lint-row verification to rustc, clippy and rustdoc. The catalogue comes from
+- [x] 7.2 Extend lint-row verification to rustc, clippy and rustdoc. The catalogue comes from
   `-W help`, and the effective level from the explicit entry or the lint's group (D6). Declare
   `needs`. Verify with a control whose row names a lint the asset sets at a different level, and one
   whose row names a lint that does not exist.

@@ -183,3 +183,10 @@ def test_the_rust_catalogue_reads_the_toolchain():
     assert "pedantic" in catalogue["clippy.cast_lossless"][1]
     assert "rust.unsafe_code" in catalogue
     assert "rustdoc.broken_intra_doc_links" in catalogue
+
+
+def test_a_bold_phrase_inside_a_why_does_not_end_it(demo):
+    """A Why ends at the next label, not at the next line that opens with `**`."""
+    long_why = "**Why:** one.\n**Two** is bold.\nthree.\nfour."
+    broken = edit(demo, "references/errors.md", "**Why:** one line of reason.", long_why)
+    assert any("Why runs 4 lines" in m for m in structural_messages(broken))

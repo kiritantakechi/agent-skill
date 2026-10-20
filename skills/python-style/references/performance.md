@@ -47,10 +47,9 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 
 A profile of the whole operation, not a microbenchmark of the function you suspect.
 
-**Why:** intuition about Python performance is wrong more often than it is right, and the cost of
-being wrong is a change that makes the code harder to read for no gain. Measuring the whole
-operation also catches the case where the function you suspected is 2% of the time — which is the
-common case, and the one where optimising it is pure loss.
+**Why:** intuition about Python performance is wrong more often than it is right, and being wrong
+costs readability for no gain. Measuring the whole operation catches the common case, where the
+function you suspected is 2% of the time and optimising it is pure loss.
 
 **Check:** every performance change in review must arrive with a before and after number for the
 same workload. Without one it is a readability change with a performance claim attached.
@@ -59,13 +58,12 @@ same workload. Without one it is a readability change with a performance claim a
 
 New in 3.15: `profiling.tracing` for deterministic call counts, `profiling.sampling` for wall-clock
 truth. `cProfile` remains as an alias of `profiling.tracing`, so prefer the name that says what it
-does; `profile` is deprecated for removal in 3.17.
+does; `profile` is deprecated for removal in 3.17. `profiling.sampling`, called Tachyon, can attach
+to an already-running process by PID.
 
-**Why:** `profiling.sampling` — Tachyon — samples without instrumenting, so it does not distort what
-it measures, and it can attach to an already-running process by PID. Deterministic tracing inflates
-call-heavy code, which is exactly the code you are most likely to be profiling, so the tool that
-answers "where does the time go" and the tool that answers "how many times is this called" are
-genuinely different tools.
+**Why:** a sampler does not instrument, so it does not distort what it measures, while
+deterministic tracing inflates call-heavy code — the code you are most likely profiling. So "where
+does the time go" and "how many times is this called" need genuinely different tools.
 
 **Check:** `rg -n 'cProfile|import profile' src/` — a `profile` hit is a removal due in 3.17, and a
 `cProfile` hit is the old name for `profiling.tracing`.
@@ -76,8 +74,7 @@ An `O(n²)` loop rewritten in C is still `O(n²)`.
 
 **Why:** constant-factor work is bounded by a small multiple; complexity is unbounded in `n`. A
 quadratic scan that is fine for the hundred rows in the test becomes the outage at ten thousand, and
-no amount of local optimisation moves that. Find the nested loop, the repeated linear scan, the
-membership test against a list, before touching anything else.
+no amount of local optimisation moves that.
 
 **Check:** every nested loop over the same collection, and every `in` against a list inside a
 loop. A review matter: the ruff rule for excessive nesting is preview, and the shipped
@@ -85,12 +82,12 @@ configuration runs stable rules only.
 
 ### PS-PERF-04 [M] State the cost in the units the caller cares about
 
-"Linear in the number of rows", "one round trip per call", "allocates a copy of the input".
+"Linear in the number of rows", "one round trip per call", "allocates a copy of the input". This is
+a docstring obligation, not a comment.
 
 **Why:** a caller cannot use a function correctly without knowing what it costs, and the cost is not
-visible from the signature. Documenting it lets a caller hoist the call out of a loop, batch it, or
-cache it — decisions they can only make if you told them. This is a docstring obligation, not a
-comment.
+visible from the signature. Knowing it, a caller can hoist the call out of a loop, batch it, or
+cache it — decisions they can only make if you told them.
 
 **Check:** every public function that loops, allocates proportionally to its input, or does I/O. A
 docstring without a cost sentence is the finding.
@@ -112,9 +109,8 @@ than confirming what you assumed. It also catches designs that cannot work befor
 `"".join(parts)`. Not `out += piece` in a loop.
 
 **Why:** strings are immutable, so each `+=` allocates a new string and copies everything so far —
-which makes building an n-character string O(n²). CPython has an optimisation that sometimes rescues
-the simplest case in-place, which is worse than no optimisation: it makes the quadratic version fast
-enough in the test and quadratic in production where the string is aliased.
+O(n²) for an n-character string. CPython sometimes rescues the simplest case in place, which is
+worse than never: fast enough in the test, quadratic in production where the string is aliased.
 
 **Check:** `rg -n '^[ \t]*\w+[ \t]*\+=[ \t]*.*["\x27]' src/` and read each hit for an
 enclosing loop.
@@ -135,9 +131,8 @@ assert render(["a", "b"]) == "a\nb"
 `if key in allowed_set`. Not `if key in allowed_list`.
 
 **Why:** list membership is a linear scan; set membership is a hash lookup. Inside a loop that turns
-`O(n)` into `O(n·m)` and it is invisible at the call site — the two spellings are identical. A
-module-level constant is where this is most often wrong, because a literal list looks like the
-obvious thing to write.
+`O(n)` into `O(n·m)`, invisibly, since the two spellings are identical — most often in a
+module-level constant, where a literal list looks like the obvious thing to write.
 
 **Check:** `rg -n 'in \[' src/` — a literal list on the right of `in` is always the finding.
 The ruff rule for it is preview and therefore not enabled here.
@@ -148,8 +143,7 @@ One query returning a thousand rows, not a thousand queries. One `writelines`, n
 `write`s.
 
 **Why:** each operation pays a fixed cost — a round trip, a syscall, a lock — that dwarfs the work.
-Batching amortises it, and the difference is usually two orders of magnitude rather than a few
-percent. This is the single largest source of real slowness in application code, and it is a design
+Batching amortises it, usually by two orders of magnitude rather than a few percent. It is a design
 property rather than a local one, which is why it must be decided early.
 
 **Check:** every I/O call inside a `for`. Each is a candidate for batching, and most are.
@@ -184,9 +178,8 @@ do not vary.
 Or `@dataclass(slots=True)`, which is the same thing written once.
 
 **Why:** the per-instance `__dict__` is the largest part of a small object, and removing it makes
-instances smaller and attribute access faster. On the free-threaded build the saving matters
-more, because object headers are already larger there — a non-GC object is 32 bytes where the
-default build uses 16. It also catches attribute typos, per PS-DATA-02.
+instances smaller and attribute access faster. The saving matters more on the free-threaded build,
+where object headers are larger: a non-GC object is 32 bytes where the default build uses 16.
 
 **Check:** every class instantiated more than a few thousand times. No `slots` is the finding.
 
@@ -207,8 +200,7 @@ one.
 
 **Why:** a cache on an impure function is a bug with a performance justification — it makes the
 effect happen once and the caller believe it happened every time. And per PS-CONC-18 the cache is
-not single-flight, so under threads the body runs more than once anyway. Purity is the precondition,
-not a nicety.
+not single-flight, so under threads the body runs more than once anyway.
 
 **Check:** every `@cache` and `@lru_cache`. Read the body for I/O, mutation, randomness, or time.
 
@@ -217,12 +209,11 @@ not a nicety.
 ### PS-PERF-15 [M] Budget for the free-threaded build's single-threaded overhead
 
 Somewhere between 5% and 30% depending on the workload, and closer to 30% for allocation-heavy code.
+Budget from your own measurement, and cite its date — these numbers move every release.
 
-**Why:** the documentation quotes "about 1% on macOS aarch64 to 8% on x86-64 Linux" from the
-pyperformance suite, and the daily benchmark runs on that suite have sat near 1.10x on Linux x86_64
-through 2026. A suite geomean is not your workload: refcount- and allocation-heavy code pays much
-more, because every reference to an object owned by another thread takes a slow path. So budget from
-your own measurement, and cite the date — these numbers move every release.
+**Why:** the documentation quotes "about 1% on macOS aarch64 to 8% on x86-64 Linux" for
+pyperformance, whose daily runs have sat near 1.10x on Linux x86_64 through 2026. But refcount- and
+allocation-heavy code pays much more: every reference to another thread's object takes a slow path.
 
 **Check:** benchmark the same workload on both builds before committing to free threading. A
 decision made on the doc's number rather than on yours is the finding.
@@ -232,11 +223,9 @@ decision made on the doc's number rather than on yours is the finding.
 `--enable-experimental-jit` with `--disable-gil` builds a JIT that is never used; CPython's own
 configure script warns about it.
 
-**Why:** it makes the trade explicit. 3.15's JIT is worth single-digit to low-double-digit
-percent on the default build, and choosing free threading forgoes it entirely — so the comparison
-is not "free-threaded overhead versus zero", it is "overhead plus foregone JIT versus
-parallelism". For code that will not use more than one core, that is a straightforwardly bad
-trade.
+**Why:** 3.15's JIT is worth single-digit to low-double-digit percent on the default build, so the
+comparison is not "free-threaded overhead versus zero" but "overhead plus foregone JIT versus
+parallelism". For code that will not use more than one core, that is a straightforwardly bad trade.
 
 **Check:** any project on the free-threaded build whose workload is single-threaded.
 
@@ -246,8 +235,7 @@ PEP 779's target is 20%, and measurements sit at 1.19–1.22x.
 
 **Why:** every interned string is immortal so it is never freed, non-GC object headers are larger,
 the allocator is mimalloc rather than pymalloc, and QSBR defers frees until a collection. None of
-that is a leak and none of it is tunable away — `gc.collect()` releases what QSBR is holding, which
-is the only lever. Size the container accordingly.
+that is a leak or tunable away; `gc.collect()` releasing what QSBR holds is the only lever.
 
 **Check:** measure RSS on both builds before setting a memory limit.
 
@@ -260,9 +248,8 @@ build avoid the copy entirely.
 and the workers share nothing — measure both rather than assuming.
 
 **Why:** this is the case free threading was built for: no pickling, no per-process copy of the
-data, and one interpreter's memory instead of N. Where the workers instead hammer the *same
-mutable* objects, threads can be slower than processes, because per-object locking and
-cross-thread refcount traffic cost more than the isolation they replace.
+data, one interpreter's memory instead of N. Workers that hammer the *same mutable* objects can be
+slower as threads, because per-object locking and cross-thread refcounts cost more than isolation.
 
 **Check:** for each parallel workload, name what the workers share. Large and read-mostly favours
 threads; small and copied favours processes; large and mutable needs a redesign.
@@ -275,8 +262,7 @@ A comment naming the workload, the number, and the date.
 
 **Why:** an optimisation is a readability cost paid for a speed benefit, and the next reader can see
 only the cost. Without the number they cannot tell whether the trade still holds — and it often does
-not, because the interpreter got faster or the workload changed. The comment is what makes the
-optimisation reversible.
+not, because the interpreter got faster or the workload changed.
 
 **Check:** every non-obvious construct justified by speed. No number and no date is the finding.
 
@@ -284,10 +270,9 @@ optimisation reversible.
 
 If the measurement does not show a difference that matters, revert it.
 
-**Why:** this is the rule that makes PS-PERF-01 have consequences. Measuring and then keeping the
-change anyway — because it feels faster, or because the work is done — is how a codebase accumulates
-complexity with no benefit. The default is the readable version, and the measurement is what
-overturns it.
+**Why:** without it PS-PERF-01 has no consequences: measuring and then keeping the change anyway —
+because it feels faster, or because the work is done — is how a codebase accumulates complexity
+with no benefit. The readable version is the default, and only a measurement overturns it.
 
 **Check:** every optimisation in review whose before-and-after numbers are within noise.
 

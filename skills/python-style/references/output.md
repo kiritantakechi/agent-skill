@@ -46,11 +46,9 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 `open(path, encoding="utf-8")`, `Path.read_text(encoding="utf-8")`,
 `subprocess.run(..., encoding="utf-8")`.
 
-**Why:** the default changed in 3.15 — and that is the argument for being explicit, not against
-it. Code that relied on the old default now behaves differently, and code that relies on the new
-one will behave differently again on any interpreter where UTF-8 mode is disabled with
-`PYTHONUTF8=0`. An explicit encoding is the only spelling that means the same thing on every
-interpreter and in every locale.
+**Why:** the default changed in 3.15, so code relying on the old default now behaves differently,
+and code relying on the new one changes again wherever `PYTHONUTF8=0` disables UTF-8 mode. Only an
+explicit encoding means the same thing on every interpreter and in every locale.
 
 **Check:** run with `-X warn_default_encoding`, which makes the interpreter itself emit an
 `EncodingWarning` at every site relying on the default — a better check than a linter, because it
@@ -70,16 +68,15 @@ with tempfile.TemporaryDirectory() as tmp:
 
 ### PS-OUT-02 [M] Know what PEP 686 moved, which is more than `open`
 
-UTF-8 mode is on by default in 3.15, and it changes six things at once.
+UTF-8 mode is on by default in 3.15, and it changes six things at once. Beyond `open`, it sets
+`sys.getfilesystemencoding()` to `utf-8`, so argv, environment variables and filenames decode
+differently on a non-UTF-8 locale; makes `locale.getpreferredencoding()` return a constant, so any
+branch on it takes a different path; and gives `sys.stdin`/`sys.stdout` the **`surrogateescape`**
+handler.
 
-**Why:** most people hear "the default encoding is UTF-8 now" and check their `open` calls. The
-mode also sets `sys.getfilesystemencoding()` to `utf-8`, so argv, environment variables and
-filenames decode differently on a non-UTF-8 locale; makes `locale.getpreferredencoding()` return
-a constant, so any branch on it takes a different path; and gives `sys.stdin`/`sys.stdout` the
-**`surrogateescape`** handler, which means data that used to raise `UnicodeEncodeError` on a pipe
-now round-trips silently. That last one converts a loud failure into a quiet one, which is the
-wrong direction. PEP 686 itself warns the change "may cause `UnicodeError`, mojibake, or even
-silent data corruption".
+**Why:** most people hear "the default encoding is UTF-8 now" and check only their `open` calls,
+while the stdout handler turns a pipe's `UnicodeEncodeError` into a silent round-trip. PEP 686 warns
+the change "may cause `UnicodeError`, mojibake, or even silent data corruption".
 
 **Check:** `rg -n 'getpreferredencoding|getfilesystemencoding|fsencode|fsdecode' src/` —
 every hit is a place the meaning changed.
@@ -87,11 +84,11 @@ every hit is a place the meaning changed.
 ### PS-OUT-03 [M] Never rely on `locale.getpreferredencoding`
 
 It returns `'utf-8'` under UTF-8 mode regardless of the locale, and `do_setlocale` has no effect.
+If you need to know the platform's encoding for interoperating with another program, ask for that
+specifically rather than for "the preferred" one.
 
 **Why:** it is now a constant dressed as a query, so any code branching on it takes one branch
 forever — including code written to handle a legacy encoding, which now silently stops handling it.
-If you need to know the platform's encoding for interoperating with another program, ask for that
-specifically rather than for "the preferred" one.
 
 **Check:** `rg -n 'getpreferredencoding' src/` — every hit is the finding.
 
@@ -103,10 +100,9 @@ specifically rather than for "the preferred" one.
 *Relaxed form:* application code at a display boundary may use `replace` without a comment; library
 code may not.
 
-**Why:** the handler decides what happens to data you cannot represent, which is a policy question
-and not a technical one. `strict` fails loudly, which is right when the caller can retry or report.
-`surrogateescape` round-trips undecodable bytes so a path can be reopened. `replace` destroys them
-silently, which is right only when the alternative is worse.
+**Why:** the handler decides what happens to data you cannot represent, a policy question and not
+a technical one: `strict` fails loudly so the caller can retry or report, `surrogateescape`
+round-trips undecodable bytes so a path can be reopened, and `replace` destroys them silently.
 
 **Check:** every `errors=` argument needs a comment. Every text `open` on data from outside the
 process without one is the finding.
@@ -150,13 +146,13 @@ parameterised query is the same length as the interpolated one.
 ### PS-OUT-08 [S] Reach for a template string when the interpolation must be inspected
 
 New in 3.14 (PEP 750). `t"SELECT * FROM {table}"` produces a `Template` whose static parts and
-interpolations are separate values, so a library can escape each one correctly.
+interpolations are separate values, so a library can escape each one correctly. This is `[S]`
+because it only helps when something downstream understands templates; writing one and then calling
+`str()` on it has bought nothing.
 
 **Why:** an f-string interpolates immediately and hands you a `str`, at which point nothing can
-tell which characters came from the literal and which from the value — that is precisely why
-PS-OUT-07 exists. A template string defers it, so the consumer sees the structure and can escape,
-parameterise, or reject. This is `[S]` because it only helps when something downstream
-understands templates; writing one and then calling `str()` on it has bought nothing.
+tell which characters came from the literal and which from the value. A template string defers it,
+so the consumer sees the structure and can escape, parameterise, or reject.
 
 **Check:** every library that takes a pre-formatted string and must escape part of it. That
 signature should take a `Template`.
@@ -191,9 +187,8 @@ comment.
 `logger.info("retrying %s after %s", url, exc)`. Not `logger.info(f"retrying {url}")`.
 
 **Why:** the arguments form defers the interpolation until a handler actually emits the record, so a
-log call below the configured level costs almost nothing — and in a hot loop that difference is the
-whole cost of logging. It also keeps the message template constant, which is what lets an aggregator
-group a million occurrences of one event instead of a million distinct strings.
+log call below the configured level costs almost nothing. It also keeps the message template
+constant, which lets an aggregator group a million occurrences of one event as one.
 
 **Check:** ruff `G004` for the f-string, `G001`–`G003` for the other eager forms.
 
@@ -217,10 +212,9 @@ fetch("https://example.invalid")
 
 `logger = logging.getLogger(__name__)`. Not the root logger, and not a hand-written string.
 
-**Why:** `__name__` gives the logger the module's dotted path, which makes the logging hierarchy
-mirror the package hierarchy — so an operator can raise the level for one subpackage without knowing
-your naming scheme. `logging.info(...)` at module level uses the root logger, which cannot be
-configured per component.
+**Why:** `__name__` makes the logging hierarchy mirror the package hierarchy, so an operator can
+raise the level for one subpackage without knowing your naming scheme. `logging.info(...)` at
+module level uses the root logger, which cannot be configured per component.
 
 **Check:** ruff `LOG015` for the root-logger calls. `rg -n 'getLogger\("' src/` for hand-written
 names.
@@ -228,12 +222,12 @@ names.
 ### PS-OUT-14 [M] Never configure logging in a library
 
 No `basicConfig`, no handlers, no level setting, no `dictConfig`. Getting a logger is all a library
-does.
+does. Adding a `NullHandler` is the one permitted exception, and only to silence the no-handler
+warning.
 
 **Why:** configuration is the application's decision, and a library that makes it wins whichever
 import happens last — so behaviour depends on import order. The library's obligation is to emit
-records; where they go is not its business. Adding a `NullHandler` is the one permitted exception,
-and only to silence the no-handler warning.
+records; where they go is not its business.
 
 **Check:** `rg -n 'basicConfig|dictConfig|setLevel|addHandler' src/` — every hit outside the
 application entry point is the finding.
