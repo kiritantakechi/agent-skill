@@ -26,7 +26,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import vocabulary
+from . import shared, vocabulary
 from .model import DASH, RENAMED, Rename, Skill, rename_tables
 from .text import reflow
 
@@ -48,6 +48,8 @@ class Plan:
     writes: dict[Path, str]
     #: things the rewrite could not decide and a person should look at
     leftovers: list[str] = field(default_factory=list)
+    #: the profile the skill was read with, for reading it again once written
+    profile: object = None
 
     @property
     def changed(self) -> int:
@@ -88,13 +90,13 @@ def plan(repo: Path, name: str, chapters: dict[str, str] | None = None, profile=
         for c in skill.chapters
         if chapters.get(c.path.stem, c.path.stem) != c.path.stem
     }
-    plan = Plan(name, moves, ids, family_map, {})
+    plan = Plan(name, moves, ids, family_map, {}, profile=profile)
     renamed_stems = {old: new for old, new in chapters.items() if old != new}
 
-    profile = repo / "src" / "agent_skill" / "profiles" / f"{name.replace('-', '_')}.py"
+    profile_file = repo / "src" / "agent_skill" / "profiles" / f"{name.replace('-', '_')}.py"
     for path in _corpus(repo):
         text = path.read_text()
-        own = skill.root in path.parents or path == profile
+        own = skill.root in path.parents or path == profile_file
         # Another skill naming `references/x.md` means its own chapter; only code
         # and prose outside the skills can name this one's without saying so.
         outside = skills_dir not in path.parents
@@ -127,7 +129,11 @@ def _counts(skill: Skill, chapters: dict[str, str], plan: Plan) -> None:
 
 
 def apply(repo: Path, plan: Plan) -> None:
-    """Move the chapters and write every rewritten file. `plan` is already verified."""
+    """Move the chapters and write every rewritten file. `plan` is already verified.
+
+    Then restate the shared passages, which carry a rule count of their own: the change that
+    left a gap to close, a demotion, moved it.
+    """
     for old, new in plan.moves.items():
         tracked = subprocess.run(
             ["git", "ls-files", "--error-unmatch", str(old)],
@@ -141,6 +147,9 @@ def apply(repo: Path, plan: Plan) -> None:
             old.rename(new)
     for path, text in plan.writes.items():
         path.write_text(text)
+    skill = Skill(repo / "skills" / plan.skill, plan.profile)
+    if skill.profile.exempt_from_structure is None:
+        shared.rewrite(skill)
 
 
 # ------------------------------------------------------------------ the rewrite

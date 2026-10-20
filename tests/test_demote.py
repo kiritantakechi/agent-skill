@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import pytest
-from structure_fixture import RULE, Demo
+from structure_fixture import RULE, Demo, build
 
-from agent_skill import demote, renumber
+from agent_skill import demote, renumber, shared
+from agent_skill.checks.anatomy import structural
+from agent_skill.checks.skeleton import shape
 from agent_skill.model import DASH, Skill
 
 ERRORS = f"""# Errors
@@ -166,3 +168,15 @@ def test_a_plan_that_cannot_be_done_writes_nothing(repo, asked, message):
     with pytest.raises(demote.DemoteError, match=message):
         run(repo, asked)
     assert snapshot(repo) == before
+
+
+def test_demote_then_renumber_leaves_a_conforming_skill_conforming(tmp_path):
+    demo = build(tmp_path / "skills")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "tests").mkdir()
+    run(tmp_path, {"DS-ERR-01": {"remove": "said nothing"}})
+    renumber.apply(tmp_path, renumber.plan(tmp_path, "demo-style", {}, Demo()))
+    after = Skill(demo.root, Demo())
+    assert [r.id for r in after.rules] == ["DS-ERR-01", "DS-MIG-01"]
+    assert list(shared.compare(after)) == []
+    assert [m for m, _ in [*shape(after), *structural(after)]] == []
