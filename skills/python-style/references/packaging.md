@@ -194,7 +194,7 @@ dependency when a project needs the newest of something specific.
 
 ### PS-PKG-12 [M] Build with `uv_build`, and never invoke `setup.py`
 
-`requires = ["uv_build>=0.12.6,<0.13"]` and `build-backend = "uv_build"`. Build with `uv build`.
+`requires = ["uv_build>=0.13.3,<0.14"]` and `build-backend = "uv_build"`. Build with `uv build`.
 
 **Why:** `python setup.py install` and its relatives are deprecated and `distutils` was removed from
 the standard library in 3.12, so the old path no longer exists. The backend is declared and the

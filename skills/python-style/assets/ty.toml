@@ -5,8 +5,9 @@
 python-version = "3.15"
 
 [rules]
-# ty ships no `strict` preset. What it ships is twelve rules that are off by
-# default; these are them, named one at a time.
+# ty ships no `strict` preset. What it ships is a set of rules that are off by
+# default; every one is named here, one at a time — enabled, or left off with
+# the reason.
 #
 # `all = "error"` is deliberately NOT used. Since 0.0.52 `error-on-warning`
 # defaults true, so every level above `ignore` already exits 1 — promoting the
@@ -22,6 +23,12 @@ unsound-assignment = "error"
 unsound-return-statement = "error"
 unsound-yield = "error"
 unsupported-dynamic-base = "error"
+# A cast between types no value can inhabit both of is always a mistake.
+disjoint-cast = "error"
+# PS-TYPE-22's sentinels: the name passed must be the name it is bound to.
+mismatched-sentinel-name = "error"
+# Was warn by default until 0.0.84; kept at warn rather than lost to the move.
+invalid-legacy-positional-parameter = "warn"
 
 # Astral documents these four as false-positive-prone. `warn` is still a
 # promotion from their `ignore` default, and warn exits 1, so they still block —
@@ -30,6 +37,12 @@ division-by-zero = "warn"
 possibly-missing-attribute = "warn"
 possibly-missing-import = "warn"
 possibly-unresolved-reference = "warn"
+# The same false-positive warning applies to these two.
+redundant-condition-strict = "warn"
+truthiness-test-of-none-union = "warn"
+
+# Left off: `missing-direct-dependency` is preview and does nothing unless ty runs
+# under uv with `TY_UV` set, so enabling it here would claim a check that never runs.
 
 [analysis]
 strict-equality-semantics = true

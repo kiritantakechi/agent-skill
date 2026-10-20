@@ -5,23 +5,11 @@ line-length = 88
 indent-width = 4
 src = ["src", "tests"]
 
-# 0.16 prints rule NAMES rather than codes when preview is on. Tooling that
-# parses ruff output wants codes, so ask for them. This is a TOP-LEVEL option —
-# under [lint] it is a hard config parse error.
 output-format = "concise"
-output-prefer-rule-codes = true
 
 [lint]
-# preview: required for Python 3.15 semantics, and without it every run prints
-#   "Support for Python 3.15 is under development and may be unstable."
-# explicit-preview-rules: preview rules then become unreachable through `ALL` or
-#   any prefix, and can only be selected by their exact code. The two together
-#   give py315 support with an enabled set byte-identical to preview = false.
-# Scoped to [lint] deliberately: [format] preview does not silence the warning
-# and would opt into an unstable formatter style for nothing.
-preview = true
-explicit-preview-rules = true
-
+# Stable rules only. Preview rules move between releases, and py315 needs no
+# preview since 0.17. A rule this standard cites is one this file enables.
 select = ["ALL"]
 
 ignore = [
@@ -59,9 +47,11 @@ allow-multiline = false
 convention = "google"
 
 [lint.flake8-type-checking]
-# At py314+ a TC001-TC003 fix moves the import into TYPE_CHECKING and leaves the
-# annotation UNQUOTED, because PEP 649 made annotations lazy. Static checkers are
-# satisfied; anything resolving annotations at runtime breaks. Name those bases.
+# At py315 a TC001-TC003 fix makes a single-name import `lazy`, which keeps it
+# at module scope and resolves it on first use — the spelling this standard asks
+# for. Where it cannot, the fix moves the import into TYPE_CHECKING and leaves the
+# annotation unquoted, because PEP 649 made annotations lazy; anything resolving
+# annotations at runtime then breaks. Name those bases and decorators here.
 runtime-evaluated-base-classes = [
   "pydantic.BaseModel",
   "sqlalchemy.orm.DeclarativeBase",

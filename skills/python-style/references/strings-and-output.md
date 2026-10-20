@@ -55,9 +55,8 @@ interpreter and in every locale.
 
 **Check:** run with `-X warn_default_encoding`, which makes the interpreter itself emit an
 `EncodingWarning` at every site relying on the default — a better check than a linter, because it
-sees the calls a linter cannot resolve. The ruff rule that also finds them is **preview**, so
-`explicit-preview-rules` leaves it unreachable through `ALL`; select it by exact code if you want
-it, accepting that preview rules move between releases.
+sees the calls a linter cannot resolve. The ruff rule that also finds them is **preview**, and the
+shipped configuration runs stable rules only.
 
 ```python
 # verified — GOOD

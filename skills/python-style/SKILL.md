@@ -296,7 +296,7 @@ asset and the rule cannot drift apart.
 
 | File | Contents |
 |---|---|
-| `assets/ruff.toml` | The lint configuration: `py315`, lint-scoped preview with `explicit-preview-rules` so the enabled set is deterministic, the fifteen formatter-conflicting rules disabled, `convention = "google"` so `D417` survives, and the `flake8-type-checking` exemptions that keep PEP 649 annotations resolvable at runtime |
-| `assets/ty.toml` | The type-checker configuration: the twelve ignore-by-default rules named one at a time rather than promoted wholesale, the strict analysis options, and `concise` output |
+| `assets/ruff.toml` | The lint configuration: `py315` with stable rules only, the fifteen formatter-conflicting rules disabled, `convention = "google"` so `D417` survives, and the `flake8-type-checking` exemptions that keep PEP 649 annotations resolvable at runtime |
+| `assets/ty.toml` | The type-checker configuration: every ignore-by-default rule named one at a time rather than promoted wholesale — enabled, or left off with the reason — the strict analysis options, and `concise` output |
 | `assets/pyproject.toml` | Project metadata: PEP 639 SPDX license, PEP 735 dependency groups with every tool pinned exactly, PEP 753 URL labels, and pytest 9's native `[tool.pytest]` table |
 | `assets/ci.yml` | The workflow: pinned `uv`, the free-threaded interpreter installed as its own build, lint and type gates, and the assertion that the GIL is genuinely off at runtime |

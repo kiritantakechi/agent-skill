@@ -27,7 +27,7 @@ from . import Extraction, Unit
 #: than through PATH. PATH here is a GIL build, and verifying free-threading
 #: rules against one is the shape of failure the README records for
 #: `zig --version`: a probe that cannot fail reports success.
-INTERPRETER = "cpython-3.15.0rc1+freethreaded"
+INTERPRETER = "cpython-3.15.0+freethreaded"
 
 #: A venv on that interpreter, holding the pinned `pytest`. Persistent for the
 #: same reason `.cache/target` is: resolving it per run costs more than it saves.
@@ -65,8 +65,8 @@ class Snippet:
         "B008",  # a call in a default is the point of some examples
         "RUF001",  # the prose uses en-dashes deliberately
     )
-    #: `ty` rule levels. The twelve that are off by default, named one at a time
-    #: for the reason `assets/ty.toml` gives.
+    #: `ty` rule levels: every rule that is off by default and that the asset
+    #: enables, named one at a time for the reason `assets/ty.toml` gives.
     ty_rules: dict[str, str] = field(
         default_factory=lambda: {
             "blanket-ignore-comment": "error",
@@ -77,10 +77,15 @@ class Snippet:
             "unsound-return-statement": "error",
             "unsound-yield": "error",
             "unsupported-dynamic-base": "error",
+            "disjoint-cast": "error",
+            "mismatched-sentinel-name": "error",
+            "invalid-legacy-positional-parameter": "warn",
             "division-by-zero": "warn",
             "possibly-missing-attribute": "warn",
             "possibly-missing-import": "warn",
             "possibly-unresolved-reference": "warn",
+            "redundant-condition-strict": "warn",
+            "truthiness-test-of-none-union": "warn",
         }
     )
 
@@ -89,7 +94,6 @@ class Snippet:
             "--no-cache",
             "--isolated",
             "--target-version=py315",
-            "--preview",
             f"--select={','.join(self.select)}",
             f"--ignore={','.join(self.ignore)}",
             "--output-format=concise",
@@ -130,18 +134,32 @@ def _reaches_outside(source: str) -> bool:
     return bool(re.search(r"\b(urlopen|requests\.|socket\.|time\.sleep|input\()", source))
 
 
+def _pinned() -> str:
+    m = re.match(r"cpython-([0-9][^+]*)", INTERPRETER)
+    return m.group(1) if m else INTERPRETER
+
+
+def _running() -> str:
+    """The version the venv's interpreter reports, as `3.15.0` or `3.15.0rc1`."""
+    answered = run([str(PYTHON), "--version"], timeout=30)
+    return answered.out.strip().removeprefix("Python ") if answered.ok else "unknown"
+
+
 class Python:
     name = "python"
     tool = "python"
 
     def missing(self) -> list[str]:
         absent: list[str] = []
+        rebuild = (
+            f"`uv venv --python {INTERPRETER} {VENV}` then `uv pip install --python {VENV} pytest`"
+        )
         if not PYTHON.exists():
-            absent.append(
-                f"the pinned interpreter is not built — "
-                f"`uv venv --python {INTERPRETER} {VENV}` then "
-                f"`uv pip install --python {VENV} pytest`"
-            )
+            absent.append(f"the pinned interpreter is not built — {rebuild}")
+        elif (running := _running()) != (pinned := _pinned()):
+            # The venv outlives a pin move. Without this, moving the pin left the
+            # examples verified on the old build while the harness reported the new.
+            absent.append(f"the venv runs Python {running} and the pin is {pinned} — {rebuild}")
         for tool in ("ty", "ruff"):
             if not have(tool):
                 absent.append(f"`{tool}` is not on PATH")

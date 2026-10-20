@@ -405,10 +405,8 @@ speed, and the typography is what makes that possible. `ruff format` does not to
 this is one of the few things left to discipline.
 
 **Check:** a review matter, and deliberately so. The two pycodestyle rules that would decide the
-marker and the space are both **preview**, which means `explicit-preview-rules` makes them
-unreachable through `ALL` — citing them would claim an enforcement this standard's own configuration
-does not provide. Select them by exact code if you want them, and accept that preview rules can
-change between ruff releases.
+marker and the space are both **preview**, and the shipped configuration runs stable rules only —
+citing them would claim an enforcement this standard's own configuration does not provide.
 
 ### PS-NAME-22 [M] Delete commented-out code rather than shipping it
 

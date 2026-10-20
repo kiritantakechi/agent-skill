@@ -73,7 +73,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 6. python-style (milestone 1)
 
-- [ ] 6.1 Pins and assets:
+- [x] 6.1 Pins and assets:
   - interpreter `cpython-3.15.0+freethreaded` in `lang/python.py` and `assets/ci.yml`;
   - `setup-uv` at 0.13.0 or later;
   - `ruff==0.17.1` and `ty==0.0.89` in `assets/pyproject.toml`;
@@ -81,7 +81,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
   - `uv python install 3.15.0t`, but only after confirming the download with the user.
 
   Verify: `pins` passes for python-style.
-- [ ] 6.2 Assets:
+- [x] 6.2 Assets:
   - **`ruff.toml`:** drop `preview` unless a code that stays cited needs it, and record the reason
     whichever way it goes. Update the TC001–TC003 comment for the lazy-import fix.
   - **`ty.toml`:** name each of the six new default-off rules (`research/python-3.15.0.md` § ty)

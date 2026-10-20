@@ -150,7 +150,7 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "python-style/assets/ci.yml",
-            "uv python install cpython-3.15.0rc1+freethreaded",
+            "uv python install cpython-3.15.0+freethreaded",
             "uv python install 3.15t",
         ),
     ),

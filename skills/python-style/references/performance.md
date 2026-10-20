@@ -78,8 +78,8 @@ no amount of local optimisation moves that. Find the nested loop, the repeated l
 membership test against a list, before touching anything else.
 
 **Check:** every nested loop over the same collection, and every `in` against a list inside a
-loop. A review matter: the ruff rule for excessive nesting is preview, so `explicit-preview-rules`
-leaves it unreachable through `ALL`.
+loop. A review matter: the ruff rule for excessive nesting is preview, and the shipped
+configuration runs stable rules only.
 
 ### PS-PERF-04 [M] State the cost in the units the caller cares about
 

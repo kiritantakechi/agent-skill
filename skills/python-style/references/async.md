@@ -337,9 +337,8 @@ An `async def` with no `await` is a synchronous function that forces every calle
 Paying that cost for a function that never yields buys nothing and makes the code untestable without
 a loop. The exception is an interface a protocol requires to be async — say so in the docstring.
 
-**Check:** a review matter. The rule that decides it mechanically is **preview**, so
-`explicit-preview-rules` leaves it unreachable through `ALL`; select it by exact code if you want
-it, and accept that preview rules move between ruff releases.
+**Check:** a review matter. The rule that decides it mechanically is **preview**, and the shipped
+configuration runs stable rules only; preview rules move between ruff releases.
 
 ### PS-ASYNC-21 [S] Make an async resource a context manager
 
