@@ -5,17 +5,15 @@ container, so each block becomes a standalone file — which is also the stronge
 claim, and the one `// verified` should mean: this text compiles as written.
 """
 
-from __future__ import annotations
-
 import re
 from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
 
-from ..model import inside_tests, needs_c_object
-from ..proc import have, run
-from ..report import Finding, fail, note
-from . import Extraction, Unit
+from agent_skill.lang import Extraction, Unit
+from agent_skill.model import inside_tests, needs_c_object
+from agent_skill.proc import have, run
+from agent_skill.report import Finding, fail, note
 
 #: The compiler `zig-style` is verified against. It follows this machine's
 #: `zig` rather than upstream's newest release, so `pins` compares it with
@@ -73,13 +71,21 @@ class Zig:
         for unit in ex.units:
             source = unit.path.read_text()
             # semantic analysis of every declaration, without linking or running
-            r = run(["zig", "build-obj", str(unit.path), "-fno-emit-bin"], cwd=ex.root, timeout=180)
+            r = run(
+                ["zig", "build-obj", str(unit.path), "-fno-emit-bin"],
+                cwd=ex.root,
+                timeout=180,
+            )
             if r.timed_out:
                 yield fail("build-obj timed out", unit.where)
                 continue
             if not r.ok:
-                first = next((ln for ln in r.err.split("\n") if ": error:" in ln), r.err[:100])
-                yield fail(first.split(f"{unit.path.name}:")[-1].strip()[:96], unit.where)
+                first = next(
+                    (ln for ln in r.err.split("\n") if ": error:" in ln), r.err[:100]
+                )
+                yield fail(
+                    first.split(f"{unit.path.name}:")[-1].strip()[:96], unit.where
+                )
                 continue
 
             # A block that ships a `test` gets its assertions executed — unless
@@ -92,7 +98,11 @@ class Zig:
                     yield fail("test run timed out", unit.where)
                 elif not t.ok:
                     first = next(
-                        (ln for ln in t.err.split("\n") if ": error:" in ln or "FAIL" in ln),
+                        (
+                            ln
+                            for ln in t.err.split("\n")
+                            if ": error:" in ln or "FAIL" in ln
+                        ),
                         t.err[:100],
                     )
                     yield fail(f"test run: {first.strip()[:84]}", unit.where)

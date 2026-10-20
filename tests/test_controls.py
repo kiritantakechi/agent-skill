@@ -4,7 +4,7 @@ A check that cannot fail looks exactly like a check that passes, so the controls
 are tests in their own right rather than a claim in a README.
 """
 
-from __future__ import annotations
+import importlib
 
 import pytest
 
@@ -33,7 +33,9 @@ def test_every_check_has_a_control():
     """A check nothing can break is a check nothing verifies."""
     owned = {c.check for c in CONTROLS}
     missing = [
-        c.name for c in all_checks() if c.name not in owned and c.name not in WITHOUT_A_CONTROL
+        c.name
+        for c in all_checks()
+        if c.name not in owned and c.name not in WITHOUT_A_CONTROL
     ]
     assert not missing, f"no negative control for: {missing}"
 
@@ -47,7 +49,9 @@ def test_no_exemption_outlives_its_check():
 
 def test_every_exemption_gives_a_reason():
     for name, reason in WITHOUT_A_CONTROL.items():
-        assert reason and len(reason) > 20, f"{name} is exempt with no reason worth reading"
+        assert reason and len(reason) > 20, (
+            f"{name} is exempt with no reason worth reading"
+        )
 
 
 #: Each structure control, and the branch it is named for. Stubbing the branch
@@ -58,12 +62,18 @@ BRANCHES = {
         "agent_skill.checks.skeleton",
         "_skill_md",
     ),
-    "a chapter named outside the shared vocabulary": ("agent_skill.checks.skeleton", "_chapters"),
+    "a chapter named outside the shared vocabulary": (
+        "agent_skill.checks.skeleton",
+        "_chapters",
+    ),
     "a rule filed in a chapter whose family is another": (
         "agent_skill.checks.skeleton",
         "_chapters",
     ),
-    "a severity label the shared model does not have": ("agent_skill.checks.skeleton", "_review"),
+    "a severity label the shared model does not have": (
+        "agent_skill.checks.skeleton",
+        "_review",
+    ),
     "section 5 drifting from the protocol's review order": (
         "agent_skill.checks.skeleton",
         "_skill_md",
@@ -77,7 +87,10 @@ BRANCHES = {
         "agent_skill.checks.skeleton",
         "_unchanged",
     ),
-    "a shared sentence edited in one standard's copy": ("agent_skill.shared", "compare"),
+    "a shared sentence edited in one standard's copy": (
+        "agent_skill.shared",
+        "compare",
+    ),
     "a gap in a chapter's numbering": ("agent_skill.checks.anatomy", "structural"),
     "a Why that runs to a fourth line": ("agent_skill.checks.anatomy", "structural"),
     "a ty lint row at a level the shipped configuration does not set": (
@@ -89,8 +102,6 @@ BRANCHES = {
 
 @pytest.mark.parametrize("name", sorted(BRANCHES))
 def test_a_structure_control_needs_its_own_branch(name, scratch, monkeypatch):
-    import importlib
-
     control = next(c for c in CONTROLS if c.name == name)
     module, attr = BRANCHES[name]
     monkeypatch.setattr(importlib.import_module(module), attr, lambda *a, **k: iter(()))

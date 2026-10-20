@@ -5,8 +5,6 @@ about self-application: `crossref` runs one standard's patterns over another's
 examples, and `dialect` inspects pattern syntax without running anything.
 """
 
-from __future__ import annotations
-
 import re
 from dataclasses import dataclass
 
@@ -94,7 +92,7 @@ def patterns_of(check_text: str) -> list[Pattern]:
         # `test_patterns.py` rather than asserted here and believed.
         r"\bgrep\b|\brg\b|\bscan\b|\bsearch for\b|\blook for\b",
         check_text,
-        re.I,
+        re.IGNORECASE,
     ):
         for span in re.findall(r"`([^`\n]+)`", check_text):
             if len(span) < 4 or not CODEISH.search(span):

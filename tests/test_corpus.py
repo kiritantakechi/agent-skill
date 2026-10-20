@@ -5,8 +5,6 @@ An off-by-one here does not fail anything: it reports a real hit at the wrong
 line, in the wrong rule, and reads exactly like a correct report.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from agent_skill.checks.corpus import Corpus, Unit

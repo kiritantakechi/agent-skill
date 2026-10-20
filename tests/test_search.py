@@ -6,8 +6,6 @@ point of the `UNRUN` level: a search that could not run must not be read as a
 search that found nothing.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from agent_skill.checks.corpus import Corpus, Unit
@@ -48,7 +46,9 @@ def test_a_multi_line_match_covers_exactly_its_lines(tmp_path):
 def test_a_span_is_numbered_across_units(tmp_path):
     built = corpus_at(tmp_path, "one\ntwo", "three\nfour")
     spans, _ = find(built, Pattern("four", "-E", "command"))
-    assert spans == [Span(4, 4)], "the second unit's lines continue the first unit's numbering"
+    assert spans == [Span(4, 4)], (
+        "the second unit's lines continue the first unit's numbering"
+    )
 
 
 def test_a_pattern_the_searcher_rejects_gives_no_answer(tmp_path):
@@ -105,7 +105,10 @@ def test_a_pattern_that_names_a_comment_keeps_its_fixture_whole():
     """The rule is that the two agree, not that either is always stripped."""
     over_comments = Pattern(r"^[ \t]*// (let |if |\})", "-E", "command")
     assert over_comments.over_comments is True
-    assert matches("    // let unused = compute_total(&items);", over_comments, "rust") is True
+    assert (
+        matches("    // let unused = compute_total(&items);", over_comments, "rust")
+        is True
+    )
 
 
 def test_stripping_follows_the_language():

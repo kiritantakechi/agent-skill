@@ -8,22 +8,21 @@ predicted. This runs the same extraction, formats it, and writes the result
 back, so the check is actionable rather than merely correct.
 """
 
-from __future__ import annotations
-
 import re
 import tempfile
 from itertools import groupby
 from pathlib import Path
 
-from . import shared
-from .lang.rust import RUST, Crate, module_name
-from .proc import run
-from .text import reflow
+from agent_skill import shared
+from agent_skill.lang.rust import RUST, Crate, module_name
+from agent_skill.proc import run
+from agent_skill.text import reflow
+lazy from agent_skill.lang.python import PYTHON_TOOLCHAIN
 
 #: The line the extractor injects into every block module.
 INJECTED = "#![allow(dead_code, unused_imports)]"
 
-_MODULE = re.compile(r"^pub mod (\w+) \{$", re.M)
+_MODULE = re.compile(r"^pub mod (\w+) \{$", re.MULTILINE)
 
 
 def _bodies(path: Path, crate: Crate) -> list[str]:
@@ -103,7 +102,9 @@ def _format_rust(skill) -> list[str]:
         extraction = RUST.extract(skill, Path(work) / "out")
         if not extraction:
             return []
-        r = run(["cargo", "fmt"], cwd=extraction.root, timeout=300, env=extraction.crate.env)
+        r = run(
+            ["cargo", "fmt"], cwd=extraction.root, timeout=300, env=extraction.crate.env
+        )
         if not r.ok:
             return [f"cargo fmt failed: {(r.err or r.out).strip()[:160]}"]
 
@@ -115,7 +116,9 @@ def _format_rust(skill) -> list[str]:
                 continue
             bodies = _bodies(src, extraction.crate)
             if len(bodies) != len(wanted):
-                changed.append(f"{chapter}: {len(wanted)} blocks, {len(bodies)} modules; skipped")
+                changed.append(
+                    f"{chapter}: {len(wanted)} blocks, {len(bodies)} modules; skipped"
+                )
                 continue
             path = skill.root / "references" / chapter
             text = path.read_text()
@@ -126,7 +129,9 @@ def _format_rust(skill) -> list[str]:
                     continue
                 old = f"```rust\n{block.body}```"
                 if text.count(old) != 1:
-                    changed.append(f"{chapter}:{block.line} is not uniquely locatable; skipped")
+                    changed.append(
+                        f"{chapter}:{block.line} is not uniquely locatable; skipped"
+                    )
                     continue
                 text = text.replace(old, f"```rust\n{body}```")
                 hits += 1
@@ -143,8 +148,6 @@ def _format_python(skill) -> list[str]:
     is no crate to reassemble, so a block that fails to format is reported alone
     rather than taking its chapter's siblings with it.
     """
-    from .lang.python import PYTHON_TOOLCHAIN
-
     config = skill.root / "assets" / "ruff.toml"
     if not config.exists():
         return []
@@ -153,7 +156,14 @@ def _format_python(skill) -> list[str]:
         if not extraction:
             return []
         r = run(
-            ["ruff", "format", "--no-cache", "--config", str(config), str(extraction.root)],
+            [
+                "ruff",
+                "format",
+                "--no-cache",
+                "--config",
+                str(config),
+                str(extraction.root),
+            ],
             timeout=300,
         )
         if not r.ok:
@@ -176,7 +186,9 @@ def _format_python(skill) -> list[str]:
                     continue
                 old_fence = f"```python\n{block.body}```"
                 if text.count(old_fence) != 1:
-                    changed.append(f"{chapter}:{unit.line} is not uniquely locatable; skipped")
+                    changed.append(
+                        f"{chapter}:{unit.line} is not uniquely locatable; skipped"
+                    )
                     continue
                 text = text.replace(old_fence, f"```python\n{body}```")
                 hits += 1

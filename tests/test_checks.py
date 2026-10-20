@@ -1,7 +1,5 @@
 """Every check, over the skills this repository ships."""
 
-from __future__ import annotations
-
 import pytest
 
 from agent_skill.checks import all_checks

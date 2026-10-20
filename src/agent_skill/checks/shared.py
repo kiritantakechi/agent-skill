@@ -7,11 +7,9 @@ because a skill is installed alone and must read without its siblings.
 `agent-skill fmt` rewrites a drifted copy.
 """
 
-from __future__ import annotations
-
-from .. import shared
-from ..report import fail
-from . import check
+from agent_skill import shared
+from agent_skill.checks import check
+from agent_skill.report import fail
 
 
 @check("shared-text", "every shared passage is the template, filled in")

@@ -17,8 +17,6 @@ row, so the table always maps the IDs a reader had before the revision to the ID
 they have now.
 """
 
-from __future__ import annotations
-
 import re
 import shutil
 import subprocess
@@ -26,9 +24,9 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import shared, vocabulary
-from .model import DASH, RENAMED, Rename, Skill, rename_tables
-from .text import reflow
+from agent_skill import shared, vocabulary
+from agent_skill.model import DASH, RENAMED, Rename, Skill, rename_tables
+from agent_skill.text import reflow
 
 
 class RenumberError(Exception):
@@ -56,7 +54,9 @@ class Plan:
         return sum(1 for old, new in self.ids.items() if old != new)
 
 
-def plan(repo: Path, name: str, chapters: dict[str, str] | None = None, profile=None) -> Plan:
+def plan(
+    repo: Path, name: str, chapters: dict[str, str] | None = None, profile=None
+) -> Plan:
     """Everything the renumbering would do, verified, and nothing done yet."""
     chapters = dict(chapters or {})
     skills_dir = repo / "skills"
@@ -68,7 +68,9 @@ def plan(repo: Path, name: str, chapters: dict[str, str] | None = None, profile=
         if old not in stems:
             raise RenumberError(f"{name} has no chapter `{old}.md`")
         if not vocabulary.allowed(new):
-            raise RenumberError(f"`{new}` is not a chapter name in the shared vocabulary")
+            raise RenumberError(
+                f"`{new}` is not a chapter name in the shared vocabulary"
+            )
     targets = [chapters.get(s, s) for s in stems]
     if len(set(targets)) != len(targets):
         raise RenumberError(f"two chapters would both be called {sorted(targets)}")
@@ -83,7 +85,9 @@ def plan(repo: Path, name: str, chapters: dict[str, str] | None = None, profile=
         for i, rule in enumerate(chapter.rules, 1):
             ids[rule.id] = f"{prefix}-{code}-{i:02d}"
             families.setdefault(rule.id.split("-")[1], set()).add(code or "")
-    family_map = {old: next(iter(new)) for old, new in families.items() if len(new) == 1}
+    family_map = {
+        old: next(iter(new)) for old, new in families.items() if len(new) == 1
+    }
 
     moves = {
         c.path: c.path.with_name(f"{chapters[c.path.stem]}.md")
@@ -93,14 +97,18 @@ def plan(repo: Path, name: str, chapters: dict[str, str] | None = None, profile=
     plan = Plan(name, moves, ids, family_map, {}, profile=profile)
     renamed_stems = {old: new for old, new in chapters.items() if old != new}
 
-    profile_file = repo / "src" / "agent_skill" / "profiles" / f"{name.replace('-', '_')}.py"
+    profile_file = (
+        repo / "src" / "agent_skill" / "profiles" / f"{name.replace('-', '_')}.py"
+    )
     for path in _corpus(repo):
         text = path.read_text()
         own = skill.root in path.parents or path == profile_file
         # Another skill naming `references/x.md` means its own chapter; only code
         # and prose outside the skills can name this one's without saying so.
         outside = skills_dir not in path.parents
-        new = _rewrite(text, prefix, ids, family_map, renamed_stems, name, own, outside, plan, path)
+        new = _rewrite(
+            text, prefix, ids, family_map, renamed_stems, name, own, outside, plan, path
+        )
         target = moves.get(path, path)
         if new != text or target != path:
             plan.writes[target] = new
@@ -114,7 +122,8 @@ def plan(repo: Path, name: str, chapters: dict[str, str] | None = None, profile=
 def _counts(skill: Skill, chapters: dict[str, str], plan: Plan) -> None:
     """Restate the counts `SKILL.md` gives — per family in the reference map, and the total in
     the description — from the rules as they will be. A count is the one thing a renumbering
-    always changes and a person always forgets."""
+    always changes and a person always forgets.
+    """
     path = skill.skill_md
     text = plan.writes.get(path, skill.text)
     total = len(skill.rules) + len(skill.core_rules)
@@ -123,7 +132,9 @@ def _counts(skill: Skill, chapters: dict[str, str], plan: Plan) -> None:
         code = vocabulary.code_for(chapters.get(chapter.path.stem, chapter.path.stem))
         if code:
             family = f"`{skill.prefix}-{code}`"
-            new = re.sub(rf"{re.escape(family)} \(\d+\)", f"{family} ({len(chapter.rules)})", new)
+            new = re.sub(
+                rf"{re.escape(family)} \(\d+\)", f"{family} ({len(chapter.rules)})", new
+            )
     if new != text:
         plan.writes[path] = new
 
@@ -157,7 +168,8 @@ def apply(repo: Path, plan: Plan) -> None:
 
 def _corpus(repo: Path) -> list[Path]:
     """Every file a citation can live in. The archived OpenSpec changes are history and
-    keep the IDs they were written with."""
+    keep the IDs they were written with.
+    """
     out = [p for p in (repo / "skills").rglob("*") if p.is_file() and p.suffix in _TEXT]
     out += sorted((repo / "src").rglob("*.py")) + sorted((repo / "tests").rglob("*.py"))
     readme = repo / "README.md"
@@ -195,10 +207,14 @@ def _rewrite(
 
     def paths(segment: str) -> str:
         for old, new in stems.items():
-            segment = segment.replace(f"{name}/references/{old}.md", f"{name}/references/{new}.md")
+            segment = segment.replace(
+                f"{name}/references/{old}.md", f"{name}/references/{new}.md"
+            )
             if own:
                 segment = re.sub(
-                    rf"(?<![\w/-])references/{re.escape(old)}\.md", f"references/{new}.md", segment
+                    rf"(?<![\w/-])references/{re.escape(old)}\.md",
+                    f"references/{new}.md",
+                    segment,
                 )
         return segment
 
@@ -210,11 +226,15 @@ def _rewrite(
         rewritten = reflow(rewritten)
 
     for rid in sorted(unknown):
-        plan.leftovers.append(f"{path}: cites {rid}, which {name} does not define; left as it was")
+        plan.leftovers.append(
+            f"{path}: cites {rid}, which {name} does not define; left as it was"
+        )
     if outside and not own:
         for old in stems:
             if re.search(rf"(?<![\w/-])references/{re.escape(old)}\.md", rewritten):
-                plan.leftovers.append(f"{path}: names `references/{old}.md` without its skill")
+                plan.leftovers.append(
+                    f"{path}: names `references/{old}.md` without its skill"
+                )
     return rewritten
 
 
@@ -222,7 +242,7 @@ def _segments(text: str):
     """(segment, protected) pieces of `text`, protected for each rename table."""
     pos = 0
     for m in RENAMED.finditer(text):
-        nxt = re.compile(r"^## ", re.M).search(text, m.end())
+        nxt = re.compile(r"^## ", re.MULTILINE).search(text, m.end())
         end = nxt.start() if nxt else len(text)
         yield text[pos : m.start()], False
         yield text[m.start() : end], True
@@ -237,7 +257,9 @@ def _compose(skill: Skill, plan: Plan) -> None:
     """Carry the migration chapter's rename tables through this renumbering."""
     migration = next((c for c in skill.chapters if c.path.stem == "migration"), None)
     if migration is None:
-        raise RenumberError(f"{skill.name} has no references/migration.md for its rename table")
+        raise RenumberError(
+            f"{skill.name} has no references/migration.md for its rename table"
+        )
     path = plan.moves.get(migration.path, migration.path)
     text = plan.writes.get(path, migration.text)
     now = {old: f"`{new}`" for old, new in plan.ids.items()}
@@ -264,20 +286,29 @@ def carry(text: str, revision: str, now: dict[str, str]) -> str:
     out, pos = [], 0
     for table in rename_tables(text):
         if not table.ranges:
-            raise RenumberError(f"`{table.heading}` states no ranges, so its unlisted IDs are lost")
+            raise RenumberError(
+                f"`{table.heading}` states no ranges, so its unlisted IDs are lost"
+            )
         start, end = table.span
         listed, originals = {r.before: r for r in table.rows}, set(table.originals)
         rows = [listed.get(rid, Rename(rid, f"`{rid}`", 0)) for rid in table.originals]
         rows += [r for r in table.rows if r.before not in originals]
         tail = "\n" if end < len(text) else ""
-        out += [text[pos:start], _table(table.heading, table.ranges, _forward(rows, now)) + tail]
+        out += [
+            text[pos:start],
+            _table(table.heading, table.ranges, _forward(rows, now)) + tail,
+        ]
         pos = end
     out.append(text[pos:])
     text = "".join(out)
 
     rows = [Rename(rid, becomes, 0) for rid, becomes in now.items()]
-    if _changed(rows) and not re.search(rf"^{re.escape(revision)}$", text, re.M):
-        text = text.rstrip("\n") + "\n\n" + _table(revision, _ranges(now), _changed(rows))
+    if _changed(rows) and not re.search(
+        rf"^{re.escape(revision)}$", text, re.MULTILINE
+    ):
+        text = (
+            text.rstrip("\n") + "\n\n" + _table(revision, _ranges(now), _changed(rows))
+        )
     return reflow(text)
 
 
@@ -294,7 +325,9 @@ def _forward(rows: list[Rename], now: dict[str, str]) -> list[Rename]:
                 f"{row.before} became {row.target}, which no longer exists — record what it "
                 f"became (a rule ID, lint `tool:name`, or removed — reason) first"
             )
-        out.append(Rename(row.before, now[row.target] if row.target else row.now, row.line))
+        out.append(
+            Rename(row.before, now[row.target] if row.target else row.now, row.line)
+        )
     return _changed(out)
 
 
@@ -305,7 +338,8 @@ def _changed(rows: list[Rename]) -> list[Rename]:
 
 def _ranges(ids: dict[str, str]) -> tuple[tuple[str, int, int], ...]:
     """The runs of consecutive numbers each family held, in the order the families appear.
-    A suffixed ID such as `-03a` belongs to no run; dense numbering always gives it a row."""
+    A suffixed ID such as `-03a` belongs to no run; dense numbering always gives it a row.
+    """
     numbers: dict[str, list[int]] = {}
     for rid in ids:
         if m := re.fullmatch(r"([A-Z]{2}-[A-Z]+)-(\d+)", rid):
@@ -320,7 +354,9 @@ def _ranges(ids: dict[str, str]) -> tuple[tuple[str, int, int], ...]:
     return tuple(out)
 
 
-def _table(heading: str, ranges: tuple[tuple[str, int, int], ...], rows: list[Rename]) -> str:
+def _table(
+    heading: str, ranges: tuple[tuple[str, int, int], ...], rows: list[Rename]
+) -> str:
     befores = [r.before for r in rows]
     if len(befores) != len(set(befores)):
         raise RenumberError(f"`{heading}` would list one old ID twice")
@@ -328,7 +364,11 @@ def _table(heading: str, ranges: tuple[tuple[str, int, int], ...], rows: list[Re
         f"`{family}-{lo:02d}`" + (f"{DASH}`{family}-{hi:02d}`" if hi > lo else "")
         for family, lo, hi in ranges
     ]
-    stated = ", ".join(spans[:-1]) + f" and {spans[-1]}" if len(spans) > 1 else "".join(spans)
+    stated = (
+        ", ".join(spans[:-1]) + f" and {spans[-1]}"
+        if len(spans) > 1
+        else "".join(spans)
+    )
     return "\n".join(
         [
             heading,
@@ -360,7 +400,11 @@ def _verify(repo: Path, skill: Skill, plan: Plan) -> None:
             if m.group(2) is not None:
                 return plan.ids.get(m.group(0), m.group(0))
             code = m.group(1)
-            return f"{skill.prefix}-{plan.families[code]}" if code in plan.families else m.group(0)
+            return (
+                f"{skill.prefix}-{plan.families[code]}"
+                if code in plan.families
+                else m.group(0)
+            )
 
         return pattern.sub(swap, title)
 
@@ -377,7 +421,10 @@ def _verify(repo: Path, skill: Skill, plan: Plan) -> None:
         for path, text in plan.writes.items():
             if (repo / "skills") in path.parents:
                 mirror(path).write_text(text)
-        after = {r.id: r.title for r in Skill(root / "skills" / skill.name, skill.profile).rules}
+        after = {
+            r.id: r.title
+            for r in Skill(root / "skills" / skill.name, skill.profile).rules
+        }
 
     wrong = [
         f"{old} → {new}: `{before[old]}` became `{after.get(new, 'nothing')}`"
@@ -385,6 +432,8 @@ def _verify(repo: Path, skill: Skill, plan: Plan) -> None:
         if after.get(new) != before[old]
     ]
     if wrong:
-        raise RenumberError("a citation would change meaning:\n  " + "\n  ".join(wrong[:10]))
+        raise RenumberError(
+            "a citation would change meaning:\n  " + "\n  ".join(wrong[:10])
+        )
     if len(after) != len(before):
         raise RenumberError(f"{len(before)} rules before and {len(after)} after")

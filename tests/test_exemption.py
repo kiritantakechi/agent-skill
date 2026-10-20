@@ -1,7 +1,5 @@
 """A structure exemption carries its reason."""
 
-from __future__ import annotations
-
 from agent_skill.model import Marker
 from agent_skill.profiles import Profile, exemption_problem, registered
 

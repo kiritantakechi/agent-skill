@@ -5,8 +5,6 @@ function backs a command-line report, a pytest assertion, and a negative control
 that asserts the check *can* fail.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from enum import Enum
 

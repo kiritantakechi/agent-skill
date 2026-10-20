@@ -8,8 +8,6 @@ and satisfied "every row carries a reason" on them.
 A check that asks whether a field is present has to read the field.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest
@@ -27,7 +25,9 @@ def test_the_shipped_table_reads_in_full():
     """The regression, stated against the row that exhibited it."""
     rows = documented_rows(README.read_text())
     catches, why = rows["dialect"]
-    assert why.startswith("`\\|` is alternation"), "the reason was truncated at its escaped pipe"
+    assert why.startswith("`\\|` is alternation"), (
+        "the reason was truncated at its escaped pipe"
+    )
     assert len(why) > 100, f"read back only {len(why)} characters of the reason"
     assert "syntax from a grammar" in catches
 
@@ -68,7 +68,9 @@ def test_an_empty_reason_is_still_empty():
 
 def test_a_row_that_is_not_a_check_row_is_not_read_as_one():
     assert documented_rows("| `dialect` | only one cell |\n") == {}
-    assert documented_rows("| `Dialect` | a | b |\n") == {}, "the name column is lowercase"
+    assert documented_rows("| `Dialect` | a | b |\n") == {}, (
+        "the name column is lowercase"
+    )
 
 
 def test_the_controls_scope_is_read_from_the_first_cell():

@@ -5,12 +5,10 @@ measured width. This is the sole owner of the physical checks; when a second
 check repeated them at a different severity, one defect produced two findings.
 """
 
-from __future__ import annotations
-
 import re
 
-from ..report import fail, note
-from . import check
+from agent_skill.checks import check
+from agent_skill.report import fail, note
 
 WIDTH = 100
 
@@ -45,10 +43,14 @@ def layout(skill):
             if line.lstrip().startswith("|"):
                 continue  # a table row cannot be wrapped
             if HEADING.match(line) or TOC.match(line):
-                yield note(f"rule title makes the line {len(line)} columns", f"{tag}:{i}")
+                yield note(
+                    f"rule title makes the line {len(line)} columns", f"{tag}:{i}"
+                )
                 continue
             kind = "code" if fenced else "prose"
-            yield fail(f"{kind} line is {len(line)} columns (limit {WIDTH})", f"{tag}:{i}")
+            yield fail(
+                f"{kind} line is {len(line)} columns (limit {WIDTH})", f"{tag}:{i}"
+            )
 
         if text.count("```") % 2:
             yield fail("unbalanced code fences", tag)

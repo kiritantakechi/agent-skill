@@ -21,17 +21,16 @@ What it cannot decide is whether a reason is *true*. That is a reviewer's
 judgement, and a check pretending to make it would be a check that cannot.
 """
 
-from __future__ import annotations
-
 import re
 from pathlib import Path
 
-from ..report import fail
-from . import check
-from .controls import WITHOUT_A_CONTROL
+from agent_skill.checks import check
+from agent_skill.checks.controls import WITHOUT_A_CONTROL
+from agent_skill.report import fail
+lazy from agent_skill.checks import all_checks
 
 #: `| `name` | catches | added because |` — a table row naming a check.
-ROW = re.compile(r"^\|\s*`([a-z-]+)`\s*\|(.*)\|\s*$", re.M)
+ROW = re.compile(r"^\|\s*`([a-z-]+)`\s*\|(.*)\|\s*$", re.MULTILINE)
 
 #: A `|` that separates cells, rather than one written into a cell.
 #:
@@ -77,10 +76,12 @@ def documented_rows(text: str) -> dict[str, tuple[str, str]]:
     return found
 
 
-@check("documented", "the README's claims about the checks, against the checks", scope="all")
+@check(
+    "documented",
+    "the README's claims about the checks, against the checks",
+    scope="all",
+)
 def documented(skills):
-    from . import all_checks
-
     source = readme(skills)
     if not source.is_file():
         yield fail(f"no README at {source}", "documented")

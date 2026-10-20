@@ -13,8 +13,6 @@ Rows are only ever added. Renaming one would rename a chapter in every standard
 that has it, which is a renumbering, not an edit to this file.
 """
 
-from __future__ import annotations
-
 #: chapter stem -> rule family code
 CHAPTERS: dict[str, str] = {
     "naming": "NAME",

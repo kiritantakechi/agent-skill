@@ -13,14 +13,13 @@ the agreement between §5 and the protocol's review order. The words of the shar
 passages belong to `shared-text`.
 """
 
-from __future__ import annotations
-
 import re
 
-from .. import shared, vocabulary
-from ..profiles import exemption_problem
-from ..report import fail
-from . import check
+from agent_skill import shared, vocabulary
+from agent_skill.checks import check
+from agent_skill.profiles import exemption_problem
+from agent_skill.report import fail
+lazy from agent_skill.checks.anatomy import structural
 
 #: The reference map's columns, in order.
 MAP_HEADER = "| File | Rule IDs | Covers |"
@@ -49,7 +48,6 @@ def structure(skill):
     """Every finding standard-structure would raise, for an exempt skill's dry run."""
     yield from shape(skill)
     yield from shared.compare(skill)
-    from .anatomy import structural
 
     yield from structural(skill)
 
@@ -70,14 +68,23 @@ def _renames(skill):
     where = f"{skill.name}/references/migration.md"
     for r in skill.renames:
         if r.target == r.before:
-            yield f"{r.before} is listed as becoming itself; an unchanged ID has no row", where
+            yield (
+                f"{r.before} is listed as becoming itself; an unchanged ID has no row",
+                where,
+            )
         elif r.target:
             if r.target not in ids:
-                yield f"{r.before} is renamed to {r.target}, which no rule carries", where
+                yield (
+                    f"{r.before} is renamed to {r.target}, which no rule carries",
+                    where,
+                )
         elif lint := r.lint:
             if lint not in rows:
                 named = f"`{lint[0]}:{lint[1]}`"
-                yield f"{r.before} became the lint {named}, which no chapter lists", where
+                yield (
+                    f"{r.before} became the lint {named}, which no chapter lists",
+                    where,
+                )
         elif r.removed is not None:
             if not r.removed:
                 yield f"{r.before} was removed and the table gives no reason", where
@@ -91,12 +98,16 @@ def _renames(skill):
 
 def _unchanged(skill):
     """Every table states the ranges it covers, and an ID in range without a row is still a
-    rule: the table says that ID is unchanged."""
+    rule: the table says that ID is unchanged.
+    """
     ids = set(skill.by_id) | {rid for rid, _, _ in skill.core_rules}
     where = f"{skill.name}/references/migration.md"
     for table in skill.rename_tables:
         if not table.ranges:
-            yield f"`{table.heading}` states no ranges, so an unlisted ID reads as unchanged", where
+            yield (
+                f"`{table.heading}` states no ranges, so an unlisted ID reads as unchanged",
+                where,
+            )
         for rid in table.unchanged:
             if rid not in ids:
                 yield (
@@ -124,7 +135,10 @@ def _skill_md(skill):
     if span := shared.section(text, "6. Reference map"):
         table = [ln for ln in text.split("\n")[span[0] : span[1]] if ln.startswith("|")]
         if table and shared.normal(table[0]) != MAP_HEADER:
-            yield f"the reference map's columns are `{table[0]}`, expected `{MAP_HEADER}`", where
+            yield (
+                f"the reference map's columns are `{table[0]}`, expected `{MAP_HEADER}`",
+                where,
+            )
 
     review = skill.root / shared.REVIEW
     if review.is_file():
@@ -144,12 +158,18 @@ def _chapters(skill):
         where = f"{skill.name}/{chapter.name}"
         stem = chapter.path.stem
         if not vocabulary.allowed(stem):
-            yield f"`{chapter.name}` is not a chapter name in the shared vocabulary", where
+            yield (
+                f"`{chapter.name}` is not a chapter name in the shared vocabulary",
+                where,
+            )
             continue
         code = vocabulary.code_for(stem)
         for rule in chapter.rules:
             if rule.id.split("-")[1] != code:
-                yield f"{rule.id} lives in `{chapter.name}`, whose family is `{code}`", where
+                yield (
+                    f"{rule.id} lives in `{chapter.name}`, whose family is `{code}`",
+                    where,
+                )
     for stem in vocabulary.REQUIRED:
         if stem not in stems:
             yield f"every standard ships `references/{stem}.md`", skill.name
@@ -163,7 +183,10 @@ def _review(skill):
     where = f"{skill.name}/{shared.REVIEW}"
     h1 = next((ln for ln in _outside_fences(text) if ln.startswith("# ")), "")
     if h1 != "# Review protocol":
-        yield f"the review protocol's title is `{h1}`, expected `# Review protocol`", where
+        yield (
+            f"the review protocol's title is `{h1}`, expected `# Review protocol`",
+            where,
+        )
     if (found := tuple(shared.h2s(text))) != shared.REVIEW_SECTIONS:
         expected = list(shared.REVIEW_SECTIONS)
         yield f"the protocol's sections are {list(found)}, expected {expected}", where

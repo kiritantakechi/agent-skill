@@ -3,15 +3,14 @@
 Separate from the search: this module says what is searched, `search` says how.
 """
 
-from __future__ import annotations
-
 import bisect
 import tempfile
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .patterns import Pattern
+from agent_skill.checks.patterns import Pattern
+lazy from agent_skill.text import strip_comment, syntax_for
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,8 +48,6 @@ class Corpus:
         return len(self.units)
 
     def build(self, skill, lang: str, work: Path) -> Corpus:
-        from ..text import strip_comment, syntax_for
-
         comment, quotes = syntax_for(lang)
         suffix = {"rust": ".rs", "python": ".py", "zig": ".zig"}.get(lang, ".txt")
         self.raw_dir, self.code_dir = work / "raw", work / "code"
@@ -112,7 +109,9 @@ class Corpus:
 #: moment its control finishes. An unbounded cache holds a directory per dead
 #: tree for the life of the process.
 _KEEP = 8
-_BUILT: OrderedDict[tuple[str, str], tuple[Corpus, tempfile.TemporaryDirectory]] = OrderedDict()
+_BUILT: OrderedDict[tuple[str, str], tuple[Corpus, tempfile.TemporaryDirectory]] = (
+    OrderedDict()
+)
 
 
 def corpus_for(skill, lang: str) -> Corpus:

@@ -1,14 +1,13 @@
 """python-style: its own `[M]` rules, applied to its own examples and prose."""
 
-from __future__ import annotations
-
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from ..report import Finding, fail
-from ..text import strip_comment, syntax_for
-from . import NotDecisive, Profile, register
+from agent_skill.profiles import NotDecisive, Profile, register
+from agent_skill.report import Finding, fail
+from agent_skill.text import strip_comment, syntax_for
+lazy from agent_skill.lang.python import INTERPRETER
 
 #: PS-TYPE — PEP 563 is Superseded, and the future import does not merely fail to
 #: help on 3.14+: it silently degrades `annotationlib` `VALUE` and `FORWARDREF`
@@ -18,12 +17,14 @@ FUTURE_ANNOTATIONS = re.compile(r"^\s*from\s+__future__\s+import\s+.*\bannotatio
 #: PS-CONC — the GIL made a read-modify-write on shared state *unlikely* to
 #: interleave rather than atomic. Free-threading removes the luck, not a
 #: guarantee: eight threads lose roughly three quarters of the updates.
-AUGMENTED_ON_SHARED = re.compile(r"^\s*(?:self|cls)\.\w+\s*(?:[+\-*/|&^]|//|\*\*|>>|<<)=")
+AUGMENTED_ON_SHARED = re.compile(
+    r"^\s*(?:self|cls)\.\w+\s*(?:[+\-*/|&^]|//|\*\*|>>|<<)="
+)
 
 #: A docstring inside an example documents the API, not the standard.
 META = re.compile(
     r"\b(this example|this rule|the snippet|as shipped|the block|for the purposes of)\b",
-    re.I,
+    re.IGNORECASE,
 )
 
 
@@ -193,8 +194,6 @@ class PythonStyle(Profile):
 
     def pin(self) -> str | None:
         """The interpreter's version, from the uv key the harness installs."""
-        from ..lang.python import INTERPRETER
-
         m = re.match(r"cpython-([0-9][^+]*)", INTERPRETER)
         return m.group(1) if m else None
 
@@ -220,7 +219,9 @@ class PythonStyle(Profile):
                     )
 
                 if raw.lstrip().startswith('"""') and META.search(raw):
-                    yield fail("docstring discusses the example rather than the API", where)
+                    yield fail(
+                        "docstring discusses the example rather than the API", where
+                    )
 
     def inside_tests(self, body: str) -> set[int]:
         return _inside_tests(body)
@@ -241,7 +242,7 @@ class PythonStyle(Profile):
         condemned = re.compile(
             r"\b(stale|superseded|forbidden|deprecat|never|no longer|degrade|"
             r"wrong|dead|remove)",
-            re.I,
+            re.IGNORECASE,
         )
         for chapter in skill.chapters:
             for i, line, rid, in_check in _prose_lines(chapter.text, skill.prefix):

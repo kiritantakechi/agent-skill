@@ -4,7 +4,7 @@ Every case here is a defect that shipped: a pattern that could not fire, a
 pattern that was dropped, and a pattern read in the wrong dialect.
 """
 
-from __future__ import annotations
+import re
 
 import pytest
 
@@ -45,13 +45,18 @@ def test_a_filename_argument_is_not_a_pattern():
     the standard. `*.c` and `*.h` were missing from the list and did exactly
     that once the dialect stopped tolerating a leading `*`.
     """
-    assert [p.text for p in patterns_of("`rg -n 'pub fn' src/ -g '*.zig'`")] == ["pub fn"]
-    assert [p.text for p in patterns_of("`rg -n 'PyUnicode' -g '*.c' -g '*.h'`")] == ["PyUnicode"]
+    assert [p.text for p in patterns_of("`rg -n 'pub fn' src/ -g '*.zig'`")] == [
+        "pub fn"
+    ]
+    assert [p.text for p in patterns_of("`rg -n 'PyUnicode' -g '*.c' -g '*.h'`")] == [
+        "PyUnicode"
+    ]
 
 
 def test_a_prose_span_is_a_fixed_string():
     """Compiling `|x| f(x)` as a regex turned it into an alternation matching
-    every line, which is how the first version produced five thousand hits."""
+    every line, which is how the first version produced five thousand hits.
+    """
     patterns = patterns_of("**Check:** search for `|x| f(x)` at every call site.")
     assert [(p.text, p.mode, p.kind) for p in patterns] == [("|x| f(x)", "-F", "prose")]
 
@@ -80,9 +85,9 @@ def test_the_prose_fallback_has_something_to_fall_back_on(skills):
     in a comment is a claim nothing checks, which is what put `247` there and
     left it there after the real figure was measured at 280.
     """
-    import re
-
-    trigger = re.compile(r"\bgrep\b|\brg\b|\bscan\b|\bsearch for\b|\blook for\b", re.I)
+    trigger = re.compile(
+        r"\bgrep\b|\brg\b|\bscan\b|\bsearch for\b|\blook for\b", re.IGNORECASE
+    )
     reaching = [
         r.id
         for s in skills

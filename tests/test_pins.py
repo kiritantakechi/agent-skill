@@ -9,13 +9,12 @@ is itself the complaint"*. A value that could not be read must not be resolved i
 to compare as agreement.
 """
 
-from __future__ import annotations
-
 import pytest
 
-from agent_skill.checks.pins import _sort_key, _tool_pins
+from agent_skill.checks import pins as mod
+from agent_skill.checks.pins import _sort_key, _tool_pins, library_pin, rust_pin
 from agent_skill.proc import Ran
-from agent_skill.report import Level
+from agent_skill.report import Level, fail, unrun
 
 
 def _greater(a, b):
@@ -71,8 +70,6 @@ def canned(index_answer: str, pinned: str):
 
 
 def test_an_index_answer_it_cannot_order_withholds_the_pass(monkeypatch):
-    from agent_skill.checks import pins as mod
-
     pinned = mod.pinned_version("ruff")
     assert pinned, "the source tree declares the ruff pin"
     monkeypatch.setattr(mod, "TOOLS", ("ruff",))
@@ -88,13 +85,13 @@ def test_an_index_answer_it_cannot_order_withholds_the_pass(monkeypatch):
 
 def test_an_index_answer_it_can_order_still_decides(monkeypatch):
     """The other half: the check still fires when it genuinely can compare."""
-    from agent_skill.checks import pins as mod
-
     pinned = mod.pinned_version("ruff")
     assert pinned, "the source tree declares the ruff pin"
     major, minor, micro = (int(n) for n in pinned.split("."))
     monkeypatch.setattr(mod, "TOOLS", ("ruff",))
-    monkeypatch.setattr(mod, "run", canned(f"ruff=={major}.{minor}.{micro + 1}\n", pinned))
+    monkeypatch.setattr(
+        mod, "run", canned(f"ruff=={major}.{minor}.{micro + 1}\n", pinned)
+    )
 
     findings = list(_tool_pins())
 
@@ -103,58 +100,36 @@ def test_an_index_answer_it_can_order_still_decides(monkeypatch):
 
 
 def test_a_rust_pin_matching_rustc_and_stable_is_quiet():
-    from agent_skill.checks.pins import rust_pin
-
     assert list(rust_pin("1.99", "1.99.0", "1.99.1")) == []
 
 
 def test_a_rust_pin_behind_stable_fails():
-    from agent_skill.checks.pins import rust_pin
-    from agent_skill.report import fail
-
     found = list(rust_pin("1.98", "1.98.1", "1.99.1"))
     assert [level for level, _ in found] == [fail]
     assert "1.99.1 is stable" in found[0][1]
 
 
 def test_a_rust_pin_rustc_disagrees_with_fails():
-    from agent_skill.checks.pins import rust_pin
-    from agent_skill.report import fail
-
     assert [level for level, _ in rust_pin("1.98", "1.99.0", "1.98.1")] == [fail]
 
 
 def test_a_rust_pin_nothing_answered_for_is_unrun():
-    from agent_skill.checks.pins import rust_pin
-    from agent_skill.report import unrun
-
     assert [level for level, _ in rust_pin("1.99", None, None)] == [unrun, unrun]
 
 
 def test_a_library_pin_must_be_exact():
-    from agent_skill.checks.pins import library_pin
-    from agent_skill.report import fail
-
     assert [level for level, _ in library_pin("bevy", "0.20", "0.20.0")] == [fail]
 
 
 def test_a_library_pin_behind_the_newest_release_fails():
-    from agent_skill.checks.pins import library_pin
-    from agent_skill.report import fail
-
     found = list(library_pin("bevy", "=0.19.1", "0.20.0"))
     assert [level for level, _ in found] == [fail]
     assert "0.20.0 is released" in found[0][1]
 
 
 def test_a_current_library_pin_is_quiet():
-    from agent_skill.checks.pins import library_pin
-
     assert list(library_pin("bevy", "=0.20.0", "0.20.0")) == []
 
 
 def test_a_library_pin_crates_io_did_not_answer_for_is_unrun():
-    from agent_skill.checks.pins import library_pin
-    from agent_skill.report import unrun
-
     assert [level for level, _ in library_pin("bevy", "=0.20.0", None)] == [unrun]

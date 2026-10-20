@@ -11,18 +11,17 @@ enabled set is most of ruff's catalogue and the standard cites a fraction of it;
 "enabled but uncited" is the normal case rather than a defect.
 """
 
-from __future__ import annotations
-
 import json
 import re
 import tomllib
 from functools import cache
 from pathlib import Path
 
-from ..lang.python import PYTHON_STYLE
-from ..proc import have, run
-from ..report import fail, unrun
-from . import check
+from agent_skill.checks import check
+from agent_skill.lang.python import PYTHON_STYLE
+from agent_skill.proc import have, run
+from agent_skill.report import fail, unrun
+lazy from agent_skill.checks.lints import table
 
 #: `PS-CONC-02` and `3.15` are not ruff codes; `ANN401` and `B008` are.
 #: `ASYNC251` is five letters, and a cap of four hid every citation of that
@@ -31,9 +30,71 @@ CODE = re.compile(r"(?<![A-Za-z0-9-])([A-Z]{1,5}[0-9]{3,4})(?![0-9])")
 
 #: Prefixes that are ruff linters. Anything else matching the shape is prose.
 LINTERS = frozenset(
-    "A AIR ANN ARG ASYNC B BLE C4 C90 COM CPY D DJ DOC DTZ E EM ERA EXE F FA FAST FBT FIX FLY "
-    "FURB G I ICN INP INT ISC LOG N NPY PD PERF PGH PIE PLC PLE PLR PLW PT PTH PYI Q RET RSE RUF "
-    "S SIM SLF SLOT T10 T20 TC TD TID TRY UP W YTT".split()
+    [
+        "A",
+        "AIR",
+        "ANN",
+        "ARG",
+        "ASYNC",
+        "B",
+        "BLE",
+        "C4",
+        "C90",
+        "COM",
+        "CPY",
+        "D",
+        "DJ",
+        "DOC",
+        "DTZ",
+        "E",
+        "EM",
+        "ERA",
+        "EXE",
+        "F",
+        "FA",
+        "FAST",
+        "FBT",
+        "FIX",
+        "FLY",
+        "FURB",
+        "G",
+        "I",
+        "ICN",
+        "INP",
+        "INT",
+        "ISC",
+        "LOG",
+        "N",
+        "NPY",
+        "PD",
+        "PERF",
+        "PGH",
+        "PIE",
+        "PLC",
+        "PLE",
+        "PLR",
+        "PLW",
+        "PT",
+        "PTH",
+        "PYI",
+        "Q",
+        "RET",
+        "RSE",
+        "RUF",
+        "S",
+        "SIM",
+        "SLF",
+        "SLOT",
+        "T10",
+        "T20",
+        "TC",
+        "TD",
+        "TID",
+        "TRY",
+        "UP",
+        "W",
+        "YTT",
+    ]
 )
 
 
@@ -48,7 +109,15 @@ def _codes_in(text: str) -> set[str]:
 def _enabled(config: Path) -> tuple[set[str], str]:
     """Every code the asset turns on, as ruff itself resolves them."""
     r = run(
-        ["ruff", "check", "--no-cache", "--config", str(config), "--show-settings", "."],
+        [
+            "ruff",
+            "check",
+            "--no-cache",
+            "--config",
+            str(config),
+            "--show-settings",
+            ".",
+        ],
         cwd=config.parent,
         timeout=120,
     )
@@ -89,7 +158,11 @@ def _withdrawn() -> set[str]:
     r = run(["ruff", "rule", "--all", "--output-format", "json"], timeout=120)
     if not r.ok:
         return set()
-    return {rule["code"] for rule in json.loads(r.out) if "Removed" in str(rule.get("status", ""))}
+    return {
+        rule["code"]
+        for rule in json.loads(r.out)
+        if "Removed" in str(rule.get("status", ""))
+    }
 
 
 #: The levels a `Decided by tools` row may state, per tool: the ones at which the
@@ -106,13 +179,17 @@ LEVELS: dict[str, frozenset[str]] = {
 
 def row_shape(rows, tools: tuple[str, ...]):
     """(row, message) for rows naming a tool the standard does not require, or a level
-    at which the tool would let the run pass."""
+    at which the tool would let the run pass.
+    """
     for row in rows:
         if row.tool not in tools or row.tool not in LEVELS:
             yield row, f"`{row.tool}` is not a tool this standard requires"
         elif row.level not in LEVELS[row.tool]:
             levels = " / ".join(sorted(LEVELS[row.tool]))
-            yield row, f"`{row.lint}` at `{row.level}` fails no run; a row is one of {levels}"
+            yield (
+                row,
+                f"`{row.lint}` at `{row.level}` fails no run; a row is one of {levels}",
+            )
 
 
 def python_rows(rows, enabled: set[str], ty_levels: dict[str, str]):
@@ -123,20 +200,28 @@ def python_rows(rows, enabled: set[str], ty_levels: dict[str, str]):
     """
     for row in rows:
         if row.tool == "ruff" and row.lint not in enabled:
-            yield row, f"`{row.lint}` is a row, and `assets/ruff.toml` does not enable it"
+            yield (
+                row,
+                f"`{row.lint}` is a row, and `assets/ruff.toml` does not enable it",
+            )
         elif row.tool == "ty":
             level = ty_levels.get(row.lint)
             if level is None:
                 yield row, f"`{row.lint}` is not a rule the pinned ty recognises"
             elif level != row.level:
-                yield row, f"`{row.lint}` is `{row.level}` in the row and `{level}` as shipped"
+                yield (
+                    row,
+                    f"`{row.lint}` is `{row.level}` in the row and `{level}` as shipped",
+                )
 
 
 #: The `[lints]` table each Rust row's tool is configured under.
 SECTION = {"rustc": "rust", "clippy": "clippy", "rustdoc": "rustdoc"}
 
 
-def rust_rows(rows, shipped: dict[str, str], catalogue: dict[str, tuple[str, set[str]]]):
+def rust_rows(
+    rows, shipped: dict[str, str], catalogue: dict[str, tuple[str, set[str]]]
+):
     """(row, message) for Rust rows the shipped `[workspace.lints]` does not enforce as stated.
 
     `shipped` is the asset's table as `lints.table` reads it (`clippy.unwrap_used` ->
@@ -151,7 +236,10 @@ def rust_rows(rows, shipped: dict[str, str], catalogue: dict[str, tuple[str, set
             continue
         key = f"{section}.{row.lint}"
         if key not in catalogue:
-            yield row, f"`{row.lint}` is not a {row.tool} lint the pinned toolchain knows"
+            yield (
+                row,
+                f"`{row.lint}` is not a {row.tool} lint the pinned toolchain knows",
+            )
             continue
         default, groups = catalogue[key]
         level = _level(shipped.get(key)) or next(
@@ -163,7 +251,10 @@ def rust_rows(rows, shipped: dict[str, str], catalogue: dict[str, tuple[str, set
             default,
         )
         if level != row.level:
-            yield row, f"`{row.lint}` is `{row.level}` in the row and `{level}` as shipped"
+            yield (
+                row,
+                f"`{row.lint}` is `{row.level}` in the row and `{level}` as shipped",
+            )
 
 
 def _level(value: str | None) -> str | None:
@@ -195,7 +286,9 @@ def rust_catalogue() -> dict[str, tuple[str, set[str]]] | None:
             elif m := re.match(r"^\s+(\S+)\s+(\S.*)$", line):
                 group, names = _key(m.group(1)), m.group(2)
                 for name in names.split(", "):
-                    members.setdefault(_key(name.strip()), set()).add(group.split(".", 1)[1])
+                    members.setdefault(_key(name.strip()), set()).add(
+                        group.split(".", 1)[1]
+                    )
     for key, groups in members.items():
         if key in out:
             out[key] = (out[key][0], out[key][1] | groups)
@@ -225,7 +318,9 @@ def citations(skill):
     if not ruff_toml.exists() or not ty_toml.exists():
         return
     if not have("ruff"):
-        yield unrun("`ruff` is not on PATH, so nothing compared the citations", skill.name)
+        yield unrun(
+            "`ruff` is not on PATH, so nothing compared the citations", skill.name
+        )
         return
 
     # A rule's own body is where it cites its checks; the `**Check:**` section is
@@ -239,7 +334,9 @@ def citations(skill):
     else:
         ty_levels = _ty_levels(ty_toml)
         if ty_levels is None:
-            yield unrun("`ty` did not list its rules, so no ty row was compared", skill.name)
+            yield unrun(
+                "`ty` did not list its rules, so no ty row was compared", skill.name
+            )
             ty_levels = {}
         for row, message in python_rows(skill.lint_rows, enabled, ty_levels):
             yield fail(message, f"{skill.name}/{row.where}")
@@ -265,9 +362,15 @@ def citations(skill):
     shipped = tomllib.loads(ty_toml.read_text()).get("rules", {})
     declared = PYTHON_STYLE.ty_rules
     for name in sorted(set(shipped) - set(declared)):
-        yield fail(f"assets/ty.toml enables `{name}` that the harness does not verify", skill.name)
+        yield fail(
+            f"assets/ty.toml enables `{name}` that the harness does not verify",
+            skill.name,
+        )
     for name in sorted(set(declared) - set(shipped)):
-        yield fail(f"the harness verifies `{name}` that assets/ty.toml does not ship", skill.name)
+        yield fail(
+            f"the harness verifies `{name}` that assets/ty.toml does not ship",
+            skill.name,
+        )
     for name in sorted(set(shipped) & set(declared)):
         if shipped[name] != declared[name]:
             yield fail(
@@ -292,20 +395,24 @@ def _rust(skill):
     # early without it reports clean while it could not have looked.
     for tool in ("clippy-driver", "rustdoc"):
         if not have(tool):
-            yield unrun(f"`{tool}` is not available, so no Rust lint row was compared", skill.name)
+            yield unrun(
+                f"`{tool}` is not available, so no Rust lint row was compared",
+                skill.name,
+            )
             return
     rows = [row for row in skill.lint_rows if row.tool in SECTION]
     manifest = skill.root / "assets" / "Cargo.toml"
     if not rows:
         return
     if not manifest.exists():
-        yield fail("Rust lint rows, and no `assets/Cargo.toml` to enforce them", skill.name)
+        yield fail(
+            "Rust lint rows, and no `assets/Cargo.toml` to enforce them", skill.name
+        )
         return
     catalogue = rust_catalogue()
     if catalogue is None:
         yield unrun("`clippy-driver` or `rustdoc` did not list its lints", skill.name)
         return
-    from .lints import table
 
     shipped = table(manifest.read_text(), "workspace.")
     for row, message in rust_rows(rows, shipped, catalogue):

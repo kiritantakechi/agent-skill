@@ -1,13 +1,18 @@
 """The block Claude Code reads before anything else."""
 
-from __future__ import annotations
-
 import re
 
-from ..report import fail
-from . import check
+from agent_skill.checks import check
+from agent_skill.report import fail
 
-ALLOWED = {"name", "description", "license", "allowed-tools", "metadata", "compatibility"}
+ALLOWED = {
+    "name",
+    "description",
+    "license",
+    "allowed-tools",
+    "metadata",
+    "compatibility",
+}
 MAX_DESCRIPTION = 1024
 
 
@@ -19,26 +24,30 @@ def frontmatter(skill):
     crashed the checker instead of being reported by it.
     """
     text = skill.text
-    m = re.match(r"^---\n(.*?)\n---", text, re.S)
+    m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
     if not m:
         yield fail("SKILL.md has no frontmatter block", skill.name)
         return
     body = m.group(1)
-    keys = set(re.findall(r"^([a-z-]+):", body, re.M))
+    keys = set(re.findall(r"^([a-z-]+):", body, re.MULTILINE))
     if extra := keys - ALLOWED:
         yield fail(f"non-spec frontmatter keys {sorted(extra)}", skill.name)
     for required in ("name", "description"):
         if required not in keys:
             yield fail(f"frontmatter has no `{required}`", skill.name)
 
-    name = re.search(r"^name:\s*(\S+)", body, re.M)
+    name = re.search(r"^name:\s*(\S+)", body, re.MULTILINE)
     if name and name.group(1) != skill.name:
         yield fail(f"frontmatter name {name.group(1)!r} != directory", skill.name)
 
     desc_block = re.search(r"description: >-\n((?:  .*\n)+)", body)
     if "description" in keys and not desc_block:
         yield fail("description is not a `>-` folded block", skill.name)
-    desc = " ".join(ln.strip() for ln in desc_block.group(1).splitlines()) if desc_block else ""
+    desc = (
+        " ".join(ln.strip() for ln in desc_block.group(1).splitlines())
+        if desc_block
+        else ""
+    )
     if len(desc) > MAX_DESCRIPTION:
         yield fail(f"description {len(desc)} > {MAX_DESCRIPTION}", skill.name)
     if "<" in desc or ">" in desc:
@@ -47,4 +56,6 @@ def frontmatter(skill):
     stated = re.search(r"(\d+)-rule \w+", desc)
     actual = len(skill.rules) + len(skill.core_rules)
     if stated and int(stated.group(1)) != actual:
-        yield fail(f"description says {stated.group(1)} rules, actual {actual}", skill.name)
+        yield fail(
+            f"description says {stated.group(1)} rules, actual {actual}", skill.name
+        )

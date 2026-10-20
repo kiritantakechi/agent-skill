@@ -7,8 +7,6 @@ And the surviving call site read `find`'s `None` as an empty hit set, which is t
 `UNRUN` level exists to make impossible everywhere else.
 """
 
-from __future__ import annotations
-
 import ast
 import re
 from pathlib import Path
@@ -16,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from agent_skill.checks import crossref
+from agent_skill.checks.patterns import patterns_of
 from agent_skill.report import Level
 
 SOURCE = Path(crossref.__file__)
@@ -37,7 +36,9 @@ def test_the_sweep_is_reachable():
     """
     tree = ast.parse(SOURCE.read_text())
     fn = next(
-        n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "_anchor_patterns"
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.FunctionDef) and n.name == "_anchor_patterns"
     )
     assert isinstance(fn.body[-1], ast.For), (
         "the anchor loop is not the last statement of the function, which is what it looks like "
@@ -50,15 +51,15 @@ def test_the_sweep_is_reachable():
         and any(isinstance(s, ast.Return) for s in node.body)
         and any(isinstance(s, (ast.For, ast.While)) for s in node.body)
     ]
-    assert not swallowed, "a loop sits after a `return` in the same block, so it cannot execute"
+    assert not swallowed, (
+        "a loop sits after a `return` in the same block, so it cannot execute"
+    )
 
 
 def test_a_search_that_cannot_answer_is_not_an_accounted_for_delta(bevy, monkeypatch):
     """`None` and `[]` are both falsy; this caller used to collapse them."""
     delta, by_prefix, rows = bevy
-    monkeypatch.setattr(
-        "agent_skill.checks.search.find", lambda corpus, pattern: (None, pattern.mode)
-    )
+    monkeypatch.setattr(crossref, "find", lambda corpus, pattern: (None, pattern.mode))
 
     findings = list(crossref._anchor_patterns(delta, by_prefix, rows))
 
@@ -70,9 +71,7 @@ def test_a_search_that_cannot_answer_is_not_an_accounted_for_delta(bevy, monkeyp
 def test_a_search_that_answers_nothing_is_a_clean_result(bevy, monkeypatch):
     """The other half: an empty answer is an answer, and must stay silent."""
     delta, by_prefix, rows = bevy
-    monkeypatch.setattr(
-        "agent_skill.checks.search.find", lambda corpus, pattern: ([], pattern.mode)
-    )
+    monkeypatch.setattr(crossref, "find", lambda corpus, pattern: ([], pattern.mode))
 
     assert list(crossref._anchor_patterns(delta, by_prefix, rows)) == []
 
@@ -85,10 +84,13 @@ def test_the_sweep_has_something_to_sweep(bevy):
     would still pass over nothing at all.
     """
     delta, by_prefix, rows = bevy
-    from agent_skill.checks.patterns import patterns_of
 
     named = set(re.findall(r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b", delta.text))
-    anchors = {p for p in by_prefix if p != delta.prefix and any(m.group(1)[:2] == p for m in rows)}
+    anchors = {
+        p
+        for p in by_prefix
+        if p != delta.prefix and any(m.group(1)[:2] == p for m in rows)
+    }
     assert anchors, "the delta cites no anchor, so the sweep has no standard to run"
 
     runnable = [
@@ -99,4 +101,6 @@ def test_the_sweep_has_something_to_sweep(bevy):
         and rule.id not in named
         and any(p.kind == "command" for p in patterns_of(rule.check))
     ]
-    assert runnable, "no anchor rule reaches the sweep — it would pass over an empty set"
+    assert runnable, (
+        "no anchor rule reaches the sweep — it would pass over an empty set"
+    )

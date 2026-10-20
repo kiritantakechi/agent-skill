@@ -1,16 +1,14 @@
 """rust-style: its own `[M]` rules, applied to its own examples."""
 
-from __future__ import annotations
-
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from ..lang.rust import RUST_STYLE, Crate
-from ..model import repr_c_above
-from ..report import Finding, fail, note
-from ..text import strip_comment
-from . import NotDecisive, Profile, register
+from agent_skill.lang.rust import RUST_STYLE, Crate
+from agent_skill.model import repr_c_above
+from agent_skill.profiles import NotDecisive, Profile, register
+from agent_skill.report import Finding, fail, note
+from agent_skill.text import strip_comment
 
 #: RS-NAME-24 — a `bool`-returning method reads as a question.
 QUESTION = re.compile(
@@ -23,7 +21,7 @@ QUESTION = re.compile(
 META = re.compile(
     r"\b(this example|this rule|the wrapper|as shipped|the block|"
     r"what makes .* testable|for the purposes of)\b",
-    re.I,
+    re.IGNORECASE,
 )
 
 
@@ -227,9 +225,13 @@ class RustStyle(Profile):
                 code = strip_comment(raw)
 
                 # RS-API-29 — a public signature never takes a bare `bool`
-                m = re.search(r"\bpub (?:async )?fn (\w+)\s*(?:<[^>]*>)?\(([^)]*)\)", code)
+                m = re.search(
+                    r"\bpub (?:async )?fn (\w+)\s*(?:<[^>]*>)?\(([^)]*)\)", code
+                )
                 if m and re.search(r":\s*bool\b", m.group(2)) and b.rule != "RS-API-29":
-                    yield fail(f"`{m.group(1)}` takes a bool parameter (RS-API-29)", where)
+                    yield fail(
+                        f"`{m.group(1)}` takes a bool parameter (RS-API-29)", where
+                    )
 
                 # RS-NAME-24 — a `bool`-returning method reads as a question
                 m = re.search(r"\bpub (?:async )?fn (\w+)\([^)]*\)\s*->\s*bool\b", code)
@@ -241,21 +243,35 @@ class RustStyle(Profile):
 
                 # RS-API-23 / RS-API-25 — no public field, no public tuple field
                 if re.match(r"^\s+pub [a-z_]\w*:", raw) and not repr_c_above(lines, j):
-                    yield fail("public struct field outside `#[repr(C)]` (RS-API-23)", where)
+                    yield fail(
+                        "public struct field outside `#[repr(C)]` (RS-API-23)", where
+                    )
                 if re.search(r"struct \w+\(\s*pub ", code):
                     yield fail("public tuple field (RS-API-25)", where)
 
                 # house convention — a by-value setter is `with_*`
-                m = re.search(r"\bpub fn (\w+)\((mut )?self(?:,\s*([^)]*))?\)\s*->\s*Self\b", code)
+                m = re.search(
+                    r"\bpub fn (\w+)\((mut )?self(?:,\s*([^)]*))?\)\s*->\s*Self\b", code
+                )
                 if m:
                     fn, param = m.group(1), (m.group(3) or "")
-                    assigns = any(re.search(r"self\.\w+\s*=[^=]", ln) for ln in lines[j : j + 8])
+                    assigns = any(
+                        re.search(r"self\.\w+\s*=[^=]", ln) for ln in lines[j : j + 8]
+                    )
                     takes_self = re.search(r":\s*(&\s*)?Self\b", param)
-                    if assigns and not takes_self and not fn.startswith(("with_", "from_")):
-                        yield fail(f"by-value setter `{fn}` is not spelled `with_*`", where)
+                    if (
+                        assigns
+                        and not takes_self
+                        and not fn.startswith(("with_", "from_"))
+                    ):
+                        yield fail(
+                            f"by-value setter `{fn}` is not spelled `with_*`", where
+                        )
 
                 if raw.lstrip().startswith("///") and META.search(raw):
-                    yield fail("doc comment discusses the example rather than the API", where)
+                    yield fail(
+                        "doc comment discusses the example rather than the API", where
+                    )
 
             # a derived `Default` nobody can reach is dead weight
             for m in re.finditer(
@@ -270,7 +286,10 @@ class RustStyle(Profile):
                     or "..Default::default()" in b.body
                     or f"<{name}>" in b.body
                 ):
-                    yield note(f"`{name}` derives Default that nothing in the block uses", b.where)
+                    yield note(
+                        f"`{name}` derives Default that nothing in the block uses",
+                        b.where,
+                    )
 
 
 register(RustStyle())

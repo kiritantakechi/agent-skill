@@ -11,17 +11,15 @@ type checker analyses every declaration whether or not it executes. Execution
 covers what runs; `ty` covers what does not. Neither alone is enough.
 """
 
-from __future__ import annotations
-
 import re
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..proc import have, run
-from ..report import Finding, fail, note
-from . import Extraction, Unit
+from agent_skill.lang import Extraction, Unit
+from agent_skill.proc import have, run
+from agent_skill.report import Finding, fail, note
 
 #: The interpreter the examples are written for, resolved through `uv` rather
 #: than through PATH. PATH here is a GIL build, and verifying free-threading
@@ -131,7 +129,9 @@ def _reaches_outside(source: str) -> bool:
     marks it `# fragment`. Checked rather than trusted, because "it worked on my
     machine" is exactly the claim `# verified` is supposed to replace.
     """
-    return bool(re.search(r"\b(urlopen|requests\.|socket\.|time\.sleep|input\()", source))
+    return bool(
+        re.search(r"\b(urlopen|requests\.|socket\.|time\.sleep|input\()", source)
+    )
 
 
 def _pinned() -> str:
@@ -151,15 +151,15 @@ class Python:
 
     def missing(self) -> list[str]:
         absent: list[str] = []
-        rebuild = (
-            f"`uv venv --python {INTERPRETER} {VENV}` then `uv pip install --python {VENV} pytest`"
-        )
+        rebuild = f"`uv venv --python {INTERPRETER} {VENV}` then `uv pip install --python {VENV} pytest`"
         if not PYTHON.exists():
             absent.append(f"the pinned interpreter is not built — {rebuild}")
         elif (running := _running()) != (pinned := _pinned()):
             # The venv outlives a pin move. Without this, moving the pin left the
             # examples verified on the old build while the harness reported the new.
-            absent.append(f"the venv runs Python {running} and the pin is {pinned} — {rebuild}")
+            absent.append(
+                f"the venv runs Python {running} and the pin is {pinned} — {rebuild}"
+            )
         for tool in ("ty", "ruff"):
             if not have(tool):
                 absent.append(f"`{tool}` is not on PATH")
@@ -199,7 +199,15 @@ class Python:
                 )
                 continue
             cmd = (
-                [str(PYTHON), "-m", "pytest", "-q", "-p", "no:cacheprovider", unit.path.name]
+                [
+                    str(PYTHON),
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "-p",
+                    "no:cacheprovider",
+                    unit.path.name,
+                ]
                 if _has_tests(source)
                 else [str(PYTHON), unit.path.name]
             )
@@ -211,25 +219,38 @@ class Python:
             elif not r.ok:
                 detail = (r.err or r.out).strip().split("\n")
                 last = next(
-                    (ln for ln in reversed(detail) if ln.strip() and not ln.startswith(" ")),
+                    (
+                        ln
+                        for ln in reversed(detail)
+                        if ln.strip() and not ln.startswith(" ")
+                    ),
                     detail[-1] if detail else "",
                 )
                 yield fail(last.strip()[:120], unit.where)
 
-    def _analyse(self, ex: Extraction, prefix: list[str], label: str) -> Iterable[Finding]:
+    def _analyse(
+        self, ex: Extraction, prefix: list[str], label: str
+    ) -> Iterable[Finding]:
         """Type-check every declaration, including the ones nothing executes."""
         config = ex.root / "ty.toml"
         config.write_text(PYTHON_STYLE.ty_config())
-        r = run([*prefix, str(config), "--python", str(VENV), str(ex.root)], timeout=300)
+        r = run(
+            [*prefix, str(config), "--python", str(VENV), str(ex.root)], timeout=300
+        )
         if r.timed_out:
-            yield fail(f"{label} did not finish in 300s", ex.units[0].where if ex.units else label)
+            yield fail(
+                f"{label} did not finish in 300s",
+                ex.units[0].where if ex.units else label,
+            )
             return
         yield from self._report(ex, r, label)
 
     def _lint(self, ex: Extraction) -> Iterable[Finding]:
         r = run(["ruff", "check", *PYTHON_STYLE.ruff_args(), str(ex.root)], timeout=300)
         if r.timed_out:
-            yield fail("ruff did not finish in 300s", ex.units[0].where if ex.units else "ruff")
+            yield fail(
+                "ruff did not finish in 300s", ex.units[0].where if ex.units else "ruff"
+            )
             return
         yield from self._report(ex, r, "ruff")
 
@@ -277,7 +298,15 @@ class Python:
             if not _has_tests(original):
                 continue
             base = run(
-                [str(PYTHON), "-m", "pytest", "-q", "-p", "no:cacheprovider", unit.path.name],
+                [
+                    str(PYTHON),
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "-p",
+                    "no:cacheprovider",
+                    unit.path.name,
+                ],
                 cwd=ex.root,
                 timeout=120,
             )

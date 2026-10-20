@@ -1,19 +1,52 @@
 """Rule anatomy: what a rule is made of, and that the map still matches it."""
 
-from __future__ import annotations
-
 import itertools
 import re
 from collections import Counter, defaultdict
 
-from ..model import without_renames
-from ..report import fail, note
-from . import check
+from agent_skill.checks import check
+from agent_skill.model import without_renames
+from agent_skill.report import fail, note
 
 #: Words that carry no signal when comparing two rationales.
 STOP = frozenset(
-    "the a an and or of to in is it for that this be are as with on not you your which "
-    "what when its than then so but if by at from can cannot".split()
+    [
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "of",
+        "to",
+        "in",
+        "is",
+        "it",
+        "for",
+        "that",
+        "this",
+        "be",
+        "are",
+        "as",
+        "with",
+        "on",
+        "not",
+        "you",
+        "your",
+        "which",
+        "what",
+        "when",
+        "its",
+        "than",
+        "then",
+        "so",
+        "but",
+        "if",
+        "by",
+        "at",
+        "from",
+        "can",
+        "cannot",
+    ]
 )
 
 
@@ -33,7 +66,9 @@ def anatomy(skill):
     blocks: dict[tuple[str, str], str] = {}
 
     for chapter in skill.chapters:
-        if re.search(rf"^\*\*{skill.prefix}-[A-Z]+-\d+\*\*", chapter.text, re.M):
+        if re.search(
+            rf"^\*\*{skill.prefix}-[A-Z]+-\d+\*\*", chapter.text, re.MULTILINE
+        ):
             yield fail("bold-inline rule definitions", f"{skill.name}/{chapter.name}")
         for rule in chapter.rules:
             where = f"{skill.name}/{chapter.name}"
@@ -72,10 +107,16 @@ def anatomy(skill):
     # this and more, so the order is judged there and not twice.
     conforming = skill.profile.exempt_from_structure is None
     for chapter in [] if conforming else skill.chapters:
-        nums = [int(re.search(r"(\d+)", r.id.rsplit("-", 1)[1]).group(1)) for r in chapter.rules]
+        nums = [
+            int(re.search(r"(\d+)", r.id.rsplit("-", 1)[1]).group(1))
+            for r in chapter.rules
+        ]
         for a, b in itertools.pairwise(nums):
             if b < a:
-                yield fail(f"rule ids run backwards: {a} then {b}", f"{skill.name}/{chapter.name}")
+                yield fail(
+                    f"rule ids run backwards: {a} then {b}",
+                    f"{skill.name}/{chapter.name}",
+                )
     if conforming:
         for message, where in structural(skill):
             yield fail(message, where)
@@ -83,7 +124,9 @@ def anatomy(skill):
     # The contents list is ordered like the chapter, or it is not a map of it.
     for chapter in skill.chapters:
         if list(chapter.toc) and list(chapter.toc) != [r.id for r in chapter.rules]:
-            yield fail("contents order != heading order", f"{skill.name}/{chapter.name}")
+            yield fail(
+                "contents order != heading order", f"{skill.name}/{chapter.name}"
+            )
 
     # A title is an anchor, so it has to be unique: `titles[title] = rid`
     # silently kept whichever chapter sorted last.
@@ -117,7 +160,9 @@ def _shape(skill, rule, where):
         which = "Why" if not has[0] else "Check"
         yield fail(f"{rule.id} states no {which} and does not point at an owner", where)
     if rule.pointer and "(see " not in rule.title:
-        yield fail(f"{rule.id} points at an owner without saying so in its title", where)
+        yield fail(
+            f"{rule.id} points at an owner without saying so in its title", where
+        )
     # The owner demonstrates the rule. A pointer that also carries an example is
     # a second copy to keep in step.
     if rule.pointer and "```" in rule.body:
@@ -129,7 +174,9 @@ _ID = re.compile(r"`references/[^`]+`|\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b")
 
 
 def _words(text: str) -> set[str]:
-    return {w for w in re.findall(r"[a-z_]+", text.lower()) if w not in STOP and len(w) > 2}
+    return {
+        w for w in re.findall(r"[a-z_]+", text.lower()) if w not in STOP and len(w) > 2
+    }
 
 
 def _mis_cited(skill):
@@ -157,7 +204,9 @@ def _mis_cited(skill):
     for rid, _tier, body in skill.core_rules:
         flat = " ".join(body.split())
         cites = cite.findall(flat)
-        named = {t for _, ids in cites for t in re.findall(rf"{pre}-[A-Z]+-\d+[a-z]?", ids)}
+        named = {
+            t for _, ids in cites for t in re.findall(rf"{pre}-[A-Z]+-\d+[a-z]?", ids)
+        }
         summary = _words(_ID.sub("", flat))
         for fname, ids in cites:
             for target in re.findall(rf"{pre}-[A-Z]+-\d+[a-z]?", ids):
@@ -168,7 +217,9 @@ def _mis_cited(skill):
                 for other in by_file.get(fname, []):
                     if other.id in named:
                         continue
-                    theirs = overlap(summary, _words(f"{other.title} {other.statement}"))
+                    theirs = overlap(
+                        summary, _words(f"{other.title} {other.statement}")
+                    )
                     if theirs > mine * 2 and theirs - mine > 0.15:
                         yield note(
                             f"{rid} cites {target} ({rule.title!r}) but {other.id} "
@@ -193,9 +244,15 @@ def _pointers(skill, seen):
         elif owner_file == rule.file and cited:
             yield fail(f"{rule.id} cites a chapter for {rule.owner}, its own", where)
         elif owner_file != rule.file and not cited:
-            yield fail(f"{rule.id} points at {rule.owner} in {owner_file} without citing it", where)
+            yield fail(
+                f"{rule.id} points at {rule.owner} in {owner_file} without citing it",
+                where,
+            )
         elif cited and cited != owner_file:
-            yield fail(f"{rule.id} cites {cited} for {rule.owner}, which is in {owner_file}", where)
+            yield fail(
+                f"{rule.id} cites {cited} for {rule.owner}, which is in {owner_file}",
+                where,
+            )
 
 
 def _references(skill, seen):
@@ -216,7 +273,8 @@ def _references(skill, seen):
                 yield fail(f"missing file {ref}", f"{skill.name}/{path.name}")
         for i, line in enumerate(text.split("\n"), 1):
             for m in re.finditer(
-                rf"`references/([a-z0-9-]+\.md)`[^`\n]{{0,40}}?({pre}-[A-Z]+-\d+[a-z]?)", line
+                rf"`references/([a-z0-9-]+\.md)`[^`\n]{{0,40}}?({pre}-[A-Z]+-\d+[a-z]?)",
+                line,
             ):
                 actual = home.get(m.group(2))
                 if actual and actual != m.group(1):
@@ -253,7 +311,9 @@ def _counts(skill):
     total = len(skill.rules)
     per = [int(n) for n in re.findall(rf"`{pre}-[A-Z]+` \((\d+)\)", skill.text)]
     if sum(per) != total:
-        yield fail(f"reference-map counts sum to {sum(per)}, actual {total}", skill.name)
+        yield fail(
+            f"reference-map counts sum to {sum(per)}, actual {total}", skill.name
+        )
 
     stated = dict(re.findall(rf"`{pre}-([A-Z]+)` \((\d+)\)", skill.text))
     actual = Counter(r.id.split("-")[1] for r in skill.rules)
@@ -298,7 +358,10 @@ def structural(skill):
             numbers[family].append(number)
             lines = [ln for ln in rule.why.strip().split("\n") if ln.strip()]
             if len(lines) > WHY_LINES:
-                yield f"{rule.id}'s Why runs {len(lines)} lines; the limit is {WHY_LINES}", where
+                yield (
+                    f"{rule.id}'s Why runs {len(lines)} lines; the limit is {WHY_LINES}",
+                    where,
+                )
         for family, seen in numbers.items():
             for i, number in enumerate(seen, 1):
                 if number != f"{i:02d}":

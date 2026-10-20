@@ -5,17 +5,15 @@ skill a reader copies verbatim rather than adapts, so a `build.zig` that does no
 parse is worse than a wrong example: it is handed over as ready to use.
 """
 
-from __future__ import annotations
-
 import re
 import tempfile
 import tomllib
 import zipfile
 from pathlib import Path
 
-from ..proc import have, run
-from ..report import fail, unrun
-from . import check
+from agent_skill.checks import check
+from agent_skill.proc import have, run
+from agent_skill.report import fail, unrun
 
 #: A workflow is not YAML we can parse without a dependency, so check the shape a
 #: broken one loses first: the top-level keys and the absence of tabs.
@@ -62,7 +60,9 @@ def assets(skill):
         # An asset cites rules to say why it is shaped the way it is, and
         # nothing was checking those: `_references` reads the chapters and
         # `SKILL.md`, not `assets/`. Twenty-two citations sat unverified.
-        for rid in sorted(set(re.findall(rf"\b{skill.prefix}-[A-Z]+-\d+[a-z]?\b", text)) - rules):
+        for rid in sorted(
+            set(re.findall(rf"\b{skill.prefix}-[A-Z]+-\d+[a-z]?\b", text)) - rules
+        ):
             yield fail(f"cites {rid}, which is not a rule", tag)
 
 
@@ -107,11 +107,17 @@ def _build(data, text, tag):
                 (root / licence).write_text("Copyright\n")
 
         result = run(
-            ["uv", "build", "--wheel", "--out-dir", str(root / "dist")], cwd=root, timeout=300
+            ["uv", "build", "--wheel", "--out-dir", str(root / "dist")],
+            cwd=root,
+            timeout=300,
         )
         if not result.ok:
             first = next(
-                (ln for ln in result.err.split("\n") if ln.strip().startswith(("Error", "error:"))),
+                (
+                    ln
+                    for ln in result.err.split("\n")
+                    if ln.strip().startswith(("Error", "error:"))
+                ),
                 result.err.strip()[:90],
             )
             yield fail(f"does not build: {first.strip()[:88]}", tag)
@@ -146,8 +152,10 @@ def _zig(path, tag):
 
 def _workflow(text, tag):
     for key in WORKFLOW_KEYS:
-        if not re.search(rf"^{re.escape(key)}", text, re.M):
+        if not re.search(rf"^{re.escape(key)}", text, re.MULTILINE):
             yield fail(f"no top-level `{key}`", tag)
     for i, line in enumerate(text.split("\n"), 1):
         if line.strip() and (len(line) - len(line.lstrip(" "))) % 2:
-            yield fail("odd indent, which YAML reads as a different level", f"{tag}:{i}")
+            yield fail(
+                "odd indent, which YAML reads as a different level", f"{tag}:{i}"
+            )

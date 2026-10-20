@@ -10,8 +10,6 @@ The second direction — every fixture matched by some pattern — is what keeps
 only the first, an uncovered pattern is "fixed" by adding a snippet nobody has related to the rule.
 """
 
-from __future__ import annotations
-
 from types import SimpleNamespace
 
 import pytest
@@ -48,7 +46,9 @@ def test_one_fixture_no_longer_stands_for_every_pattern():
 
 
 def test_a_fixture_no_pattern_matches_is_reported():
-    found = messages(fake({"XX-Y-01": ("x = alpha_call()", "y = beta_call()", "z = gamma_call()")}))
+    found = messages(
+        fake({"XX-Y-01": ("x = alpha_call()", "y = beta_call()", "z = gamma_call()")})
+    )
     assert len(found) == 1, found
     assert "'z = gamma_call()' is matched by none" in found[0]
 
@@ -63,7 +63,12 @@ def test_both_directions_report_together():
 
 def test_one_pattern_and_one_fixture_still_works():
     assert (
-        messages(fake({"XX-Y-01": ("x = alpha_call()",)}, "**Check:** `rg -n 'alpha_call' src/`"))
+        messages(
+            fake(
+                {"XX-Y-01": ("x = alpha_call()",)},
+                "**Check:** `rg -n 'alpha_call' src/`",
+            )
+        )
         == []
     )
 
@@ -95,4 +100,6 @@ def test_the_shipped_standards_are_covered(skills):
     """The rule this change exists to enforce, asserted against the real profiles."""
     for skill in skills:
         if skill.profile.fires:
-            assert list(sensitivity(skill)) == [], f"{skill.name} has an unproven pattern"
+            assert list(sensitivity(skill)) == [], (
+                f"{skill.name} has an unproven pattern"
+            )

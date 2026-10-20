@@ -1,14 +1,12 @@
 """The skeleton check, on a standard built to conform and then broken one way at a time."""
 
-from __future__ import annotations
-
 import dataclasses
 
 import pytest
-from structure_fixture import Demo, build, edit, reparse
 
 from agent_skill.checks.anatomy import structural
 from agent_skill.checks.skeleton import shape, skeleton
+from structure_fixture import Demo, build, edit, reparse
 
 
 @pytest.fixture
@@ -32,7 +30,9 @@ def test_a_title_naming_another_version(demo):
 
 
 def test_a_renamed_section(demo):
-    broken = edit(demo, "SKILL.md", "## 3. Design principles", "## 3. Design principles — less")
+    broken = edit(
+        demo, "SKILL.md", "## 3. Design principles", "## 3. Design principles — less"
+    )
     assert any("section 4 of 8" in m for m in messages(broken))
 
 
@@ -58,7 +58,9 @@ def test_a_missing_migration_chapter(demo):
 
 
 def test_an_invented_severity(demo):
-    broken = edit(demo, "references/review-checklist.md", "| **Style** |", "| **Nit** |")
+    broken = edit(
+        demo, "references/review-checklist.md", "| **Style** |", "| **Nit** |"
+    )
     assert any("severity model" in m for m in messages(broken))
 
 
@@ -78,7 +80,9 @@ def test_section_five_drifting_from_the_review_order(demo):
 
 
 def test_reference_map_columns_out_of_order(demo):
-    broken = edit(demo, "SKILL.md", "| File | Rule IDs | Covers |", "| File | Covers | Rule IDs |")
+    broken = edit(
+        demo, "SKILL.md", "| File | Rule IDs | Covers |", "| File | Covers | Rule IDs |"
+    )
     assert any("reference map's columns" in m for m in messages(broken))
 
 

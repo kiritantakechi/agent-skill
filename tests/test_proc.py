@@ -10,8 +10,6 @@ entry point, so running it installed is a supported thing to do.
 Unreadable pins are a complaint. Not a crash, and — the older bug one function away — not a pass.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from agent_skill.proc import declared_pins, pinned_version, version_mismatch
@@ -19,7 +17,9 @@ from agent_skill.proc import declared_pins, pinned_version, version_mismatch
 
 def test_the_pins_are_readable_from_the_source_tree():
     assert declared_pins() is not None
-    assert pinned_version("rg"), "the `rg` pin is read through PACKAGE's `ripgrep-bin` spelling"
+    assert pinned_version("rg"), (
+        "the `rg` pin is read through PACKAGE's `ripgrep-bin` spelling"
+    )
 
 
 def test_an_unreadable_declaration_is_not_an_exception(monkeypatch):
@@ -31,13 +31,17 @@ def test_an_unreadable_declaration_is_not_agreement(monkeypatch):
     """The whole point: silence here used to be a traceback, and before that, a pass."""
     monkeypatch.setattr("agent_skill.proc.declared_pins", lambda: None)
     complaint = version_mismatch("rg", "ripgrep 15.2.0")
-    assert complaint is not None, "an unreadable pin read as agreement with the running version"
+    assert complaint is not None, (
+        "an unreadable pin read as agreement with the running version"
+    )
     assert "installed distribution" in complaint
 
 
 def test_a_missing_pin_reads_differently_from_a_missing_file(monkeypatch):
     """One is something to add; the other is how this runs when installed."""
-    monkeypatch.setattr("agent_skill.proc.declared_pins", lambda: 'dev = ["ruff==0.16.5"]')
+    monkeypatch.setattr(
+        "agent_skill.proc.declared_pins", lambda: 'dev = ["ruff==0.16.5"]'
+    )
     complaint = version_mismatch("rg", "ripgrep 15.2.0")
     assert complaint is not None
     assert "pins no version for it" in complaint

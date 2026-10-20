@@ -5,18 +5,16 @@ across two lines (`// fragment` then `// BAD`), which left the tools unable to
 recognise the illustration blocks they exist to exempt.
 """
 
-from __future__ import annotations
-
 import re
 
-from ..report import fail
-from . import check
+from agent_skill.checks import check
+from agent_skill.report import fail
 
 #: A verdict on its own line used to open a section inside a fence: rust spelled
 #: the two halves `// bad` / `// good` in one block, zig spelled them `// BAD` /
 #: `// GOOD`. Both are one fence per half now, so a verdict line that is not the
 #: marker is a leftover.
-STRAY_VERDICT = re.compile(r"^(?://|#) (GOOD|BAD)( —|:|$)", re.I)
+STRAY_VERDICT = re.compile(r"^(?://|#) (GOOD|BAD)( —|:|$)", re.IGNORECASE)
 
 
 def _leads(words: tuple[str, ...]) -> tuple[str, ...]:

@@ -9,13 +9,21 @@ It fails rather than notes, because moving a pin is a reviewed event by Decision
 0 of the design, and a red build is what causes a review to happen.
 """
 
-from __future__ import annotations
-
+import json
 import re
+lazy import urllib.request
 
-from ..proc import PACKAGE, have, pinned_version, run, tool_path, version_mismatch
-from ..report import fail, unrun
-from . import check
+from agent_skill.checks import check
+from agent_skill.proc import (
+    PACKAGE,
+    have,
+    pinned_version,
+    run,
+    tool_path,
+    version_mismatch,
+)
+from agent_skill.report import fail, unrun
+lazy from agent_skill.lang.python import INTERPRETER
 
 #: Every tool whose version decides whether a check passes. The binary and the
 #: distribution are spelled differently for `rg`, and `version_mismatch` already
@@ -33,7 +41,9 @@ def _tool_pins():
     """
     for tool in TOOLS:
         if not have(tool):
-            yield unrun(f"`{tool}` is not available, so its pin was not verified", "harness")
+            yield unrun(
+                f"`{tool}` is not available, so its pin was not verified", "harness"
+            )
             continue
         answered = run([tool_path(tool), "--version"], timeout=30)
         if not answered.ok:
@@ -48,16 +58,23 @@ def _tool_pins():
         # No environment involved: resolving a bare requirement asks the index
         # what the newest release is without installing anything.
         resolved = run(
-            ["uv", "pip", "compile", "-", "--no-header", "--quiet"], timeout=120, stdin=package
+            ["uv", "pip", "compile", "-", "--no-header", "--quiet"],
+            timeout=120,
+            stdin=package,
         )
         if not resolved.ok or not resolved.out.strip():
             yield unrun(
-                f"the index did not answer for `{package}`, so its pin was not compared", "harness"
+                f"the index did not answer for `{package}`, so its pin was not compared",
+                "harness",
             )
             continue
-        found = re.search(rf"^{re.escape(package)}==(\S+)", resolved.out, re.M | re.I)
+        found = re.search(
+            rf"^{re.escape(package)}==(\S+)", resolved.out, re.MULTILINE | re.IGNORECASE
+        )
         if not found:
-            yield unrun(f"could not read a version for `{package}` from the index", "harness")
+            yield unrun(
+                f"could not read a version for `{package}` from the index", "harness"
+            )
             continue
         newest = found.group(1)
         here = _sort_key(pinned) if pinned else None
@@ -79,7 +96,9 @@ def _tool_pins():
 
 
 #: `cpython-3.15.0rc1+freethreaded-macos-aarch64-none` -> ("3.15.0rc1", True)
-RELEASE = re.compile(r"^cpython-(?P<version>\d+\.\d+\.\d+[a-z0-9]*)(?P<ft>\+freethreaded)?-")
+RELEASE = re.compile(
+    r"^cpython-(?P<version>\d+\.\d+\.\d+[a-z0-9]*)(?P<ft>\+freethreaded)?-"
+)
 
 
 def _sort_key(version: str) -> tuple | None:
@@ -115,7 +134,10 @@ def local_pin(profile):
     if reason is None:
         return
     if not reason.strip():
-        yield fail, f"{profile.name} follows the local toolchain and gives no reason why"
+        yield (
+            fail,
+            f"{profile.name} follows the local toolchain and gives no reason why",
+        )
         return
     pinned, running = profile.pin(), profile.running_version()
     if running is None:
@@ -125,7 +147,10 @@ def local_pin(profile):
         )
     elif running != pinned:
         moved = f"follows this machine's toolchain, which is now {running}"
-        yield fail, f"{profile.name} is pinned to {pinned} and {moved} — the cue to bump it"
+        yield (
+            fail,
+            f"{profile.name} is pinned to {pinned} and {moved} — the cue to bump it",
+        )
 
 
 #: Where the Rust project publishes what the current stable release is.
@@ -143,11 +168,20 @@ def rust_pin(pinned: str, running: str | None, newest: str | None):
         yield fail, f"the Rust pin `{pinned}` is not a version this can compare"
         return
     if running is None:
-        yield unrun, f"could not ask `rustc` its version, so the Rust pin {pinned} was not compared"
+        yield (
+            unrun,
+            f"could not ask `rustc` its version, so the Rust pin {pinned} was not compared",
+        )
     elif _minor(running) != want:
-        yield fail, f"the examples are pinned to Rust {pinned} and `rustc` here is {running}"
+        yield (
+            fail,
+            f"the examples are pinned to Rust {pinned} and `rustc` here is {running}",
+        )
     if newest is None:
-        yield unrun, "the stable channel did not answer, so the Rust pin was not compared with it"
+        yield (
+            unrun,
+            "the stable channel did not answer, so the Rust pin was not compared with it",
+        )
     elif (there := _minor(newest)) is not None and there > want:
         yield (
             fail,
@@ -172,14 +206,12 @@ def _rustc() -> str | None:
 
 
 def _stable() -> str | None:
-    import urllib.request
-
     try:
         with urllib.request.urlopen(STABLE, timeout=30) as response:
             text = response.read().decode()
     except OSError:
         return None
-    m = re.search(r'^\[pkg\.rust\]\nversion = "(\S+)', text, re.M)
+    m = re.search(r'^\[pkg\.rust\]\nversion = "(\S+)', text, re.MULTILINE)
     return m.group(1) if m else None
 
 
@@ -191,15 +223,24 @@ def library_pin(name: str, requirement: str | None, newest: str | None):
     running version would no longer be the pinned one.
     """
     if requirement is None or not requirement.startswith("="):
-        yield fail, f"`{name}` must be pinned exactly (`=x.y.z`), and is `{requirement}`"
+        yield (
+            fail,
+            f"`{name}` must be pinned exactly (`=x.y.z`), and is `{requirement}`",
+        )
         return
     pinned = requirement.removeprefix("=")
     if newest is None:
-        yield unrun, f"crates.io did not answer, so the `{name}` pin {pinned} was not compared"
+        yield (
+            unrun,
+            f"crates.io did not answer, so the `{name}` pin {pinned} was not compared",
+        )
         return
     here, there = _sort_key(pinned), _sort_key(newest)
     if here is None or there is None:
-        yield unrun, f"`{name}` was not compared: {pinned} or {newest} is not a version this orders"
+        yield (
+            unrun,
+            f"`{name}` was not compared: {pinned} or {newest} is not a version this orders",
+        )
     elif there > here:
         yield (
             fail,
@@ -218,9 +259,6 @@ def _requirement(crate, name: str) -> str | None:
 
 
 def _crates_io(name: str) -> str | None:
-    import json
-    import urllib.request
-
     request = urllib.request.Request(
         f"https://crates.io/api/v1/crates/{name}",
         headers={"User-Agent": "agent-skill pins check"},
@@ -241,7 +279,9 @@ def pins(skill):
     for level, message in local_pin(skill.profile):
         yield level(message, skill.name)
     if skill.profile.crate is not None:
-        for level, message in rust_pin(skill.profile.crate.rust_version, _rustc(), _stable()):
+        for level, message in rust_pin(
+            skill.profile.crate.rust_version, _rustc(), _stable()
+        ):
             yield level(message, skill.name)
     if name := skill.profile.library:
         requirement = _requirement(skill.profile.crate, name)
@@ -250,7 +290,6 @@ def pins(skill):
     if skill.profile.toolchain != "python":
         return
     yield from _tool_pins()
-    from ..lang.python import INTERPRETER
 
     m = RELEASE.match(f"{INTERPRETER}-")
     if not m:
@@ -304,7 +343,9 @@ def pins(skill):
     series = re.match(r"^(\d+\.\d+)", pinned).group(1)  # 3.15.0rc1 -> 3.15
     here = _sort_key(pinned)
     if here is None:
-        yield fail(f"the pin `{INTERPRETER}` carries a version this cannot order", skill.name)
+        yield fail(
+            f"the pin `{INTERPRETER}` carries a version this cannot order", skill.name
+        )
         return
 
     # version -> its order, so the best is picked without ordering by a key

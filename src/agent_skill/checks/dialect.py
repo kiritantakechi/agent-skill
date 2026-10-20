@@ -27,13 +27,11 @@ it will not be read in, which is this check's subject; the grammar it will not b
 read in is the reader's.
 """
 
-from __future__ import annotations
-
 import re
 
-from ..report import fail
-from . import check
-from .patterns import QUOTED
+from agent_skill.checks import check
+from agent_skill.checks.patterns import QUOTED
+from agent_skill.report import fail
 
 #: The command forms a Check ships. Only `rg` is inspected: a `grep` command is
 #: pre-migration and its `\|` is correct for the grammar it names.

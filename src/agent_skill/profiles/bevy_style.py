@@ -7,24 +7,22 @@ What is here is what a line-oriented pattern cannot decide: whether a derive lis
 contains a name, and whether a type's name matches the trait it implements.
 """
 
-from __future__ import annotations
-
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from ..lang.rust import BEVY_STYLE, Crate
-from ..report import Finding, fail
-from . import NotDecisive, Profile, register
+from agent_skill.lang.rust import BEVY_STYLE, Crate
+from agent_skill.profiles import NotDecisive, Profile, register
+from agent_skill.report import Finding, fail
 
 #: `#[derive(Component, Debug, …)]`, possibly wrapped across lines by rustfmt.
-DERIVE = re.compile(r"#\[derive\(([^)]*)\)\]", re.S)
+DERIVE = re.compile(r"#\[derive\(([^)]*)\)\]", re.DOTALL)
 
 #: A component declaration, with whatever attributes sit above it.
 COMPONENT = re.compile(
     r"(?P<attrs>(?:#\[[^\]]*\]\n)*)(?:pub )?struct (?P<name>\w+)"
     r"(?:\((?P<tuple>[^)]*)\)\s*;|\s*\{(?P<named>[^}]*)\}|\s*;)",
-    re.S,
+    re.DOTALL,
 )
 
 #: An attribute on a field, which `pub` follows rather than precedes.
@@ -37,7 +35,7 @@ MARKER_DERIVES = ("Debug", "Clone", "Copy", "Default", "Reflect")
 #: BV-ARCH-10 — the two traits whose implementors carry a suffix.
 SUFFIX = {"Plugin": "Plugin", "SystemSet": "Systems"}
 
-IMPL_PLUGIN = re.compile(r"^impl Plugin for (\w+)", re.M)
+IMPL_PLUGIN = re.compile(r"^impl Plugin for (\w+)", re.MULTILINE)
 
 
 @dataclass
@@ -50,7 +48,9 @@ class BevyStyle(Profile):
     tools: tuple[str, ...] = ("rustc", "clippy", "rustdoc")
     language: str = "Bevy"
     library: str | None = "bevy"
-    verified_as: str = "compiles as written against Bevy {pin} on Rust {rust}, edition 2024"
+    verified_as: str = (
+        "compiles as written against Bevy {pin} on Rust {rust}, edition 2024"
+    )
     strict_scope: str = "shipped and long-running"
     delta_step: str = (
         "**Load `rust-style` as well** for anything that is a Rust question rather than a Bevy "
@@ -183,9 +183,13 @@ def _component_shape(block) -> Iterable[Finding]:
         want = MARKER_DERIVES if not fields else DATA_DERIVES
         for trait in want:
             if trait not in derives:
-                yield fail(f"BV-ECS-03/10: component `{name}` does not derive `{trait}`", where)
+                yield fail(
+                    f"BV-ECS-03/10: component `{name}` does not derive `{trait}`", where
+                )
         if "#[reflect(Component)]" not in attrs:
-            yield fail(f"BV-ECS-03: component `{name}` has no `#[reflect(Component)]`", where)
+            yield fail(
+                f"BV-ECS-03: component `{name}` has no `#[reflect(Component)]`", where
+            )
 
         # The collection side of a relationship is the one component whose field
         # is private, because the engine maintains it. Bevy's own `Children` is
@@ -210,9 +214,12 @@ def _suffixes(block) -> Iterable[Finding]:
         where = f"{block.file}:{line} [{block.rule}]"
         if not name.endswith(SUFFIX["Plugin"]):
             yield fail(
-                f"BV-ARCH-10: `{name}` implements `Plugin` and does not end in `Plugin`", where
+                f"BV-ARCH-10: `{name}` implements `Plugin` and does not end in `Plugin`",
+                where,
             )
-        declared = re.search(rf"((?:#\[[^\]]*\]\s*)*)\bpub struct {re.escape(name)}\b", block.body)
+        declared = re.search(
+            rf"((?:#\[[^\]]*\]\s*)*)\bpub struct {re.escape(name)}\b", block.body
+        )
         if declared is None:
             continue  # declared elsewhere; the block only shows the impl
         derives = set()
@@ -220,13 +227,19 @@ def _suffixes(block) -> Iterable[Finding]:
             derives |= {t.strip() for t in d.group(1).split(",")}
         for required in ("Debug", "Default"):
             if required not in derives:
-                yield fail(f"BV-ARCH-09: plugin type `{name}` does not derive `{required}`", where)
+                yield fail(
+                    f"BV-ARCH-09: plugin type `{name}` does not derive `{required}`",
+                    where,
+                )
 
     lines = block.lines
     for i, line in enumerate(lines):
         if "derive(" not in line or "SystemSet" not in line:
             continue
-        decl = next((ln for ln in lines[i + 1 : i + 3] if re.search(r"\b(struct|enum)\b", ln)), "")
+        decl = next(
+            (ln for ln in lines[i + 1 : i + 3] if re.search(r"\b(struct|enum)\b", ln)),
+            "",
+        )
         name = re.search(r"\b(?:struct|enum)\s+(\w+)", decl)
         if name and not name.group(1).endswith(SUFFIX["SystemSet"]):
             yield fail(

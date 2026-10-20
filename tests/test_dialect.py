@@ -9,8 +9,6 @@ Written from scratch in `migrate-checks-to-ripgrep` and touched by exactly one
 negative control until now.
 """
 
-from __future__ import annotations
-
 import pytest
 
 from agent_skill.checks.dialect import outside_brackets

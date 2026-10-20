@@ -23,16 +23,16 @@ without it, an uncovered pattern is "fixed" by adding a snippet nobody has
 related to the rule, which proves the snippet.
 """
 
-from __future__ import annotations
-
-from ..report import fail, unrun
-from . import check
-from .patterns import patterns_of
-from .search import matches, searcher_problem
+from agent_skill.checks import check
+from agent_skill.checks.patterns import patterns_of
+from agent_skill.checks.search import matches, searcher_problem
+from agent_skill.report import fail, unrun
 
 
 @check(
-    "sensitivity", "an authored pattern is shown to catch what it was written for", needs=("rg",)
+    "sensitivity",
+    "an authored pattern is shown to catch what it was written for",
+    needs=("rg",),
 )
 def sensitivity(skill):
     declared = skill.profile.fires
@@ -52,7 +52,9 @@ def sensitivity(skill):
 
     by_id = {r.id: r for r in skill.rules}
     for rid in sorted(set(declared) - set(by_id)):
-        yield fail(f"{rid}: a fixture names a rule this skill does not define", skill.name)
+        yield fail(
+            f"{rid}: a fixture names a rule this skill does not define", skill.name
+        )
 
     for rid, fixtures in sorted(declared.items()):
         rule = by_id.get(rid)
@@ -62,7 +64,9 @@ def sensitivity(skill):
             yield fail(f"{rid}: is listed with no fixture at all", skill.name)
             continue
         if not rule.check:
-            yield fail(f"{rid}: has a fixture but no **Check:** to run against it", skill.name)
+            yield fail(
+                f"{rid}: has a fixture but no **Check:** to run against it", skill.name
+            )
             continue
         runnable = [p for p in patterns_of(rule.check) if p.kind == "command"]
         if not runnable:

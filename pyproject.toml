@@ -24,13 +24,18 @@ build-backend = "uv_build"
 dev = ["pytest==9.1.1", "ruff==0.17.1", "ty==0.0.90", "ripgrep-bin==15.2.0"]
 
 [tool.ruff]
-line-length = 100
-target-version = "py315"
+# The configuration is the one python-style ships. Paths in an extended file
+# resolve against that file's directory, so `src` and the per-file globs are
+# restated here, where they name this repository's directories.
+extend = "skills/python-style/assets/ruff.toml"
+src = ["src", "tests"]
 
-[tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
-# A stop-word list reads as prose, not as a list literal.
-ignore = ["SIM905"]
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S105", "S106", "S107", "PLR2004", "SLF001", "INP001", "D103"]
+"**/conftest.py" = ["INP001"]
+# The one relaxation: the report a run prints is the program's output, which
+# T201 does not mean; it is for diagnostics written with `print`.
+"src/agent_skill/cli.py" = ["T201"]
 
 [tool.pytest]
 testpaths = ["tests"]

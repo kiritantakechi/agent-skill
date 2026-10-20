@@ -1,16 +1,14 @@
 """A skill's rust examples, as a crate."""
 
-from __future__ import annotations
-
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path
 
-from ..proc import have, run
-from ..report import Finding, fail, note
-from . import Extraction, Unit
+from agent_skill.lang import Extraction, Unit
+from agent_skill.proc import have, run
+from agent_skill.report import Finding, fail, note
 
 #: Shared, gitignored, and safe to delete: cargo rebuilds it.
 CACHE = Path(__file__).resolve().parents[3] / ".cache" / "target"
@@ -176,7 +174,11 @@ BEVY_STYLE = Crate(
     #: `#![allow(dead_code, unused_imports)]` into every block module, and a
     #: lint about the author's attributes cannot be judged on the harness's.
     unverifiable=frozenset(
-        {"rust.missing_docs", "clippy.allow_attributes", "clippy.allow_attributes_without_reason"}
+        {
+            "rust.missing_docs",
+            "clippy.allow_attributes",
+            "clippy.allow_attributes_without_reason",
+        }
     ),
     lints={
         "rust": {
@@ -242,7 +244,9 @@ class Rust:
             chapters.append(stem)
             (src / f"{stem}.rs").write_text(_module(crate, stem, chapter, mods))
 
-        lib = [f"//! Every `// verified` block in {skill.name}, extracted from the markdown."]
+        lib = [
+            f"//! Every `// verified` block in {skill.name}, extracted from the markdown."
+        ]
         lib += [f"pub mod {s};" for s in sorted(chapters)]
         (src / "lib.rs").write_text("\n".join(lib) + "\n")
         (out / "Cargo.toml").write_text(crate.manifest())
@@ -279,10 +283,18 @@ class Rust:
             r = run(cmd, cwd=ex.root, timeout=900, env=env)
             if not r.ok:
                 first = next(
-                    (ln for ln in (r.err or r.out).split("\n") if ln.startswith(("error", "Diff"))),
+                    (
+                        ln
+                        for ln in (r.err or r.out).split("\n")
+                        if ln.startswith(("error", "Diff"))
+                    ),
                     (r.err or r.out).strip()[:120],
                 )
-                remedy = " — `agent-skill fmt` rewrites the blocks" if label == "rustfmt" else ""
+                remedy = (
+                    " — `agent-skill fmt` rewrites the blocks"
+                    if label == "rustfmt"
+                    else ""
+                )
                 yield fail(f"{label}: {first[:150]}{remedy}", "rust")
 
         env_doc = ["cargo", "doc", "--quiet", "--no-deps", "--manifest-path", manifest]
@@ -321,10 +333,13 @@ class Rust:
                     # Survivors are rare, so a second opinion is nearly free —
                     # and it is what stands between a transient and a reported
                     # defect that the example does not actually have.
-                    again = run(["cargo", "test", "-q"], cwd=ex.root, timeout=300, env=env)
+                    again = run(
+                        ["cargo", "test", "-q"], cwd=ex.root, timeout=300, env=env
+                    )
                     if again.ok:
                         yield fail(
-                            f"`{stmt[:56]}` can be deleted and every test still passes", where
+                            f"`{stmt[:56]}` can be deleted and every test still passes",
+                            where,
                         )
             finally:
                 path.write_text(original)
@@ -332,9 +347,46 @@ class Rust:
 
 #: Words a chapter may be named that Rust will not take as a module name.
 KEYWORDS = frozenset(
-    "as async await break const continue crate dyn else enum extern false fn for gen if impl in "
-    "let loop match mod move mut pub ref return self static struct super trait true type unsafe "
-    "use where while".split()
+    [
+        "as",
+        "async",
+        "await",
+        "break",
+        "const",
+        "continue",
+        "crate",
+        "dyn",
+        "else",
+        "enum",
+        "extern",
+        "false",
+        "fn",
+        "for",
+        "gen",
+        "if",
+        "impl",
+        "in",
+        "let",
+        "loop",
+        "match",
+        "mod",
+        "move",
+        "mut",
+        "pub",
+        "ref",
+        "return",
+        "self",
+        "static",
+        "struct",
+        "super",
+        "trait",
+        "true",
+        "type",
+        "unsafe",
+        "use",
+        "where",
+        "while",
+    ]
 )
 
 
@@ -362,7 +414,9 @@ def _module(crate: Crate, stem: str, chapter: str, mods: list[tuple[str, str]]) 
         body = body.replace("crate::", f"crate::{stem}::{mod}::")
         out.append(f"pub mod {mod} {{")
         out.append("    #![allow(dead_code, unused_imports)]")
-        out += [("    " + ln) if ln.strip() else "" for ln in body.rstrip("\n").split("\n")]
+        out += [
+            ("    " + ln) if ln.strip() else "" for ln in body.rstrip("\n").split("\n")
+        ]
         out += ["}", ""]
     return "\n".join(out).rstrip("\n") + "\n"
 
@@ -377,7 +431,7 @@ _SKIP = ("use ", "//", "#", "let ", "pub ", "}")
 def _targets(src: Path):
     for path in sorted(src.glob("*.rs")):
         text = path.read_text()
-        for m in re.finditer(r"^pub mod (\w+) \{$", text, re.M):
+        for m in re.finditer(r"^pub mod (\w+) \{$", text, re.MULTILINE):
             start = m.start()
             nxt = text.find("\npub mod ", start + 1)
             seg = text[start : nxt if nxt != -1 else len(text)]

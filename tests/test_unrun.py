@@ -12,14 +12,13 @@ runs over the declarations, and `test_a_declaration_is_not_missing_a_tool`
 compares those declarations against what the source visibly asks for.
 """
 
-from __future__ import annotations
-
 import inspect
 import re
 from pathlib import Path
 
 import pytest
 
+import agent_skill.proc
 from agent_skill.checks import all_checks, by_name
 from agent_skill.report import Level
 
@@ -95,8 +94,6 @@ def test_every_declaring_check_is_actually_read():
 @pytest.mark.parametrize("check", [c.name for c in declaring()], ids=lambda n: n)
 def test_a_missing_tool_withholds_the_pass(check, skills, monkeypatch):
     """Every tool a check declares, removed one at a time."""
-    import agent_skill.proc
-
     target = by_name(check)
     assert target is not None, f"{check} is registered"
     for tool in target.needs:

@@ -6,8 +6,6 @@ about a tier and nothing would look. These cases pin the routing: the skill a
 table entry refers to comes from the rule id's prefix.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from agent_skill.checks import mirror as m
@@ -44,7 +42,9 @@ def anchor(tier="[M]"):
 def test_a_third_skill_is_routed_by_its_prefix():
     third = Skill("third-style", "XX", [Rule("XX-NAME-09", "[S]", TITLE)])
     findings = run([("XX-NAME-09", TITLE)], [anchor(), third])
-    assert [f.message for f in findings] == ["tier mismatch: RS-NAME-01[[M]] vs XX-NAME-09[[S]]"]
+    assert [f.message for f in findings] == [
+        "tier mismatch: RS-NAME-01[[M]] vs XX-NAME-09[[S]]"
+    ]
 
 
 def test_a_third_skill_that_agrees_is_silent():

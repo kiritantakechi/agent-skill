@@ -11,14 +11,12 @@ whether a pointer to a rule that is now a lint should name the lint, the rule it
 nothing, is a reading decision.
 """
 
-from __future__ import annotations
-
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .model import DECIDED, Skill
-from .renumber import RenumberError, _corpus, _segments, carry, heading
+from agent_skill.model import DECIDED, Skill
+from agent_skill.renumber import RenumberError, _corpus, _segments, carry, heading
 
 
 class DemoteError(Exception):
@@ -78,7 +76,9 @@ def plan(repo: Path, name: str, asked: dict[str, dict], profile=None) -> Demotio
             text = _add_rows(text, new_rows)
         kept = [r.id for r in chapter.rules if r.id not in mine]
         if _headings(text) != kept:
-            raise DemoteError(f"{chapter.name}: the edit would lose a rule it was not asked to")
+            raise DemoteError(
+                f"{chapter.name}: the edit would lose a rule it was not asked to"
+            )
         writes[chapter.path] = text
 
     migration = next((c for c in skill.chapters if c.path.stem == "migration"), None)
@@ -106,11 +106,15 @@ def _disposition(rid: str, kind: str, value, kept: set[str], known: set) -> str:
     """What the rename table says `rid` became. A merge is into a rule this plan keeps."""
     if kind == "rows":
         if not value or any(len(row) != 4 for row in value):
-            raise DemoteError(f"{rid}: rows are [tool, lint, level, forbids], and there is one")
+            raise DemoteError(
+                f"{rid}: rows are [tool, lint, level, forbids], and there is one"
+            )
         return f"lint `{value[0][0]}:{value[0][1]}`"
     if kind == "lint":
         if tuple(value) not in known:
-            raise DemoteError(f"{rid}: no chapter lists the lint `{value[0]}:{value[1]}`")
+            raise DemoteError(
+                f"{rid}: no chapter lists the lint `{value[0]}:{value[1]}`"
+            )
         return f"lint `{value[0]}:{value[1]}`"
     if kind == "merge":
         if value not in kept:
@@ -123,12 +127,14 @@ def _disposition(rid: str, kind: str, value, kept: set[str], known: set) -> str:
 
 def _drop(text: str, rid: str) -> str:
     """`text` without the rule `rid` and its contents line."""
-    head = re.search(rf"^### {re.escape(rid)} \[", text, re.M)
+    head = re.search(rf"^### {re.escape(rid)} \[", text, re.MULTILINE)
     if head is None:
         raise DemoteError(f"{rid}: no heading to remove")
-    nxt = re.compile(r"^#{2,3} ", re.M).search(text, head.end())
+    nxt = re.compile(r"^#{2,3} ", re.MULTILINE).search(text, head.end())
     text = text[: head.start()] + (text[nxt.start() :] if nxt else "")
-    text, n = re.subn(rf"^[ \t]*- {re.escape(rid)} \[.*\n", "", text, count=1, flags=re.M)
+    text, n = re.subn(
+        rf"^[ \t]*- {re.escape(rid)} \[.*\n", "", text, count=1, flags=re.MULTILINE
+    )
     if n == 0:
         raise DemoteError(f"{rid}: no contents line to remove")
     return text.rstrip("\n") + "\n"
@@ -136,11 +142,11 @@ def _drop(text: str, rid: str) -> str:
 
 def _prune(text: str) -> str:
     """`text` without the sections its demotions emptied, and their contents entries."""
-    while m := re.search(r"^## (?!Contents$)(.+)\n\s*(?=^## |\Z)", text, re.M):
+    while m := re.search(r"^## (?!Contents$)(.+)\n\s*(?=^## |\Z)", text, re.MULTILINE):
         title = m.group(1)
         text = text[: m.start()] + text[m.end() :]
         entry = rf"^- \*\*{re.escape(title)}\*\*\n(?![ \t]+- )"
-        text = re.sub(entry, "", text, count=1, flags=re.M)
+        text = re.sub(entry, "", text, count=1, flags=re.MULTILINE)
     return text.rstrip("\n") + "\n"
 
 
@@ -151,18 +157,25 @@ def _add_rows(text: str, rows: list[list[str]]) -> str:
     contents line closes the contents list.
     """
     cells = [[c.replace("|", "\\|") for c in row] for row in rows]
-    lines = [f"| {tool} | `{lint}` | {level} | {forbids} |" for tool, lint, level, forbids in cells]
-    if table := re.search(rf"^## {DECIDED}\n", text, re.M):
-        nxt = re.compile(r"^## ", re.M).search(text, table.end())
+    lines = [
+        f"| {tool} | `{lint}` | {level} | {forbids} |"
+        for tool, lint, level, forbids in cells
+    ]
+    if table := re.search(rf"^## {DECIDED}\n", text, re.MULTILINE):
+        nxt = re.compile(r"^## ", re.MULTILINE).search(text, table.end())
         body = text[table.end() : nxt.start() if nxt else len(text)]
-        listed = set(re.findall(r"^\| (\S+) \| `([^`]+)` \|", body, re.M))
-        lines = [ln for ln, row in zip(lines, rows, strict=True) if (row[0], row[1]) not in listed]
-        end = table.end() + list(re.finditer(r"^\|.*\n", body, re.M))[-1].end()
+        listed = set(re.findall(r"^\| (\S+) \| `([^`]+)` \|", body, re.MULTILINE))
+        lines = [
+            ln
+            for ln, row in zip(lines, rows, strict=True)
+            if (row[0], row[1]) not in listed
+        ]
+        end = table.end() + list(re.finditer(r"^\|.*\n", body, re.MULTILINE))[-1].end()
         return text[:end] + "".join(f"{ln}\n" for ln in lines) + text[end:]
 
     section = f"## {DECIDED}\n\n{LEAD}\n\n| Tool | Lint | Level | Forbids |\n|---|---|---|---|\n"
     section += "".join(f"{ln}\n" for ln in lines)
-    renamed = re.search(r"^## Rule IDs before the .+ revision$", text, re.M)
+    renamed = re.search(r"^## Rule IDs before the .+ revision$", text, re.MULTILINE)
     if renamed:
         text = text[: renamed.start()] + section + "\n" + text[renamed.start() :]
     else:
@@ -174,7 +187,7 @@ def _add_rows(text: str, rows: list[list[str]]) -> str:
 
 
 def _headings(text: str) -> list[str]:
-    return re.findall(r"^### ([A-Z]{2}-[A-Z]+-\d+[a-z]?) \[", text, re.M)
+    return re.findall(r"^### ([A-Z]{2}-[A-Z]+-\d+[a-z]?) \[", text, re.MULTILINE)
 
 
 def _citations(repo: Path, demotion: Demotion):

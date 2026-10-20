@@ -6,13 +6,11 @@ are unique, which the anatomy check enforces; ambiguity here is a failure rather
 than a silent pick.
 """
 
-from __future__ import annotations
-
 import re
 
-from ..report import fail, note
-from . import check
-from .anatomy import overlap
+from agent_skill.checks import check
+from agent_skill.checks.anatomy import overlap
+from agent_skill.report import fail, note
 
 #: (rule id in another skill, title of its counterpart in the anchor). The id's
 #: prefix names which skill it belongs to, so a fourth standard joins the table
@@ -22,11 +20,17 @@ MIRROR: list[tuple[str, str]] = [
     ("ZS-TYPE-40", "Keep argument order identical across sibling functions"),
     ("ZS-TYPE-41", "Split a function rather than adding a mode parameter"),
     ("ZS-ERR-37", "Give sibling error variants a uniform shape"),
-    ("ZS-ERR-38", "Absorb a special case into the general path, or give it its own type"),
+    (
+        "ZS-ERR-38",
+        "Absorb a special case into the general path, or give it its own type",
+    ),
     ("ZS-NAME-35", "Name the two halves of a pair symmetrically"),
     ("ZS-NAME-36", "One concept, one mechanism"),
     ("ZS-NAME-37", "Keep sibling modules structurally parallel"),
-    ("ZS-CT-01", "Name the capability as a trait before writing the type that provides it"),
+    (
+        "ZS-CT-01",
+        "Name the capability as a trait before writing the type that provides it",
+    ),
     ("ZS-BUILD-24", "Count the encapsulation a split costs, not only what it buys"),
     ("ZS-BUILD-26", "Give the directory and the crate the same name"),
     ("ZS-NAME-02", "Capitalize acronyms as ordinary English words"),

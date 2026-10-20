@@ -1,9 +1,8 @@
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest
 
+from agent_skill.checks.controls import throwaway_tree
 from agent_skill.model import discover
 
 REPO = Path(__file__).resolve().parents[1]
@@ -22,6 +21,4 @@ def scratch(tmp_path) -> Path:
     Built by the same function `controls` uses, so a control cannot fire in one
     runner and not the other.
     """
-    from agent_skill.checks.controls import throwaway_tree
-
     return throwaway_tree(SKILLS_DIR, tmp_path)

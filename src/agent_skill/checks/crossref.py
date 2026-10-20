@@ -11,17 +11,19 @@ A citation into a skill that is not in the tree is not checked, because it
 cannot be: the claim is about a document nobody here can read.
 """
 
-from __future__ import annotations
-
 import re
 from pathlib import Path
 
-from ..report import fail, note, unrun
-from . import check
+from agent_skill.checks import check
+from agent_skill.report import fail, note, unrun
+lazy from agent_skill.checks.corpus import corpus_for
+lazy from agent_skill.checks.patterns import patterns_of
+lazy from agent_skill.checks.search import find, searcher_problem
 
 #: `| `RS-API-23` Keep every struct field private | `BV-ECS-01` — … | … |`
 OVERRIDE_ROW = re.compile(
-    r"^\|\s*`([A-Z]{2}-[A-Z]+-\d+[a-z]?)`\s*(.*?)\s*\|\s*`([A-Z]{2}-[A-Z]+-\d+[a-z]?)`", re.M
+    r"^\|\s*`([A-Z]{2}-[A-Z]+-\d+[a-z]?)`\s*(.*?)\s*\|\s*`([A-Z]{2}-[A-Z]+-\d+[a-z]?)`",
+    re.MULTILINE,
 )
 
 CITATION = re.compile(r"\b([A-Z]{2})-([A-Z]+-\d+[a-z]?)\b")
@@ -73,7 +75,10 @@ def _plain(s: str) -> str:
 
 
 @check(
-    "crossref", "citations into another skill, and the override table", scope="all", needs=("rg",)
+    "crossref",
+    "citations into another skill, and the override table",
+    scope="all",
+    needs=("rg",),
 )
 def crossref(skills):
     by_prefix = {s.prefix: s for s in skills}
@@ -103,7 +108,9 @@ def crossref(skills):
             if theirs.startswith(skill.prefix) or theirs[:2] not in titles:
                 continue
             if ours not in _ids(skill):
-                yield fail(f"override row names {ours}, which is not a rule here", skill.name)
+                yield fail(
+                    f"override row names {ours}, which is not a rule here", skill.name
+                )
             actual = titles[theirs[:2]].get(theirs)
             if actual is None:
                 continue  # the citation check above already reported it
@@ -127,7 +134,9 @@ def crossref(skills):
             for p, _ in CITATION.findall(path.read_text())
         )
         if cites_other and not rows:
-            yield note("cites another standard but states no override table", skill.name)
+            yield note(
+                "cites another standard but states no override table", skill.name
+            )
 
     yield from _apparatus_citations(known)
 
@@ -148,11 +157,11 @@ def _anchor_patterns(skill, by_prefix, rows):
     the override table, or in the prose that says why a rule is *not* on it.
     Either way the reader has been told.
     """
-    from .corpus import corpus_for
-    from .patterns import patterns_of
-    from .search import find, searcher_problem
-
-    anchors = {p for p in by_prefix if p != skill.prefix and any(m.group(1)[:2] == p for m in rows)}
+    anchors = {
+        p
+        for p in by_prefix
+        if p != skill.prefix and any(m.group(1)[:2] == p for m in rows)
+    }
     if not anchors or not skill.profile.languages:
         return
     named = set(re.findall(r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b", skill.text))

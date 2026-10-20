@@ -1,16 +1,16 @@
 """zig-style: its own `[M]` rules, applied to its own examples and prose."""
 
-from __future__ import annotations
-
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from ..model import inside_tests
-from ..report import Finding, fail
-from ..text import strip_comment
-from . import NotDecisive, Profile, register
-from .rust_style import META
+from agent_skill.model import inside_tests
+from agent_skill.profiles import NotDecisive, Profile, register
+from agent_skill.profiles.rust_style import META
+from agent_skill.report import Finding, fail
+from agent_skill.text import strip_comment
+lazy from agent_skill.lang.zig import ZIG_VERSION
+lazy from agent_skill.proc import have, run
 
 
 @dataclass
@@ -171,13 +171,9 @@ class ZigStyle(Profile):
     )
 
     def pin(self) -> str | None:
-        from ..lang.zig import ZIG_VERSION
-
         return ZIG_VERSION
 
     def running_version(self) -> str | None:
-        from ..proc import have, run
-
         if not have("zig"):
             return None
         answered = run(["zig", "version"], timeout=30)
@@ -196,7 +192,9 @@ class ZigStyle(Profile):
                     ln.strip().startswith("//") for ln in lines[max(0, j - 3) : j]
                 )
                 if re.search(r"catch\s*(\{\s*\}|unreachable)", code) and not justified:
-                    yield fail("`catch` swallows without the comment ZS-ERR-08 requires", where)
+                    yield fail(
+                        "`catch` swallows without the comment ZS-ERR-08 requires", where
+                    )
 
                 # ZS-ERR-30 [M] — "every hit is a defect, including inside
                 # `comptime` blocks and `const` initializers"
@@ -217,7 +215,9 @@ class ZigStyle(Profile):
                     )
 
                 if raw.lstrip().startswith("///") and META.search(raw):
-                    yield fail("doc comment discusses the example rather than the API", where)
+                    yield fail(
+                        "doc comment discusses the example rather than the API", where
+                    )
 
             # ZS-NAME-19 — "Order imports `@This()` → `builtin` → `std` → local".
             # The rule is [S], but a suggestion the library declines to follow in
@@ -228,7 +228,11 @@ class ZigStyle(Profile):
                 for kind in ("builtin", "std")
                 if f'@import("{kind}")' in lines[i]
             }
-            if "builtin" in imports and "std" in imports and imports["builtin"] > imports["std"]:
+            if (
+                "builtin" in imports
+                and "std" in imports
+                and imports["builtin"] > imports["std"]
+            ):
                 yield fail(
                     '`@import("builtin")` below `@import("std")` (ZS-NAME-19)',
                     f"{b.file}:{b.at(imports['builtin'])} [{b.rule}]",

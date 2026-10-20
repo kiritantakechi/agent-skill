@@ -1,7 +1,5 @@
 """Packaging a skill, and putting it where an agent will find it."""
 
-from __future__ import annotations
-
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,7 +40,11 @@ class Target:
 TARGETS: tuple[Target, ...] = (
     Target("claude", HOME / ".claude" / "skills", HOME / ".claude"),
     Target("codex", HOME / ".codex" / "skills", HOME / ".codex"),
-    Target("antigravity", HOME / ".gemini" / "config" / "skills", HOME / ".gemini" / "config"),
+    Target(
+        "antigravity",
+        HOME / ".gemini" / "config" / "skills",
+        HOME / ".gemini" / "config",
+    ),
 )
 
 
@@ -83,7 +85,10 @@ def install(skill, target: Target) -> tuple[Path, str]:
         # the same name.
         aside = target.displaced / skill.name
         if aside.exists():
-            return link, f"a real directory is here and {aside} already exists; left alone"
+            return (
+                link,
+                f"a real directory is here and {aside} already exists; left alone",
+            )
         aside.parent.mkdir(parents=True, exist_ok=True)
         link.rename(aside)
         link.symlink_to(skill.root)

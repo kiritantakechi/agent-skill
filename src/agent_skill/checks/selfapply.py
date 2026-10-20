@@ -9,18 +9,20 @@ reads. Turning a Check into patterns is `patterns`, what they run over is
 and that `crossref` was importing from a module named after a different check.
 """
 
-from __future__ import annotations
-
 import re
 
-from ..report import fail, note, unrun
-from . import check
-from .corpus import corpus_for
-from .patterns import patterns_of
-from .search import find, searcher_problem
+from agent_skill.checks import check
+from agent_skill.checks.corpus import corpus_for
+from agent_skill.checks.patterns import patterns_of
+from agent_skill.checks.search import find, searcher_problem
+from agent_skill.report import fail, note, unrun
 
 
-@check("self-application", "the standard's own patterns over its own examples", needs=("rg",))
+@check(
+    "self-application",
+    "the standard's own patterns over its own examples",
+    needs=("rg",),
+)
 def selfapply(skill):
     lang = skill.profile.languages[0] if skill.profile.languages else None
     if lang is None:
@@ -77,7 +79,9 @@ def _run(skill, lang):
                 continue
             exempt = profile.exempt.get(rule.id)
             source = corpus.lines_for(pattern)
-            kept = [s for s in lines if not (exempt and exempt(source, s, corpus.in_test))]
+            kept = [
+                s for s in lines if not (exempt and exempt(source, s, corpus.in_test))
+            ]
             if not kept:
                 continue
             row = (rule, pattern, used, kept)
@@ -91,14 +95,23 @@ def _run(skill, lang):
     # Only this skill's own entries: an entry naming a rule the skill no longer
     # defines is a suppression standing over nothing.
     for rid in sorted(set(profile.not_decisive) - claimed):
-        yield fail(f"{rid}: the exemption names a rule this skill does not define", skill.name)
+        yield fail(
+            f"{rid}: the exemption names a rule this skill does not define", skill.name
+        )
 
     for rule, pattern, used, hits in sorted(tier1, key=lambda r: -len(r[3])):
         yield fail(_render(corpus, rule, pattern, used, hits), skill.name)
     for rule, pattern, used, hits in sorted(tier2, key=lambda r: -len(r[3])):
         entry = profile.not_decisive.get(rule.id)
-        why = entry.reason if entry else "prose span: the pattern narrows, a person decides"
-        yield note(_render(corpus, rule, pattern, used, hits, limit=3) + f"  ({why})", skill.name)
+        why = (
+            entry.reason
+            if entry
+            else "prose span: the pattern narrows, a person decides"
+        )
+        yield note(
+            _render(corpus, rule, pattern, used, hits, limit=3) + f"  ({why})",
+            skill.name,
+        )
     for rule, pattern, used, hits in sorted(tier3, key=lambda r: -len(r[3])):
         yield note(
             _render(corpus, rule, pattern, used, hits, limit=0)

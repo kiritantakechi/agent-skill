@@ -6,25 +6,35 @@ any of that, and the marker legend belongs in `SKILL.md` once rather than
 restated in every chapter.
 """
 
-from __future__ import annotations
-
 import re
 
-from ..report import fail
-from . import check
+from agent_skill.checks import check
+from agent_skill.report import fail
 
 PROVENANCE = [
-    (r"on this (machine|install|toolchain)", "provenance about the machine it was written on"),
-    (r"[Vv]erified \d{4}-\d{2}-\d{2}", "dated as of a run; say which version it is about"),
+    (
+        r"on this (machine|install|toolchain)",
+        "provenance about the machine it was written on",
+    ),
+    (
+        r"[Vv]erified \d{4}-\d{2}-\d{2}",
+        "dated as of a run; say which version it is about",
+    ),
     (r"unverified on", "provenance about the machine it was written on"),
     (r"\btwice, two different ways\b", "how many times it was run"),
     (r"Blocks marked `// verified`", "the marker legend; SKILL.md states it once"),
-    (r"marks a deliberately incomplete snippet", "the marker legend; SKILL.md states it once"),
+    (
+        r"marks a deliberately incomplete snippet",
+        "the marker legend; SKILL.md states it once",
+    ),
     (
         r"was (compiled and )?run against the local toolchain",
         "the marker legend; SKILL.md states it once",
     ),
-    (r"were compiled against that toolchain", "the marker legend; SKILL.md states it once"),
+    (
+        r"were compiled against that toolchain",
+        "the marker legend; SKILL.md states it once",
+    ),
 ]
 
 LEGEND = "carries a marker on its first line"
@@ -62,7 +72,9 @@ def prose(skill):
         positional = re.compile(POSITIONAL.format(pre=skill.prefix))
         for i, line in enumerate(text.split("\n"), 1):
             if positional.search(line):
-                yield fail("positional cross-reference; cite the ID alone", f"{tag}:{i}")
+                yield fail(
+                    "positional cross-reference; cite the ID alone", f"{tag}:{i}"
+                )
 
     seen = sum(path.read_text().count(LEGEND) for path in skill.markdown)
     if seen != 1:

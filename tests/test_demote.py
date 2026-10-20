@@ -1,14 +1,12 @@
 """`agent-skill demote`, on a throwaway repository."""
 
-from __future__ import annotations
-
 import pytest
-from structure_fixture import RULE, Demo, build
 
 from agent_skill import demote, renumber, shared
 from agent_skill.checks.anatomy import structural
 from agent_skill.checks.skeleton import shape
 from agent_skill.model import DASH, Skill
+from structure_fixture import RULE, Demo, build
 
 ERRORS = f"""# Errors
 
@@ -63,7 +61,9 @@ ROW = ["clippy", "unwrap_used", "deny", "an `unwrap` on a `Result` | `Option`"]
 def repo(tmp_path):
     root = tmp_path / "skills" / "demo-style"
     (root / "references").mkdir(parents=True)
-    (root / "SKILL.md").write_text("---\nname: demo-style\n---\n\n# Demo\n\nDS-ERR-02 wraps.\n")
+    (root / "SKILL.md").write_text(
+        "---\nname: demo-style\n---\n\n# Demo\n\nDS-ERR-02 wraps.\n"
+    )
     (root / "references" / "errors.md").write_text(ERRORS)
     (root / "references" / "migration.md").write_text(MIGRATION)
     (tmp_path / "src").mkdir()
@@ -100,7 +100,9 @@ def test_rows_replace_the_rule_and_start_the_table(repo):
     assert row.forbids == "an `unwrap` on a `Result` | `Option`"
     (table,) = demo.rename_tables
     assert table.ranges == (("DS-ERR", 1, 3), ("DS-MIG", 1, 1))
-    assert {r.before: r.now for r in table.rows} == {"DS-ERR-02": "lint `clippy:unwrap_used`"}
+    assert {r.before: r.now for r in table.rows} == {
+        "DS-ERR-02": "lint `clippy:unwrap_used`"
+    }
 
 
 def test_a_lint_row_already_listed_and_a_merge(repo):

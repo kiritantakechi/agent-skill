@@ -1,7 +1,5 @@
 """The shared templates render for every standard."""
 
-from __future__ import annotations
-
 import re
 
 import pytest
@@ -20,7 +18,7 @@ def test_an_optional_list_item_leaves_no_gap(skills):
     how_to = next(p for p in shared.PASSAGES if p.template == "how-to-use.md")
     for skill in skills:
         steps = shared.render(how_to, shared.slots(skill))[0]
-        numbers = [int(n) for n in re.findall(r"^(\d+)\. ", steps, re.M)]
+        numbers = [int(n) for n in re.findall(r"^(\d+)\. ", steps, re.MULTILINE)]
         assert numbers == list(range(1, len(numbers) + 1)), skill.name
         assert len(numbers) == (5 if skill.profile.delta_step else 4), skill.name
 

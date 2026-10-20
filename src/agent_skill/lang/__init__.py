@@ -6,14 +6,13 @@ markdown, and a block deleted from the markdown left an orphan module the orphan
 check could not see. Extracting in this direction makes that state unreachable.
 """
 
-from __future__ import annotations
-
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from ..report import Finding
+from agent_skill.report import Finding
+lazy from agent_skill.lang import python, rust, zig
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +65,7 @@ class Toolchain(Protocol):
 def toolchain_for(name: str | None) -> Toolchain | None:
     if name is None:
         return None
-    from . import python, rust, zig
 
-    return {"rust": rust.RUST, "zig": zig.ZIG, "python": python.PYTHON_TOOLCHAIN}.get(name)
+    return {"rust": rust.RUST, "zig": zig.ZIG, "python": python.PYTHON_TOOLCHAIN}.get(
+        name
+    )

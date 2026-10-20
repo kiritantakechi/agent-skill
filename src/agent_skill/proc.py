@@ -5,8 +5,6 @@ to raise on the other, that asymmetry aborted a whole mutation pass on the first
 hanging mutant and skipped every one after it.
 """
 
-from __future__ import annotations
-
 import os
 import re
 import shutil

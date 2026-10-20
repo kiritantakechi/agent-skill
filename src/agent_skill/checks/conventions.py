@@ -7,9 +7,7 @@ Tier governs adoption by a reader, not the library's own evidence, so an `[S]`
 rule the library declines to follow in its own examples fails here too.
 """
 
-from __future__ import annotations
-
-from . import check
+from agent_skill.checks import check
 
 
 @check("conventions", "the standard's own rules over its own examples")

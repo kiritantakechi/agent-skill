@@ -1,7 +1,6 @@
 """Installing a skill into an agent that reads skills."""
 
-from __future__ import annotations
-
+import zipfile
 from dataclasses import replace
 
 import pytest
@@ -43,7 +42,8 @@ def test_a_stale_link_is_repointed(target, skill, tmp_path):
 
 def test_a_copy_in_the_way_leaves_the_discovery_path(target, skill):
     """`skills/<name>.replaced` beside `skills/<name>` is a second skill
-    claiming the same name, because discovery reads the name from frontmatter."""
+    claiming the same name, because discovery reads the name from frontmatter.
+    """
     stale = target.skills / skill.name
     stale.mkdir()
     (stale / "SKILL.md").write_text("---\nname: rust-style\n---\n")
@@ -71,8 +71,6 @@ def test_targets_are_distinct():
 
 
 def test_the_package_holds_only_the_skill(tmp_path, skill):
-    import zipfile
-
     archive = package(skill, tmp_path)
     with zipfile.ZipFile(archive) as z:
         names = z.namelist()

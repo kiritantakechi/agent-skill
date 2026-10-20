@@ -14,18 +14,17 @@ directory is symlinked into `~/.claude/skills/` and packaged into the shipped
 `.skill`: tooling configuration inside it would be shipped to the reader.
 """
 
-from __future__ import annotations
-
+import importlib
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from ..lang.rust import Crate
-from ..model import MARKERS
-from ..report import Finding
+from agent_skill.lang.rust import Crate
+from agent_skill.model import MARKERS
+from agent_skill.report import Finding
 
 if TYPE_CHECKING:
-    from ..checks.search import Span
+    from agent_skill.checks.search import Span
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,7 +88,9 @@ class Profile:
     #: the lambdas are untyped, so `ty` could not see the disagreement, and the
     #: next one written against the documented signature would have indexed
     #: `lines[at]` with a dataclass. That raises only when a rule actually fires.
-    exempt: dict[str, Callable[[list[str], Span, set[int]], bool]] = field(default_factory=dict)
+    exempt: dict[str, Callable[[list[str], Span, set[int]], bool]] = field(
+        default_factory=dict
+    )
     not_decisive: dict[str, NotDecisive] = field(default_factory=dict)
     #: Rule id -> snippets containing the defects that rule exists to catch.
     #:
@@ -126,7 +127,8 @@ class Profile:
 
     def running_version(self) -> str | None:
         """The version of `pin()`'s subject that actually runs here, or None if
-        it cannot be asked. Only a pin that follows the local toolchain needs it."""
+        it cannot be asked. Only a pin that follows the local toolchain needs it.
+        """
         return None
 
     def conventions(self, skill) -> Iterable[Finding]:
@@ -162,9 +164,14 @@ def register(profile: Profile) -> Profile:
     return profile
 
 
+#: Every module that defines a profile. Importing one is what registers it.
+MODULES = ("bevy_style", "python_style", "rust_style", "zig_style")
+
+
 def _load() -> dict[str, Profile]:
     if not _REGISTRY:
-        from . import bevy_style, python_style, rust_style, zig_style  # noqa: F401
+        for module in MODULES:
+            importlib.import_module(f"agent_skill.profiles.{module}")
     return _REGISTRY
 
 

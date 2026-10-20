@@ -6,14 +6,13 @@ block-wide in another, a marker contract relaxed in three tools and not the
 fourth, which silently dropped two blocks from a corpus of 215.
 """
 
-from __future__ import annotations
-
 import re
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 
-from .text import code_only, strip_comment, syntax_for
+from agent_skill.text import code_only, strip_comment, syntax_for
+lazy from agent_skill.profiles import profile_for
 
 #: Every fenced example declares what it is, and the marker leads the block.
 #: A `//!` container-doc run may precede it, because that is where a real Zig or
@@ -218,7 +217,7 @@ class Rename:
 DECIDED = "Decided by tools"
 
 #: The section a migration chapter keeps a renumbering's rename table under.
-RENAMED = re.compile(r"^## Rule IDs before the .+ revision$", re.M)
+RENAMED = re.compile(r"^## Rule IDs before the .+ revision$", re.MULTILINE)
 
 #: The en dash a range is written with, as prose writes a range of numbers.
 DASH = "\u2013"
@@ -243,7 +242,11 @@ class RenameTable:
     @property
     def originals(self) -> list[str]:
         """Every ID the families ran before the revision, in the order the ranges give."""
-        return [f"{family}-{n:02d}" for family, lo, hi in self.ranges for n in range(lo, hi + 1)]
+        return [
+            f"{family}-{n:02d}"
+            for family, lo, hi in self.ranges
+            for n in range(lo, hi + 1)
+        ]
 
     @property
     def unchanged(self) -> list[str]:
@@ -255,9 +258,9 @@ def rename_tables(text: str) -> list[RenameTable]:
     """Every rename table in `text`. The ranges are read from the prose above the table."""
     out: list[RenameTable] = []
     for m in RENAMED.finditer(text):
-        nxt = re.compile(r"^## ", re.M).search(text, m.end())
+        nxt = re.compile(r"^## ", re.MULTILINE).search(text, m.end())
         end = nxt.start() if nxt else len(text)
-        lead = re.split(r"^\|", text[m.end() : end], maxsplit=1, flags=re.M)[0]
+        lead = re.split(r"^\|", text[m.end() : end], maxsplit=1, flags=re.MULTILINE)[0]
         ranges = tuple(
             (r.group(1), int(r.group(2)), int(r.group(3) or r.group(2)))
             for r in _RANGE.finditer(lead)
@@ -282,7 +285,7 @@ def without_renames(text: str) -> str:
         return "\n" * m.group(0).count("\n")
 
     table = r"^## Rule IDs before the .+ revision$.*?(?=^## |\Z)"
-    return re.sub(table, blank, text, flags=re.M | re.S)
+    return re.sub(table, blank, text, flags=re.MULTILINE | re.DOTALL)
 
 
 def _rows(text: str, start: int) -> list[tuple[int, list[str]]]:
@@ -319,14 +322,19 @@ def _section(body: str, name: str) -> str:
     holding a bolded phrase at the start of a line was read as ending there, so a
     long Why measured short.
     """
-    m = re.search(rf"\*\*{name}:?\*\*(.*?)(?=\n\*\*[^*\n]+:\*\*|\n### |\n## |\n```|\Z)", body, re.S)
+    m = re.search(
+        rf"\*\*{name}:?\*\*(.*?)(?=\n\*\*[^*\n]+:\*\*|\n### |\n## |\n```|\Z)",
+        body,
+        re.DOTALL,
+    )
     return m.group(1) if m else ""
 
 
 @dataclass(eq=False)
 class Chapter:
     """One reference chapter. Parsed once — `cached_property` needs a `__dict__`,
-    so this is deliberately neither frozen nor slotted."""
+    so this is deliberately neither frozen nor slotted.
+    """
 
     path: Path
     prefix: str
@@ -344,13 +352,15 @@ class Chapter:
         out: list[Rule] = []
         heads = list(
             re.finditer(
-                rf"^### ({self.prefix}-[A-Z]+-\d+[a-z]?) \[(M!|M|S)\] (.+)$", self.text, re.M
+                rf"^### ({self.prefix}-[A-Z]+-\d+[a-z]?) \[(M!|M|S)\] (.+)$",
+                self.text,
+                re.MULTILINE,
             )
         )
         for i, m in enumerate(heads):
             end = heads[i + 1].start() if i + 1 < len(heads) else len(self.text)
             body = self.text[m.end() : end]
-            nxt = re.search(r"^## ", body, re.M)
+            nxt = re.search(r"^## ", body, re.MULTILINE)
             out.append(
                 Rule(
                     id=m.group(1),
@@ -365,19 +375,21 @@ class Chapter:
 
     @cached_property
     def toc(self) -> dict[str, tuple[str, str]]:
-        """id -> (tier, title), from the chapter's own contents list."""
+        """Id -> (tier, title), from the chapter's own contents list."""
         head = self.text.split("\n---\n")[0]
         return {
             m.group(1): (m.group(2), m.group(3).strip())
             for m in re.finditer(
-                rf"^\s*- ({self.prefix}-[A-Z]+-\d+[a-z]?) \[(M!|M|S)\] (.+)$", head, re.M
+                rf"^\s*- ({self.prefix}-[A-Z]+-\d+[a-z]?) \[(M!|M|S)\] (.+)$",
+                head,
+                re.MULTILINE,
             )
         }
 
     @cached_property
     def lint_rows(self) -> list[LintRow]:
         """The `Decided by tools` table: `| Tool | Lint | Level | Forbids |`."""
-        m = re.search(rf"^## {DECIDED}$", self.text, re.M)
+        m = re.search(rf"^## {DECIDED}$", self.text, re.MULTILINE)
         if not m:
             return []
         return [
@@ -397,8 +409,14 @@ class Chapter:
 
     def blocks(self, lang: str) -> list[Block]:
         out: list[Block] = []
-        heads = list(re.finditer(rf"^### ({self.prefix}-[A-Z]+-\d+[a-z]?) \[", self.text, re.M))
-        for m in re.finditer(rf"^```{lang}\n(.*?)^```", self.text, re.M | re.S):
+        heads = list(
+            re.finditer(
+                rf"^### ({self.prefix}-[A-Z]+-\d+[a-z]?) \[", self.text, re.MULTILINE
+            )
+        )
+        for m in re.finditer(
+            rf"^```{lang}\n(.*?)^```", self.text, re.MULTILINE | re.DOTALL
+        ):
             body = m.group(1)
             prev = [h for h in heads if h.start() < m.start()]
             out.append(
@@ -429,7 +447,6 @@ class Skill:
     def __init__(self, root: Path, profile=None):
         self.root = root
         self.name = root.name
-        from .profiles import profile_for
 
         self.profile = profile or profile_for(self.name)
 
@@ -450,7 +467,10 @@ class Skill:
 
     @cached_property
     def chapters(self) -> list[Chapter]:
-        return [Chapter(p, self.prefix) for p in sorted((self.root / "references").glob("*.md"))]
+        return [
+            Chapter(p, self.prefix)
+            for p in sorted((self.root / "references").glob("*.md"))
+        ]
 
     @cached_property
     def rules(self) -> list[Rule]:
@@ -481,7 +501,7 @@ class Skill:
                 rf"^- \*\*({self.prefix}-CORE-\d+[a-z]?) `(\[M!?\]|\[S\])`\*\*"
                 rf".*?(?=^- \*\*{self.prefix}-CORE|\n## |\Z)",
                 self.text,
-                re.M | re.S,
+                re.MULTILINE | re.DOTALL,
             )
         ]
 
@@ -514,7 +534,9 @@ class Skill:
         docstring names "a predicate implemented twice and fixed once" as the
         defect it exists to prevent.
         """
-        return [b for b in self.blocks(lang, verified=verified) if not b.marker.evidence]
+        return [
+            b for b in self.blocks(lang, verified=verified) if not b.marker.evidence
+        ]
 
 
 def load(root: Path) -> Skill:
@@ -522,7 +544,9 @@ def load(root: Path) -> Skill:
 
 
 def discover(skills_dir: Path) -> list[Skill]:
-    return [Skill(p) for p in sorted(skills_dir.iterdir()) if (p / "SKILL.md").is_file()]
+    return [
+        Skill(p) for p in sorted(skills_dir.iterdir()) if (p / "SKILL.md").is_file()
+    ]
 
 
 # ------------------------------------------------------------------ predicates

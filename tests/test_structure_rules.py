@@ -1,14 +1,17 @@
 """Rule shape under standard-structure: numbering, Why length, lint rows, rename tables."""
 
-from __future__ import annotations
-
 import pytest
-from structure_fixture import build, edit, reparse
 
 from agent_skill.checks.anatomy import structural
-from agent_skill.checks.citations import python_rows, row_shape
+from agent_skill.checks.citations import (
+    python_rows,
+    row_shape,
+    rust_catalogue,
+    rust_rows,
+)
 from agent_skill.checks.skeleton import shape
-from agent_skill.model import DASH, Rename
+from agent_skill.model import DASH, LintRow, Rename
+from structure_fixture import build, edit, reparse
 
 ROWS = """
 
@@ -59,13 +62,21 @@ def test_a_suffixed_number(demo):
 
 def test_a_four_line_why(demo):
     broken = edit(
-        demo, "references/errors.md", "**Why:** one line of reason.", "**Why:** a\nb\nc\nd."
+        demo,
+        "references/errors.md",
+        "**Why:** one line of reason.",
+        "**Why:** a\nb\nc\nd.",
     )
     assert any("Why runs 4 lines" in m for m in structural_messages(broken))
 
 
 def test_a_three_line_why_is_fine(demo):
-    fine = edit(demo, "references/errors.md", "**Why:** one line of reason.", "**Why:** a\nb\nc.")
+    fine = edit(
+        demo,
+        "references/errors.md",
+        "**Why:** one line of reason.",
+        "**Why:** a\nb\nc.",
+    )
     assert structural_messages(fine) == []
 
 
@@ -102,13 +113,28 @@ def test_python_rows_against_the_shipped_configuration(demo):
     path = demo.root / "references" / "errors.md"
     path.write_text(path.read_text() + ROWS)
     rows = reparse(demo).lint_rows
-    assert list(python_rows(rows, {"B006"}, {"possibly-unresolved-reference": "warn"})) == []
-    off = [m for _, m in python_rows(rows, set(), {"possibly-unresolved-reference": "warn"})]
+    assert (
+        list(python_rows(rows, {"B006"}, {"possibly-unresolved-reference": "warn"}))
+        == []
+    )
+    off = [
+        m
+        for _, m in python_rows(rows, set(), {"possibly-unresolved-reference": "warn"})
+    ]
     assert off == ["`B006` is a row, and `assets/ruff.toml` does not enable it"]
-    level = [m for _, m in python_rows(rows, {"B006"}, {"possibly-unresolved-reference": "error"})]
-    assert level == ["`possibly-unresolved-reference` is `warn` in the row and `error` as shipped"]
+    level = [
+        m
+        for _, m in python_rows(
+            rows, {"B006"}, {"possibly-unresolved-reference": "error"}
+        )
+    ]
+    assert level == [
+        "`possibly-unresolved-reference` is `warn` in the row and `error` as shipped"
+    ]
     unknown = [m for _, m in python_rows(rows, {"B006"}, {})]
-    assert unknown == ["`possibly-unresolved-reference` is not a rule the pinned ty recognises"]
+    assert unknown == [
+        "`possibly-unresolved-reference` is not a rule the pinned ty recognises"
+    ]
 
 
 def test_rename_rows_parse_three_ways():
@@ -124,13 +150,16 @@ def test_a_rename_table_that_resolves(demo):
     path.write_text(path.read_text() + RENAMES)
     skill = reparse(demo)
     assert len(skill.renames) == 3
-    assert [m for m, _ in shape(skill) if "renamed" in m or "became" in m or "removed" in m] == []
+    assert [
+        m for m, _ in shape(skill) if "renamed" in m or "became" in m or "removed" in m
+    ] == []
 
 
 def test_a_rename_table_states_its_ranges(demo):
     path = demo.root / "references" / "migration.md"
     path.write_text(
-        path.read_text() + RENAMES.replace("`DS-ERR-09`.", "`DS-ERR-09` and `DS-MIG-01`.")
+        path.read_text()
+        + RENAMES.replace("`DS-ERR-09`.", "`DS-ERR-09` and `DS-MIG-01`.")
     )
     (table,) = reparse(demo).rename_tables
     assert table.ranges == (("DS-ERR", 1, 9), ("DS-MIG", 1, 1))
@@ -160,7 +189,9 @@ def test_a_row_mapping_an_id_to_itself(demo):
 
 def test_a_rename_into_a_rule_that_was_deleted(demo):
     path = demo.root / "references" / "migration.md"
-    path.write_text(path.read_text() + RENAMES.replace("`DS-ERR-02` |", "`DS-ERR-05` |"))
+    path.write_text(
+        path.read_text() + RENAMES.replace("`DS-ERR-02` |", "`DS-ERR-05` |")
+    )
     skill = reparse(demo)
     assert any("which no rule carries" in m for m, _ in shape(skill))
 
@@ -181,9 +212,6 @@ def test_a_removal_without_a_reason(demo):
 
 
 def test_rust_rows_against_the_shipped_lint_table(demo):
-    from agent_skill.checks.citations import rust_rows
-    from agent_skill.model import LintRow
-
     def row(tool, lint, level):
         return LintRow(tool, lint, level, "x", "errors.md", 1)
 
@@ -197,19 +225,29 @@ def test_rust_rows_against_the_shipped_lint_table(demo):
         "clippy.pedantic": '{ level = "warn", priority = -1 }',
         "rust.unsafe_code": '"forbid"',
     }
-    fine = [row("clippy", "unwrap_used", "deny"), row("clippy", "cast_lossless", "warn")]
+    fine = [
+        row("clippy", "unwrap_used", "deny"),
+        row("clippy", "cast_lossless", "warn"),
+    ]
     fine.append(row("rustc", "unsafe_code", "forbid"))
     assert list(rust_rows(fine, shipped, catalogue)) == []
-    wrong = [m for _, m in rust_rows([row("clippy", "unwrap_used", "warn")], shipped, catalogue)]
+    wrong = [
+        m
+        for _, m in rust_rows(
+            [row("clippy", "unwrap_used", "warn")], shipped, catalogue
+        )
+    ]
     assert wrong == ["`unwrap_used` is `warn` in the row and `deny` as shipped"]
-    unknown = [m for _, m in rust_rows([row("clippy", "unwarp_used", "deny")], shipped, catalogue)]
+    unknown = [
+        m
+        for _, m in rust_rows(
+            [row("clippy", "unwarp_used", "deny")], shipped, catalogue
+        )
+    ]
     assert unknown == ["`unwarp_used` is not a clippy lint the pinned toolchain knows"]
 
 
 def test_the_rust_catalogue_reads_the_toolchain():
-    import pytest
-
-    from agent_skill.checks.citations import rust_catalogue
 
     catalogue = rust_catalogue()
     if catalogue is None:
@@ -223,7 +261,9 @@ def test_the_rust_catalogue_reads_the_toolchain():
 def test_a_bold_phrase_inside_a_why_does_not_end_it(demo):
     """A Why ends at the next label, not at the next line that opens with `**`."""
     long_why = "**Why:** one.\n**Two** is bold.\nthree.\nfour."
-    broken = edit(demo, "references/errors.md", "**Why:** one line of reason.", long_why)
+    broken = edit(
+        demo, "references/errors.md", "**Why:** one line of reason.", long_why
+    )
     assert any("Why runs 4 lines" in m for m in structural_messages(broken))
 
 
@@ -239,4 +279,7 @@ def test_an_escaped_pipe_stays_inside_its_cell(demo):
     path = demo.root / "references" / "errors.md"
     path.write_text(path.read_text() + rows)
     (row,) = reparse(demo).lint_rows
-    assert (row.lint, row.forbids) == ("map_clone", "`.map(|x| x.clone())` — `.cloned()`")
+    assert (row.lint, row.forbids) == (
+        "map_clone",
+        "`.map(|x| x.clone())` — `.cloned()`",
+    )

@@ -10,16 +10,18 @@ check owning it reports a failure. A control that stops firing is itself a
 failure, and so is a fixture whose anchor text has drifted out of the skill.
 """
 
-from __future__ import annotations
-
 import shutil
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..report import Level, fail
-from . import check
+from agent_skill.checks import check
+from agent_skill.report import Level, fail
+lazy from agent_skill.checks import by_name
+lazy from agent_skill.lang import toolchain_for
+lazy from agent_skill.model import Skill, discover
+lazy from agent_skill.profiles import registered
 
 
 class FixtureGone(LookupError):
@@ -167,7 +169,10 @@ STRUCTURE: list[Control] = [
         "a section title with a subtitle the other standards do not have",
         "skeleton",
         lambda t: edit(
-            t, f"{PY}/SKILL.md", "## 3. Design principles\n", "## 3. Design principles — less\n"
+            t,
+            f"{PY}/SKILL.md",
+            "## 3. Design principles\n",
+            "## 3. Design principles — less\n",
         ),
     ),
     Control(
@@ -183,12 +188,16 @@ STRUCTURE: list[Control] = [
     Control(
         "a severity label the shared model does not have",
         "skeleton",
-        lambda t: edit(t, f"{PY}/references/review-checklist.md", "| **Style** |", "| **Nit** |"),
+        lambda t: edit(
+            t, f"{PY}/references/review-checklist.md", "| **Style** |", "| **Nit** |"
+        ),
     ),
     Control(
         "section 5 drifting from the protocol's review order",
         "skeleton",
-        lambda t: edit(t, f"{PY}/SKILL.md", "10. **The build.**", "10. **The release.**"),
+        lambda t: edit(
+            t, f"{PY}/SKILL.md", "10. **The build.**", "10. **The release.**"
+        ),
     ),
     Control(
         "a rename row leading to a rule that does not exist",
@@ -213,19 +222,25 @@ STRUCTURE: list[Control] = [
     Control(
         "an old ID dropped from the rename table while no rule carries it",
         "skeleton",
-        lambda t: edit(t, f"{PY}/references/migration.md", "| `PS-API-22` | `PS-API-20` |\n", ""),
+        lambda t: edit(
+            t, f"{PY}/references/migration.md", "| `PS-API-22` | `PS-API-20` |\n", ""
+        ),
     ),
     Control(
         "a shared sentence edited in one standard's copy",
         "shared-text",
-        lambda t: edit(t, f"{PY}/SKILL.md", "Apply it literally.", "Apply it with judgement."),
+        lambda t: edit(
+            t, f"{PY}/SKILL.md", "Apply it literally.", "Apply it with judgement."
+        ),
     ),
     Control(
         # The chapter's last rule, cited nowhere but its heading and its contents
         # line, so moving its number leaves no dangling citation behind.
         "a gap in a chapter's numbering",
         "anatomy",
-        lambda t: edit(t, f"{PY}/references/migration.md", "PS-MIG-15 [M]", "PS-MIG-17 [M]", 2),
+        lambda t: edit(
+            t, f"{PY}/references/migration.md", "PS-MIG-15 [M]", "PS-MIG-17 [M]", 2
+        ),
     ),
     Control(
         "a Why that runs to a fourth line",
@@ -256,12 +271,16 @@ CONTROLS: list[Control] = [
         # The asset denies it; a row saying `warn` describes a build that is not shipped.
         "a Rust lint row at a level the shipped table does not set",
         "citations",
-        lambda t: append(t, "rust-style/references/errors.md", _rust_row("unwrap_used", "warn")),
+        lambda t: append(
+            t, "rust-style/references/errors.md", _rust_row("unwrap_used", "warn")
+        ),
     ),
     Control(
         "a Rust lint row naming a lint clippy does not have",
         "citations",
-        lambda t: append(t, "rust-style/references/errors.md", _rust_row("unwarp_used", "deny")),
+        lambda t: append(
+            t, "rust-style/references/errors.md", _rust_row("unwarp_used", "deny")
+        ),
     ),
     Control(
         "a workflow installing an interpreter the harness did not verify against",
@@ -439,7 +458,9 @@ CONTROLS: list[Control] = [
     Control(
         "frontmatter with no name",
         "frontmatter",
-        lambda t: edit(t, "rust-style/SKILL.md", "name: rust-style", "nome: rust-style"),
+        lambda t: edit(
+            t, "rust-style/SKILL.md", "name: rust-style", "nome: rust-style"
+        ),
     ),
     Control(
         "pointer rule that grew a Why",
@@ -498,7 +519,9 @@ CONTROLS: list[Control] = [
     Control(
         "a prose line over the column limit",
         "layout",
-        lambda t: append(t, "zig-style/references/types-and-data.md", "\n" + "x " * 60 + "\n"),
+        lambda t: append(
+            t, "zig-style/references/types-and-data.md", "\n" + "x " * 60 + "\n"
+        ),
     ),
     Control(
         "a second marker line in one block",
@@ -658,7 +681,9 @@ CONTROLS: list[Control] = [
         # way, and in one the alternative after the newline was dead even here.
         "an `rg` command wrapped across a line of the source",
         "dialect",
-        lambda t: edit(t, "python-style/references/output.md", SQL_COMMAND, SQL_WRAPPED),
+        lambda t: edit(
+            t, "python-style/references/output.md", SQL_COMMAND, SQL_WRAPPED
+        ),
     ),
     Control(
         "a rule its own pattern would catch",
@@ -669,7 +694,10 @@ CONTROLS: list[Control] = [
         "an exemption quoting words the rule no longer says",
         "self-application",
         lambda t: edit(
-            t, "zig-style/references/build-and-project.md", "has this block", "carries the guard"
+            t,
+            "zig-style/references/build-and-project.md",
+            "has this block",
+            "carries the guard",
         ),
     ),
     Control(
@@ -688,9 +716,6 @@ CONTROLS: list[Control] = [
 @check("controls", "each check still fails on the defect it owns", scope="all")
 def controls(skills, *, fast: bool = False):
     """Yields a finding per control that no longer fires, and nothing when they all do."""
-    from ..model import discover
-    from . import by_name
-
     if not skills:
         return
     source = skills[0].root.parent
@@ -710,7 +735,9 @@ def controls(skills, *, fast: bool = False):
             try:
                 control.break_it(tree)
             except FixtureGone as e:
-                yield fail(f"{control.name}: cannot be injected any more — {e}", "controls")
+                yield fail(
+                    f"{control.name}: cannot be injected any more — {e}", "controls"
+                )
                 continue
             found = discover(tree)
             # A control that writes a file directly records nothing, and a
@@ -740,10 +767,6 @@ def _empty_corpus():
     extractor that silently yields nothing makes the whole toolchain check report
     clean, which is the one failure mode this guard exists for.
     """
-    from ..lang import toolchain_for
-    from ..model import Skill
-    from ..profiles import registered
-
     for profile in registered():
         if profile.toolchain is None:
             continue
@@ -753,4 +776,7 @@ def _empty_corpus():
             (root / "SKILL.md").write_text("---\nname: x\n---\n")
             tc = toolchain_for(profile.toolchain)
             if tc and tc.extract(Skill(root), Path(tmp) / "out"):
-                yield fail(f"an empty {profile.toolchain} corpus still extracts blocks", "controls")
+                yield fail(
+                    f"an empty {profile.toolchain} corpus still extracts blocks",
+                    "controls",
+                )

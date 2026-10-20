@@ -1,12 +1,10 @@
 """Rewriting an example the way `cargo fmt --check` will demand."""
 
-from __future__ import annotations
-
-from structure_fixture import build, edit
-
 from agent_skill import shared
 from agent_skill.fmt import INJECTED, _bodies, format_skill
 from agent_skill.lang.rust import BEVY_STYLE, RUST_STYLE
+from agent_skill.profiles import _REGISTRY, profile_for
+from structure_fixture import build, edit
 
 
 def test_bodies_dedents_and_drops_the_injected_attribute(tmp_path):
@@ -24,7 +22,10 @@ def test_bodies_dedents_and_drops_the_injected_attribute(tmp_path):
         "    fn b() {}\n"
         "}\n"
     )
-    assert _bodies(src, BEVY_STYLE) == ["// verified\nfn a() {}\n", "// verified\nfn b() {}\n"]
+    assert _bodies(src, BEVY_STYLE) == [
+        "// verified\nfn a() {}\n",
+        "// verified\nfn b() {}\n",
+    ]
 
 
 def test_bodies_undoes_the_extractor_rebasing(tmp_path):
@@ -79,8 +80,6 @@ def test_the_two_bevy_relaxations_are_the_only_ones():
 
 
 def test_every_rust_profile_names_a_crate():
-    from agent_skill.profiles import _REGISTRY, profile_for
-
     profile_for("rust-style")  # force registration by import
     for profile in _REGISTRY.values():
         if profile.toolchain == "rust":
@@ -89,11 +88,14 @@ def test_every_rust_profile_names_a_crate():
 
 def test_a_drifted_shared_passage_is_reported_and_rewritten(tmp_path):
     """The round trip `shared-text` promises: drift is found, `fmt` repairs it, and
-    the text the skill wrote in a free region survives the repair."""
+    the text the skill wrote in a free region survives the repair.
+    """
     demo = build(tmp_path)
     assert list(shared.compare(demo)) == []
     drifted = edit(demo, "SKILL.md", "Apply it literally.", "Apply it with judgement.")
-    assert any("differs from the shared template" in m for m, _ in shared.compare(drifted))
+    assert any(
+        "differs from the shared template" in m for m, _ in shared.compare(drifted)
+    )
     assert format_skill(drifted)
     assert list(shared.compare(drifted)) == []
     text = drifted.skill_md.read_text()
@@ -103,7 +105,9 @@ def test_a_drifted_shared_passage_is_reported_and_rewritten(tmp_path):
 
 def test_text_outside_a_free_region_is_left_for_a_person(tmp_path):
     demo = build(tmp_path)
-    stray = edit(demo, "SKILL.md", "Rules are cited by ID", "An aside.\n\nRules are cited by ID")
+    stray = edit(
+        demo, "SKILL.md", "Rules are cited by ID", "An aside.\n\nRules are cited by ID"
+    )
     assert any("no place for" in m for m, _ in shared.compare(stray))
     before = stray.skill_md.read_text()
     assert any("not rewritten" in line for line in shared.rewrite(stray))
@@ -115,5 +119,7 @@ def test_fmt_brings_a_prose_line_back_under_the_limit(tmp_path):
     long_line = "Subtract. " + "word " * 25 + "end."
     drifted = edit(demo, "SKILL.md", "Subtract.", long_line)
     assert format_skill(drifted)
-    prose = [ln for ln in drifted.skill_md.read_text().split("\n") if not ln.startswith("|")]
+    prose = [
+        ln for ln in drifted.skill_md.read_text().split("\n") if not ln.startswith("|")
+    ]
     assert all(len(line) <= 100 for line in prose)

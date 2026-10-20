@@ -5,8 +5,6 @@ text are written by hand, and `shared.rewrite` fills in every shared passage —
 which also makes building it a round trip through `fmt`.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -124,13 +122,20 @@ def build(root: Path, profile: Profile | None = None) -> Skill:
     (skill_dir / "SKILL.md").write_text(SKILL_MD.format(stages=stages))
     rows = "\n".join(
         ["| Severity | Meaning | Examples |", "|---|---|---|"]
-        + [f"| **{label}** | {meaning} | an example |" for label, meaning in shared.SEVERITIES]
+        + [
+            f"| **{label}** | {meaning} | an example |"
+            for label, meaning in shared.SEVERITIES
+        ]
     )
-    (refs / "review-checklist.md").write_text(REVIEW_MD.format(rows=rows, stages=stages))
+    (refs / "review-checklist.md").write_text(
+        REVIEW_MD.format(rows=rows, stages=stages)
+    )
     (refs / "errors.md").write_text(
         chapter("Errors", [("DS-ERR-01", "Return errors"), ("DS-ERR-02", "Name them")])
     )
-    (refs / "migration.md").write_text(chapter("Migration", [("DS-MIG-01", "Use the new name")]))
+    (refs / "migration.md").write_text(
+        chapter("Migration", [("DS-MIG-01", "Use the new name")])
+    )
     skill = Skill(skill_dir, profile or Demo())
     shared.rewrite(skill)
     return Skill(skill_dir, profile or Demo())

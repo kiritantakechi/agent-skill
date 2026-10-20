@@ -5,13 +5,12 @@ nothing and exits nothing, so the command line, pytest, and the negative control
 all drive the same code.
 """
 
-from __future__ import annotations
-
+import importlib
 import inspect
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
-from ..report import Finding, Result
+from agent_skill.report import Finding, Result
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,7 +49,9 @@ class Check:
         """
         result = Result(self.name)
         if self.scope == "all":
-            result.extend(self.fn(skills, **{k: v for k, v in kw.items() if self.wants(k)}))
+            result.extend(
+                self.fn(skills, **{k: v for k, v in kw.items() if self.wants(k)})
+            )
         else:
             for skill in skills:
                 result.extend(self.fn(skill))
@@ -75,30 +76,34 @@ def check(
     return wrap
 
 
-def all_checks() -> list[Check]:
-    from . import (  # noqa: F401  (registration by import)
-        anatomy,
-        assets,
-        citations,
-        controls,
-        conventions,
-        crossref,
-        dialect,
-        documented,
-        frontmatter,
-        layout,
-        lints,
-        markers,
-        mirror,
-        pins,
-        prose,
-        selfapply,
-        sensitivity,
-        shared,
-        skeleton,
-        toolchain,
-    )
+#: Every module that defines checks. Importing one is what registers its checks.
+MODULES = (
+    "anatomy",
+    "assets",
+    "citations",
+    "controls",
+    "conventions",
+    "crossref",
+    "dialect",
+    "documented",
+    "frontmatter",
+    "layout",
+    "lints",
+    "markers",
+    "mirror",
+    "pins",
+    "prose",
+    "selfapply",
+    "sensitivity",
+    "shared",
+    "skeleton",
+    "toolchain",
+)
 
+
+def all_checks() -> list[Check]:
+    for module in MODULES:
+        importlib.import_module(f"agent_skill.checks.{module}")
     return REGISTRY
 
 

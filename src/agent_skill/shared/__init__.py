@@ -16,15 +16,13 @@ else must appear verbatim and in order, compared with whitespace collapsed, so
 re-wrapping a paragraph is never a finding but changing a word is.
 """
 
-from __future__ import annotations
-
 import difflib
 import re
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..text import syntax_for
+from agent_skill.text import syntax_for
 
 HERE = Path(__file__).parent
 
@@ -36,7 +34,10 @@ FREE = "…"
 #: The severity model every review protocol uses: label, then meaning. The
 #: examples column is each standard's own.
 SEVERITIES: tuple[tuple[str, str], ...] = (
-    ("Unsound", "Corrupts memory or data, or crashes the runtime, from code that looks safe"),
+    (
+        "Unsound",
+        "Corrupts memory or data, or crashes the runtime, from code that looks safe",
+    ),
     (
         "Stale",
         "A spelling the target superseded — fails to build, or worse, builds and means "
@@ -132,7 +133,7 @@ def slots(skill) -> dict[str, str]:
 
 
 _SLOT = re.compile(r"\{([a-z_]+)\}")
-_ITEM = re.compile(r"^(\d+)\. ", re.M)
+_ITEM = re.compile(r"^(\d+)\. ", re.MULTILINE)
 
 
 def render(passage: Passage, values: dict[str, str]) -> list[str]:
@@ -278,7 +279,10 @@ def align(template: list[str], actual: list[str]) -> Alignment:
 def first_difference(want: str, got: str) -> str:
     """The first word at which two blocks part, with a little context."""
     a, b = normal(want).split(), normal(got).split()
-    i = next((k for k, (x, y) in enumerate(zip(a, b, strict=False)) if x != y), min(len(a), len(b)))
+    i = next(
+        (k for k, (x, y) in enumerate(zip(a, b, strict=False)) if x != y),
+        min(len(a), len(b)),
+    )
     return f"template has `{' '.join(a[i : i + 6])}`, found `{' '.join(b[i : i + 6])}`"
 
 
@@ -302,7 +306,9 @@ def wrap(block: str) -> str:
                 )
             )
         return "\n".join(out)
-    return textwrap.fill(normal(block), WIDTH, break_long_words=False, break_on_hyphens=False)
+    return textwrap.fill(
+        normal(block), WIDTH, break_long_words=False, break_on_hyphens=False
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -317,7 +323,8 @@ class Copy:
 
 def copies(skill):
     """Every shared passage the skill carries, aligned. A missing section is skipped:
-    the skeleton check owns the shape, and reporting it twice is one defect as two."""
+    the skeleton check owns the shape, and reporting it twice is one defect as two.
+    """
     values = slots(skill)
     for passage in PASSAGES:
         path = skill.root / passage.document
@@ -377,7 +384,9 @@ def rewrite(skill) -> list[str]:
         text = copy.path.read_text()
         lines = text.split("\n")
         start, end = copy.span
-        rendered = "\n".join([*lines[:start], "", *"\n\n".join(out).split("\n"), "", *lines[end:]])
+        rendered = "\n".join(
+            [*lines[:start], "", *"\n\n".join(out).split("\n"), "", *lines[end:]]
+        )
         if rendered != text:
             copy.path.write_text(rendered)
             changed.append(f"{where}: rewritten from the template")

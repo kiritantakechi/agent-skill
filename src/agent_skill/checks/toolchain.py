@@ -5,14 +5,12 @@ Extraction is also the only place that can tell "no defects" from "no input": an
 empty crate builds, lints, tests and mutates clean.
 """
 
-from __future__ import annotations
-
 import tempfile
 from pathlib import Path
 
-from ..lang import toolchain_for
-from ..report import fail, note, unrun
-from . import check
+from agent_skill.checks import check
+from agent_skill.lang import toolchain_for
+from agent_skill.report import fail, note, unrun
 
 
 @check("toolchain", "every // verified block compiles, and its tests run", slow=True)
@@ -29,7 +27,8 @@ def toolchain(skill):
         extraction = tc.extract(skill, Path(work) / "out")
         if not extraction:
             yield fail(
-                "no `// verified` block was extracted — is the skill still there?", skill.name
+                "no `// verified` block was extracted — is the skill still there?",
+                skill.name,
             )
             return
         yield from tc.verify(extraction)
@@ -48,7 +47,9 @@ def mutation(skill):
     # aborting the whole run rather than reporting one gap.
     mutate = getattr(tc, "mutate", None)
     if mutate is None:
-        yield unrun(f"the {tc.name} toolchain cannot mutate, so no test was pinned", skill.name)
+        yield unrun(
+            f"the {tc.name} toolchain cannot mutate, so no test was pinned", skill.name
+        )
         return
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
         extraction = tc.extract(skill, Path(work) / "out")

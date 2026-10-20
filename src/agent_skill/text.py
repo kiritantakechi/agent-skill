@@ -1,7 +1,5 @@
 """Reading source text the way a compiler would, not the way a regex would."""
 
-from __future__ import annotations
-
 import re
 
 #: How a language spells a line comment, and which characters delimit a string.
@@ -78,7 +76,12 @@ def reflow(text: str, width: int = WIDTH) -> str:
         # A contents line is a rule's ID, tier and title by construction, and
         # `layout` exempts it for that reason: wrapping it breaks the contents.
         contents = re.match(r"^\s*- [A-Z]{2}-[A-Z]+-\d+", line)
-        if fenced or len(line) <= width or line.lstrip().startswith(("|", "#")) or contents:
+        if (
+            fenced
+            or len(line) <= width
+            or line.lstrip().startswith(("|", "#"))
+            or contents
+        ):
             i += 1
             continue
         cut = _cut(line, width)
@@ -88,7 +91,9 @@ def reflow(text: str, width: int = WIDTH) -> str:
             continue
         moved = line[cut + 1 :]
         item = re.match(r"^(\s*)(?:[-*] |\d+\. )", line)
-        indent = " " * len(item.group(0) if item else line[: len(line) - len(line.lstrip())])
+        indent = " " * len(
+            item.group(0) if item else line[: len(line) - len(line.lstrip())]
+        )
         nxt = lines[i + 1] if i + 1 < len(lines) else ""
         lines[i] = head
         if nxt.strip() and not _STARTS_BLOCK.match(nxt):

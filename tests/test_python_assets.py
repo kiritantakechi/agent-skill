@@ -4,8 +4,7 @@ Every case here is a claim the standard makes in prose. A claim nobody runs is a
 claim that stops being true without anyone noticing.
 """
 
-from __future__ import annotations
-
+import json
 import re
 import subprocess
 from pathlib import Path
@@ -16,13 +15,23 @@ REPO = Path(__file__).resolve().parents[1]
 RUFF_TOML = REPO / "skills" / "python-style" / "assets" / "ruff.toml"
 RUFF = REPO / ".venv" / "bin" / "ruff"
 
-pytestmark = pytest.mark.skipif(not RUFF.exists(), reason="the pinned ruff is not installed")
+pytestmark = pytest.mark.skipif(
+    not RUFF.exists(), reason="the pinned ruff is not installed"
+)
 
 
 def enabled(config: Path, cwd: Path) -> set[str]:
     """Every code ruff resolves as enabled, as ruff itself reports them."""
     out = subprocess.run(
-        [str(RUFF), "check", "--no-cache", "--config", str(config), "--show-settings", "."],
+        [
+            str(RUFF),
+            "check",
+            "--no-cache",
+            "--config",
+            str(config),
+            "--show-settings",
+            ".",
+        ],
         cwd=cwd,
         capture_output=True,
         text=True,
@@ -45,8 +54,6 @@ def test_no_preview_rule_is_enabled(tmp_path):
     A preview rule can change or vanish in any release; one enabled here would make
     the standard's enforcement depend on which ruff happened to run.
     """
-    import json
-
     (tmp_path / "m.py").write_text("x = 1\n")
     rules = json.loads(
         subprocess.run(
@@ -56,7 +63,9 @@ def test_no_preview_rule_is_enabled(tmp_path):
             check=True,
         ).stdout
     )
-    preview = {rule["code"] for rule in rules if "Preview" in str(rule.get("status", ""))}
+    preview = {
+        rule["code"] for rule in rules if "Preview" in str(rule.get("status", ""))
+    }
     assert preview, "no preview rule found, so this test proves nothing"
     assert not (enabled(RUFF_TOML, tmp_path) & preview)
 
@@ -76,8 +85,23 @@ def test_py315_target_does_not_warn(tmp_path):
 #: Ruff's own documented list of rules that conflict with its formatter.
 #: https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
 FORMATTER_CONFLICTS = frozenset(
-    """W191 E111 E114 E117 D203 D206 D300 Q000 Q001 Q002 Q003 Q004
-       COM812 COM819 ISC002""".split()
+    [
+        "W191",
+        "E111",
+        "E114",
+        "E117",
+        "D203",
+        "D206",
+        "D300",
+        "Q000",
+        "Q001",
+        "Q002",
+        "Q003",
+        "Q004",
+        "COM812",
+        "COM819",
+        "ISC002",
+    ]
 )
 
 

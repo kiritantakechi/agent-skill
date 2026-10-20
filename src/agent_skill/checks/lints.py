@@ -5,13 +5,11 @@ a rule requires deny, and the verified crate quietly omitted a third lint
 while its comment named two.
 """
 
-from __future__ import annotations
-
 import re
 import tomllib
 
-from ..report import fail
-from . import check
+from agent_skill.checks import check
+from agent_skill.report import fail
 
 
 def table(text: str, prefix: str = "") -> dict[str, str]:
@@ -42,7 +40,9 @@ def lints(skill):
     for key in sorted(set(shipped) - set(verified) - crate.unverifiable):
         yield fail(f"assets/Cargo.toml ships `{key}` that nothing verifies", skill.name)
     for key in sorted(set(verified) - set(shipped)):
-        yield fail(f"the verified crate has `{key}` the shipped asset does not", skill.name)
+        yield fail(
+            f"the verified crate has `{key}` the shipped asset does not", skill.name
+        )
     for key in sorted(set(shipped) & set(verified)):
         if shipped[key] != verified[key]:
             yield fail(

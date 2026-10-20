@@ -4,16 +4,15 @@
 corpus is what was matched against.
 """
 
-from __future__ import annotations
-
 import json
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..proc import have, run, tool_path, version_mismatch
-from .corpus import Corpus
-from .patterns import Pattern
+from agent_skill.checks.corpus import Corpus
+from agent_skill.checks.patterns import Pattern
+from agent_skill.proc import have, run, tool_path, version_mismatch
+lazy from agent_skill.text import strip_comment, syntax_for
 
 
 @dataclass(frozen=True, slots=True, order=True)
@@ -111,7 +110,9 @@ def find(corpus: Corpus, pattern: Pattern):
         text = data["lines"].get("text", "")
         # Under --multiline one match covers a region, and `line_number` is
         # only where it began.
-        spanned = max(1, text.count("\n") if text.endswith("\n") else text.count("\n") + 1)
+        spanned = max(
+            1, text.count("\n") if text.endswith("\n") else text.count("\n") + 1
+        )
         found.append(Span(start, start + spanned - 1))
     return sorted(found, key=lambda s: s.start), pattern.mode
 
@@ -130,11 +131,11 @@ def matches(snippet: str, pattern: Pattern, lang: str) -> bool | None:
     two different texts, and a fixture whose match depends on comment content
     could certify a pattern the corpus path can never fire on.
     """
-    from ..text import strip_comment, syntax_for
-
     if not pattern.over_comments:
         comment, quotes = syntax_for(lang)
-        snippet = "\n".join(strip_comment(x, comment, quotes) for x in snippet.split("\n"))
+        snippet = "\n".join(
+            strip_comment(x, comment, quotes) for x in snippet.split("\n")
+        )
 
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
         target = Path(work) / "fixture.txt"

@@ -1,15 +1,13 @@
 """`agent-skill renumber`, on a throwaway repository."""
 
-from __future__ import annotations
-
 import re
 
 import pytest
-from structure_fixture import RULE, Demo
 
 from agent_skill import renumber
 from agent_skill.model import Skill
 from agent_skill.text import reflow
+from structure_fixture import RULE, Demo
 
 
 def chapter(title: str, rules: list[tuple[str, str]], extra: str = "") -> str:
@@ -21,7 +19,8 @@ def chapter(title: str, rules: list[tuple[str, str]], extra: str = "") -> str:
 @pytest.fixture
 def repo(tmp_path):
     """A repository with one standard whose errors chapter has lost its first rule,
-    and whose concurrency chapter is still called `free-threading.md`."""
+    and whose concurrency chapter is still called `free-threading.md`.
+    """
     refs = tmp_path / "skills" / "demo-style" / "references"
     refs.mkdir(parents=True)
     (tmp_path / "skills" / "demo-style" / "SKILL.md").write_text(
@@ -31,8 +30,12 @@ def repo(tmp_path):
     (refs / "errors.md").write_text(
         chapter("Errors", [("DS-ERR-02", "Name them"), ("DS-ERR-03", "Wrap them")])
     )
-    (refs / "free-threading.md").write_text(chapter("Threads", [("DS-FT-01", "Lock it")]))
-    (refs / "migration.md").write_text(chapter("Migration", [("DS-MIG-01", "Use the new name")]))
+    (refs / "free-threading.md").write_text(
+        chapter("Threads", [("DS-FT-01", "Lock it")])
+    )
+    (refs / "migration.md").write_text(
+        chapter("Migration", [("DS-MIG-01", "Use the new name")])
+    )
     profiles = tmp_path / "src" / "agent_skill" / "profiles"
     profiles.mkdir(parents=True)
     (profiles / "demo_style.py").write_text(
@@ -97,7 +100,9 @@ def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo):
 def test_a_run_that_changes_nothing_starts_no_table(repo):
     run(repo, **THREADS)
     migration = repo / "skills/demo-style/references/migration.md"
-    migration.write_text(migration.read_text().replace("1.2.3 revision", "1.2.2 revision"))
+    migration.write_text(
+        migration.read_text().replace("1.2.3 revision", "1.2.2 revision")
+    )
     before = migration.read_text()
     run(repo)
     assert migration.read_text() == before
@@ -123,7 +128,7 @@ def test_an_unlisted_original_that_is_gone_stops_the_run(repo):
     run(repo, **THREADS)
     migration = repo / "skills/demo-style/references/migration.md"
     text = migration.read_text()
-    rule = re.search(r"^### DS-MIG-01 .*?(?=^## )", text, re.M | re.S)
+    rule = re.search(r"^### DS-MIG-01 .*?(?=^## )", text, re.MULTILINE | re.DOTALL)
     migration.write_text(
         text.replace("- DS-MIG-01 [M] Use the new name\n", "").replace(rule[0], "")
     )
@@ -140,7 +145,9 @@ def test_a_second_run_composes_onto_the_first(repo):
     errors.write_text(chapter("Errors", [("DS-ERR-02", "Wrap them")]))
     migration = repo / "skills/demo-style/references/migration.md"
     row = "| `DS-ERR-02` | `DS-ERR-01` |"
-    migration.write_text(migration.read_text().replace(row, "| `DS-ERR-02` | removed — x |"))
+    migration.write_text(
+        migration.read_text().replace(row, "| `DS-ERR-02` | removed — x |")
+    )
     run(repo)
     table = {r.before: r.now for r in Skill(repo / "skills/demo-style", Demo()).renames}
     assert table["DS-ERR-02"] == "removed — x"
@@ -173,7 +180,9 @@ def test_an_unknown_id_is_reported_and_left_alone(repo):
 
 
 def test_reflow_pushes_overflow_into_the_next_line():
-    text = ("word " * 19 + "end-of-the-line-word").rstrip() + "\nnext line of the same paragraph.\n"
+    text = (
+        "word " * 19 + "end-of-the-line-word"
+    ).rstrip() + "\nnext line of the same paragraph.\n"
     out = reflow(text, width=100)
     lines = out.split("\n")
     assert all(len(ln) <= 100 for ln in lines)
@@ -215,6 +224,10 @@ def test_reflow_leaves_a_contents_line_whole():
 
 
 def test_reflow_never_breaks_inside_a_code_span():
-    line = "**Check:** " + "word " * 10 + "`rg -n '^(alpha|beta|gamma|delta) *=' Cargo.toml` tail"
+    line = (
+        "**Check:** "
+        + "word " * 10
+        + "`rg -n '^(alpha|beta|gamma|delta) *=' Cargo.toml` tail"
+    )
     out = reflow(line + "\n", width=100)
     assert "`rg -n '^(alpha|beta|gamma|delta) *=' Cargo.toml`" in out
