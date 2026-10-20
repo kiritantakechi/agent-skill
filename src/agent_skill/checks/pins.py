@@ -103,12 +103,39 @@ def _sort_key(version: str) -> tuple | None:
     return (int(major), int(minor), int(micro), rank, int(serial or 0))
 
 
+def local_pin(profile):
+    """(level, message) for a pin that follows the local toolchain.
+
+    Compared with the running version only. Upstream releasing something newer is
+    not a finding — the standard is verified against what runs here, and that has
+    not changed. The local toolchain moving past the pin is: the claim that the
+    examples were verified on this version has just stopped being true.
+    """
+    reason = profile.follows_local
+    if reason is None:
+        return
+    if not reason.strip():
+        yield fail, f"{profile.name} follows the local toolchain and gives no reason why"
+        return
+    pinned, running = profile.pin(), profile.running_version()
+    if running is None:
+        yield (
+            unrun,
+            f"could not ask the local toolchain which version runs, so `{pinned}` was not compared",
+        )
+    elif running != pinned:
+        moved = f"follows this machine's toolchain, which is now {running}"
+        yield fail, f"{profile.name} is pinned to {pinned} and {moved} — the cue to bump it"
+
+
 @check(
     "pins",
     "a superseded pin is a finding, not a diary entry",
-    needs=("uv", "ruff", "ty", "pytest", "rg"),
+    needs=("uv", "ruff", "ty", "pytest", "rg", "zig"),
 )
 def pins(skill):
+    for level, message in local_pin(skill.profile):
+        yield level(message, skill.name)
     if skill.profile.toolchain != "python":
         return
     yield from _tool_pins()

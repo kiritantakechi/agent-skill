@@ -28,6 +28,9 @@ class ZigStyle(Profile):
     markers: tuple[str, ...] = ("verified", "fragment", "does-not-compile")
     tools: tuple[str, ...] = ("zig",)
     language: str = "Zig"
+    follows_local: str | None = (
+        "follows this machine's `zig`, and is bumped with the skill, never ahead of it"
+    )
     exempt_from_structure: str | None = (
         "conforms with its own bump, once this machine's `zig` moves past 0.16.0"
     )
@@ -171,6 +174,14 @@ class ZigStyle(Profile):
         from ..lang.zig import ZIG_VERSION
 
         return ZIG_VERSION
+
+    def running_version(self) -> str | None:
+        from ..proc import have, run
+
+        if not have("zig"):
+            return None
+        answered = run(["zig", "version"], timeout=30)
+        return answered.out.strip() if answered.ok else None
 
     def conventions(self, skill) -> Iterable[Finding]:
         for b in skill.advice("zig"):

@@ -1,4 +1,4 @@
-# Validated against ty 0.0.75. Pin this version exactly: ty is 0.0.x and states
+# Validated against ty 0.0.89. Pin this version exactly: ty is 0.0.x and states
 # that breaking changes, INCLUDING CHANGES TO DIAGNOSTICS, may occur between any
 # two releases. Moving the pin is a reviewed event.
 [environment]

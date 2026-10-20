@@ -7,8 +7,8 @@ asset disables — or one the tool withdrew — and read as enforced while nothi
 enforces it.
 
 The reverse direction is deliberately absent. The asset selects `ALL`, so the
-enabled set is 786 codes and the standard cites a handful; "enabled but uncited"
-is the normal case rather than a defect.
+enabled set is most of ruff's catalogue and the standard cites a fraction of it;
+"enabled but uncited" is the normal case rather than a defect.
 """
 
 from __future__ import annotations

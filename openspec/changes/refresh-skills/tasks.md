@@ -63,11 +63,11 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 5. Harness: pins
 
-- [ ] 5.1 Add local-following pins to `pins` (D11), with a required reason, and declare the
+- [x] 5.1 Add local-following pins to `pins` (D11), with a required reason, and declare the
   `zig-style` compiler pin `0.16.0` as local-following. Verify: `uv run agent-skill check --fast
   --only pins` reports zig as compared against `zig version` only, and a control that empties the
   reason fails.
-- [ ] 5.2 Move the repository's dev pins to `ruff==0.17.1` and `ty==0.0.89` in `pyproject.toml`,
+- [x] 5.2 Move the repository's dev pins to `ruff==0.17.1` and `ty==0.0.89` in `pyproject.toml`,
   run `uv sync`, and update `citations.py`'s hard-coded "786" so the number is derived rather than
   stated. Verify: `pins` no longer reports ruff or ty.
 

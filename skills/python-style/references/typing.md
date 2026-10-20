@@ -49,7 +49,7 @@ Unless a block shows its own imports, it assumes `from typing import …` for th
 
 ### PS-TYPE-01 [M] Run `ty` at the pinned version, with the shipped configuration
 
-`ty==0.0.75`, `assets/ty.toml`, in CI, as a gate. Not as an editor convenience.
+`ty==0.0.89`, `assets/ty.toml`, in CI, as a gate. Not as an editor convenience.
 
 **Why:** an annotation nothing checks is a comment with syntax. `ty` is mandated for the same
 reason `ruff` is: a standard that ships a configuration while declining to say whether you should

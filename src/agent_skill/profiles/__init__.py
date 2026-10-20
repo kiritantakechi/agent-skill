@@ -68,6 +68,10 @@ class Profile:
     strict_scope: str = ""
     #: A delta standard's extra reading step, or "" for a standard that stands alone.
     delta_step: str = ""
+    #: Why `pin()` follows this machine's toolchain rather than upstream's newest
+    #: release, or None when it follows upstream. Such a pin is compared with the
+    #: running version only, and the toolchain moving past it is the cue to bump.
+    follows_local: str | None = None
     toolchain: str | None = None
     #: how this skill's rust blocks are compiled; required when `toolchain == "rust"`,
     #: because the dependency line and the lint table differ per skill
@@ -115,6 +119,11 @@ class Profile:
         standard. The H1 names its major.minor, so the title and the harness
         cannot disagree about what the standard is for.
         """
+        return None
+
+    def running_version(self) -> str | None:
+        """The version of `pin()`'s subject that actually runs here, or None if
+        it cannot be asked. Only a pin that follows the local toolchain needs it."""
         return None
 
     def conventions(self, skill) -> Iterable[Finding]:

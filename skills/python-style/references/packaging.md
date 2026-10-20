@@ -142,7 +142,7 @@ extras publishes your development choices as part of your API.
 
 ### PS-PKG-08 [M] Pin every tool that decides whether the build passes
 
-`ruff==0.16.5`, `ty==0.0.75`, `pytest==9.1.1` — exact, in the dependency group.
+`ruff==0.17.1`, `ty==0.0.89`, `pytest==9.1.1` — exact, in the dependency group.
 
 **Why:** a linter version is part of the build's definition: a floor means a new release can fail
 your CI on code nobody touched, and can do it differently for two developers on the same commit.
