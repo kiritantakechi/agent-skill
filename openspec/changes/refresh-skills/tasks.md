@@ -222,7 +222,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
   Verify: `pins` and `assets` pass.
 - [x] 10.2 Step A: `agent-skill renumber bevy-style --chapters cargo=build,ui-render=view`, with
   codes per D3. Verify: `--fast` is no worse.
-- [ ] 10.3 Skeleton and templates:
+- [x] 10.3 Skeleton and templates:
   - **`SKILL.md`:**
     - the H1 is `Bevy Style — 0.20`;
     - §3 is `3. Design principles`, with the departures from `rust-style` as an H3;

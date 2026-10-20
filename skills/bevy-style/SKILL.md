@@ -13,44 +13,49 @@ description: >-
   deciding whether something belongs in a system or in plain Rust.
 ---
 
-# Bevy Style — 0.19
+# Bevy Style — 0.20
 
 A **delta on top of `rust-style`**. Everything that standard says about naming, errors, ownership,
 functional style, modules, documentation and Cargo still holds; this one states what changes when
 Bevy is in the dependency list, and nothing else. Section 3 lists every place the two disagree and
 which one wins.
 
-**Target: Bevy 0.19 (0.19.1 at the time of writing) on edition 2024.** Bevy's API turns over faster
+**Target: Bevy 0.20 on Rust 1.99, edition 2024.** Bevy's API turns over faster
 than any other dependency a game has, and most Bevy code on the public internet — and most of what
 a language model has read — is 0.15 or older. Section 2 and `references/migration.md` exist for
 that reason.
 
 ## How to use this standard
 
-1. **Read section 2** before emitting Bevy code. It is the 0.19 reality check, and three of its
-   entries change behaviour without changing whether the code compiles.
+1. **Read section 2** before emitting Bevy code. It is the Bevy 0.20 reality check, and some of its
+   entries change behaviour without producing an error, so nothing else will catch them.
 2. **Apply section 4.** Those core rules bind on their own and reach nearly every file.
 3. **Load one chapter** from the reference map in section 6 — the one that matches the task. Each
    opens with a table of contents listing every rule it owns, so you can jump straight to the rule.
-   Load a second only when the task genuinely spans two.
+   Load a second chapter only when the task genuinely spans two; never load all of them.
 4. **Load `rust-style` as well** for anything that is a Rust question rather than a Bevy question.
 5. **Walk section 5** before handing back a diff.
 
-Rules are cited by ID — `BV-ECS-04`, `BV-SCHED-12`. The prefix identifies the owning chapter
-(section 6 maps prefix to file). Rules from the other standard keep their own prefix, so an `RS-`
-citation is always a pointer out of this document.
+Rules are cited by ID — `BV-ERR-03`, `BV-TEST-05`. The prefix identifies the owning chapter (section
+6 maps prefix to file), so cite the ID when justifying a change and the reader can find the full
+rule and its rationale. When a rule in a chapter and a rule here appear to conflict, the chapter is
+the detailed statement and wins; sections 1 and 3 govern how to break a genuine tie.
 
-A handful of rules end in `(see BV-…)`. Those are pointers: the rule belongs to another chapter,
-and this one repeats it because a reader who opened *this* chapter needs it. A pointer states where
-the rule lives and what it means here, and carries no **Why** or **Check** of its own — the owning
-rule has both.
+Rules from the other standard keep their own prefix, so an `RS-` citation is always a pointer out
+of this document.
 
-Every fenced example carries a marker on its first line. `// verified` — the block compiles against
-Bevy 0.19.1 on edition 2024, and any test it ships passes. `// fragment` — shown in context rather
-than compiled as a unit, usually because it names things the chapter declares around it.
-`// does-not-compile` — the compile error is the point. A trailing `— GOOD` or `— BAD` names which
-side of the rule the block illustrates. A block in another language carries its marker in that
-language's comment syntax.
+A chapter ends with **Decided by tools** when a tool settles part of its subject on its own: each
+lint, the level the shipped configuration sets it at, and what it forbids. Those are not rules — the
+tool enforces them, so they carry no Why and no Check. When rules are renumbered,
+`references/migration.md` maps every old ID to its new one.
+
+Every fenced example carries a marker on its first line. `// verified` — the block compiles as
+written against Bevy 0.20.0 on Rust 1.99, edition 2024, and any test it ships passes. `// fragment`
+— shown in context rather than run as a unit, usually because it uses names the chapter declares
+around it. `// rejected — <tool>: …` — the rejection is the point, and the marker names the tool
+that rejects it: `rustc`, `clippy`, `rustdoc`. A trailing `— GOOD` or `— BAD` names which side of
+the rule the block illustrates. A block in another language carries its marker in that language's
+comment syntax.
 
 ## 1. Tiers
 
@@ -69,7 +74,10 @@ it is the authority in a networked game. **Otherwise** — jam prototypes, edito
 scenes, throwaway tools — `[M!]` rules are recommendations, and the relaxed form given with each
 rule is acceptable.
 
-## 2. Bevy 0.19 reality check — read before writing code
+When you cannot tell which category the code is in, ask, or state your assumption in one line and
+proceed with the stricter reading.
+
+## 2. Bevy 0.20 reality check
 
 ### 2.1 The three that change behaviour without changing whether it compiles
 
@@ -113,7 +121,14 @@ old `bevy_scene` is `bevy_world_serialization`, and `bevy_scene` is now the new 
 `references/migration.md` is the full table, and it is the first thing to check when porting code
 written against a tutorial.
 
-## 3. Where this standard departs from `rust-style`
+## 3. Design principles
+
+The spine of this standard is the boundary: the rules of the game live in plain Rust that never
+names Bevy, and the engine is the view and the input around them (`references/architecture.md`
+BV-ARCH-01). An engine upgrade then rewrites signatures and not arithmetic. Everything else follows
+`rust-style`'s principles; the departures are below, and nothing not listed there is relaxed.
+
+### Where this standard departs from `rust-style`
 
 Each row is a rule of the other standard that Bevy makes impossible, harmful, or merely noisy.
 Nothing else is relaxed: a divergence not listed here is a defect, not a dialect.
@@ -245,42 +260,58 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
   `too_many_arguments` stay on, because both have a compliant form that is better code
   (`references/build.md` BV-BUILD-12, BV-BUILD-13 and BV-BUILD-14).
 
-## 5. Before handing back a diff
+## 5. Review checklist
 
-1. **Does anything outside the view layer name Bevy?** That is the one defect this standard exists
-   to prevent, and it is invisible until the next upgrade (BV-ARCH-01).
-2. **Is every API in the diff a 0.19 API?** Check anything that looks like a tutorial against
-   `references/migration.md`. `Trigger`, `EventReader`, `Parent` and `*Bundle` are the usual four
-   (BV-MIG-01).
-3. **Is any `Changed<T>` watching something written unconditionally?** If so the filter matches
-   every frame and is doing nothing (BV-ECS-26).
-4. **Does every fallible system return `Result`?** Search the diff for `unwrap`, `expect` and
-   `[` on a query or resource (BV-ERR-01, BV-ERR-09).
-5. **Is the ordering expressed in sets?** A `.after(some_system)` naming a function is a
-   dependency on an implementation detail (BV-SCHED-12, BV-SCHED-14).
-6. **Would each new system be skipped when it should be?** A run condition, a state scope, or
-   neither on purpose (BV-SCHED-17, BV-STATE-18).
-7. **Does each new component derive `Reflect` and get registered?** An unregistered type is
-   invisible to every tool (BV-ECS-03, BV-ECS-13).
-8. **Is anything `[M!]` relying on its relaxed form?** If so, say which of the shipped-code
-   conditions does not hold.
+When reviewing or self-reviewing a Bevy diff, walk this list. It is the review order of the full
+protocol — severity model, mechanical pass, output format — in `references/review-checklist.md`.
+
+1. **The boundary.** Does anything outside the view layer name Bevy? (BV-ARCH-01)
+2. **Stale APIs.** Is every API a 0.20 API — no `Trigger`, `EventReader`, `Parent`, `*Bundle`,
+   `Pointer<Click>` or `On<Add, T>`? (BV-MIG-01)
+3. **Errors and panics.** Does every fallible system return `Result`, and does the release error
+   handler still end the app on a caught panic? (BV-ERR-01, BV-ERR-05)
+4. **Change detection.** Is any `Changed<T>` watching something written unconditionally?
+   (BV-ECS-26)
+5. **Ordering.** Is ordering expressed in sets, not against a system function? (BV-SCHED-12,
+   BV-SCHED-14)
+6. **Run conditions and state.** Would each new system be skipped when it should be? (BV-SCHED-17,
+   BV-STATE-18)
+7. **Reflection.** Does each new component derive `Reflect` and get registered? (BV-ECS-03,
+   BV-ECS-13)
+8. **Tests.** Is the rule tested without an `App`, and the plugin with the smallest one?
+   (BV-TEST-01, BV-TEST-02)
+9. **Relaxed forms.** Is anything `[M!]` relying on its relaxed form, and which shipped-code
+   condition does not hold?
 
 ## 6. Reference map
 
-Load the chapter that matches the task.
+Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
+listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The 24
+`BV-CORE-*` rules live in section 4 above; the other 225 live here.
 
-| Chapter | Covers | Rules |
+| File | Rule IDs | Covers |
 |---|---|---|
-| `references/architecture.md` | the boundary, plugins, the app | `BV-ARCH` (19) |
-| `references/ecs.md` | components, required components, queries, change detection, reflection | `BV-ECS` (32) |
-| `references/scheduling.md` | schedules, sets, ordering, run conditions, time, input | `BV-SCHED` (26) |
-| `references/events.md` | messages, events, entity events, observers | `BV-EVENT` (20) |
-| `references/state.md` | resources, states, transitions, scoping | `BV-STATE` (22) |
-| `references/errors.md` | fallible systems, the error handler, panicking APIs | `BV-ERR` (17) |
-| `references/assets.md` | handles, loading, hot reload, asset lifetime | `BV-ASSET` (14) |
-| `references/build.md` | features, version pinning, the lint divergences, CI | `BV-BUILD` (21) |
-| `references/migration.md` | every API forbidden since 0.15, and what replaces it | `BV-MIG` (18) |
-| `references/view.md` | UI nodes, text, cameras, materials, post-process, gizmos | `BV-VIEW` (21) |
-| `references/testing.md` | headless apps, deterministic ticks, what to assert | `BV-TEST` (15) |
+| `references/architecture.md` | `BV-ARCH` (19) | the boundary, plugins, the app |
+| `references/ecs.md` | `BV-ECS` (32) | components, required components, queries, change detection, reflection |
+| `references/scheduling.md` | `BV-SCHED` (26) | schedules, sets, ordering, run conditions, time, input |
+| `references/events.md` | `BV-EVENT` (20) | messages, events, entity events, observers |
+| `references/state.md` | `BV-STATE` (22) | resources, states, transitions, scoping |
+| `references/errors.md` | `BV-ERR` (17) | fallible systems, the error handler, panicking APIs |
+| `references/assets.md` | `BV-ASSET` (14) | handles, loading, hot reload, asset lifetime |
+| `references/build.md` | `BV-BUILD` (21) | features, version pinning, the lint divergences, CI |
+| `references/migration.md` | `BV-MIG` (18) | every API forbidden since 0.15, and what replaces it |
+| `references/view.md` | `BV-VIEW` (21) | UI nodes, text, cameras, materials, post-process, gizmos |
+| `references/testing.md` | `BV-TEST` (15) | headless apps, deterministic ticks, what to assert |
+| `references/review-checklist.md` | — | The audit protocol: the shared severity model, review order, mechanical pass, output format, and the order in which to refactor an existing game |
 
-The 24 core rules in section 4 are summaries; the full statement is always in the chapter.
+## 7. Bundled assets
+
+Copy these rather than reconstructing them from memory; they encode decisions the rules only
+describe. Each is derived from the chapter that owns it rather than written independently, so the
+asset and the rule cannot drift apart.
+
+| File | Contents |
+|---|---|
+| `assets/Cargo.toml` | The workspace manifest for a game: an exact Bevy pin with a feature collection, the lint table with its two Bevy relaxations and their reasons, and the profiles that keep debug builds playable |
+| `assets/ci.yml` | The workflow: the boundary and one-Bevy checks, clippy and tests under deny-warnings, docs, the MSRV job, the release build, and the `bevy_lint` job kept off until a release supports 0.20 |
+| `assets/rust-toolchain.toml` | The pinned stable toolchain the game builds with, kept apart from any nightly the linter needs |
