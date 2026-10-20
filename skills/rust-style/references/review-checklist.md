@@ -42,7 +42,7 @@ each stage can invalidate the work of reading the next.
    unbounded channels, detached tasks, shutdown paths. (`RS-CONC`)
 5. **Data model.** Are illegal states representable? Are there `bool`
    parameters, paired `Option`s, or stringly-typed fields that want an enum?
-   (`RS-API-28` … `RS-API-37`)
+   (`RS-API-27` … `RS-API-36`)
 6. **Function bodies.** Now read the code. Loops that are pipelines, `mut` that
    folds away, clones that borrows would remove, allocation in loops.
    (`RS-FUNC`, `RS-OWN`, `RS-PERF`)
@@ -50,7 +50,7 @@ each stage can invalidate the work of reading the next.
    covered? Would they catch the bug this change fixes? (`RS-TEST`)
 8. **Symmetry.** Unpaired operations, sibling functions disagreeing on argument order, error
    variants with uneven context, two mechanisms for one concept, a branch that exists for one
-   input. (`RS-API-78` … `RS-API-83`, `RS-MOD-52` … `RS-MOD-55`)
+   input. (`RS-API-76` … `RS-API-81`, `RS-MOD-52` … `RS-MOD-55`)
 9. **Manifest and lints.** New dependencies justified? Features additive? Lints
    still enforced? (`RS-BUILD`)
 
@@ -94,7 +94,7 @@ the two or three findings that deserve discussion.
 | Severity | Rule | Location | Finding | Fix |
 |---|---|---|---|---|
 | Incorrect | RS-ERR-03 | `src/config.rs:88` | `unwrap()` on a user-supplied path | Return `Error::Config` and propagate with `?` |
-| Design | RS-API-30 | `src/search.rs:31` | Three `bool` parameters in `search()` | Replace with `SearchOptions` or three two-variant enums |
+| Design | RS-API-29 | `src/search.rs:31` | Three `bool` parameters in `search()` | Replace with `SearchOptions` or three two-variant enums |
 | Performance | RS-OWN-14 | `src/scan.rs:54` | `String` allocated per line | Hoist the buffer and `clear()` per iteration |
 
 ## Discussion

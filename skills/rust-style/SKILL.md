@@ -1,7 +1,7 @@
 ---
 name: rust-style
 description: >-
-  The modern Rust engineering standard — a 739-rule library merging the Rust API Guidelines, the
+  The modern Rust engineering standard — a 737-rule library merging the Rust API Guidelines, the
   empirical conventions of ripgrep and the BurntSushi crates, and a functional-first default.
   Covers naming, API design, errors and panics, iterator and combinator style, ownership and
   lifetimes, traits and generics, module and workspace layout, Cargo/features/lints/CI, testing
@@ -136,7 +136,7 @@ questions, in order:
    loop that mutates data.
 4. **What is asymmetric?** If `from_x` exists, does `to_x`? Do sibling functions take their
    arguments in the same order? Do the error variants share one shape? A missing half is either a
-   restriction the documentation must state, or an oversight (`RS-API-78` … `RS-API-81`).
+   restriction the documentation must state, or an oversight (`RS-API-76` … `RS-API-79`).
 5. **What is special-cased?** A branch that exists for one input is a design that has not absorbed
    that input. Fold it into the general case, or name it as its own type (`RS-MOD-52`,
    `RS-MOD-53`).
@@ -174,21 +174,21 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **RS-CORE-07 `[M]`** Be generic in what you accept, concrete in what you return. Take `&[T]` not
   `&Vec<T>`, `&str` not `&String`, `&Path` not `&PathBuf` — the borrowed form accepts strictly more
   callers at no cost. This is the single most common signature defect in Rust
-  (`references/api.md` RS-API-10, RS-API-12).
+  (`references/api.md` RS-API-09, RS-API-11).
 - **RS-CORE-08 `[M]`** Every struct field is private, whether or not it carries an invariant, and
   the type exposes methods rather than storage. The one exception is a `#[repr(C)]` type whose
-  layout is already the contract (`references/api.md` RS-API-24, RS-API-19).
+  layout is already the contract (`references/api.md` RS-API-23, RS-API-18).
 - **RS-CORE-09 `[M]`** Make illegal states unrepresentable. `bool` parameters are enums that have
   not been written yet; two `Option` fields where exactly one is always `Some` is an enum in
   disguise; a `&str` that accepts three values is an enum
-  (`references/api.md` RS-API-30, RS-API-32, RS-API-33).
+  (`references/api.md` RS-API-29, RS-API-31, RS-API-32).
 - **RS-CORE-10 `[M]`** Every public type implements `Debug`, and every public item is documented
   with a summary line plus an example that compiles. `missing_docs` is a deny, not a warn
-  (`references/api.md` RS-API-51, `references/documentation.md` RS-DOC-01).
+  (`references/api.md` RS-API-50, `references/documentation.md` RS-DOC-01).
 - **RS-CORE-11 `[M!]`** `#[non_exhaustive]` on public enums and structs whose shape may grow, so an
   addition is a minor version rather than a major one. *Relaxed form:* omit it on a genuinely closed
   enum, where it only costs the caller exhaustiveness checking
-  (`references/api.md` RS-API-71, RS-API-72).
+  (`references/api.md` RS-API-69, RS-API-70).
 
 ### Errors and panics
 
@@ -295,12 +295,12 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The 28
-`RS-CORE-*` rules live in section 4 above; the other 711 live here.
+`RS-CORE-*` rules live in section 4 above; the other 709 live here.
 
 | File | Rule IDs | Covers |
 |---|---|---|
 | `references/naming.md` | `RS-NAME` (43) | Casing, conversion prefixes (`as_`/`to_`/`into_`), getters, predicates, iterator names, word order, generic parameters and lifetimes |
-| `references/api.md` | `RS-API` (83) | Public surface shape, parameters and returns, encapsulation, type safety and newtypes, `#[must_use]`/`#[non_exhaustive]`, the std trait impl set, constructors and builders, semver evolution |
+| `references/api.md` | `RS-API` (81) | Public surface shape, parameters and returns, encapsulation, type safety and newtypes, `#[must_use]`/`#[non_exhaustive]`, the std trait impl set, constructors and builders, semver evolution |
 | `references/errors.md` | `RS-ERR` (45) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, exit codes, `BrokenPipe` |
 | `references/functional.md` | `RS-FUNC` (58) | Expression orientation, the iterator adapter set, immutability and shadowing, closures and bounds, purity, parse-don't-validate, when to stop |
 | `references/ownership.md` | `RS-OWN` (42) | Borrow-vs-own signatures, clone discipline, `Cow`, lifetimes and elision, arenas and indices, smart pointers, interior mutability, `Drop` and RAII |

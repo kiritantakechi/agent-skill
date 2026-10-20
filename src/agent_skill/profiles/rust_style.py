@@ -65,18 +65,18 @@ class RustStyle(Profile):
                 "the span finds every `std::collections::`; whether it appears in a public return "
                 "type rather than inside a body decides",
             ),
-            "RS-API-14": NotDecisive(
+            "RS-API-13": NotDecisive(
                 "to_owned()",
                 "the span finds every `to_owned()`; whether it is applied to a `&str` parameter "
                 "the function goes on to store decides",
             ),
-            "RS-API-30": NotDecisive(
+            "RS-API-29": NotDecisive(
                 ": bool",
                 "the span finds every `bool` parameter, private ones included; whether the "
                 "signature is public decides, and their number chooses between an enum and an "
                 "options struct",
             ),
-            "RS-API-66": NotDecisive(
+            "RS-API-64": NotDecisive(
                 "fn set_",
                 "the span finds every `set_` method; whether the type is a builder decides, and an "
                 "ordinary struct's setter is not this rule's subject",
@@ -211,8 +211,8 @@ class RustStyle(Profile):
     )
     exempt: dict = field(
         default_factory=lambda: {
-            # RS-API-24: "Every hit that is not on a `#[repr(C)]` type is a defect"
-            "RS-API-24": lambda lines, at, in_test: repr_c_above(lines, at.start - 1),
+            # RS-API-23: "Every hit that is not on a `#[repr(C)]` type is a defect"
+            "RS-API-23": lambda lines, at, in_test: repr_c_above(lines, at.start - 1),
         }
     )
 
@@ -226,10 +226,10 @@ class RustStyle(Profile):
                 where = f"{b.file}:{b.at(j)} [{b.rule}]"
                 code = strip_comment(raw)
 
-                # RS-API-30 — a public signature never takes a bare `bool`
+                # RS-API-29 — a public signature never takes a bare `bool`
                 m = re.search(r"\bpub (?:async )?fn (\w+)\s*(?:<[^>]*>)?\(([^)]*)\)", code)
-                if m and re.search(r":\s*bool\b", m.group(2)) and b.rule != "RS-API-30":
-                    yield fail(f"`{m.group(1)}` takes a bool parameter (RS-API-30)", where)
+                if m and re.search(r":\s*bool\b", m.group(2)) and b.rule != "RS-API-29":
+                    yield fail(f"`{m.group(1)}` takes a bool parameter (RS-API-29)", where)
 
                 # RS-NAME-24 — a `bool`-returning method reads as a question
                 m = re.search(r"\bpub (?:async )?fn (\w+)\([^)]*\)\s*->\s*bool\b", code)
@@ -239,11 +239,11 @@ class RustStyle(Profile):
                         where,
                     )
 
-                # RS-API-24 / RS-API-26 — no public field, no public tuple field
+                # RS-API-23 / RS-API-25 — no public field, no public tuple field
                 if re.match(r"^\s+pub [a-z_]\w*:", raw) and not repr_c_above(lines, j):
-                    yield fail("public struct field outside `#[repr(C)]` (RS-API-24)", where)
+                    yield fail("public struct field outside `#[repr(C)]` (RS-API-23)", where)
                 if re.search(r"struct \w+\(\s*pub ", code):
-                    yield fail("public tuple field (RS-API-26)", where)
+                    yield fail("public tuple field (RS-API-25)", where)
 
                 # house convention — a by-value setter is `with_*`
                 m = re.search(r"\bpub fn (\w+)\((mut )?self(?:,\s*([^)]*))?\)\s*->\s*Self\b", code)

@@ -372,7 +372,7 @@ Take `impl IntoIterator<Item = T>`, return `impl Iterator<Item = T>`.
 
 **Why:** materialization belongs to whoever knows how much of the sequence is needed, which is the
 caller. Returning `Vec<T>` decides on their behalf that all of it is computed and all of it stored
-(`references/api.md` RS-API-15).
+(`references/api.md` RS-API-14).
 
 **Check:** does the function return a collection the caller might only partially consume, or might
 immediately feed into another adapter?
@@ -716,7 +716,7 @@ for the profiler, where an anonymous closure shows up as a mangled symbol nobody
 `policy: impl Fn(&Entry) -> bool` beats six `bool` parameters.
 
 **Why:** it is more flexible, it composes, and it does not grow a seventh parameter next quarter.
-The boolean row is also the defect in `references/api.md` RS-API-30 seen from the other side.
+The boolean row is also the defect in `references/api.md` RS-API-29 seen from the other side.
 
 **Check:** does the function take three or more `bool`s that are all consulted in the same place?
 
@@ -782,7 +782,7 @@ downstream function take the parsed type.
 
 **Why:** after `validate(&str) -> Result<(), Error>` the code still handles `&str`, and someone will
 call it without the check. Parsing into a type makes the check unskippable, because the type cannot
-be constructed without it (`references/api.md` RS-API-34).
+be constructed without it (`references/api.md` RS-API-33).
 
 **Check:** grep for functions named `validate_*` or `check_*` returning `Result<(), _>`. Each is a
 parse waiting to be written.

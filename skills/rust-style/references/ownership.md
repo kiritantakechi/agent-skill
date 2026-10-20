@@ -150,7 +150,7 @@ it does, at the cost of one allocation on a path that was not hot.
 ### RS-OWN-06 [S] Prefer one coherent `&mut self` method to a row of `&mut` accessors
 
 **Why:** every `&mut` accessor you expose is an invariant you can no longer maintain
-(`references/api.md` RS-API-22), and it forces callers to sequence operations correctly
+(`references/api.md` RS-API-21), and it forces callers to sequence operations correctly
 themselves. One method that performs the whole transition keeps the type consistent between calls.
 
 **Check:** list the `&mut self` accessors. Could a caller use two of them in an order that leaves
@@ -434,7 +434,7 @@ under move — which the compiler will not stop you from doing. Use indices into
 
 **Why:** it sidesteps lifetimes entirely, it is cache-friendly, it serializes trivially, and it
 makes cycles representable without `Weak`. Newtype the index so it cannot be confused with a length
-or with an index into a different arena (`references/api.md` RS-API-37).
+or with an index into a different arena (`references/api.md` RS-API-36).
 
 **Check:** does the graph type have a lifetime parameter? Indices remove it.
 

@@ -422,7 +422,7 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "bevy-style/SKILL.md",
-            "`RS-API-24` Keep every struct field private",
+            "`RS-API-23` Keep every struct field private",
             "`RS-API-99` Keep every struct field private",
         ),
     ),
@@ -459,8 +459,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "rust-style/SKILL.md",
-            "`references/api.md` RS-API-51",
-            "`references/errors.md` RS-API-51",
+            "`references/api.md` RS-API-50",
+            "`references/errors.md` RS-API-50",
         ),
     ),
     Control(

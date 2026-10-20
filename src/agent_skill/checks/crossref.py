@@ -19,7 +19,7 @@ from pathlib import Path
 from ..report import fail, note, unrun
 from . import check
 
-#: `| `RS-API-24` Keep every struct field private | `BV-ECS-01` — … | … |`
+#: `| `RS-API-23` Keep every struct field private | `BV-ECS-01` — … | … |`
 OVERRIDE_ROW = re.compile(
     r"^\|\s*`([A-Z]{2}-[A-Z]+-\d+[a-z]?)`\s*(.*?)\s*\|\s*`([A-Z]{2}-[A-Z]+-\d+[a-z]?)`", re.M
 )

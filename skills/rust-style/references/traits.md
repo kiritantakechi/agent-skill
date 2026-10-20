@@ -326,7 +326,7 @@ pub fn describe<T: std::fmt::Debug + ?Sized>(value: &T) -> String {
 Matchers, queries, builders — values that describe rather than act.
 
 **Why:** constructing one and discarding it is always a mistake, and the attribute on the trait
-covers every implementor at once (`references/api.md` RS-API-47).
+covers every implementor at once (`references/api.md` RS-API-46).
 
 **Check:** would discarding a value of this trait ever be correct?
 
@@ -605,7 +605,7 @@ the newtype that would have worked.
 
 **Why:** it is the sanctioned mechanism, it is zero-cost with `#[repr(transparent)]`, and it lets
 you add the impl without any coordination. Add `AsRef`/`Deref` only if the newtype genuinely *is*
-the inner type for all purposes (`references/api.md` RS-API-60).
+the inner type for all purposes (`references/api.md` RS-API-59).
 
 **Check:** does the newtype expose the inner type's whole API, or only the part that makes sense?
 
@@ -814,7 +814,7 @@ pub fn render<T: std::fmt::Display>(items: &[T]) -> String {
 
 **Why:** `impl AsRef<Path>` is worth it because callers genuinely hold four different path-like
 types. `impl Into<u32>` is not, because they hold a `u32`. Genericity has an inference cost, a
-documentation cost, and a monomorphization cost (`references/api.md` RS-API-11).
+documentation cost, and a monomorphization cost (`references/api.md` RS-API-10).
 
 **Check:** list the concrete types this parameter will be instantiated with. One means make it
 concrete.
@@ -1163,7 +1163,7 @@ sibling missing one impl excludes it from every such function — usually discov
 type was added. The asymmetry is almost never deliberate.
 
 **Check:** tabulate the family against the trait set. A missing cell is either an oversight or a
-documented restriction; there is no third case (`RS-API-51`).
+documented restriction; there is no third case (`RS-API-50`).
 
 ```rust
 // verified

@@ -614,7 +614,7 @@ the least equipped to diagnose them.
 
 Run `cargo semver-checks` before every release and trust it over intuition about what is breaking.
 It catches removed impls, narrowed bounds, and newly private items that human review misses
-(`RS-API-75`).
+(`RS-API-73`).
 
 **Why:** semver breakage in Rust is subtle — adding a trait impl, tightening a bound, or making an
 enum non-exhaustive can all break dependents in ways that are invisible in a diff. The tool checks

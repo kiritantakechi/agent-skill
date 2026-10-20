@@ -173,7 +173,8 @@ nonsense; "regex was validated at construction, but it was not" names the bug.
 ### RS-ERR-05 [M] Implement `Error` with a correct `source()`
 
 Public error types implement `std::error::Error` — or `core::error::Error`, stable since 1.81, in
-no-std — and return the underlying cause from `source()`.
+no-std — and return the underlying cause from `source()`. The type can be named from outside the
+crate: it is in every fallible signature, so it is public API whether it was documented or not.
 
 **Why:** `source()` is how every reporter walks the chain — `anyhow`'s `{:#}`, `eyre`'s handlers,
 `tracing`'s error fields. Omitting it truncates the diagnostics of every downstream user, and they
@@ -181,7 +182,27 @@ cannot fix it from their side.
 
 **Check:** for each error variant that wraps another error, is that error reachable through
 `source()`? With `thiserror`, that means a `#[source]` or `#[from]` attribute on the field — a
-plain field is not enough.
+plain field is not enough. Then name the type from a test outside the crate.
+
+```rust
+// verified
+use std::io;
+
+/// `#[source]` builds the chain; the reporter walks it rather than re-printing it.
+#[derive(Debug, thiserror::Error)]
+#[error("could not open the index")]
+pub struct OpenFailed {
+    #[source]
+    source: io::Error,
+}
+
+impl OpenFailed {
+    #[must_use]
+    pub fn new(source: io::Error) -> Self {
+        Self { source }
+    }
+}
+```
 
 ### RS-ERR-06 [M] Make `Display` describe this layer only
 
@@ -340,7 +361,7 @@ removes the caller's exhaustiveness checking for no benefit.
 
 **Why:** adding a failure mode is inevitable, and without the attribute it is a major version bump —
 which means you will be tempted to smuggle the new case into an existing variant instead, and the
-taxonomy degrades. The cost to callers is one wildcard arm (`references/api.md` RS-API-71).
+taxonomy degrades. The cost to callers is one wildcard arm (`references/api.md` RS-API-69).
 
 **Check:** does the enum model something that could grow a case — a protocol, a parser, a
 filesystem, anything with a vendor? If yes, the attribute is not optional.
@@ -707,7 +728,7 @@ why nobody is surprised by it (`references/documentation.md` RS-DOC-13).
 **Check:** grep the crate for panic sources — `unwrap`, `expect`, `panic!`, `assert!`, indexing,
 slicing, integer division, `Duration` arithmetic — and confirm each public function that can reach
 one has the section. Consider `#[track_caller]` so the message points at the caller
-(`references/api.md` RS-API-50).
+(`references/api.md` RS-API-49).
 
 ```rust
 // verified
@@ -736,7 +757,7 @@ pub struct DivideByZero;
 ### RS-ERR-35 [S] Prefer restructuring, then `unreachable!`, then `panic!`
 
 **Why:** a branch that "cannot happen" is usually a type that is too wide, and making it
-unrepresentable removes the branch entirely (`references/api.md` RS-API-32). Where the branch must
+unrepresentable removes the branch entirely (`references/api.md` RS-API-31). Where the branch must
 exist, `unreachable!("…")` says *why* you believe it, the information RS-ERR-04 asks for.
 
 **Check:** for each `unreachable!`, can the enum, the newtype, or the signature be narrowed so the

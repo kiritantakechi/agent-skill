@@ -990,7 +990,7 @@ become two functions sharing a body. Split it and let the shared part be a priva
 
 **Why:** a mode parameter makes the return type and the error set the union of both modes, so every
 caller handles cases that cannot occur in their mode. Splitting restores a precise signature to each
-caller and makes the shared logic explicit rather than implied (`RS-API-30`).
+caller and makes the shared logic explicit rather than implied (`RS-API-29`).
 
 **Check:** for each parameter, ask whether the function body branches on it at the top level. If the
 two branches share little, it is two functions.

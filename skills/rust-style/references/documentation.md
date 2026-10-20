@@ -403,7 +403,7 @@ sorted; a `Utf8Path` documents that it is valid UTF-8. Those guarantees are the 
 exists.
 
 **Why:** the guarantee is the entire value of the newtype — it is what lets callers skip a check
-(`RS-API-31`). Documenting only the field tells the reader what you could have written as `Vec<T>`
+(`RS-API-30`). Documenting only the field tells the reader what you could have written as `Vec<T>`
 and omits the part that matters.
 
 **Check:** for each newtype and each type with a private constructor, state the invariant in one

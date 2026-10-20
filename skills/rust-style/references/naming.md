@@ -392,7 +392,7 @@ impl Buffer {
 
 **Check:** does every `&mut`-returning accessor end in `_mut`? Does any getter's name differ from
 the field it exposes? Note that exposing `&mut` to invariant-bearing state is a separate, more
-serious defect (`references/api.md` RS-API-22).
+serious defect (`references/api.md` RS-API-21).
 
 ### RS-NAME-19 [M] Mark fallible conversions `try_`
 
@@ -905,7 +905,7 @@ A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`clos
 exists.
 
 **Why:** matched names are what make a pair recognizable as a pair, which is how a reader knows the
-inverse exists without looking (`RS-API-78`). Mismatched halves read as unrelated operations, and
+inverse exists without looking (`RS-API-76`). Mismatched halves read as unrelated operations, and
 the reader searches for a `decode` that is spelled `parse`.
 
 **Check:** list every operation with an inverse and read the two names together. If they do not
