@@ -52,6 +52,12 @@ class Profile:
     marked_languages: tuple[str, ...] = ()
     #: the marker words this skill's blocks may use, in its own comment syntax
     markers: tuple[str, ...] = MARKERS
+    #: the tools a `rejected` block may name as the one that rejects it
+    tools: tuple[str, ...] = ()
+    #: Why this standard does not yet follow `standard-structure`, or None when
+    #: it does. A reason, not a flag: an exemption that says nothing about why
+    #: it exists cannot be told apart from one whose reason has lapsed.
+    exempt_from_structure: str | None = None
     toolchain: str | None = None
     #: how this skill's rust blocks are compiled; required when `toolchain == "rust"`,
     #: because the dependency line and the lint table differ per skill
@@ -107,6 +113,14 @@ class Profile:
         corpus builder asks rather than assumes.
         """
         return set()
+
+
+def exemption_problem(profile: Profile) -> str | None:
+    """What is wrong with a profile's structure exemption, if anything."""
+    reason = profile.exempt_from_structure
+    if reason is not None and not reason.strip():
+        return f"{profile.name} is exempt from standard-structure and gives no reason"
+    return None
 
 
 _REGISTRY: dict[str, Profile] = {}

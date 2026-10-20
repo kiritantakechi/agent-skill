@@ -22,6 +22,14 @@ class ZigStyle(Profile):
     #: tool while the rule prefix was derived from the fence tag.
     marked_languages: tuple[str, ...] = ("zon",)
     toolchain: str | None = "zig"
+    #: Still the vocabulary from before `rejected` named its tool, and still the
+    #: chapter names and family codes from before the shared table. Both move with
+    #: the zig bump, which waits for this machine's `zig` rather than upstream.
+    markers: tuple[str, ...] = ("verified", "fragment", "does-not-compile")
+    tools: tuple[str, ...] = ("zig",)
+    exempt_from_structure: str | None = (
+        "conforms with its own bump, once this machine's `zig` moves past 0.16.0"
+    )
     exempt: dict = field(
         default_factory=lambda: {
             # ZS-NAME-14: "keep `self` for anonymous generic containers" — a

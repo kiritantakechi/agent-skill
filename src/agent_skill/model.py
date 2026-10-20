@@ -19,11 +19,13 @@ from .text import code_only, strip_comment, syntax_for
 #: A `//!` container-doc run may precede it, because that is where a real Zig or
 #: Rust file puts its module documentation; nothing else may.
 #:
-#: This is the default vocabulary, not the only one: a language whose failures
-#: do not divide the way `does-not-compile` divides them says so in its profile.
-#: Python has three ways to be wrong — the interpreter, the type checker, the
-#: linter — and one word for all of them names none of them.
-MARKERS = ("verified", "fragment", "does-not-compile")
+#: `rejected` names the tool that does the rejecting — `// rejected — clippy: …`
+#: — because a language has several ways to be wrong and one word for all of
+#: them names none of them: Python has the interpreter, the type checker and the
+#: linter, and Rust has `rustc` and `clippy`. `does-not-compile` said "the
+#: compiler" in a standard whose reader also runs a linter. A standard that has
+#: not been brought over yet declares its old vocabulary in its profile.
+MARKERS = ("verified", "fragment", "rejected")
 
 #: `// verified — GOOD: the qualifier`. The comment syntax varies by language and
 #: so does the vocabulary; the shape does not. `kind` is matched loosely here and
@@ -66,6 +68,12 @@ class Marker:
     @property
     def verified(self) -> bool:
         return self.kind == "verified"
+
+    @property
+    def tool(self) -> str:
+        """The tool a `rejected` block names, or "" when it names none."""
+        m = re.match(r"^(?:— )?([a-z][a-z-]*):", self.qualifier)
+        return m.group(1) if m else ""
 
     @property
     def bad(self) -> bool:

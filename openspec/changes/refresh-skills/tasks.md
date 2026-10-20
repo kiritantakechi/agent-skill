@@ -6,15 +6,15 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 1. Harness: vocabulary, exemptions, markers
 
-- [ ] 1.1 Add the D3 vocabulary table (file → family code, `review-checklist.md` as the one fixed
+- [x] 1.1 Add the D3 vocabulary table (file → family code, `review-checklist.md` as the one fixed
   exception) as a single module in the package, and unit-test the lookup in both directions. Verify:
   `uv run pytest tests/test_vocabulary.py`.
-- [ ] 1.2 Add `Profile.exempt_from_structure` (D2). Declare it with a reason on `python-style`,
+- [x] 1.2 Add `Profile.exempt_from_structure` (D2). Declare it with a reason on `python-style`,
   `rust-style` and `bevy-style` ("converted in milestone 1 / 2 / 3 of refresh-skills") and on
   `zig-style` ("conforms with its own bump, once this machine's `zig` moves"). Until 6.8 no skill
   conforms. That is why groups 2–4 test against fixture inputs, and why the controls on the real tree
   land in 6.9. Verify that a test fails a profile which declares the field with an empty reason.
-- [ ] 1.3 Change the default `MARKERS` to `verified` / `fragment` / `rejected`, add `Profile.tools`,
+- [x] 1.3 Change the default `MARKERS` to `verified` / `fragment` / `rejected`, add `Profile.tools`,
   and make `markers` require `rejected — <tool>:` with a tool from that list (D9). Declare
   `does-not-compile` on `zig-style`. Verify: `uv run agent-skill check --fast --only markers` passes,
   and a control that injects `// does-not-compile` into a `python-style` block fails.

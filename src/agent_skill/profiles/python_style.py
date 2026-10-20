@@ -59,9 +59,8 @@ class PythonStyle(Profile):
     #: markers too, and were invisible to every tool while the marked set was
     #: derived from the fence tag alone.
     marked_languages: tuple[str, ...] = ("toml",)
-    #: Python has three ways to be wrong and `does-not-compile` names none of
-    #: them; `# rejected — <tool>: …` says which tool does the rejecting.
-    markers: tuple[str, ...] = ("verified", "fragment", "rejected")
+    tools: tuple[str, ...] = ("python", "ty", "ruff")
+    exempt_from_structure: str | None = "converted in milestone 1 of refresh-skills"
     toolchain: str | None = "python"
     exempt: dict = field(default_factory=dict)
     #: Each snippet is the defect its rule forbids, written the way it appears in

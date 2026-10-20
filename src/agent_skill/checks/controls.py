@@ -200,6 +200,18 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        # `rejected` alone says the block is wrong and not who says so — the
+        # word that replaced `does-not-compile` exists to name the tool.
+        "a rejected block that does not name the tool rejecting it",
+        "markers",
+        lambda t: edit(
+            t,
+            "python-style/references/free-threading.md",
+            "# verified — GOOD\nimport sys\nimport sysconfig",
+            "# rejected — the GIL is off\nimport sys\nimport sysconfig",
+        ),
+    ),
+    Control(
         "an asset citing a rule the skill does not define",
         "assets",
         lambda t: edit(t, "bevy-style/assets/ci.yml", "BV-ARC-01", "BV-ARC-99"),

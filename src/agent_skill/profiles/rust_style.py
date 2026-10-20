@@ -34,6 +34,8 @@ class RustStyle(Profile):
     languages: tuple[str, ...] = ("rust",)
     marked_languages: tuple[str, ...] = ("toml",)
     toolchain: str | None = "rust"
+    tools: tuple[str, ...] = ("rustc", "clippy")
+    exempt_from_structure: str | None = "converted in milestone 2 of refresh-skills"
     crate: Crate | None = RUST_STYLE
     #: Each snippet is the defect its rule forbids, written the way it turns up
     #: in real code. A fixture shaped to match proves the fixture, not the pattern.

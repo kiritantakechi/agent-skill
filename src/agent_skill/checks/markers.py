@@ -40,6 +40,13 @@ def markers(skill):
                 yield fail(f"marker `{b.marker.kind}` is not one of {named}", where)
             if b.marker.kind == "verified" and "fragment" in b.marker.raw:
                 yield fail("marked both verified and fragment", where)
+            if b.marker.kind == "rejected" and b.marker.tool not in skill.profile.tools:
+                tools = " / ".join(f"`{t}`" for t in skill.profile.tools) or "no tool"
+                yield fail(
+                    f"`rejected` must name the tool that rejects it — `rejected — <tool>: …`, "
+                    f"one of {tools}",
+                    where,
+                )
             for j, line in enumerate(b.lines):
                 if line == b.marker.raw:
                     continue

@@ -1,0 +1,38 @@
+"""The shared chapter vocabulary."""
+
+from __future__ import annotations
+
+from agent_skill import vocabulary as v
+
+
+def test_each_code_names_one_chapter():
+    assert len(v.FAMILIES) == len(v.CHAPTERS)
+
+
+def test_lookup_runs_both_ways():
+    for stem, code in v.CHAPTERS.items():
+        assert v.code_for(stem) == code
+        assert v.chapter_for(code) == stem
+
+
+def test_a_name_joining_two_subjects_is_not_a_chapter():
+    for stem in ("errors-and-control-flow", "traits-generics", "ui-render", "free-threading"):
+        assert not v.allowed(stem)
+        assert v.code_for(stem) is None
+
+
+def test_the_review_protocol_is_allowed_and_owns_no_family():
+    assert v.allowed(v.REVIEW)
+    assert v.code_for(v.REVIEW) is None
+
+
+def test_every_required_chapter_is_allowed():
+    assert all(v.allowed(stem) for stem in v.REQUIRED)
+
+
+def test_core_is_not_a_chapter_code():
+    assert v.chapter_for(v.CORE) is None
+
+
+def test_every_chapter_name_is_one_word():
+    assert all(stem.isalpha() and stem.islower() for stem in v.CHAPTERS)
