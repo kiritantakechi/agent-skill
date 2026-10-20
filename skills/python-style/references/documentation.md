@@ -206,8 +206,9 @@ A renamed parameter, a changed default, a removed exception — all must move to
 signature. This is the failure mode that makes people distrust documentation generally, and it comes
 from editing one and not the other.
 
-**Check:** ruff `D417` catches a documented parameter that is not in the signature and vice versa.
-For the rest — defaults, exceptions, units — it is review.
+**Check:** ruff `D417` catches a parameter the docstring does not document. The reverse, a
+documented parameter the signature lost, has only a preview rule, which the shipped configuration
+does not run — so that half is review, with defaults, exceptions and units.
 
 ### PS-DOC-14 [S] Write examples as doctests, and run them
 

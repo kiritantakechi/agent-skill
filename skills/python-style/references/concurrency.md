@@ -24,7 +24,7 @@ free-threaded build. Where a rule depends on the build, the block probes it rath
   - PS-CONC-02 [M] Never treat a compound assignment as one step
   - PS-CONC-03 [M] Never treat check-then-act as one step
   - PS-CONC-04 [M!] Accumulate per thread and merge, or hold one lock across the whole update
-  - PS-CONC-05 [M] Do not cite the library FAQ's atomicity list as a guarantee
+  - PS-CONC-05 [M] Cite the thread-safety guarantees page, never the FAQ's bytecode argument
   - PS-CONC-06 [M] A container's internal lock protects the container, never your invariant
   - PS-CONC-07 [M] Never read `frame.f_locals` for a frame executing in another thread
 - **Sharing objects between threads**
@@ -238,18 +238,16 @@ for t in threads:
 assert _totals == Counter({"a": 8, "b": 4})
 ```
 
-### PS-CONC-05 [M] Do not cite the library FAQ's atomicity list as a guarantee
+### PS-CONC-05 [M] Cite the thread-safety guarantees page, never the FAQ's bytecode argument
 
-The list itself still holds — `L.append(x)`, `D[x] = y`, `D1.update(D2)`, `L.sort()` are each
-individually safe on the free-threaded build. The sentence that justifies it does not.
+A lock-free design rests on *Thread Safety Guarantees*, the page that documents each built-in
+type's operations under free threading. There `L.append(x)`, `D[x] = y` and `D1.update(D2)` are
+atomic, `L.sort()` is not, and no operation that makes more than one access is. The library FAQ
+still lists `L.sort()` and still explains its list by saying each bytecode instruction is atomic.
 
-**Why:** the FAQ explains its list by saying each bytecode instruction, and all the C code reached
-from it, is atomic. That was a consequence of the GIL. The free-threaded build reaches the same
-outcome by giving the built-in types internal locks, and the free-threading HOWTO is explicit that
-this "should be treated as a description of the current implementation, not a guarantee of current
-or future behavior", and recommends `threading.Lock` over relying on it. Readers generalise from the
-reason rather than the list, and the generalisation is what breaks: from "bytecode is atomic" it
-follows that `d[k] += 1` is safe, and it never was.
+**Why:** bytecode atomicity was the GIL, and readers generalise from a reason: `d[k] += 1` follows
+from it and was never safe. The guarantees page states each operation instead of a reason, and
+says outright that read-modify-write and check-then-act are not atomic.
 
 **Check:** a comment or docstring justifying the absence of a lock by appealing to the GIL, to
 bytecode atomicity, or to "CPython guarantees" is the finding.
@@ -480,7 +478,7 @@ functions that touch different state, is the finding.
 Two threads calling `next()` on the same generator is an error, not a race you can win.
 
 **Why:** the generator raises `ValueError: generator already executing`. That is the good case,
-because it is loud. The bad case is every other iterator, where the free-threading HOWTO warns that
+because it is loud. The bad case is any other iterator, where the free-threading HOWTO warns that
 threads "may see duplicate or missing elements" — the design decision recorded in the CPython issue
 that added the 3.15 helpers is that concurrent access to a shared iterator is "allowed to return
 duplicate values, skip values, or raise an exception". A worker pool sharing one iterator silently

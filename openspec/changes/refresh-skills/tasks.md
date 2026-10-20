@@ -99,7 +99,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
     merged into Stale, and the protocol gains `Refactoring a codebase to this standard`.
 
   Then `agent-skill fmt`. Verify that `skeleton` and `shared-text` pass for python-style.
-- [ ] 6.5 Content fixes from `research/python-3.15.0.md` § Stale claims A–C:
+- [x] 6.5 Content fixes from `research/python-3.15.0.md` § Stale claims A–C:
   - **§2.2 and PS-FT-05:** replace the deleted HOWTO quote with the new Thread Safety Guarantees
     page, including that `L.sort()` is not atomic.
   - **Migration chapter:**

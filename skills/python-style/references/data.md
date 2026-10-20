@@ -212,8 +212,8 @@ supply one — so a caller mutating it changes the default for every future call
 oldest sharp edge and it is still sharp. Under free threading it is worse: the shared default is
 shared across threads too, so the mutation races as well as leaking.
 
-**Check:** ruff `B006` for the argument form and `RUF008`/`RUF009` for the dataclass forms. All
-three are enabled.
+**Check:** ruff `B006` for the argument form, `RUF008` for the dataclass field and `RUF012` for the
+class attribute. All three are enabled.
 
 ### PS-DATA-09 [M] Use `field(default_factory=...)` for a mutable default
 

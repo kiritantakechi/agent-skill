@@ -89,10 +89,11 @@ dangerous ones, because nothing catches them for you.
 
 ### 2.2 Free threading changes a reason, not a list
 
-The library FAQ's roster of atomic operations still holds — `L.append(x)`, `D[x] = y`,
-`D1.update(D2)` are individually locked in the free-threaded build. The sentence justifying it does
-not: "each bytecode instruction is therefore atomic" described the GIL, and the free-threading HOWTO
-says the replacement locking is "a description of the current implementation, not a guarantee".
+The free-threaded build's guarantees for built-in types are on one page, *Thread Safety
+Guarantees*: `L.append(x)`, `D[x] = y` and `D1.update(D2)` are each atomic, and an operation that
+makes more than one access never is. The library FAQ still explains its older roster by saying each
+bytecode instruction is atomic. That described the GIL, and the roster includes `L.sort()`, which
+the new page says is not atomic — the list appears empty while it sorts.
 
 Readers generalise from the reason, not the roster. `obj.n += 1` was never atomic and the FAQ always
 said so — but under the GIL you could ship it for years, and on `3.15t` eight threads lose roughly
@@ -210,7 +211,7 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
   a loud failure into a quiet wrong answer is the most expensive thing in this standard.
   (`references/errors.md` PS-ERR-10, PS-ERR-11).
 - **PS-CORE-14 `[M]`** Never `return`, `break` or `continue` inside `finally` — it discards the
-  in-flight exception silently. PEP 765 now warns, and it will become an error.
+  in-flight exception silently. PEP 765 makes it a `SyntaxWarning`.
   (`references/errors.md` PS-ERR-15).
 - **PS-CORE-15 `[M]`** Never use `assert` to validate input: `python -O` removes it, so the
   validation disappears in exactly the deployment that needed it.
@@ -226,7 +227,7 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **PS-CORE-18 `[M]`** No check-then-act on shared state. Both halves being individually atomic does
   not make the pair one step. (`references/concurrency.md` PS-CONC-03).
 - **PS-CORE-19 `[M]`** Never share one iterator or generator across threads. A generator raises;
-  everything else silently duplicates or drops elements.
+  any other iterator may silently duplicate or drop elements.
   (`references/concurrency.md` PS-CONC-13, PS-CONC-14).
 - **PS-CORE-20 `[M]`** A cache is coherent, not single-flight — `lru_cache` and `cached_property`
   both run the body more than once under contention.

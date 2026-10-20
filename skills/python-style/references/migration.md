@@ -88,7 +88,7 @@ the cheapest check available: one command, no interpretation.
 # verified — the removal tier: every name here is gone in 3.15
 grep -rnE 'ctypes\.SetPointerType|glob\.glob[01]|CGIHTTPRequestHandler' src/
 grep -rnE 'is_reserved\(|platform\.java_ver|import sre_(compile|constants|parse)' src/
-grep -rnE 'co_lnotab|no_type_check_decorator|zipimporter\(\)\.load_module' src/
+grep -rnE 'co_lnotab|no_type_check_decorator|\.load_module\(|__cached__' src/
 grep -rnE '\.(getmark|setmark|getmarkers)\(' src/
 ```
 
@@ -101,11 +101,15 @@ grep -rnE '\.(getmark|setmark|getmarkers)\(' src/
 | `ctypes.SetPointerType()` | nothing; it was undocumented |
 | `glob.glob0()`, `glob.glob1()` | `glob.glob()` with `root_dir=` |
 | `http.server.CGIHTTPRequestHandler`, `python -m http.server --cgi` | nothing |
+| `importlib.abc.Loader.load_module()`, which the import system no longer calls | `exec_module()` |
 | `importlib.resources.files(package=...)` keyword | the positional argument |
+| a module's `__cached__`, which is no longer set or read | `__spec__.cached` |
 | `pathlib.PurePath.is_reserved()` | `os.path.isreserved()` |
 | `platform.java_ver()` | nothing |
 | `sre_compile`, `sre_constants`, `sre_parse` | `re` |
 | `sysconfig.is_python_build(check_home=...)` keyword | nothing |
+| `threading.RLock(...)` given arguments, which it never used | `threading.RLock()` |
+| an `ast` node constructor missing a required field, or given a keyword that is not a field | the node's `_fields`, each given |
 | `types.CodeType.co_lnotab` | `co_lines()` |
 | `typing.no_type_check_decorator` | nothing |
 | `wave` `getmark`, `setmark`, `getmarkers` | nothing |
@@ -176,7 +180,7 @@ import; treating it as removed is how a reviewer loses faith in the table. Use `
 
 ### PS-MIG-09 [M] Stop reading `__version__` from a standard-library module
 
-Deprecated across twenty-three modules in 3.15 — `argparse`, `csv`, `ctypes`, `decimal`, `json`,
+Deprecated across twenty-four modules in 3.15 — `argparse`, `csv`, `ctypes`, `decimal`, `json`,
 `logging`, `pickle`, `platform`, `re`, `socketserver`, `tarfile`, `zlib` and more. Removal is 3.20.
 
 **Why:** the attribute was never meaningful — it recorded the module's own historical version, not
@@ -184,7 +188,7 @@ the interpreter's — and code reading it was almost always answering the wrong 
 `sys.version_info` for the interpreter, `importlib.metadata.version()` for a distribution.
 
 **Check:** `rg -n
-'\b(argparse|csv|ctypes|decimal|json|logging|pickle|platform|re|tarfile|zlib)\. __version__'
+'\b(argparse|csv|ctypes|decimal|json|logging|pickle|platform|re|tarfile|zlib)\.__version__'
 src/`
 
 ## Changed underneath you
@@ -246,7 +250,8 @@ the 3.16 bump is a version number rather than a project.
 
 ### PS-MIG-14 [S] Do not write against 3.16's other changes yet
 
-3.16 has had no alpha release. Everything in it can still be reverted.
+3.16 is in alpha — 3.16.0a1 shipped on 2026-10-13 — and anything in it can still be reverted
+before its first beta.
 
 **Why:** PS-MIG-13 is safe because those are removals with replacements that already exist — the
 replacement works on 3.15 today. Anything that requires a 3.16 *addition* is a bet on unreleased
@@ -279,9 +284,8 @@ exports `CI=` with an empty value used to enable CI mode and now does not.
 Not on every release of your own project — on every change to the interpreter you target.
 
 **Why:** a migration table is a snapshot, and its failure mode is silence: entries that became wrong
-do not announce themselves, and the grep goes on passing while missing things. The 3.15 "What's New"
-document was still marked draft at the time this chapter was written, so several entries here were
-read from a document that was still moving.
+do not announce themselves, and the grep goes on passing while missing things. "What's New" keeps
+moving after the first candidate: 3.15's gained four removals between rc1 and the final release.
 
 **Check:** diff the target version's "What's New" removals section against this table.
 

@@ -286,7 +286,8 @@ subset that `dict.get` replaces outright.
 
 ### PS-ERR-15 [M] Never `return`, `break` or `continue` inside `finally`
 
-New in 3.14: PEP 765 makes it a `SyntaxWarning`, and it is scheduled to become an error.
+New in 3.14: PEP 765 makes it a `SyntaxWarning` at compile time. The PEP leaves open whether it
+ever becomes an error.
 
 **Why:** a `return` in `finally` **discards the in-flight exception**, silently. The function
 returns normally and the failure that was propagating simply disappears — no traceback, no log,

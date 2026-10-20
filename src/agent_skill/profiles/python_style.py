@@ -76,6 +76,9 @@ class PythonStyle(Profile):
             "PS-ASYNC-02": ("loop = asyncio.get_event_loop()",),
             "PS-ASYNC-03": ("if asyncio.iscoroutinefunction(fn):",),
             "PS-ASYNC-04": ("task = asyncio.create_task(worker())",),
+            # The pattern carried a stray space for as long as it shipped, and
+            # matched nothing; this is the line it was written to find.
+            "PS-MIG-09": ("if json.__version__ < (2, 0):",),
         }
     )
     not_decisive: dict = field(

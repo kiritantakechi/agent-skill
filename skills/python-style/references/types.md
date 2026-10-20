@@ -58,7 +58,7 @@ expressions — specified constructs, and part of what makes 3.15 worth targetin
 
 The pin is exact and that is not fussiness. `ty` is `0.0.x` and its own version policy reads:
 *"ty does not yet have a stable API; breaking changes, including changes to diagnostics, may
-occur between any two versions."* Its last twenty releases were zero to six days apart. So moving
+occur between any two versions."* It releases every few days, sometimes every two weeks. So moving
 the pin is a reviewed change: bump it, run the suite, read what moved, and update the
 configuration in the same commit — never let a resolver do it.
 
@@ -90,16 +90,18 @@ that is not is the finding.
 
 ### PS-TYPE-03 [M] Suppress with a code, never with a bare ignore
 
-`# type: ignore[assignment]`, not `# type: ignore`. And a comment on the line saying why.
+`# ty: ignore[invalid-assignment]`, not a bare `# ty: ignore` or `# type: ignore`. And a comment on
+the line saying why. Under `ty` a coded `# type: ignore[…]` suppresses nothing at all, even with
+`ty`'s own code.
 
 **Why:** a bare suppression silences every diagnostic on that line, including the ones that appear
 later for unrelated reasons — so it is a permanent blind spot rather than a targeted exception. The
 coded form expires naturally: when the diagnostic it names stops firing, the suppression itself
 becomes reportable.
 
-**Check:** `ty`'s `blanket-ignore-comment` rule, which the shipped configuration promotes to
-`error`, plus ruff `PGH003`. Both are enabled precisely because this one is easy to reach for
-under time pressure.
+**Check:** `ty`'s `blanket-ignore-comment`, which the shipped configuration promotes to `error`,
+flags a bare `# ty: ignore`; ruff `PGH003` flags a bare `# type: ignore`. Both are enabled because
+this one is easy to reach for under time pressure.
 
 ## Annotations are lazy now
 
@@ -468,6 +470,9 @@ rejects `extra_items` is not a reason to avoid it — see PS-TYPE-02.
 ends up `int | None` — which conflates "not supplied" with "supplied as None" and is the exact
 distinction the sentinel exists to draw — or `Any`, which erases it. PEP 661 gives sentinels a
 spelling the type system understands, with narrowing by `is`, and a `repr` that is readable in a
-traceback. They also survive copying and pickling, which `object()` does not.
+traceback. One bound at module or class scope under its own name also survives copying and
+pickling, which `object()` does not.
 
 **Check:** `rg -n '=[ \t]*object\(\)' src/` — every hit is a sentinel that should be declared.
+`ty`'s `mismatched-sentinel-name`, which the shipped configuration enables, catches a sentinel bound
+under a name other than its own.

@@ -58,7 +58,8 @@ same workload. Without one it is a readability change with a performance claim a
 ### PS-PERF-02 [M] Profile with the `profiling` package
 
 New in 3.15: `profiling.tracing` for deterministic call counts, `profiling.sampling` for wall-clock
-truth. Not `cProfile`, and not `profile`, which is deprecated for removal in 3.17.
+truth. `cProfile` remains as an alias of `profiling.tracing`, so prefer the name that says what it
+does; `profile` is deprecated for removal in 3.17.
 
 **Why:** `profiling.sampling` — Tachyon — samples without instrumenting, so it does not distort what
 it measures, and it can attach to an already-running process by PID. Deterministic tracing inflates
@@ -66,7 +67,8 @@ call-heavy code, which is exactly the code you are most likely to be profiling, 
 answers "where does the time go" and the tool that answers "how many times is this called" are
 genuinely different tools.
 
-**Check:** `rg -n 'cProfile|import profile' src/` — every hit has a replacement in `profiling`.
+**Check:** `rg -n 'cProfile|import profile' src/` — a `profile` hit is a removal due in 3.17, and a
+`cProfile` hit is the old name for `profiling.tracing`.
 
 ### PS-PERF-03 [M] Fix the complexity before fixing the constant
 

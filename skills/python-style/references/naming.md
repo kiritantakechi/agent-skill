@@ -62,8 +62,9 @@ signal for every reader thereafter, which is why PEP 8 spends more words on nami
 else. A trailing underscore is the documented escape for a keyword collision — `class_`, not `klass`
 or `cls_`.
 
-**Check:** ruff's `N` family decides all of it — `N801` through `N818`. A codebase that cannot
-enable `N` has names that need fixing, not a rule that needs relaxing.
+**Check:** ruff's `N` family, `N801` through `N818`, decides the casing of classes, functions,
+methods, arguments and variables. No `N` rule checks a module constant, so that one is review. A
+codebase that cannot enable `N` has names that need fixing, not a rule that needs relaxing.
 
 ```python
 # verified — GOOD
@@ -311,6 +312,7 @@ the language enforcing this rule for you.
 encloses it — indentation alone cannot tell a function body from an `if` block. An import under
 `if TYPE_CHECKING:` is the documented way to keep a name out of the runtime and is not a hit. One
 inside a function is the finding unless it exists to break a cycle, which needs a comment saying so.
+Ruff `TID255` flags the opposite mistake: a `lazy` import that module load resolves at once anyway.
 
 ### PS-NAME-16 [M] Put the package under `src/`
 

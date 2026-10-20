@@ -150,8 +150,8 @@ parameterised query is the same length as the interpolated one.
 
 ### PS-OUT-08 [S] Reach for a template string when the interpolation must be inspected
 
-New in 3.15. `t"SELECT * FROM {table}"` produces a `Template` whose static parts and interpolations
-are separate values, so a library can escape each one correctly.
+New in 3.14 (PEP 750). `t"SELECT * FROM {table}"` produces a `Template` whose static parts and
+interpolations are separate values, so a library can escape each one correctly.
 
 **Why:** an f-string interpolates immediately and hands you a `str`, at which point nothing can
 tell which characters came from the literal and which from the value — that is precisely why
