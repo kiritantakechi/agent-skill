@@ -1,5 +1,5 @@
 # The toolchain the game is built with. Pin it so every machine and every CI job
-# compiles the same way. Referenced by BV-CAR-17.
+# compiles the same way. Referenced by BV-BUILD-17.
 #
 # This is NOT the toolchain `bevy_lint` runs under, and it must not be changed
 # to become one. The linter imports internal `rustc` crates, so it needs its own

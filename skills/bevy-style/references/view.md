@@ -12,39 +12,39 @@ here.
 ## Contents
 
 - **UI**
-  - BV-UI-01 [M] Lay out with `Node` and children, not with absolute positions
-  - BV-UI-02 [S] Choose the `Val` unit for what the value means
-  - BV-UI-03 [M] Read computed layout from `ComputedNode`, never from `Node`
-  - BV-UI-04 [M] Give text its components together
-  - BV-UI-05 [S] Compose a mixed-style run from `TextSpan` children
-  - BV-UI-06 [M] React to a button with an observer, not by polling `Interaction`
-  - BV-UI-07 [S] Reach for `bevy_ui_widgets` before writing a widget
-  - BV-UI-08 [S] Reach for `EditableText` before a text-input crate
-  - BV-UI-09 [S] Build a nested UI tree with `bsn!`
+  - BV-VIEW-01 [M] Lay out with `Node` and children, not with absolute positions
+  - BV-VIEW-02 [S] Choose the `Val` unit for what the value means
+  - BV-VIEW-03 [M] Read computed layout from `ComputedNode`, never from `Node`
+  - BV-VIEW-04 [M] Give text its components together
+  - BV-VIEW-05 [S] Compose a mixed-style run from `TextSpan` children
+  - BV-VIEW-06 [M] React to a button with an observer, not by polling `Interaction`
+  - BV-VIEW-07 [S] Reach for `bevy_ui_widgets` before writing a widget
+  - BV-VIEW-08 [S] Reach for `EditableText` before a text-input crate
+  - BV-VIEW-09 [S] Build a nested UI tree with `bsn!`
 
 - **Colour**
-  - BV-UI-10 [M] Construct a colour by naming its space
-  - BV-UI-11 [S] Keep the whole game in one colour space until the boundary
+  - BV-VIEW-10 [M] Construct a colour by naming its space
+  - BV-VIEW-11 [S] Keep the whole game in one colour space until the boundary
 
 - **Cameras and visibility**
-  - BV-UI-12 [M] Spawn a camera as `Camera2d` or `Camera3d`
-  - BV-UI-13 [M] Give every camera an explicit `order` once there are two
-  - BV-UI-14 [S] Put a render target on the camera as its own component
-  - BV-UI-15 [M] Set `Visibility`, and read `ViewVisibility`
-  - BV-UI-16 [M] Do not maintain `Aabb` by hand
+  - BV-VIEW-12 [M] Spawn a camera as `Camera2d` or `Camera3d`
+  - BV-VIEW-13 [M] Give every camera an explicit `order` once there are two
+  - BV-VIEW-14 [S] Put a render target on the camera as its own component
+  - BV-VIEW-15 [M] Set `Visibility`, and read `ViewVisibility`
+  - BV-VIEW-16 [M] Do not maintain `Aabb` by hand
 
 - **Materials and debugging**
-  - BV-UI-17 [S] Reach for a custom `Material` before a custom render node
-  - BV-UI-18 [M] Keep shader paths and material types together
-  - BV-UI-19 [S] Debug in world space with gizmos
-  - BV-UI-20 [S] Reach for a post-process component before a full-screen pass
-  - BV-UI-21 [S] Draw with a retained gizmo before a sprite you have to despawn
+  - BV-VIEW-17 [S] Reach for a custom `Material` before a custom render node
+  - BV-VIEW-18 [M] Keep shader paths and material types together
+  - BV-VIEW-19 [S] Debug in world space with gizmos
+  - BV-VIEW-20 [S] Reach for a post-process component before a full-screen pass
+  - BV-VIEW-21 [S] Draw with a retained gizmo before a sprite you have to despawn
 
 ---
 
 ## UI
 
-### BV-UI-01 [M] Lay out with `Node` and children, not with absolute positions
+### BV-VIEW-01 [M] Lay out with `Node` and children, not with absolute positions
 
 `Node` is a flexbox node. Rows, columns, gaps and alignment do the layout; `PositionType::Absolute`
 is for overlays.
@@ -133,7 +133,7 @@ fn stack_when_narrow(hud: Res<Hud>, mut bars: Query<&mut Node, With<HudBar>>) {
 
 /// The plugin's published ordering surface. Anything that needs to run after the
 /// bar has been restacked — another plugin, or the test below — names this, never
-/// `stack_when_narrow`, which stays free to be renamed or split (BV-SCH-14).
+/// `stack_when_narrow`, which stays free to be renamed or split (BV-SCHED-14).
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HudSystems {
     /// Rewrites the bar's `flex_direction` from `Hud::compact`.
@@ -207,7 +207,7 @@ mod tests {
 }
 ```
 
-### BV-UI-02 [S] Choose the `Val` unit for what the value means
+### BV-VIEW-02 [S] Choose the `Val` unit for what the value means
 
 `Px` for something that should stay the same size, `Percent` for something that should scale with
 its parent, `Vw`/`Vh` for something that should scale with the window, `Auto` for something the
@@ -221,7 +221,7 @@ are load-bearing.
 **Check:** for each `Val`, resize the window in your head. If the value should have changed and did
 not, the unit is wrong.
 
-### BV-UI-03 [M] Read computed layout from `ComputedNode`, never from `Node`
+### BV-VIEW-03 [M] Read computed layout from `ComputedNode`, never from `Node`
 
 `Node` is the input to layout. `ComputedNode` is the output.
 
@@ -233,7 +233,7 @@ different numbers.
 **Check:** grep for reads of `Node` that are looking for a size or a position. Those fields are on
 `ComputedNode`.
 
-### BV-UI-04 [M] Give text its components together
+### BV-VIEW-04 [M] Give text its components together
 
 `Text::new(s)` plus `TextFont` plus `TextColor`, spawned as one tuple. `Text2d` for world-space
 text.
@@ -270,7 +270,7 @@ fn spawn_hud(mut commands: Commands) {
 }
 ```
 
-### BV-UI-05 [S] Compose a mixed-style run from `TextSpan` children
+### BV-VIEW-05 [S] Compose a mixed-style run from `TextSpan` children
 
 A line with two colours or two sizes is a `Text` root with `TextSpan` children, not a formatted
 string.
@@ -283,11 +283,11 @@ the whole string. It is also the only way to have two styles at all, since `Text
 **Check:** does the text change one part of a line frequently? If it is being rebuilt with
 `format!`, that part is a span.
 
-### BV-UI-06 [M] React to a button with an observer, not by polling `Interaction`
+### BV-VIEW-06 [M] React to a button with an observer, not by polling `Interaction`
 
 `commands.entity(button).observe(on_click)` with a `Pointer<Click>` event.
 
-**Why:** it is BV-EVT-13's argument in the place it matters most: the polling form is a system
+**Why:** it is BV-EVENT-13's argument in the place it matters most: the polling form is a system
 running every frame over every button, testing a component that changed for one of them, and the
 handler ends up in a different file from the button. An entity-scoped observer puts the reaction
 beside the spawn, dies with the button, and runs only when the button is used.
@@ -350,7 +350,7 @@ impl Plugin for StartButtonPlugin {
 }
 ```
 
-### BV-UI-07 [S] Reach for `bevy_ui_widgets` before writing a widget
+### BV-VIEW-07 [S] Reach for `bevy_ui_widgets` before writing a widget
 
 Buttons, checkboxes, radio buttons, sliders and scrollbars ship in `bevy_ui_widgets`, which stopped
 being experimental in 0.19. `bevy_feathers` is the styled layer above it.
@@ -361,7 +361,7 @@ are also where upstream's improvements land, so a hand-written one is a fork.
 
 **Check:** is the widget one of the five? Then the question is what the shipped one does not do.
 
-### BV-UI-08 [S] Reach for `EditableText` before a text-input crate
+### BV-VIEW-08 [S] Reach for `EditableText` before a text-input crate
 
 0.19 put a real text field in the engine. `bevy_text::EditableText` holds the content and the
 cursor; `bevy_ui_widgets::EditableTextInputPlugin` wires the keyboard, the pointer, focus and the
@@ -449,7 +449,7 @@ mod tests {
 }
 ```
 
-### BV-UI-09 [S] Build a nested UI tree with `bsn!`
+### BV-VIEW-09 [S] Build a nested UI tree with `bsn!`
 
 `bsn!` from `bevy_scene` expresses a tree with its children inline. Reach for it once the UI nests
 more than two levels.
@@ -504,7 +504,7 @@ impl Plugin for MenuPlugin {
 
 ## Colour
 
-### BV-UI-10 [M] Construct a colour by naming its space
+### BV-VIEW-10 [M] Construct a colour by naming its space
 
 `Color::srgb(r, g, b)` for a colour picked in a design tool. `Color::linear_rgb` and
 `LinearRgba` for a value that is being computed.
@@ -517,7 +517,7 @@ renamed to `Color::srgb`.
 **Check:** grep for colour construction and check each against where the value came from. Design
 tool and hex codes are sRGB; anything a shader or a lerp produced is linear.
 
-### BV-UI-11 [S] Keep the whole game in one colour space until the boundary
+### BV-VIEW-11 [S] Keep the whole game in one colour space until the boundary
 
 Pick sRGB for authored values, convert once where they enter the renderer, and do arithmetic in
 linear.
@@ -532,7 +532,7 @@ are in. If the answer varies, the conversions are not at a boundary.
 
 ## Cameras and visibility
 
-### BV-UI-12 [M] Spawn a camera as `Camera2d` or `Camera3d`
+### BV-VIEW-12 [M] Spawn a camera as `Camera2d` or `Camera3d`
 
 `commands.spawn(Camera2d)`. The bundles are gone, and the required components supply `Camera`,
 `Transform`, `Projection` and the rest.
@@ -543,7 +543,7 @@ exactly one required component in the spawn tuple without restating the others.
 
 **Check:** grep for `Camera2dBundle` and `Camera3dBundle`.
 
-### BV-UI-13 [M] Give every camera an explicit `order` once there are two
+### BV-VIEW-13 [M] Give every camera an explicit `order` once there are two
 
 `Camera { order: 1, .. }` on the UI camera, `0` on the world camera.
 
@@ -640,7 +640,7 @@ mod tests {
 }
 ```
 
-### BV-UI-14 [S] Put a render target on the camera as its own component
+### BV-VIEW-14 [S] Put a render target on the camera as its own component
 
 Since 0.18, `RenderTarget` is a component rather than a field on `Camera`.
 
@@ -653,7 +653,7 @@ travel with it is the bad one.
 **Check:** read every `Camera` struct literal in the diff. A `target` field in one is the 0.17
 spelling; too many identifiers are called `target` for a grep to answer this.
 
-### BV-UI-15 [M] Set `Visibility`, and read `ViewVisibility`
+### BV-VIEW-15 [M] Set `Visibility`, and read `ViewVisibility`
 
 `Visibility::Hidden` to hide something. `InheritedVisibility` and `ViewVisibility` are outputs.
 
@@ -829,7 +829,7 @@ mod tests {
 }
 ```
 
-### BV-UI-16 [M] Do not maintain `Aabb` by hand
+### BV-VIEW-16 [M] Do not maintain `Aabb` by hand
 
 Since 0.18, Bevy adds and updates an `Aabb` for meshes and sprites, including when the mesh or
 sprite changes.
@@ -843,7 +843,7 @@ looks harmless, which is why it survives upgrades.
 
 ## Materials and debugging
 
-### BV-UI-17 [S] Reach for a custom `Material` before a custom render node
+### BV-VIEW-17 [S] Reach for a custom `Material` before a custom render node
 
 A `Material` (or `Material2d`) with a fragment shader covers most of what a game wants: a shield
 effect, a dissolve, a palette swap.
@@ -855,7 +855,7 @@ finding out it was not is a rewrite per release.
 
 **Check:** can the effect be expressed as "this mesh, drawn differently"? Then it is a material.
 
-### BV-UI-18 [M] Keep shader paths and material types together
+### BV-VIEW-18 [M] Keep shader paths and material types together
 
 The `Material` impl naming a shader path lives beside the struct, and the shader lives at a path the
 struct's module name predicts.
@@ -868,7 +868,7 @@ visibly missing on the other.
 **Check:** for each `impl Material`, is the shader path within sight of the struct definition, and
 does the struct's field order match the shader's?
 
-### BV-UI-19 [S] Debug in world space with gizmos
+### BV-VIEW-19 [S] Debug in world space with gizmos
 
 `Gizmos::line`, `circle`, `cube`, and since 0.19 `Gizmos::text` and `text_2d`. Not a spawned
 `Text2d` that has to be despawned.
@@ -880,30 +880,30 @@ default, which is why debug text has a habit of shipping.
 **Check:** grep for spawned entities whose only purpose is debugging. Anything that has to be
 despawned to stop showing is a gizmo written the long way.
 
-### BV-UI-20 [S] Reach for a post-process component before a full-screen pass
+### BV-VIEW-20 [S] Reach for a post-process component before a full-screen pass
 
 Bloom, motion blur, depth of field, vignette, lens distortion and chromatic aberration are
 components on the camera entity. Spawn them in the camera tuple; animate them by writing a field;
 turn one off by removing it.
 
-**Why:** BV-UI-17 sends a mesh effect to a `Material` and everything else to a render node — but a
+**Why:** BV-VIEW-17 sends a mesh effect to a `Material` and everything else to a render node — but a
 full-screen effect has no mesh, so following it lands the reader on the node it just warned them
 about. 0.19 closed that gap: `bevy_post_process` composes the whole stack into one pass, and
 `Vignette` and `LensDistortion` are new in it. They cost nothing to reach, because the crate is
-inside the `2d` and `3d` collections BV-CAR-02 already mandates. `Bloom` requires `Hdr`, which it
+inside the `2d` and `3d` collections BV-BUILD-02 already mandates. `Bloom` requires `Hdr`, which it
 declares itself.
 
 **Check:** for each custom full-screen pass, name the shipped component it reimplements. If there is
-none, that is the case BV-UI-17 was talking about.
+none, that is the case BV-VIEW-17 was talking about.
 
-### BV-UI-21 [S] Draw with a retained gizmo before a sprite you have to despawn
+### BV-VIEW-21 [S] Draw with a retained gizmo before a sprite you have to despawn
 
 `Gizmo` plus a `GizmoAsset` is a line drawing that persists as an entity. Reach for it before
 spawning untextured sprites you redraw every frame.
 
-**Why:** BV-UI-19 keeps immediate-mode gizmos for debugging, and that leaves a gap it does not name:
-a map, an orbit, a selection ring, a debug overlay that has to survive the frame. The shape that
-fills it by default is a marker component, a despawn loop at the top of the system, and a fresh
+**Why:** BV-VIEW-19 keeps immediate-mode gizmos for debugging, and that leaves a gap it does not
+name: a map, an orbit, a selection ring, a debug overlay that has to survive the frame. The shape
+that fills it by default is a marker component, a despawn loop at the top of the system, and a fresh
 sprite per element per frame — which allocates, defeats change detection, and cannot be picked or
 queried because it did not exist a moment ago. A retained gizmo is built once and edited when the
 thing it draws changes.

@@ -8,38 +8,38 @@ the state chapter; when a reader runs is in the scheduling chapter.
 ## Contents
 
 - **Choosing the mechanism**
-  - BV-EVT-01 [M] Send a `Message` to fan out, trigger an `Event` to react
-  - BV-EVT-02 [S] Query the state instead, where the state already says it
-  - BV-EVT-03 [M] Do not derive both `Message` and `Event` on one type
+  - BV-EVENT-01 [M] Send a `Message` to fan out, trigger an `Event` to react
+  - BV-EVENT-02 [S] Query the state instead, where the state already says it
+  - BV-EVENT-03 [M] Do not derive both `Message` and `Event` on one type
 
 - **Messages**
-  - BV-EVT-04 [M] Register a message type with `add_message`
-  - BV-EVT-05 [M] Read messages through a `MessageReader`
-  - BV-EVT-06 [M] Make a message a statement about the past
-  - BV-EVT-07 [M] Read a message in a schedule that runs at least as often as the writer
-  - BV-EVT-08 [S] Give a message the data its readers need, not an entity to look up
+  - BV-EVENT-04 [M] Register a message type with `add_message`
+  - BV-EVENT-05 [M] Read messages through a `MessageReader`
+  - BV-EVENT-06 [M] Make a message a statement about the past
+  - BV-EVENT-07 [M] Read a message in a schedule that runs at least as often as the writer
+  - BV-EVENT-08 [S] Give a message the data its readers need, not an entity to look up
 
 - **Entity events**
-  - BV-EVT-09 [M] Give an event about one entity the `EntityEvent` derive and an entity field
-  - BV-EVT-10 [M] Read the target from the named field
-  - BV-EVT-11 [S] Turn propagation on deliberately, and stop it deliberately
-  - BV-EVT-12 [M] Treat an entity event as immutable
+  - BV-EVENT-09 [M] Give an event about one entity the `EntityEvent` derive and an entity field
+  - BV-EVENT-10 [M] Read the target from the named field
+  - BV-EVENT-11 [S] Turn propagation on deliberately, and stop it deliberately
+  - BV-EVENT-12 [M] Treat an entity event as immutable
 
 - **Observers**
-  - BV-EVT-13 [M] Observe a lifecycle event rather than polling for it
-  - BV-EVT-14 [M] Spell the lifecycle events without their old `On` prefix
-  - BV-EVT-15 [M] Keep an observer short, because it runs inside the flush
-  - BV-EVT-16 [M] Scope an observer to one entity when one entity is the subject
-  - BV-EVT-17 [S] Gate an observer with `run_if`
-  - BV-EVT-18 [M] Never depend on the order two observers run in
-  - BV-EVT-19 [M] Do not re-trigger the event an observer is handling
-  - BV-EVT-20 [S] Name the observer's parameter after its event
+  - BV-EVENT-13 [M] Observe a lifecycle event rather than polling for it
+  - BV-EVENT-14 [M] Spell the lifecycle events without their old `On` prefix
+  - BV-EVENT-15 [M] Keep an observer short, because it runs inside the flush
+  - BV-EVENT-16 [M] Scope an observer to one entity when one entity is the subject
+  - BV-EVENT-17 [S] Gate an observer with `run_if`
+  - BV-EVENT-18 [M] Never depend on the order two observers run in
+  - BV-EVENT-19 [M] Do not re-trigger the event an observer is handling
+  - BV-EVENT-20 [S] Name the observer's parameter after its event
 
 ---
 
 ## Choosing the mechanism
 
-### BV-EVT-01 [M] Send a `Message` to fan out, trigger an `Event` to react
+### BV-EVENT-01 [M] Send a `Message` to fan out, trigger an `Event` to react
 
 A `Message` is buffered: it is written now and read by whichever systems get to it, in their own
 schedule. An `Event` is a trigger: observers run immediately, inside the call that triggered it.
@@ -161,7 +161,7 @@ mod tests {
 }
 ```
 
-### BV-EVT-02 [S] Query the state instead, where the state already says it
+### BV-EVENT-02 [S] Query the state instead, where the state already says it
 
 Before adding a message, check whether a query answers the same question. "Health reached zero" is a
 query; it does not need an announcement.
@@ -175,7 +175,7 @@ threshold between two frames.
 **Check:** can a system reconstruct the fact by looking at the world when it runs? If yes, and the
 timing does not matter, the message is a cache.
 
-### BV-EVT-03 [M] Do not derive both `Message` and `Event` on one type
+### BV-EVENT-03 [M] Do not derive both `Message` and `Event` on one type
 
 A type is buffered or it is observed. Deriving both is legal and almost always means the decision
 was postponed.
@@ -189,7 +189,7 @@ two types with a converter, and the converter is the place the mapping is writte
 
 ## Messages
 
-### BV-EVT-04 [M] Register a message type with `add_message`
+### BV-EVENT-04 [M] Register a message type with `add_message`
 
 `app.add_message::<DamageDealt>()`. Never `init_resource::<Messages<DamageDealt>>()`.
 
@@ -234,7 +234,7 @@ impl Plugin for DamagePlugin {
 }
 ```
 
-### BV-EVT-05 [M] Read messages through a `MessageReader`
+### BV-EVENT-05 [M] Read messages through a `MessageReader`
 
 `MessageReader<M>` and `read()`. Not `Res<Messages<M>>` and `iter_current_update_messages()`.
 
@@ -245,7 +245,7 @@ updates sees the same messages twice, and one that misses an update sees nothing
 
 **Check:** grep for `iter_current_update_messages`. There should be none.
 
-### BV-EVT-06 [M] Make a message a statement about the past
+### BV-EVENT-06 [M] Make a message a statement about the past
 
 `DamageDealt`, `WaveCleared`, `ButtonPressed` — not `ApplyDamage`, `ClearWave`, `SpawnEnemy`.
 
@@ -258,7 +258,7 @@ an observed event.
 **Check:** read each message name as a sentence starting "the fact that". If it does not fit, the
 type is an instruction.
 
-### BV-EVT-07 [M] Read a message in a schedule that runs at least as often as the writer
+### BV-EVENT-07 [M] Read a message in a schedule that runs at least as often as the writer
 
 A message written in `FixedUpdate` and read in `Update` arrives in bursts. A message written in
 `Update` and read in `FixedUpdate` may not be read at all before it expires.
@@ -271,7 +271,7 @@ like a frame where nothing happened.
 **Check:** for each message type, list the writers' schedules and the readers'. A reader in a
 slower-running schedule than its writer needs a stated reason bursts are acceptable.
 
-### BV-EVT-08 [S] Give a message the data its readers need, not an entity to look up
+### BV-EVENT-08 [S] Give a message the data its readers need, not an entity to look up
 
 If every reader immediately queries the same three components off the entity, put those values in
 the message.
@@ -287,7 +287,7 @@ missing a field.
 
 ## Entity events
 
-### BV-EVT-09 [M] Give an event about one entity the `EntityEvent` derive and an entity field
+### BV-EVENT-09 [M] Give an event about one entity the `EntityEvent` derive and an entity field
 
 `#[derive(EntityEvent)] struct Died { entity: Entity }`, triggered with
 `commands.trigger(Died { entity })`.
@@ -334,7 +334,7 @@ impl Plugin for LootPlugin {
 }
 ```
 
-### BV-EVT-10 [M] Read the target from the named field
+### BV-EVENT-10 [M] Read the target from the named field
 
 `died.entity`, not `died.event_target()`, and never `trigger.target()` — which no longer exists for
 every event type.
@@ -346,7 +346,7 @@ generic code, which is what it is for.
 
 **Check:** grep for `.event_target()` in non-generic observers, and for `.target()` anywhere.
 
-### BV-EVT-11 [S] Turn propagation on deliberately, and stop it deliberately
+### BV-EVENT-11 [S] Turn propagation on deliberately, and stop it deliberately
 
 `#[entity_event(propagate)]` walks `ChildOf` toward the root. An observer that has handled the event
 calls `propagate(false)`.
@@ -359,7 +359,7 @@ closes two menus.
 **Check:** for each propagating event, find the observers that act on it. Any that fully handles the
 event and does not call `propagate(false)` is letting it continue.
 
-### BV-EVT-12 [M] Treat an entity event as immutable
+### BV-EVENT-12 [M] Treat an entity event as immutable
 
 Since 0.18 the mutating half of `EntityEvent` lives in a separate trait, `SetEntityEventTarget`.
 Retargeting an event in flight is not something game code does.
@@ -374,7 +374,7 @@ explanation.
 
 ## Observers
 
-### BV-EVT-13 [M] Observe a lifecycle event rather than polling for it
+### BV-EVENT-13 [M] Observe a lifecycle event rather than polling for it
 
 Setup when a component appears is `On<Add, T>`, not a system with `Query<…, Added<T>>`.
 
@@ -433,7 +433,7 @@ mod tests {
 }
 ```
 
-### BV-EVT-14 [M] Spell the lifecycle events without their old `On` prefix
+### BV-EVENT-14 [M] Spell the lifecycle events without their old `On` prefix
 
 `Add`, `Insert`, `Replace`, `Remove`, `Despawn`. Not `OnAdd`, `OnInsert`, `OnReplace`, `OnRemove`,
 `OnDespawn`.
@@ -445,7 +445,7 @@ rather than renaming the event.
 
 **Check:** `rg -n  'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|Trigger<' src/`.
 
-### BV-EVT-15 [M] Keep an observer short, because it runs inside the flush
+### BV-EVENT-15 [M] Keep an observer short, because it runs inside the flush
 
 An observer runs synchronously, in the middle of applying the command that triggered it. Update a
 resource, queue a command, trigger another event — do not run a loop over the world.
@@ -545,7 +545,7 @@ mod tests {
 }
 ```
 
-### BV-EVT-16 [M] Scope an observer to one entity when one entity is the subject
+### BV-EVENT-16 [M] Scope an observer to one entity when one entity is the subject
 
 `commands.entity(e).observe(handler)` for a handler about that entity. `app.add_observer(handler)`
 is global and runs for every trigger of that event.
@@ -675,11 +675,11 @@ mod tests {
 }
 ```
 
-### BV-EVT-17 [S] Gate an observer with `run_if`
+### BV-EVENT-17 [S] Gate an observer with `run_if`
 
 Observers take run conditions in 0.19: `app.add_observer(handler.run_if(in_state(Playing)))`.
 
-**Why:** it is BV-SCH-17 applied to observers, and the same argument holds — the condition is
+**Why:** it is BV-SCHED-17 applied to observers, and the same argument holds — the condition is
 visible at the registration site rather than buried in the first line of the body, and it composes
 with the shipped conditions. Before 0.19 this had to be an early return, which is why so much
 existing code has one.
@@ -687,7 +687,7 @@ existing code has one.
 **Check:** an observer whose body starts with a `return` guarded by a resource or state has a run
 condition in the wrong place.
 
-### BV-EVT-18 [M] Never depend on the order two observers run in
+### BV-EVENT-18 [M] Never depend on the order two observers run in
 
 Several observers for one event run in an unspecified order. If B must follow A, that is not two
 observers.
@@ -700,7 +700,7 @@ observer handles — making the dependency explicit in the types.
 **Check:** for each event with more than one observer, ask whether swapping them changes the result.
 If it does, the ordering needs to be expressed rather than assumed.
 
-### BV-EVT-19 [M] Do not re-trigger the event an observer is handling
+### BV-EVENT-19 [M] Do not re-trigger the event an observer is handling
 
 An observer for `Died` must not trigger `Died`. The recursion is unbounded and the stack is the only
 thing that stops it.
@@ -828,7 +828,7 @@ mod tests {
 }
 ```
 
-### BV-EVT-20 [S] Name the observer's parameter after its event
+### BV-EVENT-20 [S] Name the observer's parameter after its event
 
 `fn collect_loot(died: On<Died>, …)`, not `trigger` and not `ev`.
 

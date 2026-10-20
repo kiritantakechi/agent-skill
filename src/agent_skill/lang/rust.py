@@ -149,14 +149,14 @@ RUST_STYLE = Crate(
 #:   * `elided_lifetimes_in_paths` fires on **every** system parameter — fourteen
 #:     hits in one five-system plugin. Writing `Query<'_, '_, …>` and `Res<'_, T>`
 #:     does satisfy it and does stay a valid system, so this is a noise
-#:     judgement, not an impossibility (BV-CAR-12).
+#:     judgement, not an impossibility (BV-BUILD-12).
 #:   * `needless_pass_by_value` fires on every `Res<T>`, and its suggestion does
 #:     not compile: `&Res<'_, T>` is not a `SystemParam` (E0277). This one has no
-#:     compliant form (BV-CAR-13).
+#:     compliant form (BV-BUILD-13).
 #:
 #: `type_complexity` and `too_many_arguments` also fire on ordinary Bevy code and
 #: are deliberately **not** here: a `type` alias and `#[derive(SystemParam)]`
-#: silence them, and both are the better code (BV-ECS-21, BV-SCH-10).
+#: silence them, and both are the better code (BV-ECS-21, BV-SCHED-10).
 #:
 #: The features are the `*_api` collections plus `scene`: every type a game
 #: names, without `bevy_render`, winit or wgpu. A standard talks about the API

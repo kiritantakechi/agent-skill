@@ -12,39 +12,39 @@ is the usual justification for an allow list forty entries long that hides real 
 ## Contents
 
 - **The dependency**
-  - BV-CAR-01 [M] Depend on the `bevy` facade, not on its subcrates
-  - BV-CAR-02 [M] Start from a feature collection
-  - BV-CAR-03 [M] Hand-pick features only against a recorded measurement
-  - BV-CAR-04 [M] Pin Bevy exactly in a binary and with a caret in a library
-  - BV-CAR-05 [M] Keep every ecosystem crate on one Bevy version
-  - BV-CAR-06 [S] Check a plugin crate's compatibility table before adding it
+  - BV-BUILD-01 [M] Depend on the `bevy` facade, not on its subcrates
+  - BV-BUILD-02 [M] Start from a feature collection
+  - BV-BUILD-03 [M] Hand-pick features only against a recorded measurement
+  - BV-BUILD-04 [M] Pin Bevy exactly in a binary and with a caret in a library
+  - BV-BUILD-05 [M] Keep every ecosystem crate on one Bevy version
+  - BV-BUILD-06 [S] Check a plugin crate's compatibility table before adding it
 
 - **Profiles**
-  - BV-CAR-07 [M] Compile dependencies optimised in the dev profile
-  - BV-CAR-08 [S] Keep `dynamic_linking` off the committed manifest
-  - BV-CAR-09 [M!] Keep `overflow-checks` on in release where release must match debug
-  - BV-CAR-10 [M] Keep tracing and dev tooling behind off-by-default features
-  - BV-CAR-11 [S] Take the overlays from `bevy_dev_tools`, behind the feature BV-CAR-10 asks for
+  - BV-BUILD-07 [M] Compile dependencies optimised in the dev profile
+  - BV-BUILD-08 [S] Keep `dynamic_linking` off the committed manifest
+  - BV-BUILD-09 [M!] Keep `overflow-checks` on in release where release must match debug
+  - BV-BUILD-10 [M] Keep tracing and dev tooling behind off-by-default features
+  - BV-BUILD-11 [S] Take the overlays from `bevy_dev_tools`, behind the feature BV-BUILD-10 asks for
 
 - **Lints**
-  - BV-CAR-12 [M] Allow `elided_lifetimes_in_paths`, with the reason in the table
-  - BV-CAR-13 [M] Allow `clippy::needless_pass_by_value`, with the reason in the table
-  - BV-CAR-14 [M] Keep `type_complexity` and `too_many_arguments` switched on
-  - BV-CAR-15 [M] Add nothing else to the allow list without measuring it
-  - BV-CAR-16 [M] Put the table in the workspace and inherit it
-  - BV-CAR-17 [S] Run `bevy_lint`, pinned to the Bevy version
+  - BV-BUILD-12 [M] Allow `elided_lifetimes_in_paths`, with the reason in the table
+  - BV-BUILD-13 [M] Allow `clippy::needless_pass_by_value`, with the reason in the table
+  - BV-BUILD-14 [M] Keep `type_complexity` and `too_many_arguments` switched on
+  - BV-BUILD-15 [M] Add nothing else to the allow list without measuring it
+  - BV-BUILD-16 [M] Put the table in the workspace and inherit it
+  - BV-BUILD-17 [S] Run `bevy_lint`, pinned to the Bevy version
 
 - **CI**
-  - BV-CAR-18 [M] Build the feature set you ship
-  - BV-CAR-19 [S] Build the wasm target if the game ships to the web
-  - BV-CAR-20 [M] Keep `assets/` out of a published package
-  - BV-CAR-21 [S] Cache the target directory, because Bevy is most of the build
+  - BV-BUILD-18 [M] Build the feature set you ship
+  - BV-BUILD-19 [S] Build the wasm target if the game ships to the web
+  - BV-BUILD-20 [M] Keep `assets/` out of a published package
+  - BV-BUILD-21 [S] Cache the target directory, because Bevy is most of the build
 
 ---
 
 ## The dependency
 
-### BV-CAR-01 [M] Depend on the `bevy` facade, not on its subcrates
+### BV-BUILD-01 [M] Depend on the `bevy` facade, not on its subcrates
 
 `bevy = { version = …, features = […] }`. Not a list of `bevy_ecs`, `bevy_render`, `bevy_ui`.
 
@@ -52,13 +52,13 @@ is the usual justification for an allow list forty entries long that hides real 
 moves between releases — 0.19 alone inverted the `bevy_gltf`/`bevy_pbr` dependency, moved `Hdr` into
 `bevy_camera`, moved transmission into `bevy_pbr` and created `bevy_material`. A manifest naming
 subcrates has to be rewritten for each of those; one naming the facade does not. The exception is a
-crate that genuinely needs one subcrate and no engine — and by BV-ARC-06 that crate should not be
+crate that genuinely needs one subcrate and no engine — and by BV-ARCH-06 that crate should not be
 depending on Bevy at all.
 
 **Check:** grep the manifests for `bevy_`. Each hit is either a third-party plugin crate or a
 subcrate dependency that needs a reason.
 
-### BV-CAR-02 [M] Start from a feature collection
+### BV-BUILD-02 [M] Start from a feature collection
 
 `default-features = false` plus `features = ["2d"]`, `["3d", "ui"]`, or the mid-level `2d_api` /
 `default_app` / `default_platform` where the backends are not wanted. Not thirty individual names —
@@ -75,7 +75,7 @@ list every release.
 entries: past about six, they are describing a collection that already exists.
 `assets/Cargo.toml` is a workspace manifest with the collection already chosen.
 
-### BV-CAR-03 [M] Hand-pick features only against a recorded measurement
+### BV-BUILD-03 [M] Hand-pick features only against a recorded measurement
 
 A hand-picked list is allowed when there is a build-time, binary-size or dependency-count target,
 the measurement is in the manifest as a comment, and each feature says why it is there.
@@ -114,7 +114,7 @@ bevy = { version = "=0.19.1", default-features = false, features = [
 ] }
 ```
 
-### BV-CAR-04 [M] Pin Bevy exactly in a binary and with a caret in a library
+### BV-BUILD-04 [M] Pin Bevy exactly in a binary and with a caret in a library
 
 A game binary writes `bevy = "=0.19.1"`. A crate other people depend on writes `bevy = "0.19"`.
 
@@ -127,7 +127,7 @@ is unchanged for anything published.
 **Check:** is the crate a `[[bin]]` or a `[lib]` others depend on? Exact pin for the first, caret
 for the second, and the reason for the pin as a comment beside it.
 
-### BV-CAR-05 [M] Keep every ecosystem crate on one Bevy version
+### BV-BUILD-05 [M] Keep every ecosystem crate on one Bevy version
 
 `cargo tree --duplicates` shows nothing named `bevy`. Two versions in the tree are two engines.
 
@@ -138,22 +138,22 @@ explanation. It also doubles the compile time of the largest dependency in the p
 
 **Check:** run `cargo tree --duplicates | grep bevy` in CI. Any output fails the build.
 
-### BV-CAR-06 [S] Check a plugin crate's compatibility table before adding it
+### BV-BUILD-06 [S] Check a plugin crate's compatibility table before adding it
 
 Most Bevy ecosystem crates publish a table of which of their versions works with which Bevy. Read it
 before adding the dependency, not after the type errors.
 
 **Why:** the ecosystem lags the engine by weeks to months, so at any moment some crates support the
 current Bevy and some do not — and a crate that has not caught up will resolve, compile its own
-half, and fail with the duplicate-version errors from BV-CAR-05. Reading the table first turns that
-into a decision about whether to wait.
+half, and fail with the duplicate-version errors from BV-BUILD-05. Reading the table first turns
+that into a decision about whether to wait.
 
 **Check:** for each Bevy plugin dependency, is the version the one its table names for this engine
 version?
 
 ## Profiles
 
-### BV-CAR-07 [M] Compile dependencies optimised in the dev profile
+### BV-BUILD-07 [M] Compile dependencies optimised in the dev profile
 
 `[profile.dev.package."*"] opt-level = 3`, with the game's own crates left at the dev default.
 
@@ -166,7 +166,7 @@ of the dev profile.
 **Check:** does the workspace manifest have the `[profile.dev.package."*"]` block? Without it,
 everything anyone says about the game's performance in development is about the wrong build.
 
-### BV-CAR-08 [S] Keep `dynamic_linking` off the committed manifest
+### BV-BUILD-08 [S] Keep `dynamic_linking` off the committed manifest
 
 `bevy/dynamic_linking` cuts link time substantially and produces a binary that will not run on
 another machine. Turn it on with `--features bevy/dynamic_linking` on the command line.
@@ -179,7 +179,7 @@ manifest it is everybody's.
 **Check:** grep the manifest for `dynamic_linking`. It belongs in a shell alias or a
 `.cargo/config.toml` that is not committed.
 
-### BV-CAR-09 [M!] Keep `overflow-checks` on in release where release must match debug
+### BV-BUILD-09 [M!] Keep `overflow-checks` on in release where release must match debug
 
 `[profile.release] overflow-checks = true` for any game with replays, rollback, lockstep networking
 or golden test vectors.
@@ -195,7 +195,7 @@ on integer arithmetic, which for a simulation is far below the cost of the desyn
 **Check:** does the game record or transmit anything that another run has to reproduce? If so, the
 line is mandatory.
 
-### BV-CAR-10 [M] Keep tracing and dev tooling behind off-by-default features
+### BV-BUILD-10 [M] Keep tracing and dev tooling behind off-by-default features
 
 `bevy/trace`, `bevy/detailed_trace`, the remote protocol, an in-game inspector and a debug overlay
 all go behind a feature that is off by default.
@@ -208,7 +208,7 @@ which is the right way round.
 **Check:** grep the default feature list. Anything whose name mentions trace, debug, remote,
 inspector or editor is on by default and should not be.
 
-### BV-CAR-11 [S] Take the overlays from `bevy_dev_tools`, behind the feature BV-CAR-10 asks for
+### BV-BUILD-11 [S] Take the overlays from `bevy_dev_tools`, behind the feature BV-BUILD-10 asks for
 
 `DiagnosticsOverlayPlugin` (0.19), `FpsOverlayPlugin` and `RenderDebugOverlayPlugin` all live in
 `bevy_dev_tools`. Name its feature alongside the collection, inside the dev feature — never in the
@@ -217,11 +217,11 @@ default list.
 **Why:** a hand-written FPS counter is a `Text` entity, a system, a `Diagnostics` lookup and a
 format string that goes stale, and the engine ships all four. The reason this needs its own rule is
 the manifest shape rather than the plugin: `bevy_dev_tools` is in no collection — not `2d`, `3d`,
-`ui`, nor any `*_api` — so BV-CAR-02's "start from a collection" does not reach it and the feature
-has to be named on top of one. That is allowed and is not the hand-picked list BV-CAR-03 governs:
+`ui`, nor any `*_api` — so BV-BUILD-02's "start from a collection" does not reach it and the feature
+has to be named on top of one. That is allowed and is not the hand-picked list BV-BUILD-03 governs:
 adding a feature *beside* a collection keeps the collection's guarantee, while replacing the
 collection with a list gives it up. The same shape applies to any other feature outside the
-collections, `bevy_settings` among them (BV-STA-10).
+collections, `bevy_settings` among them (BV-STATE-10).
 
 **Check:** read the default feature list, then the dev one. `bevy_dev_tools` in the first is an
 overlay shipped to players; a game that renders it in a release build has answered this rule by
@@ -235,13 +235,13 @@ bevy = { version = "=0.19.1", default-features = false, features = ["2d", "ui", 
 [features]
 default = []
 # Named beside the collection, never inside it. `cargo run --features dev`
-# turns the overlay on; a release build cannot reach it (BV-CAR-10).
+# turns the overlay on; a release build cannot reach it (BV-BUILD-10).
 dev = ["bevy/bevy_dev_tools", "bevy/bevy_ui_debug"]
 ```
 
 ## Lints
 
-### BV-CAR-12 [M] Allow `elided_lifetimes_in_paths`, with the reason in the table
+### BV-BUILD-12 [M] Allow `elided_lifetimes_in_paths`, with the reason in the table
 
 `elided_lifetimes_in_paths = "allow"` in the `[lints.rust]` table, with a comment saying why.
 
@@ -255,7 +255,7 @@ and says so, rather than letting a reader think it was impossible.
 **Check:** is the entry present, and does the comment beside it say that the compliant form exists?
 An allow with no reason is the thing this rule exists to prevent.
 
-### BV-CAR-13 [M] Allow `clippy::needless_pass_by_value`, with the reason in the table
+### BV-BUILD-13 [M] Allow `clippy::needless_pass_by_value`, with the reason in the table
 
 `needless_pass_by_value = "allow"` in `[lints.clippy]`, with a comment saying it has no compliant
 form.
@@ -268,7 +268,7 @@ impossible rather than merely noisy, and the comment should say which of the two
 **Check:** is the entry present? Then check nothing else from `pedantic` has been allowed alongside
 it — this is the one.
 
-### BV-CAR-14 [M] Keep `type_complexity` and `too_many_arguments` switched on
+### BV-BUILD-14 [M] Keep `type_complexity` and `too_many_arguments` switched on
 
 Both fire on ordinary Bevy code. Both have a compliant form that is better code, so neither is
 allowed here.
@@ -276,12 +276,12 @@ allowed here.
 **Why:** upstream Bevy allows both, and copying that is where most projects' allow lists start.
 `type_complexity` fires on a query with two data items and two filters, and the fix is a `type`
 alias with a name from the domain (BV-ECS-21). `too_many_arguments` fires at eight parameters, and
-the fix is `#[derive(SystemParam)]` (BV-SCH-10). In both cases the lint is pointing at something a
+the fix is `#[derive(SystemParam)]` (BV-SCHED-10). In both cases the lint is pointing at something a
 reader would also have complained about.
 
 **Check:** grep the lint table for either name. Their presence is the defect.
 
-### BV-CAR-15 [M] Add nothing else to the allow list without measuring it
+### BV-BUILD-15 [M] Add nothing else to the allow list without measuring it
 
 A third allow needs the same treatment as the first two: the code that triggers it, the count, and
 whether a compliant form exists.
@@ -294,7 +294,7 @@ question answerable instead of arguable.
 **Check:** for each entry beyond the two, name the Bevy API that forces it. If the answer is a
 property of the game's own code, it is a defect list rather than a lint table.
 
-### BV-CAR-16 [M] Put the table in the workspace and inherit it
+### BV-BUILD-16 [M] Put the table in the workspace and inherit it
 
 `[workspace.lints]` once, `[lints] workspace = true` in every member.
 
@@ -306,7 +306,7 @@ something different has to say so visibly.
 **Check:** grep for `[lints.` in member manifests. Each is a member that has opted out of the shared
 table. `assets/Cargo.toml` is the table, with both relaxations and their reasons already in place.
 
-### BV-CAR-17 [S] Run `bevy_lint`, pinned to the Bevy version
+### BV-BUILD-17 [S] Run `bevy_lint`, pinned to the Bevy version
 
 `bevy_lint` catches the Bevy-specific defects that `clippy` cannot see. It runs under its own
 pinned nightly with the `rustc-dev` component — not the game's toolchain — and its version tracks
@@ -324,7 +324,7 @@ toolchain and is deliberately not that nightly — a game built on nightly has n
 
 ## CI
 
-### BV-CAR-18 [M] Build the feature set you ship
+### BV-BUILD-18 [M] Build the feature set you ship
 
 If the release build uses `default-features = false` and a list, CI builds that list. Building only
 the default feature set proves nothing about the artefact.
@@ -336,7 +336,7 @@ fastest, because the compiler never sees it.
 **Check:** compare the feature list in the CI job with the one in the release manifest or workflow.
 They should be the same string; `assets/ci.yml` has the job.
 
-### BV-CAR-19 [S] Build the wasm target if the game ships to the web
+### BV-BUILD-19 [S] Build the wasm target if the game ships to the web
 
 `cargo build --target wasm32-unknown-unknown` in CI, with the same features as the web build.
 
@@ -348,7 +348,7 @@ about whether the web build works.
 **Check:** is the web target in the CI matrix? If the game ships to the web and it is not, the web
 build is untested.
 
-### BV-CAR-20 [M] Keep `assets/` out of a published package
+### BV-BUILD-20 [M] Keep `assets/` out of a published package
 
 A published crate uses `include` to list what ships. A game's asset directory is not part of it.
 
@@ -359,7 +359,7 @@ rather than `exclude`; this is the case where forgetting is expensive.
 
 **Check:** run `cargo package --list` and look for asset paths.
 
-### BV-CAR-21 [S] Cache the target directory, because Bevy is most of the build
+### BV-BUILD-21 [S] Cache the target directory, because Bevy is most of the build
 
 CI caches `~/.cargo` and `target/`, keyed on the lockfile.
 

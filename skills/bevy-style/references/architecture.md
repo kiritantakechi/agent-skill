@@ -13,35 +13,35 @@ the game do not mention the engine.
 ## Contents
 
 - **The boundary**
-  - BV-ARC-01 [M] Keep the rules of the game out of the engine's vocabulary
-  - BV-ARC-02 [M] Scale the boundary's mechanism to the project; never the rule
-  - BV-ARC-03 [M] Give the boundary exactly one crossing point per direction
-  - BV-ARC-04 [M] Keep the invariant in the domain type, and parse at the crossing
-  - BV-ARC-05 [S] Share `glam` across the boundary unless determinism forbids it
-  - BV-ARC-06 [M] Do not reach for `bevy_ecs` to get the ECS in through the side door
-  - BV-ARC-07 [M] Make the boundary a job, not a paragraph
-  - BV-ARC-08 [S] Name a crate for what it models, not for the engine
+  - BV-ARCH-01 [M] Keep the rules of the game out of the engine's vocabulary
+  - BV-ARCH-02 [M] Scale the boundary's mechanism to the project; never the rule
+  - BV-ARCH-03 [M] Give the boundary exactly one crossing point per direction
+  - BV-ARCH-04 [M] Keep the invariant in the domain type, and parse at the crossing
+  - BV-ARCH-05 [S] Share `glam` across the boundary unless determinism forbids it
+  - BV-ARCH-06 [M] Do not reach for `bevy_ecs` to get the ECS in through the side door
+  - BV-ARCH-07 [M] Make the boundary a job, not a paragraph
+  - BV-ARCH-08 [S] Name a crate for what it models, not for the engine
 
 - **Plugins**
-  - BV-ARC-09 [M] Write every plugin as a type
-  - BV-ARC-10 [M] Suffix a `Plugin` type `Plugin` and a `SystemSet` type `Systems`
-  - BV-ARC-11 [M] A plugin registers its own things and only its own things
-  - BV-ARC-12 [M] Let a duplicate plugin panic rather than opting out of the check
-  - BV-ARC-13 [S] Reach for `PluginGroup` only when the group is the unit users add
-  - BV-ARC-14 [M] Let the crate that defines a type own its registration
-  - BV-ARC-15 [S] Give each plugin one module, and re-export it from the crate root
+  - BV-ARCH-09 [M] Write every plugin as a type
+  - BV-ARCH-10 [M] Suffix a `Plugin` type `Plugin` and a `SystemSet` type `Systems`
+  - BV-ARCH-11 [M] A plugin registers its own things and only its own things
+  - BV-ARCH-12 [M] Let a duplicate plugin panic rather than opting out of the check
+  - BV-ARCH-13 [S] Reach for `PluginGroup` only when the group is the unit users add
+  - BV-ARCH-14 [M] Let the crate that defines a type own its registration
+  - BV-ARCH-15 [S] Give each plugin one module, and re-export it from the crate root
 
 - **The app**
-  - BV-ARC-16 [M] Keep `main` to plugins and nothing else
-  - BV-ARC-17 [M] Return `AppExit` from `main`
-  - BV-ARC-18 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
-  - BV-ARC-19 [S] Split the binary from the library so the game is testable without a window
+  - BV-ARCH-16 [M] Keep `main` to plugins and nothing else
+  - BV-ARCH-17 [M] Return `AppExit` from `main`
+  - BV-ARCH-18 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
+  - BV-ARCH-19 [S] Split the binary from the library so the game is testable without a window
 
 ---
 
 ## The boundary
 
-### BV-ARC-01 [M] Keep the rules of the game out of the engine's vocabulary
+### BV-ARCH-01 [M] Keep the rules of the game out of the engine's vocabulary
 
 Damage numbers, economy, pathfinding, turn order, save format — the code that decides *what
 happens* takes and returns plain Rust data. `Query`, `Commands`, `Res`, `Entity`, `Component` and
@@ -156,7 +156,7 @@ fn absorb(mut hits: MessageReader<Hit>, mut targets: Query<(&mut Health, &mut Sh
 }
 ```
 
-### BV-ARC-02 [M] Scale the boundary's mechanism to the project; never the rule
+### BV-ARCH-02 [M] Scale the boundary's mechanism to the project; never the rule
 
 The separation is mandatory at every size. How it is enforced is not: a single-binary game draws it
 between modules, a workspace draws it between crates, and only the crate form can be enforced by
@@ -176,7 +176,7 @@ If nobody can say which files are forbidden to name Bevy, the boundary does not 
 | One library plus a binary | the library is the domain | the binary's dependency list |
 | Workspace | domain crates vs one view crate | the domain crates' manifests |
 
-### BV-ARC-03 [M] Give the boundary exactly one crossing point per direction
+### BV-ARCH-03 [M] Give the boundary exactly one crossing point per direction
 
 Data enters the domain through one function that reads the ECS and builds domain values, and
 leaves through one function that writes domain results back into components. Neither direction
@@ -197,7 +197,7 @@ use bevy::prelude::*;
 
 /// The simulation works in metres and seconds and knows nothing else. In a
 /// workspace this type lives in a crate whose manifest names `glam` and does
-/// not name `bevy` (BV-ARC-05).
+/// not name `bevy` (BV-ARCH-05).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Body {
     pub metres: Vec2,
@@ -372,13 +372,13 @@ mod tests {
 }
 ```
 
-### BV-ARC-04 [M] Keep the invariant in the domain type, and parse at the crossing
+### BV-ARCH-04 [M] Keep the invariant in the domain type, and parse at the crossing
 
 A component's fields are public — the ECS is the accessor, and reflection, scenes and the remote
 protocol all read fields directly. Data that must satisfy a condition therefore cannot be defended
 inside a component. Model the condition as a domain type with a private field and a fallible
 constructor, let the component carry the plain value, and construct the domain type at the crossing
-point (BV-ARC-03). Nothing else may read that field.
+point (BV-ARCH-03). Nothing else may read that field.
 
 **Why:** this standard exempts components from the private-field rule, and the exemption has to buy
 something. What it buys is a sharper line: because a component cannot defend an invariant, needing
@@ -387,7 +387,7 @@ is then an unparsed input — the same shape as a config file or a network packe
 point is where it is parsed. Wrapping the domain type in the component instead looks tighter and is
 not available: a domain type with a private field cannot be reflected from the ECS side
 (`#[reflect_remote]` needs field access), so the component would have to give up `Reflect` or the
-domain would have to take a Bevy dependency, and BV-ECS-03 and BV-ARC-06 each forbid one of those.
+domain would have to take a Bevy dependency, and BV-ECS-03 and BV-ARCH-06 each forbid one of those.
 
 **Check:** for each component field, ask what value would be wrong. If any answer is more specific
 than "any value of this type", find every read of that field: exactly one, at the crossing point,
@@ -450,7 +450,7 @@ mod tests {
 }
 ```
 
-### BV-ARC-05 [S] Share `glam` across the boundary unless determinism forbids it
+### BV-ARCH-05 [S] Share `glam` across the boundary unless determinism forbids it
 
 `Vec2`, `Vec3`, `Quat` and `Mat4` come from `glam`, which is an ordinary crate that Bevy happens to
 re-export. Domain code may name them directly, and should, so a position does not have to be
@@ -466,7 +466,7 @@ own arithmetic and must say so where the dependency is declared.
 golden vectors? If not, use `glam`. If so, the domain gets its own numeric types and the manifest
 comment says which crates can reach produced bytes.
 
-### BV-ARC-06 [M] Do not reach for `bevy_ecs` to get the ECS in through the side door
+### BV-ARCH-06 [M] Do not reach for `bevy_ecs` to get the ECS in through the side door
 
 Depending on `bevy_ecs` rather than `bevy` does not put a crate on the domain side of the boundary.
 The domain uses plain data structures.
@@ -479,7 +479,7 @@ work and the loss of ECS-free testing all arrive anyway.
 **Check:** search every domain manifest for `bevy`. Any match, facade or subcrate, is a boundary
 violation.
 
-### BV-ARC-07 [M] Make the boundary a job, not a paragraph
+### BV-ARCH-07 [M] Make the boundary a job, not a paragraph
 
 The rule that some directory may not mention Bevy is executable in one line. Write it as a CI step.
 
@@ -494,12 +494,12 @@ the job, alongside the Linux packages a Bevy build needs.
 ```bash
 # fragment — the whole enforcement, as a CI step
 if grep -rn --include='*.rs' -e 'bevy' crates/*-sim/src/; then
-  echo 'a simulation crate named Bevy; see BV-ARC-01' >&2
+  echo 'a simulation crate named Bevy; see BV-ARCH-01' >&2
   exit 1
 fi
 ```
 
-### BV-ARC-08 [S] Name a crate for what it models, not for the engine
+### BV-ARCH-08 [S] Name a crate for what it models, not for the engine
 
 `combat`, `economy`, `navigation` — not `bevy_combat`, `game_ecs`, `sim_components`.
 
@@ -514,7 +514,7 @@ engines, it is naming the subject.
 
 ## Plugins
 
-### BV-ARC-09 [M] Write every plugin as a type
+### BV-ARCH-09 [M] Write every plugin as a type
 
 A plugin is a type that implements `Plugin`: `#[derive(Debug, Default)]`, a unit struct when it has
 no settings and named fields when it has. The blanket impl for `Fn(&mut App)` exists; do not reach
@@ -581,7 +581,7 @@ mod tests {
 }
 ```
 
-### BV-ARC-10 [M] Suffix a `Plugin` type `Plugin` and a `SystemSet` type `Systems`
+### BV-ARCH-10 [M] Suffix a `Plugin` type `Plugin` and a `SystemSet` type `Systems`
 
 `CombatPlugin`, `MovementSystems`. This standard's general rule is that a name does not end in the
 language construct it is; these two types are the exception, and the exception is exactly these two
@@ -629,7 +629,7 @@ impl Plugin for CombatPlugin {
 }
 ```
 
-### BV-ARC-11 [M] A plugin registers its own things and only its own things
+### BV-ARCH-11 [M] A plugin registers its own things and only its own things
 
 Inside `build`, a plugin adds its own systems, resources, messages, observers and type
 registrations. It does not add another module's.
@@ -736,7 +736,7 @@ mod tests {
 }
 ```
 
-### BV-ARC-12 [M] Let a duplicate plugin panic rather than opting out of the check
+### BV-ARCH-12 [M] Let a duplicate plugin panic rather than opting out of the check
 
 Adding a plugin that is already in the `App` panics at `add_plugins`. Fix the double add; do not
 override `is_unique` to make it stop.
@@ -746,7 +746,7 @@ step with nothing saying so. Overriding `is_unique` buys exactly that, so it is 
 plugin whose `build` is genuinely idempotent, and then the `build` is what has to be shown to be.
 
 The check is by plugin **name**, which defaults to the type's `type_name`. A type gives that
-message something to say. The forms BV-ARC-09 forbids do not: two inline `|app: &mut App| { … }`
+message something to say. The forms BV-ARCH-09 forbids do not: two inline `|app: &mut App| { … }`
 plugins written in one function both render as `{{closure}}`, so the second is refused with a
 message naming neither of them.
 
@@ -788,7 +788,7 @@ mod tests {
 }
 ```
 
-### BV-ARC-13 [S] Reach for `PluginGroup` only when the group is the unit users add
+### BV-ARCH-13 [S] Reach for `PluginGroup` only when the group is the unit users add
 
 A `PluginGroup` earns its place when callers want to add several plugins at once *and* disable
 individual members. Otherwise a function that calls `add_plugins` with a tuple is the same thing
@@ -801,7 +801,7 @@ returns a tuple's behaviour.
 **Check:** has anyone called `.disable::<_>()` on this group, or asked to? If not, a tuple is the
 same feature.
 
-### BV-ARC-14 [M] Let the crate that defines a type own its registration
+### BV-ARCH-14 [M] Let the crate that defines a type own its registration
 
 `register_type`, `init_resource`, `add_message` and `add_observer` for a type go in the plugin of
 the module that defines it.
@@ -814,7 +814,7 @@ runtime absence rather than a compile error.
 **Check:** for each `#[derive(Message)]`, `#[derive(Resource)]` and `#[reflect(Component)]`, find
 the registration. If it is in a different module from the definition, move it.
 
-### BV-ARC-15 [S] Give each plugin one module, and re-export it from the crate root
+### BV-ARCH-15 [S] Give each plugin one module, and re-export it from the crate root
 
 `combat.rs` defines `CombatPlugin` and the components, systems and sets it registers. The crate
 root re-exports the type, so a call site writes `CombatPlugin` rather than `combat::CombatPlugin`.
@@ -828,7 +828,7 @@ have exactly one, and is each plugin type named in the crate root's re-exports?
 
 ## The app
 
-### BV-ARC-16 [M] Keep `main` to plugins and nothing else
+### BV-ARCH-16 [M] Keep `main` to plugins and nothing else
 
 `main` builds the `App`, adds plugins, and runs it. Systems, resources and configuration belong to
 the plugin that owns them. The exception is a build-time decision that must be in place *before*
@@ -855,7 +855,7 @@ fn main() -> AppExit {
 }
 ```
 
-### BV-ARC-17 [M] Return `AppExit` from `main`
+### BV-ARCH-17 [M] Return `AppExit` from `main`
 
 `App::run` returns `AppExit`. Return it.
 
@@ -866,7 +866,7 @@ every failure look like a clean shutdown to everything outside the process.
 **Check:** does `fn main` return `AppExit`, and is the value the one `run` returned? `bevy_lint`'s
 `main_return_without_appexit` finds every case.
 
-### BV-ARC-18 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
+### BV-ARCH-18 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
 
 Window title, asset path, log filter and render settings are set with `.set(…)` on the plugin group
 at the point it is added.
@@ -882,7 +882,7 @@ already running against the wrong directory.
 **Check:** search for writes to `WindowPlugin`, `AssetPlugin` or `LogPlugin` state outside the
 `add_plugins` call. Each one either belongs in `.set()` or needs the reason it cannot be.
 
-### BV-ARC-19 [S] Split the binary from the library so the game is testable without a window
+### BV-ARCH-19 [S] Split the binary from the library so the game is testable without a window
 
 `src/lib.rs` holds the plugins and re-exports their types; `src/main.rs` is
 `App::new().add_plugins(mygame::GamePlugin).run()`.

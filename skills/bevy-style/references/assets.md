@@ -7,30 +7,30 @@ this chapter is about the handles.
 ## Contents
 
 - **Handles**
-  - BV-ASS-01 [M] Treat a handle as a reference count, not a path
-  - BV-ASS-02 [M] Load once and store the handle, never per frame
-  - BV-ASS-03 [S] Keep the handles for a feature in one resource
-  - BV-ASS-04 [M] Wrap a handle in a named component (see BV-ECS-14)
-  - BV-ASS-05 [S] Reach for the `weak_handle!` macro only for a built-in
+  - BV-ASSET-01 [M] Treat a handle as a reference count, not a path
+  - BV-ASSET-02 [M] Load once and store the handle, never per frame
+  - BV-ASSET-03 [S] Keep the handles for a feature in one resource
+  - BV-ASSET-04 [M] Wrap a handle in a named component (see BV-ECS-14)
+  - BV-ASSET-05 [S] Reach for the `weak_handle!` macro only for a built-in
 
 - **Loading**
-  - BV-ASS-06 [M] Never assume an asset is present the frame after loading it
-  - BV-ASS-07 [M] Handle the failed load, not just the pending one
-  - BV-ASS-08 [S] Gate play on `is_loaded_with_dependencies`, not on the asset alone
-  - BV-ASS-09 [S] Reach for the load builder when a load needs settings
-  - BV-ASS-10 [M] Keep asset paths out of the code that uses them
+  - BV-ASSET-06 [M] Never assume an asset is present the frame after loading it
+  - BV-ASSET-07 [M] Handle the failed load, not just the pending one
+  - BV-ASSET-08 [S] Gate play on `is_loaded_with_dependencies`, not on the asset alone
+  - BV-ASSET-09 [S] Reach for the load builder when a load needs settings
+  - BV-ASSET-10 [M] Keep asset paths out of the code that uses them
 
 - **Change and lifetime**
-  - BV-ASS-11 [M] React to `AssetEvent`, not to a per-frame comparison
-  - BV-ASS-12 [M] Do not take `ResMut<Assets<T>>` to read
-  - BV-ASS-13 [S] Keep hot reload working by loading through the server
-  - BV-ASS-14 [M] Do not hold a strong handle to something the game has finished with
+  - BV-ASSET-11 [M] React to `AssetEvent`, not to a per-frame comparison
+  - BV-ASSET-12 [M] Do not take `ResMut<Assets<T>>` to read
+  - BV-ASSET-13 [S] Keep hot reload working by loading through the server
+  - BV-ASSET-14 [M] Do not hold a strong handle to something the game has finished with
 
 ---
 
 ## Handles
 
-### BV-ASS-01 [M] Treat a handle as a reference count, not a path
+### BV-ASSET-01 [M] Treat a handle as a reference count, not a path
 
 A `Handle<T>` keeps the asset alive. Dropping the last one unloads it.
 
@@ -43,7 +43,7 @@ once.
 **Check:** for each `AssetServer::load`, follow the handle. If it is not stored anywhere that
 outlives its use, the asset can be dropped.
 
-### BV-ASS-02 [M] Load once and store the handle, never per frame
+### BV-ASSET-02 [M] Load once and store the handle, never per frame
 
 `AssetServer::load` in a startup or `OnEnter` system, stored in a resource. Not inside a system that
 runs every frame.
@@ -86,7 +86,7 @@ impl Plugin for SpritesPlugin {
 }
 ```
 
-### BV-ASS-03 [S] Keep the handles for a feature in one resource
+### BV-ASSET-03 [S] Keep the handles for a feature in one resource
 
 `SpriteHandles`, `LevelAudio`, `UiFonts` — one resource per feature, built with `FromWorld`.
 
@@ -98,12 +98,12 @@ this feature need on disk".
 **Check:** for each feature, is there a single type holding its handles? If handles are constructed
 in more than one system, they are scattered.
 
-### BV-ASS-04 [M] Wrap a handle in a named component (see BV-ECS-14)
+### BV-ASSET-04 [M] Wrap a handle in a named component (see BV-ECS-14)
 
 Owned by `references/ecs.md` BV-ECS-14. An entity may want two handles of the same asset type, so
 the component type has to be the meaning rather than the asset kind.
 
-### BV-ASS-05 [S] Reach for the `weak_handle!` macro only for a built-in
+### BV-ASSET-05 [S] Reach for the `weak_handle!` macro only for a built-in
 
 `weak_handle!("…")` is for an asset the engine or a plugin embeds and registers itself. Game content
 goes through the asset server.
@@ -118,7 +118,7 @@ never resolves and an entity that renders nothing.
 
 ## Loading
 
-### BV-ASS-06 [M] Never assume an asset is present the frame after loading it
+### BV-ASSET-06 [M] Never assume an asset is present the frame after loading it
 
 `AssetServer::load` returns immediately with a handle to something that is not there yet.
 
@@ -130,7 +130,7 @@ for the load; anything that only passes the handle to the renderer does not.
 **Check:** for each `Assets::<T>::get` shortly after a load, ask what the code does when it returns
 `None`. "It cannot" is the defect.
 
-### BV-ASS-07 [M] Handle the failed load, not just the pending one
+### BV-ASSET-07 [M] Handle the failed load, not just the pending one
 
 `LoadState::Failed` is a state a load reaches, and it is where a missing or corrupt file arrives.
 
@@ -147,7 +147,7 @@ it is the hang.
 use bevy::asset::LoadState;
 use bevy::prelude::*;
 
-/// One resource, loaded once, holding the screen's paths (BV-ASS-02).
+/// One resource, loaded once, holding the screen's paths (BV-ASSET-02).
 #[derive(Resource, Debug)]
 pub struct TitleArt {
     pub logo: Handle<Image>,
@@ -251,7 +251,7 @@ mod tests {
 }
 ```
 
-### BV-ASS-08 [S] Gate play on `is_loaded_with_dependencies`, not on the asset alone
+### BV-ASSET-08 [S] Gate play on `is_loaded_with_dependencies`, not on the asset alone
 
 A scene, a glTF or a material is loaded before its textures are. `is_loaded_with_dependencies` is
 what "ready" means.
@@ -264,7 +264,7 @@ failure case needs distinguishing.
 **Check:** for each readiness check, ask whether the asset has dependencies. Meshes, scenes, glTF
 and materials all do.
 
-### BV-ASS-09 [S] Reach for the load builder when a load needs settings
+### BV-ASSET-09 [S] Reach for the load builder when a load needs settings
 
 0.19 exposes the advanced load variants through `AssetServer::load_builder`. Use it rather than
 reaching for `load_with_settings` plus a chain of overrides.
@@ -277,7 +277,7 @@ five options readable.
 **Check:** grep for `load_with_settings` and `load_override`. Each is a builder call in the old
 spelling.
 
-### BV-ASS-10 [M] Keep asset paths out of the code that uses them
+### BV-ASSET-10 [M] Keep asset paths out of the code that uses them
 
 A path literal appears where the handle is created — a handle resource, a manifest, a content file
 — and nowhere else.
@@ -292,7 +292,7 @@ a content file, or a loader is a path that has escaped.
 
 ## Change and lifetime
 
-### BV-ASS-11 [M] React to `AssetEvent`, not to a per-frame comparison
+### BV-ASSET-11 [M] React to `AssetEvent`, not to a per-frame comparison
 
 `AssetEvent::<Image>::Added`, `Modified`, `Removed`, `LoadedWithDependencies`. Not a system that
 compares this frame's asset against a cached copy.
@@ -401,11 +401,11 @@ mod tests {
 }
 ```
 
-### BV-ASS-12 [M] Do not take `ResMut<Assets<T>>` to read
+### BV-ASSET-12 [M] Do not take `ResMut<Assets<T>>` to read
 
 `Res<Assets<T>>` and `get`. `ResMut` only where the system inserts or mutates an asset.
 
-**Why:** it is BV-STA-07 with a resource everything touches: `Assets<Image>` is read by the render
+**Why:** it is BV-STATE-07 with a resource everything touches: `Assets<Image>` is read by the render
 extraction, by UI, by sprites and by anything else showing a texture, so a system holding it mutably
 to read serialises against all of them for as long as it runs. The change-detection half is no
 longer a hazard — 0.19's `AssetMut<A>` sets its flag on `DerefMut`, so a `get_mut` that only reads
@@ -413,7 +413,7 @@ raises nothing — which leaves the scheduling cost as the whole of the reason, 
 
 **Check:** for each `ResMut<Assets<`, find the mutation. A system that only calls `get` wants `Res`.
 
-### BV-ASS-13 [S] Keep hot reload working by loading through the server
+### BV-ASSET-13 [S] Keep hot reload working by loading through the server
 
 Everything loaded through `AssetServer` participates in hot reload. Anything read with `std::fs`
 does not.
@@ -426,7 +426,7 @@ half a page and buys the whole mechanism.
 **Check:** grep for `std::fs`, `File::open` and `include_str!` on anything under the asset
 directory.
 
-### BV-ASS-14 [M] Do not hold a strong handle to something the game has finished with
+### BV-ASSET-14 [M] Do not hold a strong handle to something the game has finished with
 
 When a level ends, its handle resource goes with it. A handle held in a resource that outlives the
 level keeps the level in memory.

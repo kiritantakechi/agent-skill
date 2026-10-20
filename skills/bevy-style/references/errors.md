@@ -98,7 +98,7 @@ Domain code returns its own error enum. The system that calls it converts with `
 **Why:** `BevyError` is a boxed, type-erased error — the right shape for something whose only reader
 is a log line, and the wrong shape for anything a caller branches on. Domain code that returns
 `BevyError` cannot be matched on, cannot be tested for a specific failure, and drags a Bevy type
-across the boundary that BV-ARC-01 exists to keep clean.
+across the boundary that BV-ARCH-01 exists to keep clean.
 
 **Check:** grep the domain crates for `BevyError`. There should be none.
 
@@ -329,7 +329,7 @@ in this standard's lint table for exactly this.
 
 Bevy ships both halves for most lookups. Take the one that returns `Option` or `Result`. This is
 about game code: a `#[cfg(test)]` body may take the panicking half, because a test asserting on the
-world wants the panic (BV-TST-10), and routing it through `get_resource` would only add an unwrap
+world wants the panic (BV-TEST-10), and routing it through `get_resource` would only add an unwrap
 that BV-ERR-01 forbids.
 
 **Why:** the panicking half exists for examples and for code where the invariant is structural, and
@@ -685,7 +685,7 @@ its clean exit as a crash.
 
 **Why:** the 0.19 default logs the error and writes `AppExit::error()` for **every** `RenderError` —
 a wgpu validation fault, an out-of-memory, a lost device — so a transient GPU problem ends the
-session, the player's window closes, and BV-ARC-17 faithfully turns it into a non-zero exit that
+session, the player's window closes, and BV-ARCH-17 faithfully turns it into a non-zero exit that
 reads as a crash. BV-ERR-16 already makes an unusable GPU *at startup* your decision; this is the
 same GPU failing an hour later, and the engine has decided for you. 0.19 ships the recovery it
 needs: `RenderErrorPolicy::Recover(RenderCreation)` rebuilds the device, `StopRendering` keeps the

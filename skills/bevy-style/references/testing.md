@@ -5,44 +5,44 @@ smallest `App` that exercises a plugin, and how to drive it so the test is deter
 test practice is unchanged and lives in the other standard; this chapter is the part Bevy shapes.
 
 The most important rule here is the one about not needing this chapter: the boundary of
-`references/architecture.md` BV-ARC-01 exists so that most of a game's logic is tested by ordinary
+`references/architecture.md` BV-ARCH-01 exists so that most of a game's logic is tested by ordinary
 Rust unit tests, in microseconds, with no `World`.
 
 ## Contents
 
 - **What to test where**
-  - BV-TST-01 [M] Test the rules of the game without an `App`
-  - BV-TST-02 [M] Build the smallest `App` that exercises the plugin
-  - BV-TST-03 [S] Test a plugin through its own type
-  - BV-TST-04 [M] Keep windowing and rendering out of a test
+  - BV-TEST-01 [M] Test the rules of the game without an `App`
+  - BV-TEST-02 [M] Build the smallest `App` that exercises the plugin
+  - BV-TEST-03 [S] Test a plugin through its own type
+  - BV-TEST-04 [M] Keep windowing and rendering out of a test
 
 - **Driving the app**
-  - BV-TST-05 [M] Advance the app with `update`, never with `run`
-  - BV-TST-06 [M] Run a schedule directly when only that schedule is under test
-  - BV-TST-07 [M] Give a fixed-timestep test a known number of steps
-  - BV-TST-08 [M] Flush before asserting on anything a command did
-  - BV-TST-09 [S] Insert the time the test wants, rather than sleeping
+  - BV-TEST-05 [M] Advance the app with `update`, never with `run`
+  - BV-TEST-06 [M] Run a schedule directly when only that schedule is under test
+  - BV-TEST-07 [M] Give a fixed-timestep test a known number of steps
+  - BV-TEST-08 [M] Flush before asserting on anything a command did
+  - BV-TEST-09 [S] Insert the time the test wants, rather than sleeping
 
 - **What to assert**
-  - BV-TST-10 [M] Assert on the world, not on the log
-  - BV-TST-11 [M] Do not assert by counting entities
-  - BV-TST-12 [S] Assert the fact, not the mechanism that produced it
-  - BV-TST-13 [M] Watch a test fail before trusting it
-  - BV-TST-14 [S] Trigger the event to test an observer
-  - BV-TST-15 [M] Configure the ordering the test depends on
+  - BV-TEST-10 [M] Assert on the world, not on the log
+  - BV-TEST-11 [M] Do not assert by counting entities
+  - BV-TEST-12 [S] Assert the fact, not the mechanism that produced it
+  - BV-TEST-13 [M] Watch a test fail before trusting it
+  - BV-TEST-14 [S] Trigger the event to test an observer
+  - BV-TEST-15 [M] Configure the ordering the test depends on
 
 ---
 
 ## What to test where
 
-### BV-TST-01 [M] Test the rules of the game without an `App`
+### BV-TEST-01 [M] Test the rules of the game without an `App`
 
 Damage, economy, pathfinding, save formats: plain functions, plain values, plain `#[test]`.
 
 **Why:** a test that needs a `World` is slower by orders of magnitude, harder to read, and couples
 the assertion to the ECS layout — so it has to be rewritten when a component is split, even though
 the rule it tests did not change. If a rule cannot be tested this way, the boundary has not been
-drawn (BV-ARC-01), and the test is telling you so.
+drawn (BV-ARCH-01), and the test is telling you so.
 
 **Check:** count the tests that build an `App`. If most of them do, the logic is in the systems.
 
@@ -94,7 +94,7 @@ pub fn buy(purse: Coins, cost: Coins) -> Purchase {
 
 // The ECS side is a system that reads two components, calls `buy`, and
 // writes the result back; it is tested once, through its plugin
-// (BV-TST-02). Had the arithmetic lived inside that system instead, all
+// (BV-TEST-02). Had the arithmetic lived inside that system instead, all
 // seven tests below would have needed a `World` to reach it — and the
 // tenth-free rule would have ended up with one test rather than four,
 // because nobody writes four `App` tests for one discount.
@@ -161,10 +161,10 @@ mod tests {
 }
 ```
 
-### BV-TST-02 [M] Build the smallest `App` that exercises the plugin
+### BV-TEST-02 [M] Build the smallest `App` that exercises the plugin
 
 `App::new()` plus the plugin under test plus whatever it genuinely requires. `MinimalPlugins` when
-the plugin needs a schedule runner; `DefaultPlugins` never — BV-TST-04 rules it out on a reason no
+the plugin needs a schedule runner; `DefaultPlugins` never — BV-TEST-04 rules it out on a reason no
 test can argue with.
 
 **Why:** each plugin added is a set of systems that run on every `update()`, so a test built on
@@ -218,7 +218,7 @@ mod tests {
 }
 ```
 
-### BV-TST-03 [S] Test a plugin through its own type
+### BV-TEST-03 [S] Test a plugin through its own type
 
 `app.add_plugins(CombatPlugin)`, not `app.add_systems(FixedUpdate, combat::apply_damage)`.
 
@@ -229,9 +229,9 @@ an `init_resource` and the game crashes on the first frame.
 
 **Check:** does the test name a system function? If so it is not testing what the game runs. Where
 one plugin depends on another, `assert!(app.is_plugin_added::<T>())` pins that too — a check the
-plugin has to be a type to allow at all (BV-ARC-09).
+plugin has to be a type to allow at all (BV-ARCH-09).
 
-### BV-TST-04 [M] Keep windowing and rendering out of a test
+### BV-TEST-04 [M] Keep windowing and rendering out of a test
 
 No `WinitPlugin`, no `RenderPlugin`, no `DefaultPlugins` in a unit test.
 
@@ -244,7 +244,7 @@ answered by running it that way once.
 
 ## Driving the app
 
-### BV-TST-05 [M] Advance the app with `update`, never with `run`
+### BV-TEST-05 [M] Advance the app with `update`, never with `run`
 
 `app.update()` runs one frame and returns. `app.run()` runs until the app exits.
 
@@ -254,7 +254,7 @@ the test. `update` is one frame, synchronously, which is what an assertion needs
 
 **Check:** grep the test modules for `.run()`. There should be none outside a test of `main` itself.
 
-### BV-TST-06 [M] Run a schedule directly when only that schedule is under test
+### BV-TEST-06 [M] Run a schedule directly when only that schedule is under test
 
 `app.world_mut().run_schedule(FixedUpdate)` runs exactly that schedule, exactly once.
 
@@ -266,7 +266,7 @@ number of steps a fact of the test.
 **Check:** does the test call `update()` and then assert on a `FixedUpdate` system's effect? The
 number of steps is not what the test thinks it is.
 
-### BV-TST-07 [M] Give a fixed-timestep test a known number of steps
+### BV-TEST-07 [M] Give a fixed-timestep test a known number of steps
 
 Either run the schedule directly N times, or set `Time<Fixed>`'s timestep and advance virtual time
 by a known amount.
@@ -362,7 +362,7 @@ mod tests {
 }
 ```
 
-### BV-TST-08 [M] Flush before asserting on anything a command did
+### BV-TEST-08 [M] Flush before asserting on anything a command did
 
 `app.world_mut().flush()` after a command, or run the schedule that applies it. A spawn queued by a
 command is not visible until then.
@@ -445,7 +445,7 @@ mod tests {
 }
 ```
 
-### BV-TST-09 [S] Insert the time the test wants, rather than sleeping
+### BV-TEST-09 [S] Insert the time the test wants, rather than sleeping
 
 Advance `Time<Virtual>` by inserting a delta, or run the fixed schedule the right number of times.
 Never `thread::sleep`.
@@ -458,7 +458,7 @@ is exact, instant, and states the intended duration in the test rather than leav
 
 ## What to assert
 
-### BV-TST-10 [M] Assert on the world, not on the log
+### BV-TEST-10 [M] Assert on the world, not on the log
 
 `world.entity(e).get::<Health>()`, `world.resource::<Score>()`. Not that a `warn!` was emitted.
 
@@ -469,7 +469,7 @@ the state the game actually has.
 **Check:** does the test capture or inspect log output? Unless the log line *is* the feature, it is
 asserting on a description.
 
-### BV-TST-11 [M] Do not assert by counting entities
+### BV-TEST-11 [M] Do not assert by counting entities
 
 `world.query::<&Enemy>().iter(&world).count()` is fine; "the world has 4 entities" is not.
 
@@ -573,7 +573,7 @@ mod tests {
 }
 ```
 
-### BV-TST-12 [S] Assert the fact, not the mechanism that produced it
+### BV-TEST-12 [S] Assert the fact, not the mechanism that produced it
 
 Assert that the enemy is gone, not that a `Despawn` observer ran. Assert the score, not that a
 message was written.
@@ -586,7 +586,7 @@ plugins is tested on the message.
 **Check:** for each assertion, ask whether it would survive rewriting the system in a different
 style. If not, it is testing the shape.
 
-### BV-TST-13 [M] Watch a test fail before trusting it
+### BV-TEST-13 [M] Watch a test fail before trusting it
 
 Break the system, run the test, see red, put it back.
 
@@ -596,7 +596,7 @@ of those produces a test that passes and asserts nothing, and none of them looks
 
 **Check:** for each new test, was it observed failing? If not, comment out the system's body once.
 
-### BV-TST-14 [S] Trigger the event to test an observer
+### BV-TEST-14 [S] Trigger the event to test an observer
 
 `world.trigger(Died { entity })` and assert on what changed.
 
@@ -607,7 +607,7 @@ can follow immediately with no flush.
 **Check:** does the test call the observer function directly? Then it is testing a function, not an
 observer.
 
-### BV-TST-15 [M] Configure the ordering the test depends on
+### BV-TEST-15 [M] Configure the ordering the test depends on
 
 If the test needs A before B, the test's app configures that ordering — the same way the game does.
 

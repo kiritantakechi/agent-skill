@@ -220,7 +220,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
     names the open support PRs.
 
   Verify: `pins` and `assets` pass.
-- [ ] 10.2 Step A: `agent-skill renumber bevy-style --chapters cargo=build,ui-render=view`, with
+- [x] 10.2 Step A: `agent-skill renumber bevy-style --chapters cargo=build,ui-render=view`, with
   codes per D3. Verify: `--fast` is no worse.
 - [ ] 10.3 Skeleton and templates:
   - **`SKILL.md`:**

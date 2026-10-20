@@ -34,7 +34,7 @@ FIELD_ATTR = re.compile(r"#\[[^\]]*\]\s*")
 DATA_DERIVES = ("Debug", "Reflect")
 MARKER_DERIVES = ("Debug", "Clone", "Copy", "Default", "Reflect")
 
-#: BV-ARC-10 — the two traits whose implementors carry a suffix.
+#: BV-ARCH-10 — the two traits whose implementors carry a suffix.
 SUFFIX = {"Plugin": "Plugin", "SystemSet": "Systems"}
 
 IMPL_PLUGIN = re.compile(r"^impl Plugin for (\w+)", re.M)
@@ -63,7 +63,7 @@ class BevyStyle(Profile):
     fires: dict = field(
         default_factory=lambda: {
             "BV-ECS-19": ("let player = query.single().unwrap();",),
-            "BV-EVT-09": ("commands.trigger_targets(Damage(5), target);",),
+            "BV-EVENT-09": ("commands.trigger_targets(Damage(5), target);",),
         }
     )
     #: Measured, not judged: each of these was promoted to accuse and hit the
@@ -88,32 +88,32 @@ class BevyStyle(Profile):
                 "the span finds every `.clone()`; whether the receiver is a `Ref<`, where the "
                 "call's meaning changed, decides — and the type is not on the line",
             ),
-            "BV-SCH-09": NotDecisive(
+            "BV-SCHED-09": NotDecisive(
                 "just_pressed",
                 "the span finds every input read; whether the system runs in `FixedUpdate` rather "
                 "than `Update` decides, and the schedule is not on the line",
             ),
-            "BV-SCH-13": NotDecisive(
+            "BV-SCHED-13": NotDecisive(
                 "configure_sets",
                 "the span finds every set configuration; whether that set is configured more than "
                 "once decides, which is a fact about the whole file",
             ),
-            "BV-SCH-26": NotDecisive(
+            "BV-SCHED-26": NotDecisive(
                 "run_if",
                 "the span finds every run condition; whether it gates on a `paused` flag rather "
                 "than on `Time<Virtual>` decides",
             ),
-            "BV-STA-04": NotDecisive(
+            "BV-STATE-04": NotDecisive(
                 "insert_resource",
                 "the span finds every `insert_resource`; whether it is inside a `Startup` system, "
                 "and whether the value depends on the world, decides",
             ),
-            "BV-TST-11": NotDecisive(
+            "BV-TEST-11": NotDecisive(
                 "entities().len()",
                 "the span finds every entity count; whether the assert is about a total rather "
                 "than about the component the test cares about decides",
             ),
-            "BV-UI-04": NotDecisive(
+            "BV-VIEW-04": NotDecisive(
                 "Text::new",
                 "the span finds every text spawn; whether the same tuple also carries a font and a "
                 "colour decides, which the matched line does not show",
@@ -170,9 +170,9 @@ def _component_shape(block) -> Iterable[Finding]:
 
 
 def _suffixes(block) -> Iterable[Finding]:
-    """BV-ARC-09 and BV-ARC-10 — what a plugin type is called, and what it derives.
+    """BV-ARCH-09 and BV-ARCH-10 — what a plugin type is called, and what it derives.
 
-    A plugin written as a function is caught by BV-ARC-09's own pattern, which the
+    A plugin written as a function is caught by BV-ARCH-09's own pattern, which the
     self-application check runs. What is left for here is the type: its name, and
     that it carries the derives every plugin type carries.
     """
@@ -182,7 +182,7 @@ def _suffixes(block) -> Iterable[Finding]:
         where = f"{block.file}:{line} [{block.rule}]"
         if not name.endswith(SUFFIX["Plugin"]):
             yield fail(
-                f"BV-ARC-10: `{name}` implements `Plugin` and does not end in `Plugin`", where
+                f"BV-ARCH-10: `{name}` implements `Plugin` and does not end in `Plugin`", where
             )
         declared = re.search(rf"((?:#\[[^\]]*\]\s*)*)\bpub struct {re.escape(name)}\b", block.body)
         if declared is None:
@@ -192,7 +192,7 @@ def _suffixes(block) -> Iterable[Finding]:
             derives |= {t.strip() for t in d.group(1).split(",")}
         for required in ("Debug", "Default"):
             if required not in derives:
-                yield fail(f"BV-ARC-09: plugin type `{name}` does not derive `{required}`", where)
+                yield fail(f"BV-ARCH-09: plugin type `{name}` does not derive `{required}`", where)
 
     lines = block.lines
     for i, line in enumerate(lines):
@@ -202,7 +202,7 @@ def _suffixes(block) -> Iterable[Finding]:
         name = re.search(r"\b(?:struct|enum)\s+(\w+)", decl)
         if name and not name.group(1).endswith(SUFFIX["SystemSet"]):
             yield fail(
-                f"BV-ARC-10: `{name.group(1)}` derives `SystemSet` and does not end in `Systems`",
+                f"BV-ARCH-10: `{name.group(1)}` derives `SystemSet` and does not end in `Systems`",
                 f"{block.file}:{block.at(i)} [{block.rule}]",
             )
 

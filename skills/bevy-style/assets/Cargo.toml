@@ -1,6 +1,6 @@
 # Canonical workspace manifest for a Bevy 0.20 game.
 # Copy, then delete what does not apply.
-# Referenced by BV-CAR-02, BV-CAR-04, BV-CAR-07, BV-CAR-16.
+# Referenced by BV-BUILD-02, BV-BUILD-04, BV-BUILD-07, BV-BUILD-16.
 
 [workspace]
 resolver = "3"                       # implied by edition 2024; explicit is fine
@@ -14,11 +14,11 @@ license = "MIT OR Apache-2.0"
 [workspace.dependencies]
 # An exact pin for a game binary; a caret (`"0.20"`) for a crate others depend
 # on. A 0.x minor bump renames a large fraction of the API, so for a binary the
-# pin turns an upgrade into a scheduled migration. See BV-CAR-04.
+# pin turns an upgrade into a scheduled migration. See BV-BUILD-04.
 #
 # Start from a feature collection: `2d`, `3d`, `ui`, or the mid-level `2d_api`,
 # `default_app`, `default_platform` when the backends are not wanted. Hand-pick
-# only against a measurement recorded here. See BV-CAR-02 and BV-CAR-03.
+# only against a measurement recorded here. See BV-BUILD-02 and BV-BUILD-03.
 #
 # `default-features = false` is required for the collection to mean anything:
 # `default` is already `["2d", "3d", "ui", "audio"]`, so naming `2d` on top of
@@ -33,7 +33,7 @@ bevy = { version = "=0.20.0", default-features = false, features = ["2d", "ui", 
 # This table is `rust-style`'s, with exactly two entries relaxed. Both were
 # measured against a representative plugin, and both say which kind of
 # divergence they are. Adding a third needs the same treatment: the API that
-# forces it, the count, and whether a compliant form exists (BV-CAR-15).
+# forces it, the count, and whether a compliant form exists (BV-BUILD-15).
 # ---------------------------------------------------------------------------
 
 [workspace.lints.rust]
@@ -47,7 +47,7 @@ unreachable_pub = "warn"
 unused_qualifications = "warn"
 explicit_outlives_requirements = "warn"
 
-# RELAXED (BV-CAR-12). Fires on every system parameter — Query, Res, ResMut,
+# RELAXED (BV-BUILD-12). Fires on every system parameter — Query, Res, ResMut,
 # Commands, MessageReader, Local — because each carries the world and state
 # lifetimes: fourteen warnings in one five-system plugin. A compliant form does
 # exist and does compile (`Query<'_, '_, &mut T>`, `Res<'_, T>`); it buys
@@ -80,7 +80,7 @@ cast_sign_loss = "warn"
 float_cmp = "warn"
 
 
-# RELAXED (BV-CAR-13). Fires on every `Res<T>` parameter a system does not
+# RELAXED (BV-BUILD-13). Fires on every `Res<T>` parameter a system does not
 # consume, and the suggestion does not compile: `&Res<'_, T>` is not a
 # `SystemParam`, so following the lint produces E0277 at the `add_systems`
 # call. This one has no compliant form.
@@ -88,8 +88,8 @@ needless_pass_by_value = "allow"
 
 # NOT relaxed, deliberately: `type_complexity` and `too_many_arguments` both
 # fire on ordinary Bevy code, and upstream Bevy allows both. A `type` alias
-# (BV-ECS-21) and `#[derive(SystemParam)]` (BV-SCH-10) silence them, and both
-# are the better code. See BV-CAR-14.
+# (BV-ECS-21) and `#[derive(SystemParam)]` (BV-SCHED-10) silence them, and both
+# are the better code. See BV-BUILD-14.
 
 [profile.dev]
 # The game's own crates stay unoptimised, so the edit-compile-run loop is fast.
@@ -97,15 +97,15 @@ opt-level = 1
 
 [profile.dev.package."*"]
 # An unoptimised Bevy is unusably slow, and dependencies are compiled once.
-opt-level = 3                        # BV-CAR-07
+opt-level = 3                        # BV-BUILD-07
 
 [profile.release]
 # Release must trap wherever debug traps, for any game with replays, rollback,
-# lockstep networking or golden vectors. See BV-CAR-09.
+# lockstep networking or golden vectors. See BV-BUILD-09.
 overflow-checks = true
 lto = "thin"
 # codegen-units = 1                  # a few percent, and much slower builds of a
                                      # dependency tree that is already the slow
                                      # part. Turn it on against a number, the way
-                                     # BV-CAR-03 asks of every other hand-pick.
+                                     # BV-BUILD-03 asks of every other hand-pick.
 debug = "line-tables-only"           # keep profiles usable; strip separately

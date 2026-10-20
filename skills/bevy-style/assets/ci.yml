@@ -1,5 +1,5 @@
-# CI for a Bevy 0.20 game. Referenced by BV-CAR-05, BV-CAR-17, BV-CAR-18,
-# BV-CAR-19 and BV-CAR-21, and by BV-ARC-07 for the boundary job.
+# CI for a Bevy 0.20 game. Referenced by BV-BUILD-05, BV-BUILD-17, BV-BUILD-18,
+# BV-BUILD-19 and BV-BUILD-21, and by BV-ARCH-07 for the boundary job.
 name: ci
 
 on:
@@ -32,28 +32,28 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       # Two Bevy versions in the tree are two engines, and the type errors name
-      # neither. See BV-CAR-05.
+      # neither. See BV-BUILD-05.
       - name: One Bevy version
         run: |
           # No trailing space: `^bevy ` would match only the facade, and the
           # usual way two engines get into a tree is a plugin depending on
-          # `bevy_ecs` directly. BV-CAR-05 asks about anything named bevy.
+          # `bevy_ecs` directly. BV-BUILD-05 asks about anything named bevy.
           if cargo tree --duplicates | grep -q '^bevy'; then
             cargo tree --duplicates | grep '^bevy'
-            echo 'more than one bevy version in the tree; see BV-CAR-05' >&2
+            echo 'more than one bevy version in the tree; see BV-BUILD-05' >&2
             exit 1
           fi
-      # The rules of the game may not name the engine. See BV-ARC-01.
+      # The rules of the game may not name the engine. See BV-ARCH-01.
       - name: The boundary holds
         run: |
           if grep -rn --include='*.rs' -e 'bevy' crates/*-sim/src/; then
-            echo 'a simulation crate named Bevy; see BV-ARC-01' >&2
+            echo 'a simulation crate named Bevy; see BV-ARCH-01' >&2
             exit 1
           fi
 
   shipped-features:
     # Building only the default feature set proves nothing about the artefact.
-    # This list is the one in the release manifest. See BV-CAR-18.
+    # This list is the one in the release manifest. See BV-BUILD-18.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -95,7 +95,7 @@ jobs:
       - run: cargo check --workspace
 
   bevy-lint:
-    # Optional (BV-CAR-17), and off: no `bevy_lint` release supports Bevy 0.19
+    # Optional (BV-BUILD-17), and off: no `bevy_lint` release supports Bevy 0.19
     # or 0.20 — v0.6.0 targets 0.18, and support is in open pull requests
     # (TheBevyFlock/bevy_cli #835, #925, #943). Turn it on with the first
     # release whose compatibility table names 0.20, and the nightly that table
@@ -116,7 +116,7 @@ jobs:
       - run: bevy lint
 
   wasm:
-    # Only if the game ships to the web. See BV-CAR-19.
+    # Only if the game ships to the web. See BV-BUILD-19.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

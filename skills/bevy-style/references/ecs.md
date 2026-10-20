@@ -69,7 +69,7 @@ writing to something that will be overwritten. Bevy draws the same line in its o
 `ChildOf(pub Entity)` is public and `Children(Vec<Entity>)` is not.
 
 **Check:** does the component have accessor methods that only forward to a field? Delete them. Does
-it have a field that a method is guarding? That is BV-ARC-04's case, and the guard belongs in a
+it have a field that a method is guarding? That is BV-ARCH-04's case, and the guard belongs in a
 domain type. A private field on anything but a relationship target is one of those two.
 
 ### BV-ECS-02 [M] Give a component one fact to hold
@@ -870,7 +870,7 @@ subscription. The bug surfaces only when someone starts mutating the component, 
 later and in another module.
 
 **Check:** for each `Changed<T>` filter, ask whether running twice for one entity is acceptable. If
-not, it is `Added<T>` — or, better, an observer on `Add` (`references/events.md` BV-EVT-13).
+not, it is `Added<T>` — or, better, an observer on `Add` (`references/events.md` BV-EVENT-13).
 
 ```rust
 // verified — the same body under both filters, counted

@@ -324,7 +324,7 @@ CONTROLS: list[Control] = [
     Control(
         "an asset citing a rule the skill does not define",
         "assets",
-        lambda t: edit(t, "bevy-style/assets/ci.yml", "BV-ARC-01", "BV-ARC-99"),
+        lambda t: edit(t, "bevy-style/assets/ci.yml", "BV-ARCH-01", "BV-ARCH-99"),
     ),
     Control(
         "a bevy example using an API the skill forbids",
@@ -454,8 +454,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "bevy-style/references/scheduling.md",
-            "BV-SCH-09 [M] Never read per-frame input",
-            "BV-SCH-77 [M] Never read per-frame input",
+            "BV-SCHED-09 [M] Never read per-frame input",
+            "BV-SCHED-77 [M] Never read per-frame input",
             2,
         ),
     ),
