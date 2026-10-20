@@ -9,9 +9,9 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from agent_skill.proc import have, run, tool_path, version_mismatch
 lazy from agent_skill.checks.corpus import Corpus
 lazy from agent_skill.checks.patterns import Pattern
-from agent_skill.proc import have, run, tool_path, version_mismatch
 lazy from agent_skill.text import strip_comment, syntax_for
 
 
@@ -30,6 +30,7 @@ class Span:
     end: int  #: 1-based and inclusive; equal to `start` for a single line
 
     def __len__(self) -> int:
+        """How many lines the span covers, both ends included."""
         return self.end - self.start + 1
 
 
@@ -42,14 +43,16 @@ def searcher_problem() -> str | None:
     """
     if not have("rg"):
         return "`rg` is not available, so no pattern was run"
-    answered = run([tool_path("rg"), "--version"], timeout=30)
+    answered = run([tool_path("rg") or "rg", "--version"], timeout=30)
     if not answered.ok:
         return "`rg` did not answer `--version`, so nothing confirmed which build ran"
     return version_mismatch("rg", answered.out)
 
 
-def find(corpus: Corpus, pattern: Pattern):
-    """The spans this pattern matched, or None when the search did not answer.
+def find(corpus: Corpus, pattern: Pattern) -> tuple[list[Span] | None, str]:
+    """The spans this pattern matched, and the dialect it was run in.
+
+    The spans are None when the search did not answer.
 
     `rg` exits 0 for a match, 1 for none, and 2 when it rejects the
     pattern. A rejected pattern is a defect in the pattern and is
@@ -100,7 +103,7 @@ def find(corpus: Corpus, pattern: Pattern):
     if r.timed_out or r.rc not in (0, 1):
         return None, pattern.mode
 
-    found = []
+    found: list[Span] = []
     for line in r.out.splitlines():
         try:
             event = json.loads(line)
@@ -122,7 +125,9 @@ def find(corpus: Corpus, pattern: Pattern):
 
 
 def matches(snippet: str, pattern: Pattern, lang: str) -> bool | None:
-    """Does this pattern fire on this text? None when the search did not answer.
+    """Does this pattern fire on this text?
+
+    None when the search did not answer.
 
     The other half of `find`. `find` asks what a pattern hits in the
     corpus of compliant examples, where the answer must be nothing; this

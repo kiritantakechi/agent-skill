@@ -11,10 +11,14 @@ import tempfile
 import tomllib
 import zipfile
 from pathlib import Path
+lazy from collections.abc import Iterator
+lazy from typing import Any
 
 from agent_skill.checks import check
 from agent_skill.proc import have, run
 from agent_skill.report import fail, unrun
+lazy from agent_skill.model import Skill
+lazy from agent_skill.report import Finding
 
 #: A workflow is not YAML we can parse without a dependency, so check
 #: the shape a broken one loses first: the top-level keys and the
@@ -23,7 +27,8 @@ WORKFLOW_KEYS = ("name:", "on:", "jobs:")
 
 
 @check("assets", "the files a reader copies verbatim", needs=("uv", "zig"))
-def assets(skill):
+def assets(skill: Skill) -> Iterator[Finding]:
+    """Each asset: well formed, referenced, and citing real rules."""
     directory = skill.root / "assets"
     if not directory.is_dir():
         yield fail("no assets/ directory", skill.name)
@@ -35,41 +40,48 @@ def assets(skill):
     referenced = "\n".join(p.read_text() for p in skill.markdown)
     rules = {r.id for r in skill.rules} | {rid for rid, _, _ in skill.core_rules}
     for path in skill.assets:
-        tag = f"{skill.name}/assets/{path.name}"
-        text = path.read_text()
-        if "\t" in text:
-            yield fail("hard tab", tag)
-        if not text.endswith("\n"):
-            yield fail("no trailing newline", tag)
-
-        match path.suffix:
-            case ".zig" | ".zon":
-                yield from _zig(path, tag)
-            case ".toml":
-                try:
-                    data = tomllib.loads(text)
-                except tomllib.TOMLDecodeError as e:
-                    yield fail(str(e), tag)
-                else:
-                    yield from _build(data, text, tag)
-            case ".yml" | ".yaml":
-                yield from _workflow(text, tag)
-
-        # An asset nobody points at is not part of the skill.
-        if f"assets/{path.name}" not in referenced:
-            yield fail("shipped but never referenced from the skill", tag)
-
-        # An asset cites rules to say why it is shaped the way it is,
-        # and nothing was checking those: `_references` reads the
-        # chapters and `SKILL.md`, not `assets/`. Twenty-two citations
-        # sat unverified.
-        for rid in sorted(
-            set(re.findall(rf"\b{skill.prefix}-[A-Z]+-\d+[a-z]?\b", text)) - rules
-        ):
-            yield fail(f"cites {rid}, which is not a rule", tag)
+        yield from _asset(skill, path, referenced, rules)
 
 
-def _build(data, text, tag):
+def _asset(
+    skill: Skill, path: Path, referenced: str, rules: set[str]
+) -> Iterator[Finding]:
+    """One asset: its whitespace, its kind's checks, its citations."""
+    tag = f"{skill.name}/assets/{path.name}"
+    text = path.read_text()
+    if "\t" in text:
+        yield fail("hard tab", tag)
+    if not text.endswith("\n"):
+        yield fail("no trailing newline", tag)
+
+    match path.suffix:
+        case ".zig" | ".zon":
+            yield from _zig(path, tag)
+        case ".toml":
+            try:
+                data = tomllib.loads(text)
+            except tomllib.TOMLDecodeError as e:
+                yield fail(str(e), tag)
+            else:
+                yield from _build(data, text, tag)
+        case ".yml" | ".yaml":
+            yield from _workflow(text, tag)
+
+    # An asset nobody points at is not part of the skill.
+    if f"assets/{path.name}" not in referenced:
+        yield fail("shipped but never referenced from the skill", tag)
+
+    # An asset cites rules to say why it is shaped the way it is,
+    # and nothing was checking those: `_references` reads the
+    # chapters and `SKILL.md`, not `assets/`. Twenty-two citations
+    # sat unverified.
+    for rid in sorted(
+        set(re.findall(rf"\b{skill.prefix}-[A-Z]+-\d+[a-z]?\b", text)) - rules
+    ):
+        yield fail(f"cites {rid}, which is not a rule", tag)
+
+
+def _build(data: dict[str, Any], text: str, tag: str) -> Iterator[Finding]:
     """Build the project the metadata describes, if it describes one.
 
     Parsing is not verification. `assets/pyproject.toml` was valid TOML,
@@ -139,7 +151,8 @@ def _build(data, text, tag):
             yield fail("built wheel ships no `py.typed`", tag)
 
 
-def _zig(path, tag):
+def _zig(path: Path, tag: str) -> Iterator[Finding]:
+    """A zig asset is `zig fmt` clean and passes `zig ast-check`."""
     if not have("zig"):
         # Silence is not success, and a `NOTE` is silence: it does not
         # withhold the pass. A shipped `build.zig` that nothing parsed
@@ -155,7 +168,8 @@ def _zig(path, tag):
         yield fail(first.split(f"{path}:")[-1].strip()[:84], tag)
 
 
-def _workflow(text, tag):
+def _workflow(text: str, tag: str) -> Iterator[Finding]:
+    """A workflow has its top-level keys and indents in steps of two."""
     for key in WORKFLOW_KEYS:
         if not re.search(rf"^{re.escape(key)}", text, re.MULTILINE):
             yield fail(f"no top-level `{key}`", tag)

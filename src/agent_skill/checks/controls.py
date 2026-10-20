@@ -13,9 +13,9 @@ out of the skill.
 
 import shutil
 import tempfile
-lazy from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+lazy from collections.abc import Callable, Iterator, Sequence
 
 from agent_skill.checks import check
 from agent_skill.report import Level, fail
@@ -23,9 +23,10 @@ lazy from agent_skill.checks import by_name
 lazy from agent_skill.lang import toolchain_for
 lazy from agent_skill.model import Skill, discover
 lazy from agent_skill.profiles import registered
+lazy from agent_skill.report import Finding
 
 
-class FixtureGone(LookupError):
+class FixtureGoneError(LookupError):
     """The text a control edits is no longer in the skill."""
 
 
@@ -41,15 +42,22 @@ TOUCHED: list[str] = []
 
 
 def edit(tree: Path, rel: str, old: str, new: str, count: int = 1) -> None:
+    """Replace the first `count` copies of `old` in one file of `tree`.
+
+    Raises `FixtureGoneError` when the file holds fewer copies than
+    that.
+    """
     path = tree / rel
     text = path.read_text()
     if text.count(old) < count:
-        raise FixtureGone(f"{rel}: {old[:60]!r}")
+        msg = f"{rel}: {old[:60]!r}"
+        raise FixtureGoneError(msg)
     path.write_text(text.replace(old, new, count))
     TOUCHED.append(rel)
 
 
 def append(tree: Path, rel: str, text: str) -> None:
+    """Add `text` to the end of one file of `tree`."""
     path = tree / rel
     path.write_text(path.read_text() + text)
     TOUCHED.append(rel)
@@ -63,26 +71,35 @@ def append(tree: Path, rel: str, text: str) -> None:
 #: not knowable from the code, which is what is true — inventing a
 #: plausible one would read better and be worse.
 WITHOUT_A_CONTROL = {
-    "controls": "it is the mechanism the controls run through; a control on it would assert "
-    "that the asserting works by asserting",
-    "toolchain": "not knowable from the code. It compiles and runs every example, so a control "
-    "would cost a full toolchain run — but nothing records whether that is the reason or "
-    "whether nobody got to it",
-    "mutation": "not knowable from the code. Same shape as `toolchain`, and the same gap",
+    "controls": (
+        "it is the mechanism the controls run through; a control on it would "
+        "assert that the asserting works by asserting"
+    ),
+    "toolchain": (
+        "not knowable from the code. It compiles and runs every example, so a "
+        "control would cost a full toolchain run — but nothing records whether "
+        "that is the reason or whether nobody got to it"
+    ),
+    "mutation": (
+        "not knowable from the code. Same shape as `toolchain`, and the same gap"
+    ),
 }
 
 
 def move(tree: Path, rel: str, name: str) -> None:
-    """Rename a file in the throwaway tree, for a defect that is a file's name."""
+    """Rename a file in the throwaway tree.
+
+    For a defect that is a file's name.
+    """
     path = tree / rel
     if not path.exists():
-        raise FixtureGone(rel)
+        raise FixtureGoneError(rel)
     path.rename(path.with_name(name))
     TOUCHED.append(rel)
 
 
 def throwaway_tree(source: Path, into: Path) -> Path:
-    """A copy of the skills tree, plus what a check reads from beside it.
+    """A copy of the skills tree, plus what a check reads beside it.
 
     One definition, because there were two: this loop and the `scratch`
     fixture in the tests, each deciding what a throwaway tree contains.
@@ -101,6 +118,8 @@ def throwaway_tree(source: Path, into: Path) -> Path:
 
 @dataclass(frozen=True, slots=True)
 class Control:
+    """A defect to inject, and the check that must report it."""
+
     name: str
     check: str
     break_it: Callable[[Path], None]
@@ -124,7 +143,7 @@ SQL_WRAPPED = SQL_COMMAND.replace("UPDATE|DELETE", "UPDATE|\nDELETE")
 
 
 def _unaccounted_anchor_rule(tree: Path) -> None:
-    """An anchor standard's own defect, in the delta's examples, unmentioned by it.
+    """An anchor's defect in the delta's examples, unmentioned by it.
 
     `crossref` reaches its verdict by four branches over the same input,
     and this control used to edit `SKILL.md` — which trips the citation
@@ -142,23 +161,31 @@ def _unaccounted_anchor_rule(tree: Path) -> None:
     accounted for and this control would pass while proving nothing.
     """
     if "RS-OWN-39" in (tree / "bevy-style/SKILL.md").read_text():
-        raise FixtureGone(
+        msg = (
             "bevy-style/SKILL.md now names RS-OWN-39, so its defect is accounted "
             "for and no longer reaches the anchor sweep"
         )
+        raise FixtureGoneError(msg)
     edit(
         tree,
         "bevy-style/references/testing.md",
         _TEST_BODY,
-        f"{_TEST_BODY}\n        let _ = app.world().resource::<AppTypeRegistry>().read();",
+        f"{_TEST_BODY}\n"
+        "        let _ = app.world().resource::<AppTypeRegistry>().read();",
     )
+
+
+def _orphan_asset(tree: Path) -> None:
+    """Ship a file in `assets/` that nothing references."""
+    (tree / "rust-style/assets/orphan.toml").write_text("x = 1\n")
 
 
 #: A `Decided by tools` table with one row, for the controls on Rust
 #: rows.
 def _rust_row(lint: str, level: str) -> str:
     return (
-        "\n## Decided by tools\n\n| Tool | Lint | Level | Forbids |\n|---|---|---|---|\n"
+        "\n## Decided by tools\n\n| Tool | Lint | Level | Forbids |\n"
+        "|---|---|---|---|\n"
         f"| clippy | `{lint}` | {level} | an unwrap |\n"
     )
 
@@ -340,8 +367,8 @@ CONTROLS: list[Control] = [
             t,
             "python-style/references/concurrency.md",
             "Unless a block shows its own imports,",
-            "Reach for `from __future__ import annotations` here. Unless a block shows its own"
-            " imports,",
+            "Reach for `from __future__ import annotations` here. "
+            "Unless a block shows its own imports,",
         ),
     ),
     Control(
@@ -398,7 +425,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "bevy-style/references/scheduling.md",
-            "#[derive(Component, Debug, Reflect)]\n#[reflect(Component)]\nstruct Velocity",
+            "#[derive(Component, Debug, Reflect)]\n#[reflect(Component)]\n"
+            "struct Velocity",
             "#[derive(Component, Debug)]\nstruct Velocity",
         ),
     ),
@@ -482,7 +510,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "zig-style/references/comptime-and-generics.md",
-            "constant, and nothing in the build output says so. See also ZS-CT-07 on bounding",
+            "constant, and nothing in the build output says so. "
+            "See also ZS-CT-07 on bounding",
             "constant.\n\n**Why:** it is. See also ZS-CT-07 on bounding",
         ),
     ),
@@ -513,7 +542,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "zig-style/references/types-and-data.md",
-            "ZS-TYPE-30 [M] Return the lowest-dimensionality type that can carry the answer",
+            "ZS-TYPE-30 [M] Return the lowest-dimensionality type "
+            "that can carry the answer",
             "ZS-TYPE-30 [M] Reference long-lived elements by handle, not by pointer",
             2,
         ),
@@ -601,7 +631,8 @@ CONTROLS: list[Control] = [
         # The defect this check exists for: a check ships, and the
         # README's promise of a reason for every one quietly stops being
         # true.
-        "a check registered with no row in the README that promises one for every check",
+        "a check registered with no row in the README "
+        "that promises one for every check",
         "documented",
         lambda t: edit(t.parent, "README.md", "| `documented` |", "| `renamed-away` |"),
     ),
@@ -665,7 +696,7 @@ CONTROLS: list[Control] = [
     Control(
         "an asset nothing references",
         "assets",
-        lambda t: (t / "rust-style/assets/orphan.toml").write_text("x = 1\n"),
+        _orphan_asset,
     ),
     Control(
         # The defect verbatim: the shipped template named itself
@@ -733,8 +764,11 @@ CONTROLS: list[Control] = [
 
 
 @check("controls", "each check still fails on the defect it owns", scope="all")
-def controls(skills, *, fast: bool = False):
-    """Yields a finding per control that no longer fires, and nothing when they all do."""
+def controls(skills: Sequence[Skill], *, fast: bool = False) -> Iterator[Finding]:
+    """A finding for each control that no longer fires.
+
+    Nothing when they all do.
+    """
     if not skills:
         return
     source = skills[0].root.parent
@@ -753,7 +787,7 @@ def controls(skills, *, fast: bool = False):
             TOUCHED.clear()
             try:
                 control.break_it(tree)
-            except FixtureGone as e:
+            except FixtureGoneError as e:
                 yield fail(
                     f"{control.name}: cannot be injected any more — {e}", "controls"
                 )
@@ -774,20 +808,22 @@ def controls(skills, *, fast: bool = False):
             result = target.run(found)
             if not any(f.level is Level.FAIL for f in result.findings):
                 yield fail(
-                    f"{control.name}: `{control.check}` still passes — the control no longer fires",
+                    f"{control.name}: `{control.check}` still passes — "
+                    "the control no longer fires",
                     "controls",
                 )
 
     yield from _empty_corpus()
 
 
-def _empty_corpus():
-    """Extraction is the only place that can tell "no defects" from "no input".
+def _empty_corpus() -> Iterator[Finding]:
+    """An empty skill extracts no blocks, for every profile's toolchain.
 
-    Every profile that names a toolchain is exercised, not a hardcoded
-    pair: an extractor that silently yields nothing makes the whole
-    toolchain check report clean, which is the one failure mode this
-    guard exists for.
+    Extraction is the only place that can tell "no defects" from "no
+    input". Every profile that names a toolchain is exercised, not a
+    hardcoded pair: an extractor that silently yields nothing makes the
+    whole toolchain check report clean, which is the one failure mode
+    this guard exists for.
     """
     for profile in registered():
         if profile.toolchain is None:

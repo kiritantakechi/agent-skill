@@ -10,10 +10,11 @@ corpus of 215.
 import re
 from dataclasses import dataclass
 from functools import cached_property
+from typing import override
 lazy from pathlib import Path
 
 from agent_skill.text import code_only, strip_comment, syntax_for
-lazy from agent_skill.profiles import profile_for
+lazy from agent_skill.profiles import Profile, profile_for
 
 #: Every fenced example declares what it is, and the marker leads the
 #: block. A `//!` container-doc run may precede it, because that is
@@ -41,8 +42,21 @@ _MARKER = re.compile(
 )
 
 
+def _group(m: re.Match[str] | None, key: int | str) -> str:
+    """What group `key` of `m` matched, or "" when it matched nothing.
+
+    "" both without a match and for a group that took no part in it.
+    The stubs type every group as possibly absent, even one the pattern
+    cannot leave out; narrowing here says what each caller meant.
+    """
+    found = m.group(key) if m is not None else None
+    return found if isinstance(found, str) else ""
+
+
 @dataclass(frozen=True, slots=True)
 class Marker:
+    """A fenced example's marker line, and what it declares."""
+
     raw: str
 
     @property
@@ -51,32 +65,36 @@ class Marker:
 
     @property
     def valid(self) -> bool:
+        """Does the line have the shape of a marker at all?"""
         return self._m is not None
 
     @property
     def kind(self) -> str:
-        m = self._m
-        return m["kind"] if m else ""
+        """The marker word, such as `verified`; "" for no marker."""
+        return _group(self._m, "kind")
 
     @property
     def verdict(self) -> str:
-        m = self._m
-        return (m["verdict"] or "") if m else ""
+        """`GOOD` or `BAD`, or "" when the marker gives no verdict."""
+        return _group(self._m, "verdict")
 
     @property
     def qualifier(self) -> str:
-        m = self._m
-        return (m["qualifier"] or "") if m else ""
+        """What follows the kind and verdict; "" when nothing does."""
+        return _group(self._m, "qualifier")
 
     @property
     def verified(self) -> bool:
+        """Is the block marked `verified`?"""
         return self.kind == "verified"
 
     @property
     def tool(self) -> str:
-        """The tool a `rejected` block names, or "" when it names none."""
-        m = re.match(r"^(?:— )?([a-z][a-z-]*):", self.qualifier)
-        return m.group(1) if m else ""
+        """The tool a `rejected` block names.
+
+        "" when it names none.
+        """
+        return _group(re.match(r"^(?:— )?([a-z][a-z-]*):", self.qualifier), 1)
 
     @property
     def bad(self) -> bool:
@@ -90,7 +108,10 @@ class Marker:
 
     @property
     def quotation(self) -> bool:
-        """Reproduced from someone else's source, so the rules do not govern it."""
+        """Reproduced from someone else's source.
+
+        The rules do not govern a quotation.
+        """
         return "quoted from" in self.raw
 
     @property
@@ -112,14 +133,21 @@ class Block:
 
     @property
     def where(self) -> str:
+        """`file:line [rule]`, for a finding about this block."""
         return f"{self.file}:{self.line} [{self.rule}]"
 
     @property
     def lines(self) -> list[str]:
+        """The body, one string per line."""
         return self.body.split("\n")
 
     @property
     def code(self) -> str:
+        """The body with every comment removed.
+
+        Comments are found the way the block's own language spells them,
+        and the line count is kept.
+        """
         return code_only(self.body, *syntax_for(self.lang))
 
     def at(self, index: int) -> int:
@@ -129,6 +157,8 @@ class Block:
 
 @dataclass(frozen=True, slots=True)
 class Rule:
+    """One chapter rule: its heading, and the body under it."""
+
     id: str
     tier: str  #: M, M! or S
     title: str
@@ -138,18 +168,22 @@ class Rule:
 
     @property
     def where(self) -> str:
+        """`file:line`, for a finding about this rule."""
         return f"{self.file}:{self.line}"
 
     @property
     def statement(self) -> str:
+        """The rule's text before its Why."""
         return self.body.split("**Why")[0]
 
     @property
     def why(self) -> str:
+        """The rule's Why section."""
         return _section(self.body, "Why")
 
     @property
     def check(self) -> str:
+        """The rule's Check section."""
         return _section(self.body, "Check")
 
     @property
@@ -164,18 +198,27 @@ class Rule:
 
     @property
     def owner(self) -> str:
+        """The rule a pointer points at, or "".
+
+        It is the first rule ID in the opening 200 characters of the
+        statement.
+        """
         m = re.search(r"[A-Z]{2}-[A-Z]+-\d+[a-z]?", self.statement.lstrip()[:200])
         return m.group(0) if m else ""
 
     @property
     def owner_chapter(self) -> str:
+        """The chapter an `Owned by` pointer names, or ""."""
         m = re.match(r"Owned by `references/([a-z0-9-]+\.md)`", self.statement.lstrip())
-        return m.group(1) if m else ""
+        return _group(m, 1)
 
 
 @dataclass(frozen=True, slots=True)
 class LintRow:
-    """One row of a chapter's `Decided by tools` table: a claim a tool settles alone."""
+    """One row of a chapter's `Decided by tools` table.
+
+    A claim a tool settles alone.
+    """
 
     tool: str
     lint: str
@@ -186,6 +229,7 @@ class LintRow:
 
     @property
     def where(self) -> str:
+        """`file:line`, for a finding about this row."""
         return f"{self.file}:{self.line}"
 
 
@@ -203,20 +247,29 @@ class Rename:
 
     @property
     def lint(self) -> tuple[str, str] | None:
+        """The tool and lint, for a rule demoted to a lint-table row.
+
+        None for anything else.
+        """
         m = re.fullmatch(r"lint `([a-z]+):([^`]+)`", self.now)
-        return (m.group(1), m.group(2)) if m else None
+        return (_group(m, 1), _group(m, 2)) if m else None
 
     @property
     def removed(self) -> str | None:
-        """The reason, for a rule removed outright; None for anything else."""
+        """The reason, for a rule removed outright.
+
+        None for anything else.
+        """
         m = re.fullmatch(r"removed —\s*(.*)", self.now)
-        return m.group(1).strip() if m else None
+        return _group(m, 1).strip() if m else None
 
     @property
     def target(self) -> str:
-        """The new ID, for a rule that was renumbered or merged; "" otherwise."""
-        m = re.fullmatch(r"`([A-Z]{2}-[A-Z]+-\d+)`", self.now)
-        return m.group(1) if m else ""
+        """The new ID, for a rule that was renumbered or merged.
+
+        "" for anything else.
+        """
+        return _group(re.fullmatch(r"`([A-Z]{2}-[A-Z]+-\d+)`", self.now), 1)
 
 
 #: The section a chapter lists its tool-decided claims under.
@@ -234,11 +287,20 @@ DASH = "\u2013"
 #: joined by the dash, or one ID.
 _RANGE = re.compile(rf"`([A-Z]{{2}}-[A-Z]+)-(\d+)`(?:{DASH}`\1-(\d+)`)?")
 
+#: The cells of a rename-table row: `| Before | Now |`.
+_RENAME_CELLS = 2
+
+#: The cells of a lint-table row: `| Tool | Lint | Level | Forbids |`.
+_LINT_CELLS = 4
+
 
 @dataclass(frozen=True, slots=True)
 class RenameTable:
-    """One revision's rename table: the range each family ran before it, and a row for each
-    old ID that changed. An ID in range with no row still names the rule it named.
+    """One revision's rename table.
+
+    The range each family ran before the revision, and a row for each
+    old ID that changed. An ID in range with no row still names the
+    rule it named.
 
     `span` is where the section sits in its file, for the renumbering
     that rewrites it.
@@ -251,7 +313,10 @@ class RenameTable:
 
     @property
     def originals(self) -> list[str]:
-        """Every ID the families ran before the revision, in the order the ranges give."""
+        """Every ID the families ran before the revision.
+
+        In the order the ranges give.
+        """
         return [
             f"{family}-{n:02d}"
             for family, lo, hi in self.ranges
@@ -260,12 +325,19 @@ class RenameTable:
 
     @property
     def unchanged(self) -> list[str]:
+        """The original IDs no row lists.
+
+        Each still names the rule it named.
+        """
         listed = {r.before for r in self.rows}
         return [rid for rid in self.originals if rid not in listed]
 
 
 def rename_tables(text: str) -> list[RenameTable]:
-    """Every rename table in `text`. The ranges are read from the prose above the table."""
+    """Every rename table in `text`.
+
+    The ranges are read from the prose above the table.
+    """
     out: list[RenameTable] = []
     for m in RENAMED.finditer(text):
         nxt = re.compile(r"^## ", re.MULTILINE).search(text, m.end())
@@ -278,7 +350,7 @@ def rename_tables(text: str) -> list[RenameTable]:
         rows = tuple(
             Rename(cells[0].strip("`"), cells[1], line)
             for line, cells in _rows(text, m.start())
-            if len(cells) == 2
+            if len(cells) == _RENAME_CELLS
         )
         out.append(RenameTable(m.group(0), ranges, rows, (m.start(), end)))
     return out
@@ -300,7 +372,10 @@ def without_renames(text: str) -> str:
 
 
 def _rows(text: str, start: int) -> list[tuple[int, list[str]]]:
-    """(line number, cells) for each body row of the first table after `start`."""
+    """The body rows of the first table after `start`.
+
+    Each as (line number, cells).
+    """
     out: list[tuple[int, list[str]]] = []
     lines = text.split("\n")
     first = text[:start].count("\n")
@@ -327,24 +402,27 @@ def _rows(text: str, start: int) -> list[tuple[int, list[str]]]:
 
 
 def _section(body: str, name: str) -> str:
-    """The text of a labelled section, up to the next label, heading or example.
+    """The text of a labelled section.
 
-    The next *label* — `**Check:**` — not the next line that opens with
-    `**`. A Why holding a bolded phrase at the start of a line was read
-    as ending there, so a long Why measured short.
+    It runs up to the next label, heading or example. The next *label*
+    — `**Check:**` — not the next line that opens with `**`. A Why
+    holding a bolded phrase at the start of a line was read as ending
+    there, so a long Why measured short.
     """
     m = re.search(
         rf"\*\*{name}:?\*\*(.*?)(?=\n\*\*[^*\n]+:\*\*|\n### |\n## |\n```|\Z)",
         body,
         re.DOTALL,
     )
-    return m.group(1) if m else ""
+    return _group(m, 1)
 
 
 @dataclass(eq=False)
 class Chapter:
-    """One reference chapter. Parsed once — `cached_property` needs a `__dict__`,
-    so this is deliberately neither frozen nor slotted.
+    """One reference chapter, parsed once.
+
+    `cached_property` needs a `__dict__`, so this is deliberately
+    neither frozen nor slotted.
     """
 
     path: Path
@@ -352,14 +430,17 @@ class Chapter:
 
     @property
     def name(self) -> str:
+        """The chapter's file name, as findings cite it."""
         return self.path.name
 
     @cached_property
     def text(self) -> str:
+        """The chapter's markdown, read once."""
         return self.path.read_text()
 
     @cached_property
     def rules(self) -> list[Rule]:
+        """Every rule the chapter states, in order."""
         out: list[Rule] = []
         heads = list(
             re.finditer(
@@ -399,26 +480,34 @@ class Chapter:
 
     @cached_property
     def lint_rows(self) -> list[LintRow]:
-        """The `Decided by tools` table: `| Tool | Lint | Level | Forbids |`."""
+        """The rows of the `Decided by tools` table.
+
+        Its columns are `| Tool | Lint | Level | Forbids |`.
+        """
         m = re.search(rf"^## {DECIDED}$", self.text, re.MULTILINE)
         if not m:
             return []
         return [
             LintRow(cells[0], cells[1].strip("`"), cells[2], cells[3], self.name, line)
             for line, cells in _rows(self.text, m.start())
-            if len(cells) == 4
+            if len(cells) == _LINT_CELLS
         ]
 
     @cached_property
     def rename_tables(self) -> list[RenameTable]:
+        """Every rename table the chapter carries."""
         return rename_tables(self.text)
 
     @cached_property
     def renames(self) -> list[Rename]:
-        """Every row of every rename table this chapter carries: `| Before | Now |`."""
+        """Every row of every rename table this chapter carries.
+
+        Each table's columns are `| Before | Now |`.
+        """
         return [row for table in self.rename_tables for row in table.rows]
 
     def blocks(self, lang: str) -> list[Block]:
+        """Every fenced `lang` example, with the rule it sits under."""
         out: list[Block] = []
         heads = list(
             re.finditer(
@@ -455,29 +544,40 @@ def marker_line(body: str) -> str:
 class Skill:
     """A skill directory, parsed once."""
 
-    def __init__(self, root: Path, profile=None) -> None:
+    def __init__(self, root: Path, profile: Profile | None = None) -> None:
+        """Read the skill at `root`.
+
+        `profile` defaults to the one `profile_for` finds for the
+        directory's name.
+        """
         self.root = root
         self.name = root.name
 
         self.profile = profile or profile_for(self.name)
 
+    @override
     def __repr__(self) -> str:
+        """The skill's name, as `Skill(<name>)`."""
         return f"Skill({self.name})"
 
     @property
     def prefix(self) -> str:
+        """The rule-ID prefix the profile declares, such as `RS`."""
         return self.profile.prefix
 
     @property
     def skill_md(self) -> Path:
+        """The skill's `SKILL.md`."""
         return self.root / "SKILL.md"
 
     @cached_property
     def text(self) -> str:
+        """`SKILL.md`, read once."""
         return self.skill_md.read_text()
 
     @cached_property
     def chapters(self) -> list[Chapter]:
+        """Every chapter under `references/`, in file-name order."""
         return [
             Chapter(p, self.prefix)
             for p in sorted((self.root / "references").glob("*.md"))
@@ -485,22 +585,27 @@ class Skill:
 
     @cached_property
     def rules(self) -> list[Rule]:
+        """Every chapter rule, chapter by chapter."""
         return [r for c in self.chapters for r in c.rules]
 
     @cached_property
     def lint_rows(self) -> list[LintRow]:
+        """Every lint-table row of every chapter."""
         return [row for c in self.chapters for row in c.lint_rows]
 
     @cached_property
     def rename_tables(self) -> list[RenameTable]:
+        """Every rename table of every chapter."""
         return [table for c in self.chapters for table in c.rename_tables]
 
     @cached_property
     def renames(self) -> list[Rename]:
+        """Every row of every rename table."""
         return [r for c in self.chapters for r in c.renames]
 
     @cached_property
     def by_id(self) -> dict[str, Rule]:
+        """Each chapter rule, by its ID."""
         return {r.id: r for r in self.rules}
 
     @cached_property
@@ -518,15 +623,25 @@ class Skill:
 
     @property
     def markdown(self) -> list[Path]:
+        """Every markdown file: the chapters, then `SKILL.md`."""
         return [c.path for c in self.chapters] + [self.skill_md]
 
     @property
     def assets(self) -> list[Path]:
+        """Every file directly in `assets/`, in sorted order.
+
+        Empty when the skill has no `assets/`.
+        """
         d = self.root / "assets"
         return sorted(p for p in d.glob("*") if p.is_file()) if d.is_dir() else []
 
     def blocks(self, lang: str | None = None, *, verified: bool = False) -> list[Block]:
-        langs = [lang] if lang else self.profile.languages
+        """Every fenced example, or only the `verified` ones.
+
+        `lang` limits them to one language; without it they are drawn
+        from each language the profile names.
+        """
+        langs = [lang] if lang is not None and lang != "" else self.profile.languages
         out = [b for lg in langs for c in self.chapters for b in c.blocks(lg)]
         return [b for b in out if b.marker.verified] if verified else out
 
@@ -551,10 +666,15 @@ class Skill:
 
 
 def load(root: Path) -> Skill:
+    """The skill at `root`, read with its registered profile."""
     return Skill(root)
 
 
 def discover(skills_dir: Path) -> list[Skill]:
+    """Every skill in `skills_dir`, in name order.
+
+    A skill is a directory there that holds a `SKILL.md`.
+    """
     return [
         Skill(p) for p in sorted(skills_dir.iterdir()) if (p / "SKILL.md").is_file()
     ]

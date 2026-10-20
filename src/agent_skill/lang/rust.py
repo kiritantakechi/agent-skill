@@ -1,14 +1,15 @@
 """A skill's rust examples, as a crate."""
 
 import re
-lazy from collections.abc import Iterable
 from dataclasses import dataclass, field
 from itertools import groupby
 from pathlib import Path
+lazy from collections.abc import Iterable, Iterator
 
 from agent_skill.lang import Extraction, Unit
 from agent_skill.proc import have, run
 from agent_skill.report import Finding, fail, note
+lazy from agent_skill.model import Skill
 
 #: Shared, gitignored, and safe to delete: cargo rebuilds it.
 CACHE = Path(__file__).resolve().parents[3] / ".cache" / "target"
@@ -46,6 +47,7 @@ class Crate:
 
     @property
     def ident(self) -> str:
+        """The crate's name as a Rust path spells it."""
         return self.name.replace("-", "_")
 
     @property
@@ -62,6 +64,8 @@ class Crate:
         return {"CARGO_TARGET_DIR": str(CACHE / self.name)}
 
     def clippy_toml(self) -> str:
+        """The `clippy.toml` written beside the manifest."""
+
         def value(v: object) -> str:
             return (
                 str(v).lower()
@@ -74,6 +78,7 @@ class Crate:
         return "".join(f"{k} = {value(v)}\n" for k, v in self.clippy.items())
 
     def manifest(self) -> str:
+        """The `Cargo.toml` the extracted crate is built from."""
         lints = "\n".join(
             f"[lints.{section}]\n" + "\n".join(f"{k} = {v}" for k, v in table.items())
             for section, table in self.lints.items()
@@ -151,13 +156,14 @@ RUST_STYLE = Crate(
 #: `bevy-style`'s crate. Two entries are looser than `rust-style`'s, and
 #: both were measured rather than assumed:
 #:
-#:   * `elided_lifetimes_in_paths` fires on **every** system parameter — fourteen
-#:     hits in one five-system plugin. Writing `Query<'_, '_, …>` and `Res<'_, T>`
-#:     does satisfy it and does stay a valid system, so this is a noise
-#:     judgement, not an impossibility (BV-BUILD-12).
-#:   * `needless_pass_by_value` fires on every `Res<T>`, and its suggestion does
-#:     not compile: `&Res<'_, T>` is not a `SystemParam` (E0277). This one has no
-#:     compliant form (BV-BUILD-13).
+#:   * `elided_lifetimes_in_paths` fires on **every** system parameter —
+#:     fourteen hits in one five-system plugin. Writing
+#:     `Query<'_, '_, …>` and `Res<'_, T>` does satisfy it and does stay
+#:     a valid system, so this is a noise judgement, not an
+#:     impossibility (BV-BUILD-12).
+#:   * `needless_pass_by_value` fires on every `Res<T>`, and its
+#:     suggestion does not compile: `&Res<'_, T>` is not a `SystemParam`
+#:     (E0277). This one has no compliant form (BV-BUILD-13).
 #:
 #: `type_complexity` and `too_many_arguments` also fire on ordinary Bevy
 #: code and are deliberately **not** here: a `type` alias and
@@ -223,14 +229,21 @@ BEVY_STYLE = Crate(
 
 
 class Rust:
+    """The `cargo` toolchain: every verified block, in one crate."""
+
     name = "rust"
     tool = "cargo"
 
     def missing(self) -> list[str]:
+        """`cargo` itself, when it is not on PATH."""
         return [] if have(self.tool) else [f"`{self.tool}` is not on PATH"]
 
-    def extract(self, skill, out: Path) -> Extraction:
+    def extract(self, skill: Skill, out: Path) -> Extraction:
+        """Write the verified blocks as a crate of chapter modules."""
         crate = skill.profile.crate
+        if crate is None:
+            msg = f"{skill.name} compiles rust examples and its profile names no crate"
+            raise ValueError(msg)
         src = out / "src"
         src.mkdir(parents=True, exist_ok=True)
         # A renamed chapter otherwise leaves a module lib.rs never
@@ -258,7 +271,10 @@ class Rust:
             (src / f"{stem}.rs").write_text(_module(crate, stem, chapter, mods))
 
         lib = [
-            f"//! Every `// verified` block in {skill.name}, extracted from the markdown."
+            (
+                f"//! Every `// verified` block in {skill.name}, "
+                "extracted from the markdown."
+            )
         ]
         lib += [f"pub mod {s};" for s in sorted(chapters)]
         (src / "lib.rs").write_text("\n".join(lib) + "\n")
@@ -268,8 +284,9 @@ class Rust:
         return ex
 
     def verify(self, ex: Extraction) -> Iterable[Finding]:
+        """Build, lint, test, format-check and document the crate."""
         manifest = str(ex.root / "Cargo.toml")
-        env = ex.crate.env
+        env = _crate(ex).env
         steps = [
             ("compiles", ["cargo", "build", "--quiet", "--manifest-path", manifest]),
             # `-D warnings` so the whole shipped table binds. Half of it
@@ -323,7 +340,7 @@ class Rust:
         stayed empty, and gutting the function kept it empty.
         """
         src = ex.root / "src"
-        env = ex.crate.env
+        env = _crate(ex).env
         base = run(["cargo", "test", "-q"], cwd=ex.root, timeout=900, env=env)
         if not base.ok:
             yield fail("the unmutated crate does not pass; nothing to mutate", "rust")
@@ -358,6 +375,14 @@ class Rust:
                         )
             finally:
                 path.write_text(original)
+
+
+def _crate(ex: Extraction) -> Crate:
+    """The crate `Rust.extract` recorded on `ex`."""
+    if ex.crate is None:
+        msg = "a rust extraction carries the crate it was extracted as"
+        raise ValueError(msg)
+    return ex.crate
 
 
 #: Words a chapter may be named that Rust will not take as a module
@@ -407,10 +432,10 @@ KEYWORDS = frozenset(
 
 
 def module_name(chapter: str) -> str:
-    """The module a chapter's blocks are compiled as: `unsafe.md` -> `unsafe_`.
+    """The module a chapter's blocks are compiled as.
 
-    The shared vocabulary names a chapter `unsafe`, and
-    `pub mod unsafe;` does not parse.
+    `unsafe.md` -> `unsafe_`: the shared vocabulary names a chapter
+    `unsafe`, and `pub mod unsafe;` does not parse.
     """
     stem = Path(chapter).stem.replace("-", "_")
     return f"{stem}_" if stem in KEYWORDS else stem
@@ -423,18 +448,18 @@ def _module(crate: Crate, stem: str, chapter: str, mods: list[tuple[str, str]]) 
         # own crate. Point it at this crate so the doctest runs; the
         # skill keeps the placeholder, which is why the old apparatus
         # leaked its own crate name.
-        body = body.replace("mycrate::", f"{crate.ident}::{stem}::{mod}::")
+        code = body.replace("mycrate::", f"{crate.ident}::{stem}::{mod}::")
         # `crate::` in a block means the reader's own crate root.
         # Wrapping the block in a module moves that root, so rebase it
         # here rather than making the published example spell a path it
         # does not mean. `$crate::` names the same root from inside a
         # macro, so it moves with it — the replace covers both
         # spellings, and `fmt` undoes both the same way.
-        body = body.replace("crate::", f"crate::{stem}::{mod}::")
+        code = code.replace("crate::", f"crate::{stem}::{mod}::")
         out.append(f"pub mod {mod} {{")
         out.append("    #![allow(dead_code, unused_imports)]")
         out += [
-            ("    " + ln) if ln.strip() else "" for ln in body.rstrip("\n").split("\n")
+            ("    " + ln) if ln.strip() else "" for ln in code.rstrip("\n").split("\n")
         ]
         out += ["}", ""]
     return "\n".join(out).rstrip("\n") + "\n"
@@ -448,7 +473,8 @@ def _module(crate: Crate, stem: str, chapter: str, mods: list[tuple[str, str]]) 
 _SKIP = ("use ", "//", "#", "let ", "pub ", "}")
 
 
-def _targets(src: Path):
+def _targets(src: Path) -> Iterator[tuple[Path, int, str]]:
+    """Each statement outside a test worth deleting, and where it is."""
     for path in sorted(src.glob("*.rs")):
         text = path.read_text()
         for m in re.finditer(r"^pub mod (\w+) \{$", text, re.MULTILINE):

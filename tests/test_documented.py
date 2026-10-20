@@ -1,4 +1,4 @@
-r"""Reading the check table, including the cells that contain the table's own separator.
+r"""Reading the check table, including cells holding its own separator.
 
 The reason column was scanned as `[^|]*`, which stops at the first `|` —
 including the `\\|` a GFM table requires for a literal pipe. Measured on
@@ -44,26 +44,33 @@ def test_every_shipped_row_carries_a_reason() -> None:
 @pytest.mark.parametrize(
     "why",
     [
-        r"`\|` is alternation to `grep` and a literal pipe to `rg`.",  # opens with the escape
-        r"the shape `a\|b` shipped in twenty patterns and matched nothing.",  # mid-cell
-        r"both `\|` and `\(` were carried across, and neither fired.",  # twice
+        # opens with the escape
+        r"`\|` is alternation to `grep` and a literal pipe to `rg`.",
+        # mid-cell
+        r"the shape `a\|b` shipped in twenty patterns and matched nothing.",
+        # twice
+        r"both `\|` and `\(` were carried across, and neither fired.",
     ],
 )
-def test_an_escaped_pipe_does_not_end_the_cell(why) -> None:
+def test_an_escaped_pipe_does_not_end_the_cell(why: str) -> None:
     rows = documented_rows(row("dialect", "a pattern in the wrong grammar", why))
     assert rows["dialect"][1] == why
 
 
 def test_an_unescaped_pipe_still_separates_cells() -> None:
-    """The escape is what makes a pipe content; a bare one is still the table's own syntax."""
+    """The escape is what makes a pipe content.
+
+    A bare one is still the table's own syntax.
+    """
     rows = documented_rows(row("dialect", "catches", "first | second"))
     assert rows["dialect"] == ("catches", "second"), (
-        "a bare pipe opened a fourth column, so the reason is the last cell, not the whole tail"
+        "a bare pipe opened a fourth column, "
+        "so the reason is the last cell, not the whole tail"
     )
 
 
 def test_an_empty_reason_is_still_empty() -> None:
-    """The fix reads more of the cell; it must not manufacture content that is not there."""
+    """The fix reads more of the cell; it must not invent content."""
     assert documented_rows(row("dialect", "catches", ""))["dialect"][1] == ""
     assert documented_rows(row("dialect", "catches", "   "))["dialect"][1] == ""
 
@@ -76,6 +83,9 @@ def test_a_row_that_is_not_a_check_row_is_not_read_as_one() -> None:
 
 
 def test_the_controls_scope_is_read_from_the_first_cell() -> None:
-    """`CONTROLS_SCOPE` is matched against `catches`, so the cells must not have shifted."""
+    """`CONTROLS_SCOPE` is matched against `catches`, the first cell.
+
+    A shift in the cells would match it against the wrong text.
+    """
     catches = documented_rows(README.read_text())["controls"][0]
     assert CONTROLS_SCOPE in catches

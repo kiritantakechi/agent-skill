@@ -1,4 +1,4 @@
-"""A rule's check must be one the shipped configuration actually turns on.
+"""A rule's check must be one the shipped config actually turns on.
 
 `lints` already does this for Rust, comparing the crate's declared table
 against the shipped `Cargo.toml`. Python needs a second comparison the
@@ -16,6 +16,7 @@ import json
 import re
 import tomllib
 from functools import cache
+lazy from collections.abc import Iterable, Iterator, Mapping
 lazy from pathlib import Path
 
 from agent_skill.checks import check
@@ -23,6 +24,8 @@ from agent_skill.lang.python import PYTHON_STYLE
 from agent_skill.proc import have, run
 from agent_skill.report import fail, unrun
 lazy from agent_skill.checks.lints import table
+lazy from agent_skill.model import LintRow, Skill
+lazy from agent_skill.report import Finding
 
 #: `PS-CONC-02` and `3.15` are not ruff codes; `ANN401` and `B008` are.
 #: `ASYNC251` is five letters, and a cap of four hid every citation of
@@ -101,11 +104,9 @@ LINTERS = frozenset(
 
 
 def _codes_in(text: str) -> set[str]:
-    return {
-        code
-        for code in CODE.findall(text)
-        if re.match(r"^[A-Z]+", code).group(0) in LINTERS  # type: ignore[union-attr]
-    }
+    # A code is letters then digits, so stripping the digits leaves the
+    # letters that name its linter.
+    return {code for code in CODE.findall(text) if code.rstrip("0123456789") in LINTERS}
 
 
 def _enabled(config: Path) -> tuple[set[str], str]:
@@ -125,7 +126,8 @@ def _enabled(config: Path) -> tuple[set[str], str]:
     )
     if not r.out:
         return set(), (r.err or "ruff produced no settings").strip()[:120]
-    codes, inside = set(), False
+    codes: set[str] = set()
+    inside = False
     for line in r.out.split("\n"):
         if line.startswith("linter.rules.enabled = ["):
             inside = True
@@ -140,7 +142,10 @@ def _enabled(config: Path) -> tuple[set[str], str]:
 
 @cache
 def _ty_rules() -> dict[str, str] | None:
-    """Every rule the pinned ty knows, with its default level; None if ty would not say."""
+    """Every rule the pinned ty knows, with its default level.
+
+    None if ty would not say.
+    """
     r = run(["ty", "explain", "rule", "--output-format", "json"], timeout=120)
     if not r.ok or not r.out:
         return None
@@ -148,7 +153,10 @@ def _ty_rules() -> dict[str, str] | None:
 
 
 def _ty_levels(ty_toml: Path) -> dict[str, str] | None:
-    """Every rule the pinned ty knows, at the level the shipped asset leaves it."""
+    """Every rule the pinned ty knows, at its level as shipped.
+
+    The asset's own entry where it has one, ty's default otherwise.
+    """
     if (rules := _ty_rules()) is None:
         return None
     shipped = tomllib.loads(ty_toml.read_text()).get("rules", {})
@@ -156,7 +164,10 @@ def _ty_levels(ty_toml: Path) -> dict[str, str] | None:
 
 
 def _withdrawn() -> set[str]:
-    """Codes ruff has removed. Selecting one is a hard failure, not a warning."""
+    """Codes ruff has removed.
+
+    Selecting one is a hard failure, not a warning.
+    """
     r = run(["ruff", "rule", "--all", "--output-format", "json"], timeout=120)
     if not r.ok:
         return set()
@@ -180,9 +191,13 @@ LEVELS: dict[str, frozenset[str]] = {
 }
 
 
-def row_shape(rows, tools: tuple[str, ...]):
-    """(row, message) for rows naming a tool the standard does not require, or a level
-    at which the tool would let the run pass.
+def row_shape(
+    rows: Iterable[LintRow], tools: tuple[str, ...]
+) -> Iterator[tuple[LintRow, str]]:
+    """(row, message) for each row whose tool or level enforces nothing.
+
+    Such a row names a tool the standard does not require, or a level at
+    which the tool would let the run pass.
     """
     for row in rows:
         if row.tool not in tools or row.tool not in LEVELS:
@@ -195,11 +210,14 @@ def row_shape(rows, tools: tuple[str, ...]):
             )
 
 
-def python_rows(rows, enabled: set[str], ty_levels: dict[str, str]):
-    """(row, message) for python rows the shipped configuration does not enforce as stated.
+def python_rows(
+    rows: Iterable[LintRow], enabled: set[str], ty_levels: dict[str, str]
+) -> Iterator[tuple[LintRow, str]]:
+    """(row, message) for python rows not enforced as the row states.
 
-    `ty_levels` is every rule ty knows, at the level the asset leaves it
-    — its own entry, or the default.
+    The shipped configuration is what enforces them. `ty_levels` is
+    every rule ty knows, at the level the asset leaves it — its own
+    entry, or the default.
     """
     for row in rows:
         if row.tool == "ruff" and row.lint not in enabled:
@@ -214,7 +232,10 @@ def python_rows(rows, enabled: set[str], ty_levels: dict[str, str]):
             elif level != row.level:
                 yield (
                     row,
-                    f"`{row.lint}` is `{row.level}` in the row and `{level}` as shipped",
+                    (
+                        f"`{row.lint}` is `{row.level}` in the row "
+                        f"and `{level}` as shipped"
+                    ),
                 )
 
 
@@ -223,17 +244,19 @@ SECTION = {"rustc": "rust", "clippy": "clippy", "rustdoc": "rustdoc"}
 
 
 def rust_rows(
-    rows, shipped: dict[str, str], catalogue: dict[str, tuple[str, set[str]]]
-):
-    """(row, message) for Rust rows the shipped `[workspace.lints]` does not enforce as stated.
+    rows: Iterable[LintRow],
+    shipped: dict[str, str],
+    catalogue: dict[str, tuple[str, set[str]]],
+) -> Iterator[tuple[LintRow, str]]:
+    """(row, message) for Rust rows not enforced as the row states.
 
-    `shipped` is the asset's table as `lints.table` reads it
-    (`clippy.unwrap_used` -> `"deny"`). `catalogue` maps every lint the
-    pinned toolchain knows, spelled as a `[lints]` key under its tool's
-    section, to its default level and its groups. A lint's level is its
-    own entry, else the entry of a group it belongs to, else its default
-    — the order Cargo applies them in, given the groups'
-    `priority = -1`.
+    The shipped `[workspace.lints]` is what enforces them. `shipped` is
+    the asset's table as `lints.table` reads it (`clippy.unwrap_used` ->
+    `"deny"`). `catalogue` maps every lint the pinned toolchain knows,
+    spelled as a `[lints]` key under its tool's section, to its default
+    level and its groups. A lint's level is its own entry, else the
+    entry of a group it belongs to, else its default — the order Cargo
+    applies them in, given the groups' `priority = -1`.
     """
     for row in rows:
         section = SECTION.get(row.tool)
@@ -266,11 +289,14 @@ def _level(value: str | None) -> str | None:
     if value is None:
         return None
     m = re.search(r'"(allow|warn|deny|forbid)"', value)
-    return m.group(1) if m else None
+    return str(m.group(1)) if m else None
 
 
 def rust_catalogue() -> dict[str, tuple[str, set[str]]] | None:
-    """Every lint `clippy-driver` and `rustdoc` know, keyed as a `[lints]` entry."""
+    """Every lint the Rust toolchain knows, keyed as a `[lints]` entry.
+
+    As `clippy-driver` and `rustdoc` list them; None when either cannot.
+    """
     out: dict[str, tuple[str, set[str]]] = {}
     members: dict[str, set[str]] = {}
     for tool in ("clippy-driver", "rustdoc"):
@@ -279,29 +305,42 @@ def rust_catalogue() -> dict[str, tuple[str, set[str]]] | None:
         answered = run([tool, "-W", "help"], timeout=60)
         if not answered.ok:
             return None
-        section = "lints"
-        for line in answered.out.split("\n"):
-            if line.startswith("Lint groups"):
-                section = "groups"
-            elif line.startswith("Lint checks"):
-                section = "lints"
-            if section == "lints":
-                if m := re.match(r"^\s+(\S+)\s+(allow|warn|deny|forbid)\s", line):
-                    out[_key(m.group(1))] = (m.group(2), set())
-            elif m := re.match(r"^\s+(\S+)\s+(\S.*)$", line):
-                group, names = _key(m.group(1)), m.group(2)
-                for name in names.split(", "):
-                    members.setdefault(_key(name.strip()), set()).add(
-                        group.split(".", 1)[1]
-                    )
+        _read_help(answered.out, out, members)
     for key, groups in members.items():
         if key in out:
             out[key] = (out[key][0], out[key][1] | groups)
     return out
 
 
+def _read_help(
+    text: str,
+    out: dict[str, tuple[str, set[str]]],
+    members: dict[str, set[str]],
+) -> None:
+    """Fold one tool's `-W help` listing into `out` and `members`."""
+    section = "lints"
+    for line in text.split("\n"):
+        if line.startswith("Lint groups"):
+            section = "groups"
+        elif line.startswith("Lint checks"):
+            section = "lints"
+        if section == "lints":
+            if m := re.match(r"^\s+(\S+)\s+(allow|warn|deny|forbid)\s", line):
+                out[_key(m.group(1))] = (m.group(2), set())
+        elif m := re.match(r"^\s+(\S+)\s+(\S.*)$", line):
+            group, names = _key(m.group(1)), m.group(2)
+            for name in names.split(", "):
+                members.setdefault(_key(name.strip()), set()).add(
+                    group.split(".", 1)[1]
+                )
+
+
 def _key(name: str) -> str:
-    """`clippy::unwrap-used` -> `clippy.unwrap_used`; `unsafe-code` -> `rust.unsafe_code`."""
+    """A lint's name, spelled as a `[lints]` key.
+
+    `clippy::unwrap-used` -> `clippy.unwrap_used`; `unsafe-code` ->
+    `rust.unsafe_code`.
+    """
     tool, _, lint = name.rpartition("::")
     return f"{tool or 'rust'}.{lint.replace('-', '_')}"
 
@@ -311,7 +350,8 @@ def _key(name: str) -> str:
     "a cited check must be one the shipped config enables",
     needs=("ruff", "ty", "clippy-driver", "rustdoc"),
 )
-def citations(skill):
+def citations(skill: Skill) -> Iterator[Finding]:
+    """Every lint row and cited code, against the shipped config."""
     for row, message in row_shape(skill.lint_rows, skill.profile.tools):
         yield fail(message, f"{skill.name}/{row.where}")
     if skill.profile.toolchain == "rust":
@@ -328,6 +368,29 @@ def citations(skill):
         )
         return
 
+    yield from _python(skill, ruff_toml, ty_toml)
+
+    # The harness declares the ty levels it verifies under; the asset
+    # ships one for the reader. Two tables, compared — an asset that
+    # were also the configuration in force could not be checked against
+    # anything.
+    shipped = tomllib.loads(ty_toml.read_text()).get("rules", {})
+    yield from _ty_tables(skill, shipped)
+
+    if not have("ty"):
+        yield unrun("`ty` is not on PATH, so no rule name was validated", skill.name)
+        return
+    if (known := _ty_rules()) is not None:
+        for name in sorted(set(shipped) - set(known)):
+            yield fail(
+                f"assets/ty.toml names `{name}`, which the pinned ty does not "
+                "recognise — the setting silently does nothing",
+                skill.name,
+            )
+
+
+def _python(skill: Skill, ruff_toml: Path, ty_toml: Path) -> Iterator[Finding]:
+    """The python rows and every cited code, against the enabled set."""
     # A rule's own body is where it cites its checks; the `**Check:**`
     # section is part of it. Core rules in SKILL.md point at the chapter
     # that owns them, so they carry no citation of their own.
@@ -336,36 +399,35 @@ def citations(skill):
     enabled, problem = _enabled(ruff_toml)
     if problem:
         yield unrun(f"could not read the enabled set: {problem}", skill.name)
-    else:
-        ty_levels = _ty_levels(ty_toml)
-        if ty_levels is None:
-            yield unrun(
-                "`ty` did not list its rules, so no ty row was compared", skill.name
-            )
-            ty_levels = {}
-        for row, message in python_rows(skill.lint_rows, enabled, ty_levels):
-            yield fail(message, f"{skill.name}/{row.where}")
-        withdrawn = _withdrawn()
-        for rule_id, codes in sorted(cited.items()):
-            for code in sorted(codes):
-                if code in withdrawn:
-                    yield fail(
-                        f"{rule_id} cites `{code}`, which ruff has withdrawn — selecting it is a "
-                        f"hard failure, so the rule can never be enforced",
-                        skill.name,
-                    )
-                elif code not in enabled:
-                    yield fail(
-                        f"{rule_id} cites `{code}`, which `assets/ruff.toml` does not enable; "
-                        f"the rule reads as enforced and is not",
-                        skill.name,
-                    )
+        return
+    ty_levels = _ty_levels(ty_toml)
+    if ty_levels is None:
+        yield unrun(
+            "`ty` did not list its rules, so no ty row was compared", skill.name
+        )
+        ty_levels = {}
+    for row, message in python_rows(skill.lint_rows, enabled, ty_levels):
+        yield fail(message, f"{skill.name}/{row.where}")
+    withdrawn = _withdrawn()
+    for rule_id, codes in sorted(cited.items()):
+        for code in sorted(codes):
+            if code in withdrawn:
+                yield fail(
+                    f"{rule_id} cites `{code}`, which ruff has withdrawn — "
+                    "selecting it is a hard failure, so the rule can never be "
+                    "enforced",
+                    skill.name,
+                )
+            elif code not in enabled:
+                yield fail(
+                    f"{rule_id} cites `{code}`, which `assets/ruff.toml` does not "
+                    "enable; the rule reads as enforced and is not",
+                    skill.name,
+                )
 
-    # The harness declares the ty levels it verifies under; the asset
-    # ships one for the reader. Two tables, compared — an asset that
-    # were also the configuration in force could not be checked against
-    # anything.
-    shipped = tomllib.loads(ty_toml.read_text()).get("rules", {})
+
+def _ty_tables(skill: Skill, shipped: Mapping[str, object]) -> Iterator[Finding]:
+    """The asset's ty levels, against those the harness verifies."""
     declared = PYTHON_STYLE.ty_rules
     for name in sorted(set(shipped) - set(declared)):
         yield fail(
@@ -380,23 +442,14 @@ def citations(skill):
     for name in sorted(set(shipped) & set(declared)):
         if shipped[name] != declared[name]:
             yield fail(
-                f"`{name}` is {shipped[name]!r} in the asset and {declared[name]!r} in the harness",
-                skill.name,
-            )
-
-    if not have("ty"):
-        yield unrun("`ty` is not on PATH, so no rule name was validated", skill.name)
-        return
-    if (known := _ty_rules()) is not None:
-        for name in sorted(set(shipped) - set(known)):
-            yield fail(
-                f"assets/ty.toml names `{name}`, which the pinned ty does not recognise — the "
-                f"setting silently does nothing",
+                f"`{name}` is {shipped[name]!r} in the asset "
+                f"and {declared[name]!r} in the harness",
                 skill.name,
             )
 
 
-def _rust(skill):
+def _rust(skill: Skill) -> Iterator[Finding]:
+    """The Rust rows, against the shipped `[workspace.lints]`."""
     # Asked before looking for rows: a check that declares a tool and
     # returns early without it reports clean while it could not have
     # looked.

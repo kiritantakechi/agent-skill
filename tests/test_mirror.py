@@ -1,4 +1,4 @@
-"""Mirrored rules agree on tier, in every standard rather than in one pair.
+"""Mirrored rules agree on tier in every standard, not in one pair.
 
 The check was written for `rust-style` against `zig-style` and named
 both skills as module constants, so a third standard could disagree with
@@ -10,17 +10,23 @@ prefix.
 from dataclasses import dataclass
 
 from agent_skill.checks import mirror as m
+lazy from agent_skill.report import Finding
 
 
 @dataclass(frozen=True)
 class Rule:
+    """The three fields of a rule that `mirror` reads."""
+
     id: str
     tier: str
     title: str
 
 
 class Skill:
-    def __init__(self, name, prefix, rules) -> None:
+    """A stand-in skill: a name, a prefix, and its rules by ID."""
+
+    def __init__(self, name: str, prefix: str, rules: list[Rule]) -> None:
+        """Hold the rules, indexed by ID as the real skill does."""
         self.name, self.prefix, self.rules = name, prefix, rules
         self.by_id = {r.id: r for r in rules}
 
@@ -28,15 +34,15 @@ class Skill:
 TITLE = "One concept, one mechanism"
 
 
-def run(table, skills):
+def run(table: list[tuple[str, str]], skills: list[Skill]) -> list[Finding]:
     original, m.MIRROR = m.MIRROR, table
     try:
-        return list(m.mirror(skills))
+        return list(m.mirror(skills))  # ty: ignore[invalid-argument-type] — a stand-in with only what the check reads
     finally:
         m.MIRROR = original
 
 
-def anchor(tier="[M]"):
+def anchor(tier: str = "[M]") -> Skill:
     return Skill("rust-style", "RS", [Rule("RS-NAME-01", tier, TITLE)])
 
 
@@ -54,7 +60,7 @@ def test_a_third_skill_that_agrees_is_silent() -> None:
 
 
 def test_an_entry_for_a_skill_not_in_this_run_is_skipped() -> None:
-    """A partial run must not report every absent skill as a missing rule."""
+    """A partial run must not call every absent skill a missing rule."""
     assert run([("ZS-NAME-36", TITLE)], [anchor()]) == []
 
 

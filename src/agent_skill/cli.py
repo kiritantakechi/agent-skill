@@ -1,9 +1,15 @@
-"""`agent-skill` — check, package, and install the skills in this repository."""
+"""The `agent-skill` command line.
+
+It checks, packages, installs, formats, renumbers and demotes the
+skills in this repository. `--help` prints `DESCRIPTION`, not this
+docstring, so rewrapping one never rewords the other.
+"""
 
 import argparse
 import json
 import sys
 from pathlib import Path
+lazy from collections.abc import Callable
 
 from agent_skill import build
 from agent_skill.checks import all_checks
@@ -15,8 +21,21 @@ lazy from agent_skill import demote, renumber
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_SKILLS = REPO / "skills"
 
+#: What `--help` says the command is for.
+DESCRIPTION = (
+    "`agent-skill` — check, package, and install the skills in this repository."
+)
+
+
+class _Parsed(argparse.Namespace):
+    """The parsed command line, typed where `main` reads it."""
+
+    #: the subcommand's handler, which `set_defaults` puts here
+    func: Callable[[argparse.Namespace], int]
+
 
 def _emit(result: Result, *, verbose: bool, limit: int = 25) -> None:
+    """Print one check's verdict, its details, and its findings."""
     label = "ok  " if result.ok else ("FAIL" if result.fails else "????")
     print(f"  {label}  {result.name}")
     for detail in result.details:
@@ -34,11 +53,17 @@ def _emit(result: Result, *, verbose: bool, limit: int = 25) -> None:
                 print(f"          {line}")
         if len(items) > len(shown):
             print(
-                f"          …     {len(items) - len(shown)} more {level.value} (--verbose)"
+                f"          …     {len(items) - len(shown)} more "
+                f"{level.value} (--verbose)"
             )
 
 
-def cmd_check(args) -> int:
+def cmd_check(args: argparse.Namespace) -> int:
+    """Run the checks, print their findings, and say whether all passed.
+
+    Exit 1 when any check failed or could not run, and 2 when there is
+    nothing to check.
+    """
     skills = discover(args.skills)
     if args.skill:
         skills = [s for s in skills if s.name in args.skill]
@@ -65,7 +90,8 @@ def cmd_check(args) -> int:
     return 1 if failed else 0
 
 
-def cmd_build(args) -> int:
+def cmd_build(args: argparse.Namespace) -> int:
+    """Package every skill as `<name>.skill`, and print each path."""
     for skill in discover(args.skills):
         target = build.package(skill, args.out)
         print(
@@ -74,7 +100,8 @@ def cmd_build(args) -> int:
     return 0
 
 
-def cmd_install(args) -> int:
+def cmd_install(args: argparse.Namespace) -> int:
+    """Link every skill into each agent this machine has installed."""
     targets = [t for t in build.TARGETS if not args.target or t.name in args.target]
     skills = discover(args.skills)
     for target in targets:
@@ -88,7 +115,8 @@ def cmd_install(args) -> int:
     return 0
 
 
-def cmd_fmt(args) -> int:
+def cmd_fmt(args: argparse.Namespace) -> int:
+    """Format each skill in place, and print what changed."""
     for skill in discover(args.skills):
         if args.skill and skill.name not in args.skill:
             continue
@@ -99,7 +127,11 @@ def cmd_fmt(args) -> int:
     return 0
 
 
-def cmd_renumber(args) -> int:
+def cmd_renumber(args: argparse.Namespace) -> int:
+    """Print the renumbering plan, and carry it out unless `--dry-run`.
+
+    Exit 1, having written nothing, when the plan cannot be made.
+    """
     chapters = dict(pair.split("=", 1) for pair in args.chapters or [])
     try:
         plan = renumber.plan(REPO, args.skill, chapters)
@@ -121,7 +153,11 @@ def cmd_renumber(args) -> int:
     return 0
 
 
-def cmd_demote(args) -> int:
+def cmd_demote(args: argparse.Namespace) -> int:
+    """Print the demotion plan, and carry it out unless `--dry-run`.
+
+    Exit 1, having written nothing, when the plan cannot be made.
+    """
     try:
         demotion = demote.plan(REPO, args.skill, json.loads(args.plan.read_text()))
     except demote.DemoteError as e:
@@ -142,7 +178,8 @@ def cmd_demote(args) -> int:
     return 0
 
 
-def cmd_list(args) -> int:
+def cmd_list(args: argparse.Namespace) -> int:
+    """Print each skill's prefix, counts, and toolchain."""
     for skill in discover(args.skills):
         rules = len(skill.rules)
         blocks = len(skill.blocks(verified=True))
@@ -154,7 +191,11 @@ def cmd_list(args) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="agent-skill", description=__doc__)
+    """Run the subcommand `argv` names and return its exit status.
+
+    `argv` defaults to the process's own arguments.
+    """
+    parser = argparse.ArgumentParser(prog="agent-skill", description=DESCRIPTION)
     parser.add_argument(
         "--skills",
         type=Path,
@@ -228,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
         func=cmd_list
     )
 
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv, namespace=_Parsed())
     return args.func(args)
 
 

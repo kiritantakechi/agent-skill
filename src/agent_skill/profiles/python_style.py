@@ -1,13 +1,15 @@
-"""python-style: its own `[M]` rules, applied to its own examples and prose."""
+"""python-style: its own `[M]` rules, applied to examples and prose."""
 
 import re
-lazy from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import override
+lazy from collections.abc import Iterable, Iterator
 
-from agent_skill.profiles import NotDecisive, Profile, register
+from agent_skill.profiles import Exemption, NotDecisive, Profile, register
 from agent_skill.report import Finding, fail
 from agent_skill.text import strip_comment, syntax_for
 lazy from agent_skill.lang.python import INTERPRETER
+lazy from agent_skill.model import Skill
 
 #: PS-TYPE — PEP 563 is Superseded, and the future import does not
 #: merely fail to help on 3.14+: it silently degrades `annotationlib`
@@ -25,7 +27,8 @@ AUGMENTED_ON_SHARED = re.compile(
 
 #: A docstring inside an example documents the API, not the standard.
 META = re.compile(
-    r"\b(this example|this rule|the snippet|as shipped|the block|for the purposes of)\b",
+    r"\b(this example|this rule|the snippet|as shipped|the block|"
+    r"for the purposes of)\b",
     re.IGNORECASE,
 )
 
@@ -55,6 +58,8 @@ def _inside_tests(body: str) -> set[int]:
 
 @dataclass
 class PythonStyle(Profile):
+    """What python-style's checks need to know about it."""
+
     name: str = "python-style"
     prefix: str = "PS"
     languages: tuple[str, ...] = ("python",)
@@ -67,11 +72,11 @@ class PythonStyle(Profile):
     verified_as: str = "runs as written on free-threaded CPython {pin}"
     strict_scope: str = "library and high-reliability"
     toolchain: str | None = "python"
-    exempt: dict = field(default_factory=dict)
+    exempt: dict[str, Exemption] = field(default_factory=dict)
     #: Each snippet is the defect its rule forbids, written the way it
     #: appears in real code rather than tailored to the pattern — a
     #: fixture shaped to match proves the fixture, not the pattern.
-    fires: dict = field(
+    fires: dict[str, tuple[str, ...]] = field(
         default_factory=lambda: {
             "PS-API-05": ("from acmewidget._internal import helper",),
             "PS-ASYNC-01": ("loop = asyncio.new_event_loop()",),
@@ -83,7 +88,7 @@ class PythonStyle(Profile):
             "PS-MIG-08": ("if json.__version__ < (2, 0):",),
         }
     )
-    not_decisive: dict = field(
+    not_decisive: dict[str, NotDecisive] = field(
         default_factory=lambda: {
             # Each anchor is a literal fragment of that rule's own
             # **Check:**, so rewriting the rule cannot leave a stale
@@ -98,7 +103,8 @@ class PythonStyle(Profile):
             ),
             "PS-CONC-03": NotDecisive(
                 "unless a lock spans both",
-                "the pattern finds the test; whether a lock spans the test and the write decides",
+                "the pattern finds the test; whether a lock spans the test and the "
+                "write decides",
             ),
             "PS-CONC-11": NotDecisive(
                 "every decorator without `frozen=True`",
@@ -157,7 +163,8 @@ class PythonStyle(Profile):
             # defects inverts the rule.
             "PS-DATA-14": NotDecisive(
                 "should be roughly as common as",
-                "a presence assertion: the finding is an absence, which no hit can show",
+                "a presence assertion: the finding is an absence, which no hit can "
+                "show",
             ),
             "PS-DATA-15": NotDecisive(
                 "every hit is a place a `frozendict` would fail",
@@ -167,8 +174,8 @@ class PythonStyle(Profile):
             ),
             "PS-DATA-01": NotDecisive(
                 "needs a reason on the line above it",
-                "the pattern finds every dataclass; the `frozen=True` argument decides, "
-                "and a frozen one matches the same pattern",
+                "the pattern finds every dataclass; the `frozen=True` argument "
+                "decides, and a frozen one matches the same pattern",
             ),
             "PS-DATA-02": NotDecisive(
                 "read for `slots=`",
@@ -197,12 +204,18 @@ class PythonStyle(Profile):
         }
     )
 
+    @override
     def pin(self) -> str | None:
-        """The interpreter's version, from the uv key the harness installs."""
-        m = re.match(r"cpython-([0-9][^+]*)", INTERPRETER)
-        return m.group(1) if m else None
+        """The interpreter's version.
 
-    def conventions(self, skill) -> Iterable[Finding]:
+        Read from the uv key the harness installs.
+        """
+        m = re.match(r"cpython-([0-9][^+]*)", INTERPRETER)
+        return str(m.group(1)) if m else None
+
+    @override
+    def conventions(self, skill: Skill) -> Iterable[Finding]:
+        """python-style's own rules, applied to its own examples."""
         comment, quotes = syntax_for("python")
         for b in skill.advice("python"):
             for j, raw in enumerate(b.lines):
@@ -218,8 +231,9 @@ class PythonStyle(Profile):
 
                 if AUGMENTED_ON_SHARED.match(code):
                     yield fail(
-                        "augmented assignment on instance state is a read-modify-write; "
-                        "under free threading it loses updates (PS-CONC)",
+                        "augmented assignment on instance state is a "
+                        "read-modify-write; under free threading it loses updates "
+                        "(PS-CONC)",
                         where,
                     )
 
@@ -228,10 +242,13 @@ class PythonStyle(Profile):
                         "docstring discusses the example rather than the API", where
                     )
 
+    @override
     def inside_tests(self, body: str) -> set[int]:
+        """Body-line indices inside a `def test_*`, by indentation."""
         return _inside_tests(body)
 
-    def prose(self, skill) -> Iterable[Finding]:
+    @override
+    def prose(self, skill: Skill) -> Iterable[Finding]:
         """The standard must not recommend a spelling it forbids.
 
         `from __future__ import annotations` is banned outright, so
@@ -257,14 +274,17 @@ class PythonStyle(Profile):
                     continue
                 if span.search(line):
                     yield fail(
-                        "prose names `__future__` outside a **Check:** without saying it is "
-                        "forbidden",
+                        "prose names `__future__` outside a **Check:** without saying "
+                        "it is forbidden",
                         f"{chapter.name}:{i} [{rid}]",
                     )
 
 
-def _prose_lines(text: str, prefix: str):
-    """(lineno, line, owning rule, inside-a-Check) for unfenced prose."""
+def _prose_lines(text: str, prefix: str) -> Iterator[tuple[int, str, str, bool]]:
+    """Each unfenced prose line, with the rule and Check it sits in.
+
+    Yields (lineno, line, owning rule, inside-a-Check).
+    """
     rid, in_check, fenced = "?", False, False
     head = re.compile(rf"^### ({prefix}-[A-Z]+-\d+[a-z]?) \[")
     for i, line in enumerate(text.split("\n"), 1):
@@ -275,7 +295,7 @@ def _prose_lines(text: str, prefix: str):
         if fenced:
             continue
         if m := head.match(line):
-            rid, in_check = m.group(1), False
+            rid, in_check = str(m.group(1)), False
         elif line.startswith("**Check:"):
             in_check = True
         elif line.startswith("**") or not line.strip():

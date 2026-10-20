@@ -1,6 +1,7 @@
 """`agent-skill renumber`, on a throwaway repository."""
 
 import re
+lazy from pathlib import Path
 
 import pytest
 
@@ -17,14 +18,17 @@ def chapter(title: str, rules: list[tuple[str, str]], extra: str = "") -> str:
 
 
 @pytest.fixture
-def repo(tmp_path):
-    """A repository with one standard whose errors chapter has lost its first rule,
-    and whose concurrency chapter is still called `free-threading.md`.
+def repo(tmp_path: Path) -> Path:
+    """A repository with one standard, part-way through a revision.
+
+    Its errors chapter has lost its first rule, and its concurrency
+    chapter is still called `free-threading.md`.
     """
     refs = tmp_path / "skills" / "demo-style" / "references"
     refs.mkdir(parents=True)
     (tmp_path / "skills" / "demo-style" / "SKILL.md").write_text(
-        "---\nname: demo-style\n---\n\n# Demo\n\nSee `references/free-threading.md` DS-FT-01, "
+        "---\nname: demo-style\n---\n\n# Demo\n\n"
+        "See `references/free-threading.md` DS-FT-01, "
         "and DS-ERR-02 then DS-ERR-03, and the `DS-FT` family.\n"
     )
     (refs / "errors.md").write_text(
@@ -49,20 +53,20 @@ def repo(tmp_path):
     return tmp_path
 
 
-def run(repo, **chapters):
+def run(repo: Path, **chapters: str) -> renumber.Plan:
     plan = renumber.plan(repo, "demo-style", chapters, Demo())
     renumber.apply(repo, plan)
     return plan
 
 
-def snapshot(root):
+def snapshot(root: Path) -> dict[Path, bytes]:
     return {p: p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
 
 
 THREADS = {"free-threading": "concurrency"}
 
 
-def test_overlapping_ids_are_rewritten_in_one_pass(repo) -> None:
+def test_overlapping_ids_are_rewritten_in_one_pass(repo: Path) -> None:
     run(repo, **THREADS)
     skill_md = (repo / "skills/demo-style/SKILL.md").read_text()
     # A chain of replacements would turn both into -01.
@@ -71,7 +75,7 @@ def test_overlapping_ids_are_rewritten_in_one_pass(repo) -> None:
     assert {r.id: r.title for r in skill.rules}["DS-ERR-01"] == "Name them"
 
 
-def test_a_chapter_rename_moves_the_file_the_code_and_every_path(repo) -> None:
+def test_a_chapter_rename_moves_the_file_the_code_and_every_path(repo: Path) -> None:
     run(repo, **THREADS)
     refs = repo / "skills/demo-style/references"
     assert not (refs / "free-threading.md").exists()
@@ -80,12 +84,14 @@ def test_a_chapter_rename_moves_the_file_the_code_and_every_path(repo) -> None:
     assert "`references/concurrency.md` DS-CONC-01" in skill_md
     assert "the `DS-CONC` family" in skill_md
     profile = (repo / "src/agent_skill/profiles/demo_style.py").read_text()
-    assert '"DS-ERR-02"' in profile and "references/concurrency.md" in profile
+    assert '"DS-ERR-02"' in profile
+    assert "references/concurrency.md" in profile
     test = (repo / "tests/test_demo.py").read_text()
-    assert "demo-style/references/concurrency.md" in test and "DS-CONC-01" in test
+    assert "demo-style/references/concurrency.md" in test
+    assert "DS-CONC-01" in test
 
 
-def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo) -> None:
+def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo: Path) -> None:
     run(repo, **THREADS)
     (table,) = Skill(repo / "skills/demo-style", Demo()).rename_tables
     assert table.ranges == (("DS-ERR", 2, 3), ("DS-FT", 1, 1), ("DS-MIG", 1, 1))
@@ -97,7 +103,7 @@ def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo) -> None
     assert table.unchanged == ["DS-MIG-01"]
 
 
-def test_a_run_that_changes_nothing_starts_no_table(repo) -> None:
+def test_a_run_that_changes_nothing_starts_no_table(repo: Path) -> None:
     run(repo, **THREADS)
     migration = repo / "skills/demo-style/references/migration.md"
     migration.write_text(
@@ -108,7 +114,7 @@ def test_a_run_that_changes_nothing_starts_no_table(repo) -> None:
     assert migration.read_text() == before
 
 
-def test_an_unlisted_original_gains_a_row_when_it_moves(repo) -> None:
+def test_an_unlisted_original_gains_a_row_when_it_moves(repo: Path) -> None:
     run(repo, **THREADS)
     migration = repo / "skills/demo-style/references/migration.md"
     # A rule added during the revision, ahead of the original DS-MIG-01
@@ -125,11 +131,12 @@ def test_an_unlisted_original_gains_a_row_when_it_moves(repo) -> None:
     assert table.ranges[-1] == ("DS-MIG", 1, 1)
 
 
-def test_an_unlisted_original_that_is_gone_stops_the_run(repo) -> None:
+def test_an_unlisted_original_that_is_gone_stops_the_run(repo: Path) -> None:
     run(repo, **THREADS)
     migration = repo / "skills/demo-style/references/migration.md"
     text = migration.read_text()
     rule = re.search(r"^### DS-MIG-01 .*?(?=^## )", text, re.MULTILINE | re.DOTALL)
+    assert rule is not None
     migration.write_text(
         text.replace("- DS-MIG-01 [M] Use the new name\n", "").replace(rule[0], "")
     )
@@ -139,7 +146,7 @@ def test_an_unlisted_original_that_is_gone_stops_the_run(repo) -> None:
     assert snapshot(repo) == before
 
 
-def test_a_second_run_composes_onto_the_first(repo) -> None:
+def test_a_second_run_composes_onto_the_first(repo: Path) -> None:
     run(repo, **THREADS)
     errors = repo / "skills/demo-style/references/errors.md"
     # A content edit: the first errors rule goes, and its row records
@@ -157,7 +164,7 @@ def test_a_second_run_composes_onto_the_first(repo) -> None:
     assert "### DS-ERR-01 [M] Wrap them" in errors.read_text()
 
 
-def test_a_deleted_rule_without_a_disposition_stops_the_run(repo) -> None:
+def test_a_deleted_rule_without_a_disposition_stops_the_run(repo: Path) -> None:
     run(repo, **THREADS)
     (repo / "skills/demo-style/references/errors.md").write_text(
         chapter("Errors", [("DS-ERR-02", "Wrap them")])
@@ -168,14 +175,14 @@ def test_a_deleted_rule_without_a_disposition_stops_the_run(repo) -> None:
     assert snapshot(repo) == before
 
 
-def test_a_name_outside_the_vocabulary_stops_the_run(repo) -> None:
+def test_a_name_outside_the_vocabulary_stops_the_run(repo: Path) -> None:
     before = snapshot(repo)
     with pytest.raises(renumber.RenumberError, match="vocabulary"):
         run(repo, **{"free-threading": "free-threading-2"})
     assert snapshot(repo) == before
 
 
-def test_an_unknown_id_is_reported_and_left_alone(repo) -> None:
+def test_an_unknown_id_is_reported_and_left_alone(repo: Path) -> None:
     plan = run(repo, **THREADS)
     assert any("DS-ERR-99" in line for line in plan.leftovers)
     assert "DS-ERR-99" in (repo / "tests/test_demo.py").read_text()
@@ -207,7 +214,7 @@ def test_reflow_does_not_join_a_new_list_item_or_a_why() -> None:
         assert f"\ntail\n{nxt}" in out
 
 
-def test_the_counts_skill_md_states_follow_the_rules(repo) -> None:
+def test_the_counts_skill_md_states_follow_the_rules(repo: Path) -> None:
     skill_md = repo / "skills/demo-style/SKILL.md"
     skill_md.write_text(
         "---\nname: demo-style\ndescription: >-\n  A 9-rule library.\n---\n\n"
@@ -217,7 +224,8 @@ def test_the_counts_skill_md_states_follow_the_rules(repo) -> None:
     run(repo, **THREADS)
     text = skill_md.read_text()
     assert "A 4-rule library." in text
-    assert "`DS-ERR` (2)" in text and "`DS-CONC` (1)" in text
+    assert "`DS-ERR` (2)" in text
+    assert "`DS-CONC` (1)" in text
 
 
 def test_reflow_leaves_a_contents_line_whole() -> None:

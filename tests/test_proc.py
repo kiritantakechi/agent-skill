@@ -21,18 +21,22 @@ from agent_skill.proc import declared_pins, pinned_version, version_mismatch
 
 def test_the_pins_are_readable_from_the_source_tree() -> None:
     assert declared_pins() is not None
-    assert pinned_version("rg"), (
+    assert pinned_version("rg") not in (None, ""), (
         "the `rg` pin is read through PACKAGE's `ripgrep-bin` spelling"
     )
 
 
-def test_an_unreadable_declaration_is_not_an_exception(monkeypatch) -> None:
+def test_an_unreadable_declaration_is_not_an_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("agent_skill.proc.declared_pins", lambda: None)
     assert pinned_version("rg") is None
 
 
-def test_an_unreadable_declaration_is_not_agreement(monkeypatch) -> None:
-    """The whole point: silence here used to be a traceback, and before that, a pass."""
+def test_an_unreadable_declaration_is_not_agreement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Silence here used to be a traceback, and before that, a pass."""
     monkeypatch.setattr("agent_skill.proc.declared_pins", lambda: None)
     complaint = version_mismatch("rg", "ripgrep 15.2.0")
     assert complaint is not None, (
@@ -41,8 +45,10 @@ def test_an_unreadable_declaration_is_not_agreement(monkeypatch) -> None:
     assert "installed distribution" in complaint
 
 
-def test_a_missing_pin_reads_differently_from_a_missing_file(monkeypatch) -> None:
-    """One is something to add; the other is how this runs when installed."""
+def test_a_missing_pin_reads_differently_from_a_missing_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One is a pin to add; the other is how an installed copy runs."""
     monkeypatch.setattr(
         "agent_skill.proc.declared_pins", lambda: 'dev = ["ruff==0.16.5"]'
     )
@@ -56,5 +62,7 @@ def test_a_missing_pin_reads_differently_from_a_missing_file(monkeypatch) -> Non
     ("reported", "mismatched"),
     [("ripgrep 15.2.0 (rev e89fff89ac)", False), ("ripgrep 14.1.1", True), ("", True)],
 )
-def test_the_running_version_is_still_compared(reported, mismatched) -> None:
+def test_the_running_version_is_still_compared(
+    reported: str, *, mismatched: bool
+) -> None:
     assert (version_mismatch("rg", reported) is not None) is mismatched

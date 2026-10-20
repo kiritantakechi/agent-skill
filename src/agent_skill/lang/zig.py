@@ -8,11 +8,11 @@ compiles as written.
 
 import re
 from collections import Counter
-lazy from collections.abc import Iterable
 from pathlib import Path
+lazy from collections.abc import Iterable
 
 from agent_skill.lang import Extraction, Unit
-from agent_skill.model import inside_tests, needs_c_object
+from agent_skill.model import Skill, inside_tests, needs_c_object
 from agent_skill.proc import have, run
 from agent_skill.report import Finding, fail, note
 
@@ -47,13 +47,17 @@ _ASSERT = re.compile(r"^(std\.debug\.)?assert\s*\(")
 
 
 class Zig:
+    """The `zig` toolchain: one standalone file per verified block."""
+
     name = "zig"
     tool = "zig"
 
     def missing(self) -> list[str]:
+        """`zig` itself, when it is not on PATH."""
         return [] if have(self.tool) else [f"`{self.tool}` is not on PATH"]
 
-    def extract(self, skill, out: Path) -> Extraction:
+    def extract(self, skill: Skill, out: Path) -> Extraction:
+        """Write each verified block as a file that forces analysis."""
         out = out.resolve()
         out.mkdir(parents=True, exist_ok=True)
         for stale in out.glob("*.zig"):
@@ -71,6 +75,7 @@ class Zig:
         return ex
 
     def verify(self, ex: Extraction) -> Iterable[Finding]:
+        """Analyse each block, run its tests, and check `zig fmt`."""
         for unit in ex.units:
             source = unit.path.read_text()
             # semantic analysis of every declaration, without linking or

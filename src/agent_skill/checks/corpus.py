@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 lazy from agent_skill.checks.patterns import Pattern
+lazy from agent_skill.model import Skill
 lazy from agent_skill.text import strip_comment, syntax_for
 
 
@@ -35,7 +36,7 @@ class Unit:
 
 @dataclass
 class Corpus:
-    """Every line a rule's pattern may be run over, and where each came from."""
+    """Every line a rule's pattern may be run over, and its origin."""
 
     units: list[Unit] = field(default_factory=list)
     in_test: set[int] = field(default_factory=set)
@@ -47,9 +48,11 @@ class Corpus:
 
     @property
     def blocks(self) -> int:
+        """How many examples the corpus holds, one unit each."""
         return len(self.units)
 
-    def build(self, skill, lang: str, work: Path) -> Corpus:
+    def build(self, skill: Skill, lang: str, work: Path) -> Corpus:
+        """Fill the corpus with `skill`'s verified `lang` advice."""
         comment, quotes = syntax_for(lang)
         suffix = {"rust": ".rs", "python": ".py", "zig": ".zig"}.get(lang, ".txt")
         self.raw_dir, self.code_dir = work / "raw", work / "code"
@@ -99,6 +102,7 @@ class Corpus:
         return unit.chapter, unit.rule, unit.at[local], unit.raw[local].strip()[:64]
 
     def lines_for(self, pattern: Pattern) -> list[str]:
+        """Every line, in the form `pattern` is searched against."""
         which = "raw" if pattern.over_comments else "code"
         return [line for unit in self.units for line in getattr(unit, which)]
 
@@ -114,12 +118,12 @@ class Corpus:
 #: trees is deleted the moment its control finishes. An unbounded cache
 #: holds a directory per dead tree for the life of the process.
 _KEEP = 8
-_BUILT: OrderedDict[tuple[str, str], tuple[Corpus, tempfile.TemporaryDirectory]] = (
-    OrderedDict()
-)
+_BUILT: OrderedDict[
+    tuple[str, str], tuple[Corpus, tempfile.TemporaryDirectory[str]]
+] = OrderedDict()
 
 
-def corpus_for(skill, lang: str) -> Corpus:
+def corpus_for(skill: Skill, lang: str) -> Corpus:
     """The corpus for this tree, built once and shared.
 
     604 blocks become 604 files once each example is its own file.

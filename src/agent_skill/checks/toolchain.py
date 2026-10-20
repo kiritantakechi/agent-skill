@@ -7,14 +7,17 @@ it. Extraction is also the only place that can tell "no defects" from
 
 import tempfile
 from pathlib import Path
+lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
 from agent_skill.lang import toolchain_for
-from agent_skill.report import fail, note, unrun
+from agent_skill.report import Finding, fail, note, unrun
+lazy from agent_skill.model import Skill
 
 
 @check("toolchain", "every // verified block compiles, and its tests run", slow=True)
-def toolchain(skill):
+def toolchain(skill: Skill) -> Iterator[Finding]:
+    """Compile every `// verified` block, and run the tests it ships."""
     tc = toolchain_for(skill.profile.toolchain)
     if tc is None:
         return
@@ -35,7 +38,8 @@ def toolchain(skill):
 
 
 @check("mutation", "a shipped test must be able to fail", slow=True)
-def mutation(skill):
+def mutation(skill: Skill) -> Iterator[Finding]:
+    """Statements no shipped test notices being deleted."""
     tc = toolchain_for(skill.profile.toolchain)
     if tc is None:
         return
@@ -46,8 +50,7 @@ def mutation(skill):
     # and a toolchain without it raised `AttributeError` inside a check
     # with no `try` — aborting the whole run rather than reporting one
     # gap.
-    mutate = getattr(tc, "mutate", None)
-    if mutate is None:
+    if getattr(tc, "mutate", None) is None:
         yield unrun(
             f"the {tc.name} toolchain cannot mutate, so no test was pinned", skill.name
         )
@@ -55,4 +58,4 @@ def mutation(skill):
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
         extraction = tc.extract(skill, Path(work) / "out")
         if extraction:
-            yield from mutate(extraction)
+            yield from tc.mutate(extraction)

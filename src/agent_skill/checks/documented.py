@@ -27,11 +27,14 @@ that cannot.
 
 import re
 from pathlib import Path
+lazy from collections.abc import Iterator, Sequence
 
 from agent_skill.checks import check
 from agent_skill.checks.controls import WITHOUT_A_CONTROL
 from agent_skill.report import fail
 lazy from agent_skill.checks import all_checks
+lazy from agent_skill.model import Skill
+lazy from agent_skill.report import Finding
 
 #: `| `name` | catches | added because |` — a table row naming a check.
 ROW = re.compile(r"^\|\s*`([a-z-]+)`\s*\|(.*)\|\s*$", re.MULTILINE)
@@ -53,8 +56,12 @@ CELL = re.compile(r"(?<!\\)\|")
 #: 18" would be false the next time one is registered.
 CONTROLS_SCOPE = "every check except those exempted"
 
+#: The cells a row needs after the name: what it catches, and why it was
+#: added.
+MIN_CELLS = 2
 
-def readme(skills) -> Path:
+
+def readme(skills: Sequence[Skill]) -> Path:
     """Beside the tree being checked, not beside this file.
 
     `controls` copies the tree, injects a defect and re-runs the check
@@ -68,16 +75,17 @@ def readme(skills) -> Path:
 
 
 def documented_rows(text: str) -> dict[str, tuple[str, str]]:
-    """Each documented check: what the table says it catches, and why it was added.
+    """Each documented check: what it catches, and why it was added.
 
-    A row with fewer than two cells after the name is not a row this can
-    read, and is left out — which surfaces as the check it names being
-    undocumented, rather than as silence.
+    Both as the table states them. A row with fewer than two cells after
+    the name is not a row this can read, and is left out — which
+    surfaces as the check it names being undocumented, rather than as
+    silence.
     """
     found: dict[str, tuple[str, str]] = {}
     for name, rest in ROW.findall(text):
         cells = [c.strip() for c in CELL.split(rest)]
-        if len(cells) >= 2:
+        if len(cells) >= MIN_CELLS:
             found[name] = (cells[0], cells[-1])
     return found
 
@@ -87,7 +95,8 @@ def documented_rows(text: str) -> dict[str, tuple[str, str]]:
     "the README's claims about the checks, against the checks",
     scope="all",
 )
-def documented(skills):
+def documented(skills: Sequence[Skill]) -> Iterator[Finding]:
+    """The README's table of checks, against the checks registered."""
     source = readme(skills)
     if not source.is_file():
         yield fail(f"no README at {source}", "documented")
@@ -98,8 +107,8 @@ def documented(skills):
 
     for name in sorted(registered - set(rows)):
         yield fail(
-            f"`{name}` is registered and the README documents no row for it — the file that "
-            f"promises a reason for every check is missing one",
+            f"`{name}` is registered and the README documents no row for it — "
+            "the file that promises a reason for every check is missing one",
             "documented",
         )
     for name in sorted(set(rows) - registered):
@@ -112,9 +121,9 @@ def documented(skills):
     for name in sorted(set(rows) & registered):
         if not rows[name][1].strip():
             yield fail(
-                f"`{name}` is documented with no reason it was added — the table's claim is that "
-                f"every check has one. Whether the reason is true is a reviewer's call; whether "
-                f"there is one is this check's",
+                f"`{name}` is documented with no reason it was added — the table's "
+                "claim is that every check has one. Whether the reason is true is a "
+                "reviewer's call; whether there is one is this check's",
                 "documented",
             )
 
@@ -123,9 +132,10 @@ def documented(skills):
     # edited.
     if "controls" in rows and CONTROLS_SCOPE not in rows["controls"][0]:
         yield fail(
-            f"the `controls` row describes its scope as {rows['controls'][0].strip()!r}, which "
-            f"does not say {CONTROLS_SCOPE!r} — it covers every check except the "
-            f"{len(WITHOUT_A_CONTROL)} in `WITHOUT_A_CONTROL`, and a row stating a count or an "
-            f"'every' goes stale the next time that mapping changes",
+            "the `controls` row describes its scope as "
+            f"{rows['controls'][0].strip()!r}, which does not say {CONTROLS_SCOPE!r} "
+            "— it covers every check except the "
+            f"{len(WITHOUT_A_CONTROL)} in `WITHOUT_A_CONTROL`, and a row stating a "
+            "count or an 'every' goes stale the next time that mapping changes",
             "documented",
         )

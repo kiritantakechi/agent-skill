@@ -2,61 +2,74 @@
 
 import zipfile
 from dataclasses import replace
+lazy from pathlib import Path
 
 import pytest
 
 from agent_skill.build import TARGETS, install, package
 from agent_skill.model import Skill
+lazy from agent_skill.build import Target
 
 
 @pytest.fixture
-def target(tmp_path):
+def target(tmp_path: Path) -> Target:
     home = tmp_path / "agent"
     (home / "skills").mkdir(parents=True)
     return replace(TARGETS[0], name="fake", skills=home / "skills", marker=home)
 
 
 @pytest.fixture
-def skill(scratch):
+def skill(scratch: Path) -> Skill:
     return Skill(scratch / "rust-style")
 
 
-def test_links_rather_than_copies(target, skill) -> None:
+def test_links_rather_than_copies(target: Target, skill: Skill) -> None:
     link, how = install(skill, target)
     assert how == "linked"
-    assert link.is_symlink() and link.readlink() == skill.root
+    assert link.is_symlink()
+    assert link.readlink() == skill.root
 
 
-def test_relinking_is_a_no_op(target, skill) -> None:
+def test_relinking_is_a_no_op(target: Target, skill: Skill) -> None:
     install(skill, target)
     _, how = install(skill, target)
     assert how == "already linked"
 
 
-def test_a_stale_link_is_repointed(target, skill, tmp_path) -> None:
+def test_a_stale_link_is_repointed(
+    target: Target, skill: Skill, tmp_path: Path
+) -> None:
     (target.skills / skill.name).symlink_to(tmp_path / "somewhere-else")
     link, how = install(skill, target)
     assert how == "linked"
     assert link.readlink() == skill.root
 
 
-def test_a_copy_in_the_way_leaves_the_discovery_path(target, skill) -> None:
-    """`skills/<name>.replaced` beside `skills/<name>` is a second skill
-    claiming the same name, because discovery reads the name from frontmatter.
+def test_a_copy_in_the_way_leaves_the_discovery_path(
+    target: Target, skill: Skill
+) -> None:
+    """A displaced copy must leave `skills/`, or it is a second skill.
+
+    `skills/<name>.replaced` beside `skills/<name>` is a second skill
+    claiming the same name, because discovery reads the name from
+    frontmatter.
     """
     stale = target.skills / skill.name
     stale.mkdir()
     (stale / "SKILL.md").write_text("---\nname: rust-style\n---\n")
 
     link, how = install(skill, target)
-    assert link.is_symlink() and link.readlink() == skill.root
+    assert link.is_symlink()
+    assert link.readlink() == skill.root
     assert "moved to" in how
     assert (target.displaced / skill.name / "SKILL.md").exists()
     assert not target.displaced.is_relative_to(target.skills)
     assert [p.name for p in target.skills.iterdir()] == [skill.name]
 
 
-def test_a_second_displacement_refuses_rather_than_clobbering(target, skill) -> None:
+def test_a_second_displacement_refuses_rather_than_clobbering(
+    target: Target, skill: Skill
+) -> None:
     (target.displaced / skill.name).mkdir(parents=True)
     stale = target.skills / skill.name
     stale.mkdir()
@@ -70,7 +83,7 @@ def test_targets_are_distinct() -> None:
     assert len({t.skills for t in TARGETS}) == len(TARGETS)
 
 
-def test_the_package_holds_only_the_skill(tmp_path, skill) -> None:
+def test_the_package_holds_only_the_skill(tmp_path: Path, skill: Skill) -> None:
     archive = package(skill, tmp_path)
     with zipfile.ZipFile(archive) as z:
         names = z.namelist()

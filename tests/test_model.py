@@ -20,7 +20,7 @@ from agent_skill.text import code_only, strip_comment, syntax_for
         ("// fragment — (quoted from std/testing.zig)", "fragment", "", False),
     ],
 )
-def test_marker_grammar(raw, kind, verdict, bad) -> None:
+def test_marker_grammar(raw: str, kind: str, verdict: str, *, bad: bool) -> None:
     m = Marker(raw)
     assert m.valid
     assert m.kind == kind
@@ -35,7 +35,8 @@ def test_bad_in_a_qualifier_is_not_a_verdict() -> None:
 
 def test_quotation_is_evidence() -> None:
     m = Marker("// fragment — (quoted from std/testing.zig)")
-    assert m.quotation and m.evidence
+    assert m.quotation
+    assert m.evidence
 
 
 def test_strip_comment_keeps_a_url() -> None:
@@ -51,11 +52,11 @@ def test_code_only_preserves_line_count() -> None:
 
 
 def test_python_floor_division_is_not_a_comment() -> None:
-    """`//` is an operator in Python, and reading it as a comment truncated code.
+    """`//` is an operator in Python, not the start of a comment.
 
-    Under the default syntax this line becomes `q = total `, so any
-    Check a pattern searching for something after a floor division could
-    not fire at all.
+    Reading it as a comment truncated code: under the default syntax
+    this line becomes `q = total `, so any Check a pattern searching for
+    something after a floor division could not fire at all.
     """
     line = "q = total // count"
     assert strip_comment(line) == "q = total "
@@ -70,7 +71,7 @@ def test_python_hash_comment_is_stripped_but_not_inside_a_string() -> None:
 
 
 def test_rust_keeps_the_default_and_single_quotes_stay_lifetimes() -> None:
-    """Enabling `'` as a delimiter for Rust would swallow the rest of the line."""
+    """A `'` delimiter for Rust would swallow the rest of the line."""
     assert strip_comment("fn f<'a>(s: &'a str) -> &'a str { s } // tail") == (
         "fn f<'a>(s: &'a str) -> &'a str { s } "
     )

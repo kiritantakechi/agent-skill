@@ -9,6 +9,7 @@ import re
 import pytest
 
 from agent_skill.checks.patterns import dialect_of, patterns_of
+lazy from agent_skill.model import Skill
 
 
 @pytest.mark.parametrize(
@@ -20,7 +21,7 @@ from agent_skill.checks.patterns import dialect_of, patterns_of
         ("rg --fixed-strings 'a|b'", "-F"),
     ],
 )
-def test_a_command_is_a_regex_unless_it_says_fixed(command, mode) -> None:
+def test_a_command_is_a_regex_unless_it_says_fixed(command: str, mode: str) -> None:
     """Two values, not three.
 
     The library used to hold basic and extended expressions at once,
@@ -39,7 +40,7 @@ def test_a_shipped_command_is_taken_as_written() -> None:
 
 
 def test_a_filename_argument_is_not_a_pattern() -> None:
-    """A file argument read as a pattern is a build break, not a missed hit.
+    """A filename read as a pattern is a build break, not a missed hit.
 
     A command-kind hit is tier 1, so every example naming the file would
     fail the standard. `*.c` and `*.h` were missing from the list and
@@ -54,15 +55,17 @@ def test_a_filename_argument_is_not_a_pattern() -> None:
 
 
 def test_a_prose_span_is_a_fixed_string() -> None:
-    """Compiling `|x| f(x)` as a regex turned it into an alternation matching
-    every line, which is how the first version produced five thousand hits.
+    """Compiling `|x| f(x)` as a regex made it match every line.
+
+    It became an alternation, which is how the first version produced
+    five thousand hits.
     """
     patterns = patterns_of("**Check:** search for `|x| f(x)` at every call site.")
     assert [(p.text, p.mode, p.kind) for p in patterns] == [("|x| f(x)", "-F", "prose")]
 
 
 def test_a_prose_check_still_phrased_as_grep_is_read() -> None:
-    """Most Checks that name a search say it in prose rather than shipping a command.
+    """Most Checks that name a search say it in prose, with no command.
 
     Rewriting those is not part of the migration to `rg`, so the trigger
     still recognises the word — a verb in prose is not a tool
@@ -76,8 +79,10 @@ def test_a_check_that_names_no_pattern_yields_none() -> None:
     assert patterns_of("**Check:** read the function and judge it.") == []
 
 
-def test_the_prose_fallback_has_something_to_fall_back_on(skills) -> None:
-    """The branch that reads a prose Check is dead code if nothing reaches it.
+def test_the_prose_fallback_has_something_to_fall_back_on(
+    skills: list[Skill],
+) -> None:
+    """The branch for a prose Check is dead code if nothing reaches it.
 
     `patterns_of` only looks for a backticked span when the Check names
     a search without shipping a command. That population shrinks every

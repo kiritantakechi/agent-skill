@@ -9,12 +9,14 @@ whether a type's name matches the trait it implements.
 """
 
 import re
-lazy from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import override
+lazy from collections.abc import Iterable, Iterator
 
 from agent_skill.lang.rust import BEVY_STYLE, Crate
 from agent_skill.profiles import NotDecisive, Profile, register
 from agent_skill.report import Finding, fail
+lazy from agent_skill.model import Block, Skill
 
 #: `#[derive(Component, Debug, …)]`, possibly wrapped across lines by
 #: rustfmt.
@@ -42,6 +44,8 @@ IMPL_PLUGIN = re.compile(r"^impl Plugin for (\w+)", re.MULTILINE)
 
 @dataclass
 class BevyStyle(Profile):
+    """What bevy-style's checks need to know about it."""
+
     name: str = "bevy-style"
     prefix: str = "BV"
     languages: tuple[str, ...] = ("rust",)
@@ -55,30 +59,40 @@ class BevyStyle(Profile):
     )
     strict_scope: str = "shipped and long-running"
     delta_step: str = (
-        "**Load `rust-style` as well** for anything that is a Rust question rather than a Bevy "
-        "question."
+        "**Load `rust-style` as well** for anything that is a Rust question "
+        "rather than a Bevy question."
     )
     crate: Crate | None = BEVY_STYLE
     #: Each snippet is the defect its rule forbids, written the way it
     #: turns up in real code. A fixture shaped to match proves the
     #: fixture, not the pattern.
-    fires: dict = field(
+    fires: dict[str, tuple[str, ...]] = field(
         default_factory=lambda: {
             "BV-EVENT-09": ("commands.trigger_targets(Damage(5), target);",),
             "BV-MIG-14": (
                 "fn on_enemy_added(add: On<Add, Enemy>, mut commands: Commands) {",
                 (
-                    'let observer = Observer::new(|add: On<Add>| info!("{}", add.entity))'
+                    "let observer = Observer::new("
+                    '|add: On<Add>| info!("{}", add.entity))'
                     ".with_component(health);"
                 ),
             ),
             "BV-MIG-15": (
-                "fn start_game(click: On<Pointer<Click>>, mut starts: ResMut<Starts>) {",
-                'info!("{:?} at {}", press.pointer_id, press.pointer_location.position);',
+                (
+                    "fn start_game(click: On<Pointer<Click>>, "
+                    "mut starts: ResMut<Starts>) {"
+                ),
+                (
+                    'info!("{:?} at {}", press.pointer_id, '
+                    "press.pointer_location.position);"
+                ),
             ),
             "BV-MIG-16": (
                 "next.as_mut().set_if_neq(Screen::Playing);",
-                "fn style_buttons(mut buttons: Query<(&Interaction, &mut BackgroundColor)>) {",
+                (
+                    "fn style_buttons("
+                    "mut buttons: Query<(&Interaction, &mut BackgroundColor)>) {"
+                ),
                 "let mut placeholder: AssetId<Image> = AssetId::invalid();",
             ),
             "BV-MIG-17": (
@@ -99,77 +113,84 @@ class BevyStyle(Profile):
     #: hit is a defect — never how many examples it hit the day someone
     #: measured, which is a number `_render` already prints live two
     #: fields away and nothing re-measures.
-    not_decisive: dict = field(
+    not_decisive: dict[str, NotDecisive] = field(
         default_factory=lambda: {
             "BV-ECS-12": NotDecisive(
                 "Vec<Entity>",
-                "the span finds every `Vec<Entity>`; whether that link is a relationship, or "
-                "carries a written reason it cannot be one, decides",
+                "the span finds every `Vec<Entity>`; whether that link is a "
+                "relationship, or carries a written reason it cannot be one, decides",
             ),
             "BV-ECS-14": NotDecisive(
                 "Handle<",
-                "the span finds every handle; whether it sits bare inside a `spawn` tuple rather "
-                "than in a component of its own decides",
+                "the span finds every handle; whether it sits bare inside a `spawn` "
+                "tuple rather than in a component of its own decides",
             ),
             "BV-MIG-18": NotDecisive(
                 ".clone()",
-                "the span finds every `.clone()`; whether the receiver is a `Ref<`, where the "
-                "call's meaning changed, decides — and the type is not on the line",
+                "the span finds every `.clone()`; whether the receiver is a `Ref<`, "
+                "where the call's meaning changed, decides — and the type is not on "
+                "the line",
             ),
             "BV-MIG-19": NotDecisive(
                 "iter_many",
-                "the span finds every `iter_many` call; whether the iterator is counted or tested "
-                "for presence, where a `Result` item still counts, rather than consumed item by "
-                "item, decides — and the consumer is often not on the line",
+                "the span finds every `iter_many` call; whether the iterator is "
+                "counted or tested for presence, where a `Result` item still counts, "
+                "rather than consumed item by item, decides — and the consumer is "
+                "often not on the line",
             ),
             "BV-SCHED-09": NotDecisive(
                 "just_pressed",
-                "the span finds every input read; whether the system runs in `FixedUpdate` rather "
-                "than `Update` decides, and the schedule is not on the line",
+                "the span finds every input read; whether the system runs in "
+                "`FixedUpdate` rather than `Update` decides, and the schedule is not "
+                "on the line",
             ),
             "BV-SCHED-13": NotDecisive(
                 "configure_sets",
-                "the span finds every set configuration; whether that set is configured more than "
-                "once decides, which is a fact about the whole file",
+                "the span finds every set configuration; whether that set is "
+                "configured more than once decides, which is a fact about the whole "
+                "file",
             ),
             "BV-SCHED-26": NotDecisive(
                 "run_if",
-                "the span finds every run condition; whether it gates on a `paused` flag rather "
-                "than on `Time<Virtual>` decides",
+                "the span finds every run condition; whether it gates on a `paused` "
+                "flag rather than on `Time<Virtual>` decides",
             ),
             "BV-STATE-04": NotDecisive(
                 "insert_resource",
-                "the span finds every `insert_resource`; whether it is inside a `Startup` system, "
-                "and whether the value depends on the world, decides",
+                "the span finds every `insert_resource`; whether it is inside a "
+                "`Startup` system, and whether the value depends on the world, decides",
             ),
             "BV-TEST-11": NotDecisive(
                 "entities().len()",
-                "the span finds every entity count; whether the assert is about a total rather "
-                "than about the component the test cares about decides",
+                "the span finds every entity count; whether the assert is about a "
+                "total rather than about the component the test cares about decides",
             ),
             "BV-VIEW-04": NotDecisive(
                 "Text::new",
-                "the span finds every text spawn; whether the same tuple also carries a font and a "
-                "colour decides, which the matched line does not show",
+                "the span finds every text spawn; whether the same tuple also carries "
+                "a font and a colour decides, which the matched line does not show",
             ),
         }
     )
 
+    @override
     def pin(self) -> str | None:
         """The exact `bevy` version the verified crate depends on."""
         for dep in self.crate.dependencies if self.crate else ():
             if m := re.match(r'bevy = \{ version = "=([0-9][^"]*)"', dep):
-                return m.group(1)
+                return str(m.group(1))
         return None
 
-    def conventions(self, skill) -> Iterable[Finding]:
+    @override
+    def conventions(self, skill: Skill) -> Iterable[Finding]:
+        """bevy-style's own rules, applied to its own examples."""
         for b in skill.advice("rust"):
             yield from _component_shape(b)
             yield from _suffixes(b)
 
 
-def _component_shape(block) -> Iterable[Finding]:
-    """What every component in this standard's own examples must look like.
+def _component_shape(block: Block) -> Iterator[Finding]:
+    """What every component in this standard's examples must look like.
 
     BV-ECS-01 public fields, BV-ECS-03 `Debug` and `Reflect` with
     `#[reflect(Component)]`, BV-ECS-10 the marker set. None of the three
@@ -183,7 +204,8 @@ def _component_shape(block) -> Iterable[Finding]:
             derives |= {t.strip() for t in d.group(1).split(",")}
         if "Component" not in derives:
             continue
-        where = f"{block.file}:{block.at(block.body[: m.start()].count(chr(10)))} [{block.rule}]"
+        line = block.at(block.body[: m.start()].count(chr(10)))
+        where = f"{block.file}:{line} [{block.rule}]"
 
         fields = (m.group("tuple") or m.group("named") or "").strip()
         want = MARKER_DERIVES if not fields else DATA_DERIVES
@@ -207,8 +229,8 @@ def _component_shape(block) -> Iterable[Finding]:
                 yield fail(f"BV-ECS-01: `{name}` has a private field — {member}", where)
 
 
-def _suffixes(block) -> Iterable[Finding]:
-    """BV-ARCH-09 and BV-ARCH-10 — what a plugin type is called, and what it derives.
+def _suffixes(block: Block) -> Iterator[Finding]:
+    """BV-ARCH-09 and BV-ARCH-10 — a plugin type's name and derives.
 
     A plugin written as a function is caught by BV-ARCH-09's own
     pattern, which the self-application check runs. What is left for
@@ -221,7 +243,8 @@ def _suffixes(block) -> Iterable[Finding]:
         where = f"{block.file}:{line} [{block.rule}]"
         if not name.endswith(SUFFIX["Plugin"]):
             yield fail(
-                f"BV-ARCH-10: `{name}` implements `Plugin` and does not end in `Plugin`",
+                f"BV-ARCH-10: `{name}` implements `Plugin` "
+                "and does not end in `Plugin`",
                 where,
             )
         declared = re.search(
@@ -250,7 +273,8 @@ def _suffixes(block) -> Iterable[Finding]:
         name = re.search(r"\b(?:struct|enum)\s+(\w+)", decl)
         if name and not name.group(1).endswith(SUFFIX["SystemSet"]):
             yield fail(
-                f"BV-ARCH-10: `{name.group(1)}` derives `SystemSet` and does not end in `Systems`",
+                f"BV-ARCH-10: `{name.group(1)}` derives `SystemSet` "
+                "and does not end in `Systems`",
                 f"{block.file}:{block.at(i)} [{block.rule}]",
             )
 

@@ -22,8 +22,10 @@ import re
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
+lazy from collections.abc import Iterator
 
 from agent_skill.text import syntax_for
+lazy from agent_skill.model import Skill
 
 HERE = Path(__file__).parent
 
@@ -43,8 +45,8 @@ SEVERITIES: tuple[tuple[str, str], ...] = (
     (
         "Stale",
         (
-            "A spelling the target superseded — fails to build, or worse, builds and means "
-            "something else"
+            "A spelling the target superseded — fails to build, or worse, "
+            "builds and means something else"
         ),
     ),
     ("Incorrect", "Produces wrong results or crashes on reachable input"),
@@ -68,13 +70,17 @@ REVIEW = "references/review-checklist.md"
 
 @dataclass(frozen=True, slots=True)
 class Passage:
-    """One shared passage: where it lives, and the template it is filled from."""
+    """One shared passage.
+
+    Where it lives, and the template it is filled from.
+    """
 
     document: str  #: path relative to the skill root
     section: str  #: the H2 it fills
     template: str  #: file under this package
 
     def text(self) -> str:
+        """The template, read from this package."""
         return (HERE / self.template).read_text()
 
 
@@ -89,12 +95,15 @@ PASSAGES: tuple[Passage, ...] = (
 
 
 def major_minor(version: str | None) -> str:
-    """`1.99` from `1.99`, `3.15` from `3.15.0rc1`, `0.20` from `0.20.0`."""
-    m = re.match(r"(\d+\.\d+)", version or "")
-    return m.group(1) if m else ""
+    """The major.minor of `version`, or "" when it has none.
+
+    `1.99` from `1.99`, `3.15` from `3.15.0rc1`, `0.20` from `0.20.0`.
+    """
+    m = re.match(r"\d+\.\d+", version or "")
+    return m.group(0) if m else ""
 
 
-def skill_sections(skill) -> tuple[str, ...]:
+def skill_sections(skill: Skill) -> tuple[str, ...]:
     """The H2s of a conforming `SKILL.md`, in order."""
     target = f"{skill.profile.language} {major_minor(skill.profile.pin())}"
     return (
@@ -109,12 +118,12 @@ def skill_sections(skill) -> tuple[str, ...]:
     )
 
 
-def title(skill) -> str:
+def title(skill: Skill) -> str:
     """The H1 of a conforming `SKILL.md`."""
     return f"# {skill.profile.language} Style — {major_minor(skill.profile.pin())}"
 
 
-def slots(skill) -> dict[str, str]:
+def slots(skill: Skill) -> dict[str, str]:
     """Every value a template may name, for one skill."""
     profile = skill.profile
     crate = profile.crate
@@ -148,18 +157,21 @@ def render(passage: Passage, values: dict[str, str]) -> list[str]:
         # Substituted first, it would leave a blank line, which ends the
         # list it was in.
         alone = re.fullmatch(r"\{([a-z_]+)\}", line.strip())
-        if alone and not values.get(alone.group(1)):
+        if alone and not values.get(alone.group(1), ""):
             continue
         lines.append(_SLOT.sub(lambda m: values.get(m.group(1), m.group(0)), line))
     return [_renumber(b) for b in blocks("\n".join(lines))]
 
 
 def _renumber(block: str) -> str:
-    """Number a list's items 1, 2, 3 …, so an optional item does not leave a gap."""
+    """Number a list's items consecutively from 1.
+
+    1, 2, 3 …, so an optional item that was left out leaves no gap.
+    """
     if not _ITEM.match(block):
         return block
     count = iter(range(1, 1000))
-    return _ITEM.sub(lambda m: f"{next(count)}. ", block)
+    return _ITEM.sub(lambda _: f"{next(count)}. ", block)
 
 
 def blocks(text: str) -> list[str]:
@@ -182,11 +194,16 @@ def blocks(text: str) -> list[str]:
 
 
 def normal(block: str) -> str:
+    """`block` with every run of whitespace collapsed to one space."""
     return " ".join(block.split())
 
 
 def section(text: str, heading: str) -> tuple[int, int] | None:
-    """The line span of an H2's body — after its heading, up to the next H2."""
+    """The line span of an H2's body.
+
+    It runs from after its heading up to the next H2. None when `text`
+    has no such heading.
+    """
     lines = text.split("\n")
     fenced = False
     start: int | None = None
@@ -225,7 +242,7 @@ class Alignment:
     pairs: dict[int, int]
 
     def gaps(self) -> list[tuple[int, list[int]]]:
-        """For each template position, the unpaired actual blocks that sit there.
+        """The unpaired actual blocks at each template position.
 
         A gap is keyed by the template index of the block that follows
         it, or by `len(template)` for the tail.
@@ -241,15 +258,23 @@ class Alignment:
         return out
 
     def free_before(self, t: int) -> bool:
-        """Is there a free region in the template immediately before index `t`?"""
+        """Is there a free region immediately before index `t`?
+
+        In the template, with only unpaired blocks between the two.
+        """
         k = t - 1
         while k >= 0 and k not in self.pairs and self.template[k] != FREE:
             k -= 1
         return k >= 0 and self.template[k] == FREE
 
 
+#: The `difflib` ratio at or above which an edited block still counts as
+#: the copy of a template block.
+_ALIKE = 0.6
+
+
 def align(template: list[str], actual: list[str]) -> Alignment:
-    """Pair each fixed template block with the actual block that is its copy.
+    """Pair each fixed template block with its copy in `actual`.
 
     Exact matches first, in order. A block that was edited still has a
     counterpart — the closest unpaired block between its neighbours' —
@@ -278,13 +303,13 @@ def align(template: list[str], actual: list[str]) -> Alignment:
             for a in range(lo, hi)
         ]
         best = max(scored, default=(0.0, -1))
-        if best[0] >= 0.6:
+        if best[0] >= _ALIKE:
             pairs[t] = best[1]
     return Alignment(template, actual, pairs)
 
 
 def first_difference(want: str, got: str) -> str:
-    """The first word at which two blocks part, with a little context."""
+    """The first word where two blocks part, with a little context."""
     a, b = normal(want).split(), normal(got).split()
     i = next(
         (k for k, (x, y) in enumerate(zip(a, b, strict=False)) if x != y),
@@ -294,7 +319,10 @@ def first_difference(want: str, got: str) -> str:
 
 
 def wrap(block: str) -> str:
-    """A block rewrapped to `WIDTH`: tables kept, list items hanging-indented."""
+    """A block rewrapped to `WIDTH`.
+
+    A table is kept as it is, and a list item gets a hanging indent.
+    """
     if block.startswith("|"):
         return block
     if _ITEM.match(block):
@@ -320,7 +348,7 @@ def wrap(block: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class Copy:
-    """One passage as a skill carries it, aligned against the template."""
+    """One passage as a skill carries it, aligned to its template."""
 
     passage: Passage
     path: Path
@@ -328,9 +356,11 @@ class Copy:
     alignment: Alignment
 
 
-def copies(skill):
-    """Every shared passage the skill carries, aligned. A missing section is skipped:
-    the skeleton check owns the shape, and reporting it twice is one defect as two.
+def copies(skill: Skill) -> Iterator[Copy]:
+    """Every shared passage the skill carries, aligned.
+
+    A missing section is skipped: the skeleton check owns the shape, and
+    reporting it twice is one defect as two.
     """
     values = slots(skill)
     for passage in PASSAGES:
@@ -345,8 +375,11 @@ def copies(skill):
         yield Copy(passage, path, span, align(render(passage, values), blocks(body)))
 
 
-def compare(skill):
-    """(message, where) for every way a skill's copies differ from the template."""
+def compare(skill: Skill) -> Iterator[tuple[str, str]]:
+    """Every way a skill's copies differ from the template.
+
+    Each as (message, where).
+    """
     for copy in copies(skill):
         al = copy.alignment
         where = f"{skill.name}/{copy.passage.document} § {copy.passage.section}"
@@ -365,12 +398,13 @@ def compare(skill):
                 yield f"text the template has no place for: `{stray}`", where
 
 
-def rewrite(skill) -> list[str]:
-    """Rewrite every copy from the template, keeping what the skill wrote in the free regions.
+def rewrite(skill: Skill) -> list[str]:
+    """Rewrite every copy from the template.
 
-    A section with text outside any free region is left alone and
-    reported: the rewrite would have to drop that text or guess where it
-    goes, and neither is a formatter's decision.
+    What the skill wrote in the free regions is kept. A section with
+    text outside any free region is left alone and reported: the
+    rewrite would have to drop that text or guess where it goes, and
+    neither is a formatter's decision.
     """
     changed: list[str] = []
     for copy in copies(skill):

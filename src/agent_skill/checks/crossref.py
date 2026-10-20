@@ -1,4 +1,4 @@
-"""Citations into another skill, and the table that says the two disagree.
+"""Citations into another skill, and the table saying they disagree.
 
 `bevy-style` is a delta on `rust-style`: it states what changes when
 Bevy is in the dependency list and defers for everything else. That
@@ -13,14 +13,17 @@ it cannot be: the claim is about a document nobody here can read.
 
 import re
 from pathlib import Path
+lazy from collections.abc import Iterator, Sequence
 
 from agent_skill.checks import check
 from agent_skill.report import fail, note, unrun
-lazy from agent_skill.checks.corpus import corpus_for
+lazy from agent_skill.checks.corpus import Corpus, corpus_for
 lazy from agent_skill.checks.patterns import patterns_of
 lazy from agent_skill.checks.search import find, searcher_problem
+lazy from agent_skill.model import Rule, Skill
+lazy from agent_skill.report import Finding
 
-#: `| `RS-API-23` Keep every struct field private | `BV-ECS-01` — … | … |`
+#: `| `RS-API-23` Keep every struct field private | `BV-ECS-01` — … |`
 OVERRIDE_ROW = re.compile(
     r"^\|\s*`([A-Z]{2}-[A-Z]+-\d+[a-z]?)`\s*(.*?)\s*\|\s*`([A-Z]{2}-[A-Z]+-\d+[a-z]?)`",
     re.MULTILINE,
@@ -29,7 +32,7 @@ OVERRIDE_ROW = re.compile(
 CITATION = re.compile(r"\b([A-Z]{2})-([A-Z]+-\d+[a-z]?)\b")
 
 
-def _ids(skill) -> set[str]:
+def _ids(skill: Skill) -> set[str]:
     return {r.id for r in skill.rules} | {rid for rid, _, _ in skill.core_rules}
 
 
@@ -46,7 +49,9 @@ APPARATUS = ("src", "tests", "README.md")
 FIXTURES = ("checks/controls.py", "tests/test_crossref.py")
 
 
-def _apparatus_citations(known: dict[str, set[str]], root: Path | None = None):
+def _apparatus_citations(
+    known: dict[str, set[str]], root: Path | None = None
+) -> Iterator[Finding]:
     """A rule id named in the code or the README still has to resolve.
 
     `root` is injectable so this has a real test: the control harness
@@ -54,7 +59,7 @@ def _apparatus_citations(known: dict[str, set[str]], root: Path | None = None):
     reads.
     """
     root = root or Path(__file__).resolve().parents[3]
-    files = []
+    files: list[Path] = []
     for name in APPARATUS:
         target = root / name
         files += sorted(target.rglob("*.py")) if target.is_dir() else [target]
@@ -72,7 +77,10 @@ def _apparatus_citations(known: dict[str, set[str]], root: Path | None = None):
 
 
 def _plain(s: str) -> str:
-    """Titles are quoted with backticks in one place and not the other."""
+    """A title, comparable however it was quoted.
+
+    Titles are quoted with backticks in one place and not the other.
+    """
     return " ".join(s.replace("`", "").split()).lower()
 
 
@@ -82,51 +90,21 @@ def _plain(s: str) -> str:
     scope="all",
     needs=("rg",),
 )
-def crossref(skills):
+def crossref(skills: Sequence[Skill]) -> Iterator[Finding]:
+    """Every citation across skills, and each delta's override table."""
     by_prefix = {s.prefix: s for s in skills}
     known = {p: _ids(s) for p, s in by_prefix.items()}
     titles = {p: {r.id: r.title for r in s.rules} for p, s in by_prefix.items()}
 
     for skill in skills:
-        for path in skill.markdown:
-            text = path.read_text()
-            where = f"{skill.name}/{path.name}"
-            for m in CITATION.finditer(text):
-                prefix = m.group(1)
-                if prefix == skill.prefix or prefix not in known:
-                    continue
-                if m.group(0) not in known[prefix]:
-                    yield fail(
-                        f"cites {m.group(0)}, which is not a rule in {by_prefix[prefix].name}",
-                        where,
-                    )
+        yield from _citations(skill, by_prefix, known)
 
         # The override table: each row names a rule of the other
         # standard, the rule that applies instead, and enough of the
         # other's title to prove the row still points where it did when
         # it was written.
         rows = list(OVERRIDE_ROW.finditer(skill.text))
-        for m in rows:
-            theirs, quoted, ours = m.group(1), m.group(2), m.group(3)
-            if theirs.startswith(skill.prefix) or theirs[:2] not in titles:
-                continue
-            if ours not in _ids(skill):
-                yield fail(
-                    f"override row names {ours}, which is not a rule here", skill.name
-                )
-            actual = titles[theirs[:2]].get(theirs)
-            if actual is None:
-                continue  # the citation check above already reported it
-            # The whole title, not a prefix of it. A title's tail is
-            # where its scope lives — `RS-BUILD-23` ends "in a library"
-            # — so a row that quotes a prefix can invent a divergence by
-            # dropping the clause that rules it out. Two rows did
-            # exactly that.
-            if quoted and _plain(actual) != _plain(quoted):
-                yield fail(
-                    f"override row quotes {quoted!r} for {theirs}, which is titled {actual!r}",
-                    skill.name,
-                )
+        yield from _override_rows(skill, rows, titles)
 
         yield from _anchor_patterns(skill, by_prefix, rows)
 
@@ -145,7 +123,56 @@ def crossref(skills):
     yield from _apparatus_citations(known)
 
 
-def _anchor_patterns(skill, by_prefix, rows):
+def _citations(
+    skill: Skill, by_prefix: dict[str, Skill], known: dict[str, set[str]]
+) -> Iterator[Finding]:
+    """Every id this skill cites in another skill names a rule there."""
+    for path in skill.markdown:
+        text = path.read_text()
+        where = f"{skill.name}/{path.name}"
+        for m in CITATION.finditer(text):
+            prefix = m.group(1)
+            if prefix == skill.prefix or prefix not in known:
+                continue
+            if m.group(0) not in known[prefix]:
+                yield fail(
+                    f"cites {m.group(0)}, "
+                    f"which is not a rule in {by_prefix[prefix].name}",
+                    where,
+                )
+
+
+def _override_rows(
+    skill: Skill, rows: list[re.Match[str]], titles: dict[str, dict[str, str]]
+) -> Iterator[Finding]:
+    """Each override row names a rule here and quotes a title whole."""
+    for m in rows:
+        theirs, quoted, ours = m.group(1), m.group(2), m.group(3)
+        if theirs.startswith(skill.prefix) or theirs[:2] not in titles:
+            continue
+        if ours not in _ids(skill):
+            yield fail(
+                f"override row names {ours}, which is not a rule here", skill.name
+            )
+        actual = titles[theirs[:2]].get(theirs)
+        if actual is None:
+            continue  # the citation check above already reported it
+        # The whole title, not a prefix of it. A title's tail is
+        # where its scope lives — `RS-BUILD-23` ends "in a library"
+        # — so a row that quotes a prefix can invent a divergence by
+        # dropping the clause that rules it out. Two rows did
+        # exactly that.
+        if quoted and _plain(actual) != _plain(quoted):
+            yield fail(
+                f"override row quotes {quoted!r} for {theirs}, "
+                f"which is titled {actual!r}",
+                skill.name,
+            )
+
+
+def _anchor_patterns(
+    skill: Skill, by_prefix: dict[str, Skill], rows: list[re.Match[str]]
+) -> Iterator[Finding]:
     """The other standard's own patterns, run over this one's examples.
 
     A delta claims that everything the anchor says still holds except
@@ -170,7 +197,7 @@ def _anchor_patterns(skill, by_prefix, rows):
         return
     named = set(re.findall(r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b", skill.text))
     lang = skill.profile.languages[0]
-    if problem := searcher_problem():
+    if (problem := searcher_problem()) is not None:
         yield unrun(problem, skill.name)
         return
     corpus = corpus_for(skill, lang)
@@ -181,28 +208,34 @@ def _anchor_patterns(skill, by_prefix, rows):
         for rule in other.rules:
             if not rule.check or rule.id in named:
                 continue
-            for pattern in patterns_of(rule.check):
-                if pattern.kind != "command":
-                    continue
-                lines, used = find(corpus, pattern)
-                # `None` is the absence of an answer and `[]` is an
-                # answer of nothing. Both are falsy, so `if not lines`
-                # reads a search that never ran as a delta with nothing
-                # to account for — which is the same silence this whole
-                # capability exists to refuse.
-                if lines is None:
-                    yield fail(
-                        f"{rule.id}: {other.name}'s pattern /{pattern.text}/ gave no answer over "
-                        f"{skill.name}'s examples — rejected, timed out, or not installed",
-                        skill.name,
-                    )
-                    continue
-                if not lines:
-                    continue
-                chapter, owner, line, snippet = corpus.origin(lines[0].start)
-                yield fail(
-                    f"{rule.id} {used} /{pattern.text}/ hits {len(lines)} line(s) and "
-                    f"{skill.name}'s SKILL.md never mentions it — {rule.title}\n"
-                    f"      {chapter}:{line} [{owner}] {snippet}",
-                    skill.name,
-                )
+            yield from _sweep(skill, corpus, other, rule)
+
+
+def _sweep(skill: Skill, corpus: Corpus, other: Skill, rule: Rule) -> Iterator[Finding]:
+    """The anchor rule's decisive patterns, over the delta's corpus."""
+    for pattern in patterns_of(rule.check):
+        if pattern.kind != "command":
+            continue
+        lines, used = find(corpus, pattern)
+        # `None` is the absence of an answer and `[]` is an
+        # answer of nothing. Both are falsy, so `if not lines`
+        # reads a search that never ran as a delta with nothing
+        # to account for — which is the same silence this whole
+        # capability exists to refuse.
+        if lines is None:
+            yield fail(
+                f"{rule.id}: {other.name}'s pattern /{pattern.text}/ gave no "
+                f"answer over {skill.name}'s examples — rejected, timed out, or "
+                "not installed",
+                skill.name,
+            )
+            continue
+        if not lines:
+            continue
+        chapter, owner, line, snippet = corpus.origin(lines[0].start)
+        yield fail(
+            f"{rule.id} {used} /{pattern.text}/ hits {len(lines)} line(s) and "
+            f"{skill.name}'s SKILL.md never mentions it — {rule.title}\n"
+            f"      {chapter}:{line} [{owner}] {snippet}",
+            skill.name,
+        )

@@ -4,6 +4,8 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
+lazy from agent_skill.model import Skill
+
 EXCLUDE = {".DS_Store", "__pycache__", ".git"}
 
 HOME = Path.home()
@@ -26,6 +28,7 @@ class Target:
 
     @property
     def present(self) -> bool:
+        """Is this agent installed on this machine?"""
         return self.marker.is_dir()
 
     @property
@@ -49,8 +52,11 @@ TARGETS: tuple[Target, ...] = (
 )
 
 
-def package(skill, out_dir: Path) -> Path:
-    """Zip the skill directory into `<name>.skill`, rooted at the skill name."""
+def package(skill: Skill, out_dir: Path) -> Path:
+    """Zip the skill directory into `<name>.skill`.
+
+    The archive is rooted at the skill name.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     target = out_dir / f"{skill.name}.skill"
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as z:
@@ -62,7 +68,7 @@ def package(skill, out_dir: Path) -> Path:
     return target
 
 
-def install(skill, target: Target) -> tuple[Path, str]:
+def install(skill: Skill, target: Target) -> tuple[Path, str]:
     """Point `<target>/<name>` at the working copy.
 
     A symlink rather than a copy, so there is no installed second copy

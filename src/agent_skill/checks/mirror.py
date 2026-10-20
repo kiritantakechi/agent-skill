@@ -7,10 +7,13 @@ a failure rather than a silent pick.
 """
 
 import re
+lazy from collections.abc import Iterator, Sequence
 
 from agent_skill.checks import check
 from agent_skill.checks.anatomy import overlap
 from agent_skill.report import fail, note
+lazy from agent_skill.model import Rule, Skill
+lazy from agent_skill.report import Finding
 
 #: (rule id in another skill, title of its counterpart in the anchor).
 #: The id's prefix names which skill it belongs to, so a fourth standard
@@ -39,6 +42,9 @@ MIRROR: list[tuple[str, str]] = [
 
 ANCHOR = "rust-style"
 
+#: Above this overlap between two titles, the rules look like a pair.
+LOOKS_PAIRED = 0.5
+
 
 def _shingles(s: str, n: int = 3) -> set[tuple[str, ...]]:
     words = " ".join(re.findall(r"[a-z]+", s.lower())).split()
@@ -46,18 +52,23 @@ def _shingles(s: str, n: int = 3) -> set[tuple[str, ...]]:
 
 
 @check("mirror", "mirrored rules agree on tier", scope="all")
-def mirror(skills):
+def mirror(skills: Sequence[Skill]) -> Iterator[Finding]:
+    """Pairs in `MIRROR` agree on tier; a pair it misses is noted."""
     by_name = {s.name: s for s in skills}
     anchor = by_name.get(ANCHOR)
     if anchor is None:
         return
     by_prefix = {s.prefix: s for s in skills if s.name != ANCHOR}
+    yield from _held(anchor, by_prefix)
+    yield from _unheld(anchor, by_prefix)
 
-    titles: dict[str, list] = {}
+
+def _held(anchor: Skill, by_prefix: dict[str, Skill]) -> Iterator[Finding]:
+    """Each `MIRROR` pair resolves to one rule a side, at one tier."""
+    titles: dict[str, list[Rule]] = {}
     for rule in anchor.rules:
         titles.setdefault(rule.title, []).append(rule)
 
-    held = {rid for rid, _ in MIRROR}
     for rid, title in MIRROR:
         matches = titles.get(title, [])
         mirrored = by_prefix.get(rid.split("-")[0])
@@ -68,23 +79,30 @@ def mirror(skills):
             yield fail(f"no {ANCHOR} rule titled {title!r}", "mirror")
         elif len(matches) > 1:
             yield fail(
-                f"{title!r} is ambiguous ({', '.join(r.id for r in matches)}); the anchor "
-                f"cannot say which rule {rid} mirrors",
+                f"{title!r} is ambiguous ({', '.join(r.id for r in matches)}); "
+                f"the anchor cannot say which rule {rid} mirrors",
                 "mirror",
             )
         elif other is None:
             yield fail(f"{rid} is not a rule in {mirrored.name}", "mirror")
         elif matches[0].tier != other.tier:
             yield fail(
-                f"tier mismatch: {matches[0].id}[{matches[0].tier}] vs {rid}[{other.tier}]",
+                f"tier mismatch: {matches[0].id}[{matches[0].tier}] "
+                f"vs {rid}[{other.tier}]",
                 "mirror",
             )
 
-    # The table is hand-maintained, so it needs something that notices a
-    # pair it does not yet hold: three mirrored rules were guarded by
-    # nothing at all. Every non-anchor skill is searched, not just the
-    # one the table was written for — a pair the table misses is the
-    # same defect whichever standard it is in.
+
+def _unheld(anchor: Skill, by_prefix: dict[str, Skill]) -> Iterator[Finding]:
+    """A pair that looks mirrored and that `MIRROR` does not yet hold.
+
+    The table is hand-maintained, so it needs something that notices a
+    pair it does not yet hold: three mirrored rules were guarded by
+    nothing at all. Every non-anchor skill is searched, not just the one
+    the table was written for — a pair the table misses is the same
+    defect whichever standard it is in.
+    """
+    held = {rid for rid, _ in MIRROR}
     anchor_shingles = [(r, _shingles(r.title)) for r in anchor.rules]
     for mirrored in by_prefix.values():
         for rule in mirrored.rules:
@@ -94,9 +112,9 @@ def mirror(skills):
             if not a:
                 continue
             for other, b in anchor_shingles:
-                if b and overlap(a, b) > 0.5:
+                if b and overlap(a, b) > LOOKS_PAIRED:
                     yield note(
-                        f"{rule.id} and {other.id} look like a pair MIRROR does not hold "
-                        f"({rule.title!r})",
+                        f"{rule.id} and {other.id} look like a pair MIRROR does "
+                        f"not hold ({rule.title!r})",
                         "mirror",
                     )

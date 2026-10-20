@@ -1,5 +1,7 @@
 """Rewriting an example the way `cargo fmt --check` will demand."""
 
+lazy from pathlib import Path
+
 from agent_skill import shared
 from agent_skill.fmt import INJECTED, _bodies, format_skill
 from agent_skill.lang.rust import BEVY_STYLE, RUST_STYLE
@@ -7,7 +9,7 @@ from agent_skill.profiles import _REGISTRY, profile_for
 from structure_fixture import build, edit
 
 
-def test_bodies_dedents_and_drops_the_injected_attribute(tmp_path) -> None:
+def test_bodies_dedents_and_drops_the_injected_attribute(tmp_path: Path) -> None:
     src = tmp_path / "chapter.rs"
     src.write_text(
         "//! header\n\n"
@@ -28,8 +30,8 @@ def test_bodies_dedents_and_drops_the_injected_attribute(tmp_path) -> None:
     ]
 
 
-def test_bodies_undoes_the_extractor_rebasing(tmp_path) -> None:
-    """`fmt` writes bodies back into the skill, so it must not store harness paths.
+def test_bodies_undoes_the_extractor_rebasing(tmp_path: Path) -> None:
+    """`fmt` writes bodies back, so it must not store harness paths.
 
     `lang.rust._module` rewrites `crate::` and `mycrate::` to reach
     inside the wrapper module. Storing that rewrite is how the apparatus
@@ -86,9 +88,11 @@ def test_every_rust_profile_names_a_crate() -> None:
             assert profile.crate is not None, profile.name
 
 
-def test_a_drifted_shared_passage_is_reported_and_rewritten(tmp_path) -> None:
-    """The round trip `shared-text` promises: drift is found, `fmt` repairs it, and
-    the text the skill wrote in a free region survives the repair.
+def test_a_drifted_shared_passage_is_reported_and_rewritten(tmp_path: Path) -> None:
+    """The round trip `shared-text` promises.
+
+    Drift is found, `fmt` repairs it, and the text the skill wrote in a
+    free region survives the repair.
     """
     demo = build(tmp_path)
     assert list(shared.compare(demo)) == []
@@ -103,7 +107,7 @@ def test_a_drifted_shared_passage_is_reported_and_rewritten(tmp_path) -> None:
     assert '**Code is "library"** — if it is published.' in text
 
 
-def test_text_outside_a_free_region_is_left_for_a_person(tmp_path) -> None:
+def test_text_outside_a_free_region_is_left_for_a_person(tmp_path: Path) -> None:
     demo = build(tmp_path)
     stray = edit(
         demo, "SKILL.md", "Rules are cited by ID", "An aside.\n\nRules are cited by ID"
@@ -114,7 +118,7 @@ def test_text_outside_a_free_region_is_left_for_a_person(tmp_path) -> None:
     assert stray.skill_md.read_text() == before
 
 
-def test_fmt_brings_a_prose_line_back_under_the_limit(tmp_path) -> None:
+def test_fmt_brings_a_prose_line_back_under_the_limit(tmp_path: Path) -> None:
     demo = build(tmp_path)
     long_line = "Subtract. " + "word " * 25 + "end."
     drifted = edit(demo, "SKILL.md", "Subtract.", long_line)

@@ -11,10 +11,13 @@ from dataclasses import dataclass
 lazy from collections.abc import Callable, Iterable
 
 from agent_skill.report import Finding, Result
+lazy from agent_skill.model import Skill
 
 
 @dataclass(frozen=True, slots=True)
 class Check:
+    """A registered check: its name, its label, and what it runs."""
+
     name: str
     label: str
     fn: Callable[..., Iterable[Finding]]
@@ -41,13 +44,14 @@ class Check:
         """
         return name in inspect.signature(self.fn).parameters
 
-    def run(self, skills, **kw) -> Result:
-        """`kw` reaches only an "all"-scope check, and only the keywords it takes.
+    def run(self, skills: list[Skill], **kw: object) -> Result:
+        """Run this check over `skills` and collect what it finds.
 
-        `controls` needs to know whether this is a `--fast` run, because
-        it re-runs the check each control owns and a control on a slow
-        check would drag the whole toolchain into a run that asked to
-        skip it.
+        `kw` reaches only an "all"-scope check, and only the keywords it
+        takes. `controls` needs to know whether this is a `--fast` run,
+        because it re-runs the check each control owns and a control on
+        a slow check would drag the whole toolchain into a run that
+        asked to skip it.
         """
         result = Result(self.name)
         if self.scope == "all":
@@ -63,15 +67,17 @@ class Check:
 REGISTRY: list[Check] = []
 
 
-def check(
+def check[F: Callable[..., Iterable[Finding]]](
     name: str,
     label: str,
     *,
     scope: str = "skill",
     slow: bool = False,
     needs: tuple[str, ...] = (),
-):
-    def wrap(fn):
+) -> Callable[[F], F]:
+    """Register the decorated function as check `name`, unchanged."""
+
+    def wrap(fn: F) -> F:
         REGISTRY.append(Check(name, label, fn, scope, slow, needs))
         return fn
 
@@ -105,10 +111,12 @@ MODULES = (
 
 
 def all_checks() -> list[Check]:
+    """Every check, once each module that defines one is imported."""
     for module in MODULES:
         importlib.import_module(f"agent_skill.checks.{module}")
     return REGISTRY
 
 
 def by_name(name: str) -> Check | None:
+    """The registered check called `name`, or None if there is none."""
     return next((c for c in all_checks() if c.name == name), None)

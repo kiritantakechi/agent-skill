@@ -1,4 +1,4 @@
-"""A minimal standard that follows standard-structure, for the structure checks to be tried on.
+"""A minimal standard that follows standard-structure, to try checks on.
 
 Built through the template machinery itself: the headings and the
 skill's own text are written by hand, and `shared.rewrite` fills in
@@ -7,6 +7,7 @@ every shared passage — which also makes building it a round trip through
 """
 
 from dataclasses import dataclass
+from typing import override
 lazy from pathlib import Path
 
 from agent_skill import shared
@@ -16,6 +17,8 @@ from agent_skill.profiles import Profile
 
 @dataclass
 class Demo(Profile):
+    """The profile of a demo standard verified against Demo 1.2.3."""
+
     name: str = "demo-style"
     prefix: str = "DS"
     languages: tuple[str, ...] = ("rust",)
@@ -24,7 +27,9 @@ class Demo(Profile):
     verified_as: str = "compiles as written against Demo {pin}"
     strict_scope: str = "library"
 
+    @override
     def pin(self) -> str | None:
+        """A fixed version: the demo has no toolchain to ask."""
         return "1.2.3"
 
 
@@ -115,7 +120,7 @@ def chapter(title: str, ids: list[tuple[str, str]]) -> str:
 
 
 def build(root: Path, profile: Profile | None = None) -> Skill:
-    """Write the demo standard under `root/demo-style` and return it parsed."""
+    """Write the demo under `root/demo-style` and return it parsed."""
     skill_dir = root / "demo-style"
     refs = skill_dir / "references"
     refs.mkdir(parents=True)

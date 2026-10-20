@@ -12,7 +12,10 @@ from agent_skill.checks.corpus import Corpus, Unit
 
 
 def corpus_of(*sizes: int) -> Corpus:
-    """A corpus of units with the given line counts, each line numbered from 100."""
+    """A corpus of units with the given line counts.
+
+    Each unit's lines are numbered from 100.
+    """
     built = Corpus()
     for n, size in enumerate(sizes):
         built.starts.append(sum(sizes[:n]))
@@ -38,19 +41,22 @@ def corpus_of(*sizes: int) -> Corpus:
         (9, "ch2.md", "XX-Y-02", 103),  # last line of the corpus — unit2 spans 6..9
     ],
 )
-def test_a_global_line_resolves_to_its_unit(line, chapter, rule, at) -> None:
+def test_a_global_line_resolves_to_its_unit(
+    line: int, chapter: str, rule: str, at: int
+) -> None:
     found_chapter, found_rule, found_at, _ = corpus_of(3, 2, 4).origin(line)
     assert (found_chapter, found_rule, found_at) == (chapter, rule, at)
 
 
 def test_every_line_round_trips() -> None:
-    """No line resolves into a neighbour, which is what an off-by-one looks like."""
+    """No line resolves into a neighbour, as an off-by-one would."""
     built = corpus_of(3, 2, 4)
     seen = [built.origin(n)[:3] for n in range(1, 10)]
     assert len(set(seen)) == 9, "two global lines resolved to the same origin"
     for (chapter, _, _), unit in zip(seen[:3], ["ch0.md"] * 3, strict=True):
         assert chapter == unit
-    assert seen[3][0] == "ch1.md" and seen[4][0] == "ch1.md"
+    assert seen[3][0] == "ch1.md"
+    assert seen[4][0] == "ch1.md"
     assert all(c == "ch2.md" for c, _, _ in seen[5:])
 
 

@@ -1,4 +1,4 @@
-"""Reading source text the way a compiler would, not the way a regex would."""
+"""Reading source text as a compiler would, not as a regex would."""
 
 import re
 
@@ -21,7 +21,7 @@ def syntax_for(lang: str) -> tuple[str, str]:
 
 
 def strip_comment(line: str, comment: str = "//", quotes: str = '"') -> str:
-    """Everything before the first `comment` token not inside a string literal.
+    """Everything before the first `comment` token outside a string.
 
     `const url = "https://example.com";` keeps its value. Splitting on
     the token does not, and a Check searching for a path would miss it.
@@ -50,7 +50,7 @@ def strip_comment(line: str, comment: str = "//", quotes: str = '"') -> str:
 
 
 def code_only(body: str, comment: str = "//", quotes: str = '"') -> str:
-    """`body` with every comment removed and the line count preserved."""
+    """`body` with every comment removed and the line count kept."""
     return "\n".join(strip_comment(line, comment, quotes) for line in body.split("\n"))
 
 
@@ -61,7 +61,7 @@ _STARTS_BLOCK = re.compile(r"^\s*(?:[-*] |\d+\. |#|\||```|>|\*\*[A-Z][a-z]+:\*\*
 
 
 def reflow(text: str, width: int = WIDTH) -> str:
-    """Push the words of every over-long prose line down into the next line.
+    """Push the words of every over-long prose line into the next line.
 
     The smallest edit that brings a paragraph back under the limit: the
     rest of the paragraph keeps its line breaks, so the diff shows what
@@ -109,7 +109,7 @@ def reflow(text: str, width: int = WIDTH) -> str:
 
 
 def _cut(line: str, width: int) -> int:
-    """The last space at or before `width` that is outside a code span, or -1.
+    """The last space at or before `width` outside a code span, or -1.
 
     A break inside `` `rg -n '… *='` `` puts a newline into the command
     a reader copies, and `dialect` rightly fails it.

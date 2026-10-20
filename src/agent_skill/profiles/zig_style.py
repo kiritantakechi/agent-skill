@@ -1,11 +1,12 @@
-"""zig-style: its own `[M]` rules, applied to its own examples and prose."""
+"""zig-style: its own `[M]` rules, applied to its examples and prose."""
 
 import re
-lazy from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import override
+lazy from collections.abc import Iterable, Iterator
 
-from agent_skill.model import inside_tests
-from agent_skill.profiles import NotDecisive, Profile, register
+from agent_skill.model import Skill, inside_tests
+from agent_skill.profiles import Exemption, NotDecisive, Profile, register
 from agent_skill.profiles.rust_style import META
 from agent_skill.report import Finding, fail
 from agent_skill.text import strip_comment
@@ -15,6 +16,8 @@ lazy from agent_skill.proc import have, run
 
 @dataclass
 class ZigStyle(Profile):
+    """What zig-style's checks need to know about it."""
+
     name: str = "zig-style"
     prefix: str = "ZS"
     languages: tuple[str, ...] = ("zig",)
@@ -35,11 +38,11 @@ class ZigStyle(Profile):
     exempt_from_structure: str | None = (
         "conforms with its own bump, once this machine's `zig` moves past 0.16.0"
     )
-    exempt: dict = field(
+    exempt: dict[str, Exemption] = field(
         default_factory=lambda: {
             # ZS-NAME-14: "keep `self` for anonymous generic containers"
             # — a receiver typed `Self` is the case the rule permits.
-            "ZS-NAME-14": lambda lines, at, in_test: "Self" in lines[at.start - 1],
+            "ZS-NAME-14": lambda lines, at, _in_test: "Self" in lines[at.start - 1],
             # ZS-TEST-11: "`rg …` inside `test` blocks — every hit must
             # be on an `errdefer` line". Container-scope logging is not
             # the target.
@@ -51,7 +54,7 @@ class ZigStyle(Profile):
     #: Each snippet is the defect its rule forbids, written the way it
     #: turns up in real code. A fixture shaped to match proves the
     #: fixture, not the pattern.
-    fires: dict = field(
+    fires: dict[str, tuple[str, ...]] = field(
         default_factory=lambda: {
             # Four patterns, because one line of alternation is
             # unreadable — so four fixtures. While there was one, three
@@ -62,7 +65,10 @@ class ZigStyle(Profile):
             # table, written as the call site had it.
             "ZS-MIG-13": (
                 "const seen = EnumSet(Color).initEmpty();",
-                "try std.tar.pipeToFileSystem(dest, reader, .{ .mode_mode = .ignore });",
+                (
+                    "try std.tar.pipeToFileSystem("
+                    "dest, reader, .{ .mode_mode = .ignore });"
+                ),
                 "std.debug.captureStackTrace(@returnAddress(), &trace);",
                 "const cp = try std.unicode.utf8Decode(bytes[i..][0..len]);",
             ),
@@ -74,77 +80,82 @@ class ZigStyle(Profile):
     #: hit is a defect — never how many examples it hit the day someone
     #: measured, which is a number `_render` already prints live two
     #: fields away and nothing re-measures.
-    not_decisive: dict = field(
+    not_decisive: dict[str, NotDecisive] = field(
         default_factory=lambda: {
             "ZS-CAPI-09": NotDecisive(
                 "c_int",
-                "the span finds every C type; whether the hit is inside the designated boundary "
-                "module decides, and a line does not say which file it is in",
+                "the span finds every C type; whether the hit is inside the "
+                "designated boundary module decides, and a line does not say which "
+                "file it is in",
             ),
             "ZS-CAPI-10": NotDecisive(
                 "[*c]",
-                "the span finds every `[*c]`; whether it is a parameter of an `export fn` or a "
-                "`callconv(.c)` function — the one place it is allowed — decides",
+                "the span finds every `[*c]`; whether it is a parameter of an "
+                "`export fn` or a `callconv(.c)` function — the one place it is "
+                "allowed — decides",
             ),
             "ZS-CT-13": NotDecisive(
                 "comptime T: type",
-                "the span finds every `comptime` parameter; how many distinct arguments its call "
-                "sites pass decides, which is a count over the whole tree",
+                "the span finds every `comptime` parameter; how many distinct "
+                "arguments its call sites pass decides, which is a count over the "
+                "whole tree",
             ),
             "ZS-ERR-03": NotDecisive(
                 "@panic(",
-                "the span finds every `@panic(`; whether the file is a library rather than `main` "
-                "or `build.zig` decides",
+                "the span finds every `@panic(`; whether the file is a library rather "
+                "than `main` or `build.zig` decides",
             ),
             "ZS-ERR-04": NotDecisive(
                 ") ![",
-                "the span finds every inferred error set; whether the function is `pub`, and "
-                "neither `main` nor a test, decides",
+                "the span finds every inferred error set; whether the function is "
+                "`pub`, and neither `main` nor a test, decides",
             ),
             "ZS-FMT-10": NotDecisive(
                 "{b64}",
-                "the span finds every `{b64}`; whether a width or precision is applied to it over "
-                "a slice decides, and both spellings build cleanly",
+                "the span finds every `{b64}`; whether a width or precision is "
+                "applied to it over a slice decides, and both spellings build cleanly",
             ),
             "ZS-IO-18": NotDecisive(
                 "w.buffered()",
-                "the span finds every `w.buffered()`; whether it runs before the first emit in a "
-                "`drain` body decides, which is an ordering the line does not carry",
+                "the span finds every `w.buffered()`; whether it runs before the "
+                "first emit in a `drain` body decides, which is an ordering the line "
+                "does not carry",
             ),
             "ZS-MEM-08": NotDecisive(
                 ".allocator()",
-                "the span finds every `.allocator()`; whether its receiver is a local `var` in the "
-                "same frame that returns decides, which is a fact about the declaration above it",
+                "the span finds every `.allocator()`; whether its receiver is a local "
+                "`var` in the same frame that returns decides, which is a fact about "
+                "the declaration above it",
             ),
             "ZS-MIG-12": NotDecisive(
                 "root_source_file",
-                "the span finds every `root_source_file`; whether it sits inside a `createModule` "
-                "literal rather than an `addExecutable` one decides",
+                "the span finds every `root_source_file`; whether it sits inside a "
+                "`createModule` literal rather than an `addExecutable` one decides",
             ),
             "ZS-NAME-04": NotDecisive(
                 "len_",
-                "the span finds every truncated identifier; whether it is on the sanctioned "
-                "abbreviation list decides",
+                "the span finds every truncated identifier; whether it is on the "
+                "sanctioned abbreviation list decides",
             ),
             "ZS-PERF-12": NotDecisive(
                 "*Self",
-                "the span finds every `*Self` receiver; whether the helper assigns to a field the "
-                "parent could apply instead decides",
+                "the span finds every `*Self` receiver; whether the helper assigns to "
+                "a field the parent could apply instead decides",
             ),
             "ZS-PERF-18": NotDecisive(
                 "@prefetch(",
-                "the span finds every `@prefetch(`; whether its options literal spells every field "
-                "out, rather than leaning on defaults, decides",
+                "the span finds every `@prefetch(`; whether its options literal "
+                "spells every field out, rather than leaning on defaults, decides",
             ),
             "ZS-TEST-06": NotDecisive(
                 "@as(",
-                "the span finds every `@as(`; whether it wraps an `expectEqual` argument, where it "
-                "is the wrapper the rule removes, decides",
+                "the span finds every `@as(`; whether it wraps an `expectEqual` "
+                "argument, where it is the wrapper the rule removes, decides",
             ),
             "ZS-TEST-18": NotDecisive(
                 ".init(seed)",
-                "the span finds every seeded PRNG; whether it is the simulation's *second* one "
-                "decides, which is a count over the test body",
+                "the span finds every seeded PRNG; whether it is the simulation's "
+                "*second* one decides, which is a count over the test body",
             ),
             "ZS-BUILD-19": NotDecisive(
                 "returns hits only from that file",
@@ -176,16 +187,22 @@ class ZigStyle(Profile):
         }
     )
 
+    @override
     def pin(self) -> str | None:
+        """The compiler release the examples are verified against."""
         return ZIG_VERSION
 
+    @override
     def running_version(self) -> str | None:
+        """What `zig version` reports here, or None if it cannot say."""
         if not have("zig"):
             return None
         answered = run(["zig", "version"], timeout=30)
         return answered.out.strip() if answered.ok else None
 
-    def conventions(self, skill) -> Iterable[Finding]:
+    @override
+    def conventions(self, skill: Skill) -> Iterable[Finding]:
+        """zig-style's own rules, applied to its own examples."""
         for b in skill.advice("zig"):
             lines = b.lines
             for j, raw in enumerate(lines):
@@ -246,10 +263,13 @@ class ZigStyle(Profile):
                     f"{b.file}:{b.at(imports['builtin'])} [{b.rule}]",
                 )
 
+    @override
     def inside_tests(self, body: str) -> set[int]:
+        """Body-line indices inside a `test` block, by brace depth."""
         return inside_tests(body)
 
-    def prose(self, skill) -> Iterable[Finding]:
+    @override
+    def prose(self, skill: Skill) -> Iterable[Finding]:
         """ZS-ERR-30 forbids `.?` outright.
 
         Prose naming it is therefore either hunting it (inside a
@@ -270,8 +290,11 @@ class ZigStyle(Profile):
                     )
 
 
-def _prose_lines(text: str, prefix: str):
-    """(lineno, line, owning rule, inside-a-Check) for unfenced prose."""
+def _prose_lines(text: str, prefix: str) -> Iterator[tuple[int, str, str, bool]]:
+    """Each unfenced prose line, with the rule and Check it sits in.
+
+    Yields (lineno, line, owning rule, inside-a-Check).
+    """
     rid, in_check, fenced = "?", False, False
     head = re.compile(rf"^### ({prefix}-[A-Z]+-\d+[a-z]?) \[")
     for i, line in enumerate(text.split("\n"), 1):
@@ -282,7 +305,7 @@ def _prose_lines(text: str, prefix: str):
         if fenced:
             continue
         if m := head.match(line):
-            rid, in_check = m.group(1), False
+            rid, in_check = str(m.group(1)), False
         elif line.startswith("**Check:"):
             in_check = True
         elif line.startswith("**") or not line.strip():

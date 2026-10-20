@@ -13,12 +13,15 @@ import re
 import tempfile
 from itertools import groupby
 from pathlib import Path
+lazy from collections.abc import Callable, Iterable, Iterator
 
 from agent_skill import shared
 from agent_skill.lang.rust import RUST, Crate, module_name
 from agent_skill.proc import run
 from agent_skill.text import reflow
+lazy from agent_skill.lang import Unit
 lazy from agent_skill.lang.python import PYTHON_TOOLCHAIN
+lazy from agent_skill.model import Block, Skill
 
 #: The line the extractor injects into every block module.
 INJECTED = "#![allow(dead_code, unused_imports)]"
@@ -27,7 +30,7 @@ _MODULE = re.compile(r"^pub mod (\w+) \{$", re.MULTILINE)
 
 
 def _bodies(path: Path, crate: Crate) -> list[str]:
-    """The dedented body of each `pub mod`, with the extractor's rebasing undone.
+    """Each `pub mod`'s dedented body, the extractor's rebasing undone.
 
     `lang.rust._module` rewrites `crate::` and `mycrate::` to point
     inside the wrapper module, so the block compiles where it is put.
@@ -63,11 +66,13 @@ def _bodies(path: Path, crate: Crate) -> list[str]:
 #: toolchain rather than by whether the profile happens to carry a
 #: `Crate` — that gate returned early for every non-Rust skill before
 #: the branch was even reached.
-FORMATTERS: dict[str, object] = {}
+FORMATTERS: dict[str, Callable[[Skill], list[str]]] = {}
 
 
-def format_skill(skill) -> list[str]:
-    """Rewrite each verified block the way that language's formatter would, and
+def format_skill(skill: Skill) -> list[str]:
+    """Rewrite a skill's verified blocks and shared passages.
+
+    Each verified block the way that language's formatter would, and
     each shared passage the way its template says.
 
     Returns one line per passage or chapter changed. The shared passages
@@ -81,8 +86,8 @@ def format_skill(skill) -> list[str]:
     return changed + (formatter(skill) if formatter else [])
 
 
-def _reflow(skill) -> list[str]:
-    """Bring every prose line of the skill back under the `layout` limit.
+def _reflow(skill: Skill) -> list[str]:
+    """Bring every prose line back under the `layout` limit.
 
     A renaming lengthens a code inside a sentence, and an edit lengthens
     a line; either way the finding is a formatting one, and `fmt` is
@@ -97,17 +102,18 @@ def _reflow(skill) -> list[str]:
     return changed
 
 
-def _format_rust(skill) -> list[str]:
-    """Rewrite each `// verified` rust block as rustfmt would have it."""
-    if skill.profile.crate is None:
+def _format_rust(skill: Skill) -> list[str]:
+    """Rewrite each `// verified` rust block as rustfmt would."""
+    # `RUST.extract` builds from this crate, so this is
+    # `extraction.crate`, with the type that field does not carry.
+    crate = skill.profile.crate
+    if crate is None:
         return []
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
         extraction = RUST.extract(skill, Path(work) / "out")
         if not extraction:
             return []
-        r = run(
-            ["cargo", "fmt"], cwd=extraction.root, timeout=300, env=extraction.crate.env
-        )
+        r = run(["cargo", "fmt"], cwd=extraction.root, timeout=300, env=crate.env)
         if not r.ok:
             return [f"cargo fmt failed: {(r.err or r.out).strip()[:160]}"]
 
@@ -117,36 +123,49 @@ def _format_rust(skill) -> list[str]:
             src = extraction.root / "src" / f"{module_name(chapter)}.rs"
             if not wanted or not src.exists():
                 continue
-            bodies = _bodies(src, extraction.crate)
+            bodies = _bodies(src, crate)
             if len(bodies) != len(wanted):
                 changed.append(
                     f"{chapter}: {len(wanted)} blocks, {len(bodies)} modules; skipped"
                 )
                 continue
             path = skill.root / "references" / chapter
-            text = path.read_text()
             # Last first, so an earlier replacement cannot move a later
             # block.
-            hits = 0
-            for block, body in reversed(list(zip(wanted, bodies, strict=True))):
-                if block.body == body:
-                    continue
-                old = f"```rust\n{block.body}```"
-                if text.count(old) != 1:
-                    changed.append(
-                        f"{chapter}:{block.line} is not uniquely locatable; skipped"
-                    )
-                    continue
-                text = text.replace(old, f"```rust\n{body}```")
-                hits += 1
-            if hits:
-                path.write_text(text)
-                changed.append(f"{chapter}: {hits} block(s) reformatted")
+            edits = reversed(list(zip(wanted, bodies, strict=True)))
+            changed += _put_back(path, chapter, "rust", edits)
         return changed
 
 
-def _format_python(skill) -> list[str]:
-    """Rewrite each `# verified` python block as `ruff format` would have it.
+def _put_back(
+    path: Path, chapter: str, fence: str, edits: Iterable[tuple[Block, str]]
+) -> list[str]:
+    """Write each new body over its block in `path`, in the order given.
+
+    Returns one line per block skipped, then one for the chapter if it
+    changed. A block whose fenced text is not found exactly once is
+    skipped rather than guessed at.
+    """
+    text = path.read_text()
+    changed: list[str] = []
+    hits = 0
+    for block, body in edits:
+        if block.body == body:
+            continue
+        old = f"```{fence}\n{block.body}```"
+        if text.count(old) != 1:
+            changed.append(f"{chapter}:{block.line} is not uniquely locatable; skipped")
+            continue
+        text = text.replace(old, f"```{fence}\n{body}```")
+        hits += 1
+    if hits:
+        path.write_text(text)
+        changed.append(f"{chapter}: {hits} block(s) reformatted")
+    return changed
+
+
+def _format_python(skill: Skill) -> list[str]:
+    """Rewrite each `# verified` python block as `ruff format` would.
 
     Simpler than the Rust path because each block is already its own
     file: there is no crate to reassemble, so a block that fails to
@@ -175,33 +194,29 @@ def _format_python(skill) -> list[str]:
             return [f"ruff format failed: {(r.err or r.out).strip()[:160]}"]
 
         changed: list[str] = []
-        by_chapter: dict[str, list] = {}
+        by_chapter: dict[str, list[Unit]] = {}
         for unit in extraction.units:
             by_chapter.setdefault(unit.chapter, []).append(unit)
         for chapter, units in by_chapter.items():
             path = skill.root / "references" / chapter
-            text = path.read_text()
-            hits = 0
             # Last first, so an earlier replacement cannot move a later
             # block.
-            for unit in sorted(units, key=lambda u: u.line, reverse=True):
-                body = unit.path.read_text()
-                same = (b for b in skill.blocks("python") if b.file == chapter)
-                block = next((b for b in same if b.line == unit.line), None)
-                if block is None or block.body == body:
-                    continue
-                old_fence = f"```python\n{block.body}```"
-                if text.count(old_fence) != 1:
-                    changed.append(
-                        f"{chapter}:{unit.line} is not uniquely locatable; skipped"
-                    )
-                    continue
-                text = text.replace(old_fence, f"```python\n{body}```")
-                hits += 1
-            if hits:
-                path.write_text(text)
-                changed.append(f"{chapter}: {hits} block(s) reformatted")
+            ordered = sorted(units, key=lambda u: u.line, reverse=True)
+            edits = _python_edits(skill, chapter, ordered)
+            changed += _put_back(path, chapter, "python", edits)
         return changed
+
+
+def _python_edits(
+    skill: Skill, chapter: str, units: Iterable[Unit]
+) -> Iterator[tuple[Block, str]]:
+    """Each unit's formatted body, with the block it was cut from."""
+    for unit in units:
+        body = unit.path.read_text()
+        same = (b for b in skill.blocks("python") if b.file == chapter)
+        block = next((b for b in same if b.line == unit.line), None)
+        if block is not None:
+            yield block, body
 
 
 FORMATTERS["rust"] = _format_rust

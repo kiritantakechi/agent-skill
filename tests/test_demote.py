@@ -1,5 +1,7 @@
 """`agent-skill demote`, on a throwaway repository."""
 
+lazy from pathlib import Path
+
 import pytest
 
 from agent_skill import demote, renumber, shared
@@ -7,6 +9,7 @@ from agent_skill.checks.anatomy import structural
 from agent_skill.checks.skeleton import shape
 from agent_skill.model import DASH, Skill
 from structure_fixture import RULE, Demo, build
+lazy from agent_skill.demote import Entry
 
 ERRORS = f"""# Errors
 
@@ -59,7 +62,7 @@ ROW = ["clippy", "unwrap_used", "deny", "an `unwrap` on a `Result` | `Option`"]
 
 
 @pytest.fixture
-def repo(tmp_path):
+def repo(tmp_path: Path) -> Path:
     root = tmp_path / "skills" / "demo-style"
     (root / "references").mkdir(parents=True)
     (root / "SKILL.md").write_text(
@@ -72,25 +75,25 @@ def repo(tmp_path):
     return tmp_path
 
 
-def run(repo, asked):
+def run(repo: Path, asked: dict[str, Entry]) -> demote.Demotion:
     demotion = demote.plan(repo, "demo-style", asked, Demo())
     demote.apply(demotion)
     return demotion
 
 
-def skill(repo) -> Skill:
+def skill(repo: Path) -> Skill:
     return Skill(repo / "skills/demo-style", Demo())
 
 
-def text(repo, name: str) -> str:
+def text(repo: Path, name: str) -> str:
     return (repo / "skills/demo-style/references" / name).read_text()
 
 
-def snapshot(root):
+def snapshot(root: Path) -> dict[Path, bytes]:
     return {p: p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
 
 
-def test_rows_replace_the_rule_and_start_the_table(repo) -> None:
+def test_rows_replace_the_rule_and_start_the_table(repo: Path) -> None:
     run(repo, {"DS-ERR-02": {"rows": [ROW]}})
     errors = text(repo, "errors.md")
     assert "DS-ERR-02" not in errors
@@ -106,12 +109,13 @@ def test_rows_replace_the_rule_and_start_the_table(repo) -> None:
     }
 
 
-def test_a_lint_row_already_listed_and_a_merge(repo) -> None:
+def test_a_lint_row_already_listed_and_a_merge(repo: Path) -> None:
     run(repo, {"DS-ERR-02": {"rows": [ROW]}, "DS-ERR-03": {"merge": "DS-ERR-01"}})
     run(repo, {"DS-ERR-01": {"lint": ["clippy", "unwrap_used"]}})
     errors = text(repo, "errors.md")
     # Both sections emptied, so both go, with their contents entries.
-    assert "## Raising" not in errors and "**Catching**" not in errors
+    assert "## Raising" not in errors
+    assert "**Catching**" not in errors
     assert errors.count("| clippy |") == 1
     (table,) = skill(repo).rename_tables
     assert {r.before: r.now for r in table.rows} == {
@@ -121,7 +125,7 @@ def test_a_lint_row_already_listed_and_a_merge(repo) -> None:
     }
 
 
-def test_a_demotion_composes_with_the_table_it_finds(repo) -> None:
+def test_a_demotion_composes_with_the_table_it_finds(repo: Path) -> None:
     migration = repo / "skills/demo-style/references/migration.md"
     migration.write_text(MIGRATION + TABLE)
     run(repo, {"DS-ERR-02": {"remove": "y"}, "DS-ERR-01": {"merge": "DS-ERR-03"}})
@@ -133,7 +137,7 @@ def test_a_demotion_composes_with_the_table_it_finds(repo) -> None:
     }
 
 
-def test_demote_then_renumber_closes_the_gap(repo) -> None:
+def test_demote_then_renumber_closes_the_gap(repo: Path) -> None:
     run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
     renumber.apply(repo, renumber.plan(repo, "demo-style", {}, Demo()))
     demo = skill(repo)
@@ -146,10 +150,13 @@ def test_demote_then_renumber_closes_the_gap(repo) -> None:
     }
 
 
-def test_a_citation_left_behind_is_reported(repo) -> None:
+def test_a_citation_left_behind_is_reported(repo: Path) -> None:
     demotion = run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
     assert demotion.leftovers == [
-        "skills/demo-style/SKILL.md:7 cites DS-ERR-02, which is now removed — said nothing"
+        (
+            "skills/demo-style/SKILL.md:7 cites DS-ERR-02, "
+            "which is now removed — said nothing"
+        )
     ]
 
 
@@ -158,6 +165,7 @@ def test_a_citation_left_behind_is_reported(repo) -> None:
     [
         ({"DS-ERR-09": {"remove": "x"}}, "no chapter rule"),
         ({"DS-ERR-02": {"remove": "x", "merge": "DS-ERR-01"}}, "exactly one"),
+        # `retire` is not a key an `Entry` has: malformed on purpose.
         ({"DS-ERR-02": {"retire": "x"}}, "exactly one"),
         ({"DS-ERR-02": {"remove": " "}}, "needs its reason"),
         ({"DS-ERR-02": {"lint": ["clippy", "unwrap_used"]}}, "no chapter lists"),
@@ -166,14 +174,18 @@ def test_a_citation_left_behind_is_reported(repo) -> None:
         ({"DS-ERR-02": {"merge": "DS-ERR-03"}, "DS-ERR-03": {"remove": "x"}}, "keeps"),
     ],
 )
-def test_a_plan_that_cannot_be_done_writes_nothing(repo, asked, message) -> None:
+def test_a_plan_that_cannot_be_done_writes_nothing(
+    repo: Path, asked: dict[str, Entry], message: str
+) -> None:
     before = snapshot(repo)
     with pytest.raises(demote.DemoteError, match=message):
         run(repo, asked)
     assert snapshot(repo) == before
 
 
-def test_demote_then_renumber_leaves_a_conforming_skill_conforming(tmp_path) -> None:
+def test_demote_then_renumber_leaves_a_conforming_skill_conforming(
+    tmp_path: Path,
+) -> None:
     demo = build(tmp_path / "skills")
     (tmp_path / "src").mkdir()
     (tmp_path / "tests").mkdir()

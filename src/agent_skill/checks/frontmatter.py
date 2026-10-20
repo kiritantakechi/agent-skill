@@ -1,9 +1,11 @@
 """The block Claude Code reads before anything else."""
 
 import re
+lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
-from agent_skill.report import fail
+from agent_skill.report import Finding, fail
+lazy from agent_skill.model import Skill
 
 ALLOWED = {
     "name",
@@ -17,7 +19,7 @@ MAX_DESCRIPTION = 1024
 
 
 @check("frontmatter", "the block Claude Code reads first")
-def frontmatter(skill):
+def frontmatter(skill: Skill) -> Iterator[Finding]:
     """A missing or reshaped field is a finding, not a traceback.
 
     This was three unguarded `.group(1)` calls, so a malformed

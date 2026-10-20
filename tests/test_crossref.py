@@ -1,4 +1,4 @@
-"""The anchor sweep: that it runs at all, and what it does with a search that could not answer.
+"""The anchor sweep: that it runs, and what it does with no answer.
 
 Both cases here shipped. The sweep was unreachable — a `return` above it
 and the loop indented into its branch — for as long as its negative
@@ -16,19 +16,24 @@ import pytest
 from agent_skill.checks import crossref
 from agent_skill.checks.patterns import patterns_of
 from agent_skill.report import Level
+lazy from agent_skill.model import Skill
 
 SOURCE = Path(crossref.__file__)
 
+#: The bevy delta, every skill by prefix, and the delta's override rows.
+type Bevy = tuple[Skill, dict[str, Skill], list[re.Match[str]]]
+
 
 @pytest.fixture
-def bevy(skills):
+def bevy(skills: list[Skill]) -> Bevy:
+    """`bevy-style`, every skill by prefix, and its override rows."""
     by_prefix = {s.prefix: s for s in skills}
     delta = by_prefix["BV"]
     return delta, by_prefix, list(crossref.OVERRIDE_ROW.finditer(delta.text))
 
 
 def test_the_sweep_is_reachable() -> None:
-    """Asserted on the syntax tree, because it reads correct at every other level.
+    """Asserted on the syntax tree; it reads correct everywhere else.
 
     The loop is indented, spelled and typed exactly as it would be if it
     ran. Nothing short of asking where it sits relative to the `return`
@@ -42,8 +47,9 @@ def test_the_sweep_is_reachable() -> None:
         if isinstance(n, ast.FunctionDef) and n.name == "_anchor_patterns"
     )
     assert isinstance(fn.body[-1], ast.For), (
-        "the anchor loop is not the last statement of the function, which is what it looks like "
-        "when an early return above it has swallowed it into a branch"
+        "the anchor loop is not the last statement of the function, "
+        "which is what it looks like when an early return above it "
+        "has swallowed it into a branch"
     )
     swallowed = [
         node
@@ -58,11 +64,11 @@ def test_the_sweep_is_reachable() -> None:
 
 
 def test_a_search_that_cannot_answer_is_not_an_accounted_for_delta(
-    bevy, monkeypatch
+    bevy: Bevy, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`None` and `[]` are both falsy; this caller used to collapse them."""
+    """`None` and `[]` are both falsy; this caller collapsed the two."""
     delta, by_prefix, rows = bevy
-    monkeypatch.setattr(crossref, "find", lambda corpus, pattern: (None, pattern.mode))
+    monkeypatch.setattr(crossref, "find", lambda _corpus, pattern: (None, pattern.mode))
 
     findings = list(crossref._anchor_patterns(delta, by_prefix, rows))
 
@@ -71,15 +77,17 @@ def test_a_search_that_cannot_answer_is_not_an_accounted_for_delta(
     assert all("gave no answer" in f.message for f in findings)
 
 
-def test_a_search_that_answers_nothing_is_a_clean_result(bevy, monkeypatch) -> None:
-    """The other half: an empty answer is an answer, and must stay silent."""
+def test_a_search_that_answers_nothing_is_a_clean_result(
+    bevy: Bevy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other half: an empty answer is an answer and stays silent."""
     delta, by_prefix, rows = bevy
-    monkeypatch.setattr(crossref, "find", lambda corpus, pattern: ([], pattern.mode))
+    monkeypatch.setattr(crossref, "find", lambda _corpus, pattern: ([], pattern.mode))
 
     assert list(crossref._anchor_patterns(delta, by_prefix, rows)) == []
 
 
-def test_the_sweep_has_something_to_sweep(bevy) -> None:
+def test_the_sweep_has_something_to_sweep(bevy: Bevy) -> None:
     """A guard over an empty subject set passes for the wrong reason.
 
     The sweep only runs an anchor's patterns when the delta cites that

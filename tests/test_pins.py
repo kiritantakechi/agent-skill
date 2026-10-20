@@ -12,6 +12,8 @@ that could not be read must not be resolved into one that happens to
 compare as agreement.
 """
 
+lazy from collections.abc import Callable
+
 import pytest
 
 from agent_skill.checks import pins as mod
@@ -20,9 +22,13 @@ from agent_skill.proc import Ran
 from agent_skill.report import Level, fail, unrun
 
 
-def _greater(a, b):
-    """Untyped on purpose — what this asserts is what happens at run time."""
-    return a > b
+def _greater(a: object, b: object) -> object:
+    """Return `a > b`, unchecked on purpose.
+
+    What this asserts is what happens at run time, so the checker's
+    objection to comparing `None` with a tuple is suppressed here.
+    """
+    return a > b  # ty: ignore[unsupported-operator] — the TypeError is the point
 
 
 #: Forms a real index answers with, none of which `_sort_key`
@@ -31,19 +37,19 @@ UNORDERABLE = ["1.2.3.post1", "0.16.5.dev0", "2024.1", "15.2", "0.0.75+local", "
 
 
 @pytest.mark.parametrize("version", UNORDERABLE)
-def test_a_version_it_cannot_parse_gets_no_answer(version) -> None:
+def test_a_version_it_cannot_parse_gets_no_answer(version: str) -> None:
     assert _sort_key(version) is None
 
 
 @pytest.mark.parametrize("version", UNORDERABLE)
-def test_no_unparseable_version_compares_as_older_than_a_pin(version) -> None:
+def test_no_unparseable_version_compares_as_older_than_a_pin(version: str) -> None:
     """The defect stated as its consequence rather than as its cause.
 
     Comparing `None` against a tuple raises, which is the point: the
     caller has to decide, and cannot fall through to "the pin is
     current" by arithmetic.
     """
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="between instances of 'NoneType' and 'tuple'"):
         _greater(_sort_key(version), _sort_key("0.16.5"))
 
 
@@ -57,41 +63,47 @@ def test_no_unparseable_version_compares_as_older_than_a_pin(version) -> None:
         ("0.16.4", "0.16.5"),
     ],
 )
-def test_releases_still_order(lower, higher) -> None:
+def test_releases_still_order(lower: str, higher: str) -> None:
     low, high = _sort_key(lower), _sort_key(higher)
-    assert low is not None and high is not None
+    assert low is not None
+    assert high is not None
     assert low < high
 
 
-def canned(index_answer: str, pinned: str):
-    """A `run` that reports the pinned version and then hands back one index line."""
+def canned(index_answer: str, pinned: str) -> Callable[..., Ran]:
+    """A `run` that reports the pinned version, then one index line."""
 
-    def fake(cmd, **kw):
+    def fake(cmd: list[str], **_kw: object) -> Ran:
         if "--version" in cmd:
-            return Ran(0, f"ruff {pinned}", "", False)
-        return Ran(0, index_answer, "", False)
+            return Ran(0, f"ruff {pinned}", "", timed_out=False)
+        return Ran(0, index_answer, "", timed_out=False)
 
     return fake
 
 
-def test_an_index_answer_it_cannot_order_withholds_the_pass(monkeypatch) -> None:
+def test_an_index_answer_it_cannot_order_withholds_the_pass(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     pinned = mod.pinned_version("ruff")
-    assert pinned, "the source tree declares the ruff pin"
+    assert pinned not in (None, ""), "the source tree declares the ruff pin"
     monkeypatch.setattr(mod, "TOOLS", ("ruff",))
     monkeypatch.setattr(mod, "run", canned(f"ruff=={pinned}.post1\n", pinned))
 
     findings = list(_tool_pins())
 
     assert [f.level for f in findings] == [Level.UNRUN], (
-        "an unorderable index answer must withhold the pass, not read as the pin being current"
+        "an unorderable index answer must withhold the pass, "
+        "not read as the pin being current"
     )
     assert "not a version this can order" in findings[0].message
 
 
-def test_an_index_answer_it_can_order_still_decides(monkeypatch) -> None:
-    """The other half: the check still fires when it genuinely can compare."""
+def test_an_index_answer_it_can_order_still_decides(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The other half: the check still fires when it can compare."""
     pinned = mod.pinned_version("ruff")
-    assert pinned, "the source tree declares the ruff pin"
+    assert pinned not in (None, ""), "the source tree declares the ruff pin"
     major, minor, micro = (int(n) for n in pinned.split("."))
     monkeypatch.setattr(mod, "TOOLS", ("ruff",))
     monkeypatch.setattr(

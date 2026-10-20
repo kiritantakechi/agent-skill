@@ -17,6 +17,11 @@ from pathlib import Path
 
 @dataclass(frozen=True, slots=True)
 class Ran:
+    """How one subprocess ended.
+
+    `rc` is None when the run timed out and was killed.
+    """
+
     rc: int | None
     out: str
     err: str
@@ -24,6 +29,7 @@ class Ran:
 
     @property
     def ok(self) -> bool:
+        """Did the command exit 0 inside its time?"""
         return self.rc == 0 and not self.timed_out
 
 
@@ -34,33 +40,40 @@ def run(
     env: dict[str, str] | None = None,
     stdin: str | None = None,
 ) -> Ran:
+    """Run `cmd` and wait for it, for at most `timeout` seconds.
+
+    A timeout is a result, not an exception: the whole process tree is
+    killed, and `timed_out` says so. A binary that is not there is
+    status 127, as a shell reports it. A non-empty `env` is laid over
+    this process's environment rather than replacing it.
+    """
     try:
-        proc = subprocess.Popen(
+        proc = subprocess.Popen(  # noqa: S603 — argv lists the harness builds; no shell
             cmd,
             cwd=cwd,
             stdin=subprocess.PIPE if stdin is not None else None,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={**os.environ, **env} if env else None,
+            env={**os.environ, **env} if env is not None and len(env) > 0 else None,
             # So a timeout can reach the whole tree, not just the
             # leader.
             start_new_session=True,
         )
     except FileNotFoundError:
-        return Ran(127, "", f"{cmd[0]}: not found", False)
+        return Ran(127, "", f"{cmd[0]}: not found", timed_out=False)
     with proc:
         try:
             out, err = proc.communicate(input=stdin, timeout=timeout)
         except subprocess.TimeoutExpired:
             _kill_tree(proc)
             proc.communicate()
-            return Ran(None, "", "", True)
-        return Ran(proc.returncode, out, err, False)
+            return Ran(None, "", "", timed_out=True)
+        return Ran(proc.returncode, out, err, timed_out=False)
 
 
-def _kill_tree(proc: subprocess.Popen) -> None:
-    """Kill the process group, because `Popen.kill` kills only the leader.
+def _kill_tree(proc: subprocess.Popen[str]) -> None:
+    """Kill the process group: `Popen.kill` kills only the leader.
 
     Timing out a `cargo` left nine to twelve `rustc` children alive —
     measured, and still climbing two seconds later — every one of them
@@ -75,7 +88,7 @@ def _kill_tree(proc: subprocess.Popen) -> None:
 
 
 def tool_path(tool: str) -> str | None:
-    """Where this tool actually is, preferring the pinned copy over the host's.
+    """Where this tool actually is: the pinned copy before the host's.
 
     `shutil.which` answers "what would a shell run", which is the host's
     binary whenever `PATH` puts it first. Measured: with `ripgrep-bin`
@@ -111,7 +124,7 @@ PACKAGE = {"rg": "ripgrep-bin"}
 
 
 def declared_pins() -> str | None:
-    """The file the tool pins are declared in, or None when it cannot be read.
+    """The file declaring the tool pins, or None when it cannot be read.
 
     It sits beside the package in the source tree and nowhere at all
     once the package is installed: `uv build --wheel` does not ship
@@ -131,18 +144,22 @@ def declared_pins() -> str | None:
 
 
 def pinned_version(tool: str) -> str | None:
-    """The version `pyproject.toml` pins this tool to, read rather than repeated.
+    """The version `pyproject.toml` pins this tool to.
 
-    Declared once. A constant here and a pin there is two declarations
-    that agree until someone edits one, which is the shape of every
-    drift this repository has had to chase.
+    Read rather than repeated, so it is declared once. A constant here
+    and a pin there is two declarations that agree until someone edits
+    one, which is the shape of every drift this repository has had to
+    chase.
     """
     package = PACKAGE.get(tool, tool)
     text = declared_pins()
     if text is None:
         return None
     found = re.search(rf'"{re.escape(package)}==(\d+\.\d+\.\d+)"', text)
-    return found.group(1) if found else None
+    # The group is not optional, so a match always has it; the stubs
+    # cannot say so, and the check below is how the checker learns it.
+    version = found.group(1) if found else None
+    return version if isinstance(version, str) else None
 
 
 def version_mismatch(tool: str, reported: str) -> str | None:
@@ -166,11 +183,14 @@ def version_mismatch(tool: str, reported: str) -> str | None:
     if want is None:
         if declared_pins() is None:
             return (
-                f"`{tool}` decides whether checks fire and no pin could be read: this is running "
-                f"from an installed distribution, which does not carry `pyproject.toml`, so "
-                f"nothing confirmed which version ran"
+                f"`{tool}` decides whether checks fire and no pin could be read: "
+                "this is running from an installed distribution, which does not "
+                "carry `pyproject.toml`, so nothing confirmed which version ran"
             )
-        return f"`{tool}` decides whether checks fire but `pyproject.toml` pins no version for it"
+        return (
+            f"`{tool}` decides whether checks fire but `pyproject.toml` pins no "
+            "version for it"
+        )
     got = _VERSION.search(reported)
     if got and got.group(1) == want:
         return None

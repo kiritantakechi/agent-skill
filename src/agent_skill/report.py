@@ -7,10 +7,12 @@ negative control that asserts the check *can* fail.
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import override
+lazy from collections.abc import Iterable
 
 
 class Level(Enum):
-    """A finding blocks, informs, or reports that the check could not look.
+    """A finding blocks, informs, or says that the check could not look.
 
     The third one was added because a check that cannot run looks
     exactly like a check that passes, and the repository has already
@@ -28,30 +30,42 @@ class Level(Enum):
 
 @dataclass(frozen=True, slots=True)
 class Finding:
+    """One thing a check found: its level, what it says, and where."""
+
     level: Level
     message: str
     where: str = ""
 
+    @override
     def __str__(self) -> str:
+        """The message, led by `where` when there is one."""
         return f"{self.where}: {self.message}" if self.where else self.message
 
 
 def fail(message: str, where: str = "") -> Finding:
+    """A defect: the finding that blocks the pass."""
     return Finding(Level.FAIL, message, where)
 
 
 def unrun(message: str, where: str = "") -> Finding:
-    """The check could not be performed. Not a pass, and not a defect either."""
+    """The check could not be performed.
+
+    Not a pass, and not a defect either.
+    """
     return Finding(Level.UNRUN, message, where)
 
 
 def note(message: str, where: str = "") -> Finding:
+    """Something worth saying that does not block the pass."""
     return Finding(Level.NOTE, message, where)
 
 
 @dataclass(slots=True)
 class Result:
-    """One check's output: its findings, plus what it wants to say about scale."""
+    """One check's output: its findings and its details.
+
+    The details are what the check wants to say about scale.
+    """
 
     name: str
     findings: list[Finding] = field(default_factory=list)
@@ -59,14 +73,17 @@ class Result:
 
     @property
     def fails(self) -> list[Finding]:
+        """The findings that name a defect."""
         return [f for f in self.findings if f.level is Level.FAIL]
 
     @property
     def unrun(self) -> list[Finding]:
+        """The findings that say the check could not look."""
         return [f for f in self.findings if f.level is Level.UNRUN]
 
     @property
     def notes(self) -> list[Finding]:
+        """The findings that only inform."""
         return [f for f in self.findings if f.level is Level.NOTE]
 
     @property
@@ -78,6 +95,7 @@ class Result:
         """
         return not self.fails and not self.unrun
 
-    def extend(self, findings) -> Result:
+    def extend(self, findings: Iterable[Finding]) -> Result:
+        """Add `findings`, and return this result so calls can chain."""
         self.findings.extend(findings)
         return self

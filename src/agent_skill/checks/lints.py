@@ -7,29 +7,34 @@ crate quietly omitted a third lint while its comment named two.
 
 import re
 import tomllib
+lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
-from agent_skill.report import fail
+from agent_skill.report import Finding, fail
+lazy from agent_skill.model import Skill
 
 
 def table(text: str, prefix: str = "") -> dict[str, str]:
+    """A manifest's lint table as `section.lint` -> its raw value."""
     out: dict[str, str] = {}
     section: str | None = None
     for line in text.split("\n"):
         if m := re.match(rf"^\[{prefix}lints\.(\w+)\]", line.strip()):
-            section = m.group(1)
+            section = str(m.group(1))
             continue
         if line.strip().startswith("["):
             section = None
             continue
-        if section and "=" in line and not line.strip().startswith("#"):
+        # Never empty when set: `\w+` matched at least one character.
+        if section is not None and "=" in line and not line.strip().startswith("#"):
             key, value = line.split("=", 1)
             out[f"{section}.{key.strip()}"] = value.split("#")[0].strip()
     return out
 
 
 @check("lints", "the shipped lint table equals the verified one")
-def lints(skill):
+def lints(skill: Skill) -> Iterator[Finding]:
+    """How the shipped lint tables differ from the verified ones."""
     manifest = skill.root / "assets" / "Cargo.toml"
     crate = skill.profile.crate
     if crate is None or not manifest.exists():
@@ -46,7 +51,8 @@ def lints(skill):
     for key in sorted(set(shipped) & set(verified)):
         if shipped[key] != verified[key]:
             yield fail(
-                f"`{key}` is {shipped[key]} in the asset, {verified[key]} in the verified crate",
+                f"`{key}` is {shipped[key]} in the asset, "
+                f"{verified[key]} in the verified crate",
                 skill.name,
             )
 
@@ -56,6 +62,7 @@ def lints(skill):
     shipped_clippy = tomllib.loads(asset.read_text()) if asset.exists() else {}
     if shipped_clippy != crate.clippy:
         yield fail(
-            f"assets/clippy.toml is {shipped_clippy} and the verified crate's is {crate.clippy}",
+            f"assets/clippy.toml is {shipped_clippy} "
+            f"and the verified crate's is {crate.clippy}",
             skill.name,
         )

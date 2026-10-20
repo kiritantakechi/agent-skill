@@ -27,10 +27,15 @@ adding a snippet nobody has related to the rule, which proves the
 snippet.
 """
 
+lazy from collections.abc import Iterator
+
 from agent_skill.checks import check
 from agent_skill.checks.patterns import patterns_of
 from agent_skill.checks.search import matches, searcher_problem
 from agent_skill.report import fail, unrun
+lazy from agent_skill.checks.patterns import Pattern
+lazy from agent_skill.model import Rule, Skill
+lazy from agent_skill.report import Finding
 
 
 @check(
@@ -38,17 +43,18 @@ from agent_skill.report import fail, unrun
     "an authored pattern is shown to catch what it was written for",
     needs=("rg",),
 )
-def sensitivity(skill):
+def sensitivity(skill: Skill) -> Iterator[Finding]:
+    """Each rule's patterns against its fixtures, as a two-way cover."""
     declared = skill.profile.fires
     if not declared:
         return
-    if problem := searcher_problem():
+    if (problem := searcher_problem()) is not None:
         yield unrun(problem, skill.name)
         return
     if not skill.profile.languages:
         yield fail(
-            f"{skill.name} declares fixtures but no language, so a fixture cannot be prepared the "
-            f"way the corpus it stands in for is",
+            f"{skill.name} declares fixtures but no language, so a fixture cannot "
+            "be prepared the way the corpus it stands in for is",
             skill.name,
         )
         return
@@ -64,47 +70,66 @@ def sensitivity(skill):
         rule = by_id.get(rid)
         if rule is None:
             continue
-        if not fixtures:
-            yield fail(f"{rid}: is listed with no fixture at all", skill.name)
-            continue
-        if not rule.check:
+        yield from _fixtures(skill, rule, fixtures, lang)
+
+
+def _fixtures(
+    skill: Skill, rule: Rule, fixtures: tuple[str, ...], lang: str
+) -> Iterator[Finding]:
+    """One rule's fixtures, against the commands its Check ships."""
+    rid = rule.id
+    if not fixtures:
+        yield fail(f"{rid}: is listed with no fixture at all", skill.name)
+        return
+    if not rule.check:
+        yield fail(
+            f"{rid}: has a fixture but no **Check:** to run against it", skill.name
+        )
+        return
+    runnable = [p for p in patterns_of(rule.check) if p.kind == "command"]
+    if not runnable:
+        yield fail(
+            f"{rid}: has a fixture but its **Check:** ships no command — a fixture "
+            "with nothing to run against it proves nothing",
+            skill.name,
+        )
+        return
+    yield from _cover(skill, rule, runnable, fixtures, lang)
+
+
+def _cover(
+    skill: Skill,
+    rule: Rule,
+    runnable: list[Pattern],
+    fixtures: tuple[str, ...],
+    lang: str,
+) -> Iterator[Finding]:
+    """Every pattern hits a fixture, and every fixture a pattern."""
+    rid = rule.id
+    # A grid rather than a list: one row per pattern, one column per
+    # fixture, so both directions of the cover are read off the same
+    # answers.
+    grid = [[matches(fixture, p, lang) for fixture in fixtures] for p in runnable]
+    if any(a is None for row in grid for a in row):
+        yield fail(
+            f"{rid}: a pattern gave no answer against its own fixture — rejected, "
+            "timed out, or the searcher is missing",
+            skill.name,
+        )
+        return
+
+    for pattern, row in zip(runnable, grid, strict=True):
+        if not any(row):
             yield fail(
-                f"{rid}: has a fixture but no **Check:** to run against it", skill.name
-            )
-            continue
-        runnable = [p for p in patterns_of(rule.check) if p.kind == "command"]
-        if not runnable:
-            yield fail(
-                f"{rid}: has a fixture but its **Check:** ships no command — a fixture with "
-                f"nothing to run against it proves nothing",
+                f"{rid}: /{pattern.text}/ matches none of this rule's fixtures, so "
+                f"nothing shows it can catch anything — {rule.title}",
                 skill.name,
             )
-            continue
-
-        # A grid rather than a list: one row per pattern, one column per
-        # fixture, so both directions of the cover are read off the same
-        # answers.
-        grid = [[matches(fixture, p, lang) for fixture in fixtures] for p in runnable]
-        if any(a is None for row in grid for a in row):
+    for i, fixture in enumerate(fixtures):
+        if not any(row[i] for row in grid):
             yield fail(
-                f"{rid}: a pattern gave no answer against its own fixture — rejected, timed "
-                f"out, or the searcher is missing",
+                f"{rid}: the fixture {fixture.strip()[:60]!r} is matched by none of "
+                "this rule's patterns — a fixture nothing relates to the rule is how "
+                "an uncovered pattern gets covered without being fixed",
                 skill.name,
             )
-            continue
-
-        for pattern, row in zip(runnable, grid, strict=True):
-            if not any(row):
-                yield fail(
-                    f"{rid}: /{pattern.text}/ matches none of this rule's fixtures, so nothing "
-                    f"shows it can catch anything — {rule.title}",
-                    skill.name,
-                )
-        for i, fixture in enumerate(fixtures):
-            if not any(row[i] for row in grid):
-                yield fail(
-                    f"{rid}: the fixture {fixture.strip()[:60]!r} is matched by none of this "
-                    f"rule's patterns — a fixture nothing relates to the rule is how an "
-                    f"uncovered pattern gets covered without being fixed",
-                    skill.name,
-                )

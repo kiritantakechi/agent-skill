@@ -20,10 +20,14 @@ import importlib
 from dataclasses import dataclass, field
 lazy from collections.abc import Callable, Iterable
 
-from agent_skill.model import MARKERS
+from agent_skill.model import MARKERS, Skill
 lazy from agent_skill.checks.search import Span
 lazy from agent_skill.lang.rust import Crate
 lazy from agent_skill.report import Finding
+
+#: Whether a hit is the case its rule permits, given the corpus lines,
+#: the hit's span, and the lines that sit inside tests.
+type Exemption = Callable[[list[str], Span, set[int]], bool]
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,9 +102,7 @@ class Profile:
     #: the disagreement, and the next one written against the documented
     #: signature would have indexed `lines[at]` with a dataclass. That
     #: raises only when a rule actually fires.
-    exempt: dict[str, Callable[[list[str], Span, set[int]], bool]] = field(
-        default_factory=dict
-    )
+    exempt: dict[str, Exemption] = field(default_factory=dict)
     not_decisive: dict[str, NotDecisive] = field(default_factory=dict)
     #: Rule id -> snippets containing the defects that rule exists to
     #: catch.
@@ -127,6 +129,7 @@ class Profile:
 
     @property
     def all_marked(self) -> tuple[str, ...]:
+        """Every fence tag that carries a marker, without repeats."""
         return tuple(dict.fromkeys(self.languages + self.marked_languages))
 
     def pin(self) -> str | None:
@@ -139,20 +142,26 @@ class Profile:
         return None
 
     def running_version(self) -> str | None:
-        """The version of `pin()`'s subject that actually runs here, or None if
-        it cannot be asked. Only a pin that follows the local toolchain needs it.
+        """The version of `pin()`'s subject that actually runs here.
+
+        None if it cannot be asked. Only a pin that follows the local
+        toolchain needs it.
         """
         return None
 
-    def conventions(self, skill) -> Iterable[Finding]:
+    def conventions(self, skill: Skill) -> Iterable[Finding]:  # noqa: ARG002 — the default hook; overrides read it
         """This standard's own rules, applied to its own examples."""
         return ()
 
-    def prose(self, skill) -> Iterable[Finding]:
-        """This standard's own rules, applied to the text around its examples."""
+    def prose(self, skill: Skill) -> Iterable[Finding]:  # noqa: ARG002 — the default hook; overrides read it
+        """This standard's own rules, applied to its prose.
+
+        The prose is the text around its examples; `conventions` covers
+        the examples themselves.
+        """
         return ()
 
-    def inside_tests(self, body: str) -> set[int]:
+    def inside_tests(self, body: str) -> set[int]:  # noqa: ARG002 — the default hook; overrides read it
         """Body-line indices a rule scoped to test code should look at.
 
         Which lines those are is a fact about the language, so the
@@ -162,7 +171,7 @@ class Profile:
 
 
 def exemption_problem(profile: Profile) -> str | None:
-    """What is wrong with a profile's structure exemption, if anything."""
+    """What is wrong with a profile's structure exemption, if any."""
     reason = profile.exempt_from_structure
     if reason is not None and not reason.strip():
         return f"{profile.name} is exempt from standard-structure and gives no reason"
@@ -173,6 +182,7 @@ _REGISTRY: dict[str, Profile] = {}
 
 
 def register(profile: Profile) -> Profile:
+    """Add `profile` to the registry under its name, and return it."""
     _REGISTRY[profile.name] = profile
     return profile
 
@@ -200,6 +210,7 @@ def registered() -> tuple[Profile, ...]:
 
 
 def profile_for(name: str) -> Profile:
+    """`name`'s registered profile, or a bare one if it has none."""
     registry = _load()
     if name in registry:
         return registry[name]
@@ -207,6 +218,9 @@ def profile_for(name: str) -> Profile:
 
 
 def _guess_prefix(name: str) -> str:
-    """`rust-style` -> `RS`. Only used for a skill that ships no profile."""
+    """`rust-style` -> `RS`.
+
+    Only used for a skill that ships no profile.
+    """
     parts = [p for p in name.replace("_", "-").split("-") if p]
     return "".join(p[0] for p in parts[:2]).upper() or "XX"

@@ -15,23 +15,29 @@ review order. The words of the shared passages belong to `shared-text`.
 """
 
 import re
+lazy from collections.abc import Iterator
 
 from agent_skill import shared, vocabulary
 from agent_skill.checks import check
 from agent_skill.profiles import exemption_problem
 from agent_skill.report import fail
 lazy from agent_skill.checks.anatomy import structural
+lazy from agent_skill.model import Skill
+lazy from agent_skill.report import Finding
 
 #: The reference map's columns, in order.
 MAP_HEADER = "| File | Rule IDs | Covers |"
 
 
 @check("skeleton", "every standard has the same shape")
-def skeleton(skill):
-    if problem := exemption_problem(skill.profile):
+def skeleton(skill: Skill) -> Iterator[Finding]:
+    """Departures from the shared shape, or an exemption gone stale."""
+    if (problem := exemption_problem(skill.profile)) is not None:
         yield fail(problem, skill.name)
         return
-    if reason := skill.profile.exempt_from_structure:
+    # Past the guard above, an exemption is either absent or gives a
+    # reason, so `is not None` is the whole question.
+    if (reason := skill.profile.exempt_from_structure) is not None:
         # An exemption is a promise that the standard does not conform
         # yet. One standing over a standard that does is one nobody
         # re-examined.
@@ -46,16 +52,19 @@ def skeleton(skill):
         yield fail(message, where)
 
 
-def structure(skill):
-    """Every finding standard-structure would raise, for an exempt skill's dry run."""
+def structure(skill: Skill) -> Iterator[tuple[str, str]]:
+    """Every finding standard-structure would raise.
+
+    For an exempt skill's dry run.
+    """
     yield from shape(skill)
     yield from shared.compare(skill)
 
     yield from structural(skill)
 
 
-def shape(skill):
-    """(message, where) for every way the skill departs from the shared shape."""
+def shape(skill: Skill) -> Iterator[tuple[str, str]]:
+    """(message, where) for each departure from the shared shape."""
     yield from _skill_md(skill)
     yield from _chapters(skill)
     yield from _review(skill)
@@ -63,8 +72,8 @@ def shape(skill):
     yield from _unchanged(skill)
 
 
-def _renames(skill):
-    """Every row of a rename table leads somewhere a reader can follow."""
+def _renames(skill: Skill) -> Iterator[tuple[str, str]]:
+    """Every rename row leads somewhere a reader can follow."""
     rows = {(row.tool, row.lint) for row in skill.lint_rows}
     ids = set(skill.by_id) | {rid for rid, _, _ in skill.core_rules}
     where = f"{skill.name}/references/migration.md"
@@ -100,27 +109,36 @@ def _renames(skill):
             )
 
 
-def _unchanged(skill):
-    """Every table states the ranges it covers, and an ID in range without a row is still a
-    rule: the table says that ID is unchanged.
+def _unchanged(skill: Skill) -> Iterator[tuple[str, str]]:
+    """A table states its ranges, and an unlisted ID in range is a rule.
+
+    An ID in range without a row is still a rule: the table says that ID
+    is unchanged.
     """
     ids = set(skill.by_id) | {rid for rid, _, _ in skill.core_rules}
     where = f"{skill.name}/references/migration.md"
     for table in skill.rename_tables:
         if not table.ranges:
             yield (
-                f"`{table.heading}` states no ranges, so an unlisted ID reads as unchanged",
+                (
+                    f"`{table.heading}` states no ranges, "
+                    "so an unlisted ID reads as unchanged"
+                ),
                 where,
             )
         for rid in table.unchanged:
             if rid not in ids:
                 yield (
-                    f"{rid} has no row, so the table says it is unchanged, and no rule carries it",
+                    (
+                        f"{rid} has no row, so the table says it is unchanged, "
+                        "and no rule carries it"
+                    ),
                     where,
                 )
 
 
-def _skill_md(skill):
+def _skill_md(skill: Skill) -> Iterator[tuple[str, str]]:
+    """`SKILL.md`'s title, sections, reference map and review order."""
     text = skill.text
     where = f"{skill.name}/SKILL.md"
     h1 = next((ln for ln in _outside_fences(text) if ln.startswith("# ")), "")
@@ -140,7 +158,10 @@ def _skill_md(skill):
         table = [ln for ln in text.split("\n")[span[0] : span[1]] if ln.startswith("|")]
         if table and shared.normal(table[0]) != MAP_HEADER:
             yield (
-                f"the reference map's columns are `{table[0]}`, expected `{MAP_HEADER}`",
+                (
+                    f"the reference map's columns are `{table[0]}`, "
+                    f"expected `{MAP_HEADER}`"
+                ),
                 where,
             )
 
@@ -151,14 +172,15 @@ def _skill_md(skill):
         if stages != listed:
             yield (
                 (
-                    f"section 5 lists {listed} and the protocol's review order is {stages}; "
-                    f"section 5 is that order"
+                    f"section 5 lists {listed} and the protocol's review order is "
+                    f"{stages}; section 5 is that order"
                 ),
                 where,
             )
 
 
-def _chapters(skill):
+def _chapters(skill: Skill) -> Iterator[tuple[str, str]]:
+    """Chapters are named from the vocabulary and hold their family."""
     stems = {c.path.stem for c in skill.chapters}
     for chapter in skill.chapters:
         where = f"{skill.name}/{chapter.name}"
@@ -181,7 +203,8 @@ def _chapters(skill):
             yield f"every standard ships `references/{stem}.md`", skill.name
 
 
-def _review(skill):
+def _review(skill: Skill) -> Iterator[tuple[str, str]]:
+    """The review protocol's title, sections and severity model."""
     path = skill.root / shared.REVIEW
     if not path.is_file():
         return
@@ -201,7 +224,8 @@ def _review(skill):
         yield (
             (
                 "the severity model is "
-                f"{[label for label, _ in rows]}, expected {[label for label, _ in shared.SEVERITIES]} "
+                f"{[label for label, _ in rows]}, "
+                f"expected {[label for label, _ in shared.SEVERITIES]} "
                 "with the shared meanings"
             ),
             where,
@@ -212,15 +236,18 @@ def _severity_rows(text: str) -> list[tuple[str, str]]:
     span = shared.section(text, "Severity model")
     if span is None:
         return []
-    rows = []
-    for line in text.split("\n")[span[0] : span[1]]:
-        if m := re.match(r"^\| \*\*(\w+)\*\* \| ([^|]+) \|", line):
-            rows.append((m.group(1), m.group(2).strip()))
-    return rows
+    return [
+        (m.group(1), m.group(2).strip())
+        for line in text.split("\n")[span[0] : span[1]]
+        if (m := re.match(r"^\| \*\*(\w+)\*\* \| ([^|]+) \|", line))
+    ]
 
 
 def _items(text: str, heading: str) -> list[str]:
-    """The bold titles of a section's numbered items: `1. **Soundness.**` -> `Soundness.`."""
+    """The bold titles of a section's numbered items.
+
+    `1. **Soundness.**` -> `Soundness.`.
+    """
     span = shared.section(text, heading)
     if span is None:
         return []
@@ -228,7 +255,7 @@ def _items(text: str, heading: str) -> list[str]:
     return [m.group(1) for ln in lines if (m := re.match(r"^\d+\. \*\*(.+?)\*\*", ln))]
 
 
-def _outside_fences(text: str):
+def _outside_fences(text: str) -> Iterator[str]:
     fenced = False
     for line in text.split("\n"):
         if line.startswith("```"):

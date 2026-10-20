@@ -31,10 +31,14 @@ FILE_ARG = re.compile(
 
 COMMAND = re.compile(r"`(rg\s[^`]*)`")
 QUOTED = re.compile(r"'([^']*)'|\"([^\"]*)\"")
+#: A prose span shorter than this is not run as a pattern.
+SHORTEST = 4
 
 
 @dataclass(frozen=True, slots=True)
 class Pattern:
+    """One runnable pattern a Check names, and how to run it."""
+
     text: str
     mode: str  #: `-F` literal text, `-E` regex — there is no third
     kind: str  #: "command" — the Check ships it; "prose" — a span it names
@@ -101,7 +105,7 @@ def patterns_of(check_text: str) -> list[Pattern]:
         re.IGNORECASE,
     ):
         for span in re.findall(r"`([^`\n]+)`", check_text):
-            if len(span) < 4 or not CODEISH.search(span):
+            if len(span) < SHORTEST or not CODEISH.search(span):
                 continue
             if not re.match(r"^(references/|[A-Z]{2}-)", span):
                 out.append(Pattern(span, "-F", "prose"))

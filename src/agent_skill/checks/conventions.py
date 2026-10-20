@@ -9,9 +9,14 @@ Tier governs adoption by a reader, not the library's own evidence, so an
 too.
 """
 
+lazy from collections.abc import Iterator
+
 from agent_skill.checks import check
+lazy from agent_skill.model import Skill
+lazy from agent_skill.report import Finding
 
 
 @check("conventions", "the standard's own rules over its own examples")
-def conventions(skill):
+def conventions(skill: Skill) -> Iterator[Finding]:
+    """The profile's own rules, applied to the skill's own examples."""
     yield from skill.profile.conventions(skill)

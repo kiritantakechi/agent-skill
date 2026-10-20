@@ -1,27 +1,29 @@
-"""Each control injects one defect and asserts the check owning it notices.
+"""Each control injects one defect and asserts its check notices.
 
 A check that cannot fail looks exactly like a check that passes, so the
 controls are tests in their own right rather than a claim in a README.
 """
 
 import importlib
+lazy from pathlib import Path
 
 import pytest
 
 from agent_skill.checks import all_checks, by_name
-from agent_skill.checks.controls import CONTROLS, WITHOUT_A_CONTROL, FixtureGone
+from agent_skill.checks.controls import CONTROLS, WITHOUT_A_CONTROL, FixtureGoneError
 from agent_skill.model import discover
 from agent_skill.report import Level
+lazy from agent_skill.checks.controls import Control
 
 
 @pytest.mark.parametrize("control", CONTROLS, ids=lambda c: c.name)
-def test_control_fires(control, scratch) -> None:
+def test_control_fires(control: Control, scratch: Path) -> None:
     all_checks()
     check = by_name(control.check)
     assert check is not None, f"no check named {control.check!r}"
     try:
         control.break_it(scratch)
-    except FixtureGone as e:
+    except FixtureGoneError as e:
         pytest.fail(f"the fixture has drifted out of the skill: {e}")
     result = check.run(discover(scratch))
     assert any(f.level is Level.FAIL for f in result.findings), (
@@ -41,7 +43,7 @@ def test_every_check_has_a_control() -> None:
 
 
 def test_no_exemption_outlives_its_check() -> None:
-    """An exemption standing over nothing is an exemption nobody re-examined."""
+    """An exemption standing over nothing is one nobody re-examined."""
     known = {c.name for c in all_checks()}
     stale = sorted(set(WITHOUT_A_CONTROL) - known)
     assert not stale, f"exemption names a check that no longer exists: {stale}"
@@ -49,9 +51,8 @@ def test_no_exemption_outlives_its_check() -> None:
 
 def test_every_exemption_gives_a_reason() -> None:
     for name, reason in WITHOUT_A_CONTROL.items():
-        assert reason and len(reason) > 20, (
-            f"{name} is exempt with no reason worth reading"
-        )
+        assert reason, f"{name} is exempt with no reason worth reading"
+        assert len(reason) > 20, f"{name} is exempt with no reason worth reading"
 
 
 #: Each structure control, and the branch it is named for. Stubbing the
@@ -102,12 +103,19 @@ BRANCHES = {
 
 
 @pytest.mark.parametrize("name", sorted(BRANCHES))
-def test_a_structure_control_needs_its_own_branch(name, scratch, monkeypatch) -> None:
+def test_a_structure_control_needs_its_own_branch(
+    name: str, scratch: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     control = next(c for c in CONTROLS if c.name == name)
     module, attr = BRANCHES[name]
-    monkeypatch.setattr(importlib.import_module(module), attr, lambda *a, **k: iter(()))
+    monkeypatch.setattr(
+        importlib.import_module(module), attr, lambda *_a, **_k: iter(())
+    )
     control.break_it(scratch)
-    result = by_name(control.check).run(discover(scratch))
+    check = by_name(control.check)
+    assert check is not None, f"no check named {control.check!r}"
+    result = check.run(discover(scratch))
     assert not any(f.level is Level.FAIL for f in result.findings), (
-        f"`{name}` still fires with `{attr}` stubbed out — another branch is reporting it"
+        f"`{name}` still fires with `{attr}` stubbed out — "
+        "another branch is reporting it"
     )

@@ -7,9 +7,11 @@ produced two findings.
 """
 
 import re
+lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
-from agent_skill.report import fail, note
+from agent_skill.report import Finding, fail, note
+lazy from agent_skill.model import Skill
 
 WIDTH = 100
 
@@ -21,68 +23,83 @@ HEADING = re.compile(r"^#{1,6} [A-Z]{2}-[A-Z]+-\d+[a-z]? \[")
 TOC = re.compile(r"^\s*- [A-Z]{2}-[A-Z]+-\d+[a-z]? \[")
 
 
+#: The fewest numbered lines judged as one list.
+_JUDGED = 3
+
+
 @check("layout", "line width, whitespace, fences")
-def layout(skill):
+def layout(skill: Skill) -> Iterator[Finding]:
+    """The physical shape of every markdown file in the skill."""
     for path in skill.markdown:
         text = path.read_text()
         tag = f"{skill.name}/{path.name}"
         lines = text.split("\n")
-
-        end_fm = 0
-        if lines and lines[0] == "---":
-            end_fm = next((i for i, ln in enumerate(lines[1:], 1) if ln == "---"), 0)
-
-        fenced = False
-        for i, line in enumerate(lines, 1):
-            if line.startswith("```"):
-                fenced = not fenced
-                continue
-            if line != line.rstrip():
-                yield fail("trailing whitespace", f"{tag}:{i}")
-            if i <= end_fm + 1 or len(line) <= WIDTH:
-                continue
-            if line.lstrip().startswith("|"):
-                continue  # a table row cannot be wrapped
-            if HEADING.match(line) or TOC.match(line):
-                yield note(
-                    f"rule title makes the line {len(line)} columns", f"{tag}:{i}"
-                )
-                continue
-            kind = "code" if fenced else "prose"
-            yield fail(
-                f"{kind} line is {len(line)} columns (limit {WIDTH})", f"{tag}:{i}"
-            )
-
-        if text.count("```") % 2:
-            yield fail("unbalanced code fences", tag)
-        if re.search(r"\S```", text):
-            yield fail("inline triple backtick", tag)
-        if "\r" in text:
-            yield fail("CR present", tag)
-        if "\t" in text:
-            yield fail("hard tab", tag)
-        if not text.endswith("\n"):
-            yield fail("no trailing newline", tag)
-        # Fence-aware: `#` opens a heading in markdown and a comment in
-        # Python, and `ruff format` puts two blank lines before a
-        # top-level statement — so an unfenced test reads correct
-        # formatting as a doubled blank.
-        in_fence = False
-        for i in range(2, len(lines)):
-            if lines[i].startswith("```"):
-                in_fence = not in_fence
-            elif (
-                not in_fence
-                and lines[i].startswith("#")
-                and lines[i - 1] == ""
-                and lines[i - 2] == ""
-            ):
-                yield fail("blank line doubled before a heading", f"{tag}:{i + 1}")
-
+        yield from _widths(lines, tag)
+        yield from _whole_file(text, tag)
+        yield from _doubled_blanks(lines, tag)
         yield from _ordered_lists(text, tag)
 
 
-def _ordered_lists(text: str, tag: str):
+def _widths(lines: list[str], tag: str) -> Iterator[Finding]:
+    """Trailing whitespace on any line, and lines past `WIDTH`."""
+    end_fm = 0
+    if lines and lines[0] == "---":
+        end_fm = next((i for i, ln in enumerate(lines[1:], 1) if ln == "---"), 0)
+
+    fenced = False
+    for i, line in enumerate(lines, 1):
+        if line.startswith("```"):
+            fenced = not fenced
+            continue
+        if line != line.rstrip():
+            yield fail("trailing whitespace", f"{tag}:{i}")
+        if i <= end_fm + 1 or len(line) <= WIDTH:
+            continue
+        if line.lstrip().startswith("|"):
+            continue  # a table row cannot be wrapped
+        if HEADING.match(line) or TOC.match(line):
+            yield note(f"rule title makes the line {len(line)} columns", f"{tag}:{i}")
+            continue
+        kind = "code" if fenced else "prose"
+        yield fail(f"{kind} line is {len(line)} columns (limit {WIDTH})", f"{tag}:{i}")
+
+
+def _whole_file(text: str, tag: str) -> Iterator[Finding]:
+    """Fence balance and the characters a file must not contain."""
+    if text.count("```") % 2:
+        yield fail("unbalanced code fences", tag)
+    if re.search(r"\S```", text):
+        yield fail("inline triple backtick", tag)
+    if "\r" in text:
+        yield fail("CR present", tag)
+    if "\t" in text:
+        yield fail("hard tab", tag)
+    if not text.endswith("\n"):
+        yield fail("no trailing newline", tag)
+
+
+def _doubled_blanks(lines: list[str], tag: str) -> Iterator[Finding]:
+    """A heading with two blank lines above it.
+
+    Fence-aware: `#` opens a heading in markdown and a comment in
+    Python, and `ruff format` puts two blank lines before a top-level
+    statement — so an unfenced test reads correct formatting as a
+    doubled blank.
+    """
+    in_fence = False
+    for i in range(2, len(lines)):
+        if lines[i].startswith("```"):
+            in_fence = not in_fence
+        elif (
+            not in_fence
+            and lines[i].startswith("#")
+            and lines[i - 1] == ""
+            and lines[i - 2] == ""
+        ):
+            yield fail("blank line doubled before a heading", f"{tag}:{i + 1}")
+
+
+def _ordered_lists(text: str, tag: str) -> Iterator[Finding]:
     """A numbered list that skips or restarts reads as two lists."""
     run: list[int] = []
     fenced = False
@@ -94,8 +111,8 @@ def _ordered_lists(text: str, tag: str):
         if m:
             run.append(int(m.group(1)))
         elif line.strip() and not line.startswith("   "):
-            if len(run) > 2 and run != list(range(run[0], run[0] + len(run))):
+            if len(run) >= _JUDGED and run != list(range(run[0], run[0] + len(run))):
                 yield fail(f"ordered list {run} not contiguous", tag)
             run = []
-    if len(run) > 2 and run != list(range(run[0], run[0] + len(run))):
+    if len(run) >= _JUDGED and run != list(range(run[0], run[0] + len(run))):
         yield fail(f"ordered list {run} not contiguous", tag)

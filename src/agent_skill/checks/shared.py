@@ -7,13 +7,17 @@ the filled-in copy, because a skill is installed alone and must read
 without its siblings. `agent-skill fmt` rewrites a drifted copy.
 """
 
+lazy from collections.abc import Iterator
+
 from agent_skill import shared
 from agent_skill.checks import check
-from agent_skill.report import fail
+from agent_skill.report import Finding, fail
+lazy from agent_skill.model import Skill
 
 
 @check("shared-text", "every shared passage is the template, filled in")
-def shared_text(skill):
+def shared_text(skill: Skill) -> Iterator[Finding]:
+    """Every shared passage that is not its template, filled in."""
     if skill.profile.exempt_from_structure is not None:
         return
     for message, where in shared.compare(skill):

@@ -31,10 +31,13 @@ read in is the reader's.
 """
 
 import re
+lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
 from agent_skill.checks.patterns import QUOTED
 from agent_skill.report import fail
+lazy from agent_skill.model import Skill
+lazy from agent_skill.report import Finding
 
 #: The command forms a Check ships. Only `rg` is inspected: a `grep`
 #: command is pre-migration and its `\|` is correct for the grammar it
@@ -43,7 +46,7 @@ RG_COMMAND = re.compile(r"`(rg\s[^`]*)`")
 
 
 def outside_brackets(pattern: str, needle: str) -> bool:
-    """Does `needle` occur where it would be an operator rather than a literal?
+    """Does `needle` occur as an operator rather than as a literal?
 
     Inside a bracket expression every character stands for itself, and
     `[[:space:]]` closes on its *outer* `]` — a scan that stops at the
@@ -74,7 +77,8 @@ def outside_brackets(pattern: str, needle: str) -> bool:
 
 
 @check("dialect", "a pattern carries no syntax from a grammar it will not be read in")
-def dialect(skill):
+def dialect(skill: Skill) -> Iterator[Finding]:
+    """Each `rg` pattern a Check ships, in the grammar `rg` reads."""
     for rule in skill.rules:
         if not rule.check:
             continue
@@ -83,18 +87,20 @@ def dialect(skill):
                 pattern = quoted[0] or quoted[1]
                 if "\n" in pattern:
                     yield fail(
-                        f"{rule.id}: `rg` pattern {pattern!r} carries a raw newline — the command "
-                        f"is wrapped across a line of the source. `rg` rejects that without "
-                        f"`--multiline`, so the printed command exits 2 for the reader while the "
-                        f"harness, which passes `--multiline`, runs it. Put the command on one "
-                        f"line, or split it into several",
+                        f"{rule.id}: `rg` pattern {pattern!r} carries a raw newline "
+                        "— the command is wrapped across a line of the source. "
+                        "`rg` rejects that without `--multiline`, so the printed "
+                        "command exits 2 for the reader while the harness, which "
+                        "passes `--multiline`, runs it. Put the command on one "
+                        "line, or split it into several",
                         skill.name,
                     )
                     continue
                 if pattern and outside_brackets(pattern, "\\|"):
                     yield fail(
-                        f"{rule.id}: `rg` pattern /{pattern}/ keeps BRE's `\\|`, which is a "
-                        f"literal pipe here — it matches nothing and reports clean. Write `|` "
-                        f"for alternation, or `[|]` for a literal pipe",
+                        f"{rule.id}: `rg` pattern /{pattern}/ keeps BRE's `\\|`, "
+                        "which is a literal pipe here — it matches nothing and "
+                        "reports clean. Write `|` for alternation, or `[|]` for a "
+                        "literal pipe",
                         skill.name,
                     )

@@ -1,4 +1,4 @@
-"""The shipped Python configuration must mean what the standard says it means.
+"""The shipped Python configuration must mean what the standard says.
 
 Every case here is a claim the standard makes in prose. A claim nobody
 runs is a claim that stops being true without anyone noticing.
@@ -21,8 +21,8 @@ pytestmark = pytest.mark.skipif(
 
 
 def enabled(config: Path, cwd: Path) -> set[str]:
-    """Every code ruff resolves as enabled, as ruff itself reports them."""
-    out = subprocess.run(
+    """Every code ruff resolves as enabled, as ruff reports them."""
+    out = subprocess.run(  # noqa: S603 — the repo's own pinned ruff, fixed arguments
         [
             str(RUFF),
             "check",
@@ -35,8 +35,10 @@ def enabled(config: Path, cwd: Path) -> set[str]:
         cwd=cwd,
         capture_output=True,
         text=True,
+        check=False,
     ).stdout
-    codes, inside = set(), False
+    codes: set[str] = set()
+    inside = False
     for line in out.split("\n"):
         if line.startswith("linter.rules.enabled = ["):
             inside = True
@@ -48,16 +50,16 @@ def enabled(config: Path, cwd: Path) -> set[str]:
     return codes
 
 
-def test_no_preview_rule_is_enabled(tmp_path) -> None:
-    """The asset runs stable rules only, which is what lets a rule cite a code as enforced.
+def test_no_preview_rule_is_enabled(tmp_path: Path) -> None:
+    """The asset runs stable rules only.
 
-    A preview rule can change or vanish in any release; one enabled here
-    would make the standard's enforcement depend on which ruff happened
-    to run.
+    That is what lets a rule cite a code as enforced. A preview rule can
+    change or vanish in any release; one enabled here would make the
+    standard's enforcement depend on which ruff happened to run.
     """
     (tmp_path / "m.py").write_text("x = 1\n")
     rules = json.loads(
-        subprocess.run(
+        subprocess.run(  # noqa: S603 — the repo's own pinned ruff, fixed arguments
             [str(RUFF), "rule", "--all", "--output-format", "json"],
             capture_output=True,
             text=True,
@@ -71,14 +73,15 @@ def test_no_preview_rule_is_enabled(tmp_path) -> None:
     assert not (enabled(RUFF_TOML, tmp_path) & preview)
 
 
-def test_py315_target_does_not_warn(tmp_path) -> None:
+def test_py315_target_does_not_warn(tmp_path: Path) -> None:
     """A warning on every run is a warning nobody reads."""
     (tmp_path / "m.py").write_text("x = 1\n")
-    r = subprocess.run(
+    r = subprocess.run(  # noqa: S603 — the repo's own pinned ruff, fixed arguments
         [str(RUFF), "check", "--no-cache", "--config", str(RUFF_TOML), "m.py"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
+        check=False,
     )
     assert "under development" not in (r.stdout + r.stderr)
 
@@ -106,8 +109,8 @@ FORMATTER_CONFLICTS = frozenset(
 )
 
 
-def test_no_formatter_conflicting_rule_is_enabled(tmp_path) -> None:
-    """Checked against ruff's documented list, not against `ruff format --check`.
+def test_no_formatter_conflicting_rule_is_enabled(tmp_path: Path) -> None:
+    """Checked against ruff's own list, not `ruff format --check`.
 
     Of the fifteen, only COM812 and D203 actually make `ruff format`
     warn under default formatter settings — so a config that disabled
@@ -118,8 +121,8 @@ def test_no_formatter_conflicting_rule_is_enabled(tmp_path) -> None:
     assert not (enabled(RUFF_TOML, tmp_path) & FORMATTER_CONFLICTS)
 
 
-def test_isc001_is_enabled_because_it_is_not_a_conflict(tmp_path) -> None:
-    """A belief worth pinning: older documentation listed ISC001 as conflicting.
+def test_isc001_is_enabled_because_it_is_not_a_conflict(tmp_path: Path) -> None:
+    """A belief worth pinning: older docs listed ISC001 as conflicting.
 
     Current ruff does not, and its ISC002 documentation actively
     recommends enabling ISC001. The asset's `allow-multiline = false` is
@@ -129,7 +132,7 @@ def test_isc001_is_enabled_because_it_is_not_a_conflict(tmp_path) -> None:
     assert "ISC001" in enabled(RUFF_TOML, tmp_path)
 
 
-def test_e501_is_enabled_as_the_line_length_backstop(tmp_path) -> None:
+def test_e501_is_enabled_as_the_line_length_backstop(tmp_path: Path) -> None:
     """The formatter makes only a best-effort attempt at the limit."""
     (tmp_path / "m.py").write_text("x = 1\n")
     assert "E501" in enabled(RUFF_TOML, tmp_path)
