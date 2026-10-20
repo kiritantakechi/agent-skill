@@ -72,8 +72,9 @@ runtime-evaluated-decorators = [
 ]
 
 [lint.per-file-ignores]
-# S101 makes flake8-bandit unusable in a pytest suite.
-"tests/**/*.py" = ["S101", "S105", "S106", "S107", "PLR2004", "SLF001", "INP001"]
+# S101 makes flake8-bandit unusable in a pytest suite. D103: a test's name is its
+# specification (PS-TEST-06), so a docstring would only say it twice.
+"tests/**/*.py" = ["S101", "S105", "S106", "S107", "PLR2004", "SLF001", "INP001", "D103"]
 "**/conftest.py" = ["INP001"]
 
 [format]
