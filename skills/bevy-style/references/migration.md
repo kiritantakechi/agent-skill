@@ -16,36 +16,36 @@ as much, and the upstream migration guides are the reference for those.
 
 - **Using this chapter**
   - BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.17 until checked
-  - BV-MIG-03 [M] Follow a rename to its 0.20 spelling, not its first hop
+  - BV-MIG-02 [M] Follow a rename to its 0.20 spelling, not its first hop
 
 - **0.15: bundles and text**
-  - BV-MIG-04 [M] Replace every `*Bundle` with the components it inserted
-  - BV-MIG-05 [M] Replace the old text API with the text components
-  - BV-MIG-06 [M] Replace the old UI node API
+  - BV-MIG-03 [M] Replace every `*Bundle` with the components it inserted
+  - BV-MIG-04 [M] Replace the old text API with the text components
+  - BV-MIG-05 [M] Replace the old UI node API
 
 - **0.16: hierarchy, queries, errors**
-  - BV-MIG-07 [M] Replace `Parent` and the hierarchy commands with relationships
-  - BV-MIG-08 [M] Replace the panicking and deprecated query methods
+  - BV-MIG-06 [M] Replace `Parent` and the hierarchy commands with relationships
+  - BV-MIG-07 [M] Replace the panicking and deprecated query methods
 
 - **0.17: the big rename**
-  - BV-MIG-10 [M] Replace the buffered-event vocabulary with messages
-  - BV-MIG-12 [M] Rename every system set to end in `Systems`
-  - BV-MIG-13 [M] Replace the remaining 0.17 renames
+  - BV-MIG-08 [M] Replace the buffered-event vocabulary with messages
+  - BV-MIG-09 [M] Rename every system set to end in `Systems`
+  - BV-MIG-10 [M] Replace the remaining 0.17 renames
 
 - **0.18 and 0.19**
-  - BV-MIG-14 [M] Replace the 0.18 renames
-  - BV-MIG-16 [M] Replace the old scene vocabulary, and know which `bevy_scene` you mean
-  - BV-MIG-17 [M] Replace the remaining 0.19 renames
+  - BV-MIG-11 [M] Replace the 0.18 renames
+  - BV-MIG-12 [M] Replace the old scene vocabulary, and know which `bevy_scene` you mean
+  - BV-MIG-13 [M] Replace the remaining 0.19 renames
 
 - **0.20: observers, pointers, deprecations**
-  - BV-MIG-91 [M] Move the bundle off `On` and onto the lifecycle event
-  - BV-MIG-92 [M] Flatten the pointer events
-  - BV-MIG-93 [M] Replace what 0.20 deprecated
-  - BV-MIG-94 [M] Replace the remaining 0.20 renames and removals
+  - BV-MIG-14 [M] Move the bundle off `On` and onto the lifecycle event
+  - BV-MIG-15 [M] Flatten the pointer events
+  - BV-MIG-16 [M] Replace what 0.20 deprecated
+  - BV-MIG-17 [M] Replace the remaining 0.20 renames and removals
 
 - **Changes that do not show up as a compile error**
   - BV-MIG-18 [M] Re-read every `Ref` that is cloned
-  - BV-MIG-95 [M] Re-read every `iter_many` and every logging error handler
+  - BV-MIG-19 [M] Re-read every `iter_many` and every logging error handler
 - Decided by tools
 
 ---
@@ -64,7 +64,7 @@ no longer exists, and a mental model that keeps producing the old names.
 **Check:** `rg -n  'Trigger<|EventReader|EventWriter|[A-Za-z0-9]Bundle' src/` over the sample.
 Any hit dates it, and so does a system set whose name does not end in `Systems`.
 
-### BV-MIG-03 [M] Follow a rename to its 0.20 spelling, not its first hop
+### BV-MIG-02 [M] Follow a rename to its 0.20 spelling, not its first hop
 
 When a migration guide gives a new name, check whether that name still exists.
 
@@ -76,7 +76,7 @@ new name. If it is not there, the chain continued.
 
 ## 0.15: bundles and text
 
-### BV-MIG-04 [M] Replace every `*Bundle` with the components it inserted
+### BV-MIG-03 [M] Replace every `*Bundle` with the components it inserted
 
 The `*Bundle` types were deprecated in 0.15 and are gone. What replaces them is a tuple of
 components at the spawn site plus `#[require]` on the types that always travel together. The
@@ -112,7 +112,7 @@ wrote yourself, and BV-ECS-08 forbids the second. The two the engine still spell
 | `AudioBundle { source, .. }` | `AudioPlayer(handle)` |
 | `Handle<AnimationGraph>` as a component | `AnimationGraphHandle(handle)` |
 
-### BV-MIG-05 [M] Replace the old text API with the text components
+### BV-MIG-04 [M] Replace the old text API with the text components
 
 Text is a root component plus per-run components, not a struct holding sections and a style.
 
@@ -142,7 +142,7 @@ constructors, literal and vector are searched for.
 | `Font::try_from_bytes` | `Font::from_bytes(bytes)`, which no longer takes a family name |
 | `FontSource::SansSerif`, `Serif`, `Monospace` and the other generic families | `FontSource::sans_serif()` and so on, or a `GenericFontFamily` |
 
-### BV-MIG-06 [M] Replace the old UI node API
+### BV-MIG-05 [M] Replace the old UI node API
 
 `Style` is `Node`, and `Node` is what used to be `NodeBundle`.
 
@@ -165,7 +165,7 @@ is asking for a computed size — that value is on `ComputedNode` and no grep ca
 
 ## 0.16: hierarchy, queries, errors
 
-### BV-MIG-07 [M] Replace `Parent` and the hierarchy commands with relationships
+### BV-MIG-06 [M] Replace `Parent` and the hierarchy commands with relationships
 
 The hierarchy became an instance of the general relationship mechanism in 0.16, and the commands
 were renamed again in 0.18.
@@ -195,7 +195,7 @@ src/`.
 | `HierarchyQueryExt::parent()` | `Query::related()` |
 | `HierarchyQueryExt::children()` | `Query::relationship_sources()` |
 
-### BV-MIG-08 [M] Replace the panicking and deprecated query methods
+### BV-MIG-07 [M] Replace the panicking and deprecated query methods
 
 0.16 reworked error handling: queries return `Result`, and systems may return one.
 
@@ -224,7 +224,7 @@ the panicking one and everybody reached for it.
 
 ## 0.17: the big rename
 
-### BV-MIG-10 [M] Replace the buffered-event vocabulary with messages
+### BV-MIG-08 [M] Replace the buffered-event vocabulary with messages
 
 What 0.16 called an event, sent with `EventWriter` and read with `EventReader`, is now a message.
 "Event" means an observed event only.
@@ -254,7 +254,7 @@ this table is the mechanical half.
 | `RemovedComponentEvents` | `RemovedComponentMessages` |
 | `SendBatchIds` | `WriteBatchIds` |
 
-### BV-MIG-12 [M] Rename every system set to end in `Systems`
+### BV-MIG-09 [M] Rename every system set to end in `Systems`
 
 0.17 renamed all of Bevy's own sets to a `*Systems` suffix and asked the ecosystem to follow.
 
@@ -289,7 +289,7 @@ src/`, and read any remaining set name that ends in `System`, `Set` or `Steps` r
 | `CameraUpdateSystem` | `CameraUpdateSystems` |
 | `RunFixedMainLoopSystem` | `RunFixedMainLoopSystems` |
 
-### BV-MIG-13 [M] Replace the remaining 0.17 renames
+### BV-MIG-10 [M] Replace the remaining 0.17 renames
 
 **Why:** these are the 0.17 changes outside the event and system-set families. They are individually
 small and collectively the reason a 0.16 project does not compile.
@@ -319,7 +319,7 @@ a widget being held down. Only `Pointer<Pressed>` is the removed one.
 
 ## 0.18 and 0.19
 
-### BV-MIG-14 [M] Replace the 0.18 renames
+### BV-MIG-11 [M] Replace the 0.18 renames
 
 **Why:** 0.18 is the smallest of the four releases for game code, but it renamed four cargo features
 — which fail as "unknown feature" rather than as a type error, and are therefore easy to leave
@@ -344,7 +344,7 @@ src/`, and the manifest for the renamed feature names.
 | `AnimationTarget` | the separate components that replaced it |
 | `FontAtlasSets` | removed |
 
-### BV-MIG-16 [M] Replace the old scene vocabulary, and know which `bevy_scene` you mean
+### BV-MIG-12 [M] Replace the old scene vocabulary, and know which `bevy_scene` you mean
 
 0.19 renamed the old scene crate to `bevy_world_serialization` and gave the name `bevy_scene` to the
 new `bsn!`-based scene system. The two are unrelated. Everything that was `Scene` is `WorldAsset`;
@@ -378,7 +378,7 @@ and now means something else.
 | `SceneSpawnError` | `WorldInstanceSpawnError` |
 | — | `bevy_scene` is now the `bsn!` scene system: `Scene`, `SceneList`, `ScenePatch` |
 
-### BV-MIG-17 [M] Replace the remaining 0.19 renames
+### BV-MIG-13 [M] Replace the remaining 0.19 renames
 
 **Why:** these are the 0.19 changes a game touches. The non-send and executor entries are the ones
 most likely to appear in an existing project's own plugin code.
@@ -411,7 +411,7 @@ src/`.
 
 ## 0.20: observers, pointers, deprecations
 
-### BV-MIG-91 [M] Move the bundle off `On` and onto the lifecycle event
+### BV-MIG-14 [M] Move the bundle off `On` and onto the lifecycle event
 
 0.20 moved an observer's component filter off `On` and onto the lifecycle event: `On<Add, Enemy>`
 is `On<Add<Enemy>>`. `Add<B>` has no default, so an observer for dynamic components is
@@ -431,7 +431,7 @@ does not match `On<Add<Enemy>>`, because `<` follows `Add`.
 | a custom `On<E, B>` | a `PhantomData` wrapper implementing `EventPattern { type Event; type Components }` |
 | `IntoObserverSystem<E, B, M, Out>` | `IntoObserverSystem<E, M, Out>` |
 
-### BV-MIG-92 [M] Flatten the pointer events
+### BV-MIG-15 [M] Flatten the pointer events
 
 0.20 replaced the generic `Pointer<E>` with one event type per pointer event, and moved its fields
 up a level: there is no `.event` and no `Deref`.
@@ -451,7 +451,7 @@ so any `Pointer<` is stale.
 | `ev.pointer_location.position` | `ev.pointer.position` (`Vec2`); `ev.pointer.location()` for the `Location` |
 | `fn f<E: …>(e: On<Pointer<E>>)` | `fn f<E: PointerEvent>(e: On<E>)` |
 
-### BV-MIG-93 [M] Replace what 0.20 deprecated
+### BV-MIG-16 [M] Replace what 0.20 deprecated
 
 0.20 deprecated these rather than removing them. They compile with a warning, which the shipped CI
 denies (the `deprecated` row in Decided by tools), so the searches are for code not yet built
@@ -483,7 +483,7 @@ the import.
 | `Access::try_reads_and_writes` | `Access::reads()` |
 | `,` and `()` between entities in `bsn!` | `--` |
 
-### BV-MIG-94 [M] Replace the remaining 0.20 renames and removals
+### BV-MIG-17 [M] Replace the remaining 0.20 renames and removals
 
 The rest of what 0.20 renamed or removed, across the Rust, the shaders and the manifest. Shaders are
 WESL now (`references/view.md` BV-VIEW-18), and a domain crate that names `glam` moves with Bevy
@@ -541,7 +541,7 @@ its name, and a domain crate's `glam = "0.32"`, which moves to `"0.33"` with Bev
 | `ExtractedWindows` | `Query<&ExtractedWindow>` |
 | `SortedCamera::hdr` | `ExtractedCamera::hdr` |
 | `WgpuWrapper` | removed |
-| the old internal `bevy_sprite_render::SpriteMaterial` and `SpriteMaterialPlugin` | `SpriteMeshMaterial` and `SpriteMeshMaterialPlugin`; the public `SpriteMaterial` of 0.20 is a different type, the same trap as `bevy_scene` (BV-MIG-16) |
+| the old internal `bevy_sprite_render::SpriteMaterial` and `SpriteMaterialPlugin` | `SpriteMeshMaterial` and `SpriteMeshMaterialPlugin`; the public `SpriteMaterial` of 0.20 is a different type, the same trap as `bevy_scene` (BV-MIG-12) |
 | `bevy_feathers::cursor` | `bevy_picking::cursor` |
 | the `UpdateNumberInput` trigger | inserting `NumberInputValue` |
 | `Tonemapping::None` meaning "no curve" | `Tonemapping::Linear` |
@@ -570,18 +570,18 @@ surfaces much later as a lifetime error in an unrelated function.
 `r.as_ref().clone()`.
 
 The other silent changes are stated where the topic lives: state transitions now fire on a
-same-state `set` (`references/state.md` BV-STATE-20), and `Resource` is now a `Component`
+same-state `set` (`references/state.md` BV-STATE-19), and `Resource` is now a `Component`
 (`references/state.md` BV-STATE-01). The three from 0.20 — panics reaching the error handler,
-`iter_many` yielding `Result`, and `EditableText` alone being inert — are BV-MIG-95.
+`iter_many` yielding `Result`, and `EditableText` alone being inert — are BV-MIG-19.
 
-### BV-MIG-95 [M] Re-read every `iter_many` and every logging error handler
+### BV-MIG-19 [M] Re-read every `iter_many` and every logging error handler
 
 Three 0.20 changes keep compiling and change what the code does:
 
 - `iter_many` and its `_mut`, `_unique`, sorted and `par_` variants yield
   `Result<Item, QueryEntityError>`. `.count()`, `.next().is_some()` and `for _ in` keep compiling
   and now include ids the query does not match; `.matched()` is the old meaning
-  (`references/ecs.md` BV-ECS-22).
+  (`references/ecs.md` BV-ECS-21).
 - The `FallbackErrorHandler` now receives every panic in a system, observer or command, so a handler
   that logs without re-panicking swallows them (`references/errors.md` BV-ERR-05).
 - An `EditableText` without `TextInput` spawns and ignores the keyboard
@@ -633,16 +633,16 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-ASS-02` | `BV-ASSET-02` |
 | `BV-ASS-03` | `BV-ASSET-03` |
 | `BV-ASS-04` | `BV-ECS-14` |
-| `BV-ASS-05` | `BV-ASSET-05` |
-| `BV-ASS-06` | `BV-ASSET-06` |
-| `BV-ASS-07` | `BV-ASSET-07` |
-| `BV-ASS-08` | `BV-ASSET-08` |
-| `BV-ASS-09` | `BV-ASSET-09` |
-| `BV-ASS-10` | `BV-ASSET-10` |
-| `BV-ASS-11` | `BV-ASSET-11` |
-| `BV-ASS-12` | `BV-ASSET-12` |
-| `BV-ASS-13` | `BV-ASSET-13` |
-| `BV-ASS-14` | `BV-ASSET-14` |
+| `BV-ASS-05` | `BV-ASSET-04` |
+| `BV-ASS-06` | `BV-ASSET-05` |
+| `BV-ASS-07` | `BV-ASSET-06` |
+| `BV-ASS-08` | `BV-ASSET-07` |
+| `BV-ASS-09` | `BV-ASSET-08` |
+| `BV-ASS-10` | `BV-ASSET-09` |
+| `BV-ASS-11` | `BV-ASSET-10` |
+| `BV-ASS-12` | `BV-ASSET-11` |
+| `BV-ASS-13` | `BV-ASSET-12` |
+| `BV-ASS-14` | `BV-ASSET-13` |
 | `BV-CAR-01` | `BV-BUILD-01` |
 | `BV-CAR-02` | `BV-BUILD-02` |
 | `BV-CAR-03` | `BV-BUILD-03` |
@@ -683,19 +683,19 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-ECS-17` | `BV-ECS-17` |
 | `BV-ECS-18` | `BV-ECS-18` |
 | `BV-ECS-19` | lint `clippy:unwrap_used` |
-| `BV-ECS-20` | `BV-ECS-20` |
-| `BV-ECS-21` | `BV-ECS-21` |
-| `BV-ECS-22` | `BV-ECS-22` |
-| `BV-ECS-23` | `BV-ECS-23` |
-| `BV-ECS-24` | `BV-ECS-24` |
-| `BV-ECS-25` | `BV-ECS-25` |
-| `BV-ECS-26` | `BV-ECS-26` |
-| `BV-ECS-27` | `BV-ECS-27` |
-| `BV-ECS-28` | `BV-ECS-28` |
-| `BV-ECS-29` | `BV-ECS-29` |
-| `BV-ECS-30` | `BV-ECS-30` |
-| `BV-ECS-31` | `BV-ECS-31` |
-| `BV-ECS-32` | `BV-ECS-32` |
+| `BV-ECS-20` | `BV-ECS-19` |
+| `BV-ECS-21` | `BV-ECS-20` |
+| `BV-ECS-22` | `BV-ECS-21` |
+| `BV-ECS-23` | `BV-ECS-22` |
+| `BV-ECS-24` | `BV-ECS-23` |
+| `BV-ECS-25` | `BV-ECS-24` |
+| `BV-ECS-26` | `BV-ECS-25` |
+| `BV-ECS-27` | `BV-ECS-26` |
+| `BV-ECS-28` | `BV-ECS-27` |
+| `BV-ECS-29` | `BV-ECS-28` |
+| `BV-ECS-30` | `BV-ECS-29` |
+| `BV-ECS-31` | `BV-ECS-30` |
+| `BV-ECS-32` | `BV-ECS-31` |
 | `BV-ERR-01` | `BV-ERR-01` |
 | `BV-ERR-02` | `BV-ERR-02` |
 | `BV-ERR-03` | `BV-ERR-03` |
@@ -704,15 +704,15 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-ERR-06` | `BV-ERR-06` |
 | `BV-ERR-07` | lint `clippy:unwrap_used` |
 | `BV-ERR-08` | lint `clippy:indexing_slicing` |
-| `BV-ERR-09` | `BV-ERR-09` |
-| `BV-ERR-10` | `BV-ERR-10` |
-| `BV-ERR-11` | `BV-ERR-11` |
-| `BV-ERR-12` | `BV-ERR-12` |
-| `BV-ERR-13` | `BV-ERR-13` |
-| `BV-ERR-14` | `BV-ERR-14` |
-| `BV-ERR-15` | `BV-ERR-15` |
-| `BV-ERR-16` | `BV-ERR-16` |
-| `BV-ERR-17` | `BV-ERR-17` |
+| `BV-ERR-09` | `BV-ERR-07` |
+| `BV-ERR-10` | `BV-ERR-08` |
+| `BV-ERR-11` | `BV-ERR-09` |
+| `BV-ERR-12` | `BV-ERR-10` |
+| `BV-ERR-13` | `BV-ERR-11` |
+| `BV-ERR-14` | `BV-ERR-12` |
+| `BV-ERR-15` | `BV-ERR-13` |
+| `BV-ERR-16` | `BV-ERR-14` |
+| `BV-ERR-17` | `BV-ERR-15` |
 | `BV-EVT-01` | `BV-EVENT-01` |
 | `BV-EVT-02` | `BV-EVENT-02` |
 | `BV-EVT-03` | `BV-EVENT-03` |
@@ -735,21 +735,21 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-EVT-20` | `BV-EVENT-20` |
 | `BV-MIG-01` | `BV-MIG-01` |
 | `BV-MIG-02` | lint `rustc:deprecated` |
-| `BV-MIG-03` | `BV-MIG-03` |
-| `BV-MIG-04` | `BV-MIG-04` |
-| `BV-MIG-05` | `BV-MIG-05` |
-| `BV-MIG-06` | `BV-MIG-06` |
-| `BV-MIG-07` | `BV-MIG-07` |
-| `BV-MIG-08` | `BV-MIG-08` |
+| `BV-MIG-03` | `BV-MIG-02` |
+| `BV-MIG-04` | `BV-MIG-03` |
+| `BV-MIG-05` | `BV-MIG-04` |
+| `BV-MIG-06` | `BV-MIG-05` |
+| `BV-MIG-07` | `BV-MIG-06` |
+| `BV-MIG-08` | `BV-MIG-07` |
 | `BV-MIG-09` | `BV-ECS-14` |
-| `BV-MIG-10` | `BV-MIG-10` |
+| `BV-MIG-10` | `BV-MIG-08` |
 | `BV-MIG-11` | `BV-EVENT-14` |
-| `BV-MIG-12` | `BV-MIG-12` |
-| `BV-MIG-13` | `BV-MIG-13` |
-| `BV-MIG-14` | `BV-MIG-14` |
+| `BV-MIG-12` | `BV-MIG-09` |
+| `BV-MIG-13` | `BV-MIG-10` |
+| `BV-MIG-14` | `BV-MIG-11` |
 | `BV-MIG-15` | `BV-STATE-01` |
-| `BV-MIG-16` | `BV-MIG-16` |
-| `BV-MIG-17` | `BV-MIG-17` |
+| `BV-MIG-16` | `BV-MIG-12` |
+| `BV-MIG-17` | `BV-MIG-13` |
 | `BV-MIG-18` | `BV-MIG-18` |
 | `BV-SCH-01` | `BV-SCHED-01` |
 | `BV-SCH-02` | `BV-SCHED-02` |
@@ -793,12 +793,12 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-STA-14` | `BV-STATE-14` |
 | `BV-STA-15` | `BV-STATE-15` |
 | `BV-STA-16` | `BV-SCHED-21` |
-| `BV-STA-17` | `BV-STATE-17` |
-| `BV-STA-18` | `BV-STATE-18` |
-| `BV-STA-19` | `BV-STATE-19` |
-| `BV-STA-20` | `BV-STATE-20` |
-| `BV-STA-21` | `BV-STATE-21` |
-| `BV-STA-22` | `BV-STATE-22` |
+| `BV-STA-17` | `BV-STATE-16` |
+| `BV-STA-18` | `BV-STATE-17` |
+| `BV-STA-19` | `BV-STATE-18` |
+| `BV-STA-20` | `BV-STATE-19` |
+| `BV-STA-21` | `BV-STATE-20` |
+| `BV-STA-22` | `BV-STATE-21` |
 | `BV-TST-01` | `BV-TEST-01` |
 | `BV-TST-02` | `BV-TEST-02` |
 | `BV-TST-03` | `BV-TEST-03` |

@@ -48,7 +48,6 @@ class BevyStyle(Profile):
     marked_languages: tuple[str, ...] = ("toml", "bash", "yaml")
     toolchain: str | None = "rust"
     tools: tuple[str, ...] = ("rustc", "clippy", "rustdoc")
-    exempt_from_structure: str | None = "converted in milestone 3 of refresh-skills"
     language: str = "Bevy"
     library: str | None = "bevy"
     verified_as: str = "compiles as written against Bevy {pin} on Rust {rust}, edition 2024"
@@ -63,21 +62,21 @@ class BevyStyle(Profile):
     fires: dict = field(
         default_factory=lambda: {
             "BV-EVENT-09": ("commands.trigger_targets(Damage(5), target);",),
-            "BV-MIG-91": (
+            "BV-MIG-14": (
                 "fn on_enemy_added(add: On<Add, Enemy>, mut commands: Commands) {",
                 'let observer = Observer::new(|add: On<Add>| info!("{}", add.entity))'
                 ".with_component(health);",
             ),
-            "BV-MIG-92": (
+            "BV-MIG-15": (
                 "fn start_game(click: On<Pointer<Click>>, mut starts: ResMut<Starts>) {",
                 'info!("{:?} at {}", press.pointer_id, press.pointer_location.position);',
             ),
-            "BV-MIG-93": (
+            "BV-MIG-16": (
                 "next.as_mut().set_if_neq(Screen::Playing);",
                 "fn style_buttons(mut buttons: Query<(&Interaction, &mut BackgroundColor)>) {",
                 "let mut placeholder: AssetId<Image> = AssetId::invalid();",
             ),
-            "BV-MIG-94": (
+            "BV-MIG-17": (
                 "app.add_plugins(EditableTextInputPlugin);",
                 "TextFont { font: FontSource::SansSerif, ..default() },",
                 "TextFont { font: FontSource::SystemUi, ..default() },",
@@ -110,7 +109,7 @@ class BevyStyle(Profile):
                 "the span finds every `.clone()`; whether the receiver is a `Ref<`, where the "
                 "call's meaning changed, decides — and the type is not on the line",
             ),
-            "BV-MIG-95": NotDecisive(
+            "BV-MIG-19": NotDecisive(
                 "iter_many",
                 "the span finds every `iter_many` call; whether the iterator is counted or tested "
                 "for presence, where a `Result` item still counts, rather than consumed item by "

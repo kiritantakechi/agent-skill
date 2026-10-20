@@ -265,7 +265,7 @@ Both fire on ordinary Bevy code — `type_complexity` on a query with two data i
 neither is allowed here.
 
 **Why:** upstream Bevy allows both, and copying that is where most allow lists start. The fixes — a
-`type` alias named from the domain (BV-ECS-21) and `#[derive(SystemParam)]` (BV-SCHED-10) — answer
+`type` alias named from the domain (BV-ECS-20) and `#[derive(SystemParam)]` (BV-SCHED-10) — answer
 what a reader would also have complained about.
 
 **Check:** grep the lint table for either name. Their presence is the defect.

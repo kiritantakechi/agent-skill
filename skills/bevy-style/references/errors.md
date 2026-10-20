@@ -22,17 +22,17 @@ an error carrying the panic's payload.
   - BV-ERR-06 [S] Override the handler per schedule only where the phase differs
 
 - **The panicking half**
-  - BV-ERR-09 [M] Prefer the non-panicking half of every pair
-  - BV-ERR-10 [M] Never panic to report bad content
-  - BV-ERR-11 [M] Do not discard a `Result` with `let _ =`
+  - BV-ERR-07 [M] Prefer the non-panicking half of every pair
+  - BV-ERR-08 [M] Never panic to report bad content
+  - BV-ERR-09 [M] Do not discard a `Result` with `let _ =`
 
 - **Elsewhere**
-  - BV-ERR-12 [M] Give a command's output the `Out` associated type
-  - BV-ERR-13 [M] Propagate from an observer the same way as from a system
-  - BV-ERR-14 [M] Report through `tracing`, never through `println!`
-  - BV-ERR-15 [S] Log once, where the error is handled
-  - BV-ERR-16 [M] Exit with `AppExit::error` when startup cannot continue
-  - BV-ERR-17 [M!] Decide the render error policy, because the default quits
+  - BV-ERR-10 [M] Give a command's output the `Out` associated type
+  - BV-ERR-11 [M] Propagate from an observer the same way as from a system
+  - BV-ERR-12 [M] Report through `tracing`, never through `println!`
+  - BV-ERR-13 [S] Log once, where the error is handled
+  - BV-ERR-14 [M] Exit with `AppExit::error` when startup cannot continue
+  - BV-ERR-15 [M!] Decide the render error policy, because the default quits
 - Decided by tools
 
 ---
@@ -262,7 +262,7 @@ mod tests {
 `result.with_severity(Severity::Warning)?` when a failure is expected and recoverable. Never
 annotate `Severity::Panic`: an un-annotated error already carries it, and BV-ERR-05's shipped
 handler logs it like any returned error. A failure that must stop even a shipped build writes
-`AppExit::error()`, as BV-ERR-16 does.
+`AppExit::error()`, as BV-ERR-14 does.
 
 **Why:** `match_severity` and BV-ERR-05's shipped handler log an error at its own severity, so the
 annotation gives one failure its own level without replacing the handler for all of them. It also
@@ -328,7 +328,7 @@ could not have expressed it.
 
 ## The panicking half
 
-### BV-ERR-09 [M] Prefer the non-panicking half of every pair
+### BV-ERR-07 [M] Prefer the non-panicking half of every pair
 
 Bevy ships both halves for most lookups. Take the one that returns `Option` or `Result`. This is
 about game code: a `#[cfg(test)]` body may take the panicking half, because a test asserting on the
@@ -460,7 +460,7 @@ mod tests {
 }
 ```
 
-### BV-ERR-10 [M] Never panic to report bad content
+### BV-ERR-08 [M] Never panic to report bad content
 
 A malformed level file, a missing texture, a negative value in a config — these are inputs, and an
 input is never a bug in the program.
@@ -472,7 +472,7 @@ to fix while everything else keeps working. A panic means a bug in code, and con
 **Check:** for each panic path, ask whether an artist could cause it by saving a file. If so it is a
 `Result` with the path in the message.
 
-### BV-ERR-11 [M] Do not discard a `Result` with `let _ =`
+### BV-ERR-09 [M] Do not discard a `Result` with `let _ =`
 
 If a fallible call's outcome genuinely does not matter, say so in a comment on the line that
 discards it.
@@ -485,7 +485,7 @@ ones. The comment is what makes a deliberate discard reviewable.
 
 ## Elsewhere
 
-### BV-ERR-12 [M] Give a command's output the `Out` associated type
+### BV-ERR-10 [M] Give a command's output the `Out` associated type
 
 Since 0.19, `Command` takes its output as an associated type: `impl Command for Foo { type Out =
 Result; … }`. The old `impl Command<Result>` no longer exists.
@@ -630,7 +630,7 @@ mod tests {
 }
 ```
 
-### BV-ERR-13 [M] Propagate from an observer the same way as from a system
+### BV-ERR-11 [M] Propagate from an observer the same way as from a system
 
 An observer may return `Result`, and it goes to the same handler.
 
@@ -641,7 +641,7 @@ so nothing calls for writing an observer differently.
 **Check:** search observers for `unwrap` and `expect`. They are as unacceptable there as in a
 system.
 
-### BV-ERR-14 [M] Report through `tracing`, never through `println!`
+### BV-ERR-12 [M] Report through `tracing`, never through `println!`
 
 `info!`, `warn!`, `error!`, `debug!`, `trace!`. Not `println!`, not `eprintln!`, not `dbg!`.
 
@@ -651,7 +651,7 @@ reaches the browser console on wasm, so it either spams the log or is deleted, i
 
 **Check:** grep for `println!`, `eprintln!` and `dbg!` outside `build.rs` and a CLI tool's output.
 
-### BV-ERR-15 [S] Log once, where the error is handled
+### BV-ERR-13 [S] Log once, where the error is handled
 
 An error logged where it is produced and again where it is handled appears twice, with the same
 cause and two different framings.
@@ -663,7 +663,7 @@ and makes the log's volume track the depth of the call stack rather than what ha
 **Check:** follow one error from its source to the handler. If it is logged at more than one level,
 delete all but the outermost.
 
-### BV-ERR-16 [M] Exit with `AppExit::error` when startup cannot continue
+### BV-ERR-14 [M] Exit with `AppExit::error` when startup cannot continue
 
 A missing required asset directory, an unusable GPU, a corrupt configuration: write
 `AppExit::error()` to the message and let the app shut down.
@@ -675,7 +675,7 @@ also the clean stop: plugins shut down, and the window closes rather than vanish
 **Check:** for each `panic!` outside a test, ask whether `AppExit::error()` says the same thing more
 usefully.
 
-### BV-ERR-17 [M!] Decide the render error policy, because the default quits
+### BV-ERR-15 [M!] Decide the render error policy, because the default quits
 
 `bevy::render::error_handler::RenderErrorHandler` decides what happens when the GPU fails. Insert
 your own before `DefaultPlugins`, beside `FallbackErrorHandler`; `RenderPlugin` registers it with
@@ -688,7 +688,7 @@ its clean exit as a crash.
 
 **Why:** the 0.20 default logs and writes `AppExit::error()` for **every** `RenderError`, so a
 transient GPU fault closes the player's window and BV-ARCH-17 turns it into an exit that reads as a
-crash. BV-ERR-16 makes an unusable GPU at startup your decision; this is the same GPU an hour later.
+crash. BV-ERR-14 makes an unusable GPU at startup your decision; this is the same GPU an hour later.
 
 **Check:** grep for `RenderErrorHandler`. Exactly one insertion, and it branches on the error rather
 than returning one blanket policy.
@@ -725,7 +725,7 @@ fn on_render_error(
             RenderErrorPolicy::StopRendering
         }
         // A validation or internal fault is a bug in our own render code, so
-        // stop with an exit code the launcher can act on (BV-ERR-16).
+        // stop with an exit code the launcher can act on (BV-ERR-14).
         ErrorType::Validation | ErrorType::Internal => {
             error!("unrecoverable render error: {}", error.description);
             main_world.write_message(AppExit::error());

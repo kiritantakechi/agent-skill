@@ -818,7 +818,7 @@ have exactly one, and is each plugin type named in the crate root's re-exports?
 
 `main` builds the `App`, adds plugins, and runs it. Systems, resources and configuration belong to
 the plugin that owns them. The exception is a build-time decision that must be in place *before*
-`DefaultPlugins` — the two error handlers of BV-ERR-05 and BV-ERR-17 — because no plugin can be
+`DefaultPlugins` — the two error handlers of BV-ERR-05 and BV-ERR-15 — because no plugin can be
 added early enough to own something the plugin group itself may need.
 
 **Why:** `main` is the one file every reader opens first, and a `main` that adds forty systems tells

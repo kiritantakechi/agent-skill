@@ -115,7 +115,7 @@ fn spawn_hud(mut commands: Commands) {
 }
 
 /// A narrow window stacks the bar. Flex makes that one field; with hand-placed
-/// edges it is every child. The guard is BV-ECS-26 for a single field —
+/// edges it is every child. The guard is BV-ECS-25 for a single field —
 /// `Mut<Node>` marks the whole component, and the engine's layout watches it.
 fn stack_when_narrow(hud: Res<Hud>, mut bars: Query<&mut Node, With<HudBar>>) {
     let wanted = if hud.compact {
@@ -866,7 +866,7 @@ The `Material` impl naming a shader path lives beside the struct, and the shader
 struct's module name predicts. Since 0.20 that shader is WESL: a 0.19 `.wgsl` that used `#import`
 or `#ifdef` becomes a `.wesl` with `import …;`, `@if(…)` and `constants::MATERIAL_BIND_GROUP`.
 GLSL is gone, with the `shader_format_glsl` and `shader_format_wesl` features, and the module paths
-that moved are in `references/migration.md` BV-MIG-94.
+that moved are in `references/migration.md` BV-MIG-17.
 
 **Why:** nothing checks a struct's fields against the shader's bindings at compile time: a mismatch
 fails at pipeline compilation, at run time, naming a binding index. Side by side, a field added on

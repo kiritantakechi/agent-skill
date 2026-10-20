@@ -64,7 +64,7 @@ panic = "deny"
 todo = "deny"
 unimplemented = "deny"
 indexing_slicing = "deny"            # `get` where an entity count reaches the index
-dbg_macro = "deny"                   # BV-ERR-14
+dbg_macro = "deny"                   # BV-ERR-12
 undocumented_unsafe_blocks = "deny"  # inert under `forbid`, live the moment that drops to "deny"
 mem_forget = "deny"
 
@@ -88,7 +88,7 @@ needless_pass_by_value = "allow"
 
 # NOT relaxed, deliberately: `type_complexity` and `too_many_arguments` both
 # fire on ordinary Bevy code, and upstream Bevy allows both. A `type` alias
-# (BV-ECS-21) and `#[derive(SystemParam)]` (BV-SCHED-10) silence them, and both
+# (BV-ECS-20) and `#[derive(SystemParam)]` (BV-SCHED-10) silence them, and both
 # are the better code. See BV-BUILD-14.
 
 [profile.dev]

@@ -179,12 +179,13 @@ itself contains `//` — a Check that searches for a comment means the comment.
 Hits are reported in three tiers: a shipped `rg` command that decides (**fails**), a
 prose span or a Check listed in the profile's `not_decisive` table (notes), and a
 pattern with more hits than `judgement`, which enumerates rather than accuses.
-`bevy-style` uses the first tier deliberately: fifteen of its `**Check:**`
-sections are literal `rg` commands — thirteen over the APIs Bevy removed
-between 0.15 and 0.19, one over the plugin forms it forbids, and one over the
-boundary itself — so an example written against an older engine, written as a
-function, or naming the engine from a simulation crate fails the build rather
-than being noticed by a reader.
+`bevy-style` uses the first tier deliberately: its `**Check:**` sections over
+the APIs Bevy removed since 0.15, over the plugin forms it forbids, and over the
+boundary itself are literal `rg` commands, so an example written against an older
+engine, written as a function, or naming the engine from a simulation crate fails
+the build rather than being noticed by a reader. The README states no count of
+them: a count is the one thing every engine bump changes, and the last one was
+wrong by one.
 
 Each `not_decisive` entry quotes a literal substring of that rule's own Check,
 verified to still be there, so rewriting a rule cannot leave a stale entry

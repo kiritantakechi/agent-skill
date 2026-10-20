@@ -29,23 +29,23 @@ chapter.
   - BV-ECS-16 [M] Ask for `&mut` only where the system writes
   - BV-ECS-17 [M] Put a zero-sized marker in the filter, never in the data
   - BV-ECS-18 [S] Split a system before reaching for a third `Option<&T>`
-  - BV-ECS-20 [S] Iterate a query with `for`, not a combinator chain
-  - BV-ECS-21 [M] Name a query type once it needs two lines
-  - BV-ECS-22 [S] Reach for `iter_many` when the set of entities is already known
-  - BV-ECS-23 [M] Never nest a query inside itself
-  - BV-ECS-24 [S] Parallelise a query only against a measurement
-  - BV-ECS-25 [S] Reach for `contiguous_iter` only against a measured hot loop
+  - BV-ECS-19 [S] Iterate a query with `for`, not a combinator chain
+  - BV-ECS-20 [M] Name a query type once it needs two lines
+  - BV-ECS-21 [S] Reach for `iter_many` when the set of entities is already known
+  - BV-ECS-22 [M] Never nest a query inside itself
+  - BV-ECS-23 [S] Parallelise a query only against a measurement
+  - BV-ECS-24 [S] Reach for `contiguous_iter` only against a measured hot loop
 
 - **Change detection**
-  - BV-ECS-26 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
-  - BV-ECS-27 [M] Put `Changed<T>` in the filter so the system can be skipped
-  - BV-ECS-28 [M] Do not use `Changed<T>` to mean `Added<T>`
-  - BV-ECS-29 [S] Read a change in the same schedule that wrote it
-  - BV-ECS-30 [S] Bypass change detection only where the write is bookkeeping
+  - BV-ECS-25 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
+  - BV-ECS-26 [M] Put `Changed<T>` in the filter so the system can be skipped
+  - BV-ECS-27 [M] Do not use `Changed<T>` to mean `Added<T>`
+  - BV-ECS-28 [S] Read a change in the same schedule that wrote it
+  - BV-ECS-29 [S] Bypass change detection only where the write is bookkeeping
 
 - **Structural change**
-  - BV-ECS-31 [M] Do not read back what a command has not applied yet
-  - BV-ECS-32 [M] Reach for an exclusive system last, and say what forced it
+  - BV-ECS-30 [M] Do not read back what a command has not applied yet
+  - BV-ECS-31 [M] Reach for an exclusive system last, and say what forced it
 - Decided by tools
 
 ---
@@ -127,7 +127,7 @@ fn regenerate_shields(mut stats: Query<&mut Stats>) {
 
 `#[derive(Component, Debug, Reflect)]`, plus `#[reflect(Component)]`. Add `Clone`, `Copy`,
 `PartialEq` and `Default` where each of them means something for the type; `PartialEq` is what
-`set_if_neq` (BV-ECS-26) needs.
+`set_if_neq` (BV-ECS-25) needs.
 
 **Why:** `Debug` is what every panic, `info!` and test failure prints, so without it the value is a
 hole in the output exactly when it is needed. `Reflect` with `#[reflect(Component)]` is what an
@@ -485,7 +485,7 @@ they force is just as reachable through `map_or`, `zip` or one `match`, so count
 in the body misses the functional spellings this standard's sibling actively prefers. Three or more
 is the signal; split by `With`/`Without` instead.
 
-### BV-ECS-20 [S] Iterate a query with `for`, not a combinator chain
+### BV-ECS-19 [S] Iterate a query with `for`, not a combinator chain
 
 `for item in &query` and `for item in &mut query`. This standard's general preference for `map`,
 `filter` and `collect` over loops does not extend to query iteration. A restriction goes in the
@@ -498,7 +498,7 @@ and no value to return.
 **Check:** a `.for_each(` or a `.filter(` on a query iterator is either a filter that belongs in the
 type, or a loop that has been written the long way.
 
-### BV-ECS-21 [M] Name a query type once it needs two lines
+### BV-ECS-20 [M] Name a query type once it needs two lines
 
 A query with several data items and several filters gets a `type` alias with a name from the domain.
 
@@ -544,7 +544,7 @@ fn cull(mut commands: Commands, combatants: Combatants) {
 }
 ```
 
-### BV-ECS-22 [S] Reach for `iter_many` when the set of entities is already known
+### BV-ECS-21 [S] Reach for `iter_many` when the set of entities is already known
 
 Given a `Children`, a relationship target, or a stored list of ids, `query.iter_many(ids).matched()`
 fetches exactly those that match. Iterating the whole query and testing membership does not.
@@ -561,7 +561,7 @@ and it reads as a search where the code already knows the answer.
 **Check:** look for `if ids.contains(&entity)` inside a query loop. That is `iter_many` written out.
 Then, for each `iter_many`, check that its items go through `.matched()` or are handled as `Result`.
 
-### BV-ECS-23 [M] Never nest a query inside itself
+### BV-ECS-22 [M] Never nest a query inside itself
 
 A loop over a query cannot contain another loop over the same query. Use `iter_combinations` for
 pairs, or split the data into two queries with disjoint filters.
@@ -634,7 +634,7 @@ mod tests {
 }
 ```
 
-### BV-ECS-24 [S] Parallelise a query only against a measurement
+### BV-ECS-23 [S] Parallelise a query only against a measurement
 
 `par_iter_mut` is for a loop that has been measured and found hot. Write the serial form first.
 
@@ -645,7 +645,7 @@ than it reads (BV-ECS-15), or work that belongs in `FixedUpdate` at a lower rate
 **Check:** is there a benchmark or a profile naming this system? If not, the serial form is the one
 to ship.
 
-### BV-ECS-25 [S] Reach for `contiguous_iter` only against a measured hot loop
+### BV-ECS-24 [S] Reach for `contiguous_iter` only against a measured hot loop
 
 `Query::contiguous_iter`, added in 0.19, yields one slice per table rather than one item per entity,
 which is what a SIMD kernel or a cache-blocked pass needs. It replaces a structure-of-arrays kept by
@@ -657,7 +657,7 @@ It is not a drop-in for `for x in &query`:
   nothing in the type system knows which. Take the error with `?`, never `.unwrap()` (BV-ERR-01).
 - The filter is bound by `F: ArchetypeFilter`, so `Changed<T>` does not compile here at all.
 - The mutable form marks every entity in the slice changed unless the write goes through
-  `bypass_change_detection` (BV-ECS-30).
+  `bypass_change_detection` (BV-ECS-29).
 
 **Why:** it is the only way to get contiguous slices without leaving the ECS, so a hand-kept
 `Vec<f32>` can go, and with it the bug where it drifts from the entities. The price is a nested loop
@@ -738,7 +738,7 @@ mod tests {
 
 ## Change detection
 
-### BV-ECS-26 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
+### BV-ECS-25 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
 
 `health.set_if_neq(Health(new))` rather than `*health = Health(new)` when the new value is often the
 old one.
@@ -801,7 +801,7 @@ mod tests {
 }
 ```
 
-### BV-ECS-27 [M] Put `Changed<T>` in the filter so the system can be skipped
+### BV-ECS-26 [M] Put `Changed<T>` in the filter so the system can be skipped
 
 `Query<&Health, Changed<Health>>`, not a full query with `if health.is_changed()` inside the loop.
 On a component that is written rarely, `#[component(summary_tick)]` (new in 0.20) keeps a
@@ -814,7 +814,7 @@ body it is applied after the fetch, so the loop still visits everything. The fil
 **Check:** grep for `is_changed()` inside a query loop. Unless the body needs both the changed and
 the unchanged entities, it is a filter that has escaped into the body.
 
-### BV-ECS-28 [M] Do not use `Changed<T>` to mean `Added<T>`
+### BV-ECS-27 [M] Do not use `Changed<T>` to mean `Added<T>`
 
 `Added<T>` matches the frame the component was inserted. `Changed<T>` matches insertion *and* every
 subsequent write.
@@ -896,7 +896,7 @@ mod tests {
 }
 ```
 
-### BV-ECS-29 [S] Read a change in the same schedule that wrote it
+### BV-ECS-28 [S] Read a change in the same schedule that wrote it
 
 A `Changed<T>` filter sees writes since the reading system last ran. Keep the writer and the reader
 in the same schedule.
@@ -908,21 +908,21 @@ The ticks are consistent, but "since you last ran" across schedules is not "this
 **Check:** for each `Changed<T>` reader, find the writers. Any writer in a different schedule needs
 a stated reason the count does not matter.
 
-### BV-ECS-30 [S] Bypass change detection only where the write is bookkeeping
+### BV-ECS-29 [S] Bypass change detection only where the write is bookkeeping
 
 `Mut::bypass_change_detection` is for writes that are not changes to the game's state — a cached
 value refreshed from its source, a counter nothing reacts to.
 
 **Why:** the bypass is the only way to write without marking, so using it for a real change leaves
 everything downstream believing the old value. Used to quiet a noisy filter, it hides that
-`set_if_neq` (BV-ECS-26) was the answer.
+`set_if_neq` (BV-ECS-25) was the answer.
 
 **Check:** each call needs a comment naming what does *not* need to know about this write. If the
 comment cannot be written, the write is a change.
 
 ## Structural change
 
-### BV-ECS-31 [M] Do not read back what a command has not applied yet
+### BV-ECS-30 [M] Do not read back what a command has not applied yet
 
 `Commands` queue work that runs at the next sync point. Within the same system, the entity spawned
 two lines ago is not in any query.
@@ -1005,7 +1005,7 @@ mod tests {
 }
 ```
 
-### BV-ECS-32 [M] Reach for an exclusive system last, and say what forced it
+### BV-ECS-31 [M] Reach for an exclusive system last, and say what forced it
 
 A system taking `&mut World` cannot run in parallel with anything. Write one only when the work
 genuinely needs the whole world at once, and put the reason in a doc comment.

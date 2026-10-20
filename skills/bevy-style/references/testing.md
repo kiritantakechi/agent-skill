@@ -361,7 +361,7 @@ mod tests {
 `app.world_mut().flush()` after a command, or run the schedule that applies it. A spawn queued by a
 command is not visible until then.
 
-**Why:** it is BV-ECS-31 inside a test, and it is the most common reason a Bevy test fails with "the
+**Why:** it is BV-ECS-30 inside a test, and it is the most common reason a Bevy test fails with "the
 entity does not exist" while the game works fine. The test does not have a later system to hide the
 deferral, so it sees the queue directly.
 

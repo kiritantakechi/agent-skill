@@ -27,12 +27,12 @@ gating a system on a state is in the scheduling chapter.
   - BV-STATE-15 [M] Register every state exactly once
 
 - **Transitions**
-  - BV-STATE-17 [M] Put setup in `OnEnter` and teardown in `OnExit`
-  - BV-STATE-18 [M] Scope an entity to a state with `DespawnOnExit`
-  - BV-STATE-19 [M] Write the next state through `NextState`, never `State`
-  - BV-STATE-20 [M] Guard a repeated `set` with `set_if_different`
-  - BV-STATE-21 [S] Keep a transition's work bounded
-  - BV-STATE-22 [M] Do not assume a transition happens in the frame that requested it
+  - BV-STATE-16 [M] Put setup in `OnEnter` and teardown in `OnExit`
+  - BV-STATE-17 [M] Scope an entity to a state with `DespawnOnExit`
+  - BV-STATE-18 [M] Write the next state through `NextState`, never `State`
+  - BV-STATE-19 [M] Guard a repeated `set` with `set_if_different`
+  - BV-STATE-20 [S] Keep a transition's work bounded
+  - BV-STATE-21 [M] Do not assume a transition happens in the frame that requested it
 
 ---
 
@@ -153,7 +153,7 @@ no writer possible, no two readers can conflict.
 
 **Why:** a system holding `ResMut` only to read still blocks every other system that touches the
 resource while it runs. A mutable dereference also marks it changed, so `resource_changed` run
-conditions fire every frame — BV-ECS-26 for resources.
+conditions fire every frame — BV-ECS-25 for resources.
 
 **Check:** for each `ResMut`, find the write. If the body only reads, it is a `Res`.
 
@@ -484,7 +484,7 @@ derive.
 
 ## Transitions
 
-### BV-STATE-17 [M] Put setup in `OnEnter` and teardown in `OnExit`
+### BV-STATE-16 [M] Put setup in `OnEnter` and teardown in `OnExit`
 
 `app.add_systems(OnEnter(Screen::Playing), spawn_level)` and the matching `OnExit`.
 
@@ -591,7 +591,7 @@ mod tests {
 }
 ```
 
-### BV-STATE-18 [M] Scope an entity to a state with `DespawnOnExit`
+### BV-STATE-17 [M] Scope an entity to a state with `DespawnOnExit`
 
 Spawn level entities with `DespawnOnExit(Screen::Playing)` rather than writing a system that queries
 and despawns them.
@@ -640,7 +640,7 @@ impl Plugin for LevelPlugin {
 }
 ```
 
-### BV-STATE-19 [M] Write the next state through `NextState`, never `State`
+### BV-STATE-18 [M] Write the next state through `NextState`, never `State`
 
 `next.set(Screen::Menu)` on a `ResMut<NextState<Screen>>`. `State<S>` is read-only by design.
 
@@ -736,7 +736,7 @@ mod tests {
 }
 ```
 
-### BV-STATE-20 [M] Guard a repeated `set` with `set_if_different`
+### BV-STATE-19 [M] Guard a repeated `set` with `set_if_different`
 
 Since 0.18, `next.set(S)` runs `OnExit(S)` and `OnEnter(S)` even when the current state is already
 `S`. A system that calls `set` every frame must use `set_if_different`. 0.20 renamed it from
@@ -753,7 +753,7 @@ which is why the old behaviour has to be asked for.
 state. If it can, it needs `set_if_different`. A `set_if_neq` on a `NextState` is the deprecated
 spelling.
 
-### BV-STATE-21 [S] Keep a transition's work bounded
+### BV-STATE-20 [S] Keep a transition's work bounded
 
 `OnEnter` runs between frames, so everything in it is a frame the player does not get. Spawn what
 must exist; stream the rest.
@@ -765,7 +765,7 @@ behind a loading state's progress bar, keeps the hitch constant.
 **Check:** time the transition on the slowest supported machine. Anything over a frame's budget
 needs splitting.
 
-### BV-STATE-22 [M] Do not assume a transition happens in the frame that requested it
+### BV-STATE-21 [M] Do not assume a transition happens in the frame that requested it
 
 `next.set(…)` records a request. The state has not changed when the next line runs: the transition
 is applied in the `StateTransition` schedule, after `PreUpdate` and before `RunFixedMainLoop` and
