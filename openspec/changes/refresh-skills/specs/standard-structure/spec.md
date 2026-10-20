@@ -1,0 +1,267 @@
+# Spec Delta
+
+## Purpose
+
+What every standard under `skills/` has in common, and what the harness enforces about that. The
+goal is that a reader who has learned one standard can find their way around any other by position
+alone, and that the shared shape is held by a check rather than by imitation.
+
+## ADDED Requirements
+
+### Requirement: Every SKILL.md follows one skeleton
+
+Every standard's `SKILL.md` SHALL open with an H1 of the form `<Language> Style — <target>`. It SHALL
+contain exactly these H2 sections, in this order and with these titles: `How to use this standard`,
+`1. Tiers`, `2. <target> reality check`, `3. Design principles`, `4. Core rules`,
+`5. Review checklist`, `6. Reference map`, `7. Bundled assets`. Anything else that differs between
+standards SHALL be written as an H3 inside one of those sections.
+
+#### Scenario: A section is missing, renamed, or out of order
+
+- **WHEN** a `SKILL.md` lacks one of the eight sections, titles it differently, or places it out of
+  order
+- **THEN** the run fails, and the finding names the expected section and what was found in its place
+
+#### Scenario: A standard needs a section its siblings do not
+
+- **WHEN** a standard has something to say that only applies to it, such as a delta standard listing
+  where it departs from its anchor
+- **THEN** it is an H3 inside the section it belongs to (the departures go under `3. Design
+  principles`), and the skeleton check passes
+
+#### Scenario: A subtitle is appended to a fixed title
+
+- **WHEN** an H2 carries text after its fixed title, such as `3. Design principles — subtraction and
+  symmetry`
+- **THEN** the run fails, because two standards would then differ at the one level a reader uses
+  to navigate
+
+### Requirement: The target a standard names is the target it is verified against
+
+The version in a standard's H1 and in its §2 title SHALL be the version that its harness pin
+declares for that standard's subject: the language toolchain, or the engine crate for a delta
+standard.
+
+#### Scenario: The title and the pin disagree
+
+- **WHEN** a `SKILL.md` says `Bevy Style — 0.20` while the verified crate depends on `=0.19.1`
+- **THEN** the run fails, naming both versions
+
+#### Scenario: A pin moves
+
+- **WHEN** a pin is moved to a new version and the `SKILL.md` title is not changed with it
+- **THEN** the run fails until the title matches, so a version bump cannot ship half-done
+
+### Requirement: Shared text has one source and a verbatim copy in every standard
+
+Text that is the same in every standard SHALL be kept once, as a template in the harness, and
+filled in from values each standard declares. That covers the reading procedure, the tier table,
+the marker legend, the ID-citation paragraph and the severity table. Each `SKILL.md` and each review
+protocol SHALL contain the filled-in copy verbatim, so every skill still installs and loads on its
+own.
+
+#### Scenario: A copy drifts from the template
+
+- **WHEN** a shared passage in a standard differs from the template filled in with that standard's
+  values
+- **THEN** the run fails, naming the standard, the passage, and the first line that differs
+
+#### Scenario: The template changes
+
+- **WHEN** a shared passage is edited in the template
+- **THEN** every standard's copy fails until it is rewritten, and one command rewrites every copy
+  from the template without hand-editing
+
+#### Scenario: A standard needs one more step in a shared passage
+
+- **WHEN** a delta standard needs an extra instruction in the reading procedure, such as "load the
+  anchor standard as well"
+- **THEN** the template provides a declared slot for it. The standard fills that slot rather than
+  editing its copy, which would fail the equality check
+
+#### Scenario: A skill is installed alone
+
+- **WHEN** one skill directory is installed without the harness or its siblings
+- **THEN** it reads completely, because the copy is in its own `SKILL.md` and not behind a reference
+  to a shared file
+
+### Requirement: Reference files are named from one vocabulary
+
+Every chapter file SHALL be named by a single word taken from a vocabulary shared by every
+standard. `review-checklist.md` is the only fixed exception. Two standards covering the same concept
+SHALL use the same file name for it.
+
+#### Scenario: A chapter's name is not in the vocabulary
+
+- **WHEN** a file under `references/` has a name the shared vocabulary does not list
+- **THEN** the run fails, naming the file
+
+#### Scenario: A name joins two subjects
+
+- **WHEN** a chapter is named like `errors-and-control-flow.md` or `traits-generics.md`
+- **THEN** it is not in the vocabulary, and the run fails
+
+#### Scenario: Two standards cover the same concept
+
+- **WHEN** two standards each have a chapter about building and packaging the project
+- **THEN** both name it with the one vocabulary word for that concept
+
+### Requirement: Rule family codes come from one table
+
+Every rule's family code SHALL be the code the shared table assigns to the chapter that holds it.
+The same concept SHALL carry the same code in every standard. Core rules in `SKILL.md` SHALL use the
+code `CORE`.
+
+#### Scenario: A rule's code does not match its chapter
+
+- **WHEN** a rule in `testing.md` carries a code other than the one the table assigns to `testing`
+- **THEN** the run fails, naming the rule and the expected code
+
+#### Scenario: Two standards abbreviate one concept differently
+
+- **WHEN** the same concept would be `TST` in one standard and `TEST` in another
+- **THEN** that cannot occur, because both read the code from one table
+
+### Requirement: Every standard ships a review protocol and a migration chapter
+
+Every standard SHALL ship `references/review-checklist.md` and `references/migration.md`. The
+review protocol SHALL use one severity model shared by every standard, with the same labels, the
+same order, and the same statement of which labels block a merge.
+
+#### Scenario: A standard ships no review protocol
+
+- **WHEN** a standard has no `review-checklist.md` or no `migration.md`
+- **THEN** the run fails
+
+#### Scenario: A standard invents its own severity label
+
+- **WHEN** a review protocol's severity table has a label the shared model does not, or lacks one it
+  does
+- **THEN** the run fails. The examples column is the standard's own; the labels, their meanings and
+  the blocking statement are not
+
+### Requirement: Rule IDs are dense, and a renumbering ships its rename table
+
+Within a chapter, rule numbers SHALL run 01, 02, … with no gaps and no letter suffixes. Whenever IDs
+change, the standard's `migration.md` SHALL carry a table mapping every old ID either to its new ID,
+or to the lint-table row or removal that replaced it.
+
+#### Scenario: A chapter has a gap
+
+- **WHEN** a chapter's rules run `…-07`, `…-09`
+- **THEN** the run fails
+
+#### Scenario: A rule is removed
+
+- **WHEN** a rule is removed or demoted to a lint-table row
+- **THEN** the chapter is renumbered, and the rename table records the old ID with what replaced it,
+  so a citation made before the change can still be resolved
+
+#### Scenario: A rename table names a rule that does not exist
+
+- **WHEN** a row of the rename table maps an old ID to a new ID that no rule carries, or to a
+  lint-table row that no chapter contains
+- **THEN** the run fails, because a reader following the table would arrive nowhere
+
+### Requirement: A renumbering is one operation that preserves every citation
+
+Renumbering SHALL be performed by one operation. That operation SHALL rewrite every citation in the
+repository and write the rename table. It SHALL fail unless every citation refers to the same rule
+after the rewrite as before, comparing rules by identity rather than by ID. It SHALL also fail
+unless every ID that existed before appears in the table.
+
+#### Scenario: Old and new IDs overlap
+
+- **WHEN** an old ID is reused as the new ID of a different rule, as dense numbering makes routine
+- **THEN** citations are still rewritten correctly, because the rewrite is applied in one pass from
+  the old numbering and never in a chain of replacements
+
+#### Scenario: A citation would change meaning
+
+- **WHEN** after the rewrite some citation resolves to a rule other than the one it resolved to before
+- **THEN** the operation fails and leaves the tree unchanged
+
+#### Scenario: An old ID is missing from the table
+
+- **WHEN** an ID defined before the renumbering is neither renamed nor recorded as demoted or removed
+- **THEN** the operation fails, because a reader holding that ID would have nowhere to look
+
+#### Scenario: A citation is edited in by hand afterwards
+
+- **WHEN** someone later cites an old ID that, under dense numbering, is now a different rule's ID
+- **THEN** no check can tell it from a correct citation. This is why the rewrite is never done by
+  hand, and the requirement says so rather than implying the run would catch it
+
+### Requirement: A claim a tool decides is a lint-table row, not a rule
+
+When the whole of a rule's actionable content is one lint that the standard's shipped configuration
+enables, it SHALL be a row in its chapter's `Decided by tools` table and not a rule. The row SHALL
+give the lint, its level, and one line on what it forbids. A rule that says more than its lint SHALL
+stay a rule and cite the lint in its **Check**.
+
+#### Scenario: A row names a lint the shipped configuration does not enable
+
+- **WHEN** a lint-table row names a lint that the standard's shipped configuration leaves off, or
+  sets at a different level
+- **THEN** the run fails
+
+#### Scenario: A row names a lint the tool does not have
+
+- **WHEN** a row names a lint that the pinned tool does not recognise
+- **THEN** the run fails, as a citation of a withdrawn check does
+
+#### Scenario: A rule adds a design choice to its lint
+
+- **WHEN** a lint covers part of a rule, but the rule also states when to deviate or a pattern the
+  lint cannot see
+- **THEN** it stays a rule, with Why and Check, and its Check names the lint
+
+### Requirement: A Why is at most three lines
+
+A rule's **Why** SHALL fit in three lines of the file at the standard's line width. Anything longer
+SHALL move into the rule's statement, into an example, or out of the standard.
+
+#### Scenario: A Why runs to a fourth line
+
+- **WHEN** a rule's **Why** paragraph occupies more than three lines
+- **THEN** the run fails, naming the rule and the line count
+
+### Requirement: One marker vocabulary
+
+Every fenced example SHALL be marked `verified`, `fragment`, or `rejected — <tool>: <reason>`,
+where `<tool>` is one of the tools the standard requires. `does-not-compile` SHALL NOT appear in a
+conforming standard.
+
+#### Scenario: A rejected block does not name its tool
+
+- **WHEN** a block is marked `rejected` with no tool, or with a tool the standard does not require
+- **THEN** the run fails
+
+#### Scenario: A conforming standard uses the old word
+
+- **WHEN** a block in a standard that is not exempt is marked `does-not-compile`
+- **THEN** the run fails, and the finding gives the `rejected — <tool>` form
+
+### Requirement: A standard that does not yet conform is exempt by declaration
+
+A standard MAY be exempted from the requirements in this capability while it waits for its own
+version bump. The exemption SHALL be declared, SHALL state the reason, and SHALL be reported once
+the standard conforms anyway. An exempt standard SHALL still receive every check that predates this
+capability.
+
+#### Scenario: A standard is exempt
+
+- **WHEN** `zig-style` declares that it conforms only once its compiler pin moves
+- **THEN** the skeleton, shared-text, vocabulary, family-code, density, Why-length and marker checks
+  skip it, and every other check runs on it as before
+
+#### Scenario: An exemption outlives its reason
+
+- **WHEN** an exempt standard would pass every check this capability adds
+- **THEN** the exemption is reported, because an exemption standing over a conforming standard is
+  one nobody re-examined
+
+#### Scenario: An exemption gives no reason
+
+- **WHEN** a standard is exempted by name alone
+- **THEN** the run fails
