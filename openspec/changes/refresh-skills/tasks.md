@@ -172,7 +172,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
   - the rename table.
 
   Verify that `sensitivity` proves each new pattern fires.
-- [ ] 8.4 Bring `SKILL.md` and `review-checklist.md` onto the skeleton and the templates:
+- [x] 8.4 Bring `SKILL.md` and `review-checklist.md` onto the skeleton and the templates:
   - **Titles:** the H1 is `Rust Style — 1.99` and §2 is `2. Rust 1.99 reality check`.
   - **Review protocol:** §5 is replaced by the protocol's review-order stages, and the severity
     table moves to D8, adding Stale.

@@ -5,22 +5,22 @@ read the domain files as the code demands them.
 
 ## Severity model
 
-Report every finding with one of these labels. The label sets the ordering of
-the review and tells the author what must change before merge.
+Report every finding with one of these labels. The label sets the ordering of the review and tells
+the author what must change before merge.
 
 | Severity | Meaning | Examples |
 |---|---|---|
-| **Unsound** | Can cause UB or memory corruption from safe code | Missing `// SAFETY:` proof that is actually wrong, manual `Send`/`Sync`, transmute between unspecified layouts |
+| **Unsound** | Corrupts memory or data, or crashes the runtime, from code that looks safe | Missing `// SAFETY:` proof that is actually wrong, manual `Send`/`Sync`, transmute between unspecified layouts |
+| **Stale** | A spelling the target superseded — fails to build, or worse, builds and means something else | `lazy_static` where `LazyLock` fits, `fetch_update`, `#[async_trait]` without `dyn`, a pre-2024 `unsafe fn` body with no inner `unsafe` |
 | **Incorrect** | Produces wrong results or crashes on reachable input | `unwrap` on user input, silent `as` truncation, off-by-one, swallowed error |
-| **Contract** | Breaks or under-specifies the public API | Undocumented panic, missing `# Errors`, leaked dependency type, breaking change shipped as a patch |
+| **Contract** | Breaks or under-specifies the public surface | Undocumented panic, missing `# Errors`, leaked dependency type, breaking change shipped as a patch |
 | **Design** | Works, but the shape will cost later | Concrete type used across a module boundary, `Arc<Mutex<_>>` where partitioning fits, stringly-typed config, god module, a branch that exists for one input |
 | **Performance** | Measurable, avoidable cost | Allocation in a hot loop, unbuffered I/O, `println!` per line, `collect` in the middle of a pipeline |
 | **Style** | Idiom and readability | `for`+`push` instead of `collect`, `&Vec<T>` parameter, naming, import grouping |
 
-Unsound and Incorrect findings block. Contract findings block a release.
-Design and Performance findings need a decision, not necessarily a change.
-Style findings are batched — do not spend a review's attention budget on them
-while a soundness issue sits unaddressed.
+Unsound, Stale and Incorrect findings block a merge. Contract findings block a release. Design and
+Performance findings need a decision, not necessarily a change. Style findings are batched — do not
+spend a review's attention on them while an Unsound or Incorrect finding sits unaddressed.
 
 ## Review order
 
@@ -64,7 +64,7 @@ cargo fmt --check
 CARGO_BUILD_WARNINGS=deny cargo clippy --all-targets --all-features
 cargo test --all-features
 cargo test --no-default-features
-RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+CARGO_BUILD_WARNINGS=deny cargo doc --no-deps --all-features
 cargo semver-checks            # if the crate is published
 cargo +nightly miri test       # if the crate contains `unsafe`
 cargo audit                    # or: cargo deny check

@@ -14,37 +14,42 @@ description: >-
   choosing between Rust design alternatives.
 ---
 
-# Rust Style — edition 2024
+# Rust Style — 1.99
 
 A single standard formed from three sources: the **Rust API Guidelines** (the public surface,
 naming, trait impls), the **empirical conventions of ripgrep and the BurntSushi crates** (crate
 architecture, disciplined performance, CLI shape), and a **functional-first default** for function
 bodies. Where they disagree, this standard picks a side and says why.
 
-**Target: edition 2024 on the latest stable Rust.** The bar is not "compiles and passes clippy". It
+**Target: Rust 1.99 stable, edition 2024.** The bar is not "compiles and passes clippy". It
 is: a reviewer who maintains `regex`, `ignore`, or `tokio` would merge this without comment.
 
 ## How to use this standard
 
-1. **Read section 2** before emitting Rust. It is the edition-2024 reality check, and several of its
-   entries silently change behaviour rather than producing a compile error.
+1. **Read section 2** before emitting Rust code. It is the Rust 1.99 reality check, and some of its
+   entries change behaviour without producing an error, so nothing else will catch them.
 2. **Apply section 4.** Those core rules bind on their own and reach nearly every file.
 3. **Load one chapter** from the reference map in section 6 — the one that matches the task. Each
    opens with a table of contents listing every rule it owns, so you can jump straight to the rule.
    Load a second chapter only when the task genuinely spans two; never load all of them.
 4. **Walk section 5** before handing back a diff.
 
-Rules are cited by ID — `RS-FUNC-04`, `RS-API-12`. The prefix identifies the owning chapter (section
+Rules are cited by ID — `RS-ERR-03`, `RS-TEST-05`. The prefix identifies the owning chapter (section
 6 maps prefix to file), so cite the ID when justifying a change and the reader can find the full
 rule and its rationale. When a rule in a chapter and a rule here appear to conflict, the chapter is
 the detailed statement and wins; sections 1 and 3 govern how to break a genuine tie.
 
+A chapter ends with **Decided by tools** when a tool settles part of its subject on its own: each
+lint, the level the shipped configuration sets it at, and what it forbids. Those are not rules — the
+tool enforces them, so they carry no Why and no Check. When rules are renumbered,
+`references/migration.md` maps every old ID to its new one.
+
 Every fenced example carries a marker on its first line. `// verified` — the block compiles as
-written against edition 2024 on the latest stable Rust, and any test it ships passes.
-`// fragment` — shown in context rather than compiled as a unit, usually because it uses names the
-chapter declares around it. `// does-not-compile` — the compile error is the point. A trailing
-`— GOOD` or `— BAD` names which side of the rule the block illustrates. A block in another language
-carries its marker in that language's comment syntax.
+written against Rust 1.99, edition 2024, and any test it ships passes. `// fragment` — shown in
+context rather than run as a unit, usually because it uses names the chapter declares around it. `//
+rejected — <tool>: …` — the rejection is the point, and the marker names the tool that rejects it:
+`rustc`, `clippy`. A trailing `— GOOD` or `— BAD` names which side of the rule the block
+illustrates. A block in another language carries its marker in that language's comment syntax.
 
 ## 1. Tiers
 
@@ -66,7 +71,7 @@ and the relaxed form given with each rule is acceptable.
 When you cannot tell which category the code is in, ask, or state your assumption in one line and
 proceed with the stricter reading.
 
-## 2. Edition 2024 reality check — read before writing code
+## 2. Rust 1.99 reality check
 
 Most Rust on the public internet predates these. The entries that **compile either way** are the
 dangerous ones, because nothing catches them for you.
@@ -85,35 +90,28 @@ dangerous ones, because nothing catches them for you.
 
 ### 2.2 Standard-library features that replaced ecosystem crates
 
-| Reach for this | Not this | Since |
-|---|---|---|
-| `OnceLock`, `LazyLock` | `lazy_static`, `once_cell` for the common cases | 1.70 / 1.80 |
-| `core::error::Error` | `std`-only error traits in no-std crates | 1.81 |
-| `#[expect(lint, reason = "…")]` | `#[allow]` that nobody ever removes | 1.81 |
-| `[lints]` in `Cargo.toml` | a wall of `#![deny(...)]` in `lib.rs` | 1.74 |
-| `thread::scope` | `Arc` + `'static` gymnastics for borrowing threads | 1.63 |
-| `async fn` / `impl Trait` in traits | `#[async_trait]` for the non-`dyn` cases | 1.75 |
-| let-chains: `if let Some(x) = a && x > 3` | nested `if let` pyramids (edition 2024 only) | 1.88 |
-| `let ... else` | `match` with a `_ => return` arm | 1.65 |
-| `c"…"` C string literals | manual NUL-terminated byte arrays | 1.77 |
-| `CARGO_BUILD_WARNINGS=deny` | `RUSTFLAGS="-Dwarnings"`, which invalidates the build cache | recent |
+The ones most often missed: `LazyLock` for `lazy_static`, `cfg_select!` for `cfg-if`,
+`assert_matches!` for `assert!(matches!(..))`, `File::lock` for `fs2`, `async fn` in traits for
+`#[async_trait]`, and `Atomic*::update` for a `compare_exchange` loop. `references/migration.md`
+RS-MIG-01 has every one, with the release it arrived in.
 
 ### 2.3 The three that change behaviour silently
 
 1. **Integer overflow panics in debug and wraps in release.** Arithmetic on attacker-influenced
-   values must be `checked_*` / `saturating_*` / `wrapping_*` explicitly, or debug and release
-   disagree about what your program does (`RS-PERF-40`).
+   values must be `checked_*`, `strict_*`, `saturating_*` or `wrapping_*` explicitly, or debug and
+   release disagree about what your program does (`RS-PERF-40`).
 2. **`as` casts truncate without a diagnostic.** `len as u32` on a 5 GB buffer is a silent wrong
-   answer. Use `u32::try_from(len)?` on any conversion that can lose data (`RS-PERF-41`).
+   answer. Use `u32::try_from(len)?` on any conversion that can lose data, and `cast_signed` or
+   `cast_unsigned` where a sign change is the point (`RS-PERF-41`).
 3. **A dropped `Future` is a cancellation at an arbitrary `.await`.** Anything holding a resource
    across an await must be correct when dropped there; `select!` makes this routine rather than
    exotic (`RS-CONC-37`).
 
-Also recent: symbol mangling v0 is the default, and `linker_messages` is a default-on warning that
-is deliberately **not** part of the `warnings` group — read it rather than silencing it
-(`RS-BUILD-33`).
+Releases change things silently too — Cargo's inherited `default-features` in 1.99, the derived
+`PartialOrd` path in 1.98, drop timing in 1.91 to 1.95. `references/migration.md` RS-MIG-03 lists
+them by release, to read on every toolchain bump.
 
-## 3. Design principles — subtraction and symmetry
+## 3. Design principles
 
 Elegance in Rust has two axes, and a design needs both. **Subtraction** removes what does not earn
 its place: a `mut` that a fold would remove, a `String` that a `&str` would remove, a `clone()` that
@@ -270,45 +268,34 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 
 ## 5. Review checklist
 
-When reviewing or self-reviewing a Rust diff, walk this list. The full protocol — severity model,
-review order, grep commands, output format — is `references/review-checklist.md`.
+When reviewing or self-reviewing a Rust diff, walk this list. It is the review order of the full
+protocol — severity model, mechanical pass, output format — in `references/review-checklist.md`.
 
-1. **Soundness.** Every `unsafe` block: does the `// SAFETY:` comment state a real precondition, and
-   is it established at that point? Any manual `Send`/`Sync`, `transmute`, or raw pointer?
-2. **Panics.** Any `unwrap`, `expect`, `panic!`, `todo!`, fallible indexing, or slicing on a path
-   reachable from user input?
-3. **Silent numerics.** Any `as` cast that can truncate? Any arithmetic on untrusted values that is
-   not `checked_*`/`saturating_*`/`wrapping_*`? Debug and release must agree.
-4. **Errors.** Every error handled or propagated, never both? Any `map_err` that discards a source?
-   Any `Box<dyn Error>` in a library's public type?
-5. **Public surface.** What is newly `pub`? Documented? `# Errors` and `# Panics` present? Does it
-   leak a dependency's types? Would `cargo semver-checks` complain?
-6. **Signatures.** `&Vec<T>`/`&String`/`&PathBuf` parameters? Owned parameters that only get read?
-   Bounds tighter than the body needs? A `'static` that is not earned?
-7. **Concurrency.** Lock held across an `.await` or a blocking call? Lock order documented?
-   Unbounded channel? Detached task? A defined shutdown path?
-8. **Data model.** Are illegal states representable — `bool` parameters, paired `Option`s,
+1. **Soundness.** Does every `// SAFETY:` comment state a real precondition that holds at that
+   point? Any manual `Send`/`Sync`, `transmute`, or raw pointer?
+2. **Panics and error handling.** Any `unwrap`, `expect`, `panic!`, fallible indexing, unchecked
+   arithmetic or truncating `as` on a path reachable from input? Every error handled or propagated,
+   never both?
+3. **Public API.** What is newly `pub`? Documented, with `# Errors` and `# Panics`? Does it leak a
+   dependency's types? Would `cargo semver-checks` complain?
+4. **Concurrency.** A lock held across an `.await` or a blocking call? Lock order documented? An
+   unbounded channel, a detached task, no shutdown path?
+5. **Data model.** Are illegal states representable — `bool` parameters, paired `Option`s,
    stringly-typed fields?
-9. **Bodies.** Loops that are pipelines, `mut` that folds away, clones a borrow would remove,
-   allocation inside a loop, `collect` in the middle of a chain.
-10. **Resources.** Every buffered writer flushed and the result checked? `Drop` infallible? A
-    `finish()` for cleanup that can fail?
-11. **Tests.** Does the change ship with the test that would have caught the bug? Is the error path
-    covered by matching the variant rather than its `Display` string?
-12. **Symmetry.** Does every new operation have its inverse, or a documented reason it cannot? Do
-    sibling functions take their arguments in the same order, and sibling error variants carry the
-    same context? Is there a branch that exists for exactly one input (`RS-API-79` … `RS-API-84`,
-    `RS-MOD-54` … `RS-MOD-57`)?
-13. **Manifest.** New dependencies justified? Features additive and `dep:`-scoped? Lints still
-    enforced? MSRV still true?
-14. **Why.** Does every non-obvious decision have a comment recording the reasoning and the
-    alternative rejected?
+6. **Function bodies.** Loops that are pipelines, `mut` that folds away, clones a borrow would
+   remove, allocation inside a loop?
+7. **Tests.** Does the change ship the test that would have caught the bug, matching the error
+   variant rather than its `Display` string?
+8. **Symmetry.** Does every new operation have its inverse, siblings the same argument order, and
+   sibling error variants the same context?
+9. **Manifest and lints.** New dependencies justified? Features additive and `dep:`-scoped? Lints
+   still enforced, and the MSRV still true?
 
 ## 6. Reference map
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
-listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The
-28 `RS-CORE-*` rules live in section 4 above; the other 741 live here.
+listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The 28
+`RS-CORE-*` rules live in section 4 above; the other 744 live here.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -326,13 +313,15 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/concurrency.md` | `RS-CONC` (52) | Choosing a model, scoped threads and channels, shared state and lock discipline, async fundamentals and cancellation safety, `rayon`, `loom` and determinism |
 | `references/unsafe.md` | `RS-UNSAFE` (36) | `// SAFETY:` discipline, the UB list, layout and `repr`, `PhantomData` and variance, `unsafe trait`, C interop and `catch_unwind`, Miri and fuzzing |
 | `references/cli.md` | `RS-CLI` (40) | Library/binary split, the `LowArgs`→`HiArgs` two-stage model, the flag table, streams and colour, `BrokenPipe`, signals, config precedence |
+| `references/migration.md` | `RS-MIG` (3) | The crates std replaced, the APIs deprecated through 1.99, what changed silently by release, and the rename table |
 | `references/macros.md` | `RS-MACRO` (26) | When not to write a macro, `macro_rules!` hygiene and fragment specifiers, proc-macro crate split, spans and diagnostics, `trybuild` |
 | `references/review-checklist.md` | — | The audit protocol: six-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |
 
 ## 7. Bundled assets
 
 Copy these rather than reconstructing them from memory; they encode decisions the rules only
-describe.
+describe. Each is derived from the chapter that owns it rather than written independently, so the
+asset and the rule cannot drift apart.
 
 | File | Contents |
 |---|---|
