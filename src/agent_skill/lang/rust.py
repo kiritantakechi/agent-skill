@@ -33,7 +33,11 @@ class Crate:
     #: shipped entries the extracted crate legitimately cannot carry
     unverifiable: frozenset[str] = frozenset()
     dependencies: tuple[str, ...] = ()
-    rust_version: str = "1.98"
+    #: The Rust release the examples are verified against, at the precision
+    #: `rust-version` takes. `pins` compares it with `rustc -V` and with the
+    #: newest stable release, at that same precision: a patch release is not a
+    #: new target, a minor release is.
+    rust_version: str = "1.99"
 
     @property
     def ident(self) -> str:

@@ -143,3 +143,43 @@ def test_a_removal_without_a_reason(demo):
     path.write_text(path.read_text() + text)
     skill = reparse(demo)
     assert any("gives no reason" in m for m, _ in shape(skill))
+
+
+def test_rust_rows_against_the_shipped_lint_table(demo):
+    from agent_skill.checks.citations import rust_rows
+    from agent_skill.model import LintRow
+
+    def row(tool, lint, level):
+        return LintRow(tool, lint, level, "x", "errors.md", 1)
+
+    catalogue = {
+        "clippy.unwrap_used": ("allow", set()),
+        "clippy.cast_lossless": ("allow", {"pedantic"}),
+        "rust.unsafe_code": ("allow", set()),
+    }
+    shipped = {
+        "clippy.unwrap_used": '"deny"',
+        "clippy.pedantic": '{ level = "warn", priority = -1 }',
+        "rust.unsafe_code": '"forbid"',
+    }
+    fine = [row("clippy", "unwrap_used", "deny"), row("clippy", "cast_lossless", "warn")]
+    fine.append(row("rustc", "unsafe_code", "forbid"))
+    assert list(rust_rows(fine, shipped, catalogue)) == []
+    wrong = [m for _, m in rust_rows([row("clippy", "unwrap_used", "warn")], shipped, catalogue)]
+    assert wrong == ["`unwrap_used` is `warn` in the row and `deny` as shipped"]
+    unknown = [m for _, m in rust_rows([row("clippy", "unwarp_used", "deny")], shipped, catalogue)]
+    assert unknown == ["`unwarp_used` is not a clippy lint the pinned toolchain knows"]
+
+
+def test_the_rust_catalogue_reads_the_toolchain():
+    import pytest
+
+    from agent_skill.checks.citations import rust_catalogue
+
+    catalogue = rust_catalogue()
+    if catalogue is None:
+        pytest.skip("clippy-driver or rustdoc is not installed")
+    assert catalogue["clippy.unwrap_used"][0] == "allow"
+    assert "pedantic" in catalogue["clippy.cast_lossless"][1]
+    assert "rust.unsafe_code" in catalogue
+    assert "rustdoc.broken_intra_doc_links" in catalogue

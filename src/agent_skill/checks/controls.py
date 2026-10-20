@@ -143,7 +143,26 @@ def _unaccounted_anchor_rule(tree: Path) -> None:
     )
 
 
+#: A `Decided by tools` table with one row, for the controls on Rust rows.
+def _rust_row(lint: str, level: str) -> str:
+    return (
+        "\n## Decided by tools\n\n| Tool | Lint | Level | Forbids |\n|---|---|---|---|\n"
+        f"| clippy | `{lint}` | {level} | an unwrap |\n"
+    )
+
+
 CONTROLS: list[Control] = [
+    Control(
+        # The asset denies it; a row saying `warn` describes a build that is not shipped.
+        "a Rust lint row at a level the shipped table does not set",
+        "citations",
+        lambda t: append(t, "rust-style/references/errors.md", _rust_row("unwrap_used", "warn")),
+    ),
+    Control(
+        "a Rust lint row naming a lint clippy does not have",
+        "citations",
+        lambda t: append(t, "rust-style/references/errors.md", _rust_row("unwarp_used", "deny")),
+    ),
     Control(
         "a workflow installing an interpreter the harness did not verify against",
         "pins",
@@ -537,9 +556,7 @@ CONTROLS: list[Control] = [
         # way, and in one the alternative after the newline was dead even here.
         "an `rg` command wrapped across a line of the source",
         "dialect",
-        lambda t: edit(
-            t, "python-style/references/output.md", SQL_COMMAND, SQL_WRAPPED
-        ),
+        lambda t: edit(t, "python-style/references/output.md", SQL_COMMAND, SQL_WRAPPED),
     ),
     Control(
         "a rule its own pattern would catch",

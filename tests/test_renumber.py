@@ -152,3 +152,16 @@ def test_reflow_does_not_join_a_new_list_item_or_a_why():
     for nxt in ("- a list item", "2. next", "**Why:** because"):
         out = renumber.reflow(f"{para}\n{nxt}\n", width=100)
         assert f"\ntail\n{nxt}" in out
+
+
+def test_the_counts_skill_md_states_follow_the_rules(repo):
+    skill_md = repo / "skills/demo-style/SKILL.md"
+    skill_md.write_text(
+        "---\nname: demo-style\ndescription: >-\n  A 9-rule library.\n---\n\n"
+        "| `references/errors.md` | `DS-ERR` (7) | x |\n"
+        "| `references/free-threading.md` | `DS-FT` (3) | x |\n"
+    )
+    run(repo, **THREADS)
+    text = skill_md.read_text()
+    assert "A 4-rule library." in text
+    assert "`DS-ERR` (2)" in text and "`DS-CONC` (1)" in text

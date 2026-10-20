@@ -128,14 +128,72 @@ def local_pin(profile):
         yield fail, f"{profile.name} is pinned to {pinned} and {moved} — the cue to bump it"
 
 
+#: Where the Rust project publishes what the current stable release is.
+STABLE = "https://static.rust-lang.org/dist/channel-rust-stable.toml"
+
+
+def rust_pin(pinned: str, running: str | None, newest: str | None):
+    """(level, message) for a `rust-version` pin, compared at its own precision.
+
+    `running` is what `rustc -V` reports and `newest` what the stable channel
+    names; either is None when it could not be asked.
+    """
+    want = _minor(pinned)
+    if want is None:
+        yield fail, f"the Rust pin `{pinned}` is not a version this can compare"
+        return
+    if running is None:
+        yield unrun, f"could not ask `rustc` its version, so the Rust pin {pinned} was not compared"
+    elif _minor(running) != want:
+        yield fail, f"the examples are pinned to Rust {pinned} and `rustc` here is {running}"
+    if newest is None:
+        yield unrun, "the stable channel did not answer, so the Rust pin was not compared with it"
+    elif (there := _minor(newest)) is not None and there > want:
+        yield (
+            fail,
+            (
+                f"the Rust pin is {pinned} and {newest} is stable — move `rust_version` in "
+                f"`lang/rust.py` and the assets, re-read the release notes, and re-run the suite"
+            ),
+        )
+
+
+def _minor(version: str) -> tuple[int, int] | None:
+    m = re.match(r"^(\d+)\.(\d+)", version)
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def _rustc() -> str | None:
+    if not have("rustc"):
+        return None
+    answered = run(["rustc", "-V"], timeout=30)
+    m = re.match(r"^rustc (\S+)", answered.out) if answered.ok else None
+    return m.group(1) if m else None
+
+
+def _stable() -> str | None:
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(STABLE, timeout=30) as response:
+            text = response.read().decode()
+    except OSError:
+        return None
+    m = re.search(r'^\[pkg\.rust\]\nversion = "(\S+)', text, re.M)
+    return m.group(1) if m else None
+
+
 @check(
     "pins",
     "a superseded pin is a finding, not a diary entry",
-    needs=("uv", "ruff", "ty", "pytest", "rg", "zig"),
+    needs=("uv", "ruff", "ty", "pytest", "rg", "zig", "rustc"),
 )
 def pins(skill):
     for level, message in local_pin(skill.profile):
         yield level(message, skill.name)
+    if skill.profile.crate is not None:
+        for level, message in rust_pin(skill.profile.crate.rust_version, _rustc(), _stable()):
+            yield level(message, skill.name)
     if skill.profile.toolchain != "python":
         return
     yield from _tool_pins()

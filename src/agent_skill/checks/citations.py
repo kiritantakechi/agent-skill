@@ -127,10 +127,92 @@ def python_rows(rows, enabled: set[str], ty_levels: dict[str, str]):
                 yield row, f"`{row.lint}` is `{row.level}` in the row and `{level}` as shipped"
 
 
-@check("citations", "a cited check must be one the shipped config enables", needs=("ruff", "ty"))
+#: The `[lints]` table each Rust row's tool is configured under.
+SECTION = {"rustc": "rust", "clippy": "clippy", "rustdoc": "rustdoc"}
+
+
+def rust_rows(rows, shipped: dict[str, str], catalogue: dict[str, tuple[str, set[str]]]):
+    """(row, message) for Rust rows the shipped `[workspace.lints]` does not enforce as stated.
+
+    `shipped` is the asset's table as `lints.table` reads it (`clippy.unwrap_used` ->
+    `"deny"`). `catalogue` maps every lint the pinned toolchain knows, spelled as a
+    `[lints]` key under its tool's section, to its default level and its groups. A
+    lint's level is its own entry, else the entry of a group it belongs to, else its
+    default — the order Cargo applies them in, given the groups' `priority = -1`.
+    """
+    for row in rows:
+        section = SECTION.get(row.tool)
+        if section is None:
+            continue
+        key = f"{section}.{row.lint}"
+        if key not in catalogue:
+            yield row, f"`{row.lint}` is not a {row.tool} lint the pinned toolchain knows"
+            continue
+        default, groups = catalogue[key]
+        level = _level(shipped.get(key)) or next(
+            (
+                _level(shipped[f"{section}.{g}"])
+                for g in sorted(groups)
+                if f"{section}.{g}" in shipped
+            ),
+            default,
+        )
+        if level != row.level:
+            yield row, f"`{row.lint}` is `{row.level}` in the row and `{level}` as shipped"
+
+
+def _level(value: str | None) -> str | None:
+    if value is None:
+        return None
+    m = re.search(r'"(allow|warn|deny|forbid)"', value)
+    return m.group(1) if m else None
+
+
+def rust_catalogue() -> dict[str, tuple[str, set[str]]] | None:
+    """Every lint `clippy-driver` and `rustdoc` know, keyed as a `[lints]` entry."""
+    out: dict[str, tuple[str, set[str]]] = {}
+    members: dict[str, set[str]] = {}
+    for tool in ("clippy-driver", "rustdoc"):
+        if not have(tool):
+            return None
+        answered = run([tool, "-W", "help"], timeout=60)
+        if not answered.ok:
+            return None
+        section = "lints"
+        for line in answered.out.split("\n"):
+            if line.startswith("Lint groups"):
+                section = "groups"
+            elif line.startswith("Lint checks"):
+                section = "lints"
+            if section == "lints":
+                if m := re.match(r"^\s+(\S+)\s+(allow|warn|deny|forbid)\s", line):
+                    out[_key(m.group(1))] = (m.group(2), set())
+            elif m := re.match(r"^\s+(\S+)\s+(\S.*)$", line):
+                group, names = _key(m.group(1)), m.group(2)
+                for name in names.split(", "):
+                    members.setdefault(_key(name.strip()), set()).add(group.split(".", 1)[1])
+    for key, groups in members.items():
+        if key in out:
+            out[key] = (out[key][0], out[key][1] | groups)
+    return out
+
+
+def _key(name: str) -> str:
+    """`clippy::unwrap-used` -> `clippy.unwrap_used`; `unsafe-code` -> `rust.unsafe_code`."""
+    tool, _, lint = name.rpartition("::")
+    return f"{tool or 'rust'}.{lint.replace('-', '_')}"
+
+
+@check(
+    "citations",
+    "a cited check must be one the shipped config enables",
+    needs=("ruff", "ty", "clippy-driver", "rustdoc"),
+)
 def citations(skill):
     for row, message in row_shape(skill.lint_rows, skill.profile.tools):
         yield fail(message, f"{skill.name}/{row.where}")
+    if skill.profile.toolchain == "rust":
+        yield from _rust(skill)
     if skill.profile.toolchain != "python":
         return
     assets = skill.root / "assets"
@@ -202,3 +284,22 @@ def citations(skill):
                 f"setting silently does nothing",
                 skill.name,
             )
+
+
+def _rust(skill):
+    rows = [row for row in skill.lint_rows if row.tool in SECTION]
+    manifest = skill.root / "assets" / "Cargo.toml"
+    if not rows:
+        return
+    if not manifest.exists():
+        yield fail("Rust lint rows, and no `assets/Cargo.toml` to enforce them", skill.name)
+        return
+    catalogue = rust_catalogue()
+    if catalogue is None:
+        yield unrun("`clippy-driver` or `rustdoc` did not list its lints", skill.name)
+        return
+    from .lints import table
+
+    shipped = table(manifest.read_text(), "workspace.")
+    for row, message in rust_rows(rows, shipped, catalogue):
+        yield fail(message, f"{skill.name}/{row.where}")

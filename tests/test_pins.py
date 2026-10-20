@@ -100,3 +100,32 @@ def test_an_index_answer_it_can_order_still_decides(monkeypatch):
 
     assert [f.level for f in findings] == [Level.FAIL]
     assert "is available" in findings[0].message
+
+
+def test_a_rust_pin_matching_rustc_and_stable_is_quiet():
+    from agent_skill.checks.pins import rust_pin
+
+    assert list(rust_pin("1.99", "1.99.0", "1.99.1")) == []
+
+
+def test_a_rust_pin_behind_stable_fails():
+    from agent_skill.checks.pins import rust_pin
+    from agent_skill.report import fail
+
+    found = list(rust_pin("1.98", "1.98.1", "1.99.1"))
+    assert [level for level, _ in found] == [fail]
+    assert "1.99.1 is stable" in found[0][1]
+
+
+def test_a_rust_pin_rustc_disagrees_with_fails():
+    from agent_skill.checks.pins import rust_pin
+    from agent_skill.report import fail
+
+    assert [level for level, _ in rust_pin("1.98", "1.99.0", "1.98.1")] == [fail]
+
+
+def test_a_rust_pin_nothing_answered_for_is_unrun():
+    from agent_skill.checks.pins import rust_pin
+    from agent_skill.report import unrun
+
+    assert [level for level, _ in rust_pin("1.99", None, None)] == [unrun, unrun]

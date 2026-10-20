@@ -100,9 +100,27 @@ def plan(repo: Path, name: str, chapters: dict[str, str] | None = None, profile=
         if new != text or target != path:
             plan.writes[target] = new
 
+    _counts(skill, chapters, plan)
     _compose(skill, plan)
     _verify(repo, skill, plan)
     return plan
+
+
+def _counts(skill: Skill, chapters: dict[str, str], plan: Plan) -> None:
+    """Restate the counts `SKILL.md` gives — per family in the reference map, and the total in
+    the description — from the rules as they will be. A count is the one thing a renumbering
+    always changes and a person always forgets."""
+    path = skill.skill_md
+    text = plan.writes.get(path, skill.text)
+    total = len(skill.rules) + len(skill.core_rules)
+    new = re.sub(r"\b\d+(-rule \w+)", rf"{total}\1", text, count=1)
+    for chapter in skill.chapters:
+        code = vocabulary.code_for(chapters.get(chapter.path.stem, chapter.path.stem))
+        if code:
+            family = f"`{skill.prefix}-{code}`"
+            new = re.sub(rf"{re.escape(family)} \(\d+\)", f"{family} ({len(chapter.rules)})", new)
+    if new != text:
+        plan.writes[path] = new
 
 
 def apply(repo: Path, plan: Plan) -> None:
