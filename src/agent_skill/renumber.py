@@ -9,10 +9,12 @@ dictionary built from the old numbering, and the result is verified by identity:
 each rule keeps its title, so every old ID must reach a rule with the same title
 after the rewrite. Nothing is written until that holds.
 
-A rename table in the migration chapter records what every old ID became. Run
-twice over one revision, the second run composes onto the first: a row whose new
-ID is renumbered again is updated in place, so the table always maps the IDs a
-reader had before the revision to the IDs they have now.
+A rename table in the migration chapter states the range each family ran before
+the revision, and lists every old ID that changed. Run twice over one revision, the
+second run composes onto the first against those ranges: a row whose new ID moves
+again is updated in place, and an original that moves for the first time gains a
+row, so the table always maps the IDs a reader had before the revision to the IDs
+they have now.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import vocabulary
-from .model import RENAMED, Rename, Skill, _rows
+from .model import DASH, RENAMED, Rename, Skill, rename_tables
 from .text import reflow
 
 
@@ -224,12 +226,14 @@ def _segments(text: str):
 
 def _compose(skill: Skill, plan: Plan) -> None:
     """Keep every rename table in the migration chapter current, and start this
-    revision's table if it has none yet.
+    revision's table if it has none yet and an ID changed.
 
     Each table maps the IDs from before one revision to the IDs now, so every
-    renumbering rewrites the new-ID column of every table. A row whose new ID no
-    longer exists is a rule deleted without its disposition being recorded, and
-    stops the run: nothing else knows what that rule became.
+    renumbering moves each of its originals forward: an ID with a row goes where its
+    row leads, and an ID in range without one is still itself. A row is kept only
+    where the result differs from the original. An original that no longer exists
+    is a rule deleted without its disposition being recorded, and stops the run:
+    nothing else knows what that rule became.
     """
     migration = next((c for c in skill.chapters if c.path.stem == "migration"), None)
     if migration is None:
@@ -239,42 +243,80 @@ def _compose(skill: Skill, plan: Plan) -> None:
     heading = f"## Rule IDs before the {skill.profile.language} {skill.profile.pin()} revision"
 
     out, pos = [], 0
-    for m in RENAMED.finditer(text):
-        nxt = re.compile(r"^## ", re.M).search(text, m.end())
-        end = nxt.start() if nxt else len(text)
-        rows = [Rename(c[0].strip("`"), c[1], line) for line, c in _rows(text, m.start())]
-        out.append(text[pos : m.start()])
-        out.append(_table(m.group(0), [_forward(r, plan) for r in rows]) + ("\n" if nxt else ""))
+    for table in rename_tables(text):
+        if not table.ranges:
+            raise RenumberError(f"`{table.heading}` states no ranges, so its unlisted IDs are lost")
+        start, end = table.span
+        listed, originals = {r.before: r for r in table.rows}, set(table.originals)
+        rows = [listed.get(rid, Rename(rid, f"`{rid}`", 0)) for rid in table.originals]
+        rows += [r for r in table.rows if r.before not in originals]
+        tail = "\n" if end < len(text) else ""
+        out += [text[pos:start], _table(table.heading, table.ranges, _forward(rows, plan)) + tail]
         pos = end
     out.append(text[pos:])
     text = "".join(out)
 
-    if not re.search(rf"^{re.escape(heading)}$", text, re.M):
-        fresh = [Rename(old, f"`{new}`", 0) for old, new in plan.ids.items()]
-        text = text.rstrip("\n") + "\n\n" + _table(heading, fresh)
-    plan.writes[path] = text
+    if plan.changed and not re.search(rf"^{re.escape(heading)}$", text, re.M):
+        rows = [Rename(old, f"`{new}`", 0) for old, new in plan.ids.items()]
+        text = text.rstrip("\n") + "\n\n" + _table(heading, _ranges(plan.ids), _changed(rows))
+    plan.writes[path] = reflow(text)
 
 
-def _forward(row: Rename, plan: Plan) -> Rename:
-    if not row.target:
-        return row
-    if row.target not in plan.ids:
-        raise RenumberError(
-            f"{row.before} became {row.target}, which no longer exists — record what it became "
-            f"(a rule ID, lint `tool:name`, or removed — reason) before renumbering"
-        )
-    return Rename(row.before, f"`{plan.ids[row.target]}`", row.line)
+def _forward(rows: list[Rename], plan: Plan) -> list[Rename]:
+    out = []
+    for row in rows:
+        if row.target == row.before and row.target not in plan.ids:
+            raise RenumberError(
+                f"{row.before} has no row, so the table says it is unchanged, and no rule carries "
+                f"it — record what it became before renumbering"
+            )
+        if row.target and row.target not in plan.ids:
+            raise RenumberError(
+                f"{row.before} became {row.target}, which no longer exists — record what it "
+                f"became (a rule ID, lint `tool:name`, or removed — reason) before renumbering"
+            )
+        now = f"`{plan.ids[row.target]}`" if row.target else row.now
+        out.append(Rename(row.before, now, row.line))
+    return _changed(out)
 
 
-def _table(heading: str, rows: list[Rename]) -> str:
+def _changed(rows: list[Rename]) -> list[Rename]:
+    """The rows worth printing: a row mapping an ID to itself is what the range already says."""
+    return [r for r in rows if r.target != r.before]
+
+
+def _ranges(ids: dict[str, str]) -> tuple[tuple[str, int, int], ...]:
+    """The runs of consecutive numbers each family held, in the order the families appear.
+    A suffixed ID such as `-03a` belongs to no run; dense numbering always gives it a row."""
+    numbers: dict[str, list[int]] = {}
+    for rid in ids:
+        if m := re.fullmatch(r"([A-Z]{2}-[A-Z]+)-(\d+)", rid):
+            numbers.setdefault(m.group(1), []).append(int(m.group(2)))
+    out: list[tuple[str, int, int]] = []
+    for family, held in numbers.items():
+        for n in sorted(held):
+            if out and out[-1][0] == family and out[-1][2] == n - 1:
+                out[-1] = (family, out[-1][1], n)
+            else:
+                out.append((family, n, n))
+    return tuple(out)
+
+
+def _table(heading: str, ranges: tuple[tuple[str, int, int], ...], rows: list[Rename]) -> str:
     befores = [r.before for r in rows]
     if len(befores) != len(set(befores)):
         raise RenumberError(f"`{heading}` would list one old ID twice")
+    spans = [
+        f"`{family}-{lo:02d}`" + (f"{DASH}`{family}-{hi:02d}`" if hi > lo else "")
+        for family, lo, hi in ranges
+    ]
+    stated = ", ".join(spans[:-1]) + f" and {spans[-1]}" if len(spans) > 1 else "".join(spans)
     return "\n".join(
         [
             heading,
             "",
-            "Every rule ID this standard used before the revision, and what it is now.",
+            f"Before the revision the families ran {stated}. The table lists every ID in those "
+            "ranges that changed, and what it is now; an ID it does not list is unchanged.",
             "",
             "| Before | Now |",
             "|---|---|",

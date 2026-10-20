@@ -24,7 +24,9 @@ reads exactly like a correct one. `agent-skill renumber` rewrites every citation
 `skills/`, `src/`, `tests/` and this file in one pass from one dictionary, checks
 that each old ID still reaches a rule with the same title, and writes nothing
 unless it does. It keeps the standard's `migration.md` rename table current, so a
-reader holding an old ID can look it up.
+reader holding an old ID can look it up: the table states the range each family ran
+before the revision and lists only the IDs that changed, and `skeleton` fails if an
+unlisted ID in range no longer names a rule.
 
 What it cannot do is catch an old ID typed in by hand afterwards: under dense
 numbering that ID is now another rule's, and nothing can tell the two apart. So a

@@ -82,82 +82,15 @@ the diff's feature sets, `Ord` impls, drop order and anything that parses panic 
 
 ## Rule IDs before the Rust 1.99 revision
 
-Every rule ID this standard used before the revision, and what it is now.
+Before the revision the families ran `RS-API-01`–`RS-API-84`, `RS-CAR-01`–`RS-CAR-54`,
+`RS-CLI-01`–`RS-CLI-40`, `RS-CNC-01`–`RS-CNC-52`, `RS-DOC-01`–`RS-DOC-40`, `RS-ERR-01`–`RS-ERR-50`,
+`RS-FP-01`–`RS-FP-64`, `RS-MAC-01`–`RS-MAC-26`, `RS-NAM-01`–`RS-NAM-44`, `RS-OWN-01`–`RS-OWN-46`,
+`RS-PRF-01`–`RS-PRF-50`, `RS-STR-01`–`RS-STR-57`, `RS-TST-01`–`RS-TST-42`, `RS-TRG-01`–`RS-TRG-56`
+and `RS-UNS-01`–`RS-UNS-36`. The table lists every ID in those ranges that changed, and what it is
+now; an ID it does not list is unchanged.
 
 | Before | Now |
 |---|---|
-| `RS-API-01` | `RS-API-01` |
-| `RS-API-02` | `RS-API-02` |
-| `RS-API-03` | `RS-API-03` |
-| `RS-API-04` | `RS-API-04` |
-| `RS-API-05` | `RS-API-05` |
-| `RS-API-06` | `RS-API-06` |
-| `RS-API-07` | `RS-API-07` |
-| `RS-API-08` | `RS-API-08` |
-| `RS-API-09` | `RS-API-09` |
-| `RS-API-10` | `RS-API-10` |
-| `RS-API-11` | `RS-API-11` |
-| `RS-API-12` | `RS-API-12` |
-| `RS-API-13` | `RS-API-13` |
-| `RS-API-14` | `RS-API-14` |
-| `RS-API-15` | `RS-API-15` |
-| `RS-API-16` | `RS-API-16` |
-| `RS-API-17` | `RS-API-17` |
-| `RS-API-18` | `RS-API-18` |
-| `RS-API-19` | `RS-API-19` |
-| `RS-API-20` | `RS-API-20` |
-| `RS-API-21` | `RS-API-21` |
-| `RS-API-22` | `RS-API-22` |
-| `RS-API-23` | `RS-API-23` |
-| `RS-API-24` | `RS-API-24` |
-| `RS-API-25` | `RS-API-25` |
-| `RS-API-26` | `RS-API-26` |
-| `RS-API-27` | `RS-API-27` |
-| `RS-API-28` | `RS-API-28` |
-| `RS-API-29` | `RS-API-29` |
-| `RS-API-30` | `RS-API-30` |
-| `RS-API-31` | `RS-API-31` |
-| `RS-API-32` | `RS-API-32` |
-| `RS-API-33` | `RS-API-33` |
-| `RS-API-34` | `RS-API-34` |
-| `RS-API-35` | `RS-API-35` |
-| `RS-API-36` | `RS-API-36` |
-| `RS-API-37` | `RS-API-37` |
-| `RS-API-38` | `RS-API-38` |
-| `RS-API-39` | `RS-API-39` |
-| `RS-API-40` | `RS-API-40` |
-| `RS-API-41` | `RS-API-41` |
-| `RS-API-42` | `RS-API-42` |
-| `RS-API-43` | `RS-API-43` |
-| `RS-API-44` | `RS-API-44` |
-| `RS-API-45` | `RS-API-45` |
-| `RS-API-46` | `RS-API-46` |
-| `RS-API-47` | `RS-API-47` |
-| `RS-API-48` | `RS-API-48` |
-| `RS-API-49` | `RS-API-49` |
-| `RS-API-50` | `RS-API-50` |
-| `RS-API-51` | `RS-API-51` |
-| `RS-API-52` | `RS-API-52` |
-| `RS-API-53` | `RS-API-53` |
-| `RS-API-54` | `RS-API-54` |
-| `RS-API-55` | `RS-API-55` |
-| `RS-API-56` | `RS-API-56` |
-| `RS-API-57` | `RS-API-57` |
-| `RS-API-58` | `RS-API-58` |
-| `RS-API-59` | `RS-API-59` |
-| `RS-API-60` | `RS-API-60` |
-| `RS-API-61` | `RS-API-61` |
-| `RS-API-62` | `RS-API-62` |
-| `RS-API-63` | `RS-API-63` |
-| `RS-API-64` | `RS-API-64` |
-| `RS-API-65` | `RS-API-65` |
-| `RS-API-66` | `RS-API-66` |
-| `RS-API-67` | `RS-API-67` |
-| `RS-API-68` | `RS-API-68` |
-| `RS-API-69` | `RS-API-69` |
-| `RS-API-70` | `RS-API-70` |
-| `RS-API-71` | `RS-API-71` |
-| `RS-API-72` | `RS-API-72` |
 | `RS-API-73` | `RS-TRAIT-30` |
 | `RS-API-74` | `RS-API-73` |
 | `RS-API-75` | `RS-API-74` |
@@ -224,36 +157,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-CAR-52` | `RS-BUILD-47` |
 | `RS-CAR-53` | `RS-BUILD-48` |
 | `RS-CAR-54` | `RS-BUILD-49` |
-| `RS-CLI-01` | `RS-CLI-01` |
-| `RS-CLI-02` | `RS-CLI-02` |
-| `RS-CLI-03` | `RS-CLI-03` |
-| `RS-CLI-04` | `RS-CLI-04` |
-| `RS-CLI-05` | `RS-CLI-05` |
-| `RS-CLI-06` | `RS-CLI-06` |
-| `RS-CLI-07` | `RS-CLI-07` |
-| `RS-CLI-08` | `RS-CLI-08` |
-| `RS-CLI-09` | `RS-CLI-09` |
-| `RS-CLI-10` | `RS-CLI-10` |
-| `RS-CLI-11` | `RS-CLI-11` |
-| `RS-CLI-12` | `RS-CLI-12` |
-| `RS-CLI-13` | `RS-CLI-13` |
-| `RS-CLI-14` | `RS-CLI-14` |
-| `RS-CLI-15` | `RS-CLI-15` |
-| `RS-CLI-16` | `RS-CLI-16` |
-| `RS-CLI-17` | `RS-CLI-17` |
-| `RS-CLI-18` | `RS-CLI-18` |
-| `RS-CLI-19` | `RS-CLI-19` |
-| `RS-CLI-20` | `RS-CLI-20` |
-| `RS-CLI-21` | `RS-CLI-21` |
-| `RS-CLI-22` | `RS-CLI-22` |
-| `RS-CLI-23` | `RS-CLI-23` |
-| `RS-CLI-24` | `RS-CLI-24` |
-| `RS-CLI-25` | `RS-CLI-25` |
-| `RS-CLI-26` | `RS-CLI-26` |
-| `RS-CLI-27` | `RS-CLI-27` |
-| `RS-CLI-28` | `RS-CLI-28` |
-| `RS-CLI-29` | `RS-CLI-29` |
-| `RS-CLI-30` | `RS-CLI-30` |
 | `RS-CLI-31` | `RS-ERR-45` |
 | `RS-CLI-32` | `RS-CLI-31` |
 | `RS-CLI-33` | `RS-CLI-32` |
@@ -316,37 +219,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-CNC-50` | `RS-CONC-49` |
 | `RS-CNC-51` | `RS-CONC-50` |
 | `RS-CNC-52` | `RS-CONC-51` |
-| `RS-DOC-01` | `RS-DOC-01` |
-| `RS-DOC-02` | `RS-DOC-02` |
-| `RS-DOC-03` | `RS-DOC-03` |
-| `RS-DOC-04` | `RS-DOC-04` |
-| `RS-DOC-05` | `RS-DOC-05` |
-| `RS-DOC-06` | `RS-DOC-06` |
-| `RS-DOC-07` | `RS-DOC-07` |
-| `RS-DOC-08` | `RS-DOC-08` |
-| `RS-DOC-09` | `RS-DOC-09` |
-| `RS-DOC-10` | `RS-DOC-10` |
-| `RS-DOC-11` | `RS-DOC-11` |
-| `RS-DOC-12` | `RS-DOC-12` |
-| `RS-DOC-13` | `RS-DOC-13` |
-| `RS-DOC-14` | `RS-DOC-14` |
-| `RS-DOC-15` | `RS-DOC-15` |
-| `RS-DOC-16` | `RS-DOC-16` |
-| `RS-DOC-17` | `RS-DOC-17` |
-| `RS-DOC-18` | `RS-DOC-18` |
-| `RS-DOC-19` | `RS-DOC-19` |
-| `RS-DOC-20` | `RS-DOC-20` |
-| `RS-DOC-21` | `RS-DOC-21` |
-| `RS-DOC-22` | `RS-DOC-22` |
-| `RS-DOC-23` | `RS-DOC-23` |
-| `RS-DOC-24` | `RS-DOC-24` |
-| `RS-DOC-25` | `RS-DOC-25` |
-| `RS-DOC-26` | `RS-DOC-26` |
-| `RS-DOC-27` | `RS-DOC-27` |
-| `RS-DOC-28` | `RS-DOC-28` |
-| `RS-DOC-29` | `RS-DOC-29` |
-| `RS-DOC-30` | `RS-DOC-30` |
-| `RS-DOC-31` | `RS-DOC-31` |
 | `RS-DOC-32` | lint `rustdoc:broken_intra_doc_links` |
 | `RS-DOC-33` | `RS-DOC-32` |
 | `RS-DOC-34` | `RS-DOC-33` |
@@ -356,10 +228,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-DOC-38` | `RS-DOC-37` |
 | `RS-DOC-39` | `RS-DOC-38` |
 | `RS-DOC-40` | `RS-DOC-39` |
-| `RS-ERR-01` | `RS-ERR-01` |
-| `RS-ERR-02` | `RS-ERR-02` |
-| `RS-ERR-03` | `RS-ERR-03` |
-| `RS-ERR-04` | `RS-ERR-04` |
 | `RS-ERR-05` | lint `clippy:unwrap_used` |
 | `RS-ERR-06` | `RS-ERR-05` |
 | `RS-ERR-07` | `RS-ERR-06` |
@@ -540,7 +408,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `RS-NAM-42` | `RS-NAME-41` |
 | `RS-NAM-43` | `RS-NAME-42` |
 | `RS-NAM-44` | `RS-NAME-43` |
-| `RS-OWN-01` | `RS-OWN-01` |
 | `RS-OWN-02` | lint `clippy:ptr_arg` |
 | `RS-OWN-03` | `RS-OWN-02` |
 | `RS-OWN-04` | `RS-OWN-03` |

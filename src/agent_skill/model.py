@@ -220,6 +220,56 @@ DECIDED = "Decided by tools"
 #: The section a migration chapter keeps a renumbering's rename table under.
 RENAMED = re.compile(r"^## Rule IDs before the .+ revision$", re.M)
 
+#: The en dash a range is written with, as prose writes a range of numbers.
+DASH = "\u2013"
+
+#: A family's range as a rename table states it: first and last ID joined by the dash, or one ID.
+_RANGE = re.compile(rf"`([A-Z]{{2}}-[A-Z]+)-(\d+)`(?:{DASH}`\1-(\d+)`)?")
+
+
+@dataclass(frozen=True, slots=True)
+class RenameTable:
+    """One revision's rename table: the range each family ran before it, and a row for each
+    old ID that changed. An ID in range with no row still names the rule it named.
+
+    `span` is where the section sits in its file, for the renumbering that rewrites it.
+    """
+
+    heading: str
+    ranges: tuple[tuple[str, int, int], ...]
+    rows: tuple[Rename, ...]
+    span: tuple[int, int]
+
+    @property
+    def originals(self) -> list[str]:
+        """Every ID the families ran before the revision, in the order the ranges give."""
+        return [f"{family}-{n:02d}" for family, lo, hi in self.ranges for n in range(lo, hi + 1)]
+
+    @property
+    def unchanged(self) -> list[str]:
+        listed = {r.before for r in self.rows}
+        return [rid for rid in self.originals if rid not in listed]
+
+
+def rename_tables(text: str) -> list[RenameTable]:
+    """Every rename table in `text`. The ranges are read from the prose above the table."""
+    out: list[RenameTable] = []
+    for m in RENAMED.finditer(text):
+        nxt = re.compile(r"^## ", re.M).search(text, m.end())
+        end = nxt.start() if nxt else len(text)
+        lead = re.split(r"^\|", text[m.end() : end], maxsplit=1, flags=re.M)[0]
+        ranges = tuple(
+            (r.group(1), int(r.group(2)), int(r.group(3) or r.group(2)))
+            for r in _RANGE.finditer(lead)
+        )
+        rows = tuple(
+            Rename(cells[0].strip("`"), cells[1], line)
+            for line, cells in _rows(text, m.start())
+            if len(cells) == 2
+        )
+        out.append(RenameTable(m.group(0), ranges, rows, (m.start(), end)))
+    return out
+
 
 def without_renames(text: str) -> str:
     """`text` with every rename table blanked, line count kept.
@@ -337,14 +387,13 @@ class Chapter:
         ]
 
     @cached_property
+    def rename_tables(self) -> list[RenameTable]:
+        return rename_tables(self.text)
+
+    @cached_property
     def renames(self) -> list[Rename]:
         """Every row of every rename table this chapter carries: `| Before | Now |`."""
-        out: list[Rename] = []
-        for m in RENAMED.finditer(self.text):
-            for line, cells in _rows(self.text, m.start()):
-                if len(cells) == 2:
-                    out.append(Rename(cells[0].strip("`"), cells[1], line))
-        return out
+        return [row for table in self.rename_tables for row in table.rows]
 
     def blocks(self, lang: str) -> list[Block]:
         out: list[Block] = []
@@ -410,6 +459,10 @@ class Skill:
     @cached_property
     def lint_rows(self) -> list[LintRow]:
         return [row for c in self.chapters for row in c.lint_rows]
+
+    @cached_property
+    def rename_tables(self) -> list[RenameTable]:
+        return [table for c in self.chapters for table in c.rename_tables]
 
     @cached_property
     def renames(self) -> list[Rename]:

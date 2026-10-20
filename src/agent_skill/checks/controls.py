@@ -201,6 +201,21 @@ STRUCTURE: list[Control] = [
         ),
     ),
     Control(
+        "a rename row mapping an ID to itself",
+        "skeleton",
+        lambda t: edit(
+            t,
+            f"{PY}/references/migration.md",
+            "| `PS-ERR-09` | lint `ruff:E722` |",
+            "| `PS-ERR-09` | `PS-ERR-09` |",
+        ),
+    ),
+    Control(
+        "an old ID dropped from the rename table while no rule carries it",
+        "skeleton",
+        lambda t: edit(t, f"{PY}/references/migration.md", "| `PS-API-22` | `PS-API-20` |\n", ""),
+    ),
+    Control(
         "a shared sentence edited in one standard's copy",
         "shared-text",
         lambda t: edit(t, f"{PY}/SKILL.md", "Apply it literally.", "Apply it with judgement."),

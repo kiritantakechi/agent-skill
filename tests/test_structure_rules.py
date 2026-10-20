@@ -8,7 +8,7 @@ from structure_fixture import build, edit, reparse
 from agent_skill.checks.anatomy import structural
 from agent_skill.checks.citations import python_rows, row_shape
 from agent_skill.checks.skeleton import shape
-from agent_skill.model import Rename
+from agent_skill.model import DASH, Rename
 
 ROWS = """
 
@@ -20,9 +20,13 @@ ROWS = """
 | ty | `possibly-unresolved-reference` | warn | a name that may not be bound |
 """
 
-RENAMES = """
+RANGES = f"Before the revision the families ran `DS-ERR-01`{DASH}`DS-ERR-09`."
+
+RENAMES = f"""
 
 ## Rule IDs before the Demo 1.2 revision
+
+{RANGES}
 
 | Before | Now |
 |---|---|
@@ -121,6 +125,37 @@ def test_a_rename_table_that_resolves(demo):
     skill = reparse(demo)
     assert len(skill.renames) == 3
     assert [m for m, _ in shape(skill) if "renamed" in m or "became" in m or "removed" in m] == []
+
+
+def test_a_rename_table_states_its_ranges(demo):
+    path = demo.root / "references" / "migration.md"
+    path.write_text(
+        path.read_text() + RENAMES.replace("`DS-ERR-09`.", "`DS-ERR-09` and `DS-MIG-01`.")
+    )
+    (table,) = reparse(demo).rename_tables
+    assert table.ranges == (("DS-ERR", 1, 9), ("DS-MIG", 1, 1))
+    assert table.unchanged[:2] == ["DS-ERR-01", "DS-ERR-02"]
+    assert table.unchanged[-1] == "DS-MIG-01"
+
+
+def test_an_unlisted_id_no_rule_carries(demo):
+    path = demo.root / "references" / "migration.md"
+    path.write_text(path.read_text() + RENAMES)
+    found = [m for m, _ in shape(reparse(demo))]
+    assert "DS-ERR-01 has no row" not in " ".join(found)
+    assert any(m.startswith("DS-ERR-03 has no row") for m in found)
+
+
+def test_a_table_that_states_no_ranges(demo):
+    path = demo.root / "references" / "migration.md"
+    path.write_text(path.read_text() + RENAMES.replace(f"{RANGES}\n\n", ""))
+    assert any("states no ranges" in m for m, _ in shape(reparse(demo)))
+
+
+def test_a_row_mapping_an_id_to_itself(demo):
+    path = demo.root / "references" / "migration.md"
+    path.write_text(path.read_text() + RENAMES + "| `DS-ERR-01` | `DS-ERR-01` |\n")
+    assert any("becoming itself" in m for m, _ in shape(reparse(demo)))
 
 
 def test_a_rename_into_a_rule_that_was_deleted(demo):

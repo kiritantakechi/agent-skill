@@ -281,17 +281,15 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 ## Rule IDs before the Python 3.15.0 revision
 
-Every rule ID this standard used before the revision, and what it is now.
+Before the revision the families ran `PS-API-01`–`PS-API-22`, `PS-ASYNC-01`–`PS-ASYNC-22`,
+`PS-DATA-01`–`PS-DATA-22`, `PS-DOC-01`–`PS-DOC-18`, `PS-ERR-01`–`PS-ERR-22`, `PS-FT-01`–`PS-FT-26`,
+`PS-MIG-01`–`PS-MIG-16`, `PS-NAME-01`–`PS-NAME-26`, `PS-PKG-01`–`PS-PKG-21`,
+`PS-PERF-01`–`PS-PERF-20`, `PS-FMT-01`–`PS-FMT-20`, `PS-TEST-01`–`PS-TEST-22` and
+`PS-TYPE-01`–`PS-TYPE-22`. The table lists every ID in those ranges that changed, and what it is
+now; an ID it does not list is unchanged.
 
 | Before | Now |
 |---|---|
-| `PS-API-01` | `PS-API-01` |
-| `PS-API-02` | `PS-API-02` |
-| `PS-API-03` | `PS-API-03` |
-| `PS-API-04` | `PS-API-04` |
-| `PS-API-05` | `PS-API-05` |
-| `PS-API-06` | `PS-API-06` |
-| `PS-API-07` | `PS-API-07` |
 | `PS-API-08` | lint `ruff:FBT001` |
 | `PS-API-09` | `PS-API-08` |
 | `PS-API-10` | `PS-API-09` |
@@ -307,8 +305,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-API-20` | `PS-API-18` |
 | `PS-API-21` | `PS-API-19` |
 | `PS-API-22` | `PS-API-20` |
-| `PS-ASYNC-01` | `PS-ASYNC-01` |
-| `PS-ASYNC-02` | `PS-ASYNC-02` |
 | `PS-ASYNC-03` | lint `ty:deprecated` |
 | `PS-ASYNC-04` | `PS-ASYNC-03` |
 | `PS-ASYNC-05` | lint `ruff:RUF006` |
@@ -329,28 +325,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-ASYNC-20` | `PS-ASYNC-17` |
 | `PS-ASYNC-21` | `PS-ASYNC-18` |
 | `PS-ASYNC-22` | `PS-ASYNC-19` |
-| `PS-DATA-01` | `PS-DATA-01` |
-| `PS-DATA-02` | `PS-DATA-02` |
-| `PS-DATA-03` | `PS-DATA-03` |
-| `PS-DATA-04` | `PS-DATA-04` |
-| `PS-DATA-05` | `PS-DATA-05` |
-| `PS-DATA-06` | `PS-DATA-06` |
-| `PS-DATA-07` | `PS-DATA-07` |
-| `PS-DATA-08` | `PS-DATA-08` |
-| `PS-DATA-09` | `PS-DATA-09` |
-| `PS-DATA-10` | `PS-DATA-10` |
-| `PS-DATA-11` | `PS-DATA-11` |
-| `PS-DATA-12` | `PS-DATA-12` |
-| `PS-DATA-13` | `PS-DATA-13` |
-| `PS-DATA-14` | `PS-DATA-14` |
-| `PS-DATA-15` | `PS-DATA-15` |
-| `PS-DATA-16` | `PS-DATA-16` |
-| `PS-DATA-17` | `PS-DATA-17` |
-| `PS-DATA-18` | `PS-DATA-18` |
-| `PS-DATA-19` | `PS-DATA-19` |
-| `PS-DATA-20` | `PS-DATA-20` |
-| `PS-DATA-21` | `PS-DATA-21` |
-| `PS-DATA-22` | `PS-DATA-22` |
 | `PS-DOC-01` | lint `ruff:D100` |
 | `PS-DOC-02` | `PS-DOC-01` |
 | `PS-DOC-03` | lint `ruff:D205` |
@@ -369,12 +343,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-DOC-16` | `PS-DOC-12` |
 | `PS-DOC-17` | `PS-DOC-13` |
 | `PS-DOC-18` | `PS-DOC-14` |
-| `PS-ERR-01` | `PS-ERR-01` |
-| `PS-ERR-02` | `PS-ERR-02` |
-| `PS-ERR-03` | `PS-ERR-03` |
-| `PS-ERR-04` | `PS-ERR-04` |
-| `PS-ERR-05` | `PS-ERR-05` |
-| `PS-ERR-06` | `PS-ERR-06` |
 | `PS-ERR-07` | lint `ruff:EM101` |
 | `PS-ERR-08` | `PS-ERR-07` |
 | `PS-ERR-09` | lint `ruff:E722` |
@@ -417,11 +385,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-FT-24` | `PS-CONC-24` |
 | `PS-FT-25` | `PS-CONC-25` |
 | `PS-FT-26` | `PS-CONC-26` |
-| `PS-MIG-01` | `PS-MIG-01` |
-| `PS-MIG-02` | `PS-MIG-02` |
-| `PS-MIG-03` | `PS-MIG-03` |
-| `PS-MIG-04` | `PS-MIG-04` |
-| `PS-MIG-05` | `PS-MIG-05` |
 | `PS-MIG-06` | lint `ruff:UP013` |
 | `PS-MIG-07` | `PS-MIG-06` |
 | `PS-MIG-08` | `PS-MIG-07` |
@@ -433,12 +396,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-MIG-14` | `PS-MIG-13` |
 | `PS-MIG-15` | `PS-MIG-14` |
 | `PS-MIG-16` | `PS-MIG-15` |
-| `PS-NAME-01` | `PS-NAME-01` |
-| `PS-NAME-02` | `PS-NAME-02` |
-| `PS-NAME-03` | `PS-NAME-03` |
-| `PS-NAME-04` | `PS-NAME-04` |
-| `PS-NAME-05` | `PS-NAME-05` |
-| `PS-NAME-06` | `PS-NAME-06` |
 | `PS-NAME-07` | lint `ruff:A001` |
 | `PS-NAME-08` | `PS-NAME-07` |
 | `PS-NAME-09` | `PS-NAME-08` |
@@ -480,19 +437,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-PKG-19` | `PS-BUILD-19` |
 | `PS-PKG-20` | `PS-BUILD-20` |
 | `PS-PKG-21` | `PS-BUILD-21` |
-| `PS-PERF-01` | `PS-PERF-01` |
-| `PS-PERF-02` | `PS-PERF-02` |
-| `PS-PERF-03` | `PS-PERF-03` |
-| `PS-PERF-04` | `PS-PERF-04` |
-| `PS-PERF-05` | `PS-PERF-05` |
-| `PS-PERF-06` | `PS-PERF-06` |
-| `PS-PERF-07` | `PS-PERF-07` |
-| `PS-PERF-08` | `PS-PERF-08` |
-| `PS-PERF-09` | `PS-PERF-09` |
-| `PS-PERF-10` | `PS-PERF-10` |
-| `PS-PERF-11` | `PS-PERF-11` |
-| `PS-PERF-12` | `PS-PERF-12` |
-| `PS-PERF-13` | `PS-PERF-13` |
 | `PS-PERF-14` | lint `ruff:PERF401` |
 | `PS-PERF-15` | `PS-PERF-14` |
 | `PS-PERF-16` | `PS-PERF-15` |
@@ -520,32 +464,11 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-FMT-18` | `PS-OUT-16` |
 | `PS-FMT-19` | `PS-OUT-17` |
 | `PS-FMT-20` | `PS-OUT-18` |
-| `PS-TEST-01` | `PS-TEST-01` |
-| `PS-TEST-02` | `PS-TEST-02` |
-| `PS-TEST-03` | `PS-TEST-03` |
-| `PS-TEST-04` | `PS-TEST-04` |
-| `PS-TEST-05` | `PS-TEST-05` |
-| `PS-TEST-06` | `PS-TEST-06` |
-| `PS-TEST-07` | `PS-TEST-07` |
-| `PS-TEST-08` | `PS-TEST-08` |
-| `PS-TEST-09` | `PS-TEST-09` |
-| `PS-TEST-10` | `PS-TEST-10` |
-| `PS-TEST-11` | `PS-TEST-11` |
-| `PS-TEST-12` | `PS-TEST-12` |
-| `PS-TEST-13` | `PS-TEST-13` |
-| `PS-TEST-14` | `PS-TEST-14` |
-| `PS-TEST-15` | `PS-TEST-15` |
-| `PS-TEST-16` | `PS-TEST-16` |
-| `PS-TEST-17` | `PS-TEST-17` |
 | `PS-TEST-18` | lint `ruff:PT011` |
 | `PS-TEST-19` | `PS-TEST-18` |
 | `PS-TEST-20` | `PS-TEST-19` |
 | `PS-TEST-21` | `PS-TEST-20` |
 | `PS-TEST-22` | `PS-TEST-21` |
-| `PS-TYPE-01` | `PS-TYPE-01` |
-| `PS-TYPE-02` | `PS-TYPE-02` |
-| `PS-TYPE-03` | `PS-TYPE-03` |
-| `PS-TYPE-04` | `PS-TYPE-04` |
 | `PS-TYPE-05` | lint `ruff:UP037` |
 | `PS-TYPE-06` | `PS-TYPE-05` |
 | `PS-TYPE-07` | `PS-TYPE-06` |

@@ -60,6 +60,7 @@ def shape(skill):
     yield from _chapters(skill)
     yield from _review(skill)
     yield from _renames(skill)
+    yield from _unchanged(skill)
 
 
 def _renames(skill):
@@ -68,7 +69,9 @@ def _renames(skill):
     ids = set(skill.by_id) | {rid for rid, _, _ in skill.core_rules}
     where = f"{skill.name}/references/migration.md"
     for r in skill.renames:
-        if r.target:
+        if r.target == r.before:
+            yield f"{r.before} is listed as becoming itself; an unchanged ID has no row", where
+        elif r.target:
             if r.target not in ids:
                 yield f"{r.before} is renamed to {r.target}, which no rule carries", where
         elif lint := r.lint:
@@ -84,6 +87,22 @@ def _renames(skill):
                 f"lint `tool:name`, or removed — reason",
                 where,
             )
+
+
+def _unchanged(skill):
+    """Every table states the ranges it covers, and an ID in range without a row is still a
+    rule: the table says that ID is unchanged."""
+    ids = set(skill.by_id) | {rid for rid, _, _ in skill.core_rules}
+    where = f"{skill.name}/references/migration.md"
+    for table in skill.rename_tables:
+        if not table.ranges:
+            yield f"`{table.heading}` states no ranges, so an unlisted ID reads as unchanged", where
+        for rid in table.unchanged:
+            if rid not in ids:
+                yield (
+                    f"{rid} has no row, so the table says it is unchanged, and no rule carries it",
+                    where,
+                )
 
 
 def _skill_md(skill):

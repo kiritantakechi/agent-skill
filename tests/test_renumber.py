@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 from structure_fixture import RULE, Demo
 
@@ -80,16 +82,55 @@ def test_a_chapter_rename_moves_the_file_the_code_and_every_path(repo):
     assert "demo-style/references/concurrency.md" in test and "DS-CONC-01" in test
 
 
-def test_the_rename_table_records_every_old_id(repo):
+def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo):
     run(repo, **THREADS)
-    skill = Skill(repo / "skills/demo-style", Demo())
-    table = {r.before: r.target for r in skill.renames}
-    assert table == {
+    (table,) = Skill(repo / "skills/demo-style", Demo()).rename_tables
+    assert table.ranges == (("DS-ERR", 2, 3), ("DS-FT", 1, 1), ("DS-MIG", 1, 1))
+    assert {r.before: r.target for r in table.rows} == {
         "DS-ERR-02": "DS-ERR-01",
         "DS-ERR-03": "DS-ERR-02",
         "DS-FT-01": "DS-CONC-01",
-        "DS-MIG-01": "DS-MIG-01",
     }
+    assert table.unchanged == ["DS-MIG-01"]
+
+
+def test_a_run_that_changes_nothing_starts_no_table(repo):
+    run(repo, **THREADS)
+    migration = repo / "skills/demo-style/references/migration.md"
+    migration.write_text(migration.read_text().replace("1.2 revision", "1.1 revision"))
+    before = migration.read_text()
+    run(repo)
+    assert migration.read_text() == before
+
+
+def test_an_unlisted_original_gains_a_row_when_it_moves(repo):
+    run(repo, **THREADS)
+    migration = repo / "skills/demo-style/references/migration.md"
+    # A rule added during the revision, ahead of the original DS-MIG-01 under a free ID.
+    text = migration.read_text()
+    first = RULE.format(id="DS-MIG-02", title="Read the table")
+    text = text.replace("- DS-MIG-01", "- DS-MIG-02 [M] Read the table\n- DS-MIG-01", 1)
+    migration.write_text(text.replace("### DS-MIG-01", first + "### DS-MIG-01", 1))
+    run(repo)
+    (table,) = Skill(repo / "skills/demo-style", Demo()).rename_tables
+    rows = {r.before: r.now for r in table.rows}
+    assert rows["DS-MIG-01"] == "`DS-MIG-02`"
+    assert "DS-MIG-02" not in rows
+    assert table.ranges[-1] == ("DS-MIG", 1, 1)
+
+
+def test_an_unlisted_original_that_is_gone_stops_the_run(repo):
+    run(repo, **THREADS)
+    migration = repo / "skills/demo-style/references/migration.md"
+    text = migration.read_text()
+    rule = re.search(r"^### DS-MIG-01 .*?(?=^## )", text, re.M | re.S)
+    migration.write_text(
+        text.replace("- DS-MIG-01 [M] Use the new name\n", "").replace(rule[0], "")
+    )
+    before = snapshot(repo)
+    with pytest.raises(renumber.RenumberError, match="DS-MIG-01 has no row"):
+        run(repo)
+    assert snapshot(repo) == before
 
 
 def test_a_second_run_composes_onto_the_first(repo):

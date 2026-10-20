@@ -72,6 +72,11 @@ BRANCHES = {
         "agent_skill.checks.skeleton",
         "_renames",
     ),
+    "a rename row mapping an ID to itself": ("agent_skill.checks.skeleton", "_renames"),
+    "an old ID dropped from the rename table while no rule carries it": (
+        "agent_skill.checks.skeleton",
+        "_unchanged",
+    ),
     "a shared sentence edited in one standard's copy": ("agent_skill.shared", "compare"),
     "a gap in a chapter's numbering": ("agent_skill.checks.anatomy", "structural"),
     "a Why that runs to a fourth line": ("agent_skill.checks.anatomy", "structural"),

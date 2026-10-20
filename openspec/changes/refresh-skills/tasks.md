@@ -263,7 +263,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 12. Structure
 
-- [ ] 12.1 Rename tables list only changed IDs and state each family's range before the revision
+- [x] 12.1 Rename tables list only changed IDs and state each family's range before the revision
   (D13). This covers `renumber`, the model, the skeleton check, and the three existing tables.
   Verify: `tests/test_renumber.py` covers the ranges and composing against them, and `--fast` passes.
 - [x] 12.2 Move `reflow` to `text.py` and have `agent-skill fmt` apply it to a skill's markdown

@@ -606,7 +606,11 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 ## Rule IDs before the Bevy 0.20.0 revision
 
-Every rule ID this standard used before the revision, and what it is now.
+Before the revision the families ran `BV-ARC-01`–`BV-ARC-19`, `BV-ASS-01`–`BV-ASS-14`,
+`BV-CAR-01`–`BV-CAR-21`, `BV-ECS-01`–`BV-ECS-32`, `BV-ERR-01`–`BV-ERR-17`, `BV-EVT-01`–`BV-EVT-20`,
+`BV-MIG-01`–`BV-MIG-18`, `BV-SCH-01`–`BV-SCH-26`, `BV-STA-01`–`BV-STA-22`, `BV-TST-01`–`BV-TST-15`
+and `BV-UI-01`–`BV-UI-21`. The table lists every ID in those ranges that changed, and what it is
+now; an ID it does not list is unchanged.
 
 | Before | Now |
 |---|---|
@@ -664,24 +668,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-CAR-19` | `BV-BUILD-19` |
 | `BV-CAR-20` | `BV-BUILD-20` |
 | `BV-CAR-21` | `BV-BUILD-21` |
-| `BV-ECS-01` | `BV-ECS-01` |
-| `BV-ECS-02` | `BV-ECS-02` |
-| `BV-ECS-03` | `BV-ECS-03` |
-| `BV-ECS-04` | `BV-ECS-04` |
-| `BV-ECS-05` | `BV-ECS-05` |
-| `BV-ECS-06` | `BV-ECS-06` |
-| `BV-ECS-07` | `BV-ECS-07` |
-| `BV-ECS-08` | `BV-ECS-08` |
-| `BV-ECS-09` | `BV-ECS-09` |
-| `BV-ECS-10` | `BV-ECS-10` |
-| `BV-ECS-11` | `BV-ECS-11` |
-| `BV-ECS-12` | `BV-ECS-12` |
-| `BV-ECS-13` | `BV-ECS-13` |
-| `BV-ECS-14` | `BV-ECS-14` |
-| `BV-ECS-15` | `BV-ECS-15` |
-| `BV-ECS-16` | `BV-ECS-16` |
-| `BV-ECS-17` | `BV-ECS-17` |
-| `BV-ECS-18` | `BV-ECS-18` |
 | `BV-ECS-19` | lint `clippy:unwrap_used` |
 | `BV-ECS-20` | `BV-ECS-19` |
 | `BV-ECS-21` | `BV-ECS-20` |
@@ -696,12 +682,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-ECS-30` | `BV-ECS-29` |
 | `BV-ECS-31` | `BV-ECS-30` |
 | `BV-ECS-32` | `BV-ECS-31` |
-| `BV-ERR-01` | `BV-ERR-01` |
-| `BV-ERR-02` | `BV-ERR-02` |
-| `BV-ERR-03` | `BV-ERR-03` |
-| `BV-ERR-04` | `BV-ERR-04` |
-| `BV-ERR-05` | `BV-ERR-05` |
-| `BV-ERR-06` | `BV-ERR-06` |
 | `BV-ERR-07` | lint `clippy:unwrap_used` |
 | `BV-ERR-08` | lint `clippy:indexing_slicing` |
 | `BV-ERR-09` | `BV-ERR-07` |
@@ -733,7 +713,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-EVT-18` | `BV-EVENT-18` |
 | `BV-EVT-19` | `BV-EVENT-19` |
 | `BV-EVT-20` | `BV-EVENT-20` |
-| `BV-MIG-01` | `BV-MIG-01` |
 | `BV-MIG-02` | lint `rustc:deprecated` |
 | `BV-MIG-03` | `BV-MIG-02` |
 | `BV-MIG-04` | `BV-MIG-03` |
@@ -750,7 +729,6 @@ Every rule ID this standard used before the revision, and what it is now.
 | `BV-MIG-15` | `BV-STATE-01` |
 | `BV-MIG-16` | `BV-MIG-12` |
 | `BV-MIG-17` | `BV-MIG-13` |
-| `BV-MIG-18` | `BV-MIG-18` |
 | `BV-SCH-01` | `BV-SCHED-01` |
 | `BV-SCH-02` | `BV-SCHED-02` |
 | `BV-SCH-03` | `BV-SCHED-03` |
