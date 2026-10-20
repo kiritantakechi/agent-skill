@@ -2,7 +2,7 @@
 
 Scope: choosing the shape a value takes — dataclass, enum, protocol, `TypedDict`, `NamedTuple`,
 plain class — and what each obliges you to. How to spell the annotation on a field is the typing
-chapter; whether the value is safe to share is the free-threading chapter; what a constructor should
+chapter; whether the value is safe to share is the concurrency chapter; what a constructor should
 accept is the API chapter.
 
 Two sources are merged here: the **empirical conventions of the CPython standard library**, whose

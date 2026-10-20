@@ -15,14 +15,10 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 ## Contents
 
 - **Shape**
-  - PS-DOC-01 [M] Give every public module, class and function a docstring
   - PS-DOC-02 [M] Open with one imperative line that fits on the line
-  - PS-DOC-03 [M] Follow the summary with a blank line, then the detail
   - PS-DOC-04 [M] Use triple double quotes, always
-  - PS-DOC-05 [M] Wrap docstring text at 72 columns
 - **Content**
   - PS-DOC-06 [M] Say what the caller needs, not what the code does
-  - PS-DOC-07 [M] Document every parameter, or none
   - PS-DOC-08 [M] Put the type in the annotation, never in the docstring
   - PS-DOC-09 [M] Document what is raised, and only what the caller can act on
   - PS-DOC-10 [M] Document the cost and the ownership
@@ -36,21 +32,11 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-DOC-16 [M] Keep a changelog, and write the entry with the change
   - PS-DOC-17 [S] Document the decision, not only the outcome
   - PS-DOC-18 [M] Never document what was checked, only what is true
+- Decided by tools
 
 ---
 
 ## Shape
-
-### PS-DOC-01 [M] Give every public module, class and function a docstring
-
-Public means in `__all__` or without a leading underscore. Private helpers may go without.
-
-**Why:** the docstring is what `help()`, the editor tooltip and the generated documentation show,
-so its absence is felt at every use rather than at the definition. Requiring it on the public
-surface and not on private helpers puts the cost where the benefit is — a four-line private
-function does not need prose, and a public one does.
-
-**Check:** ruff `D100` through `D107`, all enabled under the shipped configuration.
 
 ### PS-DOC-02 [M] Open with one imperative line that fits on the line
 
@@ -79,16 +65,6 @@ def load_config(path: str) -> dict[str, str]:
 assert load_config("a.toml") == {"path": "a.toml"}
 ```
 
-### PS-DOC-03 [M] Follow the summary with a blank line, then the detail
-
-Summary line, blank line, body. Closing quotes on their own line for a multi-line docstring.
-
-**Why:** PEP 257 requires the blank line so that tooling can take the first line as the summary, and
-several tools split on exactly that. Without it the whole docstring becomes the summary and listings
-become unreadable.
-
-**Check:** ruff `D205` for the blank line, `D209` for the closing quotes.
-
 ### PS-DOC-04 [M] Use triple double quotes, always
 
 `"""..."""`, even for a one-line docstring, even when it contains no quotes.
@@ -99,18 +75,6 @@ also what makes it safe to add a second line later without changing the delimite
 **Check:** `D301` is enabled and requires a docstring containing a backslash to be raw. The rule
 for the quote style itself sits on ruff's formatter-conflict list and is disabled here — the
 formatter settles it instead.
-
-### PS-DOC-05 [M] Wrap docstring text at 72 columns
-
-Not 88. Not the code width.
-
-**Why:** PEP 8 sets 72 for docstrings and comments and — importantly — the 99-column escape hatch it
-offers for code explicitly does not lift it. The reason is that prose is read as prose: a line of
-text is harder to track at 88 characters than code is, and docstrings are often rendered inside a
-narrower column than the editor's.
-
-**Check:** the formatter does not wrap docstring prose, so this is a review matter. `E501` catches
-only the code width.
 
 ## Content
 
@@ -125,18 +89,6 @@ say-why applied to the public surface.
 
 **Check:** read the docstring with the body hidden. If it no longer says anything useful, it was
 describing the body.
-
-### PS-DOC-07 [M] Document every parameter, or none
-
-An `Args:` section listing all of them, or no `Args:` section at all.
-
-**Why:** a partial list is worse than none: the reader assumes the missing ones are unimportant, and
-they usually turn out to be the ones with a subtlety. For a function whose parameters are genuinely
-self-explanatory, no section is honest and shorter.
-
-**Check:** ruff `D417`, which is enabled — and note this is the reason the convention is `google`:
-`numpy` and `pep257` both disable `D417`, so with either of them this rule has no mechanical check
-at all.
 
 ### PS-DOC-08 [M] Put the type in the annotation, never in the docstring
 
@@ -267,3 +219,22 @@ does not. State the property; if it needs evidence, that is a test.
 
 **Check:** `rg -ni 'we (verified|checked|tested)|as of [0-9]{4}' src/`, plus any sentence
 naming a date, a host, or a person. Every hit is provenance rather than content.
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| ruff | `D100` | error | a public module without a docstring |
+| ruff | `D101` | error | a public class without a docstring |
+| ruff | `D102` | error | a public method without a docstring |
+| ruff | `D103` | error | a public function without a docstring |
+| ruff | `D104` | error | a public package without a docstring |
+| ruff | `D105` | error | a magic method without a docstring |
+| ruff | `D106` | error | a public nested class without a docstring |
+| ruff | `D107` | error | `__init__` without a docstring |
+| ruff | `D205` | error | no blank line between a docstring's summary and its body |
+| ruff | `D209` | error | a multi-line docstring's closing quotes not on their own line |
+| ruff | `W505` | error | docstring or comment text past 72 columns, PEP 8's limit for prose |
+| ruff | `D417` | error | a parameter missing from a docstring's `Args:` — document every one, or none |

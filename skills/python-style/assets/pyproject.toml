@@ -1,5 +1,5 @@
 # The modern shape for a typed, published Python library. Referenced by PS-CONC-01
-# for the free-threading classifier; the packaging chapter owns the rest.
+# for the free-threading classifier; the build chapter owns the rest.
 [build-system]
 # PS-BUILD-12: one backend, upper-bounded because uv_build follows uv's
 # versioning policy. Not the ceiling PS-BUILD-04 forbids — that rule is about

@@ -74,7 +74,6 @@ class PythonStyle(Profile):
             "PS-API-05": ("from acmewidget._internal import helper",),
             "PS-ASYNC-01": ("loop = asyncio.new_event_loop()",),
             "PS-ASYNC-02": ("loop = asyncio.get_event_loop()",),
-            "PS-ASYNC-03": ("if asyncio.iscoroutinefunction(fn):",),
             "PS-ASYNC-04": ("task = asyncio.create_task(worker())",),
             # The pattern carried a stray space for as long as it shipped, and
             # matched nothing; this is the line it was written to find.
@@ -136,11 +135,6 @@ class PythonStyle(Profile):
                 "every hit outside a `TaskGroup`",
                 "the pattern finds every task start; being inside a `TaskGroup` is "
                 "what makes it compliant, and the pattern cannot see the block",
-            ),
-            "PS-ERR-15": NotDecisive(
-                "and read each block for a",
-                "the pattern finds every `finally`; what is inside it decides, and "
-                "most blocks contain nothing of the kind",
             ),
             "PS-ERR-16": NotDecisive(
                 "each hit that only releases a resource",

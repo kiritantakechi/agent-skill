@@ -4,7 +4,7 @@ Scope: writing Python that is correct when threads run in parallel — what the 
 unlikely, which standard-library objects hold their own locks and which do not, how to share an
 iterator, how caches and context behave, when threads beat processes, and what the free-threaded
 build and its C extensions require. Choosing between `async` and threads at all is in the async
-chapter; the shape of the data being shared is in the data-modelling chapter; interpreter and
+chapter; the shape of the data being shared is in the data chapter; interpreter and
 allocator overhead is in the performance chapter.
 
 Two sources are merged here: the **CPython 3.15 documentation** — PEP 703, PEP 779, the

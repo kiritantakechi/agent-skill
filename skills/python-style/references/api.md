@@ -2,7 +2,7 @@
 
 Scope: deciding what a package exposes and how — signatures, defaults, the boundary between public
 and private, `py.typed`, and the module layout that makes the boundary visible. How to spell a type
-is the typing chapter; what a value should be shaped like is the data-modelling chapter; naming is
+is the types chapter; what a value should be shaped like is the data chapter; naming is
 the naming chapter.
 
 Two sources are merged here: the **Python Typing Spec's distributing chapter**, which is normative
@@ -23,12 +23,10 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 - **Signatures**
   - PS-API-06 [M] Annotate every parameter and every return of a public function
   - PS-API-07 [M] Make a parameter keyword-only when the call site would not read
-  - PS-API-08 [M] Never take a bare `bool` as a positional parameter
   - PS-API-09 [M] Take the narrowest type that works; return the most specific
   - PS-API-10 [S] Take a value, not a flag that selects between two behaviours
   - PS-API-11 [M] Give every parameter a name the caller would choose
 - **Defaults and effects**
-  - PS-API-12 [M] Never give a mutable or computed default
   - PS-API-13 [M] Make a function either return a value or perform an effect
   - PS-API-14 [M] Document what the function does not do
   - PS-API-15 [M] Say who owns what the function returns
@@ -41,6 +39,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-API-20 [M] Deprecate with `warnings.deprecated`, and enable the check
   - PS-API-21 [M] Add a keyword-only parameter rather than changing an existing one
   - PS-API-22 [M] Give every public change a note in the changelog
+- Decided by tools
 
 ---
 
@@ -140,17 +139,6 @@ def connect(host: str, *, timeout_seconds: float = 5.0, retries: int = 3) -> str
 assert connect("db", retries=1) == "db/5.0/1"
 ```
 
-### PS-API-08 [M] Never take a bare `bool` as a positional parameter
-
-`render(data, compact=True)` at worst; an enum at best.
-
-**Why:** `render(data, True)` is unreadable at the call site and unsearchable in the codebase —
-you cannot grep for the callers that pass true. A boolean parameter is also usually PS-API-10's
-smell: it selects between two behaviours, and two behaviours want two functions or an enum.
-
-**Check:** ruff `FBT001`, `FBT002` and `FBT003` — boolean positional in a definition, as a default,
-and at a call site respectively.
-
 ### PS-API-09 [M] Take the narrowest type that works; return the most specific
 
 `Iterable[str]` in, `list[str]` out. Not `list[str]` in and `Iterable[str]` out.
@@ -184,17 +172,6 @@ public signature is a name the caller must look up every time.
 **Check:** every public signature. Ruff `ARG` catches the unused ones, which are a related defect.
 
 ## Defaults and effects
-
-### PS-API-12 [M] Never give a mutable or computed default
-
-`def f(items: list[int] | None = None)` and build it in the body.
-
-**Why:** the default is evaluated once at definition time and shared by every call, so mutation
-leaks between callers and — per PS-CONC — between threads. A computed default freezes one value
-from import time, which PEP 810's lazy imports make an unpredictable moment.
-
-**Check:** ruff `B006` and `B008`. The shipped configuration ignores `B008` for the examples in this
-standard only, because a call in a default is sometimes the subject of a rule.
 
 ### PS-API-13 [M] Make a function either return a value or perform an effect
 
@@ -308,3 +285,13 @@ writing it is what forces the question "is this a breaking change?" at the momen
 answered differently. A change nobody wrote down is a change nobody upgraded through.
 
 **Check:** every merge touching a name in `__all__`. No changelog entry is the finding.
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| ruff | `FBT001` | error | a `bool` positional parameter — make it keyword-only, or an enum |
+| ruff | `FBT002` | error | a `bool` default on a positional parameter |
+| ruff | `FBT003` | error | a bare `True` or `False` passed positionally |

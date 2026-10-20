@@ -110,7 +110,7 @@ three quarters of the updates immediately. `references/concurrency.md` is the ch
 | a hand-rolled `_MISSING = object()` | `sentinel("MISSING")` |
 | `types.MappingProxyType` for an immutable mapping | `frozendict` |
 | moving an import into a function for startup time | `lazy import x` at module scope |
-| `sum(lists, [])` | `[*sub for sub in lists]` |
+| `sum(lists, [])` | `[*sub for sub in lists]`, which ruff `RUF017` writes for you |
 
 ### 2.4 What the type system gained
 

@@ -21,7 +21,6 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-MIG-04 [M] Do not use a name 3.15 removed
   - PS-MIG-05 [M] Do not use a C API 3.15 removed
 - **Rejected spellings of live names**
-  - PS-MIG-06 [M] Construct `NamedTuple` and `TypedDict` with the class form
   - PS-MIG-07 [M] Give `strptime` a year directive when the format has `%d`
 - **Unlisted but importable**
   - PS-MIG-08 [M] Treat `ByteString` as gone, not as deprecated
@@ -36,6 +35,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 - **Tool migrations**
   - PS-MIG-15 [M] Follow pytest's own removal ladder
   - PS-MIG-16 [M] Re-verify this table on every interpreter bump
+- Decided by tools
 
 ---
 
@@ -142,17 +142,6 @@ needs gone.
 `rg -n 'Py_Get(ExecPrefix|Path|Prefix|ProgramFullPath|ProgramName|PythonHome)' -g '*.c' -g '*.h'`.
 
 ## Rejected spellings of live names
-
-### PS-MIG-06 [M] Construct `NamedTuple` and `TypedDict` with the class form
-
-`NamedTuple("P", x=int)` and `TypedDict("TD")` with no fields are both rejected in 3.15. The names
-still exist.
-
-**Why:** this is the tier that a name-based grep misses entirely — `NamedTuple` is fine, and the
-keyword-argument call form is not. It raises at class-creation time, which is import time, so at
-least it fails early. PS-DATA-05 and PS-DATA-06 prefer the class form anyway.
-
-**Check:** `rg -n 'NamedTuple\([^)\n]*=|TypedDict\((["\x27][A-Za-z_]+["\x27])[ \t]*\)' src/`
 
 ### PS-MIG-07 [M] Give `strptime` a year directive when the format has `%d`
 
@@ -289,6 +278,15 @@ moving after the first candidate: 3.15's gained four removals between rc1 and th
 
 **Check:** diff the target version's "What's New" removals section against this table.
 
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| ruff | `UP013` | error | the functional `TypedDict("TD", …)` form — 3.15 rejects it with no fields |
+| ruff | `UP014` | error | the functional `NamedTuple("P", …)` form — 3.15 rejects its keyword form |
+
 ## Rule IDs before the Python 3.15.0 revision
 
 Every rule ID this standard used before the revision, and what it is now.
@@ -302,11 +300,11 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-API-05` | `PS-API-05` |
 | `PS-API-06` | `PS-API-06` |
 | `PS-API-07` | `PS-API-07` |
-| `PS-API-08` | `PS-API-08` |
+| `PS-API-08` | lint `ruff:FBT001` |
 | `PS-API-09` | `PS-API-09` |
 | `PS-API-10` | `PS-API-10` |
 | `PS-API-11` | `PS-API-11` |
-| `PS-API-12` | `PS-API-12` |
+| `PS-API-12` | `PS-DATA-08` |
 | `PS-API-13` | `PS-API-13` |
 | `PS-API-14` | `PS-API-14` |
 | `PS-API-15` | `PS-API-15` |
@@ -319,9 +317,9 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-API-22` | `PS-API-22` |
 | `PS-ASYNC-01` | `PS-ASYNC-01` |
 | `PS-ASYNC-02` | `PS-ASYNC-02` |
-| `PS-ASYNC-03` | `PS-ASYNC-03` |
+| `PS-ASYNC-03` | lint `ty:deprecated` |
 | `PS-ASYNC-04` | `PS-ASYNC-04` |
-| `PS-ASYNC-05` | `PS-ASYNC-05` |
+| `PS-ASYNC-05` | lint `ruff:RUF006` |
 | `PS-ASYNC-06` | `PS-ASYNC-06` |
 | `PS-ASYNC-07` | `PS-ASYNC-07` |
 | `PS-ASYNC-08` | `PS-ASYNC-08` |
@@ -330,7 +328,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-ASYNC-11` | `PS-ASYNC-11` |
 | `PS-ASYNC-12` | `PS-ASYNC-12` |
 | `PS-ASYNC-13` | `PS-ASYNC-13` |
-| `PS-ASYNC-14` | `PS-ASYNC-14` |
+| `PS-ASYNC-14` | lint `ruff:ASYNC251` |
 | `PS-ASYNC-15` | `PS-ASYNC-15` |
 | `PS-ASYNC-16` | `PS-ASYNC-16` |
 | `PS-ASYNC-17` | `PS-ASYNC-17` |
@@ -361,13 +359,13 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-DATA-20` | `PS-DATA-20` |
 | `PS-DATA-21` | `PS-DATA-21` |
 | `PS-DATA-22` | `PS-DATA-22` |
-| `PS-DOC-01` | `PS-DOC-01` |
+| `PS-DOC-01` | lint `ruff:D100` |
 | `PS-DOC-02` | `PS-DOC-02` |
-| `PS-DOC-03` | `PS-DOC-03` |
+| `PS-DOC-03` | lint `ruff:D205` |
 | `PS-DOC-04` | `PS-DOC-04` |
-| `PS-DOC-05` | `PS-DOC-05` |
+| `PS-DOC-05` | lint `ruff:W505` |
 | `PS-DOC-06` | `PS-DOC-06` |
-| `PS-DOC-07` | `PS-DOC-07` |
+| `PS-DOC-07` | lint `ruff:D417` |
 | `PS-DOC-08` | `PS-DOC-08` |
 | `PS-DOC-09` | `PS-DOC-09` |
 | `PS-DOC-10` | `PS-DOC-10` |
@@ -385,9 +383,9 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-ERR-04` | `PS-ERR-04` |
 | `PS-ERR-05` | `PS-ERR-05` |
 | `PS-ERR-06` | `PS-ERR-06` |
-| `PS-ERR-07` | `PS-ERR-07` |
+| `PS-ERR-07` | lint `ruff:EM101` |
 | `PS-ERR-08` | `PS-ERR-08` |
-| `PS-ERR-09` | `PS-ERR-09` |
+| `PS-ERR-09` | lint `ruff:E722` |
 | `PS-ERR-10` | `PS-ERR-10` |
 | `PS-ERR-11` | `PS-ERR-11` |
 | `PS-ERR-12` | `PS-ERR-12` |
@@ -432,7 +430,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-MIG-03` | `PS-MIG-03` |
 | `PS-MIG-04` | `PS-MIG-04` |
 | `PS-MIG-05` | `PS-MIG-05` |
-| `PS-MIG-06` | `PS-MIG-06` |
+| `PS-MIG-06` | lint `ruff:UP013` |
 | `PS-MIG-07` | `PS-MIG-07` |
 | `PS-MIG-08` | `PS-MIG-08` |
 | `PS-MIG-09` | `PS-MIG-09` |
@@ -449,12 +447,12 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-NAME-04` | `PS-NAME-04` |
 | `PS-NAME-05` | `PS-NAME-05` |
 | `PS-NAME-06` | `PS-NAME-06` |
-| `PS-NAME-07` | `PS-NAME-07` |
+| `PS-NAME-07` | lint `ruff:A001` |
 | `PS-NAME-08` | `PS-NAME-08` |
 | `PS-NAME-09` | `PS-NAME-09` |
-| `PS-NAME-10` | `PS-NAME-10` |
+| `PS-NAME-10` | lint `ruff:I001` |
 | `PS-NAME-11` | `PS-NAME-11` |
-| `PS-NAME-12` | `PS-NAME-12` |
+| `PS-NAME-12` | lint `ruff:F403` |
 | `PS-NAME-13` | `PS-NAME-13` |
 | `PS-NAME-14` | `PS-NAME-14` |
 | `PS-NAME-15` | `PS-NAME-15` |
@@ -464,7 +462,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-NAME-19` | `PS-NAME-19` |
 | `PS-NAME-20` | `PS-NAME-20` |
 | `PS-NAME-21` | `PS-NAME-21` |
-| `PS-NAME-22` | `PS-NAME-22` |
+| `PS-NAME-22` | lint `ruff:ERA001` |
 | `PS-NAME-23` | `PS-NAME-23` |
 | `PS-NAME-24` | `PS-NAME-24` |
 | `PS-NAME-25` | `PS-NAME-25` |
@@ -503,7 +501,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-PERF-11` | `PS-PERF-11` |
 | `PS-PERF-12` | `PS-PERF-12` |
 | `PS-PERF-13` | `PS-PERF-13` |
-| `PS-PERF-14` | `PS-PERF-14` |
+| `PS-PERF-14` | lint `ruff:PERF401` |
 | `PS-PERF-15` | `PS-PERF-15` |
 | `PS-PERF-16` | `PS-PERF-16` |
 | `PS-PERF-17` | `PS-PERF-17` |
@@ -522,11 +520,11 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-FMT-10` | `PS-OUT-10` |
 | `PS-FMT-11` | `PS-OUT-11` |
 | `PS-FMT-12` | `PS-OUT-12` |
-| `PS-FMT-13` | `PS-OUT-13` |
+| `PS-FMT-13` | lint `ruff:TRY400` |
 | `PS-FMT-14` | `PS-OUT-14` |
 | `PS-FMT-15` | `PS-OUT-15` |
 | `PS-FMT-16` | `PS-OUT-16` |
-| `PS-FMT-17` | `PS-OUT-17` |
+| `PS-FMT-17` | lint `ruff:T201` |
 | `PS-FMT-18` | `PS-OUT-18` |
 | `PS-FMT-19` | `PS-OUT-19` |
 | `PS-FMT-20` | `PS-OUT-20` |
@@ -547,7 +545,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-TEST-15` | `PS-TEST-15` |
 | `PS-TEST-16` | `PS-TEST-16` |
 | `PS-TEST-17` | `PS-TEST-17` |
-| `PS-TEST-18` | `PS-TEST-18` |
+| `PS-TEST-18` | lint `ruff:PT011` |
 | `PS-TEST-19` | `PS-TEST-19` |
 | `PS-TEST-20` | `PS-TEST-20` |
 | `PS-TEST-21` | `PS-TEST-21` |
@@ -556,7 +554,7 @@ Every rule ID this standard used before the revision, and what it is now.
 | `PS-TYPE-02` | `PS-TYPE-02` |
 | `PS-TYPE-03` | `PS-TYPE-03` |
 | `PS-TYPE-04` | `PS-TYPE-04` |
-| `PS-TYPE-05` | `PS-TYPE-05` |
+| `PS-TYPE-05` | lint `ruff:UP037` |
 | `PS-TYPE-06` | `PS-TYPE-06` |
 | `PS-TYPE-07` | `PS-TYPE-07` |
 | `PS-TYPE-08` | `PS-TYPE-08` |

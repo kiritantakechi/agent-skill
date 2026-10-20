@@ -201,7 +201,7 @@ A chapter that has rows ends with this section:
 | ruff | `B006` | error | a mutable default argument |
 ```
 
-The chapter's contents list ends with a `- Decided by tools (N)` line. `model.py` parses the rows
+The chapter's contents list ends with a `- Decided by tools` line. It carries no count, because a count nothing re-measures goes stale. `model.py` parses the rows
 into `Chapter.lint_rows`, and the rows are not rules for `anatomy`. They are verified the way
 citations already are:
 

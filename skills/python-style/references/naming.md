@@ -3,9 +3,8 @@
 Scope: how identifiers are cased and worded, how a module is named and laid out, import grouping
 and re-export, what `ruff format` settles and what it leaves to you, comment discipline, and the
 symmetry questions that apply to names rather than to types. Semantics of the things being named
-live elsewhere: what a dataclass should hold is in the data-modelling chapter, what a public
-function should accept is in the API chapter, and thread-safety of module state is in the
-free-threading chapter.
+live elsewhere: what a dataclass should hold is in the data chapter, what a public function should
+accept is in the API chapter, and thread-safety of module state is in the concurrency chapter.
 
 Two sources are merged here: **PEP 8**, quoted where it is normative and named where this standard
 departs from it, and **Ruff's rule catalogue**, which decides most of this mechanically — the `E`,
@@ -23,13 +22,10 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-NAME-04 [M] Spell names out; abbreviate only as scope tightens
   - PS-NAME-05 [M] Put units and qualifiers last, sorted by descending significance
   - PS-NAME-06 [M] Name a predicate so it reads as a question
-  - PS-NAME-07 [M] Never shadow a builtin
   - PS-NAME-08 [S] Give related names the same shape
 - **Modules, packages, and imports**
   - PS-NAME-09 [M] Name a module in short lowercase; never put an underscore in a package name
-  - PS-NAME-10 [M] Group imports standard library, third party, local, with a blank line between
   - PS-NAME-11 [M] Import absolutely
-  - PS-NAME-12 [M] Never use a wildcard import
   - PS-NAME-13 [M] Re-export by redundant alias or by `__all__`, and pick one
   - PS-NAME-14 [M] Do no work at import time
   - PS-NAME-15 [S] Defer a costly import with `lazy import` at module scope
@@ -40,12 +36,12 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-NAME-19 [M] Let the magic trailing comma decide when a call explodes
   - PS-NAME-20 [M] Say why, not what
   - PS-NAME-21 [S] Write comments as prose
-  - PS-NAME-22 [M] Delete commented-out code rather than shipping it
 - **Symmetry of names**
   - PS-NAME-23 [M] Name the two halves of a pair symmetrically
   - PS-NAME-24 [M] One concept, one mechanism
   - PS-NAME-25 [M] One term, one meaning, project-wide
   - PS-NAME-26 [S] Keep sibling modules structurally parallel
+- Decided by tools
 
 ---
 
@@ -168,18 +164,6 @@ site for the cost of three characters at one declaration.
 
 **Check:** every function annotated `-> bool`. A name that is not a question is the finding.
 
-### PS-NAME-07 [M] Never shadow a builtin
-
-Not `id`, `type`, `list`, `dict`, `input`, `filter`, `format`, `hash`, `next`, `object`, `bytes`.
-Where the shadowing name is genuinely right, take the trailing underscore: `id_`, `type_`.
-
-**Why:** shadowing is legal and local, which is what makes it dangerous — the code works until
-someone adds a line that needs the builtin, and the error names a type mismatch rather than the
-shadow. `id` and `type` are the common cases because they are also the words a domain model wants.
-
-**Check:** ruff `A001`, `A002`, `A003` decide this — builtin shadowed by a variable, an argument,
-and an attribute respectively.
-
 ### PS-NAME-08 [S] Give related names the same shape
 
 If one is `read_timeout_seconds`, its sibling is `write_timeout_seconds`, not `write_timeout` or
@@ -207,45 +191,6 @@ named one.
 **Check:** `find src -name '*_*_*.py'` — two or more underscores in a module name is a module worth
 splitting. Any underscore in a directory under `src/` is the finding.
 
-### PS-NAME-10 [M] Group imports standard library, third party, local, with a blank line between
-
-Within each group, sorted. `import x` before `from x import y`.
-
-**Why:** PEP 8 mandates the grouping and the blank lines. It does **not** mandate alphabetical order
-within a group — that is isort's convention, which ruff `I001` implements and which this standard
-adopts because a mechanically decidable order removes an argument that has no right answer.
-
-**Check:** ruff `I001`. The alphabetisation is a tool convention rather than PEP 8; the grouping is
-PEP 8.
-
-```python
-# verified — GOOD
-import json
-import sys
-from pathlib import Path
-
-# A third-party group would sit here, blank-line separated.
-from typing import Final
-
-ENCODING: Final = "utf-8"
-
-
-def load(path: Path) -> dict[str, object]:
-    # The encoding is explicit: 3.15 changed the default, so relying on it means
-    # relying on a thing that moved.
-    parsed = json.loads(path.read_text(encoding=ENCODING))
-    # `json.loads` returns `Any`. Returning it straight from an annotated
-    # function launders an unchecked value into a checked one, which a strict
-    # type checker rejects and which is the whole reason it is strict.
-    if not isinstance(parsed, dict):
-        msg = f"{path}: expected an object at the top level"
-        raise TypeError(msg)
-    return {str(k): v for k, v in parsed.items()}
-
-
-assert sys.version_info >= (3, 15)
-```
-
 ### PS-NAME-11 [M] Import absolutely
 
 `from acmewidget.retry import RetryPolicy`, not `from .retry import RetryPolicy`.
@@ -257,17 +202,6 @@ does permit explicit relative imports for complex layouts; the standard library 
 
 **Check:** ruff `TID252` bans relative imports beyond a configurable depth. `rg -n '^from \.'
 src/` finds the rest.
-
-### PS-NAME-12 [M] Never use a wildcard import
-
-`from x import *` at any scope.
-
-**Why:** it makes the set of names in scope depend on a file you are not reading, so a rename in the
-imported module silently shadows or un-shadows a name here. It also defeats every tool: neither the
-type checker nor the reader can resolve a name to its origin. The one carve-out PEP 8 allows —
-republishing an internal interface — is better served by PS-NAME-13's explicit re-export.
-
-**Check:** ruff `F403` for the import and `F405` for each name that may be coming from it.
 
 ### PS-NAME-13 [M] Re-export by redundant alias or by `__all__`, and pick one
 
@@ -410,17 +344,6 @@ this is one of the few things left to discipline.
 marker and the space are both **preview**, and the shipped configuration runs stable rules only —
 citing them would claim an enforcement this standard's own configuration does not provide.
 
-### PS-NAME-22 [M] Delete commented-out code rather than shipping it
-
-Version control has it. The comment does not say when it was disabled, by whom, or whether it still
-works.
-
-**Why:** commented-out code is indistinguishable from code that was never finished, so every reader
-must decide whether to restore it and none of them has the information to. The claim that it is
-"there for reference" is answered by `git log`.
-
-**Check:** ruff `ERA001`.
-
 ## Symmetry of names
 
 ### PS-NAME-23 [M] Name the two halves of a pair symmetrically
@@ -472,3 +395,17 @@ substitutable, which is what lets a caller pick one at runtime.
 
 **Check:** list the public names of each sibling module side by side. A name present in one column
 and absent from another is either a deliberate difference — say why — or the finding.
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| ruff | `A001` | error | a variable named after a builtin — take a trailing underscore, `id_` |
+| ruff | `A002` | error | an argument named after a builtin |
+| ruff | `A003` | error | a class attribute named after a builtin |
+| ruff | `I001` | error | imports out of the standard library, third party, local grouping, or unsorted within a group |
+| ruff | `F403` | error | `from x import *` |
+| ruff | `F405` | error | a name that may come from a wildcard import |
+| ruff | `ERA001` | error | commented-out code — version control keeps it |

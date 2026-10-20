@@ -37,6 +37,16 @@ ignore = [
   "CPY001",
 ]
 
+[lint.pycodestyle]
+# PEP 8's 72 for docstring and comment prose, which the formatter does not wrap.
+# W505 is in `ALL` and does nothing until this is set.
+max-doc-length = 72
+
+[lint.flake8-pytest-style]
+# A `pytest.raises` without `match=` passes on the wrong exception of the right
+# type. The default list names only the broad builtins; every type needs it.
+raises-require-match-for = ["*"]
+
 [lint.flake8-implicit-str-concat]
 # Safe only because ISC001 is enabled; the two are documented as a pair.
 allow-multiline = false

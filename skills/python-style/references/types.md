@@ -21,7 +21,6 @@ Unless a block shows its own imports, it assumes `from typing import …` for th
   - PS-TYPE-03 [M] Suppress with a code, never with a bare ignore
 - **Annotations are lazy now**
   - PS-TYPE-04 [M] Never write `from __future__ import annotations`
-  - PS-TYPE-05 [M] Never quote a forward reference inside an annotation
   - PS-TYPE-06 [M] Read annotations with `annotationlib`, never off `__annotations__`
   - PS-TYPE-07 [M!] Use `FORWARDREF` when a name may not resolve
 - **Spelling a type**
@@ -42,6 +41,7 @@ Unless a block shows its own imports, it assumes `from typing import …` for th
   - PS-TYPE-20 [M] Take a `TypeForm` when the argument is a type expression
   - PS-TYPE-21 [S] Close a `TypedDict` that models a fixed wire format
   - PS-TYPE-22 [M] Build a sentinel with `sentinel`, not with `object()`
+- Decided by tools
 
 ---
 
@@ -121,39 +121,6 @@ Note that ruff has no rule for this yet, so it is a written rule and a grep rath
 
 **Check:** `rg -n 'from __future__ import annotations' src/` — every hit is the finding.
 
-### PS-TYPE-05 [M] Never quote a forward reference inside an annotation
-
-`def sibling(self) -> Node | None:` inside `class Node`. Not `-> "Node | None"`.
-
-**Why:** PEP 649 made annotations lazily evaluated, so a name that is not yet defined is no longer a
-problem to work around. Quoting still *works*, which is what makes it linger — but it hides the
-annotation from anything reading it as a value, and if the module also carries the future import the
-string ends up quoted twice. Quotes remain necessary outside annotations, which is what the `type`
-statement in PS-TYPE-11 is for.
-
-**Check:** `rg -n '->[ \t]*"' src/` and `rg -n ':[ \t]*"[A-Z]' src/`. Ruff `UP037` removes the
-quotes automatically.
-
-```python
-# verified — GOOD
-class Node:
-    """`Node` is not defined yet when this annotation is written, and that is fine."""
-
-    def __init__(self, value: int, parent: Node | None = None) -> None:
-        self.value = value
-        self.parent = parent
-
-    def root(self) -> Node:
-        node = self
-        while node.parent is not None:
-            node = node.parent
-        return node
-
-
-leaf = Node(2, Node(1))
-assert leaf.root().value == 1
-```
-
 ### PS-TYPE-06 [M] Read annotations with `annotationlib`, never off `__annotations__`
 
 `annotationlib.get_annotations(obj, format=...)`. Not `obj.__annotations__`, and not
@@ -177,9 +144,10 @@ runtime, may use `VALUE` — and should say so in a comment, because the assumpt
 otherwise.
 
 **Why:** `VALUE` evaluates, so it raises `NameError` on any name imported only under `TYPE_CHECKING`
-— and PS-TYPE-05 plus PEP 649 mean far more code now contains such names legitimately. `FORWARDREF`
-returns a `ForwardRef` for whatever cannot be resolved and the real object for everything else, so
-the caller decides what to do about the gap rather than the library crashing on it.
+— and unquoted annotations (ruff `UP037`) plus PEP 649 mean far more code now contains such names
+legitimately. `FORWARDREF` returns a `ForwardRef` for whatever cannot be resolved and the real
+object for everything else, so the caller decides what to do about the gap rather than the library
+crashing on it.
 
 **Check:** every `get_annotations` call site. A bare one (defaulting to `VALUE`) in a library is the
 finding.
@@ -476,3 +444,11 @@ pickling, which `object()` does not.
 **Check:** `rg -n '=[ \t]*object\(\)' src/` — every hit is a sentinel that should be declared.
 `ty`'s `mismatched-sentinel-name`, which the shipped configuration enables, catches a sentinel bound
 under a name other than its own.
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| ruff | `UP037` | error | a quoted annotation — annotations are lazy, so `-> Node` needs no quotes |

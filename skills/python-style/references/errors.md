@@ -2,7 +2,7 @@
 
 Scope: designing an exception hierarchy, raising and catching, what `try` should enclose, exception
 groups, and the control-flow shapes that keep a function readable — guards, early return, `match`,
-the walrus. What to log when you catch is the strings-and-output chapter; what a public function
+the walrus. What to log when you catch is the output chapter; what a public function
 should raise is the API chapter; concurrency-specific control flow is the async and free-threading
 chapters.
 
@@ -23,10 +23,8 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 - **Raising**
   - PS-ERR-05 [M] Never raise a bare `Exception`
   - PS-ERR-06 [M] Chain with `raise ... from`, and use `from None` deliberately
-  - PS-ERR-07 [M] Assign the message before raising
   - PS-ERR-08 [M] Never use `assert` to validate input
 - **Catching**
-  - PS-ERR-09 [M] Never write a bare `except:`
   - PS-ERR-10 [M] Never catch what you cannot handle
   - PS-ERR-11 [M] Never swallow an exception silently
   - PS-ERR-12 [M] Enclose in `try` only the line that can raise
@@ -42,6 +40,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-ERR-20 [S] Use `match` for structure, not as a switch
   - PS-ERR-21 [S] Bind with the walrus only where it removes a line without hiding one
   - PS-ERR-22 [M] Return one type from one function
+- Decided by tools
 
 ---
 
@@ -155,17 +154,6 @@ except ConfigError as exc:
     assert isinstance(exc.__cause__, ValueError)
 ```
 
-### PS-ERR-07 [M] Assign the message before raising
-
-`msg = f"..."` then `raise ValueError(msg)`. Not `raise ValueError(f"...")`.
-
-**Why:** the long-message-inside-the-call form makes the raise line wrap, which pushes the exception
-type off the left edge where the eye looks for it. Ruff enforces the split because the resulting
-tracebacks are also cleaner. This is a rule about the shape of the line rather than about behaviour,
-and it is worth having only because it is mechanical.
-
-**Check:** ruff `EM101` and `EM102`.
-
 ### PS-ERR-08 [M] Never use `assert` to validate input
 
 `assert` states something the code believes; `raise` reports something the caller did.
@@ -179,17 +167,6 @@ caller. Using one for the other misdirects whoever reads the traceback.
 shipped configuration ignores `S101` under `tests/`.
 
 ## Catching
-
-### PS-ERR-09 [M] Never write a bare `except:`
-
-It catches `KeyboardInterrupt` and `SystemExit`, so it makes the program unkillable and un-exitable.
-
-**Why:** `except:` catches `BaseException`, which includes the two exceptions that exist to stop the
-program. A retry loop with a bare except cannot be interrupted with Ctrl-C. If you genuinely want
-everything an ordinary failure can be, that is `except Exception`, and it still needs PS-ERR-10's
-justification.
-
-**Check:** ruff `E722` for the bare form, `BLE001` for the blind `except Exception`.
 
 ### PS-ERR-10 [M] Never catch what you cannot handle
 
@@ -294,8 +271,9 @@ returns normally and the failure that was propagating simply disappears — no t
 nothing. This was legal for the whole history of the language and is one of the quietest ways to
 lose an error. PEP 765 exists because the pattern is essentially always a mistake.
 
-**Check:** `rg -nA6 'finally:' src/` and read each block for a `return`, `break` or `continue`.
-The interpreter now warns, so a build that turns warnings into errors catches it too.
+**Check:** ruff `B012`, which the shipped configuration enables, flags a `return`, `break` or
+`continue` in a `finally`. The interpreter warns too, so a build that turns warnings into errors
+catches it as well.
 
 ### PS-ERR-16 [M] Release with a context manager rather than with `finally`
 
@@ -397,3 +375,13 @@ has, such as an optional field, and illegitimate where it means "it went wrong".
 
 **Check:** every function returning `X | None`. Ask whether `None` is a value or a failure; if it
 is a failure, it is an exception.
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| ruff | `EM101` | error | a string literal passed straight to an exception — assign it to `msg` first |
+| ruff | `EM102` | error | an f-string passed straight to an exception |
+| ruff | `E722` | error | a bare `except:`, which also catches `KeyboardInterrupt` and `SystemExit` |

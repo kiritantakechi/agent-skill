@@ -1,6 +1,6 @@
 # Minimal CI that enforces this standard. Every tool is pinned to the exact
 # version the standard was verified against; a bump is a reviewed change, not a
-# resolver decision. Referenced by the packaging chapter.
+# resolver decision. Referenced by the build chapter.
 name: ci
 
 on:

@@ -3,7 +3,7 @@
 Scope: what a string is encoded as now that 3.15 changed the default, which interpolation form to
 reach for including the new template strings, how to log, and the difference between program
 output and diagnostics. Docstring content is the documentation chapter; the thread-safety of a
-stream is the free-threading chapter.
+stream is the concurrency chapter.
 
 Two sources are merged here: the **CPython 3.15 documentation** — PEP 686 for the encoding default,
 PEP 750 for template strings, and the `logging` module's own guidance — and **Ruff's `G`, `LOG`,
@@ -28,15 +28,14 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 - **Logging**
   - PS-OUT-11 [M] Log with `%`-style arguments, never with an f-string
   - PS-OUT-12 [M] Get the logger by `__name__`, at module scope
-  - PS-OUT-13 [M] Use `logger.exception` inside a handler
   - PS-OUT-14 [M] Never configure logging in a library
   - PS-OUT-15 [S] Log the identifier, not the object
 - **Program output**
   - PS-OUT-16 [M] Send program output to stdout and diagnostics to stderr
-  - PS-OUT-17 [M] Never `print` for diagnostics
   - PS-OUT-18 [M] Give a type a `__repr__` that says what it is
   - PS-OUT-19 [S] Give a type a `__str__` only when it has a human form
   - PS-OUT-20 [M] Never let output formatting depend on the locale
+- Decided by tools
 
 ---
 
@@ -226,18 +225,6 @@ configured per component.
 **Check:** ruff `LOG015` for the root-logger calls. `rg -n 'getLogger\("' src/` for hand-written
 names.
 
-### PS-OUT-13 [M] Use `logger.exception` inside a handler
-
-Not `logger.error(str(exc))`, which discards the traceback.
-
-**Why:** `exception` logs at ERROR level *and* attaches the current traceback, which is the part
-that tells you where it happened. Formatting the exception into the message keeps the type and
-the message and throws away the location — leaving a log line that says what went wrong and gives
-no way to find it.
-
-**Check:** ruff `TRY400` for `error` inside a handler and `TRY401` for redundantly interpolating the
-exception into a message that already carries it.
-
 ### PS-OUT-14 [M] Never configure logging in a library
 
 No `basicConfig`, no handlers, no level setting, no `dictConfig`. Getting a logger is all a library
@@ -274,17 +261,6 @@ stdout hides the errors you most needed to see.
 **Check:** every `print` — is what it emits part of the result? If not, it belongs on stderr or in
 `logging`.
 
-### PS-OUT-17 [M] Never `print` for diagnostics
-
-`logging` for anything that is not the program's output.
-
-**Why:** `print` cannot be levelled, filtered, routed, timestamped or turned off, so a library that
-prints is a library the application cannot quiet. It is also a `TextIOWrapper` write, which
-PS-CONC-23 notes is not thread-safe. In a library it is always wrong; in an application it is right
-only for the result.
-
-**Check:** ruff `T201` for `print` and `T203` for `pprint`. The shipped configuration enables both.
-
 ### PS-OUT-18 [M] Give a type a `__repr__` that says what it is
 
 Ideally one that could be evaluated back: `Point(x=1, y=2)`.
@@ -316,3 +292,14 @@ failure only appears on a machine configured differently from yours. Format expl
 
 **Check:** `rg -n 'locale\.|strftime\(.*%[cxX]' src/` — every hit is environment-dependent
 output.
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| ruff | `TRY400` | error | `logger.error` in a handler — `logger.exception` keeps the traceback |
+| ruff | `TRY401` | error | the exception interpolated into a message `logger.exception` already carries |
+| ruff | `T201` | error | `print` for diagnostics — use `logging` |
+| ruff | `T203` | error | `pprint` for diagnostics |

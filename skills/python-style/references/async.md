@@ -2,7 +2,7 @@
 
 Scope: writing `asyncio` code that cancels correctly, owns every task it starts, and does not
 block the loop — plus the boundary between an event loop and the threads around it. Whether to
-use async at all rather than threads is the free-threading chapter's question; blocking calls
+use async at all rather than threads is the concurrency chapter's question; blocking calls
 that belong in a thread pool are named here.
 
 Two sources are merged here: the **CPython 3.15 `asyncio` documentation**, including `TaskGroup` and
@@ -18,10 +18,8 @@ Unless a block shows its own imports, it assumes `import asyncio`.
 - **Entering and leaving**
   - PS-ASYNC-01 [M] Enter with `asyncio.run`, and configure with `loop_factory`
   - PS-ASYNC-02 [M] Never call `get_event_loop`, and never touch the policy API
-  - PS-ASYNC-03 [M] Test with `inspect.iscoroutinefunction`
 - **Owning tasks**
   - PS-ASYNC-04 [M] Start every task inside a `TaskGroup`
-  - PS-ASYNC-05 [M] Never let a bare `create_task` result go unreferenced
   - PS-ASYNC-06 [M] Catch a group with `except*`
   - PS-ASYNC-07 [S] End a group early with `TaskGroup.cancel`, not with an exception
 - **Cancellation**
@@ -32,7 +30,6 @@ Unless a block shows its own imports, it assumes `import asyncio`.
 - **Not blocking the loop**
   - PS-ASYNC-12 [M] Never call a blocking function from a coroutine
   - PS-ASYNC-13 [M] Move blocking work with `asyncio.to_thread`
-  - PS-ASYNC-14 [M] Never sleep with `time.sleep`
   - PS-ASYNC-15 [S] Keep a coroutine's synchronous stretches short
 - **The thread boundary**
   - PS-ASYNC-16 [M] Give each thread its own event loop
@@ -43,6 +40,7 @@ Unless a block shows its own imports, it assumes `import asyncio`.
   - PS-ASYNC-20 [M] Do not mark a function `async` unless it awaits
   - PS-ASYNC-21 [S] Make an async resource a context manager
   - PS-ASYNC-22 [M] Give every async iterator an `aclose`
+- Decided by tools
 
 ---
 
@@ -88,15 +86,6 @@ which fails loudly rather than conjuring a second loop nobody will run.
 **Check:** `rg -n 'get_event_loop|EventLoopPolicy|set_event_loop' src/` — every hit is the
 finding.
 
-### PS-ASYNC-03 [M] Test with `inspect.iscoroutinefunction`
-
-Not `asyncio.iscoroutinefunction`, which is removed in 3.16.
-
-**Why:** the two behave the same and one of them is going away. The `inspect` version is also the
-right home for it: it is a question about a function object, not about the event loop.
-
-**Check:** `rg -n 'asyncio.iscoroutinefunction' src/`.
-
 ## Owning tasks
 
 ### PS-ASYNC-04 [M] Start every task inside a `TaskGroup`
@@ -108,8 +97,8 @@ raises, the rest are cancelled and the group re-raises as an `ExceptionGroup`; i
 normally, every task has finished. Loose tasks have neither property, so a failure in one is noticed
 — if at all — as a warning at interpreter shutdown.
 
-**Check:** `rg -n 'create_task|ensure_future' src/` — every hit outside a `TaskGroup` needs
-PS-ASYNC-05's justification.
+**Check:** `rg -n 'create_task|ensure_future' src/` — every hit outside a `TaskGroup` needs a
+reference kept to the task, which ruff `RUF006` checks.
 
 ```python
 # verified — GOOD
@@ -130,17 +119,6 @@ async def main() -> list[int]:
 
 assert asyncio.run(main()) == [0, 2, 4]
 ```
-
-### PS-ASYNC-05 [M] Never let a bare `create_task` result go unreferenced
-
-The loop holds only a weak reference, so an unreferenced task can be garbage-collected mid-flight.
-
-**Why:** this is the documented behaviour and it produces the worst kind of bug — work that
-usually completes, and occasionally vanishes under memory pressure, with no error. Where a group
-is genuinely wrong, keep the task in a set and discard it in a done-callback. Where a group fits,
-use the group.
-
-**Check:** ruff `RUF006` catches the dangling-task assignment directly.
 
 ### PS-ASYNC-06 [M] Catch a group with `except*`
 
@@ -261,16 +239,6 @@ the bound is the point.
 
 **Check:** every hit from PS-ASYNC-12's greps. Each needs `to_thread` or an explicit executor.
 
-### PS-ASYNC-14 [M] Never sleep with `time.sleep`
-
-`await asyncio.sleep(...)` inside a coroutine.
-
-**Why:** it is PS-ASYNC-12's most common instance and worth naming separately because it appears in
-retry loops, which are exactly where the program is already degraded. A `time.sleep` in a retry
-blocks every other task for the backoff.
-
-**Check:** ruff `ASYNC251`. `rg -n 'time.sleep' src/` for anything the linter cannot reach.
-
 ### PS-ASYNC-15 [S] Keep a coroutine's synchronous stretches short
 
 CPU work between two `await`s blocks the loop just as I/O does.
@@ -361,3 +329,13 @@ call site, which is where the reader can see it.
 
 **Check:** `rg -n 'async def.*yield|__anext__' src/` — every async iterator over a resource
 needs an `aclose` and a caller using `aclosing`.
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| ty | `deprecated` | warn | a deprecated API — `asyncio.iscoroutinefunction` among them; use `inspect.iscoroutinefunction` |
+| ruff | `RUF006` | error | a `create_task` result nothing keeps — the loop holds only a weak reference |
+| ruff | `ASYNC251` | error | `time.sleep` in a coroutine — `await asyncio.sleep` |

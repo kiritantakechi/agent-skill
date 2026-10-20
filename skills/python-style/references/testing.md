@@ -35,12 +35,12 @@ Unless a block shows its own imports, it assumes `import pytest`.
   - PS-TEST-16 [M] Never let a fixture assert
   - PS-TEST-17 [S] Prefer a factory fixture to a fixture per variation
 - **Failures and time**
-  - PS-TEST-18 [M] Match the exception, not just its type
   - PS-TEST-19 [M] Never sleep in a test
   - PS-TEST-20 [M] Inject the clock rather than reading it
 - **Concurrency**
   - PS-TEST-21 [M!] Assert an invariant, not merely that threads ran
   - PS-TEST-22 [M] Know that pytest itself is not thread-safe
+- Decided by tools
 
 ---
 
@@ -272,36 +272,6 @@ and puts the variation at the call site where it is visible in the test that nee
 
 ## Failures and time
 
-### PS-TEST-18 [M] Match the exception, not just its type
-
-`pytest.raises(ValueError, match="out of range")`.
-
-**Why:** `pytest.raises(ValueError)` passes on any `ValueError`, including one raised by a typo
-in the test's own setup — so the test passes while testing nothing. The `match` argument pins
-which failure you meant. Keep the block to the single call that should raise, for the same
-reason.
-
-**Check:** ruff `PT011` for a broad `raises` without `match`, and `PT012` for a `raises` block
-containing more than one statement.
-
-```python
-# verified — GOOD
-import pytest
-
-
-def port(raw: str) -> int:
-    number = int(raw)
-    if not 1 <= number <= 65535:
-        msg = f"port out of range: {number}"
-        raise ValueError(msg)
-    return number
-
-
-def test_rejects_a_port_above_the_range() -> None:
-    with pytest.raises(ValueError, match="out of range"):
-        port("70000")
-```
-
 ### PS-TEST-19 [M] Never sleep in a test
 
 No `time.sleep` to wait for something. Poll with a deadline, or make the thing synchronous.
@@ -378,3 +348,12 @@ why the marker exists; code that needs those fixtures must be tested single-thre
 
 **Check:** every test marked for parallel execution. A `capsys`, `monkeypatch` or `tmp_path` in its
 signature is the finding.
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| ruff | `PT011` | error | `pytest.raises` without `match=` |
+| ruff | `PT012` | error | a `pytest.raises` block holding more than one statement |

@@ -42,7 +42,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
   three non-blank lines (D7), for skills that are not exempt. Verify with a unit test for a gap, a
   suffix, and a four-line Why.
 - [x] 3.2 Parse `## Decided by tools` rows into `Chapter.lint_rows` (D6), keep them out of the rule
-  set, and accept a `- Decided by tools (N)` contents line. Verify in `tests/test_model.py`.
+  set, and accept a `- Decided by tools` contents line. Verify in `tests/test_model.py`.
 - [x] 3.3 Extend `citations` so that ruff and ty rows are verified against the catalogue and the
   shipped asset at the stated level (D6). Verify with a unit test whose row's level differs from
   the fixture's `ruff.toml` or `ty.toml`.
@@ -112,7 +112,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
   - **TID255:** cite it where PS-NAME-15 is.
 
   Verify: `--fast` passes, and the fixed MIG-09 pattern matches its `fires` fixture.
-- [ ] 6.6 Lint rows: demote each LINT rule in `research/python-3.15.0.md` § Lint classification
+- [x] 6.6 Lint rows: demote each LINT rule in `research/python-3.15.0.md` § Lint classification
   whose code the asset enables (D6). Cite B012 and RUF017 where the research places them. Decide the
   three asset settings it lists (`ban-relative-imports`, `raises-require-match-for`,
   `max-doc-length`). Record each demoted ID's disposition in the rename table. Verify:

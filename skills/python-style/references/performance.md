@@ -2,7 +2,7 @@
 
 Scope: deciding what to make faster and how to know it worked — the profiling tools 3.15 ships, the
 costs that are structural rather than local, and what the free-threaded build charges you. Blocking
-the event loop is the async chapter; lock contention is the free-threading chapter.
+the event loop is the async chapter; lock contention is the concurrency chapter.
 
 Two sources are merged here: the **CPython 3.15 documentation**, including PEP 799's new `profiling`
 package, and the **published benchmark data for the free-threaded build** — cited with its
@@ -29,7 +29,6 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-PERF-11 [M] Give a hot class `__slots__`
   - PS-PERF-12 [S] Reuse a buffer rather than allocating per iteration
   - PS-PERF-13 [M] Cache only what is pure, and say so
-  - PS-PERF-14 [S] Prefer a comprehension to an append loop
 - **What the build costs**
   - PS-PERF-15 [M] Budget for the free-threaded build's single-threaded overhead
   - PS-PERF-16 [M] Know that the JIT is unavailable on the free-threaded build
@@ -38,6 +37,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 - **Discipline**
   - PS-PERF-19 [M] Never optimise without leaving the measurement behind
   - PS-PERF-20 [M] Keep the readable version when the fast one is not faster
+- Decided by tools
 
 ---
 
@@ -118,7 +118,7 @@ enough in the test and quadratic in production where the string is aliased.
 
 **Check:** `rg -n '^[ \t]*\w+[ \t]*\+=[ \t]*.*["\x27]' src/` and read each hit for an
 enclosing loop.
-The ruff rules that catch the mechanical cases are preview, so this is a grep and a review.
+No ruff rule finds string building in a loop, so this is a grep and a review.
 
 ```python
 # verified — GOOD
@@ -212,17 +212,6 @@ not a nicety.
 
 **Check:** every `@cache` and `@lru_cache`. Read the body for I/O, mutation, randomness, or time.
 
-### PS-PERF-14 [S] Prefer a comprehension to an append loop
-
-`[f(x) for x in items]` over building a list with `.append`.
-
-**Why:** the comprehension is a single bytecode-level construct that avoids the repeated attribute
-lookup and method call, so it is measurably faster — and it reads as one expression, which is the
-better reason. It stops being the right choice when the body needs more than one statement, at which
-point the loop is clearer and the difference no longer matters.
-
-**Check:** ruff `PERF401` and `PERF402` rewrite the mechanical cases.
-
 ## What the build costs
 
 ### PS-PERF-15 [M] Budget for the free-threaded build's single-threaded overhead
@@ -301,3 +290,12 @@ complexity with no benefit. The default is the readable version, and the measure
 overturns it.
 
 **Check:** every optimisation in review whose before-and-after numbers are within noise.
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| ruff | `PERF401` | error | a loop that only appends — a comprehension |
+| ruff | `PERF402` | error | a loop that only copies — `list(…)` or `.copy()` |
