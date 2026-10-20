@@ -128,3 +128,27 @@ def test_an_unknown_id_is_reported_and_left_alone(repo):
     plan = run(repo, **THREADS)
     assert any("DS-ERR-99" in line for line in plan.leftovers)
     assert "DS-ERR-99" in (repo / "tests/test_demo.py").read_text()
+
+
+def test_reflow_pushes_overflow_into_the_next_line():
+    text = ("word " * 19 + "end-of-the-line-word").rstrip() + "\nnext line of the same paragraph.\n"
+    out = renumber.reflow(text, width=100)
+    lines = out.split("\n")
+    assert all(len(ln) <= 100 for ln in lines)
+    assert lines[1].startswith("end-of-the-line-word next line")
+    assert " ".join(out.split()) == " ".join(text.split())
+
+
+def test_reflow_keeps_a_list_items_hanging_indent_and_leaves_code_alone():
+    item = "1. **Read.** " + "word " * 19 + "tail"
+    code = "```\n" + "x" * 120 + "\n```"
+    out = renumber.reflow(f"{item}\n\n{code}\n", width=100)
+    assert "\n   word word tail" in out
+    assert "x" * 120 in out
+
+
+def test_reflow_does_not_join_a_new_list_item_or_a_why():
+    para = "word " * 20 + "tail"
+    for nxt in ("- a list item", "2. next", "**Why:** because"):
+        out = renumber.reflow(f"{para}\n{nxt}\n", width=100)
+        assert f"\ntail\n{nxt}" in out

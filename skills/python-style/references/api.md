@@ -190,7 +190,7 @@ public signature is a name the caller must look up every time.
 `def f(items: list[int] | None = None)` and build it in the body.
 
 **Why:** the default is evaluated once at definition time and shared by every call, so mutation
-leaks between callers and — per PS-FT — between threads. A computed default freezes one value
+leaks between callers and — per PS-CONC — between threads. A computed default freezes one value
 from import time, which PEP 810's lazy imports make an unpredictable moment.
 
 **Check:** ruff `B006` and `B008`. The shipped configuration ignores `B008` for the examples in this

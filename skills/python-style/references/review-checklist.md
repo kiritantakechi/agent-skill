@@ -33,17 +33,17 @@ invalidate the work of reading the next.
 1. **Stale spellings.** Before anything else, because a superseded spelling means the author is
    writing against a language that no longer exists. Run the mechanical pass below.
 2. **Shared state.** For every function a thread or executor runs: which names are neither
-   parameters nor locals? For each, who else writes it, and what holds them apart? (`PS-FT`)
+   parameters nor locals? For each, who else writes it, and what holds them apart? (`PS-CONC`)
 3. **Compound operations.** Every `+=`, every check-then-act, every read-then-use on a shared name.
-   These are the ones that were merely unlikely under the GIL and are now immediate. (`PS-FT-02`,
-   `PS-FT-03`)
+   These are the ones that were merely unlikely under the GIL and are now immediate. (`PS-CONC-02`,
+   `PS-CONC-03`)
 4. **Iterators.** Any generator, iterator, or `tee` branch reachable from two threads. The generator
-   raises; everything else is silent. (`PS-FT-13` … `PS-FT-17`)
+   raises; everything else is silent. (`PS-CONC-13` … `PS-CONC-17`)
 5. **Things that look safe.** Caches, `cached_property`, `print`, the module-level `random`, and
-   every `ContextVar`. Each has a documented caveat that reads like a guarantee. (`PS-FT-18` …
-   `PS-FT-24`)
+   every `ContextVar`. Each has a documented caveat that reads like a guarantee. (`PS-CONC-18` …
+   `PS-CONC-24`)
 6. **Hold times.** Every `contextmanager` used as a decorator, and every lock spanning a call you do
-   not control. (`PS-FT-25`, `PS-FT-26`)
+   not control. (`PS-CONC-25`, `PS-CONC-26`)
 7. **The public surface.** What is newly public? Is it annotated, is the ownership documented, does
    the package ship `py.typed`?
 8. **Function bodies.** Now read the code.
@@ -80,7 +80,7 @@ One finding per line, severity first, then the location, then what to do:
 ```
 Unsound  worker.py:41   `self.count += 1` is a read-modify-write on state three
                         threads reach. Accumulate locally and merge under the lock
-                        that already guards `self.totals` (PS-FT-04).
+                        that already guards `self.totals` (PS-CONC-04).
 ```
 
 Group by severity, not by file. Cite the rule ID so the author can read the reason rather than

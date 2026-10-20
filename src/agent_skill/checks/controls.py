@@ -105,7 +105,7 @@ PUB_FIELD = HEADER + (
 #: The one line of a `bevy-style` example this control appends to.
 _TEST_BODY = "        let mut app = App::new();\n        app.add_plugins(HealthPlugin);"
 
-#: PS-FMT-07's command as the standard now prints it, and as it used to be
+#: PS-OUT-07's command as the standard now prints it, and as it used to be
 #: written — wrapped at the column limit, which put a literal newline into the
 #: pattern. Derived from the first rather than spelled twice: the two differ by
 #: exactly the defect, and nothing else.
@@ -159,7 +159,7 @@ CONTROLS: list[Control] = [
         "citations",
         lambda t: edit(
             t,
-            "python-style/references/free-threading.md",
+            "python-style/references/concurrency.md",
             "**Check:** `rg -n 'f_locals' src/`",
             "**Check:** COM812 decides this. `rg -n 'f_locals' src/`",
         ),
@@ -179,7 +179,7 @@ CONTROLS: list[Control] = [
         "conventions",
         lambda t: edit(
             t,
-            "python-style/references/free-threading.md",
+            "python-style/references/concurrency.md",
             "import sys\nimport sysconfig",
             "from __future__ import annotations\n\nimport sys\nimport sysconfig",
         ),
@@ -189,7 +189,7 @@ CONTROLS: list[Control] = [
         "prose",
         lambda t: edit(
             t,
-            "python-style/references/free-threading.md",
+            "python-style/references/concurrency.md",
             "Unless a block shows its own imports,",
             "Reach for `from __future__ import annotations` here. Unless a block shows its own"
             " imports,",
@@ -200,7 +200,7 @@ CONTROLS: list[Control] = [
         "markers",
         lambda t: edit(
             t,
-            "python-style/references/free-threading.md",
+            "python-style/references/concurrency.md",
             "# verified — GOOD\nimport sys\nimport sysconfig",
             "# does-not-compile — GOOD\nimport sys\nimport sysconfig",
         ),
@@ -212,7 +212,7 @@ CONTROLS: list[Control] = [
         "markers",
         lambda t: edit(
             t,
-            "python-style/references/free-threading.md",
+            "python-style/references/concurrency.md",
             "# verified — GOOD\nimport sys\nimport sysconfig",
             "# rejected — the GIL is off\nimport sys\nimport sysconfig",
         ),
@@ -538,7 +538,7 @@ CONTROLS: list[Control] = [
         "an `rg` command wrapped across a line of the source",
         "dialect",
         lambda t: edit(
-            t, "python-style/references/strings-and-output.md", SQL_COMMAND, SQL_WRAPPED
+            t, "python-style/references/output.md", SQL_COMMAND, SQL_WRAPPED
         ),
     ),
     Control(

@@ -183,9 +183,9 @@ swallowing task prevents the process from exiting cleanly.
 Between the line before an `await` and the line after it, the task may be cancelled and never
 resume.
 
-**Why:** this is the async analogue of PS-FT-02: state you mutate in two steps around an `await` can
-be left half-updated forever, and a resource acquired before an `await` and released after it can
-leak. The fix is the same — make the pair atomic with a context manager, or arrange that the
+**Why:** this is the async analogue of PS-CONC-02: state you mutate in two steps around an `await`
+can be left half-updated forever, and a resource acquired before an `await` and released after it
+can leak. The fix is the same — make the pair atomic with a context manager, or arrange that the
 half-state is valid.
 
 **Check:** every `await` inside a `try`, a lock, or between two writes to the same object.

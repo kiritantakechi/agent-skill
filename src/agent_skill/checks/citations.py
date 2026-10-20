@@ -22,7 +22,7 @@ from ..proc import have, run
 from ..report import fail, unrun
 from . import check
 
-#: `PS-FT-02` and `3.15` are not ruff codes; `ANN401` and `B008` are.
+#: `PS-CONC-02` and `3.15` are not ruff codes; `ANN401` and `B008` are.
 #: `ASYNC251` is five letters, and a cap of four hid every citation of that
 #: family — including one to a code that does not exist.
 CODE = re.compile(r"(?<![A-Za-z0-9-])([A-Z]{1,5}[0-9]{3,4})(?![0-9])")

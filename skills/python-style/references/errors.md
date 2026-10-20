@@ -275,7 +275,7 @@ assert caught == ["value:1", "key:1"]
 `try: return d[k] / except KeyError:` beats `if k in d: return d[k]` when the key is usually there.
 
 **Why:** the check-then-act form is two lookups instead of one, and under free threading it is
-also PS-FT-03's race — the key can vanish between the test and the use. The `try` form is atomic
+also PS-CONC-03's race — the key can vanish between the test and the use. The `try` form is atomic
 with respect to that. Where the failure is *common*, the exception machinery costs more than the
 check, so this is `[S]` rather than `[M]`: it depends on which case is rare.
 
@@ -303,7 +303,7 @@ The interpreter now warns, so a build that turns warnings into errors catches it
 **Why:** the context manager puts the acquisition and the release in one place where they cannot
 drift apart, and it makes the pair impossible to forget at a new call site. Hand-written
 `try/finally` repeats the release at every use and is where PS-ERR-15's defect appears. Note
-PS-FT-25: on 3.15 a `contextmanager`-derived *decorator* on a generator holds until the generator
+PS-CONC-25: on 3.15 a `contextmanager`-derived *decorator* on a generator holds until the generator
 is exhausted, so prefer the `with` form where the hold time matters.
 
 **Check:** `rg -n 'finally:' src/` — each hit that only releases a resource should be a `with`.

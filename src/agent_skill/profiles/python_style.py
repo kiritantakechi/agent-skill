@@ -15,7 +15,7 @@ from . import NotDecisive, Profile, register
 #: to bare strings, so a library reading annotations gets text it must `eval`.
 FUTURE_ANNOTATIONS = re.compile(r"^\s*from\s+__future__\s+import\s+.*\bannotations\b")
 
-#: PS-FT — the GIL made a read-modify-write on shared state *unlikely* to
+#: PS-CONC — the GIL made a read-modify-write on shared state *unlikely* to
 #: interleave rather than atomic. Free-threading removes the luck, not a
 #: guarantee: eight threads lose roughly three quarters of the updates.
 AUGMENTED_ON_SHARED = re.compile(r"^\s*(?:self|cls)\.\w+\s*(?:[+\-*/|&^]|//|\*\*|>>|<<)=")
@@ -84,26 +84,26 @@ class PythonStyle(Profile):
             # rewriting the rule cannot leave a stale entry quietly suppressing
             # its pattern. Every one of these finds the shape; something the
             # pattern cannot see decides whether the shape is a defect.
-            "PS-FT-02": NotDecisive(
+            "PS-CONC-02": NotDecisive(
                 "read each hit",
                 "the pattern finds every compound assignment; whether the target is "
                 "reachable from a second thread decides, and a lock or a local "
                 "accumulator makes it compliant",
             ),
-            "PS-FT-03": NotDecisive(
+            "PS-CONC-03": NotDecisive(
                 "unless a lock spans both",
                 "the pattern finds the test; whether a lock spans the test and the write decides",
             ),
-            "PS-FT-11": NotDecisive(
+            "PS-CONC-11": NotDecisive(
                 "every decorator without `frozen=True`",
                 "the pattern finds every dataclass; the `frozen=True` argument decides",
             ),
-            "PS-FT-21": NotDecisive(
+            "PS-CONC-21": NotDecisive(
                 "any hit whose preceding lines are inside",
                 "the pattern finds every ContextVar; the scope it is created in "
                 "decides, which a line-oriented pattern cannot see",
             ),
-            "PS-FT-22": NotDecisive(
+            "PS-CONC-22": NotDecisive(
                 "whose value was set outside it",
                 "the pattern finds every context read; passing the context explicitly "
                 "is the compliant form and matches the same pattern",
@@ -177,17 +177,17 @@ class PythonStyle(Profile):
                 "the pattern finds every indented import; what encloses it decides, "
                 "and an `if TYPE_CHECKING:` block is indented too",
             ),
-            "PS-FT-14": NotDecisive(
+            "PS-CONC-14": NotDecisive(
                 "read what the target closes over",
                 "the pattern finds every thread start; what the target closes over "
                 "decides, and starting a thread is not itself a defect",
             ),
-            "PS-FT-23": NotDecisive(
+            "PS-CONC-23": NotDecisive(
                 "inside any thread target",
                 "the pattern finds every `print`; the calling thread decides, and a "
                 "module-level print is not a hit",
             ),
-            "PS-FT-25": NotDecisive(
+            "PS-CONC-25": NotDecisive(
                 "applied to a `def` containing `yield`",
                 "the pattern finds every `@contextmanager`; what it decorates decides, "
                 "and the `with` form the rule recommends matches too",
@@ -219,7 +219,7 @@ class PythonStyle(Profile):
                 if AUGMENTED_ON_SHARED.match(code):
                     yield fail(
                         "augmented assignment on instance state is a read-modify-write; "
-                        "under free threading it loses updates (PS-FT)",
+                        "under free threading it loses updates (PS-CONC)",
                         where,
                     )
 

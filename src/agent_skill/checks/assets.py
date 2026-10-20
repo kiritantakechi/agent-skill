@@ -91,7 +91,7 @@ def _build(data, text, tag):
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         # The directory is the *distribution* name, not the name a backend
-        # normalises it to. That is the point: PS-PKG-14 requires the two to
+        # normalises it to. That is the point: PS-BUILD-14 requires the two to
         # match, so a name needing an override fails here rather than silently
         # working because the fixture was built to suit it.
         package = root / "src" / name

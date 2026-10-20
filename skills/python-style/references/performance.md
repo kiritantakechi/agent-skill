@@ -204,9 +204,9 @@ one.
 `functools.cache` on a function with no arguments you cannot hash and no effects.
 
 **Why:** a cache on an impure function is a bug with a performance justification — it makes the
-effect happen once and the caller believe it happened every time. And per PS-FT-18 the cache is not
-single-flight, so under threads the body runs more than once anyway. Purity is the precondition, not
-a nicety.
+effect happen once and the caller believe it happened every time. And per PS-CONC-18 the cache is
+not single-flight, so under threads the body runs more than once anyway. Purity is the precondition,
+not a nicety.
 
 **Check:** every `@cache` and `@lru_cache`. Read the body for I/O, mutation, randomness, or time.
 

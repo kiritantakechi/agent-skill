@@ -89,7 +89,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
     asset, in SKILL.md §7 and in `python.py`.
 
   Verify: `uv run agent-skill check --fast --only lints --only citations --only assets`.
-- [ ] 6.3 Step A: `agent-skill renumber python-style --chapters` mapping each old name to its D3
+- [x] 6.3 Step A: `agent-skill renumber python-style --chapters` mapping each old name to its D3
   name. Verify: `uv run agent-skill check --fast` is no worse than before the run, and
   `migration.md` has the table.
 - [ ] 6.4 Bring `SKILL.md` and `review-checklist.md` onto the skeleton and the templates:

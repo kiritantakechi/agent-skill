@@ -15,37 +15,37 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 ## Contents
 
 - **Metadata**
-  - PS-PKG-01 [M] Cite the living specification, never the PEP
-  - PS-PKG-02 [M] Keep `[project]` static; use `dynamic` only where a backend computes it
-  - PS-PKG-03 [M] Write the licence as an SPDX expression, and ship `license-files`
-  - PS-PKG-04 [M] Give `requires-python` a floor and no ceiling
-  - PS-PKG-05 [M] Use the well-known `[project.urls]` labels
-  - PS-PKG-06 [M] Classify the package honestly, including its typing and threading status
+  - PS-BUILD-01 [M] Cite the living specification, never the PEP
+  - PS-BUILD-02 [M] Keep `[project]` static; use `dynamic` only where a backend computes it
+  - PS-BUILD-03 [M] Write the licence as an SPDX expression, and ship `license-files`
+  - PS-BUILD-04 [M] Give `requires-python` a floor and no ceiling
+  - PS-BUILD-05 [M] Use the well-known `[project.urls]` labels
+  - PS-BUILD-06 [M] Classify the package honestly, including its typing and threading status
 - **Dependencies**
-  - PS-PKG-07 [M] Put development tooling in `[dependency-groups]`, never in extras
-  - PS-PKG-08 [M] Pin every tool that decides whether the build passes
-  - PS-PKG-09 [M] Give a library floors, not pins
-  - PS-PKG-10 [M] Commit `uv.lock`, and keep it the only lock artefact
-  - PS-PKG-11 [M!] Refuse a dependency published in the last few days
+  - PS-BUILD-07 [M] Put development tooling in `[dependency-groups]`, never in extras
+  - PS-BUILD-08 [M] Pin every tool that decides whether the build passes
+  - PS-BUILD-09 [M] Give a library floors, not pins
+  - PS-BUILD-10 [M] Commit `uv.lock`, and keep it the only lock artefact
+  - PS-BUILD-11 [M!] Refuse a dependency published in the last few days
 - **Building**
-  - PS-PKG-12 [M] Build with `uv_build`, and never invoke `setup.py`
-  - PS-PKG-13 [M] Build the package from `src/`, and ship `py.typed`
-  - PS-PKG-14 [M] Give the distribution and the module the same name
-  - PS-PKG-15 [M] Keep the built artefact reproducible from the repository alone
+  - PS-BUILD-12 [M] Build with `uv_build`, and never invoke `setup.py`
+  - PS-BUILD-13 [M] Build the package from `src/`, and ship `py.typed`
+  - PS-BUILD-14 [M] Give the distribution and the module the same name
+  - PS-BUILD-15 [M] Keep the built artefact reproducible from the repository alone
 - **Publishing**
-  - PS-PKG-16 [M] Publish with Trusted Publishing, never a long-lived token
-  - PS-PKG-17 [S] Emit attestations, and do not rely on anyone verifying them
-  - PS-PKG-18 [M] Cut a new version rather than adding a file to an old release
+  - PS-BUILD-16 [M] Publish with Trusted Publishing, never a long-lived token
+  - PS-BUILD-17 [S] Emit attestations, and do not rely on anyone verifying them
+  - PS-BUILD-18 [M] Cut a new version rather than adding a file to an old release
 - **The free-threaded build**
-  - PS-PKG-19 [M] A `cp3XXt` wheel tag is not a declaration of thread safety
-  - PS-PKG-20 [M] Assert in CI that the GIL is actually off
-  - PS-PKG-21 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
+  - PS-BUILD-19 [M] A `cp3XXt` wheel tag is not a declaration of thread safety
+  - PS-BUILD-20 [M] Assert in CI that the GIL is actually off
+  - PS-BUILD-21 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
 
 ---
 
 ## Metadata
 
-### PS-PKG-01 [M] Cite the living specification, never the PEP
+### PS-BUILD-01 [M] Cite the living specification, never the PEP
 
 `packaging.python.org/en/latest/specifications/pyproject-toml/`, not PEP 621.
 
@@ -57,7 +57,7 @@ is true now. The same applies to typing — `typing.python.org/spec` rather than
 **Check:** every packaging or typing reference in the project's own documentation. A bare PEP number
 as the normative citation is the finding; naming the PEP as provenance alongside the spec is fine.
 
-### PS-PKG-02 [M] Keep `[project]` static; use `dynamic` only where a backend computes it
+### PS-BUILD-02 [M] Keep `[project]` static; use `dynamic` only where a backend computes it
 
 Version from a VCS tag is a legitimate `dynamic`. Everything else should be written down.
 
@@ -68,7 +68,7 @@ resolver, or a security scanner answer questions about your package without inst
 
 **Check:** the `dynamic` list. Each entry needs the backend hook that computes it.
 
-### PS-PKG-03 [M] Write the licence as an SPDX expression, and ship `license-files`
+### PS-BUILD-03 [M] Write the licence as an SPDX expression, and ship `license-files`
 
 `license = "MIT"` as a **string**. Not `{ text = ... }`, not `{ file = ... }`, and no
 `License :: OSI Approved ::` classifier.
@@ -95,7 +95,7 @@ classifiers = [
 ]
 ```
 
-### PS-PKG-04 [M] Give `requires-python` a floor and no ceiling
+### PS-BUILD-04 [M] Give `requires-python` a floor and no ceiling
 
 `>=3.15`. Never `<4`, never `<3.16`.
 
@@ -106,7 +106,7 @@ a future version genuinely breaks you, yank or patch then.
 
 **Check:** `rg -n 'requires-python' pyproject.toml` — any `<` is the finding.
 
-### PS-PKG-05 [M] Use the well-known `[project.urls]` labels
+### PS-BUILD-05 [M] Use the well-known `[project.urls]` labels
 
 `homepage`, `source`, `issues`, `changelog`, `documentation` — lowercase.
 
@@ -117,7 +117,7 @@ the safe spelling.
 
 **Check:** the `[project.urls]` table against the well-known list.
 
-### PS-PKG-06 [M] Classify the package honestly, including its typing and threading status
+### PS-BUILD-06 [M] Classify the package honestly, including its typing and threading status
 
 `Typing :: Typed` when you ship `py.typed`. The free-threading classifier when you have tested it.
 
@@ -129,7 +129,7 @@ free-threading classifier in particular is a claim about testing, not about buil
 
 ## Dependencies
 
-### PS-PKG-07 [M] Put development tooling in `[dependency-groups]`, never in extras
+### PS-BUILD-07 [M] Put development tooling in `[dependency-groups]`, never in extras
 
 `[dependency-groups] test = [...]`. Not `[project.optional-dependencies] test = [...]`.
 
@@ -140,7 +140,7 @@ extras publishes your development choices as part of your API.
 
 **Check:** every extra. If a user would never install it, it is a group.
 
-### PS-PKG-08 [M] Pin every tool that decides whether the build passes
+### PS-BUILD-08 [M] Pin every tool that decides whether the build passes
 
 `ruff==0.17.1`, `ty==0.0.89`, `pytest==9.1.1` — exact, in the dependency group.
 
@@ -153,17 +153,17 @@ between any two versions.
 **Check:** every entry in `[dependency-groups]`. A `>=` on a linter, formatter or type checker is
 the finding.
 
-### PS-PKG-09 [M] Give a library floors, not pins
+### PS-BUILD-09 [M] Give a library floors, not pins
 
 `httpx>=0.28` in `[project.dependencies]`. Never `==`.
 
-**Why:** the opposite of PS-PKG-08, and for the opposite reason: a library's dependencies are
+**Why:** the opposite of PS-BUILD-08, and for the opposite reason: a library's dependencies are
 resolved alongside everyone else's, so an exact pin makes your package uninstallable next to any
 other package with a different pin. Applications pin, through the lock file; libraries constrain.
 
 **Check:** `rg -n '==' pyproject.toml` inside `[project.dependencies]`.
 
-### PS-PKG-10 [M] Commit `uv.lock`, and keep it the only lock artefact
+### PS-BUILD-10 [M] Commit `uv.lock`, and keep it the only lock artefact
 
 `uv.lock` in the repository. Nothing else locks, and nothing is exported alongside it.
 
@@ -175,7 +175,7 @@ whoever trusted it.
 **Check:** the lock file in `.gitignore` is the finding. A second lock artefact committed beside it
 is the other one.
 
-### PS-PKG-11 [M!] Refuse a dependency published in the last few days
+### PS-BUILD-11 [M!] Refuse a dependency published in the last few days
 
 `uv lock --exclude-newer`, as a date or a relative duration.
 
@@ -192,7 +192,7 @@ dependency when a project needs the newest of something specific.
 
 ## Building
 
-### PS-PKG-12 [M] Build with `uv_build`, and never invoke `setup.py`
+### PS-BUILD-12 [M] Build with `uv_build`, and never invoke `setup.py`
 
 `requires = ["uv_build>=0.13.3,<0.14"]` and `build-backend = "uv_build"`. Build with `uv build`.
 
@@ -202,13 +202,13 @@ frontend calls it, which is what makes the build reproducible from the declarati
 whatever a script happens to do. One backend is named rather than a choice offered, because a
 standard that lists two has moved the decision to the reader with less information than it had. The
 upper bound is required: `uv_build` follows uv's versioning policy and may break across minor
-versions. That is not the ceiling PS-PKG-04 forbids — that rule governs `requires-python`, a claim
+versions. That is not the ceiling PS-BUILD-04 forbids — that rule governs `requires-python`, a claim
 about interpreters you cannot test, while this is a build dependency you do.
 
 **Check:** `rg -n 'setup.py' .` — every invocation is the finding. `setup.py` may still exist
 as a shim; calling it directly may not.
 
-### PS-PKG-13 [M] Build the package from `src/`, and ship `py.typed`
+### PS-BUILD-13 [M] Build the package from `src/`, and ship `py.typed`
 
 `src/acmewidget/`, with `py.typed` inside the package directory.
 
@@ -220,7 +220,7 @@ take on trust.
 
 **Check:** unpack the built wheel and look for `py.typed`. Its absence is the finding.
 
-### PS-PKG-14 [M] Give the distribution and the module the same name
+### PS-BUILD-14 [M] Give the distribution and the module the same name
 
 `name = "acmewidget"` and `src/acmewidget/`. Not `acme-widget` wrapping a directory called
 `acmewidget`.
@@ -234,7 +234,7 @@ already forbids a separator in the importable name; this is that same name, spel
 **Check:** `rg -n '^name' pyproject.toml` against the directory under `src/`. Any difference is
 the finding.
 
-### PS-PKG-15 [M] Keep the built artefact reproducible from the repository alone
+### PS-BUILD-15 [M] Keep the built artefact reproducible from the repository alone
 
 No network at build time, no generated files that are not in version control or generated by the
 build itself.
@@ -247,7 +247,7 @@ audited environment, which is increasingly where builds happen.
 
 ## Publishing
 
-### PS-PKG-16 [M] Publish with Trusted Publishing, never a long-lived token
+### PS-BUILD-16 [M] Publish with Trusted Publishing, never a long-lived token
 
 OIDC from the CI workflow. No API token in a repository secret.
 
@@ -258,7 +258,7 @@ is explicit that it is recommended over tokens where the CI provider supports it
 
 **Check:** the publish workflow. A `password:` referencing a secret is the finding.
 
-### PS-PKG-17 [S] Emit attestations, and do not rely on anyone verifying them
+### PS-BUILD-17 [S] Emit attestations, and do not rely on anyone verifying them
 
 The PyPA publish action emits them by default under Trusted Publishing. Leave it on.
 
@@ -270,7 +270,7 @@ on consumers checking them.
 
 **Check:** `attestations: false` in the publish step is the finding.
 
-### PS-PKG-18 [M] Cut a new version rather than adding a file to an old release
+### PS-BUILD-18 [M] Cut a new version rather than adding a file to an old release
 
 A new wheel for a new interpreter goes in a new version.
 
@@ -283,7 +283,7 @@ to cut a release instead.
 
 ## The free-threaded build
 
-### PS-PKG-19 [M] A `cp3XXt` wheel tag is not a declaration of thread safety
+### PS-BUILD-19 [M] A `cp3XXt` wheel tag is not a declaration of thread safety
 
 A package can ship a free-threaded wheel and still re-enable the GIL on import, and several do.
 
@@ -295,9 +295,9 @@ libraries describe their support as "experimental" or "preliminary" in the same 
 announce the wheels, and say explicitly that it does not mean the library is thread-safe.
 
 **Check:** import the whole dependency tree on the free-threaded build and assert the GIL is still
-off — PS-PKG-20's command. The wheel tag cannot tell you this.
+off — PS-BUILD-20's command. The wheel tag cannot tell you this.
 
-### PS-PKG-20 [M] Assert in CI that the GIL is actually off
+### PS-BUILD-20 [M] Assert in CI that the GIL is actually off
 
 `python -c "import yourpkg; import sys; assert not sys._is_gil_enabled()"`.
 
@@ -308,7 +308,7 @@ line is the only thing standing between you and that.
 
 **Check:** the CI workflow. No such assertion is the finding.
 
-### PS-PKG-21 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
+### PS-BUILD-21 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
 
 Not in production, not in CI, not in a Dockerfile.
 

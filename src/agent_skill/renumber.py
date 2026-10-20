@@ -176,6 +176,8 @@ def _rewrite(
     for segment, protected in _segments(text):
         out.append(segment if protected else paths(pattern.sub(swap, segment)))
     rewritten = "".join(out)
+    if path.suffix == ".md" and rewritten != text:
+        rewritten = reflow(rewritten)
 
     for rid in sorted(unknown):
         plan.leftovers.append(f"{path}: cites {rid}, which {name} does not define; left as it was")
@@ -184,6 +186,49 @@ def _rewrite(
             if re.search(rf"(?<![\w/-])references/{re.escape(old)}\.md", rewritten):
                 plan.leftovers.append(f"{path}: names `references/{old}.md` without its skill")
     return rewritten
+
+
+#: The `layout` check's limit. A longer family code (`PS-FT` -> `PS-CONC`) can
+#: push a prose line past it, and a renumbering that fails `layout` is not done.
+WIDTH = 100
+
+_STARTS_BLOCK = re.compile(r"^\s*(?:[-*] |\d+\. |#|\||```|>|\*\*[A-Z][a-z]+:\*\*)")
+
+
+def reflow(text: str, width: int = WIDTH) -> str:
+    """Push the words of every over-long prose line down into the next line.
+
+    The smallest edit that brings a paragraph back under the limit: the rest of
+    the paragraph keeps its line breaks, so the diff shows what the rename moved
+    and nothing else. Code, tables and headings are left alone — `layout` decides
+    those, and a code line is not this function's to rewrite.
+    """
+    lines = text.split("\n")
+    fenced = False
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith("```"):
+            fenced = not fenced
+        if fenced or len(line) <= width or line.lstrip().startswith(("|", "#")):
+            i += 1
+            continue
+        cut = line.rfind(" ", 0, width + 1)
+        head = line[:cut].rstrip() if cut > len(line) - len(line.lstrip()) else ""
+        if not head:
+            i += 1
+            continue
+        moved = line[cut + 1 :]
+        item = re.match(r"^(\s*)(?:[-*] |\d+\. )", line)
+        indent = " " * len(item.group(0)) if item else re.match(r"^\s*", line).group(0)
+        nxt = lines[i + 1] if i + 1 < len(lines) else ""
+        lines[i] = head
+        if nxt.strip() and not _STARTS_BLOCK.match(nxt):
+            lines[i + 1] = f"{indent}{moved} {nxt.lstrip()}"
+        else:
+            lines.insert(i + 1, f"{indent}{moved}")
+        i += 1
+    return "\n".join(lines)
 
 
 def _segments(text: str):

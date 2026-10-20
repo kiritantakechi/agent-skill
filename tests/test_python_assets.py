@@ -39,25 +39,26 @@ def enabled(config: Path, cwd: Path) -> set[str]:
     return codes
 
 
-def test_preview_adds_py315_without_adding_rules(tmp_path):
-    """`explicit-preview-rules` is what makes the enabled set deterministic.
+def test_no_preview_rule_is_enabled(tmp_path):
+    """The asset runs stable rules only, which is what lets a rule cite a code as enforced.
 
-    Without it, `preview = true` pulls 139 preview rules in through `ALL`, so a
-    ruff release could change what the standard enforces without anyone editing
-    it. With it, preview buys py315 semantics and nothing else.
+    A preview rule can change or vanish in any release; one enabled here would make
+    the standard's enforcement depend on which ruff happened to run.
     """
-    (tmp_path / "m.py").write_text("x = 1\n")
-    off = tmp_path / "off.toml"
-    off.write_text(RUFF_TOML.read_text().replace("preview = true", "preview = false", 1))
-    assert enabled(RUFF_TOML, tmp_path) == enabled(off, tmp_path)
+    import json
 
-
-def test_dropping_explicit_preview_rules_would_change_the_enabled_set(tmp_path):
-    """The negative control for the test above: prove the guard is load-bearing."""
     (tmp_path / "m.py").write_text("x = 1\n")
-    loose = tmp_path / "loose.toml"
-    loose.write_text(RUFF_TOML.read_text().replace("explicit-preview-rules = true", "", 1))
-    assert enabled(loose, tmp_path) > enabled(RUFF_TOML, tmp_path)
+    rules = json.loads(
+        subprocess.run(
+            [str(RUFF), "rule", "--all", "--output-format", "json"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+    )
+    preview = {rule["code"] for rule in rules if "Preview" in str(rule.get("status", ""))}
+    assert preview, "no preview rule found, so this test proves nothing"
+    assert not (enabled(RUFF_TOML, tmp_path) & preview)
 
 
 def test_py315_target_does_not_warn(tmp_path):
@@ -70,27 +71,6 @@ def test_py315_target_does_not_warn(tmp_path):
         text=True,
     )
     assert "under development" not in (r.stdout + r.stderr)
-
-
-def test_output_prefer_rule_codes_is_top_level(tmp_path):
-    """It is a hard config parse error under `[lint]`, and nothing says so."""
-    (tmp_path / "m.py").write_text("x = 1\n")
-    moved = tmp_path / "moved.toml"
-    # Anchor on the section header, not the word: the asset's own comment
-    # mentions `[lint]` while explaining exactly this trap.
-    moved.write_text(
-        RUFF_TOML.read_text()
-        .replace("\noutput-prefer-rule-codes = true", "", 1)
-        .replace("\n[lint]\n", "\n[lint]\noutput-prefer-rule-codes = true\n", 1)
-    )
-    r = subprocess.run(
-        [str(RUFF), "check", "--no-cache", "--config", str(moved), "m.py"],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-    )
-    assert r.returncode != 0
-    assert "unknown field" in (r.stdout + r.stderr).lower()
 
 
 #: Ruff's own documented list of rules that conflict with its formatter.

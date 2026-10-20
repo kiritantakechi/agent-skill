@@ -14,35 +14,35 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 ## Contents
 
 - **Encoding**
-  - PS-FMT-01 [M] Pass `encoding=` explicitly to every text open
-  - PS-FMT-02 [M] Know what PEP 686 moved, which is more than `open`
-  - PS-FMT-03 [M] Never rely on `locale.getpreferredencoding`
-  - PS-FMT-04 [M!] Choose the error handler deliberately
-  - PS-FMT-05 [M] Read and write bytes when the data is bytes
+  - PS-OUT-01 [M] Pass `encoding=` explicitly to every text open
+  - PS-OUT-02 [M] Know what PEP 686 moved, which is more than `open`
+  - PS-OUT-03 [M] Never rely on `locale.getpreferredencoding`
+  - PS-OUT-04 [M!] Choose the error handler deliberately
+  - PS-OUT-05 [M] Read and write bytes when the data is bytes
 - **Interpolation**
-  - PS-FMT-06 [M] Interpolate with an f-string
-  - PS-FMT-07 [M] Never build a query, a path, or markup by interpolation
-  - PS-FMT-08 [S] Reach for a template string when the interpolation must be inspected
-  - PS-FMT-09 [M] Use `!r` when the value's identity matters to the reader
-  - PS-FMT-10 [S] Use `=` in an f-string for a debug line, then delete it
+  - PS-OUT-06 [M] Interpolate with an f-string
+  - PS-OUT-07 [M] Never build a query, a path, or markup by interpolation
+  - PS-OUT-08 [S] Reach for a template string when the interpolation must be inspected
+  - PS-OUT-09 [M] Use `!r` when the value's identity matters to the reader
+  - PS-OUT-10 [S] Use `=` in an f-string for a debug line, then delete it
 - **Logging**
-  - PS-FMT-11 [M] Log with `%`-style arguments, never with an f-string
-  - PS-FMT-12 [M] Get the logger by `__name__`, at module scope
-  - PS-FMT-13 [M] Use `logger.exception` inside a handler
-  - PS-FMT-14 [M] Never configure logging in a library
-  - PS-FMT-15 [S] Log the identifier, not the object
+  - PS-OUT-11 [M] Log with `%`-style arguments, never with an f-string
+  - PS-OUT-12 [M] Get the logger by `__name__`, at module scope
+  - PS-OUT-13 [M] Use `logger.exception` inside a handler
+  - PS-OUT-14 [M] Never configure logging in a library
+  - PS-OUT-15 [S] Log the identifier, not the object
 - **Program output**
-  - PS-FMT-16 [M] Send program output to stdout and diagnostics to stderr
-  - PS-FMT-17 [M] Never `print` for diagnostics
-  - PS-FMT-18 [M] Give a type a `__repr__` that says what it is
-  - PS-FMT-19 [S] Give a type a `__str__` only when it has a human form
-  - PS-FMT-20 [M] Never let output formatting depend on the locale
+  - PS-OUT-16 [M] Send program output to stdout and diagnostics to stderr
+  - PS-OUT-17 [M] Never `print` for diagnostics
+  - PS-OUT-18 [M] Give a type a `__repr__` that says what it is
+  - PS-OUT-19 [S] Give a type a `__str__` only when it has a human form
+  - PS-OUT-20 [M] Never let output formatting depend on the locale
 
 ---
 
 ## Encoding
 
-### PS-FMT-01 [M] Pass `encoding=` explicitly to every text open
+### PS-OUT-01 [M] Pass `encoding=` explicitly to every text open
 
 `open(path, encoding="utf-8")`, `Path.read_text(encoding="utf-8")`,
 `subprocess.run(..., encoding="utf-8")`.
@@ -69,7 +69,7 @@ with tempfile.TemporaryDirectory() as tmp:
     assert path.read_text(encoding="utf-8") == "héllo"
 ```
 
-### PS-FMT-02 [M] Know what PEP 686 moved, which is more than `open`
+### PS-OUT-02 [M] Know what PEP 686 moved, which is more than `open`
 
 UTF-8 mode is on by default in 3.15, and it changes six things at once.
 
@@ -85,7 +85,7 @@ silent data corruption".
 **Check:** `rg -n 'getpreferredencoding|getfilesystemencoding|fsencode|fsdecode' src/` —
 every hit is a place the meaning changed.
 
-### PS-FMT-03 [M] Never rely on `locale.getpreferredencoding`
+### PS-OUT-03 [M] Never rely on `locale.getpreferredencoding`
 
 It returns `'utf-8'` under UTF-8 mode regardless of the locale, and `do_setlocale` has no effect.
 
@@ -96,7 +96,7 @@ specifically rather than for "the preferred" one.
 
 **Check:** `rg -n 'getpreferredencoding' src/` — every hit is the finding.
 
-### PS-FMT-04 [M!] Choose the error handler deliberately
+### PS-OUT-04 [M!] Choose the error handler deliberately
 
 `errors="strict"` is the default and usually right. `surrogateescape` for filesystem paths.
 `replace` only where a human reads the result and losing a character is acceptable.
@@ -112,7 +112,7 @@ silently, which is right only when the alternative is worse.
 **Check:** every `errors=` argument needs a comment. Every text `open` on data from outside the
 process without one is the finding.
 
-### PS-FMT-05 [M] Read and write bytes when the data is bytes
+### PS-OUT-05 [M] Read and write bytes when the data is bytes
 
 `Path.read_bytes()`, `open(path, "rb")`. Not a text mode with a made-up encoding.
 
@@ -125,10 +125,10 @@ came from a text read is the finding.
 
 ## Interpolation
 
-### PS-FMT-06 [M] Interpolate with an f-string
+### PS-OUT-06 [M] Interpolate with an f-string
 
-Not `%`, not `str.format`, not concatenation. The exceptions are logging (PS-FMT-11) and templates
-(PS-FMT-08).
+Not `%`, not `str.format`, not concatenation. The exceptions are logging (PS-OUT-11) and templates
+(PS-OUT-08).
 
 **Why:** the f-string puts the expression where the value appears, which is the only form a reader
 can check without counting arguments. It is also the fastest, because the interpolation is compiled
@@ -136,7 +136,7 @@ rather than parsed at runtime.
 
 **Check:** ruff `UP031` and `UP032` rewrite the two older forms automatically.
 
-### PS-FMT-07 [M] Never build a query, a path, or markup by interpolation
+### PS-OUT-07 [M] Never build a query, a path, or markup by interpolation
 
 SQL takes parameters. Paths take `pathlib`. HTML takes an escaping template. Shell takes an argument
 list.
@@ -148,21 +148,21 @@ parameterised query is the same length as the interpolated one.
 **Check:** ruff `S608` for SQL, `S602`–`S607` for shell.
 `rg -n 'f"[^"\n]*(SELECT|INSERT|UPDATE|DELETE) ' src/` for what the linter misses.
 
-### PS-FMT-08 [S] Reach for a template string when the interpolation must be inspected
+### PS-OUT-08 [S] Reach for a template string when the interpolation must be inspected
 
 New in 3.15. `t"SELECT * FROM {table}"` produces a `Template` whose static parts and interpolations
 are separate values, so a library can escape each one correctly.
 
 **Why:** an f-string interpolates immediately and hands you a `str`, at which point nothing can
 tell which characters came from the literal and which from the value — that is precisely why
-PS-FMT-07 exists. A template string defers it, so the consumer sees the structure and can escape,
+PS-OUT-07 exists. A template string defers it, so the consumer sees the structure and can escape,
 parameterise, or reject. This is `[S]` because it only helps when something downstream
 understands templates; writing one and then calling `str()` on it has bought nothing.
 
 **Check:** every library that takes a pre-formatted string and must escape part of it. That
 signature should take a `Template`.
 
-### PS-FMT-09 [M] Use `!r` when the value's identity matters to the reader
+### PS-OUT-09 [M] Use `!r` when the value's identity matters to the reader
 
 `f"port must be a number, got {raw!r}"` — so an empty string, a string with a trailing space, and
 the word `None` are distinguishable from each other.
@@ -174,7 +174,7 @@ between a five-second diagnosis and a session with a debugger.
 **Check:** every exception message and log line interpolating a value that came from outside. No
 `!r` is the finding.
 
-### PS-FMT-10 [S] Use `=` in an f-string for a debug line, then delete it
+### PS-OUT-10 [S] Use `=` in an f-string for a debug line, then delete it
 
 `f"{value=}"` prints `value=42`. It is a debugging tool, not an output format.
 
@@ -187,7 +187,7 @@ comment.
 
 ## Logging
 
-### PS-FMT-11 [M] Log with `%`-style arguments, never with an f-string
+### PS-OUT-11 [M] Log with `%`-style arguments, never with an f-string
 
 `logger.info("retrying %s after %s", url, exc)`. Not `logger.info(f"retrying {url}")`.
 
@@ -214,7 +214,7 @@ def fetch(url: str) -> None:
 fetch("https://example.invalid")
 ```
 
-### PS-FMT-12 [M] Get the logger by `__name__`, at module scope
+### PS-OUT-12 [M] Get the logger by `__name__`, at module scope
 
 `logger = logging.getLogger(__name__)`. Not the root logger, and not a hand-written string.
 
@@ -226,7 +226,7 @@ configured per component.
 **Check:** ruff `LOG015` for the root-logger calls. `rg -n 'getLogger\("' src/` for hand-written
 names.
 
-### PS-FMT-13 [M] Use `logger.exception` inside a handler
+### PS-OUT-13 [M] Use `logger.exception` inside a handler
 
 Not `logger.error(str(exc))`, which discards the traceback.
 
@@ -238,7 +238,7 @@ no way to find it.
 **Check:** ruff `TRY400` for `error` inside a handler and `TRY401` for redundantly interpolating the
 exception into a message that already carries it.
 
-### PS-FMT-14 [M] Never configure logging in a library
+### PS-OUT-14 [M] Never configure logging in a library
 
 No `basicConfig`, no handlers, no level setting, no `dictConfig`. Getting a logger is all a library
 does.
@@ -251,7 +251,7 @@ and only to silence the no-handler warning.
 **Check:** `rg -n 'basicConfig|dictConfig|setLevel|addHandler' src/` — every hit outside the
 application entry point is the finding.
 
-### PS-FMT-15 [S] Log the identifier, not the object
+### PS-OUT-15 [S] Log the identifier, not the object
 
 `logger.info("user %s", user.id)`, not `logger.info("user %s", user)`.
 
@@ -263,7 +263,7 @@ type changes every log line that mentions it.
 
 ## Program output
 
-### PS-FMT-16 [M] Send program output to stdout and diagnostics to stderr
+### PS-OUT-16 [M] Send program output to stdout and diagnostics to stderr
 
 The result goes to stdout. Progress, warnings and errors go to stderr.
 
@@ -274,18 +274,18 @@ stdout hides the errors you most needed to see.
 **Check:** every `print` — is what it emits part of the result? If not, it belongs on stderr or in
 `logging`.
 
-### PS-FMT-17 [M] Never `print` for diagnostics
+### PS-OUT-17 [M] Never `print` for diagnostics
 
 `logging` for anything that is not the program's output.
 
 **Why:** `print` cannot be levelled, filtered, routed, timestamped or turned off, so a library that
-prints is a library the application cannot quiet. It is also a `TextIOWrapper` write, which PS-FT-23
-notes is not thread-safe. In a library it is always wrong; in an application it is right only for
-the result.
+prints is a library the application cannot quiet. It is also a `TextIOWrapper` write, which
+PS-CONC-23 notes is not thread-safe. In a library it is always wrong; in an application it is right
+only for the result.
 
 **Check:** ruff `T201` for `print` and `T203` for `pprint`. The shipped configuration enables both.
 
-### PS-FMT-18 [M] Give a type a `__repr__` that says what it is
+### PS-OUT-18 [M] Give a type a `__repr__` that says what it is
 
 Ideally one that could be evaluated back: `Point(x=1, y=2)`.
 
@@ -296,7 +296,7 @@ one for free, which is one more reason to reach for it.
 **Check:** every class that is not a dataclass and has no `__repr__`. `RUF` does not catch this; it
 is a review matter.
 
-### PS-FMT-19 [S] Give a type a `__str__` only when it has a human form
+### PS-OUT-19 [S] Give a type a `__str__` only when it has a human form
 
 If `str(x)` and `repr(x)` would say the same thing, define only `__repr__`.
 
@@ -306,7 +306,7 @@ amount, a duration — and let `repr` stay the precise one.
 
 **Check:** every class defining both. If the two bodies are the same shape, delete `__str__`.
 
-### PS-FMT-20 [M] Never let output formatting depend on the locale
+### PS-OUT-20 [M] Never let output formatting depend on the locale
 
 No `locale.format_string`, no `%c`/`%x` date codes, no thousands separators from the environment.
 
