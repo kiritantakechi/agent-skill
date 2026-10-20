@@ -14,5 +14,5 @@
 # A game built on nightly is a game whose compiler has no stability promise, so
 # the two stay separate.
 [toolchain]
-channel = "1.98.0"
+channel = "1.99.1"                   # 1.99.0 miscompiles FFI `bool` returns on x86_64
 components = ["rustfmt", "clippy"]

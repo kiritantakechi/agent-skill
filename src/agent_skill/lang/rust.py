@@ -162,12 +162,12 @@ RUST_STYLE = Crate(
 #: names, without `bevy_render`, winit or wgpu. A standard talks about the API
 #: surface, and the backends cost minutes of build time to compile examples that
 #: never run. `scene` is there for one example — `bsn!` is the newest surface in
-#: 0.19 and the only one whose grammar is not Rust, so it is the one that most
+#: Bevy and the only one whose grammar is not Rust, so it is the one that most
 #: needs a compiler behind it.
 BEVY_STYLE = Crate(
     name="bevy-style-verify",
     dependencies=(
-        'bevy = { version = "=0.19.1", default-features = false, features = ['
+        'bevy = { version = "=0.20.0", default-features = false, features = ['
         '"std", "2d_api", "3d_api", "ui_api", "scene"] }',
     ),
     #: `missing_docs` because a block documents items selectively;

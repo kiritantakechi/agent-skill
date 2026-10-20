@@ -1,4 +1,4 @@
-# Canonical workspace manifest for a Bevy 0.19 game.
+# Canonical workspace manifest for a Bevy 0.20 game.
 # Copy, then delete what does not apply.
 # Referenced by BV-CAR-02, BV-CAR-04, BV-CAR-07, BV-CAR-16.
 
@@ -8,11 +8,11 @@ members = ["crates/*"]
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.98"                # a tested MSRV, verified by a CI job
+rust-version = "1.99"                # a tested MSRV, verified by a CI job
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-# An exact pin for a game binary; a caret (`"0.19"`) for a crate others depend
+# An exact pin for a game binary; a caret (`"0.20"`) for a crate others depend
 # on. A 0.x minor bump renames a large fraction of the API, so for a binary the
 # pin turns an upgrade into a scheduled migration. See BV-CAR-04.
 #
@@ -24,7 +24,7 @@ license = "MIT OR Apache-2.0"
 # `default` is already `["2d", "3d", "ui", "audio"]`, so naming `2d` on top of
 # it selects nothing and excludes nothing. Note also that since 0.19 `audio` is
 # not implied by `2d`, `3d` or `ui` — a game with sound names it.
-bevy = { version = "=0.19.1", default-features = false, features = ["2d", "ui", "audio"] }
+bevy = { version = "=0.20.0", default-features = false, features = ["2d", "ui", "audio"] }
 
 # ---------------------------------------------------------------------------
 # Lints. Inherited by every member with `[lints] workspace = true`.

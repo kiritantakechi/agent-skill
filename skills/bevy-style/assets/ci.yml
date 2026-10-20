@@ -1,4 +1,4 @@
-# CI for a Bevy 0.19 game. Referenced by BV-CAR-05, BV-CAR-17, BV-CAR-18,
+# CI for a Bevy 0.20 game. Referenced by BV-CAR-05, BV-CAR-17, BV-CAR-18,
 # BV-CAR-19 and BV-CAR-21, and by BV-ARC-07 for the boundary job.
 name: ci
 
@@ -10,13 +10,12 @@ on:
 env:
   CARGO_TERM_COLOR: always
   CARGO_BUILD_WARNINGS: deny
-  RUSTDOCFLAGS: -D warnings           # rustdoc's own lints: broken intra-doc links, bad HTML
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -57,7 +56,7 @@ jobs:
     # This list is the one in the release manifest. See BV-CAR-18.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Install Linux dependencies
@@ -68,10 +67,10 @@ jobs:
       - run: cargo build --release --no-default-features --features shipping
 
   docs:
-    # `RUSTDOCFLAGS` above only bites if something actually runs rustdoc.
+    # `CARGO_BUILD_WARNINGS` above denies rustdoc's lints too, but only if something runs rustdoc.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Install Linux dependencies
@@ -85,8 +84,8 @@ jobs:
     # The manifest's `rust-version` is a claim; this is what makes it true.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.98        # must match `rust-version`
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.99        # must match `rust-version`
       - uses: Swatinem/rust-cache@v2
       - name: Install Linux dependencies
         run: |
@@ -96,15 +95,17 @@ jobs:
       - run: cargo check --workspace
 
   bevy-lint:
-    # Optional (BV-CAR-17), and uncommented once the nightly below is the one
-    # the linter's compatibility table names for the version you install. The
-    # linter loads a dynamic library from that toolchain at run time, so the
-    # `rustc-dev` component is not optional and the toolchain must stay
+    # Optional (BV-CAR-17), and off: no `bevy_lint` release supports Bevy 0.19
+    # or 0.20 — v0.6.0 targets 0.18, and support is in open pull requests
+    # (TheBevyFlock/bevy_cli #835, #925, #943). Turn it on with the first
+    # release whose compatibility table names 0.20, and the nightly that table
+    # names. The linter loads a dynamic library from that toolchain at run
+    # time, so `rustc-dev` is not optional and the toolchain must stay
     # installed. This is deliberately NOT the game's toolchain.
     if: false
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Install the linter's own nightly
         run: |
@@ -118,7 +119,7 @@ jobs:
     # Only if the game ships to the web. See BV-CAR-19.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown

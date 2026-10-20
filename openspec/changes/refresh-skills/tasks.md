@@ -212,7 +212,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
 
 ## 10. bevy-style (milestone 3)
 
-- [ ] 10.1 Pins and assets:
+- [x] 10.1 Pins and assets:
   - `bevy = "=0.20.0"` in `lang/rust.py` and `assets/Cargo.toml`;
   - `rust-toolchain.toml` at `1.99.1`;
   - `ci.yml` at `@1.99`;
