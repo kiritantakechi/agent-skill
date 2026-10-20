@@ -851,7 +851,7 @@ mod tests {
     fn writes_nothing_when_redirected() -> io::Result<()> {
         let mut diagnostics = Diagnostics::redirected(Vec::new());
         diagnostics.report(3)?;
-        assert!(diagnostics.into_inner().is_empty());
+        assert_eq!(diagnostics.into_inner(), b"");
         Ok(())
     }
 

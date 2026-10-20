@@ -134,7 +134,7 @@ Every other verification step below is `--fast` or a targeted `pytest`, which ca
   Each injected defect must be one that only the named branch reports (`harness-integrity`).
   Verify: `uv run pytest tests/test_controls.py` passes, and each new control fails with its branch
   disabled.
-- [ ] 6.10 Milestone 1: one full run, alone. Verify: `ALL CHECKS PASSED`. Commit.
+- [x] 6.10 Milestone 1: one full run, alone. Verify: `ALL CHECKS PASSED`. Commit.
 
 ## 7. Harness for Rust
 

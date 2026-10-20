@@ -526,7 +526,7 @@ mod tests {
         assert_eq!(app.world().entity(ally).get::<Morale>(), Some(&Morale(10)));
 
         app.update();
-        assert!(app.world().resource::<DeathQueue>().0.is_empty());
+        assert_eq!(app.world().resource::<DeathQueue>().0, Vec::<Entity>::new());
         assert_eq!(app.world().entity(ally).get::<Morale>(), Some(&Morale(9)));
     }
 
