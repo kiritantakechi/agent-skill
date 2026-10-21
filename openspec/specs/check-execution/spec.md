@@ -274,7 +274,8 @@ happens to compare as agreement.
 #### Scenario: A pin follows the local toolchain without a reason
 
 - **WHEN** a standard declares a local-following pin and gives no reason
-- **THEN** the run fails, as an exemption without a reason does
+- **THEN** the run fails: such a pin stops tracking upstream on purpose, and only its reason says
+  why that is acceptable for this standard
 
 ### Requirement: A positive control is prepared the way the corpus is
 
