@@ -143,10 +143,9 @@ against std: on a method of a resource type (`Dir`, `File`, `Mutex`, `Queue`) `i
 after the receiver; on a free function `gpa` comes before `io` (15 occurrences to 4 in std), then
 domain parameters, then an options struct last.
 
-**Why:** an `Io` parameter is the only thing that makes a function's blocking behavior visible
-in its signature, and it is what lets the same function run on a thread pool in production and on
-`std.testing.io` or `Io.failing` in tests. Hiding it in a struct field or a global makes the
-substitution impossible.
+**Why:** an `Io` parameter is the only thing that makes a function's blocking behavior visible in
+its signature, and it lets the same function run on a thread pool in production and on
+`std.testing.io` or `Io.failing` in tests; a field or a global makes that substitution impossible.
 
 **Check:** a field of type `Io` on any struct that is not the top-level application object; a method
 whose `io` parameter does not sit immediately after the receiver; a free function whose `io`
@@ -191,14 +190,17 @@ handling is testable with no filesystem, no network, and no fault-injection harn
 `Io.Threaded` is the production backend. `Io.Evented` resolves to `Io.Uring` on Linux, `Io.Kqueue`
 on the BSDs, `Io.Dispatch` on Darwin, and `void` elsewhere.
 
-**Why:** no `Io.Evented` backend implements networking in 0.17.0 — `Uring` and `Dispatch` wire the
-`net*` vtable slots to `…Unavailable` stubs and `Kqueue`'s `listen` and `accept` are
-`@panic("TODO")` — so every rule in the networking section below requires `Io.Threaded` today.
-Worse, in 0.17.0 none of the three compiles once a program calls `init`: each backend's vtable
-still names a slot that 0.17 removed from `Io.VTable`, so `Dispatch` and `Uring` fail with
+In 0.17.0 none of the three compiles once a program calls `init`: each backend's vtable still names
+a slot that 0.17 removed from `Io.VTable`, so `Dispatch` and `Uring` fail with
 `no field named 'processReplacePath' in struct 'Io.VTable'` and `Kqueue` with the same error for
-`'fileWriteStreaming'`. Deviating becomes fine once a backend builds again and you have measured
-that `Io.Threaded`'s one-thread-per-blocked-task model is your bottleneck — say so in a comment.
+`'fileWriteStreaming'`. None implements networking either — `Uring` and `Dispatch` wire the `net*`
+vtable slots to `…Unavailable` stubs and `Kqueue`'s `listen` and `accept` are `@panic("TODO")` — so
+every rule in the networking section requires `Io.Threaded` today. Deviate once a backend builds
+again and you have measured that `Io.Threaded`'s one-thread-per-blocked-task model is your
+bottleneck, and say so in a comment.
+
+**Why:** in 0.17.0 `Io.Threaded` is the only backend that both builds and implements `std.Io.net`,
+so it is the only one a default can rest on; an evented backend earns its place by a measurement.
 
 **Check:** `Io.Evented`, `Io.Uring`, `Io.Kqueue`, or `Io.Dispatch` named in a diff — each needs a
 comment stating the measurement that justified it, and none of them may appear on a code path that
@@ -252,12 +254,6 @@ Its own doc comment describes it as "a low-level debugging primitive that bypass
 interface": it formats through a 64-byte stack buffer that is flushed on every call, writes with the
 most basic syscalls available, does not switch threads or stacks, and `catch return`s every error.
 
-**Why:** it cannot be redirected, cannot be substituted in a test, is one syscall per call, and it
-bypasses the `Io` you were handed — so under an evented backend it is the one write that does not
-cooperate with the scheduler. Program output goes to a `*Io.Writer` you were given; diagnostics go
-through `std.log`, which takes the stderr lock and therefore interleaves correctly with panics and
-`std.Progress`.
-
 The three destinations, and the rule for each:
 
 | Kind | Destination | Never |
@@ -266,10 +262,15 @@ The three destinations, and the rule for each:
 | Diagnostics — progress, warnings, "what is it doing" | `std.log` (scoped in a library, ZS-ERR-32) | `std.debug.print` |
 | Temporary debugging you will delete before committing | `std.debug.print` | leaving it in a commit |
 
-The same ban covers raw stderr writes: reaching stderr outside `io.lockStderr` (ZS-CONC-11) or
-`std.log` interleaves your bytes with a `std.Progress` redraw or a panic trace. In a **library** all
-three of `std.debug.print`, `std.debug.lockStderr`, and unscoped `std.log.*` are defects — a library
-does not own the process's stderr policy.
+The same ban covers raw stderr writes. `std.log` takes the stderr lock and so interleaves correctly
+with panics and `std.Progress`; reaching stderr outside it or `io.lockStderr` (ZS-CONC-11)
+interleaves your bytes with a `std.Progress` redraw or a panic trace. In a **library** all three of
+`std.debug.print`, `std.debug.lockStderr`, and unscoped `std.log.*` are defects — a library does not
+own the process's stderr policy.
+
+**Why:** it cannot be redirected, cannot be substituted in a test, is one syscall per call, and it
+bypasses the `Io` you were handed — so under an evented backend it is the one write that does not
+cooperate with the scheduler.
 
 **Check:** any `std.debug.print` surviving in a diff **outside a `test` block**. In library and
 application code there is no legitimate committed use: if the line is worth keeping it is
@@ -298,12 +299,6 @@ namespace) and `references/output.md` ZS-OUT-16 / ZS-OUT-17 point here for the
 `.mode = .positional`. `File.writerStreaming(io, &buf)` / `Io.File.Writer.initStreaming` set
 `.mode = .streaming`.
 
-**Why:** positional writes do not disturb the shared file offset and are therefore safer under
-concurrency, but a pipe or tty is never seekable. std's own comment on `initStreaming` states the
-tradeoff: "Positional is more threadsafe, since the global seek position is not affected, but when
-such syscalls are not available, preemptively initializing in streaming mode will skip a failed
-syscall."
-
 Both spellings are correct and both appear in std; do not "fix" one out of existence. `zig init`,
 SKILL.md §2.4, and the migration chapter use the positional constructor
 (`Io.File.Writer = .init(.stdout(), io, &buf)`), and that is right: the fallback to streaming on
@@ -311,6 +306,10 @@ SKILL.md §2.4, and the migration chapter use the positional constructor
 first write and the output is identical. Prefer `writerStreaming` only when you *know* the handle is
 a pipe or a tty and you care about that syscall. Pick by the handle you have; neither choice is a
 correctness bug.
+
+**Why:** positional writes do not disturb the shared file offset and are therefore safer under
+concurrency, but a pipe or tty is never seekable, so initializing it in streaming mode skips a
+syscall that can only fail.
 
 **Check:** `writerStreaming` on a handle you opened from the filesystem, or `.init`/`writer` in a
 tight loop over a known-pipe handle. Both are style, not defects — a reviewer notes them, does not
@@ -356,12 +355,11 @@ pub fn writeCsvRow(w: *Io.Writer, fields: []const []const u8) Io.Writer.Error!vo
 
 ### ZS-CONC-09 [S] Build in-memory strings with `Io.Writer.Allocating`
 `Allocating` grows its own buffer, exposes `written()`, `toOwnedSlice()`, and `toArrayList()`, and
-has a no-op `flush`.
+has a no-op `flush`. Deviate for a single `print` (use `gpa.print`, 0.16's `std.fmt.allocPrint`) or
+a size you can bound (use `std.mem.print`, 0.16's `std.fmt.bufPrint`, over a fixed array).
 
 **Why:** it is one allocation strategy and one error path instead of an `ArrayList` plus manual
 `appendSlice`/`print` bookkeeping, and it is what `Allocator.print` is implemented in terms of.
-Deviate for a single `print` (use `gpa.print`, 0.16's `std.fmt.allocPrint`) or a size you can bound
-(use `std.mem.print`, 0.16's `std.fmt.bufPrint`, over a fixed array).
 
 **Check:** an `std.ArrayList(u8)` built up by alternating `appendSlice` with `gpa.print` (or the
 deprecated `std.fmt.allocPrint`) results — that is `Allocating` written out longhand, plus a
@@ -394,11 +392,12 @@ aw.writer.print(fmt, args) catch |err| switch (err) {
 ### ZS-CONC-10 [M] Recover the real error from the concrete writer/reader
 `error.WriteFailed` and `error.ReadFailed` are placeholders. The actual OS error is stored on the
 concrete struct: `File.Writer.err`, `File.Reader.err`, `net.Stream.Writer.err`.
+`File.Writer.flush(w)` — the concrete method, not `w.interface.flush()` — does this unwrapping for
+you.
 
 **Why:** `*Io.Writer` is type-erased, so its error set cannot name `error.NoSpaceLeft` or
 `error.BrokenPipe`. Propagating `error.WriteFailed` to the user throws away every actionable
-diagnostic. `File.Writer.flush(w)` — the concrete method, not `w.interface.flush()` — does this
-unwrapping for you.
+diagnostic.
 
 **Check:** `error.WriteFailed` or `error.ReadFailed` returned to a caller, logged, or printed in a
 diagnostic without the concrete `.err` field being read first; and `fw.interface.flush()` written
@@ -455,8 +454,7 @@ try locked.file_writer.interface.writeAll("done\n");
 `error.StreamTooLong` when the delimiter is not found within that buffer, leaving the stream
 unmodified.
 
-**Why:** the buffer length *is* the bound on a line, a header, or a record. This is where
-TigerStyle's "all loops and queues have a fixed upper bound" rule lands in 0.17 I/O code: choosing
+**Why:** the buffer length *is* the bound on a line, a header, or a record: choosing
 `var buf: [4096]u8` is choosing a 4 KiB maximum line, and a hostile 4 GiB line without a newline
 becomes `error.StreamTooLong` instead of an OOM.
 
@@ -624,10 +622,9 @@ Only `drain` is required (`sendFile`, `flush`, `rebase` have defaults). A correc
 (2) emits each element of `data` in order; (3) emits the **last** element `splat` additional times;
 (4) returns the count consumed **from `data` only**, excluding buffer bytes.
 
-**Why:** each of those four is a real corruption bug if you get it wrong. Skipping (1) reorders the
-stream. Assuming `data.len == 1` drops vectored writes. Ignoring `splat` turns
-`splatByteAll('-', 1_000_000)` into one dash. Counting buffer bytes in the return value makes the
-caller believe more of `data` was written than actually was, silently truncating output.
+**Why:** each broken clause corrupts output: skipping (1) reorders the stream, assuming
+`data.len == 1` drops vectored writes, ignoring `splat` turns `splatByteAll('-', 1_000_000)` into
+one dash, and counting buffer bytes makes the caller skip bytes of `data` never written.
 
 **Check:** read the `drain` body against the four numbered clauses — no `w.buffered()` before the
 first emit; `data[0]` indexed instead of iterated; the `splat` parameter unused (grep: `_ = splat`);
@@ -765,12 +762,13 @@ test "zero copy writes: advance semantics differ" {
 ### ZS-CONC-21 [M] `std.fs` is a deprecation shim — use `std.Io.Dir` and `std.Io.File`
 `std/fs.zig` is 21 lines, every member marked `/// Deprecated`. `std.fs.Dir`, `std.fs.File`, and
 `std.fs.cwd()` do not exist at all: `struct 'fs' has no member named 'cwd'`. Every
-filesystem operation now takes an `io`.
+filesystem operation now takes an `io`. The surviving aliases are `std.fs.path` → `std.Io.Dir.path`,
+`std.fs.max_path_bytes` → `std.Io.Dir.max_path_bytes`, `std.fs.max_name_bytes` →
+`std.Io.Dir.max_name_bytes`.
 
 **Why:** the filesystem was absorbed into `Io` so that a caller can substitute a backend — an
 io_uring ring, a fiber scheduler, `Io.failing` in a test. A `std.fs`-shaped API could not express
-that. The surviving aliases are `std.fs.path` → `std.Io.Dir.path`, `std.fs.max_path_bytes` →
-`std.Io.Dir.max_path_bytes`, `std.fs.max_name_bytes` → `std.Io.Dir.max_name_bytes`.
+that.
 
 **Check:** the prefix `std.fs.` anywhere except those three aliases; the names `makeDir`,
 `makePath`, `getEndPos`, `setEndPos`, `realpath`, or `fs.File.Mode`; and any filesystem call that
@@ -798,15 +796,15 @@ Name mapping worth memorizing: `makeDir`/`makePath` → `createDir`/`createDirPa
 
 ### ZS-CONC-22 [M] Pair every open with `defer close(io)`, and iterate with the iterator's own buffer
 `file.close(io)` and `dir.close(io)` both take the `Io`. `dir.iterate()` returns an `Iterator` that
-embeds a 2 KiB buffer, so `it.next(io)` takes no buffer argument.
+embeds a 2 KiB buffer, so `it.next(io)` takes no buffer argument. The `Iterator` is ~2 KiB of stack
+because it inlines its own `reader_buffer` (`next` re-points `reader.buffer` at it on every call, so
+the value is movable) — bind it with `var` in the loop's own scope rather than nesting it inside a
+recursive walk. For recursive traversal, and for the allocation-free `Io.Dir.Reader` beneath
+`Iterator`, see ZS-CONC-47.
 
 **Why:** a `Dir` is a file descriptor exactly like a `File`; leaking directory handles exhausts the
 per-process fd quota just as fast, and the failure surfaces far from the leak as
-`error.ProcessFdQuotaExceeded` on some unrelated open. The `Iterator` is ~2 KiB of stack because it
-inlines its own `reader_buffer` (`next` re-points `reader.buffer` at it on every call, so the value
-is movable) — bind it with `var` in the loop's own scope rather than nesting it inside a recursive
-walk. For recursive traversal, and for the allocation-free `Io.Dir.Reader` beneath `Iterator`, see
-ZS-CONC-47.
+`error.ProcessFdQuotaExceeded` on some unrelated open.
 
 **Check:** an `openFile`/`openDir`/`createFile`/`createFileAtomic` result whose next line is not
 `defer ….close(io)` or `defer ….deinit(io)`; a `close()` written without an `io` argument; and an
@@ -885,12 +883,12 @@ test "atomic replace" {
 
 ### ZS-CONC-24 [M] Every started `Future` is awaited or canceled exactly once, on every path
 `io.async(f, args)` returns a `Future(R)` — `await` and `cancel` are idempotent but **not**
-threadsafe. An early `return` that skips remaining futures abandons them.
+threadsafe. An early `return` that skips remaining futures abandons them. The correct fan-out shape
+awaits *all* futures and only then propagates the first error.
 
 **Why:** under `Io.Threaded` each future is a heap allocation plus a claimed slot against
 `async_limit`; abandoning it leaks both and leaves a worker writing into a result slot whose stack
-frame is gone. The correct fan-out shape awaits *all* futures and only then propagates the first
-error.
+frame is gone.
 
 **Check:** a `try` on the `await` inside a fan-out loop.
 `for (&futures) |*f| total += try f.await(io);` is the canonical shape of the bug. More generally,
@@ -941,13 +939,12 @@ is usually the first of them. `async` and `await` are no longer language keyword
 ### ZS-CONC-25 [S] Prefer `io.async`; use `io.concurrent` only for simultaneous progress
 `io.async` guarantees only "already completed, or assigned a unit of concurrency" — it may run the
 function inline before returning. `io.concurrent` demands real concurrency and can fail with
-`error.ConcurrencyUnavailable`.
+`error.ConcurrencyUnavailable`. `io.async` never fails; `Io.Threaded` degrades to inline execution
+on OOM or when `async_limit` is reached (`Io/Threaded.zig`).
 
-**Why:** `io.async` never fails; `Io.Threaded` degrades to inline execution on OOM or when
-`async_limit` is reached (`Io/Threaded.zig`). That makes `async` compatible with
-single-threaded stackful backends and with `init_single_threaded`. But it also means a producer
-spawned with `async` may run to completion *before* the consumer starts — which deadlocks on a
-bounded `Io.Queue`. Any two tasks that must interleave need `concurrent`.
+**Why:** running inline makes `async` work on single-threaded stackful backends and
+`init_single_threaded`, but lets a producer spawned with it run to completion *before* the consumer
+starts, which deadlocks on a bounded `Io.Queue`. Tasks that must interleave need `concurrent`.
 
 **Check:** an `io.async` on one side of an `Io.Queue`, `Io.Mutex`, `Io.Condition`, or `Io.Event`
 whose other side is in the calling task — that deadlocks the moment the backend runs the task
@@ -984,12 +981,12 @@ test "queue producer consumer" {
 `Io.Group` is an unordered task set whose members return something coercible to `Cancelable!void`;
 it is a cancellation-propagation boundary, so a member returning `error.Canceled` is absorbed.
 `Io.Select(U)` waits on the first of several heterogeneous tasks, keyed by the fields of a tagged
-union. `Io.Queue(T)` is a bounded MPMC channel closed with `q.close(io)`.
+union. `Io.Queue(T)` is a bounded MPMC channel closed with `q.close(io)`. `Select`'s buffer must be
+large enough for all outstanding tasks or `cancel` deadlocks.
 
 **Why:** `Group` releases each task's resources when *that task* returns, not when the group
 completes, so a long-lived group is not a leak — but async tasks are not guaranteed to run until
-`await`/`cancel`, so an abandoned group is. `Select`'s buffer must be large enough for all
-outstanding tasks or `cancel` deadlocks.
+`await`/`cancel`, so an abandoned group is.
 
 **Check:** an `Io.Group` with a path out of its scope that reaches neither `g.await(io)` nor
 `g.cancel(io)`; an `Io.Select` whose storage array is shorter than the number of tasks that can be
@@ -1036,6 +1033,11 @@ A cancellation point is any `Io` call whose error set contains `error.Canceled`.
 request, **only the next** cancellation point signals it; later ones do not re-signal. Respond by
 propagating, by `io.recancel()` and continuing, or by entering cancel protection.
 
+The tell is not the *shape* of the `catch` — `catch |err| log.warn(…)` strands a canceller exactly
+as `catch {}` does, because logging *without propagating* is not responding. (Logging and then
+returning the error is fine; that is ZS-ERR-08's "add context, then propagate".) What matters is
+whether control then goes on to do more work.
+
 One exemption, and only one: a cleanup on a path that is **already leaving** — a `defer`/`errdefer`
 body, or a statement on an error path with nothing after it but the `return` — cannot strand anyone,
 because no further work follows either way. Log the error there rather than discarding it silently
@@ -1048,11 +1050,7 @@ mid-flow. Read those as evidence for *where* the exemption lies, not as licence 
 this standard still wants it logged.
 
 **Why:** swallowing the one signal you get converts a cancellation request into a task that runs
-forever, and `Group.await`/`Future.cancel` then block indefinitely waiting for it. Note the tell is
-not the *shape* of the `catch` — `catch |err| log.warn(…)` strands a canceller exactly as `catch {}`
-does, because logging *without propagating* is not responding. (Logging and then returning the error
-is fine; that is ZS-ERR-08's "add context, then propagate".) What matters is whether control then
-goes on to do more work.
+forever, and `Group.await`/`Future.cancel` then block indefinitely waiting for it.
 
 **Check:** any `catch` on an expression taking an `io` — `catch {}`, `catch return`, `catch
 continue`, `catch unreachable`, **or `catch |err| log…`** — after which the function keeps working;
@@ -1080,12 +1078,12 @@ test "cancel protection around cleanup" {
 ```
 
 ### ZS-CONC-28 [M!] Call `io.checkCancel()` inside long CPU-bound loops
-`checkCancel` is a pure cancellation point that performs no I/O.
+`checkCancel` is a pure cancellation point that performs no I/O. Check on a power-of-two stride so
+the check itself is not the cost.
 
 **Why:** cancellation only takes effect at cancellation points. A loop that does no I/O is
 uninterruptible, so a shutdown, a deadline, or a watchdog cannot preempt it — the task keeps burning
-a carrier thread while whoever requested the cancel blocks in `await`. Check on a power-of-two
-stride so the check itself is not the cost.
+a carrier thread while whoever requested the cancel blocks in `await`.
 
 **`[M!]` trigger:** the system has a shutdown path, a request deadline, or a watchdog — servers,
 databases, consensus nodes, anything long-running that must be able to stop on demand.
@@ -1120,12 +1118,12 @@ fn grind(io: Io, iterations: usize) Io.Cancelable!u64 {
 which are the untyped layer `Queue` forwards into rather than separate APIs, and
 `noFutexWaitUncancelable`, an internal vtable stub taking `userdata: ?*anyopaque` — from
 `Io.zig`, `Io/RwLock.zig`, and `Io/Semaphore.zig`. 0.17 adds `Semaphore.waitTimeout(io, timeout)`,
-which is cancelable and has no uncancelable timed form, so it never belongs in a `defer`.
+which is cancelable and has no uncancelable timed form, so it never belongs in a `defer`. The
+`Uncancelable` variants return `void` (or drop `Cancelable` from the set, as the `Queue` pair do).
 
 **Why:** a `defer` body cannot propagate an error, so a cancelable blocking call inside one — a lock
 acquisition, a queue hand-off, an event wait — has no correct failure handling; you would have to
-`catch unreachable` on a reachable condition. The `Uncancelable` variants return `void` (or drop
-`Cancelable` from the set, as the `Queue` pair do) and are the intended tool.
+`catch unreachable` on a reachable condition.
 
 **Check:** a `defer` or `errdefer` body calling the *cancelable* spelling of any primitive on the
 list above — `m.lock(io)`, `rw.lock(io)`, `rw.lockShared(io)`, `c.wait(io, …)`, `e.wait(io)`,
@@ -1141,12 +1139,12 @@ ZS-CONC-27's already-leaving exemption instead, not by this rule. Do not report 
 `std.Thread` has **no** synchronization primitives in 0.17 — no `Mutex`, `Condition`,
 `Semaphore`, `RwLock`, `ResetEvent`, `WaitGroup`, `Pool`, or `Futex`. All of them moved to `std.Io`
 and take an `io`. There is no `Io.Futex` type — `futexWait`/`futexWake` are free functions on `Io`.
-
-**Why:** this is correctness, not taste. An OS mutex blocks the whole carrier thread. Under an
-evented or fiber backend, that thread is running other tasks — including, potentially, the task
-holding the lock. The result is a deadlock that only manifests on the non-default backend.
 `std.atomic.Mutex` is a lock-free `tryLock`/`unlock` pair with no blocking `lock`; it is not a
 substitute.
+
+**Why:** this is correctness, not taste. An OS mutex blocks the whole carrier thread, which under an
+evented or fiber backend is running other tasks, possibly the one holding the lock: a deadlock that
+only manifests on the non-default backend.
 
 **Check:** `std.Thread.Mutex`, `.Condition`, `.Semaphore`, `.RwLock`, `.ResetEvent`, `.WaitGroup`,
 `.Pool`, or `.Futex` in a diff — all are compile errors in 0.17 (`has no member named 'Mutex'`),
@@ -1168,13 +1166,12 @@ fn addLocked(io: Io, m: *Io.Mutex, n: u64) Io.Cancelable!void {
 ### ZS-CONC-31 [M] Write colorless code: never branch on which backend you were handed
 The same function body must be correct under `Io.Threaded`, `Io.Evented`, `init_single_threaded`,
 and `Io.failing`. Do not inspect `io.userdata`, do not compare `io.vtable`, do not gate behavior on
-`builtin.single_threaded`.
+`builtin.single_threaded`. The only backend-dependent behavior you may rely on is the documented
+one: `io.concurrent` may return `error.ConcurrencyUnavailable`, and you must handle it.
 
 **Why:** the colorless property — no `async fn` infection, no duplicated sync/async APIs — exists
-precisely because the function is written once against the `Io` interface and the *caller* chooses
-the execution model. Every backend test (`std.testing.io` today, an io_uring ring tomorrow) depends
-on that. The only backend-dependent behavior you may rely on is the documented one:
-`io.concurrent` may return `error.ConcurrencyUnavailable`, and you must handle it.
+because the function is written once against `Io` and the *caller* chooses the execution model,
+which every backend test (`std.testing.io` today, an io_uring ring tomorrow) depends on.
 
 **Check:** `io.userdata`, `io.vtable`, `@TypeOf(io)`, or `builtin.single_threaded` read anywhere
 inside a function that also performs I/O; and any `if`/`switch` selecting between two
@@ -1183,12 +1180,13 @@ implementations of the same operation on that basis. The one legal backend-depen
 
 ### ZS-CONC-32 [S] Use raw `std.Thread` only for dedicated, long-lived OS threads
 `std.Thread.spawn`/`join`/`detach`/`getCpuCount`/`yield`/`setName` are unchanged and still correct.
+Use them for a thread that must own a resource for the process lifetime — a signal-handling thread,
+a real-time audio callback thread, a thread pinned to a core. When you do use `std.Thread`,
+synchronize with `std.atomic.Value` or an `Io` primitive; there is nothing else left.
 
-**Why:** `Io` tasks are units of work with a scheduler behind them. A thread that must own a
-resource for the process lifetime — a signal-handling thread, a real-time audio callback thread, a
-thread pinned to a core — is not a unit of work and gains nothing from `Io`. Everything else should
-be `io.async`/`Group`, so it stays substitutable. When you do use `std.Thread`, synchronize with
-`std.atomic.Value` or an `Io` primitive; there is nothing else left.
+**Why:** `Io` tasks are units of work with a scheduler behind them. A thread that owns a resource
+for the process lifetime is not a unit of work and gains nothing from `Io`; everything else should
+be `io.async`/`Group`, so it stays substitutable.
 
 **Check:** a `std.Thread.spawn` whose `join` is in the same function — that is a unit of work, so it
 is `io.async`. A legitimate use spawns once during startup and either `detach`es or joins during
@@ -1338,11 +1336,9 @@ followed literally — any `io.*` call is a suspension point. The 0.17 form of t
 shared state only in a region where you hold exclusive access, and re-establish the assertion after
 every `io.*` call.
 
-**Why:** TigerStyle was written for TigerBeetle, which pins Zig 0.14.1 and has no `std.Io`; its
-"no suspend" rule is a 0.14-era workaround for the absence of an I/O interface, not a law. The
-mechanism is unchanged, though: between `try a.lock.lock(io)` and its return, other tasks in the
-same `Io` run and mutate `a`. An assertion written before the lock documents a fact that is false by
-the time the code below it executes — worse than no assertion, because it reads as a guarantee.
+**Why:** between `try a.lock.lock(io)` and its return, other tasks in the same `Io` run and mutate
+`a`, so an assertion written before the lock documents a fact that is false by the time the code
+after it executes — worse than no assertion, because it reads as a guarantee.
 
 **`[M!]` trigger:** a stale invariant corrupts data rather than merely misbehaving — ledgers,
 replicated or persisted state, allocators, anything where the wrong number becomes durable.
@@ -1395,10 +1391,6 @@ machine that exists only to remember where to resume. Do not write those. `io.as
 returns a `Future` and `f.await(io)` resumes in the caller's own lexical scope, so there is no
 completion to name and nothing to position.
 
-**Why:** that pattern exists because 0.14 had no I/O interface, so TigerBeetle hand-rolled a
-callback-threaded event loop (its `main` still pins 0.14.1). The interface is the replacement, and
-it removes the naming problem rather than solving it.
-
 TigerStyle's *other* callback rule — "callbacks go last in the parameter list" — survives, because
 std does exactly the same thing for function values passed as data, in
 `std/sort.zig` and `std/mem.zig` at 0.17.0: `insertion`, `heap`, `pdq`, `block`, `binarySearch`,
@@ -1419,6 +1411,10 @@ So for a comparator, a visitor, or a predicate, put the function value last and 
 explicit `context` immediately before it. `references/naming.md` ZS-NAME-12 owns that slot
 order in full.
 
+**Why:** callback-driven I/O exists because 0.14 had no I/O interface, so TigerBeetle hand-rolled a
+callback-threaded event loop (its `main` still pins 0.14.1). The interface is the replacement, and
+it removes the naming problem rather than solving it.
+
 **Check:** in a diff, a `*_callback` parameter or field, an `on_*` completion field, or a function
 split into `doThing` / `doThingCallback` — all should be `io.async` + `await`. A function value in a
 non-final parameter slot is the separate, milder ZS-NAME-12 finding.
@@ -1431,10 +1427,9 @@ Reader buffers, writer buffers, `Io.Queue` storage, `Io.Select` storage, `Io.Bat
 `Io.Group` fan-out width are all caller-provided fixed arrays. Size each from a `const` with a name
 and a comment, not from a literal at the call site.
 
-**Why:** these arrays are the enforcement points for TigerStyle's fixed-upper-bound rule — the API
-already refuses to allocate on your behalf, so the only question is whether the bound is documented
-or accidental. A named constant also lets an assertion state the relationship
-(`assert(out.len <= futures.len)`) instead of leaving it implicit.
+**Why:** these arrays enforce TigerStyle's fixed-upper-bound rule; the API already refuses to
+allocate on your behalf, so the only question is whether the bound is documented or accidental. A
+name also lets an assertion state the relationship (`assert(out.len <= futures.len)`).
 
 **`[M!]` trigger:** the system must not OOM, or must have a provable worst-case footprint —
 embedded and freestanding targets, databases, consensus, anything sized against a fixed memory
@@ -1487,16 +1482,18 @@ receiver, `Io.Limit` on reads, `error.Canceled` never swallowed, buffers sized d
 every connection. `address.listen(io, options) -> Server` for connection-oriented work,
 `address.bind(io, options) -> Socket` for datagrams, `address.connect(io, options) -> Stream` for a
 client. Note the parameter order: the address is the receiver, `io` comes immediately after it
-(ZS-CONC-02).
+(ZS-CONC-02). There is no free `net.listen(io, "127.0.0.1", 8080)`.
 
-**Why:** there is no free `net.listen(io, "127.0.0.1", 8080)`. Routing everything through a parsed
-`IpAddress` means the parse failure and the connect failure are separate error sets at separate call
-sites, instead of one function that can fail for either reason. Two constructors, and the difference
-matters: `IpAddress.parse(text, port)` is **pure** and cannot handle an IPv6 scope;
-`IpAddress.resolve(io, text, port)` takes an `Io` precisely because `fe80::1%eno1` needs a syscall
-to turn `eno1` into an interface index. `parseLiteral(text)` handles the combined `addr:port` /
-`[v6addr]:port` spellings. For a DNS name, use `net.HostName.connect(host, io, port, options)`,
-which is a Happy-Eyeballs racer built on `io.async` + `Io.Queue` — do not hand-roll one.
+Two constructors, and the difference matters: `IpAddress.parse(text, port)` is **pure** and cannot
+handle an IPv6 scope; `IpAddress.resolve(io, text, port)` takes an `Io` precisely because
+`fe80::1%eno1` needs a syscall to turn `eno1` into an interface index. `parseLiteral(text)` handles
+the combined `addr:port` / `[v6addr]:port` spellings. For a DNS name, use
+`net.HostName.connect(host, io, port, options)`, which is a Happy-Eyeballs racer built on
+`io.async` + `Io.Queue` — do not hand-roll one.
+
+**Why:** routing everything through a parsed `IpAddress` means the parse failure and the connect
+failure are separate error sets at separate call sites, instead of one function that can fail for
+either reason.
 
 **Check:** `std.net` anywhere; `IpAddress.parse` on a string that may carry a `%scope`;
 `ConnectOptions` left at `.timeout = .none` on an outbound connection to an untrusted host.
@@ -1520,13 +1517,13 @@ datagram socket and a stream socket are not interchangeable and std refuses to g
 `net.Stream.Writer`, each with an `interface` field and an `err` field. Everything in the
 buffer-then-flush section applies unchanged: flush before the stream dies (ZS-CONC-05), take
 `*Io.Writer` in reusable code (ZS-CONC-08), recover the concrete error from `.err` (ZS-CONC-10).
+This is also where ZS-CONC-27 bites hardest — every socket read and write is a cancellation point,
+so a `catch {}` around one converts a shutdown request into a task that blocks forever on a peer
+that will never send.
 
 **Why:** the peer chooses how many bytes arrive and when, which makes a socket the canonical
-untrusted input boundary of ZS-CONC-15: `.unlimited` on `allocRemaining` over a socket is an
-attacker-controlled allocation, and an unsized reader buffer is an attacker-controlled maximum
-message length (ZS-CONC-12). This is also where ZS-CONC-27 bites hardest — every socket read and
-write is a cancellation point, so a `catch {}` around one converts a shutdown request into a task
-that blocks forever on a peer that will never send.
+untrusted input boundary of ZS-CONC-15: `.unlimited` there is an attacker-controlled allocation, and
+an unsized reader buffer an attacker-controlled maximum message length (ZS-CONC-12).
 
 **Check:** `.unlimited` passed to any read over a `net.Stream`; a socket reader buffer sized by a
 bare literal; a missing `flush` before `stream.close(io)`.
@@ -1577,14 +1574,13 @@ zero-copy argument does not yet apply to sockets.
 ### ZS-CONC-42 [M] Close every socket on every path; `shutdown` is how you unblock a blocked peer
 `stream.close(io)`, `socket.close(io)`, and `server.deinit(io)` each take the `Io`, exactly like
 `file.close(io)` — pair each with a `defer` on the acquisition line (ZS-MEM-11). To wake a task
-parked in `accept` or a read, call `stream.shutdown(io, .recv/.send/.both)` from another task.
+parked in `accept` or a read, call `stream.shutdown(io, .recv/.send/.both)` from another task. That
+is documented behavior, not a trick: `Server.accept`'s `error.SocketNotListening` carries the
+comment "This allows `shutdown` to be used as a concurrent cancellation mechanism."
 
-**Why:** a socket is a file descriptor, so a leak exhausts the same per-process quota as a leaked
-file and surfaces as `error.ProcessFdQuotaExceeded` on an unrelated open far from the leak. The
-`shutdown` half is documented behavior, not a trick: `Server.accept`'s `error.SocketNotListening`
-carries the comment "This allows `shutdown` to be used as a concurrent cancellation mechanism."
-Under a graceful-shutdown path that is how you get an accept loop to return so its `Group` can be
-awaited rather than abandoned (ZS-CONC-24).
+**Why:** a socket is a file descriptor, so a leaked one fails like a leaked `Dir` (ZS-CONC-22). On a
+graceful-shutdown path, `shutdown` is how an accept loop returns so its `Group` can be awaited
+rather than abandoned (ZS-CONC-24).
 
 **Check:** an `accept`/`connect`/`createPair` result whose next line is not a `defer …close(io)`; an
 accept loop with no way to be woken.
@@ -1623,12 +1619,14 @@ found — `.detect` (the default), `.search` on `PATH`, `.path` relative to a `D
 0.17: write `.exe = .{ .path = dir }`. Note the ordering rule holds: `run` is a free function so
 `gpa` precedes `io` (ZS-CONC-02).
 
-**Why:** `run` is `spawn` with `.stdin = .ignore, .stdout = .pipe, .stderr = .pipe` plus an
-`Io.File.MultiReader` that drains both pipes concurrently. Draining concurrently is the whole point:
-a child that fills the stderr pipe blocks forever while you read stdout, and hand-rolling `spawn`
-plus two sequential reads reintroduces exactly that deadlock. Use `spawn` only when you need the
-output *incrementally* — a build tool relaying a compiler's diagnostics as they appear — or need a
-`StdIo` shape `run` does not offer.
+`run` is `spawn` with `.stdin = .ignore, .stdout = .pipe, .stderr = .pipe` plus an
+`Io.File.MultiReader` that drains both pipes concurrently. Use `spawn` only when you need the output
+*incrementally* — a build tool relaying a compiler's diagnostics as they appear — or need a `StdIo`
+shape `run` does not offer.
+
+**Why:** draining concurrently is the whole point: a child that fills the stderr pipe blocks forever
+while you read stdout, and hand-rolling `spawn` plus two sequential reads reintroduces exactly that
+deadlock.
 
 **Check:** `stdout_limit`/`stderr_limit` left at their `.unlimited` default on a child whose output
 is not bounded by construction (ZS-CONC-15); `run`'s `result.stdout`/`result.stderr` without a
@@ -1657,14 +1655,13 @@ test "process.run collects stdout with an explicit limit" {
 ### ZS-CONC-44 [M] `child.wait(io)` closes the pipes; never close `child.stdout`/`stderr` yourself
 `Child` exposes `stdin`, `stdout`, `stderr` as `?File`, populated for each stream you set to
 `.pipe`. Read them through a normal `File.Reader`, then call `wait`. `wait` reaps the process
-**and** closes every pipe it opened.
+**and** closes every pipe it opened. Pair the spawn with `errdefer child.kill(io)` so an error
+between spawn and `wait` does not leave an orphan, and let `wait` be the single release point on the
+success path.
 
-**Why:** closing the child's `stdout` before `wait` panics inside `wait`'s own cleanup:
-`std.Io.Threaded.closeFd` maps `.BADF => recoverableOsBugDetected()`, which is
-`reached unreachable code` in a `debug` build.
-It is a double close, and the ownership is not obvious from the type: `?File` looks like a handle
-you own. Pair the spawn with `errdefer child.kill(io)` so an error between spawn and `wait` does not
-leave an orphan, and let `wait` be the single release point on the success path.
+**Why:** `?File` looks like a handle you own, but closing it before `wait` is a double close that
+panics in `wait`'s cleanup: `std.Io.Threaded.closeFd` maps `.BADF => recoverableOsBugDetected()`,
+which is `reached unreachable code` in a `debug` build.
 
 **Check:** any `close(` reached through `child.stdout` or `child.stderr`; a `spawn` with no
 `errdefer child.kill(io)`; a `spawn` whose `wait` is skipped on an error path (a zombie plus a
@@ -1708,17 +1705,18 @@ a program that both feeds and drains a child needs the two directions on separat
 ### ZS-CONC-45 [S] Decide color with `Io.Terminal`, not with your own `isatty` check
 `Io.Terminal` is `{ writer: *Io.Writer, mode: Mode }`. Build the mode with
 `Io.Terminal.Mode.detect(io, file, NO_COLOR, CLICOLOR_FORCE)` — the two `bool`s are "the environment
-variable is present and non-empty" — and emit with `t.setColor(color)`.
-
-**Why:** it is the 0.16 replacement for the removed `std.io.tty` / `tty.detectConfig`, and it folds
-four separate decisions into one call: is the handle a terminal, can ANSI escapes be *enabled* on it
-(it calls `file.enableAnsiEscapeCodes`, which on Windows mutates console mode), does the user's
-`NO_COLOR` forbid color, does `CLICOLOR_FORCE` demand it anyway. Hand-rolling that gets the Windows
-console path and the `NO_COLOR` convention wrong. `Mode` is `union(enum) { no_color, escape_codes,
-windows_api }`, so `.no_color` makes `setColor` a no-op and the same code path serves a pipe.
+variable is present and non-empty" — and emit with `t.setColor(color)`. It is the 0.16 replacement
+for the removed `std.io.tty` / `tty.detectConfig`. `detect` calls `file.enableAnsiEscapeCodes`,
+which on Windows mutates console mode. `Mode` is
+`union(enum) { no_color, escape_codes, windows_api }`, so `.no_color` makes `setColor` a no-op and
+the same code path serves a pipe.
 
 Deviate only if you are emitting a format whose color is part of the data rather than a presentation
 choice — say so in a comment.
+
+**Why:** `detect` folds four decisions into one call — is the handle a terminal, can ANSI escapes be
+*enabled* on it, does the user's `NO_COLOR` forbid color, does `CLICOLOR_FORCE` demand it anyway —
+and hand-rolling them gets the Windows console path and the `NO_COLOR` convention wrong.
 
 **Check:** any `isatty`, `std.io.tty`, or hard-coded `"\x1b[31m"` in a diff; reading `NO_COLOR`
 without also honoring `CLICOLOR_FORCE`.
@@ -1741,18 +1739,19 @@ test "terminal mode detection and color" {
 ### ZS-CONC-46 [S] Report long work through `std.Progress`, and pass the node to children
 `std.Progress.start(io, .{ .root_name = "…" })` returns the root `Node`; `node.start(name, total)`
 opens a child, `completeOne`/`setCompletedItems`/`setEstimatedTotalItems` update it, `node.end()`
-closes it. `Node.none` is the do-nothing node, so progress-aware code needs no `?Node`.
-
-**Why:** it is why ZS-CONC-11 exists — `Progress` takes the same stderr lock as `std.log` and the
-panic handler, so it is the *reason* ad-hoc stderr writes corrupt output, and the thing you should
-be using instead of printing "processing 5/100" yourself. It also crosses process boundaries: both
-`SpawnOptions` and `RunOptions` carry a `progress_node`, and std wires a pipe through the
-`ZIG_PROGRESS` environment variable so the child's tree grafts into the parent's. A build tool that
-does not pass its node makes every subprocess a black box in the display.
+closes it. `Node.none` is the do-nothing node, so progress-aware code needs no `?Node`. Progress
+crosses process boundaries: both `SpawnOptions` and `RunOptions` carry a `progress_node`, and std
+wires a pipe through the `ZIG_PROGRESS` environment variable so the child's tree grafts into the
+parent's. A build tool that does not pass its node makes every subprocess a black box in the
+display.
 
 Deviate for a program with no interactive lifetime — a filter in a pipeline. `start` asserts it is
 called once per process, so a library never calls it; a library takes a `Node` parameter and
 defaults it to `.none`.
+
+**Why:** it is why ZS-CONC-11 exists — `Progress` takes the same stderr lock as `std.log` and the
+panic handler, so it is the *reason* ad-hoc stderr writes corrupt output, and the thing to use
+instead of printing "processing 5/100" yourself.
 
 **Check:** a `std.process.spawn`/`run` inside a progress-reporting tool with no `progress_node`; a
 manual "N/M" counter printed to stderr; `std.Progress.start` in library code.
@@ -1788,16 +1787,15 @@ Four levels, cheapest first. `Io.Dir.Reader` — you supply a `[Reader.min_buffe
 `usize` and batch entries with `read(io, &entries)`; no allocation. `dir.iterate()` — the ~2 KiB
 self-buffering `Iterator` of ZS-CONC-22, one entry at a time. `dir.walkSelectively(gpa)` —
 recursive, but *you* call `walker.enter(io, entry)` for each directory you want to descend into.
-`dir.walk(gpa)` — recursive and descends unconditionally.
+`dir.walk(gpa)` — recursive and descends unconditionally. Choose `walkSelectively` whenever any
+subtree can be excluded; choose `Dir.Reader` when the traversal is hot enough that the `Iterator`'s
+one-entry-per-call round trip shows up, or when you cannot allocate at all. Both walkers hand back
+`Entry.path`/`basename` that are invalidated by the next `next` — copy before you keep one, exactly
+as with reader slices (ZS-CONC-14).
 
-**Why:** `walk` is `walkSelectively` with an automatic `enter` on every directory
-(`std.Io.Dir.walk`, whose `Walker.next` calls `enter` on each entry), which means it has no way to
-skip `.git`, `node_modules`, or a bind mount that loops. Reaching for
-`walk` and then filtering the entries it returns still paid for the whole subtree. Choose
-`walkSelectively` whenever any subtree can be excluded; choose `Dir.Reader` when the traversal is
-hot enough that the `Iterator`'s one-entry-per-call round trip shows up, or when you cannot allocate
-at all. Both walkers hand back `Entry.path`/`basename` that are invalidated by the next `next` —
-copy before you keep one, exactly as with reader slices (ZS-CONC-14).
+**Why:** `walk` is `walkSelectively` with an automatic `enter` on every directory (its `Walker.next`
+calls `enter` on each entry), so it cannot skip `.git`, `node_modules`, or a looping bind mount, and
+filtering what it returns has already paid for the whole subtree.
 
 **Check:** `dir.walk(` followed by a `continue`/`if` that skips a directory subtree — that is
 `walkSelectively`. Also any `Entry.path` stored past the loop body without a `dupe`.
@@ -1855,13 +1853,14 @@ inode. Note the shape shared by all three: the two path arguments straddle the d
 `io` comes **last**, before the options — this is the one family in `Io.Dir` that breaks the
 receiver-then-`io` rule of ZS-CONC-02, and getting it wrong is a compile error, not a bug.
 
+`hardLink` is the primitive behind content-addressed caches and atomic publication — link the new
+name, then `rename` over the old one — and unlike a copy it cannot half-succeed. For an in-place
+replacement of an existing file, ZS-CONC-23's `createFileAtomic` + `replace` remains the answer;
+these are for the naming operations around it.
+
 **Why:** "create this file only if it does not exist" and "create this file" are different programs,
 and doing the check yourself (`if (exists) return error.X;` then rename) is a TOCTOU window that
-another process wins. `renamePreserve` pushes the check into the same syscall. `hardLink` is the
-primitive behind content-addressed caches and atomic publication — link the new name, then
-`rename` over the old one — and unlike a copy it cannot half-succeed. For an in-place replacement of
-an existing file, ZS-CONC-23's `createFileAtomic` + `replace` remains the answer; these are for the
-naming operations around it.
+another process wins. `renamePreserve` pushes the check into the same syscall.
 
 **Check:** a `dir.rename` whose surrounding code first tests for existence; a copy loop used only to
 duplicate a name within one filesystem.

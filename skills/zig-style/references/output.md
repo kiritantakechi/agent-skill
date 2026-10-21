@@ -92,13 +92,12 @@ one-sided — over-specifying is safe, under-specifying is silent.
 ### ZS-OUT-02 [M] Write the `format` signature exactly: value, writer, `Writer.Error!void`
 `pub fn format(value: T, w: *std.Io.Writer) std.Io.Writer.Error!void`. There is no format-string
 parameter and no options parameter any more, and the writer is the concrete `*Io.Writer`, not
-`anytype`.
-
-**Why:** `std.Io.Writer.printValue` dispatches `{f}` as literally `value.format(w)`. A
-0.14-era four-parameter `format` therefore fails with
+`anytype`. A 0.14-era four-parameter `format` fails with
 `error: member function expected 3 argument(s), found 1` — a clear error, but only if you reach it.
-Dropping the format string is what makes the method non-generic: it can no longer branch on the
-caller's specifier, which is why a second rendering needs `std.fmt.alt` (ZS-OUT-03) instead.
+
+**Why:** `std.Io.Writer.printValue` dispatches `{f}` as literally `value.format(w)`. Dropping the
+format string is what makes the method non-generic: it can no longer branch on the caller's
+specifier, which is why a second rendering needs `std.fmt.alt` (ZS-OUT-03) instead.
 
 **Check:** any `pub fn format(` with more than two parameters, with a `comptime fmt` or `options`
 parameter, with `w: anytype` rather than `w: *Writer`, or with an inferred `!void` return in place
@@ -146,12 +145,12 @@ number and should honour base, width, and precision.
 
 ### ZS-OUT-03 [S] Express a second rendering with `std.fmt.alt`, not a second `format` method
 `std.fmt.alt(value, .method_name)` wraps a value so that `{f}` dispatches to `method_name` instead
-of `format`. It replaced `std.fmt.Formatter`.
+of `format`. It replaced `std.fmt.Formatter`. Deviate when a rendering is elaborate enough to
+deserve a named function the caller invokes directly.
 
 **Why:** `format` takes no specifier, so one type gets one default rendering and there is nowhere to
 hang a "short" or "verbose" variant. `alt` puts the choice at the call site where it is visible,
-rather than encoding it in a wrapper struct the reader has to go look up. Deviate when a rendering
-is elaborate enough to deserve a named function the caller invokes directly.
+rather than encoding it in a wrapper struct the reader has to go look up.
 
 **Check:** a wrapper struct whose only member is a `format` method over one borrowed field — that is
 a hand-rolled `Alt`. Also a `format` method that reads a mode/verbosity field of its own value to
@@ -188,11 +187,6 @@ test "alt selects a second rendering" {
 ### ZS-OUT-04 [M] Choose the specifier deliberately; this is the complete 0.17 set
 The placeholder grammar is `{[argument][specifier]:[fill][alignment][width].[precision]}`.
 
-**Why:** the set changed in 0.15/0.16 — `{f}` and `{t}` are new, `{D}` is gone, and several
-specifiers that used to be optional are now mandatory (a slice, an optional, or an error union with
-a bare `{}` is a compile error) — and 0.17 adds `{q}` and `{qf}`. Guessing produces either a
-compile error you will fix by guessing again, or the wrong output.
-
 | Spec | Correct for | Renders |
 |---|---|---|
 | `{s}` | `[]const u8`, `[N]u8`, `[*:0]const u8` | the bytes as text — the only way to print a string |
@@ -217,6 +211,10 @@ compile error you will fix by guessing again, or the wrong output.
 comment on `Io.Writer.print`: `{D}` on a `u64` is `error: invalid format string 'D' for type
 'u64'`. Durations now carry their own `format` method, so a `std.Io.Duration` prints with `{f}`:
 `Io.Duration.fromMilliseconds(1500)` renders `1.5s`.
+
+**Why:** the set changed in 0.15/0.16 — `{f}` and `{t}` are new, `{D}` is gone, and several
+specifiers that used to be optional are now mandatory — and 0.17 adds `{q}` and `{qf}`. Guessing
+produces either a compile error you will fix by guessing again, or the wrong output.
 
 **Check:** `{D}` anywhere in the diff, `{e}`/`{E}` over an integer argument, `{c}` over an argument
 wider than 8 bits, `{u}` over one wider than 21 bits, and a bare `{}` over a slice, optional, error
@@ -248,13 +246,13 @@ slices (`{s}`, `{x}`, `{b64}`, or `{any}`), optionals (`{?}` or `{any}`), error 
 
 ### ZS-OUT-05 [M] Print an enum, union tag, or error name with `{t}`
 `{t}` yields `@tagName` for enums, enum literals, and tagged unions, and `@errorName` for error
-sets. `{}` on the same values yields Zig *syntax* — `.warn`, `error.FileNotFound`.
+sets. `{}` on the same values yields Zig *syntax* — `.warn`, `error.FileNotFound`. `{d}` on an enum
+prints the tag's integer value, not its name — three different renderings of the same value, only
+one of which is usually what you want.
 
-**Why:** the two are for different audiences. `{t}` is the name you put in a log line, a wire
-protocol, a JSON field, or a user-facing message; `{}` is a debug dump that happens to be
-paste-able Zig. Silently shipping `.warn` where you meant `warn` breaks every consumer that parses
-the field. Note also that `{d}` on an enum prints the tag's integer value, not its name — three
-different renderings of the same value, only one of which is usually what you want.
+**Why:** the two are for different audiences: `{t}` is the name for a log line, a wire protocol, a
+JSON field, or a user-facing message; `{}` is a debug dump that happens to be paste-able Zig, so
+shipping `.warn` where you meant `warn` breaks every consumer that parses the field.
 
 **Check:** a `{}` or `{d}` whose argument is an enum, tagged union, or error value inside a log
 line, a serialized field, or a user-facing message. Also `@tagName(` or `@errorName(` used solely to
@@ -307,13 +305,13 @@ without propagating it, which destroys the error return trace
 (`references/errors.md` ZS-ERR-17). Handle the error, then format the outcome.
 
 ### ZS-OUT-07 [S] Treat `{any}` as a debugging dump — never as an output format
-`{any}` prints the compiler's structural rendering and stops at `std.options.fmt_max_depth`
-(default 3), replacing anything deeper with `.{ ... }`.
+`{any}` prints the compiler's structural rendering and stops at `std.options.fmt_max_depth` (default
+3), replacing anything deeper with `.{ ... }`. Deviate freely inside `log.debug` and while bisecting
+a bug.
 
 **Why:** the output is silently *truncated* rather than wrong-but-complete, and its exact shape is a
 compiler implementation detail that has already changed twice. Anything a machine will read, a user
-will see, or a test will compare needs a `format` method and `{f}`. Deviate freely inside
-`log.debug` and while bisecting a bug.
+will see, or a test will compare needs a `format` method and `{f}`.
 
 **Check:** `{any}` in a format string that is not the argument of `log.debug` — specifically inside
 `expectFmt`, a writer that reaches a file or socket, or any string later parsed.
@@ -334,12 +332,11 @@ test "{any} is depth limited" {
 
 ### ZS-OUT-08 [S] `{*}` prints an address; keep addresses out of anything compared or persisted
 `{*}` renders `Child@hexaddress`. A single-item pointer to a non-container type renders the same way
-under a bare `{}`.
+under a bare `{}`. Deviate when identity is exactly what you are debugging — a use-after-free, an
+aliasing question, a vtable mix-up — and say so in the message.
 
 **Why:** addresses vary per run under ASLR, so a golden test containing one is flaky by
 construction, and a log line containing one is meaningless to anyone without the same process image.
-Deviate when identity is exactly what you are debugging — a use-after-free, an aliasing question, a
-vtable mix-up — and say so in the message.
 
 **Check:** `{*}` in an `expectFmt` or golden-file comparison, in a `format` method, or in anything
 written to disk or a wire. Also a bare `{}` whose argument is a `*T` where `T` is not a container,
@@ -360,8 +357,7 @@ Unicode-aware; appropriate only when used with raw bytes or ASCII."
 
 **Why:** any column layout built with `{s:<N}` over user-supplied text misaligns the moment a
 non-ASCII byte appears, and it misaligns *more* for scripts with wide glyphs, where even a codepoint
-count would be wrong: `"héllo"` is five codepoints but six bytes, so `{s:>6}` pads it by
-zero.
+count would be wrong.
 
 **Check:** a `{s:` carrying a width or fill whose argument can originate outside the program — a
 filename, a username, a record field, a translated message. A width over a hex digest, an
@@ -386,13 +382,13 @@ Reserve `{s:<N}` for text you know is ASCII — hex digests, identifiers, enum n
 `fill`, `alignment`, and `width` apply to numbers and to string-like renderings (`{s}`, `{t}`,
 bools). `precision` applies to floats. Applying width to a value that renders through the "options
 forbidden" path — a bare `{}` on an enum or an error set, `{x}` on a slice, `{b64}` — trips
-`assert(options.width == null)` at **runtime**.
+`assert(options.width == null)` at **runtime**. The assertion lives in `optionsForbidden`, a private
+helper in `std/Io/Writer.zig`. The fix is always to name the rendering you want: `{t:>8}`, not
+`{:>8}`.
 
-**Why:** the check is an assertion inside `optionsForbidden`, a private helper in
-`std/Io/Writer.zig`, not a `@compileError`, so `"{:>8}"` on an enum builds cleanly and then panics
-with `reached unreachable code` in `debug` and `safe` — or, in `fast`, silently proceeds with a
-violated invariant (see ZS-CORE-10). The
-fix is always to name the rendering you want: `{t:>8}`, not `{:>8}`.
+**Why:** the check is an assertion, not a `@compileError`, so `"{:>8}"` on an enum builds cleanly
+and then panics with `reached unreachable code` in `debug` and `safe` — or, in `fast`, silently
+proceeds with a violated invariant (see ZS-CORE-10).
 
 **Check:** a placeholder whose specifier is empty but which carries a `:` — the literal patterns
 `{:` and `{[`…`]:` with no specifier letter — and a width on `{x}`/`{X}`/`{b64}` over a slice. These
@@ -484,14 +480,14 @@ constant, format into a fixed array with `std.mem.print`. Reach for `Allocator.p
 only when the length genuinely depends on unbounded runtime data. (0.17 renamed both: `bufPrint`
 and `allocPrint` are deprecated aliases of these two.)
 
+`[M!]` applies where an unbounded or failing allocation is unacceptable: embedded and firmware,
+databases and other must-not-OOM services, crypto, and any formatter reachable from untrusted input.
+*Relaxed form* elsewhere: `gpa.print` is fine for one-shot, human-facing strings; keep
+`std.mem.print` for anything on a hot path or inside a loop.
+
 **Why:** this is the bounded-limits principle (`references/assertions.md` ZS-ASSERT-24 and
-ZS-ASSERT-26) applied to formatting. A derived bound removes an allocation, an error path, a `defer
-gpa.free`, and one way to leak — and it forces you to *state* the maximum length of the thing you
-are printing, which is exactly the fact a reviewer needs. `[M!]` applies where an unbounded or
-failing allocation is unacceptable: embedded and firmware, databases and other must-not-OOM
-services, crypto, and any formatter reachable from untrusted input. *Relaxed form* elsewhere:
-`gpa.print` is fine for one-shot, human-facing strings; keep `std.mem.print` for anything on a hot
-path or inside a loop.
+ZS-ASSERT-26) applied to formatting. A derived bound removes an allocation, an error path, a
+`defer gpa.free` and one way to leak, and it *states* the maximum length a reviewer needs.
 
 **Check:** an `Allocator.print`/`printSentinel` call (`gpa.print(`), or the deprecated
 `allocPrint`/`allocPrintSentinel`, whose format string contains only fixed-width integer, float,
@@ -526,12 +522,12 @@ maps it back to `error.OutOfMemory` for you (`references/concurrency.md` ZS-CONC
 
 ### ZS-OUT-13 [S] Use `comptimePrint` for compile-time strings and `count` for exact sizing
 `comptimePrint(fmt, args)` returns a `*const [N:0]u8` whose length is comptime-known;
-`count(fmt, args)` returns the byte length a `print` would produce, without writing it.
+`count(fmt, args)` returns the byte length a `print` would produce, without writing it. Deviate when
+the string is only used once at runtime; a comptime string costs binary size.
 
-**Why:** `comptimePrint` moves the formatting to compile time and gives you a string literal whose
-length participates in later comptime arithmetic — array sizes, `@compileError` messages, generated
-identifiers. `count` is how you size a buffer for a rendering whose bound is not obvious from the
-types. Deviate when the string is only used once at runtime; a comptime string costs binary size.
+**Why:** `comptimePrint` moves the formatting to compile time, and its result's length participates
+in later comptime arithmetic — array sizes, `@compileError` messages, generated identifiers. `count`
+is how you size a buffer for a rendering whose bound is not obvious from the types.
 
 **Check:** a `std.mem.print` (or deprecated `bufPrint`) into an array whose length is a bare
 numeric literal rather than a named constant derived by `comptimePrint`, `count`, or arithmetic
@@ -556,12 +552,12 @@ To count bytes produced by a *runtime* stream rather than a format call, use
 ### ZS-OUT-14 [M] Parse with `parseInt`/`parseFloat` and handle both failure modes by name
 `std.fmt.parseInt(T, text, base)` fails with `error.InvalidCharacter` or `error.Overflow`;
 `parseFloat(T, text)` fails with `error.InvalidCharacter`. Base `0` infers from a `0x`/`0o`/`0b`
-prefix.
+prefix. This is the canonical boundary check from ZS-CORE-08: text arriving from outside the process
+is validated with an error, never an assertion.
 
 **Why:** the two integer errors need different messages — one means "that is not a number", the
 other means "that number is too big for this field" — and collapsing them into a single "bad input"
-loses the only actionable half of the diagnostic. This is also the canonical boundary check from
-ZS-CORE-08: text arriving from outside the process is validated with an error, never an assertion.
+loses the only actionable half of the diagnostic.
 
 **Check:** a `parseInt` whose failure is handled by one `catch` arm, a `catch unreachable`, or a
 message that names neither `InvalidCharacter` nor `Overflow`. Also a `parseInt(u64, …)` or
@@ -592,13 +588,14 @@ For any rendering that will be written to disk, sent over a wire, or read back b
 write a test that formats a value and parses it back, and assert equality over a set of values that
 includes the extremes.
 
-**Why:** this is `references/assertions.md` ZS-ASSERT-18 — check a property on both code
-paths — applied to serialization, and it is the cheapest possible defence against the ZS-OUT-01
-failure mode: a `{}` that should have been `{f}` changes the output, and the round-trip test is what
-notices. `[M!]` applies to formats you cannot change later: on-disk records, wire protocols, log
-formats consumed by tooling, anything with a version number. *Relaxed form* for human-facing output:
-assert the exact expected string with `std.testing.expectFmt` for at least the boundary values,
-which catches the same class of regression without requiring a parser.
+`[M!]` applies to formats you cannot change later: on-disk records, wire protocols, log formats
+consumed by tooling, anything with a version number. *Relaxed form* for human-facing output: assert
+the exact expected string with `std.testing.expectFmt` for at least the boundary values, which
+catches the same class of regression without requiring a parser.
+
+**Why:** this is `references/assertions.md` ZS-ASSERT-18 — check a property on both code paths —
+applied to serialization, and the cheapest defence against the ZS-OUT-01 failure mode: a `{}` that
+should have been `{f}` changes the output, and the round-trip test notices.
 
 **Check:** a type declaring both `format` and a `parse`/`decode`/`fromBytes` function, with no test
 whose body calls one on the output of the other. Also any diff that edits a `format` method of a
@@ -650,12 +647,12 @@ discipline again. A `std.testing.Smith` fuzz target over the same pair is the na
 ### ZS-OUT-16 [M] Program output goes to a buffered, flushed `*Io.Writer` — never `std.debug.print`
 Build the writer in `main` from `init.io`, pass `*Io.Writer` down, `flush()` on every success path.
 `std.debug.print` writes to **stderr**, unbuffered, one syscall per call, swallowing every error.
+The stream mechanics are stated in full at `references/concurrency.md` ZS-CONC-05 (flush or lose the
+bytes) and ZS-CONC-06 (`std.debug.print` bypasses the `Io` interface, cannot be redirected, and
+cannot be substituted in a test).
 
-**Why:** stated in full at `references/concurrency.md` ZS-CONC-05 (flush or lose the bytes) and
-ZS-CONC-06 (`std.debug.print` bypasses the `Io` interface, cannot be redirected, and cannot be
-substituted in a test). The formatting consequence is the one to remember here: a `std.debug.print`
-that "works" is writing your program's output to the wrong stream, so `prog > out.txt` produces an
-empty file and a terminal full of results.
+**Why:** a `std.debug.print` that "works" is writing your program's output to the wrong stream, so
+`prog > out.txt` produces an empty file and a terminal full of results.
 
 **Check:** `std.debug.print` anywhere outside a `// BAD` example, a scratch debugging commit, or an
 `errdefer` failure diagnostic inside a `test` block (which `references/testing.md`
@@ -744,12 +741,13 @@ Three mechanisms, one decision:
 Its body is `std.log.err(format, format_arguments); exit(1);` — so it honours the application's
 `logFn` and the same stderr lock, unlike a hand-rolled `stderr.print` + `exit`.
 
+On 0.17.0, the example's `fatal` printed `error: 'abc' is not a number` and exited 1 with stdout
+empty; returning `error.UnluckyCount` from `main` printed the error name *and* the `return` site
+with source lines.
+
 **Why:** a stack trace is a message to *you*; a sentence is a message to the *user*. A CLI that
 dumps an error return trace because someone typed a non-numeric port is unusable, and a service that
-swallows a corrupt-state error into a one-line message has thrown away the only record of where it
-came from. On 0.17.0, `fatal` printed `error: 'abc' is not a number` and exited 1
-with stdout empty; returning `error.UnluckyCount` from `main` printed the error name *and* the
-`return` site with source lines.
+swallows a corrupt-state error into one line has thrown away the only record of its origin.
 
 **Check:** a `main` that propagates a raw error out of argument parsing or environment lookup — the
 user gets a stack trace for a typo. Conversely, a `std.process.fatal` whose message describes an
@@ -795,14 +793,18 @@ logFn: fn (
 ) void = log.defaultLog,
 ```
 
-**Why:** three properties of that signature drive the rules. It receives **no `Io`**, so it cannot
-await, cannot do async I/O, and must not call anything that suspends — which is why the body below
-uses `std.debug.lockStderr` (the `Io`-bypassing variant) rather than `io.lockStderr`. Its first
-three parameters are `comptime`, so level, scope, and the format string cost nothing at runtime and
-can be concatenated into a prefix at compile time. And it is a single global function, so filtering
-by scope belongs in `std_options.log_scope_levels` (ZS-ERR-33), not in an `if` chain here. Deviate —
+Three properties of that signature drive the rules. It receives **no `Io`**, so it cannot await,
+cannot do async I/O, and must not call anything that suspends — which is why the body below uses
+`std.debug.lockStderr` (the `Io`-bypassing variant) rather than `io.lockStderr`. Its first three
+parameters are `comptime`, so level, scope, and the format string cost nothing at runtime and can be
+concatenated into a prefix at compile time. And it is a single global function, so filtering by
+scope belongs in `std_options.log_scope_levels` (ZS-ERR-33), not in an `if` chain here. Deviate —
 i.e. keep `defaultLog` — whenever stderr text is genuinely enough; a custom `logFn` is a piece of
 infrastructure to maintain.
+
+**Why:** the signature is all a custom logger gets: no `Io`, a `comptime` level, scope and format
+string, and one global function. Each of those properties decides part of what the body may and may
+not do.
 
 **Check:** inside a `logFn` body: a write to stderr not obtained from `std.debug.lockStderr`, a
 missing `defer std.debug.unlockStderr()`, any `io.` call or other operation that can suspend, a file
@@ -851,10 +853,9 @@ have an `Io`, use `io.lockStderr` instead (ZS-CONC-11).
 Each entry is checked against 0.17.0. GONE means a compile error; the deprecated aliases
 still build and are therefore silent staleness.
 
-**Why:** the rows that do not say GONE are the ones that do not fail the build. A `{}` on a
-formattable type, a deprecated `std.fmt` print function, and a `std.debug.print` carrying program
-output all compile, run, and exit 0 — so the only thing standing between them and production is
-this table and the review checklist in SKILL.md.
+**Why:** the rows not marked GONE do not fail the build: a `{}` on a formattable type, a deprecated
+`std.fmt` print function and a `std.debug.print` carrying program output all compile, run and exit
+0, so only this table and the SKILL.md review checklist stand between them and production.
 
 **Check:** grep the diff for every left-column entry below. The rows that compile — a `{}` on a
 formattable type, the deprecated `std.fmt` print functions (`bufPrint`, `bufPrintSentinel`,

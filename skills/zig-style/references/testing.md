@@ -61,14 +61,13 @@ directory, with their own `addTest` and their own build step (ZS-BUILD-20, ZS-BU
 their whole purpose is to exercise the published module surface rather than internals.
 
 Within the file, tests come last in the struct body (ZS-NAME-20). Prefer the decltest form
-(ZS-TEST-02); note that `test <name>` resolves file-scope declarations only (ZS-NAME-22).
+(ZS-TEST-02); note that `test <name>` resolves file-scope declarations only (ZS-NAME-22). `zig test`
+compiles the file plus everything it transitively `@import`s, so co-located tests are picked up with
+zero wiring.
 
 **Why:** a test in the same file can reach private declarations without widening their visibility,
-so you test the real internal invariants instead of inventing `pub` accessors for the test's
-benefit. It also means a file is self-contained: deleting the file deletes its tests, and a reviewer
-reading a function sees its contract immediately below it. `zig test` compiles the file plus
-everything it transitively `@import`s, so co-located tests are picked up with zero wiring. The
-mirror-tree layout loses all three properties at once and adds a second file to keep in sync.
+so it tests the real internal invariants instead of `pub` accessors invented for it. Deleting the
+file deletes its tests, and a reviewer sees each function's contract immediately below it.
 
 **Check:** a `tests/` directory whose files correspond one-to-one with `src/` files is the smell;
 a `tests/` directory whose files `@import("myproj")` by module name is correct.
@@ -95,13 +94,12 @@ test add {
 ### ZS-TEST-02 [M] Use the decltest form `test declName` when a test targets exactly one declaration
 Write `test add { ... }` — an identifier, not a string — when the test is about one function, type,
 or constant. Use a string name only when the test spans several declarations or describes a
-scenario.
+scenario. std uses the decltest form throughout (`test expectApproxEqAbs`, `test FailingAllocator`,
+`test baselineWeights`), and the runner reports it distinctly as `file.decltest.add` rather than
+`file.test.<name>`.
 
 **Why:** the decltest form is a compile-checked reference. Rename or delete `add` and the test stops
-compiling instead of silently drifting into a test named after a function that no longer exists. std
-uses this form throughout (`test expectApproxEqAbs`, `test FailingAllocator`, `test
-baselineWeights`), and the runner reports it distinctly as `file.decltest.add` rather than
-`file.test.<name>`.
+compiling instead of silently drifting into a test named after a function that no longer exists.
 
 ```zig
 // fragment — BAD
@@ -176,14 +174,16 @@ The surface at 0.17.0, `std.testing.allocator` and `std.testing.allocator_instan
   `.check_write_after_free = true`. Stack traces come from `SafeAllocator`'s default
   `stack_trace_frames`: 7 in a `debug` build that can unwind, and 0 otherwise.
 
-**Why:** `testing.allocator` reports the leaked address *with the stack trace of the allocation that
-leaked* (in a `debug` build; a `safe` test build prints `(empty stack trace)`), and makes the whole
-test command exit non-zero. Note the exact behavior: the individual test still prints `OK`, and the
-failure surfaces afterwards as `1 tests leaked memory` plus a non-zero exit — so leaks are caught by
-CI, not by eyeballing per-test output. The canary is why mixing it up with a default-constructed
-`SafeAllocator` panics (`foreign allocation from canary 0xc3a701ba`) instead of silently
-corrupting: the two instances are distinguishable at free time. An arena hides exactly the bug the
-suite exists to find, because every missing `free` is absorbed by `arena.deinit()`.
+In a `debug` build a leak is reported with the stack trace of the allocation that leaked; a `safe`
+test build prints `(empty stack trace)`. The individual test still prints `OK`, and the failure
+surfaces afterwards as `1 tests leaked memory` plus a non-zero exit — so leaks are caught by CI, not
+by eyeballing per-test output. The canary is why mixing `testing.allocator` up with a
+default-constructed `SafeAllocator` panics (`foreign allocation from canary 0xc3a701ba`) instead of
+silently corrupting: the two instances are distinguishable at free time.
+
+**Why:** `testing.allocator` reports each leaked address with the allocation's stack trace and makes
+the whole test command exit non-zero. An arena hides exactly the bug the suite exists to find,
+because every missing `free` is absorbed by `arena.deinit()`.
 
 **Check:** in a diff, any allocator named inside a `test` block other than `std.testing.allocator`,
 `std.testing.failing_allocator`, or a `FailingAllocator` wrapping one of them. `page_allocator` and
@@ -212,14 +212,15 @@ test "expectEqual: expected first, no @as wrapping needed" {
 ### ZS-TEST-06 [M] Call `expectEqual(expected, actual)` in that order, and drop the `@as` wrapper
 In 0.17 the signature is `pub inline fn expectEqual(expected: anytype, actual: anytype) !void` —
 both parameters are `anytype` and the common type comes from `@TypeOf(expected, actual)` peer
-resolution. Pass the bare literal.
+resolution. Pass the bare literal: peer resolution makes `@as(usize, 3)` redundant for literals,
+enum literals, and `null` — `expectEqual(3, len)`, `expectEqual(.red, pick(0))`, and
+`expectEqual(null, pick(9))` all compile. Peer resolution is not universal:
+`expectEqual(Color.a, some_u8)` is a hard compile error inside `std.testing.expectEqual`
+(`incompatible types: 'Color' and 'u8'`), and there you must convert explicitly rather than reach
+back for `@as` reflexively.
 
-**Why:** peer resolution makes `@as(usize, 3)` redundant for literals, enum literals, and `null` —
-`expectEqual(3, len)`, `expectEqual(.red, pick(0))`, and `expectEqual(null, pick(9))` all compile.
-Order still matters because the diagnostic prints `expected X, found Y`; swapping the arguments
-makes every failure message lie. Peer resolution is not universal: `expectEqual(Color.a, some_u8)`
-is a hard compile error inside `std.testing.expectEqual` (`incompatible types: 'Color' and 'u8'`),
-and there you must convert explicitly rather than reach back for `@as` reflexively.
+**Why:** the diagnostic prints `expected X, found Y`, so swapping the arguments makes every failure
+message lie.
 
 **Check:** an `expectEqual` whose *first* argument is a call, a field access, or a local and whose
 second is a literal — the arguments are swapped and every failure message will read backwards.
@@ -239,14 +240,14 @@ try std.testing.expectEqual(3, @as(usize, 3));
 ```
 
 ### ZS-TEST-07 [M] Never compare slice or string *contents* with `expectEqual`
-`expectEqual` on a slice compares `.ptr` and `.len`, not bytes. Use `expectEqualStrings` for
-`[]const u8` text, `expectEqualSlices(T, ...)` for other element types, or `expectEqualDeep` when
-you genuinely want structural equality through pointers.
+`expectEqual` on a slice compares `.ptr` and `.len`, not bytes: in `std.testing.expectEqual` the
+`.slice` branch does `if (actual.ptr != expected.ptr) return error.TestExpectedEqual;`. Use
+`expectEqualStrings` for `[]const u8` text, `expectEqualSlices(T, ...)` for other element types, or
+`expectEqualDeep` when you genuinely want structural equality through pointers.
 
-**Why:** in `std.testing.expectEqual` the `.slice` branch does `if (actual.ptr !=
-expected.ptr) return error.TestExpectedEqual;`. Two slices holding identical bytes at different
-addresses fail, and the diagnostic is `expected slice ptr u8@102c3328c, found u8@16d321880`, which
-reads like a memory bug rather than what it is: the wrong matcher.
+**Why:** two slices holding identical bytes at different addresses fail, and the diagnostic is
+`expected slice ptr u8@102c3328c, found u8@16d321880`, which reads like a memory bug rather than
+what it is: the wrong matcher.
 
 **Check:** `rg -n 'expectEqual\('` and read the argument types. A string literal, a `[]const u8`, a
 `[]T`, or a many-pointer on either side is the finding. A failure message containing the words
@@ -272,20 +273,20 @@ The 0.17 surface, from `std.testing`: `expect`, `expectEqual`, `expectEqualDeep`
 `expectError`, `expectFmt`, `expectEqualStrings`, `expectEqualSlices`, `expectEqualSentinel`,
 `expectStringStartsWith`, `expectStringEndsWith`, `expectApproxEqAbs`, `expectApproxEqRel`. Reach
 for the one that matches the type; fall back to `expect(bool)` only for genuine predicates.
+`expectEqualSlices` renders a hex/ASCII dump with the differing bytes colored and the first
+differing index called out; `expectEqualStrings` shows the line and column of the first divergence.
 
-**Why:** the narrow matchers print a diff. `expectEqualSlices` renders a hex/ASCII dump with the
-differing bytes colored and the first differing index called out; `expectEqualStrings` shows the
-line and column of the first divergence. `expect(a == b)` prints `error.TestUnexpectedResult` and
-nothing else.
+**This rule owns the ban on `std.debug.assert` inside a `test` block.** It lowers to `unreachable`,
+panics, and **kills the whole test binary**, while a `try testing.expect*` failure is attributed to
+its test, counted, and the run continues. The same applies to `unreachable`, `@panic`, and
+`std.debug.panic` written in test code. Assertions in *production* code are the assertions chapter's
+subject and are unaffected — the ban is on assertions written in the test itself. The one documented
+deviation is the simulation loop below, where stopping the process at the first divergence is the
+point.
 
-**This rule owns the ban on `std.debug.assert` inside a `test` block.** It is strictly worse than
-every matcher above: it lowers to `unreachable`, panics, and **kills the whole test binary** —
-the remaining tests never execute, so one broken invariant costs you the signal from every
-test scheduled after it. A `try testing.expect*` failure is attributed to its test, counted, and the
-run continues. The same applies to `unreachable`, `@panic`, and `std.debug.panic` written in test
-code. Assertions in *production* code are the assertions chapter's subject and are unaffected — the
-ban is on assertions written in the test itself. The one documented deviation is the simulation loop
-below, where stopping the process at the first divergence is the point.
+**Why:** the narrow matchers print a diff, where `expect(a == b)` prints
+`error.TestUnexpectedResult` and nothing else. An `assert` is worse still: the remaining tests never
+execute, so one broken invariant costs the signal from every test scheduled after it.
 
 **Check:** `rg -n 'assert\('` inside `test` blocks in the diff; also `expect(std.mem.eql(`, which
 is `expectEqualSlices` spelled the lossy way.
@@ -326,15 +327,14 @@ pub const io = if (builtin.is_test) io_instance.io() else @compileError("not tes
 ```
 
 `io_instance` is an `Io.Threaded` the test runner initializes with `testing.allocator` before each
-test and tears down after; `testing.io` is the `std.Io` interface value taken from it.
+test and tears down after; `testing.io` is the `std.Io` interface value taken from it. The
+`builtin.is_test` guard means a `testing.io` reference that drifts into production code is a compile
+error rather than a runtime surprise. Filesystem access additionally goes through `testing.tmpDir`
+(ZS-TEST-10), which is where the `io` argument usually first appears.
 
 **Why:** the runner leak-checks that backing allocator around every test, so an `Io` resource you
-fail to close is reported like any other leak, with the allocating stack trace (ZS-TEST-05). A
-privately constructed backend allocates outside that window and escapes the check entirely (and on
-0.16.0, some backends' `deinit` did not even compile). The `builtin.is_test` guard means a
-`testing.io` reference that drifts into production code is a compile error rather than a runtime
-surprise. Filesystem access additionally goes through `testing.tmpDir` (ZS-TEST-10), which is where
-the `io` argument usually first appears.
+fail to close is reported like any other leak (ZS-TEST-05). A privately constructed backend
+allocates outside that window and escapes the check entirely.
 
 **Check:** `rg -n 'Io.Threaded|Io.Uring|Io.Kqueue'` in test files — any hit is a privately
 constructed backend that the runner's leak check cannot see.
@@ -353,12 +353,12 @@ test "testing.io is a real Io" {
 ### ZS-TEST-10 [M] Filesystem tests use `testing.tmpDir(.{})` with `defer tmp.cleanup()`
 `pub fn tmpDir(opts: Io.Dir.OpenOptions) TmpDir` — the parameter is `Io.Dir.OpenOptions` in 0.17
 (fields `access_sub_paths`, `iterate`, `follow_symlinks`), not the old `std.fs` options. Never touch
-the real cwd, `/tmp`, or a hardcoded path.
+the real cwd, `/tmp`, or a hardcoded path. `cleanup()` closes the dir, `deleteTree`s it, and sets
+the struct to `undefined`.
 
 **Why:** `tmpDir` creates `.zig-cache/tmp/<12 random bytes, base64url>` using `io.random`, so
-parallel test binaries and reruns cannot collide. `cleanup()` closes the dir, `deleteTree`s it, and
-sets the struct to `undefined` so a use-after-cleanup trips safety checks instead of silently
-operating on a closed handle.
+parallel test binaries and reruns cannot collide, and a use-after-cleanup trips safety checks
+instead of silently operating on a closed handle.
 
 **Check:** inside a `test` block, any `Io.Dir.cwd()`, any absolute path literal, any string
 containing `/tmp` or `zig-cache`, and any `tmpDir(` without `defer tmp.cleanup();` on the following
@@ -382,15 +382,14 @@ test "config round-trips through the filesystem" {
 
 ### ZS-TEST-11 [M] A passing test writes nothing to stderr; diagnostics go in `errdefer`
 No unconditional `std.debug.print` in a test. Put the diagnostic behind `errdefer` so it fires only
-on the failure path.
+on the failure path. Under `zig build test` the test binary runs with `--listen=-`, so the build
+runner captures its stderr and replays it above a line beginning `failed command:` even though the
+step succeeded and the build exits 0. An `errdefer` message appears directly above the failing
+test's stack trace in the runner's report, and the build runner's own footer echoes the same
+`--seed`, so the reproduction command you printed and the one the tool printed agree.
 
-**Why:** under `zig build test` the test binary runs with `--listen=-`, so the build
-runner captures its stderr and replays it above a line beginning `failed command:` even though
-the step succeeded and the build exits 0. Every stray `print` therefore produces output that reads
-like a failure and is not attributed to the test that emitted it. `errdefer` inverts this:
-the message appears directly above the failing test's stack trace in the runner's report, and the
-build runner's own footer echoes the same `--seed`, so the reproduction command you printed and the
-one the tool printed agree.
+**Why:** every stray `print` produces output that reads like a failure and is not attributed to the
+test that emitted it; `errdefer` output appears only when, and where, a test fails.
 
 **Check:** `rg -n 'std.debug.print|std.log\.'` inside `test` blocks — every hit must be on an
 `errdefer` line or inside a function only an `errdefer` reaches. A green `zig build test` that emits
@@ -419,7 +418,9 @@ test "seeded randomness, seed reported on failure" {
 
 ### ZS-TEST-12 [M!] Test the negative space, not just the happy path
 For every input domain, test invalid data *and* valid data crossing into invalid — the boundary, one
-past it, the empty case, the maximum case, and the truncated case.
+past it, the empty case, the maximum case, and the truncated case. This is TigerStyle's golden rule
+of assertions applied to tests. An `expectError` per error variant proves the error is reachable,
+which also proves it is not dead code.
 
 `[M!]` applies to code that parses untrusted bytes, manages durable state, or enforces a security or
 consistency invariant — decoders, wire formats, journals, allocators, permission checks.
@@ -427,12 +428,9 @@ consistency invariant — decoders, wire formats, journals, allocators, permissi
 empty input and the maximum input; the boundary, one-past-the-boundary, and truncated cases drop
 to `[S]`.
 
-**Why:** this is TigerStyle's golden rule of assertions applied to tests: bugs cluster where data
-crosses the valid/invalid boundary, because that is where the code changes its mind about what the
-data means. A suite that only feeds valid input verifies the parser's optimism, not its rejection
-logic — and the rejection logic is the part attackers and corrupt disks exercise. Concretely, an
-`expectError` per error variant proves the error is reachable, which also proves it is not dead
-code.
+**Why:** bugs cluster where data crosses the valid/invalid boundary, because that is where the code
+changes its mind about what the data means. A suite that only feeds valid input verifies the
+parser's optimism, not the rejection logic that attackers and corrupt disks exercise.
 
 **Check:** list the variants of the function's declared error set and count `expectError` calls in
 its tests; a variant with no test is the finding. Then look for the three literal inputs — the
@@ -462,7 +460,17 @@ test parsePort {
 `checkAllAllocationFailures(backing_allocator, test_fn, extra_args)` runs `test_fn` once to count
 its allocations, then re-runs it N times failing allocation *i* each time, asserting each run
 returns `error.OutOfMemory` and leaks nothing. `test_fn` must take `std.mem.Allocator` as its first
-parameter and return `!void`.
+parameter and return `!void`. On failure it prints `fail_index: 1/2`, the byte counts, and the stack
+trace of the allocation that was made to fail. Two of its errors are diagnostic in their own right:
+`error.SwallowedOutOfMemoryError` means the function absorbed an OOM it should have propagated, and
+`error.NondeterministicMemoryUsage` means the allocation count varies between runs, which usually
+means hidden global state.
+
+The backing allocator you pass is `std.testing.allocator` (ZS-TEST-05) — the tool wraps it in a
+`FailingAllocator` per run, so leak detection still applies to every one of the N re-runs. Extra
+arguments are forwarded as a tuple after the allocator, which is why `test_fn` must take
+`std.mem.Allocator` first and cannot close over the test's locals. For a single targeted OOM path
+rather than the exhaustive sweep, use `FailingAllocator` directly (ZS-TEST-14).
 
 `[M!]` applies wherever an OOM must not corrupt state or lose data — databases, storage engines,
 allocators, long-running network servers. *Relaxed form:* one `checkAllAllocationFailures` test per
@@ -471,19 +479,8 @@ instead: every function with two or more `try` allocations must free the earlier
 path of the later ones.
 
 **Why:** the bug it finds is invisible to normal tests: a function that allocates twice and frees
-both on the success path but forgets `errdefer` on the first. That leaks only when the *second*
-allocation fails, which never happens with a real allocator during testing. The tool exercises
-exactly that path, and on failure prints `fail_index: 1/2`, the byte counts, and the stack trace of
-the allocation that was made to fail. Two of its errors are diagnostic in their
-own right: `error.SwallowedOutOfMemoryError` means the function absorbed an OOM it should have
-propagated, and `error.NondeterministicMemoryUsage` means the allocation count varies between runs,
-which usually means hidden global state.
-
-The backing allocator you pass is `std.testing.allocator` (ZS-TEST-05) — the tool wraps it in a
-`FailingAllocator` per run, so leak detection still applies to every one of the N re-runs. Extra
-arguments are forwarded as a tuple after the allocator, which is why `test_fn` must take
-`std.mem.Allocator` first and cannot close over the test's locals. For a single targeted OOM path
-rather than the exhaustive sweep, use `FailingAllocator` directly (ZS-TEST-14).
+both on the success path but forgets `errdefer` on the first leaks only when the *second* allocation
+fails, which never happens with a real allocator during testing.
 
 **Check:** every `pub fn …Alloc`/`init` in the diff that can return `error.OutOfMemory` should have
 a `checkAllAllocationFailures` test, or a comment saying why not. A function with two `try
@@ -538,13 +535,12 @@ test "joinAlloc survives every allocation failure point" {
 ### ZS-TEST-14 [S] Use `failing_allocator` or `FailingAllocator` for one targeted OOM path
 `std.testing.failing_allocator` fails on allocation index 0 — every allocation. For a specific
 index, construct `testing.FailingAllocator.init(backing, .{ .fail_index = n })`, or use
-`.resize_fail_index` to force the resize path.
+`.resize_fail_index` to force the resize path. `failing_allocator` is backed by a zero-length
+`FixedBufferAllocator`, so it cannot serve any request.
 
 **Why:** `checkAllAllocationFailures` is exhaustive but requires a deterministic allocation count
 and a `!void` helper. When you want a single, readable assertion — "constructing this with no memory
-returns `error.OutOfMemory` rather than panicking" — the failing allocator says it in one line. Note
-`failing_allocator` is backed by a zero-length `FixedBufferAllocator`, so it cannot serve any
-request.
+returns `error.OutOfMemory` rather than panicking" — the failing allocator says it in one line.
 
 **Check:** a `FailingAllocator.init` whose backing allocator is not `std.testing.allocator` — the
 wrapper does not leak-check by itself, so the N-th run's leak goes unseen. And `failing_allocator`
@@ -572,14 +568,14 @@ test "explicit FailingAllocator at a chosen index" {
 ### ZS-TEST-15 [M] Seed randomised tests from `std.testing.random_seed`; print the seed on failure
 Never call an unseeded RNG in a test. Take `std.testing.random_seed` (a `u32`, set by the runner
 from its `--seed=` argument), feed it to `std.Random.DefaultPrng`, and emit the reproduction command
-from an `errdefer`.
+from an `errdefer`. Passing `--seed=0x1234` to `zig build` pins the seed, and the build runner
+echoes the seed in its footer, so the errdefer line and the tool's own output agree. Write the `=`:
+0.17's `zig build` rejects `--seed 0x1234` with `unrecognized argument: --seed`, though its `--help`
+prints that form.
 
-**Why:** both `zig test` and `zig build test` pass a *freshly randomised* `--seed=0x…` on
-every invocation, so a randomised test explores new inputs each run. That is the point, and it is
-also why an un-reported seed is useless: the failure will not reproduce. Passing `--seed=0x1234` to
-`zig build` pins it, and the build runner echoes the seed in its footer, so the errdefer line and
-the tool's own output agree. Write the `=`: 0.17's `zig build` rejects `--seed 0x1234` with
-`unrecognized argument: --seed`, though its `--help` prints that form.
+**Why:** both `zig test` and `zig build test` pass a *freshly randomised* `--seed=0x…` on every
+invocation, so a randomised test explores new inputs each run — and an un-reported seed is useless,
+because the failure will not reproduce.
 
 **Check:** `rg -n 'DefaultPrng|Xoshiro|std.crypto.random'` in test files. Any `.init(` argument
 that is a literal, a timestamp, or anything other than `std.testing.random_seed` is the finding, as
@@ -617,16 +613,17 @@ region: wall-clock or monotonic time, thread scheduling, address-order iteration
 iteration order, pointer comparison, `@intFromPtr` in a hash), environment variables, and real
 network or disk.
 
-**Why:** a seed that does not reproduce the failure is a seed that costs you a day. The usual
-culprit is not obvious randomness but incidental nondeterminism, and hash-map iteration is the
-classic case: the order is unspecified, and it shifts with insertion order, with capacity (so with
-one extra `put` anywhere upstream), and with any std version bump — so a test that asserts on "the
-first element" can start failing on a change that touched neither the test nor the code under it.
-For a map keyed on pointers, or hashed via `@intFromPtr`, ASLR makes the order vary per *process*
-as well, so the same seed disagrees run to run. (Zig's string hashing is content-based —
-`hashString` seeds Wyhash with a literal `0` — so string keys are stable within a build; the order
-is still unspecified and still must not be asserted on.) Substituting a simulated clock and a
-simulated disk (ZS-TEST-18) is what makes a seed a complete description of a run.
+Hash-map iteration is the classic case: the order is unspecified, and it shifts with insertion
+order, with capacity (so with one extra `put` anywhere upstream), and with any std version bump — so
+a test that asserts on "the first element" can start failing on a change that touched neither the
+test nor the code under it. For a map keyed on pointers, or hashed via `@intFromPtr`, ASLR makes the
+order vary per *process* as well, so the same seed disagrees run to run. Zig's string hashing is
+content-based — `hashString` seeds Wyhash with a literal `0` — so string keys are stable within a
+build; the order is still unspecified and still must not be asserted on.
+
+**Why:** a seed that does not reproduce the failure is a seed that costs you a day, and the usual
+culprit is incidental nondeterminism rather than obvious randomness. Substituting a simulated clock
+and a simulated disk (ZS-TEST-18) is what makes a seed a complete description of a run.
 
 **Check:** inside a seeded test, grep for a `HashMap`/`ArrayHashMap` iterator whose result feeds an
 assertion, `@intFromPtr`, a pointer comparison, `Io.Timestamp.now`, `getEnvVarOwned`, `io.async`,
@@ -658,13 +655,13 @@ try std.testing.expectEqualStrings("alice", names.items[0]);
 
 ### ZS-TEST-17 [S] Give every container and state machine a model-based swarm test
 Pick a simpler reference implementation (usually a `std` container), drive both with a seeded random
-sequence of actions chosen from an enum, and compare after every action and at the end.
+sequence of actions chosen from an enum, and compare after every action and at the end. Deriving the
+action enum from the type (`std.meta.DeclEnum(T)`, TigerBeetle's technique) makes adding a method
+automatically add fuzz coverage for it.
 
 **Why:** hand-written cases test the sequences you thought of. A swarm test tests sequences you did
 not — the interleavings, the empty-then-refill, the pop-past-empty — and the model is the oracle so
-you do not have to predict the expected value. Deriving the action enum from the type
-(`std.meta.DeclEnum(T)`, TigerBeetle's technique) makes adding a method automatically add fuzz
-coverage for it.
+you do not have to predict the expected value.
 
 **Check:** for each container or state machine added in the diff, is there a test containing
 `rand.enumValue(` driving both it and a `std` model? A type whose only tests are hand-written call
@@ -712,21 +709,22 @@ implementation driven by the one seeded PRNG. Run the system in a single thread,
 (crash, partition, delay, corruption) on schedule, and assert the safety invariant after every
 fault.
 
+Structure it as three parts a general project can actually build: a **seeded deterministic driver**
+(one PRNG, one thread, an explicit tick budget), a **reference model** that encodes only what the
+specification promises must survive, and a **state comparison** after every fault. Split the run
+into a safety phase (arbitrary faults; the invariant must never break) and a liveness phase (faults
+stop; the system must converge within a bounded number of ticks). Print every knob at startup, and
+print the seed on failure.
+
 `[M!]` applies to systems with durable state or multiple participants — storage engines,
 replication, queues, consensus, embedded firmware with persistence. *Relaxed form:* ZS-TEST-17's
 seeded model-based swarm test against an in-memory model, with no simulated clock and no fault
 injection, plus one hand-written test per failure mode you can name (a crash between two writes,
 a short read, a duplicated message).
 
-**Why:** this is what TigerBeetle's VOPR does, and the reason it works is that a whole cluster's
-history collapses into a single `u64`. Real concurrency and real disks produce failures you cannot
-replay; a simulated one produces failures you can replay exactly, shrink, and step through in a
-debugger. Structure it as three parts a general project can actually build: a **seeded deterministic
-driver** (one PRNG, one thread, an explicit tick budget), a **reference model** that encodes only
-what the specification promises must survive, and a **state comparison** after every fault. Split
-the run into a safety phase (arbitrary faults; the invariant must never break) and a liveness phase
-(faults stop; the system must converge within a bounded number of ticks). Print every knob at
-startup, and print the seed on failure.
+**Why:** this is what TigerBeetle's VOPR does, and it works because a whole cluster's history
+collapses into a single `u64`. Real concurrency and real disks produce failures you cannot replay; a
+simulated one produces failures you can replay exactly, shrink, and step through in a debugger.
 
 **Check:** the simulation test must name exactly one PRNG and no real resource. Grep its body for a
 second `.init(seed)`, for `io.async`/`Thread.spawn`, for `Io.Dir`/`Io.File`/`Io.Timestamp.now`, and
@@ -799,15 +797,15 @@ test "simulation: recovery yields exactly the flushed prefix" {
 ### ZS-TEST-19 [S] Snapshot-test complex output against an inline multiline literal
 When the expected value is a structure whose readable form is a block of text — a formatted tree, a
 disassembly, a diagnostic — render it to an `Io.Writer` and compare with `expectEqualStrings`
-against a `\\` multiline literal in the test.
+against a `\\` multiline literal in the test. Keep the literal inline in the test file, never in a
+sidecar `.txt` — a snapshot you cannot see while reading the test is a snapshot nobody reviews. If
+you add an updater (an env var that rewrites the literal in place, as TigerBeetle's `snaptest` does
+with `SNAP_UPDATE=1`), the review discipline is the same: regenerated snapshots must be read, not
+rubber-stamped.
 
 **Why:** `expectEqual` on a 12-field nested struct tells you "they differ"; a rendered snapshot
 tells you *where*, because `expectEqualStrings` prints the first differing line and column. It also
-makes refactors cheap: one visual diff to review instead of thirty field assertions to rewrite. Keep
-the literal inline in the test file, never in a sidecar `.txt` — a snapshot you cannot see while
-reading the test is a snapshot nobody reviews. If you add an updater (an env var that rewrites the
-literal in place, as TigerBeetle's `snaptest` does with `SNAP_UPDATE=1`), the review discipline is
-the same: regenerated snapshots must be read, not rubber-stamped.
+makes refactors cheap: one visual diff to review instead of thirty field assertions to rewrite.
 
 **Check:** an expected value pulled from outside the test block — `@embedFile`, `readFileAlloc`, a
 path under `testdata/` — and a rendered snapshot compared with `expectEqual` or
@@ -847,13 +845,14 @@ old `[]const u8` fuzz input entirely. Its surface, from `std.testing.Smith`: `eo
 `eosWeighted`, `eosWeightedSimple`, `bytesWeighted`, `sliceWeighted`, `sliceWeightedBytes`, and
 `baselineWeights(T)`.
 
+`value(T)` works on ints, floats, bools, enums, optionals, arrays, vectors, structs and tagged
+unions, so you generate typed operations directly instead of hand-decoding bytes. Run the targets by
+passing `--fuzz` to `zig build test`; `--fuzz=20K` bounds the iteration count, and a bare `--fuzz`
+with no limit implies `--webui`.
+
 **Why:** `Smith` is a *structured* input source, not a byte buffer. Each call site is identified by
 its return address, so the coverage-guided fuzzer learns which decision points matter and mutates
-them independently — you get "make the length field large" rather than "flip byte 7". `value(T)`
-works on ints, floats, bools, enums, optionals, arrays, vectors, structs and tagged unions, so you
-generate typed operations directly instead of hand-decoding bytes. Run the targets by passing
-`--fuzz` to `zig build test`; `--fuzz=20K` bounds the iteration count, and a bare `--fuzz` with no
-limit implies `--webui`.
+them independently — you get "make the length field large" rather than "flip byte 7".
 
 **Check:** a fuzz target whose second parameter is `[]const u8` rather than `*std.testing.Smith`, or
 a `std.testing.fuzz` call with the pre-0.16 two-argument shape (no `context`, no
@@ -887,11 +886,11 @@ fn fuzzRoundTrip(context: void, smith: *std.testing.Smith) !void {
 
 ### ZS-TEST-21 [M] Pin every fuzz-found failure into the target's `.corpus`
 `FuzzInputOptions` has one field, `corpus: []const []const u8`. When a fuzz run finds a crashing
-input, add its bytes to that slice in the same commit as the fix.
+input, add its bytes to that slice in the same commit as the fix. In a binary *not* built in fuzz
+mode, `std.testing.fuzz` runs `testOne` once per corpus entry, plus once with an empty input as a
+smoke test.
 
-**Why:** in the test runner, when the binary is *not* built in fuzz mode,
-`std.testing.fuzz` runs `testOne` once per corpus entry, plus once with an empty input as a smoke
-test. So the corpus is not fuzzer scaffolding: it is your regression suite, executed by every plain
+**Why:** the corpus is not fuzzer scaffolding: it is your regression suite, executed by every plain
 `zig build test`. A fuzz target with an empty corpus contributes exactly one input to normal CI.
 
 **Check:** any `std.testing.fuzz` call whose options are `.{}` or whose `.corpus` is `&.{}`. And any
@@ -913,12 +912,13 @@ test "fuzz: encode then decode is the identity" {
 ### ZS-TEST-22 [M] Never ask `Smith` for a type without a fixed bit size
 `Smith.value`, `valueRangeAtMost`, and `valueRangeLessThan` reject `usize`, `isize`, `c_int`,
 `c_long`, `c_longdouble`, and the rest of the C types, with a `@compileError` reading
-"type does not have a fixed bitsize". Generate a `u32` or `u64` and `@intCast`.
+"type does not have a fixed bitsize". Generate a `u32` or `u64` and `@intCast`. `Smith.index(len)`
+is the escape hatch when you want an in-bounds index: it takes a `usize` length and returns a
+`usize`.
 
 **Why:** the fuzzer serialises inputs to a corpus file that must be reproducible across targets. A
 `usize` is 32 bits on wasm32 and 64 on x86_64, so a corpus entry would decode differently per target
-and a crash found on one machine would not reproduce on another. `Smith.index(len)` is the escape
-hatch when you want an in-bounds index: it takes a `usize` length and returns a `usize`.
+and a crash found on one machine would not reproduce on another.
 
 **Check:** `usize`, `isize`, or any `c_*` type as the type argument to `smith.value`,
 `valueRangeAtMost`, or `valueRangeLessThan`. The compiler catches it, so the reviewable form is the
@@ -939,13 +939,14 @@ const i = smith.index(items.len); // usize in, usize out, always in bounds
 
 ### ZS-TEST-23 [S] Steer `Smith` with ranges and weights instead of generating-then-rejecting
 Prefer `valueRangeAtMost`/`index`/`bytesWeighted`/`sliceWeighted` over drawing an arbitrary value
-and `continue`-ing when it is out of range.
+and `continue`-ing when it is out of range. Weights let you do swarm testing at the input level:
+`baselineWeights(T)` gives the uniform distribution over `T`, and a narrowed weight list biases
+generation toward the values that actually reach interesting code. `eos()` is the correct loop
+terminator rather than `value(bool)` — it is guaranteed to eventually return `true`, so the target
+cannot loop forever.
 
 **Why:** every rejected draw is a wasted fuzzer iteration and, worse, a coverage signal that teaches
-the fuzzer nothing. Weights let you do swarm testing at the input level: `baselineWeights(T)` gives
-the uniform distribution over `T`, and a narrowed weight list biases generation toward the values
-that actually reach interesting code. `eos()` is the correct loop terminator rather than
-`value(bool)` — it is guaranteed to eventually return `true`, so the target cannot loop forever.
+the fuzzer nothing.
 
 **Check:** a `continue`, `break`, or early `return` inside a fuzz target that discards a draw as
 out-of-range, and `while (smith.value(bool))` used as the loop condition instead of
@@ -969,13 +970,12 @@ smith.bytesWeighted(&name, letters);
 
 ### ZS-TEST-24 [M] `refAllDecls` is a compile smoke test, not coverage
 `std.testing.refAllDecls(@This())` forces semantic analysis of every declaration in a container. Use
-it at most once per module root, and never count it as testing.
+it at most once per module root, and never count it as testing. It is also shallow — it references
+the declarations of `T` only, not of nested containers.
 
 **Why:** Zig is lazy — an unused `pub fn` in a module is never analyzed, so it can contain a type
-error and still ship. `refAllDecls` closes that gap. What it does *not* do is execute anything: a
-module whose only test is `refAllDecls` has zero behavioral coverage while showing a green test
-count, which is worse than having no test at all because it looks covered. It is also shallow — it
-references the declarations of `T` only, not of nested containers.
+error and still ship, and `refAllDecls` closes that gap. But it executes nothing: a module whose
+only test is `refAllDecls` shows a green count with zero behavioral coverage.
 
 **Check:** a file whose only `test` block calls `refAllDecls`, and more than one `refAllDecls` call
 in the same module. Count the module's `test` blocks: one is the failure this rule names.
@@ -1002,14 +1002,14 @@ test add {
 
 ### ZS-TEST-25 [S] `error.SkipZigTest` marks inapplicable tests, never known-failing ones
 Return `error.SkipZigTest` when the test cannot meaningfully run here — wrong OS, missing hardware
-feature, unsupported backend. Never use it to park a failing test.
+feature, unsupported backend. Never use it to park a failing test. `std.testing.fuzz`'s `testOne`
+also honours `error.SkipZigTest`: in fuzz mode, returning it means "this input is uninteresting" and
+the fuzzer moves on instead of recording a failure — but in ordinary corpus mode it propagates and
+skips the whole test, so do not use it as a per-input filter for logic you actually want covered.
 
 **Why:** the runner counts skips separately from passes, so the signal is honest only if "skipped"
 means "not applicable" and not "broken". A skipped failing test is a deleted failing test with extra
-steps, and it will stay skipped forever. Note `std.testing.fuzz`'s `testOne` also honours
-`error.SkipZigTest`: in fuzz mode, returning it means "this input is uninteresting" and the fuzzer
-moves on instead of recording a failure — but in ordinary corpus mode it propagates and skips the
-whole test, so do not use it as a per-input filter for logic you actually want covered.
+steps, and it will stay skipped forever.
 
 **Check:** `rg -n 'SkipZigTest'` — every hit must sit under a condition on `builtin.target` (its
 `.os`, `.cpu`, or `.abi`) or a backend capability. A skip guarded by nothing, by a build option, or
@@ -1028,9 +1028,8 @@ test "skip when the environment cannot support the test" {
 observe or suppress log output, save the old value and restore it with `defer`.
 
 **Why:** it is a mutable global shared by every test in the binary. A test that raises it to
-`.debug` and does not restore it floods the output of every test that runs afterwards, and under
-`zig build test` that output is replayed with a misleading `failed command:` line (ZS-TEST-11) with
-no indication of which test produced it.
+`.debug` and does not restore it floods the output of every test that runs afterwards, replayed
+under a misleading `failed command:` line (ZS-TEST-11).
 
 **Check:** every assignment to `std.testing.log_level` must be preceded by a saved `prev` and a
 `defer std.testing.log_level = previous;`. An assignment at file scope, outside any `test` block, is
@@ -1051,19 +1050,19 @@ The suite MUST execute in both modes. Drive it from a CI matrix over `-Doptimize
 shape in ZS-BUILD-34, `matrix: optimize: [debug, safe]`, which is also how the OS matrix
 already works — keeping `build.zig` on a single `optimize` from `b.standardOptimizeOption` as in
 ZS-BUILD-01. For a project with no CI, loop both modes inside the `test` step instead. What is
-forbidden is a pipeline that only ever runs one mode.
+forbidden is a pipeline that only ever runs one mode. The matrix is preferred over an in-build loop
+because it parallelizes across runners and composes with the OS dimension, so `os × optimize` costs
+one wall-clock test run rather than two serially.
 
-**Why:** the two modes execute different programs. A `debug` build keeps all runtime safety checks
-and does no inlining or reordering; a `safe` build keeps the safety checks but applies the full
-optimizer, so it catches illegal behavior that only manifests once code is inlined, and it catches
-performance regressions and stack-overflow-in-release bugs. Meanwhile `undefined` memory is filled
-with `0xaa` in `debug` and `safe` builds but not in `fast` or `small` ones, so a read of
-uninitialised memory can pass in one mode and produce garbage in another. Long-running simulation
-tests (ZS-TEST-18) should run in `safe` specifically, because that is the only mode where you get
-both safety checks and enough speed to explore a meaningful number of seeds.
+A `debug` build keeps all runtime safety checks and does no inlining or reordering. `undefined`
+memory is filled with `0xaa` in `debug` and `safe` builds but not in `fast` or `small` ones, so a
+read of uninitialised memory can pass in one mode and produce garbage in another. Long-running
+simulation tests (ZS-TEST-18) should run in `safe` specifically, because that is the only mode where
+you get both safety checks and enough speed to explore a meaningful number of seeds.
 
-The matrix is preferred over an in-build loop because it parallelizes across runners and composes
-with the OS dimension, so `os × optimize` costs one wall-clock test run rather than two serially:
+**Why:** the two modes execute different programs. A `safe` build keeps the safety checks but
+applies the full optimizer, so it catches illegal behavior that only manifests once code is inlined,
+and it catches performance regressions and stack-overflow-in-release bugs.
 
 ```yaml
 # GOOD — CI, the primary form (full workflow in ZS-BUILD-34)
@@ -1100,12 +1099,12 @@ for ([_]std.lang.Optimize{ .debug, .safe }) |mode| {
 ### ZS-TEST-28 [M] Every bug fix ships with the test that would have caught it
 A fix commit contains both the change and a test that fails before it and passes after. If the bug
 came from a fuzzer, the failing input goes into `.corpus` (ZS-TEST-21); if from production, the
-minimal reproduction goes into a named test referencing the issue.
+minimal reproduction goes into a named test referencing the issue. Name the test after the invariant
+that was violated, not the ticket number, and put the ticket number in a comment.
 
 **Why:** the test is the only artifact that prevents the regression; the fix alone prevents it
 exactly once. Writing the test first also verifies you found the actual cause rather than a symptom
-— if the test passes before your change, you have not reproduced the bug. Name the test after the
-invariant that was violated, not the ticket number, and put the ticket number in a comment.
+— if the test passes before your change, you have not reproduced the bug.
 
 **Check:** a commit whose message says "fix" and whose diff touches no `test` block and no `.corpus`
 entry. The stronger check is executable: `git stash` the non-test half of the diff and run the suite

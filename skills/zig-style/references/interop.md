@@ -66,14 +66,14 @@ produces a value, the value leaves through a pointer parameter that is written *
 This is the single most important rule in the chapter: a wrapper that tries to return `!T` to C is
 not a style mistake, it is a category error.
 
-**Why:** the compiler rejects it outright —
-`error: return type '!u32' not allowed in function with calling convention 'aarch64_aapcs_darwin'`.
-An error union is a Zig-only tagged representation with no C spelling, and the error *set* is a
-compile-time-assigned integer whose numbering is not stable across builds, so even smuggling it out
-as an `int` would export a number that means something different next compile. Converting once, in
-one `fromError` switch, is also what makes the error vocabulary the C header documents finite and
-reviewable; the `switch` is exhaustive, so a new Zig error fails the build until it is given a
-status.
+Convert in one `fromError` switch; it is exhaustive, so a new Zig error fails the build until it is
+given a status. Never smuggle the error out as an `int` either: the error set is a
+compile-time-assigned integer whose numbering is not stable across builds, so the number would mean
+something different next compile.
+
+**Why:** an error union is a Zig-only tagged representation with no C spelling, so the compiler
+rejects it in a C signature outright. Converting once is what keeps the error vocabulary the C
+header documents finite and reviewable.
 
 **Check:** an `export fn` or `callconv(.c)` signature whose return type contains `!`, or an
 `anyerror`. A `try` in the body of such a function is the same finding from inside — it can only
@@ -151,8 +151,8 @@ The legal set is: integers and floats, `bool`, `?*T` and other pointers, `[*]T`/
 `extern struct`, `packed struct(uN)`, and `enum` with an **explicit** tag type. Everything else is
 rejected. A slice becomes a pointer and a length as two separate parameters.
 
-**Why:** each rejection is the compiler refusing to invent a layout that C has no word for, and it
-says so in the note. At 0.17.0:
+`?*T` **is** legal and is the correct way to accept a nullable C pointer: the optional is the null
+pointer, at no cost. Each rejected type gets a compiler note; at 0.17.0:
 
 | Written | Compiler note |
 |---|---|
@@ -164,8 +164,8 @@ says so in the note. At 0.17.0:
 | `[4]u8` | `arrays are not allowed as a parameter type` |
 | `!u32` | rejected — see ZS-INTEROP-01 |
 
-Note that `?*T` **is** legal and is the correct way to accept a nullable C pointer: the optional is
-the null pointer, at no cost.
+**Why:** a C signature is a contract about memory layout, and each rejection is the compiler
+refusing to invent a layout that C has no word for.
 
 **Check:** in the parameter list or return type of any `export fn` / `callconv(.c)` function: a `[]`
 slice, an `enum` with no explicit tag type, a `?` on anything that is not a pointer, an array type
@@ -198,7 +198,11 @@ export fn f5(s: [*:0]const u8) u8 {
 ### ZS-INTEROP-03 [M!] Validate everything C hands you; do not assert it
 At an exported entry point, check pointers for null, lengths against the buffer you were also given,
 and integers against the enum or range they claim to be — with `if` and an error status, not with
-`assert`.
+`assert`. Check an enum value before any cast: `@fromBackingInt` (0.16's `@enumFromInt`) on an
+out-of-range value is illegal behavior in every mode, not a panic you can catch, and so is the
+`@bitCast` to an enum that 0.17 newly accepts. That check is what `std.enums.fromInt(E, integer) ?E`
+is for. (0.16 note: `std.meta.intToEnum` no longer exists; `std.enums.fromInt` replaces it and
+accepts any integer type, where `@fromBackingInt` accepts only the enum's exact backing type.)
 
 **Trigger criteria — treat as `[M]`** when any of the SKILL.md high-reliability conditions hold, and
 additionally whenever **the C side is not built from this repository**: a plugin ABI, a shared
@@ -213,12 +217,7 @@ same repository and is compiled by the same `build.zig`.
 
 **Why:** this is ZS-CORE-08's boundary clause, applied to the one boundary where it bites hardest.
 An `assert` on data from another compilation unit is a remote denial of service in a `safe` build
-and illegal behavior in a `fast` one. `@fromBackingInt` (0.16's `@enumFromInt`) on an out-of-range
-value is illegal behavior in every mode, not a panic you can catch, and so is the `@bitCast` to an
-enum that 0.17 newly accepts — so the check has to happen before the cast, which is what
-`std.enums.fromInt` is for. (0.16 note: `std.meta.intToEnum` no longer exists;
-`std.enums.fromInt(E, integer) ?E` replaces it and accepts any integer type, where
-`@fromBackingInt` accepts only the enum's exact backing type.)
+and illegal behavior in a `fast` one.
 
 **Check:** in the body of an `export fn`: any `assert(`, any `@fromBackingInt` (or the deprecated
 `@enumFromInt`) on a parameter with no preceding `std.enums.fromInt` or explicit range test, and any
@@ -275,15 +274,16 @@ When the exported symbol must differ from the Zig declaration — a C prefix, a 
 linkage, a specific section — use `@export` in a `comptime` block instead. The operand is a
 **pointer**: `@export(&f, …)`, not `@export(f, …)`.
 
-**Why:** the signature is
-`@export(comptime ptr: *const anyopaque, comptime options: std.lang.ExportOptions) void`. It took
-a value before 0.14 and takes a pointer now; the old form is at least a loud failure
-(`error: expected pointer type, found 'fn () callconv(.c) u32'`) rather than a silent one.
-`ExportOptions` in 0.17 is
-`{ name: []const u8, linkage: GlobalLinkage = .strong, section: ?[]const u8 = null,
-visibility: SymbolVisibility = .default }` — everything but `name` has a default, and per ZS-CORE-27
+The signature is
+`@export(comptime ptr: *const anyopaque, comptime options: std.lang.ExportOptions) void`. It took a
+value before 0.14, and that form now fails loudly:
+`error: expected pointer type, found 'fn () callconv(.c) u32'`. `ExportOptions` in 0.17 has the
+fields `name: []const u8`, `linkage: GlobalLinkage = .strong`, `section: ?[]const u8 = null`, and
+`visibility: SymbolVisibility = .default` — everything but `name` has a default, and per ZS-CORE-27
 pass the ones that matter to you explicitly. `GlobalLinkage` is only `.strong` or `.weak`: 0.17
-removed `.internal` and `.link_once`. `@export` also lets one Zig function back several
+removed `.internal` and `.link_once`.
+
+**Why:** `@export` separates the symbol from the declaration, so one Zig function can back several
 symbols, which is how you ship a compatibility alias without duplicating the body.
 
 **Check:** `@export(` whose first argument is not `&`-prefixed (the pre-0.14 value form), and an
@@ -367,13 +367,13 @@ test "the calling convention is a union value" {
 
 ### ZS-INTEROP-06 [S] Prefix every exported symbol with the library name
 `zs_parse_u32`, not `parse_u32`. Apply it to `export fn`, `export var`, and every `@export` name.
+This is the one place in this standard where `snake_case` functions are correct despite ZS-CORE-01 —
+the C header is the contract and C's convention wins there. Keep the Zig-internal name `camelCase`
+and let the export do the translation, as in ZS-INTEROP-04.
 
 **Why:** C has one flat global namespace with no modules, so an unprefixed `init` or `read` in a
 static library collides at link time with any other library that had the same idea, and the
-diagnostic (`duplicate symbol`) points at the linker rather than at either author. This is the one
-place in this standard where `snake_case` functions are correct despite ZS-CORE-01 — the C header is
-the contract and C's convention wins there. Keep the Zig-internal name `camelCase` and let the
-export do the translation, as in ZS-INTEROP-04.
+`duplicate symbol` diagnostic points at the linker rather than at either author.
 
 **Check:** every `export fn`, `export var`, and `@export` `.name` in the diff begins with the
 project's agreed prefix. A generic-sounding exported symbol — `init`, `open`, `read`, `free`,
@@ -386,15 +386,13 @@ project's agreed prefix. A generic-sounding exported symbol — `init`, `open`, 
 ### ZS-INTEROP-07 [M] `extern "c" fn` for libc; bare `extern fn` for objects you link yourself
 `extern "c" fn` names libc as the providing library and requires `link_libc`. For a symbol coming
 from a `.c` file you compile into the same artifact — or any object you link — write `extern fn`
-with no library name.
+with no library name. In a module without libc, `extern "c"` is a hard error:
+`error: dependency on libc must be explicitly specified in the build command`. Set `link_libc` on
+the **module**, not the artifact (ZS-BUILD-06), and only for targets that have one (ZS-INTEROP-23).
 
-**Why:** the library name is a link-time dependency declaration, not decoration. Writing
-`extern "c"` in a module without libc is a hard error:
-`error: dependency on libc must be explicitly specified in the build command` — which is exactly
-what you hit the first time you cross-compile a working interop module to `wasm32-freestanding` or
-`thumb-freestanding-eabi`. Since freestanding never has libc, the bare form is the portable one for
-your own C sources. Set `link_libc` on the **module**, not the artifact (ZS-BUILD-06), and only for
-targets that have one (ZS-INTEROP-23).
+**Why:** the library name is a link-time dependency declaration, not decoration. Freestanding never
+has libc, so the bare form is the one that still builds your own C sources when the module is
+cross-compiled to `wasm32-freestanding` or `thumb-freestanding-eabi`.
 
 **Check:** `extern "c"` in a file that a `build.zig` also compiles for a `*-freestanding` target, or
 in a module with no `link_libc` set. In the other direction, a bare `extern fn` naming a libc symbol
@@ -425,12 +423,13 @@ A plain `extern` declaration covers the ordinary case. Reach for
 `library_name`, `linkage`, `visibility`, `is_thread_local`, or `is_dll_import`, or when you want the
 symbol as a value (a function *pointer*) rather than a callable declaration.
 
-**Why:** `@extern(T: type, comptime options: std.lang.ExternOptions) T` returns a *value* of the
-type you ask for rather than introducing a declaration, which is what lets it bind a symbol whose
-name is not a legal Zig identifier and what makes `library_name`, `is_thread_local`, and
-`is_dll_import` expressible at all. It is strictly more verbose than `extern fn` otherwise — and
-note that a plain declaration is already addressable, so `&abs` gives you a
-`*const fn (c_int) callconv(.c) c_int` for a table without needing `@extern`.
+Otherwise it is strictly more verbose than `extern fn`, and a plain declaration is already
+addressable: `&abs` gives you a `*const fn (c_int) callconv(.c) c_int` for a table without needing
+`@extern`.
+
+**Why:** `@extern(T: type, comptime options: std.lang.ExternOptions) T` returns a *value* rather
+than introducing a declaration, which is what lets it bind a symbol whose name is not a legal Zig
+identifier and makes `library_name`, `is_thread_local`, and `is_dll_import` expressible at all.
 
 **Check:** an `@extern` whose options are only `.name`, where that name is already a legal Zig
 identifier — a plain `extern fn` covers it. Also an `@extern` introduced only to obtain a function
@@ -456,12 +455,9 @@ live in one module — `src/c.zig`, or one such file per C library. Nothing outs
 That module exports a Zig-shaped API: slices, fixed-width integers, error sets, `Allocator`
 parameters.
 
-**Why:** every rule that follows (ZS-INTEROP-10, ZS-INTEROP-11, ZS-INTEROP-12) is of the form
-"convert here, once." That is only enforceable if there is a *here*. When `[*c]` and `c_long` are
-allowed to spread, each conversion site becomes a separate decision made under different
-assumptions, and a grep for `[*c]` stops being a review tool. The single-module discipline also
-gives the target rules something to switch on: one file gets an `#ifdef`-shaped `comptime` branch
-instead of twenty.
+**Why:** ZS-INTEROP-10, ZS-INTEROP-11, and ZS-INTEROP-12 each say "convert here, once", which is
+enforceable only if there is a *here*. Once `[*c]` and `c_long` spread, each conversion site is a
+separate decision under different assumptions, and a grep for `[*c]` stops being a review tool.
 
 **Check:** grep the whole tree for `c_int`, `c_long`, `c_char`, `c_uint`, `[*c]`, `?*anyopaque`,
 `extern "c"`, `extern fn`, `@extern`, and `@export`. Every hit outside the designated boundary
@@ -476,12 +472,13 @@ module is the finding; the grep returning hits in more than one file per C libra
 touches it turns it into `[]T` (with the length C also gave you), `?*T`, or `[:0]const u8`. It is
 never stored in a struct, never returned, and never passed to a second Zig function.
 
-**Why:** `[*c]T` is deliberately the most permissive pointer in the language — it is simultaneously
-nullable, of unknown length, and implicitly convertible to and from `*T`, `[*]T`, and `?*T` without
-a cast. That is what makes translated C headers usable, and it is why it must not propagate: a
-`[*c]` parameter silently accepts `null` and coerces to a non-optional `*T` with no diagnostic, so
-every safety property Zig's pointer types normally give you is switched off for as long as it is in
-scope. Converting at the boundary makes the null case a visible branch exactly once.
+`[*c]T` is deliberately the most permissive pointer in the language: simultaneously nullable, of
+unknown length, and implicitly convertible to and from `*T`, `[*]T`, and `?*T` without a cast. A
+`[*c]` parameter silently accepts `null` and coerces to a non-optional `*T` with no diagnostic.
+
+**Why:** that permissiveness is what makes translated C headers usable, and it switches off every
+safety property Zig's pointer types give you for as long as the pointer is in scope. Converting at
+the boundary makes the null case a visible branch exactly once.
 
 **Check:** `[*c]` anywhere but a parameter of an `export fn` or `callconv(.c)` function — in a
 struct field, a return type, a `const`/`var` declaration, a local binding, or the parameter list of
@@ -526,12 +523,12 @@ at the edge. The boundary mechanics are these four cases:
 | C → Zig, pointer + length | `[*c]const u8` + `usize` | `p[0..len]` (ZS-INTEROP-10) |
 | Zig → C | `[]const u8` | `gpa.dupeSentinel(u8, s, 0)` → `[:0]u8`, pass `.ptr` |
 
+`span` and `sliceTo` are optional-transparent: given `?[*:0]const u8` they return `?[:0]const u8`,
+so `orelse` handles null in the same expression.
+
 **Why:** the two inbound cases look identical in a C header and are not. `char name[16]` in a struct
-is NUL-*padded*: a 16-byte name has no terminator at all, and `std.mem.span` — which searches for
-the sentinel — walks off the end of the field into the next one. `sliceTo` is bounded by the array's
-own length and stops at the first NUL or at the end, which is the correct reading for both cases.
-Note also that `span` and `sliceTo` are optional-transparent: given `?[*:0]const u8` they return
-`?[:0]const u8`, so `orelse` handles null in the same expression.
+is NUL-*padded*: a 16-byte name has no terminator, so `span` walks off the field into the next one,
+while `sliceTo` stops at the first NUL or at the array's end.
 
 **Check:** `std.mem.span(` whose argument is `&`-taken from a fixed array or an array-typed struct
 field rather than a `[*:0]` pointer — that is the read-past-the-end bug. Also a `[]const u8` handed
@@ -575,11 +572,9 @@ test "span, sliceTo and dupeSentinel across the boundary" {
 ### ZS-INTEROP-12 [M] Convert a C integer to a fixed-width Zig integer with a checked cast
 `c_int`, `c_long`, `c_char` and friends appear in the exported signature and nowhere inside. Convert
 with `std.math.cast(T, x) orelse return .invalid_argument` — never a bare `@intCast`, which is
-illegal behavior on overflow, and never `@truncate`, which is silent.
-
-**Why:** this is exactly the argument ZS-DATA-02 makes about `usize`, and the C types are worse
-because their width is set by the *platform ABI* rather than the pointer size. Measured on 0.17.0,
-compiling the same source for eight targets:
+illegal behavior on overflow, and never `@truncate`, which is silent. Where you genuinely mean "the
+byte", write `u8` and `@bitCast`, not `c_char`. Their widths, measured on 0.17.0 by compiling the
+same source for eight targets:
 
 | Target | `c_int` | `c_long` | `c_char` |
 |---|---|---|---|
@@ -592,11 +587,12 @@ compiling the same source for eight targets:
 | `avr-freestanding` | **16** | **32** | signed |
 | `msp430-freestanding` | **16** | **32** | **unsigned** |
 
-So a `c_long` that always fit before starts truncating the day someone builds for Windows;
-`c_char` arithmetic that assumed `i8` inverts its sign comparisons on ARM Linux; and `c_int` is not
-even 32 bits on the 16-bit microcontroller targets. `std.math.cast` returns `?T` and makes the
-out-of-range case a branch you have to write. Where you genuinely mean "the byte", write `u8` and
-`@bitCast`, not `c_char`.
+So `c_char` arithmetic that assumed `i8` inverts its sign comparisons on ARM Linux, and `c_int` is
+not even 32 bits on the 16-bit microcontroller targets.
+
+**Why:** ZS-DATA-02 makes this argument about `usize`, and the C types are worse: their width is set
+by the *platform ABI*, so a `c_long` that always fit starts truncating the day someone builds for
+Windows. `std.math.cast` makes the out-of-range case a branch you write.
 
 **Check:** an `@intCast` or `@truncate` whose operand is declared `c_int`, `c_uint`, `c_long`,
 `c_ulong`, `c_short`, `c_longlong`, or `c_char`. Also arithmetic or a comparison performed directly
@@ -637,15 +633,15 @@ requires the `comptime` `@sizeOf`/`@alignOf`/`@offsetOf` assertions. The rule th
 for any struct **you** define and share with C, use fixed-width fields, so that one set of
 assertions holds on every target you build for.
 
-**Why:** `extern struct` promises the target's C ABI, and the target's C ABI is not one thing.
 Measured on 0.17.0, `extern struct { a: c_int, b: c_long }` is 16 bytes with `b` at offset 8 on
-`x86_64-linux-gnu`, and 8 bytes with `b` at offset 4 on `x86_64-windows-gnu`,
-`arm-linux-gnueabihf`, and `wasm32-wasi`. A hard-coded `assert(@sizeOf(R) == 16)` therefore turns
-cross-compilation into a build failure, and *removing* the assertion to make it build throws away
-the only protection you had. Fixed-width fields make the two goals compatible. Use
-`std.mem.Alignment` for any alignment you name (ZS-DATA-22, ZS-MEM-26). Where the struct is C's, not
-yours, you have no choice about the field types — in that case write the assertion inside a
-`comptime` branch on `builtin.target` (ZS-INTEROP-20) rather than dropping it.
+`x86_64-linux-gnu`, and 8 bytes with `b` at offset 4 on `x86_64-windows-gnu`, `arm-linux-gnueabihf`,
+and `wasm32-wasi`. Use `std.mem.Alignment` for any alignment you name (ZS-DATA-22, ZS-MEM-26). Where
+the struct is C's, not yours, you have no choice about the field types — in that case write the
+assertion inside a `comptime` branch on `builtin.target` (ZS-INTEROP-20) rather than dropping it.
+
+**Why:** `extern struct` promises the target's C ABI, which is not one thing, so a hard-coded size
+assertion over C-typed fields fails the next cross-compile, and *removing* it throws away the only
+protection you had. Fixed-width fields make the two goals compatible.
 
 **Check:** an `extern struct` you declare with a `c_int`, `c_long`, `c_char`, `usize`, `isize`, or
 `?*anyopaque` field. Cross-reference each against its `comptime assert(@sizeOf(...) == N)`: that
@@ -680,16 +676,15 @@ comptime {
 A function passed to C is a top-level or namespaced function with `callconv(.c)`, never a closure
 and never a nested function that refers to an enclosing local. State reaches it through the
 `void *userdata` parameter the C API provides, and comes back with
-`@ptrCast(@alignCast(userdata orelse return))`.
-If the C API has no `userdata` parameter, it cannot be driven by more than one Zig object at a time
-— say so at the wrapper, and use a file-scope singleton deliberately rather than by accident.
+`@ptrCast(@alignCast(userdata orelse return))`. Both casts are required: `@ptrCast` changes the
+pointee type, and `@alignCast` restores the alignment that `*anyopaque` (align 1) erased, which
+`@ptrCast` alone cannot add — without it the recovered pointer is a compile error. If the C API has
+no `userdata` parameter, it cannot be driven by more than one Zig object at a time — say so at the
+wrapper, and use a file-scope singleton deliberately rather than by accident.
 
 **Why:** Zig has no closures at all; a function value is just a pointer to code, with no environment
 word to hold captures. That is why the `void *` exists in every well-designed C callback API, and
-why an API without one is genuinely limited rather than merely awkward. Both casts are required and
-neither is optional: `@ptrCast` changes the pointee type, and `@alignCast` restores the alignment
-that `*anyopaque` (align 1) erased — without it the recovered `*Sum` would be a compile error, and
-`@ptrCast` alone cannot add alignment.
+why an API without one is genuinely limited rather than merely awkward.
 
 **Check:** a `callconv(.c)` function declared inside another function body, or one whose body names
 a file-scope `var` holding per-instance state instead of reading its `userdata` parameter. Also a
@@ -728,14 +723,14 @@ test "C calls back into Zig and userdata survives the round trip" {
 ### ZS-INTEROP-15 [M] A callback parks its failure in `userdata` for the caller to check
 A `callconv(.c)` callback cannot return an error (ZS-INTEROP-01) and must not `try` past the C
 frame. Give the userdata struct a `failure: ?SomeError = null` field, `catch` into it, make
-subsequent invocations a no-op, and check it once the C function has returned.
+subsequent invocations a no-op, and check it once the C function has returned. The two tempting
+alternatives are both wrong: `catch unreachable` violates ZS-CORE-07 because allocation failure is
+an operating condition, and `@panic` unwinds through C frames that may hold locks or partially built
+state.
 
 **Why:** the callback runs on a C stack frame that knows nothing about error unions or `errdefer`.
-Propagating out of it is impossible, and the two tempting alternatives are both wrong:
-`catch unreachable` violates ZS-CORE-07 because allocation failure is an operating condition, and
-`@panic` unwinds through C frames that may hold locks or partially built state. Parking the error
-keeps C's iteration contract intact — it gets a `void` return every time — while making the failure
-observable exactly once, at a Zig call site that can `errdefer` properly.
+Parking the error keeps C's iteration contract intact — a `void` return every time — while making
+the failure observable once, at a Zig call site that can `errdefer`.
 
 **Check:** `try`, `catch unreachable`, or `@panic` inside a `callconv(.c)` function body. Then, for
 each such callback whose body can allocate or otherwise fail: a `failure: ?…` field on its userdata
@@ -791,16 +786,16 @@ will call `free()` on it, allocate it with `std.heap.c_allocator`. If your libra
 export a `zs_release`-style function and use any allocator you like. Never hand C a pointer from a
 `SafeAllocator`, arena, `FixedBufferAllocator`, or `smp_allocator` and expect `free()` to work.
 
+`std.heap.c_allocator` is the one that forwards to `malloc`/`realloc`/`free`. Its docs note that
+large requested alignments may need larger buffers than a simple `malloc` call, so the
+`free()`-compatibility guarantee holds for naturally-aligned allocations — `u8` buffers and C
+strings — which is what crosses the boundary anyway. It is a `@compileError` without `link_libc`, so
+this pattern and freestanding are mutually exclusive by construction. The library-owned form is
+strictly safer, because it survives a caller who links a different libc.
+
 **Why:** `free()` is not a generic deallocator; it is libc's, and it requires a pointer that libc's
-`malloc` produced. Every other allocator in ZS-MEM-03 keeps its bookkeeping somewhere libc has never
-heard of — an arena frees nothing per-object at all, and `SafeAllocator` trails each allocation
-with a checksummed footer that `free()` knows nothing about.
-`std.heap.c_allocator` is the one that forwards to `malloc`/`realloc`/`free`, and its docs note that
-"simple `malloc` calls are used when possible, but large requested alignments may require larger
-buffers", so the `free()`-compatibility guarantee holds for naturally-aligned allocations —
-`u8` buffers and C strings — which is what crosses the boundary anyway. It is a `@compileError`
-without `link_libc`, so this pattern and freestanding are mutually exclusive by construction.
-The library-owned form is strictly safer, because it survives a caller who links a different libc.
+`malloc` produced. Every other allocator in ZS-MEM-03 keeps bookkeeping libc cannot see: an arena
+frees nothing per object, and `SafeAllocator` trails each block with a checksummed footer.
 
 **Check:** a pointer returned to C from `gpa.print`, `dupeSentinel`, or `gpa.alloc` where the
 allocator is not `std.heap.c_allocator` and the module exports no matching release function. Also
@@ -873,27 +868,19 @@ hundreds of entry points, or one whose ABI changes between releases you track. `
 the translate-c package (`b.dependency("translate_c", …)` and its `Translator`), the same
 implementation with more options, though the source does not mark it deprecated yet.
 
-**Why:** the mechanism cuts both directions. Hand-written declarations let you apply every rule in
-this chapter at the point of declaration: `?[*:0]const u8` instead of `[*c]const u8`, an explicit
-`enum(c_int)` instead of a bare `c_int`, a doc comment recording who frees what. translate-c cannot
-infer any of that — it emits `[*c]` for every pointer, because a C `T *` really is nullable and
+`zig translate-c` emits `[*c]` for every pointer, because a C `T *` really is nullable and
 unbounded, so its output is the least safe legal translation by construction. It is also
 target-specific: the same header produces different integer types per target, so the output is a
-build artifact, not source. Against that, hand-writing is transcription, and transcription of two
-hundred functions will contain a wrong parameter order that compiles and corrupts memory.
-
-Build time was the other cost, and on 0.17 it is gone. 0.16.0 moved the implementation from
-libclang to Aro, which its release notes describe as a "cross your fingers when you upgrade"
-change, and a cold 0.16.0 `zig translate-c` first compiled the translator itself: 27 s on a
-two-line header here, and one run was killed after twenty-five minutes. On 0.17.0 the same cold
-run, with empty caches, takes 0.09 s. The build step still shells out to that CLI — the build
-runner's `TranslateC` step (`lib/zig/compiler/Maker/Step/TranslateC.zig`) builds an argv starting
-`zig translate-c …` — and caches the output in `.zig-cache`, so the choice between hand-writing and
-translating now rests on how safe the declarations are, not on build time.
+build artifact, not source. Build time no longer weighs against it: on 0.17.0 a cold run with empty
+caches takes 0.09 s, and the build step caches its output in `.zig-cache`.
 
 If you do use it: declare include paths and macros once in `build.zig`, import the result as a
 module, and pin the parts you depend on with `addCheckFile` so a toolchain upgrade that changes the
 translation fails the build instead of silently changing a type.
+
+**Why:** hand-written declarations carry this chapter's rules — `?[*:0]const u8` for `[*c]const u8`,
+`enum(c_int)` for `c_int`, who frees what — and translate-c cannot infer any of it. But two hundred
+transcribed functions will hold a wrong parameter order that compiles and corrupts memory.
 
 **Check:** any `@cImport(` site — a compile error since 0.17, so it marks code not yet ported. A
 `b.addTranslateC` step with no `addCheckFile` pinning the declarations the code depends on. And,
@@ -934,21 +921,18 @@ metal, and the exported API surface for a WebAssembly module. Allocation comes f
 There is also no usable `Io`: `Io.Threaded`, the only backend std ships that would apply, does not
 compile for either freestanding target, so no `Io.Dir`, `Io.File`, `io.async`, or `io.sleep`.
 
-**Why:** `std.process.Init` is populated by `std/start.zig`, which runs only when there *is* a
-start. Two consequences on 0.17.0:
+A `main` written there anyway fails two ways on 0.17.0:
 
 - On `thumb-freestanding-eabi`, `pub fn main(init: std.process.Init) !void` compiles but is dead
   code — the linker reports `cannot find entry symbol _start; not setting start address`, because
   no start code was emitted to call it.
 - On `wasm32-freestanding` it does not even compile: `std.start` tries to build the `Io.Threaded`
   it would hand you and fails inside it
-  (`error: struct 'posix.system__struct_…' has no member named 'getrandom'`). Instantiating
-  `Io.Threaded` by hand fails identically on both freestanding targets.
+  (`error: struct 'posix.system__struct_…' has no member named 'getrandom'`).
 
-So "freestanding just doesn't get the nice `main`" is wrong in a dangerous direction: on bare metal
-it silently produces a binary that never runs your code. The `[M!]` audience for the rest of this
-standard — firmware, embedded, unattended systems — is precisely the audience for which this
-exemption exists, so it is stated rather than left implicit.
+**Why:** `std.process.Init` is populated by `std/start.zig`, which runs only when there *is* a
+start, so on bare metal a `main` silently yields a binary that never runs your code. Firmware is the
+`[M!]` audience of the rest of this standard, so the exemption is stated rather than left implicit.
 
 **Check:** in any file reachable from a `*-freestanding` build: `pub fn main(`, `std.process.Init`,
 `init.io`, `Io.Dir`, `Io.File`, `io.async`, `io.sleep`, or `Io.Threaded`. Conversely, a freestanding
@@ -986,15 +970,15 @@ where `myPanicFn` has the signature `fn (msg: []const u8, first_trace_address: ?
 `pub fn panic(msg, trace, ra) noreturn` form but marks it
 "Deprecated; make `panic` a namespace instead".
 
-**Why:** `std.debug.defaultPanic` switches on `builtin.os.tag` and for `.freestanding` its entire
-body is `@trap()`. A safety failure on a microcontroller therefore becomes an undiagnosed halt with
-no message, no LED, no UART byte, and no watchdog reset — which is the worst possible outcome for
-the exact class of system that most needs to know it faulted. Your handler is where a real product
-writes a fault record to flash and resets. Note also that the convenience namespace
-`std.debug.simple_panic` **does not compile** on `wasm32-freestanding` or `thumb-freestanding-eabi`
-in 0.17.0 once any safety check can reach it (it reaches `Io.Threaded`), so `FullPanic` with your
-own function is the portable choice, not just the better one. `std.debug.no_panic` compiles for
-both freestanding targets and is the deliberate "smallest possible" option.
+Do not use `std.debug.simple_panic` there: in 0.17.0 it **does not compile** on
+`wasm32-freestanding` or `thumb-freestanding-eabi` once any safety check can reach it (it reaches
+`Io.Threaded`), so `FullPanic` with your own function is the portable choice, not just the better
+one. `std.debug.no_panic` compiles for both freestanding targets and is the deliberate "smallest
+possible" option.
+
+**Why:** on `.freestanding` the entire body of `std.debug.defaultPanic` is `@trap()`, so a safety
+failure on a microcontroller is a halt with no message, no UART byte, and no watchdog reset. Your
+handler is where a real product writes a fault record to flash and resets.
 
 **Check:** a freestanding root source file with no `pub const panic =` declaration at all, one
 written as `pub fn panic(` (the deprecated function form), or one set to `std.debug.simple_panic`,
@@ -1021,17 +1005,14 @@ export fn zs_x() u32 {
 ### ZS-INTEROP-20 [M] Branch on `builtin.target` at comptime; `@compileError` the unhandled target
 Conditional compilation reads `builtin.target`, `builtin.target.os.tag`, `builtin.target.cpu.arch`,
 `builtin.target.abi`, `builtin.link_libc`, and `builtin.single_threaded` — not a hand-rolled
-`-Dplatform` string option. Use a `switch` whose `else` is `@compileError`, so a new target is a
-build failure rather than a wrong default.
-
-**Why:** these are `comptime`-known, so the untaken arm is never semantically analysed — that is
-what lets one file contain both a `linux` path calling `std.posix` and a `windows` path calling
-Win32 without either breaking the other. A `-D` option cannot do that, because it is not known when
-the target is resolved, and it drifts out of sync with `-Dtarget`. The `else => @compileError`
-matters more than it looks: the alternative, a silent fallback, means the first person to
-cross-compile your module to a new platform gets subtly wrong behavior instead of a message naming
-the file that needs attention. For per-target `extern` declarations, this is also how you keep the
+`-Dplatform` string option, which is not known when the target is resolved and drifts out of sync
+with `-Dtarget`. Use a `switch` whose `else` is `@compileError`, so a new target is a build failure
+rather than a wrong default. Per-target `extern` declarations branch the same way, which keeps the
 boundary module of ZS-INTEROP-09 to one file.
+
+**Why:** these are `comptime`-known, so the untaken arm is never semantically analysed: one file can
+hold a `linux` path calling `std.posix` and a `windows` path calling Win32. A silent fallback gives
+whoever first cross-compiles to a new platform wrong behavior, not a message naming the file.
 
 **Check:** a `switch` on `builtin.target.os.tag`, `builtin.target.cpu.arch`, or `builtin.target.abi`
 whose `else` arm produces a value rather than `@compileError`. Also a `b.option` named `platform`,
@@ -1070,15 +1051,14 @@ A single-threaded build is not "the same program with one thread". Behavior on 0
 | `std.heap.smp_allocator` | Build failure: a `comptime assert(!builtin.single_threaded)`, reported as `error: reached unreachable code`. |
 | `std.heap.wasm_allocator` | The **reverse**: `@compileError("unimplemented")` *unless* single-threaded. |
 
-**Why:** this qualifies the io chapter's structured-concurrency rules rather than contradicting
-them. Code written against `Io` still compiles and still produces correct results, which is the
-point of the colorless design — but a design whose *correctness* depends on two tasks overlapping
-(a producer feeding a consumer through a bounded queue, a timeout racing an operation) will deadlock
-or hang, and a cancellation-based timeout will not fire. So: if a module requires concurrency, say
-so in its doc comment and call `io.concurrent`, whose `error.ConcurrencyUnavailable` is the honest
-failure, rather than `io.async`, which will quietly serialise. Conversely, wasm and freestanding
-builds are single-threaded, which is why the two allocator entries above point in opposite
-directions.
+If a module requires concurrency, say so in its doc comment and call `io.concurrent`, whose
+`error.ConcurrencyUnavailable` is the honest failure, rather than `io.async`, which will quietly
+serialise. Wasm and freestanding builds are single-threaded, which is why the two allocator rows
+point in opposite directions.
+
+**Why:** code written against `Io` still compiles and still produces correct results — the point of
+the colorless design — but a design whose *correctness* needs two tasks to overlap will deadlock or
+hang, and a cancellation-based timeout will not fire.
 
 **Check:** an `io.async` whose two tasks must overlap for the program to make progress — a producer
 feeding a bounded queue a consumer drains, or a timeout raced against an operation — in a module
@@ -1119,16 +1099,15 @@ test "what -fsingle-threaded does to Io" {
 
 ### ZS-INTEROP-22 [M] On WASI, resolve directories through `init.preopens`, never `Io.Dir.cwd()`
 A WASI program has no ambient filesystem. Take the directory the host granted you by name from
-`init.preopens`, and fail with a named error if it is absent.
-
-**Why:** `Io.Dir.cwd()` on WASI is a guess — the source is literally
-`.wasi => .{ .handle = 3 }, // Expect the first preopen to be current working directory`. If the
-host granted its preopens in a different order, or granted none, that handle is some other directory
-or nothing, and every path you open is silently wrong. `std.process.Init` carries
+`init.preopens`, and fail with a named error if it is absent. `std.process.Init` carries
 `preopens: Preopens`, whose `get(name) ?Resource` returns
 `union(enum) { file: Io.File, dir: Io.Dir }` — a real capability lookup with a null case you have to
 handle. On non-WASI targets the same call still resolves `"stdin"`, `"stdout"`, and `"stderr"`, so
 the code is portable.
+
+**Why:** `Io.Dir.cwd()` on WASI is a guess — handle 3, on the expectation that the first preopen is
+the working directory. If the host granted its preopens in another order, or none, that handle is
+some other directory or nothing, and every path you open is silently wrong.
 
 **Check:** `Io.Dir.cwd()` in any file a `build.zig` compiles for `wasm32-wasi`. Also an
 `init.preopens.get(` whose result is unwrapped with `.?` or `orelse undefined` rather than
@@ -1160,19 +1139,25 @@ pub fn main(init: std.process.Init) !void {
 Compute them from `target.result` rather than hard-coding. `link_libc` is true only for hosted
 targets. Leave `single_threaded` **unset** unless you mean it. `entry` is `.disabled` for a wasm
 library and `.{ .symbol_name = "_start" }` (or your reset symbol) for bare metal, and exported
-symbols go in `mod.export_symbol_names`.
+symbols go in `mod.export_symbol_names`. `link_libc` and `single_threaded` live on the `Module`, not
+the artifact; `entry` is a property of the executable (ZS-BUILD-06).
 
-**Why:** each of the three has a failure mode on 0.17.0. `link_libc = true` on freestanding
-fails the build outright (`unable to provide libc for target "thumb-freestanding-eabi"`), and
-leaving it false under an `extern "c"` declaration fails with
-`dependency on libc must be explicitly specified` (ZS-INTEROP-07), which is why the bare `extern fn`
-is the freestanding spelling. Forcing `single_threaded = false` on `wasm32-wasi` fails inside
-`Io.Threaded` with `comptime assert(builtin.cpu.has(.wasm, .atomics))` — the default is right and
-overriding it is what breaks; setting it to `true` is fine and is what freestanding gets anyway.
-And leaving `entry` at `.default` for a freestanding ELF target makes the LLD warning
-`cannot find entry symbol _start` into a **build failure**, because `zig build` treats unexpected
-linker stderr as an error. Note these all live on the `Module`, not the artifact — except `entry`,
-which is a property of the executable (ZS-BUILD-06).
+Each of the three has a failure mode on 0.17.0:
+
+- `link_libc = true` on freestanding fails the build outright
+  (`unable to provide libc for target "thumb-freestanding-eabi"`), and leaving it false under an
+  `extern "c"` declaration fails with `dependency on libc must be explicitly specified`
+  (ZS-INTEROP-07), which is why the bare `extern fn` is the freestanding spelling.
+- Forcing `single_threaded = false` on `wasm32-wasi` fails inside `Io.Threaded` with
+  `comptime assert(builtin.cpu.has(.wasm, .atomics))`. Setting it to `true` is fine and is what
+  freestanding gets anyway.
+- Leaving `entry` at `.default` for a freestanding ELF target makes the LLD warning
+  `cannot find entry symbol _start` into a **build failure**, because `zig build` treats unexpected
+  linker stderr as an error.
+
+**Why:** each of the three is right for some targets and a build failure on others, so a hard-coded
+value breaks the first cross-compile. For `single_threaded` the default is already right, and
+overriding it is what breaks.
 
 **Check:** in `build.zig`: a literal `.link_libc = true` not derived from `target.result`, any
 `.single_threaded = ` assignment at all, and an artifact built for a freestanding or wasm target

@@ -71,19 +71,18 @@ snippet's file name matters to the rule, it is named in the comment above it.
 
 `TitleCase` for types, type aliases, and callables whose return type is `type`. `camelCase` for
 every other callable. `snake_case` for everything else, including 0-field structs used as
-namespaces.
-
-**Why:** these are the rules the compiler's own diagnostics, `std`, and every published package
-follow, so casing carries information: seeing `foo.Bar` you know `Bar` is a type without looking it
-up, and seeing `foo.bar()` you know `bar` returns a value. Mixed conventions destroy that signal.
-The langref is explicit: "If `x` is a struct with 0 fields and is never meant to be instantiated
-then `x` is considered to be a 'namespace' and should be `snake_case`."
+namespaces. The langref is explicit: "If `x` is a struct with 0 fields and is never meant to be
+instantiated then `x` is considered to be a 'namespace' and should be `snake_case`."
 
 > TigerStyle conflicts here: N2 mandates `snake_case` for **function** names too (`read_sector`, not
 > `readSector`). TigerBeetle is internally consistent about it and it works for them, but any call
 > into std in the same expression is `camelCase`, so a mixed-case expression is unavoidable.
 > **Recommendation: use `camelCase` functions ([M]).** Uniform `snake_case` functions are defensible
 > only in a closed codebase with zero public API surface, and only if enforced mechanically.
+
+**Why:** these are the rules the compiler's own diagnostics, `std`, and every published package
+follow, so casing carries information: seeing `foo.Bar` you know `Bar` is a type without looking it
+up, and seeing `foo.bar()` you know `bar` returns a value. Mixed conventions destroy that signal.
 
 **Check:** three greps over the diff. A `fn` whose name starts with a capital and whose return type
 is not `type`; a `const`/`var` bound to a non-type value in `TitleCase`; a `fn` name containing `_`
@@ -120,16 +119,18 @@ const wire_format = struct {
 `VsrState`, `Utf8View`, `IoUring`, `readU32Be`, `xml_document`. Never `VSRState`, `UTF8View`,
 `IOUring`.
 
-**Why:** langref, verbatim: "Acronyms, initialisms, proper nouns, or any other word that has
+The langref, verbatim: "Acronyms, initialisms, proper nouns, or any other word that has
 capitalization rules in written English are subject to naming conventions just like any other word.
 Even acronyms that are only 2 letters long are subject to these conventions." ALL-CAPS identifiers
 in std exist essentially only as C-ABI or on-disk-format mirrors (`os/windows*`, `c/*`, `elf.zig`,
-`dwarf/TAG.zig`) — the "established convention such as `ENOENT`" carve-out. Losing the casing also
-keeps word boundaries decodable: `HTTPSProxy` has no readable split; `HttpsProxy` does.
+`dwarf/TAG.zig`) — the "established convention such as `ENOENT`" carve-out.
 
 > TigerStyle conflicts head-on: "Use proper capitalization for acronyms (`VSRState`, not
 > `VsrState`)." **Recommendation: langref form ([M]).** Use ALL-CAPS only for identifiers that
 > mirror a foreign symbol byte-for-byte.
+
+**Why:** an acronym is a word like any other, and casing it as one keeps word boundaries decodable:
+`HTTPSProxy` has no readable split; `HttpsProxy` does.
 
 **Check:** grep new identifiers for two or more consecutive capitals — `[A-Z]{2}`. Every hit must
 mirror a foreign symbol byte-for-byte (a C `#define`, an ELF/DWARF tag, an on-disk constant);
@@ -154,13 +155,12 @@ const ENOENT = 2;
 ### ZS-NAME-03 [M] Never prefix with `_`; resolve keyword collisions with `@"..."`
 
 A leading underscore is reserved for foreign symbols (`_DYNAMIC`, `_start`) and explicit structure
-padding (`_pad`, `_reserved`). It never means "private".
+padding (`_pad`, `_reserved`). It never means "private". For a keyword, `@"..."` string identifier
+syntax is the sanctioned mechanism — std uses `@"enum"` 250 times, `@"struct"` 245 times.
 
 **Why:** langref, verbatim: "In Zig, there are no private fields, and this style guide recommends
-against pretending otherwise." A `_`-prefixed field is exactly as reachable as any other, so the
-prefix communicates a guarantee the language does not provide, while breaking grep and doc
-generation. For keywords, `@"..."` string identifier syntax is the sanctioned mechanism — std uses
-`@"enum"` 250 times, `@"struct"` 245 times.
+against pretending otherwise." A `_` field is as reachable as any other, so the prefix promises what
+the language does not provide, and it breaks grep and doc generation.
 
 **Check:** any new identifier that starts with `_` or ends with a bare `_`. A leading `_` must be a
 foreign symbol or a padding field named `_pad`/`_reserved`; a trailing `_` is a mutilated
@@ -205,13 +205,13 @@ Everything else is spelled out. In particular `src`/`dst` stay banned: they are 
 `source`/`target`, carry no role, and — being different lengths — break the column alignment that
 makes a transposition visible. Long-form flags in scripts: `--force`, not `-f`.
 
-**Why:** TigerStyle N3, and the langref agrees from the other direction — under "Refrain from
+This is TigerStyle N3, and the langref agrees from the other direction — under "Refrain from
 Underscore Prefixes" it "recommends more verbose names at outer scopes and more abbreviated names at
-inner scopes." An abbreviation is a private dictionary the reader must reconstruct; `rcvbuf_sz`
-costs every future reader a guess, `receive_buffer_size_bytes` costs the author six seconds. The
-exceptions survive because they are *public* dictionaries: 0.17 std declares `gpa: Allocator` 312
-times (against 202 for `allocator: Allocator`), and `Build.zig` alone declares 70 receivers
-`b: *Build`, so a reader has already learned them.
+inner scopes."
+
+**Why:** an abbreviation is a private dictionary the reader must reconstruct: `rcvbuf_sz` costs
+every future reader a guess, `receive_buffer_size_bytes` costs the author six seconds. The
+exceptions survive because they are *public* dictionaries a reader has already learned.
 
 **Check:** grep a diff for new identifiers that drop vowels or truncate a word (`cfg`, `msg`, `buf`,
 `cnt`, `sz`, `src`, `dst`, `len_`); each must be on the list above or be spelled out.
@@ -240,17 +240,18 @@ fn processMessage(
 
 Ban `Value`, `Data`, `Context`, `Manager`, `State`, `utils`, `misc`, and initials from type names.
 Choose names against the **fully qualified** name: inside `json.zig`, the type is `Value`, not
-`JsonValue`.
+`JsonValue`. The langref: "Every declaration is assigned a fully qualified namespace by the compiler
+[…] remember that files also act as part of the fully-qualified namespace."
+
+std is actively refactoring toward this — `std.ArrayHashMapUnmanaged` → `std.array_hash_map.Custom`,
+`std.ArrayListAligned` → `std.array_list.Aligned` (0.16), and `std.bit_set.IntegerBitSet` →
+`std.bit_set.Integer`, `ArrayBitSet` → `Array`, `StaticBitSet` → `Static` (0.17) are all
+deprecations that move the noun into the module name and leave the qualifier in the decl name.
+`std.heap.MemoryPoolExtra` → `std.heap.memory_pool.Extra` was the same move; 0.17 removed the old
+name.
 
 **Why:** langref, verbatim: "Everything is a value, all types are data, everything is context, all
-logic manages state. Nothing is communicated by using a word that applies to all types." And:
-"Every declaration is assigned a fully qualified namespace by the compiler […] remember that files
-also act as part of the fully-qualified namespace." std is actively refactoring toward this —
-`std.ArrayHashMapUnmanaged` → `std.array_hash_map.Custom`, `std.ArrayListAligned` →
-`std.array_list.Aligned` (0.16), and `std.bit_set.IntegerBitSet` → `std.bit_set.Integer`,
-`ArrayBitSet` → `Array`, `StaticBitSet` → `Static` (0.17) are all deprecations that move the noun
-into the module name and leave the qualifier in the decl name. `std.heap.MemoryPoolExtra` →
-`std.heap.memory_pool.Extra` was the same move; 0.17 removed the old name.
+logic manages state. Nothing is communicated by using a word that applies to all types."
 
 **Check:** grep new type names for `Value`, `Data`, `Context`, `Manager`, `State`, `utils`, and
 `misc`. Then read each new declaration name beside its own file name: a repeated segment
@@ -278,11 +279,9 @@ pub fn escapeString(s: []const u8) void {}
 `latency_ms_max`, not `max_latency_ms`. Subject first, then unit, then extremum. Suffix vocabulary:
 `_max`, `_min`, `_default`, `_count`, `_size`, `_bytes`, `_ms`, `_ns`, `_percent`, `_limit`.
 
-**Why:** TigerStyle N6. Big-endian naming makes the sorted order of identifiers a *semantic*
-grouping: `latency_ms_min` and `latency_ms_max` land adjacent in any alphabetical listing, in
-autocomplete, and in a struct definition, so a missing member of a family is visible. Units in the
-name are also the cheapest defence against the index/count/size off-by-one family: `sector_count`
-and `sector_size_bytes` cannot be silently swapped, `n` and `len` can.
+**Why:** TigerStyle N6. Big-endian names sort into *semantic* groups — `latency_ms_min` beside
+`latency_ms_max` in any listing — so a missing member of a family is visible, and a unit in the name
+stops `sector_count` and `sector_size_bytes` being swapped the way `n` and `len` can.
 
 **Check:** any new constant, field, or option that *begins* with `max`, `min`, `num`, `default`, or
 `total`, and any name where the unit precedes the qualifier (`max_latency_ms`, `total_size_bytes`).
@@ -314,18 +313,19 @@ pub const connection_count_max: u16 = 512;
 `gpa` means the caller must free what comes back. `arena` means the result is never individually
 freed and dies with the arena.
 
-**Why:** this is the one place where std and TigerStyle have independently converged, so the merged
-rule is free. TigerStyle: "`allocator: Allocator` is a good, if boring name, but `gpa: Allocator`
-and `arena: Allocator` are excellent. They inform the reader whether `deinit` should be called
-explicitly." Counted over 0.17 std: `gpa: Allocator` **312**, `allocator: Allocator` **202**,
-`arena: Allocator` **41** — `gpa` is the plurality winner, and every rewritten container
-(`array_list.zig`, `array_hash_map.zig`, `multi_array_list.zig`) uses it exclusively while the
-`allocator:` sites are concentrated in older files. std annotates the contract in prose too
-(`Build.zig`: `/// Process lifetime.` on `arena: Allocator`). `allocator` remains acceptable only as
-a *struct field* holding an allocator.
+`allocator` remains acceptable only as a *struct field* holding an allocator. Counted over 0.17 std:
+`gpa: Allocator` **312**, `allocator: Allocator` **202**, `arena: Allocator` **41** — `gpa` is the
+plurality winner, and every rewritten container (`array_list.zig`, `array_hash_map.zig`,
+`multi_array_list.zig`) uses it exclusively while the `allocator:` sites are concentrated in older
+files. std annotates the contract in prose too (`Build.zig`: `/// Process lifetime.` on
+`arena: Allocator`).
 
 Placement follows std: receiver first, then the resource, then the data —
 `deinit(self, gpa)`, `append(self, gpa, item)`. A constructor with no receiver takes `gpa` first.
+
+**Why:** std and TigerStyle converged on these names independently, so the merged rule is free.
+TigerStyle: "`gpa: Allocator` and `arena: Allocator` are excellent. They inform the reader whether
+`deinit` should be called explicitly."
 
 **Check:** `rg -n '[(,] *allocator: '` over the diff — anchored, so it does not report a
 variable such as `debug_allocator`. A *parameter* named `allocator` is the finding; a
@@ -361,13 +361,13 @@ colleague. Two consequences: prefer a **noun** to a present participle (`replica
 needs a clarifying comment at the call site as the wrong name** — rename it until the comment is
 redundant, then delete the comment.
 
-**Why:** TigerStyle: "Think of how names will be used outside the code, in documentation or
-communication […] a noun can be directly used in correspondence without having to be rephrased."
-A participle has to be reworded every time it leaves the source file, which is a standing tax on
-every design discussion, and nouns compose into derived identifiers without grammatical contortion.
 The comment test is what makes the rule falsifiable: `// the number of ops we are still waiting on`
 attached to `pending` is the compiler of prose telling you the identifier failed, and
 `ops_awaiting_count` makes the comment disappear.
+
+**Why:** TigerStyle: "a noun can be directly used in correspondence without having to be rephrased."
+A participle has to be reworded every time it leaves the source file, a standing tax on every design
+discussion, and nouns compose into derived identifiers without contortion.
 
 **Check:** in a diff, every `//` comment sitting on the same line as, or immediately above, a call
 argument or a field access is a rename candidate — ask whether the name could absorb it.
@@ -388,10 +388,9 @@ try queue.add(item, .{ .retry_count = 3 });
 
 `readSector` calls `readSectorCallback`, `readSectorFill`, `readSectorVerify`.
 
-**Why:** TigerStyle. The prefix encodes the call graph in the identifier, so a reader landing on
-`readSectorFill` from a stack trace or a grep knows its one caller without searching, and a
-`readSector*` grep enumerates the whole subsystem. It also prevents the helper drifting into a
-second caller unnoticed — reusing it would require renaming it.
+**Why:** TigerStyle. The prefix encodes the call graph in the identifier: a reader landing on
+`readSectorFill` from a stack trace or a grep knows its one caller, and a `readSector*` grep
+enumerates the subsystem. Reusing the helper elsewhere would require renaming it.
 
 **Check:** for each new non-`pub` helper, grep its single caller's name as a prefix. If the helper's
 name does not appear in those results, it is misnamed. A helper with two callers that share no name
@@ -412,12 +411,12 @@ fn readSectorFill(buffer: []u8, index: u32) void {
 
 TigerStyle states the hard form: a function taking two `u64` **must** use an options struct. Extend
 it to any pair of same-typed parameters a caller could transpose, and to any parameter whose `null`
-would be unreadable at the call site.
+would be unreadable at the call site. std does this at scale: 158 `pub const …Options = struct`
+declarations, 449 parameters typed `…Options`.
 
 **Why:** Zig has no named arguments; an options struct is how you get them. Transposed same-typed
-arguments type-check and produce wrong behavior at run time — the compiler cannot help. Field
-names at the call site turn that into a compile error. std does this at scale: 158
-`pub const …Options = struct` declarations, 449 parameters typed `…Options`.
+arguments type-check and produce wrong behavior at run time — the compiler cannot help. Field names
+at the call site turn that into a compile error.
 
 **Check:** any `fn` signature in the diff with two adjacent parameters of the same type, or any
 parameter of type `?T` whose `null` a reader could not name at the call site. Then apply the two
@@ -473,13 +472,9 @@ Before designing a callback at all, check whether `io.async(function, args)` and
 the same thing. For the function values that genuinely remain — comparators, visitors, vtable
 members — do not invent a parameter order: copy `std.sort`'s.
 
-**Why:** TigerStyle's "callbacks go last" was a rule about hand-threaded continuations in Zig 0.14,
-where there was no I/O interface and TigerBeetle had to build its own event loop (its `main` still
-pins 0.14.1). ZS-CONC-37 [M] retires that rationale: `io.async` returns a `Future` you `await` in
-the caller's own lexical scope, so there is no continuation to position. What replaces it is not a
-different rule of thumb but a concrete shape, from `sort.zig` at 0.17.0 — `insertion`,
-`heap`, `pdq`, `block`, `argMin`, `argMax`, `min`, `max`, `isSorted`, `binarySearch`, `lowerBound`,
-`upperBound`, `equalRange`, and `std.mem.sort` / `sortUnstable` all take:
+The shape to copy comes from `sort.zig` at 0.17.0 — `insertion`, `heap`, `pdq`, `block`, `argMin`,
+`argMax`, `min`, `max`, `isSorted`, `binarySearch`, `lowerBound`, `upperBound`, `equalRange`, and
+`std.mem.sort` / `sortUnstable` all take:
 
 ```text
 (comptime T: type,
@@ -504,6 +499,10 @@ them together is what makes `{}`-as-context work for a stateless predicate. When
 baked into a *type* instead of a call, it moves to the type's comptime parameter list —
 `PriorityQueue(comptime T: type, comptime Context: type, comptime compareFn: …)` — and the data
 arrives later through the methods. See ZS-COMPTIME-17 for the `Context` design itself.
+
+**Why:** TigerStyle's "callbacks go last" served hand-threaded continuations in Zig 0.14, and
+ZS-CONC-37 [M] retires that rationale: `io.async` returns a `Future` you `await` in the caller's own
+scope, so no continuation is left to position, and a concrete shape replaces the rule of thumb.
 
 **Check:** any new function taking a `comptime …Fn` should be diff-able against a `std.sort`
 signature; if the fn is not adjacent to its `context`, or the data is not before both, it is a
@@ -543,12 +542,13 @@ fn selectPoorest(
 `…Leaky` (arena-oriented, nothing is freed individually), `toOwned…` / `fromOwned…` for ownership
 transfer.
 
-**Why:** these suffixes are load-bearing in std (52 `AssumeCapacity`, 40 `Adapted`, 36 `Alloc`, 26
-`Sentinel`, 3 `Leaky`), so a reader already knows the contract from the suffix alone. In particular
-**do not use `take*` to mean ownership transfer**: of the 23 `take*` functions in std the large
-majority are stream consumers (`Io.Reader.take`, `takeByte`, `takeDelimiter`, `takeEnum`,
+In particular, **do not use `take*` to mean ownership transfer**: of the 23 `take*` functions in std
+the large majority are stream consumers (`Io.Reader.take`, `takeByte`, `takeDelimiter`, `takeEnum`,
 `takeSentinel`, plus the `elf` header readers), so `take` reads as "consume the next thing" to
 anyone who has used `Io.Reader`. Use `toOwned…` / `fromOwned…` / `move…` instead.
+
+**Why:** these suffixes are load-bearing in std (52 `AssumeCapacity`, 40 `Adapted`, 36 `Alloc`, 26
+`Sentinel`, 3 `Leaky`), so a reader already knows the contract from the suffix alone.
 
 **Check:** any new method name that is a base name plus a suffix not on the list above — and in
 particular any `take*` that transfers ownership rather than consuming from a stream. A
@@ -565,16 +565,17 @@ In a file that *is* a type, write `const Journal = @This();` and name receivers 
 (or a consistent 1–2 letter abbreviation like `w: *Writer`). Use `const Self = @This();` and
 `self:` only inside a `fn Foo(comptime T: type) type` body, where the type has no name.
 
-**Why:** std and TigerStyle agree on this, and a naive grep hides it. `rg "\(self: *"` over std
-returns ~2100 hits, but counting only *true* receivers — a first parameter whose type is the file's
-own `TitleCase` name or a `@This()` alias declared in that file — the 3061 receivers in 0.17 std
-split `self` **44.2%** vs named after the type **55.8%**. The split is by file kind, not taste: only
-**6 of 143** `TitleCase.zig` files
-still declare `const Self = @This();`, while every generic container does. Per-file receiver
-histograms, counted as `rg -c 'fn \w+\(<recv>: <Type>' <file>`: `Io/Writer.zig` → `w: *Writer`
-×69, `Io/Reader.zig` → `r: *Reader` ×70, `Build.zig` → `b: *Build` ×70, `Build/Module.zig` →
-`m: *Module` ×24, `Target.zig` → `target: *const Target` ×28. TigerBeetle
-bans `Self` outright and enforces it with a lint. A named receiver also survives copy-paste into a
+A naive grep hides how std does this. `rg "\(self: *"` over std returns ~2100 hits, but counting
+only *true* receivers — a first parameter whose type is the file's own `TitleCase` name or a
+`@This()` alias declared in that file — the 3061 receivers in 0.17 std split `self` **44.2%** vs
+named after the type **55.8%**. The split is by file kind, not taste: only **6 of 143**
+`TitleCase.zig` files still declare `const Self = @This();`, while every generic container does.
+Per-file receiver histograms, counted as `rg -c 'fn \w+\(<recv>: <Type>' <file>`: `Io/Writer.zig` →
+`w: *Writer` ×69, `Io/Reader.zig` → `r: *Reader` ×70, `Build.zig` → `b: *Build` ×70,
+`Build/Module.zig` → `m: *Module` ×24, `Target.zig` → `target: *const Target` ×28. TigerBeetle bans
+`Self` outright and enforces it with a lint.
+
+**Why:** std and TigerStyle agree on this. A named receiver also survives copy-paste into a
 different type — `self` silently reads correctly in the wrong file.
 
 **Check:** `rg -n 'self:'` in any `TitleCase.zig` file, and `rg -n 'const Self = @This\(\);'`
@@ -627,12 +628,12 @@ profiled — but where a loop reads the same receiver field on every iteration, 
 a local above the loop and read the local. That buys the same freedom from reloading through the
 receiver pointer without changing the function's shape or its callers.
 
-**Why:** this is the *narrow* claim TigerStyle actually makes, under Performance, not Naming:
-"extract hot loops into stand-alone functions with primitive arguments without `self` […] the
-compiler doesn't need to prove that it can cache struct's fields in registers, and a human reader
-can spot redundant computations easier." It is a codegen argument about aliasing through a `*Self`,
-not a style objection to receivers. **It does not contradict ZS-NAME-14**: receivers are correct
-everywhere else, and a codebase should not delete them wholesale on the strength of this rule.
+**This does not contradict ZS-NAME-14**: receivers are correct everywhere else, and a codebase
+should not delete them wholesale on the strength of this rule.
+
+**Why:** TigerStyle, under Performance: "the compiler doesn't need to prove that it can cache
+struct's fields in registers, and a human reader can spot redundant computations easier." It is a
+codegen argument about aliasing through a `*Self`, not a style objection to receivers.
 
 **Check:** the extracted function's parameter list contains no pointer to a struct the loop also
 writes through; if it does, the aliasing argument has not been made.
@@ -668,14 +669,15 @@ A file with top-level fields *is* a struct type: `Journal.zig`, `Io.zig`, `Build
 no top-level fields is a namespace: `array_list.zig`, `wire_format.zig`. Directory names follow
 ZS-NAME-17.
 
-**Why:** langref, verbatim: "File names fall into two categories: types and namespaces. If the file
+The langref, verbatim: "File names fall into two categories: types and namespaces. If the file
 (implicitly a struct) has top level fields, it should be named like any other struct with fields
 using `TitleCase`. Otherwise, it should use `snake_case`." Measured over 563 std files, the rule
 holds with **zero counterexamples in the snake_case direction**: 0 of 420 `snake_case.zig` files
 have top-level fields. Nine of 143 `TitleCase.zig` files have no fields, and all nine are the
-"established convention" carve-out (`dwarf/TAG.zig`, `heap/PageAllocator.zig`, …). The payoff is
-that `@import("x/Foo.zig")` versus `@import("x/foo.zig")` tells you at the import site whether you
-got a type or a namespace, which is exactly the information the langref example encodes:
+"established convention" carve-out (`dwarf/TAG.zig`, `heap/PageAllocator.zig`, …).
+
+**Why:** `@import("x/Foo.zig")` versus `@import("x/foo.zig")` tells you at the import site whether
+you got a type or a namespace, which is exactly the information the langref example encodes:
 
 ```zig
 // fragment
@@ -709,13 +711,14 @@ src/WireFormat.zig (no fields)  src/wire_format.zig
 
 ### ZS-NAME-17 [S] Name a directory after its companion file
 
-`Io/` sits beside `Io.zig`; `Build/`, `Build/Step/`, `Target/`, `Io/File/` likewise.
+`Io/` sits beside `Io.zig`; `Build/`, `Build/Step/`, `Target/`, `Io/File/` likewise. The langref
+says "Directory names should be `snake_case`", but std does not do that: only 5 directories in the
+entire std tree lack a companion `<dir>.zig` sibling. Use `snake_case` directories only where there
+is no companion file.
 
-**Why:** the langref says "Directory names should be `snake_case`", but std does not do that and the
-divergence is deliberate: a directory is the sub-namespace of the file it accompanies, so it takes
-that file's exact name, casing included. Only 5 directories in the entire std tree lack a companion
-`<dir>.zig` sibling. Following std means `std.Io.File` maps mechanically to `Io/File.zig`. Use
-`snake_case` directories only where there is no companion file.
+**Why:** the divergence from the langref is deliberate: a directory is the sub-namespace of the file
+it accompanies, so it takes that file's exact name, casing included, and `std.Io.File` maps
+mechanically to `Io/File.zig`.
 
 **Check:** for each new directory, `ls` its parent for `<dir>.zig`. If that sibling exists, the
 directory name must match it character for character, casing included; if it does not exist, the
@@ -724,14 +727,14 @@ directory must be `snake_case`.
 ### ZS-NAME-18 [M] Keep the `@This()` alias and the whole import block in one place
 
 Top form: `//!` doc, then `const Foo = @This();`, then imports, then fields. Bottom form: everything
-else first, imports and the `@This()` alias as the final block. Pick one per file.
-
-**Why:** the median std file has its first `@import` on line 2, but 19 files of 40 lines or more —
+else first, imports and the `@This()` alias as the final block. Pick one per file. Both are house
+style: the median std file has its first `@import` on line 2, but 19 files of 40 lines or more —
 `zig/Parse.zig`, `heap/ArenaAllocator.zig` and `http/HeadParser.zig` among them — put the whole
-block in their last half so that line 1 is the type's documentation rather than boilerplate. Both
-are house style. Splitting imports across the file is not: `zig fmt` never reorders or moves
-imports, so a scattered block stays scattered forever and a reader cannot answer "what does this
-file depend on?" without reading all of it.
+block in their last half so that line 1 is the type's documentation rather than boilerplate.
+
+**Why:** a split import block is not house style: `zig fmt` never reorders or moves imports, so a
+scattered block stays scattered forever, and a reader cannot answer "what does this file depend on?"
+without reading all of it.
 
 **Check:** `rg -n '@import\(' <file>` — the line numbers must form one contiguous run (allowing the
 alias lines derived from them). A second run further down the file is a split block, and the
@@ -756,16 +759,17 @@ const Allocator = std.mem.Allocator;
 Group in that order, each group separated by a blank line, derived aliases immediately under the
 import they derive from. Do not alphabetize across groups.
 
-**Why:** the ordering is the std habit and it goes from most-fixed to most-local, so the interesting
-lines (your own modules) are last and closest to the code. `zig fmt` will never reorder imports, so
-whatever you write is permanent; a convention is the only thing keeping it consistent. The standard
-alias block, by frequency in std: `const assert = std.debug.assert;` (172 files), `const mem =
-std.mem;` (137), `const testing = std.testing;` (129), `const math = std.math;` (119),
+The standard alias block, by frequency in std: `const assert = std.debug.assert;` (172 files),
+`const mem = std.mem;` (137), `const testing = std.testing;` (129), `const math = std.math;` (119),
 `const Allocator = std.mem.Allocator;` (94), `const Io = std.Io;` (75). Aliasing `assert` matters
 because assertion density is the point — 2321 `assert(` calls versus 166 spelled-out
 `std.debug.assert(` calls in std.
 
 Application code always writes `@import("std")`. `@import("../std.zig")` is internal to std itself.
+
+**Why:** the ordering is the std habit and it goes from most-fixed to most-local, so the interesting
+lines (your own modules) are last and closest to the code. `zig fmt` will never reorder imports, so
+a convention is the only thing keeping them consistent.
 
 **Check:** `@import("builtin")` appearing below `@import("std")`, a local `@import` above either, an
 alias separated from the import it derives from, or `@import("../std.zig")` outside std. Also
@@ -779,11 +783,12 @@ decl literals come after the fields and before the methods. TigerStyle places th
 top of the file (ZS-NAME-18). Prefer the std placement for a `TitleCase.zig` file and the TigerStyle
 placement for a nested struct.
 
-**Why:** TigerStyle: "the order is fields then types then methods". std does the same
-(`Io/File.zig`, `Io/Dir.zig`, `Build/Step.zig`, `Io/Writer.zig`, `heap/ArenaAllocator.zig` all
-match). The layout is memory-shaped: the fields are the data, everything below is derived from it,
-so a reader reconstructing the invariants reads top-down and never has to scroll back. If a nested
+TigerStyle: "the order is fields then types then methods". std does the same (`Io/File.zig`,
+`Io/Dir.zig`, `Build/Step.zig`, `Io/Writer.zig`, `heap/ArenaAllocator.zig` all match). If a nested
 type grows complex, promote it to its own top-level file.
+
+**Why:** the layout is memory-shaped: the fields are the data and everything below is derived from
+them, so a reader reconstructing the invariants reads top-down and never has to scroll back.
 
 **Check:** read the struct body top to bottom and note the first `fn`. A field declaration or a
 nested `pub const … = struct` below it is out of order, as is a `test` block above the last method,
@@ -1007,16 +1012,17 @@ the phrase family, not the full sentence in the left column.
 | **`Deprecated in favor of`** \`x\`. | one line, immediately above the alias | 36, of 237 `/// Deprecated` |
 | **`See also:`** + `* \`decl\`` bullets | cross-reference block | 136 |
 
-**Why:** these are pattern-matched, not read. A reader who has seen `Invalidates element pointers if
-additional memory is needed.` 33 times across std — 24 of them in `array_list.zig` — recognizes the
-pointer-invalidation
-hazard at a glance; a paraphrase forces them to actually parse the sentence and decide whether it
-means the same thing. Cross-reference by backticked identifier always — 5473 `///` lines in std
-carry a backticked identifier (lines matching `^\s*///` that contain `` `name` ``, 0.17.0), and
-only backticks become links in generated docs.
+The full invalidation sentence, `Invalidates element pointers if additional memory is needed.`,
+appears 33 times across std, 24 of them in `array_list.zig`. Cross-reference by backticked
+identifier always: only backticks become links in generated docs, and 5473 `///` lines in std carry
+a backticked identifier (lines matching `^\s*///` that contain `` `name` ``, 0.17.0).
 
 Omit doc comments that restate the name (langref rule 1). `handle: Handle` is undocumented in
 `Io/File.zig` for a reason.
+
+**Why:** these are pattern-matched, not read: a reader who has seen the invalidation sentence across
+std recognizes the pointer-invalidation hazard at a glance, while a paraphrase forces them to parse
+the sentence and decide whether it means the same thing.
 
 **Check:** a doc comment that paraphrases a row of the table — "the caller must free this" instead
 of `Caller owns returned memory.`, "pointers may move" instead of the invalidation sentence, "this
@@ -1035,13 +1041,13 @@ Comments explain the reasoning that is not in the code: why this constant, why n
 design, what invariant is being preserved, what upstream bug is being worked around and when the
 workaround can be deleted. Open each test with a sentence stating its goal and method.
 
-**Why:** TigerStyle: "Code alone is not documentation. Use comments to explain **why** you wrote the
-code the way you did. Show your workings." Restating the code is worse than nothing — it duplicates
-a fact that will drift. A rationale cannot be recovered from the source at all, so it is the only
-thing a comment adds that the code cannot. TigerBeetle's highest-frequency comment categories, in
-order, are: why this number; why this design and not the obvious one; invariants; correctness proofs
-for derived constants; links to the paper or issue the idea came from; upstream-bug annotations with
-a removal condition.
+TigerBeetle's highest-frequency comment categories, in order, are: why this number; why this design
+and not the obvious one; invariants; correctness proofs for derived constants; links to the paper or
+issue the idea came from; upstream-bug annotations with a removal condition.
+
+**Why:** TigerStyle: "Code alone is not documentation." Restating the code duplicates a fact that
+will drift, while a rationale cannot be recovered from the source at all, so it is the only thing a
+comment adds that the code cannot.
 
 **Check:** a comment whose words are the identifiers on the line below it — `// Increment the sector
 count.` above `sector_count += 1` — is the canonical violation; delete it or replace it with the
@@ -1086,13 +1092,13 @@ the scan to comments that start their own line.
 
 `zig fmt` owns indentation (4 spaces), brace placement, spacing, and blank-line collapsing. The one
 decision you make is the **trailing comma**: adding one to a parameter list, struct literal, or enum
-forces one item per line; removing it collapses the list to a single line if it fits.
+forces one item per line; removing it collapses the list to a single line if it fits. `zig fmt`
+rewrites hard tabs to 4 spaces, collapses runs of blank lines to one, and splits `_ = a; _ = b;`
+onto separate lines. The langref: "If a list of things is longer than 2, put each item on its own
+line and exercise the ability to put an extra comma at the end."
 
-**Why:** `zig fmt` rewrites hard tabs to 4 spaces, collapses runs of blank
-lines to one, splits `_ = a; _ = b;` onto separate lines, and *collapses* a multi-line signature
-that lacks a trailing comma back onto one line. So a hand-wrapped signature without a trailing comma
-will be silently un-wrapped. Langref: "If a list of things is longer than 2, put each item on its
-own line and exercise the ability to put an extra comma at the end."
+**Why:** `zig fmt` *collapses* a multi-line signature that lacks a trailing comma back onto one
+line, so a hand-wrapped signature without a trailing comma will be silently un-wrapped.
 
 ```zig
 // fragment — (`zig fmt` input)
@@ -1127,14 +1133,14 @@ guarding a hand-aligned table.
 ### ZS-NAME-30 [M] Hard-limit every line to 100 columns
 
 Including comments, doc comments, and string literals. Set a column ruler. Wrap by adding a trailing
-comma and re-running `zig fmt`.
+comma and re-running `zig fmt`. Enforce it in CI: it is a one-line check and the only formatting
+rule `zig fmt` cannot do for you. TigerStyle F3 is absolute — "Use it up. Never go beyond." The
+langref is softer ("Line length: aim for 100; use common sense.") but the number agrees, and std
+measured over 416 956 non-empty lines is 92.6% ≤80 columns and 97.4% ≤100.
 
-**Why:** TigerStyle F3 is absolute — "Use it up. Never go beyond." — and motivates the number
-physically: 100 columns is just enough to fit two copies of the code side by side, which is what
-code review and diffing actually do. The langref is softer ("Line length: aim for 100; use common
-sense.") but the number agrees, and std measured over 416 956 non-empty lines is 92.6% ≤80 columns
-and 97.4% ≤100. Nothing should ever be hidden behind a horizontal scrollbar. Enforce it in CI; it is
-a one-line check and the only formatting rule `zig fmt` cannot do for you.
+**Why:** TigerStyle motivates the number physically: 100 columns is just enough to fit two copies of
+the code side by side, which is what code review and diffing actually do. Nothing should ever be
+hidden behind a horizontal scrollbar.
 
 **Check:** `awk 'length > 100 { print FILENAME ":" FNR }' $(git ls-files "*.zig")` — any output is a
 violation, including inside a comment or a string literal. `zig fmt --check` will not report this,
@@ -1162,14 +1168,15 @@ A word that already has a technical meaning in your project may not be reused fo
 context-dependent meaning. Before introducing a term, grep the codebase and the design documents for
 it; if it is taken, coin a different word rather than qualifying the old one.
 
-**Why:** TigerStyle's own worked example. TigerBeetle shipped a feature where a transfer could be
-held and later resolved, and first called it a *two-phase commit transfer* — but *two-phase commit*
-was already the name of a mechanism in their consensus protocol, so every conversation had to
-establish which layer was under discussion before it could proceed. They renamed the feature to
-**pending transfers**, which are subsequently **posted** or **voided**. The cost of an overloaded
-term is not paid once at naming time; it is paid on every future reading, and it compounds because
-the derived identifiers inherit the ambiguity (`two_phase_timeout` — whose?). Distinct words also
-make grep exact, which matters far more in a codebase than in prose.
+TigerStyle's own worked example: TigerBeetle shipped a feature where a transfer could be held and
+later resolved, and first called it a *two-phase commit transfer* — but *two-phase commit* was
+already the name of a mechanism in their consensus protocol, so every conversation had to establish
+which layer was under discussion before it could proceed. They renamed the feature to
+**pending transfers**, which are subsequently **posted** or **voided**.
+
+**Why:** the cost of an overloaded term is not paid once at naming time; it is paid on every future
+reading, and it compounds because the derived identifiers inherit the ambiguity (`two_phase_timeout`
+— whose?). Distinct words also make grep exact.
 
 **Check:** for each new domain noun in a diff, `rg -i '<term>'` over `src/` and `docs/`. Hits in
 an unrelated subsystem mean the term is taken. Qualifying it (`transfer_two_phase_commit`) does not
@@ -1194,13 +1201,15 @@ Every commit gets a descriptive message: a subject line naming what changed, and
 reasoning ZS-NAME-27 keeps out of the code. Do not put the explanation only in a pull-request
 description.
 
+`git blame` on a suspicious line is the single highest-yield debugging move in an unfamiliar
+codebase, and it reaches the commit message and nothing else — not the PR, not the review thread,
+not the chat log, all of which live on a third-party server that may not outlive the repository. The
+message is also the only rationale that survives `git filter-repo`, a mirror, or a vendored copy of
+your package in someone else's `zig-pkg/`.
+
 **Why:** TigerStyle's reason is mechanical, not etiquette: a pull-request description lives outside
 the git repository and is, in its words, "invisible in `git blame`" — so it cannot replace a commit
-message. `git blame` on a suspicious line is the single highest-yield debugging move in an
-unfamiliar codebase, and it reaches the commit message and nothing else — not the PR, not the review
-thread, not the chat log, all of which live on a third-party server that may not outlive the
-repository. The message is also the only rationale that survives `git filter-repo`, a mirror, or a
-vendored copy of your package in someone else's `zig-pkg/`.
+message.
 
 **Check:** if reviewing the diff required a fact that is not in the commit message, the message is
 incomplete — the next reader will be doing it from `git blame` with strictly less context.
@@ -1248,14 +1257,13 @@ allocation, I/O, concurrency. More than one per concern needs a migration plan, 
 
 ### ZS-NAME-37 [S] Keep sibling modules structurally parallel
 
-Modules at the same level of the tree have the same internal shape: if `parser.zig` has an
-`Error` set, a `Config`, and a test block at the bottom, then `renderer.zig` does too, or the
-difference is explained in a comment.
+Modules at the same level of the tree have the same internal shape: if `parser.zig` has an `Error`
+set, a `Config`, and a test block at the bottom, then `renderer.zig` does too, or the difference is
+explained in a comment. ZS-NAME-20 fixes the order inside one file; this rule fixes it across files.
 
 **Why:** parallel structure lets a reader who has learned one module navigate the next without
 reading it, which compounds across a codebase. The convention costs almost nothing to keep and is
-paid for on every visit by every contributor (ZS-NAME-20 fixes the order inside one file; this rule
-fixes it across files).
+paid for on every visit by every contributor.
 
 **Check:** list the declaration kinds in each sibling module side by side. A row present in three of
 four siblings is either missing from the fourth or unnecessary in the others.

@@ -75,10 +75,9 @@ TigerStyle's framing is the whole design: **assertions detect programmer errors,
 unexpected and whose only correct handling is to crash; errors are operating conditions, which are
 expected and must be handled.** Pick the mechanism from the classification, not from convenience.
 
-**Why:** the two categories have opposite correct responses. A violated precondition means the
-program's model of itself is already wrong, so continuing corrupts more state — crashing converts a
-correctness bug into a liveness bug. A failed `open()` means the *world* did not cooperate; crashing
-there converts a recoverable situation into an outage.
+**Why:** the two have opposite correct responses. After a violated precondition the program's model
+of itself is wrong, and continuing corrupts more state; a failed `open()` means the *world* did not
+cooperate, and crashing there turns a recoverable situation into an outage.
 
 **Check:** an `assert` on a value that arrived from `read`, `argv`, an environment variable, or a
 `pub` parse entry point — that is an operating condition asserted. And the mirror image: an error
@@ -175,9 +174,8 @@ optimize mode: document which invariants it asserts and what it costs to run it 
 and let the consumer decide (`references/build.md` ZS-BUILD-27).
 
 **Why:** a library does not know whether its caller can recover. Aborting the process removes the
-caller's ability to retry, degrade, or report. It also makes the library untestable — a test cannot
-assert on a process that has already exited. An assertion is different in kind: there is no state in
-which the caller could usefully continue, so no recovery capability is being taken away.
+caller's ability to retry, degrade, or report, and makes the library untestable — a test cannot
+assert on a process that has already exited.
 
 **Check:** in a non-`main`, non-`build.zig` file, grep for `@panic(`, `process.exit`,
 `process.fatal`, and `debug.print`. `assert(`, `unreachable`, and `assertAlways(` are not hits.
@@ -215,18 +213,19 @@ pub fn main(init: std.process.Init) !void {
 `pub` functions declare `SomeError!T` (or an alias such as `Allocator.Error`, `Io.Writer.Error`,
 `Io.Cancelable`). Bare `!T` is for private/internal helpers, `main`, and tests.
 
-**Why:** an inferred error set is part of your ABI that nobody can read. Adding one `try` to a
-private callee three levels down silently widens a public signature, and every downstream
-`catch |e| switch (e)` that was exhaustive is now non-exhaustive — a compile error in someone
-else's repo caused by a change you did not think was public. std is **not** a model here, and
-pretending otherwise weakens the rule: counted over single-line signatures at 0.17.0, outside the
-generated `zig/parser_generated_oracle.zig` (`rg 'pub fn \w+\([^)\n]*\) !' -g '*.zig'` for bare;
-swap the trailing `!` for `[A-Za-z][A-Za-z0-9_.()]*!` for named), 1189 `pub fn` declare a named set
-but **407 still return a bare `!`** — `priority_queue`'s `ensureTotalCapacity` and `pushSlice` among
-them, though the flagship containers are clean: every `ArrayList`/`HashMap` `ensureTotalCapacity`
-returns `Allocator.Error!void` or `Oom!void` (non-`pub` helpers add another 475 bare). This standard
-takes the strict side of that 3:1 split, because the quarter that infer are exactly the ones whose
-sets can widen under a caller without warning.
+std is **not** a model here, and pretending otherwise weakens the rule. Counted over single-line
+signatures at 0.17.0, outside the generated `zig/parser_generated_oracle.zig`
+(`rg 'pub fn \w+\([^)\n]*\) !' -g '*.zig'` for bare; swap the trailing `!` for
+`[A-Za-z][A-Za-z0-9_.()]*!` for named), 1189 `pub fn` declare a named set but **407 still return a
+bare `!`** — `priority_queue`'s `ensureTotalCapacity` and `pushSlice` among them, though the
+flagship containers are clean: every `ArrayList`/`HashMap` `ensureTotalCapacity` returns
+`Allocator.Error!void` or `Oom!void` (non-`pub` helpers add another 475 bare). This standard takes
+the strict side of that 3:1 split, because the quarter that infer are exactly the ones whose sets
+can widen under a caller without warning.
+
+**Why:** an inferred error set is part of your ABI that nobody can read. One `try` added to a
+private callee three levels down silently widens a public signature, and every downstream exhaustive
+`catch |e| switch (e)` breaks — in someone else's repo.
 
 **Check:** grep for `pub fn` lines whose return type begins with a bare `!` — `) ![` , `) !void`,
 `) !u`. `main`, `test`, and non-`pub` helpers are not hits.
@@ -283,10 +282,12 @@ heavily for platform-specific members. A one-member set is written inline, not h
 
 ### ZS-ERR-06 [M] Never put `anyerror` in a public signature
 
+std has 43 occurrences of `anyerror` in 456 KLOC, and the one notable public use is
+`testing.expectError(expected_error: anyerror, …)`.
+
 **Why:** `anyerror` is the set of every error in the program, so no caller can ever write an
 exhaustive `switch`, and `@typeInfo(anyerror).error_set` is `null` rather than a member list. It
-also defeats error-set–based optimisation. std has 43 occurrences in 456 KLOC, and the one notable
-public use is `testing.expectError(expected_error: anyerror, …)`.
+also defeats error-set–based optimisation.
 
 **Check:** grep `anyerror` — every hit in a `pub fn` signature, a `pub const` type alias, or a
 public struct field is the finding. `anyerror` inside a test body or a private helper is not.
@@ -392,13 +393,13 @@ fn drain(err: Wide) error{ Canceled, OutOfMemory }!void {
 ### ZS-ERR-10 [M] `catch unreachable` is a latent bug unless the proof is in a comment next to it
 
 `catch unreachable` claims *this error is impossible given local invariants*. Write the one-line
-proof. If you cannot write it, you have a bug, not an invariant.
+proof. If you cannot write it, you have a bug, not an invariant. The usual false claim is an OOM or
+an I/O error that "obviously can't happen" until the machine is under memory pressure or the disk
+fills. std has 310 uses; each sits next to a buffer whose size is fixed at compile time.
 
 **Why:** `unreachable` is a safety-checked panic in `debug`/`safe` builds and **illegal behavior**
 in `fast`/`small` builds. A wrong `catch unreachable` therefore does not crash in production — it
-miscompiles the surrounding code. The usual failure is an OOM or an I/O error that "obviously can't
-happen" until the machine is under memory pressure or the disk fills. std has 310 uses; each sits
-next to a buffer whose size is fixed at compile time.
+miscompiles the surrounding code.
 
 ```zig
 // fragment — BAD: allocation can always fail
@@ -446,12 +447,12 @@ all — ZS-ERR-30 forbids it outright.
 
 ### ZS-ERR-11 [M] Every error is handled somewhere; `catch {}` needs a justification comment
 
-No dropped errors. `catch {}`, `_ = f() catch {};`, and `catch null` are all silent discards.
+No dropped errors. `catch {}`, `_ = f() catch {};`, and `catch null` are all silent discards, and
+empty `catch` blocks are the highest-yield thing to grep for in review.
 
 **Why:** Yuan et al. (OSDI '14, *Simple Testing Can Prevent Most Critical Failures*) found that 92%
-of catastrophic failures in distributed data-intensive systems came from incorrect handling of
-non-fatal errors that the software had already explicitly signalled — the failure was detected and
-then thrown away. Empty `catch` blocks are the highest-yield thing to grep for in review.
+of catastrophic failures in distributed data-intensive systems came from mishandled non-fatal errors
+the software had already signalled: detected, then thrown away.
 
 **Check:** `catch {}`, `catch {};`, `_ = … catch`, `catch null`, and `catch false` with no comment
 on the same or the preceding line saying why the failure is genuinely not information. A `catch`
@@ -533,10 +534,12 @@ An `errdefer` covers a resource only from its declaration until something else b
 for freeing it. Once a value is appended to a container that owns its items, or returned to the
 caller, the `errdefer` for it must no longer be in scope.
 
+The symptom misleads: `Allocator.free` `@memset`s the bytes to `undefined` *before* calling
+`rawFree`, so freeing an item twice faults inside `free`, with a stack trace that points at the
+allocator, not at your bug.
+
 **Why:** an `errdefer` that outlives the transfer is a double free on the error path — the container
-frees the item during its own cleanup, then the stale `errdefer` frees it again. `Allocator.free`
-`@memset`s the bytes to `undefined` *before* calling `rawFree`, so the second free faults inside
-`free` with a stack trace that points at the allocator, not at your bug.
+frees the item during its own cleanup, then the stale `errdefer` frees it again.
 
 **Check:** an `errdefer gpa.free(x)` / `errdefer x.deinit(gpa)` declared at *function* scope over a
 value that is later passed to `append`, `put`, `toOwnedSlice`, or `return` — the transfer happens
@@ -755,15 +758,13 @@ std, and `zig fmt` formats them as chains. The two positions are irreconcilable 
 Recommendation, keyed to tiers — `[S]`: when the chain dispatches on one value, convert it to a
 `switch`, which buys you exhaustiveness checking that neither `if` form provides. When it dispatches
 on unrelated predicates, an `else if` chain is acceptable idiomatic Zig; adopt the nested-tree form
-only in a codebase that has adopted TigerStyle wholesale, and be consistent within a file.
+only in a codebase that has adopted TigerStyle wholesale, and be consistent within a file. The
+nested tree is a readability preference that buys no compiler check, and since `zig fmt` will not
+produce it, mixing both spellings in one file costs more than either convention alone.
 
-**Why:** the `switch` half of this rule buys a compiler check that neither `if` form can: a `switch`
-over an enum or tagged union is verified exhaustive at compile time, so adding a variant breaks the
-build at every dispatch site (ZS-ERR-28). An `else if` chain over the same values compiles fine and
-falls through to the last `else` at runtime. That mechanism exists only when the chain dispatches on
-one value, which is why the recommendation is keyed to that case rather than to the chain's shape.
-The nested-tree rewrite buys no such check — it is a readability preference, and since `zig fmt`
-will not produce it, mixing both spellings in one file costs more than either convention alone.
+**Why:** a `switch` over an enum or tagged union is verified exhaustive at compile time, so adding a
+variant breaks the build at every dispatch site (ZS-ERR-28), while an `else if` chain over the same
+values compiles and falls through to its last `else` at runtime.
 
 **Check:** an `else if` chain whose conditions all compare the *same* expression against different
 constants or enum tags — that is a `switch` written the long way. Within one file, the chain form
@@ -818,10 +819,9 @@ For every `if` without an `else` where the negative case is a deliberate no-op, 
 one-line comment in the empty half, or an assertion stating what is true when the condition is
 false.
 
-**Why:** bugs cluster where data crosses the valid/invalid boundary. An `if` with no `else` is a
-silent claim that the other half of the input space needs nothing, and silence does not distinguish
-"I decided this is a no-op" from "I forgot". A comment or an assertion turns it into a claim a
-reviewer can disagree with.
+**Why:** bugs cluster where data crosses the valid/invalid boundary. An `if` with no `else` claims
+the other half of the input space needs nothing, and silence cannot tell "I decided this is a no-op"
+from "I forgot". A comment or an assertion is a claim a reviewer can dispute.
 
 **Check:** in a diff, an added `if` with no `else` whose surrounding block has no comment and no
 following `assert` naming the negative case.
@@ -978,14 +978,13 @@ the whole slice.
 
 `sw: switch (initial) { .a => { …; continue :sw next; }, … }` replaces
 `while (true) { switch (state) { … } }`. A `continue` targeting a switch **must** carry an operand;
-`break :sw` exits, and `break :sw value` yields a value.
+`break :sw` exits, and `break :sw value` yields a value. Per the langref, a comptime-known
+`continue` operand lowers to an unconditional branch, which is perfectly predicted, and a
+runtime-known one embeds its own conditional branch (ideally a jump table).
 
-**Why:** this is a code-generation construct, not sugar. Per the langref: when the `continue`
-operand is comptime-known it lowers to an unconditional branch, which is perfectly predicted; when
-it is runtime-known, each `continue` embeds its own conditional branch (ideally a jump table), so
-the CPU predicts each transition independently. A `while`+`switch` loop funnels every transition
-through one dispatch point, which is a branch-prediction bottleneck in exactly the hot loops where
-this pattern is used.
+**Why:** this is a code-generation construct, not sugar. Each `continue` carries its own branch, so
+the CPU predicts each transition independently; a `while`+`switch` loop funnels every transition
+through one dispatch point, a bottleneck in the hot loops that use it.
 
 **Check:** a `while (true) { switch (state) { … } }` whose arms all end by assigning `state` —
 that is a labeled `switch` written the long way. Separately, an unlabeled `break` or `continue`
@@ -1050,12 +1049,13 @@ The `catch blk: { … break :blk fallback; }` form is the canonical "default val
 ### ZS-ERR-28 [M] Switch exhaustively with no `else`; use `_` on non-exhaustive enums
 
 For your own enums and unions, list every prong and do not add `else`. For a non-exhaustive enum —
-one with a trailing `_` field — use a `_ =>` prong rather than `else =>`.
+one with a trailing `_` field — use a `_ =>` prong rather than `else =>`: `_ =>` handles
+out-of-range values while *still* erroring if you forget a named tag, whereas `else =>` handles both
+and therefore checks neither.
 
 **Why:** exhaustiveness is a design tool. Adding a variant should produce a compile error at every
 site that must be updated, which is how you find them all; `else` converts that compile error into a
-runtime fallthrough. `_ =>` handles out-of-range values while *still* erroring if you forget a named
-tag, whereas `else =>` handles both and therefore checks neither.
+runtime fallthrough.
 
 **Check:** an `else =>` prong in a `switch` over an enum or tagged union declared in this repo. If
 the enum's declaration ends in `_`, the prong should be `_ =>`; if it does not, the prong should not
@@ -1100,9 +1100,8 @@ fn opcodeName(op: Opcode) []const u8 {
 `inline else => |tag|` to obtain a comptime-known tag inside a runtime `switch`.
 
 **Why:** `inline` fully unrolls, so machine code grows linearly with the iteration count. That is
-correct when the loop body's *types* differ per iteration — something a runtime loop cannot express
-— and wasteful when it is just a small runtime loop you wanted unrolled; let the optimiser decide
-that.
+right when the body's *types* differ per iteration, which a runtime loop cannot express, and waste
+when it is a small runtime loop you wanted unrolled: let the optimiser decide that.
 
 **Check:** an `inline for` whose iterable is a plain integer range (`inline for (0..n)`) or an array
 of same-typed values rather than `@typeInfo(T).@"struct".field_names`/`.field_types`, an enum's
@@ -1136,14 +1135,13 @@ fn opName(op: Op) []const u8 {
 licenses an unreachable, write `orelse unreachable` and write the proof beside it; std does that
 three times in 456 KLOC. The short spelling has no licensed use.
 
-**Why:** `.?` on a null is a safety-checked panic in `debug`/`safe` builds and **illegal behavior**
-in `fast`/`small` builds — the same trap as `catch unreachable`, in a form so short that it slips
-through review. That shortness is the whole objection: the long spelling survives review because it
-is visible, and it is the one place a proof comment has to go.
-
 Most sites do not need the escape at all. `std.testing.expectEqual` compares optionals, so
 `expectEqual(2, find(...))` needs no unwrap; a `callconv(.c)` callback that returns void can take
 `orelse return`; a fallible path can take `orelse error.Something`.
+
+**Why:** `.?` on a null is the same trap as `catch unreachable` — a panic in `debug`/`safe`, illegal
+behavior in `fast`/`small` — in a form short enough to slip through review. The long spelling is
+visible, and it is the one place a proof comment has to go.
 
 **Check:** grep `.?` — every hit is a defect, including inside `comptime` blocks and `const`
 initializers. `orelse unreachable` is the spelling that carries a proof, and ZS-ERR-10 governs it.
@@ -1181,10 +1179,12 @@ const found = for (items) |it| {
 statement in a control-flow branch, or the first statement in a function**; otherwise the compiler
 emits `error: '@branchHint' must appear as the first statement in a function or conditional branch`.
 
+std uses it deliberately: `.cold` ×132 on error paths (including inside `std.log.err` and
+`std.debug.panic`), `.unlikely` ×78, `.likely` ×66.
+
 **Why:** `.cold` lets the optimiser move a branch's code to a different page, keeping the hot path's
 instruction cache dense; `.unpredictable` tells it to prefer branchless lowering where a mispredict
-would cost more than the extra work. std uses it deliberately: `.cold` ×132 on error paths
-(including inside `std.log.err` and `std.debug.panic`), `.unlikely` ×78, `.likely` ×66.
+would cost more than the extra work.
 
 **Check:** two findings at two tiers, and do not let the softer one absorb the harder one. `[M]`:
 any surviving `@setCold(`, which was removed — the same removed-builtin class as ZS-COMPTIME-18
@@ -1228,18 +1228,16 @@ fn f(x: u32) u32 {
 ### ZS-ERR-32 [M] A library logs through a scoped `std.log` namespace
 
 `const log = std.log.scoped(.mylib);` at the top of the file, then `log.warn(…)`. One scope per
-module, named for the module.
-
-**Why:** `std.log` routes through `std.options.logFn`, which the *application* owns — so the
-application decides format, destination, filtering, and whether the library is audible at all. The
-scope is the handle the application filters on (`log_scope_levels`, ZS-ERR-33); an unscoped
-`std.log.warn` lands in the `.default` bucket alongside everyone else's and cannot be silenced
-independently. std itself logs 29 times in 456 KLOC: the bar is high.
+module, named for the module. std itself logs 29 times in 456 KLOC: the bar is high.
 
 That `std.debug.print` and raw stderr writes are never program output, and never acceptable in a
 library, is owned by `references/concurrency.md` ZS-CONC-06 and
 `references/output.md` ZS-OUT-16 / ZS-OUT-17. Program *output* is not logging: write
 it to a `*std.Io.Writer` you were handed, and `flush()`.
+
+**Why:** `std.log` routes through `std.options.logFn`, so the *application* decides format,
+destination, filtering, and whether a library is audible at all. `log_scope_levels` filters by scope
+(ZS-ERR-33); an unscoped log lands in `.default` and cannot be silenced alone.
 
 ```zig
 // verified — GOOD
@@ -1314,11 +1312,9 @@ Two rules of thumb do most of the cutting:
   functions stay pure, which is what makes them testable in isolation and assertable at both ends
   (`references/assertions.md` ZS-ASSERT-18).
 
-**Why:** there is a sharp discontinuity between a function that fits on a screen and one you must
-scroll to measure. Below the fold you can check "is every case handled?" by looking; above it you
-are reconstructing the function from memory, which is where the missed branch lives. The limit is a
-forcing function, not an aesthetic: the split that gets you under 70 lines is nearly always the
-split that names a concept you had not named.
+**Why:** a function that fits on a screen can be checked for "is every case handled?" by looking;
+one you must scroll is reconstructed from memory, which is where the missed branch lives. The split
+that gets you under 70 lines nearly always names a concept you had not named.
 
 ```zig
 // verified — GOOD
@@ -1371,13 +1367,14 @@ since 0.17: its `Options` make `diagnostics: *Diagnostics` required, filled into
 Make the parameter optional and default it to `null`, so the fast path pays nothing and callers that
 only need to know *whether* it failed do not have to declare a variable.
 
-**Why:** the alternatives are all worse. Encoding the position in the error set is impossible —
-error values carry no payload in Zig, so `error.InvalidCharacterAtLine12` does not exist and cannot.
-Making every parse function allocate and return a formatted message forces an allocator into a
-signature that did not need one, and forces a `[]const u8` lifetime question on every caller.
-Logging from the library takes the decision away from the application (ZS-ERR-03, ZS-ERR-32). The
-out-parameter leaves the error set small and exhaustively switchable (ZS-ERR-09) while still
-allowing "line 12, col 3".
+The other alternatives are worse. A parse function that allocates and returns a formatted message
+forces an allocator into a signature that did not need one, and a `[]const u8` lifetime question on
+every caller; logging from the library takes the decision away from the application (ZS-ERR-03,
+ZS-ERR-32).
+
+**Why:** the out-parameter leaves the error set small and exhaustively switchable (ZS-ERR-09) while
+still allowing "line 12, col 3", which the set cannot carry: Zig error values have no payload, so
+`error.InvalidCharacterAtLine12` does not exist and cannot.
 
 ```zig
 // verified — GOOD: ZS-ERR-04's `parseDecimal`, now able to point at the byte
@@ -1438,13 +1435,16 @@ returned `StackTrace`. To print instead of capture, `dumpCurrentStackTrace(optio
 allow_unsafe_unwind: bool = false }`. Pass `.{ .first_address = @returnAddress() }` to drop your own
 frame from the trace — that is what `dumpCurrentStackTrace` does internally.
 
+`std.debug.StackIterator` is **no longer `pub`** since 0.16 (`std/debug.zig` declares it plain
+`const`), so hand-rolled unwinding loops from older code no longer compile;
+`captureCurrentStackTrace` is the supported replacement. And `std.debug.StackTrace`
+(`{ return_addresses, skipped }`) is a *different type* from the `std.lang.StackTrace`
+(`{ index, instruction_addresses }`) that `@errorReturnTrace()` returns; mixing the two families is
+the usual compile error (ZS-ERR-17).
+
 **Why:** these are the 0.16 spellings, unchanged in 0.17, and they are easy to get wrong from
-memory. `std.debug.StackIterator` is **no longer `pub`** since 0.16 (`std/debug.zig` declares it
-plain `const`), so hand-rolled unwinding loops from older code no longer compile —
-`captureCurrentStackTrace` is the supported replacement. And `std.debug.StackTrace` (`{
-return_addresses, skipped }`) is a *different type* from the `std.lang.StackTrace` (`{ index,
-instruction_addresses }`) that `@errorReturnTrace()` returns; mixing the two families is the usual
-compile error (ZS-ERR-17).
+memory: older code reaches for an iterator that is now private, and for a trace type that is not the
+one an error return trace uses.
 
 ```zig
 // fragment — GOOD
@@ -1485,10 +1485,9 @@ A branch that exists for one input is not a feature; it is an unfinished general
 the general path handles it — usually by widening a parameter or adding a tag — or the case differs
 enough to deserve its own type and its own function.
 
-**Why:** special-case branches compound. Each is locally cheap and globally expensive, because every
-later change must be checked against every branch and nothing records which combinations are
-reachable. It also defeats ZS-CORE-17's simple-control-flow requirement one reasonable-looking patch
-at a time.
+**Why:** special-case branches compound. Each is locally cheap and globally expensive: every later
+change must be checked against every branch, nothing records which combinations are reachable, and
+ZS-CORE-17's simple control flow erodes one plausible patch at a time.
 
 **Check:** for each `if` whose condition names a specific input — a particular length, an empty
 slice treated unlike others, a sentinel value — ask what the general case would need to be for the

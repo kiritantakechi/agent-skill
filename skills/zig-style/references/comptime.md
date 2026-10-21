@@ -94,11 +94,9 @@ compile-time-known implementor, a runtime vtable for a set chosen at run time, a
 closed set — write that down, then implement against it. Take the interface, not the concrete type:
 a function that only reads should take a `*std.Io.Reader`, not a `*Io.File`.
 
-**Why:** the shape of a boundary is fixed by whoever writes it first, and one extracted from an
-existing type inherits that type's accidents — its error set, its parameter order, its assumption
-that a handle is always available. Choosing the shape against the caller's need instead produces a
-surface that is total and symmetric because no concrete type was in the room to distort it. It also
-forces the cost question early, while all three shapes are still available.
+**Why:** a boundary extracted from an existing type inherits its accidents — its error set, its
+parameter order, its assumption that a handle is always available. One shaped against the caller's
+need is total and symmetric, and settles the cost question while all three shapes are still open.
 
 **Check:** for each concrete type used across a module boundary, is the consumer written against the
 type or against an interface? A function taking `*Io.File` where a `*Io.Reader` would do is the
@@ -110,10 +108,6 @@ Container-scope declarations, array lengths, and type expressions are already ev
 time. In 0.16 a redundant `comptime` keyword in one of those three positions is a hard compile
 error, not a warning.
 
-**Why:** `const n = comptime f(x);` at container scope
-gives `error: redundant comptime keyword in already comptime scope`. Code carried over from
-0.13-era Zig, where this was merely noise, no longer builds.
-
 The body of a type function is **not** one of those positions. `comptime assert(capacity > 0);`
 inside `pub fn RingBuffer(comptime T: type, comptime capacity: usize) type` compiles cleanly: a type
 function's body runs at compile time when it is *called*, but the body itself is an ordinary
@@ -124,6 +118,10 @@ That it compiles does not make it the way to state a parameter **contract**: a f
 `std.debug.assert`, so the first line the caller reads is a std internal and nothing names the
 requirement. `@compileError` puts your own sentence on the error line instead. Contracts are
 ZS-COMPTIME-10; this rule is only about where the `comptime` keyword is legal.
+
+**Why:** `const n = comptime f(x);` at container scope gives
+`error: redundant comptime keyword in already comptime scope`, so code carried over from 0.13-era
+Zig, where the keyword was merely noise, no longer builds.
 
 **Check:** the `comptime` keyword on a container-scope `const`/`var` initializer, inside `[...]` of
 an array type, or inside any other type expression. Each is a build break — the compiler's
@@ -173,12 +171,11 @@ fn squares() [4]u8 {
 ### ZS-COMPTIME-04 [M] Use `comptime var` only as an accumulator driven by an `inline` loop
 A `comptime var` is legal in a runtime function, but only because everything that touches it must
 itself be comptime-known. Restrict it to accumulating over an `inline for`/`inline while`, and make
-the result a `const` as soon as the loop ends.
+the result a `const` as soon as the loop ends. Mutating it from a partially runtime-dependent path
+is `error: store to comptime variable depends on runtime condition`.
 
-**Why:** a `comptime var` that is mutated from a partially runtime-dependent path produces
-`error: store to comptime variable depends on runtime condition`, whose `note: runtime condition
-here` can point at a branch far from the mutation site. Confining it to an inline loop keeps the
-failure local.
+**Why:** that error's `note: runtime condition here` can point at a branch far from the mutation
+site. Confining the variable to an inline loop keeps the failure local.
 
 **Check:** every `comptime var` in a diff. The statement after its declaration must be an
 `inline for` or `inline while` that mutates it, and the variable must not be read past that loop
@@ -210,10 +207,12 @@ measurement the comment cites. The one-line forwarding shims of ZS-COMPTIME-11 a
 sanctioned without a fresh measurement, because there the `inline` is what makes the type-erased
 core cost what the monomorphized version would.
 
+At an `inline fn` call site, comptime-known arguments are treated as comptime parameters, which no
+`@inlineCall`-style hint can achieve.
+
 **Why:** `inline` removes the compiler's ability to *not* inline. On a large function called from
 many sites that is a direct, unrecoverable increase in code size and I-cache pressure, and the
-optimizer cannot undo it. The genuine use is that comptime-known arguments at an `inline fn` call
-site are treated as comptime parameters, which no `@inlineCall`-style hint can achieve.
+optimizer cannot undo it.
 
 **Check:** every `inline fn` in a diff — count the statements in its body. More than a forwarding
 one-liner, with no comment naming which of the three reasons applies, is the finding. Reason (b) has
@@ -236,11 +235,12 @@ Legitimate operands: `@typeInfo(T).@"struct".field_names` / `.field_types`, tupl
 Illegitimate: a homogeneous `[N]u8`, a range whose bound is a plain `usize` constant chosen for
 performance, anything derived from runtime data.
 
-**Why:** `inline for` unrolls into N copies of the body. When the element type varies (fields,
-types) that is the *only* way to write the code at all. When the elements are homogeneous you have
-bought N copies of identical machine code and a slower compile in exchange for what a normal loop
-would have done. `inline for` over a runtime bound is not slow, it is a compile error:
+`inline for` over a runtime bound is not slow, it is a compile error:
 `error: unable to resolve comptime value` / `note: inline loop condition must be comptime-known`.
+
+**Why:** `inline for` unrolls into N copies of the body. When the element type varies (fields,
+types) that is the *only* way to write the code at all; when it does not, you buy N copies of
+identical machine code and a slower compile for what a normal loop would do.
 
 **Check:** every `inline for` — its operand must be `@typeInfo(...).field_names`, `.field_types`,
 `.decl_names`, an error-set list, a tuple literal, or a `[]const type`; an operand that is an array,
@@ -279,14 +279,13 @@ derived from the actual input size, the way std does
 (`@setEvalBranchQuota(@typeInfo(E).@"enum".field_names.len + eval_branch_quota_cushion)` in
 `std/enums.zig`), not by picking a big round number.
 
-**Why:** the quota is the only guardrail against a comptime evaluation that does not terminate.
-`@setEvalBranchQuota(1_000_000)` converts "the compiler tells me in 200 ms that my comptime loop is
-unbounded" into "the compiler hangs for a minute and then tells me." A quota expressed in terms of
-the input also documents the intended complexity, so an input that grows past the design point
-fails loudly instead of silently costing 30 s of build time. Hitting the quota means *one* comptime
-evaluation took too many backwards branches — it is a signal to bound the computation, and only
-sometimes a signal to raise the number. Corollary, following TigerStyle's ban on recursion:
-comptime recursion whose depth depends on user-supplied data is prohibited.
+Hitting the quota means *one* comptime evaluation took too many backwards branches: it is a signal
+to bound the computation, and only sometimes a signal to raise the number. Following TigerStyle's
+ban on recursion, comptime recursion whose depth depends on user-supplied data is prohibited.
+
+**Why:** the quota is the only guardrail against a comptime evaluation that does not terminate, and
+a big round number turns a fast error into a long hang. A quota derived from the input documents the
+intended complexity, so an input past the design point fails loudly.
 
 **Check:** every `@setEvalBranchQuota` whose argument is a bare literal rather than an expression
 over the input — and any argument of more than five digits regardless of how it is spelled.
@@ -329,11 +328,14 @@ Write the `comptime` keyword on type parameters even though `T: type` also compi
 returned anonymous struct, `const Self = @This();` and a `self` receiver are correct, because the
 type has no other name. In a file that *is* a type, name the receiver after the type instead.
 
-**Why:** std writes `comptime` on ~94% of type parameters; the 52 bare `X: type` occurrences are the
-outliers. And `const Self = @This();` survives in std exactly in the generic containers
-(`array_list.zig`, `hash_map.zig`, `multi_array_list.zig`, `bit_set.zig`) — only 6 of 143
-`TitleCase.zig` files still use it. So `Self` in a non-generic file is a reliable signal that the
-author did not know the type's name at write time.
+std writes `comptime` on ~94% of type parameters; the 52 bare `X: type` occurrences are the
+outliers. `const Self = @This();` survives in std exactly in the generic containers
+(`array_list.zig`, `hash_map.zig`, `multi_array_list.zig`, `bit_set.zig`): only 6 of 143
+`TitleCase.zig` files still use it.
+
+**Why:** both are std's spelling, and in std `Self` marks a type that has no other name, so `Self`
+in a non-generic file is a reliable signal that the author did not know the type's name at write
+time.
 
 **Check:** `const Self = @This();` outside the body of a `fn TitleCase(comptime ...) type` — there
 the type has a name and the receiver should use it (ZS-CORE-01b). And a bare `T: type` parameter
@@ -381,10 +383,12 @@ the type function's doc comment in the words the guard would have used, and make
 use of `T` the one that fails — so the diagnostic still lands on the required field or decl rather
 than forty lines into the returned struct.
 
+`@FieldType(T, "link")` on a type with no such field is itself a compile error, so short-circuit it
+with `@hasField` first (`or` short-circuits at comptime).
+
 **Why:** without the guard, the diagnostic surfaces at whatever line inside your body first fails to
 compile — a `for` loop, a field access — and the reader sees your internals rather than their
-mistake. Note `@FieldType(T, "link")` on a type with no such field is itself a compile error, so
-short-circuit with `@hasField` first (`or` short-circuits at comptime).
+mistake.
 
 **Check:** every `pub fn Name(comptime T: type) type` — its first statement must be a requirement
 test ending in `@compileError`, before any `@typeInfo` walk, field access, or `return struct`. A
@@ -410,12 +414,12 @@ pub fn Queue(comptime T: type) type {
 
 ### ZS-COMPTIME-11 [S] Non-generic core, generic wrapper of `inline fn` shims
 For a generic container, write the data structure once over type-erased links or bytes, then wrap it
-in a thin `fn Foo(comptime T: type) type` whose methods are `inline fn` one-liners.
+in a thin `fn Foo(comptime T: type) type` whose methods are `inline fn` one-liners. This is
+TigerBeetle's R39, and the one place where `inline fn` and generics are both justified.
 
-**Why:** this is TigerBeetle's R39, and it is the one place where `inline fn` and generics are both
-justified. The algorithm is compiled once regardless of how many element types exist; the shims
-inline away to nothing, so the call cost is identical to the fully monomorphized version. Compile
-time and binary size scale with the number of *methods*, not methods × types.
+**Why:** the algorithm is compiled once however many element types exist, and the shims inline away
+to nothing, so the call cost matches the fully monomorphized version while compile time and binary
+size scale with *methods*, not methods × types.
 
 **Check:** a `fn Foo(comptime T: type) type` whose returned struct holds more than one or two
 non-`inline` method bodies — that is the whole algorithm being monomorphized per element type. The
@@ -492,14 +496,13 @@ Reusable code that produces bytes takes `w: *std.Io.Writer` and returns `std.Io.
 code that consumes bytes takes `r: *std.Io.Reader`; code that allocates takes
 `gpa: std.mem.Allocator`; code that does I/O or concurrency takes `io: std.Io`.
 
-**Why:** std made this exact decision deliberately and reversed the older generic design. One vtable
-indirection per allocation is cheaper than N copies of your entire subsystem, and it is the
-difference between a type your callers can store in a struct field and a type they cannot. The `zig
-init` template states the positive half directly — accepting an `Io.Writer` instance is how you
-write reusable code. Either deviation costs you the same thing: composition.
 `std.testing.allocator`, `Allocator.failing`, `Io.failing`, `Writer.fixed`, `Writer.Allocating`,
 `Writer.Discarding`, `Writer.hashed`, an `Io.File`, and a socket all speak the std interface and
 none of them speak yours; every one of them would have to be re-implemented against your type.
+
+**Why:** one vtable indirection per allocation is cheaper than N copies of your entire subsystem,
+and it is the difference between a type your callers can store in a struct field and one they
+cannot. Either deviation costs the same thing: composition.
 
 **Check:** grep a diff for `comptime .*: type` whose name ends in `Allocator`, `Alloc`, `Writer`,
 `Reader`, or `Io`, and for any new struct with a `vtable` field whose operations are "write bytes",
@@ -531,11 +534,11 @@ test "printReport composes with any std writer" {
 ### ZS-COMPTIME-13 [M] A `comptime` parameter the body does not depend on is a bug
 If deleting the `comptime T: type` parameter and substituting the one type actually used leaves the
 body unchanged, delete it. Same for a `comptime` value parameter that is only ever passed one value.
+The same goes for a type function whose whole job is to compute a value: make it a function
+returning that value.
 
 **Why:** the parameter still forces one instantiation per distinct argument, and the instantiations
-are bit-identical machine code. You pay for monomorphization and receive nothing. This also shows up
-as type-level metaprogramming standing in for a plain function: if a type function's whole job is to
-compute a value, make it a function returning that value.
+are bit-identical machine code. You pay for monomorphization and receive nothing.
 
 **Check:** for each `comptime` parameter, grep its call sites and count the distinct arguments. One
 distinct argument across the whole tree means one instantiation and no reason for the parameter. In
@@ -551,12 +554,13 @@ Any `pub fn` with an `anytype` parameter must (a) document the required shape in
 comment on that parameter, and (b) check it before doing any work in the body, emitting a
 `@compileError` that names the requirement and the offending type.
 
-**Why:** `anytype` carries no signature contract. Generated documentation shows the word `anytype`
-and nothing else, so the contract exists only in prose. Worse, the diagnostic for a violation is
-emitted inside *your* body: passing a `u32` to an unconstrained `items: anytype` that is iterated
-produces `error: type 'u32' is not indexable and not a range` pointing at your `for` loop, with the
-caller only visible in the `referenced by:` trace. The guard moves the message back to something the
-caller can act on.
+Without the guard, passing a `u32` to an unconstrained `items: anytype` that is iterated produces
+`error: type 'u32' is not indexable and not a range` pointing at your `for` loop, with the caller
+only visible in the `referenced by:` trace.
+
+**Why:** `anytype` carries no signature contract: generated documentation shows the word `anytype`
+and nothing else, so the contract exists only in prose. The guard moves a violation's message back
+to something the caller can act on.
 
 **Check:** every `anytype` inside a `pub fn`. It needs a doc comment on the parameter line itself,
 and a `@compileError` guard before the value is first indexed, iterated, field-accessed, or fed to
@@ -618,9 +622,8 @@ The idiomatic uses are format-argument tuples (`args: anytype`), opaque user con
 `std.meta.hasFn` / `std.meta.hasMethod` rather than hand-rolled `@typeInfo` walking.
 
 **Why:** `std.meta.hasMethod(*T, "reset")` handles the pointer-vs-value and namespace cases
-correctly (it dispatches on `.pointer` with size `.one` and falls through to `hasFn`), which
-hand-written checks routinely get wrong. Following std's placement also means readers already know
-what the parameter means without reading the body.
+correctly, which hand-written checks routinely get wrong. Following std's placement also means
+readers already know what the parameter means without reading the body.
 
 **Check:** a hand-rolled `@typeInfo(@TypeOf(x))` walk whose question is "does it have a decl named
 …" — that is `std.meta.hasFn`/`hasMethod`. And an `anytype` parameter that is not a format-args
@@ -663,13 +666,12 @@ type is *derived*, never a separate `comptime Context: type` parameter. The type
 `PriorityQueue(comptime T, comptime Context, comptime compareFn)`, where the comparator is again
 last.
 
-**Why:** the function type is written out, so the contract is in the signature and the error for a
-mismatched callback lands at the call site rather than inside your loop (ZS-COMPTIME-14). Deriving
-the context type from the value means callers pass `void` for stateless predicates at zero storage
-cost, and a stateful comparator carries its state without a closure. Ordering matters for a second
-reason: a trailing function-type parameter is the one position where a multi-line callback reads
-cleanly, and it keeps the data — the thing the reader is actually looking for — adjacent to the
-type.
+A stateless predicate takes a `void` context at zero storage cost, and a stateful comparator carries
+its state in the context without a closure.
+
+**Why:** the function type is written out, so the contract is in the signature and a mismatched
+callback errors at the call site rather than inside your loop (ZS-COMPTIME-14). A trailing
+function-type parameter is where a multi-line callback reads cleanly.
 
 **Where TigerStyle and std agree:** TigerStyle's callback-last convention and std's comparator-last
 convention are the same rule reached independently. There is no conflict to resolve here; see also
@@ -737,10 +739,9 @@ and `std.meta.Tuple`, the one-line 0.16 shims forwarding to `@Int`/`@Tuple`, are
 `@Float`, `@Array`, `@Opaque`, `@Optional`, `@ErrorSet` or `@ErrorUnion` — those types have
 ordinary syntax, so reflection was never needed to build them.
 
-**Why:** in 0.16 the shims still compiled, so code that named them drifted from the standard with
-no build failure to say so. `std/meta.zig` marked both (`/// Deprecated: use @Int`,
-`/// Deprecated; use @Tuple instead. To be removed after Zig 0.16.0 releases.`), and 0.17 removed
-them, so every spelling other than the dedicated builtins is now a build break.
+**Why:** in 0.16 the shims still compiled, so code that named them drifted from the standard with no
+build failure to say so. 0.17 removed them, so every spelling other than the dedicated builtins is
+now a build break.
 
 **Check:** grep a diff for `@Type(`, `std.meta.Int`, and `std.meta.Tuple`. All three are build
 breaks on 0.17, so the grep is a pre-flight for code carried over from 0.16 rather than something a
@@ -803,9 +804,7 @@ for declarations. Read defaults with `info.field_attrs[i].defaultValue(info.fiel
 (returns `?FieldType`) and sentinels with `ptr_info.sentinel()`, never by `@ptrCast`-ing the raw
 `*anyopaque` pointer fields.
 
-**Why:** the accessor methods encapsulate the `default_value_ptr`/`sentinel_ptr` representation, so
-your code survives a representation change; the raw fields are the reason 0.14-era reflection code
-does not survive. Three more traps: pointer and field alignment, `.pointer.attrs.@"align"` and
+Three more traps: pointer and field alignment, `.pointer.attrs.@"align"` and
 `.field_attrs[i].@"align"`, are `?usize` (`null` means natural alignment), not `comptime_int`;
 `@typeInfo(E).error_set.error_names` is `?[]const [:0]const u8` where `null` means `anyerror`, so a
 `null` check is not an "empty set" check; and a zero-bit tuple field is no longer implicitly
@@ -816,6 +815,10 @@ The `.Int` -> `.int` / `.Struct` -> `.@"struct"` renames (ZS-MIG-02) and 0.17's 
 `.fields` to `.field_names`/`.field_types`/`.field_attrs` are hard compile errors, so they are
 listed in the migration tables of `references/migration.md` rather than enumerated
 here. This rule is about the parts that still compile.
+
+**Why:** the accessor methods encapsulate the `default_value_ptr`/`sentinel_ptr` representation, so
+your code survives a representation change; the raw fields are the reason 0.14-era reflection code
+does not survive.
 
 **Check:** every `@typeInfo` in a diff must be followed by an `inline for` or an equivalent list
 walk; if it is followed by a single field or decl access, a narrow builtin does it better. Grep for
@@ -867,11 +870,9 @@ Zig has three shapes, plus one variant of the vtable shape. Choosing wrong is ex
 | embedded interface + `@fieldParentPtr` | indirect call, but only on the slow path | yes (`*Interface`) | at the call site | the interface owns a buffer/state the caller touches directly |
 | tagged union + exhaustive `switch` | one jump table, inlinable | yes | at the call site | closed set known at compile time |
 
-**Why:** the axis that matters is *who knows the set of implementations*. Comptime duck typing needs
-the compiler to know the concrete type at every call, which means the interface cannot be stored,
-returned as a common type, or crossed over an ABI boundary. A vtable gives up inlining to gain
-exactly those three. A tagged union gives you storability *and* inlining at the price of a closed
-set. There is no shape that gives all three.
+**Why:** the axis that matters is *who knows the set of implementations*. Comptime duck typing
+cannot be stored, returned as a common type, or crossed over an ABI boundary; a vtable gives up
+inlining to gain those three; a tagged union has storability and inlining for a closed set.
 
 **Check:** a diff that picks a row whose "use when" column is false for it. Two mechanical tells:
 an `anytype` or `comptime T` interface whose values are later stored in a struct field, a container,
@@ -884,12 +885,12 @@ Fields are a type-erased context pointer plus `vtable: *const VTable`. `std.mem.
 VTable`. Provide public wrapper methods on the interface so callers never touch `vtable` directly,
 and hand out the interface from a method taking `*Self`.
 
-**Why:** the context pointer aliases the implementation's storage, so the interface value must
-not be built from anything about to be copied or moved — returning it from a method on `*Self` is
-what pins it to a stable address. The wrapper methods matter because they are the only place the
-`userdata` and the vtable slot are guaranteed to stay paired. `std.mem.Allocator` documents that
-`ptr` may be `undefined` for stateless allocators and that comparing it is illegal behavior; treat
-the context pointer as opaque, never as an identity.
+Treat the context pointer as opaque, never as an identity: `std.mem.Allocator` documents that `ptr`
+may be `undefined` for stateless allocators and that comparing it is illegal behavior.
+
+**Why:** the context pointer aliases the implementation's storage, so building the interface in a
+method on `*Self` is what pins it to a stable address; the wrapper methods are the only place the
+`userdata` and the vtable slot are guaranteed to stay paired.
 
 **Check:** an interface value built anywhere but a method taking `*Self` — a
 `fn sink(cs: CountingSink) Sink` takes the receiver by value and pins the vtable to a copy. Also any
@@ -946,18 +947,21 @@ This is the modern std house pattern. The implementation struct declares `interf
 std does so in `Io/File/Writer.zig`, `Io/File/Reader.zig`, `Io/Reader/Limited.zig`, `Io/net.zig`,
 `http.zig`, and `testing.zig`.
 
-**Why:** the interface value is not a wrapper around the implementation, it *is* part of it, so
-there is no second allocation, no context pointer to keep in sync, and no way for the two to become
-separated. `std.Io.Writer` holds `vtable`, `buffer: []u8`, and `end: usize` inline — the caller
-writes straight into `buffer` and the vtable is only reached when the buffer overflows or on flush,
-so the indirect call is off the hot path entirely. `@fieldParentPtr` is what makes this work: it
-subtracts the field offset, which is comptime-known, so recovery is free. Write the `@alignCast`
-unconditionally — but not "to match std", which does not: 97 of 0.17 std's 172 `@fieldParentPtr`
-calls wrap it and **75 do not**, including `Io/Reader/Limited.zig`, otherwise this exact pattern.
-Write it because it is *required* whenever the field's alignment is weaker than the parent's, and
-free when it is not, so unconditional is the only spelling that cannot go wrong as the struct
-changes shape underneath it. Corollary: never copy a struct that contains a live `interface` field
-— a `*Io.Writer` handed out earlier now points into the dead original.
+`std.Io.Writer` holds `vtable`, `buffer: []u8`, and `end: usize` inline: the caller writes straight
+into `buffer`, and the vtable is reached only when the buffer overflows or on flush.
+
+Write the `@alignCast` unconditionally — but not "to match std", which does not: 97 of 0.17 std's
+172 `@fieldParentPtr` calls wrap it and **75 do not**, including `Io/Reader/Limited.zig`, otherwise
+this exact pattern. Write it because it is *required* whenever the field's alignment is weaker than
+the parent's, and free when it is not, so unconditional is the only spelling that cannot go wrong as
+the struct changes shape underneath it.
+
+Never copy a struct that contains a live `interface` field: a `*Io.Writer` handed out earlier then
+points into the dead original.
+
+**Why:** the interface is part of the implementation, not a wrapper around it: no second allocation,
+no context pointer to keep in sync, and `@fieldParentPtr` subtracts a comptime-known offset, so
+recovery is free and the indirect call stays off the hot path.
 
 **Check:** an `Io.Writer`/`Io.Reader` field named anything but `interface`; a `@fieldParentPtr`
 whose first argument is some other name for those types; in **code the diff adds**, a
@@ -996,13 +1000,14 @@ pub const CountingWriter = struct {
 
 ### ZS-COMPTIME-24 [S] Give vtable members defaults so implementations only override what they must
 Declare optional operations with a default implementation in the `VTable` struct itself, so an
-implementation's vtable literal lists only the required functions.
+implementation's vtable literal lists only the required functions. std does this:
+`std.Io.Writer.VTable` requires only `drain` (`sendFile` defaults to `unimplementedSendFile`,
+`flush` to `defaultFlush`, `rebase` to `defaultRebase`), and `std.Io.Reader.VTable` requires only
+`stream` (`discard`, `readVec`, and `rebase` all default).
 
-**Why:** this is how std keeps implementations to a handful of lines. `std.Io.Writer.VTable`
-requires only `drain`; `sendFile` defaults to `unimplementedSendFile`, `flush` to `defaultFlush`,
-`rebase` to `defaultRebase`. `std.Io.Reader.VTable` requires only `stream`; `discard`, `readVec`,
-and `rebase` all default. Adding a new optional operation with a default is then a
-backwards-compatible change instead of breaking every implementation in the ecosystem.
+**Why:** defaults keep every implementation to a handful of lines, and adding a new optional
+operation with a default is then a backwards-compatible change instead of breaking every
+implementation in the ecosystem.
 
 **Check:** a `VTable` struct whose fields carry no `= default…` initializers, sitting next to two or
 more implementations whose vtable literals name the same function with the same body. That repeated
@@ -1011,13 +1016,11 @@ function is the default that was not declared.
 ### ZS-COMPTIME-25 [M] A closed set of implementations is a tagged union, not an interface
 If every implementation is known at compile time and lives in your own tree, model it as
 `union(enum)` with methods that `switch` exhaustively. Do not write an `else` prong.
+`std.Build.LazyPath` is the canonical std example.
 
-**Why:** you get storability and direct calls at once — the switch is a jump table the optimizer
-can see through and often inline, with no function pointer to defeat devirtualization, and the union
-value can live in an array. The exhaustiveness is the real prize: adding a variant becomes a compile
-error at every site that must handle it. An `else` prong throws that away. `std.Build.LazyPath` is
-the canonical std example. Reimplementing dynamic dispatch for a set you already know is paying an
-indirect call and losing exhaustiveness for nothing.
+**Why:** the switch is a jump table the optimizer can see through and often inline, and the union
+value can live in an array, so you keep storability, direct calls and exhaustiveness at once.
+Dynamic dispatch over a known set pays an indirect call for nothing.
 
 **Check:** a new `vtable: *const VTable` — enumerate its implementations. If every one lives in your
 own tree, it is a `union(enum)`. And `else =>` in any `switch` over a union you own, which is the
@@ -1065,13 +1068,14 @@ the frame you want is usually the deepest non-std one. It works on `zig build-ob
 `zig build`; for a build, pass `zig build -freference-trace=20` (0.17 removed `b.reference_trace`,
 so `build.zig` can no longer set it).
 
+It is the single highest-value flag for this chapter's failure surface: ZS-COMPTIME-04's leaked
+`comptime var`, ZS-COMPTIME-06's runtime `inline for` bound, ZS-COMPTIME-10 and ZS-COMPTIME-14's
+unguarded type parameters, and every `@compileError` you emit are all reported at a line the caller
+did not write.
+
 **Why:** `error: unable to resolve comptime value` names the line where a runtime value met a
-`comptime` parameter — but the bug is at the call site that made the value runtime-known, which may
-be forty frames up through generic instantiations that all look identical. The reference trace is
-the only artifact connecting the two. This is the single highest-value flag for this chapter's
-entire failure surface: ZS-COMPTIME-04's leaked `comptime var`, ZS-COMPTIME-06's runtime
-`inline for` bound, ZS-COMPTIME-10 and ZS-COMPTIME-14's unguarded type parameters, and every
-`@compileError` you emit are all reported at a line the caller did not write.
+`comptime` parameter, but the bug is at the call site that made the value runtime-known, which may
+be forty frames up. The reference trace is the only artifact connecting the two.
 
 ```text
 $ zig build-obj bad.zig

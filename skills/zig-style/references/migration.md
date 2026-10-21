@@ -61,13 +61,13 @@ The tables use three status values:
 ### ZS-MIG-01 [M] Write 0.17.0 spellings; verify unfamiliar std symbols against local std
 
 Never emit a `std.*` symbol from memory of an older Zig. Grep the installed std source before you
-type a signature. The 0.13/0.14 era is the single largest source of wrong Zig.
+type a signature. The 0.13/0.14 era is the single largest source of wrong Zig. `std.mem.indexOf`,
+`std.ArrayListUnmanaged`, `std.array_list.Managed`, `std.fs.path`, `std.builtin`,
+`std.fmt.allocPrint` and `std.heap.DebugAllocator` all compile clean in 0.17.0 and all are marked
+`/// Deprecated` in the source.
 
 **Why:** roughly a third of the migrations below are **alias** or **wrong output** rows, not
-**gone** rows. `zig build` passing proves nothing about whether the code is current —
-`std.mem.indexOf`, `std.ArrayListUnmanaged`, `std.array_list.Managed`, `std.fs.path`,
-`std.builtin`, `std.fmt.allocPrint` and `std.heap.DebugAllocator` all compile clean in 0.17.0 and
-all are marked `/// Deprecated` in the source.
+**gone** rows, so `zig build` passing proves nothing about whether the code is current.
 
 **Check:** run the denylist grep of ZS-MIG-14 over the diff — it collects the alias rows from every
 table below. Separately, every `std.*` signature new to the diff must be findable by `rg -n` in
@@ -87,11 +87,12 @@ grep -rn "pub fn takeDelimiter" "$(zig env | grep std_dir)"/Io/Reader.zig
 All rows below were confirmed by compiling a probe with `zig build-obj` on 0.16.0, and again on
 0.17.0, whose diagnostics name `lang.` where 0.16 printed `builtin.`; the column quotes 0.17.
 
-**Why:** not applicable — this section is a lookup table, not a single rule. The rationale for each
-replacement is owned by the chapter that teaches it: the `@Type` split is
+The rationale for each replacement is owned by the chapter that teaches it: the `@Type` split is
 `references/comptime.md` ZS-COMPTIME-18, `usingnamespace` is ZS-COMPTIME-27, colorless concurrency
-is `references/concurrency.md`, and `@branchHint` is `references/errors.md`
-ZS-ERR-31.
+is `references/concurrency.md`, and `@branchHint` is `references/errors.md` ZS-ERR-31.
+
+**Why:** not applicable — this section is a lookup table, not a single rule, and each replacement's
+rationale belongs to the chapter that teaches it.
 
 **Check:** grep the diff for `usingnamespace`, `@Type(`, `@setCold`, `@fence(`, `@setAlignStack`,
 `callconv(.C)`/`.Stdcall`/`.Naked`, `@typeInfo(` followed by a `TitleCase` field, `anyframe`,
@@ -513,16 +514,16 @@ try map.put(gpa, "k", 7);
 
 ### ZS-MIG-08 [M] Allocators: `SafeAllocator` replaced `GeneralPurposeAllocator`
 
-`std.heap.GeneralPurposeAllocator` no longer exists (`root source file struct 'heap' has no member
-named 'GeneralPurposeAllocator'`), and the name it had from 0.14 to 0.16, `std.heap.DebugAllocator`,
-is a deprecated alias in 0.17 for `std.heap.SafeAllocator`. `SafeAllocator` is not generic:
-construct it with `.init(backing_allocator, .{})`.
+`std.heap.GeneralPurposeAllocator` no longer exists
+(`root source file struct 'heap' has no member named 'GeneralPurposeAllocator'`), and the name it
+had from 0.14 to 0.16, `std.heap.DebugAllocator`, is a deprecated alias in 0.17 for
+`std.heap.SafeAllocator`. `SafeAllocator` is not generic: construct it with
+`.init(backing_allocator, .{})`. It checks for leaks, double frees, and allocations freed into the
+wrong instance, plus most writes after free when the backing allocator does not reuse memory.
 
-**Why:** the rename reflects what it is (a safety-checking allocator: leaks, double frees, and
-allocations freed into the wrong instance, plus most writes after free when the backing allocator
-does not reuse memory), and `remap` was added so allocators can move an allocation cheaply instead
-of forcing every caller to alloc/copy/free — implementations that only provide `resize` leave that
-on the table.
+**Why:** the new name says what the allocator is, and `remap` was added so allocators can move an
+allocation cheaply instead of forcing every caller to alloc/copy/free — implementations that only
+provide `resize` leave that on the table.
 
 **Check:** grep for `GeneralPurposeAllocator`, `DebugAllocator`, `heap.Check`,
 `ThreadSafeAllocator`, and `std.mem.page_size`. For a project that implements its own allocator, the
@@ -563,13 +564,12 @@ const gpa = sa.allocator();
 ### ZS-MIG-09 [M] Entry point: `pub fn main(init: std.process.Init) !void`
 
 Take `std.process.Init` (or `Init.Minimal`) as the first parameter of `main`. Do not hand-roll an
-allocator, argv, environ, or an `Io` in `main`.
+allocator, argv, environ, or an `Io` in `main`. `std.process.argsAlloc` and `std.process.getEnvMap`
+do not exist: `root source file struct 'process' has no member named 'argsAlloc'`.
 
-**Why:** argv and environ are no longer process globals — `std.process.argsAlloc` and
-`std.process.getEnvMap` do not exist: `root source file struct 'process' has no member
-named 'argsAlloc'`. The only supported way to reach them is through the parameter the runtime hands
-you. `Init` also hands you a leak-checked `gpa` (a `SafeAllocator` in `debug` and `safe` builds)
-and a target-appropriate `Io`, which is the whole GPA-setup boilerplate deleted.
+**Why:** argv and environ are no longer process globals, so the parameter the runtime hands you is
+the only supported way to reach them. `Init` also hands you a leak-checked `gpa` (a `SafeAllocator`
+in `debug` and `safe` builds) and a target-appropriate `Io`.
 
 **Check:** `rg -n 'pub fn main\(\)' src/` returns nothing, and neither does a grep for
 `argsAlloc`, `argsFree`, `getEnvMap`, `std.ChildProcess`, `process.Child.init(`, or
@@ -629,12 +629,11 @@ pub fn main(init: std.process.Init) !void {
 
 `std/Thread.zig` contains **zero** occurrences of `Mutex`, `Condition`, `Semaphore`, `RwLock`,
 `ResetEvent`, `WaitGroup`, `Pool`, or `Futex`. `std/time.zig` is unit constants plus
-`std.time.epoch`.
+`std.time.epoch`. The release notes state outright that converting every
+`Thread.Mutex`/`Condition`/`ResetEvent` is *required* when moving to `std.Io`.
 
 **Why:** this is a correctness requirement, not a style preference. An OS-level mutex blocks the
-whole carrier thread and deadlocks green-thread backends (`Io.Evented`, fiber). The release notes
-state outright that converting every `Thread.Mutex`/`Condition`/`ResetEvent` is *required* when
-moving to `std.Io`.
+whole carrier thread and deadlocks green-thread backends (`Io.Evented`, fiber).
 
 **Check:** grep for `std.Thread.` followed by `Mutex`, `Condition`, `Semaphore`, `RwLock`,
 `ResetEvent`, `WaitGroup`, `Pool`, or `Futex`; for `std.time.` followed by `Timer`, `Instant`,
@@ -813,16 +812,17 @@ wired — is `references/build.md` ZS-BUILD-01. Do not reconstruct it from this 
 
 Low-frequency but each one dates a diff. Deviating is only defensible while mid-migration.
 
-**Why:** the tier is `[M]` for the same reason ZS-MIG-06 is, not because these renames matter more
-than their frequency suggests: the `alias` rows **compile silently**, so nothing but this rule
-catches them, and the ones 0.17 still accepts — `pipeToFileSystem`, `PipeOptions`, `utf8Decode`,
-`wtf8Decode`, `std.debug.runtime_safety` — already fail the build under ZS-MIG-14's `[M!]` denylist,
-while 0.17 itself rejects the rows that were aliases in 0.16 (`bufPrintZ`, `initEmpty()`,
-`initFull()`, `std.meta.Int`, `std.meta.Tuple`). A rule cannot own a spelling at `[S]` while another
-rule fails CI on it. `std.math.sign` is the
-sharpest row and is not an alias at all: its return type changed, so old call sites keep compiling
-and produce a different value. Beyond the shared mechanism each row is its own small story, and the
-row's right-hand column is the whole answer.
+The `alias` rows 0.17 still accepts — `pipeToFileSystem`, `PipeOptions`, `utf8Decode`, `wtf8Decode`,
+`std.debug.runtime_safety` — already fail the build under ZS-MIG-14's `[M!]` denylist, while 0.17
+itself rejects the rows that were aliases in 0.16 (`bufPrintZ`, `initEmpty()`, `initFull()`,
+`std.meta.Int`, `std.meta.Tuple`). `std.math.sign` is the sharpest row and is not an alias at all:
+its return type changed, so old call sites keep compiling and produce a different value. Beyond the
+shared mechanism each row is its own small story, and the row's right-hand column is the whole
+answer.
+
+**Why:** the tier is `[M]` for the same reason ZS-MIG-06 is: the `alias` rows **compile silently**,
+so nothing but this rule catches them, and a rule cannot own a spelling at `[S]` while another rule
+fails CI on it.
 
 **Check:** four patterns, because one line of alternation is unreadable —
 `rg -n 'bufPrintZ|std\.meta\.(Int|Tuple|declList)|initEmpty\(\)|initFull\(\)' src/` and
@@ -1004,9 +1004,7 @@ exists in the repository.
 
 **Why:** alias rows never surface as build failures, so on a long-lived codebase they accumulate
 until an upgrade deletes them all at once and the diff is too large to review carefully. A grep gate
-converts a future big-bang migration into a per-PR cost. High-reliability codebases care more
-because their upgrade windows are longest and their review budgets are spent on correctness, not
-renames.
+converts a future big-bang migration into a per-PR cost.
 
 **Check:** the CI workflow contains a step that runs the denylist below and fails on a hit — a `rg`
 whose exit status is checked, not a `|| true`. Run it once by hand when adding it: a non-empty

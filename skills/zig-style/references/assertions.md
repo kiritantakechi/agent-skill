@@ -74,10 +74,9 @@ will ever find.
 
 Write `const assert = std.debug.assert;` in the import block and call `assert(...)` bare.
 
-**Why:** assertions must be visually cheap, so that adding the fourth one to a function costs
-nothing. The `std.debug.` prefix is ten characters of noise on every assertion line and pushes
-real conditions past the 100-column limit. TigerBeetle's linter (`src/tidy.zig`) hard-bans the
-literal string `"debug.assert("` for exactly this reason.
+**Why:** assertions must be visually cheap, so that adding the fourth one costs nothing; the
+`std.debug.` prefix is ten characters of noise on every line and pushes conditions past 100 columns.
+TigerBeetle's linter (`src/tidy.zig`) bans the literal `"debug.assert("` for this reason.
 
 **Check:** the literal string `debug.assert(` anywhere below the import block, or a file that calls
 `assert(` with no `const assert = std.debug.assert;` in its imports.
@@ -100,10 +99,9 @@ If the condition can be violated by anything outside your process — a peer, a 
 network, the disk — it is an operating error and must be an error union. If it can only be
 violated by your own code being wrong, it is an assertion.
 
-**Why:** an assertion that fires on hostile input is a remote denial of service, and in a
-`fast` build it is a remote memory-safety bug (ZS-ASSERT-04). Conversely, returning
-`error.InvariantViolated` for a broken internal invariant asks the caller to handle a situation
-that has no correct handling, and propagates a corrupt process instead of stopping it.
+**Why:** an assertion that fires on hostile input is a remote denial of service, and in a `fast`
+build a remote memory-safety bug (ZS-ASSERT-04). An error for a broken internal invariant asks the
+caller to handle a state with no correct handling, and keeps a corrupt process running.
 
 **Check:** an `assert` whose condition reads a value that arrived from a socket read, a file read,
 `argv`, an environment variable, or a `pub fn` parameter on a parser — anything the process did
@@ -164,12 +162,13 @@ mistake:
 | `.fast` | off | **yes** | illegal behavior; the optimizer treats `cond` as proven |
 | `.small` | off | **yes** | illegal behavior; the optimizer treats `cond` as proven |
 
-**Why:** in the bottom two rows an assertion does not merely stop protecting you — it actively
-*removes* protection, because LLVM propagates the assumed fact and deletes code that contradicts
-it. TigerStyle's claim that assertions downgrade correctness bugs into liveness bugs is true only
-in `debug` and `safe`. In `fast` a violated assertion *upgrades* a correctness bug into
-arbitrary miscompilation. And because the condition still runs, you pay its full cost in release
-while buying nothing.
+TigerStyle's claim that assertions downgrade correctness bugs into liveness bugs therefore holds
+only in `debug` and `safe`; in `fast` a violated assertion *upgrades* a correctness bug into
+arbitrary miscompilation.
+
+**Why:** in the bottom two rows an assertion actively *removes* protection: LLVM propagates the
+assumed fact and deletes code that contradicts it. And because the condition still runs, any side
+effect in it still happens and its full cost is paid in release, for nothing.
 
 **Check:** any `assert` whose condition mutates state or is worse than O(1); any comment or design
 document claiming the assert "is compiled out" or "costs nothing in release".
@@ -265,16 +264,16 @@ if (verify) assert(list.indexOfSlow(item) != null); // Whole statement compiled 
 | `std.process.fatal(fmt, args)` | **yes** | `log.err` then `exit(1)` | operator-fixable |
 | `@compileError(msg)` | n/a | compile error, your message | contracts violated at comptime |
 
-**Why:** these are four genuinely different outcomes and blurring them costs debuggability.
-`unreachable` prints `reached unreachable code` and nothing else; `@panic("checkpoint diverged")`
-names the invariant; `std.debug.panic("op {d} exceeds {d}", .{ op, op_max })` names the values;
-`std.process.fatal` exits with status 1 and an operator-actionable log message instead of a crash
-dump, which is the right answer when the "impossible" state is really "the operator gave us too
-little memory". (TigerBeetle's own `fatal` takes a leading `reason` enum so exit codes are
-distinguishable per failure — that is a project-local helper, not std. std's is
-`pub fn fatal(comptime format: []const u8, format_arguments: anytype) noreturn`, two parameters.)
-`std.debug.panic` is `pub fn panic(comptime format: []const u8, args: anytype) noreturn`;
-`@panic` accepts a runtime `[]const u8`.
+`std.process.fatal` is
+`pub fn fatal(comptime format: []const u8, format_arguments: anytype) noreturn`, two parameters;
+TigerBeetle's own `fatal` takes a leading `reason` enum so exit codes are distinguishable per
+failure, and that is a project-local helper, not std. `std.debug.panic` is
+`pub fn panic(comptime format: []const u8, args: anytype) noreturn`; `@panic` accepts a runtime
+`[]const u8`.
+
+**Why:** blurring them costs debuggability. `unreachable` prints only `reached unreachable code`;
+`@panic` names the invariant; `std.debug.panic` names the values; `std.process.fatal` exits 1 with a
+log line the operator can act on, such as too little memory, instead of a crash dump.
 
 **Check:** a `@panic(` whose message names no invariant (`@panic("unreachable")`, `@panic("bug")`,
 `@panic("error")`); a bare `unreachable` on a branch a reader cannot rule out by inspection; and
@@ -307,14 +306,16 @@ an assertion that survives `fast`. *Relaxed form:* `std.debug.assert` plus a `sa
 and staging build is acceptable, provided the README names the shipping optimize mode explicitly
 instead of leaving it implicit.
 
-**Why:** std ships no always-on assert; `std.debug.assert` is the only one and its check does not
-survive `fast` (ZS-ASSERT-03). TigerBeetle's answer is to ship `safe`
-(`b.standardOptimizeOption(.{ .preferred_optimize_mode = .safe })` in 0.17; see
-`references/build.md` ZS-BUILD-27). If you cannot pay `safe`'s cost, the
-alternative is a two-line helper, which panics under `-O fast` on 0.17.0 where the
-equivalent `assert` died on a bare trap. `assertAlways` is legal in a library: it reports a violated
-invariant, not an operating error, so it does not take a recovery option away from the caller
-(`references/errors.md` ZS-ERR-03).
+TigerBeetle's answer is to ship `safe`:
+`b.standardOptimizeOption(.{ .preferred_optimize_mode = .safe })` in 0.17 (`references/build.md`
+ZS-BUILD-27). If you cannot pay `safe`'s cost, use the two-line `assertAlways` helper in the
+example: under `-O fast` on 0.17.0 it panics where the equivalent `assert` dies on a bare trap.
+`assertAlways` is legal in a library: it reports a violated invariant, not an operating error, so it
+does not take a recovery option away from the caller (`references/errors.md` ZS-ERR-03).
+
+**Why:** std ships no always-on assert: `std.debug.assert` is the only one, and its check does not
+survive `fast` (ZS-ASSERT-03). Where a violated invariant must halt the process, only the shipping
+mode or a project-local helper can make it halt.
 
 ```zig
 // verified — GOOD
@@ -375,10 +376,9 @@ The langref style guide makes this a lexical rule: use the word **assert** to de
 whose violation is safety-checked illegal behavior, and **assume** for one whose violation is
 unchecked illegal behavior. Never swap them.
 
-**Why:** the reader of `/// Asserts that `index` is in bounds.` will test the failure path and
-expect a panic. The reader of `/// Assumes `ptr` is aligned.` knows there is nothing to test and
-that they own the proof. Blurring the two words makes it impossible to tell from a doc comment
-which side of the memory-safety line a function sits on.
+**Why:** a reader who sees "asserts" will test the failure path and expect a panic; one who sees
+"assumes" knows there is nothing to test and that they own the proof. Swapping the words hides which
+side of the memory-safety line a function sits on.
 
 **Check:** grep `///` lines for `ssert` and `ssume`, then match each against the body. "Asserts"
 with no `assert(`, no safety-checked index, and no checked cast in the body is a lie; "assumes"
@@ -408,10 +408,9 @@ goes unobserved. *Relaxed form:* stated once, by ZS-ASSERT-11 — assert the con
 function whose parameter types do not already enforce it. A boundary taking untrusted input gets
 `if` + error, never an assert (ZS-ASSERT-02, ZS-ASSERT-28).
 
-**Why:** a precondition asserted at the top of the callee fires at the first caller that is wrong,
-with that caller on the stack. The same bug caught three frames deeper gives you a stack trace
-through code that is behaving correctly. Postconditions catch the case where the arguments were
-fine and the body is wrong, which no caller-side check can find.
+**Why:** a precondition at the top of the callee fires at the first wrong caller, with that caller
+on the stack, not three frames deeper in code that is behaving correctly. A postcondition catches
+fine arguments and a wrong body, which no caller-side check can find.
 
 **Check:** a function taking two or more independent integer/slice parameters with a relationship
 between them (`offset` and `len`, `target` and `source`) and no `assert` on line one.
@@ -482,10 +481,11 @@ assert(budget.available <= budget.capacity);
 
 ### ZS-ASSERT-13 [M] Write an implication as a single-line `if (a) assert(b);`
 
+Keep it on one line, so it is visually an assertion, not control flow.
+
 **Why:** `assert(!a or b)` is the same predicate written as a negation, and negations are exactly
-where reviewers stop being able to check the logic by inspection. The `if` form also reads in the
-direction the domain reads ("if the transfer is pending, then it has a timeout") and greps
-cleanly. Keep it on one line so it is visually an assertion, not control flow.
+where reviewers stop being able to check logic by inspection. The `if` form reads the way the domain
+does ("if the transfer is pending, it has a timeout") and greps cleanly.
 
 **Check:** an `assert(!` whose condition also contains ` or ` — that is an implication written as
 a negated disjunction. Also an `if (…) {` block whose entire body is one `assert(…);`, which
@@ -514,9 +514,8 @@ The golden rule: assert the positive space you *do* expect **and** the negative 
 point but is not, write `maybe(...)`.
 
 **Why:** bugs cluster where data crosses the valid/invalid boundary, and only a negative-space
-assertion sits on that boundary. `maybe` closes the other half: silence is ambiguous — the reader
-cannot tell whether you knew `status` could be `.recovering_head` here or simply never thought
-about it. `maybe` compiles to nothing and turns that silence into a claim.
+assertion sits on it. Silence is ambiguous — did you know `status` could be `.recovering_head` here,
+or never think of it? `maybe` compiles to nothing and turns that silence into a claim.
 
 **Check:** a range asserted on one side only — an `assert(index < count)` with no companion bound
 below, an `assert(x != null)` with no arm for the null case — and any enum-valued or optional
@@ -575,10 +574,9 @@ const Stack = struct {
 
 Each guard clause buys you a stronger fact about the rest of the function. Write it down.
 
-**Why:** after `if (status != .normal) return;` the remainder of the function knows
-`status == .normal`, but nothing in the source says so, so a later refactor that moves the guard
-or adds a path around it silently invalidates ten lines of reasoning. Re-asserting makes the
-refactor fail loudly at the exact point where the assumption was used.
+**Why:** after `if (status != .normal) return;` the rest of the function relies on
+`status == .normal` without saying so, and a refactor that moves the guard silently invalidates that
+reasoning. The re-assertion makes the refactor fail loudly where the assumption is used.
 
 **Check:** a run of early-return guards (`if (cond) return …;`) with no `assert` restating the
 negation of each `cond` on the line after the last guard.
@@ -601,14 +599,14 @@ fn sendPrepareOk(status: Status, view: u32, op: u64, op_max: u64) bool {
 ### ZS-ASSERT-17 [S] Give each stateful type one `assertInvariants`, and bracket mutators with it
 
 Collect the type's whole-object invariants in one private function taking `*const T`. Every public
-mutator opens with `x.assertInvariants(); defer x.assertInvariants();`.
-
-**Why:** `defer` runs on *every* exit path including early returns and error returns, so one line
-covers exits you have not written yet. It also gives the invariant a single home, so adding a
-field means editing one function rather than auditing every method. TigerBeetle's
+mutator opens with `x.assertInvariants(); defer x.assertInvariants();`. TigerBeetle's
 `src/vsr/repair_budget.zig` uses this shape 19 times in 464 lines (tigerbeetle 97c7a8e — spelled
-`assert_invariants` there, TigerBeetle's snake_case function convention; this standard follows
-std's `camelCase` for callables, ZS-NAME-01).
+`assert_invariants` there, TigerBeetle's snake_case function convention; this standard follows std's
+`camelCase` for callables, ZS-NAME-01).
+
+**Why:** `defer` runs on *every* exit path, including early returns and error returns, so one line
+covers exits you have not written yet. The invariant also gets a single home: adding a field means
+editing one function rather than auditing every method.
 
 **Check:** in a type that declares `assertInvariants`, a `pub fn` taking `*T` that writes any field
 without the `x.assertInvariants(); defer x.assertInvariants();` opening pair. A new field added to
@@ -662,11 +660,9 @@ bug becomes permanent corruption. There, every serialized or persisted structure
 paths. *Relaxed form:* pair the property for at least the formats you cannot change later —
 anything persisted or sent over a wire.
 
-**Why:** a single assertion on the write path proves only that the writer's *in-memory* value was
-sane. It says nothing about the encoder, the padding, the alignment, the sector boundary, the
-storage layer, or bit rot. The read-side assertion is checking a different function of a different
-byte sequence, so it catches the entire class of bugs between the two — and when only one of the
-pair fires, the failure has already been localized to that half.
+**Why:** a write-path assertion proves only that the *in-memory* value was sane, not the encoder,
+the padding, the storage layer or bit rot. The read side checks a different byte sequence, so it
+catches every bug between the two, and when only one of the pair fires, the failure is localized.
 
 **Check:** a `*Validate` or `*Verify` helper called from exactly one of an encode/decode,
 serialize/deserialize, or write/read pair. Grep the callers of the validator: one call site means
@@ -743,14 +739,16 @@ assert unconditionally; it is acceptable to spend O(N) verifying an O(1) computa
 data plane, do an unconditional O(1) check before an O(N) loop, and gate any O(N) whole-structure
 verification behind a `verify` constant.
 
-**Why:** slow assertions reduce total coverage. Randomized testing coverage is proportional to the
-number of iterations you can run, so an O(N) invariant check on an O(1) hot-path mutation makes the
-fuzzer quadratically weaker at finding the bug it was meant to catch. The gate must be `if (verify)`
-around the *whole statement*, not the assert alone: by ZS-ASSERT-03 the condition inside an `assert`
-still runs in `fast`, so `assert(queue.contains(link))` pays the O(N) scan in release and gets
-nothing for it. Define `verify` from your own module's `@import("builtin").optimize.runtimeSafety()`
-— `std.debug.runtime_safety` is deprecated in its favour (to be removed after 0.18.0) because it
-reports the *standard library's* optimize mode, not your module's.
+The gate must be `if (verify)` around the *whole statement*, not the assert alone: by ZS-ASSERT-03
+the condition inside an `assert` still runs in `fast`, so `assert(queue.contains(link))` pays the
+O(N) scan in release and gets nothing for it. Define `verify` from your own module's
+`@import("builtin").optimize.runtimeSafety()` — `std.debug.runtime_safety` is deprecated in its
+favour (to be removed after 0.18.0) because it reports the *standard library's* optimize mode, not
+your module's.
+
+**Why:** slow assertions reduce total coverage. Randomized testing finds bugs in proportion to the
+iterations it can run, so an O(N) check on an O(1) hot-path mutation makes the fuzzer quadratically
+weaker at finding the very bug the check was written for.
 
 **Check:** an `assert(` containing a loop, a `contains`, or a whole-structure walk that is not
 preceded by `if (verify)` on the same line.
@@ -780,12 +778,9 @@ pub fn push(queue: *Queue, link: *Link) void {
 Every derived or co-dependent constant gets a `comptime {}` block stating the relationship that
 must hold.
 
-**Why:** compile-time assertions check the program's design integrity *before* the program runs,
-they are free, and — this is the part that matters in Zig — they are the one kind of assertion
-that is **always on in every optimize mode**, because they never reach codegen. This makes them
-the highest value-per-character construct in the whole standard. A comptime assert also catches
-the failure at the moment someone edits the constant, not on the machine where the ratio finally
-mattered.
+**Why:** a comptime assertion is free, and it is the one kind that is **always on in every optimize
+mode**, because it never reaches codegen. It also fails the build on the edit that breaks the
+relationship, not on the machine where the ratio finally mattered.
 
 **Check:** a file declaring two or more `pub const` numbers where one's correctness depends on the
 other — a `%`, an `@divExact`, a power-of-two assumption, or a ceiling relied on at some call
@@ -818,16 +813,16 @@ contracts use `@compileError` instead (ZS-ASSERT-23).
 Any `extern struct` or `packed struct` that is serialized, persisted, hashed, or passed across a C
 boundary carries a `comptime {}` asserting `@sizeOf`, `@alignOf`, and the absence of padding.
 
-**Why:** field layout is decided by the compiler from the field list. Adding one `u16` silently
-changes `@sizeOf`, which silently changes the on-disk format, which corrupts every existing file —
-with no compile error anywhere. The comptime block turns that into a build failure on the commit
-that introduces it. Padding bytes are also the buffer-bleed vector, so assert their absence: for an
-`extern struct` use `std.meta.hasUniqueRepresentation(T)`, which compares `@sizeOf(T)` against the
-sum of the field sizes. Do **not** use `@bitSizeOf(T) == @sizeOf(T) * 8` for that on an `extern
-struct` — on 0.17.0 `@bitSizeOf` of any struct that is not packed is a compile error
-(`no bit size available for type …`), and on 0.16 it *included* padding, so
-`extern struct { a: u8, b: u64 }` passed it. That identity is only meaningful on a
-`packed struct(uN)`, where it checks that the backing integer fills its bytes.
+For the padding check on an `extern struct` use `std.meta.hasUniqueRepresentation(T)`, which
+compares `@sizeOf(T)` against the sum of the field sizes. Do **not** use
+`@bitSizeOf(T) == @sizeOf(T) * 8` for that on an `extern struct` — on 0.17.0 `@bitSizeOf` of any
+struct that is not packed is a compile error (`no bit size available for type …`), and on 0.16 it
+*included* padding, so `extern struct { a: u8, b: u64 }` passed it. That identity is only meaningful
+on a `packed struct(uN)`, where it checks that the backing integer fills its bytes.
+
+**Why:** the compiler decides field layout from the field list, so one added `u16` silently changes
+`@sizeOf` and the on-disk format, corrupting every existing file with no compile error; the comptime
+block fails the commit that does it. Padding bytes are also a buffer-bleed vector.
 
 **Check:** an `extern struct` or `packed struct` that appears in a `@memcpy`, `std.mem.asBytes`,
 `bytesAsValue`, a `read`/`write` call, or an `extern fn` signature, with no `comptime {}` block
@@ -871,13 +866,12 @@ const Flags = packed struct(u16) {
 
 When a generic function or a `comptime` parameter has a precondition that a *user* of your code
 can break, state it with `@compileError` and an explanatory message. Reserve `comptime assert` for
-relationships internal to your own module.
+relationships internal to your own module. Use the same construct to document a deliberately absent
+API: `pub const intExclusive = @compileError("intentionally not implemented: ranges are closed");`
 
 **Why:** the two produce very different diagnostics. `@compileError` prints your sentence at the
 offending call site; a failing `comptime assert` prints `reached unreachable code` inside
 `std/debug.zig` and makes the caller reverse-engineer the contract.
-Use the same construct to document a deliberately absent API:
-`pub const intExclusive = @compileError("intentionally not implemented: ranges are closed");`
 
 **Check:** a `comptime assert(` inside a `fn Foo(comptime …) type` or a function with a `comptime`
 parameter, whose condition constrains that caller-supplied parameter rather than the module's own
@@ -921,14 +915,13 @@ division`, with a note at the call site.
 
 Every buffer, queue, batch, connection table, retry count, timeout, recursion depth, and message
 size has a fixed upper bound expressed as a named comptime constant. No bare literals at the use
-site; no "it grows as needed" without a stated ceiling.
+site; no "it grows as needed" without a stated ceiling. Names use big-endian ordering —
+`latency_ms_max`, not `max_latency_ms` — so related limits sort and group together (see
+`references/naming.md`).
 
-**Why:** in reality everything has a limit — the only question is whether you chose it or whether
-it is discovered in production as an OOM, an unbounded queue, or a tail-latency spike. A named
-constant also makes the bound assertable (ZS-ASSERT-28) and reviewable: `connection_count_max = 64`
-invites the question "is 64 right?", while `try list.append(gpa, conn)` invites nothing. Names use
-big-endian ordering — `latency_ms_max`, not `max_latency_ms` — so related limits sort and group
-together (see `references/naming.md`).
+**Why:** everything has a limit; the only question is whether you chose it or production discovers
+it as an OOM, an unbounded queue, or a tail-latency spike. A named constant is assertable
+(ZS-ASSERT-28) and reviewable: `connection_count_max = 64` invites "is 64 right?"
 
 **Check:** an `alloc`, `ensureTotalCapacity`, `@memcpy` length, retry loop, or timeout whose size
 comes from a runtime value with no `_max` constant asserted against it on a preceding line; and any
@@ -951,11 +944,9 @@ One file holds every configured and derived limit. Each constant carries a `///`
 *why that number*, and the file ends each group with a `comptime {}` block asserting the
 relationships between them.
 
-**Why:** limits are not independent. `request_memory_bytes` is a function of three other constants,
-and the ceiling that actually matters (fits in the cgroup) is a property of the combination, not
-of any one of them. Scattering the numbers across the modules that use them means nobody can ever
-check the combination. Centralizing also makes "what does this process cost at maximum load?" a
-question you can answer by reading one file.
+**Why:** limits are not independent: the ceiling that matters, such as fitting the cgroup, is a
+property of a combination like `request_memory_bytes`, and scattered numbers mean nobody can check
+it. One file also answers "what does this process cost at maximum load?"
 
 **Check:** a `pub const … _max` declared in any file other than `constants.zig`, or one declared
 there with no `///` comment giving the reason for that number, or a group of related limits with no
@@ -1023,9 +1014,8 @@ the four because it asserts the remainder is zero, which is usually the claim a 
 to make.
 
 **Why:** a hand-copied `16` beside a computed `message_size_bytes_max / block_size_bytes` is
-invisible in review, because both are correct on the day they are written. Deriving it turns
-"someone forgot to update the other number" into an impossibility rather than a code-review
-responsibility, and it makes the *relationship* the reviewable artifact rather than the value.
+invisible in review, because both are right on the day they are written. Deriving it makes a
+forgotten update impossible and makes the *relationship* the reviewable artifact.
 
 ```zig
 // fragment — BAD
@@ -1046,8 +1036,9 @@ that equals an arithmetic combination of the others.
 
 ### ZS-ASSERT-27 [M] Give every loop a provable bound; an unbounded loop must say so and assert it
 
-This rule owns loop bounds for the whole standard; `references/errors.md` ZS-ERR-24
-points here.
+This rule owns loop bounds for the whole standard; `references/errors.md` ZS-ERR-24 points here. It
+is NASA's Power of Ten rule 2, adopted verbatim by TigerStyle: it must be trivially provable that a
+preset upper bound on iterations cannot be exceeded.
 
 **Reach for `for` first.** `for (slice)` and `for (0..limit)` carry their bound in the syntax, so
 there is nothing left to prove. A `while` is a claim that the termination argument does not fit in a
@@ -1060,17 +1051,13 @@ range, and that claim has to be paid for. Four shapes, all legitimate:
 - (d) a loop that genuinely cannot terminate — an event loop — is commented as intentional, and the
   reverse property (that it does not exit early, or that shutdown was observed) is asserted.
 
-**Why:** NASA's Power of Ten rule 2, adopted verbatim by TigerStyle: it must be trivially provable
-that a preset upper bound on iterations cannot be exceeded. An unbounded `while (true)` over a data
-structure turns a corrupt pointer — a cycle in a linked list, a stale index — from a crash into a
-hang, which is strictly harder to diagnose and, in a replicated system, strictly worse than
-crashing. Unbounded is also not only "forever": it is an unbounded tail-latency spike, which
-presents in production as the same undiagnosable stall. The counter converts both into a crash with
-a stack trace. The `else` clause on a Zig `for` runs only when the loop was *not* broken out of,
-which is precisely the "bound exceeded" condition.
+The `else` clause on a Zig `for` runs only when the loop was *not* broken out of, which is precisely
+the "bound exceeded" condition. The same discipline applies to anything that grows per iteration —
+queues, buffers, retry counts, backlogs. Everything has a limit; name it (ZS-ASSERT-24).
 
-The same reasoning applies to anything that grows per iteration — queues, buffers, retry counts,
-backlogs. Everything has a limit; name it (ZS-ASSERT-24).
+**Why:** an unbounded loop over a data structure turns a corrupt pointer — a cycle, a stale index —
+from a crash into a hang or a tail-latency spike, harder to diagnose and, in a replicated system,
+worse than crashing. A bound converts both into a crash with a stack trace.
 
 ```zig
 // verified — GOOD
@@ -1143,13 +1130,12 @@ intended.
 
 Reject an over-limit value at the point of entry — the socket read, the CLI parse, the file
 header — not at the point of use. After the boundary check, the bound becomes an asserted
-invariant everywhere downstream.
+invariant everywhere downstream. This is the shape already shown in ZS-ASSERT-02: `if` + error at
+the door, `assert` immediately after.
 
 **Why:** the distance between where a bad value is admitted and where it does damage is the whole
-difficulty of debugging. Checking at the boundary also means exactly one function has to reason
-about hostile input; every function past it gets to assert rather than validate, which is what
-makes the density target in ZS-ASSERT-11 affordable. This is the shape already shown in
-ZS-ASSERT-02: `if` + error at the door, `assert` immediately after.
+difficulty of debugging. A boundary check leaves one function reasoning about hostile input; every
+function past it asserts, which makes ZS-ASSERT-11's density affordable.
 
 **Check:** a `_max` constant that appears only at the point of use and never in the function that
 first reads the socket, opens the file, or parses `argv`; and, in that boundary function, an
@@ -1159,13 +1145,12 @@ first reads the socket, opens the file, or parses `argv`; and, in that boundary 
 
 A fixed-capacity `push` asserts `!full()` rather than returning `error.Overflow`. Return an error
 only from operations whose length comes from *outside* — `fromSlice`, `resize`, a decoder.
+`std.BoundedArray` has not existed since 0.16; the replacement is a fixed backing array plus
+`initBuffer` and the `AssumeCapacity` methods, which never allocate and cannot fail.
 
-**Why:** if the container's capacity is a comptime constant chosen to be big enough, then pushing
-past it is a design error in your code, not a runtime condition (ZS-ASSERT-02), and returning an
-error forces every call site to handle a case that cannot happen — the "dimensionality" tax that
-propagates up the call chain. Note `std.BoundedArray` has not existed since 0.16; the replacement is
-a fixed backing array plus `initBuffer` and the `AssumeCapacity` methods, which never allocate and
-cannot fail.
+**Why:** when the capacity is a comptime constant chosen to be big enough, pushing past it is a
+design error in your code (ZS-ASSERT-02), and an error return makes every call site handle a case
+that cannot happen — the "dimensionality" tax that propagates up the call chain.
 
 **Check:** a method on a fixed-capacity container returning `error.Overflow` or
 `error.OutOfMemory` when that capacity is a comptime constant; and the converse — a `fromSlice`,
@@ -1200,10 +1185,8 @@ permitted only where the maximum depth is a named constant or a `comptime` param
 bound is asserted at entry.
 
 **Why:** without recursion the call graph is acyclic and an upper bound on stack usage can be
-derived statically; with it, stack exhaustion is the one failure mode Zig's safety checks do not
-catch, and it manifests as a `SIGSEGV` with a truncated, useless stack trace. TigerBeetle's I/O
-layer pushes completions onto a queue specifically to avoid "recursion through
-`flush_submissions()`", "unbounded stack usage", and "confusing stack traces".
+derived statically. With it, stack exhaustion is the one failure mode Zig's safety checks do not
+catch, and it surfaces as a `SIGSEGV` with a truncated, useless stack trace.
 
 **Check:** a function whose body names itself, or a mutually recursive pair, with no `depth`
 parameter compared against a `_max` constant and no `comptime` depth. Any tree, JSON, expression,
@@ -1236,13 +1219,14 @@ test failure in fast and small mode" (ZS-ASSERT-03).
 Before adding a fuzz target, ask what failure it could possibly report. A fuzzer detects a crash;
 if no assertion turns "wrong answer" into a crash, the fuzzer will run for a week and report
 success. Every fuzz target is paired with the assertions or the model oracle that give it teeth.
+Since 0.16 the fuzz input is `*std.testing.Smith`, not the old `[]const u8`: `std.testing.fuzz` is a
+`pub inline fn` taking `context: anytype`,
+`comptime testOne: fn (context: @TypeOf(context), smith: *Smith) anyerror!void` and
+`options: FuzzInputOptions`, and returning `anyerror!void`.
 
-**Why:** this is the mechanism behind TigerStyle's "assertions are a force multiplier for
-discovering bugs by fuzzing". Coverage-guided input generation explores paths; assertions are what
-convert an explored path into a signal. A fuzz target over a parser with no postconditions tests
-only that the parser does not segfault. Since 0.16 the fuzz input is `*std.testing.Smith`, not the
-old `[]const u8`: `pub inline fn fuzz(context: anytype, comptime testOne: fn (context:
-@TypeOf(context), smith: *Smith) anyerror!void, options: FuzzInputOptions) anyerror!void`.
+**Why:** coverage-guided input generation explores paths; assertions are what convert an explored
+path into a signal. A fuzz target over a parser with no postconditions tests only that the parser
+does not segfault.
 
 **Check:** a `std.testing.fuzz` call whose target function — and the code it reaches — contains
 no `assert`, no `expect*`, and no comparison against a model. That target can report only a
