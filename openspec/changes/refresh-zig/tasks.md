@@ -6,16 +6,16 @@ the full run. Every other verification is `--fast` or a targeted `pytest`.
 
 ## 1. Harness: the pin, the wrapper, extraction
 
-- [ ] 1.1 Pin `ZIG_VERSION = "0.17.0"`. Reword the `follows_local` reason in
+- [x] 1.1 Pin `ZIG_VERSION = "0.17.0"`. Reword the `follows_local` reason in
   `profiles/zig_style.py` so it names no version. Verify: `--fast --skill zig-style --only pins`
   passes.
-- [ ] 1.2 Make the analysis-forcing wrapper reference every top-level declaration by name,
+- [x] 1.2 Make the analysis-forcing wrapper reference every top-level declaration by name,
   private ones included, and stop reading `@typeInfo` (D1). Verify: a unit test shows a verified
   block whose private, untested function has a type error now fails. The four blocks in
   `research/zig-0.17.md` §D.2 then fail under the zig toolchain run alone until 3.1 fixes them.
-- [ ] 1.3 Extract `verified` blocks from `SKILL.md` as well as `references/` (D1). Verify: a unit
+- [x] 1.3 Extract `verified` blocks from `SKILL.md` as well as `references/` (D1). Verify: a unit
   test extracts a `SKILL.md` block, and `--fast` passes for the three other skills, which have none.
-- [ ] 1.4 Add the vocabulary rows `assertions` → `ASSERT`, `comptime` → `COMPTIME`, `memory` → `MEM`
+- [x] 1.4 Add the vocabulary rows `assertions` → `ASSERT`, `comptime` → `COMPTIME`, `memory` → `MEM`
   and `interop` → `INTEROP`. Verify: `tests/test_vocabulary.py`.
 
 ## 2. Harness: compiler rows

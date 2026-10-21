@@ -1,0 +1,73 @@
+"""The zig toolchain analyses every declaration a verified block has."""
+
+lazy from pathlib import Path
+
+import pytest
+
+from agent_skill.lang.zig import ZIG, force_analysis
+from agent_skill.model import Skill
+from agent_skill.proc import have
+
+#: A private function with a type error that no test reaches: the
+#: case a `pub`-only declaration list let through.
+PRIVATE_DEFECT = """const std = @import("std");
+
+fn private() u32 {
+    const flag: bool = 3;
+    return if (flag) 1 else 0;
+}
+
+pub fn public() u32 {
+    return 2;
+}
+"""
+
+
+def test_every_top_level_declaration_is_named() -> None:
+    body = (
+        'const std = @import("std");\n'
+        "pub fn open() void {}\n"
+        "fn helper() void {}\n"
+        'pub const @"type" = u8;\n'
+        "var counter: u32 = 0;\n"
+        'extern "c" fn write(fd: c_int) isize;\n'
+        "export fn entry() void {}\n"
+        "pub const Config = struct {\n"
+        "    const nested = 1;\n"
+        "};\n"
+    )
+
+    wrapper = force_analysis(body)
+
+    named = [line.strip() for line in wrapper.splitlines() if line.startswith("    ")]
+    assert named == [
+        "_ = &std;",
+        "_ = &open;",
+        "_ = &helper;",
+        '_ = &@"type";',
+        "_ = &counter;",
+        "_ = &write;",
+        "_ = &entry;",
+        "_ = &Config;",
+    ]
+
+
+def test_a_block_with_no_declarations_gets_no_wrapper() -> None:
+    assert force_analysis('test "only a test" {}\n') == ""
+
+
+@pytest.mark.toolchain
+@pytest.mark.skipif(not have("zig"), reason="needs zig")
+def test_a_private_function_is_analysed(tmp_path: Path) -> None:
+    skill = tmp_path / "skills" / "demo-style"
+    (skill / "references").mkdir(parents=True)
+    (skill / "SKILL.md").write_text("---\nname: demo-style\n---\n\n# Demo\n")
+    fence = "```zig\n// verified\n" + PRIVATE_DEFECT + "```\n"
+    (skill / "references" / "data.md").write_text(
+        "# Data\n\n## Contents\n\n---\n\n### DS-DATA-01 [M] X\n\n" + fence
+    )
+    extraction = ZIG.extract(Skill(skill, None), tmp_path / "out")
+
+    findings = list(ZIG.verify(extraction))
+
+    assert any("expected type 'bool'" in f.message for f in findings), findings

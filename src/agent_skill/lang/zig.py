@@ -20,23 +20,36 @@ from agent_skill.report import Finding, fail, note
 #: machine's `zig` rather than upstream's newest release, so `pins`
 #: compares it with `zig version` only: the skill moves when the
 #: compiler here does.
-ZIG_VERSION = "0.16.0"
+ZIG_VERSION = "0.17.0"
 
-#: A `comptime` block at file scope is analysed by `zig build-obj`, so
-#: forcing analysis costs a tenth of a second per block instead of a
-#: link and a launch. Without it Zig never analyses the body of a
-#: function nobody calls, and a block with a type error in it reports
-#: success.
-FORCE_ANALYSIS = """
-comptime {
-    // The capture is named for this harness: Zig makes a capture that shadows a
-    // container declaration a hard error, and the error would point here rather
-    // than at whatever the block was actually doing wrong.
-    for (@typeInfo(@This()).@"struct".decls) |__zs_decl| {
-        _ = &@field(@This(), __zs_decl.name);
-    }
-}
-"""
+#: A top-level declaration as a block writes it, at column zero: its
+#: name, plain or `@"quoted"`.
+_DECL = re.compile(
+    r'^(?:pub\s+)?(?:export\s+|extern\s+(?:"[^"]*"\s+)?)?(?:inline\s+|noinline\s+)?'
+    r'(?:threadlocal\s+)?(?:fn|const|var)\s+(@"[^"]+"|[A-Za-z_]\w*)',
+    re.MULTILINE,
+)
+
+
+def force_analysis(body: str) -> str:
+    """A file-scope `comptime` block naming each top-level declaration.
+
+    `zig build-obj` analyses such a block, so forcing analysis costs a
+    tenth of a second per block instead of a link and a launch. Without
+    it Zig never analyses the body of a function nobody calls, and a
+    block with a type error in it reports success.
+
+    Each declaration is named rather than listed through `@typeInfo`:
+    the type-info decl list holds only `pub` declarations, so a private
+    function stayed unanalysed, and it is laid out differently in each
+    release. Naming keeps every declaration's visibility as written.
+    """
+    names = _DECL.findall(body)
+    if not names:
+        return ""
+    refs = "".join(f"    _ = &{name};\n" for name in names)
+    return f"\ncomptime {{\n{refs}}}\n"
+
 
 #: A statement worth deleting: not a declaration, a brace, or a discard.
 _SKIP = ("//", "const ", "var ", "pub const", "pub var", "}", "_ = ")
@@ -70,7 +83,7 @@ class Zig:
             name = f"{stem}_{seen[stem]:03d}.zig"
             seen[stem] += 1
             path = out / name
-            path.write_text(b.body.rstrip("\n") + "\n" + FORCE_ANALYSIS)
+            path.write_text(b.body.rstrip("\n") + "\n" + force_analysis(b.body))
             ex.units.append(Unit(path, b.file, b.line, b.rule))
         return ex
 

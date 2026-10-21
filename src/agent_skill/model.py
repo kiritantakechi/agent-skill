@@ -584,6 +584,21 @@ class Skill:
         ]
 
     @cached_property
+    def documents(self) -> list[Chapter]:
+        """`SKILL.md` and every chapter: everywhere an example can sit.
+
+        Read as a chapter, `SKILL.md` has no `###` rules, so this serves
+        the examples only; `chapters` stays the rule source.
+        """
+        return [Chapter(self.skill_md, self.prefix), *self.chapters]
+
+    def path_of(self, document: str) -> Path:
+        """The file a block's `file` names: `SKILL.md`, or a chapter."""
+        if document == self.skill_md.name:
+            return self.skill_md
+        return self.root / "references" / document
+
+    @cached_property
     def rules(self) -> list[Rule]:
         """Every chapter rule, chapter by chapter."""
         return [r for c in self.chapters for r in c.rules]
@@ -642,7 +657,7 @@ class Skill:
         from each language the profile names.
         """
         langs = [lang] if lang is not None and lang != "" else self.profile.languages
-        out = [b for lg in langs for c in self.chapters for b in c.blocks(lg)]
+        out = [b for lg in langs for c in self.documents for b in c.blocks(lg)]
         return [b for b in out if b.marker.verified] if verified else out
 
     def advice(self, lang: str | None = None, *, verified: bool = False) -> list[Block]:

@@ -44,6 +44,10 @@ CHAPTERS: dict[str, str] = {
     "state": "STATE",
     "assets": "ASSET",
     "view": "VIEW",
+    "assertions": "ASSERT",
+    "comptime": "COMPTIME",
+    "memory": "MEM",
+    "interop": "INTEROP",
 }
 
 #: The family of the rules `SKILL.md` states itself.

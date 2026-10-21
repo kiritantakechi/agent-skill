@@ -129,7 +129,7 @@ def _format_rust(skill: Skill) -> list[str]:
                     f"{chapter}: {len(wanted)} blocks, {len(bodies)} modules; skipped"
                 )
                 continue
-            path = skill.root / "references" / chapter
+            path = skill.path_of(chapter)
             # Last first, so an earlier replacement cannot move a later
             # block.
             edits = reversed(list(zip(wanted, bodies, strict=True)))
@@ -198,7 +198,7 @@ def _format_python(skill: Skill) -> list[str]:
         for unit in extraction.units:
             by_chapter.setdefault(unit.chapter, []).append(unit)
         for chapter, units in by_chapter.items():
-            path = skill.root / "references" / chapter
+            path = skill.path_of(chapter)
             # Last first, so an earlier replacement cannot move a later
             # block.
             ordered = sorted(units, key=lambda u: u.line, reverse=True)

@@ -3,9 +3,18 @@
 Each of these was once implemented twice and fixed once.
 """
 
+lazy from pathlib import Path
+
 import pytest
 
-from agent_skill.model import Marker, inside_tests, needs_c_object, repr_c_above
+from agent_skill.model import (
+    Marker,
+    Skill,
+    inside_tests,
+    needs_c_object,
+    repr_c_above,
+)
+from agent_skill.profiles import Profile
 from agent_skill.text import code_only, strip_comment, syntax_for
 
 
@@ -101,3 +110,17 @@ def test_inside_tests_finds_only_the_test_body() -> None:
         "const log = std.log.scoped(.a);\ntest foo {\n    const x = 1;\n}\nconst y = 2;"
     )
     assert inside_tests(body) == {1, 2, 3}
+
+
+def test_a_block_in_skill_md_is_an_example_like_any_other(tmp_path: Path) -> None:
+    root = tmp_path / "demo-style"
+    (root / "references").mkdir(parents=True)
+    fence = "```zig\n// verified\nconst x = 1;\n```\n"
+    (root / "SKILL.md").write_text("---\nname: demo-style\n---\n\n# Demo\n\n" + fence)
+    skill = Skill(root, Profile(name="demo-style", prefix="DS"))
+
+    (block,) = skill.blocks("zig", verified=True)
+
+    assert block.file == "SKILL.md"
+    assert skill.path_of(block.file) == root / "SKILL.md"
+    assert skill.path_of("data.md") == root / "references" / "data.md"

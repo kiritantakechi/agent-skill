@@ -39,3 +39,12 @@ def test_core_is_not_a_chapter_code() -> None:
 
 def test_every_chapter_name_is_one_word() -> None:
     assert all(stem.isalpha() and stem.islower() for stem in v.CHAPTERS)
+
+
+def test_the_zig_words_have_their_codes() -> None:
+    assert [v.code_for(w) for w in ("assertions", "comptime", "memory", "interop")] == [
+        "ASSERT",
+        "COMPTIME",
+        "MEM",
+        "INTEROP",
+    ]
