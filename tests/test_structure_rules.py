@@ -3,6 +3,8 @@
 Numbering, Why length, lint rows, and rename tables.
 """
 
+from dataclasses import dataclass
+from typing import override
 lazy from pathlib import Path
 
 import pytest
@@ -16,7 +18,7 @@ from agent_skill.checks.citations import (
 )
 from agent_skill.checks.skeleton import shape
 from agent_skill.model import DASH, LintRow, Rename
-from structure_fixture import build, edit, reparse
+from structure_fixture import Demo, build, edit, reparse
 lazy from agent_skill.model import Skill
 
 ROWS = """
@@ -84,6 +86,68 @@ def test_a_three_line_why_is_fine(demo: Skill) -> None:
         "**Why:** a\nb\nc.",
     )
     assert structural_messages(fine) == []
+
+
+@dataclass
+class Twenty(Demo):
+    """The demo at 1.20, whose older releases have two-digit minors."""
+
+    @override
+    def pin(self) -> str:
+        return "1.20.3"
+
+
+@pytest.fixture
+def twenty(tmp_path: Path) -> Skill:
+    return build(tmp_path, Twenty())
+
+
+def test_a_rule_naming_an_older_release(twenty: Skill) -> None:
+    broken = edit(
+        twenty, "references/errors.md", "one line of reason.", "stable since 1.13."
+    )
+    assert [m for m in structural_messages(broken) if " names " in m] == [
+        (
+            "DS-ERR-01 names 1.13, below its target 1.20: a rule speaks of its "
+            "target, and the migration chapter keeps the history"
+        )
+    ]
+
+
+def test_a_core_rule_naming_an_older_release(twenty: Skill) -> None:
+    broken = edit(
+        twenty,
+        "SKILL.md",
+        "## 4. Core rules\n\nNone.",
+        "## 4. Core rules\n\n- **DS-CORE-01 `[M]`** Use the call 1.18 added.",
+    )
+    assert any("DS-CORE-01 names 1.18" in m for m in structural_messages(broken))
+
+
+@pytest.mark.parametrize(
+    ("rel", "old", "new"),
+    [
+        ("references/migration.md", "one line of reason.", "1.13 renamed it."),
+        ("SKILL.md", "Nothing changed.", "1.13 renamed it."),
+        ("references/review-checklist.md", "Run the tools.", "Grep for 1.13's name."),
+        (
+            "references/errors.md",
+            "**Check:** read it.",
+            '**Check:** read it.\n\n```rust\n// fragment\nlet v = "1.13";\n```',
+        ),
+        (
+            "references/errors.md",
+            "one line of reason.",
+            "1.20 and 1.21 are fine, and so are 1.5x faster and 1.05 s.",
+        ),
+    ],
+    ids=["migration", "reality check", "protocol", "fenced", "not older"],
+)
+def test_a_version_that_is_history_or_no_release(
+    twenty: Skill, rel: str, old: str, new: str
+) -> None:
+    fine = edit(twenty, rel, old, new)
+    assert [m for m in structural_messages(fine) if " names " in m] == []
 
 
 def test_lint_rows_are_parsed_and_are_not_rules(demo: Skill) -> None:

@@ -3,7 +3,7 @@
 The four standards are each on their latest version, and all four conform to `standard-structure`.
 They still carry three kinds of residue:
 
-- **History inside the rules.** 195 version mentions below the target sit in the bodies of 137
+- **History inside the rules.** 191 version mentions below the target sit in the bodies of 135
   rules: Rust's "(1.96)", "stable since 1.74"; Bevy's "Since 0.19"; Zig's "on 0.16 it…". A rule
   that annotates when its API arrived reads as written for an older reader. A standard that keeps
   its history in the migration chapter and §2 already has a place for that.

@@ -398,12 +398,61 @@ def _near_duplicates(
 WHY_LINES = 3
 
 
+#: A fenced example, which a version may sit in as content: a manifest's
+#: `rust-version`, a reproduction on an older release.
+_FENCED = re.compile(r"^[ \t]*```.*?^[ \t]*```[^\n]*$", re.MULTILINE | re.DOTALL)
+
+
+def _below_target(skill: Skill) -> Iterator[tuple[str, str]]:
+    """(message, where) for a rule whose prose names an older release.
+
+    The subject's own versions only, read from the pin: `3.13` in a
+    Python 3.15 standard, `0.19` in a Bevy 0.20 one. A minor of two
+    digits or more keeps `3.5x faster` out, and one that does not start
+    with `0` keeps a decimal such as `0.05` out. The migration chapter
+    is where a standard's history lives, so it is not read.
+    """
+    pin = re.match(r"(\d+)\.(\d+)", skill.profile.pin())
+    if pin is None:
+        return
+    major, target = pin.group(1), int(pin.group(2))
+    token = re.compile(rf"(?<![\d.]){major}\.([1-9]\d+)(?!\d)")
+    rules = [
+        (rule.id, rule.body, f"{skill.name}/{chapter.name}")
+        for chapter in skill.chapters
+        if chapter.path.stem != "migration"
+        for rule in chapter.rules
+    ]
+    rules += [
+        (rid, body, f"{skill.name}/SKILL.md") for rid, _, body in skill.core_rules
+    ]
+    for rid, body, where in rules:
+        older = sorted(
+            {
+                m.group(0)
+                for m in token.finditer(_FENCED.sub("", body))
+                if int(m.group(1)) < target
+            },
+            key=lambda v: int(v.split(".")[1]),
+        )
+        if older:
+            yield (
+                (
+                    f"{rid} names {', '.join(older)}, below its target "
+                    f"{major}.{target}: a rule speaks of its target, and the "
+                    "migration chapter keeps the history"
+                ),
+                where,
+            )
+
+
 def structural(skill: Skill) -> Iterator[tuple[str, str]]:
     """(message, where) for the rule-shape half of standard-structure.
 
-    Dense numbering and a short Why. Separate from `anatomy` proper
-    because an exempt standard skips these and keeps every other branch.
+    Dense numbering, a short Why, and no release older than the target
+    in a rule's prose.
     """
+    yield from _below_target(skill)
     for chapter in skill.chapters:
         where = f"{skill.name}/{chapter.name}"
         numbers: dict[str, list[str]] = defaultdict(list)

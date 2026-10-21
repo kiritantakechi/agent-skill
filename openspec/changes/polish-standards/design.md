@@ -7,7 +7,7 @@ one structure. Measured before this change:
 |---|---|---|---|---|
 | Rules (chapters + core) | 258 + 26 | 709 + 28 | 220 + 24 | 405 + 29 |
 | Pointer rules | 0 | 0 | 0 | 26 |
-| Version mentions below the target in rule bodies | 14 in 12 rules | 44 in 34 | 29 in 26 | 108 in 65 |
+| Version mentions below the target in rule bodies | 13 in 11 rules | 44 in 34 | 29 in 26 | 105 in 64 |
 | Lines, all chapters + `SKILL.md` | 5 529 | 16 078 | 8 806 | 17 686 |
 
 Every pin is current, every GitHub Action but one is on its latest major, and the harness's tools

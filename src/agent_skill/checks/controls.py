@@ -290,6 +290,16 @@ STRUCTURE: list[Control] = [
         ),
     ),
     Control(
+        "a rule naming a release older than its target",
+        "anatomy",
+        lambda t: edit(
+            t,
+            f"{PY}/references/naming.md",
+            "`self` and `cls` always, never renamed.",
+            "`self` and `cls` always, never renamed (stable since 3.13).",
+        ),
+    ),
+    Control(
         "a ty lint row at a level the shipped configuration does not set",
         "citations",
         lambda t: edit(

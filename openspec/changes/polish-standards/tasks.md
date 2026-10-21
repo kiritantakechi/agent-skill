@@ -24,7 +24,7 @@ report cites rust-style IDs (D3).
 
 ## 2. Harness: the target-version branch (D1)
 
-- [ ] 2.1 Add the branch to `anatomy`'s `structural` checks:
+- [x] 2.1 Add the branch to `anatomy`'s `structural` checks:
   - the token `\b<major>\.(\d{2,})\b`, with a minor below the target, taken from `profile.pin()`;
   - the scope is the prose of every chapter rule outside `migration.md`, and of every core rule;
   - fenced examples are excluded;
@@ -36,11 +36,11 @@ report cites rust-style IDs (D3).
   - the target version and `3.5x` do not.
 
   Then save the list it reports on the real tree as `research/versions.txt`. That list is the
-  annotation work list for groups 3–6. Verify: the four totals match the design's table: 14, 44,
-  29 and 108.
-- [ ] 2.2 Add the control "(stable since 3.13)" inserted into a python-style rule, and its
+  annotation work list for groups 3–6. Verify: the four totals match the design's table: 13, 105,
+  29 and 44 mentions for python, zig, bevy and rust.
+- [x] 2.2 Add the control "(stable since 3.13)" inserted into a python-style rule, and its
   `BRANCHES` entry. Verify: `uv run pytest tests/test_controls.py`.
-- [ ] 2.3 Add the new branch to the README's `anatomy` row, with the defect it catches. Verify:
+- [x] 2.3 Add the new branch to the README's `anatomy` row, with the defect it catches. Verify:
   `--fast --only documented`.
 
 ## 3. python-style (`research/python.md`)
