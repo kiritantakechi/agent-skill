@@ -116,9 +116,9 @@ applied.
 
 ## 6. Close
 
-- [ ] 6.1 Run once, alone: `uv run agent-skill check` prints `ALL CHECKS PASSED`, and
+- [x] 6.1 Run once, alone: `uv run agent-skill check` prints `ALL CHECKS PASSED`, and
   `openspec validate refresh-zig --strict` passes.
-- [ ] 6.2 Run `uv run agent-skill build` and `uv run agent-skill install`. Verify: `dist/zig-style.skill`
+- [x] 6.2 Run `uv run agent-skill build` and `uv run agent-skill install`. Verify: `dist/zig-style.skill`
   rebuilds, and `~/.claude/skills/zig-style` resolves to `skills/zig-style`.
 
 ## Workflow follow-up
