@@ -1,0 +1,5 @@
+# The toolchain the crate is built with. Pin it so every machine and every CI job
+# compiles the same way, as RS-BUILD-38 requires.
+[toolchain]
+channel = "1.99.1"                   # 1.99.0 miscompiles FFI `bool` returns on x86_64
+components = ["rustfmt", "clippy"]

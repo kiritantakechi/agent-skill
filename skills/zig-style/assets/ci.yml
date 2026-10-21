@@ -24,7 +24,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: mlugg/setup-zig@v2          # verify the version yourself
         with: { version: 0.17.0 }         # pinned exactly — never `latest`
       - run: zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .
@@ -37,7 +37,7 @@ jobs:
         optimize: [debug, safe]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: mlugg/setup-zig@v2
         with:
           version: 0.17.0
@@ -59,7 +59,7 @@ jobs:
           - x86_64-windows
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: mlugg/setup-zig@v2
         with:
           version: 0.17.0

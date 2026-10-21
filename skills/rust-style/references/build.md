@@ -664,19 +664,20 @@ actually shipped.
 
 ### RS-BUILD-38 [M] Commit a `rust-toolchain.toml`
 
-Commit a `rust-toolchain.toml` pinning `channel`, `components = ["rustfmt", "clippy"]`, and required
-`targets`. It makes every contributor's first build identical to CI's.
+Commit a `rust-toolchain.toml` pinning an exact release as `channel`, with
+`components = ["rustfmt", "clippy"]` and any required `targets`. It makes every contributor's first
+build identical to CI's. `assets/rust-toolchain.toml` is the file.
 
 **Why:** without it, contributors use whatever toolchain they have, so lint and format results
-differ from CI and the first PR is a round trip about warnings nobody can reproduce. `rustup`
-honours the file automatically.
+differ from CI and the first PR is a round trip about warnings nobody can reproduce. `"stable"` pins
+nothing: it moves every six weeks. `rustup` honours the file automatically.
 
-**Check:** does the file exist and list the components CI uses?
+**Check:** does the file exist, name an exact release, and list the components CI uses?
 
 ```toml
 # fragment — rust-toolchain.toml
 [toolchain]
-channel = "stable"
+channel = "1.99.1"
 components = ["rustfmt", "clippy"]
 targets = ["x86_64-unknown-linux-musl"]
 ```

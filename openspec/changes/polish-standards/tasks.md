@@ -179,9 +179,9 @@ report cites rust-style IDs (D3).
 
 ## 8. Assets and README (D8)
 
-- [ ] 8.1 Move `skills/zig-style/assets/ci.yml` to `actions/checkout@v7`. Verify: `--fast --skill
+- [x] 8.1 Move `skills/zig-style/assets/ci.yml` to `actions/checkout@v7`. Verify: `--fast --skill
   zig-style --only assets --only pins`.
-- [ ] 8.2 Ship `skills/rust-style/assets/rust-toolchain.toml` in bevy-style's shape, with channel
+- [x] 8.2 Ship `skills/rust-style/assets/rust-toolchain.toml` in bevy-style's shape, with channel
   `1.99.1`. List it in rust-style's §7. Correct RS-BUILD-38, whose `channel = "stable"` pins nothing,
   to the asset's form. Verify: `--fast --skill rust-style --only assets --only layout --only
   skeleton`.
