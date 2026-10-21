@@ -5,7 +5,7 @@ agent on this machine that reads them.
 
 ```bash
 uv run agent-skill check             # every check
-uv run agent-skill check --fast      # skip the ones that need cargo or zig
+uv run agent-skill check --fast      # skip the ones that compile every example
 uv run agent-skill fmt               # rewrite examples and shared text as they are required to read
 uv run agent-skill renumber NAME     # rename chapters, renumber rules densely, rewrite every citation
 uv run agent-skill demote NAME PLAN  # turn rules into lint rows, merges or removals
@@ -81,7 +81,10 @@ it rather than imitation:
   family code, so `errors.md` and `ERR` mean the same thing in every standard.
 - A claim a lint decides on its own is a row in its chapter's `Decided by tools`
   table, checked against the shipped configuration (`citations`), not a rule
-  with a Why to drift.
+  with a Why to drift. A compiler ships no configuration, so a `zig` row names
+  the error it reports, with `…` for the identifiers, and is proved by a probe
+  in the profile that the compiler must reject with that error; a probe with
+  no row fails too.
 - A Why is three lines at most, and rule numbers are dense; `migration.md` maps
   every old ID to what it became.
 

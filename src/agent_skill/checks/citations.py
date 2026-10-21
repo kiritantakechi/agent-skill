@@ -14,13 +14,15 @@ defect.
 
 import json
 import re
+import tempfile
 import tomllib
 from functools import cache
-lazy from collections.abc import Iterable, Iterator, Mapping
-lazy from pathlib import Path
+from pathlib import Path
+lazy from collections.abc import Callable, Iterable, Iterator, Mapping
 
 from agent_skill.checks import check
 from agent_skill.lang.python import PYTHON_STYLE
+from agent_skill.lang.zig import force_analysis
 from agent_skill.proc import have, run
 from agent_skill.report import fail, unrun
 lazy from agent_skill.checks.lints import table
@@ -188,6 +190,8 @@ LEVELS: dict[str, frozenset[str]] = {
     "rustc": frozenset({"warn", "deny", "forbid"}),
     "clippy": frozenset({"warn", "deny", "forbid"}),
     "rustdoc": frozenset({"warn", "deny", "forbid"}),
+    # A compile error has one level: the build stops.
+    "zig": frozenset({"error"}),
 }
 
 
@@ -348,7 +352,7 @@ def _key(name: str) -> str:
 @check(
     "citations",
     "a cited check must be one the shipped config enables",
-    needs=("ruff", "ty", "clippy-driver", "rustdoc"),
+    needs=("ruff", "ty", "clippy-driver", "rustdoc", "zig"),
 )
 def citations(skill: Skill) -> Iterator[Finding]:
     """Every lint row and cited code, against the shipped config."""
@@ -356,6 +360,8 @@ def citations(skill: Skill) -> Iterator[Finding]:
         yield fail(message, f"{skill.name}/{row.where}")
     if skill.profile.toolchain == "rust":
         yield from _rust(skill)
+    if skill.profile.toolchain == "zig":
+        yield from _zig(skill)
     if skill.profile.toolchain != "python":
         return
     assets = skill.root / "assets"
@@ -477,3 +483,72 @@ def _rust(skill: Skill) -> Iterator[Finding]:
     shipped = table(manifest.read_text(), "workspace.")
     for row, message in rust_rows(rows, shipped, catalogue):
         yield fail(message, f"{skill.name}/{row.where}")
+
+
+def phrase(lint: str) -> re.Pattern[str]:
+    """The `error:` line a compiler row's phrase stands for.
+
+    A phrase is the message from its start, with `…` for each
+    identifier, type or literal in it. The match is anchored at
+    `error: `, so `unreachable code` does not match `reached unreachable
+    code`.
+    """
+    parts = (re.escape(part) for part in lint.split("…"))
+    return re.compile("error: " + ".+?".join(parts))
+
+
+def zig_rows(
+    rows: Iterable[LintRow],
+    probes: Mapping[str, str],
+    compile_errors: Callable[[str], list[str] | None],
+) -> Iterator[tuple[LintRow | None, str]]:
+    """(row, message) for each row its probe does not prove.
+
+    Also one for each probe with no row, with `None` for the row.
+    `compile_errors` returns the `error:` lines the compiler printed for
+    a source, or `None` when it accepted it.
+    """
+    rows = list(rows)
+    cited = {row.lint for row in rows}
+    for row in rows:
+        source = probes.get(row.lint)
+        if source is None:
+            yield (
+                row,
+                f"`{row.lint}` has no probe, so nothing shows the compiler reports it",
+            )
+            continue
+        errors = compile_errors(source)
+        if errors is None:
+            yield (
+                row,
+                f"`{row.lint}`: its probe compiles, so the compiler does not report it",
+            )
+        elif not any(phrase(row.lint).search(line) for line in errors):
+            printed = errors[0] if errors else "no error line"
+            yield row, f"`{row.lint}`: its probe fails with `{printed}` instead"
+    for lint in sorted(set(probes) - cited):
+        yield None, f"the probe for `{lint}` has no row in any chapter"
+
+
+def _compile_zig(source: str) -> list[str] | None:
+    """The `error:` lines zig prints for `source`; None if it builds."""
+    with tempfile.TemporaryDirectory() as work:
+        probe = Path(work) / "probe.zig"
+        probe.write_text(source.rstrip("\n") + "\n" + force_analysis(source))
+        r = run(["zig", "build-obj", probe.name, "-fno-emit-bin"], cwd=Path(work))
+    if r.ok:
+        return None
+    return [line for line in r.err.splitlines() if "error:" in line]
+
+
+def _zig(skill: Skill) -> Iterator[Finding]:
+    """The compiler rows, each against the probe that proves it."""
+    # Asked before looking for rows, as `_rust` does.
+    if not have("zig"):
+        yield unrun("`zig` is not on PATH, so no compiler row was proved", skill.name)
+        return
+    rows = [row for row in skill.lint_rows if row.tool == "zig"]
+    for row, message in zig_rows(rows, skill.profile.probes, _compile_zig):
+        where = f"{skill.name}/{row.where}" if row else f"{skill.name} profile"
+        yield fail(message, where)

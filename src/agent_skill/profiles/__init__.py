@@ -126,6 +126,12 @@ class Profile:
     #: pattern narrowed until it stops matching can be "fixed" by adding
     #: a snippet nothing relates to the rule.
     fires: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    #: A compiler row's phrase -> the smallest source the compiler
+    #: rejects with it. A compiler has no lint table to compare a row
+    #: against, so each row is proved by a probe, and each probe needs
+    #: its row: a probe nothing cites would prove an error the standard
+    #: never mentions.
+    probes: dict[str, str] = field(default_factory=dict)
 
     @property
     def all_marked(self) -> tuple[str, ...]:

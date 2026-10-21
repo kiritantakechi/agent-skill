@@ -20,7 +20,7 @@ the full run. Every other verification is `--fast` or a targeted `pytest`.
 
 ## 2. Harness: compiler rows
 
-- [ ] 2.1 Implement D3:
+- [x] 2.1 Implement D3:
   - `LEVELS["zig"] = {"error"}`;
   - `Profile.probes` (empty by default);
   - phrase matching (`…` matches any run of characters, anchored at `error: `);
@@ -35,8 +35,9 @@ the full run. Every other verification is `--fast` or a targeted `pytest`.
   - a probe with no row fails;
   - with `zig` absent, the rows are UNRUN (`tests/test_unrun.py`).
 - [ ] 2.2 Add a control on the real tree: editing a zig row's phrase fails `citations`. Give it its
-  `BRANCHES` entry. Verify: `tests/test_controls.py`.
-- [ ] 2.3 README:
+  `BRANCHES` entry. It lands after 4.3, when the tree has zig rows and the final chapter names.
+  Verify: `tests/test_controls.py`.
+- [x] 2.3 README:
   - document the compiler row kind under the checks;
   - `--fast` skips the checks that compile a standard's examples, and the probes are not examples.
 
