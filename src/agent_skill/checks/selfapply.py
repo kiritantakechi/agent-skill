@@ -40,10 +40,10 @@ type Tiers = tuple[list[Row], list[Row], list[Row]]
 )
 def selfapply(skill: Skill) -> Iterator[Finding]:
     """The skill's own Check patterns, over the skill's own examples."""
-    lang = skill.profile.languages[0] if skill.profile.languages else None
-    if lang is None:
+    lang = skill.profile.languages[0] if skill.profile.languages else ""
+    if not lang:
         return
-    if (problem := searcher_problem()) is not None:
+    if problem := searcher_problem():
         yield unrun(problem, skill.name)
         return
     yield from _run(skill, lang)

@@ -25,6 +25,7 @@ from agent_skill.lang.python import PYTHON_STYLE
 from agent_skill.lang.zig import force_analysis
 from agent_skill.proc import have, run
 from agent_skill.report import fail, unrun
+from agent_skill.text import group
 lazy from agent_skill.checks.lints import table
 lazy from agent_skill.model import LintRow, Skill
 lazy from agent_skill.report import Finding
@@ -274,7 +275,7 @@ def rust_rows(
             )
             continue
         default, groups = catalogue[key]
-        level = _level(shipped.get(key)) or next(
+        level = _level(shipped.get(key, "")) or next(
             (
                 _level(shipped[f"{section}.{g}"])
                 for g in sorted(groups)
@@ -289,11 +290,8 @@ def rust_rows(
             )
 
 
-def _level(value: str | None) -> str | None:
-    if value is None:
-        return None
-    m = re.search(r'"(allow|warn|deny|forbid)"', value)
-    return str(m.group(1)) if m else None
+def _level(value: str) -> str:
+    return group(re.search(r'"(allow|warn|deny|forbid)"', value))
 
 
 def rust_catalogue() -> dict[str, tuple[str, set[str]]] | None:

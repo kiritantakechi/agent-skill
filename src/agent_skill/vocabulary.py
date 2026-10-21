@@ -64,20 +64,20 @@ REQUIRED: tuple[str, ...] = ("migration", REVIEW)
 FAMILIES: dict[str, str] = {code: stem for stem, code in CHAPTERS.items()}
 
 
-def code_for(stem: str) -> str | None:
+def code_for(stem: str) -> str:
     """The family code of a chapter.
 
-    None for a chapter the table does not name.
+    "" for a chapter the table does not name.
     """
-    return CHAPTERS.get(stem)
+    return CHAPTERS.get(stem, "")
 
 
-def chapter_for(code: str) -> str | None:
+def chapter_for(code: str) -> str:
     """The chapter a family code belongs to.
 
-    None for a code the table does not know.
+    "" for a code the table does not know.
     """
-    return FAMILIES.get(code)
+    return FAMILIES.get(code, "")
 
 
 def allowed(stem: str) -> bool:

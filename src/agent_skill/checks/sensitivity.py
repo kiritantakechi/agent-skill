@@ -48,7 +48,7 @@ def sensitivity(skill: Skill) -> Iterator[Finding]:
     declared = skill.profile.fires
     if not declared:
         return
-    if (problem := searcher_problem()) is not None:
+    if problem := searcher_problem():
         yield unrun(problem, skill.name)
         return
     if not skill.profile.languages:

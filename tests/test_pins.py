@@ -85,7 +85,7 @@ def test_an_index_answer_it_cannot_order_withholds_the_pass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     pinned = mod.pinned_version("ruff")
-    assert pinned not in (None, ""), "the source tree declares the ruff pin"
+    assert pinned, "the source tree declares the ruff pin"
     monkeypatch.setattr(mod, "TOOLS", ("ruff",))
     monkeypatch.setattr(mod, "run", canned(f"ruff=={pinned}.post1\n", pinned))
 
@@ -103,7 +103,7 @@ def test_an_index_answer_it_can_order_still_decides(
 ) -> None:
     """The other half: the check still fires when it can compare."""
     pinned = mod.pinned_version("ruff")
-    assert pinned not in (None, ""), "the source tree declares the ruff pin"
+    assert pinned, "the source tree declares the ruff pin"
     major, minor, micro = (int(n) for n in pinned.split("."))
     monkeypatch.setattr(mod, "TOOLS", ("ruff",))
     monkeypatch.setattr(
@@ -131,7 +131,7 @@ def test_a_rust_pin_rustc_disagrees_with_fails() -> None:
 
 
 def test_a_rust_pin_nothing_answered_for_is_unrun() -> None:
-    assert [level for level, _ in rust_pin("1.99", None, None)] == [unrun, unrun]
+    assert [level for level, _ in rust_pin("1.99", "", "")] == [unrun, unrun]
 
 
 def test_a_library_pin_must_be_exact() -> None:
@@ -149,4 +149,4 @@ def test_a_current_library_pin_is_quiet() -> None:
 
 
 def test_a_library_pin_crates_io_did_not_answer_for_is_unrun() -> None:
-    assert [level for level, _ in library_pin("bevy", "=0.20.0", None)] == [unrun]
+    assert [level for level, _ in library_pin("bevy", "=0.20.0", "")] == [unrun]

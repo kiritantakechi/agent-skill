@@ -16,6 +16,7 @@ lazy from collections.abc import Iterable, Iterator
 from agent_skill.lang.rust import BEVY_STYLE, Crate
 from agent_skill.profiles import NotDecisive, Profile, register
 from agent_skill.report import Finding, fail
+from agent_skill.text import group
 lazy from agent_skill.model import Block, Skill
 
 #: `#[derive(Component, Debug, …)]`, possibly wrapped across lines by
@@ -50,10 +51,10 @@ class BevyStyle(Profile):
     prefix: str = "BV"
     languages: tuple[str, ...] = ("rust",)
     marked_languages: tuple[str, ...] = ("toml", "bash", "yaml")
-    toolchain: str | None = "rust"
+    toolchain: str = "rust"
     tools: tuple[str, ...] = ("rustc", "clippy", "rustdoc")
     language: str = "Bevy"
-    library: str | None = "bevy"
+    library: str = "bevy"
     verified_as: str = (
         "compiles as written against Bevy {pin} on Rust {rust}, edition 2024"
     )
@@ -174,12 +175,12 @@ class BevyStyle(Profile):
     )
 
     @override
-    def pin(self) -> str | None:
+    def pin(self) -> str:
         """The exact `bevy` version the verified crate depends on."""
         for dep in self.crate.dependencies if self.crate else ():
             if m := re.match(r'bevy = \{ version = "=([0-9][^"]*)"', dep):
-                return str(m.group(1))
-        return None
+                return group(m)
+        return ""
 
     @override
     def conventions(self, skill: Skill) -> Iterable[Finding]:
@@ -207,7 +208,7 @@ def _component_shape(block: Block) -> Iterator[Finding]:
         line = block.at(block.body[: m.start()].count(chr(10)))
         where = f"{block.file}:{line} [{block.rule}]"
 
-        fields = (m.group("tuple") or m.group("named") or "").strip()
+        fields = (group(m, "tuple") or group(m, "named")).strip()
         want = MARKER_DERIVES if not fields else DATA_DERIVES
         for trait in want:
             if trait not in derives:

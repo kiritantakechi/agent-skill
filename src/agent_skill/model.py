@@ -13,7 +13,7 @@ from functools import cached_property
 from typing import override
 lazy from pathlib import Path
 
-from agent_skill.text import code_only, strip_comment, syntax_for
+from agent_skill.text import code_only, group, strip_comment, syntax_for
 lazy from agent_skill.profiles import Profile, profile_for
 
 #: Every fenced example declares what it is, and the marker leads the
@@ -40,17 +40,6 @@ _MARKER = re.compile(
 )
 
 
-def _group(m: re.Match[str] | None, key: int | str) -> str:
-    """What group `key` of `m` matched, or "" when it matched nothing.
-
-    "" both without a match and for a group that took no part in it.
-    The stubs type every group as possibly absent, even one the pattern
-    cannot leave out; narrowing here says what each caller meant.
-    """
-    found = m.group(key) if m is not None else None
-    return found if isinstance(found, str) else ""
-
-
 @dataclass(frozen=True, slots=True)
 class Marker:
     """A fenced example's marker line, and what it declares."""
@@ -69,17 +58,17 @@ class Marker:
     @property
     def kind(self) -> str:
         """The marker word, such as `verified`; "" for no marker."""
-        return _group(self._m, "kind")
+        return group(self._m, "kind")
 
     @property
     def verdict(self) -> str:
         """`GOOD` or `BAD`, or "" when the marker gives no verdict."""
-        return _group(self._m, "verdict")
+        return group(self._m, "verdict")
 
     @property
     def qualifier(self) -> str:
         """What follows the kind and verdict; "" when nothing does."""
-        return _group(self._m, "qualifier")
+        return group(self._m, "qualifier")
 
     @property
     def verified(self) -> bool:
@@ -92,7 +81,7 @@ class Marker:
 
         "" when it names none.
         """
-        return _group(re.match(r"^(?:— )?([a-z][a-z-]*):", self.qualifier), 1)
+        return group(re.match(r"^(?:— )?([a-z][a-z-]*):", self.qualifier))
 
     @property
     def bad(self) -> bool:
@@ -208,7 +197,7 @@ class Rule:
     def owner_chapter(self) -> str:
         """The chapter an `Owned by` pointer names, or ""."""
         m = re.match(r"Owned by `references/([a-z0-9-]+\.md)`", self.statement.lstrip())
-        return _group(m, 1)
+        return group(m)
 
 
 @dataclass(frozen=True, slots=True)
@@ -250,7 +239,7 @@ class Rename:
         None for anything else.
         """
         m = re.fullmatch(r"lint `([a-z]+):([^`]+)`", self.now)
-        return (_group(m, 1), _group(m, 2)) if m else None
+        return (group(m), group(m, 2)) if m else None
 
     @property
     def removed(self) -> str | None:
@@ -259,7 +248,7 @@ class Rename:
         None for anything else.
         """
         m = re.fullmatch(r"removed —\s*(.*)", self.now)
-        return _group(m, 1).strip() if m else None
+        return group(m).strip() if m else None
 
     @property
     def target(self) -> str:
@@ -267,7 +256,7 @@ class Rename:
 
         "" for anything else.
         """
-        return _group(re.fullmatch(r"`([A-Z]{2}-[A-Z]+-\d+)`", self.now), 1)
+        return group(re.fullmatch(r"`([A-Z]{2}-[A-Z]+-\d+)`", self.now))
 
 
 #: The section a chapter lists its tool-decided claims under.
@@ -412,7 +401,7 @@ def _section(body: str, name: str) -> str:
         body,
         re.DOTALL,
     )
-    return _group(m, 1)
+    return group(m)
 
 
 @dataclass(eq=False)
@@ -648,17 +637,17 @@ class Skill:
         d = self.root / "assets"
         return sorted(p for p in d.glob("*") if p.is_file()) if d.is_dir() else []
 
-    def blocks(self, lang: str | None = None, *, verified: bool = False) -> list[Block]:
+    def blocks(self, lang: str = "", *, verified: bool = False) -> list[Block]:
         """Every fenced example, or only the `verified` ones.
 
         `lang` limits them to one language; without it they are drawn
         from each language the profile names.
         """
-        langs = [lang] if lang is not None and lang != "" else self.profile.languages
+        langs = [lang] if lang else self.profile.languages
         out = [b for lg in langs for c in self.documents for b in c.blocks(lg)]
         return [b for b in out if b.marker.verified] if verified else out
 
-    def advice(self, lang: str | None = None, *, verified: bool = False) -> list[Block]:
+    def advice(self, lang: str = "", *, verified: bool = False) -> list[Block]:
         """The blocks this standard offers as advice, not as evidence.
 
         `// verified — BAD` compiles, which is what the marker claims,

@@ -34,8 +34,8 @@ class Span:
         return self.end - self.start + 1
 
 
-def searcher_problem() -> str | None:
-    """Why the pinned searcher cannot be trusted right now, or None.
+def searcher_problem() -> str:
+    """Why the pinned searcher cannot be trusted right now, or "".
 
     Absent, or present at a version nobody verified against — both mean
     the patterns did not run the way this repository claims they run,

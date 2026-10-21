@@ -95,12 +95,12 @@ def plan(
     for chapter in skill.chapters:
         stem = chapters.get(chapter.path.stem, chapter.path.stem)
         code = vocabulary.code_for(stem)
-        if code is None and chapter.rules:
+        if not code and chapter.rules:
             msg = f"`{stem}.md` has no family code, and it holds rules"
             raise RenumberError(msg)
         for i, rule in enumerate(chapter.rules, 1):
             ids[rule.id] = f"{prefix}-{code}-{i:02d}"
-            families.setdefault(rule.id.split("-")[1], set()).add(code or "")
+            families.setdefault(rule.id.split("-")[1], set()).add(code)
     family_map = {
         old: next(iter(new)) for old, new in families.items() if len(new) == 1
     }
@@ -149,7 +149,7 @@ def _counts(skill: Skill, chapters: dict[str, str], plan: Plan) -> None:
     new = re.sub(r"\b\d+(-rule \w+)", rf"{total}\1", text, count=1)
     for chapter in skill.chapters:
         code = vocabulary.code_for(chapters.get(chapter.path.stem, chapter.path.stem))
-        if code is not None and code != "":
+        if code:
             family = f"`{skill.prefix}-{code}`"
             new = re.sub(
                 rf"{re.escape(family)} \(\d+\)", f"{family} ({len(chapter.rules)})", new

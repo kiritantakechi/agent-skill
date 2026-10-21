@@ -83,11 +83,8 @@ class Toolchain(Protocol):
         ...
 
 
-def toolchain_for(name: str | None) -> Toolchain | None:
+def toolchain_for(name: str) -> Toolchain | None:
     """The toolchain called `name`, or None when there is none."""
-    if name is None:
-        return None
-
     return {"rust": rust.RUST, "zig": zig.ZIG, "python": python.PYTHON_TOOLCHAIN}.get(
         name
     )

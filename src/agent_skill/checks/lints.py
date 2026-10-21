@@ -11,6 +11,7 @@ lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
 from agent_skill.report import Finding, fail
+from agent_skill.text import group
 lazy from agent_skill.model import Skill
 
 
@@ -20,7 +21,7 @@ def table(text: str, prefix: str = "") -> dict[str, str]:
     section: str | None = None
     for line in text.split("\n"):
         if m := re.match(rf"^\[{prefix}lints\.(\w+)\]", line.strip()):
-            section = str(m.group(1))
+            section = group(m)
             continue
         if line.strip().startswith("["):
             section = None

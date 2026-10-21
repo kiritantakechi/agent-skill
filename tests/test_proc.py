@@ -21,7 +21,7 @@ from agent_skill.proc import declared_pins, pinned_version, version_mismatch
 
 def test_the_pins_are_readable_from_the_source_tree() -> None:
     assert declared_pins() is not None
-    assert pinned_version("rg") not in (None, ""), (
+    assert pinned_version("rg"), (
         "the `rg` pin is read through PACKAGE's `ripgrep-bin` spelling"
     )
 
@@ -30,7 +30,7 @@ def test_an_unreadable_declaration_is_not_an_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("agent_skill.proc.declared_pins", lambda: None)
-    assert pinned_version("rg") is None
+    assert not pinned_version("rg")
 
 
 def test_an_unreadable_declaration_is_not_agreement(
@@ -39,9 +39,7 @@ def test_an_unreadable_declaration_is_not_agreement(
     """Silence here used to be a traceback, and before that, a pass."""
     monkeypatch.setattr("agent_skill.proc.declared_pins", lambda: None)
     complaint = version_mismatch("rg", "ripgrep 15.2.0")
-    assert complaint is not None, (
-        "an unreadable pin read as agreement with the running version"
-    )
+    assert complaint, "an unreadable pin read as agreement with the running version"
     assert "installed distribution" in complaint
 
 
@@ -53,7 +51,7 @@ def test_a_missing_pin_reads_differently_from_a_missing_file(
         "agent_skill.proc.declared_pins", lambda: 'dev = ["ruff==0.16.5"]'
     )
     complaint = version_mismatch("rg", "ripgrep 15.2.0")
-    assert complaint is not None
+    assert complaint
     assert "pins no version for it" in complaint
     assert "installed distribution" not in complaint
 
@@ -65,4 +63,4 @@ def test_a_missing_pin_reads_differently_from_a_missing_file(
 def test_the_running_version_is_still_compared(
     reported: str, *, mismatched: bool
 ) -> None:
-    assert (version_mismatch("rg", reported) is not None) is mismatched
+    assert bool(version_mismatch("rg", reported)) is mismatched

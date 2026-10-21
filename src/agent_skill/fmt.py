@@ -79,7 +79,7 @@ def format_skill(skill: Skill) -> list[str]:
     come first: they are text, and need no toolchain to rewrite.
     """
     changed = shared.rewrite(skill) + _reflow(skill)
-    formatter = FORMATTERS.get(skill.profile.toolchain or "")
+    formatter = FORMATTERS.get(skill.profile.toolchain)
     return changed + (formatter(skill) if formatter else [])
 
 

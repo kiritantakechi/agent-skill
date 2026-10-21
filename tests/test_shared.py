@@ -30,4 +30,4 @@ def test_major_minor() -> None:
     assert shared.major_minor("1.99") == "1.99"
     assert shared.major_minor("3.15.0rc1") == "3.15"
     assert shared.major_minor("0.20.0") == "0.20"
-    assert shared.major_minor(None) == ""
+    assert shared.major_minor("") == ""

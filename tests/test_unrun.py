@@ -62,7 +62,7 @@ def source_of(check: Check) -> Path:
     a check that passed.
     """
     found = inspect.getsourcefile(check.fn)
-    assert found not in (None, ""), (
+    assert found is not None, (
         f"{check.name} has no source file, so nothing can be read from it"
     )
     return Path(found)

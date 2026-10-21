@@ -26,6 +26,7 @@ from agent_skill.proc import (
     version_mismatch,
 )
 from agent_skill.report import fail, unrun
+from agent_skill.text import group
 lazy from agent_skill.lang.python import INTERPRETER
 lazy from agent_skill.lang.rust import Crate
 lazy from agent_skill.model import Skill
@@ -65,7 +66,7 @@ def _tool_pins() -> Iterator[Finding]:
         if not answered.ok:
             yield unrun(f"`{tool}` did not answer `--version`", "harness")
             continue
-        if (complaint := version_mismatch(tool, answered.out)) is not None:
+        if complaint := version_mismatch(tool, answered.out):
             yield fail(complaint, "harness")
             continue
 
@@ -94,8 +95,7 @@ def _tool_pins() -> Iterator[Finding]:
             )
             continue
         newest = found.group(1)
-        here = _sort_key(pinned) if pinned is not None else None
-        there = _sort_key(newest)
+        here, there = _sort_key(pinned), _sort_key(newest)
         if here is None or there is None:
             yield unrun(
                 f"`{package}` was not compared: "
@@ -139,9 +139,9 @@ def _sort_key(version: str) -> SortKey | None:
     m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:(a|b|rc)(\d+))?$", version)
     if not m:
         return None
-    major, minor, micro, kind, serial = m.groups()
-    rank = {"a": 0, "b": 1, "rc": 2}.get(kind or "", 3)
-    return (int(major), int(minor), int(micro), rank, int(serial or 0))
+    major, minor, micro = (int(group(m, i)) for i in (1, 2, 3))
+    rank = {"a": 0, "b": 1, "rc": 2}.get(group(m, 4), 3)
+    return (major, minor, micro, rank, int(group(m, 5) or 0))
 
 
 def local_pin(profile: Profile) -> Iterator[Verdict]:
@@ -163,7 +163,7 @@ def local_pin(profile: Profile) -> Iterator[Verdict]:
         )
         return
     pinned, running = profile.pin(), profile.running_version()
-    if running is None:
+    if not running:
         yield (
             unrun,
             (
@@ -183,18 +183,18 @@ def local_pin(profile: Profile) -> Iterator[Verdict]:
 STABLE = "https://static.rust-lang.org/dist/channel-rust-stable.toml"
 
 
-def rust_pin(pinned: str, running: str | None, newest: str | None) -> Iterator[Verdict]:
+def rust_pin(pinned: str, running: str, newest: str) -> Iterator[Verdict]:
     """(level, message) for a `rust-version` pin.
 
     Compared at the pin's own precision. `running` is what `rustc -V`
-    reports and `newest` what the stable channel names; either is None
+    reports and `newest` what the stable channel names; either is ""
     when it could not be asked.
     """
     want = _minor(pinned)
     if want is None:
         yield fail, f"the Rust pin `{pinned}` is not a version this can compare"
         return
-    if running is None:
+    if not running:
         yield (
             unrun,
             (
@@ -207,7 +207,7 @@ def rust_pin(pinned: str, running: str | None, newest: str | None) -> Iterator[V
             fail,
             f"the examples are pinned to Rust {pinned} and `rustc` here is {running}",
         )
-    if newest is None:
+    if not newest:
         yield (
             unrun,
             (
@@ -231,41 +231,35 @@ def _minor(version: str) -> tuple[int, int] | None:
     return (int(m.group(1)), int(m.group(2))) if m else None
 
 
-def _rustc() -> str | None:
+def _rustc() -> str:
     if not have("rustc"):
-        return None
+        return ""
     answered = run(["rustc", "-V"], timeout=30)
-    m = re.match(r"^rustc (\S+)", answered.out) if answered.ok else None
-    return str(m.group(1)) if m else None
+    return group(re.match(r"^rustc (\S+)", answered.out)) if answered.ok else ""
 
 
-def _stable() -> str | None:
+def _stable() -> str:
     try:
         with urllib.request.urlopen(STABLE, timeout=30) as response:
             text = response.read().decode()
     except OSError:
-        return None
-    m = re.search(r'^\[pkg\.rust\]\nversion = "(\S+)', text, re.MULTILINE)
-    return str(m.group(1)) if m else None
+        return ""
+    return group(re.search(r'^\[pkg\.rust\]\nversion = "(\S+)', text, re.MULTILINE))
 
 
-def library_pin(
-    name: str, requirement: str | None, newest: str | None
-) -> Iterator[Verdict]:
+def library_pin(name: str, requirement: str, newest: str) -> Iterator[Verdict]:
     """(level, message) for a library a standard is verified against.
 
     The requirement must be exact (`=0.20.0`): a caret requirement lets
     the resolver pick a release the examples were never compiled
     against, so the running version would no longer be the pinned one.
     """
-    if requirement is None or not requirement.startswith("="):
-        yield (
-            fail,
-            f"`{name}` must be pinned exactly (`=x.y.z`), and is `{requirement}`",
-        )
+    if not requirement.startswith("="):
+        stated = f"is `{requirement}`" if requirement else "names no version"
+        yield fail, f"`{name}` must be pinned exactly (`=x.y.z`), and {stated}"
         return
     pinned = requirement.removeprefix("=")
-    if newest is None:
+    if not newest:
         yield (
             unrun,
             f"crates.io did not answer, so the `{name}` pin {pinned} was not compared",
@@ -291,14 +285,14 @@ def library_pin(
         )
 
 
-def _requirement(crate: Crate | None, name: str) -> str | None:
+def _requirement(crate: Crate | None, name: str) -> str:
     for dep in crate.dependencies if crate else ():
         if m := re.match(rf'{re.escape(name)} = \{{ version = "([^"]+)"', dep):
-            return str(m.group(1))
-    return None
+            return group(m)
+    return ""
 
 
-def _crates_io(name: str) -> str | None:
+def _crates_io(name: str) -> str:
     try:
         with urllib.request.urlopen(
             urllib.request.Request(
@@ -309,10 +303,10 @@ def _crates_io(name: str) -> str | None:
         ) as response:
             newest = json.load(response)["crate"]["max_stable_version"]
     except OSError, KeyError, ValueError:
-        return None
+        return ""
     # An answer that is not a version string is no answer, the same as
     # one that never arrived.
-    return newest if isinstance(newest, str) else None
+    return newest if isinstance(newest, str) else ""
 
 
 @check(
@@ -342,7 +336,7 @@ def _subject_pins(skill: Skill) -> Iterator[Verdict]:
     yield from local_pin(skill.profile)
     if skill.profile.crate is not None:
         yield from rust_pin(skill.profile.crate.rust_version, _rustc(), _stable())
-    if name := skill.profile.library or "":
+    if name := skill.profile.library:
         requirement = _requirement(skill.profile.crate, name)
         yield from library_pin(name, requirement, _crates_io(name))
 
@@ -375,7 +369,7 @@ def _asset_pins(skill: Skill) -> Iterator[Finding]:
             package = PACKAGE.get(tool, tool)
             named = re.search(rf'"{re.escape(package)}==(\S+?)"', text)
             harness = pinned_version(tool)
-            if named and harness is not None and named.group(1) != harness:
+            if named and harness and named.group(1) != harness:
                 yield fail(
                     f"assets/pyproject.toml pins `{package}=={named.group(1)}` "
                     f"where the harness verifies against {harness} — a reader "

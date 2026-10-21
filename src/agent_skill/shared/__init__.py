@@ -94,12 +94,12 @@ PASSAGES: tuple[Passage, ...] = (
 )
 
 
-def major_minor(version: str | None) -> str:
+def major_minor(version: str) -> str:
     """The major.minor of `version`, or "" when it has none.
 
     `1.99` from `1.99`, `3.15` from `3.15.0rc1`, `0.20` from `0.20.0`.
     """
-    m = re.match(r"\d+\.\d+", version or "")
+    m = re.match(r"\d+\.\d+", version)
     return m.group(0) if m else ""
 
 
@@ -127,7 +127,7 @@ def slots(skill: Skill) -> dict[str, str]:
     """Every value a template may name, for one skill."""
     profile = skill.profile
     crate = profile.crate
-    pin = profile.pin() or ""
+    pin = profile.pin()
     comment = syntax_for(profile.languages[0] if profile.languages else "")[0]
     return {
         "language": profile.language,

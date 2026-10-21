@@ -21,12 +21,12 @@ def test_a_name_joining_two_subjects_is_not_a_chapter() -> None:
         "free-threading",
     ):
         assert not v.allowed(stem)
-        assert v.code_for(stem) is None
+        assert not v.code_for(stem)
 
 
 def test_the_review_protocol_is_allowed_and_owns_no_family() -> None:
     assert v.allowed(v.REVIEW)
-    assert v.code_for(v.REVIEW) is None
+    assert not v.code_for(v.REVIEW)
 
 
 def test_every_required_chapter_is_allowed() -> None:
@@ -34,7 +34,7 @@ def test_every_required_chapter_is_allowed() -> None:
 
 
 def test_core_is_not_a_chapter_code() -> None:
-    assert v.chapter_for(v.CORE) is None
+    assert not v.chapter_for(v.CORE)
 
 
 def test_every_chapter_name_is_one_word() -> None:

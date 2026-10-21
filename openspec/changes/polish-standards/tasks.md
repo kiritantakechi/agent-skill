@@ -11,11 +11,11 @@ report cites rust-style IDs (D3).
 
 ## 1. Harness idioms (D8)
 
-- [ ] 1.1 Add one regex-group helper to `text.py`: "" for no match and for a group that took no
+- [x] 1.1 Add one regex-group helper to `text.py`: "" for no match and for a group that took no
   part. It replaces `model._group` and every `str(m.group(…))` and `m.group(…) or ""`. Verify:
   - `rg -n '_group\(|str\([a-z_]+\.group\(|\.group\([^)]*\) or ""' src` finds nothing;
   - `uv run pytest -m "not toolchain"` passes.
-- [ ] 1.2 Where `None` and `""` mean the same thing, on a profile field, a parameter or a return,
+- [x] 1.2 Where `None` and `""` mean the same thing, on a profile field, a parameter or a return,
   make the type `str` with `""` as the default, and test it as a plain truth value. `follows_local`
   keeps its `None`, because a blank reason there is a third state and the one that fails. Verify:
   - `rg -n 'not in \(None, ""\)|is not None and .* != ""| or ""' src tests` finds no site where the

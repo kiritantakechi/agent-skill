@@ -28,7 +28,7 @@ class Demo(Profile):
     strict_scope: str = "library"
 
     @override
-    def pin(self) -> str | None:
+    def pin(self) -> str:
         """A fixed version: the demo has no toolchain to ask."""
         return "1.2.3"
 

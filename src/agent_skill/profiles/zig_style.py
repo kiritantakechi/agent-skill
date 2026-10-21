@@ -9,7 +9,7 @@ from agent_skill.model import Skill, inside_tests
 from agent_skill.profiles import Exemption, NotDecisive, Profile, register
 from agent_skill.profiles.rust_style import META
 from agent_skill.report import Finding, fail
-from agent_skill.text import strip_comment
+from agent_skill.text import group, strip_comment
 lazy from agent_skill.lang.zig import ZIG_VERSION
 lazy from agent_skill.proc import have, run
 
@@ -24,7 +24,7 @@ class ZigStyle(Profile):
     #: `build.zig.zon` examples carry markers too, and were invisible to
     #: every tool while the rule prefix was derived from the fence tag.
     marked_languages: tuple[str, ...] = ("zon",)
-    toolchain: str | None = "zig"
+    toolchain: str = "zig"
     tools: tuple[str, ...] = ("zig",)
     language: str = "Zig"
     verified_as: str = "compiles as written against Zig {pin}"
@@ -341,17 +341,17 @@ class ZigStyle(Profile):
     )
 
     @override
-    def pin(self) -> str | None:
+    def pin(self) -> str:
         """The compiler release the examples are verified against."""
         return ZIG_VERSION
 
     @override
-    def running_version(self) -> str | None:
-        """What `zig version` reports here, or None if it cannot say."""
+    def running_version(self) -> str:
+        """What `zig version` reports here, or "" if it cannot say."""
         if not have("zig"):
-            return None
+            return ""
         answered = run(["zig", "version"], timeout=30)
-        return answered.out.strip() if answered.ok else None
+        return answered.out.strip() if answered.ok else ""
 
     @override
     def conventions(self, skill: Skill) -> Iterable[Finding]:
@@ -458,7 +458,7 @@ def _prose_lines(text: str, prefix: str) -> Iterator[tuple[int, str, str, bool]]
         if fenced:
             continue
         if m := head.match(line):
-            rid, in_check = str(m.group(1)), False
+            rid, in_check = group(m), False
         elif line.startswith("**Check:"):
             in_check = True
         elif line.startswith("**") or not line.strip():

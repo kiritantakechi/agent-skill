@@ -9,7 +9,7 @@ from agent_skill.lang.rust import RUST_STYLE, Crate
 from agent_skill.model import Block, Skill, repr_c_above
 from agent_skill.profiles import Exemption, NotDecisive, Profile, register
 from agent_skill.report import Finding, fail, note
-from agent_skill.text import strip_comment
+from agent_skill.text import group, strip_comment
 
 #: RS-NAME-24 — a `bool`-returning method reads as a question.
 QUESTION = re.compile(
@@ -34,7 +34,7 @@ class RustStyle(Profile):
     prefix: str = "RS"
     languages: tuple[str, ...] = ("rust",)
     marked_languages: tuple[str, ...] = ("toml",)
-    toolchain: str | None = "rust"
+    toolchain: str = "rust"
     tools: tuple[str, ...] = ("rustc", "clippy", "rustdoc")
     language: str = "Rust"
     verified_as: str = "compiles as written against Rust {rust}, edition 2024"
@@ -232,9 +232,9 @@ class RustStyle(Profile):
     )
 
     @override
-    def pin(self) -> str | None:
+    def pin(self) -> str:
         """The `rust-version` the verified crate is compiled under."""
-        return self.crate.rust_version if self.crate else None
+        return self.crate.rust_version if self.crate else ""
 
     @override
     def conventions(self, skill: Skill) -> Iterable[Finding]:
@@ -280,7 +280,7 @@ def _setter(code: str, lines: list[str], j: int, where: str) -> Iterator[Finding
     """House convention — a by-value setter is `with_*`."""
     m = re.search(r"\bpub fn (\w+)\((mut )?self(?:,\s*([^)]*))?\)\s*->\s*Self\b", code)
     if m:
-        fn, param = m.group(1), (m.group(3) or "")
+        fn, param = m.group(1), group(m, 3)
         assigns = any(re.search(r"self\.\w+\s*=[^=]", ln) for ln in lines[j : j + 8])
         takes_self = re.search(r":\s*(&\s*)?Self\b", param)
         if assigns and not takes_self and not fn.startswith(("with_", "from_")):

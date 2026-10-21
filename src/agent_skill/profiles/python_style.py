@@ -7,7 +7,7 @@ lazy from collections.abc import Iterable, Iterator
 
 from agent_skill.profiles import Exemption, NotDecisive, Profile, register
 from agent_skill.report import Finding, fail
-from agent_skill.text import strip_comment, syntax_for
+from agent_skill.text import group, strip_comment, syntax_for
 lazy from agent_skill.lang.python import INTERPRETER
 lazy from agent_skill.model import Skill
 
@@ -71,7 +71,7 @@ class PythonStyle(Profile):
     language: str = "Python"
     verified_as: str = "runs as written on free-threaded CPython {pin}"
     strict_scope: str = "library and high-reliability"
-    toolchain: str | None = "python"
+    toolchain: str = "python"
     exempt: dict[str, Exemption] = field(default_factory=dict)
     #: Each snippet is the defect its rule forbids, written the way it
     #: appears in real code rather than tailored to the pattern — a
@@ -205,13 +205,12 @@ class PythonStyle(Profile):
     )
 
     @override
-    def pin(self) -> str | None:
+    def pin(self) -> str:
         """The interpreter's version.
 
         Read from the uv key the harness installs.
         """
-        m = re.match(r"cpython-([0-9][^+]*)", INTERPRETER)
-        return str(m.group(1)) if m else None
+        return group(re.match(r"cpython-([0-9][^+]*)", INTERPRETER))
 
     @override
     def conventions(self, skill: Skill) -> Iterable[Finding]:
@@ -295,7 +294,7 @@ def _prose_lines(text: str, prefix: str) -> Iterator[tuple[int, str, str, bool]]
         if fenced:
             continue
         if m := head.match(line):
-            rid, in_check = str(m.group(1)), False
+            rid, in_check = group(m), False
         elif line.startswith("**Check:"):
             in_check = True
         elif line.startswith("**") or not line.strip():

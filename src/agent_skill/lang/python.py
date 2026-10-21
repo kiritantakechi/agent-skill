@@ -21,6 +21,7 @@ lazy from collections.abc import Iterable
 from agent_skill.lang import Extraction, Unit
 from agent_skill.proc import Ran, have, run
 from agent_skill.report import Finding, fail, note
+from agent_skill.text import group
 lazy from agent_skill.model import Skill
 
 #: The interpreter the examples are written for, resolved through `uv`
@@ -146,8 +147,7 @@ def _reaches_outside(source: str) -> bool:
 
 
 def _pinned() -> str:
-    m = re.match(r"cpython-([0-9][^+]*)", INTERPRETER)
-    return str(m.group(1)) if m else INTERPRETER
+    return group(re.match(r"cpython-([0-9][^+]*)", INTERPRETER)) or INTERPRETER
 
 
 def _running() -> str:

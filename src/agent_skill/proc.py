@@ -14,6 +14,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from agent_skill.text import group
+
 
 @dataclass(frozen=True, slots=True)
 class Ran:
@@ -143,8 +145,8 @@ def declared_pins() -> str | None:
         return None
 
 
-def pinned_version(tool: str) -> str | None:
-    """The version `pyproject.toml` pins this tool to.
+def pinned_version(tool: str) -> str:
+    """The version `pyproject.toml` pins this tool to, or "" for none.
 
     Read rather than repeated, so it is declared once. A constant here
     and a pin there is two declarations that agree until someone edits
@@ -154,16 +156,14 @@ def pinned_version(tool: str) -> str | None:
     package = PACKAGE.get(tool, tool)
     text = declared_pins()
     if text is None:
-        return None
-    found = re.search(rf'"{re.escape(package)}==(\d+\.\d+\.\d+)"', text)
-    # The group is not optional, so a match always has it; the stubs
-    # cannot say so, and the check below is how the checker learns it.
-    version = found.group(1) if found else None
-    return version if isinstance(version, str) else None
+        return ""
+    return group(re.search(rf'"{re.escape(package)}==(\d+\.\d+\.\d+)"', text))
 
 
-def version_mismatch(tool: str, reported: str) -> str | None:
+def version_mismatch(tool: str, reported: str) -> str:
     """The complaint, if the binary that will run is not the one pinned.
+
+    "" when it is.
 
     A standard claiming verification against a version the harness was
     not running is a false statement about work that was done. This is
@@ -180,7 +180,7 @@ def version_mismatch(tool: str, reported: str) -> str | None:
     runs when installed rather than checked out.
     """
     want = pinned_version(tool)
-    if want is None:
+    if not want:
         if declared_pins() is None:
             return (
                 f"`{tool}` decides whether checks fire and no pin could be read: "
@@ -193,6 +193,6 @@ def version_mismatch(tool: str, reported: str) -> str | None:
         )
     got = _VERSION.search(reported)
     if got and got.group(1) == want:
-        return None
+        return ""
     saw = got.group(1) if got else repr(reported.strip()[:40])
     return f"`{tool}` is pinned to {want} but {tool_path(tool)} reports {saw}"

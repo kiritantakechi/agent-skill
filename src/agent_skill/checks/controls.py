@@ -834,7 +834,7 @@ def _empty_corpus() -> Iterator[Finding]:
     this guard exists for.
     """
     for profile in registered():
-        if profile.toolchain is None:
+        if not profile.toolchain:
             continue
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             root = Path(tmp) / profile.name

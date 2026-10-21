@@ -197,7 +197,7 @@ def _anchor_patterns(
         return
     named = set(re.findall(r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b", skill.text))
     lang = skill.profile.languages[0]
-    if (problem := searcher_problem()) is not None:
+    if problem := searcher_problem():
         yield unrun(problem, skill.name)
         return
     corpus = corpus_for(skill, lang)

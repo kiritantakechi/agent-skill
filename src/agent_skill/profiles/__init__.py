@@ -75,10 +75,10 @@ class Profile:
     #: toolchain moving past it is the cue to bump.
     follows_local: str | None = None
     #: The crates.io crate `pin()` names, for a standard whose subject
-    #: is a library rather than a toolchain; None for a language
-    #: standard.
-    library: str | None = None
-    toolchain: str | None = None
+    #: is a library rather than a toolchain; "" for a language standard.
+    library: str = ""
+    #: The toolchain that runs this skill's examples, or "" for none.
+    toolchain: str = ""
     #: how this skill's rust blocks are compiled; required when
     #: `toolchain == "rust"`, because the dependency line and the lint
     #: table differ per skill
@@ -130,22 +130,23 @@ class Profile:
         """Every fence tag that carries a marker, without repeats."""
         return tuple(dict.fromkeys(self.languages + self.marked_languages))
 
-    def pin(self) -> str | None:
+    def pin(self) -> str:
         """The exact version this standard is verified against.
 
         The language toolchain for a language standard, the engine for a
         delta standard. The H1 names its major.minor, so the title and
-        the harness cannot disagree about what the standard is for.
+        the harness cannot disagree about what the standard is for. ""
+        when there is none.
         """
-        return None
+        return ""
 
-    def running_version(self) -> str | None:
+    def running_version(self) -> str:
         """The version of `pin()`'s subject that actually runs here.
 
-        None if it cannot be asked. Only a pin that follows the local
+        "" if it cannot be asked. Only a pin that follows the local
         toolchain needs it.
         """
-        return None
+        return ""
 
     def conventions(self, skill: Skill) -> Iterable[Finding]:  # noqa: ARG002 — the default hook; overrides read it
         """This standard's own rules, applied to its own examples."""

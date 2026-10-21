@@ -2,6 +2,18 @@
 
 import re
 
+
+def group(m: re.Match[str] | None, key: int | str = 1) -> str:
+    """What group `key` of `m` matched, or "" when it matched nothing.
+
+    "" both without a match and for a group that took no part in it.
+    The stubs type every group as possibly absent, even one the pattern
+    cannot leave out; narrowing here says what each caller meant.
+    """
+    found = m.group(key) if m is not None else None
+    return found if isinstance(found, str) else ""
+
+
 #: How a language spells a line comment, and which characters delimit a
 #: string. Rust and Zig keep the default on purpose: in Rust `'` opens a
 #: lifetime (`&'a str`), not a string, so treating it as a delimiter
