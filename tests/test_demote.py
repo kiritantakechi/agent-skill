@@ -195,3 +195,13 @@ def test_demote_then_renumber_leaves_a_conforming_skill_conforming(
     assert [r.id for r in after.rules] == ["DS-ERR-01", "DS-MIG-01"]
     assert list(shared.compare(after)) == []
     assert [m for m, _ in [*shape(after), *structural(after)]] == []
+
+
+def test_a_compiler_row_opens_its_table_with_the_compiler_lead(repo: Path) -> None:
+    row = ["zig", "unused local constant", "error", "a constant nothing reads"]
+
+    run(repo, {"DS-ERR-02": {"rows": [row]}})
+
+    errors = text(repo, "errors.md")
+    assert demote.COMPILER_LEAD in errors
+    assert demote.LEAD not in errors

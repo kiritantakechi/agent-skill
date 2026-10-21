@@ -159,7 +159,7 @@ padding (`_pad`, `_reserved`). It never means "private".
 against pretending otherwise." A `_`-prefixed field is exactly as reachable as any other, so the
 prefix communicates a guarantee the language does not provide, while breaking grep and doc
 generation. For keywords, `@"..."` string identifier syntax is the sanctioned mechanism — std uses
-`@"enum"` 237 times, `@"struct"` 209 times.
+`@"enum"` 250 times, `@"struct"` 245 times.
 
 **Check:** any new identifier that starts with `_` or ends with a bare `_`. A leading `_` must be a
 foreign symbol or a padding field named `_pad`/`_reserved`; a trailing `_` is a mutilated
@@ -208,8 +208,8 @@ makes a transposition visible. Long-form flags in scripts: `--force`, not `-f`.
 Underscore Prefixes" it "recommends more verbose names at outer scopes and more abbreviated names at
 inner scopes." An abbreviation is a private dictionary the reader must reconstruct; `rcvbuf_sz`
 costs every future reader a guess, `receive_buffer_size_bytes` costs the author six seconds. The
-exceptions survive because they are *public* dictionaries: 0.16 std declares `gpa: Allocator` 345
-times (against 216 for `allocator: Allocator`), and `Build.zig` alone declares 66 receivers
+exceptions survive because they are *public* dictionaries: 0.17 std declares `gpa: Allocator` 312
+times (against 202 for `allocator: Allocator`), and `Build.zig` alone declares 70 receivers
 `b: *Build`, so a reader has already learned them.
 
 **Check:** grep a diff for new identifiers that drop vowels or truncate a word (`cfg`, `msg`, `buf`,
@@ -316,8 +316,8 @@ freed and dies with the arena.
 **Why:** this is the one place where std and TigerStyle have independently converged, so the merged
 rule is free. TigerStyle: "`allocator: Allocator` is a good, if boring name, but `gpa: Allocator`
 and `arena: Allocator` are excellent. They inform the reader whether `deinit` should be called
-explicitly." Counted over 0.16 std: `gpa: Allocator` **345**, `allocator: Allocator` **216**,
-`arena: Allocator` **29** — `gpa` is the plurality winner, and every rewritten container
+explicitly." Counted over 0.17 std: `gpa: Allocator` **312**, `allocator: Allocator` **202**,
+`arena: Allocator` **41** — `gpa` is the plurality winner, and every rewritten container
 (`array_list.zig`, `array_hash_map.zig`, `multi_array_list.zig`) uses it exclusively while the
 `allocator:` sites are concentrated in older files. std annotates the contract in prose too
 (`Build.zig`: `/// Process lifetime.` on `arena: Allocator`). `allocator` remains acceptable only as
@@ -415,8 +415,8 @@ would be unreadable at the call site.
 
 **Why:** Zig has no named arguments; an options struct is how you get them. Transposed same-typed
 arguments type-check and produce wrong behavior at run time — the compiler cannot help. Field
-names at the call site turn that into a compile error. std does this at scale: 139
-`pub const …Options = struct` declarations, 448 `options:` parameters.
+names at the call site turn that into a compile error. std does this at scale: 158
+`pub const …Options = struct` declarations, 449 parameters typed `…Options`.
 
 **Check:** any `fn` signature in the diff with two adjacent parameters of the same type, or any
 parameter of type `?T` whose `null` a reader could not name at the call site. Then apply the two
@@ -542,9 +542,9 @@ fn selectPoorest(
 `…Leaky` (arena-oriented, nothing is freed individually), `toOwned…` / `fromOwned…` for ownership
 transfer.
 
-**Why:** these suffixes are load-bearing in std (52 `AssumeCapacity`, 40 `Adapted`, 34 `Alloc`, 22
+**Why:** these suffixes are load-bearing in std (52 `AssumeCapacity`, 40 `Adapted`, 36 `Alloc`, 26
 `Sentinel`, 3 `Leaky`), so a reader already knows the contract from the suffix alone. In particular
-**do not use `take*` to mean ownership transfer**: of the 22 `take*` functions in std the large
+**do not use `take*` to mean ownership transfer**: of the 23 `take*` functions in std the large
 majority are stream consumers (`Io.Reader.take`, `takeByte`, `takeDelimiter`, `takeEnum`,
 `takeSentinel`, plus the `elf` header readers), so `take` reads as "consume the next thing" to
 anyone who has used `Io.Reader`. Use `toOwned…` / `fromOwned…` / `move…` instead.
@@ -566,13 +566,13 @@ In a file that *is* a type, write `const Journal = @This();` and name receivers 
 
 **Why:** std and TigerStyle agree on this, and a naive grep hides it. `rg "\(self: *"` over std
 returns ~2100 hits, but counting only *true* receivers — a first parameter whose type is the file's
-own `TitleCase` name or a `@This()` alias declared in that file — the 3218 receivers in 0.16 std
-split `self` **41.5%** vs named after the type **58.5%**. The split is by file kind, not taste: only
-**6 of 142** `TitleCase.zig` files
+own `TitleCase` name or a `@This()` alias declared in that file — the 3061 receivers in 0.17 std
+split `self` **44.2%** vs named after the type **55.8%**. The split is by file kind, not taste: only
+**6 of 143** `TitleCase.zig` files
 still declare `const Self = @This();`, while every generic container does. Per-file receiver
 histograms, counted as `rg -c 'fn \w+\(<recv>: <Type>' <file>`: `Io/Writer.zig` → `w: *Writer`
-×68, `Io/Reader.zig` → `r: *Reader` ×69, `Build.zig` → `b: *Build` ×66, `Build/Module.zig` →
-`m: *Module` ×24, `Target.zig` → `target: *const Target` ×29. TigerBeetle
+×69, `Io/Reader.zig` → `r: *Reader` ×70, `Build.zig` → `b: *Build` ×70, `Build/Module.zig` →
+`m: *Module` ×24, `Target.zig` → `target: *const Target` ×28. TigerBeetle
 bans `Self` outright and enforces it with a lint. A named receiver also survives copy-paste into a
 different type — `self` silently reads correctly in the wrong file.
 
@@ -669,9 +669,9 @@ ZS-NAME-17.
 
 **Why:** langref, verbatim: "File names fall into two categories: types and namespaces. If the file
 (implicitly a struct) has top level fields, it should be named like any other struct with fields
-using `TitleCase`. Otherwise, it should use `snake_case`." Measured over 550 std files, the rule
-holds with **zero counterexamples in the snake_case direction**: 0 of 408 `snake_case.zig` files
-have top-level fields. Eleven of 142 `TitleCase.zig` files have no fields, and all eleven are the
+using `TitleCase`. Otherwise, it should use `snake_case`." Measured over 563 std files, the rule
+holds with **zero counterexamples in the snake_case direction**: 0 of 420 `snake_case.zig` files
+have top-level fields. Nine of 143 `TitleCase.zig` files have no fields, and all nine are the
 "established convention" carve-out (`dwarf/TAG.zig`, `heap/PageAllocator.zig`, …). The payoff is
 that `@import("x/Foo.zig")` versus `@import("x/foo.zig")` tells you at the import site whether you
 got a type or a namespace, which is exactly the information the langref example encodes:
@@ -689,7 +689,7 @@ const TypeName = @import("dir_name/TypeName.zig");
 > enforce it with a single regex. Modern std went the other way and hard: `Io.zig`, `Build.zig`,
 > `Target.zig`, `Progress.zig`, `Uri.zig`, `Thread.zig`, `Random.zig`, `SemanticVersion.zig`,
 > `BitStack.zig`, `DoublyLinkedList.zig`, `SinglyLinkedList.zig` are all top-level `TitleCase.zig`
-> type files, and 142 exist tree-wide.
+> type files, and 143 exist tree-wide.
 >
 > **Recommendation: follow the langref ([M]).** Anyone reading your code has read std; the casing of
 > a filename is free type information, and importing `Foo.zig` to get a type is now the dominant
@@ -725,12 +725,12 @@ directory must be `snake_case`.
 Top form: `//!` doc, then `const Foo = @This();`, then imports, then fields. Bottom form: everything
 else first, imports and the `@This()` alias as the final block. Pick one per file.
 
-**Why:** the median std file has its first `@import` on line 1, but 33 files — including
-`Target.zig`, `Build/Module.zig`, `testing.zig`, `zig/Parse.zig` — put the entire block at the
-bottom so that line 1 is the type's documentation rather than boilerplate. Both are house style.
-Splitting imports across the file is not: `zig fmt` never reorders or moves imports, so a scattered
-block stays scattered forever and a reader cannot answer "what does this file depend on?" without
-reading all of it.
+**Why:** the median std file has its first `@import` on line 2, but 19 files of 40 lines or more —
+`zig/Parse.zig`, `heap/ArenaAllocator.zig` and `http/HeadParser.zig` among them — put the whole
+block in their last half so that line 1 is the type's documentation rather than boilerplate. Both
+are house style. Splitting imports across the file is not: `zig fmt` never reorders or moves
+imports, so a scattered block stays scattered forever and a reader cannot answer "what does this
+file depend on?" without reading all of it.
 
 **Check:** `rg -n '@import\(' <file>` — the line numbers must form one contiguous run (allowing the
 alias lines derived from them). A second run further down the file is a split block, and the
@@ -758,10 +758,10 @@ import they derive from. Do not alphabetize across groups.
 **Why:** the ordering is the std habit and it goes from most-fixed to most-local, so the interesting
 lines (your own modules) are last and closest to the code. `zig fmt` will never reorder imports, so
 whatever you write is permanent; a convention is the only thing keeping it consistent. The standard
-alias block, by frequency in std: `const assert = std.debug.assert;` (173 files), `const mem =
-std.mem;` (137), `const testing = std.testing;` (127), `const math = std.math;` (121),
-`const Allocator = std.mem.Allocator;` (94), `const Io = std.Io;` (79). Aliasing `assert` matters
-because assertion density is the point — 2272 `assert(` calls versus 168 spelled-out
+alias block, by frequency in std: `const assert = std.debug.assert;` (172 files), `const mem =
+std.mem;` (137), `const testing = std.testing;` (129), `const math = std.math;` (119),
+`const Allocator = std.mem.Allocator;` (94), `const Io = std.Io;` (75). Aliasing `assert` matters
+because assertion density is the point — 2321 `assert(` calls versus 166 spelled-out
 `std.debug.assert(` calls in std.
 
 Application code always writes `@import("std")`. `@import("../std.zig")` is internal to std itself.
@@ -990,28 +990,28 @@ implementation reason ("we do it this way because…") rather than a contract �
 
 Reuse the house sentences rather than inventing synonyms:
 
-Counts are occurrences of the **bolded stem** of each phrase over `lib/zig/std/**/*.zig` at 0.16.0,
-case-sensitive — reproduce any row with `rg -ho '<stem>' -g '*.zig' . | wc -l`. They count
+Counts are occurrences of the **bolded stem** of each phrase over `lib/zig/std/**/*.zig` at 0.17.0,
+case-sensitive — reproduce any row with `rg -I -o '<stem>' -g '*.zig' . | wc -l`. They count
 the phrase family, not the full sentence in the left column.
 
 | Phrase | Meaning | std count |
 |---|---|---|
-| **`Asserts that`** … | violating it trips a safety-checked assertion | 136 |
-| **`Assumes`** … | violating it is unchecked Illegal Behavior | 54 |
-| **`Invalidates`** element pointers if additional memory is needed. | reallocation may move them | 76 |
+| **`Asserts that`** … | violating it trips a safety-checked assertion | 135 |
+| **`Assumes`** … | violating it is unchecked Illegal Behavior | 55 |
+| **`Invalidates`** element pointers if additional memory is needed. | reallocation may move them | 94 |
 | **`Deinitialize with`** \`deinit\`. | ownership: call this | 10 |
-| **`Caller owns`** returned memory. | ownership transfers out | 20 |
-| **`Thread-safe.`** / **`Not threadsafe`**. | concurrency contract | 19 / 9 |
-| **`It is illegal to`** … | hard precondition | 5 |
-| **`Deprecated in favor of`** \`x\`. | one line, immediately above the alias | 22, of 207 `/// Deprecated` |
-| **`See also:`** + `* \`decl\`` bullets | cross-reference block | 106 |
+| **`Caller owns`** returned memory. | ownership transfers out | 19 |
+| **`Thread-safe.`** / **`Not threadsafe`**. | concurrency contract | 18 / 9 |
+| **`It is illegal to`** … | hard precondition | 4 |
+| **`Deprecated in favor of`** \`x\`. | one line, immediately above the alias | 36, of 237 `/// Deprecated` |
+| **`See also:`** + `* \`decl\`` bullets | cross-reference block | 136 |
 
 **Why:** these are pattern-matched, not read. A reader who has seen `Invalidates element pointers if
-additional memory is needed.` 27 times across std — 18 of them in `array_list.zig` — recognizes the
+additional memory is needed.` 33 times across std — 24 of them in `array_list.zig` — recognizes the
 pointer-invalidation
 hazard at a glance; a paraphrase forces them to actually parse the sentence and decide whether it
-means the same thing. Cross-reference by backticked identifier always — 5134 `///` lines in std
-carry a backticked identifier (lines matching `^\s*///` that contain `` `name` ``, 0.16.0), and
+means the same thing. Cross-reference by backticked identifier always — 5473 `///` lines in std
+carry a backticked identifier (lines matching `^\s*///` that contain `` `name` ``, 0.17.0), and
 only backticks become links in generated docs.
 
 Omit doc comments that restate the name (langref rule 1). `handle: Handle` is undocumented in
@@ -1115,7 +1115,7 @@ fn f(
 
 `zig fmt` will **not** order your imports, group your blank lines, order your declarations, or wrap
 a long expression — those are ZS-NAME-19 through ZS-NAME-21 and your own judgement. `// zig fmt:
-off` … `// zig fmt: on` exists but appears only 34 times in all of std, exclusively for hand-aligned
+off` … `// zig fmt: on` exists but appears only 32 times in all of std, exclusively for hand-aligned
 tables. Source is UTF-8 with LF endings and a trailing newline.
 
 **Check:** `zig fmt --check .` in CI is the whole rule for indentation and spacing. The reviewable
@@ -1131,7 +1131,7 @@ comma and re-running `zig fmt`.
 **Why:** TigerStyle F3 is absolute — "Use it up. Never go beyond." — and motivates the number
 physically: 100 columns is just enough to fit two copies of the code side by side, which is what
 code review and diffing actually do. The langref is softer ("Line length: aim for 100; use common
-sense.") but the number agrees, and std measured over 395 803 non-empty lines is 92.4% ≤80 columns
+sense.") but the number agrees, and std measured over 416 956 non-empty lines is 92.6% ≤80 columns
 and 97.4% ≤100. Nothing should ever be hidden behind a horizontal scrollbar. Enforce it in CI; it is
 a one-line check and the only formatting rule `zig fmt` cannot do for you.
 

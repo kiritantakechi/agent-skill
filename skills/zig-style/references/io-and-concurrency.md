@@ -140,7 +140,7 @@ const io = threaded.io();
 `Io` is a two-field fat pointer (`userdata: ?*anyopaque`, `vtable: *const VTable`) dispatched as
 `io.vtable.op(io.userdata, ...)`. Pass it by value, exactly like an `Allocator`. Ordering, measured
 against std: on a method of a resource type (`Dir`, `File`, `Mutex`, `Queue`) `io` comes immediately
-after the receiver; on a free function `gpa` comes before `io` (12 occurrences to 3 in std), then
+after the receiver; on a free function `gpa` comes before `io` (15 occurrences to 4 in std), then
 domain parameters, then an options struct last.
 
 **Why:** an `Io` parameter is the only thing that makes a function's blocking behavior visible

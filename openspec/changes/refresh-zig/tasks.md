@@ -60,7 +60,7 @@ applied.
   - `rg` for each old spelling over `skills/zig-style` finds it only on the dead side of a
     migration table;
   - the zig `toolchain` passes alone.
-- [ ] 3.3 Correct every `claim` hit in §B and the status flips in §C.4. Where 0.17 removed a rule's
+- [x] 3.3 Correct every `claim` hit in §B and the status flips in §C.4. Where 0.17 removed a rule's
   whole premise (fuzzing builds; `Allocator.free` takes `*[N]T`; `Io.Evented.deinit` and
   `net.Socket.closeMany` compile), change the rule, or remove it through the 4.2 `demote` plan with
   the reason. Verify: `--fast`.

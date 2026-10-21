@@ -275,7 +275,7 @@ Legitimate exceptions: a type that *is* an allocator wrapper (`ArenaAllocator.ch
 everything it hands memory to. Document the invariant in a doc comment when you take the exception.
 
 ### ZS-MEM-07 [M] Name the allocator parameter for its role: `gpa`, `arena`, `scratch`
-`gpa` is the plurality name in std (345 occurrences vs 216 for `allocator`) and is TigerStyle's
+`gpa` is the plurality name in std (312 occurrences vs 202 for `allocator`) and is TigerStyle's
 recommendation too — one of the few places the two agree without qualification.
 
 **Why:** `gpa` vs `arena` tells the reader, at the call site, whether the returned memory must be

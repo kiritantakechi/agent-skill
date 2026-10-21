@@ -326,9 +326,9 @@ Write the `comptime` keyword on type parameters even though `T: type` also compi
 returned anonymous struct, `const Self = @This();` and a `self` receiver are correct, because the
 type has no other name. In a file that *is* a type, name the receiver after the type instead.
 
-**Why:** std writes `comptime` on ~94% of type parameters; the 45 bare `X: type` occurrences are the
+**Why:** std writes `comptime` on ~94% of type parameters; the 52 bare `X: type` occurrences are the
 outliers. And `const Self = @This();` survives in std exactly in the generic containers
-(`array_list.zig`, `hash_map.zig`, `multi_array_list.zig`, `bit_set.zig`) — only 6 of 142
+(`array_list.zig`, `hash_map.zig`, `multi_array_list.zig`, `bit_set.zig`) — only 6 of 143
 `TitleCase.zig` files still use it. So `Self` in a non-generic file is a reliable signal that the
 author did not know the type's name at write time.
 
@@ -1122,7 +1122,7 @@ dispatch — TigerBeetle parameterizes its whole storage/replica stack on compti
 (`fn ReplicaType(comptime ...)`), so every call is direct and every layer is visible to the
 optimizer and to a reader following one instantiation.
 
-**std 0.16's position:** the opposite for the three central abstractions. `std.mem.Allocator`,
+**std's position:** the opposite for the three central abstractions. `std.mem.Allocator`,
 `std.Io`, and `std.Io.Writer`/`Reader` are all runtime vtables. std explicitly traded static
 dispatch away for storability, ABI stability, and one compiled copy of every consumer.
 

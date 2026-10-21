@@ -93,9 +93,9 @@ error returned.
 | A value is legitimately absent, and absence is not a failure (cache miss, "no such key") | **return an optional `?T`** | An error union here forces callers to write `catch` for a non-event. |
 | A library cannot continue | **return an error** | Never `@panic`, never `std.process.exit`. See ZS-ERR-03. |
 | An application's top level cannot continue | `std.process.fatal(fmt, args)` | `= std.log.err(fmt, args); exit(1);` (the body of `std.process.fatal`). The right CLI failure primitive. |
-| An application aborts with a fixed message | `@panic("literal")` | What std does: 363 `@panic(` sites vs only 16 `std.debug.panic(`. |
+| An application aborts with a fixed message | `@panic("literal")` | What std does: 352 `@panic(` sites vs only 7 `std.debug.panic(`. |
 | An application aborts and the message needs formatting | `std.debug.panic(fmt, args)` | Or `std.debug.panicExtra(ret_addr, fmt, args)` to control the first trace frame. |
-| A build script cannot continue | `catch @panic("OOM")` | Sanctioned **only** in `build.zig`; all 181 `@panic("OOM")` sites in std are under `Build.zig`. |
+| A build script cannot continue | `catch @panic("OOM")` | Sanctioned **only** in `build.zig`; all 174 `@panic("OOM")` sites in std are under `Build.zig`. |
 | A check inside a `test` block | `std.testing.expect*` | std's own doc: `assert` may not detect a test failure in `fast`/`small` builds. |
 
 ```zig
@@ -218,14 +218,14 @@ pub fn main(init: std.process.Init) !void {
 private callee three levels down silently widens a public signature, and every downstream
 `catch |e| switch (e)` that was exhaustive is now non-exhaustive — a compile error in someone
 else's repo caused by a change you did not think was public. std is **not** a model here, and
-pretending otherwise weakens the rule: counted over single-line signatures at 0.16.0
-(`rg 'pub fn \w+\([^)\n]*\) !' -g '*.zig'` for bare; swap the trailing `!` for
-`[A-Za-z][A-Za-z0-9_.()]*!` for named), 1157 `pub fn` declare a named set but **416 still return a
-bare `!`** — `priority_queue`'s `ensureTotalCapacity` and `pushSlice` among them, though the
-flagship containers are clean: every `ArrayList`/`HashMap` `ensureTotalCapacity` returns
-`Allocator.Error!void` or `Oom!void` (non-`pub` helpers add another 548 bare). This standard takes
-the strict side of that 3:1 split, because the quarter that infer are exactly the ones whose sets
-can widen under a caller without warning.
+pretending otherwise weakens the rule: counted over single-line signatures at 0.17.0, outside the
+generated `zig/parser_generated_oracle.zig` (`rg 'pub fn \w+\([^)\n]*\) !' -g '*.zig'` for bare;
+swap the trailing `!` for `[A-Za-z][A-Za-z0-9_.()]*!` for named), 1189 `pub fn` declare a named set
+but **407 still return a bare `!`** — `priority_queue`'s `ensureTotalCapacity` and `pushSlice` among
+them, though the flagship containers are clean: every `ArrayList`/`HashMap` `ensureTotalCapacity`
+returns `Allocator.Error!void` or `Oom!void` (non-`pub` helpers add another 475 bare). This standard
+takes the strict side of that 3:1 split, because the quarter that infer are exactly the ones whose
+sets can widen under a caller without warning.
 
 **Check:** grep for `pub fn` lines whose return type begins with a bare `!` — `) ![` , `) !void`,
 `) !u`. `main`, `test`, and non-`pub` helpers are not hits.
@@ -257,7 +257,7 @@ pub fn parseDecimal(text: []const u8) ParseError!u32 {
 
 ### ZS-ERR-05 [S] Compose sets with `||`; name a composed set after the verb it belongs to
 
-std's convention across 192 named sets is `pub const <Verb>Error = error{…}` declared next to the
+std's convention across 194 named sets is `pub const <Verb>Error = error{…}` declared next to the
 function, merging in reusable sets with `||`.
 
 **Why:** the merge operator keeps one authoritative definition per concern. Re-listing
@@ -284,7 +284,7 @@ heavily for platform-specific members. A one-member set is written inline, not h
 
 **Why:** `anyerror` is the set of every error in the program, so no caller can ever write an
 exhaustive `switch`, and `@typeInfo(anyerror).error_set` is `null` rather than a member list. It
-also defeats error-set–based optimisation. std has 43 occurrences in 434 KLOC, and the one notable
+also defeats error-set–based optimisation. std has 43 occurrences in 456 KLOC, and the one notable
 public use is `testing.expectError(expected_error: anyerror, …)`.
 
 **Check:** grep `anyerror` — every hit in a `pub fn` signature, a `pub const` type alias, or a
@@ -343,7 +343,7 @@ only when the set is inferred, is `anyerror`, or genuinely comes from a third pa
 
 **Why:** an exhaustive switch on an explicit set turns "upstream added a new error" into a compile
 error at exactly the site that must decide what to do about it. An `else` prong turns the same event
-into a silent behavior change. This is std's dominant shape: 525 `catch |err| switch (err)` sites.
+into a silent behavior change. This is std's dominant shape: 552 `catch |err| switch (err)` sites.
 
 **Check:** an `else =>` prong in a `switch` over an error set that is named and declared in this
 repo. Follow the callee's return type: if it is `SomeError!T` rather than `!T` or `anyerror!T`, the
@@ -396,7 +396,7 @@ proof. If you cannot write it, you have a bug, not an invariant.
 **Why:** `unreachable` is a safety-checked panic in `debug`/`safe` builds and **illegal behavior**
 in `fast`/`small` builds. A wrong `catch unreachable` therefore does not crash in production — it
 miscompiles the surrounding code. The usual failure is an OOM or an I/O error that "obviously can't
-happen" until the machine is under memory pressure or the disk fills. std has 326 uses; each sits
+happen" until the machine is under memory pressure or the disk fills. std has 310 uses; each sits
 next to a buffer whose size is fixed at compile time.
 
 ```zig
@@ -1133,7 +1133,7 @@ fn opName(op: Op) []const u8 {
 
 `.?` is `orelse unreachable` in four characters. Where the proof rule (ZS-ERR-10) genuinely
 licenses an unreachable, write `orelse unreachable` and write the proof beside it; std does that
-three times in 434 KLOC. The short spelling has no licensed use.
+three times in 456 KLOC. The short spelling has no licensed use.
 
 **Why:** `.?` on a null is a safety-checked panic in `debug`/`safe` builds and **illegal behavior**
 in `fast`/`small` builds — the same trap as `catch unreachable`, in a form so short that it slips
@@ -1182,8 +1182,8 @@ emits `error: '@branchHint' must appear as the first statement in a function or 
 
 **Why:** `.cold` lets the optimiser move a branch's code to a different page, keeping the hot path's
 instruction cache dense; `.unpredictable` tells it to prefer branchless lowering where a mispredict
-would cost more than the extra work. std uses it deliberately: `.cold` ×100 on error paths
-(including inside `std.log.err` and `std.debug.panic`), `.unlikely` ×65, `.likely` ×56.
+would cost more than the extra work. std uses it deliberately: `.cold` ×132 on error paths
+(including inside `std.log.err` and `std.debug.panic`), `.unlikely` ×78, `.likely` ×66.
 
 **Check:** two findings at two tiers, and do not let the softer one absorb the harder one. `[M]`:
 any surviving `@setCold(`, which was removed — the same removed-builtin class as ZS-CT-18 (`@Type`),
@@ -1233,7 +1233,7 @@ module, named for the module.
 application decides format, destination, filtering, and whether the library is audible at all. The
 scope is the handle the application filters on (`log_scope_levels`, ZS-ERR-33); an unscoped
 `std.log.warn` lands in the `.default` bucket alongside everyone else's and cannot be silenced
-independently. std itself logs 35 times in 434 KLOC: the bar is high.
+independently. std itself logs 29 times in 456 KLOC: the bar is high.
 
 That `std.debug.print` and raw stderr writes are never program output, and never acceptable in a
 library, is owned by `references/io-and-concurrency.md` ZS-IO-06 and

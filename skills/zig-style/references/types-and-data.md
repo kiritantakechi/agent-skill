@@ -927,7 +927,7 @@ one-line table row, and `references/memory-and-allocators.md` ZS-MEM-17 (stable 
 `references/assertions-and-limits.md` ZS-ASRT-29 (bounded containers assert on overflow) both cite
 it.
 
-Neither name appears anywhere in the 0.16.0 stdlib. For a fixed-capacity list, use
+Neither name appears anywhere in the 0.17.0 stdlib. For a fixed-capacity list, use
 `std.ArrayList(T).initBuffer(&backing)` plus the `AssumeCapacity` / `Bounded` methods. For pointer
 stability across growth, use an intrusive `std.DoublyLinkedList` or `std.SinglyLinkedList` with
 nodes owned by an arena, or `std.heap.MemoryPool(T)` (ZS-MEM-17).

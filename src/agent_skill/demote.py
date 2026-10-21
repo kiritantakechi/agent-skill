@@ -68,6 +68,15 @@ LEAD = (
     "at the level shown."
 )
 
+#: The lead of a table whose rows a compiler decides. A compiler ships
+#: no configuration, so nothing about its rows is "enabled".
+COMPILER_LEAD = (
+    "The compiler rejects each of these on its own; no setting turns one off."
+)
+
+#: Tools whose rows are errors the compiler always reports.
+COMPILERS = frozenset({"zig"})
+
 
 def plan(
     repo: Path, name: str, asked: dict[str, Entry], profile: Profile | None = None
@@ -243,8 +252,9 @@ def _add_rows(text: str, rows: list[list[str]]) -> str:
         end = table.end() + list(re.finditer(r"^\|.*\n", body, re.MULTILINE))[-1].end()
         return text[:end] + "".join(f"{ln}\n" for ln in lines) + text[end:]
 
+    lead = COMPILER_LEAD if rows[0][0] in COMPILERS else LEAD
     section = (
-        f"## {DECIDED}\n\n{LEAD}\n\n"
+        f"## {DECIDED}\n\n{lead}\n\n"
         "| Tool | Lint | Level | Forbids |\n|---|---|---|---|\n"
     )
     section += "".join(f"{ln}\n" for ln in lines)
