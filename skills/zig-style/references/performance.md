@@ -9,12 +9,12 @@ function shape. Then the 0.17-specific mechanics — build modes, the disabled l
 rules throughout this standard say "unless you have measured" and this is the chapter that says how.
 
 This chapter does not own data layout: struct-of-arrays and `MultiArrayList` are
-`references/types-and-data.md` ZS-TYPE-25, handles-versus-pointers is ZS-TYPE-24, and passing large
-aggregates as `*const T` is ZS-TYPE-18. It does not own I/O batching
-(`references/io-and-concurrency.md` ZS-IO-35), assertion cost budgeting
-(`references/assertions-and-limits.md` ZS-ASRT-20), the optimize-mode table
-(`references/build-and-project.md` ZS-BUILD-27), or the `@branchHint` reference
-(`references/errors-and-control-flow.md` ZS-ERR-31). It cites them.
+`references/data.md` ZS-DATA-25, handles-versus-pointers is ZS-DATA-24, and passing large
+aggregates as `*const T` is ZS-DATA-18. It does not own I/O batching
+(`references/concurrency.md` ZS-CONC-35), assertion cost budgeting
+(`references/assertions.md` ZS-ASSERT-20), the optimize-mode table
+(`references/build.md` ZS-BUILD-27), or the `@branchHint` reference
+(`references/errors.md` ZS-ERR-31). It cites them.
 
 **Read ZS-PERF-24 first if you are tempted to apply this chapter to code that is not hot.** Roughly
 half of these rules are about correctness and readability and apply everywhere; the other half
@@ -163,7 +163,7 @@ Per second, at the stated target of 10k requests/s:
   CPU     checksum     2 us   x 10000                                 =   20 ms/s
 
 Conclusion: batch the network round trip before touching anything else. The DRAM misses are
-second and worth a layout change (ZS-TYPE-25); the checksum is noise.
+second and worth a layout change (ZS-DATA-25); the checksum is noise.
 ```
 
 ### ZS-PERF-04 [S] Say whether a function is control plane or data plane, and budget it
@@ -178,7 +178,7 @@ check becomes affordable exactly because of the batching. Without the split, eve
 priced at the per-item rate and the honest options are both bad — either you delete assertions to go
 fast, or you keep them and pay per item. TigerBeetle runs 2–3x the two-assertions-per-function floor
 in its control plane and gates the O(N) checks behind a verify flag in its data plane; see
-`references/assertions-and-limits.md` ZS-ASRT-20 for the budgeting rule itself.
+`references/assertions.md` ZS-ASSERT-20 for the budgeting rule itself.
 
 **Check:** find the O(N) assertions in the diff and ask what calls them. An O(N) assert reachable
 from a per-item function is the finding — either it moves up to the batch boundary or it goes behind
@@ -223,7 +223,7 @@ const Table = struct {
 
 ### ZS-PERF-05 [M!] Amortize every expensive acquisition over a bounded batch
 One syscall, one lock acquisition, one allocation, one flush, one round trip **per batch** — never
-per item. The batch has a named `_max` constant and the code asserts it (ZS-ASRT-24).
+per item. The batch has a named `_max` constant and the code asserts it (ZS-ASSERT-24).
 
 **Why:** every one of those operations has a fixed cost that dwarfs the per-item work: a syscall is
 hundreds of nanoseconds of mode-switch before it does anything; an uncontended lock is tens of
@@ -234,7 +234,7 @@ budget works at all. The bound is not optional: an unbounded batch converts a th
 unbounded-latency and unbounded-memory bug.
 
 The I/O half of this rule — draining an event queue instead of reacting per event, `writeVecAll`
-instead of a write per record — is `references/io-and-concurrency.md` **ZS-IO-35**; do not duplicate
+instead of a write per record — is `references/concurrency.md` **ZS-CONC-35**; do not duplicate
 it. This rule covers the non-I/O half: locks, allocations, and per-item work inside a lock.
 
 **`[M!]` trigger:** the same criteria as ZS-PERF-02 — a stated throughput or latency requirement, or
@@ -278,7 +278,7 @@ blocks the loop from being widened; a branch whose outcome alternates unpredicta
 pipeline flush — around 15–20 cycles, which on a loop body of 5 cycles is a 4x slowdown all by
 itself. Splitting the loop by condition gives each resulting loop a perfectly predicted branch. The
 memory-layout version of the same argument — do not drag 8 unused bytes into cache per element —
-lives in `references/types-and-data.md` ZS-TYPE-25 (`MultiArrayList`).
+lives in `references/data.md` ZS-DATA-25 (`MultiArrayList`).
 
 **Check:** any `if` inside a loop whose condition does not depend on the loop variable. That is a
 mechanical grep and it is almost always a mistake.
@@ -348,7 +348,7 @@ human reader can spot redundant computations easier." Aliasing is the mechanism 
 `*Journal`, a store to `journal.sectors[i]` may in principle alias `journal.sector_count`, so every
 iteration must reload the count. Passing the count by value removes the question. The
 receiver-naming half of this rule, including the explicit warning not to delete receivers wholesale
-on its strength, is `references/naming-and-files.md` **ZS-NAME-15**.
+on its strength, is `references/naming.md` **ZS-NAME-15**.
 
 **Check:** this rule is only invocable with a profile. In review, the finding is the *reverse*
 direction: a PR that converts methods to free functions across a module without a benchmark in the
@@ -444,7 +444,7 @@ field, and do not keep a pointer into a container across an operation that can m
 **Why:** two copies of one fact is two things to update and one of them will eventually be missed —
 this is the plain form of cache invalidation, and TigerStyle names it as such. In Zig it has a
 second edge with teeth: a pointer into `list.items` is invalidated by any append or resize
-(`ZS-CORE-15` / `references/types-and-data.md` ZS-TYPE-23), so a duplicated pointer is not merely
+(`ZS-CORE-15` / `references/data.md` ZS-DATA-23), so a duplicated pointer is not merely
 stale, it is a use-after-free. Holding the *index* keeps one source of truth and survives
 reallocation. Note the tension with ZS-PERF-07's hoist: hoisting is legal precisely when the loop
 cannot mutate the hoisted fact, and the hoisted `const` dies at the end of the loop.
@@ -525,7 +525,7 @@ fn readPayload(buffer: []const u8, header: Header) ![]const u8 {
 Note the second bug the BAD version hides: `header.offset + header.length` can overflow `u32` before
 the comparison, so the check can pass on input that should be rejected. In `debug`/`safe`
 that panics; in `fast` it wraps and the slice goes out of bounds. Distance concealed it — see
-`references/types-and-data.md` ZS-TYPE-10 for `std.math.add`.
+`references/data.md` ZS-DATA-10 for `std.math.add`.
 
 ### ZS-PERF-12 [S] Centralize state manipulation: helpers compute the change, the parent applies it
 Let the parent function hold the state in locals or in one receiver, and let helpers *return* what
@@ -535,7 +535,7 @@ should change rather than applying it. Keep leaf functions pure.
 down) for the same reason: if every leaf may mutate, then the set of states reachable at any point
 is the product of every leaf's behavior, and no single function can assert the invariant. With one
 apply site, there is exactly one place to bracket with `assertInvariants`
-(`references/assertions-and-limits.md` ZS-ASRT-17), one place to make transactional with `errdefer`,
+(`references/assertions.md` ZS-ASSERT-17), one place to make transactional with `errdefer`,
 and one place to read when the invariant breaks. Pure leaves are also directly testable and
 trivially reorderable — you can compute all the deltas first and apply them in one pass, which is
 what makes batching (ZS-PERF-05) possible in the first place.
@@ -613,7 +613,7 @@ mostly signature, it is in the wrong place.
 limit (ZS-CORE-21) — not every split is equal, and the good ones produce inverted hourglasses. The
 argument is the same locality argument: a wide signature exports the function's internal state to
 every call site, so a change to it is a change everywhere, and each extra return dimension
-propagates up the whole call chain (ZS-CORE-24 / `references/types-and-data.md` ZS-TYPE-30). A
+propagates up the whole call chain (ZS-CORE-24 / `references/data.md` ZS-DATA-30). A
 function whose body is three lines and whose signature is eight parameters has not been abstracted;
 it has been relocated, and it now costs an argument-marshalling sequence at every call.
 
@@ -659,7 +659,7 @@ x86_64 backend, which the 0.16.0 release notes describe as having "significantly
 speed, superior debug information, and inferior machine code quality"; 0.17.0 keeps that default.
 The gap between `debug` and `fast` on a tight loop is routinely 10–50x, which swamps every effect
 this chapter discusses; a "2x speedup" measured in `debug` is noise. The mode table and the argument
-for shipping `safe` are `references/build-and-project.md` **ZS-BUILD-27** — read it before choosing
+for shipping `safe` are `references/build.md` **ZS-BUILD-27** — read it before choosing
 `fast` for a shipped artifact, because in `fast` every `std.debug.assert` becomes a
 licence for the optimizer rather than a check (ZS-CORE-10).
 
@@ -776,7 +776,7 @@ Anything else — even one `assert` before it — is a compile error. Use `.cold
 **Why:** `.cold` lets the optimizer relocate a branch's code away from the hot path, keeping the
 instruction cache dense along the path that actually runs; `.unpredictable` asks for branchless
 lowering where a mispredict would cost more than doing both sides. The full hint list, std's usage
-counts, and the `@setCold` migration are `references/errors-and-control-flow.md` **ZS-ERR-31**. The
+counts, and the `@setCold` migration are `references/errors.md` **ZS-ERR-31**. The
 placement constraint is worth repeating here only because it interacts with this chapter's own
 advice: if you follow ZS-CORE-08 and assert at the top of a cold branch, the hint must come *first*,
 before the assert.
@@ -876,7 +876,7 @@ to the return value; and to work around limitations of compiler backend implemen
 langref's third reason was "real world performance measurements demand it"; 0.17 dropped it, so a
 performance-motivated `inline` now rests on this chapter's measurement rule alone. Trivial
 forwarding shims in generic wrappers are the common legitimate case, sanctioned without a fresh
-measurement by `references/comptime-and-generics.md` ZS-CT-11 and ZS-CT-05, which states the
+measurement by `references/comptime.md` ZS-COMPTIME-11 and ZS-COMPTIME-05, which states the
 langref's reasons from the comptime side.
 
 **Why:** `inline` in Zig is not a hint — it is semantics. The langref is blunt: "Use of `inline`
@@ -991,7 +991,7 @@ build` does not pay for it.
 **Why:** two failure modes, one rule. Inheriting `-Doptimize` means `zig build bench` on a developer
 machine silently measures a `debug` build (ZS-PERF-14). Installing the artifact puts the benchmark
 on the critical path of every `zig build` and every CI smoke test, which is
-`references/build-and-project.md` **ZS-BUILD-09**'s argument. Pinning the mode also makes the number
+`references/build.md` **ZS-BUILD-09**'s argument. Pinning the mode also makes the number
 comparable across machines and across time, which is the entire value of keeping benchmarks in the
 repository rather than in a scratch directory.
 
@@ -1073,7 +1073,7 @@ pub fn main(init: std.process.Init) !void {
     const per_iteration: Io.Duration =
         .fromNanoseconds(@divFloor(elapsed.toNanoseconds(), iterations));
     try out.print("sum: {f} total, {f} per iteration\n", .{ elapsed, per_iteration });
-    try out.flush(); // ZS-IO-05: buffered output prints nothing without this.
+    try out.flush(); // ZS-CONC-05: buffered output prints nothing without this.
 }
 ```
 

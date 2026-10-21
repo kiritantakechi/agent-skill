@@ -194,7 +194,7 @@ def _shape(rule: Rule, where: str) -> Iterator[Finding]:
     """A rule states its own Why and Check, or points at their owner.
 
     Half of one and half of the other is a rule that duplicated its
-    owner and drifted: ZS-IO-39 pointed at the migration chapter, then
+    owner and drifted: ZS-CONC-39 pointed at the migration chapter, then
     kept a two-row copy of that chapter's table whose rows were already
     in it.
     """

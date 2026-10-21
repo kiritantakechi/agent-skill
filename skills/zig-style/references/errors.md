@@ -6,10 +6,10 @@ and the shape of the control flow in between (conditions, loops, `switch`, label
 `@branchHint`, and the 70-line function limit).
 
 This chapter does not own assertion *density* or the design of bounded limits — those are
-`references/assertions-and-limits.md` ZS-ASRT-11 and ZS-ASRT-27. Allocator ownership and OOM
-lifetimes are `references/memory-and-allocators.md`; `std.Io` stream errors and cancellation are
-`references/io-and-concurrency.md`; error-name formatting with `{t}` is
-`references/formatting-and-output.md` ZS-FMT-05. It cites them.
+`references/assertions.md` ZS-ASSERT-11 and ZS-ASSERT-27. Allocator ownership and OOM
+lifetimes are `references/memory.md`; `std.Io` stream errors and cancellation are
+`references/concurrency.md`; error-name formatting with `{t}` is
+`references/output.md` ZS-OUT-05. It cites them.
 
 Blocks that do not declare their own imports assume a file opening with
 `const std = @import("std");` and `const assert = std.debug.assert;`.
@@ -44,7 +44,7 @@ Blocks that do not declare their own imports assume a file opening with
   - ZS-ERR-21 [S] An `if` with no `else` over a validated domain carries a comment or an assertion
   - ZS-ERR-22 [M] Braces, unless the whole statement fits on one line
   - ZS-ERR-23 [M!] No recursion; where recursion is allowed, bound the depth explicitly
-  - ZS-ERR-24 [M] Every loop has a provable upper bound (see ZS-ASRT-27)
+  - ZS-ERR-24 [M] Every loop has a provable upper bound (see ZS-ASSERT-27)
   - ZS-ERR-25 [M!] Push `if`s up and `for`s down
 - **7. Modern Zig control flow the standard prefers**
   - ZS-ERR-26 [S] Use labeled `switch` with `continue :label` for state machines and dispatch loops
@@ -63,6 +63,7 @@ Blocks that do not declare their own imports assume a file opening with
 - **Uniformity of failure and control flow**
   - ZS-ERR-37 [M] Give the members of one error set a uniform shape
   - ZS-ERR-38 [M] Absorb a special case into the general path, or give it its own type
+- Decided by tools
 
 ---
 
@@ -121,13 +122,13 @@ unreachable; }` — so in `fast`/`small` builds the *check* disappears but the *
 evaluated*. `assert(list.pop() != null)` still pops in release; it just stops verifying the result.
 Never put a side effect inside an assert. On 0.17.0, a counter incremented inside an assert
 condition reaches the same value in all four optimize modes. The full treatment, including the
-per-mode table, is `references/assertions-and-limits.md` ZS-ASRT-03.
+per-mode table, is `references/assertions.md` ZS-ASSERT-03.
 
 ### ZS-ERR-02 [M] Return an optional for absence; reserve the error union for failure
 
 `?T` when "not there" is a normal outcome; `E!T` when something went wrong. (The general
 return-type-dimensionality ladder — `void` before `bool` before `u64` before `?u64` before `!u64` —
-is owned by `references/types-and-data.md` ZS-TYPE-30; this rule is only about the `?T`/`E!T`
+is owned by `references/data.md` ZS-DATA-30; this rule is only about the `?T`/`E!T`
 boundary.)
 
 **Why:** an error union makes absence viral. Every caller must `try` or `catch`, and each `try`
@@ -168,10 +169,10 @@ or for `build.zig`.
 
 It does **not** govern assertions. A violated internal invariant has exactly one correct response in
 any code, library or not, so `assert` and a project-local always-on `assertAlways`
-(`references/assertions-and-limits.md` ZS-ASRT-07) are legal in a library — including in allocators
+(`references/assertions.md` ZS-ASSERT-07) are legal in a library — including in allocators
 and crypto, which are libraries by construction. What a library may not do is choose its consumer's
 optimize mode: document which invariants it asserts and what it costs to run it in a `safe` build,
-and let the consumer decide (`references/build-and-project.md` ZS-BUILD-27).
+and let the consumer decide (`references/build.md` ZS-BUILD-27).
 
 **Why:** a library does not know whether its caller can recover. Aborting the process removes the
 caller's ability to retry, degrade, or report. It also makes the library untestable — a test cannot
@@ -424,8 +425,8 @@ test formatCode {
 **Exempt: `comptime`-evaluated `catch unreachable`.** In a `const` initializer or a `comptime` block
 the expression is folded by the compiler, so a failure is `error: caught unexpected error
 'Overflow'` at build time and can never be illegal behavior at runtime — there is nothing to prove
-and no comment is required. This is why a derived limit (`references/assertions-and-limits.md`
-ZS-ASRT-25/ZS-ASRT-26) whose derivation has a fallible `std.math` step is written without one:
+and no comment is required. This is why a derived limit (`references/assertions.md`
+ZS-ASSERT-25/ZS-ASSERT-26) whose derivation has a fallible `std.math` step is written without one:
 
 ```zig
 // fragment — GOOD: comptime-evaluated, so failure is a compile error
@@ -455,7 +456,7 @@ then thrown away. Empty `catch` blocks are the highest-yield thing to grep for i
 **Check:** `catch {}`, `catch {};`, `_ = … catch`, `catch null`, and `catch false` with no comment
 on the same or the preceding line saying why the failure is genuinely not information. A `catch`
 that logs and continues is a different rule (ZS-ERR-08) and is not a hit here — but if the call took
-an `io`, it is a hit under ZS-IO-27, which treats log-and-continue as a dropped cancellation.
+an `io`, it is a hit under ZS-CONC-27, which treats log-and-continue as a dropped cancellation.
 
 ```zig
 // fragment — BAD
@@ -472,14 +473,14 @@ dir.deleteFile(io, scratch_path) catch |err| log.warn("removing scratch file: {t
 Note the cleanup call has to be one that can actually fail. `Io.File.close` is
 `pub fn close(file: File, io: Io) void` — it returns no error at all, so `file.close(io) catch …` is
 `error: expected error union type, found 'void'`. Closing is spelled `defer file.close(io);` with no
-`try` and no `catch` (ZS-IO-22, ZS-MEM-11).
+`try` and no `catch` (ZS-CONC-22, ZS-MEM-11).
 
 The cancellation corollary this rule does not own: `deleteFile`'s error set contains
 `Io.Cancelable`, so the `catch` above also absorbs `error.Canceled`. That is legal *here* only
 because the path is already leaving — as the comment says, it is a failing path, and nothing follows
 this line but the `return`. Log an error and then carry on with real work and you strand whoever
-requested the cancel just as thoroughly as `catch {}` would. ZS-IO-27 owns that distinction; read it
-before copying this shape onto a path that continues.
+requested the cancel just as thoroughly as `catch {}` would. ZS-CONC-27 owns that distinction; read
+it before copying this shape onto a path that continues.
 
 ---
 
@@ -487,7 +488,7 @@ before copying this shape onto a path that continues.
 
 ### ZS-ERR-12 [M] Put the release on the line immediately after the acquisition (see ZS-MEM-11)
 
-Owned by `references/memory-and-allocators.md` ZS-MEM-11. Never separate an acquiring statement from
+Owned by `references/memory.md` ZS-MEM-11. Never separate an acquiring statement from
 its `defer`/`errdefer`; anything between the two is a leak window. The rules below cover what
 happens *after* the pair is correctly placed: ordering (ZS-ERR-13), ownership transfer (ZS-ERR-14),
 and loop scope (ZS-ERR-15).
@@ -791,7 +792,7 @@ condition, which is the whole point of a guard, and guards are what ZS-ERR-18 as
 forbidden is a non-guard `if` whose condition negates an invariant that the same function states
 positively elsewhere — the reader then has to hold both spellings of one relation in their head.
 (Same wording as SKILL.md ZS-CORE-18; the guard form is used by ZS-ERR-25, ZS-NAME-31 and
-ZS-ASRT-16.)
+ZS-ASSERT-16.)
 
 **Why:** the positive form matches how the same relation is written in the loop condition (`while
 (index < length)`) and in the assertion (`assert(index < length)`), so the reader compares identical
@@ -928,9 +929,9 @@ fn depthSum(comptime depth: u8, values: []const u32) u32 {
 }
 ```
 
-### ZS-ERR-24 [M] Every loop has a provable upper bound (see ZS-ASRT-27)
+### ZS-ERR-24 [M] Every loop has a provable upper bound (see ZS-ASSERT-27)
 
-Owned by `references/assertions-and-limits.md` ZS-ASRT-27, which gives the four legitimate loop
+Owned by `references/assertions.md` ZS-ASSERT-27, which gives the four legitimate loop
 shapes and the witness-counter idiom. Prefer `for (slice)` and `for (0..limit)`, which carry the
 bound in the syntax; a `while` whose termination is not obvious gets a counter asserted against a
 named `_max` constant; a deliberately unbounded event loop says so in a comment and asserts the
@@ -1186,11 +1187,11 @@ would cost more than the extra work. std uses it deliberately: `.cold` ×132 on 
 (including inside `std.log.err` and `std.debug.panic`), `.unlikely` ×78, `.likely` ×66.
 
 **Check:** two findings at two tiers, and do not let the softer one absorb the harder one. `[M]`:
-any surviving `@setCold(`, which was removed — the same removed-builtin class as ZS-CT-18 (`@Type`),
-ZS-CT-27 (`usingnamespace`), and ZS-TYPE-26 (`std.BoundedArray`), all `[M]` for the same reason.
-`[S]`: on a *measured* hot path, an error-returning branch or a `catch` block whose first statement
-is not `@branchHint(.cold)` — a recommendation, and deviating needs only the measurement that says
-the branch is not hot.
+any surviving `@setCold(`, which was removed — the same removed-builtin class as ZS-COMPTIME-18
+(`@Type`), ZS-COMPTIME-27 (`usingnamespace`), and ZS-DATA-26 (`std.BoundedArray`), all `[M]` for the
+same reason. `[S]`: on a *measured* hot path, an error-returning branch or a `catch` block whose
+first statement is not `@branchHint(.cold)` — a recommendation, and deviating needs only the
+measurement that says the branch is not hot.
 
 ```zig
 // verified — GOOD
@@ -1236,8 +1237,8 @@ scope is the handle the application filters on (`log_scope_levels`, ZS-ERR-33); 
 independently. std itself logs 29 times in 456 KLOC: the bar is high.
 
 That `std.debug.print` and raw stderr writes are never program output, and never acceptable in a
-library, is owned by `references/io-and-concurrency.md` ZS-IO-06 and
-`references/formatting-and-output.md` ZS-FMT-16 / ZS-FMT-17. Program *output* is not logging: write
+library, is owned by `references/concurrency.md` ZS-CONC-06 and
+`references/output.md` ZS-OUT-16 / ZS-OUT-17. Program *output* is not logging: write
 it to a `*std.Io.Writer` you were handed, and `flush()`.
 
 ```zig
@@ -1311,7 +1312,7 @@ Two rules of thumb do most of the cutting:
 - **Centralize state manipulation.** The parent keeps the relevant state in its own locals and calls
   helpers to *compute* what should change, rather than letting the helper apply the change. Leaf
   functions stay pure, which is what makes them testable in isolation and assertable at both ends
-  (`references/assertions-and-limits.md` ZS-ASRT-18).
+  (`references/assertions.md` ZS-ASSERT-18).
 
 **Why:** there is a sharp discontinuity between a function that fits on a screen and one you must
 scroll to measure. Below the fold you can check "is every case handled?" by looking; above it you
@@ -1416,7 +1417,7 @@ test "diagnostics carry the position the error set cannot" {
 ```
 
 The application then renders it — `"{s}:{d}:{d}: {t}"` with `{t}` for the error name (see
-`references/formatting-and-output.md` ZS-FMT-05). Give `Diagnostics` a rendering method when the
+`references/output.md` ZS-OUT-05). Give `Diagnostics` a rendering method when the
 rendering is fixed, as `std.zon.parse.Diagnostics` does: its `fmt(path)` returns a value printed
 with `{f}`, and `log(path)` and `fatal(path)` print it for you.
 
@@ -1456,8 +1457,8 @@ fn captureHere(addr_buf: []usize) std.debug.StackTrace {
 Two costs to budget for. `std.options.allow_stack_tracing` gates the whole family: when it is false
 every capture returns an empty trace, so a capture-based diagnostic silently produces nothing.
 Unwinding is also not cheap — it is a debug-path tool, so keep it off the hot path and behind the
-same `verify`-style constant as an O(N) assertion (`references/assertions-and-limits.md`
-ZS-ASRT-20).
+same `verify`-style constant as an O(N) assertion (`references/assertions.md`
+ZS-ASSERT-20).
 
 **Check:** any surviving `std.debug.StackIterator`, `.dumpStackTrace(@errorReturnTrace())`, or a
 `dumpCurrentStackTrace(start_addr)` call passing a bare `?usize` — the 0.15 signature.
@@ -1492,3 +1493,20 @@ at a time.
 **Check:** for each `if` whose condition names a specific input — a particular length, an empty
 slice treated unlike others, a sentinel value — ask what the general case would need to be for the
 branch to disappear. That is usually the correct design.
+
+## Decided by tools
+
+The compiler rejects each of these on its own; no setting turns one off.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| zig | `error … of type … is ignored` | error | a call that can fail, without `try`, `catch` or `if` |
+| zig | `error union is discarded` | error | `_ = f();` on a call that can fail |
+| zig | `value of type … ignored` | error | a non-void result neither used nor discarded |
+| zig | `expected error union type, found …` | error | `try` or `catch` on a call that cannot fail |
+| zig | `expected optional type, found …` | error | `orelse` on a value that is not optional |
+| zig | `operator == not allowed for type …` | error | comparing an error union with a value before unwrapping it |
+| zig | `duplicate switch value …` | error | two prongs for one value |
+| zig | `'try' not allowed inside defer expression` | error | `try` in a `defer`, which has nowhere to return the error |
+| zig | `cannot return from defer expression` | error | `return` inside a `defer` |
+| zig | `unreachable code` | error | a statement after `return`, `break` or another diverging one |

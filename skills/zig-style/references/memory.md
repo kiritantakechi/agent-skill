@@ -7,14 +7,14 @@ memory copies, and the graduated ladder from "allocate freely" to TigerStyle's "
 startup".
 
 This chapter does not own error-set design, `try`/`catch` selection, or `unreachable`-versus-error —
-those are `references/errors-and-control-flow.md`. `Io.Reader`/`Io.Writer` buffer sizing is
-`references/io-and-concurrency.md` ZS-IO-12 and ZS-IO-38; assertion density and bounded loops are
-`references/assertions-and-limits.md`; `MultiArrayList` layout choices are
-`references/types-and-data.md` ZS-TYPE-25; allocation-failure testing is
-`references/testing-and-fuzzing.md` ZS-TEST-13. It cites them.
+those are `references/errors.md`. `Io.Reader`/`Io.Writer` buffer sizing is
+`references/concurrency.md` ZS-CONC-12 and ZS-CONC-38; assertion density and bounded loops are
+`references/assertions.md`; `MultiArrayList` layout choices are
+`references/data.md` ZS-DATA-25; allocation-failure testing is
+`references/testing.md` ZS-TEST-13. It cites them.
 
 Every example assumes a file opening with `const std = @import("std");` and
-`const assert = std.debug.assert;` — assertions are called bare, per ZS-ASRT-01.
+`const assert = std.debug.assert;` — assertions are called bare, per ZS-ASSERT-01.
 ## Contents
 
 - **Choosing an allocator**
@@ -53,6 +53,7 @@ Every example assumes a file opening with `const std = @import("std");` and
 - **Raw memory**
   - ZS-MEM-27 [M] `@memcpy` for disjoint copies, `@memmove` for overlapping ones
   - ZS-MEM-28 [M!] Zero padding before it leaves the process, and wipe secrets on the way out
+- Decided by tools
 
 ---
 
@@ -188,7 +189,7 @@ Defaults by program kind, matching std's own ladder in `std.start`:
 `std.heap.GeneralPurposeAllocator`, or `std.heap.LoggingAllocator`, none of which exist in 0.17.
 
 ### ZS-MEM-04 [M] Tests allocate through `std.testing.allocator` (see ZS-TEST-05)
-Owned by `references/testing-and-fuzzing.md` ZS-TEST-05. A `test` block allocates only from
+Owned by `references/testing.md` ZS-TEST-05. A `test` block allocates only from
 `std.testing.allocator` — never `page_allocator`, never a locally constructed `SafeAllocator`,
 never an arena that hides leaks — because the test runner calls `allocator_instance.deinit()` after
 each test and fails the run on a non-zero leak count, logging each leak with its allocation site's
@@ -429,7 +430,7 @@ The same shape applies to every acquisition, not just allocation: `Io.File`/`Io.
 (`defer file.close(io)`), `Io.Mutex` (`defer m.unlock(io)`), `Io.Group` (`defer g.cancel(io)`), and
 `Io.Future` (`defer f.await(io)`). Where the release itself is fallible or cancelable, use the
 `*Uncancelable` variant — a `defer` body cannot propagate an error (see
-`references/io-and-concurrency.md` ZS-IO-29).
+`references/concurrency.md` ZS-CONC-29).
 
 ### ZS-MEM-12 [M] `errdefer` every fallible construction step, until ownership transfers
 Multi-step `init` puts an `errdefer` after each allocation. The `errdefer`s stop where ownership
@@ -635,7 +636,7 @@ result is bound to a `const`/`var` that outlives the next container call. The sa
 pointer, uses it, and lets it die inside one statement or one tight block with no mutation in
 between.
 
-`references/types-and-data.md` ZS-TYPE-23 points here; ZS-TYPE-24 is the structural fix (a handle
+`references/data.md` ZS-DATA-23 points here; ZS-DATA-24 is the structural fix (a handle
 newtype instead of a pointer).
 
 ### ZS-MEM-17 [M] If you need stable pointers, use `std.heap.MemoryPool(T)` or store indices
@@ -709,7 +710,7 @@ buffer (ZS-MEM-23): allocations past it return `error.OutOfMemory` through the n
 in 0.17.
 
 ### ZS-MEM-19 [M!] Test allocating constructors with `checkAllAllocationFailures` (see ZS-TEST-13)
-Owned by `references/testing-and-fuzzing.md` ZS-TEST-13. The `errdefer` chains built under ZS-MEM-12
+Owned by `references/testing.md` ZS-TEST-13. The `errdefer` chains built under ZS-MEM-12
 are dead code in every normal test run, so drive them with
 `std.testing.checkAllAllocationFailures(backing, test_fn, extra_args)`, which re-runs `test_fn`
 failing allocation *i* for every *i*. `[M!]` triggers and the relaxed form live with the owner.
@@ -1145,7 +1146,7 @@ means implementing the vtable against `Alignment` directly (ZS-MEM-24), never an
 
 **Check:** any `align` or alignment-named parameter, field, or `const` typed as an integer; any
 `@alignOf(T)` or `1 << n` passed where an `Alignment` belongs; any hand-rolled `& ~(align - 1)`
-masking. `references/types-and-data.md` ZS-TYPE-22 points here.
+masking. `references/data.md` ZS-DATA-22 points here.
 
 ---
 
@@ -1242,3 +1243,11 @@ test "wipe secrets before the frame returns" {
 Make padding explicit rather than implicit: give serialized types `extern` or `packed` layout, name
 the reserved fields, default them to `0`, and `comptime`-assert `@sizeOf`. A plain `struct` may
 reorder fields and its padding is not yours to control.
+
+## Decided by tools
+
+The compiler rejects each of these on its own; no setting turns one off.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| zig | `returning address of expired local variable …` | error | returning a pointer to a local, which dies with the frame |

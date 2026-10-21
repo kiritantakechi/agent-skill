@@ -34,7 +34,7 @@ the full run. Every other verification is `--fast` or a targeted `pytest`.
   - a row with no probe fails;
   - a probe with no row fails;
   - with `zig` absent, the rows are UNRUN (`tests/test_unrun.py`).
-- [ ] 2.2 Add a control on the real tree: editing a zig row's phrase fails `citations`. Give it its
+- [x] 2.2 Add a control on the real tree: editing a zig row's phrase fails `citations`. Give it its
   `BRANCHES` entry. It lands after 4.3, when the tree has zig rows and the final chapter names.
   Verify: `tests/test_controls.py`.
 - [x] 2.3 README:
@@ -78,18 +78,18 @@ applied.
 
 ## 4. Structure
 
-- [ ] 4.1 Lift zig-style's exemption (`exempt_from_structure = None`) and take the full list of
+- [x] 4.1 Lift zig-style's exemption (`exempt_from_structure = None`) and take the full list of
   findings. This is the work list for the rest of group 4. Verify: the list is saved, and each
   finding belongs to a task below.
-- [ ] 4.2 Run one `agent-skill demote zig-style <plan>`:
-  - ZS-CT-02 becomes its `zig` row;
+- [x] 4.2 Run one `agent-skill demote zig-style <plan>`:
+  - no rule is a clean demotion (ZS-CT-02 keeps its type-function carve-out, and names its row);
   - the rules 0.17 removed and the rules whose premise is gone (3.3) are removed with their reasons;
   - the generic "gone" rules of `research/zig-rows.md` §A′ fold into migration rows.
 
   Then add the always-on rows that remove no rule (§A2) to the chapters that own them (D3), each with
   its probe in `profiles/zig_style.py`. A rule that keeps its error names the row in its Check.
   Verify: `--fast --only citations --only skeleton`.
-- [ ] 4.3 Run one `agent-skill renumber zig-style` with the D2 chapter mapping. Verify:
+- [x] 4.3 Run one `agent-skill renumber zig-style` with the D2 chapter mapping. Verify:
   - `migration.md` has `## Rule IDs before the Zig 0.17.0 revision` with every old family's range;
   - `--fast --only crossref --only anatomy --only skeleton` reports no dangling citation and no
     unresolved row.

@@ -310,7 +310,16 @@ def _segments(text: str) -> Iterator[tuple[str, bool]]:
 
 def _compose(skill: Skill, plan: Plan) -> None:
     """Carry `migration.md`'s rename tables through this renumbering."""
-    migration = next((c for c in skill.chapters if c.path.stem == "migration"), None)
+    # Named as it will be: the run that renames the migration chapter
+    # also writes its table.
+    migration = next(
+        (
+            c
+            for c in skill.chapters
+            if plan.moves.get(c.path, c.path).stem == "migration"
+        ),
+        None,
+    )
     if migration is None:
         msg = f"{skill.name} has no references/migration.md for its rename table"
         raise RenumberError(msg)

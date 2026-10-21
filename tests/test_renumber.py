@@ -241,3 +241,16 @@ def test_reflow_never_breaks_inside_a_code_span() -> None:
     )
     out = reflow(line + "\n", width=100)
     assert "`rg -n '^(alpha|beta|gamma|delta) *=' Cargo.toml`" in out
+
+
+def test_the_run_that_renames_the_migration_chapter_writes_its_table(
+    repo: Path,
+) -> None:
+    refs = repo / "skills/demo-style/references"
+    (refs / "migration.md").rename(refs / "migration-and-dead-apis.md")
+
+    run(repo, **THREADS, **{"migration-and-dead-apis": "migration"})
+
+    assert not (refs / "migration-and-dead-apis.md").exists()
+    (table,) = Skill(repo / "skills/demo-style", Demo()).rename_tables
+    assert table.ranges[0] == ("DS-ERR", 2, 3)

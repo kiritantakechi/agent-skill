@@ -35,9 +35,6 @@ class ZigStyle(Profile):
     follows_local: str | None = (
         "follows this machine's `zig`, and is bumped with the skill, never ahead of it"
     )
-    exempt_from_structure: str | None = (
-        "conforms with its own bump, once this machine's `zig` moves past 0.16.0"
-    )
     exempt: dict[str, Exemption] = field(
         default_factory=lambda: {
             # ZS-NAME-14: "keep `self` for anonymous generic containers"
@@ -82,19 +79,19 @@ class ZigStyle(Profile):
     #: fields away and nothing re-measures.
     not_decisive: dict[str, NotDecisive] = field(
         default_factory=lambda: {
-            "ZS-CAPI-09": NotDecisive(
+            "ZS-INTEROP-09": NotDecisive(
                 "c_int",
                 "the span finds every C type; whether the hit is inside the "
                 "designated boundary module decides, and a line does not say which "
                 "file it is in",
             ),
-            "ZS-CAPI-10": NotDecisive(
+            "ZS-INTEROP-10": NotDecisive(
                 "[*c]",
                 "the span finds every `[*c]`; whether it is a parameter of an "
                 "`export fn` or a `callconv(.c)` function — the one place it is "
                 "allowed — decides",
             ),
-            "ZS-CT-13": NotDecisive(
+            "ZS-COMPTIME-13": NotDecisive(
                 "comptime T: type",
                 "the span finds every `comptime` parameter; how many distinct "
                 "arguments its call sites pass decides, which is a count over the "
@@ -110,12 +107,12 @@ class ZigStyle(Profile):
                 "the span finds every inferred error set; whether the function is "
                 "`pub`, and neither `main` nor a test, decides",
             ),
-            "ZS-FMT-10": NotDecisive(
+            "ZS-OUT-10": NotDecisive(
                 "{b64}",
                 "the span finds every `{b64}`; whether a width or precision is "
                 "applied to it over a slice decides, and both spellings build cleanly",
             ),
-            "ZS-IO-18": NotDecisive(
+            "ZS-CONC-18": NotDecisive(
                 "w.buffered()",
                 "the span finds every `w.buffered()`; whether it runs before the "
                 "first emit in a `drain` body decides, which is an ordering the line "
@@ -174,7 +171,7 @@ class ZigStyle(Profile):
             # Polarity: this Check asserts the shape is *present*, so
             # its hits are evidence of compliance and reading them as
             # defects inverts the rule.
-            "ZS-BUILD-40": NotDecisive(
+            "ZS-BUILD-39": NotDecisive(
                 "has this block",
                 "a presence assertion, and scoped to `build.zig`: the finding is a "
                 "missing guard, which no hit can show",
@@ -183,6 +180,165 @@ class ZigStyle(Profile):
                 "is the finding",
                 "the pattern finds every PRNG; the `.init(` seed argument decides, and "
                 "`std.testing.random_seed` is the compliant one",
+            ),
+        }
+    )
+    #: One probe per `zig` row in the chapters' `Decided by tools`
+    #: tables, each compiled on 0.17.0 and rejected with the row's
+    #: error (`research/zig-rows.md` in the refresh-zig change).
+    probes: dict[str, str] = field(
+        default_factory=lambda: {
+            "unused local constant": (
+                "export fn probe() void {\n    const x: u32 = 1;\n}\n"
+            ),
+            "unused local variable": (
+                "export fn probe() void {\n    var x: u32 = 1;\n}\n"
+            ),
+            "unused function parameter": ("export fn probe(x: u32) void {}\n"),
+            "unused capture": (
+                "export fn probe(o: ?*u32) void {\n    if (o) |p| {}\n}\n"
+            ),
+            "pointless discard of …": (
+                "export fn probe() u32 {\n"
+                "    const x: u32 = 1;\n"
+                "    _ = x;\n"
+                "    return x;\n"
+                "}\n"
+            ),
+            "local variable is never mutated": (
+                "export fn probe() u32 {\n    var x: u32 = 1;\n    return x;\n}\n"
+            ),
+            "… shadows declaration of …": (
+                "const count: u32 = 1;\n"
+                "export fn probe() u32 {\n"
+                "    const count: u32 = 2;\n"
+                "    return count;\n"
+                "}\n"
+            ),
+            "… shadows … from outer scope": (
+                "export fn probe() u32 {\n"
+                "    const a: u32 = 1;\n"
+                "    {\n"
+                "        const a: u32 = 2;\n"
+                "        return a;\n"
+                "    }\n"
+                "    return a;\n"
+                "}\n"
+            ),
+            "name shadows primitive …": (
+                "export fn probe() u32 {\n    const u8: u32 = 1;\n    return u8;\n}\n"
+            ),
+            "unused … label": (
+                "var n: u32 = 0;\n"
+                "export fn probe() void {\n"
+                "    blk: {\n"
+                "        n += 1;\n"
+                "    }\n"
+                "}\n"
+            ),
+            "unattached documentation comment": (
+                "const S = struct {\n    x: u32,\n    /// Nothing follows this.\n};\n"
+            ),
+            "error … of type … is ignored": (
+                "fn f() error{Oops}!void {\n"
+                "    return error.Oops;\n"
+                "}\n"
+                "export fn probe() void {\n"
+                "    f();\n"
+                "}\n"
+            ),
+            "error union is discarded": (
+                "fn f() error{Oops}!u32 {\n"
+                "    return error.Oops;\n"
+                "}\n"
+                "export fn probe() void {\n"
+                "    _ = f();\n"
+                "}\n"
+            ),
+            "value of type … ignored": (
+                "fn g() u32 {\n"
+                "    return 1;\n"
+                "}\n"
+                "export fn probe() void {\n"
+                "    g();\n"
+                "}\n"
+            ),
+            "expected error union type, found …": (
+                "fn g() void {}\nexport fn probe() void {\n    try g();\n}\n"
+            ),
+            "expected optional type, found …": (
+                "fn g() u32 {\n"
+                "    return 1;\n"
+                "}\n"
+                "export fn probe() u32 {\n"
+                "    return g() orelse 0;\n"
+                "}\n"
+            ),
+            "operator == not allowed for type …": (
+                "const E = error{ A, B };\n"
+                "fn f(x: u8) E!u8 {\n"
+                "    if (x == 0) return error.A;\n"
+                "    return x;\n"
+                "}\n"
+                "export fn probe(x: u8) bool {\n"
+                "    return f(x) == 3;\n"
+                "}\n"
+            ),
+            "duplicate switch value …": (
+                "export fn probe(x: u8) u8 {\n"
+                "    return switch (x) {\n"
+                "        1 => 0,\n"
+                "        1 => 1,\n"
+                "        else => 2,\n"
+                "    };\n"
+                "}\n"
+            ),
+            "'try' not allowed inside defer expression": (
+                "fn mayFail() error{Oops}!void {}\n"
+                "export fn probe() void {\n"
+                "    defer mayFail() catch {};\n"
+                "}\n"
+                "fn g() error{Oops}!void {\n"
+                "    defer try mayFail();\n"
+                "}\n"
+                "comptime {\n"
+                "    _ = &g;\n"
+                "}\n"
+            ),
+            "cannot return from defer expression": (
+                "fn h() u32 {\n"
+                "    defer return 1;\n"
+                "    return 2;\n"
+                "}\n"
+                "comptime {\n"
+                "    _ = &h;\n"
+                "}\n"
+            ),
+            "unreachable code": (
+                "export fn probe() u32 {\n    return 1;\n    return 2;\n}\n"
+            ),
+            "returning address of expired local variable …": (
+                "fn f() *const u8 {\n"
+                "    var x: u8 = 1;\n"
+                "    _ = &x;\n"
+                "    return &x;\n"
+                "}\n"
+                "comptime {\n"
+                "    _ = &f;\n"
+                "}\n"
+            ),
+            "invalid builtin function: …": (
+                "export fn probe() void {\n    @setCold(true);\n}\n"
+            ),
+            "… not allowed in function with calling convention …": (
+                "export fn zs_f(s: []const u8) usize {\n    return s.len;\n}\n"
+            ),
+            "redundant comptime keyword in already comptime scope": (
+                'const std = @import("std");\n'
+                "const n = comptime std.math.log2_int(u32, 1024);\n"
+                "comptime {\n"
+                "    _ = n;\n"
+                "}\n"
             ),
         }
     )

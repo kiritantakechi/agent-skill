@@ -1,5 +1,5 @@
 // Canonical build.zig for a library + CLI project, lifted verbatim from
-// references/build-and-project.md ZS-BUILD-01, where it is marked verified against
+// references/build.md ZS-BUILD-01, where it is marked verified against
 // Zig 0.17.0. Rename `myproj` and delete the steps you do not need.
 // Referenced by ZS-BUILD-01, ZS-BUILD-02, ZS-BUILD-05, ZS-BUILD-32.
 

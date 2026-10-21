@@ -46,7 +46,7 @@ snippet's file name matters to the rule, it is named in the comment above it.
 - **Comments**
   - ZS-NAME-24 [M] `//!` at the file top, `///` on declarations, `//` for everything else
   - ZS-NAME-25 [M] Use std's contract phrasings verbatim
-  - ZS-NAME-26 [M] `assert` vs `assume` in doc comments (see ZS-ASRT-09)
+  - ZS-NAME-26 [M] `assert` vs `assume` in doc comments (see ZS-ASSERT-09)
   - ZS-NAME-27 [M] Say why, not what — including at the top of every test
   - ZS-NAME-28 [S] Comment typography: space after the slashes, capital letter, full stop
 - **Formatting**
@@ -61,6 +61,7 @@ snippet's file name matters to the rule, it is named in the comment above it.
   - ZS-NAME-35 [M] Name the two halves of a pair symmetrically
   - ZS-NAME-36 [M] One concept, one mechanism
   - ZS-NAME-37 [S] Keep sibling modules structurally parallel
+- Decided by tools
 
 ---
 
@@ -449,7 +450,7 @@ Singleton dependencies with unique types (an allocator, an `Io`, a tracer) stay 
 are threaded most-general to most-specific, because their types already prevent transposition.
 
 **Exempt: a `_max` / `_min` companion sitting beside the value it bounds.** `(op: u64, op_max: u64)`
-is two `u64`s and stays positional — as in ZS-ASRT-16's
+is two `u64`s and stays positional — as in ZS-ASSERT-16's
 `fn sendPrepareOk(status: Status, view: u32, op: u64, op_max: u64) bool` and ZS-NAME-15's
 `fn checksumSlice(bytes: []const u8, count: u32, size: u32) u64`. The pair is not transposable in
 practice: `op_max` is named *after* `op` and reads as its ceiling, so a swapped call is wrong at a
@@ -474,8 +475,8 @@ members — do not invent a parameter order: copy `std.sort`'s.
 
 **Why:** TigerStyle's "callbacks go last" was a rule about hand-threaded continuations in Zig 0.14,
 where there was no I/O interface and TigerBeetle had to build its own event loop (its `main` still
-pins 0.14.1). ZS-IO-37 [M] retires that rationale: `io.async` returns a `Future` you `await` in the
-caller's own lexical scope, so there is no continuation to position. What replaces it is not a
+pins 0.14.1). ZS-CONC-37 [M] retires that rationale: `io.async` returns a `Future` you `await` in
+the caller's own lexical scope, so there is no continuation to position. What replaces it is not a
 different rule of thumb but a concrete shape, from `sort.zig` at 0.17.0 — `insertion`,
 `heap`, `pdq`, `block`, `argMin`, `argMax`, `min`, `max`, `isSorted`, `binarySearch`, `lowerBound`,
 `upperBound`, `equalRange`, and `std.mem.sort` / `sortUnstable` all take:
@@ -502,7 +503,7 @@ and its `context` are adjacent because the fn's first parameter type is `@TypeOf
 them together is what makes `{}`-as-context work for a stateless predicate. When the behavior is
 baked into a *type* instead of a call, it moves to the type's comptime parameter list —
 `PriorityQueue(comptime T: type, comptime Context: type, comptime compareFn: …)` — and the data
-arrives later through the methods. See ZS-CT-17 for the `Context` design itself.
+arrives later through the methods. See ZS-COMPTIME-17 for the `Context` design itself.
 
 **Check:** any new function taking a `comptime …Fn` should be diff-able against a `std.sort`
 signature; if the fn is not adjacent to its `context`, or the data is not before both, it is a
@@ -872,7 +873,7 @@ the two mechanical readings; the rest of this rule is a tie-break, not a check.
 
 ### ZS-NAME-22 [M] Use the `test <declRef>` form (see ZS-TEST-02)
 
-Owned by `references/testing-and-fuzzing.md` ZS-TEST-02: write `test append { … }` rather than
+Owned by `references/testing.md` ZS-TEST-02: write `test append { … }` rather than
 `test "append works" { … }` when the test targets one declaration, and note that `test <name>`
 resolves file-scope declarations only.
 
@@ -1022,9 +1023,9 @@ of `Caller owns returned memory.`, "pointers may move" instead of the invalidati
 is thread-safe" instead of `Thread-safe.` And: any declaration named in a doc comment without
 backticks, which is a cross-reference that will not become a link.
 
-### ZS-NAME-26 [M] `assert` vs `assume` in doc comments (see ZS-ASRT-09)
+### ZS-NAME-26 [M] `assert` vs `assume` in doc comments (see ZS-ASSERT-09)
 
-Owned by `references/assertions-and-limits.md` ZS-ASRT-09. In a doc comment, **assert** describes an
+Owned by `references/assertions.md` ZS-ASSERT-09. In a doc comment, **assert** describes an
 invariant whose violation is safety-checked illegal behavior and **assume** one whose violation is
 unchecked; never swap them. The phrasings themselves are tabulated in ZS-NAME-25.
 
@@ -1141,13 +1142,13 @@ so it needs its own CI line.
 
 ### ZS-NAME-31 [M] Brace every `if` unless the whole statement fits on one line (see ZS-ERR-22)
 
-Owned by `references/errors-and-control-flow.md` ZS-ERR-22. `if (a) assert(b);` on one line is fine;
+Owned by `references/errors.md` ZS-ERR-22. `if (a) assert(b);` on one line is fine;
 anything that wraps gets braces, and a braceless body on the following line is never acceptable —
 `zig fmt` preserves it, so the indentation lies about control flow.
 
 ### ZS-NAME-32 [M] Blank-line-group each allocation with its `defer` / `errdefer` (see ZS-MEM-11)
 
-Owned by `references/memory-and-allocators.md` ZS-MEM-11. The `defer`/`errdefer` goes on the line
+Owned by `references/memory.md` ZS-MEM-11. The `defer`/`errdefer` goes on the line
 immediately after the acquisition, and the pair is separated from surrounding code by blank lines so
 that a missing release reads as a one-line group instead of a two-line one.
 
@@ -1226,7 +1227,7 @@ A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`clos
 copy it.
 
 **Why:** matched names are what make a pair recognizable as a pair, which is how a reader knows the
-inverse exists without searching for it (ZS-TYPE-39). Mismatched halves read as unrelated
+inverse exists without searching for it (ZS-DATA-39). Mismatched halves read as unrelated
 operations, so the reader hunts for a `decode` that was spelled `parse`.
 
 **Check:** list every operation with an inverse and read the two names aloud together. If they do
@@ -1258,3 +1259,21 @@ fixes it across files).
 
 **Check:** list the declaration kinds in each sibling module side by side. A row present in three of
 four siblings is either missing from the fourth or unnecessary in the others.
+
+## Decided by tools
+
+The compiler rejects each of these on its own; no setting turns one off.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| zig | `unused local constant` | error | a local constant nothing reads |
+| zig | `unused local variable` | error | a local variable nothing reads |
+| zig | `unused function parameter` | error | a parameter the body never reads; name it `_` |
+| zig | `unused capture` | error | a payload capture the body never reads; capture `\|_\|` |
+| zig | `pointless discard of …` | error | `_ = x;` for a name the code goes on to use |
+| zig | `local variable is never mutated` | error | a `var` nothing writes after its initializer; make it `const` |
+| zig | `… shadows declaration of …` | error | a local or parameter named like a declaration in scope |
+| zig | `… shadows … from outer scope` | error | a local named like a local of an enclosing scope |
+| zig | `name shadows primitive …` | error | a name such as `u8`, `type` or `true` |
+| zig | `unused … label` | error | a block or loop label nothing breaks to or continues |
+| zig | `unattached documentation comment` | error | a `///` comment with no declaration after it |

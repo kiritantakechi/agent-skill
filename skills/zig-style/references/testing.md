@@ -149,7 +149,7 @@ is used only when no single declaration is the subject, and then it states what 
 condition.
 
 ### ZS-TEST-04 [M] Every source file must be reachable from a test binary (see ZS-BUILD-18)
-Owned by `references/build-and-project.md` ZS-BUILD-18: a `test` block in a file reached only
+Owned by `references/build.md` ZS-BUILD-18: a `test` block in a file reached only
 through a lazily-analyzed declaration is never collected, so the suite goes green with untested
 code. Reference each such file explicitly from the module root (`test { _ = @import("codec.zig");
 }`). A test binary tests one module at a time, so a lib+exe project needs at least two `b.addTest`
@@ -1121,7 +1121,7 @@ test "decode rejects a length prefix larger than the remaining input" {
 ```
 
 ### ZS-TEST-29 [S] Keep unit, integration, and fuzz targets in their proper places (see ZS-BUILD-05)
-Owned by `references/build-and-project.md` ZS-BUILD-05 and ZS-BUILD-01: integration tests get their
+Owned by `references/build.md` ZS-BUILD-05 and ZS-BUILD-01: integration tests get their
 own `addTest` and their own build step, so `zig build test` stays fast and `zig build
 test-integration` runs the slow set. Unit tests are co-located (ZS-TEST-01); fuzz targets sit beside
 the parser or state machine they target, with a corpus (ZS-TEST-20, ZS-TEST-21).

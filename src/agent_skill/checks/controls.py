@@ -299,6 +299,16 @@ STRUCTURE: list[Control] = [
             "| ty | `deprecated` | error |",
         ),
     ),
+    Control(
+        "a compiler row naming an error its probe does not print",
+        "citations",
+        lambda t: edit(
+            t,
+            "zig-style/references/naming.md",
+            "| zig | `unused local constant` |",
+            "| zig | `unused local konstant` |",
+        ),
+    ),
 ]
 
 
@@ -509,10 +519,10 @@ CONTROLS: list[Control] = [
         # brought over to standard-structure removed theirs.
         lambda t: edit(
             t,
-            "zig-style/references/comptime-and-generics.md",
+            "zig-style/references/comptime.md",
             "constant, and nothing in the build output says so. "
-            "See also ZS-CT-07 on bounding",
-            "constant.\n\n**Why:** it is. See also ZS-CT-07 on bounding",
+            "See also ZS-COMPTIME-07 on bounding",
+            "constant.\n\n**Why:** it is. See also ZS-COMPTIME-07 on bounding",
         ),
     ),
     Control(
@@ -541,10 +551,10 @@ CONTROLS: list[Control] = [
         "anatomy",
         lambda t: edit(
             t,
-            "zig-style/references/types-and-data.md",
-            "ZS-TYPE-30 [M] Return the lowest-dimensionality type "
+            "zig-style/references/data.md",
+            "ZS-DATA-30 [M] Return the lowest-dimensionality type "
             "that can carry the answer",
-            "ZS-TYPE-30 [M] Reference long-lived elements by handle, not by pointer",
+            "ZS-DATA-30 [M] Reference long-lived elements by handle, not by pointer",
             2,
         ),
     ),
@@ -562,7 +572,7 @@ CONTROLS: list[Control] = [
         "a prose line over the column limit",
         "layout",
         lambda t: append(
-            t, "zig-style/references/types-and-data.md", "\n" + "x " * 60 + "\n"
+            t, "zig-style/references/data.md", "\n" + "x " * 60 + "\n"
         ),
     ),
     Control(
@@ -570,7 +580,7 @@ CONTROLS: list[Control] = [
         "markers",
         lambda t: edit(
             t,
-            "zig-style/references/naming-and-files.md",
+            "zig-style/references/naming.md",
             "// fragment — BAD\n",
             "// fragment — BAD\n// GOOD\n",
         ),
@@ -585,7 +595,7 @@ CONTROLS: list[Control] = [
         "conventions",
         lambda t: edit(
             t,
-            "zig-style/references/types-and-data.md",
+            "zig-style/references/data.md",
             '// verified — GOOD\nconst std = @import("std");',
             '// verified — GOOD\nconst std = @import("std");\n'
             "const injected: u8 = (@as(?u8, 3)).?;",
@@ -596,7 +606,7 @@ CONTROLS: list[Control] = [
         "conventions",
         lambda t: edit(
             t,
-            "zig-style/references/c-interop-and-targets.md",
+            "zig-style/references/interop.md",
             'const builtin = @import("builtin");\nconst std = @import("std");\n'
             "const assert = std.debug.assert;",
             'const std = @import("std");\nconst builtin = @import("builtin");\n'
@@ -608,7 +618,7 @@ CONTROLS: list[Control] = [
         "prose",
         lambda t: append(
             t,
-            "zig-style/references/types-and-data.md",
+            "zig-style/references/data.md",
             "\nMeasured on this machine: the layout is stable.\n",
         ),
     ),
@@ -617,7 +627,7 @@ CONTROLS: list[Control] = [
         "prose",
         lambda t: edit(
             t,
-            "zig-style/references/types-and-data.md",
+            "zig-style/references/data.md",
             "**Why:**",
             "Reach for `slot.?` when the optional is provably present.\n\n**Why:**",
         ),
@@ -659,7 +669,7 @@ CONTROLS: list[Control] = [
         "sensitivity",
         lambda t: edit(
             t,
-            "zig-style/references/migration-and-dead-apis.md",
+            "zig-style/references/migration.md",
             "rg -n 'captureStackTrace|dumpStackTraceFromBase|walkStackWindows' src/",
             "rg -n 'dumpStackTraceFromBase|walkStackWindows' src/",
         ),
@@ -675,7 +685,7 @@ CONTROLS: list[Control] = [
         "sensitivity",
         lambda t: edit(
             t,
-            "zig-style/references/migration-and-dead-apis.md",
+            "zig-style/references/migration.md",
             "rg -n 'captureStackTrace|dumpStackTraceFromBase|walkStackWindows' src/",
             "rg -n 'utf8Decode\\b' src/",
         ),
@@ -718,7 +728,7 @@ CONTROLS: list[Control] = [
         "dialect",
         lambda t: edit(
             t,
-            "zig-style/references/testing-and-fuzzing.md",
+            "zig-style/references/testing.md",
             "rg -n 'Io.Threaded|Io.Uring|Io.Kqueue'",
             "rg -n 'Io.Threaded\\|Io.Uring\\|Io.Kqueue'",
         ),
@@ -745,7 +755,7 @@ CONTROLS: list[Control] = [
         "self-application",
         lambda t: edit(
             t,
-            "zig-style/references/build-and-project.md",
+            "zig-style/references/build.md",
             "has this block",
             "carries the guard",
         ),
@@ -755,7 +765,7 @@ CONTROLS: list[Control] = [
         "mirror",
         lambda t: edit(
             t,
-            "zig-style/references/naming-and-files.md",
+            "zig-style/references/naming.md",
             "### ZS-NAME-02 [M] Capitalize acronyms as ordinary English words",
             "### ZS-NAME-02 [S] Capitalize acronyms as ordinary English words",
         ),

@@ -5,8 +5,8 @@ read the domain files as the code demands them.
 
 ## Severity model
 
-Report every finding with one of these labels. The label sets the ordering of
-the review and tells the author what must change before merge.
+Report every finding with one of these labels. The label sets the ordering of the review and tells
+the author what must change before merge.
 
 | Severity | Meaning | Examples |
 |---|---|---|
@@ -18,12 +18,9 @@ the review and tells the author what must change before merge.
 | **Performance** | Measurable, avoidable cost | Allocation per loop iteration, unbuffered writer, byte-at-a-time reads, a hot struct that outgrew a cache line |
 | **Style** | Idiom and readability | Naming, declaration order, comment typography, a `zig fmt` diff |
 
-Illegal and Stale findings block — Stale because a silent alias means the code
-is being written against a mental model that will produce a worse bug next
-time. Incorrect blocks. Contract findings block a release. Design and
-Performance findings need a decision, not necessarily a change. Style findings
-are batched — do not spend a review's attention budget on them while an aliasing
-bug sits unaddressed.
+Unsound, Stale and Incorrect findings block a merge. Contract findings block a release. Design and
+Performance findings need a decision, not necessarily a change. Style findings are batched — do not
+spend a review's attention on them while an Unsound or Incorrect finding sits unaddressed.
 
 ## Review order
 
@@ -40,21 +37,21 @@ each stage can invalidate the work of reading the next.
 3. **Illegal behaviour.** Every `@intCast`, `@ptrCast`, `@alignCast`, and
    `@bitCast`: is the precondition established? Every `undefined`. Every
    `noalias`. Every `unreachable` reachable from operating input. Ask what
-   `fast` does with each, not what `debug` does. (`ZS-TYPE`, `ZS-ASRT`)
+   `fast` does with each, not what `debug` does. (`ZS-DATA`, `ZS-ASSERT`)
 4. **Errors.** Every `catch unreachable` and `catch |_|`: is this a programmer
    error (assert) or an operating error (propagate)? Any `anyerror` in a public
    signature. Any error swallowed to satisfy a signature.
    (`ZS-ERR`, `ZS-CORE-07`, `ZS-CORE-19`)
 5. **Assertions and bounds.** Is the assertion density near two per function?
    Does every loop have a provable upper bound, every queue a limit, every
-   recursion a proof or an explicit stack? (`ZS-ASRT`, `ZS-CORE-08`,
+   recursion a proof or an explicit stack? (`ZS-ASSERT`, `ZS-CORE-08`,
    `ZS-CORE-11`, `ZS-CORE-20`)
 6. **Public API.** What is newly `pub`? Is the ownership documented? Is the
    error set explicit and minimal? Would a caller be able to tell from the
    signature who frees what? (`ZS-NAME-23`, `ZS-ERR`)
 7. **Concurrency.** Every `Io.async` without a matching `await`, every
    `Group`/`Select`, cancellation paths, and anything holding a resource across
-   a suspension point. (`ZS-IO`)
+   a suspension point. (`ZS-CONC`)
 8. **Function bodies.** Now read the code. Compound conditions that want
    splitting, functions past 70 lines, control flow that wants a labeled switch.
    (`ZS-CORE-17`, `ZS-CORE-21`)

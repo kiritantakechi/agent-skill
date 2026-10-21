@@ -11,12 +11,12 @@ the 0.13/0.14 -> 0.16 changes, with each right-hand column brought to its 0.17 s
 status to what 0.17 does with the old spelling; Part 7 is what 0.17 itself changed.
 
 This chapter is the **single home for dead-API tables**. Other chapters teach the new designs and
-cite these tables rather than reprinting them — in particular `references/io-and-concurrency.md`
-ZS-IO-39 points at ZS-MIG-03 (streams), ZS-MIG-05 (filesystem), and ZS-MIG-10 (concurrency, time,
+cite these tables rather than reprinting them — in particular `references/concurrency.md`
+ZS-CONC-39 points at ZS-MIG-03 (streams), ZS-MIG-05 (filesystem), and ZS-MIG-10 (concurrency, time,
 randomness).
 
 Every example assumes a file opening with `const std = @import("std");` and
-`const assert = std.debug.assert;` — assertions are called bare, per ZS-ASRT-01. Snippets that use
+`const assert = std.debug.assert;` — assertions are called bare, per ZS-ASSERT-01. Snippets that use
 `io` or `gpa` assume they came from `std.process.Init` (ZS-MIG-09) or `std.testing`.
 
 The tables use three status values:
@@ -52,6 +52,7 @@ The tables use three status values:
 - **Part 8 — Enforcing it**
   - ZS-MIG-14 [M!] Fail the build on deprecated-but-compiling spellings
   - SMELL TEST
+- Decided by tools
 
 ---
 
@@ -88,8 +89,8 @@ All rows below were confirmed by compiling a probe with `zig build-obj` on 0.16.
 
 **Why:** not applicable — this section is a lookup table, not a single rule. The rationale for each
 replacement is owned by the chapter that teaches it: the `@Type` split is
-`references/comptime-and-generics.md` ZS-CT-18, `usingnamespace` is ZS-CT-27, colorless concurrency
-is `references/io-and-concurrency.md`, and `@branchHint` is `references/errors-and-control-flow.md`
+`references/comptime.md` ZS-COMPTIME-18, `usingnamespace` is ZS-COMPTIME-27, colorless concurrency
+is `references/concurrency.md`, and `@branchHint` is `references/errors.md`
 ZS-ERR-31.
 
 **Check:** grep the diff for `usingnamespace`, `@Type(`, `@setCold`, `@fence(`, `@setAlignStack`,
@@ -133,10 +134,10 @@ Constructs added in 0.14, 0.16 and 0.17 that current code is expected to use:
 
 The `@Type` row is a lookup entry only. Which of the eight replacement builtins to reach for, their
 signatures and arities, and why there is deliberately no `@Float`/`@Array`/`@Optional` are owned by
-`references/comptime-and-generics.md` ZS-CT-18.
+`references/comptime.md` ZS-COMPTIME-18.
 
 `usingnamespace` has no replacement construct — this row is the whole answer, and
-`references/comptime-and-generics.md` ZS-CT-27 points here. Re-export one `pub const` per name.
+`references/comptime.md` ZS-COMPTIME-27 points here. Re-export one `pub const` per name.
 There is no mixin, no wildcard, and no conditional-declaration trick; a declaration that used to be
 conditionally mixed in becomes a `pub const x = if (cond) a else b;` or a separate file selected by
 `@import`.
@@ -347,7 +348,7 @@ var dir: std.Io.Dir = .cwd();
 try dir.writeFile(io, .{ .sub_path = "demo.txt", .data = "line1\nline2\n" });
 // Best-effort cleanup, so not `try`. Logged rather than discarded, because a silent
 // `catch {}` is a dropped error (ZS-ERR-11). Absorbing the `error.Canceled` in
-// `deleteFile`'s set is legal here only because this scope is unwinding (ZS-IO-27).
+// `deleteFile`'s set is legal here only because this scope is unwinding (ZS-CONC-27).
 defer dir.deleteFile(io, "demo.txt") catch |err|
     std.log.warn("removing demo.txt: {t}", .{err});
 
@@ -441,13 +442,13 @@ try std.testing.expectEqualStrings("value", parts[1]);
 `std.ArrayList(T).init(gpa)` is now
 `error: struct 'array_list.Aligned(u8,null)' has no member named 'init'`.
 
-Decl-literal construction is `references/types-and-data.md` ZS-TYPE-13; the
-`std.BoundedArray`/`SegmentedList` replacements are ZS-TYPE-26; *why* the allocator is a per-call
-parameter rather than a field is `references/memory-and-allocators.md` ZS-MEM-06. The table below is
+Decl-literal construction is `references/data.md` ZS-DATA-13; the
+`std.BoundedArray`/`SegmentedList` replacements are ZS-DATA-26; *why* the allocator is a per-call
+parameter rather than a field is `references/memory.md` ZS-MEM-06. The table below is
 the lookup surface for all three.
 
 **Why:** not applicable — this section is a rename table, not a single rule. The rationale for the
-unmanaged shape belongs to `references/memory-and-allocators.md` ZS-MEM-06, cited above.
+unmanaged shape belongs to `references/memory.md` ZS-MEM-06, cited above.
 
 **Check:** grep the diff for `ArrayListUnmanaged`, `array_list.Managed`, `BoundedArray`,
 `SegmentedList`, `TailQueue`, `ComptimeStringMap`, and `std.ArrayHashMap`/`AutoArrayHashMap`/
@@ -545,7 +546,7 @@ The migration consequence, in one line: **an allocator written before 0.16 will 
 because `remap` is a required vtable member and every slot takes `alignment: std.mem.Alignment`
 instead of a `u8` log2 alignment. The vtable's exact declaration and the four members' contracts —
 including why returning `null` from `remap` is a correct answer rather than a failure — are owned by
-`references/memory-and-allocators.md` ZS-MEM-24. Unimplementable slots take `Allocator.noAlloc` /
+`references/memory.md` ZS-MEM-24. Unimplementable slots take `Allocator.noAlloc` /
 `noResize` / `noRemap` / `noFree`.
 
 ```zig
@@ -595,7 +596,7 @@ pub const Init = struct {
 |---|---|---|
 | `pub fn main() !void` + manual GPA | `pub fn main(init: std.process.Init) !void` | compiles, but obsolete |
 | `std.process.argsAlloc(gpa)` / `argsFree` | `try init.minimal.args.toSlice(arena)` -> `[]const [:0]const u8` | gone |
-| any std argument *parser* | there has never been one; hand-roll it (`references/build-and-project.md` ZS-BUILD-42) | — |
+| any std argument *parser* | there has never been one; hand-roll it (`references/build.md` ZS-BUILD-41) | — |
 | `std.process.getEnvMap(gpa)` | `init.environ_map` | gone |
 | `var gpa_state = GPA(.{}){}; const gpa = …` | `const gpa = init.gpa;` | — |
 | `std.io.getStdOut()` | `std.Io.File.stdout()` + `init.io` | gone |
@@ -652,7 +653,7 @@ and `std.crypto.random`. Then the two plausible names that do not exist: `Durati
 | `std.Thread.WaitGroup` | `std.Io.Group` | gone |
 | `std.Thread.Pool` | removed — `io.async` / `Io.Group`; `Io.Threaded`'s `async_limit: Io.Limit` **is** the pool size | gone |
 | `std.Thread.Mutex.Recursive` | removed | gone |
-| `std.event.Loop` | `Io.Threaded`; `Io.Evented` is experimental and no backend builds in 0.17 (ZS-IO-04) | gone |
+| `std.event.Loop` | `Io.Threaded`; `Io.Evented` is experimental and no backend builds in 0.17 (ZS-CONC-04) | gone |
 | `std.once` | removed | gone |
 | `std.time.Timer` / `Instant` | `std.Io.Timestamp` | gone |
 | `std.time.timestamp()` / `milliTimestamp()` | `std.Io.Timestamp.now(...)` | gone |
@@ -680,7 +681,7 @@ try group.await(io);
 fn bump(io: std.Io) void {
     // Cancellation is signalled exactly once, at the next cancellation point.
     // Swallowing it with `catch {}` would leave `group.await` blocked forever
-    // (ZS-IO-27) — handle it explicitly, even when the handling is "stop".
+    // (ZS-CONC-27) — handle it explicitly, even when the handling is "stop".
     io.sleep(.fromMilliseconds(1), .awake) catch |err| switch (err) {
         error.Canceled => return,
     };
@@ -692,12 +693,12 @@ fn bump(io: std.Io) void {
 ### ZS-MIG-11 [M] Testing: `std.testing.io`, `Smith` fuzz inputs, `tmpDir(Io.Dir.OpenOptions)`
 
 The three test-surface changes that break 0.14 test code. How to *use* them is owned by the testing
-chapter: `std.testing.io` and test-time I/O are `references/testing-and-fuzzing.md` ZS-TEST-09;
+chapter: `std.testing.io` and test-time I/O are `references/testing.md` ZS-TEST-09;
 writing `Smith`-shaped fuzz targets is ZS-TEST-20; the `Smith` types you may and may not ask for is
 ZS-TEST-22. This table is the rename lookup.
 
 **Why:** not applicable — this section is a rename table, not a single rule. The reasoning behind
-`Smith` and test-time `Io` is owned by `references/testing-and-fuzzing.md` ZS-TEST-09 and
+`Smith` and test-time `Io` is owned by `references/testing.md` ZS-TEST-09 and
 ZS-TEST-20, cited above.
 
 **Check:** in test code, grep for a fuzz target whose parameter is `[]const u8` rather than
@@ -734,10 +735,9 @@ defer tmp.cleanup();
 try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "a.txt", .data = "hello" });
 ```
 
-Note that `zig build test --fuzz` works again on 0.17.0 (it did not build on 0.16.0, which is what
-`references/build-and-project.md` ZS-BUILD-35 recorded). `zig test -ffuzz` builds, but its runner
-panics with `missing --cache-dir=[path] argument`, so fuzz through `zig build`. The corpus still
-runs under plain `zig test`.
+Note that `zig build test --fuzz` works again on 0.17.0; it did not build on 0.16.0. `zig test
+-ffuzz` builds, but its runner panics with `missing --cache-dir=[path]
+argument`, so fuzz through `zig build`. The corpus still runs under plain `zig test`.
 
 ---
 
@@ -752,12 +752,12 @@ among them. (`use_new_linker` is a field on the
 returned `Step.Compile`, assigned after creation, not an option.)
 
 The build chapter owns the reasoning and the shapes to write instead: module-vs-artifact settings
-are `references/build-and-project.md` ZS-BUILD-02, `addLibrary(.{ .linkage })` is ZS-BUILD-07, the
+are `references/build.md` ZS-BUILD-02, `addLibrary(.{ .linkage })` is ZS-BUILD-07, the
 `build.zig.zon` manifest fields are ZS-BUILD-10, and `.paths` is ZS-BUILD-12. Below is the rename
 lookup only.
 
 **Why:** not applicable — this section is a rename table, not a single rule. The reasoning for the
-module-versus-artifact split is owned by `references/build-and-project.md` ZS-BUILD-02, cited above.
+module-versus-artifact split is owned by `references/build.md` ZS-BUILD-02, cited above.
 
 **Check:** in `build.zig`, every `root_source_file` must sit inside a `createModule`/`addModule`
 literal, never inside an `addExecutable`/`addLibrary`/`addTest` one; then grep for
@@ -778,7 +778,7 @@ beginning `1220`.
 | `@cImport` in source | `b.addTranslateC(.{ .root_source_file, .target, .optimize })` -> `.createModule()`, which the 0.17 release notes deprecate for the translate-c package (Part 7) | gone |
 | `LazyPath.getPath` / `getPath2` / `getPath3` / `getPath4` | none: 0.17 resolves a path only when a step runs, so hand the `LazyPath` to the step that reads it | gone (0.16 kept the first three as aliases) |
 | `GeneratedFile.getPath` / `getPath2` / `getPath3` | none: `std.Build.GeneratedFile` is removed | gone |
-| `-Dno-bin` skip-the-binary idiom | a `check` step whose artifacts are never installed or run (`references/build-and-project.md` ZS-BUILD-32) | — |
+| `-Dno-bin` skip-the-binary idiom | a `check` step whose artifacts are never installed or run (`references/build.md` ZS-BUILD-32) | — |
 
 `build.zig.zon` changed independently. **`.name` is an enum literal there, and a plain string in
 `build.zig`** — mixing these up is a common error:
@@ -805,7 +805,7 @@ const exe = b.addExecutable(.{
 ```
 
 The full canonical `build.zig` — every step a project should expose, and how the test binaries are
-wired — is `references/build-and-project.md` ZS-BUILD-01. Do not reconstruct it from this table.
+wired — is `references/build.md` ZS-BUILD-01. Do not reconstruct it from this table.
 
 ---
 
@@ -992,8 +992,8 @@ release supports Zig 0.17.0.
 
 Add a CI step that greps the source for the **alias** rows above and fails on a hit, pin the
 toolchain for real — `.minimum_zig_version` is documentation only, so use a pinned CI version plus
-the `comptime builtin.zig_version` guard (`references/build-and-project.md` ZS-BUILD-34,
-ZS-BUILD-40) — and treat a toolchain bump as a migration task with its own review.
+the `comptime builtin.zig_version` guard (`references/build.md` ZS-BUILD-34,
+ZS-BUILD-39) — and treat a toolchain bump as a migration task with its own review.
 
 **`[M!]` trigger:** high-reliability code — databases, consensus, crypto, allocators, parsers on
 untrusted input, embedded firmware — anything where corruption is unacceptable and upgrade windows
@@ -1043,7 +1043,7 @@ rg -n --type zig \
 
 Some `alias` rows are **deliberately** not on the list, and the exclusion is part of the rule — a
 denylist nobody trusts gets deleted. `@intFromFloat` and `@floatFromInt` are legal, unremarkable
-builtins that this standard merely prefers to spell more informatively (ZS-TYPE-11), so gating them
+builtins that this standard merely prefers to spell more informatively (ZS-DATA-11), so gating them
 would fail builds over a preference. `@intFromEnum` and `@enumFromInt` need no grep:
 `zig fmt --check` rewrites them, so the format gate already fails. `heap.ArenaAllocator`
 default-init `.{}` has no spelling a regex can distinguish from any other `.{}`, and
@@ -1083,3 +1083,224 @@ whole file, not just the flagged line.
 15. `std.builtin.`, `builtin.mode == .Debug`, `std.heap.DebugAllocator`, `std.fmt.allocPrint`,
     `if (b.args)`, or `@typeInfo(T).@"struct".fields` — a pre-0.17 model, whether or not it still
     compiles (Part 7).
+
+## Decided by tools
+
+The compiler rejects each of these on its own; no setting turns one off.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| zig | `invalid builtin function: …` | error | a builtin 0.17 no longer has: `@setCold`, `@Type`, `@fence`, `@setAlignStack`, `@optimizeFor` |
+
+## Rule IDs before the Zig 0.17.0 revision
+
+Before the revision the families ran `ZS-ASRT-01`–`ZS-ASRT-33`, `ZS-BUILD-01`–`ZS-BUILD-43`,
+`ZS-CAPI-01`–`ZS-CAPI-23`, `ZS-CT-01`–`ZS-CT-28`, `ZS-ERR-01`–`ZS-ERR-38`, `ZS-FMT-01`–`ZS-FMT-20`,
+`ZS-IO-01`–`ZS-IO-48`, `ZS-MEM-01`–`ZS-MEM-28`, `ZS-MIG-01`–`ZS-MIG-14`, `ZS-NAME-01`–`ZS-NAME-37`,
+`ZS-PERF-01`–`ZS-PERF-24`, `ZS-TEST-01`–`ZS-TEST-29` and `ZS-TYPE-01`–`ZS-TYPE-41`. The table lists
+every ID in those ranges that changed, and what it is now; an ID it does not list is unchanged.
+
+| Before | Now |
+|---|---|
+| `ZS-ASRT-01` | `ZS-ASSERT-01` |
+| `ZS-ASRT-02` | `ZS-ASSERT-02` |
+| `ZS-ASRT-03` | `ZS-ASSERT-03` |
+| `ZS-ASRT-04` | `ZS-ASSERT-04` |
+| `ZS-ASRT-05` | `ZS-ASSERT-05` |
+| `ZS-ASRT-06` | `ZS-ASSERT-06` |
+| `ZS-ASRT-07` | `ZS-ASSERT-07` |
+| `ZS-ASRT-08` | `ZS-ASSERT-08` |
+| `ZS-ASRT-09` | `ZS-ASSERT-09` |
+| `ZS-ASRT-10` | `ZS-ASSERT-10` |
+| `ZS-ASRT-11` | `ZS-ASSERT-11` |
+| `ZS-ASRT-12` | `ZS-ASSERT-12` |
+| `ZS-ASRT-13` | `ZS-ASSERT-13` |
+| `ZS-ASRT-14` | `ZS-ASSERT-14` |
+| `ZS-ASRT-15` | `ZS-ASSERT-15` |
+| `ZS-ASRT-16` | `ZS-ASSERT-16` |
+| `ZS-ASRT-17` | `ZS-ASSERT-17` |
+| `ZS-ASRT-18` | `ZS-ASSERT-18` |
+| `ZS-ASRT-19` | `ZS-ASSERT-19` |
+| `ZS-ASRT-20` | `ZS-ASSERT-20` |
+| `ZS-ASRT-21` | `ZS-ASSERT-21` |
+| `ZS-ASRT-22` | `ZS-ASSERT-22` |
+| `ZS-ASRT-23` | `ZS-ASSERT-23` |
+| `ZS-ASRT-24` | `ZS-ASSERT-24` |
+| `ZS-ASRT-25` | `ZS-ASSERT-25` |
+| `ZS-ASRT-26` | `ZS-ASSERT-26` |
+| `ZS-ASRT-27` | `ZS-ASSERT-27` |
+| `ZS-ASRT-28` | `ZS-ASSERT-28` |
+| `ZS-ASRT-29` | `ZS-ASSERT-29` |
+| `ZS-ASRT-30` | `ZS-ASSERT-30` |
+| `ZS-ASRT-31` | `ZS-ASSERT-31` |
+| `ZS-ASRT-32` | `ZS-ASSERT-32` |
+| `ZS-ASRT-33` | `ZS-ASSERT-33` |
+| `ZS-BUILD-35` | removed — `zig build test --fuzz` and `zig reduce` work in 0.17, the condition this rule set for its own removal |
+| `ZS-BUILD-36` | `ZS-BUILD-35` |
+| `ZS-BUILD-37` | `ZS-BUILD-36` |
+| `ZS-BUILD-38` | `ZS-BUILD-37` |
+| `ZS-BUILD-39` | `ZS-BUILD-38` |
+| `ZS-BUILD-40` | `ZS-BUILD-39` |
+| `ZS-BUILD-41` | `ZS-BUILD-40` |
+| `ZS-BUILD-42` | `ZS-BUILD-41` |
+| `ZS-BUILD-43` | `ZS-BUILD-42` |
+| `ZS-CAPI-01` | `ZS-INTEROP-01` |
+| `ZS-CAPI-02` | `ZS-INTEROP-02` |
+| `ZS-CAPI-03` | `ZS-INTEROP-03` |
+| `ZS-CAPI-04` | `ZS-INTEROP-04` |
+| `ZS-CAPI-05` | `ZS-INTEROP-05` |
+| `ZS-CAPI-06` | `ZS-INTEROP-06` |
+| `ZS-CAPI-07` | `ZS-INTEROP-07` |
+| `ZS-CAPI-08` | `ZS-INTEROP-08` |
+| `ZS-CAPI-09` | `ZS-INTEROP-09` |
+| `ZS-CAPI-10` | `ZS-INTEROP-10` |
+| `ZS-CAPI-11` | `ZS-INTEROP-11` |
+| `ZS-CAPI-12` | `ZS-INTEROP-12` |
+| `ZS-CAPI-13` | `ZS-INTEROP-13` |
+| `ZS-CAPI-14` | `ZS-INTEROP-14` |
+| `ZS-CAPI-15` | `ZS-INTEROP-15` |
+| `ZS-CAPI-16` | `ZS-INTEROP-16` |
+| `ZS-CAPI-17` | `ZS-INTEROP-17` |
+| `ZS-CAPI-18` | `ZS-INTEROP-18` |
+| `ZS-CAPI-19` | `ZS-INTEROP-19` |
+| `ZS-CAPI-20` | `ZS-INTEROP-20` |
+| `ZS-CAPI-21` | `ZS-INTEROP-21` |
+| `ZS-CAPI-22` | `ZS-INTEROP-22` |
+| `ZS-CAPI-23` | `ZS-INTEROP-23` |
+| `ZS-CT-01` | `ZS-COMPTIME-01` |
+| `ZS-CT-02` | `ZS-COMPTIME-02` |
+| `ZS-CT-03` | `ZS-COMPTIME-03` |
+| `ZS-CT-04` | `ZS-COMPTIME-04` |
+| `ZS-CT-05` | `ZS-COMPTIME-05` |
+| `ZS-CT-06` | `ZS-COMPTIME-06` |
+| `ZS-CT-07` | `ZS-COMPTIME-07` |
+| `ZS-CT-08` | `ZS-COMPTIME-08` |
+| `ZS-CT-09` | `ZS-COMPTIME-09` |
+| `ZS-CT-10` | `ZS-COMPTIME-10` |
+| `ZS-CT-11` | `ZS-COMPTIME-11` |
+| `ZS-CT-12` | `ZS-COMPTIME-12` |
+| `ZS-CT-13` | `ZS-COMPTIME-13` |
+| `ZS-CT-14` | `ZS-COMPTIME-14` |
+| `ZS-CT-15` | `ZS-COMPTIME-15` |
+| `ZS-CT-16` | `ZS-COMPTIME-16` |
+| `ZS-CT-17` | `ZS-COMPTIME-17` |
+| `ZS-CT-18` | `ZS-COMPTIME-18` |
+| `ZS-CT-19` | `ZS-COMPTIME-19` |
+| `ZS-CT-20` | `ZS-COMPTIME-20` |
+| `ZS-CT-21` | `ZS-COMPTIME-21` |
+| `ZS-CT-22` | `ZS-COMPTIME-22` |
+| `ZS-CT-23` | `ZS-COMPTIME-23` |
+| `ZS-CT-24` | `ZS-COMPTIME-24` |
+| `ZS-CT-25` | `ZS-COMPTIME-25` |
+| `ZS-CT-26` | `ZS-COMPTIME-26` |
+| `ZS-CT-27` | `ZS-COMPTIME-27` |
+| `ZS-CT-28` | `ZS-COMPTIME-28` |
+| `ZS-FMT-01` | `ZS-OUT-01` |
+| `ZS-FMT-02` | `ZS-OUT-02` |
+| `ZS-FMT-03` | `ZS-OUT-03` |
+| `ZS-FMT-04` | `ZS-OUT-04` |
+| `ZS-FMT-05` | `ZS-OUT-05` |
+| `ZS-FMT-06` | `ZS-OUT-06` |
+| `ZS-FMT-07` | `ZS-OUT-07` |
+| `ZS-FMT-08` | `ZS-OUT-08` |
+| `ZS-FMT-09` | `ZS-OUT-09` |
+| `ZS-FMT-10` | `ZS-OUT-10` |
+| `ZS-FMT-11` | `ZS-OUT-11` |
+| `ZS-FMT-12` | `ZS-OUT-12` |
+| `ZS-FMT-13` | `ZS-OUT-13` |
+| `ZS-FMT-14` | `ZS-OUT-14` |
+| `ZS-FMT-15` | `ZS-OUT-15` |
+| `ZS-FMT-16` | `ZS-OUT-16` |
+| `ZS-FMT-17` | `ZS-OUT-17` |
+| `ZS-FMT-18` | `ZS-OUT-18` |
+| `ZS-FMT-19` | `ZS-OUT-19` |
+| `ZS-FMT-20` | `ZS-OUT-20` |
+| `ZS-IO-01` | `ZS-CONC-01` |
+| `ZS-IO-02` | `ZS-CONC-02` |
+| `ZS-IO-03` | `ZS-CONC-03` |
+| `ZS-IO-04` | `ZS-CONC-04` |
+| `ZS-IO-05` | `ZS-CONC-05` |
+| `ZS-IO-06` | `ZS-CONC-06` |
+| `ZS-IO-07` | `ZS-CONC-07` |
+| `ZS-IO-08` | `ZS-CONC-08` |
+| `ZS-IO-09` | `ZS-CONC-09` |
+| `ZS-IO-10` | `ZS-CONC-10` |
+| `ZS-IO-11` | `ZS-CONC-11` |
+| `ZS-IO-12` | `ZS-CONC-12` |
+| `ZS-IO-13` | `ZS-CONC-13` |
+| `ZS-IO-14` | `ZS-CONC-14` |
+| `ZS-IO-15` | `ZS-CONC-15` |
+| `ZS-IO-16` | `ZS-CONC-16` |
+| `ZS-IO-17` | `ZS-CONC-17` |
+| `ZS-IO-18` | `ZS-CONC-18` |
+| `ZS-IO-19` | `ZS-CONC-19` |
+| `ZS-IO-20` | `ZS-CONC-20` |
+| `ZS-IO-21` | `ZS-CONC-21` |
+| `ZS-IO-22` | `ZS-CONC-22` |
+| `ZS-IO-23` | `ZS-CONC-23` |
+| `ZS-IO-24` | `ZS-CONC-24` |
+| `ZS-IO-25` | `ZS-CONC-25` |
+| `ZS-IO-26` | `ZS-CONC-26` |
+| `ZS-IO-27` | `ZS-CONC-27` |
+| `ZS-IO-28` | `ZS-CONC-28` |
+| `ZS-IO-29` | `ZS-CONC-29` |
+| `ZS-IO-30` | `ZS-CONC-30` |
+| `ZS-IO-31` | `ZS-CONC-31` |
+| `ZS-IO-32` | `ZS-CONC-32` |
+| `ZS-IO-33` | `ZS-CONC-33` |
+| `ZS-IO-34` | `ZS-CONC-34` |
+| `ZS-IO-35` | `ZS-CONC-35` |
+| `ZS-IO-36` | `ZS-CONC-36` |
+| `ZS-IO-37` | `ZS-CONC-37` |
+| `ZS-IO-38` | `ZS-CONC-38` |
+| `ZS-IO-39` | `ZS-CONC-39` |
+| `ZS-IO-40` | `ZS-CONC-40` |
+| `ZS-IO-41` | `ZS-CONC-41` |
+| `ZS-IO-42` | `ZS-CONC-42` |
+| `ZS-IO-43` | `ZS-CONC-43` |
+| `ZS-IO-44` | `ZS-CONC-44` |
+| `ZS-IO-45` | `ZS-CONC-45` |
+| `ZS-IO-46` | `ZS-CONC-46` |
+| `ZS-IO-47` | `ZS-CONC-47` |
+| `ZS-IO-48` | `ZS-CONC-48` |
+| `ZS-TYPE-01` | `ZS-DATA-01` |
+| `ZS-TYPE-02` | `ZS-DATA-02` |
+| `ZS-TYPE-03` | `ZS-DATA-03` |
+| `ZS-TYPE-04` | `ZS-DATA-04` |
+| `ZS-TYPE-05` | `ZS-DATA-05` |
+| `ZS-TYPE-06` | `ZS-DATA-06` |
+| `ZS-TYPE-07` | `ZS-DATA-07` |
+| `ZS-TYPE-08` | `ZS-DATA-08` |
+| `ZS-TYPE-09` | `ZS-DATA-09` |
+| `ZS-TYPE-10` | `ZS-DATA-10` |
+| `ZS-TYPE-11` | `ZS-DATA-11` |
+| `ZS-TYPE-12` | `ZS-DATA-12` |
+| `ZS-TYPE-13` | `ZS-DATA-13` |
+| `ZS-TYPE-14` | `ZS-DATA-14` |
+| `ZS-TYPE-15` | `ZS-DATA-15` |
+| `ZS-TYPE-16` | `ZS-DATA-16` |
+| `ZS-TYPE-17` | `ZS-DATA-17` |
+| `ZS-TYPE-18` | `ZS-DATA-18` |
+| `ZS-TYPE-19` | `ZS-DATA-19` |
+| `ZS-TYPE-20` | `ZS-DATA-20` |
+| `ZS-TYPE-21` | `ZS-DATA-21` |
+| `ZS-TYPE-22` | `ZS-DATA-22` |
+| `ZS-TYPE-23` | `ZS-DATA-23` |
+| `ZS-TYPE-24` | `ZS-DATA-24` |
+| `ZS-TYPE-25` | `ZS-DATA-25` |
+| `ZS-TYPE-26` | `ZS-DATA-26` |
+| `ZS-TYPE-27` | `ZS-DATA-27` |
+| `ZS-TYPE-28` | `ZS-DATA-28` |
+| `ZS-TYPE-29` | `ZS-DATA-29` |
+| `ZS-TYPE-30` | `ZS-DATA-30` |
+| `ZS-TYPE-31` | `ZS-DATA-31` |
+| `ZS-TYPE-32` | `ZS-DATA-32` |
+| `ZS-TYPE-33` | `ZS-DATA-33` |
+| `ZS-TYPE-34` | `ZS-DATA-34` |
+| `ZS-TYPE-35` | `ZS-DATA-35` |
+| `ZS-TYPE-36` | `ZS-DATA-36` |
+| `ZS-TYPE-37` | `ZS-DATA-37` |
+| `ZS-TYPE-38` | `ZS-DATA-38` |
+| `ZS-TYPE-39` | `ZS-DATA-39` |
+| `ZS-TYPE-40` | `ZS-DATA-40` |
+| `ZS-TYPE-41` | `ZS-DATA-41` |

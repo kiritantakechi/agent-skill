@@ -4,11 +4,11 @@ This chapter covers what to assert, where to put the assertion, what `std.debug.
 compiles to in each optimize mode, how to keep assertions alive in a release build, and the
 discipline of bounding every loop, buffer, queue and retry count with a named comptime constant.
 It does **not** own error-union design, `errdefer`, or the operating-error side of the split —
-that is `references/errors-and-control-flow.md`. Allocator lifetime and `undefined` poisoning are
-`references/memory-and-allocators.md`; test structure and the `build.zig` wiring of fuzz steps are
-`references/testing-and-fuzzing.md` and `references/build-and-project.md`; the optimize-mode table
-is `references/build-and-project.md` ZS-BUILD-27. Naming (`connection_count_max`, not
-`max_connections`) is specified in `references/naming-and-files.md` and applied here without
+that is `references/errors.md`. Allocator lifetime and `undefined` poisoning are
+`references/memory.md`; test structure and the `build.zig` wiring of fuzz steps are
+`references/testing.md` and `references/build.md`; the optimize-mode table
+is `references/build.md` ZS-BUILD-27. Naming (`connection_count_max`, not
+`max_connections`) is specified in `references/naming.md` and applied here without
 re-deriving it.
 
 A `// fragment` block here uses types and constants declared elsewhere in this chapter. Every
@@ -28,49 +28,49 @@ will ever find.
 ## Contents
 
 - **Part 1 — What an assertion is, and what it compiles to**
-  - ZS-ASRT-01 [M] Alias `assert` at the top of the file, never call it qualified
-  - ZS-ASRT-02 [M] Assert programmer errors; return errors for operating errors
-  - ZS-ASRT-03 [M] Never put a side effect in an `assert`, and never claim it is compiled out
-  - ZS-ASRT-04 [M] Never make an assertion the last line of defense for memory or security safety
-  - ZS-ASRT-05 [M] Keep assertion conditions pure, cheap, and free of side effects
-  - ZS-ASRT-06 [M] Pick deliberately among `assert`, `unreachable`, `@panic`, and `fatal`
-  - ZS-ASRT-07 [M!] Ship `safe` builds, or define a project-local always-on assert
-  - ZS-ASRT-08 [S] Confine `@setRuntimeSafety(false)` to the narrowest block, and prove it
-  - ZS-ASRT-09 [M] In doc comments, "assert" means safety-checked and "assume" means unchecked
+  - ZS-ASSERT-01 [M] Alias `assert` at the top of the file, never call it qualified
+  - ZS-ASSERT-02 [M] Assert programmer errors; return errors for operating errors
+  - ZS-ASSERT-03 [M] Never put a side effect in an `assert`, and never claim it is compiled out
+  - ZS-ASSERT-04 [M] Never make an assertion the last line of defense for memory or security safety
+  - ZS-ASSERT-05 [M] Keep assertion conditions pure, cheap, and free of side effects
+  - ZS-ASSERT-06 [M] Pick deliberately among `assert`, `unreachable`, `@panic`, and `fatal`
+  - ZS-ASSERT-07 [M!] Ship `safe` builds, or define a project-local always-on assert
+  - ZS-ASSERT-08 [S] Confine `@setRuntimeSafety(false)` to the narrowest block, and prove it
+  - ZS-ASSERT-09 [M] In doc comments, "assert" means safety-checked and "assume" means unchecked
 - **Part 2 — Where the assertions go**
-  - ZS-ASRT-10 [M!] Assert arguments at entry and results before return
-  - ZS-ASRT-11 [M!] Average at least two assertions per function
-  - ZS-ASRT-12 [M] Split compound assertions
-  - ZS-ASRT-13 [M] Write an implication as a single-line `if (a) assert(b);`
-  - ZS-ASRT-14 [M] Assert the negative space, and mark deliberate non-invariants with `maybe`
-  - ZS-ASRT-15 [M] State a biconditional as one `==` between two booleans
-  - ZS-ASRT-16 [M] Re-assert the narrowed state after every early-return guard
-  - ZS-ASRT-17 [S] Give each stateful type one `assertInvariants`, and bracket mutators with it
-  - ZS-ASRT-18 [M!] Pair every property across two code paths
-  - ZS-ASRT-19 [S] Use a blatantly true assertion where a comment would be weaker (see ZS-ASRT-21)
-  - ZS-ASRT-20 [M] Budget assertion cost: unconditional when O(1), gated when O(N) over O(1)
+  - ZS-ASSERT-10 [M!] Assert arguments at entry and results before return
+  - ZS-ASSERT-11 [M!] Average at least two assertions per function
+  - ZS-ASSERT-12 [M] Split compound assertions
+  - ZS-ASSERT-13 [M] Write an implication as a single-line `if (a) assert(b);`
+  - ZS-ASSERT-14 [M] Assert the negative space, and mark deliberate non-invariants with `maybe`
+  - ZS-ASSERT-15 [M] State a biconditional as one `==` between two booleans
+  - ZS-ASSERT-16 [M] Re-assert the narrowed state after every early-return guard
+  - ZS-ASSERT-17 [S] Give each stateful type one `assertInvariants`, and bracket mutators with it
+  - ZS-ASSERT-18 [M!] Pair every property across two code paths
+  - ZS-ASSERT-19 [S] Use a blatantly true assertion where a comment would be weaker (see ZS-ASSERT-21)
+  - ZS-ASSERT-20 [M] Budget assertion cost: unconditional when O(1), gated when O(N) over O(1)
 - **Part 3 — Compile-time contracts**
-  - ZS-ASRT-21 [M] Assert the relationships between compile-time constants in a `comptime` block
-  - ZS-ASRT-22 [M] Give every wire, disk, and C-ABI type a layout `comptime` block
-  - ZS-ASRT-23 [M] Use `@compileError` for contracts the caller can violate
+  - ZS-ASSERT-21 [M] Assert the relationships between compile-time constants in a `comptime` block
+  - ZS-ASSERT-22 [M] Give every wire, disk, and C-ABI type a layout `comptime` block
+  - ZS-ASSERT-23 [M] Use `@compileError` for contracts the caller can violate
 - **Part 4 — Put a limit on everything**
-  - ZS-ASRT-24 [M] Put a limit on everything, and give the limit a name ending in `_max`
-  - ZS-ASRT-25 [M] Keep all limits in one `constants.zig`: why, value, comptime relationships
-  - ZS-ASRT-26 [M] Derive dependent limits; never hand-copy a number
-  - ZS-ASRT-27 [M] Give every loop a provable bound; an unbounded loop must say so and assert it
-  - ZS-ASRT-28 [M] Fail fast: check the bound at the boundary where untrusted input enters
-  - ZS-ASRT-29 [S] Bounded containers assert on overflow; only caller-supplied sizes return errors
-  - ZS-ASRT-30 [M!] Do not recurse on unbounded data; bound the depth and assert it
+  - ZS-ASSERT-24 [M] Put a limit on everything, and give the limit a name ending in `_max`
+  - ZS-ASSERT-25 [M] Keep all limits in one `constants.zig`: why, value, comptime relationships
+  - ZS-ASSERT-26 [M] Derive dependent limits; never hand-copy a number
+  - ZS-ASSERT-27 [M] Give every loop a provable bound; an unbounded loop must say so and assert it
+  - ZS-ASSERT-28 [M] Fail fast: check the bound at the boundary where untrusted input enters
+  - ZS-ASSERT-29 [S] Bounded containers assert on overflow; only caller-supplied sizes return errors
+  - ZS-ASSERT-30 [M!] Do not recurse on unbounded data; bound the depth and assert it
 - **Part 5 — Assertions, tests, and fuzzing**
-  - ZS-ASRT-31 [M] Inside `test` blocks use `std.testing.expect*`, not `assert` (see ZS-TEST-08)
-  - ZS-ASRT-32 [M] A fuzzer finds only what an assertion can catch — write the assertion first
-  - ZS-ASRT-33 [S] Write the assertions before the implementation (see ZS-ASRT-32)
+  - ZS-ASSERT-31 [M] Inside `test` blocks use `std.testing.expect*`, not `assert` (see ZS-TEST-08)
+  - ZS-ASSERT-32 [M] A fuzzer finds only what an assertion can catch — write the assertion first
+  - ZS-ASSERT-33 [S] Write the assertions before the implementation (see ZS-ASSERT-32)
 
 ---
 
 ## Part 1 — What an assertion is, and what it compiles to
 
-### ZS-ASRT-01 [M] Alias `assert` at the top of the file, never call it qualified
+### ZS-ASSERT-01 [M] Alias `assert` at the top of the file, never call it qualified
 
 Write `const assert = std.debug.assert;` in the import block and call `assert(...)` bare.
 
@@ -94,14 +94,14 @@ const assert = std.debug.assert;
 assert(header.size_bytes <= message_size_bytes_max);
 ```
 
-### ZS-ASRT-02 [M] Assert programmer errors; return errors for operating errors
+### ZS-ASSERT-02 [M] Assert programmer errors; return errors for operating errors
 
 If the condition can be violated by anything outside your process — a peer, a file, a user, the
 network, the disk — it is an operating error and must be an error union. If it can only be
 violated by your own code being wrong, it is an assertion.
 
 **Why:** an assertion that fires on hostile input is a remote denial of service, and in a
-`fast` build it is a remote memory-safety bug (ZS-ASRT-04). Conversely, returning
+`fast` build it is a remote memory-safety bug (ZS-ASSERT-04). Conversely, returning
 `error.InvariantViolated` for a broken internal invariant asks the caller to handle a situation
 that has no correct handling, and propagates a corrupt process instead of stopping it.
 
@@ -138,10 +138,10 @@ fn messageParse(bytes: []const u8) ParseError!Header {
 }
 ```
 
-### ZS-ASRT-03 [M] Never put a side effect in an `assert`, and never claim it is compiled out
+### ZS-ASSERT-03 [M] Never put a side effect in an `assert`, and never claim it is compiled out
 
 **This rule is the single authoritative treatment of assert-under-optimization in the standard.**
-ZS-ASRT-04, -05, -07, -08 and -20 all rest on it and cite it rather than restating it.
+ZS-ASSERT-04, -05, -07, -08 and -20 all rest on it and cite it rather than restating it.
 
 `std.debug.assert` is an *ordinary function* — `pub fn assert(ok: bool) void { if (!ok) unreachable;
 }` (`std/debug.zig`). Two separate consequences follow, and conflating them is the usual
@@ -155,7 +155,7 @@ mistake:
    work. The assert is **not** compiled away — only the check is. On 0.17.0, a global
    counter incremented inside an assert condition reaches the same value under `-O debug`,
    `-O safe`, `-O fast` and `-O small`. So `assert(list.pop() != null)` still pops
-   in release, it just stops verifying the result — see ZS-ASRT-05.
+   in release, it just stops verifying the result — see ZS-ASSERT-05.
 
 | Mode | Safety checks | Condition evaluated | A false `assert(cond)` |
 |---|---|---|---|
@@ -194,14 +194,14 @@ Calling `classify(sink)` with `sink == 0` on Zig 0.17.0, observed:
 - `-O fast`: no diagnostic of any kind. The process dies on a trap instruction, SIGTRAP, exit
   133 — the branch that would have returned `"zero"` was gone.
 
-### ZS-ASRT-04 [M] Never make an assertion the last line of defense for memory or security safety
+### ZS-ASSERT-04 [M] Never make an assertion the last line of defense for memory or security safety
 
 An `assert` before an unchecked index, an `@intCast`, a `@ptrCast`, a length arithmetic, or a
 crypto-boundary check is documentation, not enforcement. If the invariant must hold in the shipped
-binary, enforce it with a construct that survives: an `if` + error, `assertAlways` (ZS-ASRT-07),
+binary, enforce it with a construct that survives: an `if` + error, `assertAlways` (ZS-ASSERT-07),
 `std.math.cast`, or a checked slice operation.
 
-**Why:** by ZS-ASRT-03 the check is erased in `fast` *and* replaced by an assumption, so an
+**Why:** by ZS-ASSERT-03 the check is erased in `fast` *and* replaced by an assumption, so an
 attacker who can violate it gets both the out-of-bounds access and the deleted bounds check that
 would have caught it.
 
@@ -224,11 +224,11 @@ fn read(buffer: []const u8, offset: usize) u8 {
 }
 ```
 
-### ZS-ASRT-05 [M] Keep assertion conditions pure, cheap, and free of side effects
+### ZS-ASSERT-05 [M] Keep assertion conditions pure, cheap, and free of side effects
 
-The condition is evaluated in every optimize mode (ZS-ASRT-03, consequence 2), so a side effect
+The condition is evaluated in every optimize mode (ZS-ASSERT-03, consequence 2), so a side effect
 inside it is a side effect in release, and an expensive condition is a release-mode cost that buys
-nothing. Hoist the effect out; gate the expense behind `verify` (ZS-ASRT-20).
+nothing. Hoist the effect out; gate the expense behind `verify` (ZS-ASSERT-20).
 
 **Why:** on top of the cost, the optimizer is entitled to assume the result was `true` — the std doc
 comment says it "is able to use the assertion in its heuristics" — so after inlining, a
@@ -252,7 +252,7 @@ assert(popped != null);
 if (verify) assert(list.indexOfSlow(item) != null); // Whole statement compiled out.
 ```
 
-### ZS-ASRT-06 [M] Pick deliberately among `assert`, `unreachable`, `@panic`, and `fatal`
+### ZS-ASSERT-06 [M] Pick deliberately among `assert`, `unreachable`, `@panic`, and `fatal`
 
 | Construct | Survives `fast`? | On violation | Use for |
 |---|---|---|---|
@@ -296,7 +296,7 @@ if (checkpoint_local != checkpoint_remote) {
 }
 ```
 
-### ZS-ASRT-07 [M!] Ship `safe` builds, or define a project-local always-on assert
+### ZS-ASSERT-07 [M!] Ship `safe` builds, or define a project-local always-on assert
 
 Decide the shipping optimize mode *before* you adopt assertion density.
 
@@ -308,13 +308,13 @@ and staging build is acceptable, provided the README names the shipping optimize
 instead of leaving it implicit.
 
 **Why:** std ships no always-on assert; `std.debug.assert` is the only one and its check does not
-survive `fast` (ZS-ASRT-03). TigerBeetle's answer is to ship `safe`
+survive `fast` (ZS-ASSERT-03). TigerBeetle's answer is to ship `safe`
 (`b.standardOptimizeOption(.{ .preferred_optimize_mode = .safe })` in 0.17; see
-`references/build-and-project.md` ZS-BUILD-27). If you cannot pay `safe`'s cost, the
+`references/build.md` ZS-BUILD-27). If you cannot pay `safe`'s cost, the
 alternative is a two-line helper, which panics under `-O fast` on 0.17.0 where the
 equivalent `assert` died on a bare trap. `assertAlways` is legal in a library: it reports a violated
 invariant, not an operating error, so it does not take a recovery option away from the caller
-(`references/errors-and-control-flow.md` ZS-ERR-03).
+(`references/errors.md` ZS-ERR-03).
 
 ```zig
 // verified — GOOD
@@ -335,7 +335,7 @@ pub fn assertAlways(ok: bool, comptime message: []const u8) void {
 **Check:** a `build.zig` with no `preferred_optimize_mode` and a README that does not name the
 shipping mode, in a repo whose source averages more than one `assert` per function.
 
-### ZS-ASRT-08 [S] Confine `@setRuntimeSafety(false)` to the narrowest block, and prove it
+### ZS-ASSERT-08 [S] Confine `@setRuntimeSafety(false)` to the narrowest block, and prove it
 
 Never reach for `fast` whole-binary to speed up one loop. Keep the build `safe` and
 disable safety in the smallest scope that contains the hot arithmetic, with a comment proving the
@@ -343,7 +343,7 @@ check is redundant.
 
 **Why:** `@setRuntimeSafety` sets safety for the scope containing the call and is overridable at
 any nested scope, so the blast radius is exactly what you write — whereas `fast`'s blast radius
-is every assertion in the program (ZS-ASRT-03).
+is every assertion in the program (ZS-ASSERT-03).
 
 **Check:** a `@setRuntimeSafety(false)` that is the first statement of a function or a file's
 top-level block rather than of the innermost block containing the arithmetic, or one with no comment
@@ -369,7 +369,7 @@ fn sumUnchecked(values: []const u8) u32 {
 > replaced by `@optimizeFor`. `@optimizeFor` does not exist in 0.17.0: it is
 > `error: invalid builtin function: '@optimizeFor'`.
 
-### ZS-ASRT-09 [M] In doc comments, "assert" means safety-checked and "assume" means unchecked
+### ZS-ASSERT-09 [M] In doc comments, "assert" means safety-checked and "assume" means unchecked
 
 The langref style guide makes this a lexical rule: use the word **assert** to describe an invariant
 whose violation is safety-checked illegal behavior, and **assume** for one whose violation is
@@ -397,16 +397,16 @@ pub fn headerCast(bytes: []align(@alignOf(Header)) const u8) *const Header { ...
 
 ## Part 2 — Where the assertions go
 
-### ZS-ASRT-10 [M!] Assert arguments at entry and results before return
+### ZS-ASSERT-10 [M!] Assert arguments at entry and results before return
 
 Preconditions first, before any early return. Postconditions on the computed value, immediately
 before returning it. A function must not operate blindly on data it has not checked.
 
 `[M!]` applies to databases, storage engines, consensus and replication, allocators, crypto,
 parsers on untrusted input, and embedded control — anywhere a wrong answer outlives the process or
-goes unobserved. *Relaxed form:* stated once, by ZS-ASRT-11 — assert the contract of every
+goes unobserved. *Relaxed form:* stated once, by ZS-ASSERT-11 — assert the contract of every
 function whose parameter types do not already enforce it. A boundary taking untrusted input gets
-`if` + error, never an assert (ZS-ASRT-02, ZS-ASRT-28).
+`if` + error, never an assert (ZS-ASSERT-02, ZS-ASSERT-28).
 
 **Why:** a precondition asserted at the top of the callee fires at the first caller that is wrong,
 with that caller on the stack. The same bug caught three frames deeper gives you a stack trace
@@ -430,7 +430,7 @@ fn writeBlock(target: []u8, header: *const Header, body: []const u8) void {
 }
 ```
 
-### ZS-ASRT-11 [M!] Average at least two assertions per function
+### ZS-ASSERT-11 [M!] Average at least two assertions per function
 
 `[M!]` applies to databases, storage engines, consensus and replication, allocators, crypto, and
 embedded or kernel firmware — anything where a crash beats a wrong answer. There the assertion
@@ -455,10 +455,10 @@ finding is any added function that takes a relationship between two parameters �
 
 > Honest divergence: std is far sparser than two per function and deliberately so — it prefers
 > error unions and documented illegal behavior at public boundaries. Do not "fix" std-style code
-> by sprinkling asserts into public API entry points where the input is untrusted (ZS-ASRT-02);
+> by sprinkling asserts into public API entry points where the input is untrusted (ZS-ASSERT-02);
 > add them to the internal helpers where the input is your own.
 
-### ZS-ASRT-12 [M] Split compound assertions
+### ZS-ASSERT-12 [M] Split compound assertions
 
 Prefer `assert(a); assert(b);` over `assert(a and b);`.
 
@@ -480,7 +480,7 @@ assert(budget.capacity > 0);
 assert(budget.available <= budget.capacity);
 ```
 
-### ZS-ASRT-13 [M] Write an implication as a single-line `if (a) assert(b);`
+### ZS-ASSERT-13 [M] Write an implication as a single-line `if (a) assert(b);`
 
 **Why:** `assert(!a or b)` is the same predicate written as a negation, and negations are exactly
 where reviewers stop being able to check the logic by inspection. The `if` form also reads in the
@@ -507,7 +507,7 @@ fn transferValidate(amount: u64, pending: bool, timeout_ms: u32) void {
 }
 ```
 
-### ZS-ASRT-14 [M] Assert the negative space, and mark deliberate non-invariants with `maybe`
+### ZS-ASSERT-14 [M] Assert the negative space, and mark deliberate non-invariants with `maybe`
 
 The golden rule: assert the positive space you *do* expect **and** the negative space you do
 *not*. Then, for every state variable a reader might reasonably assume is pinned at this program
@@ -542,7 +542,7 @@ level.insert(table);
 if (verify) assert(level.contains(table));
 ```
 
-### ZS-ASRT-15 [M] State a biconditional as one `==` between two booleans
+### ZS-ASSERT-15 [M] State a biconditional as one `==` between two booleans
 
 When two representations must agree, assert the equality of the two predicates rather than writing
 two one-directional assertions or, worse, one.
@@ -571,7 +571,7 @@ const Stack = struct {
 };
 ```
 
-### ZS-ASRT-16 [M] Re-assert the narrowed state after every early-return guard
+### ZS-ASSERT-16 [M] Re-assert the narrowed state after every early-return guard
 
 Each guard clause buys you a stronger fact about the rest of the function. Write it down.
 
@@ -598,7 +598,7 @@ fn sendPrepareOk(status: Status, view: u32, op: u64, op_max: u64) bool {
 }
 ```
 
-### ZS-ASRT-17 [S] Give each stateful type one `assertInvariants`, and bracket mutators with it
+### ZS-ASSERT-17 [S] Give each stateful type one `assertInvariants`, and bracket mutators with it
 
 Collect the type's whole-object invariants in one private function taking `*const T`. Every public
 mutator opens with `x.assertInvariants(); defer x.assertInvariants();`.
@@ -650,7 +650,7 @@ code alone is unreadable:
 pub const MessageBuffer = struct { ... };
 ```
 
-### ZS-ASRT-18 [M!] Pair every property across two code paths
+### ZS-ASSERT-18 [M!] Pair every property across two code paths
 
 For every property you want to enforce, find at least two *different* code paths where an
 assertion can check it. The canonical pair is: assert validity right before writing to disk, and
@@ -688,7 +688,7 @@ fn headerValidate(header: *const Header) void {
 
 /// Path 2 checks the SAME properties on bytes that came from outside the
 /// process. Same predicates, different mechanism: peer data is validated and
-/// rejected, never asserted (ZS-ASRT-02) — an assert here is a remote DoS.
+/// rejected, never asserted (ZS-ASSERT-02) — an assert here is a remote DoS.
 fn headerCheck(header: *const Header) HeaderInvalid!void {
     if (header.checksum == 0) return error.HeaderInvalid;
     if (header.size_bytes == 0) return error.HeaderInvalid;
@@ -722,21 +722,21 @@ fn readBlock(source: []const u8) HeaderInvalid!Header {
 
 Note that pairing a property does **not** mean pairing the *mechanism*. The write path owns bytes
 this process just built, so it asserts; the read path owns bytes a peer chose, so it validates and
-returns an error (ZS-ASRT-02). Asserting on the read path would turn every corrupt or hostile frame
-into a remote panic — and in `fast` into an optimizer assumption that deletes the very bounds
+returns an error (ZS-ASSERT-02). Asserting on the read path would turn every corrupt or hostile
+frame into a remote panic — and in `fast` into an optimizer assumption that deletes the very bounds
 check a later `connections[header.replica_index]` depends on. Same predicates, two mechanisms,
 chosen by who controls the bytes.
 
 The same idea inside one function: assert the structural invariant at both ends, so a bug in the
 middle is bracketed rather than merely detected somewhere downstream.
 
-### ZS-ASRT-19 [S] Use a blatantly true assertion where a comment would be weaker (see ZS-ASRT-21)
+### ZS-ASSERT-19 [S] Use a blatantly true assertion where a comment would be weaker (see ZS-ASSERT-21)
 
-Owned by ZS-ASRT-21. A permission, not an obligation: where a
+Owned by ZS-ASSERT-21. A permission, not an obligation: where a
 load-bearing fact is obvious *today*, asserting it is stronger documentation than a comment, because
 the assertion cannot drift out of date.
 
-### ZS-ASRT-20 [M] Budget assertion cost: unconditional when O(1), gated when O(N) over O(1)
+### ZS-ASSERT-20 [M] Budget assertion cost: unconditional when O(1), gated when O(N) over O(1)
 
 Two tiers. In the control plane — anything batched, where per-operation overhead is amortized —
 assert unconditionally; it is acceptable to spend O(N) verifying an O(1) computation there. In the
@@ -746,7 +746,7 @@ verification behind a `verify` constant.
 **Why:** slow assertions reduce total coverage. Randomized testing coverage is proportional to the
 number of iterations you can run, so an O(N) invariant check on an O(1) hot-path mutation makes
 the fuzzer quadratically weaker at finding the bug it was meant to catch. The gate must be `if
-(verify)` around the *whole statement*, not the assert alone: by ZS-ASRT-03 the condition inside an
+(verify)` around the *whole statement*, not the assert alone: by ZS-ASSERT-03 the condition inside an
 `assert` still runs in `fast`, so `assert(queue.contains(link))` pays the O(N) scan in release
 and gets nothing for it. Define `verify` from your own module's
 `@import("builtin").optimize.runtimeSafety()` — `std.debug.runtime_safety` is deprecated in its
@@ -776,7 +776,7 @@ pub fn push(queue: *Queue, link: *Link) void {
 
 ## Part 3 — Compile-time contracts
 
-### ZS-ASRT-21 [M] Assert the relationships between compile-time constants in a `comptime` block
+### ZS-ASSERT-21 [M] Assert the relationships between compile-time constants in a `comptime` block
 
 Every derived or co-dependent constant gets a `comptime {}` block stating the relationship that
 must hold.
@@ -803,18 +803,18 @@ comptime {
 ```
 
 You **may** also assert a fact that is blatantly true today, where a comment would be weaker
-(ZS-ASRT-19): `assert(KiB == 1024)` cannot drift the way `// KiB is 1024` can, and it is free. This
-deliberately contradicts NASA's Power of Ten rule 5, which forbids assertions a static checker can
-prove always hold; TigerStyle overrides that because the value here is communicative and
+(ZS-ASSERT-19): `assert(KiB == 1024)` cannot drift the way `// KiB is 1024` can, and it is free.
+This deliberately contradicts NASA's Power of Ten rule 5, which forbids assertions a static checker
+can prove always hold; TigerStyle overrides that because the value here is communicative and
 drift-proofing, not detection. Reserve it for load-bearing facts — an `assert(true)` next to trivia
 is noise.
 
 Be aware of the diagnostic quality: a failing `comptime assert` reports
 `error: reached unreachable code` inside `std.debug.assert` with a `note: called at comptime here`
 pointing at your line. You get the location but not the reason — which is why caller-facing
-contracts use `@compileError` instead (ZS-ASRT-23).
+contracts use `@compileError` instead (ZS-ASSERT-23).
 
-### ZS-ASRT-22 [M] Give every wire, disk, and C-ABI type a layout `comptime` block
+### ZS-ASSERT-22 [M] Give every wire, disk, and C-ABI type a layout `comptime` block
 
 Any `extern struct` or `packed struct` that is serialized, persisted, hashed, or passed across a C
 boundary carries a `comptime {}` asserting `@sizeOf`, `@alignOf`, and the absence of padding.
@@ -868,7 +868,7 @@ const Flags = packed struct(u16) {
 };
 ```
 
-### ZS-ASRT-23 [M] Use `@compileError` for contracts the caller can violate
+### ZS-ASSERT-23 [M] Use `@compileError` for contracts the caller can violate
 
 When a generic function or a `comptime` parameter has a precondition that a *user* of your code
 can break, state it with `@compileError` and an explanatory message. Reserve `comptime assert` for
@@ -918,7 +918,7 @@ division`, with a note at the call site.
 
 ## Part 4 — Put a limit on everything
 
-### ZS-ASRT-24 [M] Put a limit on everything, and give the limit a name ending in `_max`
+### ZS-ASSERT-24 [M] Put a limit on everything, and give the limit a name ending in `_max`
 
 Every buffer, queue, batch, connection table, retry count, timeout, recursion depth, and message
 size has a fixed upper bound expressed as a named comptime constant. No bare literals at the use
@@ -926,10 +926,10 @@ site; no "it grows as needed" without a stated ceiling.
 
 **Why:** in reality everything has a limit — the only question is whether you chose it or whether
 it is discovered in production as an OOM, an unbounded queue, or a tail-latency spike. A named
-constant also makes the bound assertable (ZS-ASRT-28) and reviewable: `connection_count_max = 64`
+constant also makes the bound assertable (ZS-ASSERT-28) and reviewable: `connection_count_max = 64`
 invites the question "is 64 right?", while `try list.append(gpa, conn)` invites nothing. Names use
 big-endian ordering — `latency_ms_max`, not `max_latency_ms` — so related limits sort and group
-together (see `references/naming-and-files.md`).
+together (see `references/naming.md`).
 
 **Check:** an `alloc`, `ensureTotalCapacity`, `@memcpy` length, retry loop, or timeout whose size
 comes from a runtime value with no `_max` constant asserted against it on a preceding line; and any
@@ -946,7 +946,7 @@ assert(header.size_bytes <= message_size_bytes_max);
 var buffer = try gpa.alloc(u8, header.size_bytes);
 ```
 
-### ZS-ASRT-25 [M] Keep all limits in one `constants.zig`: why, value, comptime relationships
+### ZS-ASSERT-25 [M] Keep all limits in one `constants.zig`: why, value, comptime relationships
 
 One file holds every configured and derived limit. Each constant carries a `///` comment saying
 *why that number*, and the file ends each group with a `comptime {}` block asserting the
@@ -1011,15 +1011,15 @@ comptime {
 }
 ```
 
-### ZS-ASRT-26 [M] Derive dependent limits; never hand-copy a number
+### ZS-ASSERT-26 [M] Derive dependent limits; never hand-copy a number
 
 If limit B is a function of limit A, compute B from A. A literal that *happens* to equal the
 quotient today is a latent bug waiting for someone to change the divisor. Use a labelled block when
 the derivation needs locals, and keep the derived constant next to its inputs in `constants.zig`
-(ZS-ASRT-25).
+(ZS-ASSERT-25).
 
 The *rounding* half — `@divExact` / `@divFloor` / `@divTrunc` / `@divCeil` (new in 0.17), never a
-bare `/` — is owned by `references/types-and-data.md` ZS-TYPE-06. `@divExact` is the strongest of
+bare `/` — is owned by `references/data.md` ZS-DATA-06. `@divExact` is the strongest of
 the four because it asserts the remainder is zero, which is usually the claim a derived limit means
 to make.
 
@@ -1045,9 +1045,9 @@ pub const sectors_per_block: u32 = @divExact(block_size_bytes, sector_size_bytes
 **Check:** two `pub const … _max` declarations in `constants.zig` where one is an integer literal
 that equals an arithmetic combination of the others.
 
-### ZS-ASRT-27 [M] Give every loop a provable bound; an unbounded loop must say so and assert it
+### ZS-ASSERT-27 [M] Give every loop a provable bound; an unbounded loop must say so and assert it
 
-This rule owns loop bounds for the whole standard; `references/errors-and-control-flow.md` ZS-ERR-24
+This rule owns loop bounds for the whole standard; `references/errors.md` ZS-ERR-24
 points here.
 
 **Reach for `for` first.** `for (slice)` and `for (0..limit)` carry their bound in the syntax, so
@@ -1071,7 +1071,7 @@ a stack trace. The `else` clause on a Zig `for` runs only when the loop was *not
 which is precisely the "bound exceeded" condition.
 
 The same reasoning applies to anything that grows per iteration — queues, buffers, retry counts,
-backlogs. Everything has a limit; name it (ZS-ASRT-24).
+backlogs. Everything has a limit; name it (ZS-ASSERT-24).
 
 ```zig
 // verified — GOOD
@@ -1140,7 +1140,7 @@ still compile as deprecated aliases, so this is a silent staleness rather than a
 with no `_max` constant asserted in its body; and any `while (true)` with no comment saying it is
 intended.
 
-### ZS-ASRT-28 [M] Fail fast: check the bound at the boundary where untrusted input enters
+### ZS-ASSERT-28 [M] Fail fast: check the bound at the boundary where untrusted input enters
 
 Reject an over-limit value at the point of entry — the socket read, the CLI parse, the file
 header — not at the point of use. After the boundary check, the bound becomes an asserted
@@ -1149,20 +1149,20 @@ invariant everywhere downstream.
 **Why:** the distance between where a bad value is admitted and where it does damage is the whole
 difficulty of debugging. Checking at the boundary also means exactly one function has to reason
 about hostile input; every function past it gets to assert rather than validate, which is what
-makes the density target in ZS-ASRT-11 affordable. This is the shape already shown in
-ZS-ASRT-02: `if` + error at the door, `assert` immediately after.
+makes the density target in ZS-ASSERT-11 affordable. This is the shape already shown in
+ZS-ASSERT-02: `if` + error at the door, `assert` immediately after.
 
 **Check:** a `_max` constant that appears only at the point of use and never in the function that
 first reads the socket, opens the file, or parses `argv`; and, in that boundary function, an
 `assert` where an `if (…) return error.…;` belongs.
 
-### ZS-ASRT-29 [S] Bounded containers assert on overflow; only caller-supplied sizes return errors
+### ZS-ASSERT-29 [S] Bounded containers assert on overflow; only caller-supplied sizes return errors
 
 A fixed-capacity `push` asserts `!full()` rather than returning `error.Overflow`. Return an error
 only from operations whose length comes from *outside* — `fromSlice`, `resize`, a decoder.
 
 **Why:** if the container's capacity is a comptime constant chosen to be big enough, then pushing
-past it is a design error in your code, not a runtime condition (ZS-ASRT-02), and returning an
+past it is a design error in your code, not a runtime condition (ZS-ASSERT-02), and returning an
 error forces every call site to handle a case that cannot happen — the "dimensionality" tax that
 propagates up the call chain. Note `std.BoundedArray` has not existed since 0.16; the replacement is
 a fixed backing array plus `initBuffer` and the `AssumeCapacity` methods, which never allocate and
@@ -1192,7 +1192,7 @@ fn bounded() u32 {
 }
 ```
 
-### ZS-ASRT-30 [M!] Do not recurse on unbounded data; bound the depth and assert it
+### ZS-ASSERT-30 [M!] Do not recurse on unbounded data; bound the depth and assert it
 
 `[M!]` applies to embedded and kernel code with no growable stack, parsers and decoders on
 untrusted input, allocators, crypto, and consensus — anywhere a crash or silent stack corruption
@@ -1225,14 +1225,14 @@ fn walk(root: *Node, stack: *std.ArrayList(*Node), gpa: std.mem.Allocator) !void
 
 ## Part 5 — Assertions, tests, and fuzzing
 
-### ZS-ASRT-31 [M] Inside `test` blocks use `std.testing.expect*`, not `assert` (see ZS-TEST-08)
+### ZS-ASSERT-31 [M] Inside `test` blocks use `std.testing.expect*`, not `assert` (see ZS-TEST-08)
 
-Owned by `references/testing-and-fuzzing.md` ZS-TEST-08, which also lists the matchers and their
+Owned by `references/testing.md` ZS-TEST-08, which also lists the matchers and their
 signatures. Assertions belong in the code *under* test; the test body checks with the narrowest
 `std.testing.expect*` matcher — `std/debug.zig`'s own doc comment says `assert` "may not detect a
-test failure in fast and small mode" (ZS-ASRT-03).
+test failure in fast and small mode" (ZS-ASSERT-03).
 
-### ZS-ASRT-32 [M] A fuzzer finds only what an assertion can catch — write the assertion first
+### ZS-ASSERT-32 [M] A fuzzer finds only what an assertion can catch — write the assertion first
 
 Before adding a fuzz target, ask what failure it could possibly report. A fuzzer detects a crash;
 if no assertion turns "wrong answer" into a crash, the fuzzer will run for a week and report
@@ -1266,13 +1266,13 @@ fn fuzzOne(context: void, smith: *std.testing.Smith) !void {
 }
 ```
 
-The signal here comes entirely from `headerValidate` inside `readBlock` (ZS-ASRT-18) — remove
+The signal here comes entirely from `headerValidate` inside `readBlock` (ZS-ASSERT-18) — remove
 those assertions and this target proves nothing. Note also that fuzz builds must have assertions
-enabled: run them in `debug` or `safe`, and make `verify` true (ZS-ASRT-20).
+enabled: run them in `debug` or `safe`, and make `verify` true (ZS-ASSERT-20).
 
-### ZS-ASRT-33 [S] Write the assertions before the implementation (see ZS-ASRT-32)
+### ZS-ASSERT-33 [S] Write the assertions before the implementation (see ZS-ASSERT-32)
 
-Owned by ZS-ASRT-32: a fuzz target with no oracle proves nothing, so the assertions come first.
+Owned by ZS-ASSERT-32: a fuzz target with no oracle proves nothing, so the assertions come first.
 TigerStyle's prescribed order — mental model, then assertions, then code, then the fuzzer — is the
 process form of that same claim, and it is advice rather than a rule: no diff can violate it. The
 one mechanical consequence worth keeping is that assertions written *after* the code tend to restate

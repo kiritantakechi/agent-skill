@@ -99,6 +99,10 @@ BRANCHES = {
         "agent_skill.checks.citations",
         "python_rows",
     ),
+    "a compiler row naming an error its probe does not print": (
+        "agent_skill.checks.citations",
+        "zig_rows",
+    ),
 }
 
 

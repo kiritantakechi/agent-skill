@@ -20,9 +20,9 @@ lazy from agent_skill.report import Finding
 #: joins the table without restructuring it — and gets the unheld-pair
 #: note for free.
 MIRROR: list[tuple[str, str]] = [
-    ("ZS-TYPE-39", "Give every operation its inverse, or document why there is none"),
-    ("ZS-TYPE-40", "Keep argument order identical across sibling functions"),
-    ("ZS-TYPE-41", "Split a function rather than adding a mode parameter"),
+    ("ZS-DATA-39", "Give every operation its inverse, or document why there is none"),
+    ("ZS-DATA-40", "Keep argument order identical across sibling functions"),
+    ("ZS-DATA-41", "Split a function rather than adding a mode parameter"),
     ("ZS-ERR-37", "Give sibling error variants a uniform shape"),
     (
         "ZS-ERR-38",
@@ -32,7 +32,7 @@ MIRROR: list[tuple[str, str]] = [
     ("ZS-NAME-36", "One concept, one mechanism"),
     ("ZS-NAME-37", "Keep sibling modules structurally parallel"),
     (
-        "ZS-CT-01",
+        "ZS-COMPTIME-01",
         "Name the capability as a trait before writing the type that provides it",
     ),
     ("ZS-BUILD-24", "Count the encapsulation a split costs, not only what it buys"),

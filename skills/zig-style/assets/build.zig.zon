@@ -1,4 +1,4 @@
-// Canonical build.zig.zon, lifted from references/build-and-project.md ZS-BUILD-10..12.
+// Canonical build.zig.zon, lifted from references/build.md ZS-BUILD-10..12.
 // The .fingerprint below is an EXAMPLE — delete the line, run `zig build`, and paste the
 // value the compiler tells you to use. Never copy someone else's fingerprint.
 // Referenced by ZS-BUILD-10, ZS-BUILD-11, ZS-BUILD-12.
@@ -15,7 +15,7 @@
     // dependencies alike. The compiler never reads it; `mlugg/setup-zig` does,
     // resolving the toolchain from it when the workflow omits `version`. Real
     // enforcement is a pinned CI version (ZS-BUILD-34) plus, for a project that
-    // pins an exact toolchain, the comptime guard in ZS-BUILD-40.
+    // pins an exact toolchain, the comptime guard in ZS-BUILD-39.
     .minimum_zig_version = "0.17.0",
     .dependencies = .{},
     // Defines the package hash and is all a consumer receives (ZS-BUILD-12).

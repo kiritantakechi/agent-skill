@@ -115,7 +115,9 @@ checks that compile a standard's examples, and the probes are not examples.
 
 **Which rules become rows.**
 
-- **ZS-CT-02 (redundant `comptime`)** is the one clean demotion. Its whole content is the error.
+- No rule turns out to be a clean demotion. ZS-CT-02 (redundant `comptime`) looked like one, but it
+  also carries the type-function carve-out: a type function's body is an ordinary scope, so
+  `comptime assert` there is meaningful. It stays a rule, and its Check names its row.
 - A rule whose error is part of a design point stays a rule, and its Check names the row. Examples
   are ZS-CAPI-01 and -02 (C-ABI signatures), ZS-TYPE-06 (signed division) and the exhaustive-switch
   rules.
@@ -134,8 +136,10 @@ checks that compile a standard's examples, and the probes are not examples.
 
 ### D4. One renumbering
 
-`agent-skill demote` runs first, for the demotion, the gone rules and the premises that no longer
-hold. Then one `agent-skill renumber zig-style --chapters …` renames all 13 chapters and renumbers
+The renumbering that renames the chapters runs first, because `demote` writes into `migration.md`
+and zig's migration chapter only takes that name in the renaming. `agent-skill demote` then removes
+the rules whose premise 0.17 took away, and a second `renumber` closes the gaps, composing onto the
+first table. Then one `agent-skill renumber zig-style --chapters …` renames all 13 chapters and renumbers
 densely. `migration.md` receives `## Rule IDs before the Zig 0.17.0 revision`, with each old family's
 range (`ZS-ASRT-01`–…). Because the pin moves first (D1), the heading names 0.17.0.
 
