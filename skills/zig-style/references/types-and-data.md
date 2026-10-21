@@ -225,7 +225,7 @@ test "index count size" {
 This rule owns division and rounding for the whole standard; `references/assertions-and-limits.md`
 ZS-ASRT-26 (derive dependent limits) points here for the rounding half.
 
-For integers, use `@divExact`, `@divFloor`, `@divTrunc`, or `std.math.divCeil`. Reserve bare `/` for
+For integers, use `@divExact`, `@divFloor`, `@divTrunc`, or `@divCeil`. Reserve bare `/` for
 unsigned operands where truncation is obviously intended and obviously irrelevant. The same applies
 to the remainder: `@rem` takes the sign of the dividend, `@mod` takes the sign of the divisor, and
 `%` is rejected on runtime-known signed operands for exactly that reason. Pair each division with
@@ -233,13 +233,14 @@ its matching remainder — `@divTrunc`/`@rem`, `@divFloor`/`@mod` — so that
 `q * b + r == a` holds with the sign convention you meant.
 
 **Why:** Zig already refuses bare `/` on runtime-known signed integers
-(`error: division with 'i32' and 'i32': signed integers must use @divTrunc, @divFloor, or
-@divExact`), because floor and truncation disagree on negatives. Unsigned `/` compiles silently, so
-the discipline has to be yours. `@divExact` is the strongest form: it is safety-checked, and a
+(`error: division with 'i32' and 'i32': signed integers must use @divTrunc, @divFloor, @divCeil,
+or @divExact`), because floor and truncation disagree on negatives. Unsigned `/` compiles silently,
+so the discipline has to be yours. `@divExact` is the strongest form: it is safety-checked, and a
 nonzero remainder panics with `exact division produced remainder` — turning a silent rounding bug
-into a crash at the line that made the wrong assumption. `std.math.divCeil` returns
-`error{DivisionByZero, Overflow}!T`, so ceil-division cannot be written without deciding what a zero
-denominator means.
+into a crash at the line that made the wrong assumption. `@divCeil`, new in 0.17, is checked the
+same way (a zero denominator panics with `division by zero`); where a zero denominator is an
+operating condition rather than a bug, `std.math.divCeil` returns `error{DivisionByZero,
+Overflow}!T`, so ceil-division cannot be written without deciding what a zero denominator means.
 
 **Check:** grep a diff for `/ ` and `%` on integer operands, and for the hand-rolled ceil idiom
 `(x + k - 1) / k`. Each hit must be either an unsigned truncation whose remainder is provably
@@ -258,7 +259,7 @@ const page_size_bytes: usize = 4096;
 
 fn pagesFor(size_bytes: usize) usize {
     // Cannot overflow and cannot divide by zero: the denominator is a nonzero constant.
-    return std.math.divCeil(usize, size_bytes, page_size_bytes) catch unreachable;
+    return @divCeil(size_bytes, page_size_bytes);
 }
 
 test "divExact states the invariant" {
@@ -277,12 +278,12 @@ test "signed division and remainder are two independent choices" {
 }
 ```
 
-> TigerStyle calls this helper `div_ceil` (their own `stdx`). On 0.16 use `std.math.divCeil`; do not
-> reimplement it.
+> TigerStyle calls this helper `div_ceil` (their own `stdx`). On 0.17 use the `@divCeil` builtin, or
+> `std.math.divCeil` where a zero denominator is an operating error; do not reimplement it.
 
 ### ZS-TYPE-07 [M] Let integer overflow trap; never reach for `+%` to silence a panic
-`+`, `-`, `*` on integers are safety-checked: overflow panics with `integer overflow` in `Debug` and
-`ReleaseSafe`. That panic is the feature.
+`+`, `-`, `*` on integers are safety-checked: overflow panics with `integer overflow` in `debug` and
+`safe` builds. That panic is the feature.
 
 **Why:** an overflow in ordinary arithmetic means a bound you believed was true is false. Replacing
 `+` with `+%` converts a detected programmer error into silent corruption that surfaces far from its
@@ -339,9 +340,14 @@ fn boostLevel(level: u8, amount: u8) u8 {
 - `@truncate` — discarding the high bits is the intent. Well defined, never checked. Only use it to
   narrow.
 - `@bitCast` — reinterpret the same bits as a same-sized type (`u32` <-> `f32`, `packed struct(u8)`
-  <-> `u8`). Never for numeric conversion.
-- `@enumFromInt` / `@intFromEnum` — enum tag conversion; `@enumFromInt` is checked for exhaustive
-  enums.
+  <-> `u8`). Never for numeric conversion. Since 0.17 it rejects an `extern struct` or `extern
+  union` operand (`error: cannot @bitCast from 'T'`; use `@ptrCast` or an `extern union`), reads
+  arrays and vectors as logical bits whatever the target's endianness, and safety-checks a cast to
+  an enum.
+- `@fromBackingInt` / `@backingInt` — conversion between an enum, or a packed struct or union with
+  an explicit backing integer, and that integer. `@fromBackingInt` is checked for exhaustive enums
+  and takes exactly the backing type, so `@intCast` a wider operand first. They replace 0.16's
+  `@enumFromInt` / `@intFromEnum`, which still compile but which `zig fmt` rewrites.
 - `@ptrCast` / `@alignCast` — pointers only, and each needs its own justification.
 
 **Why:** all four are one token long and all four compile in the same slot, so the choice carries
@@ -378,8 +384,8 @@ test "cast intent" {
 }
 ```
 
-> Note: 0.16.0 accepts `@truncate` to a *wider* type even though the langref describes it as
-> "resulting in a smaller or same-sized integer type". Do not rely on the compiler to catch a
+> Note: 0.17.0, like 0.16.0, accepts `@truncate` to a *wider* type even though the langref describes
+> it as "resulting in a smaller or same-sized integer type". Do not rely on the compiler to catch a
 > mis-widened `@truncate`; use `@intCast` when widening.
 
 ### ZS-TYPE-10 [M] Use the checked `std.math` helpers where a bad value is an operating error
@@ -414,19 +420,20 @@ test "checked conversion at the boundary" {
 ```
 
 ### ZS-TYPE-11 [M] Convert float to int with `@trunc`/`@round`, after a range check
-In 0.16 the unary float builtins convert directly to an integer result type:
-`export fn a(x: f64) i32 { return @trunc(x); }` compiles. `@intFromFloat` is **not** deprecated: it
-carries no marker, emits no warning, and std still uses it (`math.zig:1365`). It is simply the less
-informative spelling, which is why this rule prefers `@trunc`/`@round` — see ZS-MIG-02, where the
-row is an *alias*, not a removal. Whichever you use, an out-of-range value is safety-checked illegal
-behavior: `panic: integer part of floating point value out of bounds`.
+Since 0.16 the unary float builtins convert directly to an integer result type:
+`export fn a(x: f64) i32 { return @trunc(x); }` compiles. In 0.17 the langref marks `@intFromFloat`
+"Deprecated. Equivalent to @trunc." and nothing else does: it emits no warning, `zig fmt` leaves it
+alone, and std still uses it (`std.math.lossyCast` does). It is the less informative spelling,
+which is why this rule prefers `@trunc`/`@round` — see ZS-MIG-02, where the row is an *alias*, not
+a removal. Whichever you use, an out-of-range value is safety-checked illegal behavior:
+`panic: integer part of floating point value out of bounds`.
 
 **Why:** float-to-int is two decisions — which direction to round, and what to do about values
 outside the destination range. `@intFromFloat` names neither. `@round(x)` names the rounding, and an
 explicit range test names the second. NaN fails every comparison, so the guard must be written as a
 positive in-range test, not as a negated out-of-range test.
 
-**Check:** every `@intFromFloat` — legal, but its rounding is unstated — and every
+**Check:** every `@intFromFloat` — legal but deprecated, and its rounding is unstated — and every
 `@trunc`/`@round` with an integer result
 type. Each needs a range guard on a preceding line, spelled `if (!(x >= lo and x <= hi))` — a guard
 written `if (x < lo or x > hi)` passes NaN straight through to the panic.
@@ -502,12 +509,12 @@ struct, be memcpy'd, and be stored in a `MultiArrayList`.
 an empty argument list **on one of those containers**; and any `append`/`appendSlice`/
 `ensureTotalCapacity` whose first argument is not an allocator. All three are pre-0.16 container
 shapes. Do not flag a bare `.deinit()` generally: a type that owns its allocator or holds none
-correctly declares a `deinit` taking only the receiver — 48 `pub fn deinit` in 0.16 std do (`rg
+correctly declares a `deinit` taking only the receiver — 47 `pub fn deinit` in 0.17 std do (`rg
  'pub fn deinit\(\w+: [^,)\n]+\) [^{\n]+\{' -g '*.zig'`). The exact shape varies:
 `Io.Threaded.deinit(t: *Threaded) void` is the common one, `ArenaAllocator` takes its receiver *by
-value* (`deinit(arena: ArenaAllocator) void`), and `DebugAllocator.deinit` returns `std.heap.Check`
-rather than `void`. All are correct. The finding is an *unmanaged container* deinit-ed without the
-allocator it was filled through, not every empty argument list.
+value* (`deinit(arena: ArenaAllocator) void`), and `SafeAllocator.deinit` returns its leak count as
+a `usize` rather than `void`. All are correct. The finding is an *unmanaged container* deinit-ed
+without the allocator it was filled through, not every empty argument list.
 
 ```zig
 // does-not-compile — BAD
@@ -535,8 +542,8 @@ test "arraylist 0.16" {
 
 Other decl literals in 0.16 std that replace old constructors: `std.MultiArrayList(T) = .empty`,
 `std.StringHashMapUnmanaged(V) = .empty`, `std.Deque(T) = .empty`, `std.EnumSet(E) = .empty` /
-`.full` (the old `.initEmpty()` / `.initFull()` are deprecated), and
-`std.mem.Alignment = .fromByteUnits(n)`.
+`.full` (the old `.initEmpty()` / `.initFull()` were deprecated in 0.16 and are removed in 0.17),
+and `std.mem.Alignment = .fromByteUnits(n)`.
 
 ### ZS-TYPE-14 [M] Give every allocating type a paired `init`/`deinit` with a matching signature
 If `init` (or `.empty` plus an allocating method) took a `gpa`, `deinit` takes the same `gpa`. Set
@@ -544,7 +551,8 @@ the receiver to `undefined` at the end of `deinit`.
 
 **Why:** the allocator is not stored, so `deinit` cannot recover it — passing it back is the
 contract std uses throughout. `self.* = undefined` turns a use-after-deinit into a loud failure in
-`Debug` (the memory is poisoned to `0xaa`) instead of a read of plausible-looking stale fields.
+`debug` and `safe` builds (the memory is poisoned to `0xaa`) instead of a read of plausible-looking
+stale fields.
 
 **Check:** every `pub fn deinit` in a diff. It takes the same allocator parameter its `init` took,
 and its last statement is `x.* = undefined;`. A `deinit` with no allocator parameter on a type that
@@ -749,8 +757,8 @@ for nothing. Conversely, `@sizeOf`/`@offsetOf` on a default-layout struct is not
 
 Constraints that follow from the table: `packed struct` fields must be integers (exactly their bit
 width), `bool` (1 bit), enums (their tag width), `packed union`, or `packed struct`; **pointers are
-forbidden** in packed types; and in 0.16 all fields of a `packed union` must have the same
-`@bitSizeOf` (`error: all fields in a packed union must have the same bit width`).
+forbidden** in packed types; and since 0.16 all fields of a `packed union` must have the same
+`@bitSizeOf` (`error: field bit width does not match earlier field`).
 
 **Check:** every `extern struct` and `packed struct` in a diff must name its boundary — C, disk,
 wire, or MMIO — in a doc comment or an adjacent comment. One with no boundary should be a plain
@@ -782,15 +790,16 @@ test "packed struct is its backing integer" {
 Write `enum(u8)`, `packed struct(u32)`, `packed union(u16)` — never rely on inference in a type that
 crosses a boundary.
 
-**Why:** 0.16 rejects inferred tags in extern contexts outright:
+**Why:** Zig rejects inferred tags in extern contexts outright:
 `error: extern structs cannot contain fields of type 'Kind'` /
 `note: integer tag type of enum is inferred`. Even where it compiles, an inferred tag width is a
 layout decision the compiler is free to revisit, and an inferred packed backing integer has
-unspecified signedness.
+unspecified signedness — which is why 0.17's `@backingInt` and `@fromBackingInt` refuse such a
+type (`error: @backingInt is ambiguous for type 'Flags'`).
 
 **Check:** `enum {` with no parenthesized tag type, and `packed struct {` / `packed union {` with no
-parenthesized backing integer, anywhere in a file that also contains `extern`, `export`, `@cImport`,
-or a serialization call.
+parenthesized backing integer, anywhere in a file that also contains `extern`, `export`, or a
+serialization call.
 
 ```zig
 // does-not-compile — BAD
@@ -813,10 +822,11 @@ const Message = extern struct {
 ```
 
 ### ZS-TYPE-21 [M] Assert the layout of every type that touches disk, wire, or C (see ZS-ASRT-22)
-Owned by `references/assertions-and-limits.md` ZS-ASRT-22. Put `@sizeOf`, `@alignOf`, `@offsetOf`
-and `@bitSizeOf` assertions in a `comptime` block beside every wire, disk, and C-ABI type — the
-owner also covers `std.meta.hasUniqueRepresentation`, which decides whether hashing or comparing
-the struct's raw bytes is sound. Apply it to every type built under ZS-TYPE-19 and ZS-TYPE-20.
+Owned by `references/assertions-and-limits.md` ZS-ASRT-22. Put `@sizeOf`, `@alignOf` and `@offsetOf`
+assertions in a `comptime` block beside every wire, disk, and C-ABI type, and `@bitSizeOf` beside a
+packed one (0.17 gives a non-packed struct no bit size) — the owner also covers
+`std.meta.hasUniqueRepresentation`, which decides whether hashing or comparing the struct's raw
+bytes is sound. Apply it to every type built under ZS-TYPE-19 and ZS-TYPE-20.
 
 ### ZS-TYPE-22 [M] Express alignment with `std.mem.Alignment`, not bare integers (see ZS-MEM-26)
 Owned by `references/memory-and-allocators.md` ZS-MEM-26. Alignment is `std.mem.Alignment`
@@ -861,13 +871,13 @@ const Tree = struct {
 
     pub fn at(tree: *Tree, index: NodeIndex) *Node {
         assert(index != .none);
-        return &tree.nodes.items[@intFromEnum(index)];
+        return &tree.nodes.items[@backingInt(index)];
     }
 
     pub fn add(tree: *Tree, gpa: std.mem.Allocator, key: u64) std.mem.Allocator.Error!NodeIndex {
         const index: u32 = @intCast(tree.nodes.items.len);
         try tree.nodes.append(gpa, .{ .key = key });
-        return @enumFromInt(index);
+        return @fromBackingInt(index);
     }
 };
 ```
@@ -1053,17 +1063,18 @@ fn opcodeWidth(op: Op) usize {
 Add a trailing `_` field (which requires an explicit integer tag type) when the integer comes from a
 peer, a file, or a kernel. Handle the unknown case with a `_ =>` prong, not `else =>`.
 
-**Why:** without `_`, `@enumFromInt` of an unrecognized value is safety-checked illegal behavior —
-a remote peer could crash you by sending opcode 99. With `_`, "`@enumFromInt` involves the safety
-semantics of `@intCast` to the integer tag type, but beyond that always results in a well-defined
-enum value." And `_ =>` keeps the exhaustiveness benefit: the compiler still errors if you forget a
-*named* tag, whereas `else =>` swallows both the unknown value and your new named variants. A
-non-exhaustive enum without a tag type is `error: non-exhaustive enum missing integer tag type`.
+**Why:** without `_`, `@fromBackingInt` of an unrecognized value is safety-checked illegal
+behavior — a remote peer could crash you by sending opcode 99. With `_`, "`@fromBackingInt` on a
+non-exhaustive enum always results in a valid enum value"; its operand must already have the tag
+type, so the only check left is the `@intCast` that narrows a wider wire integer to it. And `_ =>`
+keeps the exhaustiveness benefit: the compiler still errors if you forget a *named* tag, whereas
+`else =>` swallows both the unknown value and your new named variants. A non-exhaustive enum
+without a tag type is `error: non-exhaustive enum missing integer tag type`.
 
-**Check:** every `@enumFromInt` whose argument came from a file, a socket, a C call, or a
-command line — the target enum must carry a trailing `_`. Conversely, `else =>` in a switch over a
-non-exhaustive enum where `_ =>` was meant, and a trailing `_` on an enum whose values you alone
-produce.
+**Check:** every `@fromBackingInt` — or a 0.16 `@enumFromInt` that `zig fmt` has not yet rewritten —
+whose argument came from a file, a socket, a C call, or a command line — the target enum must carry
+a trailing `_`. Conversely, `else =>` in a switch over a non-exhaustive enum where `_ =>` was meant,
+and a trailing `_` on an enum whose values you alone produce.
 
 ```zig
 // verified — GOOD
@@ -1084,7 +1095,7 @@ fn isIo(s: Syscall) bool {
 }
 
 test "unknown tag is well defined" {
-    try std.testing.expect(!isIo(@enumFromInt(9999)));
+    try std.testing.expect(!isIo(@fromBackingInt(9999)));
 }
 ```
 
@@ -1213,12 +1224,12 @@ to `[]const u8` for free; the reverse requires an allocation.
 **Why:** the sentinel is a *guarantee you must maintain*: slicing with `data[a..b :0]` asserts the
 sentinel at runtime (`panic: sentinel mismatch: expected 0, found 1`), so a `[:0]` in an internal
 API forces every intermediate function to preserve a terminator it does not use. Going back the
-other way costs a `dupeZ`/`allocSentinel` and a `defer free`. Keep the NUL at the edge:
-`gpa.dupeZ(u8, path)` on the way out to C, `std.mem.span(c_ptr)` on the way in.
+other way costs a `dupeSentinel`/`allocSentinel` and a `defer free`. Keep the NUL at the edge:
+`gpa.dupeSentinel(u8, path, 0)` on the way out to C, `std.mem.span(c_ptr)` on the way in.
 
 **Check:** `[:0]const u8` or `[*:0]` in a signature that is not `extern`, `export`, or a direct
-`std.c.*` / `@cImport` call. Also `[a..b :0]` in internal code — that slice asserts the sentinel at
-runtime and will panic on a string that was never terminated.
+`std.c.*` call. Also `[a..b :0]` in internal code — that slice asserts the sentinel at runtime and
+will panic on a string that was never terminated.
 
 ```zig
 // fragment — BAD
@@ -1231,7 +1242,7 @@ fn parseHeader(name: [:0]const u8) !Header { // Nothing here needs the NUL, but 
 // verified — GOOD
 const std = @import("std");
 fn openPath(gpa: std.mem.Allocator, path: []const u8) !c_int {
-    const path_z = try gpa.dupeZ(u8, path); // Add the NUL only at the C boundary.
+    const path_z = try gpa.dupeSentinel(u8, path, 0); // Add the NUL only at the C boundary.
     defer gpa.free(path_z);
     return std.c.open(path_z.ptr, .{});
 }
@@ -1411,8 +1422,8 @@ means.
    compiles and derives `len` from the array length. Convenient, and a new way to lose a bound —
    prefer `&arr` coercion or `arr[0..]`, which cannot pick the wrong length.
 3. **A zero-bit tuple field is no longer implicitly `comptime`.** `struct { void, u32 }` reports
-   `is_comptime = false` on field 0. Reflection that filtered fields on `is_comptime` to skip
-   zero-bit members now sees them.
+   `field_attrs[0].@"comptime" == false` (0.16's `is_comptime = false`). Reflection that filtered
+   fields on that flag to skip zero-bit members now sees them.
 4. **Non-scalar sentinels are forbidden** — `[3:S{ .a = 0 }]S` is
    `error: non-scalar sentinel type 'S'`. Sentinels are limited to scalars; a struct terminator has
    to become a length prefix or an `?T`.
@@ -1429,10 +1440,10 @@ means.
 adds a cast that compiles where it previously did not; items 4 and 5 turn latent bugs into
 diagnostics, which is worth knowing so the diagnostic is not "fixed" by casting around it.
 
-**Check:** five greps, one per item — `@ptrCast` whose destination is a slice type; `is_comptime`
-used to filter fields; `std.meta.eql`, `switch`, or `==` over `type` values where alignment could
-differ; a non-scalar sentinel in an array type; and `@memcpy` on two ranges derived from the same
-backing buffer.
+**Check:** five greps, one per item — `@ptrCast` whose destination is a slice type; `@"comptime"`
+(0.16: `is_comptime`) used to filter fields; `std.meta.eql`, `switch`, or `==` over `type` values
+where alignment could differ; a non-scalar sentinel in an array type; and `@memcpy` on two ranges
+derived from the same backing buffer.
 
 ```zig
 // verified — GOOD
@@ -1450,7 +1461,7 @@ test "0.16 pointer and builtin changes" {
     try std.testing.expectEqual(4, slice.len);
 
     const tuple: struct { void, u32 } = .{ {}, 5 };
-    comptime assert(!@typeInfo(@TypeOf(tuple)).@"struct".fields[0].is_comptime);
+    comptime assert(!@typeInfo(@TypeOf(tuple)).@"struct".field_attrs[0].@"comptime");
 }
 ```
 
@@ -1460,18 +1471,19 @@ test "0.16 pointer and builtin changes" {
 
 ### ZS-TYPE-38 [M] ZON for formats you own, `std.json` for interop; bound both on untrusted input
 For configuration, fixtures, and any data format whose only consumer is your own program, use ZON:
-`std.zon.parse.fromSlice(T, gpa, source, diag, options)` to read, `std.zon.stringify.serialize(val,
-options, w)` to write, and `@import("config.zon")` to embed one at compile time as a typed value
-with no parser in the binary at all. Reach for `std.json` only when something outside your tree
-demands JSON.
+`std.zon.parse.fromSlice(T, .{ .gpa, .arena, .source, .diagnostics })` to read,
+`std.zon.stringify.serialize(val, options, w)` to write, and `@import("config.zon")` to embed one at
+compile time as a typed value with no parser in the binary at all. Reach for `std.json` only when
+something outside your tree demands JSON.
 
 **Why:** ZON is a subset of Zig's own grammar, so a ZON file is checked against your struct type —
-an unknown field is `error.ParseZon` with a `Diagnostics` message and a source location, not a
-silently ignored key. `fromSlice` asserts at *comptime* that the destination type contains no
-pointers, so its result never needs freeing; the pointer-bearing case is the separate, explicitly
-named `fromSliceAlloc` plus `std.zon.parse.free`. That split makes the ownership question
-unavoidable at the call site, which is exactly what ZS-MEM ownership rules ask for. `@import` of a
-`.zon` file goes further and removes the runtime failure path entirely.
+an unknown field is `error.ParseZon` with a message and a source location in the required
+`Diagnostics`, not a silently ignored key. Since 0.17 the call names the result's owner: `fromSlice`
+allocates the result's pointers, and the diagnostics, into the `.arena` you pass, so the arena owns
+the value and nothing is freed piecemeal; `fromSliceNoAlloc` asserts at *comptime* that the
+destination type contains no pointers, so its result outlives that arena. That split makes the
+ownership question unavoidable at the call site, which is exactly what ZS-MEM ownership rules ask
+for. `@import` of a `.zon` file goes further and removes the runtime failure path entirely.
 
 Two constraints apply to both formats:
 
@@ -1490,9 +1502,10 @@ and the incremental type is `std.zon.Serializer`. There is no `std.zon.Stringify
 `std.json.Stringify`.
 
 **Check:** a new `std.json` dependency in a diff needs a named external consumer; otherwise it
-should be ZON. Every `parse.fromSliceAlloc` needs a matching `std.zon.parse.free` or an arena. Every
-parse of bytes from a file, socket, or subprocess needs the `Io.Limit` on the read that produced
-them.
+should be ZON. Every `parse.fromSlice` needs an `.arena` that outlives the value it returns; a
+result type with no pointers reads better as `parse.fromSliceNoAlloc`, which lets the arena go
+first. Every parse of bytes from a file, socket, or subprocess needs the `Io.Limit` on the read that
+produced them.
 
 ```zig
 // verified — GOOD
@@ -1504,11 +1517,20 @@ const Config = struct {
 
 test "zon round trip" {
     const gpa = std.testing.allocator;
+    var arena_state: std.heap.ArenaAllocator = .init(gpa);
+    defer arena_state.deinit();
 
-    // `fromSlice` asserts at comptime that `Config` holds no pointers, so the result
-    // needs no freeing. Use `fromSliceAlloc` + `std.zon.parse.free` when it does.
+    // `fromSliceNoAlloc` asserts at comptime that `Config` holds no pointers, so the
+    // result outlives the arena. A type with pointers uses `fromSlice`, and the arena
+    // owns its result.
     const source: [:0]const u8 = ".{ .replica_count = 6, .grid_size_bytes = 4096 }";
-    const config = try std.zon.parse.fromSlice(Config, gpa, source, null, .{});
+    var diagnostics: std.zon.parse.Diagnostics = undefined;
+    const config = try std.zon.parse.fromSliceNoAlloc(Config, .{
+        .gpa = gpa,
+        .arena = arena_state.allocator(),
+        .source = source,
+        .diagnostics = &diagnostics,
+    });
     try std.testing.expectEqual(6, config.replica_count);
 
     var buf: [64]u8 = undefined;

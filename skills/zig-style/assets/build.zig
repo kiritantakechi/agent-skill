@@ -1,6 +1,6 @@
 // Canonical build.zig for a library + CLI project, lifted verbatim from
 // references/build-and-project.md ZS-BUILD-01, where it is marked verified against
-// Zig 0.16.0. Rename `myproj` and delete the steps you do not need.
+// Zig 0.17.0. Rename `myproj` and delete the steps you do not need.
 // Referenced by ZS-BUILD-01, ZS-BUILD-02, ZS-BUILD-05, ZS-BUILD-32.
 
 const std = @import("std");
@@ -41,7 +41,7 @@ pub fn build(b: *std.Build) void {
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| run_cmd.addArgs(args);
+    run_cmd.addPassthruArgs();
     b.step("run", "Run the CLI").dependOn(&run_cmd.step);
 
     // ONE test binary per module (ZS-BUILD-05). Unit tests hang off `test`.
@@ -80,19 +80,19 @@ pub fn build(b: *std.Build) void {
         .root_module = b.createModule(.{
             .root_source_file = b.path("tools/codegen.zig"),
             .target = b.graph.host,
-            .optimize = .Debug,
+            .optimize = .debug,
         }),
     });
     b.step("codegen", "Regenerate tables").dependOn(&b.addRunArtifact(codegen).step);
 
     // Formatting gate. Explicit paths, so `zig-pkg/` is never scanned.
     b.step("fmt", "Check source formatting").dependOn(&b.addFmt(.{
-        .paths = &.{ "build.zig", "build.zig.zon", "src", "tests", "tools" },
+        .paths = b.pathList(&.{ "build.zig", "build.zig.zon", "src", "tests", "tools" }),
         .check = true,
     }).step);
 
-    // `check` step for ZLS build-on-save: these artifacts are never installed and
-    // never run, so the build system passes `-fno-emit-bin` and only analyzes.
+    // `check` step for editor build-on-save: these artifacts are never installed
+    // and never run, so the build system passes `-fno-emit-bin` and only analyzes.
     const check_step = b.step("check", "Semantic check only, no binary emitted");
     check_step.dependOn(&b.addExecutable(.{
         .name = "myproj-check",

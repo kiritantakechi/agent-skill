@@ -1,6 +1,6 @@
 # Formatting values and program output
 
-Scope: turning values into bytes (`{f}` and the custom `format` method, the complete 0.16 specifier
+Scope: turning values into bytes (`{f}` and the custom `format` method, the complete 0.17 specifier
 set, width/fill/alignment/precision, the `std.fmt` API, `parseInt`/`parseFloat`), and where those
 bytes are allowed to go (buffered `*Io.Writer` for program output, `std.log` for diagnostics,
 `std.process.fatal` for a fatal CLI condition, a custom `logFn` for structured logs).
@@ -21,10 +21,10 @@ declared beside the test.
 
 - **1. `{}` versus `{f}`**
   - ZS-FMT-01 [M] Use `{f}` for any type that defines `format`; `{}` silently ignores it
-  - ZS-FMT-02 [M] Write the 0.16 `format` signature exactly: value, writer, `Writer.Error!void`
+  - ZS-FMT-02 [M] Write the `format` signature exactly: value, writer, `Writer.Error!void`
   - ZS-FMT-03 [S] Express a second rendering with `std.fmt.alt`, not a second `format` method
 - **2. The specifier set**
-  - ZS-FMT-04 [M] Choose the specifier deliberately; this is the complete 0.16 set
+  - ZS-FMT-04 [M] Choose the specifier deliberately; this is the complete 0.17 set
   - ZS-FMT-05 [M] Print an enum, union tag, or error name with `{t}`
   - ZS-FMT-06 [M] Give `{?}` and `{!}` an inner specifier for the payload
   - ZS-FMT-07 [S] Treat `{any}` as a debugging dump — never as an output format
@@ -33,8 +33,8 @@ declared beside the test.
   - ZS-FMT-09 [M] Width is counted in bytes, so it does not align non-ASCII text
   - ZS-FMT-10 [M] Width and precision are for numbers and strings; on an enum they panic
 - **4. The `std.fmt` API**
-  - ZS-FMT-11 [M] Use the 0.16 names: `Options`, `Alt`/`alt`, `bufPrintSentinel`
-  - ZS-FMT-12 [M!] Use `bufPrint`, not `allocPrint`, when a constant bounds the size
+  - ZS-FMT-11 [M] Use the 0.17 names: `Options`, `Alt`/`alt`, `std.mem.printSentinel`
+  - ZS-FMT-12 [M!] Use `std.mem.print`, not `gpa.print`, when a constant bounds the size
   - ZS-FMT-13 [S] Use `comptimePrint` for compile-time strings and `count` for exact sizing
   - ZS-FMT-14 [M] Parse with `parseInt`/`parseFloat` and handle both failure modes by name
   - ZS-FMT-15 [M!] Round-trip every format you persist or transmit, in a test
@@ -45,15 +45,16 @@ declared beside the test.
 - **6. Logging**
   - ZS-FMT-19 [S] A custom `std.options.logFn` is the only route to timestamps or a sink
 - **7. Dead formatting API**
-  - ZS-FMT-20 [M] Reject the pre-0.16 formatting API on sight
+  - ZS-FMT-20 [M] Reject the old formatting API on sight
 
 ---
 
 ## 1. `{}` versus `{f}`
 
 ### ZS-FMT-01 [M] Use `{f}` for any type that defines `format`; `{}` silently ignores it
-In 0.16 the `{f}` specifier is the *only* thing that calls a type's `format` method. A bare `{}`
-falls through to the compiler's default value dump. Both compile.
+Since 0.16 the `{f}` specifier — with `{qf}`, its quoting twin added in 0.17 — is the *only* thing
+that calls a type's `format` method. A bare `{}` falls through to the compiler's default value
+dump. Both compile.
 
 **Why:** this is the single most dangerous change in 0.16 because the failure mode is **wrong
 output, not a compile error**. A log line, a serialized record, or a golden-file test that used to
@@ -88,12 +89,12 @@ The reverse direction *is* checked: `{f}` on a type with no `format` method is
 `error: no field or member function named 'format' in 'Plain'`. So the asymmetry is entirely
 one-sided — over-specifying is safe, under-specifying is silent.
 
-### ZS-FMT-02 [M] Write the 0.16 `format` signature exactly: value, writer, `Writer.Error!void`
+### ZS-FMT-02 [M] Write the `format` signature exactly: value, writer, `Writer.Error!void`
 `pub fn format(value: T, w: *std.Io.Writer) std.Io.Writer.Error!void`. There is no format-string
 parameter and no options parameter any more, and the writer is the concrete `*Io.Writer`, not
 `anytype`.
 
-**Why:** `printValue` dispatches `{f}` as literally `value.format(w)` (`Io/Writer.zig:1077`). A
+**Why:** `std.Io.Writer.printValue` dispatches `{f}` as literally `value.format(w)`. A
 0.14-era four-parameter `format` therefore fails with
 `error: member function expected 3 argument(s), found 1` — a clear error, but only if you reach it.
 Dropping the format string is what makes the method non-generic: it can no longer branch on the
@@ -184,13 +185,13 @@ test "alt selects a second rendering" {
 
 ## 2. The specifier set
 
-### ZS-FMT-04 [M] Choose the specifier deliberately; this is the complete 0.16 set
+### ZS-FMT-04 [M] Choose the specifier deliberately; this is the complete 0.17 set
 The placeholder grammar is `{[argument][specifier]:[fill][alignment][width].[precision]}`.
 
 **Why:** the set changed in 0.15/0.16 — `{f}` and `{t}` are new, `{D}` is gone, and several
 specifiers that used to be optional are now mandatory (a slice, an optional, or an error union with
-a bare `{}` is a compile error). Guessing produces either a compile error you will fix by guessing
-again, or the wrong output.
+a bare `{}` is a compile error) — and 0.17 adds `{q}` and `{qf}`. Guessing produces either a
+compile error you will fix by guessing again, or the wrong output.
 
 | Spec | Correct for | Renders |
 |---|---|---|
@@ -205,14 +206,16 @@ again, or the wrong output.
 | `{?}` / `{!}` | optionals / error unions | payload or `null` / payload or the error — see ZS-FMT-06 |
 | `{*}` | pointers | `Child@hexaddress` — see ZS-FMT-08 |
 | `{f}` | any type declaring `format` | that method's output — see ZS-FMT-01 |
+| `{q}` | `[]const u8`, `[N]u8`, `[*:0]const u8` | the bytes in double quotes; `\n`, `\r`, `\t`, `\\` and `"` escaped, control bytes and invalid UTF-8 hex-encoded |
+| `{qf}` | any type declaring `format` | that method's output, double-quote escaped the same way |
 | `{any}` | anything | the compiler's default dump, depth-limited — see ZS-FMT-07 |
 | `{b64}` | byte slices/arrays | standard base64 |
 | `{B}` / `{Bi}` | integers, `formatByteSize` structs | SI (`1.5kB`) / IEC (`1.5KiB`) byte sizes |
 | `{}` | ints, floats, bools, enums, error sets, structs, unions | the default rendering for that type |
 
-**`{D}` no longer exists.** It survives in the doc comment on `Io.Writer.print` but was removed from
-`printValue`: `{D}` on a `u64` is `error: invalid format string 'D' for type 'u64'`. Durations now
-carry their own `format` method, so a `std.Io.Duration` prints with `{f}`:
+**`{D}` no longer exists.** 0.16 removed it from `printValue`, and 0.17 also dropped it from the doc
+comment on `Io.Writer.print`: `{D}` on a `u64` is `error: invalid format string 'D' for type
+'u64'`. Durations now carry their own `format` method, so a `std.Io.Duration` prints with `{f}`:
 `Io.Duration.fromMilliseconds(1500)` renders `1.5s`.
 
 **Check:** `{D}` anywhere in the diff, `{e}`/`{E}` over an integer argument, `{c}` over an argument
@@ -235,6 +238,7 @@ test "specifier table" {
     try std.testing.expectFmt("{ 1, 2, 3 }", "{any}", .{[_]u8{ 1, 2, 3 }});
     try std.testing.expectFmt("aGk=", "{b64}", .{"hi"});
     try std.testing.expectFmt("1.5kB 1.5KiB", "{B} {Bi}", .{ 1500, 1536 });
+    try std.testing.expectFmt("\"a\\\"b\\n\"", "{q}", .{"a\"b\n"});
 }
 ```
 
@@ -384,9 +388,10 @@ bools). `precision` applies to floats. Applying width to a value that renders th
 forbidden" path — a bare `{}` on an enum or an error set, `{x}` on a slice, `{b64}` — trips
 `assert(options.width == null)` at **runtime**.
 
-**Why:** the check is an assertion inside `Io/Writer.zig:1421`, not a `@compileError`, so
-`"{:>8}"` on an enum builds cleanly and then panics with `reached unreachable code` in Debug and
-ReleaseSafe — or, in ReleaseFast, silently proceeds with a violated invariant (see ZS-CORE-10). The
+**Why:** the check is an assertion inside `optionsForbidden`, a private helper in
+`std/Io/Writer.zig`, not a `@compileError`, so `"{:>8}"` on an enum builds cleanly and then panics
+with `reached unreachable code` in `debug` and `safe` — or, in `fast`, silently proceeds with a
+violated invariant (see ZS-CORE-10). The
 fix is always to name the rendering you want: `{t:>8}`, not `{:>8}`.
 
 **Check:** a placeholder whose specifier is empty but which carries a `:` — the literal patterns
@@ -423,34 +428,40 @@ instead.
 
 ## 4. The `std.fmt` API
 
-### ZS-FMT-11 [M] Use the 0.16 names: `Options`, `Alt`/`alt`, `bufPrintSentinel`
-At 0.16.0, `std.fmt.Formatter` and `std.fmt.FormatOptions` **do not
-exist**; `std.fmt.Options` and `std.fmt.Alt`/`std.fmt.alt` are their replacements.
-`std.fmt.bufPrintZ` still compiles but carries `/// Deprecated in favor of bufPrintSentinel`.
+### ZS-FMT-11 [M] Use the 0.17 names: `Options`, `Alt`/`alt`, `std.mem.printSentinel`
+At 0.17.0, `std.fmt.Formatter`, `std.fmt.FormatOptions` and `std.fmt.bufPrintZ` **do not
+exist**; `std.fmt.Options`, `std.fmt.Alt`/`std.fmt.alt` and
+`std.mem.printSentinel(buf, fmt, args, 0)` are their replacements. The printing functions moved
+out of `std.fmt` as well: `std.fmt.bufPrint`, `bufPrintSentinel`, `BufPrintError`, `allocPrint`
+and `allocPrintSentinel` still compile, but each carries `/// Deprecated in favor of` its
+replacement — respectively `mem.print`, `mem.printSentinel`, `mem.PrintError`, `Allocator.print`
+and `Allocator.printSentinel`.
 
-**Why:** the two removals are compile errors and will be caught. `bufPrintZ` is the dangerous one —
-a silent deprecation alias, the same category of staleness as `std.mem.indexOf` (SKILL.md 2.4): the
-build stays green while the code reads a generation old.
+**Why:** the removals are compile errors and will be caught. The five deprecated print functions
+are the dangerous ones — silent deprecation aliases, the same category of staleness as
+`std.mem.indexOf` (SKILL.md 2.3): the build stays green while the code reads a generation old.
 
 **Check:** `std.fmt.Formatter`, `std.fmt.FormatOptions`, or `std.fmt.bufPrintZ` anywhere in the
-diff. Only the third still compiles, so it is the one worth a standing grep in CI.
+diff, and any `std.fmt.bufPrint`, `bufPrintSentinel`, `BufPrintError`, `allocPrint` or
+`allocPrintSentinel`. Only those last five still compile, so they are the ones worth a standing
+grep in CI.
 
 ```zig
 // verified — GOOD
 const std = @import("std");
 const Writer = std.Io.Writer;
-test "std.fmt surface in 0.16" {
+test "std.fmt surface in 0.17" {
     const gpa = std.testing.allocator;
 
-    const heap = try std.fmt.allocPrint(gpa, "{s}-{d}", .{ "id", 7 });
+    const heap = try gpa.print("{s}-{d}", .{ "id", 7 });
     defer gpa.free(heap);
     try std.testing.expectEqualStrings("id-7", heap);
 
     var buf: [16]u8 = undefined;
-    const stack = try std.fmt.bufPrint(&buf, "{s}-{d}", .{ "id", 7 });
+    const stack = try std.mem.print(&buf, "{s}-{d}", .{ "id", 7 });
     try std.testing.expectEqualStrings("id-7", stack);
 
-    const z = try std.fmt.bufPrintSentinel(&buf, "{d}", .{7}, 0);
+    const z = try std.mem.printSentinel(&buf, "{d}", .{7}, 0);
     try std.testing.expectEqual(0, z[z.len]);
 
     // std.fmt.Options is the options struct; there is no FormatOptions.
@@ -461,15 +472,17 @@ test "std.fmt surface in 0.16" {
 }
 ```
 
-The full current surface: `bufPrint`, `bufPrintSentinel`, `allocPrint`, `allocPrintSentinel`,
-`comptimePrint`, `count`, `printInt`, `parseInt`, `parseUnsigned`, `parseIntSizeSuffix`,
-`parseFloat`, `hexToBytes`, `bytesToHex`, `Options`, `Number`, `Alignment`, `Case`, `Alt`, `alt`,
-`Placeholder`, `Parser`, `Specifier`.
+The full current surface: `comptimePrint`, `count`, `printInt`, `parseInt`, `parseUnsigned`,
+`parseIntSizeSuffix`, `parseFloat`, `hexToBytes`, `bytesToHex`, `Options`, `Number`, `Alignment`,
+`Case`, `Alt`, `alt`, `Placeholder`, `Parser`, `Specifier` — and, outside `std.fmt`,
+`std.mem.print`, `std.mem.printSentinel`, `std.mem.PrintError`, `Allocator.print` and
+`Allocator.printSentinel`.
 
-### ZS-FMT-12 [M!] Use `bufPrint`, not `allocPrint`, when a constant bounds the size
+### ZS-FMT-12 [M!] Use `std.mem.print`, not `gpa.print`, when a constant bounds the size
 If the longest possible rendering can be derived from the argument types or from a named `_max`
-constant, format into a fixed array. Reach for `allocPrint` only when the length genuinely depends
-on unbounded runtime data.
+constant, format into a fixed array with `std.mem.print`. Reach for `Allocator.print` (`gpa.print`)
+only when the length genuinely depends on unbounded runtime data. (0.17 renamed both: `bufPrint`
+and `allocPrint` are deprecated aliases of these two.)
 
 **Why:** this is the bounded-limits principle (`references/assertions-and-limits.md` ZS-ASRT-24 and
 ZS-ASRT-26) applied to formatting. A derived bound removes an allocation, an error path, a `defer
@@ -477,13 +490,14 @@ gpa.free`, and one way to leak — and it forces you to *state* the maximum leng
 are printing, which is exactly the fact a reviewer needs. `[M!]` applies where an unbounded or
 failing allocation is unacceptable: embedded and firmware, databases and other must-not-OOM
 services, crypto, and any formatter reachable from untrusted input. *Relaxed form* elsewhere:
-`allocPrint` is fine for one-shot, human-facing strings; keep `bufPrint` for anything on a hot path
-or inside a loop.
+`gpa.print` is fine for one-shot, human-facing strings; keep `std.mem.print` for anything on a hot
+path or inside a loop.
 
-**Check:** an `allocPrint`/`allocPrintSentinel` whose format string contains only fixed-width
-integer, float, `{t}`, or literal-length placeholders — no `{s}` over unbounded input. Its maximum
-is derivable, so a `bufPrint` and a named `_max` constant belong there instead. An `allocPrint`
-inside a loop body is the same finding with the cost multiplied.
+**Check:** an `Allocator.print`/`printSentinel` call (`gpa.print(`), or the deprecated
+`allocPrint`/`allocPrintSentinel`, whose format string contains only fixed-width integer, float,
+`{t}`, or literal-length placeholders — no `{s}` over unbounded input. Its maximum is derivable, so
+a `std.mem.print` and a named `_max` constant belong there instead. An allocating print inside a
+loop body is the same finding with the cost multiplied.
 
 ```zig
 // verified — GOOD
@@ -494,10 +508,10 @@ const shard_label_max = "shard-".len + 5;
 fn shardLabel(buffer: *[shard_label_max]u8, shard: u16) []const u8 {
     // The bound is derived from the type, so NoSpaceLeft is unreachable here
     // and the proof is the constant above.
-    return std.fmt.bufPrint(buffer, "shard-{d}", .{shard}) catch unreachable;
+    return std.mem.print(buffer, "shard-{d}", .{shard}) catch unreachable;
 }
 
-test "bufPrint with a derived bound needs no allocator" {
+test "std.mem.print with a derived bound needs no allocator" {
     var buffer: [shard_label_max]u8 = undefined;
     try std.testing.expectEqualStrings("shard-65535", shardLabel(&buffer, 65535));
     try std.testing.expectEqualStrings("shard-0", shardLabel(&buffer, 0));
@@ -505,10 +519,10 @@ test "bufPrint with a derived bound needs no allocator" {
 ```
 
 The `catch unreachable` above is only legitimate because the constant one line up *is* the proof, in
-the sense ZS-ERR-10 requires. Without a derived bound, handle `error.NoSpaceLeft`: `bufPrint` writes
-as much as fits and then fails, so the partial output must not be used. Note also that
-`Io.Writer.Allocating` reports allocation failure as `error.WriteFailed`, whereas `allocPrint` maps
-it back to `error.OutOfMemory` for you (`references/io-and-concurrency.md` ZS-IO-09).
+the sense ZS-ERR-10 requires. Without a derived bound, handle `error.NoSpaceLeft`: `std.mem.print`
+writes as much as fits and then fails, so the partial output must not be used. Note also that
+`Io.Writer.Allocating` reports allocation failure as `error.WriteFailed`, whereas `Allocator.print`
+maps it back to `error.OutOfMemory` for you (`references/io-and-concurrency.md` ZS-IO-09).
 
 ### ZS-FMT-13 [S] Use `comptimePrint` for compile-time strings and `count` for exact sizing
 `comptimePrint(fmt, args)` returns a `*const [N:0]u8` whose length is comptime-known;
@@ -519,9 +533,10 @@ length participates in later comptime arithmetic — array sizes, `@compileError
 identifiers. `count` is how you size a buffer for a rendering whose bound is not obvious from the
 types. Deviate when the string is only used once at runtime; a comptime string costs binary size.
 
-**Check:** a `bufPrint` into an array whose length is a bare numeric literal rather than a named
-constant derived by `comptimePrint`, `count`, or arithmetic over the argument types. In the other
-direction: a `comptimePrint` whose result feeds exactly one runtime `print`.
+**Check:** a `std.mem.print` (or deprecated `bufPrint`) into an array whose length is a bare
+numeric literal rather than a named constant derived by `comptimePrint`, `count`, or arithmetic
+over the argument types. In the other direction: a `comptimePrint` whose result feeds exactly one
+runtime `print`.
 
 ```zig
 // verified — GOOD
@@ -618,7 +633,7 @@ test "format and parse are checked against each other" {
         .{ .epoch = 0, .index = 0 },
         .{ .epoch = 1, .index = 4_294_967_295 },
     }) |id| {
-        const text = try std.fmt.bufPrint(&buffer, "{f}", .{id});
+        const text = try std.mem.print(&buffer, "{f}", .{id});
         try std.testing.expectEqual(id, try RecordId.parse(text));
     }
 }
@@ -724,7 +739,7 @@ Three mechanisms, one decision:
 | Something went wrong and the program continues | `std.log.err(fmt, args)` | one line on stderr, exit code unchanged |
 | A bug, or a failure whose *origin* is the diagnostic | `return err` from `main` | `error: Name` plus the error return trace |
 
-`std.process.fatal` takes exactly two parameters and is `noreturn` (`std/process.zig:687`):
+`std.process.fatal` takes exactly two parameters and is `noreturn`:
 `pub fn fatal(comptime format: []const u8, format_arguments: anytype) noreturn`.
 Its body is `std.log.err(format, format_arguments); exit(1);` — so it honours the application's
 `logFn` and the same stderr lock, unlike a hand-rolled `stderr.print` + `exit`.
@@ -732,7 +747,7 @@ Its body is `std.log.err(format, format_arguments); exit(1);` — so it honours 
 **Why:** a stack trace is a message to *you*; a sentence is a message to the *user*. A CLI that
 dumps an error return trace because someone typed a non-numeric port is unusable, and a service that
 swallows a corrupt-state error into a one-line message has thrown away the only record of where it
-came from. On 0.16.0, `fatal` printed `error: 'abc' is not a number` and exited 1
+came from. On 0.17.0, `fatal` printed `error: 'abc' is not a number` and exited 1
 with stdout empty; returning `error.UnluckyCount` from `main` printed the error name *and* the
 `return` site with source lines.
 
@@ -757,9 +772,9 @@ pub fn main(init: std.process.Init) !void {
 }
 ```
 
-Note the error return trace exists only in Debug and ReleaseSafe
+Note the error return trace exists only in `debug` and `safe`
 (`references/errors-and-control-flow.md` ZS-ERR-17), so `return err` from `main` degrades to a bare
-`error: Name` in ReleaseFast — another reason to ship ReleaseSafe (ZS-CORE-10).
+`error: Name` in `fast` — another reason to ship `safe` (ZS-CORE-10).
 
 ---
 
@@ -768,7 +783,7 @@ Note the error return trace exists only in Debug and ReleaseSafe
 ### ZS-FMT-19 [S] A custom `std.options.logFn` is the only route to timestamps or a sink
 `std.log.defaultLog` writes `level(scope): message` to stderr with color and nothing else — no
 timestamp, no key/value structure, no destination choice. Overriding `logFn` in the root source file
-is the whole extension mechanism. The signature, from `std/std.zig:132`:
+is the whole extension mechanism. The signature, from the `logFn` field of `std.Options`:
 
 ```zig
 // fragment
@@ -832,17 +847,19 @@ have an `Io`, use `io.lockStderr` instead (ZS-IO-11).
 
 ## 7. Dead formatting API
 
-### ZS-FMT-20 [M] Reject the pre-0.16 formatting API on sight
-Each entry is 0.16.0. GONE means a compile error; the deprecated aliases
+### ZS-FMT-20 [M] Reject the old formatting API on sight
+Each entry is checked against 0.17.0. GONE means a compile error; the deprecated aliases
 still build and are therefore silent staleness.
 
-**Why:** the top three rows are the ones that do not fail the build. A `{}` on a formattable type, a
-`bufPrintZ`, and a `std.debug.print` carrying program output all compile, run, and exit 0 — so the
-only thing standing between them and production is this table and the review checklist in SKILL.md.
+**Why:** the rows that do not say GONE are the ones that do not fail the build. A `{}` on a
+formattable type, a deprecated `std.fmt` print function, and a `std.debug.print` carrying program
+output all compile, run, and exit 0 — so the only thing standing between them and production is
+this table and the review checklist in SKILL.md.
 
-**Check:** grep the diff for every left-column entry below. The three rows that compile — a `{}` on
-a formattable type, `std.fmt.bufPrintZ`, and `std.debug.print` carrying program output — are the
-ones worth a permanent CI grep; the rest the compiler will find for you.
+**Check:** grep the diff for every left-column entry below. The rows that compile — a `{}` on a
+formattable type, the deprecated `std.fmt` print functions (`bufPrint`, `bufPrintSentinel`,
+`BufPrintError`, `allocPrint`, `allocPrintSentinel`), and `std.debug.print` carrying program
+output — are the ones worth a permanent CI grep; the rest the compiler will find for you.
 
 | Dead | Status | Replacement |
 |---|---|---|
@@ -856,8 +873,10 @@ ones worth a permanent CI grep; the rest the compiler will find for you.
 | `std.fmt.fmtSliceHexLower` / `fmtSliceHexUpper` | GONE | `{x}` / `{X}` on the slice |
 | `std.fmt.fmtDuration` | GONE | `{f}` on an `Io.Duration` |
 | `std.fmt.fmtIntSizeDec` / `fmtIntSizeBin` | GONE | `{B}` / `{Bi}` |
-| `std.fmt.allocPrintZ` | GONE | `std.fmt.allocPrintSentinel(gpa, fmt, args, 0)` |
-| `std.fmt.bufPrintZ` | deprecated alias | `std.fmt.bufPrintSentinel(buf, fmt, args, 0)` |
+| `std.fmt.allocPrintZ` | GONE | `gpa.printSentinel(fmt, args, 0)` |
+| `std.fmt.bufPrintZ` | GONE (a deprecated alias in 0.16) | `std.mem.printSentinel(buf, fmt, args, 0)` |
+| `std.fmt.allocPrint` / `allocPrintSentinel` | deprecated alias | `gpa.print(fmt, args)` / `gpa.printSentinel(fmt, args, 0)` |
+| `std.fmt.bufPrint` / `bufPrintSentinel` / `BufPrintError` | deprecated alias | `std.mem.print` / `std.mem.printSentinel` / `std.mem.PrintError` |
 | `std.debug.print` for program output | works, wrong stream | a buffered `*Io.Writer` + `flush()` |
 
 The whole-namespace removals that also bite formatting code — `std.io`, `std.io.Writer`,

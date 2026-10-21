@@ -1,6 +1,6 @@
 # std.Io: streams, filesystem, and structured concurrency
 
-Everything in Zig 0.16 that can block, fail nondeterministically, or touch the outside world goes
+Everything in Zig 0.17 that can block, fail nondeterministically, or touch the outside world goes
 through one value: `std.Io`. This chapter covers obtaining and threading that value, the
 buffer-then-flush writing discipline, `Io.Reader`, authoring custom stream implementations, the
 `std.Io.Dir`/`std.Io.File` filesystem API that replaced `std.fs`, structured concurrency
@@ -10,7 +10,7 @@ buffer-then-flush writing discipline, `Io.Reader`, authoring custom stream imple
 This chapter does not own format specifiers — `{f}`, `{t}`, `{?}` and the custom `format` method are
 `references/formatting-and-output.md`. Allocator choice and `defer`/`errdefer` layout are
 `references/memory-and-allocators.md`; `std.testing.io` and `Io.failing` mechanics are
-`references/testing-and-fuzzing.md` ZS-TEST-09; the full 0.13→0.16 migration tables are
+`references/testing-and-fuzzing.md` ZS-TEST-09; the full 0.13→0.17 migration tables are
 `references/migration-and-dead-apis.md`; the non-I/O half of batching is
 `references/performance-and-locality.md` ZS-PERF-05; scoped library logging is
 `references/errors-and-control-flow.md` ZS-ERR-32. It cites them.
@@ -60,7 +60,7 @@ Every example assumes a file opening with
   - ZS-IO-32 [S] Use raw `std.Thread` only for dedicated, long-lived OS threads
   - ZS-IO-33 [M] Time is `Io`: `Io.Timestamp`, `Io.Duration`, `Io.Clock`, `io.sleep`
   - ZS-IO-34 [S] Express a multi-step timeout as one shared deadline, not a duration per call
-- **TigerStyle, re-derived for 0.16**
+- **TigerStyle, re-derived for `std.Io`**
   - ZS-IO-35 [M!] Run at your own pace: drain a batch, do not react per event
   - ZS-IO-36 [M!] A suspension point invalidates every entry-time assertion about shared state
   - ZS-IO-37 [M] Retire TigerStyle's completion-callback *style*, not its parameter order
@@ -191,20 +191,22 @@ handling is testable with no filesystem, no network, and no fault-injection harn
 `Io.Threaded` is the production backend. `Io.Evented` resolves to `Io.Uring` on Linux, `Io.Kqueue`
 on the BSDs, `Io.Dispatch` on Darwin, and `void` elsewhere.
 
-**Why:** no `Io.Evented` backend implements networking in 0.16.0 — `Uring` and `Dispatch` wire the
-`net*` vtable slots to `…Unavailable` stubs and `Kqueue`'s are `@panic("TODO")` — so every rule in
-the networking section below requires `Io.Threaded` today. Its Darwin backend's `deinit` also does
-not compile (`Io/Dispatch.zig:584`; see `references/memory-and-allocators.md` ZS-MEM-15 for the
-compile error). The backend runs; you simply cannot tear it down cleanly. Deviating is fine
-when you have measured that `Io.Threaded`'s one-thread-per-blocked-task model is your bottleneck —
-say so in a comment.
+**Why:** no `Io.Evented` backend implements networking in 0.17.0 — `Uring` and `Dispatch` wire the
+`net*` vtable slots to `…Unavailable` stubs and `Kqueue`'s `listen` and `accept` are
+`@panic("TODO")` — so every rule in the networking section below requires `Io.Threaded` today.
+Worse, in 0.17.0 none of the three compiles once a program calls `init`: each backend's vtable
+still names a slot that 0.17 removed from `Io.VTable`, so `Dispatch` and `Uring` fail with
+`no field named 'processReplacePath' in struct 'Io.VTable'` and `Kqueue` with the same error for
+`'fileWriteStreaming'`. Deviating becomes fine once a backend builds again and you have measured
+that `Io.Threaded`'s one-thread-per-blocked-task model is your bottleneck — say so in a comment.
 
 **Check:** `Io.Evented`, `Io.Uring`, `Io.Kqueue`, or `Io.Dispatch` named in a diff — each needs a
 comment stating the measurement that justified it, and none of them may appear on a code path that
 reaches `std.Io.net`, whose vtable slots they do not implement.
 
-> [!NOTE] `Io.Uring` and `Io.Kqueue` are described from their source at 0.16.0 rather than from a
-> run; `Io.Kqueue` is Darwin only.
+> [!NOTE] At 0.17.0 each backend was compiled (`zig build-obj -fno-emit-bin`) in a program that
+> calls `init`, `io()`, and `deinit`, for `aarch64-macos`, `x86_64-linux`, and `x86_64-freebsd`;
+> none was run, and the networking stubs are read from source. Re-check on a toolchain bump.
 
 ---
 
@@ -214,7 +216,7 @@ reaches `std.Io.net`, whose vtable slots they do not implement.
 `Io.Writer` buffers into a caller-supplied `[]u8`. Data sitting in that buffer when the writer dies
 is silently discarded — no error, no diagnostic, exit code 0.
 
-**Why:** this is the single most common new-code bug in 0.16. The program below compiles cleanly,
+**Why:** this is the single most common new-code bug since 0.16. The program below compiles cleanly,
 runs cleanly, exits 0, and prints nothing.
 
 ```zig
@@ -293,8 +295,8 @@ namespace) and `references/formatting-and-output.md` ZS-FMT-16 / ZS-FMT-17 point
 
 ### ZS-IO-07 [S] `writerStreaming` for pipes and terminals, `writer` for seekable files
 `File.writer(io, &buf)` and `Io.File.Writer.init(file, io, &buf)` are the same constructor and set
-`.mode = .positional` (`Io/File/Writer.zig:41`). `File.writerStreaming(io, &buf)` /
-`Writer.initStreaming` set `.mode = .streaming` (`:53`).
+`.mode = .positional`. `File.writerStreaming(io, &buf)` / `Io.File.Writer.initStreaming` set
+`.mode = .streaming`.
 
 **Why:** positional writes do not disturb the shared file offset and are therefore safer under
 concurrency, but a pipe or tty is never seekable. std's own comment on `initStreaming` states the
@@ -303,7 +305,7 @@ such syscalls are not available, preemptively initializing in streaming mode wil
 syscall."
 
 Both spellings are correct and both appear in std; do not "fix" one out of existence. `zig init`,
-SKILL.md §2.1, and the migration chapter use the positional constructor
+SKILL.md §2.4, and the migration chapter use the positional constructor
 (`Io.File.Writer = .init(.stdout(), io, &buf)`), and that is right: the fallback to streaming on
 `error.Unseekable` is automatic, so the entire cost on a pipe or tty is one failed syscall on the
 first write and the output is identical. Prefer `writerStreaming` only when you *know* the handle is
@@ -321,10 +323,10 @@ var log_writer = log_file.writer(io, &log_buffer);                  // seekable
 var init_writer: Io.File.Writer = .init(.stdout(), io, &init_buffer); // `zig init`; also correct
 ```
 
-> [!NOTE] `Io.File.Writer.initDetect(file, io, &buf)` exists in the source at `:58` and looks like
-> the answer to this whole question, but it **does not compile** in 0.16.0: it calls
-> `Mode.detect(...)`, and `File.Reader.Mode` (`Io/File/Reader.zig:44`) has no `detect` member —
-> `error: enum 'Io.File.Reader.Mode' has no member named 'detect'`. At 0.16.0; re-check on
+> [!NOTE] `Io.File.Writer.initDetect(file, io, &buf)` exists in the source and looks like
+> the answer to this whole question, but it **does not compile** in 0.17.0: it calls
+> `Mode.detect(...)`, and `Io.File.Reader.Mode` has no `detect` member —
+> `error: enum 'Io.File.Reader.Mode' has no member named 'detect'`. At 0.17.0; re-check on
 > toolchain bump.
 
 ### ZS-IO-08 [M] Reusable code takes `*Io.Writer` and returns `Io.Writer.Error!void`
@@ -357,14 +359,14 @@ pub fn writeCsvRow(w: *Io.Writer, fields: []const []const u8) Io.Writer.Error!vo
 has a no-op `flush`.
 
 **Why:** it is one allocation strategy and one error path instead of an `ArrayList` plus manual
-`appendSlice`/`print` bookkeeping, and it is what `std.fmt.allocPrint` is implemented in terms of.
-Deviate for a single `print` (use `std.fmt.allocPrint`) or a size you can bound (use
-`std.fmt.bufPrint` over a fixed array).
+`appendSlice`/`print` bookkeeping, and it is what `Allocator.print` is implemented in terms of.
+Deviate for a single `print` (use `gpa.print`, 0.16's `std.fmt.allocPrint`) or a size you can bound
+(use `std.mem.print`, 0.16's `std.fmt.bufPrint`, over a fixed array).
 
-**Check:** an `std.ArrayList(u8)` built up by alternating `appendSlice` with `std.fmt.allocPrint`
-results — that is `Allocating` written out longhand, plus a temporary per `print`. Also
-`error.WriteFailed` escaping an `Allocating` call site without being mapped back to
-`error.OutOfMemory`.
+**Check:** an `std.ArrayList(u8)` built up by alternating `appendSlice` with `gpa.print` (or the
+deprecated `std.fmt.allocPrint`) results — that is `Allocating` written out longhand, plus a
+temporary per `print`. Also `error.WriteFailed` escaping an `Allocating` call site without being
+mapped back to `error.OutOfMemory`.
 
 ```zig
 // verified — GOOD
@@ -454,7 +456,7 @@ try locked.file_writer.interface.writeAll("done\n");
 unmodified.
 
 **Why:** the buffer length *is* the bound on a line, a header, or a record. This is where
-TigerStyle's "all loops and queues have a fixed upper bound" rule lands in 0.16 I/O code: choosing
+TigerStyle's "all loops and queues have a fixed upper bound" rule lands in 0.17 I/O code: choosing
 `var buf: [4096]u8` is choosing a 4 KiB maximum line, and a hostile 4 GiB line without a newline
 becomes `error.StreamTooLong` instead of an OOM.
 
@@ -489,7 +491,7 @@ the first line and then an infinite stream of zero-length slices — a hang, not
 the call. A single call followed by an explicit discard of the delimiter is the only correct use,
 and it needs a comment saying so.
 
-On 0.16.0:
+On 0.17.0:
 
 ```zig
 // fragment — BAD: infinite loop after the first line
@@ -612,9 +614,9 @@ by-value field of your struct rather than a pointer to one.
 
 **Check:** a custom stream type whose interface field is declared `*Io.Writer`/`*Io.Reader` rather
 than by value, or named anything but `interface`. A `@fieldParentPtr` with no `@alignCast` is a
-**note, not a defect**: 77 of std's 169 call sites omit it, including `Io/Reader/Limited.zig`. Ask
-for it in new code (ZS-CT-23) and let it go on code that already compiles — the compiler rejects the
-cases where it was actually required.
+**note, not a defect**: 75 of std's 172 call sites omit it at 0.17.0, including
+`Io/Reader/Limited.zig`. Ask for it in new code (ZS-CT-23) and let it go on code that already
+compiles — the compiler rejects the cases where it was actually required.
 
 ### ZS-IO-18 [M] Implement `drain` to the full contract
 Only `drain` is required (`sendFile`, `flush`, `rebase` have defaults). A correct `drain`:
@@ -1040,9 +1042,10 @@ because no further work follows either way. Log the error there rather than disc
 (ZS-ERR-11), or wrap the cleanup in cancel protection when it must actually happen.
 
 std draws the line in the same place but stops short of logging: a bare `catch {}` on a cancelable
-unlink appears in `testing.zig:628` (`deleteTree`, in `TmpDir.cleanup`), `Io/File/Atomic.zig:30`,
-and `Build/Cache.zig:1306` — always on a leaving path, never mid-flow. Read those as evidence for
-*where* the exemption lies, not as licence for the bare form; this standard still wants it logged.
+unlink appears in `std.testing.TmpDir.cleanup` (its `deleteTree`), `std.Io.File.Atomic.deinit`, and
+the `testGetCurrentFileTimestamp` helper in `std.Build.Cache` — always on a leaving path, never
+mid-flow. Read those as evidence for *where* the exemption lies, not as licence for the bare form;
+this standard still wants it logged.
 
 **Why:** swallowing the one signal you get converts a cancellation request into a task that runs
 forever, and `Group.await`/`Future.cancel` then block indefinitely waiting for it. Note the tell is
@@ -1112,11 +1115,12 @@ fn grind(io: Io, iterations: usize) Io.Cancelable!u64 {
 `Mutex.lockUncancelable`, `RwLock.lockUncancelable`, `RwLock.lockSharedUncancelable`,
 `Condition.waitUncancelable`, `Event.waitUncancelable`, `Semaphore.waitUncancelable`,
 `Queue.putUncancelable` / `putOneUncancelable` / `getUncancelable` / `getOneUncancelable`, and
-`io.futexWaitUncancelable`. Those 11 names are the whole callable surface for 0.16. A grep counts 14
+`io.futexWaitUncancelable`. Those 11 names are the whole callable surface for 0.17. A grep counts 14
 `pub fn *Uncancelable` — the other three are `TypeErasedQueue.putUncancelable`/`getUncancelable`,
 which are the untyped layer `Queue` forwards into rather than separate APIs, and
 `noFutexWaitUncancelable`, an internal vtable stub taking `userdata: ?*anyopaque` — from
-`Io.zig`, `Io/RwLock.zig`, and `Io/Semaphore.zig`.
+`Io.zig`, `Io/RwLock.zig`, and `Io/Semaphore.zig`. 0.17 adds `Semaphore.waitTimeout(io, timeout)`,
+which is cancelable and has no uncancelable timed form, so it never belongs in a `defer`.
 
 **Why:** a `defer` body cannot propagate an error, so a cancelable blocking call inside one — a lock
 acquisition, a queue hand-off, an event wait — has no correct failure handling; you would have to
@@ -1134,7 +1138,7 @@ no such twin — `dir.deleteFile(io, path)`, which has no `deleteFileUncancelabl
 ZS-IO-27's already-leaving exemption instead, not by this rule. Do not report it here.
 
 ### ZS-IO-30 [M] Synchronize with the `Io` primitives, never OS primitives
-`std.Thread` has **no** synchronization primitives in 0.16 — no `Mutex`, `Condition`,
+`std.Thread` has **no** synchronization primitives in 0.17 — no `Mutex`, `Condition`,
 `Semaphore`, `RwLock`, `ResetEvent`, `WaitGroup`, `Pool`, or `Futex`. All of them moved to `std.Io`
 and take an `io`. There is no `Io.Futex` type — `futexWait`/`futexWake` are free functions on `Io`.
 
@@ -1145,9 +1149,10 @@ holding the lock. The result is a deadlock that only manifests on the non-defaul
 substitute.
 
 **Check:** `std.Thread.Mutex`, `.Condition`, `.Semaphore`, `.RwLock`, `.ResetEvent`, `.WaitGroup`,
-`.Pool`, or `.Futex` in a diff — all are compile errors in 0.16 and each names the `Io` type that
-replaced it. `std.atomic.Mutex` is the one that *does* compile and is still the finding: it has no
-blocking `lock`, so a `while (!m.tryLock()) {}` around it is a spin that no scheduler can preempt.
+`.Pool`, or `.Futex` in a diff — all are compile errors in 0.17 (`has no member named 'Mutex'`),
+and none of the messages names the `std.Io` replacement, so name it in the review.
+`std.atomic.Mutex` is the one that *does* compile and is still the finding: it has no blocking
+`lock`, so a `while (!m.tryLock()) {}` around it is a spin that no scheduler can preempt.
 
 ```zig
 // fragment — GOOD
@@ -1202,7 +1207,7 @@ Reading the wall clock through a global would defeat it.
 
 **Check:** `std.time.Timer`, `std.time.Instant`, `std.time.timestamp`, `milliTimestamp`,
 `nanoTimestamp`, or `std.time.sleep` anywhere in a diff; `.monotonic` used as an `Io.Clock`; and any
-abbreviated `Duration` constructor (`fromMs`, `fromNs`) — the 0.16 names are spelled in full.
+abbreviated `Duration` constructor (`fromMs`, `fromNs`) — the 0.17 names are spelled in full.
 
 ```zig
 // fragment — GOOD
@@ -1243,11 +1248,11 @@ test "timeout as a deadline, not a per-call duration" {
 
 ---
 
-## TigerStyle, re-derived for 0.16
+## TigerStyle, re-derived for `std.Io`
 
 ### ZS-IO-35 [M!] Run at your own pace: drain a batch, do not react per event
 TigerStyle: *don't do things directly in reaction to external events; your program should run at its
-own pace.* In 0.16 that means `q.get(io, &batch, 1)` — which returns up to `batch.len` items in one
+own pace.* In 0.17 that means `q.get(io, &batch, 1)` — which returns up to `batch.len` items in one
 wake-up — rather than `q.getOne(io)` in a loop, and `writeVecAll`/`sendFileAll` rather than a write
 per record.
 
@@ -1329,7 +1334,7 @@ while (batch.next()) |c| _ = try c.result.file_read_streaming;
 ### ZS-IO-36 [M!] A suspension point invalidates every entry-time assertion about shared state
 TigerStyle says: *ensure functions run to completion without suspending, so that precondition
 assertions are true throughout the lifetime of the function.* Under `io.async` that rule cannot be
-followed literally — any `io.*` call is a suspension point. The 0.16 form of the rule: assert about
+followed literally — any `io.*` call is a suspension point. The 0.17 form of the rule: assert about
 shared state only in a region where you hold exclusive access, and re-establish the assertion after
 every `io.*` call.
 
@@ -1384,7 +1389,7 @@ to the edges and keep the computational core `io`-free — that is where TigerSt
 density belongs.
 
 ### ZS-IO-37 [M] Retire TigerStyle's completion-callback *style*, not its parameter order
-What 0.16 kills is the callback-**driven I/O** pattern: the `read_sector()` /
+What `std.Io` kills is the callback-**driven I/O** pattern: the `read_sector()` /
 `read_sector_callback()` pair, the continuation threaded through an `on_complete` field, the state
 machine that exists only to remember where to resume. Do not write those. `io.async(f, args)`
 returns a `Future` and `f.await(io)` resumes in the caller's own lexical scope, so there is no
@@ -1396,7 +1401,7 @@ it removes the naming problem rather than solving it.
 
 TigerStyle's *other* callback rule — "callbacks go last in the parameter list" — survives, because
 std does exactly the same thing for function values passed as data, in
-`std/sort.zig` and `std/mem.zig` at 0.16.0: `insertion`, `heap`, `pdq`, `block`, `binarySearch`,
+`std/sort.zig` and `std/mem.zig` at 0.17.0: `insertion`, `heap`, `pdq`, `block`, `binarySearch`,
 `lowerBound`, `upperBound`, `equalRange`, `argMin`, `argMax`, `isSorted`, `std.mem.sort`, and
 `std.mem.sortUnstable` all put the comparator last, after `context`:
 
@@ -1475,7 +1480,7 @@ the atomic builtins are unchanged and still correct (ZS-IO-32).
 
 `std.net` is gone; networking is `std.Io.net`, and it obeys every rule above — `Io` after the
 receiver, `Io.Limit` on reads, `error.Canceled` never swallowed, buffers sized deliberately. Only
-`Io.Threaded` implements it in 0.16.0 (ZS-IO-04).
+`Io.Threaded` implements it in 0.17.0 (ZS-IO-04).
 
 ### ZS-IO-40 [M] Build the address first; `listen`, `bind`, and `connect` are methods on it
 `net.IpAddress` is `union(enum) { ip4: Ip4Address, ip6: Ip6Address }` and is the entry point for
@@ -1502,7 +1507,7 @@ test "address parsing" {
     const a: net.IpAddress = try .parse("127.0.0.1", 8080);
     try std.testing.expectEqual(8080, a.getPort());
     var buf: [64]u8 = undefined;
-    try std.testing.expectEqualStrings("127.0.0.1:8080", try std.fmt.bufPrint(&buf, "{f}", .{a}));
+    try std.testing.expectEqualStrings("127.0.0.1:8080", try std.mem.print(&buf, "{f}", .{a}));
 }
 ```
 
@@ -1565,7 +1570,7 @@ test "tcp loopback: listen, connect, read with an explicit limit" {
 
 Note the accept side runs under `io.concurrent`, not `io.async`: the server must make progress while
 the client connects, which is exactly the interleaving requirement of ZS-IO-25.
-`net.Stream.Writer.sendFile` is `error.Unimplemented` in 0.16.0 (a `TODO` in std), so
+`net.Stream.Writer.sendFile` is `error.Unimplemented` in 0.17.0 (a `TODO` in std), so
 `sendFileAll` over a socket silently falls back to the userspace copy loop — the ZS-IO-16 zero-copy
 argument does not yet apply to sockets.
 
@@ -1584,17 +1589,16 @@ awaited rather than abandoned (ZS-IO-24).
 **Check:** an `accept`/`connect`/`createPair` result whose next line is not a `defer …close(io)`; an
 accept loop with no way to be woken.
 
-> [!NOTE] At 0.16.0, re-check on a toolchain bump: `net.Socket.closeMany` does
-> not compile — `net.zig:1085` passes `[]const Socket` where the vtable wants `[]const Handle`
-> (`error: expected type '[]const i32'`). Close sockets one at a time. Relatedly,
-> `Socket.createPair(io, .{})` defaults to `.family = .ip4`, which `socketpair` rejects on Darwin;
-> `createPair` is described from source rather than exercised.
+> [!NOTE] At 0.17.0, re-check on a toolchain bump: `net.Socket.closeMany(io, sockets)` compiles
+> and closes a batch in one call (in 0.16.0 it did not compile). `Socket.createPair(io, .{})`
+> defaults to `.family = .ip4`, which `socketpair` rejects on Darwin: there it returns
+> `error.Unexpected`.
 
 ---
 
 ## Subprocesses
 
-`std.process.Child.init` + `spawn()` is the 0.14 shape and does not exist. In 0.16 the two entry
+`std.process.Child.init` + `spawn()` is the 0.14 shape and does not exist. In 0.17 the two entry
 points are free functions taking `io`, and the choice between them is whether you want the output or
 the stream.
 
@@ -1604,17 +1608,20 @@ Exact signatures, from `std/process.zig`:
 ```zig
 // fragment — from std/process.zig
 pub fn spawn(io: Io, options: SpawnOptions) SpawnError!Child;
-pub fn spawnPath(io: Io, dir: Io.Dir, options: SpawnOptions) SpawnError!Child;
 pub fn run(gpa: Allocator, io: Io, options: RunOptions) RunError!RunResult;
 pub fn replace(io: Io, options: ReplaceOptions) ReplaceError; // never returns on success
 ```
 
 `RunResult` is `{ term: Child.Term, stdout: []u8, stderr: []u8 }` and **the caller owns both
-slices**. `RunOptions` carries `argv`, `stdout_limit`/`stderr_limit` (`Io.Limit`), `reserve_amount`,
-`cwd`, `environ_map`, `progress_node`, and `timeout: Io.Timeout`. `SpawnOptions` carries `argv`,
-`cwd`, `environ_map`, `progress_node`, and `stdin`/`stdout`/`stderr`, each a
-`StdIo = union(enum) { inherit, file: File, ignore, pipe, close }`. Note the ordering rule holds:
-`run` is a free function so `gpa` precedes `io` (ZS-IO-02).
+slices**. `RunOptions` carries `exe`, `argv`, `stdout_limit`/`stderr_limit` (`Io.Limit`),
+`reserve_amount`, `cwd`, `environ_map`, `progress_node`, and `timeout: Io.Timeout`. `SpawnOptions`
+carries `exe`, `argv`, `cwd`, `environ_map`, `progress_node`, `inherit_dirs`/`inherit_files`, and
+`stdin`/`stdout`/`stderr`, each a
+`StdIo = union(enum) { inherit, file: File, ignore, pipe, close }`. `exe` says how `argv[0]` is
+found — `.detect` (the default), `.search` on `PATH`, `.path` relative to a `Dir`, `.file`, or
+`.explicit` — and replaces 0.16's `spawnPath(io, dir, options)` and `replacePath`, both removed in
+0.17: write `.exe = .{ .path = dir }`. Note the ordering rule holds: `run` is a free function so
+`gpa` precedes `io` (ZS-IO-02).
 
 **Why:** `run` is `spawn` with `.stdin = .ignore, .stdout = .pipe, .stderr = .pipe` plus an
 `Io.File.MultiReader` that drains both pipes concurrently. Draining concurrently is the whole point:
@@ -1653,7 +1660,8 @@ test "process.run collects stdout with an explicit limit" {
 **and** closes every pipe it opened.
 
 **Why:** closing the child's `stdout` before `wait` panics inside `wait`'s own cleanup:
-`Threaded.zig:18899 .BADF => recoverableOsBugDetected()`, i.e. `reached unreachable code` in Debug.
+`std.Io.Threaded.closeFd` maps `.BADF => recoverableOsBugDetected()`, which is
+`reached unreachable code` in a `debug` build.
 It is a double close, and the ownership is not obvious from the type: `?File` looks like a handle
 you own. Pair the spawn with `errdefer child.kill(io)` so an error between spawn and `wait` does not
 leave an orphan, and let `wait` be the single release point on the success path.
@@ -1782,8 +1790,9 @@ self-buffering `Iterator` of ZS-IO-22, one entry at a time. `dir.walkSelectively
 but *you* call `walker.enter(io, entry)` for each directory you want to descend into.
 `dir.walk(gpa)` — recursive and descends unconditionally.
 
-**Why:** `walk` is `walkSelectively` with an automatic `enter` on every directory (`Dir.zig:397`),
-which means it has no way to skip `.git`, `node_modules`, or a bind mount that loops. Reaching for
+**Why:** `walk` is `walkSelectively` with an automatic `enter` on every directory
+(`std.Io.Dir.walk`, whose `Walker.next` calls `enter` on each entry), which means it has no way to
+skip `.git`, `node_modules`, or a bind mount that loops. Reaching for
 `walk` and then filtering the entries it returns still paid for the whole subtree. Choose
 `walkSelectively` whenever any subtree can be excluded; choose `Dir.Reader` when the traversal is
 hot enough that the `Iterator`'s one-entry-per-call round trip shows up, or when you cannot allocate

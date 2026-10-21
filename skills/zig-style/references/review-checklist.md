@@ -10,8 +10,8 @@ the review and tells the author what must change before merge.
 
 | Severity | Meaning | Examples |
 |---|---|---|
-| **Illegal** | Invokes illegal behaviour, or is safety-checked only in Debug | Use-after-free of an arena-owned slice, aliasing `noalias` parameters, `@intCast` that can truncate, reading `undefined`, a pointer into `list.items` held across an append |
-| **Stale** | Pre-0.16 spelling — either fails to build or, worse, still compiles | `std.io`, `std.fs.cwd()`, `GeneralPurposeAllocator`, `ArrayList(T).init(gpa)`, `std.mem.indexOf`, `{}` where a `format` method was intended |
+| **Illegal** | Invokes illegal behaviour, or is safety-checked only in `debug` | Use-after-free of an arena-owned slice, aliasing `noalias` parameters, `@intCast` that can truncate, reading `undefined`, a pointer into `list.items` held across an append |
+| **Stale** | Pre-0.17 spelling — either fails to build or, worse, still compiles | `std.io`, `std.fs.cwd()`, `GeneralPurposeAllocator`, `ArrayList(T).init(gpa)`, `std.mem.indexOf`, `{}` where a `format` method was intended, `std.builtin`, `builtin.mode == .Debug`, `std.heap.DebugAllocator`, `std.fmt.allocPrint` |
 | **Incorrect** | Produces wrong results or crashes on reachable input | Swallowed error, `catch unreachable` on an operating error, off-by-one, unbounded loop |
 | **Contract** | Breaks or under-specifies the public API | Undocumented ownership transfer, `anyerror` in a public signature, an allocator stored in a long-lived struct, a missing `deinit` |
 | **Design** | Works, but the shape will cost later | Concrete type used across a module boundary, `anytype` where a concrete type fits, unbounded queue, recursion with no proven depth, a branch that exists for one input |
@@ -30,7 +30,7 @@ bug sits unaddressed.
 Do not read the diff top to bottom. Read in this order, because a finding at
 each stage can invalidate the work of reading the next.
 
-1. **Stale API.** Before anything else, because a pre-0.16 spelling means the
+1. **Stale API.** Before anything else, because a pre-0.17 spelling means the
    author's model of `std` is wrong and every other judgement they made is
    suspect. Run the stale-API greps below. (`ZS-MIG`)
 2. **Memory and ownership.** Who allocates, who frees, and what the lifetime is.
@@ -40,7 +40,7 @@ each stage can invalidate the work of reading the next.
 3. **Illegal behaviour.** Every `@intCast`, `@ptrCast`, `@alignCast`, and
    `@bitCast`: is the precondition established? Every `undefined`. Every
    `noalias`. Every `unreachable` reachable from operating input. Ask what
-   ReleaseFast does with each, not what Debug does. (`ZS-TYPE`, `ZS-ASRT`)
+   `fast` does with each, not what `debug` does. (`ZS-TYPE`, `ZS-ASRT`)
 4. **Errors.** Every `catch unreachable` and `catch |_|`: is this a programmer
    error (assert) or an operating error (propagate)? Any `anyerror` in a public
    signature. Any error swallowed to satisfy a signature.
@@ -72,8 +72,8 @@ implying it passed.
 ```sh
 zig fmt --check --ast-check .
 zig build check                       # semantic check, no binary emitted
-zig build test                        # Debug
-zig build test -Doptimize=ReleaseSafe # ZS-TEST-27: the suite must pass in both
+zig build test                        # debug
+zig build test -Doptimize=safe        # ZS-TEST-27: the suite must pass in both
 zig build test-integration
 zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-33)
 ```
@@ -81,21 +81,33 @@ zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-33)
 ### Stale-API greps
 
 These are the highest-yield greps in this file, because most of them find code
-that still **compiles**. At 0.16.0, `std.io` is gone
+that still **compiles**. At 0.17.0, `std.io` is gone
 (`root source file struct 'std' has no member named 'io'`), while
-`std.mem.indexOf` still resolves as a deprecated alias and warns about nothing.
+`std.mem.indexOf`, `std.builtin`, `@import("builtin").mode`,
+`std.heap.DebugAllocator` and `std.fmt.allocPrint` still resolve as deprecated
+aliases and warn about nothing.
 
 ```sh
 rg -n '\bstd\.io\b'                     # Writergate: std.io no longer exists
 rg -n 'std\.fs\.(cwd|Dir|File)\b'       # use std.Io.Dir / std.Io.File
-rg -n 'GeneralPurposeAllocator'         # now std.heap.DebugAllocator
+rg -n 'GeneralPurposeAllocator'         # now std.heap.SafeAllocator
+rg -n 'DebugAllocator|heap\.Check\b'    # SILENT alias — now std.heap.SafeAllocator
 rg -n '\.init\(\s*(gpa|allocator|alloc)' # managed containers are gone
-rg -n 'std\.mem\.(last)?[iI]ndexOf'     # SILENT alias — now find/lastFind
+rg -n 'std\.mem\.(last)?[iI]ndexOf'     # SILENT alias — now find/findLast
 rg -n 'std\.(Thread\.(Mutex|Condition|Semaphore|RwLock|WaitGroup)|time\.sleep)' # moved onto std.Io
-rg -n 'pub fn main\(\)'                 # 0.16 takes std.process.Init
+rg -n 'pub fn main\(\)'                 # since 0.16, main takes std.process.Init
 rg -n 'usingnamespace'                  # removed from the language
-rg -n 'fn format\([^)]*fmt|fn format\([^)]*options' # 0.16 format takes only a writer
+rg -n 'fn format\([^)]*fmt|fn format\([^)]*options' # since 0.16, format takes only a writer
+rg -n 'std\.builtin\b|\bbuiltin\.mode\b|OptimizeMode' # SILENT alias — std.lang, builtin.optimize
+rg -n '\.(Debug|Release(Safe|Fast|Small))\b' # SILENT as a value — .debug .safe .fast .small
+rg -n '\bbuiltin\.(cpu|os|abi|object_format)\b' # SILENT alias — builtin.target.*
+rg -n 'fmt\.((alloc|buf)Print(Sentinel)?|BufPrintError)\b' # SILENT alias — gpa.print, std.mem.print
+rg -n 'getLast(OrNull)?\('              # SILENT alias — last()
+rg -n 'containsAtLeastScalar\('         # 0.17 swapped the last two parameters: (element, minimum)
 ```
+
+The `.(Debug|Release…)` grep also hits a user enum that happens to use those tag
+names; read each hit before renaming it.
 
 ### Discipline greps
 
@@ -148,7 +160,7 @@ Rules for the review itself:
   batch the rest at the end under one row, or offer to apply them directly.
 - **Say what you did not check.** A review that silently skipped the `@ptrCast`
   in the decoder is worse than one that says it did.
-- **Check ReleaseFast, not just Debug.** Most of the Illegal category is
+- **Check `fast`, not just `debug`.** Most of the Illegal category is
   invisible in the build mode you ran.
 
 ## Refactoring a codebase to this standard

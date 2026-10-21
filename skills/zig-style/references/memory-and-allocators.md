@@ -1,6 +1,6 @@
 # Memory, allocators, ownership lifetimes
 
-Scope: choosing an allocator in Zig 0.16, the `std.mem.Allocator` vtable and its contracts, writing
+Scope: choosing an allocator in Zig 0.17, the `std.mem.Allocator` vtable and its contracts, writing
 a custom allocator, expressing and enforcing ownership (who allocates, who frees, what a returned
 slice means), `defer`/`errdefer` discipline, pointer-invalidation traps, OOM policy, alignment, raw
 memory copies, and the graduated ladder from "allocate freely" to TigerStyle's "no allocation after
@@ -22,7 +22,7 @@ Every example assumes a file opening with `const std = @import("std");` and
   - ZS-MEM-02 [M] A library never names a concrete allocator
   - ZS-MEM-03 [M] Pick the allocator from the taxonomy, not from habit
   - ZS-MEM-04 [M] Tests allocate through `std.testing.allocator` (see ZS-TEST-05)
-  - ZS-MEM-05 [M] If you construct a `DebugAllocator` yourself, consume the `Check` from `deinit`
+  - ZS-MEM-05 [M] If you construct a `SafeAllocator` yourself, consume the leak count from `deinit`
 - **Passing and naming the allocator**
   - ZS-MEM-06 [M] Pass the allocator per call; do not store it in a field
   - ZS-MEM-07 [M] Name the allocator parameter for its role: `gpa`, `arena`, `scratch`
@@ -59,19 +59,20 @@ Every example assumes a file opening with `const std = @import("std");` and
 ## Choosing an allocator
 
 ### ZS-MEM-01 [M] Take `std.process.Init` in `main` and use the allocators it hands you
-In Zig 0.16 `main` may take `std.process.Init` as its first parameter. Use `init.gpa` for
+Since Zig 0.16 `main` may take `std.process.Init` as its first parameter. Use `init.gpa` for
 temporary/scoped heap and `init.arena.allocator()` for process-lifetime data. Do not hand-roll GPA
 boilerplate in `main`.
 
 **Why:** `std/start.zig` already runs the correct selection ladder for the target and optimize mode
-(`DebugAllocator` in Debug, `c_allocator` when linking libc, `wasm_allocator` on wasm,
-`smp_allocator` when multi-threaded and freestanding of libc), installs leak checking, creates the
-process arena over `page_allocator`, and tears all of it down after `main` returns. Rolling your own
-reproduces that ladder badly and usually loses the Debug-mode leak report.
+(`SafeAllocator` in `debug` and `safe` builds, whether or not libc is linked; in `fast` and `small`
+builds `c_allocator` when linking libc and `smp_allocator` when multi-threaded without it;
+`wasm_allocator` on wasm), installs leak checking, creates the process arena over `page_allocator`,
+and tears all of it down after `main` returns. Rolling your own reproduces that ladder badly and
+usually loses the leak report.
 
 **Check:** a `pub fn main` declared with no parameter, or with `Init.Minimal`, in a program that
-allocates; and any `DebugAllocator`, `ArenaAllocator`, or `std.heap.*` constructed inside `main`
-itself rather than taken from `init`.
+allocates; and any `SafeAllocator` (or the deprecated `DebugAllocator`), `ArenaAllocator`, or
+`std.heap.*` constructed inside `main` itself rather than taken from `init`.
 
 ```zig
 // does-not-compile
@@ -90,7 +91,7 @@ comptime {
 // verified
 const std = @import("std");
 pub fn main(init: std.process.Init) !void {
-    const gpa = init.gpa; // temporary allocations, leak-checked in Debug
+    const gpa = init.gpa; // temporary allocations, leak-checked in debug and safe builds
     const arena = init.arena.allocator(); // process lifetime, threadsafe, freed on exit
 
     var line: std.ArrayList(u8) = .empty;
@@ -102,7 +103,7 @@ pub fn main(init: std.process.Init) !void {
 }
 ```
 
-`std.process.Init` exactly (std/process.zig:30): `minimal: Minimal`, `arena:
+`std.process.Init` exactly: `minimal: Minimal`, `arena:
 *std.heap.ArenaAllocator` ("Threadsafe"), `gpa: Allocator` ("Threadsafe"), `io: Io`, `environ_map:
 *Environ.Map` ("Not threadsafe"), `preopens: Preopens`. `Init.Minimal` (`environ`, `args`) is the
 lighter alternative first parameter; `pub fn main() !void` still works but gives you nothing.
@@ -110,7 +111,7 @@ lighter alternative first parameter; `pub fn main() !void` still works but gives
 ### ZS-MEM-02 [M] A library never names a concrete allocator
 Library code takes `gpa: std.mem.Allocator` as a parameter. `std.heap.*` may not appear anywhere in
 a reusable module — not `page_allocator`, not `c_allocator`, not `smp_allocator`, not a
-`DebugAllocator` field.
+`SafeAllocator` field.
 
 **Why:** the allocator is the caller's memory policy. A library that picks `page_allocator` forces a
 syscall per allocation on a caller who wanted an arena; a library that picks `c_allocator` forces a
@@ -141,36 +142,37 @@ preference.
 
 **Why:** each row's cost is a documented property of the implementation, not a matter of taste, and
 the penalty for choosing off-niche is order-of-magnitude rather than marginal. `page_allocator`
-"makes a syscall directly for every allocation and free"; `DebugAllocator` spends "more than 100
-bytes of overhead" on a one-byte allocation; `c_allocator` is a `@compileError` without
-`builtin.link_libc` and forces a libc link on every downstream caller; `smp_allocator` asserts
+"makes a syscall directly for every allocation and free"; `SafeAllocator` trails every allocation,
+a one-byte one included, with a checksummed footer and, in a `debug` build, room for two
+seven-frame stack traces; `c_allocator` is a `@compileError` without `builtin.link_libc` and
+forces a libc link on every downstream caller; `smp_allocator` asserts
 `!builtin.single_threaded`; `FixedBufferAllocator`'s `free` reclaims only the last allocation.
 Picking by habit therefore does not perform slightly worse — it usually either fails to build or
 changes the program's syscall profile by a factor of thousands.
 
 | Allocator | Use for | Thread safe | Cost | Gotchas |
 |---|---|---|---|---|
-| `std.heap.DebugAllocator(Config)` | Debug/ReleaseSafe builds; leak + double-free detection | Yes; `thread_safe = !builtin.single_threaded` | "when allocating a single byte, the efficiency is less than 1%; it requires more than 100 bytes of overhead" | Construct with `.init`; `deinit()` returns `Check` and must be consumed. Never reuses addresses |
-| `std.heap.smp_allocator` | ReleaseFast/Small, multi-threaded, no libc | Yes (per-thread freelists) | Fast; per-thread slabs | Process-global singleton; `assert(!builtin.single_threaded)` so it is a compile error under `-fsingle-threaded` |
+| `std.heap.SafeAllocator` | `debug` and `safe` builds; leak, double-free, and foreign-allocation detection | Yes, given a thread-safe backing allocator; there is no single-threaded variant | A checksummed footer per allocation, plus two stack traces in a `debug` build | Construct with `.init(backing, .{})`; `deinit()` returns the leak count, which must be consumed. Reuses an address only if its backing allocator does. Replaces the deprecated `DebugAllocator` |
+| `std.heap.smp_allocator` | `fast`/`small` builds, multi-threaded, no libc | Yes (per-thread freelists) | Fast; per-thread slabs | Process-global singleton; `assert(!builtin.single_threaded)` so it is a compile error under `-fsingle-threaded` |
 | `std.heap.c_allocator` | You already link libc, or you need platform `malloc` interop | Yes | libc malloc | `@compileError` unless `builtin.link_libc` |
-| `std.heap.page_allocator` | Backing store for arenas / `DebugAllocator`; rare huge allocations | Yes | "makes a syscall directly for every allocation and free" | Never a general-purpose allocator |
+| `std.heap.page_allocator` | Backing store for arenas / `SafeAllocator`; rare huge allocations | Yes | "makes a syscall directly for every allocation and free" | Never a general-purpose allocator |
 | `std.heap.wasm_allocator` | wasm32/wasm64 | No | Small, fast | `WasmAllocator = if (builtin.single_threaded) BrkAllocator else @compileError("unimplemented")` |
 | `std.heap.ArenaAllocator` | Request-scoped / phase-scoped bulk allocation | `alloc` is threadsafe if the child is; `deinit`, `reset`, `queryCapacity` documented "Not threadsafe." | Bump pointer | `deinit` takes the arena **by value**; `free` of a non-last allocation is a no-op |
 | `std.heap.FixedBufferAllocator` | Bounded scratch work; a hard memory ceiling | `.allocator()` no; `.threadSafeAllocator()` yes (lock-free) — never mix the two handles | Zero syscalls | `free` reclaims only the last allocation, and `isLastAllocation` "has false negatives" |
 | `std.heap.MemoryPool(T)` | Many same-typed nodes needing stable pointers | No | Arena + freelist | `.empty`, `create(gpa)`, `destroy(ptr)`, `deinit(gpa)` |
-| `std.heap.stackFallback(N, fb)` | Small allocations that usually fit on the stack | Inherits fallback | One `[N]u8` stack array | `.allocator` is a `@compileError`; call `.get()`, which asserts it is called exactly once |
-| `std.testing.allocator` | Tests | Yes | Debug-allocator cost | Distinct `canary` so mixing it with a default `DebugAllocator` panics |
+| `std.heap.BufferFirstAllocator` | Small allocations that usually fit in a buffer you supply | No: the buffer half is a `FixedBufferAllocator` | One caller-owned `[N]u8`, usually on the stack | `var bfa: BufferFirstAllocator = .init(&buf, fallback)`, then `bfa.allocator()`. It replaced 0.16's `stackFallback(N, fb)` and its call-once `.get()` |
+| `std.testing.allocator` | Tests | Yes | `SafeAllocator` cost | Distinct `canary` so mixing it with a default `SafeAllocator` panics |
 | `std.testing.failing_allocator` | Injecting OOM at a chosen allocation index | No | None | Prefer `std.testing.checkAllAllocationFailures`, which drives it for you |
 | `std.mem.Allocator.failing` | Proving a code path never allocates | n/a | None | `resize`/`remap`/`free` are `unreachable` — it asserts you never free through it |
 
 > [!NOTE]
 > `std.heap.ThreadSafeAllocator`, `std.heap.GeneralPurposeAllocator`, and
-> `std.heap.LoggingAllocator` do **not** exist in 0.16 — zero hits in std, and
-> `std.heap.ThreadSafeAllocator` is a `has no member named` compile error. Use
-> `DebugAllocator(.{ .thread_safe = true })` or `smp_allocator` for thread safety, and
-> `DebugAllocator(.{ .verbose_log = true })` for logging.
+> `std.heap.LoggingAllocator` do **not** exist in 0.17 — zero hits in std, and
+> `std.heap.ThreadSafeAllocator` is a `has no member named` compile error. Use `SafeAllocator`,
+> which has no single-threaded variant, or `smp_allocator` for thread safety. `SafeAllocator` has
+> no logging option; only the deprecated `DebugAllocator(.{ .verbose_log = true })` still logs.
 
-Defaults by program kind, matching std's own ladder in `std/start.zig:689`:
+Defaults by program kind, matching std's own ladder in `std.start`:
 
 | Program | Default |
 |---|---|
@@ -180,26 +182,28 @@ Defaults by program kind, matching std's own ladder in `std/start.zig:689`:
 | Test | `std.testing.allocator` |
 | Arena backing | `std.heap.page_allocator` (what `start.zig` uses); the gpa on wasm |
 
-**Check:** `page_allocator` used as anything but backing for an arena or a `DebugAllocator`;
-`DebugAllocator` on a `ReleaseFast`/`ReleaseSmall` path; `std.testing.allocator` outside a `test`
-block; and `std.heap.ThreadSafeAllocator`, `std.heap.GeneralPurposeAllocator`, or
-`std.heap.LoggingAllocator`, none of which exist in 0.16.
+**Check:** `page_allocator` used as anything but backing for an arena or a `SafeAllocator`;
+`SafeAllocator` (or the deprecated `DebugAllocator`) on a `fast`/`small` path;
+`std.testing.allocator` outside a `test` block; and `std.heap.ThreadSafeAllocator`,
+`std.heap.GeneralPurposeAllocator`, or `std.heap.LoggingAllocator`, none of which exist in 0.17.
 
 ### ZS-MEM-04 [M] Tests allocate through `std.testing.allocator` (see ZS-TEST-05)
 Owned by `references/testing-and-fuzzing.md` ZS-TEST-05. A `test` block allocates only from
-`std.testing.allocator` — never `page_allocator`, never a locally constructed `DebugAllocator`,
-never an arena that hides leaks — because the test runner inspects `allocator_instance` after each
-test and fails the run on a leak, with the allocation site's stack trace.
+`std.testing.allocator` — never `page_allocator`, never a locally constructed `SafeAllocator`,
+never an arena that hides leaks — because the test runner calls `allocator_instance.deinit()` after
+each test and fails the run on a non-zero leak count, logging each leak with its allocation site's
+stack trace.
 
-### ZS-MEM-05 [M] If you construct a `DebugAllocator` yourself, consume the `Check` from `deinit`
-`DebugAllocator.deinit()` returns `std.heap.Check` (`.ok` / `.leak`). Assert on it or turn it into a
-non-zero exit; never `_ = da.deinit();`.
+### ZS-MEM-05 [M] If you construct a `SafeAllocator` yourself, consume the leak count from `deinit`
+`SafeAllocator.deinit()` returns the number of leaks as a `usize`. Assert that it is `0` or turn it
+into a non-zero exit; never `_ = sa.deinit();`. It replaced `DebugAllocator`, deprecated in 0.17,
+whose `deinit()` returned `std.heap.Check` (`.ok` / `.leak`) under the same rule.
 
 **Why:** the leak report is written by `deinit`, but the *decision* is the return value. Discarding
-it means a leaking build exits 0 and CI stays green. Also construct with the decl literal `.init` —
-default struct initialization is marked deprecated in the source.
+it means a leaking build exits 0 and CI stays green. Construct it with `.init(backing, .{})`: it
+has no default value, and it is thread-safe only if `backing` is.
 
-**Check:** `rg -n '_ = .*\.deinit\(\)'` — a discarded `Check` is the whole defect.
+**Check:** `rg -n '_ = .*\.deinit\(\)'` — a discarded leak count is the whole defect.
 
 Applies **only when you cannot take `init.gpa`** (see ZS-MEM-01) — a benchmark harness, a custom
 runtime, a `build.zig` step, a test that must exercise a non-default config. `main` takes
@@ -209,10 +213,10 @@ runtime, a `build.zig` step, a test that must exercise a non-default config. `ma
 // verified — a harness, not `main`
 const std = @import("std");
 const assert = std.debug.assert;
-test "a self-constructed DebugAllocator must have its Check consumed" {
-    var debug_allocator: std.heap.DebugAllocator(.{}) = .init;
-    defer assert(debug_allocator.deinit() == .ok);
-    const gpa = debug_allocator.allocator();
+test "a self-constructed SafeAllocator must have its leak count consumed" {
+    var safe_allocator: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});
+    defer assert(safe_allocator.deinit() == 0);
+    const gpa = safe_allocator.allocator();
 
     const buf = try gpa.alloc(u8, 16);
     defer gpa.free(buf);
@@ -220,10 +224,11 @@ test "a self-constructed DebugAllocator must have its Check consumed" {
 }
 ```
 
-To get the three-trace double-free report (allocation, first free, second free), you must opt in:
-`DebugAllocator(.{ .never_unmap = true, .retain_metadata = true })` plus
-`deinitWithoutLeakChecks()`. With the default config a double free of a small allocation faults
-inside `Allocator.free`'s `@memset(bytes, undefined)` before the detector can run.
+`SafeAllocator` prints the three-trace double-free report (allocation, first free, second free)
+with no opt-in. Each trace holds seven frames in a `debug` build; a `safe` build records none unless
+you set `.stack_trace_frames`. `DebugAllocator` needed `.never_unmap` and `.retain_metadata` plus
+`deinitWithoutLeakChecks()` for the same report, and without them a double free of a small
+allocation faulted inside `Allocator.free`'s `@memset(bytes, undefined)` first.
 
 ---
 
@@ -233,12 +238,12 @@ inside `Allocator.free`'s `@memset(bytes, undefined)` before the detector can ru
 Allocating methods take `gpa: Allocator` as their first parameter, including `deinit`. Reserve
 allocator *fields* for types that are themselves allocator wrappers.
 
-**Why:** this is the direction std moved and every allocator-in-a-field container in std is now
-marked `Deprecated` (`array_list.Managed`, `heap.memory_pool.Managed`, `ArrayListAligned`). Three
-concrete mechanisms: (1) it removes 16 bytes per instance, which matters when you hold a million of
-them; (2) it makes every allocation point visible at the call site instead of hidden behind
-`self.allocator`; (3) a struct with no allocator field can be memcpy'd, embedded, or moved without
-carrying a pointer to a possibly-dead allocator state.
+**Why:** this is the direction std moved: every allocator-in-a-field container in std is marked
+`Deprecated` (`array_list.Managed`, `array_list.AlignedManaged`) or, like `heap.memory_pool.Managed`
+in 0.17, already removed. Three concrete mechanisms: (1) it removes 16 bytes per instance, which
+matters when you hold a million of them; (2) it makes every allocation point visible at the call
+site instead of hidden behind `self.allocator`; (3) a struct with no allocator field can be
+memcpy'd, embedded, or moved without carrying a pointer to a possibly-dead allocator state.
 
 **Check:** a field of type `std.mem.Allocator` on any struct that is not itself an allocator
 wrapper, and a `deinit`/`append`/`ensureTotalCapacity` call that passes no allocator. Grep for
@@ -293,7 +298,7 @@ pub fn render(gpa: Allocator, arena: Allocator, doc: *const Doc) Allocator.Error
 
 ### ZS-MEM-08 [M] Never hand out an `Allocator` whose backing state lives in a frame that returns
 `ArenaAllocator.allocator()`, `FixedBufferAllocator.allocator()`, and
-`DebugAllocator.allocator()` all embed `.ptr = self`. If `self` is a local, the `Allocator` value
+`SafeAllocator.allocator()` all embed `.ptr = self`. If `self` is a local, the `Allocator` value
 becomes a dangling pointer the moment the function returns.
 
 **Why:** the `Allocator` interface is `{ ptr: *anyopaque, vtable: *const VTable }`. Copying the
@@ -328,7 +333,7 @@ state whose lifetime you can name, and document it.
 The allocator passed to `deinit`, `append`, `ensureTotalCapacity`, and `free` must be the same one
 that performed the original allocation.
 
-**Why:** `std.zig:46` states it for `ArrayList`: "The same allocator must be used throughout its
+**Why:** the `std.ArrayList` doc comment states it: "The same allocator must be used throughout its
 entire lifetime." The vtable dispatch will happily route a free into an allocator that never owned
 the block, corrupting its metadata. Because the allocator is now a parameter rather than a field
 (ZS-MEM-06), nothing enforces this for you — it is a discipline, and it is the cost of the
@@ -354,7 +359,7 @@ list.deinit(arena.allocator());
 A function that returns memory the caller must free says so: `/// Caller owns the returned memory.`
 Follow std's vocabulary — `dupe`, `dupeSentinel`, `alloc*`, `create`, `clone`, `toOwnedSlice`, and
 an `Alloc` suffix (`currentPathAlloc`) transfer ownership; `items`, `slice()`, `buffered()`,
-`written()`, `getLast()`, `unusedCapacitySlice()` return a **borrow** valid only until the next
+`written()`, `lastPtr()`, `unusedCapacitySlice()` return a **borrow** valid only until the next
 mutation.
 
 **Why:** Zig has no ownership in the type system. `[]u8` returned from `dupe` and `[]u8` returned
@@ -490,9 +495,9 @@ and ends with `x.* = undefined;`.
 
 **Why:** `deinit` is called from `defer`, where an error has nowhere to go, and from error
 unwinding, where allocating again may fail for the same reason you are unwinding. `x.* = undefined`
-turns a use-after-deinit into a detectable "branch on undefined value" in Debug/ReleaseSafe instead
-of silent reuse of freed pointers; std does exactly this in `MemoryPool.deinit` and
-`DebugAllocator.deinitWithoutLeakChecks`. It also makes `deinit` non-idempotent *loudly* — Zig has
+turns a use-after-deinit into a detectable "branch on undefined value" in `debug` and `safe` builds
+instead of silent reuse of freed pointers; std does exactly this in `MemoryPool.deinit` and
+`ArrayList.deinit`. It also makes `deinit` non-idempotent *loudly* — Zig has
 no idempotent-deinit convention, and calling it twice is a double free.
 
 **Check:** a `deinit` whose return type is not `void`; a `try`, a `catch`, or an `alloc`/`dupe`/
@@ -507,9 +512,10 @@ container fall back to `.empty` rather than copying and freeing by hand.
 
 **Why:** `toOwnedSlice` shrinks the allocation to the exact length and hands you the pointer,
 leaving the list valid and empty so an outstanding `defer list.deinit(gpa)` remains correct. Doing
-it by hand (`const out = try gpa.dupe(u8, list.items)`) copies the whole buffer for nothing. 0.16
-also offers `toOwnedSliceAssert(self)` and `toOwnedSliceSentinelAssert(self, sentinel)`, which take
-no allocator and assert the capacity already fits — use those on the static-allocation path.
+it by hand (`const out = try gpa.dupe(u8, list.items)`) copies the whole buffer for nothing.
+`ArrayList` also offers `toOwnedSliceAssert(self)` and
+`toOwnedSliceSentinelAssert(self, sentinel)`, which take no allocator and assert the capacity
+already fits — use those on the static-allocation path.
 
 **Check:** a `gpa.dupe(…, list.items)` — or an `alloc` plus `@memcpy` from `.items` — followed by a
 `list.deinit(gpa)`. That pair is `toOwnedSlice` written out longhand, and it copies the buffer for
@@ -563,23 +569,13 @@ If you genuinely want to shrink, use `gpa.realloc(buf, n)` (only fails on OOM, d
 `if (gpa.resize(buf, n)) buf = buf[0..n];` — `resize` is "guaranteed to not move the pointer", and
 `remap` may move it, so reassign from its return value.
 
-A related trap the type system does catch: `free` takes a **slice**, and slicing a `[*]T` with
-comptime-known bounds produces a `*[N]T`, not a slice. `Allocator.free` opens with
-`comptime assert(slice_info.size == .slice)`, so the mistake is a compile error rather than a
-corruption — and it is a mistake std itself makes:
-
-> [!NOTE] **At Zig 0.16.0 — re-check on a toolchain bump.**
-> `Io.Dispatch.deinit()` — reached as `Io.Evented.deinit()` on macOS — does not compile.
-> `Io/Dispatch.zig:584` is
-> `ev.backing_allocator.free(ev.main_loop_stack[0..main_loop_stack_size])`, and
-> `main_loop_stack` is `[*]align(...) u8` with `main_loop_stack_size` a `const`, so the slice
-> expression is a `*[8192]u8`. The failure is `error: reached unreachable code` from the
-> `comptime assert(slice_info.size == .slice)` at `mem/Allocator.zig:445`, referenced from
-> `Dispatch.zig:584`.
-> The backend itself runs; only tearing it down is a hard compile error, so a program that
-> constructs `Io.Evented` and never calls `deinit` builds and works. This is a std bug, not a rule:
-> do not design around it, just do not spend an afternoon on it. See
-> `references/io-and-concurrency.md` ZS-IO-04 for the backend-choice rule.
+A related shape the type system no longer catches: slicing a `[*]T` with comptime-known bounds
+produces a `*[N]T`, not a slice, and since 0.17 `Allocator.free` accepts a pointer to an array as
+well as a slice, freeing `N` elements. Through 0.16.0 it was a compile error
+(`comptime assert(slice_info.size == .slice)`), one std itself hit in `Io.Dispatch.deinit`
+(`free(ev.main_loop_stack[0..main_loop_stack_size])`). Now it compiles, so this rule covers it
+unchanged: `N` must be the length you allocated. A bare many-item `[*]T`, which carries no
+length, is still rejected.
 
 ---
 
@@ -602,7 +598,7 @@ existing item (ZS-MEM-17).
 **Why:** `ArrayList` grows with `growCapacity(minimum) = minimum +| (minimum / 2 + init_capacity)`,
 implemented as `remap` and falling back to alloc-copy-free. When it falls back, the old block is
 handed to `Allocator.free`, which `@memset`s it to `undefined` before releasing it — so a retained
-element pointer does not merely read stale data, it reads poison, and in ReleaseFast it reads
+element pointer does not merely read stale data, it reads poison, and in a `fast` build it reads
 whatever the allocator reused the page for. This is the single most common memory bug in Zig code
 that otherwise has no leaks.
 
@@ -643,7 +639,7 @@ between.
 newtype instead of a pointer).
 
 ### ZS-MEM-17 [M] If you need stable pointers, use `std.heap.MemoryPool(T)` or store indices
-`std.SegmentedList` and `std.BoundedArray` no longer exist in 0.16. For "many nodes, pointers must
+`std.SegmentedList` and `std.BoundedArray` were removed in 0.16. For "many nodes, pointers must
 not move", the replacement is `MemoryPool(T)`, optionally with the intrusive `std.SinglyLinkedList`
 / `std.DoublyLinkedList` (a `Node` holds links only; recover the payload with `@fieldParentPtr`).
 
@@ -651,7 +647,7 @@ not move", the replacement is `MemoryPool(T)`, optionally with the intrusive `st
 a freelist and are reused in place. Indices, by contrast, cost a bounds check and survive every
 reallocation, and `u32` indices halve the footprint of a graph versus 64-bit pointers.
 
-**Check:** `std.SegmentedList` or `std.BoundedArray` in a diff — neither exists in 0.16, so both are
+**Check:** `std.SegmentedList` or `std.BoundedArray` in a diff — neither exists in 0.17, so both are
 compile errors that point at exactly this decision. Then: a `*T` derived from container storage that
 is stored in a field, pushed into a second container, or returned; and a hand-rolled
 create/destroy freelist over `ArrayList` element addresses.
@@ -706,9 +702,11 @@ pub fn parse(gpa: Allocator, source: []const u8) ParseError!Ast {
 }
 ```
 
-To bound an application's heap rather than abort on it, use
-`DebugAllocator(.{ .enable_memory_limit = true })` and set `da.requested_memory_limit` — allocations
-past the limit return `error.OutOfMemory` through the normal path.
+To bound an application's heap rather than abort on it, give the bounded part a fixed backing
+buffer (ZS-MEM-23): allocations past it return `error.OutOfMemory` through the normal path.
+`SafeAllocator` has no memory-limit option, and the allocator that had one,
+`DebugAllocator(.{ .enable_memory_limit = true })` with `da.requested_memory_limit`, is deprecated
+in 0.17.
 
 ### ZS-MEM-19 [M!] Test allocating constructors with `checkAllAllocationFailures` (see ZS-TEST-13)
 Owned by `references/testing-and-fuzzing.md` ZS-TEST-13. The `errdefer` chains built under ZS-MEM-12
@@ -909,7 +907,7 @@ test "arena per phase" {
 
 Rules that come with it: never return arena memory past the reset point; never mix arena-owned and
 gpa-owned pointers in one struct without a doc comment saying which is which; never call
-`deinit`/`reset`/`queryCapacity` concurrently with work — `alloc` is threadsafe in 0.16 but those
+`deinit`/`reset`/`queryCapacity` concurrently with work — `alloc` is threadsafe in 0.17 but those
 three are documented "Not threadsafe.", so quiesce every worker first.
 
 ### ZS-MEM-22 [S] Preallocate to the known bound, then use `AssumeCapacity` in the hot path
@@ -988,7 +986,7 @@ same instance concurrently.
 ## The Allocator interface and custom allocators
 
 ### ZS-MEM-24 [M] Implement all four vtable members to their exact contracts
-The 0.16 `Allocator.VTable` is `alloc`, `resize`, `remap`, `free`. `remap` is newer than most
+The 0.17 `Allocator.VTable` is `alloc`, `resize`, `remap`, `free`. `remap` is newer than most
 Zig material — it is not optional and it is not `resize`.
 
 **Why:** `Allocator.resize` is documented "guaranteed to not move the pointer", and that guarantee
@@ -1156,8 +1154,8 @@ masking. `references/types-and-data.md` ZS-TYPE-22 points here.
 ### ZS-MEM-27 [M] `@memcpy` for disjoint copies, `@memmove` for overlapping ones
 `@memcpy(dest, source)` requires the regions not to overlap and the lengths to match. When source
 and destination may overlap — a ring buffer, an in-place shift — use `@memmove`.
-`std.mem.copyForwards` and `std.mem.copyBackwards` are marked deprecated in 0.16 ("This function is
-deprecated; use @memmove instead").
+`std.mem.copyForwards` and `std.mem.copyBackwards` are marked deprecated, since 0.16 and still in
+0.17 ("This function is deprecated; use @memmove instead").
 
 **Why:** `@memcpy` on overlapping regions is illegal behavior, not merely wrong output — the
 optimizer is allowed to assume non-aliasing and vectorize. The old `copyForwards`/`copyBackwards`
@@ -1167,7 +1165,7 @@ same vectorization reason.
 
 **Check:** a `@memcpy` whose two arguments are slices of the same base array or the same pointer —
 `@memcpy(ring[1..8], ring[0..7])` is the shape. Also `std.mem.copyForwards`/`copyBackwards`
-anywhere (both deprecated in 0.16), and a byte-at-a-time loop that only writes a constant.
+anywhere (both deprecated since 0.16), and a byte-at-a-time loop that only writes a constant.
 
 ```zig
 // verified

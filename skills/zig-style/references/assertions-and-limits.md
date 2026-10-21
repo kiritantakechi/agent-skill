@@ -34,7 +34,7 @@ will ever find.
   - ZS-ASRT-04 [M] Never make an assertion the last line of defense for memory or security safety
   - ZS-ASRT-05 [M] Keep assertion conditions pure, cheap, and free of side effects
   - ZS-ASRT-06 [M] Pick deliberately among `assert`, `unreachable`, `@panic`, and `fatal`
-  - ZS-ASRT-07 [M!] Ship ReleaseSafe, or define a project-local always-on assert
+  - ZS-ASRT-07 [M!] Ship `safe` builds, or define a project-local always-on assert
   - ZS-ASRT-08 [S] Confine `@setRuntimeSafety(false)` to the narrowest block, and prove it
   - ZS-ASRT-09 [M] In doc comments, "assert" means safety-checked and "assume" means unchecked
 - **Part 2 — Where the assertions go**
@@ -100,8 +100,8 @@ If the condition can be violated by anything outside your process — a peer, a 
 network, the disk — it is an operating error and must be an error union. If it can only be
 violated by your own code being wrong, it is an assertion.
 
-**Why:** an assertion that fires on hostile input is a remote denial of service, and in
-ReleaseFast it is a remote memory-safety bug (ZS-ASRT-04). Conversely, returning
+**Why:** an assertion that fires on hostile input is a remote denial of service, and in a
+`fast` build it is a remote memory-safety bug (ZS-ASRT-04). Conversely, returning
 `error.InvariantViolated` for a broken internal invariant asks the caller to handle a situation
 that has no correct handling, and propagates a corrupt process instead of stopping it.
 
@@ -144,30 +144,30 @@ fn messageParse(bytes: []const u8) ParseError!Header {
 ZS-ASRT-04, -05, -07, -08 and -20 all rest on it and cite it rather than restating it.
 
 `std.debug.assert` is an *ordinary function* — `pub fn assert(ok: bool) void { if (!ok) unreachable;
-}` (`std/debug.zig:418`). Two separate consequences follow, and conflating them is the usual
+}` (`std/debug.zig`). Two separate consequences follow, and conflating them is the usual
 mistake:
 
-1. **The check is deleted in ReleaseFast/ReleaseSmall, and is replaced by an assumption.**
-   `unreachable` is a panic in Debug and ReleaseSafe, and an *optimizer assumption* in ReleaseFast
-   and ReleaseSmall.
+1. **The check is deleted in `fast` and `small`, and is replaced by an assumption.**
+   `unreachable` is a panic in `debug` and `safe`, and an *optimizer assumption* in `fast` and
+   `small`.
 2. **The condition is still evaluated in all four modes.** `ok` is a function argument, so it is
-   computed at the call site in every mode; ReleaseFast discards the result, it does not skip the
-   work. The assert is **not** compiled away — only the check is. On 0.16.0, a global
-   counter incremented inside an assert condition reaches the same value under `-ODebug`,
-   `-OReleaseSafe`, `-OReleaseFast` and `-OReleaseSmall`. So `assert(list.pop() != null)` still pops
+   computed at the call site in every mode; `fast` discards the result, it does not skip the
+   work. The assert is **not** compiled away — only the check is. On 0.17.0, a global
+   counter incremented inside an assert condition reaches the same value under `-O debug`,
+   `-O safe`, `-O fast` and `-O small`. So `assert(list.pop() != null)` still pops
    in release, it just stops verifying the result — see ZS-ASRT-05.
 
 | Mode | Safety checks | Condition evaluated | A false `assert(cond)` |
 |---|---|---|---|
-| `Debug` | on | yes | panic: `reached unreachable code` |
-| `ReleaseSafe` | on | yes | panic: `reached unreachable code` |
-| `ReleaseFast` | off | **yes** | illegal behavior; the optimizer treats `cond` as proven |
-| `ReleaseSmall` | off | **yes** | illegal behavior; the optimizer treats `cond` as proven |
+| `.debug` | on | yes | panic: `reached unreachable code` |
+| `.safe` | on | yes | panic: `reached unreachable code` |
+| `.fast` | off | **yes** | illegal behavior; the optimizer treats `cond` as proven |
+| `.small` | off | **yes** | illegal behavior; the optimizer treats `cond` as proven |
 
 **Why:** in the bottom two rows an assertion does not merely stop protecting you — it actively
 *removes* protection, because LLVM propagates the assumed fact and deletes code that contradicts
 it. TigerStyle's claim that assertions downgrade correctness bugs into liveness bugs is true only
-in Debug and ReleaseSafe. In ReleaseFast a violated assertion *upgrades* a correctness bug into
+in `debug` and `safe`. In `fast` a violated assertion *upgrades* a correctness bug into
 arbitrary miscompilation. And because the condition still runs, you pay its full cost in release
 while buying nothing.
 
@@ -181,18 +181,18 @@ const assert = std.debug.assert;
 var sink: u32 = 0;
 
 noinline fn classify(x: u32) []const u8 {
-    assert(x != 0); // In ReleaseFast this is not a check, it is a promise.
+    assert(x != 0); // In `fast` this is not a check, it is a promise.
     if (x == 0) return "zero"; // ... so the optimizer deletes this branch.
     return "nonzero";
 }
 ```
 
-Calling `classify(sink)` with `sink == 0` on Zig 0.16.0, observed:
+Calling `classify(sink)` with `sink == 0` on Zig 0.17.0, observed:
 
-- `-OReleaseSafe`: `thread N panic: reached unreachable code` at `std/debug.zig:420`, exit 134 —
+- `-O safe`: `thread N panic: reached unreachable code` in `std.debug.assert`, exit 134 —
   the stack trace points straight at the violated assertion.
-- `-OReleaseFast`: no diagnostic of any kind. SIGSEGV, exit 139, at the *call site* — the branch
-  that would have returned `"zero"` was gone and the returned slice was garbage.
+- `-O fast`: no diagnostic of any kind. The process dies on a trap instruction, SIGTRAP, exit
+  133 — the branch that would have returned `"zero"` was gone.
 
 ### ZS-ASRT-04 [M] Never make an assertion the last line of defense for memory or security safety
 
@@ -201,17 +201,17 @@ crypto-boundary check is documentation, not enforcement. If the invariant must h
 binary, enforce it with a construct that survives: an `if` + error, `assertAlways` (ZS-ASRT-07),
 `std.math.cast`, or a checked slice operation.
 
-**Why:** by ZS-ASRT-03 the check is erased in ReleaseFast *and* replaced by an assumption, so an
+**Why:** by ZS-ASRT-03 the check is erased in `fast` *and* replaced by an assumption, so an
 attacker who can violate it gets both the out-of-bounds access and the deleted bounds check that
 would have caught it.
 
 **Check:** an `assert` on the line immediately before `.ptr[`, `@intCast`, `@ptrCast`, `@alignCast`,
-or pointer arithmetic, in code that ships anything but ReleaseSafe.
+or pointer arithmetic, in code that ships anything but `safe`.
 
 ```zig
 // fragment — BAD
 fn read(buffer: []const u8, offset: usize) u8 {
-    assert(offset < buffer.len); // Check gone in ReleaseFast; now an assumption.
+    assert(offset < buffer.len); // Check gone in `fast`; now an assumption.
     return buffer.ptr[offset]; // Unchecked: `.ptr` skips the slice bounds check.
 }
 ```
@@ -220,7 +220,7 @@ fn read(buffer: []const u8, offset: usize) u8 {
 // fragment — GOOD
 fn read(buffer: []const u8, offset: usize) u8 {
     assert(offset < buffer.len); // Keep it: it documents and it fires in test builds.
-    return buffer[offset]; // Slice indexing is safety-checked in Debug/ReleaseSafe.
+    return buffer[offset]; // Slice indexing is safety-checked in `debug`/`safe`.
 }
 ```
 
@@ -241,7 +241,7 @@ an assignment, or a call whose name starts with a mutating verb; or one containi
 ```zig
 // fragment — BAD
 assert(queue.pop() != null); // The pop happens in release too, unchecked.
-assert(list.indexOfSlow(item) != null); // O(N) cost paid in ReleaseFast for nothing.
+assert(list.indexOfSlow(item) != null); // O(N) cost paid in `fast` for nothing.
 ```
 
 ```zig
@@ -254,15 +254,15 @@ if (verify) assert(list.indexOfSlow(item) != null); // Whole statement compiled 
 
 ### ZS-ASRT-06 [M] Pick deliberately among `assert`, `unreachable`, `@panic`, and `fatal`
 
-| Construct | Survives ReleaseFast? | On violation | Use for |
+| Construct | Survives `fast`? | On violation | Use for |
 |---|---|---|---|
-| `assert(cond)` | no | panic in Debug/ReleaseSafe, UB otherwise | internal invariants |
+| `assert(cond)` | no | panic in `debug`/`safe`, UB otherwise | internal invariants |
 | `unreachable` | no | same as above | a branch the types cannot rule out |
 | `x catch unreachable` (never `.?` — ZS-ERR-30) | check removed | same as above | "this call cannot fail *here*" |
 | `assertAlways(cond, msg)` | **yes** | always panics with `msg` | invariants that must halt |
 | `@panic(msg)` | **yes** | always panics | a reached-corrupt-state branch |
 | `std.debug.panic(fmt, args)` | **yes** | always panics, formatted | same, plus the values |
-| `std.process.fatal(fmt, args)` | **yes** | `log.err` then `exit(1)` (`process.zig:687`) | operator-fixable |
+| `std.process.fatal(fmt, args)` | **yes** | `log.err` then `exit(1)` | operator-fixable |
 | `@compileError(msg)` | n/a | compile error, your message | contracts violated at comptime |
 
 **Why:** these are four genuinely different outcomes and blurring them costs debuggability.
@@ -273,8 +273,8 @@ dump, which is the right answer when the "impossible" state is really "the opera
 little memory". (TigerBeetle's own `fatal` takes a leading `reason` enum so exit codes are
 distinguishable per failure — that is a project-local helper, not std. std's is
 `pub fn fatal(comptime format: []const u8, format_arguments: anytype) noreturn`, two parameters.)
-`std.debug.panic` is `pub fn panic(comptime format: []const u8, args: anytype) noreturn`
-(`std/debug.zig:438`); `@panic` accepts a runtime `[]const u8`.
+`std.debug.panic` is `pub fn panic(comptime format: []const u8, args: anytype) noreturn`;
+`@panic` accepts a runtime `[]const u8`.
 
 **Check:** a `@panic(` whose message names no invariant (`@panic("unreachable")`, `@panic("bug")`,
 `@panic("error")`); a bare `unreachable` on a branch a reader cannot rule out by inspection; and
@@ -296,30 +296,30 @@ if (checkpoint_local != checkpoint_remote) {
 }
 ```
 
-### ZS-ASRT-07 [M!] Ship ReleaseSafe, or define a project-local always-on assert
+### ZS-ASRT-07 [M!] Ship `safe` builds, or define a project-local always-on assert
 
 Decide the shipping optimize mode *before* you adopt assertion density.
 
 `[M!]` applies to databases, consensus and replication, allocators, crypto, and embedded or kernel
 control loops — anywhere a corrupt write or a silent miscompilation is unacceptable. There the
-shipped binary must either be built with `-OReleaseSafe` or route its critical invariants through
-an assertion that survives ReleaseFast. *Relaxed form:* `std.debug.assert` plus a ReleaseSafe test
+shipped binary must either be built with `-O safe` or route its critical invariants through
+an assertion that survives `fast`. *Relaxed form:* `std.debug.assert` plus a `safe` test
 and staging build is acceptable, provided the README names the shipping optimize mode explicitly
 instead of leaving it implicit.
 
 **Why:** std ships no always-on assert; `std.debug.assert` is the only one and its check does not
-survive ReleaseFast (ZS-ASRT-03). TigerBeetle's answer is to ship ReleaseSafe
-(`b.standardOptimizeOption(.{ .preferred_optimize_mode = .ReleaseSafe })`; see
-`references/build-and-project.md` ZS-BUILD-27). If you cannot pay ReleaseSafe's cost, the
-alternative is a two-line helper, which panics under `-OReleaseFast` on 0.16.0 where the
-equivalent `assert` segfaulted. `assertAlways` is legal in a library: it reports a violated
+survive `fast` (ZS-ASRT-03). TigerBeetle's answer is to ship `safe`
+(`b.standardOptimizeOption(.{ .preferred_optimize_mode = .safe })` in 0.17; see
+`references/build-and-project.md` ZS-BUILD-27). If you cannot pay `safe`'s cost, the
+alternative is a two-line helper, which panics under `-O fast` on 0.17.0 where the
+equivalent `assert` died on a bare trap. `assertAlways` is legal in a library: it reports a violated
 invariant, not an operating error, so it does not take a recovery option away from the caller
 (`references/errors-and-control-flow.md` ZS-ERR-03).
 
 ```zig
 // verified — GOOD
-/// Assertion that is present in every optimize mode, including ReleaseFast and
-/// ReleaseSmall. Use where a violated invariant must halt the process rather
+/// Assertion that is present in every optimize mode, including `fast` and
+/// `small`. Use where a violated invariant must halt the process rather
 /// than become an optimizer assumption.
 pub fn assertAlways(ok: bool, comptime message: []const u8) void {
     if (!ok) @panic(message);
@@ -328,8 +328,8 @@ pub fn assertAlways(ok: bool, comptime message: []const u8) void {
 
 > Honest divergence: idiomatic std uses `assert` sparingly, for genuine internal invariants, and
 > reaches for error unions or documented illegal behavior at API boundaries; it never assumes a
-> ReleaseSafe deployment. TigerStyle assumes one. If you follow TigerStyle's density target while
-> shipping ReleaseFast without an `assertAlways` escape hatch, you have the worst of both: the
+> `safe` deployment. TigerStyle assumes one. If you follow TigerStyle's density target while
+> shipping `fast` without an `assertAlways` escape hatch, you have the worst of both: the
 > code reads as if it is checked, and none of it is.
 
 **Check:** a `build.zig` with no `preferred_optimize_mode` and a README that does not name the
@@ -337,12 +337,12 @@ shipping mode, in a repo whose source averages more than one `assert` per functi
 
 ### ZS-ASRT-08 [S] Confine `@setRuntimeSafety(false)` to the narrowest block, and prove it
 
-Never reach for ReleaseFast whole-binary to speed up one loop. Keep the build ReleaseSafe and
+Never reach for `fast` whole-binary to speed up one loop. Keep the build `safe` and
 disable safety in the smallest scope that contains the hot arithmetic, with a comment proving the
 check is redundant.
 
 **Why:** `@setRuntimeSafety` sets safety for the scope containing the call and is overridable at
-any nested scope, so the blast radius is exactly what you write — whereas ReleaseFast's blast radius
+any nested scope, so the blast radius is exactly what you write — whereas `fast`'s blast radius
 is every assertion in the program (ZS-ASRT-03).
 
 **Check:** a `@setRuntimeSafety(false)` that is the first statement of a function or a file's
@@ -365,8 +365,9 @@ fn sumUnchecked(values: []const u8) u32 {
 }
 ```
 
-> [!NOTE] The 0.16.0 langref states that `@setRuntimeSafety` is *planned* to be replaced by
-> `@optimizeFor`. `@optimizeFor` does not exist in 0.16.0.
+> [!NOTE] The 0.17.0 langref, like 0.16.0's, states that `@setRuntimeSafety` is *planned* to be
+> replaced by `@optimizeFor`. `@optimizeFor` does not exist in 0.17.0: it is
+> `error: invalid builtin function: '@optimizeFor'`.
 
 ### ZS-ASRT-09 [M] In doc comments, "assert" means safety-checked and "assume" means unchecked
 
@@ -722,7 +723,7 @@ fn readBlock(source: []const u8) HeaderInvalid!Header {
 Note that pairing a property does **not** mean pairing the *mechanism*. The write path owns bytes
 this process just built, so it asserts; the read path owns bytes a peer chose, so it validates and
 returns an error (ZS-ASRT-02). Asserting on the read path would turn every corrupt or hostile frame
-into a remote panic — and in ReleaseFast into an optimizer assumption that deletes the very bounds
+into a remote panic — and in `fast` into an optimizer assumption that deletes the very bounds
 check a later `connections[header.replica_index]` depends on. Same predicates, two mechanisms,
 chosen by who controls the bytes.
 
@@ -746,10 +747,11 @@ verification behind a `verify` constant.
 number of iterations you can run, so an O(N) invariant check on an O(1) hot-path mutation makes
 the fuzzer quadratically weaker at finding the bug it was meant to catch. The gate must be `if
 (verify)` around the *whole statement*, not the assert alone: by ZS-ASRT-03 the condition inside an
-`assert` still runs in ReleaseFast, so `assert(queue.contains(link))` pays the O(N) scan in release
-and gets nothing for it. Define `verify` from your own module's `builtin.mode` —
-`std.debug.runtime_safety` is explicitly deprecated in 0.16 because it reports the *standard
-library's* optimize mode, not your module's.
+`assert` still runs in `fast`, so `assert(queue.contains(link))` pays the O(N) scan in release
+and gets nothing for it. Define `verify` from your own module's
+`@import("builtin").optimize.runtimeSafety()` — `std.debug.runtime_safety` is deprecated in its
+favour (to be removed after 0.18.0) because it reports the *standard library's* optimize mode, not
+your module's.
 
 **Check:** an `assert(` containing a loop, a `contains`, or a whole-structure walk that is not
 preceded by `if (verify)` on the same line.
@@ -758,10 +760,7 @@ preceded by `if (verify)` on the same line.
 // verified — GOOD
 /// Expensive O(N) checks are compiled only when `verify` is true.
 const builtin = @import("builtin");
-pub const verify = switch (builtin.mode) {
-    .Debug, .ReleaseSafe => true,
-    .ReleaseFast, .ReleaseSmall => false,
-};
+pub const verify = builtin.optimize.runtimeSafety();
 ```
 
 ```zig
@@ -811,7 +810,7 @@ drift-proofing, not detection. Reserve it for load-bearing facts — an `assert(
 is noise.
 
 Be aware of the diagnostic quality: a failing `comptime assert` reports
-`error: reached unreachable code` at `std/debug.zig:420` with a `note: called at comptime here`
+`error: reached unreachable code` inside `std.debug.assert` with a `note: called at comptime here`
 pointing at your line. You get the location but not the reason — which is why caller-facing
 contracts use `@compileError` instead (ZS-ASRT-23).
 
@@ -826,14 +825,15 @@ with no compile error anywhere. The comptime block turns that into a build failu
 that introduces it. Padding bytes are also the buffer-bleed vector, so assert their absence: for an
 `extern struct` use `std.meta.hasUniqueRepresentation(T)`, which compares `@sizeOf(T)` against the
 sum of the field sizes. Do **not** use `@bitSizeOf(T) == @sizeOf(T) * 8` for that on an `extern
-struct` — on 0.16.0 `@bitSizeOf` of an extern struct *includes* padding, so
-`extern struct { a: u8, b: u64 }` passes it. That identity is only meaningful on a
+struct` — on 0.17.0 `@bitSizeOf` of any struct that is not packed is a compile error
+(`no bit size available for type …`), and on 0.16 it *included* padding, so
+`extern struct { a: u8, b: u64 }` passed it. That identity is only meaningful on a
 `packed struct(uN)`, where it checks that the backing integer fills its bytes.
 
 **Check:** an `extern struct` or `packed struct` that appears in a `@memcpy`, `std.mem.asBytes`,
 `bytesAsValue`, a `read`/`write` call, or an `extern fn` signature, with no `comptime {}` block
 asserting `@sizeOf`. Separately, any `@bitSizeOf(T) == @sizeOf(T) * 8` applied to an `extern
-struct` — that assertion passes with padding present and therefore proves nothing.
+struct` — 0.17 rejects it, and on 0.16 it passed with padding present and so proved nothing.
 
 ```zig
 // verified — GOOD
@@ -990,8 +990,7 @@ pub const request_memory_bytes: u64 =
     @as(u64, connection_count_max) * request_queue_count_max * message_size_bytes_max;
 
 /// Derived: blocks per message, rounding up so a partial block still fits.
-pub const blocks_per_message_max: u32 =
-    std.math.divCeil(u32, message_size_bytes_max, block_size_bytes) catch unreachable;
+pub const blocks_per_message_max: u32 = @divCeil(message_size_bytes_max, block_size_bytes);
 
 comptime {
     assert(std.math.isPowerOfTwo(sector_size_bytes));
@@ -1019,9 +1018,10 @@ quotient today is a latent bug waiting for someone to change the divisor. Use a 
 the derivation needs locals, and keep the derived constant next to its inputs in `constants.zig`
 (ZS-ASRT-25).
 
-The *rounding* half — `@divExact` / `@divFloor` / `@divTrunc` / `std.math.divCeil`, never a bare `/`
-— is owned by `references/types-and-data.md` ZS-TYPE-06. `@divExact` is the strongest of the four
-because it asserts the remainder is zero, which is usually the claim a derived limit means to make.
+The *rounding* half — `@divExact` / `@divFloor` / `@divTrunc` / `@divCeil` (new in 0.17), never a
+bare `/` — is owned by `references/types-and-data.md` ZS-TYPE-06. `@divExact` is the strongest of
+the four because it asserts the remainder is zero, which is usually the claim a derived limit means
+to make.
 
 **Why:** a hand-copied `16` beside a computed `message_size_bytes_max / block_size_bytes` is
 invisible in review, because both are correct on the day they are written. Deriving it turns
@@ -1035,10 +1035,9 @@ pub const blocks_per_message_max: u32 = 16; // Wrong the moment block_size_bytes
 
 ```zig
 // fragment — GOOD
-// `catch unreachable` needs no proof comment here: this is comptime-evaluated, so a
-// failure is a compile error (`references/errors-and-control-flow.md` ZS-ERR-10).
-pub const blocks_per_message_max: u32 =
-    std.math.divCeil(u32, message_size_bytes_max, block_size_bytes) catch unreachable;
+// `@divCeil` needs no `catch unreachable`, unlike `std.math.divCeil`: it returns the
+// quotient, and this is comptime-evaluated, so a zero divisor is a compile error.
+pub const blocks_per_message_max: u32 = @divCeil(message_size_bytes_max, block_size_bytes);
 
 pub const sectors_per_block: u32 = @divExact(block_size_bytes, sector_size_bytes);
 ```
@@ -1165,7 +1164,7 @@ only from operations whose length comes from *outside* — `fromSlice`, `resize`
 **Why:** if the container's capacity is a comptime constant chosen to be big enough, then pushing
 past it is a design error in your code, not a runtime condition (ZS-ASRT-02), and returning an
 error forces every call site to handle a case that cannot happen — the "dimensionality" tax that
-propagates up the call chain. Note `std.BoundedArray` no longer exists in 0.16; the replacement is
+propagates up the call chain. Note `std.BoundedArray` has not existed since 0.16; the replacement is
 a fixed backing array plus `initBuffer` and the `AssumeCapacity` methods, which never allocate and
 cannot fail.
 
@@ -1229,9 +1228,9 @@ fn walk(root: *Node, stack: *std.ArrayList(*Node), gpa: std.mem.Allocator) !void
 ### ZS-ASRT-31 [M] Inside `test` blocks use `std.testing.expect*`, not `assert` (see ZS-TEST-08)
 
 Owned by `references/testing-and-fuzzing.md` ZS-TEST-08, which also lists the matchers and their
-0.16 signatures. Assertions belong in the code *under* test; the test body checks with the narrowest
+signatures. Assertions belong in the code *under* test; the test body checks with the narrowest
 `std.testing.expect*` matcher — `std/debug.zig`'s own doc comment says `assert` "may not detect a
-test failure in ReleaseFast and ReleaseSmall mode" (ZS-ASRT-03).
+test failure in fast and small mode" (ZS-ASRT-03).
 
 ### ZS-ASRT-32 [M] A fuzzer finds only what an assertion can catch — write the assertion first
 
@@ -1242,7 +1241,7 @@ success. Every fuzz target is paired with the assertions or the model oracle tha
 **Why:** this is the mechanism behind TigerStyle's "assertions are a force multiplier for
 discovering bugs by fuzzing". Coverage-guided input generation explores paths; assertions are what
 convert an explored path into a signal. A fuzz target over a parser with no postconditions tests
-only that the parser does not segfault. In 0.16 the fuzz input is `*std.testing.Smith`, not the
+only that the parser does not segfault. Since 0.16 the fuzz input is `*std.testing.Smith`, not the
 old `[]const u8`: `pub inline fn fuzz(context: anytype, comptime testOne: fn (context:
 @TypeOf(context), smith: *Smith) anyerror!void, options: FuzzInputOptions) anyerror!void`.
 
@@ -1269,7 +1268,7 @@ fn fuzzOne(context: void, smith: *std.testing.Smith) !void {
 
 The signal here comes entirely from `headerValidate` inside `readBlock` (ZS-ASRT-18) — remove
 those assertions and this target proves nothing. Note also that fuzz builds must have assertions
-enabled: run them in Debug or ReleaseSafe, and make `verify` true (ZS-ASRT-20).
+enabled: run them in `debug` or `safe`, and make `verify` true (ZS-ASRT-20).
 
 ### ZS-ASRT-33 [S] Write the assertions before the implementation (see ZS-ASRT-32)
 

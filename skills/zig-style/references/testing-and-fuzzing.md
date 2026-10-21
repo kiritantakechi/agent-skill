@@ -1,7 +1,7 @@
 # Tests, fuzzing, and deterministic simulation
 
 Scope: how tests are written, named, located, and wired into `build.zig`; the `std.testing` surface
-in Zig 0.16 (`testing.allocator`, `testing.io`, the `expect*` family, `tmpDir`,
+in Zig 0.17 (`testing.allocator`, `testing.io`, the `expect*` family, `tmpDir`,
 `checkAllAllocationFailures`); coverage-guided fuzzing with `std.testing.fuzz` and
 `std.testing.Smith`; and the discipline layer — negative-space testing, seeded determinism,
 model-based swarm tests, deterministic simulation, and snapshot tests. Assertions in production code
@@ -45,7 +45,7 @@ the rule is not about.
   - ZS-TEST-24 [M] `refAllDecls` is a compile smoke test, not coverage
   - ZS-TEST-25 [S] `error.SkipZigTest` marks inapplicable tests, never known-failing ones
   - ZS-TEST-26 [S] Set `std.testing.log_level` only around the test that needs it, and restore it
-  - ZS-TEST-27 [M] Run the whole suite in ReleaseSafe as well as Debug
+  - ZS-TEST-27 [M] Run the whole suite in `safe` as well as `debug`
   - ZS-TEST-28 [M] Every bug fix ships with the test that would have caught it
   - ZS-TEST-29 [S] Keep unit, integration, and fuzz targets in their proper places (see ZS-BUILD-05)
 
@@ -163,24 +163,27 @@ Any test that allocates uses `std.testing.allocator`, pairs every allocation wit
 private arena "to keep it simple". This is the only allocator a test should name; other chapters
 reduce to this rule.
 
-The surface at 0.16.0, `std/testing.zig:21-33`:
+The surface at 0.17.0, `std.testing.allocator` and `std.testing.allocator_instance`:
 
-- `pub const allocator = allocator_instance.allocator();` — an `std.mem.Allocator` interface value.
-- `pub var allocator_instance: std.heap.DebugAllocator(.{ … })` — the backing instance, exposed so
-  you can call `allocator_instance.detectLeaks()` yourself, and the value you pass as the *backing*
-  allocator to `checkAllAllocationFailures` (ZS-TEST-13) and `FailingAllocator` (ZS-TEST-14).
-- It is `@compileError("testing allocator used when not testing")` outside `builtin.is_test`, so it
-  cannot leak into production.
-- Its config sets `.stack_trace_frames = 10` (where the platform can unwind),
-  `.resize_stack_traces = true`, and a unique `.canary`.
+- `pub const allocator` — `allocator_instance.allocator()`, an `std.mem.Allocator` interface value,
+  and the allocator you pass as the *backing* allocator to `checkAllAllocationFailures`
+  (ZS-TEST-13) and `FailingAllocator` (ZS-TEST-14). Outside `builtin.is_test` it is
+  `@compileError("not testing")`, so it cannot leak into production.
+- `pub var allocator_instance: std.heap.SafeAllocator` — the backing instance (a `DebugAllocator`
+  in 0.16). It has no `detectLeaks`: the runner calls `allocator_instance.deinit()` after each test,
+  and the `usize` it returns is the leak count.
+- The runner re-initialises it before every test with `.canary = 0xc3a701ba` and
+  `.check_write_after_free = true`. Stack traces come from `SafeAllocator`'s default
+  `stack_trace_frames`: 7 in a `debug` build that can unwind, and 0 otherwise.
 
 **Why:** `testing.allocator` reports the leaked address *with the stack trace of the allocation that
-leaked*, and makes the whole test command exit non-zero. Note the exact behavior: the individual
-test still prints `OK`, and the failure surfaces afterwards as `1 tests leaked memory` plus a
-non-zero exit — so leaks are caught by CI, not by eyeballing per-test output. The canary is why
-mixing it up with a default-constructed `DebugAllocator` panics instead of silently corrupting: the
-two instances are distinguishable at free time. An arena hides exactly the bug the suite exists to
-find, because every missing `free` is absorbed by `arena.deinit()`.
+leaked* (in a `debug` build; a `safe` test build prints `(empty stack trace)`), and makes the whole
+test command exit non-zero. Note the exact behavior: the individual test still prints `OK`, and the
+failure surfaces afterwards as `1 tests leaked memory` plus a non-zero exit — so leaks are caught by
+CI, not by eyeballing per-test output. The canary is why mixing it up with a default-constructed
+`SafeAllocator` panics (`foreign allocation from canary 0xc3a701ba`) instead of silently
+corrupting: the two instances are distinguishable at free time. An arena hides exactly the bug the
+suite exists to find, because every missing `free` is absorbed by `arena.deinit()`.
 
 **Check:** in a diff, any allocator named inside a `test` block other than `std.testing.allocator`,
 `std.testing.failing_allocator`, or a `FailingAllocator` wrapping one of them. `page_allocator` and
@@ -207,7 +210,7 @@ test "expectEqual: expected first, no @as wrapping needed" {
 ```
 
 ### ZS-TEST-06 [M] Call `expectEqual(expected, actual)` in that order, and drop the `@as` wrapper
-In 0.16 the signature is `pub inline fn expectEqual(expected: anytype, actual: anytype) !void` —
+In 0.17 the signature is `pub inline fn expectEqual(expected: anytype, actual: anytype) !void` —
 both parameters are `anytype` and the common type comes from `@TypeOf(expected, actual)` peer
 resolution. Pass the bare literal.
 
@@ -215,8 +218,8 @@ resolution. Pass the bare literal.
 `expectEqual(3, len)`, `expectEqual(.red, pick(0))`, and `expectEqual(null, pick(9))` all compile.
 Order still matters because the diagnostic prints `expected X, found Y`; swapping the arguments
 makes every failure message lie. Peer resolution is not universal: `expectEqual(Color.a, some_u8)`
-is a hard compile error at `testing.zig:82`, and there you must convert explicitly rather than reach
-back for `@as` reflexively.
+is a hard compile error inside `std.testing.expectEqual` (`incompatible types: 'Color' and 'u8'`),
+and there you must convert explicitly rather than reach back for `@as` reflexively.
 
 **Check:** an `expectEqual` whose *first* argument is a call, a field access, or a local and whose
 second is a literal — the arguments are swapped and every failure message will read backwards.
@@ -240,7 +243,7 @@ try std.testing.expectEqual(3, @as(usize, 3));
 `[]const u8` text, `expectEqualSlices(T, ...)` for other element types, or `expectEqualDeep` when
 you genuinely want structural equality through pointers.
 
-**Why:** in `testing.zig:130-139` the `.slice` branch does `if (actual.ptr !=
+**Why:** in `std.testing.expectEqual` the `.slice` branch does `if (actual.ptr !=
 expected.ptr) return error.TestExpectedEqual;`. Two slices holding identical bytes at different
 addresses fail, and the diagnostic is `expected slice ptr u8@102c3328c, found u8@16d321880`, which
 reads like a memory bug rather than what it is: the wrong matcher.
@@ -265,7 +268,7 @@ try std.testing.expectError(error.TestExpectedEqual, std.testing.expectEqual(a, 
 ```
 
 ### ZS-TEST-08 [M] Use the narrowest matcher `std.testing` offers, and never `assert` inside a test
-The 0.16 surface, from `std/testing.zig`: `expect`, `expectEqual`, `expectEqualDeep`,
+The 0.17 surface, from `std.testing`: `expect`, `expectEqual`, `expectEqualDeep`,
 `expectError`, `expectFmt`, `expectEqualStrings`, `expectEqualSlices`, `expectEqualSentinel`,
 `expectStringStartsWith`, `expectStringEndsWith`, `expectApproxEqAbs`, `expectApproxEqRel`. Reach
 for the one that matches the type; fall back to `expect(bool)` only for genuine predicates.
@@ -314,7 +317,7 @@ try std.testing.expectError(error.Overflow, parsePort("65536"));
 required — `tmp.dir.writeFile(io, …)`, `Io.Timestamp.now(io, …)`, `io.async(…)`. Do not construct
 your own backend (`Io.Threaded`, `Io.Uring`, `Io.Kqueue`) or a hand-rolled test double.
 
-The surface at 0.16.0, `std/testing.zig:34-35`:
+The surface at 0.17.0, `std.testing.io_instance` and `std.testing.io`:
 
 ```zig
 // fragment — (quoted from std/testing.zig)
@@ -327,8 +330,8 @@ test and tears down after; `testing.io` is the `std.Io` interface value taken fr
 
 **Why:** the runner leak-checks that backing allocator around every test, so an `Io` resource you
 fail to close is reported like any other leak, with the allocating stack trace (ZS-TEST-05). A
-privately constructed backend allocates outside that window and escapes the check entirely, and on
-some backends its `deinit` does not even compile in 0.16.0. The `builtin.is_test` guard means a
+privately constructed backend allocates outside that window and escapes the check entirely (and on
+0.16.0, some backends' `deinit` did not even compile). The `builtin.is_test` guard means a
 `testing.io` reference that drifts into production code is a compile error rather than a runtime
 surprise. Filesystem access additionally goes through `testing.tmpDir` (ZS-TEST-10), which is where
 the `io` argument usually first appears.
@@ -348,7 +351,7 @@ test "testing.io is a real Io" {
 ```
 
 ### ZS-TEST-10 [M] Filesystem tests use `testing.tmpDir(.{})` with `defer tmp.cleanup()`
-`pub fn tmpDir(opts: Io.Dir.OpenOptions) TmpDir` — the parameter is `Io.Dir.OpenOptions` in 0.16
+`pub fn tmpDir(opts: Io.Dir.OpenOptions) TmpDir` — the parameter is `Io.Dir.OpenOptions` in 0.17
 (fields `access_sub_paths`, `iterate`, `follow_symlinks`), not the old `std.fs` options. Never touch
 the real cwd, `/tmp`, or a hardcoded path.
 
@@ -382,7 +385,7 @@ No unconditional `std.debug.print` in a test. Put the diagnostic behind `errdefe
 on the failure path.
 
 **Why:** under `zig build test` the test binary runs with `--listen=-`, so the build
-runner captures its stderr and replays it beneath a line beginning `failed command:` even though
+runner captures its stderr and replays it above a line beginning `failed command:` even though
 the step succeeded and the build exits 0. Every stray `print` therefore produces output that reads
 like a failure and is not attributed to the test that emitted it. `errdefer` inverts this:
 the message appears directly above the failing test's stack trace in the runner's report, and the
@@ -391,7 +394,7 @@ one the tool printed agree.
 
 **Check:** `rg -n 'std.debug.print|std.log\.'` inside `test` blocks — every hit must be on an
 `errdefer` line or inside a function only an `errdefer` reaches. A green `zig build test` that emits
-anything under a `failed command:` line is the same finding observed at runtime.
+anything with a `failed command:` line is the same finding observed at runtime.
 
 ```zig
 // fragment — BAD
@@ -406,7 +409,7 @@ test "swarm" {
 // fragment — GOOD
 test "seeded randomness, seed reported on failure" {
     const seed: u64 = std.testing.random_seed;
-    errdefer std.debug.print("reproduce with: zig build test --seed 0x{x}\n", .{seed});
+    errdefer std.debug.print("reproduce with: zig build test --seed=0x{x}\n", .{seed});
     var prng: std.Random.DefaultPrng = .init(seed);
     ...
 }
@@ -573,9 +576,10 @@ from an `errdefer`.
 
 **Why:** both `zig test` and `zig build test` pass a *freshly randomised* `--seed=0x…` on
 every invocation, so a randomised test explores new inputs each run. That is the point, and it is
-also why an un-reported seed is useless: the failure will not reproduce. Passing `--seed 0x1234` to
+also why an un-reported seed is useless: the failure will not reproduce. Passing `--seed=0x1234` to
 `zig build` pins it, and the build runner echoes the seed in its footer, so the errdefer line and
-the tool's own output agree.
+the tool's own output agree. Write the `=`: 0.17's `zig build` rejects `--seed 0x1234` with
+`unrecognized argument: --seed`, though its `--help` prints that form.
 
 **Check:** `rg -n 'DefaultPrng|Xoshiro|std.crypto.random'` in test files. Any `.init(` argument
 that is a literal, a timestamp, or anything other than `std.testing.random_seed` is the finding, as
@@ -595,7 +599,7 @@ var prng2: std.Random.DefaultPrng = .init(@bitCast(wall.toMilliseconds()));
 const std = @import("std");
 test "seeded randomness, seed reported on failure" {
     const seed: u64 = std.testing.random_seed;
-    errdefer std.debug.print("reproduce with: zig build test --seed 0x{x}\n", .{seed});
+    errdefer std.debug.print("reproduce with: zig build test --seed=0x{x}\n", .{seed});
 
     var prng: std.Random.DefaultPrng = .init(seed);
     const rand = prng.random();
@@ -671,7 +675,7 @@ sequences is the gap; so is a swarm test whose action enum omits a public method
 const std = @import("std");
 test "Stack matches an ArrayList model under a random action swarm" {
     const seed: u64 = std.testing.random_seed;
-    errdefer std.debug.print("reproduce with: zig build test --seed 0x{x}\n", .{seed});
+    errdefer std.debug.print("reproduce with: zig build test --seed=0x{x}\n", .{seed});
 
     var prng: std.Random.DefaultPrng = .init(seed);
     const rand = prng.random();
@@ -751,7 +755,7 @@ pub const SimDisk = struct {
 
 test "simulation: recovery yields exactly the flushed prefix" {
     const seed: u64 = std.testing.random_seed;
-    errdefer std.debug.print("reproduce with: zig build test --seed 0x{x}\n", .{seed});
+    errdefer std.debug.print("reproduce with: zig build test --seed=0x{x}\n", .{seed});
 
     var prng: std.Random.DefaultPrng = .init(seed);
     const rand = prng.random();
@@ -835,9 +839,9 @@ test "snapshot: tree layout" {
 ## Part 5 — Fuzzing with `Smith`
 
 ### ZS-TEST-20 [M] Write fuzz targets with `std.testing.fuzz` and `*std.testing.Smith`
-The 0.16 shape is `try std.testing.fuzz(context, testOne, .{})`, where the target is declared
-`fn testOne(context: C, smith: *std.testing.Smith) !void`. `Smith` replaces the old `[]const u8`
-fuzz input entirely. Its surface, from `std/testing/Smith.zig`: `eos()`, `value(T)`,
+The 0.17 shape, unchanged from 0.16, is `try std.testing.fuzz(context, testOne, .{})`, where the
+target is declared `fn testOne(context: C, smith: *std.testing.Smith) !void`. `Smith` replaces the
+old `[]const u8` fuzz input entirely. Its surface, from `std.testing.Smith`: `eos()`, `value(T)`,
 `valueRangeAtMost(T, lo, hi)`, `valueRangeLessThan(T, lo, hi)`, `index(len)`, `bytes(out)`,
 `slice(buf) u32`, `boolWeighted(false_w, true_w)`, plus the weighted variants `valueWeighted`,
 `eosWeighted`, `eosWeightedSimple`, `bytesWeighted`, `sliceWeighted`, `sliceWeightedBytes`, and
@@ -850,14 +854,6 @@ works on ints, floats, bools, enums, optionals, arrays, vectors, structs and tag
 generate typed operations directly instead of hand-decoding bytes. Run the targets by passing
 `--fuzz` to `zig build test`; `--fuzz=20K` bounds the iteration count, and a bare `--fuzz` with no
 limit implies `--webui`.
-
-> [!NOTE] `zig build test --fuzz` **does not compile in Zig 0.16.0**,
-> not even for the stock `zig init` template. The shipped test runner has a type error at
-> `lib/zig/compiler/test_runner.zig:566` — `writeStackTrace` is passed a `*builtin.StackTrace` where
-> `*const debug.StackTrace` is required — so fuzz mode fails with "one or more unit tests failed to
-> be rebuilt in fuzz mode". Write the targets anyway: they run under plain `zig build test` as
-> corpus-driven tests (see ZS-TEST-21), and they will start fuzzing the moment the toolchain is
-> patched. Do not restructure your tests around this bug.
 
 **Check:** a fuzz target whose second parameter is `[]const u8` rather than `*std.testing.Smith`, or
 a `std.testing.fuzz` call with the pre-0.16 two-argument shape (no `context`, no
@@ -1015,14 +1011,14 @@ steps, and it will stay skipped forever. Note `std.testing.fuzz`'s `testOne` als
 moves on instead of recording a failure — but in ordinary corpus mode it propagates and skips the
 whole test, so do not use it as a per-input filter for logic you actually want covered.
 
-**Check:** `rg -n 'SkipZigTest'` — every hit must sit under a condition on `builtin.os`,
-`builtin.cpu`, `builtin.target`, or a backend capability. A skip guarded by nothing, by a build
-option, or by a `TODO` comment is a parked failure wearing a skip.
+**Check:** `rg -n 'SkipZigTest'` — every hit must sit under a condition on `builtin.target` (its
+`.os`, `.cpu`, or `.abi`) or a backend capability. A skip guarded by nothing, by a build option, or
+by a `TODO` comment is a parked failure wearing a skip.
 
 ```zig
 // fragment — GOOD
 test "skip when the environment cannot support the test" {
-    if (@import("builtin").os.tag == .wasi) return error.SkipZigTest;
+    if (@import("builtin").target.os.tag == .wasi) return error.SkipZigTest;
     ...
 }
 ```
@@ -1033,7 +1029,7 @@ observe or suppress log output, save the old value and restore it with `defer`.
 
 **Why:** it is a mutable global shared by every test in the binary. A test that raises it to
 `.debug` and does not restore it floods the output of every test that runs afterwards, and under
-`zig build test` that output is replayed under a misleading `failed command:` line (ZS-TEST-11) with
+`zig build test` that output is replayed with a misleading `failed command:` line (ZS-TEST-11) with
 no indication of which test produced it.
 
 **Check:** every assignment to `std.testing.log_level` must be preceded by a saved `prev` and a
@@ -1050,21 +1046,21 @@ test "log_level lets a noisy module be quieted" {
 }
 ```
 
-### ZS-TEST-27 [M] Run the whole suite in ReleaseSafe as well as Debug
+### ZS-TEST-27 [M] Run the whole suite in `safe` as well as `debug`
 The suite MUST execute in both modes. Drive it from a CI matrix over `-Doptimize` — the canonical
-shape in ZS-BUILD-34, `matrix: optimize: [Debug, ReleaseSafe]`, which is also how the OS matrix
+shape in ZS-BUILD-34, `matrix: optimize: [debug, safe]`, which is also how the OS matrix
 already works — keeping `build.zig` on a single `optimize` from `b.standardOptimizeOption` as in
 ZS-BUILD-01. For a project with no CI, loop both modes inside the `test` step instead. What is
 forbidden is a pipeline that only ever runs one mode.
 
-**Why:** the two modes execute different programs. Debug keeps all runtime safety checks and does no
-inlining or reordering; ReleaseSafe keeps the safety checks but applies the full optimizer, so it
-catches illegal behavior that only manifests once code is inlined, and it catches performance
-regressions and stack-overflow-in-release bugs. Meanwhile `undefined` memory is filled with `0xaa`
-in Debug and ReleaseSafe but not in ReleaseFast/ReleaseSmall, so a read of uninitialised memory can
-pass in one mode and produce garbage in another. Long-running simulation tests (ZS-TEST-18) should
-run in ReleaseSafe specifically, because that is the only mode where you get both safety checks and
-enough speed to explore a meaningful number of seeds.
+**Why:** the two modes execute different programs. A `debug` build keeps all runtime safety checks
+and does no inlining or reordering; a `safe` build keeps the safety checks but applies the full
+optimizer, so it catches illegal behavior that only manifests once code is inlined, and it catches
+performance regressions and stack-overflow-in-release bugs. Meanwhile `undefined` memory is filled
+with `0xaa` in `debug` and `safe` builds but not in `fast` or `small` ones, so a read of
+uninitialised memory can pass in one mode and produce garbage in another. Long-running simulation
+tests (ZS-TEST-18) should run in `safe` specifically, because that is the only mode where you get
+both safety checks and enough speed to explore a meaningful number of seeds.
 
 The matrix is preferred over an in-build loop because it parallelizes across runners and composes
 with the OS dimension, so `os × optimize` costs one wall-clock test run rather than two serially:
@@ -1075,22 +1071,22 @@ strategy:
   fail-fast: false
   matrix:
     os: [ubuntu-latest, macos-latest, windows-latest]
-    optimize: [Debug, ReleaseSafe]
+    optimize: [debug, safe]
 steps:
   - run: zig build test -Doptimize=${{ matrix.optimize }} --summary all
 ```
 
-**Check:** the CI config must name both `Debug` and `ReleaseSafe`, or `build.zig` must construct two
-`addTest` artifacts. One `zig build test` invocation with no `-Doptimize` axis anywhere is the
-failure this rule names.
+**Check:** the CI config must name both `debug` and `safe` (or the TitleCase `Debug` and
+`ReleaseSafe` that 0.17 still parses), or `build.zig` must construct two `addTest` artifacts. One
+`zig build test` invocation with no `-Doptimize` axis anywhere is the failure this rule names.
 
 ```zig
 // fragment — GOOD: the fallback for a project with no CI
 // build.zig
-const test_step = b.step("test", "Run unit tests in Debug and ReleaseSafe");
-for ([_]std.builtin.OptimizeMode{ .Debug, .ReleaseSafe }) |mode| {
+const test_step = b.step("test", "Run unit tests in debug and safe");
+for ([_]std.lang.Optimize{ .debug, .safe }) |mode| {
     const unit_tests = b.addTest(.{
-        .name = b.fmt("test-{t}", .{mode}),
+        .name = b.fmt("test-{t}", .{mode}), // test-debug, test-safe
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/root.zig"),
             .target = target,

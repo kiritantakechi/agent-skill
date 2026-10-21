@@ -8,7 +8,7 @@ in the errors chapter, `init`/`deinit`/ownership contracts in the memory chapter
 `std.Io` in the I/O chapter, `test` mechanics and fuzzing in the testing chapter, and `build.zig`
 naming in the build chapter.
 
-Two sources are merged here: the **official Zig style guide** (langref 0.16.0 §Style Guide, quoted
+Two sources are merged here: the **official Zig style guide** (langref 0.17.0 §Style Guide, quoted
 verbatim where it is normative) and **TigerStyle** (TigerBeetle's house standard). Where they
 disagree, the disagreement is stated outright in the rule, with a recommendation keyed to the tier.
 
@@ -244,10 +244,12 @@ Choose names against the **fully qualified** name: inside `json.zig`, the type i
 **Why:** langref, verbatim: "Everything is a value, all types are data, everything is context, all
 logic manages state. Nothing is communicated by using a word that applies to all types." And:
 "Every declaration is assigned a fully qualified namespace by the compiler […] remember that files
-also act as part of the fully-qualified namespace." 0.16 std is actively refactoring toward this —
+also act as part of the fully-qualified namespace." std is actively refactoring toward this —
 `std.ArrayHashMapUnmanaged` → `std.array_hash_map.Custom`, `std.ArrayListAligned` →
-`std.array_list.Aligned`, `std.heap.MemoryPoolExtra` → `std.heap.memory_pool.Extra` are all
-deprecations that move the noun into the module name and leave the qualifier in the decl name.
+`std.array_list.Aligned` (0.16), and `std.bit_set.IntegerBitSet` → `std.bit_set.Integer`,
+`ArrayBitSet` → `Array`, `StaticBitSet` → `Static` (0.17) are all deprecations that move the noun
+into the module name and leave the qualifier in the decl name. `std.heap.MemoryPoolExtra` →
+`std.heap.memory_pool.Extra` was the same move; 0.17 removed the old name.
 
 **Check:** grep new type names for `Value`, `Data`, `Context`, `Manager`, `State`, `utils`, and
 `misc`. Then read each new declaration name beside its own file name: a repeated segment
@@ -474,7 +476,7 @@ members — do not invent a parameter order: copy `std.sort`'s.
 where there was no I/O interface and TigerBeetle had to build its own event loop (its `main` still
 pins 0.14.1). ZS-IO-37 [M] retires that rationale: `io.async` returns a `Future` you `await` in the
 caller's own lexical scope, so there is no continuation to position. What replaces it is not a
-different rule of thumb but a concrete shape, from `sort.zig` at 0.16.0 — `insertion`,
+different rule of thumb but a concrete shape, from `sort.zig` at 0.17.0 — `insertion`,
 `heap`, `pdq`, `block`, `argMin`, `argMax`, `min`, `max`, `isSorted`, `binarySearch`, `lowerBound`,
 `upperBound`, `equalRange`, and `std.mem.sort` / `sortUnstable` all take:
 
@@ -487,7 +489,7 @@ different rule of thumb but a concrete shape, from `sort.zig` at 0.16.0 — `ins
 
 What is uniform across all of them is the **slot order**, not the spelling. std names that parameter
 `lessThanFn` in `insertion`/`heap`/`pdq`/`block`/`mem.sort`/`mem.sortUnstable`, `compareFn` in the
-search family — exactly four at 0.16.0: `binarySearch`, `lowerBound`, `upperBound`, `equalRange`,
+search family — exactly four at 0.17.0: `binarySearch`, `lowerBound`, `upperBound`, `equalRange`,
 where it returns `std.math.Order` rather than `bool` — and a bare `lessThan` in
 `argMin`/`argMax`/`min`/`max`/`isSorted`. (`insertionContext`/`heapContext`/`pdqContext` belong to
 none of the three: they take no fn parameter at all, only a `context` whose `lessThan`/`swap`
@@ -741,7 +743,7 @@ alias lines derived from them). A second run further down the file is a split bl
 const Journal = @This();
 
 const builtin = @import("builtin");
-const is_debug = builtin.mode == .Debug;
+const is_debug = builtin.optimize == .debug;
 
 const std = @import("std");
 const assert = std.debug.assert;
@@ -882,7 +884,7 @@ binary; `std.testing.refAllDecls` appears only 6 times in all of std — prefer 
 ### ZS-NAME-23 [M] Default to non-`pub`; declare the public surface explicitly in `root.zig`
 
 Mark `pub` only what callers need. Re-export with `pub const Name = @import("Name.zig");`.
-`usingnamespace` no longer exists in 0.16.
+`usingnamespace` no longer exists.
 
 **Why:** `pub` is the module's API contract and everything `pub` is something you cannot rename
 later without a breaking change; the compiler will not tell you which `pub`s are unused. Bulk
@@ -926,7 +928,7 @@ declaration, field, or parameter. `//` is an implementation note that deliberate
 generated docs.
 
 **Why:** two of the three are enforced by the compiler, and the errors are worth knowing. All three
-at 0.16.0:
+at 0.17.0:
 
 ```zig
 // does-not-compile
@@ -964,8 +966,8 @@ adjacent lines to separate "why the design" from "what the contract is":
 available: Size = 0,
 ```
 
-std also documents **individual parameters in place**, inside the signature — a distinctive 0.16
-habit worth copying:
+std also documents **individual parameters in place**, inside the signature — a distinctive std
+habit, still there in 0.17, worth copying:
 
 ```zig
 // fragment

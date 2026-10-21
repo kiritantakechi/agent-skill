@@ -6,7 +6,7 @@ from pathlib import Path
 
 lazy from agent_skill.model import Skill
 
-EXCLUDE = {".DS_Store", "__pycache__", ".git"}
+EXCLUDE = {".DS_Store", "__pycache__", ".git", ".zig-cache", "zig-out"}
 
 HOME = Path.home()
 

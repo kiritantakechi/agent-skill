@@ -1,6 +1,6 @@
 # Errors, control flow, assertions vs errors vs panics
 
-Scope: how a Zig 0.16 function reports failure (error sets, optionals, assertions, panics), how a
+Scope: how a Zig 0.17 function reports failure (error sets, optionals, assertions, panics), how a
 caller consumes it (`try`, `catch`, `errdefer`, error return traces, `*Diagnostics` out-parameters),
 and the shape of the control flow in between (conditions, loops, `switch`, labeled constructs,
 `@branchHint`, and the 70-line function limit).
@@ -34,7 +34,7 @@ Blocks that do not declare their own imports assume a file opening with
   - ZS-ERR-13 [M] Order `defer`/`errdefer` so LIFO teardown cannot outrun what a handler reads
   - ZS-ERR-14 [M] Stop the `errdefer` at the point ownership transfers
   - ZS-ERR-15 [M] A `defer` in a loop body runs each iteration, not at function exit
-  - ZS-ERR-16 [S] `errdefer |err|` is for diagnostics, not for control flow
+  - ZS-ERR-16 [S] Log the unwinding error in the caller's `catch`; keep `errdefer` uniform
 - **5. Error return traces**
   - ZS-ERR-17 [M] Propagate with `try` or `return err`; never launder an error through an optional
 - **6. Simple, explicit control flow (TigerStyle)**
@@ -87,16 +87,16 @@ error returned.
 | Situation | Mechanism | Notes |
 |---|---|---|
 | Caller violated a documented precondition (index out of range, unsorted input to a binary search) | `assert(cond)` | Programmer error. `std.debug.assert` is literally `if (!ok) unreachable;` — same UB rules. |
-| A state the program's own invariants make impossible (a tag that cannot occur; a `switch` arm the type system cannot rule out) | `unreachable` | Safety-checked panic in Debug/ReleaseSafe, **illegal behavior** in ReleaseFast/ReleaseSmall. |
+| A state the program's own invariants make impossible (a tag that cannot occur; a `switch` arm the type system cannot rule out) | `unreachable` | Safety-checked panic in `debug`/`safe` builds, **illegal behavior** in `fast`/`small` builds. |
 | A relationship between compile-time constants or type sizes | `comptime assert(cond)` / `@compileError` | Fails before the program runs. Always cheaper than a runtime check. |
 | The environment failed: I/O, OOM, parse failure, network, permission, malformed input from outside | **return an error** | Operating condition. Expected. Must be handled by someone. |
 | A value is legitimately absent, and absence is not a failure (cache miss, "no such key") | **return an optional `?T`** | An error union here forces callers to write `catch` for a non-event. |
 | A library cannot continue | **return an error** | Never `@panic`, never `std.process.exit`. See ZS-ERR-03. |
-| An application's top level cannot continue | `std.process.fatal(fmt, args)` | `= std.log.err(fmt, args); exit(1);` (`process.zig:687`). The right CLI failure primitive. |
+| An application's top level cannot continue | `std.process.fatal(fmt, args)` | `= std.log.err(fmt, args); exit(1);` (the body of `std.process.fatal`). The right CLI failure primitive. |
 | An application aborts with a fixed message | `@panic("literal")` | What std does: 363 `@panic(` sites vs only 16 `std.debug.panic(`. |
 | An application aborts and the message needs formatting | `std.debug.panic(fmt, args)` | Or `std.debug.panicExtra(ret_addr, fmt, args)` to control the first trace frame. |
 | A build script cannot continue | `catch @panic("OOM")` | Sanctioned **only** in `build.zig`; all 181 `@panic("OOM")` sites in std are under `Build.zig`. |
-| A check inside a `test` block | `std.testing.expect*` | std's own doc: `assert` may not detect a test failure in ReleaseFast/ReleaseSmall. |
+| A check inside a `test` block | `std.testing.expect*` | std's own doc: `assert` may not detect a test failure in `fast`/`small` builds. |
 
 ```zig
 // verified — GOOD
@@ -117,11 +117,11 @@ fn parseHeader(bytes: []const u8) error{Truncated}!u32 {
 ```
 
 Corollary: `std.debug.assert` is an ordinary function — `pub fn assert(ok: bool) void { if (!ok)
-unreachable; }` (`std/debug.zig:418`) — so in ReleaseFast/ReleaseSmall the *check* disappears but
-the *condition is still evaluated*. `assert(list.pop() != null)` still pops in release; it just
-stops verifying the result. Never put a side effect inside an assert. On 0.16.0, a counter
-incremented inside an assert condition reaches the same value in all four optimize modes. The full
-treatment, including the per-mode table, is `references/assertions-and-limits.md` ZS-ASRT-03.
+unreachable; }` — so in `fast`/`small` builds the *check* disappears but the *condition is still
+evaluated*. `assert(list.pop() != null)` still pops in release; it just stops verifying the result.
+Never put a side effect inside an assert. On 0.17.0, a counter incremented inside an assert
+condition reaches the same value in all four optimize modes. The full treatment, including the
+per-mode table, is `references/assertions-and-limits.md` ZS-ASRT-03.
 
 ### ZS-ERR-02 [M] Return an optional for absence; reserve the error union for failure
 
@@ -170,7 +170,7 @@ It does **not** govern assertions. A violated internal invariant has exactly one
 any code, library or not, so `assert` and a project-local always-on `assertAlways`
 (`references/assertions-and-limits.md` ZS-ASRT-07) are legal in a library — including in allocators
 and crypto, which are libraries by construction. What a library may not do is choose its consumer's
-optimize mode: document which invariants it asserts and what it costs to run it under ReleaseSafe,
+optimize mode: document which invariants it asserts and what it costs to run it in a `safe` build,
 and let the consumer decide (`references/build-and-project.md` ZS-BUILD-27).
 
 **Why:** a library does not know whether its caller can recover. Aborting the process removes the
@@ -278,7 +278,7 @@ pub const LoadError = ParseError || ReadError || std.mem.Allocator.Error; // 5 m
 
 Give individual members `///` docs when the condition is not obvious from the name — std does this
 heavily for platform-specific members. A one-member set is written inline, not hoisted:
-`pub const Error = error{OutOfMemory};` (`mem/Allocator.zig:11`).
+`pub const Error = error{OutOfMemory};` (`std.mem.Allocator.Error`).
 
 ### ZS-ERR-06 [M] Never put `anyerror` in a public signature
 
@@ -393,8 +393,8 @@ fn drain(err: Wide) error{ Canceled, OutOfMemory }!void {
 `catch unreachable` claims *this error is impossible given local invariants*. Write the one-line
 proof. If you cannot write it, you have a bug, not an invariant.
 
-**Why:** `unreachable` is a safety-checked panic in Debug/ReleaseSafe and **illegal behavior** in
-ReleaseFast/ReleaseSmall. A wrong `catch unreachable` therefore does not crash in production — it
+**Why:** `unreachable` is a safety-checked panic in `debug`/`safe` builds and **illegal behavior**
+in `fast`/`small` builds. A wrong `catch unreachable` therefore does not crash in production — it
 miscompiles the surrounding code. The usual failure is an OOM or an I/O error that "obviously can't
 happen" until the machine is under memory pressure or the disk fills. std has 326 uses; each sits
 next to a buffer whose size is fixed at compile time.
@@ -408,24 +408,29 @@ const copy = gpa.dupe(u8, name) catch unreachable;
 // verified — GOOD
 const std = @import("std");
 
-fn formatCode(code: u8) []const u8 {
-    var buf: [4]u8 = undefined;
-    // `buf` holds 4 bytes; a u8 renders in at most 3 decimal digits, so
-    // bufPrint cannot fail here.
-    return std.fmt.bufPrint(&buf, "{d}", .{code}) catch unreachable;
+/// Renders `code` into the caller's `buf`, which outlives the slice.
+fn formatCode(buf: *[3]u8, code: u8) []const u8 {
+    // A u8 renders in at most 3 decimal digits and `buf` holds 3, so
+    // `std.mem.print` cannot fail here.
+    return std.mem.print(buf, "{d}", .{code}) catch unreachable;
+}
+
+test formatCode {
+    var buf: [3]u8 = undefined;
+    try std.testing.expectEqualStrings("255", formatCode(&buf, 255));
 }
 ```
 
 **Exempt: `comptime`-evaluated `catch unreachable`.** In a `const` initializer or a `comptime` block
-the expression is folded by the compiler, so a failure is `error: reached unreachable code` at build
-time and can never be illegal behavior at runtime — there is nothing to prove and no comment is
-required. This is why the derived-limit idiom in `references/assertions-and-limits.md`
-ZS-ASRT-25/ZS-ASRT-26 is written without one:
+the expression is folded by the compiler, so a failure is `error: caught unexpected error
+'Overflow'` at build time and can never be illegal behavior at runtime — there is nothing to prove
+and no comment is required. This is why a derived limit (`references/assertions-and-limits.md`
+ZS-ASRT-25/ZS-ASRT-26) whose derivation has a fallible `std.math` step is written without one:
 
 ```zig
 // fragment — GOOD: comptime-evaluated, so failure is a compile error
-pub const blocks_per_message_max: u32 =
-    std.math.divCeil(u32, message_size_bytes_max, block_size_bytes) catch unreachable;
+pub const blocks_total_max: u32 =
+    std.math.mul(u32, blocks_per_message_max, messages_max) catch unreachable;
 ```
 
 `[M!]` sharpening — in high-reliability code (databases, consensus and replication, crypto,
@@ -603,27 +608,34 @@ fn sumFilesLeaky(gpa: Allocator, counts: []const usize) Allocator.Error!usize {
 }
 ```
 
-### ZS-ERR-16 [S] `errdefer |err|` is for diagnostics, not for control flow
+### ZS-ERR-16 [S] Log the unwinding error in the caller's `catch`; keep `errdefer` uniform
 
-The capture form `errdefer |err| { … }` binds the error that is unwinding. Use it to log or to bump
-a metric; do not use it to branch cleanup logic.
+0.17 removed `errdefer |err|`. To record which error is unwinding, give the fallible body its own
+function and log in the caller's `catch |err|`; the `errdefer` that remains releases resources and
+branches on nothing.
 
-**Why:** cleanup that depends on *which* error occurred means the rollback is not uniform, which is
-exactly the property that makes unwinding safe to reason about. std uses the capture form once in
-the whole tree — treat it as rare.
+**Why:** cleanup that depends on *which* error occurred makes the rollback non-uniform, and uniform
+rollback is what makes unwinding safe to reason about. With the capture gone, the split is also the
+only place the error can be seen.
 
-**Check:** an `errdefer |err| {` whose body contains an `if`, a `switch`, a `free`, a `close`, or a
-`deinit`. A body that is only a `log.*` call or a counter increment is the sanctioned use.
+**Check:** an `errdefer` body containing an `if` or a `switch`. In code written for 0.16, every
+`errdefer |err|`, which 0.17 rejects as a parse error: its log moves to the caller's `catch |err|`.
 
 ```zig
-// verified — GOOD
+// verified — GOOD: 0.17 removed the capture, so the log moves to the caller's `catch`
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const log = std.log.scoped(.doc);
 
 fn openWithLog(gpa: Allocator, n: usize) Allocator.Error![]u8 {
+    return openInner(gpa, n) catch |err| {
+        log.warn("rollback after {t}", .{err});
+        return err;
+    };
+}
+
+fn openInner(gpa: Allocator, n: usize) Allocator.Error![]u8 {
     const buf = try gpa.alloc(u8, n);
-    errdefer |err| log.warn("rollback after {t}", .{err});
     errdefer gpa.free(buf);
     if (n > 8) return error.OutOfMemory;
     return buf;
@@ -636,8 +648,8 @@ fn openWithLog(gpa: Allocator, n: usize) Allocator.Error![]u8 {
 
 ### ZS-ERR-17 [M] Propagate with `try` or `return err`; never launder an error through an optional
 
-`@errorReturnTrace()` returns `?*std.builtin.StackTrace`: non-null in Debug and ReleaseSafe,
-**null** in ReleaseFast and ReleaseSmall. The trace is
+`@errorReturnTrace()` returns `?*std.lang.StackTrace`: non-null in `debug` builds, **null** in
+`safe`, `fast` and `small` builds unless they are compiled with `-ferror-tracing`. The trace is
 built by `try` and by `return err`, and is **destroyed** by any `catch` that does not re-return, and
 by converting the error into an optional, a sentinel, or a bool.
 
@@ -670,12 +682,13 @@ fn laundered() ?u32 {
 ```
 
 Print an error return trace with **`std.debug.dumpErrorReturnTrace(et)`**, whose parameter is
-exactly the `*const std.builtin.StackTrace` that `@errorReturnTrace()` yields;
+exactly the `*const std.lang.StackTrace` that `@errorReturnTrace()` yields;
 `writeErrorReturnTrace(et, t)` is the same thing against an `Io.Terminal` you supply. Do **not**
-reach for `std.debug.dumpStackTrace` here: in 0.16 that takes a `*const std.debug.StackTrace` (`{
+reach for `std.debug.dumpStackTrace` here: in 0.17 that takes a `*const std.debug.StackTrace` (`{
 return_addresses: []usize, skipped: SkippedAddresses }`), which is a different type from
-`std.builtin.StackTrace` (`{ index: usize, instruction_addresses: []usize }`) and will not compile.
-Capturing a *stack* trace is ZS-ERR-36.
+`std.lang.StackTrace` (`{ index: usize, instruction_addresses: []usize }`) and will not compile:
+`error: expected type '*const debug.StackTrace', found '*lang.StackTrace'`. Capturing a *stack*
+trace is ZS-ERR-36.
 
 ```zig
 // fragment — GOOD
@@ -1082,8 +1095,8 @@ fn opcodeName(op: Opcode) []const u8 {
 
 ### ZS-ERR-29 [S] Use `inline for` / `inline else` only on a small comptime-known set
 
-`inline for` over `@typeInfo(T).@"struct".fields` or over a tuple; `inline else => |tag|` to obtain
-a comptime-known tag inside a runtime `switch`.
+`inline for` over `@typeInfo(T).@"struct".field_names` (or `.field_types`) or over a tuple;
+`inline else => |tag|` to obtain a comptime-known tag inside a runtime `switch`.
 
 **Why:** `inline` fully unrolls, so machine code grows linearly with the iteration count. That is
 correct when the loop body's *types* differ per iteration — something a runtime loop cannot express
@@ -1091,8 +1104,9 @@ correct when the loop body's *types* differ per iteration — something a runtim
 that.
 
 **Check:** an `inline for` whose iterable is a plain integer range (`inline for (0..n)`) or an array
-of same-typed values rather than `@typeInfo(T).@"struct".fields`, an enum's fields, or a tuple —
-nothing in the body needed a comptime-known type, so this is hand-unrolling the optimiser owns.
+of same-typed values rather than `@typeInfo(T).@"struct".field_names`/`.field_types`, an enum's
+fields, or a tuple — nothing in the body needed a comptime-known type, so this is hand-unrolling the
+optimiser owns.
 
 ```zig
 // verified — GOOD
@@ -1102,8 +1116,8 @@ const Config = struct { retries: u32, timeout_ms: u32 };
 const Op = enum { add, sub, mul };
 
 fn configNonZero(c: Config) bool {
-    inline for (@typeInfo(Config).@"struct".fields) |field| {
-        if (@field(c, field.name) == 0) return false;
+    inline for (@typeInfo(Config).@"struct".field_names) |name| {
+        if (@field(c, name) == 0) return false;
     }
     return true;
 }
@@ -1121,8 +1135,8 @@ fn opName(op: Op) []const u8 {
 licenses an unreachable, write `orelse unreachable` and write the proof beside it; std does that
 three times in 434 KLOC. The short spelling has no licensed use.
 
-**Why:** `.?` on a null is a safety-checked panic in Debug/ReleaseSafe and **illegal behavior** in
-ReleaseFast/ReleaseSmall — the same trap as `catch unreachable`, in a form so short that it slips
+**Why:** `.?` on a null is a safety-checked panic in `debug`/`safe` builds and **illegal behavior**
+in `fast`/`small` builds — the same trap as `catch unreachable`, in a form so short that it slips
 through review. That shortness is the whole objection: the long spelling survives review because it
 is visible, and it is the one place a proof comment has to go.
 
@@ -1161,8 +1175,8 @@ const found = for (items) |it| {
 
 ### ZS-ERR-31 [M] Replace `@setCold` with `@branchHint`; placing hints on hot paths is `[S]`
 
-`@branchHint(hint: std.builtin.BranchHint) void`. The hints are exactly `.none`, `.likely`,
-`.unlikely`, `.cold`, `.unpredictable` (`std/builtin.zig:1131`). It is **only valid as the first
+`@branchHint(hint: std.lang.BranchHint) void`. The hints are exactly `.none`, `.likely`,
+`.unlikely`, `.cold`, `.unpredictable` (`std.lang.BranchHint`). It is **only valid as the first
 statement in a control-flow branch, or the first statement in a function**; otherwise the compiler
 emits `error: '@branchHint' must appear as the first statement in a function or conditional branch`.
 
@@ -1245,10 +1259,10 @@ file-level `scoped` alias.
 
 ### ZS-ERR-33 [S] Use std's four log levels, configured from the root file
 
-`std.log.Level` is `{ err, warn, info, debug }` (`std/log.zig:30`), documented as: `err` — something
-has gone wrong; `warn` — uncertain whether something has gone wrong, but worth investigating; `info`
-— general state; `debug` — only useful when debugging. `default_level` is `.debug` in Debug and
-`.info` in all three release modes.
+`std.log.Level` is `{ err, warn, info, debug }`, documented as: `err` — something has gone wrong;
+`warn` — uncertain whether something has gone wrong, but worth investigating; `info` — general
+state; `debug` — only useful when debugging. `std.log.default_level` is `.debug` in `debug` builds
+and `.info` in `safe`, `fast` and `small` builds.
 
 **Why:** levels are a filter, not a severity vocabulary you get to redefine. If your library logs at
 `err` for a condition it also returns as an error, the application sees it twice and cannot suppress
@@ -1349,8 +1363,9 @@ awk '/^(pub )?fn /{s = NR; n = $0}
 An error set says *what kind* of thing went wrong; it cannot say *where*. When a user has to fix the
 input — a config file, a query, a source file — pair a coarse error set with an optional
 `*Diagnostics` out-parameter that the callee fills in on the failure path. This is the pattern std
-itself uses: `std.json.Diagnostics` (`getLine`, `getColumn`, `getByteOffset`), `std.zon.parse`'s
-`diag: ?*Diagnostics`, `std.tar` and `std.zip`'s `diagnostics: ?*Diagnostics = null` option fields.
+itself uses: `std.json.Diagnostics` (`getLine`, `getColumn`, `getByteOffset`), and `std.tar` and
+`std.zip`'s `diagnostics: ?*Diagnostics = null` option fields. `std.zon.parse` is the exception
+since 0.17: its `Options` make `diagnostics: *Diagnostics` required, filled into the parse's arena.
 
 Make the parameter optional and default it to `null`, so the fast path pays nothing and callers that
 only need to know *whether* it failed do not have to declare a variable.
@@ -1401,8 +1416,9 @@ test "diagnostics carry the position the error set cannot" {
 ```
 
 The application then renders it — `"{s}:{d}:{d}: {t}"` with `{t}` for the error name (see
-`references/formatting-and-output.md` ZS-FMT-05). Give `Diagnostics` a `format` method when the
-rendering is fixed, as `std.zon.parse.Diagnostics` does.
+`references/formatting-and-output.md` ZS-FMT-05). Give `Diagnostics` a rendering method when the
+rendering is fixed, as `std.zon.parse.Diagnostics` does: its `fmt(path)` returns a value printed
+with `{f}`, and `log(path)` and `fatal(path)` print it for you.
 
 **Check:** an error set with members like `InvalidCharacterInHeader` or `BadFieldAtLine`, or a parse
 function taking an `Allocator` used only to build an error string. Both are a `*Diagnostics` written
@@ -1421,11 +1437,11 @@ returned `StackTrace`. To print instead of capture, `dumpCurrentStackTrace(optio
 allow_unsafe_unwind: bool = false }`. Pass `.{ .first_address = @returnAddress() }` to drop your own
 frame from the trace — that is what `dumpCurrentStackTrace` does internally.
 
-**Why:** these are the 0.16 spellings and they are easy to get wrong from memory.
-`std.debug.StackIterator` is **no longer `pub`** in 0.16 (`std/debug.zig:895` declares it plain
-`const`), so hand-rolled unwinding loops from older code no longer compile —
+**Why:** these are the 0.16 spellings, unchanged in 0.17, and they are easy to get wrong from
+memory. `std.debug.StackIterator` is **no longer `pub`** since 0.16 (`std/debug.zig` declares it
+plain `const`), so hand-rolled unwinding loops from older code no longer compile —
 `captureCurrentStackTrace` is the supported replacement. And `std.debug.StackTrace` (`{
-return_addresses, skipped }`) is a *different type* from the `std.builtin.StackTrace` (`{ index,
+return_addresses, skipped }`) is a *different type* from the `std.lang.StackTrace` (`{ index,
 instruction_addresses }`) that `@errorReturnTrace()` returns; mixing the two families is the usual
 compile error (ZS-ERR-17).
 

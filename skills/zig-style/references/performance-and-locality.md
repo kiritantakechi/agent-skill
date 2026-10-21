@@ -4,7 +4,7 @@ Scope: performance as a *design-phase* decision — back-of-the-envelope sketche
 resources, ranking work by the slowest resource after compensating for frequency, the control-plane
 and data-plane split, batching, and giving the CPU predictable work. Then the locality cluster:
 smallest scope, no aliases, place-of-check next to place-of-use, centralized state manipulation, and
-function shape. Then the 0.16-specific mechanics — build modes, the disabled loop vectorizer,
+function shape. Then the 0.17-specific mechanics — build modes, the disabled loop vectorizer,
 `@Vector`, `@branchHint`, `@prefetch`, cache lines, `inline` — and finally **how to measure**, since
 rules throughout this standard say "unless you have measured" and this is the chapter that says how.
 
@@ -37,9 +37,9 @@ require a measurement before you are allowed to invoke them.
   - ZS-PERF-11 [M] Calculate and check a value next to where it is used — avoid POCPOU
   - ZS-PERF-12 [S] Centralize state manipulation: helpers compute the change, the parent applies it
   - ZS-PERF-13 [S] Shape functions like an inverted hourglass: narrow in, narrow out, wide inside
-- **Part 3 — Zig 0.16 mechanics**
-  - ZS-PERF-14 [M] Measure in the mode you ship, and never quote a `Debug` number
-  - ZS-PERF-15 [M] Do not rely on auto-vectorization in 0.16 — the loop vectorizer is disabled
+- **Part 3 — Zig 0.17 mechanics**
+  - ZS-PERF-14 [M] Measure in the mode you ship, and never quote a `debug` number
+  - ZS-PERF-15 [M] Do not rely on auto-vectorization in 0.17 — the loop vectorizer is disabled
   - ZS-PERF-16 [S] Write SIMD explicitly with `@Vector`, sized by `std.simd.suggestVectorLength`
   - ZS-PERF-17 [S] Mark cold and likely paths with `@branchHint`, as the branch's first statement
   - ZS-PERF-18 [M] Spell out every `@prefetch` option; never rely on the defaults
@@ -48,7 +48,7 @@ require a measurement before you are allowed to invoke them.
 - **Part 4 — How to measure**
   - ZS-PERF-21 [M] Time with `Io.Timestamp` and `Io.Duration` — `std.time.Timer` no longer exists
   - ZS-PERF-22 [M] Warm up, repeat, and defend the measured expression from dead-code elimination
-  - ZS-PERF-23 [M] Add a `bench` step pinned to `ReleaseFast` and not installed by default
+  - ZS-PERF-23 [M] Add a `bench` step pinned to `.fast` and not installed by default
 - **Part 5 — The counterweight**
   - ZS-PERF-24 [M] Apply the always-on rules everywhere; require a number before invoking the rest
 
@@ -305,10 +305,11 @@ Write the hoist, the strength reduction, and the bound yourself when they matter
 compiler optimization as a bonus, never as a load-bearing assumption.
 
 **Why:** Zig's optimizer is LLVM's, and LLVM's guarantees are best-effort. 0.16 is the proof: loop
-vectorization is *disabled outright* in this release (ZS-PERF-15), so any code whose performance
-budget assumed auto-vectorization regressed silently on upgrade. The same applies to loop-invariant
-code motion through a pointer — the compiler must prove the loop body cannot write through it before
-it may cache a field in a register, and a `*Self` parameter frequently defeats that proof. Writing
+vectorization was *disabled outright* in that release, and is still disabled in 0.17 (ZS-PERF-15),
+so any code whose performance budget assumed auto-vectorization regressed silently on upgrade. The
+same applies to loop-invariant code motion through a pointer — the compiler must prove the loop
+body cannot write through it before it may cache a field in a register, and a `*Self` parameter
+frequently defeats that proof. Writing
 the hoist costs one line, documents the invariant, and makes a redundant computation visible to a
 human reviewer, which is the durable benefit.
 
@@ -522,8 +523,8 @@ fn readPayload(buffer: []const u8, header: Header) ![]const u8 {
 ```
 
 Note the second bug the BAD version hides: `header.offset + header.length` can overflow `u32` before
-the comparison, so the check can pass on input that should be rejected. In `Debug`/`ReleaseSafe`
-that panics; in `ReleaseFast` it wraps and the slice goes out of bounds. Distance concealed it — see
+the comparison, so the check can pass on input that should be rejected. In `debug`/`safe`
+that panics; in `fast` it wraps and the slice goes out of bounds. Distance concealed it — see
 `references/types-and-data.md` ZS-TYPE-10 for `std.math.add`.
 
 ### ZS-PERF-12 [S] Centralize state manipulation: helpers compute the change, the parent applies it
@@ -647,19 +648,19 @@ fn parseFrame(bytes: []const u8) ?Frame {
 
 ---
 
-## Part 3 — Zig 0.16 mechanics
+## Part 3 — Zig 0.17 mechanics
 
-### ZS-PERF-14 [M] Measure in the mode you ship, and never quote a `Debug` number
-Benchmarks build at `ReleaseFast` or at the mode you actually ship; a number from a `Debug` build is
+### ZS-PERF-14 [M] Measure in the mode you ship, and never quote a `debug` number
+Benchmarks build at `fast` or at the mode you actually ship; a number from a `debug` build is
 not evidence of anything. Know what each mode costs before you invoke one in an argument.
 
-**Why:** `Debug` applies no optimization at all *and*, for `x86_64-linux`, uses the self-hosted
+**Why:** `debug` applies no optimization at all *and*, for `x86_64-linux`, uses the self-hosted
 x86_64 backend, which the 0.16.0 release notes describe as having "significantly faster compilation
-speed, superior debug information, and inferior machine code quality." The gap between `Debug` and
-`ReleaseFast` on a tight loop is routinely 10–50x, which swamps every effect this chapter discusses;
-a "2x speedup" measured in `Debug` is noise. The mode table and the argument for shipping
-`ReleaseSafe` are `references/build-and-project.md` **ZS-BUILD-27** — read it before choosing
-`ReleaseFast` for a shipped artifact, because in `ReleaseFast` every `std.debug.assert` becomes a
+speed, superior debug information, and inferior machine code quality"; 0.17.0 keeps that default.
+The gap between `debug` and `fast` on a tight loop is routinely 10–50x, which swamps every effect
+this chapter discusses; a "2x speedup" measured in `debug` is noise. The mode table and the argument
+for shipping `safe` are `references/build-and-project.md` **ZS-BUILD-27** — read it before choosing
+`fast` for a shipped artifact, because in `fast` every `std.debug.assert` becomes a
 licence for the optimizer rather than a check (ZS-CORE-10).
 
 **Check:** any performance claim in a commit message or comment must name the optimize mode. A
@@ -672,39 +673,43 @@ const builtin = @import("builtin");
 
 // A benchmark that refuses to produce a meaningless number.
 comptime {
-    if (builtin.mode == .Debug) @compileError("build benchmarks with -Doptimize=ReleaseFast");
+    if (builtin.optimize == .debug) @compileError("build benchmarks with -Doptimize=fast");
 }
 ```
 
-### ZS-PERF-15 [M] Do not rely on auto-vectorization in 0.16 — the loop vectorizer is disabled
-Zig 0.16.0 disables LLVM loop vectorization entirely, to work around an LLVM 21 miscompilation that
-was corrupting the compiler itself. If a loop must use SIMD, write the vectors yourself
-(ZS-PERF-16).
+### ZS-PERF-15 [M] Do not rely on auto-vectorization in 0.17 — the loop vectorizer is disabled
+Zig 0.16.0 disabled LLVM loop vectorization entirely, to work around an LLVM 21 miscompilation that
+was corrupting the compiler itself, and Zig 0.17.0 keeps it disabled: the LLVM fix is not in LLVM
+22, which 0.17 uses. If a loop must use SIMD, write the vectors yourself (ZS-PERF-16).
 
-**Why:** compiling a scalar `u32` sum loop at `ReleaseFast`
-for `aarch64` emits a one-element-per-iteration scalar loop (`ldr w9, [x0], #4` / `add w8, w9, w8`),
-while the same file's explicit `@Vector(8, u32)` version emits `ldp q2, q3, [x10], #32` and `add.4s`
-— eight lanes per iteration from the same optimizer, in the same build. So the pessimization is real
-and it is specifically the *automatic* path that is gone. The release notes are explicit that this
-is expected to affect 0.16.x **and** 0.17.x, resolved in 0.18.x, so this is not a one-release
-inconvenience to wait out. The consequence for review: a performance budget written against Zig
-0.14/0.15 measurements does not transfer, and any comment claiming "the compiler will vectorize
-this" is now false.
+**Why:** compiling a scalar `u32` sum loop at `fast` for `aarch64` emits scalar code only (LLVM 22
+unrolls it four times, but every load and add is still a 32-bit scalar: `ldp w16, w17` /
+`add w13, w16, w13`), while the same file's explicit `@Vector(8, u32)` version emits
+`ldp q2, q3, [x8], #32` and `add.4s` — eight lanes per iteration from the same optimizer, in the
+same build. So the pessimization is real and it is specifically the *automatic* path that is gone.
+The 0.17.0 release notes say the workaround stays until 0.18.0 moves to LLVM 23, so it has now
+covered 0.16.x **and** 0.17.x and is not a one-release inconvenience to wait out. The consequence
+for review: a performance budget written against Zig 0.14/0.15 measurements does not transfer, and
+any comment claiming "the compiler will vectorize this" is now false.
 
 **Check:** search comments and design notes for claims that a loop "vectorizes" or "gets
 auto-vectorized". Each one is either wrong or needs to become an explicit `@Vector`.
 
 ```
-$ zig build-obj vec.zig -OReleaseFast -femit-asm=vec.s   # aarch64, Zig 0.16.0
+$ zig build-obj vec.zig -O fast -femit-asm=vec.s   # aarch64, Zig 0.17.0
 
 sumScalar (plain while loop over []const u32):
-        ldr     w9, [x0], #4        <- one element per iteration
-        add     w8, w9, w8
+        ldp     w16, w17, [x15, #-8]  <- unrolled 4x, but scalar 32-bit registers
+        add     w13, w16, w13
+        add     w8, w17, w8
+        ldp     w16, w17, [x15], #16
+        add     w11, w16, w11
+        add     w12, w17, w12
 
 sumManual (explicit @Vector(8, u32)):
-        ldp     q2, q3, [x10], #32  <- eight elements per iteration
-        add.4s  v1, v3, v1
-        add.4s  v0, v2, v0
+        ldp     q2, q3, [x8], #32     <- eight elements per iteration
+        add.4s  v0, v3, v0
+        add.4s  v1, v2, v1
 ```
 
 ### ZS-PERF-16 [S] Write SIMD explicitly with `@Vector`, sized by `std.simd.suggestVectorLength`
@@ -717,10 +722,10 @@ It picks a register width — 512 bits for AVX-512, 256 for AVX2 or SVE, 128 for
 for a target with no vector unit — and divides by `@bitSizeOf(T)`, so `suggestVectorLength(u32)` is
 16 lanes on AVX-512 and 4 on NEON. The kernel therefore stays portable and cross-compiles correctly
 instead of hard-coding a width that degrades to scalar emulation elsewhere. Hand-written vectors are
-also the only SIMD available in 0.16 (ZS-PERF-15). Two 0.16 constraints to know: indexing a
-`@Vector` with a runtime value is a compile error (`vector index not comptime known`), and
-*in-memory* coercion between arrays and vectors is forbidden — but the by-value coercion
-`values[i..][0..lanes].*` used below is fine and is the idiom.
+also the only SIMD available in 0.17 (ZS-PERF-15). Two 0.17 constraints to know: indexing a
+`@Vector` with a runtime value, to read or to store, is a compile error (`vector index not comptime
+known`), and *in-memory* coercion between arrays and vectors is forbidden — but the by-value
+coercion `values[i..][0..lanes].*` used below is fine and is the idiom.
 
 **Check:** a hard-coded lane count (`@Vector(4, f32)`) with no comment explaining the target, or a
 vector loop with no scalar tail — the tail is where the off-by-one lives.
@@ -809,12 +814,12 @@ at the call site rather than inheriting a library default.
 
 **Why:** TigerStyle's argument is about defaults changing under you — "avoids latent, potentially
 catastrophic bugs in case the library ever changes its defaults" — and call sites do not get
-re-reviewed when a default moves. `std.builtin.PrefetchOptions` today defaults to `.rw = .read,
+re-reviewed when a default moves. `std.lang.PrefetchOptions` today defaults to `.rw = .read,
 .locality = 3, .cache = .data`; those are three independent knobs (`Rw`, `u2`, `Cache`) and nothing
 pins them. The explicit form is also the only self-documenting one: `.locality = 0` means "stream
 it, drop it after one touch" and `.locality = 3` means "keep it, we will come back" — a distinction
 the reader cannot see in `.{}`, and one that is worth real cache behavior. The
-builtin lowers to a real instruction on 0.16/aarch64: the loop below emits `prfm pldl1keep`.
+builtin lowers to a real instruction on 0.17/aarch64: the loop below emits `prfm pldl1keep`.
 
 **Check:** grep for `@prefetch(` with a `.{}` or a partial options literal. Every field spelled out,
 or it is a finding — and the prefetch distance should have a comment saying why that stride.
@@ -865,17 +870,20 @@ test "no false sharing" {
 ```
 
 ### ZS-PERF-20 [S] Use `inline fn` only for the three reasons the langref gives
-The langref names them: to change how many stack frames appear in the call stack for debugging; to
-force comptime-ness of arguments to propagate to the return value; and when "real world performance
-measurements demand it." Trivial forwarding shims in generic wrappers are the common legitimate
-case, sanctioned without a fresh measurement by `references/comptime-and-generics.md` ZS-CT-11 and
-ZS-CT-05, which states the same three reasons from the comptime side.
+The 0.17.0 langref names them: to ensure certain stack frames are in the call stack, for debugging
+or for integrating with assembly; to force arguments that happen to be comptime-known to propagate
+to the return value; and to work around limitations of compiler backend implementations. The 0.16.0
+langref's third reason was "real world performance measurements demand it"; 0.17 dropped it, so a
+performance-motivated `inline` now rests on this chapter's measurement rule alone. Trivial
+forwarding shims in generic wrappers are the common legitimate case, sanctioned without a fresh
+measurement by `references/comptime-and-generics.md` ZS-CT-11 and ZS-CT-05, which states the
+langref's reasons from the comptime side.
 
-**Why:** `inline` in Zig is not a hint — it is semantics. The langref is blunt: "note that `inline`
-actually restricts what the compiler is allowed to do. This can harm binary size, compilation speed,
-and even runtime performance." An inlined body cannot be shared, so a large `inline fn` called from
+**Why:** `inline` in Zig is not a hint — it is semantics. The langref is blunt: "Use of `inline`
+restricts what the compiler is allowed to do. This can harm binary size, compilation speed, and even
+runtime performance." An inlined body cannot be shared, so a large `inline fn` called from
 many sites multiplies code size and evicts the instruction cache — the exact opposite of the effect
-intended. LLVM already inlines small functions at `ReleaseFast`; writing `inline` on them buys
+intended. LLVM already inlines small functions at `fast`; writing `inline` on them buys
 nothing and removes the compiler's ability to decide otherwise when the function grows.
 
 **Check:** every `inline fn` in the diff. If its body is more than a few lines and the commit
@@ -899,10 +907,10 @@ const Ring = struct {
 ## Part 4 — How to measure
 
 Rules across this standard say "unless you have measured". This is what measuring looks like in
-0.16.
+0.17.
 
 ### ZS-PERF-21 [M] Time with `Io.Timestamp` and `Io.Duration` — `std.time.Timer` no longer exists
-`std.time` in 0.16 holds unit constants and `std.time.epoch`, nothing else. Take timestamps with
+`std.time` in 0.17 holds unit constants and `std.time.epoch`, nothing else. Take timestamps with
 `Io.Timestamp.now(io, clock)` and differences with `durationTo` or `untilNow`. The monotonic clock
 is `.awake`; there is no `.monotonic`.
 
@@ -942,7 +950,7 @@ A benchmark runs the work once to warm caches and the branch predictor, then rep
 number of times, then divides. Feed every result to `std.mem.doNotOptimizeAway` or the optimizer
 will delete the code you are timing.
 
-**Why:** at `ReleaseFast` a pure function whose result is discarded is dead, and LLVM removes it —
+**Why:** at `fast` a pure function whose result is discarded is dead, and LLVM removes it —
 the classic result is a "1000x speedup" that is really an empty loop. `std.mem.doNotOptimizeAway`
 (std/mem.zig) launders the value through inline assembly so the computation must happen. The warm-up
 matters for a different reason: the first iteration pays cold i-cache, cold d-cache, cold TLB, and
@@ -975,13 +983,13 @@ rather than a throughput number, record the per-iteration durations and report a
 p99 that is 50x the mean is the normal case for anything that allocates or does I/O, and it is
 usually the number that matters.
 
-### ZS-PERF-23 [M] Add a `bench` step pinned to `ReleaseFast` and not installed by default
-Add a `bench` step whose module hard-codes `.optimize = .ReleaseFast` rather than inheriting
+### ZS-PERF-23 [M] Add a `bench` step pinned to `.fast` and not installed by default
+Add a `bench` step whose module hard-codes `.optimize = .fast` rather than inheriting
 `-Doptimize`, and wire it up with `addRunArtifact` only — never `installArtifact` — so a bare `zig
 build` does not pay for it.
 
 **Why:** two failure modes, one rule. Inheriting `-Doptimize` means `zig build bench` on a developer
-machine silently measures a `Debug` build (ZS-PERF-14). Installing the artifact puts the benchmark
+machine silently measures a `debug` build (ZS-PERF-14). Installing the artifact puts the benchmark
 on the critical path of every `zig build` and every CI smoke test, which is
 `references/build-and-project.md` **ZS-BUILD-09**'s argument. Pinning the mode also makes the number
 comparable across machines and across time, which is the entire value of keeping benchmarks in the
@@ -992,7 +1000,7 @@ or does it pass the shared `optimize` variable? Is the benchmark artifact reacha
 step?
 
 ```zig
-// verified — this build.zig was built and `zig build bench` was run against Zig 0.16.0
+// verified — this build.zig was built and `zig build bench` was run against Zig 0.17.0
 const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -1014,22 +1022,24 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(exe);
 
-    // Benchmarks are always ReleaseFast, whatever -Doptimize says: a Debug
+    // Benchmarks are always `.fast`, whatever -Doptimize says: a `.debug`
     // number measures the debug build, not the one that ships.
     const bench = b.addExecutable(.{
         .name = "bench",
         .root_module = b.createModule(.{
             .root_source_file = b.path("bench/main.zig"),
             .target = target,
-            .optimize = .ReleaseFast,
+            .optimize = .fast,
             .imports = &.{.{ .name = "proj", .module = mod }},
         }),
     });
 
     // Run-only: never installArtifact, so a bare `zig build` does not pay for it.
     const bench_run = b.addRunArtifact(bench);
-    if (b.args) |args| bench_run.addArgs(args);
-    const bench_step = b.step("bench", "Run benchmarks (always ReleaseFast)");
+    // Forwards `zig build bench -- <args>`; it also disables caching, so the
+    // benchmark runs again on every invocation.
+    bench_run.addPassthruArgs();
+    const bench_step = b.step("bench", "Run benchmarks (always .fast)");
     bench_step.dependOn(&bench_run.step);
 }
 ```
@@ -1045,7 +1055,7 @@ const Io = std.Io;
 const assert = std.debug.assert;
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
-    comptime assert(builtin.mode == .ReleaseFast);
+    comptime assert(builtin.optimize == .fast);
 
     var out_buffer: [512]u8 = undefined;
     var out_writer: Io.File.Writer = .init(.stdout(), io, &out_buffer);
@@ -1104,7 +1114,7 @@ faster", the change is not ready.
 ```zig
 // fragment
 // The shape of a justification that makes a last-row rule reviewable.
-// Hand-vectorized: 4.1 us -> 0.9 us per 4 KiB block, ReleaseFast, aarch64-macos,
+// Hand-vectorized: 4.1 us -> 0.9 us per 4 KiB block, -Doptimize=fast, aarch64-macos,
 // mean of 1000 iterations via `zig build bench`. This loop is 38% of the profile
 // under the ingest workload. The scalar version is kept in tests as the oracle.
 fn checksumBlockVectorized(block: []const u32) u32 {

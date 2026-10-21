@@ -1,7 +1,7 @@
 # comptime, generics, and interfaces
 
 Rules for compile-time evaluation (`comptime` params, blocks, `inline`, `@setEvalBranchQuota`),
-generic type functions, `anytype` and its contracts, type introspection with the 0.16 builtins, and
+generic type functions, `anytype` and its contracts, type introspection with the 0.17 builtins, and
 the three interface shapes Zig offers (comptime duck typing, runtime vtable, tagged union). Naming
 of type functions and receivers lives in the naming chapter; `std.Io.Writer`/`Reader` usage and
 buffering live in the I/O chapter; `comptime {}` assertions about wire/disk layout live in the
@@ -50,7 +50,7 @@ function is often what it does at the top of a file.
 - **Type introspection**
   - ZS-CT-18 [M] `@Type` is removed; use the dedicated type builtins
   - ZS-CT-19 [S] Reach for the narrowest introspection builtin before `@typeInfo` (see ZS-CT-20)
-  - ZS-CT-20 [M] Use `@typeInfo` only to walk lists, and use the 0.16 spellings and accessors
+  - ZS-CT-20 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
 - **Interfaces**
   - ZS-CT-21 [M] Pick the interface shape from this table before writing any dispatch code
   - ZS-CT-22 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
@@ -61,7 +61,7 @@ function is often what it does at the top of a file.
   - ZS-CT-27 [M] `usingnamespace` is removed; re-export explicitly (see ZS-MIG-02)
 - **Debugging comptime**
   - ZS-CT-28 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
-- **Where TigerStyle and 0.16 std disagree**
+- **Where TigerStyle and std disagree**
 
 ---
 
@@ -77,7 +77,7 @@ function is often what it does at the top of a file.
 | Generic over the allocator or writer type | ZS-CT-12 |
 | Bare `anytype` in a `pub fn` | ZS-CT-14, ZS-CT-15 |
 | `@Type(...)`, `std.meta.Int`, `std.meta.Tuple` | ZS-CT-18 |
-| `@typeInfo(T).Struct`, `field.default_value_ptr` | ZS-CT-20 |
+| `@typeInfo(T).Struct`, `.@"struct".fields`, a raw `default_value_ptr` | ZS-CT-20 |
 | Hand-rolled vtable for a closed set of impls | ZS-CT-25 |
 | `usingnamespace` | ZS-CT-27 |
 | `error: unable to resolve comptime value` with no visible cause | ZS-CT-28 |
@@ -119,10 +119,10 @@ function's body runs at compile time when it is *called*, but the body itself is
 function scope, so the keyword is meaningful there rather than redundant.
 
 That it compiles does not make it the way to state a parameter **contract**: a failed
-`comptime assert` reports `error: reached unreachable code` sourced to `std/debug.zig:420`, so the
-first line the caller reads is a std internal and nothing names the requirement. `@compileError`
-puts your own sentence on the error line instead. Contracts are ZS-CT-10; this rule is only about
-where the `comptime` keyword is legal.
+`comptime assert` reports `error: reached unreachable code` sourced to the `unreachable` inside
+`std.debug.assert`, so the first line the caller reads is a std internal and nothing names the
+requirement. `@compileError` puts your own sentence on the error line instead. Contracts are
+ZS-CT-10; this rule is only about where the `comptime` keyword is legal.
 
 **Check:** the `comptime` keyword on a container-scope `const`/`var` initializer, inside `[...]` of
 an array type, or inside any other type expression. Each is a build break, so this grep is a
@@ -174,8 +174,9 @@ itself be comptime-known. Restrict it to accumulating over an `inline for`/`inli
 the result a `const` as soon as the loop ends.
 
 **Why:** a `comptime var` that is mutated from a partially runtime-dependent path produces
-`error: unable to resolve comptime value` far from the mutation site. Confining it to an inline
-loop keeps the failure local.
+`error: store to comptime variable depends on runtime condition`, whose `note: runtime condition
+here` can point at a branch far from the mutation site. Confining it to an inline loop keeps the
+failure local.
 
 **Check:** every `comptime var` in a diff. The statement after its declaration must be an
 `inline for` or `inline while` that mutates it, and the variable must not be read past that loop
@@ -198,14 +199,14 @@ export fn tripleSum() u32 {
 ### ZS-CT-05 [S] Treat `inline fn` as a semantic guarantee, not an optimizer hint
 The langref is explicit: inlining "is not a hint to be possibly observed by optimization passes, but
 has implications on the types and values involved in the function call." It also names the only
-three reasons to reach for it: (a) changing how many frames appear in a stack trace, (b) forcing
-comptime-ness of arguments to propagate to the return value, and (c) when real-world performance
-measurements demand it. Otherwise let the optimizer decide. Deviating needs a comment naming which
-of the three reasons applies, and for (c) that comment cites the measurement —
-`references/performance-and-locality.md` ZS-PERF-20 owns the measurement half and states the same
-three. The one-line forwarding shims of ZS-CT-11 are the one shape sanctioned without a fresh
-measurement, because there the `inline` is what makes the type-erased core cost what the
-monomorphized version would.
+three uses it addresses: (a) ensuring certain stack frames are in the call stack, for debugging or
+for integrating with assembly, (b) forcing comptime-known arguments to propagate to the return
+value, and (c) working around limitations of a compiler backend. Otherwise let the optimizer
+decide. Deviating needs a comment naming which of the three applies. Speed is not one of them:
+`references/performance-and-locality.md` ZS-PERF-20 lets a performance `inline` rest only on a
+measurement the comment cites. The one-line forwarding shims of ZS-CT-11 are the one shape
+sanctioned without a fresh measurement, because there the `inline` is what makes the type-erased
+core cost what the monomorphized version would.
 
 **Why:** `inline` removes the compiler's ability to *not* inline. On a large function called from
 many sites that is a direct, unrecoverable increase in code size and I-cache pressure, and the
@@ -228,7 +229,8 @@ const Index = @Int(.unsigned, bitsFor(1000)); // u11
 ```
 
 ### ZS-CT-06 [M] `inline for`/`inline while` only over comptime-known heterogeneous sequences
-Legitimate operands: `@typeInfo(T).@"struct".fields`, tuples, `[]const type`, enum field lists.
+Legitimate operands: `@typeInfo(T).@"struct".field_names` / `.field_types`, tuples,
+`[]const type`, enum field lists.
 Illegitimate: a homogeneous `[N]u8`, a range whose bound is a plain `usize` constant chosen for
 performance, anything derived from runtime data.
 
@@ -238,12 +240,12 @@ bought N copies of identical machine code and a slower compile in exchange for w
 would have done. `inline for` over a runtime bound is not slow, it is a compile error:
 `error: unable to resolve comptime value` / `note: inline loop condition must be comptime-known`.
 
-**Check:** every `inline for` — its operand must be `@typeInfo(...).fields`, `.decls`, an error-set
-list, a tuple literal, or a `[]const type`; an operand that is an array, a slice, or a `0..n` range
-is this rule. An `inline while` takes a boolean condition, not an iterable, so the operand test does
-not apply to it: the check there is that its condition and its continue-expression are both
-comptime-known and that the loop provably terminates — an `inline while` driven by a `comptime var`
-counter (the ZS-CT-04 shape) is conforming, not a finding.
+**Check:** every `inline for` — its operand must be `@typeInfo(...).field_names`, `.field_types`,
+`.decl_names`, an error-set list, a tuple literal, or a `[]const type`; an operand that is an array,
+a slice, or a `0..n` range is this rule. An `inline while` takes a boolean condition, not an
+iterable, so the operand test does not apply to it: the check there is that its condition and its
+continue-expression are both comptime-known and that the loop provably terminates — an
+`inline while` driven by a `comptime var` counter (the ZS-CT-04 shape) is conforming, not a finding.
 
 ```zig
 // fragment — BAD
@@ -257,18 +259,22 @@ const std = @import("std");
 
 fn countU32Fields(comptime T: type) usize {
     var n: usize = 0;
-    inline for (@typeInfo(T).@"struct".fields) |f| {
-        if (f.type == u32) n += 1;
+    inline for (@typeInfo(T).@"struct".field_types) |FieldType| {
+        if (FieldType == u32) n += 1;
     }
     return n;
+}
+
+test "countU32Fields" {
+    try std.testing.expectEqual(2, countU32Fields(struct { a: u32, b: u8, c: u32 }));
 }
 ```
 
 ### ZS-CT-07 [M] Scale `@setEvalBranchQuota` to the input; never hardcode a large constant
 The default budget is 1000 backwards branches. When you exceed it, raise the quota by an expression
 derived from the actual input size, the way std does
-(`@setEvalBranchQuota(@typeInfo(E).@"enum".fields.len + cushion)` in `std/enums.zig`), not by
-picking a big round number.
+(`@setEvalBranchQuota(@typeInfo(E).@"enum".field_names.len + eval_branch_quota_cushion)` in
+`std/enums.zig`), not by picking a big round number.
 
 **Why:** the quota is the only guardrail against a comptime evaluation that does not terminate.
 `@setEvalBranchQuota(1_000_000)` converts "the compiler tells me in 200 ms that my comptime loop is
@@ -722,31 +728,32 @@ ZS-MIG-02 keeps only the one-line table row.
 
 `@Type` no longer exists — `error: invalid builtin function: '@Type'`. The replacements are
 `@Int`, `@Tuple`, `@Struct`, `@Union`, `@Enum`, `@Pointer`, `@Fn`, `@EnumLiteral`. `std.meta.Int`
-and `std.meta.Tuple` are deprecated one-line shims forwarding to `@Int`/`@Tuple`; do not use them.
-There is deliberately no `@Float`, `@Array`, `@Opaque`, `@Optional`, `@ErrorSet` or `@ErrorUnion` —
-those types have ordinary syntax, so reflection was never needed to build them.
+and `std.meta.Tuple`, the one-line 0.16 shims forwarding to `@Int`/`@Tuple`, are removed in 0.17:
+`error: root source file struct 'meta' has no member named 'Int'`. There is deliberately no
+`@Float`, `@Array`, `@Opaque`, `@Optional`, `@ErrorSet` or `@ErrorUnion` — those types have
+ordinary syntax, so reflection was never needed to build them.
 
-**Why:** the shims still compile, so this is a silent staleness rather than a build failure — code
-keeps working while drifting from the standard. `std/meta.zig` marks both
-(`/// Deprecated: use @Int`, `/// Deprecated; use @Tuple instead. To be removed after Zig 0.16.0
-releases.`), so they will disappear.
+**Why:** in 0.16 the shims still compiled, so code that named them drifted from the standard with
+no build failure to say so. `std/meta.zig` marked both (`/// Deprecated: use @Int`,
+`/// Deprecated; use @Tuple instead. To be removed after Zig 0.16.0 releases.`), and 0.17 removed
+them, so every spelling other than the dedicated builtins is now a build break.
 
-**Check:** grep a diff for `@Type(`, `std.meta.Int`, and `std.meta.Tuple`. The first is a build
-break; the latter two still compile and are marked "to be removed after Zig 0.16.0 releases," so
-they are the ones a reviewer has to catch by eye.
+**Check:** grep a diff for `@Type(`, `std.meta.Int`, and `std.meta.Tuple`. All three are build
+breaks on 0.17, so the grep is a pre-flight for code carried over from 0.16 rather than something a
+reviewer has to catch by eye.
 
 Signatures, from the langref:
 
 ```text
-@Int(comptime signedness: std.builtin.Signedness, comptime bits: u16) type
+@Int(comptime signedness: std.lang.Signedness, comptime bits: u16) type
 @Tuple(comptime field_types: []const type) type
-@Enum(comptime TagInt: type, comptime mode: std.builtin.Type.Enum.Mode,
+@Enum(comptime TagInt: type, comptime mode: std.lang.Type.Enum.Mode,
       comptime field_names: []const []const u8,
       comptime field_values: *const [field_names.len]TagInt) type
-@Struct(comptime layout: std.builtin.Type.ContainerLayout, comptime BackingInt: ?type,
+@Struct(comptime layout: std.lang.Type.ContainerLayout, comptime BackingInt: ?type,
         comptime field_names: []const []const u8,
         comptime field_types: *const [field_names.len]type,
-        comptime field_attrs: *const [field_names.len]std.builtin.Type.StructField.Attributes) type
+        comptime field_attrs: *const [field_names.len]std.lang.Type.Struct.FieldAttributes) type
 @EnumLiteral() type
 ```
 
@@ -771,38 +778,44 @@ test "type builtins" {
 Owned by ZS-CT-20, which covers both halves of using `@typeInfo` correctly: when *not* to
 reach for it, and how to spell it when you must.
 
-### ZS-CT-20 [M] Use `@typeInfo` only to walk lists, and use the 0.16 spellings and accessors
+### ZS-CT-20 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
 Two halves, in order of application.
 
 **Do not reach for `@typeInfo` at all** when a narrower builtin answers the question. `@TypeOf`,
 `@FieldType(T, "a")`, `@hasField`, `@hasDecl`, `@field` are stable, read as what they mean, and
-cannot break when std's reflection layout changes. Prefer `@FieldType(T, "a")` over
-`std.meta.fieldInfo(T, .a).type`. `@typeInfo` earns its keep only when you genuinely need to iterate
-fields, decls, or error-set members. One trap: `@hasDecl` returns `true` for *private* declarations
-when the caller is in the same file scope, so it is a same-file visibility check, not a "public API"
-check. The langref recommends feature detection via `@hasDecl`/`@hasField` over version comparisons.
+cannot break when std's reflection layout changes, as it did in 0.17. Prefer `@FieldType(T, "a")`
+over `std.meta.fieldInfo(T, .a).type`; 0.17 deprecates
+`fieldInfo`, `fieldNames` and `fieldTypes` in favor of `@typeInfo`. `@typeInfo` earns its keep only
+when you genuinely need to iterate fields, decls, or error-set members. One trap: since 0.17
+`@hasDecl` is `true` only for `pub` declarations, even when the caller is in the same file, so a
+feature test over a private declaration that held in 0.16 now silently answers `false`. The langref
+recommends feature detection via `@hasDecl`/`@hasField` over version comparisons.
 
-**When you do walk a list, use the 0.16 spellings and accessor methods.** Tags are `.@"struct"`,
+**When you do walk a list, use the 0.17 spellings and accessor methods.** Tags are `.@"struct"`,
 `.@"union"`, `.@"enum"`, `.@"fn"`, `.@"opaque"`, and plain `.pointer`, `.int`, `.float`,
-`.optional`, `.error_union`, `.error_set`. Read defaults with `field.defaultValue()` (returns
-`?field.type`) and sentinels with `ptr_info.sentinel()`, never by `@ptrCast`-ing the raw
+`.optional`, `.error_union`, `.error_set`. A container's members are parallel slices, not a slice of
+field structs: `.field_names[i]`, `.field_types[i]` and `.field_attrs[i]` for fields, `.decl_names`
+for declarations. Read defaults with `info.field_attrs[i].defaultValue(info.field_types[i])`
+(returns `?FieldType`) and sentinels with `ptr_info.sentinel()`, never by `@ptrCast`-ing the raw
 `*anyopaque` pointer fields.
 
 **Why:** the accessor methods encapsulate the `default_value_ptr`/`sentinel_ptr` representation, so
 your code survives a representation change; the raw fields are the reason 0.14-era reflection code
-does not survive. Three more traps: `Type.Pointer.alignment` and `Type.StructField.alignment` are
-`?usize` in 0.16 (`null` means natural alignment), not `comptime_int`; `@typeInfo(E).error_set` is
-`?[]const Type.Error` where `null` means `anyerror`, so a `null` check is not an "empty set" check;
-and a zero-bit tuple field is no longer implicitly `comptime`, so filtering on `is_comptime` to skip
-zero-bit members now keeps them (see `references/types-and-data.md` ZS-TYPE-37).
+does not survive. Three more traps: pointer and field alignment, `.pointer.attrs.@"align"` and
+`.field_attrs[i].@"align"`, are `?usize` (`null` means natural alignment), not `comptime_int`;
+`@typeInfo(E).error_set.error_names` is `?[]const [:0]const u8` where `null` means `anyerror`, so a
+`null` check is not an "empty set" check; and a zero-bit tuple field is no longer implicitly
+`comptime`, so filtering on `.field_attrs[i].@"comptime"` to skip zero-bit members now keeps them
+(see `references/types-and-data.md` ZS-TYPE-37).
 
-The `.Int` -> `.int` / `.Struct` -> `.@"struct"` renames are a hard compile error, so they are
-listed once as a table row in `references/migration-and-dead-apis.md` ZS-MIG-02 rather than
-enumerated here. This rule is about the parts that still compile.
+The `.Int` -> `.int` / `.Struct` -> `.@"struct"` renames (ZS-MIG-02) and 0.17's move from
+`.fields` to `.field_names`/`.field_types`/`.field_attrs` are hard compile errors, so they are
+listed in the migration tables of `references/migration-and-dead-apis.md` rather than enumerated
+here. This rule is about the parts that still compile.
 
 **Check:** every `@typeInfo` in a diff must be followed by an `inline for` or an equivalent list
 walk; if it is followed by a single field or decl access, a narrow builtin does it better. Grep for
-`default_value_ptr` and `sentinel_ptr` — both should be `defaultValue()` / `sentinel()`.
+`default_value_ptr` and `sentinel_ptr` — both should be `defaultValue(FieldType)` / `sentinel()`.
 
 ```zig
 // verified — GOOD
@@ -811,15 +824,15 @@ const std = @import("std");
 fn writeFields(w: *std.Io.Writer, value: anytype) std.Io.Writer.Error!void {
     const T = @TypeOf(value);
     // `@typeInfo` is justified: this genuinely needs the field list.
-    inline for (@typeInfo(T).@"struct".fields) |f| {
-        try w.print("{s}={d};", .{ f.name, @field(value, f.name) });
+    inline for (@typeInfo(T).@"struct".field_names) |name| {
+        try w.print("{s}={d};", .{ name, @field(value, name) });
     }
 }
 
 fn defaultRetries(comptime T: type) ?u8 {
-    // Not `field.default_value_ptr` + `@ptrCast`.
-    const f = @typeInfo(T).@"struct".fields[0];
-    return f.defaultValue();
+    // Not `field_attrs[0].default_value_ptr` + `@ptrCast`.
+    const info = @typeInfo(T).@"struct";
+    return info.field_attrs[0].defaultValue(info.field_types[0]);
 }
 
 test "accessors" {
@@ -827,6 +840,12 @@ test "accessors" {
     try std.testing.expectEqual(3, defaultRetries(Config));
     // The narrow builtin, where it answers the question.
     try std.testing.expectEqual(u8, @FieldType(Config, "retries"));
+
+    var buf: [16]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buf);
+    const config: Config = .{};
+    try writeFields(&w, config);
+    try std.testing.expectEqualStrings("retries=3;", w.buffered());
 }
 ```
 
@@ -921,7 +940,7 @@ This is the modern std house pattern. The implementation struct declares `interf
 (or `Reader`) as a *field*, hands out `&self.interface`, and every vtable function starts with
 `const self: *Impl = @alignCast(@fieldParentPtr("interface", io_w));`. Name the field `interface`;
 std does so in `Io/File/Writer.zig`, `Io/File/Reader.zig`, `Io/Reader/Limited.zig`, `Io/net.zig`,
-`http.zig`, `zip.zig`, and `testing.zig`.
+`http.zig`, and `testing.zig`.
 
 **Why:** the interface value is not a wrapper around the implementation, it *is* part of it, so
 there is no second allocation, no context pointer to keep in sync, and no way for the two to become
@@ -929,17 +948,17 @@ separated. `std.Io.Writer` holds `vtable`, `buffer: []u8`, and `end: usize` inli
 writes straight into `buffer` and the vtable is only reached when the buffer overflows or on flush,
 so the indirect call is off the hot path entirely. `@fieldParentPtr` is what makes this work: it
 subtracts the field offset, which is comptime-known, so recovery is free. Write the `@alignCast`
-unconditionally — but not "to match std", which does not: 92 of std's 169 `@fieldParentPtr` calls
-wrap it and **77 do not**, including `Io/Reader/Limited.zig` and `zip.zig`, both otherwise this
-exact pattern. Write it because it is *required* whenever the field's alignment is weaker than the
-parent's, and free when it is not, so unconditional is the only spelling that cannot go wrong as the
-struct changes shape underneath it. Corollary: never copy a struct that contains a live `interface`
-field — a `*Io.Writer` handed out earlier now points into the dead original.
+unconditionally — but not "to match std", which does not: 97 of 0.17 std's 172 `@fieldParentPtr`
+calls wrap it and **75 do not**, including `Io/Reader/Limited.zig`, otherwise this exact pattern.
+Write it because it is *required* whenever the field's alignment is weaker than the parent's, and
+free when it is not, so unconditional is the only spelling that cannot go wrong as the struct
+changes shape underneath it. Corollary: never copy a struct that contains a live `interface` field
+— a `*Io.Writer` handed out earlier now points into the dead original.
 
 **Check:** an `Io.Writer`/`Io.Reader` field named anything but `interface`; a `@fieldParentPtr`
 whose first argument is some other name for those types; in **code the diff adds**, a
 `@fieldParentPtr` not wrapped in `@alignCast` — this is the enforcement hook ZS-IO-17 delegates
-here, and it is the whole rule: existing call sites are left alone (77 of std's 169 omit it), new
+here, and it is the whole rule: existing call sites are left alone (75 of std's 172 omit it), new
 ones are written unconditionally so the next field reorder cannot turn a compiling line into a
 failing one; and — the corollary — any `return`, assignment, or `append` that copies a struct with
 an `interface` field by value after `&x.interface` has been handed out.
@@ -1024,7 +1043,7 @@ runtime parameters you take as-is — so they are stated once, at ZS-CT-12.
 
 ### ZS-CT-27 [M] `usingnamespace` is removed; re-export explicitly (see ZS-MIG-02)
 Owned by `references/migration-and-dead-apis.md` ZS-MIG-02. `pub usingnamespace S;` is a *parse*
-error in 0.16 (`expected function or variable declaration after pub`); re-export each name with
+error in 0.17 (`expected function or variable declaration after pub`); re-export each name with
 `pub const name = impl.name;`, which is also what makes a module's public surface greppable.
 
 ---
@@ -1039,8 +1058,8 @@ that caused it. Two tools address that, and both need discipline.
 default shows only the first few frames and then prints
 `N reference(s) hidden; use '-freference-trace=<N+2>' to see all references`. Raise it and re-run —
 the frame you want is usually the deepest non-std one. It works on `zig build-obj`, `zig test`, and
-`zig build`; in `build.zig` set `b.reference_trace = 20;`, or pass `zig build -freference-trace=20`.
-`-fno-reference-trace` suppresses the chain entirely, which is only ever right in CI log capture.
+`zig build`; for a build, pass `zig build -freference-trace=20` (0.17 removed `b.reference_trace`,
+so `build.zig` can no longer set it).
 
 **Why:** `error: unable to resolve comptime value` names the line where a runtime value met a
 `comptime` parameter — but the bug is at the call site that made the value runtime-known, which may
@@ -1093,7 +1112,7 @@ fn sizeOfLogged(comptime T: type) usize {
 
 ---
 
-## Where TigerStyle and 0.16 std disagree
+## Where TigerStyle and std disagree
 
 TigerBeetle pins Zig 0.14.1 and predates `std.Io`, so TigerStyle's position on dispatch was formed
 without a std interface to lean on.

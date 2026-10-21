@@ -1,4 +1,4 @@
-# CI gate for a Zig 0.16 project. Referenced by ZS-BUILD-31, ZS-BUILD-33, ZS-BUILD-34.
+# CI gate for a Zig 0.17 project. Referenced by ZS-BUILD-31, ZS-BUILD-33, ZS-BUILD-34.
 #
 # IMPORTANT — read before copying. references/build-and-project.md ZS-BUILD-34 states that only
 # the `run:` lines below are rules; the action names and versions are illustrative and must be
@@ -8,14 +8,11 @@
 # The five requirements ZS-BUILD-34 actually imposes:
 #   1. Pin the exact Zig version. Never `latest`, never `master`, never a range.
 #   2. Gate on `zig fmt --check --ast-check`, excluding `zig-pkg` and `.zig-cache`.
-#   3. Run the suite in Debug and ReleaseSafe, with `--summary all` so a cached no-op is
-#      distinguishable from a real pass.
+#   3. Run the suite in the `debug` and `safe` modes, with `--summary all` so a cached no-op
+#      is distinguishable from a real pass.
 #   4. Cross-compile matrix: build AND `zig build test` each supported triple. The test binaries
 #      compile and the runs report `skipped` — that is the point (ZS-BUILD-33).
 #   5. The cache key must name every matrix axis, or the legs evict each other.
-#
-# Note ZS-BUILD-35: `--fuzz` and `zig reduce` are broken in 0.16.0 and must not appear here.
-# Re-check that on every toolchain bump and delete the exclusion when it builds.
 
 name: ci
 
@@ -29,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: mlugg/setup-zig@v2          # verify the version yourself
-        with: { version: 0.16.0 }         # pinned exactly — never `latest`
+        with: { version: 0.17.0 }         # pinned exactly — never `latest`
       - run: zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .
 
   test:
@@ -37,13 +34,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        optimize: [Debug, ReleaseSafe]
+        optimize: [debug, safe]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: mlugg/setup-zig@v2
         with:
-          version: 0.16.0
+          version: 0.17.0
           # The cache key names every matrix axis this job declares.
           cache-key: ${{ matrix.os }}-${{ matrix.optimize }}
       - run: zig build --fetch            # dependency resolution as its own step
@@ -65,7 +62,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: mlugg/setup-zig@v2
         with:
-          version: 0.16.0
+          version: 0.17.0
           cache-key: cross-${{ matrix.target }}
       - run: zig build -Dtarget=${{ matrix.target }} --summary all
       # The run reports `skipped` for foreign targets; compiling the test binary is the check.

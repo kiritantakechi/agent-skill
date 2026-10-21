@@ -48,13 +48,13 @@ the full run. Every other verification is `--fast` or a targeted `pytest`.
 Each item comes from `research/zig-0.17.md`, and is checked against the 0.17 std source before it is
 applied.
 
-- [ ] 3.1 Fix every verified block that fails on 0.17:
+- [x] 3.1 Fix every verified block that fails on 0.17:
   - the 11 in §D.1 and the 5 in §D.2;
   - the 6 fragments now rejected (§D.2);
   - the 4 `zig fmt` diffs.
 
   Verify: the zig `toolchain`, run alone, passes.
-- [ ] 3.2 Replace every `gone`, `alias`, `semantics`, `new` and `cite` hit in §B with its 0.17 form.
+- [x] 3.2 Replace every `gone`, `alias`, `semantics`, `new` and `cite` hit in §B with its 0.17 form.
   This includes `std.builtin` → `std.lang`, and the optimize-mode names in code, CLI arguments and
   prose (D5). Verify:
   - `rg` for each old spelling over `skills/zig-style` finds it only on the dead side of a
@@ -64,12 +64,12 @@ applied.
   whole premise (fuzzing builds; `Allocator.free` takes `*[N]T`; `Io.Evented.deinit` and
   `net.Socket.closeMany` compile), change the rule, or remove it through the 4.2 `demote` plan with
   the reason. Verify: `--fast`.
-- [ ] 3.4 Replace the 46 `std/<file>.zig:NNN` citations with declaration names (D5). Verify:
+- [x] 3.4 Replace the 46 `std/<file>.zig:NNN` citations with declaration names (D5). Verify:
   `rg '[A-Za-z_/]+\.zig:[0-9]+' skills/zig-style/SKILL.md skills/zig-style/references` finds nothing.
-- [ ] 3.5 Make §2 the 0.17 reality check, silent changes first (§C.2). Give the migration chapter its
+- [x] 3.5 Make §2 the 0.17 reality check, silent changes first (§C.2). Give the migration chapter its
   0.16 → 0.17 section (§C.3), and drop the denylist patterns 0.17 rejects (§C.5). Make the
   description say 0.17. Verify: `--fast`, and the zig `toolchain` alone.
-- [ ] 3.6 Bring the assets to 0.17:
+- [x] 3.6 Bring the assets to 0.17:
   - `build.zig`, kept the mirror of ZS-BUILD-01;
   - `build.zig.zon`'s `minimum_zig_version`;
   - `ci.yml`, for the zig version and the mode names.
