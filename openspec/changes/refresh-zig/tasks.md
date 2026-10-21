@@ -102,7 +102,7 @@ applied.
   `--fast --only markers --only skeleton`.
 - [x] 4.6 Every Why is three lines at most, chapter by chapter, with each fact moved rather than lost
   (D6). Verify: `--fast --only anatomy` reports no Why over three lines for zig-style.
-- [ ] 4.7 Verify the converted standard: `--fast` passes for zig-style, and the zig `toolchain` and
+- [x] 4.7 Verify the converted standard: `--fast` passes for zig-style, and the zig `toolchain` and
   `mutation` checks pass, run alone.
 
 ## 5. Remove the exemption machinery
