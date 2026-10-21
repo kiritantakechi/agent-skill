@@ -131,7 +131,7 @@ an array type, or inside any other type expression. Each is a build break — th
 pushing rather than a review finding.
 
 ```zig
-// does-not-compile — BAD
+// rejected — zig: redundant comptime keyword in already comptime scope
 const std = @import("std");
 const n = comptime std.math.log2_int(u32, 1024);
 ```
@@ -762,7 +762,7 @@ Signatures, from the langref:
 ```
 
 ```zig
-// does-not-compile — BAD
+// rejected — zig: invalid builtin function: '@Type'
 const T = @Type(.{ .int = .{ .signedness = .unsigned, .bits = 8 } });
 ```
 
@@ -1104,13 +1104,17 @@ review says only "unable to resolve comptime value", ask for the output with `-f
 raised — the bare diagnostic does not identify the caller.
 
 ```zig
-// does-not-compile — BAD: `@compileLog` fails the build by design; never commit one.
+// rejected — zig: found compile log statement; never commit one
 // error: found compile log statement
 // Compile Log Output:
 // @as(*const [3:0]u8, "u32"), @as(comptime_int, 4)
 fn sizeOfLogged(comptime T: type) usize {
     @compileLog(@typeName(T), @sizeOf(T));
     return @sizeOf(T);
+}
+
+comptime {
+    _ = sizeOfLogged(u32);
 }
 ```
 

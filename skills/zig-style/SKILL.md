@@ -14,7 +14,7 @@ description: >-
   of a std symbol is uncertain, and when migrating code to Zig 0.17.
 ---
 
-# Zig Style — 0.16
+# Zig Style — 0.17
 
 A single standard formed from three sources: the **official Zig style guide** (naming, formatting),
 the **empirical conventions of the 0.17 standard library** (API shape, ownership, decl literals),
@@ -27,25 +27,30 @@ single highest-value part of this skill; read it before writing any line of Zig.
 
 ## How to use this standard
 
-1. **Read section 2** before emitting Zig. It is the 0.16 reality check, and two of its traps
-   produce wrong output rather than a compile error.
+1. **Read section 2** before emitting Zig code. It is the Zig 0.17 reality check, and some of its
+   entries change behaviour without producing an error, so nothing else will catch them.
 2. **Apply section 4.** Those core rules bind on their own and reach nearly every file.
 3. **Load one chapter** from the reference map in section 6 — the one that matches the task. Each
    opens with a table of contents listing every rule it owns, so you can jump straight to the rule.
    Load a second chapter only when the task genuinely spans two; never load all of them.
 4. **Walk section 5** before handing back a diff.
 
-Rules are cited by ID — `ZS-CONC-24`, `ZS-NAME-04`. The prefix identifies the owning chapter
-(section 6 maps prefix to file), so cite the ID when justifying a change and the reader can find the
-full rule and its rationale. When a rule in a chapter and a rule here appear to conflict, the
-chapter is the detailed statement and wins; sections 1 and 3 govern how to break a genuine tie.
+Rules are cited by ID — `ZS-ERR-03`, `ZS-TEST-05`. The prefix identifies the owning chapter (section
+6 maps prefix to file), so cite the ID when justifying a change and the reader can find the full
+rule and its rationale. When a rule in a chapter and a rule here appear to conflict, the chapter is
+the detailed statement and wins; sections 1 and 3 govern how to break a genuine tie.
+
+A chapter ends with **Decided by tools** when a tool settles part of its subject on its own: each
+lint or compiler error, the level it fails a build at, and what it forbids. Those are not rules —
+the tool enforces them, so they carry no Why and no Check. When rules are renumbered,
+`references/migration.md` maps every old ID to its new one.
 
 Every fenced example carries a marker on its first line. `// verified` — the block compiles as
-written against Zig 0.16.0, and any test it ships passes. `// fragment` — shown in context rather
-than compiled as a unit, usually because it uses names the chapter declares around it.
-`// does-not-compile` — the compile error is the point. A trailing `— GOOD` or `— BAD` names which
-side of the rule the block illustrates. A block in another language carries its marker in that
-language's comment syntax.
+written against Zig 0.17.0, and any test it ships passes. `// fragment` — shown in context rather
+than run as a unit, usually because it uses names the chapter declares around it. `// rejected —
+<tool>: …` — the rejection is the point, and the marker names the tool that rejects it: `zig`. A
+trailing `— GOOD` or `— BAD` names which side of the rule the block illustrates. A block in another
+language carries its marker in that language's comment syntax.
 
 ## 1. Tiers
 
@@ -54,7 +59,7 @@ Every rule carries a tier. Apply it literally.
 | Tag | Meaning |
 |---|---|
 | `[M]` | **Mandatory** in all Zig code. No exceptions without an explicit instruction from the user. |
-| `[M!]` | **Mandatory in  code**; strongly recommended elsewhere. Each `[M!]` rule states its relaxed form. |
+| `[M!]` | **Mandatory in high-reliability code**; strongly recommended elsewhere. Each `[M!]` rule states its relaxed form. |
 | `[S]` | **Should.** The default. Deviating is allowed but must be justified in a comment on the line that deviates. |
 
 **A codebase is "high-reliability" — `[M!]` applies as `[M]` — if any of these hold:** it stores
@@ -68,7 +73,7 @@ is acceptable.
 When you cannot tell which category the code is in, ask, or state your assumption in one line and
 proceed with the stricter reading.
 
-## 2. Zig 0.16 reality check — read before writing code
+## 2. Zig 0.17 reality check
 
 Zig 0.15, 0.16 and 0.17 each broke code written for the release before, and most Zig in circulation
 predates all three. The traps come in the order that matters: first the ones that still compile and
@@ -94,7 +99,7 @@ This 0.16 change is still the most dangerous one here, because it produces **wro
 a compile error**.
 
 ```zig
-// verified — prints: [.{ .x = 1 }] [CUSTOM3]
+// fragment — prints: [.{ .x = 1 }] [CUSTOM3]
 const P = struct {
     x: u32,
     pub fn format(p: P, w: *std.Io.Writer) std.Io.Writer.Error!void {
@@ -188,7 +193,7 @@ about twenty lines, and every member of it is marked `Deprecated`.
 ### 2.6 Containers are unmanaged and take the allocator per call
 
 ```zig
-// verified
+// fragment
 var list: std.ArrayList(i32) = .empty;   // decl literal, not .init(gpa)
 defer list.deinit(gpa);                  // gpa passed to deinit
 try list.append(gpa, 42);                // ...and to every allocating method
@@ -201,7 +206,7 @@ The allocator is the **second** parameter, after the receiver. Non-allocating me
 ### 2.7 Concurrency is colorless and goes through `Io`
 
 ```zig
-// verified
+// fragment
 fn fetch(io: Io, id: u32) !u32 {
     try io.sleep(.fromMilliseconds(10), .awake);
     return id * 2;
@@ -276,7 +281,7 @@ the whole carrier thread and will deadlock green threads under the fiber/evented
 - LLVM 22 still runs with loop vectorization disabled, until 0.18 re-enables it, so write
   `@Vector` by hand where SIMD matters.
 
-## 3. Design principles — safety, performance, developer experience
+## 3. Design principles
 
 **Safety > Performance > Developer experience.** All three matter; when two conflict, the earlier
 one wins. This ordering is TigerStyle's and it is the reason for most of the rules below.
@@ -495,29 +500,31 @@ protocol — severity model, mechanical pass, output format — in `references/r
    `containsAtLeastScalar` call and every `@hasDecl` on a private declaration: both compile and now
    mean something else. `references/migration.md` ZS-MIG-14 carries the complete
    denylist as one runnable `rg`; run that rather than eyeballing this sentence.
-2. **Format specifiers.** Any `{}` applied to a type that defines `format`? That silently prints a
-   default struct dump instead of calling it — it must be `{f}`.
-3. **Flush.** Every buffered writer flushed on every success path?
-4. **Leaks.** Every allocation paired with a `defer`/`errdefer` at the same nesting level? Does the
-   test allocator prove it?
-5. **Invalidation.** Any pointer held across a container mutation?
-6. **Bounds.** Any loop, queue, or buffer whose maximum is not established?
-7. **Assertions.** Are the preconditions this function relies on actually asserted? Is the negative
-   space checked? Any assert with a side effect, or relied on in a `fast` build?
-8. **Errors.** Every error handled and named? Any `catch unreachable` that can really fire? Any
-   `errdefer` missing on a multi-step construction?
-9. **Integers.** Any `@intCast`/`@truncate` that can silently lose data? Is an index being used
-   where a count belongs? Is division intent shown with `@divExact`/`@divFloor`?
-10. **Names.** Units last and descending? Allocators named for their lifetime? Receiver named after
-    its type rather than `self`? No abbreviations?
-11. **Shape.** `zig fmt` clean, ≤100 columns, functions that fit on a screen, control flow in the
-    parent?
-12. **Tests.** Does the change ship with the test that would have caught the bug? Does it exercise
-    invalid input, not just valid?
-13. **Symmetry.** Unpaired operations, siblings disagreeing on parameter order, error-set members
-    with uneven detail, two mechanisms for one concept, a branch that exists for one input
-    (`ZS-DATA-39` … `ZS-DATA-41`, `ZS-ERR-37`, `ZS-ERR-38`, `ZS-NAME-35` … `ZS-NAME-37`)?
-14. **Why.** Does every non-obvious decision have a comment explaining the reasoning?
+   And any `{}` applied to a type that defines `format`: that silently prints a default struct dump
+   instead of calling it — it must be `{f}`.
+2. **Memory and ownership.** Every allocation paired with a `defer`/`errdefer` at the same nesting
+   level, and proved by the test allocator? Any pointer held across a container mutation?
+   Allocators named for their lifetime?
+3. **Illegal behaviour.** Any `@intCast`/`@truncate` that can silently lose data, an index used
+   where a count belongs, or division whose intent is not shown with `@divExact`/`@divFloor`?
+4. **Errors.** Every error handled and named? Any `catch unreachable` that can really fire? Any
+   `errdefer` missing on a multi-step construction? Every buffered writer flushed on every success
+   path?
+5. **Assertions and bounds.** Are the preconditions this function relies on asserted, and the
+   negative space checked? Any assert with a side effect, or relied on in a `fast` build? Any loop,
+   queue, or buffer whose maximum is not established?
+6. **Public API.** Units last and descending, receivers named after their type rather than `self`,
+   no abbreviations? Unpaired operations, siblings disagreeing on parameter order, error-set members
+   with uneven detail, two mechanisms for one concept, a branch that exists for one input
+   (`ZS-DATA-39` … `ZS-DATA-41`, `ZS-ERR-37`, `ZS-ERR-38`, `ZS-NAME-35` … `ZS-NAME-37`)?
+7. **Concurrency.** Every `Io.async` awaited or cancelled, every `Group` and `Select` closed, and
+   nothing held across a suspension point?
+8. **Function bodies.** `zig fmt` clean, ≤100 columns, functions that fit on a screen, control flow
+   in the parent? Does every non-obvious decision have a comment explaining the reasoning?
+9. **Tests.** Does the change ship with the test that would have caught the bug? Does it exercise
+   invalid input, not just valid?
+10. **Build and project.** Every new dependency justified, `build.zig.zon` `.paths` correct, and
+    `zig build check` passing?
 
 ## 6. Reference map
 

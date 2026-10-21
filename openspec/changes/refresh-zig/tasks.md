@@ -93,10 +93,10 @@ applied.
   - `migration.md` has `## Rule IDs before the Zig 0.17.0 revision` with every old family's range;
   - `--fast --only crossref --only anatomy --only skeleton` reports no dangling citation and no
     unresolved row.
-- [ ] 4.4 Give `SKILL.md` the eight-section skeleton: the H1 and §2 titles, and the design
+- [x] 4.4 Give `SKILL.md` the eight-section skeleton: the H1 and §2 titles, and the design
   principles as H3s under §3. Then run `agent-skill fmt --skill zig-style` for the shared text.
   Verify: `--fast --only skeleton --only shared-text`.
-- [ ] 4.5 Make the review protocol use the shared severity model (Illegal → Unsound, examples kept).
+- [x] 4.5 Make the review protocol use the shared severity model (Illegal → Unsound, examples kept).
   Turn every `does-not-compile` into `rejected — zig: <error>`, and the four `SKILL.md` snippets into
   `fragment` (1.3). Remove zig-style's `markers` override. Verify:
   `--fast --only markers --only skeleton`.

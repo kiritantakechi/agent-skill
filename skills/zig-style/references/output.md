@@ -128,7 +128,7 @@ test "custom format method" {
 ```
 
 ```zig
-// does-not-compile — the 0.14 shape; {f} passes exactly one argument
+// rejected — zig: the 0.14 signature; `{f}` passes the writer alone
 pub fn format(o: Old, comptime f: []const u8, opts: anytype, w: anytype) !void {
     _ = .{ f, opts };
     try w.print("{d}", .{o.x});

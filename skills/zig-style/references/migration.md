@@ -143,7 +143,7 @@ conditionally mixed in becomes a `pub const x = if (cond) a else b;` or a separa
 `@import`.
 
 ```zig
-// does-not-compile — BAD: 0.14 — `expected function or variable declaration after pub`
+// rejected — zig: expected function or variable declaration after pub
 pub usingnamespace @import("helpers.zig");
 ```
 
@@ -207,7 +207,7 @@ on the `*std.Io.Writer` itself.
 | `w.adaptToNewApi()` (0.15.1 shim) | never in new code | — |
 
 ```zig
-// does-not-compile — BAD: 0.14-era; none of these symbols exist in 0.16.0
+// rejected — zig: root source file struct 'std' has no member named 'io'
 const stdout_file = std.io.getStdOut().writer();
 var bw = std.io.bufferedWriter(stdout_file);
 const stdout = bw.writer();
@@ -492,7 +492,7 @@ argument is not an allocator.
 > `std.hash_map.String`.
 
 ```zig
-// does-not-compile — BAD: 0.13/0.14 spelling; `init` does not exist on ArrayList
+// rejected — zig: struct 'array_list.Aligned(u32,null)' has no member named 'init'
 var list = std.ArrayList(u32).init(gpa);
 defer list.deinit();
 try list.append(1);

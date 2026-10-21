@@ -744,14 +744,13 @@ data plane, do an unconditional O(1) check before an O(N) loop, and gate any O(N
 verification behind a `verify` constant.
 
 **Why:** slow assertions reduce total coverage. Randomized testing coverage is proportional to the
-number of iterations you can run, so an O(N) invariant check on an O(1) hot-path mutation makes
-the fuzzer quadratically weaker at finding the bug it was meant to catch. The gate must be `if
-(verify)` around the *whole statement*, not the assert alone: by ZS-ASSERT-03 the condition inside an
-`assert` still runs in `fast`, so `assert(queue.contains(link))` pays the O(N) scan in release
-and gets nothing for it. Define `verify` from your own module's
-`@import("builtin").optimize.runtimeSafety()` — `std.debug.runtime_safety` is deprecated in its
-favour (to be removed after 0.18.0) because it reports the *standard library's* optimize mode, not
-your module's.
+number of iterations you can run, so an O(N) invariant check on an O(1) hot-path mutation makes the
+fuzzer quadratically weaker at finding the bug it was meant to catch. The gate must be `if (verify)`
+around the *whole statement*, not the assert alone: by ZS-ASSERT-03 the condition inside an `assert`
+still runs in `fast`, so `assert(queue.contains(link))` pays the O(N) scan in release and gets
+nothing for it. Define `verify` from your own module's `@import("builtin").optimize.runtimeSafety()`
+— `std.debug.runtime_safety` is deprecated in its favour (to be removed after 0.18.0) because it
+reports the *standard library's* optimize mode, not your module's.
 
 **Check:** an `assert(` containing a loop, a `contains`, or a whole-structure walk that is not
 preceded by `if (verify)` on the same line.

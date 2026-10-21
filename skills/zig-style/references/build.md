@@ -204,7 +204,7 @@ that inexpressible. The 0.13 spelling is a hard compile error, not a deprecation
 `addModule` literal it belongs to.
 
 ```zig
-// does-not-compile — 0.13-era shape
+// rejected — zig: no field named 'root_source_file' in struct 'Build.ExecutableOptions'
 const exe = b.addExecutable(.{
     .name = "myproj",
     .root_source_file = b.path("src/main.zig"), // error: no field named 'root_source_file'

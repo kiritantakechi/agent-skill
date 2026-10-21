@@ -10,10 +10,10 @@ the author what must change before merge.
 
 | Severity | Meaning | Examples |
 |---|---|---|
-| **Illegal** | Invokes illegal behaviour, or is safety-checked only in `debug` | Use-after-free of an arena-owned slice, aliasing `noalias` parameters, `@intCast` that can truncate, reading `undefined`, a pointer into `list.items` held across an append |
-| **Stale** | Pre-0.17 spelling — either fails to build or, worse, still compiles | `std.io`, `std.fs.cwd()`, `GeneralPurposeAllocator`, `ArrayList(T).init(gpa)`, `std.mem.indexOf`, `{}` where a `format` method was intended, `std.builtin`, `builtin.mode == .Debug`, `std.heap.DebugAllocator`, `std.fmt.allocPrint` |
+| **Unsound** | Corrupts memory or data, or crashes the runtime, from code that looks safe | Use-after-free of an arena-owned slice, aliasing `noalias` parameters, `@intCast` that can truncate, reading `undefined`, a pointer into `list.items` held across an append |
+| **Stale** | A spelling the target superseded — fails to build, or worse, builds and means something else | `std.io`, `std.fs.cwd()`, `GeneralPurposeAllocator`, `ArrayList(T).init(gpa)`, `std.mem.indexOf`, `{}` where a `format` method was intended, `std.builtin`, `builtin.mode == .Debug`, `std.heap.DebugAllocator`, `std.fmt.allocPrint` |
 | **Incorrect** | Produces wrong results or crashes on reachable input | Swallowed error, `catch unreachable` on an operating error, off-by-one, unbounded loop |
-| **Contract** | Breaks or under-specifies the public API | Undocumented ownership transfer, `anyerror` in a public signature, an allocator stored in a long-lived struct, a missing `deinit` |
+| **Contract** | Breaks or under-specifies the public surface | Undocumented ownership transfer, `anyerror` in a public signature, an allocator stored in a long-lived struct, a missing `deinit` |
 | **Design** | Works, but the shape will cost later | Concrete type used across a module boundary, `anytype` where a concrete type fits, unbounded queue, recursion with no proven depth, a branch that exists for one input |
 | **Performance** | Measurable, avoidable cost | Allocation per loop iteration, unbuffered writer, byte-at-a-time reads, a hot struct that outgrew a cache line |
 | **Style** | Idiom and readability | Naming, declaration order, comment typography, a `zig fmt` diff |
@@ -132,7 +132,7 @@ the two or three findings that deserve discussion.
 | Severity | Rule | Location | Finding | Fix |
 |---|---|---|---|---|
 | Stale | ZS-MIG-06 | `src/scan.zig:41` | `std.mem.indexOf` — compiles, but is the pre-0.16 name | Rename to `std.mem.find`; it is a pure rename |
-| Illegal | ZS-MEM-11 | `src/index.zig:88` | Pointer into `list.items` held across an `append` | Re-index after the append, or reserve capacity up front |
+| Unsound | ZS-MEM-11 | `src/index.zig:88` | Pointer into `list.items` held across an `append` | Re-index after the append, or reserve capacity up front |
 | Contract | ZS-ERR-14 | `src/api.zig:12` | Public `parse` returns `anyerror` | Declare the explicit error set |
 
 ## Discussion
@@ -157,7 +157,7 @@ Rules for the review itself:
   batch the rest at the end under one row, or offer to apply them directly.
 - **Say what you did not check.** A review that silently skipped the `@ptrCast`
   in the decoder is worse than one that says it did.
-- **Check `fast`, not just `debug`.** Most of the Illegal category is
+- **Check `fast`, not just `debug`.** Most of the Unsound category is
   invisible in the build mode you ran.
 
 ## Refactoring a codebase to this standard

@@ -799,7 +799,7 @@ fn decodeTag(byte: u8) error{ReservedTag}!u8 {
 ```
 
 ```zig
-// does-not-compile — a bare `@branchHint` after an if/return is not "first in the function"
+// rejected — zig: a `@branchHint` after an if/return is not first in the function
 fn decodeTagBad(byte: u8) error{ReservedTag}!u8 {
     if (byte < 0x80) return byte;
     @branchHint(.cold); // error: '@branchHint' must appear as the first statement

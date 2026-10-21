@@ -25,13 +25,10 @@ class ZigStyle(Profile):
     #: every tool while the rule prefix was derived from the fence tag.
     marked_languages: tuple[str, ...] = ("zon",)
     toolchain: str | None = "zig"
-    #: Still the vocabulary from before `rejected` named its tool, and
-    #: still the chapter names and family codes from before the shared
-    #: table. Both move with the zig bump, which waits for this
-    #: machine's `zig` rather than upstream.
-    markers: tuple[str, ...] = ("verified", "fragment", "does-not-compile")
     tools: tuple[str, ...] = ("zig",)
     language: str = "Zig"
+    verified_as: str = "compiles as written against Zig {pin}"
+    strict_scope: str = "high-reliability"
     follows_local: str | None = (
         "follows this machine's `zig`, and is bumped with the skill, never ahead of it"
     )

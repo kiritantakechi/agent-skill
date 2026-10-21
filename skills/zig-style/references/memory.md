@@ -76,7 +76,7 @@ allocates; and any `SafeAllocator` (or the deprecated `DebugAllocator`), `ArenaA
 `std.heap.*` constructed inside `main` itself rather than taken from `init`.
 
 ```zig
-// does-not-compile
+// rejected — zig: root source file struct 'heap' has no member named 'GeneralPurposeAllocator'
 pub fn main() !void {
     var gpa_state = std.heap.GeneralPurposeAllocator(.{}){}; // removed in 0.16
     defer _ = gpa_state.deinit();
@@ -251,7 +251,7 @@ wrapper, and a `deinit`/`append`/`ensureTotalCapacity` call that passes no alloc
 `self.allocator` / `x.gpa` at an allocation site: that is the field this rule removes.
 
 ```zig
-// does-not-compile
+// rejected — zig: struct 'array_list.Aligned(u8,null)' has no member named 'init'
 test "the 0.13 managed shape" {
     const gpa = std.testing.allocator;
     var list = std.ArrayList(u8).init(gpa); // ArrayList is unmanaged in 0.16: no `init`

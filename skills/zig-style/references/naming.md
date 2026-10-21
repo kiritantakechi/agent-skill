@@ -892,7 +892,7 @@ later without a breaking change; the compiler will not tell you which `pub`s are
 re-export is no longer even available:
 
 ```zig
-// does-not-compile
+// rejected — zig: expected function or variable declaration after pub
 const std = @import("std");
 pub usingnamespace std.mem; // error: expected function or variable declaration after pub
 ```
@@ -932,7 +932,7 @@ generated docs.
 at 0.17.0:
 
 ```zig
-// does-not-compile
+// rejected — zig: expected statement, found 'a document comment'
 pub fn main() void {
     /// This is a doc comment on a statement.
     // error: expected statement, found 'a document comment'
@@ -942,14 +942,14 @@ pub fn main() void {
 ```
 
 ```zig
-// does-not-compile
+// rejected — zig: expected type expression, found 'a document comment'
 const std = @import("std");
 //! Module doc comment not at the top.
 // error: expected type expression, found 'a document comment'
 ```
 
 ```zig
-// does-not-compile
+// rejected — zig: unattached documentation comment
 const std = @import("std");
 /// Dangling doc comment.
 // error: unattached documentation comment

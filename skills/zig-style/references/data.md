@@ -517,7 +517,7 @@ a `usize` rather than `void`. All are correct. The finding is an *unmanaged cont
 without the allocator it was filled through, not every empty argument list.
 
 ```zig
-// does-not-compile — BAD
+// rejected — zig: struct 'array_list.Aligned(u32,null)' has no member named 'init'
 // error: struct 'array_list.Aligned(u32,null)' has no member named 'init'
 test "0.14-era ArrayList" {
     const gpa = std.testing.allocator;
@@ -802,7 +802,7 @@ parenthesized backing integer, anywhere in a file that also contains `extern`, `
 serialization call.
 
 ```zig
-// does-not-compile — BAD
+// rejected — zig: extern structs cannot contain fields of type 'Kind'
 // error: extern structs cannot contain fields of type 'Kind'
 // note: integer tag type of enum is inferred
 const Kind = enum { a, b };
@@ -944,7 +944,7 @@ replacement, check that each call site picked the right failure mode: `*AssumeCa
 overflow is a programmer error, `append*Bounded` where the size came from outside.
 
 ```zig
-// does-not-compile — BAD
+// rejected — zig: root source file struct 'std' has no member named 'BoundedArray'
 // error: root source file struct 'std' has no member named 'BoundedArray'
 test "0.14-era bounded array" {
     var buf: std.BoundedArray(u32, 4) = .{};

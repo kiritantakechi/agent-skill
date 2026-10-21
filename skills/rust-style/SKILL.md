@@ -40,8 +40,8 @@ rule and its rationale. When a rule in a chapter and a rule here appear to confl
 the detailed statement and wins; sections 1 and 3 govern how to break a genuine tie.
 
 A chapter ends with **Decided by tools** when a tool settles part of its subject on its own: each
-lint, the level the shipped configuration sets it at, and what it forbids. Those are not rules — the
-tool enforces them, so they carry no Why and no Check. When rules are renumbered,
+lint or compiler error, the level it fails a build at, and what it forbids. Those are not rules —
+the tool enforces them, so they carry no Why and no Check. When rules are renumbered,
 `references/migration.md` maps every old ID to its new one.
 
 Every fenced example carries a marker on its first line. `// verified` — the block compiles as

@@ -134,7 +134,7 @@ test "boundary wrapper maps every error to a status" {
 ```
 
 ```zig
-// does-not-compile — BAD
+// rejected — zig: return type '!u32' not allowed in a C calling convention
 // error: return type '!u32' not allowed in function with calling convention '...'
 export fn zs_parse(text: [*:0]const u8) !u32 {
     _ = text;

@@ -120,7 +120,7 @@ test add {
 `test <name>` resolves **file-scope declarations only**, so a struct method cannot be named:
 
 ```zig
-// does-not-compile
+// rejected — zig: use of undeclared identifier 'go'
 const S = struct {
     pub fn go() void {}
 };
@@ -926,7 +926,7 @@ near miss: a draw whose result is immediately `@intCast` to `usize` where `smith
 right call.
 
 ```zig
-// does-not-compile — BAD
+// rejected — zig: type does not have a fixed bitsize: usize
 const cut = smith.valueRangeLessThan(usize, 0, n);
 // error: type does not have a fixed bitsize: usize
 ```

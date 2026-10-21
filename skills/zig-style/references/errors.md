@@ -1062,7 +1062,7 @@ the enum's declaration ends in `_`, the prong should be `_ =>`; if it does not, 
 exist at all.
 
 ```zig
-// does-not-compile — this is the point
+// rejected — zig: switch must handle all possibilities
 const std = @import("std");
 
 const State = enum { idle, running, stopped };
@@ -1207,7 +1207,7 @@ fn decodeTag(byte: u8) error{ReservedTag}!u8 {
 ```
 
 ```zig
-// does-not-compile — not the first statement in the branch
+// rejected — zig: `@branchHint` must be the first statement in its branch
 const std = @import("std");
 const assert = std.debug.assert;
 
