@@ -214,14 +214,16 @@ the handler now silently claims to cover.
 
 ### PS-ERR-11 [M] Use `except*` for a group, and never mix it with `except`
 
-A `TaskGroup` or a `Barrier` raises `ExceptionGroup`; catch it with `except*`.
+A `TaskGroup` raises `ExceptionGroup`, and so does `socket.create_connection(..., all_errors=True)`
+once every address has failed. Catch either with `except*`, which handles the matching part of the
+group and re-raises the rest; Python forbids mixing it with `except` in one `try`.
 
 **Why:** a plain `except ValueError` does not match an `ExceptionGroup` containing a `ValueError`,
-so that handler is silently never entered. `except*` matches into the group, handles the matching
-part, and re-raises the rest. Python forbids mixing the forms: the semantics would be ambiguous.
+so that handler is never entered. A group is raised only once something has failed, so the miss
+lands exactly when the handler was needed.
 
-**Check:** every `try` around a `TaskGroup`, a `Barrier`, or anything that may raise a group. A
-plain `except` there is the finding.
+**Check:** every `try` around a `TaskGroup`, an `all_errors=True` connection, or anything else that
+may raise a group. A plain `except` there is the finding.
 
 ```python
 # verified — GOOD
@@ -256,8 +258,8 @@ subset that `dict.get` replaces outright.
 
 ### PS-ERR-13 [M] Never `return`, `break` or `continue` inside `finally`
 
-New in 3.14: PEP 765 makes it a `SyntaxWarning` at compile time. The PEP leaves open whether it
-ever becomes an error.
+PEP 765 makes it a `SyntaxWarning` at compile time, and leaves open whether it ever becomes an
+error.
 
 **Why:** a `return` in `finally` **discards the in-flight exception**, silently. The function
 returns normally and the failure that was propagating simply disappears, with no traceback and no
@@ -270,7 +272,7 @@ catches it as well.
 ### PS-ERR-14 [M] Release with a context manager rather than with `finally`
 
 `with lock:`, `with open(...) as f:`, `with contextlib.closing(x):`. Not `try/finally`. Note
-PS-CONC-25: on 3.15 a `contextmanager`-derived *decorator* on a generator holds until the generator
+PS-CONC-22: on 3.15 a `contextmanager`-derived *decorator* on a generator holds until the generator
 is exhausted, so prefer the `with` form where the hold time matters.
 
 **Why:** the context manager puts the acquisition and the release in one place where they cannot
@@ -334,7 +336,7 @@ transformations. The guard form is exempt because there the rejection *is* the s
 
 `match` earns its place when it destructures — a shape, a sequence, a class with fields. Matching a
 single value against constants is an `if`/`elif` chain wearing a costume. The enum case is the
-exception worth naming: `match` over an enum with `assert_never` is the idiom PS-TYPE-16 requires.
+exception worth naming: `match` over an enum with `assert_never` is the idiom PS-TYPE-15 requires.
 
 **Why:** `match` reads well when the patterns show the shape of the data and badly when they are a
 list of equalities, because the reader is primed by the syntax to look for structure that is not

@@ -35,12 +35,12 @@ invalidate the work of reading the next.
    These are the ones that were merely unlikely under the GIL and are now immediate. (`PS-CONC-02`,
    `PS-CONC-03`)
 4. **Iterators.** Any generator, iterator, or `tee` branch reachable from two threads. The generator
-   raises; everything else is silent. (`PS-CONC-13` … `PS-CONC-17`)
+   raises; everything else is silent. (`PS-CONC-12` … `PS-CONC-14`)
 5. **Things that look safe.** Caches, `cached_property`, `print`, the module-level `random`, and
-   every `ContextVar`. Each has a documented caveat that reads like a guarantee. (`PS-CONC-18` …
-   `PS-CONC-24`)
+   every `ContextVar`. Each has a documented caveat that reads like a guarantee. (`PS-CONC-15` …
+   `PS-CONC-21`)
 6. **Hold times.** Every `contextmanager` used as a decorator, and every lock spanning a call you do
-   not control. (`PS-CONC-25`, `PS-CONC-26`)
+   not control. (`PS-CONC-22`, `PS-CONC-23`)
 7. **The public surface.** What is newly public? Is it annotated, is the ownership documented, does
    the package ship `py.typed`?
 8. **Function bodies.** Now read the code.

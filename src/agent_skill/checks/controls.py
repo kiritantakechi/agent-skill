@@ -259,7 +259,7 @@ STRUCTURE: list[Control] = [
         "an old ID dropped from the rename table while no rule carries it",
         "skeleton",
         lambda t: edit(
-            t, f"{PY}/references/migration.md", "| `PS-API-22` | `PS-API-20` |\n", ""
+            t, f"{PY}/references/migration.md", "| `PS-API-22` | `PS-DOC-10` |\n", ""
         ),
     ),
     Control(
@@ -276,7 +276,7 @@ STRUCTURE: list[Control] = [
         "a gap in a chapter's numbering",
         "anatomy",
         lambda t: edit(
-            t, f"{PY}/references/migration.md", "PS-MIG-15 [M]", "PS-MIG-17 [M]", 2
+            t, f"{PY}/references/migration.md", "PS-MIG-09 [M]", "PS-MIG-17 [M]", 2
         ),
     ),
     Control(
@@ -376,8 +376,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "python-style/references/concurrency.md",
-            "import sys\nimport sysconfig",
-            "from __future__ import annotations\n\nimport sys\nimport sysconfig",
+            "import sys\n\nFREE_THREADED_BUILD",
+            "from __future__ import annotations\n\nimport sys\n\nFREE_THREADED_BUILD",
         ),
     ),
     Control(
@@ -397,8 +397,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "python-style/references/concurrency.md",
-            "# verified — GOOD\nimport sys\nimport sysconfig",
-            "# does-not-compile — GOOD\nimport sys\nimport sysconfig",
+            "# verified — GOOD\nimport sys\n\nFREE_THREADED_BUILD",
+            "# does-not-compile — GOOD\nimport sys\n\nFREE_THREADED_BUILD",
         ),
     ),
     Control(
@@ -410,8 +410,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "python-style/references/concurrency.md",
-            "# verified — GOOD\nimport sys\nimport sysconfig",
-            "# rejected — the GIL is off\nimport sys\nimport sysconfig",
+            "# verified — GOOD\nimport sys\n\nFREE_THREADED_BUILD",
+            "# rejected — the GIL is off\nimport sys\n\nFREE_THREADED_BUILD",
         ),
     ),
     Control(

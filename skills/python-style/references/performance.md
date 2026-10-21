@@ -26,17 +26,15 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-PERF-09 [M] Stream a large sequence rather than materialising it
   - PS-PERF-10 [S] Hoist the invariant out of the loop
 - **Allocation and layout**
-  - PS-PERF-11 [M] Give a hot class `__slots__`
-  - PS-PERF-12 [S] Reuse a buffer rather than allocating per iteration
-  - PS-PERF-13 [M] Cache only what is pure, and say so
+  - PS-PERF-11 [S] Reuse a buffer rather than allocating per iteration
 - **What the build costs**
-  - PS-PERF-14 [M] Budget for the free-threaded build's single-threaded overhead
-  - PS-PERF-15 [M] Know that the JIT is unavailable on the free-threaded build
-  - PS-PERF-16 [M] Expect higher memory on the free-threaded build
-  - PS-PERF-17 [M!] Give shared read-mostly data to threads, not to processes
+  - PS-PERF-12 [M] Budget for the free-threaded build's single-threaded overhead
+  - PS-PERF-13 [M] Know that the JIT is unavailable on the free-threaded build
+  - PS-PERF-14 [M] Expect higher memory on the free-threaded build
+  - PS-PERF-15 [M!] Give shared read-mostly data to threads, not to processes
 - **Discipline**
-  - PS-PERF-18 [M] Never optimise without leaving the measurement behind
-  - PS-PERF-19 [M] Keep the readable version when the fast one is not faster
+  - PS-PERF-16 [M] Never optimise without leaving the measurement behind
+  - PS-PERF-17 [M] Keep the readable version when the fast one is not faster
 - Decided by tools
 
 ---
@@ -85,9 +83,9 @@ configuration runs stable rules only.
 "Linear in the number of rows", "one round trip per call", "allocates a copy of the input". This is
 a docstring obligation, not a comment.
 
-**Why:** a caller cannot use a function correctly without knowing what it costs, and the cost is not
-visible from the signature. Knowing it, a caller can hoist the call out of a loop, batch it, or
-cache it — decisions they can only make if you told them.
+**Why:** the cost is not visible from the signature, and a caller needs it to decide whether to
+hoist the call out of a loop, batch it, or cache it. A function that does a network round trip and
+reads like a property getter is a latency bug in every caller until someone reads the source.
 
 **Check:** every public function that loops, allocates proportionally to its input, or does I/O. A
 docstring without a cost sentence is the finding.
@@ -106,7 +104,8 @@ than confirming what you assumed. It also catches designs that cannot work befor
 
 ### PS-PERF-06 [M] Never build a string by repeated concatenation
 
-`"".join(parts)`. Not `out += piece` in a loop.
+`"".join(parts)`. Not `out += piece` in a loop. Bytes are the same: `b"".join(parts)`, or a
+`bytearray` you extend and hand on with `take_bytes()`, which moves the bytes out without a copy.
 
 **Why:** strings are immutable, so each `+=` allocates a new string and copies everything so far —
 O(n²) for an n-character string. CPython sometimes rescues the simplest case in place, which is
@@ -150,7 +149,9 @@ property rather than a local one, which is why it must be decided early.
 
 ### PS-PERF-09 [M] Stream a large sequence rather than materialising it
 
-Yield, or return an iterator. Do not build the whole list when the caller consumes it once.
+Yield, or return an iterator. Do not build the whole list when the caller consumes it once. The same
+holds through a pool: `pool.map(fn, items, buffersize=n)` keeps at most `n` calls in flight, where a
+plain `map` submits every item before the first result comes back.
 
 **Why:** materialising costs memory proportional to the input and delays the first result until the
 last one is ready. For anything large or unbounded that is the difference between working and not.
@@ -173,19 +174,11 @@ do not vary.
 
 ## Allocation and layout
 
-### PS-PERF-11 [M] Give a hot class `__slots__`
+### PS-PERF-11 [S] Reuse a buffer rather than allocating per iteration
 
-Or `@dataclass(slots=True)`, which is the same thing written once.
-
-**Why:** the per-instance `__dict__` is the largest part of a small object, and removing it makes
-instances smaller and attribute access faster. The saving matters more on the free-threaded build,
-where object headers are larger: a non-GC object is 32 bytes where the default build uses 16.
-
-**Check:** every class instantiated more than a few thousand times. No `slots` is the finding.
-
-### PS-PERF-12 [S] Reuse a buffer rather than allocating per iteration
-
-A `bytearray` you write into, a list you clear, a `memoryview` over a slice.
+A `bytearray` you write into, a list you clear, a `memoryview` over a slice. When bytes must leave
+the buffer, `buf.take_bytes(n)` moves the first `n` out and keeps the rest, where `bytes(buf[:n])`
+copies them and `del buf[:n]` then moves the rest.
 
 **Why:** allocation is the cost that dominates tight loops in Python, and it is invisible in the
 source — `chunk = data[i:i+n]` looks free and copies. Reuse trades readability for it, which is why
@@ -194,22 +187,29 @@ this is `[S]`: do it where measured, and comment that it was measured.
 **Check:** every slice inside a hot loop. `memoryview` avoids the copy where the consumer accepts
 one.
 
-### PS-PERF-13 [M] Cache only what is pure, and say so
+```python
+# verified — GOOD
+def records(stream: list[bytes], size: int) -> list[bytes]:
+    """One buffer for the whole stream; each record leaves it without a copy."""
+    out: list[bytes] = []
+    buf = bytearray()
+    for piece in stream:
+        buf.extend(piece)
+        while len(buf) >= size:
+            out.append(buf.take_bytes(size))
+    return out
 
-`functools.cache` on a function with no arguments you cannot hash and no effects.
 
-**Why:** a cache on an impure function is a bug with a performance justification — it makes the
-effect happen once and the caller believe it happened every time. And per PS-CONC-18 the cache is
-not single-flight, so under threads the body runs more than once anyway.
-
-**Check:** every `@cache` and `@lru_cache`. Read the body for I/O, mutation, randomness, or time.
+assert records([b"abc", b"defg", b"h"], 4) == [b"abcd", b"efgh"]
+```
 
 ## What the build costs
 
-### PS-PERF-14 [M] Budget for the free-threaded build's single-threaded overhead
+### PS-PERF-12 [M] Budget for the free-threaded build's single-threaded overhead
 
 Somewhere between 5% and 30% depending on the workload, and closer to 30% for allocation-heavy code.
-Budget from your own measurement, and cite its date — these numbers move every release.
+Budget from your own measurement, kept as a benchmark you re-run on each interpreter upgrade: these
+numbers move every release.
 
 **Why:** the documentation quotes "about 1% on macOS aarch64 to 8% on x86-64 Linux" for
 pyperformance, whose daily runs have sat near 1.10x on Linux x86_64 through 2026. But refcount- and
@@ -218,7 +218,7 @@ allocation-heavy code pays much more: every reference to another thread's object
 **Check:** benchmark the same workload on both builds before committing to free threading. A
 decision made on the doc's number rather than on yours is the finding.
 
-### PS-PERF-15 [M] Know that the JIT is unavailable on the free-threaded build
+### PS-PERF-13 [M] Know that the JIT is unavailable on the free-threaded build
 
 `--enable-experimental-jit` with `--disable-gil` builds a JIT that is never used; CPython's own
 configure script warns about it.
@@ -229,7 +229,7 @@ parallelism". For code that will not use more than one core, that is a straightf
 
 **Check:** any project on the free-threaded build whose workload is single-threaded.
 
-### PS-PERF-16 [M] Expect higher memory on the free-threaded build
+### PS-PERF-14 [M] Expect higher memory on the free-threaded build
 
 PEP 779's target is 20%, and measurements sit at 1.19–1.22x.
 
@@ -239,13 +239,14 @@ that is a leak or tunable away; `gc.collect()` releasing what QSBR holds is the 
 
 **Check:** measure RSS on both builds before setting a memory limit.
 
-### PS-PERF-17 [M!] Give shared read-mostly data to threads, not to processes
+### PS-PERF-15 [M!] Give shared read-mostly data to threads, not to processes
 
 Where workers read a large structure and write only their own results, threads on the free-threaded
 build avoid the copy entirely.
 
-*Relaxed form:* processes remain correct and are the right answer where the payload marshals cheaply
-and the workers share nothing — measure both rather than assuming.
+*Relaxed form:* isolation remains correct and is the right answer where the payload marshals cheaply
+and the workers share nothing. `InterpreterPoolExecutor` gives it inside one process, without a
+process per worker — measure both rather than assuming.
 
 **Why:** this is the case free threading was built for: no pickling, no per-process copy of the
 data, one interpreter's memory instead of N. Workers that hammer the *same mutable* objects can be
@@ -256,17 +257,19 @@ threads; small and copied favours processes; large and mutable needs a redesign.
 
 ## Discipline
 
-### PS-PERF-18 [M] Never optimise without leaving the measurement behind
+### PS-PERF-16 [M] Never optimise without leaving the measurement behind
 
-A comment naming the workload, the number, and the date.
+A benchmark that re-runs the workload, kept beside the code, and a comment naming the workload and
+that benchmark. Not a date: PS-DOC-12 keeps provenance out of comments, and a benchmark answers the
+question a date only places in time.
 
 **Why:** an optimisation is a readability cost paid for a speed benefit, and the next reader can see
-only the cost. Without the number they cannot tell whether the trade still holds — and it often does
-not, because the interpreter got faster or the workload changed.
+only the cost. Without a way to re-measure they cannot tell whether the trade still holds — and it
+often does not, because the interpreter got faster or the workload changed.
 
-**Check:** every non-obvious construct justified by speed. No number and no date is the finding.
+**Check:** every non-obvious construct justified by speed. No benchmark to re-run is the finding.
 
-### PS-PERF-19 [M] Keep the readable version when the fast one is not faster
+### PS-PERF-17 [M] Keep the readable version when the fast one is not faster
 
 If the measurement does not show a difference that matters, revert it.
 

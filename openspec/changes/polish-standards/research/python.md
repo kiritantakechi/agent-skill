@@ -84,3 +84,20 @@ For each group: the owner, and what the other rule says that the owner must abso
   DOC-14 forbids dates.
 - **PS-TEST-20 against PS-TEST-08**: TEST-20's verified example loops inside a test, which TEST-08
   forbids.
+
+## Applied
+
+All of A, B and the defects, with these exceptions:
+
+- **B8 in SKILL.md §2.1:** not applicable; §2.1 has no `ContextVar.set()` call. B8 is applied in
+  PS-CONC-22's example.
+- **B9 in PS-CONC-09:** skipped as churn; its `pool.map` maps two items.
+- **PS-PERF-14's Why and the performance chapter's intro** keep the dates of the third-party numbers
+  they quote. These date a measurement the standard cites, not advice to user code, which DOC-14
+  governs.
+- **The 3.12-era facts** the annotations dropped (`cached_property`'s lock, `TypeAlias`) are older
+  than the migration chapter's 3.14–3.15 scope. `TypeAlias` became a §2.3 stale-spelling row; the
+  rules state the rest as current behaviour.
+- **PS-OUT-15** prescribes `sys.stdout.write` for results and `logging` for diagnostics, so `T201`
+  keeps meaning that every `print` is a debug line; a per-file ignore would have had to know where
+  each project keeps its entry point.

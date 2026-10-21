@@ -45,27 +45,27 @@ report cites rust-style IDs (D3).
 
 ## 3. python-style (`research/python.md`)
 
-- [ ] 3.1 Remove every version annotation in `research/versions.txt` for python-style (D2). A fact
+- [x] 3.1 Remove every version annotation in `research/versions.txt` for python-style (D2). A fact
   someone porting needs moves to `migration.md`. Verify: `--fast --skill python-style --only
   anatomy` reports no version below the target.
-- [ ] 3.2 Merge the duplicates, A1–A25. Each owner first absorbs what its "Absorb" column names.
+- [x] 3.2 Merge the duplicates, A1–A25. Each owner first absorbs what its "Absorb" column names.
   Then one `agent-skill demote python-style <plan>` records each merge, and every leftover citation
   it reports is resolved. A core rule that misstates its chapter rule is rewritten (D3). Verify:
   `--fast --skill python-style --only anatomy --only crossref --only skeleton`.
-- [ ] 3.3 Settle the lint-row notes. Cite `W505` in PS-NAME-15. Drop MIG-12's repeated
+- [x] 3.3 Settle the lint-row notes. Cite `W505` in PS-NAME-15. Drop MIG-12's repeated
   `iscoroutinefunction` row and TYPE-12's `UP013`/`UP014` clause. Resolve PS-OUT-15 against `T201`,
   either with a per-file ignore for the entry point or by prescribing `sys.stdout.write`. Verify:
   `--fast --skill python-style --only citations --only lints`.
-- [ ] 3.4 Apply B1–B13 (D6), each run on `cpython-3.15.0+freethreaded`. Re-read each rule's prose
+- [x] 3.4 Apply B1–B13 (D6), each run on `cpython-3.15.0+freethreaded`. Re-read each rule's prose
   against its new example. An item that is only churn is skipped, and its reason added to
   `research/python.md`. Verify: python-style's `toolchain`, run alone.
-- [ ] 3.5 Fix the defects (D7): the `random.Random(hash(…))` seed, ERR-11's Barrier claim,
+- [x] 3.5 Fix the defects (D7): the `random.Random(hash(…))` seed, ERR-11's Barrier claim,
   `context_aware_warnings` differing by build, PERF-18 and PERF-14 against DOC-14, and TEST-20's
   loop against TEST-08. Verify: the toolchain run of 3.4 covers each changed example.
-- [ ] 3.6 Remove what §2 repeats from `migration.md` (D5). Verify: §2 keeps only the silent changes
+- [x] 3.6 Remove what §2 repeats from `migration.md` (D5). Verify: §2 keeps only the silent changes
   and the first loud ones, each citing its migration rule; `--fast --skill python-style --only
   skeleton --only anatomy`.
-- [ ] 3.7 Run one `agent-skill renumber python-style`. Verify:
+- [x] 3.7 Run one `agent-skill renumber python-style`. Verify:
   - the table "Rule IDs before the Python 3.15.0 revision" carries every move;
   - `--fast --skill python-style` passes;
   - python-style's `toolchain` and `mutation` pass, run alone.

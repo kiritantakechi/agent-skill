@@ -24,23 +24,19 @@ Unless a block shows its own imports, it assumes `from dataclasses import datacl
   - PS-DATA-07 [M] Define an interface as a `Protocol`, not an ABC, unless you ship behaviour
 - **Fields and defaults**
   - PS-DATA-08 [M] Never give a mutable default
-  - PS-DATA-09 [M] Use `field(default_factory=...)` for a mutable default
-  - PS-DATA-10 [M] Never compute a default at import time
-  - PS-DATA-11 [M] Order fields so every default follows every required field
-  - PS-DATA-12 [S] Make a field `KW_ONLY` when its meaning is not obvious positionally
+  - PS-DATA-09 [M] Never compute a default at import time
+  - PS-DATA-10 [M] Order fields so every default follows every required field
 - **Immutability**
-  - PS-DATA-13 [M] Freeze anything that crosses a boundary
-  - PS-DATA-14 [M] Replace rather than mutate, with `dataclasses.replace`
-  - PS-DATA-15 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
-  - PS-DATA-16 [S] Return a copy, or return something immutable
+  - PS-DATA-11 [M] Freeze anything that crosses a boundary
+  - PS-DATA-12 [M] Replace rather than mutate, with `dataclasses.replace`
+  - PS-DATA-13 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
 - **Validity**
-  - PS-DATA-17 [M] Validate in `__post_init__`, and raise rather than correct
-  - PS-DATA-18 [M!] Make the invalid state unrepresentable before validating against it
-  - PS-DATA-19 [M] Give a domain value its own type rather than a bare `str` or `int`
-  - PS-DATA-20 [M] Never let `__eq__` and `__hash__` disagree
+  - PS-DATA-14 [M] Validate in `__post_init__`, and raise rather than correct
+  - PS-DATA-15 [M!] Make the invalid state unrepresentable before validating against it
+  - PS-DATA-16 [M] Give a domain value its own type rather than a bare `str` or `int`
+  - PS-DATA-17 [M] Never let `__eq__` and `__hash__` disagree
 - **Symmetry of a data type**
-  - PS-DATA-21 [M] Give every serialiser its inverse
-  - PS-DATA-22 [S] Keep sibling types structurally parallel
+  - PS-DATA-18 [M] Give every serialiser its inverse
 
 ---
 
@@ -49,7 +45,8 @@ Unless a block shows its own imports, it assumes `from dataclasses import datacl
 ### PS-DATA-01 [M] Model a record as a frozen dataclass by default
 
 `@dataclass(frozen=True, slots=True)`. Reach for a mutable one, or a plain class, only when you can
-say what it buys.
+say what it buys. One that two threads can reach is frozen, or owns a lock that every write takes
+(PS-CONC-11).
 
 **Why:** one decorator buys `__init__`, `__repr__`, `__eq__` and a field list tooling can read.
 Freezing removes the largest class of record bug — being changed by whoever you handed it to — and
@@ -75,22 +72,41 @@ assert {price} == {Money(1999, "GBP")}  # hashable, so it works in a set
 
 ### PS-DATA-02 [M] Add `slots=True` unless something needs the instance dict
 
-Anything assigning attributes dynamically, or using `functools.cached_property`, or being weak-
-referenced by something that predates 3.11, needs the dict. Everything else does not.
+Anything assigning attributes dynamically, or using `functools.cached_property`, needs the dict.
+Everything else does not. A weak reference is not a reason to keep it: `weakref_slot=True` gives
+it a slot. On a plain class, write the same thing as `__slots__ = ("name",)`.
 
 **Why:** without the instance `__dict__`, a misspelt attribute raises `AttributeError` at the moment
-of the mistake instead of silently becoming a new one. The instance is also smaller and faster,
-which matters more on the free-threaded build, whose object headers are larger.
+of the mistake instead of silently becoming a new one. The instance is also smaller and faster, the
+more so on the free-threaded build, where a non-GC object is 32 bytes against the default's 16.
 
 **Check:** ruff `SLOT000`–`SLOT002` for the subclass cases. For dataclasses,
-`rg -n '@dataclass' src/` and read for `slots=`.
+`rg -n '@dataclass' src/` and read for `slots=`. A class instantiated more than a few thousand times
+with no slots is the finding.
+
+```python
+# verified — GOOD
+import weakref
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True, slots=True, weakref_slot=True)
+class Node:
+    name: str
+
+
+node = Node("root")
+ref = weakref.ref(node)  # held in a slot, not in an instance dict
+assert ref() is node
+assert not hasattr(node, "__dict__")
+```
 
 ### PS-DATA-03 [M] Model a closed set of alternatives as an enum
 
 Not string constants, not a `Literal` union of strings, not integers with a comment.
 
 **Why:** an enum names the set, gives each member a readable `repr` in a traceback, and is the one
-place to add a member, which PS-TYPE-16's `assert_never` turns into a type error wherever the set is
+place to add a member, which PS-TYPE-15's `assert_never` turns into a type error wherever the set is
 consumed. A `Literal` union gets the narrowing and none of the rest.
 
 **Check:** `rg -n '^[A-Z_]+[ \t]*[:=][ \t]*["\x27]' src/` — a group of module-level string constants
@@ -194,24 +210,16 @@ assert collector.lines == ["a", "b"]
 
 ### PS-DATA-08 [M] Never give a mutable default
 
-`def f(items: list[int] = [])` and `field(default=[])` are the same bug.
+`def f(items: list[int] = [])` and `field(default=[])` are the same bug. A field takes
+`field(default_factory=list)`, which runs once per instance.
 
 **Why:** the default is evaluated once, at definition time, and shared by every call that omits it,
 so one caller's mutation changes it for every later caller. Under free threading it is shared across
 threads too, so the mutation races as well as leaking.
 
 **Check:** ruff `B006` for the argument form, `RUF008` for the dataclass field and `RUF012` for the
-class attribute. All three are enabled.
-
-### PS-DATA-09 [M] Use `field(default_factory=...)` for a mutable default
-
-`field(default_factory=list)`, `field(default_factory=dict)`.
-
-**Why:** the factory runs per instance, so each object gets its own container. `dataclasses` refuses
-a bare mutable default itself, but only for types it recognises as unhashable, so a custom mutable
-class slips through.
-
-**Check:** every `field(` call. A `default=` holding anything a caller can mutate is the finding.
+class attribute. All three are enabled. `dataclasses` refuses a bare default only for types it knows
+are unhashable, so a `field(default=` holding a custom mutable class is still the finding.
 
 ```python
 # verified — GOOD
@@ -229,7 +237,7 @@ first.items.append(1)
 assert second.items == []  # not shared
 ```
 
-### PS-DATA-10 [M] Never compute a default at import time
+### PS-DATA-09 [M] Never compute a default at import time
 
 `created_at: datetime = datetime.now()` freezes one timestamp into the class. So does reading an
 environment variable, or a file, or a random seed.
@@ -241,7 +249,7 @@ factory form defers it to construction, which is when the caller meant it.
 **Check:** `rg -n 'field\(default=|=[ \t]*[a-z_]+\.[a-z_]+\(\)' src/` inside class bodies — a call
 in a default is the finding unless it is `default_factory`.
 
-### PS-DATA-11 [M] Order fields so every default follows every required field
+### PS-DATA-10 [M] Order fields so every default follows every required field
 
 Or make the defaulted ones keyword-only with `KW_ONLY`.
 
@@ -252,46 +260,23 @@ every positional call; keyword-only defaults remove that coupling for good.
 **Check:** every dataclass with more than three fields, and every one whose defaults are
 interleaved.
 
-### PS-DATA-12 [S] Make a field `KW_ONLY` when its meaning is not obvious positionally
-
-`Rect(width=3, height=4)` reads; `Rect(3, 4)` does not say which is which.
-
-**Why:** two adjacent fields of the same type are a call site waiting to be transposed, and the
-transposition type-checks; keyword-only removes the possibility rather than documenting against it.
-It is `[S]` because a pair with an obvious order, like a coordinate, reads better positionally.
-
-**Check:** any two adjacent fields of the same type without `KW_ONLY` above them.
-
-```python
-# verified — GOOD
-from dataclasses import KW_ONLY, dataclass
-
-
-@dataclass(frozen=True, slots=True)
-class Rect:
-    _: KW_ONLY
-    width_px: int
-    height_px: int
-
-
-assert Rect(width_px=3, height_px=4).width_px == 3
-```
-
 ## Immutability
 
-### PS-DATA-13 [M] Freeze anything that crosses a boundary
+### PS-DATA-11 [M] Freeze anything that crosses a boundary
 
 Anything returned from a public function, stored in a cache, used as a dict key, or handed to a
-thread.
+thread. A container held on `self` leaves as `tuple(self._items)`, which also says the result is not
+for editing, and never as `self._items`, a live handle on your state.
 
 **Why:** once a value leaves your module you do not know who holds a reference, so a mutation is an
 effect at a distance with no call site to read. Freezing turns that into a `FrozenInstanceError` at
 the attempt, and an immutable value needs no lock at all.
 
 **Check:** every public return type. A mutable dataclass, `list`, `dict` or `set` is the finding
-unless the docstring transfers ownership explicitly.
+unless the docstring transfers ownership explicitly, and a bare `return self._x` of a container is
+the finding outright.
 
-### PS-DATA-14 [M] Replace rather than mutate, with `dataclasses.replace`
+### PS-DATA-12 [M] Replace rather than mutate, with `dataclasses.replace`
 
 `updated = replace(original, status=Status.RETIRED)`.
 
@@ -302,15 +287,16 @@ constructor call is one more site to update every time a field is added.
 **Check:** `rg -n 'replace\(' src/` should be roughly as common as frozen dataclasses are. Their
 absence, alongside frozen types, means someone is rebuilding by hand.
 
-### PS-DATA-15 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
+### PS-DATA-13 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
 
 `frozendict`, new in 3.15, for the value, in place of `types.MappingProxyType`.
 `isinstance(x, collections.abc.Mapping)` for the check: `frozendict` is **not a `dict` subclass**;
-it inherits directly from `object`.
+it inherits directly from `object`. The standard library was updated for this — `copy`, `json`,
+`pickle`, `pprint` and others — and third-party code was not.
 
 **Why:** `MappingProxyType` is a *view*: it forbids writing through the proxy while the dict behind
-it stays mutable, so it never made anything immutable. Every `isinstance(x, dict)` is now
-potentially wrong; the standard library was updated for this, and third-party code was not.
+it stays mutable, so it never made anything immutable. And `isinstance(x, dict)` is `False` for a
+mapping that behaves like a dict in every way that matters, so a function taking one rejects it.
 
 **Check:** `rg -n 'isinstance\(.*, dict\)' src/` — every hit is a place a `frozendict` would fail
 the test. `rg -n 'MappingProxyType' src/` finds the spelling it replaces.
@@ -326,20 +312,9 @@ assert not isinstance(DEFAULTS, dict)  # the trap: it is not a dict subclass
 assert DEFAULTS["retries"] == 3
 ```
 
-### PS-DATA-16 [S] Return a copy, or return something immutable
-
-`return tuple(self._items)` or `return list(self._items)`. Never `return self._items`.
-
-**Why:** the internal container is a live handle on your state, so a caller appending to it mutates
-you, usually much later and from a call site that reads as read-only. A copy costs an allocation; a
-tuple costs one too and also says the result is not meant to be edited.
-
-**Check:** every method returning a container held on `self`. A bare `return self._x` is the
-finding.
-
 ## Validity
 
-### PS-DATA-17 [M] Validate in `__post_init__`, and raise rather than correct
+### PS-DATA-14 [M] Validate in `__post_init__`, and raise rather than correct
 
 Raise `ValueError`. Do not clamp, coerce, or substitute a default.
 
@@ -372,7 +347,7 @@ except ValueError as exc:
     assert "out of range" in str(exc)
 ```
 
-### PS-DATA-18 [M!] Make the invalid state unrepresentable before validating against it
+### PS-DATA-15 [M!] Make the invalid state unrepresentable before validating against it
 
 An enum instead of a validated string. A `Port` type instead of an `int` you check. Two types
 instead of one type with a flag that says which it is.
@@ -388,7 +363,7 @@ branch you never write and a test you never need.
 **Check:** every `if not valid: raise` in the codebase. Ask what type would make the check
 unnecessary.
 
-### PS-DATA-19 [M] Give a domain value its own type rather than a bare `str` or `int`
+### PS-DATA-16 [M] Give a domain value its own type rather than a bare `str` or `int`
 
 `UserId`, `Email`, `Cents` — a `NewType` at minimum, a frozen dataclass where there is behaviour.
 
@@ -414,7 +389,7 @@ def credit(user: UserId, amount: Cents) -> str:
 assert credit(UserId(7), Cents(250)) == "7:250"
 ```
 
-### PS-DATA-20 [M] Never let `__eq__` and `__hash__` disagree
+### PS-DATA-17 [M] Never let `__eq__` and `__hash__` disagree
 
 If two objects are equal they must hash equal. A mutable object that defines `__eq__` must not
 define `__hash__`.
@@ -428,20 +403,24 @@ reason the type is unhashable.
 
 ## Symmetry of a data type
 
-### PS-DATA-21 [M] Give every serialiser its inverse
+### PS-DATA-18 [M] Give every serialiser its inverse
 
 If `to_json` exists, `from_json` exists. If `__str__` is meant to round-trip, something parses it.
+The same holds for every verb a type pairs, `encode` with `decode` and `push` with `pop`; how the
+two are spelled is PS-NAME-18.
 
 **Why:** a one-way conversion produces a value you can never recover, and the gap stays invisible
 until someone needs the inverse, by which point the format has already shipped. Writing the pair
 together also tests the format: a round-trip assertion is the cheapest schema check there is.
 
-**Check:** every `to_*` and `__str__` on a data type. A missing inverse is either deliberate —
-say so in the docstring — or the finding.
+**Check:** every `to_*`, `__str__` and paired verb on a data type. A missing inverse is either
+deliberate — say so in the docstring — or the finding.
 
 ```python
 # verified — GOOD
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Self
 
 
 @dataclass(frozen=True, slots=True)
@@ -451,25 +430,15 @@ class Point:
 
     def to_dict(self) -> dict[str, int]:
         # Not `asdict`: it returns `dict[str, Any]`, and laundering `Any` into an
-        # annotated return is what PS-TYPE-14 exists to stop.
+        # annotated return is what PS-TYPE-13 exists to stop.
         return {"x": self.x, "y": self.y}
 
     @classmethod
-    def from_dict(cls, raw: dict[str, int]) -> Point:
+    def from_dict(cls, raw: Mapping[str, int]) -> Self:
         return cls(x=raw["x"], y=raw["y"])
 
 
 original = Point(1, 2)
 assert Point.from_dict(original.to_dict()) == original
+assert Point.from_dict(frozendict(x=1, y=2)) == original  # any mapping, not only a dict
 ```
-
-### PS-DATA-22 [S] Keep sibling types structurally parallel
-
-If `Request` is a frozen slotted dataclass with `to_dict`/`from_dict`, so is `Response`.
-
-**Why:** a reader who has learned one should be able to use the other without checking. Divergence
-between siblings is also where the asymmetry of PS-DATA-21 usually starts: one of the pair gets the
-inverse and the other does not.
-
-**Check:** list the sibling types and their public members side by side. A gap is either deliberate
-or the finding.

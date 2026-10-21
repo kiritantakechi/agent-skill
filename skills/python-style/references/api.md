@@ -16,14 +16,14 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 
 - **The boundary**
   - PS-API-01 [M] Declare the public surface explicitly, and keep it small
-  - PS-API-02 [M] Re-export by redundant alias or `__all__`, consistently
+  - PS-API-02 [M] Re-export through `__all__`, never by a bare import
   - PS-API-03 [M] Ship `py.typed` in every typed package
   - PS-API-04 [M] Underscore-prefix everything that is not public
   - PS-API-05 [M] Never import from another package's private name
 - **Signatures**
   - PS-API-06 [M] Annotate every parameter and every return of a public function
   - PS-API-07 [M] Make a parameter keyword-only when the call site would not read
-  - PS-API-08 [M] Take the narrowest type that works; return the most specific
+  - PS-API-08 [M] Take an abstract type; return a concrete one
   - PS-API-09 [S] Take a value, not a flag that selects between two behaviours
   - PS-API-10 [M] Give every parameter a name the caller would choose
 - **Defaults and effects**
@@ -32,13 +32,11 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-API-13 [M] Say who owns what the function returns
 - **Modules**
   - PS-API-14 [M] Give every package an `__init__.py` that is a table of contents
-  - PS-API-15 [M] Never let a submodule import its parent package
-  - PS-API-16 [S] Split a module when it has two audiences, not when it is long
-  - PS-API-17 [M] Keep the dependency graph acyclic and shallow
+  - PS-API-15 [S] Split a module when it has two audiences, not when it is long
+  - PS-API-16 [M] Keep the dependency graph acyclic and shallow
 - **Evolution**
-  - PS-API-18 [M] Deprecate with `warnings.deprecated`, and enable the check
-  - PS-API-19 [M] Add a keyword-only parameter rather than changing an existing one
-  - PS-API-20 [M] Give every public change a note in the changelog
+  - PS-API-17 [M] Deprecate with `warnings.deprecated`, and enable the check
+  - PS-API-18 [M] Add a keyword-only parameter rather than changing an existing one
 - Decided by tools
 
 ---
@@ -56,16 +54,18 @@ importing `json`. Declaring it makes the surface a decision rather than an accid
 **Check:** every module under the package root. No `__all__` is the finding. Ruff `F822` catches an
 `__all__` naming something that does not exist.
 
-### PS-API-02 [M] Re-export by redundant alias or `__all__`, consistently
+### PS-API-02 [M] Re-export through `__all__`, never by a bare import
 
-`from ._core import Widget as Widget`, or `__all__ = ["Widget"]`. Pick one per project.
+`from acme._core import Widget` in `__init__.py`, with `"Widget"` in the `__all__` that PS-API-01
+already requires. The typing spec's other form, the redundant alias `Widget as Widget`, then only
+repeats the `__all__`, so do not mix the two.
 
-**Why:** a bare `from ._core import Widget` in `__init__.py` passes your own tests while every type
-checker rejects downstream code importing it: the typing spec keeps an import private unless one of
-these two forms re-exports it. Mixing the forms means a reader must check both places for a name.
+**Why:** the typing spec makes a name that a `py.typed` package merely imports private, so a checker
+that follows it rejects downstream code importing a bare re-export — pyright does, and `ty` does for
+a stub. The package's own tests import it fine, so only a downstream user finds out.
 
-**Check:** type-check a file that imports each documented name from the package root. A
-"not explicitly exported" error is the finding.
+**Check:** ruff `F401` flags an import in `__init__.py` that neither `__all__` nor a redundant alias
+re-exports.
 
 ### PS-API-03 [M] Ship `py.typed` in every typed package
 
@@ -115,34 +115,51 @@ require annotations at all, which is exactly why Ruff carries this half.
 
 ### PS-API-07 [M] Make a parameter keyword-only when the call site would not read
 
-`def connect(host: str, *, timeout_seconds: float = 5.0, retries: int = 3)`.
+`def connect(host: str, *, timeout_seconds: float = 5.0, retries: int = 3)`. A dataclass field is a
+parameter of its constructor, and `_: KW_ONLY` is its `*`. A pair whose order is obvious, such as a
+coordinate, reads better positionally and may stay so.
 
 **Why:** `connect("db", 5.0, 3)` gives the reader no way to know what the numbers mean, and
-transposing them type-checks. Keyword-only also lets you add, reorder, or deprecate those parameters
-later without breaking anyone, because nobody can be passing them positionally.
+transposing them type-checks. Keyword-only also lets you add, reorder, default or deprecate those
+parameters later without breaking anyone, because nobody can be passing them positionally.
 
-**Check:** every function with more than two parameters, and every pair of adjacent parameters
-sharing a type.
+**Check:** every function and dataclass with more than two parameters, and every pair of adjacent
+parameters or fields sharing a type.
 
 ```python
 # verified — GOOD
+from dataclasses import KW_ONLY, dataclass
+
+
 def connect(host: str, *, timeout_seconds: float = 5.0, retries: int = 3) -> str:
     """Everything after `*` must be named, so the call site reads as prose."""
     return f"{host}/{timeout_seconds}/{retries}"
 
 
+@dataclass(frozen=True, slots=True)
+class Rect:
+    """A dataclass field is a constructor parameter, and `KW_ONLY` is its `*`."""
+
+    _: KW_ONLY
+    width_px: int
+    height_px: int
+
+
 assert connect("db", retries=1) == "db/5.0/1"
+assert Rect(width_px=3, height_px=4).width_px == 3
 ```
 
-### PS-API-08 [M] Take the narrowest type that works; return the most specific
+### PS-API-08 [M] Take an abstract type; return a concrete one
 
-`Iterable[str]` in, `list[str]` out. Not `list[str]` in and `Iterable[str]` out.
+`Iterable[str]` or `Sequence[str]` in, `list[str]` out. Not `list[str]` in and `Iterable[str]` out.
+A mutable parameter type is the exception, where mutating the argument is the point.
 
-**Why:** the parameter constrains your callers and the return constrains you, so they pull opposite
-ways. Accepting `Iterable` lets a caller pass a generator; returning `Iterable` denies them the
-indexing you actually gave.
+**Why:** a parameter constrains your callers and a return makes them a promise, so the two want
+opposite generality. Accepting `Iterable` lets a caller pass a generator; returning it denies them
+the indexing and the `.append` you actually gave, and they will cast it back.
 
-**Check:** every public signature. A concrete container in, or an abstract one out, is the finding.
+**Check:** every public signature. A concrete container in a parameter, or an abstract one in a
+return, is the finding.
 
 ### PS-API-09 [S] Take a value, not a flag that selects between two behaviours
 
@@ -191,12 +208,12 @@ sentence removes a class of misuse.
 
 ### PS-API-13 [M] Say who owns what the function returns
 
-Whether the caller may mutate it, whether it is a view or a copy, whether it must be closed. Say it,
-or return something immutable so the question does not arise.
+Whether it is a view or a copy, and whether it must be closed: say it in the docstring. A container
+the caller should not edit is returned immutable instead, which is PS-DATA-11's rule.
 
-**Why:** returning a live internal container silently makes the caller's mutation your bug — see
-PS-DATA-16 — and returning something that must be closed without saying so guarantees a leak. Both
-are invisible from the signature.
+**Why:** returning a live view without saying so makes the caller's mutation your bug, and returning
+something that must be closed without saying so guarantees a leak. Both are invisible from the
+signature.
 
 **Check:** every public return of a container or a resource. No ownership sentence is the finding.
 
@@ -204,27 +221,17 @@ are invisible from the signature.
 
 ### PS-API-14 [M] Give every package an `__init__.py` that is a table of contents
 
-Re-exports and `__all__`, and nothing else. No logic, no state, no work.
+Re-exports, `__all__` and a docstring, and nothing else. That it does no work is PS-NAME-10, which
+holds for every module.
 
 **Why:** the `__init__` is what every importer of the package runs, so anything in it is a cost
-paid by everyone including those who wanted one submodule. Keeping it declarative makes it
-readable as the package's index — and per PS-NAME-11 keeps it safe under lazy imports.
+paid by everyone, including those who wanted one submodule. Kept declarative, it reads as the
+package's index.
 
 **Check:** every `__init__.py`. Anything other than imports, `__all__` and a docstring is the
 finding.
 
-### PS-API-15 [M] Never let a submodule import its parent package
-
-`acme/reader.py` must not `from acme import thing`.
-
-**Why:** it is a cycle: importing `acme.reader` runs `acme/__init__.py`, which imports
-`acme.reader`. Python sometimes tolerates it and sometimes raises a partially-initialised-module
-error depending on which module was imported first — so it works until the import order changes.
-
-**Check:** `rg -n 'from <package> import|import <package>$' src/<package>/` — any self-reference
-is the finding.
-
-### PS-API-16 [S] Split a module when it has two audiences, not when it is long
+### PS-API-15 [S] Split a module when it has two audiences, not when it is long
 
 Length is a symptom; two unrelated groups of callers is the cause.
 
@@ -234,20 +241,23 @@ thousand-line module with one audience is fine; a two-hundred-line module servin
 
 **Check:** for each module, name its callers. Two disjoint groups is the finding.
 
-### PS-API-17 [M] Keep the dependency graph acyclic and shallow
+### PS-API-16 [M] Keep the dependency graph acyclic and shallow
 
-No import cycles, and no chain of internal imports deeper than a few levels.
+No import cycles, and no chain of internal imports deeper than a few levels. The commonest cycle is
+a submodule importing its own package: `acme/reader.py` doing `from acme import thing` runs
+`acme/__init__.py`, which imports `acme.reader`.
 
-**Why:** a cycle makes import order load-bearing and makes the modules impossible to test or reuse
-separately. Depth is the subtler cost: understanding any one module requires understanding a chain,
-and every change ripples along it.
+**Why:** a cycle makes import order load-bearing: it works, or raises a partially initialised module
+error, depending on which module was imported first. Depth is the subtler cost: understanding one
+module requires understanding a chain, and every change ripples along it.
 
-**Check:** draw the internal import graph. A cycle is the finding; a chain longer than three or four
-is a design question.
+**Check:** `rg -n 'from <package> import|import <package>$' src/<package>/` for a submodule
+importing its parent. Then draw the internal import graph: a cycle is the finding, and a chain
+longer than three or four is a design question.
 
 ## Evolution
 
-### PS-API-18 [M] Deprecate with `warnings.deprecated`, and enable the check
+### PS-API-17 [M] Deprecate with `warnings.deprecated`, and enable the check
 
 `@warnings.deprecated("Use X instead; removed in 2.0")` on the function, class or overload. It lives
 in `warnings`, not `typing`. Not every checker reports it unless enabled explicitly; `ty` does so by
@@ -258,7 +268,7 @@ find out at type-check time rather than at runtime — which is when they can st
 
 **Check:** every deprecation. A docstring note without the decorator is invisible to tooling.
 
-### PS-API-19 [M] Add a keyword-only parameter rather than changing an existing one
+### PS-API-18 [M] Add a keyword-only parameter rather than changing an existing one
 
 New behaviour arrives as `*, new_thing: X | None = None`, defaulting to the old behaviour.
 
@@ -268,16 +278,6 @@ you cannot see. PS-API-07's keyword-only discipline is what makes this possible 
 
 **Check:** every signature change in review. Anything but an added keyword-only parameter is a
 breaking change and needs a version bump.
-
-### PS-API-20 [M] Give every public change a note in the changelog
-
-Added, changed, deprecated, removed, fixed — with the version.
-
-**Why:** the changelog is the only place a caller can learn what moved without diffing releases, and
-writing it is what forces the question "is this a breaking change?" at the moment it can still be
-answered differently. A change nobody wrote down is a change nobody upgraded through.
-
-**Check:** every merge touching a name in `__all__`. No changelog entry is the finding.
 
 ## Decided by tools
 

@@ -16,7 +16,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 - **Encoding**
   - PS-OUT-01 [M] Pass `encoding=` explicitly to every text open
   - PS-OUT-02 [M] Know what PEP 686 moved, which is more than `open`
-  - PS-OUT-03 [M] Never rely on `locale.getpreferredencoding`
+  - PS-OUT-03 [M] Ask `locale.getencoding()` for the locale's encoding
   - PS-OUT-04 [M!] Choose the error handler deliberately
   - PS-OUT-05 [M] Read and write bytes when the data is bytes
 - **Interpolation**
@@ -79,18 +79,20 @@ while the stdout handler turns a pipe's `UnicodeEncodeError` into a silent round
 the change "may cause `UnicodeError`, mojibake, or even silent data corruption".
 
 **Check:** `rg -n 'getpreferredencoding|getfilesystemencoding|fsencode|fsdecode' src/` —
-every hit is a place the meaning changed.
+every hit is a place the meaning changed. Then run the suite under `-X warn_default_encoding`, and
+treat every `EncodingWarning` as a finding.
 
-### PS-OUT-03 [M] Never rely on `locale.getpreferredencoding`
+### PS-OUT-03 [M] Ask `locale.getencoding()` for the locale's encoding
 
-It returns `'utf-8'` under UTF-8 mode regardless of the locale, and `do_setlocale` has no effect.
-If you need to know the platform's encoding for interoperating with another program, ask for that
-specifically rather than for "the preferred" one.
+To interoperate with a program that writes in the locale's encoding, ask `locale.getencoding()`,
+which reports it whatever the UTF-8 mode. Never `locale.getpreferredencoding()`: it returns
+`'utf-8'` under UTF-8 mode regardless of the locale, and its `do_setlocale` has no effect.
 
-**Why:** it is now a constant dressed as a query, so any code branching on it takes one branch
-forever — including code written to handle a legacy encoding, which now silently stops handling it.
+**Why:** `getpreferredencoding` is a constant dressed as a query, so code branching on it takes one
+branch forever — including code written for a legacy encoding, which silently stops handling it.
 
-**Check:** `rg -n 'getpreferredencoding' src/` — every hit is the finding.
+**Check:** `rg -n 'getpreferredencoding' src/` — every hit is the finding, and the call it wants is
+`locale.getencoding()`.
 
 ### PS-OUT-04 [M!] Choose the error handler deliberately
 
@@ -145,8 +147,8 @@ parameterised query is the same length as the interpolated one.
 
 ### PS-OUT-08 [S] Reach for a template string when the interpolation must be inspected
 
-New in 3.14 (PEP 750). `t"SELECT * FROM {table}"` produces a `Template` whose static parts and
-interpolations are separate values, so a library can escape each one correctly. This is `[S]`
+A PEP 750 template string, `t"SELECT * FROM {table}"`, produces a `Template` whose static parts
+and interpolations are separate values, so a library can escape each one correctly. This is `[S]`
 because it only helps when something downstream understands templates; writing one and then calling
 `str()` on it has bought nothing.
 
@@ -246,14 +248,15 @@ type changes every log line that mentions it.
 
 ### PS-OUT-15 [M] Send program output to stdout and diagnostics to stderr
 
-The result goes to stdout. Progress, warnings and errors go to stderr.
+The result goes to stdout, written with `sys.stdout.write`. Progress, warnings and errors go to
+stderr, through `logging`. `print` is for neither: `T201` reads every one as a forgotten debug line.
 
 **Why:** this is what makes a program composable: `prog | wc -l` must count results, not progress
 messages. Mixing them means the pipeline consumer receives your diagnostics as data, and redirecting
 stdout hides the errors you most needed to see.
 
-**Check:** every `print` — is what it emits part of the result? If not, it belongs on stderr or in
-`logging`.
+**Check:** `rg -n 'sys\.stdout\.write' src/` — is each write part of the result? If not, it
+belongs in `logging`.
 
 ### PS-OUT-16 [M] Give a type a `__repr__` that says what it is
 
@@ -295,5 +298,5 @@ A tool settles these on its own; the shipped configuration enables each at the l
 |---|---|---|---|
 | ruff | `TRY400` | error | `logger.error` in a handler — `logger.exception` keeps the traceback |
 | ruff | `TRY401` | error | the exception interpolated into a message `logger.exception` already carries |
-| ruff | `T201` | error | `print` for diagnostics — use `logging` |
+| ruff | `T201` | error | `print`, a debug line — results go to `sys.stdout.write`, diagnostics to `logging` |
 | ruff | `T203` | error | `pprint` for diagnostics |

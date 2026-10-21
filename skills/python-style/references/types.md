@@ -31,16 +31,15 @@ Unless a block shows its own imports, it assumes `from typing import …` for th
   - PS-TYPE-11 [M] Never write variance by hand
   - PS-TYPE-12 [M] Do not use the spellings 3.15 retired
 - **Precision**
-  - PS-TYPE-13 [M] Take a protocol or an abstract type; return a concrete one
-  - PS-TYPE-14 [M] Use `object` for "anything", and `Any` only with a reason
-  - PS-TYPE-15 [M] Narrow with `TypeIs`, not `TypeGuard`
-  - PS-TYPE-16 [M] Close an exhaustive match with `assert_never`
-  - PS-TYPE-17 [M] Mark what may not be subclassed or reassigned
-  - PS-TYPE-18 [S] Reach for `@overload` only when a type parameter cannot express it
+  - PS-TYPE-13 [M] Use `object` for "anything", and `Any` only with a reason
+  - PS-TYPE-14 [M] Narrow with `TypeIs`, not `TypeGuard`
+  - PS-TYPE-15 [M] Close an exhaustive match with `assert_never`
+  - PS-TYPE-16 [M] Mark what may not be subclassed or reassigned
+  - PS-TYPE-17 [S] Reach for `@overload` only when a type parameter cannot express it
 - **What 3.15 adds**
-  - PS-TYPE-19 [M] Take a `TypeForm` when the argument is a type expression
-  - PS-TYPE-20 [S] Close a `TypedDict` that models a fixed wire format
-  - PS-TYPE-21 [M] Build a sentinel with `sentinel`, not with `object()`
+  - PS-TYPE-18 [M] Take a `TypeForm` when the argument is a type expression
+  - PS-TYPE-19 [S] Close a `TypedDict` that models a fixed wire format
+  - PS-TYPE-20 [M] Build a sentinel with `sentinel`, not with `object()`
 - Decided by tools
 
 ---
@@ -60,8 +59,7 @@ configuration without saying whether to run it has said nothing. The pin is exac
 `0.0.x`, and its policy allows breaking changes, diagnostics included, between any two versions.
 
 **Check:** `ty check` exits non-zero. Note that it exits non-zero on warnings too —
-`error-on-warning` has defaulted true since 0.0.52 — so a `warn` level still blocks and only
-`ignore` does not.
+`error-on-warning` defaults to true — so a `warn` level still blocks and only `ignore` does not.
 
 ```sh
 uv run ty check
@@ -99,13 +97,13 @@ this one is easy to reach for under time pressure.
 
 ### PS-TYPE-04 [M] Never write `from __future__ import annotations`
 
-Not in new code, and delete it from old code that no longer supports 3.13. The 3.14 porting notes
-call the import deprecated and expect it to be removed. Ruff has no rule for it, so this is a
-written rule and a grep rather than a lint.
+Not in new code, and delete it wherever it remains. Python's porting notes call the import
+deprecated and expect it to be removed. Ruff has no rule for it, so this is a written rule and a
+grep rather than a lint.
 
-**Why:** PEP 563 is **Superseded** by PEP 649 and PEP 749, and on 3.14+ the import is harmful: it
-stringifies annotations at compile time, so `annotationlib`'s `VALUE` and `FORWARDREF` hand back
-bare strings without raising, and every consumer then gets text it must evaluate itself.
+**Why:** PEP 563 is **Superseded** by PEP 649 and PEP 749, and with annotations lazy the import is
+harmful: it stringifies annotations at compile time, so `annotationlib`'s `VALUE` and `FORWARDREF`
+hand back bare strings without raising, and every consumer then gets text it must evaluate itself.
 
 **Check:** `rg -n 'from __future__ import annotations' src/` — every hit is the finding.
 
@@ -123,7 +121,8 @@ is the finding.
 
 ### PS-TYPE-06 [M!] Use `FORWARDREF` when a name may not resolve
 
-Library code that reads someone else's annotations asks for `Format.FORWARDREF`, not `Format.VALUE`.
+Library code that reads someone else's annotations asks for `Format.FORWARDREF`, not `Format.VALUE`,
+and resolves a `ForwardRef` it gets back with `typing.evaluate_forward_ref()` once the name exists.
 
 *Relaxed form:* application code reading its own annotations, where every name is importable at
 runtime, may use `VALUE` — and should say so in a comment, because the assumption is invisible
@@ -139,7 +138,8 @@ finding.
 ```python
 # verified — GOOD
 import annotationlib
-from typing import TYPE_CHECKING
+import decimal
+from typing import TYPE_CHECKING, evaluate_forward_ref
 
 if TYPE_CHECKING:
     # Not imported at runtime — the common, legitimate reason a name in an
@@ -160,6 +160,10 @@ except NameError:
 deferred = annotationlib.get_annotations(price, format=annotationlib.Format.FORWARDREF)
 assert isinstance(deferred["amount"], annotationlib.ForwardRef)
 
+# Resolved later, once the caller can supply the name.
+resolved = evaluate_forward_ref(deferred["amount"], locals={"Decimal": decimal.Decimal})
+assert resolved is decimal.Decimal
+
 as_text = annotationlib.get_annotations(price, format=annotationlib.Format.STRING)
 assert as_text["amount"] == "Decimal"
 ```
@@ -169,8 +173,8 @@ assert as_text["amount"] == "Decimal"
 ### PS-TYPE-07 [M] Write unions with `|`, and put `None` last
 
 `int | str`, `Widget | None`. Never `Union[int, str]`, never `Optional[Widget]`, never `None | X`.
-Since 3.14 `typing.Union` and `types.UnionType` are merged and no longer cached, so compare unions
-with `==`, not `is`.
+`typing.Union` and `types.UnionType` are one type, and a union is not cached, so compare unions with
+`==`, not `is`.
 
 **Why:** `Optional` misleads: it reads as "this argument is optional", a claim about whether it must
 be *passed*, not about what it may hold. `|` needs no import and reads as the alternation it is, and
@@ -183,9 +187,9 @@ be *passed*, not about what it may hold. `|` needs no import and reads as the al
 `list[int]`, `dict[str, int]`, `collections.abc.Sequence`, `collections.abc.Callable`. Never
 `typing.List`, `typing.Dict`, `typing.Callable`.
 
-**Why:** PEP 585 deprecated the `typing` aliases in 3.9; they survive only for interpreters this
-standard does not support. And `Sequence` is a real ABC about behaviour, so importing it from
-`typing` misfiles it as a typing artefact.
+**Why:** PEP 585 deprecated the `typing` aliases, which survive only so that old code keeps
+importing. And `Sequence` is a real ABC about behaviour, so importing it from `typing` misfiles it
+as a typing artefact.
 
 **Check:** ruff `UP006` and `UP035`.
 
@@ -229,7 +233,7 @@ assert first([], "none") == "none"
 
 **Why:** a bare `X = int` leaves the checker guessing between an alias and a variable holding a
 type. The `type` statement says which in the syntax and evaluates lazily, so an alias may name
-something defined later without quotes. `typing.TypeAlias` has been deprecated since 3.12.
+something defined later without quotes. `typing.TypeAlias` is deprecated in its favour.
 
 **Check:** ruff `UP040`.
 
@@ -247,31 +251,36 @@ Hand-written variance is a second source of truth about the same fact.
 ### PS-TYPE-12 [M] Do not use the spellings 3.15 retired
 
 `AnyStr` (removal 3.18), `ByteString` (removal 3.17), `Text`, `typing.no_type_check_decorator`
-(removed in 3.15), `# type:` comments, the functional `NamedTuple`/`TypedDict` forms, and
-`Unpack` where PEP 695 variadics fit.
+(removed in 3.15), `# type:` comments, and `Unpack` where PEP 695 variadics fit. In place of
+`ByteString` take `collections.abc.Buffer`, which every buffer satisfies: `array`, `mmap` and a
+third party's types too, all of which `bytes | bytearray | memoryview` rejects.
 
 **Why:** each has a live replacement, and several are on a removal schedule that turns a warning
 into an error within two releases. `ByteString` is the subtle one: 3.15 dropped it from `__all__`
-but left it importable, so plain access now warns where only subclassing did.
+but left it importable, so it works, warns on plain access, and fails once 3.17 removes it.
 
-**Check:** the migration chapter carries the full table as one runnable grep. Ruff `UP` and `PYI`
-catch the ones that are statically decidable.
+**Check:** `rg -n 'ByteString' src/` — a hit warns today and fails in 3.17. The migration chapter
+carries the full table as one runnable grep, and ruff `UP` and `PYI` catch the ones that are
+statically decidable.
+
+```python
+# verified — GOOD
+import array
+from collections.abc import Buffer
+
+
+def checksum(data: Buffer) -> int:
+    """Sum the bytes of any buffer: `bytes`, `memoryview`, `array`, `mmap`."""
+    return sum(memoryview(data).cast("B"))
+
+
+assert checksum(b"\x01\x02") == 3
+assert checksum(array.array("B", [1, 2])) == 3
+```
 
 ## Precision
 
-### PS-TYPE-13 [M] Take a protocol or an abstract type; return a concrete one
-
-`def render(items: Sequence[str]) -> list[str]:`. Not `list[str]` in and not `Sequence[str]` out.
-
-**Why:** a parameter constrains your callers and a return makes them a promise, so the two want
-opposite generality. Accepting `Sequence` lets a caller pass a tuple; returning it denies them the
-`.append` you actually gave them, and they will cast it back.
-
-**Check:** every public signature. A concrete container in a parameter, or an abstract one in a
-return, is the finding — a mutable parameter type is the exception, because mutating the argument is
-the point.
-
-### PS-TYPE-14 [M] Use `object` for "anything", and `Any` only with a reason
+### PS-TYPE-13 [M] Use `object` for "anything", and `Any` only with a reason
 
 If the function truly accepts anything, the type is `object` and you narrow before use. `Any` needs
 a comment naming what cannot be expressed: the typing best-practices guidance reserves it for "when
@@ -284,7 +293,7 @@ in a signature quietly erases the types of everything it touches.
 
 **Check:** ruff `ANN401` for `Any` in a public signature. Every surviving `Any` needs a comment.
 
-### PS-TYPE-15 [M] Narrow with `TypeIs`, not `TypeGuard`
+### PS-TYPE-14 [M] Narrow with `TypeIs`, not `TypeGuard`
 
 `def is_str(x: object) -> TypeIs[str]:`. Reach for `TypeGuard` only where the narrowed type is not
 assignable to the input type, and say why in the docstring.
@@ -316,7 +325,7 @@ assert width("abcd") == 4
 assert width(255) == 8
 ```
 
-### PS-TYPE-16 [M] Close an exhaustive match with `assert_never`
+### PS-TYPE-15 [M] Close an exhaustive match with `assert_never`
 
 Every `match` and every `if`/`elif` chain over a closed set ends with a branch that asserts the
 remainder is `Never`.
@@ -353,7 +362,7 @@ def describe(kind: Kind) -> str:
 assert describe(Kind.READ) == "reader"
 ```
 
-### PS-TYPE-17 [M] Mark what may not be subclassed or reassigned
+### PS-TYPE-16 [M] Mark what may not be subclassed or reassigned
 
 `@final` on a class nothing should subclass. `Final` on a module constant.
 
@@ -364,7 +373,7 @@ aggressively, because it knows no subclass can widen the behaviour.
 **Check:** ruff `PYI` for the stub cases; the rest is review. A module-level name in
 `SCREAMING_SNAKE_CASE` without `Final` is the finding.
 
-### PS-TYPE-18 [S] Reach for `@overload` only when a type parameter cannot express it
+### PS-TYPE-17 [S] Reach for `@overload` only when a type parameter cannot express it
 
 Two overloads that differ only in a container's element type are a type parameter written the long
 way.
@@ -378,7 +387,7 @@ follows that position, a type parameter replaces the group.
 
 ## What 3.15 adds
 
-### PS-TYPE-19 [M] Take a `TypeForm` when the argument is a type expression
+### PS-TYPE-18 [M] Take a `TypeForm` when the argument is a type expression
 
 `def parse[T](raw: str, into: TypeForm[T]) -> T:`. Not `type[T]`, and not `object`.
 
@@ -388,7 +397,7 @@ them, which left every deserialisation library an untyped seam at its most inter
 
 **Check:** every parameter documented as "a type" that is annotated `object` or `type[Any]`.
 
-### PS-TYPE-20 [S] Close a `TypedDict` that models a fixed wire format
+### PS-TYPE-19 [S] Close a `TypedDict` that models a fixed wire format
 
 `class Payload(TypedDict, closed=True):` when the schema forbids extra keys, or `extra_items=` when
 it constrains rather than forbids them. Where the schema genuinely allows extension, leave it open.
@@ -400,7 +409,7 @@ consumer as a missing value rather than an unexpected one, and the two need diff
 **Check:** every `TypedDict` that models something crossing a process boundary. A checker that
 rejects `extra_items` is not a reason to avoid it — see PS-TYPE-02.
 
-### PS-TYPE-21 [M] Build a sentinel with `sentinel`, not with `object()`
+### PS-TYPE-20 [M] Build a sentinel with `sentinel`, not with `object()`
 
 `MISSING = sentinel("MISSING")`, and annotate the parameter `int | MISSING`. Bind it at module or
 class scope under its own name; so bound, it survives copying and pickling, which `object()` does

@@ -21,17 +21,15 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-DOC-03 [M] Say what the caller needs, not what the code does
   - PS-DOC-04 [M] Put the type in the annotation, never in the docstring
   - PS-DOC-05 [M] Document what is raised, and only what the caller can act on
-  - PS-DOC-06 [M] Document the cost and the ownership
-  - PS-DOC-07 [S] Record the decision that is not visible from the code
 - **Convention**
-  - PS-DOC-08 [M] Set a docstring convention, and know what the choice disables
-  - PS-DOC-09 [M] Never let the docstring and the signature disagree
-  - PS-DOC-10 [S] Write examples as doctests, and run them
+  - PS-DOC-06 [M] Set a docstring convention, and know what the choice disables
+  - PS-DOC-07 [M] Never let the docstring and the signature disagree
+  - PS-DOC-08 [S] Write examples as doctests, and run them
 - **Beyond the code**
-  - PS-DOC-11 [M] Give the package a README that answers "what" before "how"
-  - PS-DOC-12 [M] Keep a changelog, and write the entry with the change
-  - PS-DOC-13 [S] Document the decision, not only the outcome
-  - PS-DOC-14 [M] Never document what was checked, only what is true
+  - PS-DOC-09 [M] Give the package a README that answers "what" before "how"
+  - PS-DOC-10 [M] Keep a changelog, and write the entry with the change
+  - PS-DOC-11 [S] Keep a design note beside each significant component
+  - PS-DOC-12 [M] Never document what was checked, only what is true
 - Decided by tools
 
 ---
@@ -71,9 +69,10 @@ assert load_config("a.toml") == {"path": "a.toml"}
 **Why:** PEP 257 says so, and uniformity means a docstring is recognisable by shape. The rule is
 also what makes it safe to add a second line later without changing the delimiter.
 
-**Check:** `D301` is enabled and requires a docstring containing a backslash to be raw. The rule
-for the quote style itself sits on ruff's formatter-conflict list and is disabled here — the
-formatter settles it instead.
+**Check:** `ruff format` writes every docstring with triple double quotes whatever its
+`quote-style` says, so `ruff format --check` (PS-NAME-13) is the gate; the lint rule for the quote
+style sits on ruff's formatter-conflict list and is disabled. `D301` requires a docstring containing
+a backslash to be raw.
 
 ## Content
 
@@ -111,30 +110,9 @@ given condition — the rest is implementation.
 **Check:** every `raise` in the body reachable from bad input. Each is a candidate; each internal
 error is not.
 
-### PS-DOC-06 [M] Document the cost and the ownership
-
-Whether it does I/O, whether it is linear in the input, whether the caller owns the return.
-
-**Why:** these are the two things a caller cannot see from the signature and most needs to know —
-PS-PERF-04 and PS-API-13 state them from the other side. A function that does a network round trip
-and reads like a property getter is a latency bug in every caller until someone reads the source.
-
-**Check:** every public function that does I/O, loops over its input, or returns a container.
-
-### PS-DOC-07 [S] Record the decision that is not visible from the code
-
-Why this algorithm, why this default, what was tried and rejected. It is `[S]` because not every
-decision has a reason worth recording.
-
-**Why:** the code shows what was decided and never why, so the reasoning is lost at the moment the
-author moves on — and the next person re-derives it, usually by reverting the decision and
-rediscovering the reason. One sentence prevents that.
-
-**Check:** every non-obvious constant, every hand-rolled algorithm, every `# noqa`.
-
 ## Convention
 
-### PS-DOC-08 [M] Set a docstring convention, and know what the choice disables
+### PS-DOC-06 [M] Set a docstring convention, and know what the choice disables
 
 `[tool.ruff.lint.pydocstyle] convention = "google"`. `numpy` for array-oriented projects: the
 ecosystem splits by domain, not by recency — the array stack is uniformly numpydoc and everything
@@ -147,7 +125,7 @@ three keeps `D417`, the check that a documented parameter list matches the signa
 **Check:** the absence of a `convention` setting. Run `ruff check` and read stderr for the
 "incompatible" warnings.
 
-### PS-DOC-09 [M] Never let the docstring and the signature disagree
+### PS-DOC-07 [M] Never let the docstring and the signature disagree
 
 A renamed parameter, a changed default, a removed exception — all must move together.
 
@@ -159,7 +137,7 @@ from editing one and not the other.
 documented parameter the signature lost, has only a preview rule, which the shipped configuration
 does not run — so that half is review, with defaults, exceptions and units.
 
-### PS-DOC-10 [S] Write examples as doctests, and run them
+### PS-DOC-08 [S] Write examples as doctests, and run them
 
 `>>>` in the docstring, and `--doctest-modules` in the test run. The shipped `ruff.toml` sets
 `docstring-code-format = true`, so the formatter keeps them formatted too.
@@ -173,7 +151,7 @@ finding.
 
 ## Beyond the code
 
-### PS-DOC-11 [M] Give the package a README that answers "what" before "how"
+### PS-DOC-09 [M] Give the package a README that answers "what" before "how"
 
 What problem it solves, who it is for, and one example — before installation instructions.
 
@@ -184,17 +162,18 @@ all the attention the decision gets.
 **Check:** the first screen of the README. If it starts with an install command, it answers the
 second question first.
 
-### PS-DOC-12 [M] Keep a changelog, and write the entry with the change
+### PS-DOC-10 [M] Keep a changelog, and write the entry with the change
 
-In the same commit, in the same pull request. Not assembled at release time.
+Each entry says added, changed, deprecated, removed or fixed, under the version it ships in. Write
+it in the same commit as the change, not assembled at release time.
 
 **Why:** written at release time it is assembled from commit messages by someone who did not make
 the change, which is how "various fixes" happens. Written with the change it is written by the
 person who knows whether it breaks anything — and the act of writing it is what surfaces that.
 
-**Check:** every merge touching the public surface. See PS-API-20.
+**Check:** every merge touching a name in `__all__`. No changelog entry is the finding.
 
-### PS-DOC-13 [S] Document the decision, not only the outcome
+### PS-DOC-11 [S] Keep a design note beside each significant component
 
 An architecture note recording the alternatives and why this one, kept with the code.
 
@@ -205,7 +184,7 @@ the analysis, and may reach a different answer for reasons that were already rej
 **Check:** for each significant component, is there a note saying why it is shaped that way? Its
 absence is not a defect, but its presence pays repeatedly.
 
-### PS-DOC-14 [M] Never document what was checked, only what is true
+### PS-DOC-12 [M] Never document what was checked, only what is true
 
 "This function is thread-safe" — not "we verified this function is thread-safe on 2026-08-14".
 

@@ -304,26 +304,28 @@ the assertion is not an invariant.
 ```python
 # verified — GOOD
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 
-def test_counter_loses_no_updates() -> None:
-    lock = threading.Lock()
-    count = 0
+class Allocator:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._next = 0
 
-    def bump() -> None:
-        nonlocal count
-        for _ in range(1_000):
-            with lock:
-                count += 1
+    def allocate(self, _request: int) -> int:
+        with self._lock:
+            issued = self._next
+            self._next = issued + 1
+        return issued
 
-    threads = [threading.Thread(target=bump) for _ in range(4)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
 
-    # The invariant, not "it did not raise": a race shows up as a shortfall.
-    assert count == 4_000
+def test_allocator_never_issues_an_id_twice() -> None:
+    allocator = Allocator()
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        issued = list(pool.map(allocator.allocate, range(4_000)))
+
+    # The invariant, not "it did not raise": a race shows up as a duplicate.
+    assert sorted(issued) == list(range(4_000))
 ```
 
 ### PS-TEST-21 [M] Know that pytest itself is not thread-safe

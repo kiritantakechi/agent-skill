@@ -15,26 +15,20 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 
 - **The four tiers**
   - PS-MIG-01 [M] Distinguish removed, rejected, unlisted and discouraged
-  - PS-MIG-02 [M] Never report a soft deprecation as a removal
-  - PS-MIG-03 [M] Run the dead-API grep before reading a diff
+  - PS-MIG-02 [M] Run the dead-API grep before reading a diff
 - **Removed outright**
-  - PS-MIG-04 [M] Do not use a name 3.15 removed
-  - PS-MIG-05 [M] Do not use a C API 3.15 removed
+  - PS-MIG-03 [M] Do not use a name 3.15 removed
+  - PS-MIG-04 [M] Do not use a C API 3.15 removed
 - **Rejected spellings of live names**
-  - PS-MIG-06 [M] Give `strptime` a year directive when the format has `%d`
+  - PS-MIG-05 [M] Give `strptime` a year directive when the format has `%d`
 - **Unlisted but importable**
-  - PS-MIG-07 [M] Treat `ByteString` as gone, not as deprecated
-  - PS-MIG-08 [M] Stop reading `__version__` from a standard-library module
-- **Changed underneath you**
-  - PS-MIG-09 [M] Re-examine every `contextmanager` used as a decorator
-  - PS-MIG-10 [M] Re-examine every `isinstance(x, dict)`
-  - PS-MIG-11 [M] Re-examine every default-encoding dependence
+  - PS-MIG-06 [M] Stop reading `__version__` from a standard-library module
+- Changed underneath you
 - **Forward compatibility**
-  - PS-MIG-12 [M] Write against 3.16's asyncio today
-  - PS-MIG-13 [S] Do not write against 3.16's other changes yet
+  - PS-MIG-07 [S] Do not write against 3.16's other changes yet
 - **Tool migrations**
-  - PS-MIG-14 [M] Follow pytest's own removal ladder
-  - PS-MIG-15 [M] Re-verify this table on every interpreter bump
+  - PS-MIG-08 [M] Follow pytest's own removal ladder
+  - PS-MIG-09 [M] Re-verify this table on every interpreter bump
 - Decided by tools
 
 ---
@@ -52,27 +46,19 @@ Four categories, and only the first two fail a build.
 | **Unlisted** | Dropped from `__all__`, still importable, removal scheduled. | Yes — warns |
 | **Discouraged** | Works, warns about nothing, no removal planned. | **No** |
 
+`re.match` is the canonical discouraged name: soft-deprecated in favour of `re.prefixmatch`, and the
+documentation says outright, *"We do not plan to remove the older `match()` name, as it has been
+used in code for over 30 years."* The same holds for `struct`'s `'F'` and `'D'` codes and for the
+`PyGILState` C APIs: all soft-deprecated, all staying.
+
 **Why:** conflating them produces a check that cries wolf, and a check people learn to route
 around is worse than no check. The fourth tier is where it goes wrong: a *soft deprecation* is
 discouraged but explicitly never removed, so treating one as an error discredits the whole table.
 
-**Check:** every entry in the table below carries its tier. An entry without one is the finding.
+**Check:** every entry in this chapter carries its tier. An entry without one is the finding. Then
+run the grep against a codebase you know is current: any hit is a real finding or a tier error.
 
-### PS-MIG-02 [M] Never report a soft deprecation as a removal
-
-`re.match` is the canonical example. It is soft-deprecated in favour of `re.prefixmatch`, and the
-documentation says outright: *"We do not plan to remove the older `match()` name, as it has been
-used in code for over 30 years."* The same applies to `struct`'s `'F'` and `'D'` codes and to the
-`PyGILState` C APIs: all soft-deprecated, all staying.
-
-**Why:** a grep that flags `re.match` fires on almost every codebase in existence, none of which is
-broken. That single false positive is enough to make a reviewer skip the whole table, and then the
-genuine removals go unnoticed too.
-
-**Check:** run the grep against a codebase you know is current. Any hit is either a real finding
-or a tier error in the table.
-
-### PS-MIG-03 [M] Run the dead-API grep before reading a diff
+### PS-MIG-02 [M] Run the dead-API grep before reading a diff
 
 First, before anything else in the review.
 
@@ -92,7 +78,7 @@ grep -rnE '\.(getmark|setmark|getmarkers)\(' src/
 
 ## Removed outright
 
-### PS-MIG-04 [M] Do not use a name 3.15 removed
+### PS-MIG-03 [M] Do not use a name 3.15 removed
 
 | Removed | Use instead |
 |---|---|
@@ -117,9 +103,9 @@ grep -rnE '\.(getmark|setmark|getmarkers)\(' src/
 module is imported — so the failure appears in production on a code path the tests did not take.
 The grep finds them all statically.
 
-**Check:** the command in PS-MIG-03.
+**Check:** the command in PS-MIG-02.
 
-### PS-MIG-05 [M] Do not use a C API 3.15 removed
+### PS-MIG-04 [M] Do not use a C API 3.15 removed
 
 `PyUnicode_AsDecodedObject`, `PyUnicode_AsDecodedUnicode`, `PyUnicode_AsEncodedObject`,
 `PyUnicode_AsEncodedUnicode` — use `PyCodec_Decode` and `PyCodec_Encode`.
@@ -140,7 +126,7 @@ out later. The borrowed-reference removals are also the ones a free-threaded bui
 
 ## Rejected spellings of live names
 
-### PS-MIG-06 [M] Give `strptime` a year directive when the format has `%d`
+### PS-MIG-05 [M] Give `strptime` a year directive when the format has `%d`
 
 `datetime.strptime(s, "%d/%m")` now raises `ValueError`.
 
@@ -152,19 +138,11 @@ code that was wrong.
 
 ## Unlisted but importable
 
-### PS-MIG-07 [M] Treat `ByteString` as gone, not as deprecated
+| Unlisted in 3.15 | Removed in | Use instead | Find it with |
+|---|---|---|---|
+| `collections.abc.ByteString`, `typing.ByteString`, which now warn on every access | 3.17 | `collections.abc.Buffer` (PS-TYPE-12) | `rg -n 'ByteString' src/` |
 
-`collections.abc.ByteString` and `typing.ByteString` were dropped from `__all__` in 3.15. The names
-still import — and now emit a `DeprecationWarning` when they do. Removal is 3.17. Use
-`bytes | bytearray | memoryview`.
-
-**Why:** the code works, warns, and will stop working in two releases. Treating it as fine because
-it works is how a project arrives at 3.17 with a broken import; treating it as removed is how a
-reviewer loses faith in the table.
-
-**Check:** `rg -n 'ByteString' src/` — a hit warns today and fails in 3.17.
-
-### PS-MIG-08 [M] Stop reading `__version__` from a standard-library module
+### PS-MIG-06 [M] Stop reading `__version__` from a standard-library module
 
 Deprecated across twenty-four modules in 3.15 — `argparse`, `csv`, `ctypes`, `decimal`, `json`,
 `logging`, `pickle`, `platform`, `re`, `socketserver`, `tarfile`, `zlib` and more. Removal is 3.20.
@@ -179,72 +157,42 @@ src/`
 
 ## Changed underneath you
 
-### PS-MIG-09 [M] Re-examine every `contextmanager` used as a decorator
+Each of these runs on either version, so the upgrade flags none of them. SKILL.md §2.1 is the same
+list, to read before writing code; this is the one to grep with.
 
-In 3.15 the context stays open for the whole generator; it used to close when the generator object
-was created. This is not in the porting notes.
-
-**Why:** nothing errors on either version, so the upgrade flags none of these sites, yet each now
-keeps its context for the generator's whole consumption instead of an instant. For a lock or a
-transaction under free threading, that is new contention and a new deadlock shape.
-
-**Check:** `rg -nB2 -A2 '@contextmanager' src/` and find every decorator derived from one that is
-applied to a function containing `yield`.
-
-### PS-MIG-10 [M] Re-examine every `isinstance(x, dict)`
-
-3.15's `frozendict` inherits from `object`, not from `dict`. Test `collections.abc.Mapping`.
-
-**Why:** the check now returns `False` for a mapping that behaves like a dict in every way that
-matters, so a function that accepted a dict silently rejects one. The standard library was updated
-for this — `copy`, `json`, `pickle`, `pprint` and others — and third-party code was not.
-
-**Check:** `rg -n 'isinstance\(.*, dict\)' src/`
-
-### PS-MIG-11 [M] Re-examine every default-encoding dependence
-
-UTF-8 mode is on by default, and it moves six surfaces — see PS-OUT-02.
-
-**Why:** the change most people check is `open`, but the ones that bite are `sys.stdout` gaining
-`surrogateescape`, which turns encoding failures into silent mojibake, and a constant
-`locale.getpreferredencoding()`, which makes every branch on it take one path forever.
-
-**Check:** run the suite with `-X warn_default_encoding` and treat every `EncodingWarning` as a
-finding.
+| Changed in 3.15 | Find it with | Rule |
+|---|---|---|
+| A `@contextmanager`-derived decorator on a generator function holds its context until the generator is exhausted, not until it is created | `rg -nB2 -A2 '@contextmanager' src/` | PS-CONC-22 |
+| `frozendict` is not a `dict` subclass, so `isinstance(x, dict)` rejects one | `rg -n 'isinstance\(.*, dict\)' src/` | PS-DATA-13 |
+| UTF-8 mode is on by default and moves six surfaces, `sys.stdout`'s error handler among them | the suite under `-X warn_default_encoding`, where every `EncodingWarning` is a finding | PS-OUT-02 |
 
 ## Forward compatibility
 
-### PS-MIG-12 [M] Write against 3.16's asyncio today
-
-The event-loop policy system is removed in 3.16, and the replacements already work.
+3.16 removes the event-loop policy system, and the replacements already work on 3.15, so code is
+written against them now (PS-ASYNC-01, PS-ASYNC-02). Find the old spellings with
+`rg -n 'get_event_loop|EventLoopPolicy' src/`.
 
 | Removed in 3.16 | Write now |
 |---|---|
 | `asyncio.get_event_loop_policy()`, `set_event_loop_policy()` | `asyncio.run(main(), loop_factory=...)` |
 | `AbstractEventLoopPolicy`, `DefaultEventLoopPolicy` | `asyncio.Runner` |
 | `WindowsSelectorEventLoopPolicy`, `WindowsProactorEventLoopPolicy` | `loop_factory=` |
-| `asyncio.iscoroutinefunction()` | `inspect.iscoroutinefunction()` |
 
-**Why:** these cost nothing to adopt now and are a forced migration later. Writing them today means
-the 3.16 bump is a version number rather than a project.
-
-**Check:** `rg -n 'get_event_loop|EventLoopPolicy|asyncio\.iscoroutinefunction' src/`
-
-### PS-MIG-13 [S] Do not write against 3.16's other changes yet
+### PS-MIG-07 [S] Do not write against 3.16's other changes yet
 
 3.16 is in alpha — 3.16.0a1 shipped on 2026-10-13 — and anything in it can still be reverted
 before its first beta. The exceptions worth knowing: `array`'s `'u'` format code goes in 3.16 (use
 `'w'`), as do `shutil.ExecError` and `functools.reduce`'s keyword arguments.
 
-**Why:** PS-MIG-12 is safe because those are removals whose replacements already work on 3.15.
-Anything that requires a 3.16 *addition* is a bet on unreleased behaviour, and this standard's
-whole position is that examples must run on the interpreter they target.
+**Why:** the asyncio rows above are safe because they are removals whose replacements already work
+on 3.15. Anything that requires a 3.16 *addition* is a bet on unreleased behaviour, and this
+standard's whole position is that examples must run on the interpreter they target.
 
 **Check:** any code path guarded on `sys.version_info >= (3, 16)`.
 
 ## Tool migrations
 
-### PS-MIG-14 [M] Follow pytest's own removal ladder
+### PS-MIG-08 [M] Follow pytest's own removal ladder
 
 pytest runs the same three-tier process the interpreter does, and it is currently mid-ladder.
 
@@ -260,7 +208,7 @@ exports `CI=` with an empty value used to enable CI mode and now does not.
 
 **Check:** run the suite with `-W error::DeprecationWarning` and read what fires.
 
-### PS-MIG-15 [M] Re-verify this table on every interpreter bump
+### PS-MIG-09 [M] Re-verify this table on every interpreter bump
 
 Not on every release of your own project — on every change to the interpreter you target.
 
@@ -299,32 +247,46 @@ now; an ID it does not list is unchanged.
 | `PS-API-14` | `PS-API-12` |
 | `PS-API-15` | `PS-API-13` |
 | `PS-API-16` | `PS-API-14` |
-| `PS-API-17` | `PS-API-15` |
-| `PS-API-18` | `PS-API-16` |
-| `PS-API-19` | `PS-API-17` |
-| `PS-API-20` | `PS-API-18` |
-| `PS-API-21` | `PS-API-19` |
-| `PS-API-22` | `PS-API-20` |
+| `PS-API-17` | `PS-API-16` |
+| `PS-API-18` | `PS-API-15` |
+| `PS-API-19` | `PS-API-16` |
+| `PS-API-20` | `PS-API-17` |
+| `PS-API-21` | `PS-API-18` |
+| `PS-API-22` | `PS-DOC-10` |
 | `PS-ASYNC-03` | lint `ty:deprecated` |
 | `PS-ASYNC-04` | `PS-ASYNC-03` |
 | `PS-ASYNC-05` | lint `ruff:RUF006` |
-| `PS-ASYNC-06` | `PS-ASYNC-04` |
-| `PS-ASYNC-07` | `PS-ASYNC-05` |
-| `PS-ASYNC-08` | `PS-ASYNC-06` |
-| `PS-ASYNC-09` | `PS-ASYNC-07` |
-| `PS-ASYNC-10` | `PS-ASYNC-08` |
-| `PS-ASYNC-11` | `PS-ASYNC-09` |
-| `PS-ASYNC-12` | `PS-ASYNC-10` |
-| `PS-ASYNC-13` | `PS-ASYNC-11` |
+| `PS-ASYNC-06` | `PS-ERR-11` |
+| `PS-ASYNC-07` | `PS-ASYNC-04` |
+| `PS-ASYNC-08` | `PS-ASYNC-05` |
+| `PS-ASYNC-09` | `PS-ASYNC-06` |
+| `PS-ASYNC-10` | `PS-ASYNC-07` |
+| `PS-ASYNC-11` | `PS-ASYNC-08` |
+| `PS-ASYNC-12` | `PS-ASYNC-09` |
+| `PS-ASYNC-13` | `PS-ASYNC-10` |
 | `PS-ASYNC-14` | lint `ruff:ASYNC251` |
-| `PS-ASYNC-15` | `PS-ASYNC-12` |
-| `PS-ASYNC-16` | `PS-ASYNC-13` |
-| `PS-ASYNC-17` | `PS-ASYNC-14` |
-| `PS-ASYNC-18` | `PS-ASYNC-15` |
-| `PS-ASYNC-19` | `PS-ASYNC-16` |
-| `PS-ASYNC-20` | `PS-ASYNC-17` |
-| `PS-ASYNC-21` | `PS-ASYNC-18` |
-| `PS-ASYNC-22` | `PS-ASYNC-19` |
+| `PS-ASYNC-15` | `PS-ASYNC-11` |
+| `PS-ASYNC-16` | `PS-ASYNC-12` |
+| `PS-ASYNC-17` | `PS-ASYNC-13` |
+| `PS-ASYNC-18` | `PS-ASYNC-14` |
+| `PS-ASYNC-19` | `PS-ASYNC-15` |
+| `PS-ASYNC-20` | `PS-ASYNC-16` |
+| `PS-ASYNC-21` | `PS-ASYNC-17` |
+| `PS-ASYNC-22` | `PS-ASYNC-18` |
+| `PS-DATA-09` | `PS-DATA-08` |
+| `PS-DATA-10` | `PS-DATA-09` |
+| `PS-DATA-11` | `PS-DATA-10` |
+| `PS-DATA-12` | `PS-API-07` |
+| `PS-DATA-13` | `PS-DATA-11` |
+| `PS-DATA-14` | `PS-DATA-12` |
+| `PS-DATA-15` | `PS-DATA-13` |
+| `PS-DATA-16` | `PS-DATA-11` |
+| `PS-DATA-17` | `PS-DATA-14` |
+| `PS-DATA-18` | `PS-DATA-15` |
+| `PS-DATA-19` | `PS-DATA-16` |
+| `PS-DATA-20` | `PS-DATA-17` |
+| `PS-DATA-21` | `PS-DATA-18` |
+| `PS-DATA-22` | `PS-NAME-21` |
 | `PS-DOC-01` | lint `ruff:D100` |
 | `PS-DOC-02` | `PS-DOC-01` |
 | `PS-DOC-03` | lint `ruff:D205` |
@@ -334,15 +296,15 @@ now; an ID it does not list is unchanged.
 | `PS-DOC-07` | lint `ruff:D417` |
 | `PS-DOC-08` | `PS-DOC-04` |
 | `PS-DOC-09` | `PS-DOC-05` |
-| `PS-DOC-10` | `PS-DOC-06` |
-| `PS-DOC-11` | `PS-DOC-07` |
-| `PS-DOC-12` | `PS-DOC-08` |
-| `PS-DOC-13` | `PS-DOC-09` |
-| `PS-DOC-14` | `PS-DOC-10` |
-| `PS-DOC-15` | `PS-DOC-11` |
-| `PS-DOC-16` | `PS-DOC-12` |
-| `PS-DOC-17` | `PS-DOC-13` |
-| `PS-DOC-18` | `PS-DOC-14` |
+| `PS-DOC-10` | `PS-PERF-04` |
+| `PS-DOC-11` | `PS-NAME-16` |
+| `PS-DOC-12` | `PS-DOC-06` |
+| `PS-DOC-13` | `PS-DOC-07` |
+| `PS-DOC-14` | `PS-DOC-08` |
+| `PS-DOC-15` | `PS-DOC-09` |
+| `PS-DOC-16` | `PS-DOC-10` |
+| `PS-DOC-17` | `PS-DOC-11` |
+| `PS-DOC-18` | `PS-DOC-12` |
 | `PS-ERR-07` | lint `ruff:EM101` |
 | `PS-ERR-08` | `PS-ERR-07` |
 | `PS-ERR-09` | lint `ruff:E722` |
@@ -370,52 +332,56 @@ now; an ID it does not list is unchanged.
 | `PS-FT-09` | `PS-CONC-09` |
 | `PS-FT-10` | `PS-CONC-10` |
 | `PS-FT-11` | `PS-CONC-11` |
-| `PS-FT-12` | `PS-CONC-12` |
-| `PS-FT-13` | `PS-CONC-13` |
-| `PS-FT-14` | `PS-CONC-14` |
-| `PS-FT-15` | `PS-CONC-15` |
-| `PS-FT-16` | `PS-CONC-16` |
-| `PS-FT-17` | `PS-CONC-17` |
-| `PS-FT-18` | `PS-CONC-18` |
-| `PS-FT-19` | `PS-CONC-19` |
-| `PS-FT-20` | `PS-CONC-20` |
-| `PS-FT-21` | `PS-CONC-21` |
-| `PS-FT-22` | `PS-CONC-22` |
-| `PS-FT-23` | `PS-CONC-23` |
-| `PS-FT-24` | `PS-CONC-24` |
-| `PS-FT-25` | `PS-CONC-25` |
-| `PS-FT-26` | `PS-CONC-26` |
+| `PS-FT-12` | `PS-CONC-11` |
+| `PS-FT-13` | `PS-CONC-12` |
+| `PS-FT-14` | `PS-CONC-12` |
+| `PS-FT-15` | `PS-CONC-13` |
+| `PS-FT-16` | `PS-CONC-13` |
+| `PS-FT-17` | `PS-CONC-14` |
+| `PS-FT-18` | `PS-CONC-15` |
+| `PS-FT-19` | `PS-CONC-16` |
+| `PS-FT-20` | `PS-CONC-17` |
+| `PS-FT-21` | `PS-CONC-18` |
+| `PS-FT-22` | `PS-CONC-19` |
+| `PS-FT-23` | `PS-CONC-20` |
+| `PS-FT-24` | `PS-CONC-21` |
+| `PS-FT-25` | `PS-CONC-22` |
+| `PS-FT-26` | `PS-CONC-23` |
+| `PS-MIG-02` | `PS-MIG-01` |
+| `PS-MIG-03` | `PS-MIG-02` |
+| `PS-MIG-04` | `PS-MIG-03` |
+| `PS-MIG-05` | `PS-MIG-04` |
 | `PS-MIG-06` | lint `ruff:UP013` |
-| `PS-MIG-07` | `PS-MIG-06` |
-| `PS-MIG-08` | `PS-MIG-07` |
-| `PS-MIG-09` | `PS-MIG-08` |
-| `PS-MIG-10` | `PS-MIG-09` |
-| `PS-MIG-11` | `PS-MIG-10` |
-| `PS-MIG-12` | `PS-MIG-11` |
-| `PS-MIG-13` | `PS-MIG-12` |
-| `PS-MIG-14` | `PS-MIG-13` |
-| `PS-MIG-15` | `PS-MIG-14` |
-| `PS-MIG-16` | `PS-MIG-15` |
+| `PS-MIG-07` | `PS-MIG-05` |
+| `PS-MIG-08` | `PS-TYPE-12` |
+| `PS-MIG-09` | `PS-MIG-06` |
+| `PS-MIG-10` | `PS-CONC-22` |
+| `PS-MIG-11` | `PS-DATA-13` |
+| `PS-MIG-12` | `PS-OUT-02` |
+| `PS-MIG-13` | `PS-ASYNC-01` |
+| `PS-MIG-14` | `PS-MIG-07` |
+| `PS-MIG-15` | `PS-MIG-08` |
+| `PS-MIG-16` | `PS-MIG-09` |
 | `PS-NAME-07` | lint `ruff:A001` |
 | `PS-NAME-08` | `PS-NAME-07` |
 | `PS-NAME-09` | `PS-NAME-08` |
 | `PS-NAME-10` | lint `ruff:I001` |
 | `PS-NAME-11` | `PS-NAME-09` |
 | `PS-NAME-12` | lint `ruff:F403` |
-| `PS-NAME-13` | `PS-NAME-10` |
-| `PS-NAME-14` | `PS-NAME-11` |
-| `PS-NAME-15` | `PS-NAME-12` |
-| `PS-NAME-16` | `PS-NAME-13` |
-| `PS-NAME-17` | `PS-NAME-14` |
-| `PS-NAME-18` | `PS-NAME-15` |
-| `PS-NAME-19` | `PS-NAME-16` |
-| `PS-NAME-20` | `PS-NAME-17` |
-| `PS-NAME-21` | `PS-NAME-18` |
+| `PS-NAME-13` | `PS-API-02` |
+| `PS-NAME-14` | `PS-NAME-10` |
+| `PS-NAME-15` | `PS-NAME-11` |
+| `PS-NAME-16` | `PS-NAME-12` |
+| `PS-NAME-17` | `PS-NAME-13` |
+| `PS-NAME-18` | `PS-NAME-14` |
+| `PS-NAME-19` | `PS-NAME-15` |
+| `PS-NAME-20` | `PS-NAME-16` |
+| `PS-NAME-21` | `PS-NAME-17` |
 | `PS-NAME-22` | lint `ruff:ERA001` |
-| `PS-NAME-23` | `PS-NAME-19` |
-| `PS-NAME-24` | `PS-NAME-20` |
-| `PS-NAME-25` | `PS-NAME-21` |
-| `PS-NAME-26` | `PS-NAME-22` |
+| `PS-NAME-23` | `PS-NAME-18` |
+| `PS-NAME-24` | `PS-NAME-19` |
+| `PS-NAME-25` | `PS-NAME-20` |
+| `PS-NAME-26` | `PS-NAME-21` |
 | `PS-PKG-01` | `PS-BUILD-01` |
 | `PS-PKG-02` | `PS-BUILD-02` |
 | `PS-PKG-03` | `PS-BUILD-03` |
@@ -437,13 +403,16 @@ now; an ID it does not list is unchanged.
 | `PS-PKG-19` | `PS-BUILD-19` |
 | `PS-PKG-20` | `PS-BUILD-20` |
 | `PS-PKG-21` | `PS-BUILD-21` |
+| `PS-PERF-11` | `PS-DATA-02` |
+| `PS-PERF-12` | `PS-PERF-11` |
+| `PS-PERF-13` | `PS-CONC-17` |
 | `PS-PERF-14` | lint `ruff:PERF401` |
-| `PS-PERF-15` | `PS-PERF-14` |
-| `PS-PERF-16` | `PS-PERF-15` |
-| `PS-PERF-17` | `PS-PERF-16` |
-| `PS-PERF-18` | `PS-PERF-17` |
-| `PS-PERF-19` | `PS-PERF-18` |
-| `PS-PERF-20` | `PS-PERF-19` |
+| `PS-PERF-15` | `PS-PERF-12` |
+| `PS-PERF-16` | `PS-PERF-13` |
+| `PS-PERF-17` | `PS-PERF-14` |
+| `PS-PERF-18` | `PS-PERF-15` |
+| `PS-PERF-19` | `PS-PERF-16` |
+| `PS-PERF-20` | `PS-PERF-17` |
 | `PS-FMT-01` | `PS-OUT-01` |
 | `PS-FMT-02` | `PS-OUT-02` |
 | `PS-FMT-03` | `PS-OUT-03` |
@@ -478,12 +447,12 @@ now; an ID it does not list is unchanged.
 | `PS-TYPE-11` | `PS-TYPE-10` |
 | `PS-TYPE-12` | `PS-TYPE-11` |
 | `PS-TYPE-13` | `PS-TYPE-12` |
-| `PS-TYPE-14` | `PS-TYPE-13` |
-| `PS-TYPE-15` | `PS-TYPE-14` |
-| `PS-TYPE-16` | `PS-TYPE-15` |
-| `PS-TYPE-17` | `PS-TYPE-16` |
-| `PS-TYPE-18` | `PS-TYPE-17` |
-| `PS-TYPE-19` | `PS-TYPE-18` |
-| `PS-TYPE-20` | `PS-TYPE-19` |
-| `PS-TYPE-21` | `PS-TYPE-20` |
-| `PS-TYPE-22` | `PS-TYPE-21` |
+| `PS-TYPE-14` | `PS-API-08` |
+| `PS-TYPE-15` | `PS-TYPE-13` |
+| `PS-TYPE-16` | `PS-TYPE-14` |
+| `PS-TYPE-17` | `PS-TYPE-15` |
+| `PS-TYPE-18` | `PS-TYPE-16` |
+| `PS-TYPE-19` | `PS-TYPE-17` |
+| `PS-TYPE-20` | `PS-TYPE-18` |
+| `PS-TYPE-21` | `PS-TYPE-19` |
+| `PS-TYPE-22` | `PS-TYPE-20` |

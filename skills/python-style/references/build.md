@@ -37,7 +37,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-BUILD-17 [S] Emit attestations, and do not rely on anyone verifying them
   - PS-BUILD-18 [M] Cut a new version rather than adding a file to an old release
 - **The free-threaded build**
-  - PS-BUILD-19 [M] A `cp3XXt` wheel tag is not a declaration of thread safety
+  - PS-BUILD-19 [M] A free-threaded wheel tag is not a declaration of thread safety
   - PS-BUILD-20 [M] Assert in CI that the GIL is actually off
   - PS-BUILD-21 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
 
@@ -192,9 +192,9 @@ The upper bound is required: `uv_build` follows uv's versioning policy and may b
 versions. That is not the ceiling PS-BUILD-04 forbids — that rule governs `requires-python`, a claim
 about interpreters you cannot test, while this is a build dependency you do.
 
-**Why:** `python setup.py install` and its relatives are deprecated, and `distutils` was removed
-from the standard library in 3.12. A declared backend that the frontend calls makes the build
-reproducible from the declaration rather than from whatever a script happens to do.
+**Why:** `python setup.py install` and its relatives are deprecated, and `distutils` is not in the
+standard library. A declared backend that the frontend calls makes the build reproducible from the
+declaration rather than from whatever a script happens to do.
 
 **Check:** `rg -n 'setup.py' .` — every invocation is the finding. `setup.py` may still exist
 as a shim; calling it directly may not.
@@ -206,7 +206,7 @@ automatically because it lives inside the package — but verify that against th
 than taking it on trust.
 
 **Why:** `src/` is what makes the tests exercise the installed package rather than the working
-copy — see PS-NAME-13. `py.typed` is what makes your annotations visible downstream at all;
+copy — see PS-NAME-12. `py.typed` is what makes your annotations visible downstream at all;
 without it a type checker ignores them entirely.
 
 **Check:** unpack the built wheel and look for `py.typed`. Its absence is the finding.
@@ -269,9 +269,10 @@ release. Back-filling a wheel is therefore no longer possible.
 
 ## The free-threaded build
 
-### PS-BUILD-19 [M] A `cp3XXt` wheel tag is not a declaration of thread safety
+### PS-BUILD-19 [M] A free-threaded wheel tag is not a declaration of thread safety
 
-A package can ship a free-threaded wheel and still re-enable the GIL on import, and several do.
+`cp315t`, or `abi3t` for the free-threaded stable ABI: a package can ship either and still re-enable
+the GIL on import, and several do.
 
 **Why:** the tag says only that the wheel was built for the free-threaded ABI. SQLAlchemy 2.0.49
 shipped one that re-enabled the GIL on import, and major numerical libraries call their support
@@ -282,7 +283,12 @@ off — PS-BUILD-20's command. The wheel tag cannot tell you this.
 
 ### PS-BUILD-20 [M] Assert in CI that the GIL is actually off
 
-`python -c "import yourpkg; import sys; assert not sys._is_gil_enabled()"`.
+Two assertions, because a GIL build fails the second for a different reason:
+
+```sh
+python -c "import sys; assert sys.abi_info.free_threaded"           # the CI image
+python -c "import sys, yourpkg; assert not sys._is_gil_enabled()"  # the dependency tree
+```
 
 **Why:** the re-enable is silent apart from a `RuntimeWarning` that CI logs swallow, so without this
 assertion a dependency upgrade can quietly turn a free-threaded deployment into a GIL one and

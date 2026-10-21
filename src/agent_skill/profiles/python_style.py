@@ -85,7 +85,7 @@ class PythonStyle(Profile):
             # The pattern carried a stray space for as long as it
             # shipped, and matched nothing; this is the line it was
             # written to find.
-            "PS-MIG-08": ("if json.__version__ < (2, 0):",),
+            "PS-MIG-06": ("if json.__version__ < (2, 0):",),
         }
     )
     not_decisive: dict[str, NotDecisive] = field(
@@ -106,30 +106,15 @@ class PythonStyle(Profile):
                 "the pattern finds the test; whether a lock spans the test and the "
                 "write decides",
             ),
-            "PS-CONC-11": NotDecisive(
-                "every decorator without `frozen=True`",
-                "the pattern finds every dataclass; the `frozen=True` argument decides",
-            ),
-            "PS-CONC-21": NotDecisive(
+            "PS-CONC-18": NotDecisive(
                 "any hit whose preceding lines are inside",
                 "the pattern finds every ContextVar; the scope it is created in "
                 "decides, which a line-oriented pattern cannot see",
             ),
-            "PS-CONC-22": NotDecisive(
+            "PS-CONC-19": NotDecisive(
                 "whose value was set outside it",
                 "the pattern finds every context read; passing the context explicitly "
                 "is the compliant form and matches the same pattern",
-            ),
-            "PS-MIG-09": NotDecisive(
-                "find every decorator derived from one that is",
-                "the pattern finds every `@contextmanager`; what it decorates decides, "
-                "and the `with` form the standard recommends matches too",
-            ),
-            "PS-MIG-10": NotDecisive(
-                "isinstance\\(.*, dict\\)",
-                "the pattern finds every dict test; a narrowing check on parsed JSON "
-                "is correct, and so is a test demonstrating that a `frozendict` "
-                "fails it",
             ),
             "PS-TEST-18": NotDecisive(
                 "sleep\\(' tests/",
@@ -152,7 +137,7 @@ class PythonStyle(Profile):
                 "is how a context manager is implemented, not a call site that "
                 "should have used one",
             ),
-            "PS-DATA-10": NotDecisive(
+            "PS-DATA-09": NotDecisive(
                 "inside class bodies",
                 "the pattern finds every call on the right of an assignment; being "
                 "inside a class body is what makes it a default, which the pattern "
@@ -161,12 +146,12 @@ class PythonStyle(Profile):
             # Polarity: this Check asserts the shape is *present*, so
             # its hits are evidence of compliance and reading them as
             # defects inverts the rule.
-            "PS-DATA-14": NotDecisive(
+            "PS-DATA-12": NotDecisive(
                 "should be roughly as common as",
                 "a presence assertion: the finding is an absence, which no hit can "
                 "show",
             ),
-            "PS-DATA-15": NotDecisive(
+            "PS-DATA-13": NotDecisive(
                 "every hit is a place a `frozendict` would fail",
                 "the rule's own example demonstrates the failing test deliberately, "
                 "and a hit in application code is a candidate until the value's "
@@ -181,22 +166,22 @@ class PythonStyle(Profile):
                 "read for `slots=`",
                 "the pattern finds every dataclass; the `slots=` argument decides",
             ),
-            "PS-NAME-12": NotDecisive(
+            "PS-NAME-11": NotDecisive(
                 "read each hit for what",
                 "the pattern finds every indented import; what encloses it decides, "
                 "and an `if TYPE_CHECKING:` block is indented too",
             ),
-            "PS-CONC-14": NotDecisive(
+            "PS-CONC-12": NotDecisive(
                 "read what the target closes over",
                 "the pattern finds every thread start; what the target closes over "
                 "decides, and starting a thread is not itself a defect",
             ),
-            "PS-CONC-23": NotDecisive(
+            "PS-CONC-20": NotDecisive(
                 "inside any thread target",
                 "the pattern finds every `print`; the calling thread decides, and a "
                 "module-level print is not a hit",
             ),
-            "PS-CONC-25": NotDecisive(
+            "PS-CONC-22": NotDecisive(
                 "applied to a `def` containing `yield`",
                 "the pattern finds every `@contextmanager`; what it decorates decides, "
                 "and the `with` form the rule recommends matches too",

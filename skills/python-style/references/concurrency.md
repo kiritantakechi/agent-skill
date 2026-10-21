@@ -20,45 +20,42 @@ free-threaded build. Where a rule depends on the build, the block probes it rath
 ## Contents
 
 - **What the GIL guaranteed, and what it does not**
-  - PS-CONC-01 [M] Probe the build with `sysconfig` and the runtime with `sys._is_gil_enabled`
+  - PS-CONC-01 [M] Probe the build with `sys.abi_info` and the runtime with `sys._is_gil_enabled`
   - PS-CONC-02 [M] Never treat a compound assignment as one step
   - PS-CONC-03 [M] Never treat check-then-act as one step
   - PS-CONC-04 [M!] Accumulate per thread and merge, or hold one lock across the whole update
   - PS-CONC-05 [M] Cite the thread-safety guarantees page, never the FAQ's bytecode argument
-  - PS-CONC-06 [M] A container's internal lock protects the container, never your invariant
+  - PS-CONC-06 [M] Name the invariant a lock guards, on the line that creates it
   - PS-CONC-07 [M] Never read `frame.f_locals` for a frame executing in another thread
 - **Sharing objects between threads**
   - PS-CONC-08 [M] Snapshot a container before iterating what another thread may mutate
   - PS-CONC-09 [S] Send an immutable message rather than sharing a mutable object
   - PS-CONC-10 [M] Hand work between threads with `queue.Queue`
-  - PS-CONC-11 [M] Freeze a shared dataclass, or guard every write to it
-  - PS-CONC-12 [S] Keep a shared object's lock inside the object that owns it
+  - PS-CONC-11 [S] Keep a shared object's lock inside the object that owns it
 - **Iterators and generators**
-  - PS-CONC-13 [M] Never share one generator across threads
-  - PS-CONC-14 [M] Serialise a shared iterator with `threading.serialize_iterator`
-  - PS-CONC-15 [M] Give each consumer a full stream with `threading.concurrent_tee`
-  - PS-CONC-16 [M] Never share the branches of `itertools.tee`
-  - PS-CONC-17 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
+  - PS-CONC-12 [M] Serialise a shared iterator with `threading.serialize_iterator`
+  - PS-CONC-13 [M] Give each consumer a full stream with `threading.concurrent_tee`
+  - PS-CONC-14 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
 - **Caches, memoisation, and context**
-  - PS-CONC-18 [M] Treat `functools.lru_cache` as coherent but not single-flight
-  - PS-CONC-19 [M] Treat `functools.cached_property` as able to run more than once
-  - PS-CONC-20 [M!] Put a lock around a memo whose miss is expensive or has an effect
-  - PS-CONC-21 [M] Create every `ContextVar` at module scope
-  - PS-CONC-22 [M] Never rely on a thread inheriting context; the default differs by build
+  - PS-CONC-15 [M] Treat `functools.lru_cache` as coherent but not single-flight
+  - PS-CONC-16 [M] Treat `functools.cached_property` as able to run more than once
+  - PS-CONC-17 [M!] Put a lock around a memo whose miss is expensive or has an effect
+  - PS-CONC-18 [M] Create every `ContextVar` at module scope
+  - PS-CONC-19 [M] Never rely on a thread inheriting context; the default differs by build
 - **Streams, randomness, and hold times**
-  - PS-CONC-23 [M] Never share a `TextIOWrapper` across threads, `print` included
-  - PS-CONC-24 [M] Give each thread its own `random.Random`
-  - PS-CONC-25 [M] Know that a `contextmanager` decorator now holds across the whole generator
-  - PS-CONC-26 [S] Never hold a lock across a call you do not control
+  - PS-CONC-20 [M] Never share a `TextIOWrapper` across threads, `print` included
+  - PS-CONC-21 [M] Give each thread its own `random.Random`
+  - PS-CONC-22 [M] Know that a `contextmanager` decorator now holds across the whole generator
+  - PS-CONC-23 [S] Never hold a lock across a call you do not control
 
 ---
 
 ## What the GIL guaranteed, and what it does not
 
-### PS-CONC-01 [M] Probe the build with `sysconfig` and the runtime with `sys._is_gil_enabled`
+### PS-CONC-01 [M] Probe the build with `sys.abi_info` and the runtime with `sys._is_gil_enabled`
 
-They answer different questions. `sysconfig.get_config_var("Py_GIL_DISABLED")` says how the
-interpreter was built and is fixed for the process. `sys._is_gil_enabled()` says whether the GIL is
+They answer different questions. `sys.abi_info.free_threaded` says how the interpreter was built, as
+a documented `bool`, and is fixed for the process. `sys._is_gil_enabled()` says whether the GIL is
 off *right now*, which can change after startup. It returns `True` unconditionally on a GIL build,
 so it cannot identify the build on its own, and the leading underscore is load-bearing: the docs
 mark it a CPython implementation detail that is "not guaranteed to exist in all implementations".
@@ -68,15 +65,15 @@ of the process: one dependency is enough, and only a `RuntimeWarning` says so. S
 "which wheel do I need"; only the runtime probe answers "am I actually running in parallel".
 
 **Check:** every use of `sys._is_gil_enabled` in packaging, build, or wheel-selection code is a
-defect — that decision belongs to `sysconfig`. Every bare call without a `getattr` guard is a defect
-in code that must run on another implementation.
+defect — that decision belongs to `sys.abi_info`. Every bare call without a `getattr` guard is a
+defect in code that must run on another implementation. So is comparing
+`sysconfig.get_config_var("Py_GIL_DISABLED")`, an untyped `0` or `1`, where the `bool` is there.
 
 ```python
 # verified — GOOD
 import sys
-import sysconfig
 
-FREE_THREADED_BUILD = sysconfig.get_config_var("Py_GIL_DISABLED") == 1
+FREE_THREADED_BUILD = sys.abi_info.free_threaded
 
 
 def running_in_parallel() -> bool:
@@ -245,17 +242,18 @@ says outright that read-modify-write and check-then-act are not atomic.
 bytecode atomicity, or to "CPython guarantees" is the finding.
 `rg -ni 'gil (makes|means|guarantees)|atomic (because|since)|bytecode is atomic' src/`
 
-### PS-CONC-06 [M] A container's internal lock protects the container, never your invariant
+### PS-CONC-06 [M] Name the invariant a lock guards, on the line that creates it
 
-`list.append` will not corrupt the list. It will not stop another thread appending between your
-append and your length check.
+`self._lock = threading.Lock()  # guards: len(self._lines) <= self._limit`. An invariant spanning
+two operations, such as "the list and the counter agree", is yours to hold: a container's own lock
+covers one operation (PS-CONC-05), and the gap between two is PS-CONC-03's.
 
-**Why:** the internal locks are per operation, so an invariant spanning two operations, such as "the
-list and the counter agree", is yours to hold, with a lock that spans exactly the operations it
-covers. This is PS-CONC-03's defect stated for invariants rather than for lookups.
+**Why:** the invariant decides which operations the lock must span, and a reader can check that only
+when it is written down. A lock whose invariant has no name drifts too narrow, reopening the gap, or
+too wide, serialising work it never needed to.
 
-**Check:** for every lock in the codebase, name the invariant it protects in a comment on the line
-that declares it. A lock whose invariant cannot be named is either unnecessary or too narrow.
+**Check:** every `Lock()`, `RLock()` and `Condition()`. One with no `# guards:` comment naming its
+invariant is the finding; a lock whose invariant cannot be named is unnecessary or too narrow.
 
 ```python
 # verified — GOOD
@@ -362,12 +360,13 @@ assert out == ["/a:1", "/b:2"]
 
 ### PS-CONC-10 [M] Hand work between threads with `queue.Queue`
 
-Not a shared list with a lock you wrote, and not a deque you poll. Note the documented limit:
-`Queue` "is not designed to handle reentrancy within a thread", so never call `put` from a callback
-the same queue's consumer invoked.
+Not a shared list with a lock you wrote, and not a deque you poll. End the stream with
+`shutdown()`: every blocked `get` then raises `queue.ShutDown` once the queue is drained, so the
+producer never counts its consumers to send each a sentinel. Note the documented limit: `Queue` "is
+not designed to handle reentrancy within a thread", so never `put` from a callback its consumer ran.
 
 **Why:** `queue.Queue` implements "all of the required locking semantics" per its own docs, and it
-carries the blocking, the sentinel, and the `task_done`/`join` accounting a hand-rolled equivalent
+carries the blocking, the shutdown, and the `task_done`/`join` accounting a hand-rolled equivalent
 gets wrong. The classic hand-rolled bug is PS-CONC-03's: `if q: item = q.pop()` with two consumers.
 
 **Check:** `rg -n '\.pop\(0\)|\.pop\(\)' src/` inside anything threaded, and every
@@ -377,18 +376,20 @@ gets wrong. The classic hand-rolled bug is PS-CONC-03's: `if q: item = q.pop()` 
 # verified — GOOD
 import queue
 import threading
+from contextlib import suppress
 
-work: queue.Queue[int | None] = queue.Queue()
+work: queue.Queue[int] = queue.Queue()
 seen: list[int] = []
 seen_lock = threading.Lock()
 
 
 def consume() -> None:
-    while (item := work.get()) is not None:
-        with seen_lock:
-            seen.append(item)
-        work.task_done()
-    work.task_done()
+    with suppress(queue.ShutDown):  # raised once the queue is drained and shut down
+        while True:
+            item = work.get()
+            with seen_lock:
+                seen.append(item)
+            work.task_done()
 
 
 workers = [threading.Thread(target=consume) for _ in range(3)]
@@ -396,26 +397,25 @@ for w in workers:
     w.start()
 for i in range(9):
     work.put(i)
-for _ in workers:
-    work.put(None)  # one sentinel per consumer
+work.shutdown()  # one call, however many consumers there are
 for w in workers:
     w.join()
 assert sorted(seen) == list(range(9))
 ```
 
-### PS-CONC-11 [M] Freeze a shared dataclass, or guard every write to it
+### PS-CONC-11 [S] Keep a shared object's lock inside the object that owns it
 
-`@dataclass(frozen=True, slots=True)` for anything two threads can reach. If it must be mutable, it
-owns a lock and every field write goes through a method that takes it. `slots=True` is free
-alongside it and removes the per-instance `__dict__`, which matters more on the free-threaded build
-where object headers are already larger.
+A module-level `_lock` beside a module-level `_cache` works until a second cache appears and takes
+the same lock. Put the lock on the class whose invariant it protects, and route every write through
+a method that takes it. Holding a frozen value (PS-DATA-01) and replacing it whole under the lock
+keeps every read whole too.
 
-**Why:** a plain dataclass gives every field a public, unsynchronised setter. Freezing turns "who
-may write this, and when" from a convention nobody can enforce into a `FrozenInstanceError` at the
-moment of the mistake.
+**Why:** one process-wide lock guarding everything serialises unrelated work, which on the
+free-threaded build is the difference between scaling and not, and it makes lock-ordering deadlocks
+possible between operations that never needed to interact.
 
-**Check:** `rg -n '@dataclass' src/` — every decorator without `frozen=True` on a type reachable
-from more than one thread is the finding.
+**Check:** two or more module-level `Lock()` objects in one module, or one lock referenced by
+functions that touch different state, is the finding.
 
 ```python
 # verified — GOOD
@@ -446,30 +446,21 @@ t = Tracker()
 assert t.advance(3) == Position(3, 0)
 ```
 
-### PS-CONC-12 [S] Keep a shared object's lock inside the object that owns it
-
-A module-level `_lock` beside a module-level `_cache` works until a second cache appears and takes
-the same lock. Put the lock on the class whose invariant it protects.
-
-**Why:** one process-wide lock guarding everything serialises unrelated work, which on the
-free-threaded build is the difference between scaling and not, and it makes lock-ordering deadlocks
-possible between operations that never needed to interact.
-
-**Check:** two or more module-level `Lock()` objects in one module, or one lock referenced by
-functions that touch different state, is the finding.
-
 ## Iterators and generators
 
-### PS-CONC-13 [M] Never share one generator across threads
+### PS-CONC-12 [M] Serialise a shared iterator with `threading.serialize_iterator`
 
-Two threads calling `next()` on the same generator is an error, not a race you can win.
+Two threads calling `next()` on one iterator is the defect. `serialize_iterator` hands each item to
+exactly one caller, and it neither copies nor buffers. It is a class, not a function: wrap once,
+and share the wrapper.
 
-**Why:** the generator raises `ValueError: generator already executing`, which is the good case
-because it is loud. With any other iterator the free-threading HOWTO warns that threads "may see
-duplicate or missing elements", so a pool sharing one processes some items twice and drops others.
+**Why:** a shared generator raises `ValueError: generator already executing`, the good case because
+it is loud. With any other iterator, the free-threading HOWTO warns that threads "may see duplicate
+or missing elements", so a pool sharing one processes some items twice and drops others.
 
-**Check:** any generator or iterator that is created in one place and consumed inside a thread
-target, an executor callback, or a `for` loop in more than one thread.
+**Check:** every iterator passed to more than one thread must be wrapped. An unwrapped one is the
+finding, and the grep is for the sharing rather than for the call —
+`rg -nB3 'Thread\(target=' src/` and read what the target closes over.
 
 ```python
 # verified — BAD: the loud half of the failure
@@ -497,21 +488,8 @@ for t in threads:
     t.start()
 for t in threads:
     t.join()
-# On the free-threaded build this is where the sharing is caught. Every other
-# iterator type fails silently instead, which is PS-CONC-14.
+# A generator is caught here. Every other iterator type fails silently instead.
 ```
-
-### PS-CONC-14 [M] Serialise a shared iterator with `threading.serialize_iterator`
-
-New in 3.15. It hands each item to exactly one caller, and it neither copies nor buffers.
-
-**Why:** this is the standard library's answer to the hazard in PS-CONC-13, added in 3.15 precisely
-because "not thread-safe" was the honest description of every shared iterator and the workarounds
-were all hand-rolled. `serialize_iterator` is a class, not a function: wrap once, share the wrapper.
-
-**Check:** every iterator passed to more than one thread must be wrapped. An unwrapped one is the
-finding, and the grep is for the sharing rather than for the call —
-`rg -nB3 'Thread\(target=' src/` and read what the target closes over.
 
 ```python
 # verified — GOOD
@@ -536,18 +514,23 @@ for t in threads:
 assert sorted(got) == list(range(9)), "each item goes to exactly one caller"
 ```
 
-### PS-CONC-15 [M] Give each consumer a full stream with `threading.concurrent_tee`
+### PS-CONC-13 [M] Give each consumer a full stream with `threading.concurrent_tee`
 
 When every consumer needs every item — not one each — `concurrent_tee(iterable, n)` is the split.
-Its derived iterators are each single-consumer: handing one branch to two threads reintroduces
-PS-CONC-13.
+Its derived iterators are each single-consumer: handing one branch to two threads is PS-CONC-12's
+defect again. `itertools.tee` is not a substitute, and its name is one word from the safe one: its
+docs say a `RuntimeError` "may be raised when simultaneously using iterators returned by the same
+`tee()` call, even if the original iterable is threadsafe", and concurrent use has segfaulted in
+`teedataobject_clear`.
 
 **Why:** `serialize_iterator` partitions and `concurrent_tee` duplicates; choosing the wrong one is
 a silent correctness bug, not a performance one. `concurrent_tee` buffers each item until every
 derived iterator has consumed it, so a slow consumer costs memory rather than correctness.
 
 **Check:** any place where several threads must each see the whole stream. A shared iterator there
-is the finding; so is passing one `concurrent_tee` branch to more than one thread.
+is the finding; so is passing one `concurrent_tee` branch to more than one thread. And
+`rg -n 'itertools.tee|from itertools import.*tee' src/` — every hit in a module that also imports
+`threading` or `concurrent.futures` is the finding.
 
 ```python
 # verified — GOOD
@@ -575,24 +558,13 @@ for t in threads:
 assert sums == {"left": 10, "right": 10}, "both consumers saw the whole stream"
 ```
 
-### PS-CONC-16 [M] Never share the branches of `itertools.tee`
-
-`itertools.tee` is documented as not thread-safe. `threading.concurrent_tee` is the threaded one.
-
-**Why:** the `itertools.tee` docs state that a `RuntimeError` "may be raised when simultaneously
-using iterators returned by the same `tee()` call, even if the original iterable is threadsafe", and
-concurrent use has segfaulted in `teedataobject_clear`, and its name is one word from the safe one.
-
-**Check:** `rg -n 'itertools.tee|from itertools import.*tee' src/` — every hit in a module that
-also imports `threading` or `concurrent.futures` is the finding.
-
-### PS-CONC-17 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
+### PS-CONC-14 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
 
 A decorator on a function that returns an iterator, so callers get a safe one without knowing to
-wrap it. It applies only where you own the factory; where you are handed an iterator, PS-CONC-14 is
+wrap it. It applies only where you own the factory; where you are handed an iterator, PS-CONC-12 is
 the rule.
 
-**Why:** PS-CONC-14 puts the obligation on every caller, and an obligation every caller must
+**Why:** PS-CONC-12 puts the obligation on every caller, and an obligation every caller must
 remember is one some caller will forget. Decorating the factory moves it to the one place that can
 discharge it.
 
@@ -631,7 +603,7 @@ assert sorted(got) == list(range(30))
 
 ## Caches, memoisation, and context
 
-### PS-CONC-18 [M] Treat `functools.lru_cache` as coherent but not single-flight
+### PS-CONC-15 [M] Treat `functools.lru_cache` as coherent but not single-flight
 
 The cache will not corrupt. The function behind it will run more than once for the same key.
 
@@ -641,32 +613,36 @@ Harmless for a pure function; a duplicated charge, write, or connection if the b
 
 **Check:** `rg -nB3 '@lru_cache|@cache\b' src/` and read each decorated body for effects — I/O,
 writes, metrics, allocation of a scarce resource. A pure function is fine; anything else needs
-PS-CONC-20.
+PS-CONC-17.
 
-### PS-CONC-19 [M] Treat `functools.cached_property` as able to run more than once
+### PS-CONC-16 [M] Treat `functools.cached_property` as able to run more than once
 
-It lost its lock in 3.12. Two threads reaching a cold property both compute it, and one of the two
-results is discarded.
+It takes no lock. Two threads reaching a cold property both compute it, and one of the two results
+is discarded.
 
-**Why:** the lock was removed because it serialised every instance behind one class-wide lock, so
-`cached_property` is now a memo, not a once-only guarantee. A discarded result that only computed
-costs time; one that opened a connection or allocated a handle leaks unless something closes it.
+**Why:** a lock would serialise every instance behind one class-wide lock, so `cached_property` is
+a memo, not a once-only guarantee. A discarded result that only computed costs time; one that
+opened a connection or allocated a handle leaks unless something closes it.
 
 **Check:** `rg -nA5 'cached_property' src/` — a getter that constructs anything needing cleanup
 is the finding.
 
-### PS-CONC-20 [M!] Put a lock around a memo whose miss is expensive or has an effect
+### PS-CONC-17 [M!] Put a lock around a memo whose miss is expensive or has an effect
 
-Not around the cache read — around the miss.
+Not around the cache read — around the miss. Memoise an effect only where "once" is what every
+caller wants, such as opening a connection: a cached charge or write happens once while each caller
+believes it happened for them. `functools.cache` also needs every argument to be hashable.
 
 *Relaxed form:* a pure, cheap function may use the plain decorator and accept duplicate execution;
 say so in a comment on the decorator, so the next reader knows it was a decision.
 
-**Why:** PS-CONC-18 and PS-CONC-19 are the same defect with two spellings. The double-checked shape
+**Why:** PS-CONC-15 and PS-CONC-16 are the same defect with two spellings. The double-checked shape
 keeps the common case, a hit, lock-free while making the miss single-flight; without it, "cached"
 means "usually computed once", which is not what the word promises the reader.
 
-**Check:** every memo whose body does I/O and has no lock.
+**Check:** every `@cache`, `@lru_cache` and hand-written memo. Read the body for I/O, mutation,
+randomness, or time: an effect a caller expects on every call is the finding, and so is an
+effectful miss with no lock.
 
 ```python
 # verified — GOOD
@@ -693,7 +669,7 @@ assert connection("db") == "conn:db"
 assert connection("db") == "conn:db"
 ```
 
-### PS-CONC-21 [M] Create every `ContextVar` at module scope
+### PS-CONC-18 [M] Create every `ContextVar` at module scope
 
 Never inside a function, a method, or a loop.
 
@@ -704,10 +680,12 @@ does not work".
 **Check:** `rg -nB5 'ContextVar\(' src/` — any hit whose preceding lines are inside a `def` or
 `class` body is the finding.
 
-### PS-CONC-22 [M] Never rely on a thread inheriting context; the default differs by build
+### PS-CONC-19 [M] Never rely on a thread inheriting context; the default differs by build
 
-`sys.flags.thread_inherit_context` is 1 on the free-threaded build and 0 on the GIL build. Pass the
-context explicitly, or set the flag deliberately.
+`sys.flags.thread_inherit_context` is 1 on the free-threaded build and 0 on the GIL build, and so is
+`sys.flags.context_aware_warnings`, which makes `warnings.catch_warnings` context-local. Pass the
+context explicitly, with `Thread(target=work, context=contextvars.copy_context())`, or set the flags
+deliberately.
 
 **Why:** a `ContextVar` set before starting a thread is visible inside it on `python3.15t` and
 absent on `python3.15`, so code developed on one build takes a different branch on the other with
@@ -731,18 +709,18 @@ def worker() -> None:
     seen.append(request_id.get())
 
 
-request_id.set("abc")
-# The context is passed, not inherited: this reads the same on both builds.
-ctx = contextvars.copy_context()
-thread = threading.Thread(target=ctx.run, args=(worker,))
-thread.start()
-thread.join()
+with request_id.set("abc"):
+    # The context is passed, not inherited: this reads the same on both builds.
+    thread = threading.Thread(target=worker, context=contextvars.copy_context())
+    thread.start()
+    thread.join()
 assert seen == ["abc"]
+assert request_id.get() == "-", "leaving the block reset the variable"
 ```
 
 ## Streams, randomness, and hold times
 
-### PS-CONC-23 [M] Never share a `TextIOWrapper` across threads, `print` included
+### PS-CONC-20 [M] Never share a `TextIOWrapper` across threads, `print` included
 
 `open()` in text mode returns one. So do `sys.stdout` and `sys.stderr`. So `print` from two threads
 is the same defect as writing to a shared file from two threads.
@@ -754,7 +732,7 @@ bytecode window now interleaves, in the encoder's internal state as well as in t
 **Check:** `rg -n '\bprint\(|sys.stdout.write|sys.stderr.write' src/` inside any thread target.
 Logging is the fix: `logging` handlers take a lock around each emit.
 
-### PS-CONC-24 [M] Give each thread its own `random.Random`
+### PS-CONC-21 [M] Give each thread its own `random.Random`
 
 The module-level functions all share one instance.
 
@@ -778,7 +756,8 @@ def rng() -> random.Random:
     existing = getattr(_local, "rng", None)
     if isinstance(existing, random.Random):
         return existing
-    made = random.Random(hash(threading.current_thread().name) & 0xFFFF)
+    # Seeded by the name, not by `hash` of it: string hashes are salted per process.
+    made = random.Random(threading.current_thread().name)
     _local.rng = made
     return made
 
@@ -801,7 +780,7 @@ for t in threads:
 assert len(out) == 4
 ```
 
-### PS-CONC-25 [M] Know that a `contextmanager` decorator now holds across the whole generator
+### PS-CONC-22 [M] Know that a `contextmanager` decorator now holds across the whole generator
 
 In 3.15 a `@contextmanager`-derived decorator applied to a generator function keeps the context open
 until the generator is exhausted. Previously it closed when the generator object was created. The
@@ -847,13 +826,13 @@ assert list(rows()) == [1, 2, 3]
 assert held == ["in", "out"]
 ```
 
-### PS-CONC-26 [S] Never hold a lock across a call you do not control
+### PS-CONC-23 [S] Never hold a lock across a call you do not control
 
 A callback, a plugin hook, an I/O call, or anything that can block. Compute under the lock, call
 outside it.
 
 **Why:** a lock held across arbitrary code is a lock whose hold time you cannot bound, and one whose
-acquisition order you cannot see: the shape of every lock-ordering deadlock. Under PS-CONC-25, a
+acquisition order you cannot see: the shape of every lock-ordering deadlock. Under PS-CONC-22, a
 decorator whose hold time silently grew now spans calls it never used to.
 
 **Check:** read every `with <lock>:` body for a call that is not a local function or a container
