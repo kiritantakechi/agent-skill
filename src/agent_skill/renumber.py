@@ -179,9 +179,7 @@ def apply(repo: Path, plan: Plan) -> None:
             old.rename(new)
     for path, text in plan.writes.items():
         path.write_text(text)
-    skill = Skill(repo / "skills" / plan.skill, plan.profile)
-    if skill.profile.exempt_from_structure is None:
-        shared.rewrite(skill)
+    shared.rewrite(Skill(repo / "skills" / plan.skill, plan.profile))
 
 
 # ------------------------------------------------------------------ the

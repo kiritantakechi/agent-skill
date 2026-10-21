@@ -138,33 +138,15 @@ def _rule(chapter: Chapter, rule: Rule, where: str) -> Iterator[Finding]:
 
 
 def _numbering(skill: Skill) -> Iterator[Finding]:
-    """Ids run in order within a chapter.
+    """Ids run 01, 02, … within a chapter, and every Why fits.
 
     Appending a rule in the middle passes every other check — the
     contents list agrees, because it was edited too — and leaves a
-    reader scanning 01..08, 25, 09. The other two skills hold the
-    invariant across 1149 rules; this catches the one that broke it.
-
-    A standard that follows standard-structure numbers densely, which
-    decides this and more, so the order is judged there and not twice.
+    reader scanning 01..08, 25, 09. Dense numbering decides that and
+    more, so it is judged once, in `structural`.
     """
-    conforming = skill.profile.exempt_from_structure is None
-    for chapter in [] if conforming else skill.chapters:
-        nums = [_number(r.id) for r in chapter.rules]
-        for a, b in itertools.pairwise(nums):
-            if b < a:
-                yield fail(
-                    f"rule ids run backwards: {a} then {b}",
-                    f"{skill.name}/{chapter.name}",
-                )
-    if conforming:
-        for message, where in structural(skill):
-            yield fail(message, where)
-
-
-def _number(rule_id: str) -> int:
-    """The number in an id's last part: `07a` -> 7."""
-    return int(re.findall(r"\d+", rule_id.rsplit("-", 1)[1])[0])
+    for message, where in structural(skill):
+        yield fail(message, where)
 
 
 def _contents_order(skill: Skill) -> Iterator[Finding]:

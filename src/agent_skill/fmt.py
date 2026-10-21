@@ -78,10 +78,7 @@ def format_skill(skill: Skill) -> list[str]:
     Returns one line per passage or chapter changed. The shared passages
     come first: they are text, and need no toolchain to rewrite.
     """
-    if skill.profile.exempt_from_structure is not None:
-        changed: list[str] = []
-    else:
-        changed = shared.rewrite(skill) + _reflow(skill)
+    changed = shared.rewrite(skill) + _reflow(skill)
     formatter = FORMATTERS.get(skill.profile.toolchain or "")
     return changed + (formatter(skill) if formatter else [])
 

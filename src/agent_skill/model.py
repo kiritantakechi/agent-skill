@@ -25,9 +25,7 @@ lazy from agent_skill.profiles import Profile, profile_for
 #: `// rejected — clippy: …` — because a language has several ways to be
 #: wrong and one word for all of them names none of them: Python has the
 #: interpreter, the type checker and the linter, and Rust has `rustc`
-#: and `clippy`. `does-not-compile` said "the compiler" in a standard
-#: whose reader also runs a linter. A standard that has not been brought
-#: over yet declares its old vocabulary in its profile.
+#: and `clippy`. Every standard uses these three words.
 MARKERS = ("verified", "fragment", "rejected")
 
 #: `// verified — GOOD: the qualifier`. The comment syntax varies by

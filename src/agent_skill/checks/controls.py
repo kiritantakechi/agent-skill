@@ -571,9 +571,7 @@ CONTROLS: list[Control] = [
     Control(
         "a prose line over the column limit",
         "layout",
-        lambda t: append(
-            t, "zig-style/references/data.md", "\n" + "x " * 60 + "\n"
-        ),
+        lambda t: append(t, "zig-style/references/data.md", "\n" + "x " * 60 + "\n"),
     ),
     Control(
         "a second marker line in one block",

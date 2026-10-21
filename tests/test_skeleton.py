@@ -3,14 +3,13 @@
 The standard is built to conform and then broken one way at a time.
 """
 
-import dataclasses
 lazy from pathlib import Path
 
 import pytest
 
 from agent_skill.checks.anatomy import structural
 from agent_skill.checks.skeleton import shape, skeleton
-from structure_fixture import Demo, build, edit, reparse
+from structure_fixture import build, edit, reparse
 lazy from agent_skill.model import Skill
 
 
@@ -89,19 +88,3 @@ def test_reference_map_columns_out_of_order(demo: Skill) -> None:
         demo, "SKILL.md", "| File | Rule IDs | Covers |", "| File | Covers | Rule IDs |"
     )
     assert any("reference map's columns" in m for m in messages(broken))
-
-
-def test_an_exemption_over_a_conforming_standard_is_reported(tmp_path: Path) -> None:
-    exempt = build(tmp_path, dataclasses.replace(Demo(), exempt_from_structure="later"))
-    assert any("already conforms" in f.message for f in skeleton(exempt))
-
-
-def test_an_exemption_over_a_nonconforming_standard_is_quiet(tmp_path: Path) -> None:
-    exempt = build(tmp_path, dataclasses.replace(Demo(), exempt_from_structure="later"))
-    broken = edit(exempt, "SKILL.md", "## 4. Core rules", "## 4. Rules")
-    assert list(skeleton(broken)) == []
-
-
-def test_an_exemption_without_a_reason_fails(tmp_path: Path) -> None:
-    blank = build(tmp_path, dataclasses.replace(Demo(), exempt_from_structure=" "))
-    assert any("gives no reason" in f.message for f in skeleton(blank))

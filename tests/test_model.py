@@ -24,7 +24,7 @@ from agent_skill.text import code_only, strip_comment, syntax_for
         ("// verified", "verified", "", False),
         ("// verified — GOOD", "verified", "GOOD", False),
         ("// fragment — BAD: compiles, never runs", "fragment", "BAD", True),
-        ("// does-not-compile — BAD", "does-not-compile", "BAD", True),
+        ("// rejected — zig: unused local constant", "rejected", "", False),
         ("# fragment — Cargo.toml", "fragment", "", False),
         ("// fragment — (quoted from std/testing.zig)", "fragment", "", False),
     ],

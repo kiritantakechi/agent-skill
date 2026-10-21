@@ -107,11 +107,11 @@ applied.
 
 ## 5. Remove the exemption machinery
 
-- [ ] 5.1 Remove everything listed in D7, including the controls and tests that existed only for
+- [x] 5.1 Remove everything listed in D7, including the controls and tests that existed only for
   it. Verify:
   - `rg -n "exempt_from_structure|exemption_problem|does-not-compile" src tests` finds nothing;
   - `uv run pytest -m "not toolchain"` passes, `tests/test_own_standard.py` included.
-- [ ] 5.2 Remove the README's zig-style exemption and old-marker paragraphs. Verify:
+- [x] 5.2 Remove the README's zig-style exemption and old-marker paragraphs. Verify:
   `--fast --only documented`.
 
 ## 6. Close

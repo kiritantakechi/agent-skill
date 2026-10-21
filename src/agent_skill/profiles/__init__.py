@@ -20,9 +20,9 @@ import importlib
 from dataclasses import dataclass, field
 lazy from collections.abc import Callable, Iterable
 
-from agent_skill.model import MARKERS, Skill
 lazy from agent_skill.checks.search import Span
 lazy from agent_skill.lang.rust import Crate
+lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
 
 #: Whether a hit is the case its rule permits, given the corpus lines,
@@ -53,16 +53,8 @@ class Profile:
     languages: tuple[str, ...] = ()
     #: fence tags that carry markers but are not compiled
     marked_languages: tuple[str, ...] = ()
-    #: the marker words this skill's blocks may use, in its own comment
-    #: syntax
-    markers: tuple[str, ...] = MARKERS
     #: the tools a `rejected` block may name as the one that rejects it
     tools: tuple[str, ...] = ()
-    #: Why this standard does not yet follow `standard-structure`, or
-    #: None when it does. A reason, not a flag: an exemption that says
-    #: nothing about why it exists cannot be told apart from one whose
-    #: reason has lapsed.
-    exempt_from_structure: str | None = None
     #: The language in the H1 and the shared text: "Rust", "Python",
     #: "Bevy".
     language: str = ""
@@ -174,14 +166,6 @@ class Profile:
         generic corpus builder asks rather than assumes.
         """
         return set()
-
-
-def exemption_problem(profile: Profile) -> str | None:
-    """What is wrong with a profile's structure exemption, if any."""
-    reason = profile.exempt_from_structure
-    if reason is not None and not reason.strip():
-        return f"{profile.name} is exempt from standard-structure and gives no reason"
-    return None
 
 
 _REGISTRY: dict[str, Profile] = {}

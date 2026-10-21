@@ -19,9 +19,7 @@ lazy from collections.abc import Iterator
 
 from agent_skill import shared, vocabulary
 from agent_skill.checks import check
-from agent_skill.profiles import exemption_problem
 from agent_skill.report import fail
-lazy from agent_skill.checks.anatomy import structural
 lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
 
@@ -31,36 +29,9 @@ MAP_HEADER = "| File | Rule IDs | Covers |"
 
 @check("skeleton", "every standard has the same shape")
 def skeleton(skill: Skill) -> Iterator[Finding]:
-    """Departures from the shared shape, or an exemption gone stale."""
-    if (problem := exemption_problem(skill.profile)) is not None:
-        yield fail(problem, skill.name)
-        return
-    # Past the guard above, an exemption is either absent or gives a
-    # reason, so `is not None` is the whole question.
-    if (reason := skill.profile.exempt_from_structure) is not None:
-        # An exemption is a promise that the standard does not conform
-        # yet. One standing over a standard that does is one nobody
-        # re-examined.
-        if not any(True for _ in structure(skill)):
-            yield fail(
-                f"exempt from standard-structure ({reason}), but already conforms — "
-                f"remove the exemption",
-                skill.name,
-            )
-        return
+    """Departures from the shared shape."""
     for message, where in shape(skill):
         yield fail(message, where)
-
-
-def structure(skill: Skill) -> Iterator[tuple[str, str]]:
-    """Every finding standard-structure would raise.
-
-    For an exempt skill's dry run.
-    """
-    yield from shape(skill)
-    yield from shared.compare(skill)
-
-    yield from structural(skill)
 
 
 def shape(skill: Skill) -> Iterator[tuple[str, str]]:

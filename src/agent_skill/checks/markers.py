@@ -9,6 +9,7 @@ import re
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
+from agent_skill.model import MARKERS
 from agent_skill.report import Finding, fail
 lazy from agent_skill.model import Block, Skill
 
@@ -26,9 +27,8 @@ def _leads(words: tuple[str, ...]) -> tuple[str, ...]:
 @check("markers", "one block, one marker, and the marker leads it")
 def markers(skill: Skill) -> Iterator[Finding]:
     """Every block's marker, held to its profile's marker grammar."""
-    words = skill.profile.markers
-    leads = _leads(words)
-    named = " / ".join(f"`{w}`" for w in words)
+    leads = _leads(MARKERS)
+    named = " / ".join(f"`{w}`" for w in MARKERS)
     for lang in skill.profile.all_marked:
         for b in skill.blocks(lang):
             yield from _leading(b, skill, leads, named)
@@ -39,13 +39,12 @@ def _leading(
     b: Block, skill: Skill, leads: tuple[str, ...], named: str
 ) -> Iterator[Finding]:
     """What is wrong with the marker that opens `b`."""
-    words = skill.profile.markers
     where = f"{skill.name}/{b.where}"
     if not b.marker.raw.startswith(leads):
         yield fail(f"no leading {named} marker", where)
     elif not b.marker.valid:
         yield fail(f"marker off-grammar: `{b.marker.raw[:60]}`", where)
-    elif b.marker.kind not in words:
+    elif b.marker.kind not in MARKERS:
         # The grammar is deliberately loose; this is where the
         # word is judged.
         yield fail(f"marker `{b.marker.kind}` is not one of {named}", where)

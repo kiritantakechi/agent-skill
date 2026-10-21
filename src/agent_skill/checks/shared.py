@@ -18,7 +18,5 @@ lazy from agent_skill.model import Skill
 @check("shared-text", "every shared passage is the template, filled in")
 def shared_text(skill: Skill) -> Iterator[Finding]:
     """Every shared passage that is not its template, filled in."""
-    if skill.profile.exempt_from_structure is not None:
-        return
     for message, where in shared.compare(skill):
         yield fail(f"{message} — `agent-skill fmt` rewrites it", where)

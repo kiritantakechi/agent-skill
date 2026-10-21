@@ -54,7 +54,7 @@ skills/<name>/                 content only — symlinked live into each agent
   rust-style/                    an anchor
   python-style/                  an anchor; its toolchain runs rather than compiles
   bevy-style/                    a delta on rust-style
-  zig-style/                     an anchor, exempt from the shared shape until its own bump
+  zig-style/                     an anchor; its pin follows this machine's `zig`
 src/agent_skill/
   model.py                     what a skill is made of; one parse, shared
   vocabulary.py                what a chapter may be called, and its rules' family code
@@ -88,10 +88,9 @@ it rather than imitation:
 - A Why is three lines at most, and rule numbers are dense; `migration.md` maps
   every old ID to what it became.
 
-`zig-style` is exempt by declaration, with its reason, and the exemption is
-reported the moment it is no longer needed. Its compiler pin follows this
-machine's `zig` rather than upstream's newest release, so the zig bump starts
-when `pins` reports the local compiler has moved.
+Every standard follows this shape; none is exempt. `zig-style`'s compiler pin
+follows this machine's `zig` rather than upstream's newest release, so the zig
+bump starts when `pins` reports the local compiler has moved.
 
 A skill directory holds nothing but the skill. Configuration lives in a profile
 inside the package, because `skills/<name>/` is symlinked into each agent and
@@ -180,8 +179,7 @@ comment syntax:
 `rejected` names its tool because a language has several ways to be wrong —
 Python's interpreter, type checker and linter, Rust's compiler and clippy — and
 one word for all of them names none of them. The tools a standard may name are
-declared on its profile. `zig-style` still declares the older `does-not-compile`,
-until its own bump.
+declared on its profile.
 
 A trailing `— GOOD` or `— BAD` names which side of the rule the block
 illustrates. Two qualifiers carry meaning to the tools: a `BAD` block and a
