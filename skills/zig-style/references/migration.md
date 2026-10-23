@@ -1,14 +1,14 @@
-# What changed: dead APIs and the 0.13 -> 0.17 migration tables
+# Migration: Every Spelling That Changed from 0.13 to 0.17
 
 Lookup tables for every spelling that changed between Zig 0.13/0.14 and **0.17.0**. Use this chapter
 to answer "does this symbol still exist, and what is it called now?" — it is a dictionary, not a
 tutorial. Rationale for the *new* designs (how to structure `std.Io` code, how to pick an allocator,
-how to lay out `build.zig`) lives in the std.Io, memory, and build chapters; the language-design
-reasoning lives in the types and control-flow chapters. Every row below was checked against the
-0.17.0 standard-library source tree — locate yours with `zig env | grep std_dir` — or by compiling a
-probe with `zig 0.17.0`; rows that are only claimed by release notes are marked. Parts 2 to 6 are
-the 0.13/0.14 -> 0.16 changes, with each right-hand column brought to its 0.17 spelling and each
-status to what 0.17 does with the old spelling; Part 7 is what 0.17 itself changed.
+how to lay out `build.zig`) lives in the concurrency, memory, and build chapters; the
+language-design reasoning lives in the data and errors chapters. Every row below was checked against
+the 0.17.0 standard-library source tree — locate yours with `zig env | grep std_dir` — or by
+compiling a probe with `zig 0.17.0`; rows that are only claimed by release notes are marked. Parts 2
+to 6 are the 0.13/0.14 -> 0.16 changes, with each right-hand column brought to its 0.17 spelling and
+each status to what 0.17 does with the old spelling; Part 7 is what 0.17 itself changed.
 
 This chapter is the **single home for dead-API tables**. Other chapters teach the new designs and
 cite these tables rather than reprinting them: ZS-MIG-03 for streams and formatting, ZS-MIG-04 for
@@ -111,7 +111,6 @@ against it.
 | `@export(foo, .{...})` | `@export(&foo, .{...})` | gone | `expected pointer type, found 'fn () void'` |
 | `@typeInfo(T).Int`, `.Struct`, `.ComptimeInt`, `.Pointer.Size.One` | `.int`, `.@"struct"`, `.comptime_int`, `.one` | gone | `no field named 'Int' in union 'lang.Type'` |
 | `asm volatile (... ::: "rcx", "r11")` | `asm volatile (... ::: .{ .rcx = true, .r11 = true })` | gone | `expected ')', found ','` |
-| `*u8` and `*align(1) u8` as one type | two types: spell the alignment the code means | wrong output | `*u8 == *align(1) u8` is false, so a `switch` on the type or a generic instantiated with each sees two |
 | a sentinel that is not a scalar, `[:[_]u8{0}][1]u8` | a scalar sentinel | gone | `non-scalar sentinel type '[1]u8'` |
 | `@memcpy` of overlapping operands | `@memmove`; `@memcpy` also needs operands that coerce | gone | `'@memcpy' arguments alias`, at comptime |
 | pointer field in a `packed struct`/`packed union` | store `usize`; `@ptrFromInt`/`@intFromPtr` at the boundary | gone | `packed structs cannot contain fields of type '*u8'` |
@@ -195,9 +194,9 @@ is not just stale, it double-buffers.
 | `std.io.Reader`, `GenericReader`, `AnyReader` | `std.Io.Reader` (one struct) | gone |
 | `std.io.bufferedWriter(w)` / `BufferedWriter` | pass a buffer to the writer constructor | gone |
 | `std.io.bufferedReader(r)` / `BufferedReader` | pass a buffer to the reader constructor | gone |
-| `std.io.fixedBufferStream(&buf)` (write) | `std.Io.Writer.fixed(&buf)` | gone |
+| `std.io.fixedBufferStream(&buffer)` (write) | `std.Io.Writer.fixed(&buffer)` | gone |
 | `std.io.fixedBufferStream(bytes)` (read) | `std.Io.Reader.fixed(bytes)` | gone |
-| `std.io.getStdOut().writer()` | `std.Io.File.stdout().writerStreaming(io, &buf)`, then `&fw.interface` | gone |
+| `std.io.getStdOut().writer()` | `std.Io.File.stdout().writerStreaming(io, &buffer)`, then `&fw.interface` | gone |
 | `std.io.getStdErr()`, `getStdIn()` | `std.Io.File.stderr()`, `.stdin()` | gone |
 | `std.io.null_writer` | `var d: std.Io.Writer.Discarding = .init(&scratch);` then `&d.writer` | gone |
 | `std.io.CountingWriter` | `Io.Writer.Discarding` — field `count`, plus `fullCount()` which includes buffered bytes | gone |
@@ -237,7 +236,7 @@ try bw.flush();
 
 ```zig
 // fragment — GOOD: streaming, so output appended to a redirected file lands after what is there
-var stdout_buffer: [1024]u8 = undefined;
+var stdout_buffer: [stdout_buffer_max]u8 = undefined;
 var stdout_file_writer = std.Io.File.stdout().writerStreaming(io, &stdout_buffer);
 const stdout = &stdout_file_writer.interface;
 try stdout.print("{f}\n", .{value});
@@ -246,8 +245,8 @@ try stdout.flush(); // a Writer with a buffer loses output if you skip this
 
 ```zig
 // fragment — GOOD: in-memory writers
-var buf: [64]u8 = undefined;
-var w: std.Io.Writer = .fixed(&buf); // was std.io.fixedBufferStream
+var buffer: [message_max]u8 = undefined;
+var w: std.Io.Writer = .fixed(&buffer); // was std.io.fixedBufferStream
 try w.print("{d}-{s}\n", .{ 42, "ok" });
 assert(std.mem.eql(u8, w.buffered(), "42-ok\n"));
 
@@ -305,19 +304,19 @@ Everything else moved outright:
 | `file.write` / `writev` | `file.writeStreaming(io, header, data, splat)` | gone |
 | `file.writeAll(bytes)` | `file.writeStreamingAll(io, bytes)` | gone |
 | `file.getEndPos()` / `setEndPos()` | `file.length(io)` / `file.setLength(io, n)` | gone |
-| `dir.realpath(p, &buf)` | `dir.realPathFile(io, p, &out) !usize` — returns a **length**, not a slice | gone |
+| `dir.realpath(p, &buffer)` | `dir.realPathFile(io, p, &out) !usize` — returns a **length**, not a slice | gone |
 | `dir.realpathAlloc(gpa, p)` | `dir.realPathFileAlloc(io, p, gpa) ![:0]u8` | gone |
-| `std.fs.realpath(abs, &buf)` | `std.Io.Dir.realPathFileAbsolute(io, abs, &out)` (+ `…AbsoluteAlloc`) | gone |
-| `file.reader(&buf)` (0.15) | `file.reader(io, &buf)` | gone |
-| `file.writer(&buf)` (0.15) | `file.writer(io, &buf)` | gone |
+| `std.fs.realpath(abs, &buffer)` | `std.Io.Dir.realPathFileAbsolute(io, abs, &out)` (+ `…AbsoluteAlloc`) | gone |
+| `file.reader(&buffer)` (0.15) | `file.reader(io, &buffer)` | gone |
+| `file.writer(&buffer)` (0.15) | `file.writer(io, &buffer)` | gone |
 | `std.fs.File.Mode` | `std.Io.File.Permissions` | gone |
 | `std.fs.File.OpenFlags` / `CreateFlags` | `Io.Dir.OpenFileOptions` / `CreateFileOptions` | gone (0.16 kept them as aliases on `Io.File`; 0.17 removed those) |
 | `dir.chmod` / `dir.chown` | `dir.setPermissions(io, …)` / `dir.setOwner(io, …)` | gone |
 | `dir.setAsCwd()` | `std.process.setCurrentDir(io, dir)` | gone |
 | `*Z` / `*W` / `*W2` path variants | removed entirely | gone |
 | `std.fs.openSelfExe` | `std.process.openExecutable(io, flags)` | gone |
-| `std.fs.selfExePath[Alloc]` | `std.process.executablePath(io, buf)` | gone |
-| `std.fs.selfExeDirPath[Alloc]` | `std.process.executableDirPath(io, buf)` | gone |
+| `std.fs.selfExePath[Alloc]` | `std.process.executablePath(io, buffer)` | gone |
+| `std.fs.selfExeDirPath[Alloc]` | `std.process.executableDirPath(io, buffer)` | gone |
 | `std.fs.getAppDataDir` | removed with no replacement | gone |
 | `std.net` | `std.Io.net` | gone |
 | `error.RenameAcrossMountPoints`, `error.NotSameFileSystem` | `error.CrossDevice` | gone |
@@ -340,7 +339,7 @@ defer gpa.free(contents);
 
 var file = try dir.openFile(io, "demo.txt", .{});
 defer file.close(io);
-var read_buffer: [64]u8 = undefined;
+var read_buffer: [line_max]u8 = undefined;
 var file_reader = file.reader(io, &read_buffer);
 var lines: usize = 0;
 while (try file_reader.interface.takeDelimiter('\n')) |_| lines += 1;
@@ -593,13 +592,17 @@ pub const Init = struct {
 ```zig
 // verified — GOOD
 const std = @import("std");
+
+/// Bytes of program output held before a write reaches the kernel.
+const stdout_buffer_max = 1024;
+
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
     const gpa = init.gpa;
     const arena = init.arena.allocator();
     const args = try init.minimal.args.toSlice(arena);
 
-    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_buffer: [stdout_buffer_max]u8 = undefined;
     var stdout_file_writer = std.Io.File.stdout().writerStreaming(io, &stdout_buffer);
     const out = &stdout_file_writer.interface;
     try out.print("argc={d}\n", .{args.len});
@@ -644,7 +647,7 @@ and `std.crypto.random`. Then the two plausible names that do not exist: `Durati
 | `std.time.sleep(ns)` | `io.sleep(duration, clock)` | gone |
 | ad-hoc `u64` nanoseconds | `Io.Duration` — `.fromNanoseconds/.fromMicroseconds/.fromMilliseconds/.fromSeconds` | — |
 | `.monotonic` clock | `Io.Clock` is `{ real, awake, boot, cpu_process, cpu_thread }`; monotonic is `.awake` | gone |
-| `std.crypto.random.bytes(&buf)`, `posix.getrandom` | `io.random(&buf)`; `io.randomSecure(&buf)` for entropy-guaranteed | gone |
+| `std.crypto.random.bytes(&buffer)`, `posix.getrandom` | `io.random(&buffer)`; `io.randomSecure(&buffer)` for entropy-guaranteed | gone |
 | `std.Options.crypto_always_getrandom` / `crypto_fork_safety` | removed — use `io.randomSecure` | gone |
 
 Spelling traps, each a compile error: there is no `Duration.fromMs` (it is `fromMilliseconds`)
@@ -703,7 +706,7 @@ it only; never make it a blocking finding.
 
 `Smith`'s public surface (`std/testing/Smith.zig`): `value(T)`, `valueWeighted`,
 `valueRangeAtMost(T, lo, hi)`, `valueRangeLessThan`, `index(len)`, `boolWeighted`, `eos()`,
-`bytes(out)`, `slice(buf)`, plus `*WithHash` variants.
+`bytes(out)`, `slice(buffer)`, plus `*WithHash` variants.
 
 ```zig
 // fragment — GOOD: the two mechanical edits
@@ -826,7 +829,7 @@ its result needs re-reading.
 
 | Old | 0.17.0 | Status |
 |---|---|---|
-| `std.fmt.bufPrintZ(buf, fmt, args)` | `std.mem.printSentinel(buf, fmt, args, 0)` | gone (an alias in 0.16) |
+| `std.fmt.bufPrintZ(buffer, fmt, args)` | `std.mem.printSentinel(buffer, fmt, args, 0)` | gone (an alias in 0.16) |
 | `std.meta.Int(sign, bits)` | `@Int(sign, bits)` | gone (an alias in 0.16) |
 | `std.meta.Tuple(&.{...})` | `@Tuple(&.{...})` | gone (an alias in 0.16, "to be removed after 0.16.0") |
 | `std.meta.declList` | removed | gone |
@@ -838,7 +841,7 @@ its result needs re-reading.
 | `std.debug.captureStackTrace` | `std.debug.captureCurrentStackTrace(options, addr_buf)` | gone |
 | `std.debug.dumpStackTraceFromBase` | `std.debug.dumpCurrentStackTrace(options)` | gone |
 | `std.debug.dumpCurrentStackTrace(start_addr)` | `std.debug.dumpCurrentStackTrace(options)`, a `StackUnwindOptions` | gone |
-| `std.io.tty.detectConfig(file)` | `std.Io.Terminal.Mode.detect(io, file, NO_COLOR, CLICOLOR_FORCE)`; for stderr, the `.terminal()` of `io.lockStderr(&buf, null)` | gone |
+| `std.io.tty.detectConfig(file)` | `std.Io.Terminal.Mode.detect(io, file, NO_COLOR, CLICOLOR_FORCE)`; for stderr, the `.terminal()` of `io.lockStderr(&buffer, null)` | gone |
 | `std.testing.refAllDeclsRecursive` | `std.testing.refAllDecls` in each file, or `comptime { _ = @import(…); }` (ZS-BUILD-17) | gone |
 | `std.meta.intToEnum(E, n)` | `std.enums.fromInt(E, n)`, which returns `?E` | gone |
 | `std.debug.walkStackWindows` / `writeStackTraceWindows` | `captureCurrentStackTrace` / `writeCurrentStackTrace` | gone |
@@ -918,10 +921,10 @@ matches the 0.17 spelling, so each hit is a call site to re-read rather than a d
 | `std.debug.runtime_safety` | `@import("builtin").optimize.runtimeSafety()`, your module's mode rather than std's | alias (removed after 0.18) | `debug\.runtime_safety\b` |
 | `var da: std.heap.DebugAllocator(.{}) = .init;` | `var sa: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});` — always thread-safe; its `Options` are `stack_trace_frames`, `check_write_after_free`, `canary`, `bucket_size_log2` and `block_size_log2`, with no memory limit and no verbose log | alias | `DebugAllocator` |
 | `assert(da.deinit() == .ok)`, a `std.heap.Check` | `const leaks = sa.deinit();` then `assert(leaks == 0)`: the leak count, with the call kept out of the assert | alias | `heap\.Check\b`, `deinit\(\) [=!]= \.ok\b` |
-| `std.heap.stackFallback(n, fallback)` and `.get()`, `StackFallbackAllocator` | `var buf: [n]u8 = undefined;` `var bfa: std.heap.BufferFirstAllocator = .init(&buf, fallback);` then `bfa.allocator()`, as often as you like | gone | `[sS]tackFallback` |
+| `std.heap.stackFallback(n, fallback)` and `.get()`, `StackFallbackAllocator` | `var buffer: [n]u8 = undefined;` `var bfa: std.heap.BufferFirstAllocator = .init(&buffer, fallback);` then `bfa.allocator()`, as often as you like | gone | `[sS]tackFallback` |
 | `std.fmt.allocPrint(gpa, f, args)`, `allocPrintSentinel(gpa, f, args, 0)` | `gpa.print(f, args)`, `gpa.printSentinel(f, args, 0)` | alias | `fmt\.allocPrint` |
 | `std.fmt.bufPrint`, `bufPrintSentinel`, `BufPrintError` | `std.mem.print`, `std.mem.printSentinel`, `std.mem.PrintError` | alias | `fmt\.[bB]ufPrint` |
-| `std.fmt.bufPrintZ(buf, f, args)` | `std.mem.printSentinel(buf, f, args, 0)` | gone (an alias in 0.16) | `bufPrintZ` |
+| `std.fmt.bufPrintZ(buffer, f, args)` | `std.mem.printSentinel(buffer, f, args, 0)` | gone (an alias in 0.16) | `bufPrintZ` |
 | `gpa.dupeZ(u8, s)` | `gpa.dupeSentinel(u8, s, 0)` | gone (an alias in 0.16) | `\.dupeZ\(` |
 | `std.meta.Int(sign, bits)`, `std.meta.Tuple(types)` | `@Int(sign, bits)`, `@Tuple(types)` | gone (aliases in 0.16) | `meta\.Int\b`, `meta\.Tuple\b` |
 | `.initEmpty()`, `.initFull()` on an `EnumSet`, `bit_set.Integer` or `bit_set.Array` | `.empty`, `.full`; `Dynamic.initEmpty(gpa, n)` keeps its name | gone (aliases in 0.16) | `\.init[EF][a-z]+\(\)` |
@@ -942,7 +945,7 @@ matches the 0.17 spelling, so each hit is a call site to re-read rather than a d
 | `std.process.spawnPath(io, dir, options)`, `replacePath(io, dir, options)` | `spawn(io, .{ .exe = .{ .path = dir }, … })`, `replace(io, .{ .exe = .{ .path = dir }, … })` | gone | `spawnPath\(`, `replacePath\(` |
 | `reader.readAlloc` on an `Io.Reader` | `readAllocAll` | alias | `\.readAlloc\(` |
 | `path.resolve`, `path.relative`, and their `Posix` and `Windows` forms | `resolveAlloc`, `relativeAlloc`, and theirs | alias | `path\.resolve[^A]`, `path\.relative[^A]` |
-| `uri.getHost(&buf)` | `std.Io.net.HostName.fromUri(uri, &buf)`, which validates the name | gone | `\.getHost\(` |
+| `uri.getHost(&buffer)` | `std.Io.net.HostName.fromUri(uri, &buffer)`, which validates the name | gone | `\.getHost\(` |
 | `std.gpu` | `std.spirv` | gone | `std\.gpu\b` |
 | `std.Target.SubSystem` | `std.zig.Subsystem` | gone (an alias in 0.16) | `SubSystem` |
 | `arch.isAARCH64()`, `isMIPS`, `isMIPS32`, `isMIPS64`, `isPowerPC`, `isPowerPC32`, `isPowerPC64`, `isRISCV`, `isSPARC`, `isSpirV`, `isLoongArch`; `os.tag.isBSD()` | `isAarch64()`, `isMips`, `isMips32`, `isMips64`, `isPowerpc`, `isPowerpc32`, `isPowerpc64`, `isRiscv`, `isSparc`, `isSpirv`, `isLoongarch`; for `isBSD`, the tags you mean | alias (removed in 0.18) | `\.is[A-Z]{3}`, `\.isPowerPC`, `\.isSpirV`, `\.isLoongArch` |
@@ -989,7 +992,7 @@ ZS-BUILD-36) — and treat a toolchain bump as a migration task with its own rev
 
 **`[M!]` trigger:** high-reliability code — databases, consensus, crypto, allocators, parsers on
 untrusted input, embedded firmware — anything where corruption is unacceptable and upgrade windows
-are long. ***Relaxed form:*** elsewhere, no CI gate is required, but the same grep runs by hand
+are long. *Relaxed form:* elsewhere, no CI gate is required, but the same grep runs by hand
 before each release and any alias in a file you are already editing gets fixed in that diff. The
 weaker rule is still a rule: "I did not notice" stops being an acceptable answer once the denylist
 exists in the repository.

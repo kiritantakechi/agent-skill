@@ -91,7 +91,7 @@ toolchain. Every snippet here was compiled against Zig 0.17.0.
 | `std.mem.eql` and `findDiff` on floats no longer short-circuit on the same slice | A slice holding NaN is no longer equal to itself. |
 | `init.gpa` and `std.testing.allocator` are `std.heap.SafeAllocator` | `init.gpa` is a `SafeAllocator` in `debug` **and** `safe` builds, whether or not libc is linked; 0.16 gave a `ReleaseSafe` build that linked libc the `c_allocator`. A `safe` binary's allocation profile changes, and its leak report still never changes the exit code. |
 | `zig fmt` rewrites `@intFromEnum` and `@enumFromInt` | Both are deprecated in favour of `@backingInt` and `@fromBackingInt`, and `zig fmt` does the rewrite, so a `zig fmt --check` gate fails on code nobody touched. The rewrite wraps `@fromBackingInt`'s operand in an `@intCast` even when it already has the backing type; delete that cast. |
-| Build-system behaviour | `run.addPassthruArgs()`, the replacement for `b.args`, makes the run step uncached, and the build script never sees the arguments. A bare `zig fetch <url>` fills only the global cache; `zig fetch --save` and `zig build` fill `zig-pkg/`. `b.dependency` now fetches a lazy package itself instead of panicking, which makes `b.lazyDependency` a deprecated alias. |
+| Build-system behavior | `run.addPassthruArgs()`, the replacement for `b.args`, makes the run step uncached, and the build script never sees the arguments. A bare `zig fetch <url>` fills only the global cache; `zig fetch --save` and `zig build` fill `zig-pkg/`. `b.dependency` now fetches a lazy package itself instead of panicking, which makes `b.lazyDependency` a deprecated alias. |
 
 ### 2.2 `{}` does not call your `format` method — only `{f}` does
 
@@ -146,12 +146,15 @@ denylist that fails a build on them.
 const std = @import("std");
 const Io = std.Io;
 
+/// Bytes of program output held before a write reaches the kernel.
+const stdout_buffer_max = 4096;
+
 pub fn main(init: std.process.Init) !void {
     const io = init.io; // Io implementation chosen for the target
     const gpa = init.gpa; // SafeAllocator in debug and safe builds: leaks are reported
     const arena = init.arena.allocator(); // whole-process storage, freed on exit
 
-    var stdout_buffer: [4096]u8 = undefined;
+    var stdout_buffer: [stdout_buffer_max]u8 = undefined;
     var stdout_writer = Io.File.stdout().writerStreaming(io, &stdout_buffer);
     const out = &stdout_writer.interface;
 
@@ -179,7 +182,7 @@ about twenty lines, and every member of it is marked `Deprecated`.
 
 | Dead | Use |
 |---|---|
-| `std.io.getStdOut().writer()`, `bufferedWriter` | `Io.File.stdout().writerStreaming(io, &buf)`, then `flush()` |
+| `std.io.getStdOut().writer()`, `bufferedWriter` | `Io.File.stdout().writerStreaming(io, &buffer)`, then `flush()` |
 | `std.io.Writer` / `GenericWriter` / `AnyWriter` | `*std.Io.Writer` (non-generic, buffer supplied by you) |
 | `std.fs.cwd()`, `std.fs.File`, `std.fs.Dir` | `std.Io.Dir`, `std.Io.File` — every call takes an `io` |
 | `std.fs.path` | `std.Io.Dir.path` |
@@ -416,8 +419,8 @@ they are binding on their own.
   hold one across a mutation. Hold an index instead. (`references/memory.md`
   ZS-MEM-15, ZS-MEM-16).
 - **ZS-CORE-16 `[M!]`** Allocate all memory at startup; allocate nothing after initialization.
-  This buys bounded memory, no steady-state OOM, and no use-after-free. *Relaxed form, in
-  descending strength:* a hard ceiling via `FixedBufferAllocator`; arena-per-request with the
+  This buys bounded memory, no steady-state OOM, and no use-after-free. *Relaxed form:* in
+  descending strength, a hard ceiling via `FixedBufferAllocator`; arena-per-request with the
   arena reset at the boundary; or `.initCapacity` (or `ensureTotalCapacityPrecise`) up front and
   `appendAssumeCapacity` in the hot path — `ensureTotalCapacity` grows past the bound it is given.
   Choose one and state it in the module's doc comment. This is the most consequential tiering
@@ -447,7 +450,7 @@ they are binding on their own.
   and push non-branching work into leaf helpers — "push `if`s up and `for`s down". Aim for the
   inverse of an hourglass: few parameters, a simple return type, meaty logic between the braces.
   *Relaxed form:* a function longer than one screen needs a stated reason. (`references/errors.md`
-  ZS-ERR-30; `references/performance.md` ZS-PERF-13).
+  ZS-ERR-30, ZS-ERR-22; `references/performance.md` ZS-PERF-13).
 
 ### Interfaces and abstraction
 
@@ -474,7 +477,7 @@ they are binding on their own.
   a colon when they introduce what follows. End-of-line comments may be bare phrases.
   (`references/naming.md` ZS-NAME-23).
 - **ZS-CORE-27 `[M]`** (owned by `references/performance.md` ZS-PERF-17)
-  Spell out the options that decide behaviour rather than inheriting library defaults:
+  Spell out the options that decide behavior rather than inheriting library defaults:
   `@prefetch(a, .{ .cache = .data, .rw = .read, .locality = 3 })` over `@prefetch(a, .{})`. Defaults
   change; call sites do not get re-reviewed when they do.
 
@@ -499,7 +502,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 2. **Memory and ownership.** Every allocation paired with a `defer`/`errdefer` at the same nesting
    level, and proved by the test allocator? Any pointer held across a container mutation?
    Allocators named for their lifetime?
-3. **Illegal behaviour.** Any `@intCast`/`@truncate` that can silently lose data, an index used
+3. **Illegal behavior.** Any `@intCast`/`@truncate` that can silently lose data, an index used
    where a count belongs, or division whose intent is not shown with `@divExact`, `@divFloor` or
    `@divCeil`?
 4. **Errors.** Every error handled and named? Any `catch unreachable` that can really fire? Any
@@ -535,7 +538,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/memory.md` | `ZS-MEM` (26) | Allocator taxonomy, the allocator vtable, ownership rules, arena patterns, the static-allocation tiering |
 | `references/concurrency.md` | `ZS-CONC` (44) | `std.Io` in full: `Reader`/`Writer`, custom streams, `Io.Dir`/`Io.File`, `async`/`concurrent`/`Group`/`Select`, cancellation, timeouts |
 | `references/output.md` | `ZS-OUT` (17) | `{}` vs `{f}`, the specifier set, custom `format` methods, `std.fmt`, program output vs logging vs `std.debug.print` |
-| `references/performance.md` | `ZS-PERF` (21) | Design-phase performance, back-of-envelope sketches, batching, `@branchHint`/`@prefetch`/`@Vector`, and the locality discipline (smallest scope, no aliasing, POCPOU, pure leaves) |
+| `references/performance.md` | `ZS-PERF` (21) | Design-phase performance, back-of-envelope sketches, batching, `@prefetch`/`@Vector`, and the locality discipline (smallest scope, no aliasing, POCPOU, pure leaves) |
 | `references/interop.md` | `ZS-INTEROP` (21) | `export`/`extern`/`callconv(.c)`, `[*c]` pointers, C strings and integers, callbacks with `userdata`, plus freestanding/WASM/single-threaded targets |
 | `references/assertions.md` | `ZS-ASSERT` (26) | Assertion philosophy and density, pair assertions, comptime assertions, build-mode mechanics, `_max` constants |
 | `references/comptime.md` | `ZS-COMPTIME` (21) | comptime rules, `anytype` and its costs, type introspection, the three interface shapes, anti-patterns |

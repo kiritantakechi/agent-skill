@@ -326,6 +326,14 @@ class ZigStyle(Profile):
             "… not allowed in function with calling convention …": (
                 "export fn zs_f(s: []const u8) usize {\n    return s.len;\n}\n"
             ),
+            "'@branchHint' must appear as the first statement in a function or "
+            "conditional branch": (
+                "export fn probe(x: u32) u32 {\n"
+                "    const y = x + 1;\n"
+                "    @branchHint(.cold);\n"
+                "    return y;\n"
+                "}\n"
+            ),
             "redundant comptime keyword in already comptime scope": (
                 'const std = @import("std");\n'
                 "const n = comptime std.math.log2_int(u32, 1024);\n"

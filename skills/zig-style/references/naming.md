@@ -5,8 +5,8 @@ declarations inside a file and inside a struct, `pub` discipline, the three comm
 forms and the phrasings std uses for API contracts, and the formatting mechanics (`zig fmt`, the
 trailing comma, 100 columns). Semantics of the things being named live elsewhere: error-set design
 in the errors chapter, `init`/`deinit`/ownership contracts in the memory chapter, `format` and
-`std.Io` in the I/O chapter, `test` mechanics and fuzzing in the testing chapter, and `build.zig`
-naming in the build chapter.
+`std.Io` in the concurrency chapter, `test` mechanics and fuzzing in the testing chapter, and
+`build.zig` naming in the build chapter.
 
 Two sources are merged here: the **official Zig style guide** (langref 0.17.0 §Style Guide, quoted
 verbatim where it is normative) and **TigerStyle** (TigerBeetle's house standard). Where they

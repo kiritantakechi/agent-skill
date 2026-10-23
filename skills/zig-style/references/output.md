@@ -431,7 +431,7 @@ instead.
 ### ZS-OUT-11 [M] Use the 0.17 names: `Options`, `Alt`/`alt`, `std.mem.printSentinel`
 At 0.17.0, `std.fmt.Formatter`, `std.fmt.FormatOptions` and `std.fmt.bufPrintZ` **do not
 exist**; `std.fmt.Options`, `std.fmt.Alt`/`std.fmt.alt` and
-`std.mem.printSentinel(buf, fmt, args, 0)` are their replacements. The printing functions moved
+`std.mem.printSentinel(buffer, fmt, args, 0)` are their replacements. The printing functions moved
 out of `std.fmt` as well: `std.fmt.bufPrint`, `bufPrintSentinel`, `BufPrintError`, `allocPrint`
 and `allocPrintSentinel` still compile, but each carries `/// Deprecated in favor of` its
 replacement — respectively `mem.print`, `mem.printSentinel`, `mem.PrintError`, `Allocator.print`
@@ -457,16 +457,16 @@ test "std.fmt surface in 0.17" {
     defer gpa.free(heap);
     try std.testing.expectEqualStrings("id-7", heap);
 
-    var buf: [16]u8 = undefined;
-    const stack = try std.mem.print(&buf, "{s}-{d}", .{ "id", 7 });
+    var buffer: [16]u8 = undefined;
+    const stack = try std.mem.print(&buffer, "{s}-{d}", .{ "id", 7 });
     try std.testing.expectEqualStrings("id-7", stack);
 
-    const z = try std.mem.printSentinel(&buf, "{d}", .{7}, 0);
+    const z = try std.mem.printSentinel(&buffer, "{d}", .{7}, 0);
     try std.testing.expectEqual(0, z[z.len]);
 
     // std.fmt.Options is the options struct; there is no FormatOptions.
     const opts: std.fmt.Options = .{ .width = 5, .fill = '0', .alignment = .right };
-    var w: Writer = .fixed(&buf);
+    var w: Writer = .fixed(&buffer);
     try w.printInt(@as(u32, 42), 10, .lower, opts);
     try std.testing.expectEqualStrings("00042", w.buffered());
 }
@@ -486,7 +486,7 @@ deprecated aliases of these two.)
 
 `[M!]` applies where an unbounded or failing allocation is unacceptable: embedded and firmware,
 databases and other must-not-OOM services, crypto, and any formatter reachable from untrusted input.
-*Relaxed form* elsewhere: `gpa.print` is fine for one-shot, human-facing strings; keep
+*Relaxed form:* elsewhere, `gpa.print` is fine for one-shot, human-facing strings; keep
 `std.mem.print` for anything on a hot path or inside a loop.
 
 **Why:** this is the bounded-limits principle (`references/assertions.md` ZS-ASSERT-20 and
@@ -593,7 +593,7 @@ write a test that formats a value and parses it back, and assert equality over a
 includes the extremes.
 
 `[M!]` applies to formats you cannot change later: on-disk records, wire protocols, log formats
-consumed by tooling, anything with a version number. *Relaxed form* for human-facing output: assert
+consumed by tooling, anything with a version number. *Relaxed form:* for human-facing output: assert
 the exact expected string with `std.testing.expectFmt` for at least the boundary values, which
 catches the same class of regression without requiring a parser.
 

@@ -6,8 +6,8 @@ in Zig 0.17 (`testing.allocator`, `testing.io`, the `expect*` family, `tmpDir`,
 `std.testing.Smith`; and the discipline layer — negative-space testing, seeded determinism,
 model-based swarm tests, deterministic simulation, and snapshot tests. Assertions in production code
 live in the assertions chapter; allocator selection and lifetime rules live in the memory chapter;
-`Io.Reader`/`Io.Writer` mechanics live in the std.Io chapter; the general `build.zig` shape lives in
-the build chapter (only test-step wiring appears here).
+`Io.Reader`/`Io.Writer` mechanics live in the concurrency chapter; the general `build.zig` shape
+lives in the build chapter (only test-step wiring appears here).
 
 Every snippet assumes the preamble `const std = @import("std");`, and `...` stands for the body
 the rule is not about.
@@ -246,8 +246,8 @@ try std.testing.expectEqual("hello", actual); // compares addresses
 ```zig
 // fragment — GOOD
 const a: []const u8 = "hello";
-var buf: [5]u8 = "hello".*;
-const b: []const u8 = &buf;
+var buffer: [5]u8 = "hello".*;
+const b: []const u8 = &buffer;
 try std.testing.expectEqualStrings(a, b);
 try std.testing.expectError(error.TestExpectedEqual, std.testing.expectEqual(a, b));
 ```
@@ -330,9 +330,12 @@ constructed backend that the runner's leak check cannot see.
 // verified — GOOD
 const std = @import("std");
 
+/// The longest port file: five digits and a newline, with room to spare.
+const port_text_max = 8;
+
 fn readPort(io: std.Io, dir: std.Io.Dir) !u16 {
-    var buf: [8]u8 = undefined;
-    const text = try dir.readFile(io, "port", &buf);
+    var buffer: [port_text_max]u8 = undefined;
+    const text = try dir.readFile(io, "port", &buffer);
     return std.fmt.parseInt(u16, text, 10);
 }
 
@@ -816,8 +819,8 @@ test "snapshot: tree layout" {
         .{ .label = "b", .children = &.{} },
     } };
 
-    var buf: [256]u8 = undefined;
-    var w: std.Io.Writer = .fixed(&buf);
+    var buffer: [256]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buffer);
     try tree.dump(&w, 0);
 
     try std.testing.expectEqualStrings(
@@ -837,7 +840,7 @@ The shape is `try std.testing.fuzz(context, testOne, .{})`, where the target is 
 `fn testOne(context: C, smith: *std.testing.Smith) !void`; the input is a `*Smith`, never a
 `[]const u8`. Its surface, from `std.testing.Smith`: `eos()`, `value(T)`,
 `valueRangeAtMost(T, lo, hi)`, `valueRangeLessThan(T, lo, hi)`, `index(len)`, `bytes(out)`,
-`slice(buf) u32`, `boolWeighted(false_w, true_w)`, plus the weighted variants `valueWeighted`,
+`slice(buffer) u32`, `boolWeighted(false_w, true_w)`, plus the weighted variants `valueWeighted`,
 `eosWeighted`, `eosWeightedSimple`, `bytesWeighted`, `sliceWeighted`, `sliceWeightedBytes`, and
 `baselineWeights(T)`.
 

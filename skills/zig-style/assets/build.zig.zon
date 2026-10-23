@@ -1,4 +1,4 @@
-// Canonical build.zig.zon, lifted from references/build.md ZS-BUILD-10..12.
+// Canonical build.zig.zon, lifted from references/build.md ZS-BUILD-10, ZS-BUILD-11 and ZS-BUILD-12.
 // The .fingerprint below is an EXAMPLE — delete the line, run `zig build`, and paste the
 // value the compiler tells you to use. Never copy someone else's fingerprint.
 // Referenced by ZS-BUILD-10, ZS-BUILD-11, ZS-BUILD-12.

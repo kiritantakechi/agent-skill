@@ -124,7 +124,7 @@ Both mechanisms meet at a boundary. With `Header`, `HeaderInvalid` and `readBloc
 
 ```zig
 // fragment — BAD
-fn messageParse(bytes: []const u8) Header {
+fn messageParse(bytes: []const u8) HeaderInvalid!Header {
     assert(bytes.len <= message_size_bytes_max); // The peer chooses `bytes.len`.
     return readBlock(bytes);
 }
@@ -395,6 +395,12 @@ proof. If you cannot write it, you have a bug, not an invariant. The usual false
 an I/O error that "obviously can't happen" until the machine is under memory pressure or the disk
 fills. std has 310 uses; each sits next to a buffer whose size is fixed at compile time.
 
+`[M!]` sharpening — in high-reliability code (databases, consensus and replication, crypto,
+allocators, kernel and embedded firmware: anywhere a crash or silent corruption is unacceptable), do
+not use `catch unreachable` on a *runtime* path at all. Return the error, or restructure so the
+fallible call is not on that path; the `comptime` form exempted below stays legal. *Relaxed form:*
+elsewhere, the proof-comment rule above.
+
 **Why:** `unreachable` is a safety-checked panic in `debug`/`safe` builds and **illegal behavior**
 in `fast`/`small` builds. A wrong `catch unreachable` therefore does not crash in production — it
 miscompiles the surrounding code.
@@ -408,16 +414,16 @@ const copy = gpa.dupe(u8, name) catch unreachable;
 // verified — GOOD
 const std = @import("std");
 
-/// Renders `code` into the caller's `buf`, which outlives the slice.
-fn formatCode(buf: *[3]u8, code: u8) []const u8 {
-    // A u8 renders in at most 3 decimal digits and `buf` holds 3, so
+/// Renders `code` into the caller's `buffer`, which outlives the slice.
+fn formatCode(buffer: *[3]u8, code: u8) []const u8 {
+    // A u8 renders in at most 3 decimal digits and `buffer` holds 3, so
     // `std.mem.print` cannot fail here.
-    return std.mem.print(buf, "{d}", .{code}) catch unreachable;
+    return std.mem.print(buffer, "{d}", .{code}) catch unreachable;
 }
 
 test formatCode {
-    var buf: [3]u8 = undefined;
-    try std.testing.expectEqualStrings("255", formatCode(&buf, 255));
+    var buffer: [3]u8 = undefined;
+    try std.testing.expectEqualStrings("255", formatCode(&buffer, 255));
 }
 ```
 
@@ -432,12 +438,6 @@ ZS-ASSERT-21/ZS-ASSERT-22) whose derivation has a fallible `std.math` step is wr
 pub const blocks_total_max: u32 =
     std.math.mul(u32, blocks_per_message_max, messages_max) catch unreachable;
 ```
-
-`[M!]` sharpening — in high-reliability code (databases, consensus and replication, crypto,
-allocators, kernel and embedded firmware: anywhere a crash or silent corruption is unacceptable), do
-not use `catch unreachable` on a *runtime* path at all. Return the error, or restructure so the
-fallible call is not on that path; the comptime form above stays legal. The relaxed form elsewhere
-is the proof-comment rule above.
 
 **Check:** every runtime `catch unreachable` has a comment on the same or the preceding line
 naming the fixed bound that makes failure impossible. The short spelling `.?` has no proof form at
@@ -564,7 +564,7 @@ never been driven at every allocation point is untested code.
 If the resource must outlive the loop, hoist the release out and track every instance. If it must
 not, keep the `defer` inside the loop body.
 
-**Why:** a function-scope `defer gpa.free(buf)` paired with an in-loop assignment frees only the
+**Why:** a function-scope `defer gpa.free(buffer)` paired with an in-loop assignment frees only the
 *last* buffer and leaks every earlier one; the reverse mistake (an in-loop `defer` on something the
 caller keeps) is a use-after-free.
 
@@ -580,9 +580,9 @@ const Allocator = std.mem.Allocator;
 fn sumFiles(gpa: Allocator, counts: []const usize) Allocator.Error!usize {
     var total: usize = 0;
     for (counts) |n| {
-        const buf = try gpa.alloc(u8, n);
-        defer gpa.free(buf); // Per-iteration: correct here.
-        total += buf.len;
+        const buffer = try gpa.alloc(u8, n);
+        defer gpa.free(buffer); // Per-iteration: correct here.
+        total += buffer.len;
     }
     return total;
 }
@@ -591,12 +591,12 @@ fn sumFiles(gpa: Allocator, counts: []const usize) Allocator.Error!usize {
 ```zig
 // fragment — BAD: compiles, leaks every buffer but the last
 fn sumFilesLeaky(gpa: Allocator, counts: []const usize) Allocator.Error!usize {
-    var buf: []u8 = &.{};
-    defer gpa.free(buf); // Function scope: runs once, on the LAST value.
+    var buffer: []u8 = &.{};
+    defer gpa.free(buffer); // Function scope: runs once, on the LAST value.
     var total: usize = 0;
     for (counts) |n| {
-        buf = try gpa.alloc(u8, n);
-        total += buf.len;
+        buffer = try gpa.alloc(u8, n);
+        total += buffer.len;
     }
     return total;
 }
@@ -629,10 +629,10 @@ fn openWithLog(gpa: Allocator, n: usize) Allocator.Error![]u8 {
 }
 
 fn openInner(gpa: Allocator, n: usize) Allocator.Error![]u8 {
-    const buf = try gpa.alloc(u8, n);
-    errdefer gpa.free(buf);
+    const buffer = try gpa.alloc(u8, n);
+    errdefer gpa.free(buffer);
     if (n > 8) return error.OutOfMemory;
-    return buf;
+    return buffer;
 }
 ```
 
@@ -860,7 +860,7 @@ Implications in assertions take the same one-line form: `references/assertions.m
 `[M!]` — mandatory in high-reliability code, meaning any codebase where a crash or memory corruption
 is unacceptable: databases, consensus and replication, crypto, allocators, kernel and embedded
 firmware with no growable stack, parsers and decoders on untrusted input. There, write the
-iterative form with an explicit worklist of fixed size. Elsewhere the relaxed form is: recursion is
+iterative form with an explicit worklist of fixed size. *Relaxed form:* elsewhere, recursion is
 permitted only when the maximum depth is a named constant asserted at entry, or a `comptime`
 parameter, which makes the bound a compile-time fact. A recursive descent over attacker-controlled
 nesting depth is a remote crash primitive.
@@ -918,7 +918,7 @@ fn depthSum(comptime depth: u8, values: []const u32) u32 {
 `[M!]` — mandatory in high-reliability code (databases, consensus, crypto, allocators, kernel and
 embedded firmware, parsers on untrusted input), matching SKILL.md ZS-CORE-21 and ZS-ERR-30. Keep
 branching in the parent function; give leaf helpers primitive arguments and no control flow.
-*Relaxed form elsewhere:* a leaf helper that branches on a condition its caller already knows is a
+*Relaxed form:* elsewhere, a leaf helper that branches on a condition its caller already knows is a
 review comment, not a build failure.
 
 **Why:** it concentrates the decisions in one readable place, and it makes the leaf a straight-line
@@ -1116,30 +1116,29 @@ const found = for (items) |it| {
 ### ZS-ERR-27 [S] Mark cold and likely paths with `@branchHint`, as the branch's first statement
 
 `@branchHint(hint: std.lang.BranchHint) void`. The hints are exactly `.none`, `.likely`,
-`.unlikely`, `.cold`, `.unpredictable` (`std.lang.BranchHint`). It is **only valid as the first
-statement in a control-flow branch, or the first statement in a function**; otherwise the compiler
-emits `error: '@branchHint' must appear as the first statement in a function or conditional branch`.
-So on a cold branch that also asserts (ZS-CORE-08), the hint comes first and the assertion after it.
+`.unlikely`, `.cold`, `.unpredictable` (`std.lang.BranchHint`). It is only valid as the first
+statement of a branch or a function, which the compiler enforces (the row below). So on a cold
+branch that also asserts (ZS-CORE-08), the hint comes first and the assertion after it.
 `@setCold` does not exist; the compiler rejects it (`references/migration.md`'s
 `invalid builtin function` row).
 
 std uses it deliberately: `.cold` ×132 on error paths (including inside `std.log.err` and
 `std.debug.panic`), `.unlikely` ×78, `.likely` ×66.
 
-**Why:** `.cold` lets the optimiser move a branch's code to a different page, keeping the hot path's
+**Why:** `.cold` lets the optimizer move a branch's code to a different page, keeping the hot path's
 instruction cache dense; `.unpredictable` tells it to prefer branchless lowering where a mispredict
 would cost more than the extra work.
 
 **Check:** on a *measured* hot path, an error-returning branch or a `catch` block whose first
 statement is not `@branchHint(.cold)`; deviating needs only the measurement that says the branch is
 not hot. And the converse: a `.likely` or `.unlikely` on a branch nobody measured. A hint asserts a
-distribution, and a wrong one is worse than none.
+distribution, and a wrong one is worse than none. Placement is the compiler's `'@branchHint' must
+appear as the first statement…` row.
 
 ```zig
 // verified — GOOD
 fn decodeTag(byte: u8) error{ReservedTag}!u8 {
     if (byte < 0x80) {
-        @branchHint(.likely);
         return byte;
     } else {
         @branchHint(.cold);
@@ -1234,8 +1233,8 @@ Log *or* return, not both, unless you are adding context and re-propagating (ZS-
 
 `[M!]` — mandatory in high-reliability code (databases, consensus and replication, crypto,
 allocators, kernel and embedded firmware, parsers on untrusted input). There, 70 lines between the
-braces is a hard ceiling, counted as written including blank lines and comments. *Relaxed form
-elsewhere:* a function longer than one screen needs a stated reason in a comment — a `switch` with
+braces is a hard ceiling, counted as written including blank lines and comments. *Relaxed form:*
+elsewhere, a function longer than one screen needs a stated reason in a comment — a `switch` with
 one short arm per protocol opcode is the usual honest one. This is SKILL.md ZS-CORE-21; the full
 standard is here.
 
@@ -1408,3 +1407,4 @@ The compiler rejects each of these on its own; no setting turns one off.
 | zig | `'try' not allowed inside defer expression` | error | `try` in a `defer`, which has nowhere to return the error |
 | zig | `cannot return from defer expression` | error | `return` inside a `defer` |
 | zig | `unreachable code` | error | a statement after `return`, `break` or another diverging one |
+| zig | `'@branchHint' must appear as the first statement in a function or conditional branch` | error | a `@branchHint` after another statement of its branch |

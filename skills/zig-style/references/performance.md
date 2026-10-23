@@ -97,19 +97,19 @@ Order-of-magnitude anchors for 2026 server hardware. These are correct to within
 | Memory | 10–50 GiB/s | ~1 ns L1 hit; ~100 ns miss to DRAM |
 | CPU | 1–4 instructions/cycle | ~0.3 ns per cycle; ~5 ns branch mispredict |
 
-**Why:** without the sketch, "is this fast enough?" is opinion and review degenerates into taste;
-with it, a reviewer checks arithmetic. It also catches an optimization aimed at a resource that was
-never the bottleneck: a hand-vectorized parser in front of a 1 ms `fsync` per record buys nothing.
-
 **`[M!]` trigger:** the code has a stated throughput or latency requirement, or it is on a path
 executed per request, per record, per packet, or per block — databases, storage engines, consensus,
 codecs, network services, embedded control loops. In those codebases a hot-path PR without a sketch
 is not reviewable and should be sent back.
 
-***Relaxed form*** everywhere else: no written sketch is required, but a change that adds work
+*Relaxed form:* everywhere else, no written sketch is required, but a change that adds work
 *inside* an existing loop — an allocation, a syscall, a lock, a hash, a `format` call — states in
 one line why that is acceptable at the loop's trip count. A change that adds work outside every loop
 needs nothing.
+
+**Why:** without the sketch, "is this fast enough?" is opinion and review degenerates into taste;
+with it, a reviewer checks arithmetic. It also catches an optimization aimed at a resource that was
+never the bottleneck: a hand-vectorized parser in front of a 1 ms `fsync` per record buys nothing.
 
 **Check:** grep the diff for new work inside a loop body. If the loop's bound is unbounded or
 input-derived and the commit message contains no cost statement, that is the finding.
@@ -125,7 +125,7 @@ const block_size_bytes = 64 * 1024;
 /// Disk dominates. Do not micro-optimize the adder until the read is batched.
 fn checksumBlock(block: *const [block_size_bytes]u8) u64 {
     var sum: u64 = 0;
-    for (block) |byte| sum +%= byte;
+    for (block) |byte| sum += byte;
     return sum;
 }
 ```
@@ -218,14 +218,14 @@ The I/O half of this rule — draining an event queue instead of reacting per ev
 instead of a write per record — is `references/concurrency.md` **ZS-CONC-32**; do not duplicate
 it. This rule covers the non-I/O half: locks, allocations, and per-item work inside a lock.
 
+**`[M!]` trigger:** the same criteria as ZS-PERF-02 — a stated throughput or latency requirement, or
+per-request/per-record/per-packet execution. *Relaxed form:* batch anything whose per-item cost
+crosses a process boundary (syscall, lock, allocator), and leave pure in-memory per-item work alone
+until measured.
+
 **Why:** each has a fixed cost that dwarfs the per-item work: a syscall's mode switch costs hundreds
 of nanoseconds, an uncontended lock tens, a contended one a scheduler round trip, a `realloc` a copy
 of everything. Batching divides that cost by the batch size.
-
-**`[M!]` trigger:** the same criteria as ZS-PERF-02 — a stated throughput or latency requirement, or
-per-request/per-record/per-packet execution. ***Relaxed form:*** batch anything whose per-item cost
-crosses a process boundary (syscall, lock, allocator), and leave pure in-memory per-item work alone
-until measured.
 
 **Check:** for each `lock`, `alloc`, `write`, or `send` in the diff, find the enclosing loop. If the
 call is inside the loop and the loop is over items rather than over batches, that is the finding.
@@ -312,7 +312,7 @@ const Grid = struct {
         const width = grid.width; // Hoisted once, by hand, not by hope.
         const start = row * width;
 
-        var sum: u32 = 0;
+        var sum: u32 = 0; // A row checksum is defined modulo 2^32 (ZS-DATA-08).
         for (grid.cells[start..][0..width]) |cell| sum +%= cell;
         return sum;
     }
@@ -356,7 +356,7 @@ const Journal = struct {
 fn checksumSectors(bytes: []const u8, length: u32) u64 {
     assert(length <= bytes.len);
     var sum: u64 = 0;
-    for (bytes[0..length]) |byte| sum +%= byte;
+    for (bytes[0..length]) |byte| sum += byte;
     return sum;
 }
 ```
@@ -694,11 +694,12 @@ fn sumVectorized(values: []const u32) u32 {
     var index: usize = 0;
     while (index + lanes <= values.len) : (index += lanes) {
         const chunk: V = values[index..][0..lanes].*; // By-value coercion: legal.
-        accumulator +%= chunk;
+        accumulator +%= chunk; // Modulo 2^32, as `@reduce(.Add)` is (ZS-DATA-08).
     }
 
     var total = @reduce(.Add, accumulator);
-    while (index < values.len) : (index += 1) total +%= values[index]; // Scalar tail.
+    // The scalar tail, modulo 2^32 like the lanes.
+    while (index < values.len) : (index += 1) total +%= values[index];
     return total;
 }
 ```
@@ -751,7 +752,7 @@ fn sumPrefetched(values: []const u64) u64 {
         if (i + stride < values.len) {
             @prefetch(&values[i + stride], .{ .cache = .data, .rw = .read, .locality = 3 });
         }
-        sum +%= v;
+        sum += v;
     }
     return sum;
 }

@@ -4,8 +4,8 @@ Rules for compile-time evaluation (`comptime` params, blocks, `inline`, `@setEva
 generic type functions, `anytype` and its contracts, type introspection with the 0.17 builtins, and
 the three interface shapes Zig offers (comptime duck typing, runtime vtable, tagged union). Naming
 of type functions and receivers lives in the naming chapter; `std.Io.Writer`/`Reader` usage and
-buffering live in the I/O chapter; `comptime {}` assertions about wire/disk layout live in the
-assertions chapter — this chapter only covers how the interfaces themselves are *shaped*.
+buffering live in the concurrency chapter; `comptime {}` assertions about wire/disk layout live in
+the assertions chapter — this chapter only covers how the interfaces themselves are *shaped*.
 
 The discipline here is **interface-first**: pick which of Zig's three interface shapes fits —
 comptime duck typing, runtime vtable, or tagged union — name it, and write the concrete type against
@@ -44,7 +44,7 @@ function is often what it does at the top of a file.
   - ZS-COMPTIME-12 [S] Prefer a concrete parameter type, then `comptime T: type`, then `anytype`
   - ZS-COMPTIME-13 [S] Use `anytype` where std uses it, and constrain it with `std.meta` predicates
 - **Type introspection**
-  - ZS-COMPTIME-14 [M] `@Type` is removed; use the dedicated type builtins
+  - ZS-COMPTIME-14 [M] Build types with `@Int`, `@Struct` and the other type builtins
   - ZS-COMPTIME-15 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
 - **Interfaces**
   - ZS-COMPTIME-16 [M] Pick the interface shape from this table before writing any dispatch code
@@ -206,7 +206,7 @@ finding. An `inline else` whose prongs all bind one payload type is the finding 
 ```zig
 // fragment — BAD
 var sum: u32 = 0;
-inline for (buf) |b| sum += b; // buf: [4096]u8 — 4096 copies of one add
+inline for (buffer) |b| sum += b; // buffer: [4096]u8 — 4096 copies of one add
 ```
 
 ```zig
@@ -349,8 +349,9 @@ with `@hasField` first (`or` short-circuits at comptime).
 compile, so the reader sees your internals rather than their mistake. `@compileError` puts your
 sentence on the error line, with a note at the offending call site.
 
-**Check:** every `pub fn Name(comptime T: type) type` — its first statement must be a requirement
-test ending in `@compileError`, before any `@typeInfo` walk, field access, or `return struct`. A
+**Check:** every `pub fn Name(comptime T: type) type` whose body relies on a field, a declaration
+or the size of `T` — its first statement must be a requirement test ending in `@compileError`,
+before any `@typeInfo` walk, field access, or `return struct`. A
 `comptime assert(` whose condition constrains a caller-supplied `comptime` parameter rather than the
 module's own constants is unguarded, and so is a `@FieldType(T, "x")` not short-circuited by
 `@hasField(T, "x")`: both put the compiler's message where yours belongs.
@@ -487,8 +488,8 @@ pub fn printReport(w: *std.Io.Writer, rows: []const u32) std.Io.Writer.Error!voi
 }
 
 test "printReport composes with any std writer" {
-    var buf: [16]u8 = undefined;
-    var w: std.Io.Writer = .fixed(&buf);
+    var buffer: [16]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buffer);
     try printReport(&w, &.{ 1, 2 });
     try std.testing.expectEqualStrings("1\n2\n", w.buffered());
 }
@@ -608,10 +609,7 @@ fn resetAll(comptime T: type, items: []T) void {
 
 ## Type introspection
 
-### ZS-COMPTIME-14 [M] `@Type` is removed; use the dedicated type builtins
-This rule owns the replacement set and its signatures; `references/migration.md`
-ZS-MIG-02 keeps only the one-line table row.
-
+### ZS-COMPTIME-14 [M] Build types with `@Int`, `@Struct` and the other type builtins
 `@Type` does not exist — `error: invalid builtin function: '@Type'` — and neither do
 `std.meta.Int` and `std.meta.Tuple` (`error: root source file struct 'meta' has no member named
 'Int'`). The type builtins are `@Int`, `@Tuple`, `@Struct`, `@Union`, `@Enum`, `@Pointer`, `@Fn`,
@@ -720,8 +718,8 @@ test "accessors" {
     // The narrow builtin, where it answers the question.
     try std.testing.expectEqual(u8, @FieldType(Config, "retries"));
 
-    var buf: [16]u8 = undefined;
-    var w: std.Io.Writer = .fixed(&buf);
+    var buffer: [16]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buffer);
     const config: Config = .{};
     try writeFields(&w, config);
     try std.testing.expectEqualStrings("retries=3;", w.buffered());

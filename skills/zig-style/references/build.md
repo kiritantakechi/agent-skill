@@ -74,8 +74,7 @@ in a scratch directory and diff.
 ### ZS-BUILD-01 [M] Every project exposes install, run, test, fmt, and check steps
 A `build.zig` is the project's user interface. `zig build`, `zig build test`, `zig build fmt`, and
 `zig build check` must work in every repository, with no README-only incantations. `check` is the
-step ZLS runs for build-on-save diagnostics (ZS-BUILD-30), though the 0.17.0 release notes say ZLS
-does not yet work with 0.17.0.
+step ZLS runs for build-on-save diagnostics (ZS-BUILD-30).
 
 **Why:** `zig build --list-steps` is the only discovery mechanism a newcomer or a CI job has. A step
 that exists only as a shell command in a README is a step that rots.
@@ -608,7 +607,7 @@ The *placement* half of the centralized-limits rule: one file named `constants.z
 
 **`[M!]` trigger:** high-reliability code — a database, consensus layer, allocator, crypto
 primitive, parser on untrusted input, or embedded firmware, where an unbounded queue means
-corruption rather than a slow request. ***Relaxed form:*** elsewhere, the file still sits at
+corruption rather than a slow request. *Relaxed form:* elsewhere, the file still sits at
 `src/constants.zig`, re-exported and in `.paths`; naming it in the `comptime` import block, which is
 what guarantees its cross-checks run, becomes optional.
 
@@ -749,7 +748,7 @@ comment naming the constraint.
 **`[M!]` trigger:** high-reliability code — databases, storage engines, consensus, allocators,
 crypto, parsers on untrusted input, embedded control — where a wrong answer is worse than a crash.
 There, `safe` *is* the shipping mode and a release artifact built any other way is a defect.
-***Relaxed form:*** elsewhere — CLI tools, games, compression kernels, build-time tools, application
+*Relaxed form:* elsewhere — CLI tools, games, compression kernels, build-time tools, application
 code — `fast` or `small` is allowed, but only with the benchmark number or the named
 constraint recorded at the `-Doptimize=` site, and only once the assertion question is answered:
 either the module does not lean on `std.debug.assert` for anything a user can trigger, or it uses
@@ -946,8 +945,7 @@ calls over `b.addTest` results — the two counts must match. Running
 ### ZS-BUILD-32 [M] Pin the Zig version in CI; gate on fmt, two optimize modes, and a cross matrix
 Never `latest` — it will move to 0.18 and break everything at once, in a PR that changed a comment.
 
-The rules, which are the part that does not rot. Everything else — action names, action versions,
-runner images — is CI-provider trivia, not Zig style, and is deliberately not maintained here:
+The rules, which `assets/ci.yml` applies:
 
 1. **Pin the exact Zig version.** Never `latest`, never `master`, never a range.
 2. **Gate on `zig fmt --check --ast-check`** with `zig-pkg` and `.zig-cache` excluded (ZS-BUILD-29).
@@ -1190,12 +1188,7 @@ default: a fine trade for a save-recompile loop, and not one to make for a binar
 > `zig build-exe -target x86_64-linux-gnu` uses the self-hosted `.stage2_x86_64` backend and the
 > legacy self-hosted ELF linker (`--verbose-link` prints `zig ld`), with full DWARF.
 
-LLVM loop vectorization is off in 0.17, a workaround for an LLVM miscompilation whose fix is not in
-LLVM 22; the 0.17.0 release notes expect 0.18.0, on LLVM 23, to re-enable it. That means two things
-in practice: a hot loop may be measurably slower than the same code built with the vectorizer on,
-and any hand-vectorization you add now is being benchmarked against an artificially weak baseline.
-Prefer explicit `@Vector` code, which is unaffected, over tuning scalar loops to coax an
-auto-vectorizer that is switched off.
+LLVM loop vectorization is off in 0.17 (`references/performance.md` ZS-PERF-15).
 
 All three are `?bool` fields on `Step.Compile` (`use_llvm`, `use_lld`, `use_new_linker`), assigned
 after `addExecutable` returns; `use_llvm` and `use_lld` can also be passed in

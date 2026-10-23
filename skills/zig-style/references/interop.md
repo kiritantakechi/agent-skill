@@ -8,12 +8,12 @@ memory that crosses. Then the target axis: `builtin.target` branching, `-fsingle
 freestanding and WebAssembly — including the places where the rest of this standard **does not
 apply** because there is no operating system to apply it to.
 
-Layout rules for the types themselves live in the types chapter (ZS-DATA-19, ZS-DATA-20,
-ZS-DATA-29), with their layout assertions in ZS-ASSERT-19 and alignment in ZS-MEM-24; allocator
-selection and ownership vocabulary live in the memory chapter; wiring `link_libc` and C sources into
-a build lives in the build chapter (ZS-BUILD-06). This chapter cites those rather than repeating
-them, and adds only what is specific to the boundary, including translating C headers in the build
-(ZS-INTEROP-15).
+Layout and string rules for the types themselves live in the data chapter (ZS-DATA-19,
+ZS-DATA-20, ZS-DATA-29), with their layout assertions in ZS-ASSERT-19 and alignment in ZS-MEM-24;
+allocator selection and ownership vocabulary live in the memory chapter; wiring `link_libc` and C
+sources into a build lives in the build chapter (ZS-BUILD-06). This chapter cites those rather than
+repeating them, and adds only what is specific to the boundary, including translating C headers in
+the build (ZS-INTEROP-15).
 
 Every example assumes a file opening with `const std = @import("std");`,
 `const builtin = @import("builtin");` and `const assert = std.debug.assert;` — assertions are called
@@ -159,7 +159,7 @@ library with third-party consumers, an FFI surface for a scripting runtime, or a
 from a network-facing process. In all of those the C caller is outside your trust boundary even if
 it is friendly, because it is compiled separately and can go stale.
 
-***Relaxed form:*** always null-check pointers and always bound lengths — those two are never
+*Relaxed form:* always null-check pointers and always bound lengths — those two are never
 optional, because in a `fast` build a violated assert is not a crash but a memory-safety bug (see
 ZS-CORE-10). Exhaustive enum and range validation may be skipped for a C shim that lives in the
 same repository and is compiled by the same `build.zig`.
@@ -738,8 +738,8 @@ var handle_gpa: std.mem.Allocator = undefined;
 
 export fn zs_render_owned(value: u64, out: ?*Handle) bool {
     const out_ptr = out orelse return false;
-    const buf = handle_gpa.print("{d}", .{value}) catch return false;
-    out_ptr.* = .{ .ptr = buf.ptr, .len = buf.len };
+    const buffer = handle_gpa.print("{d}", .{value}) catch return false;
+    out_ptr.* = .{ .ptr = buffer.ptr, .len = buffer.len };
     return true;
 }
 

@@ -45,7 +45,7 @@ const assert = std.debug.assert;
 - **Containers and data-oriented layout**
   - ZS-DATA-21 [S] Reference long-lived elements by handle, not by pointer
   - ZS-DATA-22 [S] Use `std.MultiArrayList` when hot loops read a subset of the fields
-  - ZS-DATA-23 [M] `std.BoundedArray` and `std.SegmentedList` no longer exist
+  - ZS-DATA-23 [M] Build a fixed-capacity list with `ArrayList.initBuffer`; get stable addresses from a pool or a list
   - ZS-DATA-24 [S] Prefer a fixed array when the bound is comptime-known
 - **Modeling with enums, unions, and optionals**
   - ZS-DATA-25 [M] Model variants as a tagged union, not a struct with a kind field
@@ -59,7 +59,7 @@ const assert = std.debug.assert;
   - ZS-DATA-32 [M] `std.ascii` operates on bytes; never let it stand in for Unicode
 - **Arithmetic and type-system rules with silent-wrong-code potential**
   - ZS-DATA-33 [M] `std.math.sign` returns the narrowest integer, not the argument's type
-  - ZS-DATA-34 [M] Know the five type-system rules that change what still-compiling code means
+  - ZS-DATA-34 [M] Know the five type-system rules that older Zig code trips on
 - **Serialization**
   - ZS-DATA-35 [M] ZON for formats you own, `std.json` for interop; bound both on untrusted input
 - **Symmetry of an API surface**
@@ -655,7 +655,7 @@ test "in-place init" {
 
 ### ZS-DATA-17 [M!] In-place initialization is viral — propagate it to every containing struct
 If any field of `T` must be initialized in place, `T` itself gets an out-pointer `init`, and so does
-anything that embeds a `T` by value. Same trigger and same relaxed form as ZS-DATA-16.
+anything that embeds a `T` by value. The trigger is ZS-DATA-16's. *Relaxed form:* ZS-DATA-16's.
 
 **Why:** an out-pointer `init` on the inner type buys nothing if the outer type is still constructed
 by value and copied: the inner object's self-pointer would point at the outer temporary.
@@ -884,13 +884,8 @@ test "column scan" {
 }
 ```
 
-### ZS-DATA-23 [M] `std.BoundedArray` and `std.SegmentedList` no longer exist
-This rule owns the replacement idiom; `references/migration.md` carries only the
-one-line table row, and `references/memory.md` ZS-MEM-16 (stable pointers) and
-`references/assertions.md` ZS-ASSERT-25 (bounded containers assert on overflow) both cite
-it.
-
-Neither name appears anywhere in the 0.17.0 stdlib. For a fixed-capacity list, use
+### ZS-DATA-23 [M] Build a fixed-capacity list with `ArrayList.initBuffer`; get stable addresses from a pool or a list
+`std.BoundedArray` and `std.SegmentedList` do not exist. For a fixed-capacity list, use
 `std.ArrayList(T).initBuffer(&backing)` plus the `AssumeCapacity` / `Bounded` methods. For pointer
 stability across growth, use an intrusive `std.DoublyLinkedList` or `std.SinglyLinkedList` with
 nodes owned by an arena, or `std.heap.MemoryPool(T)` (ZS-MEM-16).
@@ -903,16 +898,15 @@ holds only `prev`/`next`, and you recover the payload with `@fieldParentPtr`.
 Allocator argument cause illegal behavior", so the list cannot allocate by construction —
 TigerStyle's static-allocation rule, expressed in modern std.
 
-**Check:** `rg -n "BoundedArray|SegmentedList"` over the diff must return nothing. On the
-replacement, check that each call site picked the right failure mode: `*AssumeCapacity` where
-overflow is a programmer error, `append*Bounded` where the size came from outside.
+**Check:** each fixed-capacity list picked the right failure mode: `*AssumeCapacity` where overflow
+is a programmer error, `append*Bounded` where the size came from outside.
 
 ```zig
 // rejected — zig: root source file struct 'std' has no member named 'BoundedArray'
-// error: root source file struct 'std' has no member named 'BoundedArray'
-test "a bounded array" {
-    var buf: std.BoundedArray(u32, 4) = .{};
-    try buf.append(1);
+const std = @import("std");
+pub fn fill() !void {
+    var list: std.BoundedArray(u32, 4) = .{};
+    try list.append(1);
 }
 ```
 
@@ -1330,8 +1324,8 @@ Protocol/format bytes: fine. Anything a human typed: flag it.
 // verified — BAD: this is what "silently incomplete" looks like
 const std = @import("std");
 test "ascii case mapping silently ignores non-ascii" {
-    var buf: [8]u8 = undefined;
-    const out = std.ascii.upperString(buf[0.."café".len], "café");
+    var buffer: [8]u8 = undefined;
+    const out = std.ascii.upperString(buffer[0.."café".len], "café");
     try std.testing.expectEqualStrings("CAFé", out); // Not "CAFÉ".
 }
 ```
@@ -1373,9 +1367,10 @@ test "sign returns the narrowest int, never the input type" {
 }
 ```
 
-### ZS-DATA-34 [M] Know the five type-system rules that change what still-compiling code means
-`references/migration.md` ZS-MIG-02 holds the full removed-syntax table. These five change what code
-that *still compiles* means.
+### ZS-DATA-34 [M] Know the five type-system rules that older Zig code trips on
+`references/migration.md` ZS-MIG-02 holds the full removed-syntax table. Of these five, two change
+what code that *still compiles* means, one is a cast that can lose a bound, and two turn latent bugs
+into compile errors.
 
 1. **`*u8` and `*align(1) u8` are distinct types**, though `*u8` still coerces to
    `*align(1) u8`. `@TypeOf` comparisons, `switch` on a type, `std.meta.eql` over type values, and
@@ -1495,8 +1490,8 @@ test "zon round trip" {
     });
     try std.testing.expectEqual(6, config.replica_count);
 
-    var buf: [64]u8 = undefined;
-    var w: std.Io.Writer = .fixed(&buf);
+    var buffer: [64]u8 = undefined;
+    var w: std.Io.Writer = .fixed(&buffer);
     try std.zon.stringify.serialize(config, .{ .whitespace = false }, &w);
     try std.testing.expectEqualStrings(
         ".{.replica_count=6,.grid_size_bytes=4096}",
@@ -1534,7 +1529,7 @@ their orders. Any disagreement is the finding, and the outlier is what changes.
 
 ### ZS-DATA-38 [M] Split a function rather than adding a mode parameter
 
-When a parameter selects behaviour rather than supplying data, the function has become two
+When a parameter selects behavior rather than supplying data, the function has become two
 functions sharing a body. Split it and let the shared part be a private helper.
 
 **Why:** a mode parameter makes the return type and the error set the union of both modes, so every

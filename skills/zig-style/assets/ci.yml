@@ -1,11 +1,6 @@
 # CI gate for a Zig 0.17 project. Referenced by ZS-BUILD-29, ZS-BUILD-31, ZS-BUILD-32.
 #
-# IMPORTANT — read before copying. references/build.md ZS-BUILD-32 states that only
-# the `run:` lines below are rules; the action names and versions are illustrative and must be
-# verified against their current releases yourself. This file reproduces that caveat rather than
-# hiding it behind a version number that will be stale.
-#
-# The five requirements ZS-BUILD-32 actually imposes:
+# The five requirements ZS-BUILD-32 imposes:
 #   1. Pin the exact Zig version. Never `latest`, never `master`, never a range.
 #   2. Gate on `zig fmt --check --ast-check`, excluding `zig-pkg` and `.zig-cache`.
 #   3. Run the suite in the `debug` and `safe` modes, with `--summary all` so a cached no-op
@@ -25,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: mlugg/setup-zig@v2          # verify the version yourself
+      - uses: mlugg/setup-zig@v2
         with: { version: 0.17.0 }         # pinned exactly — never `latest`
       - run: zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .
 

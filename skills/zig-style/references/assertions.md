@@ -753,17 +753,18 @@ boundary carries a `comptime {}` asserting `@sizeOf`, `@alignOf`, the `@offsetOf
 foreign reader locates by offset, and the absence of padding. That covers every type built under
 `references/data.md` ZS-DATA-19 and ZS-DATA-20.
 
-The same block goes beside everything comptime generates: every comptime-generated table, and every
-type whose layout comptime derives, asserts its size. A table sized from a `comptime_int` grows from
+Everything comptime generates gets the same block: a comptime-built table, or a type whose layout
+comptime derives, asserts its size. A table sized from a `comptime_int` grows from
 1 KiB to 16 MiB of `.rodata` when someone bumps that constant, and nothing in the build output says
 so; bounding the generation itself is `references/comptime.md` ZS-COMPTIME-05.
 
 For the padding check on an `extern struct` use `std.meta.hasUniqueRepresentation(T)`, which
 compares `@sizeOf(T)` against the sum of the field sizes, and which also decides whether hashing or
-comparing the struct's raw bytes is sound. Do **not** reach for `@bitSizeOf(T) == @sizeOf(T) * 8`
-there: `@bitSizeOf` of a struct that is not packed is a compile error (`no bit size available for
-type …`). That identity is meaningful only on a `packed struct(uN)`, where it checks that the
-backing integer fills its bytes.
+comparing the struct's raw bytes is sound. It is false for any `bool`, float or slice field too,
+padding or not, so a struct holding one asserts the size sum by hand. Do **not** reach for
+`@bitSizeOf(T) == @sizeOf(T) * 8` there: `@bitSizeOf` of a struct that is not packed is a compile
+error (`no bit size available for type …`). That identity is meaningful only on a
+`packed struct(uN)`, where it checks that the backing integer fills its bytes.
 
 **Why:** the compiler decides field layout from the field list, so one added `u16` silently changes
 `@sizeOf` and the on-disk format, corrupting every existing file with no compile error; the comptime
@@ -810,7 +811,7 @@ const Flags = packed struct(u16) {
 /// One entry per byte value, built at compile time.
 const square_table: [256]u16 = blk: {
     var table: [256]u16 = undefined;
-    for (&table, 0..) |*entry, index| entry.* = @truncate(index * index);
+    for (&table, 0..) |*entry, index| entry.* = @intCast(index * index); // 255² < 2¹⁶
     break :blk table;
 };
 
@@ -858,7 +859,7 @@ asks for.
 property of a combination like `request_memory_bytes`, and scattered numbers mean nobody can check
 it. One file also answers "what does this process cost at maximum load?"
 
-**Check:** `rg -n '_(max|min)[ \t]*(:[^=\n]*)?=[^=\n]' src/ -g '*.zig'` returns hits only from
+**Check:** `rg -n 'pub const \w+_(max|min)\b' src/ -g '*.zig'` returns hits only from
 `constants.zig`; each there has a `///` comment giving the reason for that number, and a group of
 related limits has a trailing `comptime {}` block asserting the relationships between them.
 

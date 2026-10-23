@@ -150,7 +150,7 @@ preference.
 | `std.heap.ArenaAllocator` | Request-scoped / phase-scoped bulk allocation | `alloc` is threadsafe if the child is; `deinit`, `reset`, `queryCapacity` documented "Not threadsafe." | Bump pointer | `deinit` takes the arena **by value**; `free` of a non-last allocation is a no-op |
 | `std.heap.FixedBufferAllocator` | Bounded scratch work; a hard memory ceiling | `.allocator()` no; `.threadSafeAllocator()` yes (lock-free) — never mix the two handles | Zero syscalls | `free` reclaims only the last allocation, and `isLastAllocation` "has false negatives" |
 | `std.heap.MemoryPool(T)` | Many same-typed nodes needing stable pointers | No | Arena + freelist | `.empty`, `create(gpa)`, `destroy(ptr)`, `deinit(gpa)` |
-| `std.heap.BufferFirstAllocator` | Small allocations that usually fit in a buffer you supply | No: the buffer half is a `FixedBufferAllocator` | One caller-owned `[N]u8`, usually on the stack | `var bfa: BufferFirstAllocator = .init(&buf, fallback)`, then `bfa.allocator()` |
+| `std.heap.BufferFirstAllocator` | Small allocations that usually fit in a buffer you supply | No: the buffer half is a `FixedBufferAllocator` | One caller-owned `[N]u8`, usually on the stack | `var bfa: BufferFirstAllocator = .init(&buffer, fallback)`, then `bfa.allocator()` |
 | `std.testing.allocator` | Tests | Yes | `SafeAllocator` cost | Distinct `canary` so mixing it with a default `SafeAllocator` panics |
 | `std.testing.failing_allocator` | Injecting OOM at a chosen allocation index | No | None | Prefer `std.testing.checkAllAllocationFailures`, which drives it for you |
 | `std.mem.Allocator.failing` | Proving a code path never allocates | n/a | None | `resize`/`remap`/`free` are `unreachable` — it asserts you never free through it |
@@ -285,8 +285,7 @@ already in the signature.
 **Check:** `rg -n '[(,] *allocator: '` over the diff — anchored, so `debug_allocator` is not
 reported — and any field or local of type `std.mem.Allocator` named `allocator`, `alloc`, `ally`, or
 a single letter. The three legal names are `gpa`, `arena`, and `scratch`; a fourth needs a comment
-saying what lifetime it denotes. Then an `Allocator` parameter that is not the first after the
-receiver, or the first of a function with none.
+saying what lifetime it denotes. Then an `Allocator` parameter that comes after a data parameter.
 
 ```zig
 // fragment — GOOD: the names say who frees.
@@ -389,7 +388,8 @@ a `[]u8` parameter is a claim.
 
 ### ZS-MEM-10 [M] Put `defer` / `errdefer` on the line immediately after the acquisition
 Two requirements, both binding. **Adjacency:** no statement may sit between an acquisition and its
-release, and the release names the exact thing acquired (`gpa.free(buf)`, not `gpa.free(self.buf)`).
+release, and the release names the exact thing acquired (`gpa.free(buffer)`, not
+`gpa.free(self.buffer)`).
 **Grouping:** the acquisition/release pair is separated from surrounding code by a blank line above
 and below, so each pair reads as a two-line visual unit.
 
@@ -403,10 +403,10 @@ next line by `defer` or `errdefer`, and that two-line pair must be blank-line se
 
 ```zig
 // fragment — BAD: three fallible statements between alloc and defer, and no grouping.
-const buf = try gpa.alloc(u8, n);
-try validate(buf);
-try prefill(buf);
-defer gpa.free(buf);
+const buffer = try gpa.alloc(u8, n);
+try validate(buffer);
+try prefill(buffer);
+defer gpa.free(buffer);
 ```
 
 ```zig
@@ -414,16 +414,17 @@ defer gpa.free(buf);
 var file = try dir.openFile(io, "cfg.txt", .{});
 defer file.close(io);
 
-const buf = try gpa.alloc(u8, n);
-defer gpa.free(buf);
+const buffer = try gpa.alloc(u8, n);
+defer gpa.free(buffer);
 
-try validate(buf);
-try prefill(buf);
+try validate(buffer);
+try prefill(buffer);
 ```
 
 The same shape applies to every acquisition, not just allocation: `Io.File`/`Io.Dir` handles
 (`defer file.close(io)`), `Io.Mutex` (`defer m.unlock(io)`), `Io.Group` (`defer g.cancel(io)`), and
-`Io.Future` (`defer f.await(io)`). Where the release itself is fallible or cancelable, use the
+`Io.Future` (`defer _ = f.cancel(io);`, which is idempotent, so a later `await` still returns the
+result). Where the release itself is fallible or cancelable, use the
 `*Uncancelable` variant — a `defer` body cannot propagate an error (see
 `references/concurrency.md` ZS-CONC-26). What happens once the pair is in place — the order of
 teardown, the point ownership transfers, the scope inside a loop — is `references/errors.md`
@@ -523,30 +524,30 @@ slice, and if you must narrow a view, keep both. Freeing a **zero-length** slice
 always a no-op (`if (bytes.len == 0) return;`), so `.empty`-style teardown paths need no guard.
 
 **Why:** it is a documented precondition on every vtable member, and allocators use the length to
-find the size class: passing `buf[0..n]` to `free` after allocating `buf.len > n` returns the block
-to the wrong bucket.
+find the size class: passing `buffer[0..n]` to `free` after allocating `buffer.len > n` returns the
+block to the wrong bucket.
 
 **Check:** a `free`, `resize`, or `remap` whose first argument is a slice *expression* rather than
-the identifier bound on the allocation line — `gpa.free(buf[0..n])` and `gpa.free(x[1..])` are both
-the finding. Also any `buf = buf[0..n]` reassignment above a later `gpa.free(buf)`.
+the identifier bound on the allocation line — `gpa.free(buffer[0..n])` and `gpa.free(x[1..])` are
+both the finding. Also any `buffer = buffer[0..n]` reassignment above a later `gpa.free(buffer)`.
 
 ```zig
 // fragment — BAD: the free length is the slice, not the allocation
-var buf = try gpa.alloc(u8, 4096);
-const used = buf[0..n];
+var buffer = try gpa.alloc(u8, 4096);
+const used = buffer[0..n];
 defer gpa.free(used);       // wrong length
 ```
 
 ```zig
 // fragment — GOOD
-var buf = try gpa.alloc(u8, 4096);
-defer gpa.free(buf);
-const used = buf[0..n];
+var buffer = try gpa.alloc(u8, 4096);
+defer gpa.free(buffer);
+const used = buffer[0..n];
 ```
 
-If you genuinely want to shrink, use `gpa.realloc(buf, n)` (only fails on OOM, does the copy) or
-`if (gpa.resize(buf, n)) buf = buf[0..n];` — `resize` is "guaranteed to not move the pointer", and
-`remap` may move it, so reassign from its return value.
+If you genuinely want to shrink, use `gpa.realloc(buffer, n)` (only fails on OOM, does the copy) or
+`if (gpa.resize(buffer, n)) buffer = buffer[0..n];` — `resize` is "guaranteed to not move the
+pointer", and `remap` may move it, so reassign from its return value.
 
 A related shape the type system does not catch: slicing a `[*]T` with comptime-known bounds
 produces a `*[N]T`, not a slice, and `Allocator.free` accepts a pointer to an array as well as a
@@ -687,6 +688,27 @@ dynamically allocated (or freed and reallocated) after initialization.**" Adopt 
 when the criteria below hold; otherwise adopt the graduated forms ZS-MEM-19 through ZS-MEM-21, which
 are `[S]` for all code.
 
+**`[M!]` trigger — adopt it in full only when all of these hold:** (1) every resource bound is
+derivable from configuration at startup — max connections, max message bytes, max in-flight
+operations; (2) the process is long-lived and a restart is expensive or externally visible (a
+replica, a controller, an embedded device, a hard-real-time loop); (3) rejecting work is a better
+failure than growing memory — i.e. an OOM kill would cost correctness, quorum, or a machine; (4) you
+own the dependency tree and are not calling into libraries that allocate on your behalf; (5) it is
+an application or a service, not a library — forcing this policy on your callers is not your
+decision to make.
+
+**Do not adopt it when:** input size is unbounded and user-supplied (compilers, CLIs over arbitrary
+files, general-purpose servers with variable payloads), or you depend on std subsystems that
+allocate at use time, or you are writing a library.
+
+*Relaxed form:* the graduated ladder, in descending strength — ZS-MEM-21, a hard ceiling
+from a fixed backing buffer (`ArrayList.initBuffer` or `FixedBufferAllocator`); ZS-MEM-19, an arena
+per request or phase, reset at the boundary; ZS-MEM-20, exactly the bound reserved up front and
+`*AssumeCapacity` in the hot path. Pick exactly one rung, name it in the module's doc comment, and
+treat an allocation inside a hot loop or on a request path as a design smell requiring a justifying
+comment. What does not relax at any tier: derive the bounds, write them down as `_max` constants,
+and `comptime`-assert them.
+
 **Why:** peak RSS is known before the first request, so a spike cannot OOM-kill the process. The
 steady state loses `error.OutOfMemory`, use-after-free, fragmentation, and growth-copy latency, and
 you must derive every bound (in-flight operations, message size, queue depth), so you can assert it.
@@ -701,32 +723,11 @@ you must derive every bound (in-flight operations, message size, queue depth), s
 - std has no bounded-array type, so the bounded containers you need are `ArrayList` over a fixed
   buffer (ZS-MEM-21), your own fixed pools, or third-party code.
 
-**`[M!]` trigger — adopt it in full only when all of these hold:** (1) every resource bound is
-derivable from configuration at startup — max connections, max message bytes, max in-flight
-operations; (2) the process is long-lived and a restart is expensive or externally visible (a
-replica, a controller, an embedded device, a hard-real-time loop); (3) rejecting work is a better
-failure than growing memory — i.e. an OOM kill would cost correctness, quorum, or a machine; (4) you
-own the dependency tree and are not calling into libraries that allocate on your behalf; (5) it is
-an application or a service, not a library — forcing this policy on your callers is not your
-decision to make.
-
-**Do not adopt it when:** input size is unbounded and user-supplied (compilers, CLIs over arbitrary
-files, general-purpose servers with variable payloads), or you depend on std subsystems that
-allocate at use time, or you are writing a library.
-
-***Relaxed form:*** the graduated ladder below, in descending strength — ZS-MEM-21, a hard ceiling
-from a fixed backing buffer (`ArrayList.initBuffer` or `FixedBufferAllocator`); ZS-MEM-19, an arena
-per request or phase, reset at the boundary; ZS-MEM-20, exactly the bound reserved up front and
-`*AssumeCapacity` in the hot path. Pick exactly one rung, name it in the module's doc comment, and
-treat an allocation inside a hot loop or on a request path as a design smell requiring a justifying
-comment. What does not relax at any tier: derive the bounds, write them down as `_max` constants,
-and `comptime`-assert them.
-
 **Check:** under the trigger, an `alloc`/`create`/`dupe`/`append`/`ensureTotalCapacity` reachable
 from a request path rather than from `init` — and, before that, the absence of the `StaticAllocator`
 gate itself, which is what converts this from a review question into an assertion failure. Under the
 relaxed form: an allocation inside a loop or on a per-request path with no comment naming which rung
-of ZS-MEM-19..23 the module chose.
+(ZS-MEM-19, ZS-MEM-20 or ZS-MEM-21) the module chose.
 
 The enforcement mechanism that turns the policy into an invariant is an allocator gate: allocate
 during `init`, then flip a state flag so that any later `alloc` trips an assert.
@@ -773,23 +774,23 @@ const StaticAllocator = struct {
         return sa.parent.rawAlloc(len, alignment, ra);
     }
 
-    fn resize(ctx: *anyopaque, buf: []u8, a: Alignment, new_len: usize, ra: usize) bool {
+    fn resize(ctx: *anyopaque, memory: []u8, a: Alignment, new_len: usize, ra: usize) bool {
         const sa: *StaticAllocator = @ptrCast(@alignCast(ctx));
         assert(sa.state == .init);
-        return sa.parent.rawResize(buf, a, new_len, ra);
+        return sa.parent.rawResize(memory, a, new_len, ra);
     }
 
-    fn remap(ctx: *anyopaque, buf: []u8, a: Alignment, new_len: usize, ra: usize) ?[*]u8 {
+    fn remap(ctx: *anyopaque, memory: []u8, a: Alignment, new_len: usize, ra: usize) ?[*]u8 {
         const sa: *StaticAllocator = @ptrCast(@alignCast(ctx));
         assert(sa.state == .init);
-        return sa.parent.rawRemap(buf, a, new_len, ra);
+        return sa.parent.rawRemap(memory, a, new_len, ra);
     }
 
-    fn free(ctx: *anyopaque, buf: []u8, a: Alignment, ra: usize) void {
+    fn free(ctx: *anyopaque, memory: []u8, a: Alignment, ra: usize) void {
         const sa: *StaticAllocator = @ptrCast(@alignCast(ctx));
         // `free` stays legal during init so errdefer cleanup can run.
         assert(sa.state == .init or sa.state == .deinit);
-        sa.parent.rawFree(buf, a, ra);
+        sa.parent.rawFree(memory, a, ra);
     }
 };
 
@@ -814,8 +815,9 @@ test "allocation is a startup-only privilege" {
 > `[M!]` full static allocation with a gate for high-reliability systems meeting the five criteria
 > above; `[S]` for everyone else, meaning **allocate during `init`, treat an allocation inside a hot
 > loop or on a request path as a design smell requiring a justifying comment**, and use
-> ZS-MEM-19..23 where a bound is natural. What you keep in every case is the cultural payoff: know
-> your bounds, write them down as `_max` constants, and `comptime`-assert them.
+> ZS-MEM-19, ZS-MEM-20 and ZS-MEM-21 where a bound is natural. What you keep in every case is the
+> cultural payoff: know your bounds, write them down as `_max` constants, and `comptime`-assert
+> them.
 
 TigerStyle's bounded containers `assert(!full())` on push, treating overflow as a programmer error.
 std offers both the asserting and the error-returning form, and `references/data.md` ZS-DATA-23
@@ -862,10 +864,10 @@ three are documented "Not threadsafe.", so quiesce every worker first.
 When you know the count, reserve exactly that count once outside the loop — `.initCapacity(gpa, n)`
 for a new list, `ensureTotalCapacityPrecise` for an existing one — and call `appendAssumeCapacity` /
 `appendSliceAssumeCapacity` / `addManyAsSliceAssumeCapacity` inside it. `ensureTotalCapacity` passes
-the bound through `growCapacity(minimum) = minimum +| (minimum / 2 + init_capacity)`, so it reserves
-about half again: 1568 for a bound of 1024 where the cache line is 128 bytes. An unprepared
-1024-element build grows seven times there, copying what it has written whenever a block cannot be
-extended in place.
+the bound through `growCapacity(minimum) = minimum +| (minimum / 2 + init_capacity)`, where
+`init_capacity` is `cache_line / @sizeOf(T)`, so it reserves about half again: 1568 for 1024 `u32`s
+on a 128-byte cache line. An unprepared 1024-`u32` build grows seven times there, copying what it
+has written whenever a block cannot be extended in place.
 
 **Why:** it moves the only fallible operation out of the loop, so the loop body has no error path
 and no branch on growth, and it removes the 1.5x-growth memcpy entirely. It is also the exact shape
@@ -922,8 +924,8 @@ test "FixedBufferAllocator as a hard memory ceiling" {
     var fba: std.heap.FixedBufferAllocator = .init(&scratch);
     const scratch_gpa = fba.allocator();
 
-    const buf = try scratch_gpa.alloc(u8, 128);
-    try std.testing.expectEqual(128, buf.len);
+    const buffer = try scratch_gpa.alloc(u8, 128);
+    try std.testing.expectEqual(128, buffer.len);
     try std.testing.expectError(error.OutOfMemory, scratch_gpa.alloc(u8, 1 << 20));
 }
 ```
@@ -995,8 +997,8 @@ const Bump = struct {
         } };
     }
 
-    fn isLast(b: *Bump, buf: []u8) bool {
-        return buf.ptr + buf.len == b.buffer.ptr + b.end;
+    fn isLast(b: *Bump, memory: []u8) bool {
+        return memory.ptr + memory.len == b.buffer.ptr + b.end;
     }
 
     fn alloc(ctx: *anyopaque, len: usize, alignment: Alignment, _: usize) ?[*]u8 {
@@ -1008,22 +1010,22 @@ const Bump = struct {
         return b.buffer.ptr + start;
     }
 
-    fn resize(ctx: *anyopaque, buf: []u8, _: Alignment, new_len: usize, _: usize) bool {
+    fn resize(ctx: *anyopaque, memory: []u8, _: Alignment, new_len: usize, _: usize) bool {
         const b: *Bump = @ptrCast(@alignCast(ctx));
-        if (!b.isLast(buf)) return new_len <= buf.len;
-        const start = b.end - buf.len;
+        if (!b.isLast(memory)) return new_len <= memory.len;
+        const start = b.end - memory.len;
         if (start + new_len > b.buffer.len) return false;
         b.end = start + new_len;
         return true;
     }
 
-    fn remap(ctx: *anyopaque, buf: []u8, a: Alignment, new_len: usize, ra: usize) ?[*]u8 {
-        return if (resize(ctx, buf, a, new_len, ra)) buf.ptr else null;
+    fn remap(ctx: *anyopaque, memory: []u8, a: Alignment, new_len: usize, ra: usize) ?[*]u8 {
+        return if (resize(ctx, memory, a, new_len, ra)) memory.ptr else null;
     }
 
-    fn free(ctx: *anyopaque, buf: []u8, _: Alignment, _: usize) void {
+    fn free(ctx: *anyopaque, memory: []u8, _: Alignment, _: usize) void {
         const b: *Bump = @ptrCast(@alignCast(ctx));
-        if (b.isLast(buf)) b.end -= buf.len;
+        if (b.isLast(memory)) b.end -= memory.len;
     }
 };
 ```
@@ -1136,16 +1138,16 @@ defined — including struct padding and the unused tail of a fixed-size frame. 
 afterwards is dead-store-eliminated by the optimizer, while `secureZero` takes `[]volatile T`, which
 "Prevents the store from being optimized out".
 
-**Why:** this is the Heartbleed class of bug, a buffer *underflow*: unused bytes and padding never
-zeroed carry uninitialized heap contents (previous requests, keys) out with the message. It also
-breaks the byte-for-byte determinism that checksums, replication, and record-and-replay depend on.
-
 **`[M!]` trigger:** the bytes cross a trust or durability boundary — key material and other secrets,
 anything sent to a peer you do not control, anything persisted, and anything checksummed,
-replicated, or record-and-replayed. ***Relaxed form:*** everywhere else, initialize any buffer that
+replicated, or record-and-replayed. *Relaxed form:* everywhere else, initialize any buffer that
 leaves the process with `= @splat(0)` rather than `= undefined`, and give serialized types `extern`
 or `packed` layout with named, `0`-defaulted reserved fields. `secureZero` is required only where
 key material is involved; nothing relaxes the requirement that padding be a named field.
+
+**Why:** this is the Heartbleed class of bug, a buffer *underflow*: unused bytes and padding never
+zeroed carry uninitialized heap contents (previous requests, keys) out with the message. It also
+breaks the byte-for-byte determinism that checksums, replication, and record-and-replay depend on.
 
 **Check:** an array declared `= undefined` that reaches `writeAll`, a socket write, or a
 `MemoryMap`; a plain (non-`extern`, non-`packed`) struct passed to `std.mem.asBytes` for

@@ -34,7 +34,7 @@ each stage can invalidate the work of reading the next.
    Every allocation has a `defer`/`errdefer` on the next line. No allocator
    stored in a long-lived struct. No pointer retained into a container that can
    resize. (`ZS-MEM`, `ZS-CORE-13` … `ZS-CORE-16`)
-3. **Illegal behaviour.** Every `@intCast`, `@ptrCast`, `@alignCast`, and
+3. **Illegal behavior.** Every `@intCast`, `@ptrCast`, `@alignCast`, and
    `@bitCast`: is the precondition established? Every `undefined`. Every
    `noalias`. Every `unreachable` reachable from operating input. Ask what
    `fast` does with each, not what `debug` does. (`ZS-DATA`, `ZS-ASSERT`)
@@ -149,7 +149,7 @@ Do it in this order, one mechanical step per commit, so that each commit is
 reviewable and revertible:
 
 1. Fix stale API spellings, one table of `references/migration.md` per
-   commit. These are pure renames with no behaviour change, so they should never
+   commit. These are pure renames with no behavior change, so they should never
    share a commit with anything else.
 2. Fix ownership: move stored allocators to parameters, pair every allocation
    with a `defer`/`errdefer`, and give every type that owns memory a `deinit`.
@@ -163,5 +163,5 @@ reviewable and revertible:
 6. Add the missing tests, then `checkAllAllocationFailures` for allocating APIs.
 7. Turn on the CI matrix and the `zig fmt --check --ast-check` gate.
 
-State up front which of these steps you are doing, and do not mix a behavioural
+State up front which of these steps you are doing, and do not mix a behavioral
 change into any of them.

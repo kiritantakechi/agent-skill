@@ -216,16 +216,16 @@ exits 0, and prints nothing.
 // fragment — BAD: compiles, runs, exits 0, prints NOTHING
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
-    var buf: [stdout_buffer_max]u8 = undefined;
-    var fw = std.Io.File.stdout().writerStreaming(io, &buf);
+    var buffer: [stdout_buffer_max]u8 = undefined;
+    var fw = std.Io.File.stdout().writerStreaming(io, &buffer);
     try fw.interface.print("this line is silently lost\n", .{});
 }
 ```
 
 ```zig
 // fragment — GOOD
-var buf: [stdout_buffer_max]u8 = undefined;
-var fw = Io.File.stdout().writerStreaming(io, &buf);
+var buffer: [stdout_buffer_max]u8 = undefined;
+var fw = Io.File.stdout().writerStreaming(io, &buffer);
 const stdout = &fw.interface;
 try stdout.print("visible\n", .{});
 try stdout.flush(); // last statement of the writer's lifetime
@@ -285,10 +285,10 @@ std.log.debug("row cursor now {d}", .{cursor});   // diagnostic
 scoped `std.log` namespace) point here for the "never program output" half of the rule.
 
 ### ZS-CONC-06 [M] Stream to stdout; keep the positional `writer` for files you opened
-`File.writer(io, &buf)` and `Io.File.Writer.init(file, io, &buf)` are the same constructor and set
-`.mode = .positional`: every write goes to an explicit offset, starting at 0.
-`File.writerStreaming(io, &buf)` / `Io.File.Writer.initStreaming` set `.mode = .streaming` and write
-at the descriptor's own offset. Program output to stdout or stderr is always streaming; the
+`File.writer(io, &buffer)` and `Io.File.Writer.init(file, io, &buffer)` are the same constructor and
+set `.mode = .positional`: every write goes to an explicit offset, starting at 0.
+`File.writerStreaming(io, &buffer)` / `Io.File.Writer.initStreaming` set `.mode = .streaming` and
+write at the descriptor's own offset. Program output to stdout or stderr is always streaming; the
 positional constructor is for a file this program opened and whose offset it owns.
 
 **Why:** stdout may be a regular file someone already wrote to. A positional writer starts at
@@ -310,7 +310,7 @@ var log_writer = log_file.writer(io, &log_buffer); // a file we opened: position
 var stdout_writer: Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
 ```
 
-> [!NOTE] `Io.File.Writer.initDetect(file, io, &buf)` exists in the source and looks like
+> [!NOTE] `Io.File.Writer.initDetect(file, io, &buffer)` exists in the source and looks like
 > it would pick the mode for you, but it **does not compile** in 0.17.0: it calls
 > `Mode.detect(...)`, and `Io.File.Reader.Mode` has no `detect` member —
 > `error: enum 'Io.File.Reader.Mode' has no member named 'detect'`. At 0.17.0; re-check on
@@ -409,8 +409,8 @@ test "concrete error beats WriteFailed" {
     const file = try tmp.dir.createFile(io, "log.txt", .{});
     defer file.close(io);
 
-    var buf: [64]u8 = undefined;
-    var fw = file.writer(io, &buf);
+    var buffer: [64]u8 = undefined;
+    var fw = file.writer(io, &buffer);
     fw.interface.writeAll("hi\n") catch |err| switch (err) {
         // `File.Writer.drain` assigns `fw.err` on every path that returns
         // error.WriteFailed, so the fallback is unreachable in practice — and
@@ -451,7 +451,7 @@ try locked.file_writer.interface.writeAll("done\n");
 unmodified.
 
 **Why:** the buffer length *is* the bound on a line, a header, or a record: choosing
-`var buf: [4096]u8` is choosing a 4 KiB maximum line, and a hostile 4 GiB line without a newline
+`var buffer: [4096]u8` is choosing a 4 KiB maximum line, and a hostile 4 GiB line without a newline
 becomes `error.StreamTooLong` instead of an OOM.
 
 ```zig
@@ -786,16 +786,16 @@ test "directory iteration" {
 unnamed ephemeral file. Write, flush, then `af.replace(io)`. `af.link(io)` is the create-if-absent
 variant; `.replace` in the options must match which one you will call, or `replace` asserts.
 
-**Why:** truncating a file in place has a window in which the file is empty or half-written. If the
-process dies there, the on-disk state is unrecoverable — the old contents are already gone and the
-new ones are not there yet.
-
 **`[M!]` trigger:** the file is authoritative state that some later reader depends on — databases
 and WALs, configuration a service reads at boot, key material, lockfiles, anything another process
-reads concurrently. ***Relaxed form:*** a file that is regenerated from scratch on every run — a
+reads concurrently. *Relaxed form:* a file that is regenerated from scratch on every run — a
 build artifact, a cache, a scratch file — may use plain `writeFile`; but a file that is *updated*,
 meaning read, modified, and written back, still goes through `createFileAtomic` + `replace` at every
 tier, because the pre-write contents are the only copy of the data being replaced.
+
+**Why:** truncating a file in place has a window in which the file is empty or half-written. If the
+process dies there, the on-disk state is unrecoverable — the old contents are already gone and the
+new ones are not there yet.
 
 **Check:** a `writeFile` or a truncating `createFile` on a path the program also reads on a later
 run. The atomic form has three parts, so also flag a `createFileAtomic` with no `af.replace(io)` or
@@ -814,8 +814,8 @@ test "atomic replace" {
 
     var af = try tmp.dir.createFileAtomic(io, "state.json", .{ .replace = true });
     defer af.deinit(io);
-    var buf: [64]u8 = undefined;
-    var fw = af.file.writer(io, &buf);
+    var buffer: [64]u8 = undefined;
+    var fw = af.file.writer(io, &buffer);
     try fw.interface.writeAll("new");
     try fw.flush();
     try af.replace(io);
@@ -1034,15 +1034,15 @@ test "cancel protection around cleanup" {
 `checkCancel` is a pure cancellation point that performs no I/O. Check on a power-of-two stride so
 the check itself is not the cost.
 
+**`[M!]` trigger:** the system has a shutdown path, a request deadline, or a watchdog — servers,
+databases, consensus nodes, anything long-running that must be able to stop on demand.
+*Relaxed form:* elsewhere, put a `checkCancel` in any loop whose trip count comes from input, a
+file, or the network rather than from a compile-time constant; a loop bounded by a named `_max` may
+skip it, because its worst-case duration is already known and reviewable.
+
 **Why:** cancellation only takes effect at cancellation points. A loop that does no I/O is
 uninterruptible, so a shutdown, a deadline, or a watchdog cannot preempt it — the task keeps burning
 a carrier thread while whoever requested the cancel blocks in `await`.
-
-**`[M!]` trigger:** the system has a shutdown path, a request deadline, or a watchdog — servers,
-databases, consensus nodes, anything long-running that must be able to stop on demand.
-***Relaxed form:*** elsewhere, put a `checkCancel` in any loop whose trip count comes from input, a
-file, or the network rather than from a compile-time constant; a loop bounded by a named `_max` may
-skip it, because its worst-case duration is already known and reviewable.
 
 **Check:** a loop with no `io.*` call anywhere in its body whose bound is not a small compile-time
 constant, and no `io.checkCancel()` on a stride inside it. Grep the diff for `while (true)` and for
@@ -1056,7 +1056,7 @@ fn grind(io: Io, iterations: usize) Io.Cancelable!u64 {
     var acc: u64 = 0;
     for (0..iterations) |i| {
         if (i % 1024 == 0) try io.checkCancel();
-        acc +%= i;
+        acc += i;
     }
     return acc;
 }
@@ -1217,17 +1217,17 @@ own pace.* In 0.17 that means `q.get(io, &batch, 1)` — which returns up to `ba
 wake-up — rather than `q.getOne(io)` in a loop, and `writeVecAll`/`sendFileAll` rather than a write
 per record.
 
-**Why:** one wake-up per event means one context switch, one scheduler round-trip, and one set of
-assertion re-checks per event. Batching amortizes all three and bounds work per time period, which
-is what makes the per-batch assertions affordable.
-
 **`[M!]` trigger:** throughput or worst-case latency is a stated requirement, or the code runs
 per request, per record, or per packet — databases, consensus, network services, codecs.
-***Relaxed form:*** elsewhere, still amortize anything that crosses the process boundary — one
+*Relaxed form:* elsewhere, still amortize anything that crosses the process boundary — one
 `flush` and one `writeVecAll` per batch of records rather than per record. What relaxes is the
 wake-up: a per-event `getOne` loop is acceptable when the event rate is bounded by a human or by a
 file the program already holds, rather than by a peer. The non-I/O half of this is
 `references/performance.md` ZS-PERF-05.
+
+**Why:** one wake-up per event means one context switch, one scheduler round-trip, and one set of
+assertion re-checks per event. Batching amortizes all three and bounds work per time period, which
+is what makes the per-batch assertions affordable.
 
 **Check:** `q.getOne(io)` inside a `while`; a `writeAll`/`print` plus a `flush` per record inside a
 loop over records; an `io.async` per event rather than per batch. The batched forms are
@@ -1305,16 +1305,16 @@ followed literally — any `io.*` call is a suspension point. The 0.17 form of t
 shared state only in a region where you hold exclusive access, and re-establish the assertion after
 every `io.*` call.
 
-**Why:** between `try a.lock.lock(io)` and its return, other tasks in the same `Io` run and mutate
-`a`, so an assertion written before the lock documents a fact that is false by the time the code
-after it executes — worse than no assertion, because it reads as a guarantee.
-
 **`[M!]` trigger:** a stale invariant corrupts data rather than merely misbehaving — ledgers,
 replicated or persisted state, allocators, anything where the wrong number becomes durable.
-***Relaxed form:*** everywhere else, do not write an assertion about shared state *above* a
+*Relaxed form:* everywhere else, do not write an assertion about shared state *above* a
 suspension point at all: move it below the acquisition or delete it. That is weaker than
 re-establishing the invariant after every `io.*` call, but it still forbids the specific line that
 lies.
+
+**Why:** between `try a.lock.lock(io)` and its return, other tasks in the same `Io` run and mutate
+`a`, so an assertion written before the lock documents a fact that is false by the time the code
+after it executes — worse than no assertion, because it reads as a guarantee.
 
 **Check:** in any function taking an `io`, an `assert` whose operands are not parameters or locals
 and which sits above the first `try io.*` / `try ….lock(io)` / `.await(io)` line in that function.
@@ -1384,7 +1384,7 @@ bound is documented or accidental. A name also lets an assertion state the relat
 (`assert(out.len <= futures.len)`).
 
 **Check:** outside a `test` block, an array length written as a bare numeric literal at the point
-of declaration — `var buf: [4096]u8`, `[8]Io.Future(…)`, `var storage: [2]u32` feeding
+of declaration — `var buffer: [4096]u8`, `[8]Io.Future(…)`, `var storage: [2]u32` feeding
 `Queue.init` — with no named constant. The declarations to sweep are reader and writer buffers,
 `Io.Queue` storage, `Io.Select` storage, `Io.Batch` storage, and future arrays.
 
@@ -1431,8 +1431,8 @@ either reason.
 test "address parsing" {
     const a: net.IpAddress = try .parse("127.0.0.1", 8080);
     try std.testing.expectEqual(8080, a.getPort());
-    var buf: [64]u8 = undefined;
-    try std.testing.expectEqualStrings("127.0.0.1:8080", try std.mem.print(&buf, "{f}", .{a}));
+    var buffer: [64]u8 = undefined;
+    try std.testing.expectEqualStrings("127.0.0.1:8080", try std.mem.print(&buffer, "{f}", .{a}));
 }
 ```
 
@@ -1441,7 +1441,7 @@ test "address parsing" {
 datagram socket and a stream socket are not interchangeable and std refuses to guess.
 
 ### ZS-CONC-37 [M] A socket is an ordinary stream source — and `.limited` is not optional on one
-`stream.reader(io, &buf)` and `stream.writer(io, &buf)` return `net.Stream.Reader` /
+`stream.reader(io, &buffer)` and `stream.writer(io, &buffer)` return `net.Stream.Reader` /
 `net.Stream.Writer`, each with an `interface` field and an `err` field, so the buffer-then-flush
 rules apply unchanged (ZS-CONC-04, ZS-CONC-07, ZS-CONC-09). Every socket read and write is also a
 cancellation point (ZS-CONC-24): a `catch {}` around one strands a shutdown on a silent peer.
@@ -1461,8 +1461,8 @@ fn serve(io: Io, server: *net.Server) !void {
     const conn = try server.accept(io);
     defer conn.close(io);
 
-    var buf: [reply_buffer_max]u8 = undefined;
-    var cw = conn.writer(io, &buf);
+    var buffer: [reply_buffer_max]u8 = undefined;
+    var cw = conn.writer(io, &buffer);
     try cw.interface.writeAll("pong\n");
     try cw.interface.flush();
 }
@@ -1604,9 +1604,9 @@ test "process.spawn streams a child's stdout incrementally" {
     });
     errdefer _ = child.kill(io);
 
-    var buf: [64]u8 = undefined;
+    var buffer: [64]u8 = undefined;
     var stdout = child.stdout orelse return error.TestUnexpectedResult;
-    var cr = stdout.readerStreaming(io, &buf);
+    var cr = stdout.readerStreaming(io, &buffer);
     var lines: usize = 0;
     while (try cr.interface.takeDelimiter('\n')) |_| lines += 1;
 
@@ -1808,8 +1808,8 @@ test "renamePreserve refuses to clobber; rename replaces" {
     );
     try tmp.dir.rename("old.txt", tmp.dir, "new.txt", io);
 
-    var buf: [8]u8 = undefined;
-    try std.testing.expectEqualStrings("v1", try tmp.dir.readFile(io, "new.txt", &buf));
+    var buffer: [8]u8 = undefined;
+    try std.testing.expectEqualStrings("v1", try tmp.dir.readFile(io, "new.txt", &buffer));
 }
 ```
 
