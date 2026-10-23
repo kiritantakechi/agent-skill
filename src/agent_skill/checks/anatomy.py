@@ -111,6 +111,7 @@ def anatomy(skill: Skill) -> Iterator[Finding]:
     yield from _unique_titles(skill, titles)
     yield from _mis_cited(skill)
     yield from _references(skill, seen)
+    yield from _abbreviated(skill)
     yield from _counts(skill)
     yield from _near_duplicates(skill, blocks)
 
@@ -254,6 +255,27 @@ def _references(skill: Skill, seen: dict[str, str]) -> Iterator[Finding]:
     home = dict(seen.items())
     yield from _paths(skill, home)
     yield from _core_citations(skill, home)
+
+
+#: A rule ID followed by a bare number that leans on it: `ZS-ASSERT-03,
+#: -07 and -20`. `renumber` rewrites whole IDs only, so the bare ones
+#: kept their old numbers and named other rules.
+_ABBREVIATED = re.compile(
+    r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?(?:(?:,\s*|\s+(?:and|or)\s+|\s*/\s*)-\d+[a-z]?\b)+"
+)
+
+
+def _abbreviated(skill: Skill) -> Iterator[Finding]:
+    """Every cited ID is written whole, for a renumbering to follow."""
+    for path in skill.markdown:
+        text = without_renames(path.read_text())
+        for m in _ABBREVIATED.finditer(text):
+            line = text[: m.start()].count("\n") + 1
+            yield fail(
+                f"`{m.group(0)}` abbreviates rule IDs, which a renumbering cannot "
+                "follow; write each in full",
+                f"{skill.name}/{path.name}:{line}",
+            )
 
 
 def _dangling(skill: Skill, seen: dict[str, str]) -> Iterator[Finding]:

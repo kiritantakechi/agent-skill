@@ -88,9 +88,6 @@ assert(header.size_bytes <= message_size_bytes_max);
 
 ### ZS-ASSERT-02 [M] Never put a side effect in an `assert`, and never claim it is compiled out
 
-**This rule is the single authoritative treatment of assert-under-optimization in the standard.**
-ZS-ASSERT-03, -07, -08 and -20 all rest on it and cite it rather than restating it.
-
 `std.debug.assert` is an *ordinary function* — `pub fn assert(ok: bool) void { if (!ok) unreachable;
 }` (`std/debug.zig`). Two separate consequences follow, and conflating them is the usual
 mistake:

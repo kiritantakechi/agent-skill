@@ -79,6 +79,14 @@ def test_a_four_line_why(demo: Skill) -> None:
     assert any("Why runs 4 lines" in m for m in structural_messages(broken))
 
 
+def test_an_abbreviated_id_list_fails(demo: Skill) -> None:
+    broken = edit(demo, "references/errors.md", "read it.", "read DS-ERR-01, -02.")
+    check = by_name("anatomy")
+    assert check is not None
+    messages = [f.message for f in check.run([broken]).findings]
+    assert any("`DS-ERR-01, -02` abbreviates rule IDs" in m for m in messages)
+
+
 def test_a_rule_that_only_points_at_its_owner_fails(demo: Skill) -> None:
     """No pointer form exists any more: a rule without a Why is one."""
     broken = edit(

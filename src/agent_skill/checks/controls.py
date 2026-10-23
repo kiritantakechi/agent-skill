@@ -289,6 +289,16 @@ STRUCTURE: list[Control] = [
         ),
     ),
     Control(
+        "a citation that abbreviates rule IDs",
+        "anatomy",
+        lambda t: edit(
+            t,
+            f"{PY}/references/naming.md",
+            "`self` and `cls` always, never renamed.",
+            "`self` and `cls` always, never renamed (PS-NAME-02, -03).",
+        ),
+    ),
+    Control(
         "a rule with no Why",
         "anatomy",
         lambda t: edit(
