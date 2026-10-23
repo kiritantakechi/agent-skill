@@ -15,13 +15,13 @@ module is served by this standard only for the Python it also contains.
 
 The standard SHALL target exactly one CPython version — 3.15, free-threaded — and SHALL state that
 floor in its own text. It SHALL NOT describe compatibility shims, version guards, or fallbacks for
-any interpreter below 3.14t, and SHALL NOT present a pre-3.14 spelling as an acceptable
+any interpreter below 3.15t, and SHALL NOT present a pre-3.15 spelling as an acceptable
 alternative.
 
 #### Scenario: A rule offers a fallback for an older interpreter
 
 - **WHEN** a rule presents `sys.version_info` branching, a `try: ... except ImportError:` import
-  shim, or a "on older Pythons, write it this way" alternative for an interpreter below 3.14t
+  shim, or a "on older Pythons, write it this way" alternative for an interpreter below 3.15t
 - **THEN** the standard is non-conforming, and the rule states the 3.15 spelling only
 
 #### Scenario: A reader asks which interpreter the examples were verified against

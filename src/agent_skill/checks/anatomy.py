@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
-from agent_skill.model import without_renames
+from agent_skill.model import DASH, without_renames
 from agent_skill.report import fail, note
 lazy from agent_skill.model import Chapter, Rule, Skill
 lazy from agent_skill.report import Finding
@@ -116,6 +116,12 @@ def anatomy(skill: Skill) -> Iterator[Finding]:
     yield from _near_duplicates(skill, blocks)
 
 
+#: How a rule states what an `[M!]` relaxes to: one label, in the
+#: statement, so a reader meets the relaxed reading before the reason.
+RELAXED = "*Relaxed form:*"
+_RELAXED = re.compile(r"\*{1,2}Relaxed form:?\*{1,2}:?")
+
+
 def _rule(chapter: Chapter, rule: Rule, where: str) -> Iterator[Finding]:
     """One rule against its contents line, its tier and its parts."""
     toc = chapter.toc.get(rule.id)
@@ -126,8 +132,22 @@ def _rule(chapter: Chapter, rule: Rule, where: str) -> Iterator[Finding]:
     elif toc[1] != rule.title:
         yield fail(f"{rule.id} contents title != heading title", where)
 
-    if rule.tier == "M!" and "elaxed form" not in rule.body:
-        yield fail(f"{rule.id} is [M!] with no relaxed form", where)
+    relaxed = _RELAXED.search(rule.body)
+    if relaxed is None:
+        if rule.tier == "M!":
+            yield fail(f"{rule.id} is [M!] with no relaxed form", where)
+    elif relaxed.group(0) != RELAXED:
+        yield fail(
+            f"{rule.id} labels its relaxed form `{relaxed.group(0)}`; "
+            f"the label is `{RELAXED}`",
+            where,
+        )
+    elif relaxed.start() > rule.body.find("**Why") >= 0:
+        yield fail(
+            f"{rule.id}'s relaxed form follows its Why; it is part of the "
+            "statement, so it comes first",
+            where,
+        )
 
     yield from _shape(rule, where)
 
@@ -258,10 +278,12 @@ def _references(skill: Skill, seen: dict[str, str]) -> Iterator[Finding]:
 
 
 #: A rule ID followed by a bare number that leans on it: `ZS-ASSERT-03,
-#: -07 and -20`. `renumber` rewrites whole IDs only, so the bare ones
-#: kept their old numbers and named other rules.
+#: -07 and -20`, or the range `ZS-MEM-19..23`. `renumber` rewrites whole
+#: IDs only, so the bare ones kept their old numbers and named other
+#: rules.
 _ABBREVIATED = re.compile(
-    r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?(?:(?:,\s*|\s+(?:and|or)\s+|\s*/\s*)-\d+[a-z]?\b)+"
+    r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?"
+    rf"(?:(?:,\s*|\s+(?:and|or)\s+|\s*/\s*)-\d+[a-z]?\b|(?:\.\.|{DASH})\d+[a-z]?\b)+"
 )
 
 

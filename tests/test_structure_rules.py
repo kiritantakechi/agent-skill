@@ -79,6 +79,38 @@ def test_a_four_line_why(demo: Skill) -> None:
     assert any("Why runs 4 lines" in m for m in structural_messages(broken))
 
 
+def anatomy_messages(skill: Skill) -> list[str]:
+    check = by_name("anatomy")
+    assert check is not None
+    return [f.message for f in check.run([skill]).findings]
+
+
+def test_a_relaxed_form_after_the_why_fails(demo: Skill) -> None:
+    broken = edit(
+        demo,
+        "references/errors.md",
+        "**Check:** read it.",
+        "**Check:** read it.\n\n*Relaxed form:* skip it in tests.",
+    )
+    assert (
+        "DS-ERR-01's relaxed form follows its Why; it is part of the statement, "
+        "so it comes first" in anatomy_messages(broken)
+    )
+
+
+def test_a_relaxed_form_has_one_label(demo: Skill) -> None:
+    broken = edit(
+        demo,
+        "references/errors.md",
+        "Return errors.\n",
+        "Return errors.\n\n**Relaxed form:** x.\n",
+    )
+    assert any(
+        "labels its relaxed form `**Relaxed form:**`" in m
+        for m in anatomy_messages(broken)
+    )
+
+
 def test_an_abbreviated_id_list_fails(demo: Skill) -> None:
     broken = edit(demo, "references/errors.md", "read it.", "read DS-ERR-01, -02.")
     check = by_name("anatomy")

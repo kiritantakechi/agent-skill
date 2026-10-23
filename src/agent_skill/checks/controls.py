@@ -299,6 +299,26 @@ STRUCTURE: list[Control] = [
         ),
     ),
     Control(
+        "a relaxed form labelled some other way",
+        "anatomy",
+        lambda t: edit(
+            t,
+            f"{PY}/references/output.md",
+            "*Relaxed form:* application code at a display boundary",
+            "**Relaxed form:** application code at a display boundary",
+        ),
+    ),
+    Control(
+        "a relaxed form placed after its Why",
+        "anatomy",
+        lambda t: edit(
+            t,
+            f"{PY}/references/naming.md",
+            "A name that is not a question is the finding.\n",
+            "A name that is not a question is the finding.\n\n*Relaxed form:* none.\n",
+        ),
+    ),
+    Control(
         "a rule with no Why",
         "anatomy",
         lambda t: edit(
