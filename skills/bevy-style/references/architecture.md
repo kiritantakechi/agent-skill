@@ -3,7 +3,7 @@
 Scope: where Bevy is allowed to appear in a codebase and where it is not, how the simulation is
 kept separable from the engine that drives it, and the shape of a plugin. Everything about *what*
 goes in a component is in the ECS chapter; *when* a system runs is in the scheduling chapter; the
-manifest that expresses a crate split is in the Cargo chapter.
+manifest that expresses a crate split is in the build chapter.
 
 This chapter is the reason the standard exists. Bevy's API turns over faster than any other
 dependency a game has — three consecutive releases renamed the event system, the scene system and
@@ -521,7 +521,7 @@ for it, and never pass a closure. Bevy addresses a plugin **by its type**:
 whether a function plugin was added, read its configuration, order a group around it or switch it
 off. A unit struct that later needs a setting gains a field; a function first has to become a type.
 
-**Check:** `rg -n  'add_plugins\(\(?[a-z_|]' src/`. After `add_plugins(` a type starts with a
+**Check:** `rg -n 'add_plugins\(\(?[a-z_|]' src/`. After `add_plugins(` a type starts with a
 capital, so a lowercase name is a function, a module-qualified function, or a closure — all three of
 the forms that cannot be named. The *declaration* has no grep of its own, and deliberately:
 `fn f(app: &mut App)` is what a plugin function looks like and also what a test helper that drives

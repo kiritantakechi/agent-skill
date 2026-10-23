@@ -436,8 +436,8 @@ collides with `std::ops::Add`, disambiguate the trait as `ops::Add` rather than 
 `On<OnAdd<T>>`. This is the single most common stale spelling in Bevy code written against a
 tutorial.
 
-**Check:** `rg -n 'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|Trigger<' src/`. An `OnReplace` is
-`Discard`, not `Replace`.
+**Check:** `rg -n 'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|Trigger<|\bReplace<|on_replace'`
+over `src/`. An `OnReplace` is `Discard`, not `Replace`.
 
 ### BV-EVENT-15 [M] Keep an observer short, because it runs inside the flush
 

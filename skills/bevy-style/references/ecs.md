@@ -128,9 +128,9 @@ fn regenerate_shields(mut stats: Query<&mut Stats>) {
 `PartialEq` and `Default` where each of them means something for the type; `PartialEq` is what
 `set_if_neq` (BV-ECS-24) needs.
 
-**Why:** `Debug` is what every panic, `info!` and test failure prints, so without it the value is a
-hole in the output exactly when it is needed. `Reflect` with `#[reflect(Component)]` is what an
-inspector, a scene and the remote protocol see, and being opt-in it is forgotten silently.
+**Why:** `Debug` is rust-style's RS-API-36, extended to every component, public or not: every panic,
+`info!` and test failure prints it. `Reflect` with `#[reflect(Component)]` is what an inspector, a
+scene and the remote protocol see, and being opt-in it is forgotten silently.
 
 **Check:** grep for `#[derive(Component` and look for one without `Debug`, and for a `Reflect`
 without the matching `#[reflect(Component)]` — deriving the trait without the registration attribute
@@ -408,8 +408,9 @@ protocol all look types up in the registry. An unregistered type does not error;
 absent, which reads as "the tool is broken".
 
 **Check:** for each generic type deriving `Reflect`, find a `register_type::<…>` for every
-instantiation the game names. A `register_type` for a non-generic type is noise, and a hand-picked
-feature list without `reflect_auto_register` (BV-BUILD-03) leaves every type unregistered.
+instantiation the game names. A `register_type` for a non-generic type is noise. A manifest without
+`default_app` — a hand-picked list (BV-BUILD-03), or `2d_api`, `3d_api` or `common_api` on their
+own — leaves every type unregistered unless it adds `reflect_auto_register`.
 
 ```rust
 // verified
@@ -558,7 +559,7 @@ type, or a loop that has been written the long way.
 
 ### BV-ECS-19 [M] Name a query type once it needs two lines
 
-A query with several data items and several filters gets a `type` alias with a name from the domain.
+A query type that wraps onto a second line gets a `type` alias with a name from the domain.
 
 **Why:** the alias names a concept, `Combatants` or `VisibleSprites`, which the inline type never
 does, and the systems that share the shape reuse it. It also satisfies `clippy::type_complexity`,
@@ -772,9 +773,8 @@ It is not a drop-in for `for x in &query`:
 `Vec<f32>` can go, and with it the bug where it drifts from the entities. The price is a nested loop
 and a run-time failure the day a component turns sparse, which only a hot loop repays.
 
-**Check:** for each `contiguous_iter`, find the measurement. Without one it is a nested loop that
-reads worse than the flat iteration and starts failing at run time the day a component becomes
-sparse.
+**Check:** for each `contiguous_iter`, find the measurement. Without one, it is the cost above with
+nothing to repay it.
 
 ```rust
 // verified — GOOD

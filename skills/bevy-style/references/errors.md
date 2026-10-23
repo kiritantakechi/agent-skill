@@ -662,6 +662,7 @@ crash. BV-ERR-10 makes an unusable GPU at startup your decision; this is the sam
 
 **Check:** grep for `RenderErrorHandler`. Exactly one insertion, and it branches on the error rather
 than returning one blanket policy.
+
 ```rust
 // fragment — `RenderErrorHandler` lives in `bevy_render`, which needs a GPU
 use bevy::prelude::*;

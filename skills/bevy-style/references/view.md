@@ -475,12 +475,11 @@ The grammar is not Rust and is worth reading once, in its 0.20 form. Components 
 no separators. A `Component { field: value }` is a partial patch rather than a literal, so the other
 fields keep their defaults, but an enum variant names every field. Entities in `Children [ … ]` are
 separated by `--`. `{expr}` escapes back to Rust, and a scene reference takes `@`: `@name`,
-`@make()`, `@{expr}`. A bare list of entities is `bsn_list! { … }`.
-The tree is spawned with `spawn_scene`, from the `CommandsSceneExt` trait — not `spawn`, because a
-scene is not a `Bundle` — and an `On<Ready>` observer on it runs once the whole subtree has spawned.
-An observer for a nested entity is attached where that entity is written: `on(handler)` inside
-`bsn!`, or `bevy::ui_widgets::observe(handler)` in a `children![]` tuple, never found again after
-the spawn.
+`@make()`, `@{expr}`. A bare list of entities is `bsn_list! { … }`. The tree is spawned with
+`spawn_scene`, from the `CommandsSceneExt` trait — not `spawn`, because a scene is not a `Bundle` —
+and an `On<Ready>` observer on it runs once the whole subtree has spawned. An observer for a nested
+entity is attached where that entity is written: `on(handler)` inside `bsn!`, or
+`bevy::ui_widgets::observe(handler)` in a `children![]` tuple, never found again after the spawn.
 
 **Why:** the alternative nests a `with_children` closure per level, so the indentation is the
 structure. It is `[S]` because the grammar is the newest surface in Bevy, and it still moves
@@ -933,9 +932,9 @@ mesh effect pays that rewrite every release.
 
 The `Material` impl naming a shader path lives beside the struct, and the shader lives at a path the
 struct's module name predicts. That shader is WESL, a `.wesl` with `import …;`, `@if(…)` and
-`constants::MATERIAL_BIND_GROUP`, where a `.wgsl` used `#import` and `#ifdef`.
-GLSL is gone, with the `shader_format_glsl` and `shader_format_wesl` features, and the module paths
-that moved are in `references/migration.md` BV-MIG-17.
+`constants::MATERIAL_BIND_GROUP`, where a `.wgsl` used `#import` and `#ifdef`. GLSL is gone, with
+the `shader_format_glsl` and `shader_format_wesl` features, and the module paths that moved are in
+`references/migration.md` BV-MIG-17.
 
 **Why:** nothing checks a struct's fields against the shader's bindings at compile time: a mismatch
 fails at pipeline compilation, at run time, naming a binding index. Side by side, a field added on
@@ -946,8 +945,8 @@ does the struct's field order match the shader's?
 
 ### BV-VIEW-19 [S] Debug in world space with gizmos
 
-`Gizmos::line`, `circle`, `cube`, `text` and `text_2d`. Not a spawned
-`Text2d` that has to be despawned.
+`Gizmos::line`, `circle`, `cube`, `text` and `text_2d`. Not a spawned `Text2d` that has to be
+despawned.
 
 **Why:** gizmos are immediate-mode: drawn for one frame from the system that wants them, with no
 entity to create, position, update or clean up. The spawned alternative outlives its usefulness by
@@ -962,8 +961,8 @@ Bloom, motion blur, depth of field, vignette, lens distortion and chromatic aber
 components on the camera entity. Spawn them in the camera tuple; animate them by writing a field;
 turn one off by removing it. `bevy_post_process` composes them into one pass and sits inside the
 `2d` and `3d` collections BV-BUILD-02 mandates, and `Bloom` declares the `Hdr` it requires. For no
-tonemapping curve write `Tonemapping::Linear`: `Tonemapping::None` is a full
-passthrough, with no `ColorGrading`, no `DebandDither` and no clamping of negative values.
+tonemapping curve write `Tonemapping::Linear`: `Tonemapping::None` is a full passthrough, with no
+`ColorGrading`, no `DebandDither` and no clamping of negative values.
 
 **Why:** BV-VIEW-17 sends a mesh effect to a `Material` and the rest to a render node, but a
 full-screen effect has no mesh, so it would land on the node that rule warns against. These

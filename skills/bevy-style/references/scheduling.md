@@ -679,8 +679,7 @@ impl Plugin for AiPlugin {
 `resource_exists_and_equals`, `resource_added`, `resource_changed`, `resource_removed`,
 `any_with_component`, `any_component_removed`, `any_match_filter`, `on_message`, `run_once`,
 `in_state`, `condition_changed` and `condition_changed_to`, and `not` / `and` / `or` to combine
-them.
-Neighbours differ: `resource_changed` panics if the resource is absent, and
+them. Neighbours differ: `resource_changed` panics if the resource is absent, and
 `resource_exists_and_changed` does not. A system that reads the messages it is gated on takes
 `PopulatedMessageReader<M>` instead of `on_message::<M>`: it skips the system when the queue is
 empty, with the one cursor the system reads through.

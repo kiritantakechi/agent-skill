@@ -111,13 +111,16 @@ the test. `update` is one frame, synchronously, which is what an assertion needs
 
 ### BV-TEST-04 [M] Run a schedule directly when only that schedule is under test
 
-`app.world_mut().run_schedule(FixedUpdate)` runs exactly that schedule, exactly once.
+`app.world_mut().run_schedule(FixedUpdate)` runs exactly that schedule, exactly once. A system
+that reads `Res<Time>` is tested through BV-TEST-05 instead: `run_schedule` skips the fixed loop's
+clock swap, so `Time` there is the virtual clock.
 
 **Why:** `update()` runs the whole main schedule: a test of one `FixedUpdate` system also runs every
 `Update` system in the app, and the elapsed time decides how many fixed steps ran (BV-TEST-05).
 
 **Check:** does the test call `update()` and then assert on a `FixedUpdate` system's effect? The
-number of steps is not what the test thinks it is.
+number of steps is not what the test thinks it is, unless it sets
+`TimeUpdateStrategy::FixedTimesteps` (BV-TEST-05).
 
 ### BV-TEST-05 [M] Give a fixed-timestep test a known number of steps
 

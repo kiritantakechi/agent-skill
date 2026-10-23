@@ -60,7 +60,7 @@ otherwise. Check it against these tables before adapting it.
 material online predates it. The cost is not a compile error but time spent adapting a pattern that
 no longer exists, and a mental model that keeps producing the old names.
 
-**Check:** `rg -n  'Trigger<|EventReader|EventWriter|[A-Za-z0-9]Bundle' src/` over the sample.
+**Check:** `rg -n 'Trigger<|EventReader|EventWriter|[A-Za-z0-9]Bundle' src/` over the sample.
 Any hit dates it, and so does a system set whose name does not end in `Systems`.
 
 ### BV-MIG-02 [M] Follow a rename to its 0.20 spelling, not its first hop
@@ -84,7 +84,7 @@ table below, with `#[require]` on the types that always travel together (BV-ECS-
 **Why:** it is the most visible break between old Bevy material and current Bevy, and the most
 mechanical: each `XBundle::default()` becomes one or two components.
 
-**Check:** `rg -n  '[A-Za-z0-9]Bundle' src/`. Every hit is a removed type or a bundle of your own,
+**Check:** `rg -n '[A-Za-z0-9]Bundle' src/`. Every hit is a removed type or a bundle of your own,
 which BV-ECS-06 rules out. The two the engine still spells that way, `SpawnRelatedBundle` and
 `ReflectBundle`, are machinery a game does not name.
 
@@ -147,7 +147,7 @@ constructors, literal and vector are searched for.
 so the compiler accepts a read written for the 0.14 meaning and hands back the requested size
 (`references/view.md` BV-VIEW-03).
 
-**Check:** `rg -n  'UiImage|UiImageSize|stack_index' src/`, and read every use of `Node` that
+**Check:** `rg -n 'UiImage|UiImageSize|stack_index' src/`, and read every use of `Node` that
 is asking for a computed size — that value is on `ComputedNode` and no grep can tell them apart.
 
 | Removed | Write instead |

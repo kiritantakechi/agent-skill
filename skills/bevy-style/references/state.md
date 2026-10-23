@@ -309,8 +309,8 @@ phase gets no transition hooks, no automatic despawn, and no third phase without
 reader. An enum is exhaustive, so a new phase is a compile error everywhere it matters.
 
 **Check:** grep for boolean resources named `paused`, `in_menu`, `loading`, `started`. Each pair of
-them is a state enum. A `loaded: bool`, or an `AssetsLoading` collection a system checks, is a run
-condition on a transition.
+them is a state enum. A `loaded: bool`, or an `AssetsLoading` collection a system checks, is a
+loading state kept as a flag.
 
 ```rust
 // verified

@@ -1,11 +1,14 @@
 # CI for a Bevy 0.20 game. Referenced by BV-BUILD-05, BV-BUILD-15,
-# BV-BUILD-16 and RS-BUILD-40, and by BV-ARCH-07 for the boundary job.
+# BV-BUILD-16 and RS-BUILD-40, by BV-ARCH-07 for the boundary job, and by
+# RS-BUILD-28 for the audit job.
 name: ci
 
 on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"   # weekly, so new advisories surface
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
         with:
           components: rustfmt, clippy
       # Bevy is most of the build and changes only when the pin changes.
@@ -57,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
       - uses: Swatinem/rust-cache@v2
       - name: Install Linux dependencies
         run: |
@@ -71,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
       - uses: Swatinem/rust-cache@v2
       - name: Install Linux dependencies
         run: |
@@ -79,6 +82,14 @@ jobs:
           sudo apt-get install --no-install-recommends -y \
             libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - run: cargo doc --no-deps --workspace
+
+  audit:
+    # A dependency's advisory does not wait for a pull request. See RS-BUILD-28.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: rustsec/audit-check@v2
+        with: { token: "${{ secrets.GITHUB_TOKEN }}" }
 
   msrv:
     # The manifest's `rust-version` is a claim; this is what makes it true.
@@ -92,14 +103,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
             libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
-      - run: cargo check --workspace
+      - run: cargo +1.99 check --workspace   # `+`: rust-toolchain.toml outranks the install
 
   wasm:
     # Only if the game ships to the web. See BV-BUILD-16.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
