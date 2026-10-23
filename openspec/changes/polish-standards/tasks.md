@@ -199,9 +199,9 @@ report cites rust-style IDs (D3).
 
 ## 9. Close
 
-- [ ] 9.1 Run once, alone: `uv run agent-skill check` prints `ALL CHECKS PASSED`, and
+- [x] 9.1 Run once, alone: `uv run agent-skill check` prints `ALL CHECKS PASSED`, and
   `openspec validate polish-standards --strict` passes.
-- [ ] 9.2 Run `uv run agent-skill build` and `uv run agent-skill install`. Verify: the four
+- [x] 9.2 Run `uv run agent-skill build` and `uv run agent-skill install`. Verify: the four
   `dist/*.skill` rebuild, and each `~/.claude/skills/<name>` resolves to `skills/<name>`.
 
 ## Workflow follow-up
