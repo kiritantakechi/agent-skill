@@ -1,17 +1,17 @@
 ---
 name: rust-style
 description: >-
-  The modern Rust engineering standard — a 633-rule library merging the Rust API Guidelines, the
-  empirical conventions of ripgrep and the BurntSushi crates, and a functional-first default.
-  Covers naming, API design, errors and panics, iterator and combinator style, ownership and
-  lifetimes, traits and generics, module and workspace layout, Cargo/features/lints/CI, testing
+  The modern Rust 1.99 (edition 2024) engineering standard — a 633-rule library merging the Rust API
+  Guidelines, the empirical conventions of ripgrep and the BurntSushi crates, and a functional-first
+  default. Covers naming, API design, errors and panics, iterator and combinator style, ownership
+  and lifetimes, traits and generics, module and workspace layout, Cargo/features/lints/CI, testing
   and fuzzing, rustdoc, performance, concurrency and async, unsafe and FFI, ripgrep-grade CLI
   architecture, macros, and API symmetry. Use this whenever writing, reviewing, refactoring,
-  scaffolding, or debugging ANY Rust — a whole crate, one function, a `Cargo.toml`, an error enum, a
-  trait boundary, an async task, an `unsafe` block, a CLI — even if the user never mentions "style",
-  "standards", or "quality". Also use when asked to make Rust "idiomatic", "modern", "clean",
-  "elegant", "production-grade", or "functional", when auditing a Rust codebase, and when
-  choosing between Rust design alternatives.
+  scaffolding, or debugging ANY Rust — a crate, one function, a `Cargo.toml`, a trait, an async
+  task, an `unsafe` block, a CLI — even if the user never mentions "style", "standards", or
+  "quality". Also use when asked to make Rust "idiomatic", "modern", "clean", "elegant",
+  "production-grade", or "functional", when auditing a Rust codebase, when choosing between Rust
+  design alternatives, and when moving code to edition 2024 or a newer toolchain.
 ---
 
 # Rust Style — 1.99
@@ -76,30 +76,7 @@ proceed with the stricter reading.
 Most Rust on the public internet predates these. The entries that **compile either way** are the
 dangerous ones, because nothing catches them for you.
 
-### 2.1 What the 2024 edition changed underneath you
-
-| Old habit | Edition 2024 reality |
-|---|---|
-| `unsafe fn` body is implicitly unsafe | `unsafe_op_in_unsafe_fn` is on; write the inner `unsafe { }` explicitly |
-| `#[no_mangle]`, `#[export_name]`, `#[link_section]` | must be `#[unsafe(no_mangle)]` and friends |
-| `static mut FOO` then `&FOO` | `static_mut_refs` denies it; use `OnceLock`/`LazyLock`/atomics |
-| `impl Trait` return captures only named lifetimes | captures **all** in-scope lifetimes; narrow with `+ use<'a, T>` (1.82) |
-| `if let` temporary dropped at end of statement | dropped at end of the `if let`, which changes lock scopes |
-| tail-expression temporaries live to end of block | shortened; a temporary can now drop earlier than it used to |
-| `gen` usable as an identifier | reserved keyword |
-| `extern "C" { fn abs(…); }` | must be `unsafe extern "C" { … }`; an item marked `safe fn` is called without `unsafe` |
-| `$e:expr` stops before `_` and `const { … }` | `expr` matches both, so a later `_` arm stops firing; `expr_2021` keeps the old fragment (`RS-MACRO-09`) |
-| `boxed_slice.into_iter()` yields `&T` | yields `T`, by value |
-| `env::set_var` and `env::remove_var` are safe | both are `unsafe`, so `unsafe_code = "forbid"` rejects them; pass tests a lookup (`RS-TEST-16`) |
-
-### 2.2 Standard-library features that replaced ecosystem crates
-
-The ones most often missed: `LazyLock` for `lazy_static`, `cfg_select!` for `cfg-if`,
-`assert_matches!` for `assert!(matches!(..))`, `File::lock` for `fs2`, `async fn` in traits for
-`#[async_trait]`, and `Atomic*::update` for a `compare_exchange` loop. `references/migration.md`
-RS-MIG-01 has every one, with the release it arrived in.
-
-### 2.3 The three that change behaviour silently
+### 2.1 The changes that compile either way and behave differently
 
 1. **Integer overflow panics in debug and wraps in release.** Arithmetic on attacker-influenced
    values must be `checked_*`, `strict_*`, `saturating_*` or `wrapping_*` explicitly, or debug and
@@ -111,9 +88,37 @@ RS-MIG-01 has every one, with the release it arrived in.
    across an await must be correct when dropped there; `select!` makes this routine rather than
    exotic (`RS-CONC-33`).
 
+The 2024 edition moved four more without a diagnostic:
+
+| Old habit | Edition 2024 reality |
+|---|---|
+| `if let` temporary dropped at end of statement | dropped at end of the `if let`, which changes lock scopes |
+| tail-expression temporaries live to end of block | shortened; a temporary can now drop earlier than it used to |
+| `$e:expr` stops before `_` and `const { … }` | `expr` matches both, so a later `_` arm stops firing; `expr_2021` keeps the old fragment (`RS-MACRO-09`) |
+| `boxed_slice.into_iter()` yields `&T` | yields `T`, by value |
+
 Releases change things silently too — CI builds without incremental compilation in 1.99, the
 derived `PartialOrd` path in 1.98, drop timing in 1.91 to 1.95. `references/migration.md` RS-MIG-03
 lists them by release, to read on every toolchain bump.
+
+### 2.2 What the 2024 edition rejects
+
+| Old habit | Edition 2024 reality |
+|---|---|
+| `unsafe fn` body is implicitly unsafe | `unsafe_op_in_unsafe_fn` is on; write the inner `unsafe { }` explicitly |
+| `#[no_mangle]`, `#[export_name]`, `#[link_section]` | must be `#[unsafe(no_mangle)]` and friends |
+| `static mut FOO` then `&FOO` | `static_mut_refs` denies it; use `OnceLock`/`LazyLock`/atomics |
+| `impl Trait` return captures only named lifetimes | captures **all** in-scope lifetimes; narrow with `+ use<'a, T>` (1.82) |
+| `gen` usable as an identifier | reserved keyword |
+| `extern "C" { fn abs(…); }` | must be `unsafe extern "C" { … }`; an item marked `safe fn` is called without `unsafe` |
+| `env::set_var` and `env::remove_var` are safe | both are `unsafe`, so `unsafe_code = "forbid"` rejects them; pass tests a lookup (`RS-TEST-16`) |
+
+### 2.3 Standard-library features that replaced ecosystem crates
+
+The ones most often missed: `LazyLock` for `lazy_static`, `cfg_select!` for `cfg-if`,
+`assert_matches!` for `assert!(matches!(..))`, `File::lock` for `fs2`, `async fn` in traits for
+`#[async_trait]`, and `Atomic*::update` for a `compare_exchange` loop. `references/migration.md`
+RS-MIG-01 has every one, with the release it arrived in.
 
 ## 3. Design principles
 
@@ -182,7 +187,7 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
   signature defect in Rust (`references/api.md` RS-API-07).
 - **RS-CORE-08 `[M]`** Every struct field is private, whether or not it carries an invariant, and
   the type exposes methods rather than storage. The one exception is a `#[repr(C)]` type whose
-  layout is already the contract (`references/api.md` RS-API-15, RS-API-11).
+  layout is already the contract (`references/api.md` RS-API-15, RS-API-16).
 - **RS-CORE-09 `[M]`** Make illegal states unrepresentable. `bool` parameters are enums that have
   not been written yet; two `Option` fields where exactly one is always `Some` is an enum in
   disguise; a `&str` that accepts three values is an enum
@@ -190,10 +195,10 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **RS-CORE-10 `[M]`** Every public type implements `Debug`, and every public item has a summary
   line, with an example that compiles on every non-trivial one. `missing_docs` is a deny, not a warn
   (`references/api.md` RS-API-36, `references/documentation.md` RS-DOC-06).
-- **RS-CORE-11 `[M!]`** `#[non_exhaustive]` on public enums and structs whose shape may grow, so an
-  addition is a minor version rather than a major one. *Relaxed form:* omit it on a genuinely closed
-  enum, where it only costs the caller exhaustiveness checking
-  (`references/api.md` RS-API-54).
+- **RS-CORE-11 `[M!]`** `#[non_exhaustive]` on a public enum whose variant set may grow, and on a
+  struct whose fields are public, so an addition is a minor version rather than a major one. A
+  genuinely closed enum stays exhaustive. *Relaxed form:* internal crates within one workspace may
+  omit it (`references/api.md` RS-API-54).
 
 ### Errors and panics
 
@@ -229,7 +234,7 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **RS-CORE-19 `[M]`** Parse, don't validate. Convert untrusted input into a type that cannot be
   invalid at the boundary, and let every downstream function take the parsed type
   (`references/functional.md` RS-FUNC-37).
-- **RS-CORE-20 `[S]`** Separate computing from doing: parse and read at the entry, compute over
+- **RS-CORE-20 `[M]`** Separate computing from doing: parse and read at the entry, compute over
   plain data in the middle, write and log at the exit. A function that both derives a value and
   writes it somewhere is two functions (`references/functional.md` RS-FUNC-36).
 
@@ -307,21 +312,21 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 |---|---|---|
 | `references/naming.md` | `RS-NAME` (35) | Casing, conversion prefixes (`as_`/`to_`/`into_`), getters, predicates, iterator names, word order, generic parameters and lifetimes |
 | `references/api.md` | `RS-API` (62) | Public surface shape, parameters and returns, encapsulation, type safety and newtypes, `#[must_use]`/`#[non_exhaustive]`, the std trait impl set, constructors and builders, semver evolution |
-| `references/errors.md` | `RS-ERR` (37) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, exit codes, `BrokenPipe` |
+| `references/errors.md` | `RS-ERR` (37) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, explicit overflow, exit codes, `BrokenPipe` |
 | `references/functional.md` | `RS-FUNC` (47) | Expression orientation, the iterator adapter set, immutability and shadowing, closures and bounds, purity, parse-don't-validate, when to stop |
 | `references/ownership.md` | `RS-OWN` (39) | Borrow-vs-own signatures, clone discipline, `Cow`, lifetimes and elision, arenas and indices, smart pointers, interior mutability, `Drop` and RAII |
 | `references/traits.md` | `RS-TRAIT` (47) | Trait design and contracts, static vs dynamic dispatch, dyn compatibility, coherence and blanket impls, sealing, bounds, associated types, GATs, const generics, typestate |
-| `references/modules.md` | `RS-MOD` (47) | Module boundaries, `foo.rs` + `foo/`, visibility escalation, workspace layout and facades, imports and in-file declaration order |
-| `references/build.md` | `RS-BUILD` (46) | Manifest and metadata, additive features, dependency discipline, the `[lints]` table, supply chain and semver, toolchain, profiles, CI |
-| `references/testing.md` | `RS-TEST` (34) | Unit/integration/doc test split, table-driven tests, property and differential testing, fuzzing, snapshots, CLI end-to-end, Miri and `loom`, flakes |
-| `references/documentation.md` | `RS-DOC` (34) | Crate and module docs, the section order, `# Errors`/`# Panics`/`# Safety`, prose style, intra-doc links, docs.rs metadata, README |
-| `references/performance.md` | `RS-PERF` (39) | Measure-first discipline, allocation and buffer reuse, collection choice and layout, buffered I/O and syscalls, monomorphization and `#[inline]`, overflow and casts, benchmarking |
+| `references/modules.md` | `RS-MOD` (47) | Module boundaries, `foo.rs` + `foo/`, visibility escalation, the library/binary split, workspace layout and facades, imports and in-file declaration order |
+| `references/build.md` | `RS-BUILD` (46) | Manifest and metadata, docs.rs, additive features, dependency discipline, the `[lints]` table, supply chain and semver, toolchain, profiles, CI |
+| `references/testing.md` | `RS-TEST` (34) | Unit/integration/doc test split, table-driven tests, property and differential testing, fuzzing, snapshots, CLI end-to-end, flakes |
+| `references/documentation.md` | `RS-DOC` (34) | Crate and module docs, the section order, `# Errors`/`# Panics`/`# Safety`, prose style, intra-doc links, README |
+| `references/performance.md` | `RS-PERF` (39) | Measure-first discipline, allocation and buffer reuse, collection choice and layout, buffered I/O and syscalls, monomorphization and `#[inline]`, integer widths and casts, SIMD, benchmarking |
 | `references/concurrency.md` | `RS-CONC` (47) | Choosing a model, scoped threads and channels, shared state and lock discipline, async fundamentals and cancellation safety, `rayon`, `loom` and determinism |
-| `references/unsafe.md` | `RS-UNSAFE` (33) | `// SAFETY:` discipline, the UB list, layout and `repr`, `PhantomData` and variance, `unsafe trait`, C interop and `catch_unwind`, Miri and fuzzing |
-| `references/cli.md` | `RS-CLI` (33) | Library/binary split, the `LowArgs`→`HiArgs` two-stage model, the flag table, streams and colour, `BrokenPipe`, signals, config precedence |
-| `references/migration.md` | `RS-MIG` (3) | The crates std replaced, the APIs deprecated through 1.99, what changed silently by release, and the rename table |
+| `references/unsafe.md` | `RS-UNSAFE` (33) | `// SAFETY:` discipline, the UB list, layout and `repr`, `PhantomData` and variance, `unsafe trait`, C interop and `catch_unwind`, Miri and sanitizers |
+| `references/cli.md` | `RS-CLI` (33) | The `LowArgs`→`HiArgs` two-stage model, the flag table, streams and colour, `BrokenPipe`, signals, config precedence |
+| `references/migration.md` | `RS-MIG` (3) | The crates std replaced, the APIs deprecated through 1.99, when each API the rules prescribe arrived, what changed silently by release, and the rename table |
 | `references/macros.md` | `RS-MACRO` (22) | When not to write a macro, `macro_rules!` hygiene and fragment specifiers, proc-macro crate split, spans and diagnostics, `trybuild` |
-| `references/review-checklist.md` | — | The audit protocol: six-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |
+| `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |
 
 ## 7. Bundled assets
 

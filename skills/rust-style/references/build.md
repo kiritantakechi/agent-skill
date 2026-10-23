@@ -369,9 +369,8 @@ crate on docs.rs and find one there too: its badge names the feature.
 
 ### RS-BUILD-18 [M] Test the feature powerset that matters, not just `--all-features`
 
-Test the feature powerset that matters, not just `--all-features`. At minimum: default,
-`--no-default-features`, and each feature alone. `cargo hack --feature-powerset --depth 2` automates
-this.
+At minimum: default, `--no-default-features`, and each feature alone.
+`cargo hack --feature-powerset --depth 2` automates this.
 
 **Why:** `--all-features` compiles every `cfg` block but never the combinations where one is absent,
 so a missing import behind `#[cfg(not(feature))]` goes undetected. Each feature alone is the
@@ -444,13 +443,13 @@ tokio = { version = "1", default-features = false, features = ["rt", "macros"] }
 
 ### RS-BUILD-23 [M] Put lints in the manifest's `[lints]` table, not in `lib.rs`
 
-Lints belong in the manifest's `[lints]` table, inherited from `[workspace.lints]`, not in a wall
-of `#![deny(...)]` attributes in `lib.rs`. The manifest is where
-a reviewer looks for policy, and it applies to every target automatically. `[lints] workspace =
-true` is all-or-nothing, so a lint only some members want stays out of the workspace table, as
-`print_stdout` does below. Name `elided_lifetimes_in_paths` and `explicit_outlives_requirements`
-individually rather than enabling `rust_2018_idioms`: its other three members cover what edition
-2024 already rejects or has made unnecessary.
+Lints belong in the manifest's `[lints]` table, inherited from `[workspace.lints]`, not in a wall of
+`#![deny(...)]` attributes in `lib.rs`. The manifest is where a reviewer looks for policy, and it
+applies to every target automatically. `[lints] workspace = true` is all-or-nothing, so a lint only
+some members want stays out of the workspace table, as `print_stdout` does below. Name
+`elided_lifetimes_in_paths` and `explicit_outlives_requirements` individually rather than enabling
+`rust_2018_idioms`: its other three members cover what edition 2024 already rejects or has made
+unnecessary.
 
 **Why:** crate-level attributes apply only to that crate root, so tests, benches, and examples
 silently miss them. The manifest table covers every target and is inheritable across a workspace.
@@ -543,14 +542,14 @@ the format job needs nightly to enforce them.
 Run `cargo audit` (or `cargo deny check advisories`) in CI on a schedule as well as on pull
 requests, so a new advisory against an unchanged dependency is noticed.
 
+*Relaxed form:* for a tool with no network or untrusted input, a monthly manual run is acceptable.
+Anything that parses data you did not create wants the schedule.
+
 **Why:** advisories are published against versions you already depend on, so a PR-only check never
 fires for a crate nobody touched. The scheduled run is what converts "we would have caught it on the
 next change" into "we caught it".
 
 **Check:** is there a scheduled workflow, not just a PR trigger?
-
-*Relaxed form:* for a tool with no network or untrusted input, a monthly manual run is acceptable.
-Anything that parses data you did not create wants the schedule.
 
 ### RS-BUILD-29 [S] Enforce license policy and duplicate limits with `cargo deny`
 
@@ -580,7 +579,9 @@ Set `rust-version` to a real, tested MSRV, and verify it with a dedicated CI job
 toolchain. Test minimal versions (`cargo +nightly update -Z minimal-versions`) at least occasionally
 — under-specified lower bounds are a common latent breakage. Running
 `cargo hack check --rust-version --workspace --all-targets --ignore-private` takes the toolchain
-from each package's `rust-version`, so the job cannot drift from the manifest.
+from each package's `rust-version`, so the job cannot drift from the manifest. A hand-written job
+runs `cargo +<msrv>`: a committed `rust-toolchain.toml` (RS-BUILD-36) outranks the default an
+action installs, so plain `cargo` there builds on the pinned release, not the MSRV.
 
 **Why:** Cargo enforces `rust-version` against your users and resolves versions by it, so an
 untested value is a hard failure for someone. Normal CI runs the latest toolchain and the newest
@@ -594,15 +595,15 @@ Run `cargo semver-checks` before every release and trust it over intuition about
 It catches removed impls, narrowed bounds, changed variant shapes, and newly private items that
 human review misses (`RS-API-55`).
 
+*Relaxed form:* an unpublished internal crate with one consumer can rely on that consumer's build.
+The moment there are two, the tool is cheaper than the coordination.
+
 **Why:** semver breakage in Rust is subtle — adding a trait impl, tightening a bound, or making an
 enum non-exhaustive can all break dependents in ways that are invisible in a diff. The tool checks
 the actual API surface rather than the intent.
 
 **Check:** is the check part of the release process rather than something run when someone
 remembers?
-
-*Relaxed form:* an unpublished internal crate with one consumer can rely on that consumer's build.
-The moment there are two, the tool is cheaper than the coordination.
 
 ### RS-BUILD-33 [M] Follow semver strictly, including the 0.x rule
 

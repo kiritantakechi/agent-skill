@@ -248,16 +248,16 @@ more expensive than deciding now.
 Bound every queue. An unbounded channel converts backpressure into memory exhaustion, which surfaces
 as an OOM kill hours later rather than a slow producer immediately.
 
+*Relaxed form:* a queue whose producer is a bounded, known set — a fixed list of files, a fixed
+worker count — is already bounded by construction. Any queue fed by network input or user activity
+is not.
+
 **Why:** a bounded channel makes a fast producer block, which is the signal that the system is
 overloaded, delivered at the point where it can be handled. Unbounded, that signal is deferred until
 memory runs out, at which point the process dies with no useful diagnostic.
 
 **Check:** grep for `unbounded` channel constructors and for `Vec` accumulators fed by a loop with
 an external bound.
-
-*Relaxed form:* a queue whose producer is a bounded, known set — a fixed list of files, a fixed
-worker count — is already bounded by construction. Any queue fed by network input or user activity
-is not.
 
 ```rust
 // verified
@@ -784,16 +784,16 @@ Cancellation in async is a drop, and it can happen at any `.await` point. Any fu
 resource across an await must be correct when it is dropped there — this is cancellation safety, and
 `select!` makes it a routine concern rather than an exotic one.
 
+*Relaxed form:* code that never appears inside a `select!`, a `timeout`, or a task that gets aborted
+is cancelled only at shutdown, where a leaked temporary is tolerable. The moment either appears, the
+rule is [M].
+
 **Why:** there is no cancellation notification and no async destructor, so cleanup has to work
 through ordinary `Drop`. A half-consumed read or a half-sent message dropped mid-operation loses
 data silently.
 
 **Check:** for each `.await` in a function holding state, ask what happens if the future is dropped
 there. Is the state still consistent?
-
-*Relaxed form:* code that never appears inside a `select!`, a `timeout`, or a task that gets aborted
-is cancelled only at shutdown, where a leaked temporary is tolerable. The moment either appears, the
-rule is [M].
 
 ### RS-CONC-34 [M] Do not `select!` over branches that lose data on cancellation
 
@@ -899,29 +899,29 @@ pub fn lengths(inputs: &[String]) -> Vec<usize> {
 Test concurrent data structures with `loom`, which explores interleavings exhaustively for small
 models. Ordinary tests pass on broken lock-free code essentially every time.
 
+*Relaxed form:* if all your synchronization comes from `std` and `crossbeam` primitives used in the
+obvious way, `loom` buys little. It is mandatory the moment you write the algorithm rather than call
+one.
+
 **Why:** a race needs a specific interleaving, and the scheduler will not produce it in a normal
 test run — so a broken structure passes indefinitely and fails in production. `loom` enumerates the
 interleavings instead of sampling them.
 
 **Check:** for each hand-written synchronization primitive, is there a `loom` test?
 
-*Relaxed form:* if all your synchronization comes from `std` and `crossbeam` primitives used in the
-obvious way, `loom` buys little. It is mandatory the moment you write the algorithm rather than call
-one.
-
 ### RS-CONC-41 [M!] Run the suite under ThreadSanitizer for anything with `unsafe` sharing
 
 Run the suite under ThreadSanitizer for anything with `unsafe` sharing. Miri, for the `unsafe`
 itself, is RS-UNSAFE-30.
 
-**Why:** these tools detect races the test run happened not to trigger, by checking the
+*Relaxed form:* run it before each release rather than per push. A crate with no `unsafe` sharing
+has nothing here to check.
+
+**Why:** ThreadSanitizer detects races the test run happened not to trigger, by checking the
 happens-before relation rather than the outcome. That is a categorically stronger observation than
 "the assertions passed".
 
-**Check:** does CI include the tool matching what the crate contains?
-
-*Relaxed form:* run them before each release rather than per push. A crate with no `unsafe` sharing
-has nothing here to check.
+**Check:** does CI run the suite under ThreadSanitizer?
 
 ### RS-CONC-42 [M] Make concurrency tests deterministic — no `sleep`
 
@@ -1021,7 +1021,8 @@ from the type signature alone, and getting it wrong is expensive.
 *sensible* — a `Sync` type can still have methods that must not overlap. Whether the type spawns
 threads is invisible entirely.
 
-**Check:** for each public type, do the docs answer all four questions (`RS-DOC-03`)?
+**Check:** for each public type, do the docs answer all four questions, linking the crate-wide model
+(`references/documentation.md` RS-DOC-03)?
 
 ```rust
 // verified

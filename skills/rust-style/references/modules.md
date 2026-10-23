@@ -530,8 +530,8 @@ anything. Deviating has a cost paid by every newcomer.
 ### RS-MOD-21 [M] Split the binary from the library
 
 `src/lib.rs` holds everything testable; `src/main.rs` is argument parsing, wiring, and reporting.
-It is why ripgrep's search engine is `grep-searcher`, a crate others build on, rather than a module
-in `main.rs`.
+That split is why ripgrep's search engine is `grep-searcher`, a crate others build on, rather than a
+module in `main.rs`.
 
 **Why:** a binary-only crate cannot be integration-tested, benchmarked, or reused, and its logic can
 only be exercised by running the process. The split costs one file.

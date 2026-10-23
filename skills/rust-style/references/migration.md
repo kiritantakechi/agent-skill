@@ -1,8 +1,9 @@
 # Migration: Editions, Releases, and What Replaced What
 
 Scope: what changed under existing Rust code — the 2024 edition, the stable releases since, the
-crates the standard library has replaced, and the APIs it has deprecated — and the rule IDs this
-standard used before its current revision.
+crates the standard library has replaced, and the APIs it has deprecated — when each API the rules
+prescribe arrived, for a crate whose MSRV is older, and the rule IDs this standard used before its
+current revision.
 
 ## Contents
 
@@ -10,6 +11,7 @@ standard used before its current revision.
 - RS-MIG-02 [M] Do not call an API deprecated through 1.99
 - When an API arrived
 - RS-MIG-03 [M] Re-read what changed silently on every toolchain bump
+- Decided by tools
 
 ---
 
@@ -25,7 +27,7 @@ standard used before its current revision.
 | `File::lock`, `try_lock`, `lock_shared` | `fs2`, `fs4`, `fd-lock` for a whole-file advisory lock | 1.89 |
 | `fs::set_times`, `File::set_times` | `filetime` | 1.99 |
 | `io::pipe` | `os_pipe` | 1.87 |
-| `assert_matches!`, imported from `std` | the `assert_matches` crate, `assert!(matches!(..))` | 1.96 |
+| `assert_matches!` and `debug_assert_matches!`, imported from `std` | the `assert_matches` crate, `assert!(matches!(..))` | 1.96 |
 | `async fn` and `impl Trait` in traits | `#[async_trait]` where no `dyn` is needed | 1.75 |
 | async closures and `AsyncFn*` bounds | an `F: Fn() -> Fut, Fut: Future` pair | 1.85 |
 | trait upcasting, including to `dyn Any` | a hand-written `fn as_any(&self) -> &dyn Any` | 1.86 |
@@ -62,28 +64,33 @@ reader already knows.
 **Why:** a deprecation warns, and `CARGO_BUILD_WARNINGS=deny` turns the warning into a failed
 build — so a toolchain bump breaks CI on code that has not changed.
 
-**Check:** `rg -n '\.fetch_update\(|std::[iu](8|16|32|64|128|size)::(MAX|MIN)\b' src/`
+**Check:** the `deprecated` row below, under `CARGO_BUILD_WARNINGS=deny`; before a toolchain bump,
+`rg -n '\.fetch_update\(|std::[iu](8|16|32|64|128|size)::(MAX|MIN)\b' src/`.
 
 ## When an API arrived
 
 The rules write what 1.99 offers. A crate whose MSRV is older (RS-BUILD-31) checks each API it uses
-against this table, which keeps the dates the rules no longer carry.
+against this table and RS-MIG-01's "Since" column, which keep the dates the rules no longer carry.
 
 | API | Stable since |
 |---|---|
 | generic associated types | 1.65 |
-| `async fn` and `impl Trait` in traits; an omitted `version` meaning `0.0.0` and `publish = false` | 1.75 |
-| `File::create_new`; `c"…"` literals | 1.77 |
+| an omitted `version` meaning `0.0.0` and `publish = false` | 1.75 |
+| `Arc::unwrap_or_clone`, `Rc::unwrap_or_clone` | 1.76 |
+| `File::create_new`; `<[T]>::first_chunk` | 1.77 |
 | `#[diagnostic::on_unimplemented]` | 1.78 |
-| `core::error::Error` | 1.81 |
-| `AsyncFn`, `AsyncFnMut`, `AsyncFnOnce`; `#[diagnostic::do_not_recommend]` | 1.85 |
+| `CStr::count_bytes` | 1.79 |
+| `core::error::Error`; `fs::exists` | 1.81 |
+| `use<..>` bounds; `&raw const` and `&raw mut`; `unsafe extern` blocks | 1.82 |
+| `BufRead::skip_until` | 1.83 |
+| `#[diagnostic::do_not_recommend]`; unsigned `midpoint`; `Waker::noop`; `ptr::fn_addr_eq` | 1.85 |
 | `Vec::pop_if` | 1.86 |
-| `Vec::extract_if`; `Path::display` and `OsStr::display`; `env::home_dir` undeprecated | 1.87 |
-| let chains, in edition 2024; `HashMap::extract_if` and `HashSet::extract_if` | 1.88 |
-| `strict_*` arithmetic; `Path::with_added_extension`; `BTreeMap::extract_if` and `BTreeSet::extract_if` | 1.91 |
-| `Vec::into_raw_parts`; `VecDeque::pop_front_if` and `pop_back_if` | 1.93 |
-| `cfg_select!`; `if let` guards | 1.95 |
-| `debug_assert_matches!` | 1.96 |
+| `OsStr::display`; `is_multiple_of` | 1.87 |
+| let chains, in edition 2024 | 1.88 |
+| `Path::with_added_extension` | 1.91 |
+| `fmt::from_fn`; `Vec::into_raw_parts`; `VecDeque::pop_front_if` and `pop_back_if` | 1.93 |
+| `array_windows`; `Peekable::next_if_map` | 1.94 |
+| `if let` guards; `hint::cold_path` | 1.95 |
 
 ## What changed silently
 
@@ -110,6 +117,14 @@ the moment the toolchain moves. A version bump that skips this step ships behavi
 
 **Check:** a review matter: on a toolchain bump, read each row newer than the old toolchain against
 the diff's feature sets, `Ord` impls, drop order and anything that parses panic messages.
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| rustc | `deprecated` | warn | a deprecated API — CI denies warnings, so treat it as already removed |
 
 ## Rule IDs before the Rust 1.99 revision
 

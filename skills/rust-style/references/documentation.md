@@ -691,16 +691,16 @@ Write the documentation before finalizing the API. If a function is hard to desc
 sentence, it is doing two things — and you have just found that out for the price of a sentence
 rather than a release.
 
+*Relaxed form:* for an internal binary or a prototype, write the summary line before the body and
+let the rest follow the implementation. The signal you are buying — "this is hard to describe, so it
+does too much" — arrives with the summary line alone.
+
 **Why:** the summary line is the cheapest design review available. A signature that resists a
 one-sentence description is telling you about a cohesion problem while it is still free to fix,
 which is a strictly better time to learn it than after publishing.
 
 **Check:** for each new public item, was the summary written before the body? A summary containing
 "and" or "or" is the signal this rule exists to catch.
-
-*Relaxed form:* for an internal binary or a prototype, write the summary line before the body and
-let the rest follow the implementation. The signal you are buying — "this is hard to describe, so it
-does too much" — arrives with the summary line alone.
 
 ```rust
 // verified

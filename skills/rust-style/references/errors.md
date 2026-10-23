@@ -1,10 +1,12 @@
 # Errors, `Result`, Panics, and Exit Codes
 
 Scope: when a failure is a `Result` and when it is a panic, how a library's error type is shaped and
-what it must carry, how errors propagate and accumulate context, the panic rules including `Drop`
-and FFI, and how a binary reports failure and chooses an exit code. Naming of error types is in the
-naming chapter (RS-NAME-31); the `# Errors` and `# Panics` rustdoc sections are in the documentation
-chapter; the `[lints]` entries that mechanically enforce this chapter are in the Cargo chapter.
+what it must carry, how errors propagate and accumulate context, the panic rules including
+`panic = "abort"`, and how a binary reports failure and chooses an exit code. A `Drop` that must
+not fail is `references/ownership.md` RS-OWN-33, and a panic at the FFI boundary
+`references/unsafe.md` RS-UNSAFE-24. Naming of error types is in the naming chapter (RS-NAME-31);
+the `# Errors` and `# Panics` rustdoc sections are in the documentation chapter; the deny rows that
+mechanically enforce this chapter are in the build chapter's table.
 
 The dividing line that organizes everything here: **libraries** must hand callers structured,
 matchable, non-lossy errors, because the caller knows things the library does not. **Binaries** are

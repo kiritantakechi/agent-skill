@@ -316,7 +316,8 @@ pub fn running_total(values: &[u32]) -> Vec<u32> {
 
 ### RS-FUNC-15 [S] Use `peekable` and `by_ref` instead of a manual buffer
 
-`next_if` and `next_if_map` take the next item only when it matches, with no `peek` then `next`.
+`peekable` for one-item lookahead, `by_ref` to consume a prefix and keep the rest, and `next_if` or
+`next_if_map` to take the next item only when it matches, with no `peek` then `next`.
 
 **Why:** `peekable` handles one-token lookahead; a hand-rolled `Option<T>` buffer has to be drained
 correctly at three call sites and usually is not. `by_ref` consumes a prefix (`take`, `take_while`,

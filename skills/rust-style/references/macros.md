@@ -110,7 +110,7 @@ hand-written code?
 
 ### RS-MACRO-05 [S] Expand to a call into a normal function
 
-For a derive, that is a call into a generic helper in the runtime crate: a few generated lines per
+A derive expands to a call into a generic helper in the runtime crate: a few generated lines per
 field, not the logic itself.
 
 **Why:** it keeps the logic type-checked, unit-testable, and steppable, and leaves the macro only

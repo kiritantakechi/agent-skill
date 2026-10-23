@@ -47,6 +47,7 @@ and shell completions, and obsessive attention to stream behaviour — is what
   - RS-CLI-31 [M] Namespace and document every environment variable you read
   - RS-CLI-32 [M] Do not phone home, auto-update, or collect telemetry without opt-in
   - RS-CLI-33 [S] Ship a single binary with artifacts and checksums for three platforms
+- Decided by tools
 
 ---
 
@@ -790,8 +791,8 @@ Use structured logging (`tracing` or `log` plus `env_logger`) for diagnostics, c
 cannot be turned off by the user. Debug prints that ship are also the most common way secrets end up
 in logs.
 
-**Check:** grep the library for `println!`, `eprintln!`, and `dbg!`. In library code each is a
-finding.
+**Check:** grep the library for `println!` and `eprintln!`; in library code each is a finding. A
+`dbg!` is the `dbg_macro` row.
 
 ## Behaviour, environment, signals
 
@@ -839,15 +840,15 @@ Make destructive operations opt-in: a dry-run mode by default for anything that 
 overwrites, or at minimum a `--force`/`-i` prompt when interactive. Never prompt when not a terminal
 — fail instead.
 
+*Relaxed form:* a personal script that only ever touches paths you pass it explicitly may skip the
+dry-run default. The "never prompt when not a terminal" half is not relaxable — it is what makes the
+tool safe in a pipeline.
+
 **Why:** the cost of an unwanted destructive run is unbounded and unrecoverable, while the cost of a
 dry run is one extra invocation. Prompting without a terminal is worse than either: the tool blocks
 forever in a pipeline, or consumes a line of piped data as the answer.
 
 **Check:** run the destructive path with stdin closed. It must fail, not hang and not proceed.
-
-*Relaxed form:* a personal script that only ever touches paths you pass it explicitly may skip the
-dry-run default. The "never prompt when not a terminal" half is not relaxable — it is what makes the
-tool safe in a pipeline.
 
 ```rust
 // verified
@@ -887,15 +888,15 @@ Write output atomically where a partial file would be harmful: write to a tempor
 directory, then rename. A crash mid-write should not destroy the user's input. Open the temporary
 with `File::create_new`, which fails rather than truncate a file that is already there.
 
+*Relaxed form:* if the output is regenerable from inputs the tool does not mutate, a plain write is
+acceptable. In-place edits are never in that category.
+
 **Why:** `rename` within a filesystem is atomic, so readers see either the old file or the new one
 and never a half-written one. Writing in place gives up that guarantee for nothing — the temporary
 file costs one extra path.
 
 **Check:** for each in-place edit, is there a temp-file-and-rename? Same directory matters, since
 `rename` across filesystems is not atomic.
-
-*Relaxed form:* if the output is regenerable from inputs the tool does not mutate, a plain write is
-acceptable. In-place edits are never in that category.
 
 ```rust
 // verified
@@ -1002,3 +1003,11 @@ major platforms and a checksum. Distribution friction is the main reason good to
 usable in a Dockerfile or a CI job. The checksum is what makes that download verifiable.
 
 **Check:** does a release contain prebuilt artifacts for Linux, macOS, and Windows, plus checksums?
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| clippy | `dbg_macro` | deny | `dbg!` left in shipped code |

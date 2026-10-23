@@ -354,9 +354,9 @@ or an iterator (RS-API-16).
 
 ### RS-API-13 [M] Do not hand out `&mut` to invariant-bearing state
 
-`fn entries_mut(&mut self) -> &mut Vec<Entry>` lets a caller violate sorting, uniqueness, or a
-cached length. Nor a row of `&mut` accessors: one `&mut self` method that performs the whole
-transition keeps the type consistent between calls.
+Not `fn entries_mut(&mut self) -> &mut Vec<Entry>`, which lets a caller violate sorting, uniqueness,
+or a cached length, and not a row of `&mut` accessors: one `&mut self` method that performs the
+whole transition keeps the type consistent between calls.
 
 **Why:** a `&mut` to the inner collection is a public licence to break every invariant the type
 maintains, and no amount of documentation prevents it. Targeted mutators (`insert`, `remove`,
@@ -369,8 +369,9 @@ have reached through (RS-API-16).
 
 ### RS-API-14 [M] Close every public path that can build an invalid instance
 
-A builder is one such path to close: if the built type can also be made by a struct literal or a
-`From<Options>`, every invariant `build()` enforces is unenforced on the other path.
+Every public path enforces the invariants; a builder is the usual one to miss: if the built type
+can also be made by a struct literal or a `From<Options>`, every invariant `build()` enforces is
+unenforced on the other path.
 
 **Why:** private fields plus a constructor that takes every field unvalidated is not encapsulation —
 it is public fields with extra typing. The point is that the type cannot be constructed in a bad
@@ -385,10 +386,9 @@ bypasses your constructor unless you use `#[serde(try_from = "…")]`.
 There is no "pure data bag" exemption. A struct whose fields are independent today is still a
 struct whose representation you have published. The single exception is a type whose layout is
 already the contract — `#[repr(C)]` or `extern` types crossing an ABI boundary
-(`references/unsafe.md` RS-UNSAFE-14). A constructor or builder replaces the struct literal, a
-method replaces field access, and `#[non_exhaustive]` plus `Default` replaces
-`..Default::default()`. A tuple struct is no exception: `struct Port(u16)` with an accessor, never
-`struct Port(pub u16)`, whose `.0` is a public field that also names nothing.
+(`references/unsafe.md` RS-UNSAFE-14). A constructor or builder replaces the struct literal, and a
+method replaces field access. A tuple struct is no exception: `struct Port(u16)` with an accessor,
+never `struct Port(pub u16)`, whose `.0` is a public field that also names nothing.
 
 **Why:** a public field commits to a *representation*: `pub threads: usize` cannot later become
 `NonZeroUsize` or a computed value without a major version, and invariants usually arrive later.
@@ -404,7 +404,6 @@ use std::num::NonZeroUsize;
 
 /// Private fields even here: nothing about this pair is an invariant today.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct Config {
     threads: NonZeroUsize,
     colour: bool,
@@ -512,7 +511,7 @@ whose type, such as `NonEmpty<T>`, has not been written yet.
 
 **Why:** the compiler then catches argument transposition, which tests usually do not, because a
 transposed pair of `u64`s produces plausible wrong answers rather than a crash. A constraint in a
-type is enforced once at the boundary, where prose is re-verified by every reader.
+type is checked once, at the boundary; one in prose is re-checked by every reader.
 
 **Check:** scan every public signature for two consecutive parameters of the same primitive type,
 and grep doc comments for "must", "should be", "expects" and range notation; each doc hit is a type
@@ -1286,7 +1285,7 @@ yes, make it one and keep the inherent version only as a thin forwarder.
 
 ### RS-API-53 [M] Mark an unchecked constructor `unsafe`, and name it `*_unchecked`
 
-And document the precondition in a `# Safety` section. The suffix names the check that was skipped;
+Document its precondition in a `# Safety` section. The suffix names the check that was skipped;
 the keyword makes the caller prove it (`references/unsafe.md` RS-UNSAFE-04).
 
 **Why:** a constructor that skips validation is the right tool for a caller who has validated and a
@@ -1300,9 +1299,11 @@ visible at the call site.
 
 ### RS-API-54 [M!] Decide `#[non_exhaustive]` for every public enum and struct
 
-Mark a public enum whose variant set may grow, and a public struct whose field set may grow. A
-genuinely closed set — `enum Endianness { Big, Little }` — stays exhaustive, because there the
-attribute only removes the caller's exhaustiveness checking; say in the rustdoc that it is closed.
+Mark a public enum whose variant set may grow. A genuinely closed set — `enum Endianness { Big,
+Little }` — stays exhaustive, because there the attribute only removes the caller's exhaustiveness
+checking; say in the rustdoc that it is closed. A struct needs the attribute only where its fields
+are public, which RS-API-15 allows for little but a `#[repr(C)]` type: a struct with private fields
+can already grow without a major version.
 
 *Relaxed form:* internal crates within one workspace, where you control every consumer, can omit it.
 
@@ -1310,31 +1311,13 @@ attribute only removes the caller's exhaustiveness checking; say in the rustdoc 
 ability to ship additions as minor versions for the life of the crate. Without it, every new variant
 is a major release — which in practice means the variant gets smuggled into an existing one instead.
 
-**Check:** for each public enum and struct, could a new case or field plausibly appear? Protocols,
-parsers, error types, and config structs almost always can. If you cannot name a plausible third
-variant, leave it exhaustive and write that decision in the rustdoc.
+**Check:** for each public enum, and each public struct with public fields, could a new case or
+field plausibly appear? Protocols, parsers and error types almost always can. If you cannot name a
+plausible third variant, leave it exhaustive and write that decision in the rustdoc.
 
 ```rust
 // verified
-/// `#[non_exhaustive]` keeps adding a field or variant a minor version bump.
-#[derive(Debug, Clone, Copy, Default)]
-#[non_exhaustive]
-pub struct Limits {
-    max_depth: u32,
-}
-
-impl Limits {
-    #[must_use]
-    pub fn with_max_depth(max_depth: u32) -> Self {
-        Self { max_depth }
-    }
-
-    #[must_use]
-    pub fn max_depth(self) -> u32 {
-        self.max_depth
-    }
-}
-
+/// `#[non_exhaustive]` keeps adding a variant a minor version bump.
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub enum Mode {
@@ -1473,7 +1456,7 @@ it too. Do not mix one variant with four fields and one with none unless the dif
 
 **Why:** the caller writes one `match` over all the variants, and when some carry a path and some
 do not, the reporting code grows a special case per deficient variant. Uniform shape lets one
-function render them all (`RS-ERR-20`).
+function render them all.
 
 **Check:** tabulate the enum's variants against their fields. A column that is populated for most
 variants and empty for one is either a missing field or a variant that belongs elsewhere.

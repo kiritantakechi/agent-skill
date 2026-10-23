@@ -192,7 +192,8 @@ variant start or end with either?
 ### RS-NAME-09 [S] Name a quantity for what it measures, with the unit as a suffix
 
 `MAX_RETRIES`, `DEFAULT_BUFFER_SIZE`, `TIMEOUT_MS`. Not `BUF_SIZE_USIZE`, and not `TIMEOUT` with the
-unit hidden in a comment. The same holds for a parameter or field whose type cannot carry the unit.
+unit hidden in a comment. For a parameter or field whose type cannot carry the unit, the name must
+(`references/api.md` RS-API-23).
 
 **Why:** the type is visible in the declaration, so encoding it in the name is redundant; the unit
 is *not* visible in `u64`, so it must be somewhere the call site can see it. Better still, make it a
@@ -203,7 +204,7 @@ bytes, counts of a specific thing — either names the unit or has a type that d
 
 ### RS-NAME-10 [S] Name a type parameter by its role: a conventional letter, else a word
 
-In this order. A role the ecosystem has a letter for takes it: `T`/`U` for values, `E` for an error,
+A role the ecosystem has a letter for takes it: `T`/`U` for values, `E` for an error,
 `K`/`V` for map keys and values, `F` for a closure, `I` for an iterator, `S` for string-like, and
 `R`/`W` for a reader and a writer. In a crowded signature the letter matches its bound, as in
 `fn copy<R: Read, W: Write>`. Once the roles stop being obvious — three or more parameters of

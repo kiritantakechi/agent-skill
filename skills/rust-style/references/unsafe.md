@@ -36,7 +36,7 @@ apply when that default has been consciously overridden.
   - RS-UNSAFE-22 [M] Uphold `Drop` correctness in unsafe containers
 
 - **FFI**
-  - RS-UNSAFE-23 [S] Generate bindings with `bindgen`, do not hand-transcribe headers
+  - RS-UNSAFE-23 [S] Generate bindings, and keep any hand-written declaration in the bindings module
   - RS-UNSAFE-24 [M] Never unwind across an `extern "C"` boundary
   - RS-UNSAFE-25 [M] Validate every pointer crossing the boundary
   - RS-UNSAFE-26 [M] Own the memory-management contract explicitly
@@ -67,9 +67,9 @@ to the same code.
 raw memory, a lock-free algorithm) and, occasionally, speed. Requiring evidence keeps the proof
 obligations you take on proportional to what you actually get.
 
-**Check:** is `unsafe_code` forbidden in the manifest, or is a capability the crate's purpose? For
-each `unsafe` block, which of the two justifications applies? If "speed", find the benchmark; if
-there is none, delete the block and rerun the tests.
+**Check:** is `unsafe_code` forbidden in the manifest (the `unsafe_code` row), or is a capability
+the crate's purpose? For each `unsafe` block, which of the two justifications applies? If "speed",
+find the benchmark; if there is none, delete the block and rerun the tests.
 
 ```rust
 // verified
@@ -271,15 +271,15 @@ pub fn first_index(haystack: &str, needle: char) -> Option<usize> {
 Write the safe version first, test it, keep it, and gate the `unsafe` version behind a feature with
 a differential test proving they agree (`RS-TEST-21`).
 
+*Relaxed form:* in an internal binary, keep the safe version in a test rather than behind a feature
+flag. What matters is that an independent implementation exists to disagree with the fast one.
+
 **Why:** the safe implementation is the specification and the oracle (`references/testing.md`
 RS-TEST-21), and in `unsafe` code the disagreement it catches is memory corruption, not a wrong
 answer.
 
 **Check:** is there a test that runs both implementations on the same input and compares? If the
 safe version was deleted after the fast one worked, the oracle is gone.
-
-*Relaxed form:* in an internal binary, keep the safe version in a test rather than behind a feature
-flag. What matters is that an independent implementation exists to disagree with the fast one.
 
 ## Undefined behaviour and invariants
 
@@ -554,7 +554,9 @@ is noise: delete it.
 
 ```rust
 // verified
-/// Owns a `u64` through a raw pointer, so the compiler withholds `Send`.
+/// Stands in for an FFI handle: an owned raw pointer, for which the compiler withholds `Send`.
+/// Real code takes it from a C library that documents the handle as movable between threads;
+/// a plain `Box<u64>` is already `Send` and needs none of this.
 #[derive(Debug)]
 pub struct Slot {
     raw: *mut u64,
@@ -603,7 +605,7 @@ the answer is not "the first `k` elements are dropped exactly once", add the gua
 
 ## FFI
 
-### RS-UNSAFE-23 [S] Generate bindings with `bindgen`, do not hand-transcribe headers
+### RS-UNSAFE-23 [S] Generate bindings, and keep any hand-written declaration in the bindings module
 
 Generate bindings with `bindgen` rather than hand-transcribing headers, and re-generate them in CI
 or check them in with the exact bindgen version recorded. A declaration you do write is an
@@ -752,10 +754,11 @@ pub fn as_text(raw: &CStr) -> Result<&str, std::str::Utf8Error> {
 
 ### RS-UNSAFE-28 [M] Mark FFI structs `#[repr(C)]` and assert their layout
 
-Mark FFI structs `#[repr(C)]` and assert their size and alignment against the C definition in a
-test. A silent layout mismatch produces garbage that looks like a logic bug. Declare a C function
-that returns `void` with no return type, never `-> c_void`, which `c_void_returns` warns on. On
-x86_64, build FFI crates with 1.99.1 or later, which fixes a miscompilation of FFI `bool` returns.
+Mark FFI structs `#[repr(C)]` and assert their size, alignment and field offsets with RS-UNSAFE-14's
+`const` assertions, taking the numbers from the C side. A silent layout mismatch produces garbage
+that looks like a logic bug. Declare a C function that returns `void` with no return type, never
+`-> c_void`, which `c_void_returns` warns on. On x86_64, build FFI crates with 1.99.1 or later,
+which fixes a miscompilation of FFI `bool` returns.
 
 **Why:** `repr(C)` fixes the field order but does not verify that your field *types* match the C
 header. The assertion is what catches a `long` that is 32 bits on one platform and 64 on another.
@@ -798,15 +801,15 @@ user's machine next year. Keep secrets out of the Miri job's environment, and ou
 writes a `target/` cache a pull request can read. A hand-rolled concurrent structure also runs
 under `loom` or ThreadSanitizer (`references/concurrency.md` RS-CONC-40).
 
+*Relaxed form:* run Miri locally before each release rather than on every push. What is not
+acceptable is never having run it.
+
 **Why:** Miri is an interpreter that checks the rules the optimizer assumes — aliasing, provenance,
 alignment, initialization. It finds the class of bug that testing cannot, because testing observes
 one compilation on one target.
 
 **Check:** the CI pipeline contains a Miri job, and it covers the tests that exercise the `unsafe`
 paths rather than only the trivial ones.
-
-*Relaxed form:* run Miri locally before each release rather than on every push. What is not
-acceptable is never having run it.
 
 ### RS-UNSAFE-31 [S] Cover FFI paths with ASan, UBSan, and Valgrind, which Miri cannot reach
 
@@ -824,15 +827,15 @@ tool, the FFI paths are unverified.
 Have `unsafe` code reviewed by a second person, and say in the pull request template that `unsafe`
 requires it. Self-review of soundness proofs has a poor track record.
 
+*Relaxed form:* on a solo project, re-review the `unsafe` block in a separate sitting from the one
+that wrote it, with the `// SAFETY:` comment read first and the code checked against it.
+
 **Why:** the author's mental model is precisely what produced the gap, so re-reading with the same
 model finds nothing. A second reader has to reconstruct the argument from the comment, which is also
 a test of whether the comment is adequate.
 
 **Check:** does the project require a second approver for diffs touching `unsafe`? A blanket
 single-approver policy does not meet this.
-
-*Relaxed form:* on a solo project, re-review the `unsafe` block in a separate sitting from the one
-that wrote it, with the `// SAFETY:` comment read first and the code checked against it.
 
 ### RS-UNSAFE-33 [S] Track the `unsafe` block count and treat growth as a design signal
 
@@ -851,6 +854,7 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
+| rustc | `unsafe_code` | forbid | any `unsafe` — `deny` only in a crate whose point is `unsafe` (RS-UNSAFE-01) |
 | clippy | `missing_safety_doc` | warn | a public `unsafe fn` with no `# Safety` section |
 | rustc | `integer_to_ptr_transmutes` | warn | a `transmute` from an integer to a pointer, which carries no provenance |
 | rustc | `invalid_runtime_symbol_definitions` | deny | an exported symbol std relies on, defined with another signature |

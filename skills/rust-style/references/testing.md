@@ -195,7 +195,8 @@ Name tests as sentences about behaviour: `returns_none_for_empty_input`,
 name that states the expected behaviour turns a failure line into a diagnosis; `test_parse_2` turns
 it into an investigation.
 
-**Check:** read the test names alone. They should form a readable specification of the module.
+**Check:** read the test names alone. They should form a readable specification of the module. A
+`test_` prefix is the `redundant_test_prefix` row.
 
 ```rust
 // verified
@@ -658,15 +659,15 @@ Fuzz anything that parses untrusted input: `cargo fuzz` with `libfuzzer`, or `af
 into a separate repository or CI cache, and add every crash as a unit test. A crash blocks the
 release; in a parser with `unsafe` it is memory corruption whose trigger an attacker chooses.
 
+*Relaxed form:* for a tool that only ever sees input you generate, a seeded property test over the
+same grammar is enough. The rule binds the moment the input crosses a trust boundary.
+
 **Why:** a parser on untrusted input is a security boundary, and fuzzing is the only technique that
 explores it adversarially. Coverage-guided fuzzers find the malformed inputs that reach the paths no
 test author thinks about.
 
 **Check:** does every entry point that accepts external data have a fuzz target? And is the corpus
 retained between runs, so progress accumulates?
-
-*Relaxed form:* for a tool that only ever sees input you generate, a seeded property test over the
-same grammar is enough. The rule binds the moment the input crosses a trust boundary.
 
 ### RS-TEST-24 [S] Run fuzz targets briefly per PR and long on a schedule
 
@@ -837,3 +838,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 |---|---|---|---|
 | clippy | `should_panic_without_expect` | warn | `#[should_panic]` without `expected = "…"` — or return an `Err` instead |
 | clippy | `items_after_test_module` | warn | an item after the `#[cfg(test)]` module, which belongs at the bottom of the file |
+| clippy | `redundant_test_prefix` | warn | a `test_` prefix on a function `#[test]` already marks |

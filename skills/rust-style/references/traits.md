@@ -428,8 +428,8 @@ mod tests {
 
 ### RS-TRAIT-15 [S] Use return-position `impl Trait` for iterators, futures, and closures
 
-In traits too. A factory returns `impl Fn`, not `Box<dyn Fn>`: it allocates nothing, and a caller
-who needs a box can still make one.
+Return-position `impl Trait` works in trait methods as well as free functions. A factory returns
+`impl Fn`, not `Box<dyn Fn>`: it allocates nothing, and a caller who needs a box can still make one.
 
 **Why:** it hides an unnameable or noisy concrete type while preserving static dispatch and
 zero-cost composition. The cost is that users cannot name the type for storage — where they need

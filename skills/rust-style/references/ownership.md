@@ -48,7 +48,7 @@ one thing, or one owner for two things. The fix is almost never `.clone()`.
   - RS-OWN-28 [M] Break reference cycles with `Weak`
   - RS-OWN-29 [S] Use `Box` for heap placement, not for borrow-checker relief
   - RS-OWN-30 [S] Avoid double indirection in pointer types
-  - RS-OWN-31 [S] Use `make_mut` for copy-on-write
+  - RS-OWN-31 [S] Use `make_mut` and `unwrap_or_clone` for copy-on-write
 
 - **`Drop` and resources**
   - RS-OWN-32 [M] Acquire in the constructor, release in `Drop`
@@ -89,7 +89,7 @@ pub fn extension_of(path: &Path) -> Option<&str> {
 
 ### RS-OWN-02 [M] Take by value when you store, transform, or consume
 
-The converse holds too: a parameter the body only reads is a borrow. Where a stored `String` may
+Take `T` when the body keeps it; a parameter it only reads is a borrow. Where a stored `String` may
 arrive as a literal, take `impl Into<String>`, so an owner moves it in and a literal converts once.
 
 **Why:** taking `&T` and cloning inside is strictly worse than taking `T`: the caller who had an
@@ -523,7 +523,7 @@ the fat pointer.
 **Check:** grep for `Arc<String>`, `Arc<Vec<` and `Rc<String>`. `Box<Vec<T>>` and a box inside an
 `Rc` or `Arc` are the `box_collection` and `redundant_allocation` rows below.
 
-### RS-OWN-31 [S] Use `make_mut` for copy-on-write
+### RS-OWN-31 [S] Use `make_mut` and `unwrap_or_clone` for copy-on-write
 
 `Arc::make_mut` and `Rc::make_mut` to change the value in place; `Arc::unwrap_or_clone` and
 `Rc::unwrap_or_clone` to take it out.
@@ -603,12 +603,12 @@ borrowed.
 
 ### RS-OWN-36 [M] Name a guard binding; never bind it to `_`
 
-**Why:** `let _ = mutex.lock();` drops the guard immediately, unlocking before the critical section
-runs — a bug that compiles, looks correct, and produces a race. `let _guard = mutex.lock();` holds
-it to the end of scope. Every Rust codebase has hit this at least once.
+**Why:** `let _ = cell.borrow_mut();` drops the guard at once, ending the borrow before the code
+that needed it runs: a bug that compiles and looks correct. rustc rejects it for a std lock guard
+(`let_underscore_lock`), not for a `RefCell`'s or another crate's lock; `let _guard = …` holds both.
 
-**Check:** `rg -n 'let _ = .*\.(borrow|borrow_mut|enter|read|write)\('`. A `Mutex` guard is the
-`let_underscore_lock` row below.
+**Check:** `rg -n 'let _ = .*\.(borrow|borrow_mut|enter|read|write)\('`. A std `Mutex` or `RwLock`
+guard is the `let_underscore_lock` row below; any other hit compiles, and is the defect.
 
 ```rust
 // rejected — rustc: non-binding let on a synchronization lock (`let_underscore_lock`)

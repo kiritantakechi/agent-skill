@@ -736,7 +736,7 @@ target — a portability bug that only appears there. `as` performs the truncati
 diagnostic, which is why it is the wrong default for narrowing.
 
 **Check:** grep for `as u32`, `as usize`, `as i32` on values that could exceed the target range.
-Each wants `try_from`.
+Each wants `try_from`; the `cast_*` rows below flag the casts that can lose data.
 
 ```rust
 // verified
@@ -755,16 +755,16 @@ SIMD is a last resort with a scalar fallback and a correctness test comparing th
 hand-writing it, check whether `memchr`, `bstr`, or `regex-automata` already does it for you — they
 almost certainly do it better.
 
+*Relaxed form:* in a single-target internal tool you may skip the runtime feature detection and
+compile for the known target. The scalar reference implementation and the test that compares against
+it are not relaxable — they are what makes the fast path reviewable.
+
 **Why:** SIMD code is hard to read, hard to test, and target-specific, so it needs runtime feature
 detection and a fallback anyway. The libraries have already absorbed that complexity and have been
 fuzzed against their scalar versions for years.
 
 **Check:** is the scalar version still present and compared against in a test? Without it the SIMD
 path has no oracle; the comparison is RS-TEST-21's differential test.
-
-*Relaxed form:* in a single-target internal tool you may skip the runtime feature detection and
-compile for the known target. The scalar reference implementation and the test that compares against
-it are not relaxable — they are what makes the fast path reviewable.
 
 ## Benchmarking
 
@@ -888,3 +888,6 @@ A tool settles these on its own; the shipped configuration enables each at the l
 | clippy | `inline_always` | warn | `#[inline(always)]` — `#[expect]` it, citing the benchmark that justifies it |
 | clippy | `large_enum_variant` | warn | an enum variant far larger than the others — box it |
 | clippy | `result_large_err` | warn | a `Result` whose error type is large — box the fat variant |
+| clippy | `cast_possible_truncation` | warn | an `as` cast that can drop high bits |
+| clippy | `cast_sign_loss` | warn | an `as` cast from signed to unsigned |
+| clippy | `cast_precision_loss` | warn | an `as` cast to a float that cannot hold every value |

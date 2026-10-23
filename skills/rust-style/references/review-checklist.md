@@ -70,17 +70,15 @@ cargo +nightly miri test       # if the crate contains `unsafe`
 cargo audit                    # or: cargo deny check
 ```
 
-Fast greps that find real defects:
+The clippy line above already denies `unwrap`, `expect`, `dbg!`, an `unsafe` block without
+`SAFETY`, a lossy `as` cast and a `&Vec` parameter. Fast greps for what no shipped lint decides:
 
 ```bash
-rg -n '\.unwrap\(\)|\.expect\(' --glob '!**/tests/**' --glob '!**/benches/**'
-rg -n 'unsafe \{' -A2 | rg -v 'SAFETY'
-rg -n 'as (u|i)(8|16|32|64|size)\b'      # silent truncation
-rg -n '&Vec<|&String\b|&PathBuf\b'       # over-restrictive parameters
 rg -n 'Arc<Mutex<|Rc<RefCell<'
 rg -n '\.clone\(\)' -c                   # a count, then look at the outliers
-rg -n 'println!|eprintln!|dbg!' src/     # in library code
-rg -n '\.await' -B3 | rg 'lock\(\)'      # lock held across await
+rg -n 'println!|eprintln!' src/          # in library code
+rg -n '\.await' -B3 | rg 'lock\(\)'      # a non-std lock held across await (std's is a lint)
+rg -n '\.fetch_update\(|std::[iu](8|16|32|64|128|size)::(MAX|MIN)\b' src/   # RS-MIG-02
 ```
 
 ## Output format
