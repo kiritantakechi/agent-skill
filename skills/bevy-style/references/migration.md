@@ -45,7 +45,6 @@ as much, and the upstream migration guides are the reference for those.
 
 - **Changes that do not show up as a compile error**
   - BV-MIG-18 [M] Re-read every `Ref` that is cloned
-  - BV-MIG-19 [M] Re-read every `iter_many` and every logging error handler
 - Decided by tools
 
 ---
@@ -78,18 +77,16 @@ new name. If it is not there, the chain continued.
 
 ### BV-MIG-03 [M] Replace every `*Bundle` with the components it inserted
 
-The `*Bundle` types were deprecated in 0.15 and are gone. What replaces them is a tuple of
-components at the spawn site plus `#[require]` on the types that always travel together. The
-`Bundle` **trait** remains — it is what a spawn tuple implements — and so does its derive, which
-BV-ECS-08 forbids you from using.
+The `*Bundle` types were deprecated in 0.15 and are gone: each is the tuple of components in the
+table below, with `#[require]` on the types that always travel together (BV-ECS-06). The `Bundle`
+**trait** remains, as what a spawn tuple implements.
 
 **Why:** it is the most visible break between old Bevy material and current Bevy, and the most
-mechanical: each `XBundle::default()` becomes one or two components. It was made because a bundle
-could be half-applied and a `#[require]` cannot (BV-ECS-06).
+mechanical: each `XBundle::default()` becomes one or two components.
 
-**Check:** `rg -n  '[A-Za-z0-9]Bundle' src/`. Every hit is either a removed type or one you
-wrote yourself, and BV-ECS-08 forbids the second. The two the engine still spells that way,
-`SpawnRelatedBundle` and `ReflectBundle`, are machinery a game does not name.
+**Check:** `rg -n  '[A-Za-z0-9]Bundle' src/`. Every hit is a removed type or a bundle of your own,
+which BV-ECS-06 rules out. The two the engine still spells that way, `SpawnRelatedBundle` and
+`ReflectBundle`, are machinery a game does not name.
 
 | Removed | Write instead |
 |---|---|
@@ -171,7 +168,7 @@ The hierarchy became an instance of the general relationship mechanism in 0.16, 
 were renamed again in 0.18.
 
 **Why:** the parent link is now an ordinary component any relationship-aware code can see, which
-makes `despawn` recursive by default and lets a game define its own one-to-many links (BV-ECS-12).
+makes `despawn` recursive by default and lets a game define its own one-to-many links (BV-ECS-11).
 
 **Check:** `rg -n
 'despawn_(recursive|descendants)|push_children|set_parent|ChildBuilder|clear_(children|related)'
@@ -203,8 +200,8 @@ src/`.
 `get_single().unwrap()` — the fallible method used to be the long-named one, so the short name was
 the panicking one and everybody reached for it.
 
-**Check:** `rg -n
-'get_single|to_readonly|ManualEventReader|init_component|weak_from_u128|EntityFetchError' src/`.
+**Check:** `rg -n 'get_single|to_readonly|ManualEventReader|init_component|EntityFetchError' src/`
+and `rg -n 'weak_from_u128|weak_handle!' src/`.
 
 | Removed | Write instead |
 |---|---|
@@ -220,7 +217,7 @@ the panicking one and everybody reached for it.
 | `World::init_component` | `World::register_component` |
 | `EntityFetchError` | `EntityMutableFetchError` |
 | `bevy::a11y::Focus` | `bevy::input_focus::InputFocus` |
-| `Handle::weak_from_u128(..)` | the `weak_handle!("…")` macro |
+| `Handle::weak_from_u128(..)`, and the `weak_handle!` macro that replaced it | the `uuid_handle!("…")` macro: `weak_handle!` is deprecated, and `Handle` has only `Strong` and `Uuid` |
 
 ## 0.17: the big rename
 
@@ -307,6 +304,7 @@ a widget being held down. Only `Pointer<Pressed>` is the removed one.
 | `Pointer<Pressed>` / `Pointer<Released>` | `PointerPress` / `PointerRelease` — `Pointer<Press>` was the first hop, and is gone too |
 | `Timer::paused()` / `Timer::finished()` | `Timer::is_paused()` / `Timer::is_finished()` |
 | `StateScoped` | `DespawnOnExit` |
+| `commands.trigger_targets(E, entity)` | an `EntityEvent` carrying its target as a field: `commands.trigger(E { entity })` |
 | `Camera { hdr, .. }` | the separate `Hdr` component |
 | `Window` as one component | `Window` split across several components |
 | `Gizmos::cuboid` | `Gizmos::cube` |
@@ -390,7 +388,9 @@ src/`.
 | Removed | Write instead |
 |---|---|
 | `DefaultErrorHandler` | `FallbackErrorHandler` |
+| the lifecycle event `Replace`, its hook `on_replace` | `Discard`, `on_discard` |
 | `impl Command<Result>` | `impl Command { type Out = Result; }` |
+| `fn f() -> impl Command<Result>` | `fn f() -> impl Command`, its closure returning `Result` |
 | `ExecutorKind` / `set_executor_kind` | `set_executor(SingleThreadedExecutor::new())` and friends |
 | `System::type_id` | `System::system_type` |
 | `App::init_non_send_resource` | `App::init_non_send` |
@@ -530,7 +530,7 @@ its name, and a domain crate's `glam = "0.32"`, which moves to `"0.33"` with Bev
 | `from_ptr(_mut)` | `raw_pointer_cast` |
 | `PartialReflect::to_dynamic` returning a value | it returns `Result` |
 | `UntypedHandle::meta_transform` | removed |
-| `AssetServer::load_with_settings`, `load_override`, `load_acquire` and their combinations | `load_builder()` with `with_settings`, `override_unapproved` or `with_guard` (BV-ASSET-08) |
+| `AssetServer::load_with_settings`, `load_override`, `load_acquire` and their combinations | `load_builder()` with `with_settings`, `override_unapproved` or `with_guard` (BV-ASSET-07) |
 | `AssetServer::load_untyped`, `load_erased` | the same call on `load_builder()` |
 | `Name::from(&str)` on a non-`'static` string | `Name::new(s.to_owned())` |
 | `Ptr::as_ptr` returning `*mut u8` | it returns `*const u8` |
@@ -560,6 +560,22 @@ its name, and a domain crate's `glam = "0.32"`, which moves to `"0.33"` with Bev
 
 ## Changes that do not show up as a compile error
 
+Each of these keeps compiling and changes what the code does, so no build flags it. SKILL.md §2.1 is
+the same list, to read before writing code; this is the one to grep with.
+
+| Changed | Find it with | Rule |
+|---|---|---|
+| 0.18: `next.set(S)` runs `OnExit(S)` and `OnEnter(S)` when the state is already `S` | `rg -n 'next.*\.set\(' src/`, then ask whether each can run in that state | BV-STATE-16 |
+| 0.18: Bevy adds and updates the `Aabb` of meshes and sprites, so code that writes one fights the engine | `rg -n 'Aabb' src/` for a write | BV-VIEW-16 |
+| 0.19: `AssetEvent::Modified` fires only on an actual mutation, so a `get_mut` that only reads no longer raises it | `rg -n 'AssetEvent' src/`, then whether each reaction relied on a read through `get_mut` | BV-ASSET-09 |
+| 0.19: bloom computes its luminance in linear, so a tint tuned against sRGB luminance blooms more | `rg -n 'Bloom' src/`, then each tint against a linear judgement | BV-VIEW-11 |
+| 0.19: `#[derive(Resource)]` implements `Component`, so one type cannot be both | `rg -n 'derive\(.*Resource' src/` for a type also inserted on an entity | BV-STATE-01 |
+| 0.19: `Ref<T>` implements `Clone`, so `.clone()` on one is another `Ref` | `.clone()` on anything of type `Ref<` | BV-MIG-18 |
+| 0.20: `iter_many` and its variants yield `Result`, so `.count()` and `for _ in` take ids the query does not match | `rg -n 'iter_many' src/`, then whether each call counts or handles each `Result` | BV-ECS-20 |
+| 0.20: a panic in a system, observer or command reaches the fallback error handler | the handler given to `set_error_handler`, for a re-panic on a panic payload | BV-ERR-05 |
+| 0.20: `EditableText` without `TextInput` spawns and ignores the keyboard | `rg -n 'EditableText' src/` for a spawn with no `TextInput` | BV-VIEW-08 |
+| 0.20: inside `UiSystems` and the render sets, systems the ECS sees no conflict between are unordered | each system placed there, for state shared outside the ECS | BV-SCHED-13 |
+
 ### BV-MIG-18 [M] Re-read every `Ref` that is cloned
 
 Since 0.19 `Ref<T>` implements `Clone` and `Copy` itself. `value.clone()` on a `Ref<T>` now produces
@@ -571,33 +587,6 @@ surfaces much later as a lifetime error in an unrelated function.
 
 **Check:** grep for `.clone()` on anything of type `Ref<`. The old meaning is `r.deref().clone()` or
 `r.as_ref().clone()`.
-
-The other silent changes are stated where the topic lives: state transitions now fire on a
-same-state `set` (`references/state.md` BV-STATE-19), and `Resource` is now a `Component`
-(`references/state.md` BV-STATE-01). The three from 0.20 — panics reaching the error handler,
-`iter_many` yielding `Result`, and `EditableText` alone being inert — are BV-MIG-19.
-
-### BV-MIG-19 [M] Re-read every `iter_many` and every logging error handler
-
-Three 0.20 changes keep compiling and change what the code does:
-
-- `iter_many` and its `_mut`, `_unique`, sorted and `par_` variants yield
-  `Result<Item, QueryEntityError>`. `.count()`, `.next().is_some()` and `for _ in` keep compiling
-  and now include ids the query does not match; `.matched()` is the old meaning
-  (`references/ecs.md` BV-ECS-21).
-- The `FallbackErrorHandler` now receives every panic in a system, observer or command, so a handler
-  that logs without re-panicking swallows them (`references/errors.md` BV-ERR-05).
-- An `EditableText` without `TextInput` spawns and ignores the keyboard
-  (`references/view.md` BV-VIEW-08).
-
-**Why:** each changes behaviour without changing a type the code names: a count over `Result` items
-is still a `usize`, a logging handler still compiles, and the inert field still spawns. Only the
-call site tells them apart.
-
-**Check:** `rg -n 'iter_many' src/` finds the calls; whether a call counts or tests for presence,
-rather than handling each `Result`, decides, and that is often not on the line. Then read the
-function given to `FallbackErrorHandler` for a re-panic on a panic payload, and every spawn that
-names `EditableText` for a `TextInput`.
 
 ## Decided by tools
 
@@ -630,26 +619,26 @@ now; an ID it does not list is unchanged.
 | `BV-ARC-11` | `BV-ARCH-11` |
 | `BV-ARC-12` | `BV-ARCH-12` |
 | `BV-ARC-13` | `BV-ARCH-13` |
-| `BV-ARC-14` | `BV-ARCH-14` |
-| `BV-ARC-15` | `BV-ARCH-15` |
-| `BV-ARC-16` | `BV-ARCH-16` |
-| `BV-ARC-17` | `BV-ARCH-17` |
-| `BV-ARC-18` | `BV-ARCH-18` |
-| `BV-ARC-19` | `BV-ARCH-19` |
+| `BV-ARC-14` | `BV-ARCH-11` |
+| `BV-ARC-15` | `BV-ARCH-14` |
+| `BV-ARC-16` | `BV-ARCH-15` |
+| `BV-ARC-17` | `BV-ARCH-16` |
+| `BV-ARC-18` | `BV-ARCH-17` |
+| `BV-ARC-19` | `BV-ARCH-15` |
 | `BV-ASS-01` | `BV-ASSET-01` |
 | `BV-ASS-02` | `BV-ASSET-02` |
-| `BV-ASS-03` | `BV-ASSET-03` |
-| `BV-ASS-04` | `BV-ECS-14` |
-| `BV-ASS-05` | `BV-ASSET-04` |
-| `BV-ASS-06` | `BV-ASSET-05` |
-| `BV-ASS-07` | `BV-ASSET-06` |
-| `BV-ASS-08` | `BV-ASSET-07` |
-| `BV-ASS-09` | `BV-ASSET-08` |
-| `BV-ASS-10` | `BV-ASSET-09` |
-| `BV-ASS-11` | `BV-ASSET-10` |
-| `BV-ASS-12` | `BV-ASSET-11` |
-| `BV-ASS-13` | `BV-ASSET-12` |
-| `BV-ASS-14` | `BV-ASSET-13` |
+| `BV-ASS-03` | `BV-ASSET-02` |
+| `BV-ASS-04` | `BV-ECS-13` |
+| `BV-ASS-05` | `BV-ASSET-03` |
+| `BV-ASS-06` | `BV-ASSET-04` |
+| `BV-ASS-07` | `BV-ASSET-05` |
+| `BV-ASS-08` | `BV-ASSET-06` |
+| `BV-ASS-09` | `BV-ASSET-07` |
+| `BV-ASS-10` | `BV-ASSET-08` |
+| `BV-ASS-11` | `BV-ASSET-09` |
+| `BV-ASS-12` | `BV-ECS-15` |
+| `BV-ASS-13` | `BV-ASSET-10` |
+| `BV-ASS-14` | `BV-ASSET-11` |
 | `BV-CAR-01` | `BV-BUILD-01` |
 | `BV-CAR-02` | `BV-BUILD-02` |
 | `BV-CAR-03` | `BV-BUILD-03` |
@@ -664,38 +653,49 @@ now; an ID it does not list is unchanged.
 | `BV-CAR-12` | `BV-BUILD-12` |
 | `BV-CAR-13` | `BV-BUILD-13` |
 | `BV-CAR-14` | `BV-BUILD-14` |
-| `BV-CAR-15` | `BV-BUILD-15` |
-| `BV-CAR-16` | `BV-BUILD-16` |
+| `BV-CAR-15` | `BV-BUILD-14` |
+| `BV-CAR-16` | removed — RS-MOD-29 and RS-BUILD-25 state it, and assets/Cargo.toml does it |
 | `BV-CAR-17` | removed — `bevy_lint` is a community linter the Bevy project does not maintain, and it has stalled; every rule it backed keeps its own Check |
-| `BV-CAR-18` | `BV-BUILD-17` |
-| `BV-CAR-19` | `BV-BUILD-18` |
-| `BV-CAR-20` | `BV-BUILD-19` |
-| `BV-CAR-21` | `BV-BUILD-20` |
+| `BV-CAR-18` | `BV-BUILD-15` |
+| `BV-CAR-19` | `BV-BUILD-16` |
+| `BV-CAR-20` | removed — RS-BUILD-07 and RS-BUILD-36 state it |
+| `BV-CAR-21` | removed — RS-BUILD-42 states it |
+| `BV-ECS-08` | `BV-ECS-06` |
+| `BV-ECS-09` | `BV-ECS-08` |
+| `BV-ECS-10` | `BV-ECS-09` |
+| `BV-ECS-11` | `BV-ECS-10` |
+| `BV-ECS-12` | `BV-ECS-11` |
+| `BV-ECS-13` | `BV-ECS-12` |
+| `BV-ECS-14` | `BV-ECS-13` |
+| `BV-ECS-15` | `BV-ECS-14` |
+| `BV-ECS-16` | `BV-ECS-15` |
+| `BV-ECS-17` | `BV-ECS-16` |
+| `BV-ECS-18` | `BV-ECS-17` |
 | `BV-ECS-19` | lint `clippy:unwrap_used` |
-| `BV-ECS-20` | `BV-ECS-19` |
-| `BV-ECS-21` | `BV-ECS-20` |
-| `BV-ECS-22` | `BV-ECS-21` |
-| `BV-ECS-23` | `BV-ECS-22` |
-| `BV-ECS-24` | `BV-ECS-23` |
-| `BV-ECS-25` | `BV-ECS-24` |
-| `BV-ECS-26` | `BV-ECS-25` |
-| `BV-ECS-27` | `BV-ECS-26` |
-| `BV-ECS-28` | `BV-ECS-27` |
-| `BV-ECS-29` | `BV-ECS-28` |
-| `BV-ECS-30` | `BV-ECS-29` |
-| `BV-ECS-31` | `BV-ECS-30` |
-| `BV-ECS-32` | `BV-ECS-31` |
+| `BV-ECS-20` | `BV-ECS-18` |
+| `BV-ECS-21` | `BV-ECS-19` |
+| `BV-ECS-22` | `BV-ECS-20` |
+| `BV-ECS-23` | `BV-ECS-21` |
+| `BV-ECS-24` | `BV-ECS-22` |
+| `BV-ECS-25` | `BV-ECS-23` |
+| `BV-ECS-26` | `BV-ECS-24` |
+| `BV-ECS-27` | `BV-ECS-25` |
+| `BV-ECS-28` | `BV-ECS-26` |
+| `BV-ECS-29` | `BV-ECS-27` |
+| `BV-ECS-30` | `BV-ECS-28` |
+| `BV-ECS-31` | `BV-ECS-29` |
+| `BV-ECS-32` | `BV-ECS-30` |
 | `BV-ERR-07` | lint `clippy:unwrap_used` |
 | `BV-ERR-08` | lint `clippy:indexing_slicing` |
 | `BV-ERR-09` | `BV-ERR-07` |
 | `BV-ERR-10` | `BV-ERR-08` |
-| `BV-ERR-11` | `BV-ERR-09` |
-| `BV-ERR-12` | `BV-ERR-10` |
-| `BV-ERR-13` | `BV-ERR-11` |
-| `BV-ERR-14` | `BV-ERR-12` |
-| `BV-ERR-15` | `BV-ERR-13` |
-| `BV-ERR-16` | `BV-ERR-14` |
-| `BV-ERR-17` | `BV-ERR-15` |
+| `BV-ERR-11` | removed — RS-ERR-02 states it |
+| `BV-ERR-12` | `BV-MIG-13` |
+| `BV-ERR-13` | `BV-ERR-01` |
+| `BV-ERR-14` | `BV-ERR-09` |
+| `BV-ERR-15` | `BV-ERR-05` |
+| `BV-ERR-16` | `BV-ERR-10` |
+| `BV-ERR-17` | `BV-ERR-11` |
 | `BV-EVT-01` | `BV-EVENT-01` |
 | `BV-EVT-02` | `BV-EVENT-02` |
 | `BV-EVT-03` | `BV-EVENT-03` |
@@ -712,10 +712,10 @@ now; an ID it does not list is unchanged.
 | `BV-EVT-14` | `BV-EVENT-14` |
 | `BV-EVT-15` | `BV-EVENT-15` |
 | `BV-EVT-16` | `BV-EVENT-16` |
-| `BV-EVT-17` | `BV-EVENT-17` |
-| `BV-EVT-18` | `BV-EVENT-18` |
-| `BV-EVT-19` | `BV-EVENT-19` |
-| `BV-EVT-20` | `BV-EVENT-20` |
+| `BV-EVT-17` | `BV-SCHED-15` |
+| `BV-EVT-18` | `BV-EVENT-17` |
+| `BV-EVT-19` | `BV-EVENT-18` |
+| `BV-EVT-20` | `BV-EVENT-19` |
 | `BV-MIG-02` | lint `rustc:deprecated` |
 | `BV-MIG-03` | `BV-MIG-02` |
 | `BV-MIG-04` | `BV-MIG-03` |
@@ -723,7 +723,7 @@ now; an ID it does not list is unchanged.
 | `BV-MIG-06` | `BV-MIG-05` |
 | `BV-MIG-07` | `BV-MIG-06` |
 | `BV-MIG-08` | `BV-MIG-07` |
-| `BV-MIG-09` | `BV-ECS-14` |
+| `BV-MIG-09` | `BV-ECS-13` |
 | `BV-MIG-10` | `BV-MIG-08` |
 | `BV-MIG-11` | `BV-EVENT-14` |
 | `BV-MIG-12` | `BV-MIG-09` |
@@ -735,66 +735,66 @@ now; an ID it does not list is unchanged.
 | `BV-SCH-01` | `BV-SCHED-01` |
 | `BV-SCH-02` | `BV-SCHED-02` |
 | `BV-SCH-03` | `BV-SCHED-03` |
-| `BV-SCH-04` | `BV-SCHED-04` |
-| `BV-SCH-05` | `BV-SCHED-05` |
-| `BV-SCH-06` | `BV-SCHED-06` |
-| `BV-SCH-07` | `BV-SCHED-07` |
-| `BV-SCH-08` | `BV-SCHED-08` |
-| `BV-SCH-09` | `BV-SCHED-09` |
-| `BV-SCH-10` | `BV-SCHED-10` |
-| `BV-SCH-11` | `BV-SCHED-11` |
-| `BV-SCH-12` | `BV-SCHED-12` |
-| `BV-SCH-13` | `BV-SCHED-13` |
-| `BV-SCH-14` | `BV-SCHED-14` |
-| `BV-SCH-15` | `BV-SCHED-15` |
-| `BV-SCH-16` | `BV-SCHED-16` |
-| `BV-SCH-17` | `BV-SCHED-17` |
-| `BV-SCH-18` | `BV-SCHED-18` |
-| `BV-SCH-19` | `BV-SCHED-19` |
-| `BV-SCH-20` | `BV-SCHED-20` |
-| `BV-SCH-21` | `BV-SCHED-21` |
-| `BV-SCH-22` | `BV-SCHED-22` |
-| `BV-SCH-23` | `BV-SCHED-23` |
-| `BV-SCH-24` | `BV-SCHED-24` |
-| `BV-SCH-25` | `BV-SCHED-25` |
-| `BV-SCH-26` | `BV-SCHED-26` |
+| `BV-SCH-04` | `BV-SCHED-01` |
+| `BV-SCH-05` | `BV-SCHED-04` |
+| `BV-SCH-06` | `BV-SCHED-05` |
+| `BV-SCH-07` | `BV-SCHED-06` |
+| `BV-SCH-08` | `BV-SCHED-07` |
+| `BV-SCH-09` | `BV-SCHED-08` |
+| `BV-SCH-10` | `BV-SCHED-09` |
+| `BV-SCH-11` | `BV-SCHED-10` |
+| `BV-SCH-12` | `BV-SCHED-11` |
+| `BV-SCH-13` | `BV-SCHED-12` |
+| `BV-SCH-14` | `BV-SCHED-11` |
+| `BV-SCH-15` | `BV-SCHED-13` |
+| `BV-SCH-16` | `BV-SCHED-14` |
+| `BV-SCH-17` | `BV-SCHED-15` |
+| `BV-SCH-18` | `BV-SCHED-16` |
+| `BV-SCH-19` | `BV-SCHED-17` |
+| `BV-SCH-20` | `BV-SCHED-18` |
+| `BV-SCH-21` | `BV-SCHED-15` |
+| `BV-SCH-22` | `BV-SCHED-19` |
+| `BV-SCH-23` | `BV-SCHED-20` |
+| `BV-SCH-24` | `BV-SCHED-21` |
+| `BV-SCH-25` | `BV-SCHED-22` |
+| `BV-SCH-26` | `BV-SCHED-23` |
 | `BV-STA-01` | `BV-STATE-01` |
 | `BV-STA-02` | `BV-STATE-02` |
-| `BV-STA-03` | `BV-STATE-03` |
-| `BV-STA-04` | `BV-STATE-04` |
-| `BV-STA-05` | `BV-STATE-05` |
-| `BV-STA-06` | `BV-STATE-06` |
-| `BV-STA-07` | `BV-STATE-07` |
-| `BV-STA-08` | `BV-STATE-08` |
-| `BV-STA-09` | `BV-STATE-09` |
-| `BV-STA-10` | `BV-STATE-10` |
-| `BV-STA-11` | `BV-STATE-11` |
-| `BV-STA-12` | `BV-STATE-12` |
-| `BV-STA-13` | `BV-STATE-13` |
-| `BV-STA-14` | `BV-STATE-14` |
-| `BV-STA-15` | `BV-STATE-15` |
-| `BV-STA-16` | `BV-SCHED-21` |
-| `BV-STA-17` | `BV-STATE-16` |
-| `BV-STA-18` | `BV-STATE-17` |
-| `BV-STA-19` | `BV-STATE-18` |
-| `BV-STA-20` | `BV-STATE-19` |
-| `BV-STA-21` | `BV-STATE-20` |
-| `BV-STA-22` | `BV-STATE-21` |
-| `BV-TST-01` | `BV-TEST-01` |
+| `BV-STA-03` | `BV-ARCH-11` |
+| `BV-STA-04` | `BV-STATE-03` |
+| `BV-STA-05` | `BV-STATE-04` |
+| `BV-STA-06` | `BV-STATE-05` |
+| `BV-STA-07` | `BV-ECS-15` |
+| `BV-STA-08` | `BV-STATE-06` |
+| `BV-STA-09` | `BV-STATE-07` |
+| `BV-STA-10` | `BV-STATE-08` |
+| `BV-STA-11` | `BV-STATE-09` |
+| `BV-STA-12` | `BV-STATE-10` |
+| `BV-STA-13` | `BV-STATE-09` |
+| `BV-STA-14` | `BV-STATE-11` |
+| `BV-STA-15` | `BV-STATE-12` |
+| `BV-STA-16` | `BV-SCHED-15` |
+| `BV-STA-17` | `BV-STATE-13` |
+| `BV-STA-18` | `BV-STATE-14` |
+| `BV-STA-19` | `BV-STATE-15` |
+| `BV-STA-20` | `BV-STATE-16` |
+| `BV-STA-21` | `BV-STATE-17` |
+| `BV-STA-22` | `BV-STATE-18` |
+| `BV-TST-01` | `BV-ARCH-01` |
 | `BV-TST-02` | `BV-TEST-02` |
-| `BV-TST-03` | `BV-TEST-03` |
-| `BV-TST-04` | `BV-TEST-04` |
-| `BV-TST-05` | `BV-TEST-05` |
-| `BV-TST-06` | `BV-TEST-06` |
-| `BV-TST-07` | `BV-TEST-07` |
-| `BV-TST-08` | `BV-TEST-08` |
-| `BV-TST-09` | `BV-TEST-09` |
-| `BV-TST-10` | `BV-TEST-10` |
-| `BV-TST-11` | `BV-TEST-11` |
-| `BV-TST-12` | `BV-TEST-12` |
-| `BV-TST-13` | `BV-TEST-13` |
-| `BV-TST-14` | `BV-TEST-14` |
-| `BV-TST-15` | `BV-TEST-15` |
+| `BV-TST-03` | `BV-TEST-01` |
+| `BV-TST-04` | `BV-TEST-02` |
+| `BV-TST-05` | `BV-TEST-03` |
+| `BV-TST-06` | `BV-TEST-04` |
+| `BV-TST-07` | `BV-TEST-05` |
+| `BV-TST-08` | `BV-ECS-29` |
+| `BV-TST-09` | `BV-TEST-05` |
+| `BV-TST-10` | `BV-TEST-06` |
+| `BV-TST-11` | `BV-TEST-07` |
+| `BV-TST-12` | `BV-TEST-08` |
+| `BV-TST-13` | `BV-TEST-09` |
+| `BV-TST-14` | `BV-TEST-10` |
+| `BV-TST-15` | `BV-SCHED-20` |
 | `BV-UI-01` | `BV-VIEW-01` |
 | `BV-UI-02` | `BV-VIEW-02` |
 | `BV-UI-03` | `BV-VIEW-03` |

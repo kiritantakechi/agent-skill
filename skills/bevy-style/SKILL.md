@@ -1,7 +1,7 @@
 ---
 name: bevy-style
 description: >-
-  The Bevy 0.20 engineering standard — a 244-rule delta on top of rust-style covering the ECS,
+  The Bevy 0.20 engineering standard — a 218-rule delta on top of rust-style covering the ECS,
   scheduling, observers and messages, states and resources, assets, error handling, Cargo features
   and the Bevy lint divergences, the user-facing half of UI and rendering, testing, and a forbidden
   API table spanning 0.15 through 0.20. Its spine is keeping the rules of the game out of the
@@ -84,7 +84,7 @@ proceed with the stricter reading.
 1. **Setting the same state now runs the transition.** Since 0.18, `next_state.set(S)` fires
    `OnExit(S)` and `OnEnter(S)` even when the current state is already `S`. Code that called `set`
    every frame used to be free and now re-runs every setup and teardown system in the game.
-   `set_if_different` is the old behaviour (`references/state.md` BV-STATE-19).
+   `set_if_different` is the old behaviour (`references/state.md` BV-STATE-16).
 2. **`Ref<T>` now clones the `Ref`, not the `T`.** 0.19 gave `Ref` its own `Clone` and `Copy`. A
    `value.clone()` that used to produce a `T` now produces another `Ref<T>`, and only fails to
    compile if the surrounding code was explicit about the type. Write `ref.deref().clone()` for the
@@ -98,12 +98,16 @@ proceed with the stricter reading.
    it — overflow traps included. Re-panic when the error carries a panic payload
    (`references/errors.md` BV-ERR-05).
 5. **`iter_many` yields `Result`.** `.count()` and `for _ in` still compile, and now count ids that
-   do not match the query; `.matched()` is the old meaning (`references/ecs.md` BV-ECS-21).
+   do not match the query; on the plain and unique forms `.matched()` is the old meaning
+   (`references/ecs.md` BV-ECS-20).
 6. **`EditableText` on its own is inert.** It spawns and ignores the keyboard. Spawn `TextInput`,
    which requires it, under `TextInputPlugin` (`references/view.md` BV-VIEW-08).
 7. **The engine's own set chains are weak.** Inside `PostUpdate`'s `UiSystems` and the render
    schedules, systems with no conflict the ECS can see are no longer ordered, so one relying on
-   hidden ordering can race (`references/scheduling.md` BV-SCHED-15).
+   hidden ordering can race (`references/scheduling.md` BV-SCHED-13).
+
+`references/migration.md` keeps the same list with a search for each, under "Changes that do not
+show up as a compile error".
 
 ### 2.2 Engine features that replaced what games used to hand-roll
 
@@ -150,26 +154,25 @@ Nothing else is relaxed: a divergence not listed here is a defect, not a dialect
 
 | `rust-style` rule | What applies instead | Why Bevy forces it |
 |---|---|---|
-| `RS-API-23` Keep every struct field private, including the ones with no invariant | `BV-ECS-01` — component fields are public | The ECS is the accessor. Reflection, scenes, `bsn!` and the remote protocol all read fields directly, and a component cannot defend an invariant anyway. The exemption is paid for by `BV-ARCH-04`. |
-| `RS-API-25` Keep tuple-struct fields private too | `BV-ECS-01` — a component newtype is `pub` too | The newtype's `pub` normally spends the freedom to change the representation. For a component the representation *is* the contract: reflection, scenes and the remote protocol all address the field by name, so there is no freedom left to spend. |
-| `RS-NAME-33` Never suffix a name with the language construct | `BV-ARCH-10` — `*Plugin` and `*Systems` | `add_plugins(X)` and `configure_sets(_, X)` are the same shape with different meanings, so the name is the only signal. Bevy addresses both by type — `is_plugin_added::<T>`, `disable::<T>` — and its own plugins and sets carry the same suffixes. |
+| `RS-API-15` Keep every struct field private, including the ones with no invariant | `BV-ECS-01` — component fields are public | The ECS is the accessor. Reflection, scenes, `bsn!` and the remote protocol all read fields directly, and a component cannot defend an invariant anyway. A newtype's `pub` field is the same case: for a component the representation *is* the contract, so there is no freedom left to spend. The exemption is paid for by `BV-ARCH-04`. |
+| `RS-NAME-29` Never suffix a name with the language construct | `BV-ARCH-10` — `*Plugin` and `*Systems` | `add_plugins(X)` and `configure_sets(_, X)` are the same shape with different meanings, so the name is the only signal. Bevy addresses both by type — `is_plugin_added::<T>`, `disable::<T>` — and its own plugins and sets carry the same suffixes. |
 | `RS-ERR-13` Never expose `Box<dyn Error>` or `anyhow::Error` from a library | `BV-ERR-03` — a system returns `BevyError`, the domain does not | `BevyError` is boxed and type-erased, and Bevy's `Result` alias is exactly the aliased form the rule names. Its rationale does not reach here: a system has no caller to match on the error — the schedule hands it to the error handler. Everything a caller could branch on stays a real type on the domain side. |
-| `RS-BUILD-27` Never blanket-`allow` at crate level to make CI green | `BV-BUILD-12` — `elided_lifetimes_in_paths` is allowed | It fires on every `Query`, `Res`, `ResMut`, `Commands`, `MessageReader` and `Local` parameter. Writing the `'_`s does satisfy it, and buys nothing but noise. |
-| `RS-BUILD-24` Turn off default features on heavy dependencies | `BV-BUILD-02` — start from a feature collection | Bevy's feature graph has 177 entries in 0.20 and moves every release; a hand-picked list goes stale silently, as an unmeasured one always does. |
-| `RS-FUNC-03` A `for` loop that only pushes is a `collect` | `BV-ECS-19` — iterate a query with `for` | Query iteration is effect, not transformation: the loop writes through `Mut<T>` and the borrow does not survive a collect. |
-| `RS-API-69` Use `#[non_exhaustive]` where the shape may grow | `BV-ECS-05` — components are exhaustive | Struct-literal construction is how components are spawned, and `#[non_exhaustive]` forbids it outside the defining crate. Required components are the growth mechanism instead. |
+| `RS-BUILD-25` Never blanket-`allow` at crate level to make CI green | `BV-BUILD-12` — `elided_lifetimes_in_paths` is allowed | It fires on every `Query`, `Res`, `ResMut`, `Commands`, `MessageReader` and `Local` parameter. Writing the `'_`s does satisfy it, and buys nothing but noise. |
+| `RS-BUILD-22` Turn off default features on heavy dependencies | `BV-BUILD-02` — start from a feature collection | Bevy's feature graph has 177 entries in 0.20 and moves every release; a hand-picked list goes stale silently, as an unmeasured one always does. |
+| `RS-FUNC-03` A `for` loop that only pushes is a `collect` | `BV-ECS-18` — iterate a query with `for` | Query iteration is effect, not transformation: the loop writes through `Mut<T>` and the borrow does not survive a collect. |
+| `RS-API-54` Decide `#[non_exhaustive]` for every public enum and struct | `BV-ECS-05` — components are exhaustive | Struct-literal construction is how components are spawned, and `#[non_exhaustive]` forbids it outside the defining crate. Required components are the growth mechanism instead. |
 
-Two rows that look like they belong here and do not. `RS-BUILD-26` asks for `pedantic` at warn and
+Two rows that look like they belong here and do not. `RS-BUILD-24` asks for `pedantic` at warn and
 allows "individual lints with a comment giving the reason" — which is exactly what `BV-BUILD-13`
 does, so allowing `needless_pass_by_value` with its reason obeys that rule rather than overriding
-it. And `RS-BUILD-23` is titled "never pin exact versions *in a library*"; `BV-BUILD-04` pins in a
+it. And `RS-BUILD-21` is titled "never pin exact versions *in a library*"; `BV-BUILD-04` pins in a
 game binary and keeps the caret for anything published, so the two never meet.
 
-`RS-MOD-44` is not on this list either: it forbids glob imports "outside tests and preludes", and
+clippy's `wildcard_imports` is not on this list either: it exempts preludes, and
 `use bevy::prelude::*` is a prelude. It is the first line of nearly every Bevy file, and naming
 twenty imports instead would be worse.
 
-`RS-NAME-03` is **not** on this list, and the temptation is real: Bevy's own packages are
+`RS-NAME-02` is **not** on this list, and the temptation is real: Bevy's own packages are
 `bevy_ecs`, `bevy_render`, spelled with underscores. That is upstream's namespace, not a licence to
 name your own crates `mygame_combat` — packages published from this standard use hyphens
 (`BV-ARCH-08`).
@@ -195,7 +198,7 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **BV-CORE-04 `[M]`** Every plugin is a type implementing `Plugin`, named `*Plugin`, and never a
   function or a closure: four of Bevy's own APIs address a plugin by its type, and a function's type
   cannot be written. `main` adds plugins and nothing else
-  (`references/architecture.md` BV-ARCH-09, BV-ARCH-10, BV-ARCH-16).
+  (`references/architecture.md` BV-ARCH-09, BV-ARCH-10, BV-ARCH-15).
 
 ### Components and queries
 
@@ -204,43 +207,43 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
   (`references/ecs.md` BV-ECS-02).
 - **BV-CORE-06 `[M]`** Express "an X always has a Y" with `#[require(Y)]`, never with a hand-kept
   tuple that callers must remember. The `*Bundle` types are gone, and writing your own is the same
-  defect wearing a new name (`references/ecs.md` BV-ECS-06, BV-ECS-08).
+  defect wearing a new name (`references/ecs.md` BV-ECS-06).
 - **BV-CORE-07 `[M]`** A zero-sized marker goes in `With<T>` or `Without<T>`, never in the query's
   data. Querying it fetches nothing and costs a column
-  (`references/ecs.md` BV-ECS-17).
+  (`references/ecs.md` BV-ECS-16).
 - **BV-CORE-08 `[M!]`** Writing through `Mut<T>` marks the component changed whether or not the
   value differs. Anything a `Changed<T>` filter watches is written with `set_if_neq`
-  (`references/ecs.md` BV-ECS-25).
-- **BV-CORE-09 `[M]`** Give a query type more than one data item and more than one filter and it
-  becomes unreadable; name it with a `type` alias. Give a system more than seven parameters and
-  group them with `#[derive(SystemParam)]`
-  (`references/ecs.md` BV-ECS-20, `references/scheduling.md` BV-SCHED-10).
-- **BV-CORE-10 `[M]`** Every component derives `Reflect` and carries `#[reflect(Component)]`;
-  every reflected type is then registered, unless `reflect_auto_register` is doing it. Reflection is
-  what the inspector, the scene format and the remote protocol run on, and it is opt-in, so it is
-  forgotten silently (`references/ecs.md` BV-ECS-03, BV-ECS-13).
+  (`references/ecs.md` BV-ECS-24).
+- **BV-CORE-09 `[M]`** Name a query type with a `type` alias once it needs two lines, and group a
+  system's parameters with `#[derive(SystemParam)]` once `too_many_arguments` fires at eight
+  (`references/ecs.md` BV-ECS-19, `references/scheduling.md` BV-SCHED-09).
+- **BV-CORE-10 `[M]`** Every component derives `Reflect` and carries `#[reflect(Component)]`. The
+  derive registers it — `reflect_auto_register` is on in every feature collection — so only a
+  generic instantiation needs `register_type`. Reflection is what the inspector, the scene format
+  and the remote protocol run on, and it is opt-in per type, so it is forgotten silently
+  (`references/ecs.md` BV-ECS-03, BV-ECS-12).
 
 ### Scheduling
 
 - **BV-CORE-11 `[M]`** Simulation runs in `FixedUpdate`; animation, camera and anything that must
   be smooth run in `Update`. A camera moved from `FixedUpdate` visibly stutters, and per-frame input
   read from it is dropped on a fast machine and doubled on a slow one
-  (`references/scheduling.md` BV-SCHED-01, BV-SCHED-04, BV-SCHED-09).
+  (`references/scheduling.md` BV-SCHED-01, BV-SCHED-08).
 - **BV-CORE-12 `[M!]`** Ordering between systems goes through named `SystemSet`s configured once,
   not a chain of `.before()` and `.after()` at each `add_systems` call
-  (`references/scheduling.md` BV-SCHED-12).
+  (`references/scheduling.md` BV-SCHED-11).
 - **BV-CORE-13 `[M]`** A system that should not always run says so with `.run_if(…)`. An early
   `return` hides the condition from the schedule, which cannot then skip the system or report it
-  (`references/scheduling.md` BV-SCHED-17).
-- **BV-CORE-14 `[M]`** Take the time from `Time<Fixed>` in `FixedUpdate` and `Time<Virtual>` in
-  `Update`, and never hard-code a per-frame delta
-  (`references/scheduling.md` BV-SCHED-06).
+  (`references/scheduling.md` BV-SCHED-15).
+- **BV-CORE-14 `[M]`** Take the delta from `Res<Time>` in `Update` and `Res<Time<Fixed>>` in
+  `FixedUpdate`, and never hard-code a per-frame delta
+  (`references/scheduling.md` BV-SCHED-05).
 
 ### Events, messages, observers
 
 - **BV-CORE-15 `[M]`** `Message` is buffered fan-out read next frame; `Event` is a reaction that
   runs now. They are different traits for different jobs, and a type deriving both is almost always
-  a design that has not chosen (`references/events.md` BV-EVENT-01).
+  a design that has not chosen (`references/events.md` BV-EVENT-01, BV-EVENT-03).
 - **BV-CORE-16 `[M]`** An event that concerns one entity derives `EntityEvent` and carries the
   entity as a field, read by that field's name. `trigger_targets` is gone
   (`references/events.md` BV-EVENT-09, BV-EVENT-10).
@@ -252,15 +255,15 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
 
 - **BV-CORE-18 `[M!]`** A system that can fail returns `Result` and uses `?`. No `unwrap`, no
   `expect`, no indexing on a path a player can reach
-  (`references/errors.md` BV-ERR-01).
-- **BV-CORE-19 `[M]`** Set the `FallbackErrorHandler` explicitly at startup. Since 0.20 it also
-  receives panics, so a release handler that logs must re-panic when the error carries a panic
-  payload, or every panic becomes a log line (`references/errors.md` BV-ERR-05).
+  (`references/errors.md` BV-ERR-01, and its `indexing_slicing` row).
+- **BV-CORE-19 `[M]`** Install the fallback error handler explicitly, with `App::set_error_handler`
+  in `main`. It also receives panics, so a release handler that logs must re-panic when the error
+  carries a panic payload, or every panic becomes a log line (`references/errors.md` BV-ERR-05).
 - **BV-CORE-20 `[M]`** Prefer the non-panicking half of every pair: `get_resource` over `resource`,
-  `get` over `entity`, `?` over `single().unwrap()`
+  `get` over `entity`, `Single` or `single()?` over `single().unwrap()`
   (`references/errors.md` BV-ERR-07).
 - **BV-CORE-21 `[M]`** `fn main() -> AppExit`, returning what `App::run` returned. Anything else
-  reports a crash as a clean exit (`references/architecture.md` BV-ARCH-17).
+  reports a crash as a clean exit (`references/architecture.md` BV-ARCH-16).
 
 ### Cargo and versions
 
@@ -286,15 +289,14 @@ protocol — severity model, mechanical pass, output format — in `references/r
 3. **Errors and panics.** Does every fallible system return `Result`, and does the release error
    handler still end the app on a caught panic? (BV-ERR-01, BV-ERR-05)
 4. **Change detection.** Is any `Changed<T>` watching something written unconditionally?
-   (BV-ECS-25)
-5. **Ordering.** Is ordering expressed in sets, not against a system function? (BV-SCHED-12,
-   BV-SCHED-14)
-6. **Run conditions and state.** Would each new system be skipped when it should be? (BV-SCHED-17,
-   BV-STATE-17)
-7. **Reflection.** Does each new component derive `Reflect` and get registered? (BV-ECS-03,
-   BV-ECS-13)
+   (BV-ECS-24)
+5. **Ordering.** Is ordering expressed in sets, not against a system function? (BV-SCHED-11)
+6. **Run conditions and state.** Would each new system be skipped when it should be? (BV-SCHED-15,
+   BV-STATE-14)
+7. **Reflection.** Does each new component derive `Reflect`, and is each generic instantiation
+   registered? (BV-ECS-03, BV-ECS-12)
 8. **Tests.** Is the rule tested without an `App`, and the plugin with the smallest one?
-   (BV-TEST-01, BV-TEST-02)
+   (BV-ARCH-01, BV-TEST-02)
 9. **Relaxed forms.** Is anything `[M!]` relying on its relaxed form, and which shipped-code
    condition does not hold?
 
@@ -302,21 +304,21 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The 24
-`BV-CORE-*` rules live in section 4 above; the other 220 live here.
+`BV-CORE-*` rules live in section 4 above; the other 194 live here.
 
 | File | Rule IDs | Covers |
 |---|---|---|
-| `references/architecture.md` | `BV-ARCH` (19) | the boundary, plugins, the app |
-| `references/ecs.md` | `BV-ECS` (31) | components, required components, queries, change detection, reflection |
-| `references/scheduling.md` | `BV-SCHED` (26) | schedules, sets, ordering, run conditions, time, input |
-| `references/events.md` | `BV-EVENT` (20) | messages, events, entity events, observers |
-| `references/state.md` | `BV-STATE` (21) | resources, states, transitions, scoping |
-| `references/errors.md` | `BV-ERR` (15) | fallible systems, the error handler, panicking APIs |
-| `references/assets.md` | `BV-ASSET` (13) | handles, loading, hot reload, asset lifetime |
-| `references/build.md` | `BV-BUILD` (20) | features, version pinning, the lint divergences, CI |
-| `references/migration.md` | `BV-MIG` (19) | every API forbidden since 0.15, and what replaces it |
+| `references/architecture.md` | `BV-ARCH` (17) | the boundary, plugins, the app |
+| `references/ecs.md` | `BV-ECS` (30) | components, required components, queries, change detection, reflection |
+| `references/scheduling.md` | `BV-SCHED` (23) | schedules, sets, ordering, run conditions, time, input |
+| `references/events.md` | `BV-EVENT` (19) | messages, events, entity events, observers |
+| `references/state.md` | `BV-STATE` (18) | resources, states, transitions, scoping |
+| `references/errors.md` | `BV-ERR` (11) | fallible systems, the error handler, panicking APIs |
+| `references/assets.md` | `BV-ASSET` (11) | handles, loading, hot reload, asset lifetime |
+| `references/build.md` | `BV-BUILD` (16) | features, version pinning, the lint divergences, CI |
+| `references/migration.md` | `BV-MIG` (18) | every API forbidden since 0.15, and what replaces it |
 | `references/view.md` | `BV-VIEW` (21) | UI nodes, text, cameras, materials, post-process, gizmos |
-| `references/testing.md` | `BV-TEST` (15) | headless apps, deterministic ticks, what to assert |
+| `references/testing.md` | `BV-TEST` (10) | headless apps, deterministic ticks, what to assert |
 | `references/review-checklist.md` | — | The audit protocol: the shared severity model, review order, mechanical pass, output format, and the order in which to refactor an existing game |
 
 ## 7. Bundled assets

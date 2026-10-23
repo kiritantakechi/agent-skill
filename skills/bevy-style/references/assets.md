@@ -9,21 +9,19 @@ this chapter is about the handles.
 - **Handles**
   - BV-ASSET-01 [M] Treat a handle as a reference count, not a path
   - BV-ASSET-02 [M] Load once and store the handle, never per frame
-  - BV-ASSET-03 [S] Keep the handles for a feature in one resource
-  - BV-ASSET-04 [S] Reach for the `weak_handle!` macro only for a built-in
+  - BV-ASSET-03 [S] Reach for `uuid_handle!` only for a built-in
 
 - **Loading**
-  - BV-ASSET-05 [M] Never assume an asset is present the frame after loading it
-  - BV-ASSET-06 [M] Handle the failed load, not just the pending one
-  - BV-ASSET-07 [S] Gate play on `is_loaded_with_dependencies`, not on the asset alone
-  - BV-ASSET-08 [S] Reach for the load builder when a load needs settings
-  - BV-ASSET-09 [M] Keep asset paths out of the code that uses them
+  - BV-ASSET-04 [M] Never assume an asset is present the frame after loading it
+  - BV-ASSET-05 [M] Handle the failed load, not just the pending one
+  - BV-ASSET-06 [S] Gate play on `is_loaded_with_dependencies`, not on the asset alone
+  - BV-ASSET-07 [S] Reach for the load builder when a load needs settings
+  - BV-ASSET-08 [M] Keep asset paths out of the code that uses them
 
 - **Change and lifetime**
-  - BV-ASSET-10 [M] React to `AssetEvent`, not to a per-frame comparison
-  - BV-ASSET-11 [M] Do not take `ResMut<Assets<T>>` to read
-  - BV-ASSET-12 [S] Keep hot reload working by loading through the server
-  - BV-ASSET-13 [M] Do not hold a strong handle to something the game has finished with
+  - BV-ASSET-09 [M] React to `AssetEvent`, not to a per-frame comparison
+  - BV-ASSET-10 [S] Keep hot reload working by loading through the server
+  - BV-ASSET-11 [M] Do not hold a strong handle to something the game has finished with
 
 ---
 
@@ -43,14 +41,15 @@ outlives its use, the asset can be dropped.
 
 ### BV-ASSET-02 [M] Load once and store the handle, never per frame
 
-`AssetServer::load` in a startup or `OnEnter` system, stored in a resource. Not inside a system that
-runs every frame.
+Load at startup or in `OnEnter`, into one resource per feature — `SpriteHandles`, `LevelAudio`,
+`UiFonts` — built with `FromWorld`. Not inside a system that runs every frame.
 
 **Why:** even a cache hit hashes the path, takes a lock and allocates a handle, so a `load` per
-frame per entity is measurable. It also reads as a load that is not happening, and hides the real
-load point from anyone trying to find out when an asset arrives.
+frame per entity is measurable, and it hides the real load point. One resource per feature also
+makes the loading screen's "is everything here" a walk over one struct.
 
-**Check:** grep for `asset_server.load` inside `Update` or `FixedUpdate` systems.
+**Check:** grep for `asset_server.load` inside `Update` or `FixedUpdate` systems. Then, for each
+feature, is there one type holding its handles, or are they built in more than one system?
 
 ```rust
 // verified
@@ -65,10 +64,9 @@ pub struct SpriteHandles {
 
 impl FromWorld for SpriteHandles {
     fn from_world(world: &mut World) -> Self {
-        let assets = world.resource::<AssetServer>();
         Self {
-            player: assets.load("player.png"),
-            enemy: assets.load("enemy.png"),
+            player: world.load_asset("player.png"),
+            enemy: world.load_asset("enemy.png"),
         }
     }
 }
@@ -83,32 +81,21 @@ impl Plugin for SpritesPlugin {
 }
 ```
 
-### BV-ASSET-03 [S] Keep the handles for a feature in one resource
+### BV-ASSET-03 [S] Reach for `uuid_handle!` only for a built-in
 
-`SpriteHandles`, `LevelAudio`, `UiFonts` — one resource per feature, built with `FromWorld`.
+`uuid_handle!("…")` builds a `Handle::Uuid` for an asset the engine or a plugin embeds and inserts
+itself. Game content goes through the asset server.
 
-**Why:** the loading state's "is everything here" check becomes a walk over one struct, and "what
-does this feature need on disk" has one answer. Handles scattered across the systems that use them
-leave neither question answerable.
-
-**Check:** for each feature, is there a single type holding its handles? If handles are constructed
-in more than one system, they are scattered.
-
-### BV-ASSET-04 [S] Reach for the `weak_handle!` macro only for a built-in
-
-`weak_handle!("…")` is for an asset the engine or a plugin embeds and registers itself. Game content
-goes through the asset server.
-
-**Why:** a weak handle neither keeps its asset alive nor loads it; it names something another part
+**Why:** a UUID handle neither keeps its asset alive nor loads it; it names something another part
 of the program is expected to insert. For a texture on disk, that is a handle that never resolves
 and an entity that renders nothing.
 
-**Check:** grep for `weak_handle!`. Each occurrence should have a matching insertion into
+**Check:** grep for `uuid_handle!`. Each occurrence should have a matching insertion into
 `Assets<T>` in the same crate.
 
 ## Loading
 
-### BV-ASSET-05 [M] Never assume an asset is present the frame after loading it
+### BV-ASSET-04 [M] Never assume an asset is present the frame after loading it
 
 `AssetServer::load` returns immediately with a handle to something that is not there yet. Anything
 that must read the asset's contents waits for the load; anything that only passes the handle to the
@@ -121,7 +108,7 @@ the cold start.
 **Check:** for each `Assets::<T>::get` shortly after a load, ask what the code does when it returns
 `None`. "It cannot" is the defect.
 
-### BV-ASSET-06 [M] Handle the failed load, not just the pending one
+### BV-ASSET-05 [M] Handle the failed load, not just the pending one
 
 `LoadState::Failed` is a state a load reaches, and it is where a missing or corrupt file arrives.
 
@@ -146,10 +133,9 @@ pub struct TitleArt {
 
 impl FromWorld for TitleArt {
     fn from_world(world: &mut World) -> Self {
-        let assets = world.resource::<AssetServer>();
         Self {
-            logo: assets.load("ui/logo.png"),
-            background: assets.load("ui/title.png"),
+            logo: world.load_asset("ui/logo.png"),
+            background: world.load_asset("ui/title.png"),
         }
     }
 }
@@ -195,8 +181,7 @@ pub struct TitleArtPlugin;
 
 impl Plugin for TitleArtPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<TitleProgress>()
-            .init_resource::<TitleArt>()
+        app.init_resource::<TitleArt>()
             .init_resource::<TitleProgress>()
             .add_systems(Update, poll_title_art);
     }
@@ -241,7 +226,7 @@ mod tests {
 }
 ```
 
-### BV-ASSET-07 [S] Gate play on `is_loaded_with_dependencies`, not on the asset alone
+### BV-ASSET-06 [S] Gate play on `is_loaded_with_dependencies`, not on the asset alone
 
 A scene, a glTF or a material is loaded before its textures are. `is_loaded_with_dependencies` is
 what "ready" means, and `RecursiveDependencyLoadState` asks the same question in enum form when the
@@ -254,20 +239,19 @@ first second of play.
 **Check:** for each readiness check, ask whether the asset has dependencies. Meshes, scenes, glTF
 and materials all do.
 
-### BV-ASSET-08 [S] Reach for the load builder when a load needs settings
+### BV-ASSET-07 [S] Reach for the load builder when a load needs settings
 
 Loader settings, an unapproved path and a guard all go through `AssetServer::load_builder`:
-`load_builder().with_settings(…).load(path)`. 0.19 added the builder and deprecated the variants it
-replaced; 0.20 removed them.
+`load_builder().with_settings(…).load(path)`. The variants it replaced are gone.
 
 **Why:** the builder replaced a combinatorial family — `load_*_override`, `load_with_settings`,
 `load_with_settings_override` — and is the form upstream extends, so code written against it
 survives the next option being added. It also keeps a load with five options readable.
 
-**Check:** grep for `load_with_settings`, `load_override` and `load_acquire`. Each is a call 0.20
-removed; the builder's `with_settings`, `override_unapproved` and `with_guard` replace them.
+**Check:** grep for `load_with_settings`, `load_override` and `load_acquire`. Each is a removed
+call; the builder's `with_settings`, `override_unapproved` and `with_guard` replace them.
 
-### BV-ASSET-09 [M] Keep asset paths out of the code that uses them
+### BV-ASSET-08 [M] Keep asset paths out of the code that uses them
 
 A path literal appears where the handle is created — a handle resource, a manifest, a content file
 — and nowhere else.
@@ -281,18 +265,21 @@ a content file, or a loader is a path that has escaped.
 
 ## Change and lifetime
 
-### BV-ASSET-10 [M] React to `AssetEvent`, not to a per-frame comparison
+### BV-ASSET-09 [M] React to `AssetEvent`, not to a per-frame comparison
 
 `AssetEvent::<Image>::Added`, `Modified`, `Removed`, `LoadedWithDependencies`. Not a system that
-compares this frame's asset against a cached copy. Since 0.19 `Modified` fires only on an actual
-mutation: `AssetMut<A>` sets its flag on `DerefMut`, so a `get_mut` that only reads raises nothing.
+compares this frame's asset against a cached copy. `Modified` fires only on an actual mutation:
+`AssetMut<A>` sets its flag on `DerefMut`, so a `get_mut` that only reads raises nothing. Where the
+reaction is per entity — this entity's mesh changed — the filter `AssetChanged<C>` on its handle
+component says it with no id-to-entity join, and `Or<(Changed<C>, AssetChanged<C>)>` also catches
+a swapped handle.
 
 **Why:** the events are the mechanism the asset server already maintains, so a comparison duplicates
 it and gets it wrong in the interesting cases: a modified asset with the same length, an asset
 replaced by hot reload between two frames.
 
 **Check:** grep for a cached `Handle` or a cached asset value compared each frame. That is an
-`AssetEvent` reader.
+`AssetEvent` reader, or an `AssetChanged` filter when the answer is per entity.
 
 ```rust
 // verified
@@ -344,8 +331,7 @@ pub struct DialoguePlugin;
 
 impl Plugin for DialoguePlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<DialogueIndex>()
-            .init_asset::<Dialogue>()
+        app.init_asset::<Dialogue>()
             .init_resource::<DialogueIndex>()
             .add_systems(Update, reindex);
     }
@@ -390,17 +376,7 @@ mod tests {
 }
 ```
 
-### BV-ASSET-11 [M] Do not take `ResMut<Assets<T>>` to read
-
-`Res<Assets<T>>` and `get`. `ResMut` only where the system inserts or mutates an asset.
-
-**Why:** it is BV-STATE-07 with a resource everything touches: render extraction, UI, sprites and
-anything else showing a texture read `Assets<Image>`, so a system holding it mutably to read
-serialises against all of them for as long as it runs.
-
-**Check:** for each `ResMut<Assets<`, find the mutation. A system that only calls `get` wants `Res`.
-
-### BV-ASSET-12 [S] Keep hot reload working by loading through the server
+### BV-ASSET-10 [S] Keep hot reload working by loading through the server
 
 Everything loaded through `AssetServer` participates in hot reload. Anything read with `std::fs`
 does not. A custom format gets a small `AssetLoader`, half a page that buys the whole mechanism.
@@ -412,7 +388,7 @@ most want to edit while the game runs.
 **Check:** grep for `std::fs`, `File::open` and `include_str!` on anything under the asset
 directory.
 
-### BV-ASSET-13 [M] Do not hold a strong handle to something the game has finished with
+### BV-ASSET-11 [M] Do not hold a strong handle to something the game has finished with
 
 When a level ends, its handle resource goes with it. A handle held in a resource that outlives the
 level keeps the level in memory.

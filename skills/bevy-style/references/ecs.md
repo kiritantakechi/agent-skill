@@ -16,36 +16,35 @@ chapter.
   - BV-ECS-05 [M] Never mark a component `#[non_exhaustive]`
   - BV-ECS-06 [M] Express "always has" with `#[require]`
   - BV-ECS-07 [M] Give a required component a value that is valid on its own
-  - BV-ECS-08 [M] Do not build a "bundle" type by hand
-  - BV-ECS-09 [M] Never spawn a unit
-  - BV-ECS-10 [S] Give a marker component the derives a marker needs
-  - BV-ECS-11 [S] Mark a component immutable when a hook depends on it
-  - BV-ECS-12 [M] Model a link between entities as a relationship
-  - BV-ECS-13 [M!] Register every reflected type
-  - BV-ECS-14 [M] Give an asset handle a component of its own
+  - BV-ECS-08 [M] Never spawn a unit
+  - BV-ECS-09 [S] Give a marker component the derives a marker needs
+  - BV-ECS-10 [S] Mark a component immutable when a hook depends on it
+  - BV-ECS-11 [M] Model a link between entities as a relationship
+  - BV-ECS-12 [M] Register each instantiation of a generic reflected type
+  - BV-ECS-13 [M] Give an asset handle a component of its own
 
 - **Queries**
-  - BV-ECS-15 [M] Query the narrowest data that answers the question
-  - BV-ECS-16 [M] Ask for `&mut` only where the system writes
-  - BV-ECS-17 [M] Put a zero-sized marker in the filter, never in the data
-  - BV-ECS-18 [S] Split a system before reaching for a third `Option<&T>`
-  - BV-ECS-19 [S] Iterate a query with `for`, not a combinator chain
-  - BV-ECS-20 [M] Name a query type once it needs two lines
-  - BV-ECS-21 [S] Reach for `iter_many` when the set of entities is already known
-  - BV-ECS-22 [M] Never nest a query inside itself
-  - BV-ECS-23 [S] Parallelise a query only against a measurement
-  - BV-ECS-24 [S] Reach for `contiguous_iter` only against a measured hot loop
+  - BV-ECS-14 [M] Query the narrowest data that answers the question
+  - BV-ECS-15 [M] Ask for `&mut` and `ResMut` only where the system writes
+  - BV-ECS-16 [M] Put a zero-sized marker in the filter, never in the data
+  - BV-ECS-17 [S] Split a system before reaching for a third `Option<&T>`
+  - BV-ECS-18 [S] Iterate a query with `for`, not a combinator chain
+  - BV-ECS-19 [M] Name a query type once it needs two lines
+  - BV-ECS-20 [S] Reach for `iter_many` when the set of entities is already known
+  - BV-ECS-21 [M] Never nest a query inside itself
+  - BV-ECS-22 [S] Parallelise a query only against a measurement
+  - BV-ECS-23 [S] Reach for `contiguous_iter` only against a measured hot loop
 
 - **Change detection**
-  - BV-ECS-25 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
-  - BV-ECS-26 [M] Put `Changed<T>` in the filter so the system can be skipped
-  - BV-ECS-27 [M] Do not use `Changed<T>` to mean `Added<T>`
-  - BV-ECS-28 [S] Read a change in the same schedule that wrote it
-  - BV-ECS-29 [S] Bypass change detection only where the write is bookkeeping
+  - BV-ECS-24 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
+  - BV-ECS-25 [M] Put `Changed<T>` in the filter so the system can be skipped
+  - BV-ECS-26 [M] Do not use `Changed<T>` to mean `Added<T>`
+  - BV-ECS-27 [S] Read a change in the same schedule that wrote it
+  - BV-ECS-28 [S] Bypass change detection only where the write is bookkeeping
 
 - **Structural change**
-  - BV-ECS-30 [M] Do not read back what a command has not applied yet
-  - BV-ECS-31 [M] Reach for an exclusive system last, and say what forced it
+  - BV-ECS-29 [M] Do not read back what a command has not applied yet
+  - BV-ECS-30 [M] Reach for an exclusive system last, and say what forced it
 - Decided by tools
 
 ---
@@ -127,7 +126,7 @@ fn regenerate_shields(mut stats: Query<&mut Stats>) {
 
 `#[derive(Component, Debug, Reflect)]`, plus `#[reflect(Component)]`. Add `Clone`, `Copy`,
 `PartialEq` and `Default` where each of them means something for the type; `PartialEq` is what
-`set_if_neq` (BV-ECS-25) needs.
+`set_if_neq` (BV-ECS-24) needs.
 
 **Why:** `Debug` is what every panic, `info!` and test failure prints, so without it the value is a
 hole in the output exactly when it is needed. `Reflect` with `#[reflect(Component)]` is what an
@@ -175,14 +174,16 @@ be none.
 ### BV-ECS-06 [M] Express "always has" with `#[require]`
 
 If every entity with `Enemy` also needs `Health` and `Transform`, `Enemy` declares that:
-`#[require(Health, Transform)]`. The spawn site names only what it is choosing.
+`#[require(Health, Transform)]`. The spawn site names only what it is choosing, as a tuple. A struct
+or type alias that exists only to be spawned as a group is the removed bundle, reintroduced.
 
-**Why:** the invariant lives once, on the type that owns it, instead of at every spawn site where
-it can be forgotten. The engine applies it on every spawn of that type, so unlike a group of
-components passed by hand, a `#[require]` cannot be half-applied.
+**Why:** the invariant lives once, on the type that owns it, and the engine applies it on every
+spawn, so it cannot be half-applied. A group type cannot be queried or inserted in part, and changes
+every spawn site silently when it gains a field.
 
 **Check:** look at every `spawn` for the same component appearing beside the same other component
-more than twice. That repetition is a `#[require]` that has not been written.
+more than twice. That repetition is a `#[require]` that has not been written. Then search for
+structs deriving `Bundle` and for `fn *_bundle() -> impl Bundle`: each is a `#[require]` or a tuple.
 
 ```rust
 // verified
@@ -235,20 +236,7 @@ frame it appears, and a death system running that frame acts on it.
 **Check:** for each `#[require(T)]` with no value, read `T::default()` and ask whether an entity in
 that state for one frame is harmless. If not, give the requirement a value.
 
-### BV-ECS-08 [M] Do not build a "bundle" type by hand
-
-A struct or type alias whose only purpose is to be spawned as a group is the removed bundle,
-reintroduced. Use `#[require]` for what is always true and a tuple at the spawn site for what is
-being chosen.
-
-**Why:** the group type cannot be queried, cannot be inserted in part without a second definition,
-and changes every call site silently when it gains a field. A `#[require]` puts the same
-information where the query, the inspector and the scene format can see it.
-
-**Check:** search for structs deriving `Bundle`, and for `fn *_bundle() -> impl Bundle`. Each one is
-either a `#[require]` or a tuple.
-
-### BV-ECS-09 [M] Never spawn a unit
+### BV-ECS-08 [M] Never spawn a unit
 
 `commands.spawn(())` and a `()` sitting inside a spawn tuple are mistakes. Use `spawn_empty()` when
 an entity really has no components.
@@ -313,7 +301,7 @@ mod tests {
 }
 ```
 
-### BV-ECS-10 [S] Give a marker component the derives a marker needs
+### BV-ECS-09 [S] Give a marker component the derives a marker needs
 
 A marker is a unit struct: `#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component)] pub struct Player;`
@@ -327,7 +315,7 @@ scene patch. A crate downstream cannot add one that is missing.
 **Check:** is every unit-struct component `Default`? A marker that is not cannot be required by
 another component.
 
-### BV-ECS-11 [S] Mark a component immutable when a hook depends on it
+### BV-ECS-10 [S] Mark a component immutable when a hook depends on it
 
 `#[component(immutable)]` makes a component insert-and-remove only. Use it where a lifecycle hook,
 an index, or a relationship derives something from the value.
@@ -339,18 +327,22 @@ kind, or a spawn-time configuration is not something a system should reach in an
 **Check:** for each component read by a hook or observer on `Insert`, ask what happens if a system
 mutates it afterwards. If the answer is a stale index, the component wants to be immutable.
 
-### BV-ECS-12 [M] Model a link between entities as a relationship
+### BV-ECS-11 [M] Model a link between entities as a relationship
 
 Parent and child are `ChildOf` and `Children`. Any other one-to-many link — a turret's owner, a
 squad's members — is a `#[relationship]` / `#[relationship_target]` pair, not a bare `Entity` field
-plus a `Vec<Entity>` kept in step by hand.
+plus a `Vec<Entity>` kept in step by hand. Where the many side should not outlive the one, the
+target says `linked_spawn`, as `Children` does; without it, despawning the one removes only the
+link.
 
 **Why:** a relationship maintains both sides, so removing the target cannot leave a dangling id on
-the other, and despawning follows the link. A hand-kept `Vec<Entity>` does neither, and holds ids
-despawned frames ago until a `get` returns `None` where nothing expected one.
+the other. A hand-kept `Vec<Entity>` does neither, and holds ids despawned frames ago until a `get`
+returns `None` where nothing expected one.
 
 **Check:** search for `Vec<Entity>` and for `Entity` fields in components. Each is either a
-relationship or needs a written reason it cannot be one.
+relationship or needs a written reason it cannot be one. For each `#[relationship_target]`, ask what
+a despawn of its entity should do to the related ones, and look for `linked_spawn` if the answer is
+"despawn them too".
 
 ```rust
 // verified
@@ -362,10 +354,11 @@ use bevy::prelude::*;
 #[relationship(relationship_target = Crew)]
 pub struct CrewOf(#[entities] pub Entity);
 
-/// The many side. Bevy maintains it; nothing writes to it by hand.
+/// The many side. Bevy maintains it; nothing writes to it by hand. A crew does
+/// not outlive its ship, so the target is `linked_spawn`.
 #[derive(Component, Debug, Reflect)]
 #[reflect(Component)]
-#[relationship_target(relationship = CrewOf)]
+#[relationship_target(relationship = CrewOf, linked_spawn)]
 pub struct Crew(Vec<Entity>);
 
 #[cfg(test)]
@@ -390,24 +383,89 @@ mod tests {
                 .is_none_or(|c| c.0.is_empty())
         );
     }
+
+    #[test]
+    fn despawning_the_ship_despawns_its_crew() {
+        let mut world = World::new();
+        let ship = world.spawn_empty().id();
+        let pilot = world.spawn(CrewOf(ship)).id();
+
+        world.entity_mut(ship).despawn();
+        assert!(world.get_entity(pilot).is_err());
+    }
 }
 ```
 
-### BV-ECS-13 [M!] Register every reflected type
+### BV-ECS-12 [M] Register each instantiation of a generic reflected type
 
-`app.register_type::<Health>()` for every component, resource and message that derives `Reflect`.
+`#[derive(Reflect)]` registers its type: `reflect_auto_register`, part of `default_app` and so of
+every collection built on it (BV-BUILD-02), collects each derived type as the `App` is created. A
+generic type is the exception, because the derive cannot know its instantiations: each one the game
+uses is registered in the plugin that uses it, `app.register_type::<Cooldown<Dash>>()`.
 
-*Relaxed form:* a project that has enabled `reflect_auto_register` may rely on it, and then the rule
-is that the feature is on, not that each call exists.
+**Why:** registration makes a type *findable*: the inspector, the scene loader and the remote
+protocol all look types up in the registry. An unregistered type does not error; it is simply
+absent, which reads as "the tool is broken".
 
-**Why:** `#[derive(Reflect)]` makes a type reflectable and registration makes it *findable*: the
-inspector, the scene loader and the remote protocol all look types up in the registry. An
-unregistered type does not error; it is simply absent, which reads as "the tool is broken".
+**Check:** for each generic type deriving `Reflect`, find a `register_type::<…>` for every
+instantiation the game names. A `register_type` for a non-generic type is noise, and a hand-picked
+feature list without `reflect_auto_register` (BV-BUILD-03) leaves every type unregistered.
 
-**Check:** count `#[derive(…Reflect…)]` in the crate and `register_type::<` calls in the plugins. If
-the second number is smaller and `reflect_auto_register` is off, the difference is invisible types.
+```rust
+// verified
+use bevy::prelude::*;
+use core::marker::PhantomData;
 
-### BV-ECS-14 [M] Give an asset handle a component of its own
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component)]
+pub struct Health(pub f32);
+
+#[derive(Debug, Clone, Copy, Reflect)]
+pub struct Dash;
+
+/// One cooldown per ability. Generic, so its instantiations are the game's
+/// to name: the derive registers none of them.
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+pub struct Cooldown<A: Send + Sync + 'static> {
+    pub seconds: f32,
+    #[reflect(ignore)]
+    ability: PhantomData<A>,
+}
+
+#[derive(Debug, Default)]
+pub struct AbilityPlugin;
+
+impl Plugin for AbilityPlugin {
+    fn build(&self, app: &mut App) {
+        // `Health` needs nothing here: its derive registered it.
+        app.register_type::<Cooldown<Dash>>();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use core::any::TypeId;
+
+    fn registered<T: 'static>(app: &App) -> bool {
+        let registry = app.world().resource::<AppTypeRegistry>().read();
+        registry.get(TypeId::of::<T>()).is_some()
+    }
+
+    #[test]
+    fn the_derive_registers_the_type_and_the_plugin_the_instantiation() {
+        let mut app = App::new();
+        assert!(registered::<Health>(&app));
+        assert!(!registered::<Cooldown<Dash>>(&app));
+
+        app.add_plugins(AbilityPlugin);
+        assert!(registered::<Cooldown<Dash>>(&app));
+    }
+}
+```
+
+### BV-ECS-13 [M] Give an asset handle a component of its own
 
 `Handle<T>` is not a component. Wrap it: `#[derive(Component)] struct Portrait(pub Handle<Image>);`
 
@@ -419,30 +477,33 @@ last. The wrapper's name is also the only place the meaning of the asset can be 
 
 ## Queries
 
-### BV-ECS-15 [M] Query the narrowest data that answers the question
+### BV-ECS-14 [M] Query the narrowest data that answers the question
 
 Ask for the components the body reads, and no others. `Query<&Transform>` rather than
 `Query<(&Transform, &Health, &Sprite)>` when only the transform is used.
 
 **Why:** the components in the query are the system's declared access, and the scheduler uses that
-declaration to decide what may run in parallel. An unused `&mut Sprite` does not slow the body down;
-it serialises this system against every other system that touches a sprite, for nothing.
+declaration to decide what may run in parallel. An unused `&Sprite` does not slow the body down; it
+keeps this system from running beside any system that writes a sprite, for nothing.
 
 **Check:** for each item in the query tuple, find its use in the body. An unused one is a scheduling
 constraint with no reader.
 
-### BV-ECS-16 [M] Ask for `&mut` only where the system writes
+### BV-ECS-15 [M] Ask for `&mut` and `ResMut` only where the system writes
 
-`&T` for reading. `&mut T` exclusively for components the body assigns to.
+`&T` for reading. `&mut T` exclusively for components the body assigns to. The same for resources:
+`Res<T>` to read, `ResMut<T>` only to assign, and `Res<Assets<T>>` with `get` unless the system adds
+or edits an asset.
 
 **Why:** `&mut` is both an exclusive lock for the scheduler and a change-detection trigger, so
-asking for it only to read keeps every system touching that component from running alongside this
-one, and lets one stray mutable deref mark every entity changed.
+asking for it only to read blocks every system touching that data, and one stray mutable deref marks
+it changed: every entity's `Changed`, or a `resource_changed` condition that fires every frame.
 
-**Check:** for each `&mut` in a query, find the assignment. If the body only reads, the `mut` is two
-bugs waiting.
+**Check:** for each `&mut` in a query and each `ResMut`, find the write. If the body only reads, the
+`mut` is two bugs waiting. `ResMut<Assets<Image>>` is the costliest case: render extraction, UI and
+every sprite read it, so a system holding it to read serialises against all of them.
 
-### BV-ECS-17 [M] Put a zero-sized marker in the filter, never in the data
+### BV-ECS-16 [M] Put a zero-sized marker in the filter, never in the data
 
 `Query<&Transform, With<Player>>`, not `Query<(&Transform, &Player)>`.
 
@@ -468,7 +529,7 @@ fn recentre(mut players: Query<&mut Transform, With<Player>>) {
 }
 ```
 
-### BV-ECS-18 [S] Split a system before reaching for a third `Option<&T>`
+### BV-ECS-17 [S] Split a system before reaching for a third `Option<&T>`
 
 One or two `Option<&T>` in a query describe a genuinely optional part. Three describe several
 different jobs that have been written as one.
@@ -482,7 +543,7 @@ they force is just as reachable through `map_or`, `zip` or one `match`, so count
 in the body misses the functional spellings this standard's sibling actively prefers. Three or more
 is the signal; split by `With`/`Without` instead.
 
-### BV-ECS-19 [S] Iterate a query with `for`, not a combinator chain
+### BV-ECS-18 [S] Iterate a query with `for`, not a combinator chain
 
 `for item in &query` and `for item in &mut query`. This standard's general preference for `map`,
 `filter` and `collect` over loops does not extend to query iteration. A restriction goes in the
@@ -495,7 +556,7 @@ and no value to return.
 **Check:** a `.for_each(` or a `.filter(` on a query iterator is either a filter that belongs in the
 type, or a loop that has been written the long way.
 
-### BV-ECS-20 [M] Name a query type once it needs two lines
+### BV-ECS-19 [M] Name a query type once it needs two lines
 
 A query with several data items and several filters gets a `type` alias with a name from the domain.
 
@@ -531,7 +592,7 @@ type Combatants<'w, 's> = Query<
 >;
 
 /// Every item the alias names is read, and nothing asks for `&mut` it will not
-/// write — the alias does not get to opt out of BV-ECS-15 and BV-ECS-16.
+/// write — the alias does not get to opt out of BV-ECS-14 and BV-ECS-15.
 fn cull(mut commands: Commands, combatants: Combatants) {
     for (entity, health, transform) in &combatants {
         if health.0 <= 0.0 || transform.translation.y < -100.0 {
@@ -541,15 +602,16 @@ fn cull(mut commands: Commands, combatants: Combatants) {
 }
 ```
 
-### BV-ECS-21 [S] Reach for `iter_many` when the set of entities is already known
+### BV-ECS-20 [S] Reach for `iter_many` when the set of entities is already known
 
 Given a `Children`, a relationship target, or a stored list of ids, `query.iter_many(ids).matched()`
 fetches exactly those that match. Iterating the whole query and testing membership does not.
 
-Since 0.20, `iter_many`, `iter_many_mut`, `iter_many_unique(_mut)` and their sorted and `par_`
-variants yield `Result<Item, QueryEntityError>`, one per id, and `.matched()` keeps the old
-meaning. A bare `.count()`, `.next().is_some()` or `for _ in` still compiles, and now counts ids
-that do not match.
+Every `iter_many` form yields `Result<Item, QueryEntityError>`, one per id, so a bare `.count()`,
+`.next().is_some()` or `for _ in` compiles and counts ids that do not match. `.matched()` skips them
+on `iter_many` and `iter_many_unique`, and on their `_mut` forms, read with `fetch_next`. A sorted
+form has no `.matched()` and takes `.filter_map(Result::ok)`, and a `par_` form's closure receives
+the `Result`.
 
 **Why:** the cost of the loop should be the number of entities you care about, not the number that
 exist. A membership test inside a full iteration is `O(all)` where the direct form is `O(wanted)`,
@@ -558,7 +620,57 @@ and it reads as a search where the code already knows the answer.
 **Check:** look for `if ids.contains(&entity)` inside a query loop. That is `iter_many` written out.
 Then, for each `iter_many`, check that its items go through `.matched()` or are handled as `Result`.
 
-### BV-ECS-22 [M] Never nest a query inside itself
+```rust
+// verified
+use bevy::prelude::*;
+
+#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
+#[reflect(Component)]
+pub struct Lit;
+
+#[derive(Resource, Debug, Default, PartialEq, Reflect)]
+#[reflect(Resource)]
+pub struct LitLamps(pub usize);
+
+/// `iter_many` visits a post's children and nothing else; `.matched()` drops
+/// the children `lit` does not match.
+fn count_lit(posts: Query<&Children>, lit: Query<(), With<Lit>>, mut total: ResMut<LitLamps>) {
+    let mut now = 0;
+    for children in &posts {
+        now += lit.iter_many(children).matched().count();
+    }
+    total.set_if_neq(LitLamps(now));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn matched_counts_the_lit_children_and_a_bare_count_counts_them_all() {
+        let mut app = App::new();
+        app.init_resource::<LitLamps>()
+            .add_systems(Update, count_lit);
+        let post = app.world_mut().spawn_empty().id();
+        app.world_mut().spawn((Lit, ChildOf(post)));
+        app.world_mut().spawn(ChildOf(post));
+
+        app.update();
+        assert_eq!(app.world().resource::<LitLamps>().0, 1);
+
+        // The same call without `.matched()` compiles, and counts both.
+        let mut posts = app.world_mut().query::<&Children>();
+        let mut lit = app.world_mut().query_filtered::<(), With<Lit>>();
+        let world = app.world();
+        let Ok(children) = posts.get(world, post) else {
+            unreachable!()
+        };
+        assert_eq!(lit.iter_many(world, children).count(), 2);
+    }
+}
+```
+
+### BV-ECS-21 [M] Never nest a query inside itself
 
 A loop over a query cannot contain another loop over the same query. Use `iter_combinations` for
 pairs, or split the data into two queries with disjoint filters.
@@ -631,22 +743,22 @@ mod tests {
 }
 ```
 
-### BV-ECS-23 [S] Parallelise a query only against a measurement
+### BV-ECS-22 [S] Parallelise a query only against a measurement
 
 `par_iter_mut` is for a loop that has been measured and found hot. Write the serial form first.
 
 **Why:** the parallel form has per-batch overhead and forces the body to be `Send`, and below a few
 thousand entities it is reliably slower. It also hides the usual real answer: a query fetching more
-than it reads (BV-ECS-15), or work that belongs in `FixedUpdate` at a lower rate.
+than it reads (BV-ECS-14), or work that belongs in `FixedUpdate` at a lower rate.
 
 **Check:** is there a benchmark or a profile naming this system? If not, the serial form is the one
 to ship.
 
-### BV-ECS-24 [S] Reach for `contiguous_iter` only against a measured hot loop
+### BV-ECS-23 [S] Reach for `contiguous_iter` only against a measured hot loop
 
-`Query::contiguous_iter`, added in 0.19, yields one slice per table rather than one item per entity,
-which is what a SIMD kernel or a cache-blocked pass needs. It replaces a structure-of-arrays kept by
-hand beside the components.
+`Query::contiguous_iter` yields one slice per table rather than one item per entity, which is what a
+SIMD kernel or a cache-blocked pass needs. It replaces a structure-of-arrays kept by hand beside the
+components.
 
 It is not a drop-in for `for x in &query`:
 
@@ -654,7 +766,7 @@ It is not a drop-in for `for x in &query`:
   nothing in the type system knows which. Take the error with `?`, never `.unwrap()` (BV-ERR-01).
 - The filter is bound by `F: ArchetypeFilter`, so `Changed<T>` does not compile here at all.
 - The mutable form marks every entity in the slice changed unless the write goes through
-  `bypass_change_detection` (BV-ECS-29).
+  `bypass_change_detection` (BV-ECS-28).
 
 **Why:** it is the only way to get contiguous slices without leaving the ECS, so a hand-kept
 `Vec<f32>` can go, and with it the bug where it drifts from the entities. The price is a nested loop
@@ -735,7 +847,7 @@ mod tests {
 
 ## Change detection
 
-### BV-ECS-25 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
+### BV-ECS-24 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
 
 `health.set_if_neq(Health(new))` rather than `*health = Health(new)` when the new value is often the
 old one.
@@ -798,7 +910,7 @@ mod tests {
 }
 ```
 
-### BV-ECS-26 [M] Put `Changed<T>` in the filter so the system can be skipped
+### BV-ECS-25 [M] Put `Changed<T>` in the filter so the system can be skipped
 
 `Query<&Health, Changed<Health>>`, not a full query with `if health.is_changed()` inside the loop.
 On a component that is written rarely, `#[component(summary_tick)]` (new in 0.20) keeps a
@@ -811,7 +923,7 @@ body it is applied after the fetch, so the loop still visits everything. The fil
 **Check:** grep for `is_changed()` inside a query loop. Unless the body needs both the changed and
 the unchanged entities, it is a filter that has escaped into the body.
 
-### BV-ECS-27 [M] Do not use `Changed<T>` to mean `Added<T>`
+### BV-ECS-26 [M] Do not use `Changed<T>` to mean `Added<T>`
 
 `Added<T>` matches the frame the component was inserted. `Changed<T>` matches insertion *and* every
 subsequent write.
@@ -893,42 +1005,44 @@ mod tests {
 }
 ```
 
-### BV-ECS-28 [S] Read a change in the same schedule that wrote it
+### BV-ECS-27 [S] Read a change in the same schedule that wrote it
 
 A `Changed<T>` filter sees writes since the reading system last ran. Keep the writer and the reader
 in the same schedule.
 
-**Why:** `FixedUpdate` runs zero or several times a frame, so an `Update` reader sees a fixed-step
-write once however often it happened, and a fixed-step reader may miss an `Update` write entirely.
-The ticks are consistent, but "since you last ran" across schedules is not "this frame".
+**Why:** `FixedUpdate` runs zero or several times a frame (BV-SCHED-06), so an `Update` reader sees
+a fixed-step write once however often it happened, and a fixed-step reader may miss an `Update`
+write entirely.
 
 **Check:** for each `Changed<T>` reader, find the writers. Any writer in a different schedule needs
 a stated reason the count does not matter.
 
-### BV-ECS-29 [S] Bypass change detection only where the write is bookkeeping
+### BV-ECS-28 [S] Bypass change detection only where the write is bookkeeping
 
 `Mut::bypass_change_detection` is for writes that are not changes to the game's state — a cached
 value refreshed from its source, a counter nothing reacts to.
 
 **Why:** the bypass is the only way to write without marking, so using it for a real change leaves
 everything downstream believing the old value. Used to quiet a noisy filter, it hides that
-`set_if_neq` (BV-ECS-25) was the answer.
+`set_if_neq` (BV-ECS-24) was the answer.
 
 **Check:** each call needs a comment naming what does *not* need to know about this write. If the
 comment cannot be written, the write is a change.
 
 ## Structural change
 
-### BV-ECS-30 [M] Do not read back what a command has not applied yet
+### BV-ECS-29 [M] Do not read back what a command has not applied yet
 
 `Commands` queue work that runs at the next sync point. Within the same system, the entity spawned
-two lines ago is not in any query.
+two lines ago is not in any query. A test has no later system to wait for, so it applies the queue
+itself, with `app.world_mut().flush()` or an `update`, before asserting on what a command did.
 
 **Why:** the deferral is what lets systems run in parallel, and it is invisible: the code reads as
 if it were immediate, and a `get` on the id just spawned returns `None` with no error to say why.
 
 **Check:** in each system, is any id from `commands.spawn(…).id()` used to look something up in the
-same body? Move the read to a later system: the schedule puts a sync point between the two.
+same body? Move the read to a later system: the schedule puts a sync point between the two. In each
+test, a query for something a command spawned needs a flush or an `update` before it.
 
 ```rust
 // verified
@@ -1002,7 +1116,7 @@ mod tests {
 }
 ```
 
-### BV-ECS-31 [M] Reach for an exclusive system last, and say what forced it
+### BV-ECS-30 [M] Reach for an exclusive system last, and say what forced it
 
 A system taking `&mut World` cannot run in parallel with anything. Write one only when the work
 genuinely needs the whole world at once, and put the reason in a doc comment.
@@ -1025,4 +1139,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| clippy | `unwrap_used` | deny | `query.single().unwrap()` — `single()` returns a `Result`; propagate it with `?` |
+| clippy | `unwrap_used` | deny | `query.single().unwrap()` — take `Single`, which skips the system, where finding none is expected, and propagate the `Result` with `?` where it is not |

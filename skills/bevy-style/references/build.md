@@ -29,15 +29,12 @@ is the usual justification for an allow list forty entries long that hides real 
 - **Lints**
   - BV-BUILD-12 [M] Allow `elided_lifetimes_in_paths`, with the reason in the table
   - BV-BUILD-13 [M] Allow `clippy::needless_pass_by_value`, with the reason in the table
-  - BV-BUILD-14 [M] Keep `type_complexity` and `too_many_arguments` switched on
-  - BV-BUILD-15 [M] Add nothing else to the allow list without measuring it
-  - BV-BUILD-16 [M] Put the table in the workspace and inherit it
+  - BV-BUILD-14 [M] Keep `type_complexity` and `too_many_arguments` on, and allow nothing unmeasured
 
 - **CI**
-  - BV-BUILD-17 [M] Build the feature set you ship
-  - BV-BUILD-18 [S] Build the wasm target if the game ships to the web
-  - BV-BUILD-19 [M] Keep `assets/` out of a published package
-  - BV-BUILD-20 [S] Cache the target directory, because Bevy is most of the build
+  - BV-BUILD-15 [M] Build the feature set you ship
+  - BV-BUILD-16 [S] Build the wasm target if the game ships to the web
+- Decided by tools
 
 ---
 
@@ -92,6 +89,7 @@ against? If not, switch to a collection until someone measures.
 bevy = { version = "=0.20.0", default-features = false, features = [
     "std",                 # no_std Bevy exists and this game is not it
     "async_executor",      # the task-pool executor; implied by default_app, which we skip
+    "reflect_auto_register", # derived `Reflect` types register themselves (BV-ECS-12)
     "multi_threaded",      # parallel executor and pipelined rendering
     "bevy_log",            # without it the engine is silent, including render-init failures
     "bevy_asset",          # bevy_image requires it; not optional in practice
@@ -99,7 +97,7 @@ bevy = { version = "=0.20.0", default-features = false, features = [
     "bevy_sprite_render",  # the load-bearing one: pulls the whole 2-D pipeline
     "bevy_text",           # Text2d, for the on-screen readouts
     "default_font",        # embeds a font so Text2d needs no asset file
-    "keyboard",            # 0.19 made bevy_input's device modules opt-in
+    "keyboard",            # bevy_input's device modules are opt-in
     "mouse",               # ditto; without these KeyCode does not exist
     "png",                 # the only image format this game ships
     "x11",                 # inert on macOS and Windows, required on Linux
@@ -123,8 +121,8 @@ for the second, and the reason for the pin as a comment beside it.
 
 `cargo tree --duplicates` shows nothing named `bevy`. Two versions in the tree are two engines.
 
-**Why:** the crates are named the same and the types are not: a `Handle<Image>` from 0.19 does not
-satisfy a parameter expecting 0.20's, and the error shows two identical type names and no
+**Why:** the crates are named the same and the types are not: a `Handle<Image>` from one Bevy does
+not satisfy a parameter expecting the other's, and the error shows two identical type names and no
 explanation. It also doubles the compile time of the largest dependency in the project.
 
 **Check:** run `cargo tree --duplicates | grep bevy` in CI. Any output fails the build.
@@ -146,6 +144,7 @@ version?
 ### BV-BUILD-07 [M] Compile dependencies optimised in the dev profile
 
 `[profile.dev.package."*"] opt-level = 3`, with the game's own crates left at the dev default.
+`rust-style`'s RS-BUILD-43 makes this an `[S]` for slow tests; a game makes it mandatory.
 
 **Why:** an unoptimised Bevy is slow enough that frame rate stops being a signal about the game, and
 the engine is compiled once and cached, so the cost is paid on the first build only. The game's own
@@ -170,7 +169,7 @@ it is a developer's local choice; in the manifest it is everybody's.
 
 `[profile.release] overflow-checks = true` for any game with replays, rollback, lockstep networking
 or golden test vectors. The trap is a panic, so it needs BV-ERR-05's shipped handler, which resumes
-a panic: since 0.20 a handler that only logs catches the trap and runs the next frame.
+a panic: a handler that only logs catches the trap and runs the next frame.
 
 *Relaxed form:* a single-player game with no recorded state may take the default, and then the rule
 is that nothing compares a release run against a debug one.
@@ -196,13 +195,13 @@ inspector or editor is on by default and should not be.
 
 ### BV-BUILD-11 [S] Take the overlays from `bevy_dev_tools`, behind the feature BV-BUILD-10 asks for
 
-`DiagnosticsOverlayPlugin` (0.19), `FpsOverlayPlugin` and `RenderDebugOverlayPlugin` all live in
+`DiagnosticsOverlayPlugin`, `FpsOverlayPlugin` and `RenderDebugOverlayPlugin` all live in
 `bevy_dev_tools`. Name its feature alongside the collection, inside the dev feature — never in the
 default list. A feature named *beside* a collection keeps the collection's guarantee and is not the
 hand-picked list BV-BUILD-03 governs; the same shape serves any feature outside the collections,
-`bevy_settings` among them (BV-STATE-10).
+`bevy_settings` among them (BV-STATE-08).
 
-Since 0.20 the `render_dev_tools` feature, which bevy's `dev` collection includes, puts
+The `render_dev_tools` feature, which bevy's `dev` collection includes, puts
 `RenderDebugOverlayPlugin` into `DefaultPlugins`, disabled at runtime by default and with its keys
 in `RenderDebugOverlayKeybindings`. With that feature on, do not add the plugin by hand: it would be
 added twice, and `add_plugins` panics (BV-ARCH-12).
@@ -255,47 +254,28 @@ makes this entry impossible rather than merely noisy, and the comment says which
 **Check:** is the entry present? Then check nothing else from `pedantic` has been allowed alongside
 it — this is the one.
 
-### BV-BUILD-14 [M] Keep `type_complexity` and `too_many_arguments` switched on
+### BV-BUILD-14 [M] Keep `type_complexity` and `too_many_arguments` on, and allow nothing unmeasured
 
 Both fire on ordinary Bevy code — `type_complexity` on a query with two data items and two filters,
-`too_many_arguments` at eight parameters. Both have a compliant form that is better code, so
-neither is allowed here.
+`too_many_arguments` at eight parameters — and both have a compliant form that is better code: a
+`type` alias named from the domain (BV-ECS-19) and `#[derive(SystemParam)]` (BV-SCHED-09). A third
+allow beside BV-BUILD-12 and BV-BUILD-13 needs what they have: the code that triggers it, the count,
+and whether a compliant form exists.
 
-**Why:** upstream Bevy allows both, and copying that is where most allow lists start. The fixes — a
-`type` alias named from the domain (BV-ECS-20) and `#[derive(SystemParam)]` (BV-SCHED-10) — answer
-what a reader would also have complained about.
+**Why:** upstream Bevy allows both, and copying that is where most allow lists start. A list then
+dies one plausible entry at a time: `redundant_clone`, `float_cmp` and `expect_used` are all allowed
+"because Bevy", and none of them has anything to do with Bevy.
 
-**Check:** grep the lint table for either name. Their presence is the defect.
-
-### BV-BUILD-15 [M] Add nothing else to the allow list without measuring it
-
-A third allow needs the same treatment as the first two: the code that triggers it, the count, and
-whether a compliant form exists.
-
-**Why:** an allow list dies one plausible entry at a time — `redundant_clone`, `float_cmp` and
-`expect_used` are all allowed "because Bevy", and none has anything to do with Bevy. Requiring a
-measurement makes the question answerable instead of arguable.
-
-**Check:** for each entry beyond the two, name the Bevy API that forces it. If the answer is a
-property of the game's own code, it is a defect list rather than a lint table.
-
-### BV-BUILD-16 [M] Put the table in the workspace and inherit it
-
-`[workspace.lints]` once, `[lints] workspace = true` in every member.
-
-**Why:** the two allows are the sort of thing copied into a member that then diverges, until one
-crate allows three lints and nobody notices which. Inheritance is all-or-nothing, so a member that
-needs something different has to say so visibly.
-
-**Check:** grep for `[lints.` in member manifests. Each is a member that has opted out of the shared
-table. `assets/Cargo.toml` is the table, with both relaxations and their reasons already in place.
+**Check:** grep the lint table for either name; their presence is the defect. For any other allow,
+name the Bevy API that forces it. If the answer is the game's own code, it is a defect list.
 
 ## CI
 
-### BV-BUILD-17 [M] Build the feature set you ship
+### BV-BUILD-15 [M] Build the feature set you ship
 
 If the release build uses `default-features = false` and a list, CI builds that list. Building only
-the default feature set proves nothing about the artefact.
+the default feature set proves nothing about the artefact. This is the configuration of
+`rust-style`'s RS-BUILD-18 matrix that a game cannot leave out.
 
 **Why:** a feature-gated compile error is invisible until somebody builds that configuration, and
 the configuration nobody builds locally is the shipped one. Feature-conditional code also rots
@@ -304,35 +284,22 @@ fastest, because the compiler never sees it.
 **Check:** compare the feature list in the CI job with the one in the release manifest or workflow.
 They should be the same string; `assets/ci.yml` has the job.
 
-### BV-BUILD-18 [S] Build the wasm target if the game ships to the web
+### BV-BUILD-16 [S] Build the wasm target if the game ships to the web
 
 `cargo build --target wasm32-unknown-unknown` in CI, with the same features as the web build.
 
 **Why:** wasm is where Bevy's platform differences concentrate — no threads unless the feature is
-on, other audio and windowing backends, no filesystem, and since 0.19 a dropped `Task` cancels
-rather than detaching. None of that shows on a native build, so a green desktop CI says nothing.
+on, other audio and windowing backends, no filesystem, and a dropped `Task` cancels rather than
+detaching. None of that shows on a native build, so a green desktop CI says nothing.
 
 **Check:** is the web target in the CI matrix? If the game ships to the web and it is not, the web
 build is untested.
 
-### BV-BUILD-19 [M] Keep `assets/` out of a published package
+## Decided by tools
 
-A published crate uses `include`, not `exclude`, to list what ships. A game's asset directory is
-not part of it.
+A tool settles these on its own; the shipped configuration enables each at the level shown.
 
-**Why:** `assets/` in a Bevy project is often hundreds of megabytes and is loaded from the
-filesystem at runtime, not from the crate, so packaging it inflates every download for no benefit
-and can exceed the registry's size limit.
-
-**Check:** run `cargo package --list` and look for asset paths.
-
-### BV-BUILD-20 [S] Cache the target directory, because Bevy is most of the build
-
-CI caches `~/.cargo` and `target/`, keyed on the lockfile.
-
-**Why:** Bevy is by a wide margin the largest thing in the dependency graph and changes only when
-the pin does, so the hit rate is nearly one and the saving nearly the whole build — the difference
-between a two-minute and a fifteen-minute pipeline.
-
-**Check:** is there a cache step keyed on `Cargo.lock`, and does the job log show a hit on a run
-that changed only game code?
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| clippy | `type_complexity` | warn | a query type complex enough to need a `type` alias (BV-ECS-19) |
+| clippy | `too_many_arguments` | warn | a system with eight or more parameters — group them with `#[derive(SystemParam)]` (BV-SCHED-09) |

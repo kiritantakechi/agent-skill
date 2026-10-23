@@ -103,3 +103,23 @@ ECS-01/ARCH-04, ECS-03/10, STATE-09/ECS-02, EVENT-09/10/20.
 
 Not findings: `#[entities]` on `CrewOf` is redundant, but Bevy's own `ChildOf` keeps it.
 `DespawnWhen` and `Populated` exist, and no rule teaches a worse alternative to either.
+
+## Applied
+
+All of A and B, by the plan and decisions in `bevy-decisions.md`, with these exceptions and
+findings:
+
+- **B15 in the ECS-20 and SCHED-10 examples:** skipped. `despawn_all_where` would remove ECS-20's
+  query alias, which is that example's lesson, and SCHED-10's loop also updates health and score.
+  STATE-17's Check names `despawn_all`.
+- **SCHED-23 rose to `[M]`**, so that absorbing TEST-15 did not demote its mandate.
+- **STATE-18's premise was false.** `ResMut<State<_>>` compiles, and `*state = State::new(S)`
+  changes the state without running `OnExit` or `OnEnter`. The rule now says so, with a verified
+  BAD example and tests for both paths.
+- **`set_error_handler`** reaches every sub-app, and a second call panics. ERR-05's Check is now
+  one call, in `main`.
+- **The porting facts** the annotations carried are rows in `migration.md`: `trigger_targets`,
+  `Replace`/`on_replace`, and three silent changes (`Aabb`, `AssetEvent::Modified`, bloom's
+  luminance).
+- **New rows:** errors.md's `expect_used`, `panic`, `todo`, `unimplemented` and `dbg_macro`;
+  build.md's `type_complexity` and `too_many_arguments`.

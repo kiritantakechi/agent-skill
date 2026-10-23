@@ -28,14 +28,12 @@ the game do not mention the engine.
   - BV-ARCH-11 [M] A plugin registers its own things and only its own things
   - BV-ARCH-12 [M] Let a duplicate plugin panic rather than opting out of the check
   - BV-ARCH-13 [S] Reach for `PluginGroup` only when the group is the unit users add
-  - BV-ARCH-14 [M] Let the crate that defines a type own its registration
-  - BV-ARCH-15 [S] Give each plugin one module, and re-export it from the crate root
+  - BV-ARCH-14 [S] Give each plugin one module, and re-export it from the crate root
 
 - **The app**
-  - BV-ARCH-16 [M] Keep `main` to plugins and nothing else
-  - BV-ARCH-17 [M] Return `AppExit` from `main`
-  - BV-ARCH-18 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
-  - BV-ARCH-19 [S] Split the binary from the library so the game is testable without a window
+  - BV-ARCH-15 [M] Keep `main` to plugins and nothing else
+  - BV-ARCH-16 [M] Return `AppExit` from `main`
+  - BV-ARCH-17 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
 
 ---
 
@@ -53,7 +51,8 @@ separation is what lets the rules be unit-tested in microseconds without a `Worl
 
 **Check:** for each function, ask what it would take to call it from a test with no `App`. If the
 answer involves building a `World`, and the function computes a game outcome rather than moving
-data between the ECS and something else, it is on the wrong side.
+data between the ECS and something else, it is on the wrong side. Then count the tests that build
+an `App`: if most of them do, the logic is in the systems.
 
 ```rust
 // verified — GOOD: the rule is a function of values, so a test needs no World
@@ -261,8 +260,7 @@ pub struct FlightPlugin;
 
 impl Plugin for FlightPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Velocity>()
-            .add_systems(FixedUpdate, read_bodies.pipe(integrate).pipe(write_bodies));
+        app.add_systems(FixedUpdate, read_bodies.pipe(integrate).pipe(write_bodies));
     }
 }
 
@@ -621,15 +619,19 @@ impl Plugin for CombatPlugin {
 
 ### BV-ARCH-11 [M] A plugin registers its own things and only its own things
 
-Inside `build`, a plugin adds its own systems, resources, messages, observers and type
-registrations. It does not add another module's.
+Inside `build`, a plugin adds its own systems, resources, messages and observers, and nothing
+another module defines. A type's `init_resource`, `add_message` and `add_observer` go in the plugin
+of the module that defines it, never in a central `register_everything` that every feature edits.
+A reflected type registers itself through its derive; a generic instantiation, the one exception,
+is registered beside its definition too (BV-ECS-12).
 
-**Why:** registration is where a reader looks to find out what a feature consists of, so a plugin
-that registers a neighbour's systems makes that neighbour's plugin an incomplete answer. It also
-makes the two impossible to add independently, which is the one thing plugins are for.
+**Why:** registration is where a reader learns what a feature is made of, and a plugin that
+registers a neighbour's things cannot be added without it. A central list lets a type be added and
+not registered: the resource then fails at first access, naming the type but not the plugin.
 
-**Check:** read each `build` and list the types it names. Every one should be defined in that
-plugin's module or below it.
+**Check:** read each `build` and list the types it names; every one should be defined in that
+plugin's module or below it. Then, for each `#[derive(Message)]` and `#[derive(Resource)]`, find its
+registration: it belongs in the module of the definition.
 
 ```rust
 // verified
@@ -654,15 +656,14 @@ fn apply_damage(mut dealt: MessageReader<DamageDealt>, mut healths: Query<&mut H
     }
 }
 
-/// Registers the message it defines, the component it defines, and the system
-/// that reads them. Nothing that belongs to anyone else.
+/// Registers the message it defines and the system that reads it; the component
+/// registers itself through its derive. Nothing that belongs to anyone else.
 #[derive(Debug, Default)]
 pub struct CombatPlugin;
 
 impl Plugin for CombatPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Health>()
-            .add_message::<DamageDealt>()
+        app.add_message::<DamageDealt>()
             .add_systems(FixedUpdate, apply_damage);
     }
 }
@@ -689,8 +690,7 @@ impl Plugin for ScorePlugin {
         if !app.is_plugin_added::<CombatPlugin>() {
             app.add_plugins(CombatPlugin);
         }
-        app.register_type::<Score>()
-            .init_resource::<Score>()
+        app.init_resource::<Score>()
             .add_systems(FixedUpdate, award_points);
     }
 }
@@ -788,19 +788,7 @@ returns a tuple's behaviour.
 **Check:** has anyone called `.disable::<_>()` on this group, or asked to? If not, a tuple is the
 same feature.
 
-### BV-ARCH-14 [M] Let the crate that defines a type own its registration
-
-`register_type`, `init_resource`, `add_message` and `add_observer` for a type go in the plugin of
-the module that defines it.
-
-**Why:** the alternative is a central `register_everything` that everyone edits, and that decouples
-defining from registering: a type is added, the list is not, and reflection or message cleanup goes
-missing as a runtime absence rather than a compile error.
-
-**Check:** for each `#[derive(Message)]`, `#[derive(Resource)]` and `#[reflect(Component)]`, find
-the registration. If it is in a different module from the definition, move it.
-
-### BV-ARCH-15 [S] Give each plugin one module, and re-export it from the crate root
+### BV-ARCH-14 [S] Give each plugin one module, and re-export it from the crate root
 
 `combat.rs` defines `CombatPlugin` and the components, systems and sets it registers. The crate
 root re-exports the type, so a call site writes `CombatPlugin` rather than `combat::CombatPlugin`.
@@ -814,20 +802,21 @@ have exactly one, and is each plugin type named in the crate root's re-exports?
 
 ## The app
 
-### BV-ARCH-16 [M] Keep `main` to plugins and nothing else
+### BV-ARCH-15 [M] Keep `main` to plugins and nothing else
 
-`main` builds the `App`, adds plugins, and runs it. Systems, resources and configuration belong to
-the plugin that owns them. The exception is a build-time decision that must be in place *before*
-`DefaultPlugins` — the two error handlers of BV-ERR-05 and BV-ERR-15 — because no plugin can be
-added early enough to own something the plugin group itself may need.
+`main` builds the `App`, adds plugins, and runs it, from a `src/main.rs` whose plugins live in the
+library beside it. Systems, resources and configuration belong to the plugin that owns them. The
+exception is the two error policies, which are the application's to choose and no plugin's:
+`set_error_handler` (BV-ERR-05), and the `RenderErrorHandler` that must be in place before
+`DefaultPlugins` (BV-ERR-11).
 
 **Why:** `main` is the one file every reader opens first, and a `main` that adds forty systems tells
-them nothing about how the game is organised. It is also the one place that cannot be reused: a
-headless test, a benchmark and a second binary all want the plugins without the window.
+them nothing about how the game is organised. A headless test, a benchmark and a second binary all
+want the plugins without the window, and they can depend on a library but never on a binary.
 
 **Check:** count the statements in `main` that are not `add_plugins`, `App::new`, `run`, or one of
-the two pre-`DefaultPlugins` handler insertions named above. Each one is a registration that has
-escaped its plugin.
+the two error policies above; each is a registration that has escaped its plugin. Then check that
+`src/lib.rs` holds the plugins and `main.rs` holds nothing but `main`.
 
 ```rust
 // fragment — GOOD: the shape of a main
@@ -841,7 +830,7 @@ fn main() -> AppExit {
 }
 ```
 
-### BV-ARCH-17 [M] Return `AppExit` from `main`
+### BV-ARCH-16 [M] Return `AppExit` from `main`
 
 `App::run` returns `AppExit`. Return it.
 
@@ -852,7 +841,7 @@ every failure look like a clean shutdown to everything outside the process.
 **Check:** does `fn main` return `AppExit`, and is the value the one `run` returned? A `main` that
 returns a fabricated `AppExit` has the right signature and still discards the real one.
 
-### BV-ARCH-18 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
+### BV-ARCH-17 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
 
 Window title, asset path, log filter and render settings are set with `.set(…)` on the plugin group
 at the point it is added.
@@ -866,15 +855,3 @@ and the asset watcher is already running against the wrong directory.
 
 **Check:** search for writes to `WindowPlugin`, `AssetPlugin` or `LogPlugin` state outside the
 `add_plugins` call. Each one either belongs in `.set()` or needs the reason it cannot be.
-
-### BV-ARCH-19 [S] Split the binary from the library so the game is testable without a window
-
-`src/lib.rs` holds the plugins and re-exports their types; `src/main.rs` is
-`App::new().add_plugins(mygame::GamePlugin).run()`.
-
-**Why:** integration tests, benchmarks and any second binary can depend on a library and cannot
-depend on a binary. Without the split, every test that needs more than one plugin has to be a unit
-test inside the binary crate, and `cargo test --lib` stops being the fast loop.
-
-**Check:** is there anything in `main.rs` besides `main`? Is there a `tests/` directory? If the
-answer to the first is yes and the second is no, the split has not happened.

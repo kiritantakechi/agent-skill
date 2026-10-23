@@ -40,7 +40,8 @@ invalidate the work of reading the next.
    (`BV-SCHED`)
 6. **Run conditions and state.** Would each new system be skipped when it should be — a run
    condition, a state scope, or neither on purpose? (`BV-SCHED`, `BV-STATE`)
-7. **Reflection.** Does each new component derive `Reflect` and get registered? (`BV-ECS`)
+7. **Reflection.** Does each new component derive `Reflect`, and is each generic instantiation
+   registered? (`BV-ECS`)
 8. **Tests.** Are the rules of the game tested without an `App`, and each plugin with the smallest
    one that exercises it? (`BV-TEST`)
 9. **Relaxed forms.** Is anything `[M!]` relying on its relaxed form? If so, which of the
@@ -79,7 +80,7 @@ revertible:
    rule per commit, with its test written against plain Rust.
 3. Make every system fallible that can fail, and set the error handler.
 4. Replace function-to-function ordering with sets, then add run conditions and state scopes.
-5. Derive and register `Reflect` on components and resources.
+5. Derive `Reflect` on components and resources, and register each generic instantiation.
 
 State up front which of these steps you are doing, and do not mix a behavioural change into any of
 them.

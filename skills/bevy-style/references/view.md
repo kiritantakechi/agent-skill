@@ -2,12 +2,11 @@
 
 Scope: the components a game spawns to put something on the screen — UI nodes, text, buttons,
 cameras, visibility, materials and gizmos. The engine's rendering internals are out of scope: the
-render graph became a set of systems in 0.19, pipeline specialisation changed with it, and neither
-is something a game should be reaching into.
+render graph is a set of systems, pipeline specialisation moves with it, and neither is something a
+game should be reaching into.
 
 This is the area that changes most between releases, so `references/migration.md` is the companion
-chapter: the 0.15 bundle removal, the 0.15 text rework and the 0.19 text-backend change all land
-here.
+chapter: most of the types it removes and renames are ones this chapter spawns.
 
 ## Contents
 
@@ -46,14 +45,16 @@ here.
 
 ### BV-VIEW-01 [M] Lay out with `Node` and children, not with absolute positions
 
-`Node` is a flexbox node. Rows, columns, gaps and alignment do the layout; `PositionType::Absolute`
-is for overlays.
+`Node` is a flexbox node. Rows, columns, gaps and alignment do the layout. What leaves the flow is
+placed against its parent with `PositionType::Absolute`, or against the viewport with a `FixedNode`,
+which lays a nested node out as a root: a full-screen overlay spawned inside a HUD is a `FixedNode`,
+because an absolute child at 100% covers only its parent.
 
 **Why:** an absolute position is a layout evaluated once, by hand, at one window size. It breaks at
 every other resolution, every UI scale factor and every longer string, and still looks right to
 whoever wrote it.
 
-**Check:** count the `Val::Px` values in `left`, `top`, `right` and `bottom`. Each one is a position
+**Check:** count the `px(…)` values in `left`, `top`, `right` and `bottom`. Each one is a position
 that will be wrong at another size.
 
 ```rust
@@ -84,29 +85,29 @@ fn spawn_hud(mut commands: Commands) {
     commands.spawn((
         HudBar,
         Node {
-            width: Val::Percent(100.0),
-            height: Val::Px(48.0),
+            width: percent(100),
+            height: px(48),
             flex_direction: FlexDirection::Row,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::SpaceBetween,
-            column_gap: Val::Px(16.0),
-            row_gap: Val::Px(8.0),
-            padding: UiRect::horizontal(Val::Px(24.0)),
+            column_gap: px(16),
+            row_gap: px(8),
+            padding: UiRect::horizontal(px(24)),
             ..default()
         },
         children![
             (Slot, Node::default()),
             (Slot, Node::default()),
             (Slot, Node::default()),
-            // What absolute positioning is actually for: something that
-            // leaves the flow. It still names no edge — a full-bleed child
-            // is two percentages, not four pixel offsets.
+            // Leaves the flow to dim the whole screen. A `FixedNode` is laid
+            // out against the viewport even inside this bar, and it still
+            // names no edge: a full-bleed node is two percentages.
             (
                 DimOverlay,
+                FixedNode,
                 Node {
-                    position_type: PositionType::Absolute,
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
+                    width: percent(100),
+                    height: percent(100),
                     ..default()
                 },
             ),
@@ -115,7 +116,7 @@ fn spawn_hud(mut commands: Commands) {
 }
 
 /// A narrow window stacks the bar. Flex makes that one field; with hand-placed
-/// edges it is every child. The guard is BV-ECS-25 for a single field —
+/// edges it is every child. The guard is BV-ECS-24 for a single field —
 /// `Mut<Node>` marks the whole component, and the engine's layout watches it.
 fn stack_when_narrow(hud: Res<Hud>, mut bars: Query<&mut Node, With<HudBar>>) {
     let wanted = if hud.compact {
@@ -132,7 +133,7 @@ fn stack_when_narrow(hud: Res<Hud>, mut bars: Query<&mut Node, With<HudBar>>) {
 
 /// The plugin's published ordering surface. Anything that needs to run after the
 /// bar has been restacked — another plugin, or the test below — names this, never
-/// `stack_when_narrow`, which stays free to be renamed or split (BV-SCHED-14).
+/// `stack_when_narrow`, which stays free to be renamed or split (BV-SCHED-11).
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HudSystems {
     /// Rewrites the bar's `flex_direction` from `Hud::compact`.
@@ -208,11 +209,11 @@ mod tests {
 
 ### BV-VIEW-02 [S] Choose the `Val` unit for what the value means
 
-`Px` for something that should stay the same size, `Percent` for something that should scale with
-its parent, `Vw`/`Vh` for something that should scale with the window, `Em`/`Rem` (`em()`, `rem()`)
-for something that should scale with the text size, `Auto` for something the content decides. Since
-0.20 `Val::Em` resolves against the node's `EmSize`, which `Node` requires, and `Val::Rem` against
-the `RemSize` resource.
+`px` for something that should stay the same size, `percent` for something that should scale with
+its parent, `vw`/`vh` for something that should scale with the window, `em`/`rem` for something
+that should scale with the text size, `auto()` for something the content decides. Each helper
+builds the `Val` of its name and takes an integer or a float. `Val::Em` resolves against the
+node's `EmSize`, which `Node` requires, and `Val::Rem` against the `RemSize` resource.
 
 **Why:** the unit is the only place the intent is recorded. A `Px` where a `Percent` was meant looks
 right until the window changes, then looks broken with nothing to say why.
@@ -225,8 +226,8 @@ changed and did not, the unit is wrong.
 `Node` is the input to layout. `ComputedNode` is the output.
 
 **Why:** for anything sized by `Auto`, a percentage or a flex-grow, the requested value and the
-laid-out one are different numbers. `Node` was the computed output before 0.15, so an old read of a
-size from it still compiles.
+laid-out one are different numbers, and a read of a size from `Node` compiles and returns the
+request.
 
 **Check:** grep for reads of `Node` that are looking for a size or a position. Those fields are on
 `ComputedNode`.
@@ -234,12 +235,13 @@ size from it still compiles.
 ### BV-VIEW-04 [M] Give text its components together
 
 `Text::new(s)` plus `TextFont` plus `TextColor`, spawned as one tuple. `Text2d` for world-space
-text. Since 0.20 `TextFont::default()` sizes text at `FontSize::Rem(1.)`, not `Px(20.)`: it renders
-the same until `RemSize` changes, so a size that must stay fixed is written as `FontSize::Px`.
+text. `TextFont::default()` sizes text at `FontSize::Rem(1.)`, not `Px(20.)`: it renders the same
+until `RemSize` changes, so a size that must stay fixed is
+`TextFont::from_font_size(FontSize::Px(…))`.
 
-**Why:** a missing component arrives as a required-component default: a colour nobody chose, and
-since 0.20 a size that follows `RemSize`. One tuple also keeps the lines that describe one piece of
-text together.
+**Why:** a missing component arrives as a required-component default: a colour nobody chose, and a
+size that follows `RemSize`. One tuple also keeps the lines that describe one piece of text
+together.
 
 **Check:** grep for `Text::new` and check the same tuple carries a font and a colour.
 
@@ -255,13 +257,10 @@ fn spawn_hud(mut commands: Commands) {
     commands.spawn((
         ScoreLabel,
         Text::new("0"),
-        TextFont {
-            font_size: FontSize::Px(32.0),
-            ..default()
-        },
+        TextFont::from_font_size(FontSize::Px(32.0)),
         TextColor(Color::srgb(0.9, 0.9, 0.9)),
         Node {
-            margin: UiRect::all(Val::Px(12.0)),
+            margin: UiRect::all(px(12)),
             ..default()
         },
     ));
@@ -282,22 +281,24 @@ cover a whole entity, so spans are also the only way to get two styles.
 
 ### BV-VIEW-06 [M] React to a button with an observer, not by polling `Interaction`
 
-`commands.entity(button).observe(on_click)` with a `PointerClick` event, whose fields are flat:
-`click.button`, not `click.event.button`. The button is `bevy::ui_widgets::Button`, imported by
-name, because 0.20 deprecates the prelude `Button` and `Interaction`; `Hovered` and `Pressed` carry
-the state a style needs, and under `UiWidgetsPlugins` the widget `Button` also emits `Activate`.
+`commands.entity(button).observe(on_activate)` with an `On<Activate>` event. The button is
+`bevy::ui_widgets::Button`, imported by name, because 0.20 deprecates the prelude `Button` and
+`Interaction`. Under `UiWidgetsPlugins` it emits `Activate` when a press is released over it while
+not `InteractionDisabled`, and on Enter or Space while focused; `PointerClick` fires on a disabled
+button too and never from the keyboard. `Hovered` and `Pressed` carry the state a style needs.
 
 **Why:** a polling system runs every frame over every button to find the one that changed, and its
 handler lives in another file. An entity-scoped observer sits beside the spawn, dies with the
 button, and runs only when it is used.
 
-**Check:** grep for `Query<&Interaction`. Each is a set of buttons whose handlers have been gathered
-into one system.
+**Check:** grep for `Query<&Interaction`, and for `On<PointerClick>` on a widget `Button`. The first
+is a set of buttons whose handlers were gathered into one system; the second skips the widget's
+contract.
 
 ```rust
-// fragment — `PointerClick` comes from `bevy_picking`
+// verified
 use bevy::prelude::*;
-use bevy::ui_widgets::Button;
+use bevy::ui_widgets::{Activate, Button};
 
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component)]
@@ -316,26 +317,22 @@ fn spawn_start_button(mut commands: Commands) {
             StartButton,
             Button,
             Node {
-                padding: UiRect::axes(Val::Px(24.0), Val::Px(12.0)),
+                padding: UiRect::axes(px(24), px(12)),
                 ..default()
             },
             children![(
                 Text::new("Start"),
-                TextFont {
-                    font_size: FontSize::Px(24.0),
-                    ..default()
-                },
+                TextFont::from_font_size(FontSize::Px(24.0)),
                 TextColor(Color::srgb(0.95, 0.95, 0.95)),
             )],
         ))
         .observe(start_game);
 }
 
-/// Named after its event, and it runs only when this button is clicked.
-fn start_game(click: On<PointerClick>, mut starts: ResMut<Starts>) {
-    if click.button == PointerButton::Primary {
-        starts.0 += 1;
-    }
+/// Named after its event, and it runs only when this button is activated —
+/// never while it is disabled, and from the keyboard as well as the pointer.
+fn start_game(_activated: On<Activate>, mut starts: ResMut<Starts>) {
+    starts.0 += 1;
 }
 
 #[derive(Debug, Default)]
@@ -347,13 +344,34 @@ impl Plugin for StartButtonPlugin {
             .add_systems(Startup, spawn_start_button);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn activating_the_button_runs_the_observer_beside_its_spawn() {
+        let mut app = App::new();
+        app.add_plugins(StartButtonPlugin);
+        app.update();
+
+        let mut buttons = app
+            .world_mut()
+            .query_filtered::<Entity, With<StartButton>>();
+        let Some(button) = buttons.iter(app.world()).next() else {
+            unreachable!()
+        };
+        app.world_mut().trigger(Activate { entity: button });
+        assert_eq!(app.world().resource::<Starts>().0, 1);
+    }
+}
 ```
 
 ### BV-VIEW-07 [S] Reach for `bevy_ui_widgets` before writing a widget
 
 Buttons, checkboxes, radio buttons, sliders, scrollbars, tabs (`TabList`/`Tab`), list boxes, menus,
-dialogs, modals, popovers and text input ship in `bevy_ui_widgets`, which stopped being experimental
-in 0.19. `bevy_feathers` is the styled layer above it.
+dialogs, modals, popovers and text input ship in `bevy_ui_widgets`. `bevy_feathers` is the styled
+layer above it.
 
 **Why:** a hand-written slider is a week of edge cases — drag capture, keyboard focus,
 accessibility, scroll interaction — and the shipped ones have had those weeks spent on them. They
@@ -363,12 +381,11 @@ are also where upstream's improvements land, so a hand-written one is a fork.
 
 ### BV-VIEW-08 [S] Reach for `TextInput` before a text-input crate
 
-0.19 put a real text field in the engine. Spawn `bevy::ui_widgets::TextInput`, which requires
+The engine has a real text field. Spawn `bevy::ui_widgets::TextInput`, which requires
 `bevy_text::EditableText`: `EditableText` holds the content and the cursor, and `TextInputPlugin`,
-part of `UiWidgetsPlugins` and called `EditableTextInputPlugin` before 0.20, wires the keyboard, the
-pointer, focus and the clipboard to it. Since 0.20 an `EditableText` without `TextInput` compiles,
-spawns and ignores the keyboard, and Escape in a focused field releases `InputFocus` and propagates
-to its ancestors and the window.
+part of `UiWidgetsPlugins`, wires the keyboard, the pointer, focus and the clipboard to it. An
+`EditableText` without `TextInput` compiles, spawns and ignores the keyboard, and Escape in a
+focused field releases `InputFocus` and propagates to its ancestors and the window.
 
 `EditableText` is not in the prelude, so it is imported by name, and it derives neither `Debug` nor
 `Reflect`, because it holds a `parley::PlainEditor`. BV-ECS-03 therefore cannot reach it, and a
@@ -405,11 +422,10 @@ fn spawn_seed_entry(mut commands: Commands) {
 }
 
 /// An edit is queued, never applied here: the engine applies it in `PostUpdate`
-/// where it can move the cursor by the same rules that drew the glyphs.
-fn paste_seed(mut fields: Query<&mut EditableText, With<SeedEntry>>) -> Result {
-    let mut field = fields.single_mut()?;
+/// where it can move the cursor by the same rules that drew the glyphs. `Single`
+/// skips the system while no seed field exists, which is not an error.
+fn paste_seed(mut field: Single<&mut EditableText, With<SeedEntry>>) {
     field.queue_edit(TextEdit::Insert("42".into()));
-    Ok(())
 }
 
 #[cfg(test)]
@@ -438,13 +454,7 @@ mod tests {
         let mut app = App::new();
         app.add_systems(Startup, spawn_seed_entry);
         app.update();
-        // The annotation is load-bearing: a system returning Bevy's `Result`
-        // satisfies `IntoResult` two ways — as itself and as `Result<T,
-        // BevyError>` — so `Out` is ambiguous without it (E0283). Naming
-        // `()` picks the second, which folds a system error into the outer
-        // `Err` where `is_ok` can see it.
-        let ran: Result<(), _> = app.world_mut().run_system_once(paste_seed);
-        assert!(ran.is_ok());
+        assert!(app.world_mut().run_system_once(paste_seed).is_ok());
 
         let mut fields = app.world_mut().query::<&EditableText>();
         let queued = fields
@@ -464,15 +474,17 @@ more than two levels; a two-component spawn stays a plain tuple.
 The grammar is not Rust and is worth reading once, in its 0.20 form. Components are juxtaposed with
 no separators. A `Component { field: value }` is a partial patch rather than a literal, so the other
 fields keep their defaults, but an enum variant names every field. Entities in `Children [ … ]` are
-separated by `--`; the commas and parentheses of 0.19 are deprecated. `{expr}` escapes back to Rust,
-and a scene reference takes `@`: `@name`, `@make()`, `@{expr}`. `template_value(x)` is now just `x`,
-and a bare list of entities is `bsn_list! { … }`. The tree is spawned with `spawn_scene`, from the
-`CommandsSceneExt` trait — not `spawn`, because a scene is not a `Bundle` — and an `On<Ready>`
-observer on it runs once the whole subtree has spawned.
+separated by `--`. `{expr}` escapes back to Rust, and a scene reference takes `@`: `@name`,
+`@make()`, `@{expr}`. A bare list of entities is `bsn_list! { … }`.
+The tree is spawned with `spawn_scene`, from the `CommandsSceneExt` trait — not `spawn`, because a
+scene is not a `Bundle` — and an `On<Ready>` observer on it runs once the whole subtree has spawned.
+An observer for a nested entity is attached where that entity is written: `on(handler)` inside
+`bsn!`, or `bevy::ui_widgets::observe(handler)` in a `children![]` tuple, never found again after
+the spawn.
 
 **Why:** the alternative nests a `with_children` closure per level, so the indentation is the
-structure. It is `[S]` because the grammar still moves: 0.20 deprecated the entity separators 0.19
-introduced.
+structure. It is `[S]` because the grammar is the newest surface in Bevy, and it still moves
+between releases.
 
 **Check:** count the closing braces at the end of the spawn. Past three levels, the tuple form has
 stopped being readable.
@@ -480,7 +492,8 @@ stopped being readable.
 ```rust
 // verified
 use bevy::prelude::*;
-use bevy::scene::{CommandsSceneExt, bsn};
+use bevy::scene::{CommandsSceneExt, bsn, on};
+use bevy::ui_widgets::Activate;
 
 #[derive(Component, Debug, Clone, Copy, Default, Reflect)]
 #[reflect(Component)]
@@ -490,12 +503,22 @@ pub struct Menu;
 #[reflect(Component)]
 pub struct Choice;
 
+#[derive(Resource, Debug, Default, Reflect)]
+#[reflect(Resource)]
+pub struct Plays(pub u32);
+
+fn play(_activated: On<Activate>, mut plays: ResMut<Plays>) {
+    plays.0 += 1;
+}
+
+/// The observer is written on the entity it observes, two levels down, rather
+/// than attached after the spawn to an entity that has to be found again.
 fn spawn_menu(mut commands: Commands) {
     commands.spawn_scene(bsn! {
         Menu
-        Node { width: Val::Percent(100.0), row_gap: Val::Px(8.0) }
+        Node { width: percent(100), row_gap: px(8) }
         Children [
-            Choice Text("Play")
+            Choice Text("Play") on(play)
             --
             Choice Text("Quit")
         ]
@@ -507,7 +530,54 @@ pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_menu);
+        app.init_resource::<Plays>()
+            .add_systems(Startup, spawn_menu);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy::asset::AssetPlugin;
+    use bevy::scene::ScenePlugin;
+
+    use super::*;
+
+    #[test]
+    fn the_nested_choice_carries_its_own_observer() {
+        let mut app = App::new();
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin::default(),
+            ScenePlugin,
+            MenuPlugin,
+        ));
+        app.update();
+
+        let mut choices = app
+            .world_mut()
+            .query_filtered::<(Entity, &Text), With<Choice>>();
+        let labelled: Vec<(Entity, String)> = choices
+            .iter(app.world())
+            .map(|(entity, text)| (entity, text.0.clone()))
+            .collect();
+        let find = |label: &str| {
+            labelled
+                .iter()
+                .find(|(_, text)| text == label)
+                .map(|(entity, _)| *entity)
+        };
+        let (Some(play_choice), Some(quit_choice)) = (find("Play"), find("Quit")) else {
+            unreachable!()
+        };
+
+        app.world_mut().trigger(Activate {
+            entity: quit_choice,
+        });
+        assert_eq!(app.world().resource::<Plays>().0, 0);
+        app.world_mut().trigger(Activate {
+            entity: play_choice,
+        });
+        assert_eq!(app.world().resource::<Plays>().0, 1);
     }
 }
 ```
@@ -529,8 +599,7 @@ tool and hex codes are sRGB; anything a shader or a lerp produced is linear.
 ### BV-VIEW-11 [S] Keep the whole game in one colour space until the boundary
 
 Pick sRGB for authored values, convert once where they enter the renderer, and do arithmetic in
-linear. Bloom's luminance has been computed in linear since 0.19, so a tint that compensated for
-the old behaviour now over-blooms.
+linear. Bloom computes its luminance in linear too, so judge a bloom tint in linear.
 
 **Why:** once the spaces mix, every blend, lerp and tint has to be checked for which space it is in,
 and the errors are subtle enough to survive review.
@@ -551,7 +620,8 @@ are in. If the answer varies, the conversions are not at a boundary.
 the one most often reproduced from memory. The component form also overrides one required component
 in the spawn tuple without restating the rest.
 
-**Check:** grep for `Camera2dBundle` and `Camera3dBundle`.
+**Check:** read each camera spawn: `Camera2d` or `Camera3d`, plus only the components it
+overrides. A `Camera2dBundle` or `Camera3dBundle` is BV-MIG-03's table.
 
 ### BV-VIEW-13 [M] Give every camera an explicit `order` once there are two
 
@@ -650,14 +720,14 @@ mod tests {
 
 ### BV-VIEW-14 [S] Put a render target on the camera as its own component
 
-Since 0.18, `RenderTarget` is a component rather than a field on `Camera`.
+`RenderTarget` is a component of its own, not a field on `Camera`.
 
 **Why:** as a component the target is swapped, removed and queried on its own: retargeting is an
 insert, and a filter finds every off-screen camera. Code that copies a `Camera` and expects the
 target to travel with it still compiles, and loses it.
 
-**Check:** read every `Camera` struct literal in the diff. A `target` field in one is the 0.17
-spelling; too many identifiers are called `target` for a grep to answer this.
+**Check:** read every `Camera` struct literal in the diff. A `target` field in one is the removed
+spelling (BV-MIG-11); too many identifiers are called `target` for a grep to answer this.
 
 ### BV-VIEW-15 [M] Set `Visibility`, and read `ViewVisibility`
 
@@ -836,12 +906,11 @@ mod tests {
 
 ### BV-VIEW-16 [M] Do not maintain `Aabb` by hand
 
-Since 0.18, Bevy adds and updates an `Aabb` for meshes and sprites, including when the mesh or
-sprite changes.
+Bevy adds and updates an `Aabb` for meshes and sprites, including when the mesh or sprite changes.
 
-**Why:** the old workarounds — removing the `Aabb` to force a recompute, or recomputing it in a
-system — now fight the engine's own updates, costing a duplicate computation every frame or culling
-an entity that should be drawn.
+**Why:** removing the `Aabb` to force a recompute, or recomputing it in a system, fights the
+engine's own updates, costing a duplicate computation every frame or culling an entity that should
+be drawn.
 
 **Check:** grep for `Aabb`. In game code there should be reads and no writes.
 
@@ -850,21 +919,21 @@ an entity that should be drawn.
 ### BV-VIEW-17 [S] Reach for a custom `Material` before a custom render node
 
 A `Material` (or `Material2d`) with a fragment shader covers most of what a game wants: a shield
-effect, a dissolve, a palette swap. Since 0.20 a sprite takes a custom shader too, through
+effect, a dissolve, a palette swap. A sprite takes a custom shader too, through
 `SpriteMaterial` and `MaterialExtension2d`, rather than a `Mesh2d` quad built to shade it, and
 `ExtendedMaterial2d` extends a 2D material.
 
-**Why:** the material API survives releases the render graph does not: 0.19 rewrote every custom
-render node in the ecosystem and left materials alone. A node built for a mesh effect pays that
-rewrite every release.
+**Why:** the material API survives releases the render graph does not: a render-graph rewrite
+reaches every custom render node in the ecosystem and leaves materials alone. A node built for a
+mesh effect pays that rewrite every release.
 
 **Check:** can the effect be expressed as "this mesh, drawn differently"? Then it is a material.
 
 ### BV-VIEW-18 [M] Keep shader paths and material types together
 
 The `Material` impl naming a shader path lives beside the struct, and the shader lives at a path the
-struct's module name predicts. Since 0.20 that shader is WESL: a 0.19 `.wgsl` that used `#import`
-or `#ifdef` becomes a `.wesl` with `import …;`, `@if(…)` and `constants::MATERIAL_BIND_GROUP`.
+struct's module name predicts. That shader is WESL, a `.wesl` with `import …;`, `@if(…)` and
+`constants::MATERIAL_BIND_GROUP`, where a `.wgsl` used `#import` and `#ifdef`.
 GLSL is gone, with the `shader_format_glsl` and `shader_format_wesl` features, and the module paths
 that moved are in `references/migration.md` BV-MIG-17.
 
@@ -877,7 +946,7 @@ does the struct's field order match the shader's?
 
 ### BV-VIEW-19 [S] Debug in world space with gizmos
 
-`Gizmos::line`, `circle`, `cube`, and since 0.19 `Gizmos::text` and `text_2d`. Not a spawned
+`Gizmos::line`, `circle`, `cube`, `text` and `text_2d`. Not a spawned
 `Text2d` that has to be despawned.
 
 **Why:** gizmos are immediate-mode: drawn for one frame from the system that wants them, with no
@@ -893,7 +962,7 @@ Bloom, motion blur, depth of field, vignette, lens distortion and chromatic aber
 components on the camera entity. Spawn them in the camera tuple; animate them by writing a field;
 turn one off by removing it. `bevy_post_process` composes them into one pass and sits inside the
 `2d` and `3d` collections BV-BUILD-02 mandates, and `Bloom` declares the `Hdr` it requires. For no
-tonemapping curve write `Tonemapping::Linear`: since 0.20 `Tonemapping::None` is a full
+tonemapping curve write `Tonemapping::Linear`: `Tonemapping::None` is a full
 passthrough, with no `ColorGrading`, no `DebandDither` and no clamping of negative values.
 
 **Why:** BV-VIEW-17 sends a mesh effect to a `Material` and the rest to a render node, but a

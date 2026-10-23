@@ -1,5 +1,5 @@
-# CI for a Bevy 0.20 game. Referenced by BV-BUILD-05, BV-BUILD-17,
-# BV-BUILD-18 and BV-BUILD-20, and by BV-ARCH-07 for the boundary job.
+# CI for a Bevy 0.20 game. Referenced by BV-BUILD-05, BV-BUILD-15,
+# BV-BUILD-16 and RS-BUILD-40, and by BV-ARCH-07 for the boundary job.
 name: ci
 
 on:
@@ -53,7 +53,7 @@ jobs:
 
   shipped-features:
     # Building only the default feature set proves nothing about the artefact.
-    # This list is the one in the release manifest. See BV-BUILD-17.
+    # This list is the one in the release manifest. See BV-BUILD-15.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -95,7 +95,7 @@ jobs:
       - run: cargo check --workspace
 
   wasm:
-    # Only if the game ships to the web. See BV-BUILD-18.
+    # Only if the game ships to the web. See BV-BUILD-16.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

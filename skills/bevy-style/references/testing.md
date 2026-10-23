@@ -11,167 +11,48 @@ Rust unit tests, in microseconds, with no `World`.
 ## Contents
 
 - **What to test where**
-  - BV-TEST-01 [M] Test the rules of the game without an `App`
-  - BV-TEST-02 [M] Build the smallest `App` that exercises the plugin
-  - BV-TEST-03 [S] Test a plugin through its own type
-  - BV-TEST-04 [M] Keep windowing and rendering out of a test
+  - BV-TEST-01 [S] Test a plugin through its own type
+  - BV-TEST-02 [M] Build the smallest `App` the test needs, with no window and no renderer
 
 - **Driving the app**
-  - BV-TEST-05 [M] Advance the app with `update`, never with `run`
-  - BV-TEST-06 [M] Run a schedule directly when only that schedule is under test
-  - BV-TEST-07 [M] Give a fixed-timestep test a known number of steps
-  - BV-TEST-08 [M] Flush before asserting on anything a command did
-  - BV-TEST-09 [S] Insert the time the test wants, rather than sleeping
+  - BV-TEST-03 [M] Advance the app with `update`, never with `run`
+  - BV-TEST-04 [M] Run a schedule directly when only that schedule is under test
+  - BV-TEST-05 [M] Give a fixed-timestep test a known number of steps
 
 - **What to assert**
-  - BV-TEST-10 [M] Assert on the world, not on the log
-  - BV-TEST-11 [M] Do not assert by counting entities
-  - BV-TEST-12 [S] Assert the fact, not the mechanism that produced it
-  - BV-TEST-13 [M] Watch a test fail before trusting it
-  - BV-TEST-14 [S] Trigger the event to test an observer
-  - BV-TEST-15 [M] Configure the ordering the test depends on
+  - BV-TEST-06 [M] Assert on the world, not on the log
+  - BV-TEST-07 [M] Do not assert by counting entities
+  - BV-TEST-08 [S] Assert the fact, not the mechanism that produced it
+  - BV-TEST-09 [M] Watch a test fail before trusting it
+  - BV-TEST-10 [S] Trigger the event to test an observer
 
 ---
 
 ## What to test where
 
-### BV-TEST-01 [M] Test the rules of the game without an `App`
+### BV-TEST-01 [S] Test a plugin through its own type
 
-Damage, economy, pathfinding, save formats: plain functions, plain values, plain `#[test]`.
+`app.add_plugins(CombatPlugin)`, not `app.add_systems(FixedUpdate, combat::apply_damage)`.
 
-**Why:** a test that needs a `World` is slower by orders of magnitude and couples the assertion to
-the ECS layout, so splitting a component rewrites a test whose rule did not change. A rule that
-cannot be tested this way is a boundary not yet drawn (BV-ARCH-01).
+**Why:** the plugin is the published interface, so testing through it also tests the registration:
+the resource initialised, the message added, the set joined. Adding the system directly skips that,
+and the test passes while the plugin misses an `init_resource` and the game crashes on frame one.
 
-**Check:** count the tests that build an `App`. If most of them do, the logic is in the systems.
+**Check:** does the test name a system function? If so it is not testing what the game runs. Where
+one plugin depends on another, `assert!(app.is_plugin_added::<T>())` pins that too — a check the
+plugin has to be a type to allow at all (BV-ARCH-09).
 
-```rust
-// verified — seven tests, and neither an App nor a World anywhere in them
-// Not one Bevy name appears below, and that is the whole point: these tests
-// need no `App`, no `World` and no schedule, so they run in microseconds and
-// survive an ECS refactor untouched.
+### BV-TEST-02 [M] Build the smallest `App` the test needs, with no window and no renderer
 
-/// A purse. The economy is `u32` throughout, so no value here can be `NaN`
-/// and every assertion is an exact equality.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Coins(pub u32);
+`App::new()` plus the plugin under test plus whatever it genuinely requires, and `MinimalPlugins`
+when the plugin needs a schedule runner. No `WinitPlugin`, no `RenderPlugin`, no `DefaultPlugins`.
 
-/// The shelf price of one item.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Price(pub u32);
+**Why:** each plugin added is systems that run on every `update()`, so a test built on more than it
+needs is slow and fails for unrelated reasons. A window and a renderer need a display and a GPU,
+which CI and a headless container lack, and seconds of driver start-up.
 
-/// What happened when a quote was taken to the till.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Purchase {
-    /// Paid in full; the purse now holds this much.
-    Bought(Coins),
-    /// Nothing changed hands; the purse is this far short.
-    TooExpensive(Coins),
-}
-
-/// Buy nine, get the tenth free.
-pub const FREE_EVERY: u32 = 10;
-
-/// What a stack of `count` items costs at the shelf price.
-///
-/// The till saturates rather than wrapping: an unpayable quote is a better
-/// answer than a quote of three coins.
-#[must_use]
-pub fn quote(unit: Price, count: u32) -> Coins {
-    let free = count / FREE_EVERY;
-    Coins(unit.0.saturating_mul(count - free))
-}
-
-/// Whether the purse covers the quote, and by how much either way.
-#[must_use]
-pub fn buy(purse: Coins, cost: Coins) -> Purchase {
-    purse.0.checked_sub(cost.0).map_or_else(
-        || Purchase::TooExpensive(Coins(cost.0 - purse.0)),
-        |left| Purchase::Bought(Coins(left)),
-    )
-}
-
-// The ECS side is a system that reads two components, calls `buy`, and
-// writes the result back; it is tested once, through its plugin
-// (BV-TEST-02). Had the arithmetic lived inside that system instead, all
-// seven tests below would have needed a `World` to reach it — and the
-// tenth-free rule would have ended up with one test rather than four,
-// because nobody writes four `App` tests for one discount.
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn nine_items_pay_full_price_and_the_tenth_is_free() {
-        assert_eq!(quote(Price(3), 9), Coins(27));
-        assert_eq!(quote(Price(3), 10), Coins(27));
-        assert_eq!(quote(Price(3), 11), Coins(30));
-    }
-
-    #[test]
-    fn the_discount_repeats_every_tenth_item() {
-        let paid_for = |count| quote(Price(1), count);
-        assert_eq!(paid_for(0), Coins(0));
-        assert_eq!(paid_for(20), Coins(18));
-        assert_eq!(paid_for(100), Coins(90));
-    }
-
-    #[test]
-    fn an_unpayable_stack_saturates_instead_of_wrapping_to_a_bargain() {
-        assert_eq!(quote(Price(u32::MAX), 11), Coins(u32::MAX));
-    }
-
-    #[test]
-    fn an_exact_purse_buys_and_leaves_nothing() {
-        assert_eq!(
-            buy(Coins(27), quote(Price(3), 10)),
-            Purchase::Bought(Coins(0))
-        );
-    }
-
-    #[test]
-    fn one_coin_short_is_a_refusal_that_says_by_how_much() {
-        assert_eq!(
-            buy(Coins(26), quote(Price(3), 10)),
-            Purchase::TooExpensive(Coins(1))
-        );
-    }
-
-    #[test]
-    fn a_bigger_stack_never_costs_less_than_a_smaller_one() {
-        let curve = |count| quote(Price(7), count);
-        assert!((0..40).all(|count| curve(count) <= curve(count + 1)));
-    }
-
-    /// A hundred purchases in one test, and the suite still finishes
-    /// instantly — which is the argument for keeping the rule on this side.
-    #[test]
-    fn a_purse_spent_one_item_at_a_time_runs_out_exactly_when_it_should() {
-        let one = quote(Price(3), 1);
-        let purse = (0..100).fold(Coins(300), |held, _| match buy(held, one) {
-            Purchase::Bought(left) => left,
-            Purchase::TooExpensive(_) => held,
-        });
-
-        assert_eq!(purse, Coins(0));
-        assert_eq!(buy(purse, one), Purchase::TooExpensive(Coins(3)));
-    }
-}
-```
-
-### BV-TEST-02 [M] Build the smallest `App` that exercises the plugin
-
-`App::new()` plus the plugin under test plus whatever it genuinely requires. `MinimalPlugins` when
-the plugin needs a schedule runner; `DefaultPlugins` never — BV-TEST-04 rules it out on a reason no
-test can argue with.
-
-**Why:** each plugin added is a set of systems that run on every `update()`, so a test built on more
-than it needs is slow and fails for reasons unrelated to what it tests. Starting from nothing also
-documents the plugin's real dependencies: whatever the test had to add is what the plugin needs.
-
-**Check:** for each plugin in the test's setup, remove it and see whether the test still passes.
-Anything that can go, should.
+**Check:** remove each plugin from the test's setup and see whether the test still passes; anything
+that can go, should. Then run the suite once with no display attached.
 
 ```rust
 // verified
@@ -216,32 +97,9 @@ mod tests {
 }
 ```
 
-### BV-TEST-03 [S] Test a plugin through its own type
-
-`app.add_plugins(CombatPlugin)`, not `app.add_systems(FixedUpdate, combat::apply_damage)`.
-
-**Why:** the plugin is the published interface, so testing through it also tests the registration:
-the resource initialised, the message added, the set joined. Adding the system directly skips that,
-and the test passes while the plugin misses an `init_resource` and the game crashes on frame one.
-
-**Check:** does the test name a system function? If so it is not testing what the game runs. Where
-one plugin depends on another, `assert!(app.is_plugin_added::<T>())` pins that too — a check the
-plugin has to be a type to allow at all (BV-ARCH-09).
-
-### BV-TEST-04 [M] Keep windowing and rendering out of a test
-
-No `WinitPlugin`, no `RenderPlugin`, no `DefaultPlugins` in a unit test.
-
-**Why:** they need a display and a GPU, which CI often does not have and which a headless container
-never has — so the test either fails everywhere or passes only on a developer's machine. They also
-make the test's runtime a function of driver initialisation, which is seconds.
-
-**Check:** does the test suite pass with no display attached? That is the question, and it is
-answered by running it that way once.
-
 ## Driving the app
 
-### BV-TEST-05 [M] Advance the app with `update`, never with `run`
+### BV-TEST-03 [M] Advance the app with `update`, never with `run`
 
 `app.update()` runs one frame and returns. `app.run()` runs until the app exits.
 
@@ -251,27 +109,28 @@ the test. `update` is one frame, synchronously, which is what an assertion needs
 
 **Check:** grep the test modules for `.run()`. There should be none outside a test of `main` itself.
 
-### BV-TEST-06 [M] Run a schedule directly when only that schedule is under test
+### BV-TEST-04 [M] Run a schedule directly when only that schedule is under test
 
 `app.world_mut().run_schedule(FixedUpdate)` runs exactly that schedule, exactly once.
 
 **Why:** `update()` runs the whole main schedule: a test of one `FixedUpdate` system also runs every
-`Update` system in the app, and the elapsed time decides how many fixed steps ran (BV-TEST-07).
+`Update` system in the app, and the elapsed time decides how many fixed steps ran (BV-TEST-05).
 
 **Check:** does the test call `update()` and then assert on a `FixedUpdate` system's effect? The
 number of steps is not what the test thinks it is.
 
-### BV-TEST-07 [M] Give a fixed-timestep test a known number of steps
+### BV-TEST-05 [M] Give a fixed-timestep test a known number of steps
 
-Either run the schedule directly N times, or set `Time<Fixed>`'s timestep and advance virtual time
-by a known amount.
+Insert `TimeUpdateStrategy::FixedTimesteps(n)` beside `TimePlugin`: each `update()` then advances
+the clock by exactly `n` fixed timesteps, and the fixed loop the game runs runs exactly `n` times.
+`TimeUpdateStrategy::ManualDuration` sets a frame's delta the same way. Never `thread::sleep`.
 
-**Why:** `update()` advances real time, so the fixed schedule runs however many times fit: zero on
-a fast machine, several on a slow one. A test asserting "after one frame, health is 2.0" asserts
-something about the machine it ran on, and flakes in CI in a way that looks like a race.
+**Why:** with the real clock, `update()` runs the fixed schedule however many times fit — zero on a
+fast machine, several on a slow one — so the assertion is about the machine and flakes like a race.
+A sleep is slow by what it sleeps and still not exact; the strategy states the duration in the test.
 
-**Check:** for each test involving `FixedUpdate`, find where the number of steps is decided. If it
-is decided by the clock, the test is not deterministic.
+**Check:** for each test involving `FixedUpdate`, find where the number of steps is decided: by the
+clock, and the test is not deterministic. Grep the tests for `sleep` and `Instant::now`.
 
 ```rust
 // verified
@@ -282,9 +141,7 @@ use bevy::prelude::*;
 #[reflect(Component)]
 pub struct Fuse(pub f32);
 
-/// Naming `Time<Fixed>` rather than the generic `Time` is what lets a test
-/// drive this with `run_schedule`: the generic clock is only swapped to the
-/// fixed one by the fixed-main loop, which a direct `run_schedule` skips.
+/// The fixed step, read from the fixed clock (BV-SCHED-05).
 fn burn(mut fuses: Query<&mut Fuse>, time: Res<Time<Fixed>>) {
     let step = time.delta_secs();
     for mut fuse in &mut fuses {
@@ -305,154 +162,67 @@ impl Plugin for FusePlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// One fixed step, decided here: advance the fixed clock by exactly one
-    /// timestep, then run the schedule exactly once.
-    fn step(app: &mut App) {
-        let timestep = app.world().resource::<Time<Fixed>>().timestep();
-        app.world_mut()
-            .resource_mut::<Time<Fixed>>()
-            .advance_by(timestep);
-        app.world_mut().run_schedule(FixedUpdate);
-    }
+    use bevy::time::{TimePlugin, TimeUpdateStrategy};
 
     /// The plugin does not own the clock, so the test inserts the one it
-    /// wants: 32 Hz, which is an exact 31.25 ms in binary floating point.
-    fn app_at_32_hz() -> App {
+    /// wants: 32 Hz, an exact 31.25 ms in binary floating point, and every
+    /// `update` advancing it by exactly `steps` of those.
+    fn app_stepping(steps: u32) -> App {
         let mut app = App::new();
-        app.add_plugins(FusePlugin)
-            .insert_resource(Time::<Fixed>::from_hz(32.0));
+        app.add_plugins((TimePlugin, FusePlugin))
+            .insert_resource(Time::<Fixed>::from_hz(32.0))
+            .insert_resource(TimeUpdateStrategy::FixedTimesteps(steps));
         app
     }
 
     #[test]
     fn eight_steps_at_32_hz_burn_exactly_a_quarter_of_a_second() {
-        let mut app = app_at_32_hz();
+        let mut app = app_stepping(4);
         let charge = app.world_mut().spawn(Fuse(1.0)).id();
 
-        for _ in 0..8 {
-            step(&mut app);
-        }
+        // The first update starts the clock; the next two run four steps
+        // each. The 8 is written in the test, and nothing about the machine
+        // it runs on can change it.
+        app.update();
+        app.update();
+        app.update();
 
-        // 8 x 31.25 ms. The 8 is written in the test; nothing about the
-        // machine the test runs on can change it.
         assert_eq!(app.world().entity(charge).get::<Fuse>(), Some(&Fuse(0.75)));
     }
 
     #[test]
-    fn update_does_not_decide_the_number_of_steps_for_you() {
-        let mut app = app_at_32_hz();
+    fn the_first_update_starts_the_clock_and_runs_no_step() {
+        let mut app = app_stepping(4);
+        let charge = app.world_mut().spawn(Fuse(1.0)).id();
+
+        app.update();
+
+        assert_eq!(app.world().entity(charge).get::<Fuse>(), Some(&Fuse(1.0)));
+    }
+
+    #[test]
+    fn every_update_runs_the_fixed_loop_the_same_number_of_times() {
+        let mut app = app_stepping(1);
         let charge = app.world_mut().spawn(Fuse(1.0)).id();
 
         app.update();
         app.update();
+        app.update();
+        app.update();
 
-        // Nothing accumulated any overstep, so `FixedUpdate` ran zero times.
-        // With a real clock plugin it would have run however many times the
-        // frames happened to be long enough for — the machine's answer to a
-        // question that belongs to the test.
-        assert_eq!(app.world().entity(charge).get::<Fuse>(), Some(&Fuse(1.0)));
+        // Three steps of 31.25 ms after the clock starts, however long the
+        // frames really took.
+        assert_eq!(
+            app.world().entity(charge).get::<Fuse>(),
+            Some(&Fuse(0.906_25))
+        );
     }
 }
 ```
-
-### BV-TEST-08 [M] Flush before asserting on anything a command did
-
-`app.world_mut().flush()` after a command, or run the schedule that applies it. A spawn queued by a
-command is not visible until then.
-
-**Why:** it is BV-ECS-30 inside a test, and it is the most common reason a Bevy test fails with "the
-entity does not exist" while the game works fine. The test does not have a later system to hide the
-deferral, so it sees the queue directly.
-
-**Check:** does the test query for something a system spawned, without a flush or an `update`
-between? That is the failure.
-
-```rust
-// verified
-use bevy::prelude::*;
-
-#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
-#[reflect(Component)]
-pub struct Muzzle;
-
-#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
-#[reflect(Component)]
-pub struct Bullet;
-
-/// A structural change from a parallel system goes through `Commands`, so
-/// the spawn is queued here and lands at the schedule's sync point.
-fn fire(mut commands: Commands, muzzles: Query<&Transform, With<Muzzle>>) {
-    for transform in &muzzles {
-        commands.spawn((Bullet, *transform));
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct GunPlugin;
-
-impl Plugin for GunPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Update, fire);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn bullets(world: &mut World) -> usize {
-        let mut query = world.query_filtered::<(), With<Bullet>>();
-        query.iter(world).count()
-    }
-
-    #[test]
-    fn a_command_the_test_queued_is_invisible_until_the_flush() {
-        let mut world = World::new();
-        world.commands().spawn(Bullet);
-
-        // The spawn is in the queue, not in the world. Asserting here is
-        // what produces "the entity does not exist" in a test of code the
-        // game runs perfectly well.
-        assert_eq!(bullets(&mut world), 0);
-
-        world.flush();
-
-        assert_eq!(bullets(&mut world), 1);
-    }
-
-    #[test]
-    fn running_the_schedule_applies_the_systems_commands() {
-        let mut app = App::new();
-        app.add_plugins(GunPlugin);
-        app.world_mut()
-            .spawn((Muzzle, Transform::from_xyz(0.0, 2.0, 0.0)));
-
-        app.world_mut().run_schedule(Update);
-
-        // The schedule flushed at its own sync point, so the bullet and
-        // everything spawned with it are visible without a `flush` here.
-        let mut query = app.world_mut().query_filtered::<&Transform, With<Bullet>>();
-        let spawned: Vec<Vec3> = query.iter(app.world()).map(|t| t.translation).collect();
-        assert_eq!(spawned, [Vec3::new(0.0, 2.0, 0.0)]);
-    }
-}
-```
-
-### BV-TEST-09 [S] Insert the time the test wants, rather than sleeping
-
-Advance `Time<Virtual>` by inserting a delta, or run the fixed schedule the right number of times.
-Never `thread::sleep`.
-
-**Why:** a sleeping test is slow by exactly the amount it sleeps, and it is still not deterministic
-— it asserts that at least that much time passed, not that exactly that much did. Setting the clock
-is exact, instant, and states the intended duration in the test rather than leaving it implied.
-
-**Check:** grep for `sleep` and `Instant::now` in tests.
 
 ## What to assert
 
-### BV-TEST-10 [M] Assert on the world, not on the log
+### BV-TEST-06 [M] Assert on the world, not on the log
 
 `world.entity(e).get::<Health>()`, `world.resource::<Score>()`. Not that a `warn!` was emitted.
 
@@ -463,7 +233,7 @@ the state the game actually has.
 **Check:** does the test capture or inspect log output? Unless the log line *is* the feature, it is
 asserting on a description.
 
-### BV-TEST-11 [M] Do not assert by counting entities
+### BV-TEST-07 [M] Do not assert by counting entities
 
 `world.query::<&Enemy>().iter(&world).count()` is fine; "the world has 4 entities" is not.
 
@@ -566,11 +336,12 @@ mod tests {
 }
 ```
 
-### BV-TEST-12 [S] Assert the fact, not the mechanism that produced it
+### BV-TEST-08 [S] Assert the fact, not the mechanism that produced it
 
-Assert that the enemy is gone, not that a `Despawn` observer ran. Assert the score, not that a
-message was written. The exception is a mechanism that is the interface: a plugin whose job is to
-emit a message for other plugins is tested on the message.
+`rust-style`'s RS-TEST-02, in Bevy's terms: assert that the enemy is gone, not that a `Despawn`
+observer ran; assert the score, not that a message was written. The exception is a mechanism that
+is the interface: a plugin whose job is to emit a message for other plugins is tested on the
+message.
 
 **Why:** the mechanism is an implementation choice the test should not pin: replacing a message
 with an observer is a refactor, and a test that asserts on the message calls it a regression.
@@ -578,9 +349,10 @@ with an observer is a refactor, and a test that asserts on the message calls it 
 **Check:** for each assertion, ask whether it would survive rewriting the system in a different
 style. If not, it is testing the shape.
 
-### BV-TEST-13 [M] Watch a test fail before trusting it
+### BV-TEST-09 [M] Watch a test fail before trusting it
 
-Break the system, run the test, see red, put it back.
+Break the system, run the test, see red, put it back — for every test, not only the regression test
+`rust-style`'s RS-TEST-19 asks it of.
 
 **Why:** a Bevy test has more ways to pass vacuously than an ordinary one: the system was never
 added, the schedule was never run, the entity was never spawned, the command was never flushed. Each
@@ -588,7 +360,7 @@ of those produces a test that passes and asserts nothing, and none of them looks
 
 **Check:** for each new test, was it observed failing? If not, comment out the system's body once.
 
-### BV-TEST-14 [S] Trigger the event to test an observer
+### BV-TEST-10 [S] Trigger the event to test an observer
 
 `world.trigger(Died { entity })` and assert on what changed.
 
@@ -598,16 +370,3 @@ can follow immediately with no flush.
 
 **Check:** does the test call the observer function directly? Then it is testing a function, not an
 observer.
-
-### BV-TEST-15 [M] Configure the ordering the test depends on
-
-If the test needs A before B, the test's app configures that ordering — the same way the game does.
-
-**Why:** systems with no ordering run in an arbitrary order, and in a two-system test it is often
-the right one. The test passes, then fails after an unrelated system is added, as a flake in CI
-weeks from the change that caused it.
-
-**Check:** for each test with more than one system, is the order configured or assumed? Assumed is a
-flake that has not happened yet. To surface one, set 0.20's `ScheduleBuildSettings::shuffle_seed`,
-which randomises the order of ambiguous systems; it needs the `debug` feature, which bevy's `dev`
-collection includes.

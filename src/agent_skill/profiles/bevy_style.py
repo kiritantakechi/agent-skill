@@ -33,7 +33,7 @@ COMPONENT = re.compile(
 #: An attribute on a field, which `pub` follows rather than precedes.
 FIELD_ATTR = re.compile(r"#\[[^\]]*\]\s*")
 
-#: BV-ECS-03 on every component; BV-ECS-10 adds the rest on a marker.
+#: BV-ECS-03 on every component; BV-ECS-09 adds the rest on a marker.
 DATA_DERIVES = ("Debug", "Reflect")
 MARKER_DERIVES = ("Debug", "Clone", "Copy", "Default", "Reflect")
 
@@ -116,12 +116,12 @@ class BevyStyle(Profile):
     #: fields away and nothing re-measures.
     not_decisive: dict[str, NotDecisive] = field(
         default_factory=lambda: {
-            "BV-ECS-12": NotDecisive(
+            "BV-ECS-11": NotDecisive(
                 "Vec<Entity>",
                 "the span finds every `Vec<Entity>`; whether that link is a "
                 "relationship, or carries a written reason it cannot be one, decides",
             ),
-            "BV-ECS-14": NotDecisive(
+            "BV-ECS-13": NotDecisive(
                 "Handle<",
                 "the span finds every handle; whether it sits bare inside a `spawn` "
                 "tuple rather than in a component of its own decides",
@@ -132,36 +132,29 @@ class BevyStyle(Profile):
                 "where the call's meaning changed, decides — and the type is not on "
                 "the line",
             ),
-            "BV-MIG-19": NotDecisive(
-                "iter_many",
-                "the span finds every `iter_many` call; whether the iterator is "
-                "counted or tested for presence, where a `Result` item still counts, "
-                "rather than consumed item by item, decides — and the consumer is "
-                "often not on the line",
-            ),
-            "BV-SCHED-09": NotDecisive(
+            "BV-SCHED-08": NotDecisive(
                 "just_pressed",
                 "the span finds every input read; whether the system runs in "
                 "`FixedUpdate` rather than `Update` decides, and the schedule is not "
                 "on the line",
             ),
-            "BV-SCHED-13": NotDecisive(
+            "BV-SCHED-12": NotDecisive(
                 "configure_sets",
                 "the span finds every set configuration; whether that set is "
                 "configured more than once decides, which is a fact about the whole "
                 "file",
             ),
-            "BV-SCHED-26": NotDecisive(
+            "BV-SCHED-23": NotDecisive(
                 "run_if",
                 "the span finds every run condition; whether it gates on a `paused` "
                 "flag rather than on `Time<Virtual>` decides",
             ),
-            "BV-STATE-04": NotDecisive(
+            "BV-STATE-03": NotDecisive(
                 "insert_resource",
                 "the span finds every `insert_resource`; whether it is inside a "
                 "`Startup` system, and whether the value depends on the world, decides",
             ),
-            "BV-TEST-11": NotDecisive(
+            "BV-TEST-07": NotDecisive(
                 "entities().len()",
                 "the span finds every entity count; whether the assert is about a "
                 "total rather than about the component the test cares about decides",
@@ -194,7 +187,7 @@ def _component_shape(block: Block) -> Iterator[Finding]:
     """What every component in this standard's examples must look like.
 
     BV-ECS-01 public fields, BV-ECS-03 `Debug` and `Reflect` with
-    `#[reflect(Component)]`, BV-ECS-10 the marker set. None of the three
+    `#[reflect(Component)]`, BV-ECS-09 the marker set. None of the three
     is searchable, and all three had drifted: 25 of 33 components
     carried no `Reflect` at all while BV-ECS-03 was `[M]`.
     """
