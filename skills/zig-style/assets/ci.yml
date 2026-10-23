@@ -1,17 +1,17 @@
-# CI gate for a Zig 0.17 project. Referenced by ZS-BUILD-31, ZS-BUILD-33, ZS-BUILD-34.
+# CI gate for a Zig 0.17 project. Referenced by ZS-BUILD-29, ZS-BUILD-31, ZS-BUILD-32.
 #
-# IMPORTANT — read before copying. references/build.md ZS-BUILD-34 states that only
+# IMPORTANT — read before copying. references/build.md ZS-BUILD-32 states that only
 # the `run:` lines below are rules; the action names and versions are illustrative and must be
 # verified against their current releases yourself. This file reproduces that caveat rather than
 # hiding it behind a version number that will be stale.
 #
-# The five requirements ZS-BUILD-34 actually imposes:
+# The five requirements ZS-BUILD-32 actually imposes:
 #   1. Pin the exact Zig version. Never `latest`, never `master`, never a range.
 #   2. Gate on `zig fmt --check --ast-check`, excluding `zig-pkg` and `.zig-cache`.
 #   3. Run the suite in the `debug` and `safe` modes, with `--summary all` so a cached no-op
 #      is distinguishable from a real pass.
 #   4. Cross-compile matrix: build AND `zig build test` each supported triple. The test binaries
-#      compile and the runs report `skipped` — that is the point (ZS-BUILD-33).
+#      compile and the runs report `skipped` — that is the point (ZS-BUILD-31).
 #   5. The cache key must name every matrix axis, or the legs evict each other.
 
 name: ci

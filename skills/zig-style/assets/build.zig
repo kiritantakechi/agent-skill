@@ -1,7 +1,7 @@
 // Canonical build.zig for a library + CLI project, lifted verbatim from
 // references/build.md ZS-BUILD-01, where it is marked verified against
 // Zig 0.17.0. Rename `myproj` and delete the steps you do not need.
-// Referenced by ZS-BUILD-01, ZS-BUILD-02, ZS-BUILD-05, ZS-BUILD-32.
+// Referenced by ZS-BUILD-01, ZS-BUILD-02, ZS-BUILD-05, ZS-BUILD-30.
 
 const std = @import("std");
 
@@ -13,7 +13,7 @@ pub fn build(b: *std.Build) void {
         []const []const u8,
         "test-filter",
         "Skip tests that do not match any of these filters",
-    ) orelse &[0][]const u8{};
+    ) orelse &.{};
 
     // Build-time configuration, importable as `@import("build_options")`.
     const options = b.addOptions();
@@ -58,7 +58,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_exe_tests.step);
 
     // Integration tests get their OWN step, so `zig build test` stays fast
-    // (testing-and-fuzzing.md ZS-TEST-29). CI runs both steps.
+    // (ZS-BUILD-05). CI runs both steps.
     const integration_tests = b.addTest(.{
         .name = "integration",
         .filters = test_filters,

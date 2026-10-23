@@ -1,7 +1,7 @@
 # Naming, Files, Module Layout, Declaration Order, Comments
 
 Scope: how identifiers are cased and worded, how a `.zig` file is named and laid out, the order of
-declarations inside a file and inside a struct, `pub` and re-export discipline, the three comment
+declarations inside a file and inside a struct, `pub` discipline, the three comment
 forms and the phrasings std uses for API contracts, and the formatting mechanics (`zig fmt`, the
 trailing comma, 100 columns). Semantics of the things being named live elsewhere: error-set design
 in the errors chapter, `init`/`deinit`/ownership contracts in the memory chapter, `format` and
@@ -13,7 +13,7 @@ verbatim where it is normative) and **TigerStyle** (TigerBeetle's house standard
 disagree, the disagreement is stated outright in the rule, with a recommendation keyed to the tier.
 
 Unless a block shows its own imports, it assumes the preamble this chapter prescribes in
-ZS-NAME-19: `const std = @import("std");` and `const assert = std.debug.assert;`. Where a
+ZS-NAME-16: `const std = @import("std");` and `const assert = std.debug.assert;`. Where a
 snippet's file name matters to the rule, it is named in the comment above it.
 ## Contents
 
@@ -24,43 +24,36 @@ snippet's file name matters to the rule, it is named in the comment above it.
   - ZS-NAME-04 [M] Spell names out; abbreviate only as scope tightens
   - ZS-NAME-05 [M] Delete words that apply to every type, and segments the FQN already carries
   - ZS-NAME-06 [M] Put units and qualifiers last, sorted by descending significance
-  - ZS-NAME-07 [M] Name allocator parameters `gpa` or `arena`, never bare `allocator`
-  - ZS-NAME-08 [S] Give related names the same length (see ZS-NAME-04)
-  - ZS-NAME-09 [S] Name the thing so it survives being said out loud
-  - ZS-NAME-10 [M] Prefix a helper with the name of the function that calls it
-  - ZS-NAME-11 [M] Use an options struct whenever two adjacent parameters share a type
-  - ZS-NAME-12 [S] Reach for `io.async` first; give the function values that remain std's slot order
-  - ZS-NAME-13 [S] Use std's suffix vocabulary for method variants
+  - ZS-NAME-07 [S] Name the thing so it survives being said out loud
+  - ZS-NAME-08 [M] Prefix a helper with the name of the function that calls it
+  - ZS-NAME-09 [M] Use an options struct whenever two adjacent parameters share a type
+  - ZS-NAME-10 [S] Reach for `io.async` first; give the function values that remain std's slot order
+  - ZS-NAME-11 [S] Use std's suffix vocabulary for method variants
 - **Receivers**
-  - ZS-NAME-14 [M] Name the receiver after its type; keep `self` for anonymous generic containers
-  - ZS-NAME-15 [M!] Lift a hot loop into a free function over primitives
+  - ZS-NAME-12 [M] Name the receiver after its type; keep `self` for anonymous generic containers
 - **Files and modules**
-  - ZS-NAME-16 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
-  - ZS-NAME-17 [S] Name a directory after its companion file
-  - ZS-NAME-18 [M] Keep the `@This()` alias and the whole import block in one place
-  - ZS-NAME-19 [S] Order imports `@This()` → `builtin` → `std` → local, and alias the hot names
-  - ZS-NAME-20 [M] Order a struct body: fields → types → `init`/`deinit` → methods → tests
-  - ZS-NAME-21 [S] Put the entry point and the most important declarations first
-  - ZS-NAME-22 [M] Use the `test <declRef>` form (see ZS-TEST-02)
-  - ZS-NAME-23 [M] Default to non-`pub`; declare the public surface explicitly in `root.zig`
+  - ZS-NAME-13 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
+  - ZS-NAME-14 [S] Name a directory after its companion file
+  - ZS-NAME-15 [M] Keep the `@This()` alias and the whole import block in one place
+  - ZS-NAME-16 [S] Order imports `@This()` → `builtin` → `std` → local, and alias the hot names
+  - ZS-NAME-17 [M] Order a struct body: fields → types → `init`/`deinit` → methods → tests
+  - ZS-NAME-18 [S] Put the entry point and the most important declarations first
+  - ZS-NAME-19 [M] Default to non-`pub`; mark `pub` only what a caller outside the file needs
 - **Comments**
-  - ZS-NAME-24 [M] `//!` at the file top, `///` on declarations, `//` for everything else
-  - ZS-NAME-25 [M] Use std's contract phrasings verbatim
-  - ZS-NAME-26 [M] `assert` vs `assume` in doc comments (see ZS-ASSERT-09)
-  - ZS-NAME-27 [M] Say why, not what — including at the top of every test
-  - ZS-NAME-28 [S] Comment typography: space after the slashes, capital letter, full stop
+  - ZS-NAME-20 [M] `//!` at the file top, `///` on declarations, `//` for everything else
+  - ZS-NAME-21 [M] Use std's contract phrasings verbatim
+  - ZS-NAME-22 [M] Say why, not what — including at the top of every test
+  - ZS-NAME-23 [S] Comment typography: space after the slashes, capital letter, full stop
 - **Formatting**
-  - ZS-NAME-29 [M] Run `zig fmt`; the trailing comma is your only formatting lever
-  - ZS-NAME-30 [M] Hard-limit every line to 100 columns
-  - ZS-NAME-31 [M] Brace every `if` unless the whole statement fits on one line (see ZS-ERR-22)
-  - ZS-NAME-32 [M] Blank-line-group each allocation with its `defer` / `errdefer` (see ZS-MEM-11)
+  - ZS-NAME-24 [M] Run `zig fmt`; the trailing comma is your only formatting lever
+  - ZS-NAME-25 [M] Hard-limit every line to 100 columns
 - **Names beyond the source file**
-  - ZS-NAME-33 [M] One term, one meaning, project-wide
-  - ZS-NAME-34 [M] Write the commit message; a pull-request description is not one
+  - ZS-NAME-26 [M] One term, one meaning, project-wide
+  - ZS-NAME-27 [M] Write the commit message; a pull-request description is not one
 - **Symmetry across a codebase**
-  - ZS-NAME-35 [M] Name the two halves of a pair symmetrically
-  - ZS-NAME-36 [M] One concept, one mechanism
-  - ZS-NAME-37 [S] Keep sibling modules structurally parallel
+  - ZS-NAME-28 [M] Name the two halves of a pair symmetrically
+  - ZS-NAME-29 [M] One concept, one mechanism
+  - ZS-NAME-30 [S] Keep sibling modules structurally parallel
 - Decided by tools
 
 ---
@@ -188,12 +181,12 @@ const Parser = struct {
 No abbreviations in declaration names, parameters, or fields. Four exceptions, and only four:
 
 1. Primitive integer indices passed to a sort or matrix routine (`i`, `j`, `a`, `b`).
-2. Short receiver abbreviations in a type file (ZS-NAME-14): `w: *Writer`, `r: *Reader`,
+2. Short receiver abbreviations in a type file (ZS-NAME-12): `w: *Writer`, `r: *Reader`,
    `b: *Build`, `m: *Module`.
 3. The established std **role names** for singleton dependencies: `gpa`, `arena`, `scratch`
-   (ZS-NAME-07), and `io`. These are not contractions of longer words — they name a role the
-   whole ecosystem already agrees on, so expanding them (`general_purpose_allocator`) loses
-   recognition rather than gaining clarity.
+   (`references/memory.md` ZS-MEM-06), and `io`. These are not contractions of longer words — they
+   name a role the whole ecosystem already agrees on, so expanding them
+   (`general_purpose_allocator`) loses recognition rather than gaining clarity.
 4. A name std itself has already fixed. When you bind the result of a std call, mirror std's
    spelling — `var tmp = std.testing.tmpDir(.{})` reads as `tmpDir` does — and when you implement
    a signature std documents, use std's parameter names verbatim, e.g. the panic handler
@@ -202,8 +195,11 @@ No abbreviations in declaration names, parameters, or fields. Four exceptions, a
    against the documentation it implements, which is the opposite of the rule's purpose.
 
 Everything else is spelled out. In particular `src`/`dst` stay banned: they are contractions of
-`source`/`target`, carry no role, and — being different lengths — break the column alignment that
-makes a transposition visible. Long-form flags in scripts: `--force`, not `-f`.
+`source`/`target` and carry no role. Long-form flags in scripts: `--force`, not `-f`.
+
+Where a pair can be named at equal length — `source`/`target`, `head`/`tail`, `lhs`/`rhs` — prefer
+it. `zig fmt` strips alignment padding inserted by hand, so equal length is the only column
+alignment that survives it, and identifiers derived from an aligned pair line up on adjacent lines.
 
 This is TigerStyle N3, and the langref agrees from the other direction — under "Refrain from
 Underscore Prefixes" it "recommends more verbose names at outer scopes and more abbreviated names at
@@ -244,9 +240,9 @@ Choose names against the **fully qualified** name: inside `json.zig`, the type i
 […] remember that files also act as part of the fully-qualified namespace."
 
 std is actively refactoring toward this — `std.ArrayHashMapUnmanaged` → `std.array_hash_map.Custom`,
-`std.ArrayListAligned` → `std.array_list.Aligned` (0.16), and `std.bit_set.IntegerBitSet` →
-`std.bit_set.Integer`, `ArrayBitSet` → `Array`, `StaticBitSet` → `Static` (0.17) are all
-deprecations that move the noun into the module name and leave the qualifier in the decl name.
+`std.ArrayListAligned` → `std.array_list.Aligned`, and `std.bit_set.IntegerBitSet` →
+`std.bit_set.Integer`, `ArrayBitSet` → `Array`, `StaticBitSet` → `Static` are all deprecations
+that move the noun into the module name and leave the qualifier in the decl name.
 `std.heap.MemoryPoolExtra` → `std.heap.memory_pool.Extra` was the same move; 0.17 removed the old
 name.
 
@@ -308,52 +304,7 @@ pub const latency_ms_max: u32 = 5_000;
 pub const connection_count_max: u16 = 512;
 ```
 
-### ZS-NAME-07 [M] Name allocator parameters `gpa` or `arena`, never bare `allocator`
-
-`gpa` means the caller must free what comes back. `arena` means the result is never individually
-freed and dies with the arena.
-
-`allocator` remains acceptable only as a *struct field* holding an allocator. Counted over 0.17 std:
-`gpa: Allocator` **312**, `allocator: Allocator` **202**, `arena: Allocator` **41** — `gpa` is the
-plurality winner, and every rewritten container (`array_list.zig`, `array_hash_map.zig`,
-`multi_array_list.zig`) uses it exclusively while the `allocator:` sites are concentrated in older
-files. std annotates the contract in prose too (`Build.zig`: `/// Process lifetime.` on
-`arena: Allocator`).
-
-Placement follows std: receiver first, then the resource, then the data —
-`deinit(self, gpa)`, `append(self, gpa, item)`. A constructor with no receiver takes `gpa` first.
-
-**Why:** std and TigerStyle converged on these names independently, so the merged rule is free.
-TigerStyle: "`gpa: Allocator` and `arena: Allocator` are excellent. They inform the reader whether
-`deinit` should be called explicitly."
-
-**Check:** `rg -n '[(,] *allocator: '` over the diff — anchored, so it does not report a
-variable such as `debug_allocator`. A *parameter* named `allocator` is the finding; a
-struct field named `allocator` is not. Second grep: an `Allocator` parameter that is not the first
-argument of a constructor, or not the second of a method taking a receiver.
-
-```zig
-// fragment — BAD: the caller cannot tell from the signature whether to free the result.
-fn render(allocator: std.mem.Allocator, node: Node) ![]u8 {}
-```
-
-```zig
-// fragment — GOOD
-/// Caller owns returned memory.
-fn render(gpa: std.mem.Allocator, node: Node) ![]u8 {}
-
-/// Allocates with `arena`; the result must not be freed individually.
-fn renderLeaky(arena: std.mem.Allocator, node: Node) ![]u8 {}
-```
-
-### ZS-NAME-08 [S] Give related names the same length (see ZS-NAME-04)
-
-Owned by ZS-NAME-04, which carries the abbreviation rule and the `source`/`target` example.
-Equal-length pairs (`head`/`tail`, `lhs`/`rhs`) are worth reaching for, but only as a preference:
-the one mechanical benefit — column alignment in a calculation — does not survive `zig fmt`, so no
-diff can be said to violate this.
-
-### ZS-NAME-09 [S] Name the thing so it survives being said out loud
+### ZS-NAME-07 [S] Name the thing so it survives being said out loud
 
 A name must be usable verbatim in a document heading, a commit message, or a sentence to a
 colleague. Two consequences: prefer a **noun** to a present participle (`replica.pipeline`, not
@@ -384,9 +335,9 @@ replica.pipeline_open = true;
 try queue.add(item, .{ .retry_count = 3 });
 ```
 
-### ZS-NAME-10 [M] Prefix a helper with the name of the function that calls it
+### ZS-NAME-08 [M] Prefix a helper with the name of the function that calls it
 
-`readSector` calls `readSectorCallback`, `readSectorFill`, `readSectorVerify`.
+`readSector` calls `readSectorFill` and `readSectorVerify`.
 
 **Why:** TigerStyle. The prefix encodes the call graph in the identifier: a reader landing on
 `readSectorFill` from a stack trace or a grep knows its one caller, and a `readSector*` grep
@@ -407,7 +358,7 @@ fn readSectorFill(buffer: []u8, index: u32) void {
 }
 ```
 
-### ZS-NAME-11 [M] Use an options struct whenever two adjacent parameters share a type
+### ZS-NAME-09 [M] Use an options struct whenever two adjacent parameters share a type
 
 TigerStyle states the hard form: a function taking two `u64` **must** use an options struct. Extend
 it to any pair of same-typed parameters a caller could transpose, and to any parameter whose `null`
@@ -449,16 +400,16 @@ Singleton dependencies with unique types (an allocator, an `Io`, a tracer) stay 
 are threaded most-general to most-specific, because their types already prevent transposition.
 
 **Exempt: a `_max` / `_min` companion sitting beside the value it bounds.** `(op: u64, op_max: u64)`
-is two `u64`s and stays positional — as in ZS-ASSERT-16's
-`fn sendPrepareOk(status: Status, view: u32, op: u64, op_max: u64) bool` and ZS-NAME-15's
-`fn checksumSlice(bytes: []const u8, count: u32, size: u32) u64`. The pair is not transposable in
-practice: `op_max` is named *after* `op` and reads as its ceiling, so a swapped call is wrong at a
-glance in a way that `copyRange(x, y, 4, 0, 2)` is not. This adjacency is exactly what ZS-NAME-06's
-big-endian naming exists to create, and burying the pair in an options struct destroys it. The
-exemption covers a bounded value and its bound only; it does not extend to two unrelated `u64`s.
+is two `u64`s and stays positional — as in ZS-ASSERT-14's
+`fn sendPrepareOk(status: Status, view: u32, op: u64, op_max: u64) bool`. The pair is not
+transposable in practice: `op_max` is named *after* `op` and reads as its ceiling, so a swapped call
+is wrong at a glance in a way that `copyRange(x, y, 4, 0, 2)` is not. This adjacency is exactly what
+ZS-NAME-06's big-endian naming exists to create, and burying the pair in an options struct destroys
+it. The exemption covers a bounded value and its bound only; it does not extend to two unrelated
+`u64`s.
 
 ```zig
-// fragment — GOOD: a body, with `assert` as the ZS-NAME-19 alias
+// fragment — GOOD: a body, with `assert` as the ZS-NAME-16 alias
 // `op_max` is `op`'s ceiling, not a second interchangeable argument.
 fn opCommitted(op: u64, op_max: u64) bool {
     assert(op_max >= 1);
@@ -466,11 +417,12 @@ fn opCommitted(op: u64, op_max: u64) bool {
 }
 ```
 
-### ZS-NAME-12 [S] Reach for `io.async` first; give the function values that remain std's slot order
+### ZS-NAME-10 [S] Reach for `io.async` first; give the function values that remain std's slot order
 
 Before designing a callback at all, check whether `io.async(function, args)` and `Io.Future` express
 the same thing. For the function values that genuinely remain — comparators, visitors, vtable
-members — do not invent a parameter order: copy `std.sort`'s.
+members — take a written-out function type rather than an `anytype` object with an implied method,
+and do not invent a parameter order: copy `std.sort`'s.
 
 The shape to copy comes from `sort.zig` at 0.17.0 — `insertion`, `heap`, `pdq`, `block`, `argMin`,
 `argMax`, `min`, `max`, `isSorted`, `binarySearch`, `lowerBound`, `upperBound`, `equalRange`, and
@@ -494,19 +446,22 @@ distinguishes a function value from the data beside it. Take the return type fro
 answers: `bool` for "is it less", `Order` for the three-way comparison a search needs.
 
 Type parameters, then **the data**, then `context`, then the `comptime …Fn` last. The `comptime` fn
-and its `context` are adjacent because the fn's first parameter type is `@TypeOf(context)`; keeping
-them together is what makes `{}`-as-context work for a stateless predicate. When the behavior is
-baked into a *type* instead of a call, it moves to the type's comptime parameter list —
+and its `context` are adjacent because the fn's first parameter type is `@TypeOf(context)`: the
+context's type is *derived* from the value, never a separate `comptime Context: type` parameter.
+That is what lets a stateless predicate take `{}` at zero storage cost, and a stateful comparator
+carry its state in the context without a closure. When the behavior is baked into a *type* instead
+of a call, it moves to the type's comptime parameter list —
 `PriorityQueue(comptime T: type, comptime Context: type, comptime compareFn: …)` — and the data
-arrives later through the methods. See ZS-COMPTIME-17 for the `Context` design itself.
+arrives later through the methods.
 
-**Why:** TigerStyle's "callbacks go last" served hand-threaded continuations in Zig 0.14, and
-ZS-CONC-37 [M] retires that rationale: `io.async` returns a `Future` you `await` in the caller's own
-scope, so no continuation is left to position, and a concrete shape replaces the rule of thumb.
+**Why:** a written-out function type puts the contract in the signature, so a mismatched callback
+fails at the call site rather than inside your loop. TigerStyle's "callbacks go last" served
+hand-threaded continuations, which ZS-CONC-34 retires: an `io.async` `Future` is awaited in place.
 
 **Check:** any new function taking a `comptime …Fn` should be diff-able against a `std.sort`
 signature; if the fn is not adjacent to its `context`, or the data is not before both, it is a
-private convention.
+private convention. A `comptime Context: type` parameter beside a `context` value is the tell that
+the signature was written from memory.
 
 ```zig
 // verified
@@ -514,28 +469,44 @@ const std = @import("std");
 
 const Account = struct { id: u64, balance_cents: i64 };
 
+fn overdrawn(_: void, account: Account) bool {
+    return account.balance_cents < 0;
+}
+
 fn balanceLessThan(_: void, lhs: Account, rhs: Account) bool {
     return lhs.balance_cents < rhs.balance_cents;
 }
 
 /// Same slot order as `std.mem.sortUnstable`: type parameters, then the data,
-/// then `context`, then the `comptime ...Fn`.
-fn selectPoorest(
+/// then `context`, then the `comptime ...Fn`. std has no counting predicate, so
+/// this one is written; finding the poorest account is `std.sort.min`'s job.
+fn countWhere(
     comptime T: type,
     items: []const T,
     context: anytype,
-    comptime lessThanFn: fn (@TypeOf(context), lhs: T, rhs: T) bool,
-) ?T {
-    if (items.len == 0) return null;
-    var best = items[0];
-    for (items[1..]) |item| {
-        if (lessThanFn(context, item, best)) best = item;
+    comptime predicateFn: fn (@TypeOf(context), item: T) bool,
+) usize {
+    var count: usize = 0;
+    for (items) |item| {
+        if (predicateFn(context, item)) count += 1;
     }
-    return best;
+    return count;
+}
+
+test countWhere {
+    const accounts = [_]Account{
+        .{ .id = 1, .balance_cents = -5 },
+        .{ .id = 2, .balance_cents = 40 },
+        .{ .id = 3, .balance_cents = -1 },
+    };
+    try std.testing.expectEqual(2, countWhere(Account, &accounts, {}, overdrawn));
+    // Where std has the function, the call takes the same slot order.
+    const poorest = std.sort.min(Account, &accounts, {}, balanceLessThan);
+    try std.testing.expectEqual(accounts[0], poorest);
 }
 ```
 
-### ZS-NAME-13 [S] Use std's suffix vocabulary for method variants
+### ZS-NAME-11 [S] Use std's suffix vocabulary for method variants
 
 `…AssumeCapacity` (non-allocating twin, asserts capacity), `…Alloc` (allocating twin), `…Context`
 (explicit context parameter), `…Adapted` (different key type), `…Sentinel` (sentinel-terminated),
@@ -559,7 +530,7 @@ is the same finding.
 
 ## Receivers
 
-### ZS-NAME-14 [M] Name the receiver after its type; keep `self` for anonymous generic containers
+### ZS-NAME-12 [M] Name the receiver after its type; keep `self` for anonymous generic containers
 
 In a file that *is* a type, write `const Journal = @This();` and name receivers `journal: *Journal`
 (or a consistent 1–2 letter abbreviation like `w: *Writer`). Use `const Self = @This();` and
@@ -617,57 +588,13 @@ pub fn Stack(comptime T: type) type {
 }
 ```
 
-### ZS-NAME-15 [M!] Lift a hot loop into a free function over primitives
-
-For a loop that dominates a profile, extract it into a stand-alone function whose parameters are
-slices and integers rather than a receiver.
-
-`[M!]` applies to kernels in databases, codecs, compression, and crypto, where the loop body is on a
-*measured* critical path. *Relaxed form:* keep the method — do not restructure code you have not
-profiled — but where a loop reads the same receiver field on every iteration, hoist that field into
-a local above the loop and read the local. That buys the same freedom from reloading through the
-receiver pointer without changing the function's shape or its callers.
-
-**This does not contradict ZS-NAME-14**: receivers are correct everywhere else, and a codebase
-should not delete them wholesale on the strength of this rule.
-
-**Why:** TigerStyle, under Performance: "the compiler doesn't need to prove that it can cache
-struct's fields in registers, and a human reader can spot redundant computations easier." It is a
-codegen argument about aliasing through a `*Self`, not a style objection to receivers.
-
-**Check:** the extracted function's parameter list contains no pointer to a struct the loop also
-writes through; if it does, the aliasing argument has not been made.
-
-Note the extracted signature `(bytes, count, size)` is three parameters where two share a type — the
-ZS-NAME-11 options-struct rule would normally apply. It does not here: `count` and `size` are the
-bounds of the loop the extraction exists to speed up, and wrapping them in a struct reintroduces the
-aggregate load the rule is trying to remove. Document the order instead.
-
-```zig
-// fragment — GOOD
-pub fn checksum(journal: *const Journal) u64 {
-    return checksumSlice(journal.sectors, journal.sector_count, sector_size_bytes);
-}
-
-/// Hot loop. Primitive arguments only, so the compiler need not prove non-aliasing
-/// through a `*Journal` to keep `count` and `size` in registers.
-fn checksumSlice(bytes: []const u8, count: u32, size: u32) u64 {
-    var sum: u64 = 0;
-    var index: u32 = 0;
-    while (index < count * size) : (index += 1) sum +%= bytes[index];
-    return sum;
-}
-```
-
----
-
 ## Files and modules
 
-### ZS-NAME-16 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
+### ZS-NAME-13 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
 
 A file with top-level fields *is* a struct type: `Journal.zig`, `Io.zig`, `Build.zig`. A file with
 no top-level fields is a namespace: `array_list.zig`, `wire_format.zig`. Directory names follow
-ZS-NAME-17.
+ZS-NAME-14.
 
 The langref, verbatim: "File names fall into two categories: types and namespaces. If the file
 (implicitly a struct) has top level fields, it should be named like any other struct with fields
@@ -709,7 +636,7 @@ src/journal.zig  (has fields)   src/Journal.zig
 src/WireFormat.zig (no fields)  src/wire_format.zig
 ```
 
-### ZS-NAME-17 [S] Name a directory after its companion file
+### ZS-NAME-14 [S] Name a directory after its companion file
 
 `Io/` sits beside `Io.zig`; `Build/`, `Build/Step/`, `Target/`, `Io/File/` likewise. The langref
 says "Directory names should be `snake_case`", but std does not do that: only 5 directories in the
@@ -724,7 +651,7 @@ mechanically to `Io/File.zig`.
 directory name must match it character for character, casing included; if it does not exist, the
 directory must be `snake_case`.
 
-### ZS-NAME-18 [M] Keep the `@This()` alias and the whole import block in one place
+### ZS-NAME-15 [M] Keep the `@This()` alias and the whole import block in one place
 
 Top form: `//!` doc, then `const Foo = @This();`, then imports, then fields. Bottom form: everything
 else first, imports and the `@This()` alias as the final block. Pick one per file. Both are house
@@ -754,16 +681,15 @@ const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 ```
 
-### ZS-NAME-19 [S] Order imports `@This()` → `builtin` → `std` → local, and alias the hot names
+### ZS-NAME-16 [S] Order imports `@This()` → `builtin` → `std` → local, and alias the hot names
 
 Group in that order, each group separated by a blank line, derived aliases immediately under the
 import they derive from. Do not alphabetize across groups.
 
 The standard alias block, by frequency in std: `const assert = std.debug.assert;` (172 files),
 `const mem = std.mem;` (137), `const testing = std.testing;` (129), `const math = std.math;` (119),
-`const Allocator = std.mem.Allocator;` (94), `const Io = std.Io;` (75). Aliasing `assert` matters
-because assertion density is the point — 2321 `assert(` calls versus 166 spelled-out
-`std.debug.assert(` calls in std.
+`const Allocator = std.mem.Allocator;` (94), `const Io = std.Io;` (75). Why `assert` is always
+aliased is `references/assertions.md` ZS-ASSERT-01.
 
 Application code always writes `@import("std")`. `@import("../std.zig")` is internal to std itself.
 
@@ -772,15 +698,14 @@ lines (your own modules) are last and closest to the code. `zig fmt` will never 
 a convention is the only thing keeping them consistent.
 
 **Check:** `@import("builtin")` appearing below `@import("std")`, a local `@import` above either, an
-alias separated from the import it derives from, or `@import("../std.zig")` outside std. Also
-`std.debug.assert(` spelled out at a call site in a file that already aliases `assert`.
+alias separated from the import it derives from, or `@import("../std.zig")` outside std.
 
-### ZS-NAME-20 [M] Order a struct body: fields → types → `init`/`deinit` → methods → tests
+### ZS-NAME-17 [M] Order a struct body: fields → types → `init`/`deinit` → methods → tests
 
 Fields carry no `pub`. Nested `pub const Foo = struct {…}` types and `pub const empty: Self = …`
 decl literals come after the fields and before the methods. TigerStyle places the `const Self =
 @This();` line at the *end* of the types section; std places the named `@This()` alias at the very
-top of the file (ZS-NAME-18). Prefer the std placement for a `TitleCase.zig` file and the TigerStyle
+top of the file (ZS-NAME-15). Prefer the std placement for a `TitleCase.zig` file and the TigerStyle
 placement for a nested struct.
 
 TigerStyle: "the order is fields then types then methods". std does the same (`Io/File.zig`,
@@ -863,7 +788,7 @@ test append {
 }
 ```
 
-### ZS-NAME-21 [S] Put the entry point and the most important declarations first
+### ZS-NAME-18 [S] Put the entry point and the most important declarations first
 
 `main` goes first in a file that has one. Public API before private helpers. Where no ordering is
 obviously right, sort alphabetically and let ZS-NAME-06's big-endian naming do the grouping.
@@ -876,58 +801,23 @@ means it is pure signal, and wasting it costs nothing to fix.
 any other file, does a non-`pub` helper appear above the `pub` declaration that calls it? Those are
 the two mechanical readings; the rest of this rule is a tie-break, not a check.
 
-### ZS-NAME-22 [M] Use the `test <declRef>` form (see ZS-TEST-02)
+### ZS-NAME-19 [M] Default to non-`pub`; mark `pub` only what a caller outside the file needs
 
-Owned by `references/testing.md` ZS-TEST-02: write `test append { … }` rather than
-`test "append works" { … }` when the test targets one declaration, and note that `test <name>`
-resolves file-scope declarations only.
-
-*Placement* of tests within a file is ZS-NAME-20 (last in the struct body) and ZS-TEST-01 (bottom of
-the file). A final bare `test { _ = @import("sibling.zig"); }` pulls sibling files into the test
-binary; `std.testing.refAllDecls` appears only 6 times in all of std — prefer explicit `_ = decl;`
-(ZS-BUILD-18, ZS-TEST-24).
-
-### ZS-NAME-23 [M] Default to non-`pub`; declare the public surface explicitly in `root.zig`
-
-Mark `pub` only what callers need. Re-export with `pub const Name = @import("Name.zig");`.
-`usingnamespace` no longer exists.
+A declaration starts private and becomes `pub` when a caller in another file needs it. Which of the
+`pub` names form the package's surface is decided once, in `root.zig` (`references/build.md`
+ZS-BUILD-16).
 
 **Why:** `pub` is the module's API contract and everything `pub` is something you cannot rename
-later without a breaking change; the compiler will not tell you which `pub`s are unused. Bulk
-re-export is no longer even available:
-
-```zig
-// rejected — zig: expected function or variable declaration after pub
-const std = @import("std");
-pub usingnamespace std.mem; // error: expected function or variable declaration after pub
-```
-
-so the explicit alias table is the only mechanism. std's root namespace files (`std.zig`,
-`heap.zig`, `json.zig`, `crypto.zig`) are pure alias tables of exactly this shape.
+later without a breaking change; the compiler will not tell you which `pub`s are unused.
 
 **Check:** for every `pub` added in the diff, grep the name across the tree outside its own file. No
-external hit means it should not be `pub`. Second grep: a `pub` declaration in a non-root file that
-the root's alias table does not re-export is API by accident.
-
-```zig
-//! Public surface of the `jrnl` package. Every exported name is listed here.
-// fragment — (alongside its sibling files)
-
-pub const Journal = @import("Journal.zig");
-pub const wire = @import("wire.zig");
-pub const sector_size_bytes = Journal.sector_size_bytes;
-
-test {
-    _ = Journal;
-    _ = wire;
-}
-```
+external hit means it should not be `pub`.
 
 ---
 
 ## Comments
 
-### ZS-NAME-24 [M] `//!` at the file top, `///` on declarations, `//` for everything else
+### ZS-NAME-20 [M] `//!` at the file top, `///` on declarations, `//` for everything else
 
 `//!` is module documentation and must be the first thing in the file. `///` attaches to the next
 declaration, field, or parameter. `//` is an implementation note that deliberately stays out of the
@@ -992,7 +882,7 @@ reviewer greps for is a `pub` declaration with no `///` at all, and a `///` that
 implementation reason ("we do it this way because…") rather than a contract — that one belongs on
 `//`, immediately above the `///`.
 
-### ZS-NAME-25 [M] Use std's contract phrasings verbatim
+### ZS-NAME-21 [M] Use std's contract phrasings verbatim
 
 Reuse the house sentences rather than inventing synonyms:
 
@@ -1029,13 +919,7 @@ of `Caller owns returned memory.`, "pointers may move" instead of the invalidati
 is thread-safe" instead of `Thread-safe.` And: any declaration named in a doc comment without
 backticks, which is a cross-reference that will not become a link.
 
-### ZS-NAME-26 [M] `assert` vs `assume` in doc comments (see ZS-ASSERT-09)
-
-Owned by `references/assertions.md` ZS-ASSERT-09. In a doc comment, **assert** describes an
-invariant whose violation is safety-checked illegal behavior and **assume** one whose violation is
-unchecked; never swap them. The phrasings themselves are tabulated in ZS-NAME-25.
-
-### ZS-NAME-27 [M] Say why, not what — including at the top of every test
+### ZS-NAME-22 [M] Say why, not what — including at the top of every test
 
 Comments explain the reasoning that is not in the code: why this constant, why not the obvious
 design, what invariant is being preserved, what upstream bug is being worked around and when the
@@ -1070,7 +954,7 @@ journal.sector_count += 1;
 // the alignment downcast works around a 0.16.0 codegen bug.
 ```
 
-### ZS-NAME-28 [S] Comment typography: space after the slashes, capital letter, full stop
+### ZS-NAME-23 [S] Comment typography: space after the slashes, capital letter, full stop
 
 Comments are sentences: `// Like this.` A colon replaces the full stop when the comment introduces
 what follows: `// Two cases:`. End-of-line comments may be unpunctuated phrases:
@@ -1088,7 +972,7 @@ the scan to comments that start their own line.
 
 ## Formatting
 
-### ZS-NAME-29 [M] Run `zig fmt`; the trailing comma is your only formatting lever
+### ZS-NAME-24 [M] Run `zig fmt`; the trailing comma is your only formatting lever
 
 `zig fmt` owns indentation (4 spaces), brace placement, spacing, and blank-line collapsing. The one
 decision you make is the **trailing comma**: adding one to a parameter list, struct literal, or enum
@@ -1121,16 +1005,17 @@ fn f(
 ```
 
 `zig fmt` will **not** order your imports, group your blank lines, order your declarations, or wrap
-a long expression — those are ZS-NAME-19 through ZS-NAME-21 and your own judgement. `// zig fmt:
+a long expression — those are ZS-NAME-16 through ZS-NAME-18 and your own judgement. `// zig fmt:
 off` … `// zig fmt: on` exists but appears only 32 times in all of std, exclusively for hand-aligned
 tables. Source is UTF-8 with LF endings and a trailing newline.
 
-**Check:** `zig fmt --check .` in CI is the whole rule for indentation and spacing. The reviewable
-residue is a multi-line parameter list, struct literal, or enum with **no** trailing comma — `zig
-fmt` will silently collapse it back onto one line — and any new `// zig fmt: off` that is not
-guarding a hand-aligned table.
+**Check:** the CI gate of `references/build.md` ZS-BUILD-29 —
+`zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .` — is the whole rule for
+indentation and spacing. The reviewable residue is a multi-line parameter list, struct literal, or
+enum with **no** trailing comma — `zig fmt` will silently collapse it back onto one line — and any
+new `// zig fmt: off` that is not guarding a hand-aligned table.
 
-### ZS-NAME-30 [M] Hard-limit every line to 100 columns
+### ZS-NAME-25 [M] Hard-limit every line to 100 columns
 
 Including comments, doc comments, and string literals. Set a column ruler. Wrap by adding a trailing
 comma and re-running `zig fmt`. Enforce it in CI: it is a one-line check and the only formatting
@@ -1146,23 +1031,9 @@ hidden behind a horizontal scrollbar.
 violation, including inside a comment or a string literal. `zig fmt --check` will not report this,
 so it needs its own CI line.
 
-### ZS-NAME-31 [M] Brace every `if` unless the whole statement fits on one line (see ZS-ERR-22)
-
-Owned by `references/errors.md` ZS-ERR-22. `if (a) assert(b);` on one line is fine;
-anything that wraps gets braces, and a braceless body on the following line is never acceptable —
-`zig fmt` preserves it, so the indentation lies about control flow.
-
-### ZS-NAME-32 [M] Blank-line-group each allocation with its `defer` / `errdefer` (see ZS-MEM-11)
-
-Owned by `references/memory.md` ZS-MEM-11. The `defer`/`errdefer` goes on the line
-immediately after the acquisition, and the pair is separated from surrounding code by blank lines so
-that a missing release reads as a one-line group instead of a two-line one.
-
----
-
 ## Names beyond the source file
 
-### ZS-NAME-33 [M] One term, one meaning, project-wide
+### ZS-NAME-26 [M] One term, one meaning, project-wide
 
 A word that already has a technical meaning in your project may not be reused for a second,
 context-dependent meaning. Before introducing a term, grep the codebase and the design documents for
@@ -1195,10 +1066,10 @@ pub fn postPending(transfer: *PendingTransfer) void {}
 pub fn voidPending(transfer: *PendingTransfer) void {}
 ```
 
-### ZS-NAME-34 [M] Write the commit message; a pull-request description is not one
+### ZS-NAME-27 [M] Write the commit message; a pull-request description is not one
 
 Every commit gets a descriptive message: a subject line naming what changed, and a body giving the
-reasoning ZS-NAME-27 keeps out of the code. Do not put the explanation only in a pull-request
+reasoning ZS-NAME-22 keeps out of the code. Do not put the explanation only in a pull-request
 description.
 
 `git blame` on a suspicious line is the single highest-yield debugging move in an unfamiliar
@@ -1229,20 +1100,20 @@ fix                                   journal: bump sector_count before fsync
 
 ## Symmetry across a codebase
 
-### ZS-NAME-35 [M] Name the two halves of a pair symmetrically
+### ZS-NAME-28 [M] Name the two halves of a pair symmetrically
 
 A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`close`, not
 `open`/`release`; `acquire`/`release`, not `acquire`/`free`. Where std has already fixed the pair,
 copy it.
 
 **Why:** matched names are what make a pair recognizable as a pair, which is how a reader knows the
-inverse exists without searching for it (ZS-DATA-39). Mismatched halves read as unrelated
+inverse exists without searching for it (ZS-DATA-36). Mismatched halves read as unrelated
 operations, so the reader hunts for a `decode` that was spelled `parse`.
 
 **Check:** list every operation with an inverse and read the two names aloud together. If they do
 not sound like a pair, rename the odd half.
 
-### ZS-NAME-36 [M] One concept, one mechanism
+### ZS-NAME-29 [M] One concept, one mechanism
 
 A project configures itself one way, reports progress one way, allocates one way, and spawns
 work one way. Two mechanisms for one concept means every future change must choose between them and
@@ -1255,11 +1126,11 @@ because the first was inconvenient in one place — a local fix with a global co
 **Check:** name the single mechanism for each cross-cutting concern: configuration, errors, logging,
 allocation, I/O, concurrency. More than one per concern needs a migration plan, not an exception.
 
-### ZS-NAME-37 [S] Keep sibling modules structurally parallel
+### ZS-NAME-30 [S] Keep sibling modules structurally parallel
 
 Modules at the same level of the tree have the same internal shape: if `parser.zig` has an `Error`
 set, a `Config`, and a test block at the bottom, then `renderer.zig` does too, or the difference is
-explained in a comment. ZS-NAME-20 fixes the order inside one file; this rule fixes it across files.
+explained in a comment. ZS-NAME-17 fixes the order inside one file; this rule fixes it across files.
 
 **Why:** parallel structure lets a reader who has learned one module navigate the next without
 reading it, which compounds across a codebase. The convention costs almost nothing to keep and is

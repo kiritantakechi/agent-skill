@@ -1,7 +1,7 @@
 ---
 name: zig-style
 description: >-
-  The modern Zig 0.17 engineering standard — a 434-rule library merging the official Zig style
+  The modern Zig 0.17 engineering standard — a 385-rule library merging the official Zig style
   guide, the empirical conventions of the 0.17 standard library, and TigerBeetle's TigerStyle.
   Covers naming, types and data layout, errors and control flow, memory and allocators, std.Io
   streams and structured concurrency, assertions and bounded limits, API symmetry, comptime and
@@ -128,22 +128,16 @@ This is **silent** staleness: the old names remain as aliases, so nothing fails 
 | `std.heap.DebugAllocator(.{})`, constructed with `.init` | `std.heap.SafeAllocator`, constructed with `.init(backing, .{})`; its `deinit()` returns the leak count |
 | `std.fmt.allocPrint(gpa, f, args)`, `allocPrintSentinel` | `gpa.print(f, args)`, `gpa.printSentinel(f, args, 0)` |
 | `std.fmt.bufPrint`, `bufPrintSentinel` | `std.mem.print`, `std.mem.printSentinel` |
-| `list.getLast()`, `list.getLastOrNull()` | `list.last()`, which returns `?T`; the borrow is `list.lastPtr()` |
+| `list.getLastOrNull()`, `list.getLast()` | `list.last()`, which returns `?T`: where `getLast` returned `T`, handle the `null`; the borrow is `list.lastPtr()` |
 | `bit_set.IntegerBitSet`, `ArrayBitSet`, `StaticBitSet`, `DynamicBitSetUnmanaged` | `bit_set.Integer`, `Array`, `Static`, `Dynamic` |
 | `std.meta.fieldInfo`, `fieldNames`, `fieldTypes` | `@typeInfo`, `@FieldType` |
 | `b.lazyDependency(name, args)` | `b.dependency(name, args)`, or `try b.dependencyLazy(name, args)` |
 | `std.ArrayListUnmanaged(T)` | `std.ArrayList(T)` — the managed one is now the deprecated one |
 
-`std.mem.indexOf*` was renamed to `find*` in 0.16, and the old names still compile:
-`indexOf`→`find`, `indexOfPos`→`findPos`, `lastIndexOf`→`findLast`,
-`lastIndexOfLinear`→`findLastLinear`, `indexOfScalar`→`findScalar`,
-`indexOfScalarPos`→`findScalarPos`, `lastIndexOfScalar`→`findScalarLast`, `indexOfAny`→`findAny`,
-`indexOfAnyPos`→`findAnyPos`, `lastIndexOfAny`→`findLastAny`, `indexOfNone`→`findNone`,
-`lastIndexOfNone`→`findLastNone`, `indexOfDiff`→`findDiff`, `indexOfSentinel`→`findSentinel`,
-`indexOfMin`→`findMin`, `indexOfMinMax`→`findMinMax`.
-
-The complete list, with a pattern for each row, is `references/migration.md` Part 7,
-and ZS-MIG-14 is the denylist that fails a build on them.
+`std.mem.indexOf*` was renamed to `find*` in 0.16, and the old names still compile: `indexOf` is
+`find`, `lastIndexOfScalar` is `findScalarLast`, and `references/migration.md` ZS-MIG-05 has every
+pair. The complete list, with a pattern for each row, is that chapter's Part 7, and ZS-MIG-13 is the
+denylist that fails a build on them.
 
 ### 2.4 `main` takes a parameter now
 
@@ -158,7 +152,7 @@ pub fn main(init: std.process.Init) !void {
     const arena = init.arena.allocator(); // whole-process storage, freed on exit
 
     var stdout_buffer: [4096]u8 = undefined;
-    var stdout_writer: Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
+    var stdout_writer = Io.File.stdout().writerStreaming(io, &stdout_buffer);
     const out = &stdout_writer.interface;
 
     const args = try init.minimal.args.toSlice(arena); // arena: no free to write
@@ -174,7 +168,9 @@ pub fn main(init: std.process.Init) !void {
 
 `std.process.Init` gives you `minimal` (`args`, `environ`), `arena`, `gpa`, `io`, `environ_map`,
 `preopens`. It replaces the old `pub fn main() !void` plus manual `GeneralPurposeAllocator` and
-`std.process.argsAlloc` boilerplate.
+`std.process.argsAlloc` boilerplate (`references/migration.md` ZS-MIG-08). Program output to stdout
+is a *streaming* writer: a positional one, which `zig init` emits, starts at offset 0 and overwrites
+what a `>>` redirect already wrote (`references/concurrency.md` ZS-CONC-06).
 
 ### 2.5 There is no `std.io`, and `std.fs` is a deprecation shim
 
@@ -183,12 +179,15 @@ about twenty lines, and every member of it is marked `Deprecated`.
 
 | Dead | Use |
 |---|---|
-| `std.io.getStdOut().writer()`, `bufferedWriter` | `Io.File.Writer.init(.stdout(), io, &buf)`, then `flush()` |
+| `std.io.getStdOut().writer()`, `bufferedWriter` | `Io.File.stdout().writerStreaming(io, &buf)`, then `flush()` |
 | `std.io.Writer` / `GenericWriter` / `AnyWriter` | `*std.Io.Writer` (non-generic, buffer supplied by you) |
 | `std.fs.cwd()`, `std.fs.File`, `std.fs.Dir` | `std.Io.Dir`, `std.Io.File` — every call takes an `io` |
 | `std.fs.path` | `std.Io.Dir.path` |
 | `async` / `await` keywords | `io.async(f, args)` → `Future(T)`, then `future.await(io)` |
 | `std.heap.GeneralPurposeAllocator` | `std.heap.SafeAllocator` (0.16 called it `DebugAllocator`) |
+
+The full tables are ZS-MIG-03 for streams and ZS-MIG-04 for the filesystem, in
+`references/migration.md`.
 
 ### 2.6 Containers are unmanaged and take the allocator per call
 
@@ -201,7 +200,7 @@ const owned = try list.toOwnedSlice(gpa);
 ```
 
 The allocator is the **second** parameter, after the receiver. Non-allocating methods (`pop`,
-`last`) take no allocator.
+`last`) take no allocator. Every container rename is a row of `references/migration.md` ZS-MIG-06.
 
 ### 2.7 Concurrency is colorless and goes through `Io`
 
@@ -219,7 +218,7 @@ test "run two tasks concurrently and await both" {
     var b = io.async(fetch, .{ io, 2 });
 
     // Await BOTH before inspecting either. A `try` between the spawns and the
-    // last await abandons the other future and leaks it — see ZS-CONC-24.
+    // last await abandons the other future and leaks it — see ZS-CONC-21.
     const first = a.await(io);
     const second = b.await(io);
 
@@ -231,41 +230,37 @@ test "run two tasks concurrently and await both" {
 The *same* function body runs threaded, evented, or single-threaded-blocking depending on which `Io`
 you pass. That is the point of the design. Note `Io.Clock` has no `.monotonic` — the variants are
 `real`, `awake`, `boot`, `cpu_process`, `cpu_thread`. `Io.Duration` constructors are spelled out in
-full: `fromNanoseconds`, `fromMicroseconds`, `fromMilliseconds`, `fromSeconds`.
+full: `fromNanoseconds`, `fromMicroseconds`, `fromMilliseconds`, `fromSeconds`. What moved off
+`std.Thread` and `std.time` is `references/migration.md` ZS-MIG-09.
 
 ### 2.8 Testing moved too
 
 `std.testing.io` is a real `Io` for tests. `expectEqual(expected, actual)` takes `anytype` for both
 and peer-resolves, so `@as(T, x)` wrapping is usually unnecessary. Fuzz targets receive
-`*std.testing.Smith`, not `[]const u8`.
+`*std.testing.Smith`, not `[]const u8` (`references/migration.md` ZS-MIG-10).
 
 ### 2.9 Things that no longer exist at all
+
+The compiler rejects each of these, so none of them ships by accident; they are here because they
+are what a reader reaches for first.
 
 | Gone | Removed | Use |
 |---|---|---|
 | `@Type` (removed builtin) | by 0.16 | `@Int`, `@Tuple`, `@Pointer`, `@Fn`, `@Struct`, `@Union`, `@Enum`, `@EnumLiteral` |
-| `@setCold` | by 0.16 | `@branchHint(.cold)` |
 | `std.Thread.Mutex`/`Condition`/`Semaphore`/`RwLock`/`ResetEvent`/`WaitGroup`/`Pool`/`Futex` | by 0.16 | `Io.Mutex`, `Io.Condition`, `Io.Semaphore`, `Io.RwLock`, `Io.Event`, `io.futexWait`/`futexWake` |
 | `std.time.Timer`, `Instant`, `timestamp()`, `sleep()` | by 0.16 | `Io.Timestamp`, `Io.Duration`, `Io.Clock`, `io.sleep(d, clock)` — `std.time` is now only unit constants |
-| `std.BoundedArray` | by 0.16 | `var list: std.ArrayList(T) = .initBuffer(&backing);` + `appendAssumeCapacity` |
+| `std.BoundedArray` | by 0.16 | `var list: std.ArrayList(T) = .initBuffer(&backing);`, then `appendBounded` where `BoundedArray` returned an error, `appendAssumeCapacity` where the capacity is proved |
 | `usingnamespace` | by 0.16 | explicit re-export: `pub const foo = @import("foo.zig").foo;` |
-| `std.meta.Int`, `std.meta.Tuple` | 0.17 | `@Int`, `@Tuple` |
-| `std.fmt.bufPrintZ`, `gpa.dupeZ` | 0.17 | `std.mem.printSentinel(buf, f, args, 0)`, `gpa.dupeSentinel(u8, s, 0)` |
-| `.initEmpty()` / `.initFull()` on `EnumSet` and the static bit sets | 0.17 | `.empty` / `.full` |
 | `@typeInfo(T).@"struct".fields`, `.decls` | 0.17 | `.field_names`, `.field_types`, `.field_attrs`, `.decl_names` — every `std.lang.Type` variant is now a struct of arrays |
 | `errdefer \|err\|` | 0.17 | split the function, and handle the error at the call's `catch \|err\|` |
-| `a ** n`, `void{}`, `i0` | 0.17 | `@splat(v)`, `{}`, `u0` |
 | `@cImport` | 0.17 | `b.addTranslateC` in `build.zig`, or the translate-c package |
-| `std.heap.stackFallback`, `StackFallbackAllocator` | 0.17 | `var bfa: std.heap.BufferFirstAllocator = .init(&buf, fallback);` |
-| `std.zon.parse.fromSlice(T, gpa, source, diag, options)` | 0.17 | `fromSliceNoAlloc(T, .{ .gpa, .arena, .source, .diagnostics })`; `fromSlice` now allocates into `.arena`, and `free` is gone |
 | `b.args` | 0.17 | `run.addPassthruArgs()` |
-| `b.addFmt(.{ .paths = &.{…} })` | 0.17 | `.paths = b.pathList(&.{…})` |
-| `b.build_root` | 0.17 | `b.root`, a `Cache.Path` |
-| `b.reference_trace` | 0.17 | `zig build -freference-trace=N` |
-| `LazyPath.getPath*` | 0.17 | none: a path resolves only when a step runs, so hand the `LazyPath` to that step |
 
 The `std.Thread` one is a **correctness** requirement, not a preference: an OS-level mutex blocks
-the whole carrier thread and will deadlock green threads under the fiber/evented backends.
+the whole carrier thread and will deadlock green threads under the fiber/evented backends. The rest
+of what 0.17 removed — `std.meta.Int`, `bufPrintZ`, `.initEmpty()`, `a ** n`, `stackFallback`,
+`std.zon.parse.fromSlice`'s old signature, `b.build_root`, `LazyPath.getPath*` and more — is
+`references/migration.md` Part 7, and what 0.16 removed is ZS-MIG-02, ZS-MIG-06 and ZS-MIG-09.
 
 ### 2.10 What changed in the toolchain
 
@@ -312,18 +307,18 @@ five questions, in order:
    fewer states.
 2. **What can be made unrepresentable?** Encode the bound in the type and give the limit a name, so
    an invalid value cannot be constructed rather than being caught after the fact (`ZS-DATA-03`,
-   `ZS-ASSERT-24`).
+   `ZS-ASSERT-20`).
 3. **What can be asserted instead of assumed?** An invariant the code depends on is checked at the
-   boundary or written down as an assumption — never left implicit (`ZS-ASSERT-02`, `ZS-ASSERT-10`).
+   boundary or written down as an assumption — never left implicit (`ZS-ERR-01`, `ZS-ASSERT-08`).
 4. **What is asymmetric?** If `init` exists, does `deinit`? Do sibling functions take their
    parameters in the same order? Does every operation have its inverse? A missing half is either a
-   restriction the documentation must state, or an oversight (`ZS-DATA-39`, `ZS-DATA-40`,
-   `ZS-NAME-35`).
+   restriction the documentation must state, or an oversight (`ZS-DATA-36`, `ZS-DATA-37`,
+   `ZS-NAME-28`).
 5. **What is special-cased?** A branch that exists for one input is a design that has not absorbed
-   that input. Fold it into the general path, or give it its own type (`ZS-ERR-38`, `ZS-NAME-36`).
+   that input. Fold it into the general path, or give it its own type (`ZS-ERR-34`, `ZS-NAME-29`).
 
 Simplicity outranks all five. A `comptime` construction that makes the reader hold three levels of
-type substitution is worse than the duplication it removed (`ZS-COMPTIME-15`), and a symmetry nobody
+type substitution is worse than the duplication it removed (`ZS-COMPTIME-12`), and a symmetry nobody
 can see is not worth the name it costs.
 
 ## 4. Core rules
@@ -341,16 +336,16 @@ they are binding on their own.
   acronyms. Do not follow TigerStyle here unless you are in the TigerBeetle codebase. std is
   consistent with the langref: `Io.zig`, `Build.zig`, `Progress.zig`, and 0 of the 420
   `snake_case.zig` files in std's 563 carry top-level fields. (`references/naming.md`
-  ZS-NAME-01, ZS-NAME-16).
+  ZS-NAME-01, ZS-NAME-02, ZS-NAME-13).
 - **ZS-CORE-01b `[M]`** Name a method's receiver after its type, not `self`: `w: *Writer`, `b:
   *Build`, `m: *Module`. Reserve `self` with `const Self = @This();` for generic containers
   returned from `fn Foo(comptime T: type) type`, where no concrete name exists. This is a point
   where std and TigerStyle **agree** — modern `TitleCase.zig` files in std use the short
-  type-derived name almost exclusively. (`references/naming.md` ZS-NAME-14).
+  type-derived name almost exclusively. (`references/naming.md` ZS-NAME-12).
 - **ZS-CORE-02 `[M]`** Name allocators for their lifetime discipline: `gpa`, `arena`, `scratch` —
   not `allocator`. The name tells the reader whether `deinit` must be called. std has itself
   converged on this (`gpa:` outnumbers `allocator:` in std today).
-  (`references/memory.md` ZS-MEM-07).
+  (`references/memory.md` ZS-MEM-06).
 - **ZS-CORE-03 `[M]`** Put units and qualifiers last, sorted by descending significance:
   `latency_ms_max`, not `max_latency_ms`. Related names then line up and sort together.
   (`references/naming.md` ZS-NAME-06).
@@ -363,29 +358,28 @@ they are binding on their own.
   rationale: `references/naming.md` ZS-NAME-04.
 - **ZS-CORE-05 `[M]`** Run `zig fmt`. 4-space indent. Hard limit of 100 columns, no exceptions. To
   wrap a signature or literal, add a trailing comma and let `zig fmt` do the rest.
-  (`references/naming.md` ZS-NAME-29, ZS-NAME-30).
+  (`references/naming.md` ZS-NAME-24, ZS-NAME-25).
 - **ZS-CORE-06 `[M]`** Order within a file: fields, then types, then `init`/`deinit`, then methods,
   then tests — with the import block as one contiguous group at either the top or the bottom of the
-  file, consistently within a file (std does both; see `references/naming.md` ZS-NAME-18).
-  `main` goes first in an executable's root file. Read top-down.
+  file, consistently within a file (std does both). `main` goes first in an executable's root
+  file. Read top-down. (`references/naming.md` ZS-NAME-15, ZS-NAME-17, ZS-NAME-18).
 
 ### Assertions and limits
 
 - **ZS-CORE-07 `[M]`** Assertions detect **programmer** errors and must crash. Errors are
   **operating** conditions and must be handled. Never use one where the other belongs: never
   `catch unreachable` an error that can actually occur, and never return an `error` for a violated
-  internal invariant. (`references/assertions.md` ZS-ASSERT-02,
-  `references/errors.md` ZS-ERR-01).
+  internal invariant. (`references/errors.md` ZS-ERR-01).
 - **ZS-CORE-08 `[M!]`** Average at least two assertions per function — arguments, return values,
   pre/postconditions, invariants. *Relaxed form:* assert every non-obvious precondition on
   **internal** functions, and every invariant a comment would otherwise claim. At a boundary that
   admits input from outside the process, validate with an `if` + error instead — an assert on
-  hostile input is a remote denial of service, and in a `fast` build a remote memory-safety bug. See
-  `references/assertions.md` ZS-ASSERT-02 and ZS-ASSERT-28.
+  hostile input is a remote denial of service, and in a `fast` build a remote memory-safety bug.
+  (`references/assertions.md` ZS-ASSERT-09, ZS-ASSERT-24).
 - **ZS-CORE-09 `[M]`** Split compound assertions: `assert(a); assert(b);` beats `assert(a and b)`,
   because the failure tells you which half broke. Two forms are exempt and stay on one line: an
   implication, written `if (a) assert(b);`, and a biconditional, written `assert((a) == (b));` — see
-  `references/assertions.md` ZS-ASSERT-12, ZS-ASSERT-13, ZS-ASSERT-15.
+  `references/assertions.md` ZS-ASSERT-10, ZS-ASSERT-11, ZS-ASSERT-13.
 - **ZS-CORE-10 `[M]`** `std.debug.assert` is an ordinary function, `if (!ok) unreachable`. In
   `fast` and `small` builds the *check* is deleted but the *condition is still evaluated* — a
   counter bumped inside an assert reaches the same value in all four optimize modes. So
@@ -395,65 +389,65 @@ they are binding on their own.
   TigerStyle's claim that assertions "downgrade correctness bugs into liveness bugs": that holds
   in `debug` and `safe` builds, but in a `fast` build a violated assert *upgrades* the bug into
   exploitable illegal behavior. Ship `safe` unless you have measured otherwise.
-  (`references/assertions.md` ZS-ASSERT-03).
+  (`references/assertions.md` ZS-ASSERT-02, ZS-ASSERT-05; `references/build.md` ZS-BUILD-25).
 - **ZS-CORE-11 `[M]`** Put a limit on everything. Every loop has a provable upper bound; every
   queue and buffer has a fixed maximum; an intentionally unbounded loop asserts that it is
   intended. *Relaxed form:* bound every loop whose trip count comes from input, I/O, or the
-  network. (`references/assertions.md` ZS-ASSERT-24, ZS-ASSERT-27).
+  network. (`references/assertions.md` ZS-ASSERT-20, ZS-ASSERT-23).
 - **ZS-CORE-12a `[M]`** Assert the **negative** space, not just the positive — the boundary
   between valid and invalid is where the interesting bugs are. Mark a deliberately unpinned state
   with `maybe(...)` rather than leaving it unstated. (`references/assertions.md`
-  ZS-ASSERT-14).
+  ZS-ASSERT-12).
 - **ZS-CORE-12b `[M!]`** Pair every property across two different code paths: check data before
   writing it to disk *and* again after reading it back. *Relaxed form:* do this for the formats
   and boundaries you cannot change later — anything persisted or sent over a wire.
-  (`references/assertions.md` ZS-ASSERT-18).
+  (`references/assertions.md` ZS-ASSERT-16).
 
 ### Memory
 
 - **ZS-CORE-13 `[M]`** Pass the allocator as a parameter; do not store it in a long-lived struct
   unless the struct genuinely owns an independent lifetime. This is what std moved to, and it
   makes every allocation point visible at the call site. (`references/memory.md`
-  ZS-MEM-06).
+  ZS-MEM-05).
 - **ZS-CORE-14 `[M]`** `defer`/`errdefer` the release immediately after the acquisition, with a
   blank line before the acquisition and after the defer, so a leak is visible as a missing pair.
-  (`references/memory.md` ZS-MEM-11).
+  (`references/memory.md` ZS-MEM-10).
 - **ZS-CORE-15 `[M]`** Pointers into `list.items` are invalidated by any append or resize. Never
   hold one across a mutation. Hold an index instead. (`references/memory.md`
-  ZS-MEM-16, ZS-MEM-17).
+  ZS-MEM-15, ZS-MEM-16).
 - **ZS-CORE-16 `[M!]`** Allocate all memory at startup; allocate nothing after initialization.
   This buys bounded memory, no steady-state OOM, and no use-after-free. *Relaxed form, in
   descending strength:* a hard ceiling via `FixedBufferAllocator`; arena-per-request with the
-  arena reset at the boundary; or `ensureTotalCapacity` up front and `appendAssumeCapacity` in the
-  hot path. Choose one and state it in the module's doc comment. See
-  `references/memory.md` — this is the most consequential tiering decision in the
-  standard. (`references/memory.md` ZS-MEM-20).
+  arena reset at the boundary; or `.initCapacity` (or `ensureTotalCapacityPrecise`) up front and
+  `appendAssumeCapacity` in the hot path — `ensureTotalCapacity` grows past the bound it is given.
+  Choose one and state it in the module's doc comment. This is the most consequential tiering
+  decision in the standard. (`references/memory.md` ZS-MEM-18).
 
 ### Control flow
 
 - **ZS-CORE-17 `[M]`** Simple, explicit control flow only. Split compound conditions into nested
   `if`/`else` rather than `and`-chains — except a single `and` joining the two halves of one range
   check, `if (low <= x and x < high)`, which is one predicate and stays on one line
-  (`references/errors.md` ZS-ERR-18). Where an `else if` chain dispatches on one
-  value, convert it to a `switch` so exhaustiveness is checked. For every `if`, ask whether the
-  `else` needs handling or asserting. (TigerStyle additionally rewrites `else if` chains into
-  `else { if { } }` trees; std and `zig fmt` do not, so that one is TigerStyle-only — see
-  `references/errors.md` ZS-ERR-19.)
+  (`references/errors.md` ZS-ERR-16). Where an `else if` chain dispatches on one value, convert it
+  to a `switch` so exhaustiveness is checked. For every `if`, ask whether the `else` needs handling
+  or asserting (`references/errors.md` ZS-ERR-19). (TigerStyle additionally rewrites `else if`
+  chains into `else { if { } }` trees; std and `zig fmt` do not, so that one is TigerStyle-only —
+  see `references/errors.md` ZS-ERR-17.)
 - **ZS-CORE-18 `[M]`** When an `if`/`else` splits the input space, write the condition as the
   invariant that *holds*: `if (index < length)`, not `if (index >= length)`. An early-return guard
   is exempt — `if (index >= length) return error.OutOfBounds;` states the rejection condition,
-  which is the whole point of a guard. (`references/errors.md` ZS-ERR-20).
+  which is the whole point of a guard. (`references/errors.md` ZS-ERR-18).
 - **ZS-CORE-19 `[M]`** Handle every error. Do not swallow one silently, and do not widen to
   `anyerror` to avoid naming what can go wrong. (`references/errors.md`
-  ZS-ERR-11).
+  ZS-ERR-05, ZS-ERR-10).
 - **ZS-CORE-20 `[M!]`** No recursion — it makes bounds unprovable. *Relaxed form:* recursion is
   allowed when the depth is bounded by a comptime constant and that bound is asserted at entry.
-  (`references/errors.md` ZS-ERR-23).
+  (`references/errors.md` ZS-ERR-21).
 - **ZS-CORE-21 `[M!]`** Hard limit of 70 lines per function. Centralize control flow in the parent
   and push non-branching work into leaf helpers — "push `if`s up and `for`s down". Aim for the
   inverse of an hourglass: few parameters, a simple return type, meaty logic between the braces.
-  *Relaxed form:* a function longer than one screen needs a stated reason. See
-  `references/errors.md`. (`references/errors.md` ZS-ERR-34).
+  *Relaxed form:* a function longer than one screen needs a stated reason. (`references/errors.md`
+  ZS-ERR-30; `references/performance.md` ZS-PERF-13).
 
 ### Interfaces and abstraction
 
@@ -461,26 +455,26 @@ they are binding on their own.
   union — and name it before writing the type that provides it, then program against that shape. A
   boundary designed first stays total and symmetric; one discovered later is shaped by whichever
   implementation came first. Abstractions are never zero-cost, so choose which cost you pay
-  deliberately (`references/comptime.md` ZS-COMPTIME-01, ZS-COMPTIME-13, ZS-COMPTIME-21).
+  deliberately (`references/comptime.md` ZS-COMPTIME-10, ZS-COMPTIME-16).
 - **ZS-CORE-23 `[M]`** For runtime polymorphism, use the std vtable pattern (`{ userdata:
   *anyopaque, vtable: *const VTable }`, or an embedded `interface` field recovered with
   `@fieldParentPtr`) — the shape `std.mem.Allocator`, `std.Io`, and `std.Io.Writer` all use. For a
   closed set of variants, use a tagged union and an exhaustive `switch`.
-  (`references/comptime.md` ZS-COMPTIME-22).
+  (`references/comptime.md` ZS-COMPTIME-17, ZS-COMPTIME-18, ZS-COMPTIME-20).
 - **ZS-CORE-24 `[M]`** Reduce dimensionality at the call site: `void` beats `bool`, `bool` beats
   `u64`, `u64` beats `?u64`, `?u64` beats `!u64`. Every extra dimension propagates up the call
-  chain. (`references/data.md` ZS-DATA-30).
+  chain. (`references/data.md` ZS-DATA-27).
 
 ### Comments and commits
 
 - **ZS-CORE-25 `[M]`** Always say **why**. Code documents what it does; comments exist to record
   the reasoning, the alternative rejected, and the constraint that is not visible locally.
-  (`references/naming.md` ZS-NAME-27).
+  (`references/naming.md` ZS-NAME-22).
 - **ZS-CORE-26 `[S]`** Comments are prose: a space after `//`, a capital letter, a full stop — or
   a colon when they introduce what follows. End-of-line comments may be bare phrases.
-  (`references/naming.md` ZS-NAME-28).
-- **ZS-CORE-27 `[S]`** (owned by `references/performance.md` ZS-PERF-18)
-  Pass options explicitly rather than relying on library defaults:
+  (`references/naming.md` ZS-NAME-23).
+- **ZS-CORE-27 `[M]`** (owned by `references/performance.md` ZS-PERF-17)
+  Spell out the options that decide behaviour rather than inheriting library defaults:
   `@prefetch(a, .{ .cache = .data, .rw = .read, .locality = 3 })` over `@prefetch(a, .{})`. Defaults
   change; call sites do not get re-reviewed when they do.
 
@@ -498,7 +492,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
    `DebugAllocator`, `std.fmt.allocPrint`/`bufPrint`, `getLast`, the `*BitSet` names,
    `lazyDependency`, `utf8Decode`/`wtf8Decode`, `std.debug.runtime_safety`. Then re-read every
    `containsAtLeastScalar` call and every `@hasDecl` on a private declaration: both compile and now
-   mean something else. `references/migration.md` ZS-MIG-14 carries the complete
+   mean something else. `references/migration.md` ZS-MIG-13 carries the complete
    denylist as one runnable `rg`; run that rather than eyeballing this sentence.
    And any `{}` applied to a type that defines `format`: that silently prints a default struct dump
    instead of calling it — it must be `{f}`.
@@ -506,7 +500,8 @@ protocol — severity model, mechanical pass, output format — in `references/r
    level, and proved by the test allocator? Any pointer held across a container mutation?
    Allocators named for their lifetime?
 3. **Illegal behaviour.** Any `@intCast`/`@truncate` that can silently lose data, an index used
-   where a count belongs, or division whose intent is not shown with `@divExact`/`@divFloor`?
+   where a count belongs, or division whose intent is not shown with `@divExact`, `@divFloor` or
+   `@divCeil`?
 4. **Errors.** Every error handled and named? Any `catch unreachable` that can really fire? Any
    `errdefer` missing on a multi-step construction? Every buffered writer flushed on every success
    path?
@@ -516,7 +511,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 6. **Public API.** Units last and descending, receivers named after their type rather than `self`,
    no abbreviations? Unpaired operations, siblings disagreeing on parameter order, error-set members
    with uneven detail, two mechanisms for one concept, a branch that exists for one input
-   (`ZS-DATA-39` … `ZS-DATA-41`, `ZS-ERR-37`, `ZS-ERR-38`, `ZS-NAME-35` … `ZS-NAME-37`)?
+   (`ZS-DATA-36` … `ZS-DATA-38`, `ZS-ERR-33`, `ZS-ERR-34`, `ZS-NAME-28` … `ZS-NAME-30`)?
 7. **Concurrency.** Every `Io.async` awaited or cancelled, every `Group` and `Select` closed, and
    nothing held across a suspension point?
 8. **Function bodies.** `zig fmt` clean, ≤100 columns, functions that fit on a screen, control flow
@@ -530,23 +525,23 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The 29
-`ZS-CORE-*` rules live in section 4 above; the other 405 live here.
+`ZS-CORE-*` rules live in section 4 above; the other 356 live here.
 
 | File | Rule IDs | Covers |
 |---|---|---|
-| `references/naming.md` | `ZS-NAME` (37) | Naming rules in full, file and module layout, declaration order, doc comments, formatting |
-| `references/data.md` | `ZS-DATA` (41) | Integer choice, off-by-one discipline, casts, struct design, decl literals, result location semantics, in-place init, layout, data-oriented design |
-| `references/errors.md` | `ZS-ERR` (38) | Error sets, `try`/`catch`/`errdefer`, the error-vs-assert-vs-panic decision table, labeled switch, `@branchHint`, logging |
-| `references/memory.md` | `ZS-MEM` (28) | Allocator taxonomy, the allocator vtable, ownership rules, arena patterns, the static-allocation tiering |
-| `references/concurrency.md` | `ZS-CONC` (48) | `std.Io` in full: `Reader`/`Writer`, custom streams, `Io.Dir`/`Io.File`, `async`/`concurrent`/`Group`/`Select`, cancellation, timeouts |
-| `references/output.md` | `ZS-OUT` (20) | `{}` vs `{f}`, the specifier set, custom `format` methods, `std.fmt`, program output vs logging vs `std.debug.print` |
-| `references/performance.md` | `ZS-PERF` (24) | Design-phase performance, back-of-envelope sketches, batching, `@branchHint`/`@prefetch`/`@Vector`, and the locality discipline (smallest scope, no aliasing, POCPOU, pure leaves) |
-| `references/interop.md` | `ZS-INTEROP` (23) | `export`/`extern`/`callconv(.c)`, `[*c]` pointers, C strings and integers, callbacks with `userdata`, plus freestanding/WASM/single-threaded targets |
-| `references/assertions.md` | `ZS-ASSERT` (33) | Assertion philosophy and density, pair assertions, comptime assertions, build-mode mechanics, `_max` constants |
-| `references/comptime.md` | `ZS-COMPTIME` (28) | comptime rules, `anytype` and its costs, type introspection, the three interface shapes, anti-patterns |
-| `references/testing.md` | `ZS-TEST` (29) | `std.testing` in 0.17, `Smith` fuzzing, allocation-failure testing, deterministic simulation |
-| `references/build.md` | `ZS-BUILD` (42) | Annotated `build.zig` and `build.zig.zon`, dependencies, project layout, build modes, CI |
-| `references/migration.md` | `ZS-MIG` (14) | Complete 0.13→0.17 migration tables and a stale-code smell test |
+| `references/naming.md` | `ZS-NAME` (30) | Naming rules in full, file and module layout, declaration order, doc comments, formatting |
+| `references/data.md` | `ZS-DATA` (38) | Integer choice, off-by-one discipline, casts, struct design, decl literals, result location semantics, in-place init, layout, data-oriented design |
+| `references/errors.md` | `ZS-ERR` (34) | Error sets, `try`/`catch`/`errdefer`, the error-vs-assert-vs-panic decision table, labeled switch, `@branchHint`, logging |
+| `references/memory.md` | `ZS-MEM` (26) | Allocator taxonomy, the allocator vtable, ownership rules, arena patterns, the static-allocation tiering |
+| `references/concurrency.md` | `ZS-CONC` (44) | `std.Io` in full: `Reader`/`Writer`, custom streams, `Io.Dir`/`Io.File`, `async`/`concurrent`/`Group`/`Select`, cancellation, timeouts |
+| `references/output.md` | `ZS-OUT` (17) | `{}` vs `{f}`, the specifier set, custom `format` methods, `std.fmt`, program output vs logging vs `std.debug.print` |
+| `references/performance.md` | `ZS-PERF` (21) | Design-phase performance, back-of-envelope sketches, batching, `@branchHint`/`@prefetch`/`@Vector`, and the locality discipline (smallest scope, no aliasing, POCPOU, pure leaves) |
+| `references/interop.md` | `ZS-INTEROP` (21) | `export`/`extern`/`callconv(.c)`, `[*c]` pointers, C strings and integers, callbacks with `userdata`, plus freestanding/WASM/single-threaded targets |
+| `references/assertions.md` | `ZS-ASSERT` (26) | Assertion philosophy and density, pair assertions, comptime assertions, build-mode mechanics, `_max` constants |
+| `references/comptime.md` | `ZS-COMPTIME` (21) | comptime rules, `anytype` and its costs, type introspection, the three interface shapes, anti-patterns |
+| `references/testing.md` | `ZS-TEST` (26) | `std.testing` in 0.17, `Smith` fuzzing, allocation-failure testing, deterministic simulation |
+| `references/build.md` | `ZS-BUILD` (39) | Annotated `build.zig` and `build.zig.zon`, dependencies, project layout, build modes, CI |
+| `references/migration.md` | `ZS-MIG` (13) | Complete 0.13→0.17 migration tables and a stale-code smell test |
 | `references/review-checklist.md` | — | The audit protocol: seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |
 
 ## 7. Bundled assets
@@ -559,4 +554,4 @@ asset and the rule cannot drift apart.
 |---|---|
 | `assets/build.zig` | The complete library + CLI `build.zig` from ZS-BUILD-01, at 0.17.0: module-level `target`/`optimize`, one test binary per module, a separate `test-integration` step, a host-only codegen tool, and the `fmt` and `check` steps (`check` is the build-on-save step ZLS used; no ZLS release supports 0.17.0) |
 | `assets/build.zig.zon` | The annotated manifest from ZS-BUILD-10…12: enum-literal `.name`, the `.fingerprint` warning, what `.minimum_zig_version` does and does not do, and `.paths` as the thing that defines the package hash |
-| `assets/ci.yml` | The five CI requirements of ZS-BUILD-34 as a workflow — pinned toolchain, `fmt --check --ast-check`, `debug` and `safe`, the cross-compile matrix of ZS-BUILD-33, and a cache key naming every matrix axis. Only the `run:` lines are rules; verify the action versions yourself |
+| `assets/ci.yml` | The five CI requirements of ZS-BUILD-32 as a workflow — pinned toolchain, `fmt --check --ast-check`, `debug` and `safe`, the cross-compile matrix of ZS-BUILD-31, and a cache key naming every matrix axis. Only the `run:` lines are rules; verify the action versions yourself |

@@ -48,7 +48,7 @@ each stage can invalidate the work of reading the next.
    `ZS-CORE-11`, `ZS-CORE-20`)
 6. **Public API.** What is newly `pub`? Is the ownership documented? Is the
    error set explicit and minimal? Would a caller be able to tell from the
-   signature who frees what? (`ZS-NAME-23`, `ZS-ERR`)
+   signature who frees what? (`ZS-NAME-19`, `ZS-ERR`)
 7. **Concurrency.** Every `Io.async` without a matching `await`, every
    `Group`/`Select`, cancellation paths, and anything holding a resource across
    a suspension point. (`ZS-CONC`)
@@ -67,50 +67,33 @@ Run these before reading anything, and report what could not be run rather than
 implying it passed.
 
 ```sh
-zig fmt --check --ast-check .
+zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .  # ZS-BUILD-29
 zig build check                       # semantic check, no binary emitted
 zig build test                        # debug
-zig build test -Doptimize=safe        # ZS-TEST-27: the suite must pass in both
+zig build test -Doptimize=safe        # ZS-TEST-25: the suite must pass in both
 zig build test-integration
-zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-33)
+zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-31)
 ```
 
 ### Stale-API greps
 
-These are the highest-yield greps in this file, because most of them find code
-that still **compiles**. At 0.17.0, `std.io` is gone
-(`root source file struct 'std' has no member named 'io'`), while
-`std.mem.indexOf`, `std.builtin`, `@import("builtin").mode`,
-`std.heap.DebugAllocator` and `std.fmt.allocPrint` still resolve as deprecated
-aliases and warn about nothing.
+These are the highest-yield greps in this file, because they find code that still **compiles**.
+Run the denylist of `references/migration.md` ZS-MIG-13: it carries every alias row of that chapter
+as one `rg` whose exit status is the gate, so there is no second copy to drift from it here. Then
+read each call site this one finds — the spelling did not change, and its meaning did:
 
 ```sh
-rg -n '\bstd\.io\b'                     # Writergate: std.io no longer exists
-rg -n 'std\.fs\.(cwd|Dir|File)\b'       # use std.Io.Dir / std.Io.File
-rg -n 'GeneralPurposeAllocator'         # now std.heap.SafeAllocator
-rg -n 'DebugAllocator|heap\.Check\b'    # SILENT alias — now std.heap.SafeAllocator
-rg -n '\.init\(\s*(gpa|allocator|alloc)' # managed containers are gone
-rg -n 'std\.mem\.(last)?[iI]ndexOf'     # SILENT alias — now find/findLast
-rg -n 'std\.(Thread\.(Mutex|Condition|Semaphore|RwLock|WaitGroup)|time\.sleep)' # moved onto std.Io
-rg -n 'pub fn main\(\)'                 # since 0.16, main takes std.process.Init
-rg -n 'usingnamespace'                  # removed from the language
-rg -n 'fn format\([^)]*fmt|fn format\([^)]*options' # since 0.16, format takes only a writer
-rg -n 'std\.builtin\b|\bbuiltin\.mode\b|OptimizeMode' # SILENT alias — std.lang, builtin.optimize
-rg -n '\.(Debug|Release(Safe|Fast|Small))\b' # SILENT as a value — .debug .safe .fast .small
-rg -n '\bbuiltin\.(cpu|os|abi|object_format)\b' # SILENT alias — builtin.target.*
-rg -n 'fmt\.((alloc|buf)Print(Sentinel)?|BufPrintError)\b' # SILENT alias — gpa.print, std.mem.print
-rg -n 'getLast(OrNull)?\('              # SILENT alias — last()
-rg -n 'containsAtLeastScalar\('         # 0.17 swapped the last two parameters: (element, minimum)
+rg -n 'containsAtLeastScalar\(|@hasDecl\(' # 0.17: (element, minimum); pub declarations only
 ```
 
-The `.(Debug|Release…)` grep also hits a user enum that happens to use those tag
-names; read each hit before renaming it.
+A spelling 0.17 removed needs no grep: `zig build check` in the mechanical pass rejects it, and the
+diagnostic names its row in `references/migration.md`.
 
 ### Discipline greps
 
 ```sh
 rg -n 'catch unreachable'               # operating error asserted away?
-rg -n 'catch \{\}|catch \|_\|'          # swallowed error
+rg -n 'catch \{\}'                      # swallowed error
 rg -n '@(intCast|ptrCast|alignCast|bitCast)' # each needs an established precondition
 rg -n '\bundefined\b'                   # every one is a proof obligation
 rg -n 'anyerror'                        # widening in a public signature
@@ -131,9 +114,9 @@ the two or three findings that deserve discussion.
 
 | Severity | Rule | Location | Finding | Fix |
 |---|---|---|---|---|
-| Stale | ZS-MIG-06 | `src/scan.zig:41` | `std.mem.indexOf` — compiles, but is the pre-0.16 name | Rename to `std.mem.find`; it is a pure rename |
-| Unsound | ZS-MEM-11 | `src/index.zig:88` | Pointer into `list.items` held across an `append` | Re-index after the append, or reserve capacity up front |
-| Contract | ZS-ERR-14 | `src/api.zig:12` | Public `parse` returns `anyerror` | Declare the explicit error set |
+| Stale | ZS-MIG-05 | `src/scan.zig:41` | `std.mem.indexOf` — compiles, but is the pre-0.16 name | Rename to `std.mem.find`; it is a pure rename |
+| Unsound | ZS-MEM-15 | `src/index.zig:88` | Pointer into `list.items` held across an `append` | Re-index after the append, or reserve capacity up front |
+| Contract | ZS-ERR-05 | `src/api.zig:12` | Public `parse` returns `anyerror` | Declare the explicit error set |
 
 ## Discussion
 
@@ -165,7 +148,7 @@ Rules for the review itself:
 Do it in this order, one mechanical step per commit, so that each commit is
 reviewable and revertible:
 
-1. Fix stale API spellings, one table from `migration-and-dead-apis.md` per
+1. Fix stale API spellings, one table of `references/migration.md` per
    commit. These are pure renames with no behaviour change, so they should never
    share a commit with anything else.
 2. Fix ownership: move stored allocators to parameters, pair every allocation

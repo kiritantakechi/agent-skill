@@ -34,13 +34,13 @@ class ZigStyle(Profile):
     )
     exempt: dict[str, Exemption] = field(
         default_factory=lambda: {
-            # ZS-NAME-14: "keep `self` for anonymous generic containers"
+            # ZS-NAME-12: "keep `self` for anonymous generic containers"
             # — a receiver typed `Self` is the case the rule permits.
-            "ZS-NAME-14": lambda lines, at, _in_test: "Self" in lines[at.start - 1],
-            # ZS-TEST-11: "`rg …` inside `test` blocks — every hit must
+            "ZS-NAME-12": lambda lines, at, _in_test: "Self" in lines[at.start - 1],
+            # ZS-TEST-09: "`rg …` inside `test` blocks — every hit must
             # be on an `errdefer` line". Container-scope logging is not
             # the target.
-            "ZS-TEST-11": lambda lines, at, in_test: (
+            "ZS-TEST-09": lambda lines, at, in_test: (
                 (at.start - 1) not in in_test or "errdefer" in lines[at.start - 1]
             ),
         }
@@ -57,7 +57,7 @@ class ZigStyle(Profile):
             # narrowed to match nothing without this noticing. Each is
             # the *old* spelling from that pattern's own row in the
             # table, written as the call site had it.
-            "ZS-MIG-13": (
+            "ZS-MIG-12": (
                 "const seen = EnumSet(Color).initEmpty();",
                 (
                     "try std.tar.pipeToFileSystem("
@@ -76,30 +76,30 @@ class ZigStyle(Profile):
     #: fields away and nothing re-measures.
     not_decisive: dict[str, NotDecisive] = field(
         default_factory=lambda: {
-            "ZS-INTEROP-09": NotDecisive(
+            "ZS-INTEROP-08": NotDecisive(
                 "c_int",
                 "the span finds every C type; whether the hit is inside the "
                 "designated boundary module decides, and a line does not say which "
                 "file it is in",
             ),
-            "ZS-INTEROP-10": NotDecisive(
+            "ZS-INTEROP-09": NotDecisive(
                 "[*c]",
                 "the span finds every `[*c]`; whether it is a parameter of an "
                 "`export fn` or a `callconv(.c)` function — the one place it is "
                 "allowed — decides",
             ),
-            "ZS-COMPTIME-13": NotDecisive(
+            "ZS-COMPTIME-10": NotDecisive(
                 "comptime T: type",
                 "the span finds every `comptime` parameter; how many distinct "
                 "arguments its call sites pass decides, which is a count over the "
                 "whole tree",
             ),
-            "ZS-ERR-03": NotDecisive(
+            "ZS-ERR-02": NotDecisive(
                 "@panic(",
                 "the span finds every `@panic(`; whether the file is a library rather "
                 "than `main` or `build.zig` decides",
             ),
-            "ZS-ERR-04": NotDecisive(
+            "ZS-ERR-03": NotDecisive(
                 ") ![",
                 "the span finds every inferred error set; whether the function is "
                 "`pub`, and neither `main` nor a test, decides",
@@ -109,19 +109,19 @@ class ZigStyle(Profile):
                 "the span finds every `{b64}`; whether a width or precision is "
                 "applied to it over a slice decides, and both spellings build cleanly",
             ),
-            "ZS-CONC-18": NotDecisive(
+            "ZS-CONC-16": NotDecisive(
                 "w.buffered()",
                 "the span finds every `w.buffered()`; whether it runs before the "
                 "first emit in a `drain` body decides, which is an ordering the line "
                 "does not carry",
             ),
-            "ZS-MEM-08": NotDecisive(
+            "ZS-MEM-07": NotDecisive(
                 ".allocator()",
                 "the span finds every `.allocator()`; whether its receiver is a local "
                 "`var` in the same frame that returns decides, which is a fact about "
                 "the declaration above it",
             ),
-            "ZS-MIG-12": NotDecisive(
+            "ZS-MIG-11": NotDecisive(
                 "root_source_file",
                 "the span finds every `root_source_file`; whether it sits inside a "
                 "`createModule` literal rather than an `addExecutable` one decides",
@@ -136,31 +136,27 @@ class ZigStyle(Profile):
                 "the span finds every `*Self` receiver; whether the helper assigns to "
                 "a field the parent could apply instead decides",
             ),
-            "ZS-PERF-18": NotDecisive(
+            "ZS-PERF-17": NotDecisive(
                 "@prefetch(",
                 "the span finds every `@prefetch(`; whether its options literal "
                 "spells every field out, rather than leaning on defaults, decides",
             ),
-            "ZS-TEST-06": NotDecisive(
+            "ZS-TEST-04": NotDecisive(
                 "@as(",
                 "the span finds every `@as(`; whether it wraps an `expectEqual` "
                 "argument, where it is the wrapper the rule removes, decides",
             ),
-            "ZS-TEST-18": NotDecisive(
+            "ZS-TEST-16": NotDecisive(
                 ".init(seed)",
                 "the span finds every seeded PRNG; whether it is the simulation's "
                 "*second* one decides, which is a count over the test body",
             ),
-            "ZS-BUILD-19": NotDecisive(
-                "returns hits only from that file",
+            "ZS-ASSERT-21": NotDecisive(
+                "returns hits only from",
                 "the Check asks which file a `_max` lives in, which a standalone "
                 "block cannot answer",
             ),
-            "ZS-MIG-04": NotDecisive(
-                "every hit must read",
-                "the pattern finds `format` methods; the signature decides",
-            ),
-            "ZS-BUILD-27": NotDecisive(
+            "ZS-BUILD-25": NotDecisive(
                 ".github/ build.zig scripts/",
                 "scoped to the build and release scripts, where a hit is licensed "
                 "by a benchmark the pattern cannot see",
@@ -168,12 +164,12 @@ class ZigStyle(Profile):
             # Polarity: this Check asserts the shape is *present*, so
             # its hits are evidence of compliance and reading them as
             # defects inverts the rule.
-            "ZS-BUILD-39": NotDecisive(
+            "ZS-BUILD-36": NotDecisive(
                 "has this block",
                 "a presence assertion, and scoped to `build.zig`: the finding is a "
                 "missing guard, which no hit can show",
             ),
-            "ZS-TEST-15": NotDecisive(
+            "ZS-TEST-13": NotDecisive(
                 "is the finding",
                 "the pattern finds every PRNG; the `.init(` seed argument decides, and "
                 "`std.testing.random_seed` is the compliant one",
@@ -362,7 +358,7 @@ class ZigStyle(Profile):
                 where = f"{b.file}:{b.at(j)} [{b.rule}]"
                 code = strip_comment(raw)
 
-                # ZS-ERR-08 [M] — every `catch {}` or
+                # ZS-ERR-07 [M] — every `catch {}` or
                 # `catch unreachable` carries a comment. The comment may
                 # sit on the line above.
                 justified = "//" in raw or any(
@@ -370,24 +366,24 @@ class ZigStyle(Profile):
                 )
                 if re.search(r"catch\s*(\{\s*\}|unreachable)", code) and not justified:
                     yield fail(
-                        "`catch` swallows without the comment ZS-ERR-08 requires", where
+                        "`catch` swallows without the comment ZS-ERR-07 requires", where
                     )
 
-                # ZS-ERR-30 [M] — "every hit is a defect, including
+                # ZS-ERR-26 [M] — "every hit is a defect, including
                 # inside `comptime` blocks and `const` initializers"
-                if ".?" in code and b.rule != "ZS-ERR-30":
+                if ".?" in code and b.rule != "ZS-ERR-26":
                     yield fail(
-                        "`.?` unwrap; ZS-ERR-30 asks for `orelse`, a capture, or "
+                        "`.?` unwrap; ZS-ERR-26 asks for `orelse`, a capture, or "
                         "`orelse unreachable` with the proof beside it",
                         where,
                     )
 
-                # ZS-TEST-06 [M] — "drop the `@as` wrapper": peer
+                # ZS-TEST-04 [M] — "drop the `@as` wrapper": peer
                 # resolution already handles a literal on the other side
                 if re.search(r"expectEqual\(@as\([a-zA-Z0-9_]+, [^()]*\), ", code):
                     yield fail(
                         "`@as` wrapper inside `expectEqual`; peer resolution already "
-                        "handles it (ZS-TEST-06)",
+                        "handles it (ZS-TEST-04)",
                         where,
                     )
 
@@ -396,7 +392,7 @@ class ZigStyle(Profile):
                         "doc comment discusses the example rather than the API", where
                     )
 
-            # ZS-NAME-19 — "Order imports `@This()` → `builtin` → `std`
+            # ZS-NAME-16 — "Order imports `@This()` → `builtin` → `std`
             # → local". The rule is [S], but a suggestion the library
             # declines to follow in its own examples is not a
             # suggestion.
@@ -412,7 +408,7 @@ class ZigStyle(Profile):
                 and imports["builtin"] > imports["std"]
             ):
                 yield fail(
-                    '`@import("builtin")` below `@import("std")` (ZS-NAME-19)',
+                    '`@import("builtin")` below `@import("std")` (ZS-NAME-16)',
                     f"{b.file}:{b.at(imports['builtin'])} [{b.rule}]",
                 )
 
@@ -423,7 +419,7 @@ class ZigStyle(Profile):
 
     @override
     def prose(self, skill: Skill) -> Iterable[Finding]:
-        """ZS-ERR-30 forbids `.?` outright.
+        """ZS-ERR-26 forbids `.?` outright.
 
         Prose naming it is therefore either hunting it (inside a
         `**Check:**`) or is the rule that bans it. Anything else is the
@@ -434,11 +430,11 @@ class ZigStyle(Profile):
         span = re.compile(r"`[^`\n]*\.\?[^`\n]*`")
         for chapter in skill.chapters:
             for i, line, rid, in_check in _prose_lines(chapter.text, skill.prefix):
-                if rid == "ZS-ERR-30" or in_check or "ZS-ERR-30" in line:
+                if rid == "ZS-ERR-26" or in_check or "ZS-ERR-26" in line:
                     continue
                 if span.search(line):
                     yield fail(
-                        "prose names `.?` outside a **Check:** and outside ZS-ERR-30",
+                        "prose names `.?` outside a **Check:** and outside ZS-ERR-26",
                         f"{chapter.name}:{i} [{rid}]",
                     )
 

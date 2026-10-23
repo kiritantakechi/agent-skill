@@ -6,7 +6,7 @@ and the shape of the control flow in between (conditions, loops, `switch`, label
 `@branchHint`, and the 70-line function limit).
 
 This chapter does not own assertion *density* or the design of bounded limits — those are
-`references/assertions.md` ZS-ASSERT-11 and ZS-ASSERT-27. Allocator ownership and OOM
+`references/assertions.md` ZS-ASSERT-09 and ZS-ASSERT-23. Allocator ownership and OOM
 lifetimes are `references/memory.md`; `std.Io` stream errors and cancellation are
 `references/concurrency.md`; error-name formatting with `{t}` is
 `references/output.md` ZS-OUT-05. It cites them.
@@ -17,52 +17,48 @@ Blocks that do not declare their own imports assume a file opening with
 
 - **1. The decision table: error vs assert vs panic vs unreachable vs optional**
   - ZS-ERR-01 [M] Classify a failure as a programmer error or an operating condition first
-  - ZS-ERR-02 [M] Return an optional for absence; reserve the error union for failure
-  - ZS-ERR-03 [M] A library never panics, never exits, never prints
+  - ZS-ERR-02 [M] A library never panics, never exits, never prints
 - **2. Error sets**
-  - ZS-ERR-04 [M] Name the error set of every public function; infer only for private helpers
-  - ZS-ERR-05 [S] Compose sets with `||`; name a composed set after the verb it belongs to
-  - ZS-ERR-06 [M] Never put `anyerror` in a public signature
-  - ZS-ERR-07 [S] Use `error{}!T` to state that a path cannot fail
+  - ZS-ERR-03 [M] Name the error set of every public function; infer only for private helpers
+  - ZS-ERR-04 [S] Compose sets with `||`; name a composed set after the verb it belongs to
+  - ZS-ERR-05 [M] Never put `anyerror` in a public signature
+  - ZS-ERR-06 [S] Use `error{}!T` to state that a path cannot fail
 - **3. `try`, `catch`, and `catch unreachable`**
-  - ZS-ERR-08 [M] `try` is the default; every `catch {}` or `catch unreachable` carries a comment
-  - ZS-ERR-09 [M] Switch on the captured error, and omit `else` when the set is explicit
-  - ZS-ERR-10 [M] `catch unreachable` is a latent bug unless the proof is in a comment next to it
-  - ZS-ERR-11 [M] Every error is handled somewhere; `catch {}` needs a justification comment
+  - ZS-ERR-07 [M] Make `try` the default, and take every other form from this table
+  - ZS-ERR-08 [M] Switch on the captured error, and omit `else` when the set is explicit
+  - ZS-ERR-09 [M] `catch unreachable` is a latent bug unless the proof is in a comment next to it
+  - ZS-ERR-10 [M] Every error is handled somewhere; `catch {}` needs a justification comment
 - **4. `defer` and `errdefer`**
-  - ZS-ERR-12 [M] Put the release on the line immediately after the acquisition (see ZS-MEM-11)
-  - ZS-ERR-13 [M] Order `defer`/`errdefer` so LIFO teardown cannot outrun what a handler reads
-  - ZS-ERR-14 [M] Stop the `errdefer` at the point ownership transfers
-  - ZS-ERR-15 [M] A `defer` in a loop body runs each iteration, not at function exit
-  - ZS-ERR-16 [S] Log the unwinding error in the caller's `catch`; keep `errdefer` uniform
+  - ZS-ERR-11 [M] Order `defer`/`errdefer` so LIFO teardown cannot outrun what a handler reads
+  - ZS-ERR-12 [M] Stop the `errdefer` at the point ownership transfers
+  - ZS-ERR-13 [M] A `defer` in a loop body runs each iteration, not at function exit
+  - ZS-ERR-14 [S] Log the unwinding error in the caller's `catch`; keep `errdefer` uniform
 - **5. Error return traces**
-  - ZS-ERR-17 [M] Propagate with `try` or `return err`; never launder an error through an optional
+  - ZS-ERR-15 [M] Propagate with `try` or `return err`; never launder an error through an optional
 - **6. Simple, explicit control flow (TigerStyle)**
-  - ZS-ERR-18 [M] Split compound conditions into separate checks
-  - ZS-ERR-19 [S] Prefer a `switch` to an `else if` chain; if you flatten chains into trees, say why
-  - ZS-ERR-20 [M] State invariants positively when an `if`/`else` splits the input space
-  - ZS-ERR-21 [S] An `if` with no `else` over a validated domain carries a comment or an assertion
-  - ZS-ERR-22 [M] Braces, unless the whole statement fits on one line
-  - ZS-ERR-23 [M!] No recursion; where recursion is allowed, bound the depth explicitly
-  - ZS-ERR-24 [M] Every loop has a provable upper bound (see ZS-ASSERT-27)
-  - ZS-ERR-25 [M!] Push `if`s up and `for`s down
+  - ZS-ERR-16 [M] Split compound conditions into separate checks
+  - ZS-ERR-17 [S] Prefer a `switch` to an `else if` chain; if you flatten chains into trees, say why
+  - ZS-ERR-18 [M] State invariants positively when an `if`/`else` splits the input space
+  - ZS-ERR-19 [S] An `if` with no `else` over a validated domain carries a comment or an assertion
+  - ZS-ERR-20 [M] Braces, unless the whole statement fits on one line
+  - ZS-ERR-21 [M!] No recursion; where recursion is allowed, bound the depth explicitly
+  - ZS-ERR-22 [M!] Push `if`s up and `for`s down
 - **7. Modern Zig control flow the standard prefers**
-  - ZS-ERR-26 [S] Use labeled `switch` with `continue :label` for state machines and dispatch loops
-  - ZS-ERR-27 [S] Use a labeled block to compute a value that needs statements
-  - ZS-ERR-28 [M] Switch exhaustively with no `else`; use `_` on non-exhaustive enums
-  - ZS-ERR-29 [S] Use `inline for` / `inline else` only on a small comptime-known set
-  - ZS-ERR-30 [M] Unwrap optionals with `orelse` or a capture, never with `.?`
-  - ZS-ERR-31 [M] Replace `@setCold` with `@branchHint`; placing hints on hot paths is `[S]`
+  - ZS-ERR-23 [S] Use labeled `switch` with `continue :label` for state machines and dispatch loops
+  - ZS-ERR-24 [S] Use a labeled block to compute a value that needs statements
+  - ZS-ERR-25 [M] Switch exhaustively with no `else`; use `_` on non-exhaustive enums
+  - ZS-ERR-26 [M] Unwrap optionals with `orelse` or a capture, never with `.?`
+  - ZS-ERR-27 [S] Mark cold and likely paths with `@branchHint`, as the branch's first statement
 - **8. Logging**
-  - ZS-ERR-32 [M] A library logs through a scoped `std.log` namespace
-  - ZS-ERR-33 [S] Use std's four log levels, configured from the root file
+  - ZS-ERR-28 [M] A library logs through a scoped `std.log` namespace
+  - ZS-ERR-29 [S] Use std's four log levels, configured from the root file
 - **9. Function shape, user-facing diagnostics, and stack traces**
-  - ZS-ERR-34 [M!] Hard limit of 70 lines per function; shape it like an inverse hourglass
-  - ZS-ERR-35 [S] Report position and context through a `*Diagnostics`, not the error set
-  - ZS-ERR-36 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
+  - ZS-ERR-30 [M!] Hard limit of 70 lines per function
+  - ZS-ERR-31 [S] Report position and context through a `*Diagnostics`, not the error set
+  - ZS-ERR-32 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
 - **Uniformity of failure and control flow**
-  - ZS-ERR-37 [M] Give the members of one error set a uniform shape
-  - ZS-ERR-38 [M] Absorb a special case into the general path, or give it its own type
+  - ZS-ERR-33 [M] Give the members of one error set a uniform shape
+  - ZS-ERR-34 [M] Absorb a special case into the general path, or give it its own type
 - Decided by tools
 
 ---
@@ -75,14 +71,21 @@ TigerStyle's framing is the whole design: **assertions detect programmer errors,
 unexpected and whose only correct handling is to crash; errors are operating conditions, which are
 expected and must be handled.** Pick the mechanism from the classification, not from convenience.
 
+The test is who can violate the condition. If anything outside your process can — a peer, a file,
+a user, the network, the disk — it is an operating condition and an error union. If only your own
+code being wrong can, it is an assertion. An assertion that fires on hostile input is a remote
+denial of service, and in a `fast` build a remote memory-safety bug (`references/assertions.md`
+ZS-ASSERT-03).
+
 **Why:** the two have opposite correct responses. After a violated precondition the program's model
 of itself is wrong, and continuing corrupts more state; a failed `open()` means the *world* did not
 cooperate, and crashing there turns a recoverable situation into an outage.
 
-**Check:** an `assert` on a value that arrived from `read`, `argv`, an environment variable, or a
-`pub` parse entry point — that is an operating condition asserted. And the mirror image: an error
-set member named `Invariant*`, `Corrupt*`, `Impossible*`, or `ShouldNotHappen` — a programmer
-error returned.
+**Check:** an `assert` on a value that arrived from a socket or file read, `argv`, an environment
+variable, or a `pub` parse entry point — anything the process did not compute itself — is an
+operating condition asserted. And the mirror image: an error set member named `Invariant*`,
+`Corrupt*`, `Impossible*`, or `ShouldNotHappen` returned from a private helper — a programmer error
+returned.
 
 | Situation | Mechanism | Notes |
 |---|---|---|
@@ -91,8 +94,8 @@ error returned.
 | A relationship between compile-time constants or type sizes | `comptime assert(cond)` / `@compileError` | Fails before the program runs. Always cheaper than a runtime check. |
 | The environment failed: I/O, OOM, parse failure, network, permission, malformed input from outside | **return an error** | Operating condition. Expected. Must be handled by someone. |
 | A value is legitimately absent, and absence is not a failure (cache miss, "no such key") | **return an optional `?T`** | An error union here forces callers to write `catch` for a non-event. |
-| A library cannot continue | **return an error** | Never `@panic`, never `std.process.exit`. See ZS-ERR-03. |
-| An application's top level cannot continue | `std.process.fatal(fmt, args)` | `= std.log.err(fmt, args); exit(1);` (the body of `std.process.fatal`). The right CLI failure primitive. |
+| A library cannot continue | **return an error** | Never `@panic`, never `std.process.exit`. See ZS-ERR-02. |
+| An application's top level cannot continue | `std.process.fatal(fmt, args)` | `= std.log.err(fmt, args); exit(1);` (the body of `std.process.fatal`). The right CLI failure primitive. It takes exactly two parameters, `(comptime format: []const u8, format_arguments: anytype)`; TigerBeetle's `fatal` with a leading `reason` enum is a project-local helper. |
 | An application aborts with a fixed message | `@panic("literal")` | What std does: 352 `@panic(` sites vs only 7 `std.debug.panic(`. |
 | An application aborts and the message needs formatting | `std.debug.panic(fmt, args)` | Or `std.debug.panicExtra(ret_addr, fmt, args)` to control the first trace frame. |
 | A build script cannot continue | `catch @panic("OOM")` | Sanctioned **only** in `build.zig`; all 174 `@panic("OOM")` sites in std are under `Build.zig`. |
@@ -116,69 +119,61 @@ fn parseHeader(bytes: []const u8) error{Truncated}!u32 {
 }
 ```
 
-Corollary: `std.debug.assert` is an ordinary function — `pub fn assert(ok: bool) void { if (!ok)
-unreachable; }` — so in `fast`/`small` builds the *check* disappears but the *condition is still
-evaluated*. `assert(list.pop() != null)` still pops in release; it just stops verifying the result.
-Never put a side effect inside an assert. On 0.17.0, a counter incremented inside an assert
-condition reaches the same value in all four optimize modes. The full treatment, including the
-per-mode table, is `references/assertions.md` ZS-ASSERT-03.
-
-### ZS-ERR-02 [M] Return an optional for absence; reserve the error union for failure
-
-`?T` when "not there" is a normal outcome; `E!T` when something went wrong. (The general
-return-type-dimensionality ladder — `void` before `bool` before `u64` before `?u64` before `!u64` —
-is owned by `references/data.md` ZS-DATA-30; this rule is only about the `?T`/`E!T`
-boundary.)
-
-**Why:** an error union makes absence viral. Every caller must `try` or `catch`, and each `try`
-widens *its* inferred error set, propagating a non-event through the whole call chain.
-
-**Check:** an error set member named `NotFound`, `Missing`, `Empty`, `NoSuchKey`, or `Absent` on a
-lookup function — almost always a `?T` written as an `E!T`.
+Both mechanisms meet at a boundary. With `Header`, `HeaderInvalid` and `readBlock` from
+`references/assertions.md` ZS-ASSERT-16, and `message_size_bytes_max` from ZS-ASSERT-21:
 
 ```zig
-// fragment — BAD: a cache miss is not a failure
-fn get(cache: *const Cache, key: u32) error{NotFound}!u32 { ... }
-// Every caller now writes `catch |e| switch (e) { error.NotFound => ... }`.
-```
-
-```zig
-// verified — GOOD
-const std = @import("std");
-fn findScalar(haystack: []const u8, needle: u8) ?usize {
-    return std.mem.findScalar(u8, haystack, needle);
-}
-
-test "optional lookup" {
-    const index = findScalar("abc", 'z') orelse 0;
-    try std.testing.expectEqual(0, index);
-    if (findScalar("abc", 'c')) |i| try std.testing.expectEqual(2, i);
+// fragment — BAD
+fn messageParse(bytes: []const u8) Header {
+    assert(bytes.len <= message_size_bytes_max); // The peer chooses `bytes.len`.
+    return readBlock(bytes);
 }
 ```
 
-Note `std.mem.findScalar`, not `indexOfScalar` — the whole `indexOf*` family was renamed to `find*`
-in 0.16, and the old names survive only as silent aliases.
+```zig
+// fragment — GOOD
+const ParseError = error{ MessageTooLarge, MessageTooSmall, MessageEmpty } || HeaderInvalid;
 
-### ZS-ERR-03 [M] A library never panics, never exits, never prints
+fn messageParse(bytes: []const u8) ParseError!Header {
+    // Operating errors: the peer chooses the length, so EVERY bound it can
+    // violate is an error — including the lower bound. Asserting the lower
+    // bound instead would make a 1..@sizeOf(Header)-1 byte frame a remote panic.
+    if (bytes.len == 0) return error.MessageEmpty;
+    if (bytes.len > message_size_bytes_max) return error.MessageTooLarge;
+    if (bytes.len < @sizeOf(Header)) return error.MessageTooSmall;
+
+    // From here down both bounds are programmer-error invariants: the guards
+    // above established them, so a violation means this function is wrong.
+    assert(bytes.len <= message_size_bytes_max);
+    assert(bytes.len >= @sizeOf(Header));
+    return try readBlock(bytes);
+}
+```
+
+### ZS-ERR-02 [M] A library never panics, never exits, never prints
 
 A reusable module returns errors. This governs *operating* errors: a library must never convert a
 recoverable condition into a process abort. `@panic`, `std.process.exit`, `std.process.fatal`,
 `std.debug.print`, and writing to stderr are all reserved for the application's top level (`main`)
-or for `build.zig`.
+or for `build.zig`. Output follows the same split: a library renders into the caller's
+`w: *Io.Writer`, returning `Io.Writer.Error!void`, or returns an owned `[]u8` the caller frees. It
+never opens stdout, and never decides where its output goes.
 
 It does **not** govern assertions. A violated internal invariant has exactly one correct response in
 any code, library or not, so `assert` and a project-local always-on `assertAlways`
-(`references/assertions.md` ZS-ASSERT-07) are legal in a library — including in allocators
+(`references/assertions.md` ZS-ASSERT-05) are legal in a library — including in allocators
 and crypto, which are libraries by construction. What a library may not do is choose its consumer's
 optimize mode: document which invariants it asserts and what it costs to run it in a `safe` build,
-and let the consumer decide (`references/build.md` ZS-BUILD-27).
+and let the consumer decide (`references/build.md` ZS-BUILD-25).
 
 **Why:** a library does not know whether its caller can recover. Aborting the process removes the
 caller's ability to retry, degrade, or report, and makes the library untestable — a test cannot
 assert on a process that has already exited.
 
 **Check:** in a non-`main`, non-`build.zig` file, grep for `@panic(`, `process.exit`,
-`process.fatal`, and `debug.print`. `assert(`, `unreachable`, and `assertAlways(` are not hits.
+`process.fatal`, `debug.print`, `.stdout()`, and `.stderr()`. `assert(`, `unreachable`, and
+`assertAlways(` are not hits. The milder form is a `pub fn` that renders a value and returns `void`
+without taking a `w: *Io.Writer`.
 
 ```zig
 // fragment — BAD
@@ -208,7 +203,7 @@ pub fn main(init: std.process.Init) !void {
 
 ## 2. Error sets
 
-### ZS-ERR-04 [M] Name the error set of every public function; infer only for private helpers
+### ZS-ERR-03 [M] Name the error set of every public function; infer only for private helpers
 
 `pub` functions declare `SomeError!T` (or an alias such as `Allocator.Error`, `Io.Writer.Error`,
 `Io.Cancelable`). Bare `!T` is for private/internal helpers, `main`, and tests.
@@ -246,16 +241,19 @@ pub fn parseDecimal(text: []const u8) ParseError!u32 {
     assert(text.len > 0);
     var value: u32 = 0;
     for (text) |c| {
-        if (c < '0' or c > '9') return error.InvalidCharacter;
-        const digit: u32 = c - '0';
-        value = std.math.mul(u32, value, 10) catch return error.Overflow;
-        value = std.math.add(u32, value, digit) catch return error.Overflow;
+        const digit = try std.fmt.charToDigit(c, 10);
+        value = try std.math.mul(u32, value, 10);
+        value = try std.math.add(u32, value, digit);
     }
     return value;
 }
 ```
 
-### ZS-ERR-05 [S] Compose sets with `||`; name a composed set after the verb it belongs to
+`std.math.mul` and `std.math.add` return `error{Overflow}!u32`, a subset of `ParseError`, so `try`
+passes the error up with its trace; a `catch return error.Overflow` would re-raise the same error
+and restart the trace (ZS-ERR-15).
+
+### ZS-ERR-04 [S] Compose sets with `||`; name a composed set after the verb it belongs to
 
 std's convention across 194 named sets is `pub const <Verb>Error = error{…}` declared next to the
 function, merging in reusable sets with `||`.
@@ -280,7 +278,7 @@ Give individual members `///` docs when the condition is not obvious from the na
 heavily for platform-specific members. A one-member set is written inline, not hoisted:
 `pub const Error = error{OutOfMemory};` (`std.mem.Allocator.Error`).
 
-### ZS-ERR-06 [M] Never put `anyerror` in a public signature
+### ZS-ERR-05 [M] Never put `anyerror` in a public signature
 
 std has 43 occurrences of `anyerror` in 456 KLOC, and the one notable public use is
 `testing.expectError(expected_error: anyerror, …)`.
@@ -292,7 +290,7 @@ also defeats error-set–based optimisation.
 **Check:** grep `anyerror` — every hit in a `pub fn` signature, a `pub const` type alias, or a
 public struct field is the finding. `anyerror` inside a test body or a private helper is not.
 
-### ZS-ERR-07 [S] Use `error{}!T` to state that a path cannot fail
+### ZS-ERR-06 [S] Use `error{}!T` to state that a path cannot fail
 
 The empty error set makes an error union that no value can inhabit. `try` on it is free, and the
 compiler enforces the claim.
@@ -317,7 +315,7 @@ fn cannotFail(x: u8) error{}!u8 {
 
 ## 3. `try`, `catch`, and `catch unreachable`
 
-### ZS-ERR-08 [M] `try` is the default; every `catch {}` or `catch unreachable` carries a comment
+### ZS-ERR-07 [M] Make `try` the default, and take every other form from this table
 
 | Form | Use when |
 |---|---|
@@ -326,19 +324,19 @@ fn cannotFail(x: u8) error{}!u8 {
 | `f() catch \|e\| { log.err("…: {t}", .{e}); return e; }` | Add context, then propagate. `{t}` prints the error name. |
 | `f() catch default_value` | The operation is genuinely optional and the default is correct. |
 | `f() catch blk: { …; break :blk fallback; }` | The fallback needs real logic to compute. |
-| `f() catch unreachable` | Only with a written proof. See ZS-ERR-10. |
+| `f() catch unreachable` | Only with a written proof. See ZS-ERR-09. |
 | `f() catch @panic("msg")`, `catch std.process.fatal(…)` | Application top level only. Never in a library. |
-| `f() catch {}` | Almost never. See ZS-ERR-11. |
+| `f() catch {}` | Almost never. See ZS-ERR-10. |
 
 **Why:** `try` is the only form that preserves the error return trace *and* forces the decision
 upward to code that has the context to make it. Each `catch` is a place where information about the
 failure stops travelling.
 
-**Check:** in a diff, `try` should outnumber `catch`. Every `catch unreachable` has a proof comment
-(ZS-ERR-10) and every `catch {}` has a justification comment (ZS-ERR-11) on an adjacent line; a bare
-one with no comment is the defect.
+**Check:** in a diff, `try` should outnumber `catch`, and every `catch` should be one of the forms
+in the table. The comment a `catch unreachable` or a `catch {}` owes is judged by ZS-ERR-09 and
+ZS-ERR-10.
 
-### ZS-ERR-09 [M] Switch on the captured error, and omit `else` when the set is explicit
+### ZS-ERR-08 [M] Switch on the captured error, and omit `else` when the set is explicit
 
 `catch |err| switch (err)` with one prong per member and **no** `else`. Add `else => |e| return e`
 only when the set is inferred, is `anyerror`, or genuinely comes from a third party.
@@ -360,7 +358,7 @@ _ = parseDecimal(text) catch |err| switch (err) {
 ```
 
 ```zig
-// fragment — GOOD: with `parseDecimal` from ZS-ERR-04 in scope
+// fragment — GOOD: with `parseDecimal` from ZS-ERR-03 in scope
 fn describe(text: []const u8) []const u8 {
     _ = parseDecimal(text) catch |err| switch (err) {
         error.InvalidCharacter => return "not a number",
@@ -390,7 +388,7 @@ fn drain(err: Wide) error{ Canceled, OutOfMemory }!void {
 `@errorCast` also narrows a set, but it asserts rather than proves — use it only directly after an
 `assert` that rules out the excluded members.
 
-### ZS-ERR-10 [M] `catch unreachable` is a latent bug unless the proof is in a comment next to it
+### ZS-ERR-09 [M] `catch unreachable` is a latent bug unless the proof is in a comment next to it
 
 `catch unreachable` claims *this error is impossible given local invariants*. Write the one-line
 proof. If you cannot write it, you have a bug, not an invariant. The usual false claim is an OOM or
@@ -427,7 +425,7 @@ test formatCode {
 the expression is folded by the compiler, so a failure is `error: caught unexpected error
 'Overflow'` at build time and can never be illegal behavior at runtime — there is nothing to prove
 and no comment is required. This is why a derived limit (`references/assertions.md`
-ZS-ASSERT-25/ZS-ASSERT-26) whose derivation has a fallible `std.math` step is written without one:
+ZS-ASSERT-21/ZS-ASSERT-22) whose derivation has a fallible `std.math` step is written without one:
 
 ```zig
 // fragment — GOOD: comptime-evaluated, so failure is a compile error
@@ -443,21 +441,22 @@ is the proof-comment rule above.
 
 **Check:** every runtime `catch unreachable` has a comment on the same or the preceding line
 naming the fixed bound that makes failure impossible. The short spelling `.?` has no proof form at
-all — ZS-ERR-30 forbids it outright.
+all — ZS-ERR-26 forbids it outright.
 
-### ZS-ERR-11 [M] Every error is handled somewhere; `catch {}` needs a justification comment
+### ZS-ERR-10 [M] Every error is handled somewhere; `catch {}` needs a justification comment
 
-No dropped errors. `catch {}`, `_ = f() catch {};`, and `catch null` are all silent discards, and
-empty `catch` blocks are the highest-yield thing to grep for in review.
+No dropped errors. `catch {}` and `_ = f() catch {};` are silent discards, and empty `catch` blocks
+are the highest-yield thing to grep for in review. Turning the error into `null` or `false` instead
+is laundering, which ZS-ERR-15 owns.
 
 **Why:** Yuan et al. (OSDI '14, *Simple Testing Can Prevent Most Critical Failures*) found that 92%
 of catastrophic failures in distributed data-intensive systems came from mishandled non-fatal errors
 the software had already signalled: detected, then thrown away.
 
-**Check:** `catch {}`, `catch {};`, `_ = … catch`, `catch null`, and `catch false` with no comment
-on the same or the preceding line saying why the failure is genuinely not information. A `catch`
-that logs and continues is a different rule (ZS-ERR-08) and is not a hit here — but if the call took
-an `io`, it is a hit under ZS-CONC-27, which treats log-and-continue as a dropped cancellation.
+**Check:** `catch {}`, `catch {};`, and `_ = … catch` with no comment on the same or the preceding
+line saying why the failure is genuinely not information. A `catch`
+that logs and continues is a different rule (ZS-ERR-07) and is not a hit here — but if the call took
+an `io`, it is a hit under ZS-CONC-24, which treats log-and-continue as a dropped cancellation.
 
 ```zig
 // fragment — BAD
@@ -474,27 +473,18 @@ dir.deleteFile(io, scratch_path) catch |err| log.warn("removing scratch file: {t
 Note the cleanup call has to be one that can actually fail. `Io.File.close` is
 `pub fn close(file: File, io: Io) void` — it returns no error at all, so `file.close(io) catch …` is
 `error: expected error union type, found 'void'`. Closing is spelled `defer file.close(io);` with no
-`try` and no `catch` (ZS-CONC-22, ZS-MEM-11).
+`try` and no `catch` (ZS-CONC-19, ZS-MEM-10).
 
-The cancellation corollary this rule does not own: `deleteFile`'s error set contains
-`Io.Cancelable`, so the `catch` above also absorbs `error.Canceled`. That is legal *here* only
-because the path is already leaving — as the comment says, it is a failing path, and nothing follows
-this line but the `return`. Log an error and then carry on with real work and you strand whoever
-requested the cancel just as thoroughly as `catch {}` would. ZS-CONC-27 owns that distinction; read
-it before copying this shape onto a path that continues.
+`deleteFile`'s error set contains `Io.Cancelable`, so the `catch` above also absorbs
+`error.Canceled`. That is legal only on a path that is already leaving, a distinction
+`references/concurrency.md` ZS-CONC-24 owns: read it before copying this shape onto a path that
+continues.
 
 ---
 
 ## 4. `defer` and `errdefer`
 
-### ZS-ERR-12 [M] Put the release on the line immediately after the acquisition (see ZS-MEM-11)
-
-Owned by `references/memory.md` ZS-MEM-11. Never separate an acquiring statement from
-its `defer`/`errdefer`; anything between the two is a leak window. The rules below cover what
-happens *after* the pair is correctly placed: ordering (ZS-ERR-13), ownership transfer (ZS-ERR-14),
-and loop scope (ZS-ERR-15).
-
-### ZS-ERR-13 [M] Order `defer`/`errdefer` so LIFO teardown cannot outrun what a handler reads
+### ZS-ERR-11 [M] Order `defer`/`errdefer` so LIFO teardown cannot outrun what a handler reads
 
 All `defer` and `errdefer` statements in a block run in **reverse declaration order** when control
 leaves the block. On a normal exit only the `defer`s run; on an error exit both kinds run,
@@ -528,7 +518,7 @@ fn noFail() void {
 }
 ```
 
-### ZS-ERR-14 [M] Stop the `errdefer` at the point ownership transfers
+### ZS-ERR-12 [M] Stop the `errdefer` at the point ownership transfers
 
 An `errdefer` covers a resource only from its declaration until something else becomes responsible
 for freeing it. Once a value is appended to a container that owns its items, or returned to the
@@ -569,7 +559,7 @@ fn takeAll(gpa: Allocator, n: usize) Allocator.Error![][]u8 {
 Exercise these paths with `std.testing.checkAllAllocationFailures` — an `errdefer` chain that has
 never been driven at every allocation point is untested code.
 
-### ZS-ERR-15 [M] A `defer` in a loop body runs each iteration, not at function exit
+### ZS-ERR-13 [M] A `defer` in a loop body runs each iteration, not at function exit
 
 If the resource must outlive the loop, hoist the release out and track every instance. If it must
 not, keep the `defer` inside the loop body.
@@ -612,21 +602,21 @@ fn sumFilesLeaky(gpa: Allocator, counts: []const usize) Allocator.Error!usize {
 }
 ```
 
-### ZS-ERR-16 [S] Log the unwinding error in the caller's `catch`; keep `errdefer` uniform
+### ZS-ERR-14 [S] Log the unwinding error in the caller's `catch`; keep `errdefer` uniform
 
-0.17 removed `errdefer |err|`. To record which error is unwinding, give the fallible body its own
-function and log in the caller's `catch |err|`; the `errdefer` that remains releases resources and
-branches on nothing.
+`errdefer` takes no error capture. To record which error is unwinding, give the fallible body its
+own function and log in the caller's `catch |err|`; the `errdefer` that remains releases resources
+and branches on nothing.
 
 **Why:** cleanup that depends on *which* error occurred makes the rollback non-uniform, and uniform
-rollback is what makes unwinding safe to reason about. With the capture gone, the split is also the
-only place the error can be seen.
+rollback is what makes unwinding safe to reason about. With no capture, the split is also the only
+place the error can be seen.
 
-**Check:** an `errdefer` body containing an `if` or a `switch`. In code written for 0.16, every
-`errdefer |err|`, which 0.17 rejects as a parse error: its log moves to the caller's `catch |err|`.
+**Check:** an `errdefer` body containing an `if` or a `switch`. An `errdefer |err|` is a parse
+error; its log moves to the caller's `catch |err|`.
 
 ```zig
-// verified — GOOD: 0.17 removed the capture, so the log moves to the caller's `catch`
+// verified — GOOD: `errdefer` has no capture, so the log moves to the caller's `catch`
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const log = std.log.scoped(.doc);
@@ -650,7 +640,7 @@ fn openInner(gpa: Allocator, n: usize) Allocator.Error![]u8 {
 
 ## 5. Error return traces
 
-### ZS-ERR-17 [M] Propagate with `try` or `return err`; never launder an error through an optional
+### ZS-ERR-15 [M] Propagate with `try` or `return err`; never launder an error through an optional
 
 `@errorReturnTrace()` returns `?*std.lang.StackTrace`: non-null in `debug` builds, **null** in
 `safe`, `fast` and `small` builds unless they are compiled with `-ferror-tracing`. The trace is
@@ -692,7 +682,7 @@ reach for `std.debug.dumpStackTrace` here: in 0.17 that takes a `*const std.debu
 return_addresses: []usize, skipped: SkippedAddresses }`), which is a different type from
 `std.lang.StackTrace` (`{ index: usize, instruction_addresses: []usize }`) and will not compile:
 `error: expected type '*const debug.StackTrace', found '*lang.StackTrace'`. Capturing a *stack*
-trace is ZS-ERR-36.
+trace is ZS-ERR-32.
 
 ```zig
 // fragment — GOOD
@@ -714,7 +704,7 @@ reason to prefer `try` all the way up in application code.
 
 ## 6. Simple, explicit control flow (TigerStyle)
 
-### ZS-ERR-18 [M] Split compound conditions into separate checks
+### ZS-ERR-16 [M] Split compound conditions into separate checks
 
 Prefer a sequence of single-predicate `if`s — usually with early returns — over `a and b and c`.
 
@@ -746,10 +736,9 @@ fn acceptNested(f: Frame) bool {
 }
 ```
 
-The same rule applies to assertions: `assert(a); assert(b);` beats `assert(a and b)`, because the
-panic then tells you which one failed.
+Assertions follow the same rule: `references/assertions.md` ZS-ASSERT-10.
 
-### ZS-ERR-19 [S] Prefer a `switch` to an `else if` chain; if you flatten chains into trees, say why
+### ZS-ERR-17 [S] Prefer a `switch` to an `else if` chain; if you flatten chains into trees, say why
 
 **Honest disagreement.** TigerStyle mandates rewriting `else if` chains into nested `else { if { }
 }` trees. Idiomatic Zig and the standard library do not do this — `else if` chains appear throughout
@@ -763,7 +752,7 @@ nested tree is a readability preference that buys no compiler check, and since `
 produce it, mixing both spellings in one file costs more than either convention alone.
 
 **Why:** a `switch` over an enum or tagged union is verified exhaustive at compile time, so adding a
-variant breaks the build at every dispatch site (ZS-ERR-28), while an `else if` chain over the same
+variant breaks the build at every dispatch site (ZS-ERR-25), while an `else if` chain over the same
 values compiles and falls through to its last `else` at runtime.
 
 **Check:** an `else if` chain whose conditions all compare the *same* expression against different
@@ -783,17 +772,17 @@ fn label(s: State) []const u8 {
 }
 ```
 
-### ZS-ERR-20 [M] State invariants positively when an `if`/`else` splits the input space
+### ZS-ERR-18 [M] State invariants positively when an `if`/`else` splits the input space
 
 When an `if`/`else` splits the input space, write the branch condition as the invariant that
 *holds*: `if (index < length) { … } else { … }`, not `if (index >= length)`.
 
 **Early-return guards are exempt.** `if (index >= items.len) return null;` states the *rejection*
-condition, which is the whole point of a guard, and guards are what ZS-ERR-18 asks for. What is
+condition, which is the whole point of a guard, and guards are what ZS-ERR-16 asks for. What is
 forbidden is a non-guard `if` whose condition negates an invariant that the same function states
 positively elsewhere — the reader then has to hold both spellings of one relation in their head.
-(Same wording as SKILL.md ZS-CORE-18; the guard form is used by ZS-ERR-25, ZS-NAME-31 and
-ZS-ASSERT-16.)
+(Same wording as SKILL.md ZS-CORE-18; the guard form is used by ZS-ERR-20, ZS-ERR-22 and
+ZS-ASSERT-14.)
 
 **Why:** the positive form matches how the same relation is written in the loop condition (`while
 (index < length)`) and in the assertion (`assert(index < length)`), so the reader compares identical
@@ -813,15 +802,15 @@ fn atIndex(items: []const u32, index: usize) ?u32 {
 **Check:** an `if (a >= b)` / `if (!ok)` whose body is a block rather than a single early `return`,
 `break`, or `continue`, in a function that also writes the same relation the other way round.
 
-### ZS-ERR-21 [S] An `if` with no `else` over a validated domain carries a comment or an assertion
+### ZS-ERR-19 [S] An `if` with no `else` over a validated domain carries a comment or an assertion
 
 For every `if` without an `else` where the negative case is a deliberate no-op, write that down: a
 one-line comment in the empty half, or an assertion stating what is true when the condition is
 false.
 
-**Why:** bugs cluster where data crosses the valid/invalid boundary. An `if` with no `else` claims
-the other half of the input space needs nothing, and silence cannot tell "I decided this is a no-op"
-from "I forgot". A comment or an assertion is a claim a reviewer can dispute.
+**Why:** an `if` with no `else` claims the other half of the input space needs nothing, and silence
+cannot tell a decision from an oversight — the negative space of `references/assertions.md`
+ZS-ASSERT-12. A comment or an assertion is a claim a reviewer can dispute.
 
 **Check:** in a diff, an added `if` with no `else` whose surrounding block has no comment and no
 following `assert` naming the negative case.
@@ -845,7 +834,7 @@ fn admit(status: Status, budget: *u32, inflight: u32) void {
 }
 ```
 
-### ZS-ERR-22 [M] Braces, unless the whole statement fits on one line
+### ZS-ERR-20 [M] Braces, unless the whole statement fits on one line
 
 `if (x) return;` on one line is fine. Anything that wraps gets braces. Never a braceless body on the
 following line.
@@ -864,56 +853,51 @@ fn clamp(value: u32, limit: u32) u32 {
 }
 ```
 
-Same for implications in assertions: `if (a) assert(b);` on one line is the canonical form.
+Implications in assertions take the same one-line form: `references/assertions.md` ZS-ASSERT-11.
 
-### ZS-ERR-23 [M!] No recursion; where recursion is allowed, bound the depth explicitly
+### ZS-ERR-21 [M!] No recursion; where recursion is allowed, bound the depth explicitly
 
 `[M!]` — mandatory in high-reliability code, meaning any codebase where a crash or memory corruption
 is unacceptable: databases, consensus and replication, crypto, allocators, kernel and embedded
-firmware, anything running unattended on untrusted input. There, write the iterative form with an
-explicit stack of fixed size. Elsewhere the relaxed form is: recursion is permitted only when the
-maximum depth is a named constant that is asserted, or is a `comptime` parameter, which makes the
-bound a compile-time fact.
+firmware with no growable stack, parsers and decoders on untrusted input. There, write the
+iterative form with an explicit worklist of fixed size. Elsewhere the relaxed form is: recursion is
+permitted only when the maximum depth is a named constant asserted at entry, or a `comptime`
+parameter, which makes the bound a compile-time fact. A recursive descent over attacker-controlled
+nesting depth is a remote crash primitive.
 
-**Why:** Zig gives no stack-depth guarantee and no stack-overflow *error* — you get a fault, and on
-targets without a guard page you get silent corruption of whatever lies below the stack. A recursive
-descent over attacker-controlled nesting depth is a remote crash primitive.
+**Why:** without recursion the call graph is acyclic, so a bound on stack use can be derived
+statically. With it, stack exhaustion is the one failure Zig's safety checks do not catch: a fault
+with a truncated trace, or, on a target with no guard page, silent corruption below the stack.
 
 **Check:** a function whose body names itself, or a mutually recursive pair, with no `comptime
-depth` parameter and no runtime `depth`/`level` compared against a named `_max` constant. Parsers,
-tree walks, and directory traversals are where this hides.
+depth` parameter and no runtime `depth`/`level` compared against a named `_max` constant. A tree,
+JSON, expression, or directory walk written without an explicit worklist is where this hides.
 
 ```zig
-// verified — GOOD: explicit stack, depth asserted at every push
+// verified — GOOD: an explicit worklist on a fixed buffer; std asserts the room on every push
 const std = @import("std");
-const assert = std.debug.assert;
 
 const Node = struct { left: ?*const Node, right: ?*const Node, value: u32 };
 const depth_max = 8;
 
 fn sumIterative(root: *const Node) u32 {
-    var stack: [depth_max]*const Node = undefined;
-    var top: usize = 0;
-    stack[top] = root;
-    top += 1;
+    var buffer: [depth_max]*const Node = undefined;
+    var stack: std.ArrayList(*const Node) = .initBuffer(&buffer);
+    stack.appendAssumeCapacity(root);
 
     var total: u32 = 0;
-    while (top > 0) {
-        top -= 1;
-        const node = stack[top];
+    while (stack.pop()) |node| {
         total += node.value;
-        if (node.left) |left| {
-            assert(top < depth_max);
-            stack[top] = left;
-            top += 1;
-        }
-        if (node.right) |right| {
-            assert(top < depth_max);
-            stack[top] = right;
-            top += 1;
-        }
+        if (node.left) |left| stack.appendAssumeCapacity(left);
+        if (node.right) |right| stack.appendAssumeCapacity(right);
     }
     return total;
+}
+
+test sumIterative {
+    const leaf: Node = .{ .left = null, .right = null, .value = 2 };
+    const root: Node = .{ .left = &leaf, .right = &leaf, .value = 1 };
+    try std.testing.expectEqual(5, sumIterative(&root));
 }
 ```
 
@@ -929,25 +913,17 @@ fn depthSum(comptime depth: u8, values: []const u32) u32 {
 }
 ```
 
-### ZS-ERR-24 [M] Every loop has a provable upper bound (see ZS-ASSERT-27)
-
-Owned by `references/assertions.md` ZS-ASSERT-27, which gives the four legitimate loop
-shapes and the witness-counter idiom. Prefer `for (slice)` and `for (0..limit)`, which carry the
-bound in the syntax; a `while` whose termination is not obvious gets a counter asserted against a
-named `_max` constant; a deliberately unbounded event loop says so in a comment and asserts the
-reverse property.
-
-### ZS-ERR-25 [M!] Push `if`s up and `for`s down
+### ZS-ERR-22 [M!] Push `if`s up and `for`s down
 
 `[M!]` — mandatory in high-reliability code (databases, consensus, crypto, allocators, kernel and
-embedded firmware, parsers on untrusted input), matching SKILL.md ZS-CORE-21 and ZS-ERR-34. Keep
+embedded firmware, parsers on untrusted input), matching SKILL.md ZS-CORE-21 and ZS-ERR-30. Keep
 branching in the parent function; give leaf helpers primitive arguments and no control flow.
 *Relaxed form elsewhere:* a leaf helper that branches on a condition its caller already knows is a
 review comment, not a build failure.
 
 **Why:** it concentrates the decisions in one readable place, and it makes the leaf a straight-line
 function that the compiler can vectorise and a reader can check without tracing callers. It is also
-the mechanism that keeps parents under the 70-line limit (ZS-ERR-34) without scattering the logic.
+the mechanism that keeps parents under the 70-line limit (ZS-ERR-30) without scattering the logic.
 
 ```zig
 // verified — GOOD
@@ -974,7 +950,7 @@ the whole slice.
 
 ## 7. Modern Zig control flow the standard prefers
 
-### ZS-ERR-26 [S] Use labeled `switch` with `continue :label` for state machines and dispatch loops
+### ZS-ERR-23 [S] Use labeled `switch` with `continue :label` for state machines and dispatch loops
 
 `sw: switch (initial) { .a => { …; continue :sw next; }, … }` replaces
 `while (true) { switch (state) { … } }`. A `continue` targeting a switch **must** carry an operand;
@@ -1023,7 +999,7 @@ fn wordCount(text: []const u8) u32 {
 Label a `break`/`continue` whenever the target is not the innermost loop. An unlabeled `break`
 inside a labeled construct is a readability trap.
 
-### ZS-ERR-27 [S] Use a labeled block to compute a value that needs statements
+### ZS-ERR-24 [S] Use a labeled block to compute a value that needs statements
 
 `const x = blk: { …; break :blk value; };` keeps a multi-step computation inside the initializer of
 the `const` it produces.
@@ -1046,7 +1022,7 @@ const limit = blk: {
 
 The `catch blk: { … break :blk fallback; }` form is the canonical "default value after some logic".
 
-### ZS-ERR-28 [M] Switch exhaustively with no `else`; use `_` on non-exhaustive enums
+### ZS-ERR-25 [M] Switch exhaustively with no `else`; use `_` on non-exhaustive enums
 
 For your own enums and unions, list every prong and do not add `else`. For a non-exhaustive enum —
 one with a trailing `_` field — use a `_ =>` prong rather than `else =>`: `_ =>` handles
@@ -1094,44 +1070,9 @@ fn opcodeName(op: Opcode) []const u8 {
 }
 ```
 
-### ZS-ERR-29 [S] Use `inline for` / `inline else` only on a small comptime-known set
+### ZS-ERR-26 [M] Unwrap optionals with `orelse` or a capture, never with `.?`
 
-`inline for` over `@typeInfo(T).@"struct".field_names` (or `.field_types`) or over a tuple;
-`inline else => |tag|` to obtain a comptime-known tag inside a runtime `switch`.
-
-**Why:** `inline` fully unrolls, so machine code grows linearly with the iteration count. That is
-right when the body's *types* differ per iteration, which a runtime loop cannot express, and waste
-when it is a small runtime loop you wanted unrolled: let the optimiser decide that.
-
-**Check:** an `inline for` whose iterable is a plain integer range (`inline for (0..n)`) or an array
-of same-typed values rather than `@typeInfo(T).@"struct".field_names`/`.field_types`, an enum's
-fields, or a tuple — nothing in the body needed a comptime-known type, so this is hand-unrolling the
-optimiser owns.
-
-```zig
-// verified — GOOD
-const std = @import("std");
-
-const Config = struct { retries: u32, timeout_ms: u32 };
-const Op = enum { add, sub, mul };
-
-fn configNonZero(c: Config) bool {
-    inline for (@typeInfo(Config).@"struct".field_names) |name| {
-        if (@field(c, name) == 0) return false;
-    }
-    return true;
-}
-
-fn opName(op: Op) []const u8 {
-    switch (op) {
-        inline else => |tag| return @tagName(tag),
-    }
-}
-```
-
-### ZS-ERR-30 [M] Unwrap optionals with `orelse` or a capture, never with `.?`
-
-`.?` is `orelse unreachable` in four characters. Where the proof rule (ZS-ERR-10) genuinely
+`.?` is `orelse unreachable` in four characters. Where the proof rule (ZS-ERR-09) genuinely
 licenses an unreachable, write `orelse unreachable` and write the proof beside it; std does that
 three times in 456 KLOC. The short spelling has no licensed use.
 
@@ -1144,7 +1085,7 @@ behavior in `fast`/`small` — in a form short enough to slip through review. Th
 visible, and it is the one place a proof comment has to go.
 
 **Check:** grep `.?` — every hit is a defect, including inside `comptime` blocks and `const`
-initializers. `orelse unreachable` is the spelling that carries a proof, and ZS-ERR-10 governs it.
+initializers. `orelse unreachable` is the spelling that carries a proof, and ZS-ERR-09 governs it.
 
 ```zig
 // verified — GOOD
@@ -1172,12 +1113,15 @@ const found = for (items) |it| {
 } else 0;
 ```
 
-### ZS-ERR-31 [M] Replace `@setCold` with `@branchHint`; placing hints on hot paths is `[S]`
+### ZS-ERR-27 [S] Mark cold and likely paths with `@branchHint`, as the branch's first statement
 
 `@branchHint(hint: std.lang.BranchHint) void`. The hints are exactly `.none`, `.likely`,
 `.unlikely`, `.cold`, `.unpredictable` (`std.lang.BranchHint`). It is **only valid as the first
 statement in a control-flow branch, or the first statement in a function**; otherwise the compiler
 emits `error: '@branchHint' must appear as the first statement in a function or conditional branch`.
+So on a cold branch that also asserts (ZS-CORE-08), the hint comes first and the assertion after it.
+`@setCold` does not exist; the compiler rejects it (`references/migration.md`'s
+`invalid builtin function` row).
 
 std uses it deliberately: `.cold` ×132 on error paths (including inside `std.log.err` and
 `std.debug.panic`), `.unlikely` ×78, `.likely` ×66.
@@ -1186,12 +1130,10 @@ std uses it deliberately: `.cold` ×132 on error paths (including inside `std.lo
 instruction cache dense; `.unpredictable` tells it to prefer branchless lowering where a mispredict
 would cost more than the extra work.
 
-**Check:** two findings at two tiers, and do not let the softer one absorb the harder one. `[M]`:
-any surviving `@setCold(`, which was removed — the same removed-builtin class as ZS-COMPTIME-18
-(`@Type`), ZS-COMPTIME-27 (`usingnamespace`), and ZS-DATA-26 (`std.BoundedArray`), all `[M]` for the
-same reason. `[S]`: on a *measured* hot path, an error-returning branch or a `catch` block whose
-first statement is not `@branchHint(.cold)` — a recommendation, and deviating needs only the
-measurement that says the branch is not hot.
+**Check:** on a *measured* hot path, an error-returning branch or a `catch` block whose first
+statement is not `@branchHint(.cold)`; deviating needs only the measurement that says the branch is
+not hot. And the converse: a `.likely` or `.unlikely` on a branch nobody measured. A hint asserts a
+distribution, and a wrong one is worse than none.
 
 ```zig
 // verified — GOOD
@@ -1225,19 +1167,19 @@ fn f(x: u32) u32 {
 
 ## 8. Logging
 
-### ZS-ERR-32 [M] A library logs through a scoped `std.log` namespace
+### ZS-ERR-28 [M] A library logs through a scoped `std.log` namespace
 
 `const log = std.log.scoped(.mylib);` at the top of the file, then `log.warn(…)`. One scope per
 module, named for the module. std itself logs 29 times in 456 KLOC: the bar is high.
 
-That `std.debug.print` and raw stderr writes are never program output, and never acceptable in a
-library, is owned by `references/concurrency.md` ZS-CONC-06 and
-`references/output.md` ZS-OUT-16 / ZS-OUT-17. Program *output* is not logging: write
-it to a `*std.Io.Writer` you were handed, and `flush()`.
+That `std.debug.print` and raw stderr writes are never program output is owned by
+`references/concurrency.md` ZS-CONC-04 and ZS-CONC-05; that they are never acceptable in a library,
+by ZS-ERR-02. Program *output* is not logging: write it to a `*std.Io.Writer` you were handed, and
+`flush()`.
 
 **Why:** `std.log` routes through `std.options.logFn`, so the *application* decides format,
 destination, filtering, and whether a library is audible at all. `log_scope_levels` filters by scope
-(ZS-ERR-33); an unscoped log lands in `.default` and cannot be silenced alone.
+(ZS-ERR-29); an unscoped log lands in `.default` and cannot be silenced alone.
 
 ```zig
 // verified — GOOD
@@ -1256,7 +1198,7 @@ pub fn parseHeader(bytes: []const u8) error{Truncated}!u32 {
 **Check:** in a library file, `std.log.warn(` / `std.log.err(` used directly instead of through a
 file-level `scoped` alias.
 
-### ZS-ERR-33 [S] Use std's four log levels, configured from the root file
+### ZS-ERR-29 [S] Use std's four log levels, configured from the root file
 
 `std.log.Level` is `{ err, warn, info, debug }`, documented as: `err` — something has gone wrong;
 `warn` — uncertain whether something has gone wrong, but worth investigating; `info` — general
@@ -1281,14 +1223,14 @@ pub const std_options: std.Options = .{
 };
 ```
 
-Log *or* return, not both, unless you are adding context and re-propagating (ZS-ERR-08). In tests,
+Log *or* return, not both, unless you are adding context and re-propagating (ZS-ERR-07). In tests,
 `std.testing.log_level` defaults to `.warn`.
 
 ---
 
 ## 9. Function shape, user-facing diagnostics, and stack traces
 
-### ZS-ERR-34 [M!] Hard limit of 70 lines per function; shape it like an inverse hourglass
+### ZS-ERR-30 [M!] Hard limit of 70 lines per function
 
 `[M!]` — mandatory in high-reliability code (databases, consensus and replication, crypto,
 allocators, kernel and embedded firmware, parsers on untrusted input). There, 70 lines between the
@@ -1297,65 +1239,23 @@ elsewhere:* a function longer than one screen needs a stated reason in a comment
 one short arm per protocol opcode is the usual honest one. This is SKILL.md ZS-CORE-21; the full
 standard is here.
 
-The shape TigerStyle asks for is the **inverse of an hourglass**: a few parameters, a simple return
-type, and a lot of meaty logic between the braces. Wide in the middle, narrow at both ends. A
-function with nine parameters and three lines of body is the hourglass the right way up, and it is a
-sign the caller is doing the work.
-
-Two rules of thumb do most of the cutting:
-
-- **Centralize control flow.** All the `if`s and `switch`es belong to *one* function, the parent;
-  the helpers should not care about control flow at all. That is ZS-ERR-25, "push `if`s up and
-  `for`s down".
-- **Centralize state manipulation.** The parent keeps the relevant state in its own locals and calls
-  helpers to *compute* what should change, rather than letting the helper apply the change. Leaf
-  functions stay pure, which is what makes them testable in isolation and assertable at both ends
-  (`references/assertions.md` ZS-ASSERT-18).
+Where to cut is what the shape rules decide: the control flow stays in the parent (ZS-ERR-22), so
+does the state it manipulates (`references/performance.md` ZS-PERF-12), and each piece comes out
+narrow at both ends and wide inside (ZS-PERF-13).
 
 **Why:** a function that fits on a screen can be checked for "is every case handled?" by looking;
 one you must scroll is reconstructed from memory, which is where the missed branch lives. The split
 that gets you under 70 lines nearly always names a concept you had not named.
 
-```zig
-// verified — GOOD
-const std = @import("std");
-const assert = std.debug.assert;
-
-const Frame = struct { kind: u8, payload: []const u8 };
-const Counters = struct { data: u64 = 0, control: u64 = 0 };
-
-// Leaf: no parameters beyond the data, no branches, nothing to trace.
-fn checksum(payload: []const u8) u32 {
-    var sum: u32 = 0;
-    for (payload) |byte| sum = sum *% 31 +% byte;
-    return sum;
-}
-
-// Parent: few parameters, simple return type, and all the control flow.
-fn account(frames: []const Frame, counters: *Counters) u32 {
-    assert(frames.len > 0);
-    var last: u32 = 0;
-    for (frames) |frame| {
-        switch (frame.kind) {
-            0 => counters.control += 1,
-            else => counters.data += frame.payload.len,
-        }
-        last = checksum(frame.payload);
-    }
-    return last;
-}
-```
-
-**Check:** any function whose closing brace you cannot see from its signature, and any signature
-with more than four parameters that is not a constructor. Mechanically, over a file whose functions
-all start in column 0:
+**Check:** any function whose closing brace you cannot see from its signature. Mechanically, over a
+file whose functions all start in column 0:
 
 ```sh
 awk '/^(pub )?fn /{s = NR; n = $0}
      /^}$/{if (s && NR - s > 70) print FILENAME":"s"  "NR - s" lines  "n; s = 0}'
 ```
 
-### ZS-ERR-35 [S] Report position and context through a `*Diagnostics`, not the error set
+### ZS-ERR-31 [S] Report position and context through a `*Diagnostics`, not the error set
 
 An error set says *what kind* of thing went wrong; it cannot say *where*. When a user has to fix the
 input — a config file, a query, a source file — pair a coarse error set with an optional
@@ -1369,15 +1269,15 @@ only need to know *whether* it failed do not have to declare a variable.
 
 The other alternatives are worse. A parse function that allocates and returns a formatted message
 forces an allocator into a signature that did not need one, and a `[]const u8` lifetime question on
-every caller; logging from the library takes the decision away from the application (ZS-ERR-03,
-ZS-ERR-32).
+every caller; logging from the library takes the decision away from the application (ZS-ERR-02,
+ZS-ERR-28).
 
-**Why:** the out-parameter leaves the error set small and exhaustively switchable (ZS-ERR-09) while
+**Why:** the out-parameter leaves the error set small and exhaustively switchable (ZS-ERR-08) while
 still allowing "line 12, col 3", which the set cannot carry: Zig error values have no payload, so
 `error.InvalidCharacterAtLine12` does not exist and cannot.
 
 ```zig
-// verified — GOOD: ZS-ERR-04's `parseDecimal`, now able to point at the byte
+// verified — GOOD: ZS-ERR-03's `parseDecimal`, now able to point at the byte
 const std = @import("std");
 const assert = std.debug.assert;
 
@@ -1398,8 +1298,8 @@ pub fn parseDecimal(text: []const u8, diag: ?*Diagnostics) ParseError!u32 {
             if (diag) |d| d.* = .{ .column = @intCast(i + 1), .byte = c };
             return error.InvalidCharacter;
         }
-        value = std.math.mul(u32, value, 10) catch return error.Overflow;
-        value = std.math.add(u32, value, c - '0') catch return error.Overflow;
+        value = try std.math.mul(u32, value, 10);
+        value = try std.math.add(u32, value, c - '0');
     }
     return value;
 }
@@ -1422,7 +1322,7 @@ with `{f}`, and `log(path)` and `fatal(path)` print it for you.
 function taking an `Allocator` used only to build an error string. Both are a `*Diagnostics` written
 the wrong way.
 
-### ZS-ERR-36 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
+### ZS-ERR-32 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
 
 To record where you are *without* aborting — a leak tracker, an audit log, a "who called this" probe
 — use `std.debug.captureCurrentStackTrace(options: StackUnwindOptions, addr_buf: []usize)
@@ -1435,16 +1335,14 @@ returned `StackTrace`. To print instead of capture, `dumpCurrentStackTrace(optio
 allow_unsafe_unwind: bool = false }`. Pass `.{ .first_address = @returnAddress() }` to drop your own
 frame from the trace — that is what `dumpCurrentStackTrace` does internally.
 
-`std.debug.StackIterator` is **no longer `pub`** since 0.16 (`std/debug.zig` declares it plain
-`const`), so hand-rolled unwinding loops from older code no longer compile;
-`captureCurrentStackTrace` is the supported replacement. And `std.debug.StackTrace`
-(`{ return_addresses, skipped }`) is a *different type* from the `std.lang.StackTrace`
-(`{ index, instruction_addresses }`) that `@errorReturnTrace()` returns; mixing the two families is
-the usual compile error (ZS-ERR-17).
+`std.debug.StackIterator` is **not `pub`** (`std/debug.zig` declares it plain `const`), so a
+hand-rolled unwinding loop does not compile; `captureCurrentStackTrace` is the supported way. And
+`std.debug.StackTrace` (`{ return_addresses, skipped }`) is a *different type* from the
+`std.lang.StackTrace` (`{ index, instruction_addresses }`) that `@errorReturnTrace()` returns;
+mixing the two families is the usual compile error (ZS-ERR-15).
 
-**Why:** these are the 0.16 spellings, unchanged in 0.17, and they are easy to get wrong from
-memory: older code reaches for an iterator that is now private, and for a trace type that is not the
-one an error return trace uses.
+**Why:** this family is easy to get wrong from memory: older code reaches for an iterator that is
+private, and for a trace type that is not the one an error return trace uses.
 
 ```zig
 // fragment — GOOD
@@ -1458,14 +1356,15 @@ Two costs to budget for. `std.options.allow_stack_tracing` gates the whole famil
 every capture returns an empty trace, so a capture-based diagnostic silently produces nothing.
 Unwinding is also not cheap — it is a debug-path tool, so keep it off the hot path and behind the
 same `verify`-style constant as an O(N) assertion (`references/assertions.md`
-ZS-ASSERT-20).
+ZS-ASSERT-17).
 
 **Check:** any surviving `std.debug.StackIterator`, `.dumpStackTrace(@errorReturnTrace())`, or a
-`dumpCurrentStackTrace(start_addr)` call passing a bare `?usize` — the 0.15 signature.
+`dumpCurrentStackTrace(start_addr)` call passing a bare `?usize` where it takes
+`StackUnwindOptions`.
 
 ## Uniformity of failure and control flow
 
-### ZS-ERR-37 [M] Give the members of one error set a uniform shape
+### ZS-ERR-33 [M] Give the members of one error set a uniform shape
 
 Members of one error set describe failures at one level of detail. Do not mix
 `error.InvalidByteAtOffset` with a bare `error.Bad` in the same set, and do not let one call site
@@ -1479,7 +1378,7 @@ for the deficient members. Uniform shape is what lets one function render every 
 populated for most members and empty for one is either a missing detail or a member that belongs in
 a different set.
 
-### ZS-ERR-38 [M] Absorb a special case into the general path, or give it its own type
+### ZS-ERR-34 [M] Absorb a special case into the general path, or give it its own type
 
 A branch that exists for one input is not a feature; it is an unfinished generalization. Either
 the general path handles it — usually by widening a parameter or adding a tag — or the case differs

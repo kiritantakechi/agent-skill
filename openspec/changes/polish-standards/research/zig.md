@@ -239,3 +239,28 @@ Every probe passed on 0.17.0 unless the row says otherwise. Probe paths are give
   - Line 168 cites `migration-and-dead-apis.md`, which does not exist.
   - The sample findings at lines 134-136 cite MEM-11 where MEM-16 belongs, and ERR-14 where ERR-06 belongs.
   - The stale greps at lines 87-104 are a partial copy of MIG-14's denylist.
+
+## Applied
+
+All of §A, §B and §C, and the "Other defects", by the merge map and decisions in
+`zig-decisions.md`, with these exceptions:
+
+- **C14** (`Io.Clock.Timestamp`): skipped. It adds `.raw` at every use, so the examples read worse.
+- **C15**, its performance half: moot, because PERF-21 merged into CONC-33. Its testing half is
+  applied in TEST-09.
+- **C38** (`std.sort.isSorted` in PERF-04): skipped as low value; the caller already asserts
+  `len > 0`.
+- **COMPTIME-18 and §B4's other compiler-decided rules without a row** keep their rules; adding
+  compiler rows with probes was not part of this change. The same holds for errors.md's two
+  candidates, `'@branchHint' must appear as the first statement…` and the `errdefer |err|` parse
+  error.
+- **MEM-01 and CONC-01** keep separate Checks: one is about allocation, the other about `Io`.
+- **The porting facts** the annotations carried are rows in `migration.md`: `std.io.tty`,
+  `refAllDeclsRecursive`, `std.meta.intToEnum`, `dumpCurrentStackTrace`, `zig-pkg/` in
+  `.gitignore`, `@bitSizeOf` on a non-packed struct, `*u8` against `*align(1) u8`, non-scalar
+  sentinels, `@memcpy` aliasing and `copyForwards`. Each was probed on 0.17.0. The loop
+  vectorization fact was already §2's.
+- **Beyond the research:** CONC-38 at `[M]` made every example size its stream buffer with a named
+  `_max`; ASSERT-25's Check carries the `_max` grep that BUILD-19 lost; NAME-04 states what
+  `zig fmt` does to alignment, which was run to decide it; the split in std's interface field names
+  (`interface` vs `writer`) is stated in COMPTIME-23.
