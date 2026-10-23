@@ -6,7 +6,6 @@ name: ci
 on:
   push: { branches: [main] }
   pull_request:
-  schedule: [{ cron: "0 6 * * 1" }]   # weekly, so new advisories surface
 
 env:
   UV_FROZEN: "1"
@@ -25,10 +24,12 @@ jobs:
       - run: uv python install cpython-3.15.0+freethreaded
       - run: uv sync --group dev
       - run: uv run pytest
-      # The GIL can be re-enabled at import time, process-wide, permanently
-      # and with only a RuntimeWarning. One unported dependency silently
-      # costs the whole feature, so assert it rather than hoping.
-      - run: uv run python -c "import sys; assert not sys._is_gil_enabled()"
+      # The build first, then the runtime with the package imported: the GIL
+      # can be re-enabled at import time, process-wide, permanently and with
+      # only a RuntimeWarning, so one unported dependency silently costs the
+      # whole feature (PS-BUILD-20). Replace `yourpkg` with the package.
+      - run: uv run python -c "import sys; assert sys.abi_info.free_threaded"
+      - run: uv run python -c "import sys, yourpkg; assert not sys._is_gil_enabled()"
 
   lint:
     runs-on: ubuntu-latest

@@ -92,8 +92,8 @@ finding.
 `async with asyncio.TaskGroup() as tg: tg.create_task(...)`.
 
 **Why:** nothing escapes the block: if one task raises, the rest are cancelled and the group
-re-raises as an `ExceptionGroup`; if the block exits normally, every task has finished. A loose task
-has neither property, so its failure is noticed, if at all, as a warning at interpreter shutdown.
+re-raises as an `ExceptionGroup`, which `except*` catches (PS-ERR-11); if it exits normally, every
+task has finished. A loose task has neither, so its failure surfaces, if at all, at shutdown.
 
 **Check:** `rg -n 'create_task|ensure_future' src/` — every hit outside a `TaskGroup` needs a
 reference kept to the task, which ruff `RUF006` checks.

@@ -2,7 +2,7 @@
 
 Scope: configuring pytest 9, what a test should assert and how it should be shaped, fixture
 discipline, and the particular difficulty of testing code that runs in parallel. What to document
-about a function is the documentation chapter; the interpreter and tool pins are the packaging
+about a function is the documentation chapter; the interpreter and tool pins are the build
 chapter.
 
 Two sources are merged here: the **pytest 9 documentation**, which added a native TOML table, a
@@ -309,7 +309,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 class Allocator:
     def __init__(self) -> None:
-        self._lock = threading.Lock()
+        self._lock = threading.Lock()  # guards: each id issued once
         self._next = 0
 
     def allocate(self, _request: int) -> int:

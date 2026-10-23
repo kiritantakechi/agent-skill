@@ -1,7 +1,7 @@
 # Data Modelling: Dataclasses, Enums, Protocols, and Immutability
 
 Scope: choosing the shape a value takes — dataclass, enum, protocol, `TypedDict`, `NamedTuple`,
-plain class — and what each obliges you to. How to spell the annotation on a field is the typing
+plain class — and what each obliges you to. How to spell the annotation on a field is the types
 chapter; whether the value is safe to share is the concurrency chapter; what a constructor should
 accept is the API chapter.
 
@@ -37,6 +37,7 @@ Unless a block shows its own imports, it assumes `from dataclasses import datacl
   - PS-DATA-17 [M] Never let `__eq__` and `__hash__` disagree
 - **Symmetry of a data type**
   - PS-DATA-18 [M] Give every serialiser its inverse
+- Decided by tools
 
 ---
 
@@ -78,9 +79,9 @@ it a slot. On a plain class, write the same thing as `__slots__ = ("name",)`.
 
 **Why:** without the instance `__dict__`, a misspelt attribute raises `AttributeError` at the moment
 of the mistake instead of silently becoming a new one. The instance is also smaller and faster, the
-more so on the free-threaded build, where a non-GC object is 32 bytes against the default's 16.
+more so on the free-threaded build: a non-GC object is 32 bytes there, against 16 on the default.
 
-**Check:** ruff `SLOT000`–`SLOT002` for the subclass cases. For dataclasses,
+**Check:** the `SLOT000`–`SLOT002` rows for the subclass cases. For dataclasses,
 `rg -n '@dataclass' src/` and read for `slots=`. A class instantiated more than a few thousand times
 with no slots is the finding.
 
@@ -217,9 +218,9 @@ assert collector.lines == ["a", "b"]
 so one caller's mutation changes it for every later caller. Under free threading it is shared across
 threads too, so the mutation races as well as leaking.
 
-**Check:** ruff `B006` for the argument form, `RUF008` for the dataclass field and `RUF012` for the
-class attribute. All three are enabled. `dataclasses` refuses a bare default only for types it knows
-are unhashable, so a `field(default=` holding a custom mutable class is still the finding.
+**Check:** the `B006` row for the argument form, `RUF008` for the dataclass field and `RUF012` for
+the class attribute. `dataclasses` refuses a default whose type is unhashable, so a mutable class
+that keeps `object`'s hash slips through, and a `field(default=` holding one is still the finding.
 
 ```python
 # verified — GOOD
@@ -442,3 +443,16 @@ original = Point(1, 2)
 assert Point.from_dict(original.to_dict()) == original
 assert Point.from_dict(frozendict(x=1, y=2)) == original  # any mapping, not only a dict
 ```
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| ruff | `SLOT000` | error | a `str` subclass with no `__slots__` |
+| ruff | `SLOT001` | error | a `tuple` subclass with no `__slots__` |
+| ruff | `SLOT002` | error | a `namedtuple` subclass with no `__slots__` |
+| ruff | `B006` | error | a mutable default argument |
+| ruff | `RUF008` | error | a mutable default on a dataclass field |
+| ruff | `RUF012` | error | a mutable class attribute without `ClassVar` |

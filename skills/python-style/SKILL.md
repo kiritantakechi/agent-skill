@@ -3,14 +3,15 @@ name: python-style
 description: >-
   The modern Python 3.15 engineering standard — a 262-rule library merging the normative Python
   specifications (PEP 8, PEP 257, PEP 20, and the Python Typing Spec), the empirical conventions of
-  the CPython standard library, and Ruff's rule catalogue as its house standard. Covers free
-  threading and what the GIL stopped guaranteeing, shared state, iterators, caches and context,
-  streams, and the build. Use this whenever writing, reviewing, refactoring, scaffolding, or
-  debugging ANY Python — a package, one function, a pyproject.toml, a dataclass, a thread pool, a
-  test — even if the user never mentions "style", "standards", or "quality". Also use when asked to
-  make Python "idiomatic", "modern", "clean", or "production-grade", when auditing a Python
-  codebase, when the current spelling of a standard-library symbol is uncertain, and when moving
-  code to the free-threaded build.
+  the CPython standard library, and Ruff's rule catalogue as its house standard. Covers naming,
+  types and annotations, data modelling, errors and control flow, free threading and what the GIL
+  stopped guaranteeing, asyncio, output and logging, performance, the public API, documentation,
+  testing, the build, and the 3.14–3.15 migration tables. Use this whenever writing, reviewing,
+  refactoring, scaffolding, or debugging ANY Python — a package, one function, a pyproject.toml, a
+  dataclass, a thread pool, a test — even if the user never mentions "style", "standards", or
+  "quality". Also use when asked to make Python "idiomatic", "modern", "clean", or
+  "production-grade", when auditing a Python codebase, when the current spelling of a
+  standard-library symbol is uncertain, and when moving code to the free-threaded build.
 ---
 
 # Python Style — 3.15
@@ -106,7 +107,7 @@ atomic: that reason was the GIL, under which the never-atomic `obj.n += 1` shipp
 | a hand-rolled `_MISSING = object()` | `sentinel("MISSING")` |
 | `types.MappingProxyType` for an immutable mapping | `frozendict` |
 | moving an import into a function for startup time | `lazy import x` at module scope |
-| `sum(lists, [])` | `[*sub for sub in lists]`, which ruff `RUF017` writes for you |
+| `sum(lists, [])` | `[*sub for sub in lists]`, which ruff `RUF017` offers as an unsafe fix |
 
 ### 2.4 What the type system gained
 
@@ -181,7 +182,7 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
   the import silently degrades `annotationlib` to bare strings. (`references/types.md` PS-TYPE-04).
 - **PS-CORE-07 `[M]`** Write `X | None`, `list[int]`, `class Box[T]`, `type Alias = ...`. The
   `typing` aliases, `Optional`, and module-level `TypeVar` are all superseded spellings.
-  (`references/types.md` PS-TYPE-07, PS-TYPE-08, PS-TYPE-09).
+  (`references/types.md` PS-TYPE-07, PS-TYPE-08, PS-TYPE-09, PS-TYPE-10).
 - **PS-CORE-08 `[M]`** Use `object` for "anything" and `Any` only with a comment naming what cannot
   be expressed. They look alike and are opposites. (`references/types.md` PS-TYPE-13).
 - **PS-CORE-09 `[M]`** Narrow with `TypeIs`, not `TypeGuard`: `TypeGuard` leaves the `else` branch
@@ -294,7 +295,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/testing.md` | `PS-TEST` (21) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
 | `references/build.md` | `PS-BUILD` (21) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
 | `references/migration.md` | `PS-MIG` (9) | The four tiers of obsolescence, what 3.14 and 3.15 removed and changed, what to write today for 3.16, and pytest's own ladder |
-| `references/review-checklist.md` | — | The audit protocol: eight-level severity model, review order, the mechanical pass, and the output format |
+| `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, the mechanical pass, and the output format |
 
 ## 7. Bundled assets
 

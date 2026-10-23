@@ -84,7 +84,7 @@ def running_in_parallel() -> bool:
     return not probe()
 
 
-print(FREE_THREADED_BUILD, running_in_parallel())
+assert isinstance(running_in_parallel(), bool)
 ```
 
 ### PS-CONC-02 [M] Never treat a compound assignment as one step
@@ -129,7 +129,7 @@ assert counter <= 80_000, "80000 is the answer only if nothing interleaved"
 # verified — GOOD
 import threading
 
-_lock = threading.Lock()
+_lock = threading.Lock()  # guards: counter, read and written as one step
 counter = 0
 
 
@@ -167,7 +167,7 @@ writes to the thing just tested is a defect unless a lock spans both.
 import threading
 
 _registry: dict[str, int] = {}
-_registry_lock = threading.Lock()
+_registry_lock = threading.Lock()  # guards: one id per name in _registry
 
 
 def intern(name: str) -> int:
@@ -207,7 +207,7 @@ import threading
 from collections import Counter
 
 _totals: Counter[str] = Counter()
-_totals_lock = threading.Lock()
+_totals_lock = threading.Lock()  # guards: _totals, merged one tally at a time
 
 
 def tally(words: list[str]) -> None:
@@ -311,7 +311,7 @@ the hits against the writers.
 import threading
 
 _sessions: dict[str, int] = {"a": 1, "b": 2}
-_lock = threading.Lock()
+_lock = threading.Lock()  # guards: _sessions, copied whole as one snapshot
 
 
 def active_ids() -> list[int]:
@@ -380,15 +380,13 @@ from contextlib import suppress
 
 work: queue.Queue[int] = queue.Queue()
 seen: list[int] = []
-seen_lock = threading.Lock()
 
 
 def consume() -> None:
     with suppress(queue.ShutDown):  # raised once the queue is drained and shut down
         while True:
             item = work.get()
-            with seen_lock:
-                seen.append(item)
+            seen.append(item)  # atomic (PS-CONC-05)
             work.task_done()
 
 
@@ -496,14 +494,11 @@ for t in threads:
 import threading
 
 shared = threading.serialize_iterator(iter(range(9)))
-got: list[int] = []
-got_lock = threading.Lock()
+got: dict[str, list[int]] = {}
 
 
 def drain() -> None:
-    for item in shared:
-        with got_lock:
-            got.append(item)
+    got[threading.current_thread().name] = list(shared)  # atomic (PS-CONC-05)
 
 
 threads = [threading.Thread(target=drain) for _ in range(3)]
@@ -511,7 +506,8 @@ for t in threads:
     t.start()
 for t in threads:
     t.join()
-assert sorted(got) == list(range(9)), "each item goes to exactly one caller"
+drained = sorted(i for part in got.values() for i in part)
+assert drained == list(range(9)), "each item goes to exactly one caller"
 ```
 
 ### PS-CONC-13 [M] Give each consumer a full stream with `threading.concurrent_tee`
@@ -538,13 +534,11 @@ import threading
 
 left, right = threading.concurrent_tee(iter(range(5)), 2)
 sums: dict[str, int] = {}
-lock = threading.Lock()
 
 
 def total(name: str, stream) -> None:
     value = sum(stream)  # this branch belongs to this thread alone
-    with lock:
-        sums[name] = value
+    sums[name] = value  # atomic (PS-CONC-05)
 
 
 threads = [
@@ -583,14 +577,11 @@ def work_items(n: int):
 
 
 shared = work_items(30)
-got: list[int] = []
-lock = threading.Lock()
+got: dict[str, list[int]] = {}
 
 
 def drain() -> None:
-    for item in shared:
-        with lock:
-            got.append(item)
+    got[threading.current_thread().name] = list(shared)  # atomic (PS-CONC-05)
 
 
 threads = [threading.Thread(target=drain) for _ in range(3)]
@@ -598,7 +589,7 @@ for t in threads:
     t.start()
 for t in threads:
     t.join()
-assert sorted(got) == list(range(30))
+assert sorted(i for part in got.values() for i in part) == list(range(30))
 ```
 
 ## Caches, memoisation, and context
@@ -649,7 +640,7 @@ effectful miss with no lock.
 import threading
 
 _conns: dict[str, str] = {}
-_conns_lock = threading.Lock()
+_conns_lock = threading.Lock()  # guards: at most one open per dsn in _conns
 
 
 def connection(dsn: str) -> str:
@@ -763,13 +754,10 @@ def rng() -> random.Random:
 
 
 out: list[float] = []
-lock = threading.Lock()
 
 
 def draw() -> None:
-    value = rng().random()
-    with lock:
-        out.append(value)
+    out.append(rng().random())  # atomic (PS-CONC-05)
 
 
 threads = [threading.Thread(target=draw, name=f"w{i}") for i in range(4)]
@@ -800,7 +788,7 @@ takes re-examined.
 import threading
 from contextlib import contextmanager
 
-_lock = threading.Lock()
+_lock = threading.Lock()  # guards: held pairs each "in" with its "out"
 held: list[str] = []
 
 

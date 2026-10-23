@@ -270,10 +270,9 @@ means "fit it on one line if it fits".
 formatter then executes. It is also the single lever that keeps a growing argument list from
 producing a one-line diff that touches every argument.
 
-**Check:** `skip-magic-trailing-comma = false`, ruff's default and the shipped `[format]` setting,
-makes the formatter enforce this itself, so there is no lint rule to enable — and the one that
-looks like it, flake8-commas, is on ruff's documented formatter-conflict list and must stay
-disabled. `ruff format --check` (PS-NAME-13) is the gate.
+**Check:** `ruff format --check` (PS-NAME-13). With `skip-magic-trailing-comma = false`, ruff's
+default and the shipped `[format]` setting, the formatter enforces this itself; flake8-commas, the
+lint that looks like it, is on ruff's formatter-conflict list and stays disabled.
 
 ```python
 # verified — GOOD

@@ -57,32 +57,46 @@ uv run ruff check                     # the shipped assets/ruff.toml
 uv run ruff format --check            # zero stderr proves no formatter conflict
 uv run ty check                       # the shipped assets/ty.toml
 uv run pytest
-python -c "import sys; assert not sys._is_gil_enabled()"
+uv run python -c "import sys; assert sys.abi_info.free_threaded"
+uv run python -c "import sys, yourpkg; assert not sys._is_gil_enabled()"
 ```
 
+The two assertions are PS-BUILD-20's: the build, then the runtime once the package is imported.
 Then the greps that no linter carries, because Ruff has no free-threading rule at all:
 
 ```sh
-grep -rn 'from __future__ import annotations' src/
-grep -rnE '^\s*(self\.)?[A-Za-z_][A-Za-z0-9_]*(\[[^]]*\])?\s*([+*|&^-]|//)=' src/
-grep -rn 'f_locals' src/
-grep -rn 'itertools.tee' src/
-grep -rnB2 '@contextmanager' src/
+rg -n 'from __future__ import annotations' src/
+rg -n '^\s*(self\.)?[A-Za-z_][A-Za-z0-9_]*(\[[^]]*\])?\s*([+*|&^-]|//)=' src/
+rg -n 'f_locals' src/
+rg -n 'itertools\.tee' src/
+rg -nB2 '@contextmanager' src/
 ```
+
+Then the dead-API grep, `references/migration.md` PS-MIG-02.
 
 ## Output format
 
-One finding per line, severity first, then the location, then what to do:
+Deliver reviews as a table ordered by severity, then a short prose section for the two or three
+findings that deserve discussion.
 
-```
-Unsound  worker.py:41   `self.count += 1` is a read-modify-write on state three
-                        threads reach. Accumulate locally and merge under the lock
-                        that already guards `self.totals` (PS-CONC-04).
+```markdown
+## Findings
+
+| Severity | Rule | Location | Finding | Fix |
+|---|---|---|---|---|
+| Unsound | PS-CONC-04 | `worker.py:41` | `self.count += 1` is a read-modify-write on state three threads reach | Accumulate locally and merge under the lock that already guards `self.totals` |
+| Stale | PS-TYPE-04 | `models.py:3` | `from __future__ import annotations` | Delete it; annotations are lazy already |
+| Contract | PS-API-03 | `pyproject.toml` | The package is typed and ships no `py.typed` | Add the marker to the package data |
+
+## Discussion
+
+<the two or three findings where the right answer depends on context the author
+has and you do not — with the trade-off stated and a recommendation>
 ```
 
-Group by severity, not by file. Cite the rule ID so the author can read the reason rather than
-taking the reviewer's word for it. Where a finding is a judgement rather than a verdict — the greps
-above mostly are — say which way you read it and why.
+Cite the rule ID so the author can read the reason rather than taking the reviewer's word for it.
+Where a finding is a judgement rather than a verdict — the greps above mostly are — say which way
+you read it and why.
 
 ## Refactoring a codebase to this standard
 

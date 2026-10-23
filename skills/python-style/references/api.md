@@ -158,8 +158,8 @@ A mutable parameter type is the exception, where mutating the argument is the po
 opposite generality. Accepting `Iterable` lets a caller pass a generator; returning it denies them
 the indexing and the `.append` you actually gave, and they will cast it back.
 
-**Check:** every public signature. A concrete container in a parameter, or an abstract one in a
-return, is the finding.
+**Check:** every public signature. A concrete container in a parameter, unless the function mutates
+the argument, or an abstract one in a return, is the finding.
 
 ### PS-API-09 [S] Take a value, not a flag that selects between two behaviours
 
