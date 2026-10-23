@@ -8,125 +8,75 @@ and shell completions, and obsessive attention to stream behaviour — is what
 ## Contents
 
 - **Architecture**
-  - RS-CLI-01 [M] Put the interesting logic in a library; the binary is wiring
-  - RS-CLI-02 [M] Let `main` do exactly four things
-  - RS-CLI-03 [M] Parse into a mechanical `LowArgs`, then transform into a validated `HiArgs`
-  - RS-CLI-04 [M] Construct the high-level configuration once, and keep it immutable
-  - RS-CLI-05 [M] Resolve configuration in a documented, tested precedence order
-  - RS-CLI-06 [S] Provide an escape hatch that disables external configuration
-  - RS-CLI-07 [S] Drive parsing, `--help`, the man page, and completions from one flag table
-  - RS-CLI-08 [M] Give every flag a unit test over its parsed result
-  - RS-CLI-09 [S] Generate completions and the man page from the same definitions
-  - RS-CLI-10 [S] Put long-running work behind a trait so the CLI layer stays testable
+  - RS-CLI-01 [M] Let `main` do exactly four things
+  - RS-CLI-02 [M] Parse into a mechanical `LowArgs`, then transform into a validated `HiArgs`
+  - RS-CLI-03 [M] Construct the high-level configuration once, and keep it immutable
+  - RS-CLI-04 [M] Resolve configuration in a documented, tested precedence order
+  - RS-CLI-05 [S] Provide an escape hatch that disables external configuration
+  - RS-CLI-06 [S] Drive parsing, `--help`, the man page, and completions from one flag table
+  - RS-CLI-07 [M] Give every flag a unit test over its parsed result
+  - RS-CLI-08 [S] Put long-running work behind a trait so the CLI layer stays testable
 
 - **Argument parsing**
-  - RS-CLI-11 [S] Use `clap`'s derive API unless you have ripgrep's constraints
-  - RS-CLI-12 [M] Follow POSIX/GNU conventions
-  - RS-CLI-13 [M] Accept paths as `OsString`/`PathBuf`, never `String`
-  - RS-CLI-14 [M] Give every config-settable boolean flag a negation
-  - RS-CLI-15 [M] Validate arguments at parse time into rich types
-  - RS-CLI-16 [S] Split brief `-h` from complete `--help`, and end with real examples
-  - RS-CLI-17 [S] Support `--version`, with the git hash and target triple
-  - RS-CLI-18 [S] Add subcommands only when the tool genuinely does several things
-  - RS-CLI-19 [M] Reserve exit code `2` for usage errors and print the specific problem
+  - RS-CLI-09 [S] Use `clap`'s derive API unless you have ripgrep's constraints
+  - RS-CLI-10 [M] Follow POSIX/GNU conventions
+  - RS-CLI-11 [M] Accept paths as `OsString`/`PathBuf`, never `String`
+  - RS-CLI-12 [M] Give every config-settable boolean flag a negation
+  - RS-CLI-13 [S] Split brief `-h` from complete `--help`, and end with real examples
+  - RS-CLI-14 [S] Support `--version`, with the git hash and target triple
+  - RS-CLI-15 [S] Add subcommands only when the tool genuinely does several things
+  - RS-CLI-16 [M] Reserve exit code `2` for usage errors and print the specific problem
 
 - **Output and streams**
-  - RS-CLI-20 [M] Send results to stdout and diagnostics to stderr
-  - RS-CLI-21 [M] Lock stdout once and write through a `BufWriter`
-  - RS-CLI-22 [M] Handle `BrokenPipe` by exiting quietly with success
-  - RS-CLI-23 [M] Adapt presentation to whether stdout is a terminal — never the data
-  - RS-CLI-24 [M] Respect `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`
-  - RS-CLI-25 [S] Provide a machine-readable mode and version its schema
-  - RS-CLI-26 [S] Say which output format is stable, and do not promise the other
-  - RS-CLI-27 [M] Send progress to stderr, suppressed when not a terminal
-  - RS-CLI-28 [M] Use structured logging for diagnostics, never `println!`
-  - RS-CLI-29 [M] Flush and check the result before exiting
+  - RS-CLI-17 [M] Send results to stdout and diagnostics to stderr
+  - RS-CLI-18 [M] Lock stdout once and write through a `BufWriter`
+  - RS-CLI-19 [M] Handle `BrokenPipe` by exiting quietly with success
+  - RS-CLI-20 [M] Adapt presentation to whether stdout is a terminal — never the data
+  - RS-CLI-21 [M] Respect `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`
+  - RS-CLI-22 [S] Provide a machine-readable mode and version its schema
+  - RS-CLI-23 [S] Say which output format is stable, and do not promise the other
+  - RS-CLI-24 [M] Send progress to stderr, suppressed when not a terminal
+  - RS-CLI-25 [M] Use structured logging for diagnostics, never `println!`
 
 - **Behaviour, environment, signals**
-  - RS-CLI-30 [M] Read stdin when given no files, and treat `-` as stdin
-  - RS-CLI-31 [M!] Make destructive operations opt-in, and never prompt when not a terminal
-  - RS-CLI-32 [M!] Write output atomically where a partial file would be harmful
-  - RS-CLI-33 [M] Install process-wide state once, at the top of `main`
-  - RS-CLI-34 [M] Handle `SIGINT` by restoring the terminal and exiting `130`
-  - RS-CLI-35 [S] Respect the platform's directory conventions
-  - RS-CLI-36 [M] Namespace and document every environment variable you read
-  - RS-CLI-37 [M] Test the binary end to end, including the pipe and non-UTF-8 cases
-  - RS-CLI-38 [M] Do not phone home, auto-update, or collect telemetry without opt-in
-  - RS-CLI-39 [S] Ship a single binary with artifacts and checksums for three platforms
+  - RS-CLI-26 [M] Read stdin when given no files, and treat `-` as stdin
+  - RS-CLI-27 [M!] Make destructive operations opt-in, and never prompt when not a terminal
+  - RS-CLI-28 [M!] Write output atomically where a partial file would be harmful
+  - RS-CLI-29 [M] Handle `SIGINT` by restoring the terminal and exiting `130`
+  - RS-CLI-30 [S] Respect the platform's directory conventions
+  - RS-CLI-31 [M] Namespace and document every environment variable you read
+  - RS-CLI-32 [M] Do not phone home, auto-update, or collect telemetry without opt-in
+  - RS-CLI-33 [S] Ship a single binary with artifacts and checksums for three platforms
 
 ---
 
 ## Architecture
 
-### RS-CLI-01 [M] Put the interesting logic in a library; the binary is wiring
+### RS-CLI-01 [M] Let `main` do exactly four things
 
-The interesting logic lives in a library crate; the binary is wiring. This makes everything
-testable, reusable, and benchmarkable — and it is why ripgrep's search engine exists as
-`grep-searcher` rather than as a module in `main.rs` (`RS-MOD-24`).
+`main` does four things: parse the arguments into a configuration, call `run`, report the error,
+and return the exit code. Everything else is delegated.
 
-**Why:** anything inside `main.rs` can only be tested by running the process, which is slow,
-awkward, and cannot be benchmarked. The split is what turns a tool into a component other people can
-build on — and it costs nothing, because the binary was going to call the logic anyway.
+**Why:** `main` is the one function that cannot return a `Result` to anybody, and what it does can
+be tested only by running the process, while everything inside `run` is testable. Four steps keep
+the error-reporting and exit-code policy in one readable place.
 
-**Check:** count the lines in `src/bin/` or `main.rs`. If any of them implement behaviour rather
-than wiring, they belong in the library.
-
-```rust
-// verified
-/// The library holds the behaviour; a binary would be twenty lines of wiring.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct Summary {
-    scanned: u64,
-    matched: u64,
-}
-
-impl Summary {
-    #[must_use]
-    pub fn matched(self) -> u64 {
-        self.matched
-    }
-
-    #[must_use]
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "a ratio is f64 by nature, and no line count reaches 2^53"
-    )]
-    pub fn hit_rate(self) -> f64 {
-        if self.scanned == 0 {
-            0.0
-        } else {
-            self.matched as f64 / self.scanned as f64
-        }
-    }
-}
-
-#[must_use]
-pub fn scan(lines: &[String], needle: &str) -> Summary {
-    let matched = lines.iter().filter(|line| line.contains(needle)).count();
-    Summary {
-        scanned: lines.len() as u64,
-        matched: matched as u64,
-    }
-}
-```
-
-### RS-CLI-02 [M] Let `main` do exactly four things
-
-`main` does four things: parse arguments, build the configuration, call `run() -> Result<()>`,
-report and exit. Everything else is delegated (`RS-ERR-41`).
-
-**Why:** `main` is the one function that cannot return a `Result` to anybody, so it is the wrong
-place for logic. Keeping it to four steps means the error-reporting and exit-code policy lives in
-one readable place instead of being scattered through the program.
-
-**Check:** read `main`. More than about a dozen lines, or any business logic, is a finding.
+**Check:** read `main`. How many of its lines would an in-process end-to-end test have to duplicate?
+That is the untested surface: more than about a dozen lines, or any business logic, is a finding.
 
 ```rust
 // verified
+use std::ffi::OsString;
 use std::process::ExitCode;
 
-fn run(args: &[String]) -> Result<(), Failure> {
-    if args.is_empty() {
+/// What the arguments asked for, parsed once.
+#[derive(Debug)]
+struct Config {
+    inputs: Vec<OsString>,
+}
+
+fn run(config: &Config) -> Result<(), Failure> {
+    if config.inputs.is_empty() {
         Err(Failure::NoInput)
     } else {
         Ok(())
@@ -140,9 +90,12 @@ pub enum Failure {
     NoInput,
 }
 
-/// Parse, build, run, report, exit — and nothing else.
-fn main(args: &[String]) -> ExitCode {
-    match run(args) {
+/// Parse, run, report, exit — and nothing else.
+fn main() -> ExitCode {
+    let config = Config {
+        inputs: std::env::args_os().skip(1).collect(),
+    };
+    match run(&config) {
         Ok(()) => ExitCode::SUCCESS,
         Err(failure) => {
             eprintln!("{failure}");
@@ -152,7 +105,7 @@ fn main(args: &[String]) -> ExitCode {
 }
 ```
 
-### RS-CLI-03 [M] Parse into a mechanical `LowArgs`, then transform into a validated `HiArgs`
+### RS-CLI-02 [M] Parse into a mechanical `LowArgs`, then transform into a validated `HiArgs`
 
 Parse arguments into a low-level, mechanical representation first (one field per flag, no
 interpretation), then transform that into a validated, high-level configuration that the rest of the
@@ -170,7 +123,7 @@ type does both, the interactions are being decided in the parser.
 // verified
 use std::path::PathBuf;
 
-/// A two-variant enum, so the call site reads `set_quiet(Quiet::Yes)` (RS-API-29).
+/// A two-variant enum, so the call site reads `set_quiet(Quiet::Yes)` (RS-API-19).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Quiet {
     Yes,
@@ -230,7 +183,7 @@ impl From<LowArgs> for HiArgs {
 }
 ```
 
-### RS-CLI-04 [M] Construct the high-level configuration once, and keep it immutable
+### RS-CLI-03 [M] Construct the high-level configuration once, and keep it immutable
 
 The high-level configuration is immutable and constructed once. Downstream code takes `&Config` and
 never re-reads the environment, the command line, or the config file.
@@ -263,7 +216,7 @@ impl Config {
 }
 ```
 
-### RS-CLI-05 [M] Resolve configuration in a documented, tested precedence order
+### RS-CLI-04 [M] Resolve configuration in a documented, tested precedence order
 
 Resolve configuration in a documented precedence order: built-in defaults, then config file, then
 environment, then command-line flags, with the last occurrence winning. Document it in `--help` and
@@ -299,7 +252,7 @@ pub fn resolve(file: Option<usize>, env: Option<usize>, flag: Option<usize>) -> 
 }
 ```
 
-### RS-CLI-06 [S] Provide an escape hatch that disables external configuration
+### RS-CLI-05 [S] Provide an escape hatch that disables external configuration
 
 Provide an escape hatch that disables external configuration entirely (ripgrep's `--no-config`), so
 a user can reproduce a clean run and so scripts are not affected by a developer's personal settings.
@@ -311,19 +264,22 @@ default.
 **Check:** is there a single flag that makes the run depend only on the command line? If not, no bug
 report can be trusted.
 
-### RS-CLI-07 [S] Drive parsing, `--help`, the man page, and completions from one flag table
+### RS-CLI-06 [S] Drive parsing, `--help`, the man page, and completions from one flag table
 
 Keep the flag definitions in one table, with each flag as a value implementing a common trait: name,
 short name, category, doc text, and an `update` method that writes into the low-level args. One
 table drives parsing, `--help`, the man page, and shell completions — so they cannot drift apart.
+Generate the completions and the man page from it at build time or through a hidden subcommand;
+never edit them by hand.
 
 **Why:** these four artifacts describe the same thing, and maintaining them separately guarantees
 the man page is a release behind. Deriving them from one definition makes drift structurally
 impossible rather than a review responsibility.
 
-**Check:** add a flag. If more than one file has to change, the definitions are not unified.
+**Check:** add a flag. If more than one file has to change, the definitions are not unified. A
+checked-in completion script with no regeneration command is hand-edited, and the finding.
 
-### RS-CLI-08 [M] Give every flag a unit test over its parsed result
+### RS-CLI-07 [M] Give every flag a unit test over its parsed result
 
 Every flag gets a unit test that parses a representative argument list and asserts on the resulting
 low-level args. With a hundred flags this is the only way the matrix stays correct.
@@ -334,23 +290,12 @@ fast, mechanical, and catches the class of bug where a refactor silently drops a
 **Check:** compare the flag count to the parser test count. A large gap is the list of untested
 flags.
 
-### RS-CLI-09 [S] Generate completions and the man page from the same definitions
-
-Generate shell completions and the man page from the same definitions, either at build time or
-through a hidden subcommand. Hand-written completions are always one release behind.
-
-**Why:** nobody remembers to update a completion script, and a wrong completion is worse than none —
-it actively suggests flags that do not exist. Generation makes correctness automatic.
-
-**Check:** are the completions checked in as generated output with a regeneration command, or
-hand-edited? Hand-edited is the finding.
-
-### RS-CLI-10 [S] Put long-running work behind a trait so the CLI layer stays testable
+### RS-CLI-08 [S] Put long-running work behind a trait so the CLI layer stays testable
 
 Long-running work belongs behind a trait or a callback so the CLI layer can be tested without doing
 it. A CLI whose only test is "run the binary" has no fast tests.
 
-**Why:** end-to-end tests are necessary (`RS-CLI-37`) but too slow to run per keystroke. A seam
+**Why:** end-to-end tests are necessary (`RS-TEST-28`) but too slow to run per keystroke. A seam
 between "decide what to do" and "do it" gives you fast tests for the decisions, which is where most
 of the bugs are.
 
@@ -359,7 +304,7 @@ the network? If not, the seam is missing.
 
 ## Argument parsing
 
-### RS-CLI-11 [S] Use `clap`'s derive API unless you have ripgrep's constraints
+### RS-CLI-09 [S] Use `clap`'s derive API unless you have ripgrep's constraints
 
 Use `clap` with the derive API for most tools: it is the ecosystem default, users recognize its
 conventions, and the derive form keeps the definitions next to the types. Reach for a hand-written
@@ -373,7 +318,7 @@ permanent maintenance cost, not a weekend.
 **Check:** if the parser is hand-written, name the constraint that forced it. "It seemed lighter" is
 not one.
 
-### RS-CLI-12 [M] Follow POSIX/GNU conventions
+### RS-CLI-10 [M] Follow POSIX/GNU conventions
 
 Follow POSIX/GNU conventions: `-v` short, `--verbose` long, `--` terminating flags, `-abc` bundling
 for boolean shorts, and `--flag=value` as well as `--flag value`. Users have muscle memory; do not
@@ -386,11 +331,11 @@ already know.
 **Check:** test `--`, bundling, and both `=` and space forms. A tool that rejects `--flag=value` is
 violating this.
 
-### RS-CLI-13 [M] Accept paths as `OsString`/`PathBuf`, never `String`
+### RS-CLI-11 [M] Accept paths as `OsString`/`PathBuf`, never `String`
 
 Accept file paths as `OsString`/`PathBuf`, never as `String`. Not all filenames are valid UTF-8 on
 either Unix or Windows, and rejecting them is a bug that surfaces only in the users' most annoying
-directories. Print them with `Path::display` or `OsStr::display` (1.87), never `{:?}`, which
+directories. Print them with `Path::display` or `OsStr::display`, never `{:?}`, which
 `clippy::unnecessary_debug_formatting` (pedantic) flags.
 
 **Why:** on Unix a filename is bytes and on Windows it is UTF-16; neither is guaranteed to be UTF-8.
@@ -398,7 +343,7 @@ Forcing `String` makes the tool fail on exactly the files the user most needs a 
 failure looks like the tool is broken rather than opinionated.
 
 **Check:** grep the argument types for `String` on anything path-shaped. Test with a non-UTF-8
-filename (`RS-CLI-37`).
+filename (`RS-TEST-28`).
 
 ```rust
 // verified
@@ -412,19 +357,19 @@ pub fn to_paths(raw: Vec<OsString>) -> Vec<PathBuf> {
 }
 ```
 
-### RS-CLI-14 [M] Give every config-settable boolean flag a negation
+### RS-CLI-12 [M] Give every config-settable boolean flag a negation
 
 Provide a negation for every boolean flag that a config file can enable (`--color` / `--no-color`,
 `--hidden` / `--no-hidden`), so a user can override their own configuration on the command line
-(`RS-NAME-31`).
+(`RS-NAME-28`).
 
-**Why:** precedence (`RS-CLI-05`) is only useful if the higher-precedence level can express both
+**Why:** precedence (`RS-CLI-04`) is only useful if the higher-precedence level can express both
 values. Without a negation, a config-file `true` is unreachable from the command line, which makes
 the config file a trap.
 
 **Check:** for each boolean readable from config, is there a `--no-` form? Each missing one is a
 setting the user cannot turn off. The pair is a *flag* pair on the command line; inside the program
-it lands as a two-variant enum, never as a `bool` parameter (`RS-API-29`).
+it lands as a two-variant enum, never as a `bool` parameter (`RS-API-19`).
 
 ```rust
 // verified
@@ -463,37 +408,7 @@ impl Flags {
 }
 ```
 
-### RS-CLI-15 [M] Validate arguments at parse time into rich types
-
-Validate arguments at parse time into rich types — a `Duration`, a `PathBuf` that exists, an enum, a
-`NonZeroUsize` — so the rest of the program cannot receive nonsense (`RS-FUNC-47`).
-
-**Why:** this is parse-don't-validate at the process boundary. Validating once at the edge means the
-rest of the program has no error paths for malformed input, and the error the user sees names the
-flag rather than surfacing from three layers down.
-
-**Check:** does any field of the resolved config have a type that admits invalid values — a `String`
-that must be one of four words, a `u64` that must be non-zero? Each is a missed newtype.
-
-```rust
-// verified
-use std::num::NonZeroUsize;
-
-/// Validated at parse time into a rich type, so no later code handles zero.
-///
-/// # Errors
-/// Returns [`InvalidThreads`] when the value is not a positive integer.
-pub fn parse_threads(raw: &str) -> Result<NonZeroUsize, InvalidThreads> {
-    raw.trim().parse().map_err(|_| InvalidThreads)
-}
-
-/// The thread count was missing, zero, or not a number.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-#[error("thread count must be a positive integer")]
-pub struct InvalidThreads;
-```
-
-### RS-CLI-16 [S] Split brief `-h` from complete `--help`, and end with real examples
+### RS-CLI-13 [S] Split brief `-h` from complete `--help`, and end with real examples
 
 Make `--help` genuinely useful: a one-line summary, usage, flags grouped by category, and two or
 three real examples at the end. Keep the short `-h` output brief and the long `--help` complete;
@@ -520,7 +435,7 @@ pub fn long_help() -> String {
 }
 ```
 
-### RS-CLI-17 [S] Support `--version`, with the git hash and target triple
+### RS-CLI-14 [S] Support `--version`, with the git hash and target triple
 
 Support `--version` with the crate version, and consider adding the git hash and target triple for
 bug reports.
@@ -531,7 +446,7 @@ removes a round trip.
 
 **Check:** does `--version` identify the build uniquely enough to reproduce it?
 
-### RS-CLI-18 [S] Add subcommands only when the tool genuinely does several things
+### RS-CLI-15 [S] Add subcommands only when the tool genuinely does several things
 
 Subcommands only when the tool genuinely does several things. A tool with one job and eleven flags
 is easier to use than one with three subcommands sharing eight flags each.
@@ -543,10 +458,10 @@ different, and cost otherwise.
 **Check:** do the subcommands share most of their flags? If so, they are one command with a mode
 flag.
 
-### RS-CLI-19 [M] Reserve exit code `2` for usage errors and print the specific problem
+### RS-CLI-16 [M] Reserve exit code `2` for usage errors and print the specific problem
 
 Reserve exit code `2` for usage errors and print the specific problem plus a pointer to `--help` —
-never dump the entire help text on a typo (`RS-ERR-43`).
+never dump the entire help text on a typo (`RS-ERR-35`).
 
 **Why:** the convention lets scripts distinguish "you called me wrong" from "the operation failed",
 which are different recovery paths. Dumping the full help scrolls the actual error off the screen,
@@ -569,7 +484,7 @@ pub fn usage_error(flag: &str) -> ExitCode {
 
 ## Output and streams
 
-### RS-CLI-20 [M] Send results to stdout and diagnostics to stderr
+### RS-CLI-17 [M] Send results to stdout and diagnostics to stderr
 
 Results go to stdout, diagnostics to stderr. This single rule is what makes a tool composable:
 `tool | grep`, `tool > file`, and `tool 2> log` all behave as the user expects.
@@ -604,14 +519,15 @@ pub fn emit(
 }
 ```
 
-### RS-CLI-21 [M] Lock stdout once and write through a `BufWriter`
+### RS-CLI-18 [M] Lock stdout once and write through a `BufWriter`
 
 Lock stdout once and write through a `BufWriter`. `println!` in a loop locks and flushes per line
-and is frequently the reason a tool is ten times slower than it should be (`RS-PERF-25`).
+and is frequently the reason a tool is ten times slower than it should be. Buffering in general is
+`RS-PERF-19`.
 
 **Why:** `println!` acquires the lock, formats, writes, and — on a terminal — flushes, every call.
-For line-oriented output that is three avoidable costs per line, and it dominates the runtime of
-anything that prints a lot.
+A loop printing a million lines performs a million lock acquisitions and a million syscalls, and it
+dominates the runtime of anything that prints a lot.
 
 **Check:** grep for `println!` inside loops. Each is a lock and a probable flush.
 
@@ -624,8 +540,7 @@ use std::io::{self, BufWriter, Write};
 /// # Errors
 /// Propagates the first write or flush error.
 pub fn print_all(lines: &[String]) -> io::Result<()> {
-    let stdout = io::stdout();
-    let mut out = BufWriter::new(stdout.lock());
+    let mut out = BufWriter::new(io::stdout().lock());
     for line in lines {
         writeln!(out, "{line}")?;
     }
@@ -633,11 +548,11 @@ pub fn print_all(lines: &[String]) -> io::Result<()> {
 }
 ```
 
-### RS-CLI-22 [M] Handle `BrokenPipe` by exiting quietly with success
+### RS-CLI-19 [M] Handle `BrokenPipe` by exiting quietly with success
 
 Handle `BrokenPipe` by exiting quietly with success. Every `tool | head` will otherwise print an
 error, and this is the most common polish defect in Rust CLIs. Match on `io::ErrorKind::BrokenPipe`
-(since 1.97 Windows also reports it for a write after a socket `shutdown`); the flag that restores
+(Windows also reports it for a write after a socket `shutdown`); the flag that restores
 C's behaviour, `-Zon-broken-pipe=kill`, is nightly-only.
 
 **Why:** `head` closing the pipe is normal termination, not a failure — the user got what they asked
@@ -646,7 +561,7 @@ signal, a Rust write returns `BrokenPipe` and `println!` panics on it.
 
 **Check:** run `tool | head -1`. Any error output or non-zero exit is a violation.
 
-### RS-CLI-23 [M] Adapt presentation to whether stdout is a terminal — never the data
+### RS-CLI-20 [M] Adapt presentation to whether stdout is a terminal — never the data
 
 Detect whether stdout is a terminal and adapt: colour, progress bars, and column alignment when
 interactive; plain, stable, line-oriented output when piped. Never change the *data*, only the
@@ -677,7 +592,7 @@ pub fn render(row: &str, style: Style) -> String {
 }
 ```
 
-### RS-CLI-24 [M] Respect `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`
+### RS-CLI-21 [M] Respect `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`
 
 Respect `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`, and provide `--color=auto|always|never` with
 `auto` as the default. Use `anstream`/`termcolor` rather than emitting escape codes by hand —
@@ -731,7 +646,7 @@ pub fn should_use_colour(choice: ColourChoice, env: EnvColour, stream: Stream) -
 }
 ```
 
-### RS-CLI-25 [S] Provide a machine-readable mode and version its schema
+### RS-CLI-22 [S] Provide a machine-readable mode and version its schema
 
 Provide a machine-readable output mode (`--json`, or NDJSON for streaming) for anything a script
 might consume, and treat its schema as a versioned API.
@@ -743,7 +658,7 @@ without freezing the display.
 **Check:** is there a documented, stable output format? If users are grepping the pretty output, the
 answer is no.
 
-### RS-CLI-26 [S] Say which output format is stable, and do not promise the other
+### RS-CLI-23 [S] Say which output format is stable, and do not promise the other
 
 Keep human-readable output stable enough to grep but do not promise it. Say in the docs which format
 is stable (the JSON one) so users script against the right thing.
@@ -753,7 +668,7 @@ than a broken promise. Silence is read as a guarantee.
 
 **Check:** does the documentation say, in words, which format is covered by semver?
 
-### RS-CLI-27 [M] Send progress to stderr, suppressed when not a terminal
+### RS-CLI-24 [M] Send progress to stderr, suppressed when not a terminal
 
 Progress and status go to stderr, are suppressed when not a terminal, and are suppressible with
 `--quiet`. A progress bar in a log file is a megabyte of carriage returns.
@@ -865,11 +780,11 @@ mod tests {
 }
 ```
 
-### RS-CLI-28 [M] Use structured logging for diagnostics, never `println!`
+### RS-CLI-25 [M] Use structured logging for diagnostics, never `println!`
 
 Use structured logging (`tracing` or `log` plus `env_logger`) for diagnostics, controlled by
 `-v`/`-vv` or `RUST_LOG`. Never `println!` for debugging in shipped code, and deny
-`clippy::dbg_macro` (`RS-BUILD-25`).
+`clippy::dbg_macro` (`RS-BUILD-23`).
 
 **Why:** logging gives levels, targets, and runtime filtering; `println!` gives none of those and
 cannot be turned off by the user. Debug prints that ship are also the most common way secrets end up
@@ -878,33 +793,9 @@ in logs.
 **Check:** grep the library for `println!`, `eprintln!`, and `dbg!`. In library code each is a
 finding.
 
-### RS-CLI-29 [M] Flush and check the result before exiting
-
-Flush explicitly before exiting, and check the result. A buffered writer dropped at process exit can
-lose the last block silently (`RS-PERF-26`).
-
-**Why:** `BufWriter`'s `Drop` flushes but discards the error, so a full disk or a closed pipe
-silently truncates the output. Since buffering was introduced for speed (`RS-CLI-21`), this is the
-failure it introduces if unhandled.
-
-**Check:** is there an explicit `flush()` whose `Result` is propagated before the process exits?
-
-```rust
-// verified
-use std::io::{self, Write};
-
-/// The flush is explicit and its result is propagated, not dropped by `Drop`.
-///
-/// # Errors
-/// Returns the flush error if the final block cannot be written.
-pub fn finish(mut sink: impl Write) -> io::Result<()> {
-    sink.flush()
-}
-```
-
 ## Behaviour, environment, signals
 
-### RS-CLI-30 [M] Read stdin when given no files, and treat `-` as stdin
+### RS-CLI-26 [M] Read stdin when given no files, and treat `-` as stdin
 
 Read from stdin when no file arguments are given, and treat `-` as stdin explicitly. This is the
 Unix convention that makes a tool a filter.
@@ -942,7 +833,7 @@ pub fn sources(args: &[PathBuf]) -> Vec<Source> {
 }
 ```
 
-### RS-CLI-31 [M!] Make destructive operations opt-in, and never prompt when not a terminal
+### RS-CLI-27 [M!] Make destructive operations opt-in, and never prompt when not a terminal
 
 Make destructive operations opt-in: a dry-run mode by default for anything that deletes or
 overwrites, or at minimum a `--force`/`-i` prompt when interactive. Never prompt when not a terminal
@@ -990,10 +881,11 @@ pub fn decide(force: Force, terminal: Terminal) -> Decision {
 }
 ```
 
-### RS-CLI-32 [M!] Write output atomically where a partial file would be harmful
+### RS-CLI-28 [M!] Write output atomically where a partial file would be harmful
 
 Write output atomically where a partial file would be harmful: write to a temporary file in the same
-directory, then rename. A crash mid-write should not destroy the user's input.
+directory, then rename. A crash mid-write should not destroy the user's input. Open the temporary
+with `File::create_new`, which fails rather than truncate a file that is already there.
 
 **Why:** `rename` within a filesystem is atomic, so readers see either the old file or the new one
 and never a half-written one. Writing in place gives up that guarantee for nothing — the temporary
@@ -1007,31 +899,26 @@ acceptable. In-place edits are never in that category.
 
 ```rust
 // verified
+use std::fs::File;
+use std::io;
 use std::path::{Path, PathBuf};
 
 /// Write to a temporary beside the target, then rename: readers never see a partial file.
 #[must_use]
 pub fn staging_path(target: &Path) -> PathBuf {
-    let mut name = target.file_name().unwrap_or_default().to_os_string();
-    name.push(".tmp");
-    target.with_file_name(name)
+    target.with_added_extension("tmp")
+}
+
+/// Opens the temporary exclusively, so it never truncates a file another run left there.
+///
+/// # Errors
+/// Fails with `AlreadyExists` when the temporary is already there.
+pub fn create_staging(target: &Path) -> io::Result<File> {
+    File::create_new(staging_path(target))
 }
 ```
 
-### RS-CLI-33 [M] Install process-wide state once, at the top of `main`
-
-Install process-wide state (signal handlers, terminal raw mode, a global logger) exactly once, at
-the top of `main`, and pass handles downward. A library that installs a signal handler on
-construction is unusable inside another program (`RS-OWN-42`).
-
-**Why:** process-global state is a singleton the whole process shares, so whoever installs it is
-making a decision for code they do not own. Confining it to `main` keeps the library reusable and
-makes the effects visible in one place.
-
-**Check:** grep the library for signal-handler installation, logger initialization, and terminal
-mode changes. Each belongs to the binary.
-
-### RS-CLI-34 [M] Handle `SIGINT` by restoring the terminal and exiting `130`
+### RS-CLI-29 [M] Handle `SIGINT` by restoring the terminal and exiting `130`
 
 Handle `SIGINT`/`Ctrl-C` by restoring the terminal, cleaning up temporary files, and exiting with
 `130`. A tool that leaves the terminal without an echo is remembered for it.
@@ -1043,18 +930,18 @@ distinguish it from a real failure.
 **Check:** interrupt the tool mid-run. The terminal should echo afterwards, temp files should be
 gone, and `$?` should be `130`.
 
-### RS-CLI-35 [S] Respect the platform's directory conventions
+### RS-CLI-30 [S] Respect the platform's directory conventions
 
 Respect the platform's directory conventions with `directories` or `etcetera` — `$XDG_CONFIG_HOME`,
 `~/Library/Application Support`, `%APPDATA%` — rather than hard-coding `~/.toolrc`. For `$HOME`
-alone, `std::env::home_dir` (undeprecated in 1.87) needs no crate.
+alone, `std::env::home_dir` needs no crate.
 
 **Why:** users expect config, cache, and data to land where their platform puts them, so backups and
 sync tools handle them correctly. A hard-coded dotfile also breaks on Windows entirely.
 
 **Check:** grep for `~/.` and `$HOME` string concatenation. Each is a hard-coded path.
 
-### RS-CLI-36 [M] Namespace and document every environment variable you read
+### RS-CLI-31 [M] Namespace and document every environment variable you read
 
 Namespace environment variables with the tool's name (`RIPGREP_CONFIG_PATH`, `MYTOOL_LOG`), document
 every one in `--help`, and never read an undocumented variable.
@@ -1095,19 +982,7 @@ pub fn read(lookup: impl Fn(&str) -> Option<String>) -> Environment {
 }
 ```
 
-### RS-CLI-37 [M] Test the binary end to end, including the pipe and non-UTF-8 cases
-
-Test the binary end to end: arguments in, stdout/stderr/exit code out, in a temporary directory
-(`RS-TEST-30`). Cover the pipe case, the not-a-terminal case, and the non-UTF-8 filename case.
-
-**Why:** argument parsing, stream behaviour, and exit codes are the layer unit tests cannot reach,
-and they are where the user-visible regressions live. The three named cases are the ones that never
-get tested by hand.
-
-**Check:** does the suite assert on exit codes and on stderr, not just stdout? And does any test use
-a non-UTF-8 filename?
-
-### RS-CLI-38 [M] Do not phone home, auto-update, or collect telemetry without opt-in
+### RS-CLI-32 [M] Do not phone home, auto-update, or collect telemetry without opt-in
 
 Do not phone home, auto-update, or collect telemetry without an explicit, documented opt-in. A CLI
 that makes a network call the user did not ask for will be removed from their machine.
@@ -1118,7 +993,7 @@ servers. An unexpected network call is a security finding in all three, regardle
 **Check:** run the tool with the network blocked. Any behaviour change means there is a call you did
 not declare.
 
-### RS-CLI-39 [S] Ship a single binary with artifacts and checksums for three platforms
+### RS-CLI-33 [S] Ship a single binary with artifacts and checksums for three platforms
 
 Ship the tool as a static-ish single binary where possible, with release artifacts for the three
 major platforms and a checksum. Distribution friction is the main reason good tools go unused.

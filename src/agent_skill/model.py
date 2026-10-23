@@ -173,32 +173,6 @@ class Rule:
         """The rule's Check section."""
         return _section(self.body, "Check")
 
-    @property
-    def pointer(self) -> bool:
-        """Does this rule point at the rule that owns the topic?
-
-        A pointer states no Why and no Check: the owner has them. Half
-        of one and half of the other is a rule that duplicated its owner
-        and drifted.
-        """
-        return self.statement.lstrip().startswith("Owned by")
-
-    @property
-    def owner(self) -> str:
-        """The rule a pointer points at, or "".
-
-        It is the first rule ID in the opening 200 characters of the
-        statement.
-        """
-        m = re.search(r"[A-Z]{2}-[A-Z]+-\d+[a-z]?", self.statement.lstrip()[:200])
-        return m.group(0) if m else ""
-
-    @property
-    def owner_chapter(self) -> str:
-        """The chapter an `Owned by` pointer names, or ""."""
-        m = re.match(r"Owned by `references/([a-z0-9-]+\.md)`", self.statement.lstrip())
-        return group(m)
-
 
 @dataclass(frozen=True, slots=True)
 class LintRow:

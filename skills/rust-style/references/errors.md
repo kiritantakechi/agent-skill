@@ -3,7 +3,7 @@
 Scope: when a failure is a `Result` and when it is a panic, how a library's error type is shaped and
 what it must carry, how errors propagate and accumulate context, the panic rules including `Drop`
 and FFI, and how a binary reports failure and chooses an exit code. Naming of error types is in the
-naming chapter (RS-NAME-35); the `# Errors` and `# Panics` rustdoc sections are in the documentation
+naming chapter (RS-NAME-31); the `# Errors` and `# Panics` rustdoc sections are in the documentation
 chapter; the `[lints]` entries that mechanically enforce this chapter are in the Cargo chapter.
 
 The dividing line that organizes everything here: **libraries** must hand callers structured,
@@ -28,44 +28,37 @@ and an exit code.
   - RS-ERR-11 [S] Derive the boilerplate with `thiserror`
   - RS-ERR-12 [M] Carry the context that identifies which operation failed
   - RS-ERR-13 [M!] Never expose `Box<dyn Error>` or `anyhow::Error` from a library
-  - RS-ERR-14 [M!] Mark public error enums `#[non_exhaustive]`
-  - RS-ERR-15 [M] Do not adopt a dependency's error type as public API
-  - RS-ERR-16 [S] Offer inspection methods for the properties callers branch on
-  - RS-ERR-17 [S] Prefer a struct with a private `kind` to a single-variant enum
-  - RS-ERR-18 [S] Do not create an error type per module
-  - RS-ERR-19 [M] Never add an `Other(String)` variant
-  - RS-ERR-20 [S] Keep error values small; box the fat variant
-  - RS-ERR-21 [S] Implement `Clone` on an error only when it is genuinely free
-  - RS-ERR-22 [S] Keep foreign protocol codes as data, not as prose
-  - RS-ERR-23 [S] Document the taxonomy once and link to it
+  - RS-ERR-14 [S] Offer inspection methods for the properties callers branch on
+  - RS-ERR-15 [S] Prefer a struct with a private `kind` to a single-variant enum
+  - RS-ERR-16 [S] Do not create an error type per module
+  - RS-ERR-17 [M] Never add an `Other(String)` variant
+  - RS-ERR-18 [S] Implement `Clone` on an error only when it is genuinely free
+  - RS-ERR-19 [S] Keep foreign protocol codes as data, not as prose
+  - RS-ERR-20 [S] Document the taxonomy once and link to it
 
 - **Propagation and context**
-  - RS-ERR-24 [M] Propagate with `?`; a re-wrapping `match` means a missing `From`
-  - RS-ERR-25 [S] Add context at layer boundaries, not at every frame
-  - RS-ERR-26 [S] Attach context lazily with the closure form
-  - RS-ERR-27 [M] Do not let `?` widen an error the caller needs to distinguish
-  - RS-ERR-28 [S] Choose the lazy combinator when constructing the error costs anything
-  - RS-ERR-29 [S] Collect into `Result<Vec<_>, _>` to short-circuit
-  - RS-ERR-30 [S] Accumulate errors when the user should see all of them at once
-  - RS-ERR-31 [S] Put retry policy above the error type, not inside it
-  - RS-ERR-32 [M] Do not use `Option` as an error channel
+  - RS-ERR-21 [M] Propagate with `?`; a re-wrapping `match` means a missing `From`
+  - RS-ERR-22 [S] Add context at layer boundaries, not at every frame
+  - RS-ERR-23 [M] Do not let `?` widen an error the caller needs to distinguish
+  - RS-ERR-24 [S] Choose the lazy combinator when constructing the error costs anything
+  - RS-ERR-25 [S] Collect into `Result<Vec<_>, _>` to short-circuit
+  - RS-ERR-26 [S] Accumulate errors when the user should see all of them at once
+  - RS-ERR-27 [S] Put retry policy above the error type, not inside it
+  - RS-ERR-28 [M] Do not use `Option` as an error channel
 
 - **Panics**
-  - RS-ERR-33 [M] A panic means a bug
-  - RS-ERR-34 [M] Document every reachable panic
-  - RS-ERR-35 [S] Prefer restructuring, then `unreachable!`, then `panic!`
-  - RS-ERR-36 [M] Know which assertions survive `--release`
-  - RS-ERR-37 [M] Make `Drop` infallible in practice
-  - RS-ERR-38 [M!] Make overflow behaviour explicit on untrusted arithmetic
-  - RS-ERR-39 [M] Do not choose `panic = "abort"` on a library's behalf
+  - RS-ERR-29 [S] Prefer restructuring, then `unreachable!`, then `panic!`
+  - RS-ERR-30 [M] Know which assertions survive `--release`
+  - RS-ERR-31 [M!] Make overflow behaviour explicit on untrusted arithmetic and computed sizes
+  - RS-ERR-32 [M] Do not choose `panic = "abort"` on a library's behalf
 
 - **Binaries, reporting, exit codes**
-  - RS-ERR-40 [S] Use `anyhow` inside binaries and only there
-  - RS-ERR-41 [S] Keep `main` to four lines
-  - RS-ERR-42 [S] Return `ExitCode` and format the error yourself
-  - RS-ERR-43 [M] Treat exit codes as part of the interface
-  - RS-ERR-44 [S] Print the cause chain, not a backtrace
-  - RS-ERR-45 [M] Collect per-input failures instead of aborting the run
+  - RS-ERR-33 [S] Use `anyhow` inside binaries and only there
+  - RS-ERR-34 [S] Return `ExitCode` and format the error yourself
+  - RS-ERR-35 [M] Treat exit codes as part of the interface
+  - RS-ERR-36 [S] Print the cause chain, not a backtrace
+  - RS-ERR-37 [M] Collect per-input failures instead of aborting the run
+- Decided by tools
 
 ---
 
@@ -75,7 +68,9 @@ and an exit code.
 
 A failure a caller could reasonably handle is a `Result`. A failure that indicates a bug in the
 caller is a panic. A failure that indicates a bug in you is also a panic — but it must be
-unreachable, not merely unlikely.
+unreachable, not merely unlikely. A panic never reports invalid input, a missing file, a network
+failure or a parse error: `catch_unwind` is not a `try`/`catch`, and under `panic = "abort"` it
+catches nothing.
 
 **Why:** `Result` says "you may recover"; a panic says "the program is already wrong". Getting it
 backwards produces either a server that aborts on a malformed request, or a `Result` nobody can act
@@ -83,7 +78,8 @@ on because the only correct response is to fix the code.
 
 **Check:** for each `Result`-returning function, name the caller action for at least one error
 variant. If the only sane action is "file a bug", it should have been an assertion. For each panic,
-name the input that reaches it — if a user can produce that input, it is a `Result`.
+name the input that reaches it — if a file, a socket, an argument or an environment variable can
+produce it, it is a `Result`.
 
 ```rust
 // verified
@@ -172,8 +168,8 @@ nonsense; "regex was validated at construction, but it was not" names the bug.
 
 ### RS-ERR-05 [M] Implement `Error` with a correct `source()`
 
-Public error types implement `std::error::Error` — or `core::error::Error`, stable since 1.81, in
-no-std — and return the underlying cause from `source()`. The type can be named from outside the
+Public error types implement `std::error::Error` — or `core::error::Error` in no-std — and return
+the underlying cause from `source()`. The type can be named from outside the
 crate: it is in every fallible signature, so it is public API whether it was documented or not.
 
 **Why:** `source()` is how every reporter walks the chain — `anyhow`'s `{:#}`, `eyre`'s handlers,
@@ -308,7 +304,7 @@ runtime.
 
 **Why:** hand-written error impls are twenty lines of mechanical code per type, and the mechanical
 part is where `source()` gets forgotten (RS-ERR-05). The proc macro costs compile time, a trade
-worth making for an error type (`references/build.md` RS-BUILD-49).
+worth making for an error type (`references/macros.md` RS-MACRO-17).
 
 **Check:** a hand-written error impl is fine, but it must have `source()`, and the `Display` must
 satisfy RS-ERR-06.
@@ -316,8 +312,8 @@ satisfy RS-ERR-06.
 ### RS-ERR-12 [M] Carry the context that identifies which operation failed
 
 The path, the key, the byte offset, the line number, the URL — whatever distinguishes this
-invocation from the other forty. Print a path or an `OsStr` with `.display()`, never `{:?}`, which
-quotes and escapes it; `clippy::unnecessary_debug_formatting` (pedantic) flags the `{:?}`.
+invocation from the other forty. Print a path or an `OsStr` with `.display()`, never `{:?}`
+(`references/cli.md` RS-CLI-11).
 
 **Why:** "file not found" forces the user to guess which of their files. The information is free at
 the point of failure and unrecoverable afterwards, because the stack that knew the path has already
@@ -329,7 +325,7 @@ If not, the variant needs a field.
 ### RS-ERR-13 [M!] Never expose `Box<dyn Error>` or `anyhow::Error` from a library
 
 Not as the error type, not as a variant payload, not behind a type alias. In a binary, where
-nobody matches, they are correct (RS-ERR-40).
+nobody matches, they are correct (RS-ERR-33).
 
 *Relaxed form:* an internal crate consumed only inside your own workspace may use them in
 `pub(crate)` boundaries, but not in anything a downstream crate can name.
@@ -354,50 +350,7 @@ pub enum ParseError {
 }
 ```
 
-### RS-ERR-14 [M!] Mark public error enums `#[non_exhaustive]`
-
-*Relaxed form:* omit it on a genuinely closed set (`enum Endianness { Big, Little }`), where it only
-removes the caller's exhaustiveness checking for no benefit.
-
-**Why:** adding a failure mode is inevitable, and without the attribute it is a major version bump —
-which means you will be tempted to smuggle the new case into an existing variant instead, and the
-taxonomy degrades. The cost to callers is one wildcard arm (`references/api.md` RS-API-69).
-
-**Check:** does the enum model something that could grow a case — a protocol, a parser, a
-filesystem, anything with a vendor? If yes, the attribute is not optional.
-
-```rust
-// verified
-use std::io;
-use std::path::PathBuf;
-
-/// `#[non_exhaustive]` keeps adding a variant a minor change.
-#[derive(Debug, thiserror::Error)]
-#[non_exhaustive]
-pub enum Error {
-    #[error("failed to read {path}")]
-    Read {
-        path: PathBuf,
-        #[source]
-        source: io::Error,
-    },
-    #[error("invalid pattern at byte {offset}")]
-    Pattern { offset: usize },
-}
-```
-
-### RS-ERR-15 [M] Do not adopt a dependency's error type as public API
-
-A variant payload of `regex::Error` makes `regex`'s semver your semver.
-
-**Why:** a major version of the dependency becomes a major version of you. It is the coupling of
-`references/api.md` RS-API-05, and error types are where it happens most, because `#[from]` makes it
-one line.
-
-**Check:** for each `#[from]`, is the source type from a dependency? If so, either the dependency is
-re-exported and the coupling documented, or the error is converted to your own representation.
-
-### RS-ERR-16 [S] Offer inspection methods for the properties callers branch on
+### RS-ERR-14 [S] Offer inspection methods for the properties callers branch on
 
 `fn is_not_found(&self) -> bool`, `fn kind(&self) -> ErrorKind`, `fn is_retryable(&self) -> bool`.
 
@@ -408,7 +361,7 @@ the variant set stays free to evolve.
 **Check:** what do callers actually ask of this error? If the answer is "whether it is worth
 retrying", ship that method rather than making everyone re-derive it from six variants.
 
-### RS-ERR-17 [S] Prefer a struct with a private `kind` to a single-variant enum
+### RS-ERR-15 [S] Prefer a struct with a private `kind` to a single-variant enum
 
 `pub struct Error { kind: ErrorKind, … }` with `pub fn kind(&self) -> &ErrorKind`.
 
@@ -440,7 +393,7 @@ pub fn parse_setting(name: &str, raw: &str) -> Result<u32, WithContext> {
 }
 ```
 
-### RS-ERR-18 [S] Do not create an error type per module
+### RS-ERR-16 [S] Do not create an error type per module
 
 One crate-level `Error` with well-chosen variants beats fifteen types that need `From` impls between
 them.
@@ -451,7 +404,7 @@ independent — the way `grep-matcher` and `grep-searcher` are separate crates, 
 
 **Check:** count the `From` impls between your own error types. More than a couple is the signal.
 
-### RS-ERR-19 [M] Never add an `Other(String)` variant
+### RS-ERR-17 [M] Never add an `Other(String)` variant
 
 Nor `Msg(String)`, nor `Custom(String)`.
 
@@ -462,38 +415,7 @@ is to stuff it in there, and the taxonomy stops growing.
 **Check:** grep the enum for a `String` payload that is a message rather than data (a key, a name, a
 token). If a failure genuinely has no structure, that is a signal it has not been analyzed yet.
 
-### RS-ERR-20 [S] Keep error values small; box the fat variant
-
-`Parse(Box<ParseError>)` when one variant carries a lot.
-
-**Why:** `Result<T, E>` is at least as large as `E`, so a fat error inflates every return in the
-crate — including the hot success path, where the error is never constructed. A 200-byte variant on
-a function returning `Result<(), Error>` moves 200 bytes on every success.
-
-**Check:** assert the size in a test. `size_of::<Error>()` above roughly three words on a hot path
-is worth a look; above a cache line is worth boxing (`references/performance.md` RS-PERF-20).
-
-```rust
-// verified
-/// Box the rare large variant so the common `Ok` path stays small.
-#[derive(Debug)]
-pub struct Report {
-    lines: Vec<String>,
-    detail: String,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("not found")]
-    NotFound,
-    #[error("rejected")]
-    Rejected(Box<Report>),
-}
-
-const _: () = assert!(size_of::<Error>() <= 16);
-```
-
-### RS-ERR-21 [S] Implement `Clone` on an error only when it is genuinely free
+### RS-ERR-18 [S] Implement `Clone` on an error only when it is genuinely free
 
 Do not force `Clone` by dropping the `io::Error` source.
 
@@ -505,7 +427,7 @@ a convenience the caller can get another way.
 report it twice, which `Arc<Error>` or a formatted string at the report site solves without changing
 the type.
 
-### RS-ERR-22 [S] Keep foreign protocol codes as data, not as prose
+### RS-ERR-19 [S] Keep foreign protocol codes as data, not as prose
 
 `StatusCode(u16)`, `Errno(i32)`, the vendor's own error number.
 
@@ -516,14 +438,14 @@ consumer than for a terminal. Translation is the reporter's job.
 **Check:** does any variant store a message where the protocol supplied a code? Store both if the
 protocol supplies both.
 
-### RS-ERR-23 [S] Document the taxonomy once and link to it
+### RS-ERR-20 [S] Document the taxonomy once and link to it
 
 Write the full explanation on the error type, and link to it from each `# Errors` section with an
 intra-doc link.
 
 **Why:** repeating the taxonomy at every fallible function guarantees the copies drift, and drifted
-documentation is worse than none because readers trust it. One canonical statement is also the only
-version you have to keep true (`references/documentation.md` RS-DOC-16).
+documentation is worse than none because readers trust it. One canonical statement is the only
+version you have to keep true, as for any crate-wide fact (`references/documentation.md` RS-DOC-03).
 
 **Check:** do two `# Errors` sections describe the same variant differently? That is the drift
 already happening.
@@ -545,7 +467,7 @@ pub enum Error {
 
 ## Propagation and context
 
-### RS-ERR-24 [M] Propagate with `?`; a re-wrapping `match` means a missing `From`
+### RS-ERR-21 [M] Propagate with `?`; a re-wrapping `match` means a missing `From`
 
 **Why:** `?` applies `From` automatically, so a `match` that exists only to map one error type onto
 another is boilerplate the compiler would have written. It is also a place a `source()` gets lost by
@@ -567,7 +489,7 @@ let text = match fs::read_to_string(path) {
 let text = fs::read_to_string(path)?;
 ```
 
-### RS-ERR-25 [S] Add context at layer boundaries, not at every frame
+### RS-ERR-22 [S] Add context at layer boundaries, not at every frame
 
 **Why:** three layers of "failed to X: failed to Y: failed to Z" is informative; ten is noise that
 buries the root cause under your own call stack. Context earns its place when it names something the
@@ -576,17 +498,7 @@ next layer down could not know — usually a resource identifier, not an operati
 **Check:** print a real failure's full chain. Can you read the root cause without scrolling? Do any
 two links say substantially the same thing?
 
-### RS-ERR-26 [S] Attach context lazily with the closure form
-
-`.with_context(|| format!("reading {}", path.display()))`, not `.context(format!(…))`.
-
-**Why:** the non-closure form builds the string on every call, including the overwhelming majority
-that succeed. In a loop over a hundred thousand files that is a hundred thousand wasted allocations
-for messages nobody reads.
-
-**Check:** grep `.context(format!` and `.context(`&some_owned_string``. Both are eager.
-
-### RS-ERR-27 [M] Do not let `?` widen an error the caller needs to distinguish
+### RS-ERR-23 [M] Do not let `?` widen an error the caller needs to distinguish
 
 **Why:** `?` composes conversions silently, which is its virtue and its hazard: an inner function
 returning a precise `ParseError` can be widened to a catch-all variant by a single `?` in a wrapper,
@@ -594,17 +506,20 @@ and the caller's ability to branch disappears without a compile error anywhere.
 
 **Check:** for each public function, does its error type distinguish everything its documentation
 promises to distinguish? Test it by matching the variant, not by reading the code
-(`references/testing.md` RS-TEST-14).
+(`references/testing.md` RS-TEST-13).
 
-### RS-ERR-28 [S] Choose the lazy combinator when constructing the error costs anything
+### RS-ERR-24 [S] Choose the lazy combinator when constructing the error costs anything
 
-`ok_or_else` over `ok_or`, `unwrap_or_else` over `unwrap_or`, `map_or_else` over `map_or`.
+`ok_or_else` over `ok_or`, `unwrap_or_else` over `unwrap_or`, `map_or_else` over `map_or` — and,
+with `anyhow`, `.with_context(|| format!("reading {}", path.display()))` over
+`.context(format!(…))`.
 
 **Why:** the eager form evaluates its argument on the success path too. `ok_or(Error::NotFound {
 path: path.to_owned() })` allocates the `PathBuf` every single time the lookup succeeds.
 
-**Check:** grep `ok_or(`, `unwrap_or(`, `map_or(`. Each is fine for a `Copy` constant and a defect
-for anything that allocates, formats, or calls a function.
+**Check:** grep `ok_or(`, `unwrap_or(`, `map_or(` and `.context(format!`. Each is fine for a `Copy`
+constant and a defect for anything that allocates, formats, or calls a function. The converse — a
+closure around a constant — is `unnecessary_lazy_evaluations`, a row below.
 
 ```rust
 // verified
@@ -630,13 +545,13 @@ pub struct NotFound {
 }
 ```
 
-### RS-ERR-29 [S] Collect into `Result<Vec<_>, _>` to short-circuit
+### RS-ERR-25 [S] Collect into `Result<Vec<_>, _>` to short-circuit
 
 `.collect::<Result<Vec<_>, _>>()?` stops at the first error and returns it.
 
 **Why:** it is the idiomatic form, it short-circuits (so the remaining work is skipped), and it
 keeps the pipeline as an expression instead of forcing a `for` loop with a mutable accumulator
-(`references/functional.md` RS-FUNC-15).
+(`references/functional.md` RS-FUNC-13).
 
 **Check:** any `for` loop over fallible items that pushes into a `Vec` and returns early is this
 collect.
@@ -652,9 +567,10 @@ pub fn parse_all(values: &[String]) -> Result<Vec<u32>, std::num::ParseIntError>
 }
 ```
 
-### RS-ERR-30 [S] Accumulate errors when the user should see all of them at once
+### RS-ERR-26 [S] Accumulate errors when the user should see all of them at once
 
-Validators, linters, config parsers, form checks.
+Validators, linters, config parsers, form checks. A run over many inputs reports each failure and
+carries on instead (RS-ERR-37).
 
 **Why:** short-circuiting turns a two-minute fix into ten build-edit cycles, because each run
 reveals exactly one of the twelve problems. Return `Vec<Error>` — or a `Report` type that holds them
@@ -663,7 +579,7 @@ reveals exactly one of the twelve problems. Return `Vec<Error>` — or a `Report
 **Check:** would a user plausibly have more than one of these errors at the same time? If yes,
 short-circuiting is a usability defect, not a performance win.
 
-### RS-ERR-31 [S] Put retry policy above the error type, not inside it
+### RS-ERR-27 [S] Put retry policy above the error type, not inside it
 
 Expose `fn is_retryable(&self) -> bool`; let the caller own the backoff and the budget.
 
@@ -674,7 +590,7 @@ each retrying three times is twenty-seven attempts.
 **Check:** does any library function sleep, loop, or take a retry count? That policy belongs to the
 caller.
 
-### RS-ERR-32 [M] Do not use `Option` as an error channel
+### RS-ERR-28 [M] Do not use `Option` as an error channel
 
 `None` cannot carry a reason.
 
@@ -706,67 +622,19 @@ impl Headers {
 
 ## Panics
 
-### RS-ERR-33 [M] A panic means a bug
-
-Not input validation, not a missing file, not a network failure, not a parse error.
-
-**Why:** users cannot catch panics in any reasonable way — `catch_unwind` is not a `try`/`catch`,
-and it does not work under `panic = "abort"`. Every panic you emit on a reachable input is a denial
-of service in somebody's service.
-
-**Check:** for each panic site, ask what input reaches it. If the answer involves a file, a socket,
-an argument, or an environment variable, it is a `Result`.
-
-### RS-ERR-34 [M] Document every reachable panic
-
-A `# Panics` section stating the exact condition.
-
-**Why:** a panic is part of the contract whether or not it is written down, and the undocumented
-version is the one that surprises people in production. `Vec::remove` documents its panic; that is
-why nobody is surprised by it (`references/documentation.md` RS-DOC-13).
-
-**Check:** grep the crate for panic sources — `unwrap`, `expect`, `panic!`, `assert!`, indexing,
-slicing, integer division, `Duration` arithmetic — and confirm each public function that can reach
-one has the section. Consider `#[track_caller]` so the message points at the caller
-(`references/api.md` RS-API-49).
-
-```rust
-// verified
-/// The panic condition is documented, so it is part of the contract rather than a surprise.
-#[derive(Debug, Clone, Copy)]
-pub struct Ratio(f64);
-
-impl Ratio {
-    /// Builds a ratio from a numerator and denominator.
-    ///
-    /// # Errors
-    /// Returns `DivideByZero` when `denominator` is zero, so no panic path exists.
-    pub fn new(numerator: f64, denominator: f64) -> Result<Self, DivideByZero> {
-        if denominator == 0.0 {
-            return Err(DivideByZero);
-        }
-        Ok(Self(numerator / denominator))
-    }
-}
-
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-#[error("denominator was zero")]
-pub struct DivideByZero;
-```
-
-### RS-ERR-35 [S] Prefer restructuring, then `unreachable!`, then `panic!`
+### RS-ERR-29 [S] Prefer restructuring, then `unreachable!`, then `panic!`
 
 **Why:** a branch that "cannot happen" is usually a type that is too wide, and making it
-unrepresentable removes the branch entirely (`references/api.md` RS-API-31). Where the branch must
+unrepresentable removes the branch entirely (`references/api.md` RS-API-21). Where the branch must
 exist, `unreachable!("…")` says *why* you believe it, the information RS-ERR-04 asks for.
 
 **Check:** for each `unreachable!`, can the enum, the newtype, or the signature be narrowed so the
 arm disappears?
 
-### RS-ERR-36 [M] Know which assertions survive `--release`
+### RS-ERR-30 [M] Know which assertions survive `--release`
 
 `assert!`/`assert_eq!` run in release; `debug_assert!`, `debug_assert_eq!`, and
-`debug_assert_matches!` (1.96, imported with `use std::debug_assert_matches;`) do not.
+`debug_assert_matches!` (imported with `use std::debug_assert_matches;`) do not.
 
 **Why:** `debug_assert!` compiles to nothing in release, so anything a release build depends on must
 not live there. Conversely, an expensive O(n) invariant check inside `assert!` is a release-mode
@@ -780,44 +648,18 @@ hot path.
 // verified
 /// A `debug_assert` states an internal invariant without costing anything in release.
 #[must_use]
-pub fn midpoint(low: u32, high: u32) -> u32 {
-    debug_assert!(low <= high, "midpoint requires an ordered range");
-    low + (high - low) / 2
+pub fn split_point(low: u32, high: u32) -> u32 {
+    debug_assert!(low < high, "a search step needs a non-empty range");
+    low.midpoint(high)
 }
 ```
 
-### RS-ERR-37 [M] Make `Drop` infallible in practice
+### RS-ERR-31 [M!] Make overflow behaviour explicit on untrusted arithmetic and computed sizes
 
-A panic during unwinding aborts the process.
-
-**Why:** if a `Drop` panics while another panic is unwinding, the runtime has no way to continue and
-calls `abort` — turning a recoverable failure into an immediate process death with no cleanup
-anywhere. Buffered writers are the classic case: flushing can fail, and `Drop` cannot report it.
-
-**Check:** does any `Drop` impl call `unwrap`, `expect`, `assert`, or a function that can panic? If
-release can fail meaningfully, add `fn finish(self) -> Result<T, Error>` and make `Drop` best-effort
-(`references/ownership.md` RS-OWN-36).
-
-```rust
-// verified
-/// `Drop` releases the resource; it is infallible and does not panic.
-#[derive(Debug)]
-pub struct Guard {
-    name: String,
-}
-
-impl Drop for Guard {
-    fn drop(&mut self) {
-        // Best effort: releasing must not fail or panic while unwinding.
-        self.name.clear();
-    }
-}
-```
-
-### RS-ERR-38 [M!] Make overflow behaviour explicit on untrusted arithmetic
-
-Integer overflow panics in debug and wraps in release, by default. `strict_*` (1.91) panics on
-overflow in both profiles, so the two agree where overflow is a bug rather than an input.
+Integer overflow panics in debug and wraps in release, by default. On untrusted values and on
+computed sizes — lengths, offsets, parsed numbers — choose the behaviour: `checked_*`,
+`saturating_*`, `wrapping_*`, or `strict_*`, which panics in both profiles where overflow is a bug
+rather than an input.
 
 *Relaxed form:* on values with a proven internal bound (a loop counter over a fixed array), the
 default is acceptable — assert the bound instead.
@@ -826,9 +668,9 @@ default is acceptable — assert the bound instead.
 On attacker-influenced values the release behaviour is a silent wrong answer that frequently becomes
 a bounds bug two lines later.
 
-**Check:** for each arithmetic expression, can either operand originate outside the process? If yes,
-it must be `checked_*`, `saturating_*`, `wrapping_*`, or `strict_*` — chosen deliberately, not
-whichever compiles (`references/performance.md` RS-PERF-36).
+**Check:** grep for arithmetic on lengths, offsets, and parsed numbers. For each, can either operand
+originate outside the process, or grow with the input? If yes, it must be one of the four, chosen
+deliberately, not whichever compiles.
 
 ```rust
 // verified
@@ -841,7 +683,7 @@ pub fn total_len(parts: &[usize]) -> Option<usize> {
 }
 ```
 
-### RS-ERR-39 [M] Do not choose `panic = "abort"` on a library's behalf
+### RS-ERR-32 [M] Do not choose `panic = "abort"` on a library's behalf
 
 It is the application's decision, set in its own profile.
 
@@ -853,7 +695,7 @@ failures. In a library's `Cargo.toml` it is ignored anyway: only the workspace r
 
 ## Binaries, reporting, exit codes
 
-### RS-ERR-40 [S] Use `anyhow` inside binaries and only there
+### RS-ERR-33 [S] Use `anyhow` inside binaries and only there
 
 Or `eyre`, if you want custom report handlers.
 
@@ -863,40 +705,7 @@ a defect in a library for exactly the reason it is right here (RS-ERR-13).
 
 **Check:** is `anyhow` in the library crate's `[dependencies]`? It should be in the binary's.
 
-### RS-ERR-41 [S] Keep `main` to four lines
-
-Parse arguments, call `run() -> Result<()>`, report, exit.
-
-**Why:** everything inside `run` is testable; everything inside `main` is not. Four lines is the
-amount of untestable code you are choosing to accept, and there is no reason for it to be more
-(`references/cli.md` RS-CLI-02).
-
-**Check:** how many lines of `main` would you have to duplicate to write an end-to-end test in
-process? That is the size of the untested surface.
-
-```rust
-// verified
-use std::process::ExitCode;
-
-fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let config = std::env::var("APP_CONFIG")?;
-    drop(config);
-    Ok(())
-}
-
-/// `main` parses, runs, reports, exits — and nothing else.
-fn main() -> ExitCode {
-    match run() {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(error) => {
-            eprintln!("{error}");
-            ExitCode::FAILURE
-        }
-    }
-}
-```
-
-### RS-ERR-42 [S] Return `ExitCode` and format the error yourself
+### RS-ERR-34 [S] Return `ExitCode` and format the error yourself
 
 Rather than `fn main() -> Result<…>`, which prints the `Debug` representation.
 
@@ -906,7 +715,7 @@ Formatting it yourself gives you the cause chain in prose, and control over the 
 
 **Check:** does the program's failure output look like something you would show a user?
 
-### RS-ERR-43 [M] Treat exit codes as part of the interface
+### RS-ERR-35 [M] Treat exit codes as part of the interface
 
 `0` success, `1` a handled failure, `2` a usage error. Search-style tools follow grep: `0` match
 found, `1` no match, `2` error.
@@ -916,7 +725,7 @@ returning `1` for a usage error — breaks `set -e` pipelines in ways that are v
 the other side.
 
 **Check:** are the codes documented in `--help` and the man page, and covered by an end-to-end test
-(`references/testing.md` RS-TEST-30)?
+(`references/testing.md` RS-TEST-28)?
 
 ```rust
 // verified
@@ -942,7 +751,7 @@ pub enum Failure {
 }
 ```
 
-### RS-ERR-44 [S] Print the cause chain, not a backtrace
+### RS-ERR-36 [S] Print the cause chain, not a backtrace
 
 Let `RUST_BACKTRACE=1` add the rest.
 
@@ -952,7 +761,7 @@ know, so opting in costs them nothing.
 
 **Check:** does a routine failure — a missing file, a bad flag — produce more than a few lines?
 
-### RS-ERR-45 [M] Collect per-input failures instead of aborting the run
+### RS-ERR-37 [M] Collect per-input failures instead of aborting the run
 
 Report each on stderr; do not abort the run.
 
@@ -987,3 +796,11 @@ pub fn run_all(inputs: &[Result<u32, String>]) -> ExitCode {
     }
 }
 ```
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| clippy | `unnecessary_lazy_evaluations` | warn | the lazy combinator around a value that costs nothing to build, such as a unit variant |

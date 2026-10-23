@@ -472,9 +472,8 @@ def _verify(repo: Path, skill: Skill, plan: Plan) -> None:
     """Check, on a copy, that every old ID still reaches the same rule.
 
     The plan is applied to a copy of the skills, not to the skills. A
-    title can itself cite a rule — a pointer's title names the rule it
-    points at — so the title expected afterwards is the old one with the
-    same rewrite applied.
+    title can itself cite a rule, so the title expected afterwards is
+    the old one with the same rewrite applied.
     """
     pattern = re.compile(rf"\b{skill.prefix}-([A-Z]+)(?:-(\d+[a-z]?))?\b")
 

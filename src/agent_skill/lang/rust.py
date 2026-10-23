@@ -168,7 +168,7 @@ RUST_STYLE = Crate(
 #: `type_complexity` and `too_many_arguments` also fire on ordinary Bevy
 #: code and are deliberately **not** here: a `type` alias and
 #: `#[derive(SystemParam)]` silence them, and both are the better code
-#: (BV-ECS-20, BV-SCHED-10).
+#: (BV-ECS-19, BV-SCHED-09).
 #:
 #: The features are the `*_api` collections plus `scene`: every type a
 #: game names, without `bevy_render`, winit or wgpu. A standard talks

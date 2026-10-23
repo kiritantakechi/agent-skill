@@ -156,13 +156,13 @@ def _unaccounted_anchor_rule(tree: Path) -> None:
     and the control fails when it stops running.
 
     The rule is chosen for a property that could stop holding, so the
-    property is asserted rather than assumed. `RS-OWN-39` works because
+    property is asserted rather than assumed. `RS-OWN-36` works because
     `bevy-style` never names it; the day it does, the injection would be
     accounted for and this control would pass while proving nothing.
     """
-    if "RS-OWN-39" in (tree / "bevy-style/SKILL.md").read_text():
+    if "RS-OWN-36" in (tree / "bevy-style/SKILL.md").read_text():
         msg = (
-            "bevy-style/SKILL.md now names RS-OWN-39, so its defect is accounted "
+            "bevy-style/SKILL.md now names RS-OWN-36, so its defect is accounted "
             "for and no longer reaches the anchor sweep"
         )
         raise FixtureGoneError(msg)
@@ -182,17 +182,18 @@ def _orphan_asset(tree: Path) -> None:
 
 #: A `Decided by tools` table with one row, for the controls on Rust
 #: rows.
-def _rust_row(lint: str, level: str) -> str:
-    return (
-        "\n## Decided by tools\n\n| Tool | Lint | Level | Forbids |\n"
-        "|---|---|---|---|\n"
-        f"| clippy | `{lint}` | {level} | an unwrap |\n"
-    )
+#: The head of a chapter's `Decided by tools` table. A chapter has one,
+#: so a row is injected under it: a second table is not read.
+_TABLE = "| Tool | Lint | Level | Forbids |\n|---|---|---|---|\n"
 
 
-#: `python-style` is the standard the structure controls inject into: it
-#: was the first to conform, and a defect injected into an exempt one
-#: reaches nothing.
+def _rust_row(tree: Path, lint: str, level: str) -> None:
+    """Add a clippy row to rust-style's errors chapter."""
+    row = f"| clippy | `{lint}` | {level} | an unwrap |\n"
+    edit(tree, "rust-style/references/errors.md", _TABLE, _TABLE + row)
+
+
+#: `python-style` is the standard the structure controls inject into.
 PY = "python-style"
 
 #: A rule of the async family, filed in the testing chapter. New, so no
@@ -329,16 +330,12 @@ CONTROLS: list[Control] = [
         # that is not shipped.
         "a Rust lint row at a level the shipped table does not set",
         "citations",
-        lambda t: append(
-            t, "rust-style/references/errors.md", _rust_row("unwrap_used", "warn")
-        ),
+        lambda t: _rust_row(t, "unwrap_used", "warn"),
     ),
     Control(
         "a Rust lint row naming a lint clippy does not have",
         "citations",
-        lambda t: append(
-            t, "rust-style/references/errors.md", _rust_row("unwarp_used", "deny")
-        ),
+        lambda t: _rust_row(t, "unwarp_used", "deny"),
     ),
     Control(
         "a workflow installing an interpreter the harness did not verify against",
@@ -501,7 +498,7 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "bevy-style/SKILL.md",
-            "`RS-API-23` Keep every struct field private",
+            "`RS-API-15` Keep every struct field private",
             "`RS-API-99` Keep every struct field private",
         ),
     ),
@@ -511,8 +508,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "bevy-style/SKILL.md",
-            "`RS-NAME-33` Never suffix a name with the language construct",
-            "`RS-NAME-33` Always suffix a name with the language construct",
+            "`RS-NAME-29` Never suffix a name with the language construct",
+            "`RS-NAME-29` Always suffix a name with the language construct",
         ),
     ),
     Control(
@@ -523,26 +520,13 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
-        "pointer rule that grew a Why",
-        "anatomy",
-        # zig-style is where pointer rules still live: the standards
-        # brought over to standard-structure removed theirs.
-        lambda t: edit(
-            t,
-            "zig-style/references/comptime.md",
-            "constant, and nothing in the build output says so. "
-            "See also ZS-COMPTIME-07 on bounding",
-            "constant.\n\n**Why:** it is. See also ZS-COMPTIME-07 on bounding",
-        ),
-    ),
-    Control(
         "core rule citing the wrong chapter",
         "anatomy",
         lambda t: edit(
             t,
             "rust-style/SKILL.md",
-            "`references/api.md` RS-API-50",
-            "`references/errors.md` RS-API-50",
+            "`references/api.md` RS-API-36",
+            "`references/errors.md` RS-API-36",
         ),
     ),
     Control(
@@ -551,7 +535,7 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "bevy-style/references/scheduling.md",
-            "BV-SCHED-09 [M] Never read per-frame input",
+            "BV-SCHED-08 [M] Never read per-frame input",
             "BV-SCHED-77 [M] Never read per-frame input",
             2,
         ),
@@ -562,9 +546,9 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "zig-style/references/data.md",
-            "ZS-DATA-30 [M] Return the lowest-dimensionality type "
+            "ZS-DATA-27 [M] Return the lowest-dimensionality type "
             "that can carry the answer",
-            "ZS-DATA-30 [M] Reference long-lived elements by handle, not by pointer",
+            "ZS-DATA-27 [M] Reference long-lived elements by handle, not by pointer",
             2,
         ),
     ),
@@ -671,7 +655,7 @@ CONTROLS: list[Control] = [
         # The one above narrows a rule's only pattern, which `any` and
         # every both report. This narrows one of four, leaving three
         # still matching — which `any` read as covered. That is how
-        # three of `ZS-MIG-13`'s four patterns were counted as proven by
+        # three of `ZS-MIG-12`'s four patterns were counted as proven by
         # a fixture none of them touched.
         "one pattern of several narrowed until its own fixture no longer matches",
         "sensitivity",
@@ -707,7 +691,7 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "python-style/assets/pyproject.toml",
-            'typecheck = ["ty==0.0.90"]',
+            'typecheck = ["ty==0.0.91"]',
             'typecheck = ["ty==0.0.60"]',
         ),
     ),

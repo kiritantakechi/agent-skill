@@ -23,7 +23,7 @@ lazy from agent_skill.checks.search import find, searcher_problem
 lazy from agent_skill.model import Rule, Skill
 lazy from agent_skill.report import Finding
 
-#: `| `RS-API-23` Keep every struct field private | `BV-ECS-01` — … |`
+#: `| `RS-API-15` Keep every struct field private | `BV-ECS-01` — … |`
 OVERRIDE_ROW = re.compile(
     r"^\|\s*`([A-Z]{2}-[A-Z]+-\d+[a-z]?)`\s*(.*?)\s*\|\s*`([A-Z]{2}-[A-Z]+-\d+[a-z]?)`",
     re.MULTILINE,
@@ -158,7 +158,7 @@ def _override_rows(
         if actual is None:
             continue  # the citation check above already reported it
         # The whole title, not a prefix of it. A title's tail is
-        # where its scope lives — `RS-BUILD-23` ends "in a library"
+        # where its scope lives — `RS-BUILD-21` ends "in a library"
         # — so a row that quotes a prefix can invent a divergence by
         # dropping the clause that rules it out. Two rows did
         # exactly that.

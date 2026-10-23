@@ -61,7 +61,7 @@ def test_a_third_skill_that_agrees_is_silent() -> None:
 
 def test_an_entry_for_a_skill_not_in_this_run_is_skipped() -> None:
     """A partial run must not call every absent skill a missing rule."""
-    assert run([("ZS-NAME-36", TITLE)], [anchor()]) == []
+    assert run([("ZS-NAME-29", TITLE)], [anchor()]) == []
 
 
 def test_an_unheld_pair_is_noticed_in_any_skill_not_only_the_first() -> None:

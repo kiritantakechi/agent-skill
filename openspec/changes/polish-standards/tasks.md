@@ -72,10 +72,10 @@ report cites rust-style IDs (D3).
 
 ## 4. zig-style (`research/zig.md`)
 
-- [ ] 4.1 Remove every version annotation in `research/versions.txt` for zig-style (D2). A change
+- [x] 4.1 Remove every version annotation in `research/versions.txt` for zig-style (D2). A change
   someone porting needs goes to the migration table for its release, unless it is there already.
   Verify: `--fast --skill zig-style --only anatomy` reports no version below the target.
-- [ ] 4.2 Merge the 26 pointer rules of §A into their owners.
+- [x] 4.2 Merge the 26 pointer rules of §A into their owners.
   - The ten that carry content first move it into their owners. COMPTIME-08's is the whole subject,
     which widens ASSERT-22.
   - The text of an `[S]` pointer stays advice when its owner is `[M]`.
@@ -88,10 +88,10 @@ report cites rust-style IDs (D3).
   all, and every leftover citation is resolved, `assets/build.zig`'s included. Verify:
   - `rg -n 'Owned by' skills/zig-style/references` finds nothing;
   - `--fast --skill zig-style --only anatomy --only crossref --only citations --only skeleton`.
-- [ ] 4.3 Settle §B5's conflicts that 4.2 did not (D7), each in the rule that owns its topic: the
+- [x] 4.3 Settle §B5's conflicts that 4.2 did not (D7), each in the rule that owns its topic: the
   tier clashes, `preferred_optimize_mode`, the `std.fs` aliases, the `zig fmt --check` command,
   `std.heap` in an exported library, and the rest. Verify: `--fast --skill zig-style`.
-- [ ] 4.4 Apply §C's items (D6), each compiled on Zig 0.17.0.
+- [x] 4.4 Apply §C's items (D6), each compiled on Zig 0.17.0.
   - C1–C13 are corrections. C1 changes the stdout writer everywhere it appears, and turns ZS-CONC-07
     around, because a positional writer overwrites a file it was appended to.
   - C14 (`Io.Clock.Timestamp`) is a trade-off. It is applied only if the examples read better.
@@ -99,57 +99,57 @@ report cites rust-style IDs (D3).
 
   Skipped items get their reason in `research/zig.md`. Fix the defects of "Other defects noticed",
   the review protocol's among them. Verify: zig-style's `toolchain`, run alone.
-- [ ] 4.5 Remove what §2 repeats from `migration.md` (D5). ZS-OUT-20's dead-API table and ZS-MIG-04
+- [x] 4.5 Remove what §2 repeats from `migration.md` (D5). ZS-OUT-20's dead-API table and ZS-MIG-04
   become migration rows, with the rows migration.md lacks moved into ZS-MIG-03 (§B1). Verify:
   `--fast --skill zig-style --only skeleton --only anatomy`.
-- [ ] 4.6 Run one `agent-skill renumber zig-style`. Verify:
+- [x] 4.6 Run one `agent-skill renumber zig-style`. Verify:
   - the table "Rule IDs before the Zig 0.17.0 revision" carries every move;
   - `--fast --skill zig-style` passes;
   - the zig `toolchain` and `mutation` pass, run alone.
 
 ## 5. bevy-style (`research/bevy.md`)
 
-- [ ] 5.1 Remove every version annotation in `research/versions.txt` for bevy-style (D2), such as
+- [x] 5.1 Remove every version annotation in `research/versions.txt` for bevy-style (D2), such as
   "Since 0.19". Verify: `--fast --skill bevy-style --only anatomy` reports no version below the
   target.
-- [ ] 5.2 Merge the duplicates of A.1, remove or shrink the A.2 restatements of rust-style rules,
+- [x] 5.2 Merge the duplicates of A.1, remove or shrink the A.2 restatements of rust-style rules,
   rewrite the A.3 core rules to match their chapter rules, and move the A.4 content to the rows
   that decide it (D3). Each owner absorbs first. Then one `agent-skill demote bevy-style <plan>`
   records each, an A.2 removal naming its rust-style rule. Every leftover citation is resolved.
   Verify: `--fast --skill bevy-style --only anatomy --only crossref --only citations --only
   skeleton`.
-- [ ] 5.3 Apply B1–B18 (D6), each compiled against Bevy 0.20.0. B2 (`uuid_handle!`) and B6
+- [x] 5.3 Apply B1–B18 (D6), each compiled against Bevy 0.20.0. B2 (`uuid_handle!`) and B6
   (`.matched()`) are corrections, because the current text fails the build. B3 (auto-registration)
   turns BV-ECS-13 around, and BV-BUILD-03's hand-picked list gains `reflect_auto_register`. B4
   (`Single`) corrects the "a skipped frame, not a crash" claim. Skipped items get their reason in
   `research/bevy.md`. Verify: bevy-style's `toolchain`, run alone.
-- [ ] 5.4 Remove what §2 repeats from `migration.md` (D5). BV-MIG-19 becomes the migration chapter's
+- [x] 5.4 Remove what §2 repeats from `migration.md` (D5). BV-MIG-19 becomes the migration chapter's
   silent-changes list (A.1 #1). Verify: `--fast --skill bevy-style --only skeleton --only anatomy`.
-- [ ] 5.5 Run one `agent-skill renumber bevy-style`. Verify:
+- [x] 5.5 Run one `agent-skill renumber bevy-style`. Verify:
   - the table "Rule IDs before the Bevy 0.20.0 revision" carries every move;
   - `--fast --skill bevy-style` passes;
   - bevy-style's `toolchain` and `mutation` pass, run alone.
 
 ## 6. rust-style (`research/rust.md`)
 
-- [ ] 6.1 Remove every version annotation in `research/versions.txt` for rust-style (D2), such as
+- [x] 6.1 Remove every version annotation in `research/versions.txt` for rust-style (D2), such as
   "(1.96)" and "stable since 1.74". A crate version in prose is reworded to its major. Verify:
   `--fast --skill rust-style --only anatomy` reports no version below the target.
-- [ ] 6.2 Merge the duplicates of A.1 (#1–#94). A tier conflict takes the tier the "Owner" column
+- [x] 6.2 Merge the duplicates of A.1 (#1–#94). A tier conflict takes the tier the "Owner" column
   names. Rewrite the A.2 core rules to match their chapter rules, and give RS-CORE-27's
   `unsafe_code = "forbid"` a chapter rule that owns it. Each owner absorbs first. Then one
   `agent-skill demote rust-style <plan>` records each merge and A.3 demotion, and every leftover
   citation, bevy-style's included, is resolved. Verify: `--fast --only anatomy --only crossref
   --only citations --only skeleton` for rust-style and bevy-style.
-- [ ] 6.3 Add the rows of A.3 ("no row") and B.2 for lints the shipped configuration enables, each
+- [x] 6.3 Add the rows of A.3 ("no row") and B.2 for lints the shipped configuration enables, each
   named by the rule it decides in part. The nursery lints are not rows (D3). OWN-39's BAD fragment
   becomes `rejected — rustc: let_underscore_lock`. Verify: `--fast --skill rust-style --only
   citations --only markers`.
-- [ ] 6.4 Apply B.1 #1–#30 (D6), each compiled on Rust 1.99 with the shipped lint set. #1 (`unsafe
+- [x] 6.4 Apply B.1 #1–#30 (D6), each compiled on Rust 1.99 with the shipped lint set. #1 (`unsafe
   extern`), #2 (`expr` in edition 2024) and #27 (`Box<[T]>::into_iter`) go to §2's silent or
   edition changes. #25's crates go to the MIG-01 table. Skipped items get their reason in
   `research/rust.md`. Verify: rust-style's `toolchain`, run alone.
-- [ ] 6.5 Fix the defects (D7):
+- [x] 6.5 Fix the defects (D7):
   - TRAIT-11's Why and TRAIT-17's example;
   - UNSAFE-21's and CONC-05's examples, and CONC-38's no-op filter;
   - CONC-22's statement and CLI-02's count and signature;
@@ -158,9 +158,9 @@ report cites rust-style IDs (D3).
 
   BUILD-38 is fixed with its asset in 8.2. Verify: the toolchain run of 6.4 covers each changed
   example.
-- [ ] 6.6 Remove what §2 repeats from `migration.md` (D5). Verify: `--fast --skill rust-style --only
+- [x] 6.6 Remove what §2 repeats from `migration.md` (D5). Verify: `--fast --skill rust-style --only
   skeleton --only anatomy`.
-- [ ] 6.7 Run one `agent-skill renumber rust-style`. Verify:
+- [x] 6.7 Run one `agent-skill renumber rust-style`. Verify:
   - the table "Rule IDs before the Rust 1.99 revision" carries every move;
   - bevy-style's `RS-` citations resolve;
   - `--fast` passes for every standard;
@@ -168,7 +168,7 @@ report cites rust-style IDs (D3).
 
 ## 7. Harness: the pointer concept goes (D4)
 
-- [ ] 7.1 Remove `Rule.pointer`, `Rule.owner` and `Rule.owner_chapter`, `anatomy`'s pointer branches
+- [x] 7.1 Remove `Rule.pointer`, `Rule.owner` and `Rule.owner_chapter`, `anatomy`'s pointer branches
   and `_pointers`, the "pointer rule that grew a Why" control and its `BRANCHES` entry, and the
   tests that existed only for them. A rule without a Why and a Check now fails the existing branch.
   Verify:
@@ -185,12 +185,17 @@ report cites rust-style IDs (D3).
   `1.99.1`. List it in rust-style's §7. Correct RS-BUILD-38, whose `channel = "stable"` pins nothing,
   to the asset's form. Verify: `--fast --skill rust-style --only assets --only layout --only
   skeleton`.
-- [ ] 8.3 README:
+- [x] 8.3 README:
   - remove the pointer clause from the `anatomy` row;
   - remove the `skeleton` row's exemption clause, a leftover of `refresh-zig`;
   - list `rust-toolchain.toml` where the assets are named.
 
   Verify: `--fast --only documented --only layout`.
+
+- [x] 8.4 Move the harness's and python-style's `ruff` pin to 0.17.2 and `ty` to 0.0.91, both
+  released during this change, in `pyproject.toml`, the three python-style assets and the two rules
+  that quote them. Verify: `--fast --only pins` passes, and python-style's `toolchain` passes alone
+  on the new tools.
 
 ## 9. Close
 

@@ -14,96 +14,56 @@ tie-break is section 3 of `SKILL.md`.
 ## Contents
 
 - **Casing**
-  - RS-NAME-01 [M] Apply the casing convention mechanically
-  - RS-NAME-02 [M] Capitalize acronyms as ordinary English words
-  - RS-NAME-03 [M] Let Cargo translate between package and crate names
-  - RS-NAME-04 [S] Never prefix or suffix a crate with `rust`
-  - RS-NAME-05 [S] Keep crate names short, lowercase, and pronounceable
-  - RS-NAME-06 [M] Name a module for its concept; never `utils`, `helpers`, `common`
-  - RS-NAME-07 [M] Name a feature for the capability, not the dependency
-  - RS-NAME-08 [S] Do not prefix a feature with `use-`, `with-`, or `enable-`
-  - RS-NAME-09 [M] Do not repeat the enum's name in its variants
-  - RS-NAME-10 [S] Name constants for the quantity, with the unit as a suffix
-  - RS-NAME-11 [S] Give a type parameter a real name once the roles stop being obvious
-  - RS-NAME-12 [M] Name the file after the module, without re-stating the directory
+  - RS-NAME-01 [M] Capitalize acronyms as ordinary English words
+  - RS-NAME-02 [M] Let Cargo translate between package and crate names
+  - RS-NAME-03 [S] Never prefix or suffix a crate with `rust`
+  - RS-NAME-04 [S] Keep crate names short, lowercase, and pronounceable
+  - RS-NAME-05 [M] Name a module for its concept; never `utils`, `helpers`, `common`
+  - RS-NAME-06 [M] Name a feature for the capability, not the dependency
+  - RS-NAME-07 [S] Do not prefix a feature with `use-`, `with-`, or `enable-`
+  - RS-NAME-08 [M] Do not repeat the enum's name in its variants
+  - RS-NAME-09 [S] Name a quantity for what it measures, with the unit as a suffix
+  - RS-NAME-10 [S] Name a type parameter by its role: a conventional letter, else a word
+  - RS-NAME-11 [M] Name the file after the module, without re-stating the directory
 
 - **Conversions and access**
-  - RS-NAME-13 [M] `as_` is a free borrowed view
-  - RS-NAME-14 [M] `to_` costs something
-  - RS-NAME-15 [M] `into_` consumes the receiver
-  - RS-NAME-16 [M] Do not use a conversion prefix for a computation
-  - RS-NAME-17 [M] Getters omit `get_`
-  - RS-NAME-18 [M] Match the getter to the field, and suffix the mutable variant `_mut`
-  - RS-NAME-19 [M] Mark fallible conversions `try_`
-  - RS-NAME-20 [M] Use the three canonical iterator constructor names
-  - RS-NAME-21 [S] Name an iterator type after the method that produces it
-  - RS-NAME-22 [S] Name secondary constructors `with_*` / `from_*`, never `new_with_*`
-  - RS-NAME-23 [M!] Prefer a `From`/`TryFrom`/`FromStr` impl to an inherent `from_*`
-  - RS-NAME-24 [M] Predicates read as questions and return `bool`
+  - RS-NAME-12 [M] `as_` is a free borrowed view
+  - RS-NAME-13 [M] `to_` costs something
+  - RS-NAME-14 [M] `into_` consumes the receiver
+  - RS-NAME-15 [M] Do not use a conversion prefix for a computation
+  - RS-NAME-16 [M] Getters omit `get_`
+  - RS-NAME-17 [M] Match the getter to the field, and suffix the mutable variant `_mut`
+  - RS-NAME-18 [M] Mark fallible conversions `try_`
+  - RS-NAME-19 [M] Use the three canonical iterator constructor names
+  - RS-NAME-20 [S] Name an iterator type after the method that produces it
+  - RS-NAME-21 [S] Name secondary constructors `with_*` / `from_*`, never `new_with_*`
+  - RS-NAME-22 [M] Predicates read as questions and return `bool`
 
 - **Words and word order**
-  - RS-NAME-25 [S] Verbs do something; nouns give something
-  - RS-NAME-26 [S] Follow `std`'s word order, and extend by suffix
-  - RS-NAME-27 [M] One term, one meaning, crate-wide
-  - RS-NAME-28 [S] Spell names out; abbreviate only where the abbreviation is the standard word
-  - RS-NAME-29 [S] Restrict single-letter locals to short, genuinely generic bindings
-  - RS-NAME-30 [M!] Put the unit in the type; failing that, in the name
-  - RS-NAME-31 [S] Name the positive; convert negations once, at the boundary
-  - RS-NAME-32 [S] Name a trait for the capability it grants
-  - RS-NAME-33 [M] Never suffix a name with the language construct
-  - RS-NAME-34 [S] Apply role suffixes consistently or not at all
-  - RS-NAME-35 [M] Pick one error-type spelling per crate
-  - RS-NAME-36 [S] Name a test for the behaviour it pins
+  - RS-NAME-23 [S] Verbs do something; nouns give something
+  - RS-NAME-24 [S] Follow `std`'s word order, extend by suffix, and keep parallel names parallel
+  - RS-NAME-25 [M] One term, one meaning, crate-wide
+  - RS-NAME-26 [S] Spell names out; abbreviate only where the abbreviation is the standard word
+  - RS-NAME-27 [S] Restrict single-letter locals to short, genuinely generic bindings
+  - RS-NAME-28 [S] Name the positive; convert negations once, at the boundary
+  - RS-NAME-29 [M] Never suffix a name with the language construct
+  - RS-NAME-30 [S] Apply role suffixes consistently or not at all
+  - RS-NAME-31 [M] Pick one error-type spelling per crate
 
 - **Generic parameters and lifetimes**
-  - RS-NAME-37 [S] Use the conventional single letters where the role is universal
-  - RS-NAME-38 [S] Name a lifetime for the source of the borrow once several coexist
-  - RS-NAME-39 [M] Never restate the kind in a parameter's name
-  - RS-NAME-40 [S] Name an associated type for the thing it produces
-  - RS-NAME-41 [S] Name a generic parameter for its bound in a crowded signature
+  - RS-NAME-32 [S] Name a lifetime for the source of the borrow once several coexist
+  - RS-NAME-33 [M] Never restate the kind in a parameter's name
+  - RS-NAME-34 [S] Name an associated type for the thing it produces
 
 - **Symmetry of names**
-  - RS-NAME-42 [M] Name the two halves of a pair symmetrically
-  - RS-NAME-43 [S] Keep the same word order across parallel names
+  - RS-NAME-35 [M] Name the two halves of a pair symmetrically
 - Decided by tools
 
 ---
 
 ## Casing
 
-### RS-NAME-01 [M] Apply the casing convention mechanically
-
-`UpperCamelCase` for types, traits, and enum variants. `snake_case` for functions, methods, locals,
-modules, and crates. `SCREAMING_SNAKE_CASE` for constants and statics.
-
-**Why:** casing carries information. Seeing `foo::Bar` you know `Bar` is a type without looking it
-up; seeing `foo::bar()` you know it is not. Mixed conventions destroy that signal, and rustc's
-`non_camel_case_types` / `non_snake_case` exist precisely because the ecosystem depends on it.
-
-**Check:** the compiler's default lints catch every case. If any `#[allow(non_snake_case)]` appears
-outside FFI declarations mirroring a C symbol, it is a violation.
-
-```rust
-// verified
-use std::net::IpAddr;
-
-pub const DEFAULT_PORT: u16 = 8080;
-
-#[derive(Debug, Clone, Copy)]
-pub struct HttpClient {
-    bind: IpAddr,
-    port: u16,
-}
-
-impl HttpClient {
-    #[must_use]
-    pub fn endpoint(&self) -> (IpAddr, u16) {
-        (self.bind, self.port)
-    }
-}
-```
-
-### RS-NAME-02 [M] Capitalize acronyms as ordinary English words
+### RS-NAME-01 [M] Capitalize acronyms as ordinary English words
 
 `HttpClient`, `Uuid`, `TcpStream`, `OsStr`, `IoSlice`. Never `HTTPClient`, `UUID`, `IOSlice`. In
 `snake_case` the acronym is simply lowercase: `to_ascii_uppercase`, `into_os_string`.
@@ -112,9 +72,9 @@ impl HttpClient {
 no readable split, `HttpsProxy` does. Two-letter acronyms are not exempt: `std` writes `Io`, not
 `IO`.
 
-**Check:** grep new identifiers for two or more consecutive capitals — `[A-Z]{2}`. Every hit must
-mirror a foreign symbol byte-for-byte (a C `#define`, an on-disk constant); anything else is a
-violation, including a two-letter one.
+**Check:** clippy `upper_case_acronyms`, which the shipped `clippy.toml` makes aggressive, flags
+every run of capitals in a type name, two-letter ones included. A hit that mirrors a foreign symbol
+byte-for-byte (a C `#define`, an on-disk constant) takes an `#[expect]` saying so.
 
 ```rust
 // verified
@@ -130,7 +90,7 @@ pub fn parse_utf8(bytes: &[u8]) -> Option<&str> {
 }
 ```
 
-### RS-NAME-03 [M] Let Cargo translate between package and crate names
+### RS-NAME-02 [M] Let Cargo translate between package and crate names
 
 Package names on crates.io may use hyphens; Cargo maps them to underscores for the crate name. Pick
 the hyphenated package name and let the translation happen — do not name the package `foo-bar` and
@@ -142,7 +102,7 @@ searchable from the other, and every new contributor has to learn the exception.
 **Check:** in `Cargo.toml`, is there a `[lib] name = …` that is not the package name with hyphens
 replaced by underscores? If so, delete it and fix the `use` statements.
 
-### RS-NAME-04 [S] Never prefix or suffix a crate with `rust`
+### RS-NAME-03 [S] Never prefix or suffix a crate with `rust`
 
 `ignore`, `globset`, `regex-automata` are the model. `rust-ignore`, `ignore-rs`, `rust_globset` are
 not.
@@ -154,18 +114,18 @@ name is already taken by an unrelated ecosystem-wide term.
 **Check:** does the crate name contain `rust` or end in `-rs`? If yes, is the unprefixed name
 actually taken by something a user could confuse it with?
 
-### RS-NAME-05 [S] Keep crate names short, lowercase, and pronounceable
+### RS-NAME-04 [S] Keep crate names short, lowercase, and pronounceable
 
 Two words is the ceiling for a leaf crate; three for a facade (`regex-automata`, `grep-searcher`).
 
 **Why:** the name appears in every dependent's manifest, in every `use`, and in conversation. If it
 needs four words to describe the crate, the crate does too much — the name is reporting a design
-problem (`references/modules.md` RS-MOD-22).
+problem (`references/modules.md` RS-MOD-19).
 
 **Check:** say the name out loud. If you have to spell it, or if it does not fit in the
 `Cargo.toml` line without wrapping, shorten it or split the crate.
 
-### RS-NAME-06 [M] Name a module for its concept; never `utils`, `helpers`, `common`
+### RS-NAME-05 [M] Name a module for its concept; never `utils`, `helpers`, `common`
 
 Module names are singular nouns describing one concept: `matcher`, `printer`, `config`, `walk`.
 
@@ -197,19 +157,19 @@ impl Matcher {
 }
 ```
 
-### RS-NAME-07 [M] Name a feature for the capability, not the dependency
+### RS-NAME-06 [M] Name a feature for the capability, not the dependency
 
 `simd-accel`, `pcre2`, `unicode`. A feature named after its dependency is acceptable only when it
 exists solely to enable that dependency's impls — `serde`, `rayon`.
 
 **Why:** feature names are the vocabulary users reason about when they run
 `--no-default-features`. `mycrate/fast-path` tells them what they lose; `mycrate/aho-corasick` tells
-them only that you swapped an internal.
+them only which internal you chose, and swapping it becomes a breaking change.
 
 **Check:** for each feature, can a user who has never read your source predict what turning it off
 removes? If not, rename it.
 
-### RS-NAME-08 [S] Do not prefix a feature with `use-`, `with-`, or `enable-`
+### RS-NAME-07 [S] Do not prefix a feature with `use-`, `with-`, or `enable-`
 
 Write `features = ["simd"]`, not `features = ["use-simd"]`.
 
@@ -218,40 +178,59 @@ line of every dependent's manifest, and it sorts all your features under one let
 
 **Check:** grep `[features]` for `^use-|^with-|^enable-`.
 
-### RS-NAME-09 [M] Do not repeat the enum's name in its variants
+### RS-NAME-08 [M] Do not repeat the enum's name in its variants
 
 `Shape::Circle`, not `Shape::ShapeCircle`. `Error::Io`, not `Error::IoError`.
 
 **Why:** the path already carries the type. The repetition costs characters at every match arm and
 reads as stuttering: `Error::IoError(e)`.
 
-**Check:** for each enum, does any variant name start or end with the enum's name, or with a word
-that is a synonym for it?
+**Check:** clippy `enum_variant_names` flags three or more variants sharing a prefix or suffix. It
+does not see one variant repeating the enum's name, or a synonym for it: for each enum, does any
+variant start or end with either?
 
-### RS-NAME-10 [S] Name constants for the quantity, with the unit as a suffix
+### RS-NAME-09 [S] Name a quantity for what it measures, with the unit as a suffix
 
 `MAX_RETRIES`, `DEFAULT_BUFFER_SIZE`, `TIMEOUT_MS`. Not `BUF_SIZE_USIZE`, and not `TIMEOUT` with the
-unit hidden in a comment.
+unit hidden in a comment. The same holds for a parameter or field whose type cannot carry the unit.
 
 **Why:** the type is visible in the declaration, so encoding it in the name is redundant; the unit
 is *not* visible in `u64`, so it must be somewhere the call site can see it. Better still, make it a
-`Duration` and drop the suffix (RS-NAME-30).
+`Duration` and drop the suffix (`references/api.md` RS-API-23).
 
-**Check:** every numeric constant whose value has a physical unit — time, bytes, counts of a
-specific thing — either names the unit or has a type that does.
+**Check:** every numeric constant, parameter, and field whose value has a physical unit — time,
+bytes, counts of a specific thing — either names the unit or has a type that does.
 
-### RS-NAME-11 [S] Give a type parameter a real name once the roles stop being obvious
+### RS-NAME-10 [S] Name a type parameter by its role: a conventional letter, else a word
 
-`fn map<T, U>` is fine because the roles are obvious. `struct Cache<Key, Value>` beats
-`struct Cache<K, V>` in a documented public API, and anything with three or more parameters of
-asymmetric role needs words.
+In this order. A role the ecosystem has a letter for takes it: `T`/`U` for values, `E` for an error,
+`K`/`V` for map keys and values, `F` for a closure, `I` for an iterator, `S` for string-like, and
+`R`/`W` for a reader and a writer. In a crowded signature the letter matches its bound, as in
+`fn copy<R: Read, W: Write>`. Once the roles stop being obvious — three or more parameters of
+asymmetric role, or a documented type such as `Cache<Key, Value>` — use words.
 
-**Why:** the rustdoc signature is where users learn the API, and `Cache<K, V, S, H>` forces them to
-read the prose to find out which is which. A named parameter is self-documenting in the tooltip.
+**Why:** the letters are ecosystem-wide, so `fn read_from<R: Read>(r: R)` parses without a pause,
+and a letter that matches its bound pairs parameter to constraint at a glance. Past that,
+`Cache<K, V, S, H>` sends the reader to the prose to find out which is which.
 
 **Check:** in rustdoc, can a reader assign a meaning to every parameter from the signature alone?
+Does any parameter use a conventional letter for an unconventional role — `E` for an element type,
+`S` for a state?
 
-### RS-NAME-12 [M] Name the file after the module, without re-stating the directory
+```rust
+// verified
+use std::io::{self, Read, Write};
+
+/// `R` and `W` are the conventional letters, and each matches its bound.
+///
+/// # Errors
+/// Propagates any read or write error.
+pub fn copy<R: Read, W: Write>(reader: &mut R, writer: &mut W) -> io::Result<u64> {
+    io::copy(reader, writer)
+}
+```
+
+### RS-NAME-11 [M] Name the file after the module, without re-stating the directory
 
 `searcher.rs` inside `grep/`, not `grep_searcher.rs` inside `grep/`.
 
@@ -262,7 +241,7 @@ directory listing hard to scan, and breaks alphabetical grouping when a second p
 
 ## Conversions and access
 
-### RS-NAME-13 [M] `as_` is a free borrowed view
+### RS-NAME-12 [M] `as_` is a free borrowed view
 
 `str::as_bytes`, `Path::as_os_str`, `String::as_str`. Borrow in, borrow out, no allocation, no
 computation beyond a pointer adjustment.
@@ -288,7 +267,7 @@ impl Line {
 }
 ```
 
-### RS-NAME-14 [M] `to_` costs something
+### RS-NAME-13 [M] `to_` costs something
 
 `str::to_owned`, `f64::to_string`, `Path::to_path_buf`. It allocates, copies, or computes.
 
@@ -299,7 +278,7 @@ already fixed the spelling — mirror `std` rather than "correcting" it.
 **Check:** an expensive `as_*` and a free `to_*` are both violations; the free case is the milder
 one, but it still misinforms.
 
-### RS-NAME-15 [M] `into_` consumes the receiver
+### RS-NAME-14 [M] `into_` consumes the receiver
 
 `String::into_bytes`, `BufWriter::into_inner`, `Vec::into_boxed_slice`. It takes `self` and hands
 back ownership, ideally without copying.
@@ -308,8 +287,9 @@ back ownership, ideally without copying.
 most useful thing a name can say about a move. A `self`-taking method that does not meaningfully
 transfer ownership should not use the prefix.
 
-**Check:** does every `into_*` take `self` by value? Does every `self`-by-value conversion use
-`into_`?
+**Check:** clippy `wrong_self_convention` flags a prefix whose receiver breaks its contract: an
+`into_*` that borrows, an `as_*` that takes `self`. It cannot see cost, so read the rest: does every
+`self`-by-value conversion use `into_`?
 
 ```rust
 // verified
@@ -339,7 +319,7 @@ impl Buffer {
 }
 ```
 
-### RS-NAME-16 [M] Do not use a conversion prefix for a computation
+### RS-NAME-15 [M] Do not use a conversion prefix for a computation
 
 A method that performs work and happens to return a different type is `compute_*`, `parse`,
 `render`, or `build` — not `to_*`.
@@ -350,7 +330,7 @@ for the second and not the first, and the difference shows up as a profiler surp
 **Check:** would a reader be surprised to learn this method runs a regex, hits the filesystem, or
 sorts? If yes, the name must say so.
 
-### RS-NAME-17 [M] Getters omit `get_`
+### RS-NAME-16 [M] Getters omit `get_`
 
 `fn len(&self)`, `fn name(&self)`, `fn config(&self)`.
 
@@ -382,7 +362,7 @@ impl Buffer {
 }
 ```
 
-### RS-NAME-18 [M] Match the getter to the field, and suffix the mutable variant `_mut`
+### RS-NAME-17 [M] Match the getter to the field, and suffix the mutable variant `_mut`
 
 `fn matcher(&self) -> &Matcher` and `fn matcher_mut(&mut self) -> &mut Matcher`. Setters are
 `set_name`, and exist only when a builder is inappropriate.
@@ -392,9 +372,9 @@ impl Buffer {
 
 **Check:** does every `&mut`-returning accessor end in `_mut`? Does any getter's name differ from
 the field it exposes? Note that exposing `&mut` to invariant-bearing state is a separate, more
-serious defect (`references/api.md` RS-API-21).
+serious defect (`references/api.md` RS-API-13).
 
-### RS-NAME-19 [M] Mark fallible conversions `try_`
+### RS-NAME-18 [M] Mark fallible conversions `try_`
 
 `try_into_inner`, `usize::try_from`, or an implementation of `TryFrom`.
 
@@ -422,7 +402,7 @@ impl Age {
 }
 ```
 
-### RS-NAME-20 [M] Use the three canonical iterator constructor names
+### RS-NAME-19 [M] Use the three canonical iterator constructor names
 
 `iter`, `iter_mut`, `into_iter`. Any other iterator-returning method describes what it yields:
 `lines`, `char_indices`, `split_whitespace`, `ancestors`.
@@ -480,7 +460,7 @@ impl IntoIterator for Set {
 }
 ```
 
-### RS-NAME-21 [S] Name an iterator type after the method that produces it
+### RS-NAME-20 [S] Name an iterator type after the method that produces it
 
 `lines()` → `Lines`, `split_terminator()` → `SplitTerminator`, `iter()` → `Iter<'_, T>`.
 
@@ -507,7 +487,7 @@ impl Log {
 }
 ```
 
-### RS-NAME-22 [S] Name secondary constructors `with_*` / `from_*`, never `new_with_*`
+### RS-NAME-21 [S] Name secondary constructors `with_*` / `from_*`, never `new_with_*`
 
 `Vec::with_capacity`, `u32::from_str_radix`, `Searcher::from_parts`.
 
@@ -544,22 +524,7 @@ impl Retry {
 }
 ```
 
-### RS-NAME-23 [M!] Prefer a `From`/`TryFrom`/`FromStr` impl to an inherent `from_*`
-
-Implementing the trait gives callers `.into()`, `?` conversion, and generic code for free.
-
-*Relaxed form:* keep an inherent `from_*` when the trait impl would be ambiguous (several sources of
-the same type, as with `from_utf8` and `from_utf8_lossy`) or would leak a type parameter — and then
-name it for the source, not the target.
-
-**Why:** an inherent `Config::from_path(p)` works only when the caller knows to look for it; a
-`TryFrom<&Path> for Config` also works inside `collect::<Result<Vec<_>, _>>()`, behind
-`impl TryInto<Config>`, and through `?`.
-
-**Check:** for each inherent `from_*`, could it be a `From`/`TryFrom` impl without ambiguity? If
-yes, make it one and keep the inherent version only as a thin forwarder.
-
-### RS-NAME-24 [M] Predicates read as questions and return `bool`
+### RS-NAME-22 [M] Predicates read as questions and return `bool`
 
 `is_empty`, `is_ascii`, `has_root`, `contains`, `starts_with`.
 
@@ -593,7 +558,7 @@ impl Entry {
 
 ## Words and word order
 
-### RS-NAME-25 [S] Verbs do something; nouns give something
+### RS-NAME-23 [S] Verbs do something; nouns give something
 
 `parse()`, `flush()`, `search()`, `spawn()` versus `len()`, `capacity()`, `stdout()`.
 
@@ -603,30 +568,87 @@ its effect is invisible.
 
 **Check:** for each noun-named method, does it mutate, allocate significantly, or perform I/O?
 
-### RS-NAME-26 [S] Follow `std`'s word order, and extend by suffix
+### RS-NAME-24 [S] Follow `std`'s word order, extend by suffix, and keep parallel names parallel
 
 Verb-object-qualifier: `Vec::insert`, `Result::unwrap_or_else`, `str::parse`. When adding a variant
 of an existing method, extend the suffix rather than reordering: `write_all`, `write_fmt`,
-`write_vectored`.
+`write_vectored`. Parallel names put their words in the same order: `read_timeout` and
+`write_timeout`, not `timeout_write`; `max_depth` and `max_width`, not `width_limit`.
 
-**Why:** C-WORD-ORDER. Consistent order means related methods sort together in rustdoc and
-autocomplete, which is how users actually discover the variant they need.
+**Why:** C-WORD-ORDER. Consistent order means related names sort, complete, and grep together, which
+is how users discover the variant they need, and no reader pauses to ask whether a different order
+signals a different meaning.
 
-**Check:** do the variants of one operation share a prefix and sort adjacently in the rustdoc method
-list?
+**Check:** sort each module's identifiers and each type's rustdoc method list. Members of one family
+should end up adjacent; a stray is a name whose word order differs.
 
-### RS-NAME-27 [M] One term, one meaning, crate-wide
+```rust
+// verified
+use std::time::Duration;
 
-If the crate says `matcher`, never introduce `pattern_engine` for the same concept in a new module.
+/// Parallel names put their words in the same order, so the family sorts together.
+#[derive(Debug, Clone, Copy)]
+pub struct Limits {
+    read_timeout: Duration,
+    write_timeout: Duration,
+    max_depth: u32,
+    max_width: u32,
+}
 
-**Why:** internal consistency outranks consistency with the outside world, because a reader builds a
-vocabulary from your crate and every synonym forces them to check whether it is a distinction. Two
-names for one thing is worse than one imperfect name.
+impl Limits {
+    #[must_use]
+    pub fn read_timeout(&self) -> Duration {
+        self.read_timeout
+    }
 
-**Check:** grep the crate for the synonyms of each core noun. Any pair that refers to the same
-concept is a rename waiting to happen.
+    #[must_use]
+    pub fn write_timeout(&self) -> Duration {
+        self.write_timeout
+    }
 
-### RS-NAME-28 [S] Spell names out; abbreviate only where the abbreviation is the standard word
+    #[must_use]
+    pub fn max_depth(&self) -> u32 {
+        self.max_depth
+    }
+
+    #[must_use]
+    pub fn max_width(&self) -> u32 {
+        self.max_width
+    }
+}
+```
+
+### RS-NAME-25 [M] One term, one meaning, crate-wide
+
+If the crate says `matcher`, never introduce `pattern_engine` for the same concept in a new module;
+not `path` here and `file` there for one argument, nor `id`, `key`, and `handle` for one identifier.
+
+**Why:** a reader builds a vocabulary from your crate, and every synonym makes them check whether it
+is a distinction. It also defeats search: no one finds every site that touches a concept spelled
+three ways. Two names for one thing is worse than one imperfect name.
+
+**Check:** list the nouns in the public surface, grep the crate for their synonyms, and group them
+by referent. Any group with more than one spelling needs a decision and a rename.
+
+```rust
+// verified
+use std::path::Path;
+
+/// One concept, one word: it is `path` in every signature, never `file` in some.
+#[must_use]
+pub fn is_hidden(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with('.'))
+}
+
+#[must_use]
+pub fn parent_of(path: &Path) -> Option<&Path> {
+    path.parent()
+}
+```
+
+### RS-NAME-26 [S] Spell names out; abbreviate only where the abbreviation is the standard word
 
 `config`, `regex`, `buf`, `ctx` in narrow scopes, `idx` in a loop, `recv`/`send` on channels — these
 are public dictionaries. `rslt`, `mngr`, `hdlr`, `cfgmgr` are private ones.
@@ -649,7 +671,7 @@ pub fn is_same_volume(source: &Path, target: &Path) -> bool {
 }
 ```
 
-### RS-NAME-29 [S] Restrict single-letter locals to short, genuinely generic bindings
+### RS-NAME-27 [S] Restrict single-letter locals to short, genuinely generic bindings
 
 Closure parameters in a two-line chain, loop indices, and mathematical code where the letter is the
 domain notation.
@@ -660,34 +682,11 @@ determined by the two lines around it and fatal when it is not.
 **Check:** does any single-letter binding live longer than about ten lines, or cross a block
 boundary? Give it a name.
 
-### RS-NAME-30 [M!] Put the unit in the type; failing that, in the name
-
-`Duration` rather than `timeout_ms: u64`; a `Bytes`/`ByteSize` newtype rather than `size: u64`.
-
-*Relaxed form:* where a newtype would be disproportionate (a private helper, a single call site),
-the unit suffix in the name is acceptable — but never omit both.
-
-**Why:** unit confusion is a bug class the type system can eliminate completely — the compiler
-rejects `sleep(retry_count)` if the parameter is a `Duration`, and cannot if it is a `u64`.
-
-**Check:** grep for numeric parameters and fields whose type is a bare integer or float. For each,
-is the unit recoverable from the type or the name without reading a comment?
-
-```rust
-// fragment — BAD: two u64s, transposable, unit only in the comment
-fn retry(timeout: u64, backoff: u64) {} // both milliseconds
-```
-
-```rust
-// fragment — GOOD: neither transposable nor ambiguous
-fn retry(timeout: Duration, backoff: Duration) {}
-```
-
-### RS-NAME-31 [S] Name the positive; convert negations once, at the boundary
+### RS-NAME-28 [S] Name the positive; convert negations once, at the boundary
 
 `no_color`, `disable_cache`, and `skip_hidden` compose into double negation: `if !no_color`. The
 CLI flag may be negative because the convention demands it — convert to a positive field once, where
-the flag is parsed (`references/cli.md` RS-CLI-14).
+the flag is parsed (`references/cli.md` RS-CLI-12).
 
 **Why:** every reader of `if !no_color` performs a small logic operation to recover the intent, and
 under an `&&` with a second negation they will eventually get it wrong.
@@ -733,19 +732,7 @@ impl Default for Options {
 }
 ```
 
-### RS-NAME-32 [S] Name a trait for the capability it grants
-
-`Read`, `Write`, `Display`, `Matcher`, `Searcher`, `Sink` — verbs, or agent nouns derived from
-verbs.
-
-**Why:** a trait is a capability, not a category (`references/traits.md` RS-TRAIT-02), and
-the name should say so. `-able` reads naturally only occasionally: `std` has `IntoIterator`, not
-`Iterable`.
-
-**Check:** does the trait's name describe something you can *do*, or something a type *is*? The
-second is usually a design error surfacing as a naming one.
-
-### RS-NAME-33 [M] Never suffix a name with the language construct
+### RS-NAME-29 [M] Never suffix a name with the language construct
 
 No `ConfigTrait`, `ErrorEnum`, `WrapperStruct`, `HandlerImpl`, `FooType`.
 
@@ -754,7 +741,7 @@ mechanism instead of the concept — it is the naming equivalent of a comment th
 
 **Check:** grep identifiers ending in `Trait`, `Enum`, `Struct`, `Impl`, `Type`, `Class`, `Object`.
 
-### RS-NAME-34 [S] Apply role suffixes consistently or not at all
+### RS-NAME-30 [S] Apply role suffixes consistently or not at all
 
 `Builder`, `Guard`, `Handle`, `Ref`, `Iter`, `Error`, `Config`: use the suffix whenever the type
 plays that role, and never when it does not.
@@ -765,54 +752,20 @@ absence of `Guard` means "not a guard" or "we forgot". `SearcherBuilder`, `Mutex
 
 **Check:** list every type playing each role. Is the suffix present on all of them, or on none?
 
-### RS-NAME-35 [M] Pick one error-type spelling per crate
+### RS-NAME-31 [M] Pick one error-type spelling per crate
 
 Either `Error` inside its own module (`io::Error`, `parse::Error`) or `FooError` at the crate root
 when several coexist. Never both spellings in one crate.
 
 **Why:** with both, `use` statements collide unpredictably and readers cannot guess the path of an
 error they have not met. The module-scoped spelling scales better; the flat one is fine for a crate
-with two error types (`references/errors.md` RS-ERR-18).
+with two error types (`references/errors.md` RS-ERR-16).
 
 **Check:** grep for `Error` in type positions. Are all of them the same shape?
 
-### RS-NAME-36 [S] Name a test for the behaviour it pins
-
-`rejects_pattern_with_unclosed_group`, `preserves_order_of_equal_keys`. Not `test_parse_2`.
-
-**Why:** the test name is what the failure output shows, so it should state what broke without the
-reader opening the file. The `test_` prefix is redundant with `#[test]`, and a number pins nothing.
-
-**Check:** read the list of test names as a specification. Does it describe the contract, or does it
-describe the functions that happen to exist? (`references/testing.md` RS-TEST-08.)
-
 ## Generic parameters and lifetimes
 
-### RS-NAME-37 [S] Use the conventional single letters where the role is universal
-
-`T`/`U` for values, `E` for error, `K`/`V` for map keys and values, `F` for closures, `I` for
-iterators, `S` for string-like, `R`/`W` for reader and writer.
-
-**Why:** these are ecosystem-wide, so a reader parses `fn read_from<R: Read>(r: R)` without pausing.
-Inventing `Reader` where `R` is conventional costs a moment of "is this different?".
-
-**Check:** does any parameter use a conventional letter for an unconventional role — `E` for an
-element type, `S` for a state?
-
-```rust
-// verified
-use std::fmt::Display;
-
-/// `T` for the element, `E` for the error: conventional where the role is universal.
-pub fn first_line<T: Display, E>(
-    items: &[T],
-    _marker: std::marker::PhantomData<E>,
-) -> Option<String> {
-    items.first().map(ToString::to_string)
-}
-```
-
-### RS-NAME-38 [S] Name a lifetime for the source of the borrow once several coexist
+### RS-NAME-32 [S] Name a lifetime for the source of the borrow once several coexist
 
 `'a` when there is one. `'src`, `'input`, `'haystack` when there are several and it matters which is
 which. Use `'_` wherever it is accepted (rustc `elided_lifetimes_in_paths`).
@@ -843,11 +796,11 @@ impl<'input> Cursor<'input> {
 }
 ```
 
-### RS-NAME-39 [M] Never restate the kind in a parameter's name
+### RS-NAME-33 [M] Never restate the kind in a parameter's name
 
 No `'life`, no `'lifetime`, no type parameter named `Type` or `Generic`.
 
-**Why:** the sigil already conveys the kind, exactly as with RS-NAME-33. `<'lifetime, Type>` is
+**Why:** the sigil already conveys the kind, exactly as with RS-NAME-29. `<'lifetime, Type>` is
 noise in every signature that mentions it.
 
 **Check:** grep for `'life`, `'lifetime`, `<Type`, `<Generic`.
@@ -863,7 +816,7 @@ pub fn read_config(config: &Path) -> Option<&str> {
 }
 ```
 
-### RS-NAME-40 [S] Name an associated type for the thing it produces
+### RS-NAME-34 [S] Name an associated type for the thing it produces
 
 `type Item`, `type Output`, `type Error`, `type Iter<'a>`. Do not prefix with the trait name.
 
@@ -885,27 +838,16 @@ pub trait Decoder {
 }
 ```
 
-### RS-NAME-41 [S] Name a generic parameter for its bound in a crowded signature
-
-`fn copy<R: Read, W: Write>(reader: R, writer: W)`. The letter matches the bound so the reader can
-pair parameter to constraint at a glance.
-
-**Why:** in a signature with four parameters and a `where` clause, matching `T3` to its bound
-requires scrolling. Matching `W` to `W: Write` does not.
-
-**Check:** in each multi-parameter signature, can a reader pair every parameter with its bound
-without moving their eyes to the `where` clause?
-
 ## Symmetry of names
 
-### RS-NAME-42 [M] Name the two halves of a pair symmetrically
+### RS-NAME-35 [M] Name the two halves of a pair symmetrically
 
 A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`close`, not
 `open`/`release`; `lock`/`unlock`, not `lock`/`release`. Reuse the ecosystem's pair where one
 exists.
 
 **Why:** matched names are what make a pair recognizable as a pair, which is how a reader knows the
-inverse exists without looking (`RS-API-76`). Mismatched halves read as unrelated operations, and
+inverse exists without looking (`RS-API-58`). Mismatched halves read as unrelated operations, and
 the reader searches for a `decode` that is spelled `parse`.
 
 **Check:** list every operation with an inverse and read the two names together. If they do not
@@ -913,65 +855,24 @@ sound like a pair said aloud, rename the odd half.
 
 ```rust
 // verified
-/// A pair uses matched words: `encode` / `decode`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Frame(u32);
-
-#[must_use]
-pub fn encode(frame: Frame) -> [u8; 4] {
-    frame.0.to_be_bytes()
+/// A pair uses matched words: `open` / `close`, never `open` / `release`.
+#[derive(Debug, Default)]
+pub struct Valve {
+    open: bool,
 }
 
-#[must_use]
-pub fn decode(bytes: [u8; 4]) -> Frame {
-    Frame(u32::from_be_bytes(bytes))
-}
-```
+impl Valve {
+    pub fn open(&mut self) {
+        self.open = true;
+    }
 
-### RS-NAME-43 [S] Keep the same word order across parallel names
-
-Parallel names put their words in the same order: `read_timeout` and `write_timeout`, not
-`read_timeout` and `timeout_write`; `max_depth` and `max_width`, not `max_depth` and `width_limit`.
-
-**Why:** consistent order makes names sort together, complete together, and grep together, so the
-family is discoverable from any one member. It also removes the pause where the reader wonders
-whether the different order signals a different meaning (`RS-NAME-27`).
-
-**Check:** sort the identifiers in each module alphabetically. Members of one family should end up
-adjacent; a stray is a name whose word order differs.
-
-```rust
-// verified
-use std::time::Duration;
-
-/// Parallel names put their words in the same order, so the family sorts together.
-#[derive(Debug, Clone, Copy)]
-pub struct Limits {
-    read_timeout: Duration,
-    write_timeout: Duration,
-    max_depth: u32,
-    max_width: u32,
-}
-
-impl Limits {
-    #[must_use]
-    pub fn read_timeout(&self) -> Duration {
-        self.read_timeout
+    pub fn close(&mut self) {
+        self.open = false;
     }
 
     #[must_use]
-    pub fn write_timeout(&self) -> Duration {
-        self.write_timeout
-    }
-
-    #[must_use]
-    pub fn max_depth(&self) -> u32 {
-        self.max_depth
-    }
-
-    #[must_use]
-    pub fn max_width(&self) -> u32 {
-        self.max_width
+    pub fn is_open(&self) -> bool {
+        self.open
     }
 }
 ```
@@ -982,4 +883,9 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
+| rustc | `non_camel_case_types` | warn | a type, trait or enum variant not in `UpperCamelCase` |
+| rustc | `non_snake_case` | warn | a function, method, local, field or module not in `snake_case` |
 | rustc | `non_upper_case_globals` | warn | a constant, static or const generic parameter not in `SCREAMING_SNAKE_CASE` |
+| clippy | `upper_case_acronyms` | warn | a run of capitals in a type name — `Http`, not `HTTP`, with the shipped aggressive setting |
+| clippy | `enum_variant_names` | warn | three or more variants sharing a prefix or suffix, such as `ReadFailed`, `WriteFailed`, `SeekFailed` |
+| clippy | `wrong_self_convention` | warn | an `as_`, `to_` or `into_` method whose receiver breaks its prefix: an `into_*` taking `&self` |

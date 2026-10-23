@@ -9,7 +9,7 @@ edit can be made.
 
 It leaves two things. One is a gap in the chapter's numbering, which
 `agent-skill renumber` closes. The other is any citation of a demoted
-ID, which it reports for a person to resolve: whether a pointer to a
+ID, which it reports for a person to resolve: whether a citation of a
 rule that is now a lint should name the lint, the rule it merged into,
 or nothing, is a reading decision.
 """

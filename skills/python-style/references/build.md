@@ -138,7 +138,7 @@ nowhere in the built distribution, which is exactly right for a linter.
 
 ### PS-BUILD-08 [M] Pin every tool that decides whether the build passes
 
-`ruff==0.17.1`, `ty==0.0.90`, `pytest==9.1.1` — exact, in the dependency group.
+`ruff==0.17.2`, `ty==0.0.91`, `pytest==9.1.1` — exact, in the dependency group.
 
 **Why:** a floor lets a new linter release fail CI on code nobody touched, and differently for two
 developers on the same commit; a pin makes the upgrade a reviewed change with its own diff. `ty`

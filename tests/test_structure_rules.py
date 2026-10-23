@@ -9,6 +9,7 @@ lazy from pathlib import Path
 
 import pytest
 
+from agent_skill.checks import by_name
 from agent_skill.checks.anatomy import structural
 from agent_skill.checks.citations import (
     python_rows,
@@ -76,6 +77,20 @@ def test_a_four_line_why(demo: Skill) -> None:
         "**Why:** a\nb\nc\nd.",
     )
     assert any("Why runs 4 lines" in m for m in structural_messages(broken))
+
+
+def test_a_rule_that_only_points_at_its_owner_fails(demo: Skill) -> None:
+    """No pointer form exists any more: a rule without a Why is one."""
+    broken = edit(
+        demo,
+        "references/errors.md",
+        "Name them.\n\n**Why:** one line of reason.\n\n**Check:** read it.",
+        "Owned by DS-ERR-01.",
+    )
+    check = by_name("anatomy")
+    assert check is not None
+    messages = [f.message for f in check.run([broken]).findings]
+    assert "DS-ERR-02 states no Why" in messages
 
 
 def test_a_three_line_why_is_fine(demo: Skill) -> None:

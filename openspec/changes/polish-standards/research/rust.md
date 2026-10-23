@@ -237,3 +237,25 @@ The rules carry the quality requirement, so neither is a duplicate.
 - **Wrong citations**: DOC-18 cites API-30; API-81 cites NAME-42 for NAME-27.
 - **UNSAFE-28's 1.99.1 note** is correct; the local rustc is 1.99.0, which still has the FFI `bool`
   miscompilation.
+
+## Applied
+
+All of A and B, by the plan and decisions in `rust-decisions.md`, with these changes and
+exceptions:
+
+- **FUNC-01 stays a rule.** Its Check also covers `let mut x = default` overwritten later, which
+  no shipped lint decides; `useless_let_if_seq` is nursery.
+- **Demoted beyond the plan**, because the shipped lint now decides all of each: DOC-01
+  (`missing_docs`), MOD-14 (`unreachable_pub`), MOD-44 (`wildcard_imports`).
+- **#87:** MACRO-23 merged into MACRO-09; MACRO-17 keeps the generated-names half.
+- **API-27 rose to `[M]`**, so that absorbing API-28 did not demote "never leave two same-typed
+  parameters adjacent".
+- **#1:** UNSAFE-23's `safe fn` example is `getpid`, not `abs`: C's `abs(INT_MIN)` is undefined, so
+  `abs` cannot be declared `safe`.
+- **Skipped:** #8 in TRAIT-36/37 (a `from_fn` renderer roughly triples examples that teach
+  bounds); #29 in testing (no example polls a future; CONC-34's Check names `Waker::noop`);
+  `clone_on_ref_ptr`, `rc_buffer`, `multiple_unsafe_ops_per_block` and
+  `dead_code_pub_in_binary` rows (the shipped configuration leaves them off); MOD-42/43 (there is
+  no rustfmt row kind); a `.context(format!…)` row (no shipped lint decides it).
+- **The arrival dates** the annotations carried are `migration.md`'s "When an API arrived" table,
+  for a crate whose MSRV is below 1.99; the silent ones are rows of RS-MIG-03.

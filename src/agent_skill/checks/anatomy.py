@@ -110,7 +110,6 @@ def anatomy(skill: Skill) -> Iterator[Finding]:
     yield from _contents_order(skill)
     yield from _unique_titles(skill, titles)
     yield from _mis_cited(skill)
-    yield from _pointers(skill, seen)
     yield from _references(skill, seen)
     yield from _counts(skill)
     yield from _near_duplicates(skill, blocks)
@@ -173,28 +172,17 @@ def _unique_titles(skill: Skill, titles: dict[str, list[str]]) -> Iterator[Findi
 
 
 def _shape(rule: Rule, where: str) -> Iterator[Finding]:
-    """A rule states its own Why and Check, or points at their owner.
+    """A rule states its own Why and Check.
 
-    Half of one and half of the other is a rule that duplicated its
-    owner and drifted: ZS-CONC-39 pointed at the migration chapter, then
-    kept a two-row copy of that chapter's table whose rows were already
-    in it.
+    A rule that only names the rule owning its topic is a second place
+    to read and keep in step: ZS-CONC-39 pointed at the migration
+    chapter, then kept a two-row copy of that chapter's table whose rows
+    were already in it. Such a rule merges into its owner.
     """
     has = ("**Why" in rule.body, "**Check" in rule.body)
-    if rule.pointer and any(has):
-        which = "Why" if has[0] else "Check"
-        yield fail(f"{rule.id} is a pointer rule with a {which} of its own", where)
-    elif not rule.pointer and not all(has):
+    if not all(has):
         which = "Why" if not has[0] else "Check"
-        yield fail(f"{rule.id} states no {which} and does not point at an owner", where)
-    if rule.pointer and "(see " not in rule.title:
-        yield fail(
-            f"{rule.id} points at an owner without saying so in its title", where
-        )
-    # The owner demonstrates the rule. A pointer that also carries an
-    # example is a second copy to keep in step.
-    if rule.pointer and "```" in rule.body:
-        yield fail(f"{rule.id} is a pointer rule with an example of its own", where)
+        yield fail(f"{rule.id} states no {which}", where)
 
 
 #: Words that carry no signal when matching a summary to the rule it
@@ -258,33 +246,6 @@ def _mis_cited(skill: Skill) -> Iterator[Finding]:
                             f"({other.title!r}) is a closer match",
                             skill.name,
                         )
-
-
-def _pointers(skill: Skill, seen: dict[str, str]) -> Iterator[Finding]:
-    """A pointer cites a chapter only when its owner is in another."""
-    for rule in skill.rules:
-        if not rule.pointer:
-            continue
-        where = f"{skill.name}/{rule.file}"
-        if not rule.owner:
-            yield fail(f"{rule.id} says 'Owned by' without naming an owner", where)
-            continue
-        owner_file = seen.get(rule.owner)
-        cited = rule.owner_chapter
-        if owner_file is None:
-            yield fail(f"{rule.id} points at {rule.owner}, which is not a rule", where)
-        elif owner_file == rule.file and cited:
-            yield fail(f"{rule.id} cites a chapter for {rule.owner}, its own", where)
-        elif owner_file != rule.file and not cited:
-            yield fail(
-                f"{rule.id} points at {rule.owner} in {owner_file} without citing it",
-                where,
-            )
-        elif cited and cited != owner_file:
-            yield fail(
-                f"{rule.id} cites {cited} for {rule.owner}, which is in {owner_file}",
-                where,
-            )
 
 
 def _references(skill: Skill, seen: dict[str, str]) -> Iterator[Finding]:

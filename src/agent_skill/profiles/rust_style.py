@@ -11,7 +11,7 @@ from agent_skill.profiles import Exemption, NotDecisive, Profile, register
 from agent_skill.report import Finding, fail, note
 from agent_skill.text import group, strip_comment
 
-#: RS-NAME-24 — a `bool`-returning method reads as a question.
+#: RS-NAME-22 — a `bool`-returning method reads as a question.
 QUESTION = re.compile(
     r"^(is_|has_|can_|should_|may_|will_|wants_|allows_|accepts_|needs_|"
     r"contains|starts_with|ends_with|matches|intersects|all_|any_|"
@@ -52,8 +52,8 @@ class RustStyle(Profile):
                 "counter.fetch_update(Ordering::SeqCst, Ordering::SeqCst, step)",
                 "let ceiling = std::i32::MAX;",
             ),
-            "RS-DOC-23": ("    // let unused = compute_total(&items);",),
-            "RS-DOC-31": ("/// See [the guide](https://docs.rs/serde/latest/serde/).",),
+            "RS-DOC-19": ("    // let unused = compute_total(&items);",),
+            "RS-DOC-27": ("/// See [the guide](https://docs.rs/serde/latest/serde/).",),
         }
     )
     #: Measured, not judged: each of these was promoted to accuse and
@@ -64,33 +64,33 @@ class RustStyle(Profile):
     #: fields away and nothing re-measures.
     not_decisive: dict[str, NotDecisive] = field(
         default_factory=lambda: {
-            "RS-API-06": NotDecisive(
+            "RS-API-04": NotDecisive(
                 "std::collections::",
                 "the span finds every `std::collections::`; whether it appears in a "
                 "public return type rather than inside a body decides",
             ),
-            "RS-API-13": NotDecisive(
+            "RS-API-08": NotDecisive(
                 "to_owned()",
                 "the span finds every `to_owned()`; whether it is applied to a `&str` "
                 "parameter the function goes on to store decides",
             ),
-            "RS-API-29": NotDecisive(
+            "RS-API-19": NotDecisive(
                 ": bool",
                 "the span finds every `bool` parameter, private ones included; "
                 "whether the signature is public decides, and their number chooses "
                 "between an enum and an options struct",
             ),
-            "RS-API-64": NotDecisive(
+            "RS-API-50": NotDecisive(
                 "fn set_",
                 "the span finds every `set_` method; whether the type is a builder "
                 "decides, and an ordinary struct's setter is not this rule's subject",
             ),
-            "RS-CLI-04": NotDecisive(
+            "RS-CLI-03": NotDecisive(
                 "env::var",
                 "the span finds every environment read, the sanctioned one included; "
                 "whether it sits outside the single construction path decides",
             ),
-            "RS-CLI-36": NotDecisive(
+            "RS-CLI-31": NotDecisive(
                 "env::var",
                 "the span finds every environment read; whether that name is prefixed "
                 "and documented in the help output decides, and neither fact is on "
@@ -101,17 +101,17 @@ class RustStyle(Profile):
                 "the span finds every `join()`; whether its result is discarded "
                 "rather than handled decides",
             ),
-            "RS-CONC-22": NotDecisive(
+            "RS-CONC-20": NotDecisive(
                 "lock()",
                 "the span finds every `lock()`; whether an `.await` sits between it "
                 "and the end of its scope decides",
             ),
-            "RS-CONC-33": NotDecisive(
+            "RS-CONC-30": NotDecisive(
                 "std::fs",
                 "the span finds every `std::fs`; whether the enclosing body is "
                 "`async` decides, which the matched line does not say",
             ),
-            "RS-CONC-38": NotDecisive(
+            "RS-CONC-46": NotDecisive(
                 "spawn(",
                 "the span finds every `spawn(`; whether its handle is kept, joined, "
                 "or detached with a comment decides",
@@ -127,7 +127,7 @@ class RustStyle(Profile):
                 "the span finds every erased error; whether the erasure is a "
                 "commented decision rather than an oversight decides",
             ),
-            "RS-ERR-28": NotDecisive(
+            "RS-ERR-24": NotDecisive(
                 "ok_or(",
                 "the span finds every eager combinator; whether its argument is a "
                 "`Copy` constant, rather than something that allocates or calls, "
@@ -144,25 +144,25 @@ class RustStyle(Profile):
                 "whether a hand-written `for` accumulating a scalar remains beside it "
                 "decides",
             ),
-            "RS-FUNC-20": NotDecisive(
+            "RS-FUNC-17": NotDecisive(
                 "into_iter().collect()",
                 "the span finds every round trip through `into_iter().collect()`; "
                 "whether the collection the caller needs could have been collected "
                 "into directly decides",
             ),
-            "RS-FUNC-22": NotDecisive(
+            "RS-FUNC-19": NotDecisive(
                 "len() - 1",
                 "the span finds every `len() - 1`; whether an adapter encodes the "
                 "same arithmetic decides, and the loop it belongs to is not on the "
                 "line",
             ),
-            "RS-NAME-17": NotDecisive(
+            "RS-NAME-16": NotDecisive(
                 "fn get_",
                 "the span finds every `get_`; whether the method returns `Option` or "
                 "`Result`, or is the `_unchecked`/`_mut` sibling of one that does, "
                 "decides",
             ),
-            "RS-NAME-31": NotDecisive(
+            "RS-NAME-28": NotDecisive(
                 "not_",
                 "the span finds every negated name; whether it is the one conversion "
                 "at the boundary the rule allows decides",
@@ -173,50 +173,34 @@ class RustStyle(Profile):
                 "parameter in the opening lines of a function that should have taken "
                 "ownership decides",
             ),
-            "RS-OWN-11": NotDecisive(
+            "RS-OWN-10": NotDecisive(
                 ".clone()",
                 "the span finds every `.clone()`; whether the receiver's type is "
                 "`Arc` or `Rc` decides, and the type is not on the line",
             ),
-            "RS-OWN-13": NotDecisive(
+            "RS-OWN-12": NotDecisive(
                 "to_lowercase()",
                 "the span finds every `to_lowercase()`; whether it is inside a "
                 "condition or a comparison, rather than producing a value that is "
                 "kept, decides",
             ),
-            "RS-PERF-06": NotDecisive(
-                "Vec::new()",
-                "the span finds every `Vec::new()`; whether a loop with a known bound "
-                "follows, making it a missing `with_capacity`, decides",
-            ),
-            "RS-PERF-08": NotDecisive(
+            "RS-PERF-07": NotDecisive(
                 "Vec::new",
                 "the span finds every `Vec::new`; whether it sits inside a loop body "
                 "decides, which is a fact about what encloses it",
             ),
-            "RS-PERF-09": NotDecisive(
-                ".collect::<Vec<_>>()",
-                "the span finds every `.collect::<Vec<_>>()`; whether an `.iter()` "
-                "follows it, making the pair a deletable round trip, decides",
-            ),
-            "RS-PERF-37": NotDecisive(
+            "RS-PERF-30": NotDecisive(
                 "try_from",
                 "the span matches `try_from`, which is the conversion this rule asks "
                 "for; the defect is an `as` cast that could exceed the target range, "
                 "which this span does not find",
             ),
-            "RS-MOD-11": NotDecisive(
-                "pub(crate)",
-                "the span matches `pub(crate)`, which is the visibility this rule "
-                "asks for; whether a plain `pub` outside the crate root should have "
-                "been one decides",
-            ),
-            "RS-MOD-16": NotDecisive(
+            "RS-MOD-13": NotDecisive(
                 "pub(crate)",
                 "the span matches `pub(crate)`; whether the item is used only from "
                 "`#[cfg(test)]`, and was widened to satisfy a test, decides",
             ),
-            "RS-TEST-12": NotDecisive(
+            "RS-TEST-11": NotDecisive(
                 "assert!(",
                 "the span finds every `assert!(`; whether it contains `==`, `.len()`, "
                 "or `&&` — an `assert_eq!` that would print more — decides",
@@ -225,9 +209,9 @@ class RustStyle(Profile):
     )
     exempt: dict[str, Exemption] = field(
         default_factory=lambda: {
-            # RS-API-23: "Every hit that is not on a `#[repr(C)]` type
+            # RS-API-15: "Every hit that is not on a `#[repr(C)]` type
             # is a defect"
-            "RS-API-23": lambda lines, at, _in_test: repr_c_above(lines, at.start - 1),
+            "RS-API-15": lambda lines, at, _in_test: repr_c_above(lines, at.start - 1),
         }
     )
 
@@ -251,24 +235,24 @@ def _line(b: Block, lines: list[str], j: int, raw: str) -> Iterator[Finding]:
     where = f"{b.file}:{b.at(j)} [{b.rule}]"
     code = strip_comment(raw)
 
-    # RS-API-29 — a public signature never takes a bare `bool`
+    # RS-API-19 — a public signature never takes a bare `bool`
     m = re.search(r"\bpub (?:async )?fn (\w+)\s*(?:<[^>]*>)?\(([^)]*)\)", code)
-    if m and re.search(r":\s*bool\b", m.group(2)) and b.rule != "RS-API-29":
-        yield fail(f"`{m.group(1)}` takes a bool parameter (RS-API-29)", where)
+    if m and re.search(r":\s*bool\b", m.group(2)) and b.rule != "RS-API-19":
+        yield fail(f"`{m.group(1)}` takes a bool parameter (RS-API-19)", where)
 
-    # RS-NAME-24 — a `bool`-returning method reads as a question
+    # RS-NAME-22 — a `bool`-returning method reads as a question
     m = re.search(r"\bpub (?:async )?fn (\w+)\([^)]*\)\s*->\s*bool\b", code)
     if m and not QUESTION.match(m.group(1)):
         yield note(
-            f"`{m.group(1)}` returns bool but does not read as a question (RS-NAME-24)",
+            f"`{m.group(1)}` returns bool but does not read as a question (RS-NAME-22)",
             where,
         )
 
-    # RS-API-23 / RS-API-25 — no public field, no public tuple field
+    # RS-API-15 — no public field, tuple fields included
     if re.match(r"^\s+pub [a-z_]\w*:", raw) and not repr_c_above(lines, j):
-        yield fail("public struct field outside `#[repr(C)]` (RS-API-23)", where)
+        yield fail("public struct field outside `#[repr(C)]` (RS-API-15)", where)
     if re.search(r"struct \w+\(\s*pub ", code):
-        yield fail("public tuple field (RS-API-25)", where)
+        yield fail("public tuple field (RS-API-15)", where)
 
     yield from _setter(code, lines, j, where)
 

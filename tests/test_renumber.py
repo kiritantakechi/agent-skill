@@ -229,7 +229,7 @@ def test_the_counts_skill_md_states_follow_the_rules(repo: Path) -> None:
 
 
 def test_reflow_leaves_a_contents_line_whole() -> None:
-    line = "  - RS-TRAIT-17 [S] " + "word " * 18 + "type"
+    line = "  - RS-TRAIT-14 [S] " + "word " * 18 + "type"
     assert reflow(line + "\n", width=100) == line + "\n"
 
 

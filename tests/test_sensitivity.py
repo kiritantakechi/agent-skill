@@ -2,7 +2,7 @@
 
 The module was titled "every" and its code asserted `any`: one pattern
 matching stood as evidence for the rest of a rule's Check. Measured on
-the shipped standard, `ZS-MIG-13` ships four patterns over four disjoint
+the shipped standard, `ZS-MIG-12` ships four patterns over four disjoint
 families of dead API, its one fixture matched the first, and the other
 three were counted as proven by a fixture none of them touched. Any of
 the three could have been narrowed until it matched nothing at all
