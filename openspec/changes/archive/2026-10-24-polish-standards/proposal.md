@@ -64,6 +64,8 @@ None.
 
 - `standard-structure` gains two requirements: a rule speaks of its target version only, and no
   rule only points at another.
+- `python-style`'s rule-shape requirement no longer has a rule defer to its owner by pointing at it:
+  it cites the ID, and a rule that would only point merges into its owner.
 
 ## Impact
 

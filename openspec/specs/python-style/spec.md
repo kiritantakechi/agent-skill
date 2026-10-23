@@ -162,13 +162,14 @@ standards give them, SHALL define what makes a codebase high-reliability, and SH
 
 Every rule SHALL have an ID under a single prefix, a tier tag, a title, a `**Why:**` rationale of at
 most three lines, and a `**Check:**` that names how to decide the rule against a diff. A rule that
-defers to another rule SHALL point at the owning ID rather than restating it. IDs SHALL be dense
-within their chapter. A renumbering SHALL ship a table mapping every old ID to its replacement.
+needs another rule's subject SHALL cite that rule's ID in prose rather than restate it, and a rule
+that would only point at another SHALL be merged into it. IDs SHALL be dense within their chapter.
+A renumbering SHALL ship a table mapping every old ID to its replacement.
 
 #### Scenario: A rule ships without a rationale or a check
 
-- **WHEN** a rule body has no `**Why:**`, or no `**Check:**` and no pointer at an owning rule
-- **THEN** the rule is non-conforming
+- **WHEN** a rule body has no `**Why:**`, or no `**Check:**`
+- **THEN** the rule is non-conforming, whether or not it points at another rule
 
 #### Scenario: A rationale outgrows three lines
 
