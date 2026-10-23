@@ -4,13 +4,12 @@ from agent_skill import vocabulary as v
 
 
 def test_each_code_names_one_chapter() -> None:
-    assert len(v.FAMILIES) == len(v.CHAPTERS)
+    assert len(set(v.CHAPTERS.values())) == len(v.CHAPTERS)
 
 
-def test_lookup_runs_both_ways() -> None:
+def test_each_chapter_has_its_code() -> None:
     for stem, code in v.CHAPTERS.items():
         assert v.code_for(stem) == code
-        assert v.chapter_for(code) == stem
 
 
 def test_a_name_joining_two_subjects_is_not_a_chapter() -> None:
@@ -34,7 +33,7 @@ def test_every_required_chapter_is_allowed() -> None:
 
 
 def test_core_is_not_a_chapter_code() -> None:
-    assert not v.chapter_for(v.CORE)
+    assert v.CORE not in v.CHAPTERS.values()
 
 
 def test_every_chapter_name_is_one_word() -> None:

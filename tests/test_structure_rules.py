@@ -129,6 +129,16 @@ def test_a_rule_naming_an_older_release(twenty: Skill) -> None:
     ]
 
 
+def test_a_title_naming_an_older_release(twenty: Skill) -> None:
+    broken = edit(
+        twenty,
+        "references/errors.md",
+        "### DS-ERR-02 [M] Name them",
+        "### DS-ERR-02 [M] As 1.13",
+    )
+    assert any("DS-ERR-02 names 1.13" in m for m in structural_messages(broken))
+
+
 def test_a_core_rule_naming_an_older_release(twenty: Skill) -> None:
     broken = edit(
         twenty,

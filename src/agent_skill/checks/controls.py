@@ -180,8 +180,6 @@ def _orphan_asset(tree: Path) -> None:
     (tree / "rust-style/assets/orphan.toml").write_text("x = 1\n")
 
 
-#: A `Decided by tools` table with one row, for the controls on Rust
-#: rows.
 #: The head of a chapter's `Decided by tools` table. A chapter has one,
 #: so a row is injected under it: a second table is not read.
 _TABLE = "| Tool | Lint | Level | Forbids |\n|---|---|---|---|\n"
@@ -288,6 +286,16 @@ STRUCTURE: list[Control] = [
             f"{PY}/references/api.md",
             "**Why:** without it the public surface is",
             "**Why:** one line more.\nwithout it the public surface is",
+        ),
+    ),
+    Control(
+        "a rule with no Why",
+        "anatomy",
+        lambda t: edit(
+            t,
+            f"{PY}/references/naming.md",
+            "**Why:** casing carries information",
+            "Casing carries information",
         ),
     ),
     Control(
@@ -560,6 +568,13 @@ CONTROLS: list[Control] = [
             "rust-style/assets/Cargo.toml",
             'indexing_slicing = "deny"',
             'indexing_slicing = "warn"',
+        ),
+    ),
+    Control(
+        "a table cell split by an unescaped pipe",
+        "layout",
+        lambda t: edit(
+            t, "python-style/SKILL.md", "`X \\| None`, `A \\| B`", "`X | None`, `A | B`"
         ),
     ),
     Control(

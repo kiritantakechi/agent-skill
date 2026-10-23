@@ -11,6 +11,7 @@ import re
 from dataclasses import dataclass
 from functools import cached_property
 from typing import override
+lazy from collections.abc import Iterator
 lazy from pathlib import Path
 
 from agent_skill.text import code_only, group, strip_comment, syntax_for
@@ -673,6 +674,30 @@ def repr_c_above(lines: list[str], j: int) -> bool:
         if "repr(C)" in s:
             return True
     return False
+
+
+def prose_lines(text: str, prefix: str) -> Iterator[tuple[int, str, str, bool]]:
+    """Each unfenced prose line, with the rule and Check it sits in.
+
+    Yields (lineno, line, owning rule, inside-a-Check). A fence may be
+    indented, as one inside a list item is.
+    """
+    rid, in_check, fenced = "?", False, False
+    head = re.compile(rf"^### ({prefix}-[A-Z]+-\d+[a-z]?) \[")
+    for i, line in enumerate(text.split("\n"), 1):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            in_check = False
+            continue
+        if fenced:
+            continue
+        if m := head.match(line):
+            rid, in_check = group(m), False
+        elif line.startswith("**Check:"):
+            in_check = True
+        elif line.startswith("**") or not line.strip():
+            in_check = False
+        yield i, line, rid, in_check
 
 
 def inside_tests(body: str) -> set[int]:

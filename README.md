@@ -68,8 +68,7 @@ src/agent_skill/
 
 ## Every standard has one shape
 
-`rust-style`, `python-style` and `bevy-style` share it, and checks hold them to
-it rather than imitation:
+All four standards share it, and checks hold them to it rather than imitation:
 
 - `SKILL.md` has the same title form and the same eight sections, and its §5 is
   the review protocol's review order, stage for stage (`skeleton`).
@@ -85,10 +84,13 @@ it rather than imitation:
   the error it reports, with `…` for the identifiers, and is proved by a probe
   in the profile that the compiler must reject with that error; a probe with
   no row fails too.
-- A Why is three lines at most, and rule numbers are dense; `migration.md` maps
-  every old ID to what it became.
+- A rule states its own Why and Check, so one that would only point at another
+  is merged into it, and a Why is three lines at most (`anatomy`).
+- A rule's prose names no release older than the target: history is the
+  migration chapter's and §2's (`anatomy`).
+- Rule numbers are dense; `migration.md` maps every old ID to what it became.
 
-Every standard follows this shape; none is exempt. `zig-style`'s compiler pin
+`zig-style`'s compiler pin
 follows this machine's `zig` rather than upstream's newest release, so the zig
 bump starts when `pins` reports the local compiler has moved.
 
@@ -147,7 +149,7 @@ the time. The note after each is the defect it would have caught.
 | `anatomy` | rule shape (its own Why and Check), contents agreement and order, duplicate titles, dangling and mis-filed references, per-family counts, near-duplicate rationales, ids that run backwards within a chapter, a summary that cites a sibling of the rule it is about, a release older than the target in a rule's prose | A rule that pointed at the chapter owning its topic then kept a stale two-row copy of that chapter's table — whose rows were already in it. Later, a core rule summarised one rule and cited the one above it: the id existed and lived in the cited chapter, which was all anything asked. And 135 rules told a reader of a target-version standard when an API arrived — "(1.96)", "Since 0.19" — which is history they cannot act on, in the one place the migration chapter is not. |
 | `skeleton` | the shape every standard shares: the title and its target version, the eight sections, chapter names and family codes from one vocabulary, the review protocol's sections and severity model, §5 against the protocol's review order | Four standards shared a shape only because each copied the last: chapters named in two conventions, one concept coded `TST` in one standard and `TEST` in the next, three severity models, and a review protocol in three of four. |
 | `shared-text` | every passage the standards share is the template in `agent_skill/shared/`, filled in with that standard's values; `agent-skill fmt` rewrites a drifted copy | The reading procedure, tier table and marker legend were copied between `SKILL.md` files and edited in place, so they agreed only nearly — "several of its entries" in one, "most of its entries" in the next. |
-| `layout` | line width, trailing whitespace, tabs, CR, fence balance, doubled blanks, list numbering; long rule titles as notes | A 135-column line shipped and every check passed: nothing measured width. Sole owner of the physical checks, because when a second check repeated them one defect produced two findings at two severities. |
+| `layout` | line width, trailing whitespace, tabs, CR, fence balance, doubled blanks, list numbering, a table row with more cells than its header; long rule titles as notes | A 135-column line shipped and every check passed: nothing measured width. Later, `X \| None` in a code span split a table cell on GitHub, because a code span does not protect a pipe. Sole owner of the physical checks, because when a second check repeated them one defect produced two findings at two severities. |
 | `markers` | one block, one marker, and the marker leads it | 56 blocks spelled the marker across two lines, which left the tools unable to recognise the illustration blocks they exist to exempt. |
 | `conventions` | the standard's own rules over its own examples | Review rounds each found an example edited to satisfy one rule while breaking a rule in another chapter. Nothing checked across chapters. |
 | `prose` | no build provenance, one marker legend, unbroken blockquotes, no positional cross-references | Sixty-odd lines said *we checked X* where the standard should say *X*, and twelve chapters each restated the legend in their own wording — two of them describing a convention the library had stopped using. |

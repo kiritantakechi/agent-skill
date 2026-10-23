@@ -3,13 +3,13 @@
 import re
 from dataclasses import dataclass, field
 from typing import override
-lazy from collections.abc import Iterable, Iterator
+lazy from collections.abc import Iterable
 
-from agent_skill.profiles import Exemption, NotDecisive, Profile, register
+from agent_skill.profiles import NotDecisive, Profile, register
 from agent_skill.report import Finding, fail
 from agent_skill.text import group, strip_comment, syntax_for
 lazy from agent_skill.lang.python import INTERPRETER
-lazy from agent_skill.model import Skill
+lazy from agent_skill.model import Skill, prose_lines
 
 #: PS-TYPE — PEP 563 is Superseded, and the future import does not
 #: merely fail to help on 3.14+: it silently degrades `annotationlib`
@@ -72,7 +72,6 @@ class PythonStyle(Profile):
     verified_as: str = "runs as written on free-threaded CPython {pin}"
     strict_scope: str = "library and high-reliability"
     toolchain: str = "python"
-    exempt: dict[str, Exemption] = field(default_factory=dict)
     #: Each snippet is the defect its rule forbids, written the way it
     #: appears in real code rather than tailored to the pattern — a
     #: fixture shaped to match proves the fixture, not the pattern.
@@ -253,7 +252,7 @@ class PythonStyle(Profile):
             re.IGNORECASE,
         )
         for chapter in skill.chapters:
-            for i, line, rid, in_check in _prose_lines(chapter.text, skill.prefix):
+            for i, line, rid, in_check in prose_lines(chapter.text, skill.prefix):
                 if in_check or line.lstrip().startswith("|") or condemned.search(line):
                     continue
                 if span.search(line):
@@ -262,29 +261,6 @@ class PythonStyle(Profile):
                         "it is forbidden",
                         f"{chapter.name}:{i} [{rid}]",
                     )
-
-
-def _prose_lines(text: str, prefix: str) -> Iterator[tuple[int, str, str, bool]]:
-    """Each unfenced prose line, with the rule and Check it sits in.
-
-    Yields (lineno, line, owning rule, inside-a-Check).
-    """
-    rid, in_check, fenced = "?", False, False
-    head = re.compile(rf"^### ({prefix}-[A-Z]+-\d+[a-z]?) \[")
-    for i, line in enumerate(text.split("\n"), 1):
-        if line.startswith("```"):
-            fenced = not fenced
-            in_check = False
-            continue
-        if fenced:
-            continue
-        if m := head.match(line):
-            rid, in_check = group(m), False
-        elif line.startswith("**Check:"):
-            in_check = True
-        elif line.startswith("**") or not line.strip():
-            in_check = False
-        yield i, line, rid, in_check
 
 
 register(PythonStyle())

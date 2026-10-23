@@ -654,12 +654,12 @@ now; an ID it does not list is unchanged.
 | `BV-CAR-13` | `BV-BUILD-13` |
 | `BV-CAR-14` | `BV-BUILD-14` |
 | `BV-CAR-15` | `BV-BUILD-14` |
-| `BV-CAR-16` | removed — RS-MOD-29 and RS-BUILD-25 state it, and assets/Cargo.toml does it |
+| `BV-CAR-16` | removed — RS-BUILD-23 states it, and assets/Cargo.toml does it |
 | `BV-CAR-17` | removed — `bevy_lint` is a community linter the Bevy project does not maintain, and it has stalled; every rule it backed keeps its own Check |
 | `BV-CAR-18` | `BV-BUILD-15` |
 | `BV-CAR-19` | `BV-BUILD-16` |
-| `BV-CAR-20` | removed — RS-BUILD-07 and RS-BUILD-36 state it |
-| `BV-CAR-21` | removed — RS-BUILD-42 states it |
+| `BV-CAR-20` | removed — RS-BUILD-06 and RS-BUILD-34 state it |
+| `BV-CAR-21` | removed — RS-BUILD-40 states it |
 | `BV-ECS-08` | `BV-ECS-06` |
 | `BV-ECS-09` | `BV-ECS-08` |
 | `BV-ECS-10` | `BV-ECS-09` |

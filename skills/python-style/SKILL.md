@@ -99,9 +99,9 @@ atomic: that reason was the GIL, under which the never-atomic `obj.n += 1` shipp
 | Stale | Current |
 |---|---|
 | `from __future__ import annotations` | Nothing. PEP 563 is Superseded; the import now silently degrades `annotationlib` VALUE and FORWARDREF to bare strings |
-| `typing.List`, `Optional[X]`, `Union[A, B]` | `list`, `X | None`, `A | B` |
+| `typing.List`, `Optional[X]`, `Union[A, B]` | `list`, `X \| None`, `A \| B` |
 | `T = TypeVar("T")` plus `Generic[T]` | `class Box[T]:` and `def f[T](x: T) -> T:` |
-| `Alias: TypeAlias = int | str` | `type Alias = int | str` |
+| `Alias: TypeAlias = int \| str` | `type Alias = int \| str` |
 | `TypeGuard` | `TypeIs`, unless the narrowed type is not assignable to the input |
 | a hand-rolled `_MISSING = object()` | `sentinel("MISSING")` |
 | `types.MappingProxyType` for an immutable mapping | `frozendict` |

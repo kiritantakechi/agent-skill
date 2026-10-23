@@ -27,7 +27,11 @@ TOC = re.compile(r"^\s*- [A-Z]{2}-[A-Z]+-\d+[a-z]? \[")
 _JUDGED = 3
 
 
-@check("layout", "line width, whitespace, fences")
+#: A table's separator row: `|---|:--:|` and the like.
+_SEPARATOR = re.compile(r"^\|(?:\s*:?-+:?\s*\|)+\s*$")
+
+
+@check("layout", "line width, whitespace, fences, table cells")
 def layout(skill: Skill) -> Iterator[Finding]:
     """The physical shape of every markdown file in the skill."""
     for path in skill.markdown:
@@ -38,6 +42,7 @@ def layout(skill: Skill) -> Iterator[Finding]:
         yield from _whole_file(text, tag)
         yield from _doubled_blanks(lines, tag)
         yield from _ordered_lists(text, tag)
+        yield from _table_cells(lines, tag)
 
 
 def _widths(lines: list[str], tag: str) -> Iterator[Finding]:
@@ -116,3 +121,38 @@ def _ordered_lists(text: str, tag: str) -> Iterator[Finding]:
             run = []
     if len(run) >= _JUDGED and run != list(range(run[0], run[0] + len(run))):
         yield fail(f"ordered list {run} not contiguous", tag)
+
+
+def _cells(row: str) -> int:
+    r"""How many cells a table row holds, split on each unescaped `|`.
+
+    A code span does not protect a pipe: GitHub-flavoured Markdown
+    splits the cell there unless it is written `\|`.
+    """
+    inner = row.strip().removeprefix("|").removesuffix("|")
+    return len(re.split(r"(?<!\\)\|", inner))
+
+
+def _table_cells(lines: list[str], tag: str) -> Iterator[Finding]:
+    """Every row of a table has as many cells as its header.
+
+    A `|` inside a code span in a cell, `X | None`, splits that cell on
+    GitHub, and nothing else measured it.
+    """
+    fenced, header = False, 0
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        if not line.startswith("|"):
+            header = 0
+        elif _SEPARATOR.match(line) and i > 0:
+            header = _cells(lines[i - 1])
+        elif header and (n := _cells(line)) != header:
+            yield fail(
+                f"a table row has {n} cells where its header has {header}; "
+                "write a `|` inside a cell as `\\|`",
+                f"{tag}:{i + 1}",
+            )

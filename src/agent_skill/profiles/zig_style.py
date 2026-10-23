@@ -3,13 +3,13 @@
 import re
 from dataclasses import dataclass, field
 from typing import override
-lazy from collections.abc import Iterable, Iterator
+lazy from collections.abc import Iterable
 
-from agent_skill.model import Skill, inside_tests
+from agent_skill.model import Skill, inside_tests, prose_lines
 from agent_skill.profiles import Exemption, NotDecisive, Profile, register
 from agent_skill.profiles.rust_style import META
 from agent_skill.report import Finding, fail
-from agent_skill.text import group, strip_comment
+from agent_skill.text import strip_comment
 lazy from agent_skill.lang.zig import ZIG_VERSION
 lazy from agent_skill.proc import have, run
 
@@ -358,16 +358,17 @@ class ZigStyle(Profile):
                 where = f"{b.file}:{b.at(j)} [{b.rule}]"
                 code = strip_comment(raw)
 
-                # ZS-ERR-07 [M] — every `catch {}` or
-                # `catch unreachable` carries a comment. The comment may
-                # sit on the line above.
+                # ZS-ERR-09 and ZS-ERR-10 [M] — a `catch unreachable`
+                # carries its proof, and a `catch {}` its justification,
+                # in a comment, which may sit on the line above.
                 justified = "//" in raw or any(
                     ln.strip().startswith("//") for ln in lines[max(0, j - 3) : j]
                 )
-                if re.search(r"catch\s*(\{\s*\}|unreachable)", code) and not justified:
-                    yield fail(
-                        "`catch` swallows without the comment ZS-ERR-07 requires", where
-                    )
+                m = re.search(r"catch\s*(\{\s*\}|unreachable)", code)
+                if m and not justified:
+                    rid = "ZS-ERR-09" if m.group(1) == "unreachable" else "ZS-ERR-10"
+                    found = m.group(0)
+                    yield fail(f"`{found}` without the comment {rid} requires", where)
 
                 # ZS-ERR-26 [M] — "every hit is a defect, including
                 # inside `comptime` blocks and `const` initializers"
@@ -429,7 +430,7 @@ class ZigStyle(Profile):
         """
         span = re.compile(r"`[^`\n]*\.\?[^`\n]*`")
         for chapter in skill.chapters:
-            for i, line, rid, in_check in _prose_lines(chapter.text, skill.prefix):
+            for i, line, rid, in_check in prose_lines(chapter.text, skill.prefix):
                 if rid == "ZS-ERR-26" or in_check or "ZS-ERR-26" in line:
                     continue
                 if span.search(line):
@@ -437,29 +438,6 @@ class ZigStyle(Profile):
                         "prose names `.?` outside a **Check:** and outside ZS-ERR-26",
                         f"{chapter.name}:{i} [{rid}]",
                     )
-
-
-def _prose_lines(text: str, prefix: str) -> Iterator[tuple[int, str, str, bool]]:
-    """Each unfenced prose line, with the rule and Check it sits in.
-
-    Yields (lineno, line, owning rule, inside-a-Check).
-    """
-    rid, in_check, fenced = "?", False, False
-    head = re.compile(rf"^### ({prefix}-[A-Z]+-\d+[a-z]?) \[")
-    for i, line in enumerate(text.split("\n"), 1):
-        if line.startswith("```"):
-            fenced = not fenced
-            in_check = False
-            continue
-        if fenced:
-            continue
-        if m := head.match(line):
-            rid, in_check = group(m), False
-        elif line.startswith("**Check:"):
-            in_check = True
-        elif line.startswith("**") or not line.strip():
-            in_check = False
-        yield i, line, rid, in_check
 
 
 register(ZigStyle())

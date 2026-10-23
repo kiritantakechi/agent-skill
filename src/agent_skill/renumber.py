@@ -259,14 +259,18 @@ class _Citations:
 def _rewrite(
     text: str, path: Path, cites: _Citations, *, own: bool, outside: bool
 ) -> tuple[str, list[str]]:
-    """One pass over `text`, rename tables left as they are.
+    """One pass over `text`, its own rename tables left as they are.
+
+    Its own tables cite old IDs on purpose. Another skill's table cites
+    this one's IDs only to say what replaced a rule of its own, which
+    is a live citation and follows the renumbering.
 
     Returns the rewritten text, and the lines a person should look at.
     """
     unknown: set[str] = set()
     out: list[str] = []
     for segment, protected in _segments(text):
-        if protected:
+        if protected and own:
             out.append(segment)
         else:
             out.append(cites.paths_in(cites.ids_in(segment, unknown), own=own))

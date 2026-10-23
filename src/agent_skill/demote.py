@@ -281,14 +281,18 @@ def _headings(text: str) -> list[str]:
 def _citations(repo: Path, demotion: Demotion) -> Iterator[str]:
     """Every citation of a demoted ID left in the repository.
 
-    The rename tables are left out: they cite old IDs on purpose.
+    The skill's own rename tables are left out: they cite old IDs on
+    purpose. Another skill's table cites it to say what replaced a rule
+    of its own, and is read like any other text.
     """
     pattern = re.compile(rf"\b({'|'.join(map(re.escape, demotion.dispositions))})\b")
+    root = repo / "skills" / demotion.skill
     for path in _corpus(repo):
         text = demotion.writes.get(path) or path.read_text()
+        own = root in path.parents
         pos = 0
         for segment, protected in _segments(text):
-            if not protected:
+            if not (protected and own):
                 for m in pattern.finditer(segment):
                     line = text[: pos + m.start()].count("\n") + 1
                     becomes = demotion.dispositions[m.group(1)]

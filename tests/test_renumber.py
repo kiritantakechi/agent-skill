@@ -91,6 +91,20 @@ def test_a_chapter_rename_moves_the_file_the_code_and_every_path(repo: Path) -> 
     assert "DS-CONC-01" in test
 
 
+def test_another_skills_rename_table_follows_the_renumbering(repo: Path) -> None:
+    """It cites this skill only to say what replaced its own rule."""
+    other = repo / "skills" / "other-style" / "references" / "migration.md"
+    other.parent.mkdir(parents=True)
+    other.write_text(
+        "# Migration\n\n## Rule IDs before the Other 1.0 revision\n\n"
+        "Before the revision the families ran `OS-ERR-01`.\n\n"
+        "| Before | Now |\n|---|---|\n"
+        "| `OS-ERR-01` | removed — DS-ERR-02 states it |\n"
+    )
+    run(repo, **THREADS)
+    assert "| `OS-ERR-01` | removed — DS-ERR-01 states it |" in other.read_text()
+
+
 def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo: Path) -> None:
     run(repo, **THREADS)
     (table,) = Skill(repo / "skills/demo-style", Demo()).rename_tables

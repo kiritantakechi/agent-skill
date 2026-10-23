@@ -1,4 +1,8 @@
-"""Reading source text as a compiler would, not as a regex would."""
+"""Reading source text as a compiler would, not as a regex would.
+
+Comments and strings are told apart from code, prose is wrapped to the
+house width, and a regex match is narrowed to the text it found.
+"""
 
 import re
 

@@ -106,7 +106,7 @@ def anatomy(skill: Skill) -> Iterator[Finding]:
                 if section:
                     blocks[(rule.id, label)] = " ".join(section.split())
 
-    yield from _numbering(skill)
+    yield from _structure(skill)
     yield from _contents_order(skill)
     yield from _unique_titles(skill, titles)
     yield from _mis_cited(skill)
@@ -136,13 +136,13 @@ def _rule(chapter: Chapter, rule: Rule, where: str) -> Iterator[Finding]:
             yield fail(f"{rule.id} Why merely restates the rule", where)
 
 
-def _numbering(skill: Skill) -> Iterator[Finding]:
-    """Ids run 01, 02, … within a chapter, and every Why fits.
+def _structure(skill: Skill) -> Iterator[Finding]:
+    """Everything `structural` judges, as findings.
 
-    Appending a rule in the middle passes every other check — the
+    Dense numbering, a Why that fits, and no older release in a rule's
+    prose. Appending a rule in the middle passes every other check — the
     contents list agrees, because it was edited too — and leaves a
-    reader scanning 01..08, 25, 09. Dense numbering decides that and
-    more, so it is judged once, in `structural`.
+    reader scanning 01..08, 25, 09; so these are judged once, there.
     """
     for message, where in structural(skill):
         yield fail(message, where)
@@ -175,7 +175,7 @@ def _shape(rule: Rule, where: str) -> Iterator[Finding]:
     """A rule states its own Why and Check.
 
     A rule that only names the rule owning its topic is a second place
-    to read and keep in step: ZS-CONC-39 pointed at the migration
+    to read and keep in step: a zig-style rule pointed at the migration
     chapter, then kept a two-row copy of that chapter's table whose rows
     were already in it. Such a rule merges into its owner.
     """
@@ -379,7 +379,7 @@ def _below_target(skill: Skill) -> Iterator[tuple[str, str]]:
     major, target = pin.group(1), int(pin.group(2))
     token = re.compile(rf"(?<![\d.]){major}\.([1-9]\d+)(?!\d)")
     rules = [
-        (rule.id, rule.body, f"{skill.name}/{chapter.name}")
+        (rule.id, f"{rule.title}\n{rule.body}", f"{skill.name}/{chapter.name}")
         for chapter in skill.chapters
         if chapter.path.stem != "migration"
         for rule in chapter.rules
