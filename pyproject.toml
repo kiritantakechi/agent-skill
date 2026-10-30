@@ -3,6 +3,8 @@ name = "agent-skill"
 version = "0.1.0"
 description = "Build and verify Claude Code skills"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "kiritantakechi", email = "kiritantakechi@gmail.com" }
 ]
@@ -27,7 +29,7 @@ dev = ["pytest==9.2.0", "ruff==0.17.3", "ty==0.0.95", "ripgrep-bin==15.2.0"]
 # The configuration is the one python-style ships. Paths in an extended file
 # resolve against that file's directory, so `src` and the per-file globs are
 # restated here, where they name this repository's directories.
-extend = "skills/python-style/assets/ruff.toml"
+extend = "plugins/style-standards/skills/python-style/assets/ruff.toml"
 src = ["src", "tests"]
 
 [tool.ruff.lint.per-file-ignores]

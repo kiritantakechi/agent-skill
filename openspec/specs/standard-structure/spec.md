@@ -2,9 +2,9 @@
 
 ## Purpose
 
-What every standard under `skills/` has in common, and what the harness enforces about that. The
-goal is that a reader who has learned one standard can find their way around any other by position
-alone, and that the shared shape is held by a check rather than by imitation.
+What every standard this repository ships has in common, and what the harness enforces about that.
+The goal is that a reader who has learned one standard can find their way around any other by
+position alone, and that the shared shape is held by a check rather than by imitation.
 
 ## Requirements
 

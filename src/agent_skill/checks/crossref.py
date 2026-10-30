@@ -36,10 +36,10 @@ def _ids(skill: Skill) -> set[str]:
     return {r.id for r in skill.rules} | {rid for rid, _, _ in skill.core_rules}
 
 
-#: Everything outside `skills/` that names a rule. `assets.py` validates
-#: the ids a skill ships, and nothing validated these — so renumbering a
-#: chapter left two comments in `lang/rust.py` pointing at the rules
-#: that had moved up.
+#: Everything outside the skills that names a rule. `assets.py`
+#: validates the ids a skill ships, and nothing validated these — so
+#: renumbering a chapter left two comments in `lang/rust.py` pointing at
+#: the rules that had moved up.
 APPARATUS = ("src", "tests", "README.md")
 
 #: Two files hold ids that are *meant* to be invalid: the negative
@@ -55,8 +55,8 @@ def _apparatus_citations(
     """A rule id named in the code or the README still has to resolve.
 
     `root` is injectable so this has a real test: the control harness
-    copies `skills/` and nothing else, so it cannot reach the files this
-    reads.
+    copies the skills and the README and nothing else, so it cannot
+    reach the files this reads.
     """
     root = root or Path(__file__).resolve().parents[3]
     files: list[Path] = []

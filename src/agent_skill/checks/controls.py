@@ -18,6 +18,7 @@ from pathlib import Path
 lazy from collections.abc import Callable, Iterator, Sequence
 
 from agent_skill.checks import check
+from agent_skill.layout import PLUGIN, SKILLS, root_of
 from agent_skill.report import Level, fail
 lazy from agent_skill.checks import by_name
 lazy from agent_skill.lang import toolchain_for
@@ -108,11 +109,15 @@ def throwaway_tree(source: Path, into: Path) -> Path:
     fires in one runner and not the other is a control nobody can trust
     in either.
     """
-    tree = into / "skills"
+    tree = into / SKILLS
     shutil.copytree(source, tree, symlinks=True)
-    beside = source.parent / "README.md"
-    if beside.is_file():
-        shutil.copy2(beside, into / "README.md")
+    root = root_of(source)
+    for beside in ("README.md", "LICENSE"):
+        if (root / beside).is_file():
+            shutil.copy2(root / beside, into / beside)
+    for manifests in (Path(".claude-plugin"), PLUGIN / ".claude-plugin"):
+        if (root / manifests).is_dir():
+            shutil.copytree(root / manifests, into / manifests)
     return tree
 
 
@@ -601,6 +606,16 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        "a plugin manifest naming another plugin",
+        "plugin",
+        lambda t: edit(
+            root_of(t),
+            f"{PLUGIN}/.claude-plugin/plugin.json",
+            '"name": "style-standards"',
+            '"name": "style-standard"',
+        ),
+    ),
+    Control(
         "a table cell split by an unescaped pipe",
         "layout",
         lambda t: edit(
@@ -681,7 +696,12 @@ CONTROLS: list[Control] = [
         "a check registered with no row in the README "
         "that promises one for every check",
         "documented",
-        lambda t: edit(t.parent, "README.md", "| `documented` |", "| `renamed-away` |"),
+        lambda t: edit(
+            root_of(t),
+            "README.md",
+            "| `documented` |",
+            "| `renamed-away` |",
+        ),
     ),
     Control(
         # A pattern narrowed until it no longer catches the defect it

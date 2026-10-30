@@ -101,6 +101,7 @@ MODULES = (
     "markers",
     "mirror",
     "pins",
+    "plugin",
     "prose",
     "selfapply",
     "sensitivity",
