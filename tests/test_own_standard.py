@@ -11,10 +11,11 @@ from pathlib import Path
 from typing import Any
 
 from agent_skill.lang.python import INTERPRETER
+from agent_skill.layout import SKILLS
 from agent_skill.proc import run
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSETS = ROOT / "skills" / "python-style" / "assets"
+ASSETS = ROOT / SKILLS / "python-style" / "assets"
 TY = ("ty", "check", "--config-file", str(ASSETS / "ty.toml"))
 TREES = ("src", "tests")
 
@@ -71,7 +72,7 @@ def test_the_ruff_configuration_is_the_shipped_one() -> None:
     shipped = tomllib.loads((ASSETS / "ruff.toml").read_text())
     ignores = ruff["lint"]["per-file-ignores"]
 
-    assert ruff["extend"] == "skills/python-style/assets/ruff.toml"
+    assert ruff["extend"] == f"{SKILLS}/python-style/assets/ruff.toml"
     assert set(ruff) <= {"extend", "src", "lint"}
     assert set(ruff["lint"]) == {"per-file-ignores"}
     for glob, codes in shipped["lint"]["per-file-ignores"].items():

@@ -10,10 +10,10 @@ into patterns — lives in a profile here.
 A skill with no profile still gets every generic check. It needs a
 profile only to have its own rules applied to its own examples.
 
-Profiles live in the package rather than in `skills/<name>/` because
-that directory is symlinked into `~/.claude/skills/` and packaged into
-the shipped `.skill`: tooling configuration inside it would be shipped
-to the reader.
+Profiles live in the package rather than beside a skill because a
+skill's directory is what ships: it is copied with the plugin, linked
+into `~/.claude/skills/` and packaged into its `.skill`, so tooling
+configuration inside it would reach the reader.
 """
 
 import importlib

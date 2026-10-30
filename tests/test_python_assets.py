@@ -11,8 +11,10 @@ from pathlib import Path
 
 import pytest
 
+from agent_skill.layout import SKILLS
+
 REPO = Path(__file__).resolve().parents[1]
-RUFF_TOML = REPO / "skills" / "python-style" / "assets" / "ruff.toml"
+RUFF_TOML = REPO / SKILLS / "python-style" / "assets" / "ruff.toml"
 RUFF = REPO / ".venv" / "bin" / "ruff"
 
 pytestmark = pytest.mark.skipif(

@@ -14,12 +14,13 @@ lazy from collections.abc import Callable
 from agent_skill import build
 from agent_skill.checks import all_checks
 from agent_skill.fmt import format_skill
+from agent_skill.layout import SKILLS
 from agent_skill.model import discover
 from agent_skill.report import Level, Result
 lazy from agent_skill import demote, renumber
 
 REPO = Path(__file__).resolve().parents[2]
-DEFAULT_SKILLS = REPO / "skills"
+DEFAULT_SKILLS = REPO / SKILLS
 
 #: What `--help` says the command is for.
 DESCRIPTION = (

@@ -28,6 +28,7 @@ from pathlib import Path
 lazy from collections.abc import Iterator
 
 from agent_skill import shared, vocabulary
+from agent_skill.layout import SKILLS
 from agent_skill.model import DASH, RENAMED, Rename, Skill, rename_tables
 from agent_skill.text import reflow
 lazy from agent_skill.profiles import Profile
@@ -73,7 +74,7 @@ def plan(
     Nothing is done yet.
     """
     chapters = dict(chapters or {})
-    skills_dir = repo / "skills"
+    skills_dir = repo / SKILLS
     skill = Skill(skills_dir / name, profile)
     prefix = skill.prefix
     stems = {c.path.stem for c in skill.chapters}
@@ -179,7 +180,7 @@ def apply(repo: Path, plan: Plan) -> None:
             old.rename(new)
     for path, text in plan.writes.items():
         path.write_text(text)
-    shared.rewrite(Skill(repo / "skills" / plan.skill, plan.profile))
+    shared.rewrite(Skill(repo / SKILLS / plan.skill, plan.profile))
 
 
 # ------------------------------------------------------------------ the
@@ -192,7 +193,7 @@ def _corpus(repo: Path) -> list[Path]:
     The archived OpenSpec changes are history, and keep the IDs they
     were written with.
     """
-    out = [p for p in (repo / "skills").rglob("*") if p.is_file() and p.suffix in _TEXT]
+    out = [p for p in (repo / SKILLS).rglob("*") if p.is_file() and p.suffix in _TEXT]
     out += sorted((repo / "src").rglob("*.py")) + sorted((repo / "tests").rglob("*.py"))
     readme = repo / "README.md"
     return out + ([readme] if readme.is_file() else [])
@@ -499,7 +500,7 @@ def _verify(repo: Path, skill: Skill, plan: Plan) -> None:
     before = {r.id: retitle(r.title) for r in skill.rules}
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         root = Path(tmp)
-        shutil.copytree(repo / "skills", root / "skills", symlinks=True)
+        shutil.copytree(repo / SKILLS, root / SKILLS, symlinks=True)
 
         def mirror(p: Path) -> Path:
             return root / p.relative_to(repo)
@@ -507,11 +508,11 @@ def _verify(repo: Path, skill: Skill, plan: Plan) -> None:
         for old, new in plan.moves.items():
             mirror(old).rename(mirror(new))
         for path, text in plan.writes.items():
-            if (repo / "skills") in path.parents:
+            if (repo / SKILLS) in path.parents:
                 mirror(path).write_text(text)
         after = {
             r.id: r.title
-            for r in Skill(root / "skills" / skill.name, skill.profile).rules
+            for r in Skill(root / SKILLS / skill.name, skill.profile).rules
         }
 
     wrong = [

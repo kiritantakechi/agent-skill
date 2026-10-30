@@ -1,7 +1,8 @@
 # agent-skill
 
-Builds and verifies the agent skills in `skills/`, and links them into every
-agent on this machine that reads them.
+Builds and verifies four engineering standards as agent skills, ships them as the
+`style-standards` Claude Code plugin, and links them into every agent on this machine
+that reads them.
 
 ```bash
 uv run agent-skill check             # every check
@@ -18,8 +19,8 @@ uv run pytest                        # the same checks, as tests
 
 ## The harness keeps the standard it ships
 
-`pyproject.toml` extends `skills/python-style/assets/ruff.toml`, and ty runs under
-`skills/python-style/assets/ty.toml`, so the harness is held to exactly what `python-style`
+`pyproject.toml` extends python-style's `assets/ruff.toml`, and ty runs under its
+`assets/ty.toml`, so the harness is held to exactly what `python-style`
 asks of a reader's code, on the interpreter it names. `tests/test_own_standard.py` runs both
 tools over `src/` and `tests/`. The one relaxation, `print` in `cli.py`, is listed there with
 its reason, so adding another is an edit beside its reason rather than a line in passing.
@@ -30,7 +31,7 @@ Rules are numbered densely, so a renumbering reuses IDs: the old `-03` is the ne
 `-02` while a different rule becomes the new `-03`. Done as a chain of
 replacements, every overlap turns into a citation of the wrong rule, and the result
 reads exactly like a correct one. `agent-skill renumber` rewrites every citation in
-`skills/`, `src/`, `tests/` and this file in one pass from one dictionary, checks
+the skills, `src/`, `tests/` and this file in one pass from one dictionary, checks
 that each old ID still reaches a rule with the same title, and writes nothing
 unless it does. It keeps the standard's `migration.md` rename table current, so a
 reader holding an old ID can look it up: the table states the range each family ran
@@ -50,20 +51,24 @@ each disposition in the rename table, and reports every citation left behind.
 ## Layout
 
 ```
-skills/<name>/                 content only — symlinked live into each agent
-  rust-style/                    an anchor
-  python-style/                  an anchor; its toolchain runs rather than compiles
-  bevy-style/                    a delta on rust-style
-  zig-style/                     an anchor; its pin follows this machine's `zig`
+.claude-plugin/marketplace.json  the marketplace this repository is: one plugin
+plugins/style-standards/         the plugin, the only part an install copies
+  .claude-plugin/plugin.json     its manifest: name, the one version, license, icon
+  skills/<name>/                 content only — symlinked live into each agent
+    rust-style/                  an anchor
+    python-style/                an anchor; its toolchain runs rather than compiles
+    bevy-style/                  a delta on rust-style
+    zig-style/                   an anchor; its pin follows this machine's `zig`
 src/agent_skill/
-  model.py                     what a skill is made of; one parse, shared
-  vocabulary.py                what a chapter may be called, and its rules' family code
-  shared/                      the passages every standard carries, as templates
-  checks/                      what a skill must be true of
-  lang/                        turning examples back into code a compiler accepts
-  fmt.py                       rewriting examples and shared passages as required
-  renumber.py                  renaming chapters and renumbering rules, citations and all
-  profiles/<name>.py           what a check needs to know about one skill
+  model.py                       what a skill is made of; one parse, shared
+  vocabulary.py                  what a chapter may be called, and its rules' family code
+  layout.py                      where the plugin and its skills live
+  shared/                        the passages every standard carries, as templates
+  checks/                        what a skill must be true of
+  lang/                          turning examples back into code a compiler accepts
+  fmt.py                         rewriting examples and shared passages as required
+  renumber.py                    renaming chapters and renumbering rules, citations and all
+  profiles/<name>.py             what a check needs to know about one skill
 ```
 
 ## Every standard has one shape
@@ -95,11 +100,41 @@ follows this machine's `zig` rather than upstream's newest release, so the zig
 bump starts when `pins` reports the local compiler has moved.
 
 A skill directory holds nothing but the skill. Configuration lives in a profile
-inside the package, because `skills/<name>/` is symlinked into each agent and
-packaged into the shipped `.skill` — tooling settings there would be shipped to
-the reader.
+inside the package, because a skill's directory is what ships — copied with the
+plugin, symlinked into each agent and packaged into its `.skill` — so tooling
+settings there would reach the reader. `agent_skill/layout.py` names where the
+plugin and its skills live; nothing else spells the path.
 
-## Installing
+## The Claude Code plugin
+
+The repository is a plugin marketplace, `kiritantakechi`, holding one plugin,
+`style-standards`. In Claude Code:
+
+```
+/plugin marketplace add kiritantakechi/agent-skill
+/plugin install style-standards@kiritantakechi
+```
+
+or, on Claude Code 2.1.275 or later, in one step:
+
+```
+/plugin install style-standards --marketplace kiritantakechi/agent-skill
+```
+
+The repository is private, so Claude Code clones it with the git credentials on
+the machine: run `gh auth login` and `gh auth setup-git` first. The skills are
+then `/style-standards:python-style`, `/style-standards:rust-style`,
+`/style-standards:bevy-style` and `/style-standards:zig-style`, and load on their
+own when the work matches their descriptions.
+
+The version is stated once, in `plugin.json`, and an install stays on it until it
+changes: a release bumps it, and `claude plugin tag plugins/style-standards`
+tags the commit `style-standards--v<version>`. The `plugin` check holds both
+manifests to the layout and the skills, and runs `claude plugin validate` over
+them. Install either the plugin or the links below on one machine, not both:
+both would load every skill twice.
+
+## Installing for development
 
 `install` symlinks each skill into every agent on this machine that reads the
 same shape — a directory per skill, a `SKILL.md` with `name` and `description`
@@ -126,17 +161,17 @@ same name.
 
 ## Adding a skill
 
-Drop it in `skills/` and it gets every generic check: frontmatter, rule anatomy,
-contents agreement, cross-references, layout, marker discipline, prose, assets.
-It needs a profile in `src/agent_skill/profiles/` only to have *its own* rules
-applied to its own examples, or to be compiled. A profile that names the `rust`
-toolchain also names the `Crate` its examples are compiled as — the dependency
-line and the lint table are per skill, not per language: `bevy-style` needs Bevy
-on the dependency line and two lint entries `rust-style` does not relax, and one
-shared manifest would have left one of them unverifiable. A toolchain that needs
-no manifest carries none: `python-style` names `toolchain = "python"` and
-`crate = None`, and declares instead the ruff selection and the `ty` rule levels
-its examples are checked under.
+Drop it in `plugins/style-standards/skills/` and it gets every generic check:
+frontmatter, rule anatomy, contents agreement, cross-references, layout, marker
+discipline, prose, assets. It needs a profile in `src/agent_skill/profiles/` only to
+have *its own* rules applied to its own examples, or to be compiled. A profile that
+names the `rust` toolchain also names the `Crate` its examples are compiled as — the
+dependency line and the lint table are per skill, not per language: `bevy-style`
+needs Bevy on the dependency line and two lint entries `rust-style` does not relax,
+and one shared manifest would have left one of them unverifiable. A toolchain that
+needs no manifest carries none: `python-style` names `toolchain = "python"` and
+`crate = None`, and declares instead the ruff selection and the `ty` rule levels its
+examples are checked under.
 
 ## The checks
 
@@ -160,6 +195,7 @@ the time. The note after each is the defect it would have caught.
 | `self-application` | every `rg` command a `**Check:**` ships, run over every `// verified` block | A standard whose examples fail its own patterns is not a standard, and nobody was running them. |
 | `toolchain` | every `// verified` block compiles, with every declaration analysed, and the tests it ships run | 210 zig blocks claimed `// verified` and nothing compiled them; only 61 actually did. |
 | `citations` | a rule's cited check is one the shipped configuration actually enables | A standard that cites its checks by tool code can cite one the config disables, one the tool withdrew, or one that never existed — `ASYNC101` was invented, four more were preview and therefore unreachable, and every one of them read as enforced. |
+| `plugin` | the plugin and marketplace manifests against the layout and the skills: the plugin's name, one version, a license, the marketplace entry's source; `claude plugin validate` over both, strict on the plugin | The skills became a Claude Code plugin, and the two JSON files that decide what a reader installs were read by nothing. |
 | `pins` | a pinned version that has been superseded — the Python tools and interpreter, the Rust toolchain, the Bevy crate — a pin that follows the local toolchain against what runs here, and an asset installing a build the harness did not verify against | The plan said "on 1 September, move the interpreter pin" — a note nobody reads, in a place nobody looks, about a date nobody remembers. |
 | `dialect` | a pattern carrying syntax from a grammar it will not be read in | `\|` is alternation to `grep` and a literal pipe to `rg`. Twenty patterns carried it through the migration, and each one matched nothing while reporting clean. The same defect from the reader's side: two commands wrapped at the column limit put a raw newline in the pattern, which the harness accepts under `--multiline` and `rg` rejects for anyone running the command as printed. |
 | `sensitivity` | every pattern a rule ships, shown to catch the defect it was written for | `self-application` proves a pattern does not fire on compliant code. Nothing proved one fires at all, and a pattern that matches nothing passes that test perfectly. It then asserted `any`: `ZS-MIG-12` ships four patterns over four disjoint families and one fixture, so three were counted as proven by a snippet none of them matched. |

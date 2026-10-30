@@ -6,6 +6,7 @@ lazy from pathlib import Path
 import pytest
 
 from agent_skill import renumber
+from agent_skill.layout import SKILLS
 from agent_skill.model import Skill
 from agent_skill.text import reflow
 from structure_fixture import RULE, Demo
@@ -24,9 +25,9 @@ def repo(tmp_path: Path) -> Path:
     Its errors chapter has lost its first rule, and its concurrency
     chapter is still called `free-threading.md`.
     """
-    refs = tmp_path / "skills" / "demo-style" / "references"
+    refs = tmp_path / SKILLS / "demo-style" / "references"
     refs.mkdir(parents=True)
-    (tmp_path / "skills" / "demo-style" / "SKILL.md").write_text(
+    (tmp_path / SKILLS / "demo-style" / "SKILL.md").write_text(
         "---\nname: demo-style\n---\n\n# Demo\n\n"
         "See `references/free-threading.md` DS-FT-01, "
         "and DS-ERR-02 then DS-ERR-03, and the `DS-FT` family.\n"
@@ -68,19 +69,19 @@ THREADS = {"free-threading": "concurrency"}
 
 def test_overlapping_ids_are_rewritten_in_one_pass(repo: Path) -> None:
     run(repo, **THREADS)
-    skill_md = (repo / "skills/demo-style/SKILL.md").read_text()
+    skill_md = (repo / SKILLS / "demo-style/SKILL.md").read_text()
     # A chain of replacements would turn both into -01.
     assert "DS-ERR-01 then DS-ERR-02" in skill_md
-    skill = Skill(repo / "skills/demo-style", Demo())
+    skill = Skill(repo / SKILLS / "demo-style", Demo())
     assert {r.id: r.title for r in skill.rules}["DS-ERR-01"] == "Name them"
 
 
 def test_a_chapter_rename_moves_the_file_the_code_and_every_path(repo: Path) -> None:
     run(repo, **THREADS)
-    refs = repo / "skills/demo-style/references"
+    refs = repo / SKILLS / "demo-style/references"
     assert not (refs / "free-threading.md").exists()
     assert "### DS-CONC-01 [M] Lock it" in (refs / "concurrency.md").read_text()
-    skill_md = (repo / "skills/demo-style/SKILL.md").read_text()
+    skill_md = (repo / SKILLS / "demo-style/SKILL.md").read_text()
     assert "`references/concurrency.md` DS-CONC-01" in skill_md
     assert "the `DS-CONC` family" in skill_md
     profile = (repo / "src/agent_skill/profiles/demo_style.py").read_text()
@@ -93,7 +94,7 @@ def test_a_chapter_rename_moves_the_file_the_code_and_every_path(repo: Path) -> 
 
 def test_another_skills_rename_table_follows_the_renumbering(repo: Path) -> None:
     """It cites this skill only to say what replaced its own rule."""
-    other = repo / "skills" / "other-style" / "references" / "migration.md"
+    other = repo / SKILLS / "other-style" / "references" / "migration.md"
     other.parent.mkdir(parents=True)
     other.write_text(
         "# Migration\n\n## Rule IDs before the Other 1.0 revision\n\n"
@@ -107,7 +108,7 @@ def test_another_skills_rename_table_follows_the_renumbering(repo: Path) -> None
 
 def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo: Path) -> None:
     run(repo, **THREADS)
-    (table,) = Skill(repo / "skills/demo-style", Demo()).rename_tables
+    (table,) = Skill(repo / SKILLS / "demo-style", Demo()).rename_tables
     assert table.ranges == (("DS-ERR", 2, 3), ("DS-FT", 1, 1), ("DS-MIG", 1, 1))
     assert {r.before: r.target for r in table.rows} == {
         "DS-ERR-02": "DS-ERR-01",
@@ -119,13 +120,13 @@ def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo: Path) -
 
 def test_the_table_is_named_by_the_target_not_the_patch(repo: Path) -> None:
     """A patch release moves the pin and is not a new revision."""
-    skill = Skill(repo / "skills/demo-style", Demo())
+    skill = Skill(repo / SKILLS / "demo-style", Demo())
     assert renumber.heading(skill) == "## Rule IDs before the Demo 1.2 revision"
 
 
 def test_a_run_that_changes_nothing_starts_no_table(repo: Path) -> None:
     run(repo, **THREADS)
-    migration = repo / "skills/demo-style/references/migration.md"
+    migration = repo / SKILLS / "demo-style/references/migration.md"
     migration.write_text(
         migration.read_text().replace("Demo 1.2 revision", "Demo 1.1 revision")
     )
@@ -136,7 +137,7 @@ def test_a_run_that_changes_nothing_starts_no_table(repo: Path) -> None:
 
 def test_an_unlisted_original_gains_a_row_when_it_moves(repo: Path) -> None:
     run(repo, **THREADS)
-    migration = repo / "skills/demo-style/references/migration.md"
+    migration = repo / SKILLS / "demo-style/references/migration.md"
     # A rule added during the revision, ahead of the original DS-MIG-01
     # under a free ID.
     text = migration.read_text()
@@ -144,7 +145,7 @@ def test_an_unlisted_original_gains_a_row_when_it_moves(repo: Path) -> None:
     text = text.replace("- DS-MIG-01", "- DS-MIG-02 [M] Read the table\n- DS-MIG-01", 1)
     migration.write_text(text.replace("### DS-MIG-01", first + "### DS-MIG-01", 1))
     run(repo)
-    (table,) = Skill(repo / "skills/demo-style", Demo()).rename_tables
+    (table,) = Skill(repo / SKILLS / "demo-style", Demo()).rename_tables
     rows = {r.before: r.now for r in table.rows}
     assert rows["DS-MIG-01"] == "`DS-MIG-02`"
     assert "DS-MIG-02" not in rows
@@ -153,7 +154,7 @@ def test_an_unlisted_original_gains_a_row_when_it_moves(repo: Path) -> None:
 
 def test_an_unlisted_original_that_is_gone_stops_the_run(repo: Path) -> None:
     run(repo, **THREADS)
-    migration = repo / "skills/demo-style/references/migration.md"
+    migration = repo / SKILLS / "demo-style/references/migration.md"
     text = migration.read_text()
     rule = re.search(r"^### DS-MIG-01 .*?(?=^## )", text, re.MULTILINE | re.DOTALL)
     assert rule is not None
@@ -168,17 +169,18 @@ def test_an_unlisted_original_that_is_gone_stops_the_run(repo: Path) -> None:
 
 def test_a_second_run_composes_onto_the_first(repo: Path) -> None:
     run(repo, **THREADS)
-    errors = repo / "skills/demo-style/references/errors.md"
+    errors = repo / SKILLS / "demo-style/references/errors.md"
     # A content edit: the first errors rule goes, and its row records
     # why.
     errors.write_text(chapter("Errors", [("DS-ERR-02", "Wrap them")]))
-    migration = repo / "skills/demo-style/references/migration.md"
+    migration = repo / SKILLS / "demo-style/references/migration.md"
     row = "| `DS-ERR-02` | `DS-ERR-01` |"
     migration.write_text(
         migration.read_text().replace(row, "| `DS-ERR-02` | removed — x |")
     )
     run(repo)
-    table = {r.before: r.now for r in Skill(repo / "skills/demo-style", Demo()).renames}
+    skill = Skill(repo / SKILLS / "demo-style", Demo())
+    table = {r.before: r.now for r in skill.renames}
     assert table["DS-ERR-02"] == "removed — x"
     assert table["DS-ERR-03"] == "`DS-ERR-01`"
     assert "### DS-ERR-01 [M] Wrap them" in errors.read_text()
@@ -186,7 +188,7 @@ def test_a_second_run_composes_onto_the_first(repo: Path) -> None:
 
 def test_a_deleted_rule_without_a_disposition_stops_the_run(repo: Path) -> None:
     run(repo, **THREADS)
-    (repo / "skills/demo-style/references/errors.md").write_text(
+    (repo / SKILLS / "demo-style/references/errors.md").write_text(
         chapter("Errors", [("DS-ERR-02", "Wrap them")])
     )
     before = snapshot(repo)
@@ -235,7 +237,7 @@ def test_reflow_does_not_join_a_new_list_item_or_a_why() -> None:
 
 
 def test_the_counts_skill_md_states_follow_the_rules(repo: Path) -> None:
-    skill_md = repo / "skills/demo-style/SKILL.md"
+    skill_md = repo / SKILLS / "demo-style/SKILL.md"
     skill_md.write_text(
         "---\nname: demo-style\ndescription: >-\n  A 9-rule library.\n---\n\n"
         "| `references/errors.md` | `DS-ERR` (7) | x |\n"
@@ -266,11 +268,11 @@ def test_reflow_never_breaks_inside_a_code_span() -> None:
 def test_the_run_that_renames_the_migration_chapter_writes_its_table(
     repo: Path,
 ) -> None:
-    refs = repo / "skills/demo-style/references"
+    refs = repo / SKILLS / "demo-style/references"
     (refs / "migration.md").rename(refs / "migration-and-dead-apis.md")
 
     run(repo, **THREADS, **{"migration-and-dead-apis": "migration"})
 
     assert not (refs / "migration-and-dead-apis.md").exists()
-    (table,) = Skill(repo / "skills/demo-style", Demo()).rename_tables
+    (table,) = Skill(repo / SKILLS / "demo-style", Demo()).rename_tables
     assert table.ranges[0] == ("DS-ERR", 2, 3)

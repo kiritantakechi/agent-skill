@@ -7,6 +7,7 @@ import pytest
 from agent_skill import demote, renumber, shared
 from agent_skill.checks.anatomy import structural
 from agent_skill.checks.skeleton import shape
+from agent_skill.layout import SKILLS
 from agent_skill.model import DASH, Skill
 from structure_fixture import RULE, Demo, build
 lazy from agent_skill.demote import Entry
@@ -63,7 +64,7 @@ ROW = ["clippy", "unwrap_used", "deny", "an `unwrap` on a `Result` | `Option`"]
 
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
-    root = tmp_path / "skills" / "demo-style"
+    root = tmp_path / SKILLS / "demo-style"
     (root / "references").mkdir(parents=True)
     (root / "SKILL.md").write_text(
         "---\nname: demo-style\n---\n\n# Demo\n\nDS-ERR-02 wraps.\n"
@@ -82,11 +83,11 @@ def run(repo: Path, asked: dict[str, Entry]) -> demote.Demotion:
 
 
 def skill(repo: Path) -> Skill:
-    return Skill(repo / "skills/demo-style", Demo())
+    return Skill(repo / SKILLS / "demo-style", Demo())
 
 
 def text(repo: Path, name: str) -> str:
-    return (repo / "skills/demo-style/references" / name).read_text()
+    return (repo / SKILLS / "demo-style/references" / name).read_text()
 
 
 def snapshot(root: Path) -> dict[Path, bytes]:
@@ -126,7 +127,7 @@ def test_a_lint_row_already_listed_and_a_merge(repo: Path) -> None:
 
 
 def test_a_demotion_composes_with_the_table_it_finds(repo: Path) -> None:
-    migration = repo / "skills/demo-style/references/migration.md"
+    migration = repo / SKILLS / "demo-style/references/migration.md"
     migration.write_text(MIGRATION + TABLE)
     run(repo, {"DS-ERR-02": {"remove": "y"}, "DS-ERR-01": {"merge": "DS-ERR-03"}})
     (table,) = skill(repo).rename_tables
@@ -154,7 +155,7 @@ def test_a_citation_left_behind_is_reported(repo: Path) -> None:
     demotion = run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
     assert demotion.leftovers == [
         (
-            "skills/demo-style/SKILL.md:7 cites DS-ERR-02, "
+            f"{SKILLS}/demo-style/SKILL.md:7 cites DS-ERR-02, "
             "which is now removed — said nothing"
         )
     ]
@@ -186,7 +187,7 @@ def test_a_plan_that_cannot_be_done_writes_nothing(
 def test_demote_then_renumber_leaves_a_conforming_skill_conforming(
     tmp_path: Path,
 ) -> None:
-    demo = build(tmp_path / "skills")
+    demo = build(tmp_path / SKILLS)
     (tmp_path / "src").mkdir()
     (tmp_path / "tests").mkdir()
     run(tmp_path, {"DS-ERR-01": {"remove": "said nothing"}})

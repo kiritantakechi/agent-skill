@@ -1,0 +1,21 @@
+{
+  "name": "style-standards",
+  "version": "1.0.0",
+  "description": "Four engineering standards as skills: Python 3.15, Rust 1.99, Bevy 0.20 and Zig 0.17. Each rule has a tier, a reason and a check; every example is verified on the pinned toolchain.",
+  "author": {
+    "name": "kiritantakechi",
+    "url": "https://github.com/kiritantakechi"
+  },
+  "homepage": "https://github.com/kiritantakechi/agent-skill",
+  "repository": "https://github.com/kiritantakechi/agent-skill",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "style-guide",
+    "code-review",
+    "python",
+    "rust",
+    "bevy",
+    "zig"
+  ]
+}

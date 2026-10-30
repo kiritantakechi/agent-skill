@@ -31,6 +31,7 @@ lazy from collections.abc import Iterator, Sequence
 
 from agent_skill.checks import check
 from agent_skill.checks.controls import WITHOUT_A_CONTROL
+from agent_skill.layout import root_of
 from agent_skill.report import fail
 lazy from agent_skill.checks import all_checks
 lazy from agent_skill.model import Skill
@@ -70,7 +71,7 @@ def readme(skills: Sequence[Skill]) -> Path:
     is how a check ends up exempt from the guarantee that it can fail.
     """
     if skills:
-        return skills[0].root.parent.parent / "README.md"
+        return root_of(skills[0].root.parent) / "README.md"
     return Path(__file__).resolve().parents[3] / "README.md"
 
 

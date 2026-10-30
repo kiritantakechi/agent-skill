@@ -20,6 +20,7 @@ from typing import TypedDict
 lazy from collections.abc import Iterator
 lazy from pathlib import Path
 
+from agent_skill.layout import SKILLS
 from agent_skill.model import DECIDED, Skill
 from agent_skill.renumber import RenumberError, _corpus, _segments, carry, heading
 lazy from agent_skill.profiles import Profile
@@ -89,7 +90,7 @@ def plan(
     that already exists; `{"merge": "ID"}`, the rule it was folded into;
     or `{"remove": "reason"}`.
     """
-    skill = Skill(repo / "skills" / name, profile)
+    skill = Skill(repo / SKILLS / name, profile)
     dispositions = _dispositions(skill, name, asked)
     writes = _chapter_writes(skill, asked)
 
@@ -286,7 +287,7 @@ def _citations(repo: Path, demotion: Demotion) -> Iterator[str]:
     of its own, and is read like any other text.
     """
     pattern = re.compile(rf"\b({'|'.join(map(re.escape, demotion.dispositions))})\b")
-    root = repo / "skills" / demotion.skill
+    root = repo / SKILLS / demotion.skill
     for path in _corpus(repo):
         text = demotion.writes.get(path) or path.read_text()
         own = root in path.parents
