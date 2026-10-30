@@ -41,9 +41,9 @@ cli = ["typer>=0.15"]
 # difference from extras, and the reason dev dependencies do not belong above.
 # Every tool is pinned exactly: each one decides whether the build passes.
 [dependency-groups]
-test = ["pytest==9.1.1"]
-lint = ["ruff==0.17.2"]
-typecheck = ["ty==0.0.91"]
+test = ["pytest==9.2.0"]
+lint = ["ruff==0.17.3"]
+typecheck = ["ty==0.0.95"]
 dev = [
   { include-group = "test" },
   { include-group = "lint" },

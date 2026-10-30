@@ -227,7 +227,7 @@ A tool settles these on its own; the shipped configuration enables each at the l
 | ruff | `UP013` | error | the functional `TypedDict("TD", …)` form — 3.15 rejects it with no fields |
 | ruff | `UP014` | error | the functional `NamedTuple("P", …)` form — 3.15 rejects its keyword form |
 
-## Rule IDs before the Python 3.15.0 revision
+## Rule IDs before the Python 3.15 revision
 
 Before the revision the families ran `PS-API-01`–`PS-API-22`, `PS-ASYNC-01`–`PS-ASYNC-22`,
 `PS-DATA-01`–`PS-DATA-22`, `PS-DOC-01`–`PS-DOC-18`, `PS-ERR-01`–`PS-ERR-22`, `PS-FT-01`–`PS-FT-26`,

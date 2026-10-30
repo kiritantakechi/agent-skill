@@ -1085,7 +1085,7 @@ The compiler rejects each of these on its own; no setting turns one off.
 |---|---|---|---|
 | zig | `invalid builtin function: …` | error | a builtin 0.17 no longer has: `@setCold`, `@Type`, `@fence`, `@setAlignStack`, `@optimizeFor` |
 
-## Rule IDs before the Zig 0.17.0 revision
+## Rule IDs before the Zig 0.17 revision
 
 Before the revision the families ran `ZS-ASRT-01`–`ZS-ASRT-33`, `ZS-BUILD-01`–`ZS-BUILD-43`,
 `ZS-CAPI-01`–`ZS-CAPI-23`, `ZS-CT-01`–`ZS-CT-28`, `ZS-ERR-01`–`ZS-ERR-38`, `ZS-FMT-01`–`ZS-FMT-20`,

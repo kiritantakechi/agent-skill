@@ -50,7 +50,7 @@ the tool enforces them, so they carry no Why and no Check. When rules are renumb
 `references/migration.md` maps every old ID to its new one.
 
 Every fenced example carries a marker on its first line. `// verified` — the block compiles as
-written against Bevy 0.20.0 on Rust 1.99, edition 2024, and any test it ships passes. `// fragment`
+written against Bevy 0.20.1 on Rust 1.99, edition 2024, and any test it ships passes. `// fragment`
 — shown in context rather than run as a unit, usually because it uses names the chapter declares
 around it. `// rejected — <tool>: …` — the rejection is the point, and the marker names the tool
 that rejects it: `rustc`, `clippy`, `rustdoc`. A trailing `— GOOD` or `— BAD` names which side of

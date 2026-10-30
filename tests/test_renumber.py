@@ -117,11 +117,17 @@ def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo: Path) -
     assert table.unchanged == ["DS-MIG-01"]
 
 
+def test_the_table_is_named_by_the_target_not_the_patch(repo: Path) -> None:
+    """A patch release moves the pin and is not a new revision."""
+    skill = Skill(repo / "skills/demo-style", Demo())
+    assert renumber.heading(skill) == "## Rule IDs before the Demo 1.2 revision"
+
+
 def test_a_run_that_changes_nothing_starts_no_table(repo: Path) -> None:
     run(repo, **THREADS)
     migration = repo / "skills/demo-style/references/migration.md"
     migration.write_text(
-        migration.read_text().replace("1.2.3 revision", "1.2.2 revision")
+        migration.read_text().replace("Demo 1.2 revision", "Demo 1.1 revision")
     )
     before = migration.read_text()
     run(repo)

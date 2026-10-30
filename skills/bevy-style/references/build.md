@@ -82,11 +82,11 @@ against? If not, switch to a collection until someone measures.
 ```toml
 # fragment — a hand-picked list that has earned itself, with the number in it
 [dependencies]
-# N crates here against M with the `2d` collection, resolved against 0.20.0.
+# N crates here against M with the `2d` collection, resolved against 0.20.1.
 # M - N crates is the whole of what this list buys, which is the number the next
 # person needs in order to decide whether to keep maintaining it. Each entry says
 # why; anything unexplained goes back to the collection.
-bevy = { version = "=0.20.0", default-features = false, features = [
+bevy = { version = "=0.20.1", default-features = false, features = [
     "std",                 # no_std Bevy exists and this game is not it
     "async_executor",      # the task-pool executor; implied by default_app, which we skip
     "reflect_auto_register", # derived `Reflect` types register themselves (BV-ECS-12)
@@ -107,7 +107,7 @@ bevy = { version = "=0.20.0", default-features = false, features = [
 
 ### BV-BUILD-04 [M] Pin Bevy exactly in a binary and with a caret in a library
 
-A game binary writes `bevy = "=0.20.0"`. A crate other people depend on writes `bevy = "0.20"`;
+A game binary writes `bevy = "=0.20.1"`. A crate other people depend on writes `bevy = "0.20"`;
 the general rule against exact pins is unchanged for anything published.
 
 **Why:** a Bevy minor bump renames a large fraction of the API, so in a binary an exact pin makes an
@@ -218,7 +218,7 @@ add is the duplicate.
 ```toml
 # fragment — the manifest shape, not a whole file
 [dependencies]
-bevy = { version = "=0.20.0", default-features = false, features = ["2d", "ui", "audio"] }
+bevy = { version = "=0.20.1", default-features = false, features = ["2d", "ui", "audio"] }
 
 [features]
 default = []

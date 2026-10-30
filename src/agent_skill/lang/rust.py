@@ -182,7 +182,7 @@ BEVY_STYLE = Crate(
     name="bevy-style-verify",
     dependencies=(
         (
-            'bevy = { version = "=0.20.0", default-features = false, features = ['
+            'bevy = { version = "=0.20.1", default-features = false, features = ['
             '"std", "2d_api", "3d_api", "ui_api", "scene", "bevy_ui_widgets"] }'
         ),
     ),

@@ -332,11 +332,13 @@ def _compose(skill: Skill, plan: Plan) -> None:
 
 
 def heading(skill: Skill) -> str:
-    """The rename table's heading for the revision `skill` is at now."""
-    return (
-        f"## Rule IDs before the {skill.profile.language} "
-        f"{skill.profile.pin()} revision"
-    )
+    """The rename table's heading for the revision `skill` is at now.
+
+    Named by the target, the pin's major.minor: a patch release moves
+    the pin and is not a new revision, so it starts no second table.
+    """
+    target = shared.major_minor(skill.profile.pin())
+    return f"## Rule IDs before the {skill.profile.language} {target} revision"
 
 
 def carry(text: str, revision: str, now: dict[str, str]) -> str:

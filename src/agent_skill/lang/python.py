@@ -29,7 +29,7 @@ lazy from agent_skill.model import Skill
 #: free-threading rules against one is the shape of failure the README
 #: records for `zig --version`: a probe that cannot fail reports
 #: success.
-INTERPRETER = "cpython-3.15.0+freethreaded"
+INTERPRETER = "cpython-3.15.1+freethreaded"
 
 #: A venv on that interpreter, holding the pinned `pytest`. Persistent
 #: for the same reason `.cache/target` is: resolving it per run costs

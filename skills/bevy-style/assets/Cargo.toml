@@ -24,7 +24,7 @@ license = "MIT OR Apache-2.0"
 # `default` is already `["2d", "3d", "ui", "audio"]`, so naming `2d` on top of
 # it selects nothing and excludes nothing. Note also that since 0.19 `audio` is
 # not implied by `2d`, `3d` or `ui` — a game with sound names it.
-bevy = { version = "=0.20.0", default-features = false, features = ["2d", "ui", "audio"] }
+bevy = { version = "=0.20.1", default-features = false, features = ["2d", "ui", "audio"] }
 
 # ---------------------------------------------------------------------------
 # Lints. Inherited by every member with `[lints] workspace = true`.

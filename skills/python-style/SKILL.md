@@ -47,7 +47,7 @@ the tool enforces them, so they carry no Why and no Check. When rules are renumb
 `references/migration.md` maps every old ID to its new one.
 
 Every fenced example carries a marker on its first line. `# verified` — the block runs as written on
-free-threaded CPython 3.15.0, and any test it ships passes. `# fragment` — shown in context rather
+free-threaded CPython 3.15.1, and any test it ships passes. `# fragment` — shown in context rather
 than run as a unit, usually because it uses names the chapter declares around it. `# rejected —
 <tool>: …` — the rejection is the point, and the marker names the tool that rejects it: `python`,
 `ty`, `ruff`. A trailing `— GOOD` or `— BAD` names which side of the rule the block illustrates. A

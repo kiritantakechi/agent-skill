@@ -596,7 +596,7 @@ A tool settles these on its own; the shipped configuration enables each at the l
 |---|---|---|---|
 | rustc | `deprecated` | warn | a deprecated Bevy API — CI denies warnings, so treat it as already removed |
 
-## Rule IDs before the Bevy 0.20.0 revision
+## Rule IDs before the Bevy 0.20 revision
 
 Before the revision the families ran `BV-ARC-01`–`BV-ARC-19`, `BV-ASS-01`–`BV-ASS-14`,
 `BV-CAR-01`–`BV-CAR-21`, `BV-ECS-01`–`BV-ECS-32`, `BV-ERR-01`–`BV-ERR-17`, `BV-EVT-01`–`BV-EVT-20`,

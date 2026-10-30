@@ -48,7 +48,7 @@ MIGRATION = f"""# Migration
 #: removed, the old -03 is the new -02, and the -03 there is now is a
 #: rule the revision added.
 TABLE = f"""
-## Rule IDs before the Demo 1.2.3 revision
+## Rule IDs before the Demo 1.2 revision
 
 Before the revision the families ran `DS-ERR-01`{DASH}`DS-ERR-03` and `DS-MIG-01`.
 

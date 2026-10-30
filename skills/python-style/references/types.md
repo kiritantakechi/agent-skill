@@ -48,7 +48,7 @@ Unless a block shows its own imports, it assumes `from typing import …` for th
 
 ### PS-TYPE-01 [M] Run `ty` at the pinned version, with the shipped configuration
 
-`ty==0.0.91`, `assets/ty.toml`, in CI, as a gate. Not as an editor convenience. The pin is exact,
+`ty==0.0.95`, `assets/ty.toml`, in CI, as a gate. Not as an editor convenience. The pin is exact,
 and moving it is a reviewed change: bump it, run the suite, read what moved, and update the
 configuration in the same commit — never let a resolver do it. Mandated means required, not
 exclusive: a second checker is permitted, nothing here promises the two agree, and **no rule is

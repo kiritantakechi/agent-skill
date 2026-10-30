@@ -381,7 +381,7 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "python-style/assets/ci.yml",
-            "uv python install cpython-3.15.0+freethreaded",
+            "uv python install cpython-3.15.1+freethreaded",
             "uv python install 3.15t",
         ),
     ),
@@ -736,7 +736,7 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "python-style/assets/pyproject.toml",
-            'typecheck = ["ty==0.0.91"]',
+            'typecheck = ["ty==0.0.95"]',
             'typecheck = ["ty==0.0.60"]',
         ),
     ),
