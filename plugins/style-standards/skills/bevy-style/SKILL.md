@@ -91,10 +91,12 @@ proceed with the stricter reading.
    `value.clone()` that used to produce a `T` now produces another `Ref<T>`, and only fails to
    compile if the surrounding code was explicit about the type. Write `ref.deref().clone()` for the
    old meaning (`references/migration.md` BV-MIG-18).
-4. **`Resource` is a `Component`.** In 0.19, `#[derive(Resource)]` also implements `Component`. A
-   type used as both is now impossible; worse, inserting one as a component despawns the copy on
-   any other entity, and resources appear in `&T` queries. Split the type
-   (`references/state.md` BV-STATE-01).
+4. **A resource is an entity.** Since 0.19 each resource is a component on an entity of its own,
+   and nothing filters those out: `Query<Entity>`, `Query<EntityRef>` and `Query<EntityMut>` match
+   them. A sweep that despawns everything it matches takes the resources with it, which Bevy warns
+   about and then panics on under the default error handler; `Query<EntityMut>` beside any `Res`
+   panics with B0002; and a resource type spawned on a second entity is stripped from it with only
+   a warning. Filter such a query with `Without<IsResource>` (`references/state.md` BV-STATE-01).
 5. **`AssetEvent::Modified` needs a real mutation.** Since 0.19 a `get_mut` that only reads raises
    none, so a reaction that relied on it stops firing (`references/assets.md` BV-ASSET-09).
 6. **Bloom judges luminance in linear.** Since 0.19, a tint tuned against sRGB luminance blooms more

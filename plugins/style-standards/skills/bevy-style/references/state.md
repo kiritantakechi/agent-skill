@@ -40,13 +40,21 @@ system on a state is in the scheduling chapter.
 `#[derive(Resource)]` implements `Component` as well, so a type that needs to be both is two types,
 as Bevy split its own `UiDebugOptions` into `GlobalUiDebugOptions` and `UiDebugOptions`.
 
-**Why:** uniqueness belongs to the *type*: inserting a `Resource` type on an entity despawns the
-copy on every other entity, and a resource shows up in ordinary `&T` queries, so a global fallback
-and a per-entity override of one type silently become the same storage.
+The resource itself is a component on an entity of its own, marked `IsResource`, and no default
+filter hides that entity. `Query<Entity>`, `Query<EntityRef>` and `Query<EntityMut>` match it, so a
+sweep that despawns everything it matches despawns the resources too: Bevy warns, and then the
+command its own hook queues fails on the gone entity, which the default error handler turns into a
+panic. `Query<EntityMut>` beside any `Res`, or `Query<EntityRef>` beside a `ResMut`, conflicts with
+the resource and panics with B0002 when the system is built. Each takes `Without<IsResource>`.
+
+**Why:** uniqueness belongs to the *type*: a resource type spawned on a second entity is stripped
+from it with only a warning, and the resource shows up in ordinary `&T` queries, so a global
+fallback and a per-entity override cannot share one type.
 
 **Check:** grep for a `derive` naming both `Component` and `Resource`; it does not compile.
 Then grep for the `Global*` pattern in reverse — a resource and a component that are conceptually
-the same fact need two names, not one.
+the same fact need two names, not one. Then read each `Query<Entity>`, `Query<EntityRef>` and
+`Query<EntityMut>` whose filter does not already exclude resource entities.
 
 ```rust
 // verified — GOOD: the global default and the per-entity override are two types
