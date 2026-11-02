@@ -48,6 +48,11 @@ def run(
     killed, and `timed_out` says so. A binary that is not there is
     status 127, as a shell reports it. A non-empty `env` is laid over
     this process's environment rather than replacing it.
+
+    Output is read as UTF-8, and a byte that is not UTF-8 becomes U+FFFD
+    rather than an exception: a tool that printed one byte of a binary,
+    or a path in another encoding, raised `UnicodeDecodeError` out of
+    the check that ran it, which reported nothing about the tool.
     """
     try:
         proc = subprocess.Popen(  # noqa: S603 — argv lists the harness builds; no shell
@@ -56,7 +61,8 @@ def run(
             stdin=subprocess.PIPE if stdin is not None else None,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             env={**os.environ, **env} if env is not None and len(env) > 0 else None,
             # So a timeout can reach the whole tree, not just the
             # leader.

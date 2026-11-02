@@ -14,9 +14,17 @@ Unreadable pins are a complaint. Not a crash, and — the older bug one
 function away — not a pass.
 """
 
+import sys
+
 import pytest
 
-from agent_skill.proc import declared_pins, pinned_version, version_mismatch
+from agent_skill.proc import declared_pins, pinned_version, run, version_mismatch
+
+
+def test_output_that_is_not_utf8_is_read_not_raised() -> None:
+    emit = "import sys; sys.stdout.buffer.write(b'\\xff ok'); sys.exit(3)"
+    r = run([sys.executable, "-c", emit])
+    assert (r.rc, r.out) == (3, "\ufffd ok")
 
 
 def test_the_pins_are_readable_from_the_source_tree() -> None:
