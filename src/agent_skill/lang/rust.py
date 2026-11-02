@@ -6,9 +6,9 @@ from itertools import groupby
 from pathlib import Path
 lazy from collections.abc import Iterable, Iterator
 
-from agent_skill.lang import Extraction, Unit
-from agent_skill.proc import have, run
-from agent_skill.report import Finding, fail, note
+from agent_skill.lang import Extraction, Unit, inconclusive, timed_out
+from agent_skill.proc import Ran, have, run
+from agent_skill.report import Finding, fail
 lazy from agent_skill.model import Skill
 
 #: Shared, gitignored, and safe to delete: cargo rebuilds it.
@@ -308,29 +308,22 @@ class Rust:
             ),
             ("tests", ["cargo", "test", "--quiet", "--manifest-path", manifest]),
             ("rustfmt", ["cargo", "fmt", "--manifest-path", manifest, "--", "--check"]),
+            (
+                "intra-doc links",
+                ["cargo", "doc", "--quiet", "--no-deps", "--manifest-path", manifest],
+            ),
         ]
         for label, cmd in steps:
-            r = run(cmd, cwd=ex.root, timeout=900, env=env)
-            if not r.ok:
-                first = next(
-                    (
-                        ln
-                        for ln in (r.err or r.out).split("\n")
-                        if ln.startswith(("error", "Diff"))
-                    ),
-                    (r.err or r.out).strip()[:120],
-                )
+            r = run(cmd, cwd=ex.root, timeout=_STEP, env=env)
+            if r.timed_out:
+                yield timed_out(label, _STEP, "rust")
+            elif not r.ok:
                 remedy = (
                     " — `agent-skill fmt` rewrites the blocks"
                     if label == "rustfmt"
                     else ""
                 )
-                yield fail(f"{label}: {first[:150]}{remedy}", "rust")
-
-        env_doc = ["cargo", "doc", "--quiet", "--no-deps", "--manifest-path", manifest]
-        r = run(env_doc, cwd=ex.root, timeout=900, env=env)
-        if not r.ok:
-            yield fail(f"intra-doc links: {r.err.strip().splitlines()[:1]}", "rust")
+                yield fail(f"{label}: {_first_error(r)[:150]}{remedy}", "rust")
 
     def mutate(self, ex: Extraction) -> Iterable[Finding]:
         """A shipped test must be able to fail.
@@ -341,7 +334,10 @@ class Rust:
         """
         src = ex.root / "src"
         env = _crate(ex).env
-        base = run(["cargo", "test", "-q"], cwd=ex.root, timeout=900, env=env)
+        base = run(["cargo", "test", "-q"], cwd=ex.root, timeout=_STEP, env=env)
+        if base.timed_out:
+            yield timed_out("the unmutated crate's tests", _STEP, "rust")
+            return
         if not base.ok:
             yield fail("the unmutated crate does not pass; nothing to mutate", "rust")
             return
@@ -352,14 +348,9 @@ class Rust:
             where = f"{path.name}:{lineno + 1}"
             path.write_text("\n".join(lines[:lineno] + lines[lineno + 1 :]))
             try:
-                # Deleting a loop increment turns a test into a hang; a
-                # mutant that never finishes is one the tests killed.
-                # But a busy machine times out too, and that is not a
-                # verdict — say so, or the run goes quiet under load and
-                # still reports clean.
                 r = run(["cargo", "test", "-q"], cwd=ex.root, timeout=180, env=env)
                 if r.timed_out:
-                    yield note(f"`{stmt[:44]}` timed out — hung, or merely slow", where)
+                    yield inconclusive(stmt, where)
                 elif r.ok:
                     # Survivors are rare, so a second opinion is nearly
                     # free — and it is what stands between a transient
@@ -368,13 +359,31 @@ class Rust:
                     again = run(
                         ["cargo", "test", "-q"], cwd=ex.root, timeout=300, env=env
                     )
-                    if again.ok:
+                    if again.timed_out:
+                        yield inconclusive(stmt, where)
+                    elif again.ok:
                         yield fail(
                             f"`{stmt[:56]}` can be deleted and every test still passes",
                             where,
                         )
             finally:
                 path.write_text(original)
+
+
+#: How long one cargo step may take: Bevy builds from cold in minutes.
+_STEP = 900
+
+
+def _first_error(r: Ran) -> str:
+    """The line of `r`'s output that says what went wrong.
+
+    The first `error` or `Diff` line, else the start of the output, and
+    the exit status when there was no output at all.
+    """
+    said = (r.err or r.out).strip()
+    lines = said.split("\n")
+    first = next((ln for ln in lines if ln.startswith(("error", "Diff"))), said[:120])
+    return first or f"exited {r.rc} and said nothing"
 
 
 def _crate(ex: Extraction) -> Crate:

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Protocol
 lazy from collections.abc import Iterable
 lazy from pathlib import Path
 
+from agent_skill.report import fail, note
 lazy from agent_skill.lang import python, rust, zig
 lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
@@ -81,6 +82,27 @@ class Toolchain(Protocol):
     def mutate(self, ex: Extraction) -> Iterable[Finding]:
         """Statements the extracted blocks' tests do not pin."""
         ...
+
+
+def timed_out(step: str, seconds: float, where: str) -> Finding:
+    """A verification step that did not finish in its time: a failure.
+
+    Nothing was verified, which is not a pass. One wording for every
+    toolchain, because they had four: a message, a message, an empty
+    `compiles: `, and a `zig fmt --check` that timed out and passed.
+    """
+    return fail(f"{step} did not finish in {seconds:g}s", where)
+
+
+def inconclusive(statement: str, where: str) -> Finding:
+    """A mutant whose tests did not finish: neither killed nor survived.
+
+    Deleting a loop increment turns a test into a hang, so a timeout is
+    often the tests failing; but a busy machine times out too. Counted
+    as killed, the run goes quiet under load and still reports clean,
+    so it is said, in the same words, by every toolchain.
+    """
+    return note(f"`{statement[:44]}` timed out — inconclusive: hung, or slow", where)
 
 
 def toolchain_for(name: str) -> Toolchain | None:

@@ -11,7 +11,7 @@ from collections import Counter
 from pathlib import Path
 lazy from collections.abc import Iterable
 
-from agent_skill.lang import Extraction, Unit
+from agent_skill.lang import Extraction, Unit, inconclusive, timed_out
 from agent_skill.model import Skill, inside_tests, needs_c_object
 from agent_skill.proc import have, run
 from agent_skill.report import Finding, fail, note
@@ -114,7 +114,7 @@ class Zig:
                 timeout=180,
             )
             if r.timed_out:
-                yield fail("build-obj timed out", unit.where)
+                yield timed_out("build-obj", 180, unit.where)
                 continue
             if not r.ok:
                 first = next(
@@ -137,7 +137,7 @@ class Zig:
                     timeout=180,
                 )
                 if t.timed_out:
-                    yield fail("test run timed out", unit.where)
+                    yield timed_out("the test run", 180, unit.where)
                 elif not t.ok:
                     first = next(
                         (
@@ -153,10 +153,19 @@ class Zig:
         # block cost 215 process launches for a check that names each
         # file anyway.
         r = run(["zig", "fmt", "--check", str(ex.root)], cwd=ex.root, timeout=180)
+        if r.timed_out:
+            yield timed_out("`zig fmt --check`", 180, "zig")
+            return
         by_file = {u.path.name: u for u in ex.units}
-        for line in r.out.splitlines():
-            unit = by_file.get(Path(line.strip()).name)
-            yield fail("not `zig fmt` clean", unit.where if unit else line.strip())
+        named = [line.strip() for line in r.out.splitlines() if line.strip()]
+        for line in named:
+            unit = by_file.get(Path(line).name)
+            yield fail("not `zig fmt` clean", unit.where if unit else line)
+        if not r.ok and not named:
+            said = (r.err or r.out).strip()[:100] or "nothing"
+            yield fail(
+                f"`zig fmt --check` exited {r.rc}, naming no file: {said}", "zig"
+            )
 
     def mutate(self, ex: Extraction) -> Iterable[Finding]:
         """Statements a shipped test does not pin.
@@ -193,10 +202,13 @@ class Zig:
                         cwd=ex.root,
                         timeout=15,
                     )
-                    if not r.timed_out and r.ok:
+                    where = f"{unit.chapter}:{unit.line + i} [{unit.rule}]"
+                    if r.timed_out:
+                        yield inconclusive(s, where)
+                    elif r.ok:
                         yield note(
                             f"`{s[:52]}` can be deleted and every test still passes",
-                            f"{unit.chapter}:{unit.line + i} [{unit.rule}]",
+                            where,
                         )
                 finally:
                     unit.path.write_text(text)
