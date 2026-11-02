@@ -787,8 +787,7 @@ ZS-ASSERT-14.)
 
 **Why:** the positive form matches how the same relation is written in the loop condition
 (`while (index < length)`) and in the assertion (`assert(index < length)`), so the reader compares
-identical expressions instead of mentally negating one of them. Negations are where off-by-one
-errors hide.
+identical expressions instead of mentally negating one. Negations are where off-by-one errors hide.
 
 ```zig
 // verified — GOOD
