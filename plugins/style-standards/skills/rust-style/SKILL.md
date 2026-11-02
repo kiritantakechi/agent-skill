@@ -74,21 +74,23 @@ proceed with the stricter reading.
 ## 2. Rust 1.99 reality check
 
 Most Rust on the public internet predates these. The entries that **compile either way** are the
-dangerous ones, because nothing catches them for you.
+dangerous ones, because the compiler says nothing about them.
 
-### 2.1 The changes that compile either way and behave differently
+### 2.1 What compiles either way and behaves differently
 
 1. **Integer overflow panics in debug and wraps in release.** Arithmetic on attacker-influenced
-   values must be `checked_*`, `strict_*`, `saturating_*` or `wrapping_*` explicitly, or debug and
-   release disagree about what your program does (`RS-ERR-31`).
-2. **`as` casts truncate without a diagnostic.** `len as u32` on a 5 GB buffer is a silent wrong
-   answer. Use `u32::try_from(len)?` on any conversion that can lose data, and `cast_signed` or
-   `cast_unsigned` where a sign change is the point (`RS-PERF-30`).
+   values must be `checked_*`, `saturating_*` or `wrapping_*` explicitly, or debug and release
+   disagree about what your program does. `strict_*` panics in both profiles, so it belongs where
+   overflow is a bug rather than an input (`RS-ERR-31`).
+2. **`as` casts truncate silently at run time.** `len as u32` on a 5 GB buffer is a wrong answer
+   with no error. rustc accepts it; clippy's `cast_possible_truncation`, a warning in
+   `assets/Cargo.toml`, is what flags it. Use `u32::try_from(len)?` on any conversion that can lose
+   data, and `cast_signed` or `cast_unsigned` where a sign change is the point (`RS-PERF-30`).
 3. **A dropped `Future` is a cancellation at an arbitrary `.await`.** Anything holding a resource
    across an await must be correct when dropped there; `select!` makes this routine rather than
    exotic (`RS-CONC-33`).
 
-The 2024 edition moved four more without a diagnostic:
+The 2024 edition changed four behaviours without a diagnostic:
 
 | Old habit | Edition 2024 reality |
 |---|---|

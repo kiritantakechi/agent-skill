@@ -732,8 +732,8 @@ that could lose data. A same-width sign change loses no bits and is not a `try_f
 `cast_signed()` or `cast_unsigned()` rather than `as`.
 
 **Why:** `usize` varies by platform, so a serialized `usize` has a different width on a 32-bit
-target — a portability bug that only appears there. `as` performs the truncation without any
-diagnostic, which is why it is the wrong default for narrowing.
+target — a portability bug that only appears there. `as` truncates at run time without any error,
+which is why it is the wrong default for narrowing.
 
 **Check:** grep for `as u32`, `as usize`, `as i32` on values that could exceed the target range.
 Each wants `try_from`; the `cast_*` rows below flag the casts that can lose data.
