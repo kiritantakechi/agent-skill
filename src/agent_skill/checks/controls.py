@@ -19,7 +19,7 @@ lazy from collections.abc import Callable, Iterator, Sequence
 
 from agent_skill.checks import check
 from agent_skill.layout import PLUGIN, SKILLS, root_of
-from agent_skill.report import Level, fail
+from agent_skill.report import Level, fail, unrun
 lazy from agent_skill.checks import by_name
 lazy from agent_skill.lang import toolchain_for
 lazy from agent_skill.model import Skill, discover
@@ -386,7 +386,7 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "python-style/assets/ci.yml",
-            "uv python install cpython-3.15.1+freethreaded",
+            "uv python install cpython-3.15.2+freethreaded",
             "uv python install 3.15t",
         ),
     ),
@@ -873,7 +873,20 @@ def controls(skills: Sequence[Skill], *, fast: bool = False) -> Iterator[Finding
             if injected and target.scope != "all":
                 found = [s for s in found if s.name in injected] or found
             result = target.run(found)
-            if not any(f.level is Level.FAIL for f in result.findings):
+            if any(f.level is Level.FAIL for f in result.findings):
+                continue
+            if result.unrun:
+                # The check could not look — a toolchain is absent — so
+                # whether the control fires is unknown rather than
+                # false. Reporting it as a control that stopped firing
+                # sent the reader to a defect that is not there; `UNRUN`
+                # withholds the pass exactly as `FAIL` does.
+                yield unrun(
+                    f"{control.name}: `{control.check}` could not run here, "
+                    "so the control was not exercised",
+                    "controls",
+                )
+            else:
                 yield fail(
                     f"{control.name}: `{control.check}` still passes — "
                     "the control no longer fires",
