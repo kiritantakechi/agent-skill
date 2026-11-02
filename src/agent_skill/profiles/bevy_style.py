@@ -9,7 +9,7 @@ whether a type's name matches the trait it implements.
 """
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import override
 lazy from collections.abc import Iterable, Iterator
 
@@ -42,6 +42,15 @@ SUFFIX = {"Plugin": "Plugin", "SystemSet": "Systems"}
 
 IMPL_PLUGIN = re.compile(r"^impl Plugin for (\w+)", re.MULTILINE)
 
+#: The verified crate under the `clippy.toml` the skill ships: the test
+#: allowances `rust-style` carries, which BV-ERR-01's relaxed form
+#: names. Without them the lint table rejected that relaxed form, and
+#: the examples' tests reached for `let … else { unreachable!() }`.
+CRATE = replace(
+    BEVY_STYLE,
+    clippy={"allow-unwrap-in-tests": True, "allow-expect-in-tests": True},
+)
+
 
 @dataclass
 class BevyStyle(Profile):
@@ -63,7 +72,7 @@ class BevyStyle(Profile):
         "**Load `rust-style` as well** for anything that is a Rust question "
         "rather than a Bevy question."
     )
-    crate: Crate | None = BEVY_STYLE
+    crate: Crate | None = CRATE
     #: Each snippet is the defect its rule forbids, written the way it
     #: turns up in real code. A fixture shaped to match proves the
     #: fixture, not the pattern.

@@ -633,10 +633,9 @@ mod tests {
 
     fn only<C: Component>(app: &mut App) -> Entity {
         let mut query = app.world_mut().query_filtered::<Entity, With<C>>();
-        let Ok(entity) = query.single(app.world()) else {
-            unreachable!()
-        };
-        entity
+        query
+            .single(app.world())
+            .expect("the console spawns exactly one of each")
     }
 
     #[test]

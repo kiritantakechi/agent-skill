@@ -665,9 +665,7 @@ mod tests {
         let mut posts = app.world_mut().query::<&Children>();
         let mut lit = app.world_mut().query_filtered::<(), With<Lit>>();
         let world = app.world();
-        let Ok(children) = posts.get(world, post) else {
-            unreachable!()
-        };
+        let children = posts.get(world, post).expect("the post has two children");
         assert_eq!(lit.iter_many(world, children).count(), 2);
     }
 }
@@ -1006,9 +1004,10 @@ mod tests {
         assert_eq!(app.world().resource::<Jingles>().on_added, 1);
         assert_eq!(app.world().resource::<Jingles>().on_changed, 1);
 
-        let Some(mut health) = app.world_mut().get_mut::<Health>(hero) else {
-            unreachable!()
-        };
+        let mut health = app
+            .world_mut()
+            .get_mut::<Health>(hero)
+            .expect("the hero was spawned with Health");
         health.0 -= 1.0;
 
         app.update();

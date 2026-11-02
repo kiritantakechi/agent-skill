@@ -358,9 +358,10 @@ mod tests {
         let mut buttons = app
             .world_mut()
             .query_filtered::<Entity, With<StartButton>>();
-        let Some(button) = buttons.iter(app.world()).next() else {
-            unreachable!()
-        };
+        let button = buttons
+            .iter(app.world())
+            .next()
+            .expect("Startup spawned the button");
         app.world_mut().trigger(Activate { entity: button });
         assert_eq!(app.world().resource::<Starts>().0, 1);
     }
@@ -565,9 +566,8 @@ mod tests {
                 .find(|(_, text)| text == label)
                 .map(|(entity, _)| *entity)
         };
-        let (Some(play_choice), Some(quit_choice)) = (find("Play"), find("Quit")) else {
-            unreachable!()
-        };
+        let play_choice = find("Play").expect("the menu offers Play");
+        let quit_choice = find("Quit").expect("the menu offers Quit");
 
         app.world_mut().trigger(Activate {
             entity: quit_choice,
@@ -692,9 +692,10 @@ mod tests {
         app.update();
 
         let mut world_views = app.world_mut().query_filtered::<Entity, With<WorldView>>();
-        let Some(view) = world_views.iter(app.world()).next() else {
-            unreachable!()
-        };
+        let view = world_views
+            .iter(app.world())
+            .next()
+            .expect("the plugin spawned a world view");
         let view = app.world().entity(view);
         assert!(view.contains::<Camera>());
         assert!(view.contains::<Projection>());
@@ -832,10 +833,9 @@ mod tests {
 
     fn a_pin(app: &mut App) -> Entity {
         let mut pins = app.world_mut().query_filtered::<Entity, With<MapPin>>();
-        let Some(pin) = pins.iter(app.world()).next() else {
-            unreachable!()
-        };
-        pin
+        pins.iter(app.world())
+            .next()
+            .expect("the plugin spawned two pins")
     }
 
     /// The child was never written to, so its `Visibility` still says
