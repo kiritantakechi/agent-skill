@@ -53,8 +53,8 @@ imperative mood is a review matter: the pydocstyle rule for it is one of the twe
 def load_config(path: str) -> dict[str, str]:
     """Return the configuration at `path`.
 
-    The file is read as UTF-8 regardless of the platform default, so the result
-    does not depend on the machine it ran on.
+    The file is read as UTF-8 regardless of the platform default, so
+    the result does not depend on the machine it ran on.
     """
     return {"path": path}
 

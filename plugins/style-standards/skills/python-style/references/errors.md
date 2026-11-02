@@ -62,15 +62,15 @@ class AcmeError(Exception):
 
 
 class ConfigError(AcmeError):
-    pass
+    """A configuration this package cannot use."""
 
 
-class TimeoutError_(AcmeError, TimeoutError):
-    """Also a builtin `TimeoutError`, so existing handlers keep working."""
+class RequestTimeoutError(AcmeError, TimeoutError):
+    """Also a `TimeoutError`, so existing handlers keep working."""
 
 
 assert issubclass(ConfigError, AcmeError)
-assert issubclass(TimeoutError_, TimeoutError)
+assert issubclass(RequestTimeoutError, TimeoutError)
 ```
 
 ### PS-ERR-02 [M] Inherit from the closest builtin that is already right
@@ -131,23 +131,37 @@ deliberate translation. `from exc` says "this caused that"; `from None` suppress
 
 ```python
 # verified — GOOD
-class ConfigError(Exception):
-    pass
+import pytest
+
+
+class AcmeError(Exception):
+    """Base for everything this package raises."""
+
+
+class ConfigError(AcmeError):
+    """A configuration value this package cannot use."""
+
+    def __init__(self, *, key: str, raw: str) -> None:
+        """Record which key held which unusable value."""
+        super().__init__(f"{key} must be a number, got {raw!r}")
+        self.key = key
+        self.raw = raw
 
 
 def port_from(raw: str) -> int:
     try:
         return int(raw)
     except ValueError as exc:
-        msg = f"port must be a number, got {raw!r}"
-        # `from exc` keeps the cause; the caller sees both and knows which is which.
-        raise ConfigError(msg) from exc
+        # `from exc` keeps the cause; the caller sees both and knows
+        # which is which.
+        raise ConfigError(key="port", raw=raw) from exc
 
 
-try:
-    port_from("http")
-except ConfigError as exc:
-    assert isinstance(exc.__cause__, ValueError)
+def test_translation_keeps_the_cause() -> None:
+    with pytest.raises(ConfigError, match="port") as caught:
+        port_from("http")
+    assert isinstance(caught.value.__cause__, ValueError)
+    assert (caught.value.key, caught.value.raw) == ("port", "http")
 ```
 
 ### PS-ERR-07 [M] Never use `assert` to validate input
@@ -192,8 +206,8 @@ from pathlib import Path
 
 cache = Path("cache.bin")
 
-# `suppress` says in the syntax what `except ... : pass` says only in a comment:
-# the cache is best-effort and its absence is not an error.
+# `suppress` says in the syntax what `except ... : pass` says only in a
+# comment: the cache is best-effort and its absence is not an error.
 with contextlib.suppress(FileNotFoundError):
     cache.unlink()
 
@@ -227,7 +241,8 @@ may raise a group. A plain `except` there is the finding.
 ```python
 # verified — GOOD
 def failing() -> None:
-    raise ExceptionGroup("two problems", [ValueError("a"), KeyError("b")])
+    msg = "two problems"
+    raise ExceptionGroup(msg, [ValueError("a"), KeyError("b")])
 
 
 caught: list[str] = []

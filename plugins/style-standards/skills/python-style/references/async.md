@@ -67,7 +67,7 @@ async def main() -> str:
     return "done"
 
 
-# `loop_factory` is the configuration hook that survives the 3.16 policy removal.
+# `loop_factory` is the hook that survives the 3.16 policy removal.
 assert asyncio.run(main(), loop_factory=asyncio.EventLoop) == "done"
 ```
 

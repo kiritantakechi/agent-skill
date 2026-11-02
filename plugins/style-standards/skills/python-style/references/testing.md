@@ -324,7 +324,7 @@ def test_allocator_never_issues_an_id_twice() -> None:
     with ThreadPoolExecutor(max_workers=4) as pool:
         issued = list(pool.map(allocator.allocate, range(4_000)))
 
-    # The invariant, not "it did not raise": a race shows up as a duplicate.
+    # The invariant, not "it did not raise": a race repeats an id.
     assert sorted(issued) == list(range(4_000))
 ```
 

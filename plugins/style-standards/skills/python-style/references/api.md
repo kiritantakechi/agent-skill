@@ -132,13 +132,13 @@ from dataclasses import KW_ONLY, dataclass
 
 
 def connect(host: str, *, timeout_seconds: float = 5.0, retries: int = 3) -> str:
-    """Everything after `*` must be named, so the call site reads as prose."""
+    """Connect to `host`; everything after `*` must be named."""
     return f"{host}/{timeout_seconds}/{retries}"
 
 
 @dataclass(frozen=True, slots=True)
 class Rect:
-    """A dataclass field is a constructor parameter, and `KW_ONLY` is its `*`."""
+    """Fields are constructor parameters; `KW_ONLY` is their `*`."""
 
     _: KW_ONLY
     width_px: int
@@ -186,14 +186,16 @@ public signature is a name the caller must look up every time.
 
 ### PS-API-11 [M] Make a function either return a value or perform an effect
 
-Not both. A function that writes a file and returns the parsed contents is two functions.
+Not both. A function that writes a file and returns the parsed contents is two functions. The
+exception is an effect whose result must be read in the same step — `queue.Queue.get`, `list.pop`,
+issuing a unique id — where splitting the two reopens PS-CONC-03's gap between check and act.
 
 **Why:** the mixed form cannot be tested without the effect, cannot be called for one half, and
 gives the caller no way to know the effect happened from the value they received. Splitting makes
 each half testable and lets the caller compose them.
 
-**Check:** every function with a return value and an effect. `command-query separation` is the name
-for the split.
+**Check:** every function with a return value and an effect, unless the two must happen as one
+step. `command-query separation` is the name for the split.
 
 ### PS-API-12 [M] Document what the function does not do
 

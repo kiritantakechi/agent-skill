@@ -118,7 +118,8 @@ the distance from the declaration. At module scope the distance is unbounded; in
 function it is two lines, and there the shorter name is genuinely easier to read.
 
 **Check:** every module-level name and every parameter of a public function. A name shorter than
-four characters that is not on the exception list is the finding.
+four characters is a candidate: one that abbreviates a longer word and is not on the exception list
+is the finding, while a word that is short already, such as `key` or `raw`, is spelled out.
 
 ### PS-NAME-05 [M] Put units and qualifiers last, sorted by descending significance
 
@@ -142,8 +143,9 @@ LATENCY_MS_MAX: Final = 5_000
 CONNECTION_COUNT_MAX: Final = 512
 PAYLOAD_SIZE_BYTES_MAX: Final = 1 << 20
 
-# Sorted, the family is contiguous and a missing member would be visible.
-assert sorted(("LATENCY_MS_MIN", "LATENCY_MS_MAX"))[0] == "LATENCY_MS_MAX"
+# Sorted, the family is contiguous, so a missing member shows.
+family = ["PAYLOAD_SIZE_BYTES_MAX", "LATENCY_MS_MIN", "LATENCY_MS_MAX"]
+assert sorted(family)[:2] == ["LATENCY_MS_MAX", "LATENCY_MS_MIN"]
 ```
 
 ### PS-NAME-06 [M] Name a predicate so it reads as a question
@@ -278,7 +280,7 @@ lint that looks like it, is on ruff's formatter-conflict list and stays disabled
 # verified — GOOD
 short = [1, 2, 3]
 
-# The trailing comma is the instruction: keep one per line, even though they fit.
+# The trailing comma is the instruction: one per line, though they fit.
 tall = [
     1,
     2,

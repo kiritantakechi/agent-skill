@@ -60,8 +60,8 @@ shipped configuration runs stable rules only.
 import tempfile
 from pathlib import Path
 
-with tempfile.TemporaryDirectory() as tmp:
-    path = Path(tmp) / "note.txt"
+with tempfile.TemporaryDirectory() as scratch:
+    path = Path(scratch) / "note.txt"
     path.write_text("héllo", encoding="utf-8")
     assert path.read_text(encoding="utf-8") == "héllo"
 ```
@@ -202,8 +202,8 @@ logger = logging.getLogger(__name__)
 
 
 def fetch(url: str) -> None:
-    # The template stays constant, so an aggregator can group these; and the
-    # interpolation does not happen at all if INFO is not enabled.
+    # The template stays constant, so an aggregator can group these;
+    # and the interpolation does not happen at all if INFO is off.
     logger.info("fetching %s", url)
 
 

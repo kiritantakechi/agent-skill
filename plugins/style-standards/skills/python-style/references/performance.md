@@ -190,7 +190,7 @@ one.
 ```python
 # verified — GOOD
 def records(stream: list[bytes], size: int) -> list[bytes]:
-    """One buffer for the whole stream; each record leaves it without a copy."""
+    """Split `stream` into records, through one buffer and no copies."""
     out: list[bytes] = []
     buf = bytearray()
     for piece in stream:
