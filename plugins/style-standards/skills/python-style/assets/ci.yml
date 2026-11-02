@@ -19,9 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10
-        with: { version: "0.13.3" }
+        with: { version: "0.13.6" }
       # The free-threaded build is a separate interpreter, not a flag.
-      - run: uv python install cpython-3.15.1+freethreaded
+      - run: uv python install cpython-3.15.2+freethreaded
       - run: uv sync --group dev
       - run: uv run pytest
       # The build first, then the runtime with the package imported: the GIL
@@ -36,8 +36,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10
-        with: { version: "0.13.3" }
-      - run: uv python install cpython-3.15.1+freethreaded
+        with: { version: "0.13.6" }
+      - run: uv python install cpython-3.15.2+freethreaded
       - run: uv sync --group dev
       - run: uv run ruff check
       # Zero stderr here is ruff's own proof that no enabled lint rule conflicts

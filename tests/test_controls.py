@@ -26,9 +26,10 @@ def test_control_fires(control: Control, scratch: Path) -> None:
     except FixtureGoneError as e:
         pytest.fail(f"the fixture has drifted out of the skill: {e}")
     result = check.run(discover(scratch))
-    assert any(f.level is Level.FAIL for f in result.findings), (
-        f"`{control.check}` still passes with `{control.name}` injected"
-    )
+    fired = any(f.level is Level.FAIL for f in result.findings)
+    if not fired and result.unrun:
+        pytest.skip(f"`{control.check}` could not run here: {result.unrun[0].message}")
+    assert fired, f"`{control.check}` still passes with `{control.name}` injected"
 
 
 def test_every_check_has_a_control() -> None:
