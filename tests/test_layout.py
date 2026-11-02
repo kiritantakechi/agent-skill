@@ -3,6 +3,7 @@
 import pytest
 
 from agent_skill.checks.layout import WIDTH, _table_cells, _widths
+from agent_skill.report import Level
 
 TABLE = ["| Stale | Current |", "|---|---|"]
 
@@ -45,3 +46,10 @@ def test_only_frontmatter_goes_unmeasured(
 ) -> None:
     found = list(_widths([*lines, "short"], "t.md"))
     assert [f.where for f in found] == measured
+
+
+def test_a_code_span_no_line_can_hold_is_a_note() -> None:
+    span = "`" + "x" * WIDTH + "`."
+    [found] = _widths(["see", span, "after"], "t.md")
+    assert found.level is Level.NOTE
+    assert found.where == "t.md:2"

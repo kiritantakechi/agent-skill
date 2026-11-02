@@ -10,7 +10,7 @@ import re
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
-from agent_skill.doc import WIDTH
+from agent_skill.doc import WIDTH, words
 from agent_skill.report import Finding, fail, note
 lazy from agent_skill.model import Skill
 
@@ -80,6 +80,15 @@ def _widths(lines: list[str], tag: str) -> Iterator[Finding]:
             continue  # a table row cannot be wrapped
         if HEADING.match(line) or TOC.match(line):
             yield note(f"rule title makes the line {len(line)} columns", f"{tag}:{i}")
+            continue
+        if not fenced and len(words(line.strip())) == 1:
+            # A code span or a link is never split, so one wider than
+            # the limit has a line of its own and passes it.
+            yield note(
+                f"a code span or link no line can hold makes the line {len(line)} "
+                "columns",
+                f"{tag}:{i}",
+            )
             continue
         kind = "code" if fenced else "prose"
         yield fail(f"{kind} line is {len(line)} columns (limit {WIDTH})", f"{tag}:{i}")

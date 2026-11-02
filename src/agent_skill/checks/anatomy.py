@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
+from agent_skill.doc import Doc, Paragraph
 from agent_skill.model import DASH, without_renames
 from agent_skill.report import fail, note
 lazy from agent_skill.model import Chapter, Rule, Skill
@@ -91,9 +92,7 @@ def anatomy(skill: Skill) -> Iterator[Finding]:
     blocks: dict[tuple[str, str], str] = {}
 
     for chapter in skill.chapters:
-        if re.search(
-            rf"^\*\*{skill.prefix}-[A-Z]+-\d+\*\*", chapter.text, re.MULTILINE
-        ):
+        if _bold_definitions(chapter.text, skill.prefix):
             yield fail("bold-inline rule definitions", f"{skill.name}/{chapter.name}")
         for rule in chapter.rules:
             where = f"{skill.name}/{chapter.name}"
@@ -116,10 +115,25 @@ def anatomy(skill: Skill) -> Iterator[Finding]:
     yield from _near_duplicates(skill, blocks)
 
 
+def _bold_definitions(text: str, prefix: str) -> bool:
+    """Does a paragraph open with a bold rule ID, defining a rule there?
+
+    A bold ID inside a paragraph is a citation, wherever filling happens
+    to break its line.
+    """
+    bold = re.compile(rf"\*\*{prefix}-[A-Z]+-\d+\*\*")
+    return any(
+        isinstance(block, Paragraph) and bold.match(block.text)
+        for block in Doc.parse(text).blocks
+    )
+
+
 #: How a rule states what an `[M!]` relaxes to: one label, in the
 #: statement, so a reader meets the relaxed reading before the reason.
+#: Its two words may sit on two lines, as any two words of a paragraph
+#: may.
 RELAXED = "*Relaxed form:*"
-_RELAXED = re.compile(r"\*{1,2}Relaxed form:?\*{1,2}:?")
+_RELAXED = re.compile(r"\*{1,2}Relaxed\s+form:?\*{1,2}:?")
 
 
 def _rule(chapter: Chapter, rule: Rule, where: str) -> Iterator[Finding]:
@@ -136,10 +150,9 @@ def _rule(chapter: Chapter, rule: Rule, where: str) -> Iterator[Finding]:
     if relaxed is None:
         if rule.tier == "M!":
             yield fail(f"{rule.id} is [M!] with no relaxed form", where)
-    elif relaxed.group(0) != RELAXED:
+    elif (label := " ".join(relaxed.group(0).split())) != RELAXED:
         yield fail(
-            f"{rule.id} labels its relaxed form `{relaxed.group(0)}`; "
-            f"the label is `{RELAXED}`",
+            f"{rule.id} labels its relaxed form `{label}`; the label is `{RELAXED}`",
             where,
         )
     elif relaxed.start() > rule.body.find("**Why") >= 0:
@@ -313,24 +326,29 @@ def _dangling(skill: Skill, seen: dict[str, str]) -> Iterator[Finding]:
 
 
 def _paths(skill: Skill, home: dict[str, str]) -> Iterator[Finding]:
-    """A named file exists, and a chapter cited for an id holds it."""
+    """A named file exists, and a chapter cited for an id holds it.
+
+    A citation may break across lines, as filling breaks any paragraph,
+    but never across a blank line, which ends the paragraph.
+    """
     pre = skill.prefix
+    cited = re.compile(
+        rf"`references/([a-z0-9-]+\.md)`(?:[^`\n]|\n(?![ \t]*\n)){{0,40}}?"
+        rf"({pre}-[A-Z]+-\d+[a-z]?)"
+    )
     for path in skill.markdown:
         text = path.read_text()
         for ref in re.findall(r"`((?:references|assets)/[A-Za-z0-9._-]+)`", text):
             if not (skill.root / ref).exists():
                 yield fail(f"missing file {ref}", f"{skill.name}/{path.name}")
-        for i, line in enumerate(text.split("\n"), 1):
-            for m in re.finditer(
-                rf"`references/([a-z0-9-]+\.md)`[^`\n]{{0,40}}?({pre}-[A-Z]+-\d+[a-z]?)",
-                line,
-            ):
-                actual = home.get(m.group(2))
-                if actual is not None and actual != m.group(1):
-                    yield fail(
-                        f"says {m.group(1)} for {m.group(2)}, which lives in {actual}",
-                        f"{skill.name}/{path.name}:{i}",
-                    )
+        for m in cited.finditer(text):
+            actual = home.get(m.group(2))
+            if actual is not None and actual != m.group(1):
+                line = text.count("\n", 0, m.start()) + 1
+                yield fail(
+                    f"says {m.group(1)} for {m.group(2)}, which lives in {actual}",
+                    f"{skill.name}/{path.name}:{line}",
+                )
 
 
 def _core_citations(skill: Skill, home: dict[str, str]) -> Iterator[Finding]:

@@ -111,6 +111,51 @@ def test_a_relaxed_form_has_one_label(demo: Skill) -> None:
     )
 
 
+def test_a_relaxed_label_filled_across_two_lines_is_still_its_label(
+    demo: Skill,
+) -> None:
+    """Filling breaks a paragraph between any two words, these too."""
+    marked = edit(demo, "references/errors.md", "- DS-ERR-01 [M]", "- DS-ERR-01 [M!]")
+    marked = edit(
+        marked, "references/errors.md", "### DS-ERR-01 [M]", "### DS-ERR-01 [M!]"
+    )
+    assert any("[M!] with no relaxed form" in m for m in anatomy_messages(marked))
+    marked = edit(
+        marked,
+        "references/errors.md",
+        "Return errors.\n",
+        "Return errors. *Relaxed\nform:* x.\n",
+    )
+    assert not any("relaxed form" in m for m in anatomy_messages(marked))
+
+
+def test_a_bold_citation_that_opens_a_line_defines_nothing(demo: Skill) -> None:
+    cited = edit(
+        demo,
+        "references/errors.md",
+        "Return errors.\n",
+        "Return errors, as\n**DS-ERR-02** says.\n",
+    )
+    assert "bold-inline rule definitions" not in anatomy_messages(cited)
+    defined = edit(
+        cited, "references/errors.md", "Name them.\n", "**DS-ERR-02** Name them.\n"
+    )
+    assert "bold-inline rule definitions" in anatomy_messages(defined)
+
+
+def test_a_citation_broken_across_lines_is_still_read(demo: Skill) -> None:
+    broken = edit(
+        demo,
+        "references/errors.md",
+        "read it.",
+        "read `references/migration.md`\nDS-ERR-01.",
+    )
+    assert (
+        "says migration.md for DS-ERR-01, which lives in errors.md"
+        in anatomy_messages(broken)
+    )
+
+
 def test_an_abbreviated_id_list_fails(demo: Skill) -> None:
     broken = edit(demo, "references/errors.md", "read it.", "read DS-ERR-01, -02.")
     check = by_name("anatomy")

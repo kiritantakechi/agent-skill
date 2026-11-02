@@ -635,17 +635,17 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
-        # Wrapped where a reflow would wrap it. `_paths` reads a line at
-        # a time and caught the same citation on one line, so the
-        # control fired with `_core_citations` gone; a core rule's body
-        # is read whole, which is the reason that branch exists.
+        # The second ID of the list. `_paths` reads the first ID after
+        # a path, and caught a wrong first one, so the control fired
+        # with `_core_citations` gone; a core rule's whole list is read,
+        # which is the reason that branch exists.
         "core rule citing the wrong chapter",
         "anatomy",
         lambda t: edit(
             t,
             "rust-style/SKILL.md",
-            "`references/api.md` RS-API-36",
-            "`references/errors.md`\n  RS-API-36",
+            "`references/api.md` RS-API-15, RS-API-16",
+            "`references/api.md` RS-API-15, RS-ERR-03",
         ),
     ),
     Control(
