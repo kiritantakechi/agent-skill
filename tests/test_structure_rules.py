@@ -12,13 +12,17 @@ import pytest
 from agent_skill.checks import by_name
 from agent_skill.checks.anatomy import structural
 from agent_skill.checks.citations import (
+    Row,
     python_rows,
     row_shape,
+    rows_of,
     rust_catalogue,
     rust_rows,
 )
 from agent_skill.checks.skeleton import skeleton
-from agent_skill.model import DASH, LintRow, Rename, Tree
+from agent_skill.doc.chapter import LintRow
+from agent_skill.ids import Location
+from agent_skill.model import DASH, Tree
 from structure_fixture import Demo, build, edit, reparse
 lazy from agent_skill.model import Skill
 
@@ -75,13 +79,24 @@ def test_a_suffixed_number(demo: Skill) -> None:
 
 
 def test_a_four_line_why(demo: Skill) -> None:
+    """A Why is measured as filled: forty words fill four lines."""
     broken = edit(
+        demo,
+        "references/errors.md",
+        "**Why:** one line of reason.",
+        "**Why:**" + " reason." * 40,
+    )
+    assert any("Why runs 4 lines" in m for m in structural_messages(broken))
+
+
+def test_a_line_break_is_no_line_of_a_why(demo: Skill) -> None:
+    fine = edit(
         demo,
         "references/errors.md",
         "**Why:** one line of reason.",
         "**Why:** a\nb\nc\nd.",
     )
-    assert any("Why runs 4 lines" in m for m in structural_messages(broken))
+    assert not any("Why runs" in m for m in structural_messages(fine))
 
 
 def anatomy_messages(skill: Skill) -> list[str]:
@@ -290,13 +305,19 @@ def test_lint_rows_are_parsed_and_are_not_rules(demo: Skill) -> None:
     ]
     assert [r.id for r in skill.rules] == ["DS-ERR-01", "DS-ERR-02", "DS-MIG-01"]
     assert "Decided by tools" not in skill.by_id["DS-ERR-02"].body
+    typed = rows_of(skill)
+    assert [(r.tool, r.lint, r.level) for _, r in typed] == [
+        (r.tool, r.lint, r.level) for r in rows
+    ]
+    assert [where.line for where, _ in typed] == [r.line for r in rows]
+    assert [str(r.id) for r in skill.chapter_rules] == [r.id for r in skill.rules]
 
 
 def test_a_row_for_a_tool_the_standard_does_not_require(demo: Skill) -> None:
     path = demo.root / "references" / "errors.md"
     path.write_text(path.read_text() + ROWS)
     skill = reparse(demo)
-    found = [f.message for f in row_shape(skill.lint_rows, ("python", "ruff"))]
+    found = [f.message for f in row_shape(rows_of(skill), ("python", "ruff"))]
     assert found == ["`ty` is not a tool this standard requires"]
 
 
@@ -304,14 +325,14 @@ def test_a_row_at_a_level_that_fails_nothing(demo: Skill) -> None:
     path = demo.root / "references" / "errors.md"
     path.write_text(path.read_text() + ROWS.replace("| warn |", "| ignore |"))
     skill = reparse(demo)
-    found = [f.message for f in row_shape(skill.lint_rows, ("ruff", "ty"))]
+    found = [f.message for f in row_shape(rows_of(skill), ("ruff", "ty"))]
     assert any("fails no run" in m for m in found)
 
 
 def test_python_rows_against_the_shipped_configuration(demo: Skill) -> None:
     path = demo.root / "references" / "errors.md"
     path.write_text(path.read_text() + ROWS)
-    rows = reparse(demo).lint_rows
+    rows = rows_of(reparse(demo))
     assert (
         list(python_rows(rows, {"B006"}, {"possibly-unresolved-reference": "warn"}))
         == []
@@ -332,12 +353,6 @@ def test_python_rows_against_the_shipped_configuration(demo: Skill) -> None:
     assert unknown == [
         "`possibly-unresolved-reference` is not a rule the pinned ty recognises"
     ]
-
-
-def test_rename_rows_parse_three_ways() -> None:
-    assert Rename("A", "`DS-ERR-02`", 1).target == "DS-ERR-02"
-    assert Rename("A", "lint `ruff:B006`", 1).lint == ("ruff", "B006")
-    assert Rename("A", "removed — said nothing", 1).removed == "said nothing"
 
 
 def test_a_rename_table_that_resolves(demo: Skill) -> None:
@@ -409,8 +424,10 @@ def test_a_removal_without_a_reason(demo: Skill) -> None:
 
 
 def test_rust_rows_against_the_shipped_lint_table() -> None:
-    def row(tool: str, lint: str, level: str) -> LintRow:
-        return LintRow(tool, lint, level, "x", "errors.md", 1)
+    def row(tool: str, lint: str, level: str) -> Row:
+        return Location("demo-style", "references/errors.md", 1), LintRow(
+            tool, lint, level, "x"
+        )
 
     catalogue = {
         "clippy.unwrap_used": ("allow", set()),
@@ -452,8 +469,8 @@ def test_the_rust_catalogue_reads_the_toolchain() -> None:
 
 
 def test_a_bold_phrase_inside_a_why_does_not_end_it(demo: Skill) -> None:
-    """A Why ends at the next label, not the next line opening `**`."""
-    long_why = "**Why:** one.\n**Two** is bold.\nthree.\nfour."
+    """A Why ends at a label, not at any paragraph opening `**`."""
+    long_why = "**Why:** one.\n\n**Two** is bold.\n\nthree.\n\nfour."
     broken = edit(
         demo, "references/errors.md", "**Why:** one line of reason.", long_why
     )

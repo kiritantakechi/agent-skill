@@ -114,9 +114,13 @@ In order.
 
 
 def chapter(title: str, ids: list[tuple[str, str]]) -> str:
+    """A chapter shaped as every standard shapes one."""
     contents = "\n".join(f"- {rid} [M] {t}" for rid, t in ids)
     rules = "\n".join(RULE.format(id=rid, title=t) for rid, t in ids)
-    return f"# {title}\n\n{contents}\n\n---\n\n{rules}"
+    return (
+        f"# {title}\n\nWhat {title.lower()} covers.\n\n## Contents\n\n{contents}"
+        f"\n\n---\n\n## {title}\n\n{rules}"
+    )
 
 
 def build(root: Path, profile: Profile | None = None) -> Skill:

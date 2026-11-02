@@ -17,6 +17,7 @@ section 4.
 import re
 from dataclasses import dataclass, field
 from typing import Self
+lazy from collections.abc import Iterator
 
 from agent_skill.doc import (
     Block,
@@ -58,6 +59,9 @@ _LINT_CELLS = 4
 #: The cells of a rename row: before, now.
 _RENAME_CELLS = 2
 
+#: The cells an override row opens with: the other's rule, then ours.
+_OVERRIDE_CELLS = 2
+
 #: The tiers' spellings, for telling an entry from a label.
 _TIERS = frozenset(str(t) for t in Tier)
 
@@ -65,10 +69,18 @@ _TIERS = frozenset(str(t) for t in Tier)
 def _entry(found: tuple[str, ...]) -> tuple[RuleId, Tier, str] | None:
     """The ID, tier and title `found` opens with, if it opens so."""
     match found:
-        case (rid, tier, *title) if re.fullmatch(rule_id(), rid) and tier in _TIERS:
-            return RuleId.parse(rid), Tier.parse(tier), " ".join(title)
+        case (first, tier, *title) if (
+            rid := RuleId.try_parse(first)
+        ) is not None and tier in _TIERS:
+            return rid, Tier.parse(tier), " ".join(title)
         case _:
             return None
+
+
+def _code_id(text: str) -> RuleId | None:
+    """The rule ID a code span spells, as `` `RS-ERR-03` `` does."""
+    inner = text.removeprefix("`").removesuffix("`")
+    return RuleId.try_parse(inner) if f"`{inner}`" == text else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -309,6 +321,7 @@ class LintRow:
     lint: str
     level: str
     forbids: str
+    line: int = field(default=0, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -333,16 +346,19 @@ _DEMOTED = re.compile(r"lint `(?P<tool>[a-z]+):(?P<lint>[^`]+)`")
 _REMOVED = re.compile(r"removed —\s*(?P<reason>.*)")
 
 
-def _becomes(cell: str) -> Becomes:
-    """What a rename row's `Now` cell says the old ID became."""
-    if m := re.fullmatch(rf"`({rule_id()})`", cell):
-        return RuleId.parse(m[1])
+def _becomes(cell: str) -> Becomes | None:
+    """What a rename row's `Now` cell says the old ID became.
+
+    None when it says none of the three, which a table can be written
+    to say and a check has to be able to report.
+    """
+    if (rid := _code_id(cell)) is not None:
+        return rid
     if m := _DEMOTED.fullmatch(cell):
         return Demoted(m["tool"], m["lint"])
     if m := _REMOVED.fullmatch(cell):
         return Removed(m["reason"].strip())
-    msg = f"not an ID, a lint row or a removal: {cell!r}"
-    raise ValueError(msg)
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -365,6 +381,9 @@ class RenameTable:
     heading: str
     ranges: tuple[tuple[RuleId, RuleId], ...]
     rows: tuple[Rename, ...]
+    #: The rows that name no old ID, or say nothing a rename can say,
+    #: as their two cells are written.
+    unread: tuple[tuple[str, str], ...] = ()
 
     @property
     def originals(self) -> tuple[RuleId, ...]:
@@ -374,6 +393,16 @@ class RenameTable:
             for first, last in self.ranges
             for n in range(first.number, last.number + 1)
         )
+
+    @property
+    def unchanged(self) -> tuple[RuleId, ...]:
+        """The original IDs no row names: each still names its rule.
+
+        A row read or not names its old ID, since the table lists it.
+        """
+        unread = (RuleId.try_parse(before.strip("`")) for before, _ in self.unread)
+        listed = {r.before for r in self.rows} | set(unread)
+        return tuple(rid for rid in self.originals if rid not in listed)
 
 
 @dataclass(frozen=True, slots=True)
@@ -391,13 +420,20 @@ class Chapter:
 
     @classmethod
     def read(cls, doc: Doc) -> Self:
-        """The chapter `doc` is."""
+        """The chapter `doc` is.
+
+        A rule heading before the first section is refused rather than
+        read as scope, where every reader of rules would miss it.
+        """
         blocks = doc.blocks
         title = ""
         if blocks and isinstance(blocks[0], Heading) and blocks[0].level == 1:
             title, blocks = blocks[0].text, blocks[1:]
         first = next((i for i, b in enumerate(blocks) if _is_h2(b)), len(blocks))
         scope, rest = blocks[:first], blocks[first:]
+        if stray := next((b for b in scope if _rule_heading(b)), None):
+            msg = f"line {stray.line}: a rule before the first `##` section"
+            raise ValueError(msg)
         match rest:
             case (Heading(text=text), ListBlock() as listed, Divider(), *after) if (
                 text == CONTENTS
@@ -424,16 +460,16 @@ class Chapter:
 
     @property
     def tools(self) -> tuple[LintRow, ...]:
-        """The rows of the `Decided by tools` table.
+        """The rows of the `Decided by tools` table, each on its line.
 
         Its columns are `| Tool | Lint | Level | Forbids |`.
         """
         return tuple(
-            LintRow(row[0], row[1].strip("`"), row[2], row[3])
+            LintRow(row[0], row[1].strip("`"), row[2], row[3], line)
             for s in self.sections
             if s.title == DECIDED
             for block in s.lead
-            for row in _rows(block)
+            for line, row in _rows(block)
             if len(row) == _LINT_CELLS
         )
 
@@ -458,20 +494,30 @@ def _rename_table(section: Section) -> RenameTable:
     ranges = tuple(
         (RuleId.parse(m[1]), RuleId.parse(m[2] or m[1])) for m in _RANGE.finditer(text)
     )
-    rows = tuple(
-        Rename(RuleId.parse(row[0].strip("`")), _becomes(row[1]))
-        for i in tables[:1]
-        for row in _rows(section.lead[i])
-        if len(row) == _RENAME_CELLS
-    )
-    return RenameTable(section.title, ranges, rows)
+    rows: list[Rename] = []
+    unread: list[tuple[str, str]] = []
+    cells = (row for i in tables[:1] for _, row in _rows(section.lead[i]))
+    for before, now in (row for row in cells if len(row) == _RENAME_CELLS):
+        old, becomes = RuleId.try_parse(before.strip("`")), _becomes(now)
+        if old is None or becomes is None:
+            unread.append((before, now))
+        else:
+            rows.append(Rename(old, becomes))
+    return RenameTable(section.title, ranges, tuple(rows), tuple(unread))
 
 
-def _rows(block: Block) -> tuple[tuple[str, ...], ...]:
-    """The body rows of a table, each escaped pipe read as a pipe."""
+def _rows(block: Block) -> tuple[tuple[int, tuple[str, ...]], ...]:
+    """The body rows of a table, each on its line.
+
+    Each escaped pipe is read as a pipe. A table's header and delimiter
+    take its first two lines, and each row one line after them.
+    """
     if not isinstance(block, Table):
         return ()
-    return tuple(tuple(c.replace("\\|", "|") for c in row) for row in block.rows)
+    return tuple(
+        (block.line + 2 + k, tuple(c.replace("\\|", "|") for c in row))
+        for k, row in enumerate(block.rows)
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -519,20 +565,91 @@ class SkillMd:
             if (rule := _core_rule(item)) is not None
         )
 
+    @property
+    def overrides(self) -> tuple[Override, ...]:
+        """Every row of a table that says where this standard departs.
 
-#: The bold label a core rule opens with: `**ZS-CORE-01 `[M]`**`.
-_CORE = re.compile(rf"\*\*({rule_id()}) `(\[[^\]]*\])`\*\*")
+        Such a row opens its first cell with the other standard's rule
+        and its second with the rule here that applies instead.
+        """
+        return tuple(
+            row
+            for block in self.doc().blocks
+            for line, cells in _rows(block)
+            if (row := _override(cells, line)) is not None
+        )
+
+
+#: A core rule's tier as its bold label spells it, the label's end
+#: included: `` `[M]`** ``.
+_CORE_TIERS = {f"`{t}`**": t for t in Tier}
 
 
 def _core_rule(item: Item) -> Rule | None:
-    """The core rule a list item states, if it states one."""
+    """The core rule a list item states, if it states one.
+
+    Its paragraph opens with the two words `**ZS-CORE-01 `[M]`**`.
+    """
     if not item.blocks or not isinstance(first := item.blocks[0], Paragraph):
         return None
-    m = _CORE.fullmatch(" ".join(first.words[:2]))
-    if m is None:
+    match first.words:
+        case (bold, spelled, *statement) if (
+            bold.startswith("**")
+            and (rid := RuleId.try_parse(bold.removeprefix("**"))) is not None
+            and (tier := _CORE_TIERS.get(spelled)) is not None
+        ):
+            head = (Paragraph(tuple(statement), first.line),) if statement else ()
+            return Rule(rid, tier, "", (*head, *item.blocks[1:]), item.line)
+        case _:
+            return None
+
+
+@dataclass(frozen=True, slots=True)
+class Override:
+    """One row of a delta's table of where it departs from another.
+
+    The other standard's rule, as much of its title as the row quotes,
+    and the rule here that applies instead.
+    """
+
+    theirs: RuleId
+    quoted: str
+    ours: RuleId
+    line: int = field(default=0, compare=False)
+
+
+def _override(cells: tuple[str, ...], line: int) -> Override | None:
+    """The override a table row states, if it states one.
+
+    Each of its first two cells opens with an ID in a code span.
+    """
+    if len(cells) < _OVERRIDE_CELLS:
         return None
-    statement = first.words[2:]
-    head = (Paragraph(statement, first.line),) if statement else ()
-    return Rule(
-        RuleId.parse(m[1]), Tier.parse(m[2]), "", (*head, *item.blocks[1:]), item.line
-    )
+    theirs, quoted = _opening_id(cells[0])
+    ours, _ = _opening_id(cells[1])
+    if theirs is None or ours is None:
+        return None
+    return Override(theirs, quoted, ours, line)
+
+
+def _opening_id(cell: str) -> tuple[RuleId | None, str]:
+    """The ID in the code span `cell` opens with, and what follows."""
+    span, tick, rest = cell.removeprefix("`").partition("`")
+    if not (cell.startswith("`") and tick):
+        return None, cell
+    return RuleId.try_parse(span), rest.strip()
+
+
+def citing(doc: Doc) -> Iterator[Block]:
+    """Every top-level block of `doc` whose rule IDs are citations.
+
+    That is every block but those under a rename table's heading: a
+    rename table lists IDs that no longer exist, on purpose, for a
+    reader holding an old citation to look up.
+    """
+    renamed = False
+    for block in doc.blocks:
+        if isinstance(block, Heading) and block.level <= _SECTION:
+            renamed = block.level == _SECTION and bool(RENAMED.fullmatch(block.text))
+        if not renamed:
+            yield block

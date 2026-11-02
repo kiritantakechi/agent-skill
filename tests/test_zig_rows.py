@@ -4,17 +4,19 @@ lazy from collections.abc import Callable
 
 import pytest
 
-from agent_skill.checks.citations import _compile_zig, phrase, zig_rows
+from agent_skill.checks.citations import Row, _compile_zig, phrase, zig_rows
+from agent_skill.doc.chapter import LintRow
 from agent_skill.ids import Location
-from agent_skill.model import LintRow
 from agent_skill.proc import have
 
 UNUSED = "unused local constant"
 SHADOW = "local constant … shadows local constant from outer scope"
 
 
-def row(lint: str) -> LintRow:
-    return LintRow("zig", lint, "error", "x", "naming.md", 1)
+def row(lint: str) -> Row:
+    return Location("zig-style", "references/naming.md", 1), LintRow(
+        "zig", lint, "error", "x"
+    )
 
 
 type Said = dict[str, list[str] | None]
@@ -25,7 +27,7 @@ def compiler(said: Said) -> Callable[[str], list[str] | None]:
     return said.__getitem__
 
 
-def messages(rows: list[LintRow], probes: dict[str, str], said: Said) -> list[str]:
+def messages(rows: list[Row], probes: dict[str, str], said: Said) -> list[str]:
     return [f.message for f in zig_rows(rows, probes, compiler(said), Location())]
 
 

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from enum import Enum
 from string import ascii_lowercase
 from typing import Self, override
-lazy from collections.abc import Callable
+lazy from collections.abc import Callable, Iterator
 
 #: A standard's prefix, such as `RS`.
 STANDARD = r"[A-Z]{2}"
@@ -77,10 +77,47 @@ class RuleId:
         digits = tail.rstrip(ascii_lowercase)
         return cls(standard, family, int(digits), tail[len(digits) :])
 
+    @classmethod
+    def try_parse(cls, text: str) -> Self | None:
+        """The rule ID `text` spells whole, or None when it is not one.
+
+        For a token that may or may not be an ID, such as a table cell
+        or a paragraph's first word: not being one is an answer there,
+        not an error.
+        """
+        try:
+            return cls.parse(text)
+        except ValueError:
+            return None
+
     @override
     def __str__(self) -> str:
         """`RS-ERR-03`: the number in two digits, then any letter."""
         return f"{self.standard}-{self.family}-{self.number:02d}{self.suffix}"
+
+
+def _whole(standard: str) -> re.Pattern[str]:
+    """An ID under `standard` with no word character on either side.
+
+    A word character beside it would make it part of something else.
+    """
+    return re.compile(rf"\b{rule_id(standard)}\b")
+
+
+def cited(text: str, standard: str = STANDARD) -> Iterator[RuleId]:
+    """Each rule ID `text` names under `standard`, in order.
+
+    For text the document model keeps whole rather than splitting into
+    tokens: a paragraph's citations, a table cell, an example, a source
+    file.
+    """
+    for m in _whole(standard).finditer(text):
+        yield RuleId.parse(m.group())
+
+
+def uncited(text: str, standard: str = STANDARD) -> str:
+    """`text` with each rule ID it names under `standard` taken out."""
+    return _whole(standard).sub("", text)
 
 
 class Tier(Enum):

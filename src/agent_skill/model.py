@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Self, override
 lazy from collections.abc import Collection, Iterable, Iterator
 
+from agent_skill.doc import Doc
+from agent_skill.doc import chapter as layer
 from agent_skill.ids import Location, RuleId, rule_id
 from agent_skill.text import code_only, group, strip_comment, syntax_for
 from agent_skill.vocabulary import CORE
@@ -189,25 +191,6 @@ class Rule:
     skill: str | None = None  #: the skill whose markdown holds it
 
     @property
-    def where(self) -> Location:
-        """The rule's heading.
-
-        Without the rule itself, which a finding about a rule names in
-        what it says.
-        """
-        return located(self.skill, self.file, self.line)
-
-    @property
-    def statement(self) -> str:
-        """The rule's text before its Why."""
-        return self.body.split("**Why")[0]
-
-    @property
-    def why(self) -> str:
-        """The rule's Why section."""
-        return _section(self.body, "Why")
-
-    @property
     def check(self) -> str:
         """The rule's Check section."""
         return _section(self.body, "Check")
@@ -228,11 +211,6 @@ class LintRow:
     line: int
     skill: str | None = None  #: the skill whose markdown holds it
 
-    @property
-    def where(self) -> Location:
-        """The row's line."""
-        return located(self.skill, self.file, self.line)
-
 
 @dataclass(frozen=True, slots=True)
 class Rename:
@@ -245,24 +223,6 @@ class Rename:
     before: str
     now: str
     line: int
-
-    @property
-    def lint(self) -> tuple[str, str] | None:
-        """The tool and lint, for a rule demoted to a lint-table row.
-
-        None for anything else.
-        """
-        m = re.fullmatch(r"lint `([a-z]+):([^`]+)`", self.now)
-        return (group(m), group(m, 2)) if m else None
-
-    @property
-    def removed(self) -> str | None:
-        """The reason, for a rule removed outright.
-
-        None for anything else.
-        """
-        m = re.fullmatch(r"removed —\s*(.*)", self.now)
-        return group(m).strip() if m else None
 
     @property
     def target(self) -> str:
@@ -382,21 +342,6 @@ def rename_tables(text: str) -> list[RenameTable]:
     return out
 
 
-def without_renames(text: str) -> str:
-    """`text` with every rename table blanked, line count kept.
-
-    A rename table lists IDs that no longer exist, on purpose: they are
-    what a reader holding an old citation looks up. Read as citations
-    they are dangling.
-    """
-
-    def blank(m: re.Match[str]) -> str:
-        return "\n" * m.group(0).count("\n")
-
-    table = r"^## Rule IDs before the .+ revision$.*?(?=^## |\Z)"
-    return re.sub(table, blank, text, flags=re.MULTILINE | re.DOTALL)
-
-
 def _rows(text: str, start: int) -> list[tuple[int, list[str]]]:
     """The body rows of the first table after `start`.
 
@@ -470,6 +415,34 @@ class Chapter:
         return self.path.read_text()
 
     @cached_property
+    def doc(self) -> Doc:
+        """The chapter as the document model parses it, once."""
+        return Doc.parse(self.text)
+
+    @cached_property
+    def _layer(self) -> tuple[layer.Chapter, str | None]:
+        """The chapter as the chapter layer reads it, and why not."""
+        try:
+            return layer.Chapter.read(self.doc), None
+        except ValueError as e:
+            return layer.Chapter("", (), None, ()), str(e)
+
+    @property
+    def typed(self) -> layer.Chapter:
+        """Its rules, contents, tool rows and rename tables, typed.
+
+        Empty when the chapter does not read as one, so a check reading
+        it finds nothing rather than stopping the run: `refused` says
+        why, and `skeleton` reports it.
+        """
+        return self._layer[0]
+
+    @property
+    def refused(self) -> str | None:
+        """Why the chapter layer refused this file, if it did."""
+        return self._layer[1]
+
+    @cached_property
     def rules(self) -> list[Rule]:
         """Every rule the chapter states, in order."""
         out: list[Rule] = []
@@ -494,19 +467,6 @@ class Chapter:
                 )
             )
         return out
-
-    @cached_property
-    def toc(self) -> dict[str, tuple[str, str]]:
-        """Id -> (tier, title), from the chapter's own contents list."""
-        head = self.text.split("\n---\n")[0]
-        return {
-            m.group(1): (m.group(2), m.group(3).strip())
-            for m in re.finditer(
-                rf"^\s*- ({rule_id(self.prefix)}) \[(M!|M|S)\] (.+)$",
-                head,
-                re.MULTILINE,
-            )
-        }
 
     @cached_property
     def lint_rows(self) -> list[LintRow]:
@@ -611,6 +571,39 @@ class Skill:
     def text(self) -> str:
         """`SKILL.md`, read once."""
         return self.skill_md.read_text()
+
+    @cached_property
+    def doc(self) -> Doc:
+        """`SKILL.md` as the document model parses it, once."""
+        return Doc.parse(self.text)
+
+    @cached_property
+    def typed(self) -> layer.SkillMd:
+        """`SKILL.md`'s title, sections, core rules and overrides."""
+        return layer.SkillMd.read(self.doc)
+
+    @cached_property
+    def core(self) -> tuple[layer.Rule, ...]:
+        """Every rule `SKILL.md` states, typed as a chapter's are."""
+        return self.typed.core_rules
+
+    @cached_property
+    def chapter_rules(self) -> tuple[layer.Rule, ...]:
+        """Every chapter rule, chapter by chapter, typed."""
+        return tuple(r for c in self.chapters for r in c.typed.rules)
+
+    @cached_property
+    def ids(self) -> frozenset[RuleId]:
+        """Every ID this skill gives a rule, in a chapter or `SKILL.md`.
+
+        What a citation, a rename or an asset names to name a rule.
+        """
+        return frozenset(r.id for r in (*self.chapter_rules, *self.core))
+
+    @cached_property
+    def docs(self) -> dict[Path, Doc]:
+        """Every markdown file parsed: the chapters, then `SKILL.md`."""
+        return {c.path: c.doc for c in self.chapters} | {self.skill_md: self.doc}
 
     @cached_property
     def chapters(self) -> list[Chapter]:

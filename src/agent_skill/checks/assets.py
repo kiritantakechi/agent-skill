@@ -16,7 +16,7 @@ lazy from collections.abc import Callable, Iterator
 lazy from typing import Any
 
 from agent_skill.checks import check, per_skill
-from agent_skill.ids import Branch
+from agent_skill.ids import Branch, cited
 from agent_skill.proc import have, run
 from agent_skill.report import fail, unrun
 lazy from agent_skill.ids import Location
@@ -59,15 +59,12 @@ def assets(skill: Skill) -> Iterator[Finding]:
         yield fail("assets/ is empty", skill.at(), EMPTY)
         return
 
-    referenced = "\n".join(p.read_text() for p in skill.markdown)
-    rules = {r.id for r in skill.rules} | {rid for rid, _, _ in skill.core_rules}
+    referenced = "\n".join(str(doc) for doc in skill.docs.values())
     for path in skill.assets:
-        yield from _asset(skill, path, referenced, rules)
+        yield from _asset(skill, path, referenced)
 
 
-def _asset(
-    skill: Skill, path: Path, referenced: str, rules: set[str]
-) -> Iterator[Finding]:
+def _asset(skill: Skill, path: Path, referenced: str) -> Iterator[Finding]:
     """One asset: its whitespace, its kind's checks, its citations."""
     tag = skill.at(path)
     text = path.read_text()
@@ -97,9 +94,7 @@ def _asset(
     # and nothing was checking those: `_references` reads the
     # chapters and `SKILL.md`, not `assets/`. Twenty-two citations
     # sat unverified.
-    for rid in sorted(
-        set(re.findall(rf"\b{skill.prefix}-[A-Z]+-\d+[a-z]?\b", text)) - rules
-    ):
+    for rid in sorted(set(cited(text, skill.prefix)) - skill.ids):
         yield fail(f"cites {rid}, which is not a rule", tag, CITES)
 
 

@@ -8,13 +8,13 @@ the failure the `UNRUN` level exists to make impossible everywhere else.
 """
 
 import ast
-import re
 from pathlib import Path
 
 import pytest
 
 from agent_skill.checks import crossref
 from agent_skill.checks.patterns import patterns_of
+from agent_skill.doc import text_of
 from agent_skill.report import Level
 lazy from agent_skill.model import Skill
 
@@ -95,16 +95,16 @@ def test_the_sweep_has_something_to_sweep(bevy: Bevy) -> None:
     """
     delta, by_name = bevy
 
-    named = set(re.findall(r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b", delta.text))
+    named = set(crossref._named(delta.doc))
     anchor = by_name.get(delta.profile.anchor)
     assert anchor is not None, "the delta declares no anchor the tree holds"
 
     runnable = [
         rule.id
-        for rule in anchor.rules
+        for rule in anchor.chapter_rules
         if rule.check
         and rule.id not in named
-        and any(p.kind == "command" for p in patterns_of(rule.check))
+        and any(p.kind == "command" for p in patterns_of(text_of(rule.check)))
     ]
     assert runnable, (
         "no anchor rule reaches the sweep — it would pass over an empty set"
@@ -114,14 +114,14 @@ def test_the_sweep_has_something_to_sweep(bevy: Bevy) -> None:
 def test_a_delta_with_no_override_table_fails(bevy: Bevy) -> None:
     """Deleting the table used to delete the anchor, leaving a note."""
     delta, _ = bevy
-    [found] = list(crossref._delta(delta, []))
+    [found] = list(crossref._delta(delta, ()))
     assert found.level is Level.FAIL
     assert "states no override table" in found.message
 
 
 def test_the_shipped_delta_states_its_table(bevy: Bevy) -> None:
     delta, _ = bevy
-    rows = list(crossref.OVERRIDE_ROW.finditer(delta.text))
+    rows = delta.typed.overrides
     assert rows, "bevy-style has no override row to read"
     assert list(crossref._delta(delta, rows)) == []
 
@@ -130,7 +130,7 @@ def test_a_delta_needs_both_declarations(
     bevy: Bevy, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     delta, _ = bevy
-    rows = list(crossref.OVERRIDE_ROW.finditer(delta.text))
+    rows = delta.typed.overrides
     monkeypatch.setattr(delta.profile, "anchor", "")
     found = list(crossref._delta(delta, rows))
     assert [f.level for f in found] == [Level.FAIL]

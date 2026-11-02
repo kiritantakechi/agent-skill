@@ -7,29 +7,24 @@ routing: the skill a table entry refers to comes from the rule id's
 prefix.
 """
 
-from dataclasses import dataclass
-
 from agent_skill.checks import mirror as m
+from agent_skill.doc.chapter import Rule
+from agent_skill.ids import RuleId, Tier
 from agent_skill.model import Tree
 lazy from agent_skill.report import Finding
 
 
-@dataclass(frozen=True)
-class Rule:
-    """The three fields of a rule that `mirror` reads."""
-
-    id: str
-    tier: str
-    title: str
+def rule(rid: str, tier: Tier, title: str) -> Rule:
+    """A chapter rule with only what `mirror` reads: ID, tier, title."""
+    return Rule(RuleId.parse(rid), tier, title, ())
 
 
 class Skill:
-    """A stand-in skill: a name, a prefix, and its rules by ID."""
+    """A stand-in skill: a name, a prefix, and its chapter rules."""
 
     def __init__(self, name: str, prefix: str, rules: list[Rule]) -> None:
-        """Hold the rules, indexed by ID as the real skill does."""
-        self.name, self.prefix, self.rules = name, prefix, rules
-        self.by_id = {r.id: r for r in rules}
+        """Hold the rules as the real skill's chapters give them."""
+        self.name, self.prefix, self.chapter_rules = name, prefix, tuple(rules)
 
 
 TITLE = "One concept, one mechanism"
@@ -43,20 +38,20 @@ def run(table: list[tuple[str, str]], skills: list[Skill]) -> list[Finding]:
         m.MIRROR = original
 
 
-def anchor(tier: str = "[M]") -> Skill:
-    return Skill("rust-style", "RS", [Rule("RS-NAME-01", tier, TITLE)])
+def anchor(tier: Tier = Tier.M) -> Skill:
+    return Skill("rust-style", "RS", [rule("RS-NAME-01", tier, TITLE)])
 
 
 def test_a_third_skill_is_routed_by_its_prefix() -> None:
-    third = Skill("third-style", "XX", [Rule("XX-NAME-09", "[S]", TITLE)])
+    third = Skill("third-style", "XX", [rule("XX-NAME-09", Tier.S, TITLE)])
     findings = run([("XX-NAME-09", TITLE)], [anchor(), third])
     assert [f.message for f in findings] == [
-        "tier mismatch: RS-NAME-01[[M]] vs XX-NAME-09[[S]]"
+        "tier mismatch: RS-NAME-01 [M] vs XX-NAME-09 [S]"
     ]
 
 
 def test_a_third_skill_that_agrees_is_silent() -> None:
-    third = Skill("third-style", "XX", [Rule("XX-NAME-09", "[M]", TITLE)])
+    third = Skill("third-style", "XX", [rule("XX-NAME-09", Tier.M, TITLE)])
     assert run([("XX-NAME-09", TITLE)], [anchor(), third]) == []
 
 
@@ -66,7 +61,7 @@ def test_an_entry_for_a_skill_not_in_this_run_is_skipped() -> None:
 
 
 def test_an_unheld_pair_is_noticed_in_any_skill_not_only_the_first() -> None:
-    third = Skill("third-style", "XX", [Rule("XX-NAME-09", "[M]", TITLE)])
+    third = Skill("third-style", "XX", [rule("XX-NAME-09", Tier.M, TITLE)])
     [found] = run([], [anchor(), third])
     assert found.level.value == "note"
     assert "XX-NAME-09 and RS-NAME-01" in found.message

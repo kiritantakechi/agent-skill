@@ -190,39 +190,6 @@ def flat(block: Block) -> str:
     return normal("\n".join(printed(block)))
 
 
-def section(text: str, heading: str) -> tuple[int, int] | None:
-    """The line span of an H2's body.
-
-    It runs from after its heading up to the next H2. None when `text`
-    has no such heading.
-    """
-    lines = text.split("\n")
-    fenced = False
-    start: int | None = None
-    for i, line in enumerate(lines):
-        if line.startswith("```"):
-            fenced = not fenced
-        if fenced or not line.startswith("## "):
-            continue
-        if start is not None:
-            return start, i
-        if line == f"## {heading}":
-            start = i + 1
-    return (start, len(lines)) if start is not None else None
-
-
-def h2s(text: str) -> list[str]:
-    """Every H2 title outside a fenced block, in order."""
-    fenced = False
-    out: list[str] = []
-    for line in text.split("\n"):
-        if line.startswith("```"):
-            fenced = not fenced
-        elif not fenced and line.startswith("## "):
-            out.append(line[3:])
-    return out
-
-
 @dataclass(frozen=True, slots=True)
 class Alignment:
     """Which actual block each fixed template block corresponds to."""

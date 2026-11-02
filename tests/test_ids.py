@@ -22,8 +22,10 @@ from agent_skill.ids import (
     Stage,
     Tier,
     Version,
+    cited,
     parse_answer,
     rule_id,
+    uncited,
 )
 from agent_skill.layout import SKILLS
 
@@ -264,3 +266,16 @@ def test_every_rule_id_the_skills_spell_is_canonical() -> None:
     }
     assert len(spelled) > 1000
     assert {t for t in spelled if str(RuleId.parse(t)) != t} == set()
+
+
+def test_a_token_that_is_no_rule_id_reads_as_none() -> None:
+    assert RuleId.try_parse("XS-ERR-03") == RuleId("XS", "ERR", 3)
+    assert RuleId.try_parse("`XS-ERR-03`") is None
+    assert RuleId.try_parse("XS-ERR") is None
+
+
+def test_an_id_is_cited_only_whole() -> None:
+    text = "XS-ERR-03, XS-OUT-12a; not XS-ERR-04b2, AXS-ERR-05 or XS-ERR-06_x."
+    assert [str(r) for r in cited(text)] == ["XS-ERR-03", "XS-OUT-12a"]
+    assert [str(r) for r in cited(f"{text} YS-ERR-01", "YS")] == ["YS-ERR-01"]
+    assert uncited("XS-ERR-03 and XS-OUT-01.") == " and ."

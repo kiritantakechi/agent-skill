@@ -3,14 +3,36 @@
 import itertools
 import re
 from collections import Counter, defaultdict
-lazy from collections.abc import Iterator
+lazy from collections.abc import Iterable, Iterator
 
 from agent_skill.checks import check, per_skill
-from agent_skill.doc import Doc, Paragraph
-from agent_skill.ids import Branch
-from agent_skill.model import DASH, SKILL_MD, without_renames
+from agent_skill.doc import (
+    Divider,
+    Fence,
+    Heading,
+    ListBlock,
+    Paragraph,
+    Quote,
+    Table,
+    printed,
+    text_of,
+)
+from agent_skill.doc.chapter import DASH, WHY, citing
+from agent_skill.ids import (
+    NUMBER,
+    Branch,
+    RuleId,
+    Tier,
+    cited,
+    rule_id,
+    uncited,
+)
+from agent_skill.model import SKILL_MD
 from agent_skill.report import fail, note
-lazy from agent_skill.model import Chapter, Rule, Skill
+lazy from agent_skill.doc import Block
+lazy from agent_skill.doc.chapter import Entry, Rule
+lazy from agent_skill.ids import Location
+lazy from agent_skill.model import Chapter, Skill
 lazy from agent_skill.report import Finding
 
 #: Words that carry no signal when comparing two rationales.
@@ -119,28 +141,29 @@ def overlap[T](a: set[T], b: set[T]) -> float:
 @per_skill
 def anatomy(skill: Skill) -> Iterator[Finding]:
     """Each rule's shape, and every map and citation of the rules."""
-    seen: dict[str, str] = {}
-    titles: dict[str, list[str]] = defaultdict(list)
-    blocks: dict[tuple[str, str], str] = {}
+    seen: dict[RuleId, str] = {}
+    titles: dict[str, list[RuleId]] = defaultdict(list)
+    parts: dict[tuple[RuleId, str], str] = {}
 
     for chapter in skill.chapters:
-        if _bold_definitions(chapter.text, skill.prefix):
+        if _bold_definitions(chapter, skill.prefix):
             yield fail(
                 "bold-inline rule definitions", chapter.where(), BOLD_DEFINITIONS
             )
-        for rule in chapter.rules:
+        toc = _toc(chapter)
+        for rule in chapter.typed.rules:
             if rule.id in seen:
                 yield fail(
                     f"duplicate {rule.id}, also in {seen[rule.id]}",
-                    rule.where,
+                    chapter.where(rule.line),
                     DUPLICATE,
                 )
             seen[rule.id] = chapter.name
             titles[rule.title].append(rule.id)
-            yield from _rule(chapter, rule)
-            for label, section in (("Why", rule.why), ("Check", rule.check)):
-                if section:
-                    blocks[(rule.id, label)] = " ".join(section.split())
+            yield from _rule(chapter, rule, toc)
+            for label, part in (("Why", rule.why), ("Check", rule.check)):
+                if part:
+                    parts[(rule.id, label)] = _said(part)
 
     yield from structural(skill)
     yield from _contents_order(skill)
@@ -149,54 +172,97 @@ def anatomy(skill: Skill) -> Iterator[Finding]:
     yield from _references(skill, seen)
     yield from _abbreviated(skill)
     yield from _counts(skill)
-    yield from _near_duplicates(skill, blocks)
+    yield from _near_duplicates(skill, parts)
 
 
-def _bold_definitions(text: str, prefix: str) -> bool:
+def _toc(chapter: Chapter) -> dict[RuleId, Entry]:
+    """The chapter's contents entries, by the ID each lists."""
+    contents = chapter.typed.contents
+    return {e.id: e for e in contents.entries} if contents is not None else {}
+
+
+def _said(part: Iterable[Block]) -> str:
+    """What a labelled part says, on one line, its label left out."""
+    return " ".join(text_of(part).split()[1:])
+
+
+def _bold_definitions(chapter: Chapter, prefix: str) -> bool:
     """Does a paragraph open with a bold rule ID, defining a rule there?
 
     A bold ID inside a paragraph is a citation, wherever filling happens
     to break its line.
     """
-    bold = re.compile(rf"\*\*{prefix}-[A-Z]+-\d+\*\*")
     return any(
-        isinstance(block, Paragraph) and bold.match(block.text)
-        for block in Doc.parse(text).blocks
+        isinstance(block, Paragraph) and _opens_bold_id(block.text, prefix)
+        for block in chapter.doc.blocks
     )
+
+
+def _opens_bold_id(text: str, prefix: str) -> bool:
+    """Does `text` open with an ID of this standard set in bold?"""
+    inner, bold, _ = text.removeprefix("**").partition("**")
+    rid = RuleId.try_parse(inner) if text.startswith("**") and bold else None
+    return rid is not None and rid.standard == prefix
 
 
 #: How a rule states what an `[M!]` relaxes to: one label, in the
 #: statement, so a reader meets the relaxed reading before the reason.
-#: Its two words may sit on two lines, as any two words of a paragraph
-#: may.
+#: It may open a paragraph or sit inside one, so it is looked for in
+#: the text of each block.
 RELAXED = "*Relaxed form:*"
 _RELAXED = re.compile(r"\*{1,2}Relaxed\s+form:?\*{1,2}:?")
 
 
-def _rule(chapter: Chapter, rule: Rule) -> Iterator[Finding]:
+def _rule(chapter: Chapter, rule: Rule, toc: dict[RuleId, Entry]) -> Iterator[Finding]:
     """One rule against its contents line, its tier and its parts."""
-    where = rule.where
-    toc = chapter.toc.get(rule.id)
-    if toc is None:
+    where = chapter.where(rule.line)
+    entry = toc.get(rule.id)
+    if entry is None:
         yield fail(
             f"{rule.id} missing from the chapter contents", where, CONTENTS_MISSING
         )
-    elif toc[0] != rule.tier:
+    elif entry.tier != rule.tier:
         yield fail(f"{rule.id} contents tier != heading tier", where, CONTENTS_TIER)
-    elif toc[1] != rule.title:
+    elif entry.title != rule.title:
         yield fail(f"{rule.id} contents title != heading title", where, CONTENTS_TITLE)
 
-    relaxed = _RELAXED.search(rule.body)
-    if relaxed is None:
-        if rule.tier == "M!":
+    yield from _relaxed(rule, where)
+    yield from _shape(rule, where)
+
+    if rule.why and rule.check:
+        a, c = shingles(text_of(rule.statement)), shingles(_said(rule.why))
+        if overlap(a, c) > RESTATES:
+            yield fail(f"{rule.id} Why merely restates the rule", where, RESTATES_RULE)
+
+
+def _relaxed(rule: Rule, where: Location) -> Iterator[Finding]:
+    """An `[M!]` rule's relaxed form: stated, labelled, and first."""
+    found = next(
+        (
+            (i, m)
+            for i, block in enumerate(rule.body)
+            if (m := _RELAXED.search(text_of((block,))))
+        ),
+        None,
+    )
+    why = next(
+        (
+            i
+            for i, b in enumerate(rule.body)
+            if isinstance(b, Paragraph) and b.text.startswith(WHY)
+        ),
+        None,
+    )
+    if found is None:
+        if rule.tier is Tier.M_BANG:
             yield fail(f"{rule.id} is [M!] with no relaxed form", where, NO_RELAXED)
-    elif (label := " ".join(relaxed.group(0).split())) != RELAXED:
+    elif (label := " ".join(found[1].group(0).split())) != RELAXED:
         yield fail(
             f"{rule.id} labels its relaxed form `{label}`; the label is `{RELAXED}`",
             where,
             RELAXED_LABEL,
         )
-    elif relaxed.start() > rule.body.find("**Why") >= 0:
+    elif why is not None and found[0] >= why:
         yield fail(
             f"{rule.id}'s relaxed form follows its Why; it is part of the "
             "statement, so it comes first",
@@ -204,39 +270,34 @@ def _rule(chapter: Chapter, rule: Rule) -> Iterator[Finding]:
             RELAXED_ORDER,
         )
 
-    yield from _shape(rule)
-
-    if rule.why and rule.check:
-        a, c = shingles(rule.statement), shingles(rule.why)
-        if overlap(a, c) > RESTATES:
-            yield fail(f"{rule.id} Why merely restates the rule", where, RESTATES_RULE)
-
 
 def _contents_order(skill: Skill) -> Iterator[Finding]:
     """The contents list keeps the chapter's order, or it is no map."""
     for chapter in skill.chapters:
-        if list(chapter.toc) and list(chapter.toc) != [r.id for r in chapter.rules]:
+        listed = list(_toc(chapter))
+        if listed and listed != [r.id for r in chapter.typed.rules]:
             yield fail(
                 "contents order != heading order", chapter.where(), CONTENTS_ORDER
             )
 
 
-def _unique_titles(skill: Skill, titles: dict[str, list[str]]) -> Iterator[Finding]:
+def _unique_titles(skill: Skill, titles: dict[str, list[RuleId]]) -> Iterator[Finding]:
     """A title is an anchor, so it has to be unique.
 
     `titles[title] = rid` silently kept whichever chapter sorted last.
     """
     for title, ids in sorted(titles.items()):
         if len(ids) > 1:
+            named = ", ".join(str(rid) for rid in ids)
             yield fail(
-                f"{len(ids)} rules share the title {title!r} ({', '.join(ids)}); "
+                f"{len(ids)} rules share the title {title!r} ({named}); "
                 f"a title is an anchor and must be unique",
                 skill.at(),
                 SHARED_TITLE,
             )
 
 
-def _shape(rule: Rule) -> Iterator[Finding]:
+def _shape(rule: Rule, where: Location) -> Iterator[Finding]:
     """A rule states its own Why and Check.
 
     A rule that only names the rule owning its topic is a second place
@@ -244,15 +305,30 @@ def _shape(rule: Rule) -> Iterator[Finding]:
     chapter, then kept a two-row copy of that chapter's table whose rows
     were already in it. Such a rule merges into its owner.
     """
-    has = ("**Why" in rule.body, "**Check" in rule.body)
-    if not all(has):
-        which = "Why" if not has[0] else "Check"
-        yield fail(f"{rule.id} states no {which}", rule.where, UNSTATED)
+    if not (rule.why and rule.check):
+        which = "Why" if not rule.why else "Check"
+        yield fail(f"{rule.id} states no {which}", where, UNSTATED)
 
 
-#: Words that carry no signal when matching a summary to the rule it
-#: cites.
-_ID = re.compile(r"`references/[^`]+`|\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b")
+def _citation(prefix: str) -> re.Pattern[str]:
+    """A core rule's citation: a chapter, then the IDs it holds.
+
+    `` `references/api.md` RS-API-15, RS-API-16 ``. Matched in the
+    rule's text, which the document model keeps whole.
+    """
+    one = rule_id(prefix)
+    return re.compile(
+        rf"`references/([a-z0-9-]+\.md)` ((?:{one})(?:,? (?:and )?{one})*)"
+    )
+
+
+def _unnamed(text: str) -> str:
+    """`text` without the chapters and rules it cites.
+
+    A citation carries no signal when matching a summary to the rule it
+    cites.
+    """
+    return uncited(re.sub(r"`references/[^`]+`", "", text))
 
 
 def _words(text: str) -> set[str]:
@@ -278,45 +354,42 @@ def _mis_cited(skill: Skill) -> Iterator[Finding]:
     failure: the metric is text, and two of its five hits over three
     skills were coincidence.
     """
-    by_file: dict[str, list[Rule]] = {}
-    for rule in skill.rules:
-        by_file.setdefault(rule.file, []).append(rule)
+    by_file = {c.name: c.typed.rules for c in skill.chapters}
+    by_id = {r.id: r for r in skill.chapter_rules}
     pre = skill.prefix
-    cite = re.compile(
-        rf"`references/([a-z0-9-]+\.md)` ((?:{pre}-[A-Z]+-\d+[a-z]?)"
-        rf"(?:,? (?:and )?{pre}-[A-Z]+-\d+[a-z]?)*)"
-    )
-    for rid, _tier, body in skill.core_rules:
-        flat = " ".join(body.split())
+    cite = _citation(pre)
+    for core in skill.core:
+        flat = " ".join(text_of(core.body).split())
         cites = cite.findall(flat)
-        named = {
-            t for _, ids in cites for t in re.findall(rf"{pre}-[A-Z]+-\d+[a-z]?", ids)
-        }
-        summary = _words(_ID.sub("", flat))
+        named = {t for _, ids in cites for t in cited(ids, pre)}
+        summary = _words(_unnamed(flat))
         for fname, ids in cites:
-            for target in re.findall(rf"{pre}-[A-Z]+-\d+[a-z]?", ids):
-                rule = skill.by_id.get(target)
+            for target in cited(ids, pre):
+                rule = by_id.get(target)
                 if rule is None:
                     continue
-                mine = overlap(summary, _words(f"{rule.title} {rule.statement}"))
-                for other in by_file.get(fname, []):
+                mine = overlap(summary, _words(_summary(rule)))
+                for other in by_file.get(fname, ()):
                     if other.id in named:
                         continue
-                    theirs = overlap(
-                        summary, _words(f"{other.title} {other.statement}")
-                    )
+                    theirs = overlap(summary, _words(_summary(other)))
                     if theirs > mine * 2 and theirs - mine > CLOSER_BY:
                         yield note(
-                            f"{rid} cites {target} ({rule.title!r}) but {other.id} "
-                            f"({other.title!r}) is a closer match",
+                            f"{core.id} cites {target} ({rule.title!r}) but "
+                            f"{other.id} ({other.title!r}) is a closer match",
                             skill.at(),
                             MIS_CITED,
                         )
 
 
-def _references(skill: Skill, seen: dict[str, str]) -> Iterator[Finding]:
+def _summary(rule: Rule) -> str:
+    """A chapter rule's title and statement: what a summary restates."""
+    return f"{rule.title} {text_of(rule.statement)}"
+
+
+def _references(skill: Skill, seen: dict[RuleId, str]) -> Iterator[Finding]:
     """Every cited id resolves, in the chapter the citation names."""
-    yield from _dangling(skill, seen)
+    yield from _dangling(skill)
     home = dict(seen.items())
     yield from _paths(skill, home)
     yield from _core_citations(skill, home)
@@ -325,104 +398,113 @@ def _references(skill: Skill, seen: dict[str, str]) -> Iterator[Finding]:
 #: A rule ID followed by a bare number that leans on it: `ZS-ASSERT-03,
 #: -07 and -20`, or the range `ZS-MEM-19..23`. `renumber` rewrites whole
 #: IDs only, so the bare ones kept their old numbers and named other
-#: rules.
+#: rules. Matched in a block's text, which the document model keeps
+#: whole.
 _ABBREVIATED = re.compile(
-    r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?"
-    rf"(?:(?:,\s*|\s+(?:and|or)\s+|\s*/\s*)-\d+[a-z]?\b|(?:\.\.|{DASH})\d+[a-z]?\b)+"
+    rf"\b{rule_id()}"
+    rf"(?:(?:,\s*|\s+(?:and|or)\s+|\s*/\s*)-{NUMBER}\b|(?:\.\.|{DASH}){NUMBER}\b)+"
 )
 
 
 def _abbreviated(skill: Skill) -> Iterator[Finding]:
-    """Every cited ID is written whole, for a renumbering to follow."""
-    for path in skill.markdown:
-        text = without_renames(path.read_text())
-        for m in _ABBREVIATED.finditer(text):
-            line = text[: m.start()].count("\n") + 1
-            yield fail(
-                f"`{m.group(0)}` abbreviates rule IDs, which a renumbering cannot "
-                "follow; write each in full",
-                skill.at(path, line),
-                ABBREVIATED,
-            )
+    """Every cited ID is written whole, for a renumbering to follow.
 
-
-def _dangling(skill: Skill, seen: dict[str, str]) -> Iterator[Finding]:
-    """An id cited anywhere in the skill names a rule it defines."""
-    pre = skill.prefix
-    defined = set(seen) | {rid for rid, _, _ in skill.core_rules}
-    cited: set[str] = set()
-    for path in skill.markdown:
-        text = without_renames(path.read_text())
-        cited |= set(re.findall(rf"\b({pre}-[A-Z]+-\d+[a-z]?)\b", text))
-    for rid in sorted(cited - defined):
-        yield fail(f"dangling reference {rid}", skill.at(), DANGLING)
-
-
-def _paths(skill: Skill, home: dict[str, str]) -> Iterator[Finding]:
-    """A named file exists, and a chapter cited for an id holds it.
-
-    A citation may break across lines, as filling breaks any paragraph,
-    but never across a blank line, which ends the paragraph.
+    A line is counted in its block as printed, which is the file's own
+    line in every file `layout` passes.
     """
-    pre = skill.prefix
-    cited = re.compile(
-        rf"`references/([a-z0-9-]+\.md)`(?:[^`\n]|\n(?![ \t]*\n)){{0,40}}?"
-        rf"({pre}-[A-Z]+-\d+[a-z]?)"
-    )
-    for path in skill.markdown:
-        text = path.read_text()
-        for ref in re.findall(r"`((?:references|assets)/[A-Za-z0-9._-]+)`", text):
-            if not (skill.root / ref).exists():
-                yield fail(f"missing file {ref}", skill.at(path), MISSING_FILE)
-        for m in cited.finditer(text):
-            actual = home.get(m.group(2))
-            if actual is not None and actual != m.group(1):
-                line = text.count("\n", 0, m.start()) + 1
+    for path, doc in skill.docs.items():
+        for block in citing(doc):
+            text = text_of((block,))
+            for m in _ABBREVIATED.finditer(text):
                 yield fail(
-                    f"says {m.group(1)} for {m.group(2)}, which lives in {actual}",
-                    skill.at(path, line),
-                    WRONG_CHAPTER,
+                    f"`{m.group(0)}` abbreviates rule IDs, which a renumbering "
+                    "cannot follow; write each in full",
+                    skill.at(path, block.line + text.count("\n", 0, m.start())),
+                    ABBREVIATED,
                 )
 
 
-def _core_citations(skill: Skill, home: dict[str, str]) -> Iterator[Finding]:
+def _dangling(skill: Skill) -> Iterator[Finding]:
+    """An id cited anywhere in the skill names a rule it defines."""
+    named = {
+        rid
+        for doc in skill.docs.values()
+        for block in citing(doc)
+        for rid in cited(text_of((block,)), skill.prefix)
+    }
+    for rid in sorted(named - skill.ids):
+        yield fail(f"dangling reference {rid}", skill.at(), DANGLING)
+
+
+def _paths(skill: Skill, home: dict[RuleId, str]) -> Iterator[Finding]:
+    """A named file exists, and a chapter cited for an id holds it.
+
+    A citation may break across lines, as filling breaks any paragraph,
+    but never across a blank line, which ends the paragraph. Its line is
+    counted as `_abbreviated` counts one.
+    """
+    near = re.compile(
+        rf"`references/([a-z0-9-]+\.md)`(?:[^`\n]|\n(?![ \t]*\n)){{0,40}}?"
+        rf"({rule_id(skill.prefix)})"
+    )
+    for path, doc in skill.docs.items():
+        texts = [(block.line, text_of((block,))) for block in doc.blocks]
+        for _, text in texts:
+            for ref in re.findall(r"`((?:references|assets)/[A-Za-z0-9._-]+)`", text):
+                if not (skill.root / ref).exists():
+                    yield fail(f"missing file {ref}", skill.at(path), MISSING_FILE)
+        for line, text in texts:
+            for m in near.finditer(text):
+                actual = home.get(RuleId.parse(m.group(2)))
+                if actual is not None and actual != m.group(1):
+                    yield fail(
+                        f"says {m.group(1)} for {m.group(2)}, which lives in {actual}",
+                        skill.at(path, line + text.count("\n", 0, m.start())),
+                        WRONG_CHAPTER,
+                    )
+
+
+def _core_citations(skill: Skill, home: dict[RuleId, str]) -> Iterator[Finding]:
     """A core rule cites the chapter rule that states it in full.
 
     A core rule is a summary; the reader who wants the full statement
     needs to be told where it lives.
     """
     pre = skill.prefix
-    for rid, _tier, body in skill.core_rules:
-        flat = " ".join(body.split())
-        cites = re.findall(
-            rf"`references/([a-z0-9-]+\.md)` ((?:{pre}-[A-Z]+-\d+[a-z]?)"
-            rf"(?:,? (?:and )?{pre}-[A-Z]+-\d+[a-z]?)*)",
-            flat,
-        )
+    cite = _citation(pre)
+    for core in skill.core:
+        cites = cite.findall(" ".join(text_of(core.body).split()))
         if not cites:
-            yield fail(f"{rid} cites no chapter rule", skill.at(), CORE_UNCITED)
+            yield fail(f"{core.id} cites no chapter rule", skill.at(), CORE_UNCITED)
             continue
         for fname, ids in cites:
-            for target in re.findall(rf"{pre}-[A-Z]+-\d+[a-z]?", ids):
+            for target in cited(ids, pre):
                 if target not in home:
                     yield fail(
-                        f"{rid} cites {target}, which is not a rule",
+                        f"{core.id} cites {target}, which is not a rule",
                         skill.at(),
                         CORE_NOT_A_RULE,
                     )
                 elif home[target] != fname:
                     yield fail(
-                        f"{rid} cites {fname} for {target}, which is in {home[target]}",
+                        f"{core.id} cites {fname} for {target}, "
+                        f"which is in {home[target]}",
                         skill.at(),
                         CORE_WRONG_CHAPTER,
                     )
 
 
+#: The section of `SKILL.md` that maps each family to its chapter.
+MAP = "6. Reference map"
+
+
 def _counts(skill: Skill) -> Iterator[Finding]:
     """The reference map's counts, per family and in total, are true."""
     pre = skill.prefix
-    total = len(skill.rules)
-    per = [int(n) for n in re.findall(rf"`{pre}-[A-Z]+` \((\d+)\)", skill.text)]
+    total = len(skill.chapter_rules)
+    section = next((s for s in skill.typed.sections if s.title == MAP), None)
+    text = "\n".join(_prose(section.lead)) if section is not None else ""
+    per = [int(n) for n in re.findall(rf"`{pre}-[A-Z]+` \((\d+)\)", text)]
     if sum(per) != total:
         yield fail(
             f"reference-map counts sum to {sum(per)}, actual {total}",
@@ -430,8 +512,8 @@ def _counts(skill: Skill) -> Iterator[Finding]:
             MAP_TOTAL,
         )
 
-    stated = dict(re.findall(rf"`{pre}-([A-Z]+)` \((\d+)\)", skill.text))
-    actual = Counter(r.id.split("-")[1] for r in skill.rules)
+    stated = dict(re.findall(rf"`{pre}-([A-Z]+)` \((\d+)\)", text))
+    actual = Counter(r.id.family for r in skill.chapter_rules)
     for family in sorted(set(stated) | set(actual)):
         want = int(stated[family]) if family in stated else None
         got = actual.get(family)
@@ -440,7 +522,7 @@ def _counts(skill: Skill) -> Iterator[Finding]:
                 f"{pre}-{family} stated {want}, actual {got}", skill.at(), MAP_FAMILY
             )
 
-    here = re.search(r"the other (\d+) live here", skill.text)
+    here = re.search(r"the other (\d+) live here", text)
     if here and int(here.group(1)) != total:
         yield fail(
             f"'other {here.group(1)} live here' != {total}", skill.at(), MAP_HERE
@@ -448,10 +530,10 @@ def _counts(skill: Skill) -> Iterator[Finding]:
 
 
 def _near_duplicates(
-    skill: Skill, blocks: dict[tuple[str, str], str]
+    skill: Skill, parts: dict[tuple[RuleId, str], str]
 ) -> Iterator[Finding]:
     """No two rules share a Why or a Check, and no junk is shipped."""
-    shingled = {k: shingles(v) for k, v in blocks.items() if len(v) > SHORT_SECTION}
+    shingled = {k: shingles(v) for k, v in parts.items() if len(v) > SHORT_SECTION}
     for (k1, a), (k2, b) in itertools.combinations(shingled.items(), 2):
         if k1[1] == k2[1] and overlap(a, b) > NEAR_DUPLICATE:
             yield fail(
@@ -470,14 +552,10 @@ def _near_duplicates(
 WHY_LINES = 3
 
 
-#: A fenced example, which a version may sit in as content: a manifest's
-#: `rust-version`, a reproduction on an older release.
-_FENCED = re.compile(r"^[ \t]*```.*?^[ \t]*```[^\n]*$", re.MULTILINE | re.DOTALL)
-
-#: An inline code span, which is content for the same reason: `"1.2"`
-#: as a caret requirement, `from_secs_f32(0.5)` as a literal. A span may
-#: wrap onto the next line of its paragraph, never past a blank one.
-_SPAN = re.compile(r"(`+)(?:[^`\n]|\n(?![ \t]*\n))*?\1")
+#: An inline code span, which is content rather than prose: `"1.2"` as
+#: a caret requirement, `from_secs_f32(0.5)` as a literal. Filling keeps
+#: a span on one line.
+_SPAN = re.compile(r"(`+)[^`\n]*?\1")
 
 
 def release_token(major: str) -> re.Pattern[str]:
@@ -490,6 +568,26 @@ def release_token(major: str) -> re.Pattern[str]:
     marks a quantity, never a release: `~0.3 ns`.
     """
     return re.compile(rf"(?<![\d.~]){major}\.([1-9]\d*)(?!\w)")
+
+
+def _prose(blocks: Iterable[Block]) -> Iterator[str]:
+    """The running text of `blocks`, every example left out.
+
+    A fenced example is content rather than prose, wherever it sits: a
+    manifest's `rust-version`, a reproduction on an older release.
+    """
+    for block in blocks:
+        match block:
+            case Paragraph() | Heading():
+                yield block.text
+            case Table(header, _, rows):
+                yield from (cell for row in (header, *rows) for cell in row)
+            case ListBlock(items):
+                yield from (s for item in items for s in _prose(item.blocks))
+            case Quote(inner):
+                yield from _prose(inner)
+            case Fence() | Divider():
+                pass
 
 
 def _below_target(skill: Skill) -> Iterator[Finding]:
@@ -506,24 +604,25 @@ def _below_target(skill: Skill) -> Iterator[Finding]:
     major, target = pin.group(1), int(pin.group(2))
     token = release_token(major)
     rules = [
-        (rule.id, f"{rule.title}\n{rule.body}", rule.where)
+        (rule, chapter.where(rule.line))
         for chapter in skill.chapters
         if chapter.path.stem != "migration"
-        for rule in chapter.rules
+        for rule in chapter.typed.rules
     ]
-    rules += [(rid, body, skill.at(SKILL_MD)) for rid, _, body in skill.core_rules]
-    for rid, body, where in rules:
+    rules += [(core, skill.at(SKILL_MD)) for core in skill.core]
+    for rule, where in rules:
+        prose = "\n".join([rule.title, *_prose(rule.body)])
         older = sorted(
             {
                 m.group(0)
-                for m in token.finditer(_SPAN.sub(" ", _FENCED.sub("", body)))
+                for m in token.finditer(_SPAN.sub(" ", prose))
                 if int(m.group(1)) < target
             },
             key=lambda v: int(v.split(".")[1]),
         )
         if older:
             yield fail(
-                f"{rid} names {', '.join(older)}, below its target "
+                f"{rule.id} names {', '.join(older)}, below its target "
                 f"{major}.{target}: a rule speaks of its target, and the "
                 "migration chapter keeps the history",
                 where,
@@ -543,25 +642,24 @@ def structural(skill: Skill) -> Iterator[Finding]:
     yield from _below_target(skill)
     for chapter in skill.chapters:
         numbers: dict[str, list[Rule]] = defaultdict(list)
-        for rule in chapter.rules:
-            numbers[rule.id.split("-")[1]].append(rule)
-            lines = [ln for ln in rule.why.strip().split("\n") if ln.strip()]
+        for rule in chapter.typed.rules:
+            numbers[rule.id.family].append(rule)
+            lines = [ln for b in rule.why for ln in printed(b) if ln.strip()]
             if len(lines) > WHY_LINES:
                 yield fail(
                     f"{rule.id}'s Why runs {len(lines)} lines; "
                     f"the limit is {WHY_LINES}",
-                    rule.where,
+                    chapter.where(rule.line),
                     WHY_LENGTH,
                 )
-        for family, rules in numbers.items():
+        for rules in numbers.values():
             for i, rule in enumerate(rules, 1):
-                number = rule.id.split("-")[2]
-                if number != f"{i:02d}":
+                rid = rule.id
+                if (rid.number, rid.suffix) != (i, ""):
                     yield fail(
-                        f"{skill.prefix}-{family}-{number} should be "
-                        f"{skill.prefix}-{family}-{i:02d}: numbers run 01, 02, "
-                        "… with no gap and no suffix",
-                        rule.where,
+                        f"{rid} should be {RuleId(rid.standard, rid.family, i)}: "
+                        "numbers run 01, 02, … with no gap and no suffix",
+                        chapter.where(rule.line),
                         NUMBERING,
                     )
                     break

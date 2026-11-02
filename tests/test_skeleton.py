@@ -7,7 +7,7 @@ lazy from pathlib import Path
 
 import pytest
 
-from agent_skill.checks.anatomy import structural
+from agent_skill.checks.anatomy import anatomy, structural
 from agent_skill.checks.skeleton import skeleton
 from structure_fixture import build, edit, reparse
 lazy from agent_skill.model import Skill
@@ -53,6 +53,20 @@ def test_a_chapter_named_outside_the_vocabulary(demo: Skill) -> None:
 def test_a_rule_carrying_another_chapters_code(demo: Skill) -> None:
     broken = edit(demo, "references/errors.md", "### DS-ERR-02", "### DS-TEST-02")
     assert any("whose family is `ERR`" in m for m in messages(broken))
+
+
+def test_a_chapter_that_does_not_read_as_one(demo: Skill) -> None:
+    broken = edit(
+        demo, "references/errors.md", "---\n\n## Errors", "---\n\nStray.\n\n## Errors"
+    )
+    (errors,) = (c for c in broken.chapters if c.name == "errors.md")
+    assert errors.refused is not None
+    assert errors.typed.rules == ()
+    refused = "line 12: a block before the first `##` section"
+    assert [m for m in messages(broken) if "does not read" in m] == [
+        f"`errors.md` does not read as a chapter: {refused}"
+    ]
+    assert list(anatomy.each(broken))
 
 
 def test_a_missing_migration_chapter(demo: Skill) -> None:

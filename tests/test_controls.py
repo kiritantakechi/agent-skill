@@ -116,8 +116,11 @@ BRANCHES = {
     "a gap in a chapter's numbering": ("agent_skill.checks.anatomy", "structural"),
     "a Why that runs to a fourth line": ("agent_skill.checks.anatomy", "structural"),
     "a rule with no Why": ("agent_skill.checks.anatomy", "_shape"),
-    "a relaxed form labelled some other way": ("agent_skill.checks.anatomy", "_rule"),
-    "a relaxed form placed after its Why": ("agent_skill.checks.anatomy", "_rule"),
+    "a relaxed form labelled some other way": (
+        "agent_skill.checks.anatomy",
+        "_relaxed",
+    ),
+    "a relaxed form placed after its Why": ("agent_skill.checks.anatomy", "_relaxed"),
     "a rule naming a release older than its target": (
         "agent_skill.checks.anatomy",
         "_below_target",

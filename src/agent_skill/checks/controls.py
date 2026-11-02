@@ -294,6 +294,16 @@ STRUCTURE: list[Control] = [
         lambda t: append(t, f"{PY}/references/testing.md", MISFILED),
     ),
     Control(
+        # A block between the contents and the first section belongs to
+        # no section, so the chapter layer refuses the file, and every
+        # check reads it as a chapter with no rules.
+        "a chapter that does not read as one",
+        "skeleton",
+        lambda t: edit(
+            t, f"{PY}/references/testing.md", "\n---\n\n## ", "\n---\n\nStray.\n\n## "
+        ),
+    ),
+    Control(
         "a severity label the shared model does not have",
         "skeleton",
         lambda t: edit(
@@ -352,13 +362,16 @@ STRUCTURE: list[Control] = [
         ),
     ),
     Control(
+        # Words, not a line break: a Why is measured as filled, so a
+        # break inside it adds no line.
         "a Why that runs to a fourth line",
         "anatomy",
         lambda t: edit(
             t,
             f"{PY}/references/api.md",
             "**Why:** without it the public surface is",
-            "**Why:** one line more.\nwithout it the public surface is",
+            "**Why:** one sentence more, long enough that no filling of this "
+            "paragraph keeps it to three lines. Without it the public surface is",
         ),
     ),
     Control(

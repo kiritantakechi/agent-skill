@@ -7,7 +7,7 @@ one is shown right on the corpus before any check moves onto it.
 
 import pytest
 
-from agent_skill.doc import Doc, Fence, ListBlock, Quote, printed
+from agent_skill.doc import Doc, Fence, Heading, ListBlock, Quote, Table, printed
 from agent_skill.doc.chapter import (
     Chapter,
     Demoted,
@@ -15,6 +15,7 @@ from agent_skill.doc.chapter import (
     Rule,
     SkillMd,
     _becomes,
+    citing,
 )
 from agent_skill.ids import RuleId, Tier
 lazy from agent_skill.doc import Block
@@ -82,18 +83,6 @@ def test_each_rule_is_found_on_the_line_the_old_layer_gives(
             assert [r.line for r in _read(chapter.text).rules] == old, chapter.name
 
 
-def test_the_contents_lists_the_entries_the_old_layer_reads(
-    skills: list[Skill],
-) -> None:
-    for skill in skills:
-        for chapter in skill.chapters:
-            contents = _read(chapter.text).contents
-            entries = contents.entries if contents else ()
-            new = {str(e.id): (e.tier.value, e.title) for e in entries}
-            assert new == chapter.toc, f"{skill.name}/{chapter.name}"
-            assert len(entries) == len(new)
-
-
 def test_the_tool_table_has_the_rows_the_old_layer_reads(
     skills: list[Skill],
 ) -> None:
@@ -120,16 +109,18 @@ def test_each_rename_table_states_what_the_old_layer_reads(
                     for a, b in new.ranges
                 ] == list(old.ranges)
                 assert [str(r) for r in new.originals] == old.originals
+                assert new.unread == ()
                 for was, now in zip(old.rows, new.rows, strict=True):
                     assert str(now.before) == was.before
                     match now.now:
                         case RuleId():
-                            assert str(now.now) == was.target
+                            assert f"`{now.now}`" == was.now
                         case Demoted(tool, lint):
-                            assert (tool, lint) == was.lint
+                            assert f"lint `{tool}:{lint}`" == was.now
                         case Removed(reason):
-                            assert reason == was.removed
+                            assert f"removed — {reason}" == " ".join(was.now.split())
                     rows += 1
+                assert [str(r) for r in new.unchanged] == old.unchanged
     assert rows > 1000
 
 
@@ -151,12 +142,11 @@ def test_a_core_rule_and_a_chapter_rule_are_one_type(skills: list[Skill]) -> Non
     assert RuleId.parse("ZS-CORE-12a") in {r.id for r in core}
 
 
-def test_why_and_check_say_what_the_old_layer_reads(skills: list[Skill]) -> None:
+def test_the_check_says_what_the_old_layer_reads(skills: list[Skill]) -> None:
     for skill in skills:
         for chapter in skill.chapters:
             new = _read(chapter.text).rules
             for old, rule in zip(chapter.rules, new, strict=True):
-                assert _prose(rule.why)[1:] == _unquoted(old.why), old.id
                 assert _prose(rule.check)[1:] == _unquoted(old.check), old.id
 
 
@@ -264,6 +254,12 @@ def test_a_block_outside_every_section_is_refused() -> None:
         _read(text)
 
 
+def test_a_rule_before_every_section_is_refused() -> None:
+    text = CHAPTER.replace("Scope: what", "### XS-OUT-09 [M] Early\n\nScope: what")
+    with pytest.raises(ValueError, match="a rule before the first `##` section"):
+        _read(text)
+
+
 def test_a_contents_section_without_its_rule_is_refused() -> None:
     with pytest.raises(ValueError, match="one list, then a `---` rule"):
         _read(CHAPTER.replace("---\n\n## Format", "## Format", 1))
@@ -284,6 +280,73 @@ def test_a_rename_row_says_what_the_old_id_became(
     assert _becomes(cell) == becomes
 
 
-def test_a_rename_row_that_says_nothing_known_is_refused() -> None:
-    with pytest.raises(ValueError, match="not an ID, a lint row or a removal"):
-        _becomes("see above")
+def test_a_rename_row_that_says_nothing_known_reads_as_nothing() -> None:
+    assert _becomes("see above") is None
+
+
+RENAMED = """## Rule IDs before the Demo 1.2 revision
+
+Before the revision the family ran `XS-OUT-01`\u2013`XS-OUT-04`.
+
+| Before | Now |
+|---|---|
+| `XS-OUT-02` | `XS-OUT-01` |
+| `XS-OUT-03` | see above |
+| `XS-OUT` | removed — merged |
+"""
+
+
+def test_a_rename_row_it_cannot_read_is_kept_as_written() -> None:
+    (table,) = _read(CHAPTER + "\n" + RENAMED).renames
+    assert [(str(r.before), r.now) for r in table.rows] == [
+        ("XS-OUT-02", RuleId.parse("XS-OUT-01"))
+    ]
+    assert table.unread == (
+        ("`XS-OUT-03`", "see above"),
+        ("`XS-OUT`", "removed — merged"),
+    )
+    # A row names its old ID, read or not: the rest are unchanged.
+    assert [str(r) for r in table.unchanged] == ["XS-OUT-01", "XS-OUT-04"]
+
+
+def test_a_tool_row_is_found_on_its_line() -> None:
+    (row,) = _read(CHAPTER).tools
+    assert CHAPTER.splitlines()[row.line - 1].startswith("| `clippy` |")
+
+
+def test_only_the_rename_tables_section_cites_nothing() -> None:
+    doc = Doc.parse(CHAPTER + "\n" + RENAMED + "\n## After\n\nXS-OUT-01 again.\n")
+    kept = list(citing(doc))
+    assert Heading(2, "Format") in kept
+    assert Heading(2, "After") in kept
+    assert Heading(2, "Rule IDs before the Demo 1.2 revision") not in kept
+    assert not any(isinstance(b, Table) and b.header[0] == "Before" for b in kept)
+
+
+SKILL_MD = """# Delta Style — 1.2
+
+## 2. Delta 1.2 reality check
+
+| Other rule | What applies instead | Why |
+|---|---|---|
+| `RS-API-15` Keep every struct field private | `XS-OUT-01` — public | Reasons. |
+| Not an ID | `XS-OUT-01` | Skipped. |
+
+## 4. Core rules
+
+- **XS-CORE-01 `[M!]`** Say it. *Relaxed form:* less.
+- **XS-CORE-02 `[X]`** Not a tier, so not a rule.
+"""
+
+
+def test_an_override_row_names_both_rules_and_quotes_a_title() -> None:
+    (row,) = SkillMd.read(Doc.parse(SKILL_MD)).overrides
+    assert row.theirs == RuleId.parse("RS-API-15")
+    assert row.quoted == "Keep every struct field private"
+    assert row.ours == RuleId.parse("XS-OUT-01")
+
+
+def test_a_core_item_with_no_tier_is_no_rule() -> None:
+    (core,) = SkillMd.read(Doc.parse(SKILL_MD)).core_rules
+    assert (core.id, core.tier) == (RuleId.parse("XS-CORE-01"), Tier.M_BANG)
+    assert _prose(core.body)[:2] == ["Say", "it."]

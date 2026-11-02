@@ -21,6 +21,7 @@ from pathlib import Path
 lazy from collections.abc import Callable, Iterable, Iterator, Mapping
 
 from agent_skill.checks import check, per_skill
+from agent_skill.doc import text_of
 from agent_skill.ids import Branch
 from agent_skill.lang.python import PYTHON_STYLE
 from agent_skill.lang.zig import force_analysis
@@ -28,8 +29,9 @@ from agent_skill.proc import have, run
 from agent_skill.report import fail, unrun
 from agent_skill.text import group
 lazy from agent_skill.checks.lints import CARGO, table
+lazy from agent_skill.doc.chapter import LintRow
 lazy from agent_skill.ids import Location
-lazy from agent_skill.model import LintRow, Skill
+lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
 
 #: `PS-CONC-02` and `3.15` are not ruff codes; `ANN401` and `B008` are.
@@ -164,6 +166,19 @@ def _catalogue() -> dict[str, str] | None:
     }
 
 
+#: A row of a chapter's `Decided by tools` table, and where it is.
+type Row = tuple[Location, LintRow]
+
+
+def rows_of(skill: Skill) -> list[Row]:
+    """Every `Decided by tools` row, chapter by chapter, where it is."""
+    return [
+        (chapter.where(row.line), row)
+        for chapter in skill.chapters
+        for row in chapter.typed.tools
+    ]
+
+
 #: The levels a `Decided by tools` row may state, per tool: the ones at
 #: which the tool fails a run. A row at a level that lets the run pass
 #: is a lint nothing enforces, which is a rule with its Why and Check
@@ -179,30 +194,30 @@ LEVELS: dict[str, frozenset[str]] = {
 }
 
 
-def row_shape(rows: Iterable[LintRow], tools: tuple[str, ...]) -> Iterator[Finding]:
+def row_shape(rows: Iterable[Row], tools: tuple[str, ...]) -> Iterator[Finding]:
     """Each row whose tool or level enforces nothing.
 
     Such a row names a tool the standard does not require, or a level at
     which the tool would let the run pass.
     """
-    for row in rows:
+    for where, row in rows:
         if row.tool not in tools or row.tool not in LEVELS:
             yield fail(
                 f"`{row.tool}` is not a tool this standard requires",
-                row.where,
+                where,
                 ROW_TOOL,
             )
         elif row.level not in LEVELS[row.tool]:
             levels = " / ".join(sorted(LEVELS[row.tool]))
             yield fail(
                 f"`{row.lint}` at `{row.level}` fails no run; a row is one of {levels}",
-                row.where,
+                where,
                 ROW_LEVEL,
             )
 
 
 def python_rows(
-    rows: Iterable[LintRow], enabled: set[str], ty_levels: dict[str, str]
+    rows: Iterable[Row], enabled: set[str], ty_levels: dict[str, str]
 ) -> Iterator[Finding]:
     """Each python row not enforced as the row states.
 
@@ -210,11 +225,11 @@ def python_rows(
     every rule ty knows, at the level the asset leaves it — its own
     entry, or the default.
     """
-    for row in rows:
+    for where, row in rows:
         if row.tool == "ruff" and row.lint not in enabled:
             yield fail(
                 f"`{row.lint}` is a row, and `{RUFF_TOML}` does not enable it",
-                row.where,
+                where,
                 RUFF_ROW_DISABLED,
             )
         elif row.tool == "ty":
@@ -222,14 +237,14 @@ def python_rows(
             if level is None:
                 yield fail(
                     f"`{row.lint}` is not a rule the pinned ty recognises",
-                    row.where,
+                    where,
                     TY_ROW_UNKNOWN,
                 )
             elif level != row.level:
                 yield fail(
                     f"`{row.lint}` is `{row.level}` in the row "
                     f"and `{level}` as shipped",
-                    row.where,
+                    where,
                     TY_ROW_LEVEL,
                 )
 
@@ -239,7 +254,7 @@ SECTION = {"rustc": "rust", "clippy": "clippy", "rustdoc": "rustdoc"}
 
 
 def rust_rows(
-    rows: Iterable[LintRow],
+    rows: Iterable[Row],
     shipped: dict[str, str],
     catalogue: dict[str, tuple[str, set[str]]],
 ) -> Iterator[Finding]:
@@ -253,7 +268,7 @@ def rust_rows(
     entry of a group it belongs to, else its default — the order Cargo
     applies them in, given the groups' `priority = -1`.
     """
-    for row in rows:
+    for where, row in rows:
         section = SECTION.get(row.tool)
         if section is None:
             continue
@@ -261,7 +276,7 @@ def rust_rows(
         if key not in catalogue:
             yield fail(
                 f"`{row.lint}` is not a {row.tool} lint the pinned toolchain knows",
-                row.where,
+                where,
                 RUST_UNKNOWN_LINT,
             )
             continue
@@ -277,7 +292,7 @@ def rust_rows(
         if level != row.level:
             yield fail(
                 f"`{row.lint}` is `{row.level}` in the row and `{level}` as shipped",
-                row.where,
+                where,
                 RUST_LEVEL,
             )
 
@@ -347,7 +362,7 @@ def _key(name: str) -> str:
 @per_skill
 def citations(skill: Skill) -> Iterator[Finding]:
     """Every lint row and cited code, against the shipped config."""
-    yield from row_shape(skill.lint_rows, skill.profile.tools)
+    yield from row_shape(rows_of(skill), skill.profile.tools)
     if skill.profile.toolchain == "rust":
         yield from _rust(skill)
     if skill.profile.toolchain == "zig":
@@ -405,7 +420,7 @@ def _python(skill: Skill, ruff_toml: Path, ty_toml: Path) -> Iterator[Finding]:
             TY_RULES_UNREAD,
         )
         ty_levels = {}
-    yield from python_rows(skill.lint_rows, enabled, ty_levels)
+    yield from python_rows(rows_of(skill), enabled, ty_levels)
 
     catalogue = _catalogue()
     if catalogue is None:
@@ -418,7 +433,10 @@ def _python(skill: Skill, ruff_toml: Path, ty_toml: Path) -> Iterator[Finding]:
     # A rule's own body is where it cites its checks; the `**Check:**`
     # section is part of it. Core rules in SKILL.md point at the chapter
     # that owns them, so they carry no citation of their own.
-    cited = {rule.id: _codes_in(rule.body, catalogue) for rule in skill.rules}
+    cited = {
+        rule.id: _codes_in(text_of(rule.body), catalogue)
+        for rule in skill.chapter_rules
+    }
     for rule_id, codes in sorted(cited.items()):
         for code in sorted(codes):
             if code not in catalogue:
@@ -482,7 +500,7 @@ def _rust(skill: Skill) -> Iterator[Finding]:
                 RUST_TOOL_ABSENT,
             )
             return
-    rows = [row for row in skill.lint_rows if row.tool in SECTION]
+    rows = [(where, row) for where, row in rows_of(skill) if row.tool in SECTION]
     manifest = skill.root / CARGO
     if not rows:
         return
@@ -519,7 +537,7 @@ def phrase(lint: str) -> re.Pattern[str]:
 
 
 def zig_rows(
-    rows: Iterable[LintRow],
+    rows: Iterable[Row],
     probes: Mapping[str, str],
     compile_errors: Callable[[str], list[str] | None],
     profile: Location,
@@ -531,13 +549,13 @@ def zig_rows(
     skill's profile, so one with no row is reported at `profile`.
     """
     rows = list(rows)
-    cited = {row.lint for row in rows}
-    for row in rows:
+    cited = {row.lint for _, row in rows}
+    for where, row in rows:
         source = probes.get(row.lint)
         if source is None:
             yield fail(
                 f"`{row.lint}` has no probe, so nothing shows the compiler reports it",
-                row.where,
+                where,
                 ZIG_NO_PROBE,
             )
             continue
@@ -545,14 +563,14 @@ def zig_rows(
         if errors is None:
             yield fail(
                 f"`{row.lint}`: its probe compiles, so the compiler does not report it",
-                row.where,
+                where,
                 ZIG_PROBE_COMPILES,
             )
         elif not any(phrase(row.lint).search(line) for line in errors):
             printed = errors[0] if errors else "no error line"
             yield fail(
                 f"`{row.lint}`: its probe fails with `{printed}` instead",
-                row.where,
+                where,
                 ZIG_PROBE_OTHER,
             )
     for lint in sorted(set(probes) - cited):
@@ -584,5 +602,5 @@ def _zig(skill: Skill) -> Iterator[Finding]:
             ZIG_ABSENT,
         )
         return
-    rows = [row for row in skill.lint_rows if row.tool == "zig"]
+    rows = [(where, row) for where, row in rows_of(skill) if row.tool == "zig"]
     yield from zig_rows(rows, skill.profile.probes, _compile_zig, skill.at())

@@ -15,18 +15,21 @@ review order. The words of the shared passages belong to `shared-text`.
 """
 
 import re
-lazy from collections.abc import Iterator
+lazy from collections.abc import Iterable, Iterator
 
 from agent_skill import shared, vocabulary
 from agent_skill.checks import check, per_skill
-from agent_skill.ids import Branch
+from agent_skill.doc import ListBlock, Paragraph, Table, printed
+from agent_skill.doc.chapter import CONTENTS, Demoted, Removed
+from agent_skill.ids import Branch, RuleId
 from agent_skill.model import SKILL_MD
 from agent_skill.report import fail
-lazy from agent_skill.model import Skill
+lazy from agent_skill.doc.chapter import Section
+lazy from agent_skill.model import Chapter, Skill
 lazy from agent_skill.report import Finding
 
 #: The reference map's columns, in order.
-MAP_HEADER = "| File | Rule IDs | Covers |"
+MAP_HEADER = ("File", "Rule IDs", "Covers")
 
 #: The chapter that keeps the rename tables.
 MIGRATION = "migration.md"
@@ -38,6 +41,7 @@ EXTRA_SECTION = Branch("skeleton", "extra_section")
 MAP_COLUMNS = Branch("skeleton", "map_columns")
 REVIEW_ORDER = Branch("skeleton", "review_order")
 CHAPTER_NAME = Branch("skeleton", "chapter_name")
+UNREAD = Branch("skeleton", "unread")
 FAMILY = Branch("skeleton", "family")
 REQUIRED_CHAPTER = Branch("skeleton", "required_chapter")
 REVIEW_TITLE = Branch("skeleton", "review_title")
@@ -65,41 +69,40 @@ def skeleton(skill: Skill) -> Iterator[Finding]:
 
 def _renames(skill: Skill) -> Iterator[Finding]:
     """Every rename row leads somewhere a reader can follow."""
-    rows = {(row.tool, row.lint) for row in skill.lint_rows}
-    ids = set(skill.by_id) | {rid for rid, _, _ in skill.core_rules}
+    rows = {(row.tool, row.lint) for c in skill.chapters for row in c.typed.tools}
     where = skill.at(MIGRATION)
-    for r in skill.renames:
-        if r.target == r.before:
+    for table in (t for c in skill.chapters for t in c.typed.renames):
+        for r in table.rows:
+            match r.now:
+                case RuleId() as target if target == r.before:
+                    yield fail(
+                        f"{r.before} is listed as becoming itself; "
+                        "an unchanged ID has no row",
+                        where,
+                        RENAME_SELF,
+                    )
+                case RuleId() as target if target not in skill.ids:
+                    yield fail(
+                        f"{r.before} is renamed to {target}, which no rule carries",
+                        where,
+                        RENAME_TARGET,
+                    )
+                case Demoted(tool, lint) if (tool, lint) not in rows:
+                    yield fail(
+                        f"{r.before} became the lint `{tool}:{lint}`, "
+                        "which no chapter lists",
+                        where,
+                        RENAME_LINT,
+                    )
+                case Removed(reason) if not reason:
+                    yield fail(
+                        f"{r.before} was removed and the table gives no reason",
+                        where,
+                        RENAME_REASON,
+                    )
+        for before, now in table.unread:
             yield fail(
-                f"{r.before} is listed as becoming itself; an unchanged ID has no row",
-                where,
-                RENAME_SELF,
-            )
-        elif r.target:
-            if r.target not in ids:
-                yield fail(
-                    f"{r.before} is renamed to {r.target}, which no rule carries",
-                    where,
-                    RENAME_TARGET,
-                )
-        elif lint := r.lint:
-            if lint not in rows:
-                named = f"`{lint[0]}:{lint[1]}`"
-                yield fail(
-                    f"{r.before} became the lint {named}, which no chapter lists",
-                    where,
-                    RENAME_LINT,
-                )
-        elif r.removed is not None:
-            if not r.removed:
-                yield fail(
-                    f"{r.before} was removed and the table gives no reason",
-                    where,
-                    RENAME_REASON,
-                )
-        else:
-            yield fail(
-                f"{r.before} became `{r.now}`; a rename is a rule ID, "
+                f"{before.strip('`')} became `{now}`; a rename is a rule ID, "
                 f"lint `tool:name`, or removed — reason",
                 where,
                 RENAME_SHAPE,
@@ -112,18 +115,17 @@ def _unchanged(skill: Skill) -> Iterator[Finding]:
     An ID in range without a row is still a rule: the table says that ID
     is unchanged.
     """
-    ids = set(skill.by_id) | {rid for rid, _, _ in skill.core_rules}
     where = skill.at(MIGRATION)
-    for table in skill.rename_tables:
+    for table in (t for c in skill.chapters for t in c.typed.renames):
         if not table.ranges:
             yield fail(
-                f"`{table.heading}` states no ranges, "
+                f"`## {table.heading}` states no ranges, "
                 "so an unlisted ID reads as unchanged",
                 where,
                 NO_RANGES,
             )
         for rid in table.unchanged:
-            if rid not in ids:
+            if rid not in skill.ids:
                 yield fail(
                     f"{rid} has no row, so the table says it is unchanged, "
                     "and no rule carries it",
@@ -134,12 +136,12 @@ def _unchanged(skill: Skill) -> Iterator[Finding]:
 
 def _skill_md(skill: Skill) -> Iterator[Finding]:
     """`SKILL.md`'s title, sections, reference map and review order."""
-    text = skill.text
+    md = skill.typed
     where = skill.at(SKILL_MD)
-    h1 = next((ln for ln in _outside_fences(text) if ln.startswith("# ")), "")
+    h1 = f"# {md.title}" if md.title else ""
     if h1 != (want := shared.title(skill)):
         yield fail(f"the title is `{h1}`, expected `{want}`", where, TITLE)
-    found = shared.h2s(text)
+    found = [s.title for s in md.sections]
     expected = shared.skill_sections(skill)
     for i, title in enumerate(expected):
         got = found[i] if i < len(found) else "nothing"
@@ -157,20 +159,18 @@ def _skill_md(skill: Skill) -> Iterator[Finding]:
             EXTRA_SECTION,
         )
 
-    if span := shared.section(text, "6. Reference map"):
-        table = [ln for ln in text.split("\n")[span[0] : span[1]] if ln.startswith("|")]
-        if table and shared.normal(table[0]) != MAP_HEADER:
-            yield fail(
-                f"the reference map's columns are `{table[0]}`, "
-                f"expected `{MAP_HEADER}`",
-                where,
-                MAP_COLUMNS,
-            )
+    table = next(_tables(_section(md.sections, "6. Reference map")), None)
+    if table is not None and table.header != MAP_HEADER:
+        yield fail(
+            f"the reference map's columns are `{printed(table)[0]}`, "
+            f"expected `| {' | '.join(MAP_HEADER)} |`",
+            where,
+            MAP_COLUMNS,
+        )
 
-    review = skill.root / shared.REVIEW
-    if review.is_file():
-        stages = _items(review.read_text(), "Review order")
-        listed = _items(text, "5. Review checklist")
+    if (review := _protocol(skill)) is not None:
+        stages = _items(_section(review.typed.sections, "Review order"))
+        listed = _items(_section(md.sections, "5. Review checklist"))
         if stages != listed:
             yield fail(
                 f"section 5 lists {listed} and the protocol's review order is "
@@ -181,9 +181,19 @@ def _skill_md(skill: Skill) -> Iterator[Finding]:
 
 
 def _chapters(skill: Skill) -> Iterator[Finding]:
-    """Chapters are named from the vocabulary and hold their family."""
+    """Each chapter reads as one, has a shared name, holds its family.
+
+    A chapter the chapter layer refuses reads as one with no rules, so
+    every other check passes over it; this is where the run fails.
+    """
     stems = {c.path.stem for c in skill.chapters}
     for chapter in skill.chapters:
+        if chapter.refused is not None:
+            yield fail(
+                f"`{chapter.name}` does not read as a chapter: {chapter.refused}",
+                chapter.where(),
+                UNREAD,
+            )
         stem = chapter.path.stem
         if not vocabulary.allowed(stem):
             yield fail(
@@ -193,11 +203,11 @@ def _chapters(skill: Skill) -> Iterator[Finding]:
             )
             continue
         code = vocabulary.code_for(stem)
-        for rule in chapter.rules:
-            if rule.id.split("-")[1] != code:
+        for rule in chapter.typed.rules:
+            if rule.id.family != code:
                 yield fail(
                     f"{rule.id} lives in `{chapter.name}`, whose family is `{code}`",
-                    rule.where,
+                    chapter.where(rule.line),
                     FAMILY,
                 )
     for stem in vocabulary.REQUIRED:
@@ -211,26 +221,27 @@ def _chapters(skill: Skill) -> Iterator[Finding]:
 
 def _review(skill: Skill) -> Iterator[Finding]:
     """The review protocol's title, sections and severity model."""
-    path = skill.root / shared.REVIEW
-    if not path.is_file():
+    if (review := _protocol(skill)) is None:
         return
-    text = path.read_text()
+    protocol = review.typed
     where = skill.at(shared.REVIEW)
-    h1 = next((ln for ln in _outside_fences(text) if ln.startswith("# ")), "")
+    h1 = f"# {protocol.title}" if protocol.title else ""
     if h1 != "# Review protocol":
         yield fail(
             f"the review protocol's title is `{h1}`, expected `# Review protocol`",
             where,
             REVIEW_TITLE,
         )
-    if (found := tuple(shared.h2s(text))) != shared.REVIEW_SECTIONS:
+    contents = (CONTENTS,) if protocol.contents is not None else ()
+    found = (*contents, *(s.title for s in protocol.sections))
+    if found != shared.REVIEW_SECTIONS:
         expected = list(shared.REVIEW_SECTIONS)
         yield fail(
             f"the protocol's sections are {list(found)}, expected {expected}",
             where,
             REVIEW_SECTIONS,
         )
-    rows = _severity_rows(text)
+    rows = _severity_rows(_section(protocol.sections, "Severity model"))
     if rows != list(shared.SEVERITIES):
         yield fail(
             "the severity model is "
@@ -242,33 +253,45 @@ def _review(skill: Skill) -> Iterator[Finding]:
         )
 
 
-def _severity_rows(text: str) -> list[tuple[str, str]]:
-    span = shared.section(text, "Severity model")
-    if span is None:
-        return []
+def _protocol(skill: Skill) -> Chapter | None:
+    """The skill's review protocol, if it ships one."""
+    path = skill.root / shared.REVIEW
+    return next((c for c in skill.chapters if c.path == path), None)
+
+
+def _section(sections: Iterable[Section], title: str) -> Section | None:
+    """The section titled `title`, if there is one."""
+    return next((s for s in sections if s.title == title), None)
+
+
+def _tables(section: Section | None) -> Iterator[Table]:
+    """Each table a section holds before its first rule."""
+    if section is not None:
+        yield from (b for b in section.lead if isinstance(b, Table))
+
+
+def _severity_rows(section: Section | None) -> list[tuple[str, str]]:
+    """Each severity a table states: its bold label, and its meaning."""
     return [
-        (m.group(1), m.group(2).strip())
-        for line in text.split("\n")[span[0] : span[1]]
-        if (m := re.match(r"^\| \*\*(\w+)\*\* \| ([^|]+) \|", line))
+        (m.group(1), row[1])
+        for table in _tables(section)
+        for row in table.rows
+        if len(row) > 1 and (m := re.fullmatch(r"\*\*(\w+)\*\*", row[0]))
     ]
 
 
-def _items(text: str, heading: str) -> list[str]:
+def _items(section: Section | None) -> list[str]:
     """The bold titles of a section's numbered items.
 
     `1. **Soundness.**` -> `Soundness.`.
     """
-    span = shared.section(text, heading)
-    if span is None:
+    if section is None:
         return []
-    lines = text.split("\n")[span[0] : span[1]]
-    return [m.group(1) for ln in lines if (m := re.match(r"^\d+\. \*\*(.+?)\*\*", ln))]
-
-
-def _outside_fences(text: str) -> Iterator[str]:
-    fenced = False
-    for line in text.split("\n"):
-        if line.startswith("```"):
-            fenced = not fenced
-        elif not fenced:
-            yield line
+    return [
+        m.group(1)
+        for block in section.lead
+        if isinstance(block, ListBlock) and block.start is not None
+        for item in block.items
+        if item.blocks and isinstance(lead := item.blocks[0], Paragraph)
+        if (m := re.match(r"\*\*(.+?)\*\*", lead.text))
+    ]

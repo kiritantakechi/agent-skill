@@ -26,9 +26,9 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Self, override
-lazy from collections.abc import Iterator, Sequence
+lazy from collections.abc import Iterable, Iterator, Sequence
 
-from agent_skill.ids import Tier, rule_id
+from agent_skill.ids import RuleId, Tier
 
 #: The column limit: every paragraph is filled to it, and the `layout`
 #: check reports any other line that passes it.
@@ -199,6 +199,16 @@ def canonical(text: str) -> str:
     file that is already canonical changes nothing.
     """
     return str(Doc.parse(text))
+
+
+def text_of(blocks: Iterable[Block]) -> str:
+    """The canonical text of `blocks`, a blank line between each two.
+
+    For reading what the tree keeps whole: a citation inside a
+    paragraph, a path in a table cell, a pattern in a Check. A block's
+    first line is its `line`, as it is in a canonical file.
+    """
+    return "\n\n".join("\n".join(printed(block)) for block in blocks)
 
 
 # ------------------------------------------------------------------
@@ -585,9 +595,7 @@ def _is_entry(words: tuple[str, ...]) -> bool:
     is read back truncated by anything that reads it line by line.
     """
     return (
-        len(words) > 1
-        and words[1] in _TIERS
-        and bool(re.fullmatch(rule_id(), words[0]))
+        len(words) > 1 and words[1] in _TIERS and RuleId.try_parse(words[0]) is not None
     )
 
 
