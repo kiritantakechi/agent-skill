@@ -86,8 +86,10 @@ read each call site this one finds — the spelling did not change, and its mean
 rg -n 'containsAtLeastScalar\(|@hasDecl\(' # 0.17: (element, minimum); pub declarations only
 ```
 
-A spelling 0.17 removed needs no grep: `zig build check` in the mechanical pass rejects it, and the
-diagnostic names its row in `references/migration.md`.
+A spelling 0.17 removed needs no grep wherever a build analyses it: `zig build check` and the
+per-target builds of the mechanical pass reject it, and the name in the diagnostic is a row in
+`references/migration.md`. Code no build analyses — a function nothing references, a branch for a
+target you do not build — keeps one silently; the patterns of ZS-MIG-12 find those.
 
 ### Discipline greps
 

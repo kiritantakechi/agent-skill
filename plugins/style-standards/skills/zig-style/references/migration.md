@@ -806,30 +806,28 @@ wired — is `references/build.md` ZS-BUILD-01. Do not reconstruct it from this 
 Low-frequency but each one dates a diff. Deviating is only defensible while mid-migration.
 
 The `alias` rows 0.17 still accepts — `pipeToFileSystem`, `PipeOptions`, `utf8Decode`, `wtf8Decode`,
-`std.debug.runtime_safety` — already fail the build under ZS-MIG-13's `[M!]` denylist, while 0.17
-itself rejects the rows that were aliases in 0.16 (`bufPrintZ`, `initEmpty()`, `initFull()`,
-`std.meta.Int`, `std.meta.Tuple`). `std.math.sign` is the sharpest row and is not an alias at all:
-its return type changed, so old call sites keep compiling and produce a different value. Beyond the
-shared mechanism each row is its own small story, and the row's right-hand column is the whole
-answer.
+`std.debug.runtime_safety`, `copyForwards`, `copyBackwards` — are on ZS-MIG-13's `[M!]` denylist,
+while 0.17 itself rejects the rows that were aliases in 0.16 (`bufPrintZ`, `initEmpty()`,
+`initFull()`, `std.meta.Int`, `std.meta.Tuple`). `std.math.sign` is the sharpest row and is not an
+alias at all: its return type changed, so old call sites keep compiling and produce a different
+value. Beyond the shared mechanism each row is its own small story, and the row's right-hand column
+is the whole answer.
 
-**Why:** the tier is `[M]` for the same reason ZS-MIG-05 is: the `alias` rows **compile silently**,
-so nothing but this rule catches them, and a rule cannot own a spelling at `[S]` while another rule
-fails CI on it.
+**Why:** an old spelling here is worse than dated: `std.debug.runtime_safety` builds and reports
+std's optimize mode rather than yours, `utf8Decode` is deprecated as too easy to misuse,
+`std.math.sign` now returns a different type, and the rest are gone or deprecated.
 
 **Check:** four patterns, because one line of alternation is unreadable —
 `rg -n 'bufPrintZ|std\.meta\.(Int|Tuple|declList)|initEmpty\(\)|initFull\(\)' src/` and
 `rg -n 'pipeToFileSystem|PipeOptions|std\.rand\.|CrossTarget|StackIterator' src/` and
 `rg -n 'captureStackTrace|dumpStackTraceFromBase|walkStackWindows' src/` and
-`rg -n 'wtf8Decode\b|utf8Decode\b|std\.debug\.runtime_safety' src/`
-— each hit is a row above; `utf8Decode2` and its siblings are live, which is why the
-boundary is there. The same names spelled out: `bufPrintZ`, `std.meta.Int`,
-`std.meta.Tuple`, `std.meta.declList`,
-`initEmpty()`, `initFull()`, `pipeToFileSystem`, `PipeOptions`, `std.rand.`, `CrossTarget`,
-`captureStackTrace`, `dumpStackTraceFromBase`, `walkStackWindows`, `StackIterator`, `utf8Decode`,
-`wtf8Decode`, and `std.debug.runtime_safety` — each is a row above. `std.math.sign` deserves a
-second look rather than a grep: its return type changed, so every call site that stores or compares
-its result needs re-reading.
+`rg -n 'wtf8Decode\b|utf8Decode\b|std\.debug\.runtime_safety|copy(Forwards|Backwards)\b' src/`
+— each hit is a row above. An `alias` hit builds anywhere; a `gone` one survives a passing build
+only where that build never analysed it — a function nothing references, or a `builtin.os.tag`
+branch for a target you do not compile, which is where `walkStackWindows` would be.
+`utf8Decode2` and its siblings are live, which is why the boundary is there. `std.math.sign`
+deserves a second look rather than a grep: its return type changed, so every call site that stores
+or compares its result needs re-reading.
 
 | Old | 0.17.0 | Status |
 |---|---|---|
@@ -1023,7 +1021,7 @@ commit, not the second.
 rg -n --type zig \
   -e '\bmem\.(indexOf|lastIndexOf)|ArrayListUnmanaged|ArrayListAligned' \
   -e 'array_list\.(Aligned)?Managed|(ArrayHashMap|AutoArrayHashMap|StringArrayHashMap)Unmanaged' \
-  -e 'std\.fs\.(path|max_|base64_)' \
+  -e 'std\.fs\.(path|max_|base64_)|copy(Forwards|Backwards)\b' \
   -e 'pipeToFileSystem|tar\.PipeOptions|(utf8|wtf8)Decode\(|^pub fn panic\(' \
   -e 'std\.builtin\b|builtin"?\)?\.(mode|cpu|os|abi|object_format)\b|debug\.runtime_safety' \
   -e 'OptimizeMode|\.(Debug|ReleaseSafe|ReleaseFast|ReleaseSmall)\b' \
