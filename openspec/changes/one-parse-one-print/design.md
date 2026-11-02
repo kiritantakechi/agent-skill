@@ -90,6 +90,7 @@ and not another is how the rename-table defect arose.
 ```python
 type Check = Callable[[Tree], Iterable[Finding]]
 
+
 @dataclass(frozen=True, slots=True)
 class Finding:
     level: Level
@@ -129,9 +130,9 @@ parametrisation call the same function; there is one runner.
 
 ```python
 class Toolchain(Protocol):
-    def extract(self, skill: Skill) -> Extraction: ...       # units carry their source Block
+    def extract(self, skill: Skill) -> Extraction: ...  # units carry their source Block
     def restore(self, ex: Extraction) -> Mapping[Block, str]: ...
-    def steps(self, unit: Unit) -> Sequence[Step]: ...        # compile, test, format
+    def steps(self, unit: Unit) -> Sequence[Step]: ...  # compile, test, format
     def mutants(self, unit: Unit) -> Iterable[Mutant]: ...
 ```
 
