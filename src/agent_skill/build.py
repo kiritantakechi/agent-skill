@@ -2,11 +2,29 @@
 
 import zipfile
 from dataclasses import dataclass
+from fnmatch import fnmatch
 from pathlib import Path
 
 lazy from agent_skill.model import Skill
 
-EXCLUDE = {".DS_Store", "__pycache__", ".git", ".zig-cache", "zig-out"}
+#: What a package leaves out, as globs matched against each part of a
+#: path below the skill: what `.gitignore` keeps out of the repository,
+#: and `.git` and `.DS_Store` besides. It stopped at five names while
+#: `.gitignore` kept caches and bytecode out, so a skill that a tool had
+#: run in shipped its `.ruff_cache`.
+EXCLUDE = (
+    ".DS_Store",
+    ".git",
+    "__pycache__",
+    "*.py[cod]",
+    ".venv",
+    ".pytest_cache",
+    ".ruff_cache",
+    "dist",
+    ".cache",
+    ".zig-cache",
+    "zig-out",
+)
 
 HOME = Path.home()
 
@@ -55,16 +73,19 @@ TARGETS: tuple[Target, ...] = (
 def package(skill: Skill, out_dir: Path) -> Path:
     """Zip the skill directory into `<name>.skill`.
 
-    The archive is rooted at the skill name.
+    The archive is rooted at the skill name. Only the path below the
+    skill is matched against `EXCLUDE`: matched whole, a checkout under
+    a directory named `dist` would have packaged nothing.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     target = out_dir / f"{skill.name}.skill"
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as z:
         for path in sorted(skill.root.rglob("*")):
-            if any(part in EXCLUDE for part in path.parts):
+            inside = path.relative_to(skill.root)
+            if any(fnmatch(part, glob) for part in inside.parts for glob in EXCLUDE):
                 continue
             if path.is_file():
-                z.write(path, Path(skill.name) / path.relative_to(skill.root))
+                z.write(path, Path(skill.name) / inside)
     return target
 
 
@@ -77,13 +98,16 @@ def install(skill: Skill, target: Target) -> tuple[Path, str]:
     whole apparatus exists to prevent.
 
     An existing real directory is moved aside rather than deleted, and
-    never overwritten twice.
+    never overwritten twice. The link holds the skill's absolute path: a
+    relative `--skills` made a link that resolved against the agent's
+    skills directory, and pointed at nothing.
     """
     target.skills.mkdir(parents=True, exist_ok=True)
     link = target.skills / skill.name
+    source = skill.root.resolve()
 
     if link.is_symlink():
-        if link.readlink() == skill.root:
+        if link.readlink() == source:
             return link, "already linked"
         link.unlink()
     elif link.exists():
@@ -99,8 +123,8 @@ def install(skill: Skill, target: Target) -> tuple[Path, str]:
             )
         aside.parent.mkdir(parents=True, exist_ok=True)
         link.rename(aside)
-        link.symlink_to(skill.root)
+        link.symlink_to(source)
         return link, f"linked; the copy that was here moved to {aside}"
 
-    link.symlink_to(skill.root)
+    link.symlink_to(source)
     return link, "linked"

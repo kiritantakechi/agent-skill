@@ -138,8 +138,15 @@ def test_a_demotion_composes_with_the_table_it_finds(repo: Path) -> None:
     }
 
 
+def resolve(repo: Path, rid: str) -> None:
+    """Do what a person does with a citation a demotion left behind."""
+    skill_md = repo / SKILLS / "demo-style/SKILL.md"
+    skill_md.write_text(skill_md.read_text().replace(f"{rid} wraps.", "It wraps."))
+
+
 def test_demote_then_renumber_closes_the_gap(repo: Path) -> None:
     run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
+    resolve(repo, "DS-ERR-02")
     renumber.apply(repo, renumber.plan(repo, "demo-style", {}, Demo()))
     demo = skill(repo)
     assert [r.id for r in demo.rules] == ["DS-ERR-01", "DS-ERR-02", "DS-MIG-01"]
@@ -148,6 +155,39 @@ def test_demote_then_renumber_closes_the_gap(repo: Path) -> None:
     assert {r.before: r.now for r in table.rows} == {
         "DS-ERR-02": "removed — said nothing",
         "DS-ERR-03": "`DS-ERR-02`",
+    }
+
+
+def test_renumber_will_not_give_a_citation_left_behind_to_another_rule(
+    repo: Path,
+) -> None:
+    """SKILL.md still cites DS-ERR-02, which DS-ERR-03 would become."""
+    run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
+    before = snapshot(repo)
+    with pytest.raises(renumber.RenumberError, match=r"DS-ERR-02, cited in .*SKILL"):
+        renumber.apply(repo, renumber.plan(repo, "demo-style", {}, Demo()))
+    assert snapshot(repo) == before
+
+
+def test_a_merge_into_an_inserted_rule_follows_it_through_the_renumbering(
+    repo: Path,
+) -> None:
+    """DS-ERR-02a is a rule added mid-revision, between -02 and -03."""
+    errors = repo / SKILLS / "demo-style/references/errors.md"
+    inserted = RULE.format(id="DS-ERR-02a", title="Chain them")
+    errors.write_text(
+        errors.read_text()
+        .replace("  - DS-ERR-03", "  - DS-ERR-02a [M] Chain them\n  - DS-ERR-03")
+        .replace("## Catching\n", f"{inserted}\n## Catching\n")
+    )
+    run(repo, {"DS-ERR-01": {"merge": "DS-ERR-02a"}})
+    renumber.apply(repo, renumber.plan(repo, "demo-style", {}, Demo()))
+    demo = skill(repo)
+    assert demo.by_id["DS-ERR-02"].title == "Chain them"
+    (table,) = demo.rename_tables
+    assert {r.before: r.now for r in table.rows} == {
+        "DS-ERR-01": "`DS-ERR-02`",
+        "DS-ERR-02": "`DS-ERR-01`",
     }
 
 
@@ -196,6 +236,63 @@ def test_demote_then_renumber_leaves_a_conforming_skill_conforming(
     assert [r.id for r in after.rules] == ["DS-ERR-01", "DS-MIG-01"]
     assert list(shared.compare(after)) == []
     assert [m for m, _ in [*shape(after), *structural(after)]] == []
+
+
+#: DS-ERR-02, with an example holding a line that reads like a section.
+FENCED = """### DS-ERR-02 [M] Wrap them
+
+Wrap them.
+
+```markdown
+## Not a section
+```
+
+**Why:** one line of reason.
+
+**Check:** read it.
+"""
+
+
+@pytest.fixture
+def fenced(repo: Path) -> Path:
+    errors = repo / SKILLS / "demo-style/references/errors.md"
+    errors.write_text(
+        ERRORS.replace(RULE.format(id="DS-ERR-02", title="Wrap them"), FENCED)
+    )
+    return errors
+
+
+def test_a_heading_inside_an_example_does_not_end_the_rule(fenced: Path) -> None:
+    rule = Skill(fenced.parents[1], Demo()).by_id["DS-ERR-02"]
+    assert rule.body.rstrip("\n").endswith("**Check:** read it.")
+
+
+def test_demoting_a_rule_takes_its_whole_example_with_it(
+    repo: Path, fenced: Path
+) -> None:
+    before = skill(repo).by_id["DS-ERR-01"].body
+    run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
+    errors = fenced.read_text()
+    assert "Not a section" not in errors
+    assert "```" not in errors
+    assert errors.count("**Why:**") == 2
+    assert skill(repo).by_id["DS-ERR-01"].body == before
+
+
+@pytest.mark.parametrize("lead", ["", f"\n{demote.LEAD}\n"])
+def test_rows_go_under_a_decided_by_tools_heading_with_no_table(
+    repo: Path, lead: str
+) -> None:
+    errors = repo / SKILLS / "demo-style/references/errors.md"
+    errors.write_text(
+        ERRORS.replace("## Catching", f"## Decided by tools\n{lead}\n## Catching")
+    )
+    run(repo, {"DS-ERR-02": {"rows": [ROW]}})
+    (row,) = skill(repo).lint_rows
+    assert (row.tool, row.lint) == ("clippy", "unwrap_used")
+    text = errors.read_text()
+    assert text.count(demote.LEAD) == 1
+    assert "\n\n\n" not in text
 
 
 def test_a_compiler_row_opens_its_table_with_the_compiler_lead(repo: Path) -> None:

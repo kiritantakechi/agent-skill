@@ -9,6 +9,7 @@ import pytest
 
 from agent_skill.model import (
     Marker,
+    Rename,
     Skill,
     inside_tests,
     needs_c_object,
@@ -35,6 +36,12 @@ def test_marker_grammar(raw: str, kind: str, verdict: str, *, bad: bool) -> None
     assert m.kind == kind
     assert m.verdict == verdict
     assert m.bad is bad
+
+
+@pytest.mark.parametrize("rid", ["DS-DATA-17", "DS-DATA-17a", "DS-CORE-12b"])
+def test_a_rename_row_reads_every_rule_id_as_its_target(rid: str) -> None:
+    """Every other rule-ID pattern took the letter; this one did not."""
+    assert Rename("DS-DATA-16", f"`{rid}`", 0).target == rid
 
 
 def test_bad_in_a_qualifier_is_not_a_verdict() -> None:

@@ -6,6 +6,7 @@ from agent_skill import shared
 from agent_skill.fmt import INJECTED, _bodies, format_skill
 from agent_skill.lang.rust import BEVY_STYLE, RUST_STYLE
 from agent_skill.profiles import _REGISTRY, profile_for
+from agent_skill.report import Level
 from structure_fixture import build, edit
 
 
@@ -114,7 +115,9 @@ def test_text_outside_a_free_region_is_left_for_a_person(tmp_path: Path) -> None
     )
     assert any("no place for" in m for m, _ in shared.compare(stray))
     before = stray.skill_md.read_text()
-    assert any("not rewritten" in line for line in shared.rewrite(stray))
+    (left,) = shared.rewrite(stray)
+    assert left.level is Level.FAIL
+    assert "not rewritten" in left.message
     assert stray.skill_md.read_text() == before
 
 

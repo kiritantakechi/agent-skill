@@ -76,6 +76,9 @@ def plan(
     chapters = dict(chapters or {})
     skills_dir = repo / SKILLS
     skill = Skill(skills_dir / name, profile)
+    if not skill.skill_md.is_file():
+        msg = f"there is no skill called {name}"
+        raise RenumberError(msg)
     prefix = skill.prefix
     stems = {c.path.stem for c in skill.chapters}
 
@@ -115,26 +118,62 @@ def plan(
     renamed_stems = {old: new for old, new in chapters.items() if old != new}
     cites = _Citations(name, prefix, ids, family_map, renamed_stems)
 
+    dangling = _rewrite_corpus(repo, skill, cites, plan)
+    _counts(skill, chapters, plan)
+    _compose(skill, plan)
+    _refuse_reuse(dangling, ids)
+    _verify(repo, skill, plan)
+    return plan
+
+
+def _rewrite_corpus(
+    repo: Path, skill: Skill, cites: _Citations, plan: Plan
+) -> dict[str, list[Path]]:
+    """Rewrite every file a citation can live in, into `plan`.
+
+    Returns each rule ID cited that the skill does not define, with the
+    files that cite it.
+    """
     profile_file = (
-        repo / "src" / "agent_skill" / "profiles" / f"{name.replace('-', '_')}.py"
+        repo / "src" / "agent_skill" / "profiles" / f"{skill.name.replace('-', '_')}.py"
     )
+    dangling: dict[str, list[Path]] = {}
     for path in _corpus(repo):
         text = path.read_text()
         own = skill.root in path.parents or path == profile_file
         # Another skill naming `references/x.md` means its own chapter;
         # only code and prose outside the skills can name this one's
         # without saying so.
-        outside = skills_dir not in path.parents
-        new, leftovers = _rewrite(text, path, cites, own=own, outside=outside)
+        outside = repo / SKILLS not in path.parents
+        new, leftovers, unknown = _rewrite(text, path, cites, own=own, outside=outside)
         plan.leftovers += leftovers
-        target = moves.get(path, path)
+        for rid in unknown:
+            dangling.setdefault(rid, []).append(path.relative_to(repo))
+        target = plan.moves.get(path, path)
         if new != text or target != path:
             plan.writes[target] = new
+    return dangling
 
-    _counts(skill, chapters, plan)
-    _compose(skill, plan)
-    _verify(repo, skill, plan)
-    return plan
+
+def _refuse_reuse(dangling: dict[str, list[Path]], ids: dict[str, str]) -> None:
+    """Stop when a citation of no rule would become a citation of one.
+
+    A demotion leaves its citations behind for a person to resolve, and
+    dense numbering then hands the freed ID to the next rule down: the
+    citation is left as it was and silently cites that rule, and nothing
+    afterwards can tell it from a correct one.
+    """
+    owner = {new: old for old, new in ids.items()}
+    reused = [
+        f"{rid}, cited in {', '.join(map(str, dangling[rid]))}, names no rule, "
+        f"and would name the rule that is {owner[rid]} now"
+        for rid in sorted(dangling.keys() & owner.keys())
+    ]
+    if reused:
+        raise RenumberError(
+            "resolve these citations first; renumbering would give each ID to "
+            "another rule:\n  " + "\n  ".join(reused)
+        )
 
 
 def _counts(skill: Skill, chapters: dict[str, str], plan: Plan) -> None:
@@ -222,14 +261,14 @@ class _Citations:
         A rule ID the skill does not define is left as it was, and added
         to `unknown` unless it is a core rule's.
         """
-        pattern = re.compile(rf"\b{self.prefix}-([A-Z]+)(?:-(\d+[a-z]?))?\b")
+        pattern = re.compile(rf"\b{self.prefix}-([A-Z]+)(?:-({vocabulary.NUMBER}))?\b")
 
         def swap(m: re.Match[str]) -> str:
             whole, code, number = m.group(0), m.group(1), m.group(2)
             if number is not None:
                 if whole in self.ids:
                     return self.ids[whole]
-                if code != "CORE":
+                if code != vocabulary.CORE:
                     unknown.add(whole)
                 return whole
             if code in self.families:
@@ -259,14 +298,15 @@ class _Citations:
 
 def _rewrite(
     text: str, path: Path, cites: _Citations, *, own: bool, outside: bool
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[str], set[str]]:
     """One pass over `text`, its own rename tables left as they are.
 
     Its own tables cite old IDs on purpose. Another skill's table cites
     this one's IDs only to say what replaced a rule of its own, which
     is a live citation and follows the renumbering.
 
-    Returns the rewritten text, and the lines a person should look at.
+    Returns the rewritten text, the lines a person should look at, and
+    every rule ID cited that the skill does not define.
     """
     unknown: set[str] = set()
     out: list[str] = []
@@ -289,7 +329,7 @@ def _rewrite(
             for old in cites.stems
             if re.search(rf"(?<![\w/-])references/{re.escape(old)}\.md", rewritten)
         ]
-    return rewritten, leftovers
+    return rewritten, leftovers, unknown
 
 
 def _segments(text: str) -> Iterator[tuple[str, bool]]:
@@ -312,7 +352,11 @@ def _segments(text: str) -> Iterator[tuple[str, bool]]:
 
 
 def _compose(skill: Skill, plan: Plan) -> None:
-    """Carry `migration.md`'s rename tables through this renumbering."""
+    """Carry `migration.md`'s rename tables through this renumbering.
+
+    The chapter is written only when that changes it: a run that moved
+    nothing used to report `write migration.md` over identical bytes.
+    """
     # Named as it will be: the run that renames the migration chapter
     # also writes its table.
     migration = next(
@@ -329,7 +373,11 @@ def _compose(skill: Skill, plan: Plan) -> None:
     path = plan.moves.get(migration.path, migration.path)
     text = plan.writes.get(path, migration.text)
     now = {old: f"`{new}`" for old, new in plan.ids.items()}
-    plan.writes[path] = carry(text, heading(skill), now)
+    carried = carry(text, heading(skill), now)
+    if carried != migration.text or path != migration.path:
+        plan.writes[path] = carried
+    else:
+        plan.writes.pop(path, None)
 
 
 def heading(skill: Skill) -> str:
@@ -425,8 +473,9 @@ def _ranges(ids: dict[str, str]) -> tuple[tuple[str, int, int], ...]:
     """
     numbers: dict[str, list[int]] = {}
     for rid in ids:
-        if m := re.fullmatch(r"([A-Z]{2}-[A-Z]+)-(\d+)", rid):
-            numbers.setdefault(m.group(1), []).append(int(m.group(2)))
+        family, _, number = rid.rpartition("-")
+        if number.isdigit():
+            numbers.setdefault(family, []).append(int(number))
     out: list[tuple[str, int, int]] = []
     for family, held in numbers.items():
         for n in sorted(held):
@@ -482,7 +531,7 @@ def _verify(repo: Path, skill: Skill, plan: Plan) -> None:
     title can itself cite a rule, so the title expected afterwards is
     the old one with the same rewrite applied.
     """
-    pattern = re.compile(rf"\b{skill.prefix}-([A-Z]+)(?:-(\d+[a-z]?))?\b")
+    pattern = re.compile(rf"\b{skill.prefix}-([A-Z]+)(?:-({vocabulary.NUMBER}))?\b")
 
     def retitle(title: str) -> str:
         def swap(m: re.Match[str]) -> str:

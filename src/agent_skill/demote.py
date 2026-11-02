@@ -21,8 +21,9 @@ lazy from collections.abc import Iterator
 lazy from pathlib import Path
 
 from agent_skill.layout import SKILLS
-from agent_skill.model import DECIDED, Skill
+from agent_skill.model import DECIDED, FENCE, Skill, unfenced
 from agent_skill.renumber import RenumberError, _corpus, _segments, carry, heading
+from agent_skill.vocabulary import rule_id
 lazy from agent_skill.profiles import Profile
 
 
@@ -90,7 +91,11 @@ def plan(
     that already exists; `{"merge": "ID"}`, the rule it was folded into;
     or `{"remove": "reason"}`.
     """
+    asked = entries(asked)
     skill = Skill(repo / SKILLS / name, profile)
+    if not skill.skill_md.is_file():
+        msg = f"there is no skill called {name}"
+        raise DemoteError(msg)
     dispositions = _dispositions(skill, name, asked)
     writes = _chapter_writes(skill, asked)
 
@@ -116,11 +121,70 @@ def apply(demotion: Demotion) -> None:
         path.write_text(text)
 
 
+def entries(raw: object) -> dict[str, Entry]:
+    """`raw`, a plan as `json.loads` reads it, checked for shape.
+
+    A plan maps each rule ID to an object holding one of `KINDS`, and
+    that key holds what `Entry` says it does. Anything else stops here,
+    before a rule is read: a string where an entry belongs raised
+    `AttributeError`, and an empty plan built a pattern that matched at
+    every word boundary.
+    """
+    if not isinstance(raw, dict) or not raw:
+        msg = "a plan is a JSON object naming at least one rule"
+        raise DemoteError(msg)
+    out: dict[str, Entry] = {}
+    for rid, what in raw.items():
+        one = isinstance(what, dict) and len(what) == 1
+        kind, value = next(iter(what.items())) if one else ("", "")
+        entry = _entry(kind, value) if one else None
+        if entry is None:
+            shape = _SHAPES.get(str(kind), f"say exactly one of {', '.join(KINDS)}")
+            msg = f"{rid}: {shape}"
+            raise DemoteError(msg)
+        out[str(rid)] = entry
+    return out
+
+
+#: What each kind of entry holds, said as the refusal of anything else.
+_SHAPES = {
+    "rows": "rows are [tool, lint, level, forbids], and there is one",
+    "lint": "a lint is [tool, lint]",
+    "merge": "a merge names the rule it went into",
+    "remove": "a removal needs its reason",
+}
+
+
+def _entry(kind: object, value: object) -> Entry | None:
+    """`{kind: value}` as an `Entry`, or None when it is not one."""
+    if kind == "rows" and isinstance(value, list):
+        rows = [
+            cells for row in value if (cells := _strings(row, _ROW_CELLS)) is not None
+        ]
+        if rows and len(rows) == len(value):
+            return {"rows": rows}
+    elif kind == "lint" and (lint := _strings(value, 2)) is not None:
+        return {"lint": lint}
+    elif kind == "merge" and isinstance(value, str):
+        return {"merge": value}
+    elif kind == "remove" and isinstance(value, str) and value.strip():
+        return {"remove": value}
+    return None
+
+
+def _strings(value: object, n: int) -> list[str] | None:
+    """`value` as a list of `n` strings, or None when it is not one."""
+    if not isinstance(value, list):
+        return None
+    cells = [c for c in value if isinstance(c, str)]
+    return cells if len(cells) == len(value) == n else None
+
+
 def _dispositions(skill: Skill, name: str, asked: dict[str, Entry]) -> dict[str, str]:
     """What the rename table will say each rule in `asked` became.
 
     Every entry is checked before any chapter is touched: the rule must
-    be a chapter rule, and the entry must say exactly one thing.
+    be a chapter rule, and what it becomes must be there to become.
     """
     by_id = skill.by_id
     core = {rid for rid, _, _ in skill.core_rules}
@@ -133,10 +197,7 @@ def _dispositions(skill: Skill, name: str, asked: dict[str, Entry]) -> dict[str,
         if rid not in by_id:
             msg = f"{name} has no chapter rule {rid}"
             raise DemoteError(msg)
-        if len(what) != 1 or (kind := next(iter(what))) not in KINDS:
-            msg = f"{rid}: say exactly one of {', '.join(KINDS)}"
-            raise DemoteError(msg)
-        dispositions[rid] = _disposition(rid, kind, what, kept, known)
+        dispositions[rid] = _disposition(rid, next(iter(what)), what, kept, known)
     return dispositions
 
 
@@ -163,6 +224,9 @@ def _chapter_writes(skill: Skill, asked: dict[str, Entry]) -> dict[Path, str]:
         if _headings(text) != kept:
             msg = f"{chapter.name}: the edit would lose a rule it was not asked to"
             raise DemoteError(msg)
+        if len(FENCE.findall(text)) % 2:
+            msg = f"{chapter.name}: the edit would leave an example's fence open"
+            raise DemoteError(msg)
         writes[chapter.path] = text
     return writes
 
@@ -172,13 +236,11 @@ def _disposition(
 ) -> str:
     """What the rename table says `rid` became.
 
-    A merge is into a rule this plan keeps.
+    `what` is already the shape `entries` checks. A merge is into a rule
+    this plan keeps.
     """
     if kind == "rows":
         rows = what["rows"]
-        if not rows or any(len(row) != _ROW_CELLS for row in rows):
-            msg = f"{rid}: rows are [tool, lint, level, forbids], and there is one"
-            raise DemoteError(msg)
         return f"lint `{rows[0][0]}:{rows[0][1]}`"
     if kind == "lint":
         lint = what["lint"]
@@ -192,20 +254,20 @@ def _disposition(
             msg = f"{rid}: {into} is not a rule this standard keeps"
             raise DemoteError(msg)
         return f"`{into}`"
-    reason = what["remove"]
-    if not str(reason).strip():
-        msg = f"{rid}: a removal needs its reason"
-        raise DemoteError(msg)
-    return f"removed — {reason.strip()}"
+    return f"removed — {what['remove'].strip()}"
 
 
 def _drop(text: str, rid: str) -> str:
-    """`text` without the rule `rid` and its contents line."""
-    head = re.search(rf"^### {re.escape(rid)} \[", text, re.MULTILINE)
+    """`text` without the rule `rid` and its contents line.
+
+    The rule runs to the next heading outside its examples.
+    """
+    heading = re.compile(rf"^### {re.escape(rid)} \[", re.MULTILINE)
+    head = next(unfenced(heading, text), None)
     if head is None:
         msg = f"{rid}: no heading to remove"
         raise DemoteError(msg)
-    nxt = re.compile(r"^#{2,3} ", re.MULTILINE).search(text, head.end())
+    nxt = next(unfenced(_HEADING, text, head.end()), None)
     text = text[: head.start()] + (text[nxt.start() :] if nxt else "")
     text, n = re.subn(
         rf"^[ \t]*- {re.escape(rid)} \[.*\n", "", text, count=1, flags=re.MULTILINE
@@ -216,12 +278,19 @@ def _drop(text: str, rid: str) -> str:
     return text.rstrip("\n") + "\n"
 
 
+#: A section or rule heading: where a rule ends.
+_HEADING = re.compile(r"^#{2,3} ", re.MULTILINE)
+
+#: A section with nothing left under it.
+_EMPTIED = re.compile(r"^## (?!Contents$)(.+)\n\s*(?=^## |\Z)", re.MULTILINE)
+
+
 def _prune(text: str) -> str:
     """`text` without the sections its demotions emptied.
 
     Their contents entries go with them.
     """
-    while m := re.search(r"^## (?!Contents$)(.+)\n\s*(?=^## |\Z)", text, re.MULTILINE):
+    while m := next(unfenced(_EMPTIED, text), None):
         title = m.group(1)
         text = text[: m.start()] + text[m.end() :]
         entry = rf"^- \*\*{re.escape(title)}\*\*\n(?![ \t]+- )"
@@ -232,32 +301,38 @@ def _prune(text: str) -> str:
 def _add_rows(text: str, rows: list[list[str]]) -> str:
     """`text` with `rows` in its `Decided by tools` table.
 
-    The table is started if there is none. A new table goes before the
-    rename tables, which close the migration chapter, and its contents
-    line closes the contents list.
+    The table is started if there is none — in a section of its own, or
+    under a `Decided by tools` heading that has no table yet. A new
+    section goes before the rename tables, which close the migration
+    chapter, and its contents line closes the contents list.
     """
     cells = [[c.replace("|", "\\|") for c in row] for row in rows]
     lines = [
         f"| {tool} | `{lint}` | {level} | {forbids} |"
         for tool, lint, level, forbids in cells
     ]
+    lead = COMPILER_LEAD if rows[0][0] in COMPILERS else LEAD
+    header = "| Tool | Lint | Level | Forbids |\n|---|---|---|---|\n"
     if table := re.search(rf"^## {DECIDED}\n", text, re.MULTILINE):
         nxt = re.compile(r"^## ", re.MULTILINE).search(text, table.end())
         body = text[table.end() : nxt.start() if nxt else len(text)]
         listed = set(re.findall(r"^\| (\S+) \| `([^`]+)` \|", body, re.MULTILINE))
-        lines = [
-            ln
+        new = "".join(
+            f"{ln}\n"
             for ln, row in zip(lines, rows, strict=True)
             if (row[0], row[1]) not in listed
-        ]
-        end = table.end() + list(re.finditer(r"^\|.*\n", body, re.MULTILINE))[-1].end()
-        return text[:end] + "".join(f"{ln}\n" for ln in lines) + text[end:]
+        )
+        piped = list(re.finditer(r"^\|.*\n", body, re.MULTILINE))
+        if piped:
+            end = table.end() + piped[-1].end()
+            return text[:end] + new + text[end:]
+        # A heading with no table under it: the table follows whatever
+        # the section says, or the lead when it says nothing.
+        said = text[: table.end()] + (body.rstrip("\n") or f"\n{lead}")
+        rest = text[table.end() + len(body) :]
+        return f"{said}\n\n{header}{new}" + (f"\n{rest}" if rest else "")
 
-    lead = COMPILER_LEAD if rows[0][0] in COMPILERS else LEAD
-    section = (
-        f"## {DECIDED}\n\n{lead}\n\n"
-        "| Tool | Lint | Level | Forbids |\n|---|---|---|---|\n"
-    )
+    section = f"## {DECIDED}\n\n{lead}\n\n{header}"
     section += "".join(f"{ln}\n" for ln in lines)
     renamed = re.search(r"^## Rule IDs before the .+ revision$", text, re.MULTILINE)
     if renamed:
@@ -273,10 +348,8 @@ def _add_rows(text: str, rows: list[list[str]]) -> str:
 
 def _headings(text: str) -> list[str]:
     """The rule ID of every heading in `text`, in order."""
-    found = re.findall(r"^### ([A-Z]{2}-[A-Z]+-\d+[a-z]?) \[", text, re.MULTILINE)
-    # One group, so every item is a string; the stubs cannot say so,
-    # and the filter is how the checker learns it.
-    return [rid for rid in found if isinstance(rid, str)]
+    heading = re.compile(rf"^### ({rule_id()}) \[", re.MULTILINE)
+    return [m.group(1) for m in unfenced(heading, text)]
 
 
 def _citations(repo: Path, demotion: Demotion) -> Iterator[str]:

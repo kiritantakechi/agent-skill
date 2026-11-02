@@ -135,6 +135,13 @@ def test_a_run_that_changes_nothing_starts_no_table(repo: Path) -> None:
     assert migration.read_text() == before
 
 
+def test_a_run_that_changes_nothing_writes_nothing(repo: Path) -> None:
+    run(repo, **THREADS)
+    plan = renumber.plan(repo, "demo-style", {}, Demo())
+    assert plan.changed == 0
+    assert plan.writes == {}
+
+
 def test_an_unlisted_original_gains_a_row_when_it_moves(repo: Path) -> None:
     run(repo, **THREADS)
     migration = repo / SKILLS / "demo-style/references/migration.md"
@@ -170,9 +177,11 @@ def test_an_unlisted_original_that_is_gone_stops_the_run(repo: Path) -> None:
 def test_a_second_run_composes_onto_the_first(repo: Path) -> None:
     run(repo, **THREADS)
     errors = repo / SKILLS / "demo-style/references/errors.md"
-    # A content edit: the first errors rule goes, and its row records
-    # why.
+    # A content edit: the first errors rule goes, its row records why,
+    # and the citation of it goes with it.
     errors.write_text(chapter("Errors", [("DS-ERR-02", "Wrap them")]))
+    skill_md = repo / SKILLS / "demo-style/SKILL.md"
+    skill_md.write_text(skill_md.read_text().replace("DS-ERR-01 then ", ""))
     migration = repo / SKILLS / "demo-style/references/migration.md"
     row = "| `DS-ERR-02` | `DS-ERR-01` |"
     migration.write_text(

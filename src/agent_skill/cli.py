@@ -14,7 +14,7 @@ lazy from collections.abc import Callable
 from agent_skill import build
 from agent_skill.checks import all_checks
 from agent_skill.fmt import format_skill
-from agent_skill.layout import SKILLS
+from agent_skill.layout import SKILLS, root_of
 from agent_skill.model import discover
 from agent_skill.report import Level, Result
 lazy from agent_skill import demote, renumber
@@ -22,9 +22,13 @@ lazy from agent_skill import demote, renumber
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_SKILLS = REPO / SKILLS
 
-#: What `--help` says the command is for.
+#: What `--help` says the command is for. It names every subcommand: it
+#: named three of seven, and `fmt`, `renumber` and `demote` are the ones
+#: a person needs to be told exist.
 DESCRIPTION = (
-    "`agent-skill` — check, package, and install the skills in this repository."
+    "`agent-skill` — check the skills in this repository; fmt, renumber and "
+    "demote them; build them into packages, install them into each agent, "
+    "and list them."
 )
 
 
@@ -59,15 +63,42 @@ def _emit(result: Result, *, verbose: bool, limit: int = 25) -> None:
             )
 
 
+def _unknown(flag: str, asked: list[str] | None, known: list[str]) -> str:
+    """The complaint about each name in `asked` that `known` lacks.
+
+    "" when every name is known. A name that matches nothing used to
+    select nothing, and nothing selected passes: `--only no-such-check`
+    printed ALL CHECKS PASSED.
+    """
+    missing = sorted(set(asked or ()) - set(known))
+    if not missing:
+        return ""
+    return (
+        f"{flag}: nothing is called {', '.join(missing)}; "
+        f"the names are {', '.join(sorted(known))}"
+    )
+
+
 def cmd_check(args: argparse.Namespace) -> int:
     """Run the checks, print their findings, and say whether all passed.
 
     Exit 1 when any check failed or could not run, and 2 when there is
-    nothing to check.
+    nothing to check or a name asked for matches nothing.
+
+    `--skill` narrows the checks that read one skill at a time. A
+    cross-skill check still reads every skill: given one, `crossref`
+    had no anchor to check a delta against and passed, and `plugin`
+    failed because the plugin ships four.
     """
-    skills = discover(args.skills)
-    if args.skill:
-        skills = [s for s in skills if s.name in args.skill]
+    everything = discover(args.skills)
+    checks = all_checks()
+    complaint = _unknown(
+        "--skill", args.skill, [s.name for s in everything]
+    ) or _unknown("--only", args.only, [c.name for c in checks])
+    if complaint:
+        print(complaint, file=sys.stderr)
+        return 2
+    skills = [s for s in everything if not args.skill or s.name in args.skill]
     if not skills:
         print(f"no skills under {args.skills}", file=sys.stderr)
         return 2
@@ -75,12 +106,12 @@ def cmd_check(args: argparse.Namespace) -> int:
     print(f"== {', '.join(s.name for s in skills)} ==")
     failed = False
     results: list[Result] = []
-    for c in all_checks():
+    for c in checks:
         if args.only and c.name not in args.only:
             continue
         if args.fast and c.slow:
             continue
-        result = c.run(skills, fast=args.fast)
+        result = c.run(everything if c.scope == "all" else skills, fast=args.fast)
         results.append(result)
         _emit(result, verbose=args.verbose)
         failed |= not result.ok
@@ -92,13 +123,22 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def cmd_build(args: argparse.Namespace) -> int:
-    """Package every skill as `<name>.skill`, and print each path."""
+    """Package every skill as `<name>.skill`, and print each path.
+
+    Exit 1 when any skill could not be packaged.
+    """
+    failed = False
     for skill in discover(args.skills):
-        target = build.package(skill, args.out)
+        try:
+            target = build.package(skill, args.out)
+        except OSError as e:
+            print(f"  {skill.name}: not packaged — {e}", file=sys.stderr)
+            failed = True
+            continue
         print(
             f"  {target.relative_to(REPO) if args.out.is_relative_to(REPO) else target}"
         )
-    return 0
+    return 1 if failed else 0
 
 
 def cmd_install(args: argparse.Namespace) -> int:
@@ -117,50 +157,111 @@ def cmd_install(args: argparse.Namespace) -> int:
 
 
 def cmd_fmt(args: argparse.Namespace) -> int:
-    """Format each skill in place, and print what changed."""
-    for skill in discover(args.skills):
+    """Format each skill in place, and print what changed.
+
+    Exit 1 when anything could not be rewritten — a formatter failed, or
+    a block or passage was skipped — and 2 when a `--skill` asked for is
+    not there.
+    """
+    skills = discover(args.skills)
+    if complaint := _unknown("--skill", args.skill, [s.name for s in skills]):
+        print(complaint, file=sys.stderr)
+        return 2
+    failed = False
+    for skill in skills:
         if args.skill and skill.name not in args.skill:
             continue
-        lines = format_skill(skill)
+        findings = format_skill(skill)
         print(f"  {skill.name}")
-        for line in lines or ["already formatted"]:
-            print(f"      {line}")
-    return 0
+        for finding in findings:
+            label = "FAIL  " if finding.level is Level.FAIL else ""
+            print(f"      {label}{finding}")
+        if not findings:
+            print("      already formatted")
+        failed |= any(f.level is Level.FAIL for f in findings)
+    return 1 if failed else 0
+
+
+def _chapter_rename(pair: str) -> tuple[str, str]:
+    """`OLD=NEW` as the pair it names.
+
+    Anything else is a usage error, which argparse reports.
+    """
+    old, sep, new = pair.partition("=")
+    if not (old and sep and new):
+        msg = f"{pair!r} is not OLD=NEW"
+        raise argparse.ArgumentTypeError(msg)
+    return old, new
+
+
+def _repo_for(command: str, args: argparse.Namespace) -> Path | None:
+    """The repository whose skill `args.skill` names, or None.
+
+    None, having said why, when `--skills` is not a repository's skills
+    directory or holds no such skill. A rewrite reaches the repository's
+    `src/`, `tests/` and README as well as its skills, so it needs the
+    root `--skills` sits in; it used to rewrite this checkout whatever
+    `--skills` said.
+    """
+    skills = args.skills.resolve()
+    if len(skills.parts) <= len(SKILLS.parts) or root_of(skills) / SKILLS != skills:
+        print(
+            f"{command}: {args.skills} is not a repository's `{SKILLS}`, "
+            "so there is no repository to rewrite citations in",
+            file=sys.stderr,
+        )
+        return None
+    if complaint := _unknown("skill", [args.skill], [s.name for s in discover(skills)]):
+        print(f"{command}: {complaint}", file=sys.stderr)
+        return None
+    return root_of(skills)
 
 
 def cmd_renumber(args: argparse.Namespace) -> int:
     """Print the renumbering plan, and carry it out unless `--dry-run`.
 
-    Exit 1, having written nothing, when the plan cannot be made.
+    Exit 1, having written nothing, when the plan cannot be made, and 2
+    when there is no such skill.
     """
-    chapters = dict(pair.split("=", 1) for pair in args.chapters or [])
+    repo = _repo_for("renumber", args)
+    if repo is None:
+        return 2
     try:
-        plan = renumber.plan(REPO, args.skill, chapters)
+        plan = renumber.plan(repo, args.skill, dict(args.chapters or []))
     except renumber.RenumberError as e:
         print(f"renumber: {e}", file=sys.stderr)
         print("nothing was written", file=sys.stderr)
         return 1
     for old, new in plan.moves.items():
-        print(f"  move    {old.relative_to(REPO)} -> {new.name}")
+        print(f"  move    {old.relative_to(repo)} -> {new.name}")
     print(f"  ids     {plan.changed} of {len(plan.ids)} renumbered")
     for path in sorted(plan.writes):
-        print(f"  write   {path.relative_to(REPO)}")
+        print(f"  write   {path.relative_to(repo)}")
     for line in plan.leftovers:
         print(f"  look    {line}")
     if args.dry_run:
         print("dry run: nothing was written")
         return 0
-    renumber.apply(REPO, plan)
+    renumber.apply(repo, plan)
     return 0
 
 
 def cmd_demote(args: argparse.Namespace) -> int:
     """Print the demotion plan, and carry it out unless `--dry-run`.
 
-    Exit 1, having written nothing, when the plan cannot be made.
+    Exit 1, having written nothing, when the plan cannot be made, and 2
+    when there is no such skill or the plan file is not a plan.
     """
+    repo = _repo_for("demote", args)
+    if repo is None:
+        return 2
     try:
-        demotion = demote.plan(REPO, args.skill, json.loads(args.plan.read_text()))
+        asked = demote.entries(json.loads(args.plan.read_text()))
+    except (OSError, ValueError, demote.DemoteError) as e:
+        print(f"demote: {args.plan}: {e}", file=sys.stderr)
+        return 2
+    try:
+        demotion = demote.plan(repo, args.skill, asked)
     except demote.DemoteError as e:
         print(f"demote: {e}", file=sys.stderr)
         print("nothing was written", file=sys.stderr)
@@ -168,7 +269,7 @@ def cmd_demote(args: argparse.Namespace) -> int:
     for rid, becomes in demotion.dispositions.items():
         print(f"  demote  {rid} -> {becomes}")
     for path in sorted(demotion.writes):
-        print(f"  write   {path.relative_to(REPO)}")
+        print(f"  write   {path.relative_to(repo)}")
     for line in demotion.leftovers:
         print(f"  look    {line}")
     if args.dry_run:
@@ -221,7 +322,12 @@ def main(argv: list[str] | None = None) -> int:
     check.set_defaults(func=cmd_check)
 
     pack = sub.add_parser("build", help="package each skill as <name>.skill")
-    pack.add_argument("--out", type=Path, default=REPO / "dist")
+    pack.add_argument(
+        "--out",
+        type=Path,
+        default=REPO / "dist",
+        help="directory the packages are written to (default: dist/)",
+    )
     pack.set_defaults(func=cmd_build)
 
     put = sub.add_parser(
@@ -234,9 +340,11 @@ def main(argv: list[str] | None = None) -> int:
         help="limit to one agent (repeatable); default is every one present",
     )
     put.set_defaults(func=cmd_install)
-    fmt = sub.add_parser(
-        "fmt", help="rewrite each verified example as its formatter would have it"
+    rewrites = (
+        "rewrite each verified example as its formatter would have it, each "
+        "shared passage from its template, and prose to the line limit"
     )
+    fmt = sub.add_parser("fmt", help=rewrites, description=rewrites)
     fmt.add_argument("--skill", action="append", help="limit to one skill (repeatable)")
     fmt.set_defaults(func=cmd_fmt)
     num = sub.add_parser(
@@ -247,6 +355,7 @@ def main(argv: list[str] | None = None) -> int:
     num.add_argument(
         "--chapters",
         action="append",
+        type=_chapter_rename,
         metavar="OLD=NEW",
         help="rename a chapter (repeatable)",
     )
@@ -271,6 +380,9 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv, namespace=_Parsed())
+    if not args.skills.is_dir():
+        print(f"--skills: {args.skills} is not a directory", file=sys.stderr)
+        return 2
     return args.func(args)
 
 

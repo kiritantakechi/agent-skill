@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 lazy from collections.abc import Iterable
 
-from agent_skill.lang import Extraction, Unit
+from agent_skill.lang import Extraction, Unit, inconclusive, timed_out
 from agent_skill.proc import Ran, have, run
 from agent_skill.report import Finding, fail, note
 from agent_skill.text import group
@@ -239,7 +239,7 @@ class Python:
             # deletes.
             r = run(cmd, cwd=ex.root, timeout=120)
             if r.timed_out:
-                yield fail("the block did not finish in 120s", unit.where)
+                yield timed_out("the block", 120, unit.where)
             elif not r.ok:
                 detail = (r.err or r.out).strip().split("\n")
                 last = next(
@@ -262,19 +262,14 @@ class Python:
             [*prefix, str(config), "--python", str(VENV), str(ex.root)], timeout=300
         )
         if r.timed_out:
-            yield fail(
-                f"{label} did not finish in 300s",
-                ex.units[0].where if ex.units else label,
-            )
+            yield timed_out(label, 300, ex.units[0].where if ex.units else label)
             return
         yield from self._report(ex, r, label)
 
     def _lint(self, ex: Extraction) -> Iterable[Finding]:
         r = run(["ruff", "check", *PYTHON_STYLE.ruff_args(), str(ex.root)], timeout=300)
         if r.timed_out:
-            yield fail(
-                "ruff did not finish in 300s", ex.units[0].where if ex.units else "ruff"
-            )
+            yield timed_out("ruff", 300, ex.units[0].where if ex.units else "ruff")
             return
         yield from self._report(ex, r, "ruff")
 
@@ -359,9 +354,8 @@ class Python:
                         timeout=60,
                     )
                     if r.timed_out:
-                        yield note(
-                            f"`{stripped[:44]}` timed out — hung, or merely slow",
-                            f"{unit.chapter}:{unit.line + i} [{unit.rule}]",
+                        yield inconclusive(
+                            stripped, f"{unit.chapter}:{unit.line + i} [{unit.rule}]"
                         )
                     elif r.ok:
                         yield note(
