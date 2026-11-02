@@ -13,14 +13,15 @@ it cannot be: the claim is about a document nobody here can read.
 
 import re
 from pathlib import Path
-lazy from collections.abc import Iterator, Sequence
+lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
+from agent_skill.ids import Branch, Location
 from agent_skill.report import fail, note, unrun
 lazy from agent_skill.checks.corpus import Corpus, corpus_for
 lazy from agent_skill.checks.patterns import patterns_of
 lazy from agent_skill.checks.search import find, searcher_problem
-lazy from agent_skill.model import Rule, Skill
+lazy from agent_skill.model import Rule, Skill, Tree
 lazy from agent_skill.report import Finding
 
 #: `| `RS-API-15` Keep every struct field private | `BV-ECS-01` — … |`
@@ -30,6 +31,21 @@ OVERRIDE_ROW = re.compile(
 )
 
 CITATION = re.compile(r"\b([A-Z]{2})-([A-Z]+-\d+[a-z]?)\b")
+
+# The branches a finding of this check comes from.
+APPARATUS_CITATION = Branch("crossref", "apparatus")
+NO_TABLE = Branch("crossref", "no_table")
+DELTA_DECLARATION = Branch("crossref", "delta_declaration")
+DELTA_NO_TABLE = Branch("crossref", "delta_no_table")
+FOREIGN_CITATION = Branch("crossref", "citation")
+OVERRIDE_TARGET = Branch("crossref", "override_target")
+OVERRIDE_TITLE = Branch("crossref", "override_title")
+ANCHOR_ABSENT = Branch("crossref", "anchor_absent")
+ANCHOR_NO_LANGUAGE = Branch("crossref", "anchor_no_language")
+SEARCHER = Branch("crossref", "searcher")
+ANCHOR_EMPTY_CORPUS = Branch("crossref", "anchor_empty_corpus")
+ANCHOR_NO_ANSWER = Branch("crossref", "anchor_no_answer")
+ANCHOR_HIT = Branch("crossref", "anchor_hit")
 
 
 def _ids(skill: Skill) -> set[str]:
@@ -72,7 +88,8 @@ def _apparatus_citations(
             if prefix in known and m.group(0) not in known[prefix]:
                 yield fail(
                     f"cites {m.group(0)}, which is not a rule",
-                    f"{path.relative_to(root)}",
+                    Location(file=rel),
+                    APPARATUS_CITATION,
                 )
 
 
@@ -87,17 +104,16 @@ def _plain(s: str) -> str:
 @check(
     "crossref",
     "citations into another skill, and the override table",
-    scope="all",
     needs=("rg",),
 )
-def crossref(skills: Sequence[Skill]) -> Iterator[Finding]:
+def crossref(tree: Tree) -> Iterator[Finding]:
     """Every citation across skills, and each delta's override table."""
-    by_prefix = {s.prefix: s for s in skills}
-    by_name = {s.name: s for s in skills}
+    by_prefix = {s.prefix: s for s in tree}
+    by_name = {s.name: s for s in tree}
     known = {p: _ids(s) for p, s in by_prefix.items()}
     titles = {p: {r.id: r.title for r in s.rules} for p, s in by_prefix.items()}
 
-    for skill in skills:
+    for skill in tree:
         yield from _citations(skill, by_prefix, known)
 
         # The override table: each row names a rule of the other
@@ -120,7 +136,9 @@ def crossref(skills: Sequence[Skill]) -> Iterator[Finding]:
         )
         if cites_other and not rows and not skill.profile.anchor:
             yield note(
-                "cites another standard but states no override table", skill.name
+                "cites another standard but states no override table",
+                skill.at(),
+                NO_TABLE,
             )
 
     yield from _apparatus_citations(known)
@@ -139,7 +157,8 @@ def _delta(skill: Skill, rows: list[re.Match[str]]) -> Iterator[Finding]:
         yield fail(
             "the profile sets one of `delta_step` and `anchor` without the "
             "other; a delta declares both, a standard that stands alone neither",
-            skill.name,
+            skill.at(),
+            DELTA_DECLARATION,
         )
     departures = [m for m in rows if not m.group(1).startswith(f"{skill.prefix}-")]
     if profile.anchor and not departures:
@@ -147,7 +166,8 @@ def _delta(skill: Skill, rows: list[re.Match[str]]) -> Iterator[Finding]:
             f"is a delta on {profile.anchor} and states no override table — "
             "a delta that says where it departs from nothing has either departed "
             "silently or lost its table",
-            skill.name,
+            skill.at(),
+            DELTA_NO_TABLE,
         )
 
 
@@ -157,7 +177,6 @@ def _citations(
     """Every id this skill cites in another skill names a rule there."""
     for path in skill.markdown:
         text = path.read_text()
-        where = f"{skill.name}/{path.name}"
         for m in CITATION.finditer(text):
             prefix = m.group(1)
             if prefix == skill.prefix or prefix not in known:
@@ -166,7 +185,8 @@ def _citations(
                 yield fail(
                     f"cites {m.group(0)}, "
                     f"which is not a rule in {by_prefix[prefix].name}",
-                    where,
+                    skill.at(path),
+                    FOREIGN_CITATION,
                 )
 
 
@@ -180,7 +200,9 @@ def _override_rows(
             continue
         if ours not in _ids(skill):
             yield fail(
-                f"override row names {ours}, which is not a rule here", skill.name
+                f"override row names {ours}, which is not a rule here",
+                skill.at(),
+                OVERRIDE_TARGET,
             )
         actual = titles[theirs[:2]].get(theirs)
         if actual is None:
@@ -194,7 +216,8 @@ def _override_rows(
             yield fail(
                 f"override row quotes {quoted!r} for {theirs}, "
                 f"which is titled {actual!r}",
-                skill.name,
+                skill.at(),
+                OVERRIDE_TITLE,
             )
 
 
@@ -225,27 +248,30 @@ def _anchor_patterns(skill: Skill, by_name: dict[str, Skill]) -> Iterator[Findin
         yield unrun(
             f"its anchor {skill.profile.anchor} is not among the skills read, so "
             "none of its patterns ran over these examples",
-            skill.name,
+            skill.at(),
+            ANCHOR_ABSENT,
         )
         return
     if not skill.profile.languages:
         yield fail(
             f"is a delta on {other.name} and its profile names no language, so the "
             "anchor's patterns have no examples to run over",
-            skill.name,
+            skill.at(),
+            ANCHOR_NO_LANGUAGE,
         )
         return
     named = set(re.findall(r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b", skill.text))
     lang = skill.profile.languages[0]
     if problem := searcher_problem():
-        yield unrun(problem, skill.name)
+        yield unrun(problem, skill.at(), SEARCHER)
         return
     corpus = corpus_for(skill, lang)
     if not corpus.blocks:
         yield fail(
             f"no verified {lang} example to run {other.name}'s patterns over — an "
             "empty corpus passes every one of them",
-            skill.name,
+            skill.at(),
+            ANCHOR_EMPTY_CORPUS,
         )
         return
     for rule in other.rules:
@@ -270,7 +296,8 @@ def _sweep(skill: Skill, corpus: Corpus, other: Skill, rule: Rule) -> Iterator[F
                 f"{rule.id}: {other.name}'s pattern /{pattern.text}/ gave no "
                 f"answer over {skill.name}'s examples — rejected, timed out, or "
                 "not installed",
-                skill.name,
+                skill.at(),
+                ANCHOR_NO_ANSWER,
             )
             continue
         if not lines:
@@ -280,5 +307,6 @@ def _sweep(skill: Skill, corpus: Corpus, other: Skill, rule: Rule) -> Iterator[F
             f"{rule.id} {used} /{pattern.text}/ hits {len(lines)} line(s) and "
             f"{skill.name}'s SKILL.md never mentions it — {rule.title}\n"
             f"      {chapter}:{line} [{owner}] {snippet}",
-            skill.name,
+            skill.at(),
+            ANCHOR_HIT,
         )

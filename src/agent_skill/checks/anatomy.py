@@ -5,9 +5,10 @@ import re
 from collections import Counter, defaultdict
 lazy from collections.abc import Iterator
 
-from agent_skill.checks import check
+from agent_skill.checks import check, per_skill
 from agent_skill.doc import Doc, Paragraph
-from agent_skill.model import DASH, without_renames
+from agent_skill.ids import Branch
+from agent_skill.model import DASH, SKILL_MD, without_renames
 from agent_skill.report import fail, note
 lazy from agent_skill.model import Chapter, Rule, Skill
 lazy from agent_skill.report import Finding
@@ -72,6 +73,36 @@ SHORT_WORD = 2
 #: the rule it cites before the citation reads as off by one.
 CLOSER_BY = 0.15
 
+# The branches a finding of this check comes from.
+BOLD_DEFINITIONS = Branch("anatomy", "bold_definitions")
+DUPLICATE = Branch("anatomy", "duplicate")
+CONTENTS_MISSING = Branch("anatomy", "contents_missing")
+CONTENTS_TIER = Branch("anatomy", "contents_tier")
+CONTENTS_TITLE = Branch("anatomy", "contents_title")
+NO_RELAXED = Branch("anatomy", "no_relaxed")
+RELAXED_LABEL = Branch("anatomy", "relaxed_label")
+RELAXED_ORDER = Branch("anatomy", "relaxed_order")
+RESTATES_RULE = Branch("anatomy", "restates")
+CONTENTS_ORDER = Branch("anatomy", "contents_order")
+SHARED_TITLE = Branch("anatomy", "shared_title")
+UNSTATED = Branch("anatomy", "unstated")
+MIS_CITED = Branch("anatomy", "mis_cited")
+ABBREVIATED = Branch("anatomy", "abbreviated")
+DANGLING = Branch("anatomy", "dangling")
+MISSING_FILE = Branch("anatomy", "missing_file")
+WRONG_CHAPTER = Branch("anatomy", "wrong_chapter")
+CORE_UNCITED = Branch("anatomy", "core_uncited")
+CORE_NOT_A_RULE = Branch("anatomy", "core_not_a_rule")
+CORE_WRONG_CHAPTER = Branch("anatomy", "core_wrong_chapter")
+MAP_TOTAL = Branch("anatomy", "map_total")
+MAP_FAMILY = Branch("anatomy", "map_family")
+MAP_HERE = Branch("anatomy", "map_here")
+NEAR_DUPLICATE_TEXT = Branch("anatomy", "near_duplicate")
+JUNK = Branch("anatomy", "junk")
+BELOW_TARGET = Branch("anatomy", "below_target")
+WHY_LENGTH = Branch("anatomy", "why_length")
+NUMBERING = Branch("anatomy", "numbering")
+
 
 def shingles(s: str, n: int = 4) -> set[tuple[str, ...]]:
     """Every run of `n` consecutive words in `s`, minus stop words."""
@@ -85,6 +116,7 @@ def overlap[T](a: set[T], b: set[T]) -> float:
 
 
 @check("anatomy", "rule anatomy, ToC agreement, cross-references")
+@per_skill
 def anatomy(skill: Skill) -> Iterator[Finding]:
     """Each rule's shape, and every map and citation of the rules."""
     seen: dict[str, str] = {}
@@ -93,19 +125,24 @@ def anatomy(skill: Skill) -> Iterator[Finding]:
 
     for chapter in skill.chapters:
         if _bold_definitions(chapter.text, skill.prefix):
-            yield fail("bold-inline rule definitions", f"{skill.name}/{chapter.name}")
+            yield fail(
+                "bold-inline rule definitions", chapter.where(), BOLD_DEFINITIONS
+            )
         for rule in chapter.rules:
-            where = f"{skill.name}/{chapter.name}"
             if rule.id in seen:
-                yield fail(f"duplicate {rule.id}, also in {seen[rule.id]}", where)
+                yield fail(
+                    f"duplicate {rule.id}, also in {seen[rule.id]}",
+                    rule.where,
+                    DUPLICATE,
+                )
             seen[rule.id] = chapter.name
             titles[rule.title].append(rule.id)
-            yield from _rule(chapter, rule, where)
+            yield from _rule(chapter, rule)
             for label, section in (("Why", rule.why), ("Check", rule.check)):
                 if section:
                     blocks[(rule.id, label)] = " ".join(section.split())
 
-    yield from _structure(skill)
+    yield from structural(skill)
     yield from _contents_order(skill)
     yield from _unique_titles(skill, titles)
     yield from _mis_cited(skill)
@@ -136,50 +173,43 @@ RELAXED = "*Relaxed form:*"
 _RELAXED = re.compile(r"\*{1,2}Relaxed\s+form:?\*{1,2}:?")
 
 
-def _rule(chapter: Chapter, rule: Rule, where: str) -> Iterator[Finding]:
+def _rule(chapter: Chapter, rule: Rule) -> Iterator[Finding]:
     """One rule against its contents line, its tier and its parts."""
+    where = rule.where
     toc = chapter.toc.get(rule.id)
     if toc is None:
-        yield fail(f"{rule.id} missing from the chapter contents", where)
+        yield fail(
+            f"{rule.id} missing from the chapter contents", where, CONTENTS_MISSING
+        )
     elif toc[0] != rule.tier:
-        yield fail(f"{rule.id} contents tier != heading tier", where)
+        yield fail(f"{rule.id} contents tier != heading tier", where, CONTENTS_TIER)
     elif toc[1] != rule.title:
-        yield fail(f"{rule.id} contents title != heading title", where)
+        yield fail(f"{rule.id} contents title != heading title", where, CONTENTS_TITLE)
 
     relaxed = _RELAXED.search(rule.body)
     if relaxed is None:
         if rule.tier == "M!":
-            yield fail(f"{rule.id} is [M!] with no relaxed form", where)
+            yield fail(f"{rule.id} is [M!] with no relaxed form", where, NO_RELAXED)
     elif (label := " ".join(relaxed.group(0).split())) != RELAXED:
         yield fail(
             f"{rule.id} labels its relaxed form `{label}`; the label is `{RELAXED}`",
             where,
+            RELAXED_LABEL,
         )
     elif relaxed.start() > rule.body.find("**Why") >= 0:
         yield fail(
             f"{rule.id}'s relaxed form follows its Why; it is part of the "
             "statement, so it comes first",
             where,
+            RELAXED_ORDER,
         )
 
-    yield from _shape(rule, where)
+    yield from _shape(rule)
 
     if rule.why and rule.check:
         a, c = shingles(rule.statement), shingles(rule.why)
         if overlap(a, c) > RESTATES:
-            yield fail(f"{rule.id} Why merely restates the rule", where)
-
-
-def _structure(skill: Skill) -> Iterator[Finding]:
-    """Everything `structural` judges, as findings.
-
-    Dense numbering, a Why that fits, and no older release in a rule's
-    prose. Appending a rule in the middle passes every other check — the
-    contents list agrees, because it was edited too — and leaves a
-    reader scanning 01..08, 25, 09; so these are judged once, there.
-    """
-    for message, where in structural(skill):
-        yield fail(message, where)
+            yield fail(f"{rule.id} Why merely restates the rule", where, RESTATES_RULE)
 
 
 def _contents_order(skill: Skill) -> Iterator[Finding]:
@@ -187,7 +217,7 @@ def _contents_order(skill: Skill) -> Iterator[Finding]:
     for chapter in skill.chapters:
         if list(chapter.toc) and list(chapter.toc) != [r.id for r in chapter.rules]:
             yield fail(
-                "contents order != heading order", f"{skill.name}/{chapter.name}"
+                "contents order != heading order", chapter.where(), CONTENTS_ORDER
             )
 
 
@@ -201,11 +231,12 @@ def _unique_titles(skill: Skill, titles: dict[str, list[str]]) -> Iterator[Findi
             yield fail(
                 f"{len(ids)} rules share the title {title!r} ({', '.join(ids)}); "
                 f"a title is an anchor and must be unique",
-                skill.name,
+                skill.at(),
+                SHARED_TITLE,
             )
 
 
-def _shape(rule: Rule, where: str) -> Iterator[Finding]:
+def _shape(rule: Rule) -> Iterator[Finding]:
     """A rule states its own Why and Check.
 
     A rule that only names the rule owning its topic is a second place
@@ -216,7 +247,7 @@ def _shape(rule: Rule, where: str) -> Iterator[Finding]:
     has = ("**Why" in rule.body, "**Check" in rule.body)
     if not all(has):
         which = "Why" if not has[0] else "Check"
-        yield fail(f"{rule.id} states no {which}", where)
+        yield fail(f"{rule.id} states no {which}", rule.where, UNSTATED)
 
 
 #: Words that carry no signal when matching a summary to the rule it
@@ -278,7 +309,8 @@ def _mis_cited(skill: Skill) -> Iterator[Finding]:
                         yield note(
                             f"{rid} cites {target} ({rule.title!r}) but {other.id} "
                             f"({other.title!r}) is a closer match",
-                            skill.name,
+                            skill.at(),
+                            MIS_CITED,
                         )
 
 
@@ -309,7 +341,8 @@ def _abbreviated(skill: Skill) -> Iterator[Finding]:
             yield fail(
                 f"`{m.group(0)}` abbreviates rule IDs, which a renumbering cannot "
                 "follow; write each in full",
-                f"{skill.name}/{path.name}:{line}",
+                skill.at(path, line),
+                ABBREVIATED,
             )
 
 
@@ -322,7 +355,7 @@ def _dangling(skill: Skill, seen: dict[str, str]) -> Iterator[Finding]:
         text = without_renames(path.read_text())
         cited |= set(re.findall(rf"\b({pre}-[A-Z]+-\d+[a-z]?)\b", text))
     for rid in sorted(cited - defined):
-        yield fail(f"dangling reference {rid}", skill.name)
+        yield fail(f"dangling reference {rid}", skill.at(), DANGLING)
 
 
 def _paths(skill: Skill, home: dict[str, str]) -> Iterator[Finding]:
@@ -340,14 +373,15 @@ def _paths(skill: Skill, home: dict[str, str]) -> Iterator[Finding]:
         text = path.read_text()
         for ref in re.findall(r"`((?:references|assets)/[A-Za-z0-9._-]+)`", text):
             if not (skill.root / ref).exists():
-                yield fail(f"missing file {ref}", f"{skill.name}/{path.name}")
+                yield fail(f"missing file {ref}", skill.at(path), MISSING_FILE)
         for m in cited.finditer(text):
             actual = home.get(m.group(2))
             if actual is not None and actual != m.group(1):
                 line = text.count("\n", 0, m.start()) + 1
                 yield fail(
                     f"says {m.group(1)} for {m.group(2)}, which lives in {actual}",
-                    f"{skill.name}/{path.name}:{line}",
+                    skill.at(path, line),
+                    WRONG_CHAPTER,
                 )
 
 
@@ -366,16 +400,21 @@ def _core_citations(skill: Skill, home: dict[str, str]) -> Iterator[Finding]:
             flat,
         )
         if not cites:
-            yield fail(f"{rid} cites no chapter rule", skill.name)
+            yield fail(f"{rid} cites no chapter rule", skill.at(), CORE_UNCITED)
             continue
         for fname, ids in cites:
             for target in re.findall(rf"{pre}-[A-Z]+-\d+[a-z]?", ids):
                 if target not in home:
-                    yield fail(f"{rid} cites {target}, which is not a rule", skill.name)
+                    yield fail(
+                        f"{rid} cites {target}, which is not a rule",
+                        skill.at(),
+                        CORE_NOT_A_RULE,
+                    )
                 elif home[target] != fname:
                     yield fail(
                         f"{rid} cites {fname} for {target}, which is in {home[target]}",
-                        skill.name,
+                        skill.at(),
+                        CORE_WRONG_CHAPTER,
                     )
 
 
@@ -386,7 +425,9 @@ def _counts(skill: Skill) -> Iterator[Finding]:
     per = [int(n) for n in re.findall(rf"`{pre}-[A-Z]+` \((\d+)\)", skill.text)]
     if sum(per) != total:
         yield fail(
-            f"reference-map counts sum to {sum(per)}, actual {total}", skill.name
+            f"reference-map counts sum to {sum(per)}, actual {total}",
+            skill.at(),
+            MAP_TOTAL,
         )
 
     stated = dict(re.findall(rf"`{pre}-([A-Z]+)` \((\d+)\)", skill.text))
@@ -395,11 +436,15 @@ def _counts(skill: Skill) -> Iterator[Finding]:
         want = int(stated[family]) if family in stated else None
         got = actual.get(family)
         if want != got:
-            yield fail(f"{pre}-{family} stated {want}, actual {got}", skill.name)
+            yield fail(
+                f"{pre}-{family} stated {want}, actual {got}", skill.at(), MAP_FAMILY
+            )
 
     here = re.search(r"the other (\d+) live here", skill.text)
     if here and int(here.group(1)) != total:
-        yield fail(f"'other {here.group(1)} live here' != {total}", skill.name)
+        yield fail(
+            f"'other {here.group(1)} live here' != {total}", skill.at(), MAP_HERE
+        )
 
 
 def _near_duplicates(
@@ -409,11 +454,15 @@ def _near_duplicates(
     shingled = {k: shingles(v) for k, v in blocks.items() if len(v) > SHORT_SECTION}
     for (k1, a), (k2, b) in itertools.combinations(shingled.items(), 2):
         if k1[1] == k2[1] and overlap(a, b) > NEAR_DUPLICATE:
-            yield fail(f"near-duplicate {k1[1]} in {k1[0]} / {k2[0]}", skill.name)
+            yield fail(
+                f"near-duplicate {k1[1]} in {k1[0]} / {k2[0]}",
+                skill.at(),
+                NEAR_DUPLICATE_TEXT,
+            )
 
     for junk in (".git", ".DS_Store", "*.pyc", "__pycache__"):
         if list(skill.root.rglob(junk)):
-            yield note(f"{junk} present in the skill tree", skill.name)
+            yield note(f"{junk} present in the skill tree", skill.at(), JUNK)
 
 
 #: A Why is a reason, not an essay. Longer than this, and the excess
@@ -443,8 +492,8 @@ def release_token(major: str) -> re.Pattern[str]:
     return re.compile(rf"(?<![\d.~]){major}\.([1-9]\d*)(?!\w)")
 
 
-def _below_target(skill: Skill) -> Iterator[tuple[str, str]]:
-    """(message, where) for a rule whose prose names an older release.
+def _below_target(skill: Skill) -> Iterator[Finding]:
+    """A rule whose prose names an older release.
 
     The subject's own versions only, read from the pin: `3.13` in a
     Python 3.15 standard, `0.19` in a Bevy 0.20 one. Code, fenced or
@@ -457,14 +506,12 @@ def _below_target(skill: Skill) -> Iterator[tuple[str, str]]:
     major, target = pin.group(1), int(pin.group(2))
     token = release_token(major)
     rules = [
-        (rule.id, f"{rule.title}\n{rule.body}", f"{skill.name}/{chapter.name}")
+        (rule.id, f"{rule.title}\n{rule.body}", rule.where)
         for chapter in skill.chapters
         if chapter.path.stem != "migration"
         for rule in chapter.rules
     ]
-    rules += [
-        (rid, body, f"{skill.name}/SKILL.md") for rid, _, body in skill.core_rules
-    ]
+    rules += [(rid, body, skill.at(SKILL_MD)) for rid, _, body in skill.core_rules]
     for rid, body, where in rules:
         older = sorted(
             {
@@ -475,47 +522,46 @@ def _below_target(skill: Skill) -> Iterator[tuple[str, str]]:
             key=lambda v: int(v.split(".")[1]),
         )
         if older:
-            yield (
-                (
-                    f"{rid} names {', '.join(older)}, below its target "
-                    f"{major}.{target}: a rule speaks of its target, and the "
-                    "migration chapter keeps the history"
-                ),
+            yield fail(
+                f"{rid} names {', '.join(older)}, below its target "
+                f"{major}.{target}: a rule speaks of its target, and the "
+                "migration chapter keeps the history",
                 where,
+                BELOW_TARGET,
             )
 
 
-def structural(skill: Skill) -> Iterator[tuple[str, str]]:
-    """(message, where) for the rule-shape half of standard-structure.
+def structural(skill: Skill) -> Iterator[Finding]:
+    """The rule-shape half of standard-structure.
 
     Dense numbering, a short Why, and no release older than the target
-    in a rule's prose.
+    in a rule's prose. Appending a rule in the middle passes every other
+    check — the contents list agrees, because it was edited too — and
+    leaves a reader scanning 01..08, 25, 09; so these are judged once,
+    here.
     """
     yield from _below_target(skill)
     for chapter in skill.chapters:
-        where = f"{skill.name}/{chapter.name}"
-        numbers: dict[str, list[str]] = defaultdict(list)
+        numbers: dict[str, list[Rule]] = defaultdict(list)
         for rule in chapter.rules:
-            family, number = rule.id.split("-")[1:]
-            numbers[family].append(number)
+            numbers[rule.id.split("-")[1]].append(rule)
             lines = [ln for ln in rule.why.strip().split("\n") if ln.strip()]
             if len(lines) > WHY_LINES:
-                yield (
-                    (
-                        f"{rule.id}'s Why runs {len(lines)} lines; "
-                        f"the limit is {WHY_LINES}"
-                    ),
-                    where,
+                yield fail(
+                    f"{rule.id}'s Why runs {len(lines)} lines; "
+                    f"the limit is {WHY_LINES}",
+                    rule.where,
+                    WHY_LENGTH,
                 )
-        for family, seen in numbers.items():
-            for i, number in enumerate(seen, 1):
+        for family, rules in numbers.items():
+            for i, rule in enumerate(rules, 1):
+                number = rule.id.split("-")[2]
                 if number != f"{i:02d}":
-                    yield (
-                        (
-                            f"{skill.prefix}-{family}-{number} should be "
-                            f"{skill.prefix}-{family}-{i:02d}: numbers run 01, 02, "
-                            "… with no gap and no suffix"
-                        ),
-                        where,
+                    yield fail(
+                        f"{skill.prefix}-{family}-{number} should be "
+                        f"{skill.prefix}-{family}-{i:02d}: numbers run 01, 02, "
+                        "… with no gap and no suffix",
+                        rule.where,
+                        NUMBERING,
                     )
                     break

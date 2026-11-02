@@ -10,50 +10,67 @@ own validator runs over both.
 
 import json
 from pathlib import Path
-lazy from collections.abc import Iterator, Sequence
+lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
+from agent_skill.ids import Branch, Location
 from agent_skill.layout import PLUGIN, SKILLS, root_of
 from agent_skill.proc import have, run
 from agent_skill.report import fail, unrun
-lazy from agent_skill.model import Skill
+lazy from agent_skill.model import Tree
 lazy from agent_skill.report import Finding
 
 #: Where Claude Code reads each manifest, relative to what it describes.
 MANIFEST = Path(".claude-plugin") / "plugin.json"
 MARKETPLACE = Path(".claude-plugin") / "marketplace.json"
 
+#: Each manifest, where a finding about it lies.
+AT_MANIFEST = Location(file=(PLUGIN / MANIFEST).as_posix())
+AT_MARKETPLACE = Location(file=MARKETPLACE.as_posix())
+
+# The branches a finding of this check comes from.
+UNREAD = Branch("plugin", "unread")
+SKILLS_DIFFER = Branch("plugin", "skills")
+MANIFEST_NAME = Branch("plugin", "manifest_name")
+MANIFEST_VERSION = Branch("plugin", "manifest_version")
+MANIFEST_LICENSE = Branch("plugin", "manifest_license")
+MARKET_ENTRY = Branch("plugin", "market_entry")
+MARKET_SOURCE = Branch("plugin", "market_source")
+MARKET_VERSION = Branch("plugin", "market_version")
+CLAUDE_ABSENT = Branch("plugin", "claude_absent")
+VALIDATE = Branch("plugin", "validate")
+
 
 @check(
     "plugin",
     "the plugin and marketplace manifests, against the skills",
-    scope="all",
     needs=("claude",),
 )
-def plugin(skills: Sequence[Skill]) -> Iterator[Finding]:
+def plugin(tree: Tree) -> Iterator[Finding]:
     """The manifests agree with the layout, and the validator passes."""
-    if not skills:
+    if not tree.skills:
         return
-    root = root_of(skills[0].root.parent)
+    root = root_of(tree.skills[0].root.parent)
     manifest, unread = _load(root / PLUGIN / MANIFEST)
     market, unread_market = _load(root / MARKETPLACE)
     # Every path that read nothing is reported. Only a missing file used
     # to be: one that was there and did not parse, or parsed to a list,
     # returned with no finding at all, and the check passed having held
     # nothing to the layout.
-    for path, problem in ((PLUGIN / MANIFEST, unread), (MARKETPLACE, unread_market)):
+    for where, problem in ((AT_MANIFEST, unread), (AT_MARKETPLACE, unread_market)):
         if problem:
-            yield fail(f"`{path}` {problem}", "plugin")
+            yield fail(problem, where, UNREAD)
     if manifest is None or market is None:
         return
     yield from _manifest(manifest, root)
     yield from _marketplace(market)
     shipped = {p.parent.name for p in (root / SKILLS).glob("*/SKILL.md")}
-    if shipped != {s.name for s in skills}:
+    if shipped != {s.name for s in tree}:
         yield fail(
             f"the plugin ships {sorted(shipped)}, and the checks read "
-            f"{sorted(s.name for s in skills)}",
-            "plugin",
+            f"{sorted(s.name for s in tree)}",
+            Location(file=SKILLS.as_posix()),
+            SKILLS_DIFFER,
         )
     yield from _validate(root)
 
@@ -75,20 +92,30 @@ def _load(path: Path) -> tuple[dict[str, object] | None, str]:
 
 def _manifest(manifest: dict[str, object], root: Path) -> Iterator[Finding]:
     """The plugin is named by its directory, versioned, and licensed."""
-    where = f"{PLUGIN / MANIFEST}"
+    where = AT_MANIFEST
     if manifest.get("name") != PLUGIN.name:
         yield fail(
-            f"names the plugin {manifest.get('name')!r}, not {PLUGIN.name!r}", where
+            f"names the plugin {manifest.get('name')!r}, not {PLUGIN.name!r}",
+            where,
+            MANIFEST_NAME,
         )
     if not manifest.get("version"):
-        yield fail("states no `version`, so an update cannot reach anyone", where)
+        yield fail(
+            "states no `version`, so an update cannot reach anyone",
+            where,
+            MANIFEST_VERSION,
+        )
     if not manifest.get("license") or not (root / "LICENSE").is_file():
-        yield fail("needs both a `license` and a LICENSE file at the root", where)
+        yield fail(
+            "needs both a `license` and a LICENSE file at the root",
+            where,
+            MANIFEST_LICENSE,
+        )
 
 
 def _marketplace(market: dict[str, object]) -> Iterator[Finding]:
     """One entry for this plugin, from its directory, versioned once."""
-    where = f"{MARKETPLACE}"
+    where = AT_MARKETPLACE
     entries = market.get("plugins")
     found = (
         [e for e in entries if isinstance(e, dict) and e.get("name") == PLUGIN.name]
@@ -96,24 +123,34 @@ def _marketplace(market: dict[str, object]) -> Iterator[Finding]:
         else []
     )
     if not found:
-        yield fail(f"lists no `{PLUGIN.name}` plugin", where)
+        yield fail(f"lists no `{PLUGIN.name}` plugin", where, MARKET_ENTRY)
         return
     if found[0].get("source") != f"./{PLUGIN.as_posix()}":
-        yield fail(f"sources `{PLUGIN.name}` from {found[0].get('source')!r}", where)
+        yield fail(
+            f"sources `{PLUGIN.name}` from {found[0].get('source')!r}",
+            where,
+            MARKET_SOURCE,
+        )
     if "version" in found[0]:
         yield fail(
             "states a `version` for the plugin, which its manifest states; two "
             "can disagree, and Claude Code reads the manifest's",
             where,
+            MARKET_VERSION,
         )
 
 
 def _validate(root: Path) -> Iterator[Finding]:
     """Claude Code's validator, over the marketplace and the plugin."""
     if not have("claude"):
-        yield unrun("`claude` is not available, so no manifest was validated", "plugin")
+        yield unrun(
+            "`claude` is not available, so no manifest was validated",
+            Location(),
+            CLAUDE_ABSENT,
+        )
         return
-    for target, strict in ((root, False), (root / PLUGIN, True)):
+    targets = ((root, False, AT_MARKETPLACE), (root / PLUGIN, True, AT_MANIFEST))
+    for target, strict, where in targets:
         ran = run(
             [
                 "claude",
@@ -126,4 +163,4 @@ def _validate(root: Path) -> Iterator[Finding]:
         )
         if not ran.ok:
             tail = " ".join((ran.out + ran.err).split()[-40:])
-            yield fail(f"`claude plugin validate` refuses it: {tail}", f"{target.name}")
+            yield fail(f"`claude plugin validate` refuses it: {tail}", where, VALIDATE)

@@ -20,13 +20,15 @@ from functools import cache
 from pathlib import Path
 lazy from collections.abc import Callable, Iterable, Iterator, Mapping
 
-from agent_skill.checks import check
+from agent_skill.checks import check, per_skill
+from agent_skill.ids import Branch
 from agent_skill.lang.python import PYTHON_STYLE
 from agent_skill.lang.zig import force_analysis
 from agent_skill.proc import have, run
 from agent_skill.report import fail, unrun
 from agent_skill.text import group
-lazy from agent_skill.checks.lints import table
+lazy from agent_skill.checks.lints import CARGO, table
+lazy from agent_skill.ids import Location
 lazy from agent_skill.model import LintRow, Skill
 lazy from agent_skill.report import Finding
 
@@ -37,6 +39,41 @@ CODE = re.compile(r"(?<![A-Za-z0-9-])([A-Z]{1,5}[0-9]{3,4})(?![0-9])")
 
 #: What a code's family is left as once these are stripped from its end.
 DIGITS = "0123456789"
+
+#: The asset that enables ruff's rules.
+RUFF_TOML = "assets/ruff.toml"
+
+#: The asset that sets ty's rule levels.
+TY_TOML = "assets/ty.toml"
+
+# The branches a finding of this check comes from.
+ROW_TOOL = Branch("citations", "row_tool")
+ROW_LEVEL = Branch("citations", "row_level")
+RUFF_ABSENT = Branch("citations", "ruff_absent")
+TY_ABSENT = Branch("citations", "ty_absent")
+TY_UNKNOWN_SETTING = Branch("citations", "ty_unknown_setting")
+ENABLED_UNREAD = Branch("citations", "enabled_unread")
+TY_RULES_UNREAD = Branch("citations", "ty_rules_unread")
+RUFF_ROW_DISABLED = Branch("citations", "ruff_row_disabled")
+TY_ROW_UNKNOWN = Branch("citations", "ty_row_unknown")
+TY_ROW_LEVEL = Branch("citations", "ty_row_level")
+CATALOGUE_UNREAD = Branch("citations", "catalogue_unread")
+UNKNOWN_CODE = Branch("citations", "unknown_code")
+WITHDRAWN_CODE = Branch("citations", "withdrawn_code")
+DISABLED_CODE = Branch("citations", "disabled_code")
+TY_UNVERIFIED = Branch("citations", "ty_unverified")
+TY_UNSHIPPED = Branch("citations", "ty_unshipped")
+TY_LEVEL = Branch("citations", "ty_level")
+RUST_TOOL_ABSENT = Branch("citations", "rust_tool_absent")
+NO_CARGO_TOML = Branch("citations", "no_cargo_toml")
+RUST_CATALOGUE_UNREAD = Branch("citations", "rust_catalogue_unread")
+RUST_UNKNOWN_LINT = Branch("citations", "rust_unknown_lint")
+RUST_LEVEL = Branch("citations", "rust_level")
+ZIG_ABSENT = Branch("citations", "zig_absent")
+ZIG_NO_PROBE = Branch("citations", "zig_no_probe")
+ZIG_PROBE_COMPILES = Branch("citations", "zig_probe_compiles")
+ZIG_PROBE_OTHER = Branch("citations", "zig_probe_other")
+ZIG_PROBE_NO_ROW = Branch("citations", "zig_probe_no_row")
 
 
 def _codes_in(text: str, catalogue: Mapping[str, str]) -> set[str]:
@@ -142,29 +179,32 @@ LEVELS: dict[str, frozenset[str]] = {
 }
 
 
-def row_shape(
-    rows: Iterable[LintRow], tools: tuple[str, ...]
-) -> Iterator[tuple[LintRow, str]]:
-    """(row, message) for each row whose tool or level enforces nothing.
+def row_shape(rows: Iterable[LintRow], tools: tuple[str, ...]) -> Iterator[Finding]:
+    """Each row whose tool or level enforces nothing.
 
     Such a row names a tool the standard does not require, or a level at
     which the tool would let the run pass.
     """
     for row in rows:
         if row.tool not in tools or row.tool not in LEVELS:
-            yield row, f"`{row.tool}` is not a tool this standard requires"
+            yield fail(
+                f"`{row.tool}` is not a tool this standard requires",
+                row.where,
+                ROW_TOOL,
+            )
         elif row.level not in LEVELS[row.tool]:
             levels = " / ".join(sorted(LEVELS[row.tool]))
-            yield (
-                row,
+            yield fail(
                 f"`{row.lint}` at `{row.level}` fails no run; a row is one of {levels}",
+                row.where,
+                ROW_LEVEL,
             )
 
 
 def python_rows(
     rows: Iterable[LintRow], enabled: set[str], ty_levels: dict[str, str]
-) -> Iterator[tuple[LintRow, str]]:
-    """(row, message) for python rows not enforced as the row states.
+) -> Iterator[Finding]:
+    """Each python row not enforced as the row states.
 
     The shipped configuration is what enforces them. `ty_levels` is
     every rule ty knows, at the level the asset leaves it — its own
@@ -172,21 +212,25 @@ def python_rows(
     """
     for row in rows:
         if row.tool == "ruff" and row.lint not in enabled:
-            yield (
-                row,
-                f"`{row.lint}` is a row, and `assets/ruff.toml` does not enable it",
+            yield fail(
+                f"`{row.lint}` is a row, and `{RUFF_TOML}` does not enable it",
+                row.where,
+                RUFF_ROW_DISABLED,
             )
         elif row.tool == "ty":
             level = ty_levels.get(row.lint)
             if level is None:
-                yield row, f"`{row.lint}` is not a rule the pinned ty recognises"
+                yield fail(
+                    f"`{row.lint}` is not a rule the pinned ty recognises",
+                    row.where,
+                    TY_ROW_UNKNOWN,
+                )
             elif level != row.level:
-                yield (
-                    row,
-                    (
-                        f"`{row.lint}` is `{row.level}` in the row "
-                        f"and `{level}` as shipped"
-                    ),
+                yield fail(
+                    f"`{row.lint}` is `{row.level}` in the row "
+                    f"and `{level}` as shipped",
+                    row.where,
+                    TY_ROW_LEVEL,
                 )
 
 
@@ -198,8 +242,8 @@ def rust_rows(
     rows: Iterable[LintRow],
     shipped: dict[str, str],
     catalogue: dict[str, tuple[str, set[str]]],
-) -> Iterator[tuple[LintRow, str]]:
-    """(row, message) for Rust rows not enforced as the row states.
+) -> Iterator[Finding]:
+    """Each Rust row not enforced as the row states.
 
     The shipped `[workspace.lints]` is what enforces them. `shipped` is
     the asset's table as `lints.table` reads it (`clippy.unwrap_used` ->
@@ -215,9 +259,10 @@ def rust_rows(
             continue
         key = f"{section}.{row.lint}"
         if key not in catalogue:
-            yield (
-                row,
+            yield fail(
                 f"`{row.lint}` is not a {row.tool} lint the pinned toolchain knows",
+                row.where,
+                RUST_UNKNOWN_LINT,
             )
             continue
         default, groups = catalogue[key]
@@ -230,9 +275,10 @@ def rust_rows(
             default,
         )
         if level != row.level:
-            yield (
-                row,
+            yield fail(
                 f"`{row.lint}` is `{row.level}` in the row and `{level}` as shipped",
+                row.where,
+                RUST_LEVEL,
             )
 
 
@@ -298,23 +344,24 @@ def _key(name: str) -> str:
     "a cited check must be one the shipped config enables",
     needs=("ruff", "ty", "clippy-driver", "rustdoc", "zig"),
 )
+@per_skill
 def citations(skill: Skill) -> Iterator[Finding]:
     """Every lint row and cited code, against the shipped config."""
-    for row, message in row_shape(skill.lint_rows, skill.profile.tools):
-        yield fail(message, f"{skill.name}/{row.where}")
+    yield from row_shape(skill.lint_rows, skill.profile.tools)
     if skill.profile.toolchain == "rust":
         yield from _rust(skill)
     if skill.profile.toolchain == "zig":
         yield from _zig(skill)
     if skill.profile.toolchain != "python":
         return
-    assets = skill.root / "assets"
-    ruff_toml, ty_toml = assets / "ruff.toml", assets / "ty.toml"
+    ruff_toml, ty_toml = skill.root / RUFF_TOML, skill.root / TY_TOML
     if not ruff_toml.exists() or not ty_toml.exists():
         return
     if not have("ruff"):
         yield unrun(
-            "`ruff` is not on PATH, so nothing compared the citations", skill.name
+            "`ruff` is not on PATH, so nothing compared the citations",
+            skill.at(),
+            RUFF_ABSENT,
         )
         return
 
@@ -328,14 +375,17 @@ def citations(skill: Skill) -> Iterator[Finding]:
     yield from _ty_tables(skill, shipped)
 
     if not have("ty"):
-        yield unrun("`ty` is not on PATH, so no rule name was validated", skill.name)
+        yield unrun(
+            "`ty` is not on PATH, so no rule name was validated", skill.at(), TY_ABSENT
+        )
         return
     if (known := _ty_rules()) is not None:
         for name in sorted(set(shipped) - set(known)):
             yield fail(
-                f"assets/ty.toml names `{name}`, which the pinned ty does not "
+                f"names `{name}`, which the pinned ty does not "
                 "recognise — the setting silently does nothing",
-                skill.name,
+                skill.at(TY_TOML),
+                TY_UNKNOWN_SETTING,
             )
 
 
@@ -343,22 +393,26 @@ def _python(skill: Skill, ruff_toml: Path, ty_toml: Path) -> Iterator[Finding]:
     """The python rows and every cited code, against the enabled set."""
     enabled, problem = _enabled(ruff_toml)
     if problem:
-        yield unrun(f"could not read the enabled set: {problem}", skill.name)
+        yield unrun(
+            f"could not read the enabled set: {problem}", skill.at(), ENABLED_UNREAD
+        )
         return
     ty_levels = _ty_levels(ty_toml)
     if ty_levels is None:
         yield unrun(
-            "`ty` did not list its rules, so no ty row was compared", skill.name
+            "`ty` did not list its rules, so no ty row was compared",
+            skill.at(),
+            TY_RULES_UNREAD,
         )
         ty_levels = {}
-    for row, message in python_rows(skill.lint_rows, enabled, ty_levels):
-        yield fail(message, f"{skill.name}/{row.where}")
+    yield from python_rows(skill.lint_rows, enabled, ty_levels)
 
     catalogue = _catalogue()
     if catalogue is None:
         yield unrun(
             "`ruff` did not list its rules, so no cited code was told from prose",
-            skill.name,
+            skill.at(),
+            CATALOGUE_UNREAD,
         )
         return
     # A rule's own body is where it cites its checks; the `**Check:**`
@@ -371,42 +425,47 @@ def _python(skill: Skill, ruff_toml: Path, ty_toml: Path) -> Iterator[Finding]:
                 yield fail(
                     f"{rule_id} cites `{code}`, which is not a rule the pinned ruff "
                     "has; the rule reads as enforced by a check that does not exist",
-                    skill.name,
+                    skill.at(),
+                    UNKNOWN_CODE,
                 )
             elif "Removed" in catalogue[code]:
                 yield fail(
                     f"{rule_id} cites `{code}`, which ruff has withdrawn — "
                     "selecting it is a hard failure, so the rule can never be "
                     "enforced",
-                    skill.name,
+                    skill.at(),
+                    WITHDRAWN_CODE,
                 )
             elif code not in enabled:
                 yield fail(
-                    f"{rule_id} cites `{code}`, which `assets/ruff.toml` does not "
+                    f"{rule_id} cites `{code}`, which `{RUFF_TOML}` does not "
                     "enable; the rule reads as enforced and is not",
-                    skill.name,
+                    skill.at(),
+                    DISABLED_CODE,
                 )
 
 
 def _ty_tables(skill: Skill, shipped: Mapping[str, object]) -> Iterator[Finding]:
     """The asset's ty levels, against those the harness verifies."""
     declared = PYTHON_STYLE.ty_rules
+    where = skill.at(TY_TOML)
     for name in sorted(set(shipped) - set(declared)):
         yield fail(
-            f"assets/ty.toml enables `{name}` that the harness does not verify",
-            skill.name,
+            f"enables `{name}` that the harness does not verify", where, TY_UNVERIFIED
         )
     for name in sorted(set(declared) - set(shipped)):
         yield fail(
-            f"the harness verifies `{name}` that assets/ty.toml does not ship",
-            skill.name,
+            f"the harness verifies `{name}` that the asset does not ship",
+            where,
+            TY_UNSHIPPED,
         )
     for name in sorted(set(shipped) & set(declared)):
         if shipped[name] != declared[name]:
             yield fail(
                 f"`{name}` is {shipped[name]!r} in the asset "
                 f"and {declared[name]!r} in the harness",
-                skill.name,
+                where,
+                TY_LEVEL,
             )
 
 
@@ -419,26 +478,32 @@ def _rust(skill: Skill) -> Iterator[Finding]:
         if not have(tool):
             yield unrun(
                 f"`{tool}` is not available, so no Rust lint row was compared",
-                skill.name,
+                skill.at(),
+                RUST_TOOL_ABSENT,
             )
             return
     rows = [row for row in skill.lint_rows if row.tool in SECTION]
-    manifest = skill.root / "assets" / "Cargo.toml"
+    manifest = skill.root / CARGO
     if not rows:
         return
     if not manifest.exists():
         yield fail(
-            "Rust lint rows, and no `assets/Cargo.toml` to enforce them", skill.name
+            f"Rust lint rows, and no `{CARGO}` to enforce them",
+            skill.at(),
+            NO_CARGO_TOML,
         )
         return
     catalogue = rust_catalogue()
     if catalogue is None:
-        yield unrun("`clippy-driver` or `rustdoc` did not list its lints", skill.name)
+        yield unrun(
+            "`clippy-driver` or `rustdoc` did not list its lints",
+            skill.at(),
+            RUST_CATALOGUE_UNREAD,
+        )
         return
 
     shipped = table(manifest.read_text(), "workspace.")
-    for row, message in rust_rows(rows, shipped, catalogue):
-        yield fail(message, f"{skill.name}/{row.where}")
+    yield from rust_rows(rows, shipped, catalogue)
 
 
 def phrase(lint: str) -> re.Pattern[str]:
@@ -457,34 +522,45 @@ def zig_rows(
     rows: Iterable[LintRow],
     probes: Mapping[str, str],
     compile_errors: Callable[[str], list[str] | None],
-) -> Iterator[tuple[LintRow | None, str]]:
-    """(row, message) for each row its probe does not prove.
+    profile: Location,
+) -> Iterator[Finding]:
+    """Each row its probe does not prove, and each probe with no row.
 
-    Also one for each probe with no row, with `None` for the row.
     `compile_errors` returns the `error:` lines the compiler printed for
-    a source, or `None` when it accepted it.
+    a source, or `None` when it accepted it. A probe is declared by the
+    skill's profile, so one with no row is reported at `profile`.
     """
     rows = list(rows)
     cited = {row.lint for row in rows}
     for row in rows:
         source = probes.get(row.lint)
         if source is None:
-            yield (
-                row,
+            yield fail(
                 f"`{row.lint}` has no probe, so nothing shows the compiler reports it",
+                row.where,
+                ZIG_NO_PROBE,
             )
             continue
         errors = compile_errors(source)
         if errors is None:
-            yield (
-                row,
+            yield fail(
                 f"`{row.lint}`: its probe compiles, so the compiler does not report it",
+                row.where,
+                ZIG_PROBE_COMPILES,
             )
         elif not any(phrase(row.lint).search(line) for line in errors):
             printed = errors[0] if errors else "no error line"
-            yield row, f"`{row.lint}`: its probe fails with `{printed}` instead"
+            yield fail(
+                f"`{row.lint}`: its probe fails with `{printed}` instead",
+                row.where,
+                ZIG_PROBE_OTHER,
+            )
     for lint in sorted(set(probes) - cited):
-        yield None, f"the probe for `{lint}` has no row in any chapter"
+        yield fail(
+            f"the probe for `{lint}` has no row in any chapter",
+            profile,
+            ZIG_PROBE_NO_ROW,
+        )
 
 
 def _compile_zig(source: str) -> list[str] | None:
@@ -502,9 +578,11 @@ def _zig(skill: Skill) -> Iterator[Finding]:
     """The compiler rows, each against the probe that proves it."""
     # Asked before looking for rows, as `_rust` does.
     if not have("zig"):
-        yield unrun("`zig` is not on PATH, so no compiler row was proved", skill.name)
+        yield unrun(
+            "`zig` is not on PATH, so no compiler row was proved",
+            skill.at(),
+            ZIG_ABSENT,
+        )
         return
     rows = [row for row in skill.lint_rows if row.tool == "zig"]
-    for row, message in zig_rows(rows, skill.profile.probes, _compile_zig):
-        where = f"{skill.name}/{row.where}" if row else f"{skill.name} profile"
-        yield fail(message, where)
+    yield from zig_rows(rows, skill.profile.probes, _compile_zig, skill.at())

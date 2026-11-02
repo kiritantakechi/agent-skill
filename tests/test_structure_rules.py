@@ -17,8 +17,8 @@ from agent_skill.checks.citations import (
     rust_catalogue,
     rust_rows,
 )
-from agent_skill.checks.skeleton import shape
-from agent_skill.model import DASH, LintRow, Rename
+from agent_skill.checks.skeleton import skeleton
+from agent_skill.model import DASH, LintRow, Rename, Tree
 from structure_fixture import Demo, build, edit, reparse
 lazy from agent_skill.model import Skill
 
@@ -54,7 +54,12 @@ def demo(tmp_path: Path) -> Skill:
 
 
 def structural_messages(skill: Skill) -> list[str]:
-    return [m for m, _ in structural(skill)]
+    return [f.message for f in structural(skill)]
+
+
+def shape(skill: Skill) -> list[str]:
+    """What `skeleton` says of `skill`."""
+    return [f.message for f in skeleton.each(skill)]
 
 
 def test_a_gap_in_the_numbering(demo: Skill) -> None:
@@ -82,7 +87,7 @@ def test_a_four_line_why(demo: Skill) -> None:
 def anatomy_messages(skill: Skill) -> list[str]:
     check = by_name("anatomy")
     assert check is not None
-    return [f.message for f in check.run([skill]).findings]
+    return [f.message for f in check.run(Tree.of([skill])).findings]
 
 
 def test_a_relaxed_form_after_the_why_fails(demo: Skill) -> None:
@@ -160,7 +165,7 @@ def test_an_abbreviated_id_list_fails(demo: Skill) -> None:
     broken = edit(demo, "references/errors.md", "read it.", "read DS-ERR-01, -02.")
     check = by_name("anatomy")
     assert check is not None
-    messages = [f.message for f in check.run([broken]).findings]
+    messages = [f.message for f in check.run(Tree.of([broken])).findings]
     assert any("`DS-ERR-01, -02` abbreviates rule IDs" in m for m in messages)
 
 
@@ -174,7 +179,7 @@ def test_a_rule_that_only_points_at_its_owner_fails(demo: Skill) -> None:
     )
     check = by_name("anatomy")
     assert check is not None
-    messages = [f.message for f in check.run([broken]).findings]
+    messages = [f.message for f in check.run(Tree.of([broken])).findings]
     assert "DS-ERR-02 states no Why" in messages
 
 
@@ -291,7 +296,7 @@ def test_a_row_for_a_tool_the_standard_does_not_require(demo: Skill) -> None:
     path = demo.root / "references" / "errors.md"
     path.write_text(path.read_text() + ROWS)
     skill = reparse(demo)
-    found = [message for _, message in row_shape(skill.lint_rows, ("python", "ruff"))]
+    found = [f.message for f in row_shape(skill.lint_rows, ("python", "ruff"))]
     assert found == ["`ty` is not a tool this standard requires"]
 
 
@@ -299,7 +304,7 @@ def test_a_row_at_a_level_that_fails_nothing(demo: Skill) -> None:
     path = demo.root / "references" / "errors.md"
     path.write_text(path.read_text() + ROWS.replace("| warn |", "| ignore |"))
     skill = reparse(demo)
-    found = [message for _, message in row_shape(skill.lint_rows, ("ruff", "ty"))]
+    found = [f.message for f in row_shape(skill.lint_rows, ("ruff", "ty"))]
     assert any("fails no run" in m for m in found)
 
 
@@ -312,20 +317,18 @@ def test_python_rows_against_the_shipped_configuration(demo: Skill) -> None:
         == []
     )
     off = [
-        m
-        for _, m in python_rows(rows, set(), {"possibly-unresolved-reference": "warn"})
+        f.message
+        for f in python_rows(rows, set(), {"possibly-unresolved-reference": "warn"})
     ]
     assert off == ["`B006` is a row, and `assets/ruff.toml` does not enable it"]
     level = [
-        m
-        for _, m in python_rows(
-            rows, {"B006"}, {"possibly-unresolved-reference": "error"}
-        )
+        f.message
+        for f in python_rows(rows, {"B006"}, {"possibly-unresolved-reference": "error"})
     ]
     assert level == [
         "`possibly-unresolved-reference` is `warn` in the row and `error` as shipped"
     ]
-    unknown = [m for _, m in python_rows(rows, {"B006"}, {})]
+    unknown = [f.message for f in python_rows(rows, {"B006"}, {})]
     assert unknown == [
         "`possibly-unresolved-reference` is not a rule the pinned ty recognises"
     ]
@@ -345,7 +348,7 @@ def test_a_rename_table_that_resolves(demo: Skill) -> None:
     skill = reparse(demo)
     assert len(skill.renames) == 3
     assert [
-        m for m, _ in shape(skill) if "renamed" in m or "became" in m or "removed" in m
+        m for m in shape(skill) if "renamed" in m or "became" in m or "removed" in m
     ] == []
 
 
@@ -364,7 +367,7 @@ def test_a_rename_table_states_its_ranges(demo: Skill) -> None:
 def test_an_unlisted_id_no_rule_carries(demo: Skill) -> None:
     path = demo.root / "references" / "migration.md"
     path.write_text(path.read_text() + RENAMES)
-    found = [m for m, _ in shape(reparse(demo))]
+    found = shape(reparse(demo))
     assert "DS-ERR-01 has no row" not in " ".join(found)
     assert any(m.startswith("DS-ERR-03 has no row") for m in found)
 
@@ -372,13 +375,13 @@ def test_an_unlisted_id_no_rule_carries(demo: Skill) -> None:
 def test_a_table_that_states_no_ranges(demo: Skill) -> None:
     path = demo.root / "references" / "migration.md"
     path.write_text(path.read_text() + RENAMES.replace(f"{RANGES}\n\n", ""))
-    assert any("states no ranges" in m for m, _ in shape(reparse(demo)))
+    assert any("states no ranges" in m for m in shape(reparse(demo)))
 
 
 def test_a_row_mapping_an_id_to_itself(demo: Skill) -> None:
     path = demo.root / "references" / "migration.md"
     path.write_text(path.read_text() + RENAMES + "| `DS-ERR-01` | `DS-ERR-01` |\n")
-    assert any("becoming itself" in m for m, _ in shape(reparse(demo)))
+    assert any("becoming itself" in m for m in shape(reparse(demo)))
 
 
 def test_a_rename_into_a_rule_that_was_deleted(demo: Skill) -> None:
@@ -387,14 +390,14 @@ def test_a_rename_into_a_rule_that_was_deleted(demo: Skill) -> None:
         path.read_text() + RENAMES.replace("`DS-ERR-02` |", "`DS-ERR-05` |")
     )
     skill = reparse(demo)
-    assert any("which no rule carries" in m for m, _ in shape(skill))
+    assert any("which no rule carries" in m for m in shape(skill))
 
 
 def test_a_demotion_into_a_row_no_chapter_lists(demo: Skill) -> None:
     path = demo.root / "references" / "migration.md"
     path.write_text(path.read_text() + RENAMES)
     skill = reparse(demo)
-    assert any("which no chapter lists" in m for m, _ in shape(skill))
+    assert any("which no chapter lists" in m for m in shape(skill))
 
 
 def test_a_removal_without_a_reason(demo: Skill) -> None:
@@ -402,7 +405,7 @@ def test_a_removal_without_a_reason(demo: Skill) -> None:
     text = RENAMES.replace("removed — said nothing the compiler does not", "removed — ")
     path.write_text(path.read_text() + text)
     skill = reparse(demo)
-    assert any("gives no reason" in m for m, _ in shape(skill))
+    assert any("gives no reason" in m for m in shape(skill))
 
 
 def test_rust_rows_against_the_shipped_lint_table() -> None:
@@ -426,17 +429,13 @@ def test_rust_rows_against_the_shipped_lint_table() -> None:
     fine.append(row("rustc", "unsafe_code", "forbid"))
     assert list(rust_rows(fine, shipped, catalogue)) == []
     wrong = [
-        m
-        for _, m in rust_rows(
-            [row("clippy", "unwrap_used", "warn")], shipped, catalogue
-        )
+        f.message
+        for f in rust_rows([row("clippy", "unwrap_used", "warn")], shipped, catalogue)
     ]
     assert wrong == ["`unwrap_used` is `warn` in the row and `deny` as shipped"]
     unknown = [
-        m
-        for _, m in rust_rows(
-            [row("clippy", "unwarp_used", "deny")], shipped, catalogue
-        )
+        f.message
+        for f in rust_rows([row("clippy", "unwarp_used", "deny")], shipped, catalogue)
     ]
     assert unknown == ["`unwarp_used` is not a clippy lint the pinned toolchain knows"]
 

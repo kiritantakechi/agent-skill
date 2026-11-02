@@ -10,13 +10,16 @@ import re
 import tempfile
 import tomllib
 import zipfile
+from functools import partial
 from pathlib import Path
-lazy from collections.abc import Iterator
+lazy from collections.abc import Callable, Iterator
 lazy from typing import Any
 
-from agent_skill.checks import check
+from agent_skill.checks import check, per_skill
+from agent_skill.ids import Branch
 from agent_skill.proc import have, run
 from agent_skill.report import fail, unrun
+lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
 
@@ -25,16 +28,35 @@ lazy from agent_skill.report import Finding
 #: absence of tabs.
 WORKFLOW_KEYS = ("name:", "on:", "jobs:")
 
+# The branches a finding of this check comes from.
+NO_DIRECTORY = Branch("assets", "no_directory")
+EMPTY = Branch("assets", "empty")
+TAB = Branch("assets", "tab")
+NEWLINE = Branch("assets", "newline")
+TOML = Branch("assets", "toml")
+UNREFERENCED = Branch("assets", "unreferenced")
+CITES = Branch("assets", "cites")
+UV_ABSENT = Branch("assets", "uv_absent")
+BUILD = Branch("assets", "build")
+NO_WHEEL = Branch("assets", "no_wheel")
+NO_PY_TYPED = Branch("assets", "no_py_typed")
+ZIG_ABSENT = Branch("assets", "zig_absent")
+ZIG_FMT = Branch("assets", "zig_fmt")
+ZIG_AST = Branch("assets", "zig_ast")
+WORKFLOW_KEY = Branch("assets", "workflow_key")
+ODD_INDENT = Branch("assets", "odd_indent")
+
 
 @check("assets", "the files a reader copies verbatim", needs=("uv", "zig"))
+@per_skill
 def assets(skill: Skill) -> Iterator[Finding]:
     """Each asset: well formed, referenced, and citing real rules."""
     directory = skill.root / "assets"
     if not directory.is_dir():
-        yield fail("no assets/ directory", skill.name)
+        yield fail("no assets/ directory", skill.at(), NO_DIRECTORY)
         return
     if not skill.assets:
-        yield fail("assets/ is empty", skill.name)
+        yield fail("assets/ is empty", skill.at(), EMPTY)
         return
 
     referenced = "\n".join(p.read_text() for p in skill.markdown)
@@ -47,12 +69,12 @@ def _asset(
     skill: Skill, path: Path, referenced: str, rules: set[str]
 ) -> Iterator[Finding]:
     """One asset: its whitespace, its kind's checks, its citations."""
-    tag = f"{skill.name}/assets/{path.name}"
+    tag = skill.at(path)
     text = path.read_text()
     if "\t" in text:
-        yield fail("hard tab", tag)
+        yield fail("hard tab", tag, TAB)
     if not text.endswith("\n"):
-        yield fail("no trailing newline", tag)
+        yield fail("no trailing newline", tag, NEWLINE)
 
     match path.suffix:
         case ".zig" | ".zon":
@@ -61,15 +83,15 @@ def _asset(
             try:
                 data = tomllib.loads(text)
             except tomllib.TOMLDecodeError as e:
-                yield fail(str(e), tag)
+                yield fail(str(e), tag, TOML)
             else:
                 yield from _build(data, text, tag)
         case ".yml" | ".yaml":
-            yield from _workflow(text, tag)
+            yield from _workflow(text, partial(skill.at, path))
 
     # An asset nobody points at is not part of the skill.
     if f"assets/{path.name}" not in referenced:
-        yield fail("shipped but never referenced from the skill", tag)
+        yield fail("shipped but never referenced from the skill", tag, UNREFERENCED)
 
     # An asset cites rules to say why it is shaped the way it is,
     # and nothing was checking those: `_references` reads the
@@ -78,10 +100,10 @@ def _asset(
     for rid in sorted(
         set(re.findall(rf"\b{skill.prefix}-[A-Z]+-\d+[a-z]?\b", text)) - rules
     ):
-        yield fail(f"cites {rid}, which is not a rule", tag)
+        yield fail(f"cites {rid}, which is not a rule", tag, CITES)
 
 
-def _build(data: dict[str, Any], text: str, tag: str) -> Iterator[Finding]:
+def _build(data: dict[str, Any], text: str, tag: Location) -> Iterator[Finding]:
     """Build the project the metadata describes, if it describes one.
 
     Parsing is not verification. `assets/pyproject.toml` was valid TOML,
@@ -100,7 +122,9 @@ def _build(data: dict[str, Any], text: str, tag: str) -> Iterator[Finding]:
         # ALL CHECKS PASSED. `citations`, `pins` and `toolchain` all use
         # `unrun` here; this path and `_zig` were the two that did not,
         # and both were copied from the same wrong precedent.
-        yield unrun("`uv` is not on PATH, so nothing built this project", tag)
+        yield unrun(
+            "`uv` is not on PATH, so nothing built this project", tag, UV_ABSENT
+        )
         return
 
     with tempfile.TemporaryDirectory() as directory:
@@ -136,7 +160,7 @@ def _build(data: dict[str, Any], text: str, tag: str) -> Iterator[Finding]:
                 ),
                 result.err.strip()[:90],
             )
-            yield fail(f"does not build: {first.strip()[:88]}", tag)
+            yield fail(f"does not build: {first.strip()[:88]}", tag, BUILD)
             return
 
         # A rule claims the marker ships. Read it off the artefact
@@ -144,37 +168,42 @@ def _build(data: dict[str, Any], text: str, tag: str) -> Iterator[Finding]:
         # the claim came from.
         wheels = list((root / "dist").glob("*.whl"))
         if not wheels:
-            yield fail("build reported success but produced no wheel", tag)
+            yield fail("build reported success but produced no wheel", tag, NO_WHEEL)
             return
         shipped = zipfile.ZipFile(wheels[0]).namelist()
         if not any(n.endswith("/py.typed") for n in shipped):
-            yield fail("built wheel ships no `py.typed`", tag)
+            yield fail("built wheel ships no `py.typed`", tag, NO_PY_TYPED)
 
 
-def _zig(path: Path, tag: str) -> Iterator[Finding]:
+def _zig(path: Path, tag: Location) -> Iterator[Finding]:
     """A zig asset is `zig fmt` clean and passes `zig ast-check`."""
     if not have("zig"):
         # Silence is not success, and a `NOTE` is silence: it does not
         # withhold the pass. A shipped `build.zig` that nothing parsed
         # is exactly the case this check exists for.
-        yield unrun("`zig` is not on PATH, so nothing parsed this file", tag)
+        yield unrun(
+            "`zig` is not on PATH, so nothing parsed this file", tag, ZIG_ABSENT
+        )
         return
     if not run(["zig", "fmt", "--check", str(path)], timeout=60).ok:
-        yield fail("not `zig fmt` clean", tag)
+        yield fail("not `zig fmt` clean", tag, ZIG_FMT)
     r = run(["zig", "ast-check", str(path)], timeout=60)
     if not r.ok:
         first = next((ln for ln in r.err.split("\n") if ": error:" in ln), r.err[:80])
         # the absolute path is noise; the line and the message are not
-        yield fail(first.split(f"{path}:")[-1].strip()[:84], tag)
+        yield fail(first.split(f"{path}:")[-1].strip()[:84], tag, ZIG_AST)
 
 
-def _workflow(text: str, tag: str) -> Iterator[Finding]:
-    """A workflow has its top-level keys and indents in steps of two."""
+def _workflow(text: str, at: Callable[..., Location]) -> Iterator[Finding]:
+    """A workflow has its top-level keys and indents in steps of two.
+
+    `at` locates a line of it, or the whole file given no line.
+    """
     for key in WORKFLOW_KEYS:
         if not re.search(rf"^{re.escape(key)}", text, re.MULTILINE):
-            yield fail(f"no top-level `{key}`", tag)
+            yield fail(f"no top-level `{key}`", at(), WORKFLOW_KEY)
     for i, line in enumerate(text.split("\n"), 1):
         if line.strip() and (len(line) - len(line.lstrip(" "))) % 2:
             yield fail(
-                "odd indent, which YAML reads as a different level", f"{tag}:{i}"
+                "odd indent, which YAML reads as a different level", at(i), ODD_INDENT
             )

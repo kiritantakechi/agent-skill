@@ -24,9 +24,11 @@ from pathlib import Path
 lazy from collections.abc import Iterator
 
 from agent_skill.doc import Block, Doc, Heading, Paragraph, printed
+from agent_skill.ids import Branch
 from agent_skill.report import Finding, fail, note
 from agent_skill.text import syntax_for
-lazy from agent_skill.model import Skill
+lazy from agent_skill.ids import Location
+lazy from agent_skill.model import Skill, located
 
 HERE = Path(__file__).parent
 
@@ -64,6 +66,17 @@ REVIEW_SECTIONS: tuple[str, ...] = (
 )
 
 REVIEW = "references/review-checklist.md"
+
+# The branches of `shared-text` that `compare` finds through, and of
+# `fmt` that `rewrite` reports through.
+MISSING = Branch("shared-text", "missing")
+DIFFERS = Branch("shared-text", "differs")
+STRAY = Branch("shared-text", "stray")
+FREE_REGION = Branch("fmt", "free_region")
+REWRITTEN = Branch("fmt", "rewritten")
+
+#: What every finding of `compare` ends with.
+REWRITES = " — `agent-skill fmt` rewrites it"
 
 
 @dataclass(frozen=True, slots=True)
@@ -300,12 +313,18 @@ def first_difference(want: Block, got: Block) -> str:
 class Copy:
     """One passage as a skill carries it, aligned to its template."""
 
+    skill: str
     passage: Passage
     path: Path
     doc: Doc
     #: the passage's blocks, as a range of `doc.blocks`
     span: tuple[int, int]
     alignment: Alignment
+
+    def where(self, block: Block | None = None) -> Location:
+        """The line `block` of the copy is on, or its heading's."""
+        at = block or self.doc.blocks[self.span[0] - 1]
+        return located(self.skill, self.passage.document, at.line or None)
 
 
 def _span(doc: Doc, heading: str) -> tuple[int, int] | None:
@@ -347,30 +366,40 @@ def copies(skill: Skill) -> Iterator[Copy]:
         if span is None:
             continue
         actual = doc.blocks[span[0] : span[1]]
-        yield Copy(passage, path, doc, span, align(render(passage, values), actual))
+        aligned = align(render(passage, values), actual)
+        yield Copy(skill.name, passage, path, doc, span, aligned)
 
 
-def compare(skill: Skill) -> Iterator[tuple[str, str]]:
-    """Every way a skill's copies differ from the template.
-
-    Each as (message, where).
-    """
+def compare(skill: Skill) -> Iterator[Finding]:
+    """Every way a skill's copies differ from the template."""
     for copy in copies(skill):
         al = copy.alignment
-        where = f"{skill.name}/{copy.passage.document} § {copy.passage.section}"
         for t, block in enumerate(al.template):
             if block == FREE:
                 continue
             a = al.pairs.get(t)
             if a is None:
-                yield f"missing shared text: `{flat(block)[:70]}`", where
+                yield fail(
+                    f"missing shared text: `{flat(block)[:70]}`{REWRITES}",
+                    copy.where(),
+                    MISSING,
+                )
             elif al.actual[a] != block:
                 differs = first_difference(block, al.actual[a])
-                yield f"differs from the shared template — {differs}", where
+                yield fail(
+                    f"differs from the shared template — {differs}{REWRITES}",
+                    copy.where(al.actual[a]),
+                    DIFFERS,
+                )
         for t, extra in al.gaps():
             if not al.free_before(t):
-                stray = flat(al.actual[extra[0]])[:70]
-                yield f"text the template has no place for: `{stray}`", where
+                stray = al.actual[extra[0]]
+                yield fail(
+                    f"text the template has no place for: `{flat(stray)[:70]}`"
+                    f"{REWRITES}",
+                    copy.where(stray),
+                    STRAY,
+                )
 
 
 def rewrite(skill: Skill) -> list[Finding]:
@@ -385,9 +414,11 @@ def rewrite(skill: Skill) -> list[Finding]:
     changed: list[Finding] = []
     for copy in copies(skill):
         al = copy.alignment
-        where = f"{copy.passage.document} § {copy.passage.section}"
+        where = copy.where()
         if any(not al.free_before(t) for t, _ in al.gaps()):
-            changed.append(fail("text outside a free region; not rewritten", where))
+            changed.append(
+                fail("text outside a free region; not rewritten", where, FREE_REGION)
+            )
             continue
         gaps = dict(al.gaps())
         out: list[Block] = []
@@ -402,5 +433,5 @@ def rewrite(skill: Skill) -> list[Finding]:
         new = Doc(doc.frontmatter, (*doc.blocks[:start], *out, *doc.blocks[end:]))
         if new != doc:
             copy.path.write_text(str(new))
-            changed.append(note("rewritten from the template", where))
+            changed.append(note("rewritten from the template", where, REWRITTEN))
     return changed

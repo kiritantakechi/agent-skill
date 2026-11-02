@@ -13,10 +13,11 @@ after a different check.
 
 lazy from collections.abc import Iterator
 
-from agent_skill.checks import check
+from agent_skill.checks import check, per_skill
 from agent_skill.checks.corpus import corpus_for
 from agent_skill.checks.patterns import NEGATED, filtered_of, patterns_of
 from agent_skill.checks.search import find, searcher_problem
+from agent_skill.ids import Branch
 from agent_skill.report import fail, note, unrun
 lazy from agent_skill.checks.corpus import Corpus
 lazy from agent_skill.checks.patterns import Pattern
@@ -31,19 +32,32 @@ type Row = tuple[Rule, Pattern, str, list[Span]]
 #: Tier 1 decides, tier 2 narrows for a person, tier 3 enumerates.
 type Tiers = tuple[list[Row], list[Row], list[Row]]
 
+# The branches a finding of this check comes from.
+SEARCHER = Branch("self-application", "searcher")
+EMPTY = Branch("self-application", "empty")
+STALE_EXEMPTION = Branch("self-application", "stale_exemption")
+ORPHAN_EXEMPTION = Branch("self-application", "orphan_exemption")
+FILTERED_NO_ANSWER = Branch("self-application", "filtered_no_answer")
+FILTERED = Branch("self-application", "filtered")
+NO_ANSWER = Branch("self-application", "no_answer")
+DECIDES = Branch("self-application", "decides")
+NARROWS = Branch("self-application", "narrows")
+ENUMERATES = Branch("self-application", "enumerates")
+
 
 @check(
     "self-application",
     "the standard's own patterns over its own examples",
     needs=("rg",),
 )
+@per_skill
 def selfapply(skill: Skill) -> Iterator[Finding]:
     """The skill's own Check patterns, over the skill's own examples."""
     lang = skill.profile.languages[0] if skill.profile.languages else ""
     if not lang:
         return
     if problem := searcher_problem():
-        yield unrun(problem, skill.name)
+        yield unrun(problem, skill.at(), SEARCHER)
         return
     yield from _run(skill, lang)
 
@@ -55,7 +69,8 @@ def _run(skill: Skill, lang: str) -> Iterator[Finding]:
         yield fail(
             f"nothing to check: {corpus.blocks} blocks, {len(skill.rules)} rules — "
             f"an empty corpus passes every pattern in the library",
-            skill.name,
+            skill.at(),
+            EMPTY,
         )
         return
 
@@ -75,7 +90,8 @@ def _run(skill: Skill, lang: str) -> Iterator[Finding]:
                 yield fail(
                     f"{rule.id}: the exemption quotes {entry.anchor!r}, which its "
                     f"**Check:** no longer says",
-                    skill.name,
+                    skill.at(),
+                    STALE_EXEMPTION,
                 )
         if NEGATED.search(rule.check):
             yield from _filtered(skill, corpus, rule)
@@ -86,7 +102,9 @@ def _run(skill: Skill, lang: str) -> Iterator[Finding]:
     # longer defines is a suppression standing over nothing.
     for rid in sorted(set(profile.not_decisive) - claimed):
         yield fail(
-            f"{rid}: the exemption names a rule this skill does not define", skill.name
+            f"{rid}: the exemption names a rule this skill does not define",
+            skill.at(),
+            ORPHAN_EXEMPTION,
         )
 
     yield from _report(skill, corpus, tiers)
@@ -109,7 +127,8 @@ def _filtered(skill: Skill, corpus: Corpus, rule: Rule) -> Iterator[Finding]:
             yield fail(
                 f"{rule.id}: the search gave no answer for its own Check pattern "
                 f"/{pattern.text}/ — rejected, timed out, or not installed",
-                skill.name,
+                skill.at(),
+                FILTERED_NO_ANSWER,
             )
             continue
         hits.append(f"/{pattern.text}/ ({len(lines)} hit(s))")
@@ -119,7 +138,8 @@ def _filtered(skill: Skill, corpus: Corpus, rule: Rule) -> Iterator[Finding]:
             f"{rule.id}: ran {', '.join(hits)}, and its Check then drops hits with "
             f"`rg -v` {dropped}, which an example — one crate root — cannot "
             "answer; nothing here decides it",
-            skill.name,
+            skill.at(),
+            FILTERED,
         )
 
 
@@ -134,7 +154,8 @@ def _search(
             yield fail(
                 f"{rule.id}: the search gave no answer for its own Check pattern "
                 f"/{pattern.text}/ — rejected, timed out, or not installed",
-                skill.name,
+                skill.at(),
+                NO_ANSWER,
             )
             continue
         exempt = profile.exempt.get(rule.id)
@@ -155,7 +176,7 @@ def _report(skill: Skill, corpus: Corpus, tiers: Tiers) -> Iterator[Finding]:
     """Each tier as findings, the rows with the most hits first."""
     tier1, tier2, tier3 = tiers
     for row in sorted(tier1, key=lambda r: -len(r[3])):
-        yield fail(_render(corpus, row), skill.name)
+        yield fail(_render(corpus, row), skill.at(), DECIDES)
     for row in sorted(tier2, key=lambda r: -len(r[3])):
         entry = skill.profile.not_decisive.get(row[0].id)
         why = (
@@ -163,14 +184,12 @@ def _report(skill: Skill, corpus: Corpus, tiers: Tiers) -> Iterator[Finding]:
             if entry
             else "prose span: the pattern narrows, a person decides"
         )
-        yield note(
-            _render(corpus, row, limit=3) + f"  ({why})",
-            skill.name,
-        )
+        yield note(_render(corpus, row, limit=3) + f"  ({why})", skill.at(), NARROWS)
     for row in sorted(tier3, key=lambda r: -len(r[3])):
         yield note(
             _render(corpus, row, limit=0) + "  (enumerates rather than accuses)",
-            skill.name,
+            skill.at(),
+            ENUMERATES,
         )
 
 

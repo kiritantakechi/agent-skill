@@ -6,7 +6,7 @@ import pytest
 
 from agent_skill import demote, renumber, shared
 from agent_skill.checks.anatomy import structural
-from agent_skill.checks.skeleton import shape
+from agent_skill.checks.skeleton import skeleton
 from agent_skill.doc import canonical
 from agent_skill.layout import SKILLS
 from agent_skill.model import DASH, Skill
@@ -236,7 +236,7 @@ def test_demote_then_renumber_leaves_a_conforming_skill_conforming(
     after = Skill(demo.root, Demo())
     assert [r.id for r in after.rules] == ["DS-ERR-01", "DS-MIG-01"]
     assert list(shared.compare(after)) == []
-    assert [m for m, _ in [*shape(after), *structural(after)]] == []
+    assert [f.message for f in [*skeleton.each(after), *structural(after)]] == []
 
 
 #: DS-ERR-02, with an example holding a line that reads like a section.

@@ -15,7 +15,7 @@ from agent_skill import build
 from agent_skill.checks import all_checks
 from agent_skill.fmt import format_skill
 from agent_skill.layout import SKILLS, root_of
-from agent_skill.model import discover
+from agent_skill.model import Tree, discover
 from agent_skill.report import Level, Result
 lazy from agent_skill import demote, renumber
 
@@ -85,25 +85,27 @@ def cmd_check(args: argparse.Namespace) -> int:
     Exit 1 when any check failed or could not run, and 2 when there is
     nothing to check or a name asked for matches nothing.
 
-    `--skill` narrows the checks that read one skill at a time. A
-    cross-skill check still reads every skill: given one, `crossref`
-    had no anchor to check a delta against and passed, and `plugin`
-    failed because the plugin ships four.
+    `--skill` chooses findings, not what a check reads: every check runs
+    over the whole tree, and what is shown is what lies in a chosen
+    skill or in none. Narrowing the input instead left a cross-skill
+    check without its siblings: given one skill, `crossref` had no
+    anchor to check a delta against and passed, and `plugin` failed
+    because the plugin ships four.
     """
-    everything = discover(args.skills)
+    tree = Tree.of(discover(args.skills))
     checks = all_checks()
-    complaint = _unknown(
-        "--skill", args.skill, [s.name for s in everything]
-    ) or _unknown("--only", args.only, [c.name for c in checks])
+    complaint = _unknown("--skill", args.skill, [s.name for s in tree]) or _unknown(
+        "--only", args.only, [c.name for c in checks]
+    )
     if complaint:
         print(complaint, file=sys.stderr)
         return 2
-    skills = [s for s in everything if not args.skill or s.name in args.skill]
-    if not skills:
+    if not tree.skills:
         print(f"no skills under {args.skills}", file=sys.stderr)
         return 2
+    chosen = args.skill or [s.name for s in tree]
 
-    print(f"== {', '.join(s.name for s in skills)} ==")
+    print(f"== {', '.join(s.name for s in tree.only(chosen))} ==")
     failed = False
     results: list[Result] = []
     for c in checks:
@@ -111,7 +113,7 @@ def cmd_check(args: argparse.Namespace) -> int:
             continue
         if args.fast and c.slow:
             continue
-        result = c.run(everything if c.scope == "all" else skills, fast=args.fast)
+        result = c.run(tree, about=chosen, fast=args.fast).within(chosen)
         results.append(result)
         _emit(result, verbose=args.verbose)
         failed |= not result.ok

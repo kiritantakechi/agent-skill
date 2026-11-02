@@ -16,9 +16,10 @@ closes, which is a file that does not parse as written.
 """
 
 import re
-lazy from collections.abc import Iterator
+from functools import partial
+lazy from collections.abc import Callable, Iterator
 
-from agent_skill.checks import check
+from agent_skill.checks import check, per_skill
 from agent_skill.doc import (
     WIDTH,
     Block,
@@ -30,8 +31,13 @@ from agent_skill.doc import (
     canonical,
     words,
 )
+from agent_skill.ids import Branch
 from agent_skill.report import Finding, fail, note
+lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Skill
+
+#: A line of the file a finding is about, as its location.
+type At = Callable[[int], Location]
 
 #: A rule heading and its contents entry are one line by construction:
 #: the ID, the tier, the title. Over-length there is a title-length
@@ -43,8 +49,21 @@ TOC = re.compile(r"^\s*- [A-Z]{2}-[A-Z]+-\d+[a-z]? \[")
 #: marker.
 _MARKS = re.compile(r">|-|\d{1,9}\.")
 
+# The branches a finding of this check comes from.
+UNCLOSED = Branch("layout", "unclosed")
+CANONICAL = Branch("layout", "canonical")
+TAB = Branch("layout", "tab")
+CR = Branch("layout", "cr")
+CODE_WIDTH = Branch("layout", "code_width")
+TITLE_WIDTH = Branch("layout", "title_width")
+SPAN_WIDTH = Branch("layout", "span_width")
+PROSE_WIDTH = Branch("layout", "prose_width")
+INLINE_FENCE = Branch("layout", "inline_fence")
+TABLE_CELLS = Branch("layout", "table_cells")
+
 
 @check("layout", "canonical form, examples' tabs and width, table cells")
+@per_skill
 def layout(skill: Skill) -> Iterator[Finding]:
     """The physical shape of every markdown file in the skill.
 
@@ -57,18 +76,18 @@ def layout(skill: Skill) -> Iterator[Finding]:
     """
     for path in skill.markdown:
         text = path.read_text(newline="")
-        tag = f"{skill.name}/{path.name}"
+        at = partial(skill.at, path)
         opened = next((b for b in _walk(Doc.parse(text).blocks) if _open(b)), None)
         if opened is not None:
-            yield fail("an example's fence is never closed", f"{tag}:{opened.line}")
+            yield fail("an example's fence is never closed", at(opened.line), UNCLOSED)
             continue
         want = canonical(text)
         tree = Doc.parse(want)
-        yield from _canonical(text, want, tag)
-        yield from _kept(want, tag)
-        yield from _widths(want, tree, tag)
-        yield from _inline_fences(want, tree, tag)
-        yield from _table_cells(tree, tag)
+        yield from _canonical(text, want, at)
+        yield from _kept(want, at)
+        yield from _widths(want, tree, at)
+        yield from _inline_fences(want, tree, at)
+        yield from _table_cells(tree, at)
 
 
 def _walk(blocks: tuple[Block, ...]) -> Iterator[Block]:
@@ -100,7 +119,7 @@ def _code(tree: Doc) -> set[int]:
     }
 
 
-def _canonical(text: str, want: str, tag: str) -> Iterator[Finding]:
+def _canonical(text: str, want: str, at: At) -> Iterator[Finding]:
     """The first line where the file is not what `fmt` would print."""
     if text == want:
         return
@@ -115,7 +134,8 @@ def _canonical(text: str, want: str, tag: str) -> Iterator[Finding]:
         differs = f"the line is {_shown(have, i)}, canonical is {_shown(wanted, i)}"
     yield fail(
         f"not in canonical form: {differs} — `agent-skill fmt` re-prints it",
-        f"{tag}:{i + 1}",
+        at(i + 1),
+        CANONICAL,
     )
 
 
@@ -127,15 +147,15 @@ def _shown(lines: list[str], i: int) -> str:
     return f"`{line}`"
 
 
-def _kept(want: str, tag: str) -> Iterator[Finding]:
+def _kept(want: str, at: At) -> Iterator[Finding]:
     """A tab or a CR the printer keeps: in an example, a span, a cell.
 
     One in running text is whitespace the printer removes, which
     `_canonical` reports.
     """
-    for char, name in (("\t", "hard tab"), ("\r", "CR present")):
-        if (at := want.find(char)) >= 0:
-            yield fail(name, f"{tag}:{want.count('\n', 0, at) + 1}")
+    for char, name, branch in (("\t", "hard tab", TAB), ("\r", "CR present", CR)):
+        if (found := want.find(char)) >= 0:
+            yield fail(name, at(want.count("\n", 0, found) + 1), branch)
 
 
 def _lone(line: str) -> bool:
@@ -146,7 +166,7 @@ def _lone(line: str) -> bool:
     return len(found) == 1
 
 
-def _widths(want: str, tree: Doc, tag: str) -> Iterator[Finding]:
+def _widths(want: str, tree: Doc, at: At) -> Iterator[Finding]:
     """Lines past `WIDTH` that no fill could bring under it.
 
     An example's line is the example's to shorten, and fails. A rule
@@ -160,30 +180,37 @@ def _widths(want: str, tree: Doc, tag: str) -> Iterator[Finding]:
     for i, line in enumerate(want.split("\n"), 1):
         if len(line) <= WIDTH or i <= head or line.lstrip(" >").startswith("|"):
             continue
-        where = f"{tag}:{i}"
+        where = at(i)
         if i in code:
-            yield fail(f"code line is {len(line)} columns (limit {WIDTH})", where)
+            yield fail(
+                f"code line is {len(line)} columns (limit {WIDTH})", where, CODE_WIDTH
+            )
         elif HEADING.match(line) or TOC.match(line):
-            yield note(f"rule title makes the line {len(line)} columns", where)
+            yield note(
+                f"rule title makes the line {len(line)} columns", where, TITLE_WIDTH
+            )
         elif _lone(line):
             yield note(
                 f"a code span or link no line can hold makes the line {len(line)} "
                 "columns",
                 where,
+                SPAN_WIDTH,
             )
         else:
-            yield fail(f"prose line is {len(line)} columns (limit {WIDTH})", where)
+            yield fail(
+                f"prose line is {len(line)} columns (limit {WIDTH})", where, PROSE_WIDTH
+            )
 
 
-def _inline_fences(want: str, tree: Doc, tag: str) -> Iterator[Finding]:
+def _inline_fences(want: str, tree: Doc, at: At) -> Iterator[Finding]:
     """Three backticks inside running text, read differently by each."""
     code = _code(tree)
     for i, line in enumerate(want.split("\n"), 1):
         if i not in code and re.search(r"\S```", line):
-            yield fail("inline triple backtick", f"{tag}:{i}")
+            yield fail("inline triple backtick", at(i), INLINE_FENCE)
 
 
-def _table_cells(tree: Doc, tag: str) -> Iterator[Finding]:
+def _table_cells(tree: Doc, at: At) -> Iterator[Finding]:
     r"""Every row of a table has as many cells as its header.
 
     A `|` inside a code span in a cell, `X | None`, splits that cell on
@@ -196,5 +223,6 @@ def _table_cells(tree: Doc, tag: str) -> Iterator[Finding]:
                 yield fail(
                     f"a table row has {len(row)} cells where its header has "
                     f"{len(table.header)}; write a `|` inside a cell as `\\|`",
-                    f"{tag}:{table.line + 2 + k}",
+                    at(table.line + 2 + k),
+                    TABLE_CELLS,
                 )

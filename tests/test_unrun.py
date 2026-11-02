@@ -31,6 +31,7 @@ import pytest
 import agent_skill.proc
 from agent_skill.checks import all_checks, by_name
 from agent_skill.lang import toolchain_for
+from agent_skill.model import Tree
 from agent_skill.report import Level
 lazy from agent_skill.checks import Check
 lazy from agent_skill.model import Skill
@@ -129,7 +130,7 @@ def source_of(check: Check) -> Path:
     an omission from it: a check skipped here is indistinguishable from
     a check that passed.
     """
-    found = inspect.getsourcefile(check.fn)
+    found = inspect.getsourcefile(inspect.unwrap(check.fn))
     assert found is not None, (
         f"{check.name} has no source file, so nothing can be read from it"
     )
@@ -189,7 +190,7 @@ def test_every_tool_a_check_reaches_for_is_declared(
     target = by_name(check)
     assert target is not None
     shim = absent(monkeypatch, lambda _name: target.slow)
-    target.run(skills)
+    target.run(Tree.of(skills))
     assert shim.asked <= set(target.needs), (
         f"{check} reached for {sorted(shim.asked - set(target.needs))} and does "
         "not declare it — with that tool missing, nothing withholds its pass"
@@ -233,7 +234,7 @@ def test_a_missing_tool_withholds_the_pass(
     over = subjects(target, tool, skills)
     assert over, f"no skill's toolchain needs `{tool}`, so declaring it covers nothing"
 
-    result = target.run(over)
+    result = target.run(Tree.of(over))
 
     assert any(f.level is Level.UNRUN for f in result.findings), (
         f"{check} reported nothing at UNRUN with `{tool}` absent — "

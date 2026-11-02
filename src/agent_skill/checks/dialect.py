@@ -32,8 +32,9 @@ read in is the reader's.
 import re
 lazy from collections.abc import Iterator
 
-from agent_skill.checks import check
+from agent_skill.checks import check, per_skill
 from agent_skill.checks.patterns import QUOTED
+from agent_skill.ids import Branch
 from agent_skill.report import fail
 lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
@@ -42,6 +43,10 @@ lazy from agent_skill.report import Finding
 #: command is pre-migration and its `\|` is correct for the grammar it
 #: names.
 RG_COMMAND = re.compile(r"`(rg\s[^`]*)`")
+
+# The branches a finding of this check comes from.
+WRAPPED = Branch("dialect", "wrapped")
+BRE_ALTERNATION = Branch("dialect", "bre_alternation")
 
 
 def outside_brackets(pattern: str, needle: str) -> bool:
@@ -76,6 +81,7 @@ def outside_brackets(pattern: str, needle: str) -> bool:
 
 
 @check("dialect", "a pattern carries no syntax from a grammar it will not be read in")
+@per_skill
 def dialect(skill: Skill) -> Iterator[Finding]:
     """Each `rg` pattern a Check ships, in the grammar `rg` reads."""
     for rule in skill.rules:
@@ -92,7 +98,8 @@ def dialect(skill: Skill) -> Iterator[Finding]:
                         "command exits 2 for the reader while the harness, which "
                         "passes `--multiline`, runs it. Put the command on one "
                         "line, or split it into several",
-                        skill.name,
+                        skill.at(),
+                        WRAPPED,
                     )
                     continue
                 if pattern and outside_brackets(pattern, "\\|"):
@@ -101,5 +108,6 @@ def dialect(skill: Skill) -> Iterator[Finding]:
                         "which is a literal pipe here — it matches nothing and "
                         "reports clean. Write `|` for alternation, or `[|]` for a "
                         "literal pipe",
-                        skill.name,
+                        skill.at(),
+                        BRE_ALTERNATION,
                     )

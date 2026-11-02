@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Protocol
 lazy from collections.abc import Iterable
 lazy from pathlib import Path
 
+from agent_skill.ids import Branch, Location
+from agent_skill.model import located
 from agent_skill.report import fail, note
 lazy from agent_skill.lang import python, rust, zig
 lazy from agent_skill.model import Skill
@@ -32,11 +34,16 @@ class Unit:
     chapter: str
     line: int
     rule: str
+    skill: str | None = None  #: the skill whose markdown holds the block
 
     @property
-    def where(self) -> str:
-        """Chapter, line and rule: how a finding locates the block."""
-        return f"{self.chapter}:{self.line} [{self.rule}]"
+    def where(self) -> Location:
+        """The block's first body line, under its rule."""
+        return self.where_at(0)
+
+    def where_at(self, offset: int) -> Location:
+        """Line `offset` of the extracted file, in its block."""
+        return located(self.skill, self.chapter, self.line + offset, self.rule)
 
 
 @dataclass
@@ -48,10 +55,16 @@ class Extraction:
     #: how the extracted crate is built; None for a toolchain that needs
     #: no manifest
     crate: Crate | None = None
+    skill: str | None = None  #: the skill the examples were extracted from
 
     def __bool__(self) -> bool:
         """Whether any block was extracted at all."""
         return bool(self.units)
+
+    @property
+    def where(self) -> Location:
+        """The skill, for a finding about the extraction as a whole."""
+        return Location(self.skill)
 
 
 class Toolchain(Protocol):
@@ -84,25 +97,31 @@ class Toolchain(Protocol):
         ...
 
 
-def timed_out(step: str, seconds: float, where: str) -> Finding:
+def timed_out(step: str, seconds: float, where: Location, branch: Branch) -> Finding:
     """A verification step that did not finish in its time: a failure.
 
     Nothing was verified, which is not a pass. One wording for every
     toolchain, because they had four: a message, a message, an empty
     `compiles: `, and a `zig fmt --check` that timed out and passed.
     """
-    return fail(f"{step} did not finish in {seconds:g}s", where)
+    return fail(f"{step} did not finish in {seconds:g}s", where, branch)
 
 
-def inconclusive(statement: str, where: str) -> Finding:
+def inconclusive(
+    statement: str, where: Location, branch: Branch, *, extracted: str = ""
+) -> Finding:
     """A mutant whose tests did not finish: neither killed nor survived.
 
     Deleting a loop increment turns a test into a hang, so a timeout is
     often the tests failing; but a busy machine times out too. Counted
     as killed, the run goes quiet under load and still reports clean,
     so it is said, in the same words, by every toolchain.
+
+    `extracted` names the statement's line in the extracted source, for
+    a toolchain that cannot yet trace it back to the markdown.
     """
-    return note(f"`{statement[:44]}` timed out — inconclusive: hung, or slow", where)
+    said = f"`{statement[:44]}` timed out — inconclusive: hung, or slow"
+    return note(f"{extracted}: {said}" if extracted else said, where, branch)
 
 
 def toolchain_for(name: str) -> Toolchain | None:

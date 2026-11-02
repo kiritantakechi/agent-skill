@@ -35,13 +35,27 @@ that stopped being true fails.
 
 lazy from collections.abc import Iterator
 
-from agent_skill.checks import check
+from agent_skill.checks import check, per_skill
 from agent_skill.checks.patterns import patterns_of
 from agent_skill.checks.search import matches, searcher_problem
+from agent_skill.ids import Branch
 from agent_skill.report import fail, unrun
 lazy from agent_skill.checks.patterns import Pattern
 lazy from agent_skill.model import Rule, Skill
 lazy from agent_skill.report import Finding
+
+# The branches a finding of this check comes from.
+SEARCHER = Branch("sensitivity", "searcher")
+NO_LANGUAGE = Branch("sensitivity", "no_language")
+ORPHAN_FIXTURE = Branch("sensitivity", "orphan_fixture")
+UNACCOUNTED = Branch("sensitivity", "unaccounted")
+STALE_UNPROVEN = Branch("sensitivity", "stale_unproven")
+NO_FIXTURE = Branch("sensitivity", "no_fixture")
+NO_CHECK = Branch("sensitivity", "no_check")
+NO_COMMAND = Branch("sensitivity", "no_command")
+NO_ANSWER = Branch("sensitivity", "no_answer")
+PATTERN_UNCOVERED = Branch("sensitivity", "pattern_uncovered")
+FIXTURE_UNCOVERED = Branch("sensitivity", "fixture_uncovered")
 
 
 @check(
@@ -49,6 +63,7 @@ lazy from agent_skill.report import Finding
     "an authored pattern is shown to catch what it was written for",
     needs=("rg",),
 )
+@per_skill
 def sensitivity(skill: Skill) -> Iterator[Finding]:
     """Each rule's patterns against its fixtures, as a two-way cover.
 
@@ -62,13 +77,14 @@ def sensitivity(skill: Skill) -> Iterator[Finding]:
     if not declared:
         return
     if problem := searcher_problem():
-        yield unrun(problem, skill.name)
+        yield unrun(problem, skill.at(), SEARCHER)
         return
     if not skill.profile.languages:
         yield fail(
             f"{skill.name} declares fixtures but no language, so a fixture cannot "
             "be prepared the way the corpus it stands in for is",
-            skill.name,
+            skill.at(),
+            NO_LANGUAGE,
         )
         return
     lang = skill.profile.languages[0]
@@ -76,7 +92,9 @@ def sensitivity(skill: Skill) -> Iterator[Finding]:
     by_id = {r.id: r for r in skill.rules}
     for rid in sorted(set(declared) - set(by_id)):
         yield fail(
-            f"{rid}: a fixture names a rule this skill does not define", skill.name
+            f"{rid}: a fixture names a rule this skill does not define",
+            skill.at(),
+            ORPHAN_FIXTURE,
         )
 
     for rid, fixtures in sorted(declared.items()):
@@ -106,7 +124,8 @@ def _accounted(skill: Skill) -> Iterator[Finding]:
             f"{rid}: ships an `rg` pattern that no fixture proves and `unproven` "
             f"does not list — give it a fixture in `fires`, or say it is unproven "
             f"— {by_id[rid].title}",
-            skill.name,
+            skill.at(),
+            UNACCOUNTED,
         )
     for rid in sorted(profile.unproven):
         if rid not in by_id:
@@ -117,7 +136,9 @@ def _accounted(skill: Skill) -> Iterator[Finding]:
             stale = "ships no `rg` pattern, so nothing of it is left to prove"
         else:
             continue
-        yield fail(f"{rid}: listed as unproven, and {stale}", skill.name)
+        yield fail(
+            f"{rid}: listed as unproven, and {stale}", skill.at(), STALE_UNPROVEN
+        )
 
 
 def _fixtures(
@@ -126,11 +147,13 @@ def _fixtures(
     """One rule's fixtures, against the commands its Check ships."""
     rid = rule.id
     if not fixtures:
-        yield fail(f"{rid}: is listed with no fixture at all", skill.name)
+        yield fail(f"{rid}: is listed with no fixture at all", skill.at(), NO_FIXTURE)
         return
     if not rule.check:
         yield fail(
-            f"{rid}: has a fixture but no **Check:** to run against it", skill.name
+            f"{rid}: has a fixture but no **Check:** to run against it",
+            skill.at(),
+            NO_CHECK,
         )
         return
     runnable = [p for p in patterns_of(rule.check) if p.kind == "command"]
@@ -138,7 +161,8 @@ def _fixtures(
         yield fail(
             f"{rid}: has a fixture but its **Check:** ships no command — a fixture "
             "with nothing to run against it proves nothing",
-            skill.name,
+            skill.at(),
+            NO_COMMAND,
         )
         return
     yield from _cover(skill, rule, runnable, fixtures, lang)
@@ -161,7 +185,8 @@ def _cover(
         yield fail(
             f"{rid}: a pattern gave no answer against its own fixture — rejected, "
             "timed out, or the searcher is missing",
-            skill.name,
+            skill.at(),
+            NO_ANSWER,
         )
         return
 
@@ -170,7 +195,8 @@ def _cover(
             yield fail(
                 f"{rid}: /{pattern.text}/ matches none of this rule's fixtures, so "
                 f"nothing shows it can catch anything — {rule.title}",
-                skill.name,
+                skill.at(),
+                PATTERN_UNCOVERED,
             )
     for i, fixture in enumerate(fixtures):
         if not any(row[i] for row in grid):
@@ -178,5 +204,6 @@ def _cover(
                 f"{rid}: the fixture {fixture.strip()[:60]!r} is matched by none of "
                 "this rule's patterns — a fixture nothing relates to the rule is how "
                 "an uncovered pattern gets covered without being fixed",
-                skill.name,
+                skill.at(),
+                FIXTURE_UNCOVERED,
             )

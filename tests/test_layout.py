@@ -20,15 +20,11 @@ def found(tmp_path: Path, text: str) -> list[Finding]:
     root = tmp_path / "demo-style"
     root.mkdir(parents=True)
     (root / "SKILL.md").write_text(text)
-    return list(layout(Skill(root, Demo())))
+    return list(layout.each(Skill(root, Demo())))
 
 
 def failures(tmp_path: Path, text: str) -> list[str]:
-    return [
-        f"{f.where}: {f.message}"
-        for f in found(tmp_path, text)
-        if f.level is Level.FAIL
-    ]
+    return [str(f) for f in found(tmp_path, text) if f.level is Level.FAIL]
 
 
 def test_a_canonical_file_is_in_shape(tmp_path: Path) -> None:
@@ -86,7 +82,7 @@ def test_a_code_span_no_line_can_hold_is_a_note(tmp_path: Path) -> None:
     span = f"`{LONG}`."
     [one] = found(tmp_path, f"# Title\n\nsee\n{span}\nafter\n")
     assert one.level is Level.NOTE
-    assert one.where == "demo-style/SKILL.md:4"
+    assert str(one.where) == "demo-style/SKILL.md:4"
     [item] = found(tmp_path / "item", f"# Title\n\n- {span}\n")
     assert item.level is Level.NOTE
 

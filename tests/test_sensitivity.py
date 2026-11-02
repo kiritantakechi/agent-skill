@@ -18,6 +18,7 @@ from types import SimpleNamespace
 import pytest
 
 from agent_skill.checks.sensitivity import sensitivity
+from agent_skill.ids import Location
 lazy from agent_skill.model import Skill
 
 #: Two patterns over disjoint constructs, the shape that made `any`
@@ -36,11 +37,12 @@ def fake(
         name="fake-style",
         rules=[rule],
         profile=SimpleNamespace(fires=fires, languages=("rust",), unproven=unproven),
+        at=lambda: Location("fake-style"),
     )
 
 
 def messages(skill: SimpleNamespace) -> list[str]:
-    return [f.message for f in sensitivity(skill)]  # ty: ignore[invalid-argument-type] — a stand-in with only what the check reads
+    return [f.message for f in sensitivity.each(skill)]  # ty: ignore[invalid-argument-type] — a stand-in with only what the check reads
 
 
 def test_a_full_cover_passes() -> None:
@@ -149,4 +151,6 @@ def test_an_entry_that_stopped_being_true_fails(
 def test_the_shipped_standards_are_covered(skills: list[Skill]) -> None:
     """The rule this change enforces, asserted on the real profiles."""
     for skill in skills:
-        assert list(sensitivity(skill)) == [], f"{skill.name} has an unproven pattern"
+        assert list(sensitivity.each(skill)) == [], (
+            f"{skill.name} has an unproven pattern"
+        )

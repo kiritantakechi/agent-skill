@@ -18,11 +18,24 @@ from dataclasses import dataclass, field
 from pathlib import Path
 lazy from collections.abc import Iterable
 
+from agent_skill.ids import Branch
 from agent_skill.lang import Extraction, Unit, inconclusive, timed_out
 from agent_skill.proc import Ran, have, run
 from agent_skill.report import Finding, fail, note
 from agent_skill.text import group
 lazy from agent_skill.model import Skill
+
+# The branches of `toolchain` and of `mutation` Python's steps report
+# through.
+OUTSIDE = Branch("toolchain", "py_outside")
+RUN_TIMEOUT = Branch("toolchain", "py_run_timeout")
+RUN = Branch("toolchain", "py_run")
+TY_TIMEOUT = Branch("toolchain", "py_ty_timeout")
+RUFF_TIMEOUT = Branch("toolchain", "py_ruff_timeout")
+REPORTED = Branch("toolchain", "py_diagnostic")
+UNREAD = Branch("toolchain", "py_unread")
+HUNG = Branch("mutation", "py_inconclusive")
+SURVIVOR = Branch("mutation", "py_survivor")
 
 #: The interpreter the examples are written for, resolved through `uv`
 #: rather than through PATH. PATH here is a GIL build, and verifying
@@ -193,7 +206,7 @@ class Python:
         for stale in out.glob("*.py"):
             stale.unlink()
 
-        ex = Extraction(out)
+        ex = Extraction(out, skill=skill.name)
         seen: Counter[str] = Counter()
         for b in skill.blocks("python", verified=True):
             stem = Path(b.file).stem.replace("-", "_")
@@ -201,7 +214,7 @@ class Python:
             seen[stem] += 1
             path = out / name
             path.write_text(b.body.rstrip("\n") + "\n")
-            ex.units.append(Unit(path, b.file, b.line, b.rule))
+            ex.units.append(Unit(path, b.file, b.line, b.rule, skill.name))
         return ex
 
     def verify(self, ex: Extraction) -> Iterable[Finding]:
@@ -219,6 +232,7 @@ class Python:
                     "a `# verified` block may not need the network, the clock, "
                     "or stdin; mark it `# fragment`",
                     unit.where,
+                    OUTSIDE,
                 )
                 continue
             cmd = (
@@ -239,7 +253,7 @@ class Python:
             # deletes.
             r = run(cmd, cwd=ex.root, timeout=120)
             if r.timed_out:
-                yield timed_out("the block", 120, unit.where)
+                yield timed_out("the block", 120, unit.where, RUN_TIMEOUT)
             elif not r.ok:
                 detail = (r.err or r.out).strip().split("\n")
                 last = next(
@@ -250,7 +264,7 @@ class Python:
                     ),
                     detail[-1] if detail else "",
                 )
-                yield fail(last.strip()[:120], unit.where)
+                yield fail(last.strip()[:120], unit.where, RUN)
 
     def _analyse(
         self, ex: Extraction, prefix: list[str], label: str
@@ -262,14 +276,14 @@ class Python:
             [*prefix, str(config), "--python", str(VENV), str(ex.root)], timeout=300
         )
         if r.timed_out:
-            yield timed_out(label, 300, ex.units[0].where if ex.units else label)
+            yield timed_out(label, 300, ex.where, TY_TIMEOUT)
             return
         yield from self._report(ex, r, label)
 
     def _lint(self, ex: Extraction) -> Iterable[Finding]:
         r = run(["ruff", "check", *PYTHON_STYLE.ruff_args(), str(ex.root)], timeout=300)
         if r.timed_out:
-            yield timed_out("ruff", 300, ex.units[0].where if ex.units else "ruff")
+            yield timed_out("ruff", 300, ex.where, RUFF_TIMEOUT)
             return
         yield from self._report(ex, r, "ruff")
 
@@ -293,16 +307,17 @@ class Python:
             if unit is None:
                 continue
             found += 1
-            offset = int(m["line"]) - 1
             yield fail(
                 f"{label}: {m['rest'].strip()[:110]}",
-                f"{unit.chapter}:{unit.line + offset} [{unit.rule}]",
+                unit.where_at(int(m["line"]) - 1),
+                REPORTED,
             )
         if not r.ok and not found:
             yield fail(
                 f"{label} exited {r.rc} without a diagnostic this harness could read: "
                 f"{(r.err or r.out).strip()[:100]}",
-                ex.units[0].where if ex.units else label,
+                ex.where,
+                UNREAD,
             )
 
     def mutate(self, ex: Extraction) -> Iterable[Finding]:
@@ -354,14 +369,13 @@ class Python:
                         timeout=60,
                     )
                     if r.timed_out:
-                        yield inconclusive(
-                            stripped, f"{unit.chapter}:{unit.line + i} [{unit.rule}]"
-                        )
+                        yield inconclusive(stripped, unit.where_at(i), HUNG)
                     elif r.ok:
                         yield note(
                             f"`{stripped[:52]}` can be deleted "
                             "and every test still passes",
-                            f"{unit.chapter}:{unit.line + i} [{unit.rule}]",
+                            unit.where_at(i),
+                            SURVIVOR,
                         )
                 finally:
                     unit.path.write_text(original)

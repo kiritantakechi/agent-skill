@@ -7,12 +7,14 @@ a failure rather than a silent pick.
 """
 
 import re
-lazy from collections.abc import Iterator, Sequence
+lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
 from agent_skill.checks.anatomy import overlap
+from agent_skill.ids import Branch
+from agent_skill.model import located
 from agent_skill.report import fail, note
-lazy from agent_skill.model import Rule, Skill
+lazy from agent_skill.model import Rule, Skill, Tree
 lazy from agent_skill.report import Finding
 
 #: (rule id in another skill, title of its counterpart in the anchor).
@@ -45,20 +47,32 @@ ANCHOR = "rust-style"
 #: Above this overlap between two titles, the rules look like a pair.
 LOOKS_PAIRED = 0.5
 
+# The branches a finding of this check comes from.
+NO_ANCHOR_RULE = Branch("mirror", "no_anchor_rule")
+AMBIGUOUS = Branch("mirror", "ambiguous")
+NOT_A_RULE = Branch("mirror", "not_a_rule")
+TIER = Branch("mirror", "tier")
+UNHELD = Branch("mirror", "unheld")
+
 
 def _shingles(s: str, n: int = 3) -> set[tuple[str, ...]]:
     words = " ".join(re.findall(r"[a-z]+", s.lower())).split()
     return {tuple(words[i : i + n]) for i in range(max(0, len(words) - n + 1))}
 
 
-@check("mirror", "mirrored rules agree on tier", scope="all")
-def mirror(skills: Sequence[Skill]) -> Iterator[Finding]:
-    """Pairs in `MIRROR` agree on tier; a pair it misses is noted."""
-    by_name = {s.name: s for s in skills}
+@check("mirror", "mirrored rules agree on tier")
+def mirror(tree: Tree) -> Iterator[Finding]:
+    """Pairs in `MIRROR` agree on tier; a pair it misses is noted.
+
+    A finding lies in the skill whose rule mirrors the anchor's, at
+    that rule, or in the anchor when it is the anchor's title that
+    does not resolve.
+    """
+    by_name = {s.name: s for s in tree}
     anchor = by_name.get(ANCHOR)
     if anchor is None:
         return
-    by_prefix = {s.prefix: s for s in skills if s.name != ANCHOR}
+    by_prefix = {s.prefix: s for s in tree if s.name != ANCHOR}
     yield from _held(anchor, by_prefix)
     yield from _unheld(anchor, by_prefix)
 
@@ -76,20 +90,28 @@ def _held(anchor: Skill, by_prefix: dict[str, Skill]) -> Iterator[Finding]:
             continue  # that skill is not in this run; nothing to compare against
         other = mirrored.by_id.get(rid)
         if not matches:
-            yield fail(f"no {ANCHOR} rule titled {title!r}", "mirror")
+            yield fail(
+                f"no {ANCHOR} rule titled {title!r}", located(ANCHOR), NO_ANCHOR_RULE
+            )
         elif len(matches) > 1:
             yield fail(
                 f"{title!r} is ambiguous ({', '.join(r.id for r in matches)}); "
                 f"the anchor cannot say which rule {rid} mirrors",
-                "mirror",
+                located(ANCHOR),
+                AMBIGUOUS,
             )
         elif other is None:
-            yield fail(f"{rid} is not a rule in {mirrored.name}", "mirror")
+            yield fail(
+                f"{rid} is not a rule in {mirrored.name}",
+                located(mirrored.name),
+                NOT_A_RULE,
+            )
         elif matches[0].tier != other.tier:
             yield fail(
                 f"tier mismatch: {matches[0].id}[{matches[0].tier}] "
                 f"vs {rid}[{other.tier}]",
-                "mirror",
+                located(mirrored.name, rule=rid),
+                TIER,
             )
 
 
@@ -116,5 +138,6 @@ def _unheld(anchor: Skill, by_prefix: dict[str, Skill]) -> Iterator[Finding]:
                     yield note(
                         f"{rule.id} and {other.id} look like a pair MIRROR does "
                         f"not hold ({rule.title!r})",
-                        "mirror",
+                        located(mirrored.name, rule=rule.id),
+                        UNHELD,
                     )

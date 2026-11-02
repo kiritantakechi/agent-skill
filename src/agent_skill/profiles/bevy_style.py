@@ -13,6 +13,7 @@ from dataclasses import dataclass, field, replace
 from typing import override
 lazy from collections.abc import Iterable, Iterator
 
+from agent_skill.ids import Branch
 from agent_skill.lang.rust import BEVY_STYLE, Crate
 from agent_skill.profiles import NotDecisive, Profile, register
 from agent_skill.report import Finding, fail
@@ -41,6 +42,14 @@ MARKER_DERIVES = ("Debug", "Clone", "Copy", "Default", "Reflect")
 SUFFIX = {"Plugin": "Plugin", "SystemSet": "Systems"}
 
 IMPL_PLUGIN = re.compile(r"^impl Plugin for (\w+)", re.MULTILINE)
+
+# The branches of `conventions` this standard's own rules fire through.
+COMPONENT_DERIVE = Branch("conventions", "bv_component_derive")
+COMPONENT_REFLECT = Branch("conventions", "bv_component_reflect")
+PRIVATE_FIELD = Branch("conventions", "bv_private_field")
+PLUGIN_SUFFIX = Branch("conventions", "bv_plugin_suffix")
+PLUGIN_DERIVE = Branch("conventions", "bv_plugin_derive")
+SET_SUFFIX = Branch("conventions", "bv_set_suffix")
 
 #: The verified crate under the `clippy.toml` the skill ships: the test
 #: allowances `rust-style` carries, which BV-ERR-01's relaxed form
@@ -229,19 +238,22 @@ def _component_shape(block: Block) -> Iterator[Finding]:
             derives |= {t.strip() for t in d.group(1).split(",")}
         if "Component" not in derives:
             continue
-        line = block.at(block.body[: m.start()].count(chr(10)))
-        where = f"{block.file}:{line} [{block.rule}]"
+        where = block.where_at(block.body[: m.start()].count(chr(10)))
 
         fields = (group(m, "tuple") or group(m, "named")).strip()
         want = MARKER_DERIVES if not fields else DATA_DERIVES
         for trait in want:
             if trait not in derives:
                 yield fail(
-                    f"BV-ECS-03/10: component `{name}` does not derive `{trait}`", where
+                    f"BV-ECS-03/10: component `{name}` does not derive `{trait}`",
+                    where,
+                    COMPONENT_DERIVE,
                 )
         if "#[reflect(Component)]" not in attrs:
             yield fail(
-                f"BV-ECS-03: component `{name}` has no `#[reflect(Component)]`", where
+                f"BV-ECS-03: component `{name}` has no `#[reflect(Component)]`",
+                where,
+                COMPONENT_REFLECT,
             )
 
         # The collection side of a relationship is the one component
@@ -251,7 +263,11 @@ def _component_shape(block: Block) -> Iterator[Finding]:
             continue
         for member in (f.strip() for f in fields.split(",") if f.strip()):
             if not FIELD_ATTR.sub("", member).strip().startswith("pub "):
-                yield fail(f"BV-ECS-01: `{name}` has a private field — {member}", where)
+                yield fail(
+                    f"BV-ECS-01: `{name}` has a private field — {member}",
+                    where,
+                    PRIVATE_FIELD,
+                )
 
 
 def _suffixes(block: Block) -> Iterator[Finding]:
@@ -264,13 +280,13 @@ def _suffixes(block: Block) -> Iterator[Finding]:
     """
     for m in IMPL_PLUGIN.finditer(block.body):
         name = m.group(1)
-        line = block.at(block.body[: m.start()].count("\n"))
-        where = f"{block.file}:{line} [{block.rule}]"
+        where = block.where_at(block.body[: m.start()].count("\n"))
         if not name.endswith(SUFFIX["Plugin"]):
             yield fail(
                 f"BV-ARCH-10: `{name}` implements `Plugin` "
                 "and does not end in `Plugin`",
                 where,
+                PLUGIN_SUFFIX,
             )
         declared = re.search(
             rf"((?:#\[[^\]]*\]\s*)*)\bpub struct {re.escape(name)}\b", block.body
@@ -285,6 +301,7 @@ def _suffixes(block: Block) -> Iterator[Finding]:
                 yield fail(
                     f"BV-ARCH-09: plugin type `{name}` does not derive `{required}`",
                     where,
+                    PLUGIN_DERIVE,
                 )
 
     lines = block.lines
@@ -300,7 +317,8 @@ def _suffixes(block: Block) -> Iterator[Finding]:
             yield fail(
                 f"BV-ARCH-10: `{name.group(1)}` derives `SystemSet` "
                 "and does not end in `Systems`",
-                f"{block.file}:{block.at(i)} [{block.rule}]",
+                block.where_at(i),
+                SET_SUFFIX,
             )
 
 

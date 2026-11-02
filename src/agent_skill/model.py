@@ -10,11 +10,11 @@ corpus of 215.
 import re
 from dataclasses import dataclass
 from functools import cached_property
-from typing import override
-lazy from collections.abc import Iterator
-lazy from pathlib import Path
+from pathlib import Path
+from typing import Self, override
+lazy from collections.abc import Collection, Iterable, Iterator
 
-from agent_skill.ids import rule_id
+from agent_skill.ids import Location, RuleId, rule_id
 from agent_skill.text import code_only, group, strip_comment, syntax_for
 from agent_skill.vocabulary import CORE
 lazy from agent_skill.profiles import Profile, profile_for
@@ -110,6 +110,32 @@ class Marker:
         return self.bad or self.quotation
 
 
+#: The file every skill is read from first.
+SKILL_MD = "SKILL.md"
+
+#: The directory a skill keeps its chapters in.
+REFERENCES = "references"
+
+
+def located(
+    skill: str | None, document: str = "", line: int | None = None, rule: str = ""
+) -> Location:
+    """`line` of `document` in `skill`, under `rule`, as far as known.
+
+    A block, rule or row names its document by file name alone —
+    `SKILL.md`, or a chapter's `errors.md` — while a location names a
+    file by its path in the skill, so a bare chapter name is put under
+    `references/`; a name with a directory in it is already a path. A
+    block above every rule heading sits under `?`, which is no rule.
+    """
+    file = None
+    if document:
+        bare = document != SKILL_MD and "/" not in document
+        file = f"{REFERENCES}/{document}" if bare else document
+    known = re.fullmatch(rule_id(), rule) is not None
+    return Location(skill, file, line, RuleId.parse(rule) if known else None)
+
+
 @dataclass(frozen=True, slots=True)
 class Block:
     """One fenced example."""
@@ -120,11 +146,16 @@ class Block:
     body: str
     lang: str
     marker: Marker
+    skill: str | None = None  #: the skill whose markdown holds it
 
     @property
-    def where(self) -> str:
-        """`file:line [rule]`, for a finding about this block."""
-        return f"{self.file}:{self.line} [{self.rule}]"
+    def where(self) -> Location:
+        """The block's first body line, under its rule."""
+        return self.where_at(0)
+
+    def where_at(self, index: int) -> Location:
+        """Body line `index` of the block, under its rule."""
+        return located(self.skill, self.file, self.at(index), self.rule)
 
     @property
     def lines(self) -> list[str]:
@@ -155,11 +186,16 @@ class Rule:
     body: str
     file: str
     line: int
+    skill: str | None = None  #: the skill whose markdown holds it
 
     @property
-    def where(self) -> str:
-        """`file:line`, for a finding about this rule."""
-        return f"{self.file}:{self.line}"
+    def where(self) -> Location:
+        """The rule's heading.
+
+        Without the rule itself, which a finding about a rule names in
+        what it says.
+        """
+        return located(self.skill, self.file, self.line)
 
     @property
     def statement(self) -> str:
@@ -190,11 +226,12 @@ class LintRow:
     forbids: str
     file: str
     line: int
+    skill: str | None = None  #: the skill whose markdown holds it
 
     @property
-    def where(self) -> str:
-        """`file:line`, for a finding about this row."""
-        return f"{self.file}:{self.line}"
+    def where(self) -> Location:
+        """The row's line."""
+        return located(self.skill, self.file, self.line)
 
 
 @dataclass(frozen=True, slots=True)
@@ -416,11 +453,16 @@ class Chapter:
 
     path: Path
     prefix: str
+    skill: str  #: the name of the skill it belongs to
 
     @property
     def name(self) -> str:
-        """The chapter's file name, as findings cite it."""
+        """The chapter's file name, as its blocks and rows name it."""
         return self.path.name
+
+    def where(self, line: int | None = None, rule: str = "") -> Location:
+        """`line` of this chapter under `rule`, or the chapter."""
+        return located(self.skill, self.name, line, rule)
 
     @cached_property
     def text(self) -> str:
@@ -448,6 +490,7 @@ class Chapter:
                     body=self.text[m.end() : end],
                     file=self.name,
                     line=self.text[: m.start()].count("\n") + 1,
+                    skill=self.skill,
                 )
             )
         return out
@@ -475,7 +518,15 @@ class Chapter:
         if not m:
             return []
         return [
-            LintRow(cells[0], cells[1].strip("`"), cells[2], cells[3], self.name, line)
+            LintRow(
+                cells[0],
+                cells[1].strip("`"),
+                cells[2],
+                cells[3],
+                self.name,
+                line,
+                self.skill,
+            )
             for line, cells in _rows(self.text, m.start())
             if len(cells) == _LINT_CELLS
         ]
@@ -512,6 +563,7 @@ class Chapter:
                     body=body,
                     lang=lang,
                     marker=Marker(marker_line(body)),
+                    skill=self.skill,
                 )
             )
         return out
@@ -553,7 +605,7 @@ class Skill:
     @property
     def skill_md(self) -> Path:
         """The skill's `SKILL.md`."""
-        return self.root / "SKILL.md"
+        return self.root / SKILL_MD
 
     @cached_property
     def text(self) -> str:
@@ -564,8 +616,8 @@ class Skill:
     def chapters(self) -> list[Chapter]:
         """Every chapter under `references/`, in file-name order."""
         return [
-            Chapter(p, self.prefix)
-            for p in sorted((self.root / "references").glob("*.md"))
+            Chapter(p, self.prefix, self.name)
+            for p in sorted((self.root / REFERENCES).glob("*.md"))
         ]
 
     @cached_property
@@ -575,13 +627,25 @@ class Skill:
         Read as a chapter, `SKILL.md` has no `###` rules, so this serves
         the examples only; `chapters` stays the rule source.
         """
-        return [Chapter(self.skill_md, self.prefix), *self.chapters]
+        return [Chapter(self.skill_md, self.prefix, self.name), *self.chapters]
 
     def path_of(self, document: str) -> Path:
         """The file a block's `file` names: `SKILL.md`, or a chapter."""
         if document == self.skill_md.name:
             return self.skill_md
-        return self.root / "references" / document
+        return self.root / REFERENCES / document
+
+    def at(
+        self, file: str | Path = "", line: int | None = None, rule: str = ""
+    ) -> Location:
+        """A location in this skill: `line` of `file`, under `rule`.
+
+        `file` is a path in the skill, or a document as a block, rule or
+        row names it; "" is the skill as a whole.
+        """
+        if isinstance(file, Path):
+            file = file.relative_to(self.root).as_posix()
+        return located(self.name, file, line, rule)
 
     @cached_property
     def rules(self) -> list[Rule]:
@@ -675,9 +739,33 @@ def discover(skills_dir: Path) -> list[Skill]:
 
     A skill is a directory there that holds a `SKILL.md`.
     """
-    return [
-        Skill(p) for p in sorted(skills_dir.iterdir()) if (p / "SKILL.md").is_file()
-    ]
+    return [Skill(p) for p in sorted(skills_dir.iterdir()) if (p / SKILL_MD).is_file()]
+
+
+@dataclass(frozen=True, slots=True)
+class Tree:
+    """Every skill a run reads: what each check is a function of.
+
+    A check that compares a skill with its siblings always has them:
+    choosing skills on the command line chooses which findings are
+    shown. Only a check of one skill at a time is spared the others,
+    since nothing it finds in them would be.
+    """
+
+    skills: tuple[Skill, ...]
+
+    @classmethod
+    def of(cls, skills: Iterable[Skill]) -> Self:
+        """The tree holding `skills`, in the order given."""
+        return cls(tuple(skills))
+
+    def __iter__(self) -> Iterator[Skill]:
+        """Each skill, in order."""
+        return iter(self.skills)
+
+    def only(self, names: Collection[str]) -> Tree:
+        """The skills called one of `names`, in order."""
+        return Tree(tuple(s for s in self.skills if s.name in names))
 
 
 # ------------------------------------------------------------------

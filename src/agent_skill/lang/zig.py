@@ -11,11 +11,24 @@ from collections import Counter
 from pathlib import Path
 lazy from collections.abc import Iterable
 
+from agent_skill.ids import Branch
 from agent_skill.lang import Extraction, Unit, inconclusive, timed_out
 from agent_skill.model import Skill, inside_tests, needs_c_object
 from agent_skill.proc import have, run
 from agent_skill.report import Finding, fail, note
 from agent_skill.text import code_only
+
+# The branches of `toolchain` and of `mutation` Zig's steps report
+# through.
+BUILD_TIMEOUT = Branch("toolchain", "zig_build_timeout")
+BUILD = Branch("toolchain", "zig_build")
+TEST_TIMEOUT = Branch("toolchain", "zig_test_timeout")
+TEST = Branch("toolchain", "zig_test")
+FMT_TIMEOUT = Branch("toolchain", "zig_fmt_timeout")
+FMT = Branch("toolchain", "zig_fmt")
+FMT_UNREAD = Branch("toolchain", "zig_fmt_unread")
+HUNG = Branch("mutation", "zig_inconclusive")
+SURVIVOR = Branch("mutation", "zig_survivor")
 
 #: The compiler `zig-style` is verified against. It follows this
 #: machine's `zig` rather than upstream's newest release, so `pins`
@@ -91,7 +104,7 @@ class Zig:
         for stale in out.glob("*.zig"):
             stale.unlink()
 
-        ex = Extraction(out)
+        ex = Extraction(out, skill=skill.name)
         seen: Counter[str] = Counter()
         for b in skill.blocks("zig", verified=True):
             stem = Path(b.file).stem.replace("-", "_")
@@ -99,7 +112,7 @@ class Zig:
             seen[stem] += 1
             path = out / name
             path.write_text(b.body.rstrip("\n") + "\n" + force_analysis(b.body))
-            ex.units.append(Unit(path, b.file, b.line, b.rule))
+            ex.units.append(Unit(path, b.file, b.line, b.rule, skill.name))
         return ex
 
     def verify(self, ex: Extraction) -> Iterable[Finding]:
@@ -114,14 +127,16 @@ class Zig:
                 timeout=180,
             )
             if r.timed_out:
-                yield timed_out("build-obj", 180, unit.where)
+                yield timed_out("build-obj", 180, unit.where, BUILD_TIMEOUT)
                 continue
             if not r.ok:
                 first = next(
                     (ln for ln in r.err.split("\n") if ": error:" in ln), r.err[:100]
                 )
                 yield fail(
-                    first.split(f"{unit.path.name}:")[-1].strip()[:96], unit.where
+                    first.split(f"{unit.path.name}:")[-1].strip()[:96],
+                    unit.where,
+                    BUILD,
                 )
                 continue
 
@@ -137,7 +152,7 @@ class Zig:
                     timeout=180,
                 )
                 if t.timed_out:
-                    yield timed_out("the test run", 180, unit.where)
+                    yield timed_out("the test run", 180, unit.where, TEST_TIMEOUT)
                 elif not t.ok:
                     first = next(
                         (
@@ -147,24 +162,27 @@ class Zig:
                         ),
                         t.err[:100],
                     )
-                    yield fail(f"test run: {first.strip()[:84]}", unit.where)
+                    yield fail(f"test run: {first.strip()[:84]}", unit.where, TEST)
 
         # One invocation for the whole directory. Spawning `zig fmt` per
         # block cost 215 process launches for a check that names each
         # file anyway.
         r = run(["zig", "fmt", "--check", str(ex.root)], cwd=ex.root, timeout=180)
         if r.timed_out:
-            yield timed_out("`zig fmt --check`", 180, "zig")
+            yield timed_out("`zig fmt --check`", 180, ex.where, FMT_TIMEOUT)
             return
         by_file = {u.path.name: u for u in ex.units}
         named = [line.strip() for line in r.out.splitlines() if line.strip()]
         for line in named:
             unit = by_file.get(Path(line).name)
-            yield fail("not `zig fmt` clean", unit.where if unit else line)
+            where, which = (unit.where, "") if unit else (ex.where, f": {line}")
+            yield fail(f"not `zig fmt` clean{which}", where, FMT)
         if not r.ok and not named:
             said = (r.err or r.out).strip()[:100] or "nothing"
             yield fail(
-                f"`zig fmt --check` exited {r.rc}, naming no file: {said}", "zig"
+                f"`zig fmt --check` exited {r.rc}, naming no file: {said}",
+                ex.where,
+                FMT_UNREAD,
             )
 
     def mutate(self, ex: Extraction) -> Iterable[Finding]:
@@ -202,13 +220,14 @@ class Zig:
                         cwd=ex.root,
                         timeout=15,
                     )
-                    where = f"{unit.chapter}:{unit.line + i} [{unit.rule}]"
+                    where = unit.where_at(i)
                     if r.timed_out:
-                        yield inconclusive(s, where)
+                        yield inconclusive(s, where, HUNG)
                     elif r.ok:
                         yield note(
                             f"`{s[:52]}` can be deleted and every test still passes",
                             where,
+                            SURVIVOR,
                         )
                 finally:
                     unit.path.write_text(text)

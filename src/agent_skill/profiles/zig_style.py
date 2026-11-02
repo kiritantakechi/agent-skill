@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import override
 lazy from collections.abc import Iterable
 
+from agent_skill.ids import Branch
 from agent_skill.model import Skill, inside_tests, prose_lines
 from agent_skill.profiles import Exemption, NotDecisive, Profile, register
 from agent_skill.profiles.rust_style import META
@@ -12,6 +13,15 @@ from agent_skill.report import Finding, fail
 from agent_skill.text import strip_comment
 lazy from agent_skill.lang.zig import ZIG_VERSION
 lazy from agent_skill.proc import have, run
+
+# The branches of `conventions` and of `prose` this standard's own rules
+# fire through.
+CATCH = Branch("conventions", "zs_catch")
+UNWRAP = Branch("conventions", "zs_unwrap")
+AS_WRAPPER = Branch("conventions", "zs_as_wrapper")
+META_DOC = Branch("conventions", "zs_meta_doc")
+IMPORT_ORDER = Branch("conventions", "zs_import_order")
+UNWRAP_PROSE = Branch("prose", "zs_unwrap")
 
 
 @dataclass
@@ -393,7 +403,7 @@ class ZigStyle(Profile):
         for b in skill.advice("zig"):
             lines = b.lines
             for j, raw in enumerate(lines):
-                where = f"{b.file}:{b.at(j)} [{b.rule}]"
+                where = b.where_at(j)
                 code = strip_comment(raw)
 
                 # ZS-ERR-09 and ZS-ERR-10 [M] — a `catch unreachable`
@@ -406,7 +416,9 @@ class ZigStyle(Profile):
                 if m and not justified:
                     rid = "ZS-ERR-09" if m.group(1) == "unreachable" else "ZS-ERR-10"
                     found = m.group(0)
-                    yield fail(f"`{found}` without the comment {rid} requires", where)
+                    yield fail(
+                        f"`{found}` without the comment {rid} requires", where, CATCH
+                    )
 
                 # ZS-ERR-26 [M] — "every hit is a defect, including
                 # inside `comptime` blocks and `const` initializers"
@@ -415,6 +427,7 @@ class ZigStyle(Profile):
                         "`.?` unwrap; ZS-ERR-26 asks for `orelse`, a capture, or "
                         "`orelse unreachable` with the proof beside it",
                         where,
+                        UNWRAP,
                     )
 
                 # ZS-TEST-04 [M] — "drop the `@as` wrapper": peer
@@ -424,11 +437,14 @@ class ZigStyle(Profile):
                         "`@as` wrapper inside `expectEqual`; peer resolution already "
                         "handles it (ZS-TEST-04)",
                         where,
+                        AS_WRAPPER,
                     )
 
                 if raw.lstrip().startswith("///") and META.search(raw):
                     yield fail(
-                        "doc comment discusses the example rather than the API", where
+                        "doc comment discusses the example rather than the API",
+                        where,
+                        META_DOC,
                     )
 
             # ZS-NAME-16 — "Order imports `@This()` → `builtin` → `std`
@@ -448,7 +464,8 @@ class ZigStyle(Profile):
             ):
                 yield fail(
                     '`@import("builtin")` below `@import("std")` (ZS-NAME-16)',
-                    f"{b.file}:{b.at(imports['builtin'])} [{b.rule}]",
+                    b.where_at(imports["builtin"]),
+                    IMPORT_ORDER,
                 )
 
     @override
@@ -474,7 +491,8 @@ class ZigStyle(Profile):
                 if span.search(line):
                     yield fail(
                         "prose names `.?` outside a **Check:** and outside ZS-ERR-26",
-                        f"{chapter.name}:{i} [{rid}]",
+                        chapter.where(i, rid),
+                        UNWRAP_PROSE,
                     )
 
 

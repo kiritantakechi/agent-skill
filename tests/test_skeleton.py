@@ -8,7 +8,7 @@ lazy from pathlib import Path
 import pytest
 
 from agent_skill.checks.anatomy import structural
-from agent_skill.checks.skeleton import shape, skeleton
+from agent_skill.checks.skeleton import skeleton
 from structure_fixture import build, edit, reparse
 lazy from agent_skill.model import Skill
 
@@ -19,13 +19,12 @@ def demo(tmp_path: Path) -> Skill:
 
 
 def messages(skill: Skill) -> list[str]:
-    return [message for message, _ in shape(skill)]
+    return [f.message for f in skeleton.each(skill)]
 
 
 def test_the_demo_conforms(demo: Skill) -> None:
     assert messages(demo) == []
     assert list(structural(demo)) == []
-    assert list(skeleton(demo)) == []
 
 
 def test_a_title_naming_another_version(demo: Skill) -> None:

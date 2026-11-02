@@ -9,7 +9,8 @@ import tempfile
 from pathlib import Path
 lazy from collections.abc import Iterator
 
-from agent_skill.checks import check
+from agent_skill.checks import check, per_skill
+from agent_skill.ids import Branch
 from agent_skill.lang import toolchain_for
 from agent_skill.report import Finding, fail, unrun
 lazy from agent_skill.model import Skill
@@ -21,6 +22,13 @@ lazy from agent_skill.model import Skill
 #: and its `missing()` asks for `ty` and `ruff` as well.
 TOOLCHAINS = ("cargo", "zig", "ty", "ruff")
 
+# The branches these checks report through themselves; each toolchain
+# declares those of its own steps.
+MISSING = Branch("toolchain", "missing")
+EMPTY = Branch("toolchain", "empty")
+MUTATION_MISSING = Branch("mutation", "missing")
+MUTATION_EMPTY = Branch("mutation", "empty")
+
 
 @check(
     "toolchain",
@@ -28,6 +36,7 @@ TOOLCHAINS = ("cargo", "zig", "ty", "ruff")
     slow=True,
     needs=TOOLCHAINS,
 )
+@per_skill
 def toolchain(skill: Skill) -> Iterator[Finding]:
     """Compile every `// verified` block, and run the tests it ships."""
     tc = toolchain_for(skill.profile.toolchain)
@@ -36,14 +45,17 @@ def toolchain(skill: Skill) -> Iterator[Finding]:
     absent = tc.missing()
     if absent:
         for what in absent:
-            yield unrun(f"{what}, so nothing verified these examples", skill.name)
+            yield unrun(
+                f"{what}, so nothing verified these examples", skill.at(), MISSING
+            )
         return
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
         extraction = tc.extract(skill, Path(work) / "out")
         if not extraction:
             yield fail(
                 "no `// verified` block was extracted — is the skill still there?",
-                skill.name,
+                skill.at(),
+                EMPTY,
             )
             return
         yield from tc.verify(extraction)
@@ -55,6 +67,7 @@ def toolchain(skill: Skill) -> Iterator[Finding]:
     slow=True,
     needs=TOOLCHAINS,
 )
+@per_skill
 def mutation(skill: Skill) -> Iterator[Finding]:
     """Statements no shipped test notices being deleted."""
     tc = toolchain_for(skill.profile.toolchain)
@@ -65,7 +78,9 @@ def mutation(skill: Skill) -> Iterator[Finding]:
     absent = tc.missing()
     if absent:
         for what in absent:
-            yield unrun(f"{what}, so no shipped test was mutated", skill.name)
+            yield unrun(
+                f"{what}, so no shipped test was mutated", skill.at(), MUTATION_MISSING
+            )
         return
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
         extraction = tc.extract(skill, Path(work) / "out")
@@ -75,7 +90,8 @@ def mutation(skill: Skill) -> Iterator[Finding]:
             # mutation run that found every test pinned.
             yield unrun(
                 "no `// verified` block was extracted, so no shipped test was mutated",
-                skill.name,
+                skill.at(),
+                MUTATION_EMPTY,
             )
             return
         yield from tc.mutate(extraction)

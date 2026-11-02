@@ -100,7 +100,7 @@ def test_a_drifted_shared_passage_is_reported_and_rewritten(tmp_path: Path) -> N
     assert list(shared.compare(demo)) == []
     drifted = edit(demo, "SKILL.md", "Apply it literally.", "Apply it with judgement.")
     assert any(
-        "differs from the shared template" in m for m, _ in shared.compare(drifted)
+        "differs from the shared template" in f.message for f in shared.compare(drifted)
     )
     assert format_skill(drifted)
     assert list(shared.compare(drifted)) == []
@@ -114,7 +114,7 @@ def test_text_outside_a_free_region_is_left_for_a_person(tmp_path: Path) -> None
     stray = edit(
         demo, "SKILL.md", "Rules are cited by ID", "An aside.\n\nRules are cited by ID"
     )
-    assert any("no place for" in m for m, _ in shared.compare(stray))
+    assert any("no place for" in f.message for f in shared.compare(stray))
     before = stray.skill_md.read_text()
     (left,) = shared.rewrite(stray)
     assert left.level is Level.FAIL

@@ -6,10 +6,20 @@ from itertools import groupby
 from pathlib import Path
 lazy from collections.abc import Iterable, Iterator
 
+from agent_skill.ids import Branch
 from agent_skill.lang import Extraction, Unit, inconclusive, timed_out
 from agent_skill.proc import Ran, have, run
 from agent_skill.report import Finding, fail
 lazy from agent_skill.model import Skill
+
+# The branches of `toolchain` and of `mutation` Rust's steps report
+# through. A crate is built whole, so each finding lies in the skill.
+STEP_TIMEOUT = Branch("toolchain", "rust_timeout")
+STEP = Branch("toolchain", "rust_step")
+BASE_TIMEOUT = Branch("mutation", "rust_base_timeout")
+BASE = Branch("mutation", "rust_base")
+HUNG = Branch("mutation", "rust_inconclusive")
+SURVIVOR = Branch("mutation", "rust_survivor")
 
 #: Shared, gitignored, and safe to delete: cargo rebuilds it.
 CACHE = Path(__file__).resolve().parents[3] / ".cache" / "target"
@@ -253,7 +263,7 @@ class Rust:
         for stale in src.glob("*.rs"):
             stale.unlink()
 
-        ex = Extraction(out, crate=crate)
+        ex = Extraction(out, crate=crate, skill=skill.name)
         chapters: list[str] = []
         for chapter, blocks in groupby(skill.blocks("rust"), key=lambda b: b.file):
             mods: list[tuple[str, str]] = []
@@ -263,7 +273,7 @@ class Rust:
                 base = b.rule.lower().replace("-", "_")
                 n = sum(1 for m, _ in mods if m == base or m.startswith(base + "_"))
                 mods.append((base if n == 0 else f"{base}_{n}", b.body))
-                ex.units.append(Unit(src, chapter, b.line, b.rule))
+                ex.units.append(Unit(src, chapter, b.line, b.rule, skill.name))
             if not mods:
                 continue
             stem = module_name(chapter)
@@ -316,14 +326,14 @@ class Rust:
         for label, cmd in steps:
             r = run(cmd, cwd=ex.root, timeout=_STEP, env=env)
             if r.timed_out:
-                yield timed_out(label, _STEP, "rust")
+                yield timed_out(label, _STEP, ex.where, STEP_TIMEOUT)
             elif not r.ok:
                 remedy = (
                     " — `agent-skill fmt` rewrites the blocks"
                     if label == "rustfmt"
                     else ""
                 )
-                yield fail(f"{label}: {_first_error(r)[:150]}{remedy}", "rust")
+                yield fail(f"{label}: {_first_error(r)[:150]}{remedy}", ex.where, STEP)
 
     def mutate(self, ex: Extraction) -> Iterable[Finding]:
         """A shipped test must be able to fail.
@@ -336,21 +346,27 @@ class Rust:
         env = _crate(ex).env
         base = run(["cargo", "test", "-q"], cwd=ex.root, timeout=_STEP, env=env)
         if base.timed_out:
-            yield timed_out("the unmutated crate's tests", _STEP, "rust")
+            yield timed_out(
+                "the unmutated crate's tests", _STEP, ex.where, BASE_TIMEOUT
+            )
             return
         if not base.ok:
-            yield fail("the unmutated crate does not pass; nothing to mutate", "rust")
+            yield fail(
+                "the unmutated crate does not pass; nothing to mutate", ex.where, BASE
+            )
             return
 
         for path, lineno, stmt in _targets(src):
             original = path.read_text()
             lines = original.split("\n")
-            where = f"{path.name}:{lineno + 1}"
+            # The crate's module file, not the markdown: tracing a line
+            # of it back to its block needs the block each module holds.
+            spot = f"{path.name}:{lineno + 1}"
             path.write_text("\n".join(lines[:lineno] + lines[lineno + 1 :]))
             try:
                 r = run(["cargo", "test", "-q"], cwd=ex.root, timeout=180, env=env)
                 if r.timed_out:
-                    yield inconclusive(stmt, where)
+                    yield inconclusive(stmt, ex.where, HUNG, extracted=spot)
                 elif r.ok:
                     # Survivors are rare, so a second opinion is nearly
                     # free — and it is what stands between a transient
@@ -360,11 +376,13 @@ class Rust:
                         ["cargo", "test", "-q"], cwd=ex.root, timeout=300, env=env
                     )
                     if again.timed_out:
-                        yield inconclusive(stmt, where)
+                        yield inconclusive(stmt, ex.where, HUNG, extracted=spot)
                     elif again.ok:
                         yield fail(
-                            f"`{stmt[:56]}` can be deleted and every test still passes",
-                            where,
+                            f"{spot}: `{stmt[:56]}` can be deleted and every test "
+                            "still passes",
+                            ex.where,
+                            SURVIVOR,
                         )
             finally:
                 path.write_text(original)

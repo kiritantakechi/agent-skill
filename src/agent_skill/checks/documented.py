@@ -27,14 +27,15 @@ that cannot.
 
 import re
 from pathlib import Path
-lazy from collections.abc import Iterator, Sequence
+lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
 from agent_skill.checks.controls import WITHOUT_A_CONTROL
+from agent_skill.ids import Branch, Location
 from agent_skill.layout import root_of
 from agent_skill.report import fail
 lazy from agent_skill.checks import all_checks
-lazy from agent_skill.model import Skill
+lazy from agent_skill.model import Tree
 lazy from agent_skill.report import Finding
 
 #: `| `name` | catches | added because |` — a table row naming a check.
@@ -61,8 +62,18 @@ CONTROLS_SCOPE = "every check except those exempted"
 #: added.
 MIN_CELLS = 2
 
+#: The file this check reads, where every finding of it lies.
+README = "README.md"
 
-def readme(skills: Sequence[Skill]) -> Path:
+# The branches a finding of this check comes from.
+NO_README = Branch("documented", "no_readme")
+UNDOCUMENTED = Branch("documented", "undocumented")
+STALE_ROW = Branch("documented", "stale_row")
+NO_REASON = Branch("documented", "no_reason")
+CONTROLS_ROW = Branch("documented", "controls_scope")
+
+
+def readme(tree: Tree) -> Path:
     """Beside the tree being checked, not beside this file.
 
     `controls` copies the tree, injects a defect and re-runs the check
@@ -70,9 +81,9 @@ def readme(skills: Sequence[Skill]) -> Path:
     the original every time, so no control could ever reach it — which
     is how a check ends up exempt from the guarantee that it can fail.
     """
-    if skills:
-        return root_of(skills[0].root.parent) / "README.md"
-    return Path(__file__).resolve().parents[3] / "README.md"
+    if tree.skills:
+        return root_of(tree.skills[0].root.parent) / README
+    return Path(__file__).resolve().parents[3] / README
 
 
 def documented_rows(text: str) -> dict[str, tuple[str, str]]:
@@ -91,16 +102,13 @@ def documented_rows(text: str) -> dict[str, tuple[str, str]]:
     return found
 
 
-@check(
-    "documented",
-    "the README's claims about the checks, against the checks",
-    scope="all",
-)
-def documented(skills: Sequence[Skill]) -> Iterator[Finding]:
+@check("documented", "the README's claims about the checks, against the checks")
+def documented(tree: Tree) -> Iterator[Finding]:
     """The README's table of checks, against the checks registered."""
-    source = readme(skills)
+    source = readme(tree)
+    where = Location(file=README)
     if not source.is_file():
-        yield fail(f"no README at {source}", "documented")
+        yield fail("there is no README", where, NO_README)
         return
 
     rows = documented_rows(source.read_text())
@@ -110,13 +118,15 @@ def documented(skills: Sequence[Skill]) -> Iterator[Finding]:
         yield fail(
             f"`{name}` is registered and the README documents no row for it — "
             "the file that promises a reason for every check is missing one",
-            "documented",
+            where,
+            UNDOCUMENTED,
         )
     for name in sorted(set(rows) - registered):
         yield fail(
             f"the README documents `{name}`, which is not a registered check — "
             f"documentation outliving its subject is documentation nobody re-read",
-            "documented",
+            where,
+            STALE_ROW,
         )
 
     for name in sorted(set(rows) & registered):
@@ -125,7 +135,8 @@ def documented(skills: Sequence[Skill]) -> Iterator[Finding]:
                 f"`{name}` is documented with no reason it was added — the table's "
                 "claim is that every check has one. Whether the reason is true is a "
                 "reviewer's call; whether there is one is this check's",
-                "documented",
+                where,
+                NO_REASON,
             )
 
     # The one row that describes another check's coverage, and so can go
@@ -138,5 +149,6 @@ def documented(skills: Sequence[Skill]) -> Iterator[Finding]:
             "— it covers every check except the "
             f"{len(WITHOUT_A_CONTROL)} in `WITHOUT_A_CONTROL`, and a row stating a "
             "count or an 'every' goes stale the next time that mapping changes",
-            "documented",
+            where,
+            CONTROLS_ROW,
         )

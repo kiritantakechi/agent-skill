@@ -11,9 +11,28 @@ import pytest
 
 from agent_skill.checks import all_checks, by_name
 from agent_skill.checks.controls import CONTROLS, WITHOUT_A_CONTROL, FixtureGoneError
-from agent_skill.model import discover
-from agent_skill.report import Level
+from agent_skill.model import Tree, discover
+from agent_skill.report import Level, Result
+lazy from agent_skill.checks import Check
 lazy from agent_skill.checks.controls import Control
+
+
+def skill_by_skill(check: Check, tree: Tree) -> Result:
+    """`check` over `tree`, holding a per-skill check to its own skill.
+
+    `--skill` and the controls read only some skills with a per-skill
+    check, which keeps every finding the filter would only if each one
+    it makes lies in the skill it was reading.
+    """
+    if not check.reads_one_skill:
+        return check.run(tree)
+    result = Result(check.name)
+    for skill in tree:
+        found = check.run(Tree.of([skill])).findings
+        strays = [str(f) for f in found if f.where.skill != skill.name]
+        assert not strays, f"`{check.name}` read {skill.name} and found {strays}"
+        result.extend(found)
+    return result
 
 
 @pytest.mark.parametrize("control", CONTROLS, ids=lambda c: c.name)
@@ -25,7 +44,7 @@ def test_control_fires(control: Control, scratch: Path) -> None:
         control.break_it(scratch)
     except FixtureGoneError as e:
         pytest.fail(f"the fixture has drifted out of the skill: {e}")
-    result = check.run(discover(scratch))
+    result = skill_by_skill(check, Tree.of(discover(scratch)))
     fired = any(f.level is Level.FAIL for f in result.findings)
     if not fired and result.unrun:
         pytest.skip(f"`{control.check}` could not run here: {result.unrun[0].message}")
@@ -144,7 +163,7 @@ def test_a_structure_control_needs_its_own_branch(
     control.break_it(scratch)
     check = by_name(control.check)
     assert check is not None, f"no check named {control.check!r}"
-    result = check.run(discover(scratch))
+    result = check.run(Tree.of(discover(scratch)))
     assert not any(f.level is Level.FAIL for f in result.findings), (
         f"`{name}` still fires with `{attr}` stubbed out — "
         "another branch is reporting it"

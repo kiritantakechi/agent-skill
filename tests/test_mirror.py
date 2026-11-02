@@ -10,6 +10,7 @@ prefix.
 from dataclasses import dataclass
 
 from agent_skill.checks import mirror as m
+from agent_skill.model import Tree
 lazy from agent_skill.report import Finding
 
 
@@ -37,7 +38,7 @@ TITLE = "One concept, one mechanism"
 def run(table: list[tuple[str, str]], skills: list[Skill]) -> list[Finding]:
     original, m.MIRROR = m.MIRROR, table
     try:
-        return list(m.mirror(skills))  # ty: ignore[invalid-argument-type] — a stand-in with only what the check reads
+        return list(m.mirror(Tree.of(skills)))  # ty: ignore[invalid-argument-type] — a stand-in with only what the check reads
     finally:
         m.MIRROR = original
 

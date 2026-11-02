@@ -1,15 +1,17 @@
 """`agent-skill` itself: what it refuses, and what each check reads."""
 
 import re
-lazy from collections.abc import Iterator, Sequence
+lazy from collections.abc import Iterator
 lazy from pathlib import Path
 
 import pytest
 
 from agent_skill import cli
-from agent_skill.checks import Check
+from agent_skill.checks import Check, per_skill
+from agent_skill.ids import Branch, Location
 from agent_skill.layout import SKILLS
-from agent_skill.model import Skill
+from agent_skill.model import Skill, Tree
+from agent_skill.report import note
 from structure_fixture import build
 lazy from agent_skill.report import Finding
 
@@ -59,25 +61,42 @@ def test_an_unknown_skill_is_refused_with_the_names_there_are(
     assert "python-style" in err
 
 
-def test_skill_narrows_only_the_checks_that_read_one_skill(
-    monkeypatch: pytest.MonkeyPatch,
+#: The branch the stand-in checks below report through.
+SAID = Branch("x", "said")
+
+
+def test_skill_chooses_findings_and_never_what_a_check_reads(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """A cross-skill check reads every skill; one skill's findings show.
+
+    A per-skill check reads only the skill chosen, which drops nothing:
+    each finding it makes lies in the skill it is reading.
+    """
     given: dict[str, list[str]] = {}
 
-    def across(skills: Sequence[Skill]) -> Iterator[Finding]:
-        given["across"] = [s.name for s in skills]
-        yield from ()
+    def across(tree: Tree) -> Iterator[Finding]:
+        given["across"] = [s.name for s in tree]
+        for s in tree:
+            yield note(f"across read {s.name}", Location(s.name), SAID)
+        yield note("across read the repository", Location(file="README.md"), SAID)
 
     def each(skill: Skill) -> Iterator[Finding]:
         given.setdefault("each", []).append(skill.name)
-        yield from ()
+        yield note(f"each read {skill.name}", skill.at(), SAID)
 
-    fakes = [Check("across", "x", across, scope="all"), Check("each", "x", each)]
+    fakes = [Check("across", "x", across), Check("each", "x", per_skill(each))]
     monkeypatch.setattr(cli, "all_checks", lambda: fakes)
 
-    assert cli.main(["check", "--skill", "bevy-style"]) == 0
+    assert cli.main(["check", "--verbose", "--skill", "bevy-style"]) == 0
     assert given["each"] == ["bevy-style"]
     assert given["across"] == ["bevy-style", "python-style", "rust-style", "zig-style"]
+    shown = re.findall(r"note  (.*)", capsys.readouterr().out)
+    assert shown == [
+        "bevy-style: across read bevy-style",
+        "./README.md: across read the repository",
+        "bevy-style: each read bevy-style",
+    ]
 
 
 @pytest.fixture
@@ -171,8 +190,9 @@ def test_fmt_that_leaves_a_passage_unrewritten_exits_1(
         )
     )
     assert cli.main(["--skills", str(tmp_path), "fmt"]) == 1
-    assert "FAIL  SKILL.md § How to use this standard: text outside a free region" in (
-        capsys.readouterr().out
+    assert re.search(
+        r"FAIL  demo-style/SKILL\.md:\d+: text outside a free region",
+        capsys.readouterr().out,
     )
 
 

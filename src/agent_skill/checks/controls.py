@@ -15,15 +15,16 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-lazy from collections.abc import Callable, Iterator, Sequence
+lazy from collections.abc import Callable, Iterator
 
 from agent_skill.checks import check
+from agent_skill.ids import Branch, Location
 from agent_skill.layout import PLUGIN, SKILLS, root_of
 from agent_skill.report import Level, fail, unrun
 lazy from agent_skill.checks import by_name
 lazy from agent_skill.lang import toolchain_for
 lazy from agent_skill.lang.python import INTERPRETER
-lazy from agent_skill.model import Skill, discover
+lazy from agent_skill.model import Skill, Tree, discover
 lazy from agent_skill.proc import pinned_version
 lazy from agent_skill.profiles import registered
 lazy from agent_skill.report import Finding
@@ -31,6 +32,15 @@ lazy from agent_skill.report import Finding
 
 class FixtureGoneError(LookupError):
     """The text a control edits is no longer in the skill."""
+
+
+# The branches a finding of this check comes from. A finding of it is
+# about the controls in the harness, so it lies in no skill.
+NO_CHECK = Branch("controls", "no_check")
+GONE = Branch("controls", "gone")
+UNEXERCISED = Branch("controls", "unexercised")
+SILENT = Branch("controls", "silent")
+EMPTY_CORPUS = Branch("controls", "empty_corpus")
 
 
 #: Which skill each control's injection landed in, recorded as it
@@ -982,19 +992,22 @@ CONTROLS: list[Control] = [
 ]
 
 
-@check("controls", "each check still fails on the defect it owns", scope="all")
-def controls(skills: Sequence[Skill], *, fast: bool = False) -> Iterator[Finding]:
+@check("controls", "each check still fails on the defect it owns")
+def controls(tree: Tree, *, fast: bool = False) -> Iterator[Finding]:
     """A finding for each control that no longer fires.
 
     Nothing when they all do.
     """
-    if not skills:
+    if not tree.skills:
         return
-    source = skills[0].root.parent
+    source = tree.skills[0].root.parent
+    nowhere = Location()
     for control in CONTROLS:
         target = by_name(control.check)
         if target is None:
-            yield fail(f"{control.name}: no check named {control.check!r}", "controls")
+            yield fail(
+                f"{control.name}: no check named {control.check!r}", nowhere, NO_CHECK
+            )
             continue
         if target.slow and fast:
             # `controls` is not marked slow itself, so without this
@@ -1002,29 +1015,24 @@ def controls(skills: Sequence[Skill], *, fast: bool = False) -> Iterator[Finding
             # control — the exact cost `--fast` exists to avoid.
             continue
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
-            tree = throwaway_tree(source, Path(tmp))
+            copy = throwaway_tree(source, Path(tmp))
             TOUCHED.clear()
             try:
-                control.break_it(tree)
+                control.break_it(copy)
             except FixtureGoneError as e:
                 yield fail(
-                    f"{control.name}: cannot be injected any more — {e}", "controls"
+                    f"{control.name}: cannot be injected any more — {e}", nowhere, GONE
                 )
                 continue
-            found = discover(tree)
-            # A control that writes a file directly records nothing, and
-            # a cross-skill check needs its siblings; both fall back to
-            # the set. An "all"-scope check reads one skill against
-            # another, so it needs the whole set even when the injection
-            # landed in one of them. Read from the check rather than
-            # from a list of names beside it: a list would have to be
-            # remembered when a cross-skill check is added, and
-            # forgetting scopes its control to one skill while it still
-            # passes.
+            # A per-skill check reads only the skills the injection
+            # landed in: what it finds in the others it found before the
+            # injection too. `run` decides which checks those are, from
+            # how the check was written rather than from a list of names
+            # beside it, which would have to be remembered when a
+            # cross-skill check is added. A control that writes a file
+            # directly records nothing, and is run over every skill.
             injected = {rel.split("/")[0] for rel in TOUCHED}
-            if injected and target.scope != "all":
-                found = [s for s in found if s.name in injected] or found
-            result = target.run(found)
+            result = target.run(Tree.of(discover(copy)), about=injected)
             if any(f.level is Level.FAIL for f in result.findings):
                 continue
             if result.unrun:
@@ -1036,13 +1044,15 @@ def controls(skills: Sequence[Skill], *, fast: bool = False) -> Iterator[Finding
                 yield unrun(
                     f"{control.name}: `{control.check}` could not run here, "
                     "so the control was not exercised",
-                    "controls",
+                    nowhere,
+                    UNEXERCISED,
                 )
             else:
                 yield fail(
                     f"{control.name}: `{control.check}` still passes — "
                     "the control no longer fires",
-                    "controls",
+                    nowhere,
+                    SILENT,
                 )
 
     yield from _empty_corpus()
@@ -1068,5 +1078,6 @@ def _empty_corpus() -> Iterator[Finding]:
             if tc and tc.extract(Skill(root), Path(tmp) / "out"):
                 yield fail(
                     f"an empty {profile.toolchain} corpus still extracts blocks",
-                    "controls",
+                    Location(),
+                    EMPTY_CORPUS,
                 )

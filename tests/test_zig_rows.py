@@ -5,6 +5,7 @@ lazy from collections.abc import Callable
 import pytest
 
 from agent_skill.checks.citations import _compile_zig, phrase, zig_rows
+from agent_skill.ids import Location
 from agent_skill.model import LintRow
 from agent_skill.proc import have
 
@@ -25,7 +26,7 @@ def compiler(said: Said) -> Callable[[str], list[str] | None]:
 
 
 def messages(rows: list[LintRow], probes: dict[str, str], said: Said) -> list[str]:
-    return [m for _, m in zig_rows(rows, probes, compiler(said))]
+    return [f.message for f in zig_rows(rows, probes, compiler(said), Location())]
 
 
 def test_a_phrase_stands_in_for_the_identifiers() -> None:

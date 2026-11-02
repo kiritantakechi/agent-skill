@@ -17,6 +17,7 @@ lazy from collections.abc import Callable, Iterable, Iterator
 
 from agent_skill import shared
 from agent_skill.doc import canonical
+from agent_skill.ids import Branch
 from agent_skill.lang.rust import RUST, Crate, module_name
 from agent_skill.proc import run
 from agent_skill.report import Finding, fail, note
@@ -28,6 +29,15 @@ lazy from agent_skill.model import Block, Skill
 INJECTED = "#![allow(dead_code, unused_imports)]"
 
 _MODULE = re.compile(r"^pub mod (\w+) \{$", re.MULTILINE)
+
+# The branches `fmt` reports through. It is a command rather than a
+# check, so no control is owed them.
+REPRINTED = Branch("fmt", "reprinted")
+CARGO_FMT = Branch("fmt", "cargo_fmt")
+MODULES = Branch("fmt", "modules")
+UNLOCATABLE = Branch("fmt", "unlocatable")
+REFORMATTED = Branch("fmt", "reformatted")
+RUFF_FORMAT = Branch("fmt", "ruff_format")
 
 
 def _bodies(path: Path, crate: Crate) -> list[str]:
@@ -102,7 +112,9 @@ def _reprint(skill: Skill) -> list[Finding]:
         text = path.read_text(newline="")
         if (printed := canonical(text)) != text:
             path.write_text(printed)
-            changed.append(note("re-printed in its canonical form", path.name))
+            changed.append(
+                note("re-printed in its canonical form", skill.at(path), REPRINTED)
+            )
     return changed
 
 
@@ -119,7 +131,8 @@ def _format_rust(skill: Skill) -> list[Finding]:
             return []
         r = run(["cargo", "fmt"], cwd=extraction.root, timeout=300, env=crate.env)
         if not r.ok:
-            return [fail(f"cargo fmt failed: {(r.err or r.out).strip()[:160]}")]
+            said = (r.err or r.out).strip()[:160]
+            return [fail(f"cargo fmt failed: {said}", skill.at(), CARGO_FMT)]
 
         changed: list[Finding] = []
         for chapter, blocks in groupby(skill.blocks("rust"), key=lambda b: b.file):
@@ -131,20 +144,21 @@ def _format_rust(skill: Skill) -> list[Finding]:
             if len(bodies) != len(wanted):
                 changed.append(
                     fail(
-                        f"{len(wanted)} blocks, {len(bodies)} modules; skipped", chapter
+                        f"{len(wanted)} blocks, {len(bodies)} modules; skipped",
+                        skill.at(chapter),
+                        MODULES,
                     )
                 )
                 continue
-            path = skill.path_of(chapter)
             # Last first, so an earlier replacement cannot move a later
             # block.
             edits = reversed(list(zip(wanted, bodies, strict=True)))
-            changed += _put_back(path, chapter, "rust", edits)
+            changed += _put_back(skill, chapter, "rust", edits)
         return changed
 
 
 def _put_back(
-    path: Path, chapter: str, fence: str, edits: Iterable[tuple[Block, str]]
+    skill: Skill, chapter: str, fence: str, edits: Iterable[tuple[Block, str]]
 ) -> list[Finding]:
     """Write each new body over its block in `path`, in the order given.
 
@@ -152,6 +166,7 @@ def _put_back(
     it changed. A block whose fenced text is not found exactly once is
     skipped rather than guessed at.
     """
+    path = skill.path_of(chapter)
     text = path.read_text()
     changed: list[Finding] = []
     hits = 0
@@ -161,14 +176,16 @@ def _put_back(
         old = f"```{fence}\n{block.body}```"
         if text.count(old) != 1:
             changed.append(
-                fail("not uniquely locatable; skipped", f"{chapter}:{block.line}")
+                fail("not uniquely locatable; skipped", block.where, UNLOCATABLE)
             )
             continue
         text = text.replace(old, f"```{fence}\n{body}```")
         hits += 1
     if hits:
         path.write_text(text)
-        changed.append(note(f"{hits} block(s) reformatted", chapter))
+        changed.append(
+            note(f"{hits} block(s) reformatted", skill.at(chapter), REFORMATTED)
+        )
     return changed
 
 
@@ -199,19 +216,19 @@ def _format_python(skill: Skill) -> list[Finding]:
             timeout=300,
         )
         if not r.ok:
-            return [fail(f"ruff format failed: {(r.err or r.out).strip()[:160]}")]
+            said = (r.err or r.out).strip()[:160]
+            return [fail(f"ruff format failed: {said}", skill.at(), RUFF_FORMAT)]
 
         changed: list[Finding] = []
         by_chapter: dict[str, list[Unit]] = {}
         for unit in extraction.units:
             by_chapter.setdefault(unit.chapter, []).append(unit)
         for chapter, units in by_chapter.items():
-            path = skill.path_of(chapter)
             # Last first, so an earlier replacement cannot move a later
             # block.
             ordered = sorted(units, key=lambda u: u.line, reverse=True)
             edits = _python_edits(skill, chapter, ordered)
-            changed += _put_back(path, chapter, "python", edits)
+            changed += _put_back(skill, chapter, "python", edits)
         return changed
 
 

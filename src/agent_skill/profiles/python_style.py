@@ -5,11 +5,19 @@ from dataclasses import dataclass, field
 from typing import override
 lazy from collections.abc import Iterable
 
+from agent_skill.ids import Branch
 from agent_skill.profiles import NotDecisive, Profile, register
 from agent_skill.report import Finding, fail
 from agent_skill.text import group, strip_comment, syntax_for
 lazy from agent_skill.lang.python import INTERPRETER
 lazy from agent_skill.model import Skill, prose_lines
+
+# The branches of `conventions` and of `prose` this standard's own rules
+# fire through.
+FUTURE = Branch("conventions", "ps_future")
+AUGMENTED = Branch("conventions", "ps_augmented")
+META_DOC = Branch("conventions", "ps_meta_doc")
+FUTURE_PROSE = Branch("prose", "ps_future")
 
 #: PS-TYPE — PEP 563 is Superseded, and the future import does not
 #: merely fail to help on 3.14+: it silently degrades `annotationlib`
@@ -276,7 +284,7 @@ class PythonStyle(Profile):
         comment, quotes = syntax_for("python")
         for b in skill.advice("python"):
             for j, raw in enumerate(b.lines):
-                where = f"{b.file}:{b.at(j)} [{b.rule}]"
+                where = b.where_at(j)
                 code = strip_comment(raw, comment, quotes)
 
                 if FUTURE_ANNOTATIONS.match(code):
@@ -284,6 +292,7 @@ class PythonStyle(Profile):
                         "`from __future__ import annotations` degrades `annotationlib` "
                         "VALUE and FORWARDREF to bare strings; PEP 563 is Superseded",
                         where,
+                        FUTURE,
                     )
 
                 if AUGMENTED_ON_SHARED.match(code):
@@ -292,11 +301,14 @@ class PythonStyle(Profile):
                         "read-modify-write; under free threading it loses updates "
                         "(PS-CONC)",
                         where,
+                        AUGMENTED,
                     )
 
                 if raw.lstrip().startswith('"""') and META.search(raw):
                     yield fail(
-                        "docstring discusses the example rather than the API", where
+                        "docstring discusses the example rather than the API",
+                        where,
+                        META_DOC,
                     )
 
     @override
@@ -333,7 +345,8 @@ class PythonStyle(Profile):
                     yield fail(
                         "prose names `__future__` outside a **Check:** without saying "
                         "it is forbidden",
-                        f"{chapter.name}:{i} [{rid}]",
+                        chapter.where(i, rid),
+                        FUTURE_PROSE,
                     )
 
 
