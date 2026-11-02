@@ -258,6 +258,12 @@ def test_an_example_left_open_runs_to_the_end_and_is_closed() -> None:
     doc = Doc.parse("```zig\nconst x = 1;\n## still code\n")
     assert doc.blocks == (Fence("zig", "const x = 1;\n## still code\n\n"),)
     assert str(doc).endswith("```\n")
+    (fence,) = doc.blocks
+    assert isinstance(fence, Fence)
+    assert not fence.closed
+    (printed,) = Doc.parse(str(doc)).blocks
+    assert isinstance(printed, Fence)
+    assert printed.closed
 
 
 def test_a_fence_is_long_enough_for_what_it_holds() -> None:

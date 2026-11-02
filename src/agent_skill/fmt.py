@@ -93,11 +93,13 @@ def _reprint(skill: Skill) -> list[Finding]:
     An edit lengthens a line and a renaming lengthens a code inside a
     sentence; either way the paragraph is filled for words it no longer
     has. The canonical form is the one fill of the words it has now, and
-    it is what `layout` holds every file to.
+    it is what `layout` holds every file to. The file is read with its
+    newlines untranslated, as `layout` reads it, so a CR inside an
+    example is left for a person rather than turned into a line break.
     """
     changed: list[Finding] = []
     for path in skill.markdown:
-        text = path.read_text()
+        text = path.read_text(newline="")
         if (printed := canonical(text)) != text:
             path.write_text(printed)
             changed.append(note("re-printed in its canonical form", path.name))

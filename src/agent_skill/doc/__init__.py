@@ -66,12 +66,16 @@ class Fence:
     """A fenced example: its info string and its body.
 
     The body keeps each line's newline, as a file's text does, so an
-    empty body and a body of one empty line differ.
+    empty body and a body of one empty line differ. A fence its file or
+    list item ends inside is read to that end and printed closed;
+    `closed` says it was not, for `layout` to report the file as one
+    that does not parse as written.
     """
 
     info: str
     body: str
     line: int = field(default=0, compare=False)
+    closed: bool = field(default=True, compare=False)
 
 
 class Align(Enum):
@@ -409,15 +413,15 @@ def _fence(lines: list[str], i: int, at: int) -> tuple[Fence, int]:
     info = m["info"].strip() if m else ""
     indent = _indent(lines[i])
     body: list[str] = []
-    j = i + 1
+    j, closed = i + 1, False
     while j < len(lines):
         inner = lines[j].lstrip(" ")
         if inner and set(inner) == {"`"} and len(inner) >= ticks:
-            j += 1
+            j, closed = j + 1, True
             break
         body.append(lines[j][min(indent, _indent(lines[j])) :])
         j += 1
-    return Fence(info, "".join(f"{b}\n" for b in body), at), j
+    return Fence(info, "".join(f"{b}\n" for b in body), at, closed), j
 
 
 def _is_delimiter(lines: list[str], i: int) -> bool:

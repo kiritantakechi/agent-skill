@@ -111,7 +111,12 @@ BRANCHES = {
         "agent_skill.checks.citations",
         "_codes_in",
     ),
-    "a prose line over the column limit": ("agent_skill.checks.layout", "_widths"),
+    "a prose line over the column limit": ("agent_skill.checks.layout", "_canonical"),
+    "an example line over the column limit": ("agent_skill.checks.layout", "_widths"),
+    "a table cell split by an unescaped pipe": (
+        "agent_skill.checks.layout",
+        "_table_cells",
+    ),
     "a citation into a standard that has no such rule": (
         "agent_skill.checks.crossref",
         "_citations",

@@ -712,11 +712,21 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        # A paragraph the printer would fill onto two lines, so the
+        # file is not canonical. Joined, not repeated: `"x " * 60` ends
+        # in a space, a second way of not being canonical.
         "a prose line over the column limit",
         "layout",
-        # Joined, not repeated: `"x " * 60` ends in a space, and the
-        # trailing-whitespace branch fired it on its own.
         lambda t: append(t, "zig-style/references/data.md", "\n" + "x " * 59 + "x\n"),
+    ),
+    Control(
+        # The printer keeps an example's lines as written, so only the
+        # width branch measures them.
+        "an example line over the column limit",
+        "layout",
+        lambda t: append(
+            t, "zig-style/references/data.md", "\n```text\n" + "x" * 101 + "\n```\n"
+        ),
     ),
     Control(
         "a second marker line in one block",

@@ -8,7 +8,7 @@ from agent_skill.fmt import INJECTED, _bodies, format_skill
 from agent_skill.lang.rust import BEVY_STYLE, RUST_STYLE
 from agent_skill.profiles import _REGISTRY, profile_for
 from agent_skill.report import Level
-from structure_fixture import build, edit
+from structure_fixture import build, edit, reparse
 
 
 def test_bodies_dedents_and_drops_the_injected_attribute(tmp_path: Path) -> None:
@@ -145,3 +145,12 @@ def test_fmt_leaves_every_file_canonical_and_then_changes_nothing(
     assert all(text == canonical(text) for text in texts.values())
     assert format_skill(drifted) == []
     assert {p: p.read_text() for p in drifted.markdown} == texts
+
+
+def test_how_a_shared_passage_is_filled_is_never_a_finding(tmp_path: Path) -> None:
+    """The copy and the template are compared as trees, not as lines."""
+    demo = build(tmp_path)
+    text = demo.skill_md.read_text()
+    at = text.index("\n", text.index("Rules are cited by ID"))
+    demo.skill_md.write_text(f"{text[:at]}   {text[at + 1 :]}")
+    assert list(shared.compare(reparse(demo))) == []
