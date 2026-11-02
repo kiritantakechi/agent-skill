@@ -114,10 +114,55 @@
 
 ## 4. Findings, locations, branches
 
-- [ ] 4.1 Give `Finding` a `Location` and a `Branch`; convert every check, deleting the intermediate
-  `(message, where)`, `(row, message)` and `Verdict` forms
-- [ ] 4.2 Introduce `per_skill`; delete `scope`; make `--skill` a post-filter on findings; reject
-  unknown `--only`/`--skill` names
+- [x] 4.1 Give `Finding` a `Location` and a `Branch`; convert every check, deleting the intermediate
+  `(message, where)`, `(row, message)` and `Verdict` forms — `ee747de`; 265 branches over 22
+  checks and 8 of `fmt`, each a module constant beside the sites that fire it
+- [x] 4.2 Introduce `per_skill`; delete `scope`; make `--skill` a post-filter on findings; reject
+  unknown `--only`/`--skill` names — `ee747de`; `model.Tree` is the skills, `PerSkill` lifts a
+  check of one skill, `Result.within` filters, and per-skill checks read only the chosen skills
+
+  Decisions made on the way:
+
+  - A branch name is snake case and its check's name stays kebab case (`shared-text.differs`), so
+    `Branch` takes two grammars (`e70b04d`).
+  - Branches are module-level constants (`DISABLED_CODE = Branch("citations", "disabled_code")`)
+    beside the sites that fire them, so 5.2 can collect them without running anything. A profile's
+    own rules fire through `conventions` or `prose` with the standard's prefix (`rs_setter`,
+    `zs_unwrap`), declared in the profile; a toolchain's steps through `toolchain` or `mutation`
+    with the language's (`py_run`, `zig_fmt`), declared in `lang/`. `fmt` reports through
+    `Branch("fmt", …)`: a command, not a check, so outside the bijection.
+  - `Tree` is `tuple[Skill, ...]` and nothing else. The checks that read beside the skills
+    (`plugin`, `documented`, `controls`) still find the repository from the first skill's root.
+  - `@check(...)` sits above `@per_skill`, so the module name is the lifted check and `.each` the
+    function of one skill; `PerSkill.__wrapped__` lets `inspect.unwrap` find its source.
+  - A per-skill check reads only the chosen skills, which keeps every finding the filter would
+    only if each finding lies in the skill it was reading. `tests/test_controls.py` holds every
+    per-skill control to that. The controls narrow through the same `Check.run(about=…)`.
+  - `pins` is a tree check: the harness's tool pins lie at `./pyproject.toml`, in no skill, so a
+    per-skill `pins` would have broken that law. Reading every skill made each pin control ask the
+    network about Rust and Bevy too, so `_stable` and `_crates_io` answer once a process; the
+    controls cost what they did (21.8 s against 23.6 s at `a7b3094`, same machine, same script).
+  - `fast` stays a keyword only `controls` takes: it is a fact about the run, not the tree.
+  - A location names a chapter by its path in the skill (`references/errors.md`), and a finding
+    about a rule now carries its heading's line where the old one named only the chapter. A
+    message that spelled its file by hand (`assets/ci.yml …`, `` `plugin.json` is missing ``) gave
+    the file to the location; `shared-text` gives the line of the differing block, not `§ section`.
+  - A Rust mutant is found in the crate's module file, which no `Location` can name until a unit
+    keeps its block (decision 6's open question): it lies in the skill, and the module's line leads
+    its message.
+  - For 5.1: 22 of the 23 controls in `BRANCHES` fire exactly one branch, and it is a branch of
+    the function their entry names (`citations.disabled_code`, `layout.canonical`,
+    `skeleton.rename_self`, …). The compiler row control fires `citations.zig_no_probe` and
+    `citations.zig_probe_no_row`: misspelling the row's lint leaves a row without a probe and a
+    probe without a row, never a probe printing another error (`zig_probe_other`).
+
+  `check --fast --verbose` before and after differ in 32 lines, all rendering: 30 `layout` notes
+  name `skill/references/x.md` for `skill/x.md`, and 2 `mirror` notes are located at
+  `python-style [PS-NAME-18]` and `[PS-NAME-19]` where they printed the check's name. With those
+  two spellings mapped back the outputs are identical. `check --skill zig-style --only toolchain
+  --only mutation` passes in 2 min; its nine mutation notes now name their skill
+  (`zig-style/references/build.md:1297 [ZS-BUILD-38]`), which the unit's `chapter:line [rule]`
+  left out.
 - [ ] 4.3 Move `skeleton`, `anatomy`, `crossref`, `mirror`, `citations` and `assets` onto the tree,
   deleting their own scanners; verify the regex-literal count from 1.1 falls to the one in `ids`
 
