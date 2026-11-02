@@ -52,9 +52,10 @@ current revision.
 and the crate's spelling outlives the reason it existed. The std version is also the one every
 reader already knows.
 
-**Check:** each hit is a dependency the standard library now covers.
-`rg -n '^(lazy_static|cfg-if|itoa|fs2|fs4|filetime|num_cpus|atty|is-terminal) *=' Cargo.toml` and
-`rg -n '^(os_pipe|assert_matches|async-trait|memoffset|static_assertions) *=' Cargo.toml`
+**Check:** each hit is a dependency the standard library now covers, in the workspace table, a
+member's manifest, or a member's `foo.workspace = true` line:
+`rg -n -g '*.toml' '^(lazy_static|once_cell|cfg-if|itoa|fs[24]|filetime|num_cpus|memoffset)[ .=]'`
+`rg -n -g '*.toml' '^(atty|is-terminal|os_pipe|assert_matches|async-trait|static_assertions)[ .=]'`
 
 ### RS-MIG-02 [M] Do not call an API deprecated through 1.99
 
