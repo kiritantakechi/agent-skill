@@ -778,7 +778,6 @@ nothing to repay it.
 
 ```rust
 // verified — GOOD
-use bevy::ecs::query::QueryNotDenseError;
 use bevy::prelude::*;
 
 #[derive(Component, Debug, Clone, Copy, Reflect)]
@@ -791,15 +790,27 @@ pub struct Decay(pub f32);
 
 /// The outer loop is tables, the inner is entities within one table — that
 /// nesting is the whole shape, and it is the price of the slices. The error
-/// is the query's own: `Health` or `Decay` stored sparsely makes this fail
-/// at run time, having compiled, so it propagates rather than unwrapping.
-fn decay_health(mut lives: Query<(&mut Health, &Decay)>) -> Result<(), QueryNotDenseError> {
+/// is the query's own `QueryNotDenseError`: `Health` or `Decay` stored
+/// sparsely makes this fail at run time, having compiled, so `?` hands it to
+/// the error handler as a `BevyError` rather than unwrapping (BV-ERR-02).
+fn decay_health(mut lives: Query<(&mut Health, &Decay)>) -> Result {
     for (mut health, decay) in lives.contiguous_iter_mut()? {
         for (health, decay) in health.iter_mut().zip(decay) {
             health.0 *= decay.0;
         }
     }
     Ok(())
+}
+
+/// The schedule takes it as it stands: `Result<(), BevyError>` is a system
+/// output `add_systems` accepts, where `Result<(), QueryNotDenseError>` is not.
+#[derive(Debug, Default)]
+pub struct DecayPlugin;
+
+impl Plugin for DecayPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(FixedUpdate, decay_health);
+    }
 }
 
 #[cfg(test)]
@@ -832,10 +843,11 @@ mod tests {
         let mut world = World::new();
         world.spawn((Health(100.0), Decay(0.5)));
         world.spawn((Health(40.0), Decay(0.25)));
-        // No annotation needed here: `QueryNotDenseError` is not `BevyError`,
-        // so only the identity `IntoResult` impl applies and `Out` is the
-        // system's own `Result`. Both layers are pinned.
-        assert!(matches!(world.run_system_once(decay_health), Ok(Ok(()))));
+        // `Out` is named because a system returning `Result` converts to an
+        // output of `()` as well as of itself; `()` puts its error in the
+        // `RunSystemError`, so one `is_ok` pins both layers.
+        let ran: Result<(), _> = world.run_system_once(decay_health);
+        assert!(ran.is_ok());
 
         let mut query = world.query::<&Health>();
         let mut got: Vec<f32> = query.iter(&world).map(|h| h.0).collect();
