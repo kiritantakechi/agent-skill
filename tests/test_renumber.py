@@ -135,6 +135,13 @@ def test_a_run_that_changes_nothing_starts_no_table(repo: Path) -> None:
     assert migration.read_text() == before
 
 
+def test_a_run_that_changes_nothing_writes_nothing(repo: Path) -> None:
+    run(repo, **THREADS)
+    plan = renumber.plan(repo, "demo-style", {}, Demo())
+    assert plan.changed == 0
+    assert plan.writes == {}
+
+
 def test_an_unlisted_original_gains_a_row_when_it_moves(repo: Path) -> None:
     run(repo, **THREADS)
     migration = repo / SKILLS / "demo-style/references/migration.md"

@@ -349,7 +349,11 @@ def _segments(text: str) -> Iterator[tuple[str, bool]]:
 
 
 def _compose(skill: Skill, plan: Plan) -> None:
-    """Carry `migration.md`'s rename tables through this renumbering."""
+    """Carry `migration.md`'s rename tables through this renumbering.
+
+    The chapter is written only when that changes it: a run that moved
+    nothing used to report `write migration.md` over identical bytes.
+    """
     # Named as it will be: the run that renames the migration chapter
     # also writes its table.
     migration = next(
@@ -366,7 +370,11 @@ def _compose(skill: Skill, plan: Plan) -> None:
     path = plan.moves.get(migration.path, migration.path)
     text = plan.writes.get(path, migration.text)
     now = {old: f"`{new}`" for old, new in plan.ids.items()}
-    plan.writes[path] = carry(text, heading(skill), now)
+    carried = carry(text, heading(skill), now)
+    if carried != migration.text or path != migration.path:
+        plan.writes[path] = carried
+    else:
+        plan.writes.pop(path, None)
 
 
 def heading(skill: Skill) -> str:
