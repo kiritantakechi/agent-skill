@@ -190,7 +190,7 @@ a given call site used.
 
 `app.add_message::<DamageDealt>()`. Never `init_resource::<Messages<DamageDealt>>()`.
 
-**Why:** `add_message` also adds the update system that drops messages older than two frames.
+**Why:** `add_message` also registers the type with the update that drops messages two updates old.
 Without it the buffer grows for the life of the process — a leak whose only symptom is memory, and
 only after a long session.
 
@@ -257,12 +257,14 @@ type is an instruction.
 
 ### BV-EVENT-07 [M] Read a message in a schedule that runs at least as often as the writer
 
-A message written in `FixedUpdate` and read in `Update` arrives in bursts. A message written in
-`Update` and read in `FixedUpdate` may not be read at all before it expires.
+A message crosses between the two schedules without loss, but not one for one. Written in
+`FixedUpdate` and read in `Update`, it arrives in bursts: several steps' worth in one frame, none in
+a frame where no step ran. Written in `Update` and read in `FixedUpdate`, it waits for the next
+step, which may be frames away, and arrives together with every other frame's.
 
-**Why:** a message lives two runs of the update system in `First`, and the fixed schedule runs zero
-or several times a frame (BV-SCHED-06), so the clocks never line up. The loss is silent: a reader
-that saw nothing looks like a frame where nothing happened.
+**Why:** `TimePlugin` holds back the update in `First` that ages messages until `FixedPostUpdate`
+has run, so nothing expires unread; but steps run zero or several times a frame (BV-SCHED-06), so a
+reader that keeps only the last message, or asks only whether one came, silently drops the rest.
 
 **Check:** for each message type, list the writers' schedules and the readers'. A reader in a
 slower-running schedule than its writer needs a stated reason bursts are acceptable.

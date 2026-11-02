@@ -1010,9 +1010,9 @@ mod tests {
 A `Changed<T>` filter sees writes since the reading system last ran. Keep the writer and the reader
 in the same schedule.
 
-**Why:** `FixedUpdate` runs zero or several times a frame (BV-SCHED-06), so an `Update` reader sees
-a fixed-step write once however often it happened, and a fixed-step reader may miss an `Update`
-write entirely.
+**Why:** change ticks are per system, so nothing is missed across schedules, but `FixedUpdate` runs
+zero or several times a frame (BV-SCHED-06): an `Update` reader sees several steps' writes as one
+change, and a fixed-step reader sees an `Update` write on its next run, merged with any later one.
 
 **Check:** for each `Changed<T>` reader, find the writers. Any writer in a different schedule needs
 a stated reason the count does not matter.
