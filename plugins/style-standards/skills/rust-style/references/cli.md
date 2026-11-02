@@ -526,11 +526,11 @@ Lock stdout once and write through a `BufWriter`. `println!` in a loop locks and
 and is frequently the reason a tool is ten times slower than it should be. Buffering in general is
 `RS-PERF-19`.
 
-**Why:** `println!` acquires the lock, formats, writes, and — on a terminal — flushes, every call.
-A loop printing a million lines performs a million lock acquisitions and a million syscalls, and it
-dominates the runtime of anything that prints a lot.
+**Why:** `println!` locks, formats and writes every call, and Rust's stdout is line-buffered whether
+it is a terminal, a pipe or a file, so every line is a `write` syscall. A million lines is a million
+of each, and that dominates the runtime of anything that prints a lot.
 
-**Check:** grep for `println!` inside loops. Each is a lock and a probable flush.
+**Check:** grep for `println!` inside loops. Each is a lock and a flush.
 
 ```rust
 // verified
