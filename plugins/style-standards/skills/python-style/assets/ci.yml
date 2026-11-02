@@ -48,7 +48,7 @@ jobs:
       - run: uv python install cpython-3.15.2+freethreaded
       - run: uv sync --group dev
       - run: uv run ruff check
-      # Zero stderr here is ruff's own proof that no enabled lint rule conflicts
-      # with the formatter.
+      # ruff warns here about some enabled lint rules that conflict with the
+      # formatter, not all; ruff.toml disables its whole documented list.
       - run: uv run ruff format --check
       - run: uv run ty check

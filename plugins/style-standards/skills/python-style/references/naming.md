@@ -247,10 +247,9 @@ In CI, as a gate, with `--check`. Never as a matter of individual discipline.
 the choice. A formatter that runs sometimes is worse than none, because the diff noise it produces
 lands on whoever touches the file next rather than on whoever skipped it.
 
-**Check:** `ruff format --check` in CI. Zero stderr from it is also ruff's own proof that no enabled
-lint rule conflicts with the formatter — though only two of the fifteen documented conflicts
-actually warn, so the rule set must be checked against that list directly rather than inferred from
-a quiet run.
+**Check:** `ruff format --check` in CI. Its stderr also names an enabled lint rule that conflicts
+with the formatter — but only for some of the documented conflicts, so the rule set must be checked
+against that list directly rather than inferred from a quiet run.
 
 ### PS-NAME-14 [M] Hold lines to 88 columns, and know this departs from PEP 8
 

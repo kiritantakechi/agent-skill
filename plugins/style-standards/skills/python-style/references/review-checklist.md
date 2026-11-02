@@ -54,7 +54,7 @@ Run these before reading anything, and report what could not be run rather than 
 
 ```sh
 uv run ruff check                     # the shipped assets/ruff.toml
-uv run ruff format --check            # zero stderr proves no formatter conflict
+uv run ruff format --check            # warns about some formatter conflicts, not all
 uv run ty check                       # the shipped assets/ty.toml
 uv run pytest
 uv run python -c "import sys; assert sys.abi_info.free_threaded"
