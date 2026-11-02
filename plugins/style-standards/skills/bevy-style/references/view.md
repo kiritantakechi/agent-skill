@@ -486,7 +486,7 @@ entity is attached where that entity is written: `on(handler)` inside `bsn!`, or
 structure. It is `[S]` because the grammar is the newest surface in Bevy, and it still moves
 between releases.
 
-**Check:** count the closing braces at the end of the spawn. Past three levels, the tuple form has
+**Check:** count the closing braces at the end of the spawn. Past two levels, the tuple form has
 stopped being readable.
 
 ```rust
