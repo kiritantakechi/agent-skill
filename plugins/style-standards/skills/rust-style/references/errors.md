@@ -139,8 +139,8 @@ own `[lints]` table, with the reason — see RS-ERR-04 for the message.
 someone else's server. This is the highest-cost defect in this standard, because the damage lands on
 a party who had no say in the decision and cannot work around it.
 
-**Check:** mechanically: `references/build.md` denies `unwrap_used`, `expect_used`, `panic`,
-`todo`, `unimplemented` and `indexing_slicing`. The grep for a codebase that has not adopted them
+**Check:** mechanically: `assets/Cargo.toml` denies `unwrap_used`, `expect_used`, `panic`, `todo`,
+`unimplemented` and `indexing_slicing`. The grep for a codebase that has not adopted them
 yet:
 
 ```bash

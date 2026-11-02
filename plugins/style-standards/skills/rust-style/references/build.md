@@ -446,10 +446,10 @@ tokio = { version = "1", default-features = false, features = ["rt", "macros"] }
 Lints belong in the manifest's `[lints]` table, inherited from `[workspace.lints]`, not in a wall of
 `#![deny(...)]` attributes in `lib.rs`. The manifest is where a reviewer looks for policy, and it
 applies to every target automatically. `[lints] workspace = true` is all-or-nothing, so a lint only
-some members want stays out of the workspace table, as `print_stdout` does below. Name
-`elided_lifetimes_in_paths` and `explicit_outlives_requirements` individually rather than enabling
-`rust_2018_idioms`: its other three members cover what edition 2024 already rejects or has made
-unnecessary.
+some members want stays out of the workspace table, as `print_stdout` does in `assets/Cargo.toml`
+— the table this standard ships, to copy whole. Name `elided_lifetimes_in_paths` and
+`explicit_outlives_requirements` individually rather than enabling `rust_2018_idioms`: its other
+three members cover what edition 2024 already rejects or has made unnecessary.
 
 **Why:** crate-level attributes apply only to that crate root, so tests, benches, and examples
 silently miss them. The manifest table covers every target and is inheritable across a workspace.
@@ -457,28 +457,6 @@ silently miss them. The manifest table covers every target and is inheritable ac
 **Check:** grep for `#![deny(` and `#![warn(` in source; each belongs in the manifest. Every member
 has `[lints] workspace = true` or a deliberate block of its own — a member with neither starts with
 none of the standard.
-
-```toml
-# verified
-[workspace.lints.rust]
-unsafe_code = "forbid"
-missing_docs = "deny"
-missing_debug_implementations = "deny"
-unreachable_pub = "warn"
-elided_lifetimes_in_paths = "warn"
-explicit_outlives_requirements = "warn"
-
-[workspace.lints.clippy]
-pedantic = { level = "warn", priority = -1 }
-# deny the ones that are always defects:
-unwrap_used = "deny"
-expect_used = "deny"
-panic = "deny"
-todo = "deny"
-dbg_macro = "deny"
-# print_stdout = "deny"        # library members only: a binary member must print
-undocumented_unsafe_blocks = "deny"
-```
 
 ### RS-BUILD-24 [M] Run `clippy::pedantic` at `warn` and answer each warning
 
