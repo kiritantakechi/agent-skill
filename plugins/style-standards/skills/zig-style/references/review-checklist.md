@@ -97,12 +97,16 @@ rg -n 'catch \{\}'                      # swallowed error
 rg -n '@(intCast|ptrCast|alignCast|bitCast)' # each needs an established precondition
 rg -n '\bundefined\b'                   # every one is a proof obligation
 rg -n 'anyerror'                        # widening in a public signature
-rg -n 'alloc|create' -A1 | rg -v 'defer|errdefer'  # allocation without release
+rg -nUP '(alloc|create).*\n(?!\s*(err)?defer\b)'  # candidates: no defer on the next line
 rg -n '\.items\b' -B2 | rg 'const .* = .*\.items'  # pointer into a resizable container
 rg -c 'assert\(' ; rg -c '^\s*(pub )?fn '          # two counts: aim for ~2:1
 rg -n 'while \(true\)'                  # unbounded loop — where is the limit?
 rg -n 'std\.debug\.print'               # program output must not go through this
 ```
+
+The allocation grep lists each line naming `alloc` or `create` whose next line is not a `defer` or
+`errdefer`, the pairing ZS-CORE-14 requires; each hit is a candidate to read, not a proven leak.
+Its look-ahead needs `-P`, so it needs an `rg` whose `rg --version` lists `+pcre2`.
 
 ## Output format
 
