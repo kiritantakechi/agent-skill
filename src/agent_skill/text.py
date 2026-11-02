@@ -6,6 +6,8 @@ house width, and a regex match is narrowed to the text it found.
 
 import re
 
+from agent_skill.vocabulary import rule_id
+
 
 def group(m: re.Match[str] | None, key: int | str = 1) -> str:
     """What group `key` of `m` matched, or "" when it matched nothing.
@@ -95,7 +97,7 @@ def reflow(text: str, width: int = WIDTH) -> str:
         # A contents line is a rule's ID, tier and title by
         # construction, and `layout` exempts it for that reason:
         # wrapping it breaks the contents.
-        contents = re.match(r"^\s*- [A-Z]{2}-[A-Z]+-\d+", line)
+        contents = re.match(rf"^\s*- {rule_id()}", line)
         if (
             fenced
             or len(line) <= width

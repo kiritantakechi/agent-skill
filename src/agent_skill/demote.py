@@ -23,6 +23,7 @@ lazy from pathlib import Path
 from agent_skill.layout import SKILLS
 from agent_skill.model import DECIDED, Skill
 from agent_skill.renumber import RenumberError, _corpus, _segments, carry, heading
+from agent_skill.vocabulary import rule_id
 lazy from agent_skill.profiles import Profile
 
 
@@ -273,7 +274,7 @@ def _add_rows(text: str, rows: list[list[str]]) -> str:
 
 def _headings(text: str) -> list[str]:
     """The rule ID of every heading in `text`, in order."""
-    found = re.findall(r"^### ([A-Z]{2}-[A-Z]+-\d+[a-z]?) \[", text, re.MULTILINE)
+    found = re.findall(rf"^### ({rule_id()}) \[", text, re.MULTILINE)
     # One group, so every item is a string; the stubs cannot say so,
     # and the filter is how the checker learns it.
     return [rid for rid in found if isinstance(rid, str)]

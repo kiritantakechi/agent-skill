@@ -169,6 +169,28 @@ def test_renumber_will_not_give_a_citation_left_behind_to_another_rule(
     assert snapshot(repo) == before
 
 
+def test_a_merge_into_an_inserted_rule_follows_it_through_the_renumbering(
+    repo: Path,
+) -> None:
+    """DS-ERR-02a is a rule added mid-revision, between -02 and -03."""
+    errors = repo / SKILLS / "demo-style/references/errors.md"
+    inserted = RULE.format(id="DS-ERR-02a", title="Chain them")
+    errors.write_text(
+        errors.read_text()
+        .replace("  - DS-ERR-03", "  - DS-ERR-02a [M] Chain them\n  - DS-ERR-03")
+        .replace("## Catching\n", f"{inserted}\n## Catching\n")
+    )
+    run(repo, {"DS-ERR-01": {"merge": "DS-ERR-02a"}})
+    renumber.apply(repo, renumber.plan(repo, "demo-style", {}, Demo()))
+    demo = skill(repo)
+    assert demo.by_id["DS-ERR-02"].title == "Chain them"
+    (table,) = demo.rename_tables
+    assert {r.before: r.now for r in table.rows} == {
+        "DS-ERR-01": "`DS-ERR-02`",
+        "DS-ERR-02": "`DS-ERR-01`",
+    }
+
+
 def test_a_citation_left_behind_is_reported(repo: Path) -> None:
     demotion = run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
     assert demotion.leftovers == [

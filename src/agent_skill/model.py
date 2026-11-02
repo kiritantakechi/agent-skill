@@ -15,6 +15,7 @@ lazy from collections.abc import Iterator
 lazy from pathlib import Path
 
 from agent_skill.text import code_only, group, strip_comment, syntax_for
+from agent_skill.vocabulary import CORE, rule_id
 lazy from agent_skill.profiles import Profile, profile_for
 
 #: Every fenced example declares what it is, and the marker leads the
@@ -231,7 +232,7 @@ class Rename:
 
         "" for anything else.
         """
-        return group(re.fullmatch(r"`([A-Z]{2}-[A-Z]+-\d+)`", self.now))
+        return group(re.fullmatch(rf"`({rule_id()})`", self.now))
 
 
 #: The section a chapter lists its tool-decided claims under.
@@ -406,7 +407,7 @@ class Chapter:
         out: list[Rule] = []
         heads = list(
             re.finditer(
-                rf"^### ({self.prefix}-[A-Z]+-\d+[a-z]?) \[(M!|M|S)\] (.+)$",
+                rf"^### ({rule_id(self.prefix)}) \[(M!|M|S)\] (.+)$",
                 self.text,
                 re.MULTILINE,
             )
@@ -434,7 +435,7 @@ class Chapter:
         return {
             m.group(1): (m.group(2), m.group(3).strip())
             for m in re.finditer(
-                rf"^\s*- ({self.prefix}-[A-Z]+-\d+[a-z]?) \[(M!|M|S)\] (.+)$",
+                rf"^\s*- ({rule_id(self.prefix)}) \[(M!|M|S)\] (.+)$",
                 head,
                 re.MULTILINE,
             )
@@ -472,9 +473,7 @@ class Chapter:
         """Every fenced `lang` example, with the rule it sits under."""
         out: list[Block] = []
         heads = list(
-            re.finditer(
-                rf"^### ({self.prefix}-[A-Z]+-\d+[a-z]?) \[", self.text, re.MULTILINE
-            )
+            re.finditer(rf"^### ({rule_id(self.prefix)}) \[", self.text, re.MULTILINE)
         )
         for m in re.finditer(
             rf"^```{lang}\n(.*?)^```", self.text, re.MULTILINE | re.DOTALL
@@ -591,8 +590,8 @@ class Skill:
         return [
             (m.group(1), m.group(2), m.group(0))
             for m in re.finditer(
-                rf"^- \*\*({self.prefix}-CORE-\d+[a-z]?) `(\[M!?\]|\[S\])`\*\*"
-                rf".*?(?=^- \*\*{self.prefix}-CORE|\n## |\Z)",
+                rf"^- \*\*({rule_id(self.prefix, CORE)}) `(\[M!?\]|\[S\])`\*\*"
+                rf".*?(?=^- \*\*{self.prefix}-{CORE}|\n## |\Z)",
                 self.text,
                 re.MULTILINE | re.DOTALL,
             )
@@ -683,7 +682,7 @@ def prose_lines(text: str, prefix: str) -> Iterator[tuple[int, str, str, bool]]:
     indented, as one inside a list item is.
     """
     rid, in_check, fenced = "?", False, False
-    head = re.compile(rf"^### ({prefix}-[A-Z]+-\d+[a-z]?) \[")
+    head = re.compile(rf"^### ({rule_id(prefix)}) \[")
     for i, line in enumerate(text.split("\n"), 1):
         if line.lstrip().startswith("```"):
             fenced = not fenced
