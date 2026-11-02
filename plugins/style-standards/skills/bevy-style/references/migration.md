@@ -298,10 +298,10 @@ small and collectively the reason a 0.16 project does not compile.
 **Check:** `rg -n
 'compute_matrix|\bStateScoped\b|Gizmos::cuboid|RenderGraphApp|ComputedNodeTarget|SimpleExecutor'
 src/` and `rg -n '\.cursor_options\b|\bAnchor::[A-Z][a-z]' src/`, plus `Timer::paused` and
-`Timer::finished`. The `Condition` rename is not greppable — the new
-name contains the old one — so read the `SystemCondition` bound instead. `Pressed` is not greppable
-either, and for the opposite reason: `bevy::ui::Pressed` is live, outside the prelude, a marker for
-a widget being held down. Only `Pointer<Pressed>` is the removed one.
+`Timer::finished`. The `Condition` rename is not greppable — the new name contains the old one — so
+read the `SystemCondition` bound instead. `Pressed` is not greppable either, and for the opposite
+reason: `bevy::ui::Pressed` is live, outside the prelude, a marker for a widget being held down.
+Only `Pointer<Pressed>` is the removed one.
 
 | Removed | Write instead |
 |---|---|
@@ -361,9 +361,8 @@ manifest nobody edited turns on a different thing.
 
 **Check:** `rg -n
 '\b(SceneRoot|SceneSpawner|SceneFilter|SceneInstanceReady)\b|\bDynamicScene|\bSceneLoader' src/`,
-and read
-every `bevy_scene` against this table rather than assuming — it is the one name that still resolves
-and now means something else.
+and read every `bevy_scene` against this table rather than assuming — it is the one name that still
+resolves and now means something else.
 
 | Removed | Write instead |
 |---|---|
