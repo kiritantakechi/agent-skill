@@ -16,9 +16,9 @@ lazy from collections.abc import Callable, Iterator
 lazy from typing import Any
 
 from agent_skill.checks import check, per_skill
-from agent_skill.ids import Branch, cited
+from agent_skill.ids import cited
 from agent_skill.proc import have, run
-from agent_skill.report import fail, unrun
+from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
@@ -29,22 +29,22 @@ lazy from agent_skill.report import Finding
 WORKFLOW_KEYS = ("name:", "on:", "jobs:")
 
 # The branches a finding of this check comes from.
-NO_DIRECTORY = Branch("assets", "no_directory")
-EMPTY = Branch("assets", "empty")
-TAB = Branch("assets", "tab")
-NEWLINE = Branch("assets", "newline")
-TOML = Branch("assets", "toml")
-UNREFERENCED = Branch("assets", "unreferenced")
-CITES = Branch("assets", "cites")
-UV_ABSENT = Branch("assets", "uv_absent")
-BUILD = Branch("assets", "build")
-NO_WHEEL = Branch("assets", "no_wheel")
-NO_PY_TYPED = Branch("assets", "no_py_typed")
-ZIG_ABSENT = Branch("assets", "zig_absent")
-ZIG_FMT = Branch("assets", "zig_fmt")
-ZIG_AST = Branch("assets", "zig_ast")
-WORKFLOW_KEY = Branch("assets", "workflow_key")
-ODD_INDENT = Branch("assets", "odd_indent")
+NO_DIRECTORY = declare("assets", "no_directory", Level.FAIL)
+EMPTY = declare("assets", "empty", Level.FAIL)
+TAB = declare("assets", "tab", Level.FAIL)
+NEWLINE = declare("assets", "newline", Level.FAIL)
+TOML = declare("assets", "toml", Level.FAIL)
+UNREFERENCED = declare("assets", "unreferenced", Level.FAIL)
+CITES = declare("assets", "cites", Level.FAIL)
+UV_ABSENT = declare("assets", "uv_absent", Level.UNRUN)
+BUILD = declare("assets", "build", Level.FAIL)
+NO_WHEEL = declare("assets", "no_wheel", Level.FAIL)
+NO_PY_TYPED = declare("assets", "no_py_typed", Level.FAIL)
+ZIG_ABSENT = declare("assets", "zig_absent", Level.UNRUN)
+ZIG_FMT = declare("assets", "zig_fmt", Level.FAIL)
+ZIG_AST = declare("assets", "zig_ast", Level.FAIL)
+WORKFLOW_KEY = declare("assets", "workflow_key", Level.FAIL)
+ODD_INDENT = declare("assets", "odd_indent", Level.FAIL)
 
 
 @check("assets", "the files a reader copies verbatim", needs=("uv", "zig"))

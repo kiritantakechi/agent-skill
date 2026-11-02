@@ -21,9 +21,9 @@ from agent_skill import shared, vocabulary
 from agent_skill.checks import check, per_skill
 from agent_skill.doc import ListBlock, Paragraph, Table, printed
 from agent_skill.doc.chapter import CONTENTS, Demoted, Removed
-from agent_skill.ids import Branch, RuleId
+from agent_skill.ids import RuleId
 from agent_skill.model import SKILL_MD
-from agent_skill.report import fail
+from agent_skill.report import Level, declare, fail
 lazy from agent_skill.doc.chapter import Section
 lazy from agent_skill.model import Chapter, Skill
 lazy from agent_skill.report import Finding
@@ -35,25 +35,25 @@ MAP_HEADER = ("File", "Rule IDs", "Covers")
 MIGRATION = "migration.md"
 
 # The branches a finding of this check comes from.
-TITLE = Branch("skeleton", "title")
-SECTION = Branch("skeleton", "section")
-EXTRA_SECTION = Branch("skeleton", "extra_section")
-MAP_COLUMNS = Branch("skeleton", "map_columns")
-REVIEW_ORDER = Branch("skeleton", "review_order")
-CHAPTER_NAME = Branch("skeleton", "chapter_name")
-UNREAD = Branch("skeleton", "unread")
-FAMILY = Branch("skeleton", "family")
-REQUIRED_CHAPTER = Branch("skeleton", "required_chapter")
-REVIEW_TITLE = Branch("skeleton", "review_title")
-REVIEW_SECTIONS = Branch("skeleton", "review_sections")
-SEVERITY = Branch("skeleton", "severity")
-RENAME_SELF = Branch("skeleton", "rename_self")
-RENAME_TARGET = Branch("skeleton", "rename_target")
-RENAME_LINT = Branch("skeleton", "rename_lint")
-RENAME_REASON = Branch("skeleton", "rename_reason")
-RENAME_SHAPE = Branch("skeleton", "rename_shape")
-NO_RANGES = Branch("skeleton", "no_ranges")
-UNCHANGED_GONE = Branch("skeleton", "unchanged_gone")
+TITLE = declare("skeleton", "title", Level.FAIL)
+SECTION = declare("skeleton", "section", Level.FAIL)
+EXTRA_SECTION = declare("skeleton", "extra_section", Level.FAIL)
+MAP_COLUMNS = declare("skeleton", "map_columns", Level.FAIL)
+REVIEW_ORDER = declare("skeleton", "review_order", Level.FAIL)
+CHAPTER_NAME = declare("skeleton", "chapter_name", Level.FAIL)
+UNREAD = declare("skeleton", "unread", Level.FAIL)
+FAMILY = declare("skeleton", "family", Level.FAIL)
+REQUIRED_CHAPTER = declare("skeleton", "required_chapter", Level.FAIL)
+REVIEW_TITLE = declare("skeleton", "review_title", Level.FAIL)
+REVIEW_SECTIONS = declare("skeleton", "review_sections", Level.FAIL)
+SEVERITY = declare("skeleton", "severity", Level.FAIL)
+RENAME_SELF = declare("skeleton", "rename_self", Level.FAIL)
+RENAME_TARGET = declare("skeleton", "rename_target", Level.FAIL)
+RENAME_LINT = declare("skeleton", "rename_lint", Level.FAIL)
+RENAME_REASON = declare("skeleton", "rename_reason", Level.FAIL)
+RENAME_SHAPE = declare("skeleton", "rename_shape", Level.FAIL)
+NO_RANGES = declare("skeleton", "no_ranges", Level.FAIL)
+UNCHANGED_GONE = declare("skeleton", "unchanged_gone", Level.FAIL)
 
 
 @check("skeleton", "every standard has the same shape")

@@ -30,11 +30,11 @@ from pathlib import Path
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
-from agent_skill.checks.controls import WITHOUT_A_CONTROL
-from agent_skill.ids import Branch, Location
+from agent_skill.ids import Location
 from agent_skill.layout import root_of
-from agent_skill.report import fail
+from agent_skill.report import Level, declare, fail
 lazy from agent_skill.checks import all_checks
+lazy from agent_skill.checks.controls import WITHOUT_A_CONTROL
 lazy from agent_skill.model import Tree
 lazy from agent_skill.report import Finding
 
@@ -66,11 +66,11 @@ MIN_CELLS = 2
 README = "README.md"
 
 # The branches a finding of this check comes from.
-NO_README = Branch("documented", "no_readme")
-UNDOCUMENTED = Branch("documented", "undocumented")
-STALE_ROW = Branch("documented", "stale_row")
-NO_REASON = Branch("documented", "no_reason")
-CONTROLS_ROW = Branch("documented", "controls_scope")
+NO_README = declare("documented", "no_readme", Level.FAIL)
+UNDOCUMENTED = declare("documented", "undocumented", Level.FAIL)
+STALE_ROW = declare("documented", "stale_row", Level.FAIL)
+NO_REASON = declare("documented", "no_reason", Level.FAIL)
+CONTROLS_ROW = declare("documented", "controls_scope", Level.FAIL)
 
 
 def readme(tree: Tree) -> Path:

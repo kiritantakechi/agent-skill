@@ -16,8 +16,8 @@ lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
 from agent_skill.doc import text_of
-from agent_skill.ids import Branch, Location, cited
-from agent_skill.report import fail, note, unrun
+from agent_skill.ids import Location, cited
+from agent_skill.report import Level, declare, fail, note, unrun
 lazy from agent_skill.checks.corpus import Corpus, corpus_for
 lazy from agent_skill.checks.patterns import patterns_of
 lazy from agent_skill.checks.search import find, searcher_problem
@@ -28,19 +28,19 @@ lazy from agent_skill.model import Skill, Tree
 lazy from agent_skill.report import Finding
 
 # The branches a finding of this check comes from.
-APPARATUS_CITATION = Branch("crossref", "apparatus")
-NO_TABLE = Branch("crossref", "no_table")
-DELTA_DECLARATION = Branch("crossref", "delta_declaration")
-DELTA_NO_TABLE = Branch("crossref", "delta_no_table")
-FOREIGN_CITATION = Branch("crossref", "citation")
-OVERRIDE_TARGET = Branch("crossref", "override_target")
-OVERRIDE_TITLE = Branch("crossref", "override_title")
-ANCHOR_ABSENT = Branch("crossref", "anchor_absent")
-ANCHOR_NO_LANGUAGE = Branch("crossref", "anchor_no_language")
-SEARCHER = Branch("crossref", "searcher")
-ANCHOR_EMPTY_CORPUS = Branch("crossref", "anchor_empty_corpus")
-ANCHOR_NO_ANSWER = Branch("crossref", "anchor_no_answer")
-ANCHOR_HIT = Branch("crossref", "anchor_hit")
+APPARATUS_CITATION = declare("crossref", "apparatus", Level.FAIL)
+NO_TABLE = declare("crossref", "no_table", Level.NOTE)
+DELTA_DECLARATION = declare("crossref", "delta_declaration", Level.FAIL)
+DELTA_NO_TABLE = declare("crossref", "delta_no_table", Level.FAIL)
+FOREIGN_CITATION = declare("crossref", "citation", Level.FAIL)
+OVERRIDE_TARGET = declare("crossref", "override_target", Level.FAIL)
+OVERRIDE_TITLE = declare("crossref", "override_title", Level.FAIL)
+ANCHOR_ABSENT = declare("crossref", "anchor_absent", Level.UNRUN)
+ANCHOR_NO_LANGUAGE = declare("crossref", "anchor_no_language", Level.FAIL)
+SEARCHER = declare("crossref", "searcher", Level.UNRUN)
+ANCHOR_EMPTY_CORPUS = declare("crossref", "anchor_empty_corpus", Level.FAIL)
+ANCHOR_NO_ANSWER = declare("crossref", "anchor_no_answer", Level.FAIL)
+ANCHOR_HIT = declare("crossref", "anchor_hit", Level.FAIL)
 
 
 #: Everything outside the skills that names a rule. `assets.py`

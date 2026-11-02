@@ -10,8 +10,7 @@ import tomllib
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
-from agent_skill.ids import Branch
-from agent_skill.report import Finding, fail
+from agent_skill.report import Finding, Level, declare, fail
 from agent_skill.text import group
 lazy from agent_skill.model import Skill
 
@@ -22,10 +21,10 @@ CARGO = "assets/Cargo.toml"
 CLIPPY = "assets/clippy.toml"
 
 # The branches a finding of this check comes from.
-UNVERIFIED = Branch("lints", "unverified")
-UNSHIPPED = Branch("lints", "unshipped")
-LEVEL = Branch("lints", "level")
-CLIPPY_CONFIG = Branch("lints", "clippy_config")
+UNVERIFIED = declare("lints", "unverified", Level.FAIL)
+UNSHIPPED = declare("lints", "unshipped", Level.FAIL)
+LEVEL = declare("lints", "level", Level.FAIL)
+CLIPPY_CONFIG = declare("lints", "clippy_config", Level.FAIL)
 
 
 def table(text: str, prefix: str = "") -> dict[str, str]:

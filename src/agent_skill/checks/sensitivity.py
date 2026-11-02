@@ -38,24 +38,23 @@ lazy from collections.abc import Iterator
 from agent_skill.checks import check, per_skill
 from agent_skill.checks.patterns import patterns_of
 from agent_skill.checks.search import matches, searcher_problem
-from agent_skill.ids import Branch
-from agent_skill.report import fail, unrun
+from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.checks.patterns import Pattern
 lazy from agent_skill.model import Rule, Skill
 lazy from agent_skill.report import Finding
 
 # The branches a finding of this check comes from.
-SEARCHER = Branch("sensitivity", "searcher")
-NO_LANGUAGE = Branch("sensitivity", "no_language")
-ORPHAN_FIXTURE = Branch("sensitivity", "orphan_fixture")
-UNACCOUNTED = Branch("sensitivity", "unaccounted")
-STALE_UNPROVEN = Branch("sensitivity", "stale_unproven")
-NO_FIXTURE = Branch("sensitivity", "no_fixture")
-NO_CHECK = Branch("sensitivity", "no_check")
-NO_COMMAND = Branch("sensitivity", "no_command")
-NO_ANSWER = Branch("sensitivity", "no_answer")
-PATTERN_UNCOVERED = Branch("sensitivity", "pattern_uncovered")
-FIXTURE_UNCOVERED = Branch("sensitivity", "fixture_uncovered")
+SEARCHER = declare("sensitivity", "searcher", Level.UNRUN)
+NO_LANGUAGE = declare("sensitivity", "no_language", Level.FAIL)
+ORPHAN_FIXTURE = declare("sensitivity", "orphan_fixture", Level.FAIL)
+UNACCOUNTED = declare("sensitivity", "unaccounted", Level.FAIL)
+STALE_UNPROVEN = declare("sensitivity", "stale_unproven", Level.FAIL)
+NO_FIXTURE = declare("sensitivity", "no_fixture", Level.FAIL)
+NO_CHECK = declare("sensitivity", "no_check", Level.FAIL)
+NO_COMMAND = declare("sensitivity", "no_command", Level.FAIL)
+NO_ANSWER = declare("sensitivity", "no_answer", Level.FAIL)
+PATTERN_UNCOVERED = declare("sensitivity", "pattern_uncovered", Level.FAIL)
+FIXTURE_UNCOVERED = declare("sensitivity", "fixture_uncovered", Level.FAIL)
 
 
 @check(

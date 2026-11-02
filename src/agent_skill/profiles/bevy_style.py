@@ -13,10 +13,9 @@ from dataclasses import dataclass, field, replace
 from typing import override
 lazy from collections.abc import Iterable, Iterator
 
-from agent_skill.ids import Branch
 from agent_skill.lang.rust import BEVY_STYLE, Crate
 from agent_skill.profiles import NotDecisive, Profile, register
-from agent_skill.report import Finding, fail
+from agent_skill.report import Finding, Level, declare, fail
 from agent_skill.text import group
 lazy from agent_skill.model import Block, Skill
 
@@ -44,12 +43,12 @@ SUFFIX = {"Plugin": "Plugin", "SystemSet": "Systems"}
 IMPL_PLUGIN = re.compile(r"^impl Plugin for (\w+)", re.MULTILINE)
 
 # The branches of `conventions` this standard's own rules fire through.
-COMPONENT_DERIVE = Branch("conventions", "bv_component_derive")
-COMPONENT_REFLECT = Branch("conventions", "bv_component_reflect")
-PRIVATE_FIELD = Branch("conventions", "bv_private_field")
-PLUGIN_SUFFIX = Branch("conventions", "bv_plugin_suffix")
-PLUGIN_DERIVE = Branch("conventions", "bv_plugin_derive")
-SET_SUFFIX = Branch("conventions", "bv_set_suffix")
+COMPONENT_DERIVE = declare("conventions", "bv_component_derive", Level.FAIL)
+COMPONENT_REFLECT = declare("conventions", "bv_component_reflect", Level.FAIL)
+PRIVATE_FIELD = declare("conventions", "bv_private_field", Level.FAIL)
+PLUGIN_SUFFIX = declare("conventions", "bv_plugin_suffix", Level.FAIL)
+PLUGIN_DERIVE = declare("conventions", "bv_plugin_derive", Level.FAIL)
+SET_SUFFIX = declare("conventions", "bv_set_suffix", Level.FAIL)
 
 #: The verified crate under the `clippy.toml` the skill ships: the test
 #: allowances `rust-style` carries, which BV-ERR-01's relaxed form

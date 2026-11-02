@@ -22,11 +22,10 @@ lazy from collections.abc import Callable, Iterable, Iterator, Mapping
 
 from agent_skill.checks import check, per_skill
 from agent_skill.doc import text_of
-from agent_skill.ids import Branch
 from agent_skill.lang.python import PYTHON_STYLE
 from agent_skill.lang.zig import force_analysis
 from agent_skill.proc import have, run
-from agent_skill.report import fail, unrun
+from agent_skill.report import Level, declare, fail, unrun
 from agent_skill.text import group
 lazy from agent_skill.checks.lints import CARGO, table
 lazy from agent_skill.doc.chapter import LintRow
@@ -49,33 +48,33 @@ RUFF_TOML = "assets/ruff.toml"
 TY_TOML = "assets/ty.toml"
 
 # The branches a finding of this check comes from.
-ROW_TOOL = Branch("citations", "row_tool")
-ROW_LEVEL = Branch("citations", "row_level")
-RUFF_ABSENT = Branch("citations", "ruff_absent")
-TY_ABSENT = Branch("citations", "ty_absent")
-TY_UNKNOWN_SETTING = Branch("citations", "ty_unknown_setting")
-ENABLED_UNREAD = Branch("citations", "enabled_unread")
-TY_RULES_UNREAD = Branch("citations", "ty_rules_unread")
-RUFF_ROW_DISABLED = Branch("citations", "ruff_row_disabled")
-TY_ROW_UNKNOWN = Branch("citations", "ty_row_unknown")
-TY_ROW_LEVEL = Branch("citations", "ty_row_level")
-CATALOGUE_UNREAD = Branch("citations", "catalogue_unread")
-UNKNOWN_CODE = Branch("citations", "unknown_code")
-WITHDRAWN_CODE = Branch("citations", "withdrawn_code")
-DISABLED_CODE = Branch("citations", "disabled_code")
-TY_UNVERIFIED = Branch("citations", "ty_unverified")
-TY_UNSHIPPED = Branch("citations", "ty_unshipped")
-TY_LEVEL = Branch("citations", "ty_level")
-RUST_TOOL_ABSENT = Branch("citations", "rust_tool_absent")
-NO_CARGO_TOML = Branch("citations", "no_cargo_toml")
-RUST_CATALOGUE_UNREAD = Branch("citations", "rust_catalogue_unread")
-RUST_UNKNOWN_LINT = Branch("citations", "rust_unknown_lint")
-RUST_LEVEL = Branch("citations", "rust_level")
-ZIG_ABSENT = Branch("citations", "zig_absent")
-ZIG_NO_PROBE = Branch("citations", "zig_no_probe")
-ZIG_PROBE_COMPILES = Branch("citations", "zig_probe_compiles")
-ZIG_PROBE_OTHER = Branch("citations", "zig_probe_other")
-ZIG_PROBE_NO_ROW = Branch("citations", "zig_probe_no_row")
+ROW_TOOL = declare("citations", "row_tool", Level.FAIL)
+ROW_LEVEL = declare("citations", "row_level", Level.FAIL)
+RUFF_ABSENT = declare("citations", "ruff_absent", Level.UNRUN)
+TY_ABSENT = declare("citations", "ty_absent", Level.UNRUN)
+TY_UNKNOWN_SETTING = declare("citations", "ty_unknown_setting", Level.FAIL)
+ENABLED_UNREAD = declare("citations", "enabled_unread", Level.UNRUN)
+TY_RULES_UNREAD = declare("citations", "ty_rules_unread", Level.UNRUN)
+RUFF_ROW_DISABLED = declare("citations", "ruff_row_disabled", Level.FAIL)
+TY_ROW_UNKNOWN = declare("citations", "ty_row_unknown", Level.FAIL)
+TY_ROW_LEVEL = declare("citations", "ty_row_level", Level.FAIL)
+CATALOGUE_UNREAD = declare("citations", "catalogue_unread", Level.UNRUN)
+UNKNOWN_CODE = declare("citations", "unknown_code", Level.FAIL)
+WITHDRAWN_CODE = declare("citations", "withdrawn_code", Level.FAIL)
+DISABLED_CODE = declare("citations", "disabled_code", Level.FAIL)
+TY_UNVERIFIED = declare("citations", "ty_unverified", Level.FAIL)
+TY_UNSHIPPED = declare("citations", "ty_unshipped", Level.FAIL)
+TY_LEVEL = declare("citations", "ty_level", Level.FAIL)
+RUST_TOOL_ABSENT = declare("citations", "rust_tool_absent", Level.UNRUN)
+NO_CARGO_TOML = declare("citations", "no_cargo_toml", Level.FAIL)
+RUST_CATALOGUE_UNREAD = declare("citations", "rust_catalogue_unread", Level.UNRUN)
+RUST_UNKNOWN_LINT = declare("citations", "rust_unknown_lint", Level.FAIL)
+RUST_LEVEL = declare("citations", "rust_level", Level.FAIL)
+ZIG_ABSENT = declare("citations", "zig_absent", Level.UNRUN)
+ZIG_NO_PROBE = declare("citations", "zig_no_probe", Level.FAIL)
+ZIG_PROBE_COMPILES = declare("citations", "zig_probe_compiles", Level.FAIL)
+ZIG_PROBE_OTHER = declare("citations", "zig_probe_other", Level.FAIL)
+ZIG_PROBE_NO_ROW = declare("citations", "zig_probe_no_row", Level.FAIL)
 
 
 def _codes_in(text: str, catalogue: Mapping[str, str]) -> set[str]:

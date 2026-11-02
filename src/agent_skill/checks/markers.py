@@ -9,9 +9,8 @@ import re
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
-from agent_skill.ids import Branch
 from agent_skill.model import MARKERS
-from agent_skill.report import Finding, fail
+from agent_skill.report import Finding, Level, declare, fail
 lazy from agent_skill.model import Block, Skill
 
 #: A verdict on its own line used to open a section inside a fence: rust
@@ -21,12 +20,12 @@ lazy from agent_skill.model import Block, Skill
 STRAY_VERDICT = re.compile(r"^(?://|#) (GOOD|BAD)( —|:|$)", re.IGNORECASE)
 
 # The branches a finding of this check comes from.
-NO_MARKER = Branch("markers", "no_marker")
-OFF_GRAMMAR = Branch("markers", "off_grammar")
-UNKNOWN_KIND = Branch("markers", "unknown_kind")
-VERIFIED_FRAGMENT = Branch("markers", "verified_fragment")
-REJECTED_TOOL = Branch("markers", "rejected_tool")
-SECOND_MARKER = Branch("markers", "second_marker")
+NO_MARKER = declare("markers", "no_marker", Level.FAIL)
+OFF_GRAMMAR = declare("markers", "off_grammar", Level.FAIL)
+UNKNOWN_KIND = declare("markers", "unknown_kind", Level.FAIL)
+VERIFIED_FRAGMENT = declare("markers", "verified_fragment", Level.FAIL)
+REJECTED_TOOL = declare("markers", "rejected_tool", Level.FAIL)
+SECOND_MARKER = declare("markers", "second_marker", Level.FAIL)
 
 
 def _leads(words: tuple[str, ...]) -> tuple[str, ...]:

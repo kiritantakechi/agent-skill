@@ -6,20 +6,19 @@ from itertools import groupby
 from pathlib import Path
 lazy from collections.abc import Iterable, Iterator
 
-from agent_skill.ids import Branch
 from agent_skill.lang import Extraction, Unit, inconclusive, timed_out
 from agent_skill.proc import Ran, have, run
-from agent_skill.report import Finding, fail
+from agent_skill.report import Finding, Level, declare, fail
 lazy from agent_skill.model import Skill
 
 # The branches of `toolchain` and of `mutation` Rust's steps report
 # through. A crate is built whole, so each finding lies in the skill.
-STEP_TIMEOUT = Branch("toolchain", "rust_timeout")
-STEP = Branch("toolchain", "rust_step")
-BASE_TIMEOUT = Branch("mutation", "rust_base_timeout")
-BASE = Branch("mutation", "rust_base")
-HUNG = Branch("mutation", "rust_inconclusive")
-SURVIVOR = Branch("mutation", "rust_survivor")
+STEP_TIMEOUT = declare("toolchain", "rust_timeout", Level.FAIL)
+STEP = declare("toolchain", "rust_step", Level.FAIL)
+BASE_TIMEOUT = declare("mutation", "rust_base_timeout", Level.FAIL)
+BASE = declare("mutation", "rust_base", Level.FAIL)
+HUNG = declare("mutation", "rust_inconclusive", Level.NOTE)
+SURVIVOR = declare("mutation", "rust_survivor", Level.FAIL)
 
 #: Shared, gitignored, and safe to delete: cargo rebuilds it.
 CACHE = Path(__file__).resolve().parents[3] / ".cache" / "target"

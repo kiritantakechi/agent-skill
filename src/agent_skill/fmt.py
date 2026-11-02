@@ -17,10 +17,9 @@ lazy from collections.abc import Callable, Iterable, Iterator
 
 from agent_skill import shared
 from agent_skill.doc import canonical
-from agent_skill.ids import Branch
 from agent_skill.lang.rust import RUST, Crate, module_name
 from agent_skill.proc import run
-from agent_skill.report import Finding, fail, note
+from agent_skill.report import Finding, Level, declare, fail, note
 lazy from agent_skill.lang import Unit
 lazy from agent_skill.lang.python import PYTHON_TOOLCHAIN
 lazy from agent_skill.model import Block, Skill
@@ -32,12 +31,12 @@ _MODULE = re.compile(r"^pub mod (\w+) \{$", re.MULTILINE)
 
 # The branches `fmt` reports through. It is a command rather than a
 # check, so no control is owed them.
-REPRINTED = Branch("fmt", "reprinted")
-CARGO_FMT = Branch("fmt", "cargo_fmt")
-MODULES = Branch("fmt", "modules")
-UNLOCATABLE = Branch("fmt", "unlocatable")
-REFORMATTED = Branch("fmt", "reformatted")
-RUFF_FORMAT = Branch("fmt", "ruff_format")
+REPRINTED = declare("fmt", "reprinted", Level.NOTE)
+CARGO_FMT = declare("fmt", "cargo_fmt", Level.FAIL)
+MODULES = declare("fmt", "modules", Level.FAIL)
+UNLOCATABLE = declare("fmt", "unlocatable", Level.FAIL)
+REFORMATTED = declare("fmt", "reformatted", Level.NOTE)
+RUFF_FORMAT = declare("fmt", "ruff_format", Level.FAIL)
 
 
 def _bodies(path: Path, crate: Crate) -> list[str]:

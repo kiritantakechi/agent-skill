@@ -10,7 +10,8 @@ from enum import Enum
 from typing import override
 lazy from collections.abc import Collection, Iterable
 
-lazy from agent_skill.ids import Branch, Location
+from agent_skill.ids import Branch
+lazy from agent_skill.ids import Location
 
 
 class Level(Enum):
@@ -30,6 +31,27 @@ class Level(Enum):
     NOTE = "note"
 
 
+#: Every branch a module declares, and the level it reports at, filled
+#: as the modules declaring them are imported.
+DECLARED: dict[Branch, Level] = {}
+
+
+def declare(check: str, name: str, level: Level) -> Branch:
+    """The branch `check.name`, declared as reporting at `level`.
+
+    A branch reports at one level, so which branches can fail a run is
+    read off their declarations rather than off the sites that report
+    them. Declaring one twice is refused: two sites sharing a name could
+    not be told apart by the control that names it.
+    """
+    branch = Branch(check, name)
+    if branch in DECLARED:
+        msg = f"{branch} is declared twice"
+        raise ValueError(msg)
+    DECLARED[branch] = level
+    return branch
+
+
 @dataclass(frozen=True, slots=True)
 class Finding:
     """One thing a check found: its level, message, location and branch.
@@ -43,6 +65,17 @@ class Finding:
     message: str
     where: Location
     branch: Branch
+
+    def __post_init__(self) -> None:
+        """Refuse a level other than the one its branch was declared at.
+
+        The bijection of controls onto branches runs over the branches
+        declared at `FAIL`, so a branch declared at another level and
+        reported at `FAIL` would fail runs with no control on it.
+        """
+        if DECLARED.get(self.branch, self.level) is not self.level:
+            msg = f"{self.branch} is declared at {DECLARED[self.branch].name}"
+            raise ValueError(msg)
 
     @override
     def __str__(self) -> str:

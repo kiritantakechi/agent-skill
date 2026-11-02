@@ -31,8 +31,7 @@ from agent_skill.doc import (
     canonical,
     words,
 )
-from agent_skill.ids import Branch
-from agent_skill.report import Finding, fail, note
+from agent_skill.report import Finding, Level, declare, fail, note
 lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Skill
 
@@ -50,16 +49,16 @@ TOC = re.compile(r"^\s*- [A-Z]{2}-[A-Z]+-\d+[a-z]? \[")
 _MARKS = re.compile(r">|-|\d{1,9}\.")
 
 # The branches a finding of this check comes from.
-UNCLOSED = Branch("layout", "unclosed")
-CANONICAL = Branch("layout", "canonical")
-TAB = Branch("layout", "tab")
-CR = Branch("layout", "cr")
-CODE_WIDTH = Branch("layout", "code_width")
-TITLE_WIDTH = Branch("layout", "title_width")
-SPAN_WIDTH = Branch("layout", "span_width")
-PROSE_WIDTH = Branch("layout", "prose_width")
-INLINE_FENCE = Branch("layout", "inline_fence")
-TABLE_CELLS = Branch("layout", "table_cells")
+UNCLOSED = declare("layout", "unclosed", Level.FAIL)
+CANONICAL = declare("layout", "canonical", Level.FAIL)
+TAB = declare("layout", "tab", Level.FAIL)
+CR = declare("layout", "cr", Level.FAIL)
+CODE_WIDTH = declare("layout", "code_width", Level.FAIL)
+TITLE_WIDTH = declare("layout", "title_width", Level.NOTE)
+SPAN_WIDTH = declare("layout", "span_width", Level.NOTE)
+PROSE_WIDTH = declare("layout", "prose_width", Level.FAIL)
+INLINE_FENCE = declare("layout", "inline_fence", Level.FAIL)
+TABLE_CELLS = declare("layout", "table_cells", Level.FAIL)
 
 
 @check("layout", "canonical form, examples' tabs and width, table cells")

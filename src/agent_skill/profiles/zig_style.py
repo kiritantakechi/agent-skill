@@ -5,23 +5,22 @@ from dataclasses import dataclass, field
 from typing import override
 lazy from collections.abc import Iterable
 
-from agent_skill.ids import Branch
 from agent_skill.model import Skill, inside_tests, prose_lines
 from agent_skill.profiles import Exemption, NotDecisive, Profile, register
 from agent_skill.profiles.rust_style import META
-from agent_skill.report import Finding, fail
+from agent_skill.report import Finding, Level, declare, fail
 from agent_skill.text import strip_comment
 lazy from agent_skill.lang.zig import ZIG_VERSION
 lazy from agent_skill.proc import have, run
 
 # The branches of `conventions` and of `prose` this standard's own rules
 # fire through.
-CATCH = Branch("conventions", "zs_catch")
-UNWRAP = Branch("conventions", "zs_unwrap")
-AS_WRAPPER = Branch("conventions", "zs_as_wrapper")
-META_DOC = Branch("conventions", "zs_meta_doc")
-IMPORT_ORDER = Branch("conventions", "zs_import_order")
-UNWRAP_PROSE = Branch("prose", "zs_unwrap")
+CATCH = declare("conventions", "zs_catch", Level.FAIL)
+UNWRAP = declare("conventions", "zs_unwrap", Level.FAIL)
+AS_WRAPPER = declare("conventions", "zs_as_wrapper", Level.FAIL)
+META_DOC = declare("conventions", "zs_meta_doc", Level.FAIL)
+IMPORT_ORDER = declare("conventions", "zs_import_order", Level.FAIL)
+UNWRAP_PROSE = declare("prose", "zs_unwrap", Level.FAIL)
 
 
 @dataclass

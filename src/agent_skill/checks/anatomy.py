@@ -20,7 +20,6 @@ from agent_skill.doc import (
 from agent_skill.doc.chapter import DASH, WHY, citing
 from agent_skill.ids import (
     NUMBER,
-    Branch,
     RuleId,
     Tier,
     cited,
@@ -28,7 +27,7 @@ from agent_skill.ids import (
     uncited,
 )
 from agent_skill.model import SKILL_MD
-from agent_skill.report import fail, note
+from agent_skill.report import Level, declare, fail, note
 lazy from agent_skill.doc import Block
 lazy from agent_skill.doc.chapter import Entry, Rule
 lazy from agent_skill.ids import Location
@@ -96,34 +95,34 @@ SHORT_WORD = 2
 CLOSER_BY = 0.15
 
 # The branches a finding of this check comes from.
-BOLD_DEFINITIONS = Branch("anatomy", "bold_definitions")
-DUPLICATE = Branch("anatomy", "duplicate")
-CONTENTS_MISSING = Branch("anatomy", "contents_missing")
-CONTENTS_TIER = Branch("anatomy", "contents_tier")
-CONTENTS_TITLE = Branch("anatomy", "contents_title")
-NO_RELAXED = Branch("anatomy", "no_relaxed")
-RELAXED_LABEL = Branch("anatomy", "relaxed_label")
-RELAXED_ORDER = Branch("anatomy", "relaxed_order")
-RESTATES_RULE = Branch("anatomy", "restates")
-CONTENTS_ORDER = Branch("anatomy", "contents_order")
-SHARED_TITLE = Branch("anatomy", "shared_title")
-UNSTATED = Branch("anatomy", "unstated")
-MIS_CITED = Branch("anatomy", "mis_cited")
-ABBREVIATED = Branch("anatomy", "abbreviated")
-DANGLING = Branch("anatomy", "dangling")
-MISSING_FILE = Branch("anatomy", "missing_file")
-WRONG_CHAPTER = Branch("anatomy", "wrong_chapter")
-CORE_UNCITED = Branch("anatomy", "core_uncited")
-CORE_NOT_A_RULE = Branch("anatomy", "core_not_a_rule")
-CORE_WRONG_CHAPTER = Branch("anatomy", "core_wrong_chapter")
-MAP_TOTAL = Branch("anatomy", "map_total")
-MAP_FAMILY = Branch("anatomy", "map_family")
-MAP_HERE = Branch("anatomy", "map_here")
-NEAR_DUPLICATE_TEXT = Branch("anatomy", "near_duplicate")
-JUNK = Branch("anatomy", "junk")
-BELOW_TARGET = Branch("anatomy", "below_target")
-WHY_LENGTH = Branch("anatomy", "why_length")
-NUMBERING = Branch("anatomy", "numbering")
+BOLD_DEFINITIONS = declare("anatomy", "bold_definitions", Level.FAIL)
+DUPLICATE = declare("anatomy", "duplicate", Level.FAIL)
+CONTENTS_MISSING = declare("anatomy", "contents_missing", Level.FAIL)
+CONTENTS_TIER = declare("anatomy", "contents_tier", Level.FAIL)
+CONTENTS_TITLE = declare("anatomy", "contents_title", Level.FAIL)
+NO_RELAXED = declare("anatomy", "no_relaxed", Level.FAIL)
+RELAXED_LABEL = declare("anatomy", "relaxed_label", Level.FAIL)
+RELAXED_ORDER = declare("anatomy", "relaxed_order", Level.FAIL)
+RESTATES_RULE = declare("anatomy", "restates", Level.FAIL)
+CONTENTS_ORDER = declare("anatomy", "contents_order", Level.FAIL)
+SHARED_TITLE = declare("anatomy", "shared_title", Level.FAIL)
+UNSTATED = declare("anatomy", "unstated", Level.FAIL)
+MIS_CITED = declare("anatomy", "mis_cited", Level.NOTE)
+ABBREVIATED = declare("anatomy", "abbreviated", Level.FAIL)
+DANGLING = declare("anatomy", "dangling", Level.FAIL)
+MISSING_FILE = declare("anatomy", "missing_file", Level.FAIL)
+WRONG_CHAPTER = declare("anatomy", "wrong_chapter", Level.FAIL)
+CORE_UNCITED = declare("anatomy", "core_uncited", Level.FAIL)
+CORE_NOT_A_RULE = declare("anatomy", "core_not_a_rule", Level.FAIL)
+CORE_WRONG_CHAPTER = declare("anatomy", "core_wrong_chapter", Level.FAIL)
+MAP_TOTAL = declare("anatomy", "map_total", Level.FAIL)
+MAP_FAMILY = declare("anatomy", "map_family", Level.FAIL)
+MAP_HERE = declare("anatomy", "map_here", Level.FAIL)
+NEAR_DUPLICATE_TEXT = declare("anatomy", "near_duplicate", Level.FAIL)
+JUNK = declare("anatomy", "junk", Level.NOTE)
+BELOW_TARGET = declare("anatomy", "below_target", Level.FAIL)
+WHY_LENGTH = declare("anatomy", "why_length", Level.FAIL)
+NUMBERING = declare("anatomy", "numbering", Level.FAIL)
 
 
 def shingles(s: str, n: int = 4) -> set[tuple[str, ...]]:

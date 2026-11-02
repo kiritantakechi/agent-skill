@@ -10,9 +10,8 @@ from pathlib import Path
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
-from agent_skill.ids import Branch
 from agent_skill.lang import toolchain_for
-from agent_skill.report import Finding, fail, unrun
+from agent_skill.report import Finding, Level, declare, fail, unrun
 lazy from agent_skill.model import Skill
 
 #: What the three toolchains ask `have` for: `cargo`, `zig`, and the
@@ -24,10 +23,10 @@ TOOLCHAINS = ("cargo", "zig", "ty", "ruff")
 
 # The branches these checks report through themselves; each toolchain
 # declares those of its own steps.
-MISSING = Branch("toolchain", "missing")
-EMPTY = Branch("toolchain", "empty")
-MUTATION_MISSING = Branch("mutation", "missing")
-MUTATION_EMPTY = Branch("mutation", "empty")
+MISSING = declare("toolchain", "missing", Level.UNRUN)
+EMPTY = declare("toolchain", "empty", Level.FAIL)
+MUTATION_MISSING = declare("mutation", "missing", Level.UNRUN)
+MUTATION_EMPTY = declare("mutation", "empty", Level.UNRUN)
 
 
 @check(

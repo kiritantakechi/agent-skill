@@ -11,24 +11,23 @@ from collections import Counter
 from pathlib import Path
 lazy from collections.abc import Iterable
 
-from agent_skill.ids import Branch
 from agent_skill.lang import Extraction, Unit, inconclusive, timed_out
 from agent_skill.model import Skill, inside_tests, needs_c_object
 from agent_skill.proc import have, run
-from agent_skill.report import Finding, fail, note
+from agent_skill.report import Finding, Level, declare, fail, note
 from agent_skill.text import code_only
 
 # The branches of `toolchain` and of `mutation` Zig's steps report
 # through.
-BUILD_TIMEOUT = Branch("toolchain", "zig_build_timeout")
-BUILD = Branch("toolchain", "zig_build")
-TEST_TIMEOUT = Branch("toolchain", "zig_test_timeout")
-TEST = Branch("toolchain", "zig_test")
-FMT_TIMEOUT = Branch("toolchain", "zig_fmt_timeout")
-FMT = Branch("toolchain", "zig_fmt")
-FMT_UNREAD = Branch("toolchain", "zig_fmt_unread")
-HUNG = Branch("mutation", "zig_inconclusive")
-SURVIVOR = Branch("mutation", "zig_survivor")
+BUILD_TIMEOUT = declare("toolchain", "zig_build_timeout", Level.FAIL)
+BUILD = declare("toolchain", "zig_build", Level.FAIL)
+TEST_TIMEOUT = declare("toolchain", "zig_test_timeout", Level.FAIL)
+TEST = declare("toolchain", "zig_test", Level.FAIL)
+FMT_TIMEOUT = declare("toolchain", "zig_fmt_timeout", Level.FAIL)
+FMT = declare("toolchain", "zig_fmt", Level.FAIL)
+FMT_UNREAD = declare("toolchain", "zig_fmt_unread", Level.FAIL)
+HUNG = declare("mutation", "zig_inconclusive", Level.NOTE)
+SURVIVOR = declare("mutation", "zig_survivor", Level.NOTE)
 
 #: The compiler `zig-style` is verified against. It follows this
 #: machine's `zig` rather than upstream's newest release, so `pins`

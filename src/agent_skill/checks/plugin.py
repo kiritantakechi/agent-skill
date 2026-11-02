@@ -13,10 +13,10 @@ from pathlib import Path
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
-from agent_skill.ids import Branch, Location
+from agent_skill.ids import Location
 from agent_skill.layout import PLUGIN, SKILLS, root_of
 from agent_skill.proc import have, run
-from agent_skill.report import fail, unrun
+from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.model import Tree
 lazy from agent_skill.report import Finding
 
@@ -29,16 +29,16 @@ AT_MANIFEST = Location(file=(PLUGIN / MANIFEST).as_posix())
 AT_MARKETPLACE = Location(file=MARKETPLACE.as_posix())
 
 # The branches a finding of this check comes from.
-UNREAD = Branch("plugin", "unread")
-SKILLS_DIFFER = Branch("plugin", "skills")
-MANIFEST_NAME = Branch("plugin", "manifest_name")
-MANIFEST_VERSION = Branch("plugin", "manifest_version")
-MANIFEST_LICENSE = Branch("plugin", "manifest_license")
-MARKET_ENTRY = Branch("plugin", "market_entry")
-MARKET_SOURCE = Branch("plugin", "market_source")
-MARKET_VERSION = Branch("plugin", "market_version")
-CLAUDE_ABSENT = Branch("plugin", "claude_absent")
-VALIDATE = Branch("plugin", "validate")
+UNREAD = declare("plugin", "unread", Level.FAIL)
+SKILLS_DIFFER = declare("plugin", "skills", Level.FAIL)
+MANIFEST_NAME = declare("plugin", "manifest_name", Level.FAIL)
+MANIFEST_VERSION = declare("plugin", "manifest_version", Level.FAIL)
+MANIFEST_LICENSE = declare("plugin", "manifest_license", Level.FAIL)
+MARKET_ENTRY = declare("plugin", "market_entry", Level.FAIL)
+MARKET_SOURCE = declare("plugin", "market_source", Level.FAIL)
+MARKET_VERSION = declare("plugin", "market_version", Level.FAIL)
+CLAUDE_ABSENT = declare("plugin", "claude_absent", Level.UNRUN)
+VALIDATE = declare("plugin", "validate", Level.FAIL)
 
 
 @check(

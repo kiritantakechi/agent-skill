@@ -11,8 +11,7 @@ from functools import partial
 lazy from collections.abc import Callable, Iterator
 
 from agent_skill.checks import check, per_skill
-from agent_skill.ids import Branch
-from agent_skill.report import Finding, fail
+from agent_skill.report import Finding, Level, declare, fail
 lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Skill
 
@@ -54,10 +53,10 @@ type At = Callable[[int], Location]
 
 # The branches a finding of this check comes from. Each profile declares
 # those of its own prose rules.
-PROVENANCE_LINE = Branch("prose", "provenance")
-BROKEN_QUOTE = Branch("prose", "broken_quote")
-POSITIONAL_REFERENCE = Branch("prose", "positional")
-LEGEND_COUNT = Branch("prose", "legend")
+PROVENANCE_LINE = declare("prose", "provenance", Level.FAIL)
+BROKEN_QUOTE = declare("prose", "broken_quote", Level.FAIL)
+POSITIONAL_REFERENCE = declare("prose", "positional", Level.FAIL)
+LEGEND_COUNT = declare("prose", "legend", Level.FAIL)
 
 
 @check("prose", "no build provenance, one legend, unbroken quotes")

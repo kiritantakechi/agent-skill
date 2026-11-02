@@ -17,8 +17,7 @@ from agent_skill.checks import check, per_skill
 from agent_skill.checks.corpus import corpus_for
 from agent_skill.checks.patterns import NEGATED, filtered_of, patterns_of
 from agent_skill.checks.search import find, searcher_problem
-from agent_skill.ids import Branch
-from agent_skill.report import fail, note, unrun
+from agent_skill.report import Level, declare, fail, note, unrun
 lazy from agent_skill.checks.corpus import Corpus
 lazy from agent_skill.checks.patterns import Pattern
 lazy from agent_skill.checks.search import Span
@@ -33,16 +32,16 @@ type Row = tuple[Rule, Pattern, str, list[Span]]
 type Tiers = tuple[list[Row], list[Row], list[Row]]
 
 # The branches a finding of this check comes from.
-SEARCHER = Branch("self-application", "searcher")
-EMPTY = Branch("self-application", "empty")
-STALE_EXEMPTION = Branch("self-application", "stale_exemption")
-ORPHAN_EXEMPTION = Branch("self-application", "orphan_exemption")
-FILTERED_NO_ANSWER = Branch("self-application", "filtered_no_answer")
-FILTERED = Branch("self-application", "filtered")
-NO_ANSWER = Branch("self-application", "no_answer")
-DECIDES = Branch("self-application", "decides")
-NARROWS = Branch("self-application", "narrows")
-ENUMERATES = Branch("self-application", "enumerates")
+SEARCHER = declare("self-application", "searcher", Level.UNRUN)
+EMPTY = declare("self-application", "empty", Level.FAIL)
+STALE_EXEMPTION = declare("self-application", "stale_exemption", Level.FAIL)
+ORPHAN_EXEMPTION = declare("self-application", "orphan_exemption", Level.FAIL)
+FILTERED_NO_ANSWER = declare("self-application", "filtered_no_answer", Level.FAIL)
+FILTERED = declare("self-application", "filtered", Level.NOTE)
+NO_ANSWER = declare("self-application", "no_answer", Level.FAIL)
+DECIDES = declare("self-application", "decides", Level.FAIL)
+NARROWS = declare("self-application", "narrows", Level.NOTE)
+ENUMERATES = declare("self-application", "enumerates", Level.NOTE)
 
 
 @check(

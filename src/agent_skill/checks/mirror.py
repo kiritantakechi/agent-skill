@@ -11,8 +11,8 @@ lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
 from agent_skill.checks.anatomy import overlap
-from agent_skill.ids import Branch, Location, RuleId
-from agent_skill.report import fail, note
+from agent_skill.ids import Location, RuleId
+from agent_skill.report import Level, declare, fail, note
 lazy from agent_skill.doc.chapter import Rule
 lazy from agent_skill.model import Skill, Tree
 lazy from agent_skill.report import Finding
@@ -48,11 +48,11 @@ ANCHOR = "rust-style"
 LOOKS_PAIRED = 0.5
 
 # The branches a finding of this check comes from.
-NO_ANCHOR_RULE = Branch("mirror", "no_anchor_rule")
-AMBIGUOUS = Branch("mirror", "ambiguous")
-NOT_A_RULE = Branch("mirror", "not_a_rule")
-TIER = Branch("mirror", "tier")
-UNHELD = Branch("mirror", "unheld")
+NO_ANCHOR_RULE = declare("mirror", "no_anchor_rule", Level.FAIL)
+AMBIGUOUS = declare("mirror", "ambiguous", Level.FAIL)
+NOT_A_RULE = declare("mirror", "not_a_rule", Level.FAIL)
+TIER = declare("mirror", "tier", Level.FAIL)
+UNHELD = declare("mirror", "unheld", Level.NOTE)
 
 
 def _shingles(s: str, n: int = 3) -> set[tuple[str, ...]]:

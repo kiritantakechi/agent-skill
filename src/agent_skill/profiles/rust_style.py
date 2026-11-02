@@ -5,11 +5,10 @@ from dataclasses import dataclass, field
 from typing import override
 lazy from collections.abc import Iterable, Iterator
 
-from agent_skill.ids import Branch
 from agent_skill.lang.rust import RUST_STYLE, Crate
 from agent_skill.model import Block, Skill, repr_c_above
 from agent_skill.profiles import Exemption, NotDecisive, Profile, register
-from agent_skill.report import Finding, fail, note
+from agent_skill.report import Finding, Level, declare, fail, note
 from agent_skill.text import group, strip_comment
 lazy from agent_skill.ids import Location
 
@@ -28,13 +27,13 @@ META = re.compile(
 )
 
 # The branches of `conventions` this standard's own rules fire through.
-BOOL_PARAMETER = Branch("conventions", "rs_bool_parameter")
-QUESTION_NAME = Branch("conventions", "rs_question")
-PUBLIC_FIELD = Branch("conventions", "rs_public_field")
-TUPLE_FIELD = Branch("conventions", "rs_tuple_field")
-SETTER = Branch("conventions", "rs_setter")
-META_DOC = Branch("conventions", "rs_meta_doc")
-UNUSED_DEFAULT = Branch("conventions", "rs_unused_default")
+BOOL_PARAMETER = declare("conventions", "rs_bool_parameter", Level.FAIL)
+QUESTION_NAME = declare("conventions", "rs_question", Level.NOTE)
+PUBLIC_FIELD = declare("conventions", "rs_public_field", Level.FAIL)
+TUPLE_FIELD = declare("conventions", "rs_tuple_field", Level.FAIL)
+SETTER = declare("conventions", "rs_setter", Level.FAIL)
+META_DOC = declare("conventions", "rs_meta_doc", Level.FAIL)
+UNUSED_DEFAULT = declare("conventions", "rs_unused_default", Level.NOTE)
 
 
 @dataclass

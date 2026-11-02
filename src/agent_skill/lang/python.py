@@ -18,24 +18,23 @@ from dataclasses import dataclass, field
 from pathlib import Path
 lazy from collections.abc import Iterable
 
-from agent_skill.ids import Branch
 from agent_skill.lang import Extraction, Unit, inconclusive, timed_out
 from agent_skill.proc import Ran, have, run
-from agent_skill.report import Finding, fail, note
+from agent_skill.report import Finding, Level, declare, fail, note
 from agent_skill.text import group
 lazy from agent_skill.model import Skill
 
 # The branches of `toolchain` and of `mutation` Python's steps report
 # through.
-OUTSIDE = Branch("toolchain", "py_outside")
-RUN_TIMEOUT = Branch("toolchain", "py_run_timeout")
-RUN = Branch("toolchain", "py_run")
-TY_TIMEOUT = Branch("toolchain", "py_ty_timeout")
-RUFF_TIMEOUT = Branch("toolchain", "py_ruff_timeout")
-REPORTED = Branch("toolchain", "py_diagnostic")
-UNREAD = Branch("toolchain", "py_unread")
-HUNG = Branch("mutation", "py_inconclusive")
-SURVIVOR = Branch("mutation", "py_survivor")
+OUTSIDE = declare("toolchain", "py_outside", Level.FAIL)
+RUN_TIMEOUT = declare("toolchain", "py_run_timeout", Level.FAIL)
+RUN = declare("toolchain", "py_run", Level.FAIL)
+TY_TIMEOUT = declare("toolchain", "py_ty_timeout", Level.FAIL)
+RUFF_TIMEOUT = declare("toolchain", "py_ruff_timeout", Level.FAIL)
+REPORTED = declare("toolchain", "py_diagnostic", Level.FAIL)
+UNREAD = declare("toolchain", "py_unread", Level.FAIL)
+HUNG = declare("mutation", "py_inconclusive", Level.NOTE)
+SURVIVOR = declare("mutation", "py_survivor", Level.NOTE)
 
 #: The interpreter the examples are written for, resolved through `uv`
 #: rather than through PATH. PATH here is a GIL build, and verifying

@@ -24,8 +24,7 @@ from pathlib import Path
 lazy from collections.abc import Iterator
 
 from agent_skill.doc import Block, Doc, Heading, Paragraph, printed
-from agent_skill.ids import Branch
-from agent_skill.report import Finding, fail, note
+from agent_skill.report import Finding, Level, declare, fail, note
 from agent_skill.text import syntax_for
 lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Skill, located
@@ -69,11 +68,11 @@ REVIEW = "references/review-checklist.md"
 
 # The branches of `shared-text` that `compare` finds through, and of
 # `fmt` that `rewrite` reports through.
-MISSING = Branch("shared-text", "missing")
-DIFFERS = Branch("shared-text", "differs")
-STRAY = Branch("shared-text", "stray")
-FREE_REGION = Branch("fmt", "free_region")
-REWRITTEN = Branch("fmt", "rewritten")
+MISSING = declare("shared-text", "missing", Level.FAIL)
+DIFFERS = declare("shared-text", "differs", Level.FAIL)
+STRAY = declare("shared-text", "stray", Level.FAIL)
+FREE_REGION = declare("fmt", "free_region", Level.FAIL)
+REWRITTEN = declare("fmt", "rewritten", Level.NOTE)
 
 #: What every finding of `compare` ends with.
 REWRITES = " — `agent-skill fmt` rewrites it"

@@ -4,8 +4,7 @@ import re
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
-from agent_skill.ids import Branch
-from agent_skill.report import Finding, fail
+from agent_skill.report import Finding, Level, declare, fail
 lazy from agent_skill.model import Skill
 
 ALLOWED = {
@@ -19,14 +18,14 @@ ALLOWED = {
 MAX_DESCRIPTION = 1024
 
 # The branches a finding of this check comes from.
-MISSING = Branch("frontmatter", "missing")
-EXTRA_KEYS = Branch("frontmatter", "extra_keys")
-REQUIRED = Branch("frontmatter", "required")
-NAME = Branch("frontmatter", "name")
-FOLDED = Branch("frontmatter", "folded")
-LENGTH = Branch("frontmatter", "length")
-ANGLE_BRACKET = Branch("frontmatter", "angle_bracket")
-RULE_COUNT = Branch("frontmatter", "rule_count")
+MISSING = declare("frontmatter", "missing", Level.FAIL)
+EXTRA_KEYS = declare("frontmatter", "extra_keys", Level.FAIL)
+REQUIRED = declare("frontmatter", "required", Level.FAIL)
+NAME = declare("frontmatter", "name", Level.FAIL)
+FOLDED = declare("frontmatter", "folded", Level.FAIL)
+LENGTH = declare("frontmatter", "length", Level.FAIL)
+ANGLE_BRACKET = declare("frontmatter", "angle_bracket", Level.FAIL)
+RULE_COUNT = declare("frontmatter", "rule_count", Level.FAIL)
 
 
 @check("frontmatter", "the block Claude Code reads first")

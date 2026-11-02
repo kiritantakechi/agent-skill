@@ -6,9 +6,10 @@ says how.
 
 import bisect
 import tempfile
-from collections import OrderedDict
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
+from weakref import WeakKeyDictionary
 
 lazy from agent_skill.checks.patterns import Pattern
 lazy from agent_skill.model import Skill
@@ -112,38 +113,33 @@ class Corpus:
         return [line for unit in self.units for line in getattr(unit, which)]
 
 
-#: One corpus per tree, because two checks want the same one. Keyed by
-#: the skill's *root*, never by its name: `controls` copies the whole
-#: tree, injects a defect, and re-runs a check over the copy — sharing
-#: by name would hand it the unmodified corpus and the control would
-#: stop firing while still reporting.
+#: One corpus per skill as read, because two checks want the same one.
+#: Keyed by the `Skill` object, never by its name: `controls` copies
+#: the tree, injects a defect, and re-runs a check over the copy, so
+#: sharing by name would hand it the unmodified corpus and the control
+#: would stop firing while still reporting.
 #:
-#: Bounded, because that keying means a `controls` run produces one
-#: entry per injected tree, and every one of those trees is deleted
-#: the moment its control finishes. An unbounded cache
-#: holds a directory per dead tree for the life of the process.
-_KEEP = 8
-_BUILT: OrderedDict[
-    tuple[str, str], tuple[Corpus, tempfile.TemporaryDirectory[str]]
-] = OrderedDict()
+#: Weakly, so a corpus and its directory go when the tree read goes:
+#: `controls` reads one tree per control, several at once, and evicting
+#: by count deleted a corpus another thread was still searching.
+_BUILT: WeakKeyDictionary[
+    Skill, dict[str, tuple[Corpus, tempfile.TemporaryDirectory[str]]]
+] = WeakKeyDictionary()
+_GUARD = threading.Lock()
 
 
 def corpus_for(skill: Skill, lang: str) -> Corpus:
-    """The corpus for this tree, built once and shared.
+    """The corpus for this skill, built once and shared.
 
     Each example is its own file, so a corpus is one file per block.
     `selfapply` and `crossref` each building their own wrote every one
     of them twice per run, for byte-identical content.
     """
-    key = (str(skill.root), lang)
-    if key in _BUILT:
-        _BUILT.move_to_end(key)
-        return _BUILT[key][0]
-
+    with _GUARD:
+        found = _BUILT.get(skill, {}).get(lang)
+    if found is not None:
+        return found[0]
     holder = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
     built = Corpus().build(skill, lang, Path(holder.name))
-    _BUILT[key] = (built, holder)
-    while len(_BUILT) > _KEEP:
-        _, (_, evicted) = _BUILT.popitem(last=False)
-        evicted.cleanup()
-    return built
+    with _GUARD:
+        return _BUILT.setdefault(skill, {}).setdefault(lang, (built, holder))[0]

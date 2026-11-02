@@ -34,8 +34,7 @@ lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
 from agent_skill.checks.patterns import QUOTED
-from agent_skill.ids import Branch
-from agent_skill.report import fail
+from agent_skill.report import Level, declare, fail
 lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
 
@@ -45,8 +44,8 @@ lazy from agent_skill.report import Finding
 RG_COMMAND = re.compile(r"`(rg\s[^`]*)`")
 
 # The branches a finding of this check comes from.
-WRAPPED = Branch("dialect", "wrapped")
-BRE_ALTERNATION = Branch("dialect", "bre_alternation")
+WRAPPED = declare("dialect", "wrapped", Level.FAIL)
+BRE_ALTERNATION = declare("dialect", "bre_alternation", Level.FAIL)
 
 
 def outside_brackets(pattern: str, needle: str) -> bool:

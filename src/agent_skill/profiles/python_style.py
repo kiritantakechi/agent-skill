@@ -5,19 +5,18 @@ from dataclasses import dataclass, field
 from typing import override
 lazy from collections.abc import Iterable
 
-from agent_skill.ids import Branch
 from agent_skill.profiles import NotDecisive, Profile, register
-from agent_skill.report import Finding, fail
+from agent_skill.report import Finding, Level, declare, fail
 from agent_skill.text import group, strip_comment, syntax_for
 lazy from agent_skill.lang.python import INTERPRETER
 lazy from agent_skill.model import Skill, prose_lines
 
 # The branches of `conventions` and of `prose` this standard's own rules
 # fire through.
-FUTURE = Branch("conventions", "ps_future")
-AUGMENTED = Branch("conventions", "ps_augmented")
-META_DOC = Branch("conventions", "ps_meta_doc")
-FUTURE_PROSE = Branch("prose", "ps_future")
+FUTURE = declare("conventions", "ps_future", Level.FAIL)
+AUGMENTED = declare("conventions", "ps_augmented", Level.FAIL)
+META_DOC = declare("conventions", "ps_meta_doc", Level.FAIL)
+FUTURE_PROSE = declare("prose", "ps_future", Level.FAIL)
 
 #: PS-TYPE — PEP 563 is Superseded, and the future import does not
 #: merely fail to help on 3.14+: it silently degrades `annotationlib`

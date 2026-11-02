@@ -20,7 +20,7 @@ lazy import urllib.request
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
-from agent_skill.ids import Branch, Location
+from agent_skill.ids import Location
 from agent_skill.proc import (
     PACKAGE,
     have,
@@ -29,7 +29,7 @@ from agent_skill.proc import (
     tool_path,
     version_mismatch,
 )
-from agent_skill.report import fail, unrun
+from agent_skill.report import Level, declare, fail, unrun
 from agent_skill.text import group
 lazy from agent_skill.lang.python import INTERPRETER
 lazy from agent_skill.lang.rust import Crate
@@ -57,35 +57,36 @@ PROJECT = "assets/pyproject.toml"
 type SortKey = tuple[int, int, int, int, int]
 
 # The branches a finding of this check comes from.
-TOOL_ABSENT = Branch("pins", "tool_absent")
-TOOL_SILENT = Branch("pins", "tool_silent")
-TOOL_MISMATCH = Branch("pins", "tool_mismatch")
-INDEX_SILENT = Branch("pins", "index_silent")
-INDEX_UNREAD = Branch("pins", "index_unread")
-INDEX_UNORDERED = Branch("pins", "index_unordered")
-TOOL_STALE = Branch("pins", "tool_stale")
-LOCAL_NO_REASON = Branch("pins", "local_no_reason")
-LOCAL_SILENT = Branch("pins", "local_silent")
-LOCAL_MOVED = Branch("pins", "local_moved")
-RUST_UNREADABLE = Branch("pins", "rust_unreadable")
-RUSTC_SILENT = Branch("pins", "rustc_silent")
-RUSTC_DIFFERS = Branch("pins", "rustc_differs")
-STABLE_SILENT = Branch("pins", "stable_silent")
-RUST_STALE = Branch("pins", "rust_stale")
-LIBRARY_INEXACT = Branch("pins", "library_inexact")
-CRATES_SILENT = Branch("pins", "crates_silent")
-LIBRARY_UNORDERED = Branch("pins", "library_unordered")
-LIBRARY_STALE = Branch("pins", "library_stale")
-INTERPRETER_ID = Branch("pins", "interpreter_id")
-WORKFLOW_NONE = Branch("pins", "workflow_none")
-WORKFLOW_OTHER = Branch("pins", "workflow_other")
-PROJECT_UNPARSED = Branch("pins", "project_unparsed")
-PROJECT_PIN = Branch("pins", "project_pin")
-UV_ABSENT = Branch("pins", "uv_absent")
-UV_SILENT = Branch("pins", "uv_silent")
-INTERPRETER_UNORDERED = Branch("pins", "interpreter_unordered")
-RELEASE_UNORDERED = Branch("pins", "release_unordered")
-INTERPRETER_STALE = Branch("pins", "interpreter_stale")
+TOOL_ABSENT = declare("pins", "tool_absent", Level.UNRUN)
+TOOL_SILENT = declare("pins", "tool_silent", Level.UNRUN)
+TOOL_MISMATCH = declare("pins", "tool_mismatch", Level.FAIL)
+INDEX_SILENT = declare("pins", "index_silent", Level.UNRUN)
+INDEX_UNREAD = declare("pins", "index_unread", Level.UNRUN)
+INDEX_UNORDERED = declare("pins", "index_unordered", Level.UNRUN)
+TOOL_STALE = declare("pins", "tool_stale", Level.FAIL)
+LOCAL_NO_REASON = declare("pins", "local_no_reason", Level.FAIL)
+LOCAL_SILENT = declare("pins", "local_silent", Level.UNRUN)
+LOCAL_MOVED = declare("pins", "local_moved", Level.FAIL)
+RUST_UNREADABLE = declare("pins", "rust_unreadable", Level.FAIL)
+RUSTC_SILENT = declare("pins", "rustc_silent", Level.UNRUN)
+RUSTC_DIFFERS = declare("pins", "rustc_differs", Level.FAIL)
+STABLE_SILENT = declare("pins", "stable_silent", Level.UNRUN)
+RUST_STALE = declare("pins", "rust_stale", Level.FAIL)
+LIBRARY_INEXACT = declare("pins", "library_inexact", Level.FAIL)
+CRATES_SILENT = declare("pins", "crates_silent", Level.UNRUN)
+LIBRARY_UNORDERED = declare("pins", "library_unordered", Level.UNRUN)
+LIBRARY_STALE = declare("pins", "library_stale", Level.FAIL)
+INTERPRETER_ID = declare("pins", "interpreter_id", Level.FAIL)
+WORKFLOW_NONE = declare("pins", "workflow_none", Level.FAIL)
+WORKFLOW_OTHER = declare("pins", "workflow_other", Level.FAIL)
+PROJECT_UNPARSED = declare("pins", "project_unparsed", Level.UNRUN)
+PROJECT_PIN = declare("pins", "project_pin", Level.FAIL)
+PROJECT_INEXACT = declare("pins", "project_inexact", Level.FAIL)
+UV_ABSENT = declare("pins", "uv_absent", Level.UNRUN)
+UV_SILENT = declare("pins", "uv_silent", Level.UNRUN)
+INTERPRETER_UNORDERED = declare("pins", "interpreter_unordered", Level.FAIL)
+RELEASE_UNORDERED = declare("pins", "release_unordered", Level.UNRUN)
+INTERPRETER_STALE = declare("pins", "interpreter_stale", Level.FAIL)
 
 
 def _tool_pins() -> Iterator[Finding]:
@@ -505,13 +506,26 @@ def project_pins(
         if want is None:
             continue
         spec = "".join(m["spec"].split())
-        if spec != f"=={want}":
+        if spec == f"=={want}":
+            continue
+        # Two defects: a pin on another build, and a requirement that
+        # pins nothing. A floor passed for as long as only the first was
+        # looked for.
+        if spec.startswith("==") and "," not in spec:
+            yield fail(
+                f"requires `{requirement}` where the harness verifies against "
+                f"`{name}=={want}` — a reader installs a build this was never "
+                "checked on",
+                where,
+                PROJECT_PIN,
+            )
+        else:
             yield fail(
                 f"requires `{requirement}` where the harness verifies against "
                 f"`{name}=={want}` — anything but that exact pin lets a reader "
                 "resolve a build this was never checked on",
                 where,
-                PROJECT_PIN,
+                PROJECT_INEXACT,
             )
 
 
