@@ -358,7 +358,8 @@ warns. Emit the `find*` names.
 code that reads a generation old. From the `/// Deprecated in favor of` markers in
 `std/mem.zig`.
 
-**Check:** `rg -n 'std\.mem\.(indexOf|lastIndexOf)'` — every hit compiles and every hit is stale.
+**Check:** `rg -n '\bmem\.(indexOf|lastIndexOf)'` — spelled through `std.mem` or through the
+`const mem = std.mem;` of ZS-NAME-16, every hit compiles and every hit is stale.
 Then the three that are not simple renames: `containsAtLeastScalar` (0.17 **swapped its last two
 parameters** and removed `containsAtLeastScalar2` — read each call site),
 `mem.tokenize(`/`mem.split(`/`mem.splitBackwards(` with no `Scalar`/`Any`/`Sequence` suffix, and
@@ -1017,7 +1018,7 @@ commit, not the second.
 # bare pattern as a PATH: it exits 2 on every run and silently drops that half of
 # the denylist. Exit status is the gate — 0 means a hit, 1 means clean.
 rg -n --type zig \
-  -e 'std\.mem\.(indexOf|lastIndexOf)|ArrayListUnmanaged|ArrayListAligned' \
+  -e '\bmem\.(indexOf|lastIndexOf)|ArrayListUnmanaged|ArrayListAligned' \
   -e 'array_list\.(Aligned)?Managed|(ArrayHashMap|AutoArrayHashMap|StringArrayHashMap)Unmanaged' \
   -e 'std\.fs\.(path|max_|base64_)' \
   -e 'pipeToFileSystem|tar\.PipeOptions|(utf8|wtf8)Decode\(|^pub fn panic\(' \
