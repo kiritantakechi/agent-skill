@@ -42,7 +42,7 @@ and shell completions, and obsessive attention to stream behaviour — is what
   - RS-CLI-26 [M] Read stdin when given no files, and treat `-` as stdin
   - RS-CLI-27 [M!] Make destructive operations opt-in, and never prompt when not a terminal
   - RS-CLI-28 [M!] Write output atomically where a partial file would be harmful
-  - RS-CLI-29 [M] Handle `SIGINT` by restoring the terminal and exiting `130`
+  - RS-CLI-29 [M] On `SIGINT`, restore the terminal and remove temporary files, then re-raise it
   - RS-CLI-30 [S] Respect the platform's directory conventions
   - RS-CLI-31 [M] Namespace and document every environment variable you read
   - RS-CLI-32 [M] Do not phone home, auto-update, or collect telemetry without opt-in
@@ -919,17 +919,22 @@ pub fn create_staging(target: &Path) -> io::Result<File> {
 }
 ```
 
-### RS-CLI-29 [M] Handle `SIGINT` by restoring the terminal and exiting `130`
+### RS-CLI-29 [M] On `SIGINT`, restore the terminal and remove temporary files, then re-raise it
 
-Handle `SIGINT`/`Ctrl-C` by restoring the terminal, cleaning up temporary files, and exiting with
-`130`. A tool that leaves the terminal without an echo is remembered for it.
+A tool that changes terminal modes (raw mode, the alternate screen, a hidden cursor) or creates
+temporary files handles `SIGINT`/`Ctrl-C`: it restores the terminal, removes the files, then
+restores the default disposition and raises `SIGINT` again —
+`signal_hook::low_level::emulate_default_handler` does both. A tool with neither installs no
+handler: Rust installs none for `SIGINT`, so the process already dies by the signal and the shell
+reports `130`. A tool that leaves the terminal without an echo is remembered for it.
 
-**Why:** Ctrl-C is the normal way users stop a long operation, so it is a supported code path rather
-than an exception. `130` is the shell convention for "terminated by SIGINT", which scripts use to
-distinguish it from a real failure.
+**Why:** Ctrl-C is the normal way users stop a long operation, so it is a supported code path. Dying
+by the signal keeps the status `WIFSIGNALED`; `exit(130)` reports a normal exit that a calling
+shell's loop carries on past, where a death by `SIGINT` would have stopped it.
 
 **Check:** interrupt the tool mid-run. The terminal should echo afterwards, temp files should be
-gone, and `$?` should be `130`.
+gone, and `$?` should be `130`. A handler that ends in `exit(130)` rather than re-raising is the
+finding.
 
 ### RS-CLI-30 [S] Respect the platform's directory conventions
 
