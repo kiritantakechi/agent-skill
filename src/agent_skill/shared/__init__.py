@@ -24,15 +24,12 @@ from dataclasses import dataclass
 from pathlib import Path
 lazy from collections.abc import Iterator
 
+from agent_skill.doc import WIDTH
 from agent_skill.report import Finding, fail, note
 from agent_skill.text import syntax_for
 lazy from agent_skill.model import Skill
 
 HERE = Path(__file__).parent
-
-#: Matches the `layout` check's limit, so `fmt` never writes what
-#: `layout` rejects.
-WIDTH = 100
 
 FREE = "…"
 

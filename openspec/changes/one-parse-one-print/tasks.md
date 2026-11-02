@@ -13,8 +13,11 @@
   — deviates from decision 3: `RuleId` keeps the inserted letter (`ZS-CORE-12a` ships), and
   `NUMBER`/`rule_id` moved here from `vocabulary`; parsers raise `ValueError` (reading text asks the
   world nothing, so it is not a `NoAnswer`); a location outside any skill prints as `./file`
-- [ ] 2.2 Add `agent_skill.doc`: the fence-first block parser, the printer, and `wrap`; property
+- [x] 2.2 Add `agent_skill.doc`: the fence-first block parser, the printer, and `wrap`; property
   tests for `parse(print(d)) == d` on generated trees and idempotence of `print ∘ parse`
+  — the printer is `str(Doc)` and the parser `Doc.parse`, as in `ids`; blocks add `Divider` (the
+  `---` after a contents list) and `Quote.alert` (GitHub's `> [!NOTE]`); seeded generators, not
+  hypothesis; `WIDTH` now lives here and `text`, `shared` and `layout` import it
 - [ ] 2.3 Add the chapter layer (`Chapter`, `Section`, `Rule`, contents list, tool table, rename
   table) over `Doc`; verify it reads every shipped chapter and SKILL.md
 - [ ] 2.4 Define the canonical form for the subset the skills use, and print every shipped file

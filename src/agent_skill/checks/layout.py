@@ -10,10 +10,9 @@ import re
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
+from agent_skill.doc import WIDTH
 from agent_skill.report import Finding, fail, note
 lazy from agent_skill.model import Skill
-
-WIDTH = 100
 
 #: A rule heading and its contents entry are one line by construction:
 #: the ID, the tier, the title. Rewrapping either corrupts it — that is

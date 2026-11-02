@@ -6,6 +6,7 @@ house width, and a regex match is narrowed to the text it found.
 
 import re
 
+from agent_skill.doc import WIDTH
 from agent_skill.ids import rule_id
 
 
@@ -71,9 +72,6 @@ def code_only(body: str, comment: str = "//", quotes: str = '"') -> str:
     """`body` with every comment removed and the line count kept."""
     return "\n".join(strip_comment(line, comment, quotes) for line in body.split("\n"))
 
-
-#: The `layout` check's limit, which `reflow` brings prose back under.
-WIDTH = 100
 
 _STARTS_BLOCK = re.compile(r"^\s*(?:[-*] |\d+\. |#|\||```|>|\*\*[A-Z][a-z]+:\*\*)")
 

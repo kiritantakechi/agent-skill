@@ -1,6 +1,8 @@
 """The typed values: each one's printer inverts its parser.
 
 The generators are seeded, so a failure names a value that reproduces.
+An ID that names no rule uses the prefix `XS`, which no standard owns,
+so `crossref` does not read it as a citation.
 """
 
 import itertools
@@ -123,7 +125,7 @@ def test_no_answer_is_not_an_answer_of_any_value() -> None:
 
 @pytest.mark.parametrize(
     "text",
-    ["RS-ERR-03", "ZS-CORE-01b", "ZS-CORE-12a", "PS-DATA-17", "BV-ECS-100"],
+    ["RS-ERR-03", "ZS-CORE-01b", "ZS-CORE-12a", "PS-DATA-17", "XS-ECS-100"],
 )
 def test_a_canonical_rule_id_prints_as_it_was_read(text: str) -> None:
     assert str(RuleId.parse(text)) == text
@@ -144,10 +146,10 @@ def test_what_is_not_a_rule_id_is_refused(text: str) -> None:
 
 
 def test_rule_ids_order_by_number_and_then_by_inserted_letter() -> None:
-    spelled = ["ZS-CORE-09", "ZS-CORE-10", "ZS-CORE-12", "ZS-CORE-12a", "ZS-CORE-12b"]
+    spelled = ["XS-CORE-09", "XS-CORE-10", "XS-CORE-12", "XS-CORE-12a", "XS-CORE-12b"]
     ids = [RuleId.parse(t) for t in spelled]
     assert sorted(shuffled(ids)) == ids
-    assert RuleId.parse("RS-ERR-100") > RuleId.parse("RS-ERR-99")
+    assert RuleId.parse("XS-ERR-100") > RuleId.parse("XS-ERR-99")
 
 
 def _assert_total_order[T: (RuleId, Version)](values: list[T]) -> None:
