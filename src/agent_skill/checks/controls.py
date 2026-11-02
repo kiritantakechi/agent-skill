@@ -22,7 +22,9 @@ from agent_skill.layout import PLUGIN, SKILLS, root_of
 from agent_skill.report import Level, fail, unrun
 lazy from agent_skill.checks import by_name
 lazy from agent_skill.lang import toolchain_for
+lazy from agent_skill.lang.python import INTERPRETER
 lazy from agent_skill.model import Skill, discover
+lazy from agent_skill.proc import pinned_version
 lazy from agent_skill.profiles import registered
 lazy from agent_skill.report import Finding
 
@@ -200,6 +202,18 @@ def _no_override_table(tree: Path) -> None:
     lines = text.partition(_OVERRIDES)[2].split("\n")
     table = next(i for i, line in enumerate(lines) if not line.startswith("|"))
     edit(tree, rel, _OVERRIDES + "\n".join(lines[:table]) + "\n", "")
+
+
+def _no_uv_interpreter(tree: Path) -> None:
+    """Every `uv python install` in the workflow, gone.
+
+    The interpreter half compared only the lines that were there, so a
+    workflow with none — running whatever the runner had — passed.
+    """
+    rel = "python-style/assets/ci.yml"
+    line = f"uv python install {INTERPRETER}"
+    count = (tree / rel).read_text().count(line)
+    edit(tree, rel, line, "python --version", max(count, 1))
 
 
 def _orphan_asset(tree: Path) -> None:
@@ -845,6 +859,23 @@ CONTROLS: list[Control] = [
             'typecheck = ["ty==0.0.95"]',
             'typecheck = ["ty==0.0.60"]',
         ),
+    ),
+    Control(
+        # Only a requirement already spelled `==` was compared, so a
+        # floor handed the reader any build at all and passed.
+        "a shipped asset loosening a tool pin to a floor",
+        "pins",
+        lambda t: edit(
+            t,
+            "python-style/assets/pyproject.toml",
+            f'"ty=={pinned_version("ty")}"',
+            '"ty>=0.0.60"',
+        ),
+    ),
+    Control(
+        "a workflow that installs no interpreter with uv",
+        "pins",
+        _no_uv_interpreter,
     ),
     Control(
         "an asset nothing references",
