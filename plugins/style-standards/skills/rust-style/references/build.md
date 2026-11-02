@@ -664,13 +664,16 @@ targets = ["x86_64-unknown-linux-musl"]
 ### RS-BUILD-37 [M] Test on stable at minimum; add beta and nightly where they earn it
 
 Test on stable at minimum; add beta to catch upcoming regressions and nightly only for the jobs that
-need it (Miri, `-Z` flags, fuzzing).
+need it (Miri, `-Z` flags, fuzzing). Such a job runs `cargo +beta` or `cargo +nightly`: a committed
+`rust-toolchain.toml` (RS-BUILD-36) outranks the toolchain an action installs, so plain `cargo`
+there tests the pinned release again.
 
 **Why:** beta gives six weeks of warning before a regression reaches your users, which is enough to
 file and fix. Nightly is unstable enough that gating the whole pipeline on it produces failures
 unrelated to your code.
 
-**Check:** is nightly required for anything other than the tools that genuinely need it?
+**Check:** is nightly required for anything other than the tools that genuinely need it, and does
+every beta or nightly job name its toolchain with `+`?
 
 ### RS-BUILD-38 [M] Cover Linux, macOS, and Windows for anything touching the OS
 
