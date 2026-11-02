@@ -41,13 +41,14 @@ from agent_skill.checks import (
     selfapply,
     sensitivity,
     skeleton,
+    toolchain,
 )
-from agent_skill.ids import Location
+from agent_skill.ids import Branch, Location
+from agent_skill.lang import python, rust, zig
 from agent_skill.layout import PLUGIN, SKILLS, root_of
 from agent_skill.profiles import bevy_style, python_style, rust_style, zig_style
 from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.checks import Check, by_name
-lazy from agent_skill.ids import Branch
 lazy from agent_skill.lang import toolchain_for
 lazy from agent_skill.lang.python import INTERPRETER
 lazy from agent_skill.model import Skill, Tree, discover
@@ -137,6 +138,17 @@ def drop_line(tree: Path, rel: str, start: str) -> Edited:
     return edit(tree, rel, line, "")
 
 
+def drop_paragraph(tree: Path, rel: str, opening: str) -> Edited:
+    """Delete the paragraph of `rel` that opens with `opening`."""
+    text = (tree / rel).read_text()
+    start = text.find(f"\n{opening}") + 1
+    if not start:
+        msg = f"{rel}: {opening[:60]!r}"
+        raise FixtureGoneError(msg)
+    end = text.find("\n\n", start) + 2
+    return write(tree, rel, text[:start] + text[end:])
+
+
 def throwaway_tree(source: Path, into: Path) -> Path:
     """A copy of the skills tree, plus what a check reads beside it.
 
@@ -157,23 +169,6 @@ def throwaway_tree(source: Path, into: Path) -> Path:
         if (root / manifests).is_dir():
             shutil.copytree(root / manifests, into / manifests)
     return tree
-
-
-#: Why a check has no control, for the checks that have none.
-WITHOUT_A_CONTROL = {
-    "controls": (
-        "it is the mechanism the controls run through; a control on it would "
-        "assert that the asserting works by asserting"
-    ),
-    "toolchain": (
-        "not knowable from the code. It compiles and runs every example, so a "
-        "control would cost a full toolchain run — but nothing records whether "
-        "that is the reason or whether nobody got to it"
-    ),
-    "mutation": (
-        "not knowable from the code. Same shape as `toolchain`, and the same gap"
-    ),
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -403,10 +398,159 @@ def _disabled_c4_citation(tree: Path) -> Edited:
     )
 
 
+def _rule(tree: Path, rel: str, rid: str) -> tuple[str, int, int]:
+    """The text of `rel`, and where rule `rid`'s section spans.
+
+    It ends at the next heading of a rule or a section.
+    """
+    text = (tree / rel).read_text()
+    start = text.find(f"\n### {rid} [")
+    if start < 0:
+        msg = f"{rel}: {rid}"
+        raise FixtureGoneError(msg)
+    ends = [
+        i for i in (text.find("\n### ", start + 1), text.find("\n## ", start)) if i > 0
+    ]
+    return text, start, min(ends, default=len(text))
+
+
+def drop_rule(tree: Path, rel: str, rid: str) -> Edited:
+    """Delete rule `rid`'s section from `rel`."""
+    text, start, end = _rule(tree, rel, rid)
+    return write(tree, rel, text[:start] + text[end:])
+
+
+def _why(tree: Path, rel: str, rid: str, why: str) -> Edited:
+    """Replace rule `rid`'s Why with `why`, a paragraph of one line."""
+    text, start, end = _rule(tree, rel, rid)
+    at = text.find("\n**Why:**", start, end)
+    if at < 0:
+        msg = f"{rel}: {rid}'s Why"
+        raise FixtureGoneError(msg)
+    stop = text.find("\n\n", at + 1)
+    return write(tree, rel, f"{text[: at + 1]}**Why:** {why}{text[stop:]}")
+
+
+def _why_of(tree: Path, rel: str, rid: str) -> str:
+    """Rule `rid`'s Why, on one line, its label left out."""
+    text, start, end = _rule(tree, rel, rid)
+    at = text.find("\n**Why:**", start, end)
+    return " ".join(text[at : text.find("\n\n", at + 1)].split()[1:])
+
+
+def retype(tree: Path, skill: str, lang: str) -> Edited:
+    """Every `lang` example in `skill`, fenced as text instead.
+
+    For a defect that is having no examples at all.
+    """
+    edited: list[str] = []
+    for path in sorted((tree / skill).rglob("*.md")):
+        if f"```{lang}\n" in (text := path.read_text()):
+            rel = path.relative_to(tree).as_posix()
+            edited += write(tree, rel, text.replace(f"```{lang}\n", "```text\n"))
+    return tuple(edited)
+
+
+def empty_assets(tree: Path, skill: str) -> Edited:
+    """Every file in `skill`'s `assets/`, deleted."""
+    return tuple(
+        rel
+        for path in sorted((tree / skill / "assets").iterdir())
+        for rel in remove(tree, path.relative_to(tree).as_posix())
+    )
+
+
+def dangling_skill_md(tree: Path) -> Edited:
+    """A skill directory whose `SKILL.md` is a link to nothing."""
+    (tree / "ghost-style").mkdir()
+    (tree / "ghost-style" / "SKILL.md").symlink_to("nowhere.md")
+    return ("ghost-style/SKILL.md",)
+
+
 #: A rule of the async family, filed in the testing chapter. New, so no
 #: rename row names it and only the family branch of `skeleton` can
 #: report it.
 MISFILED = "\n### PS-ASYNC-99 [M] Misfiled\n\nX.\n\n**Why:** y.\n\n**Check:** z.\n"
+
+RS = "rust-style"
+TESTING = f"{PY}/references/testing.md"
+ASYNC = f"{PY}/references/async.md"
+UNSAFE = f"{RS}/references/unsafe.md"
+DATA = "zig-style/references/data.md"
+MANIFEST = f"{PLUGIN}/.claude-plugin/plugin.json"
+MARKETPLACE = ".claude-plugin/marketplace.json"
+
+#: Why the validator refuses what `plugin`'s own branches report: it
+#: warns on it, and `--strict` fails on a warning.
+_STRICT = "`claude plugin validate --strict` warns on it, and fails on a warning"
+
+#: The title `MIRROR` pairs `ZS-DATA-36` with, as `RS-API-58` states it.
+_INVERSE = "Give every operation its inverse, or document why there is none"
+
+#: `PS-CORE-26`'s citation of the chapters stating it.
+_CORE_26 = "(`references/concurrency.md` PS-CONC-01, `references/build.md` PS-BUILD-19)"
+
+#: A line of a zig GOOD example with no comment in the three above it.
+_SIZED = "    assert(@sizeOf(Record) == 16);\n"
+
+#: The derive a bevy system set carries.
+_SYSTEM_SET = "#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]"
+
+
+def _no_ranges(tree: Path) -> Edited:
+    """The paragraph stating the old ranges, left saying none."""
+    rel = f"{PY}/references/migration.md"
+    text = (tree / rel).read_text()
+    start = text.find("Before the revision the families ran")
+    end = text.find("an ID it does not list is unchanged.\n", start)
+    if start < 0 or end < 0:
+        msg = f"{rel}: the ranges"
+        raise FixtureGoneError(msg)
+    tail = len("an ID it does not list is unchanged.\n")
+    return write(
+        tree,
+        rel,
+        f"{text[:start]}The table lists every ID that changed.\n{text[end + tail :]}",
+    )
+
+
+def _duplicate_id(tree: Path) -> Edited:
+    """`PS-MIG-09`, uncited, renamed to an ID `async.md` holds.
+
+    The map moves with it, so only the duplicate is wrong.
+    """
+    md = f"{PY}/SKILL.md"
+    return (
+        *edit(
+            tree, f"{PY}/references/migration.md", "PS-MIG-09 [M]", "PS-ASYNC-01 [M]", 2
+        ),
+        *edit(tree, md, "`PS-MIG` (9)", "`PS-MIG` (8)"),
+        *edit(tree, md, "`PS-ASYNC` (18)", "`PS-ASYNC` (19)"),
+    )
+
+
+def _contents_swapped(tree: Path) -> Edited:
+    """The contents lines of `PS-TEST-20` and `PS-TEST-21`, swapped."""
+    lines = (tree / TESTING).read_text().splitlines(keepends=True)
+    first = next(
+        (i for i, ln in enumerate(lines) if ln.startswith("  - PS-TEST-20 ")), None
+    )
+    if first is None or not lines[first + 1].startswith("  - PS-TEST-21 "):
+        msg = f"{TESTING}: PS-TEST-20 then PS-TEST-21 in the contents"
+        raise FixtureGoneError(msg)
+    lines[first : first + 2] = [lines[first + 1], lines[first]]
+    return write(tree, TESTING, "".join(lines))
+
+
+def _orphan_exemption(tree: Path) -> Edited:
+    """`RS-API-04`'s Check unlabelled: its exemption claims nothing."""
+    return edit(
+        tree,
+        f"{RS}/references/api.md",
+        "**Check:** grep public return types for `std::collections::`",
+        "Grep public return types for `std::collections::`",
+    )
+
 
 CONTROLS: list[Control] = [
     # A section title with a subtitle the other standards do not have.
@@ -1026,7 +1170,772 @@ CONTROLS: list[Control] = [
             "### ZS-NAME-02 [S] Capitalize acronyms as ordinary English words",
         ),
     ),
+    Control(
+        mirror.NO_ANCHOR_RULE,
+        lambda t: edit(
+            t,
+            f"{RS}/references/api.md",
+            f"### RS-API-58 [M] {_INVERSE}",
+            f"### RS-API-58 [M] {_INVERSE}, ever",
+        ),
+    ),
+    # A rule outside `MIRROR` takes the title of one inside it.
+    Control(
+        mirror.AMBIGUOUS,
+        lambda t: edit(
+            t,
+            f"{RS}/references/api.md",
+            "### RS-API-57 [S] Prefer additive evolution; batch the breaking changes",
+            f"### RS-API-57 [S] {_INVERSE}",
+        ),
+    ),
+    Control(
+        mirror.NOT_A_RULE,
+        lambda t: edit(
+            t,
+            "zig-style/references/data.md",
+            "### ZS-DATA-36 [",
+            "### ZS-DATA-96 [",
+        ),
+    ),
+    # skeleton
+    Control(
+        skeleton.TITLE,
+        lambda t: edit(
+            t, f"{PY}/SKILL.md", "# Python Style — 3.15\n", "# Python Style 3.15\n"
+        ),
+    ),
+    Control(
+        skeleton.EXTRA_SECTION,
+        lambda t: append(t, f"{PY}/SKILL.md", "\n## 8. Appendix\n\nMore.\n"),
+    ),
+    Control(
+        skeleton.MAP_COLUMNS,
+        lambda t: edit(
+            t,
+            f"{PY}/SKILL.md",
+            "| File | Rule IDs | Covers |",
+            "| File | IDs | Covers |",
+        ),
+    ),
+    Control(
+        skeleton.REQUIRED_CHAPTER,
+        lambda t: remove(t, f"{PY}/references/migration.md"),
+    ),
+    Control(
+        skeleton.REVIEW_TITLE,
+        lambda t: edit(
+            t,
+            f"{PY}/references/review-checklist.md",
+            "# Review protocol\n",
+            "# Review procedure\n",
+        ),
+    ),
+    Control(
+        skeleton.REVIEW_SECTIONS,
+        lambda t: edit(
+            t,
+            f"{PY}/references/review-checklist.md",
+            "## Mechanical pass\n",
+            "## Mechanical sweep\n",
+        ),
+    ),
+    Control(
+        skeleton.RENAME_LINT,
+        lambda t: edit(
+            t,
+            f"{PY}/references/migration.md",
+            "| `PS-ERR-09` | lint `ruff:E722` |",
+            "| `PS-ERR-09` | lint `ruff:E7229` |",
+        ),
+    ),
+    Control(
+        skeleton.RENAME_REASON,
+        lambda t: edit(
+            t,
+            "bevy-style/references/migration.md",
+            "| `BV-CAR-16` | removed — RS-BUILD-23 states it, "
+            "and assets/Cargo.toml does it |",
+            "| `BV-CAR-16` | removed — |",
+        ),
+    ),
+    Control(
+        skeleton.RENAME_SHAPE,
+        lambda t: edit(
+            t,
+            f"{PY}/references/migration.md",
+            "| `PS-ERR-09` | lint `ruff:E722` |",
+            "| `PS-ERR-09` | gone |",
+        ),
+    ),
+    Control(skeleton.NO_RANGES, _no_ranges),
+    # shared-text
+    Control(
+        shared.MISSING,
+        lambda t: drop_paragraph(
+            t, f"{PY}/SKILL.md", "When you cannot tell which category"
+        ),
+    ),
+    Control(
+        shared.STRAY,
+        lambda t: edit(
+            t,
+            f"{PY}/references/review-checklist.md",
+            "\n## Review order\n",
+            "\nA stray paragraph.\n\n## Review order\n",
+        ),
+    ),
+    # anatomy
+    Control(
+        anatomy.BOLD_DEFINITIONS,
+        lambda t: append(t, TESTING, "\n**PS-TEST-01** is defined here.\n"),
+    ),
+    Control(anatomy.DUPLICATE, _duplicate_id),
+    Control(
+        anatomy.CONTENTS_MISSING,
+        lambda t: drop_line(t, TESTING, "  - PS-TEST-21 [M]"),
+        also={
+            anatomy.CONTENTS_ORDER: (
+                "a contents list missing an entry differs from the headings, "
+                "which is how its order is compared"
+            )
+        },
+    ),
+    Control(
+        anatomy.CONTENTS_TIER,
+        lambda t: edit(t, TESTING, "  - PS-TEST-21 [M]", "  - PS-TEST-21 [S]"),
+    ),
+    Control(
+        anatomy.CONTENTS_TITLE,
+        lambda t: edit(
+            t, TESTING, "itself is not thread-safe", "itself is not thread safe"
+        ),
+    ),
+    Control(anatomy.CONTENTS_ORDER, _contents_swapped),
+    Control(
+        anatomy.NO_RELAXED,
+        lambda t: edit(
+            t,
+            f"{PY}/references/output.md",
+            "*Relaxed form:* application code at a display boundary",
+            "Application code at a display boundary",
+        ),
+    ),
+    Control(
+        anatomy.RESTATES_RULE,
+        lambda t: _why(
+            t,
+            TESTING,
+            "PS-TEST-21",
+            "`capsys`, `monkeypatch` and `tmp_path` are not safe to use from "
+            "several threads, and the maintainers have said they do not intend "
+            "to make pytest thread-safe.",
+        ),
+    ),
+    Control(
+        anatomy.NEAR_DUPLICATE_TEXT,
+        lambda t: _why(t, TESTING, "PS-TEST-21", _why_of(t, TESTING, "PS-TEST-20")),
+    ),
+    Control(anatomy.DANGLING, lambda t: append(t, TESTING, "\nSee PS-TEST-99.\n")),
+    Control(
+        anatomy.MISSING_FILE,
+        lambda t: append(t, TESTING, "\nSee `references/nowhere.md`.\n"),
+    ),
+    Control(
+        anatomy.WRONG_CHAPTER,
+        lambda t: append(t, TESTING, "\nSee `references/api.md` PS-TEST-01.\n"),
+    ),
+    Control(
+        anatomy.CORE_UNCITED,
+        lambda t: edit(
+            t, f"{PY}/SKILL.md", _CORE_26, "(the concurrency and build chapters)"
+        ),
+    ),
+    # A core rule's ID is a rule of the skill and not a chapter's.
+    Control(
+        anatomy.CORE_NOT_A_RULE,
+        lambda t: edit(
+            t,
+            f"{PY}/SKILL.md",
+            _CORE_26,
+            _CORE_26.replace("PS-BUILD-19", "PS-CORE-01"),
+        ),
+    ),
+    # A family listed twice: each agrees, and the sum does not.
+    Control(
+        anatomy.MAP_TOTAL,
+        lambda t: edit(
+            t,
+            f"{PY}/SKILL.md",
+            "Load the chapter you need;",
+            "`PS-MIG` (9) is the history. Load the chapter you need;",
+        ),
+    ),
+    # Two families off by one each way, so the total still agrees.
+    Control(
+        anatomy.MAP_FAMILY,
+        lambda t: (
+            *edit(t, f"{PY}/SKILL.md", "`PS-NAME` (21)", "`PS-NAME` (22)"),
+            *edit(t, f"{PY}/SKILL.md", "`PS-TYPE` (20)", "`PS-TYPE` (19)"),
+        ),
+    ),
+    Control(
+        anatomy.MAP_HERE,
+        lambda t: edit(
+            t,
+            f"{PY}/SKILL.md",
+            "the other 236 live here",
+            "the other 235 live here",
+        ),
+    ),
+    # citations
+    Control(
+        citations.ROW_TOOL,
+        lambda t: _row(t, TESTING, "| mypy | `strict` | error | an untyped call |"),
+    ),
+    Control(
+        citations.ROW_LEVEL,
+        lambda t: edit(
+            t, TESTING, "| ruff | `PT011` | error |", "| ruff | `PT011` | warn |"
+        ),
+    ),
+    Control(
+        citations.TY_UNKNOWN_SETTING,
+        lambda t: edit(
+            t,
+            f"{PY}/assets/ty.toml",
+            "[analysis]",
+            'not-a-ty-rule = "error"\n\n[analysis]',
+        ),
+        also={
+            citations.TY_UNVERIFIED: (
+                "a rule ty does not have is one no table of verified rules can name"
+            )
+        },
+    ),
+    Control(
+        citations.RUFF_ROW_DISABLED,
+        lambda t: _row(
+            t, TESTING, "| ruff | `COM812` | error | a missing trailing comma |"
+        ),
+    ),
+    Control(
+        citations.TY_ROW_UNKNOWN,
+        lambda t: _row(t, TESTING, "| ty | `not-a-ty-rule` | error | nothing |"),
+    ),
+    Control(
+        citations.WITHDRAWN_CODE,
+        lambda t: edit(
+            t,
+            f"{PY}/references/concurrency.md",
+            "**Check:** `rg -n 'f_locals' src/`",
+            "**Check:** ANN101 decides this. `rg -n 'f_locals' src/`",
+        ),
+    ),
+    Control(
+        citations.TY_UNSHIPPED,
+        lambda t: drop_line(t, f"{PY}/assets/ty.toml", "unsupported-dynamic-base = "),
+    ),
+    Control(
+        citations.TY_LEVEL,
+        lambda t: edit(
+            t,
+            f"{PY}/assets/ty.toml",
+            'unsupported-dynamic-base = "error"',
+            'unsupported-dynamic-base = "warn"',
+        ),
+    ),
+    Control(citations.NO_CARGO_TOML, lambda t: remove(t, f"{RS}/assets/Cargo.toml")),
+    Control(
+        citations.ZIG_NO_PROBE,
+        lambda t: _row(
+            t,
+            "zig-style/references/errors.md",
+            "| zig | `no such error` | error | nothing |",
+        ),
+    ),
+    # crossref
+    # The README cites it, and the copy no longer has it.
+    Control(
+        crossref.APPARATUS_CITATION,
+        lambda t: edit(
+            t,
+            "zig-style/references/assertions.md",
+            "### ZS-ASSERT-03 [",
+            "### ZS-ASSERT-93 [",
+        ),
+    ),
+    Control(
+        crossref.OVERRIDE_TARGET,
+        lambda t: edit(
+            t,
+            "bevy-style/SKILL.md",
+            "| `BV-ECS-01` — component fields are public |",
+            "| `BV-ECS-99` — component fields are public |",
+        ),
+    ),
+    Control(crossref.ANCHOR_EMPTY_CORPUS, lambda t: retype(t, "bevy-style", "rust")),
+    Control(
+        crossref.ANCHOR_NO_ANSWER,
+        lambda t: edit(
+            t,
+            f"{RS}/references/ownership.md",
+            "borrow_mut|enter|read|write)\\('`",
+            "borrow_mut|enter|read|write)('`",
+        ),
+    ),
+    # documented
+    Control(documented.NO_README, lambda t: remove(root_of(t), "README.md")),
+    Control(
+        documented.STALE_ROW,
+        lambda t: edit(
+            root_of(t),
+            "README.md",
+            "| `documented` |",
+            "| `retired` | nothing | a reason |\n| `documented` |",
+        ),
+    ),
+    Control(
+        documented.NO_REASON,
+        lambda t: edit(
+            root_of(t),
+            "README.md",
+            "| `mutation` | statements a shipped test does not pin | A shipped "
+            "test passed whether or not the function it tested did anything. |",
+            "| `mutation` | statements a shipped test does not pin | |",
+        ),
+    ),
+    Control(
+        documented.CONTROLS_ROW,
+        lambda t: edit(
+            root_of(t), "README.md", documented.CONTROLS_SCOPE, "every other check"
+        ),
+    ),
+    # frontmatter
+    Control(
+        frontmatter.MISSING,
+        lambda t: edit(
+            t, f"{RS}/SKILL.md", "---\nname: rust-style\n", "name: rust-style\n"
+        ),
+    ),
+    Control(
+        frontmatter.EXTRA_KEYS,
+        lambda t: edit(
+            t,
+            f"{RS}/SKILL.md",
+            "name: rust-style\n",
+            "name: rust-style\nowner: nobody\n",
+        ),
+    ),
+    Control(
+        frontmatter.NAME,
+        lambda t: edit(
+            t, f"{RS}/SKILL.md", "name: rust-style\n", "name: rust-styles\n"
+        ),
+    ),
+    Control(
+        frontmatter.FOLDED,
+        lambda t: edit(t, f"{RS}/SKILL.md", "description: >-\n", "description: >\n"),
+    ),
+    Control(
+        frontmatter.LENGTH,
+        lambda t: edit(
+            t,
+            f"{RS}/SKILL.md",
+            "description: >-\n",
+            "description: >-\n  " + "padding " * 130 + "\n",
+        ),
+    ),
+    Control(
+        frontmatter.ANGLE_BRACKET,
+        lambda t: edit(
+            t, f"{RS}/SKILL.md", "a 633-rule library", "a 633-rule <library>"
+        ),
+    ),
+    Control(
+        frontmatter.RULE_COUNT,
+        lambda t: edit(t, f"{RS}/SKILL.md", "a 633-rule library", "a 634-rule library"),
+    ),
+    # layout
+    Control(layout.UNCLOSED, lambda t: append(t, DATA, "\n```text\nnever closed\n")),
+    Control(layout.TAB, lambda t: append(t, DATA, "\n```text\na\tb\n```\n")),
+    Control(layout.CR, lambda t: append(t, DATA, "\n```text\na\rb\n```\n")),
+    # A heading is never filled, so its width is the prose's own.
+    Control(
+        layout.PROSE_WIDTH,
+        lambda t: append(t, DATA, "\n## " + "wide " * 24 + "heading\n"),
+    ),
+    Control(
+        layout.INLINE_FENCE,
+        lambda t: append(t, DATA, "\nThe fence x```y is inline.\n"),
+    ),
+    # lints
+    Control(
+        lints.UNVERIFIED,
+        lambda t: edit(
+            t,
+            f"{RS}/assets/Cargo.toml",
+            'indexing_slicing = "deny"',
+            'indexing_slicing = "deny"\ninjected_lint = "deny"',
+        ),
+    ),
+    Control(
+        lints.UNSHIPPED,
+        lambda t: drop_line(t, f"{RS}/assets/Cargo.toml", "indexing_slicing = "),
+    ),
+    Control(
+        lints.CLIPPY_CONFIG,
+        lambda t: edit(
+            t,
+            f"{RS}/assets/clippy.toml",
+            "allow-expect-in-tests = true",
+            "allow-expect-in-tests = false",
+        ),
+    ),
+    # markers
+    Control(
+        markers.OFF_GRAMMAR,
+        lambda t: edit(
+            t,
+            f"{PY}/references/concurrency.md",
+            "# verified — GOOD\n" + _BUILD_CONSTANT,
+            "# verified1 — GOOD\n" + _BUILD_CONSTANT,
+        ),
+    ),
+    Control(
+        markers.UNKNOWN_KIND,
+        lambda t: edit(
+            t,
+            f"{PY}/references/concurrency.md",
+            "# verified — GOOD\n" + _BUILD_CONSTANT,
+            "# verifieds — GOOD\n" + _BUILD_CONSTANT,
+        ),
+    ),
+    Control(
+        markers.VERIFIED_FRAGMENT,
+        lambda t: edit(
+            t,
+            f"{PY}/references/concurrency.md",
+            "# verified — GOOD\n" + _BUILD_CONSTANT,
+            "# verified — GOOD: a fragment\n" + _BUILD_CONSTANT,
+        ),
+    ),
+    # plugin
+    Control(
+        plugin.MANIFEST_VERSION,
+        lambda t: edit(root_of(t), MANIFEST, '  "version": "1.0.0",\n', ""),
+        also={plugin.VALIDATE: _STRICT},
+    ),
+    Control(plugin.MANIFEST_LICENSE, lambda t: remove(root_of(t), "LICENSE")),
+    Control(
+        plugin.MARKET_ENTRY,
+        lambda t: edit(
+            root_of(t),
+            MARKETPLACE,
+            '"name": "style-standards"',
+            '"name": "style-standard"',
+        ),
+    ),
+    Control(
+        plugin.MARKET_SOURCE,
+        lambda t: edit(
+            root_of(t),
+            MARKETPLACE,
+            '"source": "./plugins/style-standards"',
+            '"source": "./plugins/style-standards/"',
+        ),
+    ),
+    Control(
+        plugin.MARKET_VERSION,
+        lambda t: edit(
+            root_of(t),
+            MARKETPLACE,
+            '"name": "style-standards",',
+            '"name": "style-standards",\n      "version": "1.0.0",',
+        ),
+    ),
+    Control(plugin.SKILLS_DIFFER, dangling_skill_md, also={plugin.VALIDATE: _STRICT}),
+    Control(
+        plugin.VALIDATE,
+        lambda t: edit(
+            root_of(t),
+            MANIFEST,
+            '"homepage": "https://github.com/kiritantakechi/agent-skill",',
+            '"homepage": 7,',
+        ),
+    ),
+    # prose
+    Control(prose.BROKEN_QUOTE, lambda t: append(t, DATA, "\n> quoted\nand lost\n")),
+    Control(
+        prose.POSITIONAL_REFERENCE,
+        lambda t: append(t, DATA, "\nSee the rule below.\n"),
+    ),
+    Control(
+        prose.LEGEND_COUNT,
+        lambda t: append(t, DATA, f"\nEach block {prose.LEGEND}.\n"),
+    ),
+    # self-application
+    Control(selfapply.EMPTY, lambda t: retype(t, PY, "python")),
+    Control(selfapply.ORPHAN_EXEMPTION, _orphan_exemption),
+    Control(
+        selfapply.NO_ANSWER,
+        lambda t: edit(
+            t,
+            f"{PY}/references/concurrency.md",
+            "`rg -n 'f_locals' src/`",
+            "`rg -n 'f_locals(' src/`",
+        ),
+    ),
+    # sensitivity
+    Control(
+        sensitivity.ORPHAN_FIXTURE,
+        lambda t: drop_rule(t, f"{PY}/references/api.md", "PS-API-05"),
+    ),
+    Control(
+        sensitivity.NO_CHECK,
+        lambda t: edit(
+            t,
+            ASYNC,
+            "**Check:** `rg -n 'create_task|ensure_future' src/`",
+            "Look for `rg -n 'create_task|ensure_future' src/`",
+        ),
+    ),
+    Control(
+        sensitivity.NO_COMMAND,
+        lambda t: edit(
+            t,
+            ASYNC,
+            "`rg -n 'create_task|ensure_future' src/`",
+            "every `create_task` or `ensure_future` call",
+        ),
+    ),
+    Control(
+        sensitivity.NO_ANSWER,
+        lambda t: edit(
+            t,
+            ASYNC,
+            "`rg -n 'create_task|ensure_future' src/`",
+            "`rg -n 'create_task|ensure_future(' src/`",
+        ),
+    ),
+    # assets
+    Control(assets.NO_DIRECTORY, lambda t: remove(t, f"{RS}/assets")),
+    Control(assets.EMPTY, lambda t: empty_assets(t, RS)),
+    Control(
+        assets.TAB,
+        lambda t: append(t, f"{RS}/assets/rustfmt.toml", "#\tafter a tab\n"),
+    ),
+    Control(
+        assets.NEWLINE,
+        lambda t: write(
+            t,
+            f"{RS}/assets/rustfmt.toml",
+            (t / RS / "assets/rustfmt.toml").read_text().rstrip("\n"),
+        ),
+    ),
+    Control(
+        assets.NO_PY_TYPED,
+        lambda t: append(
+            t,
+            f"{PY}/assets/pyproject.toml",
+            '\n[tool.uv.build-backend]\nwheel-exclude = ["**/py.typed"]\n',
+        ),
+    ),
+    Control(
+        assets.ZIG_FMT,
+        lambda t: edit(
+            t,
+            "zig-style/assets/build.zig",
+            'const std = @import("std");',
+            'const std  = @import("std");',
+        ),
+    ),
+    Control(
+        assets.ZIG_AST,
+        lambda t: edit(
+            t,
+            "zig-style/assets/build.zig",
+            "    const target = b.standardTargetOptions(.{});\n",
+            "    const target = b.standardTargetOptions(.{});\n    const unused = 1;\n",
+        ),
+    ),
+    Control(
+        assets.WORKFLOW_KEY,
+        lambda t: edit(t, f"{RS}/assets/ci.yml", "\njobs:\n", "\nwork:\n"),
+    ),
+    Control(
+        assets.ODD_INDENT,
+        lambda t: append(t, f"{RS}/assets/ci.yml", "   # three spaces in\n"),
+    ),
+    # Each profile's own rules, over its own examples.
+    Control(
+        rust_style.BOOL_PARAMETER,
+        lambda t: edit(t, UNSAFE, HEADER, HEADER + "\npub fn toggle(on: bool) {}\n"),
+    ),
+    Control(
+        rust_style.TUPLE_FIELD,
+        lambda t: edit(t, UNSAFE, HEADER, HEADER + "\npub struct Meters(pub u32);\n"),
+    ),
+    Control(
+        rust_style.SETTER,
+        lambda t: edit(
+            t,
+            UNSAFE,
+            HEADER,
+            HEADER + "\nimpl Cursor {\n"
+            "    pub fn offset(mut self, offset: usize) -> Self {\n"
+            "        self.offset = offset;\n        self\n    }\n}\n",
+        ),
+    ),
+    Control(
+        rust_style.META_DOC,
+        lambda t: edit(
+            t,
+            UNSAFE,
+            HEADER,
+            HEADER + "\n/// This example shows a marker.\nstruct Shown;\n",
+        ),
+    ),
+    Control(
+        python_style.AUGMENTED,
+        lambda t: edit(
+            t,
+            f"{PY}/references/concurrency.md",
+            _BUILD_CONSTANT,
+            "self.hits += 1\n" + _BUILD_CONSTANT,
+        ),
+    ),
+    Control(
+        python_style.META_DOC,
+        lambda t: edit(
+            t,
+            f"{PY}/references/concurrency.md",
+            _BUILD_CONSTANT,
+            '"""This example shows the build."""\n' + _BUILD_CONSTANT,
+        ),
+    ),
+    Control(
+        zig_style.CATCH,
+        lambda t: edit(
+            t, DATA, _SIZED, f"{_SIZED}    _ = parse() catch unreachable;\n"
+        ),
+    ),
+    Control(
+        zig_style.AS_WRAPPER,
+        lambda t: edit(
+            t,
+            DATA,
+            _SIZED,
+            f"{_SIZED}    try std.testing.expectEqual(@as(u8, 3), size);\n",
+        ),
+    ),
+    Control(
+        zig_style.META_DOC,
+        lambda t: edit(
+            t, DATA, _SIZED, f"{_SIZED}    /// This example shows a record.\n"
+        ),
+    ),
+    Control(
+        bevy_style.SET_SUFFIX,
+        lambda t: edit(
+            t,
+            "bevy-style/references/scheduling.md",
+            f"{_SYSTEM_SET}\npub enum CombatSystems {{",
+            f"{_SYSTEM_SET}\npub enum Combat {{",
+        ),
+    ),
 ]
+
+
+# Why a branch that can fail a run has no control. Branches share a
+# reason, and each is still listed by name: a branch added beside them
+# is uncovered until someone decides which it is.
+
+#: Fires on a release upstream newer than the pin: network state the
+#: harness does not control, and no edit of the tree makes one exist.
+NEWER_RELEASE = (
+    "fires on a newer release upstream, which the harness does not control and "
+    "no edit of the tree brings about"
+)
+
+#: Fires on a tool other than the one installed here.
+OTHER_TOOL = (
+    "fires on an installed tool that differs from, or behaves otherwise than, the "
+    "pinned one; a control edits the tree and cannot install a tool"
+)
+
+#: Fires on what the harness declares, not on the tree.
+HARNESS = (
+    "fires on a value a profile or the harness declares rather than on the tree, "
+    "and a control edits a copy of the tree; every shipped profile is consistent, "
+    "so the branch guards an edit to the harness itself"
+)
+
+#: A branch of the two checks that compile and run the examples.
+COMPILES = (
+    "a branch of `toolchain` or `mutation`, which compile and run every example: "
+    "a control would cost a toolchain run, `--fast` runs none on a slow check, "
+    "and the README exempts both checks"
+)
+
+#: A branch of `controls` itself.
+MECHANISM = (
+    "a branch of `controls`, the mechanism the controls run through; a control "
+    "on it would assert that the asserting works by asserting"
+)
+
+EXEMPT: dict[Branch, str] = {
+    GONE: MECHANISM,
+    SILENT: MECHANISM,
+    BESIDE: MECHANISM,
+    ELSEWHERE: MECHANISM,
+    EMPTY_CORPUS: (
+        "it builds an empty skill of its own rather than reading the tree; only an "
+        "extractor that invents blocks reaches it, and that is harness code"
+    ),
+    pins.TOOL_STALE: NEWER_RELEASE,
+    pins.RUST_STALE: NEWER_RELEASE,
+    pins.LIBRARY_STALE: NEWER_RELEASE,
+    pins.INTERPRETER_STALE: NEWER_RELEASE,
+    pins.TOOL_MISMATCH: OTHER_TOOL,
+    pins.RUSTC_DIFFERS: OTHER_TOOL,
+    pins.LOCAL_MOVED: OTHER_TOOL,
+    citations.ZIG_PROBE_COMPILES: OTHER_TOOL,
+    citations.ZIG_PROBE_OTHER: OTHER_TOOL,
+    assets.NO_WHEEL: (
+        "fires on a build backend that reports success and writes no wheel; the "
+        "pinned one does not, and a control cannot install another"
+    ),
+    pins.INTERPRETER_ID: HARNESS,
+    pins.INTERPRETER_UNORDERED: HARNESS,
+    pins.LIBRARY_INEXACT: HARNESS,
+    pins.LOCAL_NO_REASON: HARNESS,
+    pins.RUST_UNREADABLE: HARNESS,
+    crossref.DELTA_DECLARATION: HARNESS,
+    crossref.ANCHOR_NO_LANGUAGE: HARNESS,
+    sensitivity.NO_LANGUAGE: HARNESS,
+    sensitivity.NO_FIXTURE: HARNESS,
+    toolchain.EMPTY: COMPILES,
+    python.OUTSIDE: COMPILES,
+    python.RUN_TIMEOUT: COMPILES,
+    python.RUN: COMPILES,
+    python.TY_TIMEOUT: COMPILES,
+    python.RUFF_TIMEOUT: COMPILES,
+    python.REPORTED: COMPILES,
+    python.UNREAD: COMPILES,
+    rust.STEP_TIMEOUT: COMPILES,
+    rust.STEP: COMPILES,
+    rust.BASE_TIMEOUT: COMPILES,
+    rust.BASE: COMPILES,
+    rust.SURVIVOR: COMPILES,
+    zig.BUILD_TIMEOUT: COMPILES,
+    zig.BUILD: COMPILES,
+    zig.TEST_TIMEOUT: COMPILES,
+    zig.TEST: COMPILES,
+    zig.FMT_TIMEOUT: COMPILES,
+    zig.FMT: COMPILES,
+    zig.FMT_UNREAD: COMPILES,
+}
 
 
 @check("controls", "each branch that can fail a run still fails on its own defect")

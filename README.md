@@ -204,7 +204,7 @@ the time. The note after each is the defect it would have caught.
 | `sensitivity` | the `rg` patterns of each rule its profile gives fixtures, every one shown to hit one of them and every fixture hit by one; each other rule that ships a pattern is listed in the profile as unproven, and an entry that stopped being true fails | `self-application` proves a pattern does not fire on compliant code. Nothing proved one fires at all, and a pattern that matches nothing passes that test perfectly. It then asserted `any`: `ZS-MIG-12` ships four patterns over four disjoint families and one fixture, so three were counted as proven by a snippet none of them matched. And it skipped a rule with no fixture without a word, so this row claimed every pattern while most had none. |
 | `documented` | the README's claims about the checks, against the checks | This table said sixteen rows against eighteen checks, and the `controls` row claimed "every other check" while three were exempt — in the file whose note on `controls` records that an unverified claim in a README is what `controls` exists for. |
 | `mutation` | statements a shipped test does not pin | A shipped test passed whether or not the function it tested did anything. |
-| `controls` | that every check except those exempted still fails on the defect it owns, with each exemption naming its reason | "Every check carries a negative control" was a claim in a file, verified by hand once and never again. |
+| `controls` | that every branch that can fail a run, except those exempted, still fails on the defect it owns and no other branch does, with each exemption naming its reason | "Every check carries a negative control" was a claim in a file, verified by hand once and never again. |
 
 ## Block markers
 
@@ -280,9 +280,11 @@ quietly suppressing its pattern.
 ## The negative controls run
 
 `check_controls` copies the tree once per control, injects one defect, and asserts
-that the check owning it reports a failure. A control that stops firing is itself
-a failure, and so is a fixture whose anchor text has drifted out of the skill.
-`pytest` runs the same table one test per control.
+that the branch the control names reports a failure, and that no other branch of
+the check does. A control that stops firing is itself a failure, and so is a
+fixture whose anchor text has drifted out of the skill. `pytest` runs the same
+table one test per control, through the same runner, and holds the table to the
+branches: every branch that can fail a run has one control or one stated exemption.
 
 Not every finding becomes a check, and two did not.
 

@@ -22,19 +22,25 @@ not exist.
 import inspect
 import re
 import subprocess
+import sys
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
-lazy from collections.abc import Callable
+lazy from collections.abc import Callable, Iterator
 
 import pytest
 
 import agent_skill.proc
-from agent_skill.checks import all_checks, by_name
+from agent_skill.checks import all_checks, by_name, citations, controls, crossref, pins
+from agent_skill.checks import toolchain as toolchain_check
 from agent_skill.lang import toolchain_for
-from agent_skill.model import Tree
-from agent_skill.report import Level
+from agent_skill.layout import SKILLS
+from agent_skill.model import Tree, discover
+from agent_skill.report import DECLARED, Level
 lazy from agent_skill.checks import Check
+lazy from agent_skill.ids import Branch
 lazy from agent_skill.model import Skill
+lazy from agent_skill.report import Result
 
 #: What the audit that motivated this found. The declared set may grow;
 #: it may not shrink past this. A derivation that quietly stops finding
@@ -97,11 +103,25 @@ class Absent:
 
 
 def absent(monkeypatch: pytest.MonkeyPatch, gone: Callable[[str], bool]) -> Absent:
-    """Make the tools `gone` names absent, by every route to them."""
+    """Make the tools `gone` names absent, by every route to them.
+
+    An answer a tool gave earlier in the process is forgotten too: a
+    check that asks once a run would otherwise answer from it.
+    """
     shim = Absent(gone)
     monkeypatch.setattr(agent_skill.proc, "tool_path", shim.tool_path)
     monkeypatch.setattr(subprocess, "Popen", shim.popen)
+    forget()
     return shim
+
+
+def forget() -> None:
+    """Clear every answer the harness keeps for the process."""
+    for name, module in list(sys.modules.items()):
+        if name.startswith("agent_skill"):
+            for value in list(vars(module).values()):
+                if callable(getattr(type(value), "cache_clear", None)):
+                    value.cache_clear()
 
 
 def declaring() -> list[Check]:
@@ -190,7 +210,10 @@ def test_every_tool_a_check_reaches_for_is_declared(
     target = by_name(check)
     assert target is not None
     shim = absent(monkeypatch, lambda _name: target.slow)
-    target.run(Tree.of(skills))
+    try:
+        target.run(Tree.of(skills))
+    finally:
+        forget()
     assert shim.asked <= set(target.needs), (
         f"{check} reached for {sorted(shim.asked - set(target.needs))} and does "
         "not declare it — with that tool missing, nothing withholds its pass"
@@ -219,25 +242,132 @@ def subjects(target: Check, tool: str, skills: list[Skill]) -> list[Skill]:
     ]
 
 
-@pytest.mark.parametrize(
-    ("check", "tool"),
-    [(c.name, tool) for c in declaring() for tool in c.needs],
-    ids=lambda v: v,
-)
-def test_a_missing_tool_withholds_the_pass(
-    check: str, tool: str, skills: list[Skill], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Every tool a check declares, removed one at a time."""
+#: Every tool a check declares, as a (check, tool) pair.
+PAIRS = [(c.name, tool) for c in declaring() for tool in c.needs]
+
+
+@cache
+def withheld(check: str, tool: str) -> Result:
+    """`check` over the shipped skills, with `tool` absent.
+
+    Once a process: the test of each pair and the test of every branch
+    read the same runs.
+    """
     target = by_name(check)
     assert target is not None, f"{check} is registered"
-    absent(monkeypatch, lambda name: name == tool)
-    over = subjects(target, tool, skills)
-    assert over, f"no skill's toolchain needs `{tool}`, so declaring it covers nothing"
+    skills = discover(Path(__file__).resolve().parents[1] / SKILLS)
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        absent(monkeypatch, lambda name: name == tool)
+        try:
+            over = subjects(target, tool, skills)
+            assert over, (
+                f"no skill's toolchain needs `{tool}`, so declaring it covers nothing"
+            )
+            return target.run(Tree.of(over))
+        finally:
+            forget()
 
-    result = target.run(Tree.of(over))
+
+@pytest.mark.parametrize(("check", "tool"), PAIRS, ids=lambda v: v)
+def test_a_missing_tool_withholds_the_pass(check: str, tool: str) -> None:
+    """Every tool a check declares, removed one at a time."""
+    result = withheld(check, tool)
 
     assert any(f.level is Level.UNRUN for f in result.findings), (
         f"{check} reported nothing at UNRUN with `{tool}` absent — "
         f"a NOTE here lets the run report success while nothing looked"
     )
     assert not result.ok, f"{check} kept the pass with `{tool}` absent"
+
+
+#: The branches that report `UNRUN` and that no absent tool reaches, and
+#: why. Each is listed by name, so a branch added beside them is
+#: uncovered until someone decides which it is.
+NOT_BY_ABSENCE: dict[Branch, str] = {
+    controls.UNEXERCISED: (
+        "fires when a control's own check could not run; each check's absent tool "
+        "is covered here, and `controls` runs every other check rather than a tool"
+    ),
+    crossref.ANCHOR_ABSENT: (
+        "fires on a tree without the delta's anchor skill, which a run of the "
+        "shipped skills never is: every run reads every skill"
+    ),
+    citations.ENABLED_UNREAD: (
+        "fires on a `ruff` present that answers `--show-settings` with nothing; "
+        "absent, `ruff_absent` reports first"
+    ),
+    citations.CATALOGUE_UNREAD: (
+        "fires on a `ruff` present that lists no rules; absent, `ruff_absent` "
+        "reports first"
+    ),
+    citations.RUST_CATALOGUE_UNREAD: (
+        "fires on a `clippy-driver` and `rustdoc` present that list no lints; "
+        "absent, `rust_tool_absent` reports first"
+    ),
+    pins.TOOL_SILENT: (
+        "fires on a tool present that does not answer `--version`; absent, "
+        "`tool_absent` reports first"
+    ),
+    pins.INDEX_UNREAD: (
+        "fires on an index answer with no version for the package, which is the "
+        "index's state rather than a tool's absence"
+    ),
+    pins.INDEX_UNORDERED: (
+        "fires on a version the index offers that cannot be ordered, which is the "
+        "index's state rather than a tool's absence"
+    ),
+    pins.STABLE_SILENT: (
+        "fires when the Rust stable channel does not answer over the network, "
+        "which is no declared tool"
+    ),
+    pins.CRATES_SILENT: (
+        "fires when crates.io does not answer over the network, which is no "
+        "declared tool"
+    ),
+    pins.LIBRARY_UNORDERED: (
+        "fires on a crate version crates.io offers that cannot be ordered, which "
+        "is the registry's state"
+    ),
+    pins.PROJECT_UNPARSED: (
+        "fires on a shipped `pyproject.toml` that does not parse, a defect of the "
+        "tree that `assets.toml` fails and controls"
+    ),
+    pins.UV_SILENT: (
+        "fires on a `uv` present that lists no interpreters; absent, `uv_absent` "
+        "reports first"
+    ),
+    pins.RELEASE_UNORDERED: (
+        "fires on an interpreter release `uv` offers that cannot be ordered, "
+        "which is the release list's state"
+    ),
+    toolchain_check.MUTATION_EMPTY: (
+        "fires on a skill with no verified block to extract, which is the tree's "
+        "state; with a tool absent, `mutation.missing` reports first"
+    ),
+}
+
+
+def unrun_branches() -> set[Branch]:
+    """Every branch a registered check declares at `UNRUN`."""
+    checks = {c.name for c in all_checks()}
+    return {
+        b for b, level in DECLARED.items() if level is Level.UNRUN and b.check in checks
+    }
+
+
+def reached() -> Iterator[Branch]:
+    """Every `UNRUN` branch some absent tool makes fire."""
+    for check, tool in PAIRS:
+        yield from (f.branch for f in withheld(check, tool).unrun)
+
+
+def test_every_unrun_branch_is_reached_by_an_absent_tool() -> None:
+    """Each, or listed with why no absence reaches it, never both."""
+    found = set(reached())
+    listed = set(NOT_BY_ABSENCE)
+    both = sorted(str(b) for b in found & listed)
+    assert not both, f"listed as unreached, and an absent tool reaches it: {both}"
+    missing = sorted(str(b) for b in unrun_branches() - found - listed)
+    assert not missing, f"no absent tool reaches, and not listed: {missing}"
+    stale = sorted(str(b) for b in listed - unrun_branches())
+    assert not stale, f"listed, and not an `UNRUN` branch of a check: {stale}"

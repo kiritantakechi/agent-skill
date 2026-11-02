@@ -34,7 +34,7 @@ from agent_skill.ids import Location
 from agent_skill.layout import root_of
 from agent_skill.report import Level, declare, fail
 lazy from agent_skill.checks import all_checks
-lazy from agent_skill.checks.controls import WITHOUT_A_CONTROL
+lazy from agent_skill.checks.controls import EXEMPT
 lazy from agent_skill.model import Tree
 lazy from agent_skill.report import Finding
 
@@ -56,7 +56,7 @@ CELL = re.compile(r"(?<!\\)\|")
 #: rather than a count is what keeps it true when a check is added:
 #: "every other check" was false the moment one was exempted, and "15 of
 #: 18" would be false the next time one is registered.
-CONTROLS_SCOPE = "every check except those exempted"
+CONTROLS_SCOPE = "every branch that can fail a run, except those exempted"
 
 #: The cells a row needs after the name: what it catches, and why it was
 #: added.
@@ -146,8 +146,8 @@ def documented(tree: Tree) -> Iterator[Finding]:
         yield fail(
             "the `controls` row describes its scope as "
             f"{rows['controls'][0].strip()!r}, which does not say {CONTROLS_SCOPE!r} "
-            "— it covers every check except the "
-            f"{len(WITHOUT_A_CONTROL)} in `WITHOUT_A_CONTROL`, and a row stating a "
+            "— it covers every such branch except the "
+            f"{len(EXEMPT)} in `EXEMPT`, and a row stating a "
             "count or an 'every' goes stale the next time that mapping changes",
             where,
             CONTROLS_ROW,

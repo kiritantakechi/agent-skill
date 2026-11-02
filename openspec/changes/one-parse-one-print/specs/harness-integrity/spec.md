@@ -2,11 +2,16 @@
 
 ### Requirement: Negative controls are a bijection onto branches
 
-Every place a check can report a failure SHALL be a named branch, and every finding SHALL carry the
-branch that produced it. Every branch SHALL have exactly one negative control or exactly one
-recorded exemption with its reason, never both. A control SHALL pass only when a failure from its
-own branch is reported; a failure from any other branch SHALL NOT satisfy it. The `controls` check
-and the test suite SHALL run controls through one runner.
+Every place a check can report a finding SHALL be a named branch, declared with the one level it
+reports at, and every finding SHALL carry the branch that produced it. Every branch that can report
+a failure SHALL have exactly one negative control or exactly one recorded exemption with its
+reason, never both. A control SHALL pass only when a failure from its own branch is reported; a
+failure from any other branch SHALL NOT satisfy it, and a failure from another branch beside it
+SHALL fail the control unless the control states why the defect reaches that branch too. Every
+branch that reports that a check could not look SHALL be reached by making a tool the check
+declares absent, or be listed with the reason no absence reaches it. A branch that only informs
+SHALL fail no run, and is outside both. The `controls` check and the test suite SHALL run controls
+through one runner.
 
 #### Scenario: A control fires through a neighbouring branch
 
@@ -14,10 +19,22 @@ and the test suite SHALL run controls through one runner.
 - **THEN** the control fails, because the branch it exists to guard could be deleted and it would
   still pass
 
+#### Scenario: A control fires a neighbour as well
+
+- **WHEN** a control's own branch fires, and another branch of the same check fires beside it
+- **THEN** the control fails, unless it names that branch with the reason its defect cannot help
+  reaching it
+
 #### Scenario: A branch is added
 
 - **WHEN** a check gains a new failure site
 - **THEN** the suite fails until that branch has a control or a stated exemption
+
+#### Scenario: A branch reports that a check could not look
+
+- **WHEN** a check gains a branch at `UNRUN`
+- **THEN** the suite fails until making some declared tool absent reaches it, or it is listed with
+  the reason none does
 
 #### Scenario: A branch is removed
 

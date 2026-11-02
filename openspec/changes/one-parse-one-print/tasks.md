@@ -217,10 +217,69 @@
 
 ## 5. Controls as a bijection
 
-- [ ] 5.1 Convert every control to `Control(branch, inject)` with `inject` returning touched paths;
-  delete `TOUCHED`, `BRANCHES` and the test monkeypatching; one runner, run concurrently
-- [ ] 5.2 Add the bijection test; for each uncovered branch add a control or an exemption with its
-  reason; report the count added
+- [x] 5.1 Convert every control to `Control(branch, inject)` with `inject` returning touched paths;
+  delete `TOUCHED`, `BRANCHES` and the test monkeypatching; one runner, run concurrently —
+  `5125a05`; `exercise` is the runner, a thread pool runs it in `controls`; controls 75 → 71, and
+  `controls` 23.3 s → 9.4 s (`time uv run agent-skill check --fast --only controls`, 4 cores)
+
+  Decisions made on the way:
+
+  - A branch is declared with the one level it reports at, `declare(check, name, level)`, and a
+    `Finding` at another level is refused: every one of the 274 branches already reported at one
+    level, so which can fail a run is read off the declarations, not off the sites.
+  - A control fails when its branch does not fire (`controls.silent`, naming what fired instead),
+    and when another branch of its check fires beside it (`controls.beside`) unless its `also`
+    names that branch with why. The per-skill law `test_controls` held beside the runner is in the
+    runner (`controls.elsewhere`). `controls.no_check` is gone: the bijection test holds every
+    control's branch to a registered check.
+  - The corpus cache was a count-bounded `OrderedDict` keyed by root; run concurrently, it evicted
+    and deleted a corpus another control was still searching. It is keyed weakly by the `Skill`
+    read, under a lock, so a corpus lives as long as its tree.
+  - Each control asserted only "some FAIL". Held to its branch, seven fired through, or beside,
+    another, and were fixed: the zig row control fired `zig_no_probe` and `zig_probe_no_row` (as
+    B3 found) and now deletes a row, guarding `zig_probe_no_row`; the unread chapter moved to
+    `migration.md` (refusing `testing.md` broke three rename rows); the reflect control keeps the
+    derive; the deleted override table keeps its rows as prose (deleted, the anchor sweep hit as
+    well); frontmatter with no name deletes the line (misspelt, it was an extra key too); the
+    undocumented check deletes its row (renamed, it was a stale row too); the narrowed sensitivity
+    pattern became an added one (narrowed, its fixture went unmatched too).
+  - Two controls on one branch prove one thing twice. Dropped: two of three on
+    `self-application.decides`, the mid-chapter renumbering beside the end-of-chapter one on
+    `anatomy.numbering`, and one of the two narrowed sensitivity patterns. The COM812 citation now
+    cites `ASYNC101`, which ruff never had, and guards `citations.unknown_code`. `pins.project_pin`
+    split into `project_pin` (an exact pin on another build) and `project_inexact` (a floor or a
+    range), one control each: the floor was a separate defect, found after the first.
+- [x] 5.2 Add the bijection test; for each uncovered branch add a control or an exemption with its
+  reason; report the count added — the domain is refined to the branches that can fail a run
+  (decision 5): 219 FAIL branches over 22 checks have 175 controls (104 added) and 44 exemptions;
+  33 `UNRUN` branches are 18 reached by an absent tool and 15 listed in `test_unrun` with why; 19
+  `NOTE` branches and `fmt`'s 8 are outside. `controls` runs 175 controls in ≈15 s against 23.3 s
+  for 75 serially; `check --fast` 28 s; pytest 819 passed in 2 min 5 s
+
+  | Exemption reason | Branches |
+  |---|---|
+  | `COMPILES` — a branch of `toolchain` or `mutation` (the README exempts both) | 20 |
+  | `HARNESS` — fires on a profile's or the harness's declaration, not on the tree | 9 |
+  | `OTHER_TOOL` — fires on another installed tool or tool behaviour, incl. `assets.no_wheel` | 6 |
+  | `NEWER_RELEASE` — fires on a newer release upstream | 4 |
+  | `MECHANISM` — a branch of `controls`, incl. `empty_corpus` (builds its own empty skill) | 5 |
+
+  Decisions made on the way:
+
+  - The branches are derived: the test imports every module of the package and reads `DECLARED`.
+    A branch of no registered check other than `fmt`'s fails the suite.
+  - Four controls cannot help reaching a second branch, and say so in `also`: a missing contents
+    entry also differs in order (`_contents_order` compares the lists whole); an unknown ty rule is
+    also one the harness does not verify; and `claude plugin validate --strict` warns on a manifest
+    with no version and on a `SKILL.md` that is not a file, failing on the warning.
+  - `plugin.skills` was thought unreachable, since the tree is discovered from the directory the
+    plugin ships; a `SKILL.md` that is a link to nothing is shipped and not discovered.
+  - `test_unrun`'s absence now forgets every process-wide cache before and after: a cached answer
+    from a present tool masked the absence, so `citations.ty_rules_unread` was never reached.
+  - For task 6: the nine `HARNESS` branches (`crossref.delta_declaration`,
+    `crossref.anchor_no_language`, `sensitivity.no_language` and `.no_fixture`, and five of
+    `pins`) check a profile's or the harness's own declarations; once profiles are records, each is
+    a test over the records rather than a branch of a check of the tree.
 
 ## 6. Profiles as records
 

@@ -111,20 +111,36 @@ constructor function as its level — are replaced by `Finding` at the point of 
 
 ### 5. Controls are a bijection onto branches
 
-Every `fail(...)` site names its branch. A `Control(branch, inject)` asserts that a FAIL with
-exactly that branch is produced. One test asserts:
+Every finding site names its branch, and every branch is declared with the one level it reports
+at: `declare(check, name, level)` records it, and a `Finding` at another level than its branch's is
+refused. A `Control(branch, inject)` asserts that a FAIL with exactly that branch is produced. One
+test asserts, over every module of the harness imported:
 
 ```
-{c.branch for c in CONTROLS} ∪ EXEMPT == {all branches declared by all checks}
+{c.branch for c in CONTROLS} ∪ EXEMPT == {b declared at FAIL by a registered check}
 ```
 
-and that the two sides are disjoint, so no branch is both controlled and exempt. A control that
-fires through a different branch fails, which is what `BRANCHES` and the monkeypatching approximate
-today for 17 of 65 controls.
+and that the two sides are disjoint and each control's branch is its own, so no branch is both
+controlled and exempt and none has two controls. A control that fires through a different branch
+fails, which is what `BRANCHES` and the monkeypatching approximate today for 17 of 65 controls.
+
+The domain is the branches that can fail a run. A branch at `UNRUN` withholds the pass for a tool
+that is not there, so its control is the absent tool: `test_unrun` asserts that each one fires with
+some declared tool made absent, or is listed with the reason no absence reaches it. A branch at
+`NOTE` never fails a run and is outside both. `fmt` declares branches too and is a command, not a
+check, so they are outside as well.
+
+A control passes only when its branch fires. Another branch of the same check firing beside it
+fails the control unless the control's `also` names that branch with why the defect cannot help
+reaching it; injections that reach one branch are preferred. An exemption names its branch and its
+reason; reasons are shared constants (a newer release upstream, another installed tool, a value
+the harness or a profile declares rather than the tree, a branch of `toolchain` or `mutation`, a
+branch of `controls` itself), and every exempt branch is still listed by name.
 
 `inject` returns the paths it edited, so the runner scopes per-skill checks without a module-level
 list, and controls run concurrently in a thread pool. The `controls` check and the pytest
-parametrisation call the same function; there is one runner.
+parametrisation call the same function; there is one runner. It also holds a per-skill check to
+reporting only in the skills it read, which a test used to do beside it.
 
 ### 6. A toolchain is an extract/restore pair
 
