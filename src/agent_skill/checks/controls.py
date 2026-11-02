@@ -180,6 +180,28 @@ def _unaccounted_anchor_rule(tree: Path) -> None:
     )
 
 
+#: The head of `bevy-style`'s override table, which `_no_override_table`
+#: deletes along with every row under it.
+_OVERRIDES = "| `rust-style` rule | What applies instead | Why Bevy forces it |\n"
+
+
+def _no_override_table(tree: Path) -> None:
+    """Delete the delta's override table, head and rows.
+
+    The anchor used to be read off the table's rows, so deleting the
+    table took the anchor with it: the sweep of the anchor's patterns
+    had nothing to run, and what was left was a note.
+    """
+    rel = "bevy-style/SKILL.md"
+    text = (tree / rel).read_text()
+    if _OVERRIDES not in text:
+        msg = f"{rel}: {_OVERRIDES[:60]!r}"
+        raise FixtureGoneError(msg)
+    lines = text.partition(_OVERRIDES)[2].split("\n")
+    table = next(i for i, line in enumerate(lines) if not line.startswith("|"))
+    edit(tree, rel, _OVERRIDES + "\n".join(lines[:table]) + "\n", "")
+
+
 def _orphan_asset(tree: Path) -> None:
     """Ship a file in `assets/` that nothing references."""
     (tree / "rust-style/assets/orphan.toml").write_text("x = 1\n")
@@ -558,6 +580,11 @@ CONTROLS: list[Control] = [
         "an anchor rule that fires on the delta's examples and is not accounted for",
         "crossref",
         _unaccounted_anchor_rule,
+    ),
+    Control(
+        "a delta whose override table is deleted",
+        "crossref",
+        _no_override_table,
     ),
     Control(
         "a citation into a standard that has no such rule",

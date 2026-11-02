@@ -63,6 +63,7 @@ class BevyStyle(Profile):
         "**Load `rust-style` as well** for anything that is a Rust question "
         "rather than a Bevy question."
     )
+    anchor: str = "rust-style"
     crate: Crate | None = BEVY_STYLE
     #: Each snippet is the defect its rule forbids, written the way it
     #: turns up in real code. A fixture shaped to match proves the

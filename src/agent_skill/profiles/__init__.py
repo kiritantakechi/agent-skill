@@ -69,6 +69,14 @@ class Profile:
     #: A delta standard's extra reading step, or "" for a standard that
     #: stands alone.
     delta_step: str = ""
+    #: The standard a delta is a delta on, by name; "" for one that
+    #: stands alone, and required exactly when `delta_step` is set.
+    #:
+    #: Declared rather than read from the override table, because the
+    #: table is what `crossref` checks: deriving the anchor from its
+    #: rows meant deleting the table deleted the anchor, which turned
+    #: off the sweep of the anchor's patterns and left a note.
+    anchor: str = ""
     #: Why `pin()` follows this machine's toolchain rather than
     #: upstream's newest release, or None when it follows upstream. Such
     #: a pin is compared with the running version only, and the

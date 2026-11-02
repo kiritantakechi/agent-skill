@@ -93,6 +93,7 @@ def _plain(s: str) -> str:
 def crossref(skills: Sequence[Skill]) -> Iterator[Finding]:
     """Every citation across skills, and each delta's override table."""
     by_prefix = {s.prefix: s for s in skills}
+    by_name = {s.name: s for s in skills}
     known = {p: _ids(s) for p, s in by_prefix.items()}
     titles = {p: {r.id: r.title for r in s.rules} for p, s in by_prefix.items()}
 
@@ -106,21 +107,48 @@ def crossref(skills: Sequence[Skill]) -> Iterator[Finding]:
         rows = list(OVERRIDE_ROW.finditer(skill.text))
         yield from _override_rows(skill, rows, titles)
 
-        yield from _anchor_patterns(skill, by_prefix, rows)
+        yield from _delta(skill, rows)
+        yield from _anchor_patterns(skill, by_name)
 
         # A skill that cites another standard at all should say where it
-        # disagrees with it; one that cites none needs no table.
+        # disagrees with it; one that cites none needs no table. A delta
+        # is held to that by `_delta`, as a failure.
         cites_other = any(
             p != skill.prefix and p in known
             for path in skill.markdown
             for p, _ in CITATION.findall(path.read_text())
         )
-        if cites_other and not rows:
+        if cites_other and not rows and not skill.profile.anchor:
             yield note(
                 "cites another standard but states no override table", skill.name
             )
 
     yield from _apparatus_citations(known)
+
+
+def _delta(skill: Skill, rows: list[re.Match[str]]) -> Iterator[Finding]:
+    """A delta names its anchor, and states where it departs from it.
+
+    `delta_step` is what marks a delta, so the two declarations have to
+    agree. A delta with no override table claims that it relaxes nothing
+    — which was the reading when the table was deleted outright, and the
+    anchor sweep switched off with it.
+    """
+    profile = skill.profile
+    if bool(profile.delta_step) != bool(profile.anchor):
+        yield fail(
+            "the profile sets one of `delta_step` and `anchor` without the "
+            "other; a delta declares both, a standard that stands alone neither",
+            skill.name,
+        )
+    departures = [m for m in rows if not m.group(1).startswith(f"{skill.prefix}-")]
+    if profile.anchor and not departures:
+        yield fail(
+            f"is a delta on {profile.anchor} and states no override table — "
+            "a delta that says where it departs from nothing has either departed "
+            "silently or lost its table",
+            skill.name,
+        )
 
 
 def _citations(
@@ -170,9 +198,7 @@ def _override_rows(
             )
 
 
-def _anchor_patterns(
-    skill: Skill, by_prefix: dict[str, Skill], rows: list[re.Match[str]]
-) -> Iterator[Finding]:
+def _anchor_patterns(skill: Skill, by_name: dict[str, Skill]) -> Iterator[Finding]:
     """The other standard's own patterns, run over this one's examples.
 
     A delta claims that everything the anchor says still holds except
@@ -187,13 +213,27 @@ def _anchor_patterns(
     A hit is allowed when the delta's `SKILL.md` names that rule
     anywhere: in the override table, or in the prose that says why a
     rule is *not* on it. Either way the reader has been told.
+
+    The anchor is the one the profile declares. It used to be every
+    standard the override table cited, so deleting the table emptied
+    the set and the sweep returned having run nothing.
     """
-    anchors = {
-        p
-        for p in by_prefix
-        if p != skill.prefix and any(m.group(1)[:2] == p for m in rows)
-    }
-    if not anchors or not skill.profile.languages:
+    if not skill.profile.anchor:
+        return
+    other = by_name.get(skill.profile.anchor)
+    if other is None:
+        yield unrun(
+            f"its anchor {skill.profile.anchor} is not among the skills read, so "
+            "none of its patterns ran over these examples",
+            skill.name,
+        )
+        return
+    if not skill.profile.languages:
+        yield fail(
+            f"is a delta on {other.name} and its profile names no language, so the "
+            "anchor's patterns have no examples to run over",
+            skill.name,
+        )
         return
     named = set(re.findall(r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b", skill.text))
     lang = skill.profile.languages[0]
@@ -202,13 +242,16 @@ def _anchor_patterns(
         return
     corpus = corpus_for(skill, lang)
     if not corpus.blocks:
+        yield fail(
+            f"no verified {lang} example to run {other.name}'s patterns over — an "
+            "empty corpus passes every one of them",
+            skill.name,
+        )
         return
-    for prefix in sorted(anchors):
-        other = by_prefix[prefix]
-        for rule in other.rules:
-            if not rule.check or rule.id in named:
-                continue
-            yield from _sweep(skill, corpus, other, rule)
+    for rule in other.rules:
+        if not rule.check or rule.id in named:
+            continue
+        yield from _sweep(skill, corpus, other, rule)
 
 
 def _sweep(skill: Skill, corpus: Corpus, other: Skill, rule: Rule) -> Iterator[Finding]:
