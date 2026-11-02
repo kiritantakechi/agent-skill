@@ -56,6 +56,17 @@ class RustStyle(Profile):
             "RS-DOC-27": ("/// See [the guide](https://docs.rs/serde/latest/serde/).",),
         }
     )
+    #: Each of these ships an `rg` pattern that no fixture in `fires`
+    #: proves yet. Giving one a fixture means deleting it here, which
+    #: `sensitivity` insists on, so the list only shrinks.
+    unproven: frozenset[str] = frozenset(
+        {
+            "RS-API-15",
+            "RS-MOD-08",
+            "RS-MOD-12",
+            "RS-OWN-36",
+        }
+    )
     #: Measured, not judged: each of these was promoted to accuse and
     #: hit the standard's own compliant examples. The reason names what
     #: the span finds and what, outside the match, decides whether the

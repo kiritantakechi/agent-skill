@@ -126,6 +126,16 @@ class Profile:
     #: pattern narrowed until it stops matching can be "fixed" by adding
     #: a snippet nothing relates to the rule.
     fires: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    #: Rule ids whose Check ships an `rg` pattern that no entry in
+    #: `fires` proves yet.
+    #:
+    #: The gap, stated. `sensitivity` used to skip a rule with no
+    #: fixture and say nothing, so most shipped patterns were unproven
+    #: while the check read as covering every one. Now each rule that
+    #: ships a pattern is either proven or listed here, and an entry
+    #: that has stopped being true — the rule is gone, ships no pattern,
+    #: or has a fixture now — fails, so the list can only shrink.
+    unproven: frozenset[str] = frozenset()
     #: A compiler row's phrase -> the smallest source the compiler
     #: rejects with it. A compiler has no lint table to compare a row
     #: against, so each row is proved by a probe, and each probe needs

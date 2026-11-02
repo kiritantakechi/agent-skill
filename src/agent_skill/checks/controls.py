@@ -812,6 +812,28 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        # The gap that was skipped without a word: a pattern shipped,
+        # nothing proved it fires, and nothing said so.
+        "a rule shipping a pattern that is neither proven nor listed unproven",
+        "sensitivity",
+        lambda t: append(
+            t,
+            "python-style/references/testing.md",
+            "\n### PS-TEST-99 [M] Injected\n\nX.\n\n**Why:** y.\n\n"
+            "**Check:** `rg -n 'injected_call\\(' src/`.\n",
+        ),
+    ),
+    Control(
+        "an unproven entry for a rule that no longer ships a pattern",
+        "sensitivity",
+        lambda t: edit(
+            t,
+            "python-style/references/naming.md",
+            "**Check:** `rg -n 'self\\.__[a-z]' src/` — every hit",
+            "**Check:** every `self.__` name — every hit",
+        ),
+    ),
+    Control(
         # The reader installs what the asset says; the harness verified
         # against what pyproject says. A silent disagreement hands them
         # a different build.

@@ -109,6 +109,27 @@ class BevyStyle(Profile):
             ),
         }
     )
+    #: Each of these ships an `rg` pattern that no fixture in `fires`
+    #: proves yet. Giving one a fixture means deleting it here, which
+    #: `sensitivity` insists on, so the list only shrinks.
+    unproven: frozenset[str] = frozenset(
+        {
+            "BV-ARCH-09",
+            "BV-EVENT-14",
+            "BV-MIG-01",
+            "BV-MIG-03",
+            "BV-MIG-04",
+            "BV-MIG-05",
+            "BV-MIG-06",
+            "BV-MIG-07",
+            "BV-MIG-08",
+            "BV-MIG-09",
+            "BV-MIG-10",
+            "BV-MIG-11",
+            "BV-MIG-12",
+            "BV-MIG-13",
+        }
+    )
     #: Measured, not judged: each of these was promoted to accuse and
     #: hit the standard's own compliant examples. The reason names what
     #: the span finds and what, outside the match, decides whether the
