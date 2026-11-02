@@ -816,7 +816,6 @@ impl Plugin for DecayPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bevy::ecs::system::RunSystemOnce as _;
 
     /// Slices, not items: the assertion is that one call covered every entity
     /// in one table, which is the property the flat iterator cannot offer.
@@ -838,19 +837,18 @@ mod tests {
         assert_eq!((slices, covered), (1, 4));
     }
 
+    /// Through the plugin, so the test also pins that the plugin schedules
+    /// the system; an error would reach the default handler and fail it.
     #[test]
     fn decay_multiplies_every_entity() {
-        let mut world = World::new();
-        world.spawn((Health(100.0), Decay(0.5)));
-        world.spawn((Health(40.0), Decay(0.25)));
-        // `Out` is named because a system returning `Result` converts to an
-        // output of `()` as well as of itself; `()` puts its error in the
-        // `RunSystemError`, so one `is_ok` pins both layers.
-        let ran: Result<(), _> = world.run_system_once(decay_health);
-        assert!(ran.is_ok());
+        let mut app = App::new();
+        app.add_plugins(DecayPlugin);
+        app.world_mut().spawn((Health(100.0), Decay(0.5)));
+        app.world_mut().spawn((Health(40.0), Decay(0.25)));
+        app.world_mut().run_schedule(FixedUpdate);
 
-        let mut query = world.query::<&Health>();
-        let mut got: Vec<f32> = query.iter(&world).map(|h| h.0).collect();
+        let mut query = app.world_mut().query::<&Health>();
+        let mut got: Vec<f32> = query.iter(app.world()).map(|h| h.0).collect();
         got.sort_by(f32::total_cmp);
         assert_eq!(got, [10.0, 50.0]);
     }
