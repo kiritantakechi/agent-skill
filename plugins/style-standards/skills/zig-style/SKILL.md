@@ -133,11 +133,12 @@ This is **silent** staleness: the old names remain as aliases, so nothing fails 
 | `std.meta.fieldInfo`, `fieldNames`, `fieldTypes` | `@typeInfo`, `@FieldType` |
 | `b.lazyDependency(name, args)` | `b.dependency(name, args)`, or `try b.dependencyLazy(name, args)` |
 | `std.ArrayListUnmanaged(T)` | `std.ArrayList(T)` — the managed one is now the deprecated one |
+| `std.fs.path`, `std.fs.max_path_bytes`, `max_name_bytes` | `std.Io.Dir.path`, `std.Io.Dir.max_path_bytes`, `max_name_bytes` |
 
 `std.mem.indexOf*` was renamed to `find*` in 0.16, and the old names still compile: `indexOf` is
 `find`, `lastIndexOfScalar` is `findScalarLast`, and `references/migration.md` ZS-MIG-05 has every
-pair. The complete list, with a pattern for each row, is that chapter's Part 7, and ZS-MIG-13 is the
-denylist that fails a build on them.
+pair. Part 7 there lists what 0.17 deprecated, with a pattern for each row, and ZS-MIG-13 is the
+denylist that collects the chapter's alias rows and fails a build on them.
 
 ### 2.4 `main` takes a parameter now
 
@@ -185,7 +186,6 @@ about twenty lines, and every member of it is marked `Deprecated`.
 | `std.io.getStdOut().writer()`, `bufferedWriter` | `Io.File.stdout().writerStreaming(io, &buffer)`, then `flush()` |
 | `std.io.Writer` / `GenericWriter` / `AnyWriter` | `*std.Io.Writer` (non-generic, buffer supplied by you) |
 | `std.fs.cwd()`, `std.fs.File`, `std.fs.Dir` | `std.Io.Dir`, `std.Io.File` — every call takes an `io` |
-| `std.fs.path` | `std.Io.Dir.path` |
 | `async` / `await` keywords | `io.async(f, args)` → `Future(T)`, then `future.await(io)` |
 | `std.heap.GeneralPurposeAllocator` | `std.heap.SafeAllocator` (0.16 called it `DebugAllocator`) |
 
@@ -488,11 +488,12 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 1. **Stale API.** Any `std.io.*`, `std.fs.File`/`Dir`/`cwd`, `GeneralPurposeAllocator`,
    `usingnamespace`, `async`/`await` keywords, `@setCold`, `@Type`, `std.Thread.Mutex`,
-   `std.time.Timer`, `BoundedArray`, `pub fn main() !void`, `b.args`, `errdefer |err|`, `@cImport`,
-   or `@typeInfo(T).@"struct".fields`? None of them builds on 0.17. The ones that still **compile**
+   `std.time.Timer`, `BoundedArray`, `b.args`, `errdefer |err|`, `@cImport`, or
+   `@typeInfo(T).@"struct".fields`? None of them builds on 0.17. `pub fn main() !void` still
+   builds, but hands you no `Io`, `gpa` or arguments (ZS-MIG-08). The ones that still **compile**
    are the ones to grep for, because nothing else catches them: `indexOf*`, `ArrayListUnmanaged`,
-   `*ArrayHashMapUnmanaged`, `std.builtin`, `builtin.mode` and the TitleCase mode names,
-   `DebugAllocator`, `std.fmt.allocPrint`/`bufPrint`, `getLast`, the `*BitSet` names,
+   `*ArrayHashMapUnmanaged`, `std.fs.path`, `std.builtin`, `builtin.mode` and the TitleCase mode
+   names, `DebugAllocator`, `std.fmt.allocPrint`/`bufPrint`, `getLast`, the `*BitSet` names,
    `lazyDependency`, `utf8Decode`/`wtf8Decode`, `std.debug.runtime_safety`. Then re-read every
    `containsAtLeastScalar` call and every `@hasDecl` on a private declaration: both compile and now
    mean something else. `references/migration.md` ZS-MIG-13 carries the complete
