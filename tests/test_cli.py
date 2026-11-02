@@ -1,12 +1,15 @@
 """`agent-skill` itself: what it refuses, and what each check reads."""
 
 lazy from collections.abc import Iterator, Sequence
+lazy from pathlib import Path
 
 import pytest
 
 from agent_skill import cli
 from agent_skill.checks import Check
-lazy from agent_skill.model import Skill
+from agent_skill.layout import SKILLS
+from agent_skill.model import Skill
+from structure_fixture import build
 lazy from agent_skill.report import Finding
 
 
@@ -49,3 +52,91 @@ def test_skill_narrows_only_the_checks_that_read_one_skill(
     assert cli.main(["check", "--skill", "bevy-style"]) == 0
     assert given["each"] == ["bevy-style"]
     assert given["across"] == ["bevy-style", "python-style", "rust-style", "zig-style"]
+
+
+@pytest.fixture
+def repo(tmp_path: Path) -> Path:
+    """A repository of one demo standard, apart from this checkout."""
+    build(tmp_path / SKILLS)
+    (tmp_path / "src").mkdir()
+    (tmp_path / "tests").mkdir()
+    return tmp_path
+
+
+def snapshot(root: Path) -> dict[Path, bytes]:
+    return {p: p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
+
+
+def test_demote_and_renumber_rewrite_the_repository_skills_names(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    skills = str(repo / SKILLS)
+    plan = repo / "plan.json"
+    plan.write_text('{"DS-ERR-01": {"remove": "said nothing"}}')
+
+    assert cli.main(["--skills", skills, "demote", "demo-style", str(plan)]) == 0
+    assert cli.main(["--skills", skills, "renumber", "demo-style"]) == 0
+
+    out = capsys.readouterr().out
+    assert f"write   {SKILLS}/demo-style/references/errors.md" in out
+    after = Skill(repo / SKILLS / "demo-style")
+    assert [r.id for r in after.rules] == ["DS-ERR-01", "DS-MIG-01"]
+    assert after.by_id["DS-ERR-01"].title == "Name them"
+
+
+#: A demotion whose plan file is not there.
+NO_PLAN = "<no plan file>"
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        (["renumber", "no-such-style"], "nothing is called no-such-style"),
+        (["demote", "no-such-style", "{}"], "nothing is called no-such-style"),
+        (["demote", "demo-style", NO_PLAN], "No such file"),
+        (["demote", "demo-style", "{"], "Expecting"),
+        (["demote", "demo-style", '{"DS-ERR-01": "remove"}'], "exactly one"),
+        (["demote", "demo-style", "{}"], "naming at least one rule"),
+        (["demote", "demo-style", "[]"], "naming at least one rule"),
+        (["demote", "demo-style", '{"DS-ERR-01": {"rows": "x"}}'], "rows are"),
+        (["demote", "demo-style", '{"DS-ERR-01": {"lint": ["x"]}}'], "a lint is"),
+        (["demote", "demo-style", '{"DS-ERR-01": {"merge": 1}}'], "a merge names"),
+    ],
+)
+def test_a_command_that_cannot_start_says_why_and_exits_2(
+    repo: Path, argv: list[str], message: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A demotion's third word is the plan file's text."""
+    args = list(argv)
+    if args[0] == "demote":
+        plan = repo / "plan.json"
+        if args[2] != NO_PLAN:
+            plan.write_text(args[2])
+        args[2] = str(plan)
+    before = snapshot(repo)
+    assert cli.main(["--skills", str(repo / SKILLS), *args, "--dry-run"]) == 2
+    assert message in capsys.readouterr().err
+    assert snapshot(repo) == before
+
+
+def test_a_skills_directory_that_is_not_there_exits_2(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli.main(["--skills", str(tmp_path / "nowhere"), "list"]) == 2
+    assert "is not a directory" in capsys.readouterr().err
+
+
+def test_a_skills_directory_outside_a_repository_has_nothing_to_renumber(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    build(tmp_path)
+    assert cli.main(["--skills", str(tmp_path), "renumber", "demo-style"]) == 2
+    assert "no repository" in capsys.readouterr().err
+
+
+def test_a_chapter_rename_without_its_new_name_is_a_usage_error(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit, match=r"^2$"):
+        cli.main(["renumber", "--chapters", "errors", "python-style", "--dry-run"])
+    assert "is not OLD=NEW" in capsys.readouterr().err

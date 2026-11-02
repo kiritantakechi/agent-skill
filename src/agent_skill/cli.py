@@ -14,7 +14,7 @@ lazy from collections.abc import Callable
 from agent_skill import build
 from agent_skill.checks import all_checks
 from agent_skill.fmt import format_skill
-from agent_skill.layout import SKILLS
+from agent_skill.layout import SKILLS, root_of
 from agent_skill.model import discover
 from agent_skill.report import Level, Result
 lazy from agent_skill import demote, renumber
@@ -162,39 +162,86 @@ def cmd_fmt(args: argparse.Namespace) -> int:
     return 0
 
 
+def _chapter_rename(pair: str) -> tuple[str, str]:
+    """`OLD=NEW` as the pair it names.
+
+    Anything else is a usage error, which argparse reports.
+    """
+    old, sep, new = pair.partition("=")
+    if not (old and sep and new):
+        msg = f"{pair!r} is not OLD=NEW"
+        raise argparse.ArgumentTypeError(msg)
+    return old, new
+
+
+def _repo_for(command: str, args: argparse.Namespace) -> Path | None:
+    """The repository whose skill `args.skill` names, or None.
+
+    None, having said why, when `--skills` is not a repository's skills
+    directory or holds no such skill. A rewrite reaches the repository's
+    `src/`, `tests/` and README as well as its skills, so it needs the
+    root `--skills` sits in; it used to rewrite this checkout whatever
+    `--skills` said.
+    """
+    skills = args.skills.resolve()
+    if len(skills.parts) <= len(SKILLS.parts) or root_of(skills) / SKILLS != skills:
+        print(
+            f"{command}: {args.skills} is not a repository's `{SKILLS}`, "
+            "so there is no repository to rewrite citations in",
+            file=sys.stderr,
+        )
+        return None
+    if complaint := _unknown("skill", [args.skill], [s.name for s in discover(skills)]):
+        print(f"{command}: {complaint}", file=sys.stderr)
+        return None
+    return root_of(skills)
+
+
 def cmd_renumber(args: argparse.Namespace) -> int:
     """Print the renumbering plan, and carry it out unless `--dry-run`.
 
-    Exit 1, having written nothing, when the plan cannot be made.
+    Exit 1, having written nothing, when the plan cannot be made, and 2
+    when there is no such skill.
     """
-    chapters = dict(pair.split("=", 1) for pair in args.chapters or [])
+    repo = _repo_for("renumber", args)
+    if repo is None:
+        return 2
     try:
-        plan = renumber.plan(REPO, args.skill, chapters)
+        plan = renumber.plan(repo, args.skill, dict(args.chapters or []))
     except renumber.RenumberError as e:
         print(f"renumber: {e}", file=sys.stderr)
         print("nothing was written", file=sys.stderr)
         return 1
     for old, new in plan.moves.items():
-        print(f"  move    {old.relative_to(REPO)} -> {new.name}")
+        print(f"  move    {old.relative_to(repo)} -> {new.name}")
     print(f"  ids     {plan.changed} of {len(plan.ids)} renumbered")
     for path in sorted(plan.writes):
-        print(f"  write   {path.relative_to(REPO)}")
+        print(f"  write   {path.relative_to(repo)}")
     for line in plan.leftovers:
         print(f"  look    {line}")
     if args.dry_run:
         print("dry run: nothing was written")
         return 0
-    renumber.apply(REPO, plan)
+    renumber.apply(repo, plan)
     return 0
 
 
 def cmd_demote(args: argparse.Namespace) -> int:
     """Print the demotion plan, and carry it out unless `--dry-run`.
 
-    Exit 1, having written nothing, when the plan cannot be made.
+    Exit 1, having written nothing, when the plan cannot be made, and 2
+    when there is no such skill or the plan file is not a plan.
     """
+    repo = _repo_for("demote", args)
+    if repo is None:
+        return 2
     try:
-        demotion = demote.plan(REPO, args.skill, json.loads(args.plan.read_text()))
+        asked = demote.entries(json.loads(args.plan.read_text()))
+    except (OSError, ValueError, demote.DemoteError) as e:
+        print(f"demote: {args.plan}: {e}", file=sys.stderr)
+        return 2
+    try:
+        demotion = demote.plan(repo, args.skill, asked)
     except demote.DemoteError as e:
         print(f"demote: {e}", file=sys.stderr)
         print("nothing was written", file=sys.stderr)
@@ -202,7 +249,7 @@ def cmd_demote(args: argparse.Namespace) -> int:
     for rid, becomes in demotion.dispositions.items():
         print(f"  demote  {rid} -> {becomes}")
     for path in sorted(demotion.writes):
-        print(f"  write   {path.relative_to(REPO)}")
+        print(f"  write   {path.relative_to(repo)}")
     for line in demotion.leftovers:
         print(f"  look    {line}")
     if args.dry_run:
@@ -281,6 +328,7 @@ def main(argv: list[str] | None = None) -> int:
     num.add_argument(
         "--chapters",
         action="append",
+        type=_chapter_rename,
         metavar="OLD=NEW",
         help="rename a chapter (repeatable)",
     )
@@ -305,6 +353,9 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv, namespace=_Parsed())
+    if not args.skills.is_dir():
+        print(f"--skills: {args.skills} is not a directory", file=sys.stderr)
+        return 2
     return args.func(args)
 
 

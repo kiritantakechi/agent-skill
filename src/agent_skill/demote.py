@@ -91,7 +91,11 @@ def plan(
     that already exists; `{"merge": "ID"}`, the rule it was folded into;
     or `{"remove": "reason"}`.
     """
+    asked = entries(asked)
     skill = Skill(repo / SKILLS / name, profile)
+    if not skill.skill_md.is_file():
+        msg = f"there is no skill called {name}"
+        raise DemoteError(msg)
     dispositions = _dispositions(skill, name, asked)
     writes = _chapter_writes(skill, asked)
 
@@ -117,11 +121,70 @@ def apply(demotion: Demotion) -> None:
         path.write_text(text)
 
 
+def entries(raw: object) -> dict[str, Entry]:
+    """`raw`, a plan as `json.loads` reads it, checked for shape.
+
+    A plan maps each rule ID to an object holding one of `KINDS`, and
+    that key holds what `Entry` says it does. Anything else stops here,
+    before a rule is read: a string where an entry belongs raised
+    `AttributeError`, and an empty plan built a pattern that matched at
+    every word boundary.
+    """
+    if not isinstance(raw, dict) or not raw:
+        msg = "a plan is a JSON object naming at least one rule"
+        raise DemoteError(msg)
+    out: dict[str, Entry] = {}
+    for rid, what in raw.items():
+        one = isinstance(what, dict) and len(what) == 1
+        kind, value = next(iter(what.items())) if one else ("", "")
+        entry = _entry(kind, value) if one else None
+        if entry is None:
+            shape = _SHAPES.get(str(kind), f"say exactly one of {', '.join(KINDS)}")
+            msg = f"{rid}: {shape}"
+            raise DemoteError(msg)
+        out[str(rid)] = entry
+    return out
+
+
+#: What each kind of entry holds, said as the refusal of anything else.
+_SHAPES = {
+    "rows": "rows are [tool, lint, level, forbids], and there is one",
+    "lint": "a lint is [tool, lint]",
+    "merge": "a merge names the rule it went into",
+    "remove": "a removal needs its reason",
+}
+
+
+def _entry(kind: object, value: object) -> Entry | None:
+    """`{kind: value}` as an `Entry`, or None when it is not one."""
+    if kind == "rows" and isinstance(value, list):
+        rows = [
+            cells for row in value if (cells := _strings(row, _ROW_CELLS)) is not None
+        ]
+        if rows and len(rows) == len(value):
+            return {"rows": rows}
+    elif kind == "lint" and (lint := _strings(value, 2)) is not None:
+        return {"lint": lint}
+    elif kind == "merge" and isinstance(value, str):
+        return {"merge": value}
+    elif kind == "remove" and isinstance(value, str) and value.strip():
+        return {"remove": value}
+    return None
+
+
+def _strings(value: object, n: int) -> list[str] | None:
+    """`value` as a list of `n` strings, or None when it is not one."""
+    if not isinstance(value, list):
+        return None
+    cells = [c for c in value if isinstance(c, str)]
+    return cells if len(cells) == len(value) == n else None
+
+
 def _dispositions(skill: Skill, name: str, asked: dict[str, Entry]) -> dict[str, str]:
     """What the rename table will say each rule in `asked` became.
 
     Every entry is checked before any chapter is touched: the rule must
-    be a chapter rule, and the entry must say exactly one thing.
+    be a chapter rule, and what it becomes must be there to become.
     """
     by_id = skill.by_id
     core = {rid for rid, _, _ in skill.core_rules}
@@ -134,10 +197,7 @@ def _dispositions(skill: Skill, name: str, asked: dict[str, Entry]) -> dict[str,
         if rid not in by_id:
             msg = f"{name} has no chapter rule {rid}"
             raise DemoteError(msg)
-        if len(what) != 1 or (kind := next(iter(what))) not in KINDS:
-            msg = f"{rid}: say exactly one of {', '.join(KINDS)}"
-            raise DemoteError(msg)
-        dispositions[rid] = _disposition(rid, kind, what, kept, known)
+        dispositions[rid] = _disposition(rid, next(iter(what)), what, kept, known)
     return dispositions
 
 
@@ -173,13 +233,11 @@ def _disposition(
 ) -> str:
     """What the rename table says `rid` became.
 
-    A merge is into a rule this plan keeps.
+    `what` is already the shape `entries` checks. A merge is into a rule
+    this plan keeps.
     """
     if kind == "rows":
         rows = what["rows"]
-        if not rows or any(len(row) != _ROW_CELLS for row in rows):
-            msg = f"{rid}: rows are [tool, lint, level, forbids], and there is one"
-            raise DemoteError(msg)
         return f"lint `{rows[0][0]}:{rows[0][1]}`"
     if kind == "lint":
         lint = what["lint"]
@@ -193,11 +251,7 @@ def _disposition(
             msg = f"{rid}: {into} is not a rule this standard keeps"
             raise DemoteError(msg)
         return f"`{into}`"
-    reason = what["remove"]
-    if not str(reason).strip():
-        msg = f"{rid}: a removal needs its reason"
-        raise DemoteError(msg)
-    return f"removed — {reason.strip()}"
+    return f"removed — {what['remove'].strip()}"
 
 
 def _drop(text: str, rid: str) -> str:

@@ -76,6 +76,9 @@ def plan(
     chapters = dict(chapters or {})
     skills_dir = repo / SKILLS
     skill = Skill(skills_dir / name, profile)
+    if not skill.skill_md.is_file():
+        msg = f"there is no skill called {name}"
+        raise RenumberError(msg)
     prefix = skill.prefix
     stems = {c.path.stem for c in skill.chapters}
 
