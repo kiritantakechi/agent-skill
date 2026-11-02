@@ -162,8 +162,9 @@ Break the code, watch the test fail, restore it.
 branch, a fixture that returns early, an `assert` on a truthy object rather than a value — and
 watching it fail is the only check that catches all of them.
 
-**Check:** the repository's own mutation check does this mechanically — delete a statement and see
-whether any test notices.
+**Check:** revert the change a new test covers and run it: a test that still passes is the finding.
+Mutation testing does the same across a codebase — delete or invert a statement, and see whether
+any test notices.
 
 ## Parametrisation
 

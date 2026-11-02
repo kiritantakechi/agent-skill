@@ -183,8 +183,9 @@ package.
 is three nouns, which is three modules or one badly named one. PEP 8 permits underscores in module
 names "if it improves readability" and discourages them in package names outright.
 
-**Check:** `find src -name '*_*_*.py'` — two or more underscores in a module name is a module worth
-splitting. Any underscore in a directory under `src/` is the finding.
+**Check:** `find src -name '[!_]*_*_*.py' -o -name '_*_*_*.py' ! -name '__*'` — a third word in a
+module name, not counting a private module's leading underscore or a dunder like `__init__.py`, is a
+module worth splitting. Any underscore in a directory under `src/` is the finding.
 
 ### PS-NAME-09 [M] Import absolutely
 

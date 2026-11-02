@@ -287,8 +287,9 @@ No `locale.format_string`, no `%c`/`%x` date codes, no thousands separators from
 failure only appears on a machine configured differently from yours. Format explicitly:
 `f"{value:,.2f}"` chooses the separator rather than inheriting one.
 
-**Check:** `rg -n 'locale\.|strftime\(.*%[cxX]' src/` — every hit is environment-dependent
-output.
+**Check:** `rg -n 'locale\.(setlocale|format_string|currency|str|localeconv)\(' src/` and
+`rg -n 'strftime\(.*%[cxX]|:n\}' src/` — every hit is environment-dependent output.
+`locale.getencoding()` is not, and PS-OUT-03 asks for it.
 
 ## Decided by tools
 
