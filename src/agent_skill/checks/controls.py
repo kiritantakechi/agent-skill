@@ -601,13 +601,17 @@ CONTROLS: list[Control] = [
         _no_override_table,
     ),
     Control(
+        # Added beside the rules the delta names rather than in place of
+        # one. Renaming the override row's `RS-API-15` also stopped the
+        # delta naming that rule, so the anchor sweep ran its pattern,
+        # hit, and fired with the citation branch gone.
         "a citation into a standard that has no such rule",
         "crossref",
         lambda t: edit(
             t,
             "bevy-style/SKILL.md",
-            "`RS-API-15` Keep every struct field private",
-            "`RS-API-99` Keep every struct field private",
+            "`RS-NAME-02` is **not** on this list,",
+            "`RS-NAME-02` is **not** on this list, nor `RS-API-99`,",
         ),
     ),
     Control(
@@ -628,13 +632,17 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        # Wrapped where a reflow would wrap it. `_paths` reads a line at
+        # a time and caught the same citation on one line, so the
+        # control fired with `_core_citations` gone; a core rule's body
+        # is read whole, which is the reason that branch exists.
         "core rule citing the wrong chapter",
         "anatomy",
         lambda t: edit(
             t,
             "rust-style/SKILL.md",
             "`references/api.md` RS-API-36",
-            "`references/errors.md` RS-API-36",
+            "`references/errors.md`\n  RS-API-36",
         ),
     ),
     Control(
@@ -703,7 +711,9 @@ CONTROLS: list[Control] = [
     Control(
         "a prose line over the column limit",
         "layout",
-        lambda t: append(t, "zig-style/references/data.md", "\n" + "x " * 60 + "\n"),
+        # Joined, not repeated: `"x " * 60` ends in a space, and the
+        # trailing-whitespace branch fired it on its own.
+        lambda t: append(t, "zig-style/references/data.md", "\n" + "x " * 59 + "x\n"),
     ),
     Control(
         "a second marker line in one block",

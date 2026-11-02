@@ -56,7 +56,7 @@ def test_every_exemption_gives_a_reason() -> None:
         assert len(reason) > 20, f"{name} is exempt with no reason worth reading"
 
 
-#: Each structure control, and the branch it is named for. Stubbing the
+#: A control, and the branch it is named for. Stubbing the
 #: branch out must make the control stop firing: a control that still
 #: fires has been satisfied by some other branch, and proves nothing
 #: about its own.
@@ -110,6 +110,15 @@ BRANCHES = {
     "a python rule citing a C4 code the shipped config disables": (
         "agent_skill.checks.citations",
         "_codes_in",
+    ),
+    "a prose line over the column limit": ("agent_skill.checks.layout", "_widths"),
+    "a citation into a standard that has no such rule": (
+        "agent_skill.checks.crossref",
+        "_citations",
+    ),
+    "core rule citing the wrong chapter": (
+        "agent_skill.checks.anatomy",
+        "_core_citations",
     ),
     "a compiler row naming an error its probe does not print": (
         "agent_skill.checks.citations",
