@@ -2,8 +2,8 @@
 
 Scope: deciding what a package exposes and how — signatures, defaults, the boundary between public
 and private, `py.typed`, and the module layout that makes the boundary visible. How to spell a type
-is the types chapter; what a value should be shaped like is the data chapter; naming is
-the naming chapter.
+is the types chapter; what a value should be shaped like is the data chapter; naming is the naming
+chapter.
 
 Two sources are merged here: the **Python Typing Spec's distributing chapter**, which is normative
 about re-export and `py.typed` and is enforced by every type checker, and the **empirical
@@ -83,9 +83,9 @@ missing-stubs error is the finding.
 
 `_helpers.py`, `_Cache`, `_parse`. The underscore is the signal, and `__all__` is the contract.
 
-**Why:** the two work together — `__all__` says what is public, the underscore says what is not,
-and having both means a reader can tell from a name alone without consulting the list. PEP 8 asks
-for the underscore even when `__all__` is set, for exactly that reason.
+**Why:** the two work together — `__all__` says what is public, the underscore says what is not, and
+having both means a reader can tell from a name alone without consulting the list. PEP 8 asks for
+the underscore even when `__all__` is set, for exactly that reason.
 
 **Check:** every module-level name absent from `__all__` and lacking an underscore is ambiguous.
 
@@ -97,8 +97,8 @@ Not `from other._internal import thing`, however convenient.
 breaks on their patch release and the breakage is your problem. If you need it, ask them to make it
 public; if you cannot wait, vendor it and own the copy.
 
-**Check:** ruff `SLF001` for private member access. `rg -n 'from [a-z_.]+\._' src/` for the
-import form.
+**Check:** ruff `SLF001` for private member access. `rg -n 'from [a-z_.]+\._' src/` for the import
+form.
 
 ## Signatures
 
@@ -163,12 +163,12 @@ the argument, or an abstract one in a return, is the finding.
 
 ### PS-API-09 [S] Take a value, not a flag that selects between two behaviours
 
-`sort(key=...)` rather than `sort(reverse_and_dedupe=True)`. A flag that genuinely toggles one
-line — `strict=True` — is fine, which is why this is `[S]`.
+`sort(key=...)` rather than `sort(reverse_and_dedupe=True)`. A flag that genuinely toggles one line
+— `strict=True` — is fine, which is why this is `[S]`.
 
 **Why:** a flag parameter means the function has two bodies sharing a name, so every reader must
-hold both and every test must cover both. Splitting them gives each an honest name; passing a
-value instead makes the variation the caller's to express.
+hold both and every test must cover both. Splitting them gives each an honest name; passing a value
+instead makes the variation the caller's to express.
 
 **Check:** every `bool` parameter whose body is `if flag: ... else: ...` at the top level.
 
@@ -194,16 +194,16 @@ issuing a unique id — where splitting the two reopens PS-CONC-03's gap between
 gives the caller no way to know the effect happened from the value they received. Splitting makes
 each half testable and lets the caller compose them.
 
-**Check:** every function with a return value and an effect, unless the two must happen as one
-step. `command-query separation` is the name for the split.
+**Check:** every function with a return value and an effect, unless the two must happen as one step.
+`command-query separation` is the name for the split.
 
 ### PS-API-12 [M] Document what the function does not do
 
 "Does not validate the path exists." "Does not retry." "Does not close the stream."
 
-**Why:** a caller's bugs come from what they assumed you did. The docstring naturally describes
-what happens; the omissions are invisible and are exactly where the assumption forms. One
-sentence removes a class of misuse.
+**Why:** a caller's bugs come from what they assumed you did. The docstring naturally describes what
+happens; the omissions are invisible and are exactly where the assumption forms. One sentence
+removes a class of misuse.
 
 **Check:** every public function whose name suggests more than it does — anything with `load`,
 `save`, `ensure`, `sync` in it.
@@ -226,9 +226,9 @@ signature.
 Re-exports, `__all__` and a docstring, and nothing else. That it does no work is PS-NAME-10, which
 holds for every module.
 
-**Why:** the `__init__` is what every importer of the package runs, so anything in it is a cost
-paid by everyone, including those who wanted one submodule. Kept declarative, it reads as the
-package's index.
+**Why:** the `__init__` is what every importer of the package runs, so anything in it is a cost paid
+by everyone, including those who wanted one submodule. Kept declarative, it reads as the package's
+index.
 
 **Check:** every `__init__.py`. Anything other than imports, `__all__` and a docstring is the
 finding.

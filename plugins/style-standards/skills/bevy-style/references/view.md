@@ -210,10 +210,10 @@ mod tests {
 ### BV-VIEW-02 [S] Choose the `Val` unit for what the value means
 
 `px` for something that should stay the same size, `percent` for something that should scale with
-its parent, `vw`/`vh` for something that should scale with the window, `em`/`rem` for something
-that should scale with the text size, `auto()` for something the content decides. Each helper
-builds the `Val` of its name and takes an integer or a float. `Val::Em` resolves against the
-node's `EmSize`, which `Node` requires, and `Val::Rem` against the `RemSize` resource.
+its parent, `vw`/`vh` for something that should scale with the window, `em`/`rem` for something that
+should scale with the text size, `auto()` for something the content decides. Each helper builds the
+`Val` of its name and takes an integer or a float. `Val::Em` resolves against the node's `EmSize`,
+which `Node` requires, and `Val::Rem` against the `RemSize` resource.
 
 **Why:** the unit is the only place the intent is recorded. A `Px` where a `Percent` was meant looks
 right until the window changes, then looks broken with nothing to say why.
@@ -483,8 +483,8 @@ entity is attached where that entity is written: `on(handler)` inside `bsn!`, or
 `bevy::ui_widgets::observe(handler)` in a `children![]` tuple, never found again after the spawn.
 
 **Why:** the alternative nests a `with_children` closure per level, so the indentation is the
-structure. It is `[S]` because the grammar is the newest surface in Bevy, and it still moves
-between releases.
+structure. It is `[S]` because the grammar is the newest surface in Bevy, and it still moves between
+releases.
 
 **Check:** count the closing braces at the end of the spawn. Past two levels, the tuple form has
 stopped being readable.
@@ -585,8 +585,8 @@ mod tests {
 
 ### BV-VIEW-10 [M] Construct a colour by naming its space
 
-`Color::srgb(r, g, b)` for a colour picked in a design tool. `Color::linear_rgb` and
-`LinearRgba` for a value that is being computed.
+`Color::srgb(r, g, b)` for a colour picked in a design tool. `Color::linear_rgb` and `LinearRgba`
+for a value that is being computed.
 
 **Why:** the two spaces give different numbers for one colour, and neither constructor warns: a
 palette value passed to the linear one is visibly wrong, most of all in the mid-tones. Naming the
@@ -619,8 +619,8 @@ are in. If the answer varies, the conversions are not at a boundary.
 the one most often reproduced from memory. The component form also overrides one required component
 in the spawn tuple without restating the rest.
 
-**Check:** read each camera spawn: `Camera2d` or `Camera3d`, plus only the components it
-overrides. A `Camera2dBundle` or `Camera3dBundle` is BV-MIG-03's table.
+**Check:** read each camera spawn: `Camera2d` or `Camera3d`, plus only the components it overrides.
+A `Camera2dBundle` or `Camera3dBundle` is BV-MIG-03's table.
 
 ### BV-VIEW-13 [M] Give every camera an explicit `order` once there are two
 
@@ -918,9 +918,9 @@ be drawn.
 ### BV-VIEW-17 [S] Reach for a custom `Material` before a custom render node
 
 A `Material` (or `Material2d`) with a fragment shader covers most of what a game wants: a shield
-effect, a dissolve, a palette swap. A sprite takes a custom shader too, through
-`SpriteMaterial` and `MaterialExtension2d`, rather than a `Mesh2d` quad built to shade it, and
-`ExtendedMaterial2d` extends a 2D material.
+effect, a dissolve, a palette swap. A sprite takes a custom shader too, through `SpriteMaterial` and
+`MaterialExtension2d`, rather than a `Mesh2d` quad built to shade it, and `ExtendedMaterial2d`
+extends a 2D material.
 
 **Why:** the material API survives releases the render graph does not: a render-graph rewrite
 reaches every custom render node in the ecosystem and leaves materials alone. A node built for a

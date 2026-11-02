@@ -53,8 +53,8 @@ say what it buys. One that two threads can reach is frozen, or owns a lock that 
 Freezing removes the largest class of record bug — being changed by whoever you handed it to — and
 makes it hashable; the cost is a `replace` call, which makes the change visible.
 
-**Check:** `rg -n '@dataclass' src/` — every decorator without `frozen=True` needs a reason on
-the line above it.
+**Check:** `rg -n '@dataclass' src/` — every decorator without `frozen=True` needs a reason on the
+line above it.
 
 ```python
 # verified — GOOD
@@ -74,8 +74,8 @@ assert {price} == {Money(1999, "GBP")}  # hashable, so it works in a set
 ### PS-DATA-02 [M] Add `slots=True` unless something needs the instance dict
 
 Anything assigning attributes dynamically, or using `functools.cached_property`, needs the dict.
-Everything else does not. A weak reference is not a reason to keep it: `weakref_slot=True` gives
-it a slot. On a plain class, write the same thing as `__slots__ = ("name",)`.
+Everything else does not. A weak reference is not a reason to keep it: `weakref_slot=True` gives it
+a slot. On a plain class, write the same thing as `__slots__ = ("name",)`.
 
 **Why:** without the instance `__dict__`, a misspelt attribute raises `AttributeError` at the moment
 of the mistake instead of silently becoming a new one. The instance is also smaller and faster, the
@@ -358,8 +358,8 @@ An enum instead of a validated string. A `Port` type instead of an `int` you che
 instead of one type with a flag that says which it is.
 
 *Relaxed form:* application code at a boundary may validate a primitive rather than introduce a
-type, provided the validation happens exactly once and the validated value is not passed on as
-the primitive.
+type, provided the validation happens exactly once and the validated value is not passed on as the
+primitive.
 
 **Why:** validation must be repeated at every construction site and can be forgotten at any of them;
 a type is a check the type checker makes everywhere for free. Every state made unrepresentable is a
@@ -403,8 +403,8 @@ define `__hash__`.
 different hashes lands in different buckets and the lookup silently misses. `dataclass` gets this
 right: `eq=True` without `frozen=True` sets `__hash__` to `None`, leaving it unhashable, not broken.
 
-**Check:** `rg -n 'def __eq__' src/` — every hit needs a matching `__hash__` or a documented
-reason the type is unhashable.
+**Check:** `rg -n 'def __eq__' src/` — every hit needs a matching `__hash__` or a documented reason
+the type is unhashable.
 
 ## Symmetry of a data type
 

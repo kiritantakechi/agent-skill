@@ -4,8 +4,8 @@ Scope: writing Python that is correct when threads run in parallel — what the 
 unlikely, which standard-library objects hold their own locks and which do not, how to share an
 iterator, how caches and context behave, when threads beat processes, and what the free-threaded
 build and its C extensions require. Choosing between `async` and threads at all is in the async
-chapter; the shape of the data being shared is in the data chapter; interpreter and
-allocator overhead is in the performance chapter.
+chapter; the shape of the data being shared is in the data chapter; interpreter and allocator
+overhead is in the performance chapter.
 
 Two sources are merged here: the **CPython 3.15 documentation** — PEP 703, PEP 779, the
 free-threading HOWTO, and the per-module thread-safety notes, quoted where they are normative — and
@@ -98,9 +98,8 @@ window a few bytecodes wide, so the bug survived for years. On the free-threaded
 threads each adding one to a shared attribute 200,000 times finish around 73% short, silently.
 
 **Check:** `rg -n '^[ \t]*(self\.)?[A-Za-z_][A-Za-z0-9_]*(\[[^]\n]*\])?[ \t]*([+*|&^-]|//)=' src/`
-and
-read each hit: is the target reachable from more than one thread? A module-level name, an attribute
-of a shared instance, and any dict or list that a worker was handed all are.
+and read each hit: is the target reachable from more than one thread? A module-level name, an
+attribute of a shared instance, and any dict or list that a worker was handed all are.
 
 ```python
 # verified — BAD: this is the measured 73% loss, made deterministic
@@ -159,8 +158,8 @@ the same for anything larger.
 released between them, so two threads both see the key absent and both compute. Whenever `compute`
 writes a file, charges an account, or increments a metric, that is a duplicated side effect.
 
-**Check:** `rg -nB2  'if .* not in |if not .*\.(exists|get)\(' src/` — a hit whose next line
-writes to the thing just tested is a defect unless a lock spans both.
+**Check:** `rg -nB2  'if .* not in |if not .*\.(exists|get)\(' src/` — a hit whose next line writes
+to the thing just tested is a defect unless a lock spans both.
 
 ```python
 # verified — GOOD
@@ -234,14 +233,14 @@ assert _totals == Counter({"a": 8, "b": 4})
 
 ### PS-CONC-05 [M] Cite the thread-safety guarantees page, never the FAQ's bytecode argument
 
-A lock-free design rests on *Thread Safety Guarantees*, the page that documents each built-in
-type's operations under free threading. There `L.append(x)`, `D[x] = y` and `D1.update(D2)` are
-atomic, `L.sort()` is not, and no operation that makes more than one access is. The library FAQ
-still lists `L.sort()` and still explains its list by saying each bytecode instruction is atomic.
+A lock-free design rests on *Thread Safety Guarantees*, the page that documents each built-in type's
+operations under free threading. There `L.append(x)`, `D[x] = y` and `D1.update(D2)` are atomic,
+`L.sort()` is not, and no operation that makes more than one access is. The library FAQ still lists
+`L.sort()` and still explains its list by saying each bytecode instruction is atomic.
 
 **Why:** bytecode atomicity was the GIL, and readers generalise from a reason: `d[k] += 1` follows
-from it and was never safe. The guarantees page states each operation instead of a reason, and
-says outright that read-modify-write and check-then-act are not atomic.
+from it and was never safe. The guarantees page states each operation instead of a reason, and says
+outright that read-modify-write and check-then-act are not atomic.
 
 **Check:** a comment or docstring justifying the absence of a lock by appealing to the GIL, to
 bytecode atomicity, or to "CPython guarantees" is the finding.
@@ -303,8 +302,8 @@ Introspecting your own stack is fine. Reaching into a frame another thread is ru
 not a data race that yields a wrong answer; it is a segfault. Debuggers, profilers, and error
 reporters that walk `sys._current_frames()` and read locals are the code that does this by accident.
 
-**Check:** `rg -n 'f_locals' src/` — every hit whose frame did not come from
-`sys._getframe()` on the current thread is a defect.
+**Check:** `rg -n 'f_locals' src/` — every hit whose frame did not come from `sys._getframe()` on
+the current thread is a defect.
 
 ## Sharing objects between threads
 
@@ -318,8 +317,8 @@ free-threaded build's internal locks keep the container intact but do not make y
 transaction, so the loud failure became a quiet one: an element seen twice, or missed entirely.
 
 **Check:** for each `for ... in <name>` where `<name>` is not a local, ask whether any thread writes
-to it. `rg -n 'for .+ in (self\.)?[a-z_]+(\.items\(\)|\.keys\(\)|\.values\(\))?:' src/` and read
-the hits against the writers.
+to it. `rg -n 'for .+ in (self\.)?[a-z_]+(\.items\(\)|\.keys\(\)|\.values\(\))?:' src/` and read the
+hits against the writers.
 
 ```python
 # verified — GOOD
@@ -375,10 +374,10 @@ assert out == ["/a:1", "/b:2"]
 
 ### PS-CONC-10 [M] Hand work between threads with `queue.Queue`
 
-Not a shared list with a lock you wrote, and not a deque you poll. End the stream with
-`shutdown()`: every blocked `get` then raises `queue.ShutDown` once the queue is drained, so the
-producer never counts its consumers to send each a sentinel. Note the documented limit: `Queue` "is
-not designed to handle reentrancy within a thread", so never `put` from a callback its consumer ran.
+Not a shared list with a lock you wrote, and not a deque you poll. End the stream with `shutdown()`:
+every blocked `get` then raises `queue.ShutDown` once the queue is drained, so the producer never
+counts its consumers to send each a sentinel. Note the documented limit: `Queue` "is not designed to
+handle reentrancy within a thread", so never `put` from a callback its consumer ran.
 
 **Why:** `queue.Queue` implements "all of the required locking semantics" per its own docs, and it
 carries the blocking, the shutdown, and the `task_done`/`join` accounting a hand-rolled equivalent
@@ -470,16 +469,16 @@ assert tracker.position() == Position(3, 0)
 ### PS-CONC-12 [M] Serialise a shared iterator with `threading.serialize_iterator`
 
 Two threads calling `next()` on one iterator is the defect. `serialize_iterator` hands each item to
-exactly one caller, and it neither copies nor buffers. It is a class, not a function: wrap once,
-and share the wrapper.
+exactly one caller, and it neither copies nor buffers. It is a class, not a function: wrap once, and
+share the wrapper.
 
 **Why:** a shared generator raises `ValueError: generator already executing`, the good case because
 it is loud. With any other iterator, the free-threading HOWTO warns that threads "may see duplicate
 or missing elements", so a pool sharing one processes some items twice and drops others.
 
 **Check:** every iterator passed to more than one thread must be wrapped. An unwrapped one is the
-finding, and the grep is for the sharing rather than for the call —
-`rg -nB3 'Thread\(target=' src/` and read what the target closes over.
+finding, and the grep is for the sharing rather than for the call — `rg -nB3 'Thread\(target=' src/`
+and read what the target closes over.
 
 ```python
 # verified — BAD: the loud half of the failure
@@ -634,12 +633,12 @@ PS-CONC-17.
 It takes no lock. Two threads reaching a cold property both compute it, and one of the two results
 is discarded.
 
-**Why:** a lock would serialise every instance behind one class-wide lock, so `cached_property` is
-a memo, not a once-only guarantee. A discarded result that only computed costs time; one that
-opened a connection or allocated a handle leaks unless something closes it.
+**Why:** a lock would serialise every instance behind one class-wide lock, so `cached_property` is a
+memo, not a once-only guarantee. A discarded result that only computed costs time; one that opened a
+connection or allocated a handle leaks unless something closes it.
 
-**Check:** `rg -nA5 'cached_property' src/` — a getter that constructs anything needing cleanup
-is the finding.
+**Check:** `rg -nA5 'cached_property' src/` — a getter that constructs anything needing cleanup is
+the finding.
 
 ### PS-CONC-17 [M!] Put a lock around a memo whose miss is expensive or has an effect
 
@@ -655,8 +654,8 @@ keeps the common case, a hit, lock-free while making the miss single-flight; wit
 means "usually computed once", which is not what the word promises the reader.
 
 **Check:** every `@cache`, `@lru_cache` and hand-written memo. Read the body for I/O, mutation,
-randomness, or time: an effect a caller expects on every call is the finding, and so is an
-effectful miss with no lock.
+randomness, or time: an effect a caller expects on every call is the finding, and so is an effectful
+miss with no lock.
 
 ```python
 # verified — GOOD
@@ -708,11 +707,11 @@ context explicitly, with `Thread(target=work, context=contextvars.copy_context()
 deliberately.
 
 **Why:** a `ContextVar` set before starting a thread is visible inside it on `python3.15t` and
-absent on `python3.15`, so code developed on one build takes a different branch on the other with
-no diagnostic. A context passed explicitly is visible to the reader and the same on both.
+absent on `python3.15`, so code developed on one build takes a different branch on the other with no
+diagnostic. A context passed explicitly is visible to the reader and the same on both.
 
-**Check:** `rg -n 'ContextVar|copy_context' src/` in any module that also starts a thread — a
-read inside a thread target whose value was set outside it is the finding.
+**Check:** `rg -n 'ContextVar|copy_context' src/` in any module that also starts a thread — a read
+inside a thread target whose value was set outside it is the finding.
 
 ```python
 # verified — GOOD

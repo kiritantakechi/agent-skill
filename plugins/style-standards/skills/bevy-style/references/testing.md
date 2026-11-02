@@ -111,9 +111,9 @@ the test. `update` is one frame, synchronously, which is what an assertion needs
 
 ### BV-TEST-04 [M] Run a schedule directly when only that schedule is under test
 
-`app.world_mut().run_schedule(FixedUpdate)` runs exactly that schedule, exactly once. A system
-that reads `Res<Time>` is tested through BV-TEST-05 instead: `run_schedule` skips the fixed loop's
-clock swap, so `Time` there is the virtual clock.
+`app.world_mut().run_schedule(FixedUpdate)` runs exactly that schedule, exactly once. A system that
+reads `Res<Time>` is tested through BV-TEST-05 instead: `run_schedule` skips the fixed loop's clock
+swap, so `Time` there is the virtual clock.
 
 **Why:** `update()` runs the whole main schedule: a test of one `FixedUpdate` system also runs every
 `Update` system in the app, and the elapsed time decides how many fixed steps ran (BV-TEST-05).
@@ -343,12 +343,11 @@ mod tests {
 ### BV-TEST-08 [S] Assert the fact, not the mechanism that produced it
 
 `rust-style`'s RS-TEST-02, in Bevy's terms: assert that the enemy is gone, not that a `Despawn`
-observer ran; assert the score, not that a message was written. The exception is a mechanism that
-is the interface: a plugin whose job is to emit a message for other plugins is tested on the
-message.
+observer ran; assert the score, not that a message was written. The exception is a mechanism that is
+the interface: a plugin whose job is to emit a message for other plugins is tested on the message.
 
-**Why:** the mechanism is an implementation choice the test should not pin: replacing a message
-with an observer is a refactor, and a test that asserts on the message calls it a regression.
+**Why:** the mechanism is an implementation choice the test should not pin: replacing a message with
+an observer is a refactor, and a test that asserts on the message calls it a regression.
 
 **Check:** for each assertion, ask whether it would survive rewriting the system in a different
 style. If not, it is testing the shape.

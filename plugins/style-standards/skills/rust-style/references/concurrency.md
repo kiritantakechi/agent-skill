@@ -1,9 +1,10 @@
 # RS-CONC — Concurrency and async
 
-Rust removes data races, not concurrency bugs. Deadlocks, livelocks, lost
-wakeups, unbounded queues, and cancellation-safety violations are all still
-yours to avoid. The best defence is choosing the simplest model that solves the
-problem — which is very often "not async" and quite often "not concurrent".
+Rust removes data races, not concurrency bugs. Deadlocks, livelocks, lost wakeups, unbounded queues,
+and cancellation-safety violations are all still yours to avoid. The best defence is choosing the
+simplest model that solves the problem — which is very often "not async" and quite often "not
+concurrent".
+
 ## Contents
 
 - **Choosing a model**
@@ -64,6 +65,7 @@ problem — which is very often "not async" and quite often "not concurrent".
   - RS-CONC-45 [S] Reproduce deadlocks by capturing backtraces, not by reasoning
   - RS-CONC-46 [M] Prefer structured concurrency
   - RS-CONC-47 [M] Document the threading contract of every public type
+
 - Decided by tools
 
 ---
@@ -308,9 +310,8 @@ impl Shutdown {
 
 ### RS-CONC-11 [M] Use `std::thread::scope` for threads that borrow local data
 
-Use `std::thread::scope` for threads that borrow local data. It removes the
-`Arc`/`'static` dance and guarantees joins, which is exactly the guarantee that makes borrowing
-sound.
+Use `std::thread::scope` for threads that borrow local data. It removes the `Arc`/`'static` dance
+and guarantees joins, which is exactly the guarantee that makes borrowing sound.
 
 **Why:** the scope guarantees every thread is joined before it returns, which is what lets the
 borrow checker accept references to local data. Without it, sharing local data requires `Arc` and
@@ -664,8 +665,8 @@ algorithm, and is it `loom`-tested (`RS-CONC-40`)? A retry loop that only recomp
 ### RS-CONC-27 [M] Use `OnceLock`/`LazyLock` for lazily initialized globals
 
 Use `OnceLock`/`LazyLock` for lazily initialized globals rather than `static mut` (which edition
-2024 denies via `static_mut_refs`) or a `Mutex<Option<T>>` (`RS-OWN-25`). Data known at compile
-time needs neither: it is a `const`.
+2024 denies via `static_mut_refs`) or a `Mutex<Option<T>>` (`RS-OWN-25`). Data known at compile time
+needs neither: it is a `const`.
 
 **Why:** these types give a safe, race-free single initialization with no lock on the read path
 after it. A `Mutex<Option<T>>` pays for a lock on every access to emulate the same thing.
@@ -798,8 +799,8 @@ there. Is the state still consistent?
 ### RS-CONC-34 [M] Do not `select!` over branches that lose data on cancellation
 
 Do not use `select!` with branches that lose data on cancellation (a partially consumed read, a
-half-sent message) unless the future is documented as cancel-safe (RS-CONC-33). Prefer a loop over
-a channel with an explicit shutdown signal.
+half-sent message) unless the future is documented as cancel-safe (RS-CONC-33). Prefer a loop over a
+channel with an explicit shutdown signal.
 
 **Why:** `select!` drops the losing branches, so any partial progress inside them is discarded. With
 a buffered read that means silently dropped bytes, which shows up much later as a corrupt stream.
@@ -976,8 +977,8 @@ Prefer structured concurrency: every task has a parent that outlives it and is r
 shutdown. `thread::scope`, task groups, and `JoinSet` all encode this; bare `spawn`-and-forget does
 not.
 
-Outside a scope, keep each handle and join it: the handle is the only channel for a task's panic
-or result (`RS-CONC-12`). Detach only deliberately, with a comment saying why the work may be lost.
+Outside a scope, keep each handle and join it: the handle is the only channel for a task's panic or
+result (`RS-CONC-12`). Detach only deliberately, with a comment saying why the work may be lost.
 
 **Why:** a parent that outlives its children makes lifetimes, error propagation, and shutdown all
 follow the call structure. A detached thread is killed mid-operation when `main` returns, with no

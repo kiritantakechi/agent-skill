@@ -2,8 +2,8 @@
 
 Scope: designing an exception hierarchy, raising and catching, what `try` should enclose, exception
 groups, and the control-flow shapes that keep a function readable — guards, early return, `match`,
-the walrus. What to log when you catch is the output chapter; what a public function should raise
-is the API chapter; concurrency-specific control flow is the async and concurrency chapters.
+the walrus. What to log when you catch is the output chapter; what a public function should raise is
+the API chapter; concurrency-specific control flow is the async and concurrency chapters.
 
 Two sources are merged here: the **CPython 3.15 documentation**, including PEP 765's new restriction
 on `finally` and the exception-group machinery, and **Ruff's `B`, `TRY`, `RET`, `EM` and `BLE`
@@ -263,9 +263,9 @@ assert caught == ["value:1", "key:1"]
 `try: return d[k] / except KeyError:` beats `if k in d: return d[k]` when the key is usually there.
 Where the failure is *common*, the exception machinery costs more than the check, so check first.
 
-**Why:** the check-then-act form is two lookups instead of one, and under free threading it is
-also PS-CONC-03's race: the key can vanish between the test and the use. The `try` form is atomic
-with respect to that.
+**Why:** the check-then-act form is two lookups instead of one, and under free threading it is also
+PS-CONC-03's race: the key can vanish between the test and the use. The `try` form is atomic with
+respect to that.
 
 **Check:** every `if x in y:` immediately followed by an access to `y[x]`. `SIM401` catches the
 subset that `dict.get` replaces outright.
@@ -313,9 +313,9 @@ the original exception with its own, and the original is what you needed to see.
 
 `if not valid: raise ...` first, then the body at one level of indentation.
 
-**Why:** the alternative nests the real work inside the success branch, so the reader tracks an
-open condition through the whole function. Guards leave the body describing only the case that
-matters, and adding a rejection is one line at the top rather than another level of nesting.
+**Why:** the alternative nests the real work inside the success branch, so the reader tracks an open
+condition through the whole function. Guards leave the body describing only the case that matters,
+and adding a rejection is one line at the top rather than another level of nesting.
 
 **Check:** ruff `RET505`–`RET508` for the `else`-after-`return` shapes, and `PLR0911` for a function
 that has grown too many exits to follow.
@@ -365,9 +365,9 @@ there.
 `if (found := lookup(k)) is not None:` yes. A walrus inside a comprehension condition that is also
 used in the output, usually not.
 
-**Why:** the walrus is at its best where the binding and the test are genuinely one thought, and
-at its worst where it buries a side effect inside an expression the reader scans rather than
-parses. The test is whether removing it would need one extra line or three.
+**Why:** the walrus is at its best where the binding and the test are genuinely one thought, and at
+its worst where it buries a side effect inside an expression the reader scans rather than parses.
+The test is whether removing it would need one extra line or three.
 
 **Check:** every `:=`. If the bound name is used more than twice, or the expression spans more than
 one line, the plain assignment reads better.
@@ -378,12 +378,12 @@ Not `str | None` where `None` means failure, and not a value on success with a `
 `X | None` is legitimate where `None` is a *value* the domain has, such as an optional field, and
 illegitimate where it means "it went wrong".
 
-**Why:** every extra shape in the return type propagates to every caller, each of whom must
-handle it or ignore it — and ignoring it is the default. Failures belong in exceptions, which
-callers cannot ignore by accident.
+**Why:** every extra shape in the return type propagates to every caller, each of whom must handle
+it or ignore it — and ignoring it is the default. Failures belong in exceptions, which callers
+cannot ignore by accident.
 
-**Check:** every function returning `X | None`. Ask whether `None` is a value or a failure; if it
-is a failure, it is an exception.
+**Check:** every function returning `X | None`. Ask whether `None` is a value or a failure; if it is
+a failure, it is an exception.
 
 ## Decided by tools
 

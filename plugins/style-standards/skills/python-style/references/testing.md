@@ -2,8 +2,7 @@
 
 Scope: configuring pytest 9, what a test should assert and how it should be shaped, fixture
 discipline, and the particular difficulty of testing code that runs in parallel. What to document
-about a function is the documentation chapter; the interpreter and tool pins are the build
-chapter.
+about a function is the documentation chapter; the interpreter and tool pins are the build chapter.
 
 Two sources are merged here: the **pytest 9 documentation**, which added a native TOML table, a
 `strict` umbrella and subtests, and **Ruff's `PT` family**, thirty-one rules on pytest style. The
@@ -51,9 +50,9 @@ Unless a block shows its own imports, it assumes `import pytest`.
 `[tool.pytest]` in `pyproject.toml`, or a standalone `pytest.toml`. Not `[tool.pytest.ini_options]`.
 The two **cannot coexist**: pytest errors out when it finds both.
 
-**Why:** pytest 9 added a table that takes real TOML types — arrays, booleans, integers — where
-the older one takes INI strings that each option parses itself. Migrating is mechanical, and the
-INI table exists now only for backwards compatibility.
+**Why:** pytest 9 added a table that takes real TOML types — arrays, booleans, integers — where the
+older one takes INI strings that each option parses itself. Migrating is mechanical, and the INI
+table exists now only for backwards compatibility.
 
 **Check:** `rg -n 'tool.pytest.ini_options' .` — every hit is the legacy table.
 
@@ -67,8 +66,8 @@ markers = ["slow: needs a real toolchain"]
 
 ### PS-TEST-02 [M] Know the discovery order, and that an empty file wins
 
-`pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`, `pyproject.toml`, `tox.ini`,
-`setup.cfg` — first match wins, and configuration files are **never merged**.
+`pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`, `pyproject.toml`, `tox.ini`, `setup.cfg`
+— first match wins, and configuration files are **never merged**.
 
 **Why:** an empty `pytest.toml` in the repository root outranks a fully configured `pyproject.toml`
 and discards it: your `testpaths`, markers and `strict` setting stop applying, and the tests still
@@ -116,8 +115,8 @@ nothing. It also cannot catch the bug where the helper is called correctly and t
 `test_rejects_a_port_above_the_range`, not `test_port`.
 
 **Why:** when a test with six assertions fails, the name tells you nothing and the first failure
-hides the rest. One behaviour per test means the name is the failure message, and the report
-reads as a specification. The setup can be shared through a fixture; the assertion should not be.
+hides the rest. One behaviour per test means the name is the failure message, and the report reads
+as a specification. The setup can be shared through a fixture; the assertion should not be.
 
 **Check:** every test with assertions on unrelated properties, and every test whose name is a noun.
 
@@ -125,9 +124,9 @@ reads as a specification. The setup can be shared through a fixture; the asserti
 
 Three blocks. Setup, the single call under test, the assertions.
 
-**Why:** the shape makes the call under test findable at a glance, which is the first thing a
-reader of a failing test needs. Interleaving them hides which call is the subject, and it is how
-a test ends up asserting on the arrangement rather than on the result.
+**Why:** the shape makes the call under test findable at a glance, which is the first thing a reader
+of a failing test needs. Interleaving them hides which call is the subject, and it is how a test
+ends up asserting on the arrangement rather than on the result.
 
 **Check:** every test with more than one call to the system under test.
 
@@ -135,8 +134,8 @@ a test ends up asserting on the arrangement rather than on the result.
 
 No `if`, no `for`, no `try` around the assertion.
 
-**Why:** logic in a test is untested logic, and it can make the test pass by skipping the
-assertion — a `for` over an empty list asserts nothing and reports success. Loops over cases are
+**Why:** logic in a test is untested logic, and it can make the test pass by skipping the assertion
+— a `for` over an empty list asserts nothing and reports success. Loops over cases are
 parametrisation; branches are two tests.
 
 **Check:** `rg -n '^[ \t]+(if|for|while) ' tests/` — every hit inside a test function is the
@@ -144,9 +143,9 @@ finding.
 
 ### PS-TEST-09 [M] Assert on values, not on the shape of a call
 
-`assert result == expected`. Not `mock.assert_called_once_with(...)` as the only assertion. Where
-an effect genuinely is the behaviour — a message published, a row written — assert the effect, not
-the call that caused it.
+`assert result == expected`. Not `mock.assert_called_once_with(...)` as the only assertion. Where an
+effect genuinely is the behaviour — a message published, a row written — assert the effect, not the
+call that caused it.
 
 **Why:** asserting the call verifies that you wrote the code you wrote. It passes when the
 collaborator is called perfectly and returns the wrong thing, and it fails when you rename a
@@ -158,13 +157,13 @@ parameter.
 
 Break the code, watch the test fail, restore it.
 
-**Why:** a test that has never failed might be asserting nothing — an assertion in a skipped
-branch, a fixture that returns early, an `assert` on a truthy object rather than a value — and
-watching it fail is the only check that catches all of them.
+**Why:** a test that has never failed might be asserting nothing — an assertion in a skipped branch,
+a fixture that returns early, an `assert` on a truthy object rather than a value — and watching it
+fail is the only check that catches all of them.
 
 **Check:** revert the change a new test covers and run it: a test that still passes is the finding.
-Mutation testing does the same across a codebase — delete or invert a statement, and see whether
-any test notices.
+Mutation testing does the same across a codebase — delete or invert a statement, and see whether any
+test notices.
 
 ## Parametrisation
 
@@ -226,8 +225,8 @@ the finding.
 
 Function scope by default. Widen only when the setup is genuinely expensive, and say why.
 
-**Why:** a session-scoped fixture is shared mutable state between tests, so one test can change
-what another sees and the suite becomes order-dependent. The narrow scope costs setup time and buys
+**Why:** a session-scoped fixture is shared mutable state between tests, so one test can change what
+another sees and the suite becomes order-dependent. The narrow scope costs setup time and buys
 independence, and independence is what makes a failure mean something.
 
 **Check:** ruff `PT003` for the redundant explicit scope. Every non-function scope needs a comment.
@@ -241,8 +240,7 @@ directory.
 state. Writing to a real path or setting a real environment variable makes the suite order-dependent
 and machine-dependent, and the failure appears somewhere other than the test that caused it.
 
-**Check:** `rg -n 'os\.environ\[|open\(["\x27]/|Path\(["\x27]/' tests/` — every hit is the
-finding.
+**Check:** `rg -n 'os\.environ\[|open\(["\x27]/|Path\(["\x27]/' tests/` — every hit is the finding.
 
 ### PS-TEST-16 [M] Never let a fixture assert
 
@@ -270,8 +268,8 @@ and puts the variation at the call site where it is visible in the test that nee
 No `time.sleep` to wait for something. Poll with a deadline, or make the thing synchronous.
 
 **Why:** a sleep is either too short — so the test is flaky on a loaded machine — or too long, so
-the suite is slow, and usually both at different times. It is also the single largest contributor
-to a suite that people stop running. Wait on the condition instead of on the clock.
+the suite is slow, and usually both at different times. It is also the single largest contributor to
+a suite that people stop running. Wait on the condition instead of on the clock.
 
 **Check:** `rg -n 'sleep\(' tests/` — every hit is the finding.
 
@@ -283,8 +281,8 @@ Take `now: Callable[[], datetime]` as a parameter, or freeze it with `monkeypatc
 leap day, a timezone transition — without waiting for one. Injecting makes those cases ordinary
 tests. It also removes a source of flakiness where a test straddles a second boundary.
 
-**Check:** ruff `DTZ005` for a naive `datetime.now()`. `rg -n 'datetime.now|time.time' src/` for
-the injection question.
+**Check:** ruff `DTZ005` for a naive `datetime.now()`. `rg -n 'datetime.now|time.time' src/` for the
+injection question.
 
 ## Concurrency
 
@@ -295,8 +293,8 @@ The test must check a property that a race would break — a count, a sum, a set
 *Relaxed form:* a smoke test that merely runs the code under threads is worth having as a crash
 check, provided it is named as one and is not the only concurrency test.
 
-**Why:** running a racy function under eight threads and asserting it did not raise is a test
-that passes on racy code, because a lost update raises nothing. A parallel-test plugin supplies
+**Why:** running a racy function under eight threads and asserting it did not raise is a test that
+passes on racy code, because a lost update raises nothing. A parallel-test plugin supplies
 concurrency; it does not supply an oracle.
 
 **Check:** every test that starts threads. If deleting the assertion would not change the result,

@@ -17,6 +17,7 @@ concrete type shaped it, and costs indirection, extra rustdoc, and a generic par
 a concrete struct would not need. RS-TRAIT-46 and RS-TRAIT-02 keep that cost from becoming damage:
 if either is being bent to make a trait fit, the trait is wrong and the fallback is a concrete type,
 not a partial impl.
+
 ## Contents
 
 - **Designing traits**
@@ -84,17 +85,17 @@ not a partial impl.
 
 ### RS-TRAIT-01 [M] Name the capability as a trait before writing the type that provides it
 
-At a seam that will carry two plausible implementations, or a test double, write the trait first,
-in terms of what a caller needs, then implement it. Program against the trait — take `impl Read`,
-not `File` — so the first implementation is never privileged. A type with one implementation and no
+At a seam that will carry two plausible implementations, or a test double, write the trait first, in
+terms of what a caller needs, then implement it. Program against the trait — take `impl Read`, not
+`File` — so the first implementation is never privileged. A type with one implementation and no
 double stays concrete (RS-TRAIT-33), and a closed set is an enum (RS-TRAIT-18).
 
 **Why:** a boundary extracted from an existing type inherits its accidents: its error cases, its
 argument order, its assumption that a handle is always available. Designed against the caller's
 need, it comes out total and symmetric, and the test double is free because the seam exists.
 
-**Check:** for each concrete type used across a module boundary that has a second implementation
-or a test double, is the consumer written against a trait or against the type? A function taking
+**Check:** for each concrete type used across a module boundary that has a second implementation or
+a test double, is the consumer written against a trait or against the type? A function taking
 `&File` where it only reads is the finding.
 
 ```rust
@@ -326,8 +327,8 @@ What invariants an implementor must uphold, what a caller may assume, whether me
 concurrently, and what happens on error.
 
 **Why:** a trait without a documented contract cannot be implemented correctly except by accident,
-because the signatures constrain types and say nothing about behaviour. `Iterator`'s contract
-around `next()` after `None` is the canonical example of why this matters.
+because the signatures constrain types and say nothing about behaviour. `Iterator`'s contract around
+`next()` after `None` is the canonical example of why this matters.
 
 **Check:** could someone write a conforming implementation from the rustdoc alone, without reading
 yours?
@@ -408,8 +409,8 @@ impl Pipeline {
 ### RS-TRAIT-14 [S] Do not use argument-position `impl Trait` where callers may want to name the type
 
 **Why:** it is sugar for an anonymous generic parameter, which means the caller cannot turbofish it
-— so a call that needs an explicit type has no way to give one. In a public API that is a
-one-way door.
+— so a call that needs an explicit type has no way to give one. In a public API that is a one-way
+door.
 
 **Check:** would a caller ever need `::<T>` on this function? Then use a named parameter.
 
@@ -436,8 +437,8 @@ Return-position `impl Trait` works in trait methods as well as free functions. A
 `impl Fn`, not `Box<dyn Fn>`: it allocates nothing, and a caller who needs a box can still make one.
 
 **Why:** it hides an unnameable or noisy concrete type while preserving static dispatch and
-zero-cost composition. The cost is that users cannot name the type for storage — where they need
-to, return a named type or expose a type alias instead.
+zero-cost composition. The cost is that users cannot name the type for storage — where they need to,
+return a named type or expose a type alias instead.
 
 **Check:** does a caller need to put this return value in a struct field, or store closures from
 several factories side by side? Then name the type, or box at that one site.
@@ -603,8 +604,8 @@ immediately.
 Private-supertrait pattern.
 
 **Why:** sealing means you know every implementor, so you can add methods later without breaking
-anyone. Unsealed, even a defaulted method can collide with a downstream inherent method, and
-sealing after publication is breaking outright, so the decision is cheap only before release.
+anyone. Unsealed, even a defaulted method can collide with a downstream inherent method, and sealing
+after publication is breaking outright, so the decision is cheap only before release.
 
 **Check:** is the trait an extension point or an enumeration? Only the second gets sealed, and the
 question is answered for each public trait before its first release.
@@ -665,8 +666,8 @@ a runtime check.
 so rustc rejects it with E0119 and names the reflexive impl in `core`. A conversion API designed
 around a blanket `From` is redesigned the first time it is compiled.
 
-**Check:** narrow the bound (`impl<T: Display> From<T> for MyType` still conflicts at `T =
-MyType` if `MyType: Display`) or write per-type impls.
+**Check:** narrow the bound (`impl<T: Display> From<T> for MyType` still conflicts at `T = MyType`
+if `MyType: Display`) or write per-type impls.
 
 ## Bounds, where clauses, inference
 
@@ -771,8 +772,8 @@ inference's job. Either return a concrete type or take the target as a parameter
 `pub type Result<T> = std::result::Result<T, Error>;`
 
 **Why:** it is the single highest-value alias in most crates — it removes the error type from every
-signature in the crate and from every doc example, and it is what users expect from `io::Result`
-and `fmt::Result`.
+signature in the crate and from every doc example, and it is what users expect from `io::Result` and
+`fmt::Result`.
 
 **Check:** does the crate's error type appear in more than a handful of signatures?
 
@@ -797,9 +798,10 @@ impl std::fmt::Debug for Router {
 
 ### RS-TRAIT-36 [S] Comment a type alias that hides genuine complexity
 
-**Why:** an alias for `Box<dyn Fn(&Request) -> Pin<Box<dyn Future<Output = Result<Response, Error>>
-+ Send>> + Send + Sync>` is right, and so is a comment explaining the shape — otherwise the alias
-hides the complexity from the maintainer as well as the user.
+**Why:** an alias for
+`Box<dyn Fn(&Request) -> Pin<Box<dyn Future<Output = Result<Response, Error>> + Send>> + Send + Sync>`
+is right, and so is a comment explaining the shape — otherwise the alias hides the complexity from
+the maintainer as well as the user.
 
 **Check:** could a new contributor reconstruct the expansion from the alias name alone?
 
@@ -987,10 +989,10 @@ impl RedactionFree for RequestId {}
 
 ### RS-TRAIT-46 [M] Make every impl total — no `unimplemented!()` arms
 
-Every implementor supports every method for real. An impl that panics, returns
-`Err(Unsupported)`, or silently does nothing for part of the trait is a partial impl, and partial
-impls are the failure mode trait-first design has to avoid (RS-TRAIT-01). A method only one
-implementor can support is an inherent method or a separate trait.
+Every implementor supports every method for real. An impl that panics, returns `Err(Unsupported)`,
+or silently does nothing for part of the trait is a partial impl, and partial impls are the failure
+mode trait-first design has to avoid (RS-TRAIT-01). A method only one implementor can support is an
+inherent method or a separate trait.
 
 **Why:** the whole value of programming against a trait is that the caller need not know which
 implementor they hold. A partial impl destroys exactly that: the caller must now know, and the
@@ -1032,8 +1034,8 @@ impl Storage for Snapshot {
 
 ### RS-TRAIT-47 [S] Keep the impl set symmetric across a family of types
 
-Related types carry the same trait impls: if one wrapper is `Serialize`, `Debug`, and
-`Clone`, its siblings are too, or the omission is documented.
+Related types carry the same trait impls: if one wrapper is `Serialize`, `Debug`, and `Clone`, its
+siblings are too, or the omission is documented.
 
 **Why:** a caller writing generic code over the family bounds on the traits they need, and one
 sibling missing one impl excludes it from every such function — usually discovered long after the

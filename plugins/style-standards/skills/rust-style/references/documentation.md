@@ -1,9 +1,9 @@
 # RS-DOC — Documentation
 
-Rustdoc is not a courtesy; it is the contract in prose plus a test suite that
-proves the prose is true. The bar: a competent Rust programmer who has never
-seen the crate can accomplish the primary use case from `docs.rs` alone,
-without reading the source.
+Rustdoc is not a courtesy; it is the contract in prose plus a test suite that proves the prose is
+true. The bar: a competent Rust programmer who has never seen the crate can accomplish the primary
+use case from `docs.rs` alone, without reading the source.
+
 ## Contents
 
 - **Crate and module documentation**
@@ -47,6 +47,7 @@ without reading the source.
   - RS-DOC-32 [S] Add a diagram or walkthrough for non-obvious data flow
   - RS-DOC-33 [M] Document supported platforms, MSRV, and semver policy
   - RS-DOC-34 [M!] Write the documentation before finalizing the API
+
 - Decided by tools
 
 ---
@@ -179,8 +180,8 @@ pub fn trimmed(input: &str) -> &str {
 ### RS-DOC-09 [M] Use the standard section order
 
 Use the standard section order, omitting what does not apply: summary, extended description,
-`# Examples`, `# Errors`, `# Panics`, `# Safety`, `# Performance`,
-`# Platform-specific behavior`. Consistency lets readers jump straight to what they need.
+`# Examples`, `# Errors`, `# Panics`, `# Safety`, `# Performance`, `# Platform-specific behavior`.
+Consistency lets readers jump straight to what they need.
 
 **Why:** readers scan documentation, they do not read it. A predictable order means "can this
 panic?" is answered by looking at a known position rather than reading the whole page — and `std`
@@ -434,8 +435,9 @@ belongs in the Rust book, not here.
 
 ### RS-DOC-18 [M] Explain *why*, not *what*
 
-Explain *why*, not *what*. `// increment i` is noise; `// skip the BOM, which some Windows editors
-prepend` is the reason the line exists. Code says what; comments say why.
+Explain *why*, not *what*. `// increment i` is noise;
+`// skip the BOM, which some Windows editors prepend` is the reason the line exists. Code says what;
+comments say why.
 
 **Why:** the code already states what it does, and states it more reliably than a comment can, since
 it cannot drift. The reasoning is the part that is not recoverable from reading the code, so it is

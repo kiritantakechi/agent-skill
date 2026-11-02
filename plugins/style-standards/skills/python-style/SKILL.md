@@ -48,10 +48,10 @@ the tool enforces them, so they carry no Why and no Check. When rules are renumb
 
 Every fenced example carries a marker on its first line. `# verified` — the block runs as written on
 free-threaded CPython 3.15.2, and any test it ships passes. `# fragment` — shown in context rather
-than run as a unit, usually because it uses names the chapter declares around it. `# rejected —
-<tool>: …` — the rejection is the point, and the marker names the tool that rejects it: `python`,
-`ty`, `ruff`. A trailing `— GOOD` or `— BAD` names which side of the rule the block illustrates. A
-block in another language carries its marker in that language's comment syntax.
+than run as a unit, usually because it uses names the chapter declares around it.
+`# rejected — <tool>: …` — the rejection is the point, and the marker names the tool that rejects
+it: `python`, `ty`, `ruff`. A trailing `— GOOD` or `— BAD` names which side of the rule the block
+illustrates. A block in another language carries its marker in that language's comment syntax.
 
 ## 1. Tiers
 
@@ -163,8 +163,8 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 ### Names and shape
 
 - **PS-CORE-01 `[M]`** Apply PEP 8's casing mechanically, and let `ruff format` settle everything it
-  can. Formatting is a command, not a matter of individual discipline.
-  (`references/naming.md` PS-NAME-01, PS-NAME-13).
+  can. Formatting is a command, not a matter of individual discipline. (`references/naming.md`
+  PS-NAME-01, PS-NAME-13).
 - **PS-CORE-02 `[M]`** Put units and qualifiers last — `latency_ms_max`, not `max_latency_ms` — so
   alphabetical order becomes a semantic grouping and a missing member of a family is visible.
   (`references/naming.md` PS-NAME-05).
@@ -191,11 +191,11 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 ### Data
 
 - **PS-CORE-10 `[M]`** Model a record as `@dataclass(frozen=True, slots=True)` by default, and reach
-  for a mutable one only when you can say what it buys.
-  (`references/data.md` PS-DATA-01, PS-DATA-02).
+  for a mutable one only when you can say what it buys. (`references/data.md` PS-DATA-01,
+  PS-DATA-02).
 - **PS-CORE-11 `[M]`** Never give a mutable or computed default. The default is evaluated once and
-  shared by every caller — and, under free threading, by every thread.
-  (`references/data.md` PS-DATA-08, PS-DATA-09).
+  shared by every caller — and, under free threading, by every thread. (`references/data.md`
+  PS-DATA-08, PS-DATA-09).
 - **PS-CORE-12 `[M!]`** Make the invalid state unrepresentable before validating against it. A type
   is a check performed everywhere for free; validation is one that can be forgotten at any call
   site. *Relaxed form:* application code at a boundary may validate a primitive, provided it does so
@@ -207,14 +207,14 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
   a loud failure into a quiet wrong answer is the most expensive thing in this standard.
   (`references/errors.md` PS-ERR-08, PS-ERR-09).
 - **PS-CORE-14 `[M]`** Never `return`, `break` or `continue` inside `finally` — it discards the
-  in-flight exception silently. PEP 765 makes it a `SyntaxWarning`.
-  (`references/errors.md` PS-ERR-13).
+  in-flight exception silently. PEP 765 makes it a `SyntaxWarning`. (`references/errors.md`
+  PS-ERR-13).
 - **PS-CORE-15 `[M]`** Never use `assert` to validate input: `python -O` removes it, so the
-  validation disappears in exactly the deployment that needed it.
-  (`references/errors.md` PS-ERR-07).
+  validation disappears in exactly the deployment that needed it. (`references/errors.md`
+  PS-ERR-07).
 - **PS-CORE-16 `[M]`** Catch an `ExceptionGroup` with `except*`. A plain `except ValueError` never
-  matches one, so the handler you wrote is silently never entered.
-  (`references/errors.md` PS-ERR-11).
+  matches one, so the handler you wrote is silently never entered. (`references/errors.md`
+  PS-ERR-11).
 
 ### Concurrency
 
@@ -222,12 +222,11 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
   read, a computation and a write. (`references/concurrency.md` PS-CONC-02).
 - **PS-CORE-18 `[M]`** No check-then-act on shared state. Both halves being individually atomic does
   not make the pair one step. (`references/concurrency.md` PS-CONC-03).
-- **PS-CORE-19 `[M]`** Never share one iterator or generator across threads. A generator raises;
-  any other iterator may silently duplicate or drop elements.
-  (`references/concurrency.md` PS-CONC-12).
+- **PS-CORE-19 `[M]`** Never share one iterator or generator across threads. A generator raises; any
+  other iterator may silently duplicate or drop elements. (`references/concurrency.md` PS-CONC-12).
 - **PS-CORE-20 `[M]`** A cache is coherent, not single-flight — `lru_cache` and `cached_property`
-  both run the body more than once under contention.
-  (`references/concurrency.md` PS-CONC-15, PS-CONC-16).
+  both run the body more than once under contention. (`references/concurrency.md` PS-CONC-15,
+  PS-CONC-16).
 - **PS-CORE-21 `[M]`** Write a record to a text stream two threads share in one call — one `write`,
   or through `logging` — never with `print`, which writes the text and its `end` separately.
   (`references/concurrency.md` PS-CONC-20).
@@ -240,8 +239,8 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
   explicitly — the typing spec makes imported symbols private by default, so a bare import in
   `__init__.py` is not public. (`references/api.md` PS-API-02, PS-API-06).
 - **PS-CORE-24 `[M]`** Pass `encoding=` explicitly to every text open. 3.15 moved the default to
-  UTF-8 and `PYTHONUTF8=0` moves it back, so only an explicit encoding means the same thing on
-  every interpreter and in every locale. (`references/output.md` PS-OUT-01, PS-OUT-02).
+  UTF-8 and `PYTHONUTF8=0` moves it back, so only an explicit encoding means the same thing on every
+  interpreter and in every locale. (`references/output.md` PS-OUT-01, PS-OUT-02).
 - **PS-CORE-25 `[M]`** Log with `%`-style arguments, never an f-string, and never configure logging
   in a library. (`references/output.md` PS-OUT-11, PS-OUT-13).
 
@@ -250,8 +249,7 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **PS-CORE-26 `[M]`** Ask `sys.abi_info.free_threaded` how the interpreter was built and
   `sys._is_gil_enabled()` what it is doing right now. One dependency can turn the second answer
   around at import time, and neither a `cp3XXt` wheel tag nor the `abi3t` stable ABI declares that
-  it will not.
-  (`references/concurrency.md` PS-CONC-01, `references/build.md` PS-BUILD-19).
+  it will not. (`references/concurrency.md` PS-CONC-01, `references/build.md` PS-BUILD-19).
 
 ## 5. Review checklist
 

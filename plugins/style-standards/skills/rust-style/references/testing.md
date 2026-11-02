@@ -1,8 +1,9 @@
 # RS-TEST — Testing
 
-A test suite is a specification that runs. Its job is to make the contract
-explicit, to fail loudly when the contract breaks, and to say clearly what
-broke. Coverage percentage is a byproduct, not a goal.
+A test suite is a specification that runs. Its job is to make the contract explicit, to fail loudly
+when the contract breaks, and to say clearly what broke. Coverage percentage is a byproduct, not a
+goal.
+
 ## Contents
 
 - **Organization**
@@ -46,6 +47,7 @@ broke. Coverage percentage is a byproduct, not a goal.
   - RS-TEST-32 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
   - RS-TEST-33 [S] Measure coverage to find untested branches, not to hit a number
   - RS-TEST-34 [S] Delete tests that no longer test anything
+
 - Decided by tools
 
 ---
@@ -133,8 +135,8 @@ mod tests {
 
 ### RS-TEST-04 [M] Put unit tests in `#[cfg(test)] mod tests` at the bottom of the file
 
-Unit tests live in `#[cfg(test)] mod tests` at the bottom of the file they test, with `use
-super::*;`. Proximity is what keeps them updated, and they can reach private items.
+Unit tests live in `#[cfg(test)] mod tests` at the bottom of the file they test, with
+`use super::*;`. Proximity is what keeps them updated, and they can reach private items.
 
 **Why:** a test in the same file is visible in the same diff as the change, so it gets updated. A
 test in a distant directory does not, and that is how suites rot. The child module also has access
@@ -174,9 +176,9 @@ README shows it?
 
 ### RS-TEST-06 [M] Share integration helpers through `#[path]`, not a `mod.rs`
 
-Put helpers in a subdirectory of `tests/` and pull them in with `#[path = "support/helpers.rs"]
-mod helpers;`, or promote them to a `testutil` workspace crate once several suites need them or the
-helpers gain dependencies or tests of their own.
+Put helpers in a subdirectory of `tests/` and pull them in with
+`#[path = "support/helpers.rs"] mod helpers;`, or promote them to a `testutil` workspace crate once
+several suites need them or the helpers gain dependencies or tests of their own.
 
 **Why:** Cargo compiles every *top-level* file in `tests/` as its own test binary, so
 `tests/helpers.rs` becomes a test crate with no tests. A subdirectory escapes that, and `#[path]`
@@ -297,8 +299,8 @@ Assert on values, not on shapes. `assert_eq!(result, vec!["a", "b"])` beats
 debugger.
 
 **Check:** grep for `assert!(` containing `==`, `.len()`, or `&&`. Each is usually an `assert_eq!`
-that would print more. Clippy's `manual_assert_eq` and `assert_is_empty` (pedantic) already flag
-an assertion that is a single comparison or a single emptiness test.
+that would print more. Clippy's `manual_assert_eq` and `assert_is_empty` (pedantic) already flag an
+assertion that is a single comparison or a single emptiness test.
 
 ```rust
 // verified
@@ -321,8 +323,9 @@ mod tests {
 
 ### RS-TEST-12 [S] Give assertions context when the values are not self-explanatory
 
-Give assertions context when the values are not self-explanatory: `assert_eq!(got, want, "pattern
-{pattern:?} over input {input:?}")`. A bare `assert!(x)` failure tells you nothing.
+Give assertions context when the values are not self-explanatory:
+`assert_eq!(got, want, "pattern {pattern:?} over input {input:?}")`. A bare `assert!(x)` failure
+tells you nothing.
 
 **Why:** in a table-driven test the values alone do not identify which case failed. The message is
 what turns "one of forty cases is wrong" into "case seven is wrong".
@@ -470,9 +473,9 @@ mod tests {
 
 Tests must be deterministic and order-independent. `cargo test` runs them in parallel on multiple
 threads; anything relying on a shared directory, a fixed port, an environment variable, or the
-current working directory will flake. Pass a test its environment through a lookup, as
-`RS-CLI-31`'s `read` takes one: `env::set_var` is `unsafe` in edition 2024, so
-`unsafe_code = "forbid"` rejects it.
+current working directory will flake. Pass a test its environment through a lookup, as `RS-CLI-31`'s
+`read` takes one: `env::set_var` is `unsafe` in edition 2024, so `unsafe_code = "forbid"` rejects
+it.
 
 **Why:** the default harness is multi-threaded, so shared mutable state is a race by construction. A
 flaky test is worse than no test, because it trains everyone to rerun CI instead of reading
@@ -728,8 +731,8 @@ filename. A hand-rolled harness finds the binary through `CARGO_BIN_EXE_<name>`.
 unit test reaches them. They are also the surface scripts depend on, which makes regressions there
 especially expensive.
 
-**Check:** does any test assert on the exit code and on stderr? Asserting only on stdout misses
-half the contract. And does any test use a non-UTF-8 filename?
+**Check:** does any test assert on the exit code and on stderr? Asserting only on stdout misses half
+the contract. And does any test use a non-UTF-8 filename?
 
 ## Doc tests, CI, and hygiene
 
@@ -773,8 +776,8 @@ is the bug rather than a property of the test.
 
 Keep the fast suite fast. If `cargo test` takes more than a minute or two, split the slow cases
 behind `#[ignore = "slow: run with --ignored"]` plus a nightly CI job that runs
-`cargo test -- --ignored`, and say so in `CONTRIBUTING.md`. The reason string is required:
-clippy's `ignore_without_reason` (pedantic) rejects a bare `#[ignore]`.
+`cargo test -- --ignored`, and say so in `CONTRIBUTING.md`. The reason string is required: clippy's
+`ignore_without_reason` (pedantic) rejects a bare `#[ignore]`.
 
 **Why:** a suite slower than the developer's patience stops being run before committing, which moves
 every failure to CI and lengthens the feedback loop enormously. Speed is a feature of the suite.

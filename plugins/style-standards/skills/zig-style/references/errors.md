@@ -6,13 +6,13 @@ and the shape of the control flow in between (conditions, loops, `switch`, label
 `@branchHint`, and the 70-line function limit).
 
 This chapter does not own assertion *density* or the design of bounded limits — those are
-`references/assertions.md` ZS-ASSERT-09 and ZS-ASSERT-23. Allocator ownership and OOM
-lifetimes are `references/memory.md`; `std.Io` stream errors and cancellation are
-`references/concurrency.md`; error-name formatting with `{t}` is
-`references/output.md` ZS-OUT-05. It cites them.
+`references/assertions.md` ZS-ASSERT-09 and ZS-ASSERT-23. Allocator ownership and OOM lifetimes are
+`references/memory.md`; `std.Io` stream errors and cancellation are `references/concurrency.md`;
+error-name formatting with `{t}` is `references/output.md` ZS-OUT-05. It cites them.
 
 Blocks that do not declare their own imports assume a file opening with
 `const std = @import("std");` and `const assert = std.debug.assert;`.
+
 ## Contents
 
 - **1. The decision table: error vs assert vs panic vs unreachable vs optional**
@@ -71,11 +71,10 @@ TigerStyle's framing is the whole design: **assertions detect programmer errors,
 unexpected and whose only correct handling is to crash; errors are operating conditions, which are
 expected and must be handled.** Pick the mechanism from the classification, not from convenience.
 
-The test is who can violate the condition. If anything outside your process can — a peer, a file,
-a user, the network, the disk — it is an operating condition and an error union. If only your own
-code being wrong can, it is an assertion. An assertion that fires on hostile input is a remote
-denial of service, and in a `fast` build a remote memory-safety bug (`references/assertions.md`
-ZS-ASSERT-03).
+The test is who can violate the condition. If anything outside your process can — a peer, a file, a
+user, the network, the disk — it is an operating condition and an error union. If only your own code
+being wrong can, it is an assertion. An assertion that fires on hostile input is a remote denial of
+service, and in a `fast` build a remote memory-safety bug (`references/assertions.md` ZS-ASSERT-03).
 
 **Why:** the two have opposite correct responses. After a violated precondition the program's model
 of itself is wrong, and continuing corrupts more state; a failed `open()` means the *world* did not
@@ -161,8 +160,8 @@ never opens stdout, and never decides where its output goes.
 
 It does **not** govern assertions. A violated internal invariant has exactly one correct response in
 any code, library or not, so `assert` and a project-local always-on `assertAlways`
-(`references/assertions.md` ZS-ASSERT-05) are legal in a library — including in allocators
-and crypto, which are libraries by construction. What a library may not do is choose its consumer's
+(`references/assertions.md` ZS-ASSERT-05) are legal in a library — including in allocators and
+crypto, which are libraries by construction. What a library may not do is choose its consumer's
 optimize mode: document which invariants it asserts and what it costs to run it in a `safe` build,
 and let the consumer decide (`references/build.md` ZS-BUILD-25).
 
@@ -261,9 +260,9 @@ function, merging in reusable sets with `||`.
 **Why:** the merge operator keeps one authoritative definition per concern. Re-listing
 `error{OutOfMemory}` in fifteen places means the sixteenth will disagree.
 
-**Check:** the same `error{…}` member list spelled out in two places instead of one named set
-merged with `||`; and a named set whose identifier does not end in `Error` or is not named after
-the verb whose function returns it.
+**Check:** the same `error{…}` member list spelled out in two places instead of one named set merged
+with `||`; and a named set whose identifier does not end in `Error` or is not named after the verb
+whose function returns it.
 
 ```zig
 // verified — GOOD
@@ -428,10 +427,11 @@ test formatCode {
 ```
 
 **Exempt: `comptime`-evaluated `catch unreachable`.** In a `const` initializer or a `comptime` block
-the expression is folded by the compiler, so a failure is `error: caught unexpected error
-'Overflow'` at build time and can never be illegal behavior at runtime — there is nothing to prove
-and no comment is required. This is why a derived limit (`references/assertions.md`
-ZS-ASSERT-21/ZS-ASSERT-22) whose derivation has a fallible `std.math` step is written without one:
+the expression is folded by the compiler, so a failure is
+`error: caught unexpected error 'Overflow'` at build time and can never be illegal behavior at
+runtime — there is nothing to prove and no comment is required. This is why a derived limit
+(`references/assertions.md` ZS-ASSERT-21/ZS-ASSERT-22) whose derivation has a fallible `std.math`
+step is written without one:
 
 ```zig
 // fragment — GOOD: comptime-evaluated, so failure is a compile error
@@ -439,9 +439,9 @@ pub const blocks_total_max: u32 =
     std.math.mul(u32, blocks_per_message_max, messages_max) catch unreachable;
 ```
 
-**Check:** every runtime `catch unreachable` has a comment on the same or the preceding line
-naming the fixed bound that makes failure impossible. The short spelling `.?` has no proof form at
-all — ZS-ERR-26 forbids it outright.
+**Check:** every runtime `catch unreachable` has a comment on the same or the preceding line naming
+the fixed bound that makes failure impossible. The short spelling `.?` has no proof form at all —
+ZS-ERR-26 forbids it outright.
 
 ### ZS-ERR-10 [M] Every error is handled somewhere; `catch {}` needs a justification comment
 
@@ -454,9 +454,9 @@ of catastrophic failures in distributed data-intensive systems came from mishand
 the software had already signalled: detected, then thrown away.
 
 **Check:** `catch {}`, `catch {};`, and `_ = … catch` with no comment on the same or the preceding
-line saying why the failure is genuinely not information. A `catch`
-that logs and continues is a different rule (ZS-ERR-07) and is not a hit here — but if the call took
-an `io`, it is a hit under ZS-CONC-24, which treats log-and-continue as a dropped cancellation.
+line saying why the failure is genuinely not information. A `catch` that logs and continues is a
+different rule (ZS-ERR-07) and is not a hit here — but if the call took an `io`, it is a hit under
+ZS-CONC-24, which treats log-and-continue as a dropped cancellation.
 
 ```zig
 // fragment — BAD
@@ -678,8 +678,8 @@ fn laundered() ?u32 {
 Print an error return trace with **`std.debug.dumpErrorReturnTrace(et)`**, whose parameter is
 exactly the `*const std.lang.StackTrace` that `@errorReturnTrace()` yields;
 `writeErrorReturnTrace(et, t)` is the same thing against an `Io.Terminal` you supply. Do **not**
-reach for `std.debug.dumpStackTrace` here: in 0.17 that takes a `*const std.debug.StackTrace` (`{
-return_addresses: []usize, skipped: SkippedAddresses }`), which is a different type from
+reach for `std.debug.dumpStackTrace` here: in 0.17 that takes a `*const std.debug.StackTrace`
+(`{ return_addresses: []usize, skipped: SkippedAddresses }`), which is a different type from
 `std.lang.StackTrace` (`{ index: usize, instruction_addresses: []usize }`) and will not compile:
 `error: expected type '*const debug.StackTrace', found '*lang.StackTrace'`. Capturing a *stack*
 trace is ZS-ERR-32.
@@ -740,9 +740,10 @@ Assertions follow the same rule: `references/assertions.md` ZS-ASSERT-10.
 
 ### ZS-ERR-17 [S] Prefer a `switch` to an `else if` chain; if you flatten chains into trees, say why
 
-**Honest disagreement.** TigerStyle mandates rewriting `else if` chains into nested `else { if { }
-}` trees. Idiomatic Zig and the standard library do not do this — `else if` chains appear throughout
-std, and `zig fmt` formats them as chains. The two positions are irreconcilable as written.
+**Honest disagreement.** TigerStyle mandates rewriting `else if` chains into nested
+`else { if { } }` trees. Idiomatic Zig and the standard library do not do this — `else if` chains
+appear throughout std, and `zig fmt` formats them as chains. The two positions are irreconcilable as
+written.
 
 Recommendation, keyed to tiers — `[S]`: when the chain dispatches on one value, convert it to a
 `switch`, which buys you exhaustiveness checking that neither `if` form provides. When it dispatches
@@ -784,9 +785,10 @@ positively elsewhere — the reader then has to hold both spellings of one relat
 (Same wording as SKILL.md ZS-CORE-18; the guard form is used by ZS-ERR-20, ZS-ERR-22 and
 ZS-ASSERT-14.)
 
-**Why:** the positive form matches how the same relation is written in the loop condition (`while
-(index < length)`) and in the assertion (`assert(index < length)`), so the reader compares identical
-expressions instead of mentally negating one of them. Negations are where off-by-one errors hide.
+**Why:** the positive form matches how the same relation is written in the loop condition
+(`while (index < length)`) and in the assertion (`assert(index < length)`), so the reader compares
+identical expressions instead of mentally negating one of them. Negations are where off-by-one
+errors hide.
 
 ```zig
 // verified — GOOD
@@ -859,19 +861,20 @@ Implications in assertions take the same one-line form: `references/assertions.m
 
 `[M!]` — mandatory in high-reliability code, meaning any codebase where a crash or memory corruption
 is unacceptable: databases, consensus and replication, crypto, allocators, kernel and embedded
-firmware with no growable stack, parsers and decoders on untrusted input. There, write the
-iterative form with an explicit worklist of fixed size. *Relaxed form:* elsewhere, recursion is
-permitted only when the maximum depth is a named constant asserted at entry, or a `comptime`
-parameter, which makes the bound a compile-time fact. A recursive descent over attacker-controlled
-nesting depth is a remote crash primitive.
+firmware with no growable stack, parsers and decoders on untrusted input. There, write the iterative
+form with an explicit worklist of fixed size. *Relaxed form:* elsewhere, recursion is permitted only
+when the maximum depth is a named constant asserted at entry, or a `comptime` parameter, which makes
+the bound a compile-time fact. A recursive descent over attacker-controlled nesting depth is a
+remote crash primitive.
 
 **Why:** without recursion the call graph is acyclic, so a bound on stack use can be derived
 statically. With it, stack exhaustion is the one failure Zig's safety checks do not catch: a fault
 with a truncated trace, or, on a target with no guard page, silent corruption below the stack.
 
-**Check:** a function whose body names itself, or a mutually recursive pair, with no `comptime
-depth` parameter and no runtime `depth`/`level` compared against a named `_max` constant. A tree,
-JSON, expression, or directory walk written without an explicit worklist is where this hides.
+**Check:** a function whose body names itself, or a mutually recursive pair, with no
+`comptime depth` parameter and no runtime `depth`/`level` compared against a named `_max` constant.
+A tree, JSON, expression, or directory walk written without an explicit worklist is where this
+hides.
 
 ```zig
 // verified — GOOD: an explicit worklist on a fixed buffer; std asserts the room on every push
@@ -962,9 +965,9 @@ runtime-known one embeds its own conditional branch (ideally a jump table).
 the CPU predicts each transition independently; a `while`+`switch` loop funnels every transition
 through one dispatch point, a bottleneck in the hot loops that use it.
 
-**Check:** a `while (true) { switch (state) { … } }` whose arms all end by assigning `state` —
-that is a labeled `switch` written the long way. Separately, an unlabeled `break` or `continue`
-inside a labeled construct, which silently targets the innermost loop rather than the labeled one.
+**Check:** a `while (true) { switch (state) { … } }` whose arms all end by assigning `state` — that
+is a labeled `switch` written the long way. Separately, an unlabeled `break` or `continue` inside a
+labeled construct, which silently targets the innermost loop rather than the labeled one.
 
 ```zig
 // verified — GOOD
@@ -1072,9 +1075,9 @@ fn opcodeName(op: Opcode) []const u8 {
 
 ### ZS-ERR-26 [M] Unwrap optionals with `orelse` or a capture, never with `.?`
 
-`.?` is `orelse unreachable` in four characters. Where the proof rule (ZS-ERR-09) genuinely
-licenses an unreachable, write `orelse unreachable` and write the proof beside it; std does that
-three times in 456 KLOC. The short spelling has no licensed use.
+`.?` is `orelse unreachable` in four characters. Where the proof rule (ZS-ERR-09) genuinely licenses
+an unreachable, write `orelse unreachable` and write the proof beside it; std does that three times
+in 456 KLOC. The short spelling has no licensed use.
 
 Most sites do not need the escape at all. `std.testing.expectEqual` compares optionals, so
 `expectEqual(2, find(...))` needs no unwrap; a `callconv(.c)` callback that returns void can take
@@ -1118,9 +1121,9 @@ const found = for (items) |it| {
 `@branchHint(hint: std.lang.BranchHint) void`. The hints are exactly `.none`, `.likely`,
 `.unlikely`, `.cold`, `.unpredictable` (`std.lang.BranchHint`). It is only valid as the first
 statement of a branch or a function, which the compiler enforces (the row below). So on a cold
-branch that also asserts (ZS-CORE-08), the hint comes first and the assertion after it.
-`@setCold` does not exist; the compiler rejects it (`references/migration.md`'s
-`invalid builtin function` row).
+branch that also asserts (ZS-CORE-08), the hint comes first and the assertion after it. `@setCold`
+does not exist; the compiler rejects it (`references/migration.md`'s `invalid builtin function`
+row).
 
 std uses it deliberately: `.cold` ×132 on error paths (including inside `std.log.err` and
 `std.debug.panic`), `.unlikely` ×78, `.likely` ×66.
@@ -1132,8 +1135,8 @@ would cost more than the extra work.
 **Check:** on a *measured* hot path, an error-returning branch or a `catch` block whose first
 statement is not `@branchHint(.cold)`; deviating needs only the measurement that says the branch is
 not hot. And the converse: a `.likely` or `.unlikely` on a branch nobody measured. A hint asserts a
-distribution, and a wrong one is worse than none. Placement is the compiler's `'@branchHint' must
-appear as the first statement…` row.
+distribution, and a wrong one is worse than none. Placement is the compiler's
+`'@branchHint' must appear as the first statement…` row.
 
 ```zig
 // verified — GOOD
@@ -1313,9 +1316,9 @@ test "diagnostics carry the position the error set cannot" {
 ```
 
 The application then renders it — `"{s}:{d}:{d}: {t}"` with `{t}` for the error name (see
-`references/output.md` ZS-OUT-05). Give `Diagnostics` a rendering method when the
-rendering is fixed, as `std.zon.parse.Diagnostics` does: its `fmt(path)` returns a value printed
-with `{f}`, and `log(path)` and `fatal(path)` print it for you.
+`references/output.md` ZS-OUT-05). Give `Diagnostics` a rendering method when the rendering is
+fixed, as `std.zon.parse.Diagnostics` does: its `fmt(path)` returns a value printed with `{f}`, and
+`log(path)` and `fatal(path)` print it for you.
 
 **Check:** an error set with members like `InvalidCharacterInHeader` or `BadFieldAtLine`, or a parse
 function taking an `Allocator` used only to build an error string. Both are a `*Diagnostics` written
@@ -1324,15 +1327,17 @@ the wrong way.
 ### ZS-ERR-32 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
 
 To record where you are *without* aborting — a leak tracker, an audit log, a "who called this" probe
-— use `std.debug.captureCurrentStackTrace(options: StackUnwindOptions, addr_buf: []usize)
-StackTrace`. It writes return addresses into `addr_buf`, which you own and which must outlive the
-returned `StackTrace`. To print instead of capture, `dumpCurrentStackTrace(options)` or
+— use
+`std.debug.captureCurrentStackTrace(options: StackUnwindOptions, addr_buf: []usize) StackTrace`. It
+writes return addresses into `addr_buf`, which you own and which must outlive the returned
+`StackTrace`. To print instead of capture, `dumpCurrentStackTrace(options)` or
 `writeCurrentStackTrace(options, t)`; to print one you captured earlier, `dumpStackTrace(&st)` or
 `writeStackTrace(&st, t)`.
 
-`StackUnwindOptions` is `{ first_address: ?usize = null, context: ?CpuContextPtr = null,
-allow_unsafe_unwind: bool = false }`. Pass `.{ .first_address = @returnAddress() }` to drop your own
-frame from the trace — that is what `dumpCurrentStackTrace` does internally.
+`StackUnwindOptions` is
+`{ first_address: ?usize = null, context: ?CpuContextPtr = null, allow_unsafe_unwind: bool = false }`.
+Pass `.{ .first_address = @returnAddress() }` to drop your own frame from the trace — that is what
+`dumpCurrentStackTrace` does internally.
 
 `std.debug.StackIterator` is **not `pub`** (`std/debug.zig` declares it plain `const`), so a
 hand-rolled unwinding loop does not compile; `captureCurrentStackTrace` is the supported way. And
@@ -1354,8 +1359,7 @@ fn captureHere(addr_buf: []usize) std.debug.StackTrace {
 Two costs to budget for. `std.options.allow_stack_tracing` gates the whole family: when it is false
 every capture returns an empty trace, so a capture-based diagnostic silently produces nothing.
 Unwinding is also not cheap — it is a debug-path tool, so keep it off the hot path and behind the
-same `verify`-style constant as an O(N) assertion (`references/assertions.md`
-ZS-ASSERT-17).
+same `verify`-style constant as an O(N) assertion (`references/assertions.md` ZS-ASSERT-17).
 
 **Check:** any surviving `std.debug.StackIterator`, `.dumpStackTrace(@errorReturnTrace())`, or a
 `dumpCurrentStackTrace(start_addr)` call passing a bare `?usize` where it takes
@@ -1379,8 +1383,8 @@ a different set.
 
 ### ZS-ERR-34 [M] Absorb a special case into the general path, or give it its own type
 
-A branch that exists for one input is not a feature; it is an unfinished generalization. Either
-the general path handles it — usually by widening a parameter or adding a tag — or the case differs
+A branch that exists for one input is not a feature; it is an unfinished generalization. Either the
+general path handles it — usually by widening a parameter or adding a tag — or the case differs
 enough to deserve its own type and its own function.
 
 **Why:** special-case branches compound. Each is locally cheap and globally expensive: every later

@@ -11,6 +11,7 @@ Two sources are merged here: the **Rust API Guidelines** naming chapter (C-CASE,
 C-ITER, C-ITER-TY, C-WORD-ORDER, C-FEATURE), quoted in substance where it is normative, and the
 **empirical conventions of `std`, `regex`, `ignore`, and `ripgrep`**. Where they are silent, the
 tie-break is section 3 of `SKILL.md`.
+
 ## Contents
 
 - **Casing**
@@ -57,6 +58,7 @@ tie-break is section 3 of `SKILL.md`.
 
 - **Symmetry of names**
   - RS-NAME-35 [M] Name the two halves of a pair symmetrically
+
 - Decided by tools
 
 ---
@@ -122,8 +124,8 @@ Two words is the ceiling for a leaf crate; three for a facade (`regex-automata`,
 needs four words to describe the crate, the crate does too much — the name is reporting a design
 problem (`references/modules.md` RS-MOD-19).
 
-**Check:** say the name out loud. If you have to spell it, or if it does not fit in the
-`Cargo.toml` line without wrapping, shorten it or split the crate.
+**Check:** say the name out loud. If you have to spell it, or if it does not fit in the `Cargo.toml`
+line without wrapping, shorten it or split the crate.
 
 ### RS-NAME-05 [M] Name a module for its concept; never `utils`, `helpers`, `common`
 
@@ -162,9 +164,9 @@ impl Matcher {
 `simd-accel`, `pcre2`, `unicode`. A feature named after its dependency is acceptable only when it
 exists solely to enable that dependency's impls — `serde`, `rayon`.
 
-**Why:** feature names are the vocabulary users reason about when they run
-`--no-default-features`. `mycrate/fast-path` tells them what they lose; `mycrate/aho-corasick` tells
-them only which internal you chose, and swapping it becomes a breaking change.
+**Why:** feature names are the vocabulary users reason about when they run `--no-default-features`.
+`mycrate/fast-path` tells them what they lose; `mycrate/aho-corasick` tells them only which internal
+you chose, and swapping it becomes a breaking change.
 
 **Check:** for each feature, can a user who has never read your source predict what turning it off
 removes? If not, rename it.
@@ -204,9 +206,9 @@ bytes, counts of a specific thing — either names the unit or has a type that d
 
 ### RS-NAME-10 [S] Name a type parameter by its role: a conventional letter, else a word
 
-A role the ecosystem has a letter for takes it: `T`/`U` for values, `E` for an error,
-`K`/`V` for map keys and values, `F` for a closure, `I` for an iterator, `S` for string-like, and
-`R`/`W` for a reader and a writer. In a crowded signature the letter matches its bound, as in
+A role the ecosystem has a letter for takes it: `T`/`U` for values, `E` for an error, `K`/`V` for
+map keys and values, `F` for a closure, `I` for an iterator, `S` for string-like, and `R`/`W` for a
+reader and a writer. In a crowded signature the letter matches its bound, as in
 `fn copy<R: Read, W: Write>`. Once the roles stop being obvious — three or more parameters of
 asymmetric role, or a documented type such as `Cache<Key, Value>` — use words.
 
@@ -685,9 +687,9 @@ boundary? Give it a name.
 
 ### RS-NAME-28 [S] Name the positive; convert negations once, at the boundary
 
-`no_color`, `disable_cache`, and `skip_hidden` compose into double negation: `if !no_color`. The
-CLI flag may be negative because the convention demands it — convert to a positive field once, where
-the flag is parsed (`references/cli.md` RS-CLI-12).
+`no_color`, `disable_cache`, and `skip_hidden` compose into double negation: `if !no_color`. The CLI
+flag may be negative because the convention demands it — convert to a positive field once, where the
+flag is parsed (`references/cli.md` RS-CLI-12).
 
 **Why:** every reader of `if !no_color` performs a small logic operation to recover the intent, and
 under an `&&` with a second negation they will eventually get it wrong.

@@ -63,9 +63,9 @@ camera entity.
 
 ### BV-SCHED-02 [S] Pick a schedule deliberately, from the whole list
 
-`Update` is not the default; it is one entry in a documented order. Each `App::update` runs
-`First`, `PreUpdate`, `StateTransition`, `RunFixedMainLoop`, `Update`, `SpawnScene`, `PostUpdate`,
-`Last` — and inside the fixed loop, `FixedFirst` … `FixedLast`.
+`Update` is not the default; it is one entry in a documented order. Each `App::update` runs `First`,
+`PreUpdate`, `StateTransition`, `RunFixedMainLoop`, `Update`, `SpawnScene`, `PostUpdate`, `Last` —
+and inside the fixed loop, `FixedFirst` … `FixedLast`.
 
 **Why:** most `.before()` and `.after()` calls really mean "this belongs in `PreUpdate`". Input
 processed in `PreUpdate` precedes every consumer without naming one, and cleanup in `Last` follows
@@ -84,8 +84,7 @@ time the player spends looking at nothing. Loading is also fallible and progress
 progress bar, a retry and a state transition, none of which a `Startup` system can express.
 
 **Check:** for each `Startup` system, ask how long it takes on the slowest supported machine. If the
-answer is "depends on the disk", it belongs in a loading state
-(`references/state.md` BV-STATE-09).
+answer is "depends on the disk", it belongs in a loading state (`references/state.md` BV-STATE-09).
 
 ### BV-SCHED-04 [S] Derive from this frame's transforms in `PostUpdate`
 
@@ -433,8 +432,8 @@ function is the other plugin's implementation detail: renaming or splitting it b
 as a compile error at best and a silently dropped edge at worst.
 
 **Check:** count the `.before(` and `.after(` calls. Past a handful, they are describing phases that
-have not been named. Each argument should be a `SystemSet` variant; a path to a `fn` is a
-dependency on a neighbour's internals.
+have not been named. Each argument should be a `SystemSet` variant; a path to a `fn` is a dependency
+on a neighbour's internals.
 
 ```rust
 // verified

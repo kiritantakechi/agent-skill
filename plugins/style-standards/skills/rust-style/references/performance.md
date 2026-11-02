@@ -1,11 +1,11 @@
 # RS-PERF — Performance
 
-Rust's promise is that you do not pay for what you do not use, and that you can
-have the fast version without giving up safety. Delivering on that requires
-discipline about two things: *measuring before optimizing*, and *not being
-gratuitously slow in the first place*. The rules below split accordingly — the
-first group is about evidence, the rest are defaults that cost nothing to
+Rust's promise is that you do not pay for what you do not use, and that you can have the fast
+version without giving up safety. Delivering on that requires discipline about two things:
+*measuring before optimizing*, and *not being gratuitously slow in the first place*. The rules below
+split accordingly — the first group is about evidence, the rest are defaults that cost nothing to
 follow.
+
 ## Contents
 
 - **Measure first**
@@ -58,6 +58,7 @@ follow.
   - RS-PERF-37 [M] Pin CI benchmark comparisons to one machine class, or distrust them
   - RS-PERF-38 [S] Track binary size and compile time alongside runtime
   - RS-PERF-39 [S] Record every optimization attempt, including the failures
+
 - Decided by tools
 
 ---
@@ -437,12 +438,12 @@ no `_ =>` arm (`RS-API-27`). `as_array` (a slice of exactly `N`) and `array_wind
 windows) carry the width the same way.
 
 **Why:** the safe forms give the optimizer the same proof the `unsafe` would assert, at zero
-soundness cost. `get_unchecked` converts a panic into UB, so it waits until the safe forms have
-been tried and measured.
+soundness cost. `get_unchecked` converts a panic into UB, so it waits until the safe forms have been
+tried and measured.
 
 **Check:** if `get_unchecked` appears, was `as_chunks` or `zip` tried first, and is there a
-benchmark showing the difference? Clippy's `chunks_exact_to_as_chunks` flags a `chunks_exact` with
-a literal width.
+benchmark showing the difference? Clippy's `chunks_exact_to_as_chunks` flags a `chunks_exact` with a
+literal width.
 
 ```rust
 // verified

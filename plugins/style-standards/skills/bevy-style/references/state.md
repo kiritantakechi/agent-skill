@@ -2,8 +2,8 @@
 
 Scope: global data that is not attached to an entity, the state machine that decides which parts of
 the game are running, and how things are cleaned up when it moves. `Resource` is a subtrait of
-`Component`, which shapes what a resource may be. Components are in the ECS chapter; gating a
-system on a state is in the scheduling chapter.
+`Component`, which shapes what a resource may be. Components are in the ECS chapter; gating a system
+on a state is in the scheduling chapter.
 
 ## Contents
 
@@ -51,9 +51,9 @@ the resource and panics with B0002 when the system is built. Each takes `Without
 from it with only a warning, and the resource shows up in ordinary `&T` queries, so a global
 fallback and a per-entity override cannot share one type.
 
-**Check:** grep for a `derive` naming both `Component` and `Resource`; it does not compile.
-Then grep for the `Global*` pattern in reverse — a resource and a component that are conceptually
-the same fact need two names, not one. Then read each `Query<Entity>`, `Query<EntityRef>` and
+**Check:** grep for a `derive` naming both `Component` and `Resource`; it does not compile. Then
+grep for the `Global*` pattern in reverse — a resource and a component that are conceptually the
+same fact need two names, not one. Then read each `Query<Entity>`, `Query<EntityRef>` and
 `Query<EntityMut>` whose filter does not already exclude resource entities.
 
 ```rust
@@ -144,8 +144,8 @@ no writer possible, no two readers can conflict.
 ### BV-STATE-06 [M] Take `Option<Res<T>>` or `If<Res<T>>` where absence is expected
 
 A resource that only exists in some states, or is inserted by another plugin that may not be
-present, is `Option<Res<T>>` when the body has something to do without it, and `If<Res<T>>` when
-the answer is "do not run": `If` skips the system instead of failing. Prefer it to a
+present, is `Option<Res<T>>` when the body has something to do without it, and `If<Res<T>>` when the
+answer is "do not run": `If` skips the system instead of failing. Prefer it to a
 `resource_exists::<T>` run condition, which has to name the same `T` as the parameter and can drift
 from it.
 
@@ -274,18 +274,20 @@ are separate resources.
 
 ### BV-STATE-08 [S] Persist a settings resource with `#[derive(SettingsGroup)]`
 
-`bevy_settings`'s `SettingsPlugin` loads a resource from the platform's own preferences
-directory at startup, and gives you two commands to write it back. It replaces the load system, the
-path constant, and the serialisation between them — but not the decision of *when* to save. Three
-things about it are not guessable:
+`bevy_settings`'s `SettingsPlugin` loads a resource from the platform's own preferences directory at
+startup, and gives you two commands to write it back. It replaces the load system, the path
+constant, and the serialisation between them — but not the decision of *when* to save. Three things
+about it are not guessable:
 
-- **Saving is explicit.** The plugin loads; it does not save. `commands.queue(SaveSettingsDeferred(
-  Duration::from_secs_f32(0.5)))` debounces a write so a dragged slider does not hammer the disk,
-  and `SaveSettingsSync::IfChanged` blocks until the write lands, which is what save-on-quit needs.
-- **It is a reflected type.** The derive list is `#[derive(Resource, SettingsGroup, Reflect,
-  Default)]`; `SettingsGroup` is bounded by `Resource + Reflect + Default`, so a missing derive is a
-  compile error. The attribute is `#[reflect(Resource, SettingsGroup, Default)]`, and a missing
-  `#[reflect(Default)]` is a logged error.
+- **Saving is explicit.** The plugin loads; it does not save.
+  `commands.queue(SaveSettingsDeferred( Duration::from_secs_f32(0.5)))` debounces a write so a
+  dragged slider does not hammer the disk, and `SaveSettingsSync::IfChanged` blocks until the write
+  lands, which is what save-on-quit needs.
+- **It is a reflected type.** The derive list is
+  `#[derive(Resource, SettingsGroup, Reflect, Default)]`; `SettingsGroup` is bounded by
+  `Resource + Reflect + Default`, so a missing derive is a compile error. The attribute is
+  `#[reflect(Resource, SettingsGroup, Default)]`, and a missing `#[reflect(Default)]` is a logged
+  error.
 - **Some platforms do not persist at all.** TOML under `~/.config`, `~/Library/Preferences` or
   `%LOCALAPPDATA%`, `localStorage` on wasm — and on anything else `preferences_dir()` is `None` and
   the settings are simply not kept. Code that treats a saved value as certain is wrong there.
@@ -296,8 +298,8 @@ error on a struct with named fields, where the keys are the field names. The fea
 `bevy/bevy_settings`, which is in no collection, so it is named beside one (BV-BUILD-11).
 
 **Why:** every game writes this code and writes the same bugs into it: the path that is right on one
-platform, the save that never fires because nothing watched for the change, and a settings file in
-a bespoke format nobody else can read.
+platform, the save that never fires because nothing watched for the change, and a settings file in a
+bespoke format nobody else can read.
 
 **Check:** does anything in the game still build a config path, or serialise settings by hand? Both
 are what this replaces. Then find the save: a `SettingsGroup` with no `SaveSettings*` anywhere is a
@@ -716,17 +718,15 @@ mod tests {
 
 ### BV-STATE-16 [M] Guard a repeated `set` with `set_if_different`
 
-`next.set(S)` runs `OnExit(S)` and `OnEnter(S)` even when the current state is already `S`. A
-system that calls `set` every frame must use `set_if_different`. `NextState::set_if_neq` and its
-relatives are the old spellings and no longer compile (BV-MIG-16); `Mut::set_if_neq` keeps its name.
+`next.set(S)` runs `OnExit(S)` and `OnEnter(S)` even when the current state is already `S`. A system
+that calls `set` every frame must use `set_if_different`. `NextState::set_if_neq` and its relatives
+are the old spellings and no longer compile (BV-MIG-16); `Mut::set_if_neq` keeps its name.
 
 **Why:** an unconditional `set` tears down and rebuilds the level every frame, and still compiles.
-Re-entering a state is sometimes exactly what is wanted, which is why the guard has to be asked
-for.
+Re-entering a state is sometimes exactly what is wanted, which is why the guard has to be asked for.
 
 **Check:** for each `next.set(`, ask whether the surrounding code can run while already in that
-state. If it can, it needs `set_if_different`. A `set_if_neq` on a `NextState` is the old
-spelling.
+state. If it can, it needs `set_if_different`. A `set_if_neq` on a `NextState` is the old spelling.
 
 ```rust
 // verified

@@ -1,20 +1,21 @@
 # Naming, Files, Module Layout, Declaration Order, Comments
 
 Scope: how identifiers are cased and worded, how a `.zig` file is named and laid out, the order of
-declarations inside a file and inside a struct, `pub` discipline, the three comment
-forms and the phrasings std uses for API contracts, and the formatting mechanics (`zig fmt`, the
-trailing comma, 100 columns). Semantics of the things being named live elsewhere: error-set design
-in the errors chapter, `init`/`deinit`/ownership contracts in the memory chapter, `format` and
-`std.Io` in the concurrency chapter, `test` mechanics and fuzzing in the testing chapter, and
-`build.zig` naming in the build chapter.
+declarations inside a file and inside a struct, `pub` discipline, the three comment forms and the
+phrasings std uses for API contracts, and the formatting mechanics (`zig fmt`, the trailing comma,
+100 columns). Semantics of the things being named live elsewhere: error-set design in the errors
+chapter, `init`/`deinit`/ownership contracts in the memory chapter, `format` and `std.Io` in the
+concurrency chapter, `test` mechanics and fuzzing in the testing chapter, and `build.zig` naming in
+the build chapter.
 
 Two sources are merged here: the **official Zig style guide** (langref 0.17.0 §Style Guide, quoted
 verbatim where it is normative) and **TigerStyle** (TigerBeetle's house standard). Where they
 disagree, the disagreement is stated outright in the rule, with a recommendation keyed to the tier.
 
-Unless a block shows its own imports, it assumes the preamble this chapter prescribes in
-ZS-NAME-16: `const std = @import("std");` and `const assert = std.debug.assert;`. Where a
-snippet's file name matters to the rule, it is named in the comment above it.
+Unless a block shows its own imports, it assumes the preamble this chapter prescribes in ZS-NAME-16:
+`const std = @import("std");` and `const assert = std.debug.assert;`. Where a snippet's file name
+matters to the rule, it is named in the comment above it.
+
 ## Contents
 
 - **Casing and word choice**
@@ -79,8 +80,8 @@ up, and seeing `foo.bar()` you know `bar` returns a value. Mixed conventions des
 
 **Check:** three greps over the diff. A `fn` whose name starts with a capital and whose return type
 is not `type`; a `const`/`var` bound to a non-type value in `TitleCase`; a `fn` name containing `_`
-that is not an `export fn`/`extern fn` C-ABI symbol. A 0-field struct declared as `const Foo =
-struct {` and never instantiated is the fourth case — it should be `snake_case`.
+that is not an `export fn`/`extern fn` C-ABI symbol. A 0-field struct declared as
+`const Foo = struct {` and never instantiated is the fourth case — it should be `snake_case`.
 
 ```zig
 // verified
@@ -156,8 +157,8 @@ against pretending otherwise." A `_` field is as reachable as any other, so the 
 the language does not provide, and it breaks grep and doc generation.
 
 **Check:** any new identifier that starts with `_` or ends with a bare `_`. A leading `_` must be a
-foreign symbol or a padding field named `_pad`/`_reserved`; a trailing `_` is a mutilated
-keyword and must become `@"type"`, `@"error"`, `@"align"`.
+foreign symbol or a padding field named `_pad`/`_reserved`; a trailing `_` is a mutilated keyword
+and must become `@"type"`, `@"error"`, `@"align"`.
 
 ```zig
 // fragment — BAD
@@ -188,11 +189,11 @@ No abbreviations in declaration names, parameters, or fields. Four exceptions, a
    name a role the whole ecosystem already agrees on, so expanding them
    (`general_purpose_allocator`) loses recognition rather than gaining clarity.
 4. A name std itself has already fixed. When you bind the result of a std call, mirror std's
-   spelling — `var tmp = std.testing.tmpDir(.{})` reads as `tmpDir` does — and when you implement
-   a signature std documents, use std's parameter names verbatim, e.g. the panic handler
-   `fn (msg: []const u8, first_trace_address: ?usize) noreturn` required by
-   `std.debug.FullPanic`. Renaming these to satisfy this rule makes the code harder to match
-   against the documentation it implements, which is the opposite of the rule's purpose.
+   spelling — `var tmp = std.testing.tmpDir(.{})` reads as `tmpDir` does — and when you implement a
+   signature std documents, use std's parameter names verbatim, e.g. the panic handler
+   `fn (msg: []const u8, first_trace_address: ?usize) noreturn` required by `std.debug.FullPanic`.
+   Renaming these to satisfy this rule makes the code harder to match against the documentation it
+   implements, which is the opposite of the rule's purpose.
 
 Everything else is spelled out. In particular `src`/`dst` stay banned: they are contractions of
 `source`/`target` and carry no role. Long-form flags in scripts: `--force`, not `-f`.
@@ -241,8 +242,8 @@ Choose names against the **fully qualified** name: inside `json.zig`, the type i
 
 std is actively refactoring toward this — `std.ArrayHashMapUnmanaged` → `std.array_hash_map.Custom`,
 `std.ArrayListAligned` → `std.array_list.Aligned`, and `std.bit_set.IntegerBitSet` →
-`std.bit_set.Integer`, `ArrayBitSet` → `Array`, `StaticBitSet` → `Static` are all deprecations
-that move the noun into the module name and leave the qualifier in the decl name.
+`std.bit_set.Integer`, `ArrayBitSet` → `Array`, `StaticBitSet` → `Static` are all deprecations that
+move the noun into the module name and leave the qualifier in the decl name.
 `std.heap.MemoryPoolExtra` → `std.heap.memory_pool.Extra` was the same move; 0.17 removed the old
 name.
 
@@ -523,8 +524,8 @@ anyone who has used `Io.Reader`. Use `toOwned…` / `fromOwned…` / `move…` i
 
 **Check:** any new method name that is a base name plus a suffix not on the list above — and in
 particular any `take*` that transfers ownership rather than consuming from a stream. A
-non-allocating twin not spelled `…AssumeCapacity`, or an allocating twin not spelled `…Alloc`,
-is the same finding.
+non-allocating twin not spelled `…AssumeCapacity`, or an allocating twin not spelled `…Alloc`, is
+the same finding.
 
 ---
 
@@ -533,8 +534,8 @@ is the same finding.
 ### ZS-NAME-12 [M] Name the receiver after its type; keep `self` for anonymous generic containers
 
 In a file that *is* a type, write `const Journal = @This();` and name receivers `journal: *Journal`
-(or a consistent 1–2 letter abbreviation like `w: *Writer`). Use `const Self = @This();` and
-`self:` only inside a `fn Foo(comptime T: type) type` body, where the type has no name.
+(or a consistent 1–2 letter abbreviation like `w: *Writer`). Use `const Self = @This();` and `self:`
+only inside a `fn Foo(comptime T: type) type` body, where the type has no name.
 
 A naive grep hides how std does this. `rg "\(self: *"` over std returns ~2100 hits, but counting
 only *true* receivers — a first parameter whose type is the file's own `TitleCase` name or a
@@ -703,10 +704,10 @@ alias separated from the import it derives from, or `@import("../std.zig")` outs
 ### ZS-NAME-17 [M] Order a struct body: fields → types → `init`/`deinit` → methods → tests
 
 Fields carry no `pub`. Nested `pub const Foo = struct {…}` types and `pub const empty: Self = …`
-decl literals come after the fields and before the methods. TigerStyle places the `const Self =
-@This();` line at the *end* of the types section; std places the named `@This()` alias at the very
-top of the file (ZS-NAME-15). Prefer the std placement for a `TitleCase.zig` file and the TigerStyle
-placement for a nested struct.
+decl literals come after the fields and before the methods. TigerStyle places the
+`const Self = @This();` line at the *end* of the types section; std places the named `@This()` alias
+at the very top of the file (ZS-NAME-15). Prefer the std placement for a `TitleCase.zig` file and
+the TigerStyle placement for a nested struct.
 
 TigerStyle: "the order is fields then types then methods". std does the same (`Io/File.zig`,
 `Io/Dir.zig`, `Build/Step.zig`, `Io/Writer.zig`, `heap/ArenaAllocator.zig` all match). If a nested
@@ -887,8 +888,8 @@ implementation reason ("we do it this way because…") rather than a contract �
 Reuse the house sentences rather than inventing synonyms:
 
 Counts are occurrences of the **bolded stem** of each phrase over `lib/zig/std/**/*.zig` at 0.17.0,
-case-sensitive — reproduce any row with `rg -I -o '<stem>' -g '*.zig' . | wc -l`. They count
-the phrase family, not the full sentence in the left column.
+case-sensitive — reproduce any row with `rg -I -o '<stem>' -g '*.zig' . | wc -l`. They count the
+phrase family, not the full sentence in the left column.
 
 | Phrase | Meaning | std count |
 |---|---|---|
@@ -933,10 +934,11 @@ issue the idea came from; upstream-bug annotations with a removal condition.
 will drift, while a rationale cannot be recovered from the source at all, so it is the only thing a
 comment adds that the code cannot.
 
-**Check:** a comment whose words are the identifiers on the line below it — `// Increment the sector
-count.` above `sector_count += 1` — is the canonical violation; delete it or replace it with the
-reason. Second: a magic number introduced with no comment naming its derivation. Third: a `test`
-block whose first line is code rather than a sentence stating goal and method.
+**Check:** a comment whose words are the identifiers on the line below it —
+`// Increment the sector count.` above `sector_count += 1` — is the canonical violation; delete it
+or replace it with the reason. Second: a magic number introduced with no comment naming its
+derivation. Third: a `test` block whose first line is code rather than a sentence stating goal and
+method.
 
 ```zig
 // fragment — BAD
@@ -1005,9 +1007,9 @@ fn f(
 ```
 
 `zig fmt` will **not** order your imports, group your blank lines, order your declarations, or wrap
-a long expression — those are ZS-NAME-16 through ZS-NAME-18 and your own judgement. `// zig fmt:
-off` … `// zig fmt: on` exists but appears only 32 times in all of std, exclusively for hand-aligned
-tables. Source is UTF-8 with LF endings and a trailing newline.
+a long expression — those are ZS-NAME-16 through ZS-NAME-18 and your own judgement.
+`// zig fmt: off` … `// zig fmt: on` exists but appears only 32 times in all of std, exclusively for
+hand-aligned tables. Source is UTF-8 with LF endings and a trailing newline.
 
 **Check:** the CI gate of `references/build.md` ZS-BUILD-29 —
 `zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .` — is the whole rule for
@@ -1042,16 +1044,16 @@ it; if it is taken, coin a different word rather than qualifying the old one.
 TigerStyle's own worked example: TigerBeetle shipped a feature where a transfer could be held and
 later resolved, and first called it a *two-phase commit transfer* — but *two-phase commit* was
 already the name of a mechanism in their consensus protocol, so every conversation had to establish
-which layer was under discussion before it could proceed. They renamed the feature to
-**pending transfers**, which are subsequently **posted** or **voided**.
+which layer was under discussion before it could proceed. They renamed the feature to **pending
+transfers**, which are subsequently **posted** or **voided**.
 
 **Why:** the cost of an overloaded term is not paid once at naming time; it is paid on every future
 reading, and it compounds because the derived identifiers inherit the ambiguity (`two_phase_timeout`
 — whose?). Distinct words also make grep exact.
 
-**Check:** for each new domain noun in a diff, `rg -i '<term>'` over `src/` and `docs/`. Hits in
-an unrelated subsystem mean the term is taken. Qualifying it (`transfer_two_phase_commit`) does not
-fix it — the reader still has to disambiguate.
+**Check:** for each new domain noun in a diff, `rg -i '<term>'` over `src/` and `docs/`. Hits in an
+unrelated subsystem mean the term is taken. Qualifying it (`transfer_two_phase_commit`) does not fix
+it — the reader still has to disambiguate.
 
 ```zig
 // fragment — BAD: `two_phase` already names the consensus mechanism.
@@ -1115,9 +1117,9 @@ not sound like a pair, rename the odd half.
 
 ### ZS-NAME-29 [M] One concept, one mechanism
 
-A project configures itself one way, reports progress one way, allocates one way, and spawns
-work one way. Two mechanisms for one concept means every future change must choose between them and
-every reader must learn both.
+A project configures itself one way, reports progress one way, allocates one way, and spawns work
+one way. Two mechanisms for one concept means every future change must choose between them and every
+reader must learn both.
 
 **Why:** mechanisms multiply combinations. Two configuration paths and two logging paths is four
 states a maintainer has to hold at once, and the second mechanism is nearly always introduced

@@ -45,6 +45,7 @@ chapter.
 - **Structural change**
   - BV-ECS-29 [M] Do not read back what a command has not applied yet
   - BV-ECS-30 [M] Reach for an exclusive system last, and say what forced it
+
 - Decided by tools
 
 ---
@@ -53,12 +54,12 @@ chapter.
 
 ### BV-ECS-01 [M] Leave component fields public
 
-Component fields are `pub`. This is the one place a struct in this standard is allowed to expose
-its storage.
+Component fields are `pub`. This is the one place a struct in this standard is allowed to expose its
+storage.
 
-The single exception is a relationship **target**, the collection side of a
-`#[relationship_target]` pair. The engine maintains that vector and overwrites what a caller writes
-to it, so Bevy's own hierarchy has `ChildOf(pub Entity)` public and `Children(Vec<Entity>)` not.
+The single exception is a relationship **target**, the collection side of a `#[relationship_target]`
+pair. The engine maintains that vector and overwrites what a caller writes to it, so Bevy's own
+hierarchy has `ChildOf(pub Entity)` public and `Children(Vec<Entity>)` not.
 
 **Why:** the ECS *is* the accessor: `transform.translation.x += 1.0` is how the engine is used.
 Reflection, the scene format, `bsn!` and the remote protocol read and write fields by name, so a
@@ -303,8 +304,8 @@ mod tests {
 
 ### BV-ECS-09 [S] Give a marker component the derives a marker needs
 
-A marker is a unit struct: `#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
-#[reflect(Component)] pub struct Player;`
+A marker is a unit struct:
+`#[derive(Component, Debug, Clone, Copy, Default, Reflect)] #[reflect(Component)] pub struct Player;`
 
 The set stops there: `PartialEq`, `Eq` and `Hash` on a type with no data distinguish nothing.
 
@@ -409,8 +410,8 @@ absent, which reads as "the tool is broken".
 
 **Check:** for each generic type deriving `Reflect`, find a `register_type::<…>` for every
 instantiation the game names. A `register_type` for a non-generic type is noise. A manifest without
-`default_app` — a hand-picked list (BV-BUILD-03), or `2d_api`, `3d_api` or `common_api` on their
-own — leaves every type unregistered unless it adds `reflect_auto_register`.
+`default_app` — a hand-picked list (BV-BUILD-03), or `2d_api`, `3d_api` or `common_api` on their own
+— leaves every type unregistered unless it adds `reflect_auto_register`.
 
 ```rust
 // verified
@@ -539,18 +540,18 @@ different jobs that have been written as one.
 has. Two systems split by `With<A>` and `Without<A>` say which case each is for, visit only the
 entities in that case, and can be scheduled independently.
 
-**Check:** count the `Option<&T>` in the query, which is what the rule is about — the branching
-they force is just as reachable through `map_or`, `zip` or one `match`, so counting `if let Some`
-in the body misses the functional spellings this standard's sibling actively prefers. Three or more
-is the signal; split by `With`/`Without` instead.
+**Check:** count the `Option<&T>` in the query, which is what the rule is about — the branching they
+force is just as reachable through `map_or`, `zip` or one `match`, so counting `if let Some` in the
+body misses the functional spellings this standard's sibling actively prefers. Three or more is the
+signal; split by `With`/`Without` instead.
 
 ### BV-ECS-18 [S] Iterate a query with `for` where the body writes, not `for_each`
 
 `for item in &mut query` when the body writes — through `Mut<T>`, `Commands` or a `MessageWriter` —
 rather than `.iter_mut().for_each(…)`. A read-only pass that builds a value is a pipeline here as
 anywhere (`rust-style` RS-FUNC-03), the way the crossing point in BV-ARCH-03 collects its query. A
-restriction goes in the query's filter, which skips entities before they are fetched, rather than
-in a `.filter()`.
+restriction goes in the query's filter, which skips entities before they are fetched, rather than in
+a `.filter()`.
 
 **Why:** a write is an effect, the case `rust-style` keeps `for` for (RS-FUNC-06): the write through
 `Mut<T>` is the result, so there is nothing to collect, and `for` keeps the `?`, `continue` and
@@ -763,8 +764,8 @@ components.
 
 It is not a drop-in for `for x in &query`:
 
-- The call returns `Result`, because a sparse-set component is not contiguously iterable and
-  nothing in the type system knows which. Take the error with `?`, never `.unwrap()` (BV-ERR-01).
+- The call returns `Result`, because a sparse-set component is not contiguously iterable and nothing
+  in the type system knows which. Take the error with `?`, never `.unwrap()` (BV-ERR-01).
 - The filter is bound by `F: ArchetypeFilter`, so `Changed<T>` does not compile here at all.
 - The mutable form marks every entity in the slice changed unless the write goes through
   `bypass_change_detection` (BV-ECS-28).
@@ -923,8 +924,8 @@ mod tests {
 ### BV-ECS-25 [M] Put `Changed<T>` in the filter so the system can be skipped
 
 `Query<&Health, Changed<Health>>`, not a full query with `if health.is_changed()` inside the loop.
-On a component that is written rarely, `#[component(summary_tick)]` (new in 0.20) keeps a
-per-column change tick, so the filter can skip whole columns.
+On a component that is written rarely, `#[component(summary_tick)]` (new in 0.20) keeps a per-column
+change tick, so the filter can skip whole columns.
 
 **Why:** as a filter it is applied during iteration, so unchanged entities are never fetched; in the
 body it is applied after the fetch, so the loop still visits everything. The filter also puts
@@ -1136,9 +1137,9 @@ Since 0.20, `&mut World` is itself a `SystemParam` and may appear anywhere in th
 `ExclusiveSystemParam` is gone, and exclusivity is tracked at run time rather than compile time, so
 a parameter that conflicts with `&mut World` is a run-time error, not a compile error.
 
-**Why:** an exclusive system is a global barrier in the schedule: everything before it finishes,
-it runs alone, everything after starts. One is usually fine and four is a game that no longer runs
-its systems in parallel.
+**Why:** an exclusive system is a global barrier in the schedule: everything before it finishes, it
+runs alone, everything after starts. One is usually fine and four is a game that no longer runs its
+systems in parallel.
 
 **Check:** for each `&mut World` parameter, name what the system could not do without it. "Needed a
 resource and a query" and "needed a command applied now" both have a non-exclusive form; "runs a

@@ -8,6 +8,7 @@ crates, import grouping, and the order of declarations inside a file. What the p
 The reference implementation is ripgrep: a workspace of narrow crates (`grep-matcher`, `grep-regex`,
 `grep-searcher`, `grep-printer`, `globset`, `ignore`) with a thin facade and a binary that is mostly
 wiring. Structure is what keeps a codebase comprehensible past ten thousand lines.
+
 ## Contents
 
 - **Modules and files**
@@ -66,6 +67,7 @@ wiring. Structure is what keeps a codebase comprehensible past ten thousand line
   - RS-MOD-45 [M] One concept, one mechanism
   - RS-MOD-46 [M] Absorb a special case into the general path, or give it its own type
   - RS-MOD-47 [S] Keep sibling modules structurally parallel
+
 - Decided by tools
 
 ---
@@ -74,8 +76,8 @@ wiring. Structure is what keeps a codebase comprehensible past ten thousand line
 
 ### RS-MOD-01 [M] Give every module a documented concept
 
-A `//!` block stating what belongs in it — its role, not a restatement of the item list — and a
-name that is a singular noun.
+A `//!` block stating what belongs in it — its role, not a restatement of the item list — and a name
+that is a singular noun.
 
 **Why:** the module boundary is a claim about cohesion, and if you cannot write one sentence
 describing what belongs inside and what does not, the boundary is in the wrong place. The sentence
@@ -334,8 +336,8 @@ single exception is `prelude.rs`, which may only re-export names `lib.rs` has al
 edit to the file that owns it. Users write `grep::Searcher`, not the path to the file, so the file
 can move without a breaking change.
 
-**Check:** `rg -n 'pub use' -g '*.rs' src/ | rg -v '^src/(lib|prelude)\.rs'`. Each
-surviving hit must be a module assembling its own internals, never widening the crate's surface.
+**Check:** `rg -n 'pub use' -g '*.rs' src/ | rg -v '^src/(lib|prelude)\.rs'`. Each surviving hit
+must be a module assembling its own internals, never widening the crate's surface.
 
 ```rust
 // verified
@@ -606,16 +608,16 @@ discovering that. `cargo test` does not necessarily build them — `cargo build 
 
 ### RS-MOD-26 [M] Treat `build.rs` as a last resort
 
-**Why:** it slows every build, runs arbitrary code on every user's machine, breaks
-cross-compilation in subtle ways, and is harder to audit than ordinary source. It is right for
-genuine codegen and C compilation and wrong for convenience.
+**Why:** it slows every build, runs arbitrary code on every user's machine, breaks cross-compilation
+in subtle ways, and is harder to audit than ordinary source. It is right for genuine codegen and C
+compilation and wrong for convenience.
 
 **Check:** what does the build script do that a committed generated file or a `const fn` could not?
 
 ### RS-MOD-27 [S] Keep the repository root sparse
 
-`README.md`, `LICENSE-APACHE`, `LICENSE-MIT`, `CHANGELOG.md`, `Cargo.toml`,
-`rust-toolchain.toml`, `.github/`, and the directories above.
+`README.md`, `LICENSE-APACHE`, `LICENSE-MIT`, `CHANGELOG.md`, `Cargo.toml`, `rust-toolchain.toml`,
+`.github/`, and the directories above.
 
 **Why:** the root is the first thing anyone sees, and every extra file there is a small tax on
 orientation. Everything else has a home inside one of those directories.
@@ -626,8 +628,7 @@ orientation. Everything else has a home inside one of those directories.
 
 A root with no `[package]` has no edition to infer the resolver from, so Cargo falls back to
 `resolver = "1"`, the pre-2021 algorithm, however new the members are. It says so only in a warning:
-`virtual workspace defaulting to resolver = "1" despite one or more workspace members being on
-edition 2024`.
+`virtual workspace defaulting to resolver = "1" despite one or more workspace members being on edition 2024`.
 
 **Why:** the versions are not interchangeable: `"2"` stops features unifying across build-, dev-,
 and inactive target-specific dependencies, and `"3"` passes over a dependency release that raises
@@ -672,15 +673,15 @@ public on its own merits?
 ### RS-MOD-32 [M] Leave `version` out of an unpublished member's manifest
 
 Cargo reads a missing `version` as `0.0.0` and `publish = false`, so the one absence says both.
-Members that *are* published carry real versions and the full metadata
-(`references/build.md` RS-BUILD-03).
+Members that *are* published carry real versions and the full metadata (`references/build.md`
+RS-BUILD-03).
 
 **Why:** `publish = false` is what stops `cargo publish` from shipping an internal crate by
 accident, and no version states that the number carries no promise — an internal member versioned
 `0.3.1` invites readers to reason about compatibility that nobody maintains.
 
-**Check:** for each member, is it published? If not, does its manifest omit `version`? A
-`version` line on an internal member is the finding.
+**Check:** for each member, is it published? If not, does its manifest omit `version`? A `version`
+line on an internal member is the finding.
 
 ### RS-MOD-33 [S] Give the directory and the crate the same name
 
@@ -705,8 +706,8 @@ exception: a cycle through them compiles, and it is the supported way for a memb
 the assembled facade.
 
 **Why:** Cargo rejects the cycle outright — `error: cyclic package dependency` — so the edge cannot
-exist, and reaching for the facade from inside a member is a sign the shared item belongs in a
-lower member instead (RS-MOD-23, RS-MOD-24).
+exist, and reaching for the facade from inside a member is a sign the shared item belongs in a lower
+member instead (RS-MOD-23, RS-MOD-24).
 
 **Check:** grep the member manifests for the facade's name. Outside `[dev-dependencies]`, each hit
 is a layering error.
@@ -797,8 +798,8 @@ Multiple inherent `impl` blocks for one type need a reason — a `cfg`, or diffe
 Identifying field first, configuration next, caches and scratch last.
 
 **Why:** the compiler reorders for layout anyway unless `repr(C)` is set, so field order is purely a
-communication decision — use it to tell the reader what the type is about
-(`references/unsafe.md` RS-UNSAFE-14).
+communication decision — use it to tell the reader what the type is about (`references/unsafe.md`
+RS-UNSAFE-14).
 
 **Check:** does the first field identify the value, or is it whatever was added first?
 
@@ -817,8 +818,8 @@ once?
 
 ### RS-MOD-45 [M] One concept, one mechanism
 
-A crate configures itself one way, reports progress one way, and spawns work one way. Two
-mechanisms for one concept means every future feature must choose, and every reader must learn both.
+A crate configures itself one way, reports progress one way, and spawns work one way. Two mechanisms
+for one concept means every future feature must choose, and every reader must learn both.
 
 **Why:** mechanisms multiply combinations. Two config paths and two logging paths is four states a
 maintainer must hold, and the second mechanism is almost always introduced because the first was
@@ -852,8 +853,8 @@ impl Config {
 
 ### RS-MOD-46 [M] Absorb a special case into the general path, or give it its own type
 
-A branch that exists for one input is not a feature; it is an unfinished generalization. Either
-the general path handles it — usually by widening a parameter or adding a variant — or the case is
+A branch that exists for one input is not a feature; it is an unfinished generalization. Either the
+general path handles it — usually by widening a parameter or adding a variant — or the case is
 different enough to deserve its own type and its own function.
 
 **Why:** special-case branches compound. Each is locally cheap and globally expensive, because every
@@ -875,8 +876,8 @@ pub fn join(parts: &[String], separator: &str) -> String {
 
 ### RS-MOD-47 [S] Keep sibling modules structurally parallel
 
-Modules at the same level of the tree have the same internal shape: if `parser` has `mod error`
-and a `Config`, then `renderer` does too, or the difference is explained.
+Modules at the same level of the tree have the same internal shape: if `parser` has `mod error` and
+a `Config`, then `renderer` does too, or the difference is explained.
 
 **Why:** parallel structure is what lets a reader who has learned one module navigate the next
 without reading it. The cost of the convention is near zero; the cost of its absence is paid on

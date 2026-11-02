@@ -29,8 +29,8 @@ this chapter is about the handles.
 
 ### BV-ASSET-01 [M] Treat a handle as a reference count, not a path
 
-A strong `Handle<T>` is a reference count: every clone keeps the asset alive, the one in an
-entity's component included, and dropping the last one frees it.
+A strong `Handle<T>` is a reference count: every clone keeps the asset alive, the one in an entity's
+component included, and dropping the last one frees it.
 
 **Why:** the trap is the handle nothing else holds — a preload whose handle is discarded, or an
 `AssetId` kept in its place. Its drop cancels the load or frees the asset, so the next `load` of the
@@ -102,8 +102,8 @@ that must read the asset's contents waits for the load; anything that only passe
 renderer does not.
 
 **Why:** loading is asynchronous, so `Assets::get` on the next frame returns `None` — except on a
-fast machine with a warm cache, which is worse: the bug then appears only on the slow machine or
-the cold start.
+fast machine with a warm cache, which is worse: the bug then appears only on the slow machine or the
+cold start.
 
 **Check:** for each `Assets::<T>::get` shortly after a load, ask what the code does when it returns
 `None`. "It cannot" is the defect.
@@ -233,8 +233,8 @@ what "ready" means, and `RecursiveDependencyLoadState` asks the same question in
 failure case needs distinguishing.
 
 **Why:** the top-level asset arrives first, so a loading screen that waits for it dismisses itself
-while the textures are still arriving, which the player sees as a level that fades in over the
-first second of play.
+while the textures are still arriving, which the player sees as a level that fades in over the first
+second of play.
 
 **Check:** for each readiness check, ask whether the asset has dependencies. Meshes, scenes, glTF
 and materials all do.
@@ -253,8 +253,8 @@ call; the builder's `with_settings`, `override_unapproved` and `with_guard` repl
 
 ### BV-ASSET-08 [M] Keep asset paths out of the code that uses them
 
-A path literal appears where the handle is created — a handle resource, a manifest, a content file
-— and nowhere else.
+A path literal appears where the handle is created — a handle resource, a manifest, a content file —
+and nowhere else.
 
 **Why:** a path is content, and content moves. A literal in the system that spawns an enemy makes
 renaming a file a code change, found by grep, in every system that touched it; paths kept together
@@ -271,8 +271,8 @@ a content file, or a loader is a path that has escaped.
 compares this frame's asset against a cached copy. `Modified` fires only on an actual mutation:
 `AssetMut<A>` sets its flag on `DerefMut`, so a `get_mut` that only reads raises nothing. Where the
 reaction is per entity — this entity's mesh changed — the filter `AssetChanged<C>` on its handle
-component says it with no id-to-entity join, and `Or<(Changed<C>, AssetChanged<C>)>` also catches
-a swapped handle.
+component says it with no id-to-entity join, and `Or<(Changed<C>, AssetChanged<C>)>` also catches a
+swapped handle.
 
 **Why:** the events are the mechanism the asset server already maintains, so a comparison duplicates
 it and gets it wrong in the interesting cases: a modified asset with the same length, an asset

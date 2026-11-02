@@ -72,6 +72,7 @@ const assert = std.debug.assert;
 ## Integers and arithmetic
 
 ### ZS-DATA-01 [M] Use `usize` only for in-memory lengths, indices, and byte sizes
+
 Use `usize` wherever std's own API already uses it — `slice.len`, the argument to `[]`, `@sizeOf`,
 and every length in `std.mem.Allocator` and the std containers — so no cast is inserted at those
 points. A *domain* index with its own named bound may be narrower (ZS-DATA-03); convert it with a
@@ -104,16 +105,17 @@ fn checksum(bytes: []const u8) u64 {
 ```
 
 ### ZS-DATA-02 [M] Never let `usize` reach a serialized or `extern` layout
+
 Any integer that is written to disk, put on the wire, hashed, fed to a checksum, or placed in a
 struct shared with C must have an explicit width and, where endianness matters, an explicit
 endianness.
 
 The C-named integers are target-dependent too. Measured on 0.17.0,
-`extern struct { a: c_int, b: c_long }` is 16 bytes with `b` at offset 8 on `x86_64-linux-gnu`,
-and 8 bytes with `b` at offset 4 on `x86_64-windows-gnu`, `arm-linux-gnueabihf` and `wasm32-wasi`.
-So a struct you define and share with C takes fixed-width fields, and one set of layout assertions
-holds on every target. Where the struct is C's and its field types are not yours to choose, keep
-the assertion and put it in a `comptime` branch on `builtin.target` (`references/interop.md`
+`extern struct { a: c_int, b: c_long }` is 16 bytes with `b` at offset 8 on `x86_64-linux-gnu`, and
+8 bytes with `b` at offset 4 on `x86_64-windows-gnu`, `arm-linux-gnueabihf` and `wasm32-wasi`. So a
+struct you define and share with C takes fixed-width fields, and one set of layout assertions holds
+on every target. Where the struct is C's and its field types are not yours to choose, keep the
+assertion and put it in a `comptime` branch on `builtin.target` (`references/interop.md`
 ZS-INTEROP-18) rather than dropping it.
 
 **Why:** `@sizeOf(usize)` is target-dependent. A record with a `usize` field is 8 bytes on x86_64
@@ -147,6 +149,7 @@ comptime {
 ```
 
 ### ZS-DATA-03 [M!] Give bounded domain quantities a width that encodes the bound
+
 A replica id, an opcode, a slot number, a nesting depth — anything with a real domain limit — gets
 the narrowest type that expresses the limit, not `usize` and not a reflex `u32`. `[M!]` applies to
 databases, consensus, allocators, crypto, firmware, and file formats — anywhere a crash or a
@@ -175,13 +178,14 @@ comptime {
 ```
 
 ### ZS-DATA-04 [S] Name integers so that index, count, and size are distinguishable
+
 An `index` is 0-based and identifies one element. A `count` is 1-based and answers "how many". A
 `size` is a count multiplied by a unit — always suffix it with the unit (`_bytes`, `_blocks`,
 `_sectors`).
 
-**Why:** these are three different conceptual types wearing the same primitive. TigerStyle:
-"the usual suspects for off-by-one errors are casual interactions between an `index`, a `count` or
-a `size`." Zig will not type-check the difference, so the name is the only guard rail.
+**Why:** these are three different conceptual types wearing the same primitive. TigerStyle: "the
+usual suspects for off-by-one errors are casual interactions between an `index`, a `count` or a
+`size`." Zig will not type-check the difference, so the name is the only guard rail.
 
 **Check:** a name that is bare `len`, `n`, `num`, `size`, `total`, or `length` with no role or unit;
 a `*_size` with no unit suffix; or a `*_count` used directly as a subscript, which is the off-by-one
@@ -201,6 +205,7 @@ const entries_size_bytes = entry_count * @sizeOf(Entry);
 ```
 
 ### ZS-DATA-05 [M] Convert between index, count, and size in one explicit step
+
 Write the `+ 1` and the `* unit` out. Do not let a value drift from index-space to count-space
 across several statements.
 
@@ -226,15 +231,16 @@ test "index count size" {
 ```
 
 ### ZS-DATA-06 [M] Show rounding intent with an explicit division operation
-This rule owns division and rounding for the whole standard; `references/assertions.md`
-ZS-ASSERT-22 (derive dependent limits) points here for the rounding half.
+
+This rule owns division and rounding for the whole standard; `references/assertions.md` ZS-ASSERT-22
+(derive dependent limits) points here for the rounding half.
 
 For integers, use `@divExact`, `@divFloor`, `@divTrunc`, or `@divCeil`. Reserve bare `/` for
 unsigned operands where truncation is obviously intended and obviously irrelevant. The same applies
 to the remainder: `@rem` takes the sign of the dividend, `@mod` takes the sign of the divisor, and
 `%` is rejected on runtime-known signed operands for exactly that reason. Pair each division with
-its matching remainder — `@divTrunc`/`@rem`, `@divFloor`/`@mod` — so that
-`q * b + r == a` holds with the sign convention you meant.
+its matching remainder — `@divTrunc`/`@rem`, `@divFloor`/`@mod` — so that `q * b + r == a` holds
+with the sign convention you meant.
 
 Zig already rejects bare `/` on runtime-known signed integers
 (`signed integers must use @divTrunc, @divFloor, @divCeil, or @divExact`); unsigned `/` compiles
@@ -287,6 +293,7 @@ test "signed division and remainder are two independent choices" {
 > `std.math.divCeil` where a zero denominator is an operating error; do not reimplement it.
 
 ### ZS-DATA-07 [M] Let integer overflow trap; never reach for `+%` to silence a panic
+
 `+`, `-`, `*` on integers are safety-checked: overflow panics with `integer overflow` in `debug` and
 `safe` builds. That panic is the feature. If the value can legitimately exceed the type, widen the
 type or check the input; do not change the operator.
@@ -311,6 +318,7 @@ total_bytes += record.length_bytes; // Panics if the u64 bound is ever violated.
 ```
 
 ### ZS-DATA-08 [M] Use wrapping and saturating operators only where the semantics demand them
+
 `+%`, `-%`, `*%`, `<<%` are legitimate only when arithmetic modulo 2^N is the specification: hash
 mixing, PRNG state advance, checksums, wrap-around sequence numbers, deliberate two's-complement
 tricks. `+|`, `-|`, `*|` are legitimate only when clamping at the type bound is the domain answer:
@@ -340,6 +348,7 @@ fn boostLevel(level: u8, amount: u8) u8 {
 ```
 
 ### ZS-DATA-09 [M] Choose the cast builtin by intent, not by whichever one compiles
+
 - `@intCast` — the value *should* fit; a value that does not is a bug. Safety-checked
   (`integer does not fit in destination type`).
 - `@truncate` — discarding the high bits is the intent. Well defined, never checked. Only use it to
@@ -393,6 +402,7 @@ test "cast intent" {
 > mis-widened `@truncate`; use `@intCast` when widening.
 
 ### ZS-DATA-10 [M] Use the checked `std.math` helpers where a bad value is an operating error
+
 At a trust boundary — parsed input, network frames, on-disk headers, FFI returns — an out-of-range
 value is *expected*, not a bug. Use `std.math.cast(T, x) ?T`, `std.math.add/sub/mul(T, a, b)`
 (`error{Overflow}!T`), and `std.math.div*` so the failure becomes an error you handle, not a panic.
@@ -423,16 +433,17 @@ test "checked arithmetic and conversion at the boundary" {
 }
 ```
 
-Text is parsed with `std.fmt.parseInt` into the narrowest type the field admits, which is the
-range check (`references/output.md` ZS-OUT-14).
+Text is parsed with `std.fmt.parseInt` into the narrowest type the field admits, which is the range
+check (`references/output.md` ZS-OUT-14).
 
 ### ZS-DATA-11 [M] Convert float to int with `@trunc`/`@round`, after a range check
+
 The unary float builtins convert directly to an integer result type:
 `export fn a(x: f64) i32 { return @trunc(x); }` compiles. The langref marks `@intFromFloat`
 "Deprecated. Equivalent to @trunc." and nothing else does: it emits no warning, `zig fmt` leaves it
-alone, and std still uses it (`std.math.lossyCast` does). It is the less informative spelling,
-which is why this rule prefers `@trunc`/`@round` — see ZS-MIG-02, where the row is an *alias*, not
-a removal. Whichever you use, an out-of-range value is safety-checked illegal behavior:
+alone, and std still uses it (`std.math.lossyCast` does). It is the less informative spelling, which
+is why this rule prefers `@trunc`/`@round` — see ZS-MIG-02, where the row is an *alias*, not a
+removal. Whichever you use, an out-of-range value is safety-checked illegal behavior:
 `panic: integer part of floating point value out of bounds`. NaN fails every comparison, so the
 range guard must be a positive in-range test, not a negated out-of-range test.
 
@@ -441,9 +452,9 @@ outside the destination range. `@intFromFloat` names neither; `@round(x)` names 
 explicit range test names the second.
 
 **Check:** every `@intFromFloat` — legal but deprecated, and its rounding is unstated — and every
-`@trunc`/`@round` with an integer result
-type. Each needs a range guard on a preceding line, spelled `if (!(x >= lo and x <= hi))` — a guard
-written `if (x < lo or x > hi)` passes NaN straight through to the panic.
+`@trunc`/`@round` with an integer result type. Each needs a range guard on a preceding line, spelled
+`if (!(x >= lo and x <= hi))` — a guard written `if (x < lo or x > hi)` passes NaN straight through
+to the panic.
 
 ```zig
 // fragment — BAD
@@ -465,6 +476,7 @@ fn ticksFromSeconds(seconds: f64) ?i32 {
 ## Struct construction and initialization
 
 ### ZS-DATA-12 [M] Write `const x: T = .{ ... }`, not `const x = T{ ... }`
+
 Annotate the declaration and let the initializer be anonymous.
 
 This is Result Location Semantics, not cosmetics. Per the langref's propagation table,
@@ -503,6 +515,7 @@ test "decl literals" {
 ```
 
 ### ZS-DATA-13 [M] Construct std containers with their decl literals
+
 `var list: std.ArrayList(T) = .empty;` is the form. `std.ArrayList` *is* the unmanaged list;
 `std.ArrayListUnmanaged` is a deprecated alias for it, and the managed variant is
 `std.array_list.Managed(T)`, marked `/// Deprecated.` The allocator is passed per call
@@ -513,8 +526,8 @@ and works in a struct field default. Keeping the allocator out also lets the con
 `packed`/`extern`-adjacent struct, be memcpy'd, and be stored in a `MultiArrayList`.
 
 **Check:** `ArrayList(`, `HashMap(`, or `MultiArrayList(` followed by `.init(`, and a container
-whose fields are spelled out (`.{ .items = …, .capacity = … }`) where `.empty` would do. A call
-that passes no allocator is ZS-MEM-05's finding.
+whose fields are spelled out (`.{ .items = …, .capacity = … }`) where `.empty` would do. A call that
+passes no allocator is ZS-MEM-05's finding.
 
 ```zig
 // verified — GOOD
@@ -529,11 +542,12 @@ test "arraylist decl literal" {
 }
 ```
 
-Other decl literals in std: `std.MultiArrayList(T) = .empty`, `std.StringHashMapUnmanaged(V) =
-.empty`, `std.Deque(T) = .empty`, `std.EnumSet(E) = .empty` / `.full` (there is no `.initEmpty()`
-or `.initFull()`), and `std.mem.Alignment = .fromByteUnits(n)`.
+Other decl literals in std: `std.MultiArrayList(T) = .empty`,
+`std.StringHashMapUnmanaged(V) = .empty`, `std.Deque(T) = .empty`, `std.EnumSet(E) = .empty` /
+`.full` (there is no `.initEmpty()` or `.initFull()`), and `std.mem.Alignment = .fromByteUnits(n)`.
 
 ### ZS-DATA-14 [M] Give every allocating type a paired `init`/`deinit` with a matching signature
+
 If `init` (or `.empty` plus an allocating method) took a `gpa`, `deinit` takes the same `gpa`. What
 else `deinit` owes — no failure, no allocation, and the poisoning store at the end — is
 `references/memory.md` ZS-MEM-12.
@@ -563,6 +577,7 @@ const Tree = struct {
 ```
 
 ### ZS-DATA-15 [M] Never build a value out of its own fields through an anonymous initializer
+
 `x = .{ f(x.a), g(x.b) }` is not an atomic assignment. Use `std.mem.swap` or an explicit temporary.
 
 **Why:** `value = .{ a, b }` forwards the result locations `&value[0]` and `&value[1]`, so the
@@ -594,15 +609,16 @@ test "swap" {
 ```
 
 ### ZS-DATA-16 [M!] Initialize large or self-referential structs in place through an out pointer
+
 Write `pub fn init(x: *T, ...) void { x.* = .{ ... }; }` and call it as
 `var x: T = undefined; x.init(...);` rather than returning `T` by value. `[M!]` applies where
 pointer stability is a correctness requirement — a struct that stores a pointer into itself, an
 allocator or arena embedded in a larger object, an intrusive list head, a pinned I/O buffer, or a
-struct large enough that an extra stack copy matters (embedded, kernel, hot paths).
-*Relaxed form:* return by value, but only for types with no interior self-reference — a type that
-stores a pointer to one of its own fields, hands one out, or is registered anywhere by address keeps
-the out-pointer `init` regardless of tier. The relaxation applies to the size argument, never to the
-self-reference argument.
+struct large enough that an extra stack copy matters (embedded, kernel, hot paths). *Relaxed form:*
+return by value, but only for types with no interior self-reference — a type that stores a pointer
+to one of its own fields, hands one out, or is registered anywhere by address keeps the out-pointer
+`init` regardless of tier. The relaxation applies to the size argument, never to the self-reference
+argument.
 
 **Why:** a `return T{ ... }` does not propagate the caller's result location, so a value-returning
 `init` may build the object in the callee's frame and copy it out, leaving any pointer it stored to
@@ -654,6 +670,7 @@ test "in-place init" {
 ```
 
 ### ZS-DATA-17 [M!] In-place initialization is viral — propagate it to every containing struct
+
 If any field of `T` must be initialized in place, `T` itself gets an out-pointer `init`, and so does
 anything that embeds a `T` by value. The trigger is ZS-DATA-16's. *Relaxed form:* ZS-DATA-16's.
 
@@ -684,6 +701,7 @@ test "viral in-place init" {
 ```
 
 ### ZS-DATA-18 [S] Pass aggregates larger than 16 bytes as `*const T`
+
 TigerStyle's threshold: if you do not mean the argument to be copied and the type exceeds 16 bytes,
 take `*const T`.
 
@@ -723,10 +741,11 @@ fn quorum(config: *const Config) u8 {
 ## Memory layout
 
 ### ZS-DATA-19 [M] Default to plain `struct`; use `extern` for ABI and `packed(uN)` for bits
+
 Three layouts, three jobs:
 
-- `struct` — **no layout guarantee at all**; the compiler reorders fields and pads freely.
-  Use for everything that only ever lives in memory.
+- `struct` — **no layout guarantee at all**; the compiler reorders fields and pads freely. Use for
+  everything that only ever lives in memory.
 - `extern struct` — "has in-memory layout matching the C ABI for the target": declaration field
   order, C padding, C alignment. Use for C interop, mmap'd records, on-disk and wire formats.
 - `packed struct(uN)` — "exactly the same ABI as their backing integer"; fields are a logical
@@ -770,6 +789,7 @@ test "packed struct is its backing integer" {
 ```
 
 ### ZS-DATA-20 [M] Always spell the backing integer and enum tag type in `extern`/`packed`/`export`
+
 Write `enum(u8)`, `packed struct(u32)`, `packed union(u16)` — never rely on inference in a type that
 crosses a boundary. Zig rejects an inferred tag in an extern context outright
 (`error: extern structs cannot contain fields of type 'Kind'`,
@@ -807,9 +827,10 @@ const Message = extern struct {
 ## Containers and data-oriented layout
 
 ### ZS-DATA-21 [S] Reference long-lived elements by handle, not by pointer
+
 Store an index newtype (`enum(u32) { none = maxInt(u32), _ }`) and resolve it through the container
-at each use. Where you need pointer *stability* rather than handles, ZS-DATA-23 gives the
-containers that provide it.
+at each use. Where you need pointer *stability* rather than handles, ZS-DATA-23 gives the containers
+that provide it.
 
 **Why:** handles survive reallocation, are half the size of a pointer, serialize cleanly, and make
 "no element" representable without a `?*T`: the reserved `.none` tag replaces a null pointer with a
@@ -845,6 +866,7 @@ const Tree = struct {
 ```
 
 ### ZS-DATA-22 [S] Use `std.MultiArrayList` when hot loops read a subset of the fields
+
 `MultiArrayList(T)` stores one array per field (struct-of-arrays) behind one allocation. Access
 whole columns with `.items(.field)`, or take `.slice()` once and pull several columns from it.
 
@@ -885,6 +907,7 @@ test "column scan" {
 ```
 
 ### ZS-DATA-23 [M] Build a fixed-capacity list with `ArrayList.initBuffer`; get stable addresses from a pool or a list
+
 `std.BoundedArray` and `std.SegmentedList` do not exist. For a fixed-capacity list, use
 `std.ArrayList(T).initBuffer(&backing)` plus the `AssumeCapacity` / `Bounded` methods. For pointer
 stability across growth, use an intrusive `std.DoublyLinkedList` or `std.SinglyLinkedList` with
@@ -948,6 +971,7 @@ test "intrusive list" {
 ```
 
 ### ZS-DATA-24 [S] Prefer a fixed array when the bound is comptime-known
+
 A `[N]T` field, or `[N]?T` when slots can be empty, beats any list when `N` is a constant.
 
 **Why:** no allocator, no failure path, no `deinit`, no pointer invalidation, and the size shows up
@@ -977,6 +1001,7 @@ const Cache = struct {
 ## Modeling with enums, unions, and optionals
 
 ### ZS-DATA-25 [M] Model variants as a tagged union, not a struct with a kind field
+
 A value that is "one of N shapes" is a `union(enum)`, not a struct with a kind field and several
 maybe-valid members. Switch over it exhaustively (`references/errors.md` ZS-ERR-25). Reading a
 payload field while another is active is safety-checked illegal behavior
@@ -985,8 +1010,8 @@ payload field while another is active is safety-checked illegal behavior
 **Why:** a payload is reachable only through its active tag, never as stale bytes, and adding a
 variant is a compile error at every exhaustive switch that must change.
 
-**Check:** any struct pairing a `kind`/`tag`/`type` enum field with members that are only
-meaningful for some values of it — that is a tagged union written without the compiler's help.
+**Check:** any struct pairing a `kind`/`tag`/`type` enum field with members that are only meaningful
+for some values of it — that is a tagged union written without the compiler's help.
 
 ```zig
 // fragment — BAD
@@ -1015,6 +1040,7 @@ fn opcodeWidth(op: Op) usize {
 ```
 
 ### ZS-DATA-26 [M] Make an enum non-exhaustive only for values that come from outside
+
 Add a trailing `_` field (which requires an explicit integer tag type) when the integer comes from a
 peer, a file, or a kernel, and switch on it with a `_ =>` prong (`references/errors.md` ZS-ERR-25).
 With `_`, "`@fromBackingInt` on a non-exhaustive enum always results in a valid enum value"; its
@@ -1053,9 +1079,10 @@ test "unknown tag is well defined" {
 ```
 
 ### ZS-DATA-27 [M] Return the lowest-dimensionality type that can carry the answer
+
 This rule owns the dimensionality ladder for the whole standard. `SKILL.md` ZS-CORE-24 is its
-one-line summary, and ZS-DATA-28 (optional for absence, error union for failure) resolves
-the top two rungs; everything below is here.
+one-line summary, and ZS-DATA-28 (optional for absence, error union for failure) resolves the top
+two rungs; everything below is here.
 
 TigerStyle's ordering, weakest first — each rung is a strict superset of the one below:
 
@@ -1077,8 +1104,8 @@ Three specific reductions, in descending order of payoff:
   silently (`references/errors.md` ZS-ERR-03).
 - A `?T` whose `null` the caller can only turn back into a default belongs behind a function that
   applies the default and returns `T`.
-- A `bool` that every caller immediately switches on, alongside other state, is usually an enum or
-  a tagged union (ZS-DATA-25) — that is climbing *sideways*, not up, and it costs nothing.
+- A `bool` that every caller immediately switches on, alongside other state, is usually an enum or a
+  tagged union (ZS-DATA-25) — that is climbing *sideways*, not up, and it costs nothing.
 
 This is not a licence to hide failures. If the caller must distinguish outcomes, the dimension is
 real and removing it is worse than paying for it: swallowing an error into a `bool` or a sentinel is
@@ -1138,12 +1165,13 @@ test "dimensionality" {
 ```
 
 ### ZS-DATA-28 [M] Express absence with the weakest construct that fits
-- **Optional `?T`** — absence is an ordinary, expected outcome the caller inspects
-  (lookup miss, empty queue, unset field). One extra branch, no error set.
+
+- **Optional `?T`** — absence is an ordinary, expected outcome the caller inspects (lookup miss,
+  empty queue, unset field). One extra branch, no error set.
 - **Error union `E!T`** — absence is a failure with a *reason* the caller may need to distinguish or
   propagate. Costs an error set in every signature above it.
-- **Sentinel value** — only when an external format mandates it (`-1` from a C API, `0xFFFF_FFFF`
-  as a reserved id, NUL-terminated bytes). Wrap it into a `?T` or a handle enum at the boundary and
+- **Sentinel value** — only when an external format mandates it (`-1` from a C API, `0xFFFF_FFFF` as
+  a reserved id, NUL-terminated bytes). Wrap it into a `?T` or a handle enum at the boundary and
   never let the raw sentinel travel inward.
 - **`?*T`** — a nullable pointer. Zig lays this out as a plain pointer with null represented by
   address zero, so it costs nothing; never hand-roll `@ptrFromInt(0)`.
@@ -1173,6 +1201,7 @@ fn findScalarIndex(haystack: []const u8, needle: u8) ?usize {
 ```
 
 ### ZS-DATA-29 [M] `[]const u8` is the default string; `[:0]const u8` only where a NUL is required
+
 Use a sentinel-terminated slice or pointer at a C boundary and nowhere else. `[:0]const u8` coerces
 to `[]const u8` for free; the reverse requires an allocation. Keep the NUL at the edge;
 `references/interop.md` ZS-INTEROP-10 gives the conversion for each direction. Slicing with
@@ -1211,6 +1240,7 @@ question. `[]const u8` in Zig is a byte slice and nothing more — no type in th
 that a byte slice is valid UTF-8, so the discipline is entirely yours.
 
 ### ZS-DATA-30 [M] A byte index is not a codepoint index; iterate with `Utf8View`
+
 `text.len` is a size in bytes. To count codepoints, call `std.unicode.utf8CountCodepoints`, which
 validates as it counts. To visit them, validate once with `std.unicode.Utf8View.init` (returns
 `error.InvalidUtf8`) and walk the `Utf8Iterator` it hands out. Never divide, slice, or truncate a
@@ -1231,13 +1261,13 @@ Name the variable for its unit — `size_bytes`, `codepoint_count`, `byte_index`
 guard rail, because `usize` is `usize`. Slicing at a byte offset the iterator did not give you
 splits a codepoint in half and yields bytes that are not UTF-8.
 
-**Deprecated:** `std.unicode.utf8Decode` and `std.unicode.wtf8Decode` are both marked
-"Deprecated. This function has an awkward API that is too easy to use incorrectly" — they take a
-`[]const u8` whose length they *assert* rather than check, so a caller who guesses the length wrong
-gets `unreachable`. Replace them with the iterator, or, when you already hold a fixed-size array,
-with the checked `utf8Decode2` / `utf8Decode3` / `utf8Decode4` (and
-`utf8Decode3AllowSurrogateHalf` for WTF-8), whose parameter types are `[2]u8` / `[3]u8` / `[4]u8`
-and therefore cannot be given a wrong length.
+**Deprecated:** `std.unicode.utf8Decode` and `std.unicode.wtf8Decode` are both marked "Deprecated.
+This function has an awkward API that is too easy to use incorrectly" — they take a `[]const u8`
+whose length they *assert* rather than check, so a caller who guesses the length wrong gets
+`unreachable`. Replace them with the iterator, or, when you already hold a fixed-size array, with
+the checked `utf8Decode2` / `utf8Decode3` / `utf8Decode4` (and `utf8Decode3AllowSurrogateHalf` for
+WTF-8), whose parameter types are `[2]u8` / `[3]u8` / `[4]u8` and therefore cannot be given a wrong
+length.
 
 **Check:** in a diff, flag `utf8Decode(` and `wtf8Decode(` (deprecated), any `[i]` or `[a..b]` on a
 string where the bound did not come from an iterator, and any variable named `len`/`count` holding a
@@ -1268,6 +1298,7 @@ test "decode one codepoint without the deprecated API" {
 ```
 
 ### ZS-DATA-31 [M] Windows filenames are WTF-8, not UTF-8 — use the `wtf8` family for paths
+
 A Windows path is a sequence of arbitrary `u16` values, which may contain unpaired surrogates and is
 therefore not always valid UTF-16 and has no UTF-8 encoding. Convert with
 `std.unicode.wtf8ToWtf16Le*` / `wtf16LeToWtf8*` and validate with `wtf8ValidateSlice`. Use
@@ -1302,16 +1333,17 @@ test "wtf8 round-trips an unpaired surrogate; utf8 cannot" {
 ```
 
 ### ZS-DATA-32 [M] `std.ascii` operates on bytes; never let it stand in for Unicode
+
 `std.ascii.toUpper`, `toLower`, `upperString`, `lowerString`, `eqlIgnoreCase`, `isAlphabetic`,
 `isWhitespace` and friends all take `u8` and only understand code units below 128. Use them for
 protocol tokens, identifiers, hex digits, and HTTP header names. Do not use them on human text. std
 has no Unicode case mapping or collation at all; correct casing is locale-dependent (Turkish dotless
 ı, German ß) and needs a library.
 
-This is a live caveat on `references/concurrency.md` ZS-CONC-16, whose `drain` example
-uppercases every byte passing through a `Writer` with `std.ascii.toUpper`. As a demonstration of
-the `drain` contract it is correct; as a text transform it is ASCII-only, and a stream carrying
-UTF-8 will pass through half-uppercased.
+This is a live caveat on `references/concurrency.md` ZS-CONC-16, whose `drain` example uppercases
+every byte passing through a `Writer` with `std.ascii.toUpper`. As a demonstration of the `drain`
+contract it is correct; as a text transform it is ASCII-only, and a stream carrying UTF-8 will pass
+through half-uppercased.
 
 **Why:** they are safe but silent. No UTF-8 lead byte (0xC2..0xF4) or continuation byte (0x80..0xBF)
 falls in `'a'..'z'`, so the encoding survives, but every non-ASCII letter is left alone: `"café"`
@@ -1334,11 +1366,12 @@ test "ascii case mapping silently ignores non-ascii" {
 
 ## Arithmetic and type-system rules with silent-wrong-code potential
 
-`references/migration.md` carries the full migration tables. The two rules below
-cover only the entries that produce **wrong behavior rather than a compile error**, because this is
-the chapter a reader consults when choosing a type — not the one they consult when a build breaks.
+`references/migration.md` carries the full migration tables. The two rules below cover only the
+entries that produce **wrong behavior rather than a compile error**, because this is the chapter a
+reader consults when choosing a type — not the one they consult when a build breaks.
 
 ### ZS-DATA-33 [M] `std.math.sign` returns the narrowest integer, not the argument's type
+
 `sign` returns `SignOf(@TypeOf(n))`: `i2` for a signed integer *or a float*, `u1` for an unsigned
 integer, and the elementwise equivalent for a vector. It does not return `T`. Convert explicitly at
 the point of use, or skip `sign` entirely and write the branch: for floats
@@ -1368,16 +1401,17 @@ test "sign returns the narrowest int, never the input type" {
 ```
 
 ### ZS-DATA-34 [M] Know the five type-system rules that older Zig code trips on
+
 `references/migration.md` ZS-MIG-02 holds the full removed-syntax table. Of these five, two change
 what code that *still compiles* means, one is a cast that can lose a bound, and two turn latent bugs
 into compile errors.
 
-1. **`*u8` and `*align(1) u8` are distinct types**, though `*u8` still coerces to
-   `*align(1) u8`. `@TypeOf` comparisons, `switch` on a type, `std.meta.eql` over type values, and
-   any hand-rolled type dispatch that assumed they were equal now take a different branch.
+1. **`*u8` and `*align(1) u8` are distinct types**, though `*u8` still coerces to `*align(1) u8`.
+   `@TypeOf` comparisons, `switch` on a type, `std.meta.eql` over type values, and any hand-rolled
+   type dispatch that assumed they were equal now take a different branch.
 2. **`@ptrCast` can produce a slice from a single-item pointer.** `const s: []u8 = @ptrCast(&arr);`
-   compiles and derives `len` from the array length. Convenient, and a way to lose a bound —
-   prefer `&arr` coercion or `arr[0..]`, which cannot pick the wrong length.
+   compiles and derives `len` from the array length. Convenient, and a way to lose a bound — prefer
+   `&arr` coercion or `arr[0..]`, which cannot pick the wrong length.
 3. **A zero-bit tuple field is not implicitly `comptime`.** `struct { void, u32 }` reports
    `field_attrs[0].@"comptime" == false`, so reflection that filters fields on that flag to skip
    zero-bit members sees them.
@@ -1387,20 +1421,20 @@ into compile errors.
 5. **`@memcpy` requires in-memory-coercible operands and checks aliasing at comptime.**
    `@memcpy(target_u8, source_i8)` is
    `error: pointer element type 'i8' cannot coerce into element type 'u8'`, and overlapping operands
-   in a comptime call are `error: '@memcpy' arguments alias`. At runtime overlap is illegal
-   behavior and undetected — use `@memmove` when ranges overlap. (`std.mem.copyForwards` /
-   `copyBackwards` are deprecated and are a review finding under ZS-MEM-25; they also push
-   the direction choice onto you, and picking the wrong one smears the first element across the
-   range with no diagnostic in any build mode.)
+   in a comptime call are `error: '@memcpy' arguments alias`. At runtime overlap is illegal behavior
+   and undetected — use `@memmove` when ranges overlap. (`std.mem.copyForwards` / `copyBackwards`
+   are deprecated and are a review finding under ZS-MEM-25; they also push the direction choice onto
+   you, and picking the wrong one smears the first element across the range with no diagnostic in
+   any build mode.)
 
 **Why:** items 1 and 3 change the result of type-level metaprogramming that still compiles; item 2
 is a cast that compiles and can lose a bound; items 4 and 5 turn latent bugs into diagnostics, which
 is worth knowing so the diagnostic is not "fixed" by casting around it.
 
 **Check:** five greps, one per item — `@ptrCast` whose destination is a slice type; `@"comptime"`
-used to filter fields; `std.meta.eql`, `switch`, or `==` over `type` values
-where alignment could differ; a non-scalar sentinel in an array type; and `@memcpy` on two ranges
-derived from the same backing buffer.
+used to filter fields; `std.meta.eql`, `switch`, or `==` over `type` values where alignment could
+differ; a non-scalar sentinel in an array type; and `@memcpy` on two ranges derived from the same
+backing buffer.
 
 ```zig
 // verified — GOOD
@@ -1427,6 +1461,7 @@ test "pointer and builtin rules" {
 ## Serialization
 
 ### ZS-DATA-35 [M] ZON for formats you own, `std.json` for interop; bound both on untrusted input
+
 For configuration, fixtures, and any data format whose only consumer is your own program, use ZON:
 `std.zon.parse.fromSlice(T, .{ .gpa, .arena, .source, .diagnostics })` to read,
 `std.zon.stringify.serialize(val, options, w)` to write, and `@import("config.zon")` to embed one at
@@ -1440,14 +1475,14 @@ result outlives that arena.
 
 Two constraints apply to both formats:
 
-- **Both write through a `*std.Io.Writer`** after Writergate — `std.zon.stringify.serialize(val,
-  opts, w)` and `std.json.Stringify`. There is no `toString`-style allocating shortcut in the
-  blessed path, so the buffering and flushing rules in `references/concurrency.md` apply
-  unchanged.
+- **Both write through a `*std.Io.Writer`** after Writergate —
+  `std.zon.stringify.serialize(val, opts, w)` and `std.json.Stringify`. There is no `toString`-style
+  allocating shortcut in the blessed path, so the buffering and flushing rules in
+  `references/concurrency.md` apply unchanged.
 - **Both need an explicit `Io.Limit` on untrusted input.** Neither parser bounds the *source* it is
-  handed; the bound belongs on the read that produced the slice. See
-  `references/concurrency.md` ZS-CONC-14 — spell `.limited(n)` with a justified `n`, and
-  reserve `.unlimited` for bytes you produced yourself.
+  handed; the bound belongs on the read that produced the slice. See `references/concurrency.md`
+  ZS-CONC-14 — spell `.limited(n)` with a justified `n`, and reserve `.unlimited` for bytes you
+  produced yourself.
 
 Note the spellings, which are not symmetric with `std.json`: the ZON serializer namespace is
 lowercase `std.zon.stringify` (with `serialize`, `serializeMaxDepth`, `serializeArbitraryDepth`),
@@ -1529,8 +1564,8 @@ their orders. Any disagreement is the finding, and the outlier is what changes.
 
 ### ZS-DATA-38 [M] Split a function rather than adding a mode parameter
 
-When a parameter selects behavior rather than supplying data, the function has become two
-functions sharing a body. Split it and let the shared part be a private helper.
+When a parameter selects behavior rather than supplying data, the function has become two functions
+sharing a body. Split it and let the shared part be a private helper.
 
 **Why:** a mode parameter makes the return type and the error set the union of both modes, so every
 caller handles cases that cannot arise in its mode — the opposite of ZS-CORE-24 and ZS-DATA-27.

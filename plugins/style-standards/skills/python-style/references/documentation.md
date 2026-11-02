@@ -41,13 +41,13 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 `"""Return the parsed configuration."""` — not "Returns", not "This function returns".
 
 **Why:** PEP 257 specifies the imperative mood, and it is not arbitrary: the docstring completes the
-sentence "call this to ___", so it instructs the reader rather than describing the function. It
-must fit on one line because tooling shows the first line alone in listings.
+sentence "call this to ___", so it instructs the reader rather than describing the function. It must
+fit on one line because tooling shows the first line alone in listings.
 
-**Check:** ruff `D200` for the one-line form and `D415` for the closing punctuation. The
-imperative mood is a review matter: its pydocstyle rule is one of the twelve that
-`convention = "google"` switches off, and the shipped configuration does not select it back, which
-an `extend-select` naming it would do.
+**Check:** ruff `D200` for the one-line form and `D415` for the closing punctuation. The imperative
+mood is a review matter: its pydocstyle rule is one of the twelve that `convention = "google"`
+switches off, and the shipped configuration does not select it back, which an `extend-select` naming
+it would do.
 
 ```python
 # verified — GOOD
@@ -70,10 +70,10 @@ assert load_config("a.toml") == {"path": "a.toml"}
 **Why:** PEP 257 says so, and uniformity means a docstring is recognisable by shape. The rule is
 also what makes it safe to add a second line later without changing the delimiter.
 
-**Check:** `ruff format` writes every docstring with triple double quotes whatever its
-`quote-style` says, so `ruff format --check` (PS-NAME-13) is the gate; the lint rule for the quote
-style sits on ruff's formatter-conflict list and is disabled. `D301` requires a docstring containing
-a backslash to be raw.
+**Check:** `ruff format` writes every docstring with triple double quotes whatever its `quote-style`
+says, so `ruff format --check` (PS-NAME-13) is the gate; the lint rule for the quote style sits on
+ruff's formatter-conflict list and is disabled. `D301` requires a docstring containing a backslash
+to be raw.
 
 ## Content
 
@@ -144,8 +144,8 @@ does not run — so that half is review, with defaults, exceptions and units.
 `docstring-code-format = true`, so the formatter keeps them formatted too.
 
 **Why:** an example that is not executed will be wrong, usually within two releases, and a wrong
-example is more damaging than none because it is what people copy. Running them also tests the
-API's ergonomics — an example that is awkward to write is an API that is awkward to use.
+example is more damaging than none because it is what people copy. Running them also tests the API's
+ergonomics — an example that is awkward to write is an API that is awkward to use.
 
 **Check:** `rg -n '>>>' src/` against the test configuration. Doctests present but not run is the
 finding.
@@ -193,8 +193,8 @@ absence is not a defect, but its presence pays repeatedly.
 writing the thing rather than content of the thing, and it goes stale in a way the statement itself
 does not. State the property; if it needs evidence, that is a test.
 
-**Check:** `rg -ni 'we (verified|checked|tested)|as of [0-9]{4}' src/`, plus any sentence
-naming a date, a host, or a person. Every hit is provenance rather than content.
+**Check:** `rg -ni 'we (verified|checked|tested)|as of [0-9]{4}' src/`, plus any sentence naming a
+date, a host, or a person. Every hit is provenance rather than content.
 
 ## Decided by tools
 

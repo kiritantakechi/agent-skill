@@ -1,9 +1,9 @@
 # Errors: Fallible Systems, the Error Handler, Panicking APIs
 
-Scope: what a Bevy system does when something goes wrong, where that failure ends up, and which
-half of Bevy's paired APIs to call. The general rules about error *types* — one enum per failure
-mode, carry the source, `thiserror` in libraries and not in public APIs — are unchanged and live in
-the other standard; this chapter is about the paths Bevy adds.
+Scope: what a Bevy system does when something goes wrong, where that failure ends up, and which half
+of Bevy's paired APIs to call. The general rules about error *types* — one enum per failure mode,
+carry the source, `thiserror` in libraries and not in public APIs — are unchanged and live in the
+other standard; this chapter is about the paths Bevy adds.
 
 A system may return `Result`, which removes the last reason for `unwrap` in game code. What it
 returns goes to the fallback error handler that `App::set_error_handler` installs. Its default
@@ -28,6 +28,7 @@ a system, observer or command reaches it too, as an error carrying the panic's p
   - BV-ERR-09 [M] Report through `tracing`, never through `println!`
   - BV-ERR-10 [M] Exit with `AppExit::error` when startup cannot continue
   - BV-ERR-11 [M!] Decide the render error policy, because the default quits
+
 - Decided by tools
 
 ---
@@ -232,9 +233,9 @@ not a system or is fighting the schedule.
 
 ### BV-ERR-03 [M] Keep `BevyError` at the boundary and a real type underneath
 
-Domain code returns its own error enum. The system that calls it converts with `?`, and adds what
-it knows with `.context("…")` or `.with_context(|| …)` — `ContextExt`, in the prelude.
-On an `Option` the same call builds the error, where `ok_or(…)` needed an error type of its own.
+Domain code returns its own error enum. The system that calls it converts with `?`, and adds what it
+knows with `.context("…")` or `.with_context(|| …)` — `ContextExt`, in the prelude. On an `Option`
+the same call builds the error, where `ok_or(…)` needed an error type of its own.
 
 **Why:** `BevyError` is boxed and type-erased: the right shape when the only reader is a log line,
 the wrong one for a caller that branches. Domain code returning it cannot be matched on or tested
@@ -419,12 +420,12 @@ expected failure logged at error level is a severity that needs stating.
 
 ### BV-ERR-05 [M] Choose the fallback error handler deliberately
 
-Install it with `App::set_error_handler`, once, in `main`: `panic` in development, and in a
-shipped build a handler that logs a returned error and resumes a panic. A panic in a system,
-observer or command reaches the handler as an error carrying its payload, so the shipped handler
-resumes unwinding whenever `BevyError::take_payload` returns one. It cannot test `Severity::Panic`
-instead: that is also what every un-annotated returned error carries. The handler is where an error
-is logged, so the system that returns it does not log it too (`rust-style`'s RS-ERR-09).
+Install it with `App::set_error_handler`, once, in `main`: `panic` in development, and in a shipped
+build a handler that logs a returned error and resumes a panic. A panic in a system, observer or
+command reaches the handler as an error carrying its payload, so the shipped handler resumes
+unwinding whenever `BevyError::take_payload` returns one. It cannot test `Severity::Panic` instead:
+that is also what every un-annotated returned error carries. The handler is where an error is
+logged, so the system that returns it does not log it too (`rust-style`'s RS-ERR-09).
 
 **Why:** a development build wants a failure to stop the world where it happened, a shipped build
 the log line and the next frame. The default, `match_severity`, panics on every un-annotated error
@@ -464,8 +465,8 @@ fn main() -> AppExit {
 
 ### BV-ERR-06 [S] Override the handler per schedule only where the phase differs
 
-A schedule can carry its own handler. Use it where one phase genuinely wants different treatment —
-a loading schedule that must not panic on a missing optional asset.
+A schedule can carry its own handler. Use it where one phase genuinely wants different treatment — a
+loading schedule that must not panic on a missing optional asset.
 
 **Why:** per-schedule handlers are a real capability and a real way to lose track of what happens to
 an error, because the answer is now "depends which schedule". One global handler plus per-error
@@ -478,8 +479,8 @@ could not have expressed it.
 
 ### BV-ERR-07 [M] Prefer the non-panicking half of every pair
 
-Bevy ships both halves for most `World` lookups. Take the one that returns `Option` or `Result`.
-A query, an asset collection and an `EntityRef` return one already, and unwrapping it is the
+Bevy ships both halves for most `World` lookups. Take the one that returns `Option` or `Result`. A
+query, an asset collection and an `EntityRef` return one already, and unwrapping it is the
 `unwrap_used` row. This is about game code: a `#[cfg(test)]` body may take the panicking half,
 because a test asserting on the world wants the panic (BV-TEST-06), and routing it through
 `get_resource` would only add an `expect` that says what the panic already says.
@@ -634,8 +635,8 @@ A missing required asset directory, an unusable GPU, a corrupt configuration: wr
 `AppExit::error()` to the message and let the app shut down.
 
 **Why:** here continuing is worse than stopping, and the exit code reaches the launcher, the test
-harness and the crash reporter as a panic's would, minus a stack trace nobody can act on. It is
-also the clean stop: plugins shut down, and the window closes rather than vanishing.
+harness and the crash reporter as a panic's would, minus a stack trace nobody can act on. It is also
+the clean stop: plugins shut down, and the window closes rather than vanishing.
 
 **Check:** for each `panic!` outside a test, ask whether `AppExit::error()` says the same thing more
 usefully.
@@ -653,9 +654,9 @@ and `bevy_render` itself warns that hitting one repeatedly strobes; those arms s
 *Relaxed form:* a tool or an example may take the default, and then the rule is that nobody reports
 its clean exit as a crash.
 
-**Why:** the default logs and writes `AppExit::error()` for **every** `RenderError`, so a
-transient GPU fault closes the player's window and BV-ARCH-16 turns it into an exit that reads as a
-crash. BV-ERR-10 makes an unusable GPU at startup your decision; this is the same GPU an hour later.
+**Why:** the default logs and writes `AppExit::error()` for **every** `RenderError`, so a transient
+GPU fault closes the player's window and BV-ARCH-16 turns it into an exit that reads as a crash.
+BV-ERR-10 makes an unusable GPU at startup your decision; this is the same GPU an hour later.
 
 **Check:** grep for `RenderErrorHandler`. Exactly one insertion, and it branches on the error rather
 than returning one blanket policy: `Recover` from the `DeviceLost` arm only, and `Ignore` from none

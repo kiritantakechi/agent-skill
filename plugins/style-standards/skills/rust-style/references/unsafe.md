@@ -1,12 +1,12 @@
 # RS-UNSAFE — `unsafe` and FFI
 
-`unsafe` does not turn off the rules; it transfers responsibility for them from
-the compiler to you. Every `unsafe` block is a proof obligation, and an
-unproven one is a latent memory-safety vulnerability that safe callers cannot
-defend against.
+`unsafe` does not turn off the rules; it transfers responsibility for them from the compiler to you.
+Every `unsafe` block is a proof obligation, and an unproven one is a latent memory-safety
+vulnerability that safe callers cannot defend against.
 
-The default posture is `unsafe_code = "forbid"` in `[lints.rust]`. These rules
-apply when that default has been consciously overridden.
+The default posture is `unsafe_code = "forbid"` in `[lints.rust]`. These rules apply when that
+default has been consciously overridden.
+
 ## Contents
 
 - **Discipline**
@@ -49,6 +49,7 @@ apply when that default has been consciously overridden.
   - RS-UNSAFE-31 [S] Cover FFI paths with ASan, UBSan, and Valgrind, which Miri cannot reach
   - RS-UNSAFE-32 [M!] Have `unsafe` reviewed by a second person
   - RS-UNSAFE-33 [S] Track the `unsafe` block count and treat growth as a design signal
+
 - Decided by tools
 
 ---
@@ -549,8 +550,8 @@ that is not `Send` is telling you something true. Asserting it manually claims y
 what the compiler could not see, and that claim must be legible to the next reader.
 
 **Check:** for each manual impl, does the adjacent comment explain what makes concurrent access
-safe? "It is fine" is not an argument. An impl on a type the compiler would already derive it for
-is noise: delete it.
+safe? "It is fine" is not an argument. An impl on a type the compiler would already derive it for is
+noise: delete it.
 
 ```rust
 // verified
@@ -609,8 +610,8 @@ the answer is not "the first `k` elements are dropped exactly once", add the gua
 
 Generate bindings with `bindgen` rather than hand-transcribing headers, and re-generate them in CI
 or check them in with the exact bindgen version recorded. A declaration you do write is an
-`unsafe extern "C" { … }` block, and a function no input can make unsound is marked `pub safe fn`
-in it, so its callers need no `unsafe`. Bindings keep the C names they mirror: the module that holds
+`unsafe extern "C" { … }` block, and a function no input can make unsound is marked `pub safe fn` in
+it, so its callers need no `unsafe`. Bindings keep the C names they mirror: the module that holds
 them carries the casing lints' `#[expect(…, reason = "the names mirror the C header")]`, and no
 other module does.
 
@@ -646,8 +647,8 @@ pub fn process_id() -> c_int {
 
 Never unwind across an `extern "C"` boundary. A Rust panic escaping an `extern "C"` function aborts
 the process, and a foreign exception unwinding into Rust through `extern "C"` is undefined
-behaviour. Wrap every exported entry point in `catch_unwind` and convert a panic
-into an error code; where unwinding across the boundary is intended, declare `extern "C-unwind"`.
+behaviour. Wrap every exported entry point in `catch_unwind` and convert a panic into an error code;
+where unwinding across the boundary is intended, declare `extern "C-unwind"`.
 
 An exported `#[unsafe(no_mangle)]` function is never generic, which is a hard error, and it never
 takes the name of a symbol std relies on — `memcpy`, `strlen`, `malloc` — with a different
@@ -679,8 +680,8 @@ pub extern "C" fn mylib_length(len: c_int) -> c_int {
 
 Validate every pointer crossing the boundary: null checks, alignment, and the length contract. A C
 caller is not bound by your invariants and will eventually violate them. A C-variadic definition
-(`...`, read through `core::ffi::VaList`) checks nothing at all: each
-`next_arg::<T>()` trusts the caller for both the count and the type, so `# Safety` must state both.
+(`...`, read through `core::ffi::VaList`) checks nothing at all: each `next_arg::<T>()` trusts the
+caller for both the count and the type, so `# Safety` must state both.
 
 **Why:** on the Rust side of an FFI boundary you are the trusted component, and the caller is
 untrusted input in the security sense. Assuming a non-null, correctly sized pointer is assuming the
@@ -798,8 +799,8 @@ wrapper, and it lets a consumer who needs the raw API skip your abstraction with
 Run the test suite under Miri (`cargo +nightly miri test`) in CI for every crate containing
 `unsafe`. It catches UB that produces correct behaviour on your machine today and a crash on a
 user's machine next year. Keep secrets out of the Miri job's environment, and out of any job that
-writes a `target/` cache a pull request can read. A hand-rolled concurrent structure also runs
-under `loom` or ThreadSanitizer (`references/concurrency.md` RS-CONC-40).
+writes a `target/` cache a pull request can read. A hand-rolled concurrent structure also runs under
+`loom` or ThreadSanitizer (`references/concurrency.md` RS-CONC-40).
 
 *Relaxed form:* run Miri locally before each release rather than on every push. What is not
 acceptable is never having run it.

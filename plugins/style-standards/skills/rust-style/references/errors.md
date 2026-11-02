@@ -2,16 +2,17 @@
 
 Scope: when a failure is a `Result` and when it is a panic, how a library's error type is shaped and
 what it must carry, how errors propagate and accumulate context, the panic rules including
-`panic = "abort"`, and how a binary reports failure and chooses an exit code. A `Drop` that must
-not fail is `references/ownership.md` RS-OWN-33, and a panic at the FFI boundary
-`references/unsafe.md` RS-UNSAFE-24. Naming of error types is in the naming chapter (RS-NAME-31);
-the `# Errors` and `# Panics` rustdoc sections are in the documentation chapter; the deny rows that
-mechanically enforce this chapter are in the build chapter's table.
+`panic = "abort"`, and how a binary reports failure and chooses an exit code. A `Drop` that must not
+fail is `references/ownership.md` RS-OWN-33, and a panic at the FFI boundary `references/unsafe.md`
+RS-UNSAFE-24. Naming of error types is in the naming chapter (RS-NAME-31); the `# Errors` and
+`# Panics` rustdoc sections are in the documentation chapter; the deny rows that mechanically
+enforce this chapter are in the build chapter's table.
 
 The dividing line that organizes everything here: **libraries** must hand callers structured,
 matchable, non-lossy errors, because the caller knows things the library does not. **Binaries** are
 the end of the chain — nobody matches on their errors, so they may collapse everything into a report
 and an exit code.
+
 ## Contents
 
 - **Fundamentals**
@@ -60,6 +61,7 @@ and an exit code.
   - RS-ERR-35 [M] Treat exit codes as part of the interface
   - RS-ERR-36 [S] Print the cause chain, not a backtrace
   - RS-ERR-37 [M] Collect per-input failures instead of aborting the run
+
 - Decided by tools
 
 ---
@@ -140,8 +142,7 @@ someone else's server. This is the highest-cost defect in this standard, because
 a party who had no say in the decision and cannot work around it.
 
 **Check:** mechanically: `assets/Cargo.toml` denies `unwrap_used`, `expect_used`, `panic`, `todo`,
-`unimplemented` and `indexing_slicing`. The grep for a codebase that has not adopted them
-yet:
+`unimplemented` and `indexing_slicing`. The grep for a codebase that has not adopted them yet:
 
 ```bash
 # fragment — the grep, until the lints are adopted
@@ -172,16 +173,16 @@ nonsense; "regex was validated at construction, but it was not" names the bug.
 ### RS-ERR-05 [M] Implement `Error` with a correct `source()`
 
 Public error types implement `std::error::Error` — or `core::error::Error` in no-std — and return
-the underlying cause from `source()`. The type can be named from outside the
-crate: it is in every fallible signature, so it is public API whether it was documented or not.
+the underlying cause from `source()`. The type can be named from outside the crate: it is in every
+fallible signature, so it is public API whether it was documented or not.
 
 **Why:** `source()` is how every reporter walks the chain — `anyhow`'s `{:#}`, `eyre`'s handlers,
 `tracing`'s error fields. Omitting it truncates the diagnostics of every downstream user, and they
 cannot fix it from their side.
 
 **Check:** for each error variant that wraps another error, is that error reachable through
-`source()`? With `thiserror`, that means a `#[source]` or `#[from]` attribute on the field — a
-plain field is not enough. Then name the type from a test outside the crate.
+`source()`? With `thiserror`, that means a `#[source]` or `#[from]` attribute on the field — a plain
+field is not enough. Then name the type from a test outside the crate.
 
 ```rust
 // verified
@@ -327,8 +328,8 @@ If not, the variant needs a field.
 
 ### RS-ERR-13 [M!] Never expose `Box<dyn Error>` or `anyhow::Error` from a library
 
-Not as the error type, not as a variant payload, not behind a type alias. In a binary, where
-nobody matches, they are correct (RS-ERR-33).
+Not as the error type, not as a variant payload, not behind a type alias. In a binary, where nobody
+matches, they are correct (RS-ERR-33).
 
 *Relaxed form:* an internal crate consumed only inside your own workspace may use them in
 `pub(crate)` boundaries, but not in anything a downstream crate can name.
@@ -540,8 +541,9 @@ promises to distinguish? Test it by matching the variant, not by reading the cod
 with `anyhow`, `.with_context(|| format!("reading {}", path.display()))` over
 `.context(format!(…))`.
 
-**Why:** the eager form evaluates its argument on the success path too. `ok_or(Error::NotFound {
-path: path.to_owned() })` allocates the `PathBuf` every single time the lookup succeeds.
+**Why:** the eager form evaluates its argument on the success path too.
+`ok_or(Error::NotFound { path: path.to_owned() })` allocates the `PathBuf` every single time the
+lookup succeeds.
 
 **Check:** grep `ok_or(`, `unwrap_or(`, `map_or(` and `.context(format!`. Each is fine for a `Copy`
 constant and a defect for anything that allocates, formats, or calls a function. The converse — a

@@ -1,9 +1,9 @@
 # Strings and Output: Encoding, Interpolation, Logging, and Program Output
 
 Scope: what a string is encoded as now that 3.15 changed the default, which interpolation form to
-reach for including the new template strings, how to log, and the difference between program
-output and diagnostics. Docstring content is the documentation chapter; the thread-safety of a
-stream is the concurrency chapter.
+reach for including the new template strings, how to log, and the difference between program output
+and diagnostics. Docstring content is the documentation chapter; the thread-safety of a stream is
+the concurrency chapter.
 
 Two sources are merged here: the **CPython 3.15 documentation** — PEP 686 for the encoding default,
 PEP 750 for template strings, and the `logging` module's own guidance — and **Ruff's `G`, `LOG`,
@@ -78,9 +78,9 @@ handler.
 while the stdout handler turns a pipe's `UnicodeEncodeError` into a silent round-trip. PEP 686 warns
 the change "may cause `UnicodeError`, mojibake, or even silent data corruption".
 
-**Check:** `rg -n 'getpreferredencoding|getfilesystemencoding|fsencode|fsdecode' src/` —
-every hit is a place the meaning changed. Then run the suite under `-X warn_default_encoding`, and
-treat every `EncodingWarning` as a finding.
+**Check:** `rg -n 'getpreferredencoding|getfilesystemencoding|fsencode|fsdecode' src/` — every hit
+is a place the meaning changed. Then run the suite under `-X warn_default_encoding`, and treat every
+`EncodingWarning` as a finding.
 
 ### PS-OUT-03 [M] Ask `locale.getencoding()` for the locale's encoding
 
@@ -102,8 +102,8 @@ branch forever — including code written for a legacy encoding, which silently 
 *Relaxed form:* application code at a display boundary may use `replace` without a comment; library
 code may not.
 
-**Why:** the handler decides what happens to data you cannot represent, a policy question and not
-a technical one: `strict` fails loudly so the caller can retry or report, `surrogateescape`
+**Why:** the handler decides what happens to data you cannot represent, a policy question and not a
+technical one: `strict` fails loudly so the caller can retry or report, `surrogateescape`
 round-trips undecodable bytes so a path can be reopened, and `replace` destroys them silently.
 
 **Check:** every `errors=` argument needs a comment. Every text `open` on data from outside the
@@ -147,14 +147,14 @@ parameterised query is the same length as the interpolated one.
 
 ### PS-OUT-08 [S] Reach for a template string when the interpolation must be inspected
 
-A PEP 750 template string, `t"SELECT * FROM {table}"`, produces a `Template` whose static parts
-and interpolations are separate values, so a library can escape each one correctly. This is `[S]`
+A PEP 750 template string, `t"SELECT * FROM {table}"`, produces a `Template` whose static parts and
+interpolations are separate values, so a library can escape each one correctly. This is `[S]`
 because it only helps when something downstream understands templates; writing one and then calling
 `str()` on it has bought nothing.
 
-**Why:** an f-string interpolates immediately and hands you a `str`, at which point nothing can
-tell which characters came from the literal and which from the value. A template string defers it,
-so the consumer sees the structure and can escape, parameterise, or reject.
+**Why:** an f-string interpolates immediately and hands you a `str`, at which point nothing can tell
+which characters came from the literal and which from the value. A template string defers it, so the
+consumer sees the structure and can escape, parameterise, or reject.
 
 **Check:** every library that takes a pre-formatted string and must escape part of it. That
 signature should take a `Template`.
@@ -176,8 +176,8 @@ between a five-second diagnosis and a session with a debugger.
 `f"{value=}"` prints `value=42`. It is a debugging tool, not an output format.
 
 **Why:** it is the fastest way to write a temporary trace, and the fact that it embeds the
-expression text is exactly what makes it wrong to ship — a rename changes the output. Its
-presence in committed code is a debug line someone forgot.
+expression text is exactly what makes it wrong to ship — a rename changes the output. Its presence
+in committed code is a debug line someone forgot.
 
 **Check:** `rg -n '=\}' src/` — every hit is either a debug line or a deliberate choice needing a
 comment.
@@ -215,8 +215,8 @@ fetch("https://example.invalid")
 `logger = logging.getLogger(__name__)`. Not the root logger, and not a hand-written string.
 
 **Why:** `__name__` makes the logging hierarchy mirror the package hierarchy, so an operator can
-raise the level for one subpackage without knowing your naming scheme. `logging.info(...)` at
-module level uses the root logger, which cannot be configured per component.
+raise the level for one subpackage without knowing your naming scheme. `logging.info(...)` at module
+level uses the root logger, which cannot be configured per component.
 
 **Check:** ruff `LOG015` for the root-logger calls. `rg -n 'getLogger\("' src/` for hand-written
 names.
@@ -255,8 +255,8 @@ stderr, through `logging`. `print` is for neither: `T201` reads every one as a f
 messages. Mixing them means the pipeline consumer receives your diagnostics as data, and redirecting
 stdout hides the errors you most needed to see.
 
-**Check:** `rg -n 'sys\.stdout\.write' src/` — is each write part of the result? If not, it
-belongs in `logging`.
+**Check:** `rg -n 'sys\.stdout\.write' src/` — is each write part of the result? If not, it belongs
+in `logging`.
 
 ### PS-OUT-16 [M] Give a type a `__repr__` that says what it is
 

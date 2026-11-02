@@ -69,8 +69,8 @@ type a signature. The 0.13/0.14 era is the single largest source of wrong Zig. `
 **gone** rows, so `zig build` passing proves nothing about whether the code is current.
 
 **Check:** run the denylist grep of ZS-MIG-13 over the diff — it collects the alias rows from every
-table below. Separately, every `std.*` signature new to the diff must be findable by `rg -n` in
-the local std tree; one that is not is misremembered, not merely misspelled.
+table below. Separately, every `std.*` signature new to the diff must be findable by `rg -n` in the
+local std tree; one that is not is misremembered, not merely misspelled.
 
 ```sh
 # GOOD — the only reliable check. Run it, don't recall it.
@@ -173,8 +173,8 @@ fn unlikelyPath() void {
 ### ZS-MIG-03 [M] Writergate: `std.io` is `std.Io`, and every stream carries its own buffer
 
 There is no `std.io` in 0.17.0 (`root source file struct 'std' has no member named 'io'`).
-`std.Io.Writer` and `std.Io.Reader` are single non-generic structs that own a `buffer:
-[]u8`; there is no separate buffered wrapper and no generic/`Any` split.
+`std.Io.Writer` and `std.Io.Reader` are single non-generic structs that own a `buffer: []u8`; there
+is no separate buffered wrapper and no generic/`Any` split.
 
 **Why:** the buffer moved *into* the interface, so `GenericWriter`/`AnyWriter`/`BufferedWriter`/
 `FixedBufferStream` all collapsed into one type. Code that still wraps a writer in a buffered writer
@@ -260,16 +260,17 @@ assert(std.mem.eql(u8, aw.written(), "ff"));
 
 ### ZS-MIG-04 [M] Filesystem: `std.fs` is a six-declaration shim; use `std.Io.Dir` / `std.Io.File`
 
-There is no `std.fs.cwd()`, no `std.fs.Dir`, no `std.fs.File`: `root source file struct
-'fs' has no member named 'cwd'`. Every remaining member of `std/fs.zig` carries `/// Deprecated`.
+There is no `std.fs.cwd()`, no `std.fs.Dir`, no `std.fs.File`:
+`root source file struct 'fs' has no member named 'cwd'`. Every remaining member of `std/fs.zig`
+carries `/// Deprecated`.
 
 **Why:** filesystem access is dispatched through the `Io` vtable, so a caller can substitute the
 backend — an io_uring ring, a fiber scheduler, `Io.failing` in a test — and a `Dir` handle alone
 cannot perform an operation. That is why `io` follows the receiver on essentially every call.
 
-**Check:** `rg -n 'std\.fs\.' src/` — every hit is either a `gone` row (a hard error) or one of
-the six deprecated aliases below, and both are findings. Then the structural check: every `Io.Dir`
-or `Io.File` method call whose first argument after the receiver is not `io`, and any `makeDir`,
+**Check:** `rg -n 'std\.fs\.' src/` — every hit is either a `gone` row (a hard error) or one of the
+six deprecated aliases below, and both are findings. Then the structural check: every `Io.Dir` or
+`Io.File` method call whose first argument after the receiver is not `io`, and any `makeDir`,
 `makePath`, `makeOpenPath`, `realpath`, `getEndPos`, `setEndPos`, or `writeAll` on a directory or
 file handle.
 
@@ -355,13 +356,12 @@ Every `indexOf*`/`lastIndexOf*` name in `std.mem` still compiles as a deprecated
 warns. Emit the `find*` names.
 
 **Why:** because the old names compile, this staleness never appears as a build failure — only as
-code that reads a generation old. From the `/// Deprecated in favor of` markers in
-`std/mem.zig`.
+code that reads a generation old. From the `/// Deprecated in favor of` markers in `std/mem.zig`.
 
 **Check:** `rg -n '\bmem\.(indexOf|lastIndexOf)'` — spelled through `std.mem` or through the
-`const mem = std.mem;` of ZS-NAME-16, every hit compiles and every hit is stale.
-Then the three that are not simple renames: `containsAtLeastScalar` (0.17 **swapped its last two
-parameters** and removed `containsAtLeastScalar2` — read each call site),
+`const mem = std.mem;` of ZS-NAME-16, every hit compiles and every hit is stale. Then the three that
+are not simple renames: `containsAtLeastScalar` (0.17 **swapped its last two parameters** and
+removed `containsAtLeastScalar2` — read each call site),
 `mem.tokenize(`/`mem.split(`/`mem.splitBackwards(` with no `Scalar`/`Any`/`Sequence` suffix, and
 `mem.page_size`.
 
@@ -425,10 +425,9 @@ try std.testing.expectEqualStrings("value", parts[1]);
 `std.ArrayList(T).init(gpa)` is now
 `error: struct 'array_list.Aligned(u8,null)' has no member named 'init'`.
 
-Decl-literal construction is `references/data.md` ZS-DATA-13; the
-`std.BoundedArray`/`SegmentedList` replacements are ZS-DATA-23; *why* the allocator is a per-call
-parameter rather than a field is `references/memory.md` ZS-MEM-05. The table below is
-the lookup surface for all three.
+Decl-literal construction is `references/data.md` ZS-DATA-13; the `std.BoundedArray`/`SegmentedList`
+replacements are ZS-DATA-23; *why* the allocator is a per-call parameter rather than a field is
+`references/memory.md` ZS-MEM-05. The table below is the lookup surface for all three.
 
 **Why:** not applicable — this section is a rename table, not a single rule. The rationale for the
 unmanaged shape belongs to `references/memory.md` ZS-MEM-05, cited above.
@@ -469,10 +468,9 @@ argument is not an allocator.
 > [!WARNING]
 > The **non-array** hash maps did not follow. `std.StringHashMap`, `std.AutoHashMap` and
 > `std.HashMap` still exist in 0.17.0, are still managed (they hold an allocator field), and are
-> **not** marked deprecated — `_ = std.StringHashMap;` compiles. Only the
-> `ArrayHashMap` family was purged. Prefer the `Unmanaged` variants for consistency with
-> `ArrayList`, but do not "fix" `std.StringHashMap` into a nonexistent
-> `std.hash_map.String`.
+> **not** marked deprecated — `_ = std.StringHashMap;` compiles. Only the `ArrayHashMap` family was
+> purged. Prefer the `Unmanaged` variants for consistency with `ArrayList`, but do not "fix"
+> `std.StringHashMap` into a nonexistent `std.hash_map.String`.
 
 ```zig
 // rejected — zig: struct 'array_list.Aligned(u32,null)' has no member named 'init'
@@ -529,8 +527,8 @@ The migration consequence, in one line: **an allocator written before 0.16 will 
 because `remap` is a required vtable member and every slot takes `alignment: std.mem.Alignment`
 instead of a `u8` log2 alignment. The vtable's exact declaration and the four members' contracts —
 including why returning `null` from `remap` is a correct answer rather than a failure — are owned by
-`references/memory.md` ZS-MEM-22. Unimplementable slots take `Allocator.noAlloc` /
-`noResize` / `noRemap` / `noFree`.
+`references/memory.md` ZS-MEM-22. Unimplementable slots take `Allocator.noAlloc` / `noResize` /
+`noRemap` / `noFree`.
 
 ```zig
 // fragment — GOOD: only when you cannot take `init.gpa`; see ZS-MIG-08
@@ -556,10 +554,10 @@ do not exist: `root source file struct 'process' has no member named 'argsAlloc'
 the only supported way to reach them. `Init` also hands you a leak-checked `gpa` (a `SafeAllocator`
 in `debug` and `safe` builds) and a target-appropriate `Io`.
 
-**Check:** `rg -n 'pub fn main\(\)' src/` returns nothing, and neither does a grep for
-`argsAlloc`, `argsFree`, `getEnvMap`, `std.ChildProcess`, `process.Child.init(`, or
-`process.Child.run(`. A `SafeAllocator` (or the deprecated `DebugAllocator`) constructed in `main`
-when `init.gpa` is in scope is the milder form of the same finding.
+**Check:** `rg -n 'pub fn main\(\)' src/` returns nothing, and neither does a grep for `argsAlloc`,
+`argsFree`, `getEnvMap`, `std.ChildProcess`, `process.Child.init(`, or `process.Child.run(`. A
+`SafeAllocator` (or the deprecated `DebugAllocator`) constructed in `main` when `init.gpa` is in
+scope is the milder form of the same finding.
 
 Exact shape (`std/process.zig`):
 
@@ -654,12 +652,12 @@ and `std.crypto.random`. Then the two plausible names that do not exist: `Durati
 | `std.crypto.random.bytes(&buffer)`, `posix.getrandom` | `io.random(&buffer)`; `io.randomSecure(&buffer)` for entropy-guaranteed | gone |
 | `std.Options.crypto_always_getrandom` / `crypto_fork_safety` | removed — use `io.randomSecure` | gone |
 
-Spelling traps, each a compile error: there is no `Duration.fromMs` (it is `fromMilliseconds`)
-and no `Clock.monotonic` (it is `.awake`).
+Spelling traps, each a compile error: there is no `Duration.fromMs` (it is `fromMilliseconds`) and
+no `Clock.monotonic` (it is `.awake`).
 
-What survived on `std.Thread` (`std/Thread.zig`): `spawn`, `join`, `detach`,
-`getHandle`, `getCurrentId`, `getCpuCount`, `yield`, `getName`, and `std.atomic.Value(T)` with the
-atomic builtins. One trap in that list — **`setName` gained an `Io`**: it is
+What survived on `std.Thread` (`std/Thread.zig`): `spawn`, `join`, `detach`, `getHandle`,
+`getCurrentId`, `getCpuCount`, `yield`, `getName`, and `std.atomic.Value(T)` with the atomic
+builtins. One trap in that list — **`setName` gained an `Io`**: it is
 `setName(self: Thread, io: Io, name: []const u8)`, not the 0.14 two-argument form.
 
 ```zig
@@ -684,13 +682,13 @@ fn bump(io: std.Io) void {
 ### ZS-MIG-10 [M] Testing: `std.testing.io`, `Smith` fuzz inputs, `tmpDir(Io.Dir.OpenOptions)`
 
 The three test-surface changes that break 0.14 test code. How to *use* them is owned by the testing
-chapter: `std.testing.io` and test-time I/O are `references/testing.md` ZS-TEST-07;
-writing `Smith`-shaped fuzz targets is ZS-TEST-18; the `Smith` types you may and may not ask for is
+chapter: `std.testing.io` and test-time I/O are `references/testing.md` ZS-TEST-07; writing
+`Smith`-shaped fuzz targets is ZS-TEST-18; the `Smith` types you may and may not ask for is
 ZS-TEST-20. This table is the rename lookup.
 
 **Why:** not applicable — this section is a rename table, not a single rule. The reasoning behind
-`Smith` and test-time `Io` is owned by `references/testing.md` ZS-TEST-07 and
-ZS-TEST-18, cited above.
+`Smith` and test-time `Io` is owned by `references/testing.md` ZS-TEST-07 and ZS-TEST-18, cited
+above.
 
 **Check:** in test code, grep for a fuzz target whose parameter is `[]const u8` rather than
 `*std.testing.Smith`; for a `tmpDir` handle's `.dir` methods called with no `std.testing.io`
@@ -726,9 +724,9 @@ defer tmp.cleanup();
 try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "a.txt", .data = "hello" });
 ```
 
-Note that `zig build test --fuzz` works again on 0.17.0; it did not build on 0.16.0. `zig test
--ffuzz` builds, but its runner panics with `missing --cache-dir=[path]
-argument`, so fuzz through `zig build`. The corpus still runs under plain `zig test`.
+Note that `zig build test --fuzz` works again on 0.17.0; it did not build on 0.16.0.
+`zig test -ffuzz` builds, but its runner panics with `missing --cache-dir=[path] argument`, so fuzz
+through `zig build`. The corpus still runs under plain `zig test`.
 
 ---
 
@@ -739,8 +737,8 @@ argument`, so fuzz through `zig build`. The corpus still runs under plain `zig t
 From `std/Build.zig`: `ExecutableOptions` is exactly
 `{ name, root_module, version, linkage, max_rss, use_llvm, use_lld, zig_lib_dir, win32_manifest }`,
 with `win32_manifest` deprecated in 0.17 — `root_source_file`, `target`, and `optimize` are not
-among them. (`use_new_linker` is a field on the
-returned `Step.Compile`, assigned after creation, not an option.)
+among them. (`use_new_linker` is a field on the returned `Step.Compile`, assigned after creation,
+not an option.)
 
 The build chapter owns the reasoning and the shapes to write instead: module-vs-artifact settings
 are `references/build.md` ZS-BUILD-02, `addLibrary(.{ .linkage })` is ZS-BUILD-07, the
@@ -821,13 +819,13 @@ std's optimize mode rather than yours, `utf8Decode` is deprecated as too easy to
 `rg -n 'bufPrintZ|std\.meta\.(Int|Tuple|declList)|initEmpty\(\)|initFull\(\)' src/` and
 `rg -n 'pipeToFileSystem|PipeOptions|std\.rand\.|CrossTarget|StackIterator' src/` and
 `rg -n 'captureStackTrace|dumpStackTraceFromBase|walkStackWindows' src/` and
-`rg -n 'wtf8Decode\b|utf8Decode\b|std\.debug\.runtime_safety|copy(Forwards|Backwards)\b' src/`
-— each hit is a row above. An `alias` hit builds anywhere; a `gone` one survives a passing build
-only where that build never analysed it — a function nothing references, or a `builtin.os.tag`
-branch for a target you do not compile, which is where `walkStackWindows` would be.
-`utf8Decode2` and its siblings are live, which is why the boundary is there. `std.math.sign`
-deserves a second look rather than a grep: its return type changed, so every call site that stores
-or compares its result needs re-reading.
+`rg -n 'wtf8Decode\b|utf8Decode\b|std\.debug\.runtime_safety|copy(Forwards|Backwards)\b' src/` —
+each hit is a row above. An `alias` hit builds anywhere; a `gone` one survives a passing build only
+where that build never analysed it — a function nothing references, or a `builtin.os.tag` branch for
+a target you do not compile, which is where `walkStackWindows` would be. `utf8Decode2` and its
+siblings are live, which is why the boundary is there. `std.math.sign` deserves a second look rather
+than a grep: its return type changed, so every call site that stores or compares its result needs
+re-reading.
 
 | Old | 0.17.0 | Status |
 |---|---|---|
@@ -978,8 +976,8 @@ matches the 0.17 spelling, so each hit is a call site to re-read rather than a d
 
 Changes with no spelling to search for: `zig build test --fuzz` and `zig reduce` work again (neither
 built on 0.16.0); the new ELF linker, `-fnew-linker` and therefore `-fincremental`, emits DWARF and
-`.eh_frame`; a diagnostic that names a std type now says `lang.`, not `builtin.`; and no ZLS
-release supports Zig 0.17.0.
+`.eh_frame`; a diagnostic that names a std type now says `lang.`, not `builtin.`; and no ZLS release
+supports Zig 0.17.0.
 
 ---
 
@@ -989,15 +987,15 @@ release supports Zig 0.17.0.
 
 Add a CI step that greps the source for the **alias** rows above and fails on a hit, pin the
 toolchain for real — `.minimum_zig_version` is documentation only, so use a pinned CI version plus
-the `comptime builtin.zig_version` guard (`references/build.md` ZS-BUILD-32,
-ZS-BUILD-36) — and treat a toolchain bump as a migration task with its own review.
+the `comptime builtin.zig_version` guard (`references/build.md` ZS-BUILD-32, ZS-BUILD-36) — and
+treat a toolchain bump as a migration task with its own review.
 
 **`[M!]` trigger:** high-reliability code — databases, consensus, crypto, allocators, parsers on
 untrusted input, embedded firmware — anything where corruption is unacceptable and upgrade windows
-are long. *Relaxed form:* elsewhere, no CI gate is required, but the same grep runs by hand
-before each release and any alias in a file you are already editing gets fixed in that diff. The
-weaker rule is still a rule: "I did not notice" stops being an acceptable answer once the denylist
-exists in the repository.
+are long. *Relaxed form:* elsewhere, no CI gate is required, but the same grep runs by hand before
+each release and any alias in a file you are already editing gets fixed in that diff. The weaker
+rule is still a rule: "I did not notice" stops being an acceptable answer once the denylist exists
+in the repository.
 
 **Why:** alias rows never surface as build failures, so on a long-lived codebase they accumulate
 until an upgrade deletes them all at once and the diff is too large to review carefully. A grep gate

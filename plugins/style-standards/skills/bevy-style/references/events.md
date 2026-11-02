@@ -1,9 +1,9 @@
 # Events: Messages, Events, Entity Events, Observers
 
-Scope: the three ways one part of a game tells another that something happened, which to choose,
-and how to write each. Bevy has two traits, `Message` and `Event`, for what used to be one concept,
-and most code and most documentation on the internet predates the split. State changes are in the
-state chapter; when a reader runs is in the scheduling chapter.
+Scope: the three ways one part of a game tells another that something happened, which to choose, and
+how to write each. Bevy has two traits, `Message` and `Event`, for what used to be one concept, and
+most code and most documentation on the internet predates the split. State changes are in the state
+chapter; when a reader runs is in the scheduling chapter.
 
 ## Contents
 
@@ -179,8 +179,8 @@ was postponed. A fact that genuinely needs both is two types with a converter, w
 mapping is written down.
 
 **Why:** the two differ in delivery, registration and failure modes, so the readers of a type that
-is both make incompatible assumptions about when it arrives, and no signature says which mechanism
-a given call site used.
+is both make incompatible assumptions about when it arrives, and no signature says which mechanism a
+given call site used.
 
 **Check:** grep for `#[derive(` lines naming both. Each is a choice that has not been made.
 
@@ -245,8 +245,8 @@ and also runs `.run_if(on_message::<M>)` keeps two cursors where `PopulatedMessa
 
 ### BV-EVENT-06 [M] Make a message a statement about the past
 
-`DamageDealt`, `WaveCleared`, `ButtonPressed` — not `ApplyDamage`, `ClearWave`, `SpawnEnemy`. When
-a single specific effect is wanted, that is a command or an observed event.
+`DamageDealt`, `WaveCleared`, `ButtonPressed` — not `ApplyDamage`, `ClearWave`, `SpawnEnemy`. When a
+single specific effect is wanted, that is a command or an observed event.
 
 **Why:** a message has any number of readers and no ordering, so it cannot be an instruction: two
 readers acting on `SpawnEnemy` spawn two enemies. A past-tense fact is safe to read any number of
@@ -356,8 +356,8 @@ event and does not call `propagate(false)` is letting it continue.
 
 ### BV-EVENT-12 [M] Treat an entity event as immutable
 
-The mutating half of `EntityEvent` is a separate trait, `SetEntityEventTarget`. Retargeting an
-event in flight is not something game code does.
+The mutating half of `EntityEvent` is a separate trait, `SetEntityEventTarget`. Retargeting an event
+in flight is not something game code does.
 
 **Why:** every observer for an event sees the same value, so retargeting it mid-flight changes what
 later observers are told happened — and which observers count as later depends on registration
@@ -438,8 +438,8 @@ collides with `std::ops::Add`, disambiguate the trait as `ops::Add` rather than 
 `On<OnAdd<T>>`. This is the single most common stale spelling in Bevy code written against a
 tutorial.
 
-**Check:** `rg -n
-'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|[a-z_]: Trigger<|\bReplace<|on_replace' src/`.
+**Check:**
+`rg -n 'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|[a-z_]: Trigger<|\bReplace<|on_replace' src/`.
 An `OnReplace` is `Discard`, not `Replace`. The search for `Trigger<` reads a parameter's type,
 because `Event::Trigger<'a>` and the `Trigger<E>` trait are live.
 

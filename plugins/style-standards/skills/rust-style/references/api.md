@@ -2,10 +2,10 @@
 
 Scope: everything a downstream crate can see and therefore everything you must keep working. The
 shape of the public namespace, what parameters and returns should be, when fields are private, how
-to make illegal states unrepresentable, the attribute contracts (`#[must_use]`,
-`#[non_exhaustive]`, `#[track_caller]`), which std traits to implement and why, constructor and
-builder shape, and which changes are breaking. Naming of these items is in the naming chapter;
-error *type* design is in the errors chapter; trait design proper is in the traits chapter.
+to make illegal states unrepresentable, the attribute contracts (`#[must_use]`, `#[non_exhaustive]`,
+`#[track_caller]`), which std traits to implement and why, constructor and builder shape, and which
+changes are breaking. Naming of these items is in the naming chapter; error *type* design is in the
+errors chapter; trait design proper is in the traits chapter.
 
 The organizing fact: within a major version you are not allowed to change any of this. Design as if
 you never will be.
@@ -13,6 +13,7 @@ you never will be.
 Two sources are merged here: the **Rust API Guidelines** (C-CASE, C-CONV, C-COMMON-TRAITS,
 C-COLLECT, C-SERDE, C-GENERIC, C-CUSTOM-TYPE, C-STRUCT-PRIVATE, C-STABLE, C-MUST-USE and friends)
 and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
+
 ## Contents
 
 - **Shape of the public surface**
@@ -94,6 +95,7 @@ and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
   - RS-API-60 [M] Give sibling error variants a uniform shape
   - RS-API-61 [M] Choose `Option` or `Result` uniformly for the same kind of absence
   - RS-API-62 [S] Give comparable sibling methods the same receiver
+
 - Decided by tools
 
 ---
@@ -369,8 +371,8 @@ have reached through (RS-API-16).
 
 ### RS-API-14 [M] Close every public path that can build an invalid instance
 
-Every public path enforces the invariants; a builder is the usual one to miss: if the built type
-can also be made by a struct literal or a `From<Options>`, every invariant `build()` enforces is
+Every public path enforces the invariants; a builder is the usual one to miss: if the built type can
+also be made by a struct literal or a `From<Options>`, every invariant `build()` enforces is
 unenforced on the other path.
 
 **Why:** private fields plus a constructor that takes every field unvalidated is not encapsulation —
@@ -556,12 +558,12 @@ the shared part be a private helper. A flag that is data is a two-variant enum. 
 read together are an options struct or a policy closure, `impl Fn(&Entry) -> bool`.
 
 **Why:** `search(path, true, false)` is unreadable at the call site and cannot be checked by anyone
-reviewing the diff. A mode flag also makes the return type and error set the union of both modes,
-so every caller handles cases its mode cannot produce.
+reviewing the diff. A mode flag also makes the return type and error set the union of both modes, so
+every caller handles cases its mode cannot produce.
 
 **Check:** grep public signatures for `: bool`. Does the body branch on it at the top level, with
-little shared? Then it is two functions. Otherwise it is a two-variant enum, or, with three or
-more, an options struct or a policy closure.
+little shared? Then it is two functions. Otherwise it is a two-variant enum, or, with three or more,
+an options struct or a policy closure.
 
 ```rust
 // verified
@@ -609,8 +611,8 @@ pub fn render_numbered(items: &[String]) -> String {
 ### RS-API-20 [S] Prefer an enum to an `Option` whose `None` has meaning
 
 **Why:** `Option<Duration>` for a timeout hides whether `None` means "no timeout" or "use the
-default" — and both readings are common, so users guess. `enum Timeout { None, Default,
-After(Duration) }` states it and makes the third case possible.
+default" — and both readings are common, so users guess.
+`enum Timeout { None, Default, After(Duration) }` states it and makes the third case possible.
 
 **Check:** for each public `Option<T>`, is `None` genuinely just absence? If it carries a policy,
 name it.
@@ -692,9 +694,9 @@ a string tag, not a group of booleans.
 incomplete site at compile time. The alternatives defer that to runtime: an integer admits values
 the set never had, a string admits typos, and *n* booleans admit 2ⁿ combinations (RS-API-21).
 
-**Check:** for each state-like value, can you name a representable value that is not a legal
-state? Then the type is wrong. Count the booleans that travel together — three of them is eight
-states, and you meant three.
+**Check:** for each state-like value, can you name a representable value that is not a legal state?
+Then the type is wrong. Count the booleans that travel together — three of them is eight states, and
+you meant three.
 
 ```rust
 // verified
@@ -993,8 +995,8 @@ today.
 Equal values must hash equally; `Ord` must agree with `PartialOrd` and `Eq`.
 
 **Why:** inconsistency fails silently and far from the impl: a `HashMap` misses a key looked up by
-an equal one, a `BTreeMap` loses entries, `BTreeMap::append` may panic, and a derived
-`PartialOrd` beside a derived `Ord` answers with `cmp`, not with each field's `partial_cmp`.
+an equal one, a `BTreeMap` loses entries, `BTreeMap::append` may panic, and a derived `PartialOrd`
+beside a derived `Ord` answers with `cmp`, not with each field's `partial_cmp`.
 
 **Check:** if you hand-implement one of the four, review all four in the same commit. Property-test
 the laws (`references/testing.md` RS-TEST-20).
@@ -1107,9 +1109,9 @@ impl AsRef<str> for Name {
 
 ### RS-API-45 [M] Do not abuse `Deref` for inheritance
 
-**Why:** `Deref` is for smart pointers (`Box`, `Arc`, `MutexGuard`) and transparent newtypes.
-Using it to inherit methods produces confusing autocompletion, method resolution that surprises
-everyone, no way to override, and a type whose API changes when the inner type's does.
+**Why:** `Deref` is for smart pointers (`Box`, `Arc`, `MutexGuard`) and transparent newtypes. Using
+it to inherit methods produces confusing autocompletion, method resolution that surprises everyone,
+no way to override, and a type whose API changes when the inner type's does.
 
 **Check:** does the `Deref` target have methods you would not want on the outer type? Then it is
 inheritance, not a smart pointer.
@@ -1290,25 +1292,25 @@ yes, make it one and keep the inherent version only as a thin forwarder.
 
 ### RS-API-53 [M] Mark an unchecked constructor `unsafe`, and name it `*_unchecked`
 
-Document its precondition in a `# Safety` section. The suffix names the check that was skipped;
-the keyword makes the caller prove it (`references/unsafe.md` RS-UNSAFE-04).
+Document its precondition in a `# Safety` section. The suffix names the check that was skipped; the
+keyword makes the caller prove it (`references/unsafe.md` RS-UNSAFE-04).
 
 **Why:** a constructor that skips validation is the right tool for a caller who has validated and a
 silent source of invalid values for one who has not. The name and the keyword make the difference
 visible at the call site.
 
-**Check:** does any safe constructor skip a check that the normal one performs, or any
-`*_unchecked` function lack `unsafe`?
+**Check:** does any safe constructor skip a check that the normal one performs, or any `*_unchecked`
+function lack `unsafe`?
 
 ## Future-proofing and evolution
 
 ### RS-API-54 [M!] Decide `#[non_exhaustive]` for every public enum and struct
 
-Mark a public enum whose variant set may grow. A genuinely closed set — `enum Endianness { Big,
-Little }` — stays exhaustive, because there the attribute only removes the caller's exhaustiveness
-checking; say in the rustdoc that it is closed. A struct needs the attribute only where its fields
-are public, which RS-API-15 allows a published type for little but `#[repr(C)]`: a struct with
-private fields can already grow without a major version.
+Mark a public enum whose variant set may grow. A genuinely closed set —
+`enum Endianness { Big, Little }` — stays exhaustive, because there the attribute only removes the
+caller's exhaustiveness checking; say in the rustdoc that it is closed. A struct needs the attribute
+only where its fields are public, which RS-API-15 allows a published type for little but
+`#[repr(C)]`: a struct with private fields can already grow without a major version.
 
 *Relaxed form:* internal crates within one workspace, where you control every consumer, can omit it.
 
@@ -1397,13 +1399,13 @@ migration section in the changelog (`references/build.md` RS-BUILD-11)?
 
 ### RS-API-58 [M] Give every operation its inverse, or document why there is none
 
-If a type can be built from bytes it should be convertible back to them; `insert` implies
-`remove`, `push` implies `pop`, `open` implies `close`, `encode` implies `decode`, `subscribe`
-implies `unsubscribe`. How the two halves are named is `references/naming.md` RS-NAME-35.
+If a type can be built from bytes it should be convertible back to them; `insert` implies `remove`,
+`push` implies `pop`, `open` implies `close`, `encode` implies `decode`, `subscribe` implies
+`unsubscribe`. How the two halves are named is `references/naming.md` RS-NAME-35.
 
 **Why:** a caller who learns half a pair looks for the other half. A genuine absence usually means
-something — the operation is lossy, irreversible, or belongs to another type — and silence makes
-the caller assume an oversight and work around it.
+something — the operation is lossy, irreversible, or belongs to another type — and silence makes the
+caller assume an oversight and work around it.
 
 **Check:** list the operations on each public type in pairs. For every unpaired one, either add the
 inverse or state in the docs why it cannot exist ("hashing is one-way", "the handle is consumed").
@@ -1427,12 +1429,12 @@ pub fn decode(bytes: [u8; 8]) -> Key {
 
 ### RS-API-59 [M] Keep argument order identical across sibling functions
 
-If `copy(src, dst)` takes source first, then `move`, `link`, and `render` in the same module do
-too. Fix the order once per crate and never vary it.
+If `copy(src, dst)` takes source first, then `move`, `link`, and `render` in the same module do too.
+Fix the order once per crate and never vary it.
 
 **Why:** siblings are called from the same code, and the reader generalizes from the first one they
-learn. When the types match, the compiler cannot catch an inconsistent order, so it becomes a
-silent argument swap in code that looks right.
+learn. When the types match, the compiler cannot catch an inconsistent order, so it becomes a silent
+argument swap in code that looks right.
 
 **Check:** list every function in the module with two or more parameters of related type and compare
 their orders. Any disagreement is the finding, and the fix is to change the outlier.
@@ -1456,12 +1458,12 @@ pub fn move_len(source: &mut Vec<u8>, target: &mut Vec<u8>) -> usize {
 
 ### RS-API-60 [M] Give sibling error variants a uniform shape
 
-Variants of one error enum carry comparable context: if `Read` records the path, `Write` records
-it too. Do not mix one variant with four fields and one with none unless the difference is real.
+Variants of one error enum carry comparable context: if `Read` records the path, `Write` records it
+too. Do not mix one variant with four fields and one with none unless the difference is real.
 
-**Why:** the caller writes one `match` over all the variants, and when some carry a path and some
-do not, the reporting code grows a special case per deficient variant. Uniform shape lets one
-function render them all.
+**Why:** the caller writes one `match` over all the variants, and when some carry a path and some do
+not, the reporting code grows a special case per deficient variant. Uniform shape lets one function
+render them all.
 
 **Check:** tabulate the enum's variants against their fields. A column that is populated for most
 variants and empty for one is either a missing field or a variant that belongs elsewhere.
@@ -1483,8 +1485,8 @@ pub enum Error {
 
 ### RS-API-61 [M] Choose `Option` or `Result` uniformly for the same kind of absence
 
-Within one type, "not found" is always `Option` or always `Result` — never `get` returning
-`Option` while `lookup` returns `Result<_, NotFound>` for the same condition.
+Within one type, "not found" is always `Option` or always `Result` — never `get` returning `Option`
+while `lookup` returns `Result<_, NotFound>` for the same condition.
 
 **Why:** the choice encodes whether absence is ordinary or exceptional, so varying it for the same
 condition tells the caller two different things about one fact. It also forces conversion glue at
@@ -1522,8 +1524,8 @@ impl Registry {
 
 ### RS-API-62 [S] Give comparable sibling methods the same receiver
 
-Methods doing comparable work take comparable receivers: if `len` takes `&self`, `capacity`
-does too; if one builder step takes `self`, they all do.
+Methods doing comparable work take comparable receivers: if `len` takes `&self`, `capacity` does
+too; if one builder step takes `self`, they all do.
 
 **Why:** a mixed receiver set breaks method chaining at unpredictable points and forces the caller
 to remember which methods consume. The information that decides the receiver is usually uniform

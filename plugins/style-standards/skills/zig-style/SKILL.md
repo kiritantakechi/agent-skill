@@ -47,10 +47,10 @@ the tool enforces them, so they carry no Why and no Check. When rules are renumb
 
 Every fenced example carries a marker on its first line. `// verified` — the block compiles as
 written against Zig 0.17.0, and any test it ships passes. `// fragment` — shown in context rather
-than run as a unit, usually because it uses names the chapter declares around it. `// rejected —
-<tool>: …` — the rejection is the point, and the marker names the tool that rejects it: `zig`. A
-trailing `— GOOD` or `— BAD` names which side of the rule the block illustrates. A block in another
-language carries its marker in that language's comment syntax.
+than run as a unit, usually because it uses names the chapter declares around it.
+`// rejected — <tool>: …` — the rejection is the point, and the marker names the tool that rejects
+it: `zig`. A trailing `— GOOD` or `— BAD` names which side of the rule the block illustrates. A
+block in another language carries its marker in that language's comment syntax.
 
 ## 1. Tiers
 
@@ -205,8 +205,8 @@ const owned = try list.toOwnedSlice(gpa);
 The allocator is the **second** parameter, after the receiver. Non-allocating methods (`pop`,
 `last`) take no allocator. `std.HashMap`, `std.AutoHashMap`, `std.StringHashMap` and `std.BufMap`
 are still managed and not deprecated: they take the allocator once, in `.init(gpa)`, and `deinit()`
-takes none; the three `…HashMapUnmanaged` forms take it per call. Every container rename is a row
-of `references/migration.md` ZS-MIG-06.
+takes none; the three `…HashMapUnmanaged` forms take it per call. Every container rename is a row of
+`references/migration.md` ZS-MIG-06.
 
 ### 2.7 Concurrency is colorless and goes through `Io`
 
@@ -275,12 +275,11 @@ of what 0.17 removed — `std.meta.Int`, `bufPrintZ`, `.initEmpty()`, `a ** n`, 
   `zig build -fincremental --watch` now works for most `x86_64-linux` projects.
 - No ZLS release supports Zig 0.17.0.
 - `zig build`: `--zig-lib-dir` is now `--zig-lib=`, and `--global-cache-dir`, `--build-runner`,
-  `--debug-rt` and `--verbose-llvm-bc` are gone. `--help` lists the modes as `debug`, `safe`,
-  `fast` and `small`; `-Doptimize=ReleaseSafe` still parses, through the deprecated
-  `Optimize.fromString`.
+  `--debug-rt` and `--verbose-llvm-bc` are gone. `--help` lists the modes as `debug`, `safe`, `fast`
+  and `small`; `-Doptimize=ReleaseSafe` still parses, through the deprecated `Optimize.fromString`.
 - `zig fmt --complexity` prints a complexity report for each file.
-- LLVM 22 still runs with loop vectorization disabled, until 0.18 re-enables it, so write
-  `@Vector` by hand where SIMD matters.
+- LLVM 22 still runs with loop vectorization disabled, until 0.18 re-enables it, so write `@Vector`
+  by hand where SIMD matters.
 
 ## 3. Design principles
 
@@ -341,17 +340,17 @@ they are binding on their own.
   three points* — it mandates `snake_case` for functions and for every file, and `VSRState` for
   acronyms. Do not follow TigerStyle here unless you are in the TigerBeetle codebase. std is
   consistent with the langref: `Io.zig`, `Build.zig`, `Progress.zig`, and 0 of the 420
-  `snake_case.zig` files in std's 563 carry top-level fields. (`references/naming.md`
-  ZS-NAME-01, ZS-NAME-02, ZS-NAME-13).
-- **ZS-CORE-01b `[M]`** Name a method's receiver after its type, not `self`: `w: *Writer`, `b:
-  *Build`, `m: *Module`. Reserve `self` with `const Self = @This();` for generic containers
+  `snake_case.zig` files in std's 563 carry top-level fields. (`references/naming.md` ZS-NAME-01,
+  ZS-NAME-02, ZS-NAME-13).
+- **ZS-CORE-01b `[M]`** Name a method's receiver after its type, not `self`: `w: *Writer`,
+  `b: *Build`, `m: *Module`. Reserve `self` with `const Self = @This();` for generic containers
   returned from `fn Foo(comptime T: type) type`, where no concrete name exists. This is a point
   where std and TigerStyle **agree** — modern `TitleCase.zig` files in std use the short
   type-derived name almost exclusively. (`references/naming.md` ZS-NAME-12).
 - **ZS-CORE-02 `[M]`** Name allocators for their lifetime discipline: `gpa`, `arena`, `scratch` —
   not `allocator`. The name tells the reader whether `deinit` must be called. std has itself
-  converged on this (`gpa:` outnumbers `allocator:` in std today).
-  (`references/memory.md` ZS-MEM-06).
+  converged on this (`gpa:` outnumbers `allocator:` in std today). (`references/memory.md`
+  ZS-MEM-06).
 - **ZS-CORE-03 `[M]`** Put units and qualifiers last, sorted by descending significance:
   `latency_ms_max`, not `max_latency_ms`. Related names then line up and sort together.
   (`references/naming.md` ZS-NAME-06).
@@ -367,8 +366,8 @@ they are binding on their own.
   (`references/naming.md` ZS-NAME-24, ZS-NAME-25).
 - **ZS-CORE-06 `[M]`** Order within a file: fields, then types, then `init`/`deinit`, then methods,
   then tests — with the import block as one contiguous group at either the top or the bottom of the
-  file, consistently within a file (std does both). `main` goes first in an executable's root
-  file. Read top-down. (`references/naming.md` ZS-NAME-15, ZS-NAME-17, ZS-NAME-18).
+  file, consistently within a file (std does both). `main` goes first in an executable's root file.
+  Read top-down. (`references/naming.md` ZS-NAME-15, ZS-NAME-17, ZS-NAME-18).
 
 ### Assertions and limits
 
@@ -386,48 +385,45 @@ they are binding on their own.
   because the failure tells you which half broke. Two forms are exempt and stay on one line: an
   implication, written `if (a) assert(b);`, and a biconditional, written `assert((a) == (b));` — see
   `references/assertions.md` ZS-ASSERT-10, ZS-ASSERT-11, ZS-ASSERT-13.
-- **ZS-CORE-10 `[M]`** `std.debug.assert` is an ordinary function, `if (!ok) unreachable`. In
-  `fast` and `small` builds the *check* is deleted but the *condition is still evaluated* — a
-  counter bumped inside an assert reaches the same value in all four optimize modes. So
+- **ZS-CORE-10 `[M]`** `std.debug.assert` is an ordinary function, `if (!ok) unreachable`. In `fast`
+  and `small` builds the *check* is deleted but the *condition is still evaluated* — a counter
+  bumped inside an assert reaches the same value in all four optimize modes. So
   `assert(list.pop() != null)` still pops, it just stops verifying. Never put a side effect inside
   an assert, and never rely on one for safety in a release build. If a check must survive release,
   write an explicit `if (...) @panic(...)` or a project-local `assertAlways`. Note this qualifies
-  TigerStyle's claim that assertions "downgrade correctness bugs into liveness bugs": that holds
-  in `debug` and `safe` builds, but in a `fast` build a violated assert *upgrades* the bug into
+  TigerStyle's claim that assertions "downgrade correctness bugs into liveness bugs": that holds in
+  `debug` and `safe` builds, but in a `fast` build a violated assert *upgrades* the bug into
   exploitable illegal behavior. Ship `safe` unless you have measured otherwise.
   (`references/assertions.md` ZS-ASSERT-02, ZS-ASSERT-05; `references/build.md` ZS-BUILD-25).
-- **ZS-CORE-11 `[M]`** Put a limit on everything. Every loop has a provable upper bound; every
-  queue and buffer has a fixed maximum; an intentionally unbounded loop asserts that it is
-  intended. *Relaxed form:* bound every loop whose trip count comes from input, I/O, or the
-  network. (`references/assertions.md` ZS-ASSERT-20, ZS-ASSERT-23).
-- **ZS-CORE-12a `[M]`** Assert the **negative** space, not just the positive — the boundary
-  between valid and invalid is where the interesting bugs are. Mark a deliberately unpinned state
-  with `maybe(...)` rather than leaving it unstated. (`references/assertions.md`
-  ZS-ASSERT-12).
+- **ZS-CORE-11 `[M]`** Put a limit on everything. Every loop has a provable upper bound; every queue
+  and buffer has a fixed maximum; an intentionally unbounded loop asserts that it is intended.
+  *Relaxed form:* bound every loop whose trip count comes from input, I/O, or the network.
+  (`references/assertions.md` ZS-ASSERT-20, ZS-ASSERT-23).
+- **ZS-CORE-12a `[M]`** Assert the **negative** space, not just the positive — the boundary between
+  valid and invalid is where the interesting bugs are. Mark a deliberately unpinned state with
+  `maybe(...)` rather than leaving it unstated. (`references/assertions.md` ZS-ASSERT-12).
 - **ZS-CORE-12b `[M!]`** Pair every property across two different code paths: check data before
-  writing it to disk *and* again after reading it back. *Relaxed form:* do this for the formats
-  and boundaries you cannot change later — anything persisted or sent over a wire.
+  writing it to disk *and* again after reading it back. *Relaxed form:* do this for the formats and
+  boundaries you cannot change later — anything persisted or sent over a wire.
   (`references/assertions.md` ZS-ASSERT-16).
 
 ### Memory
 
 - **ZS-CORE-13 `[M]`** Pass the allocator as a parameter; do not store it in a long-lived struct
-  unless the struct genuinely owns an independent lifetime. This is what std moved to, and it
-  makes every allocation point visible at the call site. (`references/memory.md`
-  ZS-MEM-05).
+  unless the struct genuinely owns an independent lifetime. This is what std moved to, and it makes
+  every allocation point visible at the call site. (`references/memory.md` ZS-MEM-05).
 - **ZS-CORE-14 `[M]`** `defer`/`errdefer` the release immediately after the acquisition, with a
   blank line before the acquisition and after the defer, so a leak is visible as a missing pair.
   (`references/memory.md` ZS-MEM-10).
 - **ZS-CORE-15 `[M]`** Pointers into `list.items` are invalidated by any append or resize. Never
-  hold one across a mutation. Hold an index instead. (`references/memory.md`
-  ZS-MEM-15, ZS-MEM-16).
-- **ZS-CORE-16 `[M!]`** Allocate all memory at startup; allocate nothing after initialization.
-  This buys bounded memory, no steady-state OOM, and no use-after-free. *Relaxed form:* in
-  descending strength, a hard ceiling via `FixedBufferAllocator`; arena-per-request with the
-  arena reset at the boundary; or `.initCapacity` (or `ensureTotalCapacityPrecise`) up front and
-  `appendAssumeCapacity` in the hot path — `ensureTotalCapacity` grows past the bound it is given.
-  Choose one and state it in the module's doc comment. This is the most consequential tiering
-  decision in the standard. (`references/memory.md` ZS-MEM-18).
+  hold one across a mutation. Hold an index instead. (`references/memory.md` ZS-MEM-15, ZS-MEM-16).
+- **ZS-CORE-16 `[M!]`** Allocate all memory at startup; allocate nothing after initialization. This
+  buys bounded memory, no steady-state OOM, and no use-after-free. *Relaxed form:* in descending
+  strength, a hard ceiling via `FixedBufferAllocator`; arena-per-request with the arena reset at the
+  boundary; or `.initCapacity` (or `ensureTotalCapacityPrecise`) up front and `appendAssumeCapacity`
+  in the hot path — `ensureTotalCapacity` grows past the bound it is given. Choose one and state it
+  in the module's doc comment. This is the most consequential tiering decision in the standard.
+  (`references/memory.md` ZS-MEM-18).
 
 ### Control flow
 
@@ -441,11 +437,10 @@ they are binding on their own.
   see `references/errors.md` ZS-ERR-17.)
 - **ZS-CORE-18 `[M]`** When an `if`/`else` splits the input space, write the condition as the
   invariant that *holds*: `if (index < length)`, not `if (index >= length)`. An early-return guard
-  is exempt — `if (index >= length) return error.OutOfBounds;` states the rejection condition,
-  which is the whole point of a guard. (`references/errors.md` ZS-ERR-18).
+  is exempt — `if (index >= length) return error.OutOfBounds;` states the rejection condition, which
+  is the whole point of a guard. (`references/errors.md` ZS-ERR-18).
 - **ZS-CORE-19 `[M]`** Handle every error. Do not swallow one silently, and do not widen to
-  `anyerror` to avoid naming what can go wrong. (`references/errors.md`
-  ZS-ERR-05, ZS-ERR-10).
+  `anyerror` to avoid naming what can go wrong. (`references/errors.md` ZS-ERR-05, ZS-ERR-10).
 - **ZS-CORE-20 `[M!]`** No recursion — it makes bounds unprovable. *Relaxed form:* recursion is
   allowed when the depth is bounded by a comptime constant and that bound is asserted at entry.
   (`references/errors.md` ZS-ERR-21).
@@ -462,10 +457,10 @@ they are binding on their own.
   boundary designed first stays total and symmetric; one discovered later is shaped by whichever
   implementation came first. Abstractions are never zero-cost, so choose which cost you pay
   deliberately (`references/comptime.md` ZS-COMPTIME-10, ZS-COMPTIME-16).
-- **ZS-CORE-23 `[M]`** For runtime polymorphism, use the std vtable pattern (`{ userdata:
-  *anyopaque, vtable: *const VTable }`, or an embedded `interface` field recovered with
-  `@fieldParentPtr`) — the shape `std.mem.Allocator`, `std.Io`, and `std.Io.Writer` all use. For a
-  closed set of variants, use a tagged union and an exhaustive `switch`.
+- **ZS-CORE-23 `[M]`** For runtime polymorphism, use the std vtable pattern
+  (`{ userdata: *anyopaque, vtable: *const VTable }`, or an embedded `interface` field recovered
+  with `@fieldParentPtr`) — the shape `std.mem.Allocator`, `std.Io`, and `std.Io.Writer` all use.
+  For a closed set of variants, use a tagged union and an exhaustive `switch`.
   (`references/comptime.md` ZS-COMPTIME-17, ZS-COMPTIME-18, ZS-COMPTIME-20).
 - **ZS-CORE-24 `[M]`** Reduce dimensionality at the call site: `void` beats `bool`, `bool` beats
   `u64`, `u64` beats `?u64`, `?u64` beats `!u64`. Every extra dimension propagates up the call
@@ -473,14 +468,14 @@ they are binding on their own.
 
 ### Comments and commits
 
-- **ZS-CORE-25 `[M]`** Always say **why**. Code documents what it does; comments exist to record
-  the reasoning, the alternative rejected, and the constraint that is not visible locally.
+- **ZS-CORE-25 `[M]`** Always say **why**. Code documents what it does; comments exist to record the
+  reasoning, the alternative rejected, and the constraint that is not visible locally.
   (`references/naming.md` ZS-NAME-22).
-- **ZS-CORE-26 `[S]`** Comments are prose: a space after `//`, a capital letter, a full stop — or
-  a colon when they introduce what follows. End-of-line comments may be bare phrases.
+- **ZS-CORE-26 `[S]`** Comments are prose: a space after `//`, a capital letter, a full stop — or a
+  colon when they introduce what follows. End-of-line comments may be bare phrases.
   (`references/naming.md` ZS-NAME-23).
-- **ZS-CORE-27 `[M]`** (owned by `references/performance.md` ZS-PERF-17)
-  Spell out the options that decide behavior rather than inheriting library defaults:
+- **ZS-CORE-27 `[M]`** (owned by `references/performance.md` ZS-PERF-17) Spell out the options that
+  decide behavior rather than inheriting library defaults:
   `@prefetch(a, .{ .cache = .data, .rw = .read, .locality = 3 })` over `@prefetch(a, .{})`. Defaults
   change; call sites do not get re-reviewed when they do.
 
@@ -492,22 +487,22 @@ protocol — severity model, mechanical pass, output format — in `references/r
 1. **Stale API.** Any `std.io.*`, `std.fs.File`/`Dir`/`cwd`, `GeneralPurposeAllocator`,
    `usingnamespace`, `async`/`await` keywords, `@setCold`, `@Type`, `std.Thread.Mutex`,
    `std.time.Timer`, `BoundedArray`, `b.args`, `errdefer |err|`, `@cImport`, or
-   `@typeInfo(T).@"struct".fields`? None of them builds on 0.17. `pub fn main() !void` still
-   builds, but hands you no `Io`, `gpa` or arguments (ZS-MIG-08). The ones that still **compile**
-   are the ones to grep for, because nothing else catches them: `indexOf*`, `ArrayListUnmanaged`,
+   `@typeInfo(T).@"struct".fields`? None of them builds on 0.17. `pub fn main() !void` still builds,
+   but hands you no `Io`, `gpa` or arguments (ZS-MIG-08). The ones that still **compile** are the
+   ones to grep for, because nothing else catches them: `indexOf*`, `ArrayListUnmanaged`,
    `*ArrayHashMapUnmanaged`, `std.fs.path`, `std.builtin`, `builtin.mode` and the TitleCase mode
    names, `DebugAllocator`, `std.fmt.allocPrint`/`bufPrint`, `getLast`, the `*BitSet` names,
    `lazyDependency`, `utf8Decode`/`wtf8Decode`, `std.debug.runtime_safety`. Then re-read every
    `containsAtLeastScalar` call and every `@hasDecl` on a private declaration: both compile and now
-   mean something else. `references/migration.md` ZS-MIG-13 carries the complete
-   denylist as one runnable `rg`; run that rather than eyeballing this sentence.
-   And any `{}` applied to a type that defines `format`: that silently prints a default struct dump
-   instead of calling it — it must be `{f}`.
+   mean something else. `references/migration.md` ZS-MIG-13 carries the complete denylist as one
+   runnable `rg`; run that rather than eyeballing this sentence. And any `{}` applied to a type that
+   defines `format`: that silently prints a default struct dump instead of calling it — it must be
+   `{f}`.
 2. **Memory and ownership.** Every allocation paired with a `defer`/`errdefer` at the same nesting
-   level, and proved by the test allocator? Any pointer held across a container mutation?
-   Allocators named for their lifetime?
-3. **Illegal behavior.** Any `@intCast`/`@truncate` that can silently lose data, an index used
-   where a count belongs, or division whose intent is not shown with `@divExact`, `@divFloor` or
+   level, and proved by the test allocator? Any pointer held across a container mutation? Allocators
+   named for their lifetime?
+3. **Illegal behavior.** Any `@intCast`/`@truncate` that can silently lose data, an index used where
+   a count belongs, or division whose intent is not shown with `@divExact`, `@divFloor` or
    `@divCeil`?
 4. **Errors.** Every error handled and named? Any `catch unreachable` that can really fire? Any
    `errdefer` missing on a multi-step construction? Every buffered writer flushed on every success

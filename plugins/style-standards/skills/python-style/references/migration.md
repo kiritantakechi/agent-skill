@@ -1,9 +1,9 @@
 # Migration: What 3.14 and 3.15 Removed, Changed, and Merely Discourage
 
-Scope: the complete table of spellings that no longer work, the ones that still work and should
-not be used, and the crucial difference between them. Also what to write today so that 3.16 does
-not break it. Why a spelling is wrong is the chapter that owns it; this chapter is the list and
-the grep.
+Scope: the complete table of spellings that no longer work, the ones that still work and should not
+be used, and the crucial difference between them. Also what to write today so that 3.16 does not
+break it. Why a spelling is wrong is the chapter that owns it; this chapter is the list and the
+grep.
 
 One source: the **CPython "What's New" documents for 3.14 and 3.15**, plus the deprecation and
 removal schedules they cite. Ruff's `UP` family catches the statically decidable subset; the rest is
@@ -52,9 +52,9 @@ documentation says outright, *"We do not plan to remove the older `match()` name
 used in code for over 30 years."* The same holds for `struct`'s `'F'` and `'D'` codes and for the
 `PyGILState` C APIs: all soft-deprecated, all staying.
 
-**Why:** conflating them produces a check that cries wolf, and a check people learn to route
-around is worse than no check. The last tier is where it goes wrong: a *soft deprecation* is
-discouraged but explicitly never removed, so treating one as an error discredits the whole table.
+**Why:** conflating them produces a check that cries wolf, and a check people learn to route around
+is worse than no check. The last tier is where it goes wrong: a *soft deprecation* is discouraged
+but explicitly never removed, so treating one as an error discredits the whole table.
 
 **Check:** every entry in this chapter carries its tier. An entry without one is the finding. Then
 run the grep against a codebase you know is current: any hit is a real finding or a tier error.
@@ -112,8 +112,8 @@ grep -rnE 'get_event_loop_policy|set_event_loop_policy|EventLoopPolicy' src/
 | `zipimport.zipimporter.load_module()` | `exec_module()` |
 
 **Why:** each of these raises at the moment it is reached, which is usually not the moment the
-module is imported — so the failure appears in production on a code path the tests did not take.
-The grep finds them all statically.
+module is imported — so the failure appears in production on a code path the tests did not take. The
+grep finds them all statically.
 
 **Check:** the command in PS-MIG-02.
 
@@ -121,9 +121,8 @@ The grep finds them all statically.
 
 `PyUnicode_AsDecodedObject`, `PyUnicode_AsDecodedUnicode`, `PyUnicode_AsEncodedObject`,
 `PyUnicode_AsEncodedUnicode` — use `PyCodec_Decode` and `PyCodec_Encode`.
-`PyImport_ImportModuleNoBlock` — use `PyImport_ImportModule`.
-`PyWeakref_GetObject`, `PyWeakref_GET_OBJECT` — use `PyWeakref_GetRef`.
-`PySys_ResetWarnOptions` — nothing.
+`PyImport_ImportModuleNoBlock` — use `PyImport_ImportModule`. `PyWeakref_GetObject`,
+`PyWeakref_GET_OBJECT` — use `PyWeakref_GetRef`. `PySys_ResetWarnOptions` — nothing.
 `Py_GetExecPrefix`, `Py_GetPath`, `Py_GetPrefix`, `Py_GetProgramFullPath`, `Py_GetProgramName`,
 `Py_GetPythonHome` — all replaced by `PyConfig_Get()`.
 
@@ -167,9 +166,8 @@ The tier is deprecated rather than unlisted: the attribute was never in any modu
 the interpreter's — and code reading it was almost always answering the wrong question. Use
 `sys.version_info` for the interpreter, `importlib.metadata.version()` for a distribution.
 
-**Check:** `rg -n
-'\b(argparse|csv|ctypes|decimal|json|logging|pickle|platform|re|tarfile|zlib)\.__version__'
-src/`
+**Check:**
+`rg -n '\b(argparse|csv|ctypes|decimal|json|logging|pickle|platform|re|tarfile|zlib)\.__version__' src/`
 
 ## Changed underneath you
 
@@ -198,9 +196,9 @@ spellings with `rg -n 'get_event_loop|EventLoopPolicy' src/`.
 
 ### PS-MIG-07 [S] Do not write against 3.16's other changes yet
 
-3.16 is in alpha — 3.16.0a1 shipped on 2026-10-13 — and anything in it can still be reverted
-before its first beta. The exceptions worth knowing: `array`'s `'u'` format code goes in 3.16 (use
-`'w'`), as do `shutil.ExecError` and `functools.reduce`'s keyword arguments.
+3.16 is in alpha — 3.16.0a1 shipped on 2026-10-13 — and anything in it can still be reverted before
+its first beta. The exceptions worth knowing: `array`'s `'u'` format code goes in 3.16 (use `'w'`),
+as do `shutil.ExecError` and `functools.reduce`'s keyword arguments.
 
 **Why:** the asyncio rows above are safe because they are removals whose replacements already work
 on 3.15. Anything that requires a 3.16 *addition* is a bet on unreleased behaviour, and this

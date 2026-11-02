@@ -1,10 +1,10 @@
 # RS-CLI — Command-line applications
 
-The reference implementation for this section is ripgrep. Its structure —
-a workspace of libraries, a thin `core` binary, a two-stage argument model
-(`LowArgs` → `HiArgs`), a trait-per-flag table that also generates the man page
-and shell completions, and obsessive attention to stream behaviour — is what
-"production-grade Rust CLI" means in practice.
+The reference implementation for this section is ripgrep. Its structure — a workspace of libraries,
+a thin `core` binary, a two-stage argument model (`LowArgs` → `HiArgs`), a trait-per-flag table that
+also generates the man page and shell completions, and obsessive attention to stream behaviour — is
+what "production-grade Rust CLI" means in practice.
+
 ## Contents
 
 - **Architecture**
@@ -47,6 +47,7 @@ and shell completions, and obsessive attention to stream behaviour — is what
   - RS-CLI-31 [M] Namespace and document every environment variable you read
   - RS-CLI-32 [M] Do not phone home, auto-update, or collect telemetry without opt-in
   - RS-CLI-33 [S] Ship a single binary with artifacts and checksums for three platforms
+
 - Decided by tools
 
 ---
@@ -55,8 +56,8 @@ and shell completions, and obsessive attention to stream behaviour — is what
 
 ### RS-CLI-01 [M] Let `main` do exactly four things
 
-`main` does four things: parse the arguments into a configuration, call `run`, report the error,
-and return the exit code. Everything else is delegated.
+`main` does four things: parse the arguments into a configuration, call `run`, report the error, and
+return the exit code. Everything else is delegated.
 
 **Why:** `main` is the one function that cannot return a `Result` to anybody, and what it does can
 be tested only by running the process, while everything inside `run` is testable. Four steps keep
@@ -553,8 +554,8 @@ pub fn print_all(lines: &[String]) -> io::Result<()> {
 
 Handle `BrokenPipe` by exiting quietly with success. Every `tool | head` will otherwise print an
 error, and this is the most common polish defect in Rust CLIs. Match on `io::ErrorKind::BrokenPipe`
-(Windows also reports it for a write after a socket `shutdown`); the flag that restores
-C's behaviour, `-Zon-broken-pipe=kill`, is nightly-only.
+(Windows also reports it for a write after a socket `shutdown`); the flag that restores C's
+behaviour, `-Zon-broken-pipe=kill`, is nightly-only.
 
 **Why:** `head` closing the pipe is normal termination, not a failure — the user got what they asked
 for. Rust sets `SIGPIPE` to `SIG_IGN` before `main`, so where a C program is killed silently by the

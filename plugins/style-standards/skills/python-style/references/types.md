@@ -116,8 +116,8 @@ hand back bare strings without raising, and every consumer then gets text it mus
 reading it off a class namespace during class creation sees something different from reading it
 afterwards. `annotationlib` is the supported door, and the only one offering PS-TYPE-06's formats.
 
-**Check:** `rg -n '__annotations__' src/` — every hit outside a test of the machinery itself
-is the finding.
+**Check:** `rg -n '__annotations__' src/` — every hit outside a test of the machinery itself is the
+finding.
 
 ### PS-TYPE-06 [M!] Use `FORWARDREF` when a name may not resolve
 

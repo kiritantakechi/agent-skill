@@ -36,8 +36,7 @@ invalidate the work of reading the next.
    handler still end the app on a caught panic? (`BV-ERR`)
 4. **Change detection.** Is any `Changed<T>` watching something written unconditionally? Then it
    matches every frame. (`BV-ECS`)
-5. **Ordering.** Is ordering expressed in sets, rather than against a system function?
-   (`BV-SCHED`)
+5. **Ordering.** Is ordering expressed in sets, rather than against a system function? (`BV-SCHED`)
 6. **Run conditions and state.** Would each new system be skipped when it should be — a run
    condition, a state scope, or neither on purpose? (`BV-SCHED`, `BV-STATE`)
 7. **Reflection.** Does each new component derive `Reflect`, and is each generic instantiation
@@ -76,8 +75,8 @@ revertible:
 
 1. Move to the target Bevy, with `references/migration.md` as the checklist, before anything else.
    Nothing below is worth doing against an engine you are about to leave.
-2. Draw the boundary: move each rule of the game into a crate that does not depend on Bevy, one
-   rule per commit, with its test written against plain Rust.
+2. Draw the boundary: move each rule of the game into a crate that does not depend on Bevy, one rule
+   per commit, with its test written against plain Rust.
 3. Make every system fallible that can fail, and set the error handler.
 4. Replace function-to-function ordering with sets, then add run conditions and state scopes.
 5. Derive `Reflect` on components and resources, and register each generic instantiation.

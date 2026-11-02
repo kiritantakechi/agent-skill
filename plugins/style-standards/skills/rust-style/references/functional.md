@@ -13,6 +13,7 @@ and code that leans on those facilities is shorter, safer, and usually faster th
 loop-and-mutate equivalent, because the optimizer sees more and the reader sees less. The goal is
 not purity. It is **fewer moving parts**: fewer mutable bindings to track, fewer intermediate states
 that can be wrong, fewer places where an early `return` skips a cleanup.
+
 ## Contents
 
 - **Expression orientation**
@@ -73,6 +74,7 @@ that can be wrong, fewer places where an early `return` skips a cleanup.
 - **Closure and uniformity**
   - RS-FUNC-46 [M] Prefer operations closed under their own type
   - RS-FUNC-47 [S] Keep the stages of a pipeline uniform in shape
+
 - Decided by tools
 
 ---
@@ -193,8 +195,8 @@ the condition stops fitting on two lines — a five-clause chain is its own read
 `flat_map` over `map().flatten()`; and the adapters RS-FUNC-19 lists over index arithmetic.
 
 **Why:** the specific adapter names the operation, so the reader recognizes the pattern instead of
-reconstructing it. It also usually avoids computing something twice — `filter(|x| parse(x).is_ok())
-.map(|x| parse(x).unwrap())` parses everything twice and `unwrap`s.
+reconstructing it. It also usually avoids computing something twice —
+`filter(|x| parse(x).is_ok()) .map(|x| parse(x).unwrap())` parses everything twice and `unwrap`s.
 
 **Check:** does any `filter` predicate perform work the following `map` repeats? That is a
 `filter_map`.
@@ -379,8 +381,8 @@ pub fn non_empty(lines: &[String]) -> impl Iterator<Item = &str> {
 `FromIterator` impls exist for exactly this reason. `Result<Vec<_>, _>` in particular is not a
 special case — it is the same mechanism (`references/errors.md` RS-ERR-25).
 
-**Check:** grep for `collect` followed by `into_iter().collect()`, `HashMap::from_iter`, or a
-`for` loop that inserts.
+**Check:** grep for `collect` followed by `into_iter().collect()`, `HashMap::from_iter`, or a `for`
+loop that inserts.
 
 ### RS-FUNC-18 [S] Do not build a collection to measure it
 
@@ -553,9 +555,9 @@ nothing about order or about being run at all.
 
 ### RS-FUNC-28 [S] Reserve `mem::take` / `mem::replace` for state machines
 
-**Why:** they are exactly right for moving out of `&mut self` during a state transition, and a
-smell everywhere else — where they usually mean the function should have taken `self` by value, or
-the field should have been an `Option` the caller manages.
+**Why:** they are exactly right for moving out of `&mut self` during a state transition, and a smell
+everywhere else — where they usually mean the function should have taken `self` by value, or the
+field should have been an `Option` the caller manages.
 
 **Check:** for each `mem::take`, is the enclosing type a state machine? If not, what would taking
 `self` by value cost?
@@ -604,8 +606,8 @@ A closure captures only the fields it names, so `self.filter` inside it borrows 
 method call on `self` still borrows all of it.
 
 **Why:** a closure that calls `self.keeps(item)` holds `&self` while it lives, which blocks the
-`&mut self.items` beside it — the usual cause of "cannot borrow `self` as mutable". Binding what
-the method reads first leaves disjoint borrows (`references/ownership.md` RS-OWN-06).
+`&mut self.items` beside it — the usual cause of "cannot borrow `self` as mutable". Binding what the
+method reads first leaves disjoint borrows (`references/ownership.md` RS-OWN-06).
 
 **Check:** does the closure call a method on `self`? Bind what it reads to a local before the
 closure, or make the method a function of those fields.
@@ -730,8 +732,8 @@ Return the new state as a value; where misuse is costly and the states are few, 
 **Why:** an object that is "not yet initialized" for its first three method calls is two types
 wearing one name, and every method has to handle a state it should never see.
 
-**Check:** does a transition mutate a state field in place where it could take `self` and return
-the next state?
+**Check:** does a transition mutate a state field in place where it could take `self` and return the
+next state?
 
 ### RS-FUNC-41 [S] Keep the happy path linear with combinators
 
@@ -831,9 +833,9 @@ impl Span {
 
 ### RS-FUNC-47 [S] Keep the stages of a pipeline uniform in shape
 
-Stages take one value and return one value. Resist a stage that also mutates a captured
-accumulator (in a `map`, RS-FUNC-27 forbids it outright), one that returns a tuple only the next
-stage understands, or one that is a `for` loop because it was easier.
+Stages take one value and return one value. Resist a stage that also mutates a captured accumulator
+(in a `map`, RS-FUNC-27 forbids it outright), one that returns a tuple only the next stage
+understands, or one that is a `for` loop because it was easier.
 
 **Why:** uniform stages can be reordered, tested individually, and parallelized (`RS-CONC-36`); one
 stage with a side channel takes those properties from the whole chain, and it is where the bugs are,

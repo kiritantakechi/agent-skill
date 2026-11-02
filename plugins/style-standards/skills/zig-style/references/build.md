@@ -3,12 +3,12 @@
 Everything about how a Zig 0.17.0 project is *assembled*: the build graph (`build.zig`), the package
 manifest (`build.zig.zon`), where files go on disk, which optimize mode ships, and what CI must run.
 
-This chapter does not own language-level style (`references/naming.md`,
-`references/data.md`, `references/errors.md`), allocator discipline
-(`references/memory.md`), `std.Io` (`references/concurrency.md`), what goes
-*inside* `src/constants.zig` (`references/assertions.md` ZS-ASSERT-21), or how to write a
-test or a fuzz target (`references/testing.md`) — only how tests get *wired into the
-build*. The rename table for older build spellings is `references/migration.md` ZS-MIG-11.
+This chapter does not own language-level style (`references/naming.md`, `references/data.md`,
+`references/errors.md`), allocator discipline (`references/memory.md`), `std.Io`
+(`references/concurrency.md`), what goes *inside* `src/constants.zig` (`references/assertions.md`
+ZS-ASSERT-21), or how to write a test or a fuzz target (`references/testing.md`) — only how tests
+get *wired into the build*. The rename table for older build spellings is `references/migration.md`
+ZS-MIG-11.
 
 Every `zig` block here is `build.zig` code and assumes the file opens with
 `const std = @import("std");`; every `zon` block is a `build.zig.zon` fragment.
@@ -72,6 +72,7 @@ in a scratch directory and diff.
 ## Canonical build.zig
 
 ### ZS-BUILD-01 [M] Every project exposes install, run, test, fmt, and check steps
+
 A `build.zig` is the project's user interface. `zig build`, `zig build test`, `zig build fmt`, and
 `zig build check` must work in every repository, with no README-only incantations. `check` is the
 step ZLS runs for build-on-save diagnostics (ZS-BUILD-30).
@@ -186,6 +187,7 @@ pub fn build(b: *std.Build) void {
 ```
 
 ### ZS-BUILD-02 [M] Put `target` and `optimize` on the module, never on the artifact
+
 `addExecutable`/`addLibrary`/`addObject`/`addTest` take exactly one shape field:
 `root_module: *Module`. `root_source_file`, `target`, and `optimize` are fields of
 `Module.CreateOptions`.
@@ -221,6 +223,7 @@ const exe = b.addExecutable(.{
 ```
 
 ### ZS-BUILD-03 [M] `b.addModule` for the public API, `b.createModule` for everything else
+
 `b.addModule(name, opts)` registers a module under `name` so downstream packages can reach it with
 `dep.module(name)`. `b.createModule(opts)` produces an anonymous module that never escapes this
 package. A library module built with `createModule` makes the package unusable as a dependency:
@@ -248,6 +251,7 @@ const exe_mod = b.createModule(.{ // private: nobody outside this build.zig sees
 ```
 
 ### ZS-BUILD-04 [M] Give any module you intend to `addTest` an explicit `.target`
+
 `Module.CreateOptions.target` is `?ResolvedTarget = null`. A module created without one cannot be
 the root module of a `Step.Compile`.
 
@@ -260,6 +264,7 @@ literal contains `.target =`. A module reached only through `.imports` may omit 
 ever a root may not.
 
 ### ZS-BUILD-05 [M] One `addTest` per module — a lib+exe project needs at least two
+
 A test binary collects `test` blocks from exactly **one** module: the one passed as `.root_module`.
 There is no aggregate "test everything" artifact and no way to add a second root to a `Step.Compile`
 — the count of `addTest` calls *is* the count of modules under test. Every module that contains
@@ -267,8 +272,9 @@ tests needs its own `addTest`, its own `addRunArtifact`, and a `dependOn` from a
 invoke. This is the owning rule for test wiring.
 
 The full checklist for each module that has tests:
-1. `b.addTest(.{ .root_module = mod, .filters = test_filters })` — pass `filters` so
-   `-Dtest-filter` reaches every binary, not just the first.
+
+1. `b.addTest(.{ .root_module = mod, .filters = test_filters })` — pass `filters` so `-Dtest-filter`
+   reaches every binary, not just the first.
 2. `b.addRunArtifact(t)` — `addTest` alone only *compiles*; without a run artifact nothing executes.
 3. `run.skip_foreign_checks = true` (ZS-BUILD-31), or the cross matrix breaks.
 4. `dependOn` from `test` for unit tests, and from a separate step for the slow ones, as
@@ -301,6 +307,7 @@ test binary — imports supply declarations, not test blocks. Each imported modu
 `single_threaded`) or a separately publishable API. Organizing folders is what files are for.
 
 ### ZS-BUILD-06 [M] Linking, C sources, and include paths are `Module` methods
+
 `Step.Compile` has no `linkLibC`, `linkLibrary`, `linkSystemLibrary`, `addIncludePath`,
 `addCSourceFile(s)`, `addObjectFile`, `addLibraryPath`, `addRPath`, `addFrameworkPath`, `addCMacro`,
 or `addModule`. All of these moved to `Module`. Calling one on the artifact is a hard error:
@@ -326,6 +333,7 @@ mod.addImport("myproj", lib_mod); // post-creation equivalent of `.imports`
 ```
 
 ### ZS-BUILD-07 [M] Build libraries with `b.addLibrary(.{ .linkage = ... })`
+
 `b.addStaticLibrary` and `b.addSharedLibrary` do not exist in 0.17.
 
 **Why:** static vs dynamic is one field, not two entry points; the rest of `LibraryOptions` is
@@ -346,6 +354,7 @@ b.installArtifact(lib);
 ```
 
 ### ZS-BUILD-08 [S] Forward the `--` arguments with `addPassthruArgs()` on every runnable step
+
 `run.addPassthruArgs();` on run steps, so `zig build run -- --verbose foo` works. Since 0.17
 `build.zig` cannot see the arguments after `--` at all (`b.args` is gone): `addPassthruArgs()`
 appends them when the step runs, and marks the step as having side effects, so it is never cached.
@@ -358,6 +367,7 @@ position-dependent.
 has an `.addPassthruArgs()` call beside it.
 
 ### ZS-BUILD-09 [S] `installArtifact` only what ships; use `addInstallArtifact` for on-demand builds
+
 `b.installArtifact(x)` attaches `x` to the default step, so a bare `zig build` produces it.
 Examples, benchmarks, and fuzz drivers should hang off their own step via
 `b.addInstallArtifact(x, .{})`.
@@ -381,6 +391,7 @@ examples_step.dependOn(&b.addInstallArtifact(example_exe, .{}).step);
 ## build.zig.zon
 
 ### ZS-BUILD-10 [M] `.name` is an enum literal, not a string
+
 `.name = .myproj`. A string is `error: expected enum literal`.
 
 **Why:** the manifest is ZON and the name is an identifier in the package namespace, not free text.
@@ -414,12 +425,14 @@ no `zig`. A quoted name is `error: expected enum literal`.
 Do not include "zig" in the name — it is already inside the Zig package namespace.
 
 ### ZS-BUILD-11 [M] Never hand-write, copy, or edit `.fingerprint`
+
 Generate it once by deleting the field and running `zig build`; the compiler prints the value to
 use. Keep the `// Changing this has security and trust implications.` comment so a diff to the line
 is visible in review. Regenerate it when you fork a still-maintained upstream; leave it alone when
 you are shipping a new version of your own package.
 
 Mechanics on 0.17.0:
+
 - Omitting the field: `error: missing top-level 'fingerprint' field; suggested value: 0xee480fa3...`
 - A wrong value:
   `error: invalid fingerprint: 0x0; if this is a new or forked package, use this value: ...`
@@ -437,6 +450,7 @@ value the compiler suggested after a fork or a rename and say so in the commit m
 `// Changing this has security and trust implications.` comment survives the edit.
 
 ### ZS-BUILD-12 [M] `.paths` lists exactly what ships, because it defines the package hash
+
 Only files and directories listed in `.paths` are hashed, and only those remain on disk when a
 consumer fetches your package. `.paths` is mandatory.
 
@@ -454,6 +468,7 @@ under none of them.
 ```
 
 ### ZS-BUILD-13 [M] Add dependencies with `zig fetch --save`; never type a hash by hand
+
 `zig fetch --save git+https://example.com/org/repo.git#v1.2.3` or
 `zig fetch --save=<key> <url|path>`. A bare `zig fetch <url>` only fills the global cache: it edits
 no manifest and writes nothing under `zig-pkg/`. `zig fetch --save` also validates the fetched
@@ -478,10 +493,11 @@ changed too, with the hash not matching the `<name>-<semver>-<digest>` shape `zi
 emits — that is a hand-carried hash. Also a `.url` whose `#` ref is a bare branch name.
 
 ### ZS-BUILD-14 [S] Mark optional dependencies `.lazy = true`; `b.dependency` fetches them
-Mark any dependency behind a feature flag or an optional target `.lazy = true` in
-`build.zig.zon`, and reach it with `b.dependency(name, args)` only on the branch that needs it. To
-require several lazy packages in one configure run, call `b.dependencyLazy` for each before
-`try`-ing any of them, from a `build` that returns `!void`.
+
+Mark any dependency behind a feature flag or an optional target `.lazy = true` in `build.zig.zon`,
+and reach it with `b.dependency(name, args)` only on the branch that needs it. To require several
+lazy packages in one configure run, call `b.dependencyLazy` for each before `try`-ing any of them,
+from a `build` that returns `!void`.
 
 `b.dependency` handles a lazy package itself: when it is missing, configure exits, the package is
 fetched, and `build.zig` runs again — once per missing package. `dependencyLazy` returns
@@ -505,6 +521,7 @@ exe_mod.addImport("zstd", (try zstd).module("zstd"));
 ```
 
 ### ZS-BUILD-15 [M] Consume a dependency as `b.dependency(...).module(...)` and fetch it in CI
+
 The anonymous-struct argument to `b.dependency`/`b.dependencyLazy` is that package's own `-D`
 options, forwarded to its `build.zig`. `dep.module(name)` looks up a name the dependency registered
 with `b.addModule`, and `dep.artifact(name)` a name it passed to `installArtifact`. Both **panic at
@@ -534,6 +551,7 @@ editing the manifest — use it for bisecting an upstream bug, never in committe
 ## Project layout
 
 ### ZS-BUILD-16 [M] `src/root.zig` is the module root and the entire public surface
+
 Consumers can only reach declarations reachable from the root source file. Re-export everything
 public from `root.zig`; anything not re-exported is private by construction.
 
@@ -561,6 +579,7 @@ path. Keeping business logic out of `main.zig` is what makes the library indepen
 embeddable.
 
 ### ZS-BUILD-17 [M] Reference every source file from the module root, or its tests never run
+
 Wiring a module into the `test` step (ZS-BUILD-05) is necessary but not sufficient. A `test` block
 in a file reached only through a *lazily-analyzed* declaration is **not collected**. End `root.zig`
 with a `comptime` block that imports every such file by name. This is the owning rule for
@@ -599,11 +618,12 @@ comptime {
 file (ZS-TEST-22), so it hides which files you meant to cover. Prefer the explicit imports.
 
 ### ZS-BUILD-18 [M!] The limits file is `src/constants.zig`, at the module root, in `.paths`
+
 The *placement* half of the centralized-limits rule: one file named `constants.zig`, directly under
 `src/`, re-exported from `root.zig` as `pub const constants = @import("constants.zig");`, listed in
 `.paths` (ZS-BUILD-12), and referenced from the root's `comptime` import block (ZS-BUILD-17) so its
-`comptime` cross-checks are always analysed. What goes *in* the file is
-`references/assertions.md` ZS-ASSERT-21.
+`comptime` cross-checks are always analysed. What goes *in* the file is `references/assertions.md`
+ZS-ASSERT-21.
 
 **`[M!]` trigger:** high-reliability code — a database, consensus layer, allocator, crypto
 primitive, parser on untrusted input, or embedded firmware, where an unbounded queue means
@@ -631,6 +651,7 @@ comptime {
 The limits in it are named per `references/naming.md` ZS-NAME-06.
 
 ### ZS-BUILD-19 [S] Keep `tests/`, `tools/`, `examples/`, and `scripts/` outside `src/`
+
 `src/` is the shipped package. Everything else lives beside it and is excluded from `.paths`.
 
 **Why:** consumers never download your benchmark corpus (ZS-BUILD-12), and integration tests that
@@ -663,6 +684,7 @@ myproj/
 ```
 
 ### ZS-BUILD-20 [M] Build tools and scripts target `b.graph.host`, never `target`
+
 Anything the build itself executes — code generators, asset packers, release scripts — must be built
 for the host.
 
@@ -687,13 +709,14 @@ const codegen = b.addExecutable(.{
 ```
 
 ### ZS-BUILD-21 [M] Gitignore `.zig-cache/`, `zig-out/`, and `zig-pkg/`
+
 `zig init` writes no `.gitignore`. All three directories are generated. `zig build` and
 `zig fetch --save` unpack dependencies **into the build root** at
 `<build-root>/zig-pkg/<name>-<ver>-<hash>/`, not only into the global cache; a bare `zig fetch`
 fills only the global cache.
 
-**Why:** a `.gitignore` that names only the first two lets the first `zig build` stage the
-project's entire dependency tree for commit.
+**Why:** a `.gitignore` that names only the first two lets the first `zig build` stage the project's
+entire dependency tree for commit.
 
 **Check:** `.gitignore` names all three directories, and
 `git ls-files | grep -E 'zig-pkg|zig-out|\.zig-cache'` returns nothing.
@@ -742,6 +765,7 @@ mapping.
 ## Build modes
 
 ### ZS-BUILD-25 [M!] Production builds are `safe` unless a measurement says otherwise
+
 Ship `-Doptimize=safe`. Choosing `fast` or `small` requires a benchmark in the commit message or a
 comment naming the constraint.
 
@@ -749,10 +773,10 @@ comment naming the constraint.
 crypto, parsers on untrusted input, embedded control — where a wrong answer is worse than a crash.
 There, `safe` *is* the shipping mode and a release artifact built any other way is a defect.
 *Relaxed form:* elsewhere — CLI tools, games, compression kernels, build-time tools, application
-code — `fast` or `small` is allowed, but only with the benchmark number or the named
-constraint recorded at the `-Doptimize=` site, and only once the assertion question is answered:
-either the module does not lean on `std.debug.assert` for anything a user can trigger, or it uses
-the always-on helper of `references/assertions.md` ZS-ASSERT-05.
+code — `fast` or `small` is allowed, but only with the benchmark number or the named constraint
+recorded at the `-Doptimize=` site, and only once the assertion question is answered: either the
+module does not lean on `std.debug.assert` for anything a user can trigger, or it uses the always-on
+helper of `references/assertions.md` ZS-ASSERT-05.
 
 What each mode keeps:
 
@@ -767,14 +791,14 @@ What each mode keeps:
 and `safe` builds, and is *illegal behavior* in `fast` and `small` builds. TigerBeetle ships `safe`
 builds.
 
-Two honest caveats: `safe` costs real throughput on bounds-heavy inner loops, and a *library*
-does not choose its consumer's optimize mode — a library should be correct in all four and document
-which invariants it asserts rather than dictating a mode.
+Two honest caveats: `safe` costs real throughput on bounds-heavy inner loops, and a *library* does
+not choose its consumer's optimize mode — a library should be correct in all four and document which
+invariants it asserts rather than dictating a mode.
 
 If you cannot pay the cost of `safe`, the escape hatch is a project-local always-on assert —
-`references/assertions.md` ZS-ASSERT-05 owns that helper and its contract. Do not adopt
-TigerStyle's assertion density while shipping `fast` builds with no such helper: the code then reads
-as if it is checked and none of it is.
+`references/assertions.md` ZS-ASSERT-05 owns that helper and its contract. Do not adopt TigerStyle's
+assertion density while shipping `fast` builds with no such helper: the code then reads as if it is
+checked and none of it is.
 
 **Why:** a `fast` build does not merely disable your assertions — it turns each one into a licence
 for the optimizer to assume the condition, so an assertion that would have caught corruption becomes
@@ -786,9 +810,10 @@ the constraint. `rg -n 'ReleaseFast|ReleaseSmall' .github/ build.zig scripts/` f
 spellings, which 0.17 still parses.
 
 ### ZS-BUILD-26 [S] Know what `.preferred_optimize_mode` takes away before you set it
-`b.standardOptimizeOption(.{ .preferred_optimize_mode = .safe })` **removes `-Doptimize=`
-entirely** and replaces it with a `-Drelease=[bool]` flag:
-`zig build -Doptimize=safe` then fails with `error: invalid option: "optimize"`, followed by
+
+`b.standardOptimizeOption(.{ .preferred_optimize_mode = .safe })` **removes `-Doptimize=` entirely**
+and replaces it with a `-Drelease=[bool]` flag: `zig build -Doptimize=safe` then fails with
+`error: invalid option: "optimize"`, followed by
 `info: available option: "release": optimize for end users`. With a preferred mode set,
 `std.Build.standardOptimizeOption` returns `.debug` unless `-Drelease` / `--release` is passed, in
 which case it returns the preferred mode — you cannot select `fast` at all, and even
@@ -812,6 +837,7 @@ project, and every such invocation exits 1.
 ## Options and cross-compilation
 
 ### ZS-BUILD-27 [S] Inject build-time configuration as one generated `build_options` module
+
 `b.addOptions()` → `opts.addOption(T, name, value)` → `mod.addOptions("build_options", opts)`, then
 `@import("build_options")` in source. `opts.addOptionPath(name, lazy)` records a generated file's
 path, which is how you hand a codegen output to source code; since 0.17 a directory takes
@@ -845,6 +871,7 @@ pub fn trace(comptime fmt: []const u8, args: anytype) void {
 ```
 
 ### ZS-BUILD-28 [S] Declare every knob with `b.option`, and whitelist targets when the set is fixed
+
 `b.option(T, name, description) ?T` registers the flag in `zig build --help`. Pass
 `.whitelist = &.{...}` to `standardTargetOptions` when you genuinely support only some targets.
 
@@ -876,11 +903,13 @@ const target = b.standardTargetOptions(.{ .whitelist = &.{
 ## Tooling and CI
 
 ### ZS-BUILD-29 [M] `zig fmt --check` gates CI, and `--ast-check` rides along
+
 Non-negotiable. Run `zig fmt --check --ast-check` over your own sources, excluding generated and
 fetched directories. A file containing `var x: u8 = 1; _ = x;` passes `zig fmt --check` (exit 0) and
 fails `zig ast-check` with `error: local variable is never mutated / note: consider using 'const'`.
 
 Two traps:
+
 - `zig fmt --check .` **descends into `zig-pkg/`** and will fail your build on a *dependency's*
   formatting. Use `--exclude zig-pkg --exclude .zig-cache`, or list paths explicitly.
 - `b.addFmt` has **no** `ast-check` option — the command line it runs, built in
@@ -903,6 +932,7 @@ What `zig fmt` decides, and the trailing comma that is your one lever over it, a
 `references/naming.md` ZS-NAME-24; the 100-column limit it cannot enforce is ZS-NAME-25.
 
 ### ZS-BUILD-30 [S] Add a `check` step whose artifacts are never installed or run
+
 ZLS auto-detects a top-level step named `check` for build-on-save diagnostics, though the 0.17.0
 release notes say ZLS does not yet work with 0.17.0. `Step.Compile` creates `generated_bin` lazily,
 and the build system's maker process (`lib/zig/compiler/Maker/Step/Compile.zig` since 0.17) passes
@@ -927,6 +957,7 @@ Use the same Zig and ZLS minor version. For 0.17.0 there is none yet, so build-o
 ZLS release that supports it; `zig build check` on the command line works today.
 
 ### ZS-BUILD-31 [M] Cross-compiled test steps set `skip_foreign_checks`
+
 `zig build test -Dtarget=<foreign>` fails by default with
 `error: the host system ... is unable to execute binaries from the target ...`. Set
 `run_step.skip_foreign_checks = true;` on every test run step. With the flag, the compile succeeds
@@ -943,6 +974,7 @@ calls over `b.addTest` results — the two counts must match. Running
 `zig build test -Dtarget=<foreign-triple>` locally is the same check, executed.
 
 ### ZS-BUILD-32 [M] Pin the Zig version in CI; gate on fmt, two optimize modes, and a cross matrix
+
 Never `latest` — it will move to 0.18 and break everything at once, in a PR that changed a comment.
 
 The rules, which `assets/ci.yml` applies:
@@ -979,6 +1011,7 @@ works for most `x86_64-linux` projects — read ZS-BUILD-37 before turning it on
 switches to the new linker, which is still off by default.
 
 ### ZS-BUILD-33 [S] Write automation as `scripts/*.zig`, wired into `build.zig`
+
 Replace `scripts/release.sh` with `scripts/release.zig` behind a `zig build script:release` step.
 Draw the line at *any script CI depends on* — those must be Zig. Genuinely local one-liners can stay
 shell: a Zig script needs a compile step, so a three-line `curl | jq` becomes a 40-line program.
@@ -1006,6 +1039,7 @@ b.step("script:release", "Cut a release").dependOn(&run_script.step);
 ```
 
 ### ZS-BUILD-34 [M!] Justify every dependency; default to none
+
 TigerStyle mandates a **zero-dependency policy** apart from the Zig toolchain itself. Treat that as
 the default and require a written justification — in the commit that adds it — for each entry in
 `.dependencies`.
@@ -1023,13 +1057,13 @@ neutralizes a good part of the classic supply-chain argument. Re-implementing a 
 stack or Zstd decoder yourself is usually *worse* for correctness than depending on one.
 
 Recommendation by tier:
+
 - **[M!] high-reliability code** (database, consensus, allocator, crypto, embedded firmware): zero
   runtime dependencies. Vendor with `.path` if you must, so the source sits in your repo and in
   review.
 - **[S] everything else**: dependencies are allowed, but each is a reviewed decision. Prefer few,
-  small, and pinned to a tag or SHA (ZS-BUILD-13); mark optional ones `.lazy = true`
-  (ZS-BUILD-14); and never take a transitive tree you have not read — `zig build --fetch`, then
-  read `zig-pkg/`.
+  small, and pinned to a tag or SHA (ZS-BUILD-13); mark optional ones `.lazy = true` (ZS-BUILD-14);
+  and never take a transitive tree you have not read — `zig build --fetch`, then read `zig-pkg/`.
 - Build-time and test-only dependencies are cheaper than runtime ones, but they still execute on
   your developers' and CI machines. Hold them to the same bar.
 
@@ -1046,11 +1080,12 @@ one somebody named — a transitive package nobody can account for is the findin
 ## Strictness, toolchain pinning, and backends
 
 ### ZS-BUILD-35 [M] There is no `-Wall`; the strictest-setting rule translates to six concrete gates
+
 TigerStyle says to appreciate, from day one, all compiler warnings at the compiler's strictest
 setting. Zig has **no warnings and no warning flags** for Zig code — a diagnostic is either a
-compile error or it does not exist. Do not go looking for `-Wall`, `-Wextra`, `-Werror`,
-`#pragma`s, or a lint level; there is nothing to turn up. What the rule honestly translates to on
-0.17.0 is these six, all of which belong in CI:
+compile error or it does not exist. Do not go looking for `-Wall`, `-Wextra`, `-Werror`, `#pragma`s,
+or a lint level; there is nothing to turn up. What the rule honestly translates to on 0.17.0 is
+these six, all of which belong in CI:
 
 | Gate | Command / setting | Catches |
 |---|---|---|
@@ -1069,14 +1104,15 @@ which `fast` and `small` builds remove.
 build, not for your code; they are not part of this.
 
 On 0.17.0:
+
 - `zig build-exe --help` lists no `-W*` flag of any kind. `-Wall`/`-Werror` reach Clang only via
   `zig cc` or a `flags` array on a C source.
 - `mod.addCSourceFile(.{ .file = …, .flags = &.{ "-std=c11", "-Wall", "-Wextra", "-Werror" } })`
   turns an unused C local into `error: unused variable 'unused'` and fails `zig build`.
-- `-freference-trace` is real and load-bearing: the default output truncates the instantiation
-  chain with `5 reference(s) hidden; use '-freference-trace=7' to see all references`, and passing
-  the flag prints the whole chain from `main` down. Since 0.17 only the command line sets it for
-  the build graph: the `b.reference_trace` field, which TigerBeetle sets to 10, is gone
+- `-freference-trace` is real and load-bearing: the default output truncates the instantiation chain
+  with `5 reference(s) hidden; use '-freference-trace=7' to see all references`, and passing the
+  flag prints the whole chain from `main` down. Since 0.17 only the command line sets it for the
+  build graph: the `b.reference_trace` field, which TigerBeetle sets to 10, is gone
   (`no field named 'reference_trace' in struct 'Build'`), so pass `zig build -freference-trace=10`.
 
 **Why:** C needs warning levels because its default is to accept nearly anything; Zig moved that
@@ -1108,6 +1144,7 @@ pub fn build(b: *std.Build) void {
 `flags`; CI runs `zig ast-check` as well as `zig fmt --check`; and nobody has invented a `-Wall`.
 
 ### ZS-BUILD-36 [S] Hard-error on a toolchain mismatch with a `comptime builtin.zig_version` guard
+
 When your project pins one exact Zig version, put the check in `build.zig` where it fires before
 anything else. `.minimum_zig_version` cannot do this: it is documentation, not enforcement. The
 compiler never reads it, so `"0.99.0"` builds clean on 0.17.0 (ZS-BUILD-10's annotated manifest).
@@ -1120,10 +1157,10 @@ The guard converts that into one sentence naming both versions.
 
 **When it is appropriate:** a project that pins an exact toolchain — an application with a
 reproducible release process, a high-reliability service, anything with a vendored or Nix-pinned
-compiler. TigerBeetle does exactly this. **When `.minimum_zig_version` is enough:**
-a *library*, where a hard equality check makes your package unusable in any dependency tree whose
-root is on a different patch release. A library should compile across the whole minor version and
-let the consumer pin.
+compiler. TigerBeetle does exactly this. **When `.minimum_zig_version` is enough:** a *library*,
+where a hard equality check makes your package unusable in any dependency tree whose root is on a
+different patch release. A library should compile across the whole minor version and let the
+consumer pin.
 
 ```zig
 // verified — GOOD: with `.patch = 1` this is
@@ -1144,13 +1181,14 @@ comptime {
 ```
 
 Note the `{f}`, not `{}`: `SemanticVersion` has a custom `format` method, and in 0.17 only `{f}`
-dispatches to it (`references/output.md`). Use `.order(...) != .eq` for an exact pin;
-use `.order(...) == .lt` if you want a floor rather than a pin.
+dispatches to it (`references/output.md`). Use `.order(...) != .eq` for an exact pin; use
+`.order(...) == .lt` if you want a floor rather than a pin.
 
-**Check:** `rg -n 'zig_version' build.zig` — a project that claims a pinned toolchain in its
-README or CI has this block, and its version literal matches the one CI installs.
+**Check:** `rg -n 'zig_version' build.zig` — a project that claims a pinned toolchain in its README
+or CI has this block, and its version literal matches the one CI installs.
 
 ### ZS-BUILD-37 [S] Leave the codegen backend and linker alone; know what the three flags cost
+
 Ship the defaults unless you have a measurement, and never turn on `-fincremental` or `-fnew-linker`
 in a build whose artifacts you ship.
 
@@ -1191,22 +1229,22 @@ default: a fine trade for a save-recompile loop, and not one to make for a binar
 LLVM loop vectorization is off in 0.17 (`references/performance.md` ZS-PERF-15).
 
 All three are `?bool` fields on `Step.Compile` (`use_llvm`, `use_lld`, `use_new_linker`), assigned
-after `addExecutable` returns; `use_llvm` and `use_lld` can also be passed in
-`ExecutableOptions`, and none of them is a field of `Module`.
+after `addExecutable` returns; `use_llvm` and `use_lld` can also be passed in `ExecutableOptions`,
+and none of them is a field of `Module`.
 
 **Why:** the self-hosted backends and the new ELF linker are large, fast, and incomplete; the 0.17.0
 release notes say the new linker is not yet at feature parity with the legacy one, which is why it
 stays off by default.
 
-**Check:** `rg -n 'use_new_linker|use_llvm|use_lld|fincremental|fnew-linker' build.zig
-.github/` returns nothing, or every hit has a comment saying why and is confined to a local-only
-step.
+**Check:** `rg -n 'use_new_linker|use_llvm|use_lld|fincremental|fnew-linker' build.zig .github/`
+returns nothing, or every hit has a comment saying why and is confined to a local-only step.
 
 ---
 
 ## The program's own interfaces: CLI and config files
 
 ### ZS-BUILD-38 [M] Hand-roll CLI parsing; std has no argument parser
+
 `std.process.Init` hands you `args`; nothing in std turns them into flags. There is no argument
 parser anywhere in `std`, and `std.process.Args` offers only `iterate()`, `iterateAllocator(gpa)`,
 and `toSlice(arena)`. Write the loop yourself: a `while` over the slice, `std.mem.eql` for exact
@@ -1218,6 +1256,7 @@ Parsed arguments as a **second parameter of `main`** have been discussed upstrea
 guessed API is not early, it is wrong.
 
 Three details that are easy to get wrong:
+
 - `init.minimal.args.toSlice(arena)` returns `[]const [:0]const u8` — sentinel-terminated elements,
   because they may be handed to a `execve`-shaped API. Match that type in your signatures.
 - **`std.process.fatal` has no exit-code and no writer parameter**: it logs an error and exits 1,
@@ -1288,13 +1327,14 @@ second parameter; every `std.process.fatal` call site passes exactly two argumen
 has a `--` case and a test for it.
 
 ### ZS-BUILD-39 [S] `.zon` is a usable project config format, not just `build.zig.zon`
+
 A config file you control is ZON before it is JSON, TOML, or YAML; `references/data.md` ZS-DATA-35
 owns reading it, with `@import("config.zon")` at comptime or `std.zon.parse` at runtime. Prefer the
 comptime form for anything fixed at build time (feature toggles, table sizes, endpoints per
 environment). This rule is about where the file goes:
 
-- a `.zon` file is a compilation input, so it sits inside `.paths` (ZS-BUILD-12), or consumers get
-  a missing-file error;
+- a `.zon` file is a compilation input, so it sits inside `.paths` (ZS-BUILD-12), or consumers get a
+  missing-file error;
 - `zig fmt` formats `.zon`, so it goes in the `fmt` step's path list, as `build.zig.zon` does.
 
 **Why:** an `@import`ed `.zon` file is source to the build, and needs what a `.zig` file gets: a

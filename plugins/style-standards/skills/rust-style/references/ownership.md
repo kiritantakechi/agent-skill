@@ -9,6 +9,7 @@ performance chapter; the *style* of the resulting function bodies is in the func
 Ownership is the design language of Rust, not an obstacle to route around. Most "the borrow checker
 won't let me" moments are the compiler correctly reporting that the data model has two owners for
 one thing, or one owner for two things. The fix is almost never `.clone()`.
+
 ## Contents
 
 - **Borrowing and signatures**
@@ -59,6 +60,7 @@ one thing, or one owner for two things. The fix is almost never `.clone()`.
   - RS-OWN-37 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
   - RS-OWN-38 [S] Prefer scope-based cleanup to defer-style crates
   - RS-OWN-39 [M] Install process-wide resources once, at the top of `main`
+
 - Decided by tools
 
 ---
@@ -348,8 +350,8 @@ impl Manifest {
 ### RS-OWN-16 [M] Read every lifetime parameter as a constraint on your users
 
 **Why:** `<'a>` means "this value cannot outlive that borrow", and your users are the ones who have
-to satisfy it — in their struct fields, their return types, and their spawned tasks. Adding one is
-a decision about their code, not just yours.
+to satisfy it — in their struct fields, their return types, and their spawned tasks. Adding one is a
+decision about their code, not just yours.
 
 **Check:** write the sentence "your value cannot outlive X" for each lifetime. Is X something users
 will reasonably keep alive?
@@ -366,8 +368,8 @@ outlive the call? If not, remove it.
 ### RS-OWN-18 [M] Do not leak to satisfy a `'static` bound
 
 Memory you mean to reclaim leaves through `Box::into_raw` or `Box::into_non_null` and comes back
-through `from_raw`/`from_non_null`. Never rebuild a `Box` from a leaked reference: std's docs
-call that "unleaking" and say to avoid it.
+through `from_raw`/`from_non_null`. Never rebuild a `Box` from a leaked reference: std's docs call
+that "unleaking" and say to avoid it.
 
 **Why:** `Box::leak` to make a `&'static str` is a memory leak dressed as a type fix, and in a
 server it is an unbounded one. It is acceptable exactly once, at program start, for genuinely
@@ -481,17 +483,17 @@ across threads, `OnceLock`/`LazyLock` for one-time initialization.
 ### RS-OWN-26 [M] Keep `RefCell` borrows short and out of `Drop`
 
 **Why:** a `RefCell` borrow conflict is a panic rather than a compile error, and a panic inside
-`Drop` during unwinding aborts the process (RS-OWN-33). Holding a `Ref`
-across a call that can re-enter is the classic way to hit it.
+`Drop` during unwinding aborts the process (RS-OWN-33). Holding a `Ref` across a call that can
+re-enter is the classic way to hit it.
 
 **Check:** does any `borrow()`/`borrow_mut()` result live across a function call? Bind it in the
 smallest possible scope.
 
 ### RS-OWN-27 [S] Use `Rc` in one thread and `Arc` across threads
 
-**Why:** `Arc`'s refcount operations are atomic, which is not free — and using it in
-single-threaded code out of habit pays for a guarantee nobody needs. The compiler tells you when you
-need `Arc`; it does not tell you when you do not.
+**Why:** `Arc`'s refcount operations are atomic, which is not free — and using it in single-threaded
+code out of habit pays for a guarantee nobody needs. The compiler tells you when you need `Arc`; it
+does not tell you when you do not.
 
 **Check:** does the `Arc` ever cross a thread boundary or enter a `Send` bound? If not, `Rc`.
 
@@ -642,8 +644,8 @@ it buys nothing except unfamiliarity.
 
 Signal handlers, terminal raw mode, the global logger, panic hooks.
 
-**Why:** installing from a library constructor makes the crate unusable inside another program —
-two callers fight over one handler, and the second silently wins. Pass handles downward instead.
+**Why:** installing from a library constructor makes the crate unusable inside another program — two
+callers fight over one handler, and the second silently wins. Pass handles downward instead.
 
 **Check:** grep for `set_hook`, `signal`, `set_logger`, and terminal-mode calls outside `main`.
 

@@ -59,9 +59,9 @@ truth. `cProfile` remains as an alias of `profiling.tracing`, so prefer the name
 does; `profile` is deprecated for removal in 3.17. `profiling.sampling`, called Tachyon, can attach
 to an already-running process by PID.
 
-**Why:** a sampler does not instrument, so it does not distort what it measures, while
-deterministic tracing inflates call-heavy code — the code you are most likely profiling. So "where
-does the time go" and "how many times is this called" need genuinely different tools.
+**Why:** a sampler does not instrument, so it does not distort what it measures, while deterministic
+tracing inflates call-heavy code — the code you are most likely profiling. So "where does the time
+go" and "how many times is this called" need genuinely different tools.
 
 **Check:** `rg -n 'cProfile|import profile' src/` — a `profile` hit is a removal due in 3.17, and a
 `cProfile` hit is the old name for `profiling.tracing`.
@@ -74,9 +74,9 @@ An `O(n²)` loop rewritten in C is still `O(n²)`.
 quadratic scan that is fine for the hundred rows in the test becomes the outage at ten thousand, and
 no amount of local optimisation moves that.
 
-**Check:** every nested loop over the same collection, and every `in` against a list inside a
-loop. A review matter: the ruff rule for excessive nesting is preview, and the shipped
-configuration runs stable rules only.
+**Check:** every nested loop over the same collection, and every `in` against a list inside a loop.
+A review matter: the ruff rule for excessive nesting is preview, and the shipped configuration runs
+stable rules only.
 
 ### PS-PERF-04 [M] State the cost in the units the caller cares about
 
@@ -95,8 +95,8 @@ docstring without a cost sentence is the finding.
 How many items, how many bytes, how many round trips, at what rate.
 
 **Why:** the arithmetic usually settles the question in a minute, and it tells you what the
-benchmark *should* say — so a benchmark that disagrees means you have found something, rather
-than confirming what you assumed. It also catches designs that cannot work before they are built.
+benchmark *should* say — so a benchmark that disagrees means you have found something, rather than
+confirming what you assumed. It also catches designs that cannot work before they are built.
 
 **Check:** the design note for any performance-sensitive component should contain numbers.
 
@@ -111,9 +111,8 @@ than confirming what you assumed. It also catches designs that cannot work befor
 O(n²) for an n-character string. CPython sometimes rescues the simplest case in place, which is
 worse than never: fast enough in the test, quadratic in production where the string is aliased.
 
-**Check:** `rg -n '^[ \t]*\w+[ \t]*\+=[ \t]*.*["\x27]' src/` and read each hit for an
-enclosing loop.
-No ruff rule finds string building in a loop, so this is a grep and a review.
+**Check:** `rg -n '^[ \t]*\w+[ \t]*\+=[ \t]*.*["\x27]' src/` and read each hit for an enclosing
+loop. No ruff rule finds string building in a loop, so this is a grep and a review.
 
 ```python
 # verified — GOOD
@@ -133,8 +132,8 @@ assert render(["a", "b"]) == "a\nb"
 `O(n)` into `O(n·m)`, invisibly, since the two spellings are identical — most often in a
 module-level constant, where a literal list looks like the obvious thing to write.
 
-**Check:** `rg -n 'in \[' src/` — a literal list on the right of `in` is always the finding.
-The ruff rule for it is preview and therefore not enabled here.
+**Check:** `rg -n 'in \[' src/` — a literal list on the right of `in` is always the finding. The
+ruff rule for it is preview and therefore not enabled here.
 
 ### PS-PERF-08 [M] Batch I/O rather than looping over single operations
 
@@ -274,8 +273,8 @@ often does not, because the interpreter got faster or the workload changed.
 If the measurement does not show a difference that matters, revert it.
 
 **Why:** without it PS-PERF-01 has no consequences: measuring and then keeping the change anyway —
-because it feels faster, or because the work is done — is how a codebase accumulates complexity
-with no benefit. The readable version is the default, and only a measurement overturns it.
+because it feels faster, or because the work is done — is how a codebase accumulates complexity with
+no benefit. The readable version is the default, and only a measurement overturns it.
 
 **Check:** every optimisation in review whose before-and-after numbers are within noise.
 

@@ -34,6 +34,7 @@ is the usual justification for an allow list forty entries long that hides real 
 - **CI**
   - BV-BUILD-15 [M] Build the feature set you ship
   - BV-BUILD-16 [S] Build the wasm target if the game ships to the web
+
 - Decided by tools
 
 ---
@@ -60,12 +61,12 @@ and not a collection *without* `default-features = false`, which selects nothing
 already `["2d", "3d", "ui", "audio"]`.
 
 **Why:** hand-maintained lists rot: a feature is renamed (`animation` became `gltf_animation`) or a
-new one becomes necessary, and the manifest keeps compiling while enabling something other than
-what it says. Bevy 0.20 has 177 features, and nobody re-reads that list every release.
+new one becomes necessary, and the manifest keeps compiling while enabling something other than what
+it says. Bevy 0.20 has 177 features, and nobody re-reads that list every release.
 
 **Check:** is `default-features = false` there? Without it the list is decoration. Then count the
-entries: past about six, they are describing a collection that already exists.
-`assets/Cargo.toml` is a workspace manifest with the collection already chosen.
+entries: past about six, they are describing a collection that already exists. `assets/Cargo.toml`
+is a workspace manifest with the collection already chosen.
 
 ### BV-BUILD-03 [M] Hand-pick features only against a recorded measurement
 
@@ -107,8 +108,8 @@ bevy = { version = "=0.20.1", default-features = false, features = [
 
 ### BV-BUILD-04 [M] Pin Bevy exactly in a binary and with a caret in a library
 
-A game binary writes `bevy = "=0.20.1"`. A crate other people depend on writes `bevy = "0.20"`;
-the general rule against exact pins is unchanged for anything published.
+A game binary writes `bevy = "=0.20.1"`. A crate other people depend on writes `bevy = "0.20"`; the
+general rule against exact pins is unchanged for anything published.
 
 **Why:** a Bevy minor bump renames a large fraction of the API, so in a binary an exact pin makes an
 upgrade a scheduled migration rather than something `cargo update` does. In a library it forbids
@@ -236,8 +237,8 @@ compliant form exists and compiles — `Query<'_, '_, &mut Shield>` and `Res<'_,
 system parameters — and the comment says so, rather than letting a reader think it impossible.
 
 **Why:** it fires on every system parameter — `Query`, `Res`, `Commands`, `MessageReader`, `Local` —
-because each carries the world and state lifetimes: fourteen warnings in one five-system plugin.
-The fix buys nothing but two apostrophes on every parameter of every system in the game.
+because each carries the world and state lifetimes: fourteen warnings in one five-system plugin. The
+fix buys nothing but two apostrophes on every parameter of every system in the game.
 
 **Check:** is the entry present, and does the comment beside it say that the compliant form exists?
 An allow with no reason is the thing this rule exists to prevent.

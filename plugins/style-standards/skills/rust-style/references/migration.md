@@ -62,8 +62,8 @@ member's manifest, or a member's `foo.workspace = true` line:
 `Atomic*::fetch_update` is deprecated in 1.99: use `update` or `try_update`. The module constants
 `std::i32::MAX` and the rest are deprecated too: use the associated `i32::MAX`.
 
-**Why:** a deprecation warns, and `CARGO_BUILD_WARNINGS=deny` turns the warning into a failed
-build — so a toolchain bump breaks CI on code that has not changed.
+**Why:** a deprecation warns, and `CARGO_BUILD_WARNINGS=deny` turns the warning into a failed build
+— so a toolchain bump breaks CI on code that has not changed.
 
 **Check:** the `deprecated` row below, under `CARGO_BUILD_WARNINGS=deny`; before a toolchain bump,
 `rg -n '\.fetch_update\(|std::[iu](8|16|32|64|128|size)::(MAX|MIN)\b' src/`.

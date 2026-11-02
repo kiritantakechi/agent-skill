@@ -85,12 +85,12 @@ assert policy.next_delay_ms(2) == 2_000
 
 ### PS-NAME-02 [M] Capitalise every letter of an acronym in a CapWords name
 
-`HTTPClient`, `XMLParser`, `JSONDecodeError`. Never `HttpClient`, `XmlParser`, `JsonDecodeError`.
-In a `snake_case` name the acronym is lower case like every other word: `parse_url`, `http_client`.
+`HTTPClient`, `XMLParser`, `JSONDecodeError`. Never `HttpClient`, `XmlParser`, `JsonDecodeError`. In
+a `snake_case` name the acronym is lower case like every other word: `parse_url`, `http_client`.
 
 **Why:** PEP 8 states it — "HTTPServerError is better than HttpServerError" — and the standard
-library spells its own that way: `JSONDecodeError`, `HTTPStatus`, `TOMLDecodeError`, `SSLError`.
-A project's `JsonError` beside `json.JSONDecodeError` gives one acronym two spellings to remember.
+library spells its own that way: `JSONDecodeError`, `HTTPStatus`, `TOMLDecodeError`, `SSLError`. A
+project's `JsonError` beside `json.JSONDecodeError` gives one acronym two spellings to remember.
 
 **Check:** `rg -n '\b(Http|Https|Json|Xml|Html|Url|Uri|Sql|Api|Tcp|Udp|Ssl|Tls|Toml|Csv)[A-Z]' src/`
 — a common acronym folded into a word ahead of the next one. The list is not exhaustive; add the
@@ -128,8 +128,8 @@ is the finding, while a word that is short already, such as `key` or `raw`, is s
 `seconds_timeout`.
 
 **Why:** big-endian naming makes alphabetical order a *semantic* grouping — `latency_ms_min` and
-`latency_ms_max` land adjacent wherever names are sorted, so a missing member of a family shows.
-A unit in the name also stops confusion: `size_bytes` and `count` cannot be silently swapped.
+`latency_ms_max` land adjacent wherever names are sorted, so a missing member of a family shows. A
+unit in the name also stops confusion: `size_bytes` and `count` cannot be silently swapped.
 
 **Check:** any constant, field, or keyword argument that *begins* with `max`, `min`, `num`, `total`,
 or `default`. The word must be qualifying a noun to be a hit — `total_before` and `total_after` name
@@ -301,8 +301,8 @@ recording *why* cannot be derived from the code at all: without it the next pers
 reason, usually by reverting the decision and rediscovering it.
 
 **Check:** every non-obvious constant, every hand-rolled algorithm and every `# noqa` carries its
-reason. For every other comment, ask whether the line below it would have told you the same thing:
-a comment that restates is the finding. `ERA001` catches the commented-out-code case.
+reason. For every other comment, ask whether the line below it would have told you the same thing: a
+comment that restates is the finding. `ERA001` catches the commented-out-code case.
 
 ### PS-NAME-17 [S] Write comments as prose
 
@@ -321,8 +321,8 @@ citing them would claim an enforcement this standard's own configuration does no
 ### PS-NAME-18 [M] Name the two halves of a pair symmetrically
 
 `open`/`close`, `acquire`/`release`, `encode`/`decode`, `push`/`pop`, `to_json`/`from_json`. Never
-`open`/`shutdown`, never `encode`/`parse`. Whether the inverse must exist is PS-DATA-18's rule;
-this one is how it is spelled.
+`open`/`shutdown`, never `encode`/`parse`. Whether the inverse must exist is PS-DATA-18's rule; this
+one is how it is spelled.
 
 **Why:** an asymmetric pair forces the reader to remember two words where one would have implied the
 other, and a reader who finds `serialise` and no `deserialise` cannot tell a missing inverse from
@@ -345,8 +345,8 @@ mechanism. Two mechanisms for one concept is the finding.
 
 ### PS-NAME-20 [M] One term, one meaning, project-wide
 
-If a row from the database is an `Account`, it is not a `User` in the next module and a
-`Customer` in the one after.
+If a row from the database is an `Account`, it is not a `User` in the next module and a `Customer`
+in the one after.
 
 **Why:** synonyms make search useless and start every conversation about the code with a translation
 step. The cost compounds: a reader who has learned that `Account` and `User` are the same thing must

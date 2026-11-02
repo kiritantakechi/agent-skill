@@ -1,9 +1,9 @@
 # Async: Tasks, Cancellation, Lifecycle, and the Thread Boundary
 
-Scope: writing `asyncio` code that cancels correctly, owns every task it starts, and does not
-block the loop — plus the boundary between an event loop and the threads around it. Whether to
-use async at all rather than threads is the concurrency chapter's question; blocking calls
-that belong in a thread pool are named here.
+Scope: writing `asyncio` code that cancels correctly, owns every task it starts, and does not block
+the loop — plus the boundary between an event loop and the threads around it. Whether to use async
+at all rather than threads is the concurrency chapter's question; blocking calls that belong in a
+thread pool are named here.
 
 Two sources are merged here: the **CPython 3.15 `asyncio` documentation**, including `TaskGroup` and
 the 3.15 addition of `TaskGroup.cancel`, and **Ruff's `ASYNC` family**, sixteen rules that catch
@@ -74,16 +74,15 @@ assert asyncio.run(main(), loop_factory=asyncio.EventLoop) == "done"
 ### PS-ASYNC-02 [M] Never call `get_event_loop`, and never touch the policy API
 
 Not `get_event_loop`, `set_event_loop_policy`, `AbstractEventLoopPolicy`, or the Windows policy
-classes. Inside a coroutine the correct call is `asyncio.get_running_loop()`. To choose a loop,
-pass `loop_factory` to `asyncio.run` or `asyncio.Runner` (PS-ASYNC-01), which replaces every policy
+classes. Inside a coroutine the correct call is `asyncio.get_running_loop()`. To choose a loop, pass
+`loop_factory` to `asyncio.run` or `asyncio.Runner` (PS-ASYNC-01), which replaces every policy
 class, the Windows ones included.
 
 **Why:** the whole policy system is **removed in 3.16**, and `get_event_loop` raises `RuntimeError`
 when no loop is running, so code relying on it to create one is already broken. `get_running_loop`
 fails loudly rather than conjuring a second loop nobody will run.
 
-**Check:** `rg -n 'get_event_loop|EventLoopPolicy|set_event_loop' src/` — every hit is the
-finding.
+**Check:** `rg -n 'get_event_loop|EventLoopPolicy|set_event_loop' src/` — every hit is the finding.
 
 ## Owning tasks
 
@@ -123,12 +122,12 @@ assert asyncio.run(main()) == [0, 2, 4]
 New in 3.15: `tg.cancel()` ends the group without raising. It is idempotent and callable before
 entry.
 
-**Why:** the previous way to stop a group early was to raise something and catch it outside,
-which conflates "we are done" with "something went wrong" and leaves a `CancelledError` in the
-traceback of a successful run.
+**Why:** the previous way to stop a group early was to raise something and catch it outside, which
+conflates "we are done" with "something went wrong" and leaves a `CancelledError` in the traceback
+of a successful run.
 
-**Check:** `rg -nB4 'raise .*Done|raise .*Stop' src/` inside a `TaskGroup` — a sentinel
-exception used for control flow is what this replaces.
+**Check:** `rg -nB4 'raise .*Done|raise .*Stop' src/` inside a `TaskGroup` — a sentinel exception
+used for control flow is what this replaces.
 
 ## Cancellation
 
@@ -137,12 +136,12 @@ exception used for control flow is what this replaces.
 Catch it to clean up, then re-raise. It inherits from `BaseException` precisely so that
 `except Exception` will not take it.
 
-**Why:** swallowing cancellation makes the task uncancellable, which turns a graceful shutdown
-into a hang and a timeout into a lie. `asyncio.run` cancels remaining tasks at exit, so a
-swallowing task prevents the process from exiting cleanly.
+**Why:** swallowing cancellation makes the task uncancellable, which turns a graceful shutdown into
+a hang and a timeout into a lie. `asyncio.run` cancels remaining tasks at exit, so a swallowing task
+prevents the process from exiting cleanly.
 
-**Check:** `rg -n 'except.*CancelledError' src/` — every handler must end in `raise`. Ruff
-`ASYNC` and `BLE001` catch the `except Exception` variants that would also take it on older code.
+**Check:** `rg -n 'except.*CancelledError' src/` — every handler must end in `raise`. Ruff `ASYNC`
+and `BLE001` catch the `except Exception` variants that would also take it on older code.
 
 ### PS-ASYNC-06 [M] Assume every `await` is a cancellation point
 
@@ -174,8 +173,8 @@ A shielded region with no timeout of its own is a task that cannot be stopped by
 `async with asyncio.timeout(5):`. Not `wait_for`, which is the older spelling.
 
 **Why:** a wait with no bound is a hang with extra steps, and in an async program one hung task
-holds its whole logical operation open. `asyncio.timeout` is a context manager, so it composes
-with `TaskGroup` and applies to everything inside it rather than to one awaitable.
+holds its whole logical operation open. `asyncio.timeout` is a context manager, so it composes with
+`TaskGroup` and applies to everything inside it rather than to one awaitable.
 
 **Check:** every `await` on network, subprocess, or queue I/O. No enclosing `timeout` is the
 finding.
@@ -264,9 +263,9 @@ They are not interchangeable and neither substitutes for the other. Each ends it
 way: `shutdown()`, after which a drained queue's `get` raises `queue.ShutDown` or
 `asyncio.QueueShutDown` in every consumer, with no sentinel per consumer.
 
-**Why:** `asyncio.Queue` is not thread-safe and belongs to one loop; `queue.Queue` blocks, which
-is fatal inside a coroutine. Crossing the boundary means a `queue.Queue` plus a `to_thread` call
-to read it, or `call_soon_threadsafe` to push into the loop.
+**Why:** `asyncio.Queue` is not thread-safe and belongs to one loop; `queue.Queue` blocks, which is
+fatal inside a coroutine. Crossing the boundary means a `queue.Queue` plus a `to_thread` call to
+read it, or `call_soon_threadsafe` to push into the loop.
 
 **Check:** `rg -n 'asyncio.Queue' src/` — a hit reachable from a plain thread is the finding.
 
@@ -278,9 +277,8 @@ to read it, or `call_soon_threadsafe` to push into the loop.
 asyncio objects are not thread safe". They coordinate by scheduling on the loop, so from another
 thread they are simply the wrong mechanism — use `threading.Lock` there.
 
-**Check:** `rg -n 'asyncio\.(Lock|Event|Semaphore|Condition)\b' src/` inside a thread target.
-The word boundary matters: without it the pattern also matches `asyncio.EventLoop`, which is not
-one.
+**Check:** `rg -n 'asyncio\.(Lock|Event|Semaphore|Condition)\b' src/` inside a thread target. The
+word boundary matters: without it the pattern also matches `asyncio.EventLoop`, which is not one.
 
 ## Shape
 
@@ -299,9 +297,9 @@ configuration runs stable rules only; preview rules move between ruff releases.
 
 `__aenter__`/`__aexit__`, used with `async with`.
 
-**Why:** the same argument as PS-ERR-14: acquisition and release in one place, impossible to
-forget. For async it matters more, because the release usually has to be awaited and a forgotten
-one leaves a connection open until the process ends.
+**Why:** the same argument as PS-ERR-14: acquisition and release in one place, impossible to forget.
+For async it matters more, because the release usually has to be awaited and a forgotten one leaves
+a connection open until the process ends.
 
 **Check:** every class with an async `close` or `disconnect`. No `__aexit__` is the finding.
 
@@ -314,8 +312,8 @@ the ones it knows about.
 runs at an unpredictable time or not at all. `contextlib.aclosing` makes the close explicit at the
 call site, which is where the reader can see it.
 
-**Check:** `rg -n 'async def.*yield|__anext__' src/` — every async iterator over a resource
-needs an `aclose` and a caller using `aclosing`.
+**Check:** `rg -n 'async def.*yield|__anext__' src/` — every async iterator over a resource needs an
+`aclose` and a caller using `aclosing`.
 
 ## Decided by tools
 

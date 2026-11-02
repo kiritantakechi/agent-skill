@@ -21,8 +21,8 @@ naming, trait impls), the **empirical conventions of ripgrep and the BurntSushi 
 architecture, disciplined performance, CLI shape), and a **functional-first default** for function
 bodies. Where they disagree, this standard picks a side and says why.
 
-**Target: Rust 1.99 stable, edition 2024.** The bar is not "compiles and passes clippy". It
-is: a reviewer who maintains `regex`, `ignore`, or `tokio` would merge this without comment.
+**Target: Rust 1.99 stable, edition 2024.** The bar is not "compiles and passes clippy". It is: a
+reviewer who maintains `regex`, `ignore`, or `tokio` would merge this without comment.
 
 ## How to use this standard
 
@@ -46,10 +46,10 @@ the tool enforces them, so they carry no Why and no Check. When rules are renumb
 
 Every fenced example carries a marker on its first line. `// verified` — the block compiles as
 written against Rust 1.99, edition 2024, and any test it ships passes. `// fragment` — shown in
-context rather than run as a unit, usually because it uses names the chapter declares around it. `//
-rejected — <tool>: …` — the rejection is the point, and the marker names the tool that rejects it:
-`rustc`, `clippy`, `rustdoc`. A trailing `— GOOD` or `— BAD` names which side of the rule the block
-illustrates. A block in another language carries its marker in that language's comment syntax.
+context rather than run as a unit, usually because it uses names the chapter declares around it.
+`// rejected — <tool>: …` — the rejection is the point, and the marker names the tool that rejects
+it: `rustc`, `clippy`, `rustdoc`. A trailing `— GOOD` or `— BAD` names which side of the rule the
+block illustrates. A block in another language carries its marker in that language's comment syntax.
 
 ## 1. Tiers
 
@@ -99,9 +99,9 @@ The 2024 edition changed four behaviours without a diagnostic:
 | `$e:expr` stops before `_` and `const { … }` | `expr` matches both, so a later `_` arm stops firing; `expr_2021` keeps the old fragment (`RS-MACRO-09`) |
 | `boxed_slice.into_iter()` yields `&T` | yields `T`, by value |
 
-Releases change things silently too — CI builds without incremental compilation in 1.99, the
-derived `PartialOrd` path in 1.98, drop timing in 1.91 to 1.95. `references/migration.md` RS-MIG-03
-lists them by release, to read on every toolchain bump.
+Releases change things silently too — CI builds without incremental compilation in 1.99, the derived
+`PartialOrd` path in 1.98, drop timing in 1.91 to 1.95. `references/migration.md` RS-MIG-03 lists
+them by release, to read on every toolchain bump.
 
 ### 2.2 What the 2024 edition rejects
 
@@ -149,8 +149,7 @@ questions, in order:
    arguments in the same order? Do the error variants share one shape? A missing half is either a
    restriction the documentation must state, or an oversight (`RS-API-58` … `RS-API-61`).
 5. **What is special-cased?** A branch that exists for one input is a design that has not absorbed
-   that input. Fold it into the general case, or name it as its own type (`RS-MOD-45`,
-   `RS-MOD-46`).
+   that input. Fold it into the general case, or name it as its own type (`RS-MOD-45`, `RS-MOD-46`).
 
 Readability outranks all five. A combinator chain that requires the reader to track three type
 transformations is worse than the `match` it replaced (`RS-FUNC-42`), and a symmetry nobody can see
@@ -166,15 +165,14 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
   modules, and locals; `SCREAMING_SNAKE_CASE` constants — rustc's default lints enforce all three.
   Acronyms are ordinary words — `HttpClient`, `Uuid`, `OsStr`, never `HTTPClient`
   (`references/naming.md` RS-NAME-01).
-- **RS-CORE-02 `[M]`** Conversion prefixes carry cost information and are not interchangeable:
-  `as_` is a free borrowed view, `to_` allocates or computes, `into_` consumes the receiver. A
-  method named `as_*` that allocates is misnamed (`references/naming.md` RS-NAME-12).
+- **RS-CORE-02 `[M]`** Conversion prefixes carry cost information and are not interchangeable: `as_`
+  is a free borrowed view, `to_` allocates or computes, `into_` consumes the receiver. A method
+  named `as_*` that allocates is misnamed (`references/naming.md` RS-NAME-12).
 - **RS-CORE-03 `[M]`** Getters omit `get_`: `len()`, `name()`, `config()`. `get_` is reserved for
-  the fallible `Index`-like lookup returning `Option`/`Result`
-  (`references/naming.md` RS-NAME-16).
+  the fallible `Index`-like lookup returning `Option`/`Result` (`references/naming.md` RS-NAME-16).
 - **RS-CORE-04 `[S]`** No abbreviations unless the abbreviation is more standard than the word
-  (`config`, `regex`, `buf`, `ctx`). `rslt`, `mngr`, `hdlr` are not
-  (`references/naming.md` RS-NAME-26).
+  (`config`, `regex`, `buf`, `ctx`). `rslt`, `mngr`, `hdlr` are not (`references/naming.md`
+  RS-NAME-26).
 - **RS-CORE-05 `[M]`** Run `cargo fmt` on the toolchain CI checks with — `cargo +nightly fmt` while
   `rustfmt.toml` sets its nightly-only import options, which stable rustfmt ignores. Keep
   `rustfmt.toml` minimal — the default style is a coordination win and every override costs new
@@ -182,9 +180,9 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 
 ### Public surface
 
-- **RS-CORE-06 `[M]`** Everything is private until proven public. `pub` is a promise of support
-  that only a major version can withdraw; a crate-private item promises nothing outside the crate
-  and can be widened the day someone needs it (`references/api.md` RS-API-01).
+- **RS-CORE-06 `[M]`** Everything is private until proven public. `pub` is a promise of support that
+  only a major version can withdraw; a crate-private item promises nothing outside the crate and can
+  be widened the day someone needs it (`references/api.md` RS-API-01).
 - **RS-CORE-07 `[M]`** Be generic in what you accept, concrete in what you return. Take
   `impl AsRef<Path>`, `impl IntoIterator<Item = T>` or `impl Into<String>` where callers hold
   different types; return a named type or `impl Trait`, never a type parameter only the caller can
@@ -197,8 +195,8 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
   (`references/api.md` RS-API-15, RS-API-16).
 - **RS-CORE-09 `[M]`** Make illegal states unrepresentable. `bool` parameters are enums that have
   not been written yet; two `Option` fields where exactly one is always `Some` is an enum in
-  disguise; a `&str` that accepts three values is an enum
-  (`references/api.md` RS-API-19, RS-API-21, RS-API-22).
+  disguise; a `&str` that accepts three values is an enum (`references/api.md` RS-API-19, RS-API-21,
+  RS-API-22).
 - **RS-CORE-10 `[M]`** Every public type implements `Debug`, and every public item has a summary
   line, with an example that compiles on every non-trivial one. `missing_docs` is a deny, not a warn
   (`references/api.md` RS-API-36, `references/documentation.md` RS-DOC-06).
@@ -234,11 +232,11 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **RS-CORE-17 `[S]`** A `for` loop that only pushes into a `Vec` declared just above it is a
   `map`/`filter`/`collect`; one that only accumulates a scalar is a `fold`, `sum`, or `count`; one
   that searches and breaks is `find`, `position`, `any`, or `all`. Keep `for` for side effects, for
-  `?` over several error types, and for labelled control flow
-  (`references/functional.md` RS-FUNC-03 … RS-FUNC-06).
+  `?` over several error types, and for labelled control flow (`references/functional.md` RS-FUNC-03
+  … RS-FUNC-06).
 - **RS-CORE-18 `[S]`** Each `let mut` is a proof obligation: state why no fold, `collect`, `scan`,
-  or shadowing expresses this. Reach for shadowing before mutation
-  (`references/functional.md` RS-FUNC-22, RS-FUNC-23).
+  or shadowing expresses this. Reach for shadowing before mutation (`references/functional.md`
+  RS-FUNC-22, RS-FUNC-23).
 - **RS-CORE-19 `[M]`** Parse, don't validate. Convert untrusted input into a type that cannot be
   invalid at the boundary, and let every downstream function take the parsed type
   (`references/functional.md` RS-FUNC-37).
@@ -250,12 +248,11 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 
 - **RS-CORE-21 `[M]`** Never `.clone()` to silence the borrow checker. Try, in order: shortening the
   borrow, splitting it by destructuring `self`, giving the data one owner, using an index or handle
-  — and only then cloning, with a comment saying why
-  (`references/ownership.md` RS-OWN-06, RS-OWN-08).
+  — and only then cloning, with a comment saying why (`references/ownership.md` RS-OWN-06,
+  RS-OWN-08).
 - **RS-CORE-22 `[M]`** Do not put a lifetime parameter on a struct unless the borrow is essential to
   what the type is. Lifetimes propagate into every user's code; owning the data, or indexing into an
-  arena, usually costs less than the ergonomic tax
-  (`references/ownership.md` RS-OWN-04, RS-OWN-21).
+  arena, usually costs less than the ergonomic tax (`references/ownership.md` RS-OWN-04, RS-OWN-21).
 - **RS-CORE-23 `[M]`** Interior mutability is a deliberate escape hatch. Every `Cell`, `RefCell`,
   `Mutex`, or `OnceLock` gets a comment saying why the mutation cannot be threaded through
   `&mut self` instead (`references/ownership.md` RS-OWN-24).

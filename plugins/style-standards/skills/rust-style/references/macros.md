@@ -8,6 +8,7 @@ testing in general are in the testing chapter.
 Macros are the abstraction of last resort. They defeat type inference, produce poor error messages,
 resist `go to definition`, slow compilation, and are invisible to most refactoring tools. Reach for
 them only when generics, traits, and functions genuinely cannot express the pattern.
+
 ## Contents
 
 - **When to use a macro**
@@ -64,9 +65,9 @@ pub fn kib(count: u64) -> u64 {
 
 ### RS-MACRO-02 [S] Know the legitimate reasons for a macro
 
-Variadic arguments (`vec!`, `format!`); implementing a trait across many concrete types;
-generating code from a declarative table; capturing an expression unevaluated (`assert!`,
-`matches!`, lazy logging); and boilerplate that genuinely needs identifiers or syntax as input.
+Variadic arguments (`vec!`, `format!`); implementing a trait across many concrete types; generating
+code from a declarative table; capturing an expression unevaluated (`assert!`, `matches!`, lazy
+logging); and boilerplate that genuinely needs identifiers or syntax as input.
 
 **Why:** all five are things the type system cannot express. Naming them makes the boundary
 checkable — a macro whose reason is not on this list needs a written justification.
@@ -236,17 +237,17 @@ pub fn sample() -> u32 {
 
 Bind it to a local first.
 
-**Why:** a macro that expands `$x` twice evaluates the caller's side effect twice — `max!(v.pop(),
-0)` pops twice — and the caller cannot see why. This is invisible at the call site, which is what
-makes it dangerous rather than merely wrong.
+**Why:** a macro that expands `$x` twice evaluates the caller's side effect twice —
+`max!(v.pop(), 0)` pops twice — and the caller cannot see why. This is invisible at the call site,
+which is what makes it dangerous rather than merely wrong.
 
 **Check:** count the occurrences of each `$` variable in the expansion. More than one means bind it.
 
 ### RS-MACRO-12 [S] Wrap multi-statement expansions in a block
 
-`{{ … }}`, ending in an expression with no `;` after it. In expression position that trailing `;`
-is an error (`semicolon_in_expressions_from_macros`, deny by default), for a macro from another
-crate as much as your own.
+`{{ … }}`, ending in an expression with no `;` after it. In expression position that trailing `;` is
+an error (`semicolon_in_expressions_from_macros`, deny by default), for a macro from another crate
+as much as your own.
 
 **Why:** the outer braces make the macro usable in expression position, and the inner ones scope the
 temporaries so they do not leak into the caller's namespace or collide with their bindings.
@@ -278,8 +279,8 @@ pub fn sample() -> Vec<u32> {
 ### RS-MACRO-14 [S] Emit a helpful `compile_error!` from a catch-all arm
 
 **Why:** the default failure is `no rules expected this token in macro invocation`, which tells the
-user nothing about what shape was expected. A final arm with
-`compile_error!("expected `name = value`")` turns that into an instruction.
+user nothing about what shape was expected. A final arm with `compile_error!("expected `name =
+value`")` turns that into an instruction.
 
 **Check:** invoke the macro wrongly and read the error. Would a new user know what to fix?
 

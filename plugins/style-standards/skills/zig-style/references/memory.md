@@ -9,12 +9,12 @@ startup".
 This chapter does not own error-set design, `try`/`catch` selection, or `unreachable`-versus-error —
 those are `references/errors.md`. `Io.Reader`/`Io.Writer` buffer sizing is
 `references/concurrency.md` ZS-CONC-11 and ZS-CONC-35; assertion density and bounded loops are
-`references/assertions.md`; `MultiArrayList` layout choices are
-`references/data.md` ZS-DATA-22; allocation-failure testing is
-`references/testing.md` ZS-TEST-11. It cites them.
+`references/assertions.md`; `MultiArrayList` layout choices are `references/data.md` ZS-DATA-22;
+allocation-failure testing is `references/testing.md` ZS-TEST-11. It cites them.
 
 Every example assumes a file opening with `const std = @import("std");` and
 `const assert = std.debug.assert;` — assertions are called bare, per ZS-ASSERT-01.
+
 ## Contents
 
 - **Choosing an allocator**
@@ -58,12 +58,12 @@ Every example assumes a file opening with `const std = @import("std");` and
 ## Choosing an allocator
 
 ### ZS-MEM-01 [M] Take `std.process.Init` in `main` and use the allocators it hands you
-`main` may take `std.process.Init` as its first parameter. Use `init.gpa` for
-temporary/scoped heap and `init.arena.allocator()` for process-lifetime data. Do not hand-roll GPA
-boilerplate in `main`. The `init.gpa` you get is `SafeAllocator` in `debug` and `safe` builds,
-whether or not libc is linked; in `fast` and `small` builds `c_allocator` when linking libc and
-`smp_allocator` when multi-threaded without it; `wasm_allocator` on wasm. `init.arena` is backed by
-`page_allocator`.
+
+`main` may take `std.process.Init` as its first parameter. Use `init.gpa` for temporary/scoped heap
+and `init.arena.allocator()` for process-lifetime data. Do not hand-roll GPA boilerplate in `main`.
+The `init.gpa` you get is `SafeAllocator` in `debug` and `safe` builds, whether or not libc is
+linked; in `fast` and `small` builds `c_allocator` when linking libc and `smp_allocator` when
+multi-threaded without it; `wasm_allocator` on wasm. `init.arena` is backed by `page_allocator`.
 
 **Why:** `std/start.zig` already runs the correct selection ladder for the target and optimize mode,
 installs leak checking, creates the process arena, and tears all of it down after `main` returns.
@@ -102,12 +102,13 @@ pub fn main(init: std.process.Init) !void {
 }
 ```
 
-`std.process.Init` exactly: `minimal: Minimal`, `arena:
-*std.heap.ArenaAllocator` ("Threadsafe"), `gpa: Allocator` ("Threadsafe"), `io: Io`, `environ_map:
-*Environ.Map` ("Not threadsafe"), `preopens: Preopens`. `Init.Minimal` (`environ`, `args`) is the
-lighter alternative first parameter; `pub fn main() !void` still works but gives you nothing.
+`std.process.Init` exactly: `minimal: Minimal`, `arena: *std.heap.ArenaAllocator` ("Threadsafe"),
+`gpa: Allocator` ("Threadsafe"), `io: Io`, `environ_map: *Environ.Map` ("Not threadsafe"),
+`preopens: Preopens`. `Init.Minimal` (`environ`, `args`) is the lighter alternative first parameter;
+`pub fn main() !void` still works but gives you nothing.
 
 ### ZS-MEM-02 [M] A library never names a concrete allocator
+
 Library code takes `gpa: std.mem.Allocator` as a parameter. `std.heap.*` may not appear anywhere in
 a reusable module — not `page_allocator`, not `c_allocator`, not `smp_allocator`, not a
 `SafeAllocator` field. A library's C-ABI export layer is its root, the one place that picks an
@@ -137,6 +138,7 @@ pub fn parse(gpa: std.mem.Allocator, source: []const u8) std.mem.Allocator.Error
 ```
 
 ### ZS-MEM-03 [M] Pick the allocator from the taxonomy, not from habit
+
 Every allocator in the table below has a specific niche. Choosing outside it is a defect, not a
 preference.
 
@@ -159,8 +161,8 @@ preference.
 > `std.heap.ThreadSafeAllocator`, `std.heap.GeneralPurposeAllocator`, and
 > `std.heap.LoggingAllocator` do **not** exist in 0.17 — zero hits in std, and
 > `std.heap.ThreadSafeAllocator` is a `has no member named` compile error. Use `SafeAllocator`,
-> which has no single-threaded variant, or `smp_allocator` for thread safety. `SafeAllocator` has
-> no logging option; only the deprecated `DebugAllocator(.{ .verbose_log = true })` still logs.
+> which has no single-threaded variant, or `smp_allocator` for thread safety. `SafeAllocator` has no
+> logging option; only the deprecated `DebugAllocator(.{ .verbose_log = true })` still logs.
 
 Defaults by program kind, matching std's own ladder in `std.start`:
 
@@ -182,15 +184,16 @@ build or changes the program's syscall profile by a factor of thousands.
 `std.heap.GeneralPurposeAllocator`, or `std.heap.LoggingAllocator`, none of which exist in 0.17.
 
 ### ZS-MEM-04 [M] If you construct a `SafeAllocator` yourself, consume the leak count from `deinit`
+
 `SafeAllocator.deinit()` returns the number of leaks as a `usize`. Turn a non-zero count into a
-failure — an error or a non-zero exit — and never `_ = sa.deinit();`. Not inside an `assert`
-either: `deinit` is a side effect, and an `assert`'s argument must have none
-(`references/assertions.md` ZS-ASSERT-02). It replaced `DebugAllocator`, deprecated in 0.17, whose
-`deinit()` returned `std.heap.Check` (`.ok` / `.leak`) under the same rule.
+failure — an error or a non-zero exit — and never `_ = sa.deinit();`. Not inside an `assert` either:
+`deinit` is a side effect, and an `assert`'s argument must have none (`references/assertions.md`
+ZS-ASSERT-02). It replaced `DebugAllocator`, deprecated in 0.17, whose `deinit()` returned
+`std.heap.Check` (`.ok` / `.leak`) under the same rule.
 
 **Why:** the leak report is written by `deinit`, but the *decision* is the return value. Discarding
-it means a leaking build exits 0 and CI stays green. Construct it with `.init(backing, .{})`: it
-has no default value, and it is thread-safe only if `backing` is.
+it means a leaking build exits 0 and CI stays green. Construct it with `.init(backing, .{})`: it has
+no default value, and it is thread-safe only if `backing` is.
 
 **Check:** `rg -n '_ = .*\.deinit\(\)'` — a discarded leak count is the whole defect — and a
 `deinit()` call inside `assert(`.
@@ -213,9 +216,9 @@ pub fn runChecked(work: *const fn (std.mem.Allocator) std.mem.Allocator.Error!vo
 }
 ```
 
-`SafeAllocator` prints the three-trace double-free report (allocation, first free, second free)
-with no opt-in. Each trace holds seven frames in a `debug` build; a `safe` build records none unless
-you set `.stack_trace_frames`. `DebugAllocator` needed `.never_unmap` and `.retain_metadata` plus
+`SafeAllocator` prints the three-trace double-free report (allocation, first free, second free) with
+no opt-in. Each trace holds seven frames in a `debug` build; a `safe` build records none unless you
+set `.stack_trace_frames`. `DebugAllocator` needed `.never_unmap` and `.retain_metadata` plus
 `deinitWithoutLeakChecks()` for the same report, and without them a double free of a small
 allocation faulted inside `Allocator.free`'s `@memset(bytes, undefined)` first.
 
@@ -224,6 +227,7 @@ allocation faulted inside `Allocator.free`'s `@memset(bytes, undefined)` first.
 ## Passing and naming the allocator
 
 ### ZS-MEM-05 [M] Pass the allocator per call; do not store it in a field
+
 Allocating methods take `gpa: Allocator` as the first parameter after the receiver, including
 `deinit` (ZS-MEM-06 gives the order). Reserve allocator *fields* for types that are themselves
 allocator wrappers. This is the direction std moved: every allocator-in-a-field container in std is
@@ -235,8 +239,8 @@ every allocation point at the call site instead of behind `self.allocator`; and 
 can be memcpy'd, embedded, or moved without carrying a pointer to dead allocator state.
 
 **Check:** a field of type `std.mem.Allocator` on any struct that is not itself an allocator
-wrapper, and a `deinit`/`append`/`ensureTotalCapacity` call on an unmanaged container that passes
-no allocator. Grep for `self.allocator` / `x.gpa` at an allocation site: that is the field this rule
+wrapper, and a `deinit`/`append`/`ensureTotalCapacity` call on an unmanaged container that passes no
+allocator. Grep for `self.allocator` / `x.gpa` at an allocation site: that is the field this rule
 removes. Do not flag every receiver-only `deinit`: a type that owns its allocator or holds none
 declares one, as 47 `pub fn deinit` in 0.17 std do — `Io.Threaded.deinit(t: *Threaded) void`,
 `ArenaAllocator.deinit` taking the arena by value, `SafeAllocator.deinit` returning its leak count.
@@ -267,6 +271,7 @@ Legitimate exceptions: a type that *is* an allocator wrapper (`ArenaAllocator.ch
 everything it hands memory to. Document the invariant in a doc comment when you take the exception.
 
 ### ZS-MEM-06 [M] Name the allocator for its role — `gpa`, `arena`, `scratch` — and place it after the receiver
+
 `gpa` means the caller must free what comes back; `arena` means the result is never freed
 individually and dies with the arena. A field holding an allocator is named for its role the same
 way. Counted over 0.17 std: `gpa: Allocator` **312**, `allocator: Allocator` **202**,
@@ -297,9 +302,10 @@ pub fn render(gpa: Allocator, arena: Allocator, doc: *const Doc) Allocator.Error
 ```
 
 ### ZS-MEM-07 [M] Never hand out an `Allocator` whose backing state lives in a frame that returns
-`ArenaAllocator.allocator()`, `FixedBufferAllocator.allocator()`, and
-`SafeAllocator.allocator()` all embed `.ptr = self`. If `self` is a local, the `Allocator` value
-becomes a dangling pointer the moment the function returns.
+
+`ArenaAllocator.allocator()`, `FixedBufferAllocator.allocator()`, and `SafeAllocator.allocator()`
+all embed `.ptr = self`. If `self` is a local, the `Allocator` value becomes a dangling pointer the
+moment the function returns.
 
 **Why:** the `Allocator` interface is `{ ptr: *anyopaque, vtable: *const VTable }`. Copying the
 `Allocator` copies the pointer, not the state. Returning one from a function that owns the state on
@@ -330,6 +336,7 @@ The same applies to storing `*ArenaAllocator` (as `std.process.Init` does): stor
 state whose lifetime you can name, and document it.
 
 ### ZS-MEM-08 [M] One object, one allocator, for its whole lifetime
+
 The allocator passed to `deinit`, `append`, `ensureTotalCapacity`, and `free` must be the same one
 that performed the original allocation. The `std.ArrayList` doc comment states it: "The same
 allocator must be used throughout its entire lifetime."
@@ -355,6 +362,7 @@ list.deinit(arena.allocator());
 ## Ownership
 
 ### ZS-MEM-09 [M] Signal ownership transfer in the name and the doc comment
+
 A function that returns memory the caller must free says so: `/// Caller owns the returned memory.`
 Follow std's vocabulary — `dupe`, `dupeSentinel`, `alloc*`, `create`, `clone`, `toOwnedSlice`, and
 an `Alloc` suffix (`currentPathAlloc`) transfer ownership; `items`, `slice()`, `buffered()`,
@@ -387,11 +395,11 @@ Corollary: take `[]const u8` for borrowed input. Take `[]u8` only when you will 
 a `[]u8` parameter is a claim.
 
 ### ZS-MEM-10 [M] Put `defer` / `errdefer` on the line immediately after the acquisition
+
 Two requirements, both binding. **Adjacency:** no statement may sit between an acquisition and its
 release, and the release names the exact thing acquired (`gpa.free(buffer)`, not
-`gpa.free(self.buffer)`).
-**Grouping:** the acquisition/release pair is separated from surrounding code by a blank line above
-and below, so each pair reads as a two-line visual unit.
+`gpa.free(self.buffer)`). **Grouping:** the acquisition/release pair is separated from surrounding
+code by a blank line above and below, so each pair reads as a two-line visual unit.
 
 **Why:** the pairing is verified by eye. Any distance between the lines is where a future `return`,
 `try`, or early `break` slips in unnoticed, and the blank lines make the *absence* of a release
@@ -424,13 +432,13 @@ try prefill(buffer);
 The same shape applies to every acquisition, not just allocation: `Io.File`/`Io.Dir` handles
 (`defer file.close(io)`), `Io.Mutex` (`defer m.unlock(io)`), `Io.Group` (`defer g.cancel(io)`), and
 `Io.Future` (`defer _ = f.cancel(io);`, which is idempotent, so a later `await` still returns the
-result). Where the release itself is fallible or cancelable, use the
-`*Uncancelable` variant — a `defer` body cannot propagate an error (see
-`references/concurrency.md` ZS-CONC-26). What happens once the pair is in place — the order of
-teardown, the point ownership transfers, the scope inside a loop — is `references/errors.md`
-ZS-ERR-11, ZS-ERR-12 and ZS-ERR-13.
+result). Where the release itself is fallible or cancelable, use the `*Uncancelable` variant — a
+`defer` body cannot propagate an error (see `references/concurrency.md` ZS-CONC-26). What happens
+once the pair is in place — the order of teardown, the point ownership transfers, the scope inside a
+loop — is `references/errors.md` ZS-ERR-11, ZS-ERR-12 and ZS-ERR-13.
 
 ### ZS-MEM-11 [M] `errdefer` every fallible construction step, until ownership transfers
+
 Multi-step `init` puts an `errdefer` after each allocation, up to the point where ownership moves to
 a value the caller will `deinit`. Where that point is, and what an `errdefer` covers inside a loop,
 are `references/errors.md` ZS-ERR-12 and ZS-ERR-13.
@@ -473,6 +481,7 @@ const Doc = struct {
 ```
 
 ### ZS-MEM-12 [M] `deinit` never fails, never allocates, and poisons the struct
+
 Signature `pub fn deinit(x: *T, gpa: Allocator) void`. It returns `void`, performs no fallible work,
 and ends with `x.* = undefined;`, as std's `MemoryPool.deinit` and `ArrayList.deinit` do. Zig has no
 idempotent-deinit convention: calling `deinit` twice is a double free.
@@ -488,6 +497,7 @@ Exception, and it is a real trap: `ArenaAllocator.deinit` takes the arena **by v
 (`pub fn deinit(arena: ArenaAllocator) void`), not by pointer.
 
 ### ZS-MEM-13 [M] Use `toOwnedSlice` to hand a built buffer out of a builder
+
 When a container's job was to build one slice, transfer with `toOwnedSlice(gpa)` and let the
 container fall back to `.empty` rather than copying and freeing by hand. On the static-allocation
 path use `toOwnedSliceAssert(self)` or `toOwnedSliceSentinelAssert(self, sentinel)`, which take no
@@ -517,6 +527,7 @@ test "toOwnedSlice transfers ownership" {
 ```
 
 ### ZS-MEM-14 [M] Free exactly the slice you allocated
+
 `free`, `resize`, and `remap` require `memory.len` to equal the length requested from the most
 recent successful `alloc`/`resize`/`remap`, and the alignment to equal the original. Never free a
 sub-slice, a re-sliced view, or a slice whose length you shortened by hand. Track the original
@@ -549,9 +560,9 @@ If you genuinely want to shrink, use `gpa.realloc(buffer, n)` (only fails on OOM
 `if (gpa.resize(buffer, n)) buffer = buffer[0..n];` — `resize` is "guaranteed to not move the
 pointer", and `remap` may move it, so reassign from its return value.
 
-A related shape the type system does not catch: slicing a `[*]T` with comptime-known bounds
-produces a `*[N]T`, not a slice, and `Allocator.free` accepts a pointer to an array as well as a
-slice, freeing `N` elements — std's own `Io.Dispatch.deinit` frees
+A related shape the type system does not catch: slicing a `[*]T` with comptime-known bounds produces
+a `*[N]T`, not a slice, and `Allocator.free` accepts a pointer to an array as well as a slice,
+freeing `N` elements — std's own `Io.Dispatch.deinit` frees
 `ev.main_loop_stack[0..main_loop_stack_size]` that way. It compiles, so this rule covers it
 unchanged: `N` must be the length you allocated. A bare many-item `[*]T`, which carries no length,
 is rejected.
@@ -561,6 +572,7 @@ is rejected.
 ## Invalidation
 
 ### ZS-MEM-15 [M] Pointers into container storage die on any capacity change
+
 Every allocating container operation may reallocate: `append`, `appendSlice`, `appendNTimes`,
 `insert`, `addOne`, `addManyAsSlice`, `ensureTotalCapacity`, `ensureUnusedCapacity`, `resize`,
 `getOrPut`, and `put`. Across any of them, never hold `&list.items[i]`, `list.items` itself,
@@ -570,9 +582,9 @@ Every allocating container operation may reallocate: `append`, `appendSlice`, `a
 The full set of container types this covers: `std.ArrayList`, `std.MultiArrayList`, `std.Deque`,
 `std.array_hash_map.Auto`/`String`/`Custom`, and `std.HashMap`/`std.AutoHashMap`. Hash maps add a
 second invalidation source that `ArrayList` does not have: a `remove`/`swapRemove` reorders or
-tombstones entries even when capacity is unchanged, so an entry pointer is dead after *any*
-removal, not only after growth. `std.heap.MemoryPool(T)` is the exception — it never moves an
-existing item (ZS-MEM-16).
+tombstones entries even when capacity is unchanged, so an entry pointer is dead after *any* removal,
+not only after growth. `std.heap.MemoryPool(T)` is the exception — it never moves an existing item
+(ZS-MEM-16).
 
 **Why:** growth is a `remap` that falls back to alloc-copy-free, and `Allocator.free` `@memset`s the
 old block to `undefined`: a retained element pointer reads poison, or in a `fast` build whatever
@@ -614,6 +626,7 @@ between.
 `references/data.md` ZS-DATA-21 is the structural fix: a handle newtype instead of a pointer.
 
 ### ZS-MEM-16 [M] If you need stable pointers, use `std.heap.MemoryPool(T)` or store indices
+
 For "many nodes, pointers must not move", use `MemoryPool(T)`, optionally with the intrusive
 `std.SinglyLinkedList` / `std.DoublyLinkedList` (a `Node` holds links only; recover the payload with
 `@fieldParentPtr`). `references/data.md` ZS-DATA-23 covers the containers std no longer has.
@@ -647,9 +660,10 @@ test "MemoryPool gives stable pointers" {
 ## OOM policy
 
 ### ZS-MEM-17 [M] Libraries propagate `error.OutOfMemory`; only an application's top level may abort
-Return `Allocator.Error!T` (or a set containing it). Never `catch @panic`, never `catch
-unreachable`, never `catch return null` in reusable code. An application `main` may `return err`, or
-a CLI may `std.process.fatal("out of memory", .{})` at the outermost layer.
+
+Return `Allocator.Error!T` (or a set containing it). Never `catch @panic`, never
+`catch unreachable`, never `catch return null` in reusable code. An application `main` may
+`return err`, or a CLI may `std.process.fatal("out of memory", .{})` at the outermost layer.
 
 **Why:** `Allocator.Error` has one member, so `try` costs a branch and one error name. Aborting
 takes away the caller's choice to shed load, retry smaller, or fail one request, and breaks the
@@ -674,15 +688,16 @@ pub fn parse(gpa: Allocator, source: []const u8) ParseError!Ast {
 }
 ```
 
-To bound an application's heap rather than abort on it, give the bounded part a fixed backing
-buffer (ZS-MEM-21): allocations past it return `error.OutOfMemory` through the normal path.
-`SafeAllocator` has no memory-limit option, and the allocator that had one,
+To bound an application's heap rather than abort on it, give the bounded part a fixed backing buffer
+(ZS-MEM-21): allocations past it return `error.OutOfMemory` through the normal path. `SafeAllocator`
+has no memory-limit option, and the allocator that had one,
 `DebugAllocator(.{ .enable_memory_limit = true })` with `da.requested_memory_limit`, is deprecated
 in 0.17.
 
 ## Static allocation and the graduated ladder
 
 ### ZS-MEM-18 [M!] Allocate all memory at startup; allocate nothing in steady state
+
 TigerStyle, verbatim: "All memory must be statically allocated at startup. **No memory may be
 dynamically allocated (or freed and reallocated) after initialization.**" Adopt this in full only
 when the criteria below hold; otherwise adopt the graduated forms ZS-MEM-19 through ZS-MEM-21, which
@@ -701,9 +716,9 @@ decision to make.
 files, general-purpose servers with variable payloads), or you depend on std subsystems that
 allocate at use time, or you are writing a library.
 
-*Relaxed form:* the graduated ladder, in descending strength — ZS-MEM-21, a hard ceiling
-from a fixed backing buffer (`ArrayList.initBuffer` or `FixedBufferAllocator`); ZS-MEM-19, an arena
-per request or phase, reset at the boundary; ZS-MEM-20, exactly the bound reserved up front and
+*Relaxed form:* the graduated ladder, in descending strength — ZS-MEM-21, a hard ceiling from a
+fixed backing buffer (`ArrayList.initBuffer` or `FixedBufferAllocator`); ZS-MEM-19, an arena per
+request or phase, reset at the boundary; ZS-MEM-20, exactly the bound reserved up front and
 `*AssumeCapacity` in the hot path. Pick exactly one rung, name it in the module's doc comment, and
 treat an allocation inside a hot loop or on a request path as a design smell requiring a justifying
 comment. What does not relax at any tier: derive the bounds, write them down as `_max` constants,
@@ -714,12 +729,13 @@ steady state loses `error.OutOfMemory`, use-after-free, fragmentation, and growt
 you must derive every bound (in-flight operations, message size, queue depth), so you can assert it.
 
 **What it costs:**
+
 - You must size everything up front, and getting it wrong converts a soft failure (slower, more RSS)
   into a hard one (reject the work, or `fatal` with an operator-actionable message).
 - Over-provisioning is paid in resident memory at all times, not just at peak.
-- Large parts of std become unavailable: anything that allocates internally at use time —
-  `std.json` parsing, `std.zig.Ast`, hash maps that grow, `Io.Writer.Allocating`. TigerBeetle's own
-  answer was to write `src/stdx` and reimplement bounded arrays, bit sets, and PRNGs.
+- Large parts of std become unavailable: anything that allocates internally at use time — `std.json`
+  parsing, `std.zig.Ast`, hash maps that grow, `Io.Writer.Allocating`. TigerBeetle's own answer was
+  to write `src/stdx` and reimplement bounded arrays, bit sets, and PRNGs.
 - std has no bounded-array type, so the bounded containers you need are `ArrayList` over a fixed
   buffer (ZS-MEM-21), your own fixed pools, or third-party code.
 
@@ -810,20 +826,20 @@ test "allocation is a startup-only privilege" {
 > **Where TigerStyle and idiomatic std genuinely disagree.** Std's entire culture is
 > allocator-passing: `ArrayList`, every hash map, `std.json`, and `Io.Writer.Allocating` all
 > allocate at use time, and std has no bounded array, the container that would make "no allocation
-> after init" ergonomic. TigerStyle's position is that this is a design smell for systems
-> that must not fail. Both are right about their own domain. The recommendation, keyed to the tiers:
-> `[M!]` full static allocation with a gate for high-reliability systems meeting the five criteria
-> above; `[S]` for everyone else, meaning **allocate during `init`, treat an allocation inside a hot
-> loop or on a request path as a design smell requiring a justifying comment**, and use
-> ZS-MEM-19, ZS-MEM-20 and ZS-MEM-21 where a bound is natural. What you keep in every case is the
-> cultural payoff: know your bounds, write them down as `_max` constants, and `comptime`-assert
-> them.
+> after init" ergonomic. TigerStyle's position is that this is a design smell for systems that must
+> not fail. Both are right about their own domain. The recommendation, keyed to the tiers: `[M!]`
+> full static allocation with a gate for high-reliability systems meeting the five criteria above;
+> `[S]` for everyone else, meaning **allocate during `init`, treat an allocation inside a hot loop
+> or on a request path as a design smell requiring a justifying comment**, and use ZS-MEM-19,
+> ZS-MEM-20 and ZS-MEM-21 where a bound is natural. What you keep in every case is the cultural
+> payoff: know your bounds, write them down as `_max` constants, and `comptime`-assert them.
 
 TigerStyle's bounded containers `assert(!full())` on push, treating overflow as a programmer error.
-std offers both the asserting and the error-returning form, and `references/data.md` ZS-DATA-23
-says which a call site picks.
+std offers both the asserting and the error-returning form, and `references/data.md` ZS-DATA-23 says
+which a call site picks.
 
 ### ZS-MEM-19 [S] Arena per request, per phase, per iteration
+
 Give each unit of work an `ArenaAllocator`; free the whole thing at the end of the unit instead of
 freeing individual objects. Reset with `.retain_capacity` between units, or
 `.{ .retain_with_limit = N }` on a long-running server. `.retain_capacity` preheats the arena, so
@@ -861,6 +877,7 @@ gpa-owned pointers in one struct without a doc comment saying which is which; ne
 three are documented "Not threadsafe.", so quiesce every worker first.
 
 ### ZS-MEM-20 [S] Preallocate to the known bound, then use `AssumeCapacity` in the hot path
+
 When you know the count, reserve exactly that count once outside the loop — `.initCapacity(gpa, n)`
 for a new list, `ensureTotalCapacityPrecise` for an existing one — and call `appendAssumeCapacity` /
 `appendSliceAssumeCapacity` / `addManyAsSliceAssumeCapacity` inside it. `ensureTotalCapacity` passes
@@ -893,6 +910,7 @@ test "reserve the bound exactly, then AssumeCapacity in the hot path" {
 ```
 
 ### ZS-MEM-21 [S] Impose a hard ceiling with a fixed backing buffer
+
 For work with a natural bound, allocate from a `[N]u8` — either `ArrayList.initBuffer`, std's
 fixed-capacity list (`references/data.md` ZS-DATA-23), or `std.heap.FixedBufferAllocator` when a
 subsystem demands an `Allocator`. `initBuffer` gives a list with `capacity = buffer.len` and no
@@ -940,9 +958,10 @@ same instance concurrently.
 ## The Allocator interface and custom allocators
 
 ### ZS-MEM-22 [M] Implement all four vtable members to their exact contracts
-The 0.17 `Allocator.VTable` is `alloc`, `resize`, `remap`, `free`. `remap` is newer than most
-Zig material — it is not optional and it is not `resize`. The vtable is a struct literal, so a
-missing member is a compile error; a member you cannot implement takes the provided stand-in
+
+The 0.17 `Allocator.VTable` is `alloc`, `resize`, `remap`, `free`. `remap` is newer than most Zig
+material — it is not optional and it is not `resize`. The vtable is a struct literal, so a missing
+member is a compile error; a member you cannot implement takes the provided stand-in
 (`Allocator.noAlloc` / `noResize` / `noRemap` / `noFree`) rather than an invented behavior.
 
 **Why:** `Allocator.resize` is documented "guaranteed to not move the pointer", which is what makes
@@ -967,6 +986,7 @@ pub const VTable = struct {
 ```
 
 Contracts, from the doc comments:
+
 - **`alloc`** — return `len` bytes satisfying `alignment`, or `null`. `ret_addr == 0` means no
   return address was provided. Callers never request `len == 0`.
 - **`resize`** — `memory.len` must equal the length from the most recent successful
@@ -1030,12 +1050,13 @@ const Bump = struct {
 };
 ```
 
-Hand the `Allocator` out as `references/comptime.md` ZS-COMPTIME-17 hands out any vtable
-interface: from a method taking `*Self`, with `.ptr = self` (ZS-MEM-07). A stateless allocator sets
+Hand the `Allocator` out as `references/comptime.md` ZS-COMPTIME-17 hands out any vtable interface:
+from a method taking `*Self`, with `.ptr = self` (ZS-MEM-07). A stateless allocator sets
 `.ptr = undefined` and exposes `pub const vtable: Allocator.VTable`, as `PageAllocator` and
 `SmpAllocator` do.
 
 ### ZS-MEM-23 [M] Test a custom allocator with std's own conformance helpers
+
 Run `std.heap.testAllocator`, `testAllocatorAligned`, `testAllocatorLargeAlignment`, and
 `testAllocatorAlignedShrink` against it, and wrap it in `std.mem.validationWrap` while developing.
 `validationWrap` "asserts that allocation sizes are greater than zero and returned pointers have
@@ -1061,6 +1082,7 @@ test "Bump obeys the Allocator contract" {
 ```
 
 ### ZS-MEM-24 [M] Alignment is `std.mem.Alignment`, never a raw integer
+
 `alignedAlloc` takes `comptime alignment: ?Alignment`, where `null` means natural alignment. Build
 values with `.of(T)`, `.fromByteUnits(n)`, or the named variants `.@"1"` … `.@"64"`; only those are
 named, so larger values must go through `.fromByteUnits`.
@@ -1103,10 +1125,11 @@ masking.
 ## Raw memory
 
 ### ZS-MEM-25 [M] `@memcpy` for disjoint copies, `@memmove` for overlapping ones
+
 `@memcpy(dest, source)` requires the regions not to overlap and the lengths to match. When source
 and destination may overlap — a ring buffer, an in-place shift — use `@memmove`.
-`std.mem.copyForwards` and `std.mem.copyBackwards` are deprecated ("This function is deprecated;
-use @memmove instead"). Use `@memset` rather than a zeroing loop, so the optimizer can vectorize the
+`std.mem.copyForwards` and `std.mem.copyBackwards` are deprecated ("This function is deprecated; use
+@memmove instead"). Use `@memset` rather than a zeroing loop, so the optimizer can vectorize the
 fill.
 
 **Why:** `@memcpy` on overlapping regions is illegal behavior, not merely wrong output: the
@@ -1114,8 +1137,8 @@ optimizer may assume non-aliasing and vectorize. `copyForwards`/`copyBackwards` 
 the direction from pointer order, the comparison `@memmove` performs correctly for you.
 
 **Check:** a `@memcpy` whose two arguments are slices of the same base array or the same pointer —
-`@memcpy(ring[1..8], ring[0..7])` is the shape. Also `std.mem.copyForwards`/`copyBackwards`
-anywhere (both deprecated), and a byte-at-a-time loop that only writes a constant.
+`@memcpy(ring[1..8], ring[0..7])` is the shape. Also `std.mem.copyForwards`/`copyBackwards` anywhere
+(both deprecated), and a byte-at-a-time loop that only writes a constant.
 
 ```zig
 // verified
@@ -1132,6 +1155,7 @@ test "disjoint copy vs overlapping copy" {
 ```
 
 ### ZS-MEM-26 [M!] Zero padding before it leaves the process, and wipe secrets on the way out
+
 Any buffer written to disk, sent on the wire, or handed to another process must have every byte
 defined — including struct padding and the unused tail of a fixed-size frame. Wipe key material with
 `std.crypto.secureZero(T, slice)`, not `@memset`: `@memset(&key, 0)` on a value that is dead

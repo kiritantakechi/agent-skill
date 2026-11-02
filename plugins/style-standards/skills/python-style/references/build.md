@@ -51,8 +51,8 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 typing: `typing.python.org/spec`, not PEP 484.
 
 **Why:** every packaging PEP this chapter would otherwise cite now opens with *"This PEP is a
-historical document"* and redirects to the PyPA specifications. A PEP records what was decided
-once; the specification is the maintained text and records what is true now.
+historical document"* and redirects to the PyPA specifications. A PEP records what was decided once;
+the specification is the maintained text and records what is true now.
 
 **Check:** every packaging or typing reference in the project's own documentation. A bare PEP number
 as the normative citation is the finding; naming the PEP as provenance alongside the spec is fine.
@@ -76,8 +76,8 @@ resolver, or a security scanner answer questions about your package without inst
 expression, which names exactly one licence where the classifier and the free-text field could
 disagree. `license-files` puts the actual text in the distribution, which several licences require.
 
-**Check:** `rg -n 'License ::' pyproject.toml` and `rg -n 'license' pyproject.toml` — a table
-form or a classifier is the finding.
+**Check:** `rg -n 'License ::' pyproject.toml` and `rg -n 'license' pyproject.toml` — a table form
+or a classifier is the finding.
 
 ```toml
 # verified — GOOD
@@ -95,8 +95,8 @@ classifiers = [
 
 ### PS-BUILD-04 [M] Give `requires-python` a floor and no ceiling
 
-`>=3.15`. Never `<4`, never `<3.16`. If a future version genuinely breaks the package, yank or
-patch then.
+`>=3.15`. Never `<4`, never `<3.16`. If a future version genuinely breaks the package, yank or patch
+then.
 
 **Why:** an upper bound is a promise about interpreters that do not exist yet: it makes the package
 uninstallable on the next release even where it would have worked, and only a new release from you
@@ -109,8 +109,8 @@ fixes it. PyPA advises against it for exactly this reason.
 `homepage`, `source`, `issues`, `changelog`, `documentation` — lowercase. Normalisation strips
 punctuation and case, so `"Bug Tracker"` does work, but the plain label is the safe spelling.
 
-**Why:** the labels are normalised and recognised, so an index can render the right icons and a
-tool can find your issue tracker without guessing. Ad-hoc labels render as plain text.
+**Why:** the labels are normalised and recognised, so an index can render the right icons and a tool
+can find your issue tracker without guessing. Ad-hoc labels render as plain text.
 
 **Check:** the `[project.urls]` table against the well-known list.
 
@@ -189,8 +189,8 @@ hours. Seven days covers that window many times over, for the cost of a week-old
 
 ### PS-BUILD-12 [M] Build with `uv_build`, and never invoke `setup.py`
 
-`requires = ["uv_build>=0.13.3,<0.14"]` and `build-backend = "uv_build"`. Build with `uv build`.
-The upper bound is required: `uv_build` follows uv's versioning policy and may break across minor
+`requires = ["uv_build>=0.13.3,<0.14"]` and `build-backend = "uv_build"`. Build with `uv build`. The
+upper bound is required: `uv_build` follows uv's versioning policy and may break across minor
 versions. That is not the ceiling PS-BUILD-04 forbids — that rule governs `requires-python`, a claim
 about interpreters you cannot test, while this is a build dependency you do.
 
@@ -198,8 +198,8 @@ about interpreters you cannot test, while this is a build dependency you do.
 standard library. A declared backend that the frontend calls makes the build reproducible from the
 declaration rather than from whatever a script happens to do.
 
-**Check:** `rg -n 'setup.py' .` — every invocation is the finding. `setup.py` may still exist
-as a shim; calling it directly may not.
+**Check:** `rg -n 'setup.py' .` — every invocation is the finding. `setup.py` may still exist as a
+shim; calling it directly may not.
 
 ### PS-BUILD-13 [M] Build the package from `src/`, and ship `py.typed`
 
@@ -207,9 +207,9 @@ as a shim; calling it directly may not.
 automatically because it lives inside the package — but verify that against the built wheel rather
 than taking it on trust.
 
-**Why:** `src/` is what makes the tests exercise the installed package rather than the working
-copy — see PS-NAME-12. `py.typed` is what makes your annotations visible downstream at all;
-without it a type checker ignores them entirely.
+**Why:** `src/` is what makes the tests exercise the installed package rather than the working copy
+— see PS-NAME-12. `py.typed` is what makes your annotations visible downstream at all; without it a
+type checker ignores them entirely.
 
 **Check:** unpack the built wheel and look for `py.typed`. Its absence is the finding.
 
@@ -222,8 +222,8 @@ without it a type checker ignores them entirely.
 `acme_widget` — and looking for that directory under `src/`. Name them differently and the build
 fails outright until a `module-name` override papers over it; matched, the layout is inferred.
 
-**Check:** `rg -n '^name' pyproject.toml` against the directory under `src/`. Any difference is
-the finding.
+**Check:** `rg -n '^name' pyproject.toml` against the directory under `src/`. Any difference is the
+finding.
 
 ### PS-BUILD-15 [M] Keep the built artefact reproducible from the repository alone
 
@@ -306,5 +306,4 @@ Not in production, not in CI, not in a Dockerfile.
 without the GIL anyway, and suppresses the one warning you had. CPython's own message says "at your
 own risk"; the risk is memory corruption rather than a wrong answer.
 
-**Check:** `rg -n 'PYTHON_GIL|gil=0' .github/ Dockerfile* 2>/dev/null` — every hit is the
-finding.
+**Check:** `rg -n 'PYTHON_GIL|gil=0' .github/ Dockerfile* 2>/dev/null` — every hit is the finding.

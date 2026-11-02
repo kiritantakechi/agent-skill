@@ -1,13 +1,14 @@
 # RS-BUILD — Cargo, dependencies, lints, toolchain
 
-The manifest is part of the API. It determines what your users can build, on
-which compilers, with which transitive risk. A sloppy `Cargo.toml` produces a
-crate that is technically correct and practically unusable.
+The manifest is part of the API. It determines what your users can build, on which compilers, with
+which transitive risk. A sloppy `Cargo.toml` produces a crate that is technically correct and
+practically unusable.
 
-Baseline assumed here: edition 2024, the current stable toolchain, a six-week
-release cadence, and no LTS channel.
+Baseline assumed here: edition 2024, the current stable toolchain, a six-week release cadence, and
+no LTS channel.
 
 `assets/Cargo.toml` is a complete, resolvable manifest rather than an excerpt.
+
 ## Contents
 
 - **Manifest and metadata**
@@ -67,6 +68,7 @@ release cadence, and no LTS channel.
   - RS-BUILD-44 [M] Keep `target/` and local `.cargo/config.toml` paths out of version control
   - RS-BUILD-45 [S] Prefer `cargo xtask` to shell scripts
   - RS-BUILD-46 [S] Measure build time with `cargo build --timings` before optimizing it
+
 - Decided by tools
 
 ---
@@ -224,9 +226,9 @@ can be deleted.
 
 ### RS-BUILD-09 [M] Configure `[package.metadata.docs.rs]` and the `docsrs` cfg
 
-`[package.metadata.docs.rs]` should enable the features docs.rs should build with (`all-features =
-true`, or an explicit list) and `rustdoc-args = ["--cfg", "docsrs"]` so the `docsrs`-gated
-`doc_cfg` line takes effect (`RS-BUILD-17`). Since 2026-05-01 docs.rs builds only
+`[package.metadata.docs.rs]` should enable the features docs.rs should build with
+(`all-features = true`, or an explicit list) and `rustdoc-args = ["--cfg", "docsrs"]` so the
+`docsrs`-gated `doc_cfg` line takes effect (`RS-BUILD-17`). Since 2026-05-01 docs.rs builds only
 `x86_64-unknown-linux-gnu` unless `targets` lists more, so a crate with platform-gated API sets
 `targets` to cover it.
 
@@ -286,8 +288,8 @@ providing an alternative implementation is a subtractive feature.
 ### RS-BUILD-13 [S] Default to `default = []`
 
 `default = []` where you can afford it. Every default feature is a dependency you impose on
-`--no-default-features` users who never learned it existed. What each feature costs is documented
-in the crate root (`RS-DOC-02`).
+`--no-default-features` users who never learned it existed. What each feature costs is documented in
+the crate root (`RS-DOC-02`).
 
 **Why:** defaults are what most users get, so they set the crate's real dependency footprint. An
 empty default makes cost opt-in, which is what forces the question of what each addition buys.
@@ -363,9 +365,10 @@ that appears in docs but does not exist by default is a support ticket.
 **Why:** with `all-features` documentation, every gated item appears as though it is always
 available. The badge is the only thing that tells the reader they need to enable something.
 
-**Check:** does the crate root carry the `doc_cfg` line, and does `RUSTDOCFLAGS="--cfg docsrs"
-cargo +nightly doc --all-features` show a badge on a feature-gated item? After a release, open the
-crate on docs.rs and find one there too: its badge names the feature.
+**Check:** does the crate root carry the `doc_cfg` line, and does
+`RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features` show a badge on a feature-gated
+item? After a release, open the crate on docs.rs and find one there too: its badge names the
+feature.
 
 ### RS-BUILD-18 [M] Test the feature powerset that matters, not just `--all-features`
 
@@ -420,17 +423,18 @@ yours, which is an unresolvable conflict for the user. Reproducibility belongs i
 
 ### RS-BUILD-22 [M] Turn off default features on heavy dependencies
 
-Turn off default features on heavy dependencies and enable only what you use: `tokio = { version =
-"1", default-features = false, features = ["rt", "macros"] }`. This is often the single largest
-build-time win available. In a workspace, turn them off in `[workspace.dependencies]`; turning them
-off on one member's inherited dependency needs `rust-version` 1.99 (`RS-BUILD-07`).
+Turn off default features on heavy dependencies and enable only what you use:
+`tokio = { version = "1", default-features = false, features = ["rt", "macros"] }`. This is often
+the single largest build-time win available. In a workspace, turn them off in
+`[workspace.dependencies]`; turning them off on one member's inherited dependency needs
+`rust-version` 1.99 (`RS-BUILD-07`).
 
 **Why:** default features are chosen for the dependency's typical user, not for you, and they
 frequently pull in most of the crate. Because features unify, your choice also affects everyone
 downstream.
 
-**Check:** `cargo tree` and look for large subtrees. Each is a candidate for `default-features =
-false`.
+**Check:** `cargo tree` and look for large subtrees. Each is a candidate for
+`default-features = false`.
 
 ```toml
 # fragment — Cargo.toml
@@ -446,8 +450,8 @@ tokio = { version = "1", default-features = false, features = ["rt", "macros"] }
 Lints belong in the manifest's `[lints]` table, inherited from `[workspace.lints]`, not in a wall of
 `#![deny(...)]` attributes in `lib.rs`. The manifest is where a reviewer looks for policy, and it
 applies to every target automatically. `[lints] workspace = true` is all-or-nothing, so a lint only
-some members want stays out of the workspace table, as `print_stdout` does in `assets/Cargo.toml`
-— the table this standard ships, to copy whole. Name `elided_lifetimes_in_paths` and
+some members want stays out of the workspace table, as `print_stdout` does in `assets/Cargo.toml` —
+the table this standard ships, to copy whole. Name `elided_lifetimes_in_paths` and
 `explicit_outlives_requirements` individually rather than enabling `rust_2018_idioms`: its other
 three members cover what edition 2024 already rejects or has made unnecessary.
 
@@ -485,9 +489,9 @@ would have been most useful. It converts a temporary annoyance into a permanent 
 
 Deny warnings in CI through Cargo's own configuration rather than `RUSTFLAGS`:
 `CARGO_BUILD_WARNINGS=deny` (or `[build] warnings = "deny"` in `.cargo/config.toml`) controls this
-without invalidating the build cache, so developers can flip it locally without a full rebuild.
-It also fails `cargo doc` on a rustdoc warning. A Cargo older than the target ignores the setting,
-so an MSRV job on an older toolchain does not deny warnings.
+without invalidating the build cache, so developers can flip it locally without a full rebuild. It
+also fails `cargo doc` on a rustdoc warning. A Cargo older than the target ignores the setting, so
+an MSRV job on an older toolchain does not deny warnings.
 
 **Why:** `RUSTFLAGS` is part of the fingerprint Cargo uses to decide what to rebuild, so setting it
 invalidates the entire cache. The dedicated setting does not, which makes "build with warnings
@@ -509,9 +513,10 @@ so a crate that sets them formats with `cargo +nightly fmt` locally and checks w
 mechanical check ends them. Each override reintroduces the argument in a smaller form, so it needs a
 concrete benefit — import grouping is one, because it reduces diff noise.
 
-**Check:** both options are nightly-only. Stable rustfmt reports `can't set imports_granularity =
-Crate, unstable features are only available in nightly channel` and continues with the default, so
-code it formatted fails a nightly format job. Do the local command and the CI job use one toolchain?
+**Check:** both options are nightly-only. Stable rustfmt reports
+`can't set imports_granularity = Crate, unstable features are only available in nightly channel` and
+continues with the default, so code it formatted fails a nightly format job. Do the local command
+and the CI job use one toolchain?
 
 ## Supply chain, versioning, release
 
@@ -558,8 +563,8 @@ toolchain. Test minimal versions (`cargo +nightly update -Z minimal-versions`) a
 — under-specified lower bounds are a common latent breakage. Running
 `cargo hack check --rust-version --workspace --all-targets --ignore-private` takes the toolchain
 from each package's `rust-version`, so the job cannot drift from the manifest. A hand-written job
-runs `cargo +<msrv>`: a committed `rust-toolchain.toml` (RS-BUILD-36) outranks the default an
-action installs, so plain `cargo` there builds on the pinned release, not the MSRV.
+runs `cargo +<msrv>`: a committed `rust-toolchain.toml` (RS-BUILD-36) outranks the default an action
+installs, so plain `cargo` there builds on the pinned release, not the MSRV.
 
 **Why:** Cargo enforces `rust-version` against your users and resolves versions by it, so an
 untested value is a hard failure for someone. Normal CI runs the latest toolchain and the newest
@@ -667,9 +672,9 @@ test.
 
 ### RS-BUILD-39 [M] Run the full seven-step CI pipeline
 
-The CI pipeline is: `fmt --check`, `clippy --all-targets --all-features` with warnings denied, `test
---all-features`, `test --no-default-features`, `doc --no-deps` with rustdoc warnings denied, then
-audit and semver checks on release branches.
+The CI pipeline is: `fmt --check`, `clippy --all-targets --all-features` with warnings denied,
+`test --all-features`, `test --no-default-features`, `doc --no-deps` with rustdoc warnings denied,
+then audit and semver checks on release branches.
 
 **Why:** each step catches a class the others cannot — formatting, lints, the two feature
 configurations, documentation links, advisories, and API breakage. Dropping one leaves that class
@@ -694,8 +699,8 @@ Cargo turns incremental compilation off when `CI` is set, so CI needs no `CARGO_
 ### RS-BUILD-41 [M] Change release profile defaults only with measurements
 
 `[profile.release]` defaults are reasonable; change them with measurements. `lto = "thin"` is
-usually a good trade, `codegen-units = 1` buys a few percent for much slower builds, and `panic =
-"abort"` is an application decision (`RS-ERR-32`).
+usually a good trade, `codegen-units = 1` buys a few percent for much slower builds, and
+`panic = "abort"` is an application decision (`RS-ERR-32`).
 
 **Why:** each of these trades build time or behaviour for runtime, and the sizes of both sides are
 project-specific. `panic = "abort"` in particular changes semantics — `catch_unwind` stops working —
