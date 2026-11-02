@@ -14,11 +14,18 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_BUILD_WARNINGS: deny
 
+# Least privilege: the token can read the repository and nothing more. The one
+# job that needs to write says so itself.
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false   # nothing here pushes, so no token on disk
       - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
         with:
           components: rustfmt, clippy
@@ -60,6 +67,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false   # nothing here pushes, so no token on disk
       - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
       - uses: Swatinem/rust-cache@v2
       - name: Install Linux dependencies
@@ -74,6 +83,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false   # nothing here pushes, so no token on disk
       - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
       - uses: Swatinem/rust-cache@v2
       - name: Install Linux dependencies
@@ -86,8 +97,14 @@ jobs:
   audit:
     # A dependency's advisory does not wait for a pull request. See RS-BUILD-28.
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write   # the advisories as a check run, on a push or a pull request
+      issues: write   # an issue per advisory, on the weekly schedule
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false   # nothing here pushes, so no token on disk
       - uses: rustsec/audit-check@v2
         with: { token: "${{ secrets.GITHUB_TOKEN }}" }
 
@@ -96,6 +113,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false   # nothing here pushes, so no token on disk
       - uses: dtolnay/rust-toolchain@1.99        # must match `rust-version`
       - uses: Swatinem/rust-cache@v2
       - name: Install Linux dependencies
@@ -110,6 +129,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false   # nothing here pushes, so no token on disk
       - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
         with:
           targets: wasm32-unknown-unknown
