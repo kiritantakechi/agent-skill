@@ -1,5 +1,6 @@
 """`agent-skill` itself: what it refuses, and what each check reads."""
 
+import re
 lazy from collections.abc import Iterator, Sequence
 lazy from pathlib import Path
 
@@ -11,6 +12,31 @@ from agent_skill.layout import SKILLS
 from agent_skill.model import Skill
 from structure_fixture import build
 lazy from agent_skill.report import Finding
+
+
+def help_text(capsys: pytest.CaptureFixture[str], *argv: str) -> str:
+    with pytest.raises(SystemExit, match=r"^0$"):
+        cli.main([*argv, "--help"])
+    return " ".join(capsys.readouterr().out.split())
+
+
+def test_the_description_names_every_subcommand(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    usage = help_text(capsys)
+    commands = re.search(r"\{([a-z,]+)\}", usage)
+    assert commands is not None
+    for command in commands.group(1).split(","):
+        assert re.search(rf"\b{command}\b", cli.DESCRIPTION), command
+
+
+def test_every_option_and_rewrite_is_described(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert "directory the packages are written to" in help_text(capsys, "build")
+    rewrites = help_text(capsys, "fmt")
+    assert "shared passage from its template" in rewrites
+    assert "prose to the line limit" in rewrites
 
 
 def test_an_unknown_check_is_refused_not_passed(

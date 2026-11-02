@@ -22,9 +22,13 @@ lazy from agent_skill import demote, renumber
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_SKILLS = REPO / SKILLS
 
-#: What `--help` says the command is for.
+#: What `--help` says the command is for. It names every subcommand: it
+#: named three of seven, and `fmt`, `renumber` and `demote` are the ones
+#: a person needs to be told exist.
 DESCRIPTION = (
-    "`agent-skill` — check, package, and install the skills in this repository."
+    "`agent-skill` — check the skills in this repository; fmt, renumber and "
+    "demote them; build them into packages, install them into each agent, "
+    "and list them."
 )
 
 
@@ -318,7 +322,12 @@ def main(argv: list[str] | None = None) -> int:
     check.set_defaults(func=cmd_check)
 
     pack = sub.add_parser("build", help="package each skill as <name>.skill")
-    pack.add_argument("--out", type=Path, default=REPO / "dist")
+    pack.add_argument(
+        "--out",
+        type=Path,
+        default=REPO / "dist",
+        help="directory the packages are written to (default: dist/)",
+    )
     pack.set_defaults(func=cmd_build)
 
     put = sub.add_parser(
@@ -331,9 +340,11 @@ def main(argv: list[str] | None = None) -> int:
         help="limit to one agent (repeatable); default is every one present",
     )
     put.set_defaults(func=cmd_install)
-    fmt = sub.add_parser(
-        "fmt", help="rewrite each verified example as its formatter would have it"
+    rewrites = (
+        "rewrite each verified example as its formatter would have it, each "
+        "shared passage from its template, and prose to the line limit"
     )
+    fmt = sub.add_parser("fmt", help=rewrites, description=rewrites)
     fmt.add_argument("--skill", action="append", help="limit to one skill (repeatable)")
     fmt.set_defaults(func=cmd_fmt)
     num = sub.add_parser(
