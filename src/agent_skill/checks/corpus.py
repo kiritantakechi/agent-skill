@@ -45,6 +45,10 @@ class Corpus:
     #: Global line of each unit's first line, so a hit can be numbered
     #: across the corpus without a parallel array of one entry per line.
     starts: list[int] = field(default_factory=list)
+    #: The language the units are written in, which decides what a
+    #: comment is: whether a pattern means the comment, and so which
+    #: copy it runs over.
+    lang: str = ""
 
     @property
     def blocks(self) -> int:
@@ -53,6 +57,7 @@ class Corpus:
 
     def build(self, skill: Skill, lang: str, work: Path) -> Corpus:
         """Fill the corpus with `skill`'s verified `lang` advice."""
+        self.lang = lang
         comment, quotes = syntax_for(lang)
         suffix = {"rust": ".rs", "python": ".py", "zig": ".zig"}.get(lang, ".txt")
         self.raw_dir, self.code_dir = work / "raw", work / "code"
@@ -103,7 +108,7 @@ class Corpus:
 
     def lines_for(self, pattern: Pattern) -> list[str]:
         """Every line, in the form `pattern` is searched against."""
-        which = "raw" if pattern.over_comments else "code"
+        which = "raw" if pattern.over_comments(self.lang) else "code"
         return [line for unit in self.units for line in getattr(unit, which)]
 
 

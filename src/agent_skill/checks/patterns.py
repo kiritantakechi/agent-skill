@@ -9,6 +9,8 @@ running anything.
 import re
 from dataclasses import dataclass
 
+from agent_skill.text import syntax_for
+
 #: A backticked span is worth running only if it looks like code, not
 #: prose.
 CODEISH = re.compile(r"[\[\](){}<>:\\|*+?^$]|_")
@@ -43,16 +45,21 @@ class Pattern:
     mode: str  #: `-F` literal text, `-E` regex — there is no third
     kind: str  #: "command" — the Check ships it; "prose" — a span it names
 
-    @property
-    def over_comments(self) -> bool:
+    def over_comments(self, lang: str) -> bool:
         """Does this Check mean the comment, rather than the code?
 
-        A fact about the pattern, so it is asked once. `hits` and
-        `lines_for` each spelled it, ten lines apart, and they have to
-        agree: the exemption hook reads line `n` of whichever list
-        `lines_for` returns, numbered by whichever file `hits` searched.
+        A fact about the pattern in `lang`, so it is asked here once.
+        `hits` and `lines_for` each spelled it, ten lines apart, and
+        they have to agree: the exemption hook reads line `n` of
+        whichever list `lines_for` returns, numbered by whichever file
+        `hits` searched.
+
+        The language's own comment token. This asked for `//` whatever
+        the language, so a Python pattern over a comment — `# noqa` —
+        was run over the code with every comment stripped, and could
+        never fire.
         """
-        return "//" in self.text
+        return syntax_for(lang)[0] in self.text
 
 
 def dialect_of(command: str) -> str:
