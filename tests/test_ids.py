@@ -77,7 +77,7 @@ def _location(rng: random.Random) -> Location:
 def _branch(rng: random.Random) -> Branch:
     return Branch(
         rng.choice(["layout", "shared-text", "self-application"]),
-        _word(rng, "abcdefgh-0", 1, 10).lstrip("-0") or "w",
+        _word(rng, "abcdefgh_0", 1, 10).lstrip("_0") or "w",
     )
 
 

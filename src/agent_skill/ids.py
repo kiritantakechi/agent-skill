@@ -335,13 +335,17 @@ def parse_answer[T](text: str, parse: Callable[[str], T]) -> Answer[T]:
     return Answered(parse(text))
 
 
-#: A check's or a branch's name.
-_NAME = re.compile(r"[a-z][a-z0-9-]*")
+#: A check's name, as the command line spells it: `shared-text`.
+_CHECK = re.compile(r"[a-z][a-z0-9-]*")
+
+#: A branch's name within its check, as Python spells a name:
+#: `disabled_code`.
+_NAME = re.compile(r"[a-z][a-z0-9_]*")
 
 
 @dataclass(frozen=True, slots=True)
 class Branch:
-    """The place in a check a finding came from, such as `layout.width`.
+    """The place in a check a finding came from: `layout.canonical`.
 
     A negative control is named for the branch it exists to make fire,
     so a finding has to say which branch produced it.
@@ -352,7 +356,7 @@ class Branch:
 
     def __post_init__(self) -> None:
         """Refuse a name its own printer could not spell."""
-        if not (_NAME.fullmatch(self.check) and _NAME.fullmatch(self.name)):
+        if not (_CHECK.fullmatch(self.check) and _NAME.fullmatch(self.name)):
             msg = f"not a branch: {self!r}"
             raise ValueError(msg)
 
