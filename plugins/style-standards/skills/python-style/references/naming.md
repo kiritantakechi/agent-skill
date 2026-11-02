@@ -189,14 +189,15 @@ splitting. Any underscore in a directory under `src/` is the finding.
 ### PS-NAME-09 [M] Import absolutely
 
 `from acmewidget.retry import RetryPolicy`, not `from .retry import RetryPolicy`. PEP 8 does permit
-explicit relative imports for complex layouts; the standard library requires absolute.
+explicit relative imports for complex layouts, and the standard library's own packages use them —
+`asyncio`, `importlib`, `json` — so this is the standard's choice, not the library's practice.
 
 **Why:** a relative import makes a module's meaning depend on where it sits, so moving a file
 changes what it imports without changing a character of it. That is the misbehaviour behind PEP 8
 calling absolute imports "usually more readable and tend to be better behaved".
 
-**Check:** ruff `TID252` bans relative imports beyond a configurable depth. `rg -n '^from \.'
-src/` finds the rest.
+**Check:** ruff `TID252`, which the shipped configuration sets to ban every relative import rather
+than only those reaching a parent package.
 
 ### PS-NAME-10 [M] Do no work at import time
 

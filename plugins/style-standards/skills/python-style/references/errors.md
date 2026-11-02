@@ -172,8 +172,10 @@ def test_translation_keeps_the_cause() -> None:
 silently disappears in exactly the deployment where you most wanted it. And a failed assertion
 blames *this* code for the caller's mistake, which misdirects whoever reads the traceback.
 
-**Check:** ruff `S101` outside tests. Inside a test the assertion is the point, which is why the
-shipped configuration ignores `S101` under `tests/`.
+**Check:** ruff `S101`, which flags every `assert` outside tests because it cannot tell input from
+belief: a hit that checks what a caller passed is the finding, and one stating an invariant the code
+itself guarantees carries `# noqa: S101` naming it. Inside a test the assertion is the point, which
+is why the shipped configuration ignores `S101` under `tests/`.
 
 ## Catching
 
