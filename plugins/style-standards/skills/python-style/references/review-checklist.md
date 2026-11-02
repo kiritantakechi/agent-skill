@@ -58,7 +58,7 @@ uv run ruff format --check            # zero stderr proves no formatter conflict
 uv run ty check                       # the shipped assets/ty.toml
 uv run pytest
 uv run python -c "import sys; assert sys.abi_info.free_threaded"
-uv run python -c "import sys, yourpkg; assert not sys._is_gil_enabled()"
+uv run python -c "import sys, acmewidget; assert not sys._is_gil_enabled()"
 ```
 
 The two assertions are PS-BUILD-20's: the build, then the runtime once the package is imported.

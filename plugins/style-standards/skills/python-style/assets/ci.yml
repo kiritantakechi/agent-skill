@@ -7,7 +7,13 @@ on:
   push: { branches: [main] }
   pull_request:
 
+# Read the repository and nothing else. A job that needs more asks for it.
+permissions:
+  contents: read
+
 env:
+  # The project commits uv.lock (PS-BUILD-10) and CI installs exactly what it
+  # pins: without the lock file, `uv sync` fails rather than resolving afresh.
   UV_FROZEN: "1"
 
 jobs:
@@ -18,6 +24,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - uses: astral-sh/setup-uv@v10
         with: { version: "0.13.6" }
       # The free-threaded build is a separate interpreter, not a flag.
@@ -27,14 +34,15 @@ jobs:
       # The build first, then the runtime with the package imported: the GIL
       # can be re-enabled at import time, process-wide, permanently and with
       # only a RuntimeWarning, so one unported dependency silently costs the
-      # whole feature (PS-BUILD-20). Replace `yourpkg` with the package.
+      # whole feature (PS-BUILD-20). `acmewidget` is the template's package.
       - run: uv run python -c "import sys; assert sys.abi_info.free_threaded"
-      - run: uv run python -c "import sys, yourpkg; assert not sys._is_gil_enabled()"
+      - run: uv run python -c "import sys, acmewidget; assert not sys._is_gil_enabled()"
 
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - uses: astral-sh/setup-uv@v10
         with: { version: "0.13.6" }
       - run: uv python install cpython-3.15.2+freethreaded

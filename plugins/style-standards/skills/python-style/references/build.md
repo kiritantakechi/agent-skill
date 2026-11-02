@@ -26,7 +26,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-BUILD-08 [M] Pin every tool that decides whether the build passes
   - PS-BUILD-09 [M] Give a library floors, not pins
   - PS-BUILD-10 [M] Commit `uv.lock`, and keep it the only lock artefact
-  - PS-BUILD-11 [M!] Refuse a dependency published in the last few days
+  - PS-BUILD-11 [M!] Refuse a dependency published in the last seven days
 - **Building**
   - PS-BUILD-12 [M] Build with `uv_build`, and never invoke `setup.py`
   - PS-BUILD-13 [M] Build the package from `src/`, and ship `py.typed`
@@ -130,7 +130,7 @@ free-threading classifier in particular is a claim about testing, not about buil
 
 `[dependency-groups] test = [...]`. Not `[project.optional-dependencies] test = [...]`.
 
-**Why:** extras are shipped runtime metadata — anyone can install `yourpkg[test]`, and the index
+**Why:** extras are shipped runtime metadata — anyone can install `acmewidget[test]`, and the index
 displays them as part of your package. Dependency groups are local to the repository and appear
 nowhere in the built distribution, which is exactly right for a linter.
 
@@ -168,20 +168,22 @@ cannot consume one — so it drifts silently until whoever trusted it finds it s
 **Check:** the lock file in `.gitignore` is the finding. A second lock artefact committed beside it
 is the other one.
 
-### PS-BUILD-11 [M!] Refuse a dependency published in the last few days
+### PS-BUILD-11 [M!] Refuse a dependency published in the last seven days
 
-`uv lock --exclude-newer`, as a date or a relative duration. There is no `--cooldown`;
-`--exclude-newer-package` narrows it to one dependency when a project needs the newest of something
-specific.
+`exclude-newer = "7 days"` under `[tool.uv]`, as `assets/pyproject.toml` ships it, so every
+`uv lock` resolves as if the last week's releases did not exist. `uv lock --exclude-newer` takes the
+same date or relative duration for one run. There is no `--cooldown`; `exclude-newer-package`
+exempts a dependency by name when a project needs the newest of something specific, as the asset
+does for the tools PS-BUILD-08 pins.
 
 *Relaxed form:* a project that reviews every dependency change by hand may skip the cooldown, and
-should say so where the CI configuration would otherwise carry it.
+should say so in `pyproject.toml`, where the setting would otherwise be.
 
 **Why:** the window between a compromised release being published and being pulled is measured in
 hours — a documented incident had malicious versions live for two and a half and three and a half
-hours. A cooldown removes that window entirely for the cost of installing yesterday's version.
+hours. Seven days covers that window many times over, for the cost of a week-old version.
 
-**Check:** the CI install step. No cooldown and no manual review is the finding.
+**Check:** the `[tool.uv]` table. No `exclude-newer` and no stated manual review is the finding.
 
 ## Building
 
@@ -286,8 +288,8 @@ off — PS-BUILD-20's command. The wheel tag cannot tell you this.
 Two assertions, because a GIL build fails the second for a different reason:
 
 ```sh
-python -c "import sys; assert sys.abi_info.free_threaded"           # the CI image
-python -c "import sys, yourpkg; assert not sys._is_gil_enabled()"  # the dependency tree
+python -c "import sys; assert sys.abi_info.free_threaded"              # the CI image
+python -c "import sys, acmewidget; assert not sys._is_gil_enabled()"  # the dependency tree
 ```
 
 **Why:** the re-enable is silent apart from a `RuntimeWarning` that CI logs swallow, so without this
