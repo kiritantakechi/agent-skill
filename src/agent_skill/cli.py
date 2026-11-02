@@ -59,15 +59,42 @@ def _emit(result: Result, *, verbose: bool, limit: int = 25) -> None:
             )
 
 
+def _unknown(flag: str, asked: list[str] | None, known: list[str]) -> str:
+    """The complaint about each name in `asked` that `known` lacks.
+
+    "" when every name is known. A name that matches nothing used to
+    select nothing, and nothing selected passes: `--only no-such-check`
+    printed ALL CHECKS PASSED.
+    """
+    missing = sorted(set(asked or ()) - set(known))
+    if not missing:
+        return ""
+    return (
+        f"{flag}: nothing is called {', '.join(missing)}; "
+        f"the names are {', '.join(sorted(known))}"
+    )
+
+
 def cmd_check(args: argparse.Namespace) -> int:
     """Run the checks, print their findings, and say whether all passed.
 
     Exit 1 when any check failed or could not run, and 2 when there is
-    nothing to check.
+    nothing to check or a name asked for matches nothing.
+
+    `--skill` narrows the checks that read one skill at a time. A
+    cross-skill check still reads every skill: given one, `crossref`
+    had no anchor to check a delta against and passed, and `plugin`
+    failed because the plugin ships four.
     """
-    skills = discover(args.skills)
-    if args.skill:
-        skills = [s for s in skills if s.name in args.skill]
+    everything = discover(args.skills)
+    checks = all_checks()
+    complaint = _unknown(
+        "--skill", args.skill, [s.name for s in everything]
+    ) or _unknown("--only", args.only, [c.name for c in checks])
+    if complaint:
+        print(complaint, file=sys.stderr)
+        return 2
+    skills = [s for s in everything if not args.skill or s.name in args.skill]
     if not skills:
         print(f"no skills under {args.skills}", file=sys.stderr)
         return 2
@@ -75,12 +102,12 @@ def cmd_check(args: argparse.Namespace) -> int:
     print(f"== {', '.join(s.name for s in skills)} ==")
     failed = False
     results: list[Result] = []
-    for c in all_checks():
+    for c in checks:
         if args.only and c.name not in args.only:
             continue
         if args.fast and c.slow:
             continue
-        result = c.run(skills, fast=args.fast)
+        result = c.run(everything if c.scope == "all" else skills, fast=args.fast)
         results.append(result)
         _emit(result, verbose=args.verbose)
         failed |= not result.ok
@@ -117,8 +144,15 @@ def cmd_install(args: argparse.Namespace) -> int:
 
 
 def cmd_fmt(args: argparse.Namespace) -> int:
-    """Format each skill in place, and print what changed."""
-    for skill in discover(args.skills):
+    """Format each skill in place, and print what changed.
+
+    Exit 2 when a `--skill` asked for is not there.
+    """
+    skills = discover(args.skills)
+    if complaint := _unknown("--skill", args.skill, [s.name for s in skills]):
+        print(complaint, file=sys.stderr)
+        return 2
+    for skill in skills:
         if args.skill and skill.name not in args.skill:
             continue
         lines = format_skill(skill)
