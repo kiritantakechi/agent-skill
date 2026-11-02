@@ -107,6 +107,10 @@ BRANCHES = {
         "agent_skill.checks.citations",
         "python_rows",
     ),
+    "a python rule citing a C4 code the shipped config disables": (
+        "agent_skill.checks.citations",
+        "_codes_in",
+    ),
     "a compiler row naming an error its probe does not print": (
         "agent_skill.checks.citations",
         "zig_rows",

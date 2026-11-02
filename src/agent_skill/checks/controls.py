@@ -199,6 +199,25 @@ def _rust_row(tree: Path, lint: str, level: str) -> None:
 #: `python-style` is the standard the structure controls inject into.
 PY = "python-style"
 
+
+def _disabled_c4_citation(tree: Path) -> None:
+    """A rule citing `C408`, and the asset turning `C408` off.
+
+    The family is the point. A token was classified by stripping its
+    digits and looking the letters up in a hand-written list, which
+    named the family `C4` — so `C408` became `C`, matched nothing, and
+    was dropped as prose. No row names `C408`, so only the cited-code
+    branch can report it.
+    """
+    edit(tree, f"{PY}/assets/ruff.toml", '"CPY001",\n', '"CPY001",\n  "C408",\n')
+    edit(
+        tree,
+        f"{PY}/references/concurrency.md",
+        "**Check:** `rg -n 'f_locals' src/`",
+        "**Check:** C408 decides this. `rg -n 'f_locals' src/`",
+    )
+
+
 #: A rule of the async family, filed in the testing chapter. New, so no
 #: rename row names it and only the family branch of `skeleton` can
 #: report it.
@@ -352,6 +371,11 @@ STRUCTURE: list[Control] = [
             "| ty | `deprecated` | warn |",
             "| ty | `deprecated` | error |",
         ),
+    ),
+    Control(
+        "a python rule citing a C4 code the shipped config disables",
+        "citations",
+        _disabled_c4_citation,
     ),
     Control(
         "a compiler row naming an error its probe does not print",
