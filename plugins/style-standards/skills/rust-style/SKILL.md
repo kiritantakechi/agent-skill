@@ -127,9 +127,9 @@ RS-MIG-01 has every one, with the release it arrived in.
 Elegance in Rust has two axes, and a design needs both. **Subtraction** removes what does not earn
 its place: a `mut` that a fold would remove, a `String` that a `&str` would remove, a `clone()` that
 a borrow would remove, an `Arc<Mutex<_>>` that a channel would remove, a builder that a `Default`
-options struct would remove. **Symmetry** is what remains after subtraction being *regular*: operations
-that come in pairs, siblings that take their arguments in the same order, one mechanism per concept,
-and no branch that exists for a single input.
+options struct would remove. **Symmetry** is what remains after subtraction being *regular*:
+operations that come in pairs, siblings that take their arguments in the same order, one mechanism
+per concept, and no branch that exists for a single input.
 
 The two fail differently. Excess makes code longer than it needs to be. Asymmetry makes it
 unlearnable — the reader cannot generalize from one function to the next, so every call site must be

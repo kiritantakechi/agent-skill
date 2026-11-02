@@ -305,7 +305,7 @@ confined to a range, an index into a sibling field — is a contract the type ow
 which methods may exist.
 
 **Why:** a published type's fields are private either way (RS-API-15), so privacy decides nothing;
-the invariant decides which operations may exist. Unnamed, the next `&mut` method breaks it; named, it tells you
+the invariant decides what may exist. Unnamed, the next `&mut` method breaks it; named, it tells you
 construction is fallible, the field has no setter, and which accessor would leak it (RS-API-13).
 
 **Check:** for each type, state its invariant in one sentence. If you can state one and no method
