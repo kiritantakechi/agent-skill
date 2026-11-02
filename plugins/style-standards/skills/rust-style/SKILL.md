@@ -107,7 +107,7 @@ lists them by release, to read on every toolchain bump.
 
 | Old habit | Edition 2024 reality |
 |---|---|
-| `unsafe fn` body is implicitly unsafe | `unsafe_op_in_unsafe_fn` is on; write the inner `unsafe { }` explicitly |
+| `unsafe fn` body is implicitly unsafe | `unsafe_op_in_unsafe_fn` warns (`warning[E0133]`), and CI's `CARGO_BUILD_WARNINGS=deny` fails on it; write the inner `unsafe { }` explicitly |
 | `#[no_mangle]`, `#[export_name]`, `#[link_section]` | must be `#[unsafe(no_mangle)]` and friends |
 | `static mut FOO` then `&FOO` | `static_mut_refs` denies it; use `OnceLock`/`LazyLock`/atomics |
 | `impl Trait` return captures only named lifetimes | captures **all** in-scope lifetimes; narrow with `+ use<'a, T>` (1.82) |
