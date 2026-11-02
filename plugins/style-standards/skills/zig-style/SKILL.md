@@ -192,7 +192,7 @@ about twenty lines, and every member of it is marked `Deprecated`.
 The full tables are ZS-MIG-03 for streams and ZS-MIG-04 for the filesystem, in
 `references/migration.md`.
 
-### 2.6 Containers are unmanaged and take the allocator per call
+### 2.6 Containers are unmanaged, except the non-array hash maps
 
 ```zig
 // fragment
@@ -203,7 +203,10 @@ const owned = try list.toOwnedSlice(gpa);
 ```
 
 The allocator is the **second** parameter, after the receiver. Non-allocating methods (`pop`,
-`last`) take no allocator. Every container rename is a row of `references/migration.md` ZS-MIG-06.
+`last`) take no allocator. `std.HashMap`, `std.AutoHashMap`, `std.StringHashMap` and `std.BufMap`
+are still managed and not deprecated: they take the allocator once, in `.init(gpa)`, and `deinit()`
+takes none; the three `…HashMapUnmanaged` forms take it per call. Every container rename is a row
+of `references/migration.md` ZS-MIG-06.
 
 ### 2.7 Concurrency is colorless and goes through `Io`
 
