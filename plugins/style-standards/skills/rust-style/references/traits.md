@@ -798,10 +798,11 @@ impl std::fmt::Debug for Router {
 
 ### RS-TRAIT-36 [S] Comment a type alias that hides genuine complexity
 
-**Why:** an alias for
+An alias for
 `Box<dyn Fn(&Request) -> Pin<Box<dyn Future<Output = Result<Response, Error>> + Send>> + Send + Sync>`
-is right, and so is a comment explaining the shape — otherwise the alias hides the complexity from
-the maintainer as well as the user.
+is right, and so is a comment explaining the shape.
+
+**Why:** without the comment the alias hides the complexity from the maintainer as well as the user.
 
 **Check:** could a new contributor reconstruct the expansion from the alias name alone?
 
