@@ -15,6 +15,7 @@ from agent_skill.lang import Extraction, Unit
 from agent_skill.model import Skill, inside_tests, needs_c_object
 from agent_skill.proc import have, run
 from agent_skill.report import Finding, fail, note
+from agent_skill.text import code_only
 
 #: The compiler `zig-style` is verified against. It follows this
 #: machine's `zig` rather than upstream's newest release, so `pins`
@@ -22,13 +23,19 @@ from agent_skill.report import Finding, fail, note
 #: compiler here does.
 ZIG_VERSION = "0.17.0"
 
-#: Passed to every `build-obj` and `test` of a block. macOS links libc
-#: into everything, so a block calling `std.c` or declaring
-#: `extern "c"` verified there and failed on Linux with the error
-#: interop.md quotes — "dependency on libc must be explicitly specified
-#: in the build command". Linking it everywhere makes `// verified`
-#: mean the same thing on both.
-LINK_LIBC = "-lc"
+#: What a block names that only libc supplies. macOS links libc into
+#: everything and Linux into nothing, so a block calling `std.c`
+#: verified on one and failed on the other with the error interop.md
+#: quotes — "dependency on libc must be explicitly specified in the
+#: build command". Such a block is verified with libc linked; every
+#: other block without, so `// verified` still proves it needs none.
+_LIBC = re.compile(r'\bstd\.c\b|\bextern\s+"c"|c_allocator\b|@cImport\b')
+
+
+def libc(source: str) -> list[str]:
+    """`-lc` for a block that names something only libc supplies."""
+    return ["-lc"] if _LIBC.search(code_only(source)) else []
+
 
 #: A top-level declaration as a block writes it, at column zero: its
 #: name, plain or `@"quoted"`.
@@ -102,7 +109,7 @@ class Zig:
             # semantic analysis of every declaration, without linking or
             # running
             r = run(
-                ["zig", "build-obj", str(unit.path), "-fno-emit-bin", LINK_LIBC],
+                ["zig", "build-obj", str(unit.path), "-fno-emit-bin", *libc(source)],
                 cwd=ex.root,
                 timeout=180,
             )
@@ -125,7 +132,9 @@ class Zig:
             # two blocks whose four tests pass.
             if _has_test(source) and not needs_c_object(source):
                 t = run(
-                    ["zig", "test", str(unit.path), LINK_LIBC], cwd=ex.root, timeout=180
+                    ["zig", "test", str(unit.path), *libc(source)],
+                    cwd=ex.root,
+                    timeout=180,
                 )
                 if t.timed_out:
                     yield fail("test run timed out", unit.where)
@@ -164,7 +173,7 @@ class Zig:
             if not _has_test(text) or needs_c_object(text):
                 continue
             base = run(
-                ["zig", "test", str(unit.path), LINK_LIBC], cwd=ex.root, timeout=60
+                ["zig", "test", str(unit.path), *libc(text)], cwd=ex.root, timeout=60
             )
             if base.timed_out or not base.ok:
                 continue  # not runnable here; verify() reports why
@@ -180,7 +189,7 @@ class Zig:
                 unit.path.write_text("\n".join(lines[:i] + lines[i + 1 :]))
                 try:
                     r = run(
-                        ["zig", "test", str(unit.path), LINK_LIBC],
+                        ["zig", "test", str(unit.path), *libc(text)],
                         cwd=ex.root,
                         timeout=15,
                     )
