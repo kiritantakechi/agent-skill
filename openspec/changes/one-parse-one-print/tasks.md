@@ -5,8 +5,10 @@
   `## `-boundary scanners, fence trackers and `WIDTH` definitions in `src/` — see "Baseline
   (measured)"; the full `check` (≈22 min) and the pytest run were reported, not re-run, and
   `toolchain` and `mutation` were not timed alone
-- [ ] 1.2 Enumerate every failure site in every check as a candidate branch, and record which of the
-  current 65 controls fires through which branch (stub each branch, re-run its control)
+- [x] 1.2 Enumerate every failure site in every check as a candidate branch, and record which of the
+  current 65 controls fires through which branch (stub each branch, re-run its control) — done by
+  4.1, which named every site as a declared `Branch`, and 5.1, which made each control assert its own
+  branch; the stubbing approach was not needed
 
 ## 2. The tree and the typed values
 
