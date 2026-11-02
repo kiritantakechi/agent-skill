@@ -72,12 +72,13 @@ defect in code that must run on another implementation. So is comparing
 ```python
 # verified — GOOD
 import sys
+from typing import Final
 
-FREE_THREADED_BUILD = sys.abi_info.free_threaded
+FREE_THREADED_BUILD: Final = sys.abi_info.free_threaded
 
 
 def running_in_parallel() -> bool:
-    """Is the GIL off at this moment? Guarded: the name is an implementation detail."""
+    """Is the GIL off now? Guarded: the probe is a CPython detail."""
     probe = getattr(sys, "_is_gil_enabled", None)
     if not FREE_THREADED_BUILD or probe is None:
         return False
