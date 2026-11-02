@@ -277,7 +277,7 @@ src/`, and read any remaining set name that ends in `System`, `Set` or `Steps` r
 | `PickSet` | `PickingSystems` |
 | `InputSystem` | `InputSystems` |
 | `InputFocusSet` | `InputFocusSystems` |
-| `SpriteSystem` | `bevy::sprite_render::SpriteSystems` — `bevy::sprite::SpriteSystems` is gone in 0.20 |
+| `SpriteSystem` | nothing: `SpriteSystems`, its 0.17 name, is gone from both `bevy::sprite` and `bevy::sprite_render` in 0.20 |
 | `TimeSystem` | `TimeSystems` |
 | `AccessibilitySystem` | `AccessibilitySystems` |
 | `GizmoRenderSystem` | `GizmoRenderSystems` |
@@ -465,25 +465,25 @@ live: read each one whose receiver is a pointer event.
 
 ### BV-MIG-16 [M] Replace what 0.20 deprecated
 
-0.20 deprecated these rather than removing them. They compile with a warning, which the shipped CI
-denies (the `deprecated` row in Decided by tools), so the searches are for code not yet built
-against 0.20.
+0.20 deprecated these rather than removing them (`DeferredWorld::query` already in 0.19), all but
+the `NextState` family in the first row, which 0.20 renamed outright. The rest compile with a
+warning, which the shipped CI denies (the `deprecated` row in Decided by tools), so the searches are
+for code not yet built against 0.20.
 
-**Why:** a deprecated name still builds, so a port can look finished while it holds several, and two
-of them share a name with a live, correct API, so no search can find them.
+**Why:** a deprecated name still builds, so a port can look finished while it holds several, and one
+of them, the prelude `Button`, shares its name with a live, correct API, so no search can find it.
 
 **Check:**
 `rg -n 'set_state_if_neq|PendingIfNeq|set_next_state_if_neq|\.as_mut\(\)\.set_if_neq' src/`,
 `rg -n '\bInteraction\b|template_value|FilteredResources|\bTypeIdMap\b' src/` and
-`rg -n 'AssetId::invalid|INVALID_UUID|try_reads_and_writes' src/`. Then read the two that a search
-cannot find. `NextState::set_if_neq` reached through `&mut NextState` looks exactly like
-`Mut::set_if_neq`, which keeps its name and is correct, so read every `set_if_neq` whose receiver
-is a `NextState`. The deprecated `Button` has the same name as `bevy::ui_widgets::Button`, so read
-the import.
+`rg -n 'AssetId::invalid|INVALID_UUID|try_reads_and_writes' src/`. Then read the one a search
+cannot find: the deprecated `Button` has the same name as `bevy::ui_widgets::Button`, so read the
+import. A `set_if_neq` on a `NextState` is spelled like the live `Mut::set_if_neq` too, but it no
+longer compiles, so the build finds every one the search misses.
 
 | Deprecated | Write instead |
 |---|---|
-| `NextState::set_if_neq` / `PendingIfNeq` / `set_state_if_neq` / `set_next_state_if_neq` | `set_if_different` / `PendingIfDifferent` / `set_state_if_different` / `set_next_state_if_different` |
+| `NextState::set_if_neq` / `PendingIfNeq` / `set_state_if_neq` / `set_next_state_if_neq` | `set_if_different` / `PendingIfDifferent` / `set_state_if_different` / `set_next_state_if_different` — renamed, not deprecated: the old names do not compile |
 | `Interaction` | `Hovered` plus `Pressed` |
 | the prelude `Button` (`bevy::ui::widget::Button`) | `bevy::ui_widgets::Button` |
 | `template_value(x)` in `bsn!` | `x` |
@@ -492,7 +492,7 @@ the import.
 | `TypeIdMap` / `TypeIdMapEntry` | `TypeIdHashMap` / `TypeIdIndexMap`, and their entry types |
 | `AssetId::invalid()` / `AssetId::INVALID_UUID` | `Option<AssetId<_>>` |
 | `DynamicEnum::from(_ref)` | `DynamicEnum::try_from(_ref)` |
-| `Access::try_reads_and_writes` | `Access::reads()` |
+| `Access::try_reads_and_writes` / `try_writes` | `Access::reads().as_finite_set()` / `writes().as_finite_set()` — `reads()` includes the writes |
 | `,` and `()` between entities in `bsn!` | `--` |
 
 ### BV-MIG-17 [M] Replace the remaining 0.20 renames and removals

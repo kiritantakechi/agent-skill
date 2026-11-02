@@ -718,14 +718,14 @@ mod tests {
 
 `next.set(S)` runs `OnExit(S)` and `OnEnter(S)` even when the current state is already `S`. A
 system that calls `set` every frame must use `set_if_different`. `NextState::set_if_neq` and its
-relatives are the deprecated spellings (BV-MIG-16); `Mut::set_if_neq` keeps its name.
+relatives are the old spellings and no longer compile (BV-MIG-16); `Mut::set_if_neq` keeps its name.
 
 **Why:** an unconditional `set` tears down and rebuilds the level every frame, and still compiles.
 Re-entering a state is sometimes exactly what is wanted, which is why the guard has to be asked
 for.
 
 **Check:** for each `next.set(`, ask whether the surrounding code can run while already in that
-state. If it can, it needs `set_if_different`. A `set_if_neq` on a `NextState` is the deprecated
+state. If it can, it needs `set_if_different`. A `set_if_neq` on a `NextState` is the old
 spelling.
 
 ```rust
