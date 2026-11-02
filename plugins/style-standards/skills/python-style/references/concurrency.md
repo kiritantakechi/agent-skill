@@ -43,7 +43,7 @@ free-threaded build. Where a rule depends on the build, the block probes it rath
   - PS-CONC-18 [M] Create every `ContextVar` at module scope
   - PS-CONC-19 [M] Never rely on a thread inheriting context; the default differs by build
 - **Streams, randomness, and hold times**
-  - PS-CONC-20 [M] Never share a `TextIOWrapper` across threads, `print` included
+  - PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
   - PS-CONC-21 [M] Give each thread its own `random.Random`
   - PS-CONC-22 [M] Know that a `contextmanager` decorator now holds across the whole generator
   - PS-CONC-23 [S] Never hold a lock across a call you do not control
@@ -72,12 +72,13 @@ defect in code that must run on another implementation. So is comparing
 ```python
 # verified — GOOD
 import sys
+from typing import Final
 
-FREE_THREADED_BUILD = sys.abi_info.free_threaded
+FREE_THREADED_BUILD: Final = sys.abi_info.free_threaded
 
 
 def running_in_parallel() -> bool:
-    """Is the GIL off at this moment? Guarded: the name is an implementation detail."""
+    """Is the GIL off now? Guarded: the probe is a CPython detail."""
     probe = getattr(sys, "_is_gil_enabled", None)
     if not FREE_THREADED_BUILD or probe is None:
         return False
@@ -118,10 +119,10 @@ def bump() -> None:
 
 
 threads = [threading.Thread(target=bump) for _ in range(4)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
 assert counter <= 80_000, "80000 is the answer only if nothing interleaved"
 ```
 
@@ -129,23 +130,22 @@ assert counter <= 80_000, "80000 is the answer only if nothing interleaved"
 # verified — GOOD
 import threading
 
-_lock = threading.Lock()  # guards: counter, read and written as one step
-counter = 0
+_lock = threading.Lock()  # guards: totals, each update read and written as one step
+totals = {"bumps": 0}
 
 
 def bump() -> None:
-    global counter
     for _ in range(20_000):
         with _lock:
-            counter += 1
+            totals["bumps"] += 1
 
 
 threads = [threading.Thread(target=bump) for _ in range(4)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
-assert counter == 80_000
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
+assert totals["bumps"] == 80_000
 ```
 
 ### PS-CONC-03 [M] Never treat check-then-act as one step
@@ -170,19 +170,24 @@ _registry: dict[str, int] = {}
 _registry_lock = threading.Lock()  # guards: one id per name in _registry
 
 
-def intern(name: str) -> int:
-    """One winner per name, even when two threads miss together."""
+def register(name: str) -> None:
+    """Give `name` the next id, unless it already has one."""
     with _registry_lock:
-        # setdefault would do for a pure computation; the lock is here because
-        # assigning the id must not race with another thread assigning one.
+        # setdefault would do for a pure computation; the lock is here
+        # because the id is the count, which another thread may be
+        # assigning from at the same moment.
         if name not in _registry:
             _registry[name] = len(_registry)
-        return _registry[name]
 
 
-assert intern("a") == 0
-assert intern("b") == 1
-assert intern("a") == 0
+def id_of(name: str) -> int:
+    """Return the id `register` gave `name`; does not assign one."""
+    return _registry[name]
+
+
+for name in ("a", "b", "a"):
+    register(name)
+assert (id_of("a"), id_of("b")) == (0, 1)
 ```
 
 ### PS-CONC-04 [M!] Accumulate per thread and merge, or hold one lock across the whole update
@@ -220,10 +225,10 @@ def tally(words: list[str]) -> None:
 
 
 threads = [threading.Thread(target=tally, args=(["a", "b", "a"],)) for _ in range(4)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
 assert _totals == Counter({"a": 8, "b": 4})
 ```
 
@@ -261,23 +266,33 @@ import threading
 
 
 class BoundedLog:
-    """The bound is the invariant, so the lock spans the test and the append."""
+    """The newest lines, at most `limit` of them."""
 
     def __init__(self, limit: int) -> None:
+        """Hold no more than `limit` lines."""
         self._limit = limit
         self._lock = threading.Lock()  # guards: len(self._lines) <= self._limit
         self._lines: list[str] = []
 
-    def add(self, line: str) -> bool:
+    def add(self, line: str) -> None:
+        """Append `line`, dropping the oldest once the log is full."""
+        # The bound is the invariant, so the lock spans the test and the
+        # append.
         with self._lock:
             if len(self._lines) >= self._limit:
-                return False
+                del self._lines[0]
             self._lines.append(line)
-            return True
+
+    def lines(self) -> tuple[str, ...]:
+        """Return a snapshot, oldest first."""
+        with self._lock:
+            return tuple(self._lines)
 
 
-log = BoundedLog(2)
-assert [log.add("x"), log.add("y"), log.add("z")] == [True, True, False]
+recent = BoundedLog(2)
+for line in ("x", "y", "z"):
+    recent.add(line)
+assert recent.lines() == ("y", "z")
 ```
 
 ### PS-CONC-07 [M] Never read `frame.f_locals` for a frame executing in another thread
@@ -315,7 +330,7 @@ _lock = threading.Lock()  # guards: _sessions, copied whole as one snapshot
 
 
 def active_ids() -> list[int]:
-    """The snapshot is taken under the lock; the work happens outside it."""
+    """Snapshot under the lock, then work outside it."""
     with _lock:
         snapshot = dict(_sessions)
     return sorted(v for v in snapshot.values() if v > 0)
@@ -391,13 +406,13 @@ def consume() -> None:
 
 
 workers = [threading.Thread(target=consume) for _ in range(3)]
-for w in workers:
-    w.start()
+for worker in workers:
+    worker.start()
 for i in range(9):
     work.put(i)
 work.shutdown()  # one call, however many consumers there are
-for w in workers:
-    w.join()
+for worker in workers:
+    worker.join()
 assert sorted(seen) == list(range(9))
 ```
 
@@ -428,20 +443,26 @@ class Position:
 
 
 class Tracker:
-    """Mutable holder, immutable value: one lock, one field, no partial reads."""
+    """Mutable holder, immutable value: no partial reads."""
 
     def __init__(self) -> None:
+        """Start at the origin."""
         self._lock = threading.Lock()  # guards: self._at is replaced, never edited
         self._at = Position(0, 0)
 
-    def advance(self, dx: int) -> Position:
+    def advance(self, steps: int) -> None:
+        """Move `steps` along x."""
         with self._lock:
-            self._at = replace(self._at, x=self._at.x + dx)
-            return self._at
+            self._at = replace(self._at, x=self._at.x + steps)
+
+    def position(self) -> Position:
+        """Return where the tracker is; a frozen value, whole."""
+        return self._at
 
 
-t = Tracker()
-assert t.advance(3) == Position(3, 0)
+tracker = Tracker()
+tracker.advance(3)
+assert tracker.position() == Position(3, 0)
 ```
 
 ## Iterators and generators
@@ -482,11 +503,11 @@ def drain() -> None:
 
 
 threads = [threading.Thread(target=drain) for _ in range(4)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
-# A generator is caught here. Every other iterator type fails silently instead.
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
+# A generator is caught here; every other iterator fails silently.
 ```
 
 ```python
@@ -502,10 +523,10 @@ def drain() -> None:
 
 
 threads = [threading.Thread(target=drain) for _ in range(3)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
 drained = sorted(i for part in got.values() for i in part)
 assert drained == list(range(9)), "each item goes to exactly one caller"
 ```
@@ -531,12 +552,13 @@ is the finding; so is passing one `concurrent_tee` branch to more than one threa
 ```python
 # verified — GOOD
 import threading
+lazy from collections.abc import Iterator
 
 left, right = threading.concurrent_tee(iter(range(5)), 2)
 sums: dict[str, int] = {}
 
 
-def total(name: str, stream) -> None:
+def total(name: str, stream: Iterator[int]) -> None:
     value = sum(stream)  # this branch belongs to this thread alone
     sums[name] = value  # atomic (PS-CONC-05)
 
@@ -545,10 +567,10 @@ threads = [
     threading.Thread(target=total, args=("left", left)),
     threading.Thread(target=total, args=("right", right)),
 ]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
 assert sums == {"left": 10, "right": 10}, "both consumers saw the whole stream"
 ```
 
@@ -568,11 +590,12 @@ decorator, is the finding.
 ```python
 # verified — GOOD
 import threading
+lazy from collections.abc import Iterator
 
 
 @threading.synchronized_iterator
-def work_items(n: int):
-    """Callers may share the result across threads without wrapping it."""
+def work_items(n: int) -> Iterator[int]:
+    """Yield `range(n)`, safe to share across threads unwrapped."""
     yield from range(n)
 
 
@@ -585,10 +608,10 @@ def drain() -> None:
 
 
 threads = [threading.Thread(target=drain) for _ in range(3)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
 assert sorted(i for part in got.values() for i in part) == list(range(30))
 ```
 
@@ -643,21 +666,27 @@ _conns: dict[str, str] = {}
 _conns_lock = threading.Lock()  # guards: at most one open per dsn in _conns
 
 
-def connection(dsn: str) -> str:
-    """Double-checked: the hit is lock-free, the miss happens exactly once."""
-    if (found := _conns.get(dsn)) is not None:
-        return found
+def connect(dsn: str) -> None:
+    """Open `dsn` once, however many threads ask at the same moment."""
+    # Double-checked: the hit takes no lock, and the miss runs once.
+    if dsn in _conns:
+        return
     with _conns_lock:
         # Re-check: another thread may have filled it while we waited.
-        if (found := _conns.get(dsn)) is not None:
-            return found
-        opened = f"conn:{dsn}"  # stands in for the expensive, effectful call
-        _conns[dsn] = opened
-        return opened
+        if dsn in _conns:
+            return
+        _conns[dsn] = f"conn:{dsn}"  # stands in for the effectful open
 
 
+def connection(dsn: str) -> str:
+    """Return the connection `connect` opened; does not open one."""
+    return _conns[dsn]
+
+
+connect("db")
+connect("db")
 assert connection("db") == "conn:db"
-assert connection("db") == "conn:db"
+assert len(_conns) == 1
 ```
 
 ### PS-CONC-18 [M] Create every `ContextVar` at module scope
@@ -701,7 +730,7 @@ def worker() -> None:
 
 
 with request_id.set("abc"):
-    # The context is passed, not inherited: this reads the same on both builds.
+    # The context is passed, not inherited, so both builds agree.
     thread = threading.Thread(target=worker, context=contextvars.copy_context())
     thread.start()
     thread.join()
@@ -711,25 +740,28 @@ assert request_id.get() == "-", "leaving the block reset the variable"
 
 ## Streams, randomness, and hold times
 
-### PS-CONC-20 [M] Never share a `TextIOWrapper` across threads, `print` included
+### PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
 
-`open()` in text mode returns one. So do `sys.stdout` and `sys.stderr`. So `print` from two threads
-is the same defect as writing to a shared file from two threads.
+`open()` in text mode returns a `TextIOWrapper`, and so do `sys.stdout` and `sys.stderr`, which
+every thread that prints already shares. `print` is not one call to it: it writes each argument,
+each separator and then `end` separately, so another thread's output lands inside the line. Send a
+record as one `write` of the whole line, or through `logging`, whose handlers lock around each emit.
 
-**Why:** the `io` docs say buffered streams "protect their internal structures using a lock" but
-"`TextIOWrapper` objects are not thread-safe". A write that under the GIL usually finished in one
-bytecode window now interleaves, in the encoder's internal state as well as in the output.
+**Why:** the `io` docs call `TextIOWrapper` "not thread-safe" and promise nothing finer. On `3.15t`
+eight threads printing 20,000 lines each garbled thousands of the 160,000, while the same lines sent
+as single `write` calls arrived whole; under the GIL, `print` garbled a handful.
 
-**Check:** `rg -n '\bprint\(|sys.stdout.write|sys.stderr.write' src/` inside any thread target.
-Logging is the fix: `logging` handlers take a lock around each emit.
+**Check:** `rg -n '\bprint\(|\.write\(' src/` inside any thread target. A `print` is the finding,
+and so is a `write` that sends part of a record.
 
 ### PS-CONC-21 [M] Give each thread its own `random.Random`
 
-The module-level functions all share one instance.
+The module-level functions all share one instance. Seed each thread's from the operating system, as
+`random.Random()` does with no argument: one fixed seed would give every thread the same stream.
 
 **Why:** the docs warn that concurrent calls to the global generator or one `Random` instance "may
 encounter contention and poor performance" on the free-threaded build, and two threads calling
-`random.gauss` at once can receive the same return value. Seeded per thread, a run is reproducible.
+`random.gauss` at once can receive the same return value.
 
 **Check:** `rg -n '\brandom\.(random|gauss|randint|shuffle|choice|uniform)\(' src/` — every hit
 inside a thread target is the finding.
@@ -743,29 +775,29 @@ _local = threading.local()
 
 
 def rng() -> random.Random:
-    """One generator per thread, seeded so each thread is reproducible."""
+    """Return this thread's generator, made on first use."""
     existing = getattr(_local, "rng", None)
     if isinstance(existing, random.Random):
         return existing
-    # Seeded by the name, not by `hash` of it: string hashes are salted per process.
-    made = random.Random(threading.current_thread().name)
+    # No seed: the operating system's, so no two threads share a stream.
+    made = random.Random()
     _local.rng = made
     return made
 
 
-out: list[float] = []
+draws: list[float] = []
 
 
 def draw() -> None:
-    out.append(rng().random())  # atomic (PS-CONC-05)
+    draws.append(rng().random())  # atomic (PS-CONC-05)
 
 
-threads = [threading.Thread(target=draw, name=f"w{i}") for i in range(4)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
-assert len(out) == 4
+threads = [threading.Thread(target=draw) for _ in range(4)]
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
+assert len(set(draws)) == 4, "four threads, four independent streams"
 ```
 
 ### PS-CONC-22 [M] Know that a `contextmanager` decorator now holds across the whole generator
@@ -787,25 +819,27 @@ takes re-examined.
 # verified — GOOD: the hold is explicit, so no version changes it
 import threading
 from contextlib import contextmanager
+lazy from collections.abc import Generator, Iterator
 
 _lock = threading.Lock()  # guards: held pairs each "in" with its "out"
 held: list[str] = []
 
 
 @contextmanager
-def guarded():
+def guarded() -> Generator[None]:
+    """Hold the lock for the body, recording entry and exit."""
     with _lock:
         held.append("in")
         try:
             yield
         finally:
-            # Without this the lock is released but the bookkeeping is not, and
-            # an exception in the body silently skips it.
+            # Without this the lock is released but the bookkeeping is
+            # not, and an exception in the body silently skips it.
             held.append("out")
 
 
-def rows():
-    """Used as a `with` block, the hold is visible and bounded."""
+def rows() -> Iterator[int]:
+    """Yield the rows under a hold the `with` block makes visible."""
     with guarded():
         yield from (1, 2, 3)
 

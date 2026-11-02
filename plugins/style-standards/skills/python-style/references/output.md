@@ -60,8 +60,8 @@ shipped configuration runs stable rules only.
 import tempfile
 from pathlib import Path
 
-with tempfile.TemporaryDirectory() as tmp:
-    path = Path(tmp) / "note.txt"
+with tempfile.TemporaryDirectory() as scratch:
+    path = Path(scratch) / "note.txt"
     path.write_text("héllo", encoding="utf-8")
     assert path.read_text(encoding="utf-8") == "héllo"
 ```
@@ -202,8 +202,8 @@ logger = logging.getLogger(__name__)
 
 
 def fetch(url: str) -> None:
-    # The template stays constant, so an aggregator can group these; and the
-    # interpolation does not happen at all if INFO is not enabled.
+    # The template stays constant, so an aggregator can group these;
+    # and the interpolation does not happen at all if INFO is off.
     logger.info("fetching %s", url)
 
 
@@ -287,8 +287,9 @@ No `locale.format_string`, no `%c`/`%x` date codes, no thousands separators from
 failure only appears on a machine configured differently from yours. Format explicitly:
 `f"{value:,.2f}"` chooses the separator rather than inheriting one.
 
-**Check:** `rg -n 'locale\.|strftime\(.*%[cxX]' src/` — every hit is environment-dependent
-output.
+**Check:** `rg -n 'locale\.(setlocale|format_string|currency|str|localeconv)\(' src/` and
+`rg -n 'strftime\(.*%[cxX]|:n\}' src/` — every hit is environment-dependent output.
+`locale.getencoding()` is not, and PS-OUT-03 asks for it.
 
 ## Decided by tools
 

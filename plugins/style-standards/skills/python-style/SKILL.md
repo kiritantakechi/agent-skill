@@ -22,7 +22,7 @@ which now redirect to them), the **empirical conventions of the CPython 3.15 sta
 **Ruff's rule catalogue** as the house standard. Where they disagree, this standard picks a side and
 says why.
 
-**Target: CPython 3.15, free-threaded.** Nothing below 3.14t is supported and no compatibility shim
+**Target: CPython 3.15, free-threaded.** Nothing below 3.15 is supported and no compatibility shim
 is described. Section 2 is the highest-value part of this skill: most of what 3.14 and 3.15 changed
 produces silently different behaviour rather than an error, so nothing catches it for you.
 
@@ -199,7 +199,7 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **PS-CORE-12 `[M!]`** Make the invalid state unrepresentable before validating against it. A type
   is a check performed everywhere for free; validation is one that can be forgotten at any call
   site. *Relaxed form:* application code at a boundary may validate a primitive, provided it does so
-  exactly once. (`references/data.md` PS-DATA-15).
+  exactly once and does not pass the value on as the primitive. (`references/data.md` PS-DATA-15).
 
 ### Errors
 
@@ -228,8 +228,9 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **PS-CORE-20 `[M]`** A cache is coherent, not single-flight — `lru_cache` and `cached_property`
   both run the body more than once under contention.
   (`references/concurrency.md` PS-CONC-15, PS-CONC-16).
-- **PS-CORE-21 `[M]`** Never share a `TextIOWrapper` across threads, `print` and the standard
-  streams included. (`references/concurrency.md` PS-CONC-20).
+- **PS-CORE-21 `[M]`** Write a record to a text stream two threads share in one call — one `write`,
+  or through `logging` — never with `print`, which writes the text and its `end` separately.
+  (`references/concurrency.md` PS-CONC-20).
 - **PS-CORE-22 `[M]`** Start every task inside a `TaskGroup`, give every wait a timeout, and never
   swallow `CancelledError`. (`references/async.md` PS-ASYNC-03, PS-ASYNC-05, PS-ASYNC-08).
 
@@ -238,8 +239,9 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **PS-CORE-23 `[M]`** Annotate every parameter and return of a public function, and re-export
   explicitly — the typing spec makes imported symbols private by default, so a bare import in
   `__init__.py` is not public. (`references/api.md` PS-API-02, PS-API-06).
-- **PS-CORE-24 `[M]`** Pass `encoding=` explicitly to every text open. 3.15 moved the default, and
-  it moved six surfaces rather than one. (`references/output.md` PS-OUT-01, PS-OUT-02).
+- **PS-CORE-24 `[M]`** Pass `encoding=` explicitly to every text open. 3.15 moved the default to
+  UTF-8 and `PYTHONUTF8=0` moves it back, so only an explicit encoding means the same thing on
+  every interpreter and in every locale. (`references/output.md` PS-OUT-01, PS-OUT-02).
 - **PS-CORE-25 `[M]`** Log with `%`-style arguments, never an f-string, and never configure logging
   in a library. (`references/output.md` PS-OUT-11, PS-OUT-13).
 
@@ -294,7 +296,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/documentation.md` | `PS-DOC` (12) | Docstring shape and content, choosing a convention and what that choice disables, doctests, and the documents outside the code |
 | `references/testing.md` | `PS-TEST` (21) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
 | `references/build.md` | `PS-BUILD` (21) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
-| `references/migration.md` | `PS-MIG` (9) | The four tiers of obsolescence, what 3.14 and 3.15 removed and changed, what to write today for 3.16, and pytest's own ladder |
+| `references/migration.md` | `PS-MIG` (9) | The five tiers of obsolescence, what 3.14 and 3.15 removed and changed, what to write today for 3.16, and pytest's own ladder |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, the mechanical pass, and the output format |
 
 ## 7. Bundled assets
@@ -305,7 +307,7 @@ asset and the rule cannot drift apart.
 
 | File | Contents |
 |---|---|
-| `assets/ruff.toml` | The lint configuration: `py315` with stable rules only, the fifteen formatter-conflicting rules disabled, `convention = "google"` so `D417` survives, and the `flake8-type-checking` exemptions that keep PEP 649 annotations resolvable at runtime |
+| `assets/ruff.toml` | The lint configuration: `py315` with stable rules only, every rule on ruff's formatter-conflict list disabled, `convention = "google"` so `D417` survives, and the `flake8-type-checking` exemptions that keep PEP 649 annotations resolvable at runtime |
 | `assets/ty.toml` | The type-checker configuration: every ignore-by-default rule named one at a time rather than promoted wholesale — enabled, or left off with the reason — the strict analysis options, and `concise` output |
 | `assets/pyproject.toml` | Project metadata: PEP 639 SPDX license, PEP 735 dependency groups with every tool pinned exactly, PEP 753 URL labels, and pytest 9's native `[tool.pytest]` table |
 | `assets/ci.yml` | The workflow: pinned `uv`, the free-threaded interpreter installed as its own build, lint and type gates, and the assertion that the GIL is genuinely off at runtime |

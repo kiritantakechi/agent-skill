@@ -190,7 +190,7 @@ one.
 ```python
 # verified — GOOD
 def records(stream: list[bytes], size: int) -> list[bytes]:
-    """One buffer for the whole stream; each record leaves it without a copy."""
+    """Split `stream` into records, through one buffer and no copies."""
     out: list[bytes] = []
     buf = bytearray()
     for piece in stream:
@@ -287,3 +287,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 |---|---|---|---|
 | ruff | `PERF401` | error | a loop that only appends — a comprehension |
 | ruff | `PERF402` | error | a loop that only copies — `list(…)` or `.copy()` |
+| ruff | `RUF017` | error | `sum(lists, [])`, which copies everything added so far at each step — `[*sub for sub in lists]` |

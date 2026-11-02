@@ -162,8 +162,9 @@ Break the code, watch the test fail, restore it.
 branch, a fixture that returns early, an `assert` on a truthy object rather than a value — and
 watching it fail is the only check that catches all of them.
 
-**Check:** the repository's own mutation check does this mechanically — delete a statement and see
-whether any test notices.
+**Check:** revert the change a new test covers and run it: a test that still passes is the finding.
+Mutation testing does the same across a codebase — delete or invert a statement, and see whether
+any test notices.
 
 ## Parametrisation
 
@@ -324,7 +325,7 @@ def test_allocator_never_issues_an_id_twice() -> None:
     with ThreadPoolExecutor(max_workers=4) as pool:
         issued = list(pool.map(allocator.allocate, range(4_000)))
 
-    # The invariant, not "it did not raise": a race shows up as a duplicate.
+    # The invariant, not "it did not raise": a race repeats an id.
     assert sorted(issued) == list(range(4_000))
 ```
 

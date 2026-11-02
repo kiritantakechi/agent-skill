@@ -142,18 +142,19 @@ import decimal
 from typing import TYPE_CHECKING, evaluate_forward_ref
 
 if TYPE_CHECKING:
-    # Not imported at runtime — the common, legitimate reason a name in an
-    # annotation cannot be resolved.
+    # Not imported at runtime: the common, legitimate reason a name in
+    # an annotation cannot be resolved.
     from decimal import Decimal
 
 
 def price(amount: Decimal) -> None:
-    """PEP 649 makes this legal: the annotation is never evaluated here."""
+    """Legal under PEP 649: the annotation is never evaluated here."""
 
 
 try:
     annotationlib.get_annotations(price, format=annotationlib.Format.VALUE)
-    raise AssertionError("VALUE should not have resolved a TYPE_CHECKING-only name")
+    msg = "VALUE should not have resolved a TYPE_CHECKING-only name"
+    raise AssertionError(msg)
 except NameError:
     pass  # This is what a library reading someone else's annotations would hit.
 
@@ -206,11 +207,11 @@ name that can be — and was — reused across unrelated declarations, silently 
 
 ```python
 # verified — GOOD
-from collections.abc import Sequence
+lazy from collections.abc import Sequence
 
 
 class Box[T]:
-    """The parameter is scoped to the class; nothing outside can reuse it."""
+    """Hold one item; `T` is scoped to the class alone."""
 
     def __init__(self, item: T) -> None:
         self.item = item
@@ -266,11 +267,11 @@ statically decidable.
 ```python
 # verified — GOOD
 import array
-from collections.abc import Buffer
+lazy from collections.abc import Buffer
 
 
 def checksum(data: Buffer) -> int:
-    """Sum the bytes of any buffer: `bytes`, `memoryview`, `array`, `mmap`."""
+    """Sum the bytes of any buffer: `bytes`, `array`, `mmap`."""
     return sum(memoryview(data).cast("B"))
 
 
@@ -295,8 +296,8 @@ in a signature quietly erases the types of everything it touches.
 
 ### PS-TYPE-14 [M] Narrow with `TypeIs`, not `TypeGuard`
 
-`def is_str(x: object) -> TypeIs[str]:`. Reach for `TypeGuard` only where the narrowed type is not
-assignable to the input type, and say why in the docstring.
+`def is_str(value: object) -> TypeIs[str]:`. Reach for `TypeGuard` only where the narrowed type is
+not assignable to the input type, and say why in the docstring.
 
 **Why:** `TypeGuard` narrows only the positive branch, so the `else` keeps the original union and
 the reader meets a type error in the arm that should have been obvious. `TypeIs` narrows both ways,
@@ -310,15 +311,15 @@ constraint cannot hold.
 from typing import TypeIs
 
 
-def is_str(x: object) -> TypeIs[str]:
-    return isinstance(x, str)
+def is_str(value: object) -> TypeIs[str]:
+    return isinstance(value, str)
 
 
-def width(x: str | int) -> int:
-    if is_str(x):
-        return len(x)
-    # TypeIs narrows here too: `x` is `int`, not `str | int`.
-    return x.bit_length()
+def width(value: str | int) -> int:
+    if is_str(value):
+        return len(value)
+    # TypeIs narrows here too: `value` is `int`, not `str | int`.
+    return value.bit_length()
 
 
 assert width("abcd") == 4
@@ -355,7 +356,7 @@ def describe(kind: Kind) -> str:
         case Kind.WRITE:
             return "writer"
         case _:
-            # Adding a third member makes this a type error at every call site.
+            # A third member makes this a type error at every call.
             assert_never(kind)
 
 
@@ -364,14 +365,17 @@ assert describe(Kind.READ) == "reader"
 
 ### PS-TYPE-16 [M] Mark what may not be subclassed or reassigned
 
-`@final` on a class nothing should subclass. `Final` on a module constant.
+`@final` on a class nothing should subclass. `Final` on a module constant. `@disjoint_base` on a
+class no other disjoint base may share a subclass with: non-empty `__slots__` already implies it for
+a class written in Python, so it is the stub of an extension type that must say it.
 
 **Why:** without them every class is an extension point whether you meant it or not, and every
-constant is a variable; both markers are checked. `@final` also lets the checker narrow more
+constant is a variable; each marker is checked. `@final` also lets the checker narrow more
 aggressively, because it knows no subclass can widen the behaviour.
 
 **Check:** ruff `PYI` for the stub cases; the rest is review. A module-level name in
-`SCREAMING_SNAKE_CASE` without `Final` is the finding.
+`SCREAMING_SNAKE_CASE` without `Final` is the finding. `ty` reports a class inheriting two disjoint
+bases as `instance-layout-conflict`.
 
 ### PS-TYPE-17 [S] Reach for `@overload` only when a type parameter cannot express it
 

@@ -13,7 +13,8 @@ output-format = "concise"
 select = ["ALL"]
 
 ignore = [
-  # Ruff's own documented formatter-conflict list.
+  # Ruff's own documented formatter-conflict list. D203 is on it too, and is
+  # not repeated here: the google convention below already turns it off.
   # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
   "W191", "E111", "E114", "E117",  # indentation is the formatter's job
   "D206", "D300",                  # docstring indent and quotes likewise
@@ -24,11 +25,6 @@ ignore = [
   # not on the conflict list despite older documentation saying so.
   # E501 is deliberately NOT ignored: the formatter makes only a best-effort
   # attempt at the line limit, so E501 is the backstop that catches the rest.
-
-  # Mutually exclusive pairs. Ruff drops one and says which in a warning; choose
-  # deliberately instead. D211 and D212 are the formatter-compatible side.
-  "D203",
-  "D213",
 
   # Redundant with the formatter.
   "D207", "D208",
@@ -53,8 +49,14 @@ allow-multiline = false
 
 [lint.pydocstyle]
 # The only convention that keeps D417 (undocumented-param). Leaving it unset
-# enables mutually contradictory rules.
+# enables mutually contradictory rules; this one settles both pairs on the
+# formatter-compatible side, D211 and D212.
 convention = "google"
+
+[lint.flake8-tidy-imports]
+# PS-NAME-09 forbids every relative import. The default, "parents", lets a
+# sibling import such as `from .retry import RetryPolicy` through.
+ban-relative-imports = "all"
 
 [lint.flake8-type-checking]
 # At py315 a TC001-TC003 fix makes a single-name import `lazy`, which keeps it

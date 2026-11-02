@@ -13,15 +13,15 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 
 ## Contents
 
-- **The four tiers**
-  - PS-MIG-01 [M] Distinguish removed, rejected, unlisted and discouraged
+- **The five tiers**
+  - PS-MIG-01 [M] Distinguish removed, rejected, unlisted, deprecated and discouraged
   - PS-MIG-02 [M] Run the dead-API grep before reading a diff
 - **Removed outright**
   - PS-MIG-03 [M] Do not use a name 3.15 removed
   - PS-MIG-04 [M] Do not use a C API 3.15 removed
 - **Rejected spellings of live names**
   - PS-MIG-05 [M] Give `strptime` a year directive when the format has `%d`
-- **Unlisted but importable**
+- **Unlisted or deprecated, still importable**
   - PS-MIG-06 [M] Stop reading `__version__` from a standard-library module
 - Changed underneath you
 - **Forward compatibility**
@@ -33,17 +33,18 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 
 ---
 
-## The four tiers
+## The five tiers
 
-### PS-MIG-01 [M] Distinguish removed, rejected, unlisted and discouraged
+### PS-MIG-01 [M] Distinguish removed, rejected, unlisted, deprecated and discouraged
 
-Four categories, and only the first two fail a build.
+Five categories, and only the first two fail a build.
 
 | Tier | What it means | In the grep? |
 |---|---|---|
 | **Removed** | The name is gone. `AttributeError` or `ImportError`. | Yes — fails |
 | **Rejected** | The name lives; a call form no longer works. | Yes, as a shape — fails |
 | **Unlisted** | Dropped from `__all__`, still importable, removal scheduled. | Yes — warns |
+| **Deprecated** | Still listed or never was, works, removal scheduled; most warn on use. | Yes — warns |
 | **Discouraged** | Works, warns about nothing, no removal planned. | **No** |
 
 `re.match` is the canonical discouraged name: soft-deprecated in favour of `re.prefixmatch`, and the
@@ -52,7 +53,7 @@ used in code for over 30 years."* The same holds for `struct`'s `'F'` and `'D'` 
 `PyGILState` C APIs: all soft-deprecated, all staying.
 
 **Why:** conflating them produces a check that cries wolf, and a check people learn to route
-around is worse than no check. The fourth tier is where it goes wrong: a *soft deprecation* is
+around is worse than no check. The last tier is where it goes wrong: a *soft deprecation* is
 discouraged but explicitly never removed, so treating one as an error discredits the whole table.
 
 **Check:** every entry in this chapter carries its tier. An entry without one is the finding. Then
@@ -64,16 +65,27 @@ First, before anything else in the review.
 
 **Why:** a superseded spelling means the author's model of the language is out of date, which makes
 every other judgement in the diff suspect — so finding one changes how you read the rest. It is also
-the cheapest check available: one command, no interpretation.
+the cheapest check available: one command, and only its `ast` line needs reading.
 
 **Check:** the command is the rule.
 
 ```sh
-# verified — the removal tier: every name here is gone in 3.15
+# verified — removed and rejected fail; unlisted and deprecated warn
+# Removed: every name here is gone in 3.15.
 grep -rnE 'ctypes\.SetPointerType|glob\.glob[01]|CGIHTTPRequestHandler' src/
 grep -rnE 'is_reserved\(|platform\.java_ver|import sre_(compile|constants|parse)' src/
 grep -rnE 'co_lnotab|no_type_check_decorator|\.load_module\(|__cached__' src/
 grep -rnE '\.(getmark|setmark|getmarkers)\(' src/
+grep -rnE 'files\(package=|is_python_build\([^)]|RLock\([^)]' src/
+grep -rnE 'http\.server.*--cgi' .
+grep -rnE '\bast\.[A-Z][A-Za-z]*\(' src/  # read each: every field given, nothing else
+# Rejected: the name lives, and this shape of call fails.
+grep -rnE 'strptime\(.*%d' src/ | grep -vE '%[Yy]'
+# Unlisted or deprecated: importable today, removal scheduled.
+grep -rnE 'ByteString|AnyStr|^\s*(import|from) profile\b' src/
+grep -rnE '\b(argparse|csv|ctypes|decimal|json|logging)\.__version__' src/
+grep -rnE '\b(pickle|platform|re|tarfile|zlib)\.__version__' src/
+grep -rnE 'get_event_loop_policy|set_event_loop_policy|EventLoopPolicy' src/
 ```
 
 ## Removed outright
@@ -136,16 +148,20 @@ code that was wrong.
 
 **Check:** `rg -n 'strptime' src/` and read each format string for `%d` without `%Y` or `%y`.
 
-## Unlisted but importable
+## Unlisted or deprecated, still importable
 
-| Unlisted in 3.15 | Removed in | Use instead | Find it with |
+| Importable in 3.15, removal scheduled | Removed in | Use instead | Find it with |
 |---|---|---|---|
-| `collections.abc.ByteString`, `typing.ByteString`, which now warn on every access | 3.17 | `collections.abc.Buffer` (PS-TYPE-12) | `rg -n 'ByteString' src/` |
+| Unlisted: `collections.abc.ByteString`, `typing.ByteString`, which now warn on every access | 3.17 | `collections.abc.Buffer` (PS-TYPE-12) | `rg -n 'ByteString' src/` |
+| Deprecated: the `profile` module, which warns on import | 3.17 | `profiling.tracing` (PS-PERF-02) | `rg -nw 'profile' src/` |
+| Deprecated: `typing.AnyStr`, which does not warn | 3.18 | a constrained type parameter, `def f[S: (str, bytes)](s: S) -> S` (PS-TYPE-12) | `rg -n 'AnyStr' src/` |
+| Deprecated: the asyncio policy API, which warns on use | 3.16 | `loop_factory=` (PS-ASYNC-01, PS-ASYNC-02) | `rg -ni 'event_?loop_?policy' src/` |
 
 ### PS-MIG-06 [M] Stop reading `__version__` from a standard-library module
 
 Deprecated across twenty-four modules in 3.15 — `argparse`, `csv`, `ctypes`, `decimal`, `json`,
 `logging`, `pickle`, `platform`, `re`, `socketserver`, `tarfile`, `zlib` and more. Removal is 3.20.
+The tier is deprecated rather than unlisted: the attribute was never in any module's `__all__`.
 
 **Why:** the attribute was never meaningful — it recorded the module's own historical version, not
 the interpreter's — and code reading it was almost always answering the wrong question. Use
@@ -165,12 +181,14 @@ list, to read before writing code; this is the one to grep with.
 | A `@contextmanager`-derived decorator on a generator function holds its context until the generator is exhausted, not until it is created | `rg -nB2 -A2 '@contextmanager' src/` | PS-CONC-22 |
 | `frozendict` is not a `dict` subclass, so `isinstance(x, dict)` rejects one | `rg -n 'isinstance\(.*, dict\)' src/` | PS-DATA-13 |
 | UTF-8 mode is on by default and moves six surfaces, `sys.stdout`'s error handler among them | the suite under `-X warn_default_encoding`, where every `EncodingWarning` is a finding | PS-OUT-02 |
+| `functools.singledispatchmethod` wrapping a regular method and called through the class, `A.m(a, 1)`, dispatches on the second argument, so a different registered implementation runs | `rg -n 'singledispatchmethod' src/`, then each call made through the class | — |
+| On `3.15t` the GIL is gone, so a read-modify-write on shared state that worked by luck now loses updates | PS-CONC-02's Check | PS-CONC-02 |
 
 ## Forward compatibility
 
-3.16 removes the event-loop policy system, and the replacements already work on 3.15, so code is
-written against them now (PS-ASYNC-01, PS-ASYNC-02). Find the old spellings with
-`rg -n 'get_event_loop|EventLoopPolicy' src/`.
+3.16 removes the event-loop policy system, in the deprecated tier on 3.15, and the replacements
+already work on 3.15, so code is written against them now (PS-ASYNC-01, PS-ASYNC-02). Find the old
+spellings with `rg -n 'get_event_loop|EventLoopPolicy' src/`.
 
 | Removed in 3.16 | Write now |
 |---|---|

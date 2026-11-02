@@ -97,8 +97,8 @@ class Node:
 
 
 node = Node("root")
-ref = weakref.ref(node)  # held in a slot, not in an instance dict
-assert ref() is node
+reference = weakref.ref(node)  # held in a slot, not in an instance dict
+assert reference() is node
 assert not hasattr(node, "__dict__")
 ```
 
@@ -305,8 +305,9 @@ the test. `rg -n 'MappingProxyType' src/` finds the spelling it replaces.
 ```python
 # verified — GOOD
 from collections.abc import Mapping
+from typing import Final
 
-DEFAULTS = frozendict({"retries": 3, "timeout_ms": 500})
+DEFAULTS: Final = frozendict({"retries": 3, "timeout_ms": 500})
 
 assert isinstance(DEFAULTS, Mapping)
 assert not isinstance(DEFAULTS, dict)  # the trap: it is not a dict subclass
@@ -330,6 +331,8 @@ they passed, not the one they got; a raise puts the construction site in the tra
 # verified — GOOD
 from dataclasses import dataclass
 
+import pytest
+
 
 @dataclass(frozen=True, slots=True)
 class Port:
@@ -341,11 +344,12 @@ class Port:
             raise ValueError(msg)
 
 
+def test_out_of_range_is_rejected() -> None:
+    with pytest.raises(ValueError, match="out of range"):
+        Port(0)
+
+
 assert Port(8080).number == 8080
-try:
-    Port(0)
-except ValueError as exc:
-    assert "out of range" in str(exc)
 ```
 
 ### PS-DATA-15 [M!] Make the invalid state unrepresentable before validating against it
@@ -419,9 +423,9 @@ deliberate — say so in the docstring — or the finding.
 
 ```python
 # verified — GOOD
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Self
+lazy from collections.abc import Mapping
 
 
 @dataclass(frozen=True, slots=True)
@@ -430,8 +434,8 @@ class Point:
     y: int
 
     def to_dict(self) -> dict[str, int]:
-        # Not `asdict`: it returns `dict[str, Any]`, and laundering `Any` into an
-        # annotated return is what PS-TYPE-13 exists to stop.
+        # Not `asdict`: it returns `dict[str, Any]`, and laundering
+        # `Any` into an annotated return is what PS-TYPE-13 stops.
         return {"x": self.x, "y": self.y}
 
     @classmethod
