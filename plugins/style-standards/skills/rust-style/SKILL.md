@@ -183,10 +183,11 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 
 - **RS-CORE-06 `[M]`** Everything is private until proven public. `pub` is a promise of support;
   `pub(crate)` costs nothing (`references/api.md` RS-API-01).
-- **RS-CORE-07 `[M]`** Be generic in what you accept, concrete in what you return. Take `&[T]` not
-  `&Vec<T>`, `&str` not `&String`, `&Path` not `&PathBuf` — the borrowed form accepts strictly more
-  callers at no cost, and clippy's `ptr_arg` flags the owned forms. This is the single most common
-  signature defect in Rust (`references/api.md` RS-API-07).
+- **RS-CORE-07 `[M]`** Be generic in what you accept, concrete in what you return. Take
+  `impl AsRef<Path>`, `impl IntoIterator<Item = T>` or `impl Into<String>` where callers hold
+  different types; return a named type or `impl Trait`, never a type parameter only the caller can
+  choose. Taking `&Vec<T>`, `&String` or `&PathBuf` where the borrowed view serves is clippy's
+  `ptr_arg`, a row in `references/ownership.md`'s tool table (`references/api.md` RS-API-07).
 - **RS-CORE-08 `[M!]`** Every struct field is private, whether or not it carries an invariant, and
   the type exposes methods rather than storage. The one exception is a `#[repr(C)]` type whose
   layout is already the contract. *Relaxed form:* a plain-data or options struct that no code

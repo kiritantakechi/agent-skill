@@ -345,7 +345,7 @@ impl Percent {
 
 **Why:** an accessor returning `&Vec<u8>` publishes `Vec` exactly as a public field would, so
 switching to `SmallVec`, a ring buffer, or a memory map still breaks every caller. `&[u8]` names
-what the caller may do, not what you store, and all three can produce it (RS-CORE-07).
+what the caller may do, not what you store, and all three can produce it.
 
 **Check:** grep accessor return types for `&Vec<T>`, `&String`, and `&PathBuf` — the slice, `&str`,
 and `&Path` say the same thing without naming the container. A map or a set has no borrowed view in
