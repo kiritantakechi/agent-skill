@@ -205,7 +205,7 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
   (`references/architecture.md` BV-ARCH-04, BV-ARCH-03).
 - **BV-CORE-04 `[M]`** Every plugin is a type implementing `Plugin`, named `*Plugin`, and never a
   function or a closure: four of Bevy's own APIs address a plugin by its type, and a function's type
-  cannot be written. `main` adds plugins and nothing else
+  cannot be written. `main` adds plugins and installs the two error policies, and nothing else
   (`references/architecture.md` BV-ARCH-09, BV-ARCH-10, BV-ARCH-15).
 
 ### Components and queries
@@ -243,8 +243,9 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **BV-CORE-13 `[M]`** A system that should not always run says so with `.run_if(…)`. An early
   `return` hides the condition from the schedule, which cannot then skip the system or report it
   (`references/scheduling.md` BV-SCHED-15).
-- **BV-CORE-14 `[M]`** Take the delta from `Res<Time>` in `Update` and `Res<Time<Fixed>>` in
-  `FixedUpdate`, and never hard-code a per-frame delta
+- **BV-CORE-14 `[M]`** Take the delta from `Res<Time>`, which is the frame clock in `Update` and
+  the fixed clock inside `FixedUpdate`; naming `Res<Time<Fixed>>` instead trades that portability
+  for clarity, deliberately. Never hard-code a per-frame delta
   (`references/scheduling.md` BV-SCHED-05).
 
 ### Events, messages, observers
