@@ -165,6 +165,8 @@ list, to read before writing code; this is the one to grep with.
 | A `@contextmanager`-derived decorator on a generator function holds its context until the generator is exhausted, not until it is created | `rg -nB2 -A2 '@contextmanager' src/` | PS-CONC-22 |
 | `frozendict` is not a `dict` subclass, so `isinstance(x, dict)` rejects one | `rg -n 'isinstance\(.*, dict\)' src/` | PS-DATA-13 |
 | UTF-8 mode is on by default and moves six surfaces, `sys.stdout`'s error handler among them | the suite under `-X warn_default_encoding`, where every `EncodingWarning` is a finding | PS-OUT-02 |
+| `functools.singledispatchmethod` wrapping a regular method and called through the class, `A.m(a, 1)`, dispatches on the second argument, so a different registered implementation runs | `rg -n 'singledispatchmethod' src/`, then each call made through the class | — |
+| On `3.15t` the GIL is gone, so a read-modify-write on shared state that worked by luck now loses updates | PS-CONC-02's Check | PS-CONC-02 |
 
 ## Forward compatibility
 

@@ -365,14 +365,17 @@ assert describe(Kind.READ) == "reader"
 
 ### PS-TYPE-16 [M] Mark what may not be subclassed or reassigned
 
-`@final` on a class nothing should subclass. `Final` on a module constant.
+`@final` on a class nothing should subclass. `Final` on a module constant. `@disjoint_base` on a
+class no other disjoint base may share a subclass with: non-empty `__slots__` already implies it for
+a class written in Python, so it is the stub of an extension type that must say it.
 
 **Why:** without them every class is an extension point whether you meant it or not, and every
-constant is a variable; both markers are checked. `@final` also lets the checker narrow more
+constant is a variable; each marker is checked. `@final` also lets the checker narrow more
 aggressively, because it knows no subclass can widen the behaviour.
 
 **Check:** ruff `PYI` for the stub cases; the rest is review. A module-level name in
-`SCREAMING_SNAKE_CASE` without `Final` is the finding.
+`SCREAMING_SNAKE_CASE` without `Final` is the finding. `ty` reports a class inheriting two disjoint
+bases as `instance-layout-conflict`.
 
 ### PS-TYPE-17 [S] Reach for `@overload` only when a type parameter cannot express it
 
