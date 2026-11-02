@@ -35,11 +35,16 @@ def plugin(skills: Sequence[Skill]) -> Iterator[Finding]:
     if not skills:
         return
     root = root_of(skills[0].root.parent)
-    manifest, market = _load(root / PLUGIN / MANIFEST), _load(root / MARKETPLACE)
+    manifest, unread = _load(root / PLUGIN / MANIFEST)
+    market, unread_market = _load(root / MARKETPLACE)
+    # Every path that read nothing is reported. Only a missing file used
+    # to be: one that was there and did not parse, or parsed to a list,
+    # returned with no finding at all, and the check passed having held
+    # nothing to the layout.
+    for path, problem in ((PLUGIN / MANIFEST, unread), (MARKETPLACE, unread_market)):
+        if problem:
+            yield fail(f"`{path}` {problem}", "plugin")
     if manifest is None or market is None:
-        for path in (PLUGIN / MANIFEST, MARKETPLACE):
-            if not (root / path).is_file():
-                yield fail(f"`{path}` is missing or not JSON", "plugin")
         return
     yield from _manifest(manifest, root)
     yield from _marketplace(market)
@@ -53,14 +58,19 @@ def plugin(skills: Sequence[Skill]) -> Iterator[Finding]:
     yield from _validate(root)
 
 
-def _load(path: Path) -> dict[str, object] | None:
+def _load(path: Path) -> tuple[dict[str, object] | None, str]:
+    """The manifest as an object, or None and why it is not one."""
     try:
-        loaded = json.loads(path.read_text())
-    except OSError, ValueError:
-        return None
+        text = path.read_text()
+    except OSError:
+        return None, "is missing"
+    try:
+        loaded = json.loads(text)
+    except ValueError as e:
+        return None, f"is not JSON: {e}"
     if not isinstance(loaded, dict):
-        return None
-    return {str(key): value for key, value in loaded.items()}
+        return None, "is JSON, but not an object"
+    return {str(key): value for key, value in loaded.items()}, ""
 
 
 def _manifest(manifest: dict[str, object], root: Path) -> Iterator[Finding]:

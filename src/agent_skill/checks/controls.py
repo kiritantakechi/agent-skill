@@ -640,6 +640,19 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        # Only a missing manifest used to be reported. One that was
+        # there and did not parse returned before anything read it, with
+        # no finding, and the check passed.
+        "a plugin manifest that is there and is not JSON",
+        "plugin",
+        lambda t: edit(
+            root_of(t),
+            f"{PLUGIN}/.claude-plugin/plugin.json",
+            '"name": "style-standards",',
+            '"name": "style-standards",,',
+        ),
+    ),
+    Control(
         "a table cell split by an unescaped pipe",
         "layout",
         lambda t: edit(
