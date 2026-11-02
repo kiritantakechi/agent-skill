@@ -60,16 +60,22 @@ def _widths(lines: list[str], tag: str) -> Iterator[Finding]:
     one ended its line in a space, so it fired through the other branch
     and would have kept firing with this one gone.
     """
-    end_fm = 0
+    # How many lines the frontmatter runs to, both fences included; none
+    # when there is no frontmatter. This was the closing fence's index,
+    # 0 without one, and lines up to it plus one were skipped — so line
+    # 1 of every chapter was never measured.
+    frontmatter = 0
     if lines and lines[0] == "---":
-        end_fm = next((i for i, ln in enumerate(lines[1:], 1) if ln == "---"), 0)
+        frontmatter = next(
+            (i + 1 for i, ln in enumerate(lines[1:], 1) if ln == "---"), 1
+        )
 
     fenced = False
     for i, line in enumerate(lines, 1):
         if line.startswith("```"):
             fenced = not fenced
             continue
-        if i <= end_fm + 1 or len(line) <= WIDTH:
+        if i <= frontmatter or len(line) <= WIDTH:
             continue
         if line.lstrip().startswith("|"):
             continue  # a table row cannot be wrapped
