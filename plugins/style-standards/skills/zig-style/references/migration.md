@@ -583,6 +583,9 @@ pub const Init = struct {
 | `std.process.argsAlloc(gpa)` / `argsFree` | `try init.minimal.args.toSlice(arena)` -> `[]const [:0]const u8` | gone |
 | any std argument *parser* | there has never been one; hand-roll it (`references/build.md` ZS-BUILD-38) | — |
 | `std.process.getEnvMap(gpa)` | `init.environ_map` | gone |
+| `std.process.getEnvVarOwned(gpa, key)` | `init.environ_map.get(key)`, a borrowed `?[]const u8`; or `try init.minimal.environ.getAlloc(gpa, key)`, which the caller frees and which fails with `error.EnvironmentVariableMissing` | gone |
+| `std.posix.getenv(key)` | `init.environ_map.get(key)`; on POSIX, `init.minimal.environ.getPosix(key)`, a `?[:0]const u8` read without allocating | gone |
+| `std.process.hasEnvVar(gpa, key)`, `hasEnvVarConstant(key)` | `init.environ_map.contains(key)`; or `init.minimal.environ.contains(gpa, key)`, `containsConstant(key)` | gone |
 | `var gpa_state = GPA(.{}){}; const gpa = …` | `const gpa = init.gpa;` | — |
 | `std.io.getStdOut()` | `std.Io.File.stdout()` + `init.io` | gone |
 | `std.process.Child.init(argv, gpa)` + `spawn()` | `std.process.spawn(io, .{ .argv = …, .stdout = .pipe })` | gone |
