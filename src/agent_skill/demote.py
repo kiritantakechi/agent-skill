@@ -301,32 +301,38 @@ def _prune(text: str) -> str:
 def _add_rows(text: str, rows: list[list[str]]) -> str:
     """`text` with `rows` in its `Decided by tools` table.
 
-    The table is started if there is none. A new table goes before the
-    rename tables, which close the migration chapter, and its contents
-    line closes the contents list.
+    The table is started if there is none — in a section of its own, or
+    under a `Decided by tools` heading that has no table yet. A new
+    section goes before the rename tables, which close the migration
+    chapter, and its contents line closes the contents list.
     """
     cells = [[c.replace("|", "\\|") for c in row] for row in rows]
     lines = [
         f"| {tool} | `{lint}` | {level} | {forbids} |"
         for tool, lint, level, forbids in cells
     ]
+    lead = COMPILER_LEAD if rows[0][0] in COMPILERS else LEAD
+    header = "| Tool | Lint | Level | Forbids |\n|---|---|---|---|\n"
     if table := re.search(rf"^## {DECIDED}\n", text, re.MULTILINE):
         nxt = re.compile(r"^## ", re.MULTILINE).search(text, table.end())
         body = text[table.end() : nxt.start() if nxt else len(text)]
         listed = set(re.findall(r"^\| (\S+) \| `([^`]+)` \|", body, re.MULTILINE))
-        lines = [
-            ln
+        new = "".join(
+            f"{ln}\n"
             for ln, row in zip(lines, rows, strict=True)
             if (row[0], row[1]) not in listed
-        ]
-        end = table.end() + list(re.finditer(r"^\|.*\n", body, re.MULTILINE))[-1].end()
-        return text[:end] + "".join(f"{ln}\n" for ln in lines) + text[end:]
+        )
+        piped = list(re.finditer(r"^\|.*\n", body, re.MULTILINE))
+        if piped:
+            end = table.end() + piped[-1].end()
+            return text[:end] + new + text[end:]
+        # A heading with no table under it: the table follows whatever
+        # the section says, or the lead when it says nothing.
+        said = text[: table.end()] + (body.rstrip("\n") or f"\n{lead}")
+        rest = text[table.end() + len(body) :]
+        return f"{said}\n\n{header}{new}" + (f"\n{rest}" if rest else "")
 
-    lead = COMPILER_LEAD if rows[0][0] in COMPILERS else LEAD
-    section = (
-        f"## {DECIDED}\n\n{lead}\n\n"
-        "| Tool | Lint | Level | Forbids |\n|---|---|---|---|\n"
-    )
+    section = f"## {DECIDED}\n\n{lead}\n\n{header}"
     section += "".join(f"{ln}\n" for ln in lines)
     renamed = re.search(r"^## Rule IDs before the .+ revision$", text, re.MULTILINE)
     if renamed:

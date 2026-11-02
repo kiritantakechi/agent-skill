@@ -279,6 +279,22 @@ def test_demoting_a_rule_takes_its_whole_example_with_it(
     assert skill(repo).by_id["DS-ERR-01"].body == before
 
 
+@pytest.mark.parametrize("lead", ["", f"\n{demote.LEAD}\n"])
+def test_rows_go_under_a_decided_by_tools_heading_with_no_table(
+    repo: Path, lead: str
+) -> None:
+    errors = repo / SKILLS / "demo-style/references/errors.md"
+    errors.write_text(
+        ERRORS.replace("## Catching", f"## Decided by tools\n{lead}\n## Catching")
+    )
+    run(repo, {"DS-ERR-02": {"rows": [ROW]}})
+    (row,) = skill(repo).lint_rows
+    assert (row.tool, row.lint) == ("clippy", "unwrap_used")
+    text = errors.read_text()
+    assert text.count(demote.LEAD) == 1
+    assert "\n\n\n" not in text
+
+
 def test_a_compiler_row_opens_its_table_with_the_compiler_lead(repo: Path) -> None:
     row = ["zig", "unused local constant", "error", "a constant nothing reads"]
 
