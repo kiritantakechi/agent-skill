@@ -92,6 +92,7 @@ against this table and RS-MIG-01's "Since" column, which keep the dates the rule
 | `fmt::from_fn`; `Vec::into_raw_parts`; `VecDeque::pop_front_if` and `pop_back_if` | 1.93 |
 | `array_windows`; `Peekable::next_if_map` | 1.94 |
 | `if let` guards; `hint::cold_path` | 1.95 |
+| `core::range::Range` | 1.96 |
 
 ## What changed silently
 
