@@ -6,9 +6,10 @@ type-level tools — associated types, GATs, const generics, typestate. Naming o
 parameters is in the naming chapter; the semver consequences of trait changes are in the API
 chapter; the code-size consequences of monomorphization are in the performance chapter.
 
-Traits are Rust's only abstraction mechanism. The discipline here is **trait-first**: name the
-capability as a trait before writing the type that provides it, and program against the trait rather
-than the concrete type.
+Traits are Rust's only abstraction mechanism. The discipline here is **trait-first** at every seam
+that will carry two plausible implementations or a test double: name the capability as a trait
+before writing the type that provides it, and program against the trait rather than the concrete
+type. Where there is one implementation and no double, the concrete type is the design.
 
 The Rust API Guidelines and the BurntSushi crates advise the opposite — extract a trait only once a
 second implementation exists. Trait-first buys a boundary that is total and symmetric because no
@@ -83,15 +84,18 @@ not a partial impl.
 
 ### RS-TRAIT-01 [M] Name the capability as a trait before writing the type that provides it
 
-Write the trait first, in terms of what a caller needs, then implement it. Program against the
-trait — take `impl Read`, not `File` — so the first implementation is never privileged.
+At a seam that will carry two plausible implementations, or a test double, write the trait first,
+in terms of what a caller needs, then implement it. Program against the trait — take `impl Read`,
+not `File` — so the first implementation is never privileged. A type with one implementation and no
+double stays concrete (RS-TRAIT-33), and a closed set is an enum (RS-TRAIT-18).
 
 **Why:** a boundary extracted from an existing type inherits its accidents: its error cases, its
 argument order, its assumption that a handle is always available. Designed against the caller's
 need, it comes out total and symmetric, and the test double is free because the seam exists.
 
-**Check:** for each concrete type used across a module boundary, is the consumer written against a
-trait or against the type? A function taking `&File` where it only reads is the finding.
+**Check:** for each concrete type used across a module boundary that has a second implementation
+or a test double, is the consumer written against a trait or against the type? A function taking
+`&File` where it only reads is the finding.
 
 ```rust
 // verified

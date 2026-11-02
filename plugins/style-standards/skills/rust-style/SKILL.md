@@ -258,11 +258,13 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 
 ### Abstraction
 
-- **RS-CORE-24 `[M]`** Name the capability as a trait before writing the type that provides it, and
-  program against the trait. A boundary designed first stays total and symmetric; one extracted
-  later is shaped by whichever implementation came first. The cost is indirection and a generic
-  parameter at each use site, which is the trade this standard accepts against the Rust API
-  Guidelines' advice (`references/traits.md` RS-TRAIT-01).
+- **RS-CORE-24 `[M]`** At a seam that will carry two plausible implementations, or a test double,
+  name the capability as a trait before writing the type that provides it, and program against the
+  trait. A boundary designed first stays total and symmetric; one extracted later is shaped by
+  whichever implementation came first. A type with one implementation and no double stays concrete,
+  and a closed set is an enum. The cost is indirection and a generic parameter at each use site,
+  which is the trade this standard accepts against the Rust API Guidelines' advice
+  (`references/traits.md` RS-TRAIT-01).
 - **RS-CORE-25 `[M]`** For a closed set of implementations, an enum beats a trait object: no
   allocation, no vtable, exhaustive matching, and derives for free. Reach for `dyn` when the set is
   genuinely open (`references/traits.md` RS-TRAIT-18).
