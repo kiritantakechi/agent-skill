@@ -53,20 +53,6 @@ CHAPTERS: dict[str, str] = {
 #: The family of the rules `SKILL.md` states itself.
 CORE = "CORE"
 
-#: The number a rule ID ends in. A letter after it marks a rule
-#: inserted between two others, as `ZS-CORE-12a` is, until a
-#: renumbering closes the gap. Every rule-ID pattern is built from this
-#: one: `Rename.target` was the one spelling that left the letter out,
-#: so a rename row naming an inserted `-17a` read as no rule at all,
-#: and outlived the renumbering that made it `-17`.
-NUMBER = r"\d+[a-z]?"
-
-
-def rule_id(prefix: str = "[A-Z]{2}", family: str = "[A-Z]+") -> str:
-    """A regex, with no groups, for a whole rule ID under `prefix`."""
-    return rf"{prefix}-{family}-{NUMBER}"
-
-
 #: The one chapter outside the table: it owns no rules, so it has no
 #: code.
 REVIEW = "review-checklist"

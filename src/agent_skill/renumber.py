@@ -28,6 +28,7 @@ from pathlib import Path
 lazy from collections.abc import Iterator
 
 from agent_skill import shared, vocabulary
+from agent_skill.ids import NUMBER
 from agent_skill.layout import SKILLS
 from agent_skill.model import DASH, RENAMED, Rename, Skill, rename_tables
 from agent_skill.text import reflow
@@ -261,7 +262,7 @@ class _Citations:
         A rule ID the skill does not define is left as it was, and added
         to `unknown` unless it is a core rule's.
         """
-        pattern = re.compile(rf"\b{self.prefix}-([A-Z]+)(?:-({vocabulary.NUMBER}))?\b")
+        pattern = re.compile(rf"\b{self.prefix}-([A-Z]+)(?:-({NUMBER}))?\b")
 
         def swap(m: re.Match[str]) -> str:
             whole, code, number = m.group(0), m.group(1), m.group(2)
@@ -531,7 +532,7 @@ def _verify(repo: Path, skill: Skill, plan: Plan) -> None:
     title can itself cite a rule, so the title expected afterwards is
     the old one with the same rewrite applied.
     """
-    pattern = re.compile(rf"\b{skill.prefix}-([A-Z]+)(?:-({vocabulary.NUMBER}))?\b")
+    pattern = re.compile(rf"\b{skill.prefix}-([A-Z]+)(?:-({NUMBER}))?\b")
 
     def retitle(title: str) -> str:
         def swap(m: re.Match[str]) -> str:

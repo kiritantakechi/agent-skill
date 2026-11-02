@@ -14,8 +14,9 @@ from typing import override
 lazy from collections.abc import Iterator
 lazy from pathlib import Path
 
+from agent_skill.ids import rule_id
 from agent_skill.text import code_only, group, strip_comment, syntax_for
-from agent_skill.vocabulary import CORE, rule_id
+from agent_skill.vocabulary import CORE
 lazy from agent_skill.profiles import Profile, profile_for
 
 #: Every fenced example declares what it is, and the marker leads the

@@ -8,8 +8,11 @@
 
 ## 2. The tree and the typed values
 
-- [ ] 2.1 Add `agent_skill.ids` with `RuleId`, `Tier`, `Location`, `Version`, `Pin`, `Answer`,
+- [x] 2.1 Add `agent_skill.ids` with `RuleId`, `Tier`, `Location`, `Version`, `Pin`, `Answer`,
   `Branch`, each with one parser and one printer and property tests for `parse ∘ print = id`
+  — deviates from decision 3: `RuleId` keeps the inserted letter (`ZS-CORE-12a` ships), and
+  `NUMBER`/`rule_id` moved here from `vocabulary`; parsers raise `ValueError` (reading text asks the
+  world nothing, so it is not a `NoAnswer`); a location outside any skill prints as `./file`
 - [ ] 2.2 Add `agent_skill.doc`: the fence-first block parser, the printer, and `wrap`; property
   tests for `parse(print(d)) == d` on generated trees and idempotence of `print ∘ parse`
 - [ ] 2.3 Add the chapter layer (`Chapter`, `Section`, `Rule`, contents list, tool table, rename

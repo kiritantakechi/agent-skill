@@ -20,10 +20,10 @@ from typing import TypedDict
 lazy from collections.abc import Iterator
 lazy from pathlib import Path
 
+from agent_skill.ids import rule_id
 from agent_skill.layout import SKILLS
 from agent_skill.model import DECIDED, FENCE, Skill, unfenced
 from agent_skill.renumber import RenumberError, _corpus, _segments, carry, heading
-from agent_skill.vocabulary import rule_id
 lazy from agent_skill.profiles import Profile
 
 

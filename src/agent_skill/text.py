@@ -6,7 +6,7 @@ house width, and a regex match is narrowed to the text it found.
 
 import re
 
-from agent_skill.vocabulary import rule_id
+from agent_skill.ids import rule_id
 
 
 def group(m: re.Match[str] | None, key: int | str = 1) -> str:
