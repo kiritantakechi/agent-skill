@@ -15,7 +15,7 @@ as much, and the upstream migration guides are the reference for those.
 ## Contents
 
 - **Using this chapter**
-  - BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.17 until checked
+  - BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.20 until checked
   - BV-MIG-02 [M] Follow a rename to its 0.20 spelling, not its first hop
 
 - **0.15: bundles and text**
@@ -51,17 +51,20 @@ as much, and the upstream migration guides are the reference for those.
 
 ## Using this chapter
 
-### BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.17 until checked
+### BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.20 until checked
 
-Code from a tutorial, a blog post, an answer, or a language model is 0.15-era until something proves
-otherwise. Check it against these tables before adapting it.
+Code from a tutorial, a blog post, an answer, or a language model was written against an older Bevy
+until something proves otherwise — often 0.15, and at best 0.19. Check it against these tables
+before adapting it.
 
-**Why:** 0.17 renamed the event system, the observer parameter and every system set, and most Bevy
-material online predates it. The cost is not a compile error but time spent adapting a pattern that
-no longer exists, and a mental model that keeps producing the old names.
+**Why:** 0.17 renamed the event system, the observer parameter and every system set; 0.20 moved the
+observer's bundle and flattened the pointer events. Nearly all Bevy material online predates one or
+both, and adapting a pattern that no longer exists costs time and keeps the old names in mind.
 
-**Check:** `rg -n 'Trigger<|EventReader|EventWriter|[A-Za-z0-9]Bundle' src/` over the sample.
-Any hit dates it, and so does a system set whose name does not end in `Systems`.
+**Check:** `rg -n '[a-z_]: Trigger<|\bEvent(Reader|Writer)\b|[A-Za-z0-9]Bundle\b' src/` and
+`rg -n '\bOn<[A-Za-z0-9_:]+\s*,|\bPointer<|\.as_mut\(\)\.set_if_neq' src/` over the sample. Any hit
+dates it, and so does a system set whose name does not end in `Systems`, or a `set_if_neq` whose
+receiver is a `NextState` — which only reading finds, since `Mut::set_if_neq` is live.
 
 ### BV-MIG-02 [M] Follow a rename to its 0.20 spelling, not its first hop
 
@@ -134,11 +137,6 @@ constructors, literal and vector are searched for.
 | `TextLayout::new_with_justify(j)` | `TextLayout::justify(j)` |
 | `TextLayout::new_with_linebreak(b)` | `TextLayout::linebreak(b)` |
 | `TextLayout::new_with_no_wrap()` | `TextLayout::no_wrap()` |
-| `TextFont { line_height, .. }` | the separate `LineHeight` component |
-| `TextFont { font: Handle<Font>, .. }` | `TextFont { font: FontSource, .. }` |
-| `TextFont { font_size: f32, .. }` | `TextFont { font_size: FontSize, .. }` |
-| `Font::try_from_bytes` | `Font::from_bytes(bytes)`, which no longer takes a family name |
-| `FontSource::SansSerif`, `Serif`, `Monospace` and the other generic families | `FontSource::sans_serif()` and so on, or a `GenericFontFamily` |
 
 ### BV-MIG-05 [M] Replace the old UI node API
 
@@ -299,7 +297,8 @@ small and collectively the reason a 0.16 project does not compile.
 
 **Check:** `rg -n
 'compute_matrix|\bStateScoped\b|Gizmos::cuboid|RenderGraphApp|ComputedNodeTarget|SimpleExecutor'
-src/`, plus `Timer::paused` and `Timer::finished`. The `Condition` rename is not greppable — the new
+src/` and `rg -n '\.cursor_options\b|\bAnchor::[A-Z][a-z]' src/`, plus `Timer::paused` and
+`Timer::finished`. The `Condition` rename is not greppable — the new
 name contains the old one — so read the `SystemCondition` bound instead. `Pressed` is not greppable
 either, and for the opposite reason: `bevy::ui::Pressed` is live, outside the prelude, a marker for
 a widget being held down. Only `Pointer<Pressed>` is the removed one.
@@ -312,7 +311,8 @@ a widget being held down. Only `Pointer<Pressed>` is the removed one.
 | `StateScoped` | `DespawnOnExit` |
 | `commands.trigger_targets(E, entity)` | an `EntityEvent` carrying its target as a field: `commands.trigger(E { entity })` |
 | `Camera { hdr, .. }` | the separate `Hdr` component |
-| `Window` as one component | `Window` split across several components |
+| `Window { cursor_options, .. }` | the separate `CursorOptions` component, which `Window` requires |
+| `Sprite { anchor, .. }` | the separate `Anchor` component, which `Sprite` requires: a `Vec2` newtype whose old variants are constants, `Anchor::CENTER` for `Anchor::Center`, `Anchor(v)` for `Anchor::Custom(v)` |
 | `Gizmos::cuboid` | `Gizmos::cube` |
 | `Transform::compute_matrix` | `Transform::to_matrix` |
 | `GlobalTransform::compute_matrix` | `GlobalTransform::to_matrix` |
@@ -365,7 +365,7 @@ and read
 every `bevy_scene` against this table rather than assuming — it is the one name that still resolves
 and now means something else.
 
-| 0.18 name | 0.19 name |
+| Removed | Write instead |
 |---|---|
 | crate `bevy_scene` | crate `bevy_world_serialization` |
 | `Scene` (the asset) | `WorldAsset` |
@@ -390,8 +390,8 @@ most likely to appear in an existing project's own plugin code.
 
 **Check:** `rg -n
 'DefaultErrorHandler|ExecutorKind|non_send_resource|ShaderStorageBuffer|earthlike'
-src/`, and the manifest for `experimental_bevy_feathers` and `experimental_ui_widgets` — not every
-`experimental_` feature: `experimental_pbr_pcss` is live.
+src/` and `rg -n 'Font::try_from_bytes' src/`, and the manifest for `experimental_bevy_feathers`
+and `experimental_ui_widgets` — not every `experimental_` feature: `experimental_pbr_pcss` is live.
 
 | Removed | Write instead |
 |---|---|
@@ -412,6 +412,9 @@ src/`, and the manifest for `experimental_bevy_feathers` and `experimental_ui_wi
 | `Skybox { image: Handle<Image> }` | `Skybox { image: Option<Handle<Image>> }` |
 | `Image::pixel_bytes` returning `Option` | it returns `Result` |
 | `AssetPath::get_full_extension` returning `Option<String>` | it returns `Option<&str>` |
+| `TextFont { font: Handle<Font>, .. }` | `TextFont { font: FontSource, .. }`; a handle is `FontSource::Handle(h)` |
+| `TextFont { font_size: f32, .. }` | `TextFont { font_size: FontSize, .. }` |
+| `Font::try_from_bytes(bytes)` | `Font::from_bytes(bytes)`, which returns the `Font` rather than a `Result` |
 | `feathers` widget spawn functions, including 0.19's `button_bundle`, `checkbox_bundle`, `radio_bundle`, `slider_bundle`, `toggle_switch_bundle`, `color_*_bundle`, `virtual_keyboard_bundle` and `ButtonBundleProps` | the feathers `SceneComponent`s, used from `bsn!`: `FeathersButton` with `FeathersButtonProps`, and so on |
 | `FeathersPlugin` | `FeathersCorePlugin` |
 | feature `experimental_bevy_feathers` | feature `bevy_feathers` |
@@ -521,7 +524,7 @@ its name, and a domain crate's `glam = "0.32"`, which moves to `"0.33"` with Bev
 | `EditableText` as the whole widget | `TextInput`, which requires `EditableText` |
 | `TextScroll`, `scroll_editable_text` | `EditableText::viewport` (`TextViewport`) |
 | `resolve_font_source(&font, fonts)` | `font.font.resolve_font_family(fonts)` |
-| `FontSource::SansSerif` and the other generic families | `FontSource::sans_serif()` and so on |
+| `FontSource::SansSerif`, `Serif`, `Monospace` and the other generic families | `FontSource::sans_serif()` and so on, or `FontSource::Generic` with a `GenericFontFamily` |
 | `MeshTag(x)`, `tag.0` | `MeshTag::new(x)`, `tag.value` |
 | `MeshAabb::compute_aabb` | `MeshAabb::get_aabb` |
 | `CustomAttributes::default().with_attribute(..)` | `CustomAttributesBuilder::new().attribute(..).build()` |
