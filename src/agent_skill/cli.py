@@ -119,13 +119,22 @@ def cmd_check(args: argparse.Namespace) -> int:
 
 
 def cmd_build(args: argparse.Namespace) -> int:
-    """Package every skill as `<name>.skill`, and print each path."""
+    """Package every skill as `<name>.skill`, and print each path.
+
+    Exit 1 when any skill could not be packaged.
+    """
+    failed = False
     for skill in discover(args.skills):
-        target = build.package(skill, args.out)
+        try:
+            target = build.package(skill, args.out)
+        except OSError as e:
+            print(f"  {skill.name}: not packaged — {e}", file=sys.stderr)
+            failed = True
+            continue
         print(
             f"  {target.relative_to(REPO) if args.out.is_relative_to(REPO) else target}"
         )
-    return 0
+    return 1 if failed else 0
 
 
 def cmd_install(args: argparse.Namespace) -> int:
@@ -146,20 +155,27 @@ def cmd_install(args: argparse.Namespace) -> int:
 def cmd_fmt(args: argparse.Namespace) -> int:
     """Format each skill in place, and print what changed.
 
-    Exit 2 when a `--skill` asked for is not there.
+    Exit 1 when anything could not be rewritten — a formatter failed, or
+    a block or passage was skipped — and 2 when a `--skill` asked for is
+    not there.
     """
     skills = discover(args.skills)
     if complaint := _unknown("--skill", args.skill, [s.name for s in skills]):
         print(complaint, file=sys.stderr)
         return 2
+    failed = False
     for skill in skills:
         if args.skill and skill.name not in args.skill:
             continue
-        lines = format_skill(skill)
+        findings = format_skill(skill)
         print(f"  {skill.name}")
-        for line in lines or ["already formatted"]:
-            print(f"      {line}")
-    return 0
+        for finding in findings:
+            label = "FAIL  " if finding.level is Level.FAIL else ""
+            print(f"      {label}{finding}")
+        if not findings:
+            print("      already formatted")
+        failed |= any(f.level is Level.FAIL for f in findings)
+    return 1 if failed else 0
 
 
 def _chapter_rename(pair: str) -> tuple[str, str]:

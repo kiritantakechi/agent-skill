@@ -134,6 +134,31 @@ def test_a_skills_directory_outside_a_repository_has_nothing_to_renumber(
     assert "no repository" in capsys.readouterr().err
 
 
+def test_fmt_that_leaves_a_passage_unrewritten_exits_1(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    demo = build(tmp_path)
+    skill_md = demo.skill_md
+    skill_md.write_text(
+        skill_md.read_text().replace(
+            "Rules are cited by ID", "An aside.\n\nRules are cited by ID", 1
+        )
+    )
+    assert cli.main(["--skills", str(tmp_path), "fmt"]) == 1
+    assert "FAIL  SKILL.md § How to use this standard: text outside a free region" in (
+        capsys.readouterr().out
+    )
+
+
+def test_build_that_cannot_package_a_skill_exits_1(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    taken = tmp_path / "taken"
+    taken.write_text("a file where the output directory would go")
+    assert cli.main(["build", "--out", str(taken)]) == 1
+    assert "not packaged" in capsys.readouterr().err
+
+
 def test_a_chapter_rename_without_its_new_name_is_a_usage_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

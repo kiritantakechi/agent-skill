@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 lazy from collections.abc import Iterator
 
+from agent_skill.report import Finding, fail, note
 from agent_skill.text import syntax_for
 lazy from agent_skill.model import Skill
 
@@ -398,20 +399,21 @@ def compare(skill: Skill) -> Iterator[tuple[str, str]]:
                 yield f"text the template has no place for: `{stray}`", where
 
 
-def rewrite(skill: Skill) -> list[str]:
+def rewrite(skill: Skill) -> list[Finding]:
     """Rewrite every copy from the template.
 
     What the skill wrote in the free regions is kept. A section with
-    text outside any free region is left alone and reported: the
-    rewrite would have to drop that text or guess where it goes, and
-    neither is a formatter's decision.
+    text outside any free region is left alone and reported as a
+    failure: the rewrite would have to drop that text or guess where it
+    goes, and neither is a formatter's decision. Each copy rewritten is
+    a note.
     """
-    changed: list[str] = []
+    changed: list[Finding] = []
     for copy in copies(skill):
         al = copy.alignment
         where = f"{copy.passage.document} § {copy.passage.section}"
         if any(not al.free_before(t) for t, _ in al.gaps()):
-            changed.append(f"{where}: text outside a free region; not rewritten")
+            changed.append(fail("text outside a free region; not rewritten", where))
             continue
         gaps = dict(al.gaps())
         out: list[str] = []
@@ -430,5 +432,5 @@ def rewrite(skill: Skill) -> list[str]:
         )
         if rendered != text:
             copy.path.write_text(rendered)
-            changed.append(f"{where}: rewritten from the template")
+            changed.append(note("rewritten from the template", where))
     return changed

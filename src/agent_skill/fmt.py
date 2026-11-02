@@ -18,6 +18,7 @@ lazy from collections.abc import Callable, Iterable, Iterator
 from agent_skill import shared
 from agent_skill.lang.rust import RUST, Crate, module_name
 from agent_skill.proc import run
+from agent_skill.report import Finding, fail, note
 from agent_skill.text import reflow
 lazy from agent_skill.lang import Unit
 lazy from agent_skill.lang.python import PYTHON_TOOLCHAIN
@@ -66,40 +67,43 @@ def _bodies(path: Path, crate: Crate) -> list[str]:
 #: toolchain rather than by whether the profile happens to carry a
 #: `Crate` — that gate returned early for every non-Rust skill before
 #: the branch was even reached.
-FORMATTERS: dict[str, Callable[[Skill], list[str]]] = {}
+FORMATTERS: dict[str, Callable[[Skill], list[Finding]]] = {}
 
 
-def format_skill(skill: Skill) -> list[str]:
+def format_skill(skill: Skill) -> list[Finding]:
     """Rewrite a skill's verified blocks and shared passages.
 
     Each verified block the way that language's formatter would, and
     each shared passage the way its template says.
 
-    Returns one line per passage or chapter changed. The shared passages
-    come first: they are text, and need no toolchain to rewrite.
+    Returns a note per passage or chapter changed, and a failure for
+    each thing that could not be rewritten — a formatter that failed, a
+    block that was skipped — so the command can say it did not finish.
+    The shared passages come first: they are text, and need no
+    toolchain to rewrite.
     """
     changed = shared.rewrite(skill) + _reflow(skill)
     formatter = FORMATTERS.get(skill.profile.toolchain)
     return changed + (formatter(skill) if formatter else [])
 
 
-def _reflow(skill: Skill) -> list[str]:
+def _reflow(skill: Skill) -> list[Finding]:
     """Bring every prose line back under the `layout` limit.
 
     A renaming lengthens a code inside a sentence, and an edit lengthens
     a line; either way the finding is a formatting one, and `fmt` is
     where formatting findings are fixed.
     """
-    changed: list[str] = []
+    changed: list[Finding] = []
     for path in skill.markdown:
         text = path.read_text()
         if (reflowed := reflow(text)) != text:
             path.write_text(reflowed)
-            changed.append(f"{path.name}: prose reflowed to the line limit")
+            changed.append(note("prose reflowed to the line limit", path.name))
     return changed
 
 
-def _format_rust(skill: Skill) -> list[str]:
+def _format_rust(skill: Skill) -> list[Finding]:
     """Rewrite each `// verified` rust block as rustfmt would."""
     # `RUST.extract` builds from this crate, so this is
     # `extraction.crate`, with the type that field does not carry.
@@ -112,9 +116,9 @@ def _format_rust(skill: Skill) -> list[str]:
             return []
         r = run(["cargo", "fmt"], cwd=extraction.root, timeout=300, env=crate.env)
         if not r.ok:
-            return [f"cargo fmt failed: {(r.err or r.out).strip()[:160]}"]
+            return [fail(f"cargo fmt failed: {(r.err or r.out).strip()[:160]}")]
 
-        changed: list[str] = []
+        changed: list[Finding] = []
         for chapter, blocks in groupby(skill.blocks("rust"), key=lambda b: b.file):
             wanted = [b for b in blocks if b.marker.verified and b.rule != "?"]
             src = extraction.root / "src" / f"{module_name(chapter)}.rs"
@@ -123,7 +127,9 @@ def _format_rust(skill: Skill) -> list[str]:
             bodies = _bodies(src, crate)
             if len(bodies) != len(wanted):
                 changed.append(
-                    f"{chapter}: {len(wanted)} blocks, {len(bodies)} modules; skipped"
+                    fail(
+                        f"{len(wanted)} blocks, {len(bodies)} modules; skipped", chapter
+                    )
                 )
                 continue
             path = skill.path_of(chapter)
@@ -136,32 +142,34 @@ def _format_rust(skill: Skill) -> list[str]:
 
 def _put_back(
     path: Path, chapter: str, fence: str, edits: Iterable[tuple[Block, str]]
-) -> list[str]:
+) -> list[Finding]:
     """Write each new body over its block in `path`, in the order given.
 
-    Returns one line per block skipped, then one for the chapter if it
-    changed. A block whose fenced text is not found exactly once is
+    Returns a failure per block skipped, then a note for the chapter if
+    it changed. A block whose fenced text is not found exactly once is
     skipped rather than guessed at.
     """
     text = path.read_text()
-    changed: list[str] = []
+    changed: list[Finding] = []
     hits = 0
     for block, body in edits:
         if block.body == body:
             continue
         old = f"```{fence}\n{block.body}```"
         if text.count(old) != 1:
-            changed.append(f"{chapter}:{block.line} is not uniquely locatable; skipped")
+            changed.append(
+                fail("not uniquely locatable; skipped", f"{chapter}:{block.line}")
+            )
             continue
         text = text.replace(old, f"```{fence}\n{body}```")
         hits += 1
     if hits:
         path.write_text(text)
-        changed.append(f"{chapter}: {hits} block(s) reformatted")
+        changed.append(note(f"{hits} block(s) reformatted", chapter))
     return changed
 
 
-def _format_python(skill: Skill) -> list[str]:
+def _format_python(skill: Skill) -> list[Finding]:
     """Rewrite each `# verified` python block as `ruff format` would.
 
     Simpler than the Rust path because each block is already its own
@@ -188,9 +196,9 @@ def _format_python(skill: Skill) -> list[str]:
             timeout=300,
         )
         if not r.ok:
-            return [f"ruff format failed: {(r.err or r.out).strip()[:160]}"]
+            return [fail(f"ruff format failed: {(r.err or r.out).strip()[:160]}")]
 
-        changed: list[str] = []
+        changed: list[Finding] = []
         by_chapter: dict[str, list[Unit]] = {}
         for unit in extraction.units:
             by_chapter.setdefault(unit.chapter, []).append(unit)
