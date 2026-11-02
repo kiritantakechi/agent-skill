@@ -645,8 +645,10 @@ usefully.
 `bevy::render::error_handler::RenderErrorHandler` decides what happens when the GPU fails. Insert
 your own before `DefaultPlugins`, beside the `set_error_handler` call; `RenderPlugin` registers it
 with `init_resource`, so yours wins. `RenderErrorPolicy::Recover(RenderCreation)` rebuilds the
-device, `StopRendering` keeps the app alive with the image frozen, and `Ignore` keeps drawing, which
-can strobe when the fault repeats — so `Ignore` is the one that has to be justified.
+device, `StopRendering` keeps the app alive with the image frozen, and `Ignore` keeps drawing.
+Return `Recover` only from the `ErrorType::DeviceLost` arm. An `OutOfMemory` or `Validation` error
+comes from how the GPU is being used, so it recurs on a rebuilt device as it does under `Ignore`,
+and `bevy_render` itself warns that hitting one repeatedly strobes; those arms stop rendering.
 
 *Relaxed form:* a tool or an example may take the default, and then the rule is that nobody reports
 its clean exit as a crash.
@@ -656,7 +658,8 @@ transient GPU fault closes the player's window and BV-ARCH-16 turns it into an e
 crash. BV-ERR-10 makes an unusable GPU at startup your decision; this is the same GPU an hour later.
 
 **Check:** grep for `RenderErrorHandler`. Exactly one insertion, and it branches on the error rather
-than returning one blanket policy.
+than returning one blanket policy: `Recover` from the `DeviceLost` arm only, and `Ignore` from none
+without a written reason.
 
 ```rust
 // fragment — `RenderErrorHandler` lives in `bevy_render`, which needs a GPU
