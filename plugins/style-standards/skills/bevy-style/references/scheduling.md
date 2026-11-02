@@ -101,9 +101,9 @@ screenshot — it is one frame of lag that only shows up when something moves fa
 
 ### BV-SCHED-05 [M] Take the delta from the schedule's own clock
 
-`Res<Time>` in `Update`, `Res<Time<Fixed>>` in `FixedUpdate`. Never a hard-coded step, and never
-`Time<Real>` for gameplay: it ignores pause and time scaling, so gameplay driven by it keeps running
-while the game is paused.
+`Res<Time>`, in `Update` and in `FixedUpdate` alike, or `Res<Time<Fixed>>` in a system that only
+ever runs in `FixedUpdate`. Never a hard-coded step, and never `Time<Real>` for gameplay: it ignores
+pause and time scaling, so gameplay driven by it keeps running while the game is paused.
 
 Plain `Res<Time>` is the portable form, because the fixed loop swaps the default clock to
 `Time<Fixed>` for each step and back to `Time<Virtual>` afterwards. Naming `Time<Fixed>` buys

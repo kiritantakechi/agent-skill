@@ -43,7 +43,8 @@ failure: a system that needs one entity takes `Single`, which skips it while non
 function-style one is `-> impl Command` with a closure returning `Result`.
 
 *Relaxed form:* a debug tool, an example, or a `#[cfg(test)]` system may `expect` where the
-condition is a genuine invariant of the test, and the message states the invariant.
+condition is a genuine invariant of the test, and the message states the invariant. The shipped
+`clippy.toml` allows `unwrap` and `expect` inside tests, so only a test takes this form unannotated.
 
 **Why:** the conditions that fail are ordinary — a stale entity id, a missing asset, a malformed
 file. A returned error reaches a handler that can log it and carry on; a panic stays fatal under
@@ -203,9 +204,9 @@ mod tests {
         let mut world = World::new();
         let payer = world.spawn_empty().id();
 
-        let Err(error) = (Charge { payer, amount: 10 }).apply(&mut world) else {
-            unreachable!()
-        };
+        let error = (Charge { payer, amount: 10 })
+            .apply(&mut world)
+            .expect_err("an entity without Gold cannot be charged");
 
         assert_eq!(error.downcast_ref::<NoPurse>(), Some(&NoPurse(payer)));
         assert!(
@@ -355,9 +356,7 @@ mod tests {
 
     #[test]
     fn the_message_names_the_offending_value() {
-        let Err(error) = resolve_hit(7, 0) else {
-            unreachable!()
-        };
+        let error = resolve_hit(7, 0).expect_err("tier 7 has no attack row");
         assert_eq!(error.to_string(), "no attack row for weapon tier 7");
     }
 
@@ -483,7 +482,7 @@ Bevy ships both halves for most `World` lookups. Take the one that returns `Opti
 A query, an asset collection and an `EntityRef` return one already, and unwrapping it is the
 `unwrap_used` row. This is about game code: a `#[cfg(test)]` body may take the panicking half,
 because a test asserting on the world wants the panic (BV-TEST-06), and routing it through
-`get_resource` would only add an unwrap that BV-ERR-01 forbids.
+`get_resource` would only add an `expect` that says what the panic already says.
 
 **Why:** the panicking half exists for examples and for code where the invariant is structural, and
 game code is neither. The pairs are easy to miss because the panicking name is the shorter one — it
@@ -577,9 +576,7 @@ mod tests {
         assert!(app.world_mut().despawn(player));
         app.update();
 
-        let Some(rig) = app.world().get_resource::<CameraRig>() else {
-            unreachable!()
-        };
+        let rig = app.world().resource::<CameraRig>();
         assert_eq!(rig.watching, Some(player));
         assert!(
             rig.focus
@@ -597,9 +594,7 @@ mod tests {
         // which both systems ran past the missing transform.
         app.update();
 
-        let Some(rig) = app.world().get_resource::<CameraRig>() else {
-            unreachable!()
-        };
+        let rig = app.world().resource::<CameraRig>();
         assert!(rig.watching.is_some());
         assert!(rig.focus.abs_diff_eq(Vec3::ZERO, f32::EPSILON));
     }
@@ -650,8 +645,10 @@ usefully.
 `bevy::render::error_handler::RenderErrorHandler` decides what happens when the GPU fails. Insert
 your own before `DefaultPlugins`, beside the `set_error_handler` call; `RenderPlugin` registers it
 with `init_resource`, so yours wins. `RenderErrorPolicy::Recover(RenderCreation)` rebuilds the
-device, `StopRendering` keeps the app alive with the image frozen, and `Ignore` keeps drawing, which
-can strobe when the fault repeats — so `Ignore` is the one that has to be justified.
+device, `StopRendering` keeps the app alive with the image frozen, and `Ignore` keeps drawing.
+Return `Recover` only from the `ErrorType::DeviceLost` arm. An `OutOfMemory` or `Validation` error
+comes from how the GPU is being used, so it recurs on a rebuilt device as it does under `Ignore`,
+and `bevy_render` itself warns that hitting one repeatedly strobes; those arms stop rendering.
 
 *Relaxed form:* a tool or an example may take the default, and then the rule is that nobody reports
 its clean exit as a crash.
@@ -661,7 +658,8 @@ transient GPU fault closes the player's window and BV-ARCH-16 turns it into an e
 crash. BV-ERR-10 makes an unusable GPU at startup your decision; this is the same GPU an hour later.
 
 **Check:** grep for `RenderErrorHandler`. Exactly one insertion, and it branches on the error rather
-than returning one blanket policy.
+than returning one blanket policy: `Recover` from the `DeviceLost` arm only, and `Ignore` from none
+without a written reason.
 
 ```rust
 // fragment — `RenderErrorHandler` lives in `bevy_render`, which needs a GPU

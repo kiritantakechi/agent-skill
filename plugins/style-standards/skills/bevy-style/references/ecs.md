@@ -28,7 +28,7 @@ chapter.
   - BV-ECS-15 [M] Ask for `&mut` and `ResMut` only where the system writes
   - BV-ECS-16 [M] Put a zero-sized marker in the filter, never in the data
   - BV-ECS-17 [S] Split a system before reaching for a third `Option<&T>`
-  - BV-ECS-18 [S] Iterate a query with `for`, not a combinator chain
+  - BV-ECS-18 [S] Iterate a query with `for` where the body writes, not `for_each`
   - BV-ECS-19 [M] Name a query type once it needs two lines
   - BV-ECS-20 [S] Reach for `iter_many` when the set of entities is already known
   - BV-ECS-21 [M] Never nest a query inside itself
@@ -544,18 +544,20 @@ they force is just as reachable through `map_or`, `zip` or one `match`, so count
 in the body misses the functional spellings this standard's sibling actively prefers. Three or more
 is the signal; split by `With`/`Without` instead.
 
-### BV-ECS-18 [S] Iterate a query with `for`, not a combinator chain
+### BV-ECS-18 [S] Iterate a query with `for` where the body writes, not `for_each`
 
-`for item in &query` and `for item in &mut query`. This standard's general preference for `map`,
-`filter` and `collect` over loops does not extend to query iteration. A restriction goes in the
-query's filter, which skips entities before they are fetched, rather than in a `.filter()`.
+`for item in &mut query` when the body writes — through `Mut<T>`, `Commands` or a `MessageWriter` —
+rather than `.iter_mut().for_each(…)`. A read-only pass that builds a value is a pipeline here as
+anywhere (`rust-style` RS-FUNC-03), the way the crossing point in BV-ARCH-03 collects its query. A
+restriction goes in the query's filter, which skips entities before they are fetched, rather than
+in a `.filter()`.
 
-**Why:** the loop is doing effects, which is the case the general rule reserves `for` for: the item
-is a `Mut<T>` whose borrow of the query cannot outlive the iteration, so there is nothing to collect
-and no value to return.
+**Why:** a write is an effect, the case `rust-style` keeps `for` for (RS-FUNC-06): the write through
+`Mut<T>` is the result, so there is nothing to collect, and `for` keeps the `?`, `continue` and
+`break` that `for_each` gives up.
 
-**Check:** a `.for_each(` or a `.filter(` on a query iterator is either a filter that belongs in the
-type, or a loop that has been written the long way.
+**Check:** a `.for_each(` on a query iterator is a loop written the long way. A `.filter(` on one
+that only tests whether a component is there belongs in the type, as `With` or `Without`.
 
 ### BV-ECS-19 [M] Name a query type once it needs two lines
 
@@ -663,9 +665,7 @@ mod tests {
         let mut posts = app.world_mut().query::<&Children>();
         let mut lit = app.world_mut().query_filtered::<(), With<Lit>>();
         let world = app.world();
-        let Ok(children) = posts.get(world, post) else {
-            unreachable!()
-        };
+        let children = posts.get(world, post).expect("the post has two children");
         assert_eq!(lit.iter_many(world, children).count(), 2);
     }
 }
@@ -778,7 +778,6 @@ nothing to repay it.
 
 ```rust
 // verified — GOOD
-use bevy::ecs::query::QueryNotDenseError;
 use bevy::prelude::*;
 
 #[derive(Component, Debug, Clone, Copy, Reflect)]
@@ -791,15 +790,27 @@ pub struct Decay(pub f32);
 
 /// The outer loop is tables, the inner is entities within one table — that
 /// nesting is the whole shape, and it is the price of the slices. The error
-/// is the query's own: `Health` or `Decay` stored sparsely makes this fail
-/// at run time, having compiled, so it propagates rather than unwrapping.
-fn decay_health(mut lives: Query<(&mut Health, &Decay)>) -> Result<(), QueryNotDenseError> {
+/// is the query's own `QueryNotDenseError`: `Health` or `Decay` stored
+/// sparsely makes this fail at run time, having compiled, so `?` hands it to
+/// the error handler as a `BevyError` rather than unwrapping (BV-ERR-02).
+fn decay_health(mut lives: Query<(&mut Health, &Decay)>) -> Result {
     for (mut health, decay) in lives.contiguous_iter_mut()? {
         for (health, decay) in health.iter_mut().zip(decay) {
             health.0 *= decay.0;
         }
     }
     Ok(())
+}
+
+/// The schedule takes it as it stands: `Result<(), BevyError>` is a system
+/// output `add_systems` accepts, where `Result<(), QueryNotDenseError>` is not.
+#[derive(Debug, Default)]
+pub struct DecayPlugin;
+
+impl Plugin for DecayPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(FixedUpdate, decay_health);
+    }
 }
 
 #[cfg(test)]
@@ -832,10 +843,11 @@ mod tests {
         let mut world = World::new();
         world.spawn((Health(100.0), Decay(0.5)));
         world.spawn((Health(40.0), Decay(0.25)));
-        // No annotation needed here: `QueryNotDenseError` is not `BevyError`,
-        // so only the identity `IntoResult` impl applies and `Out` is the
-        // system's own `Result`. Both layers are pinned.
-        assert!(matches!(world.run_system_once(decay_health), Ok(Ok(()))));
+        // `Out` is named because a system returning `Result` converts to an
+        // output of `()` as well as of itself; `()` puts its error in the
+        // `RunSystemError`, so one `is_ok` pins both layers.
+        let ran: Result<(), _> = world.run_system_once(decay_health);
+        assert!(ran.is_ok());
 
         let mut query = world.query::<&Health>();
         let mut got: Vec<f32> = query.iter(&world).map(|h| h.0).collect();
@@ -992,9 +1004,10 @@ mod tests {
         assert_eq!(app.world().resource::<Jingles>().on_added, 1);
         assert_eq!(app.world().resource::<Jingles>().on_changed, 1);
 
-        let Some(mut health) = app.world_mut().get_mut::<Health>(hero) else {
-            unreachable!()
-        };
+        let mut health = app
+            .world_mut()
+            .get_mut::<Health>(hero)
+            .expect("the hero was spawned with Health");
         health.0 -= 1.0;
 
         app.update();
@@ -1010,9 +1023,9 @@ mod tests {
 A `Changed<T>` filter sees writes since the reading system last ran. Keep the writer and the reader
 in the same schedule.
 
-**Why:** `FixedUpdate` runs zero or several times a frame (BV-SCHED-06), so an `Update` reader sees
-a fixed-step write once however often it happened, and a fixed-step reader may miss an `Update`
-write entirely.
+**Why:** change ticks are per system, so nothing is missed across schedules, but `FixedUpdate` runs
+zero or several times a frame (BV-SCHED-06): an `Update` reader sees several steps' writes as one
+change, and a fixed-step reader sees an `Update` write on its next run, merged with any later one.
 
 **Check:** for each `Changed<T>` reader, find the writers. Any writer in a different schedule needs
 a stated reason the count does not matter.

@@ -321,9 +321,10 @@ mod tests {
         let before = app.world().entities().len();
 
         let mut query = app.world_mut().query_filtered::<Entity, With<Enemy>>();
-        let Some(victim) = query.iter(app.world()).next() else {
-            unreachable!("the wave spawned three")
-        };
+        let victim = query
+            .iter(app.world())
+            .next()
+            .expect("the wave spawned three");
         app.world_mut().entity_mut(victim).despawn();
 
         // The facts: one fewer enemy, its weapon went with it, one kill.

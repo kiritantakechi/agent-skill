@@ -190,7 +190,7 @@ a given call site used.
 
 `app.add_message::<DamageDealt>()`. Never `init_resource::<Messages<DamageDealt>>()`.
 
-**Why:** `add_message` also adds the update system that drops messages older than two frames.
+**Why:** `add_message` also registers the type with the update that drops messages two updates old.
 Without it the buffer grows for the life of the process — a leak whose only symptom is memory, and
 only after a long session.
 
@@ -257,12 +257,14 @@ type is an instruction.
 
 ### BV-EVENT-07 [M] Read a message in a schedule that runs at least as often as the writer
 
-A message written in `FixedUpdate` and read in `Update` arrives in bursts. A message written in
-`Update` and read in `FixedUpdate` may not be read at all before it expires.
+A message crosses between the two schedules without loss, but not one for one. Written in
+`FixedUpdate` and read in `Update`, it arrives in bursts: several steps' worth in one frame, none in
+a frame where no step ran. Written in `Update` and read in `FixedUpdate`, it waits for the next
+step, which may be frames away, and arrives together with every other frame's.
 
-**Why:** a message lives two runs of the update system in `First`, and the fixed schedule runs zero
-or several times a frame (BV-SCHED-06), so the clocks never line up. The loss is silent: a reader
-that saw nothing looks like a frame where nothing happened.
+**Why:** `TimePlugin` holds back the update in `First` that ages messages until `FixedPostUpdate`
+has run, so nothing expires unread; but steps run zero or several times a frame (BV-SCHED-06), so a
+reader that keeps only the last message, or asks only whether one came, silently drops the rest.
 
 **Check:** for each message type, list the writers' schedules and the readers'. A reader in a
 slower-running schedule than its writer needs a stated reason bursts are acceptable.
@@ -436,8 +438,10 @@ collides with `std::ops::Add`, disambiguate the trait as `ops::Add` rather than 
 `On<OnAdd<T>>`. This is the single most common stale spelling in Bevy code written against a
 tutorial.
 
-**Check:** `rg -n 'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|Trigger<|\bReplace<|on_replace'`
-over `src/`. An `OnReplace` is `Discard`, not `Replace`.
+**Check:** `rg -n
+'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|[a-z_]: Trigger<|\bReplace<|on_replace' src/`.
+An `OnReplace` is `Discard`, not `Replace`. The search for `Trigger<` reads a parameter's type,
+because `Event::Trigger<'a>` and the `Trigger<E>` trait are live.
 
 ### BV-EVENT-15 [M] Keep an observer short, because it runs inside the flush
 
@@ -629,10 +633,9 @@ mod tests {
 
     fn only<C: Component>(app: &mut App) -> Entity {
         let mut query = app.world_mut().query_filtered::<Entity, With<C>>();
-        let Ok(entity) = query.single(app.world()) else {
-            unreachable!()
-        };
-        entity
+        query
+            .single(app.world())
+            .expect("the console spawns exactly one of each")
     }
 
     #[test]

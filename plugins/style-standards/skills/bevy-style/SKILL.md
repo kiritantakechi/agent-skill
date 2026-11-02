@@ -91,10 +91,12 @@ proceed with the stricter reading.
    `value.clone()` that used to produce a `T` now produces another `Ref<T>`, and only fails to
    compile if the surrounding code was explicit about the type. Write `ref.deref().clone()` for the
    old meaning (`references/migration.md` BV-MIG-18).
-4. **`Resource` is a `Component`.** In 0.19, `#[derive(Resource)]` also implements `Component`. A
-   type used as both is now impossible; worse, inserting one as a component despawns the copy on
-   any other entity, and resources appear in `&T` queries. Split the type
-   (`references/state.md` BV-STATE-01).
+4. **A resource is an entity.** Since 0.19 each resource is a component on an entity of its own,
+   and nothing filters those out: `Query<Entity>`, `Query<EntityRef>` and `Query<EntityMut>` match
+   them. A sweep that despawns everything it matches takes the resources with it, which Bevy warns
+   about and then panics on under the default error handler; `Query<EntityMut>` beside any `Res`
+   panics with B0002; and a resource type spawned on a second entity is stripped from it with only
+   a warning. Filter such a query with `Without<IsResource>` (`references/state.md` BV-STATE-01).
 5. **`AssetEvent::Modified` needs a real mutation.** Since 0.19 a `get_mut` that only reads raises
    none, so a reaction that relied on it stops firing (`references/assets.md` BV-ASSET-09).
 6. **Bloom judges luminance in linear.** Since 0.19, a tint tuned against sRGB luminance blooms more
@@ -165,7 +167,7 @@ Nothing else is relaxed: a divergence not listed here is a defect, not a dialect
 | `RS-ERR-13` Never expose `Box<dyn Error>` or `anyhow::Error` from a library | `BV-ERR-03` — a system returns `BevyError`, the domain does not | `BevyError` is boxed and type-erased, and Bevy's `Result` alias is exactly the aliased form the rule names. Its rationale does not reach here: a system has no caller to match on the error — the schedule hands it to the error handler. Everything a caller could branch on stays a real type on the domain side. |
 | `RS-BUILD-25` Never blanket-`allow` at crate level to make CI green | `BV-BUILD-12` — `elided_lifetimes_in_paths` is allowed | It fires on every `Query`, `Res`, `ResMut`, `Commands`, `MessageReader` and `Local` parameter. Writing the `'_`s does satisfy it, and buys nothing but noise. |
 | `RS-BUILD-22` Turn off default features on heavy dependencies | `BV-BUILD-02` — start from a feature collection | Bevy's feature graph has 177 entries in 0.20 and moves every release; a hand-picked list goes stale silently, as an unmeasured one always does. |
-| `RS-FUNC-03` A `for` loop that only pushes is a `collect` | `BV-ECS-18` — iterate a query with `for` | Query iteration is effect, not transformation: the loop writes through `Mut<T>` and the borrow does not survive a collect. |
+| `RS-FUNC-03` A `for` loop that only pushes is a `collect` | `BV-ECS-18` — a loop that writes through a query is a `for` | Only the loop that writes: a write through `Mut<T>` is effect, not transformation, so there is nothing to collect. A read-only pass over a query that only pushes is a `collect` here too. |
 | `RS-API-54` Decide `#[non_exhaustive]` for every public enum and struct | `BV-ECS-05` — components are exhaustive | Struct-literal construction is how components are spawned, and `#[non_exhaustive]` forbids it outside the defining crate. Required components are the growth mechanism instead. |
 
 Two rows that look like they belong here and do not. `RS-BUILD-24` asks for `pedantic` at warn and
@@ -203,7 +205,7 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
   (`references/architecture.md` BV-ARCH-04, BV-ARCH-03).
 - **BV-CORE-04 `[M]`** Every plugin is a type implementing `Plugin`, named `*Plugin`, and never a
   function or a closure: four of Bevy's own APIs address a plugin by its type, and a function's type
-  cannot be written. `main` adds plugins and nothing else
+  cannot be written. `main` adds plugins and installs the two error policies, and nothing else
   (`references/architecture.md` BV-ARCH-09, BV-ARCH-10, BV-ARCH-15).
 
 ### Components and queries
@@ -241,8 +243,9 @@ These 24 `BV-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **BV-CORE-13 `[M]`** A system that should not always run says so with `.run_if(…)`. An early
   `return` hides the condition from the schedule, which cannot then skip the system or report it
   (`references/scheduling.md` BV-SCHED-15).
-- **BV-CORE-14 `[M]`** Take the delta from `Res<Time>` in `Update` and `Res<Time<Fixed>>` in
-  `FixedUpdate`, and never hard-code a per-frame delta
+- **BV-CORE-14 `[M]`** Take the delta from `Res<Time>`, which is the frame clock in `Update` and
+  the fixed clock inside `FixedUpdate`; naming `Res<Time<Fixed>>` instead trades that portability
+  for clarity, deliberately. Never hard-code a per-frame delta
   (`references/scheduling.md` BV-SCHED-05).
 
 ### Events, messages, observers
@@ -336,5 +339,6 @@ asset and the rule cannot drift apart.
 | File | Contents |
 |---|---|
 | `assets/Cargo.toml` | The workspace manifest for a game: an exact Bevy pin with a feature collection, the lint table with its two Bevy relaxations and their reasons, and the profiles that keep debug builds playable |
+| `assets/clippy.toml` | clippy's own settings: `unwrap` and `expect` allowed inside tests, the relaxed form BV-ERR-01 states, as `rust-style`'s are |
 | `assets/ci.yml` | The workflow: the boundary and one-Bevy checks, clippy and tests under deny-warnings, docs, the weekly advisory audit, the MSRV job and the release build |
 | `assets/rust-toolchain.toml` | The pinned stable toolchain the game builds with |

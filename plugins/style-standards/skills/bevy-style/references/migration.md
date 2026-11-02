@@ -15,7 +15,7 @@ as much, and the upstream migration guides are the reference for those.
 ## Contents
 
 - **Using this chapter**
-  - BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.17 until checked
+  - BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.20 until checked
   - BV-MIG-02 [M] Follow a rename to its 0.20 spelling, not its first hop
 
 - **0.15: bundles and text**
@@ -51,17 +51,20 @@ as much, and the upstream migration guides are the reference for those.
 
 ## Using this chapter
 
-### BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.17 until checked
+### BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.20 until checked
 
-Code from a tutorial, a blog post, an answer, or a language model is 0.15-era until something proves
-otherwise. Check it against these tables before adapting it.
+Code from a tutorial, a blog post, an answer, or a language model was written against an older Bevy
+until something proves otherwise — often 0.15, and at best 0.19. Check it against these tables
+before adapting it.
 
-**Why:** 0.17 renamed the event system, the observer parameter and every system set, and most Bevy
-material online predates it. The cost is not a compile error but time spent adapting a pattern that
-no longer exists, and a mental model that keeps producing the old names.
+**Why:** 0.17 renamed the event system, the observer parameter and every system set; 0.20 moved the
+observer's bundle and flattened the pointer events. Nearly all Bevy material online predates one or
+both, and adapting a pattern that no longer exists costs time and keeps the old names in mind.
 
-**Check:** `rg -n 'Trigger<|EventReader|EventWriter|[A-Za-z0-9]Bundle' src/` over the sample.
-Any hit dates it, and so does a system set whose name does not end in `Systems`.
+**Check:** `rg -n '[a-z_]: Trigger<|\bEvent(Reader|Writer)\b|[A-Za-z0-9]Bundle\b' src/` and
+`rg -n '\bOn<[A-Za-z0-9_:]+\s*,|\bPointer<|\.as_mut\(\)\.set_if_neq' src/` over the sample. Any hit
+dates it, and so does a system set whose name does not end in `Systems`, or a `set_if_neq` whose
+receiver is a `NextState` — which only reading finds, since `Mut::set_if_neq` is live.
 
 ### BV-MIG-02 [M] Follow a rename to its 0.20 spelling, not its first hop
 
@@ -84,9 +87,9 @@ table below, with `#[require]` on the types that always travel together (BV-ECS-
 **Why:** it is the most visible break between old Bevy material and current Bevy, and the most
 mechanical: each `XBundle::default()` becomes one or two components.
 
-**Check:** `rg -n '[A-Za-z0-9]Bundle' src/`. Every hit is a removed type or a bundle of your own,
-which BV-ECS-06 rules out. The two the engine still spells that way, `SpawnRelatedBundle` and
-`ReflectBundle`, are machinery a game does not name.
+**Check:** `rg -n '[A-Za-z0-9]Bundle\b' src/`. Every hit is a removed type or a bundle of your
+own, which BV-ECS-06 rules out. The three the engine still spells that way, `SpawnRelatedBundle`,
+`ReflectBundle` and `DynamicBundle`, are machinery a game does not name.
 
 | Removed | Write instead |
 |---|---|
@@ -117,7 +120,8 @@ Text is a root component plus per-run components, not a struct holding sections 
 without rebuilding the vector, and no child entity could contribute a run. The component form makes
 each of those an ordinary ECS operation.
 
-**Check:** `rg -n 'TextStyle|from_section|JustifyText|BreakLineOn|new_with_' src/` and
+**Check:** `rg -n
+'TextStyle|from_section|JustifyText|BreakLineOn|new_with_(justify|linebreak|no_wrap)' src/` and
 `rg -n 'TextSection::(new|from_style)|TextSection \{|Vec<TextSection>' src/`. A bare `TextSection`
 is not evidence: since 0.19 `bevy::text::TextSection` is a live trait, so only the old struct's
 constructors, literal and vector are searched for.
@@ -133,11 +137,6 @@ constructors, literal and vector are searched for.
 | `TextLayout::new_with_justify(j)` | `TextLayout::justify(j)` |
 | `TextLayout::new_with_linebreak(b)` | `TextLayout::linebreak(b)` |
 | `TextLayout::new_with_no_wrap()` | `TextLayout::no_wrap()` |
-| `TextFont { line_height, .. }` | the separate `LineHeight` component |
-| `TextFont { font: Handle<Font>, .. }` | `TextFont { font: FontSource, .. }` |
-| `TextFont { font_size: f32, .. }` | `TextFont { font_size: FontSize, .. }` |
-| `Font::try_from_bytes` | `Font::from_bytes(bytes)`, which no longer takes a family name |
-| `FontSource::SansSerif`, `Serif`, `Monospace` and the other generic families | `FontSource::sans_serif()` and so on, or a `GenericFontFamily` |
 
 ### BV-MIG-05 [M] Replace the old UI node API
 
@@ -171,8 +170,9 @@ were renamed again in 0.18.
 makes `despawn` recursive by default and lets a game define its own one-to-many links (BV-ECS-11).
 
 **Check:** `rg -n
-'despawn_(recursive|descendants)|push_children|set_parent|ChildBuilder|clear_(children|related)'
-src/`.
+'despawn_(recursive|descendants)|push_children|set_parent\b|ChildBuilder|clear_(children|related)'
+src/`. It does not match `set_parent_in_place`, which is live and keeps the child's
+`GlobalTransform` by rewriting its `Transform`; inserting `ChildOf` does not, so leave it alone.
 
 | Removed | Write instead |
 |---|---|
@@ -184,7 +184,6 @@ src/`.
 | `remove_child(c)` | `detach_child(c)` |
 | `clear_children()` | `detach_all_children()` |
 | `clear_related::<R>()` | `detach_all_related::<R>()` |
-| `replace_children(&[..])` | remove `Children`, then `add_children(&[..])` |
 | `despawn_recursive()` | `despawn()` |
 | `despawn_descendants()` | `despawn_related::<Children>()` |
 | `ChildBuilder` | `ChildSpawnerCommands` |
@@ -200,8 +199,11 @@ src/`.
 `get_single().unwrap()` — the fallible method used to be the long-named one, so the short name was
 the panicking one and everybody reached for it.
 
-**Check:** `rg -n 'get_single|to_readonly|ManualEventReader|init_component|EntityFetchError' src/`
-and `rg -n 'weak_from_u128|weak_handle!' src/`.
+**Check:** `rg -n
+'\bget_single(_mut)?\b|\bto_readonly\b|ManualEventReader|\binit_component\b|EntityFetchError\b[^(]'
+src/` and `rg -n 'weak_from_u128|weak_handle!' src/`. `Gradient::get_single` is live, so read a
+hit whose receiver is a `Gradient`; the `EntityFetchError(…)` variant of `EntityCommandError` is
+live too, and the pattern skips it.
 
 | Removed | Write instead |
 |---|---|
@@ -231,7 +233,9 @@ ones and every tutorial uses them. The split is described in `references/events.
 this table is the mechanical half.
 
 **Check:** `rg -n
-'EventReader|EventWriter|Events<|send_event|add_event|on_event|RemovedComponentEvents' src/`.
+'\bEvent(Reader|Writer)\b|\bEvents<|\bsend_event\b|\b(add|on)_event::<|RemovedComponentEvents'
+src/`. The turbofish is the search: `AnimationClip::add_event` is live, and so is a tracing
+layer's `on_event`.
 
 | Removed | Write instead |
 |---|---|
@@ -273,7 +277,7 @@ src/`, and read any remaining set name that ends in `System`, `Set` or `Steps` r
 | `PickSet` | `PickingSystems` |
 | `InputSystem` | `InputSystems` |
 | `InputFocusSet` | `InputFocusSystems` |
-| `SpriteSystem` | `bevy::sprite_render::SpriteSystems` — `bevy::sprite::SpriteSystems` is gone in 0.20 |
+| `SpriteSystem` | nothing: `SpriteSystems`, its 0.17 name, is gone from both `bevy::sprite` and `bevy::sprite_render` in 0.20 |
 | `TimeSystem` | `TimeSystems` |
 | `AccessibilitySystem` | `AccessibilitySystems` |
 | `GizmoRenderSystem` | `GizmoRenderSystems` |
@@ -292,11 +296,12 @@ src/`, and read any remaining set name that ends in `System`, `Set` or `Steps` r
 small and collectively the reason a 0.16 project does not compile.
 
 **Check:** `rg -n
-'compute_matrix|StateScoped|Gizmos::cuboid|RenderGraphApp|ComputedNodeTarget|SimpleExecutor'
-src/`, plus `Timer::paused` and `Timer::finished`. The `Condition` rename is not greppable — the new
-name contains the old one — so read the `SystemCondition` bound instead. `Pressed` is not greppable
-either, and for the opposite reason: `bevy::ui::Pressed` is live, outside the prelude, a marker for
-a widget being held down. Only `Pointer<Pressed>` is the removed one.
+'compute_matrix|\bStateScoped\b|Gizmos::cuboid|RenderGraphApp|ComputedNodeTarget|SimpleExecutor'
+src/` and `rg -n '\.cursor_options\b|\bAnchor::[A-Z][a-z]' src/`, plus `Timer::paused` and
+`Timer::finished`. The `Condition` rename is not greppable — the new name contains the old one — so
+read the `SystemCondition` bound instead. `Pressed` is not greppable either, and for the opposite
+reason: `bevy::ui::Pressed` is live, outside the prelude, a marker for a widget being held down.
+Only `Pointer<Pressed>` is the removed one.
 
 | Removed | Write instead |
 |---|---|
@@ -306,7 +311,8 @@ a widget being held down. Only `Pointer<Pressed>` is the removed one.
 | `StateScoped` | `DespawnOnExit` |
 | `commands.trigger_targets(E, entity)` | an `EntityEvent` carrying its target as a field: `commands.trigger(E { entity })` |
 | `Camera { hdr, .. }` | the separate `Hdr` component |
-| `Window` as one component | `Window` split across several components |
+| `Window { cursor_options, .. }` | the separate `CursorOptions` component, which `Window` requires |
+| `Sprite { anchor, .. }` | the separate `Anchor` component, which `Sprite` requires: a `Vec2` newtype whose old variants are constants, `Anchor::CENTER` for `Anchor::Center`, `Anchor(v)` for `Anchor::Custom(v)` |
 | `Gizmos::cuboid` | `Gizmos::cube` |
 | `Transform::compute_matrix` | `Transform::to_matrix` |
 | `GlobalTransform::compute_matrix` | `GlobalTransform::to_matrix` |
@@ -324,7 +330,7 @@ a widget being held down. Only `Pointer<Pressed>` is the removed one.
 behind in a manifest that still builds.
 
 **Check:** `rg -n
-'bevy_(sprite|ui|mesh)_picking_backend|event_target_mut|FontAtlasSets|AnimationTarget'
+'bevy_(sprite|ui|mesh)_picking_backend|event_target_mut|FontAtlasSets|\bAnimationTarget\b'
 src/`, and the manifest for the renamed feature names.
 
 | Removed | Write instead |
@@ -354,11 +360,11 @@ exists: in 0.18 it enabled the serialization crate and since 0.19 the new scene 
 manifest nobody edited turns on a different thing.
 
 **Check:** `rg -n
-'SceneRoot|DynamicScene|SceneSpawner|SceneFilter|SceneInstanceReady|SceneLoader' src/`, and read
-every `bevy_scene` against this table rather than assuming — it is the one name that still resolves
-and now means something else.
+'\b(SceneRoot|SceneSpawner|SceneFilter|SceneInstanceReady)\b|\bDynamicScene|\bSceneLoader' src/`,
+and read every `bevy_scene` against this table rather than assuming — it is the one name that still
+resolves and now means something else.
 
-| 0.18 name | 0.19 name |
+| Removed | Write instead |
 |---|---|
 | crate `bevy_scene` | crate `bevy_world_serialization` |
 | `Scene` (the asset) | `WorldAsset` |
@@ -382,8 +388,9 @@ and now means something else.
 most likely to appear in an existing project's own plugin code.
 
 **Check:** `rg -n
-'DefaultErrorHandler|ExecutorKind|non_send_resource|ShaderStorageBuffer|earthlike|experimental_'
-src/`.
+'DefaultErrorHandler|ExecutorKind|non_send_resource|ShaderStorageBuffer|earthlike'
+src/` and `rg -n 'Font::try_from_bytes' src/`, and the manifest for `experimental_bevy_feathers`
+and `experimental_ui_widgets` — not every `experimental_` feature: `experimental_pbr_pcss` is live.
 
 | Removed | Write instead |
 |---|---|
@@ -404,6 +411,9 @@ src/`.
 | `Skybox { image: Handle<Image> }` | `Skybox { image: Option<Handle<Image>> }` |
 | `Image::pixel_bytes` returning `Option` | it returns `Result` |
 | `AssetPath::get_full_extension` returning `Option<String>` | it returns `Option<&str>` |
+| `TextFont { font: Handle<Font>, .. }` | `TextFont { font: FontSource, .. }`; a handle is `FontSource::Handle(h)` |
+| `TextFont { font_size: f32, .. }` | `TextFont { font_size: FontSize, .. }` |
+| `Font::try_from_bytes(bytes)` | `Font::from_bytes(bytes)`, which returns the `Font` rather than a `Result` |
 | `feathers` widget spawn functions, including 0.19's `button_bundle`, `checkbox_bundle`, `radio_bundle`, `slider_bundle`, `toggle_switch_bundle`, `color_*_bundle`, `virtual_keyboard_bundle` and `ButtonBundleProps` | the feathers `SceneComponent`s, used from `bsn!`: `FeathersButton` with `FeathersButtonProps`, and so on |
 | `FeathersPlugin` | `FeathersCorePlugin` |
 | feature `experimental_bevy_feathers` | feature `bevy_feathers` |
@@ -440,8 +450,9 @@ up a level: there is no `.event` and no `Deref`.
 click handler in a UI. `Pointer` still exists, non-generic, so a stale import resolves and only the
 type argument fails.
 
-**Check:** `rg -n '\bPointer<|pointer_id|pointer_location' src/`. `Pointer` is non-generic in 0.20,
-so any `Pointer<` is stale.
+**Check:** `rg -n '\bPointer<|\.pointer_location\b' src/`. `Pointer` is non-generic in 0.20, so
+any `Pointer<` is stale. `.pointer_id` is not searchable, because `PointerInput::pointer_id` is
+live: read each one whose receiver is a pointer event.
 
 | Removed | Write instead |
 |---|---|
@@ -453,25 +464,25 @@ so any `Pointer<` is stale.
 
 ### BV-MIG-16 [M] Replace what 0.20 deprecated
 
-0.20 deprecated these rather than removing them. They compile with a warning, which the shipped CI
-denies (the `deprecated` row in Decided by tools), so the searches are for code not yet built
-against 0.20.
+0.20 deprecated these rather than removing them (`DeferredWorld::query` already in 0.19), all but
+the `NextState` family in the first row, which 0.20 renamed outright. The rest compile with a
+warning, which the shipped CI denies (the `deprecated` row in Decided by tools), so the searches are
+for code not yet built against 0.20.
 
-**Why:** a deprecated name still builds, so a port can look finished while it holds several, and two
-of them share a name with a live, correct API, so no search can find them.
+**Why:** a deprecated name still builds, so a port can look finished while it holds several, and one
+of them, the prelude `Button`, shares its name with a live, correct API, so no search can find it.
 
 **Check:**
 `rg -n 'set_state_if_neq|PendingIfNeq|set_next_state_if_neq|\.as_mut\(\)\.set_if_neq' src/`,
 `rg -n '\bInteraction\b|template_value|FilteredResources|\bTypeIdMap\b' src/` and
-`rg -n 'AssetId::invalid|INVALID_UUID|try_reads_and_writes' src/`. Then read the two that a search
-cannot find. `NextState::set_if_neq` reached through `&mut NextState` looks exactly like
-`Mut::set_if_neq`, which keeps its name and is correct, so read every `set_if_neq` whose receiver
-is a `NextState`. The deprecated `Button` has the same name as `bevy::ui_widgets::Button`, so read
-the import.
+`rg -n 'AssetId::invalid|INVALID_UUID|try_reads_and_writes' src/`. Then read the one a search
+cannot find: the deprecated `Button` has the same name as `bevy::ui_widgets::Button`, so read the
+import. A `set_if_neq` on a `NextState` is spelled like the live `Mut::set_if_neq` too, but it no
+longer compiles, so the build finds every one the search misses.
 
 | Deprecated | Write instead |
 |---|---|
-| `NextState::set_if_neq` / `PendingIfNeq` / `set_state_if_neq` / `set_next_state_if_neq` | `set_if_different` / `PendingIfDifferent` / `set_state_if_different` / `set_next_state_if_different` |
+| `NextState::set_if_neq` / `PendingIfNeq` / `set_state_if_neq` / `set_next_state_if_neq` | `set_if_different` / `PendingIfDifferent` / `set_state_if_different` / `set_next_state_if_different` — renamed, not deprecated: the old names do not compile |
 | `Interaction` | `Hovered` plus `Pressed` |
 | the prelude `Button` (`bevy::ui::widget::Button`) | `bevy::ui_widgets::Button` |
 | `template_value(x)` in `bsn!` | `x` |
@@ -480,7 +491,7 @@ the import.
 | `TypeIdMap` / `TypeIdMapEntry` | `TypeIdHashMap` / `TypeIdIndexMap`, and their entry types |
 | `AssetId::invalid()` / `AssetId::INVALID_UUID` | `Option<AssetId<_>>` |
 | `DynamicEnum::from(_ref)` | `DynamicEnum::try_from(_ref)` |
-| `Access::try_reads_and_writes` | `Access::reads()` |
+| `Access::try_reads_and_writes` / `try_writes` | `Access::reads().as_finite_set()` / `writes().as_finite_set()` — `reads()` includes the writes |
 | `,` and `()` between entities in `bsn!` | `--` |
 
 ### BV-MIG-17 [M] Replace the remaining 0.20 renames and removals
@@ -501,7 +512,8 @@ public type unrelated to the old internal one.
 `rg -n '\bFromType\b|meta_transform|UnpreparedBindGroup|ExtractedWindows' src/`,
 `rg -n 'resolve_single_corner|VariantDefaults|bevy_math::(curve|cubic_splines|primitives)' src/` and
 `rg -n '\.load_(override|acquire|with_settings)' src/`;
-one over the shaders, `rg -n -t wgsl '#import|#ifdef|#define_import_path|#\{'`; then read the
+one over the shaders, `rg -n '--glob=*.wgsl' '#import|#ifdef|#define_import_path|#\{'`; then
+read the
 manifest for `shader_format_(wesl|glsl)`, which is gone, every `compressed_image_saver`, which kept
 its name, and a domain crate's `glam = "0.32"`, which moves to `"0.33"` with Bevy 0.20.
 
@@ -511,7 +523,7 @@ its name, and a domain crate's `glam = "0.32"`, which moves to `"0.33"` with Bev
 | `EditableText` as the whole widget | `TextInput`, which requires `EditableText` |
 | `TextScroll`, `scroll_editable_text` | `EditableText::viewport` (`TextViewport`) |
 | `resolve_font_source(&font, fonts)` | `font.font.resolve_font_family(fonts)` |
-| `FontSource::SansSerif` and the other generic families | `FontSource::sans_serif()` and so on |
+| `FontSource::SansSerif`, `Serif`, `Monospace` and the other generic families | `FontSource::sans_serif()` and so on, or `FontSource::Generic` with a `GenericFontFamily` |
 | `MeshTag(x)`, `tag.0` | `MeshTag::new(x)`, `tag.value` |
 | `MeshAabb::compute_aabb` | `MeshAabb::get_aabb` |
 | `CustomAttributes::default().with_attribute(..)` | `CustomAttributesBuilder::new().attribute(..).build()` |
@@ -569,7 +581,7 @@ the same list, to read before writing code; this is the one to grep with.
 | 0.18: Bevy adds and updates the `Aabb` of meshes and sprites, so code that writes one fights the engine | `rg -n 'Aabb' src/` for a write | BV-VIEW-16 |
 | 0.19: `AssetEvent::Modified` fires only on an actual mutation, so a `get_mut` that only reads no longer raises it | `rg -n 'AssetEvent' src/`, then whether each reaction relied on a read through `get_mut` | BV-ASSET-09 |
 | 0.19: bloom computes its luminance in linear, so a tint tuned against sRGB luminance blooms more | `rg -n 'Bloom' src/`, then each tint against a linear judgement | BV-VIEW-11 |
-| 0.19: `#[derive(Resource)]` implements `Component`, so one type cannot be both | `rg -n 'derive\(.*Resource' src/` for a type also inserted on an entity | BV-STATE-01 |
+| 0.19: a resource is a component on an entity of its own, and `Query<Entity>`, `Query<EntityRef>` and `Query<EntityMut>` match that entity — a sweep that despawns what it matches panics under the default error handler, `Query<EntityMut>` beside a `Res` panics with B0002, and a resource type spawned on a second entity is stripped from it with a warning | `rg -n 'Query<Entity' src/`, then whether each excludes resource entities | BV-STATE-01 |
 | 0.19: `Ref<T>` implements `Clone`, so `.clone()` on one is another `Ref` | `.clone()` on anything of type `Ref<` | BV-MIG-18 |
 | 0.20: `iter_many` and its variants yield `Result`, so `.count()` and `for _ in` take ids the query does not match | `rg -n 'iter_many' src/`, then whether each call counts or handles each `Result` | BV-ECS-20 |
 | 0.20: a panic in a system, observer or command reaches the fallback error handler | the handler given to `set_error_handler`, for a re-panic on a panic payload | BV-ERR-05 |

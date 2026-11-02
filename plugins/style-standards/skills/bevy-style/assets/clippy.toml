@@ -1,0 +1,8 @@
+# clippy's own configuration, beside the workspace `[lints]` table. Referenced by
+# BV-ERR-01 and copied with `assets/Cargo.toml`.
+
+# `unwrap_used` and `expect_used` are denied; a test is where a panic is the
+# assertion, so they stay allowed inside `#[test]` and `#[cfg(test)]` — the
+# relaxed form BV-ERR-01 states, and the same allowance `rust-style` ships.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true

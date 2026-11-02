@@ -31,7 +31,7 @@ the game do not mention the engine.
   - BV-ARCH-14 [S] Give each plugin one module, and re-export it from the crate root
 
 - **The app**
-  - BV-ARCH-15 [M] Keep `main` to plugins and nothing else
+  - BV-ARCH-15 [M] Keep `main` to plugins and the two error policies
   - BV-ARCH-16 [M] Return `AppExit` from `main`
   - BV-ARCH-17 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
 
@@ -802,7 +802,7 @@ have exactly one, and is each plugin type named in the crate root's re-exports?
 
 ## The app
 
-### BV-ARCH-15 [M] Keep `main` to plugins and nothing else
+### BV-ARCH-15 [M] Keep `main` to plugins and the two error policies
 
 `main` builds the `App`, adds plugins, and runs it, from a `src/main.rs` whose plugins live in the
 library beside it. Systems, resources and configuration belong to the plugin that owns them. The
