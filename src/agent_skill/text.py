@@ -1,13 +1,10 @@
 """Reading source text as a compiler would, not as a regex would.
 
-Comments and strings are told apart from code, prose is wrapped to the
-house width, and a regex match is narrowed to the text it found.
+Comments and strings are told apart from code, and a regex match is
+narrowed to the text it found.
 """
 
-import re
-
-from agent_skill.doc import WIDTH
-from agent_skill.ids import rule_id
+lazy import re
 
 
 def group(m: re.Match[str] | None, key: int | str = 1) -> str:
@@ -71,69 +68,3 @@ def strip_comment(line: str, comment: str = "//", quotes: str = '"') -> str:
 def code_only(body: str, comment: str = "//", quotes: str = '"') -> str:
     """`body` with every comment removed and the line count kept."""
     return "\n".join(strip_comment(line, comment, quotes) for line in body.split("\n"))
-
-
-_STARTS_BLOCK = re.compile(r"^\s*(?:[-*] |\d+\. |#|\||```|>|\*\*[A-Z][a-z]+:\*\*)")
-
-
-def reflow(text: str, width: int = WIDTH) -> str:
-    """Push the words of every over-long prose line into the next line.
-
-    The smallest edit that brings a paragraph back under the limit: the
-    rest of the paragraph keeps its line breaks, so the diff shows what
-    the rename moved and nothing else. Code, tables and headings are
-    left alone — `layout` decides those, and a code line is not this
-    function's to rewrite.
-    """
-    lines = text.split("\n")
-    fenced = False
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        if line.startswith("```"):
-            fenced = not fenced
-        # A contents line is a rule's ID, tier and title by
-        # construction, and `layout` exempts it for that reason:
-        # wrapping it breaks the contents.
-        contents = re.match(rf"^\s*- {rule_id()}", line)
-        if (
-            fenced
-            or len(line) <= width
-            or line.lstrip().startswith(("|", "#"))
-            or contents
-        ):
-            i += 1
-            continue
-        cut = _cut(line, width)
-        head = line[:cut].rstrip() if cut > len(line) - len(line.lstrip()) else ""
-        if not head:
-            i += 1
-            continue
-        moved = line[cut + 1 :]
-        item = re.match(r"^(\s*)(?:[-*] |\d+\. )", line)
-        indent = " " * len(
-            item.group(0) if item else line[: len(line) - len(line.lstrip())]
-        )
-        nxt = lines[i + 1] if i + 1 < len(lines) else ""
-        lines[i] = head
-        if nxt.strip() and not _STARTS_BLOCK.match(nxt):
-            lines[i + 1] = f"{indent}{moved} {nxt.lstrip()}"
-        else:
-            lines.insert(i + 1, f"{indent}{moved}")
-        i += 1
-    return "\n".join(lines)
-
-
-def _cut(line: str, width: int) -> int:
-    """The last space at or before `width` outside a code span, or -1.
-
-    A break inside `` `rg -n '… *='` `` puts a newline into the command
-    a reader copies, and `dialect` rightly fails it.
-    """
-    best, ticks = -1, 0
-    for i, ch in enumerate(line[: width + 1]):
-        if ch == "`":
-            ticks += 1
-        elif ch == " " and ticks % 2 == 0:
-            best = i
-    return best

@@ -187,6 +187,16 @@ class Doc:
         return "\n\n".join(parts) + "\n" if parts else ""
 
 
+def canonical(text: str) -> str:
+    """`text` in its canonical form: the tree it is read as, printed.
+
+    Every writer of a standard's markdown ends here, so a file a writer
+    produced and the same file formatted are one text, and formatting a
+    file that is already canonical changes nothing.
+    """
+    return str(Doc.parse(text))
+
+
 # ------------------------------------------------------------------
 # words and filling
 

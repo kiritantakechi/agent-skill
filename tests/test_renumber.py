@@ -6,9 +6,9 @@ lazy from pathlib import Path
 import pytest
 
 from agent_skill import renumber
+from agent_skill.doc import WIDTH, canonical
 from agent_skill.layout import SKILLS
 from agent_skill.model import Skill
-from agent_skill.text import reflow
 from structure_fixture import RULE, Demo
 
 
@@ -219,36 +219,43 @@ def test_an_unknown_id_is_reported_and_left_alone(repo: Path) -> None:
     assert "DS-ERR-99" in (repo / "tests/test_demo.py").read_text()
 
 
-def test_reflow_pushes_overflow_into_the_next_line() -> None:
-    text = (
-        "word " * 19 + "end-of-the-line-word"
-    ).rstrip() + "\nnext line of the same paragraph.\n"
-    out = reflow(text, width=100)
-    lines = out.split("\n")
-    assert all(len(ln) <= 100 for ln in lines)
-    assert lines[1].startswith("end-of-the-line-word next line")
-    assert " ".join(out.split()) == " ".join(text.split())
+def test_a_paragraph_whose_ids_grew_is_filled_as_fmt_would_fill_it(
+    repo: Path,
+) -> None:
+    """`DS-FT` becomes `DS-CONC`: two columns more at every citation."""
+    skill_md = repo / SKILLS / "demo-style/SKILL.md"
+    cites = " ".join(["DS-FT-01"] * 10)
+    skill_md.write_text(
+        "---\nname: demo-style\n---\n\n# Demo\n\n"
+        f"See {cites}.\nThen `references/free-threading.md`.\n"
+    )
+    run(repo, **THREADS)
+    text = skill_md.read_text()
+    assert text == canonical(text)
+    assert all(len(line) <= WIDTH for line in text.split("\n"))
+    assert text.count("DS-CONC-01") == 10
 
 
-def test_reflow_keeps_a_list_items_hanging_indent_and_leaves_code_alone() -> None:
-    item = "1. **Read.** " + "word " * 19 + "tail"
-    code = "```\n" + "x" * 120 + "\n```"
-    out = reflow(f"{item}\n\n{code}\n", width=100)
-    assert "\n   word word tail" in out
-    assert "x" * 120 in out
+def test_the_rename_table_is_written_in_its_canonical_form(repo: Path) -> None:
+    run(repo, **THREADS)
+    text = (repo / SKILLS / "demo-style/references/migration.md").read_text()
+    assert text == canonical(text)
+    assert all(len(line) <= WIDTH for line in text.split("\n"))
 
 
-def test_reflow_does_not_join_a_new_list_item_or_a_why() -> None:
-    para = "word " * 20 + "tail"
-    for nxt in ("- a list item", "2. next", "**Why:** because"):
-        out = reflow(f"{para}\n{nxt}\n", width=100)
-        assert f"\ntail\n{nxt}" in out
+def test_text_outside_the_standards_keeps_its_line_breaks(repo: Path) -> None:
+    """Nothing holds the README to the canonical form."""
+    readme = repo / "README.md"
+    readme.write_text("A line  with two spaces,\nbroken early: DS-FT-01.\n")
+    run(repo, **THREADS)
+    assert readme.read_text() == "A line  with two spaces,\nbroken early: DS-CONC-01.\n"
 
 
 def test_the_counts_skill_md_states_follow_the_rules(repo: Path) -> None:
     skill_md = repo / SKILLS / "demo-style/SKILL.md"
     skill_md.write_text(
         "---\nname: demo-style\ndescription: >-\n  A 9-rule library.\n---\n\n"
+        "| File | Rule IDs | Covers |\n|---|---|---|\n"
         "| `references/errors.md` | `DS-ERR` (7) | x |\n"
         "| `references/free-threading.md` | `DS-FT` (3) | x |\n"
     )
@@ -257,21 +264,6 @@ def test_the_counts_skill_md_states_follow_the_rules(repo: Path) -> None:
     assert "A 4-rule library." in text
     assert "`DS-ERR` (2)" in text
     assert "`DS-CONC` (1)" in text
-
-
-def test_reflow_leaves_a_contents_line_whole() -> None:
-    line = "  - RS-TRAIT-14 [S] " + "word " * 18 + "type"
-    assert reflow(line + "\n", width=100) == line + "\n"
-
-
-def test_reflow_never_breaks_inside_a_code_span() -> None:
-    line = (
-        "**Check:** "
-        + "word " * 10
-        + "`rg -n '^(alpha|beta|gamma|delta) *=' Cargo.toml` tail"
-    )
-    out = reflow(line + "\n", width=100)
-    assert "`rg -n '^(alpha|beta|gamma|delta) *=' Cargo.toml`" in out
 
 
 def test_the_run_that_renames_the_migration_chapter_writes_its_table(

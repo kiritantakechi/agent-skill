@@ -28,10 +28,10 @@ from pathlib import Path
 lazy from collections.abc import Iterator
 
 from agent_skill import shared, vocabulary
+from agent_skill.doc import canonical
 from agent_skill.ids import NUMBER
 from agent_skill.layout import SKILLS
 from agent_skill.model import DASH, RENAMED, Rename, Skill, rename_tables
-from agent_skill.text import reflow
 lazy from agent_skill.profiles import Profile
 
 
@@ -196,7 +196,7 @@ def _counts(skill: Skill, chapters: dict[str, str], plan: Plan) -> None:
                 rf"{re.escape(family)} \(\d+\)", f"{family} ({len(chapter.rules)})", new
             )
     if new != text:
-        plan.writes[path] = new
+        plan.writes[path] = canonical(new)
 
 
 def apply(repo: Path, plan: Plan) -> None:
@@ -306,6 +306,12 @@ def _rewrite(
     this one's IDs only to say what replaced a rule of its own, which
     is a live citation and follows the renumbering.
 
+    A standard's markdown that changed is printed in its canonical form,
+    so a paragraph whose IDs grew or shrank is filled as `fmt` would
+    fill it. Everything else — sources, tests, the README — keeps its
+    line breaks: nothing holds it to that form, and re-printing it would
+    rewrite text the renumbering did not touch.
+
     Returns the rewritten text, the lines a person should look at, and
     every rule ID cited that the skill does not define.
     """
@@ -317,8 +323,8 @@ def _rewrite(
         else:
             out.append(cites.paths_in(cites.ids_in(segment, unknown), own=own))
     rewritten = "".join(out)
-    if path.suffix == ".md" and rewritten != text:
-        rewritten = reflow(rewritten)
+    if path.suffix == ".md" and not outside and rewritten != text:
+        rewritten = canonical(rewritten)
 
     leftovers = [
         f"{path}: cites {rid}, which {cites.name} does not define; left as it was"
@@ -405,7 +411,8 @@ def carry(text: str, revision: str, now: dict[str, str]) -> str:
     itself. A row is kept only where the result differs from the
     original. An original that no longer exists is a rule deleted
     without its disposition being recorded, and stops the run: nothing
-    else knows what that rule became.
+    else knows what that rule became. The chapter comes back in its
+    canonical form, the new table's lead filled with the rest.
     """
     out: list[str] = []
     pos = 0
@@ -433,7 +440,7 @@ def carry(text: str, revision: str, now: dict[str, str]) -> str:
         text = (
             text.rstrip("\n") + "\n\n" + _table(revision, _ranges(now), _changed(rows))
         )
-    return reflow(text)
+    return canonical(text)
 
 
 def _forward(rows: list[Rename], now: dict[str, str]) -> list[Rename]:

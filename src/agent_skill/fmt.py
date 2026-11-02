@@ -16,10 +16,10 @@ from pathlib import Path
 lazy from collections.abc import Callable, Iterable, Iterator
 
 from agent_skill import shared
+from agent_skill.doc import canonical
 from agent_skill.lang.rust import RUST, Crate, module_name
 from agent_skill.proc import run
 from agent_skill.report import Finding, fail, note
-from agent_skill.text import reflow
 lazy from agent_skill.lang import Unit
 lazy from agent_skill.lang.python import PYTHON_TOOLCHAIN
 lazy from agent_skill.model import Block, Skill
@@ -79,27 +79,28 @@ def format_skill(skill: Skill) -> list[Finding]:
     Returns a note per passage or chapter changed, and a failure for
     each thing that could not be rewritten — a formatter that failed, a
     block that was skipped — so the command can say it did not finish.
-    The shared passages come first: they are text, and need no
-    toolchain to rewrite.
+    The text comes first, shared passages and then every file's
+    canonical form: it needs no toolchain to rewrite.
     """
-    changed = shared.rewrite(skill) + _reflow(skill)
+    changed = shared.rewrite(skill) + _reprint(skill)
     formatter = FORMATTERS.get(skill.profile.toolchain)
     return changed + (formatter(skill) if formatter else [])
 
 
-def _reflow(skill: Skill) -> list[Finding]:
-    """Bring every prose line back under the `layout` limit.
+def _reprint(skill: Skill) -> list[Finding]:
+    """Print every markdown file in its canonical form.
 
-    A renaming lengthens a code inside a sentence, and an edit lengthens
-    a line; either way the finding is a formatting one, and `fmt` is
-    where formatting findings are fixed.
+    An edit lengthens a line and a renaming lengthens a code inside a
+    sentence; either way the paragraph is filled for words it no longer
+    has. The canonical form is the one fill of the words it has now, and
+    it is what `layout` holds every file to.
     """
     changed: list[Finding] = []
     for path in skill.markdown:
         text = path.read_text()
-        if (reflowed := reflow(text)) != text:
-            path.write_text(reflowed)
-            changed.append(note("prose reflowed to the line limit", path.name))
+        if (printed := canonical(text)) != text:
+            path.write_text(printed)
+            changed.append(note("re-printed in its canonical form", path.name))
     return changed
 
 

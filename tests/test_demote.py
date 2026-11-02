@@ -7,6 +7,7 @@ import pytest
 from agent_skill import demote, renumber, shared
 from agent_skill.checks.anatomy import structural
 from agent_skill.checks.skeleton import shape
+from agent_skill.doc import canonical
 from agent_skill.layout import SKILLS
 from agent_skill.model import DASH, Skill
 from structure_fixture import RULE, Demo, build
@@ -303,3 +304,11 @@ def test_a_compiler_row_opens_its_table_with_the_compiler_lead(repo: Path) -> No
     errors = text(repo, "errors.md")
     assert demote.COMPILER_LEAD in errors
     assert demote.LEAD not in errors
+
+
+def test_every_file_a_demotion_writes_is_in_its_canonical_form(repo: Path) -> None:
+    """What `demote` writes, `fmt` would leave as it is."""
+    demotion = run(repo, {"DS-ERR-02": {"rows": [ROW]}, "DS-ERR-03": {"remove": "y"}})
+    assert demotion.writes
+    for path, written in demotion.writes.items():
+        assert written == canonical(written), path.name

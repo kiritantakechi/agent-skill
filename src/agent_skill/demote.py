@@ -20,6 +20,7 @@ from typing import TypedDict
 lazy from collections.abc import Iterator
 lazy from pathlib import Path
 
+from agent_skill.doc import canonical
 from agent_skill.ids import rule_id
 from agent_skill.layout import SKILLS
 from agent_skill.model import DECIDED, FENCE, Skill, unfenced
@@ -206,6 +207,7 @@ def _chapter_writes(skill: Skill, asked: dict[str, Entry]) -> dict[Path, str]:
 
     The rows that replace a rule join the chapter's `Decided by tools`
     table, and an edit that would lose any other rule stops the run.
+    Each is written in its canonical form, as `fmt` would leave it.
     """
     by_id = skill.by_id
     writes: dict[Path, str] = {}
@@ -227,7 +229,7 @@ def _chapter_writes(skill: Skill, asked: dict[str, Entry]) -> dict[Path, str]:
         if len(FENCE.findall(text)) % 2:
             msg = f"{chapter.name}: the edit would leave an example's fence open"
             raise DemoteError(msg)
-        writes[chapter.path] = text
+        writes[chapter.path] = canonical(text)
     return writes
 
 

@@ -3,6 +3,7 @@
 lazy from pathlib import Path
 
 from agent_skill import shared
+from agent_skill.doc import canonical
 from agent_skill.fmt import INJECTED, _bodies, format_skill
 from agent_skill.lang.rust import BEVY_STYLE, RUST_STYLE
 from agent_skill.profiles import _REGISTRY, profile_for
@@ -130,3 +131,17 @@ def test_fmt_brings_a_prose_line_back_under_the_limit(tmp_path: Path) -> None:
         ln for ln in drifted.skill_md.read_text().split("\n") if not ln.startswith("|")
     ]
     assert all(len(line) <= 100 for line in prose)
+
+
+def test_fmt_leaves_every_file_canonical_and_then_changes_nothing(
+    tmp_path: Path,
+) -> None:
+    """`fmt` is a projection: what it writes, it would write again."""
+    demo = build(tmp_path)
+    drifted = edit(demo, "SKILL.md", "Apply it literally.", "Apply it with judgement.")
+    drifted = edit(drifted, "SKILL.md", "Subtract.", "Subtract.\n\n\n" + "word " * 30)
+    assert format_skill(drifted)
+    texts = {p: p.read_text() for p in drifted.markdown}
+    assert all(text == canonical(text) for text in texts.values())
+    assert format_skill(drifted) == []
+    assert {p: p.read_text() for p in drifted.markdown} == texts
