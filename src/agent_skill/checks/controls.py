@@ -395,7 +395,7 @@ STRUCTURE: list[Control] = [
             t,
             f"{PY}/references/naming.md",
             "`self` and `cls` always, never renamed.",
-            "`self` and `cls` always, never renamed (stable since 3.13).",
+            "`self` and `cls` always, never renamed (stable since 3.9).",
         ),
     ),
     Control(

@@ -407,21 +407,37 @@ WHY_LINES = 3
 #: `rust-version`, a reproduction on an older release.
 _FENCED = re.compile(r"^[ \t]*```.*?^[ \t]*```[^\n]*$", re.MULTILINE | re.DOTALL)
 
+#: An inline code span, which is content for the same reason: `"1.2"`
+#: as a caret requirement, `from_secs_f32(0.5)` as a literal. A span may
+#: wrap onto the next line of its paragraph, never past a blank one.
+_SPAN = re.compile(r"(`+)(?:[^`\n]|\n(?![ \t]*\n))*?\1")
+
+
+def release_token(major: str) -> re.Pattern[str]:
+    """A release of the subject: `major`, a dot, and a minor.
+
+    The minor is any number that does not start with `0`, which keeps a
+    decimal such as `0.05` out, and is not followed by a letter, which
+    keeps `3.5x faster` out. It used to need two digits, which kept
+    `3.5x` out by accident and `since 3.9` out with it. A leading `~`
+    marks a quantity, never a release: `~0.3 ns`.
+    """
+    return re.compile(rf"(?<![\d.~]){major}\.([1-9]\d*)(?!\w)")
+
 
 def _below_target(skill: Skill) -> Iterator[tuple[str, str]]:
     """(message, where) for a rule whose prose names an older release.
 
     The subject's own versions only, read from the pin: `3.13` in a
-    Python 3.15 standard, `0.19` in a Bevy 0.20 one. A minor of two
-    digits or more keeps `3.5x faster` out, and one that does not start
-    with `0` keeps a decimal such as `0.05` out. The migration chapter
-    is where a standard's history lives, so it is not read.
+    Python 3.15 standard, `0.19` in a Bevy 0.20 one. Code, fenced or
+    inline, is content rather than prose. The migration chapter is where
+    a standard's history lives, so it is not read.
     """
     pin = re.match(r"(\d+)\.(\d+)", skill.profile.pin())
     if pin is None:
         return
     major, target = pin.group(1), int(pin.group(2))
-    token = re.compile(rf"(?<![\d.]){major}\.([1-9]\d+)(?!\d)")
+    token = release_token(major)
     rules = [
         (rule.id, f"{rule.title}\n{rule.body}", f"{skill.name}/{chapter.name}")
         for chapter in skill.chapters
@@ -435,7 +451,7 @@ def _below_target(skill: Skill) -> Iterator[tuple[str, str]]:
         older = sorted(
             {
                 m.group(0)
-                for m in token.finditer(_FENCED.sub("", body))
+                for m in token.finditer(_SPAN.sub(" ", _FENCED.sub("", body)))
                 if int(m.group(1)) < target
             },
             key=lambda v: int(v.split(".")[1]),
