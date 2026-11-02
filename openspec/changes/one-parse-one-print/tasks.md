@@ -71,3 +71,39 @@
   second spelling of any concept from 2.1
 - [ ] 9.2 Re-measure everything in 1.1 and record the deltas in this file
 - [ ] 9.3 Update README sections that describe the harness's internals; `documented` passes
+
+## Baseline (measured)
+
+Taken at `4b46e84`, on a 4-core container, Python 3.15.2 (free-threaded), before any code of this
+change landed. Times are one wall-clock run each, through `uv run`; every `--only` run includes the
+≈0.18 s that `uv run agent-skill --help` takes to start and exit.
+
+| Measure | Value | How |
+|---|---|---|
+| full `check` | ≈22 min | reported for this commit; not re-run in this step |
+| `check --fast` | 33.4 s, all passed | `time uv run agent-skill check --fast` |
+| pytest, not toolchain | 543 passed, 4 deselected, ≈2 min 35 s | `uv run pytest -q -m "not toolchain" -p no:cacheprovider` |
+| rule-ID regex literals | 33 lines | `rg -n --type py '\[A-Z\]\+\)?-\(?\\d\|rule_id\(\|NUMBER' src/` |
+| heading scanners | 24 lines | `rg -n --type py -g '!**/checks/controls.py' -e 'startswith\("#+ ' -e '\^#' -e '\\n##' src/` |
+| fence trackers | 19 lines | `rg -n --type py -F '```' src/ \| grep -v '^\S*:\s*#'` |
+| `WIDTH` definitions | 3 | `rg -n --type py 'WIDTH\s*=' src/` (`text.py`, `shared/__init__.py`, `checks/layout.py`) |
+
+The heading-scanner pattern counts every line that finds a heading by its `#` text (`## ` boundaries,
+`### ` rule heads, the H1 lookups in `skeleton`); `controls.py` is excluded because its hits are
+injected fixture text, not scanners. The fence count includes the two lines in `fmt.py` that locate a
+block by rebuilding its fence text.
+
+Per-check, `uv run agent-skill check --fast --only NAME` (seconds):
+
+| Check | s | Check | s | Check | s |
+|---|---|---|---|---|---|
+| `anatomy` | 2.34 | `dialect` | 0.62 | `pins` | 1.37 |
+| `assets` | 0.78 | `documented` | 0.14 | `plugin` | 1.62 |
+| `citations` | 2.35 | `frontmatter` | 0.61 | `prose` | 0.38 |
+| `controls` | 19.93 | `layout` | 0.26 | `self-application` | 3.13 |
+| `conventions` | 0.25 | `lints` | 0.16 | `sensitivity` | 1.08 |
+| `crossref` | 0.72 | `markers` | 0.25 | `shared-text` | 0.70 |
+| `mirror` | 0.94 | `skeleton` | 0.65 | | |
+
+`toolchain` and `mutation` are the two slow checks; they are most of the 22 minutes and were not
+timed alone, for the same reason the full check was not re-run.
