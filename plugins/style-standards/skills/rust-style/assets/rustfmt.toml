@@ -1,7 +1,9 @@
 # Keep this file short. Every override is a cost to new contributors.
-# The two below are worth it. Verify your toolchain accepts them on stable with
-# `cargo fmt -- --help=config`; run the format job on nightly if it does not.
-# Referenced by RS-MOD-28, RS-BUILD-27.
+# The two below are worth it, and both are nightly-only: stable rustfmt warns
+# "can't set …, unstable features are only available in nightly channel" and
+# ignores them. Format with `cargo +nightly fmt`, locally as in assets/ci.yml,
+# or delete both lines and use the pinned toolchain's `cargo fmt` everywhere.
+# Referenced by RS-MOD-36, RS-MOD-37, RS-BUILD-27.
 
 group_imports = "StdExternalCrate"   # std / external / crate, blank-line separated
 imports_granularity = "Crate"        # merge `use` statements per crate

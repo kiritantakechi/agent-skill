@@ -34,7 +34,7 @@ and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
   - RS-API-12 [M] Return the view from an accessor, never the container
   - RS-API-13 [M] Do not hand out `&mut` to invariant-bearing state
   - RS-API-14 [M] Close every public path that can build an invalid instance
-  - RS-API-15 [M] Keep every struct field private, including the ones with no invariant
+  - RS-API-15 [M!] Keep every struct field private, including the ones with no invariant
   - RS-API-16 [M] Give the caller the question it is asking, not the field it would have read
   - RS-API-17 [M] Make every construction path a named one
 
@@ -104,9 +104,9 @@ and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
 
 Start with the smallest surface that lets the intended use cases work.
 
-**Why:** `pub` is a promise of support that you cannot withdraw within a major version;
-`pub(crate)` costs nothing and can be promoted the day someone needs it. Growing a surface is a
-minor version, shrinking it is a major one — so the asymmetry says start small.
+**Why:** `pub` is a promise of support that you cannot withdraw within a major version; a
+crate-private item promises nothing outside the crate and can be promoted the day someone needs it.
+Growing a surface is a minor version, shrinking it a major one — so the asymmetry says start small.
 
 **Check:** for each `pub` item, name the external use case. `cargo public-api` will list the full
 surface if you are not sure what is reachable; anything on that list you cannot justify is a
@@ -304,8 +304,8 @@ Any constraint the type maintains — a sorted `Vec`, a cached length that must 
 confined to a range, an index into a sibling field — is a contract the type owes, and it decides
 which methods may exist.
 
-**Why:** every field is private either way (RS-API-15), so privacy decides nothing; the invariant
-decides which operations may exist. Unnamed, the next `&mut` method breaks it; named, it tells you
+**Why:** a published type's fields are private either way (RS-API-15), so privacy decides nothing;
+the invariant decides what may exist. Unnamed, the next `&mut` method breaks it; named, it tells you
 construction is fallible, the field has no setter, and which accessor would leak it (RS-API-13).
 
 **Check:** for each type, state its invariant in one sentence. If you can state one and no method
@@ -345,7 +345,7 @@ impl Percent {
 
 **Why:** an accessor returning `&Vec<u8>` publishes `Vec` exactly as a public field would, so
 switching to `SmallVec`, a ring buffer, or a memory map still breaks every caller. `&[u8]` names
-what the caller may do, not what you store, and all three can produce it (RS-CORE-07).
+what the caller may do, not what you store, and all three can produce it.
 
 **Check:** grep accessor return types for `&Vec<T>`, `&String`, and `&PathBuf` — the slice, `&str`,
 and `&Path` say the same thing without naming the container. A map or a set has no borrowed view in
@@ -381,14 +381,18 @@ state, not that the fields have a keyword in front of them.
 a `Deserialize` impl, a `Default`, a `From<Options>` that skips `build()`? `serde` in particular
 bypasses your constructor unless you use `#[serde(try_from = "…")]`.
 
-### RS-API-15 [M] Keep every struct field private, including the ones with no invariant
+### RS-API-15 [M!] Keep every struct field private, including the ones with no invariant
 
-There is no "pure data bag" exemption. A struct whose fields are independent today is still a
-struct whose representation you have published. The single exception is a type whose layout is
-already the contract — `#[repr(C)]` or `extern` types crossing an ABI boundary
+A published type has no "pure data bag" exemption. A struct whose fields are independent today is
+still a struct whose representation you have published. The single exception is a type whose layout
+is already the contract — `#[repr(C)]` or `extern` types crossing an ABI boundary
 (`references/unsafe.md` RS-UNSAFE-14). A constructor or builder replaces the struct literal, and a
 method replaces field access. A tuple struct is no exception: `struct Port(u16)` with an accessor,
 never `struct Port(pub u16)`, whose `.0` is a public field that also names nothing.
+
+*Relaxed form:* a type no code outside your control can name — private or `pub(crate)`, or in a
+binary or an internal workspace crate — may be a plain-data or options struct with public fields,
+built with a struct literal. A field that carries an invariant stays private there too.
 
 **Why:** a public field commits to a *representation*: `pub threads: usize` cannot later become
 `NonZeroUsize` or a computed value without a major version, and invariants usually arrive later.
@@ -396,7 +400,8 @@ What public fields buy, methods give back; the representation they spend is gone
 
 **Check:** `rg -n 'pub [a-z_]*:' -g '*.rs' src/` over struct bodies, and
 `rg -n 'struct [A-Za-z_]*\(pub ' -g '*.rs' src/` for tuple structs. Every hit that is not on a
-`#[repr(C)]` type is a defect, whatever invariant it does or does not carry today.
+`#[repr(C)]` type is a defect in a published type, whatever invariant it does or does not carry
+today; elsewhere, a hit is a defect when the field carries an invariant.
 
 ```rust
 // verified
@@ -1302,8 +1307,8 @@ visible at the call site.
 Mark a public enum whose variant set may grow. A genuinely closed set — `enum Endianness { Big,
 Little }` — stays exhaustive, because there the attribute only removes the caller's exhaustiveness
 checking; say in the rustdoc that it is closed. A struct needs the attribute only where its fields
-are public, which RS-API-15 allows for little but a `#[repr(C)]` type: a struct with private fields
-can already grow without a major version.
+are public, which RS-API-15 allows a published type for little but `#[repr(C)]`: a struct with
+private fields can already grow without a major version.
 
 *Relaxed form:* internal crates within one workspace, where you control every consumer, can omit it.
 

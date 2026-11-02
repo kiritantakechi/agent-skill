@@ -446,10 +446,10 @@ tokio = { version = "1", default-features = false, features = ["rt", "macros"] }
 Lints belong in the manifest's `[lints]` table, inherited from `[workspace.lints]`, not in a wall of
 `#![deny(...)]` attributes in `lib.rs`. The manifest is where a reviewer looks for policy, and it
 applies to every target automatically. `[lints] workspace = true` is all-or-nothing, so a lint only
-some members want stays out of the workspace table, as `print_stdout` does below. Name
-`elided_lifetimes_in_paths` and `explicit_outlives_requirements` individually rather than enabling
-`rust_2018_idioms`: its other three members cover what edition 2024 already rejects or has made
-unnecessary.
+some members want stays out of the workspace table, as `print_stdout` does in `assets/Cargo.toml`
+— the table this standard ships, to copy whole. Name `elided_lifetimes_in_paths` and
+`explicit_outlives_requirements` individually rather than enabling `rust_2018_idioms`: its other
+three members cover what edition 2024 already rejects or has made unnecessary.
 
 **Why:** crate-level attributes apply only to that crate root, so tests, benches, and examples
 silently miss them. The manifest table covers every target and is inheritable across a workspace.
@@ -457,28 +457,6 @@ silently miss them. The manifest table covers every target and is inheritable ac
 **Check:** grep for `#![deny(` and `#![warn(` in source; each belongs in the manifest. Every member
 has `[lints] workspace = true` or a deliberate block of its own — a member with neither starts with
 none of the standard.
-
-```toml
-# verified
-[workspace.lints.rust]
-unsafe_code = "forbid"
-missing_docs = "deny"
-missing_debug_implementations = "deny"
-unreachable_pub = "warn"
-elided_lifetimes_in_paths = "warn"
-explicit_outlives_requirements = "warn"
-
-[workspace.lints.clippy]
-pedantic = { level = "warn", priority = -1 }
-# deny the ones that are always defects:
-unwrap_used = "deny"
-expect_used = "deny"
-panic = "deny"
-todo = "deny"
-dbg_macro = "deny"
-# print_stdout = "deny"        # library members only: a binary member must print
-undocumented_unsafe_blocks = "deny"
-```
 
 ### RS-BUILD-24 [M] Run `clippy::pedantic` at `warn` and answer each warning
 
@@ -523,9 +501,9 @@ denied" a cheap local check rather than a CI-only step.
 
 Enforce formatting in CI with `cargo fmt --check`, and keep `rustfmt.toml` minimal — the default
 style is a coordination win, and every override costs new contributors. The overrides worth having
-are `group_imports = "StdExternalCrate"` and `imports_granularity = "Crate"`; check whether your
-toolchain accepts them on stable with `cargo fmt -- --help=config`, and run the format job on
-nightly if not.
+are `group_imports = "StdExternalCrate"` and `imports_granularity = "Crate"`. Both are nightly-only,
+so a crate that sets them formats with `cargo +nightly fmt` locally and checks with
+`cargo +nightly fmt --check` in CI; a crate on stable rustfmt alone sets neither.
 
 **Why:** formatting arguments consume review attention that should go to behaviour, and only a
 mechanical check ends them. Each override reintroduces the argument in a smaller form, so it needs a
@@ -533,7 +511,7 @@ concrete benefit — import grouping is one, because it reduces diff noise.
 
 **Check:** both options are nightly-only. Stable rustfmt reports `can't set imports_granularity =
 Crate, unstable features are only available in nightly channel` and continues with the default, so
-the format job needs nightly to enforce them.
+code it formatted fails a nightly format job. Do the local command and the CI job use one toolchain?
 
 ## Supply chain, versioning, release
 
@@ -664,13 +642,16 @@ targets = ["x86_64-unknown-linux-musl"]
 ### RS-BUILD-37 [M] Test on stable at minimum; add beta and nightly where they earn it
 
 Test on stable at minimum; add beta to catch upcoming regressions and nightly only for the jobs that
-need it (Miri, `-Z` flags, fuzzing).
+need it (Miri, `-Z` flags, fuzzing). Such a job runs `cargo +beta` or `cargo +nightly`: a committed
+`rust-toolchain.toml` (RS-BUILD-36) outranks the toolchain an action installs, so plain `cargo`
+there tests the pinned release again.
 
 **Why:** beta gives six weeks of warning before a regression reaches your users, which is enough to
 file and fix. Nightly is unstable enough that gating the whole pipeline on it produces failures
 unrelated to your code.
 
-**Check:** is nightly required for anything other than the tools that genuinely need it?
+**Check:** is nightly required for anything other than the tools that genuinely need it, and does
+every beta or nightly job name its toolchain with `+`?
 
 ### RS-BUILD-38 [M] Cover Linux, macOS, and Windows for anything touching the OS
 

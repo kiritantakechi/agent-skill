@@ -1,10 +1,16 @@
-# Minimal CI that enforces this standard. Referenced by RS-BUILD-39.
+# Minimal CI that enforces this standard. Referenced by RS-BUILD-39; the
+# features job encodes RS-BUILD-18 and RS-MOD-30, msrv RS-BUILD-31, beta
+# RS-BUILD-37.
 name: ci
 
 on:
   push: { branches: [main] }
   pull_request:
   schedule: [{ cron: "0 6 * * 1" }]   # weekly, so new advisories surface
+
+# Read-only by default; a job that needs more says so.
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -18,6 +24,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - uses: dtolnay/rust-toolchain@1.99.1      # must match assets/rust-toolchain.toml
         with: { components: clippy }
       - uses: Swatinem/rust-cache@v2
@@ -26,11 +33,25 @@ jobs:
       - run: cargo test --no-default-features
       - run: cargo build --examples
 
+  # Each member alone, under each feature alone: `--workspace` unifies
+  # features across members and hides a missing feature declaration.
+  features:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - uses: dtolnay/rust-toolchain@1.99.1      # must match assets/rust-toolchain.toml
+      - uses: taiki-e/install-action@v2
+        with: { tool: cargo-hack }
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo hack check --workspace --each-feature --no-dev-deps
+
   fmt:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@nightly     # only needed if rustfmt.toml uses unstable options
+        with: { persist-credentials: false }
+      - uses: dtolnay/rust-toolchain@nightly     # rustfmt.toml's import options are nightly-only
         with: { components: rustfmt }
       - run: cargo +nightly fmt --all --check   # `+`: rust-toolchain.toml outranks the install
 
@@ -38,29 +59,51 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - uses: dtolnay/rust-toolchain@1.99.1
       - run: cargo doc --no-deps --all-features
 
+  # While `rust-version` equals the pin in rust-toolchain.toml, `1.99` resolves
+  # to the release `test` already uses and this job repeats it. It tests the
+  # MSRV claim once `rust-version` is lowered below the pin.
   msrv:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - uses: dtolnay/rust-toolchain@1.99        # must match `rust-version`
       - run: cargo +1.99 check --all-features
+
+  # Six weeks' warning of a regression. `+beta`, because a committed
+  # rust-toolchain.toml outranks the toolchain the action installs, and plain
+  # `cargo` here would test the pinned release again.
+  beta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { persist-credentials: false }
+      - uses: dtolnay/rust-toolchain@beta
+      - run: cargo +beta test --all-features
 
   # Enable when the crate contains `unsafe`.
   # miri:
   #   runs-on: ubuntu-latest
   #   steps:
   #     - uses: actions/checkout@v7
+  #       with: { persist-credentials: false }
   #     - uses: dtolnay/rust-toolchain@nightly
   #       with: { components: miri }
   #     - run: cargo +nightly miri test
 
   audit:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write                    # reports advisories as a check
+      issues: write                    # opens an issue per advisory on the schedule
     steps:
       - uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - uses: rustsec/audit-check@v2
         with: { token: "${{ secrets.GITHUB_TOKEN }}" }
 
@@ -68,4 +111,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with: { persist-credentials: false }
       - uses: obi1kenobi/cargo-semver-checks-action@v2

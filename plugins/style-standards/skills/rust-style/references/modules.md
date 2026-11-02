@@ -510,7 +510,8 @@ three criteria applies to it?
 
 ### RS-MOD-20 [S] Follow the canonical workspace layout
 
-```
+```text
+# fragment — the top level of the workspace
 project/
 ├── Cargo.toml            # [workspace] with shared deps and lints
 ├── crates/

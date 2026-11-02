@@ -74,21 +74,23 @@ proceed with the stricter reading.
 ## 2. Rust 1.99 reality check
 
 Most Rust on the public internet predates these. The entries that **compile either way** are the
-dangerous ones, because nothing catches them for you.
+dangerous ones, because the compiler says nothing about them.
 
-### 2.1 The changes that compile either way and behave differently
+### 2.1 What compiles either way and behaves differently
 
 1. **Integer overflow panics in debug and wraps in release.** Arithmetic on attacker-influenced
-   values must be `checked_*`, `strict_*`, `saturating_*` or `wrapping_*` explicitly, or debug and
-   release disagree about what your program does (`RS-ERR-31`).
-2. **`as` casts truncate without a diagnostic.** `len as u32` on a 5 GB buffer is a silent wrong
-   answer. Use `u32::try_from(len)?` on any conversion that can lose data, and `cast_signed` or
-   `cast_unsigned` where a sign change is the point (`RS-PERF-30`).
+   values must be `checked_*`, `saturating_*` or `wrapping_*` explicitly, or debug and release
+   disagree about what your program does. `strict_*` panics in both profiles, so it belongs where
+   overflow is a bug rather than an input (`RS-ERR-31`).
+2. **`as` casts truncate silently at run time.** `len as u32` on a 5 GB buffer is a wrong answer
+   with no error. rustc accepts it; clippy's `cast_possible_truncation`, a warning in
+   `assets/Cargo.toml`, is what flags it. Use `u32::try_from(len)?` on any conversion that can lose
+   data, and `cast_signed` or `cast_unsigned` where a sign change is the point (`RS-PERF-30`).
 3. **A dropped `Future` is a cancellation at an arbitrary `.await`.** Anything holding a resource
    across an await must be correct when dropped there; `select!` makes this routine rather than
    exotic (`RS-CONC-33`).
 
-The 2024 edition moved four more without a diagnostic:
+The 2024 edition changed four behaviours without a diagnostic:
 
 | Old habit | Edition 2024 reality |
 |---|---|
@@ -105,7 +107,7 @@ lists them by release, to read on every toolchain bump.
 
 | Old habit | Edition 2024 reality |
 |---|---|
-| `unsafe fn` body is implicitly unsafe | `unsafe_op_in_unsafe_fn` is on; write the inner `unsafe { }` explicitly |
+| `unsafe fn` body is implicitly unsafe | `unsafe_op_in_unsafe_fn` warns (`warning[E0133]`), and CI's `CARGO_BUILD_WARNINGS=deny` fails on it; write the inner `unsafe { }` explicitly |
 | `#[no_mangle]`, `#[export_name]`, `#[link_section]` | must be `#[unsafe(no_mangle)]` and friends |
 | `static mut FOO` then `&FOO` | `static_mut_refs` denies it; use `OnceLock`/`LazyLock`/atomics |
 | `impl Trait` return captures only named lifetimes | captures **all** in-scope lifetimes; narrow with `+ use<'a, T>` (1.82) |
@@ -124,10 +126,10 @@ RS-MIG-01 has every one, with the release it arrived in.
 
 Elegance in Rust has two axes, and a design needs both. **Subtraction** removes what does not earn
 its place: a `mut` that a fold would remove, a `String` that a `&str` would remove, a `clone()` that
-a borrow would remove, an `Arc<Mutex<_>>` that a channel would remove, a builder that a struct
-literal would remove. **Symmetry** is what remains after subtraction being *regular*: operations
-that come in pairs, siblings that take their arguments in the same order, one mechanism per concept,
-and no branch that exists for a single input.
+a borrow would remove, an `Arc<Mutex<_>>` that a channel would remove, a builder that a `Default`
+options struct would remove. **Symmetry** is what remains after subtraction being *regular*:
+operations that come in pairs, siblings that take their arguments in the same order, one mechanism
+per concept, and no branch that exists for a single input.
 
 The two fail differently. Excess makes code longer than it needs to be. Asymmetry makes it
 unlearnable — the reader cannot generalize from one function to the next, so every call site must be
@@ -173,21 +175,26 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **RS-CORE-04 `[S]`** No abbreviations unless the abbreviation is more standard than the word
   (`config`, `regex`, `buf`, `ctx`). `rslt`, `mngr`, `hdlr` are not
   (`references/naming.md` RS-NAME-26).
-- **RS-CORE-05 `[M]`** Run `cargo fmt`. Keep `rustfmt.toml` minimal — the default style is a
-  coordination win and every override costs new contributors
-  (`references/build.md` RS-BUILD-27).
+- **RS-CORE-05 `[M]`** Run `cargo fmt` on the toolchain CI checks with — `cargo +nightly fmt` while
+  `rustfmt.toml` sets its nightly-only import options, which stable rustfmt ignores. Keep
+  `rustfmt.toml` minimal — the default style is a coordination win and every override costs new
+  contributors (`references/build.md` RS-BUILD-27).
 
 ### Public surface
 
-- **RS-CORE-06 `[M]`** Everything is private until proven public. `pub` is a promise of support;
-  `pub(crate)` costs nothing (`references/api.md` RS-API-01).
-- **RS-CORE-07 `[M]`** Be generic in what you accept, concrete in what you return. Take `&[T]` not
-  `&Vec<T>`, `&str` not `&String`, `&Path` not `&PathBuf` — the borrowed form accepts strictly more
-  callers at no cost, and clippy's `ptr_arg` flags the owned forms. This is the single most common
-  signature defect in Rust (`references/api.md` RS-API-07).
-- **RS-CORE-08 `[M]`** Every struct field is private, whether or not it carries an invariant, and
+- **RS-CORE-06 `[M]`** Everything is private until proven public. `pub` is a promise of support
+  that only a major version can withdraw; a crate-private item promises nothing outside the crate
+  and can be widened the day someone needs it (`references/api.md` RS-API-01).
+- **RS-CORE-07 `[M]`** Be generic in what you accept, concrete in what you return. Take
+  `impl AsRef<Path>`, `impl IntoIterator<Item = T>` or `impl Into<String>` where callers hold
+  different types; return a named type or `impl Trait`, never a type parameter only the caller can
+  choose. Taking `&Vec<T>`, `&String` or `&PathBuf` where the borrowed view serves is clippy's
+  `ptr_arg`, a row in `references/ownership.md`'s tool table (`references/api.md` RS-API-07).
+- **RS-CORE-08 `[M!]`** Every struct field is private, whether or not it carries an invariant, and
   the type exposes methods rather than storage. The one exception is a `#[repr(C)]` type whose
-  layout is already the contract (`references/api.md` RS-API-15, RS-API-16).
+  layout is already the contract. *Relaxed form:* a plain-data or options struct that no code
+  outside your control can name may expose its fields, unless one of them carries an invariant
+  (`references/api.md` RS-API-15, RS-API-16).
 - **RS-CORE-09 `[M]`** Make illegal states unrepresentable. `bool` parameters are enums that have
   not been written yet; two `Option` fields where exactly one is always `Some` is an enum in
   disguise; a `&str` that accepts three values is an enum
@@ -208,10 +215,11 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
   tests; a binary, `build.rs` or example that wants `expect` on a genuine invariant relaxes
   `expect_used` in its own `[lints]`, and the message states the invariant rather than the symptom
   (`references/errors.md` RS-ERR-03, RS-ERR-04).
-- **RS-CORE-13 `[M]`** Errors are types, not strings. A library defines an enum with one variant per
-  failure mode a caller might branch on, implements `Error` with a correct `source()`, and never
-  exposes `Box<dyn Error>` or `anyhow::Error` in its public API. `anyhow` belongs in binaries
-  (`references/errors.md` RS-ERR-05, RS-ERR-10, RS-ERR-13).
+- **RS-CORE-13 `[M]`** Errors are types, not strings. A library names its failure modes in an enum —
+  the error itself, or the `kind` a struct error exposes — with one variant per failure mode a
+  caller might branch on, implements `Error` with a correct `source()`, and never exposes
+  `Box<dyn Error>` or `anyhow::Error` in its public API. `anyhow` belongs in binaries
+  (`references/errors.md` RS-ERR-05, RS-ERR-10, RS-ERR-13, RS-ERR-15).
 - **RS-CORE-14 `[M]`** Never discard an error's information. `map_err(|_| MyError::Io)` throws away
   the operating system's message; carry the source (`references/errors.md` RS-ERR-08).
 - **RS-CORE-15 `[M]`** A panic means a bug, and a reachable one must be documented in a `# Panics`
@@ -254,11 +262,13 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 
 ### Abstraction
 
-- **RS-CORE-24 `[M]`** Name the capability as a trait before writing the type that provides it, and
-  program against the trait. A boundary designed first stays total and symmetric; one extracted
-  later is shaped by whichever implementation came first. The cost is indirection and a generic
-  parameter at each use site, which is the trade this standard accepts against the Rust API
-  Guidelines' advice (`references/traits.md` RS-TRAIT-01).
+- **RS-CORE-24 `[M]`** At a seam that will carry two plausible implementations, or a test double,
+  name the capability as a trait before writing the type that provides it, and program against the
+  trait. A boundary designed first stays total and symmetric; one extracted later is shaped by
+  whichever implementation came first. A type with one implementation and no double stays concrete,
+  and a closed set is an enum. The cost is indirection and a generic parameter at each use site,
+  which is the trade this standard accepts against the Rust API Guidelines' advice
+  (`references/traits.md` RS-TRAIT-01).
 - **RS-CORE-25 `[M]`** For a closed set of implementations, an enum beats a trait object: no
   allocation, no vtable, exhaustive matching, and derives for free. Reach for `dyn` when the set is
   genuinely open (`references/traits.md` RS-TRAIT-18).
@@ -312,7 +322,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 |---|---|---|
 | `references/naming.md` | `RS-NAME` (35) | Casing, conversion prefixes (`as_`/`to_`/`into_`), getters, predicates, iterator names, word order, generic parameters and lifetimes |
 | `references/api.md` | `RS-API` (62) | Public surface shape, parameters and returns, encapsulation, type safety and newtypes, `#[must_use]`/`#[non_exhaustive]`, the std trait impl set, constructors and builders, semver evolution |
-| `references/errors.md` | `RS-ERR` (37) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, explicit overflow, exit codes, `BrokenPipe` |
+| `references/errors.md` | `RS-ERR` (37) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, explicit overflow, exit codes |
 | `references/functional.md` | `RS-FUNC` (47) | Expression orientation, the iterator adapter set, immutability and shadowing, closures and bounds, purity, parse-don't-validate, when to stop |
 | `references/ownership.md` | `RS-OWN` (39) | Borrow-vs-own signatures, clone discipline, `Cow`, lifetimes and elision, arenas and indices, smart pointers, interior mutability, `Drop` and RAII |
 | `references/traits.md` | `RS-TRAIT` (47) | Trait design and contracts, static vs dynamic dispatch, dyn compatibility, coherence and blanket impls, sealing, bounds, associated types, GATs, const generics, typestate |
@@ -338,6 +348,6 @@ asset and the rule cannot drift apart.
 |---|---|
 | `assets/Cargo.toml` | Workspace manifest with the canonical `[workspace.lints]` block (correct `priority = -1` on groups), profiles, and shared dependencies |
 | `assets/clippy.toml` | clippy's own settings: lints on public items no longer muted by `avoid-breaking-exported-api`, `unwrap` and `expect` allowed inside tests, and acronyms capitalised as words everywhere |
-| `assets/rustfmt.toml` | The two overrides worth having, with the stability caveat |
-| `assets/ci.yml` | GitHub Actions enforcing this standard: clippy with `CARGO_BUILD_WARNINGS=deny`, the feature matrix, three platforms, MSRV, rustdoc, audit, `cargo semver-checks` |
+| `assets/rustfmt.toml` | The two import overrides worth having; both are nightly-only, so it is formatted with `cargo +nightly fmt` |
+| `assets/ci.yml` | GitHub Actions enforcing this standard: clippy with `CARGO_BUILD_WARNINGS=deny`, each member under each feature alone, three platforms, MSRV, beta, rustdoc, audit, `cargo semver-checks`, read-only token permissions |
 | `assets/rust-toolchain.toml` | The pinned stable toolchain every contributor and CI job builds with |

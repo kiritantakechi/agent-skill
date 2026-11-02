@@ -52,9 +52,10 @@ current revision.
 and the crate's spelling outlives the reason it existed. The std version is also the one every
 reader already knows.
 
-**Check:** each hit is a dependency the standard library now covers.
-`rg -n '^(lazy_static|cfg-if|itoa|fs2|fs4|filetime|num_cpus|atty|is-terminal) *=' Cargo.toml` and
-`rg -n '^(os_pipe|assert_matches|async-trait|memoffset|static_assertions) *=' Cargo.toml`
+**Check:** each hit is a dependency the standard library now covers, in the workspace table, a
+member's manifest, or a member's `foo.workspace = true` line:
+`rg -n -g '*.toml' '^(lazy_static|once_cell|cfg-if|itoa|fs[24]|filetime|num_cpus|memoffset)[ .=]'`
+`rg -n -g '*.toml' '^(atty|is-terminal|os_pipe|assert_matches|async-trait|static_assertions)[ .=]'`
 
 ### RS-MIG-02 [M] Do not call an API deprecated through 1.99
 
@@ -91,6 +92,7 @@ against this table and RS-MIG-01's "Since" column, which keep the dates the rule
 | `fmt::from_fn`; `Vec::into_raw_parts`; `VecDeque::pop_front_if` and `pop_back_if` | 1.93 |
 | `array_windows`; `Peekable::next_if_map` | 1.94 |
 | `if let` guards; `hint::cold_path` | 1.95 |
+| `core::range::Range` | 1.96 |
 
 ## What changed silently
 
