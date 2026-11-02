@@ -68,10 +68,49 @@
 
 ## 3. Canonical re-print
 
-- [ ] 3.1 Re-print all four skills canonically in one commit containing nothing else; verify
-  `parse(old) == parse(new)` and that the full suite passes
-- [ ] 3.2 Replace `layout`'s physical scans and `shared-text`'s copy comparison with the canonical
-  comparison; keep each existing negative control firing
+- [x] 3.1 Re-print all four skills canonically in one commit containing nothing else; verify
+  `parse(old) == parse(new)` and that the full suite passes — `18315b8`, held to it by
+  `tests/test_reprint.py` (tree equal, `new == canonical(old)`, fence bodies and `Skill.blocks`
+  identical); four line-wise readers fixed first, two Whys fixed after (below)
+- [x] 3.2 Replace `layout`'s physical scans and `shared-text`'s copy comparison with the canonical
+  comparison; keep each existing negative control firing — `layout` reports the first line that
+  differs from `canonical(file)` and keeps branches only for what printing leaves as written;
+  `shared-text` aligns template and passage as trees; every control fires, one added
+
+  Before the re-print every writer was aligned with the printer: `fmt`, `shared.rewrite`,
+  `renumber` (with `carry`) and `demote` all write `doc.canonical`, and `text.reflow` and
+  `shared.wrap` are deleted. Decisions made on the way:
+
+  - `renumber` re-prints only a standard's markdown. The README, sources and tests keep their
+    line breaks: nothing holds them to the canonical form, and re-printing them would rewrite text
+    the renumbering did not touch.
+  - `shared.render` returns blocks and a list is numbered by printing, so `_renumber` went too;
+    `shared.rewrite` splices the template's blocks into the file's tree and prints the whole file.
+  - `Fence.closed` (not compared) records a fence the file ends inside, so `layout` reports it as
+    a file that does not parse as written instead of as a non-canonical last line.
+  - `layout` measures widths, kept tabs and CRs on the canonical text, so a defect the printer
+    removes is reported once. A table row inside an example stays unmeasured, as before. Files
+    are read with `newline=""`: read the usual way every CR was already a line break, so the old
+    `CR present` branch could not fire. `fmt` reads the same way.
+  - A code span or link wider than the line is a note (decision 2); the re-print joins twelve
+    such spans that the old wrapping had split, mostly `rg` commands in bevy's migration chapter.
+
+  What the re-print surfaced, checked by diffing every finding of `check --fast --verbose` before
+  and after, and by counting what the line-wise citation reader matched:
+
+  | Finding | Kind | Resolution |
+  |---|---|---|
+  | ZS-CONC-25, ZS-CONC-33, ZS-TEST-10 "is [M!] with no relaxed form" | reader | `*Relaxed`/`form:*` on two lines; the label is matched across whitespace |
+  | zig `performance.md` "bold-inline rule definitions" | reader | `**ZS-BUILD-25**` mid-paragraph opened a line; a definition is a paragraph that opens with one |
+  | twelve "prose line is N columns" | reader | code spans no line can hold; notes, as decision 2 says |
+  | none: `_paths` read 302 citations before and 294 after | reader | read across a line break, not a blank line: 323 both ways |
+  | RS-TRAIT-36 "Why runs 4 lines" | content | the 101-column type moves into the statement the rule lacked |
+  | ZS-ERR-18 "Why runs 4 lines" | content | two words cut |
+
+  The `_core_citations` control relied on line-wise `_paths` missing a citation split across
+  lines; it now puts the wrong chapter on a list's second ID, which `_paths` does not read. The
+  prose-width control is now a non-canonical paragraph, owned by `_canonical`; a new control, an
+  example line over the limit, keeps `_widths` covered.
 
 ## 4. Findings, locations, branches
 
