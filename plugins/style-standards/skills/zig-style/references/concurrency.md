@@ -1280,8 +1280,10 @@ const Batcher = struct {
 
 `Io.Batch` + `Io.Operation` is the lowest-level form of the same idea: N operations submitted
 together, results collected with `batch.next()`. `awaitAsync` returns once *at least one* has
-completed, so collect until every submitted operation has been seen. Reach for it only when
-`Future`/`Group` measurably costs too much per operation.
+completed, so collect until every submitted operation has been seen — a count of the `add` calls,
+not `storage.len`, which is only the capacity: awaiting an operation that was never added blocks
+forever. `read_batch_max` is that capacity's named bound (ZS-CONC-35). Reach for `Io.Batch` only
+when `Future`/`Group` measurably costs too much per operation.
 
 ```zig
 // fragment — GOOD: two reads submitted as one batch, both collected
@@ -1289,10 +1291,13 @@ var storage: [read_batch_max]Io.Operation.Storage = undefined;
 var batch: Io.Batch = .init(&storage);
 defer batch.cancel(io);
 
+var pending: usize = 0;
 _ = batch.add(.{ .file_read_streaming = .{ .file = fa, .data = &.{&buf_a} } });
+pending += 1;
 _ = batch.add(.{ .file_read_streaming = .{ .file = fb, .data = &.{&buf_b} } });
+pending += 1;
+assert(pending <= storage.len);
 
-var pending: usize = storage.len;
 while (pending > 0) {
     try batch.awaitAsync(io);
     while (batch.next()) |completion| : (pending -= 1) {
