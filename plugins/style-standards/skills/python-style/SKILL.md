@@ -228,8 +228,9 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **PS-CORE-20 `[M]`** A cache is coherent, not single-flight — `lru_cache` and `cached_property`
   both run the body more than once under contention.
   (`references/concurrency.md` PS-CONC-15, PS-CONC-16).
-- **PS-CORE-21 `[M]`** Never share a `TextIOWrapper` across threads, `print` and the standard
-  streams included. (`references/concurrency.md` PS-CONC-20).
+- **PS-CORE-21 `[M]`** Write a record to a text stream two threads share in one call — one `write`,
+  or through `logging` — never with `print`, which writes the text and its `end` separately.
+  (`references/concurrency.md` PS-CONC-20).
 - **PS-CORE-22 `[M]`** Start every task inside a `TaskGroup`, give every wait a timeout, and never
   swallow `CancelledError`. (`references/async.md` PS-ASYNC-03, PS-ASYNC-05, PS-ASYNC-08).
 

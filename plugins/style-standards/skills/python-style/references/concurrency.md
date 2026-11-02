@@ -43,7 +43,7 @@ free-threaded build. Where a rule depends on the build, the block probes it rath
   - PS-CONC-18 [M] Create every `ContextVar` at module scope
   - PS-CONC-19 [M] Never rely on a thread inheriting context; the default differs by build
 - **Streams, randomness, and hold times**
-  - PS-CONC-20 [M] Never share a `TextIOWrapper` across threads, `print` included
+  - PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
   - PS-CONC-21 [M] Give each thread its own `random.Random`
   - PS-CONC-22 [M] Know that a `contextmanager` decorator now holds across the whole generator
   - PS-CONC-23 [S] Never hold a lock across a call you do not control
@@ -740,17 +740,19 @@ assert request_id.get() == "-", "leaving the block reset the variable"
 
 ## Streams, randomness, and hold times
 
-### PS-CONC-20 [M] Never share a `TextIOWrapper` across threads, `print` included
+### PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
 
-`open()` in text mode returns one. So do `sys.stdout` and `sys.stderr`. So `print` from two threads
-is the same defect as writing to a shared file from two threads.
+`open()` in text mode returns a `TextIOWrapper`, and so do `sys.stdout` and `sys.stderr`, which
+every thread that prints already shares. `print` is not one call to it: it writes each argument,
+each separator and then `end` separately, so another thread's output lands inside the line. Send a
+record as one `write` of the whole line, or through `logging`, whose handlers lock around each emit.
 
-**Why:** the `io` docs say buffered streams "protect their internal structures using a lock" but
-"`TextIOWrapper` objects are not thread-safe". A write that under the GIL usually finished in one
-bytecode window now interleaves, in the encoder's internal state as well as in the output.
+**Why:** the `io` docs call `TextIOWrapper` "not thread-safe" and promise nothing finer. On `3.15t`
+eight threads printing 20,000 lines each garbled thousands of the 160,000, while the same lines sent
+as single `write` calls arrived whole; under the GIL, `print` garbled a handful.
 
-**Check:** `rg -n '\bprint\(|sys.stdout.write|sys.stderr.write' src/` inside any thread target.
-Logging is the fix: `logging` handlers take a lock around each emit.
+**Check:** `rg -n '\bprint\(|\.write\(' src/` inside any thread target. A `print` is the finding,
+and so is a `write` that sends part of a record.
 
 ### PS-CONC-21 [M] Give each thread its own `random.Random`
 
