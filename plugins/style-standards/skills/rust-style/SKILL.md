@@ -126,8 +126,8 @@ RS-MIG-01 has every one, with the release it arrived in.
 
 Elegance in Rust has two axes, and a design needs both. **Subtraction** removes what does not earn
 its place: a `mut` that a fold would remove, a `String` that a `&str` would remove, a `clone()` that
-a borrow would remove, an `Arc<Mutex<_>>` that a channel would remove, a builder that a struct
-literal would remove. **Symmetry** is what remains after subtraction being *regular*: operations
+a borrow would remove, an `Arc<Mutex<_>>` that a channel would remove, a builder that a `Default`
+options struct would remove. **Symmetry** is what remains after subtraction being *regular*: operations
 that come in pairs, siblings that take their arguments in the same order, one mechanism per concept,
 and no branch that exists for a single input.
 
@@ -187,9 +187,11 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
   `&Vec<T>`, `&str` not `&String`, `&Path` not `&PathBuf` — the borrowed form accepts strictly more
   callers at no cost, and clippy's `ptr_arg` flags the owned forms. This is the single most common
   signature defect in Rust (`references/api.md` RS-API-07).
-- **RS-CORE-08 `[M]`** Every struct field is private, whether or not it carries an invariant, and
+- **RS-CORE-08 `[M!]`** Every struct field is private, whether or not it carries an invariant, and
   the type exposes methods rather than storage. The one exception is a `#[repr(C)]` type whose
-  layout is already the contract (`references/api.md` RS-API-15, RS-API-16).
+  layout is already the contract. *Relaxed form:* a plain-data or options struct that no code
+  outside your control can name may expose its fields, unless one of them carries an invariant
+  (`references/api.md` RS-API-15, RS-API-16).
 - **RS-CORE-09 `[M]`** Make illegal states unrepresentable. `bool` parameters are enums that have
   not been written yet; two `Option` fields where exactly one is always `Some` is an enum in
   disguise; a `&str` that accepts three values is an enum
