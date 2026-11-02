@@ -106,7 +106,7 @@ rg -n 'while \(true\)'                  # unbounded loop — where is the limit?
 rg -n 'std\.debug\.print'               # program output must not go through this
 ```
 
-The allocation grep lists each line naming `alloc` or `create` whose next line is not a `defer` or
+The allocation grep lists each line containing `alloc` or `create` whose next line is no `defer` or
 `errdefer`, the pairing ZS-CORE-14 requires; each hit is a candidate to read, not a proven leak.
 Its look-ahead needs `-P`, so it needs an `rg` whose `rg --version` lists `+pcre2`.
 
