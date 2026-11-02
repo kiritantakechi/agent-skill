@@ -184,7 +184,6 @@ src/`.
 | `remove_child(c)` | `detach_child(c)` |
 | `clear_children()` | `detach_all_children()` |
 | `clear_related::<R>()` | `detach_all_related::<R>()` |
-| `replace_children(&[..])` | remove `Children`, then `add_children(&[..])` |
 | `despawn_recursive()` | `despawn()` |
 | `despawn_descendants()` | `despawn_related::<Children>()` |
 | `ChildBuilder` | `ChildSpawnerCommands` |
