@@ -64,3 +64,21 @@ def test_a_skill_the_checks_do_not_read(repo: Path) -> None:
     assert any(
         "the plugin ships ['demo-style', 'stray-style']" in m for m in failures(repo)
     )
+
+
+@pytest.mark.parametrize("where", [PLUGIN / mod.MANIFEST, mod.MARKETPLACE])
+@pytest.mark.parametrize(
+    ("text", "said"),
+    [('{"name": ,}', "is not JSON"), ("[]", "is JSON, but not an object")],
+)
+def test_a_manifest_that_reads_as_nothing_fails(
+    repo: Path, where: Path, text: str, said: str
+) -> None:
+    """A file that is there and holds no object is a finding.
+
+    Only a missing one used to be: the rest returned before anything
+    read them, and the check passed having compared nothing.
+    """
+    (repo / where).write_text(text)
+    [found] = failures(repo)
+    assert found.startswith(f"`{where}` {said}"), found

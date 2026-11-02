@@ -20,16 +20,15 @@ lazy from agent_skill.model import Skill
 
 SOURCE = Path(crossref.__file__)
 
-#: The bevy delta, every skill by prefix, and the delta's override rows.
-type Bevy = tuple[Skill, dict[str, Skill], list[re.Match[str]]]
+#: The bevy delta, and every skill by name.
+type Bevy = tuple[Skill, dict[str, Skill]]
 
 
 @pytest.fixture
 def bevy(skills: list[Skill]) -> Bevy:
-    """`bevy-style`, every skill by prefix, and its override rows."""
-    by_prefix = {s.prefix: s for s in skills}
-    delta = by_prefix["BV"]
-    return delta, by_prefix, list(crossref.OVERRIDE_ROW.finditer(delta.text))
+    """`bevy-style`, and every skill by name."""
+    by_name = {s.name: s for s in skills}
+    return by_name["bevy-style"], by_name
 
 
 def test_the_sweep_is_reachable() -> None:
@@ -67,10 +66,10 @@ def test_a_search_that_cannot_answer_is_not_an_accounted_for_delta(
     bevy: Bevy, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`None` and `[]` are both falsy; this caller collapsed the two."""
-    delta, by_prefix, rows = bevy
+    delta, by_name = bevy
     monkeypatch.setattr(crossref, "find", lambda _corpus, pattern: (None, pattern.mode))
 
-    findings = list(crossref._anchor_patterns(delta, by_prefix, rows))
+    findings = list(crossref._anchor_patterns(delta, by_name))
 
     assert findings, "every pattern gave no answer and the sweep reported nothing"
     assert all(f.level is Level.FAIL for f in findings)
@@ -81,34 +80,28 @@ def test_a_search_that_answers_nothing_is_a_clean_result(
     bevy: Bevy, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The other half: an empty answer is an answer and stays silent."""
-    delta, by_prefix, rows = bevy
+    delta, by_name = bevy
     monkeypatch.setattr(crossref, "find", lambda _corpus, pattern: ([], pattern.mode))
 
-    assert list(crossref._anchor_patterns(delta, by_prefix, rows)) == []
+    assert list(crossref._anchor_patterns(delta, by_name)) == []
 
 
 def test_the_sweep_has_something_to_sweep(bevy: Bevy) -> None:
     """A guard over an empty subject set passes for the wrong reason.
 
-    The sweep only runs an anchor's patterns when the delta cites that
-    anchor and the rule is not named in the delta's `SKILL.md`. If that
-    population ever reached zero, every assertion above would still pass
-    over nothing at all.
+    The sweep only runs the anchor's patterns for a rule the delta's
+    `SKILL.md` does not name. If that population ever reached zero,
+    every assertion above would still pass over nothing at all.
     """
-    delta, by_prefix, rows = bevy
+    delta, by_name = bevy
 
     named = set(re.findall(r"\b[A-Z]{2}-[A-Z]+-\d+[a-z]?\b", delta.text))
-    anchors = {
-        p
-        for p in by_prefix
-        if p != delta.prefix and any(m.group(1)[:2] == p for m in rows)
-    }
-    assert anchors, "the delta cites no anchor, so the sweep has no standard to run"
+    anchor = by_name.get(delta.profile.anchor)
+    assert anchor is not None, "the delta declares no anchor the tree holds"
 
     runnable = [
         rule.id
-        for prefix in anchors
-        for rule in by_prefix[prefix].rules
+        for rule in anchor.rules
         if rule.check
         and rule.id not in named
         and any(p.kind == "command" for p in patterns_of(rule.check))
@@ -116,3 +109,38 @@ def test_the_sweep_has_something_to_sweep(bevy: Bevy) -> None:
     assert runnable, (
         "no anchor rule reaches the sweep — it would pass over an empty set"
     )
+
+
+def test_a_delta_with_no_override_table_fails(bevy: Bevy) -> None:
+    """Deleting the table used to delete the anchor, leaving a note."""
+    delta, _ = bevy
+    [found] = list(crossref._delta(delta, []))
+    assert found.level is Level.FAIL
+    assert "states no override table" in found.message
+
+
+def test_the_shipped_delta_states_its_table(bevy: Bevy) -> None:
+    delta, _ = bevy
+    rows = list(crossref.OVERRIDE_ROW.finditer(delta.text))
+    assert rows, "bevy-style has no override row to read"
+    assert list(crossref._delta(delta, rows)) == []
+
+
+def test_a_delta_needs_both_declarations(
+    bevy: Bevy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    delta, _ = bevy
+    rows = list(crossref.OVERRIDE_ROW.finditer(delta.text))
+    monkeypatch.setattr(delta.profile, "anchor", "")
+    found = list(crossref._delta(delta, rows))
+    assert [f.level for f in found] == [Level.FAIL]
+    assert "without the other" in found[0].message
+
+
+def test_an_anchor_missing_from_the_tree_is_unrun(bevy: Bevy) -> None:
+    """A sweep that could not look is not one that found nothing."""
+    delta, by_name = bevy
+    alone = {delta.name: delta}
+    assert by_name[delta.profile.anchor] is not None
+    found = list(crossref._anchor_patterns(delta, alone))
+    assert [f.level for f in found] == [Level.UNRUN]

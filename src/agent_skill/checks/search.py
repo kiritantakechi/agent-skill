@@ -67,7 +67,7 @@ def find(corpus: Corpus, pattern: Pattern) -> tuple[list[Span] | None, str]:
     stdout. Reading that as zero hits would report a Check as clean on
     the strength of a run that never happened.
     """
-    target = corpus.raw_dir if pattern.over_comments else corpus.code_dir
+    target = corpus.raw_dir if pattern.over_comments(corpus.lang) else corpus.code_dir
     command = [
         tool_path("rg") or "rg",
         "--json",
@@ -142,7 +142,7 @@ def matches(snippet: str, pattern: Pattern, lang: str) -> bool | None:
     fixture whose match depends on comment content could certify a
     pattern the corpus path can never fire on.
     """
-    if not pattern.over_comments:
+    if not pattern.over_comments(lang):
         comment, quotes = syntax_for(lang)
         snippet = "\n".join(
             strip_comment(x, comment, quotes) for x in snippet.split("\n")

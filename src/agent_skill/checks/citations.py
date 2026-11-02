@@ -35,81 +35,24 @@ lazy from agent_skill.report import Finding
 #: that family — including one to a code that does not exist.
 CODE = re.compile(r"(?<![A-Za-z0-9-])([A-Z]{1,5}[0-9]{3,4})(?![0-9])")
 
-#: Prefixes that are ruff linters. Anything else matching the shape is
-#: prose.
-LINTERS = frozenset(
-    [
-        "A",
-        "AIR",
-        "ANN",
-        "ARG",
-        "ASYNC",
-        "B",
-        "BLE",
-        "C4",
-        "C90",
-        "COM",
-        "CPY",
-        "D",
-        "DJ",
-        "DOC",
-        "DTZ",
-        "E",
-        "EM",
-        "ERA",
-        "EXE",
-        "F",
-        "FA",
-        "FAST",
-        "FBT",
-        "FIX",
-        "FLY",
-        "FURB",
-        "G",
-        "I",
-        "ICN",
-        "INP",
-        "INT",
-        "ISC",
-        "LOG",
-        "N",
-        "NPY",
-        "PD",
-        "PERF",
-        "PGH",
-        "PIE",
-        "PLC",
-        "PLE",
-        "PLR",
-        "PLW",
-        "PT",
-        "PTH",
-        "PYI",
-        "Q",
-        "RET",
-        "RSE",
-        "RUF",
-        "S",
-        "SIM",
-        "SLF",
-        "SLOT",
-        "T10",
-        "T20",
-        "TC",
-        "TD",
-        "TID",
-        "TRY",
-        "UP",
-        "W",
-        "YTT",
-    ]
-)
+#: What a code's family is left as once these are stripped from its end.
+DIGITS = "0123456789"
 
 
-def _codes_in(text: str) -> set[str]:
-    # A code is letters then digits, so stripping the digits leaves the
-    # letters that name its linter.
-    return {code for code in CODE.findall(text) if code.rstrip("0123456789") in LINTERS}
+def _codes_in(text: str, catalogue: Mapping[str, str]) -> set[str]:
+    """Every token in `text` spelled as a code of a ruff family.
+
+    A family is the letters a catalogued code starts with, read from
+    ruff's own catalogue rather than written down here. The list that
+    used to be written here named linters by their prefix — `C4`, `T20`
+    — while a token is classified by stripping its digits, which turns
+    `C408` into `C` and `T201` into `T`: four families could never be
+    produced, and every citation of one was dropped as prose. Asked by
+    family rather than by code, a code ruff never had is still read as
+    a citation, and reported as one.
+    """
+    families = {code.rstrip(DIGITS) for code in catalogue}
+    return {code for code in CODE.findall(text) if code.rstrip(DIGITS) in families}
 
 
 def _enabled(config: Path) -> tuple[set[str], str]:
@@ -166,18 +109,21 @@ def _ty_levels(ty_toml: Path) -> dict[str, str] | None:
     return {name: shipped.get(name, level) for name, level in rules.items()}
 
 
-def _withdrawn() -> set[str]:
-    """Codes ruff has removed.
+@cache
+def _catalogue() -> dict[str, str] | None:
+    """Every code the pinned ruff has ever had, with its status.
 
-    Selecting one is a hard failure, not a warning.
+    None if ruff would not say. A status is `Stable`, `Preview` or
+    `Removed`; selecting a removed code is a hard failure, not a
+    warning.
     """
     r = run(["ruff", "rule", "--all", "--output-format", "json"], timeout=120)
-    if not r.ok:
-        return set()
+    if not r.ok or not r.out:
+        return None
     return {
-        rule["code"]
+        rule["code"]: str(rule.get("status", ""))
         for rule in json.loads(r.out)
-        if "Removed" in str(rule.get("status", ""))
+        if rule.get("code")
     }
 
 
@@ -395,11 +341,6 @@ def citations(skill: Skill) -> Iterator[Finding]:
 
 def _python(skill: Skill, ruff_toml: Path, ty_toml: Path) -> Iterator[Finding]:
     """The python rows and every cited code, against the enabled set."""
-    # A rule's own body is where it cites its checks; the `**Check:**`
-    # section is part of it. Core rules in SKILL.md point at the chapter
-    # that owns them, so they carry no citation of their own.
-    cited = {rule.id: _codes_in(rule.body) for rule in skill.rules}
-
     enabled, problem = _enabled(ruff_toml)
     if problem:
         yield unrun(f"could not read the enabled set: {problem}", skill.name)
@@ -412,10 +353,27 @@ def _python(skill: Skill, ruff_toml: Path, ty_toml: Path) -> Iterator[Finding]:
         ty_levels = {}
     for row, message in python_rows(skill.lint_rows, enabled, ty_levels):
         yield fail(message, f"{skill.name}/{row.where}")
-    withdrawn = _withdrawn()
+
+    catalogue = _catalogue()
+    if catalogue is None:
+        yield unrun(
+            "`ruff` did not list its rules, so no cited code was told from prose",
+            skill.name,
+        )
+        return
+    # A rule's own body is where it cites its checks; the `**Check:**`
+    # section is part of it. Core rules in SKILL.md point at the chapter
+    # that owns them, so they carry no citation of their own.
+    cited = {rule.id: _codes_in(rule.body, catalogue) for rule in skill.rules}
     for rule_id, codes in sorted(cited.items()):
         for code in sorted(codes):
-            if code in withdrawn:
+            if code not in catalogue:
+                yield fail(
+                    f"{rule_id} cites `{code}`, which is not a rule the pinned ruff "
+                    "has; the rule reads as enforced by a check that does not exist",
+                    skill.name,
+                )
+            elif "Removed" in catalogue[code]:
                 yield fail(
                     f"{rule_id} cites `{code}`, which ruff has withdrawn — "
                     "selecting it is a hard failure, so the rule can never be "

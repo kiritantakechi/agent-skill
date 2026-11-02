@@ -22,7 +22,9 @@ from agent_skill.layout import PLUGIN, SKILLS, root_of
 from agent_skill.report import Level, fail, unrun
 lazy from agent_skill.checks import by_name
 lazy from agent_skill.lang import toolchain_for
+lazy from agent_skill.lang.python import INTERPRETER
 lazy from agent_skill.model import Skill, discover
+lazy from agent_skill.proc import pinned_version
 lazy from agent_skill.profiles import registered
 lazy from agent_skill.report import Finding
 
@@ -180,6 +182,40 @@ def _unaccounted_anchor_rule(tree: Path) -> None:
     )
 
 
+#: The head of `bevy-style`'s override table, which `_no_override_table`
+#: deletes along with every row under it.
+_OVERRIDES = "| `rust-style` rule | What applies instead | Why Bevy forces it |\n"
+
+
+def _no_override_table(tree: Path) -> None:
+    """Delete the delta's override table, head and rows.
+
+    The anchor used to be read off the table's rows, so deleting the
+    table took the anchor with it: the sweep of the anchor's patterns
+    had nothing to run, and what was left was a note.
+    """
+    rel = "bevy-style/SKILL.md"
+    text = (tree / rel).read_text()
+    if _OVERRIDES not in text:
+        msg = f"{rel}: {_OVERRIDES[:60]!r}"
+        raise FixtureGoneError(msg)
+    lines = text.partition(_OVERRIDES)[2].split("\n")
+    table = next(i for i, line in enumerate(lines) if not line.startswith("|"))
+    edit(tree, rel, _OVERRIDES + "\n".join(lines[:table]) + "\n", "")
+
+
+def _no_uv_interpreter(tree: Path) -> None:
+    """Every `uv python install` in the workflow, gone.
+
+    The interpreter half compared only the lines that were there, so a
+    workflow with none — running whatever the runner had — passed.
+    """
+    rel = "python-style/assets/ci.yml"
+    line = f"uv python install {INTERPRETER}"
+    count = (tree / rel).read_text().count(line)
+    edit(tree, rel, line, "python --version", max(count, 1))
+
+
 def _orphan_asset(tree: Path) -> None:
     """Ship a file in `assets/` that nothing references."""
     (tree / "rust-style/assets/orphan.toml").write_text("x = 1\n")
@@ -198,6 +234,25 @@ def _rust_row(tree: Path, lint: str, level: str) -> None:
 
 #: `python-style` is the standard the structure controls inject into.
 PY = "python-style"
+
+
+def _disabled_c4_citation(tree: Path) -> None:
+    """A rule citing `C408`, and the asset turning `C408` off.
+
+    The family is the point. A token was classified by stripping its
+    digits and looking the letters up in a hand-written list, which
+    named the family `C4` — so `C408` became `C`, matched nothing, and
+    was dropped as prose. No row names `C408`, so only the cited-code
+    branch can report it.
+    """
+    edit(tree, f"{PY}/assets/ruff.toml", '"CPY001",\n', '"CPY001",\n  "C408",\n')
+    edit(
+        tree,
+        f"{PY}/references/concurrency.md",
+        "**Check:** `rg -n 'f_locals' src/`",
+        "**Check:** C408 decides this. `rg -n 'f_locals' src/`",
+    )
+
 
 #: A rule of the async family, filed in the testing chapter. New, so no
 #: rename row names it and only the family branch of `skeleton` can
@@ -340,7 +395,7 @@ STRUCTURE: list[Control] = [
             t,
             f"{PY}/references/naming.md",
             "`self` and `cls` always, never renamed.",
-            "`self` and `cls` always, never renamed (stable since 3.13).",
+            "`self` and `cls` always, never renamed (stable since 3.9).",
         ),
     ),
     Control(
@@ -352,6 +407,11 @@ STRUCTURE: list[Control] = [
             "| ty | `deprecated` | warn |",
             "| ty | `deprecated` | error |",
         ),
+    ),
+    Control(
+        "a python rule citing a C4 code the shipped config disables",
+        "citations",
+        _disabled_c4_citation,
     ),
     Control(
         "a compiler row naming an error its probe does not print",
@@ -536,13 +596,22 @@ CONTROLS: list[Control] = [
         _unaccounted_anchor_rule,
     ),
     Control(
+        "a delta whose override table is deleted",
+        "crossref",
+        _no_override_table,
+    ),
+    Control(
+        # Added beside the rules the delta names rather than in place of
+        # one. Renaming the override row's `RS-API-15` also stopped the
+        # delta naming that rule, so the anchor sweep ran its pattern,
+        # hit, and fired with the citation branch gone.
         "a citation into a standard that has no such rule",
         "crossref",
         lambda t: edit(
             t,
             "bevy-style/SKILL.md",
-            "`RS-API-15` Keep every struct field private",
-            "`RS-API-99` Keep every struct field private",
+            "`RS-NAME-02` is **not** on this list,",
+            "`RS-NAME-02` is **not** on this list, nor `RS-API-99`,",
         ),
     ),
     Control(
@@ -563,13 +632,17 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        # Wrapped where a reflow would wrap it. `_paths` reads a line at
+        # a time and caught the same citation on one line, so the
+        # control fired with `_core_citations` gone; a core rule's body
+        # is read whole, which is the reason that branch exists.
         "core rule citing the wrong chapter",
         "anatomy",
         lambda t: edit(
             t,
             "rust-style/SKILL.md",
             "`references/api.md` RS-API-36",
-            "`references/errors.md` RS-API-36",
+            "`references/errors.md`\n  RS-API-36",
         ),
     ),
     Control(
@@ -616,6 +689,19 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        # Only a missing manifest used to be reported. One that was
+        # there and did not parse returned before anything read it, with
+        # no finding, and the check passed.
+        "a plugin manifest that is there and is not JSON",
+        "plugin",
+        lambda t: edit(
+            root_of(t),
+            f"{PLUGIN}/.claude-plugin/plugin.json",
+            '"name": "style-standards",',
+            '"name": "style-standards",,',
+        ),
+    ),
+    Control(
         "a table cell split by an unescaped pipe",
         "layout",
         lambda t: edit(
@@ -625,7 +711,9 @@ CONTROLS: list[Control] = [
     Control(
         "a prose line over the column limit",
         "layout",
-        lambda t: append(t, "zig-style/references/data.md", "\n" + "x " * 60 + "\n"),
+        # Joined, not repeated: `"x " * 60` ends in a space, and the
+        # trailing-whitespace branch fired it on its own.
+        lambda t: append(t, "zig-style/references/data.md", "\n" + "x " * 59 + "x\n"),
     ),
     Control(
         "a second marker line in one block",
@@ -748,6 +836,28 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        # The gap that was skipped without a word: a pattern shipped,
+        # nothing proved it fires, and nothing said so.
+        "a rule shipping a pattern that is neither proven nor listed unproven",
+        "sensitivity",
+        lambda t: append(
+            t,
+            "python-style/references/testing.md",
+            "\n### PS-TEST-99 [M] Injected\n\nX.\n\n**Why:** y.\n\n"
+            "**Check:** `rg -n 'injected_call\\(' src/`.\n",
+        ),
+    ),
+    Control(
+        "an unproven entry for a rule that no longer ships a pattern",
+        "sensitivity",
+        lambda t: edit(
+            t,
+            "python-style/references/naming.md",
+            "**Check:** `rg -n 'self\\.__[a-z]' src/` — every hit",
+            "**Check:** every `self.__` name — every hit",
+        ),
+    ),
+    Control(
         # The reader installs what the asset says; the harness verified
         # against what pyproject says. A silent disagreement hands them
         # a different build.
@@ -759,6 +869,23 @@ CONTROLS: list[Control] = [
             'typecheck = ["ty==0.0.95"]',
             'typecheck = ["ty==0.0.60"]',
         ),
+    ),
+    Control(
+        # Only a requirement already spelled `==` was compared, so a
+        # floor handed the reader any build at all and passed.
+        "a shipped asset loosening a tool pin to a floor",
+        "pins",
+        lambda t: edit(
+            t,
+            "python-style/assets/pyproject.toml",
+            f'"ty=={pinned_version("ty")}"',
+            '"ty>=0.0.60"',
+        ),
+    ),
+    Control(
+        "a workflow that installs no interpreter with uv",
+        "pins",
+        _no_uv_interpreter,
     ),
     Control(
         "an asset nothing references",
@@ -806,6 +933,18 @@ CONTROLS: list[Control] = [
         "a rule its own pattern would catch",
         "self-application",
         lambda t: edit(t, "rust-style/references/unsafe.md", HEADER, PUB_FIELD),
+    ),
+    Control(
+        # A Check ending in `| rg -v` was skipped whole, so a pattern in
+        # it that `rg` rejects was never run to be rejected.
+        "a pattern `rg` rejects, in a Check that filters with `rg -v`",
+        "self-application",
+        lambda t: edit(
+            t,
+            "rust-style/references/modules.md",
+            "`rg -n 'pub use' -g '*.rs' src/ | rg -v",
+            "`rg -n 'pub use(' -g '*.rs' src/ | rg -v",
+        ),
     ),
     Control(
         "an exemption quoting words the rule no longer says",

@@ -1,4 +1,4 @@
-"""Every authored pattern, shown to catch the defect it was written for.
+"""Each authored pattern, shown to catch its defect, or listed unproven.
 
 `self-application` proves **specificity**: a deciding pattern must not
 fire on the standard's own compliant examples, so tier 1 is required to
@@ -25,6 +25,12 @@ fixture, and every fixture is hit by some pattern. The second is what
 keeps the first honest: without it, an uncovered pattern is "fixed" by
 adding a snippet nobody has related to the rule, which proves the
 snippet.
+
+A rule with no fixture was skipped, and said nothing — so the check
+read as proving every shipped pattern while most of them had no fixture
+at all. That gap is now stated per profile, in `unproven`, and held
+both ways: a rule that ships a pattern is proven or listed, and an entry
+that stopped being true fails.
 """
 
 lazy from collections.abc import Iterator
@@ -44,7 +50,14 @@ lazy from agent_skill.report import Finding
     needs=("rg",),
 )
 def sensitivity(skill: Skill) -> Iterator[Finding]:
-    """Each rule's patterns against its fixtures, as a two-way cover."""
+    """Each rule's patterns against its fixtures, as a two-way cover.
+
+    And every rule that ships a pattern either has fixtures or is
+    listed as unproven: a rule with neither used to be skipped without
+    a word, which is how most shipped patterns went unproven while this
+    check read as covering all of them.
+    """
+    yield from _accounted(skill)
     declared = skill.profile.fires
     if not declared:
         return
@@ -71,6 +84,40 @@ def sensitivity(skill: Skill) -> Iterator[Finding]:
         if rule is None:
             continue
         yield from _fixtures(skill, rule, fixtures, lang)
+
+
+def _accounted(skill: Skill) -> Iterator[Finding]:
+    """Each rule that ships a pattern is proven, or listed as not yet.
+
+    Both directions, as the cover is: a rule neither proven nor listed
+    fails, and so does an entry that has stopped being true — a rule
+    gone, a rule that no longer ships a pattern, or one that has a
+    fixture now. Without the second, the list would only ever grow.
+    """
+    profile = skill.profile
+    by_id = {rule.id: rule for rule in skill.rules}
+    shipping = {
+        rule.id
+        for rule in skill.rules
+        if rule.check and any(p.kind == "command" for p in patterns_of(rule.check))
+    }
+    for rid in sorted(shipping - set(profile.fires) - profile.unproven):
+        yield fail(
+            f"{rid}: ships an `rg` pattern that no fixture proves and `unproven` "
+            f"does not list — give it a fixture in `fires`, or say it is unproven "
+            f"— {by_id[rid].title}",
+            skill.name,
+        )
+    for rid in sorted(profile.unproven):
+        if rid not in by_id:
+            stale = "names a rule this skill does not define"
+        elif rid in profile.fires:
+            stale = "has a fixture in `fires` now"
+        elif rid not in shipping:
+            stale = "ships no `rg` pattern, so nothing of it is left to prove"
+        else:
+            continue
+        yield fail(f"{rid}: listed as unproven, and {stale}", skill.name)
 
 
 def _fixtures(

@@ -150,3 +150,54 @@ def test_a_current_library_pin_is_quiet() -> None:
 
 def test_a_library_pin_crates_io_did_not_answer_for_is_unrun() -> None:
     assert [level for level, _ in library_pin("bevy", "=0.20.0", "")] == [unrun]
+
+
+INTERPRETER = "cpython-3.15.2+freethreaded"
+HARNESS = {"ty": "0.0.95", "ruff": "0.17.3"}
+
+
+def test_a_workflow_installing_the_pin_is_quiet() -> None:
+    text = f"- run: uv python install {INTERPRETER}\n"
+    assert list(mod.workflow_pins(text, INTERPRETER)) == []
+
+
+def test_a_workflow_installing_no_interpreter_fails() -> None:
+    """The runner's own interpreter is the one build nobody verified."""
+    [found] = mod.workflow_pins("- uses: actions/setup-python@v6\n", INTERPRETER)
+    assert "installs no interpreter" in found
+
+
+def test_a_workflow_installing_another_build_fails() -> None:
+    [found] = mod.workflow_pins("- run: uv python install 3.15t\n", INTERPRETER)
+    assert "installs `3.15t`" in found
+
+
+def groups(**lists: list[str]) -> dict[str, object]:
+    return {"dependency-groups": lists}
+
+
+def test_an_exact_pin_is_quiet() -> None:
+    project = groups(lint=["ruff==0.17.3"], typecheck=["ty == 0.0.95"])
+    assert list(mod.project_pins(project, HARNESS)) == []
+
+
+@pytest.mark.parametrize(
+    "requirement", ["ty>=0.0.60", "ty", "ty~=0.0.95", "ty==0.0.95,<1", "ty==0.0.60"]
+)
+def test_anything_but_the_exact_pin_fails(requirement: str) -> None:
+    """A floor passed: only a requirement spelled `==` was compared."""
+    [found] = mod.project_pins(groups(typecheck=[requirement]), HARNESS)
+    assert f"requires `{requirement}`" in found
+
+
+def test_a_requirement_anywhere_in_the_project_is_read() -> None:
+    project = {
+        "build-system": {"requires": ["uv_build>=0.13.3,<0.14"]},
+        "project": {
+            "dependencies": ["ruff>=0.1"],
+            "optional-dependencies": {"cli": ["typer>=0.15"]},
+        },
+        "dependency-groups": {"dev": [{"include-group": "lint"}]},
+    }
+    [found] = mod.project_pins(project, HARNESS)
+    assert "requires `ruff>=0.1`" in found

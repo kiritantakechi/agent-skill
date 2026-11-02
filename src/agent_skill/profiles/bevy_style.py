@@ -63,6 +63,7 @@ class BevyStyle(Profile):
         "**Load `rust-style` as well** for anything that is a Rust question "
         "rather than a Bevy question."
     )
+    anchor: str = "rust-style"
     crate: Crate | None = BEVY_STYLE
     #: Each snippet is the defect its rule forbids, written the way it
     #: turns up in real code. A fixture shaped to match proves the
@@ -106,6 +107,27 @@ class BevyStyle(Profile):
                 'let atlas = server.load_with_settings("atlas.png", srgb);',
                 "#import bevy_pbr::forward_io::VertexOutput",
             ),
+        }
+    )
+    #: Each of these ships an `rg` pattern that no fixture in `fires`
+    #: proves yet. Giving one a fixture means deleting it here, which
+    #: `sensitivity` insists on, so the list only shrinks.
+    unproven: frozenset[str] = frozenset(
+        {
+            "BV-ARCH-09",
+            "BV-EVENT-14",
+            "BV-MIG-01",
+            "BV-MIG-03",
+            "BV-MIG-04",
+            "BV-MIG-05",
+            "BV-MIG-06",
+            "BV-MIG-07",
+            "BV-MIG-08",
+            "BV-MIG-09",
+            "BV-MIG-10",
+            "BV-MIG-11",
+            "BV-MIG-12",
+            "BV-MIG-13",
         }
     )
     #: Measured, not judged: each of these was promoted to accuse and

@@ -169,6 +169,15 @@ def test_a_rule_naming_an_older_release(twenty: Skill) -> None:
     ]
 
 
+@pytest.mark.parametrize("prose", ["stable since 1.9.", "1.9 and 1.13 added it."])
+def test_a_one_digit_minor_is_an_older_release(twenty: Skill, prose: str) -> None:
+    """Two digits were needed: `since 3.9` passed, `since 3.13` not."""
+    broken = edit(twenty, "references/errors.md", "one line of reason.", prose)
+    assert any("DS-ERR-01 names 1.9" in m for m in structural_messages(broken)), (
+        structural_messages(broken)
+    )
+
+
 def test_a_title_naming_an_older_release(twenty: Skill) -> None:
     broken = edit(
         twenty,
@@ -205,8 +214,13 @@ def test_a_core_rule_naming_an_older_release(twenty: Skill) -> None:
             "one line of reason.",
             "1.20 and 1.21 are fine, and so are 1.5x faster and 1.05 s.",
         ),
+        (
+            "references/errors.md",
+            "one line of reason.",
+            'a caret `"1.2"`, a literal `wait(\n1.5)` and ~1.3 ns.',
+        ),
     ],
-    ids=["migration", "reality check", "protocol", "fenced", "not older"],
+    ids=["migration", "reality check", "protocol", "fenced", "not older", "code"],
 )
 def test_a_version_that_is_history_or_no_release(
     twenty: Skill, rel: str, old: str, new: str

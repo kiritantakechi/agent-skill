@@ -38,6 +38,7 @@ def layout(skill: Skill) -> Iterator[Finding]:
         text = path.read_text()
         tag = f"{skill.name}/{path.name}"
         lines = text.split("\n")
+        yield from _trailing(lines, tag)
         yield from _widths(lines, tag)
         yield from _whole_file(text, tag)
         yield from _doubled_blanks(lines, tag)
@@ -45,20 +46,36 @@ def layout(skill: Skill) -> Iterator[Finding]:
         yield from _table_cells(lines, tag)
 
 
+def _trailing(lines: list[str], tag: str) -> Iterator[Finding]:
+    """Trailing whitespace on any line, fenced or not."""
+    for i, line in enumerate(lines, 1):
+        if line != line.rstrip():
+            yield fail("trailing whitespace", f"{tag}:{i}")
+
+
 def _widths(lines: list[str], tag: str) -> Iterator[Finding]:
-    """Trailing whitespace on any line, and lines past `WIDTH`."""
-    end_fm = 0
+    """Lines past `WIDTH`, outside the frontmatter.
+
+    Its own branch, apart from trailing whitespace: the control for this
+    one ended its line in a space, so it fired through the other branch
+    and would have kept firing with this one gone.
+    """
+    # How many lines the frontmatter runs to, both fences included; none
+    # when there is no frontmatter. This was the closing fence's index,
+    # 0 without one, and lines up to it plus one were skipped — so line
+    # 1 of every chapter was never measured.
+    frontmatter = 0
     if lines and lines[0] == "---":
-        end_fm = next((i for i, ln in enumerate(lines[1:], 1) if ln == "---"), 0)
+        frontmatter = next(
+            (i + 1 for i, ln in enumerate(lines[1:], 1) if ln == "---"), 1
+        )
 
     fenced = False
     for i, line in enumerate(lines, 1):
         if line.startswith("```"):
             fenced = not fenced
             continue
-        if line != line.rstrip():
-            yield fail("trailing whitespace", f"{tag}:{i}")
-        if i <= end_fm + 1 or len(line) <= WIDTH:
+        if i <= frontmatter or len(line) <= WIDTH:
             continue
         if line.lstrip().startswith("|"):
             continue  # a table row cannot be wrapped

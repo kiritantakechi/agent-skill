@@ -69,6 +69,14 @@ class Profile:
     #: A delta standard's extra reading step, or "" for a standard that
     #: stands alone.
     delta_step: str = ""
+    #: The standard a delta is a delta on, by name; "" for one that
+    #: stands alone, and required exactly when `delta_step` is set.
+    #:
+    #: Declared rather than read from the override table, because the
+    #: table is what `crossref` checks: deriving the anchor from its
+    #: rows meant deleting the table deleted the anchor, which turned
+    #: off the sweep of the anchor's patterns and left a note.
+    anchor: str = ""
     #: Why `pin()` follows this machine's toolchain rather than
     #: upstream's newest release, or None when it follows upstream. Such
     #: a pin is compared with the running version only, and the
@@ -118,6 +126,16 @@ class Profile:
     #: pattern narrowed until it stops matching can be "fixed" by adding
     #: a snippet nothing relates to the rule.
     fires: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    #: Rule ids whose Check ships an `rg` pattern that no entry in
+    #: `fires` proves yet.
+    #:
+    #: The gap, stated. `sensitivity` used to skip a rule with no
+    #: fixture and say nothing, so most shipped patterns were unproven
+    #: while the check read as covering every one. Now each rule that
+    #: ships a pattern is either proven or listed here, and an entry
+    #: that has stopped being true — the rule is gone, ships no pattern,
+    #: or has a fixture now — fails, so the list can only shrink.
+    unproven: frozenset[str] = frozenset()
     #: A compiler row's phrase -> the smallest source the compiler
     #: rejects with it. A compiler has no lint table to compare a row
     #: against, so each row is proved by a probe, and each probe needs

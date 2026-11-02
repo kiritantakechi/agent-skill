@@ -11,12 +11,11 @@ were in this file and that `crossref` was importing from a module named
 after a different check.
 """
 
-import re
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
 from agent_skill.checks.corpus import corpus_for
-from agent_skill.checks.patterns import patterns_of
+from agent_skill.checks.patterns import NEGATED, filtered_of, patterns_of
 from agent_skill.checks.search import find, searcher_problem
 from agent_skill.report import fail, note, unrun
 lazy from agent_skill.checks.corpus import Corpus
@@ -68,8 +67,8 @@ def _run(skill: Skill, lang: str) -> Iterator[Finding]:
             continue
         # An entry suppresses this rule's pattern, so it has to keep
         # quoting words the rule still says. Claimed before the
-        # path-scoped skip below, or a `rg -v` rule with an entry would
-        # look like a rule that vanished.
+        # path-scoped branch below, or a `rg -v` rule with an entry
+        # would look like a rule that vanished.
         if entry := profile.not_decisive.get(rule.id):
             claimed.add(rule.id)
             if entry.anchor not in " ".join(rule.check.split()):
@@ -78,10 +77,8 @@ def _run(skill: Skill, lang: str) -> Iterator[Finding]:
                     f"**Check:** no longer says",
                     skill.name,
                 )
-        # `rg … | rg -v '^src/lib.rs'` asks *which file* the hit is in.
-        # An example block is a single crate root, so it cannot be
-        # evaluated here.
-        if re.search(r"\brg -v\b", rule.check):
+        if NEGATED.search(rule.check):
+            yield from _filtered(skill, corpus, rule)
             continue
         yield from _search(skill, corpus, rule, tiers)
 
@@ -93,6 +90,37 @@ def _run(skill: Skill, lang: str) -> Iterator[Finding]:
         )
 
     yield from _report(skill, corpus, tiers)
+
+
+def _filtered(skill: Skill, corpus: Corpus, rule: Rule) -> Iterator[Finding]:
+    """A Check that drops hits with `rg -v`, run as far as it can be.
+
+    `rg … | rg -v '^src/lib.rs'` asks *which file* a hit is in, and an
+    example block is a single crate root, so whether a hit survives is
+    not decidable here. The rule used to be skipped whole and silently,
+    patterns and all. What it searches for still runs, so a pattern
+    `rg` rejects fails as any other does; what is left is said.
+    """
+    found, filters = filtered_of(rule.check)
+    hits: list[str] = []
+    for pattern in found:
+        lines, _ = find(corpus, pattern)
+        if lines is None:
+            yield fail(
+                f"{rule.id}: the search gave no answer for its own Check pattern "
+                f"/{pattern.text}/ — rejected, timed out, or not installed",
+                skill.name,
+            )
+            continue
+        hits.append(f"/{pattern.text}/ ({len(lines)} hit(s))")
+    if hits:
+        dropped = ", ".join(f"/{p.text}/" for p in filters) or "a second search"
+        yield note(
+            f"{rule.id}: ran {', '.join(hits)}, and its Check then drops hits with "
+            f"`rg -v` {dropped}, which an example — one crate root — cannot "
+            "answer; nothing here decides it",
+            skill.name,
+        )
 
 
 def _search(

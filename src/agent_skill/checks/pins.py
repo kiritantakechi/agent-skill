@@ -13,6 +13,8 @@ happen.
 
 import json
 import re
+import tomllib
+from typing import Any
 lazy import urllib.request
 lazy from collections.abc import Callable, Iterator
 
@@ -349,14 +351,8 @@ def _asset_pins(skill: Skill) -> Iterator[Finding]:
     # this half exists to catch.
     workflow = skill.root / "assets" / "ci.yml"
     if workflow.exists():
-        stated = set(re.findall(r"uv python install (\S+)", workflow.read_text()))
-        for named in sorted(stated - {INTERPRETER}):
-            yield fail(
-                f"assets/ci.yml installs `{named}` where the harness verifies "
-                f"against `{INTERPRETER}` — a reader would not be running what "
-                "this was checked on",
-                skill.name,
-            )
+        for message in workflow_pins(workflow.read_text(), INTERPRETER):
+            yield fail(f"assets/ci.yml {message}", skill.name)
 
     # Two declarations, compared — the same reason the interpreter half
     # exists. The harness verifies against one pin and the reader
@@ -364,18 +360,90 @@ def _asset_pins(skill: Skill) -> Iterator[Finding]:
     # them a build these examples were never checked on.
     shipped = skill.root / "assets" / "pyproject.toml"
     if shipped.exists():
-        text = shipped.read_text()
-        for tool in TOOLS:
-            package = PACKAGE.get(tool, tool)
-            named = re.search(rf'"{re.escape(package)}==(\S+?)"', text)
-            harness = pinned_version(tool)
-            if named and harness and named.group(1) != harness:
-                yield fail(
-                    f"assets/pyproject.toml pins `{package}=={named.group(1)}` "
-                    f"where the harness verifies against {harness} — a reader "
-                    "would not be running what this was checked on",
-                    skill.name,
-                )
+        try:
+            project = tomllib.loads(shipped.read_text())
+        except tomllib.TOMLDecodeError:
+            yield unrun(
+                "assets/pyproject.toml does not parse (`assets` says where), so no "
+                "pin in it was compared",
+                skill.name,
+            )
+            return
+        harness = {PACKAGE.get(tool, tool): pinned_version(tool) for tool in TOOLS}
+        for message in project_pins(project, harness):
+            yield fail(f"assets/pyproject.toml {message}", skill.name)
+
+
+def workflow_pins(text: str, interpreter: str) -> Iterator[str]:
+    """What is wrong with the interpreter a workflow installs, if any.
+
+    It must install `interpreter` with `uv python install`, and nothing
+    else. Comparing only the lines that were there passed a workflow
+    with none: the runner's own interpreter then runs every job, which
+    is the one build nobody verified anything on.
+    """
+    stated = set(re.findall(r"uv python install (\S+)", text))
+    if not stated:
+        yield (
+            f"installs no interpreter with `uv python install`, so a reader runs "
+            f"whatever the runner has rather than `{interpreter}`"
+        )
+    for named in sorted(stated - {interpreter}):
+        yield (
+            f"installs `{named}` where the harness verifies against "
+            f"`{interpreter}` — a reader would not be running what this was "
+            "checked on"
+        )
+
+
+#: `ty>=0.0.60`, `ruff [extra] == 0.17.3 ; python_version >= "3.15"`:
+#: the name, then the version clauses up to any marker.
+REQUIREMENT = re.compile(
+    r"^\s*(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?\s*(?P<spec>[^;]*)"
+)
+
+
+def project_pins(project: dict[str, Any], harness: dict[str, str]) -> Iterator[str]:
+    """Each requirement on a harness tool that is not exactly its pin.
+
+    `harness` maps a distribution to the version the harness verifies
+    against. Only `==` that version will do: a floor such as
+    `ty>=0.0.60` lets the resolver hand the reader any build at all,
+    and it passed, because only a requirement already spelled `==` was
+    compared.
+    """
+    for requirement in _requirements(project):
+        m = REQUIREMENT.match(requirement)
+        if m is None:
+            continue
+        name = m["name"].lower().replace("_", "-")
+        want = harness.get(name)
+        if want is None:
+            continue
+        spec = "".join(m["spec"].split())
+        if spec != f"=={want}":
+            yield (
+                f"requires `{requirement}` where the harness verifies against "
+                f"`{name}=={want}` — anything but that exact pin lets a reader "
+                "resolve a build this was never checked on"
+            )
+
+
+def _requirements(project: dict[str, Any]) -> Iterator[str]:
+    """Every requirement string a `pyproject.toml` declares.
+
+    The build system's, the project's, its extras' and its dependency
+    groups'. An `include-group` table is not a requirement.
+    """
+    lists: list[object] = [
+        project.get("build-system", {}).get("requires", []),
+        project.get("project", {}).get("dependencies", []),
+        *project.get("project", {}).get("optional-dependencies", {}).values(),
+        *project.get("dependency-groups", {}).values(),
+    ]
+    for entries in lists:
+        if isinstance(entries, list):
+            yield from (e for e in entries if isinstance(e, str))
 
 
 def _interpreter_pin(skill: Skill, pinned: str, *, want_ft: bool) -> Iterator[Finding]:

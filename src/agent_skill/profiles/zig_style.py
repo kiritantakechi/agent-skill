@@ -68,6 +68,36 @@ class ZigStyle(Profile):
             ),
         }
     )
+    #: Each of these ships an `rg` pattern that no fixture in `fires`
+    #: proves yet. Giving one a fixture means deleting it here, which
+    #: `sensitivity` insists on, so the list only shrinks.
+    unproven: frozenset[str] = frozenset(
+        {
+            "ZS-ASSERT-09",
+            "ZS-ASSERT-21",
+            "ZS-BUILD-25",
+            "ZS-BUILD-26",
+            "ZS-BUILD-36",
+            "ZS-BUILD-37",
+            "ZS-COMPTIME-21",
+            "ZS-MEM-04",
+            "ZS-MEM-06",
+            "ZS-MIG-04",
+            "ZS-MIG-05",
+            "ZS-MIG-08",
+            "ZS-NAME-12",
+            "ZS-NAME-15",
+            "ZS-NAME-23",
+            "ZS-NAME-26",
+            "ZS-TEST-02",
+            "ZS-TEST-05",
+            "ZS-TEST-06",
+            "ZS-TEST-07",
+            "ZS-TEST-09",
+            "ZS-TEST-13",
+            "ZS-TEST-23",
+        }
+    )
     #: Measured, not judged: each of these was promoted to accuse and
     #: hit the standard's own compliant examples. The reason names what
     #: the span finds and what, outside the match, decides whether the
