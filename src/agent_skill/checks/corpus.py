@@ -119,8 +119,8 @@ class Corpus:
 #: stop firing while still reporting.
 #:
 #: Bounded, because that keying means a `controls` run produces one
-#: entry per injected tree — around thirty — and every one of those
-#: trees is deleted the moment its control finishes. An unbounded cache
+#: entry per injected tree, and every one of those trees is deleted
+#: the moment its control finishes. An unbounded cache
 #: holds a directory per dead tree for the life of the process.
 _KEEP = 8
 _BUILT: OrderedDict[
@@ -131,9 +131,9 @@ _BUILT: OrderedDict[
 def corpus_for(skill: Skill, lang: str) -> Corpus:
     """The corpus for this tree, built once and shared.
 
-    604 blocks become 604 files once each example is its own file.
-    `selfapply` and `crossref` each building their own made that 1208
-    writes per run for byte-identical content.
+    Each example is its own file, so a corpus is one file per block.
+    `selfapply` and `crossref` each building their own wrote every one
+    of them twice per run, for byte-identical content.
     """
     key = (str(skill.root), lang)
     if key in _BUILT:

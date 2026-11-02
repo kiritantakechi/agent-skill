@@ -10,14 +10,13 @@ This is decided from the pattern's text — no corpus, no execution. It
 has to be, because the patterns most at risk are the decisive ones, and
 a decisive pattern is *required* to match nothing in this repository's
 own compliant examples. An equivalence argument over hit sets is blind
-to exactly them: measured, 97 of 137 command patterns have an empty hit
-set, so empty-before and empty-after proves nothing about the 70% that
-most needed proving.
+to exactly them: their hit set is empty before and after, so comparing
+the two proves nothing about the patterns that most needed proving.
 
 Only `\\|` is forbidden. `\\(` and `\\{` are legitimate ERE escapes for
-a literal parenthesis or brace and are used that way here nineteen
-times; forbidding them would report nineteen correct patterns. A genuine
-literal pipe is written `[|]`.
+a literal parenthesis or brace and are used that way here; forbidding
+them would report correct patterns. A genuine literal pipe is written
+`[|]`.
 
 A raw newline is the same defect from the other direction. The harness
 runs every pattern with `--multiline`, and the printed command does not,
