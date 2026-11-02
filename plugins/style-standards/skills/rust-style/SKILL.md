@@ -181,8 +181,9 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 
 ### Public surface
 
-- **RS-CORE-06 `[M]`** Everything is private until proven public. `pub` is a promise of support;
-  `pub(crate)` costs nothing (`references/api.md` RS-API-01).
+- **RS-CORE-06 `[M]`** Everything is private until proven public. `pub` is a promise of support
+  that only a major version can withdraw; a crate-private item promises nothing outside the crate
+  and can be widened the day someone needs it (`references/api.md` RS-API-01).
 - **RS-CORE-07 `[M]`** Be generic in what you accept, concrete in what you return. Take
   `impl AsRef<Path>`, `impl IntoIterator<Item = T>` or `impl Into<String>` where callers hold
   different types; return a named type or `impl Trait`, never a type parameter only the caller can
@@ -213,10 +214,11 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
   tests; a binary, `build.rs` or example that wants `expect` on a genuine invariant relaxes
   `expect_used` in its own `[lints]`, and the message states the invariant rather than the symptom
   (`references/errors.md` RS-ERR-03, RS-ERR-04).
-- **RS-CORE-13 `[M]`** Errors are types, not strings. A library defines an enum with one variant per
-  failure mode a caller might branch on, implements `Error` with a correct `source()`, and never
-  exposes `Box<dyn Error>` or `anyhow::Error` in its public API. `anyhow` belongs in binaries
-  (`references/errors.md` RS-ERR-05, RS-ERR-10, RS-ERR-13).
+- **RS-CORE-13 `[M]`** Errors are types, not strings. A library names its failure modes in an enum —
+  the error itself, or the `kind` a struct error exposes — with one variant per failure mode a
+  caller might branch on, implements `Error` with a correct `source()`, and never exposes
+  `Box<dyn Error>` or `anyhow::Error` in its public API. `anyhow` belongs in binaries
+  (`references/errors.md` RS-ERR-05, RS-ERR-10, RS-ERR-13, RS-ERR-15).
 - **RS-CORE-14 `[M]`** Never discard an error's information. `map_err(|_| MyError::Io)` throws away
   the operating system's message; carry the source (`references/errors.md` RS-ERR-08).
 - **RS-CORE-15 `[M]`** A panic means a bug, and a reachable one must be documented in a `# Panics`

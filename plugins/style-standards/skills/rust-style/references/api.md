@@ -104,9 +104,9 @@ and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
 
 Start with the smallest surface that lets the intended use cases work.
 
-**Why:** `pub` is a promise of support that you cannot withdraw within a major version;
-`pub(crate)` costs nothing and can be promoted the day someone needs it. Growing a surface is a
-minor version, shrinking it is a major one — so the asymmetry says start small.
+**Why:** `pub` is a promise of support that you cannot withdraw within a major version; a
+crate-private item promises nothing outside the crate and can be promoted the day someone needs it.
+Growing a surface is a minor version, shrinking it a major one — so the asymmetry says start small.
 
 **Check:** for each `pub` item, name the external use case. `cargo public-api` will list the full
 surface if you are not sure what is reachable; anything on that list you cannot justify is a

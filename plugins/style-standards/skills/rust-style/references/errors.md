@@ -365,7 +365,7 @@ retrying", ship that method rather than making everyone re-derive it from six va
 
 ### RS-ERR-15 [S] Prefer a struct with a private `kind` to a single-variant enum
 
-`pub struct Error { kind: ErrorKind, … }` with `pub fn kind(&self) -> &ErrorKind`.
+`pub struct Error { kind: ErrorKind, … }` with `pub fn kind(&self) -> ErrorKind`.
 
 **Why:** it is the most evolvable shape available: variants can be added, fields can be added, and
 the internal representation can change entirely, all without a breaking change — because callers
@@ -376,22 +376,45 @@ variant set is genuinely one, use a struct.
 
 ```rust
 // verified
-/// Context is added by wrapping, not by turning the error into prose.
+use std::num::{NonZeroU32, ParseIntError};
+
+/// What a caller can branch on; a new kind is a minor version.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum SettingErrorKind {
+    NotANumber,
+    Zero,
+}
+
+/// The layout is private, so a field can be added without a breaking change.
 #[derive(Debug, thiserror::Error)]
-#[error("while loading {name}")]
-pub struct WithContext {
+#[error("invalid value for setting {name}")]
+pub struct SettingError {
+    kind: SettingErrorKind,
     name: String,
     #[source]
-    source: std::num::ParseIntError,
+    source: Option<ParseIntError>,
+}
+
+impl SettingError {
+    #[must_use]
+    pub fn kind(&self) -> SettingErrorKind {
+        self.kind
+    }
 }
 
 /// # Errors
-/// Returns [`WithContext`] naming the setting that failed to parse.
-pub fn parse_setting(name: &str, raw: &str) -> Result<u32, WithContext> {
-    raw.parse().map_err(|source| WithContext {
+/// Returns a [`SettingError`] whose kind says why `raw` was rejected.
+pub fn parse_setting(name: &str, raw: &str) -> Result<NonZeroU32, SettingError> {
+    let fail = |kind, source| SettingError {
+        kind,
         name: name.to_owned(),
         source,
-    })
+    };
+    let value: u32 = raw
+        .parse()
+        .map_err(|e| fail(SettingErrorKind::NotANumber, Some(e)))?;
+    NonZeroU32::new(value).ok_or_else(|| fail(SettingErrorKind::Zero, None))
 }
 ```
 
