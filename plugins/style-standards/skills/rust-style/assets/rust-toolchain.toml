@@ -2,4 +2,5 @@
 # compiles the same way, as RS-BUILD-36 requires.
 [toolchain]
 channel = "1.99.1"                   # 1.99.0 miscompiles FFI `bool` returns on x86_64
+                                     # (rust-lang/rust#163911, fixed in 1.99.1)
 components = ["rustfmt", "clippy"]
