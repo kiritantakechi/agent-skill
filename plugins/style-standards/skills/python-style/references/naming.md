@@ -17,7 +17,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 
 - **Casing and word choice**
   - PS-NAME-01 [M] Apply PEP 8's casing rules mechanically
-  - PS-NAME-02 [M] Capitalise acronyms as ordinary English words
+  - PS-NAME-02 [M] Capitalise every letter of an acronym in a CapWords name
   - PS-NAME-03 [M] Use two leading underscores only for name mangling
   - PS-NAME-04 [M] Spell names out; abbreviate only as scope tightens
   - PS-NAME-05 [M] Put units and qualifiers last, sorted by descending significance
@@ -83,17 +83,18 @@ policy = RetryPolicy(attempts=MAX_RETRIES, backoff_ms=500)
 assert policy.next_delay_ms(2) == 2_000
 ```
 
-### PS-NAME-02 [M] Capitalise acronyms as ordinary English words
+### PS-NAME-02 [M] Capitalise every letter of an acronym in a CapWords name
 
-`HttpClient`, `XmlParser`, `JsonDecoder`, `parse_url`, `IoError`. Never `HTTPClient`, `XMLParser`,
-`JSONDecoder`.
+`HTTPClient`, `XMLParser`, `JSONDecodeError`. Never `HttpClient`, `XmlParser`, `JsonDecodeError`.
+In a `snake_case` name the acronym is lower case like every other word: `parse_url`, `http_client`.
 
-**Why:** an all-capitals acronym has no word boundary against what follows, so `HTTPSError` reads as
-`HTTPS Error` or `HTTP SError` with equal justification, and `parseHTTPURL` has none at all.
-Treating the acronym as a word makes the boundary mechanical.
+**Why:** PEP 8 states it — "HTTPServerError is better than HttpServerError" — and the standard
+library spells its own that way: `JSONDecodeError`, `HTTPStatus`, `TOMLDecodeError`, `SSLError`.
+A project's `JsonError` beside `json.JSONDecodeError` gives one acronym two spellings to remember.
 
-**Check:** `rg -n '\b[A-Z]{2,}[A-Z][a-z]' src/` — two or more capitals followed by a capital and
-a lowercase letter is an acronym that has not been folded.
+**Check:** `rg -n '\b(Http|Https|Json|Xml|Html|Url|Uri|Sql|Api|Tcp|Udp|Ssl|Tls|Toml|Csv)[A-Z]' src/`
+— a common acronym folded into a word ahead of the next one. The list is not exhaustive; add the
+project's own acronyms to it.
 
 ### PS-NAME-03 [M] Use two leading underscores only for name mangling
 
@@ -355,8 +356,8 @@ the finding.
 
 ### PS-NAME-21 [S] Keep sibling modules and types structurally parallel
 
-If `readers/json.py` exposes `load`, `loads` and a `JsonError`, then `readers/toml.py` exposes
-`load`, `loads` and a `TomlError`. If `Request` is a frozen slotted dataclass with
+If `readers/json.py` exposes `load`, `loads` and a `JSONError`, then `readers/toml.py` exposes
+`load`, `loads` and a `TOMLError`. If `Request` is a frozen slotted dataclass with
 `to_dict`/`from_dict`, so is `Response`.
 
 **Why:** parallel siblings let a reader learn one and use all of them, and they make a missing piece
