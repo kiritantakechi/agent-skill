@@ -12,6 +12,7 @@ uv run agent-skill renumber NAME     # rename chapters, renumber rules densely, 
 uv run agent-skill demote NAME PLAN  # turn rules into lint rows, merges or removals
 uv run agent-skill install           # symlink each skill into every agent present
 uv run agent-skill build             # package each as dist/<name>.skill
+uv run agent-skill list              # each skill's prefix, counts and toolchain
 uv run pytest                        # the same checks, as tests
 ```
 
@@ -46,7 +47,9 @@ citation is never rewritten by hand.
 lint-table rows, a row that already exists, the rule it merged into, or a removal
 with its reason. It removes each rule and its contents line, adds the rows, records
 each disposition in the rename table, and reports every citation left behind.
-`renumber` then closes the gaps.
+`renumber` then closes the gaps, once those citations are resolved: it refuses,
+writing nothing, while a citation names an ID that no rule holds and that the
+renumbering would give to another rule — the one case where it can tell.
 
 ## Layout
 
