@@ -163,8 +163,57 @@
   --only mutation` passes in 2 min; its nine mutation notes now name their skill
   (`zig-style/references/build.md:1297 [ZS-BUILD-38]`), which the unit's `chapter:line [rule]`
   left out.
-- [ ] 4.3 Move `skeleton`, `anatomy`, `crossref`, `mirror`, `citations` and `assets` onto the tree,
+- [x] 4.3 Move `skeleton`, `anatomy`, `crossref`, `mirror`, `citations` and `assets` onto the tree,
   deleting their own scanners; verify the regex-literal count from 1.1 falls to the one in `ids`
+  — the six read `Doc`, the chapter layer and `RuleId` only; by 1.1's commands, rule-ID regex
+  literals 42 → 27 (33 at baseline), heading scanners 24 → 19, fence trackers 13 → 9
+
+  What they read now, and what went:
+
+  - `model` adapts: `Chapter.doc` and `Skill.doc` parse once, `Chapter.typed` and `Skill.typed` are
+    the chapter layer's `Chapter` and `SkillMd`, and `Skill.core`, `Skill.chapter_rules`,
+    `Skill.ids` (the ID union, once per skill) and `Skill.docs` derive from them. A core rule is a
+    `Rule` with a `Tier`; no check unpacks `(id, tier, body)`.
+  - The layer gained what the checks asked of text: `LintRow.line` (a row is its table's line + 2 +
+    its index), `SkillMd.overrides` (the delta table, typed), `citing(doc)` (every top-level block
+    outside a rename table's section), `RenameTable.unchanged` and `.unread`, and `text_of(blocks)`
+    in `doc`. `ids` gained `RuleId.try_parse`, `cited` and `uncited`, all on the one pattern.
+  - Deleted: `skeleton`'s fence and H1 scanners, `shared.section` and `shared.h2s` (their only
+    caller was `skeleton`), `crossref.OVERRIDE_ROW` and `CITATION`, `anatomy`'s fence regex and
+    seven ID spellings, and from `model` the readers left without a caller: `Chapter.toc`,
+    `without_renames`, `Rule.why`, `.statement` and `.where`, `LintRow.where`, `Rename.lint` and
+    `.removed`. The rest of `model` keeps its other callers until they move.
+  - Left outside `ids` and `doc`, each built from `rule_id()`: `anatomy`'s core-rule citation
+    (`` `references/x.md` ID, ID ``), its near citation (a chapter, then an ID within 40 columns)
+    and `_ABBREVIATED`. All three read inline citation grammar inside one block's text, which the
+    tree keeps whole. Three more lines the 1.1 pattern counts there are not regexes:
+    `NUMBERING` twice and the `NUMBER` import.
+
+  Decisions made on the way:
+
+  - A chapter the layer refuses (a block or a rule before the first section, a contents list
+    without its `---`) reads as one with no rules, so no check stops the run on it; `skeleton`
+    reports the refusal (`skeleton.unread`, new, with a control). The layer now refuses a `###`
+    rule before the first `##`, which it used to read as scope and drop, and reads a rename row it
+    cannot read into `unread` rather than raising, so `skeleton.rename_shape` can still fire.
+  - A rule's Why is measured, and a citation's line counted, in the text as printed. In a file
+    `layout` passes that is the file's own; a hard break inside a Why is no longer a line of it.
+    The Why-length control now adds words instead of a line break, and two tests in
+    `test_structure_rules` say the same.
+  - `anatomy` uses the layer's `statement` (prose before the first label) and a core rule's own
+    item, where the old readers took everything before `**Why` and ran a core rule on into the next
+    `###` group heading. Restatement and mis-citation outcomes are the same on every shipped rule.
+  - The reference-map counts are read from section 6, not from all of `SKILL.md`.
+  - `mirror` prints a tier with its printer: `RS-NAME-01 [M] vs ZS-NAME-02 [S]`.
+  - The demo standard in `tests/structure_fixture.py` was not shaped as a chapter (rules with no
+    `## Contents` and no `##` section); it is now.
+  - `BRANCHES` names `anatomy._relaxed` for the two relaxed-form controls: the logic left `_rule`.
+
+  Checked by diffing every finding of the six checks over the shipped tree and over all 74
+  control trees, before and after. The shipped tree and `check --fast --verbose` are identical.
+  Three findings differ, under controls only: the abbreviation control's line is 53 where it was
+  52, because the injected paragraph is not canonical; `mirror`'s tier message; and a temporary
+  directory's name.
 
 ## 5. Controls as a bijection
 
