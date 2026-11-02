@@ -144,6 +144,7 @@ a party who had no say in the decision and cannot work around it.
 yet:
 
 ```bash
+# fragment — the grep, until the lints are adopted
 rg -n '\.unwrap\(\)|\.expect\(|panic!|todo!|unimplemented!' \
    --glob '!**/tests/**' --glob '!**/benches/**' --glob '!**/examples/**'
 ```

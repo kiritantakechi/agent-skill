@@ -60,6 +60,7 @@ Run these before reading anything, and report what could not be run rather than
 implying it passed.
 
 ```bash
+# fragment — the commands, in the order to run them
 cargo fmt --check
 CARGO_BUILD_WARNINGS=deny cargo clippy --all-targets --all-features
 cargo test --all-features
@@ -74,6 +75,7 @@ The clippy line above already denies `unwrap`, `expect`, `dbg!`, an `unsafe` blo
 `SAFETY`, a lossy `as` cast and a `&Vec` parameter. Fast greps for what no shipped lint decides:
 
 ```bash
+# fragment — each hit is a place to read, not a finding
 rg -n 'Arc<Mutex<|Rc<RefCell<'
 rg -n '\.clone\(\)' -c                   # a count, then look at the outliers
 rg -n 'println!|eprintln!' src/          # in library code
@@ -87,6 +89,7 @@ Deliver reviews as a table ordered by severity, then a short prose section for
 the two or three findings that deserve discussion.
 
 ```markdown
+<!-- fragment — the shape of a review; the rows are examples -->
 ## Findings
 
 | Severity | Rule | Location | Finding | Fix |
