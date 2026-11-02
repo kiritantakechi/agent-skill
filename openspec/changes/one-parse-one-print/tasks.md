@@ -1,8 +1,10 @@
 ## 1. Baseline
 
-- [ ] 1.1 Record the baseline the change is judged against: full `check` result, pytest result and
+- [x] 1.1 Record the baseline the change is judged against: full `check` result, pytest result and
   wall-clock, `check --fast` wall-clock, per-check timings, the number of rule-ID regex literals,
-  `## `-boundary scanners, fence trackers and `WIDTH` definitions in `src/`
+  `## `-boundary scanners, fence trackers and `WIDTH` definitions in `src/` — see "Baseline
+  (measured)"; the full `check` (≈22 min) and the pytest run were reported, not re-run, and
+  `toolchain` and `mutation` were not timed alone
 - [ ] 1.2 Enumerate every failure site in every check as a candidate branch, and record which of the
   current 65 controls fires through which branch (stub each branch, re-run its control)
 
@@ -18,11 +20,51 @@
   — the printer is `str(Doc)` and the parser `Doc.parse`, as in `ids`; blocks add `Divider` (the
   `---` after a contents list) and `Quote.alert` (GitHub's `> [!NOTE]`); seeded generators, not
   hypothesis; `WIDTH` now lives here and `text`, `shared` and `layout` import it
-- [ ] 2.3 Add the chapter layer (`Chapter`, `Section`, `Rule`, contents list, tool table, rename
-  table) over `Doc`; verify it reads every shipped chapter and SKILL.md
-- [ ] 2.4 Define the canonical form for the subset the skills use, and print every shipped file
+- [x] 2.3 Add the chapter layer (`Chapter`, `Section`, `Rule`, contents list, tool table, rename
+  table) over `Doc`; verify it reads every shipped chapter and SKILL.md — `agent_skill.doc.chapter`;
+  `Chapter.read(doc).doc() == doc` for every chapter and `SkillMd`, and a test holds it to `model`
+  (rules, lines, contents, tool rows, rename ranges and rows, core rules, Why, Check, examples);
+  `Rule` keeps its blocks in order with `relaxed`/`why`/`check`/`examples` as views rather than
+  fields, `tools` and `renames` are views of their sections, and a contents label may nest labels
+  (zig's `SMELL TEST`)
+- [x] 2.4 Define the canonical form for the subset the skills use, and print every shipped file
   through it in a scratch tree; list every difference and classify each as a normalisation the
-  spec allows or a parser bug; fix the bugs
+  spec allows or a parser bug; fix the bugs — classes and counts below; a contents entry is kept
+  on one line however long, as its heading is, which decision 2 did not say
+
+  All 61 shipped files change; `print ∘ parse` is idempotent on every one, and the parsed tree of
+  the canonical text equals that of the original. 1,839 of 45,914 lines are rewritten. Counted by
+  block, top level, against the original lines:
+
+  | Normalisation (a) | Count | Files |
+  |---|---|---|
+  | paragraph re-filled greedily to 100 columns | 527 | 60 |
+  | list whose item text is re-filled (core rules, numbered steps, bullets) | 53 | 17 |
+  | block quote re-filled | 7 | 4 |
+  | blank line added after a heading (zig's rule headings sit on their first line) | 247 | 9 |
+  | blank line added before a heading (`## Contents` straight after the scope) | 23 | 23 |
+  | blank line added between a paragraph and the list it introduces | 9 | 3 |
+  | blank line added after a fence | 1 | 1 |
+  | loose contents list gets a blank before its last item, `- Decided by tools` | 17 | 17 |
+
+  Re-filling also joins about 64 code spans that were broken across two lines (128 unfenced lines
+  hold an odd number of backticks), so a span such as `` `b: *Build` `` or a citation such as
+  `` `references/memory.md` ZS-MEM-06 `` now sits on one line; and it folds
+  `rust-style/references/traits.md:801`, a wrapped line that began `+ Send>>` and so rendered as a
+  list item, back into its paragraph. Five zig quotes open `> [!NOTE] text` on one line, which
+  GitHub does not render as an alert; the canonical form keeps them as written, for the content
+  change to decide.
+
+  | Parser or printer bug (b), fixed | Where |
+  |---|---|
+  | a GitHub alert's `> [!NOTE]` line was filled into the paragraph after it, ending the alert | 3 quotes, `zig-style` memory and migration — `Quote.alert` |
+  | a contents entry over 100 columns was wrapped, which every line-wise reader truncates | 9 entries, 6 files — printed on one line |
+  | an empty table cell printed as `\|  \|` where every table writes `\| \|` | 3 rows, 2 files |
+  | two same-kind lists at different indents parsed as two lists that print as one | found by the noise generator, not the corpus — merged on parse |
+
+  Risk for 3.1, not a defect here: the old line-wise readers will see the joined citations and code
+  spans for the first time (`anatomy`'s citation pattern needs a citation on one line), so 3.1 may
+  surface findings the split lines hid.
 
 ## 3. Canonical re-print
 
