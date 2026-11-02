@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@nightly     # only needed if rustfmt.toml uses unstable options
+      - uses: dtolnay/rust-toolchain@nightly     # rustfmt.toml's import options are nightly-only
         with: { components: rustfmt }
       - run: cargo +nightly fmt --all --check   # `+`: rust-toolchain.toml outranks the install
 

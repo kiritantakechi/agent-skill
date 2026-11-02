@@ -523,9 +523,9 @@ denied" a cheap local check rather than a CI-only step.
 
 Enforce formatting in CI with `cargo fmt --check`, and keep `rustfmt.toml` minimal — the default
 style is a coordination win, and every override costs new contributors. The overrides worth having
-are `group_imports = "StdExternalCrate"` and `imports_granularity = "Crate"`; check whether your
-toolchain accepts them on stable with `cargo fmt -- --help=config`, and run the format job on
-nightly if not.
+are `group_imports = "StdExternalCrate"` and `imports_granularity = "Crate"`. Both are nightly-only,
+so a crate that sets them formats with `cargo +nightly fmt` locally and checks with
+`cargo +nightly fmt --check` in CI; a crate on stable rustfmt alone sets neither.
 
 **Why:** formatting arguments consume review attention that should go to behaviour, and only a
 mechanical check ends them. Each override reintroduces the argument in a smaller form, so it needs a
@@ -533,7 +533,7 @@ concrete benefit — import grouping is one, because it reduces diff noise.
 
 **Check:** both options are nightly-only. Stable rustfmt reports `can't set imports_granularity =
 Crate, unstable features are only available in nightly channel` and continues with the default, so
-the format job needs nightly to enforce them.
+code it formatted fails a nightly format job. Do the local command and the CI job use one toolchain?
 
 ## Supply chain, versioning, release
 

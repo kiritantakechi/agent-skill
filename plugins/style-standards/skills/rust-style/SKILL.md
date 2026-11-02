@@ -175,9 +175,10 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **RS-CORE-04 `[S]`** No abbreviations unless the abbreviation is more standard than the word
   (`config`, `regex`, `buf`, `ctx`). `rslt`, `mngr`, `hdlr` are not
   (`references/naming.md` RS-NAME-26).
-- **RS-CORE-05 `[M]`** Run `cargo fmt`. Keep `rustfmt.toml` minimal — the default style is a
-  coordination win and every override costs new contributors
-  (`references/build.md` RS-BUILD-27).
+- **RS-CORE-05 `[M]`** Run `cargo fmt` on the toolchain CI checks with — `cargo +nightly fmt` while
+  `rustfmt.toml` sets its nightly-only import options, which stable rustfmt ignores. Keep
+  `rustfmt.toml` minimal — the default style is a coordination win and every override costs new
+  contributors (`references/build.md` RS-BUILD-27).
 
 ### Public surface
 
@@ -347,6 +348,6 @@ asset and the rule cannot drift apart.
 |---|---|
 | `assets/Cargo.toml` | Workspace manifest with the canonical `[workspace.lints]` block (correct `priority = -1` on groups), profiles, and shared dependencies |
 | `assets/clippy.toml` | clippy's own settings: lints on public items no longer muted by `avoid-breaking-exported-api`, `unwrap` and `expect` allowed inside tests, and acronyms capitalised as words everywhere |
-| `assets/rustfmt.toml` | The two overrides worth having, with the stability caveat |
+| `assets/rustfmt.toml` | The two import overrides worth having; both are nightly-only, so it is formatted with `cargo +nightly fmt` |
 | `assets/ci.yml` | GitHub Actions enforcing this standard: clippy with `CARGO_BUILD_WARNINGS=deny`, the feature matrix, three platforms, MSRV, rustdoc, audit, `cargo semver-checks` |
 | `assets/rust-toolchain.toml` | The pinned stable toolchain every contributor and CI job builds with |
