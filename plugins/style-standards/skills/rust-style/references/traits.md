@@ -352,8 +352,8 @@ pub trait Normalizer {
 more than once (and when a caller may name it, RS-TRAIT-14).
 
 **Why:** it is the zero-overhead default, it preserves the concrete type for the optimizer, and it
-keeps the door open — a generic function can always be called with a `&dyn Trait`, but a
-`dyn`-taking function cannot be specialized.
+keeps the door open — a generic taking `&T` where `T: Trait + ?Sized` also accepts a `&dyn Trait`
+(without `?Sized`, E0277), but a `dyn`-taking function cannot be specialized.
 
 **Check:** is there a measured reason for the vtable? If not, start static.
 
@@ -661,9 +661,9 @@ a runtime check.
 
 ### RS-TRAIT-29 [M] Know that a blanket `From<T>` conflicts with the reflexive impl
 
-**Why:** `impl<T> From<T> for MyType` overlaps with core's `impl<T> From<T> for T` and will not
-compile. The error is a coherence message that does not name the reflexive impl, so it is
-routinely misread as a compiler bug.
+**Why:** `impl<T> From<T> for MyType` overlaps with core's `impl<T> From<T> for T` at `T = MyType`,
+so rustc rejects it with E0119 and names the reflexive impl in `core`. A conversion API designed
+around a blanket `From` is redesigned the first time it is compiled.
 
 **Check:** narrow the bound (`impl<T: Display> From<T> for MyType` still conflicts at `T =
 MyType` if `MyType: Display`) or write per-type impls.
