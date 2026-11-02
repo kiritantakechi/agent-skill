@@ -22,6 +22,14 @@ from agent_skill.report import Finding, fail, note
 #: compiler here does.
 ZIG_VERSION = "0.17.0"
 
+#: Passed to every `build-obj` and `test` of a block. macOS links libc
+#: into everything, so a block calling `std.c` or declaring
+#: `extern "c"` verified there and failed on Linux with the error
+#: interop.md quotes — "dependency on libc must be explicitly specified
+#: in the build command". Linking it everywhere makes `// verified`
+#: mean the same thing on both.
+LINK_LIBC = "-lc"
+
 #: A top-level declaration as a block writes it, at column zero: its
 #: name, plain or `@"quoted"`.
 _DECL = re.compile(
@@ -94,7 +102,7 @@ class Zig:
             # semantic analysis of every declaration, without linking or
             # running
             r = run(
-                ["zig", "build-obj", str(unit.path), "-fno-emit-bin"],
+                ["zig", "build-obj", str(unit.path), "-fno-emit-bin", LINK_LIBC],
                 cwd=ex.root,
                 timeout=180,
             )
@@ -116,7 +124,9 @@ class Zig:
             # links fine; testing for the substring `extern ` excluded
             # two blocks whose four tests pass.
             if _has_test(source) and not needs_c_object(source):
-                t = run(["zig", "test", str(unit.path)], cwd=ex.root, timeout=180)
+                t = run(
+                    ["zig", "test", str(unit.path), LINK_LIBC], cwd=ex.root, timeout=180
+                )
                 if t.timed_out:
                     yield fail("test run timed out", unit.where)
                 elif not t.ok:
@@ -153,7 +163,9 @@ class Zig:
             text = unit.path.read_text()
             if not _has_test(text) or needs_c_object(text):
                 continue
-            base = run(["zig", "test", str(unit.path)], cwd=ex.root, timeout=60)
+            base = run(
+                ["zig", "test", str(unit.path), LINK_LIBC], cwd=ex.root, timeout=60
+            )
             if base.timed_out or not base.ok:
                 continue  # not runnable here; verify() reports why
 
@@ -167,7 +179,11 @@ class Zig:
                     continue
                 unit.path.write_text("\n".join(lines[:i] + lines[i + 1 :]))
                 try:
-                    r = run(["zig", "test", str(unit.path)], cwd=ex.root, timeout=15)
+                    r = run(
+                        ["zig", "test", str(unit.path), LINK_LIBC],
+                        cwd=ex.root,
+                        timeout=15,
+                    )
                     if not r.timed_out and r.ok:
                         yield note(
                             f"`{s[:52]}` can be deleted and every test still passes",

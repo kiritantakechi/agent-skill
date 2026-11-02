@@ -750,8 +750,10 @@ test "zero copy writes: advance semantics differ" {
 embeds a 2 KiB buffer, so `it.next(io)` takes no buffer argument. The `Iterator` is ~2 KiB of stack
 because it inlines its own `reader_buffer` (`next` re-points `reader.buffer` at it on every call, so
 the value is movable) — bind it with `var` in the loop's own scope rather than nesting it inside a
-recursive walk. For recursive traversal, and for the allocation-free `Io.Dir.Reader` beneath
-`Iterator`, see ZS-CONC-43.
+recursive walk. Open a directory you will iterate with `.iterate = true`: without it Linux returns
+an `O_PATH` descriptor and the first `next` fails with `BADF`, while macOS iterates it anyway. For
+recursive traversal, and for the allocation-free `Io.Dir.Reader` beneath `Iterator`, see
+ZS-CONC-43.
 
 **Why:** a `Dir` is a file descriptor exactly like a `File`; leaking directory handles exhausts the
 per-process fd quota just as fast, and the failure surfaces far from the leak as
@@ -759,15 +761,16 @@ per-process fd quota just as fast, and the failure surfaces far from the leak as
 
 **Check:** an `openFile`/`openDir`/`createFile`/`createFileAtomic` result not followed by its
 `defer ….close(io)` or `defer ….deinit(io)` the way ZS-MEM-10 requires; a `close()` written without
-an `io` argument; and an `Io.Dir.Iterator` stored in a struct field or returned from a function
-rather than bound to a `var` in the loop's own scope.
+an `io` argument; an `Io.Dir.Iterator` stored in a struct field or returned from a function
+rather than bound to a `var` in the loop's own scope; and an `iterate()`, `walk(` or
+`walkSelectively(` on a directory opened without `.iterate = true`.
 
 ```zig
 // verified — GOOD
 const std = @import("std");
 test "directory iteration" {
     const io = std.testing.io;
-    var tmp = std.testing.tmpDir(.{});
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
     defer tmp.cleanup();
     try tmp.dir.writeFile(io, .{ .sub_path = "a.txt", .data = "" });
     try tmp.dir.writeFile(io, .{ .sub_path = "b.txt", .data = "" });
