@@ -22,7 +22,7 @@ which now redirect to them), the **empirical conventions of the CPython 3.15 sta
 **Ruff's rule catalogue** as the house standard. Where they disagree, this standard picks a side and
 says why.
 
-**Target: CPython 3.15, free-threaded.** Nothing below 3.14t is supported and no compatibility shim
+**Target: CPython 3.15, free-threaded.** Nothing below 3.15 is supported and no compatibility shim
 is described. Section 2 is the highest-value part of this skill: most of what 3.14 and 3.15 changed
 produces silently different behaviour rather than an error, so nothing catches it for you.
 
@@ -199,7 +199,7 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **PS-CORE-12 `[M!]`** Make the invalid state unrepresentable before validating against it. A type
   is a check performed everywhere for free; validation is one that can be forgotten at any call
   site. *Relaxed form:* application code at a boundary may validate a primitive, provided it does so
-  exactly once. (`references/data.md` PS-DATA-15).
+  exactly once and does not pass the value on as the primitive. (`references/data.md` PS-DATA-15).
 
 ### Errors
 
@@ -239,8 +239,9 @@ These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **PS-CORE-23 `[M]`** Annotate every parameter and return of a public function, and re-export
   explicitly — the typing spec makes imported symbols private by default, so a bare import in
   `__init__.py` is not public. (`references/api.md` PS-API-02, PS-API-06).
-- **PS-CORE-24 `[M]`** Pass `encoding=` explicitly to every text open. 3.15 moved the default, and
-  it moved six surfaces rather than one. (`references/output.md` PS-OUT-01, PS-OUT-02).
+- **PS-CORE-24 `[M]`** Pass `encoding=` explicitly to every text open. 3.15 moved the default to
+  UTF-8 and `PYTHONUTF8=0` moves it back, so only an explicit encoding means the same thing on
+  every interpreter and in every locale. (`references/output.md` PS-OUT-01, PS-OUT-02).
 - **PS-CORE-25 `[M]`** Log with `%`-style arguments, never an f-string, and never configure logging
   in a library. (`references/output.md` PS-OUT-11, PS-OUT-13).
 
