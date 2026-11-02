@@ -238,6 +238,47 @@ def test_demote_then_renumber_leaves_a_conforming_skill_conforming(
     assert [m for m, _ in [*shape(after), *structural(after)]] == []
 
 
+#: DS-ERR-02, with an example holding a line that reads like a section.
+FENCED = """### DS-ERR-02 [M] Wrap them
+
+Wrap them.
+
+```markdown
+## Not a section
+```
+
+**Why:** one line of reason.
+
+**Check:** read it.
+"""
+
+
+@pytest.fixture
+def fenced(repo: Path) -> Path:
+    errors = repo / SKILLS / "demo-style/references/errors.md"
+    errors.write_text(
+        ERRORS.replace(RULE.format(id="DS-ERR-02", title="Wrap them"), FENCED)
+    )
+    return errors
+
+
+def test_a_heading_inside_an_example_does_not_end_the_rule(fenced: Path) -> None:
+    rule = Skill(fenced.parents[1], Demo()).by_id["DS-ERR-02"]
+    assert rule.body.rstrip("\n").endswith("**Check:** read it.")
+
+
+def test_demoting_a_rule_takes_its_whole_example_with_it(
+    repo: Path, fenced: Path
+) -> None:
+    before = skill(repo).by_id["DS-ERR-01"].body
+    run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
+    errors = fenced.read_text()
+    assert "Not a section" not in errors
+    assert "```" not in errors
+    assert errors.count("**Why:**") == 2
+    assert skill(repo).by_id["DS-ERR-01"].body == before
+
+
 def test_a_compiler_row_opens_its_table_with_the_compiler_lead(repo: Path) -> None:
     row = ["zig", "unused local constant", "error", "a constant nothing reads"]
 

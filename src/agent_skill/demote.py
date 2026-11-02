@@ -21,7 +21,7 @@ lazy from collections.abc import Iterator
 lazy from pathlib import Path
 
 from agent_skill.layout import SKILLS
-from agent_skill.model import DECIDED, Skill
+from agent_skill.model import DECIDED, FENCE, Skill, unfenced
 from agent_skill.renumber import RenumberError, _corpus, _segments, carry, heading
 from agent_skill.vocabulary import rule_id
 lazy from agent_skill.profiles import Profile
@@ -224,6 +224,9 @@ def _chapter_writes(skill: Skill, asked: dict[str, Entry]) -> dict[Path, str]:
         if _headings(text) != kept:
             msg = f"{chapter.name}: the edit would lose a rule it was not asked to"
             raise DemoteError(msg)
+        if len(FENCE.findall(text)) % 2:
+            msg = f"{chapter.name}: the edit would leave an example's fence open"
+            raise DemoteError(msg)
         writes[chapter.path] = text
     return writes
 
@@ -255,12 +258,16 @@ def _disposition(
 
 
 def _drop(text: str, rid: str) -> str:
-    """`text` without the rule `rid` and its contents line."""
-    head = re.search(rf"^### {re.escape(rid)} \[", text, re.MULTILINE)
+    """`text` without the rule `rid` and its contents line.
+
+    The rule runs to the next heading outside its examples.
+    """
+    heading = re.compile(rf"^### {re.escape(rid)} \[", re.MULTILINE)
+    head = next(unfenced(heading, text), None)
     if head is None:
         msg = f"{rid}: no heading to remove"
         raise DemoteError(msg)
-    nxt = re.compile(r"^#{2,3} ", re.MULTILINE).search(text, head.end())
+    nxt = next(unfenced(_HEADING, text, head.end()), None)
     text = text[: head.start()] + (text[nxt.start() :] if nxt else "")
     text, n = re.subn(
         rf"^[ \t]*- {re.escape(rid)} \[.*\n", "", text, count=1, flags=re.MULTILINE
@@ -271,12 +278,19 @@ def _drop(text: str, rid: str) -> str:
     return text.rstrip("\n") + "\n"
 
 
+#: A section or rule heading: where a rule ends.
+_HEADING = re.compile(r"^#{2,3} ", re.MULTILINE)
+
+#: A section with nothing left under it.
+_EMPTIED = re.compile(r"^## (?!Contents$)(.+)\n\s*(?=^## |\Z)", re.MULTILINE)
+
+
 def _prune(text: str) -> str:
     """`text` without the sections its demotions emptied.
 
     Their contents entries go with them.
     """
-    while m := re.search(r"^## (?!Contents$)(.+)\n\s*(?=^## |\Z)", text, re.MULTILINE):
+    while m := next(unfenced(_EMPTIED, text), None):
         title = m.group(1)
         text = text[: m.start()] + text[m.end() :]
         entry = rf"^- \*\*{re.escape(title)}\*\*\n(?![ \t]+- )"
@@ -328,10 +342,8 @@ def _add_rows(text: str, rows: list[list[str]]) -> str:
 
 def _headings(text: str) -> list[str]:
     """The rule ID of every heading in `text`, in order."""
-    found = re.findall(rf"^### ({rule_id()}) \[", text, re.MULTILINE)
-    # One group, so every item is a string; the stubs cannot say so,
-    # and the filter is how the checker learns it.
-    return [rid for rid in found if isinstance(rid, str)]
+    heading = re.compile(rf"^### ({rule_id()}) \[", re.MULTILINE)
+    return [m.group(1) for m in unfenced(heading, text)]
 
 
 def _citations(repo: Path, demotion: Demotion) -> Iterator[str]:
