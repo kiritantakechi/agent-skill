@@ -925,6 +925,18 @@ CONTROLS: list[Control] = [
         lambda t: edit(t, "rust-style/references/unsafe.md", HEADER, PUB_FIELD),
     ),
     Control(
+        # A Check ending in `| rg -v` was skipped whole, so a pattern in
+        # it that `rg` rejects was never run to be rejected.
+        "a pattern `rg` rejects, in a Check that filters with `rg -v`",
+        "self-application",
+        lambda t: edit(
+            t,
+            "rust-style/references/modules.md",
+            "`rg -n 'pub use' -g '*.rs' src/ | rg -v",
+            "`rg -n 'pub use(' -g '*.rs' src/ | rg -v",
+        ),
+    ),
+    Control(
         "an exemption quoting words the rule no longer says",
         "self-application",
         lambda t: edit(

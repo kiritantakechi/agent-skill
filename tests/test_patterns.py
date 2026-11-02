@@ -8,7 +8,8 @@ import re
 
 import pytest
 
-from agent_skill.checks.patterns import dialect_of, patterns_of
+from agent_skill.checks.patterns import dialect_of, filtered_of, patterns_of
+from agent_skill.checks.selfapply import selfapply
 lazy from agent_skill.model import Skill
 
 
@@ -104,3 +105,20 @@ def test_the_prose_fallback_has_something_to_fall_back_on(
         and trigger.search(" ".join(r.check.split()))
     ]
     assert reaching, "no Check reaches the prose fallback — the branch is now dead code"
+
+
+def test_a_filter_is_not_a_pattern_to_find() -> None:
+    """`| rg -v` drops hits; read whole, it was one more to find."""
+    found, filters = filtered_of(
+        r"**Check:** `rg -n 'pub use' -g '*.rs' src/ | rg -v '^src/lib\.rs'`."
+    )
+    assert [p.text for p in found] == ["pub use"]
+    assert [p.text for p in filters] == [r"^src/lib\.rs"]
+
+
+def test_a_filtered_check_is_run_and_said(skills: list[Skill]) -> None:
+    """RS-MOD-12 was skipped whole, with no finding of any kind."""
+    rust = next(s for s in skills if s.name == "rust-style")
+    said = [f.message for f in selfapply(rust) if f.message.startswith("RS-MOD-12")]
+    assert said, "the only filtered Check in the standards is silent again"
+    assert "/pub use/" in said[0]

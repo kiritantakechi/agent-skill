@@ -32,6 +32,9 @@ FILE_ARG = re.compile(
 )
 
 COMMAND = re.compile(r"`(rg\s[^`]*)`")
+#: `| rg -v '…'` to the end of its command: a second search that drops
+#: lines from the first one's output.
+NEGATED = re.compile(r"\|\s*(rg\s+-v\b[^`]*)")
 QUOTED = re.compile(r"'([^']*)'|\"([^\"]*)\"")
 #: A prose span shorter than this is not run as a pattern.
 SHORTEST = 4
@@ -117,3 +120,18 @@ def patterns_of(check_text: str) -> list[Pattern]:
             if not re.match(r"^(references/|[A-Z]{2}-)", span):
                 out.append(Pattern(span, "-F", "prose"))
     return [p for p in out if p.text not in TOO_BROAD]
+
+
+def filtered_of(check_text: str) -> tuple[list[Pattern], list[Pattern]]:
+    """The patterns a Check searches for, and those it filters out.
+
+    `rg -n 'pub use' src/ | rg -v '^src/lib.rs'` searches for the
+    first and drops what the second matches — here by which file a hit
+    is in. Read whole, the second reads as one more pattern to find.
+    """
+    filters = [
+        p
+        for command in NEGATED.findall(check_text)
+        for p in patterns_of(f"`{command}`")
+    ]
+    return patterns_of(NEGATED.sub("", check_text)), filters
