@@ -138,8 +138,15 @@ def test_a_demotion_composes_with_the_table_it_finds(repo: Path) -> None:
     }
 
 
+def resolve(repo: Path, rid: str) -> None:
+    """Do what a person does with a citation a demotion left behind."""
+    skill_md = repo / SKILLS / "demo-style/SKILL.md"
+    skill_md.write_text(skill_md.read_text().replace(f"{rid} wraps.", "It wraps."))
+
+
 def test_demote_then_renumber_closes_the_gap(repo: Path) -> None:
     run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
+    resolve(repo, "DS-ERR-02")
     renumber.apply(repo, renumber.plan(repo, "demo-style", {}, Demo()))
     demo = skill(repo)
     assert [r.id for r in demo.rules] == ["DS-ERR-01", "DS-ERR-02", "DS-MIG-01"]
@@ -149,6 +156,17 @@ def test_demote_then_renumber_closes_the_gap(repo: Path) -> None:
         "DS-ERR-02": "removed — said nothing",
         "DS-ERR-03": "`DS-ERR-02`",
     }
+
+
+def test_renumber_will_not_give_a_citation_left_behind_to_another_rule(
+    repo: Path,
+) -> None:
+    """SKILL.md still cites DS-ERR-02, which DS-ERR-03 would become."""
+    run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
+    before = snapshot(repo)
+    with pytest.raises(renumber.RenumberError, match=r"DS-ERR-02, cited in .*SKILL"):
+        renumber.apply(repo, renumber.plan(repo, "demo-style", {}, Demo()))
+    assert snapshot(repo) == before
 
 
 def test_a_citation_left_behind_is_reported(repo: Path) -> None:
