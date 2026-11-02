@@ -138,6 +138,9 @@ PUB_FIELD = HEADER + (
     "#[derive(Debug)]\npub struct Cursor {\n    pub offset: usize,\n}\n"
 )
 
+#: The opening of PS-CONC-01's example, which four controls edit.
+_BUILD_CONSTANT = "import sys\nfrom typing import Final\n\nFREE_THREADED_BUILD"
+
 #: The one line of a `bevy-style` example this control appends to.
 _TEST_BODY = "        let mut app = App::new();\n        app.add_plugins(HealthPlugin);"
 
@@ -476,8 +479,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "python-style/references/concurrency.md",
-            "import sys\n\nFREE_THREADED_BUILD",
-            "from __future__ import annotations\n\nimport sys\n\nFREE_THREADED_BUILD",
+            _BUILD_CONSTANT,
+            "from __future__ import annotations\n\n" + _BUILD_CONSTANT,
         ),
     ),
     Control(
@@ -497,8 +500,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "python-style/references/concurrency.md",
-            "# verified — GOOD\nimport sys\n\nFREE_THREADED_BUILD",
-            "# does-not-compile — GOOD\nimport sys\n\nFREE_THREADED_BUILD",
+            "# verified — GOOD\n" + _BUILD_CONSTANT,
+            "# does-not-compile — GOOD\n" + _BUILD_CONSTANT,
         ),
     ),
     Control(
@@ -510,8 +513,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             "python-style/references/concurrency.md",
-            "# verified — GOOD\nimport sys\n\nFREE_THREADED_BUILD",
-            "# rejected — the GIL is off\nimport sys\n\nFREE_THREADED_BUILD",
+            "# verified — GOOD\n" + _BUILD_CONSTANT,
+            "# rejected — the GIL is off\n" + _BUILD_CONSTANT,
         ),
     ),
     Control(

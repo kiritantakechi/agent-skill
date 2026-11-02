@@ -135,7 +135,6 @@ class PythonStyle(Profile):
             "PS-MIG-05",
             "PS-NAME-02",
             "PS-NAME-03",
-            "PS-NAME-09",
             "PS-NAME-11",
             "PS-OUT-02",
             "PS-OUT-03",
