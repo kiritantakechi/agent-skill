@@ -84,9 +84,9 @@ table below, with `#[require]` on the types that always travel together (BV-ECS-
 **Why:** it is the most visible break between old Bevy material and current Bevy, and the most
 mechanical: each `XBundle::default()` becomes one or two components.
 
-**Check:** `rg -n '[A-Za-z0-9]Bundle' src/`. Every hit is a removed type or a bundle of your own,
-which BV-ECS-06 rules out. The two the engine still spells that way, `SpawnRelatedBundle` and
-`ReflectBundle`, are machinery a game does not name.
+**Check:** `rg -n '[A-Za-z0-9]Bundle\b' src/`. Every hit is a removed type or a bundle of your
+own, which BV-ECS-06 rules out. The three the engine still spells that way, `SpawnRelatedBundle`,
+`ReflectBundle` and `DynamicBundle`, are machinery a game does not name.
 
 | Removed | Write instead |
 |---|---|
@@ -117,7 +117,8 @@ Text is a root component plus per-run components, not a struct holding sections 
 without rebuilding the vector, and no child entity could contribute a run. The component form makes
 each of those an ordinary ECS operation.
 
-**Check:** `rg -n 'TextStyle|from_section|JustifyText|BreakLineOn|new_with_' src/` and
+**Check:** `rg -n
+'TextStyle|from_section|JustifyText|BreakLineOn|new_with_(justify|linebreak|no_wrap)' src/` and
 `rg -n 'TextSection::(new|from_style)|TextSection \{|Vec<TextSection>' src/`. A bare `TextSection`
 is not evidence: since 0.19 `bevy::text::TextSection` is a live trait, so only the old struct's
 constructors, literal and vector are searched for.
@@ -171,8 +172,9 @@ were renamed again in 0.18.
 makes `despawn` recursive by default and lets a game define its own one-to-many links (BV-ECS-11).
 
 **Check:** `rg -n
-'despawn_(recursive|descendants)|push_children|set_parent|ChildBuilder|clear_(children|related)'
-src/`.
+'despawn_(recursive|descendants)|push_children|set_parent\b|ChildBuilder|clear_(children|related)'
+src/`. It does not match `set_parent_in_place`, which is live and keeps the child's
+`GlobalTransform` by rewriting its `Transform`; inserting `ChildOf` does not, so leave it alone.
 
 | Removed | Write instead |
 |---|---|
@@ -199,8 +201,11 @@ src/`.
 `get_single().unwrap()` — the fallible method used to be the long-named one, so the short name was
 the panicking one and everybody reached for it.
 
-**Check:** `rg -n 'get_single|to_readonly|ManualEventReader|init_component|EntityFetchError' src/`
-and `rg -n 'weak_from_u128|weak_handle!' src/`.
+**Check:** `rg -n
+'\bget_single(_mut)?\b|\bto_readonly\b|ManualEventReader|\binit_component\b|EntityFetchError\b[^(]'
+src/` and `rg -n 'weak_from_u128|weak_handle!' src/`. `Gradient::get_single` is live, so read a
+hit whose receiver is a `Gradient`; the `EntityFetchError(…)` variant of `EntityCommandError` is
+live too, and the pattern skips it.
 
 | Removed | Write instead |
 |---|---|
@@ -230,7 +235,9 @@ ones and every tutorial uses them. The split is described in `references/events.
 this table is the mechanical half.
 
 **Check:** `rg -n
-'EventReader|EventWriter|Events<|send_event|add_event|on_event|RemovedComponentEvents' src/`.
+'\bEvent(Reader|Writer)\b|\bEvents<|\bsend_event\b|\b(add|on)_event::<|RemovedComponentEvents'
+src/`. The turbofish is the search: `AnimationClip::add_event` is live, and so is a tracing
+layer's `on_event`.
 
 | Removed | Write instead |
 |---|---|
@@ -291,7 +298,7 @@ src/`, and read any remaining set name that ends in `System`, `Set` or `Steps` r
 small and collectively the reason a 0.16 project does not compile.
 
 **Check:** `rg -n
-'compute_matrix|StateScoped|Gizmos::cuboid|RenderGraphApp|ComputedNodeTarget|SimpleExecutor'
+'compute_matrix|\bStateScoped\b|Gizmos::cuboid|RenderGraphApp|ComputedNodeTarget|SimpleExecutor'
 src/`, plus `Timer::paused` and `Timer::finished`. The `Condition` rename is not greppable — the new
 name contains the old one — so read the `SystemCondition` bound instead. `Pressed` is not greppable
 either, and for the opposite reason: `bevy::ui::Pressed` is live, outside the prelude, a marker for
@@ -323,7 +330,7 @@ a widget being held down. Only `Pointer<Pressed>` is the removed one.
 behind in a manifest that still builds.
 
 **Check:** `rg -n
-'bevy_(sprite|ui|mesh)_picking_backend|event_target_mut|FontAtlasSets|AnimationTarget'
+'bevy_(sprite|ui|mesh)_picking_backend|event_target_mut|FontAtlasSets|\bAnimationTarget\b'
 src/`, and the manifest for the renamed feature names.
 
 | Removed | Write instead |
@@ -353,7 +360,8 @@ exists: in 0.18 it enabled the serialization crate and since 0.19 the new scene 
 manifest nobody edited turns on a different thing.
 
 **Check:** `rg -n
-'SceneRoot|DynamicScene|SceneSpawner|SceneFilter|SceneInstanceReady|SceneLoader' src/`, and read
+'\b(SceneRoot|SceneSpawner|SceneFilter|SceneInstanceReady)\b|\bDynamicScene|\bSceneLoader' src/`,
+and read
 every `bevy_scene` against this table rather than assuming — it is the one name that still resolves
 and now means something else.
 
@@ -381,8 +389,9 @@ and now means something else.
 most likely to appear in an existing project's own plugin code.
 
 **Check:** `rg -n
-'DefaultErrorHandler|ExecutorKind|non_send_resource|ShaderStorageBuffer|earthlike|experimental_'
-src/`.
+'DefaultErrorHandler|ExecutorKind|non_send_resource|ShaderStorageBuffer|earthlike'
+src/`, and the manifest for `experimental_bevy_feathers` and `experimental_ui_widgets` — not every
+`experimental_` feature: `experimental_pbr_pcss` is live.
 
 | Removed | Write instead |
 |---|---|
@@ -439,8 +448,9 @@ up a level: there is no `.event` and no `Deref`.
 click handler in a UI. `Pointer` still exists, non-generic, so a stale import resolves and only the
 type argument fails.
 
-**Check:** `rg -n '\bPointer<|pointer_id|pointer_location' src/`. `Pointer` is non-generic in 0.20,
-so any `Pointer<` is stale.
+**Check:** `rg -n '\bPointer<|\.pointer_location\b' src/`. `Pointer` is non-generic in 0.20, so
+any `Pointer<` is stale. `.pointer_id` is not searchable, because `PointerInput::pointer_id` is
+live: read each one whose receiver is a pointer event.
 
 | Removed | Write instead |
 |---|---|
@@ -500,7 +510,8 @@ public type unrelated to the old internal one.
 `rg -n '\bFromType\b|meta_transform|UnpreparedBindGroup|ExtractedWindows' src/`,
 `rg -n 'resolve_single_corner|VariantDefaults|bevy_math::(curve|cubic_splines|primitives)' src/` and
 `rg -n '\.load_(override|acquire|with_settings)' src/`;
-one over the shaders, `rg -n -t wgsl '#import|#ifdef|#define_import_path|#\{'`; then read the
+one over the shaders, `rg -n '--glob=*.wgsl' '#import|#ifdef|#define_import_path|#\{'`; then
+read the
 manifest for `shader_format_(wesl|glsl)`, which is gone, every `compressed_image_saver`, which kept
 its name, and a domain crate's `glam = "0.32"`, which moves to `"0.33"` with Bevy 0.20.
 
