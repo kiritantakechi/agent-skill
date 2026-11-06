@@ -302,6 +302,39 @@ bevy-style's departures are one table: rust-style rule | relation (`overrides`, 
 silent tier change against the anchor fails; the `[M!]` predicate is rust-style's, not redefined.
 The asset rule already landed is the same map for files.
 
+As built (task 2.10), for a delta whose profile is `normalized`:
+
+- The table's header, exactly: `| <anchor> rule | Relation | <delta> rule | Tier | Reason |`, the two
+  standards by name (`| rust-style rule | Relation | bevy-style rule | Tier | Reason |`;
+  `chapter.departures_header`). Each row: the anchor rule's bare ID, one of `overrides`,
+  `tightens`, `extends`, the delta rule's bare ID, `[T] → [T]` (before, an arrow, after), and the
+  reason. It may stand anywhere in `SKILL.md`; bevy's sits in section 3 today.
+- `crossref` reads it in place of the override table: `delta_no_table` when there is none (the
+  branch the override table already had), `override_target` for a delta cell that names no rule
+  here (likewise); new: `relation` (not one of the three), `departure_tier` (the cell does not
+  read, or is not the anchor rule's tier then the delta rule's), `departs` (the pairs the table
+  states and the rules whose statement opens `Departs from <ID>.` are not one set — each side's
+  extra pair reported), `redefines` (the delta's `strict_scope`, or the words its section 1 gives
+  `[M!]` in its own region, differ from the anchor's). An anchor ID that names no rule is
+  `crossref.citation`'s, as any citation into the anchor is.
+- Restatement: the harness knows a delta rule says what an anchor rule says only where the
+  profile's `Mirror` pairs it, since word overlap decides nothing (decision 11; `mirror.unheld`
+  stays a note). For a normalised delta every held pair fails, `mirror.restated`, in the check
+  that reads the pairs, naming the tier change when there is one: a restatement becomes a
+  citation, or a departure its table states. So a silent tier change has nowhere to stand: a rule
+  related to an anchor rule is a citation (no tier), a departure (its row states both tiers, and
+  `departure_tier` holds them to the rules), or a declared restatement (`restated`).
+- C1's note: an override row's cells open with an ID quoted or bare (`chapter._opening_id`), so
+  `fmt` setting a delta's cells bare does not empty its table; on today's tree the rows read are
+  the same.
+- `crossref.apparatus` checks the IDs `src/`, `tests/` and the README cite against the standards
+  the harness ships (`PROFILES`), not every standard in the tree: a demo standard in a control's
+  tree made the tests' deliberately wrong `DS-…` IDs read as citations.
+- Controls run on `checks.demo.DELTA`: a delta on the demo, built from the demo's files under its
+  own prefix, departing from DS-ERR-01 (`tightens`, `[M!] → [M]`), its `[M!]` the demo's, its
+  `ty.toml` the demo's lint (the demo's row) and one of its own (its row) — so it holds 2.8's
+  delta rule too. `tests/test_delta_map.py` holds it to every property.
+
 ### 11. One concept, one owner
 
 The duplicate pairs and multiple homes the review measured are merged with `revise`. `anatomy`'s

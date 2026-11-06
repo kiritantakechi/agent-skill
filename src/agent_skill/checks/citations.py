@@ -141,7 +141,10 @@ def owed(skill: Skill) -> tuple[dict[Lint, str], frozenset[Lint]]:
     anchor = skill.profile.anchor
     if not anchor:
         return mine, frozenset()
-    theirs = configured(Skill(skill.root.parent / anchor))
+    # The anchor's files, read as this standard's toolchain reads its
+    # own: a delta builds with its anchor's language, so its toolchain
+    # is the one that reads the anchor's configuration.
+    theirs = configured(Skill(skill.root.parent / anchor, skill.profile))
     shared = frozenset(k for k, level in mine.items() if theirs.get(k) == level)
     return {k: v for k, v in mine.items() if k not in shared}, shared
 

@@ -42,7 +42,9 @@
   Status | Rule |`, 2.2 the same less Status; `skeleton.migration_table`, `migration_row`,
   `migration_twice`, `migration_command`, `reality_row`; `Toolchain.probe` and
   `toolchain.gone_live` (exempt as `COMPILES`, exercised by `tests/test_gone.py`)
-- [ ] 2.10 The delta map (decision 10) in `crossref`
+- [x] 2.10 The delta map (decision 10) in `crossref` — `| <anchor> rule | Relation | <delta> rule
+  | Tier | Reason |`; `crossref.relation`, `departure_tier`, `departs`, `redefines` (and the table
+  read by `delta_no_table`, `override_target`); `mirror.restated`; override cells read bare too
 - [ ] 2.11 Examples under the shipped configuration minus the allowlist (decision 12)
 - [ ] 2.12 Description template, SKILL.md bound, time-sensitive and provenance phrasing (decision 13)
 
@@ -111,7 +113,7 @@ of its function in `agent_skill.measure`, and of the branch it counts.
 | section 2 laid out otherwise than 2.1-2.3 | 1 | 1 | 1 | 1 |
 | a 2.2 subsection that is not one old/new/rule table | 0 | 0 | 0 | 0 |
 | section 2 items naming no rule | 19 | 17 | 11 | 49 |
-| description characters | 846 | 924 | 940 | 948 |
+| description characters | 926 | 1011 | 1020 | 1015 |
 | SKILL.md lines | 338 | 312 | 348 | 560 |
 
 Where a count differs from the proposal's, the definition differs, and the measure's is the one the
@@ -127,5 +129,7 @@ by construction (`tests/test_normal_form.py`); the rest are a person's. bevy's l
 when it counted its own rows only; 2.8 decided that a delta owes a row only where its configuration
 departs from its anchor's, and bevy-style's two departures are `allow`, so it owes none, and its 7
 rows of lints it sets as rust-style does are the anchor's (the two rows 2.8 added count them).
+`frontmatter.described` read a description without its last line, as the frontmatter ends without
+a newline (846, 924, 940, 948 before 2.10 fixed it; every finding stayed the same).
 `check --fast` 23 s, all passed; pytest 1,002 passed, 7 deselected, 2 min 14 s; FAIL branches 203 →
 220, controls 181 → 198, exemptions 22.

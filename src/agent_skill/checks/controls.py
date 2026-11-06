@@ -16,7 +16,7 @@ and so is a fixture whose anchor text has drifted out of the skill.
 import shutil
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import partial
 from pathlib import Path
 lazy from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -44,11 +44,11 @@ from agent_skill.checks import (
     skeleton,
     toolchain,
 )
-from agent_skill.ids import Branch, Location
+from agent_skill.ids import Branch, Location, RuleId
 from agent_skill.lang import python, rust, zig
 from agent_skill.layout import PLUGIN, SKILLS, root_of
 from agent_skill.model import SKILL_MD
-from agent_skill.profiles import bevy_style, python_style, rust_style, zig_style
+from agent_skill.profiles import Mirror, bevy_style, python_style, rust_style, zig_style
 from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.checks import Check, by_name
 lazy from agent_skill.harness import pinned
@@ -595,6 +595,21 @@ def _on_demo(
     return Control(branch, inject, also or {}, read)
 
 
+def _on_delta(branch: Branch, rel: str, old: str, new: str) -> Control:
+    """A control on the demo's delta, beside the demo, and one edit."""
+
+    def edits(tree: Path) -> Edited:
+        built = demo.build_delta(tree)
+        return (*built, *edit(tree, f"{demo.DELTA.name}/{rel}", old, new))
+
+    return _on_demo(branch, edits)
+
+
+def rules_paired(*pairs: tuple[str, str]) -> tuple[tuple[RuleId, str], ...]:
+    """Mirror pairs, each rule spelled as a reader cites it."""
+    return tuple((RuleId.parse(rid), title) for rid, title in pairs)
+
+
 def _normal(
     branch: Branch,
     rel: str,
@@ -797,6 +812,49 @@ NORMAL_FORM: list[Control] = [
         SKILL_MD,
         "| `old_name` | `new_name` | DS-MIG-01 |",
         "| `old_name` | `newer_name` | DS-MIG-01 |",
+    ),
+    _on_delta(
+        crossref.RELATION,
+        SKILL_MD,
+        "| DS-ERR-01 | tightens |",
+        "| DS-ERR-01 | replaces |",
+    ),
+    _on_delta(
+        # The row says the tier did not move, and the rule moved it.
+        crossref.DEPARTURE_TIER,
+        SKILL_MD,
+        "[M!] → [M]",
+        "[M!] → [M!]",
+    ),
+    _on_delta(
+        # The rule no longer says what it departs from.
+        crossref.DEPARTS,
+        _DEMO_ERRORS,
+        "Departs from DS-ERR-01. A caller",
+        "A caller",
+    ),
+    _on_delta(
+        # `[M!]` scoped in words of the delta's own.
+        crossref.REDEFINES,
+        SKILL_MD,
+        '**Code is "library"** — if it is published.',
+        '**Code is "library"** — if it is published or long-running.',
+    ),
+    _on_demo(
+        # A delta rule declared to say what an anchor rule says.
+        mirror.RESTATED,
+        demo.build_delta,
+        profiles={
+            demo.DELTA.name: replace(
+                demo.DELTA,
+                mirror=Mirror(
+                    demo.PROFILE.name,
+                    rules_paired(
+                        ("DL-ERR-02", "Never stop the program from a library")
+                    ),
+                ),
+            )
+        },
     ),
     _on_demo(
         # Heading and contents line alike, so only the mood is wrong.

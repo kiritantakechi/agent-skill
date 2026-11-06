@@ -27,6 +27,7 @@ NO_ANCHOR_RULE = declare("mirror", "no_anchor_rule", Level.FAIL)
 AMBIGUOUS = declare("mirror", "ambiguous", Level.FAIL)
 NOT_A_RULE = declare("mirror", "not_a_rule", Level.FAIL)
 TIER = declare("mirror", "tier", Level.FAIL)
+RESTATED = declare("mirror", "restated", Level.FAIL)
 UNHELD = declare("mirror", "unheld", Level.NOTE)
 
 
@@ -92,6 +93,21 @@ def _held(mirrored: Skill, anchor: Skill) -> Iterator[Finding]:
                 f"{rid} is not a rule in {mirrored.name}",
                 Location(mirrored.name),
                 NOT_A_RULE,
+            )
+        elif mirrored.profile.normalized and mirrored.profile.anchor == anchor.name:
+            # A normalised delta does not restate its anchor (decision
+            # 10): a rule saying what an anchor rule says is a citation
+            # of it, or a departure its table states.
+            changed = (
+                f" at {other.tier} where it is {matches[0].tier}, a silent tier change"
+                if matches[0].tier != other.tier
+                else ""
+            )
+            yield fail(
+                f"{rid} restates {matches[0].id}{changed}; a delta cites its "
+                "anchor's rule, or departs from it in its departures table",
+                Location(mirrored.name, rule=rid),
+                RESTATED,
             )
         elif matches[0].tier != other.tier:
             yield fail(

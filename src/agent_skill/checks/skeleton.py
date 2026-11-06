@@ -785,7 +785,7 @@ def gone_rows(skill: Skill) -> Iterator[tuple[Migration, Location]]:
         return
     chapter, rows = found
     for row in rows:
-        if row.status == "gone" and row.spelling:
+        if row.status == "gone" and row.spelling is not None:
             yield row, chapter.where(row.line)
 
 

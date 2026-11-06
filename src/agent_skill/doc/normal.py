@@ -260,8 +260,8 @@ def sought(rows: Sequence[Migration]) -> tuple[str, ...]:
     stands. One that changed behaviour, or is deprecated and still
     works, is a rule's to judge, not a hit.
     """
-    found = (r.spelling for r in rows if r.status in SOUGHT and r.spelling)
-    return tuple(dict.fromkeys(s for s in found if s))
+    found = (r.spelling for r in rows if r.status in SOUGHT)
+    return tuple(dict.fromkeys(s for s in found if s is not None))
 
 
 def command(spellings: Sequence[str]) -> Fence | None:

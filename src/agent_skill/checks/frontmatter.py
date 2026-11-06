@@ -34,7 +34,9 @@ def described(body: str) -> str | None:
     None when it holds no `>-` folded description, which is the one
     shape every standard's takes.
     """
-    block = re.search(r"description: >-\n((?:  .*\n)+)", body)
+    # The body ends without a newline, so the last line of a
+    # description that is the last key ends at the end of the body.
+    block = re.search(r"description: >-\n((?:  .*(?:\n|\Z))+)", body)
     if block is None:
         return None
     return " ".join(line.strip() for line in block.group(1).splitlines())
