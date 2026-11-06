@@ -4,16 +4,27 @@ The rust side compiles its blocks as modules of one crate; Zig has no
 such container, so each block becomes a standalone file — which is also
 the stronger claim, and the one `// verified` should mean: this text
 compiles as written.
+
+And everything else the harness knows about Zig: that a compiler row is
+proved by a probe the compiler rejects, that the pin follows this
+machine's `zig`, and that a shipped `build.zig` is `zig fmt` clean and
+parses.
 """
 
 import re
+import tempfile
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
-lazy from collections.abc import Iterable
+from types import MappingProxyType
+lazy from collections.abc import Callable, Iterable, Iterator, Mapping
 
+from agent_skill.ids import Pin
 from agent_skill.lang import Extraction, Language, Unit, inconclusive, timed_out
 from agent_skill.proc import have, run
-from agent_skill.report import Finding, Level, declare, fail, note
+from agent_skill.report import Finding, Level, declare, fail, note, unrun
+lazy from agent_skill.checks.citations import Row, rows_of
+lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Skill
 
 # The branches of `toolchain` and of `mutation` Zig's steps report
@@ -27,6 +38,23 @@ FMT = declare("toolchain", "zig_fmt", Level.FAIL)
 FMT_UNREAD = declare("toolchain", "zig_fmt_unread", Level.FAIL)
 HUNG = declare("mutation", "zig_inconclusive", Level.NOTE)
 SURVIVOR = declare("mutation", "zig_survivor", Level.NOTE)
+
+# The branches of `citations` a compiler row reports through.
+ROWS_ABSENT = declare("citations", "zig_absent", Level.UNRUN)
+NO_PROBE = declare("citations", "zig_no_probe", Level.FAIL)
+PROBE_COMPILES = declare("citations", "zig_probe_compiles", Level.FAIL)
+PROBE_OTHER = declare("citations", "zig_probe_other", Level.FAIL)
+PROBE_NO_ROW = declare("citations", "zig_probe_no_row", Level.FAIL)
+
+# The branches of `pins` a pin that follows this machine reports
+# through.
+LOCAL_SILENT = declare("pins", "local_silent", Level.UNRUN)
+LOCAL_MOVED = declare("pins", "local_moved", Level.FAIL)
+
+# The branches of `assets` a shipped zig file reports through.
+ASSET_ABSENT = declare("assets", "zig_absent", Level.UNRUN)
+ASSET_FMT = declare("assets", "zig_fmt", Level.FAIL)
+ASSET_AST = declare("assets", "zig_ast", Level.FAIL)
 
 
 def inside_tests(body: str) -> set[int]:
@@ -66,11 +94,32 @@ def needs_c_object(source: str) -> bool:
     return bool(_EXTERN_FN.search(LANGUAGE.code(source)))
 
 
-#: The compiler `zig-style` is verified against. It follows this
-#: machine's `zig` rather than upstream's newest release, so `pins`
-#: compares it with `zig version` only: the skill moves when the
-#: compiler here does.
-ZIG_VERSION = "0.17.0"
+@dataclass(frozen=True, slots=True)
+class ZigBuild:
+    """How a skill's zig examples are built: the compiler, and why that.
+
+    The pin follows this machine's `zig` rather than upstream's newest
+    release, so `pins` compares it with `zig version` only: the skill
+    moves when the compiler here does.
+    """
+
+    compiler: Pin
+    #: Why the pin follows the local compiler, rather than upstream's
+    #: newest release.
+    follows_local: str
+
+    @property
+    def pin(self) -> Pin:
+        """The compiler release the examples are verified against."""
+        return self.compiler
+
+
+ZIG_STYLE = ZigBuild(
+    Pin.parse("zig==0.17.0"),
+    follows_local=(
+        "follows this machine's `zig`, and is bumped with the skill, never ahead of it"
+    ),
+)
 
 #: What a block names that only libc supplies. macOS links libc into
 #: everything and Linux into nothing, so a block calling `std.c`
@@ -128,11 +177,21 @@ class Zig:
 
     name = "zig"
     tool = "zig"
-    language = LANGUAGE
+    language: Language = LANGUAGE
+    needs: tuple[str, ...] = ("zig",)
+    #: A compile error has one level: the build stops.
+    rows: Mapping[str, frozenset[str]] = MappingProxyType({"zig": frozenset({"error"})})
+    #: Its rows are the compiler's own errors, which no setting turns
+    #: off.
+    compilers: frozenset[str] = frozenset({"zig"})
+    cites_with: tuple[str, ...] = ("zig",)
+    pins_with: tuple[str, ...] = ("zig",)
+    asset_suffixes: tuple[str, ...] = (".zig", ".zon")
+    assets_with: tuple[str, ...] = ("zig",)
 
     def missing(self) -> list[str]:
         """`zig` itself, when it is not on PATH."""
-        return [] if have(self.tool) else [f"`{self.tool}` is not on PATH"]
+        return [f"`{tool}` is not on PATH" for tool in self.needs if not have(tool)]
 
     def extract(self, skill: Skill, out: Path) -> Extraction:
         """Write each verified block as a file that forces analysis."""
@@ -222,6 +281,75 @@ class Zig:
                 FMT_UNREAD,
             )
 
+    def cite(self, skill: Skill) -> Iterator[Finding]:
+        """The compiler rows, each against the probe that proves it."""
+        # Asked before looking for rows, as Rust's are.
+        if not have("zig"):
+            yield unrun(
+                "`zig` is not on PATH, so no compiler row was proved",
+                skill.at(),
+                ROWS_ABSENT,
+            )
+            return
+        rows = [(where, row) for where, row in rows_of(skill) if row.tool in self.rows]
+        yield from zig_rows(rows, skill.profile.probes, compile_errors, skill.at())
+
+    def pins(self, skill: Skill) -> Iterator[Finding]:
+        """The compiler pin, against the `zig` this machine runs.
+
+        Compared with the running version only. Upstream releasing
+        something newer is not a finding — the standard is verified
+        against what runs here, and that has not changed. The local
+        toolchain moving past the pin is: the claim that the examples
+        were verified on this version has just stopped being true.
+        """
+        build = skill.profile.toolchain
+        if not isinstance(build, ZigBuild):
+            return
+        where, name = skill.at(), skill.profile.name
+        pinned, running = str(build.compiler.version), _running()
+        if not running:
+            yield unrun(
+                "could not ask the local toolchain which version runs, "
+                f"so `{pinned}` was not compared",
+                where,
+                LOCAL_SILENT,
+            )
+        elif running != pinned:
+            moved = f"follows this machine's toolchain, which is now {running}"
+            yield fail(
+                f"{name} is pinned to {pinned} and {moved} — the cue to bump it",
+                where,
+                LOCAL_MOVED,
+            )
+
+    def asset(self, path: Path, where: Location) -> Iterator[Finding]:
+        """A zig asset is `zig fmt` clean and passes `zig ast-check`."""
+        if not have("zig"):
+            # Silence is not success, and a `NOTE` is silence: it does
+            # not withhold the pass. A shipped `build.zig` that nothing
+            # parsed is exactly the case this check exists for.
+            yield unrun(
+                "`zig` is not on PATH, so nothing parsed this file",
+                where,
+                ASSET_ABSENT,
+            )
+            return
+        if not run(["zig", "fmt", "--check", str(path)], timeout=60).ok:
+            yield fail("not `zig fmt` clean", where, ASSET_FMT)
+        r = run(["zig", "ast-check", str(path)], timeout=60)
+        if not r.ok:
+            first = next(
+                (ln for ln in r.err.split("\n") if ": error:" in ln), r.err[:80]
+            )
+            # the absolute path is noise; the line and the message are
+            # not
+            yield fail(first.split(f"{path}:")[-1].strip()[:84], where, ASSET_AST)
+
+    def format(self, skill: Skill) -> list[Finding]:  # noqa: ARG002 — nothing rewrites a zig block yet
+        """Nothing: no formatter writes a zig block back yet."""
+        return []
+
     def mutate(self, ex: Extraction) -> Iterable[Finding]:
         """Statements a shipped test does not pin.
 
@@ -272,6 +400,82 @@ class Zig:
 
 def _has_test(source: str) -> bool:
     return "\ntest " in source or source.startswith("test ")
+
+
+def _running() -> str:
+    """What `zig version` reports here, or "" if it cannot say."""
+    if not have("zig"):
+        return ""
+    answered = run(["zig", "version"], timeout=30)
+    return answered.out.strip() if answered.ok else ""
+
+
+def phrase(lint: str) -> re.Pattern[str]:
+    """The `error:` line a compiler row's phrase stands for.
+
+    A phrase is the message from its start, with `…` for each
+    identifier, type or literal in it. The match is anchored at
+    `error: `, so `unreachable code` does not match `reached unreachable
+    code`.
+    """
+    parts = (re.escape(part) for part in lint.split("…"))
+    return re.compile("error: " + ".+?".join(parts))
+
+
+def zig_rows(
+    rows: Iterable[Row],
+    probes: Mapping[str, str],
+    compile_errors: Callable[[str], list[str] | None],
+    profile: Location,
+) -> Iterator[Finding]:
+    """Each row its probe does not prove, and each probe with no row.
+
+    `compile_errors` returns the `error:` lines the compiler printed for
+    a source, or `None` when it accepted it. A probe is declared by the
+    skill's profile, so one with no row is reported at `profile`.
+    """
+    rows = list(rows)
+    cited = {row.lint for _, row in rows}
+    for where, row in rows:
+        source = probes.get(row.lint)
+        if source is None:
+            yield fail(
+                f"`{row.lint}` has no probe, so nothing shows the compiler reports it",
+                where,
+                NO_PROBE,
+            )
+            continue
+        errors = compile_errors(source)
+        if errors is None:
+            yield fail(
+                f"`{row.lint}`: its probe compiles, so the compiler does not report it",
+                where,
+                PROBE_COMPILES,
+            )
+        elif not any(phrase(row.lint).search(line) for line in errors):
+            printed = errors[0] if errors else "no error line"
+            yield fail(
+                f"`{row.lint}`: its probe fails with `{printed}` instead",
+                where,
+                PROBE_OTHER,
+            )
+    for lint in sorted(set(probes) - cited):
+        yield fail(
+            f"the probe for `{lint}` has no row in any chapter",
+            profile,
+            PROBE_NO_ROW,
+        )
+
+
+def compile_errors(source: str) -> list[str] | None:
+    """The `error:` lines zig prints for `source`; None if it builds."""
+    with tempfile.TemporaryDirectory() as work:
+        probe = Path(work) / "probe.zig"
+        probe.write_text(source.rstrip("\n") + "\n" + force_analysis(source))
+        r = run(["zig", "build-obj", probe.name, "-fno-emit-bin"], cwd=Path(work))
+    if r.ok:
+        return None
+    return [line for line in r.err.splitlines() if "error:" in line]
 
 
 ZIG = Zig()

@@ -597,7 +597,7 @@ def _below_target(skill: Skill) -> Iterator[Finding]:
     inline, is content rather than prose. The migration chapter is where
     a standard's history lives, so it is not read.
     """
-    pin = re.match(r"(\d+)\.(\d+)", skill.profile.pin())
+    pin = re.match(r"(\d+)\.(\d+)", skill.profile.release)
     if pin is None:
         return
     major, target = pin.group(1), int(pin.group(2))

@@ -45,11 +45,9 @@ lazy from agent_skill.report import Finding
 
 # The branches a finding of this check comes from.
 SEARCHER = declare("sensitivity", "searcher", Level.UNRUN)
-NO_LANGUAGE = declare("sensitivity", "no_language", Level.FAIL)
 ORPHAN_FIXTURE = declare("sensitivity", "orphan_fixture", Level.FAIL)
 UNACCOUNTED = declare("sensitivity", "unaccounted", Level.FAIL)
 STALE_UNPROVEN = declare("sensitivity", "stale_unproven", Level.FAIL)
-NO_FIXTURE = declare("sensitivity", "no_fixture", Level.FAIL)
 NO_CHECK = declare("sensitivity", "no_check", Level.FAIL)
 NO_COMMAND = declare("sensitivity", "no_command", Level.FAIL)
 NO_ANSWER = declare("sensitivity", "no_answer", Level.FAIL)
@@ -78,14 +76,9 @@ def sensitivity(skill: Skill) -> Iterator[Finding]:
     if problem := searcher_problem():
         yield unrun(problem, skill.at(), SEARCHER)
         return
-    if not skill.profile.languages:
-        yield fail(
-            f"{skill.name} declares fixtures but no language, so a fixture cannot "
-            "be prepared the way the corpus it stands in for is",
-            skill.at(),
-            NO_LANGUAGE,
-        )
-        return
+    # `tests/test_profiles.py` holds a profile with fixtures to naming
+    # the language they are prepared as, as the corpus they stand in for
+    # is.
     lang = skill.profile.languages[0]
 
     by_id = {r.id: r for r in skill.rules}
@@ -145,9 +138,6 @@ def _fixtures(
 ) -> Iterator[Finding]:
     """One rule's fixtures, against the commands its Check ships."""
     rid = rule.id
-    if not fixtures:
-        yield fail(f"{rid}: is listed with no fixture at all", skill.at(), NO_FIXTURE)
-        return
     if not rule.check:
         yield fail(
             f"{rid}: has a fixture but no **Check:** to run against it",

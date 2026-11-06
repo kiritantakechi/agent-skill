@@ -30,13 +30,11 @@ lazy from agent_skill.report import Finding
 # The branches a finding of this check comes from.
 APPARATUS_CITATION = declare("crossref", "apparatus", Level.FAIL)
 NO_TABLE = declare("crossref", "no_table", Level.NOTE)
-DELTA_DECLARATION = declare("crossref", "delta_declaration", Level.FAIL)
 DELTA_NO_TABLE = declare("crossref", "delta_no_table", Level.FAIL)
 FOREIGN_CITATION = declare("crossref", "citation", Level.FAIL)
 OVERRIDE_TARGET = declare("crossref", "override_target", Level.FAIL)
 OVERRIDE_TITLE = declare("crossref", "override_title", Level.FAIL)
 ANCHOR_ABSENT = declare("crossref", "anchor_absent", Level.UNRUN)
-ANCHOR_NO_LANGUAGE = declare("crossref", "anchor_no_language", Level.FAIL)
 SEARCHER = declare("crossref", "searcher", Level.UNRUN)
 ANCHOR_EMPTY_CORPUS = declare("crossref", "anchor_empty_corpus", Level.FAIL)
 ANCHOR_NO_ANSWER = declare("crossref", "anchor_no_answer", Level.FAIL)
@@ -141,21 +139,13 @@ def _named(doc: Doc) -> Iterator[RuleId]:
 
 
 def _delta(skill: Skill, rows: tuple[Override, ...]) -> Iterator[Finding]:
-    """A delta names its anchor, and states where it departs from it.
+    """A delta states where it departs from its anchor.
 
-    `delta_step` is what marks a delta, so the two declarations have to
-    agree. A delta with no override table claims that it relaxes nothing
-    — which was the reading when the table was deleted outright, and the
+    A delta with no override table claims that it relaxes nothing —
+    which was the reading when the table was deleted outright, and the
     anchor sweep switched off with it.
     """
     profile = skill.profile
-    if bool(profile.delta_step) != bool(profile.anchor):
-        yield fail(
-            "the profile sets one of `delta_step` and `anchor` without the "
-            "other; a delta declares both, a standard that stands alone neither",
-            skill.at(),
-            DELTA_DECLARATION,
-        )
     departures = [row for row in rows if row.theirs.standard != skill.prefix]
     if profile.anchor and not departures:
         yield fail(
@@ -248,15 +238,9 @@ def _anchor_patterns(skill: Skill, by_name: dict[str, Skill]) -> Iterator[Findin
             ANCHOR_ABSENT,
         )
         return
-    if not skill.profile.languages:
-        yield fail(
-            f"is a delta on {other.name} and its profile names no language, so the "
-            "anchor's patterns have no examples to run over",
-            skill.at(),
-            ANCHOR_NO_LANGUAGE,
-        )
-        return
     named = set(_named(skill.doc))
+    # `tests/test_profiles.py` holds a delta to naming the language its
+    # examples are in, which the anchor's patterns run over.
     lang = skill.profile.languages[0]
     if problem := searcher_problem():
         yield unrun(problem, skill.at(), SEARCHER)

@@ -7,7 +7,7 @@ import pytest
 from agent_skill.checks.layout import WIDTH, layout
 from agent_skill.model import Skill
 from agent_skill.report import Finding, Level
-from structure_fixture import Demo
+from structure_fixture import DEMO
 
 TABLE = "| Stale | Current |\n|---|---|\n"
 
@@ -20,7 +20,7 @@ def found(tmp_path: Path, text: str) -> list[Finding]:
     root = tmp_path / "demo-style"
     root.mkdir(parents=True)
     (root / "SKILL.md").write_text(text)
-    return list(layout.each(Skill(root, Demo())))
+    return list(layout.each(Skill(root, DEMO)))
 
 
 def failures(tmp_path: Path, text: str) -> list[str]:

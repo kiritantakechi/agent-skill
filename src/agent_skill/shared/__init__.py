@@ -115,7 +115,7 @@ def major_minor(version: str) -> str:
 
 def skill_sections(skill: Skill) -> tuple[str, ...]:
     """The H2s of a conforming `SKILL.md`, in order."""
-    target = f"{skill.profile.language} {major_minor(skill.profile.pin())}"
+    target = f"{skill.profile.language} {major_minor(skill.profile.release)}"
     return (
         "How to use this standard",
         "1. Tiers",
@@ -130,14 +130,14 @@ def skill_sections(skill: Skill) -> tuple[str, ...]:
 
 def title(skill: Skill) -> str:
     """The H1 of a conforming `SKILL.md`."""
-    return f"# {skill.profile.language} Style — {major_minor(skill.profile.pin())}"
+    return f"# {skill.profile.language} Style — {major_minor(skill.profile.release)}"
 
 
 def slots(skill: Skill) -> dict[str, str]:
     """Every value a template may name, for one skill."""
     profile = skill.profile
-    crate = profile.crate
-    pin = profile.pin()
+    pin = profile.release
+    toolchain = profile.toolchain
     comment = language(profile.languages[0] if profile.languages else "").comment
     return {
         "language": profile.language,
@@ -145,7 +145,8 @@ def slots(skill: Skill) -> dict[str, str]:
         "prefix": profile.prefix,
         "comment": comment,
         "verified_as": profile.verified_as.format(
-            pin=pin, rust=crate.rust_version if crate else ""
+            pin=pin,
+            toolchain=str(toolchain.pin.version.public) if toolchain else "",
         ),
         "tools": ", ".join(f"`{t}`" for t in profile.tools),
         "strict_scope": profile.strict_scope,

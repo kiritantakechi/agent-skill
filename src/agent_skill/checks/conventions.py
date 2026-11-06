@@ -23,4 +23,5 @@ def conventions(skill: Skill) -> Iterator[Finding]:
 
     Each profile declares the branches its rules fire through.
     """
-    yield from skill.profile.conventions(skill)
+    if (rules := skill.profile.conventions) is not None:
+        yield from rules(skill)

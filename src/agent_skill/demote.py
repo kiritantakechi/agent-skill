@@ -25,6 +25,7 @@ from agent_skill.ids import rule_id
 from agent_skill.layout import SKILLS
 from agent_skill.model import DECIDED, FENCE, Skill, unfenced
 from agent_skill.renumber import RenumberError, _corpus, _segments, carry, heading
+lazy from agent_skill.lang import toolchains
 lazy from agent_skill.profiles import Profile
 
 
@@ -77,8 +78,10 @@ COMPILER_LEAD = (
     "The compiler rejects each of these on its own; no setting turns one off."
 )
 
-#: Tools whose rows are errors the compiler always reports.
-COMPILERS = frozenset({"zig"})
+
+def compilers() -> frozenset[str]:
+    """Tools whose rows are errors the compiler always reports."""
+    return frozenset(t for tc in toolchains() for t in tc.compilers)
 
 
 def plan(
@@ -313,7 +316,7 @@ def _add_rows(text: str, rows: list[list[str]]) -> str:
         f"| {tool} | `{lint}` | {level} | {forbids} |"
         for tool, lint, level, forbids in cells
     ]
-    lead = COMPILER_LEAD if rows[0][0] in COMPILERS else LEAD
+    lead = COMPILER_LEAD if rows[0][0] in compilers() else LEAD
     header = "| Tool | Lint | Level | Forbids |\n|---|---|---|---|\n"
     if table := re.search(rf"^## {DECIDED}\n", text, re.MULTILINE):
         nxt = re.compile(r"^## ", re.MULTILINE).search(text, table.end())

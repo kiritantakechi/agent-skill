@@ -1,9 +1,11 @@
 """Rules that say the same thing in two skills must agree on tier.
 
-The table is anchored on rule **titles**, which survive renumbering — a
-renumbering pass twice pointed it at unrelated rules. Titles only anchor
-if they are unique, which the anatomy check enforces; ambiguity here is
-a failure rather than a silent pick.
+Each profile names the standard its rules are compared with, and the
+pairs it holds (`Profile.mirror`). A pair is anchored on the other
+rule's **title**, which survives renumbering — a renumbering pass twice
+pointed an ID-keyed table at unrelated rules. Titles only anchor if they
+are unique, which the anatomy check enforces; ambiguity here is a
+failure rather than a silent pick.
 """
 
 import re
@@ -16,33 +18,6 @@ from agent_skill.report import Level, declare, fail, note
 lazy from agent_skill.doc.chapter import Rule
 lazy from agent_skill.model import Skill, Tree
 lazy from agent_skill.report import Finding
-
-#: (rule id in another skill, title of its counterpart in the anchor).
-#: The id's prefix names which skill it belongs to, so a fourth standard
-#: joins the table without restructuring it — and gets the unheld-pair
-#: note for free.
-MIRROR: list[tuple[str, str]] = [
-    ("ZS-DATA-36", "Give every operation its inverse, or document why there is none"),
-    ("ZS-DATA-37", "Keep argument order identical across sibling functions"),
-    ("ZS-DATA-38", "Replace a `bool` parameter: split the function, or name the flag"),
-    ("ZS-ERR-33", "Give sibling error variants a uniform shape"),
-    (
-        "ZS-ERR-34",
-        "Absorb a special case into the general path, or give it its own type",
-    ),
-    ("ZS-NAME-28", "Name the two halves of a pair symmetrically"),
-    ("ZS-NAME-29", "One concept, one mechanism"),
-    ("ZS-NAME-30", "Keep sibling modules structurally parallel"),
-    (
-        "ZS-COMPTIME-16",
-        "Name the capability as a trait before writing the type that provides it",
-    ),
-    ("ZS-BUILD-22", "Count the encapsulation a split costs, not only what it buys"),
-    ("ZS-BUILD-24", "Give the directory and the crate the same name"),
-    ("ZS-NAME-02", "Capitalize acronyms as ordinary English words"),
-]
-
-ANCHOR = "rust-style"
 
 #: Above this overlap between two titles, the rules look like a pair.
 LOOKS_PAIRED = 0.5
@@ -62,45 +37,55 @@ def _shingles(s: str, n: int = 3) -> set[tuple[str, ...]]:
 
 @check("mirror", "mirrored rules agree on tier")
 def mirror(tree: Tree) -> Iterator[Finding]:
-    """Pairs in `MIRROR` agree on tier; a pair it misses is noted.
+    """Each profile's pairs agree on tier; a pair it misses is noted.
 
     A finding lies in the skill whose rule mirrors the anchor's, at
     that rule, or in the anchor when it is the anchor's title that
-    does not resolve.
+    does not resolve. A skill whose anchor is not in the tree is not
+    compared: there is nothing to compare it with.
     """
     by_name = {s.name: s for s in tree}
-    anchor = by_name.get(ANCHOR)
-    if anchor is None:
-        return
-    by_prefix = {s.prefix: s for s in tree if s.name != ANCHOR}
-    yield from _held(anchor, by_prefix)
-    yield from _unheld(anchor, by_prefix)
+    compared = [
+        (skill, anchor)
+        for skill in tree
+        if skill.profile.mirror is not None
+        and (anchor := by_name.get(skill.profile.mirror.anchor)) is not None
+    ]
+    for skill, anchor in compared:
+        yield from _held(skill, anchor)
+    for skill, anchor in compared:
+        yield from _unheld(skill, anchor)
 
 
-def _held(anchor: Skill, by_prefix: dict[str, Skill]) -> Iterator[Finding]:
-    """Each `MIRROR` pair resolves to one rule a side, at one tier."""
+def _pairs(skill: Skill) -> tuple[tuple[str, str], ...]:
+    """The pairs `skill`'s profile holds: a rule here, a title there."""
+    declared = skill.profile.mirror
+    return declared.pairs if declared is not None else ()
+
+
+def _held(mirrored: Skill, anchor: Skill) -> Iterator[Finding]:
+    """Each held pair resolves to one rule a side, at one tier."""
     titles: dict[str, list[Rule]] = {}
     for rule in anchor.chapter_rules:
         titles.setdefault(rule.title, []).append(rule)
-    by_id = {p: {r.id: r for r in s.chapter_rules} for p, s in by_prefix.items()}
+    by_id = {r.id: r for r in mirrored.chapter_rules}
 
-    for spelled, title in MIRROR:
+    for spelled, title in _pairs(mirrored):
         rid = RuleId.parse(spelled)
         matches = titles.get(title, [])
-        mirrored = by_prefix.get(rid.standard)
-        if mirrored is None:
-            continue  # that skill is not in this run; nothing to compare against
-        other = by_id[rid.standard].get(rid)
+        other = by_id.get(rid)
         if not matches:
             yield fail(
-                f"no {ANCHOR} rule titled {title!r}", Location(ANCHOR), NO_ANCHOR_RULE
+                f"no {anchor.name} rule titled {title!r}",
+                Location(anchor.name),
+                NO_ANCHOR_RULE,
             )
         elif len(matches) > 1:
             named = ", ".join(str(r.id) for r in matches)
             yield fail(
                 f"{title!r} is ambiguous ({named}); "
                 f"the anchor cannot say which rule {rid} mirrors",
-                Location(ANCHOR),
+                Location(anchor.name),
                 AMBIGUOUS,
             )
         elif other is None:
@@ -118,29 +103,28 @@ def _held(anchor: Skill, by_prefix: dict[str, Skill]) -> Iterator[Finding]:
             )
 
 
-def _unheld(anchor: Skill, by_prefix: dict[str, Skill]) -> Iterator[Finding]:
-    """A pair that looks mirrored and that `MIRROR` does not yet hold.
+def _unheld(mirrored: Skill, anchor: Skill) -> Iterator[Finding]:
+    """A pair that looks mirrored and that the profile does not hold.
 
-    The table is hand-maintained, so it needs something that notices a
-    pair it does not yet hold: three mirrored rules were guarded by
-    nothing at all. Every non-anchor skill is searched, not just the one
-    the table was written for — a pair the table misses is the same
+    The pairs are written by hand, so they need something that notices
+    a pair they do not yet hold: three mirrored rules were guarded by
+    nothing at all. Every skill compared with the anchor is searched,
+    not just the one with pairs — a pair a profile misses is the same
     defect whichever standard it is in.
     """
-    held = {RuleId.parse(spelled) for spelled, _ in MIRROR}
+    held = {RuleId.parse(spelled) for spelled, _ in _pairs(mirrored)}
     anchor_shingles = [(r, _shingles(r.title)) for r in anchor.chapter_rules]
-    for mirrored in by_prefix.values():
-        for rule in mirrored.chapter_rules:
-            if rule.id in held:
-                continue
-            a = _shingles(rule.title)
-            if not a:
-                continue
-            for other, b in anchor_shingles:
-                if b and overlap(a, b) > LOOKS_PAIRED:
-                    yield note(
-                        f"{rule.id} and {other.id} look like a pair MIRROR does "
-                        f"not hold ({rule.title!r})",
-                        Location(mirrored.name, rule=rule.id),
-                        UNHELD,
-                    )
+    for rule in mirrored.chapter_rules:
+        if rule.id in held:
+            continue
+        a = _shingles(rule.title)
+        if not a:
+            continue
+        for other, b in anchor_shingles:
+            if b and overlap(a, b) > LOOKS_PAIRED:
+                yield note(
+                    f"{rule.id} and {other.id} look like a pair its profile does "
+                    f"not mirror ({rule.title!r})",
+                    Location(mirrored.name, rule=rule.id),
+                    UNHELD,
+                )

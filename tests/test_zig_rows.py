@@ -4,10 +4,11 @@ lazy from collections.abc import Callable
 
 import pytest
 
-from agent_skill.checks.citations import Row, _compile_zig, phrase, zig_rows
 from agent_skill.doc.chapter import LintRow
 from agent_skill.ids import Location
+from agent_skill.lang.zig import compile_errors, phrase, zig_rows
 from agent_skill.proc import have
+lazy from agent_skill.checks.citations import Row
 
 UNUSED = "unused local constant"
 SHADOW = "local constant … shadows local constant from outer scope"
@@ -85,7 +86,7 @@ def test_a_probe_with_no_row() -> None:
 @pytest.mark.toolchain
 @pytest.mark.skipif(not have("zig"), reason="needs zig")
 def test_a_real_probe_reports_its_error() -> None:
-    errors = _compile_zig("fn f() void {\n    const x = 1;\n}\n")
+    errors = compile_errors("fn f() void {\n    const x = 1;\n}\n")
 
     assert errors is not None
     assert any(phrase(UNUSED).search(line) for line in errors)

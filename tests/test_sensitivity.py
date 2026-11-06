@@ -87,10 +87,11 @@ def test_one_pattern_and_one_fixture_still_works() -> None:
     )
 
 
-def test_a_rule_listed_with_no_fixture_is_reported() -> None:
+def test_a_rule_listed_with_no_fixture_proves_none_of_its_patterns() -> None:
+    """A shipped profile may not list one; the cover still says so."""
     found = messages(fake({"XX-Y-01": ()}))
-    assert found
-    assert "listed with no fixture" in found[0]
+    assert len(found) == 2, found
+    assert all("matches none of this rule's fixtures" in m for m in found)
 
 
 @pytest.mark.parametrize(

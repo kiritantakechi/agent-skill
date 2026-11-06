@@ -31,9 +31,9 @@ lazy from collections.abc import Callable, Iterator
 import pytest
 
 import agent_skill.proc
-from agent_skill.checks import all_checks, by_name, citations, controls, crossref, pins
+from agent_skill.checks import all_checks, by_name, controls, crossref, pins
 from agent_skill.checks import toolchain as toolchain_check
-from agent_skill.lang import toolchain_for
+from agent_skill.lang import python, rust, toolchain_for
 from agent_skill.layout import SKILLS
 from agent_skill.model import Tree, discover
 from agent_skill.report import DECLARED, Level
@@ -292,15 +292,15 @@ NOT_BY_ABSENCE: dict[Branch, str] = {
         "fires on a tree without the delta's anchor skill, which a run of the "
         "shipped skills never is: every run reads every skill"
     ),
-    citations.ENABLED_UNREAD: (
+    python.ENABLED_UNREAD: (
         "fires on a `ruff` present that answers `--show-settings` with nothing; "
         "absent, `ruff_absent` reports first"
     ),
-    citations.CATALOGUE_UNREAD: (
+    python.CATALOGUE_UNREAD: (
         "fires on a `ruff` present that lists no rules; absent, `ruff_absent` "
         "reports first"
     ),
-    citations.RUST_CATALOGUE_UNREAD: (
+    rust.CATALOGUE_UNREAD: (
         "fires on a `clippy-driver` and `rustdoc` present that list no lints; "
         "absent, `rust_tool_absent` reports first"
     ),
@@ -316,27 +316,27 @@ NOT_BY_ABSENCE: dict[Branch, str] = {
         "fires on a version the index offers that cannot be ordered, which is the "
         "index's state rather than a tool's absence"
     ),
-    pins.STABLE_SILENT: (
+    rust.STABLE_SILENT: (
         "fires when the Rust stable channel does not answer over the network, "
         "which is no declared tool"
     ),
-    pins.CRATES_SILENT: (
+    rust.CRATES_SILENT: (
         "fires when crates.io does not answer over the network, which is no "
         "declared tool"
     ),
-    pins.LIBRARY_UNORDERED: (
+    rust.LIBRARY_UNORDERED: (
         "fires on a crate version crates.io offers that cannot be ordered, which "
         "is the registry's state"
     ),
-    pins.PROJECT_UNPARSED: (
+    python.PROJECT_UNPARSED: (
         "fires on a shipped `pyproject.toml` that does not parse, a defect of the "
         "tree that `assets.toml` fails and controls"
     ),
-    pins.UV_SILENT: (
+    python.UV_SILENT: (
         "fires on a `uv` present that lists no interpreters; absent, `uv_absent` "
         "reports first"
     ),
-    pins.RELEASE_UNORDERED: (
+    python.RELEASE_UNORDERED: (
         "fires on an interpreter release `uv` offers that cannot be ordered, "
         "which is the release list's state"
     ),

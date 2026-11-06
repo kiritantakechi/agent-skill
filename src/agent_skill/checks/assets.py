@@ -17,6 +17,7 @@ lazy from typing import Any
 
 from agent_skill.checks import check, per_skill
 from agent_skill.ids import cited
+from agent_skill.lang import needs, toolchains
 from agent_skill.proc import have, run
 from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.ids import Location
@@ -28,7 +29,8 @@ lazy from agent_skill.report import Finding
 #: absence of tabs.
 WORKFLOW_KEYS = ("name:", "on:", "jobs:")
 
-# The branches a finding of this check comes from.
+# The branches a finding of this check comes from. A toolchain that
+# reads an asset of its own declares the branches it reports through.
 NO_DIRECTORY = declare("assets", "no_directory", Level.FAIL)
 EMPTY = declare("assets", "empty", Level.FAIL)
 TAB = declare("assets", "tab", Level.FAIL)
@@ -40,14 +42,15 @@ UV_ABSENT = declare("assets", "uv_absent", Level.UNRUN)
 BUILD = declare("assets", "build", Level.FAIL)
 NO_WHEEL = declare("assets", "no_wheel", Level.FAIL)
 NO_PY_TYPED = declare("assets", "no_py_typed", Level.FAIL)
-ZIG_ABSENT = declare("assets", "zig_absent", Level.UNRUN)
-ZIG_FMT = declare("assets", "zig_fmt", Level.FAIL)
-ZIG_AST = declare("assets", "zig_ast", Level.FAIL)
 WORKFLOW_KEY = declare("assets", "workflow_key", Level.FAIL)
 ODD_INDENT = declare("assets", "odd_indent", Level.FAIL)
 
 
-@check("assets", "the files a reader copies verbatim", needs=("uv", "zig"))
+@check(
+    "assets",
+    "the files a reader copies verbatim",
+    needs=("uv", *needs(lambda tc: tc.assets_with)),
+)
 @per_skill
 def assets(skill: Skill) -> Iterator[Finding]:
     """Each asset: well formed, referenced, and citing real rules."""
@@ -73,18 +76,7 @@ def _asset(skill: Skill, path: Path, referenced: str) -> Iterator[Finding]:
     if not text.endswith("\n"):
         yield fail("no trailing newline", tag, NEWLINE)
 
-    match path.suffix:
-        case ".zig" | ".zon":
-            yield from _zig(path, tag)
-        case ".toml":
-            try:
-                data = tomllib.loads(text)
-            except tomllib.TOMLDecodeError as e:
-                yield fail(str(e), tag, TOML)
-            else:
-                yield from _build(data, text, tag)
-        case ".yml" | ".yaml":
-            yield from _workflow(text, partial(skill.at, path))
+    yield from _kind(skill, path, text)
 
     # An asset nobody points at is not part of the skill.
     if f"assets/{path.name}" not in referenced:
@@ -96,6 +88,29 @@ def _asset(skill: Skill, path: Path, referenced: str) -> Iterator[Finding]:
     # sat unverified.
     for rid in sorted(set(cited(text, skill.prefix)) - skill.ids):
         yield fail(f"cites {rid}, which is not a rule", tag, CITES)
+
+
+def _kind(skill: Skill, path: Path, text: str) -> Iterator[Finding]:
+    """What one asset's kind asks of it.
+
+    A toolchain reads the assets in its own language; a manifest is
+    parsed, and built if it describes a project; a workflow is read for
+    its shape.
+    """
+    tag = skill.at(path)
+    for toolchain in toolchains():
+        if path.suffix in toolchain.asset_suffixes:
+            yield from toolchain.asset(path, tag)
+    match path.suffix:
+        case ".toml":
+            try:
+                data = tomllib.loads(text)
+            except tomllib.TOMLDecodeError as e:
+                yield fail(str(e), tag, TOML)
+            else:
+                yield from _build(data, text, tag)
+        case ".yml" | ".yaml":
+            yield from _workflow(text, partial(skill.at, path))
 
 
 def _build(data: dict[str, Any], text: str, tag: Location) -> Iterator[Finding]:
@@ -115,8 +130,8 @@ def _build(data: dict[str, Any], text: str, tag: Location) -> Iterator[Finding]:
         # `UNRUN`, not `NOTE`: `Result.ok` is `not fails and not unrun`,
         # so a note lets a run where nothing built this template report
         # ALL CHECKS PASSED. `citations`, `pins` and `toolchain` all use
-        # `unrun` here; this path and `_zig` were the two that did not,
-        # and both were copied from the same wrong precedent.
+        # `unrun` here; this path and the zig asset's were the two that
+        # did not, and both were copied from the same wrong precedent.
         yield unrun(
             "`uv` is not on PATH, so nothing built this project", tag, UV_ABSENT
         )
@@ -168,25 +183,6 @@ def _build(data: dict[str, Any], text: str, tag: Location) -> Iterator[Finding]:
         shipped = zipfile.ZipFile(wheels[0]).namelist()
         if not any(n.endswith("/py.typed") for n in shipped):
             yield fail("built wheel ships no `py.typed`", tag, NO_PY_TYPED)
-
-
-def _zig(path: Path, tag: Location) -> Iterator[Finding]:
-    """A zig asset is `zig fmt` clean and passes `zig ast-check`."""
-    if not have("zig"):
-        # Silence is not success, and a `NOTE` is silence: it does not
-        # withhold the pass. A shipped `build.zig` that nothing parsed
-        # is exactly the case this check exists for.
-        yield unrun(
-            "`zig` is not on PATH, so nothing parsed this file", tag, ZIG_ABSENT
-        )
-        return
-    if not run(["zig", "fmt", "--check", str(path)], timeout=60).ok:
-        yield fail("not `zig fmt` clean", tag, ZIG_FMT)
-    r = run(["zig", "ast-check", str(path)], timeout=60)
-    if not r.ok:
-        first = next((ln for ln in r.err.split("\n") if ": error:" in ln), r.err[:80])
-        # the absolute path is noise; the line and the message are not
-        yield fail(first.split(f"{path}:")[-1].strip()[:84], tag, ZIG_AST)
 
 
 def _workflow(text: str, at: Callable[..., Location]) -> Iterator[Finding]:

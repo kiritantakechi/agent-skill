@@ -393,7 +393,7 @@ def heading(skill: Skill) -> str:
     Named by the target, the pin's major.minor: a patch release moves
     the pin and is not a new revision, so it starts no second table.
     """
-    target = shared.major_minor(skill.profile.pin())
+    target = shared.major_minor(skill.profile.release)
     return f"## Rule IDs before the {skill.profile.language} {target} revision"
 
 

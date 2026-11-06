@@ -79,7 +79,8 @@ def prose(skill: Skill) -> Iterator[Finding]:
             LEGEND_COUNT,
         )
 
-    yield from skill.profile.prose(skill)
+    if (rules := skill.profile.prose) is not None:
+        yield from rules(skill)
 
 
 def _provenance(text: str, at: At) -> Iterator[Finding]:

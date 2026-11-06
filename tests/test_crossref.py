@@ -126,17 +126,6 @@ def test_the_shipped_delta_states_its_table(bevy: Bevy) -> None:
     assert list(crossref._delta(delta, rows)) == []
 
 
-def test_a_delta_needs_both_declarations(
-    bevy: Bevy, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    delta, _ = bevy
-    rows = delta.typed.overrides
-    monkeypatch.setattr(delta.profile, "anchor", "")
-    found = list(crossref._delta(delta, rows))
-    assert [f.level for f in found] == [Level.FAIL]
-    assert "without the other" in found[0].message
-
-
 def test_an_anchor_missing_from_the_tree_is_unrun(bevy: Bevy) -> None:
     """A sweep that could not look is not one that found nothing."""
     delta, by_name = bevy

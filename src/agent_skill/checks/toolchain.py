@@ -10,16 +10,15 @@ from pathlib import Path
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
-from agent_skill.lang import toolchain_for
+from agent_skill.lang import needs, toolchain_for
 from agent_skill.report import Finding, Level, declare, fail, unrun
 lazy from agent_skill.model import Skill
 
-#: What the three toolchains ask `have` for: `cargo`, `zig`, and the
-#: two tools beside the pinned Python. Declared rather than derived,
-#: because a toolchain's `tool` does not say it — Python's is the
-#: interpreter, which is resolved through its venv rather than `PATH`,
-#: and its `missing()` asks for `ty` and `ruff` as well.
-TOOLCHAINS = ("cargo", "zig", "ty", "ruff")
+#: What every toolchain asks `have` for. Each declares it beside its
+#: `missing`, because a toolchain's `tool` does not say it — Python's is
+#: the interpreter, which is resolved through its venv rather than
+#: `PATH`, and its `missing()` asks for `ty` and `ruff` as well.
+TOOLCHAINS = needs(lambda tc: tc.needs)
 
 # The branches these checks report through themselves; each toolchain
 # declares those of its own steps.

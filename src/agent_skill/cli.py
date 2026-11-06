@@ -14,6 +14,7 @@ lazy from collections.abc import Callable
 from agent_skill import build
 from agent_skill.checks import all_checks
 from agent_skill.fmt import format_skill
+from agent_skill.lang import toolchain_for
 from agent_skill.layout import SKILLS, root_of
 from agent_skill.model import Tree, discover
 from agent_skill.report import Level, Result
@@ -287,9 +288,10 @@ def cmd_list(args: argparse.Namespace) -> int:
     for skill in discover(args.skills):
         rules = len(skill.rules)
         blocks = len(skill.blocks(verified=True))
+        toolchain = toolchain_for(skill.profile.toolchain)
         print(
             f"  {skill.name:<12} prefix={skill.prefix}  {rules} rules  "
-            f"{blocks} verified blocks  toolchain={skill.profile.toolchain}"
+            f"{blocks} verified blocks  toolchain={toolchain.name if toolchain else ''}"
         )
     return 0
 

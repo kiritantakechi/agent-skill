@@ -18,9 +18,11 @@ import pytest
 
 from agent_skill import harness
 from agent_skill.checks import pins as mod
-from agent_skill.checks.pins import _sort_key, _tool_pins, library_pin, rust_pin
+from agent_skill.checks.pins import _sort_key, _tool_pins
 from agent_skill.harness import Harness, pinned
-from agent_skill.ids import Location
+from agent_skill.ids import Location, Pin, Version
+from agent_skill.lang import python
+from agent_skill.lang.rust import Library, library_pin, rust_pin
 from agent_skill.proc import Ran
 from agent_skill.report import Level
 
@@ -134,41 +136,47 @@ def test_an_index_answer_it_can_order_still_decides(
     assert "is available" in findings[0].message
 
 
+RUST_199, RUST_198 = Version.parse("1.99"), Version.parse("1.98")
+
+
 def test_a_rust_pin_matching_rustc_and_stable_is_quiet() -> None:
-    assert list(rust_pin("1.99", "1.99.0", "1.99.1", HERE)) == []
+    assert list(rust_pin(RUST_199, "1.99.0", "1.99.1", HERE)) == []
 
 
 def test_a_rust_pin_behind_stable_fails() -> None:
-    found = list(rust_pin("1.98", "1.98.1", "1.99.1", HERE))
+    found = list(rust_pin(RUST_198, "1.98.1", "1.99.1", HERE))
     assert [f.level for f in found] == [FAIL]
     assert "1.99.1 is stable" in found[0].message
     assert found[0].where == HERE
 
 
 def test_a_rust_pin_rustc_disagrees_with_fails() -> None:
-    assert [f.level for f in rust_pin("1.98", "1.99.0", "1.98.1", HERE)] == [FAIL]
+    assert [f.level for f in rust_pin(RUST_198, "1.99.0", "1.98.1", HERE)] == [FAIL]
 
 
 def test_a_rust_pin_nothing_answered_for_is_unrun() -> None:
-    assert [f.level for f in rust_pin("1.99", "", "", HERE)] == [UNRUN, UNRUN]
+    assert [f.level for f in rust_pin(RUST_199, "", "", HERE)] == [UNRUN, UNRUN]
 
 
 def test_a_library_pin_must_be_exact() -> None:
-    assert [f.level for f in library_pin("bevy", "0.20", "0.20.0", HERE)] == [FAIL]
+    """A caret requirement lets the resolver pick another release."""
+    with pytest.raises(ValueError, match="as Cargo pins one release"):
+        Library(Pin.parse("bevy==0.20.0"))
 
 
 def test_a_library_pin_behind_the_newest_release_fails() -> None:
-    found = list(library_pin("bevy", "=0.19.1", "0.20.0", HERE))
+    found = list(library_pin(Pin.parse("bevy=0.19.1"), "0.20.0", HERE))
     assert [f.level for f in found] == [FAIL]
     assert "0.20.0 is released" in found[0].message
 
 
 def test_a_current_library_pin_is_quiet() -> None:
-    assert list(library_pin("bevy", "=0.20.0", "0.20.0", HERE)) == []
+    assert list(library_pin(Pin.parse("bevy=0.20.0"), "0.20.0", HERE)) == []
 
 
 def test_a_library_pin_crates_io_did_not_answer_for_is_unrun() -> None:
-    assert [f.level for f in library_pin("bevy", "=0.20.0", "", HERE)] == [UNRUN]
+    found = library_pin(Pin.parse("bevy=0.20.0"), "", HERE)
+    assert [f.level for f in found] == [UNRUN]
 
 
 INTERPRETER = "cpython-3.15.2+freethreaded"
@@ -177,18 +185,20 @@ HARNESS = {"ty": "0.0.95", "ruff": "0.17.3"}
 
 def test_a_workflow_installing_the_pin_is_quiet() -> None:
     text = f"- run: uv python install {INTERPRETER}\n"
-    assert list(mod.workflow_pins(text, INTERPRETER, HERE)) == []
+    assert list(python.workflow_pins(text, INTERPRETER, HERE)) == []
 
 
 def test_a_workflow_installing_no_interpreter_fails() -> None:
     """The runner's own interpreter is the one build nobody verified."""
     text = "- uses: actions/setup-python@v6\n"
-    [found] = mod.workflow_pins(text, INTERPRETER, HERE)
+    [found] = python.workflow_pins(text, INTERPRETER, HERE)
     assert "installs no interpreter" in found.message
 
 
 def test_a_workflow_installing_another_build_fails() -> None:
-    [found] = mod.workflow_pins("- run: uv python install 3.15t\n", INTERPRETER, HERE)
+    [found] = python.workflow_pins(
+        "- run: uv python install 3.15t\n", INTERPRETER, HERE
+    )
     assert "installs `3.15t`" in found.message
 
 
@@ -198,7 +208,7 @@ def groups(**lists: list[str]) -> dict[str, object]:
 
 def test_an_exact_pin_is_quiet() -> None:
     project = groups(lint=["ruff==0.17.3"], typecheck=["ty == 0.0.95"])
-    assert list(mod.project_pins(project, HARNESS, HERE)) == []
+    assert list(python.project_pins(project, HARNESS, HERE)) == []
 
 
 @pytest.mark.parametrize(
@@ -206,7 +216,7 @@ def test_an_exact_pin_is_quiet() -> None:
 )
 def test_anything_but_the_exact_pin_fails(requirement: str) -> None:
     """A floor passed: only a requirement spelled `==` was compared."""
-    [found] = mod.project_pins(groups(typecheck=[requirement]), HARNESS, HERE)
+    [found] = python.project_pins(groups(typecheck=[requirement]), HARNESS, HERE)
     assert f"requires `{requirement}`" in found.message
 
 
@@ -219,5 +229,5 @@ def test_a_requirement_anywhere_in_the_project_is_read() -> None:
         },
         "dependency-groups": {"dev": [{"include-group": "lint"}]},
     }
-    [found] = mod.project_pins(project, HARNESS, HERE)
+    [found] = python.project_pins(project, HARNESS, HERE)
     assert "requires `ruff>=0.1`" in found.message

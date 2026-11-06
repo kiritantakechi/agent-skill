@@ -5,11 +5,18 @@ previous apparatus inverted that: examples lived in a crate, were
 injected into the markdown, and a block deleted from the markdown left
 an orphan module the orphan check could not see. Extracting in this
 direction makes that state unreachable.
+
+Each toolchain's module is also where everything else the harness knows
+about that language lives, so no check outside `lang/` names one: how it
+is read, which tools decide its `Decided by tools` rows and at which
+levels, how its pins are compared, what it asks of a shipped asset, and
+how `fmt` writes a block back. A check asks the toolchain the skill's
+profile names, through `toolchain_for`.
 """
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
-lazy from collections.abc import Callable, Iterable
+lazy from collections.abc import Callable, Iterable, Mapping
 lazy from pathlib import Path
 
 from agent_skill.ids import Branch, Location
@@ -24,7 +31,13 @@ if TYPE_CHECKING:
     # Not `lazy`: `dataclass` evaluates field annotations as the class
     # is built, and reifying this one then would import `rust`, which
     # imports this package before `Extraction` exists.
-    from agent_skill.lang.rust import Crate
+    from agent_skill.lang.python import PythonSnippet
+    from agent_skill.lang.rust import RustCrate
+    from agent_skill.lang.zig import ZigBuild
+
+#: How one skill's examples are built: the toolchain it names, and that
+#: toolchain's settings for this skill.
+type Config = PythonSnippet | RustCrate | ZigBuild
 
 
 def no_tests(body: str) -> set[int]:  # noqa: ARG001 — the language marks no test
@@ -91,7 +104,7 @@ class Extraction:
     units: list[Unit] = field(default_factory=list)
     #: how the extracted crate is built; None for a toolchain that needs
     #: no manifest
-    crate: Crate | None = None
+    crate: RustCrate | None = None
     skill: str | None = None  #: the skill the examples were extracted from
 
     def __bool__(self) -> bool:
@@ -110,6 +123,20 @@ class Toolchain(Protocol):
     name: str
     tool: str
     language: Language
+    #: what `missing` asks for
+    needs: tuple[str, ...]
+    #: each `Decided by tools` row's tool, and the levels at which it
+    #: fails a run
+    rows: Mapping[str, frozenset[str]]
+    #: the row tools that are the compiler itself, so no configuration
+    #: enables what their rows say
+    compilers: frozenset[str]
+    #: what `cite`, `pins` and `asset` ask for
+    cites_with: tuple[str, ...]
+    pins_with: tuple[str, ...]
+    assets_with: tuple[str, ...]
+    #: the shipped assets `asset` reads, by suffix
+    asset_suffixes: tuple[str, ...]
 
     def missing(self) -> list[str]:
         """What this toolchain needs and cannot find.
@@ -132,6 +159,22 @@ class Toolchain(Protocol):
 
     def mutate(self, ex: Extraction) -> Iterable[Finding]:
         """Statements the extracted blocks' tests do not pin."""
+        ...
+
+    def cite(self, skill: Skill) -> Iterable[Finding]:
+        """Each row and citation the shipped assets do not enforce."""
+        ...
+
+    def pins(self, skill: Skill) -> Iterable[Finding]:
+        """Each of `skill`'s pins that has fallen behind."""
+        ...
+
+    def asset(self, path: Path, where: Location) -> Iterable[Finding]:
+        """What is wrong with a shipped asset of `asset_suffixes`."""
+        ...
+
+    def format(self, skill: Skill) -> list[Finding]:
+        """Rewrite `skill`'s verified blocks as its formatter would."""
         ...
 
 
@@ -167,9 +210,22 @@ def toolchains() -> tuple[Toolchain, ...]:
     return (python.PYTHON_TOOLCHAIN, rust.RUST, zig.ZIG)
 
 
-def toolchain_for(name: str) -> Toolchain | None:
-    """The toolchain called `name`, or None when there is none."""
-    return next((tc for tc in toolchains() if tc.name == name), None)
+def toolchain_for(config: Config | None) -> Toolchain | None:
+    """The toolchain `config` sets up, or None for a skill with none."""
+    match config:
+        case python.PythonSnippet():
+            return python.PYTHON_TOOLCHAIN
+        case rust.RustCrate():
+            return rust.RUST
+        case zig.ZigBuild():
+            return zig.ZIG
+        case None:
+            return None
+
+
+def needs(tools: Callable[[Toolchain], tuple[str, ...]]) -> tuple[str, ...]:
+    """What every toolchain asks for, once each, as `tools` reads it."""
+    return tuple(dict.fromkeys(t for tc in toolchains() for t in tools(tc)))
 
 
 def language(fence: str) -> Language:

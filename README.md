@@ -166,15 +166,16 @@ same name.
 
 Drop it in `plugins/style-standards/skills/` and it gets every generic check:
 frontmatter, rule anatomy, contents agreement, cross-references, layout, marker
-discipline, prose, assets. It needs a profile in `src/agent_skill/profiles/` only to
-have *its own* rules applied to its own examples, or to be compiled. A profile that
-names the `rust` toolchain also names the `Crate` its examples are compiled as — the
-dependency line and the lint table are per skill, not per language: `bevy-style`
-needs Bevy on the dependency line and two lint entries `rust-style` does not relax,
-and one shared manifest would have left one of them unverifiable. A toolchain that
-needs no manifest carries none: `python-style` names `toolchain = "python"` and
-`crate = None`, and declares instead the ruff selection and the `ty` rule levels its
-examples are checked under.
+discipline, prose, assets. It needs a profile in `src/agent_skill/profiles/` — a
+`Profile` record, named in `PROFILES` — only to have *its own* rules applied to its
+own examples, or to be compiled. A profile's `toolchain` is that toolchain's settings
+for the skill, and names the toolchain by its type. For Rust it is the `RustCrate` the
+examples are compiled as — the dependency line and the lint table are per skill, not
+per language: `bevy-style` needs Bevy on the dependency line and two lint entries
+`rust-style` does not relax, and one shared manifest would have left one of them
+unverifiable. A toolchain that needs no manifest carries none: `python-style`'s is a
+`PythonSnippet`, which declares instead the interpreter, the ruff selection and the
+`ty` rule levels its examples are checked under.
 
 ## The checks
 

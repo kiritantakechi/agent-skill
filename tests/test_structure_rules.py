@@ -3,27 +3,21 @@
 Numbering, Why length, lint rows, and rename tables.
 """
 
-from dataclasses import dataclass
-from typing import override
+from dataclasses import replace
 lazy from pathlib import Path
 
 import pytest
 
 from agent_skill.checks import by_name
 from agent_skill.checks.anatomy import structural
-from agent_skill.checks.citations import (
-    Row,
-    python_rows,
-    row_shape,
-    rows_of,
-    rust_catalogue,
-    rust_rows,
-)
+from agent_skill.checks.citations import Row, row_shape, rows_of
 from agent_skill.checks.skeleton import skeleton
 from agent_skill.doc.chapter import LintRow
-from agent_skill.ids import Location
+from agent_skill.ids import Location, Pin
+from agent_skill.lang.python import python_rows
+from agent_skill.lang.rust import rust_catalogue, rust_rows
 from agent_skill.model import DASH, Tree
-from structure_fixture import Demo, build, edit, reparse
+from structure_fixture import DEMO, build, edit, reparse
 lazy from agent_skill.model import Skill
 
 ROWS = """
@@ -208,18 +202,13 @@ def test_a_three_line_why_is_fine(demo: Skill) -> None:
     assert structural_messages(fine) == []
 
 
-@dataclass
-class Twenty(Demo):
-    """The demo at 1.20, whose older releases have two-digit minors."""
-
-    @override
-    def pin(self) -> str:
-        return "1.20.3"
+#: The demo at 1.20, whose older releases have two-digit minors.
+TWENTY = replace(DEMO, subject=Pin.parse("demo==1.20.3"))
 
 
 @pytest.fixture
 def twenty(tmp_path: Path) -> Skill:
-    return build(tmp_path, Twenty())
+    return build(tmp_path, TWENTY)
 
 
 def test_a_rule_naming_an_older_release(twenty: Skill) -> None:

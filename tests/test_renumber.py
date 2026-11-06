@@ -9,7 +9,7 @@ from agent_skill import renumber
 from agent_skill.doc import WIDTH, canonical
 from agent_skill.layout import SKILLS
 from agent_skill.model import Skill
-from structure_fixture import RULE, Demo
+from structure_fixture import DEMO, RULE
 
 
 def chapter(title: str, rules: list[tuple[str, str]], extra: str = "") -> str:
@@ -55,7 +55,7 @@ def repo(tmp_path: Path) -> Path:
 
 
 def run(repo: Path, **chapters: str) -> renumber.Plan:
-    plan = renumber.plan(repo, "demo-style", chapters, Demo())
+    plan = renumber.plan(repo, "demo-style", chapters, DEMO)
     renumber.apply(repo, plan)
     return plan
 
@@ -72,7 +72,7 @@ def test_overlapping_ids_are_rewritten_in_one_pass(repo: Path) -> None:
     skill_md = (repo / SKILLS / "demo-style/SKILL.md").read_text()
     # A chain of replacements would turn both into -01.
     assert "DS-ERR-01 then DS-ERR-02" in skill_md
-    skill = Skill(repo / SKILLS / "demo-style", Demo())
+    skill = Skill(repo / SKILLS / "demo-style", DEMO)
     assert {r.id: r.title for r in skill.rules}["DS-ERR-01"] == "Name them"
 
 
@@ -108,7 +108,7 @@ def test_another_skills_rename_table_follows_the_renumbering(repo: Path) -> None
 
 def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo: Path) -> None:
     run(repo, **THREADS)
-    (table,) = Skill(repo / SKILLS / "demo-style", Demo()).rename_tables
+    (table,) = Skill(repo / SKILLS / "demo-style", DEMO).rename_tables
     assert table.ranges == (("DS-ERR", 2, 3), ("DS-FT", 1, 1), ("DS-MIG", 1, 1))
     assert {r.before: r.target for r in table.rows} == {
         "DS-ERR-02": "DS-ERR-01",
@@ -120,7 +120,7 @@ def test_the_rename_table_states_the_ranges_and_lists_what_changed(repo: Path) -
 
 def test_the_table_is_named_by_the_target_not_the_patch(repo: Path) -> None:
     """A patch release moves the pin and is not a new revision."""
-    skill = Skill(repo / SKILLS / "demo-style", Demo())
+    skill = Skill(repo / SKILLS / "demo-style", DEMO)
     assert renumber.heading(skill) == "## Rule IDs before the Demo 1.2 revision"
 
 
@@ -137,7 +137,7 @@ def test_a_run_that_changes_nothing_starts_no_table(repo: Path) -> None:
 
 def test_a_run_that_changes_nothing_writes_nothing(repo: Path) -> None:
     run(repo, **THREADS)
-    plan = renumber.plan(repo, "demo-style", {}, Demo())
+    plan = renumber.plan(repo, "demo-style", {}, DEMO)
     assert plan.changed == 0
     assert plan.writes == {}
 
@@ -152,7 +152,7 @@ def test_an_unlisted_original_gains_a_row_when_it_moves(repo: Path) -> None:
     text = text.replace("- DS-MIG-01", "- DS-MIG-02 [M] Read the table\n- DS-MIG-01", 1)
     migration.write_text(text.replace("### DS-MIG-01", first + "### DS-MIG-01", 1))
     run(repo)
-    (table,) = Skill(repo / SKILLS / "demo-style", Demo()).rename_tables
+    (table,) = Skill(repo / SKILLS / "demo-style", DEMO).rename_tables
     rows = {r.before: r.now for r in table.rows}
     assert rows["DS-MIG-01"] == "`DS-MIG-02`"
     assert "DS-MIG-02" not in rows
@@ -188,7 +188,7 @@ def test_a_second_run_composes_onto_the_first(repo: Path) -> None:
         migration.read_text().replace(row, "| `DS-ERR-02` | removed — x |")
     )
     run(repo)
-    skill = Skill(repo / SKILLS / "demo-style", Demo())
+    skill = Skill(repo / SKILLS / "demo-style", DEMO)
     table = {r.before: r.now for r in skill.renames}
     assert table["DS-ERR-02"] == "removed — x"
     assert table["DS-ERR-03"] == "`DS-ERR-01`"
@@ -275,5 +275,5 @@ def test_the_run_that_renames_the_migration_chapter_writes_its_table(
     run(repo, **THREADS, **{"migration-and-dead-apis": "migration"})
 
     assert not (refs / "migration-and-dead-apis.md").exists()
-    (table,) = Skill(repo / SKILLS / "demo-style", Demo()).rename_tables
+    (table,) = Skill(repo / SKILLS / "demo-style", DEMO).rename_tables
     assert table.ranges[0] == ("DS-ERR", 2, 3)

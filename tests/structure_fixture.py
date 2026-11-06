@@ -6,31 +6,26 @@ every shared passage — which also makes building it a round trip through
 `fmt`.
 """
 
-from dataclasses import dataclass
-from typing import override
 lazy from pathlib import Path
 
 from agent_skill import shared
+from agent_skill.ids import Pin
 from agent_skill.model import Skill
 from agent_skill.profiles import Profile
 
-
-@dataclass
-class Demo(Profile):
-    """The profile of a demo standard verified against Demo 1.2.3."""
-
-    name: str = "demo-style"
-    prefix: str = "DS"
-    languages: tuple[str, ...] = ("rust",)
-    tools: tuple[str, ...] = ("rustc",)
-    language: str = "Demo"
-    verified_as: str = "compiles as written against Demo {pin}"
-    strict_scope: str = "library"
-
-    @override
-    def pin(self) -> str:
-        """A fixed version: the demo has no toolchain to ask."""
-        return "1.2.3"
+#: The profile of a demo standard verified against Demo 1.2.3. Its
+#: subject is pinned and no toolchain is named, so nothing is asked of a
+#: compiler.
+DEMO = Profile(
+    name="demo-style",
+    prefix="DS",
+    languages=("rust",),
+    tools=("rustc",),
+    language="Demo",
+    verified_as="compiles as written against Demo {pin}",
+    strict_scope="library",
+    subject=Pin.parse("demo==1.2.3"),
+)
 
 
 RULE = """### {id} [M] {title}
@@ -146,9 +141,9 @@ def build(root: Path, profile: Profile | None = None) -> Skill:
     (refs / "migration.md").write_text(
         chapter("Migration", [("DS-MIG-01", "Use the new name")])
     )
-    skill = Skill(skill_dir, profile or Demo())
+    skill = Skill(skill_dir, profile or DEMO)
     shared.rewrite(skill)
-    return Skill(skill_dir, profile or Demo())
+    return Skill(skill_dir, profile or DEMO)
 
 
 def reparse(skill: Skill) -> Skill:

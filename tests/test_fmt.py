@@ -4,9 +4,9 @@ lazy from pathlib import Path
 
 from agent_skill import shared
 from agent_skill.doc import canonical
-from agent_skill.fmt import INJECTED, _bodies, format_skill
-from agent_skill.lang.rust import BEVY_STYLE, RUST_STYLE
-from agent_skill.profiles import _REGISTRY, profile_for
+from agent_skill.fmt import format_skill
+from agent_skill.lang.rust import BEVY_STYLE, INJECTED, RUST_STYLE, module_bodies
+from agent_skill.profiles import PROFILES
 from agent_skill.report import Level
 from structure_fixture import build, edit, reparse
 
@@ -26,7 +26,7 @@ def test_bodies_dedents_and_drops_the_injected_attribute(tmp_path: Path) -> None
         "    fn b() {}\n"
         "}\n"
     )
-    assert _bodies(src, BEVY_STYLE) == [
+    assert module_bodies(src, BEVY_STYLE) == [
         "// verified\nfn a() {}\n",
         "// verified\nfn b() {}\n",
     ]
@@ -54,7 +54,7 @@ def test_bodies_undoes_the_extractor_rebasing(tmp_path: Path) -> None:
         "    }\n"
         "}\n"
     )
-    body = _bodies(src, RUST_STYLE)[0]
+    body = module_bodies(src, RUST_STYLE)[0]
     assert "use crate::util::Interner;" in body
     assert "use mycrate::parse;" in body
     assert "$crate::thing" in body
@@ -64,8 +64,10 @@ def test_bodies_undoes_the_extractor_rebasing(tmp_path: Path) -> None:
 def test_each_skill_compiles_as_its_own_crate() -> None:
     """One shared manifest would leave one of the two unverifiable."""
     assert RUST_STYLE.name != BEVY_STYLE.name
-    assert "bevy" in "".join(BEVY_STYLE.dependencies)
-    assert "bevy" not in "".join(RUST_STYLE.dependencies)
+    assert BEVY_STYLE.library is not None
+    assert "bevy" in BEVY_STYLE.manifest()
+    assert RUST_STYLE.library is None
+    assert "bevy" not in RUST_STYLE.manifest()
 
 
 def test_the_two_bevy_relaxations_are_the_only_ones() -> None:
@@ -83,10 +85,9 @@ def test_the_two_bevy_relaxations_are_the_only_ones() -> None:
         assert kept not in BEVY_STYLE.lints["clippy"]
 
 
-def test_every_rust_profile_names_a_crate() -> None:
-    profile_for("rust-style")  # force registration by import
-    for profile in _REGISTRY.values():
-        if profile.toolchain == "rust":
+def test_every_profile_that_compiles_rust_names_a_crate() -> None:
+    for profile in PROFILES.values():
+        if "rust" in profile.languages:
             assert profile.crate is not None, profile.name
 
 

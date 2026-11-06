@@ -87,4 +87,4 @@ def test_the_harness_runs_on_the_target_the_standard_names() -> None:
 
     assert project["project"]["requires-python"] == f">={target['python-version']}"
     assert project["build-system"] == shipped["build-system"]
-    assert (ROOT / ".python-version").read_text().strip() == INTERPRETER
+    assert (ROOT / ".python-version").read_text().strip() == str(INTERPRETER)

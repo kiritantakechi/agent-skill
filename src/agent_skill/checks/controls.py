@@ -53,12 +53,20 @@ lazy from agent_skill.harness import pinned
 lazy from agent_skill.lang import toolchain_for
 lazy from agent_skill.lang.python import INTERPRETER
 lazy from agent_skill.model import Skill, Tree, discover
-lazy from agent_skill.profiles import registered
+lazy from agent_skill.profiles import PROFILES
 lazy from agent_skill.report import Finding, Result
 
 
 class FixtureGoneError(LookupError):
     """The text a control edits is no longer in the skill."""
+
+
+# The standards the controls inject into, named as their profiles name
+# them. `PY` is the one the structure controls inject into.
+BV = bevy_style.PROFILE.name
+PY = python_style.PROFILE.name
+RS = rust_style.PROFILE.name
+ZS = zig_style.PROFILE.name
 
 
 # The branches a finding of this check comes from. A finding of it is
@@ -312,15 +320,15 @@ def _unaccounted_anchor_rule(tree: Path) -> Edited:
     `bevy-style` never names it; the day it does, the injection would be
     accounted for and this control would pass while proving nothing.
     """
-    if "RS-OWN-36" in (tree / "bevy-style/SKILL.md").read_text():
+    if "RS-OWN-36" in (tree / f"{BV}/SKILL.md").read_text():
         msg = (
-            "bevy-style/SKILL.md now names RS-OWN-36, so its defect is accounted "
+            f"{BV}/SKILL.md now names RS-OWN-36, so its defect is accounted "
             "for and no longer reaches the anchor sweep"
         )
         raise FixtureGoneError(msg)
     return edit(
         tree,
-        "bevy-style/references/testing.md",
+        f"{BV}/references/testing.md",
         _TEST_BODY,
         f"{_TEST_BODY}\n"
         "        let _ = app.world().resource::<AppTypeRegistry>().read();",
@@ -329,7 +337,7 @@ def _unaccounted_anchor_rule(tree: Path) -> Edited:
 
 #: The head of `bevy-style`'s override table, which `_no_override_table`
 #: turns into prose along with every row under it.
-_OVERRIDES = "| `rust-style` rule | What applies instead | Why Bevy forces it |\n"
+_OVERRIDES = f"| `{RS}` rule | What applies instead | Why Bevy forces it |\n"
 
 
 def _no_override_table(tree: Path) -> Edited:
@@ -341,7 +349,7 @@ def _no_override_table(tree: Path) -> Edited:
     prose so the rules they name stay named: deleted outright, the
     anchor's patterns for those rules run and hit as well.
     """
-    rel = "bevy-style/SKILL.md"
+    rel = f"{BV}/SKILL.md"
     text = (tree / rel).read_text()
     if _OVERRIDES not in text:
         msg = f"{rel}: {_OVERRIDES[:60]!r}"
@@ -358,7 +366,7 @@ def _no_uv_interpreter(tree: Path) -> Edited:
     The interpreter half compared only the lines that were there, so a
     workflow with none — running whatever the runner had — passed.
     """
-    rel = "python-style/assets/ci.yml"
+    rel = f"{PY}/assets/ci.yml"
     line = f"uv python install {INTERPRETER}"
     count = (tree / rel).read_text().count(line)
     return edit(tree, rel, line, "python --version", max(count, 1))
@@ -372,10 +380,6 @@ _TABLE = "| Tool | Lint | Level | Forbids |\n|---|---|---|---|\n"
 def _row(tree: Path, rel: str, row: str) -> Edited:
     """Add `row` first under the `Decided by tools` table of `rel`."""
     return edit(tree, rel, _TABLE, f"{_TABLE}{row}\n")
-
-
-#: `python-style` is the standard the structure controls inject into.
-PY = "python-style"
 
 
 def _disabled_c4_citation(tree: Path) -> Edited:
@@ -472,11 +476,10 @@ def dangling_skill_md(tree: Path) -> Edited:
 #: report it.
 MISFILED = "\n### PS-ASYNC-99 [M] Misfiled\n\nX.\n\n**Why:** y.\n\n**Check:** z.\n"
 
-RS = "rust-style"
 TESTING = f"{PY}/references/testing.md"
 ASYNC = f"{PY}/references/async.md"
 UNSAFE = f"{RS}/references/unsafe.md"
-DATA = "zig-style/references/data.md"
+DATA = f"{ZS}/references/data.md"
 MANIFEST = f"{PLUGIN}/.claude-plugin/plugin.json"
 MARKETPLACE = ".claude-plugin/marketplace.json"
 
@@ -484,7 +487,8 @@ MARKETPLACE = ".claude-plugin/marketplace.json"
 #: warns on it, and `--strict` fails on a warning.
 _STRICT = "`claude plugin validate --strict` warns on it, and fails on a warning"
 
-#: The title `MIRROR` pairs `ZS-DATA-36` with, as `RS-API-58` states it.
+#: The title zig-style's mirror pairs `ZS-DATA-36` with, as `RS-API-58`
+#: states it.
 _INVERSE = "Give every operation its inverse, or document why there is none"
 
 #: `PS-CORE-26`'s citation of the chapters stating it.
@@ -694,7 +698,7 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
-        citations.TY_ROW_LEVEL,
+        python.TY_ROW_LEVEL,
         lambda t: edit(
             t,
             f"{PY}/references/async.md",
@@ -702,10 +706,10 @@ CONTROLS: list[Control] = [
             "| ty | `deprecated` | error |",
         ),
     ),
-    Control(citations.DISABLED_CODE, _disabled_c4_citation),
+    Control(python.DISABLED_CODE, _disabled_c4_citation),
     Control(
         # The code the standard once cited and ruff never had.
-        citations.UNKNOWN_CODE,
+        python.UNKNOWN_CODE,
         lambda t: edit(
             t,
             f"{PY}/references/concurrency.md",
@@ -717,33 +721,33 @@ CONTROLS: list[Control] = [
         # A row removed while the profile keeps its probe. Renaming the
         # row's error instead also leaves a row with no probe, so it
         # fires `zig_no_probe` and never a probe printing another error.
-        citations.ZIG_PROBE_NO_ROW,
+        zig.PROBE_NO_ROW,
         lambda t: drop_line(
             t,
-            "zig-style/references/errors.md",
+            f"{ZS}/references/errors.md",
             "| zig | `cannot return from defer expression` |",
         ),
     ),
     Control(
         # The asset denies it; a row saying `warn` describes a build
         # that is not shipped.
-        citations.RUST_LEVEL,
+        rust.LINT_LEVEL,
         lambda t: _row(
             t,
-            "rust-style/references/errors.md",
+            f"{RS}/references/errors.md",
             "| clippy | `unwrap_used` | warn | an unwrap |",
         ),
     ),
     Control(
-        citations.RUST_UNKNOWN_LINT,
+        rust.UNKNOWN_LINT,
         lambda t: _row(
             t,
-            "rust-style/references/errors.md",
+            f"{RS}/references/errors.md",
             "| clippy | `unwarp_used` | deny | an unwrap |",
         ),
     ),
     Control(
-        citations.TY_UNVERIFIED,
+        python.TY_UNVERIFIED,
         lambda t: edit(
             t,
             f"{PY}/assets/ty.toml",
@@ -752,7 +756,7 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
-        pins.WORKFLOW_OTHER,
+        python.WORKFLOW_OTHER,
         lambda t: edit(
             t,
             f"{PY}/assets/ci.yml",
@@ -764,7 +768,7 @@ CONTROLS: list[Control] = [
         # The reader installs what the asset says; the harness verified
         # against what pyproject says. A silent disagreement hands them
         # a different build.
-        pins.PROJECT_PIN,
+        python.PROJECT_PIN,
         lambda t: edit(
             t,
             f"{PY}/assets/pyproject.toml",
@@ -775,7 +779,7 @@ CONTROLS: list[Control] = [
     Control(
         # Only a requirement already spelled `==` was compared, so a
         # floor handed the reader any build at all and passed.
-        pins.PROJECT_INEXACT,
+        python.PROJECT_INEXACT,
         lambda t: edit(
             t,
             f"{PY}/assets/pyproject.toml",
@@ -783,7 +787,7 @@ CONTROLS: list[Control] = [
             '"ty>=0.0.60"',
         ),
     ),
-    Control(pins.WORKFLOW_NONE, _no_uv_interpreter),
+    Control(python.WORKFLOW_NONE, _no_uv_interpreter),
     Control(
         python_style.FUTURE,
         lambda t: edit(
@@ -828,22 +832,22 @@ CONTROLS: list[Control] = [
         markers.SECOND_MARKER,
         lambda t: edit(
             t,
-            "zig-style/references/naming.md",
+            f"{ZS}/references/naming.md",
             "// fragment — BAD\n",
             "// fragment — BAD\n// GOOD\n",
         ),
     ),
     Control(
         assets.CITES,
-        lambda t: edit(t, "bevy-style/assets/ci.yml", "BV-ARCH-01", "BV-ARCH-99"),
+        lambda t: edit(t, f"{BV}/assets/ci.yml", "BV-ARCH-01", "BV-ARCH-99"),
     ),
     Control(
         assets.TOML,
-        lambda t: append(t, "rust-style/assets/rustfmt.toml", "\nbroken = = 1\n"),
+        lambda t: append(t, f"{RS}/assets/rustfmt.toml", "\nbroken = = 1\n"),
     ),
     Control(
         assets.UNREFERENCED,
-        lambda t: write(t, "rust-style/assets/orphan.toml", "x = 1\n"),
+        lambda t: write(t, f"{RS}/assets/orphan.toml", "x = 1\n"),
     ),
     Control(
         # The defect verbatim: the shipped template named itself
@@ -861,7 +865,7 @@ CONTROLS: list[Control] = [
         bevy_style.PRIVATE_FIELD,
         lambda t: edit(
             t,
-            "bevy-style/references/scheduling.md",
+            f"{BV}/references/scheduling.md",
             "struct Velocity(pub Vec3);",
             "struct Velocity(Vec3);",
         ),
@@ -872,7 +876,7 @@ CONTROLS: list[Control] = [
         bevy_style.COMPONENT_REFLECT,
         lambda t: edit(
             t,
-            "bevy-style/references/scheduling.md",
+            f"{BV}/references/scheduling.md",
             "#[derive(Component, Debug, Reflect)]\n#[reflect(Component)]\n"
             "struct Velocity",
             "#[derive(Component, Debug, Reflect)]\nstruct Velocity",
@@ -882,7 +886,7 @@ CONTROLS: list[Control] = [
         bevy_style.COMPONENT_DERIVE,
         lambda t: edit(
             t,
-            "bevy-style/references/ecs.md",
+            f"{BV}/references/ecs.md",
             "#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]",
             "#[derive(Component, Clone, Copy, PartialEq, Reflect)]",
         ),
@@ -891,7 +895,7 @@ CONTROLS: list[Control] = [
         bevy_style.PLUGIN_DERIVE,
         lambda t: edit(
             t,
-            "bevy-style/references/architecture.md",
+            f"{BV}/references/architecture.md",
             "#[derive(Debug, Default)]\npub struct DecayPlugin;",
             "#[derive(Debug)]\npub struct DecayPlugin;",
         ),
@@ -900,7 +904,7 @@ CONTROLS: list[Control] = [
         bevy_style.PLUGIN_SUFFIX,
         lambda t: edit(
             t,
-            "bevy-style/references/architecture.md",
+            f"{BV}/references/architecture.md",
             "impl Plugin for CombatPlugin {",
             "impl Plugin for Combat {",
         ),
@@ -915,7 +919,7 @@ CONTROLS: list[Control] = [
         crossref.FOREIGN_CITATION,
         lambda t: edit(
             t,
-            "bevy-style/SKILL.md",
+            f"{BV}/SKILL.md",
             "`RS-NAME-02` is **not** on this list,",
             "`RS-NAME-02` is **not** on this list, nor `RS-API-99`,",
         ),
@@ -924,7 +928,7 @@ CONTROLS: list[Control] = [
         crossref.OVERRIDE_TITLE,
         lambda t: edit(
             t,
-            "bevy-style/SKILL.md",
+            f"{BV}/SKILL.md",
             "`RS-NAME-29` Never suffix a name with the language construct",
             "`RS-NAME-29` Always suffix a name with the language construct",
         ),
@@ -933,7 +937,7 @@ CONTROLS: list[Control] = [
     # key the spec does not have.
     Control(
         frontmatter.REQUIRED,
-        lambda t: edit(t, "rust-style/SKILL.md", "name: rust-style\n", ""),
+        lambda t: edit(t, f"{RS}/SKILL.md", f"name: {RS}\n", ""),
     ),
     Control(
         # The second ID of the list. `_paths` reads the first ID after
@@ -943,7 +947,7 @@ CONTROLS: list[Control] = [
         anatomy.CORE_WRONG_CHAPTER,
         lambda t: edit(
             t,
-            "rust-style/SKILL.md",
+            f"{RS}/SKILL.md",
             "`references/api.md` RS-API-15, RS-API-16",
             "`references/api.md` RS-API-15, RS-ERR-03",
         ),
@@ -952,7 +956,7 @@ CONTROLS: list[Control] = [
         anatomy.SHARED_TITLE,
         lambda t: edit(
             t,
-            "zig-style/references/data.md",
+            f"{ZS}/references/data.md",
             "ZS-DATA-27 [M] Return the lowest-dimensionality type "
             "that can carry the answer",
             "ZS-DATA-27 [M] Reference long-lived elements by handle, not by pointer",
@@ -964,7 +968,7 @@ CONTROLS: list[Control] = [
         lints.LEVEL,
         lambda t: edit(
             t,
-            "rust-style/assets/Cargo.toml",
+            f"{RS}/assets/Cargo.toml",
             'indexing_slicing = "deny"',
             'indexing_slicing = "warn"',
         ),
@@ -1001,27 +1005,27 @@ CONTROLS: list[Control] = [
         # file is not canonical. Joined, not repeated: `"x " * 60` ends
         # in a space, a second way of not being canonical.
         layout.CANONICAL,
-        lambda t: append(t, "zig-style/references/data.md", "\n" + "x " * 59 + "x\n"),
+        lambda t: append(t, f"{ZS}/references/data.md", "\n" + "x " * 59 + "x\n"),
     ),
     Control(
         # The printer keeps an example's lines as written, so only the
         # width branch measures them.
         layout.CODE_WIDTH,
         lambda t: append(
-            t, "zig-style/references/data.md", "\n```text\n" + "x" * 101 + "\n```\n"
+            t, f"{ZS}/references/data.md", "\n```text\n" + "x" * 101 + "\n```\n"
         ),
     ),
     # A pub field on a non-repr(C) type.
     Control(
         rust_style.PUBLIC_FIELD,
-        lambda t: edit(t, "rust-style/references/unsafe.md", HEADER, PUB_FIELD),
+        lambda t: edit(t, f"{RS}/references/unsafe.md", HEADER, PUB_FIELD),
     ),
     # `.?` in a GOOD example.
     Control(
         zig_style.UNWRAP,
         lambda t: edit(
             t,
-            "zig-style/references/data.md",
+            f"{ZS}/references/data.md",
             '// verified — GOOD\nconst std = @import("std");',
             '// verified — GOOD\nconst std = @import("std");\n'
             "const injected: u8 = (@as(?u8, 3)).?;",
@@ -1032,7 +1036,7 @@ CONTROLS: list[Control] = [
         zig_style.IMPORT_ORDER,
         lambda t: edit(
             t,
-            "zig-style/references/interop.md",
+            f"{ZS}/references/interop.md",
             'const builtin = @import("builtin");\nconst std = @import("std");\n'
             "const assert = std.debug.assert;",
             'const std = @import("std");\nconst builtin = @import("builtin");\n'
@@ -1044,7 +1048,7 @@ CONTROLS: list[Control] = [
         prose.PROVENANCE_LINE,
         lambda t: append(
             t,
-            "zig-style/references/data.md",
+            f"{ZS}/references/data.md",
             "\nMeasured on this machine: the layout is stable.\n",
         ),
     ),
@@ -1053,7 +1057,7 @@ CONTROLS: list[Control] = [
         zig_style.UNWRAP_PROSE,
         lambda t: edit(
             t,
-            "zig-style/references/data.md",
+            f"{ZS}/references/data.md",
             "**Why:**",
             "Reach for `slot.?` when the optional is provably present.\n\n**Why:**",
         ),
@@ -1076,7 +1080,7 @@ CONTROLS: list[Control] = [
         sensitivity.PATTERN_UNCOVERED,
         lambda t: edit(
             t,
-            "zig-style/references/migration.md",
+            f"{ZS}/references/migration.md",
             "`rg -n 'captureStackTrace|dumpStackTraceFromBase|walkStackWindows' src/`",
             "`rg -n 'captureStackTrace|dumpStackTraceFromBase|walkStackWindows' src/` "
             "and `rg -n 'dumpCurrentStackTraceInjected' src/`",
@@ -1092,7 +1096,7 @@ CONTROLS: list[Control] = [
         sensitivity.FIXTURE_UNCOVERED,
         lambda t: edit(
             t,
-            "zig-style/references/migration.md",
+            f"{ZS}/references/migration.md",
             "rg -n 'captureStackTrace|dumpStackTraceFromBase|walkStackWindows' src/",
             "rg -n 'utf8Decode\\b' src/",
         ),
@@ -1124,7 +1128,7 @@ CONTROLS: list[Control] = [
         dialect.BRE_ALTERNATION,
         lambda t: edit(
             t,
-            "zig-style/references/testing.md",
+            f"{ZS}/references/testing.md",
             "rg -n 'Io.Threaded|Io.Uring|Io.Kqueue'",
             "rg -n 'Io.Threaded\\|Io.Uring\\|Io.Kqueue'",
         ),
@@ -1141,7 +1145,7 @@ CONTROLS: list[Control] = [
     # A rule its own pattern would catch.
     Control(
         selfapply.DECIDES,
-        lambda t: edit(t, "rust-style/references/unsafe.md", HEADER, PUB_FIELD),
+        lambda t: edit(t, f"{RS}/references/unsafe.md", HEADER, PUB_FIELD),
     ),
     Control(
         # A Check ending in `| rg -v` was skipped whole, so a pattern in
@@ -1149,7 +1153,7 @@ CONTROLS: list[Control] = [
         selfapply.FILTERED_NO_ANSWER,
         lambda t: edit(
             t,
-            "rust-style/references/modules.md",
+            f"{RS}/references/modules.md",
             "`rg -n 'pub use' -g '*.rs' src/ | rg -v",
             "`rg -n 'pub use(' -g '*.rs' src/ | rg -v",
         ),
@@ -1158,14 +1162,14 @@ CONTROLS: list[Control] = [
     Control(
         selfapply.STALE_EXEMPTION,
         lambda t: edit(
-            t, "zig-style/references/build.md", "has this block", "carries the guard"
+            t, f"{ZS}/references/build.md", "has this block", "carries the guard"
         ),
     ),
     Control(
         mirror.TIER,
         lambda t: edit(
             t,
-            "zig-style/references/naming.md",
+            f"{ZS}/references/naming.md",
             "### ZS-NAME-02 [M] Capitalize acronyms as ordinary English words",
             "### ZS-NAME-02 [S] Capitalize acronyms as ordinary English words",
         ),
@@ -1179,7 +1183,7 @@ CONTROLS: list[Control] = [
             f"### RS-API-58 [M] {_INVERSE}, ever",
         ),
     ),
-    # A rule outside `MIRROR` takes the title of one inside it.
+    # A rule outside the mirror's pairs takes the title of one inside.
     Control(
         mirror.AMBIGUOUS,
         lambda t: edit(
@@ -1193,7 +1197,7 @@ CONTROLS: list[Control] = [
         mirror.NOT_A_RULE,
         lambda t: edit(
             t,
-            "zig-style/references/data.md",
+            f"{ZS}/references/data.md",
             "### ZS-DATA-36 [",
             "### ZS-DATA-96 [",
         ),
@@ -1253,7 +1257,7 @@ CONTROLS: list[Control] = [
         skeleton.RENAME_REASON,
         lambda t: edit(
             t,
-            "bevy-style/references/migration.md",
+            f"{BV}/references/migration.md",
             "| `BV-CAR-16` | removed — RS-BUILD-23 states it, "
             "and assets/Cargo.toml does it |",
             "| `BV-CAR-16` | removed — |",
@@ -1400,7 +1404,7 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
-        citations.TY_UNKNOWN_SETTING,
+        python.TY_UNKNOWN_SETTING,
         lambda t: edit(
             t,
             f"{PY}/assets/ty.toml",
@@ -1408,23 +1412,23 @@ CONTROLS: list[Control] = [
             'not-a-ty-rule = "error"\n\n[analysis]',
         ),
         also={
-            citations.TY_UNVERIFIED: (
+            python.TY_UNVERIFIED: (
                 "a rule ty does not have is one no table of verified rules can name"
             )
         },
     ),
     Control(
-        citations.RUFF_ROW_DISABLED,
+        python.RUFF_ROW_DISABLED,
         lambda t: _row(
             t, TESTING, "| ruff | `COM812` | error | a missing trailing comma |"
         ),
     ),
     Control(
-        citations.TY_ROW_UNKNOWN,
+        python.TY_ROW_UNKNOWN,
         lambda t: _row(t, TESTING, "| ty | `not-a-ty-rule` | error | nothing |"),
     ),
     Control(
-        citations.WITHDRAWN_CODE,
+        python.WITHDRAWN_CODE,
         lambda t: edit(
             t,
             f"{PY}/references/concurrency.md",
@@ -1433,11 +1437,11 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
-        citations.TY_UNSHIPPED,
+        python.TY_UNSHIPPED,
         lambda t: drop_line(t, f"{PY}/assets/ty.toml", "unsupported-dynamic-base = "),
     ),
     Control(
-        citations.TY_LEVEL,
+        python.TY_LEVEL,
         lambda t: edit(
             t,
             f"{PY}/assets/ty.toml",
@@ -1445,12 +1449,12 @@ CONTROLS: list[Control] = [
             'unsupported-dynamic-base = "warn"',
         ),
     ),
-    Control(citations.NO_CARGO_TOML, lambda t: remove(t, f"{RS}/assets/Cargo.toml")),
+    Control(rust.NO_CARGO_TOML, lambda t: remove(t, f"{RS}/assets/Cargo.toml")),
     Control(
-        citations.ZIG_NO_PROBE,
+        zig.NO_PROBE,
         lambda t: _row(
             t,
-            "zig-style/references/errors.md",
+            f"{ZS}/references/errors.md",
             "| zig | `no such error` | error | nothing |",
         ),
     ),
@@ -1460,7 +1464,7 @@ CONTROLS: list[Control] = [
         crossref.APPARATUS_CITATION,
         lambda t: edit(
             t,
-            "zig-style/references/assertions.md",
+            f"{ZS}/references/assertions.md",
             "### ZS-ASSERT-03 [",
             "### ZS-ASSERT-93 [",
         ),
@@ -1469,12 +1473,15 @@ CONTROLS: list[Control] = [
         crossref.OVERRIDE_TARGET,
         lambda t: edit(
             t,
-            "bevy-style/SKILL.md",
+            f"{BV}/SKILL.md",
             "| `BV-ECS-01` — component fields are public |",
             "| `BV-ECS-99` — component fields are public |",
         ),
     ),
-    Control(crossref.ANCHOR_EMPTY_CORPUS, lambda t: retype(t, "bevy-style", "rust")),
+    Control(
+        crossref.ANCHOR_EMPTY_CORPUS,
+        lambda t: retype(t, BV, bevy_style.PROFILE.languages[0]),
+    ),
     Control(
         crossref.ANCHOR_NO_ANSWER,
         lambda t: edit(
@@ -1514,24 +1521,20 @@ CONTROLS: list[Control] = [
     # frontmatter
     Control(
         frontmatter.MISSING,
-        lambda t: edit(
-            t, f"{RS}/SKILL.md", "---\nname: rust-style\n", "name: rust-style\n"
-        ),
+        lambda t: edit(t, f"{RS}/SKILL.md", f"---\nname: {RS}\n", f"name: {RS}\n"),
     ),
     Control(
         frontmatter.EXTRA_KEYS,
         lambda t: edit(
             t,
             f"{RS}/SKILL.md",
-            "name: rust-style\n",
-            "name: rust-style\nowner: nobody\n",
+            f"name: {RS}\n",
+            f"name: {RS}\nowner: nobody\n",
         ),
     ),
     Control(
         frontmatter.NAME,
-        lambda t: edit(
-            t, f"{RS}/SKILL.md", "name: rust-style\n", "name: rust-styles\n"
-        ),
+        lambda t: edit(t, f"{RS}/SKILL.md", f"name: {RS}\n", f"name: {RS}s\n"),
     ),
     Control(
         frontmatter.FOLDED,
@@ -1675,7 +1678,9 @@ CONTROLS: list[Control] = [
         lambda t: append(t, DATA, f"\nEach block {prose.LEGEND}.\n"),
     ),
     # self-application
-    Control(selfapply.EMPTY, lambda t: retype(t, PY, "python")),
+    Control(
+        selfapply.EMPTY, lambda t: retype(t, PY, python_style.PROFILE.languages[0])
+    ),
     Control(selfapply.ORPHAN_EXEMPTION, _orphan_exemption),
     Control(
         selfapply.NO_ANSWER,
@@ -1742,19 +1747,19 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
-        assets.ZIG_FMT,
+        zig.ASSET_FMT,
         lambda t: edit(
             t,
-            "zig-style/assets/build.zig",
+            f"{ZS}/assets/build.zig",
             'const std = @import("std");',
             'const std  = @import("std");',
         ),
     ),
     Control(
-        assets.ZIG_AST,
+        zig.ASSET_AST,
         lambda t: edit(
             t,
-            "zig-style/assets/build.zig",
+            f"{ZS}/assets/build.zig",
             "    const target = b.standardTargetOptions(.{});\n",
             "    const target = b.standardTargetOptions(.{});\n    const unused = 1;\n",
         ),
@@ -1839,7 +1844,7 @@ CONTROLS: list[Control] = [
         bevy_style.SET_SUFFIX,
         lambda t: edit(
             t,
-            "bevy-style/references/scheduling.md",
+            f"{BV}/references/scheduling.md",
             f"{_SYSTEM_SET}\npub enum CombatSystems {{",
             f"{_SYSTEM_SET}\npub enum Combat {{",
         ),
@@ -1862,13 +1867,6 @@ NEWER_RELEASE = (
 OTHER_TOOL = (
     "fires on an installed tool that differs from, or behaves otherwise than, the "
     "pinned one; a control edits the tree and cannot install a tool"
-)
-
-#: Fires on what the harness declares, not on the tree.
-HARNESS = (
-    "fires on a value a profile or the harness declares rather than on the tree, "
-    "and a control edits a copy of the tree; every shipped profile is consistent, "
-    "so the branch guards an edit to the harness itself"
 )
 
 #: A branch of the two checks that compile and run the examples.
@@ -1894,27 +1892,18 @@ EXEMPT: dict[Branch, str] = {
         "extractor that invents blocks reaches it, and that is harness code"
     ),
     pins.TOOL_STALE: NEWER_RELEASE,
-    pins.RUST_STALE: NEWER_RELEASE,
-    pins.LIBRARY_STALE: NEWER_RELEASE,
-    pins.INTERPRETER_STALE: NEWER_RELEASE,
+    rust.RUST_STALE: NEWER_RELEASE,
+    rust.LIBRARY_STALE: NEWER_RELEASE,
+    python.INTERPRETER_STALE: NEWER_RELEASE,
     pins.TOOL_MISMATCH: OTHER_TOOL,
-    pins.RUSTC_DIFFERS: OTHER_TOOL,
-    pins.LOCAL_MOVED: OTHER_TOOL,
-    citations.ZIG_PROBE_COMPILES: OTHER_TOOL,
-    citations.ZIG_PROBE_OTHER: OTHER_TOOL,
+    rust.RUSTC_DIFFERS: OTHER_TOOL,
+    zig.LOCAL_MOVED: OTHER_TOOL,
+    zig.PROBE_COMPILES: OTHER_TOOL,
+    zig.PROBE_OTHER: OTHER_TOOL,
     assets.NO_WHEEL: (
         "fires on a build backend that reports success and writes no wheel; the "
         "pinned one does not, and a control cannot install another"
     ),
-    pins.INTERPRETER_ID: HARNESS,
-    pins.INTERPRETER_UNORDERED: HARNESS,
-    pins.LIBRARY_INEXACT: HARNESS,
-    pins.LOCAL_NO_REASON: HARNESS,
-    pins.RUST_UNREADABLE: HARNESS,
-    crossref.DELTA_DECLARATION: HARNESS,
-    crossref.ANCHOR_NO_LANGUAGE: HARNESS,
-    sensitivity.NO_LANGUAGE: HARNESS,
-    sensitivity.NO_FIXTURE: HARNESS,
     toolchain.EMPTY: COMPILES,
     python.OUTSIDE: COMPILES,
     python.RUN_TIMEOUT: COMPILES,
@@ -1966,17 +1955,17 @@ def _empty_corpus() -> Iterator[Finding]:
     whole toolchain check report clean, which is the one failure mode
     this guard exists for.
     """
-    for profile in registered():
-        if not profile.toolchain:
+    for profile in PROFILES.values():
+        tc = toolchain_for(profile.toolchain)
+        if tc is None:
             continue
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             root = Path(tmp) / profile.name
             (root / "references").mkdir(parents=True)
             (root / "SKILL.md").write_text("---\nname: x\n---\n")
-            tc = toolchain_for(profile.toolchain)
-            if tc and tc.extract(Skill(root), Path(tmp) / "out"):
+            if tc.extract(Skill(root), Path(tmp) / "out"):
                 yield fail(
-                    f"an empty {profile.toolchain} corpus still extracts blocks",
+                    f"an empty {tc.name} corpus still extracts blocks",
                     Location(),
                     EMPTY_CORPUS,
                 )

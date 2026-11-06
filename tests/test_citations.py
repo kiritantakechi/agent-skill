@@ -9,7 +9,7 @@ one was dropped as prose — read as enforced while nothing compared it.
 
 import pytest
 
-from agent_skill.checks.citations import _catalogue, _codes_in
+from agent_skill.lang.python import _catalogue, _codes_in
 
 
 @pytest.fixture(scope="module")

@@ -10,7 +10,7 @@ from agent_skill.checks.skeleton import skeleton
 from agent_skill.doc import canonical
 from agent_skill.layout import SKILLS
 from agent_skill.model import DASH, Skill
-from structure_fixture import RULE, Demo, build
+from structure_fixture import DEMO, RULE, build
 lazy from agent_skill.demote import Entry
 
 ERRORS = f"""# Errors
@@ -78,13 +78,13 @@ def repo(tmp_path: Path) -> Path:
 
 
 def run(repo: Path, asked: dict[str, Entry]) -> demote.Demotion:
-    demotion = demote.plan(repo, "demo-style", asked, Demo())
+    demotion = demote.plan(repo, "demo-style", asked, DEMO)
     demote.apply(demotion)
     return demotion
 
 
 def skill(repo: Path) -> Skill:
-    return Skill(repo / SKILLS / "demo-style", Demo())
+    return Skill(repo / SKILLS / "demo-style", DEMO)
 
 
 def text(repo: Path, name: str) -> str:
@@ -148,7 +148,7 @@ def resolve(repo: Path, rid: str) -> None:
 def test_demote_then_renumber_closes_the_gap(repo: Path) -> None:
     run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
     resolve(repo, "DS-ERR-02")
-    renumber.apply(repo, renumber.plan(repo, "demo-style", {}, Demo()))
+    renumber.apply(repo, renumber.plan(repo, "demo-style", {}, DEMO))
     demo = skill(repo)
     assert [r.id for r in demo.rules] == ["DS-ERR-01", "DS-ERR-02", "DS-MIG-01"]
     assert demo.by_id["DS-ERR-02"].title == "Catch narrowly"
@@ -166,7 +166,7 @@ def test_renumber_will_not_give_a_citation_left_behind_to_another_rule(
     run(repo, {"DS-ERR-02": {"remove": "said nothing"}})
     before = snapshot(repo)
     with pytest.raises(renumber.RenumberError, match=r"DS-ERR-02, cited in .*SKILL"):
-        renumber.apply(repo, renumber.plan(repo, "demo-style", {}, Demo()))
+        renumber.apply(repo, renumber.plan(repo, "demo-style", {}, DEMO))
     assert snapshot(repo) == before
 
 
@@ -182,7 +182,7 @@ def test_a_merge_into_an_inserted_rule_follows_it_through_the_renumbering(
         .replace("## Catching\n", f"{inserted}\n## Catching\n")
     )
     run(repo, {"DS-ERR-01": {"merge": "DS-ERR-02a"}})
-    renumber.apply(repo, renumber.plan(repo, "demo-style", {}, Demo()))
+    renumber.apply(repo, renumber.plan(repo, "demo-style", {}, DEMO))
     demo = skill(repo)
     assert demo.by_id["DS-ERR-02"].title == "Chain them"
     (table,) = demo.rename_tables
@@ -232,8 +232,8 @@ def test_demote_then_renumber_leaves_a_conforming_skill_conforming(
     (tmp_path / "src").mkdir()
     (tmp_path / "tests").mkdir()
     run(tmp_path, {"DS-ERR-01": {"remove": "said nothing"}})
-    renumber.apply(tmp_path, renumber.plan(tmp_path, "demo-style", {}, Demo()))
-    after = Skill(demo.root, Demo())
+    renumber.apply(tmp_path, renumber.plan(tmp_path, "demo-style", {}, DEMO))
+    after = Skill(demo.root, DEMO)
     assert [r.id for r in after.rules] == ["DS-ERR-01", "DS-MIG-01"]
     assert list(shared.compare(after)) == []
     assert [f.message for f in [*skeleton.each(after), *structural(after)]] == []
@@ -264,7 +264,7 @@ def fenced(repo: Path) -> Path:
 
 
 def test_a_heading_inside_an_example_does_not_end_the_rule(fenced: Path) -> None:
-    rule = Skill(fenced.parents[1], Demo()).by_id["DS-ERR-02"]
+    rule = Skill(fenced.parents[1], DEMO).by_id["DS-ERR-02"]
     assert rule.body.rstrip("\n").endswith("**Check:** read it.")
 
 
