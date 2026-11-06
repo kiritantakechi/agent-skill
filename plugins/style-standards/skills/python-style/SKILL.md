@@ -157,11 +157,11 @@ name it costs.
 
 ## 4. Core rules
 
-- **Naming, Modules, Imports, Formatting, and Symmetry**
+- **Naming: Casing, Words, Formatting, Comments, and Symmetry**
   - PS-NAME-01 [M] Apply PEP 8's casing rules mechanically
   - PS-NAME-05 [M] Put units and qualifiers last, sorted by descending significance
-  - PS-NAME-12 [M] Run `ruff format`; it is not a suggestion
-  - PS-NAME-15 [M] Say why, not what
+  - PS-NAME-09 [M] Run `ruff format`; it is not a suggestion
+  - PS-NAME-12 [M] Say why, not what
 - **Typing: Annotations, Generics, Narrowing, and the Checker**
   - PS-TYPE-01 [M] Run `ty` at the pinned version, with the shipped configuration
   - PS-TYPE-04 [M] Never write `from __future__ import annotations`
@@ -199,7 +199,7 @@ name it costs.
   - PS-OUT-02 [M] Know what PEP 686 moved, which is more than `open`
   - PS-OUT-11 [M] Log with `%`-style arguments, never with an f-string
   - PS-OUT-13 [M] Never configure logging in a library
-- **API and Modules: The Public Surface, Re-export, and Package Shape**
+- **API: The Public Surface, Signatures, and Evolution**
   - PS-API-02 [M] Re-export through `__all__`, never by a bare import
   - PS-API-06 [M] Annotate every parameter and every return of a public function
 - **Packaging: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel**
@@ -236,7 +236,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 
 | File | Rule IDs | Covers |
 |---|---|---|
-| `references/naming.md` | `PS-NAME` (20) | Casing and word choice, module and package names, import grouping, what `ruff format` settles, comment discipline, and the symmetry of names |
+| `references/naming.md` | `PS-NAME` (17) | Casing and word choice, module and package names, what `ruff format` settles, comment discipline, and the symmetry of names |
 | `references/types.md` | `PS-TYPE` (19) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, and what 3.15 adds |
 | `references/data.md` | `PS-DATA` (18) | Choosing between dataclass, enum, protocol and TypedDict, fields and defaults, immutability, validity, and the symmetry of a data type |
 | `references/errors.md` | `PS-ERR` (20) | Designing an exception hierarchy, raising and catching, `except*`, `finally` after PEP 765, and the control-flow shapes that keep a function readable |
@@ -244,7 +244,8 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/async.md` | `PS-ASYNC` (18) | Entering and leaving a loop, owning tasks with `TaskGroup`, cancellation and timeouts, not blocking the loop, and the thread boundary |
 | `references/output.md` | `PS-OUT` (18) | Encoding after PEP 686, interpolation and template strings, logging discipline, and the difference between program output and diagnostics |
 | `references/performance.md` | `PS-PERF` (17) | Measuring with the 3.15 profiling package, complexity before constants, allocation, and what the free-threaded build costs |
-| `references/api.md` | `PS-API` (18) | Declaring the public surface, re-export and `py.typed`, signature and default discipline, module shape, and evolving without breaking |
+| `references/api.md` | `PS-API` (15) | Declaring the public surface, re-export and `py.typed`, signature and default discipline, and evolving without breaking |
+| `references/modules.md` | `PS-MOD` (6) | Package layout under `src/`, what a module does when imported, `lazy import`, and the shape of the import graph |
 | `references/documentation.md` | `PS-DOC` (12) | Docstring shape and content, choosing a convention and what that choice disables, doctests, and the documents outside the code |
 | `references/testing.md` | `PS-TEST` (21) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
 | `references/build.md` | `PS-BUILD` (20) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |

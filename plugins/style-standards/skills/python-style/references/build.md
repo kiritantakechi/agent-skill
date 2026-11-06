@@ -1,8 +1,8 @@
 # Packaging: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel
 
 Scope: what `pyproject.toml` must say, how dependencies are declared and pinned, how a package is
-built and published, and what the free-threaded build demands of a dependency tree. Module and
-package layout is the naming chapter; the public surface is the API chapter.
+built and published, and what the free-threaded build demands of a dependency tree. Package layout
+is the modules chapter; the public surface is the API chapter.
 
 Two sources are merged here: the **PyPA living specifications** at
 `packaging.python.org/specifications`, which is where every packaging PEP now redirects — 621, 639,

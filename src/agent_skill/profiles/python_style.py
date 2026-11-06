@@ -111,7 +111,7 @@ PROFILE = Profile(
     # proves yet. Giving one a fixture means deleting it here, which
     # `sensitivity` insists on, so the list only shrinks.
     unproven=rules(
-        "PS-API-16",
+        "PS-MOD-06",
         "PS-ASYNC-04",
         "PS-ASYNC-05",
         "PS-ASYNC-13",
@@ -153,7 +153,7 @@ PROFILE = Profile(
         "PS-MIG-05",
         "PS-NAME-02",
         "PS-NAME-03",
-        "PS-NAME-10",
+        "PS-MOD-05",
         "PS-OUT-02",
         "PS-OUT-03",
         "PS-OUT-07",
@@ -256,7 +256,7 @@ PROFILE = Profile(
                 "read for `slots=`",
                 "the pattern finds every dataclass; the `slots=` argument decides",
             ),
-            "PS-NAME-10": NotDecisive(
+            "PS-MOD-05": NotDecisive(
                 "read each hit for what",
                 "the pattern finds every indented import; what encloses it decides, "
                 "and an `if TYPE_CHECKING:` block is indented too",

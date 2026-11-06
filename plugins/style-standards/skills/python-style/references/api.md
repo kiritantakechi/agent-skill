@@ -1,9 +1,9 @@
-# API and Modules: The Public Surface, Re-export, and Package Shape
+# API: The Public Surface, Signatures, and Evolution
 
-Scope: deciding what a package exposes and how — signatures, defaults, the boundary between public
-and private, `py.typed`, and the module layout that makes the boundary visible. How to spell a type
-is the types chapter; what a value should be shaped like is the data chapter; naming is the naming
-chapter.
+Scope: deciding what a package exposes and how — the boundary between public and private, re-export
+and `py.typed`, signatures, defaults and effects, and changing the surface without breaking it. How
+to spell a type is the types chapter; what a value should be shaped like is the data chapter; naming
+is the naming chapter; how a package is laid out and imported is the modules chapter.
 
 Two sources are merged here: the **Python Typing Spec's distributing chapter**, which is normative
 about re-export and `py.typed` and is enforced by every type checker, and the **empirical
@@ -30,13 +30,9 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-API-11 [M] Make a function either return a value or perform an effect
   - PS-API-12 [M] Document what the function does not do
   - PS-API-13 [M] Say who owns what the function returns
-- **Modules**
-  - PS-API-14 [M] Give every package an `__init__.py` that is a table of contents
-  - PS-API-15 [S] Split a module when it has two audiences, not when it is long
-  - PS-API-16 [M] Keep the dependency graph acyclic and shallow
 - **Evolution**
-  - PS-API-17 [M] Deprecate with `warnings.deprecated`, and enable the check
-  - PS-API-18 [M] Add a keyword-only parameter rather than changing an existing one
+  - PS-API-14 [M] Deprecate with `warnings.deprecated`, and enable the check
+  - PS-API-15 [M] Add a keyword-only parameter rather than changing an existing one
 - Decided by tools
 
 ---
@@ -221,47 +217,9 @@ signature.
 
 **Check:** every public return of a container or a resource. No ownership sentence is the finding.
 
-## Modules
-
-### PS-API-14 [M] Give every package an `__init__.py` that is a table of contents
-
-Re-exports, `__all__` and a docstring, and nothing else. That it does no work is PS-NAME-09, which
-holds for every module.
-
-**Why:** the `__init__` is what every importer of the package runs, so anything in it is a cost paid
-by everyone, including those who wanted one submodule. Kept declarative, it reads as the package's
-index.
-
-**Check:** every `__init__.py`. Anything other than imports, `__all__` and a docstring is the
-finding.
-
-### PS-API-15 [S] Split a module when it has two audiences, not when it is long
-
-Length is a symptom; two unrelated groups of callers is the cause.
-
-**Why:** splitting by size produces `utils2.py` and moves the problem. Splitting by audience
-produces modules with coherent surfaces, each of which can be understood without the other. A
-thousand-line module with one audience is fine; a two-hundred-line module serving two is not.
-
-**Check:** for each module, name its callers. Two disjoint groups is the finding.
-
-### PS-API-16 [M] Keep the dependency graph acyclic and shallow
-
-No import cycles, and no chain of internal imports deeper than a few levels. The commonest cycle is
-a submodule importing its own package: `acme/reader.py` doing `from acme import thing` runs
-`acme/__init__.py`, which imports `acme.reader`.
-
-**Why:** a cycle makes import order load-bearing: it works, or raises a partially initialised module
-error, depending on which module was imported first. Depth is the subtler cost: understanding one
-module requires understanding a chain, and every change ripples along it.
-
-**Check:** `rg -n 'from <package> import|import <package>$' src/<package>/` for a submodule
-importing its parent. Then draw the internal import graph: a cycle is the finding, and a chain
-longer than three or four is a design question.
-
 ## Evolution
 
-### PS-API-17 [M] Deprecate with `warnings.deprecated`, and enable the check
+### PS-API-14 [M] Deprecate with `warnings.deprecated`, and enable the check
 
 `@warnings.deprecated("Use X instead; removed in 2.0")` on the function, class or overload. It lives
 in `warnings`, not `typing`. Not every checker reports it unless enabled explicitly; `ty` does so by
@@ -272,7 +230,7 @@ find out at type-check time rather than at runtime — which is when they can st
 
 **Check:** every deprecation. A docstring note without the decorator is invisible to tooling.
 
-### PS-API-18 [M] Add a keyword-only parameter rather than changing an existing one
+### PS-API-15 [M] Add a keyword-only parameter rather than changing an existing one
 
 New behaviour arrives as `*, new_thing: X | None = None`, defaulting to the old behaviour.
 
