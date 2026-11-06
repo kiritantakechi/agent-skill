@@ -451,6 +451,19 @@ class Python:
         """Nothing: `assets` builds a `pyproject.toml` as any other."""
         return iter(())
 
+    def configured(self, skill: Skill) -> frozenset[tuple[str, str]]:
+        """Each `ty` rule the shipped `ty.toml` sets.
+
+        ruff's codes are not set one by one: the shipped `ruff.toml`
+        selects all of them and turns some off, and a row states what a
+        lint forbids at a level that fails a run.
+        """
+        ty_toml = skill.asset(TY_TOML)
+        if not ty_toml.exists():
+            return frozenset()
+        rules = tomllib.loads(ty_toml.read_text()).get("rules", {})
+        return frozenset(("ty", str(name)) for name in rules)
+
 
 def _snippet(skill: Skill) -> PythonSnippet:
     """How `skill`'s examples are checked: its profile's snippet."""

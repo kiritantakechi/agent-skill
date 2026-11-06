@@ -341,6 +341,10 @@ class Zig:
             # not
             yield fail(first.split(f"{path}:")[-1].strip()[:84], where, ASSET_AST)
 
+    def configured(self, skill: Skill) -> frozenset[tuple[str, str]]:  # noqa: ARG002 — the compiler's errors are its rows
+        """Nothing: a compiler ships no configuration to set it in."""
+        return frozenset()
+
 
 def _failed_test(ran: Ran) -> str:
     """What a failed `zig test` said first: an error, or a test."""

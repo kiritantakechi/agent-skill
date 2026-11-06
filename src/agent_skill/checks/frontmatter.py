@@ -28,6 +28,18 @@ ANGLE_BRACKET = declare("frontmatter", "angle_bracket", Level.FAIL)
 RULE_COUNT = declare("frontmatter", "rule_count", Level.FAIL)
 
 
+def described(body: str) -> str | None:
+    """The description a frontmatter block folds, on one line.
+
+    None when it holds no `>-` folded description, which is the one
+    shape every standard's takes.
+    """
+    block = re.search(r"description: >-\n((?:  .*\n)+)", body)
+    if block is None:
+        return None
+    return " ".join(line.strip() for line in block.group(1).splitlines())
+
+
 @check("frontmatter", "the block Claude Code reads first")
 @per_skill
 def frontmatter(skill: Skill) -> Iterator[Finding]:
@@ -54,14 +66,10 @@ def frontmatter(skill: Skill) -> Iterator[Finding]:
     if name and name.group(1) != skill.name:
         yield fail(f"frontmatter name {name.group(1)!r} != directory", where, NAME)
 
-    desc_block = re.search(r"description: >-\n((?:  .*\n)+)", body)
-    if "description" in keys and not desc_block:
+    folded = described(body)
+    if "description" in keys and folded is None:
         yield fail("description is not a `>-` folded block", where, FOLDED)
-    desc = (
-        " ".join(ln.strip() for ln in desc_block.group(1).splitlines())
-        if desc_block
-        else ""
-    )
+    desc = folded or ""
     if len(desc) > MAX_DESCRIPTION:
         yield fail(f"description {len(desc)} > {MAX_DESCRIPTION}", where, LENGTH)
     if "<" in desc or ">" in desc:

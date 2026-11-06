@@ -21,6 +21,7 @@ from agent_skill.layout import SKILLS, root_of
 from agent_skill.model import Skill, Tree, discover
 from agent_skill.report import Level, Result
 lazy from agent_skill import revise
+lazy from agent_skill.measure import table
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_SKILLS = REPO / SKILLS
@@ -31,7 +32,8 @@ DEFAULT_SKILLS = REPO / SKILLS
 DESCRIPTION = (
     "`agent-skill` — check the skills in this repository; fmt them; revise "
     "their rules, or renumber and demote, which are revise by other names; "
-    "build them into packages, install them into each agent, and list them."
+    "build them into packages, install them into each agent, list them, and "
+    "measure how far each is from the normal form."
 )
 
 
@@ -295,6 +297,12 @@ def cmd_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_measure(args: argparse.Namespace) -> int:
+    """Print how far each standard is from the normal form."""
+    print(table(discover(args.skills)))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the subcommand `argv` names and return its exit status.
 
@@ -379,6 +387,10 @@ def main(argv: list[str] | None = None) -> int:
         cmd.set_defaults(func=cmd_revise, plan=None)
     sub.add_parser("list", help="what is in this repository").set_defaults(
         func=cmd_list
+    )
+    measured = "how far each standard is from the normal form, as a table"
+    sub.add_parser("measure", help=measured, description=measured).set_defaults(
+        func=cmd_measure
     )
 
     args = parser.parse_args(argv, namespace=_Parsed())

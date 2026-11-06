@@ -14,6 +14,7 @@ uv run agent-skill demote NAME PLAN  # revise with a plan: rules to lint rows, m
 uv run agent-skill install           # symlink each skill into every agent present
 uv run agent-skill build             # package each as dist/<name>.skill
 uv run agent-skill list              # each skill's prefix, counts and toolchain
+uv run agent-skill measure           # how far each standard is from the normal form
 uv run pytest                        # the same checks, as tests
 ```
 

@@ -397,6 +397,16 @@ class Toolchain(Protocol):
         """What is wrong with a shipped asset of `asset_suffixes`."""
         ...
 
+    def configured(self, skill: Skill) -> frozenset[tuple[str, str]]:
+        """Each lint `skill`'s shipped configuration sets one by one.
+
+        As a `Decided by tools` row names it: its tool, then the lint.
+        A group, or a selection of everything, sets nothing one by one,
+        and a compiler ships no configuration. A row is owed to each
+        (normalize-the-standards, decision 8).
+        """
+        ...
+
 
 def extracted(skill: Skill, language: Language) -> list[Block]:
     """The blocks a toolchain extracts: every `verified` one, anywhere.

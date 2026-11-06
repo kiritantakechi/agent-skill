@@ -36,7 +36,7 @@ from agent_skill.doc.chapter import (
     Removed,
     history,
 )
-from agent_skill.ids import RuleId, cited
+from agent_skill.ids import RuleId, cited, leading
 from agent_skill.model import REFERENCES, RENAMES_MD, SKILL_MD
 from agent_skill.report import Level, declare, fail
 lazy from agent_skill.doc import Block, Doc
@@ -473,13 +473,16 @@ def _named(skill: Skill) -> Iterator[Finding]:
     Section 6 maps each family to its file, which is the one place a
     reader needs the path; a scope says which chapters neighbour this
     one. Anywhere else a citation is a bare rule ID (decision 3), and a
-    chapter named in passing is a second map.
+    chapter named in passing is a second map. A path a rule ID follows
+    is a citation's, which `anatomy` reports and `fmt` drops, so it is
+    not reported twice.
     """
     for path, doc in skill.docs.items():
         for block in _naming(doc, skill_md=path == skill.skill_md):
             text = text_of((block,))
             for m in _FILE.finditer(text):
-                if vocabulary.code_for(m["stem"]):
+                cites = leading(text[m.end() :].lstrip().removeprefix("`"))
+                if vocabulary.code_for(m["stem"]) and cites is None:
                     line = block.line + text.count("\n", 0, m.start())
                     yield fail(
                         f"names the chapter {m.group(0)}; outside section 6 and a "
@@ -529,7 +532,8 @@ def _reality(skill: Skill) -> Iterator[Finding]:
     What compiles and behaves differently, what no longer compiles (one
     table: old, new, rule), what the target gained, in that order. Each
     item names the rule that owns it, so section 2 holds nothing of its
-    own (decision 5).
+    own (decision 5): every item of the section, under whichever
+    subsection or none, so a section still to be laid out is read too.
     """
     title = shared.skill_sections(skill)[2]
     section = next((s for s in skill.typed.sections if s.title == title), None)
@@ -559,9 +563,7 @@ def _reality(skill: Skill) -> Iterator[Finding]:
             where,
             REALITY_TABLE,
         )
-    for heading, blocks in parts:
-        if heading.text in want:
-            yield from _owned(skill, blocks)
+    yield from _owned(skill, (*before, *(b for _, blocks in parts for b in blocks)))
 
 
 def _subsections(
