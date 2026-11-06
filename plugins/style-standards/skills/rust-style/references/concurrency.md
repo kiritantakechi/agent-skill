@@ -14,7 +14,7 @@ concurrent".
 ## Contents
 
 - **Choosing a model**
-  - RS-CONC-01 [M] Do not add concurrency without a measured reason
+  - RS-CONC-01 [M] Do not add concurrency until a profile shows the need
   - RS-CONC-02 [M] Match the model to the bottleneck
   - RS-CONC-03 [M] Do not adopt async for a CLI that does a handful of file reads
   - RS-CONC-04 [M] Mutate through a message to one owner wherever a message can do it
@@ -78,7 +78,7 @@ concurrent".
 
 ## Choosing a model
 
-### RS-CONC-01 [M] Do not add concurrency without a measured reason
+### RS-CONC-01 [M] Do not add concurrency until a profile shows the need
 
 It multiplies the state space, complicates every error path, and makes failures non-reproducible.
 Sequential code that is fast enough is the right answer.
@@ -545,12 +545,12 @@ pub fn insert_rendered<S: BuildHasher>(
 ### RS-CONC-21 [S] Treat lock granularity as a tuning parameter with evidence
 
 Prefer a `Mutex` per subsystem over one global lock, and per-shard locks over one big map lock when
-contention is measured. Lock granularity is a tuning parameter with evidence behind it, not a
+a profile shows contention. Lock granularity is a tuning parameter with evidence behind it, not a
 default.
 
 **Why:** finer locks reduce contention and increase the number of orderings that can deadlock, so
-the trade is real in both directions. Sharding without measured contention buys complexity for
-nothing.
+the trade is real in both directions. Sharding without contention a profile shows buys complexity
+for nothing.
 
 **Check:** is there a contention measurement justifying the current granularity? Both "one global
 lock" and "sharded" need one.
@@ -757,8 +757,8 @@ Test one without a runtime: `pin!` it and poll it with `Context::from_waker(Wake
 Decide explicitly whether your trait needs `Send` futures — `trait_variant`, an explicit
 `-> impl Future<Output = _> + Send`, or `Pin<Box<dyn Future + Send>>` — and say which in the
 rustdoc. The same decision governs an async callback: take an `AsyncFn` bound rather than
-`F: Fn() -> Fut, Fut: Future`, unless the callback's future must be `Send` — stable Rust cannot yet
-state that of an `AsyncFn`.
+`F: Fn() -> Fut, Fut: Future`, unless the callback's future must be `Send` — Rust 1.99 cannot state
+that of an `AsyncFn`.
 
 **Why:** a multi-threaded runtime requires `Send` futures to spawn them, and the bound cannot be
 added by the caller afterwards. Discovering this after publishing means a breaking change.

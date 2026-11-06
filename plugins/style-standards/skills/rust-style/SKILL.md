@@ -1,17 +1,11 @@
 ---
 name: rust-style
 description: >-
-  The modern Rust 1.99 (edition 2024) engineering standard — a 597-rule library merging the Rust API
-  Guidelines, the empirical conventions of ripgrep and the BurntSushi crates, and a functional-first
-  default. Covers naming, API design, errors and panics, iterator and combinator style, ownership
-  and lifetimes, traits and generics, module and workspace layout, Cargo/features/lints/CI, testing
-  and fuzzing, rustdoc, performance, concurrency and async, unsafe and FFI, ripgrep-grade CLI
-  architecture, macros, and API symmetry. Use this whenever writing, reviewing, refactoring,
-  scaffolding, or debugging ANY Rust — a crate, one function, a `Cargo.toml`, a trait, an async
-  task, an `unsafe` block, a CLI — even if the user never mentions "style", "standards", or
-  "quality". Also use when asked to make Rust "idiomatic", "modern", "clean", "elegant",
-  "production-grade", or "functional", when auditing a Rust codebase, when choosing between Rust
-  design alternatives, and when moving code to edition 2024 or a newer toolchain.
+  Use when writing, reviewing, refactoring, scaffolding or debugging any Rust, auditing a Rust
+  codebase, choosing between design alternatives, or moving code to edition 2024 or a newer
+  toolchain, even when no one asks for "style", "idiomatic" or "production-grade" code. Applies to a
+  crate, a function, a trait, an async task, an `unsafe` block, a CLI, `Cargo.toml`, `clippy.toml`,
+  `rustfmt.toml` and a CI workflow. Targets Rust 1.99.
 ---
 
 # Rust Style — 1.99
@@ -254,7 +248,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/concurrency.md` | `RS-CONC` (47) | Choosing a model, scoped threads and channels, shared state and lock discipline, async fundamentals and cancellation safety, `rayon`, `loom` and determinism |
 | `references/unsafe.md` | `RS-UNSAFE` (33) | `// SAFETY:` discipline, the UB list, layout and `repr`, `PhantomData` and variance, `unsafe trait`, C interop and `catch_unwind`, Miri and sanitizers |
 | `references/cli.md` | `RS-CLI` (32) | The `LowArgs`→`HiArgs` two-stage model, the flag table, streams and colour, `BrokenPipe`, signals, config precedence |
-| `references/migration.md` | `RS-MIG` (3) | The crates std replaced, the APIs deprecated through 1.99, when each API the rules prescribe arrived, and what changed silently by release |
+| `references/migration.md` | `RS-MIG` (3) | Every old spelling the 2024 edition and the releases through 1.99 left behind, with its status and owning rule; the command the table generates; when each API arrived; and what changed silently by release |
 | `references/macros.md` | `RS-MACRO` (22) | When not to write a macro, `macro_rules!` hygiene and fragment specifiers, proc-macro crate split, spans and diagnostics, `trybuild` |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |
 

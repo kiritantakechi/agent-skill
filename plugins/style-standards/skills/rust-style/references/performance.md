@@ -260,8 +260,8 @@ Consider `SmallVec`/`ArrayVec`/`SmallString` when profiling shows many short-liv
 — but only then. The complexity and the extra dependency need evidence.
 
 **Why:** inline storage avoids the allocation but enlarges every value, including the ones that
-spill, and it complicates the types. It is a real win in the measured case and a pessimization
-otherwise.
+spill, and it complicates the types. It is a real win in the case a profile shows and a
+pessimization otherwise.
 
 **Check:** is there a profile showing allocator time dominated by small, short-lived collections?
 Without one, the dependency is not earning its place (RS-BUILD-19).
@@ -442,7 +442,7 @@ windows) carry the width the same way.
 
 **Why:** the safe forms give the optimizer the same proof the `unsafe` would assert, at zero
 soundness cost. `get_unchecked` converts a panic into UB, so it waits until the safe forms have been
-tried and measured.
+tried and profiled.
 
 **Check:** if `get_unchecked` appears, was `as_chunks` or `zip` tried first, and is there a
 benchmark showing the difference? Clippy's `chunks_exact_to_as_chunks` flags a `chunks_exact` with a
@@ -797,8 +797,8 @@ out of a default `cargo test`, so uncompiled they rot until the day you need one
 
 ### RS-PERF-34 [M] Wrap inputs and results in `black_box`
 
-Use `std::hint::black_box` around inputs and results so the optimizer cannot delete the work being
-measured. A benchmark that got 1000× faster deleted itself.
+Use `std::hint::black_box` around inputs and results so the optimizer cannot delete the work the
+benchmark times. A benchmark that got 1000× faster deleted itself.
 
 **Why:** the compiler can see the result is unused and the input is constant, so it is entitled to
 remove the entire computation. The resulting number measures an empty loop, and it looks like a

@@ -748,8 +748,8 @@ same argument applies to randomness and to the current directory.
 Return the new state as a value; where misuse is costly and the states are few, make them types
 (RS-TRAIT-42).
 
-**Why:** an object that is "not yet initialized" for its first three method calls is two types
-wearing one name, and every method has to handle a state it should never see.
+**Why:** an object that is "uninitialized" for its first three method calls is two types wearing one
+name, and every method has to handle a state it should never see.
 
 **Check:** does a transition mutate a state field in place where it could take `self` and return the
 next state?

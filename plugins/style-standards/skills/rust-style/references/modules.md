@@ -608,8 +608,8 @@ Two members built together each see the union of their features on every shared 
 Per-package unification (`resolver.feature-unification`) is nightly-only, so the working remedies
 are separate invocations or `cargo hack`.
 
-**Why:** the member that asked for less is compiled against the larger dependency anyway, so adding
-a feature in one member silently changes another member's binary.
+**Why:** the member that asked for less is built with the larger dependency anyway, so adding a
+feature in one member silently changes another member's binary.
 
 **Check:** for a dependency two members configure differently, compare `cargo tree -e features`
 alone against `--workspace`. Any difference is a member being built in a way nobody declared.

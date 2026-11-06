@@ -35,7 +35,7 @@ not a partial impl.
 
 - **Static versus dynamic dispatch**
   - RS-TRAIT-12 [S] Default to static dispatch
-  - RS-TRAIT-13 [S] Choose `dyn` for open sets, heterogeneous storage, or measured bloat
+  - RS-TRAIT-13 [S] Choose `dyn` for open sets, heterogeneous storage, or code bloat the binary shows
   - RS-TRAIT-14 [S] Do not use argument-position `impl Trait` where callers may want to name the type
   - RS-TRAIT-15 [S] Use return-position `impl Trait` for iterators, futures, and closures
   - RS-TRAIT-16 [M] Keep a trait dyn-compatible if it might ever be boxed
@@ -355,7 +355,7 @@ more than once (and when a caller may name it, RS-TRAIT-14).
 keeps the door open — a generic taking `&T` where `T: Trait + ?Sized` also accepts a `&dyn Trait`
 (without `?Sized`, E0277), but a `dyn`-taking function cannot be specialized.
 
-**Check:** is there a measured reason for the vtable? If not, start static.
+**Check:** does a profile or the binary's size give a reason for the vtable? If not, start static.
 
 ```rust
 // verified
@@ -365,7 +365,7 @@ pub fn count_matching<P: Fn(&str) -> bool>(lines: &[String], predicate: P) -> us
 }
 ```
 
-### RS-TRAIT-13 [S] Choose `dyn` for open sets, heterogeneous storage, or measured bloat
+### RS-TRAIT-13 [S] Choose `dyn` for open sets, heterogeneous storage, or code bloat the binary shows
 
 **Why:** a vtable call costs a few nanoseconds and a predictable indirect branch; forty
 monomorphized copies of a large function cost kilobytes of instruction cache. A `Vec` of mixed

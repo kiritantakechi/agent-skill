@@ -236,7 +236,7 @@ can be deleted.
 
 `[package.metadata.docs.rs]` should enable the features docs.rs should build with
 (`all-features = true`, or an explicit list) and `rustdoc-args = ["--cfg", "docsrs"]` so the
-`docsrs`-gated `doc_cfg` line takes effect (RS-BUILD-17). Since 2026-05-01 docs.rs builds only
+`docsrs`-gated `doc_cfg` line takes effect (RS-BUILD-17). docs.rs builds only
 `x86_64-unknown-linux-gnu` unless `targets` lists more, so a crate with platform-gated API sets
 `targets` to cover it.
 
