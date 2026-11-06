@@ -309,9 +309,7 @@ fn reindex(
 ) {
     for change in changes.read() {
         match change {
-            AssetEvent::Added { .. }
-            | AssetEvent::Modified { .. }
-            | AssetEvent::Removed { .. } => {
+            AssetEvent::Added { .. } | AssetEvent::Modified { .. } | AssetEvent::Removed { .. } => {
                 index.longest = dialogues
                     .iter()
                     .map(|(_, dialogue)| dialogue.lines.len())

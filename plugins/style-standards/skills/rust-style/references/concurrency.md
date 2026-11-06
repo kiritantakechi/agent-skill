@@ -681,8 +681,7 @@ use std::sync::LazyLock;
 use std::thread::available_parallelism;
 
 /// Computed once, on first use, with no lock on the read path afterwards.
-static WORKERS: LazyLock<usize> =
-    LazyLock::new(|| available_parallelism().map_or(1, NonZero::get));
+static WORKERS: LazyLock<usize> = LazyLock::new(|| available_parallelism().map_or(1, NonZero::get));
 
 #[must_use]
 pub fn workers() -> usize {

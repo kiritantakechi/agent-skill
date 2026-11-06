@@ -73,10 +73,7 @@ struct Hud {
 /// No HUD yet is an absence the game expects, so `Single` skips the system
 /// until there is one. A HUD following a player who is gone is not, so that
 /// is the `?`.
-fn update_hud(
-    hud: Single<(&Hud, &mut Node)>,
-    players: Query<&Transform, With<Player>>,
-) -> Result {
+fn update_hud(hud: Single<(&Hud, &mut Node)>, players: Query<&Transform, With<Player>>) -> Result {
     let (hud, mut node) = hud.into_inner();
     let player = players.get(hud.follows)?;
     node.left = px(player.translation.x);
