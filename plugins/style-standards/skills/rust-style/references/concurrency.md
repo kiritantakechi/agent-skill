@@ -1,4 +1,10 @@
-# RS-CONC — Concurrency and async
+# Concurrency: Threads, Channels, Locks, and Async
+
+Scope: choosing a concurrency model and living with it — threads and scoped threads, channels,
+shared state and lock discipline, atomics, async fundamentals and cancellation safety, structured
+concurrency, data parallelism with `rayon`, and testing concurrent code deterministically. Interior
+mutability within one thread is the ownership chapter's; `unsafe impl Send` and `Sync` are the
+unsafe chapter's; concurrency as a speed-up to measure is the performance chapter's.
 
 Rust removes data races, not concurrency bugs. Deadlocks, livelocks, lost wakeups, unbounded queues,
 and cancellation-safety violations are all still yours to avoid. The best defence is choosing the
@@ -74,9 +80,8 @@ concurrent".
 
 ### RS-CONC-01 [M] Do not add concurrency without a measured reason
 
-Do not add concurrency without a measured reason. It multiplies the state space, complicates every
-error path, and makes failures non-reproducible. Sequential code that is fast enough is the right
-answer.
+It multiplies the state space, complicates every error path, and makes failures non-reproducible.
+Sequential code that is fast enough is the right answer.
 
 **Why:** concurrency converts deterministic bugs into intermittent ones, which are orders of
 magnitude more expensive to find. That cost is permanent, whereas the speedup is often unnecessary —
@@ -96,9 +101,9 @@ pub fn total(values: &[u64]) -> u64 {
 
 ### RS-CONC-02 [M] Match the model to the bottleneck
 
-Match the model to the bottleneck: threads and `rayon` for CPU-bound work, async for I/O-bound work
-with many concurrent operations, and a thread pool with blocking I/O for a few dozen connections —
-which is simpler than async and competitive at that scale.
+Threads and `rayon` for CPU-bound work, async for I/O-bound work with many concurrent operations,
+and a thread pool with blocking I/O for a few dozen connections — which is simpler than async and
+competitive at that scale.
 
 **Why:** async solves the problem of holding many waiting operations cheaply; it does nothing for
 CPU-bound work and actively hurts it by adding a scheduler. Threads solve CPU parallelism and cost
@@ -109,9 +114,8 @@ determines the model.
 
 ### RS-CONC-03 [M] Do not adopt async for a CLI that does a handful of file reads
 
-Do not adopt async for a CLI that does a handful of file reads. `tokio` brings a runtime, a
-scheduler, coloured functions, and a large dependency tree; a CLI that opens fifty files should just
-open them.
+`tokio` brings a runtime, a scheduler, coloured functions, and a large dependency tree; a CLI that
+opens fifty files should just open them.
 
 **Why:** async's benefit appears at high concurrency, and fifty sequential file reads have none.
 What you do get is a function-colouring constraint through the whole codebase and a much larger
@@ -122,8 +126,8 @@ pool is simpler and usually faster.
 
 ### RS-CONC-04 [M] Prefer message passing to shared memory
 
-Prefer message passing to shared memory. Channels give you one owner per value, backpressure, and a
-shutdown protocol; shared mutable state gives you locks and a graph of who may touch what.
+Channels give you one owner per value, backpressure, and a shutdown protocol; shared mutable state
+gives you locks and a graph of who may touch what.
 
 **Why:** a channel makes the ownership transfer explicit and localizes the synchronization to one
 well-tested primitive. Shared state distributes the reasoning across every site that takes the lock,
@@ -155,9 +159,8 @@ pub fn total(chunks: Vec<Vec<u32>>) -> u32 {
 
 ### RS-CONC-05 [M] Prefer immutable sharing to synchronized mutation
 
-Prefer immutable sharing to synchronized mutation. `Arc<T>` where `T` never changes needs no lock at
-all — and inside `thread::scope` a plain `&T` does the same. The vast majority of "shared state" is
-configuration that is written once at startup.
+`Arc<T>` where `T` never changes needs no lock at all — and inside `thread::scope` a plain `&T` does
+the same. The vast majority of "shared state" is configuration that is written once at startup.
 
 **Why:** immutable data is `Sync` for free, so there is no critical section, no contention, and no
 deadlock risk. Most state that gets wrapped in a mutex is never actually mutated after construction.
@@ -190,8 +193,7 @@ pub fn count_matches(haystacks: &[String], needle: &str, workers: usize) -> usiz
 
 ### RS-CONC-06 [S] Prefer partitioning to synchronization
 
-Prefer partitioning to synchronization: give each worker its own slice of the data and merge at the
-end. No lock is faster than any lock.
+Give each worker its own slice of the data and merge at the end. No lock is faster than any lock.
 
 **Why:** partitioning removes the shared resource entirely, so it scales linearly instead of
 contending. The merge at the end is usually cheap and happens once rather than per operation.
@@ -222,9 +224,8 @@ pub fn sum_partitioned(values: &[u64], workers: usize) -> u64 {
 
 ### RS-CONC-07 [M] Keep the concurrency at one layer, ideally the top
 
-Keep the concurrency at one layer, ideally the top. A library that spawns its own threads or
-requires a specific runtime constrains every application that uses it. Offer a synchronous API and
-let the caller parallelize (RS-CONC-29).
+A library that spawns its own threads or requires a specific runtime constrains every application
+that uses it. Offer a synchronous API and let the caller parallelize (RS-CONC-29).
 
 **Why:** the application knows its own thread budget and runtime; the library does not. A library
 that spawns threads cannot be used inside another parallel context without oversubscribing, and one
@@ -235,8 +236,8 @@ to the caller?
 
 ### RS-CONC-08 [M] Decide the parallelism model before writing the data structures
 
-Decide the parallelism model before writing the data structures. Retrofitting `Send + Sync` onto a
-design built around `Rc` and `RefCell` is a rewrite, not a refactor.
+Retrofitting `Send + Sync` onto a design built around `Rc` and `RefCell` is a rewrite, not a
+refactor.
 
 **Why:** `Rc` and `RefCell` are not `Send`, and they tend to be load-bearing in the designs that use
 them — a graph with parent pointers, a tree with shared nodes. Converting means changing the
@@ -247,8 +248,8 @@ more expensive than deciding now.
 
 ### RS-CONC-09 [M!] Bound every queue
 
-Bound every queue. An unbounded channel converts backpressure into memory exhaustion, which surfaces
-as an OOM kill hours later rather than a slow producer immediately.
+An unbounded channel converts backpressure into memory exhaustion, which surfaces as an OOM kill
+hours later rather than a slow producer immediately.
 
 *Relaxed form:* a queue whose producer is a bounded, known set — a fixed list of files, a fixed
 worker count — is already bounded by construction. Any queue fed by network input or user activity
@@ -274,8 +275,8 @@ pub fn bounded_queue(capacity: usize) -> (SyncSender<u32>, mpsc::Receiver<u32>) 
 
 ### RS-CONC-10 [M] Design shutdown at the start
 
-Design shutdown at the start: how workers learn to stop, how in-flight work drains, and how the main
-thread waits. Retrofitted shutdown is where hangs live.
+Settle how workers learn to stop, how in-flight work drains, and how the main thread waits.
+Retrofitted shutdown is where hangs live.
 
 **Why:** shutdown is a protocol involving every concurrent component, so it constrains their design.
 Added afterwards it becomes a collection of flags and timeouts that mostly work, and the failure
@@ -310,8 +311,8 @@ impl Shutdown {
 
 ### RS-CONC-11 [M] Use `std::thread::scope` for threads that borrow local data
 
-Use `std::thread::scope` for threads that borrow local data. It removes the `Arc`/`'static` dance
-and guarantees joins, which is exactly the guarantee that makes borrowing sound.
+It removes the `Arc`/`'static` dance and guarantees joins, which is exactly the guarantee that makes
+borrowing sound.
 
 **Why:** the scope guarantees every thread is joined before it returns, which is what lets the
 borrow checker accept references to local data. Without it, sharing local data requires `Arc` and
@@ -335,8 +336,7 @@ pub fn longest(words: &[String]) -> usize {
 
 ### RS-CONC-12 [M] Always handle `JoinHandle::join`'s result
 
-Always handle `JoinHandle::join`'s result. Dropping it discards a panic in the worker, turning a
-crash into silently missing work.
+Dropping it discards a panic in the worker, turning a crash into silently missing work.
 
 **Why:** a panicking thread does not propagate anywhere; the panic is captured in the join result.
 Ignoring that result means the program continues as if the work succeeded, producing wrong output
@@ -416,8 +416,7 @@ pub fn worker_count(override_to: Option<usize>) -> usize {
 
 ### RS-CONC-15 [M] Do not spawn per item
 
-Do not spawn per item. Thread creation costs more than most units of work; use a pool (`rayon`) or
-chunk the work.
+Thread creation costs more than most units of work; use a pool (`rayon`) or chunk the work.
 
 **Why:** spawning costs tens of microseconds and a stack allocation, which exceeds the cost of most
 work items. Spawning per item makes the program slower than the sequential version while looking
@@ -459,8 +458,8 @@ usually gets the lost-wakeup case wrong. The channel types have solved all three
 
 ### RS-CONC-17 [M] Close channels deliberately
 
-Close channels deliberately. A receiver loop ends when all senders drop; a forgotten clone of the
-sender in the parent scope is the classic "program hangs at the end" bug (see the `drop(tx)` above).
+A receiver loop ends when all senders drop; a forgotten clone of the sender in the parent scope is
+the classic "program hangs at the end" bug (see the `drop(tx)` above).
 
 **Why:** the channel's closure signal *is* the drop of the last sender, so an extra live sender
 means the receiver waits forever. The bug appears only at shutdown, after all the real work
@@ -592,8 +591,7 @@ readers can also starve a waiting writer indefinitely.
 
 ### RS-CONC-23 [M] Establish a lock order and document it
 
-Establish a lock order and document it. Every deadlock in practice is two code paths taking the same
-two locks in different orders.
+Every deadlock in practice is two code paths taking the same two locks in different orders.
 
 **Why:** deadlock requires a cycle in the acquisition graph, and a global order makes cycles
 impossible by construction. It is one of the few concurrency properties that can be checked by
@@ -664,9 +662,8 @@ algorithm, and is it `loom`-tested (RS-CONC-40)? A retry loop that only recomput
 
 ### RS-CONC-27 [M] Use `OnceLock`/`LazyLock` for lazily initialized globals
 
-Use `OnceLock`/`LazyLock` for lazily initialized globals rather than `static mut` (which edition
-2024 denies via `static_mut_refs`) or a `Mutex<Option<T>>` (RS-OWN-25). Data known at compile time
-needs neither: it is a `const`.
+Not `static mut`, which edition 2024 denies through `static_mut_refs`, and not a `Mutex<Option<T>>`
+(RS-OWN-25). Data known at compile time needs neither: it is a `const`.
 
 **Why:** these types give a safe, race-free single initialization with no lock on the read path
 after it. A `Mutex<Option<T>>` pays for a lock on every access to emulate the same thing.
@@ -729,9 +726,8 @@ feature-gated?
 
 ### RS-CONC-30 [M] Do not block in async
 
-Do not block in async. A synchronous file read, a `std::sync` lock held across a poll, or a
-CPU-bound loop stalls the whole executor thread. Use `spawn_blocking` for blocking work and the
-async equivalents for I/O.
+A synchronous file read, a `std::sync` lock held across a poll, or a CPU-bound loop stalls the whole
+executor thread. Use `spawn_blocking` for blocking work and the async equivalents for I/O.
 
 **Why:** an executor thread runs many tasks cooperatively, so a blocking call stops all of them, not
 just the caller. On a multi-threaded runtime that is one core lost; if every worker blocks, the
@@ -838,8 +834,8 @@ it need to be?
 
 ### RS-CONC-37 [M] Parallelize at a coarse granularity
 
-Parallelize at a coarse granularity. `par_iter()` over a million one-microsecond items spends its
-time in the scheduler; chunk first (`par_chunks`, `with_min_len`).
+`par_iter()` over a million one-microsecond items spends its time in the scheduler; chunk first
+(`par_chunks`, `with_min_len`).
 
 **Why:** every work item carries scheduling overhead, so items shorter than that overhead make the
 parallel version slower than the sequential one. Chunking amortizes it across many items.
@@ -848,9 +844,8 @@ parallel version slower than the sequential one. Chunking amortizes it across ma
 
 ### RS-CONC-38 [M] Keep the closure passed to a parallel iterator pure
 
-Keep the closure passed to a parallel iterator pure. Shared mutation inside means locks, which
-serialize exactly the thing you parallelized; use `map` plus `reduce`/`fold` with an identity
-instead.
+Shared mutation inside means locks, which serialize exactly the thing you parallelized; use `map`
+plus `reduce`/`fold` with an identity instead.
 
 **Why:** a mutex inside a parallel closure reintroduces a global serialization point, so the program
 pays the parallelism overhead and gets none of the benefit. `reduce` combines per-thread results
@@ -896,8 +891,8 @@ pub fn lengths(inputs: &[String]) -> Vec<usize> {
 
 ### RS-CONC-40 [M!] Test concurrent data structures with `loom`
 
-Test concurrent data structures with `loom`, which explores interleavings exhaustively for small
-models. Ordinary tests pass on broken lock-free code essentially every time.
+`loom` explores interleavings exhaustively for small models. Ordinary tests pass on broken lock-free
+code essentially every time.
 
 *Relaxed form:* if all your synchronization comes from `std` and `crossbeam` primitives used in the
 obvious way, `loom` buys little. It is mandatory the moment you write the algorithm rather than call
@@ -911,8 +906,7 @@ interleavings instead of sampling them.
 
 ### RS-CONC-41 [M!] Run the suite under ThreadSanitizer for anything with `unsafe` sharing
 
-Run the suite under ThreadSanitizer for anything with `unsafe` sharing. Miri, for the `unsafe`
-itself, is RS-UNSAFE-30.
+Miri, for the `unsafe` itself, is RS-UNSAFE-30.
 
 *Relaxed form:* run it before each release rather than per push. A crate with no `unsafe` sharing
 has nothing here to check.
@@ -948,8 +942,7 @@ what makes rare interleavings appear. It is also slow, so it belongs outside the
 
 ### RS-CONC-44 [M] Log with a task or thread identifier
 
-Log with a task or thread identifier. Interleaved logs without one are unreadable, and `tracing`
-spans exist precisely to solve this.
+Interleaved logs without one are unreadable, and `tracing` spans exist precisely to solve this.
 
 **Why:** with several workers the log is an interleaving of independent narratives, and without an
 identifier there is no way to separate them. Reconstructing one task's sequence is usually the whole
@@ -972,9 +965,8 @@ evidence.
 
 ### RS-CONC-46 [M] Prefer structured concurrency
 
-Prefer structured concurrency: every task has a parent that outlives it and is responsible for its
-shutdown. `thread::scope`, task groups, and `JoinSet` all encode this; bare `spawn`-and-forget does
-not.
+Every task has a parent that outlives it and is responsible for its shutdown. `thread::scope`, task
+groups, and `JoinSet` all encode this; bare `spawn`-and-forget does not.
 
 Outside a scope, keep each handle and join it: the handle is the only channel for a task's panic or
 result (RS-CONC-12). Detach only deliberately, with a comment saying why the work may be lost.
@@ -1013,9 +1005,9 @@ impl Workers {
 
 ### RS-CONC-47 [M] Document the threading contract of every public type
 
-Document the threading contract of every public type: whether it is `Send`, whether it is `Sync`,
-whether methods may be called concurrently, and whether it spawns anything. Users cannot infer this
-from the type signature alone, and getting it wrong is expensive.
+State whether it is `Send`, whether it is `Sync`, whether methods may be called concurrently, and
+whether it spawns anything. Users cannot infer this from the type signature alone, and getting it
+wrong is expensive.
 
 **Why:** auto traits appear in the docs but say nothing about whether concurrent method calls are
 *sensible* — a `Sync` type can still have methods that must not overlap. Whether the type spawns

@@ -1,4 +1,4 @@
-# Functional Style: Expressions, Iterators, Immutability, Purity
+# Functional: Expressions, Iterators, Immutability, and Purity
 
 Scope: the shape of a function body. Expression orientation and the `match`/`let else`/`matches!`
 vocabulary, the iterator adapter set and when each one is the right word, the discipline around

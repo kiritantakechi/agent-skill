@@ -1,4 +1,9 @@
-# RS-TEST — Testing
+# Testing: Layers, Assertions, Properties, Fuzzing, and Snapshots
+
+Scope: the test suite — the unit, integration and doc test layers, what a test asserts and how it is
+named, table-driven, property and differential testing, fuzzing, snapshots, end-to-end tests of a
+CLI, and flaky tests. Testing concurrent code deterministically is the concurrency chapter's; Miri
+and the sanitizers are the unsafe chapter's; `trybuild` for a macro is the macros chapter's.
 
 A test suite is a specification that runs. Its job is to make the contract explicit, to fail loudly
 when the contract breaks, and to say clearly what broke. Coverage percentage is a byproduct, not a
@@ -68,8 +73,8 @@ comments? A missing layer is a finding.
 
 ### RS-TEST-02 [M] Test behaviour, not implementation
 
-Test behaviour, not implementation. A test that breaks when you rename a private helper, without any
-change in observable behaviour, is a tax on refactoring rather than a safety net.
+A test that breaks when you rename a private helper, without any change in observable behaviour, is
+a tax on refactoring rather than a safety net.
 
 **Why:** the purpose of a suite is to let you change the inside safely. Tests coupled to the inside
 invert that — they make refactoring expensive, which is exactly when you most want tests. They also
@@ -189,9 +194,8 @@ files belong in a subdirectory reached by `#[path]`.
 
 ### RS-TEST-07 [M] Name tests as sentences about behaviour
 
-Name tests as sentences about behaviour: `returns_none_for_empty_input`,
-`preserves_order_of_equal_keys`, `errors_when_depth_exceeds_limit`. Do not prefix with `test_`
-(clippy `redundant_test_prefix`), and do not number them.
+`returns_none_for_empty_input`, `preserves_order_of_equal_keys`, `errors_when_depth_exceeds_limit`.
+Do not prefix with `test_` (clippy `redundant_test_prefix`), and do not number them.
 
 **Why:** the name is what you read in the failure output, often months later and without context. A
 name that states the expected behaviour turns a failure line into a diagnosis; `test_parse_2` turns
@@ -226,8 +230,8 @@ mod tests {
 
 ### RS-TEST-08 [S] Group related tests in nested `mod` blocks
 
-Group related tests in nested `mod` blocks inside the tests module (`mod parsing { … }`,
-`mod rendering { … }`) so `cargo test parsing` selects a coherent subset.
+Inside the tests module, `mod parsing { … }` and `mod rendering { … }` let `cargo test parsing`
+select a coherent subset.
 
 **Why:** the module path becomes the filter, so grouping gives you a fast inner loop on the area you
 are working in. It also gives the suite a visible structure once it passes a few dozen tests.
@@ -250,8 +254,8 @@ the format changes.
 
 ### RS-TEST-10 [S] Arrange, act, assert — visibly
 
-Arrange, act, assert — visibly. A blank line between the three phases makes a test skimmable, and
-makes it obvious when a "test" is actually three tests.
+A blank line between the three phases makes a test skimmable, and makes it obvious when a "test" is
+actually three tests.
 
 **Why:** the structure is already there; the blank lines just make it legible. The diagnostic
 benefit is that a test with three "act" phases becomes visually obvious, which is RS-TEST-03
@@ -291,8 +295,8 @@ mod tests {
 
 ### RS-TEST-11 [M] Assert on values, not on shapes
 
-Assert on values, not on shapes. `assert_eq!(result, vec!["a", "b"])` beats
-`assert!(result.len() == 2 && result[0] == "a")`: the failure message shows both sides.
+`assert_eq!(result, vec!["a", "b"])` beats `assert!(result.len() == 2 && result[0] == "a")`: the
+failure message shows both sides.
 
 **Why:** `assert!` on a boolean prints only "assertion failed", discarding everything you needed.
 `assert_eq!` prints both values, which is usually enough to diagnose without rerunning under a
@@ -323,7 +327,6 @@ mod tests {
 
 ### RS-TEST-12 [S] Give assertions context when the values are not self-explanatory
 
-Give assertions context when the values are not self-explanatory:
 `assert_eq!(got, want, "pattern {pattern:?} over input {input:?}")`. A bare `assert!(x)` failure
 tells you nothing.
 
@@ -433,9 +436,8 @@ mod tests {
 
 ### RS-TEST-15 [S] Use table-driven tests for families of similar cases
 
-Use table-driven tests for families of similar cases: an array of `(input, expected)` and a loop,
-with the input echoed in the assertion message (RS-TEST-12). This gets ten cases for the price of
-one and makes adding the eleventh trivial.
+An array of `(input, expected)` and a loop, with the input echoed in the assertion message
+(RS-TEST-12). This gets ten cases for the price of one and makes adding the eleventh trivial.
 
 **Why:** when adding a case costs one line, cases get added. When it costs a whole function, they do
 not — and the coverage of exactly the boundary conditions in RS-TEST-14 is what suffers.
@@ -518,9 +520,8 @@ teardown code.
 
 ### RS-TEST-18 [S] Test at the highest level that still gives a precise failure
 
-Test at the highest level that still gives a precise failure. An end-to-end test that fails with
-"output differs" is less useful than a unit test that fails with "escaping of `\t` is wrong" — but
-you need both.
+An end-to-end test that fails with "output differs" is less useful than a unit test that fails with
+"escaping of `\t` is wrong" — but you need both.
 
 **Why:** high-level tests catch integration bugs but diagnose poorly; low-level tests diagnose well
 but miss wiring. The rule picks the highest level that still names the fault, which maximizes
@@ -658,9 +659,9 @@ minimal input?
 
 ### RS-TEST-23 [M!] Fuzz anything that parses untrusted input
 
-Fuzz anything that parses untrusted input: `cargo fuzz` with `libfuzzer`, or `afl`. Check the corpus
-into a separate repository or CI cache, and add every crash as a unit test. A crash blocks the
-release; in a parser with `unsafe` it is memory corruption whose trigger an attacker chooses.
+`cargo fuzz` with `libfuzzer`, or `afl`. Check the corpus into a separate repository or CI cache,
+and add every crash as a unit test. A crash blocks the release; in a parser with `unsafe` it is
+memory corruption whose trigger an attacker chooses.
 
 *Relaxed form:* for a tool that only ever sees input you generate, a seeded property test over the
 same grammar is enough. The rule binds the moment the input crosses a trust boundary.
@@ -763,8 +764,7 @@ drift.
 
 ### RS-TEST-31 [M] Treat a flaky test as a bug of the same severity as the code
 
-Treat a flaky test as a bug of the same severity as the code it tests. Quarantining is a temporary
-measure with an owner and a deadline, not a resolution.
+Quarantining is a temporary measure with an owner and a deadline, not a resolution.
 
 **Why:** flakiness destroys the suite's authority — once reruns are normal, real failures get rerun
 too. A flaky test is also frequently reporting a real race that happens to be rare, so the flakiness
@@ -799,9 +799,9 @@ worth working through.
 
 ### RS-TEST-34 [S] Delete tests that no longer test anything
 
-Delete tests that no longer test anything. A suite that everyone has learned to skim is worse than a
-smaller suite that everyone reads. The commonest case tests the standard library, the compiler or a
-dependency — that `Vec::push` increases length — and can never fail for a reason you can act on.
+A suite that everyone has learned to skim is worse than a smaller suite that everyone reads. The
+commonest case tests the standard library, the compiler or a dependency — that `Vec::push` increases
+length — and can never fail for a reason you can act on.
 
 **Why:** every test costs runtime and attention forever. Tests that assert nothing, duplicate
 another, or cover deleted behaviour spend that budget without paying it back, and they dilute the

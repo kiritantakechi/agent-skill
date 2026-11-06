@@ -1,4 +1,4 @@
-# Public API Design: Surface, Signatures, Invariants, Evolution
+# API: The Public Surface, Signatures, Invariants, and Evolution
 
 Scope: everything a downstream crate can see and therefore everything you must keep working. The
 shape of the public namespace, what parameters and returns should be, when fields are private, how

@@ -1,16 +1,11 @@
-# Naming: Casing, Conversions, Word Order, Generics
+# Naming: Casing, Conversions, Word Order, and Generics
 
 Scope: how identifiers are cased and worded, the cost contract carried by the `as_`/`to_`/`into_`
 prefixes, getter and predicate shape, how iterators and their types are named, how crates, modules,
 features, and files are named, and how generic parameters, lifetimes, and associated types are
 spelled. Semantics of the things being named live elsewhere: what a constructor should *take* is in
-the API chapter, error-type *design* in the errors chapter, module *boundaries* in the structure
-chapter, and feature *semantics* in the Cargo chapter.
-
-Two sources are merged here: the **Rust API Guidelines** naming chapter (C-CASE, C-CONV, C-GETTER,
-C-ITER, C-ITER-TY, C-WORD-ORDER, C-FEATURE), quoted in substance where it is normative, and the
-**empirical conventions of `std`, `regex`, `ignore`, and `ripgrep`**. Where they are silent, the
-tie-break is section 3 of `SKILL.md`.
+the API chapter, error-type *design* in the errors chapter, module *boundaries* in the modules
+chapter, and feature *semantics* in the build chapter.
 
 ## Contents
 

@@ -1,4 +1,4 @@
-# Errors, `Result`, Panics, and Exit Codes
+# Errors: `Result`, Panics, and Exit Codes
 
 Scope: when a failure is a `Result` and when it is a panic, how a library's error type is shaped and
 what it must carry, how errors propagate and accumulate context, the panic rules including

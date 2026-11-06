@@ -157,12 +157,12 @@ not worth the name it costs.
 
 ## 4. Core rules
 
-- **Naming: Casing, Conversions, Word Order, Generics**
+- **Naming: Casing, Conversions, Word Order, and Generics**
   - RS-NAME-01 [M] Capitalize acronyms as ordinary English words
   - RS-NAME-12 [M] `as_` is a free borrowed view
   - RS-NAME-16 [M] Getters omit `get_`
   - RS-NAME-26 [S] Spell names out; abbreviate only where the abbreviation is the standard word
-- **Public API Design: Surface, Signatures, Invariants, Evolution**
+- **API: The Public Surface, Signatures, Invariants, and Evolution**
   - RS-API-01 [M] Keep everything private until proven public
   - RS-API-07 [M] Be generic in what you accept, concrete in what you return
   - RS-API-15 [M] Keep every field of a published struct private, including the ones with no invariant
@@ -173,7 +173,7 @@ not worth the name it costs.
   - RS-API-27 [M] Prefer unrepresentable to rejected, and rejected to checked
   - RS-API-36 [M] Implement `Debug` on every public type
   - RS-API-53 [M] Decide `#[non_exhaustive]` for every published enum and struct
-- **Errors, `Result`, Panics, and Exit Codes**
+- **Errors: `Result`, Panics, and Exit Codes**
   - RS-ERR-01 [M] Split failures into recoverable, caller-bug, and self-bug
   - RS-ERR-03 [M!] No `unwrap`, `expect`, or `panic!` on a recoverable path
   - RS-ERR-04 [M] Make an `expect` message state the invariant, not the symptom
@@ -182,7 +182,7 @@ not worth the name it costs.
   - RS-ERR-10 [M] Define one error enum per library, one variant per branchable failure
   - RS-ERR-13 [M!] Never expose `Box<dyn Error>` or `anyhow::Error` from a library
   - RS-ERR-15 [S] Prefer a struct with a private `kind` to a single-variant enum
-- **Functional Style: Expressions, Iterators, Immutability, Purity**
+- **Functional: Expressions, Iterators, Immutability, and Purity**
   - RS-FUNC-01 [M] Make everything that can be an expression one
   - RS-FUNC-03 [S] A `for` loop that only pushes is a `collect`
   - RS-FUNC-04 [S] A `for` loop that only accumulates a scalar is a fold
@@ -192,23 +192,23 @@ not worth the name it costs.
   - RS-FUNC-23 [S] Prefer shadowing to mutation for stepwise refinement
   - RS-FUNC-36 [M] Separate computing from doing, and push the doing to the edges
   - RS-FUNC-37 [M] Parse, don't validate
-- **Ownership, Borrowing, Lifetimes, Resources**
+- **Ownership: Borrowing, Lifetimes, and Resources**
   - RS-OWN-04 [M] Do not put a lifetime on a struct unless the borrow is the point
   - RS-OWN-06 [M] Split borrows by destructuring instead of fighting them
   - RS-OWN-08 [M] Never clone to silence the borrow checker
   - RS-OWN-21 [S] Prefer indices to references for graph-shaped data
   - RS-OWN-24 [M] Justify every use of interior mutability in a comment
-- **Traits, Generics, Dispatch, Type-Level Design**
+- **Traits: Generics, Dispatch, and Type-Level Design**
   - RS-TRAIT-01 [M] Name the capability as a trait before writing the type that provides it
   - RS-TRAIT-06 [S] Prefer composition to supertrait hierarchies
   - RS-TRAIT-18 [M] Prefer an enum to a trait object for a closed set
-- **RS-BUILD — Cargo, dependencies, lints, toolchain**
+- **Build: Manifest, Features, Dependencies, Lints, Toolchain, and CI**
   - RS-BUILD-19 [M] Justify every dependency by more than an hour of saved work
   - RS-BUILD-27 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
-- **RS-DOC — Documentation**
+- **Documentation: Rustdoc, Sections, Examples, and the README**
   - RS-DOC-06 [M] Give every public item a summary, and every non-trivial one an example
   - RS-DOC-11 [M] Give every panicking function a `# Panics` section
-- **RS-UNSAFE — `unsafe` and FFI**
+- **Unsafe: Soundness, Undefined Behaviour, Layout, and FFI**
   - RS-UNSAFE-01 [M] Forbid `unsafe` unless it is the crate's point, and justify each use
   - RS-UNSAFE-02 [M] Confine `unsafe` to the smallest module behind a safe API
   - RS-UNSAFE-03 [M] Give every `unsafe` block a `// SAFETY:` comment that says why it holds *here*

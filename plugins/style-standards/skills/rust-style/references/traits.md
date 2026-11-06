@@ -1,4 +1,4 @@
-# Traits, Generics, Dispatch, Type-Level Design
+# Traits: Generics, Dispatch, and Type-Level Design
 
 Scope: when a trait should exist at all, how to shape one so implementors and callers both benefit,
 the static-versus-dynamic dispatch decision, coherence and sealing, where to put bounds, and the

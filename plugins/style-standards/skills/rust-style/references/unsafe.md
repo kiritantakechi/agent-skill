@@ -1,4 +1,9 @@
-# RS-UNSAFE — `unsafe` and FFI
+# Unsafe: Soundness, Undefined Behaviour, Layout, and FFI
+
+Scope: code that takes the compiler's proofs on itself — the `// SAFETY:` discipline, the undefined
+behaviour list, layout and `repr`, `PhantomData` and variance, `unsafe trait`, C interop and
+unwinding across it, and Miri and the sanitizers. Choosing a concurrency model is the concurrency
+chapter's; a `Drop` that must not fail is the ownership chapter's.
 
 `unsafe` does not turn off the rules; it transfers responsibility for them from the compiler to you.
 Every `unsafe` block is a proof obligation, and an unproven one is a latent memory-safety
@@ -201,9 +206,8 @@ pub unsafe fn read_one(ptr: *const u32) -> u32 {
 
 ### RS-UNSAFE-07 [M] Never expose a safe function whose safety depends on the caller
 
-Never expose a safe function whose safety depends on the caller doing something. If a function can
-be misused into UB without `unsafe` at the call site, the function is unsound, no matter what the
-docs say.
+If a function can be misused into UB without `unsafe` at the call site, it is unsound, no matter
+what the docs say.
 
 **Why:** the `unsafe` keyword at the call site is the entire mechanism by which Rust localizes
 memory-safety review. A safe function with preconditions defeats it silently — reviewers auditing
@@ -413,10 +417,10 @@ pub fn read_u32(bytes: &[u8]) -> Option<u32> {
 
 ### RS-UNSAFE-16 [M] Respect alignment
 
-Respect alignment. `ptr::read_unaligned`/`write_unaligned` exist because a `*const u64` into a byte
-buffer is not necessarily aligned, and on some targets that is a fault rather than a slowdown. A
-field of a `#[repr(packed)]` struct is the same case: `&raw const packed.field` and
-`read_unaligned`, never a reference, which is misaligned the moment it exists.
+`ptr::read_unaligned`/`write_unaligned` exist because a `*const u64` into a byte buffer is not
+necessarily aligned, and on some targets that is a fault rather than a slowdown. A field of a
+`#[repr(packed)]` struct is the same case: `&raw const packed.field` and `read_unaligned`, never a
+reference, which is misaligned the moment it exists.
 
 **Why:** x86 tolerates unaligned access, which is why this bug ships. On other targets it is a
 SIGBUS, so the code passes CI and fails on a user's machine — the worst possible distribution of the
@@ -592,9 +596,8 @@ impl Drop for Slot {
 
 ### RS-UNSAFE-22 [M] Uphold `Drop` correctness in unsafe containers
 
-Uphold `Drop` correctness in unsafe containers: no double drop, no leak on panic in the middle of a
-partially initialized buffer. Use a guard struct so that unwinding cleans up the prefix that was
-initialized.
+No double drop, and no leak on a panic in the middle of a partially initialized buffer. Use a guard
+struct so that unwinding cleans up the prefix that was initialized.
 
 **Why:** a panic in the middle of initialization is the path nobody tests, and it is reachable from
 any user-supplied `Clone` or iterator. Without a guard, unwinding either drops uninitialized slots
@@ -644,10 +647,10 @@ pub fn process_id() -> c_int {
 
 ### RS-UNSAFE-24 [M] Never unwind across an `extern "C"` boundary
 
-Never unwind across an `extern "C"` boundary. A Rust panic escaping an `extern "C"` function aborts
-the process, and a foreign exception unwinding into Rust through `extern "C"` is undefined
-behaviour. Wrap every exported entry point in `catch_unwind` and convert a panic into an error code;
-where unwinding across the boundary is intended, declare `extern "C-unwind"`.
+A Rust panic escaping an `extern "C"` function aborts the process, and a foreign exception unwinding
+into Rust through `extern "C"` is undefined behaviour. Wrap every exported entry point in
+`catch_unwind` and convert a panic into an error code; where unwinding across the boundary is
+intended, declare `extern "C-unwind"`.
 
 An exported `#[unsafe(no_mangle)]` function is never generic, which is a hard error, and it never
 takes the name of a symbol std relies on — `memcpy`, `strlen`, `malloc` — with a different
@@ -677,10 +680,10 @@ pub extern "C" fn mylib_length(len: c_int) -> c_int {
 
 ### RS-UNSAFE-25 [M] Validate every pointer crossing the boundary
 
-Validate every pointer crossing the boundary: null checks, alignment, and the length contract. A C
-caller is not bound by your invariants and will eventually violate them. A C-variadic definition
-(`...`, read through `core::ffi::VaList`) checks nothing at all: each `next_arg::<T>()` trusts the
-caller for both the count and the type, so `# Safety` must state both.
+Null checks, alignment, and the length contract. A C caller is not bound by your invariants and will
+eventually violate them. A C-variadic definition (`...`, read through `core::ffi::VaList`) checks
+nothing at all: each `next_arg::<T>()` trusts the caller for both the count and the type, so
+`# Safety` must state both.
 
 **Why:** on the Rust side of an FFI boundary you are the trusted component, and the caller is
 untrusted input in the security sense. Assuming a non-null, correctly sized pointer is assuming the
@@ -711,12 +714,11 @@ pub unsafe fn c_str_len(ptr: *const c_char) -> usize {
 
 ### RS-UNSAFE-26 [M] Own the memory-management contract explicitly
 
-Own the memory-management contract explicitly: whoever allocates, frees. Export a `mylib_free` for
-anything you allocate, document it, and never free a pointer that C allocated with its own
-allocator. Hand memory out with `Box::into_raw` or `Box::into_non_null` and take it back with
-`from_raw`/`from_non_null`; for a buffer, `Vec::into_raw_parts` or `Vec::into_parts` and the
-matching `from_*` keep the capacity the free function needs. Never `Box::leak` and then rebuild a
-`Box` from the leaked reference.
+Whoever allocates, frees. Export a `mylib_free` for anything you allocate, document it, and never
+free a pointer that C allocated with its own allocator. Hand memory out with `Box::into_raw` or
+`Box::into_non_null` and take it back with `from_raw`/`from_non_null`; for a buffer,
+`Vec::into_raw_parts` or `Vec::into_parts` and the matching `from_*` keep the capacity the free
+function needs. Never `Box::leak` and then rebuild a `Box` from the leaked reference.
 
 **Why:** Rust's allocator and the C allocator are different, and freeing across them is UB even when
 both are "malloc" on your machine. Making the ownership explicit in the API is what prevents the
@@ -727,10 +729,9 @@ free, did your allocator produce it?
 
 ### RS-UNSAFE-27 [M] Convert strings deliberately at the boundary
 
-Convert strings deliberately at the boundary. `CStr`/`CString` for NUL-terminated C strings, and
-remember that they are bytes, not UTF-8 — use `to_str()` and handle the error rather than
-`to_string_lossy()` silently corrupting data. C string literals (`c"…"`) avoid a class of NUL
-mistakes.
+`CStr`/`CString` for NUL-terminated C strings, and remember that they are bytes, not UTF-8 — use
+`to_str()` and handle the error rather than `to_string_lossy()` silently corrupting data. C string
+literals (`c"…"`) avoid a class of NUL mistakes.
 
 **Why:** C strings carry no encoding guarantee, and `to_string_lossy` converts a data-integrity
 problem into replacement characters that survive into storage. The lossy path is right for a
@@ -782,9 +783,9 @@ const _: () = assert!(align_of::<Point>() == 8);
 
 ### RS-UNSAFE-29 [S] Keep the `-sys` crate thin
 
-Keep the `-sys` crate thin: raw declarations, the build script, and nothing else. Put the safe
-wrapper in a separate crate, which is the ecosystem convention (`libgit2-sys` / `git2`) and lets
-consumers audit the unsafe surface in one place.
+Raw declarations, the build script, and nothing else. Put the safe wrapper in a separate crate,
+which is the ecosystem convention (`libgit2-sys` / `git2`) and lets consumers audit the unsafe
+surface in one place.
 
 **Why:** the split gives the whole ecosystem one crate to audit per C library rather than one per
 wrapper, and it lets a consumer who needs the raw API skip your abstraction without vendoring.

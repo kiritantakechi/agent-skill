@@ -1,11 +1,16 @@
-# RS-BUILD — Cargo, dependencies, lints, toolchain
+# Build: Manifest, Features, Dependencies, Lints, Toolchain, and CI
+
+Scope: everything Cargo reads and CI runs — package metadata and the MSRV, features, dependencies
+and their versions, the `[lints]` table, supply chain and release, the toolchain pin, profiles, and
+the CI workflow. Where code goes on disk is the modules chapter's; what the crate's documentation
+says is the documentation chapter's; what each lint forbids is the chapter that owns its subject.
 
 The manifest is part of the API. It determines what your users can build, on which compilers, with
 which transitive risk. A sloppy `Cargo.toml` produces a crate that is technically correct and
 practically unusable.
 
-Baseline assumed here: edition 2024, the current stable toolchain, a six-week release cadence, and
-no LTS channel.
+Rust ships a stable release every six weeks and has no LTS channel, so the rules here assume edition
+2024 on the newest stable toolchain.
 
 `assets/Cargo.toml` is a complete, resolvable manifest rather than an excerpt.
 
@@ -98,9 +103,8 @@ rust-version = "1.99"        # a real, tested MSRV — see RS-BUILD-31
 
 ### RS-BUILD-02 [S] Choose an MSRV policy and publish it
 
-Choose an MSRV policy and publish it where RS-DOC-33 puts it: "latest stable", "stable minus two",
-or a pinned old version for distribution packagers. Bumping the MSRV is at least a minor version
-bump.
+The policy is one of "latest stable", "stable minus two", or a pinned old version for distribution
+packagers, stated where RS-DOC-33 puts it. Bumping the MSRV is at least a minor version bump.
 
 **Why:** downstream users plan around your policy — distribution packagers especially, who may be on
 a toolchain two years old. Publishing the policy converts an unpredictable breakage into a scheduled
@@ -110,9 +114,9 @@ one.
 
 ### RS-BUILD-03 [M] Fill in the full publish metadata
 
-Fill in the full publish metadata: `description`, `license` (or `license-file`), `repository`,
-`documentation`, `homepage`, `keywords`, `categories`, `readme`. Missing fields degrade the
-crates.io and docs.rs experience and are a five-minute fix.
+`description`, `license` (or `license-file`), `repository`, `documentation`, `homepage`, `keywords`,
+`categories` and `readme`, every one. A missing field degrades the crates.io and docs.rs pages and
+is a five-minute fix.
 
 **Why:** these fields drive search, categorization, and the links users need to evaluate the crate.
 A crate with no `repository` cannot be audited before adoption, which for many organizations is
@@ -261,8 +265,7 @@ release schedule. The old advice against it predates that clarification.
 
 ### RS-BUILD-11 [S] Keep a `CHANGELOG.md` in Keep-a-Changelog form
 
-Keep a `CHANGELOG.md` in Keep-a-Changelog form with a section per version and a line per
-user-visible change. "See git log" is not a changelog.
+A section per version and a line per user-visible change. "See git log" is not a changelog.
 
 **Why:** a git log is a record of implementation steps, not of what changed for users, and it cannot
 be read in the two minutes someone spends deciding whether to upgrade. The changelog is a different
@@ -320,9 +323,8 @@ serde = ["dep:serde"]
 
 ### RS-BUILD-15 [M] Use the weak dependency syntax `optional-dep?/feature`
 
-Use the weak dependency syntax (`optional-dep?/feature`) to enable a feature on an optional
-dependency only when that dependency is already enabled. Without the `?`, you silently turn the
-optional dependency on.
+`optional-dep?/feature` enables a feature on an optional dependency only when that dependency is
+already enabled. Without the `?`, you silently turn the optional dependency on.
 
 **Why:** `chrono/serde` without the `?` enables `chrono` itself, so a user who wanted only `serde`
 support gets an entire date library. The one character is the difference between conditional and
@@ -343,9 +345,8 @@ serde = ["dep:serde", "chrono?/serde"]
 
 ### RS-BUILD-16 [M] Never use features for mutually exclusive choices
 
-Never use features for mutually exclusive choices. Two crates in the graph will enable both, and
-your `compile_error!` becomes their unfixable build failure. Use runtime selection, separate crates,
-or `cfg` on target.
+Two crates in the graph will enable both, and your `compile_error!` becomes their unfixable build
+failure. Use runtime selection, separate crates, or `cfg` on target.
 
 **Why:** unification guarantees that if two dependents each pick a different option, both get
 enabled — and neither dependent can fix it, because neither is wrong. The resulting build failure
@@ -423,7 +424,7 @@ yours, which is an unresolvable conflict for the user. Reproducibility belongs i
 
 ### RS-BUILD-22 [M] Turn off default features on heavy dependencies
 
-Turn off default features on heavy dependencies and enable only what you use:
+Enable only what you use:
 `tokio = { version = "1", default-features = false, features = ["rt", "macros"] }`. This is often
 the single largest build-time win available. In a workspace, turn them off in
 `[workspace.dependencies]`; turning them off on one member's inherited dependency needs
@@ -477,8 +478,8 @@ giving its reason — no lint reads a manifest comment, so this one is review.
 
 ### RS-BUILD-25 [M] Never blanket-`allow` at crate level to make CI green
 
-Never blanket-`allow` at crate level to make CI green. A crate that allows
-`clippy::too_many_arguments` globally has decided never to notice a nine-argument function again.
+A crate that allows `clippy::too_many_arguments` globally has decided never to notice a
+nine-argument function again.
 
 **Why:** a crate-level allow silences the lint for code that does not exist yet, which is where it
 would have been most useful. It converts a temporary annoyance into a permanent blind spot.
@@ -547,8 +548,8 @@ rather than allowing everything?
 
 ### RS-BUILD-30 [S] Run `cargo update` deliberately and review the diff
 
-Run `cargo update` deliberately and review the diff, rather than letting it happen implicitly during
-an unrelated change.
+An update is a change of its own, with its lockfile diff read, never a side effect of an unrelated
+one.
 
 **Why:** a lockfile change bundled into a feature PR gets no review, and it is exactly where a
 compromised release would enter. Isolating it makes the diff readable and the bisection clean if
@@ -574,9 +575,8 @@ permitted dependencies, so neither the MSRV nor the lower bounds are exercised o
 
 ### RS-BUILD-32 [M!] Run `cargo semver-checks` before every release
 
-Run `cargo semver-checks` before every release and trust it over intuition about what is breaking.
-It catches removed impls, narrowed bounds, changed variant shapes, and newly private items that
-human review misses (RS-API-54).
+Trust it over intuition about what is breaking. It catches removed impls, narrowed bounds, changed
+variant shapes, and newly private items that human review misses (RS-API-54).
 
 *Relaxed form:* an unpublished internal crate with one consumer can rely on that consumer's build.
 The moment there are two, the tool is cheaper than the coordination.
@@ -590,8 +590,8 @@ remembers?
 
 ### RS-BUILD-33 [M] Follow semver strictly, including the 0.x rule
 
-Follow semver strictly, including the 0.x rule that 0.y.z treats `y` as the major. Do not ship a
-breaking change as a patch because "nobody uses it yet". RS-API-54 lists which changes break.
+0.y.z treats `y` as the major. Do not ship a breaking change as a patch because "nobody uses it
+yet". RS-API-54 lists which changes break.
 
 **Why:** Cargo's resolver implements these rules exactly, so a breaking patch release breaks every
 existing build that resolves to it, without any action by the user. "Nobody uses it" is not
@@ -626,9 +626,9 @@ actually shipped.
 
 ### RS-BUILD-36 [M] Commit a `rust-toolchain.toml`
 
-Commit a `rust-toolchain.toml` pinning an exact release as `channel`, with
-`components = ["rustfmt", "clippy"]` and any required `targets`. It makes every contributor's first
-build identical to CI's. `assets/rust-toolchain.toml` is the file.
+It pins an exact release as `channel`, with `components = ["rustfmt", "clippy"]` and any required
+`targets`, so every contributor's first build is identical to CI's. `assets/rust-toolchain.toml` is
+the file.
 
 **Why:** without it, contributors use whatever toolchain they have, so lint and format results
 differ from CI and the first PR is a round trip about warnings nobody can reproduce. `"stable"` pins

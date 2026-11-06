@@ -1,4 +1,4 @@
-# Ownership, Borrowing, Lifetimes, Resources
+# Ownership: Borrowing, Lifetimes, and Resources
 
 Scope: who owns what and for how long. Choosing between `&T`, `&mut T`, and `T` in a signature;
 clone discipline and `Cow`; lifetimes, elision, and when a type should not have one; smart pointers

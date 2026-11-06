@@ -1,4 +1,9 @@
-# RS-PERF — Performance
+# Performance: Measurement, Allocation, Layout, I/O, and Codegen
+
+Scope: making code fast without making it wrong — measuring first, allocation and buffer reuse,
+collection choice and memory layout, buffered I/O and syscalls, monomorphization and `#[inline]`,
+integer widths and casts, SIMD, and benchmarking. What ownership costs is the ownership chapter's;
+parallelism is the concurrency chapter's; build profiles are the build chapter's.
 
 Rust's promise is that you do not pay for what you do not use, and that you can have the fast
 version without giving up safety. Delivering on that requires discipline about two things:
@@ -67,8 +72,8 @@ follow.
 
 ### RS-PERF-01 [M] Do not optimize without a profile
 
-Do not optimize without a profile. `perf`, `samply`, `cargo flamegraph`, and Instruments all take
-minutes to set up and routinely show that the hot spot is somewhere nobody guessed.
+`perf`, `samply`, `cargo flamegraph`, and Instruments all take minutes to set up and routinely show
+that the hot spot is somewhere nobody guessed.
 
 **Why:** intuition about hot spots is reliably wrong, because the expensive thing is usually a
 syscall, an allocation, or a cache miss rather than the arithmetic you were looking at. Optimizing
@@ -89,8 +94,8 @@ pub fn first_byte(haystack: &[u8], needle: u8) -> Option<usize> {
 
 ### RS-PERF-02 [M] Optimize the algorithm before the constant factor
 
-Optimize the algorithm before the constant factor. Replacing an accidental O(n²) with a `HashMap`
-beats every micro-optimization in this file combined, and it is usually less code.
+Replacing an accidental O(n²) with a `HashMap` beats every micro-optimization in this file combined,
+and it is usually less code.
 
 **Why:** constant factors buy percentages; complexity classes buy orders of magnitude, and they are
 the only thing that changes what inputs are feasible at all. The algorithmic fix is also usually
@@ -128,10 +133,10 @@ judge whether the trade was worth it.
 
 ### RS-PERF-04 [S] Optimize for the realistic input distribution
 
-Optimize for the realistic input distribution, not the benchmark you happen to have. A search tool
-is dominated by files that do not match; a parser by inputs that are valid. Make the common case
-fast and the rare case correct, and say which is which: `#[cold]` on a function only the rare case
-calls, `std::hint::cold_path()` at the top of a rare branch.
+The benchmark you happen to have is not it: a search tool is dominated by files that do not match, a
+parser by inputs that are valid. Make the common case fast and the rare case correct, and say which
+is which: `#[cold]` on a function only the rare case calls, `std::hint::cold_path()` at the top of a
+rare branch.
 
 **Why:** optimizing the wrong distribution can make the real workload slower — a fast path for
 matches adds a branch to the non-matching case that dominates. The distribution is a design input,
@@ -142,8 +147,8 @@ benchmark where every input matches is measuring the rare case.
 
 ### RS-PERF-05 [M] Measure in release mode with the profile you ship
 
-Measure in release mode with the profile you ship. Debug-build timings are meaningless — bounds
-checks, no inlining, and overflow checks make them differ by an order of magnitude.
+Debug-build timings are meaningless — bounds checks, no inlining, and overflow checks make them
+differ by an order of magnitude.
 
 **Why:** debug builds disable the optimizations the design depends on, so relative costs are
 completely different. A debug measurement can rank two implementations in the opposite order from
@@ -299,10 +304,9 @@ impl Arena {
 
 ### RS-PERF-11 [M] Pick the collection for the access pattern
 
-Pick the collection for the access pattern: `Vec` for iteration and indexed access, `VecDeque` for
-queues, `HashMap` for lookup, `BTreeMap` for ordered iteration and range queries,
-`HashSet`/`BTreeSet` for membership. Linear scan of a small `Vec` beats a `HashMap` below roughly a
-dozen elements.
+`Vec` for iteration and indexed access, `VecDeque` for queues, `HashMap` for lookup, `BTreeMap` for
+ordered iteration and range queries, `HashSet`/`BTreeSet` for membership. Linear scan of a small
+`Vec` beats a `HashMap` below roughly a dozen elements.
 
 **Why:** asymptotics only decide it for large n; below that, contiguity and the absence of hashing
 win. Reaching for `HashMap` reflexively for a five-element lookup is slower and uses more memory.
@@ -534,8 +538,7 @@ pub fn print_all(lines: &[String]) -> io::Result<()> {
 
 ### RS-PERF-20 [M] Flush explicitly before exiting, and check the result
 
-Flush explicitly before exiting, and check the result. `BufWriter` flushes on drop but swallows the
-error (RS-OWN-33).
+`BufWriter` flushes on drop but swallows the error (RS-OWN-33).
 
 **Why:** buffering means the last write is still in memory when `main` returns, and `Drop` cannot
 report a failure. A full disk or a closed pipe silently truncates the output — the failure
@@ -601,9 +604,8 @@ small-file case.
 
 ### RS-PERF-23 [M] Work on `&[u8]` and validate UTF-8 only where required
 
-Work on `&[u8]` and validate UTF-8 only where required. `memchr`, `memmem`, and `bstr` operate on
-bytes at SIMD speed; forcing every input through `str::from_utf8` costs a pass over the data and
-rejects legitimate files.
+`memchr`, `memmem`, and `bstr` operate on bytes at SIMD speed; forcing every input through
+`str::from_utf8` costs a pass over the data and rejects legitimate files.
 
 **Why:** validation is a full scan you often do not need — searching for a byte pattern does not
 require knowing the text is valid. It also makes the tool fail on files that are perfectly
@@ -622,9 +624,9 @@ pub fn first_field(line: &[u8]) -> &[u8] {
 
 ### RS-PERF-24 [S] Batch syscalls
 
-Batch syscalls: `write_vectored` for scattered buffers, one `stat` instead of `exists()` followed by
-`metadata()`, and directory traversal via a crate (`ignore`, `walkdir`) that already minimizes them.
-Where existence alone is the question, `fs::exists` answers it and reports a permission error that
+`write_vectored` for scattered buffers, one `stat` instead of `exists()` followed by `metadata()`,
+and directory traversal via a crate (`ignore`, `walkdir`) that already minimizes them. Where
+existence alone is the question, `fs::exists` answers it and reports a permission error that
 `Path::exists` turns into `false`.
 
 **Why:** syscalls dominate metadata-heavy workloads, and the redundant ones are easy to introduce —
@@ -719,8 +721,8 @@ pub fn field_count(lines: &[String]) -> usize {
 
 ### RS-PERF-29 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
 
-Avoid `Rc`/`Arc` clone traffic in hot loops. Atomic increments are cheap but not free, and
-contention on a shared refcount across threads is measurable.
+Atomic increments are cheap but not free, and contention on a shared refcount across threads is
+measurable.
 
 **Why:** an `Arc` clone is an atomic RMW, which serializes the cache line holding the count. With
 several threads cloning the same `Arc`, that line ping-pongs between cores and can dominate.
@@ -826,8 +828,8 @@ pub fn bench_once(input: &[u8]) -> u32 {
 
 ### RS-PERF-35 [M] Benchmark realistic sizes
 
-Benchmark realistic sizes. Microbenchmarks on ten-element inputs measure function-call overhead; the
-algorithmic difference only appears at scale.
+Microbenchmarks on ten-element inputs measure function-call overhead; the algorithmic difference
+only appears at scale.
 
 **Why:** at n=10 everything fits in L1 and every algorithm looks the same, so the benchmark ranks
 implementations by constant factor rather than by the property you are optimizing. The crossover
@@ -860,8 +862,7 @@ the same class?
 
 ### RS-PERF-38 [S] Track binary size and compile time alongside runtime
 
-Track binary size and compile time alongside runtime if you ship a CLI. Users notice a 40 MB binary
-and a five-minute build.
+A CLI's users notice a 40 MB binary and a five-minute build as surely as a slow run.
 
 **Why:** these are user-visible performance too, and they degrade invisibly since nothing measures
 them. Monomorphization and dependency growth both trade them against runtime, so they need to be on

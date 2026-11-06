@@ -1,4 +1,9 @@
-# RS-DOC — Documentation
+# Documentation: Rustdoc, Sections, Examples, and the README
+
+Scope: what the documentation says and how — crate and module docs, the section order, `# Errors`,
+`# Panics` and `# Safety`, prose style and comments, examples as doc tests, intra-doc links and
+docs.rs, and the README. What an error or a panic means is the errors chapter's; the doc tests'
+place in the suite is the testing chapter's; the docs.rs manifest keys are the build chapter's.
 
 Rustdoc is not a courtesy; it is the contract in prose plus a test suite that proves the prose is
 true. The bar: a competent Rust programmer who has never seen the crate can accomplish the primary
@@ -173,8 +178,8 @@ pub fn count_matches(lines: &[String], needle: &str) -> usize {
 
 ### RS-DOC-08 [M] Leave a blank line after the summary
 
-Leave a blank line after the summary. Rustdoc uses everything up to the first blank line as the
-short description; a wall of text without one renders badly in every listing.
+Rustdoc uses everything up to the first blank line as the short description; a wall of text without
+one renders badly in every listing.
 
 **Why:** this is a mechanical rustdoc rule, not a stylistic preference — the blank line is the
 delimiter. Omitting it dumps an entire paragraph into every index table.
@@ -196,9 +201,9 @@ pub fn trimmed(input: &str) -> &str {
 
 ### RS-DOC-09 [M] Use the standard section order
 
-Use the standard section order, omitting what does not apply: summary, extended description,
-`# Examples`, `# Errors`, `# Panics`, `# Safety`, `# Performance`, `# Platform-specific behavior`.
-Consistency lets readers jump straight to what they need.
+Summary, extended description, `# Examples`, `# Errors`, `# Panics`, `# Safety`, `# Performance`,
+`# Platform-specific behavior`, each left out where it does not apply. Consistency lets readers jump
+straight to what they need.
 
 **Why:** readers scan documentation, they do not read it. A predictable order means "can this
 panic?" is answered by looking at a known position rather than reading the whole page — and `std`
@@ -352,9 +357,8 @@ itself? If it only appears on one impl, it is in the wrong place.
 
 ### RS-DOC-14 [M] Document what a type guarantees, not only what it stores
 
-Document what a type *guarantees*, not only what it stores: a `SortedVec` documents that it is
-sorted; a `Utf8Path` documents that it is valid UTF-8. Those guarantees are the reason the type
-exists.
+A `SortedVec` documents that it is sorted; a `Utf8Path` documents that it is valid UTF-8. Those
+guarantees are the reason the type exists.
 
 **Why:** the guarantee is the entire value of the newtype — it is what lets callers skip a check
 (RS-API-18). Documenting only the field tells the reader what you could have written as `Vec<T>` and
@@ -440,8 +444,7 @@ the reason recorded? A magic number with no comment is always a finding.
 
 ### RS-DOC-17 [S] Write for someone competent but unfamiliar
 
-Write for someone competent but unfamiliar. Do not explain what a `Result` is; do explain why this
-function returns one.
+Do not explain what a `Result` is; do explain why this function returns one.
 
 **Why:** documentation aimed too low wastes the reader's attention and buries the specific
 information in generic material; aimed too high it is unusable. "Competent but unfamiliar" is the
@@ -452,9 +455,8 @@ belongs in the Rust book, not here.
 
 ### RS-DOC-18 [M] Explain *why*, not *what*
 
-Explain *why*, not *what*. `// increment i` is noise;
-`// skip the BOM, which some Windows editors prepend` is the reason the line exists. Code says what;
-comments say why.
+`// increment i` is noise; `// skip the BOM, which some Windows editors prepend` is the reason the
+line exists. Code says what; comments say why.
 
 **Why:** the code already states what it does, and states it more reliably than a comment can, since
 it cannot drift. The reasoning is the part that is not recoverable from reading the code, so it is
@@ -476,7 +478,7 @@ pub fn strip_bom(input: &str) -> &str {
 
 ### RS-DOC-19 [M] Delete commented-out code
 
-Delete commented-out code. Version control remembers it; the file should not.
+Version control remembers it; the file should not.
 
 **Why:** commented-out code is ambiguous in a way that costs every future reader: it might be a
 work-in-progress, a rollback, or dead weight, and nobody can tell which without archaeology. It also
@@ -497,8 +499,7 @@ diff that changes behaviour without touching a nearby comment deserves a second 
 
 ### RS-DOC-21 [S] Prefer active voice and present tense
 
-Prefer active voice and present tense: "Returns the parsed value", not "The parsed value will be
-returned".
+"Returns the parsed value", not "The parsed value will be returned".
 
 **Why:** it is shorter, it matches `std`, and it keeps the subject of the sentence the thing being
 documented rather than an abstract process.
@@ -533,10 +534,9 @@ pub fn split_setting(line: &str) -> Option<(&str, &str)> {
 
 ### RS-DOC-23 [M] Keep examples idiomatic — they will be copied
 
-Keep examples idiomatic — they will be copied. An example using `unwrap()` teaches `unwrap()`; an
-example that ignores an error teaches ignoring errors. Use `?` inside a hidden
-`# fn main() -> Result<(), Box<dyn std::error::Error>> {`, so the example models the error handling
-you want copied.
+An example using `unwrap()` teaches `unwrap()`; an example that ignores an error teaches ignoring
+errors. Use `?` inside a hidden `# fn main() -> Result<(), Box<dyn std::error::Error>> {`, so the
+example models the error handling you want copied.
 
 **Why:** documentation examples are the most-copied code you will ever write, and they are copied
 without the surrounding context that made the shortcut acceptable. Whatever the example does becomes
@@ -584,8 +584,8 @@ affects them.
 
 ### RS-DOC-27 [M] Use intra-doc links everywhere
 
-Use intra-doc links everywhere: ``[`Searcher`]``, ``[`Searcher::search`]``, ``[`std::io::Read`]``.
-They are checked at build time, so they never rot, unlike manual URLs.
+``[`Searcher`]``, ``[`Searcher::search`]``, ``[`std::io::Read`]``. They are checked at build time,
+so they never rot, unlike manual URLs.
 
 **Why:** a hand-written docs.rs URL encodes a version and a path that will both change, and nothing
 tells you when it breaks. An intra-doc link is verified by the same command that builds the docs.
@@ -706,9 +706,8 @@ manifest (RS-BUILD-31).
 
 ### RS-DOC-34 [M!] Write the documentation before finalizing the API
 
-Write the documentation before finalizing the API. If a function is hard to describe in one
-sentence, it is doing two things — and you have just found that out for the price of a sentence
-rather than a release.
+If a function is hard to describe in one sentence, it is doing two things — and you have just found
+that out for the price of a sentence rather than a release.
 
 *Relaxed form:* for an internal binary or a prototype, write the summary line before the body and
 let the rest follow the implementation. The signal you are buying — "this is hard to describe, so it

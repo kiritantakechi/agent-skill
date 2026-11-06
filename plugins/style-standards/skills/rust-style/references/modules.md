@@ -1,9 +1,9 @@
-# Modules, Crates, Workspaces, File Layout
+# Modules: Crates, Workspaces, and File Layout
 
 Scope: where code goes on disk and how visibility is escalated. Module boundaries and naming, the
 `foo.rs` + `foo/` layout, `pub`/`pub(crate)`/`pub use` discipline, workspace shape and facade
 crates, import grouping, and the order of declarations inside a file. What the public surface should
-*be* is in the API chapter; the manifest side of a workspace is in the Cargo chapter.
+*be* is in the API chapter; the manifest side of a workspace is in the build chapter.
 
 The reference implementation is ripgrep: a workspace of narrow crates (`grep-matcher`, `grep-regex`,
 `grep-searcher`, `grep-printer`, `globset`, `ignore`) with a thin facade and a binary that is mostly

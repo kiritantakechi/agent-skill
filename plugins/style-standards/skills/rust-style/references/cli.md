@@ -1,6 +1,12 @@
-# RS-CLI — Command-line applications
+# CLI: Arguments, Streams, Environment, and Signals
 
-The reference implementation for this section is ripgrep. Its structure — a workspace of libraries,
+Scope: the shape of a command-line binary — what `main` does, how arguments become a validated
+configuration, the flag table, output streams and colour, `BrokenPipe` and signals, configuration
+files, environment variables and platform directories. How a binary reports failure and which exit
+code it chooses are the errors chapter's; buffering output is the performance chapter's; testing the
+binary end to end is the testing chapter's.
+
+The reference implementation for this chapter is ripgrep. Its structure — a workspace of libraries,
 a thin `core` binary, a two-stage argument model (`LowArgs` → `HiArgs`), a trait-per-flag table that
 also generates the man page and shell completions, and obsessive attention to stream behaviour — is
 what "production-grade Rust CLI" means in practice.
@@ -255,8 +261,8 @@ pub fn resolve(file: Option<usize>, env: Option<usize>, flag: Option<usize>) -> 
 
 ### RS-CLI-05 [S] Provide an escape hatch that disables external configuration
 
-Provide an escape hatch that disables external configuration entirely (ripgrep's `--no-config`), so
-a user can reproduce a clean run and so scripts are not affected by a developer's personal settings.
+One flag — ripgrep's `--no-config` — turns off every configuration file and environment default, so
+a user can reproduce a clean run and a script is not affected by a developer's personal settings.
 
 **Why:** a config file that silently changes behaviour makes bug reports unreproducible — the
 maintainer cannot see the reporter's file. It also breaks scripts when a user later adds a personal
@@ -321,9 +327,8 @@ not one.
 
 ### RS-CLI-10 [M] Follow POSIX/GNU conventions
 
-Follow POSIX/GNU conventions: `-v` short, `--verbose` long, `--` terminating flags, `-abc` bundling
-for boolean shorts, and `--flag=value` as well as `--flag value`. Users have muscle memory; do not
-surprise it.
+`-v` short, `--verbose` long, `--` terminating flags, `-abc` bundling for boolean shorts, and
+`--flag=value` as well as `--flag value`. Users have muscle memory; do not surprise it.
 
 **Why:** a CLI is used from muscle memory and inside scripts written by people who never read the
 help. Deviating costs every user a small, permanent tax and breaks the composition patterns they
@@ -521,10 +526,9 @@ pub fn emit(
 
 ### RS-CLI-18 [M] Handle `BrokenPipe` by exiting quietly with success
 
-Handle `BrokenPipe` by exiting quietly with success. Every `tool | head` will otherwise print an
-error, and this is the most common polish defect in Rust CLIs. Match on `io::ErrorKind::BrokenPipe`
-(Windows also reports it for a write after a socket `shutdown`); the flag that restores C's
-behaviour, `-Zon-broken-pipe=kill`, is nightly-only.
+Every `tool | head` will otherwise print an error, and this is the most common polish defect in Rust
+CLIs. Match on `io::ErrorKind::BrokenPipe` (Windows also reports it for a write after a socket
+`shutdown`); the flag that restores C's behaviour, `-Zon-broken-pipe=kill`, is nightly-only.
 
 **Why:** `head` closing the pipe is normal termination, not a failure — the user got what they asked
 for. Rust sets `SIGPIPE` to `SIG_IGN` before `main`, so where a C program is killed silently by the
@@ -565,9 +569,9 @@ pub fn render(row: &str, style: Style) -> String {
 
 ### RS-CLI-20 [M] Respect `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`
 
-Respect `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`, and provide `--color=auto|always|never` with
-`auto` as the default. Use `anstream`/`termcolor` rather than emitting escape codes by hand —
-Windows console handling is not something to reimplement.
+Provide `--color=auto|always|never` with `auto` as the default, and use `anstream`/`termcolor`
+rather than emitting escape codes by hand — Windows console handling is not something to
+reimplement.
 
 **Why:** these are the cross-tool conventions users configure once and expect everything to honour.
 Hand-written escape sequences also break on Windows consoles and in CI logs, where the codes end up
@@ -854,9 +858,9 @@ pub fn decide(force: Force, terminal: Terminal) -> Decision {
 
 ### RS-CLI-27 [M!] Write output atomically where a partial file would be harmful
 
-Write output atomically where a partial file would be harmful: write to a temporary file in the same
-directory, then rename. A crash mid-write should not destroy the user's input. Open the temporary
-with `File::create_new`, which fails rather than truncate a file that is already there.
+Write to a temporary file in the same directory, then rename: a crash mid-write should not destroy
+the user's input. Open the temporary with `File::create_new`, which fails rather than truncate a
+file that is already there.
 
 *Relaxed form:* if the output is regenerable from inputs the tool does not mutate, a plain write is
 acceptable. In-place edits are never in that category.
@@ -908,9 +912,8 @@ finding.
 
 ### RS-CLI-29 [S] Respect the platform's directory conventions
 
-Respect the platform's directory conventions with `directories` or `etcetera` — `$XDG_CONFIG_HOME`,
-`~/Library/Application Support`, `%APPDATA%` — rather than hard-coding `~/.toolrc`. For `$HOME`
-alone, `std::env::home_dir` needs no crate.
+Use `directories` or `etcetera` — `$XDG_CONFIG_HOME`, `~/Library/Application Support`, `%APPDATA%` —
+rather than hard-coding `~/.toolrc`. For `$HOME` alone, `std::env::home_dir` needs no crate.
 
 **Why:** users expect config, cache, and data to land where their platform puts them, so backups and
 sync tools handle them correctly. A hard-coded dotfile also breaks on Windows entirely.
