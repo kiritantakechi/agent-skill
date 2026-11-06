@@ -10,7 +10,7 @@ Unless a block shows its own imports, it assumes `import pytest`.
 
 - **Configuration**
   - PS-TEST-01 [M] Configure pytest in the native `[tool.pytest]` table
-  - PS-TEST-02 [M] Know the discovery order, and that an empty file wins
+  - PS-TEST-02 [M] Keep exactly one pytest configuration file
   - PS-TEST-03 [M] Turn on `strict`
   - PS-TEST-04 [M] Declare every marker
 - **What a test asserts**
@@ -34,7 +34,7 @@ Unless a block shows its own imports, it assumes `import pytest`.
   - PS-TEST-19 [M] Inject the clock rather than reading it
 - **Concurrency**
   - PS-TEST-20 [M!] Assert an invariant, not merely that threads ran
-  - PS-TEST-21 [M] Know that pytest itself is not thread-safe
+  - PS-TEST-21 [M] Never use `capsys`, `monkeypatch` or `tmp_path` in a test run on several threads
 - Decided by tools
 
 ---
@@ -60,10 +60,11 @@ strict = true
 markers = ["slow: needs a real toolchain"]
 ```
 
-### PS-TEST-02 [M] Know the discovery order, and that an empty file wins
+### PS-TEST-02 [M] Keep exactly one pytest configuration file
 
-`pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`, `pyproject.toml`, `tox.ini`, `setup.cfg`
-— first match wins, and configuration files are **never merged**.
+pytest reads the first of `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`,
+`pyproject.toml`, `tox.ini` and `setup.cfg` it finds, and configuration files are **never merged**:
+an empty file wins.
 
 **Why:** an empty `pytest.toml` in the repository root outranks a fully configured `pyproject.toml`
 and discards it: your `testpaths`, markers and `strict` setting stop applying, and the tests still
@@ -284,10 +285,11 @@ injection question.
 
 ### PS-TEST-20 [M!] Assert an invariant, not merely that threads ran
 
-The test must check a property that a race would break — a count, a sum, a set of unique values.
+The test must check a property that a race would break — a count, a sum, a set of unique values. A
+test that only runs the code under threads is a crash check: worth having, named as one, beside a
+test that asserts.
 
-*Relaxed form:* a smoke test that merely runs the code under threads is worth having as a crash
-check, provided it is named as one and is not the only concurrency test.
+*Relaxed form:* a crash check, named as one, as the only concurrency test.
 
 **Why:** running a racy function under eight threads and asserting it did not raise is a test that
 passes on racy code, because a lost update raises nothing. A parallel-test plugin supplies
@@ -323,11 +325,11 @@ def test_allocator_never_issues_an_id_twice() -> None:
     assert sorted(issued) == list(range(4_000))
 ```
 
-### PS-TEST-21 [M] Know that pytest itself is not thread-safe
+### PS-TEST-21 [M] Never use `capsys`, `monkeypatch` or `tmp_path` in a test run on several threads
 
-`capsys`, `monkeypatch` and `tmp_path` are not safe to use from several threads, and the maintainers
-have said they do not intend to make pytest thread-safe. Code that needs those fixtures must be
-tested single-threaded.
+pytest itself is not thread-safe: those fixtures are not safe to use from several threads, and the
+maintainers have said they do not intend to make pytest so. Code that needs them is tested
+single-threaded.
 
 **Why:** a parallel-test plugin runs your test body in several threads, which means the fixtures run
 there too — so a test that uses `monkeypatch` under parallelism is testing the plugin's interaction

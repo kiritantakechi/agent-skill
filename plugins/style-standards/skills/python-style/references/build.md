@@ -171,9 +171,9 @@ down — moving it is the reviewed change — so it needs no week to be safe, wh
 in still waits. `uv lock --exclude-newer` takes the same date or relative duration for one run;
 there is no `--cooldown`.
 
-**Why:** the window between a compromised release being published and being pulled is measured in
-hours — a documented incident had malicious versions live for two and a half and three and a half
-hours. Seven days covers that window many times over, for the cost of a week-old version.
+**Why:** the window between a compromised release being published and being pulled lasts hours — a
+documented incident had malicious versions live for two and a half and three and a half hours. Seven
+days covers that window many times over, for the cost of a week-old version.
 
 **Check:** the `[tool.uv]` table. No `exclude-newer`, or an `exclude-newer-package` whose exempt
 names differ from the `==` pins, is the finding.

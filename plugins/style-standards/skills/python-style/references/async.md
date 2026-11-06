@@ -17,7 +17,7 @@ Unless a block shows its own imports, it assumes `import asyncio`.
   - PS-ASYNC-04 [S] End a group early with `TaskGroup.cancel`, not with an exception
 - **Cancellation**
   - PS-ASYNC-05 [M] Never swallow `CancelledError`
-  - PS-ASYNC-06 [M] Assume every `await` is a cancellation point
+  - PS-ASYNC-06 [M] Leave no state half-updated across an `await`
   - PS-ASYNC-07 [M!] Shield only what must not be interrupted, and bound it
   - PS-ASYNC-08 [M] Give every wait a timeout, with `asyncio.timeout`
 - **Not blocking the loop**
@@ -137,10 +137,11 @@ prevents the process from exiting cleanly.
 **Check:** `rg -n 'except.*CancelledError' src/` — every handler must end in `raise`. Ruff `ASYNC`
 and `BLE001` catch the `except Exception` variants that would also take it on older code.
 
-### PS-ASYNC-06 [M] Assume every `await` is a cancellation point
+### PS-ASYNC-06 [M] Leave no state half-updated across an `await`
 
-Between the line before an `await` and the line after it, the task may be cancelled and never
-resume. Make the pair atomic with a context manager, or arrange that the half-state is valid.
+Every `await` is a cancellation point: between the line before it and the line after it, the task
+may be cancelled and never resume. Make the pair atomic with a context manager, or arrange that the
+half-state is valid.
 
 **Why:** this is the async analogue of PS-CONC-02: state you mutate in two steps around an `await`
 can be left half-updated forever, and a resource acquired before an `await` and released after it
@@ -154,8 +155,8 @@ can leak.
 smallest thing whose partial completion would be unrecoverable: writing the commit record, not
 fetching the data that goes in it.
 
-*Relaxed form:* application code may shield a slightly larger region provided the region has its own
-timeout, so a shield cannot become an unbounded wait.
+*Relaxed form:* a slightly larger region, provided it has a timeout of its own, so that a shield
+cannot become an unbounded wait.
 
 **Why:** shielding defeats cancellation, which is the mechanism timeouts and shutdown are built on.
 A shielded region with no timeout of its own is a task that cannot be stopped by any means.
@@ -216,7 +217,7 @@ then `loop.run_in_executor` with your own executor is the escape, and the bound 
 **Why:** `to_thread` runs the call on the default thread pool and gives you an awaitable, which is
 the whole boundary in one line, and it propagates context variables, which a raw executor does not.
 
-**Check:** every hit from PS-ASYNC-09's greps. Each needs `to_thread` or an explicit executor.
+**Check:** every call PS-ASYNC-09's codes report. Each needs `to_thread` or an explicit executor.
 
 ### PS-ASYNC-11 [S] Keep a coroutine's synchronous stretches short
 

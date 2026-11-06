@@ -352,8 +352,7 @@ assert Port(8080).number == 8080
 An enum instead of a validated string. A `Port` type instead of an `int` you check. Two types
 instead of one type with a flag that says which it is.
 
-*Relaxed form:* application code at a boundary may validate a primitive rather than introduce a
-type, provided the validation happens exactly once and the validated value is not passed on as the
+*Relaxed form:* a primitive validated exactly once, where it enters, and never passed on as the
 primitive.
 
 **Why:** validation must be repeated at every construction site and can be forgotten at any of them;
@@ -365,7 +364,9 @@ unnecessary.
 
 ### PS-DATA-16 [M] Give a domain value its own type rather than a bare `str` or `int`
 
-`UserId`, `Email`, `Cents` — a `NewType` at minimum, a frozen dataclass where there is behaviour.
+`UserId`, `Email`, `Cents` — a `NewType` at minimum, a frozen dataclass where there is behaviour. A
+quantity's unit is part of its type the same way: `Cents`, not an `int` that a name alone says is
+cents; a primitive left as one names its unit instead (PS-NAME-05).
 
 **Why:** in `def transfer(from_: str, to: str, amount: int)`, swapping the two accounts type-checks;
 with distinct types, the transposition is a type error. `NewType` costs nothing at runtime — it is

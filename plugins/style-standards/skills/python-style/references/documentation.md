@@ -181,7 +181,8 @@ absence is not a defect, but its presence pays repeatedly.
 
 ### PS-DOC-12 [M] Never document what was checked, only what is true
 
-"This function is thread-safe" — not "we verified this function is thread-safe on 2026-08-14".
+"This function is thread-safe" — not "we verified this function is thread-safe", with a date, a host
+or a name after it.
 
 **Why:** the reader cannot act on who checked, or when, or on what machine. It is the residue of
 writing the thing rather than content of the thing, and it goes stale in a way the statement itself

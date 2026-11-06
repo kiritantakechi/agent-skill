@@ -93,8 +93,7 @@ branch forever — including code written for a legacy encoding, which silently 
 `errors="strict"` is the default and usually right. `surrogateescape` for filesystem paths.
 `replace` only where a human reads the result and losing a character is acceptable.
 
-*Relaxed form:* application code at a display boundary may use `replace` without a comment; library
-code may not.
+*Relaxed form:* `replace` at a display boundary, without a comment.
 
 **Why:** the handler decides what happens to data you cannot represent, a policy question and not a
 technical one: `strict` fails loudly so the caller can retry or report, `surrogateescape`

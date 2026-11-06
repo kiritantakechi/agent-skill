@@ -16,7 +16,7 @@ free-threaded build. Where a rule depends on the build, the block probes it rath
   - PS-CONC-01 [M] Probe the build with `sys.abi_info` and the runtime with `sys._is_gil_enabled`
   - PS-CONC-02 [M] Never treat a compound assignment as one step
   - PS-CONC-03 [M] Never treat check-then-act as one step
-  - PS-CONC-04 [M!] Accumulate per thread and merge, or hold one lock across the whole update
+  - PS-CONC-04 [M!] Accumulate per thread on a hot path, and merge once
   - PS-CONC-05 [M] Cite the thread-safety guarantees page, never the FAQ's bytecode argument
   - PS-CONC-06 [M] Name the invariant a lock guards, on the line that creates it
   - PS-CONC-07 [M] Never read `frame.f_locals` for a frame executing in another thread
@@ -181,21 +181,23 @@ for name in ("a", "b", "a"):
 assert (id_of("a"), id_of("b")) == (0, 1)
 ```
 
-### PS-CONC-04 [M!] Accumulate per thread and merge, or hold one lock across the whole update
+### PS-CONC-04 [M!] Accumulate per thread on a hot path, and merge once
 
-A worker that touches shared state on every iteration spends its time on cache-line ping-pong. Give
-each thread a local accumulator, and merge once at the end.
+A worker that touches shared state on every iteration spends its time on cache-line ping-pong: give
+each thread a local accumulator, and merge once at the end. Off the hot path, one lock held across
+the whole read-modify-write is enough. The lock is what makes an update *right* and the accumulator
+what makes it *scale*; an update with neither is PS-CONC-02's defect.
 
-*Relaxed form:* a lock held across the whole read-modify-write is correct and is enough for code
-that is not hot. The per-thread accumulator is what makes it *scale*; the lock is what makes it
-*right*. Never ship the third option, which is neither.
+*Relaxed form:* one lock held across the whole update on a hot path too, which is correct and only
+slower.
 
 **Why:** every write to an object shared across cores is an atomic operation on its reference count
 as well as its value, which the free-threaded build pays on a slow path: a documented four-thread
 case took 3.61s against the GIL build's 2.38s, and 0.83s once its shared objects were thread-local.
 
 **Check:** in any function passed to `Thread(target=...)` or an executor's `submit`, every name that
-is not a parameter or a local is a candidate. A write to one on the hot path is the finding.
+is not a parameter or a local is a candidate. A write to one on a hot path, rather than to a local
+accumulator merged once, is the finding.
 
 ```python
 # verified — GOOD
@@ -468,9 +470,9 @@ share the wrapper.
 it is loud. With any other iterator, the free-threading HOWTO warns that threads "may see duplicate
 or missing elements", so a pool sharing one processes some items twice and drops others.
 
-**Check:** every iterator passed to more than one thread must be wrapped. An unwrapped one is the
-finding, and the grep is for the sharing rather than for the call — `rg -nB3 'Thread\(target=' src/`
-and read what the target closes over.
+**Check:** every iterator passed to more than one thread must be wrapped, and an unwrapped one is
+the finding. The sharing is the defect, not the call: `rg -nB3 'Thread\(target=' src/` and read what
+the target closes over.
 
 ```python
 # verified — BAD: the loud half of the failure
@@ -627,10 +629,11 @@ needs PS-CONC-16.
 
 Not around the cache read — around the miss. Memoise an effect only where "once" is what every
 caller wants, such as opening a connection: a cached charge or write happens once while each caller
-believes it happened for them. `functools.cache` also needs every argument to be hashable.
+believes it happened for them. `functools.cache` also needs every argument to be hashable. A pure,
+cheap function needs no lock: its plain decorator, with a comment saying duplicate runs were
+accepted, so the next reader knows it was a decision.
 
-*Relaxed form:* a pure, cheap function may use the plain decorator and accept duplicate execution;
-say so in a comment on the decorator, so the next reader knows it was a decision.
+*Relaxed form:* an expensive miss with no effect may run more than once, with that comment.
 
 **Why:** PS-CONC-15's two decorators are one defect with two spellings. The double-checked shape
 keeps the common case, a hit, lock-free while making the miss single-flight; without it, "cached"

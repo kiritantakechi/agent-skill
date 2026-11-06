@@ -115,12 +115,13 @@ finding.
 
 ### PS-TYPE-06 [M!] Use `FORWARDREF` when a name may not resolve
 
-Library code that reads someone else's annotations asks for `Format.FORWARDREF`, not `Format.VALUE`,
-and resolves a `ForwardRef` it gets back with `typing.evaluate_forward_ref()` once the name exists.
+Code reading annotations whose names it cannot vouch for — someone else's, or any that name what is
+imported only under `TYPE_CHECKING` — asks for `Format.FORWARDREF`, not `Format.VALUE`, and resolves
+a `ForwardRef` it gets back with `typing.evaluate_forward_ref()` once the name exists. Code reading
+its own annotations, every name importable at runtime, may use `VALUE`, with a comment saying so:
+the assumption is invisible otherwise.
 
-*Relaxed form:* application code reading its own annotations, where every name is importable at
-runtime, may use `VALUE` — and should say so in a comment, because the assumption is invisible
-otherwise.
+*Relaxed form:* `VALUE` anywhere, with that comment, since a `NameError` is a crash its author sees.
 
 **Why:** `VALUE` evaluates, so a name imported only under `TYPE_CHECKING` raises `NameError`, and
 PEP 649 makes such names legitimate in far more code. `FORWARDREF` returns the real object where it

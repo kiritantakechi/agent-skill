@@ -116,11 +116,12 @@ is the finding, while a word that is short already, such as `key` or `raw`, is s
 ### PS-NAME-05 [M] Put units and qualifiers last, sorted by descending significance
 
 `timeout_seconds`, `latency_ms_max`, `payload_size_bytes`. Not `max_latency_ms`, not
-`seconds_timeout`.
+`seconds_timeout`. A unit is one of the qualifiers: a value whose type carries its unit (PS-DATA-16)
+needs none in its name, and a primitive that keeps one — the `float` of seconds a standard-library
+call takes — carries it here, last.
 
 **Why:** big-endian naming makes alphabetical order a *semantic* grouping — `latency_ms_min` and
-`latency_ms_max` land adjacent wherever names are sorted, so a missing member of a family shows. A
-unit in the name also stops confusion: `size_bytes` and `count` cannot be silently swapped.
+`latency_ms_max` land adjacent wherever names are sorted, so a missing member of a family shows.
 
 **Check:** any constant, field, or keyword argument that *begins* with `max`, `min`, `num`, `total`,
 or `default`. The word must be qualifying a noun to be a hit — `total_before` and `total_after` name

@@ -23,9 +23,9 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 - **Allocation and layout**
   - PS-PERF-11 [S] Reuse a buffer rather than allocating per iteration
 - **What the build costs**
-  - PS-PERF-12 [M] Budget for the free-threaded build's single-threaded overhead
-  - PS-PERF-13 [M] Know that the JIT is unavailable on the free-threaded build
-  - PS-PERF-14 [M] Expect higher memory on the free-threaded build
+  - PS-PERF-12 [M] Benchmark your workload on both builds before choosing free threading
+  - PS-PERF-13 [M] Never run a single-threaded workload on the free-threaded build
+  - PS-PERF-14 [M] Set a memory limit from the free-threaded build's own measurement
   - PS-PERF-15 [M!] Give shared read-mostly data to threads, not to processes
 - **Discipline**
   - PS-PERF-16 [M] Never optimise without leaving the measurement behind
@@ -177,7 +177,7 @@ copies them and `del buf[:n]` then moves the rest.
 
 **Why:** allocation is the cost that dominates tight loops in Python, and it is invisible in the
 source — `chunk = data[i:i+n]` looks free and copies. Reuse trades readability for it, which is why
-this is `[S]`: do it where measured, and comment that it was measured.
+this is `[S]`: do it where a profile says the loop matters, and say so as PS-PERF-16 asks.
 
 **Check:** every slice inside a hot loop. `memoryview` avoids the copy where the consumer accepts
 one.
@@ -200,11 +200,11 @@ assert records([b"abc", b"defg", b"h"], 4) == [b"abcd", b"efgh"]
 
 ## What the build costs
 
-### PS-PERF-12 [M] Budget for the free-threaded build's single-threaded overhead
+### PS-PERF-12 [M] Benchmark your workload on both builds before choosing free threading
 
-Somewhere between 5% and 30% depending on the workload, and closer to 30% for allocation-heavy code.
-Budget from your own measurement, kept as a benchmark you re-run on each interpreter upgrade: these
-numbers move every release.
+The free-threaded build's single-threaded overhead is somewhere between 5% and 30% depending on the
+workload, and closer to 30% for allocation-heavy code. Budget from your own measurement, kept as a
+benchmark you re-run on each interpreter upgrade: these numbers move every release.
 
 **Why:** the documentation quotes "about 1% on macOS aarch64 to 8% on x86-64 Linux" for
 pyperformance, whose daily runs have sat near 1.10x on Linux x86_64 through 2026. But refcount- and
@@ -213,10 +213,10 @@ allocation-heavy code pays much more: every reference to another thread's object
 **Check:** benchmark the same workload on both builds before committing to free threading. A
 decision made on the doc's number rather than on yours is the finding.
 
-### PS-PERF-13 [M] Know that the JIT is unavailable on the free-threaded build
+### PS-PERF-13 [M] Never run a single-threaded workload on the free-threaded build
 
-`--enable-experimental-jit` with `--disable-gil` builds a JIT that is never used; CPython's own
-configure script warns about it.
+The JIT is unavailable there: `--enable-experimental-jit` with `--disable-gil` builds a JIT that is
+never used, and CPython's own configure script warns about it.
 
 **Why:** 3.15's JIT is worth single-digit to low-double-digit percent on the default build, so the
 comparison is not "free-threaded overhead versus zero" but "overhead plus foregone JIT versus
@@ -224,9 +224,10 @@ parallelism". For code that will not use more than one core, that is a straightf
 
 **Check:** any project on the free-threaded build whose workload is single-threaded.
 
-### PS-PERF-14 [M] Expect higher memory on the free-threaded build
+### PS-PERF-14 [M] Set a memory limit from the free-threaded build's own measurement
 
-PEP 779's target is 20%, and measurements sit at 1.19–1.22x.
+The free-threaded build uses more memory: PEP 779's target is 20% more, and the build sits at
+1.19–1.22x.
 
 **Why:** every interned string is immortal so it is never freed, non-GC object headers are larger,
 the allocator is mimalloc rather than pymalloc, and QSBR defers frees until a collection. None of
@@ -237,11 +238,12 @@ that is a leak or tunable away; `gc.collect()` releasing what QSBR holds is the 
 ### PS-PERF-15 [M!] Give shared read-mostly data to threads, not to processes
 
 Where workers read a large structure and write only their own results, threads on the free-threaded
-build avoid the copy entirely.
+build avoid the copy entirely. Where the payload marshals cheaply and the workers share nothing,
+isolation is the right answer instead: `InterpreterPoolExecutor` gives it inside one process,
+without a process per worker.
 
-*Relaxed form:* isolation remains correct and is the right answer where the payload marshals cheaply
-and the workers share nothing. `InterpreterPoolExecutor` gives it inside one process, without a
-process per worker — measure both rather than assuming.
+*Relaxed form:* processes for shared read-mostly data too, which stay correct and cost the copy;
+measure both rather than assuming.
 
 **Why:** this is the case free threading was built for: no pickling, no per-process copy of the
 data, one interpreter's memory instead of N. Workers that hammer the *same mutable* objects can be
