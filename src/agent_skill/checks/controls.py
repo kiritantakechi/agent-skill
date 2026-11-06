@@ -504,10 +504,10 @@ _STRICT = "`claude plugin validate --strict` warns on it, and fails on a warning
 #: states it.
 _INVERSE = "Give every operation its inverse, or document why there is none"
 
-#: `RS-BUILD-19`'s citation of the chapter stating it. A core rule's
+#: `ZS-CORE-04`'s citation of the chapter stating it. A core rule's
 #: citations are read only in a standard that still states core rules,
-#: which python-style, normalised, does not.
-_CORE_28 = "(`references/build.md` RS-BUILD-19)"
+#: which python-style and rust-style, normalised, do not.
+_CORE_04 = "(`references/naming.md` ZS-NAME-06)"
 
 #: A line of a zig GOOD example with no comment in the three above it.
 _SIZED = "    assert(@sizeOf(Record) == 16);\n"
@@ -562,12 +562,12 @@ def _contents_swapped(tree: Path) -> Edited:
 
 
 def _orphan_exemption(tree: Path) -> Edited:
-    """`RS-API-04`'s Check unlabelled: its exemption claims nothing."""
+    """`RS-PERF-07`'s Check unlabelled: its exemption claims nothing."""
     return edit(
         tree,
-        f"{RS}/references/api.md",
-        "**Check:** grep public return types for `std::collections::`",
-        "Grep public return types for `std::collections::`",
+        f"{RS}/references/performance.md",
+        "**Check:** look for `Vec::new`, `String::new`",
+        "Look for `Vec::new`, `String::new`",
     )
 
 
@@ -1145,18 +1145,19 @@ CONTROLS: list[Control] = [
         # The asset denies it; a row saying `warn` describes a build
         # that is not shipped.
         rust.LINT_LEVEL,
-        lambda t: _row(
+        lambda t: edit(
             t,
-            f"{RS}/references/errors.md",
-            "| clippy | `unwrap_used` | warn | an unwrap |",
+            f"{RS}/references/build.md",
+            "| clippy | `unwrap_used` | deny |",
+            "| clippy | `unwrap_used` | warn |",
         ),
     ),
     Control(
         rust.UNKNOWN_LINT,
         lambda t: _row(
             t,
-            f"{RS}/references/errors.md",
-            "| clippy | `unwarp_used` | deny | an unwrap |",
+            f"{RS}/references/build.md",
+            "| clippy | `unwarp_used` | deny | an unwrap — listed because it is misspelt |",
         ),
     ),
     Control(
@@ -1396,9 +1397,9 @@ CONTROLS: list[Control] = [
         anatomy.CORE_WRONG_CHAPTER,
         lambda t: edit(
             t,
-            f"{RS}/SKILL.md",
-            "`references/api.md` RS-API-15, RS-API-16",
-            "`references/api.md` RS-API-15, RS-ERR-03",
+            f"{ZS}/SKILL.md",
+            "`references/naming.md` ZS-NAME-24, ZS-NAME-25",
+            "`references/naming.md` ZS-NAME-24, ZS-ERR-03",
         ),
     ),
     Control(
@@ -1806,16 +1807,16 @@ CONTROLS: list[Control] = [
     ),
     Control(
         anatomy.CORE_UNCITED,
-        lambda t: edit(t, f"{RS}/SKILL.md", _CORE_28, "(the build chapter)"),
+        lambda t: edit(t, f"{ZS}/SKILL.md", _CORE_04, "(the naming chapter)"),
     ),
     # A core rule's ID is a rule of the skill and not a chapter's.
     Control(
         anatomy.CORE_NOT_A_RULE,
         lambda t: edit(
             t,
-            f"{RS}/SKILL.md",
-            _CORE_28,
-            _CORE_28.replace("RS-BUILD-19", "RS-NAME-01"),
+            f"{ZS}/SKILL.md",
+            _CORE_04,
+            _CORE_04.replace("ZS-NAME-06", "ZS-CORE-01"),
         ),
     ),
     # A family listed twice: each agrees, and the sum does not.
@@ -1843,9 +1844,9 @@ CONTROLS: list[Control] = [
         anatomy.MAP_HERE,
         lambda t: edit(
             t,
-            f"{RS}/SKILL.md",
-            "the other 605 live here",
-            "the other 604 live here",
+            f"{ZS}/SKILL.md",
+            "the other 356 live here",
+            "the other 355 live here",
         ),
     ),
     # citations
@@ -1930,7 +1931,17 @@ CONTROLS: list[Control] = [
             ),
         ),
     ),
-    Control(rust.NO_CARGO_TOML, lambda t: remove(t, f"{RS}/assets/Cargo.toml")),
+    Control(
+        rust.NO_CARGO_TOML,
+        lambda t: remove(t, f"{RS}/assets/Cargo.toml"),
+        also={
+            citations.ROW_REASON: (
+                "with no manifest the configuration sets no lint one by one, so "
+                "every row of a normalised standard owes the reason a row of a "
+                "lint on by default gives"
+            )
+        },
+    ),
     Control(
         zig.NO_PROBE,
         lambda t: _row(
@@ -2023,20 +2034,18 @@ CONTROLS: list[Control] = [
         frontmatter.LENGTH,
         lambda t: edit(
             t,
-            f"{RS}/SKILL.md",
+            f"{ZS}/SKILL.md",
             "description: >-\n",
             "description: >-\n  " + "padding " * 130 + "\n",
         ),
     ),
     Control(
         frontmatter.ANGLE_BRACKET,
-        lambda t: edit(
-            t, f"{RS}/SKILL.md", "a 633-rule library", "a 633-rule <library>"
-        ),
+        lambda t: edit(t, f"{RS}/SKILL.md", "an async task", "an <async> task"),
     ),
     Control(
         frontmatter.RULE_COUNT,
-        lambda t: edit(t, f"{RS}/SKILL.md", "a 633-rule library", "a 634-rule library"),
+        lambda t: edit(t, f"{ZS}/SKILL.md", "a 385-rule library", "a 386-rule library"),
     ),
     # layout
     Control(layout.UNCLOSED, lambda t: append(t, DATA, "\n```text\nnever closed\n")),
