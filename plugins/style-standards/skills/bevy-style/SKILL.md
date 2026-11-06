@@ -1,16 +1,11 @@
 ---
 name: bevy-style
 description: >-
-  The Bevy 0.20 engineering standard — a 174-rule delta on top of rust-style covering the ECS,
-  scheduling, observers and messages, states and resources, assets, error handling, Cargo features
-  and the Bevy lint divergences, the user-facing half of UI and rendering, testing, and a forbidden
-  API table spanning 0.15 through 0.20. Its spine is keeping the rules of the game out of the
-  engine's vocabulary, so an engine upgrade rewrites signatures and not arithmetic. Use this
-  whenever writing, reviewing, refactoring, scaffolding, porting, or debugging ANY Bevy code — a
-  plugin, a system, a component, a query, a schedule, an observer, a Cargo.toml with bevy in it —
-  even if the user never mentions "style", "standards", or "quality". Also use when migrating a
-  project to a newer Bevy, when Bevy code written for an older release must be brought up to
-  date, and when deciding whether something belongs in a system or in plain Rust.
+  Use when writing, reviewing, refactoring, scaffolding, porting or debugging any Bevy code,
+  bringing code written for an older Bevy up to date, or deciding whether something belongs in a
+  system or in plain Rust, even when no one asks for "style" or "standards". Applies to a plugin, a
+  system, a component, a query, a schedule, an observer, a message, a state, an asset handle, a UI
+  tree and a `Cargo.toml` with `bevy` in it. Targets Bevy 0.20.
 ---
 
 # Bevy Style — 0.20
@@ -402,7 +397,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/errors.md` | `BV-ERR` (10) | Fallible systems, observers and commands, the fallback error handler, and the APIs that panic |
 | `references/assets.md` | `BV-ASSET` (10) | Handles and loading, hot reload, asset events, and asset lifetime |
 | `references/build.md` | `BV-BUILD` (14) | Feature collections, the exact Bevy pin, the lint divergences from rust-style, and CI |
-| `references/migration.md` | `BV-MIG` (4) | Every API forbidden since 0.15 and what replaces it, and the changes that still compile |
+| `references/migration.md` | `BV-MIG` (4) | Every old spelling Bevy 0.15 through 0.20 left behind, with its status and owning rule, and the command the table generates |
 | `references/view.md` | `BV-VIEW` (20) | UI nodes and layout, text, cameras, materials and shaders, post-processing, and gizmos |
 | `references/testing.md` | `BV-TEST` (9) | Headless apps, deterministic fixed steps, and what a test asserts |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, mechanical pass, output format, and the order in which to refactor an existing game |

@@ -33,7 +33,7 @@ chapter.
   - BV-ECS-20 [S] Reach for `iter_many` when the set of entities is already known
   - BV-ECS-21 [M] Never nest a query inside itself
   - BV-ECS-22 [M] Parallelise a query only against a measurement
-  - BV-ECS-23 [M] Reach for `contiguous_iter` only against a measured hot loop
+  - BV-ECS-23 [M] Reach for `contiguous_iter` only for a loop a profile names
 
 - **Change detection**
   - BV-ECS-24 [M] Write with `set_if_neq` wherever a `Changed` filter is watching
@@ -756,7 +756,7 @@ than it reads (BV-ECS-14), or work that belongs in `FixedUpdate` at a lower rate
 **Check:** is there a benchmark or a profile naming this system? If not, the serial form is the one
 to ship.
 
-### BV-ECS-23 [M] Reach for `contiguous_iter` only against a measured hot loop
+### BV-ECS-23 [M] Reach for `contiguous_iter` only for a loop a profile names
 
 `Query::contiguous_iter` yields one slice per table rather than one item per entity, which is what a
 SIMD kernel or a cache-blocked pass needs. It replaces a structure-of-arrays kept by hand beside the

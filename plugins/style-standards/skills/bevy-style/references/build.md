@@ -71,8 +71,8 @@ the measurement is in the manifest as a comment, and each feature says why it is
 list worth its upkeep — a re-read every release — from one that is not. Without it the list is an
 assumption defended forever; with it, the next release can re-measure and decide again.
 
-**Check:** does the manifest state the number the list buys, and the date or version it was measured
-against? If not, switch to a collection until someone measures.
+**Check:** does the manifest state the number the list buys, and the Bevy version it was taken on?
+If not, switch to a collection until someone measures.
 
 ```toml
 # fragment — a hand-picked list that has earned itself, with the number in it
