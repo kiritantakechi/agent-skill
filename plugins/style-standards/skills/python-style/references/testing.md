@@ -344,5 +344,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `PT011` | error | `pytest.raises` without `match=` |
-| ruff | `PT012` | error | a `pytest.raises` block holding more than one statement |
+| ruff | `PT011` | error | `pytest.raises` without `match=` — listed because `raises-require-match-for = ["*"]` extends it from the broad builtins to every type |

@@ -313,7 +313,5 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `A001` | error | a variable named after a builtin — take a trailing underscore, `id_` |
-| ruff | `A002` | error | an argument named after a builtin |
-| ruff | `A003` | error | a class attribute named after a builtin |
-| ruff | `ERA001` | error | commented-out code — version control keeps it |
+| ruff | `A001` | error | a variable named after a builtin — take a trailing underscore, `id_` — listed because its fix is PS-NAME-01's trailing underscore |
+| ruff | `ERA001` | error | commented-out code — version control keeps it — listed because PS-NAME-12's comments say why, and code commented out says nothing |

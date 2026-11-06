@@ -104,7 +104,7 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `I001` | error | imports out of the standard library, third party, local grouping, or unsorted within a group |
-| ruff | `F403` | error | `from x import *` |
-| ruff | `F405` | error | a name that may come from a wildcard import |
+| ruff | `I001` | error | imports out of the standard library, third party, local grouping, or unsorted within a group — listed because it settles PEP 8's import grouping, which no rule here restates |
+| ruff | `F403` | error | `from x import *` — listed because a wildcard import makes a module's names another module's `__all__` |
 | ruff | `TID252` | error | a relative import, a sibling's too — listed because `ban-relative-imports = "all"` goes past ruff's default and past PEP 8, which permits explicit relative imports |
+| ty | `possibly-missing-import` | warn | an import of a name its module may not define |

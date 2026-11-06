@@ -282,5 +282,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `PERF401` | error | a loop that only appends — a comprehension |
-| ruff | `PERF402` | error | a loop that only copies — `list(…)` or `.copy()` |
+| ruff | `PERF401` | error | a loop that only appends — a comprehension — listed because the comprehension is both the faster and the readable form, so PS-PERF-17 has nothing to weigh |

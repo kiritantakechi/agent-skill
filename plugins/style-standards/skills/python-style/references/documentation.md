@@ -197,15 +197,15 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `D100` | error | a public module without a docstring |
-| ruff | `D101` | error | a public class without a docstring |
-| ruff | `D102` | error | a public method without a docstring |
-| ruff | `D103` | error | a public function without a docstring |
-| ruff | `D104` | error | a public package without a docstring |
-| ruff | `D105` | error | a magic method without a docstring |
-| ruff | `D106` | error | a public nested class without a docstring |
-| ruff | `D107` | error | `__init__` without a docstring |
-| ruff | `D205` | error | no blank line between a docstring's summary and its body |
-| ruff | `D209` | error | a multi-line docstring's closing quotes not on their own line |
-| ruff | `W505` | error | docstring or comment text past 72 columns, PEP 8's limit for prose |
-| ruff | `D417` | error | a parameter missing from a docstring's `Args:` — document every one, or none |
+| ruff | `D100` | error | a public module without a docstring — listed because `convention = "google"` (PS-DOC-06) keeps it |
+| ruff | `D101` | error | a public class without a docstring — listed because `convention = "google"` (PS-DOC-06) keeps it |
+| ruff | `D102` | error | a public method without a docstring — listed because `convention = "google"` (PS-DOC-06) keeps it |
+| ruff | `D103` | error | a public function without a docstring — listed because `convention = "google"` (PS-DOC-06) keeps it |
+| ruff | `D104` | error | a public package without a docstring — listed because `convention = "google"` (PS-DOC-06) keeps it |
+| ruff | `D105` | error | a magic method without a docstring — listed because `convention = "google"` (PS-DOC-06) keeps it |
+| ruff | `D106` | error | a public nested class without a docstring — listed because `convention = "google"` (PS-DOC-06) keeps it |
+| ruff | `D107` | error | `__init__` without a docstring — listed because `convention = "google"` (PS-DOC-06) keeps it |
+| ruff | `D205` | error | no blank line between a docstring's summary and its body — listed because `convention = "google"` (PS-DOC-06) keeps it |
+| ruff | `D209` | error | a multi-line docstring's closing quotes not on their own line — listed because `convention = "google"` (PS-DOC-06) keeps it |
+| ruff | `W505` | error | docstring or comment text past 72 columns, PEP 8's limit for prose — listed because it does nothing until `max-doc-length` is set, and the shipped configuration sets 72 |
+| ruff | `D417` | error | a parameter missing from a docstring's `Args:` — document every one, or none — listed because `google` alone of the three conventions keeps it (PS-DOC-06) |

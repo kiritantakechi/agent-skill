@@ -290,7 +290,5 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `TRY400` | error | `logger.error` in a handler — `logger.exception` keeps the traceback |
-| ruff | `TRY401` | error | the exception interpolated into a message `logger.exception` already carries |
-| ruff | `T201` | error | `print`, a debug line — results go to `sys.stdout.write`, diagnostics to `logging` |
-| ruff | `T203` | error | `pprint` for diagnostics |
+| ruff | `TRY400` | error | `logger.error` in a handler — `logger.exception` keeps the traceback — listed because a handler's log line is where a traceback is lost |
+| ruff | `T201` | error | `print`, a debug line — results go to `sys.stdout.write`, diagnostics to `logging` — listed because PS-OUT-15 leaves `print` no channel |

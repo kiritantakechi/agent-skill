@@ -242,6 +242,5 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `FBT001` | error | a `bool` positional parameter — make it keyword-only, or an enum |
-| ruff | `FBT002` | error | a `bool` default on a positional parameter |
-| ruff | `FBT003` | error | a bare `True` or `False` passed positionally |
+| ruff | `FBT001` | error | a `bool` positional parameter — make it keyword-only, or an enum — listed because it decides how PS-API-09's permitted flag is passed: by keyword |
+| ty | `invalid-legacy-positional-parameter` | warn | a `__`-prefixed parameter the legacy positional-only convention cannot make positional-only |

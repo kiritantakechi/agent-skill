@@ -431,6 +431,19 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `UP037` | error | a quoted annotation — annotations are lazy, so `-> Node` needs no quotes |
+| ruff | `UP037` | error | a quoted annotation — annotations are lazy, so `-> Node` needs no quotes — listed because lazy annotations (PS-TYPE-04) are what made the quotes dead |
 | ruff | `UP006` | error | `typing.List` or another `typing` alias of a builtin in an annotation — listed because the aliases are deprecated and still import, so nothing at runtime says so |
 | ruff | `UP035` | error | `typing.Callable`, `typing.Sequence` or another ABC imported from `typing` — `collections.abc` — listed because the alias misfiles a behavioural ABC as a typing artefact |
+| ty | `blanket-ignore-comment` | error | a `# ty: ignore` naming no rule, which silences every diagnostic on its line (PS-TYPE-03) |
+| ty | `dynamic-function-decorator-return` | error | a decorator that turns the function it decorates into `Any`, erasing its signature |
+| ty | `missing-override-decorator` | error | a method overriding a base class's without `@override` |
+| ty | `missing-type-argument` | error | a generic type with its arguments left out: `list` for `list[int]` |
+| ty | `unsound-assignment` | error | an `Any` assigned to a variable declared with a static type |
+| ty | `unsound-return-statement` | error | an `Any` returned from a function declared to return a static type |
+| ty | `unsound-yield` | error | an `Any` yielded from a generator declared to yield a static type |
+| ty | `unsupported-dynamic-base` | error | a class built by `type()` on a base the checker cannot model |
+| ty | `disjoint-cast` | error | a `cast` to a type no value of the source's type can have |
+| ty | `mismatched-sentinel-name` | error | a `sentinel` bound to a name other than the one it was given (PS-TYPE-20) |
+| ty | `possibly-missing-attribute` | warn | an attribute that may not exist on every path to it |
+| ty | `possibly-unresolved-reference` | warn | a name that may not be bound where it is read |
+| ty | `truthiness-test-of-none-union` | warn | `if value:` on an optional type whose own values can be falsy, an `int` or a `str` |

@@ -385,6 +385,8 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `EM101` | error | a string literal passed straight to an exception — assign it to `msg` first |
-| ruff | `EM102` | error | an f-string passed straight to an exception |
-| ruff | `E722` | error | a bare `except:`, which also catches `KeyboardInterrupt` and `SystemExit` |
+| ruff | `EM101` | error | a string literal passed straight to an exception — assign it to `msg` first — listed because it is why every example here raises a named `msg` |
+| ruff | `EM102` | error | an f-string passed straight to an exception — listed because it is why an f-string message is a named `msg` too |
+| ruff | `E722` | error | a bare `except:`, which also catches `KeyboardInterrupt` and `SystemExit` — listed because it is the one handler PS-ERR-08 forbids that a tool can see |
+| ty | `division-by-zero` | warn | a division the checker proves is by zero |
+| ty | `redundant-condition-strict` | warn | a condition the checker proves always true or always false |

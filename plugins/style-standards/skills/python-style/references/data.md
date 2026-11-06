@@ -76,9 +76,9 @@ a slot. On a plain class, write the same thing as `__slots__ = ("name",)`.
 of the mistake instead of silently becoming a new one. The instance is also smaller and faster, the
 more so on the free-threaded build: a non-GC object is 32 bytes there, against 16 on the default.
 
-**Check:** the `SLOT000`–`SLOT002` rows for the subclass cases. For dataclasses,
-`rg -n '@dataclass' src/` and read for `slots=`. A class instantiated more than a few thousand times
-with no slots is the finding.
+**Check:** ruff `SLOT000`, `SLOT001` and `SLOT002` for a `str`, `tuple` or `namedtuple` subclass.
+For dataclasses, `rg -n '@dataclass' src/` and read for `slots=`. A class instantiated more than a
+few thousand times with no slots is the finding.
 
 ```python
 # verified — GOOD
@@ -213,9 +213,10 @@ assert collector.lines == ["a", "b"]
 so one caller's mutation changes it for every later caller. Under free threading it is shared across
 threads too, so the mutation races as well as leaking.
 
-**Check:** the `B006` row for the argument form, `RUF008` for the dataclass field and `RUF012` for
-the class attribute. `dataclasses` refuses a default whose type is unhashable, so a mutable class
-that keeps `object`'s hash slips through, and a `field(default=` holding one is still the finding.
+**Check:** ruff `B006` for the argument form, `RUF008` for the dataclass field and `RUF012` for a
+class attribute without `ClassVar`. `dataclasses` refuses a default whose type is unhashable, so a
+mutable class that keeps `object`'s hash slips through, and a `field(default=` holding one is still
+the finding.
 
 ```python
 # verified — GOOD
@@ -450,9 +451,3 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `SLOT000` | error | a `str` subclass with no `__slots__` |
-| ruff | `SLOT001` | error | a `tuple` subclass with no `__slots__` |
-| ruff | `SLOT002` | error | a `namedtuple` subclass with no `__slots__` |
-| ruff | `B006` | error | a mutable default argument |
-| ruff | `RUF008` | error | a mutable default on a dataclass field |
-| ruff | `RUF012` | error | a mutable class attribute without `ClassVar` |
