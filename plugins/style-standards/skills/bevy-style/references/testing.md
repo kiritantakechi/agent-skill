@@ -110,7 +110,7 @@ mod tests {
 something writing `AppExit` — which makes the test's duration a property of the game rather than of
 the test. `update` is one frame, synchronously, which is what an assertion needs.
 
-**Check:** grep the test modules for `.run()`. There should be none outside a test of `main` itself.
+**Check:** read each test module for `.run()`. There should be none outside a test of `main` itself.
 
 ### BV-TEST-04 [M] Run a schedule directly when only that schedule is under test
 
@@ -136,7 +136,8 @@ fast machine, several on a slow one — so the assertion is about the machine an
 A sleep is slow by what it sleeps and still not exact; the strategy states the duration in the test.
 
 **Check:** for each test involving `FixedUpdate`, find where the number of steps is decided: by the
-clock, and the test is not deterministic. Grep the tests for `sleep` and `Instant::now`.
+clock, and the test is not deterministic. `rg -n 'thread::sleep|Instant::now' tests/ src/` finds a
+test that waits on the real clock.
 
 ```rust
 // verified
@@ -247,7 +248,7 @@ asserting on a description.
 one-shot systems and internal entities have each been in it at different versions. A count-based
 assertion therefore breaks on an engine upgrade that changed nothing about the game.
 
-**Check:** grep for `entities().len()` and for asserts on a total. Query for the component the test
+**Check:** read each `entities().len()` and each assert on a total. Query for the component the test
 cares about instead.
 
 ```rust

@@ -168,7 +168,7 @@ If nobody can say which files are forbidden to name Bevy, the boundary does not 
 
 | Project shape | Where the line goes | What holds it |
 |---|---|---|
-| One binary | `src/sim/` vs `src/game/` | a CI grep over `src/sim/` |
+| One binary | `src/sim/` vs `src/game/` | a CI step over `src/sim/` (BV-ARCH-07) |
 | One library plus a binary | the library is the domain | the binary's dependency list |
 | Workspace | domain crates vs one view crate | the domain crates' manifests |
 
@@ -182,8 +182,8 @@ second implementation elsewhere.
 and the other forgets, so the simulation is correct and the picture is wrong. One crossing point
 also gives the conversion a name and therefore a place to be tested.
 
-**Check:** grep the view layer for constructions of domain types. More than one site building the
-same domain type from components means the translation has been copied.
+**Check:** read the view layer for constructions of each domain type. More than one site building
+the same domain type from components means the translation has been copied.
 
 ```rust
 // verified
@@ -524,9 +524,9 @@ off. A unit struct that later needs a setting gains a field; a function first ha
 
 **Check:** `rg -n 'add_plugins\(\(?[a-z_|]' src/`. After `add_plugins(` a type starts with a
 capital, so a lowercase name is a function, a module-qualified function, or a closure — all three of
-the forms that cannot be named. The *declaration* has no grep of its own, and deliberately:
+the forms that cannot be named. The *declaration* is read rather than matched, and deliberately:
 `fn f(app: &mut App)` is what a plugin function looks like and also what a test helper that drives
-an `App` looks like, so those are read rather than matched.
+an `App` looks like.
 
 ```rust
 // verified — GOOD: no settings, so the type is a unit struct
@@ -738,8 +738,9 @@ neither.
 **Why:** the refusal is the good outcome — the alternative is a game that applies gravity twice per
 step with nothing saying so, which is exactly what overriding `is_unique` buys.
 
-**Check:** grep for `fn is_unique`. Each override needs the reason the plugin is meaningfully
-instantiable twice, plus a test that adds it twice and asserts the world is what it should be.
+**Check:** `rg -n 'fn is_unique' src/` finds each override; each needs the reason the plugin is
+meaningfully instantiable twice, plus a test that adds it twice and asserts the world is what it
+should be.
 
 ```rust
 // verified
@@ -852,5 +853,5 @@ settings file — is written afterwards, by code beside the `add_plugins` call.
 afterwards runs the original first. The window is created at the default size and visibly resized,
 and the asset watcher is already running against the wrong directory.
 
-**Check:** search for writes to `WindowPlugin`, `AssetPlugin` or `LogPlugin` state outside the
-`add_plugins` call. Each one either belongs in `.set()` or needs the reason it cannot be.
+**Check:** read for writes to `WindowPlugin`, `AssetPlugin` or `LogPlugin` state outside the
+`add_plugins` call. Each one either belongs in `.set()` or writes a value known only at run time.

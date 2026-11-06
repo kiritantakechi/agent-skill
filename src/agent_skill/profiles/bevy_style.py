@@ -192,6 +192,34 @@ PROFILE = Profile(
     fires=keyed(
         {
             "BV-EVENT-08": ("commands.trigger_targets(Damage(5), target);",),
+            "BV-ARCH-12": ("    fn is_unique(&self) -> bool {",),
+            "BV-ASSET-03": (
+                'const LOGO: Handle<Image> = uuid_handle!("1347c9b7-c46a-48e7-b7b8-023a354b7cac");',
+            ),
+            "BV-ASSET-10": ('let level = std::fs::read_to_string("assets/levels/1.ron")?;',),
+            "BV-BUILD-01": ('bevy_ecs = "0.20"',),
+            "BV-BUILD-08": (
+                'bevy = { version = "=0.20.1", features = ["2d", "dynamic_linking"] }',
+            ),
+            "BV-BUILD-11": ("app.add_plugins(RenderDebugOverlayPlugin::default());",),
+            "BV-ECS-05": ("#[non_exhaustive]",),
+            "BV-ECS-06": ("#[derive(Bundle, Default)]", "fn enemy_bundle() -> impl Bundle {"),
+            "BV-EVENT-03": ("#[derive(Message, Event, Debug, Clone)]",),
+            "BV-EVENT-04": ("app.init_resource::<Messages<DamageDealt>>();",),
+            "BV-EVENT-05": ("for hit in hits.iter_current_update_messages() {",),
+            "BV-EVENT-09": ("let victim = trigger.target();",),
+            "BV-EVENT-11": ("impl SetEntityEventTarget for Died {",),
+            "BV-EVENT-18": ("fn on_died(trigger: On<Died>, mut score: ResMut<Score>) {",),
+            "BV-SCHED-20": ("app.add_systems(Update, (spawn_wave, ApplyDeferred, count_wave).chain());",),
+            "BV-SCHED-22": ("schedule.set_executor(SingleThreadedExecutor::new());",),
+            "BV-STATE-10": ("pub struct Paused(pub bool);",),
+            "BV-STATE-16": ("fn force_menu(mut state: ResMut<State<Screen>>) {",),
+            "BV-TEST-05": ("std::thread::sleep(Duration::from_millis(20));",),
+            "BV-VIEW-15": ("fn hide(mut views: Query<&mut ViewVisibility, With<Ghost>>) {",),
+            "BV-VIEW-16": (
+                "fn refit(mut boxes: Query<&mut Aabb>) {",
+                "commands.entity(ghost).remove::<Aabb>();",
+            ),
             "BV-EVENT-13": (
                 "fn on_spawn(trigger: Trigger<OnAdd, Enemy>, mut commands: Commands) {",
                 "fn on_enemy_added(add: On<Add, Enemy>, mut commands: Commands) {",

@@ -132,9 +132,9 @@ means something for the type; `PartialEq` is what `set_if_neq` (BV-ECS-24) needs
 `Reflect` with `#[reflect(Component)]` is what an inspector, a scene and the remote protocol see,
 and being opt-in it is forgotten silently.
 
-**Check:** grep for `#[derive(Component` and look for one without `Debug`, and for a `Reflect`
-without the matching `#[reflect(Component)]` — deriving the trait without the registration attribute
-leaves the type reflected but not recognised as a component.
+**Check:** read each `#[derive(Component` list for `Debug`, and each `Reflect` for the matching
+`#[reflect(Component)]` — deriving the trait without the registration attribute leaves the type
+reflected but not recognised as a component.
 
 ```rust
 // verified
@@ -168,8 +168,8 @@ crate. Grow one by adding a *new component* plus a `#[require]`, which breaks no
 is the only construction a component has. The attribute that protects a growing struct elsewhere in
 this standard here breaks every spawn site in another crate.
 
-**Check:** grep for `#[non_exhaustive]` immediately above a `#[derive(…Component…)]`. There should
-be none.
+**Check:** `rg -n -A1 '#\[non_exhaustive\]' src/` lists each marked type with the line after it; one
+whose derive names `Component` is the finding.
 
 ### BV-ECS-06 [M] Express "always has" with `#[require]`
 
@@ -182,8 +182,9 @@ spawn, so it cannot be half-applied. A group type cannot be queried or inserted 
 every spawn site silently when it gains a field.
 
 **Check:** look at every `spawn` for the same component appearing beside the same other component
-more than twice. That repetition is a `#[require]` that has not been written. Then search for
-structs deriving `Bundle` and for `fn *_bundle() -> impl Bundle`: each is a `#[require]` or a tuple.
+more than twice. That repetition is a `#[require]` that has not been written. Then
+`rg -n 'derive\([^)]*\bBundle\b|-> impl Bundle' src/` finds a bundle of the game's own; each is a
+`#[require]` or a tuple.
 
 ```rust
 // verified
@@ -339,7 +340,7 @@ link.
 the other. A hand-kept `Vec<Entity>` does neither, and holds ids despawned frames ago until a `get`
 returns `None` where nothing expected one.
 
-**Check:** search for `Vec<Entity>` and for `Entity` fields in components. Each is either a
+**Check:** read each `Vec<Entity>` and each `Entity` field of a component. Each is either a
 relationship or needs a written reason it cannot be one. For each `#[relationship_target]`, ask what
 a despawn of its entity should do to the related ones, and look for `linked_spawn` if the answer is
 "despawn them too".
@@ -474,7 +475,8 @@ mod tests {
 `Handle<Image>`, and a bare handle as the component type allows only one, whichever was inserted
 last. The wrapper's name is also the only place the meaning of the asset can be recorded.
 
-**Check:** grep for `Handle<` inside a `spawn` tuple with no wrapper around it.
+**Check:** read each `Handle<` inside a `spawn` tuple: one with no component of its own around it is
+the finding.
 
 ## Queries
 
@@ -680,8 +682,8 @@ pairs, or split the data into two queries with disjoint filters.
 loop that looks linear. `iter_combinations` also visits each unordered pair once rather than twice,
 which is usually what collision or attraction code actually wanted.
 
-**Check:** search for a `for` over a query inside another `for` over a query and check the two are
-different queries with filters that cannot both match one entity.
+**Check:** read each `for` over a query for another `for` over a query inside it, and check the two
+are different queries with filters that cannot both match one entity.
 
 ```rust
 // verified
@@ -930,7 +932,7 @@ change tick, so the filter can skip whole columns.
 body it is applied after the fetch, so the loop still visits everything. The filter also puts
 "reactive" in the system's signature, where the body form hides it behind an early `continue`.
 
-**Check:** grep for `is_changed()` inside a query loop. Unless the body needs both the changed and
+**Check:** read each `is_changed()` inside a query loop. Unless the body needs both the changed and
 the unchanged entities, it is a filter that has escaped into the body.
 
 ### BV-ECS-26 [M] Do not use `Changed<T>` to mean `Added<T>`

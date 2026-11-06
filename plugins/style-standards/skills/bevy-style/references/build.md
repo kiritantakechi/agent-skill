@@ -44,8 +44,8 @@ crate that needs one subcrate and no engine should not depend on Bevy at all (BV
 moves every release: 0.20 split `bevy_shape` and `bevy_curve` out of `bevy_math` and added
 `bevy_extract`. A manifest naming subcrates is rewritten for each such move; the facade's is not.
 
-**Check:** grep the manifests for `bevy_`. Each hit is either a third-party plugin crate or a
-subcrate dependency that needs a reason.
+**Check:** `rg -n -g '*.toml' '^bevy_'` finds a dependency named for a Bevy crate; each hit is
+either a third-party plugin crate or a subcrate dependency that needs a reason.
 
 ### BV-BUILD-02 [M] Start from a feature collection
 
@@ -157,8 +157,8 @@ another machine. Turn it on with `--features bevy/dynamic_linking` on the comman
 with it is broken in a way that shows only when somebody runs it elsewhere. As a command-line flag
 it is a developer's local choice; in the manifest it is everybody's.
 
-**Check:** grep the manifest for `dynamic_linking`. It belongs in a shell alias or a
-`.cargo/config.toml` that is not committed.
+**Check:** `rg -n -g '*.toml' 'dynamic_linking'` finds it in a committed manifest; it belongs in a
+shell alias or a `.cargo/config.toml` that is not committed.
 
 ### BV-BUILD-09 [M] Keep `overflow-checks` on in release where release must match debug
 
@@ -182,7 +182,7 @@ all go behind a feature that is off by default.
 and the remote protocol opens a TCP listener on localhost. Off by default also makes the shipped
 configuration the one built by accident, which is the right way round.
 
-**Check:** grep the default feature list. Anything whose name mentions trace, debug, remote,
+**Check:** read the default feature list. Anything whose name mentions trace, debug, remote,
 inspector or editor is on by default and should not be.
 
 ### BV-BUILD-11 [S] Take the overlays from `bevy_dev_tools`, behind the feature BV-BUILD-10 asks for
@@ -204,8 +204,8 @@ collections a build starts from — `2d`, `3d`, `ui`, any `*_api` — so BV-BUIL
 
 **Check:** read the default feature list, then the dev one. `bevy_dev_tools` in the first is an
 overlay shipped to players; a game that renders it in a release build has answered this rule by
-accident. Where either list reaches `render_dev_tools`, grep for `RenderDebugOverlayPlugin`: a hand
-add is the duplicate.
+accident. Where either list reaches `render_dev_tools`, `rg -n 'RenderDebugOverlayPlugin' src/`
+finds the hand add that duplicates it.
 
 ```toml
 # fragment — the manifest shape, not a whole file

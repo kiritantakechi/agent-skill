@@ -225,8 +225,8 @@ and not `-> anyhow::Result<()>`.
 converted at the boundary anyway. `BevyError` converts from anything implementing `Error`, so the
 alias costs nothing and every fallible system looks the same.
 
-**Check:** grep for `-> Result<` in system signatures. Anything with explicit parameters is either
-not a system or is fighting the schedule.
+**Check:** read each `-> Result<` that names its parameters. On a system it is fighting the
+schedule; anything else is not a system.
 
 ### BV-ERR-03 [M] Keep `BevyError` at the boundary and a real type underneath
 
@@ -239,7 +239,8 @@ own.
 the wrong one for a caller that branches. Domain code returning it cannot be matched on or tested
 for one failure, and drags a Bevy type across the boundary BV-ARCH-01 keeps clean.
 
-**Check:** grep the domain crates for `BevyError`. There should be none.
+**Check:** a `BevyError` in a domain crate is the finding. The domain's manifest names no `bevy`
+(BV-ARCH-06), so the compiler rejects most of them; read the rest.
 
 ```rust
 // verified
@@ -429,7 +430,7 @@ logged, so the system that returns it does not log it too (`rust-style`'s RS-ERR
 the log line and the next frame. The default, `match_severity`, panics on every un-annotated error
 in both, and a handler that only logs, such as `error`, logs each panic and keeps running.
 
-**Check:** grep for `set_error_handler`: one call, in `main`, distinguishing the two builds — a
+**Check:** read each `set_error_handler`: one call, in `main`, distinguishing the two builds — a
 second call panics. An inserted `FallbackErrorHandler` reaches the main world only, leaving the
 render and extract worlds on the default. The shipped handler calls `take_payload` before it logs.
 
@@ -487,7 +488,8 @@ says.
 game code is neither. The pairs are easy to miss because the panicking name is the shorter one — it
 reads as the default when it is the exception.
 
-**Check:** grep for the left column, outside `#[cfg(test)]`.
+**Check:** read each call in the left column outside `#[cfg(test)]`; the receiver decides, since a
+query's and an asset collection's `get` already return the `Option`.
 
 | Panicking | Use instead |
 |---|---|
@@ -644,7 +646,7 @@ exit as a crash.
 GPU fault closes the player's window and BV-ARCH-16 turns it into an exit that reads as a crash.
 BV-ERR-09 makes an unusable GPU at startup your decision; this is the same GPU an hour later.
 
-**Check:** grep for `RenderErrorHandler`. Exactly one insertion, and it branches on the error rather
+**Check:** read the `RenderErrorHandler` insertion. Exactly one, and it branches on the error rather
 than returning one blanket policy: `Recover` from the `DeviceLost` arm only, and `Ignore` from none
 without a written reason.
 

@@ -228,7 +228,7 @@ changed and did not, the unit is wrong.
 laid-out one are different numbers, and a read of a size from `Node` compiles and returns the
 request.
 
-**Check:** grep for reads of `Node` that are looking for a size or a position. Those fields are on
+**Check:** read each read of `Node` that is looking for a size or a position. Those fields are on
 `ComputedNode`.
 
 ### BV-VIEW-04 [M] Give text its components together
@@ -594,8 +594,8 @@ for a value that is being computed.
 palette value passed to the linear one is visibly wrong, most of all in the mid-tones. Naming the
 space is the only defence.
 
-**Check:** grep for colour construction and check each against where the value came from. Design
-tool and hex codes are sRGB; anything a shader or a lerp produced is linear.
+**Check:** read each colour construction against where the value came from. Design tool and hex
+codes are sRGB; anything a shader or a lerp produced is linear.
 
 ### BV-VIEW-11 [S] Keep the whole game in one colour space until the boundary
 
@@ -632,7 +632,7 @@ A `Camera2dBundle` or `Camera3dBundle` is BV-ECS-06's table.
 controls. The result looks like a rendering bug, and the one warning that names it scrolls past in
 the log.
 
-**Check:** grep the startup log for "Camera order ambiguities". Failing that, count the camera
+**Check:** read the startup log for "Camera order ambiguities". Failing that, count the camera
 entities: more than one sharing an order and a render target is the condition.
 
 ```rust
@@ -729,7 +729,7 @@ insert, and a filter finds every off-screen camera. Code that copies a `Camera` 
 target to travel with it still compiles, and loses it.
 
 **Check:** read every `Camera` struct literal in the diff. A `target` field in one is the removed
-spelling (BV-MIG-02); too many identifiers are called `target` for a grep to answer this.
+spelling (BV-MIG-02); too many identifiers are called `target` for a pattern to answer this.
 
 ### BV-VIEW-15 [M] Set `Visibility`, and read `ViewVisibility`
 
@@ -739,8 +739,8 @@ spelling (BV-MIG-02); too many identifiers are called `target` for a grep to ans
 overwrites a write to either of the last two in the same frame. Reading `Visibility` to learn
 whether something is on screen is the mirror mistake: it says what was asked for.
 
-**Check:** grep for writes to `InheritedVisibility` and `ViewVisibility`, and for reads of
-`Visibility` that are asking about culling.
+**Check:** `rg -n '&mut (InheritedVisibility|ViewVisibility)\b' src/` finds a system that writes an
+output the propagation overwrites. Then read each read of `Visibility` that is asking about culling.
 
 ```rust
 // verified
@@ -913,7 +913,8 @@ Bevy adds and updates an `Aabb` for meshes and sprites, including when the mesh 
 engine's own updates, costing a duplicate computation every frame or culling an entity that should
 be drawn.
 
-**Check:** grep for `Aabb`. In game code there should be reads and no writes.
+**Check:** `rg -n '&mut Aabb\b|remove::<Aabb>' src/` finds a write the engine's own update fights;
+in game code there should be reads and no writes.
 
 ## Materials and debugging
 

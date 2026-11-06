@@ -118,7 +118,7 @@ keeps a `Timer` ticked by `Time<Fixed>`.
 `Update`, advances one fixed step per rendered frame. A `delayed` deadline queued in the fixed loop
 is stamped from `Time<Fixed>` but checked against `Time<Virtual>`, so it fires up to one step early.
 
-**Check:** grep for `1.0 / 60.0` and similar literals, for `Time<Real>` outside diagnostics, and for
+**Check:** read for `1.0 / 60.0` and similar literals, for `Time<Real>` outside diagnostics, and for
 `.delayed(` inside a `FixedUpdate` system — the last is a simulation decision made on the frame
 clock.
 
@@ -302,7 +302,7 @@ the domain can take, replay, rebind and test; a `KeyCode` is a keyboard (BV-ARCH
 machine and double-fires them on a slow one, with no error and nothing in a log. The two failures
 look nothing alike, so neither points at the cause.
 
-**Check:** grep `FixedUpdate` systems for `ButtonInput`, `just_pressed`, `just_released` and
+**Check:** read each `FixedUpdate` system for `ButtonInput`, `just_pressed`, `just_released` and
 `AccumulatedMouseMotion`. Each is a press the game will miss.
 
 ```rust
@@ -504,8 +504,8 @@ impl Plugin for CombatPlugin {
 into a graph nobody wrote. Keeping the configuration with the definition also means a reader wanting
 to know what "Resolve" runs after has exactly one place to look.
 
-**Check:** grep for each set name. It should appear in `configure_sets` once, and in `.in_set(…)`
-everywhere else.
+**Check:** count each set's `configure_sets`. It should be configured once, and joined with
+`.in_set(…)` everywhere else.
 
 ```rust
 // verified
@@ -625,8 +625,8 @@ A system added twice to the same schedule runs twice.
 fast. The usual cause is a plugin added twice (BV-ARCH-12), or a system added both individually and
 as part of a tuple during a refactor.
 
-**Check:** grep for the system's name across the crate. More than one `add_systems` mentioning it,
-in the same schedule, is a duplicate.
+**Check:** count the `add_systems` calls naming each system. More than one in the same schedule is a
+duplicate.
 
 ## Run conditions
 
@@ -744,8 +744,8 @@ must be applied.
 hand-placed one is a barrier the schedule did not ask for — everything before it must finish before
 anything after it starts — and it is not removed when the ordering that motivated it changes.
 
-**Check:** grep for `ApplyDeferred` and `apply_deferred`. Each occurrence needs a reason the
-automatic pass cannot infer.
+**Check:** `rg -n 'ApplyDeferred|apply_deferred' src/` finds each hand-placed sync point; each needs
+a reason the automatic pass cannot infer.
 
 ### BV-SCHED-21 [M] Answer an ambiguity by ordering, not by silencing it
 
@@ -773,7 +773,8 @@ gone.
 one and why it must not stay: the bug is still there, now hidden, and the game has given up its
 parallelism to hide it.
 
-**Check:** grep for `set_executor`. Anything outside a debugging branch needs a reason.
+**Check:** `rg -n 'set_executor' src/` finds each replacement; anything outside a debugging branch
+needs a reason.
 
 ### BV-SCHED-23 [M] Keep `Local<T>` to state no other system needs
 
@@ -879,9 +880,9 @@ anything that has to respond while the game is stopped read `Time<Real>`, which 
 and the fixed loop accumulates from it, so one call freezes every `Timer`, delta and fixed step. A
 boolean must be remembered by every gameplay system anyone adds, which nothing enforces.
 
-**Check:** grep for `is_paused` on anything but `Time<Virtual>`, and for a `run_if` on a pause flag;
-the flag itself is BV-STATE-10's finding. Then pause the game and confirm a `FixedUpdate` counter
-stops.
+**Check:** read each `is_paused` whose receiver is not a `Time<Virtual>`, and each `run_if` on a
+pause flag; the flag itself is BV-STATE-10's finding. Then pause the game and confirm a
+`FixedUpdate` counter stops.
 
 ```rust
 // verified

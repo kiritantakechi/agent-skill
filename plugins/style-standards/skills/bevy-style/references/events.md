@@ -181,7 +181,9 @@ mapping is written down.
 is both make incompatible assumptions about when it arrives, and no signature says which mechanism a
 given call site used.
 
-**Check:** grep for `#[derive(` lines naming both. Each is a choice that has not been made.
+**Check:**
+`rg -n 'derive\([^)]*\bMessage\b[^)]*\bEvent\b|derive\([^)]*\bEvent\b[^)]*\bMessage\b' src/` finds a
+derive naming both. Each is a choice that has not been made.
 
 ## Messages
 
@@ -193,8 +195,9 @@ given call site used.
 Without it the buffer grows for the life of the process — a leak whose only symptom is memory, and
 only after a long session.
 
-**Check:** grep for `Messages<` outside a `MessageReader`/`MessageWriter` type. Each occurrence is
-either the registration bug or a good reason that should be written down.
+**Check:** `rg -n 'init_resource::<Messages<|insert_resource\(Messages' src/` finds the registration
+bug; any other `Messages<` outside a `MessageReader` or `MessageWriter` needs its reason written
+down.
 
 ```rust
 // verified
@@ -239,8 +242,9 @@ system on an empty queue, rather than a `MessageReader<M>` gated by `on_message:
 runs. Without one, a system that runs twice between updates sees the same messages twice, and one
 that misses an update sees nothing — silently, both ways.
 
-**Check:** grep for `iter_current_update_messages`. There should be none. A system that reads `M`
-and also runs `.run_if(on_message::<M>)` keeps two cursors where `PopulatedMessageReader` has one.
+**Check:** `rg -n 'iter_current_update_messages' src/` finds a read with no cursor; there should be
+none. A system that reads `M` and also runs `.run_if(on_message::<M>)` keeps two cursors where
+`PopulatedMessageReader` has one.
 
 ### BV-EVENT-06 [M] Make a message a statement about the past
 
@@ -323,7 +327,8 @@ every event type. `event_target()` is for generic code.
 `victim`, `container` — where the trait method can only say "the target". On an event with several
 entities, that distinction is the whole meaning.
 
-**Check:** grep for `.event_target()` in non-generic observers, and for `.target()` anywhere.
+**Check:** `rg -n '\.target\(\)' src/` finds the removed accessor. Then read each `.event_target()`:
+in an observer that is not generic, it is the field written the long way.
 
 ### BV-EVENT-10 [S] Turn propagation on deliberately, and stop it deliberately
 
@@ -348,8 +353,8 @@ machinery; game code reads an event's target and does not set it.
 later observers are told happened — and which observers count as later depends on registration
 order, which is not defined.
 
-**Check:** grep for `SetEntityEventTarget`. Anything outside propagation machinery needs an
-explanation.
+**Check:** `rg -n 'SetEntityEventTarget' src/` finds each use; anything outside propagation
+machinery needs an explanation.
 
 ## Observers
 
@@ -811,4 +816,5 @@ mod tests {
 than `trigger.entity`. It is also what makes the old and new APIs distinguishable at a glance in a
 review: a parameter called `trigger` is usually a `Trigger<E>` that was mechanically renamed.
 
-**Check:** grep for `: On<` preceded by `trigger`, `ev`, `event` or `t`. Rename to the event.
+**Check:** `rg -n '\b(trigger|ev|event|t): On<' src/` finds a parameter named for the mechanism.
+Rename it to the event.

@@ -49,8 +49,9 @@ Load at startup or in `OnEnter`, into one resource per feature — `SpriteHandle
 frame per entity is measurable, and it hides the real load point. One resource per feature also
 makes the loading screen's "is everything here" a walk over one struct.
 
-**Check:** grep for `asset_server.load` inside `Update` or `FixedUpdate` systems. Then, for each
-feature, is there one type holding its handles, or are they built in more than one system?
+**Check:** read each `asset_server.load`: one in a system that runs in `Update` or `FixedUpdate` is
+a load per frame. Then, for each feature, is there one type holding its handles, or are they built
+in more than one system?
 
 ```rust
 // verified
@@ -91,7 +92,7 @@ itself. Game content goes through the asset server.
 of the program is expected to insert. For a texture on disk, that is a handle that never resolves
 and an entity that renders nothing.
 
-**Check:** grep for `uuid_handle!`. Each occurrence should have a matching insertion into
+**Check:** `rg -n 'uuid_handle!' src/` finds each one; each has a matching insertion into
 `Assets<T>` in the same crate.
 
 ## Loading
@@ -261,7 +262,7 @@ and nowhere else.
 renaming a file a code change, found by grep, in every system that touched it; paths kept together
 can be checked against the disk by a build step.
 
-**Check:** grep for string literals ending in a file extension. Each one outside a handle resource,
+**Check:** read each string literal ending in a file extension. Each one outside a handle resource,
 a content file, or a loader is a path that has escaped.
 
 ## Change and lifetime
@@ -279,7 +280,7 @@ swapped handle.
 it and gets it wrong in the interesting cases: a modified asset with the same length, an asset
 replaced by hot reload between two frames.
 
-**Check:** grep for a cached `Handle` or a cached asset value compared each frame. That is an
+**Check:** read for a cached `Handle` or a cached asset value compared each frame. That is an
 `AssetEvent` reader, or an `AssetChanged` filter when the answer is per entity.
 
 ```rust
@@ -384,5 +385,5 @@ does not. A custom format gets a small `AssetLoader`, half a page that buys the 
 `fs::read_to_string` at a time — usually for a config or a level file, exactly the content people
 most want to edit while the game runs.
 
-**Check:** grep for `std::fs`, `File::open` and `include_str!` on anything under the asset
-directory.
+**Check:** `rg -n 'std::fs|File::open|include_str!' src/` finds a read past the server; each one of
+a file under the asset directory is the finding.

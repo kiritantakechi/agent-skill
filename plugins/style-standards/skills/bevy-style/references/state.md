@@ -45,9 +45,9 @@ as Bevy split its own `UiDebugOptions` into `GlobalUiDebugOptions` and `UiDebugO
 from it with only a warning, and the resource shows up in ordinary `&T` queries, so a global
 fallback and a per-entity override cannot share one type.
 
-**Check:** grep for a `derive` naming both `Component` and `Resource`; it does not compile. Then
-grep for the `Global*` pattern in reverse — a resource and a component that are conceptually the
-same fact need two names, not one.
+**Check:** a `derive` naming both `Component` and `Resource` does not compile. Read for a resource
+and a component that state one fact under one name: they are two types, named as `GlobalGravity` and
+`Gravity` are.
 
 ```rust
 // verified — GOOD: the global default and the per-entity override are two types
@@ -113,8 +113,8 @@ A resource that needs an `AssetServer`, a registry, or another resource to build
 anything that runs before it finds nothing. `FromWorld` runs at registration, so the resource exists
 from the first frame.
 
-**Check:** grep for `insert_resource` in a `Startup` system. Each one is a `FromWorld` impl that has
-not been written.
+**Check:** read each `insert_resource` in a `Startup` system. Each one is a `FromWorld` impl that
+has not been written.
 
 ### BV-STATE-05 [M] Do not put mutable game state in a resource that a component could hold
 
@@ -324,9 +324,10 @@ and a failure are a state's shape, not a flag's.
 phase gets no transition hooks, no automatic despawn, and no third phase without touching every
 reader. An enum is exhaustive, so a new phase is a compile error everywhere it matters.
 
-**Check:** grep for boolean resources named `paused`, `in_menu`, `loading`, `started`. Each pair of
-them is a state enum. A `loaded: bool`, or an `AssetsLoading` collection a system checks, is a
-loading state kept as a flag.
+**Check:**
+`rg -n 'struct (Paused|InMenu|Loading|Loaded|Started)\(pub bool\)|\b(paused|in_menu|loading|loaded|started): bool' src/`
+finds a phase kept as a flag; each pair of them is a state enum. An `AssetsLoading` collection a
+system checks is a loading state kept as a flag too.
 
 ```rust
 // verified
@@ -478,8 +479,7 @@ one — each called once, in the plugin that defines the type.
 transition. Registering with the wrong function is worse: `init_state` on a type meant to be a
 sub-state gives it an independent life, and the `#[source]` relationship silently does nothing.
 
-**Check:** grep each state type name. Exactly one registration call, and its kind matches the
-derive.
+**Check:** count each state type's registration calls. Exactly one, and its kind matches the derive.
 
 ## Transitions
 
@@ -491,7 +491,7 @@ derive.
 observes a half-built level. A system with a run condition runs every frame it holds and needs a
 "have I done this" flag, which is a state machine built inside a state machine.
 
-**Check:** grep for `run_once` and for `Local<bool>` used as a "did setup" flag. Each is an
+**Check:** read each `run_once` and each `Local<bool>` used as a "did setup" flag. Each is an
 `OnEnter` system.
 
 ```rust
@@ -650,7 +650,8 @@ changes the state with no `OnExit` and no `OnEnter`.
 run at a defined point with the old and new values both available. Writing the current state
 directly changes it mid-frame, so half the frame's systems see one state and half the other.
 
-**Check:** grep for `ResMut<State<`. There should be none.
+**Check:** `rg -n 'ResMut<State<' src/` finds a write that skips the transition. There should be
+none.
 
 ```rust
 // verified — BAD: it compiles, and the state moves without a transition
