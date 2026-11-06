@@ -16,8 +16,10 @@ lazy from collections.abc import Callable
 
 import pytest
 
+from agent_skill import harness
 from agent_skill.checks import pins as mod
 from agent_skill.checks.pins import _sort_key, _tool_pins, library_pin, rust_pin
+from agent_skill.harness import Harness, pinned
 from agent_skill.ids import Location
 from agent_skill.proc import Ran
 from agent_skill.report import Level
@@ -76,6 +78,18 @@ def test_releases_still_order(lower: str, higher: str) -> None:
     assert low < high
 
 
+def _ruff_pin() -> str:
+    """The version the source tree pins `ruff` to."""
+    pin = pinned("ruff")
+    assert pin is not None, "the source tree declares the ruff pin"
+    return str(pin.version)
+
+
+def _ruff_alone() -> Harness:
+    """The harness, pinning `ruff` and nothing else."""
+    return Harness((harness.HARNESS.tool("ruff"),), harness.HARNESS.declared_in)
+
+
 def canned(index_answer: str, pinned: str) -> Callable[..., Ran]:
     """A `run` that reports the pinned version, then one index line."""
 
@@ -90,9 +104,8 @@ def canned(index_answer: str, pinned: str) -> Callable[..., Ran]:
 def test_an_index_answer_it_cannot_order_withholds_the_pass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pinned = mod.pinned_version("ruff")
-    assert pinned, "the source tree declares the ruff pin"
-    monkeypatch.setattr(mod, "TOOLS", ("ruff",))
+    pinned = _ruff_pin()
+    monkeypatch.setattr(mod, "HARNESS", _ruff_alone())
     monkeypatch.setattr(mod, "run", canned(f"ruff=={pinned}.post1\n", pinned))
 
     findings = list(_tool_pins())
@@ -108,10 +121,9 @@ def test_an_index_answer_it_can_order_still_decides(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The other half: the check still fires when it can compare."""
-    pinned = mod.pinned_version("ruff")
-    assert pinned, "the source tree declares the ruff pin"
+    pinned = _ruff_pin()
     major, minor, micro = (int(n) for n in pinned.split("."))
-    monkeypatch.setattr(mod, "TOOLS", ("ruff",))
+    monkeypatch.setattr(mod, "HARNESS", _ruff_alone())
     monkeypatch.setattr(
         mod, "run", canned(f"ruff=={major}.{minor}.{micro + 1}\n", pinned)
     )

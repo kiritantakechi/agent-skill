@@ -49,10 +49,10 @@ from agent_skill.layout import PLUGIN, SKILLS, root_of
 from agent_skill.profiles import bevy_style, python_style, rust_style, zig_style
 from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.checks import Check, by_name
+lazy from agent_skill.harness import pinned
 lazy from agent_skill.lang import toolchain_for
 lazy from agent_skill.lang.python import INTERPRETER
 lazy from agent_skill.model import Skill, Tree, discover
-lazy from agent_skill.proc import pinned_version
 lazy from agent_skill.profiles import registered
 lazy from agent_skill.report import Finding, Result
 
@@ -779,7 +779,7 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             f"{PY}/assets/pyproject.toml",
-            f'"ty=={pinned_version("ty")}"',
+            f'"{pinned("ty")}"',
             '"ty>=0.0.60"',
         ),
     ),

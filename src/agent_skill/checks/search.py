@@ -9,7 +9,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from agent_skill.proc import have, run, tool_path, version_mismatch
+from agent_skill.harness import version_mismatch
+from agent_skill.proc import have, run, tool_path
 lazy from agent_skill.checks.corpus import Corpus
 lazy from agent_skill.checks.patterns import Pattern
 lazy from agent_skill.text import strip_comment, syntax_for

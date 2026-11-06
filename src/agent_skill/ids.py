@@ -237,27 +237,38 @@ class Stage(Enum):
 #: A version has at least a major and a minor number.
 _MAJOR_MINOR = 2
 
-#: A version's release numbers, then a pre-release stage and its count.
-#: No leading zeros, so every text it accepts is the one it prints.
+#: A version's release numbers, a pre-release stage and its count, then
+#: a local label. No leading zeros, so every text it accepts is the one
+#: it prints.
 _VERSION = re.compile(
     r"(?P<release>(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*))+)"
     r"(?:(?P<stage>a|b|rc)(?P<candidate>0|[1-9]\d*))?"
+    r"(?:\+(?P<local>[a-z0-9]+(?:\.[a-z0-9]+)*))?"
 )
+
+#: A local label: what follows a `+`.
+_LOCAL = re.compile(r"[a-z0-9]+(?:\.[a-z0-9]+)*")
 
 
 @dataclass(frozen=True, slots=True, order=True)
 class Version:
-    """A release: its numbers, and its stage if it is not final.
+    """A release: its numbers, its stage if it is not final, its build.
 
     Ordered so a final release follows its candidates (`3.15.0rc2` <
     `3.15.0`), which a string comparison gets backwards, and so a
     version that stops at the minor sorts before every patch of it
     (`1.99` < `1.99.0`).
+
+    `local` is PEP 440's local label, which `uv` uses for a build of an
+    interpreter: `3.15.2+freethreaded` is release 3.15.2, built free of
+    the GIL. It is part of what a pin holds the tool to, and not of the
+    release a title names, which is `public`.
     """
 
     release: tuple[int, ...]
     stage: Stage = Stage.FINAL
     candidate: int = 0
+    local: str = ""
 
     def __post_init__(self) -> None:
         """Refuse a version its own printer could not spell."""
@@ -266,65 +277,110 @@ class Version:
             or min(self.release) < 0
             or self.candidate < 0
             or (self.stage is Stage.FINAL and self.candidate != 0)
+            or (self.local and not _LOCAL.fullmatch(self.local))
         ):
             msg = f"not the parts of a version: {self!r}"
             raise ValueError(msg)
 
     @classmethod
     def parse(cls, text: str) -> Self:
-        """The version `text` spells: `0.17.3`, `3.15.0rc1`."""
+        """The version `text` spells: `0.17.3`, `3.15.0rc1+debug`."""
         m = _VERSION.fullmatch(text)
         if m is None:
             msg = f"not a version this can order: {text!r}"
             raise ValueError(msg)
         release = tuple(int(n) for n in m["release"].split("."))
+        local = m["local"] or ""
         if m["stage"] is None:
-            return cls(release)
-        return cls(release, Stage(m["stage"]), int(m["candidate"]))
+            return cls(release, local=local)
+        return cls(release, Stage(m["stage"]), int(m["candidate"]), local)
+
+    @property
+    def public(self) -> Version:
+        """This release without its local label: `3.15.2`."""
+        return Version(self.release, self.stage, self.candidate)
 
     @override
     def __str__(self) -> str:
-        """`0.17.3`, `1.99`, `3.15.0rc1`."""
-        numbers = ".".join(str(n) for n in self.release)
-        if self.stage is Stage.FINAL:
-            return numbers
-        return f"{numbers}{self.stage.value}{self.candidate}"
+        """`0.17.3`, `1.99`, `3.15.0rc1`, `3.15.2+freethreaded`."""
+        printed = ".".join(str(n) for n in self.release)
+        if self.stage is not Stage.FINAL:
+            printed += f"{self.stage.value}{self.candidate}"
+        return f"{printed}+{self.local}" if self.local else printed
+
+
+class Op(Enum):
+    """How a pin holds its tool to its version, as its file spells it.
+
+    Every pin but a floor is exact. They differ in spelling only, and
+    each is the spelling of the file the pin is copied into: a Python
+    requirement, a Cargo dependency, a `uv` interpreter request.
+    """
+
+    #: A Python requirement: `ruff==0.17.3`.
+    EXACT = "=="
+    #: A Python requirement's floor: `ty>=0.0.60`.
+    FLOOR = ">="
+    #: Cargo's exact requirement, `version = "=0.20.1"`: `bevy=0.20.1`.
+    CARGO = "="
+    #: `uv`'s interpreter request: `cpython-3.15.2+freethreaded`.
+    REQUEST = "-"
 
 
 #: A tool's name, as a pin spells it.
 _TOOL = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
-#: A tool's name, then `==` for an exact pin or `>=` for a floor.
-_PIN = re.compile(rf"(?P<tool>{_TOOL.pattern})(?P<op>==|>=)(?P<version>\S+)")
+#: An interpreter's name in a request: letters only, so the first `-`
+#: is the one that divides it from the version.
+_IMPLEMENTATION = re.compile(r"[a-z]+")
+
+#: A tool's name, then the operator, then the version. The name holds
+#: no `=` or `>`, so the first of them divides it from the operator.
+_PIN = re.compile(
+    rf"(?P<tool>{_TOOL.pattern})(?P<op>==|>=|=)(?P<version>\S+)"
+    rf"|(?P<implementation>{_IMPLEMENTATION.pattern})-(?P<requested>\S+)"
+)
 
 
 @dataclass(frozen=True, slots=True)
 class Pin:
-    """A tool held to a version: exactly, or as a floor."""
+    """A tool held to a version: exactly, or as a floor.
+
+    An exact pin holds the tool at the precision it states: `rust==1.99`
+    is met by every 1.99 patch release, and moved by 1.100.
+    """
 
     tool: str
     version: Version
-    exact: bool = True
+    op: Op = Op.EXACT
 
     def __post_init__(self) -> None:
         """Refuse a tool name its own printer could not spell."""
-        if not _TOOL.fullmatch(self.tool):
-            msg = f"not a tool name: {self.tool!r}"
+        name = _IMPLEMENTATION if self.op is Op.REQUEST else _TOOL
+        if not name.fullmatch(self.tool):
+            msg = f"not a tool name for {self.op.value!r}: {self.tool!r}"
             raise ValueError(msg)
 
     @classmethod
     def parse(cls, text: str) -> Self:
-        """The pin `text` spells, such as `ruff==0.17.3`."""
+        """The pin `text` spells: `ruff==0.17.3`, `bevy=0.20.1`, …."""
         m = _PIN.fullmatch(text)
         if m is None:
             msg = f"not a pin: {text!r}"
             raise ValueError(msg)
-        return cls(m["tool"], Version.parse(m["version"]), exact=m["op"] == "==")
+        if m["implementation"] is not None:
+            return cls(m["implementation"], Version.parse(m["requested"]), Op.REQUEST)
+        return cls(m["tool"], Version.parse(m["version"]), Op(m["op"]))
+
+    @property
+    def exact(self) -> bool:
+        """Does this pin name one release, rather than a floor?"""
+        return self.op is not Op.FLOOR
 
     @override
     def __str__(self) -> str:
-        """`ruff==0.17.3`, or `rustc>=1.99` for a floor."""
-        return f"{self.tool}{'==' if self.exact else '>='}{self.version}"
+        """`ruff==0.17.3`, `ty>=0.0.60`, `bevy=0.20.1`, `pypy-3.11`."""
+        return f"{self.tool}{self.op.value}{self.version}"
 
 
 @dataclass(frozen=True, slots=True)

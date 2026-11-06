@@ -1,11 +1,11 @@
 """Reading the pins, including where there is nothing to read.
 
-`pinned_version` resolves `pyproject.toml` relative to the package,
+`pinned` resolves `pyproject.toml` relative to the package,
 three directories up. That is where the file is when the harness runs
 from its own source tree, and nowhere at all once the package is
 installed — `uv build --wheel` does not ship it. Reproduced: installing
 the built wheel into a clean 3.14 venv and calling
-`pinned_version('rg')` raised `FileNotFoundError`, out of
+`pinned('rg')` raised `FileNotFoundError`, out of
 `searcher_problem`, on the default path of `agent-skill check`.
 `[project.scripts]` declares that entry point, so running it installed
 is a supported thing to do.
@@ -18,7 +18,8 @@ import sys
 
 import pytest
 
-from agent_skill.proc import declared_pins, pinned_version, run, version_mismatch
+from agent_skill.harness import declared_pins, pinned, version_mismatch
+from agent_skill.proc import run
 
 
 def test_output_that_is_not_utf8_is_read_not_raised() -> None:
@@ -29,23 +30,23 @@ def test_output_that_is_not_utf8_is_read_not_raised() -> None:
 
 def test_the_pins_are_readable_from_the_source_tree() -> None:
     assert declared_pins() is not None
-    assert pinned_version("rg"), (
-        "the `rg` pin is read through PACKAGE's `ripgrep-bin` spelling"
-    )
+    pin = pinned("rg")
+    assert pin is not None, "the `rg` pin is read through its `ripgrep-bin` spelling"
+    assert pin.tool == "ripgrep-bin"
 
 
 def test_an_unreadable_declaration_is_not_an_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("agent_skill.proc.declared_pins", lambda: None)
-    assert not pinned_version("rg")
+    monkeypatch.setattr("agent_skill.harness.declared_pins", lambda: None)
+    assert pinned("rg") is None
 
 
 def test_an_unreadable_declaration_is_not_agreement(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Silence here used to be a traceback, and before that, a pass."""
-    monkeypatch.setattr("agent_skill.proc.declared_pins", lambda: None)
+    monkeypatch.setattr("agent_skill.harness.declared_pins", lambda: None)
     complaint = version_mismatch("rg", "ripgrep 15.2.0")
     assert complaint, "an unreadable pin read as agreement with the running version"
     assert "installed distribution" in complaint
@@ -56,7 +57,7 @@ def test_a_missing_pin_reads_differently_from_a_missing_file(
 ) -> None:
     """One is a pin to add; the other is how an installed copy runs."""
     monkeypatch.setattr(
-        "agent_skill.proc.declared_pins", lambda: 'dev = ["ruff==0.16.5"]'
+        "agent_skill.harness.declared_pins", lambda: 'dev = ["ruff==0.16.5"]'
     )
     complaint = version_mismatch("rg", "ripgrep 15.2.0")
     assert complaint

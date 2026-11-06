@@ -17,6 +17,7 @@ from agent_skill.ids import (
     Branch,
     Location,
     NoAnswer,
+    Op,
     Pin,
     RuleId,
     Stage,
@@ -61,7 +62,14 @@ def _version(rng: random.Random) -> Version:
     release = tuple(rng.randint(0, 20) for _ in range(rng.randint(2, 4)))
     stage = rng.choice(list(Stage))
     candidate = 0 if stage is Stage.FINAL else rng.randint(0, 12)
-    return Version(release, stage, candidate)
+    local = rng.choice(["", "", "", "freethreaded", "debug", "ubuntu.1"])
+    return Version(release, stage, candidate, local)
+
+
+def _pin(rng: random.Random) -> Pin:
+    op = rng.choice(list(Op))
+    tools = ["cpython", "pypy"] if op is Op.REQUEST else ["ruff", "ripgrep-bin", "zig"]
+    return Pin(rng.choice(tools), _version(rng), op)
 
 
 def _location(rng: random.Random) -> Location:
@@ -90,14 +98,7 @@ def _branch(rng: random.Random) -> Branch:
         (lambda rng: rng.choice(list(Tier)), Tier.parse),
         (_location, Location.parse),
         (_version, Version.parse),
-        (
-            lambda rng: Pin(
-                rng.choice(["ruff", "ty", "zig"]),
-                _version(rng),
-                exact=rng.random() < 0.5,
-            ),
-            Pin.parse,
-        ),
+        (_pin, Pin.parse),
         (_branch, Branch.parse),
     ],
     ids=["RuleId", "Tier", "Location", "Version", "Pin", "Branch"],
@@ -206,6 +207,38 @@ def test_a_floor_and_an_exact_pin_differ() -> None:
     assert Pin.parse("ruff==0.17.3").exact
     assert not Pin.parse("rustc>=1.99").exact
     assert Pin.parse("ruff==0.17.3").version == Version.parse("0.17.3")
+
+
+@pytest.mark.parametrize(
+    ("text", "pin"),
+    [
+        ("ripgrep-bin==15.2.0", Pin("ripgrep-bin", Version((15, 2, 0)))),
+        ("bevy=0.20.1", Pin("bevy", Version((0, 20, 1)), Op.CARGO)),
+        (
+            "cpython-3.15.2+freethreaded",
+            Pin("cpython", Version((3, 15, 2), local="freethreaded"), Op.REQUEST),
+        ),
+        ("rust==1.99", Pin("rust", Version((1, 99)))),
+    ],
+)
+def test_every_spelling_a_pin_is_copied_in_reads_as_one(text: str, pin: Pin) -> None:
+    """A requirement, a Cargo dependency, a `uv` request: one type."""
+    assert Pin.parse(text) == pin
+    assert str(pin) == text
+    assert pin.exact
+
+
+def test_a_request_names_an_interpreter_the_first_dash_divides() -> None:
+    """`uv`'s key has a dash for its operator, as a tool may."""
+    with pytest.raises(ValueError, match="not a tool name"):
+        Pin("python-build", Version((3, 15)), Op.REQUEST)
+
+
+def test_a_local_label_is_a_build_of_the_same_public_release() -> None:
+    built = Version.parse("3.15.2+freethreaded")
+    assert built.public == Version.parse("3.15.2")
+    assert str(built.public) == "3.15.2"
+    assert Version.parse("3.15.2") < built < Version.parse("3.15.3")
 
 
 @pytest.mark.parametrize("text", ["[M]", "[M!]", "[S]"])

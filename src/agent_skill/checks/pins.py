@@ -20,32 +20,16 @@ lazy import urllib.request
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
-from agent_skill.ids import Location
-from agent_skill.proc import (
-    PACKAGE,
-    have,
-    pinned_version,
-    run,
-    tool_path,
-    version_mismatch,
-)
+from agent_skill.harness import HARNESS, pinned, version_mismatch
+from agent_skill.proc import have, run, tool_path
 from agent_skill.report import Level, declare, fail, unrun
 from agent_skill.text import group
+lazy from agent_skill.ids import Location
 lazy from agent_skill.lang.python import INTERPRETER
 lazy from agent_skill.lang.rust import Crate
 lazy from agent_skill.model import Skill, Tree
 lazy from agent_skill.profiles import Profile
 lazy from agent_skill.report import Finding
-
-#: Every tool whose version decides whether a check passes. The binary
-#: and the distribution are spelled differently for `rg`, and
-#: `version_mismatch` already knows that mapping — this list is only who
-#: to ask.
-TOOLS = ("ruff", "ty", "pytest", "rg")
-
-#: Where the harness pins those tools, and where a finding about one
-#: lies: in the repository, not in any skill.
-HARNESS = Location(file="pyproject.toml")
 
 #: The asset whose interpreter is compared.
 WORKFLOW = "assets/ci.yml"
@@ -98,24 +82,26 @@ def _tool_pins() -> Iterator[Finding]:
     true and going stale, and moving it is a reviewed event rather than
     a note nobody reads.
     """
-    for tool in TOOLS:
+    where = HARNESS.where
+    for pinned_tool in HARNESS.tools:
+        tool, package = pinned_tool.binary, pinned_tool.package
         if not have(tool) or (located := tool_path(tool)) is None:
             yield unrun(
                 f"`{tool}` is not available, so its pin was not verified",
-                HARNESS,
+                where,
                 TOOL_ABSENT,
             )
             continue
         answered = run([located, "--version"], timeout=30)
         if not answered.ok:
-            yield unrun(f"`{tool}` did not answer `--version`", HARNESS, TOOL_SILENT)
+            yield unrun(f"`{tool}` did not answer `--version`", where, TOOL_SILENT)
             continue
         if complaint := version_mismatch(tool, answered.out):
-            yield fail(complaint, HARNESS, TOOL_MISMATCH)
+            yield fail(complaint, where, TOOL_MISMATCH)
             continue
 
-        pinned = pinned_version(tool)
-        package = PACKAGE.get(tool, tool)
+        pin = pinned(tool)
+        pinned_at = str(pin.version) if pin else ""
         # No environment involved: resolving a bare requirement asks the
         # index what the newest release is without installing anything.
         resolved = run(
@@ -127,7 +113,7 @@ def _tool_pins() -> Iterator[Finding]:
             yield unrun(
                 f"the index did not answer for `{package}`, "
                 "so its pin was not compared",
-                HARNESS,
+                where,
                 INDEX_SILENT,
             )
             continue
@@ -137,28 +123,28 @@ def _tool_pins() -> Iterator[Finding]:
         if not found:
             yield unrun(
                 f"could not read a version for `{package}` from the index",
-                HARNESS,
+                where,
                 INDEX_UNREAD,
             )
             continue
         newest = found.group(1)
-        here, there = _sort_key(pinned), _sort_key(newest)
+        here, there = _sort_key(pinned_at), _sort_key(newest)
         if here is None or there is None:
             yield unrun(
                 f"`{package}` was not compared: "
-                f"{(newest if there is None else pinned)!r} is not a version "
+                f"{(newest if there is None else pinned_at)!r} is not a version "
                 "this can order, and a release it cannot order is not one it "
                 "has ruled out",
-                HARNESS,
+                where,
                 INDEX_UNORDERED,
             )
             continue
         if there > here:
             yield fail(
-                f"`{tool}` is pinned to {pinned} and {newest} is available — "
-                "move the pin in `pyproject.toml`, re-run the suite, and read "
+                f"`{tool}` is pinned to {pinned_at} and {newest} is available — "
+                f"move the pin in `{HARNESS.declared_in}`, re-run the suite, and read "
                 "what moved before trusting it",
-                HARNESS,
+                where,
                 TOOL_STALE,
             )
 
@@ -380,7 +366,7 @@ def _crates_io(name: str) -> str:
 @check(
     "pins",
     "a superseded pin is a finding, not a diary entry",
-    needs=("uv", "ruff", "ty", "pytest", "rg", "zig", "rustc"),
+    needs=("uv", *HARNESS.binaries, "zig", "rustc"),
 )
 def pins(tree: Tree) -> Iterator[Finding]:
     """Each skill's pins and the harness's, against what runs and ships.
@@ -449,7 +435,10 @@ def _asset_pins(skill: Skill) -> Iterator[Finding]:
                 PROJECT_UNPARSED,
             )
             return
-        harness = {PACKAGE.get(tool, tool): pinned_version(tool) for tool in TOOLS}
+        harness = {
+            tool.package: str(pin.version) if (pin := pinned(tool.binary)) else ""
+            for tool in HARNESS.tools
+        }
         yield from project_pins(project, harness, skill.at(PROJECT))
 
 
