@@ -30,7 +30,7 @@ _BRANCHES: tuple[tuple[str, Branch], ...] = (
     ("chapter titles carrying a family code", skeleton.TITLE_CODE),
     ("chapters with no `Scope:` paragraph", skeleton.NO_SCOPE),
     ("chapters with a section after `Decided by tools`", skeleton.DECIDED_LAST),
-    ("chapters named outside §6 and a `Scope:` paragraph", skeleton.CHAPTER_NAMED),
+    ("chapters named outside §6 and a `Scope:`, no ID after", skeleton.CHAPTER_NAMED),
 )
 _RULES: tuple[tuple[str, Branch], ...] = (
     ("rules with their elements out of order", anatomy.ELEMENT_ORDER),
@@ -43,7 +43,7 @@ _CITATIONS: tuple[tuple[str, Branch], ...] = (
     ("citations quoted", anatomy.QUOTED_CITATION),
     ("citations behind a chapter's path", anatomy.PATH_CITATION),
     ('prose "grep" Checks', anatomy.PROSE_GREP),
-    ("local `[M!]` scopes", anatomy.LOCAL_SCOPE),
+    ("rules restating the `[M!]` scope", anatomy.LOCAL_SCOPE),
     ("`[M]` and `[M!]` titles in the mood of advice", anatomy.ADVICE_TITLE),
 )
 _REALITY: tuple[tuple[str, Branch], ...] = (
@@ -71,7 +71,7 @@ def measured(skill: Skill) -> dict[str, str]:
     statuses, declared, doubled = _migration(skill)
     subsections, lines = _reality(skill)
     return {
-        "chapters": str(len(coded)),
+        "chapters with a family code": str(len(coded)),
         **counted(_BRANCHES),
         "rules": str(len(skill.chapter_rules)),
         "distinct element orders": str(_orders(skill)),
