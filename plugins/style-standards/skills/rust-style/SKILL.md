@@ -174,7 +174,7 @@ not worth the name it costs.
   - RS-FUNC-03 [S] A `for` loop that only pushes is a `collect`
   - RS-FUNC-04 [S] A `for` loop that only accumulates a scalar is a fold
   - RS-FUNC-05 [S] A `for` loop that searches and breaks is `find`, `any`, or `position`
-  - RS-FUNC-06 [M] Keep `for` for the three things it is actually better at
+  - RS-FUNC-06 [S] Keep `for` for the three things it is actually better at
   - RS-FUNC-22 [S] Treat every `let mut` as a proof obligation
   - RS-FUNC-23 [S] Prefer shadowing to mutation for stepwise refinement
   - RS-FUNC-36 [M] Separate computing from doing, and push the doing to the edges

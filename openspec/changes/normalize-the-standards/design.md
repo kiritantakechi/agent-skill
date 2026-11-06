@@ -494,7 +494,9 @@ As built (task 4.1), rust-style normalised; what it decided beyond task 3.1:
   instances and merged into RS-API-27, which states it; section 4 lists the instances too. A core
   rule's sentence that is a lint (RS-CORE-07's `&Vec<T>`, `ptr_arg`) is that lint's row already.
   The five core/chapter tier mismatches went by projection; each chapter tier was then read on its
-  own (RS-UNSAFE-30 became `[M]` for its own reasons, below).
+  own: RS-FUNC-06 is `[S]`, as RS-FUNC-03 to -05 and RS-CORE-17 were, since its Check's "then it
+  is a pipeline" gave the loop RS-FUNC-03 calls `[S]` a second, `[M]` reading; RS-UNSAFE-30 became
+  `[M]` for its own reasons, below.
 - One concept, one owner (decision 11): a pair is one concept when one rule is an instance of the
   other (RS-ERR-20's error taxonomy of RS-DOC-03's crate-wide facts, RS-CLI-18's stdout of
   RS-PERF-19's buffering) or the two halves of one choice (RS-MOD-10/11's `pub(super)` and

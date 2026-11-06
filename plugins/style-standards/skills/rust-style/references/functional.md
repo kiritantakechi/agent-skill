@@ -22,7 +22,7 @@ that can be wrong, fewer places where an early `return` skips a cleanup.
   - RS-FUNC-03 [S] A `for` loop that only pushes is a `collect`
   - RS-FUNC-04 [S] A `for` loop that only accumulates a scalar is a fold
   - RS-FUNC-05 [S] A `for` loop that searches and breaks is `find`, `any`, or `position`
-  - RS-FUNC-06 [M] Keep `for` for the three things it is actually better at
+  - RS-FUNC-06 [S] Keep `for` for the three things it is actually better at
   - RS-FUNC-07 [S] Use `let ... else` for destructure-or-bail
   - RS-FUNC-08 [S] Flatten nested `if let` with let-chains
 
@@ -156,7 +156,7 @@ rather than through a mutable flag.
 
 **Check:** does a `for` body `break` after assigning to a binding declared above it?
 
-### RS-FUNC-06 [M] Keep `for` for the three things it is actually better at
+### RS-FUNC-06 [S] Keep `for` for the three things it is actually better at
 
 Side effects over a sequence (writing to a sink, spawning tasks); bodies that need `?` across
 several error types; and bodies with labelled control flow (`continue 'outer`).
