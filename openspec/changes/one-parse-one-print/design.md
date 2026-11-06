@@ -59,6 +59,33 @@ separate scans.
 the rule layer needs positions and exact round-trip, which general libraries do not promise. The
 subset is specified in the `document-model` spec, so "not canonical" has a definition.
 
+As built (task 9):
+
+- `model` reads no markdown. `Chapter` and `Skill` hold the files, parse each once and say
+  where a finding is; every structure is read from `Doc` and the chapter layer. The line-wise
+  readers the layer had shadowed since 2.3 are deleted with their types (`model.Rule`,
+  `LintRow`, `Rename`, `RenameTable`, `prose_lines`, `unfenced`, `_section`, `_rows`), and
+  `model.py` is 478 lines where it was 798.
+- An example is a fence of the tree, nested ones included (none ships), under the rule
+  `chapter.owned` puts it in: a rule runs from its `###` heading to the next heading of a rule,
+  a section or the title. The line-wise readers carried the last rule on into the next
+  section's heading and lead; on the shipped tree that changed no example's rule and no
+  finding. `Block.rule` is a `RuleId`, None under no rule.
+- A standard's own prose rules read each top-level block as printed, outside the paragraph a
+  `**Check:**` label opens. That paragraph, not the whole Check part, is what the line-wise
+  reader exempted; the part would exempt about 650 more lines (the tables after a Check in the
+  migration chapters) and could only hide findings.
+- `Quote.lazy`, like `Fence.closed`, records what printing changes and a check reports: a line
+  straight after a quote's last `>` line. `prose` reads it there, so a `>` line inside an
+  example is no longer a quote.
+- `layout` finds rule titles and contents entries in the tree (`doc.entry`, the one reader of
+  `ID [T] title`, which the chapter layer uses too); `documented` reads the README's table as a
+  table, so a row inside an example is not one; `frontmatter` reads `Doc.frontmatter`;
+  `fmt.put_back` finds a block's fence in the tree by its line and prints the file.
+- `dialect.wrapped` is deleted with its control. The tree reads a code span as one word, so a
+  Check is read with its command on one line and the branch could not fire; a file holding a
+  wrapped span is not canonical, which `layout` reports and `fmt` joins.
+
 ### 2. Paragraph filling has one implementation
 
 `wrap(words, width)` is greedy fill at `WIDTH`, defined once. `text.reflow` (push-forward) and
@@ -84,6 +111,31 @@ and `layout` keeps reporting it as a note, as today.
 
 Suffixed IDs (`PS-DATA-17a`) are dropped: none exist in the data, and supporting them in one place
 and not another is how the rename-table defect arose.
+
+As built (task 9), the rest of the second spellings went into `ids`:
+
+- `Version.try_parse`, `Version.search` (the first version among other words, as a tool's
+  `--version` line names its own), `Version.series` (a pin's major.minor, which a title and a
+  rename table name; `Profile.target`) and `releases` (a release prose names, from anatomy's
+  `release_token`). `pins._sort_key`, `shared.major_minor`, Rust's `_minor`, Python's `RELEASE`
+  and the harness's two version regexes are gone.
+- `Version.released` is what a pin is compared with: three numbers and at most a stage, as
+  `_sort_key` read. `Version` orders `15.2` before `15.2.0`, so an index answering at a coarser
+  precision would have read as older than the pin; that is the one comparison that must never
+  pass for agreement, so it is no answer instead. A `uv python list` key is read by its parts,
+  `implementation-release+build-os-arch-libc` (`lang.python.listed`), and its release text by
+  `Version.released`.
+- A rename table's ranges have one parser and one printer, `ranges` and `print_range`, beside
+  `DASH`; `cited_at` gives where a citation ends, for `prose` to read what follows it; a family
+  count in the reference map is matched with `ids.FAMILY`.
+- `tests/test_one_spelling.py` reads every module as source and fails on a literal that spells a
+  concept outside its home: a rule-ID pattern or a version parser outside `ids`, a fence or a
+  heading found by its text at a line's start, or a `WIDTH` assignment, outside `doc`.
+  Composing from `rule_id()` is allowed for the three citation patterns in `anatomy` and only
+  those, which the test holds as a set. Over the source at the baseline it reports 83 sites.
+- Not done: a profile's maps still key rules by their printed ID (`exempt`, `not_decisive`,
+  `fires`, `unproven`, `unless_own`); `self-application` and `crossref` print a hit list's
+  `chapter:line [rule]` by hand inside a finding's message.
 
 ### 4. A check is `Tree → Iterable[Finding]`
 
@@ -351,9 +403,16 @@ def revise(
   merges, a removal and a demotion every citation names the rule with its title, or its merge's,
   and every original in the rename table goes where the plan sent it; a citation a renaming or a
   hand-made gap would hand to a rule stops the run with nothing written. Renaming `errors` or
-  `testing` is outside the first law: the shared how-to-use passage illustrates with
-  `{prefix}-ERR-03` and `{prefix}-TEST-05`, `shared.rewrite` restores them after the rename, and
-  the inverse refuses them as captures — rightly. Renaming those chapters is a template change.
+  `testing` was outside the first law: the shared how-to-use passage illustrated with
+  `{prefix}-ERR-03` and `{prefix}-TEST-05`, `shared.rewrite` restored them after the rename, and
+  the inverse refused them as captures — rightly.
+- Task 9 made it a law like the others. A slot deriving the examples from the skill (the first
+  rule of each of the first two chapters its map lists) survived a renaming, and failed the
+  next test: a rule a template cites is cited in every standard, so `revise` refused to remove
+  it while `fmt` kept writing it back. Any concrete ID there has that flaw, so the passage cites
+  none — `Rules are cited by ID: {prefix}-, then the family of the chapter that owns the rule,
+  then its number` — and a test holds every template to citing no rule. The law test renames
+  `errors` and `testing` and back in python-style and zig-style, and fails on the old template.
 
 ### 9. ID history moves to `references/renames.md`
 

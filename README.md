@@ -49,6 +49,15 @@ correct citation afterwards. What it cannot catch is an old ID typed in by hand
 later: under dense numbering that ID is now another rule's. So a citation is never
 rewritten by hand.
 
+For the same reason the passages every standard shares cite no rule. They used to
+illustrate citation with `-ERR-03` and `-TEST-05`: a rule cited by a template is
+cited in every standard, so `revise` refused to remove it while `fmt` kept writing
+the citation back, and renaming the `errors` chapter left the template citing a
+rule that did not exist, which the inverse renaming then refused as a capture.
+`revise` followed by its inverse restores every byte of the repository; the tests
+hold it to that on copies of the shipped standards, renaming `errors` and `testing`
+among them.
+
 The history lives in each standard's `references/renames.md`, which `revise` keeps
 current: a table per revision, stating the range each family ran before it and
 listing only the IDs that changed, each with the ID, lint row or removal it became.
@@ -69,7 +78,9 @@ plugins/style-standards/         the plugin, the only part an install copies
     bevy-style/                  a delta on rust-style
     zig-style/                   an anchor; its pin follows this machine's `zig`
 src/agent_skill/
-  model.py                       what a skill is made of; one parse, shared
+  doc/                           the one parser and printer of markdown, and the chapter layer
+  ids.py                         rule ID, tier, location, version, pin, answer: one type each
+  model.py                       a skill's files, each parsed once; where an example sits
   vocabulary.py                  what a chapter may be called, and its rules' family code
   layout.py                      where the plugin and its skills live
   shared/                        the passages every standard carries, as templates
@@ -79,6 +90,33 @@ src/agent_skill/
   revise.py                      merging, demoting, renumbering, renaming: one map, citations and all
   profiles/<name>.py             what a check needs to know about one skill
 ```
+
+## One reader per concept
+
+Every markdown file is read by one parser into a tree and written by one printer.
+Fences are recognised first, so nothing inside an example is ever read as a
+heading, a table row or a list item; the chapter layer reads that tree as
+sections, rules and their parts, contents lists, tool tables and rename tables.
+Before it, a `## ` boundary was found in thirteen places and only some knew about
+fences, so a demotion cut a rule in half at a `## ` line inside its own example and
+every guard still passed: each reader agreed with the others on the files it was
+written against and on nothing else. `fmt` is the printer applied to the tree the
+file parses to, which is why formatting a formatted file changes nothing, and
+`layout` holds every file to that printed form rather than scanning for widths and
+blank lines a second way. A rule's Why is measured, and a finding's line counted,
+in the text as printed — in a file `layout` passes, the file's own.
+
+The values the harness reasons about have one type each in `ids`, with one parser
+and one printer: a rule ID (which keeps an inserted letter, as `ZS-CORE-12a`
+does), a tier, a location, a version, a pin, an answer a tool did or did not give,
+and the branch a finding came from. A rule-ID pattern that dropped the inserted
+letter is how a renumbering once left a rename row pointing at an ID that no
+longer existed; a version read by hand as three numbers is how an index's
+`1.2.3.post1` compared as older than the pin. `tests/test_one_spelling.py` reads
+every module as source and fails on a second spelling: a rule-ID or version
+pattern outside `ids`, a fence or a heading found by its text, or a column limit,
+outside `doc`. The one allowance is the citation grammar `anatomy` reads inside a
+block's text, composed from `ids.rule_id()` in three named places.
 
 ## Every standard has one shape
 
@@ -207,7 +245,7 @@ the time. The note after each is the defect it would have caught.
 | `citations` | a rule's cited check is one the shipped configuration actually enables | A standard that cites its checks by tool code can cite one the config disables, one the tool withdrew, or one that never existed — `ASYNC101` was invented, four more were preview and therefore unreachable, and every one of them read as enforced. |
 | `plugin` | the plugin and marketplace manifests against the layout and the skills: the plugin's name, one version, a license, the marketplace entry's source; `claude plugin validate` over both, strict on the plugin | The skills became a Claude Code plugin, and the two JSON files that decide what a reader installs were read by nothing. |
 | `pins` | a pinned version that has been superseded — the Python tools and interpreter, the Rust toolchain, the Bevy crate — a pin that follows the local toolchain against what runs here, and an asset installing a build the harness did not verify against | The plan said "on 1 September, move the interpreter pin" — a note nobody reads, in a place nobody looks, about a date nobody remembers. |
-| `dialect` | a pattern carrying syntax from a grammar it will not be read in | `\|` is alternation to `grep` and a literal pipe to `rg`. Twenty patterns carried it through the migration, and each one matched nothing while reporting clean. The same defect from the reader's side: two commands wrapped at the column limit put a raw newline in the pattern, which the harness accepts under `--multiline` and `rg` rejects for anyone running the command as printed. |
+| `dialect` | a pattern carrying syntax from a grammar it will not be read in | `\|` is alternation to `grep` and a literal pipe to `rg`. Twenty patterns carried it through the migration, and each one matched nothing while reporting clean. The same defect from the reader's side: two commands wrapped at the column limit put a raw newline in the pattern, which the harness accepts under `--multiline` and `rg` rejects for anyone running the command as printed. That half is `layout`'s now: the tree reads a code span as one word, so a wrapped command is a line not in canonical form, and `fmt` joins it. |
 | `sensitivity` | the `rg` patterns of each rule its profile gives fixtures, every one shown to hit one of them and every fixture hit by one; each other rule that ships a pattern is listed in the profile as unproven, and an entry that stopped being true fails | `self-application` proves a pattern does not fire on compliant code. Nothing proved one fires at all, and a pattern that matches nothing passes that test perfectly. It then asserted `any`: `ZS-MIG-12` ships four patterns over four disjoint families and one fixture, so three were counted as proven by a snippet none of them matched. And it skipped a rule with no fixture without a word, so this row claimed every pattern while most had none. |
 | `documented` | the README's claims about the checks, against the checks | This table said sixteen rows against eighteen checks, and the `controls` row claimed "every other check" while three were exempt — in the file whose note on `controls` records that an unverified claim in a README is what `controls` exists for. |
 | `mutation` | statements a shipped test does not pin | A shipped test passed whether or not the function it tested did anything. |
@@ -244,10 +282,12 @@ back: extract, format, restore, the same three steps for every language. The
 extractor writes each block to a file of its own, at column zero. A Rust block
 used to sit indented inside a `pub mod`, where rustfmt breaks lines four columns
 earlier than a reader's `cargo fmt` would, so the markdown carried wraps no reader
-could have predicted. `fmt` also rewrites a drifted shared passage from its
-template, keeping what the skill wrote in the passage's free regions, and prints
-every markdown file in its canonical form: the one fill of each paragraph that
-`layout` holds the file to, which `revise` writes too.
+could have predicted. A formatted body goes back into the fence the tree found it
+in, by the fence's line, so two blocks with one body are never confused. `fmt` also
+rewrites a drifted shared passage from its template, keeping what the skill wrote in
+the passage's free regions, and prints every markdown file in its canonical form:
+the one fill of each paragraph that `layout` holds the file to, which `revise`
+writes too.
 
 ## `self-application` runs the real `rg`
 
@@ -268,7 +308,8 @@ literal is how a check stops being able to fire while still reporting.
 Each example is written to its own file, because `--multiline` matches across
 whatever it is given and a concatenated corpus manufactures hits that straddle two
 unrelated examples. Patterns match the code half of each line unless the pattern
-itself contains `//` — a Check that searches for a comment means the comment.
+itself contains the language's comment token — `//`, or Python's `#` — since a
+Check that searches for a comment means the comment.
 
 Hits are reported in three tiers: a shipped `rg` command that decides (**fails**), a
 prose span or a Check listed in the profile's `not_decisive` table (notes), and a
@@ -287,12 +328,15 @@ quietly suppressing its pattern.
 
 ## The negative controls run
 
-`check_controls` copies the tree once per control, injects one defect, and asserts
-that the branch the control names reports a failure, and that no other branch of
-the check does. A control that stops firing is itself a failure, and so is a
-fixture whose anchor text has drifted out of the skill. `pytest` runs the same
-table one test per control, through the same runner, and holds the table to the
-branches: every branch that can fail a run has one control or one stated exemption.
+`controls` copies the tree once per control, injects one defect, and asserts that
+the branch the control names reports a failure, and that no other branch of the
+check does; the controls run at once, each over its own copy. A control that stops
+firing is itself a failure, and so is a fixture whose anchor text has drifted out
+of the skill. `pytest` runs the same table one test per control, through the same
+runner, and holds the table to the branches: every branch that can fail a run has
+one control or one stated exemption. A branch the tree made unreachable goes with
+its control: `dialect` lost its wrapped-command branch when a code span became one
+word, because a defect no input can produce is not a branch to keep a control for.
 
 Not every finding becomes a check, and two did not.
 
