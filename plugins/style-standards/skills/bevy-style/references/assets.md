@@ -249,8 +249,8 @@ Loader settings, an unapproved path and a guard all go through `AssetServer::loa
 `load_with_settings_override` — and is the form upstream extends, so code written against it
 survives the next option being added. It also keeps a load with five options readable.
 
-**Check:** grep for `load_with_settings`, `load_override` and `load_acquire`. Each is a removed
-call; the builder's `with_settings`, `override_unapproved` and `with_guard` replace them.
+**Check:** `rg -n '\.load_(override|acquire|with_settings)' src/` finds a removed call; the
+builder's `with_settings`, `override_unapproved` and `with_guard` replace them.
 
 ### BV-ASSET-08 [M] Keep asset paths out of the code that uses them
 

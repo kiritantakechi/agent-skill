@@ -98,7 +98,7 @@ changed, and what it is now; an ID it does not list is unchanged.
 | `BV-ERR-09` | `BV-ERR-07` |
 | `BV-ERR-10` | `BV-ERR-08` |
 | `BV-ERR-11` | removed — RS-ERR-02 states it |
-| `BV-ERR-12` | `BV-MIG-13` |
+| `BV-ERR-12` | `BV-MIG-02` |
 | `BV-ERR-13` | `BV-ERR-01` |
 | `BV-ERR-14` | removed — RS-CLI-24 states it: the errors chapter cites it, with LogPlugin as the subscriber |
 | `BV-ERR-15` | `BV-ERR-05` |
@@ -126,20 +126,21 @@ changed, and what it is now; an ID it does not list is unchanged.
 | `BV-EVT-20` | `BV-EVENT-18` |
 | `BV-MIG-02` | lint `rustc:deprecated` |
 | `BV-MIG-03` | `BV-MIG-02` |
-| `BV-MIG-04` | `BV-MIG-03` |
-| `BV-MIG-05` | `BV-MIG-04` |
-| `BV-MIG-06` | `BV-MIG-05` |
-| `BV-MIG-07` | `BV-MIG-06` |
-| `BV-MIG-08` | `BV-MIG-07` |
+| `BV-MIG-04` | `BV-ECS-06` |
+| `BV-MIG-05` | `BV-VIEW-04` |
+| `BV-MIG-06` | `BV-VIEW-03` |
+| `BV-MIG-07` | `BV-ECS-11` |
+| `BV-MIG-08` | `BV-ERR-01` |
 | `BV-MIG-09` | `BV-ECS-13` |
-| `BV-MIG-10` | `BV-MIG-08` |
+| `BV-MIG-10` | `BV-EVENT-01` |
 | `BV-MIG-11` | `BV-EVENT-13` |
-| `BV-MIG-12` | `BV-MIG-09` |
-| `BV-MIG-13` | `BV-MIG-10` |
-| `BV-MIG-14` | `BV-MIG-11` |
+| `BV-MIG-12` | `BV-ARCH-10` |
+| `BV-MIG-13` | `BV-MIG-02` |
+| `BV-MIG-14` | `BV-MIG-02` |
 | `BV-MIG-15` | `BV-STATE-01` |
-| `BV-MIG-16` | `BV-MIG-12` |
-| `BV-MIG-17` | `BV-MIG-13` |
+| `BV-MIG-16` | `BV-MIG-02` |
+| `BV-MIG-17` | `BV-MIG-02` |
+| `BV-MIG-18` | `BV-MIG-04` |
 | `BV-SCH-01` | `BV-SCHED-01` |
 | `BV-SCH-02` | `BV-SCHED-02` |
 | `BV-SCH-03` | `BV-SCHED-03` |

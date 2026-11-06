@@ -5,8 +5,8 @@ cameras, visibility, materials and gizmos. The engine's rendering internals are 
 render graph is a set of systems, pipeline specialisation moves with it, and neither is something a
 game should be reaching into.
 
-This is the area that changes most between releases, so `references/migration.md` is the companion
-chapter: most of the types it removes and renames are ones this chapter spawns.
+This is the area that changes most between releases, so the migration chapter is its companion: most
+of the types it removes and renames are ones this chapter spawns.
 
 ## Contents
 
@@ -242,7 +242,10 @@ until `RemSize` changes, so a size that must stay fixed is
 size that follows `RemSize`. One tuple also keeps the lines that describe one piece of text
 together.
 
-**Check:** grep for `Text::new` and check the same tuple carries a font and a colour.
+**Check:** read each `Text::new` spawn: the same tuple carries a `TextFont` and a `TextColor`.
+`rg -n 'FontSource::(Ui)?(Serif|SansSerif|Monospace)\b' src/` and
+`rg -n 'FontSource::(Cursive|Fantasy|SystemUi|UiRounded|Emoji|Math|FangSong)\b' src/` find a generic
+family spelled as the variant 0.20 removed.
 
 ```rust
 // verified
@@ -290,9 +293,9 @@ button too and never from the keyboard. `Hovered` and `Pressed` carry the state 
 handler lives in another file. An entity-scoped observer sits beside the spawn, dies with the
 button, and runs only when it is used.
 
-**Check:** grep for `Query<&Interaction`, and for `On<PointerClick>` on a widget `Button`. The first
-is a set of buttons whose handlers were gathered into one system; the second skips the widget's
-contract.
+**Check:** `rg -n '\bInteraction\b' src/` finds a button polled through the deprecated component — a
+set of buttons whose handlers were gathered into one system. Then read each `On<PointerClick>`
+observer on a widget `Button`: it skips the widget's contract.
 
 ```rust
 // verified
@@ -619,7 +622,7 @@ the one most often reproduced from memory. The component form also overrides one
 in the spawn tuple without restating the rest.
 
 **Check:** read each camera spawn: `Camera2d` or `Camera3d`, plus only the components it overrides.
-A `Camera2dBundle` or `Camera3dBundle` is BV-MIG-03's table.
+A `Camera2dBundle` or `Camera3dBundle` is BV-ECS-06's table.
 
 ### BV-VIEW-13 [M] Give every camera an explicit `order` once there are two
 
@@ -726,7 +729,7 @@ insert, and a filter finds every off-screen camera. Code that copies a `Camera` 
 target to travel with it still compiles, and loses it.
 
 **Check:** read every `Camera` struct literal in the diff. A `target` field in one is the removed
-spelling (BV-MIG-11); too many identifiers are called `target` for a grep to answer this.
+spelling (BV-MIG-02); too many identifiers are called `target` for a grep to answer this.
 
 ### BV-VIEW-15 [M] Set `Visibility`, and read `ViewVisibility`
 
@@ -933,7 +936,7 @@ The `Material` impl naming a shader path lives beside the struct, and the shader
 struct's module name predicts. That shader is WESL, a `.wesl` with `import …;`, `@if(…)` and
 `constants::MATERIAL_BIND_GROUP`, where a `.wgsl` used `#import` and `#ifdef`. GLSL is gone, with
 the `shader_format_glsl` and `shader_format_wesl` features, and the module paths that moved are in
-BV-MIG-17.
+BV-MIG-02.
 
 **Why:** nothing checks a struct's fields against the shader's bindings at compile time: a mismatch
 fails at pipeline compilation, at run time, naming a binding index. Side by side, a field added on
@@ -941,6 +944,8 @@ one side is visibly missing on the other.
 
 **Check:** for each `impl Material`, is the shader path within sight of the struct definition, and
 does the struct's field order match the shader's?
+`rg -n '--glob=*.wgsl' '#import|#ifdef|#define_import_path|#\{'` finds a shader in the syntax WESL
+replaced.
 
 ### BV-VIEW-19 [S] Draw lines and debug text with a gizmo, not with entities you despawn
 

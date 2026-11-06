@@ -29,9 +29,9 @@ invalidate the work of reading the next.
 
 1. **The boundary.** Does anything outside the view layer name Bevy? It is the one defect this
    standard exists to prevent, and it stays invisible until the next upgrade. (BV-ARCH-01)
-2. **Stale APIs.** Is every API a 0.20 API? Check anything that looks like a tutorial against
-   `references/migration.md`; `Trigger`, `EventReader`, `Parent`, `*Bundle`, `Pointer<Click>` and
-   `On<Add, T>` are the usual ones. (`BV-MIG`)
+2. **Stale APIs.** Is every API a 0.20 API? Check anything that looks like a tutorial against the
+   migration chapter (BV-MIG-01); `Trigger`, `EventReader`, `Parent`, `*Bundle`, `Pointer<Click>`
+   and `On<Add, T>` are the usual ones. (`BV-MIG`)
 3. **Errors and panics.** Does every fallible system return `Result`, and does the release error
    handler still end the app on a caught panic? (`BV-ERR`)
 4. **Change detection.** Is any `Changed<T>` watching something written unconditionally? Then it
@@ -60,7 +60,7 @@ rg -n 'bevy' crates/*-sim/src/
 ```
 
 The last two are the standard's own invariants: one Bevy in the tree, and no engine name in a
-simulation crate. Then run every literal `rg` Check in `references/migration.md` over `src/`.
+simulation crate. Then run the command after the migration chapter's table over `src/`.
 
 ## Output format
 
@@ -73,7 +73,7 @@ Bevy findings and `RS-` IDs for Rust ones.
 Do it in this order, one mechanical step per commit, so that each commit is reviewable and
 revertible:
 
-1. Move to the target Bevy, with `references/migration.md` as the checklist, before anything else.
+1. Move to the target Bevy, with the migration chapter as the checklist, before anything else.
    Nothing below is worth doing against an engine you are about to leave.
 2. Draw the boundary: move each rule of the game into a crate that does not depend on Bevy, one rule
    per commit, with its test written against plain Rust.

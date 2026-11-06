@@ -192,7 +192,8 @@ PROFILE = Profile(
     fires=keyed(
         {
             "BV-EVENT-08": ("commands.trigger_targets(Damage(5), target);",),
-            "BV-MIG-14": (
+            "BV-EVENT-13": (
+                "fn on_spawn(trigger: Trigger<OnAdd, Enemy>, mut commands: Commands) {",
                 "fn on_enemy_added(add: On<Add, Enemy>, mut commands: Commands) {",
                 (
                     "let observer = Observer::new("
@@ -200,55 +201,31 @@ PROFILE = Profile(
                     ".with_component(health);"
                 ),
             ),
-            "BV-MIG-15": (
-                (
-                    "fn start_game(click: On<Pointer<Click>>, "
-                    "mut starts: ResMut<Starts>) {"
-                ),
-                (
-                    'info!("{:?} at {}", press.pointer_id, '
-                    "press.pointer_location.position);"
-                ),
-            ),
-            "BV-MIG-16": (
-                "next.as_mut().set_if_neq(Screen::Playing);",
+            "BV-STATE-02": ("fn sweep(all: Query<Entity>, mut commands: Commands) {",),
+            "BV-STATE-17": ("next.as_mut().set_if_neq(Screen::Playing);",),
+            "BV-VIEW-06": (
                 (
                     "fn style_buttons("
                     "mut buttons: Query<(&Interaction, &mut BackgroundColor)>) {"
                 ),
-                "let mut placeholder: AssetId<Image> = AssetId::invalid();",
             ),
-            "BV-MIG-17": (
-                "app.add_plugins(EditableTextInputPlugin);",
+            "BV-VIEW-04": (
                 "TextFont { font: FontSource::SansSerif, ..default() },",
                 "TextFont { font: FontSource::SystemUi, ..default() },",
-                "commands.spawn((Mesh3d(mesh), MeshMaterial3d(material), MeshTag(7)));",
-                "let default = <ReflectDefault as FromType<Settings>>::from_type();",
-                "use bevy_math::primitives::Circle;",
-                'let atlas = server.load_with_settings("atlas.png", srgb);',
-                "#import bevy_pbr::forward_io::VertexOutput",
             ),
+            "BV-VIEW-18": ("#import bevy_pbr::forward_io::VertexOutput",),
+            "BV-ASSET-07": ('let atlas = server.load_with_settings("atlas.png", srgb);',),
+            "BV-MIG-02": (
+                "commands.spawn((Mesh3d(mesh), MeshMaterial3d(material), MeshTag(7)));",
+                "Sprite { anchor: Anchor::Center, ..default() },",
+            ),
+            "BV-MIG-03": ("let mut placeholder: AssetId<Image> = AssetId::invalid();",),
         }
     ),
     # Each of these ships an `rg` pattern that no fixture in `fires`
     # proves yet. Giving one a fixture means deleting it here, which
     # `sensitivity` insists on, so the list only shrinks.
-    unproven=rules(
-        "BV-ARCH-09",
-        "BV-EVENT-13",
-        "BV-MIG-01",
-        "BV-MIG-03",
-        "BV-MIG-04",
-        "BV-MIG-05",
-        "BV-MIG-06",
-        "BV-MIG-07",
-        "BV-MIG-08",
-        "BV-MIG-09",
-        "BV-MIG-10",
-        "BV-MIG-11",
-        "BV-MIG-12",
-        "BV-MIG-13",
-    ),
+    unproven=rules("BV-ARCH-09"),
     # Measured, not judged: each of these was promoted to accuse and
     # hit the standard's own compliant examples. The reason names what
     # the span finds and what, outside the match, decides whether the
@@ -267,7 +244,7 @@ PROFILE = Profile(
                 "the span finds every handle; whether it sits bare inside a `spawn` "
                 "tuple rather than in a component of its own decides",
             ),
-            "BV-MIG-18": NotDecisive(
+            "BV-MIG-04": NotDecisive(
                 ".clone()",
                 "the span finds every `.clone()`; whether the receiver is a `Ref<`, "
                 "where the call's meaning changed, decides — and the type is not on "

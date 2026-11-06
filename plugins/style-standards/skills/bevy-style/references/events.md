@@ -357,7 +357,7 @@ explanation.
 
 Setup when a component appears is `On<Add<T>>`, not a system with `Query<…, Added<T>>`. The
 component is the lifecycle event's parameter, not `On`'s, and an observer of dynamic components
-(`.with_component(id)`) is `On<Add<()>>` (BV-MIG-14).
+(`.with_component(id)`) is `On<Add<()>>` (BV-EVENT-13).
 
 **Why:** the observer runs at the moment the component is inserted, so nothing else ever sees the
 entity half-initialised. A polling system runs at some later point in the frame, and everything
@@ -424,9 +424,10 @@ collides with `std::ops::Add`, disambiguate the trait as `ops::Add` rather than 
 tutorial.
 
 **Check:**
-`rg -n 'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|[a-z_]: Trigger<|\bReplace<|on_replace' src/`.
-An `OnReplace` is `Discard`, not `Replace`. The search for `Trigger<` reads a parameter's type,
-because `Event::Trigger<'a>` and the `Trigger<E>` trait are live.
+`rg -n 'OnAdd|OnInsert|OnReplace|OnRemove|OnDespawn|[a-z_]: Trigger<|\bReplace<|on_replace' src/`
+and `rg -n '\bOn<[A-Za-z0-9_:]+\s*,|\bOn<(Add|Insert|Discard|Remove|Despawn)>' src/`. An `OnReplace`
+is `Discard`, not `Replace`; `Trigger<` is read as a parameter's type, because `Event::Trigger<'a>`
+and the `Trigger<E>` trait are live; and `On<Add<Enemy>>` passes, because `<` follows `Add`.
 
 ### BV-EVENT-14 [M] Keep an observer short, because it runs inside the flush
 

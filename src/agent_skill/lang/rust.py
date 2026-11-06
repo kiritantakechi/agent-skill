@@ -549,14 +549,18 @@ class Rust:
         `bevy-0.20.1` and every `bevy_*-0.20.1` — or, for a standard
         about the language, the standard library's source when the
         toolchain ships it. A path is looked up by its last segment:
-        `Commands::spawn` by a `fn spawn`. An attribute is no item to
-        find, so it is compiled (`_compiled`). None for any other
-        spelling, or when no source is there to search.
+        `Commands::spawn` by a `fn spawn`. A path that opens with one of
+        those crates' names is looked up in that crate alone, as the
+        compiler resolves it: `bevy_math::primitives` moved out of
+        `bevy_math`, and a `mod primitives` elsewhere does not keep it
+        there. An attribute is no item to find, so it is compiled
+        (`_compiled`). None for any other spelling, or when no source is
+        there to search — a crate the registry does not hold included.
         """
         if ATTRIBUTE.fullmatch(spelling):
             return _compiled(spelling, out)
         name = spelling.removesuffix("()").removesuffix("!")
-        sources = _sources(skill)
+        sources = _within(name, _sources(skill))
         if not PATH.fullmatch(name) or not sources:
             return None
         last = name.rsplit("::", 1)[-1]
@@ -620,15 +624,32 @@ def _compiled(attribute: str, out: Path) -> Step:
 def _defines(name: str) -> str:
     """A line defining `name` where a reader of the crate can reach it.
 
-    A public item, an exported macro, or a method of a trait or impl.
+    A public item, an exported macro, or a method of a trait or impl —
+    in code, not in a comment: a doc example's `/// pub struct Parent`
+    defines nothing the crate exports, and read as a definition it kept
+    a removed name alive. So nothing before the item may be a `/`.
     """
     item = r"(?:fn|struct|enum|trait|type|const|static|mod|union)"
     qualifiers = r"(?:(?:const|async|unsafe|extern)\s+)*"
     return (
-        rf"\bpub(?:\([^)]*\))?\s+{qualifiers}{item}\s+{name}\b"
-        rf"|\bmacro_rules!\s*{name}\b"
+        rf"^[^/]*\bpub(?:\([^)]*\))?\s+{qualifiers}{item}\s+{name}\b"
+        rf"|^[^/]*\bmacro_rules!\s*{name}\b"
         rf"|^\s+{qualifiers}fn\s+{name}\b"
     )
+
+
+def _within(name: str, sources: list[Path]) -> list[Path]:
+    """The sources `name` can be defined in: its crate's, if it names one.
+
+    A crate's directory is `<crate>-<version>`; a path whose first
+    segment is a crate of the library (`bevy_math::curve`), but not the
+    facade, which re-exports them all, resolves in that crate only, and
+    in nothing when the registry does not hold it.
+    """
+    first = name.split("::", 1)[0]
+    if "::" not in name or not first.startswith(("bevy_",)):
+        return sources
+    return [p for p in sources if p.name.rpartition("-")[0] == first]
 
 
 def _sources(skill: Skill) -> list[Path]:
