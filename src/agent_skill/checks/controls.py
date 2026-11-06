@@ -338,13 +338,13 @@ def _unaccounted_anchor_rule(tree: Path) -> Edited:
     )
 
 
-#: The head of `bevy-style`'s override table, which `_no_override_table`
+#: The head of `bevy-style`'s departures table, which `_no_departures`
 #: turns into prose along with every row under it.
-_OVERRIDES = f"| `{RS}` rule | What applies instead | Why Bevy forces it |\n"
+_DEPARTURES = f"| {RS} rule | Relation | {BV} rule | Tier | Reason |\n"
 
 
-def _no_override_table(tree: Path) -> Edited:
-    """The delta's override table, its rows kept as a paragraph.
+def _no_departures(tree: Path) -> Edited:
+    """The delta's departures table, its rows kept as a paragraph.
 
     The anchor used to be read off the table's rows, so deleting the
     table took the anchor with it: the sweep of the anchor's patterns
@@ -354,13 +354,37 @@ def _no_override_table(tree: Path) -> Edited:
     """
     rel = f"{BV}/SKILL.md"
     text = (tree / rel).read_text()
-    if _OVERRIDES not in text:
-        msg = f"{rel}: {_OVERRIDES[:60]!r}"
+    if _DEPARTURES not in text:
+        msg = f"{rel}: {_DEPARTURES[:60]!r}"
         raise FixtureGoneError(msg)
-    lines = text.partition(_OVERRIDES)[2].split("\n")
+    lines = text.partition(_DEPARTURES)[2].split("\n")
     end = next(i for i, line in enumerate(lines) if not line.startswith("|"))
     said = " ".join(c.strip() for row in lines[1:end] for c in row.split("|"))
-    return edit(tree, rel, _OVERRIDES + "\n".join(lines[:end]) + "\n", said + "\n")
+    return edit(tree, rel, _DEPARTURES + "\n".join(lines[:end]) + "\n", said + "\n")
+
+
+#: The demo delta's departure row, its rule here, and the override table
+#: a delta stated before the departures table: the other standard's
+#: rule with as much of its title as the row quotes, and the rule here.
+_DEMO_DEPARTS = "| DL-ERR-01 | [M!] → [M] |"
+_DEMO_OVERRIDE = (
+    f"| `{demo.PROFILE.name}` rule | What applies instead | Why |\n"
+    "|---|---|---|\n"
+    "| `DS-ERR-01` Return an error for every failure | `DL-ERR-01` — always | a "
+    "delta program is a library |\n"
+)
+
+
+def _demo_override(tree: Path) -> Edited:
+    """The demo delta, its departures stated as an override table.
+
+    An override table is how a delta not yet normalised states its
+    departures, and only such a delta's rows are read for a quoted
+    title; the row quotes DS-ERR-01's title wrong.
+    """
+    built = demo.build_delta(tree)
+    rel = f"{demo.DELTA.name}/{SKILL_MD}"
+    return (*built, *edit(tree, rel, demo.DEPARTURE, _DEMO_OVERRIDE))
 
 
 def _no_uv_interpreter(tree: Path) -> Edited:
@@ -1361,7 +1385,17 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(crossref.ANCHOR_HIT, _unaccounted_anchor_rule),
-    Control(crossref.DELTA_NO_TABLE, _no_override_table),
+    Control(
+        crossref.DELTA_NO_TABLE,
+        _no_departures,
+        also={
+            crossref.DEPARTS: (
+                "each departing rule opens `Departs from <ID>.`, and the table and "
+                "the openings are one set of pairs, so with no table each opening "
+                "is a pair no row states"
+            )
+        },
+    ),
     Control(
         # Added beside the rules the delta names rather than in place of
         # one. Renaming the override row's `RS-API-15` also stopped the
@@ -1371,18 +1405,16 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             f"{BV}/SKILL.md",
-            "`RS-NAME-02` is **not** on this list,",
-            "`RS-NAME-02` is **not** on this list, nor `RS-API-99`,",
+            "And RS-NAME-02 holds as it stands:",
+            "And RS-NAME-02 holds as it stands, as RS-API-99 does:",
         ),
     ),
-    Control(
+    # Read as a delta not yet normalised, the one kind whose override
+    # table quotes its anchor's titles; no shipped delta is one now.
+    _on_demo(
         crossref.OVERRIDE_TITLE,
-        lambda t: edit(
-            t,
-            f"{BV}/SKILL.md",
-            "`RS-NAME-29` Never suffix a name with the language construct",
-            "`RS-NAME-29` Always suffix a name with the language construct",
-        ),
+        _demo_override,
+        profiles={demo.DELTA.name: replace(demo.DELTA, normalized=False)},
     ),
     # Frontmatter with no name. Misspelling the key instead also adds a
     # key the spec does not have.
@@ -1962,14 +1994,25 @@ CONTROLS: list[Control] = [
             "### ZS-ASSERT-93 [",
         ),
     ),
-    Control(
+    _on_demo(
+        # The departure row's rule here, renumbered past the last rule.
         crossref.OVERRIDE_TARGET,
-        lambda t: edit(
-            t,
-            f"{BV}/SKILL.md",
-            "| `BV-ECS-01` — component fields are public |",
-            "| `BV-ECS-99` — component fields are public |",
+        lambda t: (
+            *demo.build_delta(t),
+            *edit(
+                t,
+                f"{demo.DELTA.name}/{SKILL_MD}",
+                _DEMO_DEPARTS,
+                _DEMO_DEPARTS.replace("DL-ERR-01", "DL-ERR-99"),
+            ),
         ),
+        also={
+            crossref.DEPARTS: (
+                "the row and the rule's opening are one pair, so a row naming a rule "
+                "that is not here is a pair no rule opens, and the rule's opening one "
+                "no row states"
+            )
+        },
     ),
     Control(
         crossref.ANCHOR_EMPTY_CORPUS,

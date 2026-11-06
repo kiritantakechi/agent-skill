@@ -14,7 +14,8 @@ import pytest
 
 from agent_skill.checks import crossref
 from agent_skill.checks.patterns import patterns_of
-from agent_skill.doc import text_of
+from agent_skill.doc import Table, text_of, walk
+from agent_skill.doc.chapter import departures, departures_header
 from agent_skill.report import Level
 lazy from agent_skill.model import Skill
 
@@ -120,10 +121,18 @@ def test_a_delta_with_no_override_table_fails(bevy: Bevy) -> None:
 
 
 def test_the_shipped_delta_states_its_table(bevy: Bevy) -> None:
-    delta, _ = bevy
-    rows = delta.typed.overrides
-    assert rows, "bevy-style has no override row to read"
-    assert list(crossref._delta(delta, rows)) == []
+    """Normalised, it states its departures as one typed table."""
+    delta, by_name = bevy
+    anchor = delta.profile.anchor
+    header = departures_header(anchor, delta.name)
+    rows = [
+        row
+        for block in walk(delta.doc.blocks)
+        if isinstance(block, Table) and block.header == header
+        for row in departures(block)
+    ]
+    assert rows, "bevy-style has no departure row to read"
+    assert list(crossref._departures(delta, by_name[anchor])) == []
 
 
 def test_an_anchor_missing_from_the_tree_is_unrun(bevy: Bevy) -> None:
