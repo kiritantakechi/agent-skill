@@ -11,6 +11,7 @@ from functools import partial
 lazy from collections.abc import Callable, Iterator
 
 from agent_skill.checks import check, per_skill
+from agent_skill.checks.lines import prose as own_rules
 from agent_skill.report import Finding, Level, declare, fail
 lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Skill
@@ -79,8 +80,7 @@ def prose(skill: Skill) -> Iterator[Finding]:
             LEGEND_COUNT,
         )
 
-    if (rules := skill.profile.prose) is not None:
-        yield from rules(skill)
+    yield from own_rules(skill)
 
 
 def _provenance(text: str, at: At) -> Iterator[Finding]:

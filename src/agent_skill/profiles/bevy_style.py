@@ -12,11 +12,11 @@ import re
 from dataclasses import replace
 lazy from collections.abc import Iterator
 
-from agent_skill.lang.rust import BEVY, BEVY_STYLE, LANGUAGE
+from agent_skill.lang.rust import BEVY, BEVY_STYLE
 from agent_skill.profiles.record import Delta, Mirror, NotDecisive, Profile
 from agent_skill.report import Finding, Level, declare, fail
 from agent_skill.text import group
-lazy from agent_skill.model import Block, Skill
+lazy from agent_skill.model import Block
 
 #: `#[derive(Component, Debug, …)]`, possibly wrapped across lines by
 #: rustfmt.
@@ -59,14 +59,7 @@ CRATE = replace(
 )
 
 
-def conventions(skill: Skill) -> Iterator[Finding]:
-    """bevy-style's own rules, applied to its own examples."""
-    for b in skill.advice(LANGUAGE.fence):
-        yield from _component_shape(b)
-        yield from _suffixes(b)
-
-
-def _component_shape(block: Block) -> Iterator[Finding]:
+def component_shape(block: Block) -> Iterator[Finding]:
     """What every component in this standard's examples must look like.
 
     BV-ECS-01 public fields, BV-ECS-03 `Debug` and `Reflect` with
@@ -113,7 +106,7 @@ def _component_shape(block: Block) -> Iterator[Finding]:
                 )
 
 
-def _suffixes(block: Block) -> Iterator[Finding]:
+def suffixes(block: Block) -> Iterator[Finding]:
     """BV-ARCH-09 and BV-ARCH-10 — a plugin type's name and derives.
 
     A plugin written as a function is caught by BV-ARCH-09's own
@@ -301,5 +294,5 @@ PROFILE = Profile(
             "a font and a colour decides, which the matched line does not show",
         ),
     },
-    conventions=conventions,
+    structural=(component_shape, suffixes),
 )

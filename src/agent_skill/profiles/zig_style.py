@@ -1,13 +1,20 @@
 """zig-style: its own `[M]` rules, applied to its examples and prose."""
 
-import re
 lazy from collections.abc import Iterator
 
-from agent_skill.lang.zig import LANGUAGE, ZIG_STYLE
-from agent_skill.model import Skill, prose_lines
-from agent_skill.profiles.record import Mirror, NotDecisive, Profile
+from agent_skill.lang.zig import ZIG_STYLE
+from agent_skill.profiles.record import (
+    LineRule,
+    Mirror,
+    Near,
+    NotDecisive,
+    Profile,
+    Unless,
+)
 from agent_skill.profiles.rust_style import META
-from agent_skill.report import Finding, Level, declare, fail
+from agent_skill.report import Level, declare, fail
+lazy from agent_skill.model import Block
+lazy from agent_skill.report import Finding
 
 # The branches of `conventions` and of `prose` this standard's own rules
 # fire through.
@@ -18,98 +25,86 @@ META_DOC = declare("conventions", "zs_meta_doc", Level.FAIL)
 IMPORT_ORDER = declare("conventions", "zs_import_order", Level.FAIL)
 UNWRAP_PROSE = declare("prose", "zs_unwrap", Level.FAIL)
 
+#: A comment on the line, or opening one of the three above it.
+COMMENTED = Unless(near=(Near("//"), Near(r"^\s*//", above=3, own=False)))
 
-def conventions(skill: Skill) -> Iterator[Finding]:
-    """zig-style's own rules, applied to its own examples."""
-    for b in skill.advice(LANGUAGE.fence):
-        lines = b.lines
-        for j, raw in enumerate(lines):
-            where = b.where_at(j)
-            code = LANGUAGE.uncommented(raw)
+CONVENTIONS = (
+    # ZS-ERR-09 and ZS-ERR-10 [M] — a `catch unreachable` carries its
+    # proof, and a `catch {}` its justification, in a comment, which
+    # may sit on the line above.
+    LineRule(
+        CATCH,
+        r"catch\s*unreachable",
+        "`{0}` without the comment ZS-ERR-09 requires",
+        unless=COMMENTED,
+    ),
+    LineRule(
+        CATCH,
+        r"catch\s*\{\s*\}",
+        "`{0}` without the comment ZS-ERR-10 requires",
+        unless=COMMENTED,
+    ),
+    # ZS-ERR-26 [M] — "every hit is a defect, including inside
+    # `comptime` blocks and `const` initializers".
+    LineRule(
+        UNWRAP,
+        r"\.\?",
+        "`.?` unwrap; ZS-ERR-26 asks for `orelse`, a capture, or "
+        "`orelse unreachable` with the proof beside it",
+        unless_own="ZS-ERR-26",
+    ),
+    # ZS-TEST-04 [M] — "drop the `@as` wrapper": peer resolution already
+    # handles a literal on the other side.
+    LineRule(
+        AS_WRAPPER,
+        r"expectEqual\(@as\([a-zA-Z0-9_]+, [^()]*\), ",
+        "`@as` wrapper inside `expectEqual`; peer resolution already handles it "
+        "(ZS-TEST-04)",
+    ),
+    LineRule(
+        META_DOC,
+        rf"(?i)^\s*///.*{META}",
+        "doc comment discusses the example rather than the API",
+        comments=True,
+    ),
+)
 
-            # ZS-ERR-09 and ZS-ERR-10 [M] — a `catch unreachable`
-            # carries its proof, and a `catch {}` its justification,
-            # in a comment, which may sit on the line above.
-            justified = "//" in raw or any(
-                ln.strip().startswith("//") for ln in lines[max(0, j - 3) : j]
-            )
-            m = re.search(r"catch\s*(\{\s*\}|unreachable)", code)
-            if m and not justified:
-                rid = "ZS-ERR-09" if m.group(1) == "unreachable" else "ZS-ERR-10"
-                found = m.group(0)
-                yield fail(
-                    f"`{found}` without the comment {rid} requires", where, CATCH
-                )
-
-            # ZS-ERR-26 [M] — "every hit is a defect, including
-            # inside `comptime` blocks and `const` initializers"
-            if ".?" in code and b.rule != "ZS-ERR-26":
-                yield fail(
-                    "`.?` unwrap; ZS-ERR-26 asks for `orelse`, a capture, or "
-                    "`orelse unreachable` with the proof beside it",
-                    where,
-                    UNWRAP,
-                )
-
-            # ZS-TEST-04 [M] — "drop the `@as` wrapper": peer
-            # resolution already handles a literal on the other side
-            if re.search(r"expectEqual\(@as\([a-zA-Z0-9_]+, [^()]*\), ", code):
-                yield fail(
-                    "`@as` wrapper inside `expectEqual`; peer resolution already "
-                    "handles it (ZS-TEST-04)",
-                    where,
-                    AS_WRAPPER,
-                )
-
-            if raw.lstrip().startswith("///") and META.search(raw):
-                yield fail(
-                    "doc comment discusses the example rather than the API",
-                    where,
-                    META_DOC,
-                )
-
-        # ZS-NAME-16 — "Order imports `@This()` → `builtin` → `std`
-        # → local". The rule is [S], but a suggestion the library
-        # declines to follow in its own examples is not a
-        # suggestion.
-        imports = {
-            kind: i
-            for i in range(len(lines) - 1, -1, -1)
-            for kind in ("builtin", "std")
-            if f'@import("{kind}")' in lines[i]
-        }
-        if (
-            "builtin" in imports
-            and "std" in imports
-            and imports["builtin"] > imports["std"]
-        ):
-            yield fail(
-                '`@import("builtin")` below `@import("std")` (ZS-NAME-16)',
-                b.where_at(imports["builtin"]),
-                IMPORT_ORDER,
-            )
+PROSE = (
+    # ZS-ERR-26 forbids `.?` outright. Prose naming it is therefore
+    # either hunting it (inside a `**Check:**`) or is the rule that bans
+    # it. Anything else is the standard recommending a spelling it
+    # forbids, which is how three passages survived the rule being
+    # tightened.
+    LineRule(
+        UNWRAP_PROSE,
+        r"`[^`\n]*\.\?[^`\n]*`",
+        "prose names `.?` outside a **Check:** and outside ZS-ERR-26",
+        unless_own="ZS-ERR-26",
+        unless=Unless(near=(Near("ZS-ERR-26"),)),
+    ),
+)
 
 
-def prose(skill: Skill) -> Iterator[Finding]:
-    """ZS-ERR-26 forbids `.?` outright.
+def import_order(b: Block) -> Iterator[Finding]:
+    """ZS-NAME-16 — imports run `@This()`, `builtin`, `std`, then local.
 
-    Prose naming it is therefore either hunting it (inside a
-    `**Check:**`) or is the rule that bans it. Anything else is the
-    standard recommending a spelling it forbids, which is how three
-    passages survived the rule being tightened. Scoped per rule and
-    per Check block, because both wrap.
+    The rule is [S], but a suggestion the library declines to follow in
+    its own examples is not a suggestion. Which of two lines comes first
+    is a fact about the example, not about either line.
     """
-    span = re.compile(r"`[^`\n]*\.\?[^`\n]*`")
-    for chapter in skill.chapters:
-        for i, line, rid, in_check in prose_lines(chapter.text, skill.prefix):
-            if rid == "ZS-ERR-26" or in_check or "ZS-ERR-26" in line:
-                continue
-            if span.search(line):
-                yield fail(
-                    "prose names `.?` outside a **Check:** and outside ZS-ERR-26",
-                    chapter.where(i, rid),
-                    UNWRAP_PROSE,
-                )
+    lines = b.lines
+    first = {
+        kind: i
+        for i in range(len(lines) - 1, -1, -1)
+        for kind in ("builtin", "std")
+        if f'@import("{kind}")' in lines[i]
+    }
+    if "builtin" in first and "std" in first and first["builtin"] > first["std"]:
+        yield fail(
+            '`@import("builtin")` below `@import("std")` (ZS-NAME-16)',
+            b.where_at(first["builtin"]),
+            IMPORT_ORDER,
+        )
 
 
 PROFILE = Profile(
@@ -125,15 +120,13 @@ PROFILE = Profile(
     strict_scope="high-reliability",
     toolchain=ZIG_STYLE,
     exempt={
-        # ZS-NAME-12: "keep `self` for anonymous generic containers"
-        # — a receiver typed `Self` is the case the rule permits.
-        "ZS-NAME-12": lambda lines, at, _in_test: "Self" in lines[at.start - 1],
-        # ZS-TEST-09: "`rg …` inside `test` blocks — every hit must
-        # be on an `errdefer` line". Container-scope logging is not
-        # the target.
-        "ZS-TEST-09": lambda lines, at, in_test: (
-            (at.start - 1) not in in_test or "errdefer" in lines[at.start - 1]
-        ),
+        # ZS-NAME-12: "keep `self` for anonymous generic containers" —
+        # a receiver typed `Self` is the case the rule permits.
+        "ZS-NAME-12": Unless(near=(Near("Self"),)),
+        # ZS-TEST-09: "`rg …` inside `test` blocks — every hit must be
+        # on an `errdefer` line". Container-scope logging is not the
+        # target.
+        "ZS-TEST-09": Unless(near=(Near("errdefer"),), outside_tests=True),
     },
     # Each snippet is the defect its rule forbids, written the way it
     # turns up in real code. A fixture shaped to match proves the
@@ -481,6 +474,7 @@ PROFILE = Profile(
             "}\n"
         ),
     },
-    conventions=conventions,
-    prose=prose,
+    conventions=CONVENTIONS,
+    prose=PROSE,
+    structural=(import_order,),
 )

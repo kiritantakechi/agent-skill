@@ -12,6 +12,7 @@ too.
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
+from agent_skill.checks.lines import examples
 lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
 
@@ -23,5 +24,4 @@ def conventions(skill: Skill) -> Iterator[Finding]:
 
     Each profile declares the branches its rules fire through.
     """
-    if (rules := skill.profile.conventions) is not None:
-        yield from rules(skill)
+    yield from examples(skill)

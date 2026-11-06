@@ -3,26 +3,30 @@
 import re
 lazy from collections.abc import Iterator
 
-from agent_skill.lang.rust import LANGUAGE, RUST_STYLE
-from agent_skill.model import Block, Skill, repr_c_above
-from agent_skill.profiles.record import NotDecisive, Profile
-from agent_skill.report import Finding, Level, declare, fail, note
-from agent_skill.text import group
-lazy from agent_skill.ids import Location
-
-#: RS-NAME-22 — a `bool`-returning method reads as a question.
-QUESTION = re.compile(
-    r"^(is_|has_|can_|should_|may_|will_|wants_|allows_|accepts_|needs_|"
-    r"contains|starts_with|ends_with|matches|intersects|all_|any_|"
-    r"exceeds|fits|owns|holds|knows)"
+from agent_skill.lang.rust import RUST_STYLE
+from agent_skill.profiles.record import (
+    LineRule,
+    Near,
+    NotDecisive,
+    Profile,
+    Unless,
 )
+from agent_skill.report import Level, declare, note
+lazy from agent_skill.model import Block
+lazy from agent_skill.report import Finding
 
 #: A doc comment inside an example explains the API, not the skill.
-META = re.compile(
+META = (
     r"\b(this example|this rule|the wrapper|as shipped|the block|"
-    r"what makes .* testable|for the purposes of)\b",
-    re.IGNORECASE,
+    r"what makes .* testable|for the purposes of)\b"
 )
+
+#: The item a line belongs to is declared `#[repr(C)]`: one of the
+#: thirteen lines above it says so, before the `}` that closes the item
+#: above. Per line, not per block, so a block that mixes a
+#: layout-sensitive type with an ordinary one still reports the
+#: ordinary one.
+REPR_C = Near(r"repr\(C\)", above=13, stop=r"^\s*\}", own=False)
 
 # The branches of `conventions` this standard's own rules fire through.
 BOOL_PARAMETER = declare("conventions", "rs_bool_parameter", Level.FAIL)
@@ -33,66 +37,58 @@ SETTER = declare("conventions", "rs_setter", Level.FAIL)
 META_DOC = declare("conventions", "rs_meta_doc", Level.FAIL)
 UNUSED_DEFAULT = declare("conventions", "rs_unused_default", Level.NOTE)
 
-
-def conventions(skill: Skill) -> Iterator[Finding]:
-    """rust-style's own rules, applied to its own examples."""
-    for b in skill.advice(LANGUAGE.fence):
-        lines = b.lines
-        for j, raw in enumerate(lines):
-            yield from _line(b, lines, j, raw)
-        yield from _unused_defaults(b)
-
-
-def _line(b: Block, lines: list[str], j: int, raw: str) -> Iterator[Finding]:
-    """What line `j` of example `b` breaks."""
-    where = b.where_at(j)
-    code = LANGUAGE.uncommented(raw)
-
-    # RS-API-19 — a public signature never takes a bare `bool`
-    m = re.search(r"\bpub (?:async )?fn (\w+)\s*(?:<[^>]*>)?\(([^)]*)\)", code)
-    if m and re.search(r":\s*bool\b", m.group(2)) and b.rule != "RS-API-19":
-        yield fail(
-            f"`{m.group(1)}` takes a bool parameter (RS-API-19)", where, BOOL_PARAMETER
-        )
-
-    # RS-NAME-22 — a `bool`-returning method reads as a question
-    m = re.search(r"\bpub (?:async )?fn (\w+)\([^)]*\)\s*->\s*bool\b", code)
-    if m and not QUESTION.match(m.group(1)):
-        yield note(
-            f"`{m.group(1)}` returns bool but does not read as a question (RS-NAME-22)",
-            where,
-            QUESTION_NAME,
-        )
-
-    # RS-API-15 — no public field, tuple fields included
-    if re.match(r"^\s+pub [a-z_]\w*:", raw) and not repr_c_above(lines, j):
-        yield fail(
-            "public struct field outside `#[repr(C)]` (RS-API-15)", where, PUBLIC_FIELD
-        )
-    if re.search(r"struct \w+\(\s*pub ", code):
-        yield fail("public tuple field (RS-API-15)", where, TUPLE_FIELD)
-
-    yield from _setter(code, lines, j, where)
-
-    if raw.lstrip().startswith("///") and META.search(raw):
-        yield fail(
-            "doc comment discusses the example rather than the API", where, META_DOC
-        )
-
-
-def _setter(code: str, lines: list[str], j: int, where: Location) -> Iterator[Finding]:
-    """House convention — a by-value setter is `with_*`."""
-    m = re.search(r"\bpub fn (\w+)\((mut )?self(?:,\s*([^)]*))?\)\s*->\s*Self\b", code)
-    if m:
-        fn, param = m.group(1), group(m, 3)
-        assigns = any(re.search(r"self\.\w+\s*=[^=]", ln) for ln in lines[j : j + 8])
-        takes_self = re.search(r":\s*(&\s*)?Self\b", param)
-        if assigns and not takes_self and not fn.startswith(("with_", "from_")):
-            yield fail(f"by-value setter `{fn}` is not spelled `with_*`", where, SETTER)
+CONVENTIONS = (
+    # RS-API-19 — a public signature never takes a bare `bool`.
+    LineRule(
+        BOOL_PARAMETER,
+        r"\bpub (?:async )?fn (\w+)\s*(?:<[^>]*>)?\((?=[^)]*:\s*bool\b)[^)]*\)",
+        "`{1}` takes a bool parameter (RS-API-19)",
+        unless_own="RS-API-19",
+    ),
+    # RS-NAME-22 — a `bool`-returning method reads as a question.
+    LineRule(
+        QUESTION_NAME,
+        r"\bpub (?:async )?fn "
+        r"(?!is_|has_|can_|should_|may_|will_|wants_|allows_|accepts_|needs_|"
+        r"contains|starts_with|ends_with|matches|intersects|all_|any_|"
+        r"exceeds|fits|owns|holds|knows)"
+        r"(\w+)\([^)]*\)\s*->\s*bool\b",
+        "`{1}` returns bool but does not read as a question (RS-NAME-22)",
+    ),
+    # RS-API-15 — no public field, tuple fields included.
+    LineRule(
+        PUBLIC_FIELD,
+        r"^\s+pub [a-z_]\w*:",
+        "public struct field outside `#[repr(C)]` (RS-API-15)",
+        comments=True,
+        unless=Unless(near=(REPR_C,)),
+    ),
+    LineRule(TUPLE_FIELD, r"struct \w+\(\s*pub ", "public tuple field (RS-API-15)"),
+    # House convention — a by-value setter is `with_*`: a method that
+    # takes `self` by value, assigns a field in its first lines, and
+    # returns `Self` without taking another `Self`.
+    LineRule(
+        SETTER,
+        r"\bpub fn (?!with_|from_)(\w+)\((?:mut )?self"
+        r"(?:,\s*(?![^)]*:\s*(?:&\s*)?Self\b)[^)]*)?\)\s*->\s*Self\b",
+        "by-value setter `{1}` is not spelled `with_*`",
+        needs=(Near(r"self\.\w+\s*=[^=]", below=7),),
+    ),
+    LineRule(
+        META_DOC,
+        rf"(?i)^\s*///.*{META}",
+        "doc comment discusses the example rather than the API",
+        comments=True,
+    ),
+)
 
 
-def _unused_defaults(b: Block) -> Iterator[Finding]:
-    """A derived `Default` nobody can reach is dead weight."""
+def unused_defaults(b: Block) -> Iterator[Finding]:
+    """A derived `Default` nobody can reach is dead weight.
+
+    Read across the whole example rather than a line: whether anything
+    reaches the derive is a fact about every other line of it.
+    """
     for m in re.finditer(
         r"#\[derive\([^)]*\bDefault\b[^)]*\)\]\s*\n"
         r"(?:\s*#\[[^\]]*\]\s*\n)*\s*pub enum (\w+)",
@@ -299,7 +295,8 @@ PROFILE = Profile(
     exempt={
         # RS-API-15: "Every hit that is not on a `#[repr(C)]` type
         # is a defect"
-        "RS-API-15": lambda lines, at, _in_test: repr_c_above(lines, at.start - 1),
+        "RS-API-15": Unless(near=(REPR_C,)),
     },
-    conventions=conventions,
+    conventions=CONVENTIONS,
+    structural=(unused_defaults,),
 )

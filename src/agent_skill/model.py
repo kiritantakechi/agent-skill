@@ -766,21 +766,6 @@ class Tree:
 # predicates
 
 
-def repr_c_above(lines: list[str], j: int) -> bool:
-    """Is the item containing line `j` declared `#[repr(C)]`?
-
-    Per line, not per block: a block that mixes a layout-sensitive type
-    with an ordinary one must still report the ordinary one.
-    """
-    for k in range(j - 1, max(-1, j - 14), -1):
-        s = lines[k].strip()
-        if s.startswith("}"):
-            return False
-        if "repr(C)" in s:
-            return True
-    return False
-
-
 def prose_lines(text: str, prefix: str) -> Iterator[tuple[int, str, str, bool]]:
     """Each unfenced prose line, with the rule and Check it sits in.
 

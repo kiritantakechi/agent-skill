@@ -1,12 +1,15 @@
 """python-style: its own `[M]` rules, applied to examples and prose."""
 
-import re
-lazy from collections.abc import Iterator
-
-from agent_skill.lang.python import LANGUAGE, PYTHON_STYLE
-from agent_skill.profiles.record import Mirror, NotDecisive, Profile
-from agent_skill.report import Finding, Level, declare, fail
-lazy from agent_skill.model import Skill, prose_lines
+from agent_skill.lang.python import PYTHON_STYLE
+from agent_skill.profiles.record import (
+    LineRule,
+    Mirror,
+    Near,
+    NotDecisive,
+    Profile,
+    Unless,
+)
+from agent_skill.report import Level, declare
 
 # The branches of `conventions` and of `prose` this standard's own rules
 # fire through.
@@ -15,91 +18,61 @@ AUGMENTED = declare("conventions", "ps_augmented", Level.FAIL)
 META_DOC = declare("conventions", "ps_meta_doc", Level.FAIL)
 FUTURE_PROSE = declare("prose", "ps_future", Level.FAIL)
 
-#: PS-TYPE — PEP 563 is Superseded, and the future import does not
-#: merely fail to help on 3.14+: it silently degrades `annotationlib`
-#: `VALUE` and `FORWARDREF` to bare strings, so a library reading
-#: annotations gets text it must `eval`.
-FUTURE_ANNOTATIONS = re.compile(r"^\s*from\s+__future__\s+import\s+.*\bannotations\b")
-
-#: PS-CONC — the GIL made a read-modify-write on shared state *unlikely*
-#: to interleave rather than atomic. Free-threading removes the luck,
-#: not a guarantee: eight threads lose roughly three quarters of the
-#: updates.
-AUGMENTED_ON_SHARED = re.compile(
-    r"^\s*(?:self|cls)\.\w+\s*(?:[+\-*/|&^]|//|\*\*|>>|<<)="
+CONVENTIONS = (
+    # PS-TYPE — PEP 563 is Superseded, and the future import does not
+    # merely fail to help on 3.14+: it silently degrades `annotationlib`
+    # `VALUE` and `FORWARDREF` to bare strings, so a library reading
+    # annotations gets text it must `eval`.
+    LineRule(
+        FUTURE,
+        r"^\s*from\s+__future__\s+import\s+.*\bannotations\b",
+        "`from __future__ import annotations` degrades `annotationlib` "
+        "VALUE and FORWARDREF to bare strings; PEP 563 is Superseded",
+    ),
+    # PS-CONC — the GIL made a read-modify-write on shared state
+    # *unlikely* to interleave rather than atomic. Free-threading
+    # removes the luck, not a guarantee: eight threads lose roughly
+    # three quarters of the updates.
+    LineRule(
+        AUGMENTED,
+        r"^\s*(?:self|cls)\.\w+\s*(?:[+\-*/|&^]|//|\*\*|>>|<<)=",
+        "augmented assignment on instance state is a read-modify-write; under "
+        "free threading it loses updates (PS-CONC)",
+    ),
+    # A docstring inside an example documents the API, not the standard.
+    LineRule(
+        META_DOC,
+        r'(?i)^\s*""".*\b(this example|this rule|the snippet|as shipped|'
+        r"the block|for the purposes of)\b",
+        "docstring discusses the example rather than the API",
+        comments=True,
+    ),
 )
 
-#: A docstring inside an example documents the API, not the standard.
-META = re.compile(
-    r"\b(this example|this rule|the snippet|as shipped|the block|"
-    r"for the purposes of)\b",
-    re.IGNORECASE,
+PROSE = (
+    # The standard must not recommend a spelling it forbids. `from
+    # __future__ import annotations` is banned outright, so prose naming
+    # it is either hunting it (inside a `**Check:**`) or is the rule
+    # that bans it — which is how three passages survived the same rule
+    # being tightened in `zig-style`. A table row is the standard's own
+    # dead-API listing, and a line already calling the spelling stale,
+    # superseded or forbidden is the rule doing its job. What is left is
+    # prose that names it without condemning it.
+    LineRule(
+        FUTURE_PROSE,
+        r"__future__",
+        "prose names `__future__` outside a **Check:** without saying it is forbidden",
+        unless=Unless(
+            near=(
+                Near(r"^\s*\|"),
+                Near(
+                    r"(?i)\b(stale|superseded|forbidden|deprecat|never|no longer|"
+                    r"degrade|wrong|dead|remove)"
+                ),
+            )
+        ),
+    ),
 )
-
-
-def conventions(skill: Skill) -> Iterator[Finding]:
-    """python-style's own rules, applied to its own examples."""
-    for b in skill.advice(LANGUAGE.fence):
-        for j, raw in enumerate(b.lines):
-            where = b.where_at(j)
-            code = LANGUAGE.uncommented(raw)
-
-            if FUTURE_ANNOTATIONS.match(code):
-                yield fail(
-                    "`from __future__ import annotations` degrades `annotationlib` "
-                    "VALUE and FORWARDREF to bare strings; PEP 563 is Superseded",
-                    where,
-                    FUTURE,
-                )
-
-            if AUGMENTED_ON_SHARED.match(code):
-                yield fail(
-                    "augmented assignment on instance state is a "
-                    "read-modify-write; under free threading it loses updates "
-                    "(PS-CONC)",
-                    where,
-                    AUGMENTED,
-                )
-
-            if raw.lstrip().startswith('"""') and META.search(raw):
-                yield fail(
-                    "docstring discusses the example rather than the API",
-                    where,
-                    META_DOC,
-                )
-
-
-def prose(skill: Skill) -> Iterator[Finding]:
-    """The standard must not recommend a spelling it forbids.
-
-    `from __future__ import annotations` is banned outright, so prose
-    naming it is either hunting it (inside a `**Check:**`) or is the
-    rule that bans it. Anything else is the standard teaching the thing
-    it exists to stop — which is how three passages survived the same
-    rule being tightened in `zig-style`. Scoped per rule and per Check
-    block, because both wrap.
-    """
-    span = re.compile(r"__future__")
-    # A table row is the standard's own dead-API listing, and a line
-    # already calling the spelling stale, superseded or forbidden is the
-    # rule doing its job. What is left is prose that names it without
-    # condemning it.
-    condemned = re.compile(
-        r"\b(stale|superseded|forbidden|deprecat|never|no longer|degrade|"
-        r"wrong|dead|remove)",
-        re.IGNORECASE,
-    )
-    for chapter in skill.chapters:
-        for i, line, rid, in_check in prose_lines(chapter.text, skill.prefix):
-            if in_check or line.lstrip().startswith("|") or condemned.search(line):
-                continue
-            if span.search(line):
-                yield fail(
-                    "prose names `__future__` outside a **Check:** without saying "
-                    "it is forbidden",
-                    chapter.where(i, rid),
-                    FUTURE_PROSE,
-                )
 
 
 PROFILE = Profile(
@@ -301,6 +274,6 @@ PROFILE = Profile(
             "and the `with` form the rule recommends matches too",
         ),
     },
-    conventions=conventions,
-    prose=prose,
+    conventions=CONVENTIONS,
+    prose=PROSE,
 )

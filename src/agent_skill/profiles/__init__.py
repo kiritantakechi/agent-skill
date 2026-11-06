@@ -25,21 +25,25 @@ lazy from collections.abc import Mapping
 from agent_skill.profiles import bevy_style, python_style, rust_style, zig_style
 from agent_skill.profiles.record import (
     Delta,
-    Exemption,
+    LineRule,
     Mirror,
+    Near,
     NotDecisive,
     Profile,
-    Rules,
+    Structural,
+    Unless,
 )
 
 __all__ = [
     "PROFILES",
     "Delta",
-    "Exemption",
+    "LineRule",
     "Mirror",
+    "Near",
     "NotDecisive",
     "Profile",
-    "Rules",
+    "Structural",
+    "Unless",
     "profile_for",
 ]
 

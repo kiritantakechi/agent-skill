@@ -8,19 +8,73 @@ standard can be read without running anything.
 from dataclasses import dataclass, field
 lazy from collections.abc import Callable, Iterable, Mapping
 
-lazy from agent_skill.checks.search import Span
-lazy from agent_skill.ids import Pin
+lazy from agent_skill.ids import Branch, Pin
 lazy from agent_skill.lang import Config
 lazy from agent_skill.lang.rust import RustCrate
-lazy from agent_skill.model import Skill
+lazy from agent_skill.model import Block
 lazy from agent_skill.report import Finding
 
-#: Whether a hit is the case its rule permits, given the corpus lines,
-#: the hit's span, and the lines that sit inside tests.
-type Exemption = Callable[[list[str], Span, set[int]], bool]
+#: A rule of a standard's own that reads an example's structure rather
+#: than its lines: a derive list, or which of two imports comes first.
+#: Named in its standard's module, and each one listed in the design.
+type Structural = Callable[[Block], Iterable[Finding]]
 
-#: A standard's own rules, applied to one skill.
-type Rules = Callable[[Skill], Iterable[Finding]]
+
+@dataclass(frozen=True, slots=True)
+class Near:
+    """A pattern on a hit's line, or on the lines around it.
+
+    Lines are read as written, comments and all: what excuses a hit is
+    as often a comment as code.
+    """
+
+    pattern: str
+    #: how many lines above the hit's own are read
+    above: int = 0
+    #: how many lines below it are read
+    below: int = 0
+    #: reading upward stops at a line this matches: the end of the item
+    #: above, whose attributes are not this item's
+    stop: str = ""
+    #: whether the hit's own line is read
+    own: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class Unless:
+    """What, on or around a hit, makes it the case its rule permits."""
+
+    near: tuple[Near, ...] = ()
+    #: a hit outside the example's tests is not this rule's subject
+    outside_tests: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class LineRule:
+    """One of a standard's own rules, as a pattern each line is held to.
+
+    The profile field a rule sits in is what it reads: `conventions`
+    holds each line of the standard's advice examples to it, `prose`
+    each line of its prose outside a **Check:**, which hunts the very
+    spellings a rule forbids.
+    """
+
+    #: declared in the profile's module; its level is the finding's
+    branch: Branch
+    #: searched in each line
+    pattern: str
+    #: `{0}` is what the pattern matched and `{1}`, `{2}`… its groups;
+    #: a brace meant as itself is doubled
+    message: str
+    #: read an example's line as written, its comment too, rather than
+    #: with its comment taken out
+    comments: bool = False
+    #: the rule ID whose own example, or own prose, shows what this
+    #: forbids on purpose
+    unless_own: str = ""
+    unless: Unless = Unless()
+    #: each must be near the hit as well, for it to be one
+    needs: tuple[Near, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,9 +160,9 @@ class Profile:
     subject: Pin | None = None
     #: above this many hits a pattern enumerates rather than accuses
     judgement: int = 15
-    #: rule id -> (corpus lines, the hit's span, in_test) -> "is this
-    #: hit the case the rule permits?"
-    exempt: Mapping[str, Exemption] = field(default_factory=dict)
+    #: Rule id -> what, around a hit of its pattern, makes the hit the
+    #: case the rule permits.
+    exempt: Mapping[str, Unless] = field(default_factory=dict)
     not_decisive: Mapping[str, NotDecisive] = field(default_factory=dict)
     #: Rule id -> snippets containing the defects that rule exists to
     #: catch.
@@ -151,11 +205,13 @@ class Profile:
     #: The standard this one's rules are compared with for tier, and the
     #: pairs it holds.
     mirror: Mirror | None = None
-    #: This standard's own rules, applied to its own examples.
-    conventions: Rules | None = None
-    #: This standard's own rules, applied to the prose around its
-    #: examples.
-    prose: Rules | None = None
+    #: This standard's own rules, held to each line of its own examples.
+    conventions: tuple[LineRule, ...] = ()
+    #: This standard's own rules, held to each line of the prose around
+    #: its examples.
+    prose: tuple[LineRule, ...] = ()
+    #: This standard's own rules that read an example's structure.
+    structural: tuple[Structural, ...] = ()
 
     @property
     def all_marked(self) -> tuple[str, ...]:

@@ -15,6 +15,7 @@ lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
 from agent_skill.checks.corpus import corpus_for
+from agent_skill.checks.lines import excused
 from agent_skill.checks.patterns import NEGATED, filtered_of, patterns_of
 from agent_skill.checks.search import find, searcher_problem
 from agent_skill.report import Level, declare, fail, note, unrun
@@ -159,7 +160,11 @@ def _search(
             continue
         exempt = profile.exempt.get(rule.id)
         source = corpus.lines_for(pattern)
-        kept = [s for s in lines if not (exempt and exempt(source, s, corpus.in_test))]
+        kept = [
+            s
+            for s in lines
+            if not (exempt and excused(exempt, source, s.start - 1, corpus.in_test))
+        ]
         if not kept:
             continue
         row = (rule, pattern, used, kept)

@@ -7,10 +7,12 @@ lazy from pathlib import Path
 
 import pytest
 
+from agent_skill.checks.lines import near
 from agent_skill.lang import language
 from agent_skill.lang.zig import inside_tests, needs_c_object
-from agent_skill.model import Marker, Rename, Skill, repr_c_above
+from agent_skill.model import Marker, Rename, Skill
 from agent_skill.profiles import Profile
+from agent_skill.profiles.rust_style import REPR_C
 
 
 @pytest.mark.parametrize(
@@ -97,8 +99,8 @@ def test_repr_c_is_per_item_not_per_block() -> None:
         "    pub offset: usize,",
         "}",
     ]
-    assert repr_c_above(lines, 2)
-    assert not repr_c_above(lines, 5)
+    assert near(REPR_C, lines, 2)
+    assert not near(REPR_C, lines, 5)
 
 
 def test_extern_struct_is_not_an_undefined_symbol() -> None:
