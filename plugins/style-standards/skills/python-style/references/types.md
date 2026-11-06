@@ -22,17 +22,18 @@ Unless a block shows its own imports, it assumes `from typing import …` for th
   - PS-TYPE-08 [M] Declare type parameters with PEP 695 syntax
   - PS-TYPE-09 [M] Declare an alias with the `type` statement
   - PS-TYPE-10 [M] Never write variance by hand
-  - PS-TYPE-11 [M] Do not use the spellings 3.15 retired
+  - PS-TYPE-11 [M] Do not use a `typing` spelling 3.15 retired
 - **Precision**
   - PS-TYPE-12 [M] Use `object` for "anything", and `Any` only with a reason
   - PS-TYPE-13 [M] Narrow with `TypeIs`, not `TypeGuard`
   - PS-TYPE-14 [M] Close an exhaustive match with `assert_never`
   - PS-TYPE-15 [M] Mark what may not be subclassed or reassigned
   - PS-TYPE-16 [S] Reach for `@overload` only when a type parameter cannot express it
+  - PS-TYPE-17 [M] Call a `singledispatchmethod` through an instance, never through its class
 - **What 3.15 adds**
-  - PS-TYPE-17 [M] Take a `TypeForm` when the argument is a type expression
-  - PS-TYPE-18 [S] Close a `TypedDict` that models a fixed wire format
-  - PS-TYPE-19 [M] Build a sentinel with `sentinel`, not with `object()`
+  - PS-TYPE-18 [M] Take a `TypeForm` when the argument is a type expression
+  - PS-TYPE-19 [S] Close a `TypedDict` that models a fixed wire format
+  - PS-TYPE-20 [M] Build a sentinel with `sentinel`, not with `object()`
 - Decided by tools
 
 ---
@@ -232,20 +233,20 @@ Hand-written variance is a second source of truth about the same fact.
 **Check:** `rg -n '(co|contra)variant[ \t]*=|infer_variance' src/` — every hit is either legacy
 `TypeVar` (PS-TYPE-08) or a hand-written variance.
 
-### PS-TYPE-11 [M] Do not use the spellings 3.15 retired
+### PS-TYPE-11 [M] Do not use a `typing` spelling 3.15 retired
 
-`AnyStr` (removal 3.18), `ByteString` (removal 3.17), `Text`, `typing.no_type_check_decorator`
-(removed in 3.15), `# type:` comments, and `Unpack` where PEP 695 variadics fit. In place of
-`ByteString` take `collections.abc.Buffer`, which every buffer satisfies: `array`, `mmap` and a
-third party's types too, all of which `bytes | bytearray | memoryview` rejects.
+Its rows in the migration table name each replacement. `ByteString` is the one that needs a reason:
+take `collections.abc.Buffer`, which every buffer satisfies — `array`, `mmap` and a third party's
+types too, all of which `bytes | bytearray | memoryview` rejects. Nor write a `# type:` comment, or
+`Unpack` where PEP 695 variadics fit.
 
 **Why:** each has a live replacement, and several are on a removal schedule that turns a warning
 into an error within two releases. `ByteString` is the subtle one: 3.15 dropped it from `__all__`
 but left it importable, so it works, warns on plain access, and fails once 3.17 removes it.
 
-**Check:** `rg -n 'ByteString' src/` — a hit warns today and fails in 3.17. The migration chapter
-carries the full table as one runnable grep, and ruff `UP` and `PYI` catch the ones that are
-statically decidable.
+**Check:** `rg -n 'ByteString' src/` — a hit warns today and fails in 3.17. The command after the
+migration table finds the other rows, and ruff `UP` and `PYI` the ones that are statically
+decidable.
 
 ```python
 # verified — GOOD
@@ -372,9 +373,22 @@ Where a `T` expresses the relation, it does so in one signature that also compos
 **Check:** every `@overload` group. If the variants differ only in one position and the return
 follows that position, a type parameter replaces the group.
 
+### PS-TYPE-17 [M] Call a `singledispatchmethod` through an instance, never through its class
+
+`a.m(1)`, not `A.m(a, 1)`. Through an instance, the method dispatches on the first argument after
+`self`; through the class, 3.15 dispatches on that argument too, where earlier releases dispatched
+on the instance.
+
+**Why:** a call through the class runs a different registered implementation on 3.15 than it did
+before, with no error and no warning, so code written against either behaves differently on the
+other. Through an instance, every release agrees.
+
+**Check:** `rg -n 'singledispatchmethod' src/` lists the methods; a call of one through its class,
+`Class.method(instance, …)`, is the finding.
+
 ## What 3.15 adds
 
-### PS-TYPE-17 [M] Take a `TypeForm` when the argument is a type expression
+### PS-TYPE-18 [M] Take a `TypeForm` when the argument is a type expression
 
 `def parse[T](raw: str, into: TypeForm[T]) -> T:`. Not `type[T]`, and not `object`.
 
@@ -384,7 +398,7 @@ them, which left every deserialisation library an untyped seam at its most inter
 
 **Check:** every parameter documented as "a type" that is annotated `object` or `type[Any]`.
 
-### PS-TYPE-18 [S] Close a `TypedDict` that models a fixed wire format
+### PS-TYPE-19 [S] Close a `TypedDict` that models a fixed wire format
 
 `class Payload(TypedDict, closed=True):` when the schema forbids extra keys, or `extra_items=` when
 it constrains rather than forbids them. Where the schema genuinely allows extension, leave it open.
@@ -396,7 +410,7 @@ consumer as a missing value rather than an unexpected one, and the two need diff
 **Check:** every `TypedDict` that models something crossing a process boundary. A checker that
 rejects `extra_items` is not a reason to avoid it — see PS-TYPE-02.
 
-### PS-TYPE-19 [M] Build a sentinel with `sentinel`, not with `object()`
+### PS-TYPE-20 [M] Build a sentinel with `sentinel`, not with `object()`
 
 `MISSING = sentinel("MISSING")`, and annotate the parameter `int | MISSING`. Bind it at module or
 class scope under its own name; so bound, it survives copying and pickling, which `object()` does

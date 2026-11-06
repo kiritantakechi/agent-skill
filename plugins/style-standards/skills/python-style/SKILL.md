@@ -75,52 +75,76 @@ proceed with the stricter reading.
 
 ## 2. Python 3.15 reality check
 
-Most Python on the public internet predates these. The entries that **run either way** are the
-dangerous ones, because nothing catches them for you.
+### 2.1 Compiles, and behaves differently
 
-### 2.1 The changes that produce a wrong answer rather than an error
+- A `contextlib.contextmanager`-derived decorator on a generator function holds its context until
+  the generator is exhausted, where it used to close when the generator was created: every lock,
+  transaction, `chdir` and `contextvars` token held that way changed duration (PS-CONC-21).
+- UTF-8 mode is on by default, and it moves more than `open()`: the filesystem encoding,
+  `locale.getpreferredencoding()` and the standard streams' error handler move with it (PS-OUT-02).
+- `frozendict` is not a `dict` subclass, so `isinstance(x, dict)` is `False` for one; test
+  `collections.abc.Mapping` (PS-DATA-13).
+- A `functools.singledispatchmethod` called through its class dispatches on the argument after the
+  instance, so a different registered implementation runs (PS-TYPE-17).
+- On `3.15t` the GIL is gone, so a read-modify-write on shared state that worked by luck loses
+  updates (PS-CONC-02). The FAQ's reason that each bytecode instruction is atomic was the GIL; the
+  thread-safety guarantees page is the one to cite (PS-CONC-05).
+- `from __future__ import annotations` stringifies annotations that are lazy anyway, so
+  `annotationlib` hands back bare strings (PS-TYPE-04).
+- `asyncio.get_event_loop()` raises `RuntimeError` when no loop is running, where it used to create
+  one (PS-ASYNC-02).
 
-| Change | What silently differs |
-|---|---|
-| `contextlib` decorators on a generator | The context now stays open across the whole generator; it used to close when the generator object was created. Every lock, transaction, `chdir` and `contextvars` token held that way changed duration (PS-CONC-21). |
-| PEP 686 UTF-8 mode on by default | Moves six surfaces at once: `open()`, the filesystem encoding, `os.fsencode`, `locale.getpreferredencoding()` (now a constant), and `sys.stdin`/`stdout` — which gain `surrogateescape`, turning what used to raise into silent mojibake (PS-OUT-02). |
-| `frozendict` is not a `dict` subclass | It inherits from `object`, so `isinstance(x, dict)` is now False for it. The stdlib was updated; third-party code was not. Test `collections.abc.Mapping` (PS-DATA-13). |
-| `functools.singledispatchmethod` | Dispatches on the second argument when wrapping a regular method called as a class attribute, so a different registered implementation can be selected. |
-| The GIL is gone in `3.15t` | Every read-modify-write on shared state that "worked" now loses updates. See section 2.2. |
+### 2.2 No longer compiles
 
-### 2.2 Free threading changes a reason, not a list
+| Old | Python 3.15 | Rule |
+|---|---|---|
+| `__cached__` | `__spec__.cached`; a module's `__cached__` is no longer set or read | PS-MIG-03 |
+| `ctypes.SetPointerType` | nothing; it was undocumented | PS-MIG-03 |
+| `glob.glob0` | `glob.glob()` with `root_dir=` | PS-MIG-03 |
+| `glob.glob1` | `glob.glob()` with `root_dir=` | PS-MIG-03 |
+| `http.server.CGIHTTPRequestHandler` | nothing | PS-MIG-03 |
+| `python -m http.server --cgi` | nothing | PS-MIG-03 |
+| `importlib.abc.Loader.load_module` | `exec_module()`; the import system no longer calls it | PS-MIG-03 |
+| `pathlib.PurePath.is_reserved` | `os.path.isreserved()` | PS-MIG-03 |
+| `platform.java_ver` | nothing | PS-MIG-03 |
+| `sre_compile` | `re` | PS-MIG-03 |
+| `sre_constants` | `re` | PS-MIG-03 |
+| `sre_parse` | `re` | PS-MIG-03 |
+| `types.CodeType.co_lnotab` | `co_lines()` | PS-MIG-03 |
+| `typing.no_type_check_decorator` | nothing | PS-TYPE-11 |
+| `wave.Wave_read.getmark` | nothing | PS-MIG-03 |
+| `wave.Wave_read.getmarkers` | nothing | PS-MIG-03 |
+| `wave.Wave_write.getmark` | nothing | PS-MIG-03 |
+| `wave.Wave_write.getmarkers` | nothing | PS-MIG-03 |
+| `wave.Wave_write.setmark` | nothing | PS-MIG-03 |
+| `zipimport.zipimporter.load_module` | `exec_module()` | PS-MIG-03 |
+| `ast.<Node>(...)` | raises `TypeError` for a field missing or a keyword no field has; give each of the node's `_fields`, and only those | PS-MIG-04 |
+| `datetime.strptime(s, "%d/%m")` | raises `ValueError`; give the format a year directive | PS-MIG-04 |
+| `importlib.resources.files(package=...)` | raises `TypeError`; pass the package positionally | PS-MIG-04 |
+| `sysconfig.is_python_build(check_home=...)` | raises `TypeError`; call it with no argument | PS-MIG-04 |
+| `threading.RLock(*args)` | raises `TypeError`; `threading.RLock()`, which never used them | PS-MIG-04 |
+| `typing.NamedTuple("P", x=int)` | raises `TypeError`; `class P(NamedTuple)` | PS-MIG-04 |
+| `typing.TypedDict("TD")` | raises `TypeError`; `class TD(TypedDict)` | PS-MIG-04 |
 
-Cite the *Thread Safety Guarantees* page, not the FAQ's reason that each bytecode instruction is
-atomic: that reason was the GIL, under which the never-atomic `obj.n += 1` shipped for years, and on
-`3.15t` eight threads running it lose about three quarters of their updates (PS-CONC-05).
+### 2.3 What Python 3.15 gained
 
-### 2.3 Spellings that are now wrong
-
-| Stale | Current |
-|---|---|
-| `from __future__ import annotations` | Nothing. PEP 563 is Superseded; the import now silently degrades `annotationlib` VALUE and FORWARDREF to bare strings |
-| `typing.List`, `Optional[X]`, `Union[A, B]` | `list`, `X \| None`, `A \| B` |
-| `T = TypeVar("T")` plus `Generic[T]` | `class Box[T]:` and `def f[T](x: T) -> T:` |
-| `Alias: TypeAlias = int \| str` | `type Alias = int \| str` |
-| `TypeGuard` | `TypeIs`, unless the narrowed type is not assignable to the input |
-| a hand-rolled `_MISSING = object()` | `sentinel("MISSING")` |
-| `types.MappingProxyType` for an immutable mapping | `frozendict` |
-| moving an import into a function for startup time | `lazy import x` at module scope |
-| `sum(lists, [])` | `[*sub for sub in lists]`, which ruff `RUF017` offers as an unsafe fix |
-
-### 2.4 What the type system gained
-
-| Addition | What it is for |
-|---|---|
-| `TypeForm[T]` (PEP 747) | A parameter that receives a *type expression* — `int \| None`, `list[int]` — which `type[T]` rejects and `object` erases |
-| `TypedDict(closed=True)`, `extra_items=` (PEP 728) | Saying a wire format forbids unknown keys, so a producer's typo is caught rather than silently dropped |
-| `@disjoint_base` (PEP 800) | Declaring two bases cannot be combined, so an impossible class is a type error |
-| `sentinel()` (PEP 661) | A missing-value marker the type system can name, narrowed by `is`, instead of an `object()` the checker sees as `Any` |
-| `frozendict` (PEP 814) | An immutable mapping, in place of `MappingProxyType`, with section 2.1's `isinstance` trap |
-
-Two of these — `extra_items` and `sentinel` in a type expression — are specified but not yet
-implemented by every checker. Specified is the bar this standard uses, so it uses them; see
-PS-TYPE-02 for where that boundary is drawn.
+- `frozendict` (PEP 814), an immutable mapping, in place of `types.MappingProxyType`, which was only
+  a view (PS-DATA-13).
+- `sentinel()` (PEP 661), a missing-value marker the type system can name, in place of `object()`
+  (PS-TYPE-20).
+- `TypeForm[T]` (PEP 747), for a parameter that receives a type expression, which `type[T]` rejects
+  (PS-TYPE-18).
+- `TypedDict(closed=True)` and `extra_items=` (PEP 728), for a wire format that forbids or
+  constrains unknown keys; specified, which is the bar this standard uses (PS-TYPE-19, PS-TYPE-02).
+- `@disjoint_base` (PEP 800), declaring that two bases cannot be combined (PS-TYPE-15).
+- `lazy import` (PEP 810), in place of an import moved into a function for startup time (PS-MOD-05).
+- Unpacking in a comprehension (PEP 798), `[*sub for sub in lists]`, in place of `sum(lists, [])`
+  (PS-PERF-06).
+- `threading.serialize_iterator`, `concurrent_tee` and `synchronized_iterator`, for an iterator
+  threads share (PS-CONC-12, PS-CONC-13, PS-CONC-14).
+- The `profiling` package (PEP 799): `profiling.tracing` and `profiling.sampling` (PS-PERF-02).
+- `TaskGroup.cancel()`, which ends a group without an exception (PS-ASYNC-04).
+- `sys.abi_info.free_threaded`, which says how the interpreter was built (PS-CONC-01).
 
 ## 3. Design principles
 
@@ -196,7 +220,7 @@ name it costs.
   - PS-ASYNC-08 [M] Give every wait a timeout, with `asyncio.timeout`
 - **Output: Encoding, Interpolation, Logging, and Program Output**
   - PS-OUT-01 [M] Pass `encoding=` explicitly to every text open
-  - PS-OUT-02 [M] Know what PEP 686 moved, which is more than `open`
+  - PS-OUT-02 [M] Never assume UTF-8 mode moved only `open`
   - PS-OUT-11 [M] Log with `%`-style arguments, never with an f-string
   - PS-OUT-13 [M] Never configure logging in a library
 - **API: The Public Surface, Signatures, and Evolution**
@@ -237,19 +261,19 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | File | Rule IDs | Covers |
 |---|---|---|
 | `references/naming.md` | `PS-NAME` (17) | Casing and word choice, module and package names, what `ruff format` settles, comment discipline, and the symmetry of names |
-| `references/types.md` | `PS-TYPE` (19) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, and what 3.15 adds |
+| `references/types.md` | `PS-TYPE` (20) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, and what 3.15 adds |
 | `references/data.md` | `PS-DATA` (18) | Choosing between dataclass, enum, protocol and TypedDict, fields and defaults, immutability, validity, and the symmetry of a data type |
 | `references/errors.md` | `PS-ERR` (20) | Designing an exception hierarchy, raising and catching, `except*`, `finally` after PEP 765, and the control-flow shapes that keep a function readable |
 | `references/concurrency.md` | `PS-CONC` (22) | What the GIL guaranteed and no longer does, sharing objects between threads, iterators and generators, caches and context, streams and hold times |
 | `references/async.md` | `PS-ASYNC` (18) | Entering and leaving a loop, owning tasks with `TaskGroup`, cancellation and timeouts, not blocking the loop, and the thread boundary |
-| `references/output.md` | `PS-OUT` (18) | Encoding after PEP 686, interpolation and template strings, logging discipline, and the difference between program output and diagnostics |
+| `references/output.md` | `PS-OUT` (18) | Encoding and UTF-8 mode, interpolation and template strings, logging discipline, and the difference between program output and diagnostics |
 | `references/performance.md` | `PS-PERF` (17) | Measuring with the 3.15 profiling package, complexity before constants, allocation, and what the free-threaded build costs |
 | `references/api.md` | `PS-API` (15) | Declaring the public surface, re-export and `py.typed`, signature and default discipline, and evolving without breaking |
 | `references/modules.md` | `PS-MOD` (6) | Package layout under `src/`, what a module does when imported, `lazy import`, and the shape of the import graph |
 | `references/documentation.md` | `PS-DOC` (12) | Docstring shape and content, choosing a convention and what that choice disables, doctests, and the documents outside the code |
 | `references/testing.md` | `PS-TEST` (21) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
 | `references/build.md` | `PS-BUILD` (20) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
-| `references/migration.md` | `PS-MIG` (9) | The five tiers of obsolescence, what 3.14 and 3.15 removed and changed, what to write today for 3.16, and pytest's own ladder |
+| `references/migration.md` | `PS-MIG` (8) | The five tiers of obsolescence, what 3.14 and 3.15 removed and changed, what to write today for 3.16, and pytest's own ladder |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, the mechanical pass, and the output format |
 
 ## 7. Bundled assets

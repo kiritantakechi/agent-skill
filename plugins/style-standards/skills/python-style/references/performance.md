@@ -15,7 +15,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-PERF-04 [M] State the cost in the units the caller cares about
   - PS-PERF-05 [S] Write the back-of-envelope before the benchmark
 - **Structural costs**
-  - PS-PERF-06 [M] Never build a string by repeated concatenation
+  - PS-PERF-06 [M] Never build a sequence by repeated concatenation
   - PS-PERF-07 [M] Use a set or dict for membership, never a list
   - PS-PERF-08 [M] Batch I/O rather than looping over single operations
   - PS-PERF-09 [M] Stream a large sequence rather than materialising it
@@ -97,17 +97,18 @@ confirming what you assumed. It also catches designs that cannot work before the
 
 ## Structural costs
 
-### PS-PERF-06 [M] Never build a string by repeated concatenation
+### PS-PERF-06 [M] Never build a sequence by repeated concatenation
 
 `"".join(parts)`. Not `out += piece` in a loop. Bytes are the same: `b"".join(parts)`, or a
 `bytearray` you extend and hand on with `take_bytes()`, which moves the bytes out without a copy.
+Lists too: `[*sub for sub in lists]`, not `sum(lists, [])`.
 
-**Why:** strings are immutable, so each `+=` allocates a new string and copies everything so far —
-O(n²) for an n-character string. CPython sometimes rescues the simplest case in place, which is
-worse than never: fast enough in the test, quadratic in production where the string is aliased.
+**Why:** each concatenation allocates a new sequence and copies everything so far — O(n²) for n
+items. CPython sometimes rescues the simplest string case in place, which is worse than never: fast
+enough in the test, quadratic in production where the string is aliased.
 
-**Check:** `rg -n '^[ \t]*\w+[ \t]*\+=[ \t]*.*["\x27]' src/` and read each hit for an enclosing
-loop. No ruff rule finds string building in a loop, so this is a grep and a review.
+**Check:** `rg -n '^[ \t]*\w+[ \t]*\+=[ \t]*.*["\x27]' src/` — read each hit for an enclosing loop,
+which no ruff rule sees; a string built in one is the finding. Ruff `RUF017` finds `sum(lists, [])`.
 
 ```python
 # verified — GOOD
@@ -281,4 +282,3 @@ A tool settles these on its own; the shipped configuration enables each at the l
 |---|---|---|---|
 | ruff | `PERF401` | error | a loop that only appends — a comprehension |
 | ruff | `PERF402` | error | a loop that only copies — `list(…)` or `.copy()` |
-| ruff | `RUF017` | error | `sum(lists, [])`, which copies everything added so far at each step — `[*sub for sub in lists]` |

@@ -10,7 +10,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 
 - **Encoding**
   - PS-OUT-01 [M] Pass `encoding=` explicitly to every text open
-  - PS-OUT-02 [M] Know what PEP 686 moved, which is more than `open`
+  - PS-OUT-02 [M] Never assume UTF-8 mode moved only `open`
   - PS-OUT-03 [M] Ask `locale.getencoding()` for the locale's encoding
   - PS-OUT-04 [M!] Choose the error handler deliberately
   - PS-OUT-05 [M] Read and write bytes when the data is bytes
@@ -41,9 +41,8 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 `open(path, encoding="utf-8")`, `Path.read_text(encoding="utf-8")`,
 `subprocess.run(..., encoding="utf-8")`.
 
-**Why:** the default changed in 3.15, so code relying on the old default now behaves differently,
-and code relying on the new one changes again wherever `PYTHONUTF8=0` disables UTF-8 mode. Only an
-explicit encoding means the same thing on every interpreter and in every locale.
+**Why:** the default is UTF-8 only while UTF-8 mode is on (PS-OUT-02), and `PYTHONUTF8=0` turns it
+off, so only an explicit encoding means the same thing on every interpreter and in every locale.
 
 **Check:** run with `-X warn_default_encoding`, which makes the interpreter itself emit an
 `EncodingWarning` at every site relying on the default — a better check than a linter, because it
@@ -61,7 +60,7 @@ with tempfile.TemporaryDirectory() as scratch:
     assert path.read_text(encoding="utf-8") == "héllo"
 ```
 
-### PS-OUT-02 [M] Know what PEP 686 moved, which is more than `open`
+### PS-OUT-02 [M] Never assume UTF-8 mode moved only `open`
 
 UTF-8 mode is on by default in 3.15, and it changes six things at once. Beyond `open`, it sets
 `sys.getfilesystemencoding()` to `utf-8`, so argv, environment variables and filenames decode

@@ -72,7 +72,7 @@ rg -n 'itertools\.tee' src/
 rg -nB2 '@contextmanager' src/
 ```
 
-Then the dead-API grep, PS-MIG-02.
+Then the command after the migration table (PS-MIG-02).
 
 ## Output format
 

@@ -37,7 +37,7 @@ free-threaded build. Where a rule depends on the build, the block probes it rath
 - **Streams, randomness, and hold times**
   - PS-CONC-19 [M] Write each record to a shared text stream in one call, never with `print`
   - PS-CONC-20 [M] Give each thread its own `random.Random`
-  - PS-CONC-21 [M] Know that a `contextmanager` decorator now holds across the whole generator
+  - PS-CONC-21 [M] Hold a context in a generator with `with`, not with a decorator
   - PS-CONC-22 [S] Never hold a lock across a call you do not control
 
 ---
@@ -782,7 +782,7 @@ for thread in threads:
 assert len(set(draws)) == 4, "four threads, four independent streams"
 ```
 
-### PS-CONC-21 [M] Know that a `contextmanager` decorator now holds across the whole generator
+### PS-CONC-21 [M] Hold a context in a generator with `with`, not with a decorator
 
 In 3.15 a `@contextmanager`-derived decorator applied to a generator function keeps the context open
 until the generator is exhausted. Previously it closed when the generator object was created. The
@@ -794,8 +794,8 @@ full consumption of the generator, so a lock, a transaction, a `chdir`, or a `co
 holds is held longer, silently: under free threading, new contention and a new deadlock shape.
 
 **Check:** `rg -nB2 -A2 '@contextmanager' src/` and find every decorator built from one that is
-applied to a `def` containing `yield`. Each is a hold time that changed; each needs the lock it
-takes re-examined.
+applied to a `def` containing `yield`. Each is the finding: its hold time changed, and a `with`
+inside the generator, as below, states the hold where it is taken.
 
 ```python
 # verified — GOOD: the hold is explicit, so no version changes it

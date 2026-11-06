@@ -104,7 +104,8 @@ PROFILE = Profile(
             # The pattern carried a stray space for as long as it
             # shipped, and matched nothing; this is the line it was
             # written to find.
-            "PS-MIG-06": ("if json.__version__ < (2, 0):",),
+            "PS-MIG-05": ("if json.__version__ < (2, 0):",),
+            "PS-TYPE-17": ("    @functools.singledispatchmethod",),
         }
     ),
     # Each of these ships an `rg` pattern that no fixture in `fires`
@@ -150,7 +151,6 @@ PROFILE = Profile(
         "PS-DOC-12",
         "PS-ERR-14",
         "PS-MIG-04",
-        "PS-MIG-05",
         "PS-NAME-02",
         "PS-NAME-03",
         "PS-MOD-05",
@@ -176,7 +176,7 @@ PROFILE = Profile(
         "PS-TYPE-10",
         "PS-TYPE-11",
         "PS-TYPE-13",
-        "PS-TYPE-19",
+        "PS-TYPE-20",
     ),
     not_decisive=keyed(
         {
