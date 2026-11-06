@@ -1,17 +1,11 @@
 ---
 name: python-style
 description: >-
-  The modern Python 3.15 engineering standard — a 232-rule library merging the normative Python
-  specifications (PEP 8, PEP 257, PEP 20, and the Python Typing Spec), the empirical conventions of
-  the CPython standard library, and Ruff's rule catalogue as its house standard. Covers naming,
-  types and annotations, data modelling, errors and control flow, free threading and what the GIL
-  stopped guaranteeing, asyncio, output and logging, performance, the public API, documentation,
-  testing, the build, and the 3.14–3.15 migration tables. Use this whenever writing, reviewing,
-  refactoring, scaffolding, or debugging ANY Python — a package, one function, a pyproject.toml, a
-  dataclass, a thread pool, a test — even if the user never mentions "style", "standards", or
-  "quality". Also use when asked to make Python "idiomatic", "modern", "clean", or
-  "production-grade", when auditing a Python codebase, when the current spelling of a
-  standard-library symbol is uncertain, and when moving code to the free-threaded build.
+  Use when writing, reviewing, refactoring, scaffolding or debugging any Python, moving it to the
+  free-threaded build, or checking whether a standard-library spelling is still current, even when
+  no one asks for "style", "idiomatic" or "modern" code. Applies to a package, a module, a script, a
+  test suite, a dataclass, a thread pool, `pyproject.toml`, `ruff.toml`, `ty.toml` and a CI
+  workflow. Targets Python 3.15.
 ---
 
 # Python Style — 3.15
