@@ -114,6 +114,9 @@ class ZigBuild:
         return self.compiler
 
 
+#: A name a probe can look up: a declaration reached from `std`.
+STD_PATH = re.compile(r"std(?:\.[A-Za-z_]\w*)+")
+
 ZIG_STYLE = ZigBuild(
     Pin.parse("zig==0.17.0"),
     follows_local=(
@@ -340,6 +343,24 @@ class Zig:
             # the absolute path is noise; the line and the message are
             # not
             yield fail(first.split(f"{path}:")[-1].strip()[:84], where, ASSET_AST)
+
+    def probe(self, skill: Skill, spelling: str, out: Path) -> Step | None:  # noqa: ARG002 — one compiler for every skill
+        """Compile a reference to the name: it builds while it is there.
+
+        `std.mem.copy` becomes `_ = std.mem.copy;` in a `comptime`
+        block, analysed and not linked. Only a path from `std` is looked
+        up: a builtin, a keyword or a call is not a declaration.
+        """
+        name = spelling.removesuffix("()")
+        if not STD_PATH.fullmatch(name):
+            return None
+        out.mkdir(parents=True, exist_ok=True)
+        path = out / f"probe_{len(list(out.glob('probe_*.zig'))):03d}.zig"
+        path.write_text(
+            f'const std = @import("std");\n\ncomptime {{\n    _ = {name};\n}}\n'
+        )
+        cmd = ("zig", "build-obj", "-fno-emit-bin", path.name)
+        return Step("probe", cmd, out, 120)
 
     def configured(self, skill: Skill) -> dict[tuple[str, str], str]:  # noqa: ARG002 — the compiler's errors are its rows
         """Nothing: a compiler ships no configuration to set it in."""

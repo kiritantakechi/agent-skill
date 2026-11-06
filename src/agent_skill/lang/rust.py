@@ -7,6 +7,7 @@ what is released.
 """
 
 import json
+import os
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -540,6 +541,24 @@ class Rust:
         """Nothing: `assets` reads a manifest as TOML, as any other."""
         return iter(())
 
+    def probe(self, skill: Skill, spelling: str, out: Path) -> Step | None:
+        """Search the pinned source for a public definition of the name.
+
+        The library's crates as the registry holds them at its pin —
+        `bevy-0.20.1` and every `bevy_*-0.20.1` — or, for a standard
+        about the language, the standard library's source when the
+        toolchain ships it. A path is looked up by its last segment:
+        `Commands::spawn` by a `fn spawn`. None for a spelling that is
+        not a path, or when no source is there to search.
+        """
+        name = spelling.removesuffix("()").removesuffix("!")
+        sources = _sources(skill)
+        if not PATH.fullmatch(name) or not sources:
+            return None
+        last = name.rsplit("::", 1)[-1]
+        cmd = ("rg", "-n", "-m1", "--no-heading", "-t", "rust", "-e", _defines(last))
+        return Step("probe", (*cmd, *map(str, sources)), out, 120)
+
     def configured(self, skill: Skill) -> dict[tuple[str, str], str]:
         """Each lint the shipped `[workspace.lints]` sets, at its level.
 
@@ -557,6 +576,52 @@ class Rust:
             if section in tools and not value.startswith("{"):
                 found[tools[section], lint] = value.strip("\"'")
         return found
+
+
+#: A name a probe can look up: a path of identifiers.
+PATH = re.compile(r"[A-Za-z_]\w*(?:::[A-Za-z_]\w*)*")
+
+
+def _defines(name: str) -> str:
+    """A line defining `name` where a reader of the crate can reach it.
+
+    A public item, an exported macro, or a method of a trait or impl.
+    """
+    item = r"(?:fn|struct|enum|trait|type|const|static|mod|union)"
+    qualifiers = r"(?:(?:const|async|unsafe|extern)\s+)*"
+    return (
+        rf"\bpub(?:\([^)]*\))?\s+{qualifiers}{item}\s+{name}\b"
+        rf"|\bmacro_rules!\s*{name}\b"
+        rf"|^\s+{qualifiers}fn\s+{name}\b"
+    )
+
+
+def _sources(skill: Skill) -> list[Path]:
+    """The source of the release `skill` is pinned to, as found here.
+
+    A library's crates in Cargo's registry at its pin; the standard
+    library's when the language itself is the subject and the toolchain
+    ships its source.
+    """
+    library = _crate(skill).library
+    if library is None:
+        std = _sysroot() / "lib" / "rustlib" / "src" / "rust" / "library"
+        return [std] if std.is_dir() else []
+    home = Path(os.environ.get("CARGO_HOME") or Path.home() / ".cargo")
+    name, version = library.pin.tool, library.pin.version
+    found = (home / "registry" / "src").glob(f"*/{name}*-{version}")
+    return sorted(
+        p
+        for p in found
+        if p.name == f"{name}-{version}" or p.name.startswith(f"{name}_")
+    )
+
+
+@cache
+def _sysroot() -> Path:
+    """Where the toolchain here keeps its files; "." if it says not."""
+    ran = run(["rustc", "--print", "sysroot"], timeout=60)
+    return Path(ran.out.strip()) if ran.ok and ran.out.strip() else Path()
 
 
 #: How long one cargo step may take: Bevy builds from cold in minutes.

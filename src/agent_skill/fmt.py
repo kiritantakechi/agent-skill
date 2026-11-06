@@ -18,13 +18,13 @@ lazy from collections.abc import Mapping
 
 from agent_skill import shared
 from agent_skill.doc import Doc, Fence, Item, ListBlock, Quote, walk
-from agent_skill.doc.chapter import Section, SkillMd
-from agent_skill.doc.normal import listed, normal, projection
+from agent_skill.doc.chapter import Section, SkillMd, migration_header
+from agent_skill.doc.normal import listed, normal, projection, with_command
 from agent_skill.lang import execute, judged, toolchain_for
 from agent_skill.model import Block, Skill
 from agent_skill.report import Finding, Level, declare, fail, note
 lazy from agent_skill import doc
-lazy from agent_skill.checks.skeleton import chapters_mapped
+lazy from agent_skill.checks.skeleton import MIGRATION_STEM, chapters_mapped, target
 
 # The branches `fmt` reports through. It is a command rather than a
 # check, so no control is owed them.
@@ -77,6 +77,8 @@ def _reprint(skill: Skill) -> list[Finding]:
         if skill.profile.normalized and path == skill.skill_md:
             tree, unrendered = _projected(skill, tree)
             changed += unrendered
+        if skill.profile.normalized and path.stem == MIGRATION_STEM:
+            tree = with_command(tree, migration_header(target(skill)))
         if (printed := str(tree)) != text:
             path.write_text(printed)
             changed.append(

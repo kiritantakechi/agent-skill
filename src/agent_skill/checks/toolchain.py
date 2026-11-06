@@ -20,7 +20,15 @@ from pathlib import Path
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
-from agent_skill.lang import deletable, execute, judged, needs, toolchain_for
+from agent_skill.checks.skeleton import gone_rows
+from agent_skill.lang import (
+    deletable,
+    execute,
+    first_error,
+    judged,
+    needs,
+    toolchain_for,
+)
 from agent_skill.report import Finding, Level, declare, fail, note, unrun
 lazy from agent_skill.lang import Extraction, Step, Toolchain, Unit
 lazy from agent_skill.model import Skill
@@ -39,6 +47,10 @@ OUTSIDE = declare("toolchain", "outside", Level.FAIL)
 TIMEOUT = declare("toolchain", "timeout", Level.FAIL)
 FAILED = declare("toolchain", "failed", Level.FAIL)
 UNFORMATTED = declare("toolchain", "unformatted", Level.FAIL)
+
+# The branches of a normalised standard's `gone` rows (decision 9).
+GONE_LIVE = declare("toolchain", "gone_live", Level.FAIL)
+GONE_UNPROBED = declare("toolchain", "gone_unprobed", Level.NOTE)
 
 # The branches of `mutation`.
 MUTATION_MISSING = declare("mutation", "missing", Level.UNRUN)
@@ -69,6 +81,8 @@ def toolchain(skill: Skill) -> Iterator[Finding]:
             )
         return
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
+        if skill.profile.normalized:
+            yield from gone(tc, skill, Path(work) / "gone")
         extraction = tc.extract(skill, Path(work) / "out")
         if not extraction:
             yield fail(
@@ -78,6 +92,46 @@ def toolchain(skill: Skill) -> Iterator[Finding]:
             )
             return
         yield from verify(tc, extraction)
+
+
+def gone(tc: Toolchain, skill: Skill, out: Path) -> Iterator[Finding]:
+    """Each migration row marked `gone` the pinned release provides.
+
+    A row says its old spelling no longer exists in the target; the
+    toolchain looks it up there (`Toolchain.probe`), so a row naming a
+    live API fails rather than sending a reader to rewrite working code.
+    A spelling the toolchain cannot look up is noted, not passed: the
+    row stands unverified, and the note says so.
+    """
+    out.mkdir(parents=True, exist_ok=True)
+    for row, where in gone_rows(skill):
+        spelling = row.spelling or ""
+        step = tc.probe(skill, spelling, out)
+        if step is None:
+            yield note(
+                f"`{spelling}` is marked gone, and {tc.name}'s probe cannot look it up "
+                "in the pinned release, so nothing verified it",
+                where,
+                GONE_UNPROBED,
+            )
+            continue
+        ran = execute(step)
+        if ran.timed_out:
+            yield fail(
+                f"{step.name} did not finish in {step.timeout:g}s", where, TIMEOUT
+            )
+        elif ran.ok:
+            found = ran.out.strip().split("\n")[0][:100]
+            yield fail(
+                f"`{spelling}` is marked gone, and the pinned release still provides it"
+                + (f": {found}" if found else ""),
+                where,
+                GONE_LIVE,
+            )
+        elif ran.rc != 1:
+            yield fail(
+                f"{step.name} `{spelling}`: {first_error(ran)[:100]}", where, FAILED
+            )
 
 
 @check(

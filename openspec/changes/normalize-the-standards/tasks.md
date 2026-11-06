@@ -37,8 +37,11 @@
 - [x] 2.8 Lint bijection (decision 8) in `citations` — `unrowed`, `rowed_twice`, `row_reason`
   (`listed because …` in Forbids), `only_lint`; `Toolchain.configured` gives each lint's level, and
   a delta owes a row only where it departs from its anchor's configuration
-- [ ] 2.9 Migration as a function (decision 9): the table schema, uniqueness, the generated grep in
-  `fmt`, and each toolchain's verifier of `gone` rows (run with `toolchain`)
+- [x] 2.9 Migration as a function (decision 9): the table schema, uniqueness, the generated grep in
+  `fmt`, and each toolchain's verifier of `gone` rows (run with `toolchain`) — `| Old | <target> |
+  Status | Rule |`, 2.2 the same less Status; `skeleton.migration_table`, `migration_row`,
+  `migration_twice`, `migration_command`, `reality_row`; `Toolchain.probe` and
+  `toolchain.gone_live` (exempt as `COMPILES`, exercised by `tests/test_gone.py`)
 - [ ] 2.10 The delta map (decision 10) in `crossref`
 - [ ] 2.11 Examples under the shipped configuration minus the allowlist (decision 12)
 - [ ] 2.12 Description template, SKILL.md bound, time-sensitive and provenance phrasing (decision 13)

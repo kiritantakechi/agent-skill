@@ -32,18 +32,23 @@ from agent_skill.doc.chapter import (
     CONTENTS,
     DECIDED,
     RENAMED,
+    STATUSES,
     Demoted,
     Entry,
     Removed,
     history,
+    migration_header,
+    migrations,
+    reality_header,
 )
-from agent_skill.doc.normal import listed, projection
+from agent_skill.doc.normal import generated, listed, projection, stated
 from agent_skill.ids import RuleId, cited, leading
 from agent_skill.model import REFERENCES, RENAMES_MD, SKILL_MD
 from agent_skill.report import Level, declare, fail
 lazy from agent_skill.doc import Block, Doc
-lazy from agent_skill.doc.chapter import RenameTable, Section
+lazy from agent_skill.doc.chapter import Migration, RenameTable, Section
 lazy from agent_skill.doc.normal import Mapped
+lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Chapter, Skill
 lazy from agent_skill.report import Finding
 
@@ -93,6 +98,11 @@ REALITY_TABLE = declare("skeleton", "reality_table", Level.FAIL)
 REALITY_OWNER = declare("skeleton", "reality_owner", Level.FAIL)
 CORE_RULE = declare("skeleton", "core_rule", Level.FAIL)
 CORE_DRIFT = declare("skeleton", "core_drift", Level.FAIL)
+MIGRATION_TABLE = declare("skeleton", "migration_table", Level.FAIL)
+MIGRATION_ROW = declare("skeleton", "migration_row", Level.FAIL)
+MIGRATION_TWICE = declare("skeleton", "migration_twice", Level.FAIL)
+MIGRATION_COMMAND = declare("skeleton", "migration_command", Level.FAIL)
+REALITY_ROW = declare("skeleton", "reality_row", Level.FAIL)
 
 
 @check("skeleton", "every standard has the same shape")
@@ -410,6 +420,7 @@ def _normal_form(skill: Skill) -> Iterator[Finding]:
     yield from _named(skill)
     yield from _reality(skill)
     yield from _core(skill)
+    yield from _migration(skill)
 
 
 #: What a chapter's scope opens with.
@@ -518,17 +529,21 @@ def _naming(doc: Doc, *, skill_md: bool) -> Iterator[Block]:
 #: The level of a section's heading, and of a subsection's.
 SECTION_LEVEL, SUBSECTION_LEVEL = 2, 3
 
-#: The header of section 2.2's one table: old spelling, new, owner.
-REALITY_HEADER = ("Old", "New", "Rule")
+
+def target(skill: Skill) -> str:
+    """What the standard is for, as section 2 names it.
+
+    The language and the series its pin belongs to: `Python 3.15`.
+    """
+    return f"{skill.profile.language} {skill.profile.target}"
 
 
 def reality_titles(skill: Skill) -> tuple[str, str, str]:
     """Section 2's three subsections, in their order (decision 5)."""
-    target = f"{skill.profile.language} {skill.profile.target}"
     return (
         "2.1 Compiles, and behaves differently",
         "2.2 No longer compiles",
-        f"2.3 What {target} gained",
+        f"2.3 What {target(skill)} gained",
     )
 
 
@@ -559,17 +574,41 @@ def _reality(skill: Skill) -> Iterator[Finding]:
         )
     held = {heading.text: blocks for heading, blocks in parts}
     gone = held.get(want[1])
-    if gone is not None and not (
-        len(gone) == 1
-        and isinstance(table := gone[0], Table)
-        and table.header == REALITY_HEADER
-    ):
-        yield fail(
-            f"{want[1]} is one table, `| {' | '.join(REALITY_HEADER)} |`",
-            where,
-            REALITY_TABLE,
-        )
+    header = reality_header(target(skill))
+    match gone:
+        case None:
+            pass
+        case (Table() as table,) if table.header == header:
+            yield from _restricted(skill, table)
+        case _:
+            yield fail(
+                f"{want[1]} is one table, `| {' | '.join(header)} |`",
+                where,
+                REALITY_TABLE,
+            )
     yield from _owned(skill, (*before, *(b for _, blocks in parts for b in blocks)))
+
+
+def _restricted(skill: Skill, table: Table) -> Iterator[Finding]:
+    """Each row of section 2.2 is a row of the migration table.
+
+    Section 2.2 is the migration function restricted to what no longer
+    compiles, its status column left out: the same old spelling, new
+    spelling and rule (decision 9). Not read while the migration table
+    is not one table, which `migration_table` reports.
+    """
+    found = _migration_rows(skill)
+    if found is None:
+        return
+    rows = {(m.old, m.new, m.rule) for m in found[1]}
+    for k, row in enumerate(table.rows):
+        if tuple(row) not in rows:
+            yield fail(
+                f"section 2.2 lists {row[0]} → {row[1]} ({row[2]}), which no row of "
+                "the migration table states; section 2.2 is that table restricted",
+                skill.at(SKILL_MD, table.line + 2 + k),
+                REALITY_ROW,
+            )
 
 
 def _subsections(
@@ -708,3 +747,124 @@ def _core(skill: Skill) -> Iterator[Finding]:
         where,
         CORE_DRIFT,
     )
+
+
+#: The migration chapter's stem.
+MIGRATION_STEM = MIGRATION.removesuffix(".md")
+
+
+def _migration_chapter(skill: Skill) -> Chapter | None:
+    """The skill's migration chapter, if it ships one."""
+    return next((c for c in skill.chapters if c.path.stem == MIGRATION_STEM), None)
+
+
+def _migration_rows(skill: Skill) -> tuple[Chapter, tuple[Migration, ...]] | None:
+    """The migration chapter and the rows of its one table.
+
+    None when it holds no table headed as a migration table, or more
+    than one: `migration_table` reports which.
+    """
+    chapter = _migration_chapter(skill)
+    if chapter is None:
+        return None
+    header = migration_header(target(skill))
+    tables = [
+        b for b in chapter.doc.blocks if isinstance(b, Table) and b.header == header
+    ]
+    return (chapter, migrations(tables[0])) if len(tables) == 1 else None
+
+
+def gone_rows(skill: Skill) -> Iterator[tuple[Migration, Location]]:
+    """Each `gone` row of the migration table, where it stands.
+
+    What each toolchain verifies against its pinned release: a row
+    whose old spelling the release still provides is not gone.
+    """
+    found = _migration_rows(skill)
+    if found is None:
+        return
+    chapter, rows = found
+    for row in rows:
+        if row.status == "gone" and row.spelling:
+            yield row, chapter.where(row.line)
+
+
+def _migration(skill: Skill) -> Iterator[Finding]:
+    """The migration chapter is one function from old spelling to row.
+
+    One table, `| Old | <target> | Status | Rule |`, keyed uniquely by
+    its old spelling, each row giving one of four statuses and the rule
+    that owns it; and after it the command a reader runs, which `fmt`
+    generates from the `gone` and `alias` rows (decision 9). Any other
+    table mapping old spellings is a second map, and fails with it.
+    """
+    chapter = _migration_chapter(skill)
+    if chapter is None:
+        return  # `required_chapter` reports it
+    header = migration_header(target(skill))
+    tables = [b for b in chapter.doc.blocks if isinstance(b, Table)]
+    mine = [t for t in tables if t.header == header]
+    others = [
+        t for t in tables if t.header != header and {"Old", "Status"} & set(t.header)
+    ]
+    if len(mine) != 1 or others:
+        said = f"{len(mine)} tables" if len(mine) != 1 else "one table"
+        also = (
+            f", and {len(others)} other table(s) mapping old spellings"
+            if others
+            else ""
+        )
+        first = (*others, *mine)
+        yield fail(
+            f"`{chapter.name}` holds {said} headed `| {' | '.join(header)} |`{also}; "
+            "it holds exactly one, and it is the only map of old spellings",
+            chapter.where(first[0].line if first else None),
+            MIGRATION_TABLE,
+        )
+    if len(mine) != 1:
+        return
+    rows = migrations(mine[0])
+    yield from _rows_read(skill, chapter, rows)
+    spelled: dict[str, Migration] = {}
+    for row in rows:
+        if row.spelling is None:
+            continue
+        if (first := spelled.setdefault(row.spelling, row)) is not row:
+            yield fail(
+                f"`{row.spelling}` is the old spelling of two rows, lines {first.line} "
+                f"and {row.line}; a migration table is keyed by it",
+                chapter.where(row.line),
+                MIGRATION_TWICE,
+            )
+    found = generated(chapter.doc, header)
+    at = next(i for i, b in enumerate(chapter.doc.blocks) if b is mine[0])
+    if found is not None and stated(chapter.doc, at) != found[1]:
+        yield fail(
+            "the command after the migration table is not the one its `gone` and "
+            "`alias` rows generate — `agent-skill fmt` writes it",
+            chapter.where(mine[0].line),
+            MIGRATION_COMMAND,
+        )
+
+
+def _rows_read(
+    skill: Skill, chapter: Chapter, rows: Iterable[Migration]
+) -> Iterator[Finding]:
+    """Each row whose spelling, status or rule cannot be read."""
+    for row in rows:
+        owner = row.owner
+        wrong = (
+            f"its old spelling `{row.old}` is not one code span"
+            if row.spelling is None
+            else f"its status `{row.status}` is not one of {', '.join(STATUSES)}"
+            if row.status not in STATUSES
+            else f"its rule `{row.rule}` is not one rule ID of this standard"
+            if owner is None or owner.standard != skill.prefix
+            else ""
+        )
+        if wrong:
+            yield fail(
+                f"a migration row's {wrong.removeprefix('its ')}",
+                chapter.where(row.line),
+                MIGRATION_ROW,
+            )

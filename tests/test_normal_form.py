@@ -264,3 +264,26 @@ def test_fmt_leaves_a_section_4_it_cannot_project_as_it_is(built: Skill) -> None
     ]
     assert (own.root / "SKILL.md").read_text() == before
     assert fired(own, "skeleton") == ["skeleton.core_rule"]
+
+
+#: The demo's migration chapter.
+MIGRATION = "references/migration.md"
+
+
+def test_fmt_writes_the_command_the_migration_table_generates(built: Skill) -> None:
+    """A row added is a pattern added: the command is the table's."""
+    added = edit(
+        built,
+        MIGRATION,
+        "| `old_flag` | `new_flag` | alias | DS-MIG-01 |\n",
+        "| `old_flag` | `new_flag` | alias | DS-MIG-01 |\n"
+        "| `it's` | `its` | gone | DS-MIG-01 |\n"
+        "| `old_mode` | `new_mode` | changed | DS-MIG-01 |\n",
+    )
+    assert fired(added, "skeleton") == ["skeleton.migration_command"]
+    format_skill(added)
+    fixed = Skill(built.root, built.profile)
+    assert fired(fixed, "skeleton") == []
+    text = (fixed.root / MIGRATION).read_text()
+    assert "  -e 'old_flag' \\\n  -e 'it'\\''s' \\\n  .\n" in text
+    assert "old_mode' \\" not in text

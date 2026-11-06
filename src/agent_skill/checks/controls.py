@@ -562,6 +562,9 @@ def _orphan_exemption(tree: Path) -> Edited:
 #: The demo's chapter of rules, as an edit names it.
 _DEMO_ERRORS = "references/errors.md"
 
+#: The demo's migration chapter, as an edit names it.
+_DEMO_MIGRATION = "references/migration.md"
+
 #: The one row of the demo's `Decided by tools`.
 _DEMO_ROW = (
     "| ty | `division-by-zero` | error | a division the checker proves is by zero |\n"
@@ -644,8 +647,8 @@ NORMAL_FORM: list[Control] = [
     _normal(
         skeleton.REALITY_TABLE,
         SKILL_MD,
+        "| Old | Demo 1.2 | Rule |",
         "| Old | New | Rule |",
-        "| Before | After | Rule |",
     ),
     _normal(
         # The 2.1 item, its owner taken away.
@@ -757,6 +760,43 @@ NORMAL_FORM: list[Control] = [
         "**Check:** `rg -n 'process::exit' src/` — every hit in library code is the "
         "finding.",
         "**Check:** ty `division-by-zero`.",
+    ),
+    _normal(
+        # The table's target column names another release: no table is
+        # the migration table, and one maps old spellings beside it.
+        skeleton.MIGRATION_TABLE,
+        _DEMO_MIGRATION,
+        "| Old | Demo 1.2 | Status | Rule |",
+        "| Old | Demo 1.1 | Status | Rule |",
+    ),
+    _normal(
+        # The alias row, which section 2.2 does not restrict to.
+        skeleton.MIGRATION_ROW,
+        _DEMO_MIGRATION,
+        "| `old_flag` | `new_flag` | alias | DS-MIG-01 |",
+        "| `old_flag` | `new_flag` | alias | the renaming rule |",
+    ),
+    _normal(
+        # A second row for one old spelling, at a status the command
+        # does not seek, so only the key is wrong.
+        skeleton.MIGRATION_TWICE,
+        _DEMO_MIGRATION,
+        "| `old_flag` | `new_flag` | alias | DS-MIG-01 |\n",
+        "| `old_flag` | `new_flag` | alias | DS-MIG-01 |\n"
+        "| `old_flag` | `newer_flag` | changed | DS-MIG-01 |\n",
+    ),
+    _normal(
+        # The command, kept by hand, a row behind the table.
+        skeleton.MIGRATION_COMMAND,
+        _DEMO_MIGRATION,
+        "  -e 'old_flag' \\\n",
+        "",
+    ),
+    _normal(
+        skeleton.REALITY_ROW,
+        SKILL_MD,
+        "| `old_name` | `new_name` | DS-MIG-01 |",
+        "| `old_name` | `newer_name` | DS-MIG-01 |",
     ),
     _on_demo(
         # Heading and contents line alike, so only the mood is wrong.
@@ -2179,6 +2219,7 @@ EXEMPT: dict[Branch, str] = {
     toolchain.UNFORMATTED: COMPILES,
     toolchain.UNMUTATED_TIMEOUT: COMPILES,
     toolchain.UNMUTATED: COMPILES,
+    toolchain.GONE_LIVE: COMPILES,
 }
 
 

@@ -701,11 +701,122 @@ def _override(cells: tuple[str, ...], line: int) -> Override | None:
 
 
 def _opening_id(cell: str) -> tuple[RuleId | None, str]:
-    """The ID in the code span `cell` opens with, and what follows."""
+    """The ID `cell` opens with, and what follows it.
+
+    In a code span of its own, `` `RS-API-15` Title ``, or bare, as
+    `fmt` sets a citation: `RS-API-15 Title`.
+    """
+    if not cell.startswith("`"):
+        first, _, rest = cell.partition(" ")
+        return RuleId.try_parse(first), rest.strip()
     span, tick, rest = cell.removeprefix("`").partition("`")
-    if not (cell.startswith("`") and tick):
+    if not tick:
         return None, cell
     return RuleId.try_parse(span), rest.strip()
+
+
+#: The statuses a migration row may give an old spelling: removed, kept
+#: as an alias of the new one, kept and behaving otherwise, kept and
+#: scheduled for removal (normalize-the-standards, decision 9).
+STATUSES = ("gone", "alias", "changed", "deprecated")
+
+#: The statuses whose old spelling the reader's command finds: those
+#: whose spelling is to be rewritten wherever it stands.
+SOUGHT = ("gone", "alias")
+
+
+def migration_header(target: str) -> tuple[str, str, str, str]:
+    """A migration table's columns: old, `target`'s, status, rule.
+
+    `target` is what the standard is for, as section 2 names it:
+    `Python 3.15`.
+    """
+    return ("Old", target, "Status", "Rule")
+
+
+def reality_header(target: str) -> tuple[str, str, str]:
+    """Section 2.2's columns: the migration table's but its status.
+
+    Section 2.2 is the migration table restricted to what no longer
+    compiles, so it has the same columns but the one it restricts on.
+    """
+    old, new, _, rule = migration_header(target)
+    return (old, new, rule)
+
+
+@dataclass(frozen=True, slots=True)
+class Migration:
+    """One row of a migration table, its cells as written."""
+
+    old: str
+    new: str
+    status: str
+    rule: str
+    line: int = field(default=0, compare=False)
+
+    @property
+    def spelling(self) -> str | None:
+        """The old spelling: the code span the cell is, else None."""
+        inner = self.old.removeprefix("`").removesuffix("`")
+        return inner if self.old == f"`{inner}`" and "`" not in inner else None
+
+    @property
+    def owner(self) -> RuleId | None:
+        """The rule the row names as its owner, bare, else None."""
+        return RuleId.try_parse(self.rule)
+
+
+def migrations(table: Table) -> tuple[Migration, ...]:
+    """The rows of `table`, read as a migration table's."""
+    return tuple(
+        Migration(*cells, line=line)
+        for line, cells in _rows(table)
+        if len(cells) == len(migration_header(""))
+    )
+
+
+#: How a delta rule relates to the anchor rule it departs from: it says
+#: the opposite, it binds harder, or it says more (decision 10).
+RELATIONS = ("overrides", "tightens", "extends")
+
+#: What separates the tier before from the tier after in a departure.
+ARROW = "\u2192"
+
+
+def departures_header(anchor: str, delta: str) -> tuple[str, ...]:
+    """A delta's departures: anchor rule, relation, rule here, why."""
+    return (f"{anchor} rule", "Relation", f"{delta} rule", "Tier", "Reason")
+
+
+@dataclass(frozen=True, slots=True)
+class Departure:
+    """One row of a delta's departures table, its cells as written."""
+
+    theirs: str
+    relation: str
+    ours: str
+    tier: str
+    reason: str
+    line: int = field(default=0, compare=False)
+
+    @property
+    def tiers(self) -> tuple[Tier, Tier] | None:
+        """The tier before and after, as `[M!] → [M]` states them."""
+        before, arrow, after = self.tier.partition(f" {ARROW} ")
+        try:
+            return (Tier.parse(before), Tier.parse(after)) if arrow else None
+        except ValueError:
+            return None
+
+
+def departures(table: Table) -> tuple[Departure, ...]:
+    """The rows of `table`, read as a departures table's."""
+    width = len(departures_header("", ""))
+    return tuple(
+        Departure(*cells, line=line)
+        for line, cells in _rows(table)
+        if len(cells) == width
+    )
 
 
 def history(doc: Doc) -> Iterator[tuple[Block, bool]]:

@@ -397,6 +397,17 @@ class Toolchain(Protocol):
         """What is wrong with a shipped asset of `asset_suffixes`."""
         ...
 
+    def probe(self, skill: Skill, spelling: str, out: Path) -> Step | None:
+        """What looks `spelling` up in the release `skill` is pinned to.
+
+        A step that exits 0 when the release still provides it and 1
+        when it does not, any file it needs written under `out`; None
+        for a spelling this toolchain cannot look up. A migration row
+        marked `gone` is verified by it (normalize-the-standards,
+        decision 9), and the driver runs it.
+        """
+        ...
+
     def configured(self, skill: Skill) -> Mapping[tuple[str, str], str]:
         """Each lint `skill`'s shipped configuration sets one by one.
 

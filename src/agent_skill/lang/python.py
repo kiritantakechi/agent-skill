@@ -252,6 +252,31 @@ class PythonSnippet:
 
 PYTHON_STYLE = PythonSnippet()
 
+#: A name a probe can look up: a module, then its attributes.
+DOTTED = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
+
+#: What looks a name up on the pinned interpreter: exits 0 when it
+#: resolves, 1 when it does not, 2 when an import raised otherwise.
+PROBE = """\
+import builtins, importlib, sys
+parts = sys.argv[1].split(".")
+found, rest = builtins, parts
+try:
+    for i in range(len(parts), 0, -1):
+        try:
+            found = importlib.import_module(".".join(parts[:i]))
+        except ImportError:
+            continue
+        rest = parts[i:]
+        break
+    for name in rest:
+        if not hasattr(found, name):
+            sys.exit(1)
+        found = getattr(found, name)
+except Exception:
+    sys.exit(2)
+"""
+
 #: The type checker's configuration, written into the extraction. Its
 #: diagnostics are asked for as `path:line:col: CODE message`, the one
 #: output shape both tools share, and the only `ty` format that keeps
@@ -450,6 +475,19 @@ class Python:
     def asset(self, path: Path, where: Location) -> Iterator[Finding]:  # noqa: ARG002 — no asset is Python's to read
         """Nothing: `assets` builds a `pyproject.toml` as any other."""
         return iter(())
+
+    def probe(self, skill: Skill, spelling: str, out: Path) -> Step | None:  # noqa: ARG002 — one interpreter for every skill
+        """Import the longest module the name opens with, then the rest.
+
+        On the pinned interpreter: `glob.glob0` imports `glob` and asks
+        it for `glob0`. A name no module opens with is a builtin's:
+        `str.removeprefix`. Only a dotted name is looked up; a call
+        shape or a command line is not a name.
+        """
+        name = spelling.removesuffix("()")
+        if not DOTTED.fullmatch(name):
+            return None
+        return Step("probe", (str(PYTHON), "-I", "-c", PROBE, name), out, 60)
 
     def configured(self, skill: Skill) -> dict[tuple[str, str], str]:
         """Each `ty` rule the shipped `ty.toml` sets, at its level.

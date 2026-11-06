@@ -21,6 +21,7 @@ lazy from collections.abc import Iterable, Iterator, Sequence
 from agent_skill.doc import (
     Block,
     Doc,
+    Fence,
     Heading,
     Item,
     ListBlock,
@@ -32,15 +33,18 @@ from agent_skill.doc import (
 )
 from agent_skill.doc.chapter import (
     ORDER,
+    SOUGHT,
     Chapter,
     Contents,
     Element,
     Entry,
     Group,
+    Migration,
     Part,
     Rule,
     Section,
     history,
+    migrations,
 )
 from agent_skill.ids import RuleId, leading
 
@@ -240,3 +244,75 @@ def projection(ids: Iterable[RuleId], chapters: Sequence[Mapped]) -> tuple[Block
     )
     kept = tuple(g for g in groups if g.children)
     return (Contents(kept).block(),) if kept else ()
+
+
+# ------------------------------------------------------------------
+# the migration table's command (decision 9)
+
+#: The info string of the fence holding the reader's command.
+SHELL = "sh"
+
+
+def sought(rows: Sequence[Migration]) -> tuple[str, ...]:
+    """The old spellings a reader searches a codebase for, in row order.
+
+    Each `gone` or `alias` row's: a spelling to rewrite wherever it
+    stands. One that changed behaviour, or is deprecated and still
+    works, is a rule's to judge, not a hit.
+    """
+    found = (r.spelling for r in rows if r.status in SOUGHT and r.spelling)
+    return tuple(dict.fromkeys(s for s in found if s))
+
+
+def command(spellings: Sequence[str]) -> Fence | None:
+    """The reader's command: every spelling, as a fixed string; or None.
+
+    One pattern a line, so a row added is a line added. Generated from
+    the table rather than kept beside it, so the two cannot disagree.
+    """
+    if not spellings:
+        return None
+    patterns = (f"  -e {_shell(s)} \\" for s in spellings)
+    return Fence(SHELL, "\n".join(["rg -n -F \\", *patterns, "  ."]) + "\n")
+
+
+def _shell(word: str) -> str:
+    """`word` as one single-quoted shell word."""
+    return "'" + word.replace("'", "'\\''") + "'"
+
+
+def generated(doc: Doc, header: Sequence[str]) -> tuple[int, Fence | None] | None:
+    """Where the migration table stands in `doc`, and what follows it.
+
+    The index of the one top-level table headed `header`, and the
+    command its rows generate; None when there is not exactly one.
+    """
+    at = [
+        i
+        for i, b in enumerate(doc.blocks)
+        if isinstance(b, Table) and b.header == tuple(header)
+    ]
+    if len(at) != 1 or not isinstance(table := doc.blocks[at[0]], Table):
+        return None
+    return at[0], command(sought(migrations(table)))
+
+
+def stated(doc: Doc, after: int) -> Fence | None:
+    """The command `doc` states after block `after`, if any."""
+    held = doc.blocks[after + 1] if after + 1 < len(doc.blocks) else None
+    return held if isinstance(held, Fence) and held.info == SHELL else None
+
+
+def with_command(doc: Doc, header: Sequence[str]) -> Doc:
+    """`doc` with its migration table's command right after the table.
+
+    The fence there is the command's place: one standing there is
+    replaced, and none is written for a table with nothing to seek.
+    """
+    found = generated(doc, header)
+    if found is None:
+        return doc
+    at, want = found
+    rest = doc.blocks[at + 1 + (stated(doc, at) is not None) :]
+    blocks = (*doc.blocks[: at + 1], *((want,) if want else ()), *rest)
+    return Doc(doc.frontmatter, blocks)

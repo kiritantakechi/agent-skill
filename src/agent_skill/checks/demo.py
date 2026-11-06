@@ -73,9 +73,9 @@ A demo standard in normal form.
 
 ### 2.2 No longer compiles
 
-| Old | New | Rule |
+| Old | Demo 1.2 | Rule |
 |---|---|---|
-| `old_name()` | `new_name()` | DS-MIG-01 |
+| `old_name` | `new_name` | DS-MIG-01 |
 
 ### 2.3 What Demo 1.2 gained
 
@@ -174,6 +174,18 @@ Scope: the spellings Demo 1.2 renamed, and what replaces each.
 ---
 
 ## Renamed
+
+| Old | Demo 1.2 | Status | Rule |
+|---|---|---|---|
+| `old_name` | `new_name` | gone | DS-MIG-01 |
+| `old_flag` | `new_flag` | alias | DS-MIG-01 |
+
+```sh
+rg -n -F \\
+  -e 'old_name' \\
+  -e 'old_flag' \\
+  .
+```
 
 ### DS-MIG-01 [M] Write the new name of a renamed function
 

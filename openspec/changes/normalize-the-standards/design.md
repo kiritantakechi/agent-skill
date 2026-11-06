@@ -251,6 +251,49 @@ that state a behaviour or a procedure; the rest become rows. The grep a reader r
 release (Python: the name is absent from, or an alias in, the module; Rust and Bevy: `rg` over the
 pinned crate sources; Zig: a compile probe), so a row naming a live API fails.
 
+As built (task 2.9):
+
+- The headers, exactly, with `<target>` the profile's language and series as section 2 names them
+  (`skeleton.target`: `Python 3.15`, `Bevy 0.20`): the migration table is
+  `| Old | <target> | Status | Rule |` (`chapter.migration_header`), and section 2.2's is the same
+  with Status left out, `| Old | <target> | Rule |` (`reality_header`). 2.5's `| Old | New | Rule |`
+  is replaced: one convention for both. A row's Old is one code span, the old spelling; its Status
+  one of `gone`, `alias`, `changed`, `deprecated` (`chapter.STATUSES`), as a bare word; its Rule one
+  bare rule ID of the standard. The target cell is free.
+- `skeleton`, for a normalised standard: `migration_table` — the migration chapter holds not
+  exactly one top-level table with that header, or another table with an `Old` or `Status` column
+  (a second map); `migration_row` — a row whose Old, Status or Rule cannot be read so;
+  `migration_twice` — an old spelling in two rows; `migration_command` — the fence after the table
+  is not the command its rows generate; `reality_row` — a section 2.2 row whose (Old, target, Rule)
+  is no migration row's, so section 2.2 is the function restricted to what no longer compiles (not
+  read while the migration table is not one table).
+- The command is `doc.normal.command`: an `sh` fence straight after the table, one fixed-string
+  pattern a line, in row order, from each `gone` and `alias` row —
+  `rg -n -F \` / `  -e '<old>' \` … / `  .` — single-quoted for the shell. `fmt` writes it
+  (`with_command`), replacing an `sh` fence that stands there and writing none for a table with
+  nothing to seek. It sits outside every rule, so it is no rule's Check and owes no `fires`
+  fixture: the table is its specification, and the toolchain verifies the `gone` half. A rule that
+  asks the reader to run it says so in judgement ("the command after the migration table"), since
+  "grep" in a Check is `prose_grep`.
+- Verification: `Toolchain.probe(skill, spelling, out) -> Step | None`, a step that exits 0 while
+  the pinned release provides the spelling and 1 once it does not. Python imports the longest
+  module the dotted name opens with on the pinned interpreter (`-I`), then reads the rest as
+  attributes, a builtin's when no module opens it; Rust searches the pinned library's crates in
+  Cargo's registry (`bevy-0.20.1`, `bevy_*-0.20.1`) — or the standard library's source when the
+  language is the subject and the toolchain ships it — with `rg` for a public item, an exported
+  macro or an indented `fn` of the path's last segment; Zig compiles `_ = std.a.b;` in a
+  `comptime` block (`build-obj -fno-emit-bin`, about 40 ms each, cached). A spelling a toolchain
+  cannot look up (a call shape, a command line, a builtin) gets no step. The driver
+  (`checks.toolchain.gone`) runs each `gone` row's step with `toolchain`, never with `--fast`:
+  `toolchain.gone_live` fails a row the release provides, with what the search found;
+  `gone_unprobed` notes a row nothing could look up; a timeout or a probe that could not run is the
+  driver's `timeout`/`failed`.
+- `gone_live` is exempt from the controls as every branch of `toolchain` is (`COMPILES`): a control
+  would cost a toolchain run, and `--fast` runs none on a slow check. Each verifier is exercised by
+  `tests/test_gone.py` (marked `toolchain`): live and gone spellings on the pinned interpreter, in
+  the registry's Bevy 0.20.1 source and on Zig 0.17, and the driver over the demo's migration table
+  with a live row, a gone row and a row no probe reads.
+
 ### 10. The delta is a typed map
 
 bevy-style's departures are one table: rust-style rule | relation (`overrides`, `tightens`,
@@ -319,7 +362,8 @@ What this leaves for the standards' own steps:
   of, so `stray` fires too — and move to the demo or say why in `also`. Most of those controls
   inject into python-style, the first to be normalised.
 - Section 2.2's table is headed Old, New, Rule, and decision 9's migration table Old, the target,
-  Status, Rule; 2.9 may want one convention for both.
+  Status, Rule; 2.9 may want one convention for both. (2.9: one — section 2.2 is the migration
+  header without Status.)
 
 ## Risks / Trade-offs
 
