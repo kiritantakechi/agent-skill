@@ -73,54 +73,47 @@ proceed with the stricter reading.
 
 ## 2. Rust 1.99 reality check
 
-Most Rust on the public internet predates these. The entries that **compile either way** are the
-dangerous ones, because the compiler says nothing about them.
+### 2.1 Compiles, and behaves differently
 
-### 2.1 What compiles either way and behaves differently
+- Integer overflow panics in debug and wraps in release, so arithmetic on attacker-influenced values
+  is `checked_*`, `saturating_*`, `wrapping_*` or `strict_*`, chosen (RS-ERR-28).
+- An `as` cast truncates silently: `len as u32` on a 5 GB buffer is a wrong answer with no error,
+  and `u32::try_from(len)?` is the conversion that can fail (RS-PERF-30).
+- A dropped `Future` is a cancellation at an arbitrary `.await`, and `select!` drops them routinely
+  (RS-CONC-33).
+- In edition 2024 a temporary in an `if let` scrutinee drops before the `else` block, and one in a
+  block's tail expression before the block's locals, which moves when a lock guard or a `Drop` runs
+  (RS-BUILD-01).
+- `$e:expr` matches `_` and `const { … }`, so a later `_` arm stops firing (RS-MACRO-09).
+- `Box<[T]>::into_iter` yields `T` by value (RS-BUILD-01).
+- Each release changes something silently too — incremental compilation in CI in 1.99, the derived
+  `PartialOrd` path in 1.98, drop timing in 1.91 to 1.95 — read on every toolchain bump (RS-MIG-03).
 
-1. **Integer overflow panics in debug and wraps in release.** Arithmetic on attacker-influenced
-   values must be `checked_*`, `saturating_*` or `wrapping_*` explicitly, or debug and release
-   disagree about what your program does. `strict_*` panics in both profiles, so it belongs where
-   overflow is a bug rather than an input (RS-ERR-28).
-2. **`as` casts truncate silently at run time.** `len as u32` on a 5 GB buffer is a wrong answer
-   with no error. rustc accepts it; clippy's `cast_possible_truncation`, a warning in
-   `assets/Cargo.toml`, is what flags it. Use `u32::try_from(len)?` on any conversion that can lose
-   data, and `cast_signed` or `cast_unsigned` where a sign change is the point (RS-PERF-30).
-3. **A dropped `Future` is a cancellation at an arbitrary `.await`.** Anything holding a resource
-   across an await must be correct when dropped there; `select!` makes this routine rather than
-   exotic (RS-CONC-33).
+### 2.2 No longer compiles
 
-The 2024 edition changed four behaviours without a diagnostic:
+| Old | Rust 1.99 | Rule |
+|---|---|---|
+| `#[no_mangle]` | `#[unsafe(no_mangle)]`; `#[export_name]` and `#[link_section]` likewise | RS-BUILD-01 |
+| `-> impl Trait` | captures every lifetime in scope, so a caller can fail to borrow; narrow it with `+ use<'a, T>` | RS-OWN-22 |
+| `env::remove_var` | `unsafe`, which `unsafe_code = "forbid"` rejects; pass the code under test a lookup | RS-TEST-16 |
+| `env::set_var` | `unsafe`, which `unsafe_code = "forbid"` rejects; pass the code under test a lookup | RS-TEST-16 |
+| `extern "C" { … }` | rejected; `unsafe extern "C" { … }`, where an item marked `safe fn` is called without `unsafe` | RS-UNSAFE-23 |
+| `gen` | a reserved keyword, so rejected as a name; `r#gen` where the name must stay | RS-BUILD-01 |
+| `static mut` | a reference to one is `static_mut_refs`, denied; `OnceLock`, `LazyLock` or an atomic | RS-CONC-27 |
+| `unsafe fn` | its body is no longer one `unsafe` block: `unsafe_op_in_unsafe_fn` warns on each operation, and CI denies warnings | RS-UNSAFE-06 |
 
-| Old habit | Edition 2024 reality |
-|---|---|
-| `if let` temporary dropped at end of statement | dropped at end of the `if let`, which changes lock scopes |
-| tail-expression temporaries live to end of block | shortened; a temporary can now drop earlier than it used to |
-| `$e:expr` stops before `_` and `const { … }` | `expr` matches both, so a later `_` arm stops firing; `expr_2021` keeps the old fragment (RS-MACRO-09) |
-| `boxed_slice.into_iter()` yields `&T` | yields `T`, by value |
+### 2.3 What Rust 1.99 gained
 
-Releases change things silently too — CI builds without incremental compilation in 1.99, the derived
-`PartialOrd` path in 1.98, drop timing in 1.91 to 1.95. RS-MIG-03 lists them by release, to read on
-every toolchain bump.
-
-### 2.2 What the 2024 edition rejects
-
-| Old habit | Edition 2024 reality |
-|---|---|
-| `unsafe fn` body is implicitly unsafe | `unsafe_op_in_unsafe_fn` warns (`warning[E0133]`), and CI's `CARGO_BUILD_WARNINGS=deny` fails on it; write the inner `unsafe { }` explicitly |
-| `#[no_mangle]`, `#[export_name]`, `#[link_section]` | must be `#[unsafe(no_mangle)]` and friends |
-| `static mut FOO` then `&FOO` | `static_mut_refs` denies it; use `OnceLock`/`LazyLock`/atomics |
-| `impl Trait` return captures only named lifetimes | captures **all** in-scope lifetimes; narrow with `+ use<'a, T>` (1.82) |
-| `gen` usable as an identifier | reserved keyword |
-| `extern "C" { fn abs(…); }` | must be `unsafe extern "C" { … }`; an item marked `safe fn` is called without `unsafe` |
-| `env::set_var` and `env::remove_var` are safe | both are `unsafe`, so `unsafe_code = "forbid"` rejects them; pass tests a lookup (RS-TEST-16) |
-
-### 2.3 Standard-library features that replaced ecosystem crates
-
-The ones most often missed: `LazyLock` for `lazy_static`, `cfg_select!` for `cfg-if`,
-`assert_matches!` for `assert!(matches!(..))`, `File::lock` for `fs2`, `async fn` in traits for
-`#[async_trait]`, and `Atomic*::update` for a `compare_exchange` loop. RS-MIG-01 has every one, with
-the release it arrived in.
+- `LazyLock` and `OnceLock`, in place of `lazy_static` and `once_cell` (RS-CONC-27).
+- `cfg_select!`, in place of `cfg-if` (RS-MOD-07).
+- `assert_matches!`, in place of `assert!(matches!(..))` and the `assert_matches` crate
+  (RS-TEST-13).
+- `File::lock`, `try_lock` and `lock_shared`, in place of `fs2` and its forks; `fs::set_times`, in
+  place of `filetime` (RS-MIG-01).
+- `async fn` in traits, in place of `#[async_trait]` wherever no trait object is needed
+  (RS-CONC-32).
+- `Atomic*::update` and `try_update`, in place of a `compare_exchange` loop and `fetch_update`
+  (RS-CONC-25).
 
 ## 3. Design principles
 

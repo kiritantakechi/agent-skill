@@ -84,6 +84,43 @@ def test_rust_searches_the_pinned_crates_source(
     assert provides(step) is live
 
 
+@pytest.mark.skipif(not have("rg"), reason="`rg` is not on PATH")
+@pytest.mark.parametrize(
+    ("spelling", "live"),
+    [
+        # The standard library's source, when the toolchain ships it.
+        ("std::env::home_dir", True),
+        ("Atomic*::fetch_update", None),
+        ("std::sync::ONCE_INIT", True),
+        ("std::mem::forget_unchecked", False),
+        # An attribute is compiled, edition 2021 against edition 2024.
+        ("#[no_mangle]", False),
+        ("#[inline]", True),
+    ],
+)
+def test_rust_looks_up_the_language_in_the_pinned_toolchain(
+    skills: list[Skill],
+    tmp_path: Path,
+    spelling: str,
+    live: bool | None,  # noqa: FBT001 — a parametrised expectation
+) -> None:
+    rust = next(s for s in skills if s.name == "rust-style")
+    step = RUST.probe(rust, spelling, tmp_path)
+    if live is not None and step is None:
+        pytest.skip("the pinned toolchain ships no standard-library source here")
+    assert provides(step) is live
+
+
+def test_rust_reads_an_attribute_no_edition_accepts_as_a_broken_probe(
+    skills: list[Skill], tmp_path: Path
+) -> None:
+    """Rejected by the older edition too, the probe proves nothing."""
+    rust = next(s for s in skills if s.name == "rust-style")
+    step = RUST.probe(rust, "#[export_name]", tmp_path)
+    assert step is not None
+    assert execute(step).rc == 2
+
+
 @pytest.mark.skipif(not have("zig"), reason="`zig` is not on PATH")
 @pytest.mark.parametrize(
     ("spelling", "live"),

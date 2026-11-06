@@ -128,7 +128,9 @@ PROFILE = Profile(
         {
             # A dependency the standard library replaced, one per
             # pattern.
-            "RS-MIG-01": ('lazy_static = "1.5"', 'async-trait = "0.1"'),
+            "RS-MIG-01": ('lazy_static = "1.5"', 'fd-lock = "4"'),
+            # A grab-bag module, declared inline and from a file.
+            "RS-NAME-05": ("pub mod utils;", "mod helpers {"),
             "RS-MIG-02": (
                 "counter.fetch_update(Ordering::SeqCst, Ordering::SeqCst, step)",
                 "let ceiling = std::i32::MAX;",

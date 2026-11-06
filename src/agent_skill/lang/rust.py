@@ -207,7 +207,7 @@ class RustCrate:
         library = (self.library.dependency(),) if self.library else ()
         deps = "\n".join((*self.dependencies, *library))
         return (
-            f'[package]\nname = "{self.name}"\nversion = "0.1.0"\nedition = "2024"\n'
+            f'[package]\nname = "{self.name}"\nversion = "0.1.0"\nedition = "{EDITION}"\n'
             f'rust-version = "{self.rust.version}"\n\n[dependencies]\n{deps}\n'
             "\n[workspace]\n\n" + lints + "\n"
         )
@@ -548,9 +548,12 @@ class Rust:
         `bevy-0.20.1` and every `bevy_*-0.20.1` — or, for a standard
         about the language, the standard library's source when the
         toolchain ships it. A path is looked up by its last segment:
-        `Commands::spawn` by a `fn spawn`. None for a spelling that is
-        not a path, or when no source is there to search.
+        `Commands::spawn` by a `fn spawn`. An attribute is no item to
+        find, so it is compiled (`_compiled`). None for any other
+        spelling, or when no source is there to search.
         """
+        if ATTRIBUTE.fullmatch(spelling):
+            return _compiled(spelling, out)
         name = spelling.removesuffix("()").removesuffix("!")
         sources = _sources(skill)
         if not PATH.fullmatch(name) or not sources:
@@ -584,6 +587,33 @@ class Rust:
 
 #: A name a probe can look up: a path of identifiers.
 PATH = re.compile(r"[A-Za-z_]\w*(?:::[A-Za-z_]\w*)*")
+
+#: A spelling a probe compiles rather than looks up: an outer attribute.
+ATTRIBUTE = re.compile(r"#\[[^\[\]]+\]")
+
+#: The edition the examples are written in, and the one before it.
+EDITION = "2024"
+PREVIOUS_EDITION = "2021"
+
+
+def _compiled(attribute: str, out: Path) -> Step:
+    """A step that exits 0 while the target edition accepts `attribute`.
+
+    The attribute is compiled on an exported function under the edition
+    before the target's, then under the target's: 1 when only the older
+    edition accepts it, which is what `gone` claims, and 2 when neither
+    does — the probe itself is wrong, and the driver says so rather than
+    reading a broken probe as a verified row.
+    """
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / f"probe_{len(list(out.glob('probe_*.rs'))):03d}.rs"
+    path.write_text(f'{attribute}\npub extern "C" fn probe() {{}}\n')
+    rustc = "rustc --crate-type lib --emit metadata --out-dir . --edition"
+    script = (
+        f'{rustc} {PREVIOUS_EDITION} "$1" 2>/dev/null || exit 2; '
+        f'exec {rustc} {EDITION} "$1"'
+    )
+    return Step("probe", ("sh", "-c", script, "probe", path.name), out, 120)
 
 
 def _defines(name: str) -> str:

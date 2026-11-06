@@ -82,15 +82,19 @@ Rust ships a stable release every six weeks and has no LTS channel, so the rules
 
 ### RS-BUILD-01 [M] Use `edition = "2024"` for anything new
 
-`edition = "2024"` for anything new. The 2024 edition tightens `unsafe_op_in_unsafe_fn`,
-`static_mut_refs`, RPIT lifetime capture, and `if let` temporary scopes — all of which make code
-more correct, not merely newer.
+A crate moved onto it changes where the migration table's edition rows say: unsafe attributes are
+written `#[unsafe(no_mangle)]`, `gen` is a keyword, a temporary in an `if let` scrutinee drops
+before the `else` block and one in a block's tail expression before the block's locals, and
+`Box<[T]>::into_iter` yields by value. It also tightens `unsafe_op_in_unsafe_fn`, `static_mut_refs`
+and RPIT lifetime capture, which the rows' own rules hold.
 
 **Why:** each of those changes converts a class of silent bug into a diagnostic. `if let` temporary
 scopes in particular fixed a real deadlock pattern where a lock guard in the scrutinee outlived the
 body. Editions are per-crate, so adopting it costs nothing to dependents.
 
-**Check:** `edition = "2024"` in the manifest; `cargo init` produces it by default.
+**Check:** `edition = "2024"` in the manifest, which `cargo init` writes. Was the crate moved with
+`cargo fix --edition`, and was each `if let` and tail expression it rewrote read for a lock or a
+`Drop` whose timing it moved?
 
 ```toml
 # fragment — Cargo.toml

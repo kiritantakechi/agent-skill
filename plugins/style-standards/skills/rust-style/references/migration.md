@@ -1,54 +1,107 @@
 # Migration: Editions, Releases, and What Replaced What
 
-Scope: what changed under existing Rust code — the 2024 edition, the stable releases since, the
-crates the standard library has replaced, and the APIs it has deprecated — and when each API the
-rules prescribe arrived, for a crate whose MSRV is older.
+Scope: every old spelling the 2024 edition, the releases through 1.99 and the standard library's own
+growth left behind — removed, changed, superseded by std or deprecated — keyed by the old spelling,
+with the rule that owns it; what changed under existing code with no spelling to find it by; and
+when each API the rules prescribe arrived, for a crate whose MSRV is older. Why a spelling is wrong
+is its owning rule's to say; this chapter is the table and the command it generates.
 
 Every rule ID a revision of this standard changed, and what it became, is in
 `references/renames.md`.
 
 ## Contents
 
-- RS-MIG-01 [M] Reach for the standard-library feature that replaced a crate
-- RS-MIG-02 [M] Do not call an API deprecated through 1.99
+- Old spellings
+- **What replaced what**
+  - RS-MIG-01 [M] Reach for the standard-library feature that replaced a crate
+  - RS-MIG-02 [M] Do not call an API deprecated through 1.99
 - When an API arrived
-- RS-MIG-03 [M] Re-read what changed silently on every toolchain bump
+- **What changed silently**
+  - RS-MIG-03 [M] Re-read what changed silently on every toolchain bump
 - Decided by tools
 
 ---
+
+## Old spellings
+
+A row's status says what its old spelling does under Rust 1.99, edition 2024, with the shipped
+configuration: `gone` — the edition rejects it, so the build fails where it stands; `alias` — it
+still builds, and the standard library provides what it was for, so it is rewritten wherever it
+stands; `changed` — it compiles and means something else, or is rejected in a shape no fixed string
+finds, so its owning rule's Check finds it; `deprecated` — it builds with a warning, which
+`CARGO_BUILD_WARNINGS=deny` makes a failed build. The command after the table finds every `gone` and
+`alias` row.
+
+| Old | Rust 1.99 | Status | Rule |
+|---|---|---|---|
+| `#[no_mangle]` | `#[unsafe(no_mangle)]`; `#[export_name]` and `#[link_section]` likewise | gone | RS-BUILD-01 |
+| `lazy_static!` | `std::sync::LazyLock` | alias | RS-CONC-27 |
+| `once_cell::sync::Lazy` | `std::sync::LazyLock` | alias | RS-CONC-27 |
+| `once_cell::sync::OnceCell` | `std::sync::OnceLock` | alias | RS-CONC-27 |
+| `cfg_if::cfg_if` | `cfg_select!` | alias | RS-MOD-07 |
+| `itoa::Buffer` | `<int>::format_into(&mut NumBuffer)` | alias | RS-MIG-01 |
+| `fs2::FileExt` | `File::lock`, `try_lock`, `lock_shared` | alias | RS-MIG-01 |
+| `fs4::fs_std::FileExt` | `File::lock`, `try_lock`, `lock_shared` | alias | RS-MIG-01 |
+| `fd_lock::RwLock` | `File::lock`, `lock_shared` | alias | RS-MIG-01 |
+| `filetime::set_file_times` | `fs::set_times`, `File::set_times` | alias | RS-MIG-01 |
+| `os_pipe::pipe` | `io::pipe` | alias | RS-MIG-01 |
+| `static_assertions::const_assert` | `const _: () = assert!(…)`, or `const { assert!(…) }` | alias | RS-MIG-01 |
+| `assert_matches::assert_matches` | `assert_matches!`, imported from `std` | alias | RS-TEST-13 |
+| `home::home_dir` | `std::env::home_dir` | alias | RS-CLI-29 |
+| `dirs::home_dir` | `std::env::home_dir` | alias | RS-CLI-29 |
+| `num_cpus::get` | `std::thread::available_parallelism` | alias | RS-CONC-14 |
+| `atty::is` | `std::io::IsTerminal` | alias | RS-CLI-19 |
+| `is_terminal::IsTerminal` | `std::io::IsTerminal` | alias | RS-CLI-19 |
+| `memoffset::offset_of` | `std::mem::offset_of!`, nested fields included | alias | RS-UNSAFE-14 |
+| `criterion::black_box` | `std::hint::black_box` | alias | RS-PERF-34 |
+| `test::black_box` | `std::hint::black_box` | alias | RS-PERF-34 |
+| `$e:expr` | matches `_` and `const { … }` as well, so a later `_` arm stops firing; `expr_2021` keeps the old fragment | changed | RS-MACRO-09 |
+| `-> impl Trait` | captures every lifetime in scope, so a caller can fail to borrow; narrow it with `+ use<'a, T>` | changed | RS-OWN-22 |
+| `Box<[T]>::into_iter` | yields `T`, by value, where it yielded `&T` | changed | RS-BUILD-01 |
+| `env::remove_var` | `unsafe`, which `unsafe_code = "forbid"` rejects; pass the code under test a lookup | changed | RS-TEST-16 |
+| `env::set_var` | `unsafe`, which `unsafe_code = "forbid"` rejects; pass the code under test a lookup | changed | RS-TEST-16 |
+| `extern "C" { … }` | rejected; `unsafe extern "C" { … }`, where an item marked `safe fn` is called without `unsafe` | changed | RS-UNSAFE-23 |
+| `gen` | a reserved keyword, so rejected as a name; `r#gen` where the name must stay | changed | RS-BUILD-01 |
+| `if let` | a temporary in the scrutinee drops before the `else` block, which shortens a lock guard's life | changed | RS-BUILD-01 |
+| `static mut` | a reference to one is `static_mut_refs`, denied; `OnceLock`, `LazyLock` or an atomic | changed | RS-CONC-27 |
+| `unsafe fn` | its body is no longer one `unsafe` block: `unsafe_op_in_unsafe_fn` warns on each operation, and CI denies warnings | changed | RS-UNSAFE-06 |
+| `Atomic*::fetch_update` | `try_update`, which it now aliases | deprecated | RS-CONC-25 |
+| `std::<int>::MAX` | `<int>::MAX`; `MIN` and the other module constants likewise | deprecated | RS-MIG-02 |
+
+```sh
+rg -n -F \
+  -e '#[no_mangle]' \
+  -e 'lazy_static!' \
+  -e 'once_cell::sync::Lazy' \
+  -e 'once_cell::sync::OnceCell' \
+  -e 'cfg_if::cfg_if' \
+  -e 'itoa::Buffer' \
+  -e 'fs2::FileExt' \
+  -e 'fs4::fs_std::FileExt' \
+  -e 'fd_lock::RwLock' \
+  -e 'filetime::set_file_times' \
+  -e 'os_pipe::pipe' \
+  -e 'static_assertions::const_assert' \
+  -e 'assert_matches::assert_matches' \
+  -e 'home::home_dir' \
+  -e 'dirs::home_dir' \
+  -e 'num_cpus::get' \
+  -e 'atty::is' \
+  -e 'is_terminal::IsTerminal' \
+  -e 'memoffset::offset_of' \
+  -e 'criterion::black_box' \
+  -e 'test::black_box' \
+  .
+```
 
 ## What replaced what
 
 ### RS-MIG-01 [M] Reach for the standard-library feature that replaced a crate
 
-| Reach for this | Not this | Since |
-|---|---|---|
-| `OnceLock`, `LazyLock` | `lazy_static`, `once_cell` for the common cases | 1.70 / 1.80 |
-| `cfg_select!` | `cfg-if` | 1.95 |
-| `<int>::format_into(&mut NumBuffer)` | `itoa` | 1.98 |
-| `File::lock`, `try_lock`, `lock_shared` | `fs2`, `fs4`, `fd-lock` for a whole-file advisory lock | 1.89 |
-| `fs::set_times`, `File::set_times` | `filetime` | 1.99 |
-| `io::pipe` | `os_pipe` | 1.87 |
-| `assert_matches!` and `debug_assert_matches!`, imported from `std` | the `assert_matches` crate, `assert!(matches!(..))` | 1.96 |
-| `async fn` and `impl Trait` in traits | `#[async_trait]` where no `dyn` is needed | 1.75 |
-| async closures and `AsyncFn*` bounds | an `F: Fn() -> Fut, Fut: Future` pair | 1.85 |
-| trait upcasting, including to `dyn Any` | a hand-written `fn as_any(&self) -> &dyn Any` | 1.86 |
-| `Atomic*::update`, `try_update` | a `compare_exchange` loop, `fetch_update` | 1.95 |
-| `strict_*` arithmetic | `checked_*().expect(..)` where overflow is a bug | 1.91 |
-| `extract_if` on `Vec`, `HashMap`, `BTreeMap` | `retain` plus a second collection | 1.87 / 1.88 / 1.91 |
-| `env::home_dir` | `home`, or `dirs::home_dir` for `$HOME` alone | 1.87 |
-| `thread::scope` | `Arc` and `'static` to borrow into a thread | 1.63 |
-| `thread::available_parallelism` | `num_cpus` for how many threads to start | 1.59 |
-| `io::IsTerminal` | `atty`, `is-terminal` | 1.70 |
-| `mem::offset_of!`, nested fields included | `memoffset` | 1.77 / 1.82 |
-| `const _: () = assert!(…)`, `const { assert!(…) }` | `static_assertions` | 1.57 / 1.79 |
-| `hint::black_box` | `criterion::black_box`, `test::black_box` | 1.66 |
-| `<[T]>::chunk_by` | itertools `group_by` on a slice | 1.77 |
-| `let ... else` | a `match` with a `_ => return` arm | 1.65 |
-| `c"…"` literals | a hand-terminated byte array | 1.77 |
-| `#[expect(lint, reason = "…")]` | an `#[allow]` nobody removes | 1.81 |
-| `[lints]` in `Cargo.toml` | `#![deny(...)]` in `lib.rs` | 1.74 |
-| `CARGO_BUILD_WARNINGS=deny` | `RUSTFLAGS="-Dwarnings"`, which invalidates the cache | 1.97 |
+Every `alias` row is a crate, or a crate's API, that the standard library replaced; the rows with no
+topical rule are this rule's. A dependency on one is the finding, wherever the manifest declares it.
+A crate that is still the right tool for part of its use — `async-trait` where a trait object needs
+`async fn` — is no row: RS-CONC-32 decides it.
 
 **Why:** a dependency the standard library covers is code to audit, update and build for nothing,
 and the crate's spelling outlives the reason it existed. The std version is also the one every
@@ -57,44 +110,55 @@ reader already knows.
 **Check:** each hit is a dependency the standard library now covers, in the workspace table, a
 member's manifest, or a member's `foo.workspace = true` line:
 `rg -n -g '*.toml' '^(lazy_static|once_cell|cfg-if|itoa|fs[24]|filetime|num_cpus|memoffset)[ .=]'`
-`rg -n -g '*.toml' '^(atty|is-terminal|os_pipe|assert_matches|async-trait|static_assertions)[ .=]'`
+`rg -n -g '*.toml' '^(atty|is-terminal|os_pipe|assert_matches|static_assertions|fd-lock)[ .=]'`
 
 ### RS-MIG-02 [M] Do not call an API deprecated through 1.99
 
-`Atomic*::fetch_update` is deprecated in 1.99: use `update` or `try_update`. The module constants
-`std::i32::MAX` and the rest are deprecated too: use the associated `i32::MAX`.
+Every `deprecated` row: `Atomic*::fetch_update` is renamed `try_update`, and the module constants
+`std::i32::MAX` and the rest give way to the associated `i32::MAX`.
 
 **Why:** a deprecation warns, and `CARGO_BUILD_WARNINGS=deny` turns the warning into a failed build
 — so a toolchain bump breaks CI on code that has not changed.
 
-**Check:** the `deprecated` row below, under `CARGO_BUILD_WARNINGS=deny`; before a toolchain bump,
+**Check:** rustc's `deprecated` lint, under `CARGO_BUILD_WARNINGS=deny`; before a toolchain bump,
 `rg -n '\.fetch_update\(|std::[iu](8|16|32|64|128|size)::(MAX|MIN)\b' src/`.
 
 ## When an API arrived
 
 The rules write what 1.99 offers. A crate whose MSRV is older (RS-BUILD-31) checks each API it uses
-against this table and RS-MIG-01's "Since" column, which keep the dates the rules no longer carry.
+against this table, which keeps the dates the rules no longer carry.
 
 | API | Stable since |
 |---|---|
-| generic associated types | 1.65 |
-| an omitted `version` meaning `0.0.0` and `publish = false` | 1.75 |
+| `const _: () = assert!(…)` | 1.57 |
+| `thread::available_parallelism` | 1.59 |
+| `thread::scope` | 1.63 |
+| `let ... else`; generic associated types | 1.65 |
+| `hint::black_box` | 1.66 |
+| `OnceLock`; `io::IsTerminal` | 1.70 |
+| `[lints]` in `Cargo.toml` | 1.74 |
+| `async fn` and `impl Trait` in traits; an omitted `version` meaning `0.0.0` and `publish = false` | 1.75 |
 | `Arc::unwrap_or_clone`, `Rc::unwrap_or_clone` | 1.76 |
-| `File::create_new`; `<[T]>::first_chunk` | 1.77 |
+| `File::create_new`; `<[T]>::first_chunk`; `<[T]>::chunk_by`; `mem::offset_of!`; `c"…"` literals | 1.77 |
 | `#[diagnostic::on_unimplemented]` | 1.78 |
-| `CStr::count_bytes` | 1.79 |
-| `core::error::Error`; `fs::exists` | 1.81 |
-| `use<..>` bounds; `&raw const` and `&raw mut`; `unsafe extern` blocks | 1.82 |
+| `CStr::count_bytes`; `const { … }` blocks | 1.79 |
+| `LazyLock` | 1.80 |
+| `core::error::Error`; `fs::exists`; `#[expect(lint, reason = "…")]` | 1.81 |
+| `use<..>` bounds; `&raw const` and `&raw mut`; `unsafe extern` blocks; `offset_of!` on nested fields | 1.82 |
 | `BufRead::skip_until` | 1.83 |
-| `#[diagnostic::do_not_recommend]`; unsigned `midpoint`; `Waker::noop`; `ptr::fn_addr_eq` | 1.85 |
-| `Vec::pop_if` | 1.86 |
-| `OsStr::display`; `is_multiple_of` | 1.87 |
-| let chains, in edition 2024 | 1.88 |
-| `Path::with_added_extension` | 1.91 |
+| `#[diagnostic::do_not_recommend]`; unsigned `midpoint`; `Waker::noop`; `ptr::fn_addr_eq`; async closures and `AsyncFn*` bounds | 1.85 |
+| `Vec::pop_if`; trait upcasting, including to `dyn Any` | 1.86 |
+| `OsStr::display`; `is_multiple_of`; `io::pipe`; `env::home_dir` undeprecated; `extract_if` on `Vec` | 1.87 |
+| let chains, in edition 2024; `extract_if` on `HashMap` | 1.88 |
+| `File::lock`, `try_lock`, `lock_shared` | 1.89 |
+| `Path::with_added_extension`; `strict_*` arithmetic; `extract_if` on `BTreeMap` | 1.91 |
 | `fmt::from_fn`; `Vec::into_raw_parts`; `VecDeque::pop_front_if` and `pop_back_if` | 1.93 |
 | `array_windows`; `Peekable::next_if_map` | 1.94 |
-| `if let` guards; `hint::cold_path` | 1.95 |
-| `core::range::Range` | 1.96 |
+| `if let` guards; `hint::cold_path`; `cfg_select!`; `Atomic*::update` and `try_update` | 1.95 |
+| `core::range::Range`; `assert_matches!` and `debug_assert_matches!` | 1.96 |
+| `CARGO_BUILD_WARNINGS=deny` | 1.97 |
+| `<int>::format_into(&mut NumBuffer)` | 1.98 |
+| `fs::set_times`, `File::set_times` | 1.99 |
 
 ## What changed silently
 
