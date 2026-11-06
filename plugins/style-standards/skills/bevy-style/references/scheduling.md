@@ -84,7 +84,7 @@ time the player spends looking at nothing. Loading is also fallible and progress
 progress bar, a retry and a state transition, none of which a `Startup` system can express.
 
 **Check:** for each `Startup` system, ask how long it takes on the slowest supported machine. If the
-answer is "depends on the disk", it belongs in a loading state (`references/state.md` BV-STATE-09).
+answer is "depends on the disk", it belongs in a loading state (BV-STATE-09).
 
 ### BV-SCHED-04 [S] Derive from this frame's transforms in `PostUpdate`
 

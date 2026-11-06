@@ -934,7 +934,7 @@ The `Material` impl naming a shader path lives beside the struct, and the shader
 struct's module name predicts. That shader is WESL, a `.wesl` with `import …;`, `@if(…)` and
 `constants::MATERIAL_BIND_GROUP`, where a `.wgsl` used `#import` and `#ifdef`. GLSL is gone, with
 the `shader_format_glsl` and `shader_format_wesl` features, and the module paths that moved are in
-`references/migration.md` BV-MIG-17.
+BV-MIG-17.
 
 **Why:** nothing checks a struct's fields against the shader's bindings at compile time: a mismatch
 fails at pipeline compilation, at run time, naming a binding index. Side by side, a field added on

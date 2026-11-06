@@ -4,9 +4,9 @@ Scope: how a Bevy project is tested — what can be tested without the engine at
 smallest `App` that exercises a plugin, and how to drive it so the test is deterministic. General
 test practice is unchanged and lives in the other standard; this chapter is the part Bevy shapes.
 
-The most important rule here is the one about not needing this chapter: the boundary of
-`references/architecture.md` BV-ARCH-01 exists so that most of a game's logic is tested by ordinary
-Rust unit tests, in microseconds, with no `World`.
+The most important rule here is the one about not needing this chapter: the boundary of BV-ARCH-01
+exists so that most of a game's logic is tested by ordinary Rust unit tests, in microseconds, with
+no `World`.
 
 ## Contents
 

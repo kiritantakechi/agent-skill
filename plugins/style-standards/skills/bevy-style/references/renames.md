@@ -8,9 +8,9 @@ holding a citation made before a revision.
 
 Before the revision the families ran `BV-ARC-01`–`BV-ARC-19`, `BV-ASS-01`–`BV-ASS-14`,
 `BV-CAR-01`–`BV-CAR-21`, `BV-ECS-01`–`BV-ECS-32`, `BV-ERR-01`–`BV-ERR-17`, `BV-EVT-01`–`BV-EVT-20`,
-`BV-MIG-01`–`BV-MIG-18`, `BV-SCH-01`–`BV-SCH-26`, `BV-STA-01`–`BV-STA-22`, `BV-TST-01`–`BV-TST-15`
-and `BV-UI-01`–`BV-UI-21`. The table lists every ID in those ranges that changed, and what it is
-now; an ID it does not list is unchanged.
+`BV-MIG-01`–`BV-MIG-18`, `BV-SCH-01`–`BV-SCH-26`, `BV-STA-01`–`BV-STA-22`, `BV-TST-01`–`BV-TST-15`,
+`BV-UI-01`–`BV-UI-21` and `BV-CORE-01`–`BV-CORE-24`. The table lists every ID in those ranges that
+changed, and what it is now; an ID it does not list is unchanged.
 
 | Before | Now |
 |---|---|
@@ -224,3 +224,27 @@ now; an ID it does not list is unchanged.
 | `BV-UI-19` | `BV-VIEW-19` |
 | `BV-UI-20` | `BV-VIEW-20` |
 | `BV-UI-21` | `BV-VIEW-21` |
+| `BV-CORE-01` | `BV-ARCH-01` |
+| `BV-CORE-02` | `BV-ARCH-02` |
+| `BV-CORE-03` | `BV-ARCH-04` |
+| `BV-CORE-04` | `BV-ARCH-09` |
+| `BV-CORE-05` | `BV-ECS-02` |
+| `BV-CORE-06` | `BV-ECS-06` |
+| `BV-CORE-07` | `BV-ECS-16` |
+| `BV-CORE-08` | `BV-ECS-24` |
+| `BV-CORE-09` | `BV-ECS-19` |
+| `BV-CORE-10` | `BV-ECS-03` |
+| `BV-CORE-11` | `BV-SCHED-01` |
+| `BV-CORE-12` | `BV-SCHED-11` |
+| `BV-CORE-13` | `BV-SCHED-15` |
+| `BV-CORE-14` | `BV-SCHED-05` |
+| `BV-CORE-15` | `BV-EVENT-01` |
+| `BV-CORE-16` | `BV-EVENT-09` |
+| `BV-CORE-17` | `BV-EVENT-04` |
+| `BV-CORE-18` | `BV-ERR-01` |
+| `BV-CORE-19` | `BV-ERR-05` |
+| `BV-CORE-20` | `BV-ERR-07` |
+| `BV-CORE-21` | `BV-ARCH-16` |
+| `BV-CORE-22` | `BV-BUILD-04` |
+| `BV-CORE-23` | `BV-BUILD-02` |
+| `BV-CORE-24` | `BV-BUILD-14` |

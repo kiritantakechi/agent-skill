@@ -944,7 +944,7 @@ runs again on every later write, spawning a second sound or a second child. The 
 when someone starts mutating the component, which may be months later and in another module.
 
 **Check:** for each `Changed<T>` filter, ask whether running twice for one entity is acceptable. If
-not, it is `Added<T>` — or, better, an observer on `Add` (`references/events.md` BV-EVENT-13).
+not, it is `Added<T>` — or, better, an observer on `Add` (BV-EVENT-13).
 
 ```rust
 // verified — the same body under both filters, counted

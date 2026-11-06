@@ -28,7 +28,7 @@ Do not read the diff top to bottom. Read in this order, because a finding at eac
 invalidate the work of reading the next.
 
 1. **The boundary.** Does anything outside the view layer name Bevy? It is the one defect this
-   standard exists to prevent, and it stays invisible until the next upgrade. (`BV-ARCH-01`)
+   standard exists to prevent, and it stays invisible until the next upgrade. (BV-ARCH-01)
 2. **Stale APIs.** Is every API a 0.20 API? Check anything that looks like a tutorial against
    `references/migration.md`; `Trigger`, `EventReader`, `Parent`, `*Bundle`, `Pointer<Click>` and
    `On<Add, T>` are the usual ones. (`BV-MIG`)

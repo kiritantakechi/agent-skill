@@ -372,7 +372,7 @@ explanation.
 
 Setup when a component appears is `On<Add<T>>`, not a system with `Query<…, Added<T>>`. The
 component is the lifecycle event's parameter, not `On`'s, and an observer of dynamic components
-(`.with_component(id)`) is `On<Add<()>>` (`references/migration.md` BV-MIG-14).
+(`.with_component(id)`) is `On<Add<()>>` (BV-MIG-14).
 
 **Why:** the observer runs at the moment the component is inserted, so nothing else ever sees the
 entity half-initialised. A polling system runs at some later point in the frame, and everything

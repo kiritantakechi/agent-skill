@@ -361,8 +361,8 @@ def _words(text: str) -> set[str]:
 def _mis_cited(skill: Skill) -> Iterator[Finding]:
     """A core rule citing a sibling of the rule it is actually about.
 
-    `BV-CORE-16` summarised the `EntityEvent` rule and cited the rule
-    above it. Everything mechanical passed: the id existed and lived in
+    One of bevy-style's core rules summarised the `EntityEvent` rule
+    and cited the rule above it. Everything mechanical passed: the id existed and lived in
     the cited chapter, which is all `_references` asks.
 
     The test is **relative**, not a threshold. A well-written summary

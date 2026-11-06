@@ -148,7 +148,7 @@ struct's constructors, literal and vector are searched for.
 
 **Why:** the rename is a trap rather than a chore: `Node` changed meaning instead of disappearing,
 so the compiler accepts a read written for the 0.14 meaning and hands back the requested size
-(`references/view.md` BV-VIEW-03).
+(BV-VIEW-03).
 
 **Check:** `rg -n 'UiImage|UiImageSize|stack_index' src/`, and read every use of `Node` that is
 asking for a computed size — that value is on `ComputedNode` and no grep can tell them apart.
@@ -233,8 +233,8 @@ What 0.16 called an event, sent with `EventWriter` and read with `EventReader`, 
 "Event" means an observed event only.
 
 **Why:** this is the single largest source of stale Bevy code, because the old names are the obvious
-ones and every tutorial uses them. The split is described in `references/events.md` BV-EVENT-01;
-this table is the mechanical half.
+ones and every tutorial uses them. The split is described in BV-EVENT-01; this table is the
+mechanical half.
 
 **Check:**
 `rg -n '\bEvent(Reader|Writer)\b|\bEvents<|\bsend_event\b|\b(add|on)_event::<|RemovedComponentEvents' src/`.
@@ -356,7 +356,7 @@ and the manifest for the renamed feature names.
 0.19 renamed the old scene crate to `bevy_world_serialization` and gave the name `bevy_scene` to the
 new `bsn!`-based scene system. The two are unrelated. Everything that was `Scene` is `WorldAsset`;
 `Scene` is now a trait in the new system, the `scene` collection enables both, and since 0.20 a
-scene reference inside `bsn!` takes `@` (`references/view.md` BV-VIEW-09).
+scene reference inside `bsn!` takes `@` (BV-VIEW-09).
 
 **Why:** a `use` naming `bevy_scene` still resolves, and the `bevy_scene` cargo feature still
 exists: in 0.18 it enabled the serialization crate and since 0.19 the new scene system, so a
@@ -499,8 +499,7 @@ compiles, so the build finds every one the search misses.
 ### BV-MIG-17 [M] Replace the remaining 0.20 renames and removals
 
 The rest of what 0.20 renamed or removed, across the Rust, the shaders and the manifest. Shaders are
-WESL now (`references/view.md` BV-VIEW-18), and a domain crate that names `glam` moves with Bevy
-(`references/architecture.md` BV-ARCH-05).
+WESL now (BV-VIEW-18), and a domain crate that names `glam` moves with Bevy (BV-ARCH-05).
 
 **Why:** two of these keep their name and change meaning, which no build reports: the
 `compressed_image_saver` feature now selects a BCn/ASTC backend, and `SpriteMaterial` is a new
