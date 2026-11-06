@@ -173,6 +173,45 @@ side effects. Fields that are code today become data interpreted by one engine:
 A test asserts that no module outside `profiles/` and `lang/` contains a skill name or a toolchain
 name as a string literal.
 
+As built (task 6):
+
+- The record types are in `profiles.record`, each profile is a `PROFILE` literal in its standard's
+  module, and `profiles.PROFILES` is the one mapping. A branch is still declared where its rule is
+  stated, so importing a profile declares branches and registers nothing else.
+- A `LineRule` is `(branch, pattern, message, comments, unless_own, unless, needs)`. Its scope is
+  the profile field it sits in, `conventions` or `prose`, not a field of its own; `branch` takes the
+  place of `rule`, since the branch names the check and the level; `unless_own` is the rule ID whose
+  own example or own prose shows the forbidden spelling on purpose. What excuses a hit, or must sit
+  beside it, is a `Near(pattern, above, below, stop, own)`, gathered with `outside_tests` in an
+  `Unless`; `self-application`'s exemptions are `Unless` records too, so one vocabulary says what a
+  rule permits wherever its pattern runs. `checks.lines` is the one reader.
+- A branch reports a line once, at its leftmost hit, so a rule stated as two patterns behaves as the
+  alternation it was.
+- A rule that reads an example's structure rather than its lines stays a function of one block,
+  named in its profile's module and listed in `structural`. Four are left: Bevy's component shape
+  and type suffixes, Rust's unreachable `Default`, Zig's import order.
+- The toolchain configuration is `PythonSnippet | RustCrate | ZigBuild`, and `lang.toolchain_for`
+  dispatches on its type. Every pin in it is a `Pin`; decision 3's `Pin` gains the operators the
+  files it is copied into spell (`==`, `>=`, Cargo's `=`, `uv`'s `-`) and `Version` PEP 440's local
+  label, so `cpython-3.15.2+freethreaded` and `bevy=0.20.1` are one type with `ruff==0.17.3`. A
+  library is a `Library(pin, features)` that refuses an inexact pin, and a delta is one
+  `Delta(anchor, step)`, so neither can be declared by halves. `Profile.subject` names what a
+  standard is about when that is not its toolchain's release; `pin` and `release` are derived.
+- What a check knew about one toolchain is that toolchain's: `Toolchain.cite`, `.pins`, `.asset`
+  and `.format`, with the branches they report through declared in `lang/` under the check's name,
+  as the toolchain's own steps already were, and the tools each asks for (`needs`, `cites_with`,
+  `pins_with`, `assets_with`) read by the checks for their `needs`. A `Language` record per
+  toolchain holds the comment token, string quotes, file suffix and test reader.
+- The harness's own tool pins are one `Harness` record in `harness.py`, read from `pyproject.toml`.
+- The test reads the names off `PROFILES`: each skill's name, and each toolchain's name and fence. A
+  literal equal to a toolchain's name fails even where it is a binary (`zig`), which is why the
+  code that runs `zig` on a probe or a shipped `build.zig` lives in `lang.zig`; a skill's name fails
+  anywhere in a literal, as a path's first part too. Docstrings and comments are not read.
+- Every standard other than the anchor declares the standard it is mirrored against, those with no
+  pairs as well, since an unheld pair is noted in any of them.
+- A branch that fired only on a declaration is a test over the records (`tests/test_profiles.py`)
+  and is gone; three are impossible by type besides.
+
 ### 8. `revise` is one operation with laws
 
 ```python

@@ -285,11 +285,48 @@
 
 ## 6. Profiles as records
 
-- [ ] 6.1 Convert each profile to a frozen record; move `MIRROR`, `FIXTURES`, the delta anchor, the
+- [x] 6.1 Convert each profile to a frozen record; move `MIRROR`, `FIXTURES`, the delta anchor, the
   ty rule table, the harness tool pins and every other per-skill constant out of `checks/`
-- [ ] 6.2 Replace convention and prose functions with `LineRule` data and one engine; verify every
-  existing finding is reproduced
-- [ ] 6.3 Add the test that no generic module contains a skill or toolchain name literal
+  — `2703a97`, `20d4290`, `b4d6c5e`; four `Profile` literals in `PROFILES`, `register()` gone; 26
+  constants and tables moved out of generic code (below); every pin the harness holds is a `Pin`
+- [x] 6.2 Replace convention and prose functions with `LineRule` data and one engine; verify every
+  existing finding is reproduced — `95bf590`; 16 `LineRule`s (Python 3 + 1 prose, Rust 6, Zig 5 + 1
+  prose) and 3 exemptions as `Unless` records, read by `checks.lines`; 4 escapes left; findings
+  identical, and old and new agree on 12,000 generated examples and 6,000 generated chapters
+- [x] 6.3 Add the test that no generic module contains a skill or toolchain name literal —
+  `tests/test_profiles.py`, names read off `PROFILES`; the 9 `HARNESS` exemptions are tests over the
+  records there (3 also impossible by type), their branches deleted: exemptions 44 → 35, controls 175
+
+  What moved, from generic code to a profile, a toolchain's module or `harness.py`:
+
+  | From | To |
+  |---|---|
+  | `mirror.MIRROR` (12 pairs), `mirror.ANCHOR` | each profile's `Mirror(anchor, pairs)` |
+  | `citations._ty_tables` reading `PYTHON_STYLE` | the skill's own `PythonSnippet` |
+  | `pins.TOOLS`, `pins.HARNESS`, `proc.PACKAGE`, the pin readers | `harness.HARNESS`, `harness.pinned` |
+  | `INTERPRETER`, `rust_version`, the Bevy dependency line, `ZIG_VERSION` | `Pin`s in the configs |
+  | `toolchain`, `crate`, `library`, `follows_local`, `delta_step`, `anchor`, `pin()` | `toolchain: PythonSnippet \| RustCrate \| ZigBuild`, `subject`, `Delta`; `pin`, `release` derived |
+  | `text._SYNTAX`, `corpus`'s suffix table, `markers`' `//` and `#`, `inside_tests` ×3 | `lang.Language` |
+  | `citations.LEVELS`, `SECTION`, `RUFF_TOML`, `TY_TOML`, `CODE`; `demote.COMPILERS` | toolchain `rows`, `compilers` and module constants |
+  | `pins.WORKFLOW`, `PROJECT`, `RELEASE`, `REQUIREMENT`, `STABLE` | `lang.python`, `lang.rust` |
+  | `fmt.FORMATTERS`, `INJECTED`, `_bodies`; `model.needs_c_object`, `repr_c_above` | `Toolchain.format`, `lang.rust`, `lang.zig`, `REPR_C` |
+  | the `needs` of `citations`, `pins`, `assets`, `toolchain` | read off the toolchains |
+  | `controls`' `PY`, `RS` and 47 skill paths | the profiles' names |
+
+  Escapes left, each a named function of one block in `structural`, because each reads the
+  example's structure rather than a line: Bevy's `component_shape` (a derive list, the attributes
+  above a struct, its fields) and `suffixes` (a plugin type's declaration found by name, a set's two
+  lines below its derive), Rust's `unused_defaults` (whether any line reaches a derived `Default`),
+  and Zig's `import_order` (which of two imports comes first).
+
+  Verification: `check --fast --verbose` differs from `87be9f8` in two notes only, which named the
+  deleted `MIRROR` table and now say the pair is one "its profile does not mirror". The old
+  convention, prose and exemption functions were run beside the engine: on every block of every
+  skill with BAD ones included, on every chapter with its Checks opened, and on generated input
+  built from each rule's own fragments. The one divergence found, Zig's `catch` stated as two
+  patterns reporting a line holding both alternatives twice, is why a branch reports a line once.
+  `check --fast` was red before this task and is unchanged: upstream released `ruff` 0.17.4 and
+  `ty` 0.0.99, so `pins.tool_stale` fires and four pin controls fire it beside their own branch.
 
 ## 7. Toolchains
 

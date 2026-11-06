@@ -8,8 +8,14 @@ a declaration is wrong, rather than standing as an exemption nobody can
 exercise.
 """
 
+import ast
+import re
+from pathlib import Path
+lazy from collections.abc import Iterator
+
 import pytest
 
+import agent_skill
 from agent_skill.checks.pins import _sort_key
 from agent_skill.lang import toolchain_for
 from agent_skill.lang.python import RELEASE, PythonSnippet
@@ -96,3 +102,88 @@ def test_a_mirror_is_held_against_a_standard_the_harness_knows(profile) -> None:
         assert profile.mirror.anchor in PROFILES, profile.name
         for rule, _ in profile.mirror.pairs:
             assert rule.startswith(f"{profile.prefix}-"), (profile.name, rule)
+
+
+#: The package, every module of which is read for literals.
+PACKAGE = Path(agent_skill.__file__).resolve().parent
+
+#: Where a fact about one skill or one toolchain may be spelled.
+OWNERS = ("profiles", "lang")
+
+
+def _names() -> tuple[set[str], set[str]]:
+    """Every skill's name, and every toolchain's, as the profiles say.
+
+    A toolchain is named by its module and by the fence its examples
+    are written in.
+    """
+    toolchains = {
+        tc.name for p in PROFILED if (tc := toolchain_for(p.toolchain)) is not None
+    }
+    toolchains |= {fence for p in PROFILED for fence in p.languages}
+    return set(PROFILES), toolchains
+
+
+def _literals(path: Path) -> Iterator[tuple[int, str]]:
+    """Each string literal in `path` and its line, docstrings left out.
+
+    A comment is not in the tree, and a docstring says why, which may
+    need a name; a literal is what the code acts on.
+    """
+    tree = ast.parse(path.read_text())
+    documented = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    docstrings = {
+        id(node.body[0].value)
+        for node in ast.walk(tree)
+        if isinstance(node, documented)
+        and node.body
+        and isinstance(node.body[0], ast.Expr)
+        and isinstance(node.body[0].value, ast.Constant)
+    }
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and id(node) not in docstrings
+        ):
+            yield node.lineno, node.value
+
+
+def _naming(skills: set[str], toolchains: set[str]) -> re.Pattern[str]:
+    """A literal that is a toolchain's name, or that names a skill."""
+    words = "|".join(re.escape(s) for s in sorted(skills))
+    whole = "|".join(re.escape(t) for t in sorted(toolchains))
+    return re.compile(rf"(?<![\w-])(?:{words})(?![\w-])|\A(?:{whole})\Z")
+
+
+def test_the_names_are_read_off_the_profiles() -> None:
+    """Derived, so the test below cannot pass over an empty set."""
+    skills, toolchains = _names()
+    assert len(skills) == len(PROFILED)
+    assert toolchains
+    naming = _naming(skills, toolchains)
+    owned = [
+        value
+        for owner in OWNERS
+        for path in (PACKAGE / owner).rglob("*.py")
+        for _, value in _literals(path)
+        if naming.search(value)
+    ]
+    assert owned, "no profile or toolchain spells a name, so nothing is found"
+
+
+def test_no_generic_module_names_a_skill_or_a_toolchain() -> None:
+    """Per-skill facts live in profiles, per-toolchain ones in `lang/`.
+
+    A skill's name in a check is a table keyed by it, or a branch on
+    it, and the next standard added is the one it forgets.
+    """
+    naming = _naming(*_names())
+    found = [
+        f"{path.relative_to(PACKAGE)}:{line}: {value[:60]!r}"
+        for path in sorted(PACKAGE.rglob("*.py"))
+        if path.relative_to(PACKAGE).parts[0] not in OWNERS
+        for line, value in _literals(path)
+        if naming.search(value)
+    ]
+    assert not found, "\n".join(found)
