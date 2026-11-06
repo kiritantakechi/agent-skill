@@ -1157,7 +1157,8 @@ CONTROLS: list[Control] = [
         lambda t: _row(
             t,
             f"{RS}/references/build.md",
-            "| clippy | `unwarp_used` | deny | an unwrap — listed because it is misspelt |",
+            "| clippy | `unwarp_used` | deny | an unwrap — listed because it is "
+            "misspelt |",
         ),
     ),
     Control(

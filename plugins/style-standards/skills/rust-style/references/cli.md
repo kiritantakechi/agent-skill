@@ -807,13 +807,13 @@ pub fn sources(args: &[PathBuf]) -> Vec<Source> {
 
 ### RS-CLI-26 [M!] Make destructive operations opt-in, and never prompt when not a terminal
 
-Make destructive operations opt-in: a dry-run mode by default for anything that deletes or
-overwrites, or at minimum a `--force`/`-i` prompt when interactive. Never prompt when not a terminal
-— fail instead.
+An operation that deletes or overwrites paths the tool chose itself — from a glob, a traversal or a
+default — is opt-in: a dry run by default, or at minimum a `--force`/`-i` prompt when interactive.
+Paths the user passed one by one are the user's choice already. Never prompt when not a terminal —
+fail instead.
 
-*Relaxed form:* a personal script that only ever touches paths you pass it explicitly may skip the
-dry-run default. The "never prompt when not a terminal" half is not relaxable — it is what makes the
-tool safe in a pipeline.
+*Relaxed form:* destructive by default, without the dry run; failing rather than prompting when not
+a terminal still holds, since it is what makes the tool safe in a pipeline.
 
 **Why:** the cost of an unwanted destructive run is unbounded and unrecoverable, while the cost of a
 dry run is one extra invocation. Prompting without a terminal is worse than either: the tool blocks

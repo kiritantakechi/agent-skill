@@ -207,7 +207,8 @@ class RustCrate:
         library = (self.library.dependency(),) if self.library else ()
         deps = "\n".join((*self.dependencies, *library))
         return (
-            f'[package]\nname = "{self.name}"\nversion = "0.1.0"\nedition = "{EDITION}"\n'
+            f'[package]\nname = "{self.name}"\nversion = "0.1.0"\n'
+            f'edition = "{EDITION}"\n'
             f'rust-version = "{self.rust.version}"\n\n[dependencies]\n{deps}\n'
             "\n[workspace]\n\n" + lints + "\n"
         )

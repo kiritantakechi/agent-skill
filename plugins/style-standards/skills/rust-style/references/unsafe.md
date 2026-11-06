@@ -275,8 +275,8 @@ pub fn first_index(haystack: &str, needle: char) -> Option<usize> {
 Write the safe version first, test it, keep it, and gate the `unsafe` version behind a feature with
 a differential test proving they agree (RS-TEST-21).
 
-*Relaxed form:* in an internal binary, keep the safe version in a test rather than behind a feature
-flag. What matters is that an independent implementation exists to disagree with the fast one.
+*Relaxed form:* keep the safe version in a test rather than behind a feature flag. What matters is
+that an independent implementation exists to disagree with the fast one.
 
 **Why:** the safe implementation is the specification and the oracle (RS-TEST-21), and in `unsafe`
 code the disagreement it catches is memory corruption, not a wrong answer.
@@ -824,8 +824,8 @@ tool, the FFI paths are unverified.
 Have `unsafe` code reviewed by a second person, and say in the pull request template that `unsafe`
 requires it. Self-review of soundness proofs has a poor track record.
 
-*Relaxed form:* on a solo project, re-review the `unsafe` block in a separate sitting from the one
-that wrote it, with the `// SAFETY:` comment read first and the code checked against it.
+*Relaxed form:* the author re-reviews the `unsafe` block in a separate sitting from the one that
+wrote it, with the `// SAFETY:` comment read first and the code checked against it.
 
 **Why:** the author's mental model is precisely what produced the gap, so re-reading with the same
 model finds nothing. A second reader has to reconstruct the argument from the comment, which is also

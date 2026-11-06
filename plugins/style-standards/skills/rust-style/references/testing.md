@@ -38,7 +38,7 @@ goal.
   - RS-TEST-20 [S] Use property testing where a law holds over a domain
   - RS-TEST-21 [S] Reach for differential testing first for parsers, matchers, and codecs
   - RS-TEST-22 [M] Pin every shrunk counterexample as a fixed regression test
-  - RS-TEST-23 [M!] Fuzz anything that parses untrusted input
+  - RS-TEST-23 [M] Fuzz anything that parses untrusted input
   - RS-TEST-24 [S] Run fuzz targets briefly per PR and long on a schedule
   - RS-TEST-25 [S] Use snapshot testing for large, exact, human-reviewable output
   - RS-TEST-26 [M] Review snapshot diffs; never `--accept` reflexively
@@ -658,14 +658,11 @@ rediscover it by chance.
 **Check:** for each historical property-test failure, is there now a deterministic test with the
 minimal input?
 
-### RS-TEST-23 [M!] Fuzz anything that parses untrusted input
+### RS-TEST-23 [M] Fuzz anything that parses untrusted input
 
 `cargo fuzz` with `libfuzzer`, or `afl`. Check the corpus into a separate repository or CI cache,
 and add every crash as a unit test. A crash blocks the release; in a parser with `unsafe` it is
 memory corruption whose trigger an attacker chooses.
-
-*Relaxed form:* for a tool that only ever sees input you generate, a seeded property test over the
-same grammar is enough. The rule binds the moment the input crosses a trust boundary.
 
 **Why:** a parser on untrusted input is a security boundary, and fuzzing is the only technique that
 explores it adversarially. Coverage-guided fuzzers find the malformed inputs that reach the paths no

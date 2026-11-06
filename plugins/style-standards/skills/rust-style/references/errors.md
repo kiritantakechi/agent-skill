@@ -326,8 +326,7 @@ If not, the variant needs a field.
 Not as the error type, not as a variant payload, not behind a type alias. In a binary, where nobody
 matches, they are correct (RS-ERR-30).
 
-*Relaxed form:* an internal crate consumed only inside your own workspace may use them in
-`pub(crate)` boundaries, but not in anything a downstream crate can name.
+*Relaxed form:* `anyhow::Error` or `Box<dyn Error>` at the public boundary.
 
 **Why:** it erases the variant set, so callers cannot match, cannot recover selectively, and cannot
 write a test that asserts a specific failure. It also makes every future error a non-breaking change

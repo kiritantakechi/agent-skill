@@ -132,7 +132,7 @@ PROFILE = Profile(
             # A grab-bag module, declared inline and from a file.
             "RS-NAME-05": ("pub mod utils;", "mod helpers {"),
             "RS-API-12": ("pub fn items(&self) -> &Vec<Item> {",),
-            "RS-API-49": ("pub fn set_timeout(&mut self, timeout: Duration) -> &mut Self {",),
+            "RS-API-49": ("pub fn set_limit(&mut self, limit: usize) -> &mut Self {",),
             "RS-BUILD-14": ('serde = { version = "1", optional = true }',),
             "RS-BUILD-21": ('serde = "=1.0.200"',),
             "RS-BUILD-23": ("#![deny(missing_docs)]",),
@@ -158,7 +158,10 @@ PROFILE = Profile(
             "RS-OWN-30": ("let shared: Arc<String> = Arc::new(name);",),
             "RS-PERF-21": ("reader.read(&mut [0u8; 1])?;",),
             "RS-TEST-17": ('let path = Path::new("/tmp/out.txt");',),
-            "RS-TRAIT-28": ("default fn describe(&self) -> String {", "#![feature(specialization)]"),
+            "RS-TRAIT-28": (
+                "default fn describe(&self) -> String {",
+                "#![feature(specialization)]",
+            ),
             "RS-MIG-02": (
                 "counter.fetch_update(Ordering::SeqCst, Ordering::SeqCst, step)",
                 "let ceiling = std::i32::MAX;",

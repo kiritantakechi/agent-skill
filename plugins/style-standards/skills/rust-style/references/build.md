@@ -535,8 +535,7 @@ and the CI job use one toolchain?
 Run `cargo audit` (or `cargo deny check advisories`) in CI on a schedule as well as on pull
 requests, so a new advisory against an unchanged dependency is noticed.
 
-*Relaxed form:* for a tool with no network or untrusted input, a monthly manual run is acceptable.
-Anything that parses data you did not create wants the schedule.
+*Relaxed form:* a monthly manual run.
 
 **Why:** advisories are published against versions you already depend on, so a PR-only check never
 fires for a crate nobody touched. The scheduled run is what converts "we would have caught it on the
@@ -587,8 +586,7 @@ permitted dependencies, so neither the MSRV nor the lower bounds are exercised o
 Trust it over intuition about what is breaking. It catches removed impls, narrowed bounds, changed
 variant shapes, and newly private items that human review misses (RS-API-54).
 
-*Relaxed form:* an unpublished internal crate with one consumer can rely on that consumer's build.
-The moment there are two, the tool is cheaper than the coordination.
+*Relaxed form:* rely on the consumers' own builds, run before each release, to find a break.
 
 **Why:** semver breakage in Rust is subtle — adding a trait impl, tightening a bound, or making an
 enum non-exhaustive can all break dependents in ways that are invisible in a diff. The tool checks
