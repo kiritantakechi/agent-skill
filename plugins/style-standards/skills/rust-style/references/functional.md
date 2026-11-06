@@ -89,8 +89,8 @@ that can be wrong, fewer places where an early `return` skips a cleanup.
 must scan forward to resolve — and it permits the bug where one branch forgets to assign. The
 expression form makes that unrepresentable and lets the binding be immutable.
 
-**Check:** grep for `let x;` followed by assignment, and for `let mut x = <default>;` immediately
-followed by a conditional that overwrites it.
+**Check:** is a `let x;` followed by an assignment, or a `let mut x = <default>;` immediately
+overwritten by a conditional? Each is an expression waiting to be written.
 
 ```rust
 // fragment — BAD
@@ -109,8 +109,8 @@ let label = if n == 1 { "file" } else { "files" };
 instead of silently falling through to the `else`. It also reads as a table rather than as a
 sequence of tests, which is what it actually is.
 
-**Check:** grep for two or more `else if` arms testing the same subject. If the subject is an enum,
-this is a missing exhaustiveness check, not a style preference.
+**Check:** do two or more `else if` arms test the same subject? If the subject is an enum, this is a
+missing exhaustiveness check, not a style preference.
 
 ### RS-FUNC-03 [S] A `for` loop that only pushes is a `collect`
 
@@ -118,8 +118,8 @@ this is a missing exhaustiveness check, not a style preference.
 transformation from its result by three lines; the pipeline is one expression, sized from the
 iterator's `size_hint`, and reads in the order the data flows.
 
-**Check:** grep for `Vec::new()` or `vec![]` immediately followed by a `for` whose body is a single
-`push`.
+**Check:** is a `Vec::new()` or `vec![]` immediately followed by a `for` whose body is a single
+`push`?
 
 ```rust
 // fragment — BAD
@@ -144,7 +144,7 @@ let ids: Vec<_> = users.iter().filter(|u| u.active).map(|u| u.id).collect();
 cannot get the identity element wrong. It also removes the mutable accumulator, which is the thing a
 reader has to track across the loop body.
 
-**Check:** grep for `let mut` bound to a number or a `bool` directly above a `for`. Prefer the most
+**Check:** is a `let mut` bound to a number or a `bool` directly above a `for`? Prefer the most
 specific name available — `sum()` over `fold`, `any()` over a `bool` accumulator, and
 `max_by_key(|e| e.size)` over a `max_by` comparator that only compares one projected field.
 
@@ -154,7 +154,7 @@ specific name available — `sum()` over `fold`, `any()` over a `bool` accumulat
 sentinel value set from a previous iteration. `any`/`all` additionally return the answer directly
 rather than through a mutable flag.
 
-**Check:** grep for `break` inside a `for` whose body assigns to a binding declared above it.
+**Check:** does a `for` body `break` after assigning to a binding declared above it?
 
 ### RS-FUNC-06 [M] Keep `for` for the three things it is actually better at
 
@@ -174,7 +174,7 @@ Does it produce a value and nothing else? Then it is a pipeline.
 alternatives — a `match` with a `_ => return` arm, or an `if let` wrapping the rest of the function
 — push the main line one level deeper for no benefit.
 
-**Check:** grep for `if let Some(x) = …` whose block runs to the end of the function.
+**Check:** does an `if let Some(x) = …` block run to the end of the function?
 
 ### RS-FUNC-08 [S] Flatten nested `if let` with let-chains
 
@@ -184,8 +184,8 @@ alternatives — a `match` with a `_ => return` arm, or an `if let` wrapping the
 **Why:** the pyramid of nested `if let` blocks is the most common source of four-level indentation
 in Rust, and every level of it is a `}` the reader has to match up at the bottom.
 
-**Check:** grep for an `if let` whose body is a single `if` or `if let`. Split the chain again when
-the condition stops fitting on two lines — a five-clause chain is its own readability problem.
+**Check:** is an `if let` body a single `if` or `if let`? Split the chain again when the condition
+stops fitting on two lines — a five-clause chain is its own readability problem.
 
 ## Iterators and pipelines
 
@@ -252,8 +252,8 @@ impl<'tags> IntoIterator for &'tags Tags {
 laziness would have avoided, a second pass, and the cache pressure of holding all of it. It is also
 a place the reader has to stop and hold a value.
 
-**Check:** grep for `collect` followed within a few lines by `.iter()` on the result. That pair is
-one pipeline split in half.
+**Check:** is a `collect` followed within a few lines by `.iter()` on the result? That pair is one
+pipeline split in half.
 
 ```rust
 // fragment — BAD: two allocations, two passes
@@ -342,8 +342,8 @@ pub fn running_total(values: &[u32]) -> Vec<u32> {
 correctly at three call sites and usually is not. `by_ref` consumes a prefix (`take`, `take_while`,
 a `for`) without losing the rest, which is otherwise the reason people reach for indices.
 
-**Check:** grep for `Option<Item>` fields or locals named `next`, `pending`, `lookahead`, or
-`buffered`, and for a peek whose matching branch then advances the iterator.
+**Check:** is there an `Option<Item>` field or local named `next`, `pending`, `lookahead`, or
+`buffered`, or a peek whose matching branch then advances the iterator?
 
 ```rust
 // verified
@@ -400,8 +400,8 @@ pub fn non_empty(lines: &[String]) -> impl Iterator<Item = &str> {
 `FromIterator` impls exist for exactly this reason. `Result<Vec<_>, _>` in particular is not a
 special case — it is the same mechanism (RS-FUNC-13).
 
-**Check:** grep for `collect` followed by `into_iter().collect()`, `HashMap::from_iter`, or a `for`
-loop that inserts.
+**Check:** is a `collect` followed by `into_iter().collect()`, `HashMap::from_iter`, or a `for` loop
+that inserts?
 
 ### RS-FUNC-18 [S] Do not build a collection to measure it
 
@@ -409,7 +409,7 @@ loop that inserts.
 allocation you did not need. Either `count()` the iterator (which consumes it, so clone the source
 or restructure), or produce both outputs in one pass.
 
-**Check:** grep for `.len()` on a binding created by the immediately preceding `collect`.
+**Check:** is `.len()` called on a binding the preceding `collect` created?
 
 ### RS-FUNC-19 [S] Replace index arithmetic with the adapters that encode it
 
@@ -420,7 +420,8 @@ or restructure), or produce both outputs in one pass.
 removes the `min(a.len(), b.len())` people get wrong, and `windows(2)` hands back a slice that the
 shipped `indexing_slicing` deny then refuses to index.
 
-**Check:** grep for `len() - 1`, `..len()`, `min(.*len`, and `windows(` followed by an index.
+**Check:** does the code compute `len() - 1`, iterate `..len()`, take a `min` with a length, or
+index into a `windows` item? Each is arithmetic an adapter encodes.
 
 ```rust
 // verified
@@ -443,8 +444,8 @@ pub fn deltas(values: &[i64]) -> Vec<i64> {
 no `std` equivalent and earn the dependency. On a slice, `chunk_by`, `array_windows`, and
 `Vec::dedup_by` are `std`, and "we already depend on it" is no justification (RS-BUILD-19).
 
-**Check:** grep the crate for `itertools::` and list the distinct adapters. If the list is one entry
-and `std` has an equivalent, drop the dependency.
+**Check:** list the distinct `itertools::` adapters the crate uses. If the list is one entry and
+`std` has an equivalent, drop the dependency.
 
 ### RS-FUNC-21 [S] Break a pipeline the reader cannot hold
 
@@ -534,8 +535,8 @@ binding it shadows?
 or shadowed by a local. Derived constants computed with `const fn` cost nothing at runtime and keep
 the derivation next to the values it depends on, instead of in a comment.
 
-**Check:** grep for `static` bindings that are never mutated and hold no interior mutability — most
-are `const`. Grep for magic numbers computed from other constants at runtime.
+**Check:** is a `static` never mutated and free of interior mutability? Most are `const`. Is a magic
+number computed from other constants at runtime?
 
 ```rust
 // verified
@@ -559,8 +560,8 @@ last `n` of a `VecDeque`, `retain_back`.
 have to mean manual index shuffling. These methods take a predicate or a key function and do the
 shuffling correctly, which hand-written versions frequently do not.
 
-**Check:** grep for loops that `remove(i)` inside iteration, or that build a second `Vec` in order
-to delete from the first. Both are `retain`, or `extract_if` when the removed items are used.
+**Check:** does a loop `remove(i)` during iteration, or build a second `Vec` in order to delete from
+the first? Both are `retain`, or `extract_if` when the removed items are used.
 `clippy::manual_pop_if` flags a `last()` test followed by a `pop()`.
 
 ### RS-FUNC-27 [M] Never mutate a captured variable from inside `map`
@@ -693,8 +694,8 @@ file, a request — and let every downstream function take the parsed type. Its 
 call it without the check. A parsed type makes the check unskippable, and an error raised at the
 boundary names the flag or field rather than surfacing three layers down.
 
-**Check:** grep for `validate_*` or `check_*` returning `Result<(), _>`, and for the same validation
-in more than one function: each is a constructor waiting to be written. How far does the raw `&str`
+**Check:** does a `validate_*` or `check_*` return `Result<(), _>`, or the same validation appear in
+more than one function? Each is a constructor waiting to be written. How far does the raw `&str`
 travel from the entry point? Past the first layer is a missing type.
 
 ```rust
@@ -739,8 +740,8 @@ If not, the types should absorb it.
 deterministic; the internal version needs either a fake clock crate or a `sleep` in the test. The
 same argument applies to randomness and to the current directory.
 
-**Check:** grep for `Instant::now`, `SystemTime::now`, `rand::random`, `env::var`, and
-`env::current_dir` below the entry layer.
+**Check:** does code below the entry layer call `Instant::now`, `SystemTime::now`, `rand::random`,
+`env::var`, or `env::current_dir`? Each is an input the caller should pass.
 
 ### RS-FUNC-40 [S] Model state transitions as values or as types
 

@@ -199,8 +199,8 @@ never re-reads the environment, the command line, or the config file.
 a test, and one that mutates shared configuration makes the program's behaviour depend on call
 order. An immutable value passed by reference has neither problem.
 
-**Check:** grep for `env::var` and config-file reads outside the construction path. Each is a hidden
-input.
+**Check:** is there an `env::var` or a configuration-file read outside the construction path? Each
+is a hidden input.
 
 ```rust
 // verified
@@ -348,8 +348,7 @@ directories. Print them with `Path::display` or `OsStr::display`, never `{:?}`, 
 Forcing `String` makes the tool fail on exactly the files the user most needs a tool for, and the
 failure looks like the tool is broken rather than opinionated.
 
-**Check:** grep the argument types for `String` on anything path-shaped. Test with a non-UTF-8
-filename (RS-TEST-28).
+**Check:** is any path-shaped argument typed `String`? Test with a non-UTF-8 filename (RS-TEST-28).
 
 ```rust
 // verified
@@ -630,8 +629,8 @@ might consume, and treat its schema as a versioned API.
 you make is a breaking change for them. A declared machine format lets both audiences be served
 without freezing the display.
 
-**Check:** is there a documented, stable output format? If users are grepping the pretty output, the
-answer is no.
+**Check:** is there a documented, stable output format? If users parse the pretty output, the answer
+is no.
 
 ### RS-CLI-22 [S] Say which output format is stable, and do not promise the other
 
@@ -765,8 +764,8 @@ Use structured logging (`tracing` or `log` plus `env_logger`) for diagnostics, c
 cannot be turned off by the user. Debug prints that ship are also the most common way secrets end up
 in logs.
 
-**Check:** grep the library for `println!` and `eprintln!`; in library code each is a finding. A
-`dbg!` is the `dbg_macro` row.
+**Check:** does library code call `println!` or `eprintln!`? Each is the finding. A `dbg!` is the
+`dbg_macro` row.
 
 ## Behaviour, environment, signals
 
@@ -916,7 +915,7 @@ rather than hard-coding `~/.toolrc`. For `$HOME` alone, `std::env::home_dir` nee
 **Why:** users expect config, cache, and data to land where their platform puts them, so backups and
 sync tools handle them correctly. A hard-coded dotfile also breaks on Windows entirely.
 
-**Check:** grep for `~/.` and `$HOME` string concatenation. Each is a hard-coded path.
+**Check:** does a path start from a hard-coded `~/.` or a `$HOME` string? Each is a hard-coded path.
 
 ### RS-CLI-30 [M] Namespace and document every environment variable you read
 
@@ -927,7 +926,7 @@ every one in `--help`, and never read an undocumented variable.
 user cannot know why the tool acts differently on their machine. Namespacing prevents collisions
 with other tools' names.
 
-**Check:** grep for `env::var`. Each name must be prefixed and must appear in the help output.
+**Check:** for each `env::var`, is the name prefixed, and does it appear in the help output?
 
 ```rust
 // verified

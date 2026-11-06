@@ -98,9 +98,9 @@ arrive as a literal, take `impl Into<String>`, so an owner moves it in and a lit
 owned value now pays for a clone they could have avoided by moving, and the caller who had a borrow
 pays exactly what they would have paid anyway.
 
-**Check:** grep for `.clone()` and `.to_owned()` on a parameter in the first few lines of a
-function. Each is a signature that should have taken ownership. The other direction is the
-`needless_pass_by_value` row below.
+**Check:** is `.clone()` or `.to_owned()` applied to a parameter in a function's first lines? Each
+is a signature that should have taken ownership. The other direction is the `needless_pass_by_value`
+row below.
 
 ```rust
 // verified
@@ -181,7 +181,7 @@ output.extend(transformer.transform(input));
 one slice without `unsafe`. Reaching for raw pointers here is the most common unnecessary `unsafe`
 in Rust (RS-UNSAFE-01).
 
-**Check:** grep for `unsafe` near slice indexing. Is there a splitting method that expresses it?
+**Check:** is `unsafe` used near slice indexing? Is there a splitting method that expresses it?
 
 ```rust
 // verified
@@ -247,7 +247,7 @@ pub fn total_len(lines: &[String]) -> usize {
 scanning a function for allocation. `x.clone()` on an `Arc<HashMap<..>>` reads exactly like cloning
 the map.
 
-**Check:** grep `.clone()` on bindings whose type is `Arc` or `Rc`.
+**Check:** is `.clone()` called on a binding whose type is `Arc` or `Rc`?
 
 ### RS-OWN-11 [S] Prefer `to_owned` to `to_string` for `&str`
 
@@ -266,9 +266,9 @@ borrows and return borrows: sub-slicing is pointer arithmetic.
 ever being needed. Building a lowercase `String` just to compare is the most common avoidable
 allocation in text-handling code, and it is usually inside a loop.
 
-**Check:** grep for `to_lowercase()`, `to_uppercase()`, `to_string()` and `format!` inside a
-condition or a comparison. For each, find where the owned value is stored or returned; if it is only
-read locally, delete the conversion.
+**Check:** is `to_lowercase()`, `to_uppercase()`, `to_string()` or `format!` used inside a condition
+or a comparison? For each, find where the owned value is stored or returned; if it is only read
+locally, delete the conversion.
 
 ```rust
 // verified
@@ -375,8 +375,8 @@ that "unleaking" and say to avoid it.
 server it is an unbounded one. It is acceptable exactly once, at program start, for genuinely
 process-lifetime configuration — and then it should be commented as such.
 
-**Check:** grep `Box::leak`, `String::leak`, and `Vec::leak`. Each must be reachable only once per
-process.
+**Check:** is a `Box::leak`, `String::leak` or `Vec::leak` reachable more than once per process?
+Each such leak is the finding.
 
 ### RS-OWN-19 [S] Write higher-ranked bounds rather than avoiding borrowed callbacks
 
@@ -478,7 +478,7 @@ across threads, `OnceLock`/`LazyLock` for one-time initialization.
 `LazyLock` are in `std`, so `lazy_static` and `once_cell` are dependency weight for the common cases
 (RS-CONC-27).
 
-**Check:** grep for `RefCell<T>` where `T: Copy`.
+**Check:** is a `RefCell<T>` holding a `T: Copy`? That is a `Cell`.
 
 ### RS-OWN-26 [M] Keep `RefCell` borrows short and out of `Drop`
 
@@ -522,8 +522,10 @@ means the value should have been owned somewhere else.
 is two dereferences and every value carries an extra two words. The first form stores the length in
 the fat pointer.
 
-**Check:** grep for `Arc<String>`, `Arc<Vec<` and `Rc<String>`. `Box<Vec<T>>` and a box inside an
-`Rc` or `Arc` are the `box_collection` and `redundant_allocation` rows below.
+**Check:** `rg -n '(Arc|Rc)<String>' -g '*.rs'` finds a string behind two pointers; each hit is the
+finding — `Arc<str>`. An `Arc<Vec<T>>` is the same double indirection unless `make_mut` grows it
+(RS-OWN-31). `Box<Vec<T>>` and a box inside an `Rc` or `Arc` are the `box_collection` and
+`redundant_allocation` rows below.
 
 ### RS-OWN-31 [S] Use `make_mut` and `unwrap_or_clone` for copy-on-write
 
@@ -534,7 +536,8 @@ the fat pointer.
 manual alternative — `try_unwrap`, match, clone on failure — is four lines that do the same thing
 with more places to get it wrong.
 
-**Check:** grep for `Arc::try_unwrap` or `Rc::try_unwrap` followed by a clone.
+**Check:** is an `Arc::try_unwrap` or `Rc::try_unwrap` followed by a clone? That is
+`unwrap_or_clone`.
 
 ```rust
 // verified
@@ -628,9 +631,9 @@ let _guard = self.state.lock();
 guard, skipping a `Drop` that another type relies on. They are legitimate inside an abstraction that
 knows the whole picture and dangerous anywhere else.
 
-**Check:** grep `ManuallyDrop`; each needs a comment and should be inside the module that defines
-the type it applies to. `mem::forget` is the `mem_forget` row below, so each needs an `#[expect]`
-with its reason.
+**Check:** does each `ManuallyDrop` carry a comment and sit inside the module that defines the type
+it applies to? `mem::forget` is the `mem_forget` row below, so each needs an `#[expect]` with its
+reason.
 
 ### RS-OWN-38 [S] Prefer scope-based cleanup to defer-style crates
 
@@ -647,7 +650,7 @@ Signal handlers, terminal raw mode, the global logger, panic hooks.
 **Why:** installing from a library constructor makes the crate unusable inside another program — two
 callers fight over one handler, and the second silently wins. Pass handles downward instead.
 
-**Check:** grep for `set_hook`, `signal`, `set_logger`, and terminal-mode calls outside `main`.
+**Check:** is `set_hook`, `signal`, `set_logger`, or a terminal-mode call made outside `main`?
 
 ```rust
 // verified

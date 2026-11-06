@@ -316,9 +316,9 @@ avoid.
 is in the *creation*, so "I only read through it" is not a defence — the miscompilation happens
 regardless.
 
-**Check:** grep for `&mut *` on raw pointers, for multiple `from_raw`/`as_mut` calls on the same
-address, and for `as *mut`/`as *const` on a reference. Each needs an argument that only one is live,
-or the `&raw` form.
+**Check:** is `&mut *` taken of a raw pointer, are `from_raw`/`as_mut` called twice on one address,
+or is a reference cast `as *mut`/`as *const`? Each needs an argument that only one is live, or the
+`&raw` form.
 
 ```rust
 // verified
@@ -341,8 +341,8 @@ Uninitialized memory is UB to read, including "I will overwrite it first". Use `
 as whatever is convenient, and differently at each read. Padding bytes count, which is why
 `MaybeUninit` exists rather than a zeroed buffer.
 
-**Check:** grep for `mem::uninitialized`, `mem::zeroed`, and `assume_init`. For each `assume_init`,
-identify the code path that wrote every byte.
+**Check:** for each `mem::uninitialized`, `mem::zeroed` and `assume_init`, identify the code path
+that wrote every byte.
 
 ```rust
 // verified
@@ -402,7 +402,7 @@ reinterpretation, and pointer casts with explicit alignment checks for the rest 
 equality, not validity, not alignment, not provenance. Every alternative listed checks at least one
 of those.
 
-**Check:** grep for `transmute`. For each, name the specified layout of both sides; if either is a
+**Check:** for each `transmute`, name the specified layout of both sides; if either is a
 default-`repr` Rust type, it is a violation.
 
 ```rust
@@ -425,8 +425,8 @@ reference, which is misaligned the moment it exists.
 SIGBUS, so the code passes CI and fails on a user's machine — the worst possible distribution of the
 failure.
 
-**Check:** grep for pointer casts that widen the pointee (`*const u8` to `*const u32` or larger).
-Each needs an alignment check or the `_unaligned` variant.
+**Check:** does a pointer cast widen the pointee (`*const u8` to `*const u32` or larger)? Each needs
+an alignment check or the `_unaligned` variant.
 
 ```rust
 // verified
@@ -457,8 +457,8 @@ strict-provenance APIs where available.
 through `usize` discards that, and the optimizer is entitled to conclude the resulting pointer
 cannot alias the object you meant.
 
-**Check:** grep for `as usize` on pointers followed by `as *const`/`as *mut`. Each is a provenance
-break unless it uses `with_addr`/`map_addr`. An integer-to-pointer `transmute` needs no grep:
+**Check:** is a pointer cast `as usize` and back `as *const`/`as *mut`? Each is a provenance break
+unless it uses `with_addr`/`map_addr`. An integer-to-pointer `transmute` needs no review:
 `integer_to_ptr_transmutes` warns on it by default.
 
 ### RS-UNSAFE-18 [M] Choose the `PhantomData` that matches the real relationship
@@ -736,8 +736,8 @@ literals (`c"…"`) avoid a class of NUL mistakes.
 problem into replacement characters that survive into storage. The lossy path is right for a
 diagnostic message and wrong for anything you keep.
 
-**Check:** grep for `to_string_lossy`. Each use must be on a path where corrupting the data is
-acceptable — typically only logging.
+**Check:** is each `to_string_lossy` on a path where corrupting the data is acceptable — typically
+only logging?
 
 ```rust
 // verified

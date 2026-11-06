@@ -233,7 +233,7 @@ bare integer, `format_into` with a reused `NumBuffer` skips the formatting machi
 **Why:** `format!` is `String::new` plus formatting plus a return by value, so it allocates every
 call. `write!` into an existing buffer does the same formatting with no allocation.
 
-**Check:** grep for `format!` inside loops. Each is an allocation that `write!` would avoid.
+**Check:** is `format!` called inside a loop? Each is an allocation that `write!` would avoid.
 
 ```rust
 // verified
@@ -569,7 +569,8 @@ them without copying them anywhere.
 because each call still goes through the `Read` machinery. `fill_buf` hands you the whole buffered
 slice with no copy at all.
 
-**Check:** grep for `read(&mut [0u8; 1])` and per-byte loops.
+**Check:** `rg -n -F 'read(&mut [0u8; 1])' -g '*.rs'` finds a one-byte read; each hit is the
+finding, and so is any loop that reads or writes a byte per call.
 
 ```rust
 // verified
@@ -633,8 +634,7 @@ existence alone is the question, `fs::exists` answers it and reports a permissio
 `exists()` then `metadata()` is two stats for one question. Traversal crates have already done this
 optimization carefully.
 
-**Check:** grep for `exists()` immediately followed by an open or a `metadata` call on the same
-path.
+**Check:** is `exists()` immediately followed by an open or a `metadata` call on the same path?
 
 ## Codegen and the compiler
 
@@ -648,8 +648,8 @@ bloats the binary and slows compilation without helping.
 ones are instantiated in the caller's crate. Anything larger needs `#[inline]` to cross the crate
 boundary, which is the one thing the attribute is for.
 
-**Check:** grep for `#[inline]` on generic functions and on private ones. Both are usually noise.
-For the rest, is the function non-generic, small, and hot in another crate?
+**Check:** is `#[inline]` on a generic function or a private one? Both are usually noise. For the
+rest, is the function non-generic, small, and hot in another crate?
 
 ### RS-PERF-26 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
 
@@ -703,7 +703,7 @@ known at compile time, a length computed once.
 does both allocation and compilation, so it is never hoisted automatically — and compiling a regex
 per iteration is one of the largest avoidable costs in practice.
 
-**Check:** grep for `Regex::new`, file opens, and other construction inside loops.
+**Check:** is a `Regex::new`, a file open, or another construction inside a loop?
 
 ```rust
 // verified
@@ -741,8 +741,8 @@ that could lose data. A same-width sign change loses no bits and is not a `try_f
 target — a portability bug that only appears there. `as` truncates at run time without any error,
 which is why it is the wrong default for narrowing.
 
-**Check:** grep for `as u32`, `as usize`, `as i32` on values that could exceed the target range.
-Each wants `try_from`; the `cast_*` rows below flag the casts that can lose data.
+**Check:** is `as u32`, `as usize` or `as i32` applied to a value that could exceed the target
+range? Each wants `try_from`; the `cast_*` rows below flag the casts that can lose data.
 
 ```rust
 // verified

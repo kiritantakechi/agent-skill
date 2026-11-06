@@ -201,7 +201,7 @@ Cargo 1.99 honours it on an edition-2024 member, and older Cargo rejects that ma
 majors of one crate into one build (RS-BUILD-29). One declaration makes that impossible rather than
 a review responsibility.
 
-**Check:** grep member manifests for a version literal on a dependency another member also uses.
+**Check:** does a member manifest give a version literal for a dependency another member also uses?
 Each is a value that should be inherited.
 
 ```toml
@@ -313,7 +313,8 @@ name: `serde = { version = "1", optional = true }` plus `serde = ["dep:serde", "
 support forever, including ones you meant to keep internal. The explicit form lets you control the
 feature surface.
 
-**Check:** grep for `optional = true` and confirm the corresponding feature uses `dep:`.
+**Check:** `rg -n 'optional = true' -g '*.toml'` lists the optional dependencies; each that no
+`dep:` entry in `[features]` names is the finding.
 
 ```toml
 # fragment — Cargo.toml
@@ -334,7 +335,8 @@ already enabled. Without the `?`, you silently turn the optional dependency on.
 support gets an entire date library. The one character is the difference between conditional and
 unconditional.
 
-**Check:** grep feature definitions for `/` without a preceding `?` on an optional dependency.
+**Check:** for each feature entry that names `dep/feature` on an optional dependency, is the `?`
+there? Without it the feature turns the dependency on.
 
 ```toml
 # fragment — Cargo.toml
@@ -356,7 +358,7 @@ failure. Use runtime selection, separate crates, or `cfg` on target.
 enabled — and neither dependent can fix it, because neither is wrong. The resulting build failure
 has no resolution short of forking.
 
-**Check:** grep for `compile_error!` guarded on feature combinations. Each is a design that cannot
+**Check:** does a `compile_error!` fire on a combination of features? Each is a design that cannot
 survive unification.
 
 ### RS-BUILD-17 [M] Annotate feature-gated public items for docs.rs
@@ -424,7 +426,8 @@ Use caret requirements (`"1.2"`, meaning `^1.2`) and let Cargo resolve. Do not p
 yours, which is an unresolvable conflict for the user. Reproducibility belongs in the lockfile
 (RS-BUILD-10), not in the requirement.
 
-**Check:** grep for `=` version requirements in a library manifest.
+**Check:** `rg -n '"=[0-9]' -g '*.toml'` finds an exact version requirement; each hit in a library's
+manifest is the finding.
 
 ### RS-BUILD-22 [M] Turn off default features on heavy dependencies
 
@@ -463,9 +466,9 @@ three members cover what edition 2024 already rejects or has made unnecessary.
 **Why:** crate-level attributes apply only to that crate root, so tests, benches, and examples
 silently miss them. The manifest table covers every target and is inheritable across a workspace.
 
-**Check:** grep for `#![deny(` and `#![warn(` in source; each belongs in the manifest. Every member
-has `[lints] workspace = true` or a deliberate block of its own — a member with neither starts with
-none of the standard.
+**Check:** `rg -n '#!\[(deny|warn|forbid)\(' -g '*.rs'` finds a lint level set in source; each hit
+belongs in the manifest. Every member has `[lints] workspace = true` or a deliberate block of its
+own — a member with neither starts with none of the standard.
 
 ### RS-BUILD-24 [M] Run `clippy::pedantic` at `warn` and answer each warning
 
@@ -477,8 +480,9 @@ group grows with the toolchain, so each toolchain bump brings new warnings to an
 so the group is worth enabling and the exceptions are worth recording. Allowing the whole group
 discards the valuable ones to avoid arguing with a handful.
 
-**Check:** grep for `pedantic = "allow"`. Each individual allow in the manifest carries a comment
-giving its reason — no lint reads a manifest comment, so this one is review.
+**Check:** `rg -n 'pedantic = "allow"' -g '*.toml'` finds the group turned off; each hit is the
+finding. Each individual allow in the manifest carries a comment giving its reason — no lint reads a
+manifest comment, so this one is review.
 
 ### RS-BUILD-25 [M] Never blanket-`allow` at crate level to make CI green
 
@@ -503,8 +507,9 @@ invalidates the entire cache. The dedicated setting does not, which makes "build
 denied" a cheap local check rather than a CI-only step.
 
 **Check:** both `CARGO_BUILD_WARNINGS=deny` and `[build] warnings = "deny"` fail the build with
-``error: warnings are denied by `build.warnings` configuration``. Grep CI config for
-`RUSTFLAGS="-Dwarnings"` and `RUSTDOCFLAGS="-D warnings"`, and replace both.
+``error: warnings are denied by `build.warnings` configuration``.
+`rg -n -F -e 'RUSTFLAGS="-Dwarnings"' -e 'RUSTDOCFLAGS="-D warnings"' .github/` finds the old
+spelling in CI; each hit is replaced.
 
 ### RS-BUILD-27 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
 

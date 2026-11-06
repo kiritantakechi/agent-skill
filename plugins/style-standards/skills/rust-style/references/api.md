@@ -168,7 +168,9 @@ Returning `std::collections::hash_map::Keys<'_, K, V>` pins you to `HashMap` for
 sorted `Vec` then becomes a breaking change for a decision the caller never cared about.
 `impl Iterator<Item = &K>` costs nothing and hides it.
 
-**Check:** grep public return types for `std::collections::` and `std::slice::` iterator types.
+**Check:** does a public signature — a return type, or an `IntoIterator` impl's `IntoIter` — name a
+`std::collections::…` or `std::slice::…` iterator type? Each pins the container; return
+`impl Iterator`, or a newtype where a trait needs a name.
 
 ```rust
 // verified
@@ -264,8 +266,8 @@ pub fn shortest<'a>(candidates: impl IntoIterator<Item = &'a str>) -> Option<&'a
 convert once, where `&str` plus an internal clone makes the owned caller allocate again. A function
 that only reads needs no ownership, so `&str` serves both callers with no allocation.
 
-**Check:** grep for `String` parameters that are immediately borrowed, and `&str` parameters that
-are immediately `to_owned()`.
+**Check:** is any `String` parameter only borrowed, or any `&str` parameter `to_owned()` to be
+stored? Either wants the other signature.
 
 ```rust
 // verified
@@ -287,8 +289,8 @@ pub fn stem(path: impl AsRef<Path>) -> Option<String> {
 `let (start, end, empty) = m;` compiles just as well with the first two swapped. Named accessors
 cannot be misread, and a fourth piece of information is one more method, not a changed arity.
 
-**Check:** grep public return types for tuples of arity three or more, and for two-tuples whose
-elements share a type.
+**Check:** does any public function return a tuple of three or more elements, or a pair whose two
+elements share a type? Each is a struct with named fields.
 
 ### RS-API-10 [S] Justify every out-parameter with buffer reuse
 
@@ -352,10 +354,10 @@ impl Percent {
 switching to `SmallVec`, a ring buffer, or a memory map still breaks every caller. `&[u8]` names
 what the caller may do, not what you store, and all three can produce it.
 
-**Check:** grep accessor return types for `&Vec<T>`, `&String`, and `&PathBuf` — the slice, `&str`,
-and `&Path` say the same thing without naming the container. A map or a set has no borrowed view in
-std, so the answer there is not a different return type but a smaller question: `get`, `contains`,
-or an iterator (RS-API-16).
+**Check:** `rg -n 'fn \w+\(&self\) -> &(Vec<|String\b|PathBuf\b)' -g '*.rs'` finds an accessor
+returning the container; each hit is the finding — the slice, `&str` and `&Path` say the same thing
+without naming it. A map or a set has no borrowed view in std, so the answer there is not a
+different return type but a smaller question: `get`, `contains`, or an iterator (RS-API-16).
 
 ### RS-API-13 [M] Do not hand out `&mut` to invariant-bearing state
 
@@ -522,9 +524,9 @@ whose type, such as `NonEmpty<T>`, has not been written yet.
 transposed pair of `u64`s produces plausible wrong answers rather than a crash. A constraint in a
 type is checked once, at the boundary; one in prose is re-checked by every reader.
 
-**Check:** scan every public signature for two consecutive parameters of the same primitive type,
-and grep doc comments for "must", "should be", "expects" and range notation; each doc hit is a type
-or a `# Panics` section you owe (RS-DOC-11). For the rest of the primitive-typed fields and
+**Check:** read every public signature for two consecutive parameters of the same primitive type,
+and its doc comment for "must", "should be", "expects" and range notation; each such phrase is a
+type or a `# Panics` section you owe (RS-DOC-11). For the rest of the primitive-typed fields and
 parameters, is a different value of the same type nonsense here?
 
 ```rust
@@ -563,9 +565,9 @@ read together are an options struct or a policy closure, `impl Fn(&Entry) -> boo
 reviewing the diff. A mode flag also makes the return type and error set the union of both modes, so
 every caller handles cases its mode cannot produce.
 
-**Check:** grep public signatures for `: bool`. Does the body branch on it at the top level, with
-little shared? Then it is two functions. Otherwise it is a two-variant enum, or, with three or more,
-an options struct or a policy closure.
+**Check:** does a public signature take a `: bool`? If the body branches on it at the top level,
+with little shared, it is two functions; otherwise it is a two-variant enum, or, with three or more
+flags, an options struct or a policy closure.
 
 ```rust
 // verified
@@ -641,8 +643,8 @@ an enum.
 refactoring tool can rename anything. A string error cannot be matched on, and a string key cannot
 be found by the compiler when it is misspelled.
 
-**Check:** grep public signatures and error types for `&str` and `String`. For each, is the string
-the data itself, or a stand-in for a type the crate has not written?
+**Check:** for each `&str` or `String` in a public signature or an error type, is the string the
+data itself, or a stand-in for a type the crate has not written?
 
 ### RS-API-23 [M] Encode units in types
 
@@ -654,8 +656,8 @@ newtype would be disproportionate — a private helper, a single call site — t
 passing a byte count where a millisecond count belongs, and no test suite reliably catches the
 transposition.
 
-**Check:** grep for numeric parameters and fields whose type is a bare integer or float. For each,
-is the unit recoverable from the type or the name without reading a comment?
+**Check:** for each numeric parameter or field whose type is a bare integer or float, is the unit
+recoverable from the type or the name without reading a comment?
 
 ```rust
 // fragment — BAD: two u64s, transposable, unit only in the comment
@@ -675,7 +677,7 @@ fn retry(timeout: Duration, backoff: Duration) {}
 `Option<NonZeroU32>` the same size as `u32` thanks to the niche. The conversion cost is one
 `try_from` at the boundary, which you needed anyway.
 
-**Check:** grep for functions that begin by rejecting a zero argument. Each is a `NonZero`.
+**Check:** does a function begin by rejecting a zero argument? That parameter is a `NonZero`.
 
 ### RS-API-25 [S] Newtype indices when several index spaces coexist
 
@@ -1261,7 +1263,8 @@ fine for small one-shot builders — mark it `#[must_use]` (RS-API-33).
 line is noise. It also matches the convention every major crate uses, so users guess correctly
 (RS-NAME-17).
 
-**Check:** grep the builder for `fn set_`.
+**Check:** `rg -n 'fn set_\w+\(&mut self' -g '*.rs'` lists the `set_` methods; each on a builder is
+the finding.
 
 ### RS-API-50 [M] Validate in `build()`, not in the setters
 

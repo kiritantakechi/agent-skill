@@ -109,8 +109,8 @@ pub struct Empty;
 about an unhandled failure, and they read identically whether the author thought about it or not.
 The comment is what distinguishes a decision from an oversight.
 
-**Check:** grep `let _ = ` and `unused_must_use`. Every hit needs a comment naming the reason the
-failure does not matter.
+**Check:** does a `let _ =` discard a `Result`, or does `unused_must_use` fire? Each needs a comment
+naming the reason the failure does not matter.
 
 The same line twice — the comment is the entire difference:
 
@@ -138,7 +138,7 @@ someone else's server. This is the highest-cost defect in this standard, because
 a party who had no say in the decision and cannot work around it.
 
 **Check:** mechanically: `assets/Cargo.toml` denies `unwrap_used`, `expect_used`, `panic`, `todo`,
-`unimplemented` and `indexing_slicing`. The grep for a codebase that has not adopted them yet:
+`unimplemented` and `indexing_slicing`. The command for a codebase that has not adopted them yet:
 
 ```bash
 # fragment — the grep, until the lints are adopted
@@ -258,8 +258,9 @@ const _: fn() = || {
 "Permission denied (os error 13)" tells them exactly what to do. Once the information is dropped at
 one layer, no amount of reporting machinery downstream can recover it.
 
-**Check:** grep `map_err(|_|` and `.ok()` applied to a `Result` whose error is not itself logged.
-Each is either a deliberate, commented decision or a defect.
+**Check:** `rg -n -F 'map_err(|_|' -g '*.rs'` lists every erased error; each that is not a
+deliberate, commented decision is the finding, and so is an `.ok()` on a `Result` whose error is not
+itself logged.
 
 ```rust
 // fragment — BAD
@@ -280,9 +281,9 @@ decide.
 whoever finally handles it — and leaves nobody clearly responsible for it. Duplicate diagnostics are
 worse than none, because they make the log's line count meaningless as a signal.
 
-**Check:** grep for a logging call in the same block as a `return Err` or a `?` on the same value.
-The legitimate exception is a boundary that is genuinely the last handler and re-raises for control
-flow — say so in a comment.
+**Check:** does a block log an error and also return it, with `return Err` or a `?` on the same
+value? The legitimate exception is a boundary that is genuinely the last handler and re-raises for
+control flow — say so in a comment.
 
 ## Designing error types
 
@@ -334,8 +335,8 @@ matches, they are correct (RS-ERR-30).
 write a test that asserts a specific failure. It also makes every future error a non-breaking change
 in the worst way — invisible.
 
-**Check:** grep `Box<dyn Error` and `anyhow::` in `src/lib.rs` and anything reachable from a `pub`
-signature. `cargo public-api` will list them if you are unsure what is reachable.
+**Check:** does `Box<dyn Error` or `anyhow::` appear in a type a downstream crate can name?
+`cargo public-api` lists what is reachable when you are unsure.
 
 ```rust
 // verified
@@ -435,8 +436,8 @@ Nor `Msg(String)`, nor `Custom(String)`.
 failure nobody wanted to model. Once it exists, the path of least resistance for every new failure
 is to stuff it in there, and the taxonomy stops growing.
 
-**Check:** grep the enum for a `String` payload that is a message rather than data (a key, a name, a
-token). If a failure genuinely has no structure, that is a signal it has not been analyzed yet.
+**Check:** does a variant carry a `String` that is a message rather than data (a key, a name, a
+token)? If a failure genuinely has no structure, that is a signal it has not been analyzed yet.
 
 ### RS-ERR-18 [S] Implement `Clone` on an error only when it is genuinely free
 
@@ -469,8 +470,8 @@ protocol supplies both.
 another is boilerplate the compiler would have written. It is also a place a `source()` gets lost by
 hand.
 
-**Check:** grep for `match` and `if let Err` whose only job is to return a converted error. Each one
-is a missing `#[from]`.
+**Check:** does a `match` or `if let Err` exist only to return a converted error? Each is a missing
+`#[from]`.
 
 ```rust
 // fragment — BAD
@@ -513,9 +514,9 @@ with `anyhow`, `.with_context(|| format!("reading {}", path.display()))` over
 `ok_or(Error::NotFound { path: path.to_owned() })` allocates the `PathBuf` every single time the
 lookup succeeds.
 
-**Check:** grep `ok_or(`, `unwrap_or(`, `map_or(` and `.context(format!`. Each is fine for a `Copy`
-constant and a defect for anything that allocates, formats, or calls a function. The converse — a
-closure around a constant — is `unnecessary_lazy_evaluations`, a row below.
+**Check:** is the argument of an `ok_or(`, `unwrap_or(` or `map_or(`, or of a `.context(format!`,
+something that allocates, formats, or calls a function? Each is the finding — a `Copy` constant is
+fine. The converse — a closure around a constant — is `unnecessary_lazy_evaluations`, a row below.
 
 ```rust
 // verified
@@ -630,8 +631,8 @@ asserts that bound instead.
 On attacker-influenced values the release behaviour is a silent wrong answer that frequently becomes
 a bounds bug two lines later.
 
-**Check:** grep for arithmetic on lengths, offsets, and parsed numbers. For each, can either operand
-originate outside the process, or grow with the input? If yes, it must be one of the four, chosen
+**Check:** for each arithmetic on lengths, offsets, and parsed numbers, can either operand originate
+outside the process, or grow with the input? If yes, it must be one of the four, chosen
 deliberately, not whichever compiles.
 
 ```rust
@@ -653,7 +654,8 @@ It is the application's decision, set in its own profile.
 harnesses, FFI wrappers (RS-UNSAFE-24), and worker pools that isolate task failures. In a library's
 `Cargo.toml` it is ignored anyway: only the workspace root sets profiles.
 
-**Check:** grep `panic = "abort"` outside the top-level binary's profile.
+**Check:** `rg -n 'panic = "abort"' -g '*.toml'` finds the setting; each hit outside the top-level
+binary's profile is the finding.
 
 ## Binaries, reporting, exit codes
 

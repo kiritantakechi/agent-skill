@@ -206,7 +206,7 @@ the `_` arm first, or ask for `expr_2021`, which excludes both.
 your macro at tokens the user never wrote. A tight specifier rejects bad input at the call site with
 a comprehensible error.
 
-**Check:** grep for `:tt` outside a recursive muncher, where it is genuinely required.
+**Check:** is a `:tt` used outside a recursive muncher, where it is genuinely required?
 
 ### RS-MACRO-10 [M] Parenthesize interpolated expressions
 
@@ -216,7 +216,7 @@ a comprehensible error.
 context, so `my_macro!(1 + 2, 3)` computes `1 + 2 * 3`. An `expr` fragment is atomic in most
 positions, but the habit costs nothing and the exceptions are subtle.
 
-**Check:** grep the expansion for `$` variables adjacent to an operator.
+**Check:** in the expansion, is a `$` variable adjacent to an operator without parentheses?
 
 ```rust
 // verified
@@ -349,7 +349,7 @@ on everyone downstream — for a derive that only reads struct fields, `derive` 
 location, so the user cannot tell which of their fields is wrong. A spanned error puts the squiggle
 under the offending token, which is the whole difference between usable and not.
 
-**Check:** grep the proc-macro crate for `panic!`, `unwrap`, and `expect`. Each is a message a user
+**Check:** does the proc-macro crate call `panic!`, `unwrap`, or `expect`? Each is a message a user
 will see.
 
 ### RS-MACRO-21 [S] Report all the errors you can find, not just the first
@@ -369,5 +369,5 @@ And then document the contract on the derive itself.
 of a user who wrote one line and read no documentation. If the derive cannot check the invariant, it
 must be an `unsafe` trait the user opts into explicitly (RS-UNSAFE-20).
 
-**Check:** grep the `quote!` blocks for `unsafe`. For each, what stops a user from deriving it on a
-type where it is false?
+**Check:** for each `unsafe` in a `quote!` block, what stops a user from deriving it on a type where
+it is false?

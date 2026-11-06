@@ -257,8 +257,8 @@ list of files, a fixed worker count — is bounded by construction.
 overloaded, delivered at the point where it can be handled. Unbounded, that signal is deferred until
 memory runs out, at which point the process dies with no useful diagnostic.
 
-**Check:** grep for `unbounded` channel constructors and for `Vec` accumulators fed by a loop with
-an external bound.
+**Check:** is a queue that network input or user activity feeds built with `mpsc::channel()`, an
+`unbounded()` constructor, or a `Vec` a loop fills? Each is the finding.
 
 ```rust
 // verified
@@ -316,7 +316,8 @@ borrowing sound.
 borrow checker accept references to local data. Without it, sharing local data requires `Arc` and
 cloning even when the data outlives the threads in practice.
 
-**Check:** grep for `Arc::new` immediately before `thread::spawn` where the data is local.
+**Check:** is an `Arc::new` made just before a `thread::spawn` for data that is local? That is a
+`thread::scope`.
 
 ```rust
 // verified
@@ -340,7 +341,8 @@ Dropping it discards a panic in the worker, turning a crash into silently missin
 Ignoring that result means the program continues as if the work succeeded, producing wrong output
 rather than an error.
 
-**Check:** grep for `join()` whose result is discarded, and for `let _ =` on a `JoinHandle`.
+**Check:** is a `join()` result discarded, or a `JoinHandle` bound with `let _ =`? Each loses the
+worker's panic.
 
 ```rust
 // verified
@@ -397,7 +399,7 @@ override it with a flag or environment variable.
 limits in containers. `available_parallelism` respects those limits; the override handles the cases
 it cannot know about, like sharing a machine with another job.
 
-**Check:** grep for numeric literals used as thread counts.
+**Check:** is a thread count a numeric literal? Each is a hard-coded pool size.
 
 ```rust
 // verified
@@ -452,7 +454,7 @@ easier to reason about than a shared `Mutex<VecDeque<_>>`.
 **Why:** a hand-rolled queue behind a mutex has to re-solve blocking, wakeup, and shutdown, and it
 usually gets the lost-wakeup case wrong. The channel types have solved all three.
 
-**Check:** grep for `Mutex<VecDeque<` and `Mutex<Vec<` used as a work queue.
+**Check:** is a `Mutex<VecDeque<` or `Mutex<Vec<` used as a work queue? That is a channel.
 
 ### RS-CONC-17 [M] Close channels deliberately
 
@@ -490,7 +492,8 @@ Prefer `park`/`unpark` and condition variables to sleep-polling.
 **Why:** polling trades latency against CPU with no good setting — short intervals burn cycles, long
 ones add latency. A condvar wakes exactly when the condition changes.
 
-**Check:** grep for `sleep` inside loops. Each is a poll that wants a wakeup primitive.
+**Check:** does a loop call `sleep` to wait for a condition? Each is a poll that wants a wakeup
+primitive.
 
 ## Shared state
 
@@ -516,7 +519,7 @@ second lock. Compute outside, mutate inside.
 unbounded; a `std::sync` guard held across an `.await` blocks the executor thread too. Blocking on a
 second lock creates the ordering that deadlocks (RS-CONC-23).
 
-**Check:** grep for `.await` between a `lock()` and the end of its scope, and read each critical
+**Check:** is there an `.await` between a `lock()` and the end of its scope? Read each critical
 section for I/O calls, channel sends, and further lock acquisitions. The `await_holding_lock` row
 below catches the async shape.
 
@@ -606,7 +609,8 @@ defensible; in a library, propagate or use a non-poisoning mutex (`parking_lot`)
 **Why:** poisoning means a thread panicked while holding the lock, so the protected invariant may be
 broken. A library that unwraps decides on the application's behalf that the process should die.
 
-**Check:** grep for `.lock().unwrap()` in library code. Each is an undocumented panic (RS-DOC-11).
+**Check:** `rg -n -F '.lock().unwrap()' -g '*.rs'` finds a poisoned lock turned into a panic; each
+hit in library code is an undocumented panic (RS-DOC-11).
 
 ### RS-CONC-25 [M] Reserve atomics for counters, flags, and provable algorithms
 
@@ -666,8 +670,9 @@ Not `static mut`, which edition 2024 denies through `static_mut_refs`, and not a
 **Why:** these types give a safe, race-free single initialization with no lock on the read path
 after it. A `Mutex<Option<T>>` pays for a lock on every access to emulate the same thing.
 
-**Check:** grep for `static mut` and `Mutex<Option<`, and for a `LazyLock` whose initializer is a
-literal. `lazy_static!` and `once_cell` are the `non_std_lazy_statics` row below.
+**Check:** `rg -n '^\s*(pub(\(crate\))? )?static mut |Mutex<Option<' -g '*.rs'` finds the two
+spellings this rule replaces; each hit is the finding. A `LazyLock` whose initializer is a literal
+is a `const`, and clippy's `non_std_lazy_statics` finds `lazy_static!` and `once_cell`.
 
 ```rust
 // verified
@@ -695,8 +700,8 @@ no work, and a `Vec<Future>` runs nothing until you `join_all` or spawn.
 it. It means an un-awaited future is a silent no-op rather than background work, which is the source
 of the most common async surprise.
 
-**Check:** grep for calls to `async fn` whose result is not awaited, spawned, or collected into a
-joiner. The `unused_must_use` warning catches most.
+**Check:** is a call to an `async fn` left neither awaited, spawned, nor collected into a joiner?
+The `unused_must_use` warning catches most.
 
 ```rust
 // verified
@@ -731,7 +736,8 @@ executor thread. Use `spawn_blocking` for blocking work and the async equivalent
 just the caller. On a multi-threaded runtime that is one core lost; if every worker blocks, the
 runtime deadlocks.
 
-**Check:** grep async bodies for `std::fs`, `std::net`, `thread::sleep`, and `std::sync::Mutex`.
+**Check:** does an async body call `std::fs`, `std::net` or `thread::sleep`, or lock a
+`std::sync::Mutex`? Each stalls the executor thread.
 
 ### RS-CONC-31 [M] Implement `Future` by hand only for a leaf primitive
 
@@ -917,7 +923,7 @@ points instead of `sleep`. A test that sleeps to "let the thread finish" is a fl
 CI runner. The resulting flake is then "fixed" by increasing the sleep, which makes the suite slower
 without making it correct (RS-TEST-16).
 
-**Check:** grep tests for `sleep`. Each wants a barrier, a channel, or a condvar instead.
+**Check:** does a test call `sleep`? Each wants a barrier, a channel, or a condvar instead.
 
 ### RS-CONC-43 [S] Stress-test beyond core count, behind `#[ignore]`
 
@@ -967,7 +973,7 @@ follow the call structure. A detached thread is killed mid-operation when `main`
 unwinding and no flush, and a detached task that panics disappears silently.
 
 **Check:** for each spawned task, name the scope responsible for awaiting it. "Nobody" is the
-finding. Grep for `spawn(` whose handle is dropped without a comment.
+finding, and so is a `spawn(` whose handle is dropped without a comment.
 
 ```rust
 // verified

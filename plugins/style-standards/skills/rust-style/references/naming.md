@@ -169,7 +169,8 @@ Write `features = ["simd"]`, not `features = ["use-simd"]`.
 **Why:** the manifest syntax already says "enable". The prefix is three characters of noise on every
 line of every dependent's manifest, and it sorts all your features under one letter.
 
-**Check:** grep `[features]` for `^use-|^with-|^enable-`.
+**Check:** `rg -n '^(use|with|enable)-' -g '*.toml'` finds the prefixed features; each hit is the
+finding.
 
 ### RS-NAME-08 [M] Do not repeat the enum's name in its variants
 
@@ -332,8 +333,8 @@ sorts? If yes, the name must say so.
 for the `Index`-like case where the lookup can fail and returns `Option`/`Result` — `HashMap::get`,
 `slice::get` — and for the `get_mut`/`get_unchecked` family that pairs with it.
 
-**Check:** grep `fn get_`. Every hit must return `Option`, `Result`, or be an `_unchecked`/`_mut`
-sibling of one that does.
+**Check:** `rg -n 'fn get_' -g '*.rs'` lists the `get_` methods; each that returns neither `Option`
+nor `Result`, and is not the `_unchecked`/`_mut` sibling of one that does, is the finding.
 
 ```rust
 // verified
@@ -488,7 +489,8 @@ impl Log {
 **Why:** `new_with_config` is `with_config` plus three characters of ceremony, and it breaks the
 alphabetical grouping that puts all the `with_*` constructors together in rustdoc.
 
-**Check:** grep `fn new_`.
+**Check:** `rg -n 'fn new_' -g '*.rs'` finds a secondary constructor named `new_*`; each hit is the
+finding.
 
 ```rust
 // verified
@@ -621,8 +623,8 @@ not `path` here and `file` there for one argument, nor `id`, `key`, and `handle`
 is a distinction. It also defeats search: no one finds every site that touches a concept spelled
 three ways. Two names for one thing is worse than one imperfect name.
 
-**Check:** list the nouns in the public surface, grep the crate for their synonyms, and group them
-by referent. Any group with more than one spelling needs a decision and a rename.
+**Check:** list the nouns in the public surface and the words the crate uses for each, and group
+them by referent. Any group with more than one spelling needs a decision and a rename.
 
 ```rust
 // verified
@@ -685,8 +687,8 @@ flag is parsed (RS-CLI-12).
 **Why:** every reader of `if !no_color` performs a small logic operation to recover the intent, and
 under an `&&` with a second negation they will eventually get it wrong.
 
-**Check:** grep for `!` applied to an identifier containing `no_`, `not_`, `disable`, `skip`, or
-`without`.
+**Check:** is `!` applied to an identifier containing `no_`, `not_`, `disable`, `skip`, or
+`without`?
 
 ```rust
 // verified
@@ -733,7 +735,8 @@ No `ConfigTrait`, `ErrorEnum`, `WrapperStruct`, `HandlerImpl`, `FooType`.
 **Why:** the declaration already says `trait`/`enum`/`struct`, and the suffix announces the
 mechanism instead of the concept — it is the naming equivalent of a comment that restates the code.
 
-**Check:** grep identifiers ending in `Trait`, `Enum`, `Struct`, `Impl`, `Type`, `Class`, `Object`.
+**Check:** `rg -n '\b(struct|enum|trait|type) \w+(Trait|Enum|Struct|Impl|Class|Object)\b' -g '*.rs'`
+finds a type named for its construct; each hit is the finding.
 
 ### RS-NAME-30 [S] Apply role suffixes consistently or not at all
 
@@ -755,7 +758,7 @@ when several coexist. Never both spellings in one crate.
 error they have not met. The module-scoped spelling scales better; the flat one is fine for a crate
 with two error types (RS-ERR-16).
 
-**Check:** grep for `Error` in type positions. Are all of them the same shape?
+**Check:** is every `Error` in a type position the same shape?
 
 ## Generic parameters and lifetimes
 
@@ -797,7 +800,8 @@ No `'life`, no `'lifetime`, no type parameter named `Type` or `Generic`.
 **Why:** the sigil already conveys the kind, exactly as with RS-NAME-29. `<'lifetime, Type>` is
 noise in every signature that mentions it.
 
-**Check:** grep for `'life`, `'lifetime`, `<Type`, `<Generic`.
+**Check:** `rg -n "'life\b|'lifetime\b|<Type\b|<Generic\b" -g '*.rs'` finds a parameter named for
+its kind; each hit is the finding.
 
 ```rust
 // verified

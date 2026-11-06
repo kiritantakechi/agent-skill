@@ -302,8 +302,8 @@ failure message shows both sides.
 `assert_eq!` prints both values, which is usually enough to diagnose without rerunning under a
 debugger.
 
-**Check:** grep for `assert!(` containing `==`, `.len()`, or `&&`. Each is usually an `assert_eq!`
-that would print more. Clippy's `manual_assert_eq` and `assert_is_empty` (pedantic) already flag an
+**Check:** does an `assert!(` contain `==`, `.len()`, or `&&`? Each is usually an `assert_eq!` that
+would print more. Clippy's `manual_assert_eq` and `assert_is_empty` (pedantic) already flag an
 assertion that is a single comparison or a single emptiness test.
 
 ```rust
@@ -367,7 +367,7 @@ with `use std::assert_matches;`.
 time; the variant is the part semver protects. Asserting on the string couples the suite to prose
 and breaks on improvements.
 
-**Check:** grep tests for `err.to_string()` and `format!("{e}")` in assertions. Each should be an
+**Check:** does a test assert on `err.to_string()` or `format!("{e}")`? Each should be an
 `assert_matches!` on the variant.
 
 ```rust
@@ -516,7 +516,8 @@ Cleanup happens on drop, including on failure.
 runner, and it leaves debris when a test fails. `TempDir` gives isolation and cleanup without any
 teardown code.
 
-**Check:** grep tests for `/tmp/` and for paths relative to the repository root.
+**Check:** `rg -n -F '"/tmp/' -g '*.rs'` finds a fixed temporary path; each hit in a test is the
+finding, and so is a path relative to the repository root.
 
 ### RS-TEST-18 [S] Test at the highest level that still gives a precise failure
 
@@ -717,8 +718,8 @@ Normalize those first, or the suite becomes a flake generator.
 snapshot containing them fails constantly, and the team learns to accept diffs without reading them
 — which destroys RS-TEST-26.
 
-**Check:** grep snapshots for absolute paths, dates, and hex digests. Each needs a redaction or a
-sort.
+**Check:** does a snapshot hold an absolute path, a date, or a hex digest? Each needs a redaction or
+a sort.
 
 ### RS-TEST-28 [M] Test a CLI binary end to end, including its exit code
 
@@ -747,8 +748,8 @@ any `ignore` in a comment.
 nothing at all and is indistinguishable from a code block in a blog post. The distinction is the
 difference between verified and decorative.
 
-**Check:** grep doc comments for fenced blocks tagged `ignore`. Each needs a justification, and most
-should be `no_run`.
+**Check:** is a doc-comment code block tagged `ignore`? Each needs a justification, and most should
+be `no_run`.
 
 ### RS-TEST-30 [S] Use `compile_fail` doc tests to prove misuse is rejected
 

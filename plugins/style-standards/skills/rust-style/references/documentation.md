@@ -209,8 +209,8 @@ straight to what they need.
 panic?" is answered by looking at a known position rather than reading the whole page — and `std`
 has trained every Rust programmer on exactly this order.
 
-**Check:** grep for `# ` headings inside doc comments and confirm the relative order. Any item with
-a different order is a finding.
+**Check:** do the `# ` headings in each doc comment follow the order above? Any item with a
+different order is a finding.
 
 ```rust
 // verified
@@ -287,7 +287,7 @@ contract. Mark a function that panics on caller error `#[track_caller]` (RS-API-
 server or a plugin needs to know which calls can take the process down, and the docs are the only
 place that can be written.
 
-**Check:** grep the body for `panic!`, `unwrap`, `expect`, `assert`, indexing, slicing, integer
+**Check:** read the body for `panic!`, `unwrap`, `expect`, `assert`, indexing, slicing, integer
 division and `Duration` arithmetic. Each reachable one must correspond to a documented condition.
 The `missing_panics_doc` row catches only a missing section.
 
@@ -504,7 +504,7 @@ diff that changes behaviour without touching a nearby comment deserves a second 
 **Why:** it is shorter, it matches `std`, and it keeps the subject of the sentence the thing being
 documented rather than an abstract process.
 
-**Check:** grep doc comments for "will be", "is returned", "can be used to". Each is usually a
+**Check:** does a doc comment say "will be", "is returned", or "can be used to"? Each is usually a
 passive construction with a shorter active form.
 
 ### RS-DOC-22 [M] Backtick every identifier, type, and literal
@@ -542,8 +542,8 @@ example models the error handling you want copied.
 without the surrounding context that made the shortcut acceptable. Whatever the example does becomes
 the house style of every crate that depends on you.
 
-**Check:** grep doc comments for `unwrap()`, `expect(`, and `let _ =`. Each needs either a rewrite
-or the hidden `main` and a `?` (RS-DOC-24).
+**Check:** does a doc example use `unwrap()`, `expect(`, or `let _ =`? Each needs a rewrite, or the
+hidden `main` and a `?` (RS-DOC-24).
 
 ### RS-DOC-24 [S] Hide setup noise, never the part that makes the example correct
 
@@ -565,7 +565,8 @@ Avoid TODO comments in published code. If one must stay, give it an owner and an
 **Why:** a TODO with no owner and no ticket is invisible to every process that would ever act on it,
 so it accumulates forever. With an issue number it is tracked work; without one it is decoration.
 
-**Check:** grep for `TODO`, `FIXME`, `XXX`, `HACK`. Each hit must carry an issue reference.
+**Check:** `rg -n '//.*\b(TODO|FIXME|XXX|HACK)\b[^(#]*$' -g '*.rs'` finds a marker with no issue
+reference after it; each hit is the finding.
 
 ### RS-DOC-26 [S] Write changelog entries from the user's perspective
 

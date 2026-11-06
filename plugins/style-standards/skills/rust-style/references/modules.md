@@ -344,8 +344,8 @@ pub use report::Summary;
 integration test testing the wrong layer. Widening the API for a test makes the test's needs
 permanent public contract.
 
-**Check:** grep for `pub` items with a comment mentioning tests, or `pub(crate)` items used only
-from `#[cfg(test)]`.
+**Check:** is a `pub` item's comment about tests, or a `pub(crate)` item used only from
+`#[cfg(test)]`? Each was widened for a test.
 
 ```rust
 // verified
@@ -413,7 +413,8 @@ pub use inner::Counter;
 it — a semver commitment made by a typo. It also makes `cargo public-api` diffs unreadable.
 Enumerate the re-exports.
 
-**Check:** grep `pub use .*::\*`.
+**Check:** `rg -n 'pub use .*::\*' -g '*.rs'` finds a glob re-export; each hit in a library root is
+the finding.
 
 ```rust
 // verified
@@ -449,7 +450,7 @@ prelude.
 on them and their removal *is* breaking. The namespace is what signals "not for you" and keeps them
 out of autocomplete's way.
 
-**Check:** grep `#[doc(hidden)]` on `pub` items. Are they under a namespaced module?
+**Check:** is each `#[doc(hidden)]` `pub` item under a namespaced module?
 
 ### RS-MOD-16 [M] Split an enum whose variants are partly internal into two types
 
@@ -672,8 +673,8 @@ the assembled facade.
 exist, and reaching for the facade from inside a member is a sign the shared item belongs in a lower
 member instead (RS-MOD-21, RS-MOD-22).
 
-**Check:** grep the member manifests for the facade's name. Outside `[dev-dependencies]`, each hit
-is a layering error.
+**Check:** does a member manifest name the facade outside `[dev-dependencies]`? Each is a layering
+error.
 
 ## Imports and in-file order
 
@@ -716,7 +717,7 @@ lines to scan.
 bare `read_to_string` could be anything. Types and traits are different: they appear in signatures,
 where the path would be noise.
 
-**Check:** grep for imported free functions. Would the call site read better with one segment of
+**Check:** is a free function imported by name? Would the call site read better with one segment of
 path?
 
 ### RS-MOD-37 [S] Do not import an item used once when the path is short
@@ -735,8 +736,7 @@ two hundred lines down. The inline path is self-contained.
 **Why:** the aliased item creates a second name for one thing, which every reader must learn. The
 module-qualified form uses names that already exist and reads the same as the documentation.
 
-**Check:** grep `as ` in imports. Each is either a module alias or a case where the qualified form
-would have worked.
+**Check:** is each `as` in an import a module alias? Otherwise the qualified form would have worked.
 
 ### RS-MOD-39 [S] Order a file: docs, imports, public items, private items, tests
 

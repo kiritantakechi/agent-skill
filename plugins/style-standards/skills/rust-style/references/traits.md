@@ -526,7 +526,7 @@ enum Encoder { Json, Csv, Text }
 is which and convert between them at boundaries. Pick one per abstraction so there is one pattern to
 learn.
 
-**Check:** grep for the trait's name. Is it used both generically and as `dyn` in the public API?
+**Check:** is the trait used both generically and as `dyn` in the public API?
 
 ### RS-TRAIT-20 [S] Do not nest generics three deep in a public signature
 
@@ -657,7 +657,8 @@ while it is free.
 form, and code written to "use it later" gets rewritten. Use an enum, an explicit impl per type, or
 a runtime check.
 
-**Check:** grep for `default fn` and `#![feature(specialization)]`. Both mean nightly-only forever.
+**Check:** `rg -n 'default fn|#!\[feature\(specialization' -g '*.rs'` finds code that depends on
+specialization; each hit means nightly-only forever.
 
 ## Bounds, where clauses, inference
 
@@ -988,8 +989,8 @@ inherent method or a separate trait.
 implementor they hold. A partial impl destroys exactly that: the caller must now know, and the
 compiler cannot tell them. The trait is then worse than the concrete types it replaced.
 
-**Check:** grep impls for `unimplemented!`, `todo!`, `panic!`, and error variants meaning "not
-supported", and provided methods whose default does the same. Each says the trait is too wide —
+**Check:** does an impl hold `unimplemented!`, `todo!`, `panic!`, or an error variant meaning "not
+supported", or a provided method whose default does the same? Each says the trait is too wide —
 split it, or narrow it to what all implementors can do.
 
 ```rust

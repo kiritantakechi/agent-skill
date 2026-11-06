@@ -131,6 +131,34 @@ PROFILE = Profile(
             "RS-MIG-01": ('lazy_static = "1.5"', 'fd-lock = "4"'),
             # A grab-bag module, declared inline and from a file.
             "RS-NAME-05": ("pub mod utils;", "mod helpers {"),
+            "RS-API-12": ("pub fn items(&self) -> &Vec<Item> {",),
+            "RS-API-49": ("pub fn set_timeout(&mut self, timeout: Duration) -> &mut Self {",),
+            "RS-BUILD-14": ('serde = { version = "1", optional = true }',),
+            "RS-BUILD-21": ('serde = "=1.0.200"',),
+            "RS-BUILD-23": ("#![deny(missing_docs)]",),
+            "RS-BUILD-24": ('pedantic = "allow"',),
+            "RS-BUILD-26": (
+                'RUSTFLAGS="-Dwarnings" cargo build',
+                'RUSTDOCFLAGS="-D warnings" cargo doc',
+            ),
+            "RS-CONC-24": ("let guard = state.lock().unwrap();",),
+            "RS-CONC-27": (
+                "static mut COUNTER: u32 = 0;",
+                "static CACHE: Mutex<Option<Config>> = Mutex::new(None);",
+            ),
+            "RS-DOC-25": ("    // TODO: handle the empty case",),
+            "RS-ERR-08": ("let n = s.parse::<u32>().map_err(|_| Error::Parse)?;",),
+            "RS-ERR-29": ('panic = "abort"',),
+            "RS-MOD-13": ("pub use crate::matcher::*;",),
+            "RS-NAME-07": ("use-simd = []",),
+            "RS-NAME-16": ("pub fn get_name(&self) -> &str {",),
+            "RS-NAME-21": ("pub fn new_with_capacity(capacity: usize) -> Self {",),
+            "RS-NAME-29": ("pub trait ParserTrait {",),
+            "RS-NAME-33": ("fn first<'life>(items: &'life [u8]) -> &'life u8 {",),
+            "RS-OWN-30": ("let shared: Arc<String> = Arc::new(name);",),
+            "RS-PERF-21": ("reader.read(&mut [0u8; 1])?;",),
+            "RS-TEST-17": ('let path = Path::new("/tmp/out.txt");',),
+            "RS-TRAIT-28": ("default fn describe(&self) -> String {", "#![feature(specialization)]"),
             "RS-MIG-02": (
                 "counter.fetch_update(Ordering::SeqCst, Ordering::SeqCst, step)",
                 "let ceiling = std::i32::MAX;",
@@ -156,97 +184,15 @@ PROFILE = Profile(
     # fields away and nothing re-measures.
     not_decisive=keyed(
         {
-            "RS-API-04": NotDecisive(
-                "std::collections::",
-                "the span finds every `std::collections::`; whether it appears in a "
-                "public return type rather than inside a body decides",
-            ),
-            "RS-API-08": NotDecisive(
-                "to_owned()",
-                "the span finds every `to_owned()`; whether it is applied to a `&str` "
-                "parameter the function goes on to store decides",
-            ),
-            "RS-API-19": NotDecisive(
-                ": bool",
-                "the span finds every `bool` parameter, private ones included; "
-                "whether the signature is public decides, and their number chooses "
-                "between an enum and an options struct",
-            ),
             "RS-API-49": NotDecisive(
                 "fn set_",
                 "the span finds every `set_` method; whether the type is a builder "
                 "decides, and an ordinary struct's setter is not this rule's subject",
             ),
-            "RS-CLI-03": NotDecisive(
-                "env::var",
-                "the span finds every environment read, the sanctioned one included; "
-                "whether it sits outside the single construction path decides",
-            ),
-            "RS-CLI-30": NotDecisive(
-                "env::var",
-                "the span finds every environment read; whether that name is prefixed "
-                "and documented in the help output decides, and neither fact is on "
-                "the line",
-            ),
-            "RS-CONC-12": NotDecisive(
-                "join()",
-                "the span finds every `join()`; whether its result is discarded "
-                "rather than handled decides",
-            ),
-            "RS-CONC-20": NotDecisive(
-                "lock()",
-                "the span finds every `lock()`; whether an `.await` sits between it "
-                "and the end of its scope decides",
-            ),
-            "RS-CONC-30": NotDecisive(
-                "std::fs",
-                "the span finds every `std::fs`; whether the enclosing body is "
-                "`async` decides, which the matched line does not say",
-            ),
-            "RS-CONC-46": NotDecisive(
-                "spawn(",
-                "the span finds every `spawn(`; whether its handle is kept, joined, "
-                "or detached with a comment decides",
-            ),
-            "RS-ERR-02": NotDecisive(
-                "let _ = ",
-                "the span finds every discarded binding; whether what it discards is "
-                "a `Result`, and whether a comment names why that failure does not "
-                "matter, decides",
-            ),
             "RS-ERR-08": NotDecisive(
                 "map_err(|_|",
                 "the span finds every erased error; whether the erasure is a "
                 "commented decision rather than an oversight decides",
-            ),
-            "RS-ERR-23": NotDecisive(
-                "ok_or(",
-                "the span finds every eager combinator; whether its argument is a "
-                "`Copy` constant, rather than something that allocates or calls, "
-                "decides",
-            ),
-            "RS-FUNC-03": NotDecisive(
-                "Vec::new()",
-                "the span finds every `Vec::new()`; whether a `for` whose body is a "
-                "single `push` follows decides",
-            ),
-            "RS-FUNC-04": NotDecisive(
-                "sum()",
-                "the span matches `sum()`, which is the spelling this rule asks for; "
-                "whether a hand-written `for` accumulating a scalar remains beside it "
-                "decides",
-            ),
-            "RS-FUNC-17": NotDecisive(
-                "into_iter().collect()",
-                "the span finds every round trip through `into_iter().collect()`; "
-                "whether the collection the caller needs could have been collected "
-                "into directly decides",
-            ),
-            "RS-FUNC-19": NotDecisive(
-                "len() - 1",
-                "the span finds every `len() - 1`; whether an adapter encodes the "
-                "same arithmetic decides, and the loop it belongs to is not on the "
-                "line",
             ),
             "RS-NAME-16": NotDecisive(
                 "fn get_",
@@ -254,48 +200,10 @@ PROFILE = Profile(
                 "`Result`, or is the `_unchecked`/`_mut` sibling of one that does, "
                 "decides",
             ),
-            "RS-NAME-28": NotDecisive(
-                "not_",
-                "the span finds every negated name; whether it is the one conversion "
-                "at the boundary the rule allows decides",
-            ),
-            "RS-OWN-02": NotDecisive(
-                ".clone()",
-                "the span finds every `.clone()`; whether it is applied to a "
-                "parameter in the opening lines of a function that should have taken "
-                "ownership decides",
-            ),
-            "RS-OWN-10": NotDecisive(
-                ".clone()",
-                "the span finds every `.clone()`; whether the receiver's type is "
-                "`Arc` or `Rc` decides, and the type is not on the line",
-            ),
-            "RS-OWN-12": NotDecisive(
-                "to_lowercase()",
-                "the span finds every `to_lowercase()`; whether it is inside a "
-                "condition or a comparison, rather than producing a value that is "
-                "kept, decides",
-            ),
             "RS-PERF-07": NotDecisive(
                 "Vec::new",
                 "the span finds every `Vec::new`; whether it sits inside a loop body "
                 "decides, which is a fact about what encloses it",
-            ),
-            "RS-PERF-30": NotDecisive(
-                "try_from",
-                "the span matches `try_from`, which is the conversion this rule asks "
-                "for; the defect is an `as` cast that could exceed the target range, "
-                "which this span does not find",
-            ),
-            "RS-MOD-11": NotDecisive(
-                "pub(crate)",
-                "the span matches `pub(crate)`; whether the item is used only from "
-                "`#[cfg(test)]`, and was widened to satisfy a test, decides",
-            ),
-            "RS-TEST-11": NotDecisive(
-                "assert!(",
-                "the span finds every `assert!(`; whether it contains `==`, `.len()`, "
-                "or `&&` — an `assert_eq!` that would print more — decides",
             ),
         }
     ),
