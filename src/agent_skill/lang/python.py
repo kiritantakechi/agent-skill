@@ -302,9 +302,23 @@ DOTTED = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
 
 #: What looks a name up on the pinned interpreter: exits 0 when it
 #: resolves, 1 when it does not, 2 when an import raised otherwise.
+#:
+#: A C API name is looked up in the interpreter's headers, not its
+#: library: CPython removes a C API by dropping its declaration and
+#: keeps the symbol exported for the stable ABI, so every removed
+#: function still resolves through `ctypes`. The headers are what an
+#: extension compiles against — the question the Rust toolchain asks
+#: of the pinned crates' sources.
 PROBE = """\
-import builtins, importlib, sys
-parts = sys.argv[1].split(".")
+import builtins, importlib, re, sys, sysconfig
+from pathlib import Path
+name = sys.argv[1]
+if re.fullmatch(r"_?Py[A-Z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*", name):
+    word = re.compile(rf"\\b{re.escape(name)}\\b")
+    headers = Path(sysconfig.get_paths()["include"]).rglob("*.h")
+    declared = any(word.search(h.read_text(errors="replace")) for h in headers)
+    sys.exit(0 if declared else 1)
+parts = name.split(".")
 found, rest = builtins, parts
 try:
     for i in range(len(parts), 0, -1):

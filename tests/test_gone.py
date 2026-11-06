@@ -44,6 +44,10 @@ def provides(step: Step | None) -> bool | None:
         ("str.removeprefix", True),
         ("sre_compile", False),
         ("from __future__ import annotations", None),
+        # A C API name is read from the headers: the library still
+        # exports the removed one for the stable ABI.
+        ("PyImport_ImportModule", True),
+        ("PyImport_ImportModuleNoBlock", False),
     ],
 )
 def test_python_imports_the_name_on_the_pinned_interpreter(
