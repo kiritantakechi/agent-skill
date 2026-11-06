@@ -71,8 +71,8 @@ def test_python_imports_the_name_on_the_pinned_interpreter(
         ("app.add_plugins(…)", None),
         # A doc example's `/// pub struct Parent<…>` defines nothing.
         ("Parent", False),
-        # A path that names its crate is looked up in that crate alone:
-        # `bevy_gizmos` has a `mod primitives`, and `bevy_math` lost its.
+        # A path that names its crate is looked up in that crate
+        # alone: `bevy_gizmos` has a `mod primitives`, `bevy_math` not.
         ("bevy_math::primitives", False),
         ("bevy_shape::Circle", True),
     ],

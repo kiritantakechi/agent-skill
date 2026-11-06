@@ -639,7 +639,7 @@ def _defines(name: str) -> str:
 
 
 def _within(name: str, sources: list[Path]) -> list[Path]:
-    """The sources `name` can be defined in: its crate's, if it names one.
+    """Where `name` can be defined: its crate, if it names one.
 
     A crate's directory is `<crate>-<version>`; a path whose first
     segment is a crate of the library (`bevy_math::curve`), but not the
