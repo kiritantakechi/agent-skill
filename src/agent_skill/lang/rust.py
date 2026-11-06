@@ -559,6 +559,10 @@ class Rust:
         cmd = ("rg", "-n", "-m1", "--no-heading", "-t", "rust", "-e", _defines(last))
         return Step("probe", (*cmd, *map(str, sources)), out, 120)
 
+    def excused(self, skill: Skill) -> Mapping[str, str]:  # noqa: ARG002 — no example is excused
+        """Nothing: each example builds under what the skill ships."""
+        return dict[str, str]()
+
     def configured(self, skill: Skill) -> dict[tuple[str, str], str]:
         """Each lint the shipped `[workspace.lints]` sets, at its level.
 

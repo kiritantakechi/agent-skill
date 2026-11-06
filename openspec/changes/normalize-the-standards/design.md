@@ -346,6 +346,25 @@ Python examples are linted with the shipped `ruff.toml` minus a named allowlist 
 project shape (`D100`, `D103`, `INP001`, `N999`, `S101`, `PLR2004`), each with its reason. Rust
 examples already compile under the shipped lint table.
 
+As built (task 2.11):
+
+- `PythonSnippet.allowlist`, code → reason, holds the six codes with their reasons. For a
+  normalised standard the `ruff` step is `ruff check --no-cache --config <the shipped ruff.toml>
+  --ignore=<the allowlist> --output-format=concise <files>` (`_shipped`, `ruff_args(shipped)`); the
+  narrower `select`/`ignore` stays for the others, so their runs are unchanged. The configuration
+  is the asset itself, resolved through `Skill.asset`, so nothing else can differ between what ships
+  and what the examples are linted with: the divergence the spec's scenario names is impossible by
+  construction, but for the allowlist.
+- Only advice is linted so: an evidence block (`— BAD`, or quoted from someone else's source) shows
+  the shape a rule forbids, which the shipped configuration forbids as well, so `ruff` is given the
+  advice units' files. `ty` and the run still take every block.
+- `Toolchain.excused(skill)` is what a skill's examples are excused from (Python's allowlist; Rust
+  and Zig nothing), and `citations.allow_reason` fails an entry with no reason, for a normalised
+  standard; its control reads the demo with an allowlist entry whose reason is empty.
+- Measured: python-style's 51 verified blocks, read as normalised, give 23 findings under the
+  shipped configuration less the allowlist — `D101` 10, `D102` 7, `D107` 4, `D105` 1, `S311` 1 —
+  for its step to resolve: a docstring each, or an allowlist entry with its reason.
+
 ### 13. The frontmatter and SKILL.md are bounded
 
 The description is one shared template: the use case first, the artifacts that trigger it, the

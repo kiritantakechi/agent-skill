@@ -408,6 +408,15 @@ class Toolchain(Protocol):
         """
         ...
 
+    def excused(self, skill: Skill) -> Mapping[str, str]:
+        """What `skill`'s examples are excused from of what it ships.
+
+        Each lint code a fenced snippet cannot satisfy, with the reason
+        (normalize-the-standards, decision 12); a reason left out fails
+        the run, as any exemption without one does.
+        """
+        ...
+
     def configured(self, skill: Skill) -> Mapping[tuple[str, str], str]:
         """Each lint `skill`'s shipped configuration sets one by one.
 

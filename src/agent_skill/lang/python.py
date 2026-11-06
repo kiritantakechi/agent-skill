@@ -197,6 +197,38 @@ class PythonSnippet:
         "B008",  # a call in a default is the point of some examples
         "RUF001",  # the prose uses en-dashes deliberately
     )
+    #: What a normalised standard's examples are excused from of the
+    #: configuration it ships, each with its reason: rules about the
+    #: shape of a project, which a fenced snippet cannot have
+    #: (normalize-the-standards, decision 12). Everything else the
+    #: shipped `ruff.toml` enables, the examples are linted with.
+    allowlist: Mapping[str, str] = field(
+        default_factory=lambda: MappingProxyType(
+            {
+                "D100": "a snippet is not a module, so it has no module docstring",
+                "D103": (
+                    "a snippet's function shows one rule, and the chapter around it "
+                    "is its documentation"
+                ),
+                "INP001": (
+                    "a snippet is a file of its own, in no package, with no "
+                    "`__init__.py` beside it"
+                ),
+                "N999": (
+                    "a snippet's file is named by the harness, so its module name "
+                    "says nothing a reader chose"
+                ),
+                "S101": (
+                    "a snippet's tests assert as pytest's do, in a file no test "
+                    "path exempts"
+                ),
+                "PLR2004": (
+                    "a snippet's literals are its example's values, and naming each "
+                    "would bury the line the rule is about"
+                ),
+            }
+        )
+    )
     #: `ty` rule levels: every rule that is off by default and that the
     #: asset enables, named one at a time for the reason
     #: `assets/ty.toml` gives.
@@ -227,8 +259,21 @@ class PythonSnippet:
         """The interpreter the examples run on."""
         return self.interpreter
 
-    def ruff_args(self) -> list[str]:
-        """The `ruff check` arguments that apply this selection."""
+    def ruff_args(self, shipped: Path | None = None) -> list[str]:
+        """The `ruff check` arguments that apply this selection.
+
+        Given the configuration a normalised standard ships, that
+        configuration less the allowlist; otherwise the narrower
+        selection declared here.
+        """
+        if shipped is not None:
+            return [
+                "--no-cache",
+                "--config",
+                str(shipped),
+                f"--ignore={','.join(self.allowlist)}",
+                "--output-format=concise",
+            ]
         return [
             "--no-cache",
             "--isolated",
@@ -407,8 +452,16 @@ class Python:
         config = str(ex.root / TY_CONFIG)
         ty = ("ty", "check", "--config-file", config, "--python", str(VENV))
         yield Step("ty", (*ty, str(ex.root)), ex.root, 300, diagnostics=True)
-        ruff = ("ruff", "check", *snippet.ruff_args(), str(ex.root))
-        yield Step("ruff", ruff, ex.root, 300, diagnostics=True)
+        shipped = _shipped(ex.skill)
+        linted = (str(ex.root),)
+        if shipped is not None:
+            # Evidence shows the shape a rule forbids, and the shipped
+            # configuration forbids it too: only advice is held to it.
+            advice = (u for u in ex.units if not u.block.marker.evidence)
+            linted = tuple(str(u.path) for u in advice)
+        if linted:
+            ruff = ("ruff", "check", *snippet.ruff_args(shipped), *linted)
+            yield Step("ruff", ruff, ex.root, 300, diagnostics=True)
 
     def formatter(self, ex: Extraction) -> Step:
         """`ruff format`, under the configuration the skill ships."""
@@ -489,6 +542,10 @@ class Python:
             return None
         return Step("probe", (str(PYTHON), "-I", "-c", PROBE, name), out, 60)
 
+    def excused(self, skill: Skill) -> Mapping[str, str]:
+        """What `skill`'s examples are excused from, and why."""
+        return _snippet(skill).allowlist
+
     def configured(self, skill: Skill) -> dict[tuple[str, str], str]:
         """Each `ty` rule the shipped `ty.toml` sets, at its level.
 
@@ -501,6 +558,16 @@ class Python:
             return {}
         rules = tomllib.loads(ty_toml.read_text()).get("rules", {})
         return {("ty", str(name)): str(level) for name, level in rules.items()}
+
+
+def _shipped(skill: Skill) -> Path | None:
+    """The `ruff.toml` a normalised standard's examples are linted with.
+
+    None while the standard is not normalised, or ships none: its
+    examples are linted with the selection its snippet declares.
+    """
+    shipped = skill.asset(RUFF_TOML).resolve()
+    return shipped if skill.profile.normalized and shipped.exists() else None
 
 
 def _snippet(skill: Skill) -> PythonSnippet:

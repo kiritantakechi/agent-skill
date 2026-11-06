@@ -45,7 +45,9 @@
 - [x] 2.10 The delta map (decision 10) in `crossref` — `| <anchor> rule | Relation | <delta> rule
   | Tier | Reason |`; `crossref.relation`, `departure_tier`, `departs`, `redefines` (and the table
   read by `delta_no_table`, `override_target`); `mirror.restated`; override cells read bare too
-- [ ] 2.11 Examples under the shipped configuration minus the allowlist (decision 12)
+- [x] 2.11 Examples under the shipped configuration minus the allowlist (decision 12) —
+  `PythonSnippet.allowlist` (six codes, each with its reason); a normalised standard's advice blocks
+  are linted with `--config <shipped ruff.toml> --ignore=<allowlist>`; `citations.allow_reason`
 - [ ] 2.12 Description template, SKILL.md bound, time-sensitive and provenance phrasing (decision 13)
 
 ## 3. python-style

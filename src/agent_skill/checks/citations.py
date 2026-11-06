@@ -36,6 +36,7 @@ UNROWED = declare("citations", "unrowed", Level.FAIL)
 ROWED_TWICE = declare("citations", "rowed_twice", Level.FAIL)
 ROW_REASON = declare("citations", "row_reason", Level.FAIL)
 ONLY_LINT = declare("citations", "only_lint", Level.FAIL)
+ALLOW_REASON = declare("citations", "allow_reason", Level.FAIL)
 
 
 #: A row of a chapter's `Decided by tools` table, and where it is.
@@ -95,8 +96,29 @@ def citations(skill: Skill) -> Iterator[Finding]:
     yield from row_shape(rows_of(skill), skill.profile.tools)
     if skill.profile.normalized:
         yield from bijection(skill)
+        yield from _excused(skill)
     if (toolchain := toolchain_for(skill.profile.toolchain)) is not None:
         yield from toolchain.cite(skill)
+
+
+def _excused(skill: Skill) -> Iterator[Finding]:
+    """Each lint the examples are excused from says why (decision 12).
+
+    A normalised standard's examples are linted with the configuration
+    it ships, less an allowlist of rules about a project's shape, which
+    a fenced snippet cannot have. An entry with no reason is an
+    exemption nobody can weigh.
+    """
+    toolchain = toolchain_for(skill.profile.toolchain)
+    excused = toolchain.excused(skill) if toolchain is not None else {}
+    for code, reason in sorted(excused.items()):
+        if not reason.strip():
+            yield fail(
+                f"the examples are excused from `{code}` with no reason; a rule a "
+                "snippet cannot satisfy says why it cannot",
+                skill.at(),
+                ALLOW_REASON,
+            )
 
 
 # ------------------------------------------------------------------

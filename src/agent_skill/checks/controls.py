@@ -46,6 +46,7 @@ from agent_skill.checks import (
 )
 from agent_skill.ids import Branch, Location, RuleId
 from agent_skill.lang import python, rust, zig
+from agent_skill.lang.python import PythonSnippet
 from agent_skill.layout import PLUGIN, SKILLS, root_of
 from agent_skill.model import SKILL_MD
 from agent_skill.profiles import Mirror, bevy_style, python_style, rust_style, zig_style
@@ -853,6 +854,16 @@ NORMAL_FORM: list[Control] = [
                         ("DL-ERR-02", "Never stop the program from a library")
                     ),
                 ),
+            )
+        },
+    ),
+    _on_demo(
+        # The examples excused from a lint, with no reason given.
+        citations.ALLOW_REASON,
+        lambda _: (),
+        profiles={
+            demo.PROFILE.name: replace(
+                demo.PROFILE, toolchain=PythonSnippet(allowlist={"D100": ""})
             )
         },
     ),

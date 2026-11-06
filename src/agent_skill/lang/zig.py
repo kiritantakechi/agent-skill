@@ -362,6 +362,10 @@ class Zig:
         cmd = ("zig", "build-obj", "-fno-emit-bin", path.name)
         return Step("probe", cmd, out, 120)
 
+    def excused(self, skill: Skill) -> Mapping[str, str]:  # noqa: ARG002 — no example is excused
+        """Nothing: each example builds under what the skill ships."""
+        return dict[str, str]()
+
     def configured(self, skill: Skill) -> dict[tuple[str, str], str]:  # noqa: ARG002 — the compiler's errors are its rows
         """Nothing: a compiler ships no configuration to set it in."""
         return {}
