@@ -474,7 +474,9 @@ The backing allocator you pass is `std.testing.allocator` (ZS-TEST-03) — the t
 `FailingAllocator` per run, so leak detection still applies to every one of the N re-runs. Extra
 arguments are forwarded as a tuple after the allocator, which is why `test_fn` must take
 `std.mem.Allocator` first and cannot close over the test's locals. For a single targeted OOM path
-rather than the exhaustive sweep, use `FailingAllocator` directly (ZS-TEST-12).
+rather than the exhaustive sweep, use `FailingAllocator` directly (ZS-TEST-12). It fails
+allocations, never a resize, so a list that grows in place is swept only at its first allocation:
+the `errdefer` it tests is the one between two separate allocations.
 
 `[M!]` applies wherever an OOM must not corrupt state or lose data — databases, storage engines,
 allocators, long-running network servers. *Relaxed form:* one `checkAllAllocationFailures` test per
@@ -506,27 +508,29 @@ fn buggy(gpa: std.mem.Allocator, n: usize) ![]u8 {
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-pub fn joinAlloc(gpa: Allocator, sep: []const u8, parts: []const []const u8) Allocator.Error![]u8 {
-    var out: std.ArrayList(u8) = .empty;
-    errdefer out.deinit(gpa); // the line checkAllAllocationFailures exists to verify
-    for (parts, 0..) |part, i| {
-        if (i != 0) try out.appendSlice(gpa, sep);
-        try out.appendSlice(gpa, part);
-    }
-    return out.toOwnedSlice(gpa);
+/// A key and its value, each owned by the caller.
+pub const Entry = struct { key: []u8, value: []u8 };
+
+/// The BAD block above with the line it lacks: `k` is freed on the path
+/// where duplicating the value fails.
+pub fn entryAlloc(gpa: Allocator, key: []const u8, value: []const u8) Allocator.Error!Entry {
+    const k = try gpa.dupe(u8, key);
+    errdefer gpa.free(k); // the line checkAllAllocationFailures exists to verify
+    const v = try gpa.dupe(u8, value);
+    return .{ .key = k, .value = v };
 }
 
-fn joinCase(gpa: Allocator, parts: []const []const u8) !void {
-    const joined = try joinAlloc(gpa, ",", parts);
-    defer gpa.free(joined);
-    try std.testing.expect(joined.len >= parts.len -| 1);
+fn entryCase(gpa: Allocator, key: []const u8, value: []const u8) !void {
+    const entry = try entryAlloc(gpa, key, value);
+    gpa.free(entry.key);
+    gpa.free(entry.value);
 }
 
-test "joinAlloc survives every allocation failure point" {
+test "entryAlloc survives every allocation failure point" {
     try std.testing.checkAllAllocationFailures(
         std.testing.allocator,
-        joinCase,
-        .{&[_][]const u8{ "alpha", "beta", "gamma" }},
+        entryCase,
+        .{ "name", "zig" },
     );
 }
 ```
