@@ -98,7 +98,7 @@ rust-version = "1.99"        # a real, tested MSRV — see RS-BUILD-31
 
 ### RS-BUILD-02 [S] Choose an MSRV policy and publish it
 
-Choose an MSRV policy and publish it where `RS-DOC-33` puts it: "latest stable", "stable minus two",
+Choose an MSRV policy and publish it where RS-DOC-33 puts it: "latest stable", "stable minus two",
 or a pinned old version for distribution packagers. Bumping the MSRV is at least a minor version
 bump.
 
@@ -190,8 +190,8 @@ In a workspace, declare shared dependencies once in `[workspace.dependencies]` a
 Cargo 1.99 honours it on an edition-2024 member, and older Cargo rejects that manifest.
 
 **Why:** duplicated version requirements across members drift, until two members pull different
-majors of one crate into one build (`RS-BUILD-29`). One declaration makes that impossible rather
-than a review responsibility.
+majors of one crate into one build (RS-BUILD-29). One declaration makes that impossible rather than
+a review responsibility.
 
 **Check:** grep member manifests for a version literal on a dependency another member also uses.
 Each is a value that should be inherited.
@@ -228,13 +228,13 @@ can be deleted.
 
 `[package.metadata.docs.rs]` should enable the features docs.rs should build with
 (`all-features = true`, or an explicit list) and `rustdoc-args = ["--cfg", "docsrs"]` so the
-`docsrs`-gated `doc_cfg` line takes effect (`RS-BUILD-17`). Since 2026-05-01 docs.rs builds only
+`docsrs`-gated `doc_cfg` line takes effect (RS-BUILD-17). Since 2026-05-01 docs.rs builds only
 `x86_64-unknown-linux-gnu` unless `targets` lists more, so a crate with platform-gated API sets
 `targets` to cover it.
 
 **Why:** docs.rs builds with default features unless told otherwise, so a crate whose interesting
 API is feature-gated publishes documentation missing most of itself. The `docsrs` cfg is what makes
-the feature badges appear (`RS-BUILD-17`).
+the feature badges appear (RS-BUILD-17).
 
 **Check:** open the published docs and look for a feature-gated item and a platform-gated one.
 Missing or unbadged means the metadata is absent.
@@ -266,7 +266,7 @@ user-visible change. "See git log" is not a changelog.
 
 **Why:** a git log is a record of implementation steps, not of what changed for users, and it cannot
 be read in the two minutes someone spends deciding whether to upgrade. The changelog is a different
-document with a different audience (`RS-DOC-26`).
+document with a different audience (RS-DOC-26).
 
 **Check:** can a user determine from the changelog alone whether an upgrade affects them?
 
@@ -289,7 +289,7 @@ providing an alternative implementation is a subtractive feature.
 
 `default = []` where you can afford it. Every default feature is a dependency you impose on
 `--no-default-features` users who never learned it existed. What each feature costs is documented in
-the crate root (`RS-DOC-02`).
+the crate root (RS-DOC-02).
 
 **Why:** defaults are what most users get, so they set the crate's real dependency footprint. An
 empty default makes cost opt-in, which is what forces the question of what each addition buys.
@@ -417,7 +417,7 @@ Use caret requirements (`"1.2"`, meaning `^1.2`) and let Cargo resolve. Do not p
 
 **Why:** an exact pin means any other crate requiring a different patch version cannot coexist with
 yours, which is an unresolvable conflict for the user. Reproducibility belongs in the lockfile
-(`RS-BUILD-10`), not in the requirement.
+(RS-BUILD-10), not in the requirement.
 
 **Check:** grep for `=` version requirements in a library manifest.
 
@@ -427,7 +427,7 @@ Turn off default features on heavy dependencies and enable only what you use:
 `tokio = { version = "1", default-features = false, features = ["rt", "macros"] }`. This is often
 the single largest build-time win available. In a workspace, turn them off in
 `[workspace.dependencies]`; turning them off on one member's inherited dependency needs
-`rust-version` 1.99 (`RS-BUILD-07`).
+`rust-version` 1.99 (RS-BUILD-07).
 
 **Why:** default features are chosen for the dependency's typical user, not for you, and they
 frequently pull in most of the crate. Because features unify, your choice also affects everyone
@@ -576,7 +576,7 @@ permitted dependencies, so neither the MSRV nor the lower bounds are exercised o
 
 Run `cargo semver-checks` before every release and trust it over intuition about what is breaking.
 It catches removed impls, narrowed bounds, changed variant shapes, and newly private items that
-human review misses (`RS-API-55`).
+human review misses (RS-API-55).
 
 *Relaxed form:* an unpublished internal crate with one consumer can rely on that consumer's build.
 The moment there are two, the tool is cheaper than the coordination.
@@ -591,7 +591,7 @@ remembers?
 ### RS-BUILD-33 [M] Follow semver strictly, including the 0.x rule
 
 Follow semver strictly, including the 0.x rule that 0.y.z treats `y` as the major. Do not ship a
-breaking change as a patch because "nobody uses it yet". `RS-API-55` lists which changes break.
+breaking change as a patch because "nobody uses it yet". RS-API-55 lists which changes break.
 
 **Why:** Cargo's resolver implements these rules exactly, so a breaking patch release breaks every
 existing build that resolves to it, without any action by the user. "Nobody uses it" is not
@@ -700,7 +700,7 @@ Cargo turns incremental compilation off when `CI` is set, so CI needs no `CARGO_
 
 `[profile.release]` defaults are reasonable; change them with measurements. `lto = "thin"` is
 usually a good trade, `codegen-units = 1` buys a few percent for much slower builds, and
-`panic = "abort"` is an application decision (`RS-ERR-32`).
+`panic = "abort"` is an application decision (RS-ERR-32).
 
 **Why:** each of these trades build time or behaviour for runtime, and the sizes of both sides are
 project-specific. `panic = "abort"` in particular changes semantics — `catch_unwind` stops working —
@@ -771,7 +771,7 @@ blocked.
 ### RS-BUILD-46 [S] Measure build time with `cargo build --timings` before optimizing it
 
 Measure build time before optimizing it: `cargo build --timings` identifies the crate that costs 40%
-of the build, which is usually one heavy default feature away from being cheap (`RS-BUILD-22`).
+of the build, which is usually one heavy default feature away from being cheap (RS-BUILD-22).
 
 **Why:** build time is usually dominated by one or two dependencies rather than spread evenly, so
 the fix is targeted rather than architectural. Guessing leads to splitting your own crate, which

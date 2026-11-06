@@ -379,7 +379,7 @@ pub fn non_empty(lines: &[String]) -> impl Iterator<Item = &str> {
 
 **Why:** collecting into a `Vec` and converting afterwards allocates twice and iterates twice, and
 `FromIterator` impls exist for exactly this reason. `Result<Vec<_>, _>` in particular is not a
-special case — it is the same mechanism (`references/errors.md` RS-ERR-25).
+special case — it is the same mechanism (RS-ERR-25).
 
 **Check:** grep for `collect` followed by `into_iter().collect()`, `HashMap::from_iter`, or a `for`
 loop that inserts.
@@ -594,8 +594,7 @@ live in a struct field or when monomorphization bloat is measurable. Take an asy
 the argument (nor, under `FnMut`, the captured state).
 
 **Why:** the generic form inlines and costs a monomorphization per call site; the boxed form costs
-an indirect call and an allocation but keeps the code size flat and the type nameable
-(`references/traits.md` RS-TRAIT-13).
+an indirect call and an allocation but keeps the code size flat and the type nameable (RS-TRAIT-13).
 
 **Check:** does the closure get stored, or does the function get instantiated for many types? Either
 answer points at boxing.
@@ -607,7 +606,7 @@ method call on `self` still borrows all of it.
 
 **Why:** a closure that calls `self.keeps(item)` holds `&self` while it lives, which blocks the
 `&mut self.items` beside it — the usual cause of "cannot borrow `self` as mutable". Binding what the
-method reads first leaves disjoint borrows (`references/ownership.md` RS-OWN-06).
+method reads first leaves disjoint borrows (RS-OWN-06).
 
 **Check:** does the closure call a method on `self`? Bind what it reads to a local before the
 closure, or make the method a function of those fields.
@@ -627,7 +626,7 @@ self.items.retain(|&item| item <= limit);
 
 **Why:** `move` is not selective. To move one field into a closure and borrow another, bind them
 outside first — this is the standard fix for "cannot move out of `self`", and reaching for `clone()`
-instead is exactly the defect in `references/ownership.md` RS-OWN-08.
+instead is exactly the defect in RS-OWN-08.
 
 **Check:** for each `move` closure, list what it captures. Is anything captured by move that the
 surrounding scope still needs?
@@ -660,7 +659,7 @@ function that derives a value returns it, and its caller connects it to the sink
 
 **Why:** a function that both computes and writes cannot be tested without a sink, reused with
 another, or parallelized. A middle layer with no I/O, clock, or environment tests in milliseconds,
-which is what makes `run() -> Result<()>` testable (`references/modules.md` RS-MOD-21).
+which is what makes `run() -> Result<()>` testable (RS-MOD-21).
 
 **Check:** does the function both compute and print, log, write, or send? Split it. How deep in the
 call stack is the deepest I/O call? Everything below the entry layer should be pure.
@@ -727,7 +726,7 @@ same argument applies to randomness and to the current directory.
 ### RS-FUNC-40 [S] Model state transitions as values or as types
 
 Return the new state as a value; where misuse is costly and the states are few, make them types
-(`references/traits.md` RS-TRAIT-43).
+(RS-TRAIT-43).
 
 **Why:** an object that is "not yet initialized" for its first three method calls is two types
 wearing one name, and every method has to handle a state it should never see.
@@ -740,8 +739,7 @@ next state?
 `opt.map(f).filter(p).unwrap_or_default()`, `res.and_then(g).or_else(h)`.
 
 **Why:** the linear form reads top to bottom in the order the data flows, without the reader
-tracking which branch they are in. Choose the eager or lazy variant deliberately
-(`references/errors.md` RS-ERR-24).
+tracking which branch they are in. Choose the eager or lazy variant deliberately (RS-ERR-24).
 
 **Check:** does any nested `match` on `Option`/`Result` have arms that just forward?
 
@@ -837,7 +835,7 @@ Stages take one value and return one value. Resist a stage that also mutates a c
 (in a `map`, RS-FUNC-27 forbids it outright), one that returns a tuple only the next stage
 understands, or one that is a `for` loop because it was easier.
 
-**Why:** uniform stages can be reordered, tested individually, and parallelized (`RS-CONC-36`); one
+**Why:** uniform stages can be reordered, tested individually, and parallelized (RS-CONC-36); one
 stage with a side channel takes those properties from the whole chain, and it is where the bugs are,
 because nobody can reason about it locally.
 

@@ -109,7 +109,7 @@ Also `shared`, `types`, `lib`, and `core` as a grab-bag.
 
 **Why:** these are not names — they are admissions that the boundary has not been found, so nobody
 can predict which function landed in one. They also grow monotonically, because nothing is ever
-obviously *not* a utility (`references/naming.md` RS-NAME-05).
+obviously *not* a utility (RS-NAME-05).
 
 **Check:** grep the module tree for these names. For each function inside, name the type or concept
 it actually serves.
@@ -246,11 +246,10 @@ silently discards the fix. The comment and the isolation are what prevent it.
 
 ### RS-MOD-10 [M] Cross a parent-child edge with `pub(super)`, not `pub(crate)`
 
-Visibility escalates one step at a time: private, `pub(super)`, `pub(crate)`, `pub`
-(`references/api.md` RS-API-01). An item a child module shares with its parent, or a parent shares
-with one child, is `pub(super)`. The two spellings coincide for a module directly under the crate
-root, where `super` *is* the root; the distinction starts one level further down, and so does this
-rule.
+Visibility escalates one step at a time: private, `pub(super)`, `pub(crate)`, `pub` (RS-API-01). An
+item a child module shares with its parent, or a parent shares with one child, is `pub(super)`. The
+two spellings coincide for a module directly under the crate root, where `super` *is* the root; the
+distinction starts one level further down, and so does this rule.
 
 **Why:** `pub(crate)` on a parent-child edge says any module may depend on the item, which is almost
 never what the code means. A reader who sees `pub(super)` knows the coupling stops one level up, and
@@ -512,6 +511,11 @@ three criteria applies to it?
 
 ### RS-MOD-20 [S] Follow the canonical workspace layout
 
+**Why:** it is what the ecosystem expects, so contributors know where to look before reading
+anything. Deviating has a cost paid by every newcomer.
+
+**Check:** can someone find the binary's entry point and the primary library in under ten seconds?
+
 ```text
 # fragment — the top level of the workspace
 project/
@@ -524,11 +528,6 @@ project/
 ├── benches/
 └── examples/
 ```
-
-**Why:** it is what the ecosystem expects, so contributors know where to look before reading
-anything. Deviating has a cost paid by every newcomer.
-
-**Check:** can someone find the binary's entry point and the primary library in under ten seconds?
 
 ### RS-MOD-21 [M] Split the binary from the library
 
@@ -604,7 +603,7 @@ serializes the build.
 **Why:** an example that no longer builds is worse than no example, because users copy it before
 discovering that. `cargo test` does not necessarily build them — `cargo build --examples` does.
 
-**Check:** is `cargo build --examples` in CI (`references/build.md` RS-BUILD-39)?
+**Check:** is `cargo build --examples` in CI (RS-BUILD-39)?
 
 ### RS-MOD-26 [M] Treat `build.rs` as a last resort
 
@@ -632,7 +631,7 @@ A root with no `[package]` has no edition to infer the resolver from, so Cargo f
 
 **Why:** the versions are not interchangeable: `"2"` stops features unifying across build-, dev-,
 and inactive target-specific dependencies, and `"3"` passes over a dependency release that raises
-its `rust-version` past yours rather than picking it (`references/build.md` RS-BUILD-31).
+its `rust-version` past yours rather than picking it (RS-BUILD-31).
 
 **Check:** does the workspace root name a resolver? A build that prints that warning is not
 configured, it is defaulted.
@@ -653,7 +652,7 @@ alone against `--workspace`. Any difference is a member being built in a way nob
 
 **Why:** unification hides a missing feature declaration: a member that forgot `serde/derive` still
 compiles when a sibling asks for it, so `--workspace` is green while the published crate fails for
-the first user who depends on it alone (`references/build.md` RS-BUILD-39).
+the first user who depends on it alone (RS-BUILD-39).
 
 **Check:** does CI build members individually — `cargo hack --each-feature`, or one `-p` per member
 — or only `--workspace`?
@@ -673,8 +672,7 @@ public on its own merits?
 ### RS-MOD-32 [M] Leave `version` out of an unpublished member's manifest
 
 Cargo reads a missing `version` as `0.0.0` and `publish = false`, so the one absence says both.
-Members that *are* published carry real versions and the full metadata (`references/build.md`
-RS-BUILD-03).
+Members that *are* published carry real versions and the full metadata (RS-BUILD-03).
 
 **Why:** `publish = false` is what stops `cargo publish` from shipping an internal crate by
 accident, and no version states that the number carries no promise — an internal member versioned
@@ -720,7 +718,7 @@ Three blocks separated by blank lines — what `group_imports = "StdExternalCrat
 
 **Why:** the grouping tells a reader at a glance how much of the file's vocabulary is foreign, and
 where a name came from. Setting it in `rustfmt.toml` makes it enforced rather than remembered
-(`references/build.md` RS-BUILD-27).
+(RS-BUILD-27).
 
 **Check:** is the option set, and does CI run `cargo fmt --check`?
 
@@ -779,7 +777,7 @@ would have worked.
 
 **Why:** readers scan top-down looking for the public surface, and the compiler does not care.
 Private helpers first make a reader and a reviewer read the implementation before the interface.
-Tests go last (`references/testing.md` RS-TEST-04).
+Tests go last (RS-TEST-04).
 
 **Check:** in each file, is the first non-import item public?
 
@@ -798,15 +796,14 @@ Multiple inherent `impl` blocks for one type need a reason — a `cfg`, or diffe
 Identifying field first, configuration next, caches and scratch last.
 
 **Why:** the compiler reorders for layout anyway unless `repr(C)` is set, so field order is purely a
-communication decision — use it to tell the reader what the type is about (`references/unsafe.md`
-RS-UNSAFE-14).
+communication decision — use it to tell the reader what the type is about (RS-UNSAFE-14).
 
 **Check:** does the first field identify the value, or is it whatever was added first?
 
 ### RS-MOD-44 [S] Keep functions short enough to see whole
 
 When one is not, the fix is almost always extracting a pure helper and leaving a thin caller
-(`references/functional.md` RS-FUNC-36).
+(RS-FUNC-36).
 
 **Why:** there is no line limit worth enforcing, but four levels of indentation or eight local
 mutable bindings means the reader is simulating the function rather than reading it.

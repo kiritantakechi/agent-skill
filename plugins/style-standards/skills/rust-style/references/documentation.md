@@ -57,7 +57,7 @@ use case from `docs.rs` alone, without reading the source.
 ### RS-DOC-01 [M] Answer four questions, in order, in the crate root
 
 The crate root `//!` block answers, in order: what this crate is for, the smallest complete working
-example (`RS-DOC-05`), the two or three types to read first, and any crate-wide concepts (feature
+example (RS-DOC-05), the two or three types to read first, and any crate-wide concepts (feature
 flags, error type, threading model). This is the single most-read page you will write.
 
 **Why:** it is the page every user lands on from crates.io and docs.rs, and the only one most of
@@ -77,7 +77,7 @@ dependencies or building for a constrained target is making a decision with real
 the manifest alone tells them the names but never the trade.
 
 **Check:** for each entry in `[features]`, find the sentence in the crate docs that says what
-turning it on adds and what it costs. A missing sentence is a violation (`RS-BUILD-13`).
+turning it on adds and what it costs. A missing sentence is a violation (RS-BUILD-13).
 
 ### RS-DOC-03 [S] Document crate-wide invariants once and link to them
 
@@ -259,7 +259,7 @@ pub enum Error {
 
 Every function that can panic has a `# Panics` section naming the exact condition — index out of
 bounds, capacity overflow, a violated precondition. An undocumented panic is an undocumented API
-contract. Mark a function that panics on caller error `#[track_caller]` (`RS-API-35`).
+contract. Mark a function that panics on caller error `#[track_caller]` (RS-API-35).
 
 **Why:** a panic is part of the signature that the type system does not express. A caller in a
 server or a plugin needs to know which calls can take the process down, and the docs are the only
@@ -340,8 +340,8 @@ sorted; a `Utf8Path` documents that it is valid UTF-8. Those guarantees are the 
 exists.
 
 **Why:** the guarantee is the entire value of the newtype — it is what lets callers skip a check
-(`RS-API-18`). Documenting only the field tells the reader what you could have written as `Vec<T>`
-and omits the part that matters.
+(RS-API-18). Documenting only the field tells the reader what you could have written as `Vec<T>` and
+omits the part that matters.
 
 **Check:** for each newtype and each type with a private constructor, state the invariant in one
 sentence. If there is no invariant, ask why the type exists.
@@ -410,7 +410,7 @@ impl Index {
 
 ### RS-DOC-16 [S] Comment private items where the *why* is non-obvious
 
-Private items deserve comments when the *why* is non-obvious (`RS-DOC-18`). Rustdoc will not publish
+Private items deserve comments when the *why* is non-obvious (RS-DOC-18). Rustdoc will not publish
 them, but the next maintainer will read them — and the next maintainer is usually you.
 
 **Why:** the reasoning behind a non-obvious private implementation is the thing that gets lost
@@ -526,7 +526,7 @@ without the surrounding context that made the shortcut acceptable. Whatever the 
 the house style of every crate that depends on you.
 
 **Check:** grep doc comments for `unwrap()`, `expect(`, and `let _ =`. Each needs either a rewrite
-or the hidden `main` and a `?` (`RS-DOC-24`).
+or the hidden `main` and a `?` (RS-DOC-24).
 
 ### RS-DOC-24 [S] Hide setup noise, never the part that makes the example correct
 
@@ -554,7 +554,7 @@ so it accumulates forever. With an issue number it is tracked work; without one 
 
 Keep a changelog entry per user-visible change, written from the user's perspective ("`Searcher` now
 handles CRLF line endings"), not the implementation's ("refactor line-terminator handling")
-(`RS-BUILD-11`).
+(RS-BUILD-11).
 
 **Why:** the changelog is read by people deciding whether to upgrade. An entry describing an
 internal refactor answers a question nobody asked, while hiding the behaviour change that actually
@@ -654,7 +654,7 @@ is checking.
 ### RS-DOC-31 [S] Cover seven things in the README, above the fold
 
 The README covers: what and why in two sentences, installation, a working example, a link to the
-docs, feature flags, MSRV (`RS-DOC-33`), and license. In that order, above the fold.
+docs, feature flags, MSRV (RS-DOC-33), and license. In that order, above the fold.
 
 **Why:** the README is evaluated in about fifteen seconds. The order is the order the questions
 arrive in, and anything below the fold is not part of the decision.
@@ -685,7 +685,7 @@ Leaving them implicit means the answer is discovered during integration instead 
 evaluation.
 
 **Check:** all three appear in the README or crate docs, and the MSRV matches `rust-version` in the
-manifest (`RS-BUILD-31`).
+manifest (RS-BUILD-31).
 
 ### RS-DOC-34 [M!] Write the documentation before finalizing the API
 

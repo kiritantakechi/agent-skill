@@ -270,14 +270,13 @@ pub fn first_index(haystack: &str, needle: char) -> Option<usize> {
 ### RS-UNSAFE-10 [M!] Write the safe version first, keep it, and test the two against each other
 
 Write the safe version first, test it, keep it, and gate the `unsafe` version behind a feature with
-a differential test proving they agree (`RS-TEST-21`).
+a differential test proving they agree (RS-TEST-21).
 
 *Relaxed form:* in an internal binary, keep the safe version in a test rather than behind a feature
 flag. What matters is that an independent implementation exists to disagree with the fast one.
 
-**Why:** the safe implementation is the specification and the oracle (`references/testing.md`
-RS-TEST-21), and in `unsafe` code the disagreement it catches is memory corruption, not a wrong
-answer.
+**Why:** the safe implementation is the specification and the oracle (RS-TEST-21), and in `unsafe`
+code the disagreement it catches is memory corruption, not a wrong answer.
 
 **Check:** is there a test that runs both implementations on the same input and compares? If the
 safe version was deleted after the fast one worked, the oracle is gone.
@@ -499,8 +498,8 @@ impl<T> ThreadBound<T> {
 
 Variance mistakes are silent unsoundness. If your type contains a raw pointer, decide deliberately
 whether it should be covariant, contravariant, or invariant, and add a `compile_fail` test pinning
-the decision (`RS-TEST-30`). Pin every other forbidden misuse the same way, such as a `Send` the
-type must not have.
+the decision (RS-TEST-30). Pin every other forbidden misuse the same way, such as a `Send` the type
+must not have.
 
 **Why:** variance is inferred from the fields and an auto trait from their types, so an innocuous
 field change can let safe code reach unsoundness, such as a lifetime shortened that the `unsafe`
@@ -514,7 +513,7 @@ the property is not pinned.
 A trait whose implementors must uphold an invariant that unsafe code relies on is an `unsafe trait`,
 with the obligation documented in a `# Safety` section on the trait itself. If a wrong
 implementation only produces wrong answers, the trait stays safe and documents its contract loudly
-(`references/traits.md` RS-TRAIT-11).
+(RS-TRAIT-11).
 
 **Why:** if safe code can write a wrong implementation and thereby cause UB elsewhere, the trait is
 the unsound part. `unsafe trait` is how the obligation is transferred to the implementor, which is
@@ -800,7 +799,7 @@ Run the test suite under Miri (`cargo +nightly miri test`) in CI for every crate
 `unsafe`. It catches UB that produces correct behaviour on your machine today and a crash on a
 user's machine next year. Keep secrets out of the Miri job's environment, and out of any job that
 writes a `target/` cache a pull request can read. A hand-rolled concurrent structure also runs under
-`loom` or ThreadSanitizer (`references/concurrency.md` RS-CONC-40).
+`loom` or ThreadSanitizer (RS-CONC-40).
 
 *Relaxed form:* run Miri locally before each release rather than on every push. What is not
 acceptable is never having run it.

@@ -150,7 +150,7 @@ completely different. A debug measurement can rank two implementations in the op
 release.
 
 **Check:** was the measurement taken with `--release` and with the same `[profile.release]` settings
-that ship (`RS-BUILD-41`)?
+that ship (RS-BUILD-41)?
 
 ## Allocation
 
@@ -259,13 +259,13 @@ spill, and it complicates the types. It is a real win in the measured case and a
 otherwise.
 
 **Check:** is there a profile showing allocator time dominated by small, short-lived collections?
-Without one, the dependency is not earning its place (`RS-BUILD-19`).
+Without one, the dependency is not earning its place (RS-BUILD-19).
 
 ### RS-PERF-10 [S] Use an arena for arena-shaped workloads
 
 For arena-shaped workloads (a parser producing a tree, a graph built once and read many times), an
 arena (`bumpalo`, or a `Vec` plus index newtypes) turns thousands of allocations into one and
-improves locality (`RS-OWN-21`).
+improves locality (RS-OWN-21).
 
 **Why:** when everything dies at the same time, individual allocation and freeing is entirely wasted
 bookkeeping. An arena replaces it with a pointer bump and one free, and the resulting contiguity
@@ -411,7 +411,7 @@ Box the fat variant: `Parse(Box<ParseError>)`.
 **Why:** the success path pays for the error path's size on every call, which is exactly backwards —
 errors are the rare case. Boxing the large variant makes the common return cheap.
 
-**Check:** add a `const` assertion on `size_of` for hot `Result` and enum types (`RS-UNSAFE-14`), so
+**Check:** add a `const` assertion on `size_of` for hot `Result` and enum types (RS-UNSAFE-14), so
 growth fails the build. The `large_enum_variant` and `result_large_err` rows below catch the gross
 cases.
 
@@ -434,7 +434,7 @@ Where bounds checks genuinely dominate and the profile proves it, reach for slic
 `as_chunks`, `iter().zip()`, or `get_unchecked` inside a narrowly scoped `unsafe` with a
 `// SAFETY:` proof — in that order. At a constant width use `as_chunks::<N>()` rather than
 `chunks_exact(N)`: it yields `&[[T; N]]`, so the width is carried by the type and the pattern needs
-no `_ =>` arm (`RS-API-27`). `as_array` (a slice of exactly `N`) and `array_windows` (overlapping
+no `_ =>` arm (RS-API-27). `as_array` (a slice of exactly `N`) and `array_windows` (overlapping
 windows) carry the width the same way.
 
 **Why:** the safe forms give the optimizer the same proof the `unsafe` would assert, at zero
@@ -532,7 +532,7 @@ pub fn emit(sink: impl Write, lines: &[String]) -> io::Result<()> {
 ### RS-PERF-20 [M] Flush explicitly before exiting, and check the result
 
 Flush explicitly before exiting, and check the result. `BufWriter` flushes on drop but swallows the
-error (`RS-OWN-33`).
+error (RS-OWN-33).
 
 **Why:** buffering means the last write is still in memory when `main` returns, and `Drop` cannot
 report a failure. A full disk or a closed pipe silently truncates the output — the failure
@@ -604,7 +604,7 @@ rejects legitimate files.
 
 **Why:** validation is a full scan you often do not need — searching for a byte pattern does not
 require knowing the text is valid. It also makes the tool fail on files that are perfectly
-processable (`RS-CLI-11`).
+processable (RS-CLI-11).
 
 **Check:** is UTF-8 validated on a path that only searches or splits? Each is an avoidable pass.
 
@@ -679,7 +679,7 @@ pub fn read_config(path: impl AsRef<Path>) -> std::io::Result<String> {
 
 Static dispatch is not automatically faster than dynamic: a vtable call is a predictable indirect
 branch, while twenty monomorphized copies can evict the i-cache. Measure before converting `dyn` to
-generics for speed (`RS-TRAIT-13`).
+generics for speed (RS-TRAIT-13).
 
 **Why:** modern branch predictors handle a monomorphic indirect call well, so the vtable cost is
 often near zero. The code-size cost of monomorphization, by contrast, is paid in cache misses across
@@ -723,7 +723,7 @@ contention on a shared refcount across threads is measurable.
 several threads cloning the same `Arc`, that line ping-pongs between cores and can dominate.
 
 **Check:** for hot paths, could the value be borrowed instead of cloned? A clone per iteration
-usually can be hoisted (`RS-OWN-09`).
+usually can be hoisted (RS-OWN-09).
 
 ### RS-PERF-30 [M] Choose integer widths deliberately and convert with `try_from`
 
@@ -791,7 +791,7 @@ comparable across commits. Build them in CI even if you do not time them there.
 reads the developer's home directory measures the network and the filesystem. Benchmarks are left
 out of a default `cargo test`, so uncompiled they rot until the day you need one.
 
-**Check:** are the benchmark inputs checked in or seeded (`RS-TEST-09`), and does CI run
+**Check:** are the benchmark inputs checked in or seeded (RS-TEST-09), and does CI run
 `cargo build --benches`?
 
 ### RS-PERF-34 [M] Wrap inputs and results in `black_box`

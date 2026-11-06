@@ -297,7 +297,7 @@ flags.
 Long-running work belongs behind a trait or a callback so the CLI layer can be tested without doing
 it. A CLI whose only test is "run the binary" has no fast tests.
 
-**Why:** end-to-end tests are necessary (`RS-TEST-28`) but too slow to run per keystroke. A seam
+**Why:** end-to-end tests are necessary (RS-TEST-28) but too slow to run per keystroke. A seam
 between "decide what to do" and "do it" gives you fast tests for the decisions, which is where most
 of the bugs are.
 
@@ -345,7 +345,7 @@ Forcing `String` makes the tool fail on exactly the files the user most needs a 
 failure looks like the tool is broken rather than opinionated.
 
 **Check:** grep the argument types for `String` on anything path-shaped. Test with a non-UTF-8
-filename (`RS-TEST-28`).
+filename (RS-TEST-28).
 
 ```rust
 // verified
@@ -363,15 +363,15 @@ pub fn to_paths(raw: Vec<OsString>) -> Vec<PathBuf> {
 
 Provide a negation for every boolean flag that a config file can enable (`--color` / `--no-color`,
 `--hidden` / `--no-hidden`), so a user can override their own configuration on the command line
-(`RS-NAME-28`).
+(RS-NAME-28).
 
-**Why:** precedence (`RS-CLI-04`) is only useful if the higher-precedence level can express both
+**Why:** precedence (RS-CLI-04) is only useful if the higher-precedence level can express both
 values. Without a negation, a config-file `true` is unreachable from the command line, which makes
 the config file a trap.
 
 **Check:** for each boolean readable from config, is there a `--no-` form? Each missing one is a
 setting the user cannot turn off. The pair is a *flag* pair on the command line; inside the program
-it lands as a two-variant enum, never as a `bool` parameter (`RS-API-19`).
+it lands as a two-variant enum, never as a `bool` parameter (RS-API-19).
 
 ```rust
 // verified
@@ -463,7 +463,7 @@ flag.
 ### RS-CLI-16 [M] Reserve exit code `2` for usage errors and print the specific problem
 
 Reserve exit code `2` for usage errors and print the specific problem plus a pointer to `--help` —
-never dump the entire help text on a typo (`RS-ERR-35`).
+never dump the entire help text on a typo (RS-ERR-35).
 
 **Why:** the convention lets scripts distinguish "you called me wrong" from "the operation failed",
 which are different recovery paths. Dumping the full help scrolls the actual error off the screen,
@@ -525,7 +525,7 @@ pub fn emit(
 
 Lock stdout once and write through a `BufWriter`. `println!` in a loop locks and flushes per line
 and is frequently the reason a tool is ten times slower than it should be. Buffering in general is
-`RS-PERF-19`.
+RS-PERF-19.
 
 **Why:** `println!` locks, formats and writes every call, and Rust's stdout is line-buffered whether
 it is a terminal, a pipe or a file, so every line is a `write` syscall. A million lines is a million
@@ -786,7 +786,7 @@ mod tests {
 
 Use structured logging (`tracing` or `log` plus `env_logger`) for diagnostics, controlled by
 `-v`/`-vv` or `RUST_LOG`. Never `println!` for debugging in shipped code, and deny
-`clippy::dbg_macro` (`RS-BUILD-23`).
+`clippy::dbg_macro` (RS-BUILD-23).
 
 **Why:** logging gives levels, targets, and runtime filtering; `println!` gives none of those and
 cannot be turned off by the user. Debug prints that ship are also the most common way secrets end up

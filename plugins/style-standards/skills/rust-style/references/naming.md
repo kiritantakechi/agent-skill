@@ -122,7 +122,7 @@ Two words is the ceiling for a leaf crate; three for a facade (`regex-automata`,
 
 **Why:** the name appears in every dependent's manifest, in every `use`, and in conversation. If it
 needs four words to describe the crate, the crate does too much — the name is reporting a design
-problem (`references/modules.md` RS-MOD-19).
+problem (RS-MOD-19).
 
 **Check:** say the name out loud. If you have to spell it, or if it does not fit in the `Cargo.toml`
 line without wrapping, shorten it or split the crate.
@@ -133,7 +133,7 @@ Module names are singular nouns describing one concept: `matcher`, `printer`, `c
 
 **Why:** the module name is the first half of every path — `matcher::Config` says which concept
 `Config` belongs to. A singular noun forces that concept to exist and to be one thing; a category
-name names a container, and a container can hold anything (`references/modules.md` RS-MOD-02).
+name names a container, and a container can hold anything (RS-MOD-02).
 
 **Check:** for each module, write one sentence describing what belongs in it and what does not. If
 the sentence is "things used in more than one place", the module needs dissolving.
@@ -195,11 +195,11 @@ variant start or end with either?
 
 `MAX_RETRIES`, `DEFAULT_BUFFER_SIZE`, `TIMEOUT_MS`. Not `BUF_SIZE_USIZE`, and not `TIMEOUT` with the
 unit hidden in a comment. For a parameter or field whose type cannot carry the unit, the name must
-(`references/api.md` RS-API-23).
+(RS-API-23).
 
 **Why:** the type is visible in the declaration, so encoding it in the name is redundant; the unit
 is *not* visible in `u64`, so it must be somewhere the call site can see it. Better still, make it a
-`Duration` and drop the suffix (`references/api.md` RS-API-23).
+`Duration` and drop the suffix (RS-API-23).
 
 **Check:** every numeric constant, parameter, and field whose value has a physical unit — time,
 bytes, counts of a specific thing — either names the unit or has a type that does.
@@ -375,7 +375,7 @@ impl Buffer {
 
 **Check:** does every `&mut`-returning accessor end in `_mut`? Does any getter's name differ from
 the field it exposes? Note that exposing `&mut` to invariant-bearing state is a separate, more
-serious defect (`references/api.md` RS-API-13).
+serious defect (RS-API-13).
 
 ### RS-NAME-18 [M] Mark fallible conversions `try_`
 
@@ -689,7 +689,7 @@ boundary? Give it a name.
 
 `no_color`, `disable_cache`, and `skip_hidden` compose into double negation: `if !no_color`. The CLI
 flag may be negative because the convention demands it — convert to a positive field once, where the
-flag is parsed (`references/cli.md` RS-CLI-12).
+flag is parsed (RS-CLI-12).
 
 **Why:** every reader of `if !no_color` performs a small logic operation to recover the intent, and
 under an `&&` with a second negation they will eventually get it wrong.
@@ -762,7 +762,7 @@ when several coexist. Never both spellings in one crate.
 
 **Why:** with both, `use` statements collide unpredictably and readers cannot guess the path of an
 error they have not met. The module-scoped spelling scales better; the flat one is fine for a crate
-with two error types (`references/errors.md` RS-ERR-16).
+with two error types (RS-ERR-16).
 
 **Check:** grep for `Error` in type positions. Are all of them the same shape?
 
@@ -850,8 +850,8 @@ A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`clos
 exists.
 
 **Why:** matched names are what make a pair recognizable as a pair, which is how a reader knows the
-inverse exists without looking (`RS-API-58`). Mismatched halves read as unrelated operations, and
-the reader searches for a `decode` that is spelled `parse`.
+inverse exists without looking (RS-API-58). Mismatched halves read as unrelated operations, and the
+reader searches for a `decode` that is spelled `parse`.
 
 **Check:** list every operation with an inverse and read the two names together. If they do not
 sound like a pair said aloud, rename the odd half.

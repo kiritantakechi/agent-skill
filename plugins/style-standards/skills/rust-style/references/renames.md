@@ -9,9 +9,9 @@ holding a citation made before a revision.
 Before the revision the families ran `RS-API-01`–`RS-API-84`, `RS-CAR-01`–`RS-CAR-54`,
 `RS-CLI-01`–`RS-CLI-40`, `RS-CNC-01`–`RS-CNC-52`, `RS-DOC-01`–`RS-DOC-40`, `RS-ERR-01`–`RS-ERR-50`,
 `RS-FP-01`–`RS-FP-64`, `RS-MAC-01`–`RS-MAC-26`, `RS-NAM-01`–`RS-NAM-44`, `RS-OWN-01`–`RS-OWN-46`,
-`RS-PRF-01`–`RS-PRF-50`, `RS-STR-01`–`RS-STR-57`, `RS-TST-01`–`RS-TST-42`, `RS-TRG-01`–`RS-TRG-56`
-and `RS-UNS-01`–`RS-UNS-36`. The table lists every ID in those ranges that changed, and what it is
-now; an ID it does not list is unchanged.
+`RS-PRF-01`–`RS-PRF-50`, `RS-STR-01`–`RS-STR-57`, `RS-TST-01`–`RS-TST-42`, `RS-TRG-01`–`RS-TRG-56`,
+`RS-UNS-01`–`RS-UNS-36` and `RS-CORE-01`–`RS-CORE-28`. The table lists every ID in those ranges that
+changed, and what it is now; an ID it does not list is unchanged.
 
 | Before | Now |
 |---|---|
@@ -750,3 +750,31 @@ now; an ID it does not list is unchanged.
 | `RS-UNS-34` | `RS-UNSAFE-14` |
 | `RS-UNS-35` | `RS-UNSAFE-32` |
 | `RS-UNS-36` | `RS-UNSAFE-33` |
+| `RS-CORE-01` | `RS-NAME-01` |
+| `RS-CORE-02` | `RS-NAME-12` |
+| `RS-CORE-03` | `RS-NAME-16` |
+| `RS-CORE-04` | `RS-NAME-26` |
+| `RS-CORE-05` | `RS-BUILD-27` |
+| `RS-CORE-06` | `RS-API-01` |
+| `RS-CORE-07` | `RS-API-07` |
+| `RS-CORE-08` | `RS-API-15` |
+| `RS-CORE-09` | `RS-API-27` |
+| `RS-CORE-10` | `RS-API-36` |
+| `RS-CORE-11` | `RS-API-54` |
+| `RS-CORE-12` | `RS-ERR-03` |
+| `RS-CORE-13` | `RS-ERR-10` |
+| `RS-CORE-14` | `RS-ERR-08` |
+| `RS-CORE-15` | `RS-ERR-01` |
+| `RS-CORE-16` | `RS-FUNC-01` |
+| `RS-CORE-17` | `RS-FUNC-03` |
+| `RS-CORE-18` | `RS-FUNC-22` |
+| `RS-CORE-19` | `RS-FUNC-37` |
+| `RS-CORE-20` | `RS-FUNC-36` |
+| `RS-CORE-21` | `RS-OWN-08` |
+| `RS-CORE-22` | `RS-OWN-04` |
+| `RS-CORE-23` | `RS-OWN-24` |
+| `RS-CORE-24` | `RS-TRAIT-01` |
+| `RS-CORE-25` | `RS-TRAIT-18` |
+| `RS-CORE-26` | `RS-TRAIT-06` |
+| `RS-CORE-27` | `RS-UNSAFE-01` |
+| `RS-CORE-28` | `RS-BUILD-19` |

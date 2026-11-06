@@ -179,7 +179,7 @@ output.extend(transformer.transform(input));
 
 **Why:** they encode the disjointness the compiler needs, so you get mutable access to two parts of
 one slice without `unsafe`. Reaching for raw pointers here is the most common unnecessary `unsafe`
-in Rust (`references/unsafe.md` RS-UNSAFE-01).
+in Rust (RS-UNSAFE-01).
 
 **Check:** grep for `unsafe` near slice indexing. Is there a splitting method that expresses it?
 
@@ -402,7 +402,7 @@ under move — which the compiler will not stop you from doing. Use indices into
 
 **Why:** it sidesteps lifetimes entirely, it is cache-friendly, it serializes trivially, and it
 makes cycles representable without `Weak`. Newtype the index so it cannot be confused with a length
-or with an index into a different arena (`references/api.md` RS-API-25).
+or with an index into a different arena (RS-API-25).
 
 **Check:** does the graph type have a lifetime parameter? Indices remove it.
 
@@ -476,7 +476,7 @@ across threads, `OnceLock`/`LazyLock` for one-time initialization.
 
 **Why:** `Cell` has no runtime check at all and cannot panic; `RefCell` can. `OnceLock` and
 `LazyLock` are in `std`, so `lazy_static` and `once_cell` are dependency weight for the common cases
-(`references/concurrency.md` RS-CONC-27).
+(RS-CONC-27).
 
 **Check:** grep for `RefCell<T>` where `T: Copy`.
 

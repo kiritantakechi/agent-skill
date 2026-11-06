@@ -126,7 +126,7 @@ per field.
 
 **Why:** generated `.rs` files you can read, diff, and set a breakpoint in beat a proc macro nobody
 can inspect — especially for large, stable output like tables, FFI bindings, or protocol types. The
-cost is a regeneration step (`references/modules.md` RS-MOD-09).
+cost is a regeneration step (RS-MOD-09).
 
 **Check:** does the generated code change less often than the crate does? Then generating it once is
 cheaper than generating it on every build.
@@ -291,7 +291,7 @@ expansion the generated code. `CONTRIBUTING.md` says how to run `cargo expand`.
 
 **Why:** a macro's messages and its expansion are both interface, and both regress silently:
 reordering arms turns a good message into the default one, and a refactor changes the shipped code
-with every test green (`references/testing.md` RS-TEST-30, RS-TEST-25).
+with every test green (RS-TEST-30, RS-TEST-25).
 
 **Check:** is there a `tests/ui/` directory with a `.stderr` file per failure case, and a snapshot
 of one representative expansion, reviewed rather than auto-accepted?
@@ -330,7 +330,7 @@ saves per use by its uses, against its build cost.
 
 **Why:** a `proc-macro = true` crate can export nothing but macros, so it cannot hold your types.
 Splitting also lets users who do not want the derive turn it off and skip the compile cost
-(`references/build.md` RS-BUILD-14).
+(RS-BUILD-14).
 
 **Check:** does a user depend on one crate, and can they disable the derive?
 
@@ -357,8 +357,7 @@ will see.
 `syn::Error::combine`.
 
 **Why:** a user with five bad field attributes otherwise gets five build-edit cycles. Accumulating
-is the same argument as `references/errors.md` RS-ERR-26, applied at compile time where the cycle is
-slower.
+is the same argument as RS-ERR-26, applied at compile time where the cycle is slower.
 
 **Check:** does the macro return on the first bad field?
 
@@ -368,7 +367,7 @@ And then document the contract on the derive itself.
 
 **Why:** a derive that emits `unsafe impl Send` or a transmute is asserting an invariant on behalf
 of a user who wrote one line and read no documentation. If the derive cannot check the invariant, it
-must be an `unsafe` trait the user opts into explicitly (`references/unsafe.md` RS-UNSAFE-20).
+must be an `unsafe` trait the user opts into explicitly (RS-UNSAFE-20).
 
 **Check:** grep the `quote!` blocks for `unsafe`. For each, what stops a user from deriving it on a
 type where it is false?

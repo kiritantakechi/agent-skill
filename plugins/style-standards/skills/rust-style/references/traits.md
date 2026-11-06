@@ -283,7 +283,7 @@ Matchers, queries, builders — values that describe rather than act. Mark each 
 
 **Why:** constructing one and discarding it is always a mistake. On the trait the attribute covers
 only an `impl Trait` or `dyn Trait` value; a discarded concrete implementor warns only if its own
-type carries the attribute (`references/api.md` RS-API-33).
+type carries the attribute (RS-API-33).
 
 **Check:** would discarding a value of this trait ever be correct? Does every implementor carry the
 attribute as well?
@@ -370,7 +370,7 @@ pub fn count_matching<P: Fn(&str) -> bool>(lines: &[String], predicate: P) -> us
 
 **Why:** a vtable call costs a few nanoseconds and a predictable indirect branch; forty
 monomorphized copies of a large function cost kilobytes of instruction cache. A `Vec` of mixed
-implementations needs `dyn` outright (`references/performance.md` RS-PERF-27).
+implementations needs `dyn` outright (RS-PERF-27).
 
 **Check:** how many instantiations does this generic actually get? `cargo bloat` will tell you if
 you suspect the answer is "too many".
@@ -554,7 +554,7 @@ the newtype that would have worked.
 
 **Why:** it is the sanctioned mechanism, it is zero-cost with `#[repr(transparent)]`, and it lets
 you add the impl without any coordination. Add `AsRef`/`Deref` only if the newtype genuinely *is*
-the inner type for all purposes (`references/api.md` RS-API-45).
+the inner type for all purposes (RS-API-45).
 
 **Check:** does the newtype expose the inner type's whole API, or only the part that makes sense?
 
@@ -896,8 +896,7 @@ clearer anyway.
 `Connection<Idle>` → `Connection<Open>`.
 
 **Why:** it turns "write before connect" from a runtime panic into a compile error, which is
-strictly better when the mistake is expensive and the transitions are few
-(`references/functional.md` RS-FUNC-40).
+strictly better when the mistake is expensive and the transitions are few (RS-FUNC-40).
 
 **Check:** does any method start by checking a state flag and erroring? That check is a type.
 
@@ -969,7 +968,7 @@ reads.
 
 **Why:** a marker trait's whole content is its invariant, so if the invariant is not written down
 the trait means nothing. If violating it causes unsoundness, it must be `unsafe trait`
-(`references/unsafe.md` RS-UNSAFE-20).
+(RS-UNSAFE-20).
 
 **Check:** does the marker trait's rustdoc state exactly what implementing it asserts?
 
@@ -1043,7 +1042,7 @@ sibling missing one impl excludes it from every such function — usually discov
 type was added. The asymmetry is almost never deliberate.
 
 **Check:** tabulate the family against the trait set. A missing cell is either an oversight or a
-documented restriction; there is no third case (`RS-API-36`).
+documented restriction; there is no third case (RS-API-36).
 
 ```rust
 // verified

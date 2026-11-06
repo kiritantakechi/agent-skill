@@ -143,7 +143,7 @@ test in a distant directory does not, and that is how suites rot. The child modu
 to private items, which is what makes unit testing possible at all.
 
 **Check:** for each module with non-trivial logic, is there a `mod tests`? Clippy's
-`items_after_test_module` holds it at the bottom, where `RS-MOD-41`'s file order puts it.
+`items_after_test_module` holds it at the bottom, where RS-MOD-41's file order puts it.
 
 ```rust
 // verified
@@ -254,7 +254,7 @@ Arrange, act, assert — visibly. A blank line between the three phases makes a 
 makes it obvious when a "test" is actually three tests.
 
 **Why:** the structure is already there; the blank lines just make it legible. The diagnostic
-benefit is that a test with three "act" phases becomes visually obvious, which is `RS-TEST-03`
+benefit is that a test with three "act" phases becomes visually obvious, which is RS-TEST-03
 enforced by layout.
 
 **Check:** can you find the single line under test at a glance? If the act step is buried in setup,
@@ -434,11 +434,11 @@ mod tests {
 ### RS-TEST-15 [S] Use table-driven tests for families of similar cases
 
 Use table-driven tests for families of similar cases: an array of `(input, expected)` and a loop,
-with the input echoed in the assertion message (`RS-TEST-12`). This gets ten cases for the price of
+with the input echoed in the assertion message (RS-TEST-12). This gets ten cases for the price of
 one and makes adding the eleventh trivial.
 
 **Why:** when adding a case costs one line, cases get added. When it costs a whole function, they do
-not — and the coverage of exactly the boundary conditions in `RS-TEST-14` is what suffers.
+not — and the coverage of exactly the boundary conditions in RS-TEST-14 is what suffers.
 
 **Check:** are there several near-identical test functions differing only in literals? They want to
 be a table.
@@ -473,7 +473,7 @@ mod tests {
 
 Tests must be deterministic and order-independent. `cargo test` runs them in parallel on multiple
 threads; anything relying on a shared directory, a fixed port, an environment variable, or the
-current working directory will flake. Pass a test its environment through a lookup, as `RS-CLI-31`'s
+current working directory will flake. Pass a test its environment through a lookup, as RS-CLI-31's
 `read` takes one: `env::set_var` is `unsafe` in edition 2024, so `unsafe_code = "forbid"` rejects
 it.
 
@@ -566,7 +566,7 @@ mod tests {
 
 Use property testing (`proptest`, `quickcheck`) where a law holds over a domain: round-trips
 (`parse(render(x)) == x`), invariants (a sorted output is sorted), and equivalences (the optimized
-path agrees with the naive one, `RS-TEST-21`).
+path agrees with the naive one, RS-TEST-21).
 
 **Why:** example-based tests check the cases you thought of, which excludes the ones causing your
 bugs. A property plus a generator explores the space you did not enumerate, and the failures it
@@ -612,7 +612,7 @@ slowly. The naive implementation is the specification, and any disagreement is a
 — which is a far stronger oracle than a hand-written expectation.
 
 **Check:** does the fast path have a slow reference to disagree with? If the naive version was
-deleted, the oracle went with it (`RS-UNSAFE-10`).
+deleted, the oracle went with it (RS-UNSAFE-10).
 
 ```rust
 // verified
@@ -647,7 +647,7 @@ mod tests {
 ### RS-TEST-22 [M] Treat the shrunk counterexample as the deliverable
 
 Shrinking is the point of property testing: when a case fails, report the minimal input, and add it
-as a fixed regression test (`RS-TEST-19`).
+as a fixed regression test (RS-TEST-19).
 
 **Why:** a 4KB random failing input is nearly undebuggable; the three-byte shrunk version usually
 makes the bug obvious. Pinning it as a fixed test also means the property test does not have to
@@ -714,7 +714,7 @@ Normalize those first, or the suite becomes a flake generator.
 
 **Why:** each of these varies between runs and machines for reasons unrelated to correctness. A
 snapshot containing them fails constantly, and the team learns to accept diffs without reading them
-— which destroys `RS-TEST-26`.
+— which destroys RS-TEST-26.
 
 **Check:** grep snapshots for absolute paths, dates, and hex digests. Each needs a redaction or a
 sort.

@@ -159,7 +159,7 @@ def _bare(skill: Skill) -> int:
 
 
 def _labels(run: Sequence[str]) -> bool:
-    """Does `run` open with a core rule's bold label, `**RS-CORE-01`?"""
+    """Does `run` open with a core rule's bold label, `**ZS-CORE-01`?"""
     return bool(run) and run[0].startswith("**") and leading(run[0][2:]) is not None
 
 

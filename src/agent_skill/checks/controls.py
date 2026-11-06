@@ -504,7 +504,7 @@ _STRICT = "`claude plugin validate --strict` warns on it, and fails on a warning
 #: states it.
 _INVERSE = "Give every operation its inverse, or document why there is none"
 
-#: `RS-CORE-28`'s citation of the chapter stating it. A core rule's
+#: `RS-BUILD-19`'s citation of the chapter stating it. A core rule's
 #: citations are read only in a standard that still states core rules,
 #: which python-style, normalised, does not.
 _CORE_28 = "(`references/build.md` RS-BUILD-19)"
@@ -1815,7 +1815,7 @@ CONTROLS: list[Control] = [
             t,
             f"{RS}/SKILL.md",
             _CORE_28,
-            _CORE_28.replace("RS-BUILD-19", "RS-CORE-01"),
+            _CORE_28.replace("RS-BUILD-19", "RS-NAME-01"),
         ),
     ),
     # A family listed twice: each agrees, and the sum does not.

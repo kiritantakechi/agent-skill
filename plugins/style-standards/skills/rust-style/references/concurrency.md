@@ -115,7 +115,7 @@ open them.
 
 **Why:** async's benefit appears at high concurrency, and fifty sequential file reads have none.
 What you do get is a function-colouring constraint through the whole codebase and a much larger
-build (`RS-BUILD-19`). It is RS-CONC-02's choice, made for the commonest case.
+build (RS-BUILD-19). It is RS-CONC-02's choice, made for the commonest case.
 
 **Check:** how many operations are in flight at once? Below a few hundred, blocking I/O on a small
 pool is simpler and usually faster.
@@ -224,7 +224,7 @@ pub fn sum_partitioned(values: &[u64], workers: usize) -> u64 {
 
 Keep the concurrency at one layer, ideally the top. A library that spawns its own threads or
 requires a specific runtime constrains every application that uses it. Offer a synchronous API and
-let the caller parallelize (`RS-CONC-29`).
+let the caller parallelize (RS-CONC-29).
 
 **Why:** the application knows its own thread budget and runtime; the library does not. A library
 that spawns threads cannot be used inside another parallel context without oversubscribing, and one
@@ -517,7 +517,7 @@ second lock. Compute outside, mutate inside.
 
 **Why:** the critical section's length is every other thread's wait, and I/O and `.await` are
 unbounded; a `std::sync` guard held across an `.await` blocks the executor thread too. Blocking on a
-second lock creates the ordering that deadlocks (`RS-CONC-23`).
+second lock creates the ordering that deadlocks (RS-CONC-23).
 
 **Check:** grep for `.await` between a `lock()` and the end of its scope, and read each critical
 section for I/O calls, channel sends, and further lock acquisitions. The `await_holding_lock` row
@@ -610,7 +610,7 @@ defensible; in a library, propagate or use a non-poisoning mutex (`parking_lot`)
 **Why:** poisoning means a thread panicked while holding the lock, so the protected invariant may be
 broken. A library that unwraps decides on the application's behalf that the process should die.
 
-**Check:** grep for `.lock().unwrap()` in library code. Each is an undocumented panic (`RS-DOC-11`).
+**Check:** grep for `.lock().unwrap()` in library code. Each is an undocumented panic (RS-DOC-11).
 
 ### RS-CONC-25 [M] Reserve atomics for counters, flags, and provable algorithms
 
@@ -659,13 +659,13 @@ testing cannot observe, and peer-reviewed algorithms have shipped with bugs foun
 libraries have been verified with `loom` and used at scale.
 
 **Check:** is there hand-written `compare_exchange` in the crate? If so, is it a published
-algorithm, and is it `loom`-tested (`RS-CONC-40`)? A retry loop that only recomputes one value is an
-`update` or `try_update` call (`RS-CONC-25`).
+algorithm, and is it `loom`-tested (RS-CONC-40)? A retry loop that only recomputes one value is an
+`update` or `try_update` call (RS-CONC-25).
 
 ### RS-CONC-27 [M] Use `OnceLock`/`LazyLock` for lazily initialized globals
 
 Use `OnceLock`/`LazyLock` for lazily initialized globals rather than `static mut` (which edition
-2024 denies via `static_mut_refs`) or a `Mutex<Option<T>>` (`RS-OWN-25`). Data known at compile time
+2024 denies via `static_mut_refs`) or a `Mutex<Option<T>>` (RS-OWN-25). Data known at compile time
 needs neither: it is a `const`.
 
 **Why:** these types give a safe, race-free single initialization with no lock on the read path
@@ -930,7 +930,7 @@ points instead of `sleep`. A test that sleeps to "let the thread finish" is a fl
 
 **Why:** a sleep encodes an assumption about timing that holds on your machine and fails on a loaded
 CI runner. The resulting flake is then "fixed" by increasing the sleep, which makes the suite slower
-without making it correct (`RS-TEST-16`).
+without making it correct (RS-TEST-16).
 
 **Check:** grep tests for `sleep`. Each wants a barrier, a channel, or a condvar instead.
 
@@ -938,7 +938,7 @@ without making it correct (`RS-TEST-16`).
 
 Stress-test with more threads than cores and with a loop count high enough to shake out races, but
 keep that test behind `#[ignore = "stress test: run with --ignored"]` or a feature so the fast suite
-stays fast (`RS-TEST-32`). The reason is not optional: clippy's `ignore_without_reason` (pedantic)
+stays fast (RS-TEST-32). The reason is not optional: clippy's `ignore_without_reason` (pedantic)
 rejects a bare `#[ignore]`.
 
 **Why:** oversubscription forces preemption at points a well-behaved run never reaches, which is
@@ -977,7 +977,7 @@ shutdown. `thread::scope`, task groups, and `JoinSet` all encode this; bare `spa
 not.
 
 Outside a scope, keep each handle and join it: the handle is the only channel for a task's panic or
-result (`RS-CONC-12`). Detach only deliberately, with a comment saying why the work may be lost.
+result (RS-CONC-12). Detach only deliberately, with a comment saying why the work may be lost.
 
 **Why:** a parent that outlives its children makes lifetimes, error propagation, and shutdown all
 follow the call structure. A detached thread is killed mid-operation when `main` returns, with no
@@ -1022,7 +1022,7 @@ from the type signature alone, and getting it wrong is expensive.
 threads is invisible entirely.
 
 **Check:** for each public type, do the docs answer all four questions, linking the crate-wide model
-(`references/documentation.md` RS-DOC-03)?
+(RS-DOC-03)?
 
 ```rust
 // verified

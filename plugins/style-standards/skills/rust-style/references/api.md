@@ -204,7 +204,7 @@ exception, and it is one you can justify in a sentence.
 
 **Why:** a crate of thirty loose functions has no centre: the reader must hold the whole list, a new
 operation is one more name nobody watches, and any two functions drift apart in naming, argument
-order, and error type unnoticed (RS-API-59, `references/naming.md` RS-NAME-25).
+order, and error type unnoticed (RS-API-59, RS-NAME-25).
 
 **Check:** list what the crate root exports. What is the ratio of types to free functions? For each
 free function, name the type it would be a method on — if you can name one, it belongs there
@@ -296,8 +296,8 @@ elements share a type.
 `&mut Vec<T>` to be filled is justified when reuse is the point, as in `Read::read_to_end`.
 
 **Why:** out-parameters break composition — the result cannot be fed into an adapter, and the
-function cannot be used in an expression. Reuse across a loop is a real reason
-(`references/performance.md` RS-PERF-07); "it was easier to write" is not.
+function cannot be used in an expression. Reuse across a loop is a real reason (RS-PERF-07); "it was
+easier to write" is not.
 
 **Check:** is the buffer reused across calls by the intended caller? Say so in the docs and name the
 parameter `buf` or `out`.
@@ -391,10 +391,10 @@ bypasses your constructor unless you use `#[serde(try_from = "…")]`.
 
 A published type has no "pure data bag" exemption. A struct whose fields are independent today is
 still a struct whose representation you have published. The single exception is a type whose layout
-is already the contract — `#[repr(C)]` or `extern` types crossing an ABI boundary
-(`references/unsafe.md` RS-UNSAFE-14). A constructor or builder replaces the struct literal, and a
-method replaces field access. A tuple struct is no exception: `struct Port(u16)` with an accessor,
-never `struct Port(pub u16)`, whose `.0` is a public field that also names nothing.
+is already the contract — `#[repr(C)]` or `extern` types crossing an ABI boundary (RS-UNSAFE-14). A
+constructor or builder replaces the struct literal, and a method replaces field access. A tuple
+struct is no exception: `struct Port(u16)` with an accessor, never `struct Port(pub u16)`, whose
+`.0` is a public field that also names nothing.
 
 An unpublished struct — private or `pub(crate)`, or in a binary or an internal workspace crate — may
 be plain data with public fields, built with a struct literal; a field there that carries an
@@ -473,12 +473,11 @@ impl Budget {
 ### RS-API-17 [M] Make every construction path a named one
 
 A struct literal is not available once fields are private, so the type states how it is built:
-`new`, a named alternative constructor (`references/naming.md` RS-NAME-21), a builder, or a
-`TryFrom`.
+`new`, a named alternative constructor (RS-NAME-21), a builder, or a `TryFrom`.
 
-**Why:** a named entry point is where validation lives (`references/functional.md` RS-FUNC-37),
-where defaults are decided, and where a later invariant is enforced without touching a call site.
-Every instance traces back to a function you can grep, named for its starting state.
+**Why:** a named entry point is where validation lives (RS-FUNC-37), where defaults are decided, and
+where a later invariant is enforced without touching a call site. Every instance traces back to a
+function you can grep, named for its starting state.
 
 **Check:** can the type be built without calling one of its own functions? Inside the defining
 module a literal is still legal — is one being used where a constructor should be?
@@ -526,8 +525,8 @@ type is checked once, at the boundary; one in prose is re-checked by every reade
 
 **Check:** scan every public signature for two consecutive parameters of the same primitive type,
 and grep doc comments for "must", "should be", "expects" and range notation; each doc hit is a type
-or a `# Panics` section you owe (`references/documentation.md` RS-DOC-11). For the rest of the
-primitive-typed fields and parameters, is a different value of the same type nonsense here?
+or a `# Panics` section you owe (RS-DOC-11). For the rest of the primitive-typed fields and
+parameters, is a different value of the same type nonsense here?
 
 ```rust
 // verified
@@ -628,7 +627,7 @@ set.
 
 **Why:** the correlation is an invariant the compiler cannot see, so every reader must learn it and
 every path must handle the impossible combination, usually with an `unwrap` or an `unreachable!`
-(`references/errors.md` RS-ERR-29). The sum type deletes those branches.
+(RS-ERR-29). The sum type deletes those branches.
 
 **Check:** for each pair of fields, is there a combination of values that cannot legally occur? That
 pair is an enum.
@@ -650,7 +649,7 @@ the data itself, or a stand-in for a type the crate has not written?
 
 `Duration` rather than `timeout_ms: u64`; a `ByteSize` newtype rather than `size: u64`. Where a
 newtype would be disproportionate — a private helper, a single call site — the unit goes in the name
-(`references/naming.md` RS-NAME-09); never omit both.
+(RS-NAME-09); never omit both.
 
 **Why:** unit confusion is a bug class the type system eliminates completely — the compiler rejects
 passing a byte count where a millisecond count belongs, and no test suite reliably catches the
@@ -685,7 +684,7 @@ fn retry(timeout: Duration, backoff: Duration) {}
 
 **Why:** mixing byte offsets and char offsets is the classic Unicode bug, and it is a type error
 waiting to be declared. The same applies to indices into two parallel arenas — the compiler can
-distinguish them the moment you let it (`references/ownership.md` RS-OWN-21).
+distinguish them the moment you let it (RS-OWN-21).
 
 **Check:** does the crate hold more than one `Vec` indexed by `usize`? Those are distinct types.
 
@@ -900,8 +899,7 @@ says *what will silently not happen*, which is the information they are missing.
 your crate for a mistake in theirs. `Vec::remove` and `slice` indexing both use it, which is why
 their panics are actionable.
 
-**Check:** for each documented panic (`references/documentation.md` RS-DOC-11), does the message
-name the caller's line?
+**Check:** for each documented panic (RS-DOC-11), does the message name the caller's line?
 
 ## Standard trait implementations
 
@@ -920,7 +918,7 @@ build on a public type without one. Manual impls are fine; absence is not.
 
 **Why:** `Debug` output may change at any time and favours completeness; `Display` is part of the
 contract and favours clarity. A `Display` that delegates to `Debug` publishes internal structure,
-the defect in `references/errors.md` RS-ERR-34.
+the defect in RS-ERR-34.
 
 **Check:** does any `Display` impl call `{:?}`? Does any `Debug` impl omit a field to look tidier?
 
@@ -1003,7 +1001,7 @@ an equal one, a `BTreeMap` loses entries, `BTreeMap::append` may panic, and a de
 beside a derived `Ord` answers with `cmp`, not with each field's `partial_cmp`.
 
 **Check:** if you hand-implement one of the four, review all four in the same commit. Property-test
-the laws (`references/testing.md` RS-TEST-20).
+the laws (RS-TEST-20).
 
 ```rust
 // verified
@@ -1126,7 +1124,7 @@ And derive with `#[serde(deny_unknown_fields)]` for config types.
 
 **Why:** `serde` and `serde_derive` are a substantial compile-time cost for users who do not
 serialize, and `deny_unknown_fields` turns a silently-ignored typo in a config file into an error
-the user can act on (`references/build.md` RS-BUILD-14).
+the user can act on (RS-BUILD-14).
 
 **Check:** is `serde` in `[dependencies]` without `optional = true`? Does a misspelled config key
 produce an error or a silent default?
@@ -1267,7 +1265,7 @@ fine for small one-shot builders — mark it `#[must_use]` (RS-API-33).
 
 **Why:** the builder call chain reads as a description of the configuration, and `set_` on every
 line is noise. It also matches the convention every major crate uses, so users guess correctly
-(`references/naming.md` RS-NAME-17).
+(RS-NAME-17).
 
 **Check:** grep the builder for `fn set_`.
 
@@ -1297,7 +1295,7 @@ yes, make it one and keep the inherent version only as a thin forwarder.
 ### RS-API-53 [M] Mark an unchecked constructor `unsafe`, and name it `*_unchecked`
 
 Document its precondition in a `# Safety` section. The suffix names the check that was skipped; the
-keyword makes the caller prove it (`references/unsafe.md` RS-UNSAFE-04).
+keyword makes the caller prove it (RS-UNSAFE-04).
 
 **Why:** a constructor that skips validation is the right tool for a caller who has validated and a
 silent source of invalid values for one who has not. The name and the keyword make the difference
@@ -1353,7 +1351,7 @@ defaulted method to a sealed trait.
 break shipped as a minor version fails every downstream build that trusted the version number.
 
 **Check:** before tagging, classify every change in the diff. If you are unsure,
-`cargo semver-checks` is the answer (`references/build.md` RS-BUILD-32).
+`cargo semver-checks` is the answer (RS-BUILD-32).
 
 ```rust
 // verified
@@ -1395,7 +1393,7 @@ ecosystem splits across majors whose types do not interoperate. Batching the nec
 that cost once instead of three times, as `regex` and `rand` do.
 
 **Check:** does the release contain exactly one breaking change that could have waited? Is there a
-migration section in the changelog (`references/build.md` RS-BUILD-11)?
+migration section in the changelog (RS-BUILD-11)?
 
 ## Symmetry of the public surface
 
@@ -1403,7 +1401,7 @@ migration section in the changelog (`references/build.md` RS-BUILD-11)?
 
 If a type can be built from bytes it should be convertible back to them; `insert` implies `remove`,
 `push` implies `pop`, `open` implies `close`, `encode` implies `decode`, `subscribe` implies
-`unsubscribe`. How the two halves are named is `references/naming.md` RS-NAME-35.
+`unsubscribe`. How the two halves are named is RS-NAME-35.
 
 **Why:** a caller who learns half a pair looks for the other half. A genuine absence usually means
 something — the operation is lossy, irreversible, or belongs to another type — and silence makes the

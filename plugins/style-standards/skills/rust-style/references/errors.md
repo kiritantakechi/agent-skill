@@ -3,10 +3,9 @@
 Scope: when a failure is a `Result` and when it is a panic, how a library's error type is shaped and
 what it must carry, how errors propagate and accumulate context, the panic rules including
 `panic = "abort"`, and how a binary reports failure and chooses an exit code. A `Drop` that must not
-fail is `references/ownership.md` RS-OWN-33, and a panic at the FFI boundary `references/unsafe.md`
-RS-UNSAFE-24. Naming of error types is in the naming chapter (RS-NAME-31); the `# Errors` and
-`# Panics` rustdoc sections are in the documentation chapter; the deny rows that mechanically
-enforce this chapter are in the build chapter's table.
+fail is RS-OWN-33, and a panic at the FFI boundary RS-UNSAFE-24. Naming of error types is in the
+naming chapter (RS-NAME-31); the `# Errors` and `# Panics` rustdoc sections are in the documentation
+chapter; the deny rows that mechanically enforce this chapter are in the build chapter's table.
 
 The dividing line that organizes everything here: **libraries** must hand callers structured,
 matchable, non-lossy errors, because the caller knows things the library does not. **Binaries** are
@@ -308,7 +307,7 @@ runtime.
 
 **Why:** hand-written error impls are twenty lines of mechanical code per type, and the mechanical
 part is where `source()` gets forgotten (RS-ERR-05). The proc macro costs compile time, a trade
-worth making for an error type (`references/macros.md` RS-MACRO-17).
+worth making for an error type (RS-MACRO-17).
 
 **Check:** a hand-written error impl is fine, but it must have `source()`, and the `Display` must
 satisfy RS-ERR-06.
@@ -317,7 +316,7 @@ satisfy RS-ERR-06.
 
 The path, the key, the byte offset, the line number, the URL — whatever distinguishes this
 invocation from the other forty. Print a path or an `OsStr` with `.display()`, never `{:?}`
-(`references/cli.md` RS-CLI-11).
+(RS-CLI-11).
 
 **Why:** "file not found" forces the user to guess which of their files. The information is free at
 the point of failure and unrecoverable afterwards, because the stack that knew the path has already
@@ -472,7 +471,7 @@ intra-doc link.
 
 **Why:** repeating the taxonomy at every fallible function guarantees the copies drift, and drifted
 documentation is worse than none because readers trust it. One canonical statement is the only
-version you have to keep true, as for any crate-wide fact (`references/documentation.md` RS-DOC-03).
+version you have to keep true, as for any crate-wide fact (RS-DOC-03).
 
 **Check:** do two `# Errors` sections describe the same variant differently? That is the drift
 already happening.
@@ -532,8 +531,7 @@ returning a precise `ParseError` can be widened to a catch-all variant by a sing
 and the caller's ability to branch disappears without a compile error anywhere.
 
 **Check:** for each public function, does its error type distinguish everything its documentation
-promises to distinguish? Test it by matching the variant, not by reading the code
-(`references/testing.md` RS-TEST-13).
+promises to distinguish? Test it by matching the variant, not by reading the code (RS-TEST-13).
 
 ### RS-ERR-24 [S] Choose the lazy combinator when constructing the error costs anything
 
@@ -579,7 +577,7 @@ pub struct NotFound {
 
 **Why:** it is the idiomatic form, it short-circuits (so the remaining work is skipped), and it
 keeps the pipeline as an expression instead of forcing a `for` loop with a mutable accumulator
-(`references/functional.md` RS-FUNC-13).
+(RS-FUNC-13).
 
 **Check:** any `for` loop over fallible items that pushes into a `Vec` and returns early is this
 collect.
@@ -653,8 +651,8 @@ impl Headers {
 ### RS-ERR-29 [S] Prefer restructuring, then `unreachable!`, then `panic!`
 
 **Why:** a branch that "cannot happen" is usually a type that is too wide, and making it
-unrepresentable removes the branch entirely (`references/api.md` RS-API-21). Where the branch must
-exist, `unreachable!("…")` says *why* you believe it, the information RS-ERR-04 asks for.
+unrepresentable removes the branch entirely (RS-API-21). Where the branch must exist,
+`unreachable!("…")` says *why* you believe it, the information RS-ERR-04 asks for.
 
 **Check:** for each `unreachable!`, can the enum, the newtype, or the signature be narrowed so the
 arm disappears?
@@ -716,8 +714,8 @@ pub fn total_len(parts: &[usize]) -> Option<usize> {
 It is the application's decision, set in its own profile.
 
 **Why:** it removes `catch_unwind` from the whole dependency graph, silently breaking test
-harnesses, FFI wrappers (`references/unsafe.md` RS-UNSAFE-24), and worker pools that isolate task
-failures. In a library's `Cargo.toml` it is ignored anyway: only the workspace root sets profiles.
+harnesses, FFI wrappers (RS-UNSAFE-24), and worker pools that isolate task failures. In a library's
+`Cargo.toml` it is ignored anyway: only the workspace root sets profiles.
 
 **Check:** grep `panic = "abort"` outside the top-level binary's profile.
 
@@ -753,7 +751,7 @@ returning `1` for a usage error — breaks `set -e` pipelines in ways that are v
 the other side.
 
 **Check:** are the codes documented in `--help` and the man page, and covered by an end-to-end test
-(`references/testing.md` RS-TEST-28)?
+(RS-TEST-28)?
 
 ```rust
 // verified
