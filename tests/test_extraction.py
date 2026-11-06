@@ -74,7 +74,7 @@ def test_a_verified_block_in_skill_md_is_extracted(
     tc, ex = _extracted(demo, tmp_path / "out")
     (unit,) = ex.units
     assert unit.block.file == "SKILL.md"
-    assert unit.block.rule == "?"
+    assert unit.block.rule is None
     assert tc.restore(ex)[unit.block] == body
 
 

@@ -149,7 +149,7 @@ def test_a_swap_is_one_permutation_and_its_own_inverse(repo: Path) -> None:
     before = snapshot(repo)
 
     apply(repo, "python-style", chapters=names)
-    swapped = skill(repo, "python-style").by_id
+    swapped = {str(r.id): r for r in skill(repo, "python-style").chapter_rules}
     apply(repo, "python-style", chapters=names)
 
     assert swapped["PS-API-01"].title == title["data"]

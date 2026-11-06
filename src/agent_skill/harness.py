@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from agent_skill.ids import Location, Pin
+from agent_skill.ids import Location, Pin, Version
 from agent_skill.proc import tool_path
 
 
@@ -95,12 +95,11 @@ def pinned(binary: str) -> Pin | None:
     text = declared_pins()
     if text is None:
         return None
-    m = re.search(rf'"({re.escape(package)}==\d+\.\d+\.\d+)"', text)
-    return Pin.parse(m.group(1)) if m else None
-
-
-#: `ripgrep 15.2.0 (rev e89fff89ac)` -> `15.2.0`
-_VERSION = re.compile(r"(\d+\.\d+\.\d+)")
+    m = re.search(rf'"({re.escape(package)}==[^"]*)"', text)
+    try:
+        return Pin.parse(m.group(1)) if m else None
+    except ValueError:
+        return None
 
 
 def version_mismatch(binary: str, reported: str) -> str:
@@ -135,9 +134,10 @@ def version_mismatch(binary: str, reported: str) -> str:
             f"`{binary}` decides whether checks fire but `{HARNESS.declared_in}` "
             "pins no version for it"
         )
-    want = str(pin.version)
-    got = _VERSION.search(reported)
-    if got and got.group(1) == want:
+    got = Version.search(reported)
+    if got == pin.version:
         return ""
-    saw = got.group(1) if got else repr(reported.strip()[:40])
-    return f"`{binary}` is pinned to {want} but {tool_path(binary)} reports {saw}"
+    saw = str(got) if got else repr(reported.strip()[:40])
+    return (
+        f"`{binary}` is pinned to {pin.version} but {tool_path(binary)} reports {saw}"
+    )

@@ -12,11 +12,12 @@ from agent_skill.checks import by_name
 from agent_skill.checks.anatomy import structural
 from agent_skill.checks.citations import Row, row_shape, rows_of
 from agent_skill.checks.skeleton import skeleton
-from agent_skill.doc.chapter import LintRow
-from agent_skill.ids import Location, Pin
+from agent_skill.doc import text_of
+from agent_skill.doc.chapter import DECIDED, LintRow
+from agent_skill.ids import DASH, Location, Pin, RuleId
 from agent_skill.lang.python import python_rows
 from agent_skill.lang.rust import rust_catalogue, rust_rows
-from agent_skill.model import DASH, Tree
+from agent_skill.model import Tree
 from structure_fixture import DEMO, build, edit, reparse
 lazy from agent_skill.model import Skill
 
@@ -290,19 +291,19 @@ def test_lint_rows_are_parsed_and_are_not_rules(demo: Skill) -> None:
     path = demo.root / "references" / "errors.md"
     path.write_text(path.read_text() + ROWS)
     skill = reparse(demo)
-    rows = skill.lint_rows
+    rows = [row for c in skill.chapters for row in c.typed.tools]
     assert [(r.tool, r.lint, r.level) for r in rows] == [
         ("ruff", "B006", "error"),
         ("ty", "possibly-unresolved-reference", "warn"),
     ]
-    assert [r.id for r in skill.rules] == ["DS-ERR-01", "DS-ERR-02", "DS-MIG-01"]
-    assert "Decided by tools" not in skill.by_id["DS-ERR-02"].body
+    rules = skill.chapter_rules
+    assert [str(r.id) for r in rules] == ["DS-ERR-01", "DS-ERR-02", "DS-MIG-01"]
+    assert all(DECIDED not in text_of(r.body) for r in rules)
     typed = rows_of(skill)
     assert [(r.tool, r.lint, r.level) for _, r in typed] == [
         (r.tool, r.lint, r.level) for r in rows
     ]
     assert [where.line for where, _ in typed] == [r.line for r in rows]
-    assert [str(r.id) for r in skill.chapter_rules] == [r.id for r in skill.rules]
 
 
 def test_a_row_for_a_tool_the_standard_does_not_require(demo: Skill) -> None:
@@ -353,7 +354,7 @@ def test_a_rename_table_that_resolves(demo: Skill) -> None:
     path = demo.root / "references" / "renames.md"
     path.write_text(HISTORY + RENAMES)
     skill = reparse(demo)
-    assert len(skill.renames) == 3
+    assert [len(t.rows) for c in skill.chapters for t in c.typed.renames] == [3]
     assert [
         m for m in shape(skill) if "renamed" in m or "became" in m or "removed" in m
     ] == []
@@ -364,10 +365,11 @@ def test_a_rename_table_states_its_ranges(demo: Skill) -> None:
     path.write_text(
         HISTORY + RENAMES.replace("`DS-ERR-09`.", "`DS-ERR-09` and `DS-MIG-01`.")
     )
-    (table,) = reparse(demo).rename_tables
-    assert table.ranges == (("DS-ERR", 1, 9), ("DS-MIG", 1, 1))
-    assert table.unchanged[:2] == ["DS-ERR-01", "DS-ERR-02"]
-    assert table.unchanged[-1] == "DS-MIG-01"
+    (table,) = (t for c in reparse(demo).chapters for t in c.typed.renames)
+    err, mig = RuleId("DS", "ERR", 1), RuleId("DS", "MIG", 1)
+    assert table.ranges == ((err, RuleId("DS", "ERR", 9)), (mig, mig))
+    assert table.unchanged[:2] == (err, RuleId("DS", "ERR", 2))
+    assert table.unchanged[-1] == mig
 
 
 def test_an_unlisted_id_no_rule_carries(demo: Skill) -> None:
@@ -513,7 +515,7 @@ def test_an_escaped_pipe_stays_inside_its_cell(demo: Skill) -> None:
 """
     path = demo.root / "references" / "errors.md"
     path.write_text(path.read_text() + rows)
-    (row,) = reparse(demo).lint_rows
+    (row,) = (row for c in reparse(demo).chapters for row in c.typed.tools)
     assert (row.lint, row.forbids) == (
         "map_clone",
         "`.map(|x| x.clone())` — `.cloned()`",

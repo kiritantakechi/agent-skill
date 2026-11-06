@@ -35,14 +35,14 @@ def frontmatter(skill: Skill) -> Iterator[Finding]:
 
     This was three unguarded `.group(1)` calls, so a malformed
     frontmatter crashed the checker instead of being reported by it.
+    The block is the one the document model reads, as every other
+    reader of `SKILL.md` reads it; its keys are YAML's to say.
     """
-    text = skill.text
     where = skill.at()
-    m = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)
-    if not m:
+    body = skill.doc.frontmatter
+    if body is None:
         yield fail("SKILL.md has no frontmatter block", where, MISSING)
         return
-    body = m.group(1)
     keys = set(re.findall(r"^([a-z-]+):", body, re.MULTILINE))
     if extra := keys - ALLOWED:
         yield fail(f"non-spec frontmatter keys {sorted(extra)}", where, EXTRA_KEYS)
@@ -68,7 +68,7 @@ def frontmatter(skill: Skill) -> Iterator[Finding]:
         yield fail("angle bracket in description", where, ANGLE_BRACKET)
 
     stated = re.search(r"(\d+)-rule \w+", desc)
-    actual = len(skill.rules) + len(skill.core_rules)
+    actual = len(skill.chapter_rules) + len(skill.core)
     if stated and int(stated.group(1)) != actual:
         yield fail(
             f"description says {stated.group(1)} rules, actual {actual}",

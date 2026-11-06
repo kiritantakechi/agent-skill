@@ -9,8 +9,8 @@ from agent_skill import revise, shared
 from agent_skill.checks.anatomy import structural
 from agent_skill.checks.skeleton import skeleton
 from agent_skill.doc import WIDTH, Doc, canonical
-from agent_skill.doc.chapter import DASH, Chapter, Demoted, LintRow, Removed
-from agent_skill.ids import RuleId
+from agent_skill.doc.chapter import Chapter, Demoted, LintRow, Removed
+from agent_skill.ids import DASH, RuleId
 from agent_skill.layout import SKILLS
 from agent_skill.model import Skill, Tree
 from structure_fixture import DEMO, RULE, build
@@ -93,6 +93,16 @@ def rows(table: RenameTable) -> dict[str, Becomes]:
     return {str(r.before): r.now for r in table.rows}
 
 
+def titles(skill: Skill) -> dict[str, str]:
+    """Each chapter rule's title, by its ID, in order."""
+    return {str(r.id): r.title for r in skill.chapter_rules}
+
+
+def tools(skill: Skill) -> list[LintRow]:
+    """Every row of every chapter's `Decided by tools`."""
+    return [row for c in skill.chapters for row in c.typed.tools]
+
+
 def text(repo: Path, name: str) -> str:
     return (repo / SKILLS / "demo-style/references" / name).read_text()
 
@@ -117,7 +127,7 @@ def test_overlapping_ids_are_rewritten_in_one_pass(repo: Path) -> None:
     skill_md = (repo / SKILLS / "demo-style/SKILL.md").read_text()
     # A chain of replacements would turn both into -01.
     assert "DS-ERR-01 then DS-ERR-02" in skill_md
-    assert {r.id: r.title for r in demo(repo).rules}["DS-ERR-01"] == "Name them"
+    assert titles(demo(repo))["DS-ERR-01"] == "Name them"
 
 
 def test_a_chapter_rename_moves_the_file_the_code_and_every_path(repo: Path) -> None:
@@ -457,8 +467,8 @@ def test_a_row_replaces_the_rule_and_the_gap_closes(planned: Path) -> None:
     assert "Wrap them" not in errors
     assert errors.index("- Decided by tools\n") < errors.index("\n---\n")
     after = demo(planned)
-    assert [r.id for r in after.rules] == ["DS-ERR-01", "DS-ERR-02", "DS-MIG-01"]
-    (row,) = after.lint_rows
+    assert list(titles(after)) == ["DS-ERR-01", "DS-ERR-02", "DS-MIG-01"]
+    (row,) = tools(after)
     assert (row.tool, row.lint, row.level) == ("clippy", "unwrap_used", "deny")
     assert row.forbids == "an `unwrap` on a `Result` | `Option`"
     assert (
@@ -511,8 +521,10 @@ def test_a_plan_composes_with_the_table_it_finds(planned: Path) -> None:
     )
     (table,) = tables(planned)
     assert rows(table) == {"DS-ERR-02": Removed("x"), "DS-ERR-03": Removed("y")}
-    titles = [r.title for r in demo(planned).rules]
-    assert titles == ["Catch narrowly", "Use the new name"]
+    assert list(titles(demo(planned)).values()) == [
+        "Catch narrowly",
+        "Use the new name",
+    ]
 
 
 def test_a_citation_of_a_rule_the_plan_takes_away_stops_the_run(
@@ -560,7 +572,7 @@ def test_a_merge_into_an_inserted_rule_follows_it_through_the_renumbering(
     )
     run(planned, {rid("DS-ERR-01"): rid("DS-ERR-02a")})
     after = demo(planned)
-    assert after.by_id["DS-ERR-02"].title == "Chain them"
+    assert titles(after)["DS-ERR-02"] == "Chain them"
     # A table started now maps every ID there is, the inserted one too:
     # a reader may hold a citation of it.
     (table,) = tables(planned)
@@ -620,7 +632,7 @@ def test_a_revision_leaves_a_conforming_skill_conforming(tmp_path: Path) -> None
     (tmp_path / "tests").mkdir()
     run(tmp_path, {rid("DS-ERR-01"): Removed("said nothing")})
     after = Skill(built.root, DEMO)
-    assert [r.id for r in after.rules] == ["DS-ERR-01", "DS-MIG-01"]
+    assert list(titles(after)) == ["DS-ERR-01", "DS-MIG-01"]
     assert list(shared.compare(after)) == []
     assert [f.message for f in [*skeleton.each(after), *structural(after)]] == []
 
@@ -661,7 +673,7 @@ def test_rows_go_under_a_decided_by_tools_heading_with_no_table(
         ERRORS.replace("## Catching", f"## Decided by tools\n{lead}\n## Catching")
     )
     run(planned, {rid("DS-ERR-02"): ROW})
-    (row,) = demo(planned).lint_rows
+    (row,) = tools(demo(planned))
     assert (row.tool, row.lint) == ("clippy", "unwrap_used")
     written = errors.read_text()
     assert written.count(revise.LEAD) == 1

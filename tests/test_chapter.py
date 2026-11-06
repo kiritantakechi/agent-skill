@@ -1,13 +1,24 @@
-"""The chapter layer: lossless over the tree, and in step with `model`.
+"""The chapter layer: lossless over the tree, complete on the corpus.
 
-`model` is the reader every check uses today. Each test here holds the
-new layer to what the old one finds in the shipped skills, so the new
-one is shown right on the corpus before any check moves onto it.
+It is the one reader of a standard's rules, tables and rename history.
+The line-wise readers it was first held to are gone, so it is held here
+to the tree it reads: every heading that names a rule is a rule, every
+row of a rename table is read, and every example is a fence of the tree.
 """
 
 import pytest
 
-from agent_skill.doc import Doc, Fence, Heading, ListBlock, Quote, Table, printed
+from agent_skill.doc import (
+    Doc,
+    Fence,
+    Heading,
+    ListBlock,
+    Quote,
+    Table,
+    entry,
+    printed,
+    words,
+)
 from agent_skill.doc.chapter import (
     Chapter,
     Demoted,
@@ -15,6 +26,7 @@ from agent_skill.doc.chapter import (
     Rule,
     SkillMd,
     citing,
+    owned,
     parse_becomes,
     print_becomes,
 )
@@ -30,11 +42,6 @@ def _read(chapter_text: str) -> Chapter:
 def _prose(blocks: tuple[Block, ...]) -> list[str]:
     """The words of `blocks` as printed, with quote markers dropped."""
     return [w for b in blocks for line in printed(b) for w in line.split() if w != ">"]
-
-
-def _unquoted(text: str) -> list[str]:
-    """The words of raw text, with quote markers dropped."""
-    return [w for w in text.split() if w != ">"]
 
 
 def _fences(blocks: tuple[Block, ...]) -> list[Fence]:
@@ -62,76 +69,44 @@ def test_every_skill_md_reads_back_as_its_tree(skills: list[Skill]) -> None:
         assert SkillMd.read(doc).doc() == doc, skill.name
 
 
-def test_the_new_layer_finds_every_rule_the_old_one_does(skills: list[Skill]) -> None:
+def _rule_headings(doc: Doc) -> list[tuple[RuleId, Tier, str, int]]:
+    """Every `###` heading of `doc` that names a rule, with its line."""
+    return [
+        (*found, b.line)
+        for b in doc.blocks
+        if isinstance(b, Heading) and b.level == 3
+        if (found := entry(words(b.text))) is not None
+    ]
+
+
+def test_every_heading_that_names_a_rule_is_a_rule(skills: list[Skill]) -> None:
     found = 0
     for skill in skills:
         for chapter in skill.chapters:
-            old = [(r.id, r.tier, r.title) for r in chapter.rules]
-            new = [
-                (str(r.id), r.tier.value, r.title) for r in _read(chapter.text).rules
-            ]
-            assert new == old, f"{skill.name}/{chapter.name}"
-            found += len(new)
+            rules = [(r.id, r.tier, r.title, r.line) for r in chapter.typed.rules]
+            assert rules == _rule_headings(chapter.doc), chapter.name
+            found += len(rules)
     assert found > 1000
 
 
-def test_each_rule_is_found_on_the_line_the_old_layer_gives(
-    skills: list[Skill],
-) -> None:
-    for skill in skills:
-        for chapter in skill.chapters:
-            old = [r.line for r in chapter.rules]
-            assert [r.line for r in _read(chapter.text).rules] == old, chapter.name
-
-
-def test_the_tool_table_has_the_rows_the_old_layer_reads(
-    skills: list[Skill],
-) -> None:
-    for skill in skills:
-        for chapter in skill.chapters:
-            old = [(r.tool, r.lint, r.level, r.forbids) for r in chapter.lint_rows]
-            new = [
-                (r.tool, r.lint, r.level, r.forbids) for r in _read(chapter.text).tools
-            ]
-            assert new == old, f"{skill.name}/{chapter.name}"
-
-
-def test_each_rename_table_states_what_the_old_layer_reads(
-    skills: list[Skill],
-) -> None:
+def test_every_rename_row_and_range_is_read(skills: list[Skill]) -> None:
     rows = 0
     for skill in skills:
         for chapter in skill.chapters:
-            tables = _read(chapter.text).renames
-            assert len(tables) == len(chapter.rename_tables)
-            for old, new in zip(chapter.rename_tables, tables, strict=True):
-                assert [
-                    (f"{a.standard}-{a.family}", a.number, b.number)
-                    for a, b in new.ranges
-                ] == list(old.ranges)
-                assert [str(r) for r in new.originals] == old.originals
-                assert new.unread == ()
-                for was, now in zip(old.rows, new.rows, strict=True):
-                    assert str(now.before) == was.before
-                    match now.now:
-                        case RuleId():
-                            assert f"`{now.now}`" == was.now
-                        case Demoted(tool, lint):
-                            assert f"lint `{tool}:{lint}`" == was.now
-                        case Removed(reason):
-                            assert f"removed — {reason}" == " ".join(was.now.split())
-                    rows += 1
-                assert [str(r) for r in new.unchanged] == old.unchanged
+            for table in chapter.typed.renames:
+                assert table.ranges, f"{skill.name}: {table.heading}"
+                assert table.unread == (), f"{skill.name}: {table.heading}"
+                listed = {r.before for r in table.rows}
+                assert listed <= set(table.originals), table.heading
+                rows += len(table.rows)
     assert rows > 1000
 
 
-def test_the_core_rules_are_the_ones_the_old_layer_reads(
-    skills: list[Skill],
-) -> None:
+def test_every_core_rule_is_an_item_of_section_4(skills: list[Skill]) -> None:
     for skill in skills:
-        core = SkillMd.read(Doc.parse(skill.text)).core_rules
-        old = [(rid, tier) for rid, tier, _ in skill.core_rules]
-        assert [(str(r.id), str(r.tier)) for r in core] == old, skill.name
+        core = skill.core
+        assert core, skill.name
+        assert all(r.id.family == "CORE" and not r.title for r in core), skill.name
 
 
 def test_a_core_rule_and_a_chapter_rule_are_one_type(skills: list[Skill]) -> None:
@@ -143,29 +118,29 @@ def test_a_core_rule_and_a_chapter_rule_are_one_type(skills: list[Skill]) -> Non
     assert RuleId.parse("ZS-CORE-12a") in {r.id for r in core}
 
 
-def test_the_check_says_what_the_old_layer_reads(skills: list[Skill]) -> None:
-    for skill in skills:
-        for chapter in skill.chapters:
-            new = _read(chapter.text).rules
-            for old, rule in zip(chapter.rules, new, strict=True):
-                assert _prose(rule.check)[1:] == _unquoted(old.check), old.id
-
-
-def test_every_example_the_old_layer_finds_is_a_fence_of_the_tree(
-    skills: list[Skill],
-) -> None:
+def test_every_example_is_a_fence_of_the_tree(skills: list[Skill]) -> None:
     for skill in skills:
         for document in skill.documents:
-            old = sorted(
+            blocks = sorted(
                 (b.lang, b.body)
                 for lang in skill.profile.languages
                 for b in document.blocks(lang)
             )
             fences = _fences(Doc.parse(document.text).blocks)
-            new = sorted(
+            want = sorted(
                 (f.info, f.body) for f in fences if f.info in skill.profile.languages
             )
-            assert new == old, f"{skill.name}/{document.name}"
+            assert blocks == want, f"{skill.name}/{document.name}"
+
+
+def test_an_example_is_under_the_rule_whose_heading_is_above_it() -> None:
+    """And under none in a section's lead.
+
+    The line-wise reader carried the rule above the section on into it.
+    """
+    text = CHAPTER + "\n## More\n\n```zig\n// fragment\n```\n"
+    owners = [rule for b, rule in owned(Doc.parse(text)) if isinstance(b, Fence)]
+    assert owners == [RuleId.parse("XS-OUT-01"), None]
 
 
 CHAPTER = """# Output

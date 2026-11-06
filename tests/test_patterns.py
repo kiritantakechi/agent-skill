@@ -8,7 +8,12 @@ import re
 
 import pytest
 
-from agent_skill.checks.patterns import dialect_of, filtered_of, patterns_of
+from agent_skill.checks.patterns import (
+    check_text,
+    dialect_of,
+    filtered_of,
+    patterns_of,
+)
 from agent_skill.checks.selfapply import selfapply
 lazy from agent_skill.model import Skill
 
@@ -99,10 +104,10 @@ def test_the_prose_fallback_has_something_to_fall_back_on(
     reaching = [
         r.id
         for s in skills
-        for r in s.rules
-        if r.check
-        and not re.search(r"`rg\s", " ".join(r.check.split()))
-        and trigger.search(" ".join(r.check.split()))
+        for r in s.chapter_rules
+        if (check := " ".join(check_text(r).split()))
+        and not re.search(r"`rg\s", check)
+        and trigger.search(check)
     ]
     assert reaching, "no Check reaches the prose fallback — the branch is now dead code"
 

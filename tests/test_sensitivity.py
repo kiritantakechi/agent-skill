@@ -18,7 +18,9 @@ from types import SimpleNamespace
 import pytest
 
 from agent_skill.checks.sensitivity import sensitivity
-from agent_skill.ids import Location
+from agent_skill.doc import Doc
+from agent_skill.doc.chapter import Rule
+from agent_skill.ids import Location, RuleId, Tier
 lazy from agent_skill.model import Skill
 
 #: Two patterns over disjoint constructs, the shape that made `any`
@@ -32,10 +34,11 @@ def fake(
     unproven: frozenset[str] = frozenset(),
 ) -> SimpleNamespace:
     """A stand-in skill with one rule, its Check, and its fixtures."""
-    rule = SimpleNamespace(id="XX-Y-01", check=check, title="a rule with two patterns")
+    rid, body = RuleId.parse("XX-Y-01"), Doc.parse(check).blocks
+    rule = Rule(rid, Tier.M, "a rule with two patterns", body)
     return SimpleNamespace(
         name="fake-style",
-        rules=[rule],
+        chapter_rules=(rule,),
         profile=SimpleNamespace(fires=fires, languages=("rust",), unproven=unproven),
         at=lambda: Location("fake-style"),
     )

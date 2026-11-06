@@ -30,6 +30,7 @@ from pathlib import Path
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check
+from agent_skill.doc import Doc, Table, walk
 from agent_skill.ids import Location
 from agent_skill.layout import root_of
 from agent_skill.report import Level, declare, fail
@@ -37,19 +38,8 @@ lazy from agent_skill.checks import all_checks
 lazy from agent_skill.model import Tree
 lazy from agent_skill.report import Finding
 
-#: `| `name` | catches | added because |` — a table row naming a check.
-ROW = re.compile(r"^\|\s*`([a-z-]+)`\s*\|(.*)\|\s*$", re.MULTILINE)
-
-#: A `|` that separates cells, rather than one written into a cell.
-#:
-#: A GFM table needs `\|` for a literal pipe, code span or not. Scanning
-#: a cell as `[^|]*` stops at the escape and reads the remainder as the
-#: next column: measured, the `dialect` row's reason — which opens with
-#: `` `\|` is alternation to `grep` `` — came back as the two characters
-#: `` ` \ `` and satisfied "every row carries a reason" on them. The
-#: question this check asks is whether a reason is there, so it has to
-#: be asked of the whole reason.
-CELL = re.compile(r"(?<!\\)\|")
+#: The first cell of a row naming a check: its name in a code span.
+NAME = re.compile(r"`([a-z-]+)`")
 
 #: The cells a row needs after the name: what it catches, and why it was
 #: added.
@@ -80,18 +70,25 @@ def readme(tree: Tree) -> Path:
 
 
 def documented_rows(text: str) -> dict[str, tuple[str, str]]:
-    """Each documented check: what it catches, and why it was added.
+    r"""Each documented check: what it catches, and why it was added.
 
-    Both as the table states them. A row with fewer than two cells after
-    the name is not a row this can read, and is left out — which
-    surfaces as the check it names being undocumented, rather than as
-    silence.
+    Both as the table states them, read from the README's tree, whose
+    table cells are split only at an unescaped `|`. A GFM table needs
+    `\|` for a literal pipe, code span or not, and a cell scanned as
+    `[^|]*` stopped at the escape: measured, the `dialect` row's
+    reason — which opens with `` `\|` is alternation to `grep` `` —
+    came back as the two characters `` ` \ `` and satisfied "every row
+    carries a reason" on them.
+
+    A row with fewer than two cells after the name is not a row this
+    can read, and is left out — which surfaces as the check it names
+    being undocumented, rather than as silence.
     """
     found: dict[str, tuple[str, str]] = {}
-    for name, rest in ROW.findall(text):
-        cells = [c.strip() for c in CELL.split(rest)]
-        if len(cells) >= MIN_CELLS:
-            found[name] = (cells[0], cells[-1])
+    for table in (b for b in walk(Doc.parse(text).blocks) if isinstance(b, Table)):
+        for first, *cells in table.rows:
+            if (m := NAME.fullmatch(first)) and len(cells) >= MIN_CELLS:
+                found[m[1]] = (cells[0], cells[-1])
     return found
 
 

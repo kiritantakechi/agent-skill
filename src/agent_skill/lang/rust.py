@@ -23,7 +23,6 @@ from agent_skill.report import Finding, Level, declare, fail, unrun
 from agent_skill.text import group
 lazy from agent_skill.checks.citations import Row, rows_of
 lazy from agent_skill.checks.lints import CARGO, table
-lazy from agent_skill.checks.pins import _sort_key
 lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Block, Skill
 
@@ -400,7 +399,7 @@ class Rust:
         for b in extracted(skill, LANGUAGE):
             stem = module_name(b.file)
             _, mods = chapters.setdefault(stem, (b.file, []))
-            base = b.rule.lower().replace("-", "_") if b.rule != "?" else "block"
+            base = str(b.rule).lower().replace("-", "_") if b.rule else "block"
             n = sum(1 for m in mods if m == base or m.startswith(f"{base}_"))
             mod = base if n == 0 else f"{base}_{n}"
             mods.append(mod)
@@ -766,7 +765,7 @@ def rust_pin(
     reports and `newest` what the stable channel names; either is ""
     when it could not be asked.
     """
-    want = (pinned.release[0], pinned.release[1])
+    want = pinned.series
     if not running:
         yield unrun(
             "could not ask `rustc` its version, "
@@ -774,7 +773,7 @@ def rust_pin(
             where,
             RUSTC_SILENT,
         )
-    elif _minor(running) != want:
+    elif _series(running) != want:
         yield fail(
             f"the examples are pinned to Rust {pinned} and `rustc` here is {running}",
             where,
@@ -787,7 +786,7 @@ def rust_pin(
             where,
             STABLE_SILENT,
         )
-    elif (there := _minor(newest)) is not None and there > want:
+    elif (there := _series(newest)) is not None and there > want:
         yield fail(
             f"the Rust pin is {pinned} and {newest} is stable — move "
             "`rust` in `lang/rust.py` and the assets, re-read the "
@@ -797,9 +796,14 @@ def rust_pin(
         )
 
 
-def _minor(version: str) -> tuple[int, int] | None:
-    m = re.match(r"^(\d+)\.(\d+)", version)
-    return (int(m.group(1)), int(m.group(2))) if m else None
+def _series(answer: str) -> Version | None:
+    """The major.minor a version `rustc` or the channel gave belongs to.
+
+    A Rust pin holds the minor, so a patch or a `-nightly` after it is
+    the same series. None for an answer that names no version.
+    """
+    found = Version.search(answer)
+    return found.series if found is not None else None
 
 
 def _rustc() -> str:
@@ -839,7 +843,7 @@ def library_pin(pin: Pin, newest: str, where: Location) -> Iterator[Finding]:
             CRATES_SILENT,
         )
         return
-    here, there = _sort_key(pinned), _sort_key(newest)
+    here, there = Version.released(pinned), Version.released(newest)
     if here is None or there is None:
         yield unrun(
             f"`{name}` was not compared: {pinned} or {newest} is not a "

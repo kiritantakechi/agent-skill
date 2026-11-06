@@ -9,6 +9,7 @@ correct report.
 import pytest
 
 from agent_skill.checks.corpus import Corpus, Unit
+from agent_skill.ids import RuleId
 
 
 def corpus_of(*sizes: int) -> Corpus:
@@ -22,7 +23,7 @@ def corpus_of(*sizes: int) -> Corpus:
         built.units.append(
             Unit(
                 chapter=f"ch{n}.md",
-                rule=f"XX-Y-{n:02d}",
+                rule=RuleId("XX", "Y", n),
                 raw=[f"line {i} of unit {n}" for i in range(size)],
                 code=[f"line {i} of unit {n}" for i in range(size)],
                 at=[100 + i for i in range(size)],

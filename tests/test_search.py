@@ -13,6 +13,7 @@ import pytest
 from agent_skill.checks.corpus import Corpus, Unit
 from agent_skill.checks.patterns import Pattern
 from agent_skill.checks.search import Span, find, matches
+from agent_skill.ids import RuleId
 
 
 def corpus_at(tmp_path: Path, *bodies: str) -> Corpus:
@@ -23,8 +24,9 @@ def corpus_at(tmp_path: Path, *bodies: str) -> Corpus:
     for n, body in enumerate(bodies):
         lines = body.split("\n")
         built.starts.append(sum(len(b.split("\n")) for b in bodies[:n]))
+        rule = RuleId("XX", "Y", n)
         built.units.append(
-            Unit(f"ch{n}.md", f"XX-Y-{n:02d}", lines, lines, list(range(len(lines))))
+            Unit(f"ch{n}.md", rule, lines, lines, list(range(len(lines))))
         )
         (built.raw_dir / f"{n:04d}.txt").write_text(body + "\n")
         (built.code_dir / f"{n:04d}.txt").write_text(body + "\n")

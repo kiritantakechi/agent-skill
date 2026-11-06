@@ -20,15 +20,12 @@ lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
 from agent_skill.harness import HARNESS, pinned, version_mismatch
+from agent_skill.ids import Version
 from agent_skill.lang import needs, toolchain_for
 from agent_skill.proc import have, run, tool_path
 from agent_skill.report import Level, declare, fail, unrun
-from agent_skill.text import group
 lazy from agent_skill.model import Skill, Tree
 lazy from agent_skill.report import Finding
-
-#: A release's position in the order `_sort_key` defines.
-type SortKey = tuple[int, int, int, int, int]
 
 # The branches a finding of this check comes from. Each toolchain
 # declares those its pins report through.
@@ -96,7 +93,7 @@ def _tool_pins() -> Iterator[Finding]:
             )
             continue
         newest = found.group(1)
-        here, there = _sort_key(pinned_at), _sort_key(newest)
+        here, there = Version.released(pinned_at), Version.released(newest)
         if here is None or there is None:
             yield unrun(
                 f"`{package}` was not compared: "
@@ -115,29 +112,6 @@ def _tool_pins() -> Iterator[Finding]:
                 where,
                 TOOL_STALE,
             )
-
-
-def _sort_key(version: str) -> SortKey | None:
-    """Order releases so a final release follows its candidates.
-
-    `3.15.0rc2` follows `3.15.0rc1` and precedes `3.15.0`. A final
-    release has no suffix and must sort *after* every candidate, which a
-    plain string comparison gets backwards.
-
-    `None` for a version this does not understand, because the
-    alternative was `(0, 0, 0, 0, 0)` — which sorts below every real
-    release, so `1.2.3.post1` from the index compared as older than the
-    pin and the staleness check reported the pin current. That is the
-    same shape `version_mismatch` was already fixed for: a value that
-    could not be read must not be resolved into one that happens to
-    compare as agreement.
-    """
-    m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:(a|b|rc)(\d+))?$", version)
-    if not m:
-        return None
-    major, minor, micro = (int(group(m, i)) for i in (1, 2, 3))
-    rank = {"a": 0, "b": 1, "rc": 2}.get(group(m, 4), 3)
-    return (major, minor, micro, rank, int(group(m, 5) or 0))
 
 
 @check(

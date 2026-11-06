@@ -285,7 +285,7 @@ def cmd_revise(args: argparse.Namespace) -> int:
 def cmd_list(args: argparse.Namespace) -> int:
     """Print each skill's prefix, counts, and toolchain."""
     for skill in discover(args.skills):
-        rules = len(skill.rules)
+        rules = len(skill.chapter_rules)
         blocks = len(skill.blocks(verified=True))
         toolchain = toolchain_for(skill.profile.toolchain)
         print(

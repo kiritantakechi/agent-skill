@@ -140,11 +140,19 @@ class Quote:
     `> [!NOTE]` makes a quote an alert only on a line of its own; joined
     to the text after it, it is that text's first word. The alert is
     kept apart from the blocks so filling cannot join the two.
+
+    `lazy` is the line straight after the quote's last `>` line when
+    that line is not blank. A renderer that continues a quote lazily
+    reads it into the quote; this parser reads it as the next block,
+    and printing puts a blank line between them. Recorded, not
+    compared, as `Fence.closed` is, for `prose` to report a quote that
+    lost its `>`.
     """
 
     blocks: tuple[Block, ...]
     alert: Alert | None = None
     line: int = field(default=0, compare=False)
+    lazy: int | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,6 +207,24 @@ def canonical(text: str) -> str:
     file that is already canonical changes nothing.
     """
     return str(Doc.parse(text))
+
+
+def walk(blocks: Iterable[Block]) -> Iterator[Block]:
+    """Every block in `blocks`, nested ones included, in order.
+
+    A list item's blocks and a quote's follow the list or quote that
+    holds them, as they follow it in the file.
+    """
+    for block in blocks:
+        yield block
+        match block:
+            case ListBlock(items):
+                for item in items:
+                    yield from walk(item.blocks)
+            case Quote(inner):
+                yield from walk(inner)
+            case _:
+                pass
 
 
 def text_of(blocks: Iterable[Block]) -> str:
@@ -481,9 +507,10 @@ def _quote(lines: list[str], i: int, at: int) -> tuple[Quote, int]:
         s = lines[j].lstrip(" ")[1:]
         inner.append(s.removeprefix(" "))
         j += 1
+    lazy = at + (j - i) if j < len(lines) and lines[j].strip() else None
     if m := _ALERT.fullmatch(inner[0].strip()):
-        return Quote(_blocks(inner[1:], at + 1), Alert(m["kind"]), at), j
-    return Quote(_blocks(inner, at), None, at), j
+        return Quote(_blocks(inner[1:], at + 1), Alert(m["kind"]), at, lazy), j
+    return Quote(_blocks(inner, at), None, at, lazy), j
 
 
 def _paragraph(lines: list[str], i: int, at: int) -> tuple[Paragraph, int]:
@@ -587,6 +614,22 @@ def printed(block: Block, width: int = WIDTH) -> list[str]:
 _TIERS = frozenset(str(t) for t in Tier)
 
 
+def entry(words: Sequence[str]) -> tuple[RuleId, Tier, str] | None:
+    """The ID, tier and title `words` open with, if they open so.
+
+    As a rule's heading and its contents entry both do: `RS-ERR-03 [M]
+    Name the error`. The title is the words after the tier, and may be
+    empty, as it is where a label names no rule.
+    """
+    match words:
+        case (first, tier, *title) if (
+            rid := RuleId.try_parse(first)
+        ) is not None and tier in _TIERS:
+            return rid, Tier.parse(tier), " ".join(title)
+        case _:
+            return None
+
+
 def _is_entry(words: tuple[str, ...]) -> bool:
     """Do `words` open with an ID and a tier, as a contents entry does?
 
@@ -594,9 +637,7 @@ def _is_entry(words: tuple[str, ...]) -> bool:
     heading it is one line, however long: an entry split across lines
     is read back truncated by anything that reads it line by line.
     """
-    return (
-        len(words) > 1 and words[1] in _TIERS and RuleId.try_parse(words[0]) is not None
-    )
+    return entry(words) is not None
 
 
 def _fence_lines(info: str, body: str) -> list[str]:

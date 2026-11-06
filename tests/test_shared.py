@@ -29,8 +29,9 @@ def test_an_optional_list_item_leaves_no_gap(skills: list[Skill]) -> None:
         assert len(numbers) == (5 if skill.profile.delta_step else 4), skill.name
 
 
-def test_major_minor() -> None:
-    assert shared.major_minor("1.99") == "1.99"
-    assert shared.major_minor("3.15.0rc1") == "3.15"
-    assert shared.major_minor("0.20.0") == "0.20"
-    assert shared.major_minor("") == ""
+def test_the_title_rendered_is_the_one_each_standard_ships(
+    skills: list[Skill],
+) -> None:
+    """Named by its pin's series: a patch release moves the pin only."""
+    for skill in skills:
+        assert shared.title(skill).text == skill.typed.title, skill.name

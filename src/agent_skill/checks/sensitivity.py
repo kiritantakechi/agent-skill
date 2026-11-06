@@ -36,11 +36,12 @@ that stopped being true fails.
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
-from agent_skill.checks.patterns import patterns_of
+from agent_skill.checks.patterns import check_text, patterns_of
 from agent_skill.checks.search import matches, searcher_problem
 from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.checks.patterns import Pattern
-lazy from agent_skill.model import Rule, Skill
+lazy from agent_skill.doc.chapter import Rule
+lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
 
 # The branches a finding of this check comes from.
@@ -81,7 +82,7 @@ def sensitivity(skill: Skill) -> Iterator[Finding]:
     # is.
     lang = skill.profile.languages[0]
 
-    by_id = {r.id: r for r in skill.rules}
+    by_id = {str(r.id): r for r in skill.chapter_rules}
     for rid in sorted(set(declared) - set(by_id)):
         yield fail(
             f"{rid}: a fixture names a rule this skill does not define",
@@ -105,11 +106,11 @@ def _accounted(skill: Skill) -> Iterator[Finding]:
     fixture now. Without the second, the list would only ever grow.
     """
     profile = skill.profile
-    by_id = {rule.id: rule for rule in skill.rules}
+    by_id = {str(rule.id): rule for rule in skill.chapter_rules}
     shipping = {
-        rule.id
-        for rule in skill.rules
-        if rule.check and any(p.kind == "command" for p in patterns_of(rule.check))
+        rid
+        for rid, rule in by_id.items()
+        if any(p.kind == "command" for p in patterns_of(check_text(rule)))
     }
     for rid in sorted(shipping - set(profile.fires) - profile.unproven):
         yield fail(
@@ -138,14 +139,15 @@ def _fixtures(
 ) -> Iterator[Finding]:
     """One rule's fixtures, against the commands its Check ships."""
     rid = rule.id
-    if not rule.check:
+    check = check_text(rule)
+    if not check:
         yield fail(
             f"{rid}: has a fixture but no **Check:** to run against it",
             skill.at(),
             NO_CHECK,
         )
         return
-    runnable = [p for p in patterns_of(rule.check) if p.kind == "command"]
+    runnable = [p for p in patterns_of(check) if p.kind == "command"]
     if not runnable:
         yield fail(
             f"{rid}: has a fixture but its **Check:** ships no command — a fixture "

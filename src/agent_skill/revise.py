@@ -47,7 +47,6 @@ from agent_skill.doc import (
 )
 from agent_skill.doc import chapter as layer
 from agent_skill.doc.chapter import (
-    DASH,
     DECIDED,
     RENAMED,
     Demoted,
@@ -58,7 +57,7 @@ from agent_skill.doc.chapter import (
     parse_becomes,
     print_becomes,
 )
-from agent_skill.ids import RuleId, cited, respell
+from agent_skill.ids import FAMILY, RuleId, cited, print_range, respell
 from agent_skill.layout import SKILLS, root_of
 from agent_skill.model import SKILL_MD, Skill
 lazy from agent_skill.doc import Block
@@ -136,8 +135,9 @@ def heading(skill: Skill) -> str:
     Named by the target, the pin's major.minor: a patch release moves
     the pin and is not a new revision, so it starts no second table.
     """
-    target = shared.major_minor(skill.profile.release)
-    return f"Rule IDs before the {skill.profile.language} {target} revision"
+    return (
+        f"Rule IDs before the {skill.profile.language} {skill.profile.target} revision"
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -743,7 +743,7 @@ def _stated(ids: Sequence[RuleId]) -> str:
                 runs[-1] = (runs[-1][0], rid)
             else:
                 runs.append((rid, rid))
-    spans = [f"`{lo}`" + (f"{DASH}`{hi}`" if hi != lo else "") for lo, hi in runs]
+    spans = [print_range(lo, hi) for lo, hi in runs]
     if len(spans) > 1:
         return ", ".join(spans[:-1]) + f" and {spans[-1]}"
     return "".join(spans)
@@ -987,7 +987,7 @@ def _counted(doc: Doc, std: _Standard) -> Doc:
             counts[code] = len(std.edited.get(c.path, c.typed).rules)
     total = len(std.sigma) + len(std.skill.core)
     prefix = re.escape(std.skill.prefix)
-    family = re.compile(rf"`{prefix}-([A-Z]+)` \(\d+\)")
+    family = re.compile(rf"`{prefix}-({FAMILY})` \(\d+\)")
 
     def count(text: str) -> str:
         return family.sub(

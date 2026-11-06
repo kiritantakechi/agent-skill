@@ -126,8 +126,12 @@ def test_the_harness_reads_the_same_examples_and_rules(
         return {
             skill.name: (
                 [(b.file, b.lang, b.rule, b.body) for b in skill.blocks()],
-                [(r.id, r.tier, r.title, r.file) for r in skill.rules],
-                [(rid, tier) for rid, tier, _ in skill.core_rules],
+                [
+                    (c.name, r.id, r.tier, r.title)
+                    for c in skill.chapters
+                    for r in c.typed.rules
+                ],
+                [(r.id, r.tier) for r in skill.core],
             )
             for skill in discover(_checkout(rev, tmp_path / name))
         }

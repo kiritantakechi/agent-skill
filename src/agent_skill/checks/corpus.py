@@ -12,6 +12,7 @@ from pathlib import Path
 from weakref import WeakKeyDictionary
 
 lazy from agent_skill.checks.patterns import Pattern
+lazy from agent_skill.ids import RuleId
 lazy from agent_skill.lang import language
 lazy from agent_skill.model import Skill
 
@@ -29,7 +30,7 @@ class Unit:
     """
 
     chapter: str
-    rule: str
+    rule: RuleId | None
     raw: list[str]
     code: list[str]
     at: list[int]  #: the line each local line came from, in the chapter
@@ -99,12 +100,13 @@ class Corpus:
         The parallel array this replaces held one row per line and had
         to be appended in lockstep with two others; a unit already knows
         its chapter, its rule, and which source line each of its lines
-        came from.
+        came from. The rule as a report prints it: `?` under none.
         """
         i = bisect.bisect_right(self.starts, line - 1) - 1
         unit = self.units[i]
         local = line - 1 - self.starts[i]
-        return unit.chapter, unit.rule, unit.at[local], unit.raw[local].strip()[:64]
+        rule = str(unit.rule) if unit.rule is not None else "?"
+        return unit.chapter, rule, unit.at[local], unit.raw[local].strip()[:64]
 
     def lines_for(self, pattern: Pattern) -> list[str]:
         """Every line, in the form `pattern` is searched against."""

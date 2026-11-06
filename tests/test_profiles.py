@@ -17,9 +17,9 @@ import pytest
 
 import agent_skill
 from agent_skill.checks import all_checks
-from agent_skill.checks.pins import _sort_key
+from agent_skill.ids import Version
 from agent_skill.lang import toolchain_for
-from agent_skill.lang.python import RELEASE, PythonSnippet
+from agent_skill.lang.python import PythonSnippet, listed
 from agent_skill.lang.rust import RustCrate
 from agent_skill.lang.zig import ZigBuild
 from agent_skill.profiles import PROFILES
@@ -72,8 +72,10 @@ def test_an_interpreter_pin_is_a_release_uv_lists(
     as, at a release the comparison can order.
     """
     pin = snippet.interpreter
-    assert RELEASE.match(f"{pin}-"), f"{name}: `{pin}` is not a release identifier"
-    assert _sort_key(str(pin.version.public)) is not None, name
+    key = f"{pin}-linux-x86_64-gnu"
+    release = str(pin.version.public)
+    assert listed(key) == (pin.tool, release, pin.version.local), name
+    assert Version.released(release) is not None, name
 
 
 @pytest.mark.parametrize(("name", "crate"), _configs(RustCrate))

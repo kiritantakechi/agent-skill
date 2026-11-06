@@ -241,6 +241,16 @@ class Profile:
         return str(self.pin.version.public) if self.pin is not None else ""
 
     @property
+    def target(self) -> str:
+        """The series `pin` belongs to, `3.15`; "" when there is none.
+
+        What the title, the reality-check section and a revision's
+        rename table name: a patch release moves the pin, not the
+        target.
+        """
+        return str(self.pin.version.series) if self.pin is not None else ""
+
+    @property
     def anchor(self) -> str:
         """The standard this one is a delta on, or ""."""
         return self.delta.anchor if self.delta is not None else ""

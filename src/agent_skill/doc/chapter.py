@@ -29,9 +29,10 @@ from agent_skill.doc import (
     ListBlock,
     Paragraph,
     Table,
+    entry,
     words,
 )
-from agent_skill.ids import RuleId, Tier, rule_id
+from agent_skill.ids import RuleId, Tier, ranges
 
 #: The section a chapter lists its tool-decided claims under.
 DECIDED = "Decided by tools"
@@ -42,12 +43,6 @@ CONTENTS = "Contents"
 #: The H2 a renumbering's rename table sits under, after the revision
 #: it names.
 RENAMED = re.compile(r"Rule IDs before the .+ revision")
-
-#: The en dash a range of IDs is written with.
-DASH = "\u2013"
-
-#: Two IDs joined by the dash, or one ID alone.
-_RANGE = re.compile(rf"`({rule_id()})`(?:{DASH}`({rule_id()})`)?")
 
 #: The labels a rule's parts open with, and the shape any label has.
 WHY, CHECK, RELAXED = "**Why:**", "**Check:**", "*Relaxed form:*"
@@ -61,20 +56,6 @@ _RENAME_CELLS = 2
 
 #: The cells an override row opens with: the other's rule, then ours.
 _OVERRIDE_CELLS = 2
-
-#: The tiers' spellings, for telling an entry from a label.
-_TIERS = frozenset(str(t) for t in Tier)
-
-
-def _entry(found: tuple[str, ...]) -> tuple[RuleId, Tier, str] | None:
-    """The ID, tier and title `found` opens with, if it opens so."""
-    match found:
-        case (first, tier, *title) if (
-            rid := RuleId.try_parse(first)
-        ) is not None and tier in _TIERS:
-            return rid, Tier.parse(tier), " ".join(title)
-        case _:
-            return None
 
 
 def _code_id(text: str) -> RuleId | None:
@@ -216,7 +197,7 @@ def _rule_heading(block: Block) -> tuple[RuleId, Tier, str] | None:
     """The ID, tier and title a `###` heading names, if any."""
     if not isinstance(block, Heading) or block.level != _RULE:
         return None
-    found = _entry(words(block.text))
+    found = entry(words(block.text))
     return found if found and found[2] else None
 
 
@@ -301,7 +282,7 @@ class Contents:
 def _contents_item(item: Item) -> Group | Entry:
     """A contents item: an entry, or a label over a tight list."""
     match item.blocks:
-        case (Paragraph() as p,) if (found := _entry(p.words)) is not None:
+        case (Paragraph() as p,) if (found := entry(p.words)) is not None:
             return Entry(*found, item.line)
         case (Paragraph() as label,):
             return Group(label.text, (), item.line)
@@ -421,10 +402,7 @@ class RenameTable:
         tables = [i for i, b in enumerate(section.lead) if isinstance(b, Table)]
         lead = section.lead[: tables[0]] if tables else section.lead
         text = " ".join(b.text for b in lead if isinstance(b, Paragraph))
-        ranges = tuple(
-            (RuleId.parse(m[1]), RuleId.parse(m[2] or m[1]))
-            for m in _RANGE.finditer(text)
-        )
+        stated = tuple(ranges(text))
         rows: list[Rename] = []
         unread: list[tuple[str, str]] = []
         cells = (row for i in tables[:1] for _, row in _rows(section.lead[i]))
@@ -434,7 +412,7 @@ class RenameTable:
                 unread.append((before, now))
             else:
                 rows.append(Rename(old, becomes))
-        return cls(section.title, ranges, tuple(rows), tuple(unread))
+        return cls(section.title, stated, tuple(rows), tuple(unread))
 
 
 @dataclass(frozen=True, slots=True)
@@ -664,6 +642,25 @@ def history(doc: Doc) -> Iterator[tuple[Block, bool]]:
         if isinstance(block, Heading) and block.level <= _SECTION:
             renamed = block.level == _SECTION and bool(RENAMED.fullmatch(block.text))
         yield block, renamed
+
+
+def owned(doc: Doc) -> Iterator[tuple[Block, RuleId | None]]:
+    """Each top-level block of `doc`, and the rule it sits under.
+
+    A rule runs from its `###` heading, which is its own, to the next
+    heading of a rule, a section or the title. A block outside every
+    rule — the scope, the contents, a section's lead — sits under none.
+    The examples and the prose a check holds to a rule are found here,
+    so each knows which rule's own text it is reading.
+    """
+    rule: RuleId | None = None
+    for block in doc.blocks:
+        if isinstance(block, Heading):
+            if (found := _rule_heading(block)) is not None:
+                rule = found[0]
+            elif block.level <= _SECTION:
+                rule = None
+        yield block, rule
 
 
 def citing(doc: Doc) -> Iterator[Block]:

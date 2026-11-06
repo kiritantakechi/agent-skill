@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from agent_skill.ids import (
+    DASH,
     Answered,
     Branch,
     Location,
@@ -24,7 +25,11 @@ from agent_skill.ids import (
     Tier,
     Version,
     cited,
+    cited_at,
     parse_answer,
+    print_range,
+    ranges,
+    releases,
     rule_id,
     uncited,
 )
@@ -312,3 +317,50 @@ def test_an_id_is_cited_only_whole() -> None:
     assert [str(r) for r in cited(text)] == ["XS-ERR-03", "XS-OUT-12a"]
     assert [str(r) for r in cited(f"{text} YS-ERR-01", "YS")] == ["YS-ERR-01"]
     assert uncited("XS-ERR-03 and XS-OUT-01.") == " and ."
+
+
+def test_where_a_citation_ends_is_where_what_follows_it_begins() -> None:
+    text = "see XS-ERR-03 below"
+    ((rid, end),) = cited_at(text)
+    assert rid == RuleId("XS", "ERR", 3)
+    assert text[end:] == " below"
+
+
+def test_a_range_reads_back_as_it_was_printed() -> None:
+    one, nine = RuleId("XS", "ERR", 1), RuleId("XS", "ERR", 9)
+    mig = RuleId("XS", "MIG", 1)
+    text = f"ran {print_range(one, nine)} and {print_range(mig, mig)}."
+    assert text == f"ran `XS-ERR-01`{DASH}`XS-ERR-09` and `XS-MIG-01`."
+    assert list(ranges(text)) == [(one, nine), (mig, mig)]
+
+
+@pytest.mark.parametrize(
+    ("said", "named"),
+    [
+        ("ripgrep 15.2.0 (rev e89fff89ac)", "15.2.0"),
+        ("rustc 1.100.0-nightly (abc 2026-01-01)", "1.100.0"),
+        ("ty 0.0.99 (2c3e 2026-10-01)", "0.0.99"),
+        ("cpython 3.15.0rc1+freethreaded", "3.15.0rc1+freethreaded"),
+    ],
+)
+def test_a_version_is_found_among_other_words(said: str, named: str) -> None:
+    assert Version.search(said) == Version.parse(named)
+
+
+@pytest.mark.parametrize("said", ["1.2.3.post1", "v1.2.3", "no version", ""])
+def test_a_version_run_into_a_word_is_none(said: str) -> None:
+    assert Version.search(said) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "series"),
+    [("3.15.0rc1", "3.15"), ("1.99", "1.99"), ("0.20.1", "0.20")],
+)
+def test_a_release_belongs_to_its_major_minor(text: str, series: str) -> None:
+    assert Version.parse(text).series == Version.parse(series)
+    assert str(Version.parse(text).series) == series
+
+
+def test_a_release_prose_names_is_its_major_minor() -> None:
+    text = "since 3.9, in 3.13.1, not 3.5x faster, ~3.2 ns, 0.05 or 13.14"
+    assert [str(v) for v in releases(text, 3)] == ["3.9", "3.13"]

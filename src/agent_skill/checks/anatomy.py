@@ -5,6 +5,7 @@ import re
 from collections import Counter, defaultdict
 lazy from collections.abc import Iterable, Iterator
 
+from agent_skill import shared
 from agent_skill.checks import check, per_skill
 from agent_skill.doc import (
     Divider,
@@ -17,12 +18,15 @@ from agent_skill.doc import (
     printed,
     text_of,
 )
-from agent_skill.doc.chapter import DASH, WHY, citing
+from agent_skill.doc.chapter import WHY, citing
 from agent_skill.ids import (
+    DASH,
+    FAMILY,
     NUMBER,
     RuleId,
     Tier,
     cited,
+    releases,
     rule_id,
     uncited,
 )
@@ -493,17 +497,17 @@ def _core_citations(skill: Skill, home: dict[RuleId, str]) -> Iterator[Finding]:
                     )
 
 
-#: The section of `SKILL.md` that maps each family to its chapter.
-MAP = "6. Reference map"
-
-
 def _counts(skill: Skill) -> Iterator[Finding]:
-    """The reference map's counts, per family and in total, are true."""
+    """The reference map's counts, per family and in total, are true.
+
+    A count is written after its family, `` `RS-ERR` (12) ``.
+    """
     pre = skill.prefix
     total = len(skill.chapter_rules)
-    section = next((s for s in skill.typed.sections if s.title == MAP), None)
+    section = next((s for s in skill.typed.sections if s.title == shared.MAP), None)
     text = "\n".join(_prose(section.lead)) if section is not None else ""
-    per = [int(n) for n in re.findall(rf"`{pre}-[A-Z]+` \((\d+)\)", text)]
+    found = re.findall(rf"`{re.escape(pre)}-({FAMILY})` \((\d+)\)", text)
+    per = [int(n) for _, n in found]
     if sum(per) != total:
         yield fail(
             f"reference-map counts sum to {sum(per)}, actual {total}",
@@ -511,7 +515,7 @@ def _counts(skill: Skill) -> Iterator[Finding]:
             MAP_TOTAL,
         )
 
-    stated = dict(re.findall(rf"`{pre}-([A-Z]+)` \((\d+)\)", text))
+    stated = dict(found)
     actual = Counter(r.id.family for r in skill.chapter_rules)
     for family in sorted(set(stated) | set(actual)):
         want = int(stated[family]) if family in stated else None
@@ -557,18 +561,6 @@ WHY_LINES = 3
 _SPAN = re.compile(r"(`+)[^`\n]*?\1")
 
 
-def release_token(major: str) -> re.Pattern[str]:
-    """A release of the subject: `major`, a dot, and a minor.
-
-    The minor is any number that does not start with `0`, which keeps a
-    decimal such as `0.05` out, and is not followed by a letter, which
-    keeps `3.5x faster` out. It used to need two digits, which kept
-    `3.5x` out by accident and `since 3.9` out with it. A leading `~`
-    marks a quantity, never a release: `~0.3 ns`.
-    """
-    return re.compile(rf"(?<![\d.~]){major}\.([1-9]\d*)(?!\w)")
-
-
 def _prose(blocks: Iterable[Block]) -> Iterator[str]:
     """The running text of `blocks`, every example left out.
 
@@ -597,11 +589,11 @@ def _below_target(skill: Skill) -> Iterator[Finding]:
     inline, is content rather than prose. The migration chapter is where
     a standard's history lives, so it is not read.
     """
-    pin = re.match(r"(\d+)\.(\d+)", skill.profile.release)
+    pin = skill.profile.pin
     if pin is None:
         return
-    major, target = pin.group(1), int(pin.group(2))
-    token = release_token(major)
+    target = pin.version.series
+    major = target.release[0]
     rules = [
         (rule, chapter.where(rule.line))
         for chapter in skill.chapters
@@ -612,17 +604,12 @@ def _below_target(skill: Skill) -> Iterator[Finding]:
     for rule, where in rules:
         prose = "\n".join([rule.title, *_prose(rule.body)])
         older = sorted(
-            {
-                m.group(0)
-                for m in token.finditer(_SPAN.sub(" ", prose))
-                if int(m.group(1)) < target
-            },
-            key=lambda v: int(v.split(".")[1]),
+            {v for v in releases(_SPAN.sub(" ", prose), major) if v < target}
         )
         if older:
             yield fail(
-                f"{rule.id} names {', '.join(older)}, below its target "
-                f"{major}.{target}: a rule speaks of its target, and the "
+                f"{rule.id} names {', '.join(map(str, older))}, below its target "
+                f"{target}: a rule speaks of its target, and the "
                 "migration chapter keeps the history",
                 where,
                 BELOW_TARGET,

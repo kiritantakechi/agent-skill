@@ -16,13 +16,14 @@ lazy from collections.abc import Iterator
 from agent_skill.checks import check, per_skill
 from agent_skill.checks.corpus import corpus_for
 from agent_skill.checks.lines import excused
-from agent_skill.checks.patterns import NEGATED, filtered_of, patterns_of
+from agent_skill.checks.patterns import NEGATED, check_text, filtered_of, patterns_of
 from agent_skill.checks.search import find, searcher_problem
 from agent_skill.report import Level, declare, fail, note, unrun
 lazy from agent_skill.checks.corpus import Corpus
 lazy from agent_skill.checks.patterns import Pattern
 lazy from agent_skill.checks.search import Span
-lazy from agent_skill.model import Rule, Skill
+lazy from agent_skill.doc.chapter import Rule
+lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
 
 #: One pattern's surviving hits: the rule whose Check it is, the
@@ -65,9 +66,10 @@ def selfapply(skill: Skill) -> Iterator[Finding]:
 def _run(skill: Skill, lang: str) -> Iterator[Finding]:
     profile = skill.profile
     corpus = corpus_for(skill, lang)
-    if not corpus.blocks or not skill.rules:
+    rules = skill.chapter_rules
+    if not corpus.blocks or not rules:
         yield fail(
-            f"nothing to check: {corpus.blocks} blocks, {len(skill.rules)} rules — "
+            f"nothing to check: {corpus.blocks} blocks, {len(rules)} rules — "
             f"an empty corpus passes every pattern in the library",
             skill.at(),
             EMPTY,
@@ -77,26 +79,27 @@ def _run(skill: Skill, lang: str) -> Iterator[Finding]:
     claimed: set[str] = set()
     tiers: Tiers = ([], [], [])
 
-    for rule in skill.rules:
-        if not rule.check:
+    for rule in rules:
+        check = check_text(rule)
+        if not check:
             continue
         # An entry suppresses this rule's pattern, so it has to keep
         # quoting words the rule still says. Claimed before the
         # path-scoped branch below, or a `rg -v` rule with an entry
         # would look like a rule that vanished.
-        if entry := profile.not_decisive.get(rule.id):
-            claimed.add(rule.id)
-            if entry.anchor not in " ".join(rule.check.split()):
+        if entry := profile.not_decisive.get(str(rule.id)):
+            claimed.add(str(rule.id))
+            if entry.anchor not in " ".join(check.split()):
                 yield fail(
                     f"{rule.id}: the exemption quotes {entry.anchor!r}, which its "
                     f"**Check:** no longer says",
                     skill.at(),
                     STALE_EXEMPTION,
                 )
-        if NEGATED.search(rule.check):
-            yield from _filtered(skill, corpus, rule)
+        if NEGATED.search(check):
+            yield from _filtered(skill, corpus, rule, check)
             continue
-        yield from _search(skill, corpus, rule, tiers)
+        yield from _search(skill, corpus, rule, check, tiers)
 
     # Only this skill's own entries: an entry naming a rule the skill no
     # longer defines is a suppression standing over nothing.
@@ -110,7 +113,9 @@ def _run(skill: Skill, lang: str) -> Iterator[Finding]:
     yield from _report(skill, corpus, tiers)
 
 
-def _filtered(skill: Skill, corpus: Corpus, rule: Rule) -> Iterator[Finding]:
+def _filtered(
+    skill: Skill, corpus: Corpus, rule: Rule, check: str
+) -> Iterator[Finding]:
     """A Check that drops hits with `rg -v`, run as far as it can be.
 
     `rg … | rg -v '^src/lib.rs'` asks *which file* a hit is in, and an
@@ -119,7 +124,7 @@ def _filtered(skill: Skill, corpus: Corpus, rule: Rule) -> Iterator[Finding]:
     patterns and all. What it searches for still runs, so a pattern
     `rg` rejects fails as any other does; what is left is said.
     """
-    found, filters = filtered_of(rule.check)
+    found, filters = filtered_of(check)
     hits: list[str] = []
     for pattern in found:
         lines, _ = find(corpus, pattern)
@@ -144,11 +149,11 @@ def _filtered(skill: Skill, corpus: Corpus, rule: Rule) -> Iterator[Finding]:
 
 
 def _search(
-    skill: Skill, corpus: Corpus, rule: Rule, tiers: Tiers
+    skill: Skill, corpus: Corpus, rule: Rule, check: str, tiers: Tiers
 ) -> Iterator[Finding]:
     """Run one rule's patterns, filing what survives into its tier."""
     profile = skill.profile
-    for pattern in patterns_of(rule.check):
+    for pattern in patterns_of(check):
         lines, used = find(corpus, pattern)
         if lines is None:
             yield fail(
@@ -158,7 +163,7 @@ def _search(
                 NO_ANSWER,
             )
             continue
-        exempt = profile.exempt.get(rule.id)
+        exempt = profile.exempt.get(str(rule.id))
         source = corpus.lines_for(pattern)
         kept = [
             s
@@ -170,7 +175,7 @@ def _search(
         row = (rule, pattern, used, kept)
         if len(kept) > profile.judgement:
             tiers[2].append(row)
-        elif pattern.kind == "command" and rule.id not in profile.not_decisive:
+        elif pattern.kind == "command" and str(rule.id) not in profile.not_decisive:
             tiers[0].append(row)
         else:
             tiers[1].append(row)
@@ -182,7 +187,7 @@ def _report(skill: Skill, corpus: Corpus, tiers: Tiers) -> Iterator[Finding]:
     for row in sorted(tier1, key=lambda r: -len(r[3])):
         yield fail(_render(corpus, row), skill.at(), DECIDES)
     for row in sorted(tier2, key=lambda r: -len(r[3])):
-        entry = skill.profile.not_decisive.get(row[0].id)
+        entry = skill.profile.not_decisive.get(str(row[0].id))
         why = (
             entry.reason
             if entry

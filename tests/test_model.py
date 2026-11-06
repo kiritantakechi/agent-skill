@@ -8,9 +8,11 @@ lazy from pathlib import Path
 import pytest
 
 from agent_skill.checks.lines import near
+from agent_skill.doc.chapter import parse_becomes
+from agent_skill.ids import RuleId
 from agent_skill.lang import language
 from agent_skill.lang.zig import inside_tests, needs_c_object
-from agent_skill.model import Marker, Rename, Skill
+from agent_skill.model import Marker, Skill
 from agent_skill.profiles import Profile
 from agent_skill.profiles.rust_style import REPR_C
 
@@ -37,7 +39,7 @@ def test_marker_grammar(raw: str, kind: str, verdict: str, *, bad: bool) -> None
 @pytest.mark.parametrize("rid", ["DS-DATA-17", "DS-DATA-17a", "DS-CORE-12b"])
 def test_a_rename_row_reads_every_rule_id_as_its_target(rid: str) -> None:
     """Every other rule-ID pattern took the letter; this one did not."""
-    assert Rename("DS-DATA-16", f"`{rid}`", 0).target == rid
+    assert parse_becomes(f"`{rid}`") == RuleId.parse(rid)
 
 
 def test_bad_in_a_qualifier_is_not_a_verdict() -> None:

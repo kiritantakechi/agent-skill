@@ -30,12 +30,11 @@ from typing import Any
 lazy from collections.abc import Iterable, Iterator, Mapping
 
 from agent_skill.harness import HARNESS, pinned
-from agent_skill.ids import Pin
+from agent_skill.ids import Pin, Version
 from agent_skill.lang import Extraction, Language, Step, Unit, extracted
 from agent_skill.proc import have, run
 from agent_skill.report import Finding, Level, declare, fail, unrun
 lazy from agent_skill.checks.citations import Row, rows_of
-lazy from agent_skill.checks.pins import SortKey, _sort_key
 lazy from agent_skill.doc import text_of
 lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Block, Skill
@@ -444,11 +443,7 @@ class Python:
         """The interpreter, against the assets and `uv`'s releases."""
         interpreter = _snippet(skill).interpreter
         yield from _asset_pins(skill, interpreter)
-        yield from _interpreter_pin(
-            skill,
-            str(interpreter.version.public),
-            want_ft=interpreter.version.local == FREE_THREADED,
-        )
+        yield from _interpreter_pin(skill, interpreter)
 
     def asset(self, path: Path, where: Location) -> Iterator[Finding]:  # noqa: ARG002 — no asset is Python's to read
         """Nothing: `assets` builds a `pyproject.toml` as any other."""
@@ -462,10 +457,6 @@ def _snippet(skill: Skill) -> PythonSnippet:
         msg = f"{skill.name} is checked as Python and its profile names no snippet"
         raise TypeError(msg)
     return config
-
-
-#: The local label of an interpreter built without the GIL.
-FREE_THREADED = "freethreaded"
 
 
 #: `PS-CONC-02` and `3.15` are not ruff codes; `ANN401` and `B008` are.
@@ -694,11 +685,26 @@ WORKFLOW = "assets/ci.yml"
 #: The asset whose tool requirements are compared.
 PROJECT = "assets/pyproject.toml"
 
-#: `cpython-3.15.0rc1+freethreaded-macos-aarch64-none` -> ("3.15.0rc1",
-#: True)
-RELEASE = re.compile(
-    r"^cpython-(?P<version>\d+\.\d+\.\d+[a-z0-9]*)(?P<ft>\+freethreaded)?-"
-)
+#: How many parts of a `uv python list` key name the platform after the
+#: release: the system, the architecture, the C library.
+_PLATFORM = 3
+
+
+def listed(key: str) -> tuple[str, str, str] | None:
+    """The interpreter, release and build a `uv python list` key names.
+
+    `cpython-3.15.0rc1+freethreaded-macos-aarch64-none` is (`cpython`,
+    `3.15.0rc1`, `freethreaded`): the request an interpreter pin is
+    spelled as, then the platform. None for a key not of that shape.
+    The release is left as text, because one that is not a version is
+    reported rather than passed over.
+    """
+    request, *platform = key.rsplit("-", _PLATFORM)
+    implementation, dash, version = request.partition("-")
+    if len(platform) != _PLATFORM or not dash:
+        return None
+    release, _, build = version.partition("+")
+    return implementation, release, build
 
 
 def _asset_pins(skill: Skill, interpreter: Pin) -> Iterator[Finding]:
@@ -828,7 +834,7 @@ def _requirements(project: dict[str, Any]) -> Iterator[str]:
             yield from (e for e in entries if isinstance(e, str))
 
 
-def _interpreter_pin(skill: Skill, pinned: str, *, want_ft: bool) -> Iterator[Finding]:
+def _interpreter_pin(skill: Skill, interpreter: Pin) -> Iterator[Finding]:
     """The interpreter pin against what `uv` offers in its series."""
     if not have("uv"):
         yield unrun(
@@ -846,18 +852,19 @@ def _interpreter_pin(skill: Skill, pinned: str, *, want_ft: bool) -> Iterator[Fi
         )
         return
 
-    # Scoped to the pinned minor series on purpose: a newer patch or
-    # candidate is a pin refresh, and a newer *minor* is a deliberate
-    # change of target that this check has no business demanding.
-    series = ".".join(pinned.split(".")[:2])  # 3.15.0rc1 -> 3.15
-    here = _sort_key(pinned)
+    pinned = interpreter.version.public
+    here = Version.released(str(pinned))
     if here is None:
         # `tests/test_profiles.py` holds every interpreter pin to a
         # release this orders, so this is the harness misdeclared.
         msg = f"the interpreter pin {pinned} is not a release this can order"
         raise ValueError(msg)
 
-    newer, unreadable = _releases(r.out, series, here, want_ft=want_ft)
+    # Scoped to the pinned minor series on purpose: a newer patch or
+    # candidate is a pin refresh, and a newer *minor* is a deliberate
+    # change of target that this check has no business demanding.
+    series = here.series
+    newer, unreadable = _releases(r.out, interpreter, here)
     if unreadable:
         yield unrun(
             f"`uv python list` offers {', '.join(sorted(unreadable))} in the {series} "
@@ -879,26 +886,31 @@ def _interpreter_pin(skill: Skill, pinned: str, *, want_ft: bool) -> Iterator[Fi
 
 
 def _releases(
-    listing: str, series: str, here: SortKey, *, want_ft: bool
-) -> tuple[dict[str, SortKey], set[str]]:
-    """Releases in `series` newer than `here`, and any it cannot order.
+    listing: str, interpreter: Pin, here: Version
+) -> tuple[dict[str, Version], set[str]]:
+    """Newer releases in `here`'s series, and any it cannot order.
 
-    Newer ones map to their order, so the best is picked without
-    ordering by a key function that is allowed to answer `None`.
+    Of the interpreter and build `interpreter` names. Newer ones map to
+    their order, so the best is picked without ordering by a key
+    function that is allowed to answer `None`.
     """
-    newer: dict[str, SortKey] = {}
+    newer: dict[str, Version] = {}
     unreadable: set[str] = set()
+    within = f"{here.series}."
     for line in listing.split("\n"):
-        found = RELEASE.match(line.strip())
-        if not found or bool(found["ft"]) != want_ft:
+        key = line.split(maxsplit=1)[0] if line.strip() else ""
+        found = listed(key)
+        if found is None:
             continue
-        version = found["version"]
-        if not version.startswith(f"{series}."):
+        implementation, version, build = found
+        if (implementation, build) != (interpreter.tool, interpreter.version.local):
+            continue
+        if not version.startswith(within):
             continue
         # Scoped to the pinned series, so this reports what it could not
         # rule out rather than every oddity in a list of every CPython
         # ever built.
-        order = _sort_key(version)
+        order = Version.released(version)
         if order is None:
             unreadable.add(version)
         elif order > here:

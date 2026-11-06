@@ -1,10 +1,17 @@
-"""What a skill is made of.
+"""What a skill is made of: its files, each parsed once.
 
 One parse, shared by every check. The recurring defect this replaces was
 a predicate implemented twice and fixed once: `#[repr(C)]` per-line in
 one tool and block-wide in another, a marker contract relaxed in three
 tools and not the fourth, which silently dropped two blocks from a
 corpus of 215.
+
+Nothing here reads markdown. A file is parsed by the document model and
+read as a chapter by its chapter layer (`agent_skill.doc`); this module
+holds the files, parses each once, and says where an example and a
+finding are. It used to match rules, tables and fences in raw text
+beside the tree, so every structure had two readers that agreed on the
+shipped files and on nothing else.
 """
 
 import re
@@ -14,11 +21,11 @@ from pathlib import Path
 from typing import Self, override
 lazy from collections.abc import Collection, Iterable, Iterator
 
-from agent_skill.doc import Doc
+from agent_skill.doc import Doc, Fence, walk
 from agent_skill.doc import chapter as layer
-from agent_skill.ids import Location, RuleId, rule_id
+from agent_skill.ids import Location, RuleId
 from agent_skill.text import group
-from agent_skill.vocabulary import CORE, RENAMES
+from agent_skill.vocabulary import RENAMES
 lazy from agent_skill.lang import language
 lazy from agent_skill.profiles import Profile, profile_for
 
@@ -124,30 +131,35 @@ RENAMES_MD = f"{RENAMES}.md"
 
 
 def located(
-    skill: str | None, document: str = "", line: int | None = None, rule: str = ""
+    skill: str | None,
+    document: str = "",
+    line: int | None = None,
+    rule: RuleId | None = None,
 ) -> Location:
     """`line` of `document` in `skill`, under `rule`, as far as known.
 
-    A block, rule or row names its document by file name alone —
+    A block or a chapter names its document by file name alone —
     `SKILL.md`, or a chapter's `errors.md` — while a location names a
     file by its path in the skill, so a bare chapter name is put under
-    `references/`; a name with a directory in it is already a path. A
-    block above every rule heading sits under `?`, which is no rule.
+    `references/`; a name with a directory in it is already a path.
     """
     file = None
     if document:
         bare = document != SKILL_MD and "/" not in document
         file = f"{REFERENCES}/{document}" if bare else document
-    known = re.fullmatch(rule_id(), rule) is not None
-    return Location(skill, file, line, RuleId.parse(rule) if known else None)
+    return Location(skill, file, line, rule)
 
 
 @dataclass(frozen=True, slots=True)
 class Block:
-    """One fenced example."""
+    """One fenced example, and the rule it sits under.
+
+    `rule` is None for an example outside every rule: in `SKILL.md`, a
+    chapter's scope, or a section's lead.
+    """
 
     file: str
-    rule: str
+    rule: RuleId | None
     line: int  #: 1-based line of the block's first body line
     body: str
     lang: str
@@ -182,234 +194,37 @@ class Block:
         return self.line + index
 
 
-@dataclass(frozen=True, slots=True)
-class Rule:
-    """One chapter rule: its heading, and the body under it."""
+def marker_line(body: str) -> str:
+    """The block's marker line, or "" when it has none.
 
-    id: str
-    tier: str  #: M, M! or S
-    title: str
-    body: str
-    file: str
-    line: int
-    skill: str | None = None  #: the skill whose markdown holds it
-
-    @property
-    def check(self) -> str:
-        """The rule's Check section."""
-        return _section(self.body, "Check")
-
-
-@dataclass(frozen=True, slots=True)
-class LintRow:
-    """One row of a chapter's `Decided by tools` table.
-
-    A claim a tool settles alone.
+    The first line of the body that is not `//!` container
+    documentation.
     """
-
-    tool: str
-    lint: str
-    level: str
-    forbids: str
-    file: str
-    line: int
-    skill: str | None = None  #: the skill whose markdown holds it
-
-
-@dataclass(frozen=True, slots=True)
-class Rename:
-    """One row of a rename table: an old ID and what it became.
-
-    `now` is a rule ID, `lint <tool>:<name>` for a rule demoted to a
-    lint-table row, or `removed — <reason>`.
-    """
-
-    before: str
-    now: str
-    line: int
-
-    @property
-    def target(self) -> str:
-        """The new ID, for a rule that was renumbered or merged.
-
-        "" for anything else.
-        """
-        return group(re.fullmatch(rf"`({rule_id()})`", self.now))
-
-
-#: The section a chapter lists its tool-decided claims under.
-DECIDED = "Decided by tools"
-
-#: A fence line, opening or closing an example. A fence may be
-#: indented, as one inside a list item is.
-FENCE = re.compile(r"^[ \t]*```", re.MULTILINE)
-
-#: A section heading, which ends the rule above it.
-SECTION = re.compile(r"^## ", re.MULTILINE)
-
-
-def unfenced(
-    pattern: re.Pattern[str], text: str, pos: int = 0
-) -> Iterator[re.Match[str]]:
-    """Each match of `pattern` in `text` that no fenced example holds.
-
-    The search starts at `pos`. A `## ` line inside a fenced block is
-    code, not a section heading: read as one, it cut a rule short at
-    that line, and a demotion glued the rest of the rule, open fence and
-    all, to the rule above. A block left open runs to the end.
-    """
-    marks = [m.start() for m in FENCE.finditer(text)] + [len(text)]
-    spans = list(zip(marks[::2], marks[1::2], strict=False))
-    for m in pattern.finditer(text, pos):
-        if not any(start <= m.start() < end for start, end in spans):
-            yield m
-
-
-#: The section a migration chapter keeps a renumbering's rename table
-#: under.
-RENAMED = re.compile(r"^## Rule IDs before the .+ revision$", re.MULTILINE)
-
-#: The en dash a range is written with, as prose writes a range of
-#: numbers.
-DASH = "\u2013"
-
-#: A family's range as a rename table states it: first and last ID
-#: joined by the dash, or one ID.
-_RANGE = re.compile(rf"`([A-Z]{{2}}-[A-Z]+)-(\d+)`(?:{DASH}`\1-(\d+)`)?")
-
-#: The cells of a rename-table row: `| Before | Now |`.
-_RENAME_CELLS = 2
-
-#: The cells of a lint-table row: `| Tool | Lint | Level | Forbids |`.
-_LINT_CELLS = 4
-
-
-@dataclass(frozen=True, slots=True)
-class RenameTable:
-    """One revision's rename table.
-
-    The range each family ran before the revision, and a row for each
-    old ID that changed. An ID in range with no row still names the
-    rule it named.
-
-    `span` is where the section sits in its file, for the renumbering
-    that rewrites it.
-    """
-
-    heading: str
-    ranges: tuple[tuple[str, int, int], ...]
-    rows: tuple[Rename, ...]
-    span: tuple[int, int]
-
-    @property
-    def originals(self) -> list[str]:
-        """Every ID the families ran before the revision.
-
-        In the order the ranges give.
-        """
-        return [
-            f"{family}-{n:02d}"
-            for family, lo, hi in self.ranges
-            for n in range(lo, hi + 1)
-        ]
-
-    @property
-    def unchanged(self) -> list[str]:
-        """The original IDs no row lists.
-
-        Each still names the rule it named.
-        """
-        listed = {r.before for r in self.rows}
-        return [rid for rid in self.originals if rid not in listed]
-
-
-def rename_tables(text: str) -> list[RenameTable]:
-    """Every rename table in `text`.
-
-    The ranges are read from the prose above the table.
-    """
-    out: list[RenameTable] = []
-    for m in RENAMED.finditer(text):
-        nxt = re.compile(r"^## ", re.MULTILINE).search(text, m.end())
-        end = nxt.start() if nxt else len(text)
-        lead = re.split(r"^\|", text[m.end() : end], maxsplit=1, flags=re.MULTILINE)[0]
-        ranges = tuple(
-            (r.group(1), int(r.group(2)), int(r.group(3) or r.group(2)))
-            for r in _RANGE.finditer(lead)
-        )
-        rows = tuple(
-            Rename(cells[0].strip("`"), cells[1], line)
-            for line, cells in _rows(text, m.start())
-            if len(cells) == _RENAME_CELLS
-        )
-        out.append(RenameTable(m.group(0), ranges, rows, (m.start(), end)))
-    return out
-
-
-def _rows(text: str, start: int) -> list[tuple[int, list[str]]]:
-    """The body rows of the first table after `start`.
-
-    Each as (line number, cells).
-    """
-    out: list[tuple[int, list[str]]] = []
-    lines = text.split("\n")
-    first = text[:start].count("\n")
-    seen_header = False
-    for i in range(first, len(lines)):
-        line = lines[i]
-        if line.startswith("## ") and i > first:
-            break
-        if not line.startswith("|"):
-            if seen_header and out:
-                break
+    for line in body.split("\n"):
+        if line.startswith("//!"):
             continue
-        # A pipe inside a cell is written `\|`, as markdown requires
-        # even inside a code span; only an unescaped pipe divides cells.
-        inner = line.strip().removeprefix("|").removesuffix("|")
-        cells = [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", inner)]
-        if not seen_header:
-            seen_header = True
-            continue
-        if set("".join(cells)) <= set("-: "):
-            continue
-        out.append((i + 1, cells))
-    return out
-
-
-def _section(body: str, name: str) -> str:
-    """The text of a labelled section.
-
-    It runs up to the next label, heading or example. The next *label*
-    — `**Check:**` — not the next line that opens with `**`. A Why
-    holding a bolded phrase at the start of a line was read as ending
-    there, so a long Why measured short.
-    """
-    m = re.search(
-        rf"\*\*{name}:?\*\*(.*?)(?=\n\*\*[^*\n]+:\*\*|\n### |\n## |\n```|\Z)",
-        body,
-        re.DOTALL,
-    )
-    return group(m)
+        return line
+    return ""
 
 
 @dataclass(eq=False)
 class Chapter:
-    """One reference chapter, parsed once.
+    """One markdown file of a skill, parsed once.
 
+    A chapter under `references/`, or `SKILL.md` read for its examples.
     `cached_property` needs a `__dict__`, so this is deliberately
     neither frozen nor slotted.
     """
 
     path: Path
-    prefix: str
     skill: str  #: the name of the skill it belongs to
 
     @property
     def name(self) -> str:
-        """The chapter's file name, as its blocks and rows name it."""
+        """The chapter's file name, as its blocks name it."""
         return self.path.name
 
-    def where(self, line: int | None = None, rule: str = "") -> Location:
+    def where(self, line: int | None = None, rule: RuleId | None = None) -> Location:
         """`line` of this chapter under `rule`, or the chapter."""
         return located(self.skill, self.name, line, rule)
 
@@ -446,100 +261,29 @@ class Chapter:
         """Why the chapter layer refused this file, if it did."""
         return self._layer[1]
 
-    @cached_property
-    def rules(self) -> list[Rule]:
-        """Every rule the chapter states, in order."""
-        out: list[Rule] = []
-        head = re.compile(
-            rf"^### ({rule_id(self.prefix)}) \[(M!|M|S)\] (.+)$", re.MULTILINE
-        )
-        heads = list(unfenced(head, self.text))
-        for i, m in enumerate(heads):
-            end = heads[i + 1].start() if i + 1 < len(heads) else len(self.text)
-            section = next(unfenced(SECTION, self.text, m.end()), None)
-            if section is not None and section.start() < end:
-                end = section.start()
-            out.append(
-                Rule(
-                    id=m.group(1),
-                    tier=m.group(2),
-                    title=m.group(3).strip(),
-                    body=self.text[m.end() : end],
-                    file=self.name,
-                    line=self.text[: m.start()].count("\n") + 1,
-                    skill=self.skill,
-                )
-            )
-        return out
+    def blocks(self, lang: str) -> list[Block]:
+        """Every fenced `lang` example, with the rule it sits under.
 
-    @cached_property
-    def lint_rows(self) -> list[LintRow]:
-        """The rows of the `Decided by tools` table.
-
-        Its columns are `| Tool | Lint | Level | Forbids |`.
+        Found in the tree, where a fence is recognised before anything
+        else, so a fence inside an example is part of it and an example
+        in a list item is an example. Under a rule is under its `###`
+        heading, as `layer.owned` reads the file; a file the chapter
+        layer refuses still has its examples.
         """
-        m = re.search(rf"^## {DECIDED}$", self.text, re.MULTILINE)
-        if not m:
-            return []
         return [
-            LintRow(
-                cells[0],
-                cells[1].strip("`"),
-                cells[2],
-                cells[3],
+            Block(
                 self.name,
-                line,
+                rule,
+                fence.line + 1,
+                fence.body,
+                lang,
+                Marker(marker_line(fence.body)),
                 self.skill,
             )
-            for line, cells in _rows(self.text, m.start())
-            if len(cells) == _LINT_CELLS
+            for top, rule in layer.owned(self.doc)
+            for fence in walk((top,))
+            if isinstance(fence, Fence) and fence.info == lang
         ]
-
-    @cached_property
-    def rename_tables(self) -> list[RenameTable]:
-        """Every rename table the chapter carries."""
-        return rename_tables(self.text)
-
-    @cached_property
-    def renames(self) -> list[Rename]:
-        """Every row of every rename table this chapter carries.
-
-        Each table's columns are `| Before | Now |`.
-        """
-        return [row for table in self.rename_tables for row in table.rows]
-
-    def blocks(self, lang: str) -> list[Block]:
-        """Every fenced `lang` example, with the rule it sits under."""
-        out: list[Block] = []
-        heads = list(
-            re.finditer(rf"^### ({rule_id(self.prefix)}) \[", self.text, re.MULTILINE)
-        )
-        for m in re.finditer(
-            rf"^```{lang}\n(.*?)^```", self.text, re.MULTILINE | re.DOTALL
-        ):
-            body = m.group(1)
-            prev = [h for h in heads if h.start() < m.start()]
-            out.append(
-                Block(
-                    file=self.name,
-                    rule=prev[-1].group(1) if prev else "?",
-                    line=self.text[: m.start()].count("\n") + 2,
-                    body=body,
-                    lang=lang,
-                    marker=Marker(marker_line(body)),
-                    skill=self.skill,
-                )
-            )
-        return out
-
-
-def marker_line(body: str) -> str:
-    """The block's marker line, or "" when it has none."""
-    for line in body.split("\n"):
-        if line.startswith("//!"):
-            continue
-        return line
-    return ""
 
 
 class Skill:
@@ -618,8 +362,7 @@ class Skill:
     def chapters(self) -> list[Chapter]:
         """Every chapter under `references/`, in file-name order."""
         return [
-            Chapter(p, self.prefix, self.name)
-            for p in sorted((self.root / REFERENCES).glob("*.md"))
+            Chapter(p, self.name) for p in sorted((self.root / REFERENCES).glob("*.md"))
         ]
 
     @cached_property
@@ -629,7 +372,7 @@ class Skill:
         Read as a chapter, `SKILL.md` has no `###` rules, so this serves
         the examples only; `chapters` stays the rule source.
         """
-        return [Chapter(self.skill_md, self.prefix, self.name), *self.chapters]
+        return [Chapter(self.skill_md, self.name), *self.chapters]
 
     def path_of(self, document: str) -> Path:
         """The file a block's `file` names: `SKILL.md`, or a chapter."""
@@ -638,54 +381,19 @@ class Skill:
         return self.root / REFERENCES / document
 
     def at(
-        self, file: str | Path = "", line: int | None = None, rule: str = ""
+        self,
+        file: str | Path = "",
+        line: int | None = None,
+        rule: RuleId | None = None,
     ) -> Location:
         """A location in this skill: `line` of `file`, under `rule`.
 
-        `file` is a path in the skill, or a document as a block, rule or
-        row names it; "" is the skill as a whole.
+        `file` is a path in the skill, or a document as a block or a
+        chapter names it; "" is the skill as a whole.
         """
         if isinstance(file, Path):
             file = file.relative_to(self.root).as_posix()
         return located(self.name, file, line, rule)
-
-    @cached_property
-    def rules(self) -> list[Rule]:
-        """Every chapter rule, chapter by chapter."""
-        return [r for c in self.chapters for r in c.rules]
-
-    @cached_property
-    def lint_rows(self) -> list[LintRow]:
-        """Every lint-table row of every chapter."""
-        return [row for c in self.chapters for row in c.lint_rows]
-
-    @cached_property
-    def rename_tables(self) -> list[RenameTable]:
-        """Every rename table of every chapter."""
-        return [table for c in self.chapters for table in c.rename_tables]
-
-    @cached_property
-    def renames(self) -> list[Rename]:
-        """Every row of every rename table."""
-        return [r for c in self.chapters for r in c.renames]
-
-    @cached_property
-    def by_id(self) -> dict[str, Rule]:
-        """Each chapter rule, by its ID."""
-        return {r.id: r for r in self.rules}
-
-    @cached_property
-    def core_rules(self) -> list[tuple[str, str, str]]:
-        """(id, tier, body) for every rule stated in SKILL.md itself."""
-        return [
-            (m.group(1), m.group(2), m.group(0))
-            for m in re.finditer(
-                rf"^- \*\*({rule_id(self.prefix, CORE)}) `(\[M!?\]|\[S\])`\*\*"
-                rf".*?(?=^- \*\*{self.prefix}-{CORE}|\n## |\Z)",
-                self.text,
-                re.MULTILINE | re.DOTALL,
-            )
-        ]
 
     @property
     def markdown(self) -> list[Path]:
@@ -768,31 +476,3 @@ class Tree:
     def only(self, names: Collection[str]) -> Tree:
         """The skills called one of `names`, in order."""
         return Tree(tuple(s for s in self.skills if s.name in names))
-
-
-# ------------------------------------------------------------------
-# predicates
-
-
-def prose_lines(text: str, prefix: str) -> Iterator[tuple[int, str, str, bool]]:
-    """Each unfenced prose line, with the rule and Check it sits in.
-
-    Yields (lineno, line, owning rule, inside-a-Check). A fence may be
-    indented, as one inside a list item is.
-    """
-    rid, in_check, fenced = "?", False, False
-    head = re.compile(rf"^### ({rule_id(prefix)}) \[")
-    for i, line in enumerate(text.split("\n"), 1):
-        if line.lstrip().startswith("```"):
-            fenced = not fenced
-            in_check = False
-            continue
-        if fenced:
-            continue
-        if m := head.match(line):
-            rid, in_check = group(m), False
-        elif line.startswith("**Check:"):
-            in_check = True
-        elif line.startswith("**") or not line.strip():
-            in_check = False
-        yield i, line, rid, in_check

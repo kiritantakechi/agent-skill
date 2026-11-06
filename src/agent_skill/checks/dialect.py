@@ -18,22 +18,20 @@ a literal parenthesis or brace and are used that way here; forbidding
 them would report correct patterns. A genuine literal pipe is written
 `[|]`.
 
-A raw newline is the same defect from the other direction. The harness
-runs every pattern with `--multiline`, and the printed command does not,
-so a command wrapped across a line of the markdown compiles here and is
-*rejected* — `rg: the literal "\\n" is not allowed in a regex`, exit 2 —
-for the reader. Measured: two Checks shipped that way, and in one of
-them the alternative after the newline could never have matched anything
-even here. That is a pattern carrying syntax from a grammar it will not
-be read in, which is this check's subject; the grammar it will not be
-read in is the reader's.
+A raw newline was the same defect from the other direction: a command
+wrapped across a line of the markdown ran here, under `--multiline`, and
+exited 2 for a reader running it as printed. Two Checks shipped that
+way. It is no longer this check's to find. The document model reads a
+code span as one word, so the Check is read with the command on one
+line, and a file holding a wrapped span is not canonical: `layout`
+reports it, and `fmt` joins it.
 """
 
 import re
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
-from agent_skill.checks.patterns import QUOTED
+from agent_skill.checks.patterns import QUOTED, check_text
 from agent_skill.report import Level, declare, fail
 lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
@@ -43,8 +41,7 @@ lazy from agent_skill.report import Finding
 #: names.
 RG_COMMAND = re.compile(r"`(rg\s[^`]*)`")
 
-# The branches a finding of this check comes from.
-WRAPPED = declare("dialect", "wrapped", Level.FAIL)
+# The branch a finding of this check comes from.
 BRE_ALTERNATION = declare("dialect", "bre_alternation", Level.FAIL)
 
 
@@ -83,24 +80,10 @@ def outside_brackets(pattern: str, needle: str) -> bool:
 @per_skill
 def dialect(skill: Skill) -> Iterator[Finding]:
     """Each `rg` pattern a Check ships, in the grammar `rg` reads."""
-    for rule in skill.rules:
-        if not rule.check:
-            continue
-        for command in RG_COMMAND.findall(rule.check):
+    for rule in skill.chapter_rules:
+        for command in RG_COMMAND.findall(check_text(rule)):
             for quoted in QUOTED.findall(command):
                 pattern = quoted[0] or quoted[1]
-                if "\n" in pattern:
-                    yield fail(
-                        f"{rule.id}: `rg` pattern {pattern!r} carries a raw newline "
-                        "— the command is wrapped across a line of the source. "
-                        "`rg` rejects that without `--multiline`, so the printed "
-                        "command exits 2 for the reader while the harness, which "
-                        "passes `--multiline`, runs it. Put the command on one "
-                        "line, or split it into several",
-                        skill.at(),
-                        WRAPPED,
-                    )
-                    continue
                 if pattern and outside_brackets(pattern, "\\|"):
                     yield fail(
                         f"{rule.id}: `rg` pattern /{pattern}/ keeps BRE's `\\|`, "

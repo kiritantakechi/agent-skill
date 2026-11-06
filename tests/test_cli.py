@@ -129,8 +129,8 @@ def test_demote_closes_its_own_gap_so_renumber_has_nothing_left(
     assert capsys.readouterr().out.startswith("nothing to revise")
 
     after = Skill(repo / SKILLS / "demo-style")
-    assert [r.id for r in after.rules] == ["DS-ERR-01", "DS-MIG-01"]
-    assert after.by_id["DS-ERR-01"].title == "Name them"
+    assert [str(r.id) for r in after.chapter_rules] == ["DS-ERR-01", "DS-MIG-01"]
+    assert after.chapter_rules[0].title == "Name them"
 
 
 def test_revise_takes_a_plan_and_chapter_renames_at_once(
@@ -147,7 +147,7 @@ def test_revise_takes_a_plan_and_chapter_renames_at_once(
     assert "revise  DS-ERR-01 -> `DS-API-01`" in out
     assert "move    " in out
     after = Skill(repo / SKILLS / "demo-style")
-    assert [r.id for r in after.rules] == ["DS-API-01", "DS-MIG-01"]
+    assert [str(r.id) for r in after.chapter_rules] == ["DS-API-01", "DS-MIG-01"]
 
 
 #: A demotion whose plan file is not there.

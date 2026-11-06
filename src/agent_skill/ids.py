@@ -111,13 +111,54 @@ def cited(text: str, standard: str = STANDARD) -> Iterator[RuleId]:
     tokens: a paragraph's citations, a table cell, an example, a source
     file.
     """
+    for rid, _ in cited_at(text, standard):
+        yield rid
+
+
+def cited_at(text: str, standard: str = STANDARD) -> Iterator[tuple[RuleId, int]]:
+    """Each rule ID `text` names under `standard`, and where it ends.
+
+    For a reader of what follows a citation: `RS-ERR-03 below` points by
+    position, which breaks when the rule moves, and only the text after
+    the ID says so.
+    """
     for m in _whole(standard).finditer(text):
-        yield RuleId.parse(m.group())
+        yield RuleId.parse(m.group()), m.end()
 
 
 def uncited(text: str, standard: str = STANDARD) -> str:
     """`text` with each rule ID it names under `standard` taken out."""
     return _whole(standard).sub("", text)
+
+
+#: The en dash a range of IDs is written with, as prose writes a range
+#: of numbers.
+DASH = "\u2013"
+
+#: A range as prose states one: two IDs, each in a code span, joined by
+#: the dash; or one ID alone, a range of one.
+_RANGE = re.compile(rf"`({rule_id()})`(?:{DASH}`({rule_id()})`)?")
+
+
+def ranges(text: str) -> Iterator[tuple[RuleId, RuleId]]:
+    """Each range of IDs `text` states, as its first and its last.
+
+    A rename table opens with the ranges its families ran before the
+    revision, and an ID in range that no row lists still names its rule,
+    so the ranges are read as exactly as the rows are.
+    """
+    for m in _RANGE.finditer(text):
+        yield RuleId.parse(m[1]), RuleId.parse(m[2] or m[1])
+
+
+def print_range(first: RuleId, last: RuleId) -> str:
+    """The range from `first` to `last`, as `ranges` reads one.
+
+    The two IDs in code spans joined by `DASH`, or the one ID alone for
+    a range of one; so a table a revision writes reads back as the
+    ranges it was written from.
+    """
+    return f"`{first}`" + (f"{DASH}`{last}`" if last != first else "")
 
 
 #: A rule ID, or a family alone: `RS-ERR-03`, or `RS-ERR` with no number
@@ -277,6 +318,13 @@ _VERSION = re.compile(
 #: A local label: what follows a `+`.
 _LOCAL = re.compile(r"[a-z0-9]+(?:\.[a-z0-9]+)*")
 
+#: A version among other words: no word character or dot on either
+#: side, so a version is never read out of a longer token.
+_NAMED = re.compile(rf"(?<![\w.]){_VERSION.pattern}(?![\w.])")
+
+#: How many numbers a published release has: major, minor and patch.
+_RELEASED = 3
+
 
 @dataclass(frozen=True, slots=True, order=True)
 class Version:
@@ -323,10 +371,62 @@ class Version:
             return cls(release, local=local)
         return cls(release, Stage(m["stage"]), int(m["candidate"]), local)
 
+    @classmethod
+    def try_parse(cls, text: str) -> Self | None:
+        """The version `text` spells whole, or None when it is not one.
+
+        For an answer from outside — an index, a channel, a release list
+        — where not being a version is an answer to report, not an
+        error.
+        """
+        try:
+            return cls.parse(text)
+        except ValueError:
+            return None
+
+    @classmethod
+    def search(cls, text: str) -> Self | None:
+        """The first version `text` names, or None when it names none.
+
+        As a tool's `--version` line names its own, among other words:
+        `ripgrep 15.2.0 (rev e89fff89ac)`, `rustc 1.99.0-nightly (…)`.
+        A version run into a word or another number on either side is
+        not one: `1.2.3.post1` names none.
+        """
+        m = _NAMED.search(text)
+        return cls.parse(m.group()) if m else None
+
+    @classmethod
+    def released(cls, text: str) -> Self | None:
+        """`text` as a release a pin is compared with, or None.
+
+        Three numbers and at most a pre-release stage: the precision a
+        pin and the place that publishes releases share. Anything else
+        is no answer, never a release that happens to compare. `15.2`
+        orders before `15.2.0`, so an index answering in a coarser form
+        would read as older than the pin and the pin as current, on a
+        comparison nobody made; and a local label is a build, not a
+        release.
+        """
+        found = cls.try_parse(text)
+        if found is None or len(found.release) != _RELEASED or found.local:
+            return None
+        return found
+
     @property
     def public(self) -> Version:
         """This release without its local label: `3.15.2`."""
         return Version(self.release, self.stage, self.candidate)
+
+    @property
+    def series(self) -> Version:
+        """The major.minor this release is of: `3.15` of `3.15.0rc1`.
+
+        What a standard's title names, and the series a pin is refreshed
+        within: a newer patch moves the pin, a newer minor is a new
+        target.
+        """
+        return Version(self.release[:_MAJOR_MINOR])
 
     @override
     def __str__(self) -> str:
@@ -335,6 +435,20 @@ class Version:
         if self.stage is not Stage.FINAL:
             printed += f"{self.stage.value}{self.candidate}"
         return f"{printed}+{self.local}" if self.local else printed
+
+
+def releases(text: str, major: int) -> Iterator[Version]:
+    """Each release of `major` that prose names, as its major.minor.
+
+    `3.13` in a Python standard, `since 3.9`, `0.19` in a Bevy one. The
+    minor is any number that does not start with `0`, which keeps a
+    decimal such as `0.05` out, and is not followed by a letter, which
+    keeps `3.5x faster` out. A leading `~` marks a quantity, never a
+    release: `~0.3 ns`. A patch after the minor is the same series:
+    `3.13.1` names `3.13`.
+    """
+    for m in re.finditer(rf"(?<![\d.~]){major}\.([1-9]\d*)(?!\w)", text):
+        yield Version((major, int(m[1])))
 
 
 class Op(Enum):

@@ -17,10 +17,11 @@ from pathlib import Path
 lazy from collections.abc import Mapping
 
 from agent_skill import shared
-from agent_skill.doc import canonical
+from agent_skill.doc import Doc, Fence, Item, ListBlock, Quote, canonical, walk
 from agent_skill.lang import execute, judged, toolchain_for
 from agent_skill.model import Block, Skill
 from agent_skill.report import Finding, Level, declare, fail, note
+lazy from agent_skill import doc
 
 # The branches `fmt` reports through. It is a command rather than a
 # check, so no control is owed them.
@@ -86,12 +87,13 @@ def _examples(skill: Skill) -> list[Finding]:
 
 
 def put_back(skill: Skill, bodies: Mapping[Block, str]) -> list[Finding]:
-    """Write each new body over its block's lines, last block first.
+    """Write each new body into its block's fence, last block first.
 
-    A block is found by its line, as the skill was read: last first, so
-    a body that grows or shrinks cannot move one above it. One whose
-    lines no longer hold its body, or whose fence does not open above
-    them, is skipped rather than guessed at.
+    A block is found in the file's tree by its fence's line, as the
+    skill was read, so two blocks with one body are told apart. One
+    whose fence is not on that line, or no longer holds its body in its
+    language, is skipped rather than guessed at. The file is printed
+    from its tree, as `fmt` has just printed it.
 
     Returns a failure per block skipped, then a note per file changed.
     """
@@ -101,21 +103,42 @@ def put_back(skill: Skill, bodies: Mapping[Block, str]) -> list[Finding]:
         by_file.setdefault(block.file, []).append(block)
     for document, blocks in by_file.items():
         path = skill.path_of(document)
-        lines = path.read_text().split("\n")
-        hits = 0
+        tree = Doc.parse(path.read_text())
+        fences = {f.line: f for f in walk(tree.blocks) if isinstance(f, Fence)}
+        swaps: dict[int, str] = {}
         for block in sorted(blocks, key=lambda b: b.line, reverse=True):
-            first, count = block.line - 1, block.body.count("\n")
-            held = "".join(f"{ln}\n" for ln in lines[first : first + count])
-            if held != block.body or lines[first - 1] != f"```{block.lang}":
+            fence = fences.get(block.line - 1)
+            if fence is None or (fence.info, fence.body) != (block.lang, block.body):
                 changed.append(
                     fail("not where it was read; skipped", block.where, UNLOCATABLE)
                 )
                 continue
-            lines[first : first + count] = bodies[block].removesuffix("\n").split("\n")
-            hits += 1
-        if hits:
-            path.write_text("\n".join(lines))
+            swaps[fence.line] = bodies[block].removesuffix("\n") + "\n"
+        if swaps:
+            new = (_swapped(b, swaps) for b in tree.blocks)
+            path.write_text(str(Doc(tree.frontmatter, tuple(new))))
             changed.append(
-                note(f"{hits} block(s) reformatted", skill.at(document), REFORMATTED)
+                note(
+                    f"{len(swaps)} block(s) reformatted",
+                    skill.at(document),
+                    REFORMATTED,
+                )
             )
     return changed
+
+
+def _swapped(block: doc.Block, bodies: Mapping[int, str]) -> doc.Block:
+    """`block`, each fence it is or holds given its line's new body."""
+    match block:
+        case Fence(info, _, line, closed) if line in bodies:
+            return Fence(info, bodies[line], line, closed)
+        case ListBlock(items, start, loose, line):
+            held = tuple(
+                Item(tuple(_swapped(b, bodies) for b in i.blocks), i.line)
+                for i in items
+            )
+            return ListBlock(held, start, loose, line)
+        case Quote(inner, alert, line, lazy):
+            return Quote(tuple(_swapped(b, bodies) for b in inner), alert, line, lazy)
+        case _:
+            return block

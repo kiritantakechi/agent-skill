@@ -298,13 +298,6 @@ _BUILD_CONSTANT = "import sys\nfrom typing import Final\n\nFREE_THREADED_BUILD"
 #: The one line of a `bevy-style` example this control appends to.
 _TEST_BODY = "        let mut app = App::new();\n        app.add_plugins(HealthPlugin);"
 
-#: PS-OUT-07's command as the standard now prints it, and as it used to
-#: be written — wrapped at the column limit, which put a literal newline
-#: into the pattern. Derived from the first rather than spelled twice:
-#: the two differ by exactly the defect, and nothing else.
-SQL_COMMAND = r"""`rg -n 'f"[^"\n]*(SELECT|INSERT|UPDATE|DELETE) ' src/`"""
-SQL_WRAPPED = SQL_COMMAND.replace("UPDATE|DELETE", "UPDATE|\nDELETE")
-
 
 def _unaccounted_anchor_rule(tree: Path) -> Edited:
     """An anchor's defect in the delta's examples, unmentioned by it.
@@ -1162,15 +1155,6 @@ CONTROLS: list[Control] = [
             "rg -n 'Io.Threaded|Io.Uring|Io.Kqueue'",
             "rg -n 'Io.Threaded\\|Io.Uring\\|Io.Kqueue'",
         ),
-    ),
-    Control(
-        # The same class from the other side. The harness passes
-        # `--multiline` and the printed command does not, so a command
-        # wrapped across a line of the markdown runs here and exits 2
-        # for the reader. Two shipped that way, and in one the
-        # alternative after the newline was dead even here.
-        dialect.WRAPPED,
-        lambda t: edit(t, f"{PY}/references/output.md", SQL_COMMAND, SQL_WRAPPED),
     ),
     # A rule its own pattern would catch.
     Control(

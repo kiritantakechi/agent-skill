@@ -19,7 +19,7 @@ lazy from collections.abc import Iterable, Iterator
 
 from agent_skill import shared, vocabulary
 from agent_skill.checks import check, per_skill
-from agent_skill.doc import ListBlock, Paragraph, Table, printed
+from agent_skill.doc import Heading, ListBlock, Paragraph, Table, printed
 from agent_skill.doc.chapter import CONTENTS, RENAMED, Demoted, Removed
 from agent_skill.ids import RuleId
 from agent_skill.model import REFERENCES, RENAMES_MD, SKILL_MD
@@ -36,6 +36,9 @@ RENAMES = f"{REFERENCES}/{RENAMES_MD}"
 
 #: The chapter a reader holding an old ID opens, which names `RENAMES`.
 MIGRATION = "migration.md"
+
+#: The review protocol's title.
+PROTOCOL = "Review protocol"
 
 # The branches a finding of this check comes from.
 TITLE = declare("skeleton", "title", Level.FAIL)
@@ -194,9 +197,12 @@ def _skill_md(skill: Skill) -> Iterator[Finding]:
     """`SKILL.md`'s title, sections, reference map and review order."""
     md = skill.typed
     where = skill.at(SKILL_MD)
-    h1 = f"# {md.title}" if md.title else ""
-    if h1 != (want := shared.title(skill)):
-        yield fail(f"the title is `{h1}`, expected `{want}`", where, TITLE)
+    if md.title != (want := shared.title(skill)).text:
+        yield fail(
+            f"the title is `{_h1(md.title)}`, expected `{_h1(want.text)}`",
+            where,
+            TITLE,
+        )
     found = [s.title for s in md.sections]
     expected = shared.skill_sections(skill)
     for i, title in enumerate(expected):
@@ -215,7 +221,7 @@ def _skill_md(skill: Skill) -> Iterator[Finding]:
             EXTRA_SECTION,
         )
 
-    table = next(_tables(_section(md.sections, "6. Reference map")), None)
+    table = next(_tables(_section(md.sections, shared.MAP)), None)
     if table is not None and table.header != MAP_HEADER:
         yield fail(
             f"the reference map's columns are `{printed(table)[0]}`, "
@@ -281,10 +287,10 @@ def _review(skill: Skill) -> Iterator[Finding]:
         return
     protocol = review.typed
     where = skill.at(shared.REVIEW)
-    h1 = f"# {protocol.title}" if protocol.title else ""
-    if h1 != "# Review protocol":
+    if protocol.title != PROTOCOL:
         yield fail(
-            f"the review protocol's title is `{h1}`, expected `# Review protocol`",
+            f"the review protocol's title is `{_h1(protocol.title)}`, "
+            f"expected `{_h1(PROTOCOL)}`",
             where,
             REVIEW_TITLE,
         )
@@ -307,6 +313,11 @@ def _review(skill: Skill) -> Iterator[Finding]:
             where,
             SEVERITY,
         )
+
+
+def _h1(title: str) -> str:
+    """`title` as the file's first line spells it, "" for none."""
+    return printed(Heading(1, title))[0] if title else ""
 
 
 def _protocol(skill: Skill) -> Chapter | None:

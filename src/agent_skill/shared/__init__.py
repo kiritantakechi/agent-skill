@@ -66,6 +66,9 @@ REVIEW_SECTIONS: tuple[str, ...] = (
 
 REVIEW = "references/review-checklist.md"
 
+#: The `SKILL.md` section that maps each chapter to its family.
+MAP = "6. Reference map"
+
 # The branches of `shared-text` that `compare` finds through, and of
 # `fmt` that `rewrite` reports through.
 MISSING = declare("shared-text", "missing", Level.FAIL)
@@ -98,24 +101,15 @@ PASSAGES: tuple[Passage, ...] = (
     Passage("SKILL.md", "How to use this standard", "how-to-use.md"),
     Passage("SKILL.md", "1. Tiers", "tiers.md"),
     Passage("SKILL.md", "5. Review checklist", "review-checklist.md"),
-    Passage("SKILL.md", "6. Reference map", "reference-map.md"),
+    Passage("SKILL.md", MAP, "reference-map.md"),
     Passage("SKILL.md", "7. Bundled assets", "bundled-assets.md"),
     Passage(REVIEW, "Severity model", "severity.md"),
 )
 
 
-def major_minor(version: str) -> str:
-    """The major.minor of `version`, or "" when it has none.
-
-    `1.99` from `1.99`, `3.15` from `3.15.0rc1`, `0.20` from `0.20.0`.
-    """
-    m = re.match(r"\d+\.\d+", version)
-    return m.group(0) if m else ""
-
-
 def skill_sections(skill: Skill) -> tuple[str, ...]:
     """The H2s of a conforming `SKILL.md`, in order."""
-    target = f"{skill.profile.language} {major_minor(skill.profile.release)}"
+    target = f"{skill.profile.language} {skill.profile.target}"
     return (
         "How to use this standard",
         "1. Tiers",
@@ -123,36 +117,35 @@ def skill_sections(skill: Skill) -> tuple[str, ...]:
         "3. Design principles",
         "4. Core rules",
         "5. Review checklist",
-        "6. Reference map",
+        MAP,
         "7. Bundled assets",
     )
 
 
-def title(skill: Skill) -> str:
+def title(skill: Skill) -> Heading:
     """The H1 of a conforming `SKILL.md`."""
-    return f"# {skill.profile.language} Style — {major_minor(skill.profile.release)}"
+    return Heading(1, f"{skill.profile.language} Style — {skill.profile.target}")
 
 
 def slots(skill: Skill) -> dict[str, str]:
     """Every value a template may name, for one skill."""
     profile = skill.profile
-    pin = profile.release
     toolchain = profile.toolchain
     comment = language(profile.languages[0] if profile.languages else "").comment
     return {
         "language": profile.language,
-        "target": major_minor(pin),
+        "target": profile.target,
         "prefix": profile.prefix,
         "comment": comment,
         "verified_as": profile.verified_as.format(
-            pin=pin,
+            pin=profile.release,
             toolchain=str(toolchain.pin.version.public) if toolchain else "",
         ),
         "tools": ", ".join(f"`{t}`" for t in profile.tools),
         "strict_scope": profile.strict_scope,
         "delta_step": f"9. {profile.delta_step}" if profile.delta_step else "",
-        "core_count": str(len(skill.core_rules)),
-        "chapter_count": str(len(skill.rules)),
+        "core_count": str(len(skill.core)),
+        "chapter_count": str(len(skill.chapter_rules)),
     }
 
 

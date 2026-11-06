@@ -12,10 +12,12 @@ import re
 from dataclasses import dataclass
 lazy from collections.abc import Collection, Iterable, Iterator, Sequence
 
+from agent_skill.doc import Doc, Fence, Paragraph, printed
+from agent_skill.doc.chapter import CHECK, owned
 from agent_skill.lang import language
-from agent_skill.model import prose_lines
 from agent_skill.report import DECLARED, Finding
-lazy from agent_skill.ids import Branch, Location
+lazy from agent_skill.doc import Block
+lazy from agent_skill.ids import Branch, Location, RuleId
 lazy from agent_skill.model import Skill
 lazy from agent_skill.profiles import LineRule, Near, Unless
 
@@ -57,8 +59,8 @@ class _Line:
     #: every line of what it is in, and its index there
     lines: Sequence[str]
     j: int
-    #: the rule the line sits under
-    rule: str
+    #: the rule the line sits under, if any
+    rule: RuleId | None
     #: the indices of `lines` inside a test
     tests: Collection[int]
 
@@ -75,7 +77,7 @@ def _broken(
     """
     hits: dict[Branch, tuple[LineRule, re.Match[str]]] = {}
     for rule in rules:
-        if rule.unless_own and line.rule == rule.unless_own:
+        if rule.unless_own and str(line.rule) == rule.unless_own:
             continue
         m = re.search(rule.pattern, line.raw if rule.comments else line.code)
         if m is None or not all(near(n, line.lines, line.j) for n in rule.needs):
@@ -112,16 +114,25 @@ def examples(skill: Skill) -> Iterator[Finding]:
 def prose(skill: Skill) -> Iterator[Finding]:
     """Each of the profile's own rules a line of its prose breaks.
 
-    Outside a **Check:**, which hunts the spelling a rule forbids, and
-    under the rule each line sits in, since a rule's own text names
-    what it forbids.
+    Outside the paragraph a **Check:** label opens, which hunts the
+    spelling a rule forbids, and under the rule each line sits in, since
+    a rule's own text names what it forbids. A line is one of the
+    chapter as printed: in a file `layout` passes, the file's own.
     """
     rules = skill.profile.prose
     if not rules:
         return
     for chapter in skill.chapters:
-        lines = chapter.text.split("\n")
-        for i, line, rid, in_check in prose_lines(chapter.text, skill.prefix):
-            if not in_check:
-                held = _Line(line, line, lines, i - 1, rid, ())
-                yield from _broken(rules, held, chapter.where(i, rid))
+        text = str(chapter.doc)
+        lines = text.split("\n")
+        for block, rid in owned(Doc.parse(text)):
+            if isinstance(block, Fence) or _checks(block):
+                continue
+            for k, line in enumerate(printed(block)):
+                held = _Line(line, line, lines, block.line - 1 + k, rid, ())
+                yield from _broken(rules, held, chapter.where(block.line + k, rid))
+
+
+def _checks(block: Block) -> bool:
+    """Is `block` the paragraph a **Check:** label opens?"""
+    return isinstance(block, Paragraph) and block.text.startswith(CHECK)

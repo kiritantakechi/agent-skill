@@ -12,7 +12,10 @@ lazy from collections.abc import Callable, Iterator
 
 from agent_skill.checks import check, per_skill
 from agent_skill.checks.lines import prose as own_rules
+from agent_skill.doc import Quote, walk
+from agent_skill.ids import cited_at
 from agent_skill.report import Finding, Level, declare, fail
+lazy from agent_skill.doc import Doc
 lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Skill
 
@@ -44,10 +47,11 @@ PROVENANCE = [
 
 LEGEND = "carries a marker on its first line"
 
-POSITIONAL = (
-    r"({pre}-[A-Z]+-\d+[a-z]?,?\s+(below|above)\b"
-    r"|\bthe rule (below|above)\b|\bsee (below|above)\b)"
-)
+#: What follows a rule ID that points by position: `RS-ERR-03 below`.
+AFTER_ID = re.compile(r",?\s+(below|above)\b")
+
+#: A reference by position that names no ID at all.
+POSITIONAL = re.compile(r"\bthe rule (below|above)\b|\bsee (below|above)\b")
 
 #: A line of the file a finding is about, as its location.
 type At = Callable[[int], Location]
@@ -64,11 +68,11 @@ LEGEND_COUNT = declare("prose", "legend", Level.FAIL)
 @per_skill
 def prose(skill: Skill) -> Iterator[Finding]:
     """Build provenance, broken quotes, and references by position."""
-    for path in skill.markdown:
+    for path, doc in skill.docs.items():
         text = path.read_text()
         at = partial(skill.at, path)
         yield from _provenance(text, at)
-        yield from _broken_quotes(text, at)
+        yield from _broken_quotes(doc, at)
         yield from _positional(text, at, skill.prefix)
 
     seen = sum(path.read_text().count(LEGEND) for path in skill.markdown)
@@ -92,21 +96,19 @@ def _provenance(text: str, at: At) -> Iterator[Finding]:
                 break  # one line, one finding
 
 
-def _broken_quotes(text: str, at: At) -> Iterator[Finding]:
+def _broken_quotes(doc: Doc, at: At) -> Iterator[Finding]:
     """Each blockquote continuation that lost its `>`.
 
-    Such a line renders as a separate paragraph, and nothing else
-    measures it.
+    Whether a renderer reads such a line into the quote or out of it
+    differs between renderers, and the parser records it on the quote
+    it follows (`Quote.lazy`). Read from the tree, a `>` line inside an
+    example is code, not a quote.
     """
-    quoted = False
-    for i, line in enumerate(text.split("\n"), 1):
-        if line.startswith(">"):
-            quoted = True
-        elif not line.strip():
-            quoted = False
-        elif quoted:
-            yield fail("blockquote continuation lost its `>`", at(i), BROKEN_QUOTE)
-            quoted = False
+    for quote in walk(doc.blocks):
+        if isinstance(quote, Quote) and quote.lazy is not None:
+            yield fail(
+                "blockquote continuation lost its `>`", at(quote.lazy), BROKEN_QUOTE
+            )
 
 
 def _positional(text: str, at: At, prefix: str) -> Iterator[Finding]:
@@ -115,9 +117,10 @@ def _positional(text: str, at: At, prefix: str) -> Iterator[Finding]:
     A cross-reference is an ID; `the rule below` breaks when a rule
     moves.
     """
-    positional = re.compile(POSITIONAL.format(pre=prefix))
     for i, line in enumerate(text.split("\n"), 1):
-        if positional.search(line):
+        if POSITIONAL.search(line) or any(
+            AFTER_ID.match(line, end) for _, end in cited_at(line, prefix)
+        ):
             yield fail(
                 "positional cross-reference; cite the ID alone",
                 at(i),

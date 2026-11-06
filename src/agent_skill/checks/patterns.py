@@ -9,6 +9,10 @@ running anything.
 import re
 from dataclasses import dataclass
 
+from agent_skill.doc import text_of
+from agent_skill.doc.chapter import CHECK
+from agent_skill.ids import STANDARD
+lazy from agent_skill.doc.chapter import Rule
 lazy from agent_skill.lang import language
 
 #: A backticked span is worth running only if it looks like code, not
@@ -65,6 +69,16 @@ class Pattern:
         return language(lang).comment in self.text
 
 
+def check_text(rule: Rule) -> str:
+    """What a rule's **Check:** says, its label left out.
+
+    Every block of the Check as printed, up to the next label, example
+    or heading, so a command is read whole: the printer never splits a
+    code span. "" for a rule with no Check.
+    """
+    return text_of(rule.check).removeprefix(CHECK)
+
+
 def dialect_of(command: str) -> str:
     """Regex, or literal text — the only distinction left.
 
@@ -117,7 +131,7 @@ def patterns_of(check_text: str) -> list[Pattern]:
         for span in re.findall(r"`([^`\n]+)`", check_text):
             if len(span) < SHORTEST or not CODEISH.search(span):
                 continue
-            if not re.match(r"^(references/|[A-Z]{2}-)", span):
+            if not re.match(rf"^(references/|{STANDARD}-)", span):
                 out.append(Pattern(span, "-F", "prose"))
     return [p for p in out if p.text not in TOO_BROAD]
 

@@ -20,8 +20,12 @@ from agent_skill.checks.documented import documented_rows
 README = Path(__file__).resolve().parents[1] / "README.md"
 
 
+#: The README table's header, which makes the lines under it a table.
+HEADER = "| Check | Catches | Added because |\n|---|---|---|\n"
+
+
 def row(name: str, catches: str, why: str) -> str:
-    return f"| `{name}` | {catches} | {why} |\n"
+    return f"{HEADER}| `{name}` | {catches} | {why} |\n"
 
 
 def test_the_shipped_table_reads_in_full() -> None:
@@ -77,10 +81,15 @@ def test_an_empty_reason_is_still_empty() -> None:
 
 
 def test_a_row_that_is_not_a_check_row_is_not_read_as_one() -> None:
-    assert documented_rows("| `dialect` | only one cell |\n") == {}
-    assert documented_rows("| `Dialect` | a | b |\n") == {}, (
+    assert documented_rows(f"{HEADER}| `dialect` | only one cell |\n") == {}
+    assert documented_rows(f"{HEADER}| `Dialect` | a | b |\n") == {}, (
         "the name column is lowercase"
     )
+
+
+def test_a_row_inside_an_example_is_not_a_row() -> None:
+    """The table is read from the tree, where a fence is code."""
+    assert documented_rows(f"```markdown\n{row('dialect', 'a', 'b')}```\n") == {}
 
 
 def test_a_stated_scope_is_read_from_the_first_cell() -> None:

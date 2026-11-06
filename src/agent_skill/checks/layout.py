@@ -25,10 +25,13 @@ from agent_skill.doc import (
     Block,
     Doc,
     Fence,
+    Heading,
     ListBlock,
-    Quote,
+    Paragraph,
     Table,
     canonical,
+    entry,
+    walk,
     words,
 )
 from agent_skill.report import Finding, Level, declare, fail, note
@@ -37,12 +40,6 @@ lazy from agent_skill.model import Skill
 
 #: A line of the file a finding is about, as its location.
 type At = Callable[[int], Location]
-
-#: A rule heading and its contents entry are one line by construction:
-#: the ID, the tier, the title. Over-length there is a title-length
-#: problem, reported separately.
-HEADING = re.compile(r"^#{1,6} [A-Z]{2}-[A-Z]+-\d+[a-z]? \[")
-TOC = re.compile(r"^\s*- [A-Z]{2}-[A-Z]+-\d+[a-z]? \[")
 
 #: What a line may open with before its text: a quote's `>`, an item's
 #: marker.
@@ -76,7 +73,7 @@ def layout(skill: Skill) -> Iterator[Finding]:
     for path in skill.markdown:
         text = path.read_text(newline="")
         at = partial(skill.at, path)
-        opened = next((b for b in _walk(Doc.parse(text).blocks) if _open(b)), None)
+        opened = next((b for b in walk(Doc.parse(text).blocks) if _open(b)), None)
         if opened is not None:
             yield fail("an example's fence is never closed", at(opened.line), UNCLOSED)
             continue
@@ -89,20 +86,6 @@ def layout(skill: Skill) -> Iterator[Finding]:
         yield from _table_cells(tree, at)
 
 
-def _walk(blocks: tuple[Block, ...]) -> Iterator[Block]:
-    """Every block in `blocks`, nested ones included, in order."""
-    for block in blocks:
-        yield block
-        match block:
-            case ListBlock(items):
-                for item in items:
-                    yield from _walk(item.blocks)
-            case Quote(inner):
-                yield from _walk(inner)
-            case _:
-                pass
-
-
 def _open(block: Block) -> bool:
     """Is `block` a fence its file or list item ends inside?"""
     return isinstance(block, Fence) and not block.closed
@@ -112,7 +95,7 @@ def _code(tree: Doc) -> set[int]:
     """Every line a fence of `tree` is printed on, its own included."""
     return {
         i
-        for b in _walk(tree.blocks)
+        for b in walk(tree.blocks)
         if isinstance(b, Fence)
         for i in range(b.line, b.line + b.body.count("\n") + 2)
     }
@@ -157,6 +140,33 @@ def _kept(want: str, at: At) -> Iterator[Finding]:
             yield fail(name, at(want.count("\n", 0, found) + 1), branch)
 
 
+def _titles(blocks: tuple[Block, ...]) -> Iterator[int]:
+    """Every line a rule's heading or a contents entry is printed on.
+
+    Each names its rule by ID, tier and title, and is one line by
+    construction, so a long one is a title that is long: a note, not
+    a line to wrap.
+    """
+    for block in blocks:
+        match block:
+            case Heading(text=text) if entry(words(text)) is not None:
+                yield block.line
+            case ListBlock(items, start=None):
+                for item in items:
+                    if (
+                        item.blocks
+                        and isinstance(first := item.blocks[0], Paragraph)
+                        and entry(first.words) is not None
+                    ):
+                        yield item.line
+                    yield from _titles(item.blocks)
+            case ListBlock(items):
+                for item in items:
+                    yield from _titles(item.blocks)
+            case _:
+                pass
+
+
 def _lone(line: str) -> bool:
     """Is `line`, past its markers, one word filling cannot split?"""
     found = list(words(line))
@@ -176,6 +186,7 @@ def _widths(want: str, tree: Doc, at: At) -> Iterator[Finding]:
     """
     head = 0 if tree.frontmatter is None else tree.frontmatter.count("\n") + 3
     code = _code(tree)
+    titles = set(_titles(tree.blocks))
     for i, line in enumerate(want.split("\n"), 1):
         if len(line) <= WIDTH or i <= head or line.lstrip(" >").startswith("|"):
             continue
@@ -184,7 +195,7 @@ def _widths(want: str, tree: Doc, at: At) -> Iterator[Finding]:
             yield fail(
                 f"code line is {len(line)} columns (limit {WIDTH})", where, CODE_WIDTH
             )
-        elif HEADING.match(line) or TOC.match(line):
+        elif i in titles:
             yield note(
                 f"rule title makes the line {len(line)} columns", where, TITLE_WIDTH
             )
@@ -216,7 +227,7 @@ def _table_cells(tree: Doc, at: At) -> Iterator[Finding]:
     GitHub, and nothing else measured it. The printer keeps the cells it
     read, so a row split that way is canonical and only this sees it.
     """
-    for table in (b for b in _walk(tree.blocks) if isinstance(b, Table)):
+    for table in (b for b in walk(tree.blocks) if isinstance(b, Table)):
         for k, row in enumerate(table.rows):
             if len(row) != len(table.header):
                 yield fail(

@@ -1,10 +1,10 @@
 """Ordering releases, and what happens to one that cannot be ordered.
 
-`_sort_key` used to answer `(0, 0, 0, 0, 0)` for anything it did not
-parse, which sorts below every real release. So an index answer of
-`1.2.3.post1` compared as *older than the pin*, the staleness check
-emitted nothing, and the run reported the pin current — on a comparison
-it had not made.
+The order of releases used to answer `(0, 0, 0, 0, 0)` for anything
+it did not parse, which sorts below every real release. So an index
+answer of `1.2.3.post1` compared as *older than the pin*, the staleness
+check emitted nothing, and the run reported the pin current — on a
+comparison it had not made.
 
 That is the failure `version_mismatch` was already fixed for one
 function away: *"an unfindable pin is itself the complaint"*. A value
@@ -18,7 +18,7 @@ import pytest
 
 from agent_skill import harness
 from agent_skill.checks import pins as mod
-from agent_skill.checks.pins import _sort_key, _tool_pins
+from agent_skill.checks.pins import _tool_pins
 from agent_skill.harness import Harness, pinned
 from agent_skill.ids import Location, Pin, Version
 from agent_skill.lang import python
@@ -36,31 +36,33 @@ def _greater(a: object, b: object) -> object:
     """Return `a > b`, unchecked on purpose.
 
     What this asserts is what happens at run time, so the checker's
-    objection to comparing `None` with a tuple is suppressed here.
+    objection to comparing `None` with a version is suppressed here.
     """
     return a > b  # ty: ignore[unsupported-operator] — the TypeError is the point
 
 
-#: Forms a real index answers with, none of which `_sort_key`
-#: understands.
+#: Forms a real index answers with, none of which is a release a pin
+#: is compared with (`Version.released`).
 UNORDERABLE = ["1.2.3.post1", "0.16.5.dev0", "2024.1", "15.2", "0.0.75+local", ""]
 
 
 @pytest.mark.parametrize("version", UNORDERABLE)
 def test_a_version_it_cannot_parse_gets_no_answer(version: str) -> None:
-    assert _sort_key(version) is None
+    assert Version.released(version) is None
 
 
 @pytest.mark.parametrize("version", UNORDERABLE)
 def test_no_unparseable_version_compares_as_older_than_a_pin(version: str) -> None:
     """The defect stated as its consequence rather than as its cause.
 
-    Comparing `None` against a tuple raises, which is the point: the
+    Comparing `None` against a version raises, which is the point: the
     caller has to decide, and cannot fall through to "the pin is
     current" by arithmetic.
     """
-    with pytest.raises(TypeError, match="between instances of 'NoneType' and 'tuple'"):
-        _greater(_sort_key(version), _sort_key("0.16.5"))
+    with pytest.raises(
+        TypeError, match="between instances of 'NoneType' and 'Version'"
+    ):
+        _greater(Version.released(version), Version.released("0.16.5"))
 
 
 @pytest.mark.parametrize(
@@ -74,7 +76,7 @@ def test_no_unparseable_version_compares_as_older_than_a_pin(version: str) -> No
     ],
 )
 def test_releases_still_order(lower: str, higher: str) -> None:
-    low, high = _sort_key(lower), _sort_key(higher)
+    low, high = Version.released(lower), Version.released(higher)
     assert low is not None
     assert high is not None
     assert low < high
