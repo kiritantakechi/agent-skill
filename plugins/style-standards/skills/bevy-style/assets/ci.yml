@@ -1,5 +1,5 @@
-# CI for a Bevy 0.20 game. Referenced by BV-BUILD-05, BV-BUILD-15,
-# BV-BUILD-16 and RS-BUILD-40, by BV-ARCH-07 for the boundary job, and by
+# CI for a Bevy 0.20 game. Referenced by BV-BUILD-05, BV-BUILD-13,
+# BV-BUILD-14 and RS-BUILD-40, by BV-ARCH-07 for the boundary job, and by
 # RS-BUILD-28 for the audit job.
 name: ci
 
@@ -62,7 +62,7 @@ jobs:
 
   shipped-features:
     # Building only the default feature set proves nothing about the artefact.
-    # This list is the one in the release manifest. See BV-BUILD-15.
+    # This list is the one in the release manifest. See BV-BUILD-13.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -134,7 +134,7 @@ jobs:
       - run: cargo +1.99 check --workspace   # `+`: rust-toolchain.toml outranks the install
 
   wasm:
-    # Only if the game ships to the web. See BV-BUILD-16.
+    # Only if the game ships to the web. See BV-BUILD-14.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

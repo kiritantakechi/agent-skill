@@ -39,12 +39,11 @@ chapter.
   - BV-ECS-24 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
   - BV-ECS-25 [M] Put `Changed<T>` in the filter so the system can be skipped
   - BV-ECS-26 [M] Do not use `Changed<T>` to mean `Added<T>`
-  - BV-ECS-27 [S] Read a change in the same schedule that wrote it
-  - BV-ECS-28 [S] Bypass change detection only where the write is bookkeeping
+  - BV-ECS-27 [S] Bypass change detection only where the write is bookkeeping
 
 - **Structural change**
-  - BV-ECS-29 [M] Do not read back what a command has not applied yet
-  - BV-ECS-30 [M] Reach for an exclusive system last, and say what forced it
+  - BV-ECS-28 [M] Do not read back what a command has not applied yet
+  - BV-ECS-29 [M] Reach for an exclusive system last, and say what forced it
 
 - Decided by tools
 
@@ -768,7 +767,7 @@ It is not a drop-in for `for x in &query`:
   in the type system knows which. Take the error with `?`, never `.unwrap()` (BV-ERR-01).
 - The filter is bound by `F: ArchetypeFilter`, so `Changed<T>` does not compile here at all.
 - The mutable form marks every entity in the slice changed unless the write goes through
-  `bypass_change_detection` (BV-ECS-28).
+  `bypass_change_detection` (BV-ECS-27).
 
 **Why:** it is the only way to get contiguous slices without leaving the ECS, so a hand-kept
 `Vec<f32>` can go, and with it the bug where it drifts from the entities. The price is a nested loop
@@ -944,7 +943,7 @@ runs again on every later write, spawning a second sound or a second child. The 
 when someone starts mutating the component, which may be months later and in another module.
 
 **Check:** for each `Changed<T>` filter, ask whether running twice for one entity is acceptable. If
-not, it is `Added<T>` — or, better, an observer on `Add` (BV-EVENT-13).
+not, it is `Added<T>` — or, better, an observer on `Add` (BV-EVENT-12).
 
 ```rust
 // verified — the same body under both filters, counted
@@ -1017,19 +1016,7 @@ mod tests {
 }
 ```
 
-### BV-ECS-27 [S] Read a change in the same schedule that wrote it
-
-A `Changed<T>` filter sees writes since the reading system last ran. Keep the writer and the reader
-in the same schedule.
-
-**Why:** change ticks are per system, so nothing is missed across schedules, but `FixedUpdate` runs
-zero or several times a frame (BV-SCHED-06): an `Update` reader sees several steps' writes as one
-change, and a fixed-step reader sees an `Update` write on its next run, merged with any later one.
-
-**Check:** for each `Changed<T>` reader, find the writers. Any writer in a different schedule needs
-a stated reason the count does not matter.
-
-### BV-ECS-28 [S] Bypass change detection only where the write is bookkeeping
+### BV-ECS-27 [S] Bypass change detection only where the write is bookkeeping
 
 `Mut::bypass_change_detection` is for writes that are not changes to the game's state — a cached
 value refreshed from its source, a counter nothing reacts to.
@@ -1043,7 +1030,7 @@ comment cannot be written, the write is a change.
 
 ## Structural change
 
-### BV-ECS-29 [M] Do not read back what a command has not applied yet
+### BV-ECS-28 [M] Do not read back what a command has not applied yet
 
 `Commands` queue work that runs at the next sync point. Within the same system, the entity spawned
 two lines ago is not in any query. A test has no later system to wait for, so it applies the queue
@@ -1128,7 +1115,7 @@ mod tests {
 }
 ```
 
-### BV-ECS-30 [M] Reach for an exclusive system last, and say what forced it
+### BV-ECS-29 [M] Reach for an exclusive system last, and say what forced it
 
 A system taking `&mut World` cannot run in parallel with anything. Write one only when the work
 genuinely needs the whole world at once, and put the reason in a doc comment.

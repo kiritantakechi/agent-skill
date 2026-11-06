@@ -9,27 +9,28 @@ on a state is in the scheduling chapter.
 
 - **Resources**
   - BV-STATE-01 [M] Never make one type both a resource and a component
-  - BV-STATE-02 [M] Reserve a resource for what is genuinely global
-  - BV-STATE-03 [S] Give a resource `FromWorld` when its initial value depends on the world
-  - BV-STATE-04 [M] Do not put mutable game state in a resource that a component could hold
-  - BV-STATE-05 [S] Make a read-only resource immutable
-  - BV-STATE-06 [M] Take `Option<Res<T>>` or `If<Res<T>>` where absence is expected
-  - BV-STATE-07 [S] Keep configuration and progress in separate resources
-  - BV-STATE-08 [S] Persist a settings resource with `#[derive(SettingsGroup)]`
+  - BV-STATE-02 [M] Exclude the resources' entities from a query over every entity
+  - BV-STATE-03 [M] Reserve a resource for what is genuinely global
+  - BV-STATE-04 [S] Give a resource `FromWorld` when its initial value depends on the world
+  - BV-STATE-05 [M] Do not put mutable game state in a resource that a component could hold
+  - BV-STATE-06 [S] Make a read-only resource immutable
+  - BV-STATE-07 [M] Take `Option<Res<T>>` or `If<Res<T>>` where absence is expected
+  - BV-STATE-08 [S] Keep configuration and progress in separate resources
+  - BV-STATE-09 [S] Persist a settings resource with `#[derive(SettingsGroup)]`
 
 - **States**
-  - BV-STATE-09 [M] Model the phases of the game as a `States` enum
-  - BV-STATE-10 [M] Derive a dependent state rather than keeping two in step
-  - BV-STATE-11 [S] Use `SubStates` for a phase that only exists inside another
-  - BV-STATE-12 [M] Register every state exactly once
+  - BV-STATE-10 [M] Model the phases of the game as a `States` enum
+  - BV-STATE-11 [M] Derive a dependent state rather than keeping two in step
+  - BV-STATE-12 [S] Use `SubStates` for a phase that only exists inside another
+  - BV-STATE-13 [M] Register every state exactly once
 
 - **Transitions**
-  - BV-STATE-13 [M] Put setup in `OnEnter` and teardown in `OnExit`
-  - BV-STATE-14 [M] Scope an entity to a state with `DespawnOnExit`
-  - BV-STATE-15 [M] Write the next state through `NextState`, never `State`
-  - BV-STATE-16 [M] Guard a repeated `set` with `set_if_different`
-  - BV-STATE-17 [S] Keep a transition's work bounded
-  - BV-STATE-18 [M] Do not assume a transition happens in the frame that requested it
+  - BV-STATE-14 [M] Put setup in `OnEnter` and teardown in `OnExit`
+  - BV-STATE-15 [M] Scope an entity to a state with `DespawnOnExit`
+  - BV-STATE-16 [M] Write the next state through `NextState`, never `State`
+  - BV-STATE-17 [M] Guard a repeated `set` with `set_if_different`
+  - BV-STATE-18 [S] Keep a transition's work bounded
+  - BV-STATE-19 [M] Do not assume a transition happens in the frame that requested it
 
 ---
 
@@ -40,21 +41,13 @@ on a state is in the scheduling chapter.
 `#[derive(Resource)]` implements `Component` as well, so a type that needs to be both is two types,
 as Bevy split its own `UiDebugOptions` into `GlobalUiDebugOptions` and `UiDebugOptions`.
 
-The resource itself is a component on an entity of its own, marked `IsResource`, and no default
-filter hides that entity. `Query<Entity>`, `Query<EntityRef>` and `Query<EntityMut>` match it, so a
-sweep that despawns everything it matches despawns the resources too: Bevy warns, and then the
-command its own hook queues fails on the gone entity, which the default error handler turns into a
-panic. `Query<EntityMut>` beside any `Res`, or `Query<EntityRef>` beside a `ResMut`, conflicts with
-the resource and panics with B0002 when the system is built. Each takes `Without<IsResource>`.
-
 **Why:** uniqueness belongs to the *type*: a resource type spawned on a second entity is stripped
 from it with only a warning, and the resource shows up in ordinary `&T` queries, so a global
 fallback and a per-entity override cannot share one type.
 
 **Check:** grep for a `derive` naming both `Component` and `Resource`; it does not compile. Then
 grep for the `Global*` pattern in reverse — a resource and a component that are conceptually the
-same fact need two names, not one. Then read each `Query<Entity>`, `Query<EntityRef>` and
-`Query<EntityMut>` whose filter does not already exclude resource entities.
+same fact need two names, not one.
 
 ```rust
 // verified — GOOD: the global default and the per-entity override are two types
@@ -86,10 +79,23 @@ fn fall(
 }
 ```
 
-### BV-STATE-02 [M] Reserve a resource for what is genuinely global
+### BV-STATE-02 [M] Exclude the resources' entities from a query over every entity
+
+Each resource is a component on an entity of its own, marked `IsResource`, and no default filter
+hides that entity. `Query<Entity>`, `Query<EntityRef>` and `Query<EntityMut>` match it, so each
+takes `Without<IsResource>` unless reaching the resources is what the system is for.
+
+**Why:** a sweep that despawns all it matches despawns the resources too, and the command their hook
+queues then fails, a panic under the default error handler. `Query<EntityMut>` beside any `Res`, or
+`Query<EntityRef>` beside a `ResMut`, conflicts with the resource: B0002 when the system is built.
+
+**Check:** `rg -n 'Query<(Entity|EntityRef|EntityMut)>' src/` finds a query over every entity with
+no filter at all; each hit is the finding.
+
+### BV-STATE-03 [M] Reserve a resource for what is genuinely global
 
 Score, elapsed round time, the current wave, a settings block, a handle table. Not "the player's
-health". A collection of things that are really entities is BV-STATE-04's case.
+health". A collection of things that are really entities is BV-STATE-05's case.
 
 **Why:** a resource is one value for the whole world, and games grow second players, split screens
 and preview worlds. Two systems touching the same resource also cannot run in parallel, where the
@@ -98,7 +104,7 @@ same data on entities would have been partitioned.
 **Check:** ask whether there could ever be two. If the answer is not "no, by construction", it is a
 component on an entity.
 
-### BV-STATE-03 [S] Give a resource `FromWorld` when its initial value depends on the world
+### BV-STATE-04 [S] Give a resource `FromWorld` when its initial value depends on the world
 
 A resource that needs an `AssetServer`, a registry, or another resource to build implements
 `FromWorld`; `init_resource` then uses it.
@@ -110,7 +116,7 @@ from the first frame.
 **Check:** grep for `insert_resource` in a `Startup` system. Each one is a `FromWorld` impl that has
 not been written.
 
-### BV-STATE-04 [M] Do not put mutable game state in a resource that a component could hold
+### BV-STATE-05 [M] Do not put mutable game state in a resource that a component could hold
 
 A `Vec<Enemy>` in a resource is a set of entities that has not been spawned. The usual sign is a
 resource whose fields are all `Vec` or `HashMap` keyed by something entity-like.
@@ -130,7 +136,7 @@ other.
 lifetime, they are entities — unless the collection is the domain's own state, in which case the
 resource is a newtype over one domain type and no system reaches inside it.
 
-### BV-STATE-05 [S] Make a read-only resource immutable
+### BV-STATE-06 [S] Make a read-only resource immutable
 
 A resource written once at startup and only read afterwards can be `#[component(immutable)]`, which
 makes `ResMut` unavailable for it.
@@ -141,7 +147,7 @@ no writer possible, no two readers can conflict.
 
 **Check:** for each resource, count the `ResMut<T>` uses. Zero means the type can say so.
 
-### BV-STATE-06 [M] Take `Option<Res<T>>` or `If<Res<T>>` where absence is expected
+### BV-STATE-07 [M] Take `Option<Res<T>>` or `If<Res<T>>` where absence is expected
 
 A resource that only exists in some states, or is inserted by another plugin that may not be
 present, is `Option<Res<T>>` when the body has something to do without it, and `If<Res<T>>` when the
@@ -260,7 +266,7 @@ mod tests {
 }
 ```
 
-### BV-STATE-07 [S] Keep configuration and progress in separate resources
+### BV-STATE-08 [S] Keep configuration and progress in separate resources
 
 `CombatSettings` is written by the settings screen and read by the simulation; `CombatProgress` is
 written by the simulation every frame. They are not one `Combat` resource.
@@ -272,7 +278,7 @@ writer. It is BV-ECS-02 for resources, and the same test applies.
 **Check:** for each resource, list the systems that write each field. Fields with disjoint writers
 are separate resources.
 
-### BV-STATE-08 [S] Persist a settings resource with `#[derive(SettingsGroup)]`
+### BV-STATE-09 [S] Persist a settings resource with `#[derive(SettingsGroup)]`
 
 `bevy_settings`'s `SettingsPlugin` loads a resource from the platform's own preferences directory at
 startup, and gives you two commands to write it back. It replaces the load system, the path
@@ -303,12 +309,12 @@ bespoke format nobody else can read.
 
 **Check:** does anything in the game still build a config path, or serialise settings by hand? Both
 are what this replaces. Then find the save: a `SettingsGroup` with no `SaveSettings*` anywhere is a
-resource that loads once and never persists a change. BV-STATE-07 still governs what goes in:
+resource that loads once and never persists a change. BV-STATE-08 still governs what goes in:
 settings are configuration, so progress does not belong in the same type.
 
 ## States
 
-### BV-STATE-09 [M] Model the phases of the game as a `States` enum
+### BV-STATE-10 [M] Model the phases of the game as a `States` enum
 
 Menu, loading, playing, paused, game over. `#[derive(States)]` with `Default` on the first phase.
 Loading is one of them, with somewhere to go when it fails: an entry, a progress condition, an exit
@@ -349,7 +355,7 @@ impl Plugin for ScreenPlugin {
 }
 ```
 
-### BV-STATE-10 [M] Derive a dependent state rather than keeping two in step
+### BV-STATE-11 [M] Derive a dependent state rather than keeping two in step
 
 If "is the world simulating" is a function of the screen and the pause flag, it is a
 `ComputedStates` impl, not a third state somebody has to remember to set.
@@ -451,7 +457,7 @@ mod tests {
 }
 ```
 
-### BV-STATE-11 [S] Use `SubStates` for a phase that only exists inside another
+### BV-STATE-12 [S] Use `SubStates` for a phase that only exists inside another
 
 Paused, inventory-open and dialogue-open exist only while playing. `#[derive(SubStates)]` with
 `#[source(Screen = Screen::Playing)]` says so.
@@ -463,7 +469,7 @@ sub-state's `OnExit`, which cleans up the pause overlay without anyone writing t
 **Check:** for each state, ask whether every variant is meaningful in every variant of every other
 state. Where it is not, one is a sub-state of the other.
 
-### BV-STATE-12 [M] Register every state exactly once
+### BV-STATE-13 [M] Register every state exactly once
 
 `init_state` for a root state, `add_sub_state` for a sub-state, `add_computed_state` for a computed
 one — each called once, in the plugin that defines the type.
@@ -477,7 +483,7 @@ derive.
 
 ## Transitions
 
-### BV-STATE-13 [M] Put setup in `OnEnter` and teardown in `OnExit`
+### BV-STATE-14 [M] Put setup in `OnEnter` and teardown in `OnExit`
 
 `app.add_systems(OnEnter(Screen::Playing), spawn_level)` and the matching `OnExit`.
 
@@ -584,7 +590,7 @@ mod tests {
 }
 ```
 
-### BV-STATE-14 [M] Scope an entity to a state with `DespawnOnExit`
+### BV-STATE-15 [M] Scope an entity to a state with `DespawnOnExit`
 
 Spawn level entities with `DespawnOnExit(Screen::Playing)` rather than writing a system that queries
 and despawns them.
@@ -634,7 +640,7 @@ impl Plugin for LevelPlugin {
 }
 ```
 
-### BV-STATE-15 [M] Write the next state through `NextState`, never `State`
+### BV-STATE-16 [M] Write the next state through `NextState`, never `State`
 
 `next.set(Screen::Menu)` on a `ResMut<NextState<Screen>>`. `State<S>` has no setter, but
 `State::new` is public, so `*state = State::new(S)` through a `ResMut<State<S>>` compiles — and
@@ -716,7 +722,7 @@ mod tests {
 }
 ```
 
-### BV-STATE-16 [M] Guard a repeated `set` with `set_if_different`
+### BV-STATE-17 [M] Guard a repeated `set` with `set_if_different`
 
 `next.set(S)` runs `OnExit(S)` and `OnEnter(S)` even when the current state is already `S`. A system
 that calls `set` every frame must use `set_if_different`. `NextState::set_if_neq` and its relatives
@@ -813,7 +819,7 @@ mod tests {
 }
 ```
 
-### BV-STATE-17 [S] Keep a transition's work bounded
+### BV-STATE-18 [S] Keep a transition's work bounded
 
 `OnEnter` runs between frames, so everything in it is a frame the player does not get. Spawn what
 must exist; stream the rest.
@@ -825,7 +831,7 @@ behind a loading state's progress bar, keeps the hitch constant.
 **Check:** time the transition on the slowest supported machine. Anything over a frame's budget
 needs splitting.
 
-### BV-STATE-18 [M] Do not assume a transition happens in the frame that requested it
+### BV-STATE-19 [M] Do not assume a transition happens in the frame that requested it
 
 `next.set(…)` records a request. The state has not changed when the next line runs: the transition
 is applied in the `StateTransition` schedule, after `PreUpdate` and before `RunFixedMainLoop` and

@@ -5,10 +5,6 @@ pin the engine, which of the other standard's lints have to be relaxed and why, 
 Everything general about manifests, features, semver and CI is unchanged and lives in the other
 standard; this chapter is the Bevy delta.
 
-Two lints are relaxed here and no others. Both were measured against a representative plugin rather
-than assumed, and the measurement is stated with the rule, because "clippy is too strict for Bevy"
-is the usual justification for an allow list forty entries long that hides real defects.
-
 ## Contents
 
 - **The dependency**
@@ -27,13 +23,11 @@ is the usual justification for an allow list forty entries long that hides real 
   - BV-BUILD-11 [S] Take the overlays from `bevy_dev_tools`, behind the feature BV-BUILD-10 asks for
 
 - **Lints**
-  - BV-BUILD-12 [M] Allow `elided_lifetimes_in_paths`, with the reason in the table
-  - BV-BUILD-13 [M] Allow `clippy::needless_pass_by_value`, with the reason in the table
-  - BV-BUILD-14 [M] Keep `type_complexity` and `too_many_arguments` on, and allow nothing unmeasured
+  - BV-BUILD-12 [M] Relax `elided_lifetimes_in_paths` and `needless_pass_by_value`, and nothing else
 
 - **CI**
-  - BV-BUILD-15 [M] Build the feature set you ship
-  - BV-BUILD-16 [S] Build the wasm target if the game ships to the web
+  - BV-BUILD-13 [M] Build the feature set you ship
+  - BV-BUILD-14 [S] Build the wasm target if the game ships to the web
 
 - Decided by tools
 
@@ -200,7 +194,7 @@ inspector or editor is on by default and should not be.
 `bevy_dev_tools`. Name its feature alongside the collection, inside the dev feature — never in the
 default list. A feature named *beside* a collection keeps the collection's guarantee and is not the
 hand-picked list BV-BUILD-03 governs; the same shape serves any feature outside the collections,
-`bevy_settings` among them (BV-STATE-08).
+`bevy_settings` among them (BV-STATE-09).
 
 The `render_dev_tools` feature, which bevy's `dev` collection includes, puts
 `RenderDebugOverlayPlugin` into `DefaultPlugins`, disabled at runtime by default and with its keys
@@ -230,49 +224,28 @@ dev = ["bevy/bevy_dev_tools", "bevy/bevy_ui_debug"]
 
 ## Lints
 
-### BV-BUILD-12 [M] Allow `elided_lifetimes_in_paths`, with the reason in the table
+### BV-BUILD-12 [M] Relax `elided_lifetimes_in_paths` and `needless_pass_by_value`, and nothing else
 
-`elided_lifetimes_in_paths = "allow"` in the `[lints.rust]` table, with a comment saying why. The
-compliant form exists and compiles — `Query<'_, '_, &mut Shield>` and `Res<'_, Time>` are valid
-system parameters — and the comment says so, rather than letting a reader think it impossible.
+Of `rust-style`'s lint table, two entries are `allow` here, each with a comment saying which kind of
+divergence it is. `elided_lifetimes_in_paths` fires on every system parameter, because each carries
+the world and state lifetimes — fourteen warnings in one five-system plugin — and its compliant
+form, `Query<'_, '_, &mut Shield>` or `Res<'_, Time>`, compiles and buys two apostrophes: a noise
+judgement. `clippy::needless_pass_by_value` fires on every `Res<T>` a system does not consume, and
+its suggestion, `&Res<'_, T>`, is not a `SystemParam`, so following it is `E0277` at `add_systems`:
+an impossibility. A third allow states what these two state — the Bevy API that forces it, the
+count, and whether a compliant form exists — and `type_complexity` and `too_many_arguments`, which
+upstream Bevy allows, have one each (BV-ECS-19, BV-SCHED-10), so they stay on.
 
-**Why:** it fires on every system parameter — `Query`, `Res`, `Commands`, `MessageReader`, `Local` —
-because each carries the world and state lifetimes: fourteen warnings in one five-system plugin. The
-fix buys nothing but two apostrophes on every parameter of every system in the game.
+**Why:** an allow list starts with an entry copied from upstream "because Bevy" and dies one
+plausible entry at a time: `redundant_clone`, `float_cmp` and `expect_used` are each allowed for
+Bevy somewhere, and none of them has anything to do with it.
 
-**Check:** is the entry present, and does the comment beside it say that the compliant form exists?
-An allow with no reason is the thing this rule exists to prevent.
-
-### BV-BUILD-13 [M] Allow `clippy::needless_pass_by_value`, with the reason in the table
-
-`needless_pass_by_value = "allow"` in `[lints.clippy]`, with a comment saying it has no compliant
-form.
-
-**Why:** it fires on every `Res<T>` parameter a system does not consume, and its suggestion does not
-compile: `&Res<'_, T>` is not a `SystemParam`, so following it is `E0277` at `add_systems`. Bevy
-makes this entry impossible rather than merely noisy, and the comment says which of the two it is.
-
-**Check:** is the entry present? Then check nothing else from `pedantic` has been allowed alongside
-it — this is the one.
-
-### BV-BUILD-14 [M] Keep `type_complexity` and `too_many_arguments` on, and allow nothing unmeasured
-
-Both fire on ordinary Bevy code — `type_complexity` on a query with two data items and two filters,
-`too_many_arguments` at eight parameters — and both have a compliant form that is better code: a
-`type` alias named from the domain (BV-ECS-19) and `#[derive(SystemParam)]` (BV-SCHED-09). A third
-allow beside BV-BUILD-12 and BV-BUILD-13 needs what they have: the code that triggers it, the count,
-and whether a compliant form exists.
-
-**Why:** upstream Bevy allows both, and copying that is where most allow lists start. A list then
-dies one plausible entry at a time: `redundant_clone`, `float_cmp` and `expect_used` are all allowed
-"because Bevy", and none of them has anything to do with Bevy.
-
-**Check:** grep the lint table for either name; their presence is the defect. For any other allow,
-name the Bevy API that forces it. If the answer is the game's own code, it is a defect list.
+**Check:** the `allow` entries of the lint table are these two, each with its comment; for any
+other, name the Bevy API that forces it — if the answer is the game's own code, it is a defect.
 
 ## CI
 
-### BV-BUILD-15 [M] Build the feature set you ship
+### BV-BUILD-13 [M] Build the feature set you ship
 
 If the release build uses `default-features = false` and a list, CI builds that list. Building only
 the default feature set proves nothing about the artefact. This is the configuration of
@@ -285,7 +258,7 @@ fastest, because the compiler never sees it.
 **Check:** compare the feature list in the CI job with the one in the release manifest or workflow.
 They should be the same string; `assets/ci.yml` has the job.
 
-### BV-BUILD-16 [S] Build the wasm target if the game ships to the web
+### BV-BUILD-14 [S] Build the wasm target if the game ships to the web
 
 `cargo build --target wasm32-unknown-unknown` in CI, with the same features as the web build.
 
@@ -303,4 +276,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
 | clippy | `type_complexity` | warn | a query type complex enough to need a `type` alias (BV-ECS-19) |
-| clippy | `too_many_arguments` | warn | a system with eight or more parameters — group them with `#[derive(SystemParam)]` (BV-SCHED-09) |
+| clippy | `too_many_arguments` | warn | a system with eight or more parameters — group them with `#[derive(SystemParam)]` (BV-SCHED-10) |

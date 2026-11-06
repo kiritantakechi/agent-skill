@@ -189,7 +189,7 @@ PROFILE = Profile(
     # fixture, not the pattern.
     fires=keyed(
         {
-            "BV-EVENT-09": ("commands.trigger_targets(Damage(5), target);",),
+            "BV-EVENT-08": ("commands.trigger_targets(Damage(5), target);",),
             "BV-MIG-14": (
                 "fn on_enemy_added(add: On<Add, Enemy>, mut commands: Commands) {",
                 (
@@ -233,7 +233,7 @@ PROFILE = Profile(
     # `sensitivity` insists on, so the list only shrinks.
     unproven=rules(
         "BV-ARCH-09",
-        "BV-EVENT-14",
+        "BV-EVENT-13",
         "BV-MIG-01",
         "BV-MIG-03",
         "BV-MIG-04",
@@ -271,24 +271,24 @@ PROFILE = Profile(
                 "where the call's meaning changed, decides — and the type is not on "
                 "the line",
             ),
-            "BV-SCHED-08": NotDecisive(
+            "BV-SCHED-09": NotDecisive(
                 "just_pressed",
                 "the span finds every input read; whether the system runs in "
                 "`FixedUpdate` rather than `Update` decides, and the schedule is not "
                 "on the line",
             ),
-            "BV-SCHED-12": NotDecisive(
+            "BV-SCHED-13": NotDecisive(
                 "configure_sets",
                 "the span finds every set configuration; whether that set is "
                 "configured more than once decides, which is a fact about the whole "
                 "file",
             ),
-            "BV-SCHED-23": NotDecisive(
+            "BV-SCHED-24": NotDecisive(
                 "run_if",
                 "the span finds every run condition; whether it gates on a `paused` "
                 "flag rather than on `Time<Virtual>` decides",
             ),
-            "BV-STATE-03": NotDecisive(
+            "BV-STATE-04": NotDecisive(
                 "insert_resource",
                 "the span finds every `insert_resource`; whether it is inside a "
                 "`Startup` system, and whether the value depends on the world, decides",

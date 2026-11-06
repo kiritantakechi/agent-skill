@@ -300,12 +300,12 @@ BEVY = Library(
 #:     impossibility (BV-BUILD-12).
 #:   * `needless_pass_by_value` fires on every `Res<T>`, and its
 #:     suggestion does not compile: `&Res<'_, T>` is not a `SystemParam`
-#:     (E0277). This one has no compliant form (BV-BUILD-13).
+#:     (E0277). This one has no compliant form (BV-BUILD-12).
 #:
 #: `type_complexity` and `too_many_arguments` also fire on ordinary Bevy
 #: code and are deliberately **not** here: a `type` alias and
 #: `#[derive(SystemParam)]` silence them, and both are the better code
-#: (BV-ECS-19, BV-SCHED-09).
+#: (BV-ECS-19, BV-SCHED-10).
 BEVY_STYLE = RustCrate(
     name="bevy-style-verify",
     library=BEVY,

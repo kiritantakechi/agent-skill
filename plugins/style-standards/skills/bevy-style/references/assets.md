@@ -7,7 +7,7 @@ this chapter is about the handles.
 ## Contents
 
 - **Handles**
-  - BV-ASSET-01 [M] Treat a handle as a reference count, not a path
+  - BV-ASSET-01 [M] Hold a strong handle exactly as long as the asset is needed
   - BV-ASSET-02 [M] Load once and store the handle, never per frame
   - BV-ASSET-03 [S] Reach for `uuid_handle!` only for a built-in
 
@@ -21,23 +21,25 @@ this chapter is about the handles.
 - **Change and lifetime**
   - BV-ASSET-09 [M] React to `AssetEvent`, not to a per-frame comparison
   - BV-ASSET-10 [S] Keep hot reload working by loading through the server
-  - BV-ASSET-11 [M] Do not hold a strong handle to something the game has finished with
 
 ---
 
 ## Handles
 
-### BV-ASSET-01 [M] Treat a handle as a reference count, not a path
+### BV-ASSET-01 [M] Hold a strong handle exactly as long as the asset is needed
 
 A strong `Handle<T>` is a reference count: every clone keeps the asset alive, the one in an entity's
-component included, and dropping the last one frees it.
+component included, and dropping the last one frees it. Keep one wherever the asset is still to be
+used, and let it go with what used it: when a level ends, its handle resource goes with it.
 
-**Why:** the trap is the handle nothing else holds — a preload whose handle is discarded, or an
-`AssetId` kept in its place. Its drop cancels the load or frees the asset, so the next `load` of the
-path reads the disk again and the id finds nothing: a hitch or a missing texture, never an error.
+**Why:** a handle nothing holds — a preload whose handle is discarded, or an `AssetId` kept in its
+place — cancels the load or frees the asset, so the next `load` reads the disk again. A handle held
+past its use, in a `HashMap<String, Handle<Image>>` only ever inserted into, is memory no detector
+reports, because nothing leaked.
 
-**Check:** for each `AssetServer::load`, follow the handle. If it is not stored anywhere that
-outlives its use, the asset can be dropped.
+**Check:** for each `AssetServer::load`, follow the handle: it is stored somewhere that outlives its
+use. For each collection of handles, find the removal: a collection with no remove is a cache with
+no eviction.
 
 ### BV-ASSET-02 [M] Load once and store the handle, never per frame
 
@@ -385,15 +387,3 @@ most want to edit while the game runs.
 
 **Check:** grep for `std::fs`, `File::open` and `include_str!` on anything under the asset
 directory.
-
-### BV-ASSET-11 [M] Do not hold a strong handle to something the game has finished with
-
-When a level ends, its handle resource goes with it. A handle held in a resource that outlives the
-level keeps the level in memory.
-
-**Why:** handles are the only thing keeping an asset loaded, so an accumulating collection of them
-is an accumulating memory footprint with no other symptom — no leak detector fires, because nothing
-leaked. The usual shape is a `HashMap<String, Handle<Image>>` that is only ever inserted into.
-
-**Check:** for each collection of handles, find the removal. A collection with no remove is a cache
-with no eviction.

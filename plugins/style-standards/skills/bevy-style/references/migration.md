@@ -577,16 +577,16 @@ the same list, to read before writing code; this is the one to grep with.
 
 | Changed | Find it with | Rule |
 |---|---|---|
-| 0.18: `next.set(S)` runs `OnExit(S)` and `OnEnter(S)` when the state is already `S` | `rg -n 'next.*\.set\(' src/`, then ask whether each can run in that state | BV-STATE-16 |
+| 0.18: `next.set(S)` runs `OnExit(S)` and `OnEnter(S)` when the state is already `S` | `rg -n 'next.*\.set\(' src/`, then ask whether each can run in that state | BV-STATE-17 |
 | 0.18: Bevy adds and updates the `Aabb` of meshes and sprites, so code that writes one fights the engine | `rg -n 'Aabb' src/` for a write | BV-VIEW-16 |
 | 0.19: `AssetEvent::Modified` fires only on an actual mutation, so a `get_mut` that only reads no longer raises it | `rg -n 'AssetEvent' src/`, then whether each reaction relied on a read through `get_mut` | BV-ASSET-09 |
 | 0.19: bloom computes its luminance in linear, so a tint tuned against sRGB luminance blooms more | `rg -n 'Bloom' src/`, then each tint against a linear judgement | BV-VIEW-11 |
-| 0.19: a resource is a component on an entity of its own, and `Query<Entity>`, `Query<EntityRef>` and `Query<EntityMut>` match that entity — a sweep that despawns what it matches panics under the default error handler, `Query<EntityMut>` beside a `Res` panics with B0002, and a resource type spawned on a second entity is stripped from it with a warning | `rg -n 'Query<Entity' src/`, then whether each excludes resource entities | BV-STATE-01 |
+| 0.19: a resource is a component on an entity of its own, and `Query<Entity>`, `Query<EntityRef>` and `Query<EntityMut>` match that entity — a sweep that despawns what it matches panics under the default error handler, `Query<EntityMut>` beside a `Res` panics with B0002, and a resource type spawned on a second entity is stripped from it with a warning | `rg -n 'Query<Entity' src/`, then whether each excludes resource entities | BV-STATE-02 |
 | 0.19: `Ref<T>` implements `Clone`, so `.clone()` on one is another `Ref` | `.clone()` on anything of type `Ref<` | BV-MIG-18 |
 | 0.20: `iter_many` and its variants yield `Result`, so `.count()` and `for _ in` take ids the query does not match | `rg -n 'iter_many' src/`, then whether each call counts or handles each `Result` | BV-ECS-20 |
 | 0.20: a panic in a system, observer or command reaches the fallback error handler | the handler given to `set_error_handler`, for a re-panic on a panic payload | BV-ERR-05 |
 | 0.20: `EditableText` without `TextInput` spawns and ignores the keyboard | `rg -n 'EditableText' src/` for a spawn with no `TextInput` | BV-VIEW-08 |
-| 0.20: inside `UiSystems` and the render sets, systems the ECS sees no conflict between are unordered | each system placed there, for state shared outside the ECS | BV-SCHED-13 |
+| 0.20: inside `UiSystems` and the render sets, systems the ECS sees no conflict between are unordered | each system placed there, for state shared outside the ECS | BV-SCHED-14 |
 
 ### BV-MIG-18 [M] Re-read every `Ref` that is cloned
 

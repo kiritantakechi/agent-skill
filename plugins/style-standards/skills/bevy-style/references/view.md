@@ -35,9 +35,8 @@ chapter: most of the types it removes and renames are ones this chapter spawns.
 - **Materials and debugging**
   - BV-VIEW-17 [S] Reach for a custom `Material` before a custom render node
   - BV-VIEW-18 [M] Keep shader paths and material types together
-  - BV-VIEW-19 [S] Debug in world space with gizmos
+  - BV-VIEW-19 [S] Draw lines and debug text with a gizmo, not with entities you despawn
   - BV-VIEW-20 [S] Reach for a post-process component before a full-screen pass
-  - BV-VIEW-21 [S] Draw with a retained gizmo before a sprite you have to despawn
 
 ---
 
@@ -133,7 +132,7 @@ fn stack_when_narrow(hud: Res<Hud>, mut bars: Query<&mut Node, With<HudBar>>) {
 
 /// The plugin's published ordering surface. Anything that needs to run after the
 /// bar has been restacked — another plugin, or the test below — names this, never
-/// `stack_when_narrow`, which stays free to be renamed or split (BV-SCHED-11).
+/// `stack_when_narrow`, which stays free to be renamed or split (BV-SCHED-12).
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HudSystems {
     /// Rewrites the bar's `flex_direction` from `Hud::compact`.
@@ -943,17 +942,19 @@ one side is visibly missing on the other.
 **Check:** for each `impl Material`, is the shader path within sight of the struct definition, and
 does the struct's field order match the shader's?
 
-### BV-VIEW-19 [S] Debug in world space with gizmos
+### BV-VIEW-19 [S] Draw lines and debug text with a gizmo, not with entities you despawn
 
-`Gizmos::line`, `circle`, `cube`, `text` and `text_2d`. Not a spawned `Text2d` that has to be
-despawned.
+For one frame, `Gizmos::line`, `circle`, `cube`, `text` and `text_2d` from the system that wants
+them — not a spawned `Text2d` that has to be despawned. For a drawing that outlives the frame — a
+map, an orbit, a selection ring, a persistent debug overlay — a retained `Gizmo` with a
+`GizmoAsset`, edited when its subject changes, rather than untextured sprites respawned every frame.
 
-**Why:** gizmos are immediate-mode: drawn for one frame from the system that wants them, with no
-entity to create, position, update or clean up. The spawned alternative outlives its usefulness by
-default, which is why debug text has a habit of shipping.
+**Why:** an immediate gizmo has no entity to create, position or clean up, and a retained one is
+built once; the spawned alternative outlives its usefulness by default, which is why debug text
+ships, and a respawn loop allocates and defeats change detection every frame.
 
-**Check:** grep for spawned entities whose only purpose is debugging. Anything that has to be
-despawned to stop showing is a gizmo written the long way.
+**Check:** find every system that spawns entities only to show a debug value, and every one that
+begins by despawning what it is about to respawn. Each is a gizmo written the long way.
 
 ### BV-VIEW-20 [S] Reach for a post-process component before a full-screen pass
 
@@ -970,16 +971,3 @@ components fill that gap with no dependency the game does not already have.
 
 **Check:** for each custom full-screen pass, name the shipped component it reimplements. If there is
 none, that is the case BV-VIEW-17 was talking about.
-
-### BV-VIEW-21 [S] Draw with a retained gizmo before a sprite you have to despawn
-
-`Gizmo` plus a `GizmoAsset` is a line drawing that persists as an entity. Reach for it before
-spawning untextured sprites you redraw every frame — for a map, an orbit, a selection ring, or a
-debug overlay that has to survive the frame.
-
-**Why:** the default for a drawing that outlives the frame is a despawn loop and a fresh sprite per
-element per frame, which allocates, defeats change detection, and leaves nothing to pick or query. A
-retained gizmo is built once and edited when its subject changes.
-
-**Check:** find every system that begins by despawning what it is about to respawn. Each is either a
-retained gizmo or a set of entities that should have persisted.

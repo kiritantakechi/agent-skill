@@ -1,7 +1,7 @@
 ---
 name: bevy-style
 description: >-
-  The Bevy 0.20 engineering standard — a 194-rule delta on top of rust-style covering the ECS,
+  The Bevy 0.20 engineering standard — a 190-rule delta on top of rust-style covering the ECS,
   scheduling, observers and messages, states and resources, assets, error handling, Cargo features
   and the Bevy lint divergences, the user-facing half of UI and rendering, testing, and a forbidden
   API table spanning 0.15 through 0.20. Its spine is keeping the rules of the game out of the
@@ -83,7 +83,7 @@ proceed with the stricter reading.
 1. **Setting the same state now runs the transition.** Since 0.18, `next_state.set(S)` fires
    `OnExit(S)` and `OnEnter(S)` even when the current state is already `S`. Code that called `set`
    every frame used to be free and now re-runs every setup and teardown system in the game.
-   `set_if_different` is the old behaviour (BV-STATE-16).
+   `set_if_different` is the old behaviour (BV-STATE-17).
 2. **Bevy maintains `Aabb`.** Since 0.18 it adds and updates the `Aabb` of meshes and sprites, so a
    system that removes or recomputes one fights the engine (BV-VIEW-16).
 3. **`Ref<T>` now clones the `Ref`, not the `T`.** 0.19 gave `Ref` its own `Clone` and `Copy`. A
@@ -95,7 +95,7 @@ proceed with the stricter reading.
    A sweep that despawns everything it matches takes the resources with it, which Bevy warns about
    and then panics on under the default error handler; `Query<EntityMut>` beside any `Res` panics
    with B0002; and a resource type spawned on a second entity is stripped from it with only a
-   warning. Filter such a query with `Without<IsResource>` (BV-STATE-01).
+   warning. Filter such a query with `Without<IsResource>` (BV-STATE-02).
 5. **`AssetEvent::Modified` needs a real mutation.** Since 0.19 a `get_mut` that only reads raises
    none, so a reaction that relied on it stops firing (BV-ASSET-09).
 6. **Bloom judges luminance in linear.** Since 0.19, a tint tuned against sRGB luminance blooms more
@@ -110,7 +110,7 @@ proceed with the stricter reading.
    which requires it, under `TextInputPlugin` (BV-VIEW-08).
 10. **The engine's own set chains are weak.** Inside `PostUpdate`'s `UiSystems` and the render
     schedules, systems with no conflict the ECS can see are no longer ordered, so one relying on
-    hidden ordering can race (BV-SCHED-13).
+    hidden ordering can race (BV-SCHED-14).
 
 `references/migration.md` keeps the same list with a search for each, under "Changes that do not
 show up as a compile error".
@@ -169,7 +169,7 @@ Nothing else is relaxed: a divergence not listed here is a defect, not a dialect
 | RS-API-53 Decide `#[non_exhaustive]` for every published enum and struct | BV-ECS-05 — components are exhaustive | Struct-literal construction is how components are spawned, and `#[non_exhaustive]` forbids it outside the defining crate. Required components are the growth mechanism instead. |
 
 Two rows that look like they belong here and do not. RS-BUILD-24 asks for `pedantic` at warn and
-allows "individual lints with a comment giving the reason" — which is exactly what BV-BUILD-13 does,
+allows "individual lints with a comment giving the reason" — which is exactly what BV-BUILD-12 does,
 so allowing `needless_pass_by_value` with its reason obeys that rule rather than overriding it. And
 RS-BUILD-21 is titled "never pin exact versions *in a library*"; BV-BUILD-04 pins in a game binary
 and keeps the caret for anything published, so the two never meet.
@@ -205,16 +205,16 @@ own crates `mygame_combat` — packages published from this standard use hyphens
 - **Scheduling: Schedules, Sets, Ordering, Run Conditions, Time**
   - BV-SCHED-01 [M] Simulate in `FixedUpdate`, present in `Update`
   - BV-SCHED-05 [M] Take the delta from the schedule's own clock
-  - BV-SCHED-08 [M] Never read per-frame input from a fixed-rate schedule
-  - BV-SCHED-09 [M] Group system parameters by what they are together
-  - BV-SCHED-11 [M!] Express ordering through named sets
-  - BV-SCHED-15 [M] Express a precondition as a run condition, not an early return
+  - BV-SCHED-09 [M] Never read per-frame input from a fixed-rate schedule
+  - BV-SCHED-10 [M] Group system parameters by what they are together
+  - BV-SCHED-12 [M!] Express ordering through named sets
+  - BV-SCHED-16 [M] Express a precondition as a run condition, not an early return
 - **Events: Messages, Events, Entity Events, Observers**
   - BV-EVENT-01 [M] Send a `Message` to fan out, trigger an `Event` to react
   - BV-EVENT-03 [M] Do not derive both `Message` and `Event` on one type
   - BV-EVENT-04 [M] Register a message type with `add_message`
-  - BV-EVENT-09 [M] Give an event about one entity the `EntityEvent` derive and an entity field
-  - BV-EVENT-10 [M] Read the target from the named field
+  - BV-EVENT-08 [M] Give an event about one entity the `EntityEvent` derive and an entity field
+  - BV-EVENT-09 [M] Read the target from the named field
 - **Errors: Fallible Systems, the Error Handler, Panicking APIs**
   - BV-ERR-01 [M!] Return `Result` from a system that can fail
   - BV-ERR-05 [M] Choose the fallback error handler deliberately
@@ -223,9 +223,7 @@ own crates `mygame_combat` — packages published from this standard use hyphens
   - BV-BUILD-02 [M] Start from a feature collection
   - BV-BUILD-03 [M] Hand-pick features only against a recorded measurement
   - BV-BUILD-04 [M] Pin Bevy exactly in a binary and with a caret in a library
-  - BV-BUILD-12 [M] Allow `elided_lifetimes_in_paths`, with the reason in the table
-  - BV-BUILD-13 [M] Allow `clippy::needless_pass_by_value`, with the reason in the table
-  - BV-BUILD-14 [M] Keep `type_complexity` and `too_many_arguments` on, and allow nothing unmeasured
+  - BV-BUILD-12 [M] Relax `elided_lifetimes_in_paths` and `needless_pass_by_value`, and nothing else
 
 ## 5. Review checklist
 
@@ -238,9 +236,9 @@ protocol — severity model, mechanical pass, output format — in `references/r
 3. **Errors and panics.** Does every fallible system return `Result`, and does the release error
    handler still end the app on a caught panic? (BV-ERR-01, BV-ERR-05)
 4. **Change detection.** Is any `Changed<T>` watching something written unconditionally? (BV-ECS-24)
-5. **Ordering.** Is ordering expressed in sets, not against a system function? (BV-SCHED-11)
-6. **Run conditions and state.** Would each new system be skipped when it should be? (BV-SCHED-15,
-   BV-STATE-14)
+5. **Ordering.** Is ordering expressed in sets, not against a system function? (BV-SCHED-12)
+6. **Run conditions and state.** Would each new system be skipped when it should be? (BV-SCHED-16,
+   BV-STATE-15)
 7. **Reflection.** Does each new component derive `Reflect`, and is each generic instantiation
    registered? (BV-ECS-03, BV-ECS-12)
 8. **Tests.** Is the rule tested without an `App`, and the plugin with the smallest one?
@@ -252,20 +250,20 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-194 rules live here; section 4 lists by ID those that bind on their own.
+190 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
 | `references/architecture.md` | `BV-ARCH` (17) | The boundary between the game and the engine, the shape of a plugin and what it registers, and the `App` and its binary |
-| `references/ecs.md` | `BV-ECS` (30) | Components and required components, queries and filters, change detection, relationships, and reflection |
-| `references/scheduling.md` | `BV-SCHED` (23) | Schedules and the fixed timestep, system sets and ordering, run conditions, time, and input |
-| `references/events.md` | `BV-EVENT` (19) | Messages, events and entity events, observers and propagation, and the lifecycle events |
-| `references/state.md` | `BV-STATE` (18) | Resources, `States` and their transitions, and what a state scopes |
+| `references/ecs.md` | `BV-ECS` (29) | Components and required components, queries and filters, change detection, relationships, and reflection |
+| `references/scheduling.md` | `BV-SCHED` (24) | Schedules and the fixed timestep, system sets and ordering, run conditions, time, and input |
+| `references/events.md` | `BV-EVENT` (18) | Messages, events and entity events, observers and propagation, and the lifecycle events |
+| `references/state.md` | `BV-STATE` (19) | Resources, `States` and their transitions, and what a state scopes |
 | `references/errors.md` | `BV-ERR` (11) | Fallible systems, observers and commands, the fallback error handler, and the APIs that panic |
-| `references/assets.md` | `BV-ASSET` (11) | Handles and loading, hot reload, asset events, and asset lifetime |
-| `references/build.md` | `BV-BUILD` (16) | Feature collections, the exact Bevy pin, the lint divergences from rust-style, and CI |
+| `references/assets.md` | `BV-ASSET` (10) | Handles and loading, hot reload, asset events, and asset lifetime |
+| `references/build.md` | `BV-BUILD` (14) | Feature collections, the exact Bevy pin, the lint divergences from rust-style, and CI |
 | `references/migration.md` | `BV-MIG` (18) | Every API forbidden since 0.15 and what replaces it, and the changes that still compile |
-| `references/view.md` | `BV-VIEW` (21) | UI nodes and layout, text, cameras, materials and shaders, post-processing, and gizmos |
+| `references/view.md` | `BV-VIEW` (20) | UI nodes and layout, text, cameras, materials and shaders, post-processing, and gizmos |
 | `references/testing.md` | `BV-TEST` (10) | Headless apps, deterministic fixed steps, and what a test asserts |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, mechanical pass, output format, and the order in which to refactor an existing game |
 
