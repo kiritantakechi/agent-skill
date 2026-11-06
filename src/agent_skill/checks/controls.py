@@ -375,6 +375,15 @@ def _no_uv_interpreter(tree: Path) -> Edited:
     return edit(tree, rel, line, "python --version", max(count, 1))
 
 
+#: What a row injected for a lint `ALL` sets says after what it forbids,
+#: so that the defect it carries is the only one.
+_LISTED = "— listed because a control says so"
+
+#: python-style's output chapter, and the relaxed form of its `[M!]`
+#: PS-OUT-04, which several controls edit.
+OUTPUT = f"{PY}/references/output.md"
+_DISPLAY = "*Relaxed form:* `replace` at a display boundary, without a comment."
+
 #: The head of a chapter's `Decided by tools` table. A chapter has one,
 #: so a row is injected under it: a second table is not read.
 _TABLE = "| Tool | Lint | Level | Forbids |\n|---|---|---|---|\n"
@@ -534,7 +543,7 @@ def _duplicate_id(tree: Path) -> Edited:
         *edit(
             tree, f"{PY}/references/migration.md", "PS-MIG-08 [M]", "PS-ASYNC-01 [M]", 2
         ),
-        *edit(tree, md, "`PS-MIG` (9)", "`PS-MIG` (8)"),
+        *edit(tree, md, "`PS-MIG` (8)", "`PS-MIG` (7)"),
         *edit(tree, md, "`PS-ASYNC` (18)", "`PS-ASYNC` (19)"),
     )
 
@@ -927,8 +936,10 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        # A chapter none of whose rules section 4 lists: renaming one it
+        # lists leaves section 4 naming rules no mapped chapter holds.
         skeleton.CHAPTER_NAME,
-        lambda t: move(t, f"{PY}/references/async.md", "asyncio.md"),
+        lambda t: move(t, f"{PY}/references/performance.md", "perf.md"),
     ),
     Control(
         skeleton.FAMILY,
@@ -951,12 +962,15 @@ CONTROLS: list[Control] = [
     Control(
         # A table the migration chapter keeps for itself, which `revise`
         # would not carry through a revision.
+        # Before `Decided by tools`, which a chapter states last.
         skeleton.RENAME_ELSEWHERE,
-        lambda t: append(
+        lambda t: edit(
             t,
             f"{PY}/references/migration.md",
+            "\n## Decided by tools\n",
             "\n## Rule IDs before the Python 3.14 revision\n\n"
-            "Before the revision the families ran `PS-MIG-01`.\n",
+            "Before the revision the families ran `PS-MIG-01`.\n\n"
+            "## Decided by tools\n",
         ),
     ),
     Control(
@@ -1052,18 +1066,29 @@ CONTROLS: list[Control] = [
         anatomy.RELAXED_LABEL,
         lambda t: edit(
             t,
-            f"{PY}/references/output.md",
-            "*Relaxed form:* application code at a display boundary",
-            "**Relaxed form:** application code at a display boundary",
+            OUTPUT,
+            "*Relaxed form:* `replace` at a display boundary",
+            "**Relaxed form:** `replace` at a display boundary",
         ),
+        also={
+            anatomy.STRAY: (
+                "a label the rule shape has no element for is a block no element "
+                "holds, so a normalised standard reads it as stray as well"
+            )
+        },
     ),
     Control(
+        # An `[M!]` rule's relaxed form, moved after its Why: one on any
+        # other rule is `relaxed_tier`'s.
         anatomy.RELAXED_ORDER,
-        lambda t: edit(
-            t,
-            f"{PY}/references/naming.md",
-            "A name that is not a question is the finding.\n",
-            "A name that is not a question is the finding.\n\n*Relaxed form:* none.\n",
+        lambda t: (
+            *edit(t, OUTPUT, f"{_DISPLAY}\n\n", ""),
+            *edit(
+                t,
+                OUTPUT,
+                "process without one is the finding.\n",
+                f"process without one is the finding.\n\n{_DISPLAY}\n",
+            ),
         ),
     ),
     # A rule with no Why.
@@ -1135,12 +1160,18 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        # With its row: a rule set one by one is owed one.
         python.TY_UNVERIFIED,
-        lambda t: edit(
-            t,
-            f"{PY}/assets/ty.toml",
-            "[analysis]",
-            'redundant-cast = "error"\n\n[analysis]',
+        lambda t: (
+            *edit(
+                t,
+                f"{PY}/assets/ty.toml",
+                "[analysis]",
+                'redundant-cast = "error"\n\n[analysis]',
+            ),
+            *_row(
+                t, TESTING, "| ty | `redundant-cast` | error | a cast to its own type |"
+            ),
         ),
     ),
     Control(
@@ -1415,7 +1446,10 @@ CONTROLS: list[Control] = [
     Control(
         layout.TABLE_CELLS,
         lambda t: edit(
-            t, f"{PY}/SKILL.md", "`X \\| None`, `A \\| B`", "`X | None`, `A | B`"
+            t,
+            f"{PY}/references/types.md",
+            "`list` for `list[int]` |",
+            "`list` for `list[int] | None` |",
         ),
     ),
     Control(
@@ -1724,7 +1758,10 @@ CONTROLS: list[Control] = [
     Control(
         anatomy.CONTENTS_TITLE,
         lambda t: edit(
-            t, TESTING, "itself is not thread-safe", "itself is not thread safe"
+            t,
+            TESTING,
+            "in a test run on several threads",
+            "in a test run on many threads",
         ),
     ),
     Control(anatomy.CONTENTS_ORDER, _contents_swapped),
@@ -1732,9 +1769,9 @@ CONTROLS: list[Control] = [
         anatomy.NO_RELAXED,
         lambda t: edit(
             t,
-            f"{PY}/references/output.md",
-            "*Relaxed form:* application code at a display boundary",
-            "Application code at a display boundary",
+            OUTPUT,
+            "*Relaxed form:* `replace` at a display boundary",
+            "Outside a library, `replace` at a display boundary",
         ),
     ),
     Control(
@@ -1743,9 +1780,9 @@ CONTROLS: list[Control] = [
             t,
             TESTING,
             "PS-TEST-21",
-            "`capsys`, `monkeypatch` and `tmp_path` are not safe to use from "
-            "several threads, and the maintainers have said they do not intend "
-            "to make pytest thread-safe.",
+            "pytest itself is not thread-safe: those fixtures are not safe to use "
+            "from several threads, and the maintainers have said they do not "
+            "intend to make pytest so.",
         ),
     ),
     Control(
@@ -1760,6 +1797,12 @@ CONTROLS: list[Control] = [
     Control(
         anatomy.WRONG_CHAPTER,
         lambda t: append(t, TESTING, "\nSee `references/api.md` PS-TEST-01.\n"),
+        also={
+            anatomy.PATH_CITATION: (
+                "a normalised standard cites no rule behind a chapter's path, so "
+                "the wrong path is a path as well"
+            )
+        },
     ),
     Control(
         anatomy.CORE_UNCITED,
@@ -1789,7 +1832,7 @@ CONTROLS: list[Control] = [
     Control(
         anatomy.MAP_FAMILY,
         lambda t: (
-            *edit(t, f"{PY}/SKILL.md", "`PS-NAME` (21)", "`PS-NAME` (22)"),
+            *edit(t, f"{PY}/SKILL.md", "`PS-NAME` (17)", "`PS-NAME` (18)"),
             *edit(t, f"{PY}/SKILL.md", "`PS-TYPE` (20)", "`PS-TYPE` (19)"),
         ),
     ),
@@ -1808,7 +1851,9 @@ CONTROLS: list[Control] = [
     # citations
     Control(
         citations.ROW_TOOL,
-        lambda t: _row(t, TESTING, "| mypy | `strict` | error | an untyped call |"),
+        lambda t: _row(
+            t, TESTING, f"| mypy | `strict` | error | an untyped call {_LISTED} |"
+        ),
     ),
     Control(
         citations.ROW_LEVEL,
@@ -1827,18 +1872,26 @@ CONTROLS: list[Control] = [
         also={
             python.TY_UNVERIFIED: (
                 "a rule ty does not have is one no table of verified rules can name"
-            )
+            ),
+            citations.UNROWED: (
+                "a rule set one by one is owed a row, and a row naming a rule ty "
+                "does not have is `ty_row_unknown`'s"
+            ),
         },
     ),
     Control(
         python.RUFF_ROW_DISABLED,
         lambda t: _row(
-            t, TESTING, "| ruff | `COM812` | error | a missing trailing comma |"
+            t,
+            TESTING,
+            f"| ruff | `COM812` | error | a missing trailing comma {_LISTED} |",
         ),
     ),
     Control(
         python.TY_ROW_UNKNOWN,
-        lambda t: _row(t, TESTING, "| ty | `not-a-ty-rule` | error | nothing |"),
+        lambda t: _row(
+            t, TESTING, f"| ty | `not-a-ty-rule` | error | nothing {_LISTED} |"
+        ),
     ),
     Control(
         python.WITHDRAWN_CODE,
@@ -1850,16 +1903,31 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        # With its row, which would otherwise name a rule nothing sets.
         python.TY_UNSHIPPED,
-        lambda t: drop_line(t, f"{PY}/assets/ty.toml", "unsupported-dynamic-base = "),
+        lambda t: (
+            *drop_line(t, f"{PY}/assets/ty.toml", "unsupported-dynamic-base = "),
+            *drop_line(
+                t, f"{PY}/references/types.md", "| ty | `unsupported-dynamic-base`"
+            ),
+        ),
     ),
     Control(
+        # With its row, which states the level the configuration sets.
         python.TY_LEVEL,
-        lambda t: edit(
-            t,
-            f"{PY}/assets/ty.toml",
-            'unsupported-dynamic-base = "error"',
-            'unsupported-dynamic-base = "warn"',
+        lambda t: (
+            *edit(
+                t,
+                f"{PY}/assets/ty.toml",
+                'unsupported-dynamic-base = "error"',
+                'unsupported-dynamic-base = "warn"',
+            ),
+            *edit(
+                t,
+                f"{PY}/references/types.md",
+                "| ty | `unsupported-dynamic-base` | error |",
+                "| ty | `unsupported-dynamic-base` | warn |",
+            ),
         ),
     ),
     Control(rust.NO_CARGO_TOML, lambda t: remove(t, f"{RS}/assets/Cargo.toml")),
