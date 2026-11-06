@@ -10,9 +10,7 @@
 
 Rules are cited by ID: `{prefix}-`, then the family of the chapter that owns the rule, then its
 number. Section 6 maps each family to its chapter, so cite the ID when justifying a change and the
-reader can find the full rule and its rationale. When a rule in a chapter and a rule here appear to
-conflict, the chapter is the detailed statement and wins; sections 1 and 3 govern how to break a
-genuine tie.
+reader can find the full rule and its rationale. {conflict}
 
 …
 

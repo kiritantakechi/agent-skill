@@ -33,14 +33,17 @@ from agent_skill.doc.chapter import (
     DECIDED,
     RENAMED,
     Demoted,
+    Entry,
     Removed,
     history,
 )
+from agent_skill.doc.normal import listed, projection
 from agent_skill.ids import RuleId, cited, leading
 from agent_skill.model import REFERENCES, RENAMES_MD, SKILL_MD
 from agent_skill.report import Level, declare, fail
 lazy from agent_skill.doc import Block, Doc
 lazy from agent_skill.doc.chapter import RenameTable, Section
+lazy from agent_skill.doc.normal import Mapped
 lazy from agent_skill.model import Chapter, Skill
 lazy from agent_skill.report import Finding
 
@@ -88,6 +91,8 @@ CHAPTER_NAMED = declare("skeleton", "chapter_named", Level.FAIL)
 REALITY_SECTIONS = declare("skeleton", "reality_sections", Level.FAIL)
 REALITY_TABLE = declare("skeleton", "reality_table", Level.FAIL)
 REALITY_OWNER = declare("skeleton", "reality_owner", Level.FAIL)
+CORE_RULE = declare("skeleton", "core_rule", Level.FAIL)
+CORE_DRIFT = declare("skeleton", "core_drift", Level.FAIL)
 
 
 @check("skeleton", "every standard has the same shape")
@@ -404,6 +409,7 @@ def _normal_form(skill: Skill) -> Iterator[Finding]:
     yield from _template(skill)
     yield from _named(skill)
     yield from _reality(skill)
+    yield from _core(skill)
 
 
 #: What a chapter's scope opens with.
@@ -626,3 +632,79 @@ def _stated(block: Paragraph | ListBlock | Table) -> Iterator[tuple[int, str]]:
         case Table(rows=rows, line=line):
             for k, row in enumerate(rows):
                 yield line + 2 + k, " | ".join(row)
+
+
+def core_section(skill: Skill) -> Section | None:
+    """`SKILL.md`'s section 4, if it has one."""
+    title = shared.skill_sections(skill)[4]
+    return next((s for s in skill.typed.sections if s.title == title), None)
+
+
+def mapped(skill: Skill) -> tuple[Chapter, ...]:
+    """The coded chapters section 6 maps, in the order it maps them.
+
+    A row names its chapter's file, `` `references/errors.md` ``; a file
+    no chapter of the skill is, or one with no family code, maps no
+    rules.
+    """
+    by_stem = {c.path.stem: c for c in skill.chapters}
+    table = next(_tables(_section(skill.typed.sections, shared.MAP)), None)
+    rows = table.rows if table is not None else ()
+    stems = (m["stem"] for row in rows if row and (m := _FILE.fullmatch(row[0])))
+    return tuple(
+        by_stem[stem] for stem in stems if stem in by_stem and vocabulary.code_for(stem)
+    )
+
+
+def chapters_mapped(skill: Skill) -> tuple[Mapped, ...]:
+    """Each chapter section 6 maps: its title, and its rules' lines."""
+    return tuple(
+        (c.typed.title, tuple(Entry(r.id, r.tier, r.title) for r in c.typed.rules))
+        for c in mapped(skill)
+    )
+
+
+def _core(skill: Skill) -> Iterator[Finding]:
+    """Section 4 is a projection of the chapters (decision 7).
+
+    It lists chapter rules by ID, grouped by chapter in section 6's
+    order, each line's tier and title its chapter rule's, so the two
+    cannot drift and a line's tier is its rule's by construction. A
+    rule of its own — the `CORE` family — is a second statement of a
+    chapter rule, and `revise` maps it to that rule. While section 4
+    states one, it is not a list to project, so only the rule is
+    reported.
+    """
+    section = core_section(skill)
+    if section is None:
+        return  # `section` reports a missing or misnamed section 4
+    where = skill.at(SKILL_MD, section.line)
+    for rule in skill.core:
+        yield fail(
+            f"{rule.id} is a rule of section 4's own; section 4 lists chapter rules "
+            "by ID, and `revise` maps this one to the chapter rule it abbreviated",
+            skill.at(SKILL_MD, rule.line),
+            CORE_RULE,
+        )
+    if skill.core:
+        return
+    held = section.blocks()[1:]
+    ids = listed(held)
+    chapters = chapters_mapped(skill)
+    if held == projection(ids or (), chapters):
+        return
+    known = {e.id for _, entries in chapters for e in entries}
+    unknown = sorted(rid for rid in ids or () if rid not in known)
+    said = (
+        f"lists {', '.join(map(str, unknown))}, which no chapter section 6 maps holds"
+        if unknown
+        else "is not one list of chapter rules"
+        if ids is None
+        else "differs from its chapters' tiers, titles or order"
+    )
+    yield fail(
+        f"section 4 {said}; it is the projection of the chapter rules it lists — "
+        "`agent-skill fmt` renders it",
+        where,
+        CORE_DRIFT,
+    )

@@ -563,28 +563,59 @@ def _orphan_exemption(tree: Path) -> Edited:
 _DEMO_ERRORS = "references/errors.md"
 
 
-def _normal(branch: Branch, rel: str, old: str, new: str, count: int = 1) -> Control:
-    """A control on the demo standard, in normal form, and one edit.
+def _on_demo(
+    branch: Branch,
+    edits: Callable[[Path], Edited],
+    also: Mapping[Branch, str] | None = None,
+    profiles: Mapping[str, Profile] | None = None,
+) -> Control:
+    """A control on the demo standards, in normal form, and `edits`.
 
     Only a normalised standard is held to the normal form, and no
     shipped one is normalised yet: each breaks most of its properties
     at once, so flipping a shipped profile's flag would fire every
     branch beside the one a control is for. The demo keeps every
-    property, and `rel` is a file of it.
+    property; `edits` makes one defect in a copy of it, and `profiles`
+    reads a standard of it with a profile other than its own.
     """
 
     def inject(tree: Path) -> Edited:
         built = demo.build(tree)
-        return (*built, *edit(tree, f"{demo.PROFILE.name}/{rel}", old, new, count))
+        return (*built, *edits(tree))
 
-    return Control(branch, inject, profiles={demo.PROFILE.name: demo.PROFILE})
+    read = {**demo.PROFILES, **(profiles or {})}
+    return Control(branch, inject, also or {}, read)
+
+
+def _normal(
+    branch: Branch,
+    rel: str,
+    old: str,
+    new: str,
+    also: Mapping[Branch, str] | None = None,
+) -> Control:
+    """A control on the demo standard, and one edit to its `rel`."""
+    return _on_demo(
+        branch, lambda t: edit(t, f"{demo.PROFILE.name}/{rel}", old, new), also
+    )
 
 
 #: The one control per branch of the normal form, each on the demo.
 NORMAL_FORM: list[Control] = [
     # The standard's own family code in the title, as seven rust-style
     # chapters open.
-    _normal(skeleton.TITLE_CODE, _DEMO_ERRORS, "# Errors\n", "# DS-ERR — Errors\n"),
+    _normal(
+        skeleton.TITLE_CODE,
+        _DEMO_ERRORS,
+        "# Errors\n",
+        "# DS-ERR — Errors\n",
+        also={
+            skeleton.CORE_DRIFT: (
+                "section 4 labels a chapter's rules with its title, so a title that "
+                "changes leaves the label behind until `fmt` renders it again"
+            )
+        },
+    ),
     _normal(skeleton.NO_SCOPE, _DEMO_ERRORS, "Scope: what", "Covers what"),
     _normal(
         # A section after the tool table, which is last.
@@ -681,12 +712,30 @@ NORMAL_FORM: list[Control] = [
         "so the function that meets one reports it. `[M!]` applies to libraries.",
     ),
     _normal(
+        # A rule of section 4's own, beside the lines it projects.
+        skeleton.CORE_RULE,
+        SKILL_MD,
+        "  - DS-MIG-01 [M] Write the new name of a renamed function\n",
+        "  - DS-MIG-01 [M] Write the new name of a renamed function\n"
+        "- **DS-CORE-01 `[M]`** Return an error the caller can handle (DS-ERR-01).\n",
+    ),
+    _normal(
+        # A line whose tier is not its chapter rule's.
+        skeleton.CORE_DRIFT,
+        SKILL_MD,
+        "  - DS-ERR-01 [M!] Return an error",
+        "  - DS-ERR-01 [M] Return an error",
+    ),
+    _on_demo(
         # Heading and contents line alike, so only the mood is wrong.
         anatomy.ADVICE_TITLE,
-        _DEMO_ERRORS,
-        "[M] Never stop the program from a library",
-        "[M] Prefer not to stop the program from a library",
-        2,
+        lambda t: edit(
+            t,
+            f"{demo.PROFILE.name}/{_DEMO_ERRORS}",
+            "[M] Never stop the program from a library",
+            "[M] Prefer not to stop the program from a library",
+            2,
+        ),
     ),
 ]
 

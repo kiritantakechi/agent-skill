@@ -30,8 +30,10 @@
   `reality_sections`, `reality_table`, `reality_owner`; an owner is a cited rule ID of the standard
 - [x] 2.6 Tier as one predicate (decision 6) in `anatomy` — `6f895b4`; `anatomy.local_scope`,
   `advice_title`
-- [ ] 2.7 Section 4 as a projection (decision 7): `fmt` renders it from chapter IDs; `skeleton` fails
-  on a drifted line and on any `CORE` rule
+- [x] 2.7 Section 4 as a projection (decision 7): `fmt` renders it from chapter IDs; `skeleton` fails
+  on a drifted line and on any `CORE` rule — the IDs section 4's lines name are the source
+  (`doc.normal.listed`/`projection`, one `Contents`); `skeleton.core_rule`, `core_drift`; the
+  core-citation branches not run for a normalised standard; two shared sentences are slots
 - [ ] 2.8 Lint bijection (decision 8) in `citations`
 - [ ] 2.9 Migration as a function (decision 9): the table schema, uniqueness, the generated grep in
   `fmt`, and each toolchain's verifier of `gone` rows (run with `toolchain`)

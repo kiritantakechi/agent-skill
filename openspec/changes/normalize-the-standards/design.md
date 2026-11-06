@@ -173,6 +173,38 @@ its chapter rule's by construction. The `CORE` family goes: `revise` maps each `
 chapter rule it abbreviated, and the rename table records it. A core rule with no chapter
 counterpart (RS-CORE-07's content, zig's suffixed core IDs) either becomes a chapter rule or goes.
 
+As built (task 2.7):
+
+- The source of the ID list is section 4 itself: the IDs its lines name. `doc.normal.listed` reads
+  them, from one list whose items are contents lines, flat or under labels; `projection` renders the
+  set again — for each chapter section 6 maps, in its order, a label `**<chapter title>**` over a
+  contents line (`ID [T] title`, the chapter's) per listed rule, in the chapter's order. So the
+  rendering is a function of the set alone and its own fixed point: `listed ∘ projection` is the
+  identity on the IDs, and a second `fmt` changes nothing. Section 4 is one `Contents`, read and
+  printed by the chapter layer's own reader and printer, and nothing else — no lead paragraph; the
+  reading procedure says what section 4 is.
+- `skeleton.core_rule` fails each rule section 4 states of its own (`skill.core`, the `CORE`
+  family); `skeleton.core_drift` fails a section 4 that is not the projection of the IDs it lists
+  — a drifted tier or title, an order or grouping that is not section 6's, an ID no chapter in
+  section 6 holds, a block that is not the one list. While a core rule stands, drift is not
+  reported: that section 4 is no list to project, and the rule is the one defect.
+- `fmt` renders section 4 for a normalised standard, after the normal form. A section 4 holding
+  what rendering would drop — a core rule, prose, a label over no line, an ID section 6 does not
+  map — is left as it is and reported (`fmt.core_unrendered`): which chapter rule a core rule
+  meant is `revise`'s to say, by a person.
+- The core-rule citation branches (`anatomy.core_uncited`, `core_not_a_rule`,
+  `core_wrong_chapter`, and the `mis_cited` note) read a core rule's `` `references/x.md` ID ``,
+  which `fmt` drops; for a normalised standard they are not run, since it has no core rule to
+  cite one and `core_rule` reports any left.
+- Two shared sentences followed section 4's old form: the reference map's "the N `XX-CORE-*`
+  rules live in section 4 above; the other M live here", and the reading procedure's "the chapter
+  is the detailed statement and wins". Each is a slot now (`held_here`, `conflict`), filled for a
+  normalised standard with what holds of a projection — "All M rules live here; section 4 lists
+  by ID those that bind on their own", "When two rules appear to conflict, sections 1 and 3 govern
+  how to break the tie" — and with the old text, byte for byte, otherwise. 7.1 keeps the first.
+- A chapter's title labels its rules in section 4, so retitling a chapter drifts section 4 until
+  `fmt` renders it: `title_code`'s control allows `core_drift` beside it for that reason.
+
 ### 8. Lint claims are a bijection
 
 Every lint the shipped configuration sets explicitly has exactly one row, in the chapter that owns

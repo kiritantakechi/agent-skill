@@ -16,7 +16,7 @@ belongs; `anatomy` reports it until they have.
 
 import itertools
 import re
-lazy from collections.abc import Iterator, Sequence
+lazy from collections.abc import Iterable, Iterator, Sequence
 
 from agent_skill.doc import (
     Block,
@@ -33,7 +33,10 @@ from agent_skill.doc import (
 from agent_skill.doc.chapter import (
     ORDER,
     Chapter,
+    Contents,
     Element,
+    Entry,
+    Group,
     Part,
     Rule,
     Section,
@@ -182,3 +185,58 @@ def normal(doc: Doc, *, chapter: bool) -> Doc:
     )
     ordered = Chapter(read.title, read.scope, read.contents, sections).doc()
     return Doc(cited.frontmatter, ordered.blocks)
+
+
+# ------------------------------------------------------------------
+# section 4, a projection of the chapters (decision 7)
+
+#: A chapter as section 4 groups its rules: its title, and each rule's
+#: ID, tier and title as its contents line states them.
+type Mapped = tuple[str, tuple[Entry, ...]]
+
+
+def listed(blocks: Sequence[Block]) -> tuple[RuleId, ...] | None:
+    """The rules section 4 lists, read from the blocks under its title.
+
+    Section 4 is one list of chapter titles over contents lines, or
+    nothing at all; the IDs the lines name are what it lists, and what
+    it is rendered from again. A flat list of lines is read too, as is
+    any grouping of them. None when it holds anything else — a core
+    rule of its own, a label over no line, a paragraph, a heading —
+    which rendering would drop.
+    """
+    match tuple(blocks):
+        case ():
+            return ()
+        case (ListBlock() as block,):
+            try:
+                items = Contents.read(block).items
+            except ValueError:
+                return None
+            lines = [i for i in items if isinstance(i, Entry)]
+            for group in (i for i in items if isinstance(i, Group)):
+                if not group.children or not all(
+                    isinstance(c, Entry) for c in group.children
+                ):
+                    return None  # a label over nothing, or over labels
+                lines.extend(c for c in group.children if isinstance(c, Entry))
+            return tuple(e.id for e in lines)
+        case _:
+            return None
+
+
+def projection(ids: Iterable[RuleId], chapters: Sequence[Mapped]) -> tuple[Block, ...]:
+    """Section 4: `ids` grouped by chapter, in `chapters`' order.
+
+    `chapters` is section 6's order, each with its rules in its own
+    order, so the result is a function of the set of IDs alone: every
+    line's tier and title is its chapter's, and an ID no chapter holds
+    has no line. A chapter none of whose rules is listed has no label.
+    """
+    wanted = set(ids)
+    groups = (
+        Group(f"**{title}**", tuple(e for e in entries if e.id in wanted))
+        for title, entries in chapters
+    )
+    kept = tuple(g for g in groups if g.children)
+    return (Contents(kept).block(),) if kept else ()

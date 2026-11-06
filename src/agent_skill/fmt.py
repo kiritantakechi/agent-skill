@@ -18,11 +18,13 @@ lazy from collections.abc import Mapping
 
 from agent_skill import shared
 from agent_skill.doc import Doc, Fence, Item, ListBlock, Quote, walk
-from agent_skill.doc.normal import normal
+from agent_skill.doc.chapter import Section, SkillMd
+from agent_skill.doc.normal import listed, normal, projection
 from agent_skill.lang import execute, judged, toolchain_for
 from agent_skill.model import Block, Skill
 from agent_skill.report import Finding, Level, declare, fail, note
 lazy from agent_skill import doc
+lazy from agent_skill.checks.skeleton import chapters_mapped
 
 # The branches `fmt` reports through. It is a command rather than a
 # check, so no control is owed them.
@@ -31,6 +33,7 @@ FORMATTER = declare("fmt", "formatter", Level.FAIL)
 FORMATTER_TIMEOUT = declare("fmt", "formatter_timeout", Level.FAIL)
 UNLOCATABLE = declare("fmt", "unlocatable", Level.FAIL)
 REFORMATTED = declare("fmt", "reformatted", Level.NOTE)
+CORE_UNRENDERED = declare("fmt", "core_unrendered", Level.FAIL)
 
 
 def format_skill(skill: Skill) -> list[Finding]:
@@ -71,12 +74,47 @@ def _reprint(skill: Skill) -> list[Finding]:
         tree = Doc.parse(text)
         if skill.profile.normalized:
             tree = normal(tree, chapter=path in chapters)
+        if skill.profile.normalized and path == skill.skill_md:
+            tree, unrendered = _projected(skill, tree)
+            changed += unrendered
         if (printed := str(tree)) != text:
             path.write_text(printed)
             changed.append(
                 note("re-printed in its canonical form", skill.at(path), REPRINTED)
             )
     return changed
+
+
+def _projected(skill: Skill, tree: Doc) -> tuple[Doc, list[Finding]]:
+    """`SKILL.md` with section 4 rendered from the rules it lists.
+
+    Each listed rule's line is its chapter's ID, tier and title, grouped
+    by chapter in section 6's order (decision 7). A section 4 that
+    holds what the rendering would drop — a rule of its own, prose, a
+    rule no chapter in section 6 holds — is left as it is and reported:
+    which rule it meant is a person's to say, through `revise`.
+    """
+    md = SkillMd.read(tree)
+    title = shared.skill_sections(skill)[4]
+    at = next((i for i, s in enumerate(md.sections) if s.title == title), None)
+    if at is None:
+        return tree, []
+    section = md.sections[at]
+    chapters = chapters_mapped(skill)
+    ids = listed(section.blocks()[1:])
+    known = {e.id for _, entries in chapters for e in entries}
+    if ids is None or any(rid not in known for rid in ids):
+        return tree, [
+            fail(
+                "section 4 holds what its projection would drop — a rule of its own, "
+                "prose, or a rule no chapter section 6 maps holds; not rendered",
+                skill.at(skill.skill_md, section.line),
+                CORE_UNRENDERED,
+            )
+        ]
+    rendered = Section(section.title, projection(ids, chapters), (), section.line)
+    sections = (*md.sections[:at], rendered, *md.sections[at + 1 :])
+    return SkillMd(md.frontmatter, md.title, md.preamble, sections).doc(), []
 
 
 def _examples(skill: Skill) -> list[Finding]:

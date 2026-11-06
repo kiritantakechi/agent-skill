@@ -38,6 +38,9 @@ PROFILE = Profile(
     normalized=True,
 )
 
+#: Every profile a demo standard is read with, by its name.
+PROFILES = {PROFILE.name: PROFILE}
+
 #: The stages of the review, in §5 and in the protocol's review order.
 _STAGES = "1. **Soundness.** Look.\n2. **Errors.** Look.\n"
 
@@ -79,7 +82,10 @@ Subtract.
 
 ## 4. Core rules
 
-None.
+- **Errors**
+  - DS-ERR-01 [M!] Return an error for a failure the caller can handle
+- **Migration**
+  - DS-MIG-01 [M] Write the new name of a renamed function
 
 ## 5. Review checklist
 

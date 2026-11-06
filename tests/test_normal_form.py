@@ -46,6 +46,13 @@ def edit(skill: Skill, rel: str, old: str, new: str) -> Skill:
     return Skill(skill.root, skill.profile)
 
 
+def fired(skill: Skill, name: str) -> list[str]:
+    """The branch of each failure `name` reports in `skill`."""
+    check = by_name(name)
+    assert check is not None, name
+    return [str(f.branch) for f in check.run(Tree.of([skill])).fails]
+
+
 def fails(skill: Skill, name: str) -> list[str]:
     """What `name` fails or could not look at in `skill`."""
     check = by_name(name)
@@ -208,3 +215,52 @@ def test_the_normal_form_is_a_law_abiding_map_on_every_shipped_file(
             bodies = sorted(f.body for f in walk(doc.blocks) if isinstance(f, Fence))
             kept = sorted(f.body for f in walk(once.blocks) if isinstance(f, Fence))
             assert kept == bodies, path
+
+
+#: The demo's section 4, as `fmt` renders it from the rules it lists.
+CORE = (
+    "## 4. Core rules\n\n"
+    "- **Errors**\n"
+    "  - DS-ERR-01 [M!] Return an error for a failure the caller can handle\n"
+    "- **Migration**\n"
+    "  - DS-MIG-01 [M] Write the new name of a renamed function\n"
+)
+
+
+def test_section_4_is_rendered_from_the_ids_it_lists(built: Skill) -> None:
+    """Any list of the IDs, in any order or grouping, renders as one.
+
+    So the IDs are the projection's source, and the rendering is its
+    fixed point: a second `fmt` changes nothing.
+    """
+    assert CORE in built.text
+    flat = edit(
+        built,
+        "SKILL.md",
+        CORE,
+        "## 4. Core rules\n\n- DS-MIG-01 [S] An old title\n- DS-ERR-01 [M] Another\n",
+    )
+    assert fired(flat, "skeleton") == ["skeleton.core_drift"]
+    format_skill(flat)
+    once = (built.root / "SKILL.md").read_text()
+    assert CORE in once
+    format_skill(Skill(built.root, built.profile))
+    assert (built.root / "SKILL.md").read_text() == once
+    assert fails(Skill(built.root, built.profile), "skeleton") == []
+
+
+def test_fmt_leaves_a_section_4_it_cannot_project_as_it_is(built: Skill) -> None:
+    """A core rule of its own is a person's to map, through `revise`."""
+    own = edit(
+        built,
+        "SKILL.md",
+        "- **Migration**",
+        "- **DS-CORE-01 `[M]`** Return an error (DS-ERR-01).\n- **Migration**",
+    )
+    before = (own.root / "SKILL.md").read_text()
+    found = format_skill(own)
+    assert [str(f.branch) for f in found if f.level.name == "FAIL"] == [
+        "fmt.core_unrendered"
+    ]
+    assert (own.root / "SKILL.md").read_text() == before
+    assert fired(own, "skeleton") == ["skeleton.core_rule"]

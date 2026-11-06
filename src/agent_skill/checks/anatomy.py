@@ -184,7 +184,8 @@ def anatomy(skill: Skill) -> Iterator[Finding]:
     yield from structural(skill)
     yield from _contents_order(skill)
     yield from _unique_titles(skill, titles)
-    yield from _mis_cited(skill)
+    if not skill.profile.normalized:
+        yield from _mis_cited(skill)
     yield from _references(skill, seen)
     yield from _abbreviated(skill)
     yield from _counts(skill)
@@ -410,7 +411,11 @@ def _references(skill: Skill, seen: dict[RuleId, str]) -> Iterator[Finding]:
     yield from _dangling(skill)
     home = dict(seen.items())
     yield from _paths(skill, home)
-    yield from _core_citations(skill, home)
+    # A normalised standard's section 4 is a projection of its chapter
+    # rules, with no rule of its own to cite one: `skeleton` reports any
+    # core rule left, and nothing is left to cite by path.
+    if not skill.profile.normalized:
+        yield from _core_citations(skill, home)
 
 
 #: A rule ID followed by a bare number that leans on it: `ZS-ASSERT-03,
