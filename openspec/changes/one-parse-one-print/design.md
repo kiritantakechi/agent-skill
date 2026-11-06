@@ -164,13 +164,14 @@ As built (task 7):
 
 ```python
 class Toolchain(Protocol):
-    language: Language                     # + statements, kept: the mutant grammar's vocabulary
+    language: Language  # + statements, kept: the mutant grammar's vocabulary
     mutant_timeout: float
-    outside: re.Pattern[str] | None        # what a block may not reach, or nothing asked
+    outside: re.Pattern[str] | None  # what a block may not reach, or nothing asked
+
     def extract(self, skill: Skill, out: Path) -> Extraction: ...  # Unit(path, block)
     def restore(self, ex: Extraction) -> Mapping[Block, str]: ...
-    def steps(self, ex: Extraction) -> Iterable[Step]: ...         # compile, lint, test
-    def formatter(self, ex: Extraction) -> Step: ...               # write mode
+    def steps(self, ex: Extraction) -> Iterable[Step]: ...  # compile, lint, test
+    def formatter(self, ex: Extraction) -> Step: ...  # write mode
     def tests(self, ex: Extraction, unit: Unit) -> Step | None: ...
 ```
 
