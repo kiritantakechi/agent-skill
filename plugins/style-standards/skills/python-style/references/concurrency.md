@@ -37,16 +37,15 @@ free-threaded build. Where a rule depends on the build, the block probes it rath
   - PS-CONC-13 [M] Give each consumer a full stream with `threading.concurrent_tee`
   - PS-CONC-14 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
 - **Caches, memoisation, and context**
-  - PS-CONC-15 [M] Treat `functools.lru_cache` as coherent but not single-flight
-  - PS-CONC-16 [M] Treat `functools.cached_property` as able to run more than once
-  - PS-CONC-17 [M!] Put a lock around a memo whose miss is expensive or has an effect
-  - PS-CONC-18 [M] Create every `ContextVar` at module scope
-  - PS-CONC-19 [M] Never rely on a thread inheriting context; the default differs by build
+  - PS-CONC-15 [M] Never rely on `lru_cache` or `cached_property` to run a body once
+  - PS-CONC-16 [M!] Put a lock around a memo whose miss is expensive or has an effect
+  - PS-CONC-17 [M] Create every `ContextVar` at module scope
+  - PS-CONC-18 [M] Never rely on a thread inheriting context; the default differs by build
 - **Streams, randomness, and hold times**
-  - PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
-  - PS-CONC-21 [M] Give each thread its own `random.Random`
-  - PS-CONC-22 [M] Know that a `contextmanager` decorator now holds across the whole generator
-  - PS-CONC-23 [S] Never hold a lock across a call you do not control
+  - PS-CONC-19 [M] Write each record to a shared text stream in one call, never with `print`
+  - PS-CONC-20 [M] Give each thread its own `random.Random`
+  - PS-CONC-21 [M] Know that a `contextmanager` decorator now holds across the whole generator
+  - PS-CONC-22 [S] Never hold a lock across a call you do not control
 
 ---
 
@@ -616,31 +615,22 @@ assert sorted(i for part in got.values() for i in part) == list(range(30))
 
 ## Caches, memoisation, and context
 
-### PS-CONC-15 [M] Treat `functools.lru_cache` as coherent but not single-flight
+### PS-CONC-15 [M] Never rely on `lru_cache` or `cached_property` to run a body once
 
-The cache will not corrupt. The function behind it will run more than once for the same key.
+Both are coherent — neither cache corrupts — and neither is single-flight. `functools.lru_cache`
+does not hold its lock across the call, so eight threads hitting one cold key ran the body seven
+times. `functools.cached_property` takes no lock at all, so two threads reaching a cold property
+both compute it, and one of the two results is discarded.
 
-**Why:** the lock is not held across the call, so per the docs "it is possible for the wrapped
-function to be called more than once": eight threads hitting one cold key ran it seven times.
-Harmless for a pure function; a duplicated charge, write, or connection if the body has an effect.
+**Why:** per the docs "it is possible for the wrapped function to be called more than once", and a
+lock in `cached_property` would serialise every instance behind one. Harmless for a pure body; a
+duplicated charge, write or connection, or a leaked handle, for one with an effect.
 
-**Check:** `rg -nB3 '@lru_cache|@cache\b' src/` and read each decorated body for effects — I/O,
-writes, metrics, allocation of a scarce resource. A pure function is fine; anything else needs
-PS-CONC-17.
+**Check:** `rg -nB3 -A5 '@lru_cache|@cache\b|cached_property' src/` and read each decorated body for
+effects — I/O, writes, metrics, anything needing cleanup. A pure function is fine; anything else
+needs PS-CONC-16.
 
-### PS-CONC-16 [M] Treat `functools.cached_property` as able to run more than once
-
-It takes no lock. Two threads reaching a cold property both compute it, and one of the two results
-is discarded.
-
-**Why:** a lock would serialise every instance behind one class-wide lock, so `cached_property` is a
-memo, not a once-only guarantee. A discarded result that only computed costs time; one that opened a
-connection or allocated a handle leaks unless something closes it.
-
-**Check:** `rg -nA5 'cached_property' src/` — a getter that constructs anything needing cleanup is
-the finding.
-
-### PS-CONC-17 [M!] Put a lock around a memo whose miss is expensive or has an effect
+### PS-CONC-16 [M!] Put a lock around a memo whose miss is expensive or has an effect
 
 Not around the cache read — around the miss. Memoise an effect only where "once" is what every
 caller wants, such as opening a connection: a cached charge or write happens once while each caller
@@ -649,7 +639,7 @@ believes it happened for them. `functools.cache` also needs every argument to be
 *Relaxed form:* a pure, cheap function may use the plain decorator and accept duplicate execution;
 say so in a comment on the decorator, so the next reader knows it was a decision.
 
-**Why:** PS-CONC-15 and PS-CONC-16 are the same defect with two spellings. The double-checked shape
+**Why:** PS-CONC-15's two decorators are one defect with two spellings. The double-checked shape
 keeps the common case, a hit, lock-free while making the miss single-flight; without it, "cached"
 means "usually computed once", which is not what the word promises the reader.
 
@@ -688,7 +678,7 @@ assert connection("db") == "conn:db"
 assert len(_conns) == 1
 ```
 
-### PS-CONC-18 [M] Create every `ContextVar` at module scope
+### PS-CONC-17 [M] Create every `ContextVar` at module scope
 
 Never inside a function, a method, or a loop.
 
@@ -699,7 +689,7 @@ does not work".
 **Check:** `rg -nB5 'ContextVar\(' src/` — any hit whose preceding lines are inside a `def` or
 `class` body is the finding.
 
-### PS-CONC-19 [M] Never rely on a thread inheriting context; the default differs by build
+### PS-CONC-18 [M] Never rely on a thread inheriting context; the default differs by build
 
 `sys.flags.thread_inherit_context` is 1 on the free-threaded build and 0 on the GIL build, and so is
 `sys.flags.context_aware_warnings`, which makes `warnings.catch_warnings` context-local. Pass the
@@ -739,7 +729,7 @@ assert request_id.get() == "-", "leaving the block reset the variable"
 
 ## Streams, randomness, and hold times
 
-### PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
+### PS-CONC-19 [M] Write each record to a shared text stream in one call, never with `print`
 
 `open()` in text mode returns a `TextIOWrapper`, and so do `sys.stdout` and `sys.stderr`, which
 every thread that prints already shares. `print` is not one call to it: it writes each argument,
@@ -753,7 +743,7 @@ as single `write` calls arrived whole; under the GIL, `print` garbled a handful.
 **Check:** `rg -n '\bprint\(|\.write\(' src/` inside any thread target. A `print` is the finding,
 and so is a `write` that sends part of a record.
 
-### PS-CONC-21 [M] Give each thread its own `random.Random`
+### PS-CONC-20 [M] Give each thread its own `random.Random`
 
 The module-level functions all share one instance. Seed each thread's from the operating system, as
 `random.Random()` does with no argument: one fixed seed would give every thread the same stream.
@@ -799,7 +789,7 @@ for thread in threads:
 assert len(set(draws)) == 4, "four threads, four independent streams"
 ```
 
-### PS-CONC-22 [M] Know that a `contextmanager` decorator now holds across the whole generator
+### PS-CONC-21 [M] Know that a `contextmanager` decorator now holds across the whole generator
 
 In 3.15 a `@contextmanager`-derived decorator applied to a generator function keeps the context open
 until the generator is exhausted. Previously it closed when the generator object was created. The
@@ -847,13 +837,13 @@ assert list(rows()) == [1, 2, 3]
 assert held == ["in", "out"]
 ```
 
-### PS-CONC-23 [S] Never hold a lock across a call you do not control
+### PS-CONC-22 [S] Never hold a lock across a call you do not control
 
 A callback, a plugin hook, an I/O call, or anything that can block. Compute under the lock, call
 outside it.
 
 **Why:** a lock held across arbitrary code is a lock whose hold time you cannot bound, and one whose
-acquisition order you cannot see: the shape of every lock-ordering deadlock. Under PS-CONC-22, a
+acquisition order you cannot see: the shape of every lock-ordering deadlock. Under PS-CONC-21, a
 decorator whose hold time silently grew now spans calls it never used to.
 
 **Check:** read every `with <lock>:` body for a call that is not a local function or a container

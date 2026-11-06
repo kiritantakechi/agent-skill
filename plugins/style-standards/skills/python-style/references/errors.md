@@ -288,7 +288,7 @@ catches it as well.
 ### PS-ERR-14 [M] Release with a context manager rather than with `finally`
 
 `with lock:`, `with open(...) as f:`, `with contextlib.closing(x):`. Not `try/finally`. Note
-PS-CONC-22: on 3.15 a `contextmanager`-derived *decorator* on a generator holds until the generator
+PS-CONC-21: on 3.15 a `contextmanager`-derived *decorator* on a generator holds until the generator
 is exhausted, so prefer the `with` form where the hold time matters.
 
 **Why:** the context manager puts the acquisition and the release in one place where they cannot
@@ -352,7 +352,7 @@ transformations. The guard form is exempt because there the rejection *is* the s
 
 `match` earns its place when it destructures — a shape, a sequence, a class with fields. Matching a
 single value against constants is an `if`/`elif` chain wearing a costume. The enum case is the
-exception worth naming: `match` over an enum with `assert_never` is the idiom PS-TYPE-15 requires.
+exception worth naming: `match` over an enum with `assert_never` is the idiom PS-TYPE-14 requires.
 
 **Why:** `match` reads well when the patterns show the shape of the data and badly when they are a
 list of equalities, because the reader is primed by the syntax to look for structure that is not

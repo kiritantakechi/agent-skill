@@ -122,8 +122,8 @@ PROFILE = Profile(
         "PS-BUILD-04",
         "PS-BUILD-09",
         "PS-BUILD-12",
-        "PS-BUILD-14",
-        "PS-BUILD-21",
+        "PS-BUILD-13",
+        "PS-BUILD-20",
         "PS-CONC-02",
         "PS-CONC-03",
         "PS-CONC-05",
@@ -133,12 +133,11 @@ PROFILE = Profile(
         "PS-CONC-12",
         "PS-CONC-13",
         "PS-CONC-15",
-        "PS-CONC-16",
+        "PS-CONC-17",
         "PS-CONC-18",
         "PS-CONC-19",
         "PS-CONC-20",
         "PS-CONC-21",
-        "PS-CONC-22",
         "PS-DATA-01",
         "PS-DATA-02",
         "PS-DATA-03",
@@ -154,7 +153,7 @@ PROFILE = Profile(
         "PS-MIG-05",
         "PS-NAME-02",
         "PS-NAME-03",
-        "PS-NAME-11",
+        "PS-NAME-10",
         "PS-OUT-02",
         "PS-OUT-03",
         "PS-OUT-07",
@@ -174,10 +173,10 @@ PROFILE = Profile(
         "PS-TEST-19",
         "PS-TYPE-04",
         "PS-TYPE-05",
+        "PS-TYPE-10",
         "PS-TYPE-11",
-        "PS-TYPE-12",
-        "PS-TYPE-14",
-        "PS-TYPE-20",
+        "PS-TYPE-13",
+        "PS-TYPE-19",
     ),
     not_decisive=keyed(
         {
@@ -197,12 +196,12 @@ PROFILE = Profile(
                 "the pattern finds the test; whether a lock spans the test and the "
                 "write decides",
             ),
-            "PS-CONC-18": NotDecisive(
+            "PS-CONC-17": NotDecisive(
                 "any hit whose preceding lines are inside",
                 "the pattern finds every ContextVar; the scope it is created in "
                 "decides, which a line-oriented pattern cannot see",
             ),
-            "PS-CONC-19": NotDecisive(
+            "PS-CONC-18": NotDecisive(
                 "whose value was set outside it",
                 "the pattern finds every context read; passing the context explicitly "
                 "is the compliant form and matches the same pattern",
@@ -257,7 +256,7 @@ PROFILE = Profile(
                 "read for `slots=`",
                 "the pattern finds every dataclass; the `slots=` argument decides",
             ),
-            "PS-NAME-11": NotDecisive(
+            "PS-NAME-10": NotDecisive(
                 "read each hit for what",
                 "the pattern finds every indented import; what encloses it decides, "
                 "and an `if TYPE_CHECKING:` block is indented too",
@@ -267,12 +266,12 @@ PROFILE = Profile(
                 "the pattern finds every thread start; what the target closes over "
                 "decides, and starting a thread is not itself a defect",
             ),
-            "PS-CONC-20": NotDecisive(
+            "PS-CONC-19": NotDecisive(
                 "inside any thread target",
                 "the pattern finds every `print`; the calling thread decides, and a "
                 "module-level print is not a hit",
             ),
-            "PS-CONC-22": NotDecisive(
+            "PS-CONC-21": NotDecisive(
                 "applied to a `def` containing `yield`",
                 "the pattern finds every `@contextmanager`; what it decorates decides, "
                 "and the `with` form the rule recommends matches too",

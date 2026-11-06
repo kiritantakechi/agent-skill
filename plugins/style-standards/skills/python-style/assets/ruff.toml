@@ -54,8 +54,8 @@ allow-multiline = false
 convention = "google"
 
 [lint.flake8-tidy-imports]
-# PS-NAME-09 forbids every relative import. The default, "parents", lets a
-# sibling import such as `from .retry import RetryPolicy` through.
+# Every relative import is forbidden, a sibling's too: TID252's row says why.
+# The default, "parents", lets `from .retry import RetryPolicy` through.
 ban-relative-imports = "all"
 
 [lint.flake8-type-checking]

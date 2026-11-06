@@ -154,9 +154,9 @@ code that was wrong.
 
 | Importable in 3.15, removal scheduled | Removed in | Use instead | Find it with |
 |---|---|---|---|
-| Unlisted: `collections.abc.ByteString`, `typing.ByteString`, which now warn on every access | 3.17 | `collections.abc.Buffer` (PS-TYPE-12) | `rg -n 'ByteString' src/` |
+| Unlisted: `collections.abc.ByteString`, `typing.ByteString`, which now warn on every access | 3.17 | `collections.abc.Buffer` (PS-TYPE-11) | `rg -n 'ByteString' src/` |
 | Deprecated: the `profile` module, which warns on import | 3.17 | `profiling.tracing` (PS-PERF-02) | `rg -nw 'profile' src/` |
-| Deprecated: `typing.AnyStr`, which does not warn | 3.18 | a constrained type parameter, `def f[S: (str, bytes)](s: S) -> S` (PS-TYPE-12) | `rg -n 'AnyStr' src/` |
+| Deprecated: `typing.AnyStr`, which does not warn | 3.18 | a constrained type parameter, `def f[S: (str, bytes)](s: S) -> S` (PS-TYPE-11) | `rg -n 'AnyStr' src/` |
 | Deprecated: the asyncio policy API, which warns on use | 3.16 | `loop_factory=` (PS-ASYNC-01, PS-ASYNC-02) | `rg -ni 'event_?loop_?policy' src/` |
 
 ### PS-MIG-06 [M] Stop reading `__version__` from a standard-library module
@@ -179,7 +179,7 @@ list, to read before writing code; this is the one to grep with.
 
 | Changed in 3.15 | Find it with | Rule |
 |---|---|---|
-| A `@contextmanager`-derived decorator on a generator function holds its context until the generator is exhausted, not until it is created | `rg -nB2 -A2 '@contextmanager' src/` | PS-CONC-22 |
+| A `@contextmanager`-derived decorator on a generator function holds its context until the generator is exhausted, not until it is created | `rg -nB2 -A2 '@contextmanager' src/` | PS-CONC-21 |
 | `frozendict` is not a `dict` subclass, so `isinstance(x, dict)` rejects one | `rg -n 'isinstance\(.*, dict\)' src/` | PS-DATA-13 |
 | UTF-8 mode is on by default and moves six surfaces, `sys.stdout`'s error handler among them | the suite under `-X warn_default_encoding`, where every `EncodingWarning` is a finding | PS-OUT-02 |
 | `functools.singledispatchmethod` wrapping a regular method and called through the class, `A.m(a, 1)`, dispatches on the second argument, so a different registered implementation runs | `rg -n 'singledispatchmethod' src/`, then each call made through the class | — |

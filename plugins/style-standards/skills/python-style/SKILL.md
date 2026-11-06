@@ -1,7 +1,7 @@
 ---
 name: python-style
 description: >-
-  The modern Python 3.15 engineering standard — a 236-rule library merging the normative Python
+  The modern Python 3.15 engineering standard — a 232-rule library merging the normative Python
   specifications (PEP 8, PEP 257, PEP 20, and the Python Typing Spec), the empirical conventions of
   the CPython standard library, and Ruff's rule catalogue as its house standard. Covers naming,
   types and annotations, data modelling, errors and control flow, free threading and what the GIL
@@ -82,7 +82,7 @@ dangerous ones, because nothing catches them for you.
 
 | Change | What silently differs |
 |---|---|
-| `contextlib` decorators on a generator | The context now stays open across the whole generator; it used to close when the generator object was created. Every lock, transaction, `chdir` and `contextvars` token held that way changed duration (PS-CONC-22). |
+| `contextlib` decorators on a generator | The context now stays open across the whole generator; it used to close when the generator object was created. Every lock, transaction, `chdir` and `contextvars` token held that way changed duration (PS-CONC-21). |
 | PEP 686 UTF-8 mode on by default | Moves six surfaces at once: `open()`, the filesystem encoding, `os.fsencode`, `locale.getpreferredencoding()` (now a constant), and `sys.stdin`/`stdout` — which gain `surrogateescape`, turning what used to raise into silent mojibake (PS-OUT-02). |
 | `frozendict` is not a `dict` subclass | It inherits from `object`, so `isinstance(x, dict)` is now False for it. The stdlib was updated; third-party code was not. Test `collections.abc.Mapping` (PS-DATA-13). |
 | `functools.singledispatchmethod` | Dispatches on the second argument when wrapping a regular method called as a class attribute, so a different registered implementation can be selected. |
@@ -160,16 +160,16 @@ name it costs.
 - **Naming, Modules, Imports, Formatting, and Symmetry**
   - PS-NAME-01 [M] Apply PEP 8's casing rules mechanically
   - PS-NAME-05 [M] Put units and qualifiers last, sorted by descending significance
-  - PS-NAME-13 [M] Run `ruff format`; it is not a suggestion
-  - PS-NAME-16 [M] Say why, not what
+  - PS-NAME-12 [M] Run `ruff format`; it is not a suggestion
+  - PS-NAME-15 [M] Say why, not what
 - **Typing: Annotations, Generics, Narrowing, and the Checker**
   - PS-TYPE-01 [M] Run `ty` at the pinned version, with the shipped configuration
   - PS-TYPE-04 [M] Never write `from __future__ import annotations`
   - PS-TYPE-07 [M] Write unions with `|`, and put `None` last
-  - PS-TYPE-09 [M] Declare type parameters with PEP 695 syntax
-  - PS-TYPE-10 [M] Declare an alias with the `type` statement
-  - PS-TYPE-13 [M] Use `object` for "anything", and `Any` only with a reason
-  - PS-TYPE-14 [M] Narrow with `TypeIs`, not `TypeGuard`
+  - PS-TYPE-08 [M] Declare type parameters with PEP 695 syntax
+  - PS-TYPE-09 [M] Declare an alias with the `type` statement
+  - PS-TYPE-12 [M] Use `object` for "anything", and `Any` only with a reason
+  - PS-TYPE-13 [M] Narrow with `TypeIs`, not `TypeGuard`
 - **Data Modelling: Dataclasses, Enums, Protocols, and Immutability**
   - PS-DATA-01 [M] Model a record as a frozen dataclass by default
   - PS-DATA-02 [M] Add `slots=True` unless something needs the instance dict
@@ -188,9 +188,8 @@ name it costs.
   - PS-CONC-02 [M] Never treat a compound assignment as one step
   - PS-CONC-03 [M] Never treat check-then-act as one step
   - PS-CONC-12 [M] Serialise a shared iterator with `threading.serialize_iterator`
-  - PS-CONC-15 [M] Treat `functools.lru_cache` as coherent but not single-flight
-  - PS-CONC-16 [M] Treat `functools.cached_property` as able to run more than once
-  - PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
+  - PS-CONC-15 [M] Never rely on `lru_cache` or `cached_property` to run a body once
+  - PS-CONC-19 [M] Write each record to a shared text stream in one call, never with `print`
 - **Async: Tasks, Cancellation, Lifecycle, and the Thread Boundary**
   - PS-ASYNC-03 [M] Start every task inside a `TaskGroup`
   - PS-ASYNC-05 [M] Never swallow `CancelledError`
@@ -204,7 +203,7 @@ name it costs.
   - PS-API-02 [M] Re-export through `__all__`, never by a bare import
   - PS-API-06 [M] Annotate every parameter and every return of a public function
 - **Packaging: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel**
-  - PS-BUILD-19 [M] A free-threaded wheel tag is not a declaration of thread safety
+  - PS-BUILD-18 [M] A free-threaded wheel tag is not a declaration of thread safety
 
 ## 5. Review checklist
 
@@ -233,22 +232,22 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-236 rules live here; section 4 lists by ID those that bind on their own.
+232 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
-| `references/naming.md` | `PS-NAME` (21) | Casing and word choice, module and package names, import grouping, what `ruff format` settles, comment discipline, and the symmetry of names |
-| `references/types.md` | `PS-TYPE` (20) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, and what 3.15 adds |
+| `references/naming.md` | `PS-NAME` (20) | Casing and word choice, module and package names, import grouping, what `ruff format` settles, comment discipline, and the symmetry of names |
+| `references/types.md` | `PS-TYPE` (19) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, and what 3.15 adds |
 | `references/data.md` | `PS-DATA` (18) | Choosing between dataclass, enum, protocol and TypedDict, fields and defaults, immutability, validity, and the symmetry of a data type |
 | `references/errors.md` | `PS-ERR` (20) | Designing an exception hierarchy, raising and catching, `except*`, `finally` after PEP 765, and the control-flow shapes that keep a function readable |
-| `references/concurrency.md` | `PS-CONC` (23) | What the GIL guaranteed and no longer does, sharing objects between threads, iterators and generators, caches and context, streams and hold times |
+| `references/concurrency.md` | `PS-CONC` (22) | What the GIL guaranteed and no longer does, sharing objects between threads, iterators and generators, caches and context, streams and hold times |
 | `references/async.md` | `PS-ASYNC` (18) | Entering and leaving a loop, owning tasks with `TaskGroup`, cancellation and timeouts, not blocking the loop, and the thread boundary |
 | `references/output.md` | `PS-OUT` (18) | Encoding after PEP 686, interpolation and template strings, logging discipline, and the difference between program output and diagnostics |
 | `references/performance.md` | `PS-PERF` (17) | Measuring with the 3.15 profiling package, complexity before constants, allocation, and what the free-threaded build costs |
 | `references/api.md` | `PS-API` (18) | Declaring the public surface, re-export and `py.typed`, signature and default discipline, module shape, and evolving without breaking |
 | `references/documentation.md` | `PS-DOC` (12) | Docstring shape and content, choosing a convention and what that choice disables, doctests, and the documents outside the code |
 | `references/testing.md` | `PS-TEST` (21) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
-| `references/build.md` | `PS-BUILD` (21) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
+| `references/build.md` | `PS-BUILD` (20) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
 | `references/migration.md` | `PS-MIG` (9) | The five tiers of obsolescence, what 3.14 and 3.15 removed and changed, what to write today for 3.16, and pytest's own ladder |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, the mechanical pass, and the output format |
 

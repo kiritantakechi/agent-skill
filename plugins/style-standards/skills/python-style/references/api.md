@@ -69,8 +69,9 @@ re-exports.
 
 ### PS-API-03 [M] Ship `py.typed` in every typed package
 
-An empty file inside the package directory, plus `Typing :: Typed` in the classifiers. The marker
-applies recursively, and `uv_build` includes it automatically because it lives inside the package.
+An empty file inside the package directory, and `Typing :: Typed` among the classifiers
+(PS-BUILD-06). The marker applies recursively, and `uv_build` includes it because it lives inside
+the package — which the built wheel confirms, not the source tree.
 
 **Why:** PEP 561 makes the marker the switch: without it, a downstream type checker ignores your
 annotations entirely and treats every import from you as untyped. The annotations are there and do
@@ -224,7 +225,7 @@ signature.
 
 ### PS-API-14 [M] Give every package an `__init__.py` that is a table of contents
 
-Re-exports, `__all__` and a docstring, and nothing else. That it does no work is PS-NAME-10, which
+Re-exports, `__all__` and a docstring, and nothing else. That it does no work is PS-NAME-09, which
 holds for every module.
 
 **Why:** the `__init__` is what every importer of the package runs, so anything in it is a cost paid

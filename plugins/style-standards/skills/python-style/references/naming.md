@@ -25,21 +25,20 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-NAME-07 [S] Give related names the same shape
 - **Modules, packages, and imports**
   - PS-NAME-08 [M] Name a module in short lowercase; never put an underscore in a package name
-  - PS-NAME-09 [M] Import absolutely
-  - PS-NAME-10 [M] Do no work at import time
-  - PS-NAME-11 [S] Defer a costly import with `lazy import` at module scope
-  - PS-NAME-12 [M] Put the package under `src/`
+  - PS-NAME-09 [M] Do no work at import time
+  - PS-NAME-10 [S] Defer a costly import with `lazy import` at module scope
+  - PS-NAME-11 [M] Put the package under `src/`
 - **Formatting and comments**
-  - PS-NAME-13 [M] Run `ruff format`; it is not a suggestion
-  - PS-NAME-14 [M] Hold lines to 88 columns, and know this departs from PEP 8
-  - PS-NAME-15 [M] Let the magic trailing comma decide when a call explodes
-  - PS-NAME-16 [M] Say why, not what
-  - PS-NAME-17 [S] Write comments as prose
+  - PS-NAME-12 [M] Run `ruff format`; it is not a suggestion
+  - PS-NAME-13 [M] Hold lines to 88 columns, and know this departs from PEP 8
+  - PS-NAME-14 [M] Let the magic trailing comma decide when a call explodes
+  - PS-NAME-15 [M] Say why, not what
+  - PS-NAME-16 [S] Write comments as prose
 - **Symmetry of names**
-  - PS-NAME-18 [M] Name the two halves of a pair symmetrically
-  - PS-NAME-19 [M] One concept, one mechanism
-  - PS-NAME-20 [M] One term, one meaning, project-wide
-  - PS-NAME-21 [S] Keep sibling modules and types structurally parallel
+  - PS-NAME-17 [M] Name the two halves of a pair symmetrically
+  - PS-NAME-18 [M] One concept, one mechanism
+  - PS-NAME-19 [M] One term, one meaning, project-wide
+  - PS-NAME-20 [S] Keep sibling modules and types structurally parallel
 - Decided by tools
 
 ---
@@ -167,7 +166,7 @@ If one is `read_timeout_seconds`, its sibling is `write_timeout_seconds`, not `w
 
 **Why:** a reader who has learned one name should be able to guess the others. Where they can, the
 API teaches itself; where they cannot, every name must be looked up individually. This is the naming
-half of PS-NAME-18.
+half of PS-NAME-17.
 
 **Check:** read each class body and each module's public surface as a list. A name that breaks the
 pattern its neighbours establish is the finding.
@@ -187,20 +186,7 @@ names "if it improves readability" and discourages them in package names outrigh
 module name, not counting a private module's leading underscore or a dunder like `__init__.py`, is a
 module worth splitting. Any underscore in a directory under `src/` is the finding.
 
-### PS-NAME-09 [M] Import absolutely
-
-`from acmewidget.retry import RetryPolicy`, not `from .retry import RetryPolicy`. PEP 8 does permit
-explicit relative imports for complex layouts, and the standard library's own packages use them —
-`asyncio`, `importlib`, `json` — so this is the standard's choice, not the library's practice.
-
-**Why:** a relative import makes a module's meaning depend on where it sits, so moving a file
-changes what it imports without changing a character of it. That is the misbehaviour behind PEP 8
-calling absolute imports "usually more readable and tend to be better behaved".
-
-**Check:** ruff `TID252`, which the shipped configuration sets to ban every relative import rather
-than only those reaching a parent package.
-
-### PS-NAME-10 [M] Do no work at import time
+### PS-NAME-09 [M] Do no work at import time
 
 No registry population, no monkey-patching, no configuration reads, no network, no logging setup.
 Importing a module defines names; it does not do things.
@@ -212,7 +198,7 @@ import populates itself at an unpredictable moment or not at all.
 **Check:** read every module body for a statement that is not a definition, a constant, or an
 import. Each is a candidate; a call is the finding.
 
-### PS-NAME-11 [S] Defer a costly import with `lazy import` at module scope
+### PS-NAME-10 [S] Defer a costly import with `lazy import` at module scope
 
 `lazy import pandas`. Not an import moved inside a function. `lazy` is module-scope only; inside a
 function, a class body, or a `try` it is a `SyntaxError`.
@@ -227,7 +213,7 @@ encloses it — indentation alone cannot tell a function body from an `if` block
 inside a function is the finding unless it exists to break a cycle, which needs a comment saying so.
 Ruff `TID255` flags the opposite mistake: a `lazy` import that module load resolves at once anyway.
 
-### PS-NAME-12 [M] Put the package under `src/`
+### PS-NAME-11 [M] Put the package under `src/`
 
 `src/acmewidget/__init__.py`, with `tests/` a sibling of `src/` rather than inside it.
 
@@ -240,7 +226,7 @@ Ruff `INP001` catches the related defect of a package directory with no `__init_
 
 ## Formatting and comments
 
-### PS-NAME-13 [M] Run `ruff format`; it is not a suggestion
+### PS-NAME-12 [M] Run `ruff format`; it is not a suggestion
 
 In CI, as a gate, with `--check`. Never as a matter of individual discipline.
 
@@ -252,7 +238,7 @@ lands on whoever touches the file next rather than on whoever skipped it.
 with the formatter — but only for some of the documented conflicts, so the rule set must be checked
 against that list directly rather than inferred from a quiet run.
 
-### PS-NAME-14 [M] Hold lines to 88 columns, and know this departs from PEP 8
+### PS-NAME-13 [M] Hold lines to 88 columns, and know this departs from PEP 8
 
 88 for code. 72 for the text inside a docstring or comment, which is PEP 8's number and which the
 formatter does not enforce for you. PEP 8 says 79 for code, and CPython itself uses 79.
@@ -265,7 +251,7 @@ for an agreeing team explicitly does not lift the 72-column limit on docstrings 
 formatter makes only a best-effort attempt at 88, so `E501` stays enabled as the backstop rather
 than being ignored as redundant.
 
-### PS-NAME-15 [M] Let the magic trailing comma decide when a call explodes
+### PS-NAME-14 [M] Let the magic trailing comma decide when a call explodes
 
 A trailing comma in a collection or call means "one element per line, always". No trailing comma
 means "fit it on one line if it fits".
@@ -274,7 +260,7 @@ means "fit it on one line if it fits".
 formatter then executes. It is also the single lever that keeps a growing argument list from
 producing a one-line diff that touches every argument.
 
-**Check:** `ruff format --check` (PS-NAME-13). With `skip-magic-trailing-comma = false`, ruff's
+**Check:** `ruff format --check` (PS-NAME-12). With `skip-magic-trailing-comma = false`, ruff's
 default and the shipped `[format]` setting, the formatter enforces this itself; flake8-commas, the
 lint that looks like it, is on ruff's formatter-conflict list and stays disabled.
 
@@ -291,7 +277,7 @@ tall = [
 assert short == tall
 ```
 
-### PS-NAME-16 [M] Say why, not what
+### PS-NAME-15 [M] Say why, not what
 
 Code says what it does. A comment exists to record the reasoning — why this algorithm, why this
 default — the alternative rejected, and the constraint that is not visible locally.
@@ -304,7 +290,7 @@ reason, usually by reverting the decision and rediscovering it.
 reason. For every other comment, ask whether the line below it would have told you the same thing: a
 comment that restates is the finding. `ERA001` catches the commented-out-code case.
 
-### PS-NAME-17 [S] Write comments as prose
+### PS-NAME-16 [S] Write comments as prose
 
 A space after the `#`, a capital letter, a full stop. An end-of-line comment may be a bare phrase.
 
@@ -318,7 +304,7 @@ citing them would claim an enforcement this standard's own configuration does no
 
 ## Symmetry of names
 
-### PS-NAME-18 [M] Name the two halves of a pair symmetrically
+### PS-NAME-17 [M] Name the two halves of a pair symmetrically
 
 `open`/`close`, `acquire`/`release`, `encode`/`decode`, `push`/`pop`, `to_json`/`from_json`. Never
 `open`/`shutdown`, never `encode`/`parse`. Whether the inverse must exist is PS-DATA-18's rule; this
@@ -331,7 +317,7 @@ one spelled unguessably.
 **Check:** list every public verb that has an inverse. A pair whose names are not each other's
 mirror is the finding.
 
-### PS-NAME-19 [M] One concept, one mechanism
+### PS-NAME-18 [M] One concept, one mechanism
 
 If configuration comes from a dataclass, it does not also come from a dict. If errors are
 exceptions, they are not also sentinel return values.
@@ -343,7 +329,7 @@ convenience added for one call site and then spreads.
 **Check:** for each concept in the module — configuration, errors, identity, time — name the
 mechanism. Two mechanisms for one concept is the finding.
 
-### PS-NAME-20 [M] One term, one meaning, project-wide
+### PS-NAME-19 [M] One term, one meaning, project-wide
 
 If a row from the database is an `Account`, it is not a `User` in the next module and a `Customer`
 in the one after.
@@ -355,7 +341,7 @@ then decide, for each new name, whether it is a third synonym or a genuinely dif
 **Check:** keep a glossary. A name that is not in it is either new — add it — or a synonym, which is
 the finding.
 
-### PS-NAME-21 [S] Keep sibling modules and types structurally parallel
+### PS-NAME-20 [S] Keep sibling modules and types structurally parallel
 
 If `readers/json.py` exposes `load`, `loads` and a `JSONError`, then `readers/toml.py` exposes
 `load`, `loads` and a `TOMLError`. If `Request` is a frozen slotted dataclass with
@@ -381,3 +367,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 | ruff | `F403` | error | `from x import *` |
 | ruff | `F405` | error | a name that may come from a wildcard import |
 | ruff | `ERA001` | error | commented-out code — version control keeps it |
+| ruff | `TID252` | error | a relative import, a sibling's too — listed because `ban-relative-imports = "all"` goes past ruff's default and past PEP 8, which permits explicit relative imports |

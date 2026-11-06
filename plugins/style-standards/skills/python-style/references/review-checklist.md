@@ -38,9 +38,9 @@ invalidate the work of reading the next.
    raises; everything else is silent. (PS-CONC-12 … PS-CONC-14)
 5. **Things that look safe.** Caches, `cached_property`, `print`, the module-level `random`, and
    every `ContextVar`. Each has a documented caveat that reads like a guarantee. (PS-CONC-15 …
-   PS-CONC-21)
+   PS-CONC-20)
 6. **Hold times.** Every `contextmanager` used as a decorator, and every lock spanning a call you do
-   not control. (PS-CONC-22, PS-CONC-23)
+   not control. (PS-CONC-21, PS-CONC-22)
 7. **The public surface.** What is newly public? Is it annotated, is the ownership documented, does
    the package ship `py.typed`?
 8. **Function bodies.** Now read the code.
@@ -61,7 +61,7 @@ uv run python -c "import sys; assert sys.abi_info.free_threaded"
 uv run python -c "import sys, acmewidget; assert not sys._is_gil_enabled()"
 ```
 
-The two assertions are PS-BUILD-20's: the build, then the runtime once the package is imported. Then
+The two assertions are PS-BUILD-19's: the build, then the runtime once the package is imported. Then
 the greps that no linter carries, because Ruff has no free-threading rule at all:
 
 ```sh
