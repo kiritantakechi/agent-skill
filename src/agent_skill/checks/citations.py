@@ -12,12 +12,16 @@ the skill's toolchain's to say (`Toolchain.cite`), because each tool
 reads its own configuration.
 """
 
+import re
+from collections import Counter
 lazy from collections.abc import Iterable, Iterator
 
 from agent_skill.checks import check, per_skill
+from agent_skill.doc import text_of
+from agent_skill.doc.chapter import CHECK
 from agent_skill.lang import needs, toolchain_for, toolchains
 from agent_skill.report import Level, declare, fail
-lazy from agent_skill.doc.chapter import LintRow
+lazy from agent_skill.doc.chapter import LintRow, Rule
 lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
@@ -26,6 +30,12 @@ lazy from agent_skill.report import Finding
 # declares those its rows and citations report through.
 ROW_TOOL = declare("citations", "row_tool", Level.FAIL)
 ROW_LEVEL = declare("citations", "row_level", Level.FAIL)
+
+# The branches only a normalised standard is held to (`_bijection`).
+UNROWED = declare("citations", "unrowed", Level.FAIL)
+ROWED_TWICE = declare("citations", "rowed_twice", Level.FAIL)
+ROW_REASON = declare("citations", "row_reason", Level.FAIL)
+ONLY_LINT = declare("citations", "only_lint", Level.FAIL)
 
 
 #: A row of a chapter's `Decided by tools` table, and where it is.
@@ -83,5 +93,157 @@ def row_shape(rows: Iterable[Row], tools: tuple[str, ...]) -> Iterator[Finding]:
 def citations(skill: Skill) -> Iterator[Finding]:
     """Every lint row and cited code, against the shipped config."""
     yield from row_shape(rows_of(skill), skill.profile.tools)
+    if skill.profile.normalized:
+        yield from bijection(skill)
     if (toolchain := toolchain_for(skill.profile.toolchain)) is not None:
         yield from toolchain.cite(skill)
+
+
+# ------------------------------------------------------------------
+# the lint bijection: what a normalised standard is held to (decision 8)
+
+#: What a row for a lint the configuration does not set one by one says
+#: before the reason it is listed at all.
+LISTED = "listed because"
+
+#: A lint and the tool that reports it, as a row names the two.
+type Lint = tuple[str, str]
+
+
+def configured(skill: Skill) -> dict[Lint, str]:
+    """Each lint `skill`'s configuration sets one by one to fail a run.
+
+    At the level it sets: a lint set to `allow` forbids nothing, so a
+    row could only say what the build lets through.
+    """
+    toolchain = toolchain_for(skill.profile.toolchain)
+    if toolchain is None:
+        return {}
+    failing = levels()
+    return {
+        lint: level
+        for lint, level in toolchain.configured(skill).items()
+        if level in failing.get(lint[0], ())
+    }
+
+
+def owed(skill: Skill) -> tuple[dict[Lint, str], frozenset[Lint]]:
+    """The lints owed a row here, and those whose row is the anchor's.
+
+    Every lint the configuration sets one by one is owed exactly one
+    row. A delta's configuration repeats its anchor's where it does not
+    depart, and a lint it sets as its anchor does is the anchor's to
+    row, so each lint has one owner: the delta owes a row only for an
+    entry its anchor sets otherwise or not at all, as it ships only the
+    assets it departs in.
+    """
+    mine = configured(skill)
+    anchor = skill.profile.anchor
+    if not anchor:
+        return mine, frozenset()
+    theirs = configured(Skill(skill.root.parent / anchor))
+    shared = frozenset(k for k, level in mine.items() if theirs.get(k) == level)
+    return {k: v for k, v in mine.items() if k not in shared}, shared
+
+
+def bijection(skill: Skill) -> Iterator[Finding]:
+    """Each configured lint has one row, and each row a reason.
+
+    A lint the configuration sets one by one has exactly one row, in
+    the chapter that owns its subject — which chapter that is, is a
+    reader's to judge; one row is the harness's. A row for a lint the
+    configuration does not set one by one — on by default, or through a
+    group — says why it is listed, since a reader learns what the build
+    forbids from the configuration, and a row adds only its reason. A
+    compiler's error is set by no configuration, and its row is proved
+    by its probe. A rule whose Check is a lint and nothing more is that
+    lint's row.
+    """
+    due, anchors = owed(skill)
+    rows = rows_of(skill)
+    seen = Counter((row.tool, row.lint) for _, row in rows)
+    for tool, lint in sorted(set(due) - set(seen)):
+        yield fail(
+            f"the configuration sets `{tool}:{lint}` to `{due[tool, lint]}` and no "
+            "chapter lists it; a reader learns what the build forbids from the rows",
+            skill.at(),
+            UNROWED,
+        )
+    toolchain = toolchain_for(skill.profile.toolchain)
+    compilers = toolchain.compilers if toolchain is not None else frozenset()
+    every = configured(skill)
+    listed: Counter[Lint] = Counter()
+    for where, row in rows:
+        lint = (row.tool, row.lint)
+        listed[lint] += 1
+        if listed[lint] == 2:  # noqa: PLR2004 — the second row is the one too many
+            yield fail(
+                f"`{row.tool}:{row.lint}` has {seen[lint]} rows; a lint has one, in "
+                "the chapter that owns its subject",
+                where,
+                ROWED_TWICE,
+            )
+        elif lint in anchors:
+            yield fail(
+                f"`{row.tool}:{row.lint}` is set here as `{skill.profile.anchor}` sets "
+                "it, so its row is the anchor's; one lint, one row",
+                where,
+                ROWED_TWICE,
+            )
+        if lint not in every and row.tool not in compilers and not _reasoned(row):
+            yield fail(
+                f"`{row.tool}:{row.lint}` is not set one by one, and its row does not "
+                f"say why it is listed (`{LISTED} …`)",
+                where,
+                ROW_REASON,
+            )
+    for chapter in skill.chapters:
+        for rule in chapter.typed.rules:
+            if only_lint(rule):
+                yield fail(
+                    f"{rule.id}'s Check is a lint and nothing more; the rule is that "
+                    "lint's row, and `revise` demotes it",
+                    chapter.where(rule.line),
+                    ONLY_LINT,
+                )
+
+
+def _reasoned(row: LintRow) -> bool:
+    """Does `row` say why it is listed, after what it forbids?"""
+    said, listed, reason = row.forbids.lower().partition(LISTED)
+    return bool(said.strip() and listed and reason.strip(" :—-"))
+
+
+#: What a Check that is only a lint says beside its lint: the words
+#: that join a tool's name to a code.
+_JOINING = frozenset({"and", "or", "the", "its", "by", "lint", "lints", "decides"})
+
+#: A lint as a Check names one in a code span: `UP006`, `unwrap_used`.
+_LINT = re.compile(r"[\w:-]+")
+
+#: A lint code written outside a code span: `TRY002`.
+_CODE = re.compile(r"[A-Z]+\d+")
+
+
+def only_lint(rule: Rule) -> bool:
+    """Is the rule's Check a lint and nothing more?
+
+    Its words, its label and code spans aside, are tools' names, codes
+    and the words that join them: `**Check:** ruff `UP040`.` Such a
+    rule is that lint's row (decision 8).
+    """
+    tools = {tool for tc in toolchains() for tool in tc.rows}
+    said = text_of(rule.check).removeprefix(CHECK)
+    spans = re.findall(r"`([^`]+)`", said)
+    rest = re.findall(r"[A-Za-z][\w-]*", re.sub(r"`[^`]+`", " ", said))
+    return bool(spans) and (
+        all(_LINT.fullmatch(s) for s in spans)
+        and all(w in tools or w in _JOINING or _CODE.fullmatch(w) for w in rest)
+    )
+
+
+def unrowed(skill: Skill) -> tuple[int, int]:
+    """How many lints owed a row have none, of how many are owed."""
+    due, _ = owed(skill)
+    rows = {(row.tool, row.lint) for _, row in rows_of(skill)}
+    return len(set(due) - rows), len(due)

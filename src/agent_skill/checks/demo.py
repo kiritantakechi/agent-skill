@@ -19,20 +19,25 @@ lazy from pathlib import Path
 from agent_skill import shared
 from agent_skill.doc import canonical
 from agent_skill.ids import Pin
+from agent_skill.lang.python import PythonSnippet
 from agent_skill.model import REFERENCES, SKILL_MD, Skill
 from agent_skill.profiles import Profile
 from agent_skill.profiles.record import rules
 
-#: The demo's profile: Demo 1.2, in normal form. It names no language
-#: and no toolchain, so nothing is compiled or searched; its two `rg`
-#: patterns are listed unproven, as a shipped standard's are.
+#: The demo's profile: Demo 1.2, in normal form. It names no language,
+#: so no example is compiled or searched; its two `rg` patterns are
+#: listed unproven, as a shipped standard's are. Its lint configuration
+#: is a `ty.toml`, read as Python's toolchain reads one, so the lint
+#: bijection has a configuration to hold its rows to; it ships no
+#: `ruff.toml`, so nothing is asked of `ruff`.
 PROFILE = Profile(
     name="demo-style",
     prefix="DS",
-    tools=("democ",),
+    tools=("democ", "ty"),
     language="Demo",
     verified_as="compiles as written against Demo {pin}",
     strict_scope="library",
+    toolchain=PythonSnippet(),
     subject=Pin.parse("demo==1.2.3"),
     unproven=rules("DS-ERR-02", "DS-MIG-01"),
     normalized=True,
@@ -153,7 +158,9 @@ that can make it.
 
 ## Decided by tools
 
-No tool decides any of this chapter on its own.
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| ty | `division-by-zero` | error | a division the checker proves is by zero |
 """
 
 _MIGRATION = """# Migration
@@ -213,6 +220,11 @@ FILES = {
 }
 
 
+#: The configuration the demo ships, by its path in the skill: one lint,
+#: set to fail a run, and listed by the errors chapter.
+ASSETS = {"assets/ty.toml": '[rules]\ndivision-by-zero = "error"\n'}
+
+
 def build(tree: Path) -> tuple[str, ...]:
     """Write the demo under `tree`, and say which files it wrote.
 
@@ -221,7 +233,10 @@ def build(tree: Path) -> tuple[str, ...]:
     """
     root = tree / PROFILE.name
     (root / REFERENCES).mkdir(parents=True)
+    (root / "assets").mkdir()
     for rel, text in FILES.items():
         (root / rel).write_text(canonical(text))
+    for rel, text in ASSETS.items():
+        (root / rel).write_text(text)
     shared.rewrite(Skill(root, PROFILE))
-    return tuple(f"{PROFILE.name}/{rel}" for rel in FILES)
+    return tuple(f"{PROFILE.name}/{rel}" for rel in (*FILES, *ASSETS))

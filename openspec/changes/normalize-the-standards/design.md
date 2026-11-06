@@ -211,6 +211,34 @@ Every lint the shipped configuration sets explicitly has exactly one row, in the
 its subject; a row for a lint on by default says why it is listed. A rule whose Check is only a lint
 code is that row, and `revise` demotes it. `citations` gains both directions.
 
+As built (task 2.8), in `citations` (`bijection`), for a normalised standard:
+
+- What is owed a row: each lint the shipped configuration sets one by one
+  (`Toolchain.configured`, which now gives each lint's level as well) at a level that fails a run —
+  a lint set to `allow` forbids nothing, so no row could say what it forbids. A compiler sets
+  nothing; ruff's `ALL` and clippy's `pedantic` set nothing one by one.
+- A delta owes rows only for the entries its configuration departs in: one its anchor sets
+  otherwise, or not at all. An entry equal to the anchor's is the anchor's row — one owner, as a
+  delta ships only the assets it departs in (`assets.delta_*`). bevy-style's two departures are
+  `allow`, so it owes none, and its seven rows of lints it sets as rust-style does are second homes.
+- `unrowed`: an owed lint no row lists. `rowed_twice`: a lint's second row, or a delta's row of a
+  lint whose row is the anchor's. Which chapter owns a lint's subject is a reader's judgement; one
+  row is the harness's.
+- `row_reason`: a row of a lint the configuration does not set one by one — on by default, or
+  through a group or `ALL`, which is the configuration's default for its members — states why it is
+  listed, in its Forbids cell after what it forbids, as `… — listed because <reason>`. "On by
+  default" is read so because a reader learns what the build forbids from the configuration, and a
+  row it does not name adds only its reason. A compiler's row is exempt: no configuration sets a
+  compiler error, and the row is proved by its probe.
+- `only_lint`: a rule whose Check, its label and code spans aside, is tools' names, lint codes and
+  joining words (`citations.only_lint`, which `measure` counted as `_only_lints` and now calls).
+- Read as normalised: python-style 17 unrowed (its `ty.toml`), 46 rows owing a reason, 2 only-lint
+  Checks; rust-style 3 unrowed, 47 rows owing a reason; bevy-style 7 rows its anchor owns and 3
+  owing a reason; zig-style nothing. `measure` prints the last two as rows of their own.
+- Controls run on the demo, which ships an `assets/ty.toml` read as Python's toolchain reads one,
+  setting one lint its errors chapter lists; it ships no `ruff.toml`, so `cite` asks nothing of
+  ruff there.
+
 ### 9. Migration is a function from old spelling to row
 
 Each migration chapter holds one table keyed uniquely by old spelling:

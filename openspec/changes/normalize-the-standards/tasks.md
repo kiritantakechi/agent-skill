@@ -34,7 +34,9 @@
   on a drifted line and on any `CORE` rule — the IDs section 4's lines name are the source
   (`doc.normal.listed`/`projection`, one `Contents`); `skeleton.core_rule`, `core_drift`; the
   core-citation branches not run for a normalised standard; two shared sentences are slots
-- [ ] 2.8 Lint bijection (decision 8) in `citations`
+- [x] 2.8 Lint bijection (decision 8) in `citations` — `unrowed`, `rowed_twice`, `row_reason`
+  (`listed because …` in Forbids), `only_lint`; `Toolchain.configured` gives each lint's level, and
+  a delta owes a row only where it departs from its anchor's configuration
 - [ ] 2.9 Migration as a function (decision 9): the table schema, uniqueness, the generated grep in
   `fmt`, and each toolchain's verifier of `gone` rows (run with `toolchain`)
 - [ ] 2.10 The delta map (decision 10) in `crossref`
@@ -96,8 +98,10 @@ of its function in `agent_skill.measure`, and of the branch it counts.
 | `[M]` and `[M!]` titles in the mood of advice | 4 | 10 | 29 | 3 |
 | core rules | 24 | 26 | 28 | 29 |
 | core rules at another tier than a rule they cite | 0 | 0 | 5 | 5 |
-| lints the configuration sets one by one with no row | 16 of 23 | 17 of 17 | 3 of 25 | none |
+| lints the configuration sets one by one with no row | none | 17 of 17 | 3 of 25 | none |
 | rules whose Check is only a lint | 0 | 2 | 0 | 0 |
+| rows of a lint not set one by one, saying no reason | 3 | 46 | 47 | 0 |
+| rows of a lint another row, or the anchor's, lists | 7 | 0 | 0 | 0 |
 | migration status values used (declared) | 0 (0) | 0 (0) | 0 (0) | 25 (3) |
 | old spellings in two migration rows | 1 | 0 | 0 | 9 |
 | section 2 subsections, lines | 3, 71 | 4, 50 | 3, 51 | 10, 208 |
@@ -116,7 +120,9 @@ are tools' names, codes and joining words; the nine rust-style Checks that name 
 than it); status values 25 used against 28 (distinct cells under `Status`, emphasis and case
 ignored); core-rule tier mismatches in two standards, not three (a core rule against every chapter
 rule it cites). `fmt` clears the two citation rows and the out-of-order row of a normalised standard
-by construction (`tests/test_normal_form.py`); the rest are a person's. bevy's lint row counts its
-own rows only: whether a delta owes a row its anchor already states is 2.8's and 2.10's to decide.
+by construction (`tests/test_normal_form.py`); the rest are a person's. bevy's lint row read 16 of 23
+when it counted its own rows only; 2.8 decided that a delta owes a row only where its configuration
+departs from its anchor's, and bevy-style's two departures are `allow`, so it owes none, and its 7
+rows of lints it sets as rust-style does are the anchor's (the two rows 2.8 added count them).
 `check --fast` 23 s, all passed; pytest 1,002 passed, 7 deselected, 2 min 14 s; FAIL branches 203 →
 220, controls 181 → 198, exemptions 22.

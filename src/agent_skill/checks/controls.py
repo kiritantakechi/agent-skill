@@ -562,6 +562,11 @@ def _orphan_exemption(tree: Path) -> Edited:
 #: The demo's chapter of rules, as an edit names it.
 _DEMO_ERRORS = "references/errors.md"
 
+#: The one row of the demo's `Decided by tools`.
+_DEMO_ROW = (
+    "| ty | `division-by-zero` | error | a division the checker proves is by zero |\n"
+)
+
 
 def _on_demo(
     branch: Branch,
@@ -621,8 +626,8 @@ NORMAL_FORM: list[Control] = [
         # A section after the tool table, which is last.
         skeleton.DECIDED_LAST,
         _DEMO_ERRORS,
-        "No tool decides any of this chapter on its own.\n",
-        "No tool decides any of this chapter on its own.\n\n## Afterword\n\nNone.\n",
+        _DEMO_ROW,
+        f"{_DEMO_ROW}\n## Afterword\n\nNone.\n",
     ),
     _normal(
         skeleton.CHAPTER_NAMED,
@@ -725,6 +730,33 @@ NORMAL_FORM: list[Control] = [
         SKILL_MD,
         "  - DS-ERR-01 [M!] Return an error",
         "  - DS-ERR-01 [M] Return an error",
+    ),
+    _normal(
+        # A lint set to fail a run that no row lists.
+        citations.UNROWED,
+        "assets/ty.toml",
+        'division-by-zero = "error"\n',
+        'division-by-zero = "error"\npossibly-missing-attribute = "warn"\n',
+    ),
+    _normal(
+        citations.ROWED_TWICE,
+        _DEMO_ERRORS,
+        _DEMO_ROW,
+        f"{_DEMO_ROW}{_DEMO_ROW}",
+    ),
+    _normal(
+        # A row of a lint the configuration does not set, and no reason.
+        citations.ROW_REASON,
+        _DEMO_ERRORS,
+        _DEMO_ROW,
+        f"{_DEMO_ROW}| ty | `deprecated` | warn | a deprecated API |\n",
+    ),
+    _normal(
+        citations.ONLY_LINT,
+        _DEMO_ERRORS,
+        "**Check:** `rg -n 'process::exit' src/` — every hit in library code is the "
+        "finding.",
+        "**Check:** ty `division-by-zero`.",
     ),
     _on_demo(
         # Heading and contents line alike, so only the mood is wrong.

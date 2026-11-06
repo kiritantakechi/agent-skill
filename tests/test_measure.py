@@ -60,4 +60,4 @@ def test_a_compiler_ships_no_configuration(skills: list[Skill]) -> None:
     for skill in skills:
         toolchain = toolchain_for(skill.profile.toolchain)
         if toolchain is not None and toolchain.compilers >= set(toolchain.rows):
-            assert toolchain.configured(skill) == frozenset(), skill.name
+            assert not toolchain.configured(skill), skill.name

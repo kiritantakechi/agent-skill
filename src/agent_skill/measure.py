@@ -15,13 +15,12 @@ from dataclasses import replace
 lazy from collections.abc import Iterable, Iterator, Sequence
 
 from agent_skill import shared, vocabulary
-from agent_skill.checks import anatomy, skeleton
+from agent_skill.checks import anatomy, citations, skeleton
 from agent_skill.checks.frontmatter import described
 from agent_skill.doc import Heading, Table, entry, text_of, walk
-from agent_skill.doc.chapter import CHECK, Element, citing
+from agent_skill.doc.chapter import Element, citing
 from agent_skill.doc.normal import qualified, quoted, runs
 from agent_skill.ids import cited, leading
-from agent_skill.lang import toolchain_for, toolchains
 from agent_skill.model import Skill
 lazy from agent_skill.ids import Branch
 
@@ -46,6 +45,10 @@ _CITATIONS: tuple[tuple[str, Branch], ...] = (
     ("rules restating the `[M!]` scope", anatomy.LOCAL_SCOPE),
     ("`[M]` and `[M!]` titles in the mood of advice", anatomy.ADVICE_TITLE),
 )
+_ROWS: tuple[tuple[str, Branch], ...] = (
+    ("rows of a lint not set one by one, saying no reason", citations.ROW_REASON),
+    ("rows of a lint another row, or the anchor's, lists", citations.ROWED_TWICE),
+)
 _REALITY: tuple[tuple[str, Branch], ...] = (
     ("section 2 laid out otherwise than 2.1-2.3", skeleton.REALITY_SECTIONS),
     ("a 2.2 subsection that is not one old/new/rule table", skeleton.REALITY_TABLE),
@@ -54,9 +57,17 @@ _REALITY: tuple[tuple[str, Branch], ...] = (
 
 
 def found(skill: Skill) -> Counter[Branch]:
-    """What `anatomy` and `skeleton` find in `skill`, read as normal."""
+    """What the normal form's checks find in `skill`, read as normal.
+
+    `anatomy` and `skeleton`, and the lint bijection of `citations`:
+    the checks that need no tool to say it.
+    """
     normal = Skill(skill.root, replace(skill.profile, normalized=True))
-    findings = (*anatomy.anatomy.each(normal), *skeleton.skeleton.each(normal))
+    findings = (
+        *anatomy.anatomy.each(normal),
+        *skeleton.skeleton.each(normal),
+        *citations.bijection(normal),
+    )
     return Counter(f.branch for f in findings)
 
 
@@ -82,6 +93,7 @@ def measured(skill: Skill) -> dict[str, str]:
         "core rules at another tier than a rule they cite": str(_core_tiers(skill)),
         "lints the configuration sets one by one with no row": _lints(skill),
         "rules whose Check is only a lint": str(_only_lints(skill)),
+        **counted(_ROWS),
         "migration status values used (declared)": f"{statuses} ({declared})",
         "old spellings in two migration rows": str(doubled),
         "section 2 subsections, lines": f"{subsections}, {lines}",
@@ -163,51 +175,23 @@ def _core_tiers(skill: Skill) -> int:
 
 
 def _lints(skill: Skill) -> str:
-    """The lints the configuration sets one by one and no row lists.
+    """The lints owed a row that no row lists (`citations.unrowed`).
 
-    "n of m", where m is every lint it sets one by one; "none" for a
-    standard whose configuration sets none.
+    "n of m", where m is every lint the configuration sets one by one
+    to fail a run and this standard owes a row — a delta none it sets as
+    its anchor does; "none" for a standard owed none.
     """
-    toolchain = toolchain_for(skill.profile.toolchain)
-    configured = toolchain.configured(skill) if toolchain is not None else frozenset()
-    if not configured:
-        return "none"
-    rows = {(row.tool, row.lint) for c in skill.chapters for row in c.typed.tools}
-    return f"{len(configured - rows)} of {len(configured)}"
-
-
-#: What a Check that is only a lint says beside its lint: a tool's name,
-#: a code, and the words that join two of them.
-_JOINING = frozenset({"and", "or", "the", "its", "by", "lint", "lints", "decides"})
-
-#: A lint as a Check names one in a code span: `UP006`, `unwrap_used`.
-_LINT = re.compile(r"[\w:-]+")
+    missing, due = citations.unrowed(skill)
+    return f"{missing} of {due}" if due else "none"
 
 
 def _only_lints(skill: Skill) -> int:
     """How many rules have a Check that is a lint and nothing more.
 
-    Its words, its label and code spans aside, are tools' names, codes
-    and the words that join them: `**Check:** ruff `UP040`.` Such a
-    rule is that lint's row (decision 8).
+    `citations.only_lint`: such a rule is that lint's row (decision 8).
     """
-    tools = {tool for tc in toolchains() for tool in tc.rows}
-    count = 0
-    for rule in skill.chapter_rules:
-        said = text_of(rule.check).removeprefix(CHECK)
-        spans = re.findall(r"`([^`]+)`", said)
-        rest = re.findall(r"[A-Za-z][\w-]*", re.sub(r"`[^`]+`", " ", said))
-        if (
-            spans
-            and all(_LINT.fullmatch(s) for s in spans)
-            and all(w in tools or w in _JOINING or _CODE.fullmatch(w) for w in rest)
-        ):
-            count += 1
-    return count
+    return sum(1 for rule in skill.chapter_rules if citations.only_lint(rule))
 
-
-#: A lint code written outside a code span: `TRY002`.
-_CODE = re.compile(r"[A-Z]+\d+")
 
 #: The tables of a migration chapter that map nothing: what its tiers
 #: or statuses mean, what a release added, and the tool rows.

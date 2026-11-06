@@ -540,8 +540,8 @@ class Rust:
         """Nothing: `assets` reads a manifest as TOML, as any other."""
         return iter(())
 
-    def configured(self, skill: Skill) -> frozenset[tuple[str, str]]:
-        """Each lint the shipped `[workspace.lints]` sets to a level.
+    def configured(self, skill: Skill) -> dict[tuple[str, str], str]:
+        """Each lint the shipped `[workspace.lints]` sets, at its level.
 
         A table value, such as clippy's `pedantic` with its priority,
         sets a group; a delta that ships no manifest applies its
@@ -549,14 +549,14 @@ class Rust:
         """
         manifest = skill.asset(CARGO)
         if not manifest.exists():
-            return frozenset()
+            return {}
         tools = {section: tool for tool, section in SECTION.items()}
-        found: set[tuple[str, str]] = set()
+        found: dict[tuple[str, str], str] = {}
         for key, value in table(manifest.read_text(), "workspace.").items():
             section, _, lint = key.partition(".")
             if section in tools and not value.startswith("{"):
-                found.add((tools[section], lint))
-        return frozenset(found)
+                found[tools[section], lint] = value.strip("\"'")
+        return found
 
 
 #: How long one cargo step may take: Bevy builds from cold in minutes.

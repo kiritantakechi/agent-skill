@@ -397,13 +397,14 @@ class Toolchain(Protocol):
         """What is wrong with a shipped asset of `asset_suffixes`."""
         ...
 
-    def configured(self, skill: Skill) -> frozenset[tuple[str, str]]:
+    def configured(self, skill: Skill) -> Mapping[tuple[str, str], str]:
         """Each lint `skill`'s shipped configuration sets one by one.
 
-        As a `Decided by tools` row names it: its tool, then the lint.
-        A group, or a selection of everything, sets nothing one by one,
-        and a compiler ships no configuration. A row is owed to each
-        (normalize-the-standards, decision 8).
+        As a `Decided by tools` row names it — its tool, then the lint —
+        and the level it is set to, as a row states one. A group, or a
+        selection of everything, sets nothing one by one, and a compiler
+        ships no configuration. A row is owed to each set at a level
+        that fails a run (normalize-the-standards, decision 8).
         """
         ...
 
