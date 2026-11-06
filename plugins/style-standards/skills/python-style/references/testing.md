@@ -305,11 +305,15 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 class Allocator:
+    """Issue increasing ids, each once."""
+
     def __init__(self) -> None:
+        """Start at id 0."""
         self._lock = threading.Lock()  # guards: each id issued once
         self._next = 0
 
     def allocate(self, _request: int) -> int:
+        """Return the next id."""
         with self._lock:
             issued = self._next
             self._next = issued + 1

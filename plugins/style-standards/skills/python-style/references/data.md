@@ -58,6 +58,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class Money:
+    """An amount in a currency's minor unit."""
+
     amount_cents: int
     currency: str
 
@@ -88,6 +90,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True, weakref_slot=True)
 class Node:
+    """A named node that a weak reference can point at."""
+
     name: str
 
 
@@ -181,14 +185,19 @@ from typing import Protocol
 class Sink(Protocol):
     """Structural: a caller satisfies this without importing it."""
 
-    def write(self, line: str) -> None: ...
+    def write(self, line: str) -> None:
+        """Take one line."""
 
 
 class Collector:
+    """Keep every line written, in order."""
+
     def __init__(self) -> None:
+        """Start with no lines."""
         self.lines: list[str] = []
 
     def write(self, line: str) -> None:
+        """Keep `line`."""
         self.lines.append(line)
 
 
@@ -225,6 +234,8 @@ from dataclasses import dataclass, field
 
 @dataclass(slots=True)
 class Batch:
+    """A named batch, with a list of its own."""
+
     name: str
     items: list[int] = field(default_factory=list)
 
@@ -332,9 +343,12 @@ import pytest
 
 @dataclass(frozen=True, slots=True)
 class Port:
+    """A TCP port number."""
+
     number: int
 
     def __post_init__(self) -> None:
+        """Reject a number outside 1 to 65535."""
         if not 1 <= self.number <= 65535:
             msg = f"port out of range: {self.number}"
             raise ValueError(msg)
@@ -427,16 +441,20 @@ lazy from collections.abc import Mapping
 
 @dataclass(frozen=True, slots=True)
 class Point:
+    """A point on the integer grid."""
+
     x: int
     y: int
 
     def to_dict(self) -> dict[str, int]:
+        """Return the point as a mapping of its fields."""
         # Not `asdict`: it returns `dict[str, Any]`, and laundering
         # `Any` into an annotated return is what PS-TYPE-12 stops.
         return {"x": self.x, "y": self.y}
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, int]) -> Self:
+        """Return the point `to_dict` gave `raw`."""
         return cls(x=raw["x"], y=raw["y"])
 
 

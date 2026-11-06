@@ -63,10 +63,12 @@ class RetryPolicy:
     """CapWords for the type, snake_case for everything it holds."""
 
     def __init__(self, attempts: int, backoff_ms: int) -> None:
+        """Retry `attempts` times, doubling from `backoff_ms`."""
         self.attempts = attempts
         self.backoff_ms = backoff_ms
 
     def next_delay_ms(self, attempt: int) -> int:
+        """Return the wait before retry number `attempt`."""
         return self.backoff_ms << attempt
 
 

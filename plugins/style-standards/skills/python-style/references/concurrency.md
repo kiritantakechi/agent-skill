@@ -352,6 +352,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class Request:
+    """One unit of work, handed over whole."""
+
     path: str
     retries: int
 
@@ -431,6 +433,8 @@ from dataclasses import dataclass, replace
 
 @dataclass(frozen=True, slots=True)
 class Position:
+    """A point the tracker replaces, never edits."""
+
     x: int
     y: int
 
@@ -765,7 +769,7 @@ def rng() -> random.Random:
     if isinstance(existing, random.Random):
         return existing
     # No seed: the operating system's, so no two threads share a stream.
-    made = random.Random()
+    made = random.Random()  # noqa: S311 — a sampling stream, not a secret
     _local.rng = made
     return made
 

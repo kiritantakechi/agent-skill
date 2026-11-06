@@ -198,9 +198,11 @@ class Box[T]:
     """Hold one item; `T` is scoped to the class alone."""
 
     def __init__(self, item: T) -> None:
+        """Hold `item`."""
         self.item = item
 
     def get(self) -> T:
+        """Return the item."""
         return self.item
 
 
@@ -330,6 +332,8 @@ from typing import assert_never
 
 
 class Kind(enum.Enum):
+    """What an access does."""
+
     READ = "read"
     WRITE = "write"
 
