@@ -772,7 +772,7 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             f"{PY}/assets/pyproject.toml",
-            'typecheck = ["ty==0.0.95"]',
+            'typecheck = ["ty==0.0.99"]',
             'typecheck = ["ty==0.0.60"]',
         ),
     ),

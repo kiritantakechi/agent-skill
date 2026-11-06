@@ -1,4 +1,4 @@
-# Validated against ruff 0.17.3. Pin this version: `select = ["ALL"]` means a
+# Validated against ruff 0.17.4. Pin this version: `select = ["ALL"]` means a
 # release that adds a rule changes what your build enforces.
 target-version = "py315"
 line-length = 88

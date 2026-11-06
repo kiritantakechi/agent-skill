@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v7
         with: { persist-credentials: false }
       - uses: astral-sh/setup-uv@v10
-        with: { version: "0.13.6" }
+        with: { version: "0.13.7" }
       # The free-threaded build is a separate interpreter, not a flag.
       - run: uv python install cpython-3.15.2+freethreaded
       - run: uv sync --group dev
@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@v7
         with: { persist-credentials: false }
       - uses: astral-sh/setup-uv@v10
-        with: { version: "0.13.6" }
+        with: { version: "0.13.7" }
       - run: uv python install cpython-3.15.2+freethreaded
       - run: uv sync --group dev
       - run: uv run ruff check
