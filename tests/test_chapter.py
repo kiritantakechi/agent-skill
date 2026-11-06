@@ -14,8 +14,9 @@ from agent_skill.doc.chapter import (
     Removed,
     Rule,
     SkillMd,
-    _becomes,
     citing,
+    parse_becomes,
+    print_becomes,
 )
 from agent_skill.ids import RuleId, Tier
 lazy from agent_skill.doc import Block
@@ -277,11 +278,12 @@ def test_a_contents_section_without_its_rule_is_refused() -> None:
 def test_a_rename_row_says_what_the_old_id_became(
     cell: str, becomes: RuleId | Demoted | Removed
 ) -> None:
-    assert _becomes(cell) == becomes
+    assert parse_becomes(cell) == becomes
+    assert print_becomes(becomes) == cell
 
 
 def test_a_rename_row_that_says_nothing_known_reads_as_nothing() -> None:
-    assert _becomes("see above") is None
+    assert parse_becomes("see above") is None
 
 
 RENAMED = """## Rule IDs before the Demo 1.2 revision

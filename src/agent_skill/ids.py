@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from enum import Enum
 from string import ascii_lowercase
 from typing import Self, override
-lazy from collections.abc import Callable, Iterator
+lazy from collections.abc import Callable, Iterator, Mapping
 
 #: A standard's prefix, such as `RS`.
 STANDARD = r"[A-Z]{2}"
@@ -118,6 +118,34 @@ def cited(text: str, standard: str = STANDARD) -> Iterator[RuleId]:
 def uncited(text: str, standard: str = STANDARD) -> str:
     """`text` with each rule ID it names under `standard` taken out."""
     return _whole(standard).sub("", text)
+
+
+#: A rule ID, or a family alone: `RS-ERR-03`, or `RS-ERR` with no number
+#: after it. The same parts as `rule_id`, the number made optional.
+_TOKEN = re.compile(rf"\b(?P<family>{STANDARD}-{FAMILY})(?:-(?P<number>{NUMBER}))?\b")
+
+
+def respell(
+    text: str, ids: Mapping[RuleId, RuleId], families: Mapping[str, str]
+) -> str:
+    """`text` with each ID `ids` maps and each family `families` maps.
+
+    One pass over the text, from one dictionary. Dense numbering reuses
+    IDs — the old `-03` is the new `-02` while another rule becomes the
+    new `-03` — so a chain of replacements would rewrite the overlap
+    twice, and the result would read exactly like a correct one. A
+    family is spelled with its prefix, `RS-ERR`, and is matched only
+    where no number follows it. Anything neither maps is left as
+    written.
+    """
+
+    def swap(m: re.Match[str]) -> str:
+        if m["number"] is None:
+            return families.get(m.group(), m.group())
+        rid = RuleId.parse(m.group())
+        return str(ids[rid]) if rid in ids else m.group()
+
+    return _TOKEN.sub(swap, text)
 
 
 class Tier(Enum):

@@ -112,21 +112,42 @@ def snapshot(root: Path) -> dict[Path, bytes]:
     return {p: p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
 
 
-def test_demote_and_renumber_rewrite_the_repository_skills_names(
+def test_demote_closes_its_own_gap_so_renumber_has_nothing_left(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Both are `revise`: one with a plan, one without."""
     skills = str(repo / SKILLS)
     plan = repo / "plan.json"
     plan.write_text('{"DS-ERR-01": {"remove": "said nothing"}}')
 
     assert cli.main(["--skills", skills, "demote", "demo-style", str(plan)]) == 0
-    assert cli.main(["--skills", skills, "renumber", "demo-style"]) == 0
-
     out = capsys.readouterr().out
+    assert "revise  DS-ERR-01 -> removed — said nothing" in out
     assert f"write   {SKILLS}/demo-style/references/errors.md" in out
+    assert f"write   {SKILLS}/demo-style/references/renames.md" in out
+    assert cli.main(["--skills", skills, "renumber", "demo-style"]) == 0
+    assert capsys.readouterr().out.startswith("nothing to revise")
+
     after = Skill(repo / SKILLS / "demo-style")
     assert [r.id for r in after.rules] == ["DS-ERR-01", "DS-MIG-01"]
     assert after.by_id["DS-ERR-01"].title == "Name them"
+
+
+def test_revise_takes_a_plan_and_chapter_renames_at_once(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    skills = str(repo / SKILLS)
+    plan = repo / "plan.json"
+    plan.write_text('{"DS-ERR-01": {"merge": "DS-ERR-02"}}')
+    argv = ["--skills", skills, "revise", "demo-style", str(plan)]
+
+    assert cli.main([*argv, "--chapters", "errors=api"]) == 0
+
+    out = capsys.readouterr().out
+    assert "revise  DS-ERR-01 -> `DS-API-01`" in out
+    assert "move    " in out
+    after = Skill(repo / SKILLS / "demo-style")
+    assert [r.id for r in after.rules] == ["DS-API-01", "DS-MIG-01"]
 
 
 #: A demotion whose plan file is not there.
@@ -137,6 +158,8 @@ NO_PLAN = "<no plan file>"
     ("argv", "message"),
     [
         (["renumber", "no-such-style"], "nothing is called no-such-style"),
+        (["revise", "no-such-style"], "nothing is called no-such-style"),
+        (["revise", "demo-style", '{"DS-ERR-01": {"merge": "x"}}'], "a merge names"),
         (["demote", "no-such-style", "{}"], "nothing is called no-such-style"),
         (["demote", "demo-style", NO_PLAN], "No such file"),
         (["demote", "demo-style", "{"], "Expecting"),
@@ -153,7 +176,7 @@ def test_a_command_that_cannot_start_says_why_and_exits_2(
 ) -> None:
     """A demotion's third word is the plan file's text."""
     args = list(argv)
-    if args[0] == "demote":
+    if args[0] in {"demote", "revise"} and len(args) > 2:
         plan = repo / "plan.json"
         if args[2] != NO_PLAN:
             plan.write_text(args[2])

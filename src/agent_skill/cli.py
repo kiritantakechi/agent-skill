@@ -1,7 +1,7 @@
 """The `agent-skill` command line.
 
-It checks, packages, installs, formats, renumbers and demotes the
-skills in this repository. `--help` prints `DESCRIPTION`, not this
+It checks, packages, installs, formats and revises the skills in this
+repository. `--help` prints `DESCRIPTION`, not this
 docstring, so rewrapping one never rewords the other.
 """
 
@@ -13,23 +13,25 @@ lazy from collections.abc import Callable
 
 from agent_skill import build
 from agent_skill.checks import all_checks
+from agent_skill.doc.chapter import print_becomes
 from agent_skill.fmt import format_skill
+from agent_skill.ids import RuleId
 from agent_skill.lang import toolchain_for
 from agent_skill.layout import SKILLS, root_of
-from agent_skill.model import Tree, discover
+from agent_skill.model import Skill, Tree, discover
 from agent_skill.report import Level, Result
-lazy from agent_skill import demote, renumber
+lazy from agent_skill import revise
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_SKILLS = REPO / SKILLS
 
 #: What `--help` says the command is for. It names every subcommand: it
-#: named three of seven, and `fmt`, `renumber` and `demote` are the ones
-#: a person needs to be told exist.
+#: named three of seven, and `fmt` and `revise`, with its aliases
+#: `renumber` and `demote`, are the ones a person needs telling of.
 DESCRIPTION = (
-    "`agent-skill` — check the skills in this repository; fmt, renumber and "
-    "demote them; build them into packages, install them into each agent, "
-    "and list them."
+    "`agent-skill` — check the skills in this repository; fmt them; revise "
+    "their rules, or renumber and demote, which are revise by other names; "
+    "build them into packages, install them into each agent, and list them."
 )
 
 
@@ -220,66 +222,63 @@ def _repo_for(command: str, args: argparse.Namespace) -> Path | None:
     return root_of(skills)
 
 
-def cmd_renumber(args: argparse.Namespace) -> int:
-    """Print the renumbering plan, and carry it out unless `--dry-run`.
+def _plan(command: str, args: argparse.Namespace, skill: Skill) -> revise.Plan | None:
+    """The plan `args.plan` states, empty if there is none.
 
-    Exit 1, having written nothing, when the plan cannot be made, and 2
-    when there is no such skill.
+    None, having said why, when the file is not there or is not a plan.
     """
-    repo = _repo_for("renumber", args)
-    if repo is None:
-        return 2
+    if args.plan is None:
+        return dict[RuleId, revise.Becomes]()
     try:
-        plan = renumber.plan(repo, args.skill, dict(args.chapters or []))
-    except renumber.RenumberError as e:
-        print(f"renumber: {e}", file=sys.stderr)
-        print("nothing was written", file=sys.stderr)
-        return 1
-    for old, new in plan.moves.items():
+        return revise.read_plan(json.loads(args.plan.read_text()), skill)
+    except (OSError, ValueError, revise.PlanError) as e:
+        print(f"{command}: {args.plan}: {e}", file=sys.stderr)
+        return None
+
+
+def _show(repo: Path, plan: revise.Plan, revision: revise.Revision) -> None:
+    """What a revision moves, renames, writes and leaves to a person."""
+    for old, new in revision.moves.items():
         print(f"  move    {old.relative_to(repo)} -> {new.name}")
-    print(f"  ids     {plan.changed} of {len(plan.ids)} renumbered")
-    for path in sorted(plan.writes):
+    for rid in plan:
+        print(f"  revise  {rid} -> {print_becomes(revision.renamed[rid])}")
+    print(f"  ids     {len(revision.renamed)} of {revision.rules} changed")
+    for path in sorted(revision.writes):
         print(f"  write   {path.relative_to(repo)}")
-    for line in plan.leftovers:
+    for line in revision.leftovers:
         print(f"  look    {line}")
-    if args.dry_run:
-        print("dry run: nothing was written")
-        return 0
-    renumber.apply(repo, plan)
-    return 0
 
 
-def cmd_demote(args: argparse.Namespace) -> int:
-    """Print the demotion plan, and carry it out unless `--dry-run`.
+def cmd_revise(args: argparse.Namespace) -> int:
+    """Print what the revision does, and do it unless `--dry-run`.
 
-    Exit 1, having written nothing, when the plan cannot be made, and 2
-    when there is no such skill or the plan file is not a plan.
+    `renumber` is this with no plan, and `demote` this with one: a plan
+    now closes its own gaps, so neither leaves the other a step to do.
+    Exit 1, having written nothing, when the revision cannot be done,
+    and 2 when there is no such skill or the plan file is not a plan.
     """
-    repo = _repo_for("demote", args)
+    command = str(args.command)
+    repo = _repo_for(command, args)
     if repo is None:
         return 2
-    try:
-        asked = demote.entries(json.loads(args.plan.read_text()))
-    except (OSError, ValueError, demote.DemoteError) as e:
-        print(f"demote: {args.plan}: {e}", file=sys.stderr)
+    skill = Skill(repo / SKILLS / args.skill)
+    plan = _plan(command, args, skill)
+    if plan is None:
         return 2
     try:
-        demotion = demote.plan(repo, args.skill, asked)
-    except demote.DemoteError as e:
-        print(f"demote: {e}", file=sys.stderr)
+        revision = revise.revise(Tree.of([skill]), plan, dict(args.chapters or []))
+    except revise.ReviseError as e:
+        print(f"{command}: {e}", file=sys.stderr)
         print("nothing was written", file=sys.stderr)
         return 1
-    for rid, becomes in demotion.dispositions.items():
-        print(f"  demote  {rid} -> {becomes}")
-    for path in sorted(demotion.writes):
-        print(f"  write   {path.relative_to(repo)}")
-    for line in demotion.leftovers:
-        print(f"  look    {line}")
+    if revision.empty:
+        print("nothing to revise: the plan is empty and every family is dense")
+        return 0
+    _show(repo, plan, revision)
     if args.dry_run:
         print("dry run: nothing was written")
         return 0
-    demote.apply(demotion)
-    print(f"next: `agent-skill renumber {args.skill}` closes the gaps")
+    revision.apply()
     return 0
 
 
@@ -351,34 +350,33 @@ def main(argv: list[str] | None = None) -> int:
     fmt = sub.add_parser("fmt", help=rewrites, description=rewrites)
     fmt.add_argument("--skill", action="append", help="limit to one skill (repeatable)")
     fmt.set_defaults(func=cmd_fmt)
-    num = sub.add_parser(
-        "renumber",
-        help="rename chapters, renumber rules densely, rewrite every citation",
+    revising = (
+        ("revise", "merge, demote or remove rules, then renumber densely", True),
+        ("renumber", "rename chapters, renumber rules densely", False),
+        ("demote", "turn rules into lint-table rows, merges or removals", True),
     )
-    num.add_argument("skill", help="the skill to renumber")
-    num.add_argument(
-        "--chapters",
-        action="append",
-        type=_chapter_rename,
-        metavar="OLD=NEW",
-        help="rename a chapter (repeatable)",
-    )
-    num.add_argument(
-        "--dry-run", action="store_true", help="show the plan and write nothing"
-    )
-    num.set_defaults(func=cmd_renumber)
-    dem = sub.add_parser(
-        "demote",
-        help="turn rules into lint-table rows, merges or removals, and record each",
-    )
-    dem.add_argument("skill", help="the skill whose rules are demoted")
-    dem.add_argument(
-        "plan", type=Path, help="JSON: rule ID -> rows, lint, merge or remove"
-    )
-    dem.add_argument(
-        "--dry-run", action="store_true", help="show the plan and write nothing"
-    )
-    dem.set_defaults(func=cmd_demote)
+    for name, does, planned in revising:
+        said = f"{does}, rewrite every citation, and record each old ID"
+        cmd = sub.add_parser(name, help=said, description=said)
+        cmd.add_argument("skill", help="the skill to revise")
+        if planned:
+            cmd.add_argument(
+                "plan",
+                type=Path,
+                nargs="?" if name == "revise" else None,
+                help="JSON: rule ID -> rows, lint, merge or remove",
+            )
+        cmd.add_argument(
+            "--chapters",
+            action="append",
+            type=_chapter_rename,
+            metavar="OLD=NEW",
+            help="rename a chapter (repeatable)",
+        )
+        cmd.add_argument(
+            "--dry-run", action="store_true", help="show the plan and write nothing"
+        )
+        cmd.set_defaults(func=cmd_revise, plan=None)
     sub.add_parser("list", help="what is in this repository").set_defaults(
         func=cmd_list
     )

@@ -346,7 +346,7 @@ _DEMOTED = re.compile(r"lint `(?P<tool>[a-z]+):(?P<lint>[^`]+)`")
 _REMOVED = re.compile(r"removed —\s*(?P<reason>.*)")
 
 
-def _becomes(cell: str) -> Becomes | None:
+def parse_becomes(cell: str) -> Becomes | None:
     """What a rename row's `Now` cell says the old ID became.
 
     None when it says none of the three, which a table can be written
@@ -359,6 +359,17 @@ def _becomes(cell: str) -> Becomes | None:
     if m := _REMOVED.fullmatch(cell):
         return Removed(m["reason"].strip())
     return None
+
+
+def print_becomes(becomes: Becomes) -> str:
+    """The `Now` cell saying `becomes`, which `parse_becomes` reads."""
+    match becomes:
+        case RuleId():
+            return f"`{becomes}`"
+        case Demoted(tool, lint):
+            return f"lint `{tool}:{lint}`"
+        case Removed(reason):
+            return f"removed — {reason}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -403,6 +414,27 @@ class RenameTable:
         unread = (RuleId.try_parse(before.strip("`")) for before, _ in self.unread)
         listed = {r.before for r in self.rows} | set(unread)
         return tuple(rid for rid in self.originals if rid not in listed)
+
+    @classmethod
+    def read(cls, section: Section) -> Self:
+        """The rename table a section holds, and the ranges above it."""
+        tables = [i for i, b in enumerate(section.lead) if isinstance(b, Table)]
+        lead = section.lead[: tables[0]] if tables else section.lead
+        text = " ".join(b.text for b in lead if isinstance(b, Paragraph))
+        ranges = tuple(
+            (RuleId.parse(m[1]), RuleId.parse(m[2] or m[1]))
+            for m in _RANGE.finditer(text)
+        )
+        rows: list[Rename] = []
+        unread: list[tuple[str, str]] = []
+        cells = (row for i in tables[:1] for _, row in _rows(section.lead[i]))
+        for before, now in (row for row in cells if len(row) == _RENAME_CELLS):
+            old, becomes = RuleId.try_parse(before.strip("`")), parse_becomes(now)
+            if old is None or becomes is None:
+                unread.append((before, now))
+            else:
+                rows.append(Rename(old, becomes))
+        return cls(section.title, ranges, tuple(rows), tuple(unread))
 
 
 @dataclass(frozen=True, slots=True)
@@ -477,33 +509,13 @@ class Chapter:
     def renames(self) -> tuple[RenameTable, ...]:
         """Every rename table the chapter carries."""
         return tuple(
-            _rename_table(s) for s in self.sections if RENAMED.fullmatch(s.title)
+            RenameTable.read(s) for s in self.sections if RENAMED.fullmatch(s.title)
         )
 
 
 def _is_h2(block: Block) -> bool:
     """Is `block` a section heading?"""
     return isinstance(block, Heading) and block.level == _SECTION
-
-
-def _rename_table(section: Section) -> RenameTable:
-    """The rename table a section holds, and the ranges above it."""
-    tables = [i for i, b in enumerate(section.lead) if isinstance(b, Table)]
-    lead = section.lead[: tables[0]] if tables else section.lead
-    text = " ".join(b.text for b in lead if isinstance(b, Paragraph))
-    ranges = tuple(
-        (RuleId.parse(m[1]), RuleId.parse(m[2] or m[1])) for m in _RANGE.finditer(text)
-    )
-    rows: list[Rename] = []
-    unread: list[tuple[str, str]] = []
-    cells = (row for i in tables[:1] for _, row in _rows(section.lead[i]))
-    for before, now in (row for row in cells if len(row) == _RENAME_CELLS):
-        old, becomes = RuleId.try_parse(before.strip("`")), _becomes(now)
-        if old is None or becomes is None:
-            unread.append((before, now))
-        else:
-            rows.append(Rename(old, becomes))
-    return RenameTable(section.title, ranges, tuple(rows), tuple(unread))
 
 
 def _rows(block: Block) -> tuple[tuple[int, tuple[str, ...]], ...]:
@@ -640,16 +652,23 @@ def _opening_id(cell: str) -> tuple[RuleId | None, str]:
     return RuleId.try_parse(span), rest.strip()
 
 
-def citing(doc: Doc) -> Iterator[Block]:
-    """Every top-level block of `doc` whose rule IDs are citations.
+def history(doc: Doc) -> Iterator[tuple[Block, bool]]:
+    """Each top-level block of `doc`, and whether it is history.
 
-    That is every block but those under a rename table's heading: a
-    rename table lists IDs that no longer exist, on purpose, for a
-    reader holding an old citation to look up.
+    History is what a rename table's section holds: IDs that no longer
+    exist, listed on purpose, for a reader holding an old citation to
+    look up. Its IDs are neither citations to check nor to rewrite.
     """
     renamed = False
     for block in doc.blocks:
         if isinstance(block, Heading) and block.level <= _SECTION:
             renamed = block.level == _SECTION and bool(RENAMED.fullmatch(block.text))
-        if not renamed:
-            yield block
+        yield block, renamed
+
+
+def citing(doc: Doc) -> Iterator[Block]:
+    """Every top-level block of `doc` whose rule IDs are citations.
+
+    That is every block but the history a rename table's section holds.
+    """
+    return (block for block, held in history(doc) if not held)

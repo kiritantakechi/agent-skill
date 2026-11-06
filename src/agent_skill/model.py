@@ -18,7 +18,7 @@ from agent_skill.doc import Doc
 from agent_skill.doc import chapter as layer
 from agent_skill.ids import Location, RuleId, rule_id
 from agent_skill.text import group
-from agent_skill.vocabulary import CORE
+from agent_skill.vocabulary import CORE, RENAMES
 lazy from agent_skill.lang import language
 lazy from agent_skill.profiles import Profile, profile_for
 
@@ -118,6 +118,9 @@ SKILL_MD = "SKILL.md"
 
 #: The directory a skill keeps its chapters in.
 REFERENCES = "references"
+
+#: The file under `references/` that every rename table lives in.
+RENAMES_MD = f"{RENAMES}.md"
 
 
 def located(
@@ -567,6 +570,11 @@ class Skill:
     def skill_md(self) -> Path:
         """The skill's `SKILL.md`."""
         return self.root / SKILL_MD
+
+    @property
+    def renames_md(self) -> Path:
+        """`references/renames.md`, which holds every rename table."""
+        return self.root / REFERENCES / RENAMES_MD
 
     @cached_property
     def text(self) -> str:
