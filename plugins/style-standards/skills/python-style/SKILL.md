@@ -267,7 +267,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/documentation.md` | `PS-DOC` (12) | Docstring shape and content, choosing a convention and what that choice disables, doctests, and the documents outside the code |
 | `references/testing.md` | `PS-TEST` (21) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
 | `references/build.md` | `PS-BUILD` (20) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
-| `references/migration.md` | `PS-MIG` (8) | The five tiers of obsolescence, what 3.14 and 3.15 removed and changed, what to write today for 3.16, and pytest's own ladder |
+| `references/migration.md` | `PS-MIG` (8) | Every old spelling 3.14 and 3.15 removed, changed, aliased or deprecated, with its status and owning rule; the command the table generates; what to write now for 3.16; and pytest's own ladder |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, the mechanical pass, and the output format |
 
 ## 7. Bundled assets
