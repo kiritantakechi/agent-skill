@@ -19,7 +19,7 @@ genuine tie.
 A chapter ends with **Decided by tools** when a tool settles part of its subject on its own: each
 lint or compiler error, the level it fails a build at, and what it forbids. Those are not rules —
 the tool enforces them, so they carry no Why and no Check. When rules are renumbered,
-`references/migration.md` names the file that maps every old ID to its new one.
+the migration chapter names the file that maps every old ID to its new one.
 
 Every fenced example carries a marker on its first line. `{comment} verified` — the block
 {verified_as}, and any test it ships passes. `{comment} fragment` — shown in context rather than run
