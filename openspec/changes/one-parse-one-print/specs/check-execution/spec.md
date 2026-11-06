@@ -26,13 +26,20 @@ Each toolchain SHALL be an extraction and its inverse, such that restoring an ex
 every block body exactly, plus the steps and mutants for a unit. One driver SHALL run every step of
 every toolchain with one policy: a step that fails or times out is a failure naming the step and the
 tool's first error line; a mutant that times out is inconclusive and never counted as killed; a
-missing tool or an empty extraction is reported as not run. Formatting an example SHALL be the
-composition of extraction, the toolchain's formatter and restoration, for every toolchain.
+missing tool is reported as not run; an extraction that yields no unit from a skill that has
+verified blocks is a failure, because that is an extractor reporting clean on nothing. Formatting
+an example SHALL be the composition of extraction, the toolchain's formatter and restoration, for
+every toolchain.
 
 #### Scenario: A formatter times out
 
 - **WHEN** a toolchain's format step exceeds its timeout
 - **THEN** it is reported as a failure, never as clean
+
+#### Scenario: An extractor that yields nothing
+
+- **WHEN** a skill has verified blocks and its toolchain extracts no unit from them
+- **THEN** it is reported as a failure, never as not run and never as clean
 
 #### Scenario: Extraction round trip
 
