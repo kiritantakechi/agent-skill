@@ -1,7 +1,7 @@
 ---
 name: python-style
 description: >-
-  The modern Python 3.15 engineering standard — a 262-rule library merging the normative Python
+  The modern Python 3.15 engineering standard — a 236-rule library merging the normative Python
   specifications (PEP 8, PEP 257, PEP 20, and the Python Typing Spec), the empirical conventions of
   the CPython standard library, and Ruff's rule catalogue as its house standard. Covers naming,
   types and annotations, data modelling, errors and control flow, free threading and what the GIL
@@ -38,9 +38,8 @@ produces silently different behaviour rather than an error, so nothing catches i
 
 Rules are cited by ID: `PS-`, then the family of the chapter that owns the rule, then its number.
 Section 6 maps each family to its chapter, so cite the ID when justifying a change and the reader
-can find the full rule and its rationale. When a rule in a chapter and a rule here appear to
-conflict, the chapter is the detailed statement and wins; sections 1 and 3 govern how to break a
-genuine tie.
+can find the full rule and its rationale. When two rules appear to conflict, sections 1 and 3 govern
+how to break the tie.
 
 A chapter ends with **Decided by tools** when a tool settles part of its subject on its own: each
 lint or compiler error, the level it fails a build at, and what it forbids. Those are not rules —
@@ -93,8 +92,7 @@ dangerous ones, because nothing catches them for you.
 
 Cite the *Thread Safety Guarantees* page, not the FAQ's reason that each bytecode instruction is
 atomic: that reason was the GIL, under which the never-atomic `obj.n += 1` shipped for years, and on
-`3.15t` eight threads running it lose about three quarters of their updates
-(`references/concurrency.md` PS-CONC-05).
+`3.15t` eight threads running it lose about three quarters of their updates (PS-CONC-05).
 
 ### 2.3 Spellings that are now wrong
 
@@ -122,7 +120,7 @@ atomic: that reason was the GIL, under which the never-atomic `obj.n += 1` shipp
 
 Two of these — `extra_items` and `sentinel` in a type expression — are specified but not yet
 implemented by every checker. Specified is the bar this standard uses, so it uses them; see
-`references/types.md` PS-TYPE-02 for where that boundary is drawn.
+PS-TYPE-02 for where that boundary is drawn.
 
 ## 3. Design principles
 
@@ -159,98 +157,54 @@ name it costs.
 
 ## 4. Core rules
 
-These 26 `PS-CORE-*` rules bind on their own. Each names the chapter carrying the full statement.
-
-### Names and shape
-
-- **PS-CORE-01 `[M]`** Apply PEP 8's casing mechanically, and let `ruff format` settle everything it
-  can. Formatting is a command, not a matter of individual discipline. (`references/naming.md`
-  PS-NAME-01, PS-NAME-13).
-- **PS-CORE-02 `[M]`** Put units and qualifiers last — `latency_ms_max`, not `max_latency_ms` — so
-  alphabetical order becomes a semantic grouping and a missing member of a family is visible.
-  (`references/naming.md` PS-NAME-05).
-- **PS-CORE-03 `[M]`** Reject at the top with a guard, then proceed unindented. The body should
-  describe only the case that survived. (`references/errors.md` PS-ERR-16).
-- **PS-CORE-04 `[M]`** Say why, not what. Code records what it does; a comment exists for the
-  reasoning, the alternative rejected, and the constraint that is not visible locally.
-  (`references/naming.md` PS-NAME-16).
-
-### Types
-
-- **PS-CORE-05 `[M]`** Run `ty` at the pinned version with the shipped configuration. An annotation
-  nothing checks is a comment with syntax. (`references/types.md` PS-TYPE-01).
-- **PS-CORE-06 `[M]`** Never write `from __future__ import annotations`. PEP 563 is Superseded, and
-  the import silently degrades `annotationlib` to bare strings. (`references/types.md` PS-TYPE-04).
-- **PS-CORE-07 `[M]`** Write `X | None`, `list[int]`, `class Box[T]`, `type Alias = ...`. The
-  `typing` aliases, `Optional`, and module-level `TypeVar` are all superseded spellings.
-  (`references/types.md` PS-TYPE-07, PS-TYPE-08, PS-TYPE-09, PS-TYPE-10).
-- **PS-CORE-08 `[M]`** Use `object` for "anything" and `Any` only with a comment naming what cannot
-  be expressed. They look alike and are opposites. (`references/types.md` PS-TYPE-13).
-- **PS-CORE-09 `[M]`** Narrow with `TypeIs`, not `TypeGuard`: `TypeGuard` leaves the `else` branch
-  un-narrowed, which is not what anyone expects. (`references/types.md` PS-TYPE-14).
-
-### Data
-
-- **PS-CORE-10 `[M]`** Model a record as `@dataclass(frozen=True, slots=True)` by default, and reach
-  for a mutable one only when you can say what it buys. (`references/data.md` PS-DATA-01,
-  PS-DATA-02).
-- **PS-CORE-11 `[M]`** Never give a mutable or computed default. The default is evaluated once and
-  shared by every caller — and, under free threading, by every thread. (`references/data.md`
-  PS-DATA-08, PS-DATA-09).
-- **PS-CORE-12 `[M!]`** Make the invalid state unrepresentable before validating against it. A type
-  is a check performed everywhere for free; validation is one that can be forgotten at any call
-  site. *Relaxed form:* application code at a boundary may validate a primitive, provided it does so
-  exactly once and does not pass the value on as the primitive. (`references/data.md` PS-DATA-15).
-
-### Errors
-
-- **PS-CORE-13 `[M]`** Never swallow an exception and never catch what you cannot handle. Converting
-  a loud failure into a quiet wrong answer is the most expensive thing in this standard.
-  (`references/errors.md` PS-ERR-08, PS-ERR-09).
-- **PS-CORE-14 `[M]`** Never `return`, `break` or `continue` inside `finally` — it discards the
-  in-flight exception silently. PEP 765 makes it a `SyntaxWarning`. (`references/errors.md`
-  PS-ERR-13).
-- **PS-CORE-15 `[M]`** Never use `assert` to validate input: `python -O` removes it, so the
-  validation disappears in exactly the deployment that needed it. (`references/errors.md`
-  PS-ERR-07).
-- **PS-CORE-16 `[M]`** Catch an `ExceptionGroup` with `except*`. A plain `except ValueError` never
-  matches one, so the handler you wrote is silently never entered. (`references/errors.md`
-  PS-ERR-11).
-
-### Concurrency
-
-- **PS-CORE-17 `[M]`** No compound assignment on state two threads can reach. `counter += 1` is a
-  read, a computation and a write. (`references/concurrency.md` PS-CONC-02).
-- **PS-CORE-18 `[M]`** No check-then-act on shared state. Both halves being individually atomic does
-  not make the pair one step. (`references/concurrency.md` PS-CONC-03).
-- **PS-CORE-19 `[M]`** Never share one iterator or generator across threads. A generator raises; any
-  other iterator may silently duplicate or drop elements. (`references/concurrency.md` PS-CONC-12).
-- **PS-CORE-20 `[M]`** A cache is coherent, not single-flight — `lru_cache` and `cached_property`
-  both run the body more than once under contention. (`references/concurrency.md` PS-CONC-15,
-  PS-CONC-16).
-- **PS-CORE-21 `[M]`** Write a record to a text stream two threads share in one call — one `write`,
-  or through `logging` — never with `print`, which writes the text and its `end` separately.
-  (`references/concurrency.md` PS-CONC-20).
-- **PS-CORE-22 `[M]`** Start every task inside a `TaskGroup`, give every wait a timeout, and never
-  swallow `CancelledError`. (`references/async.md` PS-ASYNC-03, PS-ASYNC-05, PS-ASYNC-08).
-
-### Boundaries
-
-- **PS-CORE-23 `[M]`** Annotate every parameter and return of a public function, and re-export
-  explicitly — the typing spec makes imported symbols private by default, so a bare import in
-  `__init__.py` is not public. (`references/api.md` PS-API-02, PS-API-06).
-- **PS-CORE-24 `[M]`** Pass `encoding=` explicitly to every text open. 3.15 moved the default to
-  UTF-8 and `PYTHONUTF8=0` moves it back, so only an explicit encoding means the same thing on every
-  interpreter and in every locale. (`references/output.md` PS-OUT-01, PS-OUT-02).
-- **PS-CORE-25 `[M]`** Log with `%`-style arguments, never an f-string, and never configure logging
-  in a library. (`references/output.md` PS-OUT-11, PS-OUT-13).
-
-### Knowing which interpreter you are on
-
-- **PS-CORE-26 `[M]`** Ask `sys.abi_info.free_threaded` how the interpreter was built and
-  `sys._is_gil_enabled()` what it is doing right now. One dependency can turn the second answer
-  around at import time, and neither a `cp3XXt` wheel tag nor the `abi3t` stable ABI declares that
-  it will not. (`references/concurrency.md` PS-CONC-01, `references/build.md` PS-BUILD-19).
+- **Naming, Modules, Imports, Formatting, and Symmetry**
+  - PS-NAME-01 [M] Apply PEP 8's casing rules mechanically
+  - PS-NAME-05 [M] Put units and qualifiers last, sorted by descending significance
+  - PS-NAME-13 [M] Run `ruff format`; it is not a suggestion
+  - PS-NAME-16 [M] Say why, not what
+- **Typing: Annotations, Generics, Narrowing, and the Checker**
+  - PS-TYPE-01 [M] Run `ty` at the pinned version, with the shipped configuration
+  - PS-TYPE-04 [M] Never write `from __future__ import annotations`
+  - PS-TYPE-07 [M] Write unions with `|`, and put `None` last
+  - PS-TYPE-09 [M] Declare type parameters with PEP 695 syntax
+  - PS-TYPE-10 [M] Declare an alias with the `type` statement
+  - PS-TYPE-13 [M] Use `object` for "anything", and `Any` only with a reason
+  - PS-TYPE-14 [M] Narrow with `TypeIs`, not `TypeGuard`
+- **Data Modelling: Dataclasses, Enums, Protocols, and Immutability**
+  - PS-DATA-01 [M] Model a record as a frozen dataclass by default
+  - PS-DATA-02 [M] Add `slots=True` unless something needs the instance dict
+  - PS-DATA-08 [M] Never give a mutable default
+  - PS-DATA-09 [M] Never compute a default at import time
+  - PS-DATA-15 [M!] Make the invalid state unrepresentable before validating against it
+- **Errors and Control Flow: Exceptions, Guards, and the Shape of a Function**
+  - PS-ERR-07 [M] Never use `assert` to validate input
+  - PS-ERR-08 [M] Never catch what you cannot handle
+  - PS-ERR-09 [M] Never swallow an exception silently
+  - PS-ERR-11 [M] Use `except*` for a group, and never mix it with `except`
+  - PS-ERR-13 [M] Never `return`, `break` or `continue` inside `finally`
+  - PS-ERR-16 [M] Reject at the top with a guard, then proceed unindented
+- **Free Threading: What the GIL Guaranteed, Shared State, Iterators, and the Build**
+  - PS-CONC-01 [M] Probe the build with `sys.abi_info` and the runtime with `sys._is_gil_enabled`
+  - PS-CONC-02 [M] Never treat a compound assignment as one step
+  - PS-CONC-03 [M] Never treat check-then-act as one step
+  - PS-CONC-12 [M] Serialise a shared iterator with `threading.serialize_iterator`
+  - PS-CONC-15 [M] Treat `functools.lru_cache` as coherent but not single-flight
+  - PS-CONC-16 [M] Treat `functools.cached_property` as able to run more than once
+  - PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
+- **Async: Tasks, Cancellation, Lifecycle, and the Thread Boundary**
+  - PS-ASYNC-03 [M] Start every task inside a `TaskGroup`
+  - PS-ASYNC-05 [M] Never swallow `CancelledError`
+  - PS-ASYNC-08 [M] Give every wait a timeout, with `asyncio.timeout`
+- **Strings and Output: Encoding, Interpolation, Logging, and Program Output**
+  - PS-OUT-01 [M] Pass `encoding=` explicitly to every text open
+  - PS-OUT-02 [M] Know what PEP 686 moved, which is more than `open`
+  - PS-OUT-11 [M] Log with `%`-style arguments, never with an f-string
+  - PS-OUT-13 [M] Never configure logging in a library
+- **API and Modules: The Public Surface, Re-export, and Package Shape**
+  - PS-API-02 [M] Re-export through `__all__`, never by a bare import
+  - PS-API-06 [M] Annotate every parameter and every return of a public function
+- **Packaging: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel**
+  - PS-BUILD-19 [M] A free-threaded wheel tag is not a declaration of thread safety
 
 ## 5. Review checklist
 
@@ -278,8 +232,8 @@ protocol — severity model, mechanical pass, output format — in `references/r
 ## 6. Reference map
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
-listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The 26
-`PS-CORE-*` rules live in section 4 above; the other 236 live here.
+listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
+236 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|

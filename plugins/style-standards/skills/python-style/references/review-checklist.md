@@ -32,15 +32,15 @@ invalidate the work of reading the next.
 2. **Shared state.** For every function a thread or executor runs: which names are neither
    parameters nor locals? For each, who else writes it, and what holds them apart? (`PS-CONC`)
 3. **Compound operations.** Every `+=`, every check-then-act, every read-then-use on a shared name.
-   These are the ones that were merely unlikely under the GIL and are now immediate. (`PS-CONC-02`,
-   `PS-CONC-03`)
+   These are the ones that were merely unlikely under the GIL and are now immediate. (PS-CONC-02,
+   PS-CONC-03)
 4. **Iterators.** Any generator, iterator, or `tee` branch reachable from two threads. The generator
-   raises; everything else is silent. (`PS-CONC-12` … `PS-CONC-14`)
+   raises; everything else is silent. (PS-CONC-12 … PS-CONC-14)
 5. **Things that look safe.** Caches, `cached_property`, `print`, the module-level `random`, and
-   every `ContextVar`. Each has a documented caveat that reads like a guarantee. (`PS-CONC-15` …
-   `PS-CONC-21`)
+   every `ContextVar`. Each has a documented caveat that reads like a guarantee. (PS-CONC-15 …
+   PS-CONC-21)
 6. **Hold times.** Every `contextmanager` used as a decorator, and every lock spanning a call you do
-   not control. (`PS-CONC-22`, `PS-CONC-23`)
+   not control. (PS-CONC-22, PS-CONC-23)
 7. **The public surface.** What is newly public? Is it annotated, is the ownership documented, does
    the package ship `py.typed`?
 8. **Function bodies.** Now read the code.
@@ -72,7 +72,7 @@ rg -n 'itertools\.tee' src/
 rg -nB2 '@contextmanager' src/
 ```
 
-Then the dead-API grep, `references/migration.md` PS-MIG-02.
+Then the dead-API grep, PS-MIG-02.
 
 ## Output format
 

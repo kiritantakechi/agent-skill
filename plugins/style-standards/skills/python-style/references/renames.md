@@ -9,9 +9,9 @@ holding a citation made before a revision.
 Before the revision the families ran `PS-API-01`–`PS-API-22`, `PS-ASYNC-01`–`PS-ASYNC-22`,
 `PS-DATA-01`–`PS-DATA-22`, `PS-DOC-01`–`PS-DOC-18`, `PS-ERR-01`–`PS-ERR-22`, `PS-FT-01`–`PS-FT-26`,
 `PS-MIG-01`–`PS-MIG-16`, `PS-NAME-01`–`PS-NAME-26`, `PS-PKG-01`–`PS-PKG-21`,
-`PS-PERF-01`–`PS-PERF-20`, `PS-FMT-01`–`PS-FMT-20`, `PS-TEST-01`–`PS-TEST-22` and
-`PS-TYPE-01`–`PS-TYPE-22`. The table lists every ID in those ranges that changed, and what it is
-now; an ID it does not list is unchanged.
+`PS-PERF-01`–`PS-PERF-20`, `PS-FMT-01`–`PS-FMT-20`, `PS-TEST-01`–`PS-TEST-22`,
+`PS-TYPE-01`–`PS-TYPE-22` and `PS-CORE-01`–`PS-CORE-26`. The table lists every ID in those ranges
+that changed, and what it is now; an ID it does not list is unchanged.
 
 | Before | Now |
 |---|---|
@@ -233,3 +233,29 @@ now; an ID it does not list is unchanged.
 | `PS-TYPE-20` | `PS-TYPE-18` |
 | `PS-TYPE-21` | `PS-TYPE-19` |
 | `PS-TYPE-22` | `PS-TYPE-20` |
+| `PS-CORE-01` | `PS-NAME-01` |
+| `PS-CORE-02` | `PS-NAME-05` |
+| `PS-CORE-03` | `PS-ERR-16` |
+| `PS-CORE-04` | `PS-NAME-16` |
+| `PS-CORE-05` | `PS-TYPE-01` |
+| `PS-CORE-06` | `PS-TYPE-04` |
+| `PS-CORE-07` | `PS-TYPE-07` |
+| `PS-CORE-08` | `PS-TYPE-13` |
+| `PS-CORE-09` | `PS-TYPE-14` |
+| `PS-CORE-10` | `PS-DATA-01` |
+| `PS-CORE-11` | `PS-DATA-08` |
+| `PS-CORE-12` | `PS-DATA-15` |
+| `PS-CORE-13` | `PS-ERR-08` |
+| `PS-CORE-14` | `PS-ERR-13` |
+| `PS-CORE-15` | `PS-ERR-07` |
+| `PS-CORE-16` | `PS-ERR-11` |
+| `PS-CORE-17` | `PS-CONC-02` |
+| `PS-CORE-18` | `PS-CONC-03` |
+| `PS-CORE-19` | `PS-CONC-12` |
+| `PS-CORE-20` | `PS-CONC-15` |
+| `PS-CORE-21` | `PS-CONC-20` |
+| `PS-CORE-22` | `PS-ASYNC-03` |
+| `PS-CORE-23` | `PS-API-06` |
+| `PS-CORE-24` | `PS-OUT-01` |
+| `PS-CORE-25` | `PS-OUT-11` |
+| `PS-CORE-26` | `PS-CONC-01` |

@@ -286,16 +286,16 @@ off — PS-BUILD-20's command. The wheel tag cannot tell you this.
 
 Two assertions, because a GIL build fails the second for a different reason:
 
-```sh
-python -c "import sys; assert sys.abi_info.free_threaded"              # the CI image
-python -c "import sys, acmewidget; assert not sys._is_gil_enabled()"  # the dependency tree
-```
-
 **Why:** the re-enable is silent apart from a `RuntimeWarning` that CI logs swallow, so without this
 assertion a dependency upgrade can quietly turn a free-threaded deployment into a GIL one and
 everything still passes — just slower, and with the parallelism you were relying on gone.
 
 **Check:** the CI workflow. No such assertion is the finding.
+
+```sh
+python -c "import sys; assert sys.abi_info.free_threaded"              # the CI image
+python -c "import sys, acmewidget; assert not sys._is_gil_enabled()"  # the dependency tree
+```
 
 ### PS-BUILD-21 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
 
