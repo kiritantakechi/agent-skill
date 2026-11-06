@@ -691,8 +691,7 @@ where a name came from. Setting it in `rustfmt.toml` makes it enforced rather th
 ```rust
 // verified
 //! Imports are grouped std / external / crate and each group is sorted.
-use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 
 #[derive(Debug, Default)]
 pub struct Manifest {
@@ -794,7 +793,6 @@ concurrency, I/O. More than one per concern needs a migration plan, not an excep
 // verified
 /// One mechanism for configuration: every knob arrives through this one type.
 #[derive(Debug, Clone, Default)]
-#[non_exhaustive]
 pub struct Config {
     threads: Option<usize>,
     colour: bool,

@@ -671,8 +671,7 @@ the same one with the bounds moved below, where they align and can be commented 
 
 ```rust
 // verified
-use std::fmt::Display;
-use std::hash::Hash;
+use std::{fmt::Display, hash::Hash};
 
 /// One bound inline; several go in a `where` clause where they can be read.
 pub fn render<K, V>(pairs: &[(K, V)]) -> Vec<String>

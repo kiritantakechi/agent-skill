@@ -665,8 +665,7 @@ rustc's `invalid_runtime_symbol_definitions`.
 
 ```rust
 // verified
-use std::ffi::c_int;
-use std::panic::catch_unwind;
+use std::{ffi::c_int, panic::catch_unwind};
 
 const ERR_PANIC: c_int = -1;
 

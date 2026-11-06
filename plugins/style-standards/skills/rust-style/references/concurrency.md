@@ -137,8 +137,7 @@ and the correctness argument has to consider all of them.
 
 ```rust
 // verified
-use std::sync::mpsc;
-use std::thread;
+use std::{sync::mpsc, thread};
 
 /// One owner per value: the channel moves work, no lock is involved.
 #[must_use]
@@ -375,8 +374,7 @@ Making the clone explicit puts the intent in the source.
 
 ```rust
 // verified
-use std::sync::Arc;
-use std::thread;
+use std::{sync::Arc, thread};
 
 /// Clone before the closure, so what each thread owns is visible above it.
 #[must_use]
@@ -525,9 +523,7 @@ catches the async shape.
 
 ```rust
 // verified
-use std::collections::HashMap;
-use std::hash::BuildHasher;
-use std::sync::Mutex;
+use std::{collections::HashMap, hash::BuildHasher, sync::Mutex};
 
 /// Compute outside, mutate inside: the critical section holds no I/O and no second lock.
 pub fn insert_rendered<S: BuildHasher>(
@@ -676,9 +672,7 @@ is a `const`, and clippy's `non_std_lazy_statics` finds `lazy_static!` and `once
 
 ```rust
 // verified
-use std::num::NonZero;
-use std::sync::LazyLock;
-use std::thread::available_parallelism;
+use std::{num::NonZero, sync::LazyLock, thread::available_parallelism};
 
 /// Computed once, on first use, with no lock on the read path afterwards.
 static WORKERS: LazyLock<usize> = LazyLock::new(|| available_parallelism().map_or(1, NonZero::get));

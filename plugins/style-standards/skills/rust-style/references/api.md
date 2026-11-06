@@ -1200,7 +1200,6 @@ pub enum Scope {
 
 /// An options struct beats four positional parameters of related type.
 #[derive(Debug, Clone, Copy, Default)]
-#[non_exhaustive]
 pub struct SearchOptions {
     case: Case,
     scope: Scope,
@@ -1353,9 +1352,8 @@ break shipped as a minor version fails every downstream build that trusted the v
 
 ```rust
 // verified
-/// Adding a field to a `#[non_exhaustive]` struct is a minor change, not a breaking one.
+/// Adding a private field is a minor change: no caller can build or destructure the struct.
 #[derive(Debug, Clone, Default)]
-#[non_exhaustive]
 pub struct Report {
     matched: u64,
     skipped: u64,

@@ -73,8 +73,7 @@ That is the untested surface: more than about a dozen lines, or any business log
 
 ```rust
 // verified
-use std::ffi::OsString;
-use std::process::ExitCode;
+use std::{ffi::OsString, process::ExitCode};
 
 /// What the arguments asked for, parsed once.
 #[derive(Debug)]
@@ -352,8 +351,7 @@ failure looks like the tool is broken rather than opinionated.
 
 ```rust
 // verified
-use std::ffi::OsString;
-use std::path::PathBuf;
+use std::{ffi::OsString, path::PathBuf};
 
 /// Paths arrive as `OsString`, so a non-UTF-8 filename is not rejected at the door.
 #[must_use]
@@ -871,9 +869,11 @@ file costs one extra path.
 
 ```rust
 // verified
-use std::fs::File;
-use std::io;
-use std::path::{Path, PathBuf};
+use std::{
+    fs::File,
+    io,
+    path::{Path, PathBuf},
+};
 
 /// Write to a temporary beside the target, then rename: readers never see a partial file.
 #[must_use]

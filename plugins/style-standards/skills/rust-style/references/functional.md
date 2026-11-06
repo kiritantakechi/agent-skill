@@ -700,8 +700,7 @@ travel from the entry point? Past the first layer is a missing type.
 
 ```rust
 // verified
-use std::num::NonZeroU16;
-use std::str::FromStr;
+use std::{num::NonZeroU16, str::FromStr};
 
 /// Parse, do not validate: an invalid port cannot be represented.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
