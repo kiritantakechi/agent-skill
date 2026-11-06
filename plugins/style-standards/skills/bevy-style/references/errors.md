@@ -10,6 +10,9 @@ returns goes to the fallback error handler that `App::set_error_handler` install
 dispatches on a `Severity` carried by the error (`Severity::Panic` unless annotated), and a panic in
 a system, observer or command reaches it too, as an error carrying the panic's payload.
 
+Diagnostics go through `tracing`, as RS-CLI-24 says of any program: here `LogPlugin` is the
+subscriber, and on wasm `println!` never reaches the browser console.
+
 ## Contents
 
 - **Fallible systems**
@@ -25,9 +28,8 @@ a system, observer or command reaches it too, as an error carrying the panic's p
   - BV-ERR-08 [M] Never panic to report bad content
 
 - **Elsewhere**
-  - BV-ERR-09 [M] Report through `tracing`, never through `println!`
-  - BV-ERR-10 [M] Exit with `AppExit::error` when startup cannot continue
-  - BV-ERR-11 [M!] Decide the render error policy, because the default quits
+  - BV-ERR-09 [M] Exit with `AppExit::error` when startup cannot continue
+  - BV-ERR-10 [M!] Decide the render error policy, because the default quits
 
 - Decided by tools
 
@@ -37,24 +39,21 @@ a system, observer or command reaches it too, as an error carrying the panic's p
 
 ### BV-ERR-01 [M!] Return `Result` from a system that can fail
 
-`fn follow(…) -> Result` and `?` on everything fallible, in a system, an observer or a command. No
-`unwrap`, no `expect`, no `panic!` on a path the game reaches. An absence the game expects is not a
-failure: a system that needs one entity takes `Single`, which skips it while none matches, and keeps
-`?` for what nobody expected. A custom command returns its failure as `type Out = Result`, and a
+`fn follow(…) -> Result` and `?` on everything fallible, in a system, an observer or a command: the
+form RS-ERR-03 takes where the schedule is the caller. An absence the game expects is not a failure:
+a system that needs one entity takes `Single`, which skips it while none matches, and keeps `?` for
+what nobody expected. A custom command returns its failure as `type Out = Result`, and a
 function-style one is `-> impl Command` with a closure returning `Result`.
 
-*Relaxed form:* a debug tool, an example, or a `#[cfg(test)]` system may `expect` where the
-condition is a genuine invariant of the test, and the message states the invariant. The shipped
-`rust-style`'s `clippy.toml` allows `unwrap` and `expect` inside tests, so only a test takes this
-form unannotated.
+*Relaxed form:* RS-ERR-03's, for a system as for any function.
 
 **Why:** the conditions that fail are ordinary — a stale entity id, a missing asset, a malformed
 file. A returned error reaches a handler that can log it and carry on; a panic stays fatal under
 BV-ERR-05 and takes the player's unsaved progress with it.
 
-**Check:** the `unwrap_used` row (`references/ecs.md`) and this chapter's `expect_used`, `panic`,
-`todo` and `unimplemented` rows fail the build on the spellings. Read for what they cannot see: a
-system that can fail returning `()`, with the failure dropped in a `let … else { return }`.
+**Check:** RS-ERR-03's `unwrap_used`, `expect_used`, `panic`, `todo` and `unimplemented` rows fail
+the build on the spellings. Read for what they cannot see: a system that can fail returning `()`,
+with the failure dropped in a `let … else { return }`.
 
 ```rust
 // verified
@@ -219,8 +218,8 @@ mod tests {
 
 ### BV-ERR-02 [M] Use Bevy's `Result` alias in a system signature
 
-`-> Result` — which is `Result<(), BevyError>`. Not `-> Result<(), MyError>` and not
-`-> anyhow::Result<()>`.
+Departs from RS-ERR-13. `-> Result` — which is `Result<(), BevyError>`. Not `-> Result<(), MyError>`
+and not `-> anyhow::Result<()>`.
 
 **Why:** the schedule accepts `Result<(), BevyError>` and no other error type, so any other type is
 converted at the boundary anyway. `BevyError` converts from anything implementing `Error`, so the
@@ -231,9 +230,10 @@ not a system or is fighting the schedule.
 
 ### BV-ERR-03 [M] Keep `BevyError` at the boundary and a real type underneath
 
-Domain code returns its own error enum. The system that calls it converts with `?`, and adds what it
-knows with `.context("…")` or `.with_context(|| …)` — `ContextExt`, in the prelude. On an `Option`
-the same call builds the error, where `ok_or(…)` needed an error type of its own.
+Domain code returns its own error type, as RS-ERR-10 asks. The system that calls it converts with
+`?`, and adds what it knows with `.context("…")` or `.with_context(|| …)` — `ContextExt`, in the
+prelude. On an `Option` the same call builds the error, where `ok_or(…)` needed an error type of its
+own.
 
 **Why:** `BevyError` is boxed and type-erased: the right shape when the only reader is a log line,
 the wrong one for a caller that branches. Domain code returning it cannot be matched on or tested
@@ -407,7 +407,7 @@ mod tests {
 `result.with_severity(Severity::Warning)?` when a failure is expected and recoverable. Never
 annotate `Severity::Panic`: an un-annotated error already carries it, and BV-ERR-05's shipped
 handler logs it like any returned error. A failure that must stop even a shipped build writes
-`AppExit::error()`, as BV-ERR-10 does.
+`AppExit::error()`, as BV-ERR-09 does.
 
 **Why:** `match_severity` and BV-ERR-05's shipped handler log an error at its own severity, so the
 annotation gives one failure its own level without replacing the handler for all of them. It also
@@ -615,19 +615,7 @@ while the game runs. If so it is a `Result` with the path in the message.
 
 ## Elsewhere
 
-### BV-ERR-09 [M] Report through `tracing`, never through `println!`
-
-`info!`, `warn!`, `error!`, `debug!`, `trace!`, as `rust-style`'s RS-CLI-24 asks. In Bevy,
-`LogPlugin` is the subscriber, and on wasm `println!` never reaches the browser console.
-
-**Why:** `LogPlugin` gives every record a level, a target and a filter, so a shipped build turns the
-noisy ones off and a developer turns one module's on. `println!` bypasses all of it, and on wasm it
-is lost, information and all.
-
-**Check:** grep for `println!` and `eprintln!` outside `build.rs` and a CLI tool's output. `dbg!` is
-the `dbg_macro` row.
-
-### BV-ERR-10 [M] Exit with `AppExit::error` when startup cannot continue
+### BV-ERR-09 [M] Exit with `AppExit::error` when startup cannot continue
 
 A missing required asset directory, an unusable GPU, a corrupt configuration: write
 `AppExit::error()` to the message and let the app shut down.
@@ -639,7 +627,7 @@ the clean stop: plugins shut down, and the window closes rather than vanishing.
 **Check:** for each `panic!` outside a test, ask whether `AppExit::error()` says the same thing more
 usefully.
 
-### BV-ERR-11 [M!] Decide the render error policy, because the default quits
+### BV-ERR-10 [M!] Decide the render error policy, because the default quits
 
 `bevy::render::error_handler::RenderErrorHandler` decides what happens when the GPU fails. Insert
 your own before `DefaultPlugins`, beside the `set_error_handler` call; `RenderPlugin` registers it
@@ -654,7 +642,7 @@ its clean exit as a crash.
 
 **Why:** the default logs and writes `AppExit::error()` for **every** `RenderError`, so a transient
 GPU fault closes the player's window and BV-ARCH-16 turns it into an exit that reads as a crash.
-BV-ERR-10 makes an unusable GPU at startup your decision; this is the same GPU an hour later.
+BV-ERR-09 makes an unusable GPU at startup your decision; this is the same GPU an hour later.
 
 **Check:** grep for `RenderErrorHandler`. Exactly one insertion, and it branches on the error rather
 than returning one blanket policy: `Recover` from the `DeviceLost` arm only, and `Ignore` from none
@@ -693,7 +681,7 @@ fn on_render_error(
             RenderErrorPolicy::StopRendering
         }
         // A validation or internal fault is a bug in our own render code, so
-        // stop with an exit code the launcher can act on (BV-ERR-10).
+        // stop with an exit code the launcher can act on (BV-ERR-09).
         ErrorType::Validation | ErrorType::Internal => {
             error!("unrecoverable render error: {}", error.description);
             main_world.write_message(AppExit::error());

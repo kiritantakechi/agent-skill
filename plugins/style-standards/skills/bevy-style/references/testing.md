@@ -8,6 +8,10 @@ The most important rule here is the one about not needing this chapter: the boun
 exists so that most of a game's logic is tested by ordinary Rust unit tests, in microseconds, with
 no `World`.
 
+What a test asserts is behaviour, as RS-TEST-02 says of any test: that the enemy is gone, not that a
+`Despawn` observer ran; the score, not that a message was written — and the message itself only
+where emitting it is the plugin's interface, as it is for a plugin whose job is to tell others.
+
 ## Contents
 
 - **What to test where**
@@ -22,9 +26,8 @@ no `World`.
 - **What to assert**
   - BV-TEST-06 [M] Assert on the world, not on the log
   - BV-TEST-07 [M] Do not assert by counting entities
-  - BV-TEST-08 [S] Assert the fact, not the mechanism that produced it
-  - BV-TEST-09 [M] Watch a test fail before trusting it
-  - BV-TEST-10 [S] Trigger the event to test an observer
+  - BV-TEST-08 [M] Watch a test fail before trusting it
+  - BV-TEST-09 [S] Trigger the event to test an observer
 
 ---
 
@@ -340,22 +343,10 @@ mod tests {
 }
 ```
 
-### BV-TEST-08 [S] Assert the fact, not the mechanism that produced it
+### BV-TEST-08 [M] Watch a test fail before trusting it
 
-`rust-style`'s RS-TEST-02, in Bevy's terms: assert that the enemy is gone, not that a `Despawn`
-observer ran; assert the score, not that a message was written. The exception is a mechanism that is
-the interface: a plugin whose job is to emit a message for other plugins is tested on the message.
-
-**Why:** the mechanism is an implementation choice the test should not pin: replacing a message with
-an observer is a refactor, and a test that asserts on the message calls it a regression.
-
-**Check:** for each assertion, ask whether it would survive rewriting the system in a different
-style. If not, it is testing the shape.
-
-### BV-TEST-09 [M] Watch a test fail before trusting it
-
-Break the system, run the test, see red, put it back — for every test, not only the regression test
-`rust-style`'s RS-TEST-19 asks it of.
+Departs from RS-TEST-19. Break the system, run the test, see red, put it back — for every test, not
+only a regression test.
 
 **Why:** a Bevy test has more ways to pass vacuously than an ordinary one: the system was never
 added, the schedule was never run, the entity was never spawned, the command was never flushed. Each
@@ -363,7 +354,7 @@ of those produces a test that passes and asserts nothing, and none of them looks
 
 **Check:** for each new test, was it observed failing? If not, comment out the system's body once.
 
-### BV-TEST-10 [S] Trigger the event to test an observer
+### BV-TEST-09 [S] Trigger the event to test an observer
 
 `world.trigger(Died { entity })` and assert on what changed.
 

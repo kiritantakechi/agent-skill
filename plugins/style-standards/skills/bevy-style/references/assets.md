@@ -32,10 +32,9 @@ A strong `Handle<T>` is a reference count: every clone keeps the asset alive, th
 component included, and dropping the last one frees it. Keep one wherever the asset is still to be
 used, and let it go with what used it: when a level ends, its handle resource goes with it.
 
-**Why:** a handle nothing holds — a preload whose handle is discarded, or an `AssetId` kept in its
-place — cancels the load or frees the asset, so the next `load` reads the disk again. A handle held
-past its use, in a `HashMap<String, Handle<Image>>` only ever inserted into, is memory no detector
-reports, because nothing leaked.
+**Why:** a handle nothing holds — a discarded preload, an `AssetId` kept in its place — cancels the
+load or frees the asset, and the next `load` reads the disk again; one held past its use, in a map
+only ever inserted into, is memory no leak detector reports, because nothing leaked.
 
 **Check:** for each `AssetServer::load`, follow the handle: it is stored somewhere that outlives its
 use. For each collection of handles, find the removal: a collection with no remove is a cache with

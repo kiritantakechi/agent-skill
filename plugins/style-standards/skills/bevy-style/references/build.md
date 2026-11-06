@@ -49,10 +49,10 @@ subcrate dependency that needs a reason.
 
 ### BV-BUILD-02 [M] Start from a feature collection
 
-`default-features = false` plus `features = ["2d"]`, `["3d", "ui"]`, or the mid-level `2d_api` /
-`default_app` / `default_platform` where the backends are not wanted. Not thirty individual names —
-and not a collection *without* `default-features = false`, which selects nothing: `default` is
-already `["2d", "3d", "ui", "audio"]`.
+Departs from RS-BUILD-22. `default-features = false` plus `features = ["2d"]`, `["3d", "ui"]`, or
+the mid-level `2d_api` / `default_app` / `default_platform` where the backends are not wanted. Not
+thirty individual names — and not a collection *without* `default-features = false`, which selects
+nothing: `default` is already `["2d", "3d", "ui", "audio"]`.
 
 **Why:** hand-maintained lists rot: a feature is renamed (`animation` became `gltf_animation`) or a
 new one becomes necessary, and the manifest keeps compiling while enabling something other than what
@@ -102,12 +102,12 @@ bevy = { version = "=0.20.1", default-features = false, features = [
 
 ### BV-BUILD-04 [M] Pin Bevy exactly in a binary and with a caret in a library
 
-A game binary writes `bevy = "=0.20.1"`. A crate other people depend on writes `bevy = "0.20"`; the
-general rule against exact pins is unchanged for anything published.
+Departs from RS-BUILD-21. A game binary writes `bevy = "=0.20.1"`. A crate other people depend on
+writes `bevy = "0.20"`, as RS-BUILD-21 asks of every library.
 
-**Why:** a Bevy minor bump renames a large fraction of the API, so in a binary an exact pin makes an
-upgrade a scheduled migration rather than something `cargo update` does. In a library it forbids
-every other patch downstream, and two libraries pinned to different patches cannot be used together.
+**Why:** a caret on `0.20` stops at the minor, so what the pin holds is the patch: `cargo update`
+run for any other crate moves Bevy's too, and with it every `bevy_*` crate at once. In a library it
+forbids every other patch downstream, and two libraries pinned to different patches cannot meet.
 
 **Check:** is the crate a `[[bin]]` or a `[lib]` others depend on? Exact pin for the first, caret
 for the second, and the reason for the pin as a comment beside it.
@@ -138,8 +138,8 @@ version?
 
 ### BV-BUILD-07 [M] Compile dependencies optimised in the dev profile
 
-`[profile.dev.package."*"] opt-level = 3`, with the game's own crates left at the dev default.
-`rust-style`'s RS-BUILD-43 makes this an `[S]` for slow tests; a game makes it mandatory.
+Departs from RS-BUILD-43. `[profile.dev.package."*"] opt-level = 3`, with the game's own crates left
+at the dev default, whether or not the tests are slow.
 
 **Why:** an unoptimised Bevy is slow enough that frame rate stops being a signal about the game, and
 the engine is compiled once and cached, so the cost is paid on the first build only. The game's own
@@ -226,15 +226,16 @@ dev = ["bevy/bevy_dev_tools", "bevy/bevy_ui_debug"]
 
 ### BV-BUILD-12 [M] Relax `elided_lifetimes_in_paths` and `needless_pass_by_value`, and nothing else
 
-Of `rust-style`'s lint table, two entries are `allow` here, each with a comment saying which kind of
-divergence it is. `elided_lifetimes_in_paths` fires on every system parameter, because each carries
-the world and state lifetimes — fourteen warnings in one five-system plugin — and its compliant
-form, `Query<'_, '_, &mut Shield>` or `Res<'_, Time>`, compiles and buys two apostrophes: a noise
-judgement. `clippy::needless_pass_by_value` fires on every `Res<T>` a system does not consume, and
-its suggestion, `&Res<'_, T>`, is not a `SystemParam`, so following it is `E0277` at `add_systems`:
-an impossibility. A third allow states what these two state — the Bevy API that forces it, the
-count, and whether a compliant form exists — and `type_complexity` and `too_many_arguments`, which
-upstream Bevy allows, have one each (BV-ECS-19, BV-SCHED-10), so they stay on.
+Departs from RS-BUILD-25. Of `rust-style`'s lint table, two entries are `allow` here, each with a
+comment saying which kind of divergence it is. `elided_lifetimes_in_paths` fires on every system
+parameter, because each carries the world and state lifetimes — fourteen warnings in one five-system
+plugin — and its compliant form, `Query<'_, '_, &mut Shield>` or `Res<'_, Time>`, compiles and buys
+two apostrophes: a noise judgement. `clippy::needless_pass_by_value` fires on every `Res<T>` a
+system does not consume, and its suggestion, `&Res<'_, T>`, is not a `SystemParam`, so following it
+is `E0277` at `add_systems`: an impossibility. A third allow states what these two state — the Bevy
+API that forces it, the count, and whether a compliant form exists — and `type_complexity` and
+`too_many_arguments`, which upstream Bevy allows, have one each (BV-ECS-19, BV-SCHED-10), so they
+stay on.
 
 **Why:** an allow list starts with an entry copied from upstream "because Bevy" and dies one
 plausible entry at a time: `redundant_clone`, `float_cmp` and `expect_used` are each allowed for

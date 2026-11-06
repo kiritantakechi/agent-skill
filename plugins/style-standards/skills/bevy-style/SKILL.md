@@ -1,7 +1,7 @@
 ---
 name: bevy-style
 description: >-
-  The Bevy 0.20 engineering standard — a 190-rule delta on top of rust-style covering the ECS,
+  The Bevy 0.20 engineering standard — a 188-rule delta on top of rust-style covering the ECS,
   scheduling, observers and messages, states and resources, assets, error handling, Cargo features
   and the Bevy lint divergences, the user-facing half of UI and rendering, testing, and a forbidden
   API table spanning 0.15 through 0.20. Its spine is keeping the rules of the game out of the
@@ -150,37 +150,29 @@ written against a tutorial.
 
 The spine of this standard is the boundary: the rules of the game live in plain Rust that never
 names Bevy, and the engine is the view and the input around them (BV-ARCH-01). An engine upgrade
-then rewrites signatures and not arithmetic. Everything else follows `rust-style`'s principles; the
-departures are below, and nothing not listed there is relaxed.
+then rewrites signatures and not arithmetic. Everything else follows `rust-style`'s principles.
 
-### Where this standard departs from `rust-style`
+Each row is a `rust-style` rule that Bevy makes impossible, harmful or noisy (`overrides`), raises
+(`tightens`) or reaches further (`extends`), the rule here that departs from it, and both tiers.
+Nothing else departs: a divergence not listed here is a defect, not a dialect.
 
-Each row is a rule of the other standard that Bevy makes impossible, harmful, or merely noisy.
-Nothing else is relaxed: a divergence not listed here is a defect, not a dialect.
+| rust-style rule | Relation | bevy-style rule | Tier | Reason |
+|---|---|---|---|---|
+| RS-API-15 | overrides | BV-ECS-01 | [M] → [M] | The ECS is the accessor: reflection, scenes, `bsn!` and the remote protocol read fields directly, and a component cannot defend an invariant, so BV-ARCH-04 defends it in the domain |
+| RS-API-36 | extends | BV-ECS-03 | [M] → [M] | Every component, public or not: every panic, `info!` and failed test prints one |
+| RS-API-53 | overrides | BV-ECS-05 | [M] → [M] | A component is spawned by struct literal in every crate, which `#[non_exhaustive]` forbids; it grows by a required component instead |
+| RS-NAME-29 | overrides | BV-ARCH-10 | [M] → [M] | `add_plugins(X)` and `configure_sets(_, X)` are one shape with two meanings, so the name is the only signal, as Bevy's own plugins and sets carry it |
+| RS-ERR-13 | overrides | BV-ERR-02 | [M!] → [M] | A system has no caller to match on its error — the schedule hands it to the handler — and the schedule takes no other type; what a caller branches on stays a real type in the domain (BV-ERR-03) |
+| RS-BUILD-21 | overrides | BV-BUILD-04 | [M] → [M] | In a game binary the exact pin makes every Bevy bump, patch included, a commit of its own; a library keeps the caret |
+| RS-BUILD-22 | overrides | BV-BUILD-02 | [M] → [M] | Bevy's 177 features move every release, so a hand-picked list goes stale silently; a collection is upstream's own |
+| RS-BUILD-25 | overrides | BV-BUILD-12 | [M] → [M] | Two lints fire on every system parameter, so no handful of items could carry the `allow` |
+| RS-BUILD-43 | tightens | BV-BUILD-07 | [S] → [M] | An unoptimised Bevy is too slow for frame rate to say anything about the game |
+| RS-TEST-19 | extends | BV-TEST-08 | [M] → [M] | Every test, not only a regression test: a Bevy test passes vacuously when its system was never added or its schedule never ran |
 
-| `rust-style` rule | What applies instead | Why Bevy forces it |
-|---|---|---|
-| RS-API-15 Keep every field of a published struct private, including the ones with no invariant | BV-ECS-01 — component fields are public | The ECS is the accessor. Reflection, scenes, `bsn!` and the remote protocol all read fields directly, and a component cannot defend an invariant anyway. A newtype's field is public for the same reason: for a component the representation *is* the contract, so making it public gives nothing away. The exemption is paid for by BV-ARCH-04. |
-| RS-NAME-29 Never suffix a name with the language construct | BV-ARCH-10 — `*Plugin` and `*Systems` | `add_plugins(X)` and `configure_sets(_, X)` are the same shape with different meanings, so the name is the only signal. Bevy addresses both by type — `is_plugin_added::<T>`, `disable::<T>` — and its own plugins and sets carry the same suffixes. |
-| RS-ERR-13 Never expose `Box<dyn Error>` or `anyhow::Error` from a library | BV-ERR-03 — a system returns `BevyError`, the domain does not | `BevyError` is boxed and type-erased, and Bevy's `Result` alias is exactly the aliased form the rule names. Its rationale does not reach here: a system has no caller to match on the error — the schedule hands it to the error handler. Everything a caller could branch on stays a real type on the domain side. |
-| RS-BUILD-25 Never blanket-`allow` at crate level to make CI green | BV-BUILD-12 — `elided_lifetimes_in_paths` is allowed | It fires on every `Query`, `Res`, `ResMut`, `Commands`, `MessageReader` and `Local` parameter. Writing the `'_`s does satisfy it, and buys nothing but noise. |
-| RS-BUILD-22 Turn off default features on heavy dependencies | BV-BUILD-02 — start from a feature collection | Bevy's feature graph has 177 entries in 0.20 and moves every release; a hand-picked list goes stale silently, as an unmeasured one always does. |
-| RS-FUNC-03 A `for` loop that only pushes is a `collect` | BV-ECS-18 — a loop that writes through a query is a `for` | Only the loop that writes: a write through `Mut<T>` is effect, not transformation, so there is nothing to collect. A read-only pass over a query that only pushes is a `collect` here too. |
-| RS-API-53 Decide `#[non_exhaustive]` for every published enum and struct | BV-ECS-05 — components are exhaustive | Struct-literal construction is how components are spawned, and `#[non_exhaustive]` forbids it outside the defining crate. Required components are the growth mechanism instead. |
-
-Two rows that look like they belong here and do not. RS-BUILD-24 asks for `pedantic` at warn and
-allows "individual lints with a comment giving the reason" — which is exactly what BV-BUILD-12 does,
-so allowing `needless_pass_by_value` with its reason obeys that rule rather than overriding it. And
-RS-BUILD-21 is titled "never pin exact versions *in a library*"; BV-BUILD-04 pins in a game binary
-and keeps the caret for anything published, so the two never meet.
-
-`clippy::wildcard_imports` is not on this list either: it exempts preludes, and
-`use bevy::prelude::*` is a prelude. It is the first line of nearly every Bevy file, and naming
-twenty imports instead would be worse.
-
-RS-NAME-02 is **not** on this list, and the temptation is real: Bevy's own packages are `bevy_ecs`,
-`bevy_render`, spelled with underscores. That is upstream's namespace, not a licence to name your
-own crates `mygame_combat` — packages published from this standard use hyphens (BV-ARCH-08).
+Two that look like departures are not. `clippy::wildcard_imports` exempts preludes, and
+`use bevy::prelude::*` is one. And RS-NAME-02 holds as it stands: Bevy's packages spell `bevy_ecs`
+with an underscore in upstream's namespace, and a package published from this standard uses hyphens
+(BV-ARCH-08).
 
 ## 4. Core rules
 
@@ -250,7 +242,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-190 rules live here; section 4 lists by ID those that bind on their own.
+188 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -259,12 +251,12 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/scheduling.md` | `BV-SCHED` (24) | Schedules and the fixed timestep, system sets and ordering, run conditions, time, and input |
 | `references/events.md` | `BV-EVENT` (18) | Messages, events and entity events, observers and propagation, and the lifecycle events |
 | `references/state.md` | `BV-STATE` (19) | Resources, `States` and their transitions, and what a state scopes |
-| `references/errors.md` | `BV-ERR` (11) | Fallible systems, observers and commands, the fallback error handler, and the APIs that panic |
+| `references/errors.md` | `BV-ERR` (10) | Fallible systems, observers and commands, the fallback error handler, and the APIs that panic |
 | `references/assets.md` | `BV-ASSET` (10) | Handles and loading, hot reload, asset events, and asset lifetime |
 | `references/build.md` | `BV-BUILD` (14) | Feature collections, the exact Bevy pin, the lint divergences from rust-style, and CI |
 | `references/migration.md` | `BV-MIG` (18) | Every API forbidden since 0.15 and what replaces it, and the changes that still compile |
 | `references/view.md` | `BV-VIEW` (20) | UI nodes and layout, text, cameras, materials and shaders, post-processing, and gizmos |
-| `references/testing.md` | `BV-TEST` (10) | Headless apps, deterministic fixed steps, and what a test asserts |
+| `references/testing.md` | `BV-TEST` (9) | Headless apps, deterministic fixed steps, and what a test asserts |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, mechanical pass, output format, and the order in which to refactor an existing game |
 
 ## 7. Bundled assets

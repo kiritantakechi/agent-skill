@@ -32,8 +32,8 @@ chapter.
   - BV-ECS-19 [M] Name a query type once it needs two lines
   - BV-ECS-20 [S] Reach for `iter_many` when the set of entities is already known
   - BV-ECS-21 [M] Never nest a query inside itself
-  - BV-ECS-22 [S] Parallelise a query only against a measurement
-  - BV-ECS-23 [S] Reach for `contiguous_iter` only against a measured hot loop
+  - BV-ECS-22 [M] Parallelise a query only against a measurement
+  - BV-ECS-23 [M] Reach for `contiguous_iter` only against a measured hot loop
 
 - **Change detection**
   - BV-ECS-24 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
@@ -53,8 +53,8 @@ chapter.
 
 ### BV-ECS-01 [M] Leave component fields public
 
-Component fields are `pub`. This is the one place a struct in this standard is allowed to expose its
-storage.
+Departs from RS-API-15. Component fields are `pub`: a component is the one struct in this standard
+whose storage is its interface.
 
 The single exception is a relationship **target**, the collection side of a `#[relationship_target]`
 pair. The engine maintains that vector and overwrites what a caller writes to it, so Bevy's own
@@ -124,13 +124,13 @@ fn regenerate_shields(mut stats: Query<&mut Stats>) {
 
 ### BV-ECS-03 [M] Derive `Debug` and `Reflect` on every component
 
-`#[derive(Component, Debug, Reflect)]`, plus `#[reflect(Component)]`. Add `Clone`, `Copy`,
-`PartialEq` and `Default` where each of them means something for the type; `PartialEq` is what
-`set_if_neq` (BV-ECS-24) needs.
+Departs from RS-API-36. `#[derive(Component, Debug, Reflect)]`, plus `#[reflect(Component)]`, on
+every component, public or not. Add `Clone`, `Copy`, `PartialEq` and `Default` where each of them
+means something for the type; `PartialEq` is what `set_if_neq` (BV-ECS-24) needs.
 
-**Why:** `Debug` is rust-style's RS-API-36, extended to every component, public or not: every panic,
-`info!` and test failure prints it. `Reflect` with `#[reflect(Component)]` is what an inspector, a
-scene and the remote protocol see, and being opt-in it is forgotten silently.
+**Why:** every panic, `info!` and test failure prints a component, whoever can name its type.
+`Reflect` with `#[reflect(Component)]` is what an inspector, a scene and the remote protocol see,
+and being opt-in it is forgotten silently.
 
 **Check:** grep for `#[derive(Component` and look for one without `Debug`, and for a `Reflect`
 without the matching `#[reflect(Component)]` — deriving the trait without the registration attribute
@@ -161,8 +161,8 @@ live: a query for `&Speed` reads as a sentence, and one for `&f32` as a type puz
 
 ### BV-ECS-05 [M] Never mark a component `#[non_exhaustive]`
 
-Components are constructed by struct literal, at every spawn site, in every crate. Grow one by
-adding a *new component* plus a `#[require]`, which breaks no existing spawn.
+Departs from RS-API-53. Components are constructed by struct literal, at every spawn site, in every
+crate. Grow one by adding a *new component* plus a `#[require]`, which breaks no existing spawn.
 
 **Why:** `#[non_exhaustive]` forbids literal construction outside the defining crate, and a literal
 is the only construction a component has. The attribute that protects a growing struct elsewhere in
@@ -744,9 +744,10 @@ mod tests {
 }
 ```
 
-### BV-ECS-22 [S] Parallelise a query only against a measurement
+### BV-ECS-22 [M] Parallelise a query only against a measurement
 
-`par_iter_mut` is for a loop that has been measured and found hot. Write the serial form first.
+`par_iter_mut` is concurrency, which RS-CONC-01 adds only where a profile shows the need: write the
+serial loop first, and parallelise the query a profile names.
 
 **Why:** the parallel form has per-batch overhead and forces the body to be `Send`, and below a few
 thousand entities it is reliably slower. It also hides the usual real answer: a query fetching more
@@ -755,11 +756,11 @@ than it reads (BV-ECS-14), or work that belongs in `FixedUpdate` at a lower rate
 **Check:** is there a benchmark or a profile naming this system? If not, the serial form is the one
 to ship.
 
-### BV-ECS-23 [S] Reach for `contiguous_iter` only against a measured hot loop
+### BV-ECS-23 [M] Reach for `contiguous_iter` only against a measured hot loop
 
 `Query::contiguous_iter` yields one slice per table rather than one item per entity, which is what a
 SIMD kernel or a cache-blocked pass needs. It replaces a structure-of-arrays kept by hand beside the
-components.
+components, and it is an optimisation, which RS-PERF-01 makes only against a profile.
 
 It is not a drop-in for `for x in &query`:
 

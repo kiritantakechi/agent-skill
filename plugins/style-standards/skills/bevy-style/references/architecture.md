@@ -573,9 +573,9 @@ mod tests {
 
 ### BV-ARCH-10 [M] Suffix a `Plugin` type `Plugin` and a `SystemSet` type `Systems`
 
-`CombatPlugin`, `MovementSystems`. This standard's general rule is that a name does not end in the
-language construct it is; these two types are the exception, and the exception is exactly these two
-traits.
+Departs from RS-NAME-29. A type implementing `Plugin` ends in `Plugin`, and one implementing
+`SystemSet` ends in `Systems` — `CombatPlugin`, `MovementSystems` — and no other type ends in either
+word.
 
 **Why:** `add_plugins` and `configure_sets` take anything convertible, so at the call site the name
 is the only thing telling a reader what kind of thing is added — and `add_systems(Update, X)` and
@@ -808,7 +808,7 @@ have exactly one, and is each plugin type named in the crate root's re-exports?
 library beside it. Systems, resources and configuration belong to the plugin that owns them. The
 exception is the two error policies, which are the application's to choose and no plugin's:
 `set_error_handler` (BV-ERR-05), and the `RenderErrorHandler` that must be in place before
-`DefaultPlugins` (BV-ERR-11).
+`DefaultPlugins` (BV-ERR-10).
 
 **Why:** `main` is the one file every reader opens first, and a `main` that adds forty systems tells
 them nothing about how the game is organised. A headless test, a benchmark and a second binary all

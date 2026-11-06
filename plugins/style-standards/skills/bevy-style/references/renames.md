@@ -100,10 +100,10 @@ changed, and what it is now; an ID it does not list is unchanged.
 | `BV-ERR-11` | removed — RS-ERR-02 states it |
 | `BV-ERR-12` | `BV-MIG-13` |
 | `BV-ERR-13` | `BV-ERR-01` |
-| `BV-ERR-14` | `BV-ERR-09` |
+| `BV-ERR-14` | removed — RS-CLI-24 states it: the errors chapter cites it, with LogPlugin as the subscriber |
 | `BV-ERR-15` | `BV-ERR-05` |
-| `BV-ERR-16` | `BV-ERR-10` |
-| `BV-ERR-17` | `BV-ERR-11` |
+| `BV-ERR-16` | `BV-ERR-09` |
+| `BV-ERR-17` | `BV-ERR-10` |
 | `BV-EVT-01` | `BV-EVENT-01` |
 | `BV-EVT-02` | `BV-EVENT-02` |
 | `BV-EVT-03` | `BV-EVENT-03` |
@@ -199,9 +199,9 @@ changed, and what it is now; an ID it does not list is unchanged.
 | `BV-TST-09` | `BV-TEST-05` |
 | `BV-TST-10` | `BV-TEST-06` |
 | `BV-TST-11` | `BV-TEST-07` |
-| `BV-TST-12` | `BV-TEST-08` |
-| `BV-TST-13` | `BV-TEST-09` |
-| `BV-TST-14` | `BV-TEST-10` |
+| `BV-TST-12` | removed — RS-TEST-02 states it: the testing chapter cites it, with what a Bevy test asserts |
+| `BV-TST-13` | `BV-TEST-08` |
+| `BV-TST-14` | `BV-TEST-09` |
 | `BV-TST-15` | `BV-SCHED-21` |
 | `BV-UI-01` | `BV-VIEW-01` |
 | `BV-UI-02` | `BV-VIEW-02` |
