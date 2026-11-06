@@ -52,7 +52,7 @@ follow.
   - RS-PERF-28 [M] Hoist loop invariants the compiler cannot
   - RS-PERF-29 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
   - RS-PERF-30 [M] Choose integer widths deliberately and convert with `try_from`
-  - RS-PERF-31 [M!] Treat SIMD as a last resort with a scalar fallback and a differential test
+  - RS-PERF-31 [M] Write SIMD only beside a scalar fallback and a differential test
 
 - **Benchmarking**
   - RS-PERF-32 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
@@ -755,15 +755,12 @@ pub fn header_len(len: usize) -> Result<u32, std::num::TryFromIntError> {
 }
 ```
 
-### RS-PERF-31 [M!] Treat SIMD as a last resort with a scalar fallback and a differential test
+### RS-PERF-31 [M] Write SIMD only beside a scalar fallback and a differential test
 
-SIMD is a last resort with a scalar fallback and a correctness test comparing the two. Before
-hand-writing it, check whether `memchr`, `bstr`, or `regex-automata` already does it for you — they
-almost certainly do it better.
-
-*Relaxed form:* in a single-target internal tool you may skip the runtime feature detection and
-compile for the known target. The scalar reference implementation and the test that compares against
-it are not relaxable — they are what makes the fast path reviewable.
+Before hand-writing it, check whether `memchr`, `bstr`, or `regex-automata` already does it for you
+— they almost certainly do it better. Hand-written SIMD keeps the scalar version as its reference
+and a test comparing the two, and detects the CPU's features at run time wherever the binary runs on
+more than one target.
 
 **Why:** SIMD code is hard to read, hard to test, and target-specific, so it needs runtime feature
 detection and a fallback anyway. The libraries have already absorbed that complexity and have been

@@ -18,7 +18,7 @@ that can be wrong, fewer places where an early `return` skips a cleanup.
 
 - **Expression orientation**
   - RS-FUNC-01 [M] Make everything that can be an expression one
-  - RS-FUNC-02 [M] Prefer `match` to an `if`/`else if` chain on one value
+  - RS-FUNC-02 [M] Write a `match`, not an `if`/`else if` chain, on one value
   - RS-FUNC-03 [S] A `for` loop that only pushes is a `collect`
   - RS-FUNC-04 [S] A `for` loop that only accumulates a scalar is a fold
   - RS-FUNC-05 [S] A `for` loop that searches and breaks is `find`, `any`, or `position`
@@ -55,7 +55,7 @@ that can be wrong, fewer places where an early `return` skips a cleanup.
   - RS-FUNC-30 [M] Choose the loosest closure bound the callee needs
   - RS-FUNC-31 [S] Take closures generically when hot, boxed when stored
   - RS-FUNC-32 [S] Capture as little as possible
-  - RS-FUNC-33 [M] Understand that `move` moves everything captured
+  - RS-FUNC-33 [M] Bind what a `move` closure should only borrow outside it
   - RS-FUNC-34 [S] Name a closure that outgrows a few lines
   - RS-FUNC-35 [S] Use `fn` pointers for tables of handlers
 
@@ -66,13 +66,13 @@ that can be wrong, fewer places where an early `return` skips a cleanup.
   - RS-FUNC-39 [S] Take the clock, the RNG, and the filesystem as parameters
   - RS-FUNC-40 [S] Model state transitions as values or as types
   - RS-FUNC-41 [S] Keep the happy path linear with combinators
-  - RS-FUNC-42 [M] Know when to stop
+  - RS-FUNC-42 [M] Write the `match` once a chain no longer reads aloud
   - RS-FUNC-43 [M!] Use an explicit worklist where recursion depth is unbounded
   - RS-FUNC-44 [S] Expose a custom sequence by implementing `Iterator`
   - RS-FUNC-45 [S] Treat a hard-to-write pipeline as information about the data model
 
 - **Closure and uniformity**
-  - RS-FUNC-46 [M] Prefer operations closed under their own type
+  - RS-FUNC-46 [M] Make an operation on `T` return `T` where nothing else is carried
   - RS-FUNC-47 [S] Keep the stages of a pipeline uniform in shape
 
 - Decided by tools
@@ -103,7 +103,7 @@ if n == 1 { label = "file"; } else { label = "files"; }
 let label = if n == 1 { "file" } else { "files" };
 ```
 
-### RS-FUNC-02 [M] Prefer `match` to an `if`/`else if` chain on one value
+### RS-FUNC-02 [M] Write a `match`, not an `if`/`else if` chain, on one value
 
 **Why:** `match` gives exhaustiveness checking, so adding an enum variant produces a compile error
 instead of silently falling through to the `else`. It also reads as a table rather than as a
@@ -641,7 +641,7 @@ let limit = self.limit;
 self.items.retain(|&item| item <= limit);
 ```
 
-### RS-FUNC-33 [M] Understand that `move` moves everything captured
+### RS-FUNC-33 [M] Bind what a `move` closure should only borrow outside it
 
 **Why:** `move` is not selective. To move one field into a closure and borrow another, bind them
 outside first — this is the standard fix for "cannot move out of `self`", and reaching for `clone()`
@@ -771,7 +771,7 @@ pub fn width_or_default(value: Option<u32>) -> u32 {
 }
 ```
 
-### RS-FUNC-42 [M] Know when to stop
+### RS-FUNC-42 [M] Write the `match` once a chain no longer reads aloud
 
 **Why:** readability is the objective; functional style is the usual means, not the end. A chain
 that requires the reader to track three type transformations is worse than the `match` it replaced,
@@ -782,8 +782,10 @@ it (RS-FUNC-21) or write the `match`.
 
 ### RS-FUNC-43 [M!] Use an explicit worklist where recursion depth is unbounded
 
-*Relaxed form:* recursion is fine for tree-shaped data whose depth is bounded by a constant you
-assert at entry — an expression AST from your own builder, a directory walk with a depth cap.
+A recursion whose depth a constant bounds — an expression AST from your own builder, a directory
+walk with a depth cap — asserts that constant at entry and stays recursive.
+
+*Relaxed form:* recursion whose depth the input decides, accepting the stack overflow it risks.
 
 **Why:** Rust has no guaranteed tail-call elimination, so recursion over attacker-controlled depth
 is a stack overflow — which aborts immediately and cannot be caught. A `Vec` used as a worklist is
@@ -811,7 +813,7 @@ structs. Once the shape is right, the functional form falls out.
 
 ## Closure and uniformity
 
-### RS-FUNC-46 [M] Prefer operations closed under their own type
+### RS-FUNC-46 [M] Make an operation on `T` return `T` where nothing else is carried
 
 An operation on `T` that returns `T` composes with itself; one that returns a near-miss —
 `Result<U, _>` where `T` would do, or a tuple that must be unpacked and rebuilt — does not.

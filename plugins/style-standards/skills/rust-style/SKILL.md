@@ -163,7 +163,7 @@ not worth the name it costs.
   - RS-API-19 [M] Replace a `bool` parameter: split the function, or name the flag
   - RS-API-21 [M] Collapse correlated fields into the sum type they already are
   - RS-API-22 [M] Do not build stringly-typed APIs
-  - RS-API-27 [M] Prefer unrepresentable to rejected, and rejected to checked
+  - RS-API-27 [M] Make a bad value unrepresentable, else rejected at construction, else checked
   - RS-API-36 [M] Implement `Debug` on every public type
   - RS-API-53 [M] Decide `#[non_exhaustive]` for every published enum and struct
 - **Errors: `Result`, Panics, and Exit Codes**
@@ -194,7 +194,7 @@ not worth the name it costs.
 - **Traits: Generics, Dispatch, and Type-Level Design**
   - RS-TRAIT-01 [M] Name the capability as a trait before writing the type that provides it
   - RS-TRAIT-06 [S] Prefer composition to supertrait hierarchies
-  - RS-TRAIT-18 [M] Prefer an enum to a trait object for a closed set
+  - RS-TRAIT-18 [M] Model a closed set of implementations as an enum, not a trait object
 - **Build: Manifest, Features, Dependencies, Lints, Toolchain, and CI**
   - RS-BUILD-19 [M] Justify every dependency by more than an hour of saved work
   - RS-BUILD-27 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
@@ -205,7 +205,7 @@ not worth the name it costs.
   - RS-UNSAFE-01 [M] Forbid `unsafe` unless it is the crate's point, and justify each use
   - RS-UNSAFE-02 [M] Confine `unsafe` to the smallest module behind a safe API
   - RS-UNSAFE-03 [M] Give every `unsafe` block a `// SAFETY:` comment that says why it holds *here*
-  - RS-UNSAFE-30 [M!] Run the suite under Miri in CI
+  - RS-UNSAFE-30 [M] Run the suite under Miri before every release of a crate with `unsafe`
 
 ## 5. Review checklist
 

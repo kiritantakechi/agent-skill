@@ -27,7 +27,7 @@ not a partial impl.
   - RS-TRAIT-04 [S] Make provided methods correct by default and overridable for speed
   - RS-TRAIT-05 [S] Add functionality to foreign types through a sealed `…Ext` trait
   - RS-TRAIT-06 [S] Prefer composition to supertrait hierarchies
-  - RS-TRAIT-07 [M] Treat a supertrait as a requirement on every implementor
+  - RS-TRAIT-07 [M] Add a supertrait only when the trait's own methods need it
   - RS-TRAIT-08 [S] Do not require `Sized` when you do not need it
   - RS-TRAIT-09 [S] Mark description-shaped traits `#[must_use]`
   - RS-TRAIT-10 [S] Use `#[diagnostic::on_unimplemented]` where the error would be cryptic
@@ -40,14 +40,14 @@ not a partial impl.
   - RS-TRAIT-15 [S] Use return-position `impl Trait` for iterators, futures, and closures
   - RS-TRAIT-16 [M] Keep a trait dyn-compatible if it might ever be boxed
   - RS-TRAIT-17 [S] Write the lifetime on a borrowing trait object
-  - RS-TRAIT-18 [M] Prefer an enum to a trait object for a closed set
+  - RS-TRAIT-18 [M] Model a closed set of implementations as an enum, not a trait object
   - RS-TRAIT-19 [S] Do not mix dispatch strategies for one abstraction
   - RS-TRAIT-20 [S] Do not nest generics three deep in a public signature
 
 - **Coherence, blanket impls, sealing**
   - RS-TRAIT-21 [M] Work with the orphan rule, not around it
   - RS-TRAIT-22 [M] Newtype to implement a foreign trait on a foreign type
-  - RS-TRAIT-23 [M] Treat a blanket impl as permanent
+  - RS-TRAIT-23 [M] Write a blanket impl only for an implication that holds of every type
   - RS-TRAIT-24 [S] Bound on a trait rather than impl for each std type
   - RS-TRAIT-25 [S] Seal a trait that enumerates a fixed set of types
   - RS-TRAIT-26 [M] Document that a trait is sealed and why
@@ -228,7 +228,7 @@ not for reuse.
 **Check:** how deep is the deepest supertrait chain? More than one level usually means reuse
 pretending to be a prerequisite.
 
-### RS-TRAIT-07 [M] Treat a supertrait as a requirement on every implementor
+### RS-TRAIT-07 [M] Add a supertrait only when the trait's own methods need it
 
 **Why:** adding one is a breaking change, and adding `Debug` or `Clone` "for convenience" excludes
 every implementor that cannot provide them — a type holding a file handle, a closure, or a foreign
@@ -500,7 +500,7 @@ error at the call site into a correct signature.
 
 **Check:** does any `dyn` type hold borrowed data? Then the lifetime is not `'static`.
 
-### RS-TRAIT-18 [M] Prefer an enum to a trait object for a closed set
+### RS-TRAIT-18 [M] Model a closed set of implementations as an enum, not a trait object
 
 **Why:** an enum has no allocation, no vtable, exhaustive matching when a variant is added, and
 derivable `Clone`, `PartialEq`, `Debug`, and `Serialize`, none of which `Box<dyn Trait>` gives. For
@@ -579,7 +579,7 @@ impl fmt::Display for Hex {
 }
 ```
 
-### RS-TRAIT-23 [M] Treat a blanket impl as permanent
+### RS-TRAIT-23 [M] Write a blanket impl only for an implication that holds of every type
 
 `impl<T: Foo> Bar for T`.
 

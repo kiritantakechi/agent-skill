@@ -22,16 +22,16 @@ default has been consciously overridden.
   - RS-UNSAFE-05 [M] Keep `unsafe` blocks to one operation
   - RS-UNSAFE-06 [M] Write the inner `unsafe { }` explicitly inside an `unsafe fn`
   - RS-UNSAFE-07 [M] Never expose a safe function whose safety depends on the caller
-  - RS-UNSAFE-08 [M] Treat unsoundness as a security bug
+  - RS-UNSAFE-08 [M] Release a fix for unsoundness as for a security bug
   - RS-UNSAFE-09 [S] Prefer an audited crate to hand-rolled `unsafe`
   - RS-UNSAFE-10 [M!] Write the safe version first, keep it, and test the two against each other
 
 - **Undefined behaviour and invariants**
-  - RS-UNSAFE-11 [M] Know the UB list and check against it
-  - RS-UNSAFE-12 [M] Treat `&mut T` as unique for its entire lifetime
+  - RS-UNSAFE-11 [M] Check every `unsafe` block against the list of undefined behaviour
+  - RS-UNSAFE-12 [M] Never create two live `&mut T` to one place
   - RS-UNSAFE-13 [M] Never read uninitialized memory
   - RS-UNSAFE-14 [M] Give any layout-sensitive type an explicit `repr`, and assert its layout
-  - RS-UNSAFE-15 [M] Treat `transmute` as the last resort
+  - RS-UNSAFE-15 [M] Use `transmute` only where no checked conversion serves
   - RS-UNSAFE-16 [M] Respect alignment
   - RS-UNSAFE-17 [M] Preserve pointer provenance
   - RS-UNSAFE-18 [M] Choose the `PhantomData` that matches the real relationship
@@ -50,7 +50,7 @@ default has been consciously overridden.
   - RS-UNSAFE-29 [S] Keep the `-sys` crate thin
 
 - **Verification**
-  - RS-UNSAFE-30 [M!] Run the suite under Miri in CI
+  - RS-UNSAFE-30 [M] Run the suite under Miri before every release of a crate with `unsafe`
   - RS-UNSAFE-31 [S] Cover FFI paths with ASan, UBSan, and Valgrind, which Miri cannot reach
   - RS-UNSAFE-32 [M!] Have `unsafe` reviewed by a second person
   - RS-UNSAFE-33 [S] Track the `unsafe` block count and treat growth as a design signal
@@ -238,10 +238,9 @@ impl<'data> Window<'data> {
 }
 ```
 
-### RS-UNSAFE-08 [M] Treat unsoundness as a security bug
+### RS-UNSAFE-08 [M] Release a fix for unsoundness as for a security bug
 
-Unsoundness is a security bug: it gets a patch release, an advisory, and a yank if severe — not a
-"fixed on main" note.
+It gets a patch release, an advisory, and a yank if severe — not a "fixed on main" note.
 
 **Why:** unsoundness in a published crate is exploitable by anyone downstream, and downstream cannot
 detect it by reading their own code. The response has to match the exposure, which is the whole
@@ -287,12 +286,12 @@ safe version was deleted after the fast one worked, the oracle is gone.
 
 ## Undefined behaviour and invariants
 
-### RS-UNSAFE-11 [M] Know the UB list and check against it
+### RS-UNSAFE-11 [M] Check every `unsafe` block against the list of undefined behaviour
 
-Know the list and check against it: dereferencing a dangling or misaligned pointer, aliasing `&mut`
-with anything, producing an invalid value (a `bool` that is not 0/1, an out-of-range `char`, a null
-`&T`, an uninitialized integer), breaking pointer provenance, data races, and a foreign exception
-unwinding into Rust through an `extern "C"` boundary.
+The list: dereferencing a dangling or misaligned pointer, aliasing `&mut` with anything, producing
+an invalid value (a `bool` that is not 0/1, an out-of-range `char`, a null `&T`, an uninitialized
+integer), breaking pointer provenance, data races, and a foreign exception unwinding into Rust
+through an `extern "C"` boundary.
 
 Reading a union field produces a value of its type, and a pattern that names a union field beside
 other subpatterns may read it even when the rest does not match: test the tag first, then read the
@@ -306,7 +305,7 @@ the list is short enough to check mechanically.
 **Check:** for each `unsafe` block, walk the seven categories and state which apply and why they are
 satisfied. Anything you cannot answer is the finding.
 
-### RS-UNSAFE-12 [M] Treat `&mut T` as unique for its entire lifetime
+### RS-UNSAFE-12 [M] Never create two live `&mut T` to one place
 
 A `&mut T` is unique for its entire lifetime, even if you never write through it. Creating two from
 the same source is UB immediately, not when they are used. Take a raw pointer with `&raw mut place`
@@ -393,11 +392,11 @@ const _: () = assert!(align_of::<Header>() == 4);
 const _: () = assert!(offset_of!(Header, flags) == 6);
 ```
 
-### RS-UNSAFE-15 [M] Treat `transmute` as the last resort
+### RS-UNSAFE-15 [M] Use `transmute` only where no checked conversion serves
 
-Transmute is the last resort. Prefer `as` casts for numbers, `from_bits`/`to_bits` for floats,
-`bytemuck`/`zerocopy` for plain-old-data reinterpretation, and pointer casts with explicit alignment
-checks for the rest. `transmute` between types whose layouts are not both specified is UB.
+`as` casts for numbers, `from_bits`/`to_bits` for floats, `bytemuck`/`zerocopy` for plain-old-data
+reinterpretation, and pointer casts with explicit alignment checks for the rest each check something
+`transmute` does not. `transmute` between types whose layouts are not both specified is UB.
 
 **Why:** `transmute` is the one operation with no checks at all — not size beyond a compile-time
 equality, not validity, not alignment, not provenance. Every alternative listed checks at least one
@@ -794,16 +793,14 @@ wrapper, and it lets a consumer who needs the raw API skip your abstraction with
 
 ## Verification
 
-### RS-UNSAFE-30 [M!] Run the suite under Miri in CI
+### RS-UNSAFE-30 [M] Run the suite under Miri before every release of a crate with `unsafe`
 
-Run the test suite under Miri (`cargo +nightly miri test`) in CI for every crate containing
-`unsafe`. It catches UB that produces correct behaviour on your machine today and a crash on a
-user's machine next year. Keep secrets out of the Miri job's environment, and out of any job that
-writes a `target/` cache a pull request can read. A hand-rolled concurrent structure also runs under
-`loom` or ThreadSanitizer (RS-CONC-40).
-
-*Relaxed form:* run Miri locally before each release rather than on every push. What is not
-acceptable is never having run it.
+`cargo +nightly miri test` runs in CI on every push; where the Miri run outgrows CI's time, it runs
+on a schedule and before every release, and never having run it is the finding. It catches UB that
+produces correct behaviour on your machine today and a crash on a user's machine next year. Keep
+secrets out of the Miri job's environment, and out of any job that writes a `target/` cache a pull
+request can read. A hand-rolled concurrent structure also runs under `loom` or ThreadSanitizer
+(RS-CONC-40).
 
 **Why:** Miri is an interpreter that checks the rules the optimizer assumes — aliasing, provenance,
 alignment, initialization. It finds the class of bug that testing cannot, because testing observes

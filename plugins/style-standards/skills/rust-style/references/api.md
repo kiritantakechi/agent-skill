@@ -53,12 +53,12 @@ and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
   - RS-API-24 [S] Use `NonZero*` where zero is invalid
   - RS-API-25 [S] Newtype indices when several index spaces coexist
   - RS-API-26 [M] Model a finite set of states as an enum that lists all of them
-  - RS-API-27 [M] Prefer unrepresentable to rejected, and rejected to checked
+  - RS-API-27 [M] Make a bad value unrepresentable, else rejected at construction, else checked
 
 - **Attributes and contracts**
   - RS-API-28 [M] Derive every common trait the type's meaning allows
   - RS-API-29 [M] Never derive a trait whose semantics are wrong for the type
-  - RS-API-30 [M] Treat a derived `Ord` as a documented contract
+  - RS-API-30 [M] Document what a derived `Ord` orders by, or do not derive it
   - RS-API-31 [S] Choose the `#[default]` variant deliberately
   - RS-API-32 [S] Do not implement `Default` where there is no meaningful default
   - RS-API-33 [S] Put `#[must_use]` on pure functions and pending obligations
@@ -83,12 +83,12 @@ and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
   - RS-API-48 [S] Prefer the `&mut self -> &mut Self` builder shape
   - RS-API-49 [S] Name builder setters after the property, without `set_`
   - RS-API-50 [M] Validate in `build()`, not in the setters
-  - RS-API-51 [M!] Prefer `From`, `TryFrom` and `FromStr` impls to an inherent `from_*`
+  - RS-API-51 [M!] Convert through `From`, `TryFrom` and `FromStr`, not an inherent `from_*`
   - RS-API-52 [M] Mark an unchecked constructor `unsafe`, and name it `*_unchecked`
 
 - **Future-proofing and evolution**
   - RS-API-53 [M] Decide `#[non_exhaustive]` for every published enum and struct
-  - RS-API-54 [M] Know which changes are breaking before promising semver
+  - RS-API-54 [M] Classify every change as breaking or not before tagging a release
   - RS-API-55 [M] Deprecate before removing, and say what to use instead
   - RS-API-56 [S] Prefer additive evolution; batch the breaking changes
 
@@ -719,7 +719,7 @@ impl Phase {
 }
 ```
 
-### RS-API-27 [M] Prefer unrepresentable to rejected, and rejected to checked
+### RS-API-27 [M] Make a bad value unrepresentable, else rejected at construction, else checked
 
 Three tiers, in order: the type cannot express the bad value; the constructor refuses it; a runtime
 check catches it. Reach for the earliest tier the situation allows.
@@ -802,7 +802,7 @@ convenient precisely because it is thoughtless, which is the hazard.
 **Check:** for each derived `PartialEq`/`Hash`/`Ord`, does every field participate in identity? Any
 cache, timestamp, or arena handle is a no.
 
-### RS-API-30 [M] Treat a derived `Ord` as a documented contract
+### RS-API-30 [M] Document what a derived `Ord` orders by, or do not derive it
 
 **Why:** `#[derive(Ord)]` fixes the ordering to the declaration order of the fields, permanently.
 Reordering fields for layout or readability then silently changes the sort order of every user's
@@ -1271,13 +1271,14 @@ in `build()` lets callers configure in any order and produces one coherent error
 
 **Check:** does any setter return `Result`, or panic? Move that check to `build()`.
 
-### RS-API-51 [M!] Prefer `From`, `TryFrom` and `FromStr` impls to an inherent `from_*`
+### RS-API-51 [M!] Convert through `From`, `TryFrom` and `FromStr`, not an inherent `from_*`
 
-Implementing the trait gives callers `.into()`, `?` conversion, and generic code for free.
+A conversion from one source type is a trait impl, which gives callers `.into()`, `?` and generic
+code for free. Where the impl would be ambiguous — several conversions from one source type, as with
+`from_utf8`, `from_utf8_lossy` and `from_raw_parts` — or would leak a type parameter, it is an
+inherent `from_*` named for the source, not the target.
 
-*Relaxed form:* keep an inherent `from_*` when the trait impl would be ambiguous — several sources
-of the same type, as with `from_utf8`, `from_utf8_lossy` and `from_raw_parts` — or would leak a type
-parameter, and then name it for the source, not the target.
+*Relaxed form:* an inherent `from_*` alone, named for its source.
 
 **Why:** `From` can be implemented once per source type, so only distinct conversions from one input
 need names. An inherent `Config::from_path(p)` works only for a caller who knows to look; a
@@ -1334,7 +1335,7 @@ pub enum Endianness {
 }
 ```
 
-### RS-API-54 [M] Know which changes are breaking before promising semver
+### RS-API-54 [M] Classify every change as breaking or not before tagging a release
 
 Breaking: adding a type parameter, changing a concrete return type, narrowing a bound, adding a
 non-defaulted trait method, removing a derive, making a public item private. Not breaking: widening

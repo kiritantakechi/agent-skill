@@ -37,7 +37,7 @@ goal.
 - **Property, fuzz, and snapshot testing**
   - RS-TEST-20 [S] Use property testing where a law holds over a domain
   - RS-TEST-21 [S] Reach for differential testing first for parsers, matchers, and codecs
-  - RS-TEST-22 [M] Treat the shrunk counterexample as the deliverable
+  - RS-TEST-22 [M] Pin every shrunk counterexample as a fixed regression test
   - RS-TEST-23 [M!] Fuzz anything that parses untrusted input
   - RS-TEST-24 [S] Run fuzz targets briefly per PR and long on a schedule
   - RS-TEST-25 [S] Use snapshot testing for large, exact, human-reviewable output
@@ -48,7 +48,7 @@ goal.
 - **Doc tests, CI, and hygiene**
   - RS-TEST-29 [M] Use `no_run` for examples that must not execute, and `ignore` almost never
   - RS-TEST-30 [S] Use `compile_fail` doc tests to prove misuse is rejected
-  - RS-TEST-31 [M] Treat a flaky test as a bug of the same severity as the code
+  - RS-TEST-31 [M] Fix a flaky test as a bug, or quarantine it with an owner and a date
   - RS-TEST-32 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
   - RS-TEST-33 [S] Measure coverage to find untested branches, not to hit a number
   - RS-TEST-34 [S] Delete tests that no longer test anything
@@ -645,7 +645,7 @@ mod tests {
 }
 ```
 
-### RS-TEST-22 [M] Treat the shrunk counterexample as the deliverable
+### RS-TEST-22 [M] Pin every shrunk counterexample as a fixed regression test
 
 Shrinking is the point of property testing: when a case fails, report the minimal input, and add it
 as a fixed regression test (RS-TEST-19).
@@ -762,7 +762,7 @@ is accidentally relaxed.
 **Check:** for each "this must not compile" claim in the docs, is there a test? Unpinned claims
 drift.
 
-### RS-TEST-31 [M] Treat a flaky test as a bug of the same severity as the code
+### RS-TEST-31 [M] Fix a flaky test as a bug, or quarantine it with an owner and a date
 
 Quarantining is a temporary measure with an owner and a deadline, not a resolution.
 

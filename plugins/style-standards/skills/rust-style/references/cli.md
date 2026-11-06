@@ -46,7 +46,7 @@ what "production-grade Rust CLI" means in practice.
 - **Behaviour, environment, signals**
   - RS-CLI-25 [M] Read stdin when given no files, and treat `-` as stdin
   - RS-CLI-26 [M!] Make destructive operations opt-in, and never prompt when not a terminal
-  - RS-CLI-27 [M!] Write output atomically where a partial file would be harmful
+  - RS-CLI-27 [M] Write output that cannot be regenerated atomically
   - RS-CLI-28 [M] On `SIGINT`, restore the terminal and remove temporary files, then re-raise it
   - RS-CLI-29 [S] Respect the platform's directory conventions
   - RS-CLI-30 [M] Namespace and document every environment variable you read
@@ -856,14 +856,12 @@ pub fn decide(force: Force, terminal: Terminal) -> Decision {
 }
 ```
 
-### RS-CLI-27 [M!] Write output atomically where a partial file would be harmful
+### RS-CLI-27 [M] Write output that cannot be regenerated atomically
 
-Write to a temporary file in the same directory, then rename: a crash mid-write should not destroy
-the user's input. Open the temporary with `File::create_new`, which fails rather than truncate a
-file that is already there.
-
-*Relaxed form:* if the output is regenerable from inputs the tool does not mutate, a plain write is
-acceptable. In-place edits are never in that category.
+An output the tool cannot regenerate from inputs it leaves alone — every in-place edit among them —
+is written to a temporary file in the same directory, then renamed: a crash mid-write must not
+destroy the user's input. Open the temporary with `File::create_new`, which fails rather than
+truncate a file that is already there.
 
 **Why:** `rename` within a filesystem is atomic, so readers see either the old file or the new one
 and never a half-written one. Writing in place gives up that guarantee for nothing — the temporary

@@ -17,12 +17,12 @@ concurrent".
   - RS-CONC-01 [M] Do not add concurrency without a measured reason
   - RS-CONC-02 [M] Match the model to the bottleneck
   - RS-CONC-03 [M] Do not adopt async for a CLI that does a handful of file reads
-  - RS-CONC-04 [M] Prefer message passing to shared memory
-  - RS-CONC-05 [M] Prefer immutable sharing to synchronized mutation
+  - RS-CONC-04 [M] Mutate through a message to one owner wherever a message can do it
+  - RS-CONC-05 [M] Lock only data that is written after it is shared
   - RS-CONC-06 [S] Prefer partitioning to synchronization
   - RS-CONC-07 [M] Keep the concurrency at one layer, ideally the top
   - RS-CONC-08 [M] Decide the parallelism model before writing the data structures
-  - RS-CONC-09 [M!] Bound every queue
+  - RS-CONC-09 [M] Bound every queue an open-ended producer feeds
   - RS-CONC-10 [M] Design shutdown at the start
 
 - **Threads**
@@ -47,12 +47,12 @@ concurrent".
   - RS-CONC-27 [M] Use `OnceLock`/`LazyLock` for lazily initialized globals
 
 - **Async fundamentals**
-  - RS-CONC-28 [M] Remember futures are inert until polled
+  - RS-CONC-28 [M] Await, spawn or join every future you create
   - RS-CONC-29 [M] Keep libraries runtime-agnostic where possible
   - RS-CONC-30 [M] Do not block in async
-  - RS-CONC-31 [M] Prefer `async fn` and `impl Future` to hand-written state machines
+  - RS-CONC-31 [M] Implement `Future` by hand only for a leaf primitive
   - RS-CONC-32 [M] Decide explicitly whether your trait needs `Send` futures
-  - RS-CONC-33 [M!] Make every function correct when dropped at an `.await`
+  - RS-CONC-33 [M] Make a future that can be dropped mid-flight correct at every `.await`
   - RS-CONC-34 [M] Do not `select!` over branches that lose data on cancellation
   - RS-CONC-35 [M] Apply a caller-supplied timeout at every boundary that can hang
 
@@ -63,13 +63,13 @@ concurrent".
   - RS-CONC-39 [M] Reorder or serialize parallel output deliberately
 
 - **Testing and debugging**
-  - RS-CONC-40 [M!] Test concurrent data structures with `loom`
-  - RS-CONC-41 [M!] Run the suite under ThreadSanitizer for anything with `unsafe` sharing
+  - RS-CONC-40 [M] Test a hand-written synchronization algorithm with `loom`
+  - RS-CONC-41 [M] Run code with `unsafe` sharing under ThreadSanitizer before every release
   - RS-CONC-42 [M] Make concurrency tests deterministic — no `sleep`
   - RS-CONC-43 [S] Stress-test beyond core count, behind `#[ignore]`
   - RS-CONC-44 [M] Log with a task or thread identifier
   - RS-CONC-45 [S] Reproduce deadlocks by capturing backtraces, not by reasoning
-  - RS-CONC-46 [M] Prefer structured concurrency
+  - RS-CONC-46 [M] Give every task a parent that outlives it and joins it
   - RS-CONC-47 [M] Document the threading contract of every public type
 
 - Decided by tools
@@ -124,7 +124,7 @@ build (RS-BUILD-19). It is RS-CONC-02's choice, made for the commonest case.
 **Check:** how many operations are in flight at once? Below a few hundred, blocking I/O on a small
 pool is simpler and usually faster.
 
-### RS-CONC-04 [M] Prefer message passing to shared memory
+### RS-CONC-04 [M] Mutate through a message to one owner wherever a message can do it
 
 Channels give you one owner per value, backpressure, and a shutdown protocol; shared mutable state
 gives you locks and a graph of who may touch what.
@@ -157,7 +157,7 @@ pub fn total(chunks: Vec<Vec<u32>>) -> u32 {
 }
 ```
 
-### RS-CONC-05 [M] Prefer immutable sharing to synchronized mutation
+### RS-CONC-05 [M] Lock only data that is written after it is shared
 
 `Arc<T>` where `T` never changes needs no lock at all — and inside `thread::scope` a plain `&T` does
 the same. The vast majority of "shared state" is configuration that is written once at startup.
@@ -246,14 +246,12 @@ ownership model, which touches everything.
 **Check:** if the code might ever be parallel, are the shared types `Send`? Deciding later is much
 more expensive than deciding now.
 
-### RS-CONC-09 [M!] Bound every queue
+### RS-CONC-09 [M] Bound every queue an open-ended producer feeds
 
-An unbounded channel converts backpressure into memory exhaustion, which surfaces as an OOM kill
-hours later rather than a slow producer immediately.
-
-*Relaxed form:* a queue whose producer is a bounded, known set — a fixed list of files, a fixed
-worker count — is already bounded by construction. Any queue fed by network input or user activity
-is not.
+A producer that network input or user activity drives can outrun any consumer, and an unbounded
+channel converts that backpressure into memory exhaustion, which surfaces as an OOM kill hours later
+rather than a slow producer immediately. A queue whose producer is a bounded, known set — a fixed
+list of files, a fixed worker count — is bounded by construction.
 
 **Why:** a bounded channel makes a fast producer block, which is the signal that the system is
 overloaded, delivered at the point where it can be handled. Unbounded, that signal is deferred until
@@ -688,7 +686,7 @@ pub fn workers() -> usize {
 
 ## Async fundamentals
 
-### RS-CONC-28 [M] Remember futures are inert until polled
+### RS-CONC-28 [M] Await, spawn or join every future you create
 
 Futures are inert. Nothing happens until they are polled — so building a future and dropping it does
 no work, and a `Vec<Future>` runs nothing until you `join_all` or spawn.
@@ -735,11 +733,10 @@ runtime deadlocks.
 
 **Check:** grep async bodies for `std::fs`, `std::net`, `thread::sleep`, and `std::sync::Mutex`.
 
-### RS-CONC-31 [M] Prefer `async fn` and `impl Future` to hand-written state machines
+### RS-CONC-31 [M] Implement `Future` by hand only for a leaf primitive
 
-Prefer `async fn` and `impl Future` over hand-written `Poll` state machines. Implement `Future` by
-hand only for leaf primitives — and then respect the contract: register the waker on every `Pending`
-return.
+Everything else is an `async fn` or an `impl Future` the compiler generates. A hand-written `Future`
+respects the contract: it registers the waker on every `Pending` return.
 
 **Why:** the compiler generates a correct state machine, including the waker handling that
 hand-written implementations get wrong. A `Pending` return without a registered waker is a task that
@@ -774,15 +771,12 @@ pub trait Fetch {
 }
 ```
 
-### RS-CONC-33 [M!] Make every function correct when dropped at an `.await`
+### RS-CONC-33 [M] Make a future that can be dropped mid-flight correct at every `.await`
 
-Cancellation in async is a drop, and it can happen at any `.await` point. Any function holding a
-resource across an await must be correct when it is dropped there — this is cancellation safety, and
-`select!` makes it a routine concern rather than an exotic one.
-
-*Relaxed form:* code that never appears inside a `select!`, a `timeout`, or a task that gets aborted
-is cancelled only at shutdown, where a leaked temporary is tolerable. The moment either appears, the
-rule is [M].
+Cancellation in async is a drop, at whichever `.await` the future is suspended. A future that can be
+dropped before it completes — inside a `select!`, under a `timeout`, or in a task that can be
+aborted — holds no resource across an await that its drop there would corrupt. One cancelled only at
+shutdown may leak a temporary.
 
 **Why:** there is no cancellation notification and no async destructor, so cleanup has to work
 through ordinary `Drop`. A half-consumed read or a half-sent message dropped mid-operation loses
@@ -889,14 +883,12 @@ pub fn lengths(inputs: &[String]) -> Vec<usize> {
 
 ## Testing and debugging
 
-### RS-CONC-40 [M!] Test concurrent data structures with `loom`
+### RS-CONC-40 [M] Test a hand-written synchronization algorithm with `loom`
 
-`loom` explores interleavings exhaustively for small models. Ordinary tests pass on broken lock-free
-code essentially every time.
-
-*Relaxed form:* if all your synchronization comes from `std` and `crossbeam` primitives used in the
-obvious way, `loom` buys little. It is mandatory the moment you write the algorithm rather than call
-one.
+A lock-free structure or synchronization primitive you write yourself, rather than assemble from
+`std` and `crossbeam` used in the obvious way, has `loom` tests: `loom` explores interleavings
+exhaustively for small models, and ordinary tests pass on broken lock-free code essentially every
+time.
 
 **Why:** a race needs a specific interleaving, and the scheduler will not produce it in a normal
 test run — so a broken structure passes indefinitely and fails in production. `loom` enumerates the
@@ -904,12 +896,11 @@ interleavings instead of sampling them.
 
 **Check:** for each hand-written synchronization primitive, is there a `loom` test?
 
-### RS-CONC-41 [M!] Run the suite under ThreadSanitizer for anything with `unsafe` sharing
+### RS-CONC-41 [M] Run code with `unsafe` sharing under ThreadSanitizer before every release
 
-Miri, for the `unsafe` itself, is RS-UNSAFE-30.
-
-*Relaxed form:* run it before each release rather than per push. A crate with no `unsafe` sharing
-has nothing here to check.
+CI runs it on every push; where the sanitized run outgrows CI's time, it runs on a schedule and
+before every release, and never having run it is the finding. Miri, for the `unsafe` itself, is
+RS-UNSAFE-30.
 
 **Why:** ThreadSanitizer detects races the test run happened not to trigger, by checking the
 happens-before relation rather than the outcome. That is a categorically stronger observation than
@@ -963,10 +954,10 @@ possible orderings is a search.
 **Check:** when a hang occurs, was a backtrace captured before restarting? Restarting destroys the
 evidence.
 
-### RS-CONC-46 [M] Prefer structured concurrency
+### RS-CONC-46 [M] Give every task a parent that outlives it and joins it
 
-Every task has a parent that outlives it and is responsible for its shutdown. `thread::scope`, task
-groups, and `JoinSet` all encode this; bare `spawn`-and-forget does not.
+`thread::scope`, task groups, and `JoinSet` all encode a parent responsible for each task's
+shutdown; bare `spawn`-and-forget does not.
 
 Outside a scope, keep each handle and join it: the handle is the only channel for a task's panic or
 result (RS-CONC-12). Detach only deliberately, with a comment saying why the work may be lost.

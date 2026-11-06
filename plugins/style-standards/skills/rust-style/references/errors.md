@@ -47,14 +47,14 @@ and an exit code.
 
 - **Panics**
   - RS-ERR-26 [S] Prefer restructuring, then `unreachable!`, then `panic!`
-  - RS-ERR-27 [M] Know which assertions survive `--release`
+  - RS-ERR-27 [M] Choose `assert!` or `debug_assert!` by what a release build relies on
   - RS-ERR-28 [M!] Make overflow behaviour explicit on untrusted arithmetic and computed sizes
   - RS-ERR-29 [M] Do not choose `panic = "abort"` on a library's behalf
 
 - **Binaries, reporting, exit codes**
   - RS-ERR-30 [S] Use `anyhow` inside binaries and only there
   - RS-ERR-31 [S] Return `ExitCode` and format the error yourself
-  - RS-ERR-32 [M] Treat exit codes as part of the interface
+  - RS-ERR-32 [M] Assign exit codes by convention, and document them
   - RS-ERR-33 [S] Print the cause chain, not a backtrace
   - RS-ERR-34 [M] Report every failure of a run over independent inputs, and finish the run
 
@@ -225,10 +225,10 @@ Read { path: PathBuf, #[source] source: io::Error },
 
 ### RS-ERR-07 [M!] Keep error types `Send + Sync + 'static`
 
-Unless there is a compelling, documented reason otherwise.
+An error type that holds a `!Send` resource — a raw handle, a single-threaded runtime object — says
+so in its rustdoc, since it cannot have them.
 
-*Relaxed form:* an error that is genuinely tied to a `!Send` resource (a raw handle, a
-single-threaded runtime object) may omit them, but must say so in its rustdoc.
+*Relaxed form:* leave the bounds out until a caller needs one.
 
 **Why:** without those bounds the error cannot cross a thread, be stored in `anyhow::Error`, or be
 returned from a spawned task — and callers discover this deep in a refactor, with no fix except
@@ -593,7 +593,7 @@ unrepresentable removes the branch entirely (RS-API-21). Where the branch must e
 **Check:** for each `unreachable!`, can the enum, the newtype, or the signature be narrowed so the
 arm disappears?
 
-### RS-ERR-27 [M] Know which assertions survive `--release`
+### RS-ERR-27 [M] Choose `assert!` or `debug_assert!` by what a release build relies on
 
 `assert!`/`assert_eq!` run in release; `debug_assert!`, `debug_assert_eq!`, and
 `debug_assert_matches!` (imported with `use std::debug_assert_matches;`) do not.
@@ -618,13 +618,13 @@ pub fn split_point(low: u32, high: u32) -> u32 {
 
 ### RS-ERR-28 [M!] Make overflow behaviour explicit on untrusted arithmetic and computed sizes
 
-Integer overflow panics in debug and wraps in release, by default. On untrusted values and on
-computed sizes — lengths, offsets, parsed numbers — choose the behaviour: `checked_*`,
+Integer overflow panics in debug and wraps in release, by default. On untrusted values and on sizes
+computed from the input — lengths, offsets, parsed numbers — choose the behaviour: `checked_*`,
 `saturating_*`, `wrapping_*`, or `strict_*`, which panics in both profiles where overflow is a bug
-rather than an input.
+rather than an input. A value with a proven internal bound, such as a counter over a fixed array,
+asserts that bound instead.
 
-*Relaxed form:* on values with a proven internal bound (a loop counter over a fixed array), the
-default is acceptable — assert the bound instead.
+*Relaxed form:* the default behaviour, with a `debug_assert!` of each bound the arithmetic assumes.
 
 **Why:** that is a correctness fork: debug and release are two different programs on the same input.
 On attacker-influenced values the release behaviour is a silent wrong answer that frequently becomes
@@ -677,7 +677,7 @@ Formatting it yourself gives you the cause chain in prose, and control over the 
 
 **Check:** does the program's failure output look like something you would show a user?
 
-### RS-ERR-32 [M] Treat exit codes as part of the interface
+### RS-ERR-32 [M] Assign exit codes by convention, and document them
 
 `0` success, `1` a handled failure, `2` a usage error. Search-style tools follow grep: `0` match
 found, `1` no match, `2` error.

@@ -29,7 +29,7 @@ wiring. Structure is what keeps a codebase comprehensible past ten thousand line
   - RS-MOD-13 [M] Do not glob re-export from a library root
   - RS-MOD-14 [S] Provide a `prelude` only for trait-heavy ecosystem crates
   - RS-MOD-15 [M] Namespace `#[doc(hidden)] pub` macro support items
-  - RS-MOD-16 [M] Remember that enum variants inherit the enum's visibility
+  - RS-MOD-16 [M] Split an enum whose variants are partly internal into two types
 
 - **Crate and workspace layout**
   - RS-MOD-17 [M] One crate, one purpose
@@ -39,10 +39,10 @@ wiring. Structure is what keeps a codebase comprehensible past ten thousand line
   - RS-MOD-21 [S] Keep the facade crate nearly empty
   - RS-MOD-22 [M] Keep member dependencies a shallow DAG
   - RS-MOD-23 [S] Keep `examples/` compiling in CI
-  - RS-MOD-24 [M] Treat `build.rs` as a last resort
+  - RS-MOD-24 [M] Write a `build.rs` only for codegen or C compilation
   - RS-MOD-25 [S] Keep the repository root sparse
   - RS-MOD-26 [M] Name the resolver explicitly in a virtual manifest
-  - RS-MOD-27 [M] Expect features to unify across everything built in one invocation
+  - RS-MOD-27 [M] Check each member's features alone: one invocation unifies them
   - RS-MOD-28 [M] Build every member alone in CI, not only `--workspace`
   - RS-MOD-29 [M] Count the encapsulation a split costs, not only what it buys
   - RS-MOD-30 [M] Leave `version` out of an unpublished member's manifest
@@ -451,7 +451,7 @@ out of autocomplete's way.
 
 **Check:** grep `#[doc(hidden)]` on `pub` items. Are they under a namespaced module?
 
-### RS-MOD-16 [M] Remember that enum variants inherit the enum's visibility
+### RS-MOD-16 [M] Split an enum whose variants are partly internal into two types
 
 **Why:** you cannot make one variant private. If some variants are internal, that is two types — a
 public one and a private one — not one enum with a convention. People discover this late, after the
@@ -570,7 +570,7 @@ discovering that. `cargo test` does not necessarily build them — `cargo build 
 
 **Check:** is `cargo build --examples` in CI (RS-BUILD-39)?
 
-### RS-MOD-24 [M] Treat `build.rs` as a last resort
+### RS-MOD-24 [M] Write a `build.rs` only for codegen or C compilation
 
 **Why:** it slows every build, runs arbitrary code on every user's machine, breaks cross-compilation
 in subtle ways, and is harder to audit than ordinary source. It is right for genuine codegen and C
@@ -601,7 +601,7 @@ its `rust-version` past yours rather than picking it (RS-BUILD-31).
 **Check:** does the workspace root name a resolver? A build that prints that warning is not
 configured, it is defaulted.
 
-### RS-MOD-27 [M] Expect features to unify across everything built in one invocation
+### RS-MOD-27 [M] Check each member's features alone: one invocation unifies them
 
 Two members built together each see the union of their features on every shared dependency.
 Per-package unification (`resolver.feature-unification`) is nightly-only, so the working remedies
