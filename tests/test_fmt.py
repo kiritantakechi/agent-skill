@@ -1,14 +1,20 @@
 """Rewriting an example the way `cargo fmt --check` will demand."""
 
+from dataclasses import replace
 lazy from pathlib import Path
+
+import pytest
 
 from agent_skill import shared
 from agent_skill.doc import canonical
 from agent_skill.fmt import format_skill, put_back
+from agent_skill.lang import toolchain_for
+from agent_skill.lang.python import PYTHON_STYLE
 from agent_skill.lang.rust import BEVY_STYLE, RUST_STYLE, rebase, unrebase
+from agent_skill.lang.zig import ZIG_STYLE
 from agent_skill.profiles import PROFILES
 from agent_skill.report import Level
-from structure_fixture import build, edit, reparse
+from structure_fixture import DEMO, build, edit, reparse
 
 
 def test_rebasing_points_a_block_into_its_module_and_back() -> None:
@@ -164,3 +170,34 @@ def test_how_a_shared_passage_is_filled_is_never_a_finding(tmp_path: Path) -> No
     at = text.index("\n", text.index("Rules are cited by ID"))
     demo.skill_md.write_text(f"{text[:at]}   {text[at + 1 :]}")
     assert list(shared.compare(reparse(demo))) == []
+
+
+#: Each toolchain's settings, a block its formatter rewrites, and what
+#: it rewrites the block to.
+UNFORMATTED = {
+    "python": (PYTHON_STYLE, "# verified\nx=1\n", "# verified\nx = 1\n"),
+    "rust": (RUST_STYLE, "// verified\nfn  a( ) {}\n", "// verified\nfn a() {}\n"),
+    "zig": (ZIG_STYLE, "// verified\nfn a() void{}\n", "// verified\nfn a() void {}\n"),
+}
+
+
+@pytest.mark.toolchain
+@pytest.mark.parametrize("kind", UNFORMATTED)
+def test_fmt_writes_back_what_each_formatter_prints(tmp_path: Path, kind: str) -> None:
+    """`restore ∘ format ∘ extract`; Zig had no write-back before it."""
+    config, body, formatted = UNFORMATTED[kind]
+    tc = toolchain_for(config)
+    assert tc is not None
+    if tc.missing():
+        pytest.skip(f"needs {tc.name}")
+    fence = tc.language.fence
+    demo = build(tmp_path, replace(DEMO, languages=(fence,), toolchain=config))
+    chapter = demo.root / "references" / "errors.md"
+    chapter.write_text(f"{chapter.read_text()}\n```{fence}\n{body}```\n")
+
+    changed = format_skill(reparse(demo))
+
+    assert any(f.message == "1 block(s) reformatted" for f in changed), changed
+    (block,) = reparse(demo).blocks(fence)
+    assert block.body == formatted
+    assert format_skill(reparse(demo)) == []

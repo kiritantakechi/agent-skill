@@ -330,11 +330,39 @@
 
 ## 7. Toolchains
 
-- [ ] 7.1 Express Python, Rust and Zig as extract/restore pairs with `Unit` carrying its `Block`;
-  property-test `restore ∘ extract = id` on every shipped skill
-- [ ] 7.2 One driver for compile, test, format and mutate with one timeout policy; delete the
-  per-language loops
-- [ ] 7.3 Derive `fmt` from the pair for every toolchain; verify `fmt` is idempotent on the repo
+- [x] 7.1 Express Python, Rust and Zig as extract/restore pairs with `Unit` carrying its `Block`;
+  property-test `restore ∘ extract = id` on every shipped skill — `f098fea`; `Unit(path, block)`, a
+  file of one block in every language (Rust's `src/<chapter>/<rule>.rs`, at column zero); the
+  identity holds byte for byte on all 562 verified blocks (`tests/test_extraction.py`), and
+  `SKILL.md`'s `verified` blocks are extracted in every language, as Zig's one already was
+- [x] 7.2 One driver for compile, test, format and mutate with one timeout policy; delete the
+  per-language loops — `f098fea`; `checks.toolchain.verify` and `.mutate` over `Step` data, one
+  policy in `lang.judged`, one mutant grammar `lang.deletable`; every finding on its markdown
+  line, Rust's mutants included (the open question, resolved); a survivor is a note everywhere
+  (design.md, decision 6); `toolchain`/`mutation` branches 28 → 12, exemptions 35 → 22
+- [x] 7.3 Derive `fmt` from the pair for every toolchain; verify `fmt` is idempotent on the repo —
+  `fmt` is `restore ∘ format ∘ extract`; on the tree it rewrote three Rust blocks wrapped for the
+  `pub mod` they no longer sit in (`16049c9`, formatting only) and nothing else — `zig fmt` and
+  `ruff format` agree with every shipped block — and a second run changes nothing
+
+  Verification, against `38e9e14`: `check --fast --verbose` is identical before the content commit;
+  after it, seven notes move up by the lines it removed, and one of them quotes the joined line.
+  Toolchain and mutation, run per pair of skills before and after:
+
+  | Skills | Before | After |
+  |---|---|---|
+  | zig, python | pass; 9 survivor notes, 1 inconclusive; 1 m 46 s | pass; 10 survivor notes, 1 inconclusive; 2 m 24 s |
+  | rust, bevy | pass; no finding; 15 m 24 s | pass; no finding; 12 m 52 s |
+
+  Every difference is the one grammar's. Python's note (`testing.md:193`, `ids=[…]`) was a line
+  inside a test, which Python alone mutated; its five new candidates (`raise`, `return`, a call)
+  are all killed. Zig gains two survivors on statements a trailing comment had hidden:
+  `build.md:1305` `cli.rest = argv[i..];` and `testing.md:511` `errdefer out.deinit(gpa);` — the
+  line its own comment calls the one `checkAllAllocationFailures` exists to verify, which deleted
+  leaves that test green: a test that cannot fail on its stated case, left for the content work.
+  Bevy loses 18 candidates that could only be killed (`const`, `type`, a `));` tail), which is the
+  time saved; rust-style's six are unchanged. The Rust and Bevy runs are at `16049c9`; `cargo fmt`
+  gains `--quiet` after it, and `fmt` on the tree is still a no-op.
 
 ## 8. Revision
 

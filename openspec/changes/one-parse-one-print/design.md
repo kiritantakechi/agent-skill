@@ -160,6 +160,69 @@ for every language, so Zig gains `zig fmt` write-back without code of its own.
 `Unit.path` is a file for every language. Rust compiles a crate of modules; its unit is the module
 file, and the crate is the extraction's build context, not the unit.
 
+As built (task 7):
+
+```python
+class Toolchain(Protocol):
+    language: Language                     # + statements, kept: the mutant grammar's vocabulary
+    mutant_timeout: float
+    outside: re.Pattern[str] | None        # what a block may not reach, or nothing asked
+    def extract(self, skill: Skill, out: Path) -> Extraction: ...  # Unit(path, block)
+    def restore(self, ex: Extraction) -> Mapping[Block, str]: ...
+    def steps(self, ex: Extraction) -> Iterable[Step]: ...         # compile, lint, test
+    def formatter(self, ex: Extraction) -> Step: ...               # write mode
+    def tests(self, ex: Extraction, unit: Unit) -> Step | None: ...
+```
+
+- `steps` takes the extraction, not a unit: a crate builds whole, and `ty` and `ruff` read a
+  directory. A `Step` is data (`name`, `cmd`, `cwd`, `timeout`, `env`, the `unit` it runs or none,
+  whether the tool prints `path:line:col:` lines, how to read what it said first), so the policy
+  of running one is stated once, in `lang.judged`; `checks.toolchain` is the only code that runs
+  one. The format step is `formatter` rather than one of `steps`: the check runs it in write mode,
+  restores, and compares, and `fmt` runs the same three and writes the bodies back.
+- `mutants` is not the toolchain's. One grammar, `lang.deletable`: a line holding one whole
+  statement, outside the block's tests, that no word the language keeps opens (a declaration or
+  binding, whose deletion only stops the build; an assertion; a brace). Each `Language` supplies
+  the vocabulary: `statements` reads Python's with `ast`, and Rust and Zig share `terminated` (code
+  ending in `;`, brackets balanced on the line); `tests` gains Rust's (`#[cfg(test)]`, `#[test]`).
+  There were three: Python mutated only lines holding `=`, its tests' lines included; Rust only
+  what came before a module's first `#[cfg(test)]`, assertions included; Zig skipped a statement a
+  comment followed.
+- A unit is a file holding one block whose line `i` is the body's: the harness writes after a body,
+  never before it (Zig's analysis trailer follows a `SENTINEL` comment `restore` cuts at). Rust's
+  unit is `src/<chapter>/<rule>.rs`, the block at column zero with `crate::` and `mycrate::`
+  rebased by `rebase`, which `unrebase` inverts; `lib.rs` and the chapter files are the build
+  context and carry `#![allow(dead_code, unused_imports)]` once, at the root. At column zero
+  rustfmt judges the block a reader pastes; inside a `pub mod` it broke lines four columns early,
+  and three blocks carried such a wrap (`16049c9`).
+- `verified` blocks in `SKILL.md` are compiled in every language (`lang.extracted`). Rust named a
+  module after its block's rule and skipped a block under none; it is now `block` in module
+  `skill`. No Rust or Bevy block stands there today; Zig's one compiles as before.
+- One policy: a step that times out is `<step> did not finish in Ns`; one that exits 0 in its time
+  passed, whatever it printed; one that failed is a finding at each line of a unit its tool names,
+  in markdown coordinates (cargo is asked for `--message-format=short`), and otherwise `<step>:
+  <first error line>` at the unit or the skill. A unit's steps stop at its first failure; a step
+  over the whole extraction always runs. Python's blocks are held to `ruff format` now, as Rust's
+  and Zig's were to theirs. The unmutated tests run once per command; their failure or timeout is a
+  FAIL in every language, where Python and Zig skipped the unit in silence. A mutant that times out
+  is inconclusive; its timeout is the toolchain's (`mutant_timeout`), as each step's is.
+- A surviving mutant is a **note** in every language, and is run twice first. Rust's failed;
+  Python's and Zig's were notes, and only theirs said why: an illustrative example's test pins the
+  case its name describes, and a guard outside that case is expected to survive. The shipped
+  survivors bear it out — eight of the nine before this task were guard clauses or error exits
+  outside the case the test is named for (`fatal("unrecognized flag…")`, `if (text.len == 0)
+  return error.Invalid;`), and the ninth a line of a test. No mechanical rule tells such a guard
+  from a test that cannot fail, and failing both would make every example's tests exhaustive over
+  its statements, which the standards' rules on what an example shows argue against. Rust's FAIL
+  was not argued; its second opinion, which kept a transient from failing a run, is now every
+  language's. The check still fails on what it can decide — unmutated tests that fail or hang — and
+  a survivor is reported at its markdown line for a reader to judge. No Rust or Bevy block had a
+  survivor before or after, so no finding changed level.
+- The 28 branches of `toolchain` and `mutation`, 24 of them declared per language, are 12, all the
+  driver's; `COMPILES` exemptions 20 → 7 (35 → 22 in all), controls unchanged at 175. `fmt`'s
+  `cargo_fmt`, `ruff_format` and `modules` are `formatter` and `formatter_timeout`, and `put_back`
+  finds a block by its line rather than its text, so two blocks with one body are no longer skipped.
+
 ### 7. A profile is a record
 
 Profiles become frozen dataclass literals in one module, collected in one mapping, with no import
@@ -198,8 +261,9 @@ As built (task 6):
   `Delta(anchor, step)`, so neither can be declared by halves. `Profile.subject` names what a
   standard is about when that is not its toolchain's release; `pin` and `release` are derived.
 - What a check knew about one toolchain is that toolchain's: `Toolchain.cite`, `.pins`, `.asset`
-  and `.format`, with the branches they report through declared in `lang/` under the check's name,
-  as the toolchain's own steps already were, and the tools each asks for (`needs`, `cites_with`,
+  and `.format` (task 7 made the last a `formatter` step, and moved the steps' branches to the
+  driver), with the branches they report through declared in `lang/` under the check's name,
+  as the toolchain's own steps then were, and the tools each asks for (`needs`, `cites_with`,
   `pins_with`, `assets_with`) read by the checks for their `needs`. A `Language` record per
   toolchain holds the comment token, string quotes, file suffix and test reader.
 - The harness's own tool pins are one `Harness` record in `harness.py`, read from `pyproject.toml`.
@@ -277,6 +341,9 @@ Rollback is per stage: each stage is a contiguous range of commits on the branch
 
 ## Open Questions
 
-- Whether `Location.line` should be the markdown line or the extracted line for toolchain findings.
-  Decision 6 says markdown everywhere; Rust mutant reports currently use the extracted file and
-  need a source map, which `Unit` carrying its `Block` provides.
+- ~~Whether `Location.line` should be the markdown line or the extracted line for toolchain
+  findings.~~ Resolved by task 7: the markdown line, for every toolchain and every finding — a
+  diagnostic, a survivor, an inconclusive mutant. No source map was needed: a unit is a file of
+  one block whose line `i` is the body's line `i`, Rust's included now that each block is its own
+  module file at column zero, so `Unit.where_at(i)` is `Block.where_at(i)`. A line past the body
+  (the harness's own) is placed at the block.

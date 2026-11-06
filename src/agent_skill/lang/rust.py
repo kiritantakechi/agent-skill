@@ -394,10 +394,12 @@ class Rust:
         src.mkdir(parents=True)
 
         ex = Extraction(out, skill)
-        chapters: dict[str, list[str]] = {}
+        #: each chapter's module, the document it is read from, and the
+        #: module of each of its blocks
+        chapters: dict[str, tuple[str, list[str]]] = {}
         for b in extracted(skill, LANGUAGE):
             stem = module_name(b.file)
-            mods = chapters.setdefault(stem, [])
+            _, mods = chapters.setdefault(stem, (b.file, []))
             base = b.rule.lower().replace("-", "_") if b.rule != "?" else "block"
             n = sum(1 for m in mods if m == base or m.startswith(f"{base}_"))
             mod = base if n == 0 else f"{base}_{n}"
@@ -407,9 +409,8 @@ class Rust:
             path.write_text(rebase(b.body, crate, stem, mod))
             ex.units.append(Unit(path, b))
 
-        for stem, mods in chapters.items():
-            chapter = next(u.block.file for u in ex.units if u.path.parent.name == stem)
-            head = f"//! Blocks extracted from `{skill.at(chapter).file}`.\n\n"
+        for stem, (document, mods) in chapters.items():
+            head = f"//! Blocks extracted from `{skill.at(document).file}`.\n\n"
             (src / f"{stem}.rs").write_text(
                 head + "".join(f"pub mod {m};\n" for m in sorted(mods))
             )
@@ -470,14 +471,13 @@ class Rust:
         (`--message-format=short`), as `path:line:col: message`.
         """
         manifest = str(ex.root / "Cargo.toml")
-        quiet = () if command == "fmt" else ("--quiet",)
         short = ("--message-format=short",) if diagnostics else ()
         return Step(
             name,
             (
                 "cargo",
                 command,
-                *quiet,
+                "--quiet",
                 *short,
                 *args,
                 "--manifest-path",
