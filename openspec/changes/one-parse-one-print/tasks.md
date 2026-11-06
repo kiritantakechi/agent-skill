@@ -380,10 +380,65 @@
 
 ## 9. Close
 
-- [ ] 9.1 Delete every superseded parser, regex, helper and adapter; add the test that fails on a
-  second spelling of any concept from 2.1
-- [ ] 9.2 Re-measure everything in 1.1 and record the deltas in this file
-- [ ] 9.3 Update README sections that describe the harness's internals; `documented` passes
+- [x] 9.1 Delete every superseded parser, regex, helper and adapter; add the test that fails on a
+  second spelling of any concept from 2.1 — `b48a0ac`, `646d1ed`, `3226db7`; `model` reads no
+  markdown (798 → 478 lines), every check reads the tree and every version is read by `ids`;
+  `tests/test_one_spelling.py` reports 83 sites over the baseline's source, 39 over `acd8694`'s,
+  none now
+- [x] 9.2 Re-measure everything in 1.1 and record the deltas in this file — "After task 9
+  (measured)", below the baseline: `check --fast` 33.4 s → 24.6 s, pytest ≈2 min 35 s → 2 min
+  9 s, full `check` ≈22 min → 14 min 59 s, all passed
+- [x] 9.3 Update README sections that describe the harness's internals; `documented` passes —
+  `0a45acf`; Layout, a new "One reader per concept", renumbering, formatting, `self-application`,
+  the negative controls, and the `dialect` row
+
+  What went, and where each reader is now:
+
+  | Deleted | Now |
+  |---|---|
+  | `model`: `Chapter.rules`, `.lint_rows`, `.rename_tables`, `.renames`, regex `blocks`; `Skill.rules`, `.lint_rows`, `.rename_tables`, `.renames`, `.by_id`, `.core_rules`; `model.Rule`, `LintRow`, `Rename`, `RenameTable`, `rename_tables`, `_rows`, `_section`, `unfenced`, `FENCE`, `SECTION`, `RENAMED`, `DASH`, `_RANGE`, `DECIDED` | the chapter layer (`Chapter.typed`, `Skill.chapter_rules`, `Skill.core`) |
+  | `model.prose_lines` | `chapter.owned` and the printed blocks, in `checks.lines` |
+  | the regex in `Chapter.blocks`, its rule found by a heading regex that read fences too | a `Fence` of the tree under the rule `chapter.owned` says; `Block.rule` a `RuleId` |
+  | `layout.HEADING`, `TOC`, `_walk` | `doc.entry` over the tree; `doc.walk` |
+  | `prose._broken_quotes`' line state, `POSITIONAL`'s ID pattern | `Quote.lazy`; `ids.cited_at` |
+  | `documented.ROW`, `CELL` | the README's `Table` |
+  | `frontmatter`'s `^---` regex | `Doc.frontmatter` |
+  | `fmt.put_back`'s fence text | the tree's `Fence` on the block's line |
+  | `chapter._entry`, `chapter._RANGE`, `chapter.DASH` | `doc.entry`; `ids.ranges`, `print_range`, `DASH` |
+  | `pins._sort_key`, `SortKey`, `shared.major_minor`, Rust's `_minor`, Python's `RELEASE` and `FREE_THREADED`, `harness._VERSION` and its pin regex, anatomy's pin match and `release_token` | `Version.released`, `.search`, `.series`, `ids.releases`; `lang.python.listed` |
+  | `anatomy.MAP`, `patterns`' `[A-Z]{2}-`, the family counts' `[A-Z]+` | `shared.MAP`; `ids.STANDARD`, `ids.FAMILY` |
+  | `dialect.WRAPPED` and its control | unreachable on the tree; `layout.canonical` |
+
+  Decisions made on the way:
+
+  - A section's heading and lead sit under no rule (`chapter.owned`); the line-wise readers
+    carried the last rule on into them. No example's rule and no finding changed.
+  - The prose rules skip the paragraph a Check label opens, as the line-wise reader did, not the
+    Check part, which would hide about 650 more lines from them.
+  - `dialect.wrapped` could not fire once a Check is read from the tree, which reads a code span
+    as one word: FAIL branches 200 → 199, controls 178 → 177, exemptions 22. A wrapped command is
+    a non-canonical line, which `layout` reports and `fmt` joins.
+  - `Version.released` keeps `_sort_key`'s precision (three numbers, a stage, no local label):
+    `Version` orders `15.2` before `15.2.0`, so a coarser answer would read as older than a pin.
+  - B8's law gap. A `{cited}` slot giving the first rule of the first two chapters the map lists
+    survived a renaming of `errors` and failed two demo tests: a rule a template cites is cited in
+    every standard, so `revise` refuses to remove it while `fmt` writes it back. The passage now
+    cites no rule (`Rules are cited by ID: PS-, then the family of the chapter that owns the rule,
+    then its number`), a test holds every template to that, and the laws rename `errors` and
+    `testing` and back in two standards; the new law fails on the old template.
+  - `text.py` stays: `group`, `strip_comment` and `code_only` read code and regex matches, not
+    markdown, and none has a second spelling.
+
+  Checked by diffing `check --fast --verbose` against `acd8694`: identical but for four
+  zig-style `SKILL.md` notes one line lower, because the re-rendered how-to-use paragraph is one
+  line longer; fence bodies are unchanged. `check --skill zig-style --skill python-style --only
+  toolchain --only mutation` passes in 2 min 9 s with the ten survivor notes and one
+  inconclusive mutant task 7 recorded. pytest: 944 passed, 7 deselected.
+
+  Not achieved: a profile's maps still key rules by their printed ID (`exempt`, `not_decisive`,
+  `fires`, `unproven`, `unless_own`), so a rule ID there is a string checked by
+  `tests/test_profiles.py` rather than a `RuleId`; and `self-application` and `crossref` print a
+  hit list's `chapter:line [rule]` inside a finding's message by hand, beside `Location`.
 
 ## Baseline (measured)
 
@@ -420,3 +475,34 @@ Per-check, `uv run agent-skill check --fast --only NAME` (seconds):
 
 `toolchain` and `mutation` are the two slow checks; they are most of the 22 minutes and were not
 timed alone, for the same reason the full check was not re-run.
+
+## After task 9 (measured)
+
+Taken at `0a45acf`, on the same 4-core container and interpreter, with the same commands; one
+wall-clock run each. The full check is the one run of task 9.2.
+
+| Measure | Baseline | After | Note |
+|---|---|---|---|
+| full `check` | ≈22 min, reported | 14 min 59 s, all 22 checks passed | `time uv run agent-skill check --verbose`, run once |
+| `check --fast` | 33.4 s, all passed | 24.6 s, all passed | `controls` runs 177 controls at once where 65 ran one by one |
+| pytest, not toolchain | 543 passed, 4 deselected, ≈2 min 35 s | 944 passed, 7 deselected, 2 min 9 s | |
+| rule-ID regex literals | 33 lines | 15 lines | `ids` 7; `anatomy`'s three citation patterns (4 lines) and its `NUMBER` import; 3 lines naming the `NUMBERING` branch, which the pattern also matches |
+| heading scanners | 24 lines | 0 | |
+| fence trackers | 19 lines | 9 lines, none a tracker | 7 are markdown `controls` injects, 1 `layout`'s three backticks inside text, 1 `doc` |
+| `WIDTH` definitions | 3 | 1, in `doc` | the command's 5 lines include 4 `layout` branches named `*_WIDTH` |
+
+Per-check, `uv run agent-skill check --fast --only NAME` (seconds, baseline → after):
+
+| Check | s | Check | s | Check | s |
+|---|---|---|---|---|---|
+| `anatomy` | 2.34 → 2.47 | `dialect` | 0.62 → 0.48 | `pins` | 1.37 → 0.96 |
+| `assets` | 0.78 → 0.62 | `documented` | 0.14 → 0.14 | `plugin` | 1.62 → 2.06 |
+| `citations` | 2.35 → 1.67 | `frontmatter` | 0.61 → 0.46 | `prose` | 0.38 → 0.80 |
+| `controls` | 19.93 → 12.47 | `layout` | 0.26 → 1.19 | `self-application` | 3.13 → 2.31 |
+| `conventions` | 0.25 → 0.60 | `lints` | 0.16 → 0.16 | `sensitivity` | 1.08 → 0.73 |
+| `crossref` | 0.72 → 0.89 | `markers` | 0.25 → 0.49 | `shared-text` | 0.70 → 0.55 |
+| `mirror` | 0.94 → 0.79 | `skeleton` | 0.65 → 0.51 | | |
+
+What got slower parses where a regex scanned: `layout` prints every file and parses the print
+(3.2), `prose` prints each chapter's blocks, and `conventions` and `markers` find their examples
+in the tree. `controls` is faster for running concurrently (5.1), with 112 more controls.
