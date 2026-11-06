@@ -282,11 +282,11 @@ def _sweep(skill: Skill, corpus: Corpus, other: Skill, rule: Rule) -> Iterator[F
             continue
         if not lines:
             continue
-        chapter, owner, line, snippet = corpus.origin(lines[0].start)
+        where, snippet = corpus.origin(lines[0].start)
         yield fail(
             f"{rule.id} {used} /{pattern.text}/ hits {len(lines)} line(s) and "
             f"{skill.name}'s SKILL.md never mentions it — {rule.title}\n"
-            f"      {chapter}:{line} [{owner}] {snippet}",
+            f"      {where} {snippet}",
             skill.at(),
             ANCHOR_HIT,
         )

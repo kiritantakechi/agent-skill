@@ -207,9 +207,9 @@ def _render(corpus: Corpus, row: Row, *, limit: int = 8) -> str:
     rule, pattern, used, hits = row
     head = f"{rule.id} {used} /{pattern.text}/ — {len(hits)} hit(s) — {rule.title}"
     for h in hits[:limit]:
-        chapter, owner, line, snippet = corpus.origin(h.start)
-        across = f"+{len(h) - 1}" if len(h) > 1 else ""
-        head += f"\n      {chapter}:{line}{across} [{owner}] {snippet}"
+        where, snippet = corpus.origin(h.start)
+        across = f" (+{len(h) - 1} lines)" if len(h) > 1 else ""
+        head += f"\n      {where}{across} {snippet}"
     if len(hits) > limit:
         head += f"\n      … {len(hits) - limit} more"
     return head

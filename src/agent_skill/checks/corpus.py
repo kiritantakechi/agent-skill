@@ -12,9 +12,9 @@ from pathlib import Path
 from weakref import WeakKeyDictionary
 
 lazy from agent_skill.checks.patterns import Pattern
-lazy from agent_skill.ids import RuleId
+lazy from agent_skill.ids import Location, RuleId
 lazy from agent_skill.lang import language
-lazy from agent_skill.model import Skill
+lazy from agent_skill.model import Skill, located
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +34,7 @@ class Unit:
     raw: list[str]
     code: list[str]
     at: list[int]  #: the line each local line came from, in the chapter
+    skill: str | None = None  #: the skill whose markdown holds it
 
 
 @dataclass
@@ -86,6 +87,7 @@ class Corpus:
                     raw,
                     [read.uncommented(x) for x in raw],
                     [b.at(j) for j in range(len(b.lines))],
+                    b.skill,
                 )
             )
             name = f"{n:04d}{read.suffix}"
@@ -94,19 +96,22 @@ class Corpus:
             base += len(raw)
         return self
 
-    def origin(self, line: int) -> tuple[str, str, int, str]:
-        """Where a global line came from, derived rather than tabulated.
+    def origin(self, line: int) -> tuple[Location, str]:
+        """Where a global line came from, and the start of what it says.
 
-        The parallel array this replaces held one row per line and had
-        to be appended in lockstep with two others; a unit already knows
-        its chapter, its rule, and which source line each of its lines
-        came from. The rule as a report prints it: `?` under none.
+        Derived rather than tabulated: the parallel array this replaces
+        held one row per line and had to be appended in lockstep with
+        two others, and a unit already knows its chapter, its rule, and
+        which source line each of its lines came from. A location, so a
+        hit is printed by the printer every finding's location is: a hit
+        list spelled `chapter:line [rule]` by hand was a second spelling
+        of a place, and under no rule it said `[?]`.
         """
         i = bisect.bisect_right(self.starts, line - 1) - 1
         unit = self.units[i]
         local = line - 1 - self.starts[i]
-        rule = str(unit.rule) if unit.rule is not None else "?"
-        return unit.chapter, rule, unit.at[local], unit.raw[local].strip()[:64]
+        where = located(unit.skill, unit.chapter, unit.at[local], unit.rule)
+        return where, unit.raw[local].strip()[:64]
 
     def lines_for(self, pattern: Pattern) -> list[str]:
         """Every line, in the form `pattern` is searched against."""

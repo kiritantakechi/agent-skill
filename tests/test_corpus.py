@@ -9,7 +9,7 @@ correct report.
 import pytest
 
 from agent_skill.checks.corpus import Corpus, Unit
-from agent_skill.ids import RuleId
+from agent_skill.ids import Location, RuleId
 
 
 def corpus_of(*sizes: int) -> Corpus:
@@ -45,21 +45,31 @@ def corpus_of(*sizes: int) -> Corpus:
 def test_a_global_line_resolves_to_its_unit(
     line: int, chapter: str, rule: str, at: int
 ) -> None:
-    found_chapter, found_rule, found_at, _ = corpus_of(3, 2, 4).origin(line)
-    assert (found_chapter, found_rule, found_at) == (chapter, rule, at)
+    where, _ = corpus_of(3, 2, 4).origin(line)
+    assert where == Location(None, f"references/{chapter}", at, RuleId.parse(rule))
 
 
 def test_every_line_round_trips() -> None:
     """No line resolves into a neighbour, as an off-by-one would."""
     built = corpus_of(3, 2, 4)
-    seen = [built.origin(n)[:3] for n in range(1, 10)]
+    seen = [built.origin(n)[0] for n in range(1, 10)]
     assert len(set(seen)) == 9, "two global lines resolved to the same origin"
-    for (chapter, _, _), unit in zip(seen[:3], ["ch0.md"] * 3, strict=True):
-        assert chapter == unit
-    assert seen[3][0] == "ch1.md"
-    assert seen[4][0] == "ch1.md"
-    assert all(c == "ch2.md" for c, _, _ in seen[5:])
+    files = [where.file for where in seen]
+    assert (
+        files
+        == ["references/ch0.md"] * 3
+        + ["references/ch1.md"] * 2
+        + ["references/ch2.md"] * 4
+    )
 
 
 def test_a_single_unit_corpus_resolves_from_one() -> None:
-    assert corpus_of(1).origin(1)[:3] == ("ch0.md", "XX-Y-00", 100)
+    where, _ = corpus_of(1).origin(1)
+    assert where == Location(None, "references/ch0.md", 100, RuleId("XX", "Y", 0))
+
+
+def test_a_hit_is_printed_where_every_finding_is() -> None:
+    """One printer for a place, the skill named, `[?]` never."""
+    built = corpus_of(1)
+    built.units[0] = Unit("SKILL.md", None, ["x"], ["x"], [7], "demo-style")
+    assert str(built.origin(1)[0]) == "demo-style/SKILL.md:7"
