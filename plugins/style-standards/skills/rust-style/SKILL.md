@@ -189,11 +189,9 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
   different types; return a named type or `impl Trait`, never a type parameter only the caller can
   choose. Taking `&Vec<T>`, `&String` or `&PathBuf` where the borrowed view serves is clippy's
   `ptr_arg`, a row in `references/ownership.md`'s tool table (`references/api.md` RS-API-07).
-- **RS-CORE-08 `[M!]`** Every struct field is private, whether or not it carries an invariant, and
-  the type exposes methods rather than storage. The one exception is a `#[repr(C)]` type whose
-  layout is already the contract. *Relaxed form:* a plain-data or options struct that no code
-  outside your control can name may expose its fields, unless one of them carries an invariant
-  (`references/api.md` RS-API-15, RS-API-16).
+- **RS-CORE-08 `[M]`** Every field of a published struct is private, whether or not it carries an
+  invariant, and the type exposes methods rather than storage. The one exception is a `#[repr(C)]`
+  type whose layout is already the contract (`references/api.md` RS-API-15, RS-API-16).
 - **RS-CORE-09 `[M]`** Make illegal states unrepresentable. `bool` parameters are enums that have
   not been written yet; two `Option` fields where exactly one is always `Some` is an enum in
   disguise; a `&str` that accepts three values is an enum (`references/api.md` RS-API-19, RS-API-21,
@@ -201,10 +199,9 @@ These 28 `RS-CORE-*` rules bind on their own. Each names the chapter carrying th
 - **RS-CORE-10 `[M]`** Every public type implements `Debug`, and every public item has a summary
   line, with an example that compiles on every non-trivial one. `missing_docs` is a deny, not a warn
   (`references/api.md` RS-API-36, `references/documentation.md` RS-DOC-06).
-- **RS-CORE-11 `[M!]`** `#[non_exhaustive]` on a public enum whose variant set may grow, and on a
-  struct whose fields are public, so an addition is a minor version rather than a major one. A
-  genuinely closed enum stays exhaustive. *Relaxed form:* internal crates within one workspace may
-  omit it (`references/api.md` RS-API-54).
+- **RS-CORE-11 `[M]`** `#[non_exhaustive]` on a published enum whose variant set may grow, and on a
+  published struct whose fields are public, so an addition is a minor version rather than a major
+  one. A genuinely closed enum stays exhaustive (`references/api.md` RS-API-54).
 
 ### Errors and panics
 

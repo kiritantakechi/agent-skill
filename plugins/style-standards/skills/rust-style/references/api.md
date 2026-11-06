@@ -10,6 +10,10 @@ errors chapter; trait design proper is in the traits chapter.
 The organizing fact: within a major version you are not allowed to change any of this. Design as if
 you never will be.
 
+An item is *published* when code you do not control can name it — section 1's library, at the
+granularity of one item. A rule here that says "published" applies to exactly those items, at every
+tier, and to no others.
+
 Two sources are merged here: the **Rust API Guidelines** (C-CASE, C-CONV, C-COMMON-TRAITS,
 C-COLLECT, C-SERDE, C-GENERIC, C-CUSTOM-TYPE, C-STRUCT-PRIVATE, C-STABLE, C-MUST-USE and friends)
 and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
@@ -35,7 +39,7 @@ and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
   - RS-API-12 [M] Return the view from an accessor, never the container
   - RS-API-13 [M] Do not hand out `&mut` to invariant-bearing state
   - RS-API-14 [M] Close every public path that can build an invalid instance
-  - RS-API-15 [M!] Keep every struct field private, including the ones with no invariant
+  - RS-API-15 [M] Keep every field of a published struct private, including the ones with no invariant
   - RS-API-16 [M] Give the caller the question it is asking, not the field it would have read
   - RS-API-17 [M] Make every construction path a named one
 
@@ -84,7 +88,7 @@ and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
   - RS-API-53 [M] Mark an unchecked constructor `unsafe`, and name it `*_unchecked`
 
 - **Future-proofing and evolution**
-  - RS-API-54 [M!] Decide `#[non_exhaustive]` for every public enum and struct
+  - RS-API-54 [M] Decide `#[non_exhaustive]` for every published enum and struct
   - RS-API-55 [M] Know which changes are breaking before promising semver
   - RS-API-56 [M] Deprecate before removing, and say what to use instead
   - RS-API-57 [S] Prefer additive evolution; batch the breaking changes
@@ -383,7 +387,7 @@ state, not that the fields have a keyword in front of them.
 a `Deserialize` impl, a `Default`, a `From<Options>` that skips `build()`? `serde` in particular
 bypasses your constructor unless you use `#[serde(try_from = "…")]`.
 
-### RS-API-15 [M!] Keep every struct field private, including the ones with no invariant
+### RS-API-15 [M] Keep every field of a published struct private, including the ones with no invariant
 
 A published type has no "pure data bag" exemption. A struct whose fields are independent today is
 still a struct whose representation you have published. The single exception is a type whose layout
@@ -392,9 +396,9 @@ is already the contract — `#[repr(C)]` or `extern` types crossing an ABI bound
 method replaces field access. A tuple struct is no exception: `struct Port(u16)` with an accessor,
 never `struct Port(pub u16)`, whose `.0` is a public field that also names nothing.
 
-*Relaxed form:* a type no code outside your control can name — private or `pub(crate)`, or in a
-binary or an internal workspace crate — may be a plain-data or options struct with public fields,
-built with a struct literal. A field that carries an invariant stays private there too.
+An unpublished struct — private or `pub(crate)`, or in a binary or an internal workspace crate — may
+be plain data with public fields, built with a struct literal; a field there that carries an
+invariant is a path to an invalid instance, and RS-API-14 closes it.
 
 **Why:** a public field commits to a *representation*: `pub threads: usize` cannot later become
 `NonZeroUsize` or a computed value without a major version, and invariants usually arrive later.
@@ -1304,23 +1308,21 @@ function lack `unsafe`?
 
 ## Future-proofing and evolution
 
-### RS-API-54 [M!] Decide `#[non_exhaustive]` for every public enum and struct
+### RS-API-54 [M] Decide `#[non_exhaustive]` for every published enum and struct
 
-Mark a public enum whose variant set may grow. A genuinely closed set —
+Mark a published enum whose variant set may grow. A genuinely closed set —
 `enum Endianness { Big, Little }` — stays exhaustive, because there the attribute only removes the
 caller's exhaustiveness checking; say in the rustdoc that it is closed. A struct needs the attribute
 only where its fields are public, which RS-API-15 allows a published type for little but
 `#[repr(C)]`: a struct with private fields can already grow without a major version.
 
-*Relaxed form:* internal crates within one workspace, where you control every consumer, can omit it.
-
 **Why:** it costs downstream users a wildcard arm and a constructor call, and it buys you the
 ability to ship additions as minor versions for the life of the crate. Without it, every new variant
 is a major release — which in practice means the variant gets smuggled into an existing one instead.
 
-**Check:** for each public enum, and each public struct with public fields, could a new case or
-field plausibly appear? Protocols, parsers and error types almost always can. If you cannot name a
-plausible third variant, leave it exhaustive and write that decision in the rustdoc.
+**Check:** for each published enum, and each published struct with public fields, could a new case
+or field plausibly appear? Protocols, parsers and error types almost always can. If you cannot name
+a plausible third variant, leave it exhaustive and write that decision in the rustdoc.
 
 ```rust
 // verified
