@@ -366,11 +366,17 @@
 
 ## 8. Revision
 
-- [ ] 8.1 Implement `revise(tree, plan, chapters)` over the tree with the dangling-capture refusal
-- [ ] 8.2 Property-test the laws: inverse round trip byte-for-byte, empty plan writes nothing,
-  citation identity preserved
-- [ ] 8.3 Move each rename table to `references/renames.md`; `migration.md` names it once; update
-  `skeleton`; keep `renumber` and `demote` as CLI aliases
+- [x] 8.1 Implement `revise(tree, plan, chapters)` over the tree with the dangling-capture refusal
+  — `1bc9246`; pure, returns a `Revision`; σ closes the plan per family, identity on `CORE`; one
+  rewrite through `ids.respell`; refuses a citation of a rule the plan takes away and L0's capture;
+  `renumber`/`demote` are `revise` on the command line; renumber.py and demote.py deleted
+- [x] 8.2 Property-test the laws: inverse round trip byte-for-byte, empty plan writes nothing,
+  citation identity preserved — `4096e06`; `tests/test_revise_laws.py`, seeded draws on copies of
+  the shipped repository, 11 cases in ≈11 s; found that swapped chapter names collided (moves are
+  two-phase now); renaming `errors`/`testing` needs a template change (design.md, decision 8)
+- [x] 8.3 Move each rename table to `references/renames.md`; `migration.md` names it once; update
+  `skeleton`; keep `renumber` and `demote` as CLI aliases — `ecdcbdb`; tables moved byte for byte,
+  fences identical; `vocabulary.UNCODED`; three `skeleton` branches, three controls
 
 ## 9. Close
 

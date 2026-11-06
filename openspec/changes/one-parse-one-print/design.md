@@ -303,12 +303,83 @@ Laws, property-tested on generated plans over the shipped skills:
 
 `renumber` and `demote` remain as thin CLI aliases.
 
+As built (task 8):
+
+```python
+type Becomes = RuleId | LintRow | Removed
+type Plan = Mapping[RuleId, Becomes]
+
+
+def revise(
+    tree: Tree, plan: Plan | None = None, chapters: Mapping[str, str] | None = None
+) -> Revision: ...  # moves, writes, renamed, leftovers; .apply() writes
+```
+
+- `revise` is pure and returns a `Revision`; `Revision.apply()` moves and writes. A `Tree` reads
+  from disk, so there was no tree to return, and a dry run and the run that writes are one
+  computation. `revise(t, {})` is the identity as `Revision.empty`: nothing moved, written or
+  reported.
+- A plan's `LintRow` is the whole row, since a demotion may add it to its chapter's `Decided by
+  tools`; the rename table records its key, `chapter.Demoted`, which is all a cell says.
+  `print_becomes` is the cell's printer beside `parse_becomes`, its parser. A row the standard lists
+  already must be the row listed, level and forbids. A demotion becomes one row: a plan file's
+  `rows` holds exactly one, and a second lint is a row added by hand, which renames nothing.
+- Every standard in `tree` is renumbered; `chapters` renames a chapter by stem in every standard of
+  the tree that has it, as the vocabulary means a name. The command line passes a tree of one skill;
+  the rewrite reaches the repository the tree sits in.
+- The plan is applied on the chapter layer: a rule leaves with its contents entry, a section left
+  with nothing goes with its contents label, and a row joins or starts `Decided by tools`. σ maps
+  each family's kept rules, in order, onto 1..n under the (renamed) chapter's code. σ is the
+  identity on `CORE`: core rules are `SKILL.md`'s, no revision renumbered them, and `ZS-CORE-01b`
+  ships, so closing that family would rewrite zig-style on every revision.
+- Two refusals, both before anything is composed: a citation, outside the standard's own history,
+  of a rule the plan removes or demotes, which would name nothing or the next rule down — the
+  two-step `demote` wrote and reported it, so `demote` now asks for it to be resolved first; and
+  L0's capture. A merge redirects its citations to the rule it went into.
+- One rewrite: `ids.respell` (an ID, or a family alone, on the one pattern) and chapter paths. A
+  standard's markdown goes through its tree, its own history kept and the file printed
+  canonically when it changed; another standard's file is parsed only if its text changes; `src/`,
+  `tests/` and the README are text. Then `renames.md` is composed — every table carried, the
+  current revision's started if an ID changed, from every chapter rule before, an inserted `-02a`
+  included — and every kept rule's title is read back under its new ID from the text to be
+  written.
+- `apply` moves through a name of its own first: chapters that swap names are a permutation, like
+  any renumbering, and landed on each other.
+- Laws, `tests/test_revise_laws.py`, on copies of the standards, `src/`, `tests/` and README, seeded
+  and sampled, about eleven seconds: a renaming (a rename, a swap, a cycle) and its inverse restore
+  every byte; an empty plan over all four standards writes and reports nothing; after a plan of
+  merges, a removal and a demotion every citation names the rule with its title, or its merge's,
+  and every original in the rename table goes where the plan sent it; a citation a renaming or a
+  hand-made gap would hand to a rule stops the run with nothing written. Renaming `errors` or
+  `testing` is outside the first law: the shared how-to-use passage illustrates with
+  `{prefix}-ERR-03` and `{prefix}-TEST-05`, `shared.rewrite` restores them after the rename, and
+  the inverse refuses them as captures — rightly. Renaming those chapters is a template change.
+
 ### 9. ID history moves to `references/renames.md`
 
 The rename tables are 78% of rust-style's `migration.md` and are loaded on every migration lookup.
 They move, unchanged in content, to `references/renames.md` in each skill. `migration.md` names
 the file once; SKILL.md does not. `skeleton` follows the table to its new home. The file is shipped,
 so a reader holding an old ID can still resolve it, but nothing on the reading path loads it.
+
+As built (task 8.3):
+
+- `renames.md` is `# Renamed Rule IDs`, a scope paragraph (`revise.SCOPE`), then each table's
+  section byte for byte as it stood in `migration.md`. `migration.md` ends its scope with
+  `revise.NAMED`, the sentence `revise` writes when it opens the file; rust-style's scope and
+  reference map stop claiming the table, and the shared how-to-use passage says the migration
+  chapter names the file that maps every old ID. 871 fenced examples identical before and after.
+- `renames.md` is in `vocabulary.UNCODED` with the review protocol: a file under `references/`
+  that owns no rules, so it has no code and `allowed` admits it. It is not `REQUIRED`: a standard
+  no revision renumbered has none. A separate allowance — keeping it out of `Skill.chapters` — was
+  rejected: `layout` holds it canonical, and `anatomy` checks the files its cells name, as for any
+  file there; `assets` and the reference-map counts needed nothing.
+- `skeleton` reads rename tables there and only there, and fails on one anywhere else
+  (`rename_elsewhere`), on a migration chapter that names `renames.md` other than once
+  (`renames_named`), and on a `SKILL.md` that names it (`renames_on_path`), each with a control:
+  FAIL branches 197 → 200, controls 175 → 178, exemptions 22. The `unread` control refuses
+  `renames.md` and `required_chapter` removes the review protocol, since a refused or missing
+  migration chapter now strands rename rows as well.
 
 ## Risks / Trade-offs
 
