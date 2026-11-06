@@ -11,7 +11,9 @@ dispatches on a `Severity` carried by the error (`Severity::Panic` unless annota
 a system, observer or command reaches it too, as an error carrying the panic's payload.
 
 Diagnostics go through `tracing`, as RS-CLI-24 says of any program: here `LogPlugin` is the
-subscriber, and on wasm `println!` never reaches the browser console.
+subscriber, and on wasm `println!` never reaches the browser console. The lints that fail a build on
+`unwrap`, `expect`, `panic!`, `todo!`, `unimplemented!`, indexing and `dbg!` are `rust-style`'s
+rows, which `assets/Cargo.toml` sets as that standard does.
 
 ## Contents
 
@@ -30,8 +32,6 @@ subscriber, and on wasm `println!` never reaches the browser console.
 - **Elsewhere**
   - BV-ERR-09 [M] Exit with `AppExit::error` when startup cannot continue
   - BV-ERR-10 [M!] Decide the render error policy, because the default quits
-
-- Decided by tools
 
 ---
 
@@ -702,16 +702,3 @@ fn main() -> AppExit {
         .run()
 }
 ```
-
-## Decided by tools
-
-A tool settles these on its own; the shipped configuration enables each at the level shown.
-
-| Tool | Lint | Level | Forbids |
-|---|---|---|---|
-| clippy | `expect_used` | deny | `.expect("…")` on a path the game reaches — `?` hands the error to the handler |
-| clippy | `panic` | deny | `panic!` to report a failure — return the error, or write `AppExit::error()` at startup |
-| clippy | `todo` | deny | a `todo!()` on a path the game reaches |
-| clippy | `unimplemented` | deny | an `unimplemented!()` on a path the game reaches |
-| clippy | `indexing_slicing` | deny | indexing a `Vec` or slice an entity count reaches — `get` returns an `Option` |
-| clippy | `dbg_macro` | deny | `dbg!`, which writes to stderr past `LogPlugin` |

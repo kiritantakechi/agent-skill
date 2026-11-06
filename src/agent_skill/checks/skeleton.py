@@ -173,9 +173,23 @@ def _home(skill: Skill) -> Iterator[Finding]:
         )
 
 
+def _rows(skill: Skill) -> set[tuple[str, str]]:
+    """The lint rows a rename may lead to: its own, and its anchor's.
+
+    A lint a delta sets as its anchor does is the anchor's row, one
+    lint and one owner (normalize-the-standards, decision 8), so a delta
+    rule demoted to it before is found there, as a reader finds it.
+    """
+    rows = {(row.tool, row.lint) for c in skill.chapters for row in c.typed.tools}
+    if anchor := skill.profile.anchor:
+        theirs = Skill(skill.root.parent / anchor, skill.profile)
+        rows |= {(row.tool, row.lint) for c in theirs.chapters for row in c.typed.tools}
+    return rows
+
+
 def _renames(skill: Skill) -> Iterator[Finding]:
     """Every rename row leads somewhere a reader can follow."""
-    rows = {(row.tool, row.lint) for c in skill.chapters for row in c.typed.tools}
+    rows = _rows(skill)
     where = skill.at(RENAMES)
     for table in _history(skill):
         for r in table.rows:

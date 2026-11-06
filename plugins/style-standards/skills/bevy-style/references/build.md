@@ -273,5 +273,5 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| clippy | `type_complexity` | warn | a query type complex enough to need a `type` alias (BV-ECS-19) |
-| clippy | `too_many_arguments` | warn | a system with eight or more parameters — group them with `#[derive(SystemParam)]` (BV-SCHED-10) |
+| clippy | `type_complexity` | warn | a query type complex enough to need a `type` alias (BV-ECS-19) — listed because upstream Bevy allows it, and this standard keeps it on |
+| clippy | `too_many_arguments` | warn | a system with eight or more parameters — group them with `#[derive(SystemParam)]` (BV-SCHED-10) — listed because upstream Bevy allows it, and this standard keeps it on |

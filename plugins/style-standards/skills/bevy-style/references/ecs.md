@@ -45,8 +45,6 @@ chapter.
   - BV-ECS-28 [M] Do not read back what a command has not applied yet
   - BV-ECS-29 [M] Reach for an exclusive system last, and say what forced it
 
-- Decided by tools
-
 ---
 
 ## Components
@@ -1133,11 +1131,3 @@ systems in parallel.
 **Check:** for each `&mut World` parameter, name what the system could not do without it. "Needed a
 resource and a query" and "needed a command applied now" both have a non-exclusive form; "runs a
 scene through the type registry" does not.
-
-## Decided by tools
-
-A tool settles these on its own; the shipped configuration enables each at the level shown.
-
-| Tool | Lint | Level | Forbids |
-|---|---|---|---|
-| clippy | `unwrap_used` | deny | `query.single().unwrap()` — take `Single`, which skips the system, where finding none is expected, and propagate the `Result` with `?` where it is not |
