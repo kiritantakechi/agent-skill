@@ -583,6 +583,87 @@ def test_a_merge_into_an_inserted_rule_follows_it_through_the_renumbering(
     }
 
 
+#: A section 4 stating two core rules of its own.
+CORE = """## 4. Core rules
+
+- **DS-CORE-01 `[M]`** Catch narrowly, always (DS-ERR-03).
+- **DS-CORE-02 `[M]`** Say it twice.
+"""
+
+
+@pytest.fixture
+def cored(planned: Path) -> Path:
+    """`planned`, its `SKILL.md` stating two core rules, one cited."""
+    skill_md = planned / SKILLS / "demo-style/SKILL.md"
+    skill_md.write_text(f"{skill_md.read_text()}\n{CORE}\nAs DS-CORE-01 says.\n")
+    return planned
+
+
+def test_a_core_rule_merges_into_the_chapter_rule_it_abbreviated(
+    cored: Path,
+) -> None:
+    """Its item becomes that rule's line; its citations follow."""
+    run(
+        cored,
+        {
+            rid("DS-ERR-01"): Removed("x"),
+            rid("DS-CORE-01"): rid("DS-ERR-03"),
+            rid("DS-CORE-02"): Removed("said what DS-ERR-03 says"),
+        },
+    )
+    after = demo(cored)
+    assert after.core == ()
+    skill_md = after.skill_md.read_text()
+    assert "- DS-ERR-02 [M] Catch narrowly\n" in skill_md
+    assert "As DS-ERR-02 says." in skill_md
+    assert "DS-CORE" not in skill_md
+    (table,) = tables(cored)
+    assert rows(table) == {
+        "DS-ERR-01": Removed("x"),
+        "DS-ERR-02": rid("DS-ERR-01"),
+        "DS-ERR-03": rid("DS-ERR-02"),
+        "DS-CORE-01": rid("DS-ERR-02"),
+        "DS-CORE-02": Removed("said what DS-ERR-03 says"),
+    }
+    assert table.ranges[-1] == (rid("DS-CORE-01"), rid("DS-CORE-02"))
+
+
+def test_a_core_merge_joins_the_table_the_revision_started(cored: Path) -> None:
+    """The core family's range joins the ranges the table states."""
+    (cored / SKILLS / "demo-style/references/renames.md").write_text(TABLE)
+    run(cored, {rid("DS-CORE-01"): rid("DS-ERR-03")})
+    (table,) = tables(cored)
+    assert table.originals == (
+        *(rid(f"DS-ERR-0{n}") for n in (1, 2, 3)),
+        rid("DS-MIG-01"),
+        rid("DS-CORE-01"),
+        rid("DS-CORE-02"),
+    )
+    assert rows(table) == {
+        "DS-ERR-02": Removed("x"),
+        "DS-ERR-03": rid("DS-ERR-02"),
+        "DS-CORE-01": rid("DS-ERR-03"),
+    }
+    assert [r.id for r in demo(cored).core] == [rid("DS-CORE-02")]
+
+
+@pytest.mark.parametrize(
+    ("asked", "message"),
+    [
+        ({"DS-CORE-01": {"lint": ["clippy", "unwrap_used"]}}, "a lint row"),
+        ({"DS-CORE-01": {"merge": "DS-CORE-02"}}, "chapter rule this standard keeps"),
+    ],
+)
+def test_a_core_rule_only_merges_into_a_chapter_rule_or_goes(
+    cored: Path, asked: object, message: str
+) -> None:
+    run(cored, {rid("DS-ERR-02"): ROW})
+    before = snapshot(cored)
+    with pytest.raises(revise.ReviseError, match=message):
+        run(cored, revise.read_plan(asked, demo(cored)))
+    assert snapshot(cored) == before
+
+
 @pytest.mark.parametrize(
     ("asked", "message"),
     [

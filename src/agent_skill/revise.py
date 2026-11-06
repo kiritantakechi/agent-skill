@@ -9,7 +9,9 @@ the rules each family keeps, in order, onto 01, 02, …. One rewrite then
 applies the renumbering and the plan's merges to every rule ID in the
 repository at once, so an ID that dense numbering hands to another rule
 is never rewritten twice, and `references/renames.md` records what
-every old ID became.
+every old ID became. A core rule `SKILL.md` states of its own may be
+merged into the chapter rule it abbreviated, or removed: its item in
+section 4 becomes that rule's line, or goes.
 
 Nothing is written unless the result means what the input meant. Every
 rule keeps its title under its new ID; no citation names a rule the plan
@@ -99,10 +101,13 @@ NAMED = (
     "`references/renames.md`."
 )
 
+#: The sentence of a rename table's lead that states its ranges.
+_RAN = "Before the revision the families ran {}."
+
 #: How a rename table opens: the ranges the families ran before.
 _RANGES = (
-    "Before the revision the families ran {}. The table lists every ID in those "
-    "ranges that changed, and what it is now; an ID it does not list is unchanged."
+    f"{_RAN} The table lists every ID in those ranges that changed, and what it is "
+    "now; an ID it does not list is unchanged."
 )
 
 #: A rename table's columns.
@@ -314,6 +319,8 @@ class _Standard:
     families: dict[str, str]
     #: each renamed chapter's stem -> its new stem
     stems: dict[str, str]
+    #: `SKILL.md` as the plan leaves it, when the plan names a core rule
+    skill_md: Doc | None = None
 
     @classmethod
     def read(cls, skill: Skill, plan: Plan, chapters: Mapping[str, str]) -> _Standard:
@@ -328,12 +335,12 @@ class _Standard:
         rows = _rows(skill, asked, home)
         edited = {
             c.path: _with_rows(
-                _without(c.typed, [rid for rid in asked if home[rid] is c]),
+                _without(c.typed, [rid for rid in asked if home.get(rid) is c]),
                 rows.get(c.path, ()),
                 c.name,
             )
             for c in skill.chapters
-            if any(home[rid] is c for rid in asked)
+            if any(home.get(rid) is c for rid in asked)
         }
         sigma: dict[RuleId, RuleId] = {}
         spelled: dict[str, set[str]] = {}
@@ -368,7 +375,9 @@ class _Standard:
             for rid, b in asked.items()
             if not isinstance(b, RuleId)
         }
-        return cls(skill, moves, edited, sigma, merged, gone, families, stems)
+        core = {rid: b for rid, b in asked.items() if rid not in home}
+        skill_md = _core_edited(skill, core, home) if core else None
+        return cls(skill, moves, edited, sigma, merged, gone, families, stems, skill_md)
 
     @property
     def renamed(self) -> dict[RuleId, layer.Becomes]:
@@ -384,9 +393,9 @@ class _Standard:
     def now(self, rid: RuleId) -> layer.Becomes | None:
         """What `rid`, if it names a rule before the revision, is after.
 
-        A core rule keeps its ID: core rules are `SKILL.md`'s, not a
-        family's, and no revision has renumbered them (`ZS-CORE-01b`
-        ships). None for an ID that names no rule.
+        A core rule keeps its ID unless the plan names it: core rules
+        are `SKILL.md`'s, not a family's, so no renumbering moves one
+        (`ZS-CORE-01b` ships). None for an ID that names no rule.
         """
         if rid in self.renamed:
             return self.renamed[rid]
@@ -443,6 +452,11 @@ class _Standard:
             _carried(s, self.now) if RENAMED.fullmatch(s.title) else s
             for s in read.sections
         ]
+        core = self._core_renamed()
+        sections = [
+            _extended(s, core, self.now) if s.title == title and core else s
+            for s in sections
+        ]
         if self.renamed and not any(s.title == title for s in sections):
             sections.append(self._started(title))
         new = layer.Chapter(read.title, read.scope, read.contents, tuple(sections))
@@ -450,9 +464,19 @@ class _Standard:
         on_disk = self.skill.renames_md
         return None if on_disk.is_file() and text == on_disk.read_text() else text
 
+    def _core_renamed(self) -> tuple[RuleId, ...]:
+        """Every core rule, when the plan names any of them; else none.
+
+        A table that records one core rule states the core family's
+        range, so its unlisted core IDs read as unchanged, which they
+        are.
+        """
+        core = tuple(r.id for r in self.skill.core)
+        return core if any(rid in self.renamed for rid in core) else ()
+
     def _started(self, title: str) -> layer.Section:
         """The table for this revision: the ranges, and what changed."""
-        before = [r.id for r in self.skill.chapter_rules]
+        before = [*(r.id for r in self.skill.chapter_rules), *self._core_renamed()]
         rows = tuple(
             (f"`{rid}`", print_becomes(now))
             for rid in before
@@ -541,25 +565,28 @@ def _rows(
 ) -> dict[Path, list[LintRow]]:
     """Each chapter's new lint rows, every entry of `asked` checked.
 
-    A rule merges into one this standard keeps; a row it becomes is
-    added to its chapter unless the standard lists that lint already,
-    and then it has to be the row listed.
+    A rule merges into a chapter rule this standard keeps; a row it
+    becomes is added to its chapter unless the standard lists that lint
+    already, and then it has to be the row listed. A core rule merges
+    or goes: it abbreviated a chapter rule, and a row is a chapter's.
     """
-    kept = skill.ids - set(asked)
+    kept = {r for r in home if r not in asked}
+    core = {r.id for r in skill.core}
     listed = {(r.tool, r.lint): r for c in skill.chapters for r in c.typed.tools}
     out: dict[Path, list[LintRow]] = {}
     for rid, becomes in asked.items():
-        if rid not in home:
-            core = rid in skill.ids
+        if rid not in home and rid not in core:
+            msg = f"{skill.name} has no chapter rule or core rule {rid}"
+            raise ReviseError(msg)
+        if rid in core and isinstance(becomes, LintRow):
             msg = (
-                f"{rid} is a core rule, which `SKILL.md` states"
-                if core
-                else f"{skill.name} has no chapter rule {rid}"
+                f"{rid} is a core rule: it merges into the chapter rule it "
+                "abbreviated, or goes, and a lint row is a chapter's"
             )
             raise ReviseError(msg)
         match becomes:
             case RuleId() if becomes not in kept:
-                msg = f"{rid}: {becomes} is not a rule this standard keeps"
+                msg = f"{rid}: {becomes} is not a chapter rule this standard keeps"
                 raise ReviseError(msg)
             case Removed(reason) if not reason.strip():
                 msg = f"{rid}: a removal needs its reason"
@@ -604,6 +631,58 @@ def _without(chapter: layer.Chapter, gone: Collection[RuleId]) -> layer.Chapter:
         items = _pruned(contents.items, gone, emptied)
         contents = layer.Contents(items, contents.loose, contents.line)
     return layer.Chapter(chapter.title, chapter.scope, contents, tuple(sections))
+
+
+def _core_edited(
+    skill: Skill, core: Mapping[RuleId, Becomes], home: Mapping[RuleId, Chapter]
+) -> Doc:
+    """`SKILL.md` with each core rule `core` names turned into a line.
+
+    A core rule merged into the chapter rule it abbreviated becomes that
+    rule's line, `ID [T] title`, as section 4 lists a chapter rule once
+    it states none of its own (normalize-the-standards, decision 7); a
+    removed one goes. Written with the rule's ID before the revision,
+    which the rewrite then respells with every other citation.
+    """
+    lines: dict[RuleId, Item | None] = {}
+    for rid, becomes in core.items():
+        if isinstance(becomes, RuleId):
+            rule = next(r for r in home[becomes].typed.rules if r.id == becomes)
+            lines[rid] = layer.Entry(rule.id, rule.tier, rule.title).item()
+        else:
+            lines[rid] = None
+    md = skill.typed
+    sections = tuple(
+        layer.Section(
+            s.title,
+            tuple(b for b in (_core_lines(b, lines) for b in s.lead) if b is not None),
+            s.rules,
+            s.line,
+        )
+        if s.title.startswith("4. ")
+        else s
+        for s in md.sections
+    )
+    return layer.SkillMd(md.frontmatter, md.title, md.preamble, sections).doc()
+
+
+def _core_lines(block: Block, lines: Mapping[RuleId, Item | None]) -> Block | None:
+    """`block` with each core rule `lines` names as its line.
+
+    None when that leaves a list with no item.
+    """
+    if not isinstance(block, ListBlock):
+        return block
+    items: list[Item] = []
+    for item in block.items:
+        rule = layer.core_rule(item)
+        if rule is None or rule.id not in lines:
+            items.append(item)
+        elif (line := lines[rule.id]) is not None:
+            items.append(line)
+    if not items:
+        return None
+    return ListBlock(tuple(items), block.start, block.loose, block.line)
 
 
 def _pruned(
@@ -723,6 +802,48 @@ def _carried(
     if k < len(lead) or rows:
         lead[k : k + 1] = [Table(old.header, old.align, tuple(rows), old.line)]
     return layer.Section(section.title, tuple(lead), section.rules, section.line)
+
+
+def _extended(
+    section: layer.Section,
+    core: Sequence[RuleId],
+    now: Callable[[RuleId], layer.Becomes | None],
+) -> layer.Section:
+    """This revision's table, its ranges and rows grown by `core`.
+
+    A core rule merged or removed after the table was started is an
+    original the table did not state: its family's range joins the
+    ranges, and a row says what each became. The sentence stating the
+    ranges is the one a revision writes, and is restated; a lead that
+    states them otherwise stops the run rather than being rewritten.
+    """
+    table = RenameTable.read(section)
+    extra = [rid for rid in core if rid not in table.originals]
+    if not extra:
+        return section
+    at = next(i for i, b in enumerate(section.lead) if isinstance(b, Table))
+    said = [b for b in section.lead[:at] if isinstance(b, Paragraph)]
+    stated = " ".join(words(_RAN.format(_stated(table.originals))))
+    if len(said) != 1 or stated not in (text := " ".join(said[0].words)):
+        msg = (
+            f"`{table.heading}` states its ranges otherwise than a revision writes "
+            "them, so the core family cannot join them"
+        )
+        raise ReviseError(msg)
+    grown_ranges = _RAN.format(_stated([*table.originals, *extra]))
+    ranges = Paragraph(words(text.replace(stated, grown_ranges, 1)))
+    old = section.lead[at]
+    assert isinstance(old, Table)  # noqa: S101 — `at` found it as one
+    rows = tuple(
+        (f"`{rid}`", print_becomes(becomes))
+        for rid in extra
+        if (becomes := now(rid)) is not None and becomes != rid
+    )
+    grown = Table(old.header, old.align, (*old.rows, *rows), old.line)
+    lead = tuple(
+        ranges if b is said[0] else grown if b is old else b for b in section.lead
+    )
+    return layer.Section(section.title, lead, section.rules, section.line)
 
 
 def _stated(ids: Sequence[RuleId]) -> str:
@@ -925,6 +1046,9 @@ class _Corpus:
             return None, text
         original = _parsed(path, own) or Doc.parse(text)
         doc = own.edited[path].doc() if own and path in own.edited else original
+        cored = own.skill_md if own and path == own.skill.skill_md else None
+        if cored is not None:
+            doc = cored
         keep = own is not None
         said = "\n\n".join(
             [doc.frontmatter or ""]
@@ -937,7 +1061,7 @@ class _Corpus:
             self.renames[path] = new
             return None, said
         moved = own is not None and path in own.moves
-        edited = own is not None and path in own.edited
+        edited = own is not None and (path in own.edited or cored is not None)
         if new == original and not (moved or edited):
             return None, said
         return str(new), said
@@ -985,7 +1109,7 @@ def _counted(doc: Doc, std: _Standard) -> Doc:
         code = vocabulary.code_for(std.stems.get(c.path.stem, c.path.stem))
         if code:
             counts[code] = len(std.edited.get(c.path, c.typed).rules)
-    total = len(std.sigma) + len(std.skill.core)
+    total = len(std.sigma) + sum(r.id not in std.renamed for r in std.skill.core)
     prefix = re.escape(std.skill.prefix)
     family = re.compile(rf"`{prefix}-({FAMILY})` \(\d+\)")
 

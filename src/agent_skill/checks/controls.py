@@ -495,8 +495,10 @@ _STRICT = "`claude plugin validate --strict` warns on it, and fails on a warning
 #: states it.
 _INVERSE = "Give every operation its inverse, or document why there is none"
 
-#: `PS-CORE-26`'s citation of the chapters stating it.
-_CORE_26 = "(`references/concurrency.md` PS-CONC-01, `references/build.md` PS-BUILD-19)"
+#: `RS-CORE-28`'s citation of the chapter stating it. A core rule's
+#: citations are read only in a standard that still states core rules,
+#: which python-style, normalised, does not.
+_CORE_28 = "(`references/build.md` RS-BUILD-19)"
 
 #: A line of a zig GOOD example with no comment in the three above it.
 _SIZED = "    assert(@sizeOf(Record) == 16);\n"
@@ -1761,18 +1763,16 @@ CONTROLS: list[Control] = [
     ),
     Control(
         anatomy.CORE_UNCITED,
-        lambda t: edit(
-            t, f"{PY}/SKILL.md", _CORE_26, "(the concurrency and build chapters)"
-        ),
+        lambda t: edit(t, f"{RS}/SKILL.md", _CORE_28, "(the build chapter)"),
     ),
     # A core rule's ID is a rule of the skill and not a chapter's.
     Control(
         anatomy.CORE_NOT_A_RULE,
         lambda t: edit(
             t,
-            f"{PY}/SKILL.md",
-            _CORE_26,
-            _CORE_26.replace("PS-BUILD-19", "PS-CORE-01"),
+            f"{RS}/SKILL.md",
+            _CORE_28,
+            _CORE_28.replace("RS-BUILD-19", "RS-CORE-01"),
         ),
     ),
     # A family listed twice: each agrees, and the sum does not.
@@ -1793,13 +1793,16 @@ CONTROLS: list[Control] = [
             *edit(t, f"{PY}/SKILL.md", "`PS-TYPE` (20)", "`PS-TYPE` (19)"),
         ),
     ),
+    # The count a standard stating core rules gives its chapters; a
+    # normalised one says "All N rules live here", which `map_total`
+    # holds.
     Control(
         anatomy.MAP_HERE,
         lambda t: edit(
             t,
-            f"{PY}/SKILL.md",
-            "the other 236 live here",
-            "the other 235 live here",
+            f"{RS}/SKILL.md",
+            "the other 605 live here",
+            "the other 604 live here",
         ),
     ),
     # citations

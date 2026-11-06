@@ -630,7 +630,7 @@ class SkillMd:
             for block in s.lead
             if isinstance(block, ListBlock)
             for item in block.items
-            if (rule := _core_rule(item)) is not None
+            if (rule := core_rule(item)) is not None
         )
 
     @property
@@ -653,7 +653,7 @@ class SkillMd:
 _CORE_TIERS = {f"`{t}`**": t for t in Tier}
 
 
-def _core_rule(item: Item) -> Rule | None:
+def core_rule(item: Item) -> Rule | None:
     """The core rule a list item states, if it states one.
 
     Its paragraph opens with the two words `**ZS-CORE-01 `[M]`**`.
