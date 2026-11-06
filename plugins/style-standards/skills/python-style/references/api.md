@@ -186,15 +186,16 @@ public signature is a name the caller must look up every time.
 
 ### PS-API-11 [M] Make a function either return a value or perform an effect
 
-Not both. A function that writes a file and returns the parsed contents is two functions. The
-exception is an effect whose result must be read in the same step — `queue.Queue.get`, `list.pop`,
-issuing a unique id — where splitting the two reopens PS-CONC-03's gap between check and act.
+Not both, wherever the two can be had apart: a function that writes a file and returns the parsed
+contents is two functions. Where they cannot — taking from a queue, popping a list, issuing a unique
+id — the effect and its result are one step, PS-CONC-03 owns it, and the one call is named for the
+effect: `get`, `pop`, `issue`.
 
 **Why:** the mixed form cannot be tested without the effect, cannot be called for one half, and
 gives the caller no way to know the effect happened from the value they received. Splitting makes
 each half testable and lets the caller compose them.
 
-**Check:** every function with a return value and an effect, unless the two must happen as one step.
+**Check:** every function with a return value and an effect that PS-CONC-03 does not make one step.
 `command-query separation` is the name for the split.
 
 ### PS-API-12 [M] Document what the function does not do
