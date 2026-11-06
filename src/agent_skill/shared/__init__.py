@@ -107,6 +107,27 @@ PASSAGES: tuple[Passage, ...] = (
 )
 
 
+#: The template every normalised standard's frontmatter description
+#: follows: the use case first, the artifacts that trigger it, the
+#: target; each `…` the standard's own words (normalize-the-standards,
+#: decision 13). A frontmatter field rather than a section, so it is
+#: matched as one line of text rather than aligned as blocks.
+DESCRIPTION = "description.md"
+
+
+def description(skill: Skill) -> re.Pattern[str]:
+    """The template `skill`'s description fills, as a pattern.
+
+    Each fixed word as written, any run of spaces as one, and each `…`
+    a region of the standard's own that says something.
+    """
+    template = " ".join((HERE / DESCRIPTION).read_text().split())
+    values = slots(skill)
+    filled = _SLOT.sub(lambda m: values.get(m.group(1), m.group(0)), template)
+    fixed = (re.escape(part).replace(r"\ ", r"\s+") for part in filled.split("…"))
+    return re.compile(r"(.*?\S.*?)".join(fixed))
+
+
 def skill_sections(skill: Skill) -> tuple[str, ...]:
     """The H2s of a conforming `SKILL.md`, in order."""
     target = f"{skill.profile.language} {skill.profile.target}"

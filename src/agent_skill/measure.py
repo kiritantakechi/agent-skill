@@ -15,7 +15,7 @@ from dataclasses import replace
 lazy from collections.abc import Iterable, Iterator, Sequence
 
 from agent_skill import shared, vocabulary
-from agent_skill.checks import anatomy, citations, skeleton
+from agent_skill.checks import anatomy, citations, prose, skeleton
 from agent_skill.checks.frontmatter import described
 from agent_skill.doc import Heading, Table, entry, text_of, walk
 from agent_skill.doc.chapter import Element, citing
@@ -67,6 +67,7 @@ def found(skill: Skill) -> Counter[Branch]:
         *anatomy.anatomy.each(normal),
         *skeleton.skeleton.each(normal),
         *citations.bijection(normal),
+        *prose.dated(normal),
     )
     return Counter(f.branch for f in findings)
 
@@ -102,6 +103,7 @@ def measured(skill: Skill) -> dict[str, str]:
             len(described(skill.doc.frontmatter or "") or "")
         ),
         "SKILL.md lines": str(len(skill.text.splitlines())),
+        "statements dated by their writing": str(by[prose.DATED]),
     }
 
 

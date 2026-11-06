@@ -372,6 +372,35 @@ target version; no rule count, no source list; at most 500 characters. SKILL.md 
 `prose` fails on time-sensitive and build-provenance phrasing ("currently", "not yet", "as of",
 "compiled against", "measured", a date outside a migration table).
 
+As built (task 2.12), for a normalised standard:
+
+- The template is `src/agent_skill/shared/description.md`, beside the other shared passages:
+
+  ```text
+  Use when …. Applies to …. Targets {language} {target}.
+  ```
+
+  The use case first, then the artifacts that trigger it, then the target as the profile names it
+  (`Targets Python 3.15.`); each `…` is the standard's own words and says something.
+  `shared.description` fills the slots and reads the rest as a pattern (fixed words as written, a
+  run of spaces as one), matched against the folded description: a frontmatter field is one line
+  of text, not blocks to align, so it is not a `Passage`.
+- `frontmatter`: `template` (the description does not fill the template), `counted` (it counts
+  rules, `\d+[- ]rules?`), `bounded` (over 500 characters). The count-against-rules property
+  (`rule_count`) and the 1024 limit (`length`) are not run for a normalised standard: no count is
+  stated, and 500 is the bound. A list of sources is not detected — nothing tells "PEP 8, PEP 257"
+  from an artifact list — so the template's shape is the guard, and a person's reading the rest.
+- `skeleton.skill_md_lines`: `SKILL.md` is under 500 lines (`SKILL_MD_BOUND`); zig-style's 560 is
+  the one over.
+- `prose.dated`: "currently", "not yet", "as of", "compiled against", "measured" (any case), or a
+  date (`2026-09-01`, `September 2026`), in any block outside an example and rename history, code
+  spans taken out; a date in the migration table — the one headed as decision 9 says — is the
+  table's key, and stands. Read as normalised: bevy 6, python 7, rust 14, zig 27, as `measure`'s
+  last row prints them.
+- `frontmatter.described` read a description without its last line (task 2.10 fixed it), so the
+  lengths the baseline recorded were short by that line.
+- Read as normalised, each of the four fails `template`, `counted` and `bounded` today.
+
 ### 14. Rolled out one standard at a time
 
 Each property lands as a check that applies to the standards whose profile declares

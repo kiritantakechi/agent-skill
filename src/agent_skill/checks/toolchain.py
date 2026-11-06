@@ -20,7 +20,6 @@ from pathlib import Path
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
-from agent_skill.checks.skeleton import gone_rows
 from agent_skill.lang import (
     deletable,
     execute,
@@ -30,6 +29,7 @@ from agent_skill.lang import (
     toolchain_for,
 )
 from agent_skill.report import Finding, Level, declare, fail, note, unrun
+lazy from agent_skill.checks.skeleton import gone_rows
 lazy from agent_skill.lang import Extraction, Step, Toolchain, Unit
 lazy from agent_skill.model import Skill
 

@@ -3,6 +3,7 @@
 import re
 lazy from collections.abc import Iterator
 
+from agent_skill import shared
 from agent_skill.checks import check, per_skill
 from agent_skill.report import Finding, Level, declare, fail
 lazy from agent_skill.model import Skill
@@ -26,6 +27,18 @@ FOLDED = declare("frontmatter", "folded", Level.FAIL)
 LENGTH = declare("frontmatter", "length", Level.FAIL)
 ANGLE_BRACKET = declare("frontmatter", "angle_bracket", Level.FAIL)
 RULE_COUNT = declare("frontmatter", "rule_count", Level.FAIL)
+
+# The branches only a normalised standard is held to (decision 13).
+TEMPLATE = declare("frontmatter", "template", Level.FAIL)
+COUNTED = declare("frontmatter", "counted", Level.FAIL)
+BOUNDED = declare("frontmatter", "bounded", Level.FAIL)
+
+#: A normalised standard's description is this short or shorter: a
+#: use case, what triggers it, and a target.
+BOUND = 500
+
+#: A count of rules, as a description states one: `a 262-rule library`.
+_COUNT = re.compile(r"\b\d+[- ]rules?\b", re.IGNORECASE)
 
 
 def described(body: str) -> str | None:
@@ -72,11 +85,19 @@ def frontmatter(skill: Skill) -> Iterator[Finding]:
     if "description" in keys and folded is None:
         yield fail("description is not a `>-` folded block", where, FOLDED)
     desc = folded or ""
-    if len(desc) > MAX_DESCRIPTION:
-        yield fail(f"description {len(desc)} > {MAX_DESCRIPTION}", where, LENGTH)
     if "<" in desc or ">" in desc:
         yield fail("angle bracket in description", where, ANGLE_BRACKET)
+    if skill.profile.normalized:
+        yield from _templated(skill, desc)
+    else:
+        yield from _counted(skill, desc)
 
+
+def _counted(skill: Skill, desc: str) -> Iterator[Finding]:
+    """A description under the limit, and any count it states true."""
+    where = skill.at()
+    if len(desc) > MAX_DESCRIPTION:
+        yield fail(f"description {len(desc)} > {MAX_DESCRIPTION}", where, LENGTH)
     stated = re.search(r"(\d+)-rule \w+", desc)
     actual = len(skill.chapter_rules) + len(skill.core)
     if stated and int(stated.group(1)) != actual:
@@ -85,3 +106,31 @@ def frontmatter(skill: Skill) -> Iterator[Finding]:
             where,
             RULE_COUNT,
         )
+
+
+def _templated(skill: Skill, desc: str) -> Iterator[Finding]:
+    """A normalised standard's description fills the shared template.
+
+    The use case first, the artifacts that trigger it, the target
+    (`shared/description.md`); no count of rules, which every revision
+    changes and which tells a reader nothing; and well under the limit.
+    A count stated is no longer compared with the rules: it is not
+    stated at all.
+    """
+    where = skill.at()
+    if desc and shared.description(skill).fullmatch(desc) is None:
+        template = " ".join((shared.HERE / shared.DESCRIPTION).read_text().split())
+        yield fail(
+            f"description does not fill the shared template `{template}`",
+            where,
+            TEMPLATE,
+        )
+    if (m := _COUNT.search(desc)) is not None:
+        yield fail(
+            f"description counts rules (`{m.group(0)}`); the count changes with every "
+            "revision and tells a reader nothing",
+            where,
+            COUNTED,
+        )
+    if len(desc) > BOUND:
+        yield fail(f"description {len(desc)} > {BOUND}", where, BOUNDED)

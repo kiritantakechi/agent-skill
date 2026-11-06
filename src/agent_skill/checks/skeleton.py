@@ -103,6 +103,11 @@ MIGRATION_ROW = declare("skeleton", "migration_row", Level.FAIL)
 MIGRATION_TWICE = declare("skeleton", "migration_twice", Level.FAIL)
 MIGRATION_COMMAND = declare("skeleton", "migration_command", Level.FAIL)
 REALITY_ROW = declare("skeleton", "reality_row", Level.FAIL)
+SKILL_MD_LINES = declare("skeleton", "skill_md_lines", Level.FAIL)
+
+#: `SKILL.md` is under this many lines: it is loaded whole, every time
+#: the standard is, and a chapter is loaded only when it is needed.
+SKILL_MD_BOUND = 500
 
 
 @check("skeleton", "every standard has the same shape")
@@ -421,6 +426,13 @@ def _normal_form(skill: Skill) -> Iterator[Finding]:
     yield from _reality(skill)
     yield from _core(skill)
     yield from _migration(skill)
+    if (lines := len(skill.text.splitlines())) >= SKILL_MD_BOUND:
+        yield fail(
+            f"`{SKILL_MD}` runs {lines} lines; it is under {SKILL_MD_BOUND}, and what "
+            "does not fit is a chapter's",
+            skill.at(SKILL_MD),
+            SKILL_MD_LINES,
+        )
 
 
 #: What a chapter's scope opens with.

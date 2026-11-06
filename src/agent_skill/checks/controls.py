@@ -867,6 +867,38 @@ NORMAL_FORM: list[Control] = [
             )
         },
     ),
+    _normal(
+        frontmatter.TEMPLATE,
+        SKILL_MD,
+        "  Use when writing or reviewing Demo code.",
+        "  For writing or reviewing Demo code.",
+    ),
+    _normal(
+        # The scenario the spec names: a count in the description.
+        frontmatter.COUNTED,
+        SKILL_MD,
+        "a demo program and its tests.",
+        "a demo program and its tests, in 3 rules.",
+    ),
+    _normal(
+        # The template filled, at length.
+        frontmatter.BOUNDED,
+        SKILL_MD,
+        "a demo program and its tests.",
+        f"a demo program{', a demo program' * 40} and its tests.",
+    ),
+    _on_demo(
+        # Section 7 grown past the bound, a paragraph at a time.
+        skeleton.SKILL_MD_LINES,
+        lambda t: append(t, f"{demo.PROFILE.name}/{SKILL_MD}", "\nMore.\n" * 250),
+    ),
+    _normal(
+        # The scenario the spec names: a statement dated by its writing.
+        prose.DATED,
+        _DEMO_ERRORS,
+        "**Why:** only the caller knows",
+        "**Why:** as of 1.2, only the caller knows",
+    ),
     _on_demo(
         # Heading and contents line alike, so only the mood is wrong.
         anatomy.ADVICE_TITLE,

@@ -49,7 +49,8 @@ _STAGES = "1. **Soundness.** Look.\n2. **Errors.** Look.\n"
 _SKILL_MD = f"""---
 name: {PROFILE.name}
 description: >-
-  A demo standard in normal form.
+  Use when writing or reviewing Demo code. Applies to a demo program and its tests.
+  Targets Demo 1.2.
 ---
 
 # Demo Style — 1.2

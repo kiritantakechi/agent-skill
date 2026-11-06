@@ -24,7 +24,15 @@ from agent_skill.model import Skill, Tree
 #: The checks the demo is held to whole, so that each control of the
 #: normal form breaks it in one place: the two the controls target, its
 #: canonical print, and its shared passages.
-HELD = ("anatomy", "skeleton", "layout", "shared-text", "citations")
+HELD = (
+    "anatomy",
+    "skeleton",
+    "layout",
+    "shared-text",
+    "citations",
+    "frontmatter",
+    "prose",
+)
 
 #: The demo's chapter of rules.
 ERRORS = "references/errors.md"

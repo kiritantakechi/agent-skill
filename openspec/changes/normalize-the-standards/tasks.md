@@ -48,7 +48,9 @@
 - [x] 2.11 Examples under the shipped configuration minus the allowlist (decision 12) —
   `PythonSnippet.allowlist` (six codes, each with its reason); a normalised standard's advice blocks
   are linted with `--config <shipped ruff.toml> --ignore=<allowlist>`; `citations.allow_reason`
-- [ ] 2.12 Description template, SKILL.md bound, time-sensitive and provenance phrasing (decision 13)
+- [x] 2.12 Description template, SKILL.md bound, time-sensitive and provenance phrasing (decision 13)
+  — `shared/description.md`, `Use when …. Applies to …. Targets {language} {target}.`;
+  `frontmatter.template`, `counted`, `bounded` (500); `skeleton.skill_md_lines`; `prose.dated`
 
 ## 3. python-style
 
@@ -117,6 +119,7 @@ of its function in `agent_skill.measure`, and of the branch it counts.
 | section 2 items naming no rule | 19 | 17 | 11 | 49 |
 | description characters | 926 | 1011 | 1020 | 1015 |
 | SKILL.md lines | 338 | 312 | 348 | 560 |
+| statements dated by their writing | 6 | 7 | 14 | 27 |
 
 Where a count differs from the proposal's, the definition differs, and the measure's is the one the
 check holds: restated titles 84 against 85 (the statement opens with the title's words); prose

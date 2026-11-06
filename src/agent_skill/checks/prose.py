@@ -12,9 +12,11 @@ lazy from collections.abc import Callable, Iterator
 
 from agent_skill.checks import check, per_skill
 from agent_skill.checks.lines import prose as own_rules
-from agent_skill.doc import Quote, walk
+from agent_skill.doc import Fence, ListBlock, Quote, Table, text_of, walk
+from agent_skill.doc.chapter import citing, migration_header
 from agent_skill.ids import cited_at
 from agent_skill.report import Finding, Level, declare, fail
+lazy from agent_skill.checks.skeleton import target
 lazy from agent_skill.doc import Doc
 lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Skill
@@ -63,6 +65,24 @@ BROKEN_QUOTE = declare("prose", "broken_quote", Level.FAIL)
 POSITIONAL_REFERENCE = declare("prose", "positional", Level.FAIL)
 LEGEND_COUNT = declare("prose", "legend", Level.FAIL)
 
+# The branch only a normalised standard is held to (decision 13).
+DATED = declare("prose", "dated", Level.FAIL)
+
+#: Words that date a statement by its writing, or say how it was made:
+#: true when written, and silently false a release later.
+DATING = re.compile(
+    r"\b(?:currently|not yet|as of|compiled against|measured)\b", re.IGNORECASE
+)
+
+#: A date, as prose writes one: `2026-09-01`, `September 2026`.
+DATE = re.compile(
+    r"\b\d{4}-\d{2}(?:-\d{2})?\b|\b(?:January|February|March|April|May|June|July|"
+    r"August|September|October|November|December)\s+\d{4}\b"
+)
+
+#: An inline code span, which is content rather than prose.
+_SPAN = re.compile(r"(`+)[^`\n]*?\1")
+
 
 @check("prose", "no build provenance, one legend, unbroken quotes")
 @per_skill
@@ -85,6 +105,39 @@ def prose(skill: Skill) -> Iterator[Finding]:
         )
 
     yield from own_rules(skill)
+    if skill.profile.normalized:
+        yield from dated(skill)
+
+
+def dated(skill: Skill) -> Iterator[Finding]:
+    """Each statement dated by its writing (decision 13).
+
+    "currently", "not yet", "as of", "compiled against", "measured", or
+    a date: what was true when the line was written and is false a
+    release later, with nothing to say so. A date belongs to the
+    migration table, which keys what changed by release; an example is
+    code, and a rename table history.
+    """
+    migration = migration_header(target(skill))
+    for path, doc in skill.docs.items():
+        for top in citing(doc):
+            for block in walk((top,)):
+                if isinstance(block, (Fence, ListBlock, Quote)):
+                    continue  # code; or blocks walked on their own
+                text = _SPAN.sub(" ", text_of((block,)))
+                found = DATING.search(text)
+                keyed = isinstance(block, Table) and block.header == migration
+                if found is None and not keyed:
+                    found = DATE.search(text)
+                if found is not None:
+                    line = block.line + text.count("\n", 0, found.start())
+                    yield fail(
+                        f"`{found.group(0)}` dates the statement by its writing; say "
+                        "what holds of the target, or put the date in the migration "
+                        "table",
+                        skill.at(path, line),
+                        DATED,
+                    )
 
 
 def _provenance(text: str, at: At) -> Iterator[Finding]:
