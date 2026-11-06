@@ -21,6 +21,7 @@ from agent_skill.checks.sensitivity import sensitivity
 from agent_skill.doc import Doc
 from agent_skill.doc.chapter import Rule
 from agent_skill.ids import Location, RuleId, Tier
+from agent_skill.profiles.record import keyed, rules
 lazy from agent_skill.model import Skill
 
 #: Two patterns over disjoint constructs, the shape that made `any`
@@ -33,13 +34,20 @@ def fake(
     check: str = TWO_PATTERNS,
     unproven: frozenset[str] = frozenset(),
 ) -> SimpleNamespace:
-    """A stand-in skill with one rule, its Check, and its fixtures."""
+    """A stand-in skill with one rule, its Check, and its fixtures.
+
+    Its profile's maps are read as a profile's are, by `keyed` and
+    `rules`, so a test spells a rule as the profiles do.
+    """
     rid, body = RuleId.parse("XX-Y-01"), Doc.parse(check).blocks
     rule = Rule(rid, Tier.M, "a rule with two patterns", body)
+    profile = SimpleNamespace(
+        fires=keyed(fires), languages=("rust",), unproven=rules(*unproven)
+    )
     return SimpleNamespace(
         name="fake-style",
         chapter_rules=(rule,),
-        profile=SimpleNamespace(fires=fires, languages=("rust",), unproven=unproven),
+        profile=profile,
         at=lambda: Location("fake-style"),
     )
 

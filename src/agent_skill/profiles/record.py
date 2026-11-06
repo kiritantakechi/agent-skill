@@ -8,6 +8,7 @@ standard can be read without running anything.
 from dataclasses import dataclass, field
 lazy from collections.abc import Callable, Iterable, Mapping
 
+from agent_skill.ids import RuleId
 lazy from agent_skill.ids import Branch, Pin
 lazy from agent_skill.lang import Config
 lazy from agent_skill.lang.rust import RustCrate
@@ -18,6 +19,23 @@ lazy from agent_skill.report import Finding
 #: than its lines: a derive list, or which of two imports comes first.
 #: Named in its standard's module, and each one listed in the design.
 type Structural = Callable[[Block], Iterable[Finding]]
+
+
+def keyed[T](spelled: Mapping[str, T]) -> Mapping[RuleId, T]:
+    """`spelled`, each key read as the rule it names.
+
+    A profile is written by hand, so it spells a rule as a reader cites
+    one, and the record holds the rule: a key that is not a rule ID
+    stops the import, where as a string it was a key no rule would ever
+    equal, and a check comparing it with a rule's printed ID was a
+    second reader of IDs.
+    """
+    return {RuleId.parse(key): value for key, value in spelled.items()}
+
+
+def rules(*spelled: str) -> frozenset[RuleId]:
+    """The rules `spelled` names, each read as `keyed` reads a key."""
+    return frozenset(RuleId.parse(text) for text in spelled)
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,9 +87,9 @@ class LineRule:
     #: read an example's line as written, its comment too, rather than
     #: with its comment taken out
     comments: bool = False
-    #: the rule ID whose own example, or own prose, shows what this
-    #: forbids on purpose
-    unless_own: str = ""
+    #: the rule whose own example, or own prose, shows what this forbids
+    #: on purpose
+    unless_own: RuleId | None = None
     unless: Unless = Unless()
     #: each must be near the hit as well, for it to be one
     needs: tuple[Near, ...] = ()
@@ -124,7 +142,7 @@ class Mirror:
     """
 
     anchor: str
-    pairs: tuple[tuple[str, str], ...] = ()
+    pairs: tuple[tuple[RuleId, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,8 +180,8 @@ class Profile:
     judgement: int = 15
     #: Rule id -> what, around a hit of its pattern, makes the hit the
     #: case the rule permits.
-    exempt: Mapping[str, Unless] = field(default_factory=dict)
-    not_decisive: Mapping[str, NotDecisive] = field(default_factory=dict)
+    exempt: Mapping[RuleId, Unless] = field(default_factory=dict)
+    not_decisive: Mapping[RuleId, NotDecisive] = field(default_factory=dict)
     #: Rule id -> snippets containing the defects that rule exists to
     #: catch.
     #:
@@ -185,7 +203,7 @@ class Profile:
     #: second direction is what keeps the first honest — without it, a
     #: pattern narrowed until it stops matching can be "fixed" by adding
     #: a snippet nothing relates to the rule.
-    fires: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    fires: Mapping[RuleId, tuple[str, ...]] = field(default_factory=dict)
     #: Rule ids whose Check ships an `rg` pattern that no entry in
     #: `fires` proves yet.
     #:
@@ -195,7 +213,7 @@ class Profile:
     #: ships a pattern is either proven or listed here, and an entry
     #: that has stopped being true — the rule is gone, ships no pattern,
     #: or has a fixture now — fails, so the list can only shrink.
-    unproven: frozenset[str] = frozenset()
+    unproven: frozenset[RuleId] = frozenset()
     #: A compiler row's phrase -> the smallest source the compiler
     #: rejects with it. A compiler has no lint table to compare a row
     #: against, so each row is proved by a probe, and each probe needs

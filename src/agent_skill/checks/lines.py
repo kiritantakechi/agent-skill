@@ -77,7 +77,7 @@ def _broken(
     """
     hits: dict[Branch, tuple[LineRule, re.Match[str]]] = {}
     for rule in rules:
-        if rule.unless_own and str(line.rule) == rule.unless_own:
+        if rule.unless_own is not None and line.rule == rule.unless_own:
             continue
         m = re.search(rule.pattern, line.raw if rule.comments else line.code)
         if m is None or not all(near(n, line.lines, line.j) for n in rule.needs):

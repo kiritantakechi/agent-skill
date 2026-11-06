@@ -57,7 +57,7 @@ def mirror(tree: Tree) -> Iterator[Finding]:
         yield from _unheld(skill, anchor)
 
 
-def _pairs(skill: Skill) -> tuple[tuple[str, str], ...]:
+def _pairs(skill: Skill) -> tuple[tuple[RuleId, str], ...]:
     """The pairs `skill`'s profile holds: a rule here, a title there."""
     declared = skill.profile.mirror
     return declared.pairs if declared is not None else ()
@@ -70,8 +70,7 @@ def _held(mirrored: Skill, anchor: Skill) -> Iterator[Finding]:
         titles.setdefault(rule.title, []).append(rule)
     by_id = {r.id: r for r in mirrored.chapter_rules}
 
-    for spelled, title in _pairs(mirrored):
-        rid = RuleId.parse(spelled)
+    for rid, title in _pairs(mirrored):
         matches = titles.get(title, [])
         other = by_id.get(rid)
         if not matches:
@@ -112,7 +111,7 @@ def _unheld(mirrored: Skill, anchor: Skill) -> Iterator[Finding]:
     not just the one with pairs — a pair a profile misses is the same
     defect whichever standard it is in.
     """
-    held = {RuleId.parse(spelled) for spelled, _ in _pairs(mirrored)}
+    held = {rid for rid, _ in _pairs(mirrored)}
     anchor_shingles = [(r, _shingles(r.title)) for r in anchor.chapter_rules]
     for rule in mirrored.chapter_rules:
         if rule.id in held:

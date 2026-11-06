@@ -45,7 +45,8 @@ def anchor(tier: Tier = Tier.M) -> Skill:
 
 def third(tier: Tier, pairs: tuple[tuple[str, str], ...] = ()) -> Skill:
     rules = [rule("XX-NAME-09", tier, TITLE)]
-    return Skill("third-style", "XX", rules, Mirror("rust-style", pairs))
+    held = tuple((RuleId.parse(rid), title) for rid, title in pairs)
+    return Skill("third-style", "XX", rules, Mirror("rust-style", held))
 
 
 def test_a_third_skill_is_held_by_its_own_profile() -> None:

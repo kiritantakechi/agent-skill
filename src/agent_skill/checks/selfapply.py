@@ -23,6 +23,7 @@ lazy from agent_skill.checks.corpus import Corpus
 lazy from agent_skill.checks.patterns import Pattern
 lazy from agent_skill.checks.search import Span
 lazy from agent_skill.doc.chapter import Rule
+lazy from agent_skill.ids import RuleId
 lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
 
@@ -76,7 +77,7 @@ def _run(skill: Skill, lang: str) -> Iterator[Finding]:
         )
         return
 
-    claimed: set[str] = set()
+    claimed: set[RuleId] = set()
     tiers: Tiers = ([], [], [])
 
     for rule in rules:
@@ -87,8 +88,8 @@ def _run(skill: Skill, lang: str) -> Iterator[Finding]:
         # quoting words the rule still says. Claimed before the
         # path-scoped branch below, or a `rg -v` rule with an entry
         # would look like a rule that vanished.
-        if entry := profile.not_decisive.get(str(rule.id)):
-            claimed.add(str(rule.id))
+        if entry := profile.not_decisive.get(rule.id):
+            claimed.add(rule.id)
             if entry.anchor not in " ".join(check.split()):
                 yield fail(
                     f"{rule.id}: the exemption quotes {entry.anchor!r}, which its "
@@ -163,7 +164,7 @@ def _search(
                 NO_ANSWER,
             )
             continue
-        exempt = profile.exempt.get(str(rule.id))
+        exempt = profile.exempt.get(rule.id)
         source = corpus.lines_for(pattern)
         kept = [
             s
@@ -175,7 +176,7 @@ def _search(
         row = (rule, pattern, used, kept)
         if len(kept) > profile.judgement:
             tiers[2].append(row)
-        elif pattern.kind == "command" and str(rule.id) not in profile.not_decisive:
+        elif pattern.kind == "command" and rule.id not in profile.not_decisive:
             tiers[0].append(row)
         else:
             tiers[1].append(row)
@@ -187,7 +188,7 @@ def _report(skill: Skill, corpus: Corpus, tiers: Tiers) -> Iterator[Finding]:
     for row in sorted(tier1, key=lambda r: -len(r[3])):
         yield fail(_render(corpus, row), skill.at(), DECIDES)
     for row in sorted(tier2, key=lambda r: -len(r[3])):
-        entry = skill.profile.not_decisive.get(str(row[0].id))
+        entry = skill.profile.not_decisive.get(row[0].id)
         why = (
             entry.reason
             if entry

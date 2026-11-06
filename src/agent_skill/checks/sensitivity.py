@@ -82,7 +82,7 @@ def sensitivity(skill: Skill) -> Iterator[Finding]:
     # is.
     lang = skill.profile.languages[0]
 
-    by_id = {str(r.id): r for r in skill.chapter_rules}
+    by_id = {r.id: r for r in skill.chapter_rules}
     for rid in sorted(set(declared) - set(by_id)):
         yield fail(
             f"{rid}: a fixture names a rule this skill does not define",
@@ -106,7 +106,7 @@ def _accounted(skill: Skill) -> Iterator[Finding]:
     fixture now. Without the second, the list would only ever grow.
     """
     profile = skill.profile
-    by_id = {str(rule.id): rule for rule in skill.chapter_rules}
+    by_id = {rule.id: rule for rule in skill.chapter_rules}
     shipping = {
         rid
         for rid, rule in by_id.items()

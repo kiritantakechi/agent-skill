@@ -104,7 +104,7 @@ def test_a_mirror_is_held_against_a_standard_the_harness_knows(profile) -> None:
     if profile.mirror is not None:
         assert profile.mirror.anchor in PROFILES, profile.name
         for rule, _ in profile.mirror.pairs:
-            assert rule.startswith(f"{profile.prefix}-"), (profile.name, rule)
+            assert rule.standard == profile.prefix, (profile.name, rule)
 
 
 #: The package, every module of which is read for literals.
