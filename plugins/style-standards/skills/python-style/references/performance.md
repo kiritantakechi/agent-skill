@@ -4,11 +4,6 @@ Scope: deciding what to make faster and how to know it worked — the profiling 
 costs that are structural rather than local, and what the free-threaded build charges you. Blocking
 the event loop is the async chapter; lock contention is the concurrency chapter.
 
-Two sources are merged here: the **CPython 3.15 documentation**, including PEP 799's new `profiling`
-package, and the **published benchmark data for the free-threaded build** — cited with its
-measurement date, because the numbers move and a standard that quotes one without a date goes stale
-silently. Ruff's `PERF` and `C4` families decide the mechanical half.
-
 Unless a block shows its own imports, it assumes nothing beyond the standard library.
 
 ## Contents

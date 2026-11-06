@@ -1,13 +1,8 @@
-# Strings and Output: Encoding, Interpolation, Logging, and Program Output
+# Output: Encoding, Interpolation, Logging, and Program Output
 
-Scope: what a string is encoded as now that 3.15 changed the default, which interpolation form to
-reach for including the new template strings, how to log, and the difference between program output
-and diagnostics. Docstring content is the documentation chapter; the thread-safety of a stream is
-the concurrency chapter.
-
-Two sources are merged here: the **CPython 3.15 documentation** — PEP 686 for the encoding default,
-PEP 750 for template strings, and the `logging` module's own guidance — and **Ruff's `G`, `LOG`,
-`ISC`, `RUF` and `T20` families**, which decide the mechanical half.
+Scope: what a string is encoded as, which interpolation form to reach for, template strings
+included, how to log, and the difference between program output and diagnostics. Docstring content
+is the documentation chapter; the thread-safety of a stream is the concurrency chapter.
 
 Unless a block shows its own imports, it assumes nothing beyond the standard library.
 

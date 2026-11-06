@@ -1,14 +1,8 @@
-# Packaging: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel
+# Build: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel
 
 Scope: what `pyproject.toml` must say, how dependencies are declared and pinned, how a package is
 built and published, and what the free-threaded build demands of a dependency tree. Package layout
 is the modules chapter; the public surface is the API chapter.
-
-Two sources are merged here: the **PyPA living specifications** at
-`packaging.python.org/specifications`, which is where every packaging PEP now redirects — 621, 639,
-735 and 751 all carry a "this PEP is a historical document" banner — and the **empirical conventions
-of `uv`**, which scaffolds the layout this chapter prescribes. Ruff's `INP` and `TID` families reach
-only the edges of this; most of it is a review matter with a runnable command.
 
 Unless a block shows its own imports, it assumes nothing beyond the standard library.
 

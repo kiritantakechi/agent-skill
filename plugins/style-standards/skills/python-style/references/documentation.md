@@ -4,12 +4,6 @@ Scope: what a docstring must say and how it is shaped, which convention this sta
 and the documents that live outside the code. Comment typography and the say-why rule are in the
 naming chapter; what a signature must promise is the API chapter.
 
-Two sources are merged here: **PEP 257**, which is normative about docstring shape and deliberately
-silent about section format, and the **Google Python Style Guide's section vocabulary**, which is
-what `convention = "google"` implements and what the ecosystem largely settled on. Ruff's `D` family
-decides the mechanical half — with the caveat that setting a convention *disables* rules, so which
-ones apply is a consequence of the choice.
-
 Unless a block shows its own imports, it assumes nothing beyond the standard library.
 
 ## Contents

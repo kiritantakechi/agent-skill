@@ -7,11 +7,6 @@ should hold is in the data chapter, what a package accepts and re-exports is in 
 a package is laid out and imported is in the modules chapter, and thread-safety of module state is
 in the concurrency chapter.
 
-Two sources are merged here: **PEP 8**, quoted where it is normative and named where this standard
-departs from it, and **Ruff's rule catalogue**, which decides most of this mechanically — the `E`,
-`N`, `I` and `D` families between them enforce roughly two thirds of what PEP 8 states in prose.
-Where a rule can be a ruff code it cites one, and the shipped `assets/ruff.toml` enables it.
-
 Unless a block shows its own imports, it assumes nothing beyond the standard library.
 
 ## Contents

@@ -162,7 +162,7 @@ name it costs.
   - PS-NAME-05 [M] Put units and qualifiers last, sorted by descending significance
   - PS-NAME-09 [M] Run `ruff format`; it is not a suggestion
   - PS-NAME-12 [M] Say why, not what
-- **Typing: Annotations, Generics, Narrowing, and the Checker**
+- **Types: Annotations, Generics, Narrowing, and the Checker**
   - PS-TYPE-01 [M] Run `ty` at the pinned version, with the shipped configuration
   - PS-TYPE-04 [M] Never write `from __future__ import annotations`
   - PS-TYPE-07 [M] Write unions with `|`, and put `None` last
@@ -170,7 +170,7 @@ name it costs.
   - PS-TYPE-09 [M] Declare an alias with the `type` statement
   - PS-TYPE-12 [M] Use `object` for "anything", and `Any` only with a reason
   - PS-TYPE-13 [M] Narrow with `TypeIs`, not `TypeGuard`
-- **Data Modelling: Dataclasses, Enums, Protocols, and Immutability**
+- **Data: Dataclasses, Enums, Protocols, and Immutability**
   - PS-DATA-01 [M] Model a record as a frozen dataclass by default
   - PS-DATA-02 [M] Add `slots=True` unless something needs the instance dict
   - PS-DATA-08 [M] Never give a mutable default
@@ -183,7 +183,7 @@ name it costs.
   - PS-ERR-11 [M] Use `except*` for a group, and never mix it with `except`
   - PS-ERR-13 [M] Never `return`, `break` or `continue` inside `finally`
   - PS-ERR-16 [M] Reject at the top with a guard, then proceed unindented
-- **Free Threading: What the GIL Guaranteed, Shared State, Iterators, and the Build**
+- **Concurrency: Threads Without the GIL, Shared State, Iterators, Caches, and Context**
   - PS-CONC-01 [M] Probe the build with `sys.abi_info` and the runtime with `sys._is_gil_enabled`
   - PS-CONC-02 [M] Never treat a compound assignment as one step
   - PS-CONC-03 [M] Never treat check-then-act as one step
@@ -194,7 +194,7 @@ name it costs.
   - PS-ASYNC-03 [M] Start every task inside a `TaskGroup`
   - PS-ASYNC-05 [M] Never swallow `CancelledError`
   - PS-ASYNC-08 [M] Give every wait a timeout, with `asyncio.timeout`
-- **Strings and Output: Encoding, Interpolation, Logging, and Program Output**
+- **Output: Encoding, Interpolation, Logging, and Program Output**
   - PS-OUT-01 [M] Pass `encoding=` explicitly to every text open
   - PS-OUT-02 [M] Know what PEP 686 moved, which is more than `open`
   - PS-OUT-11 [M] Log with `%`-style arguments, never with an f-string
@@ -202,7 +202,7 @@ name it costs.
 - **API: The Public Surface, Signatures, and Evolution**
   - PS-API-02 [M] Re-export through `__all__`, never by a bare import
   - PS-API-06 [M] Annotate every parameter and every return of a public function
-- **Packaging: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel**
+- **Build: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel**
   - PS-BUILD-18 [M] A free-threaded wheel tag is not a declaration of thread safety
 
 ## 5. Review checklist

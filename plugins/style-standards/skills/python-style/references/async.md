@@ -5,12 +5,6 @@ the loop — plus the boundary between an event loop and the threads around it. 
 at all rather than threads is the concurrency chapter's question; blocking calls that belong in a
 thread pool are named here.
 
-Two sources are merged here: the **CPython 3.15 `asyncio` documentation**, including `TaskGroup` and
-the 3.15 addition of `TaskGroup.cancel`, and **Ruff's `ASYNC` family**, sixteen rules that catch
-blocking calls inside a coroutine. Where a rule can cite a code it does. This chapter also writes
-against 3.16's removal of the event-loop policy system, because the replacement spellings already
-work.
-
 Unless a block shows its own imports, it assumes `import asyncio`.
 
 ## Contents

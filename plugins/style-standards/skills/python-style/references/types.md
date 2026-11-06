@@ -1,15 +1,9 @@
-# Typing: Annotations, Generics, Narrowing, and the Checker
+# Types: Annotations, Generics, Narrowing, and the Checker
 
-Scope: how to spell a type in 3.15, what the annotation machinery actually does now that PEP 649
-made it lazy, which narrowing construct to reach for, how to read annotations at runtime without
-breaking, and which checker this standard mandates. What to put *in* a type is the data chapter;
-what a public signature should accept is the API chapter.
-
-Two sources are merged here: the **Python Typing Spec** at `typing.python.org/spec`, which is the
-living specification the typing PEPs now redirect to and which the Typing Council maintains under
-PEP 729, and **Ruff's `ANN`, `UP` and `TC` families**, which decide mechanically whether annotations
-are present and whether they are spelled the modern way. Correctness of the types themselves is
-`ty`'s job — PS-TYPE-01 mandates it — and presence is Ruff's. The two compose rather than overlap.
+Scope: how to spell a type, what the lazy annotation machinery does, which narrowing construct to
+reach for, how to read annotations at runtime without breaking, and which checker this standard
+mandates. What to put *in* a type is the data chapter; what a public signature should accept is the
+API chapter.
 
 Unless a block shows its own imports, it assumes `from typing import …` for the names it uses.
 

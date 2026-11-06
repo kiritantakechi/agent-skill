@@ -5,11 +5,6 @@ groups, and the control-flow shapes that keep a function readable — guards, ea
 the walrus. What to log when you catch is the output chapter; what a public function should raise is
 the API chapter; concurrency-specific control flow is the async and concurrency chapters.
 
-Two sources are merged here: the **CPython 3.15 documentation**, including PEP 765's new restriction
-on `finally` and the exception-group machinery, and **Ruff's `B`, `TRY`, `RET`, `EM` and `BLE`
-families**, which decide most of this mechanically. Where a rule can cite a code it does, and the
-shipped `assets/ruff.toml` enables it.
-
 Unless a block shows its own imports, it assumes nothing beyond the standard library.
 
 ## Contents

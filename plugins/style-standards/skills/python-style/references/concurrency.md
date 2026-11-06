@@ -1,18 +1,11 @@
-# Free Threading: What the GIL Guaranteed, Shared State, Iterators, and the Build
+# Concurrency: Threads Without the GIL, Shared State, Iterators, Caches, and Context
 
 Scope: writing Python that is correct when threads run in parallel — what the GIL used to make
 unlikely, which standard-library objects hold their own locks and which do not, how to share an
-iterator, how caches and context behave, when threads beat processes, and what the free-threaded
-build and its C extensions require. Choosing between `async` and threads at all is in the async
-chapter; the shape of the data being shared is in the data chapter; interpreter and allocator
-overhead is in the performance chapter.
-
-Two sources are merged here: the **CPython 3.15 documentation** — PEP 703, PEP 779, the
-free-threading HOWTO, and the per-module thread-safety notes, quoted where they are normative — and
-the **empirical behaviour of the free-threaded build**, measured on `python3.15t` and cited with the
-numbers it produced. Ruff has no rule in any of its 59 linters that mentions the GIL, free
-threading, or thread safety, so unlike every other chapter in this standard nothing here can be
-delegated to the linter: each rule ships the check that decides it.
+iterator, how caches and context behave, and how to ask which build is running. Choosing between
+`async` and threads at all is in the async chapter; the shape of the data being shared is in the
+data chapter; interpreter and allocator overhead, and when threads beat processes, are in the
+performance chapter; what a free-threaded wheel declares is in the build chapter.
 
 Unless a block shows its own imports, it assumes `import threading` and that the module runs on the
 free-threaded build. Where a rule depends on the build, the block probes it rather than assuming.

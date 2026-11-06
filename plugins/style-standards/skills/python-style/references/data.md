@@ -1,14 +1,9 @@
-# Data Modelling: Dataclasses, Enums, Protocols, and Immutability
+# Data: Dataclasses, Enums, Protocols, and Immutability
 
 Scope: choosing the shape a value takes — dataclass, enum, protocol, `TypedDict`, `NamedTuple`,
 plain class — and what each obliges you to. How to spell the annotation on a field is the types
 chapter; whether the value is safe to share is the concurrency chapter; what a constructor should
 accept is the API chapter.
-
-Two sources are merged here: the **empirical conventions of the CPython standard library**, whose
-`dataclasses`, `enum` and `collections.abc` modules are the reference implementations of every shape
-here, and **Ruff's `RUF`, `B`, `SLOT` and `PYI` families**, which decide the mechanical half. What
-3.15 adds — `frozendict` and `sentinel` — is stated where it replaces something.
 
 Unless a block shows its own imports, it assumes `from dataclasses import dataclass`.
 

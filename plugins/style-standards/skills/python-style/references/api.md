@@ -5,11 +5,6 @@ and `py.typed`, signatures, defaults and effects, and changing the surface witho
 to spell a type is the types chapter; what a value should be shaped like is the data chapter; naming
 is the naming chapter; how a package is laid out and imported is the modules chapter.
 
-Two sources are merged here: the **Python Typing Spec's distributing chapter**, which is normative
-about re-export and `py.typed` and is enforced by every type checker, and the **empirical
-conventions of the CPython standard library**, whose module surfaces are the reference for what a
-Python API looks like. Ruff's `ANN`, `FBT`, `ARG` and `INP` families decide the mechanical half.
-
 Unless a block shows its own imports, it assumes nothing beyond the standard library.
 
 ## Contents
