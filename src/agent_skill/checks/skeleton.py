@@ -15,15 +15,31 @@ review order. The words of the shared passages belong to `shared-text`.
 """
 
 import re
-lazy from collections.abc import Iterable, Iterator
+lazy from collections.abc import Iterable, Iterator, Sequence
 
 from agent_skill import shared, vocabulary
 from agent_skill.checks import check, per_skill
-from agent_skill.doc import Heading, ListBlock, Paragraph, Table, printed
-from agent_skill.doc.chapter import CONTENTS, RENAMED, Demoted, Removed
-from agent_skill.ids import RuleId
+from agent_skill.doc import (
+    Fence,
+    Heading,
+    ListBlock,
+    Paragraph,
+    Table,
+    printed,
+    text_of,
+)
+from agent_skill.doc.chapter import (
+    CONTENTS,
+    DECIDED,
+    RENAMED,
+    Demoted,
+    Removed,
+    history,
+)
+from agent_skill.ids import RuleId, cited
 from agent_skill.model import REFERENCES, RENAMES_MD, SKILL_MD
 from agent_skill.report import Level, declare, fail
+lazy from agent_skill.doc import Block, Doc
 lazy from agent_skill.doc.chapter import RenameTable, Section
 lazy from agent_skill.model import Chapter, Skill
 lazy from agent_skill.report import Finding
@@ -64,6 +80,15 @@ RENAME_ELSEWHERE = declare("skeleton", "rename_elsewhere", Level.FAIL)
 RENAMES_NAMED = declare("skeleton", "renames_named", Level.FAIL)
 RENAMES_ON_PATH = declare("skeleton", "renames_on_path", Level.FAIL)
 
+# The branches only a normalised standard is held to (`_normal_form`).
+TITLE_CODE = declare("skeleton", "title_code", Level.FAIL)
+NO_SCOPE = declare("skeleton", "no_scope", Level.FAIL)
+DECIDED_LAST = declare("skeleton", "decided_last", Level.FAIL)
+CHAPTER_NAMED = declare("skeleton", "chapter_named", Level.FAIL)
+REALITY_SECTIONS = declare("skeleton", "reality_sections", Level.FAIL)
+REALITY_TABLE = declare("skeleton", "reality_table", Level.FAIL)
+REALITY_OWNER = declare("skeleton", "reality_owner", Level.FAIL)
+
 
 @check("skeleton", "every standard has the same shape")
 @per_skill
@@ -75,6 +100,8 @@ def skeleton(skill: Skill) -> Iterator[Finding]:
     yield from _home(skill)
     yield from _renames(skill)
     yield from _unchanged(skill)
+    if skill.profile.normalized:
+        yield from _normal_form(skill)
 
 
 def _history(skill: Skill) -> tuple[RenameTable, ...]:
@@ -362,3 +389,238 @@ def _items(section: Section | None) -> list[str]:
         if item.blocks and isinstance(lead := item.blocks[0], Paragraph)
         if (m := re.match(r"\*\*(.+?)\*\*", lead.text))
     ]
+
+
+# ------------------------------------------------------------------
+# the normal form: what a normalised standard is held to
+
+
+def _normal_form(skill: Skill) -> Iterator[Finding]:
+    """One chapter template, and section 2 as an index into the rules.
+
+    Only a standard whose profile is `normalized`, until all four are
+    (normalize-the-standards, decision 14).
+    """
+    yield from _template(skill)
+    yield from _named(skill)
+    yield from _reality(skill)
+
+
+#: What a chapter's scope opens with.
+SCOPE = "Scope:"
+
+
+def _template(skill: Skill) -> Iterator[Finding]:
+    """Each chapter opens with its concept and its scope (decision 1).
+
+    A title, with no family code: the code is the file's, through the
+    vocabulary. Then a `Scope:` paragraph; then the contents and the
+    sections, `Decided by tools` last. The review protocol and the
+    rename history own no rules and have no code, so they are not
+    chapters of this template; a chapter the layer refuses is reported
+    by `unread` and read no further.
+    """
+    for chapter in skill.chapters:
+        code = vocabulary.code_for(chapter.path.stem)
+        if not code or chapter.refused is not None:
+            continue
+        typed = chapter.typed
+        if _coded(typed.title, skill.prefix):
+            yield fail(
+                f"`{chapter.name}` opens `{_h1(typed.title)}`; a title names the "
+                f"chapter's concept, and `{skill.prefix}-{code}` is the file's",
+                chapter.where(1),
+                TITLE_CODE,
+            )
+        if not (typed.scope and _is_scope(typed.scope[0])):
+            yield fail(
+                f"`{chapter.name}` does not open with a `{SCOPE}` paragraph saying "
+                "what it owns and which chapters neighbour it",
+                chapter.where(),
+                NO_SCOPE,
+            )
+        titles = [s.title for s in typed.sections]
+        if DECIDED in titles and titles[-1] != DECIDED:
+            yield fail(
+                f"`{chapter.name}` puts `## {titles[-1]}` after `## {DECIDED}`, "
+                "which is last",
+                chapter.where(),
+                DECIDED_LAST,
+            )
+
+
+def _coded(title: str, prefix: str) -> bool:
+    """Does `title` open with a family code: `RS-BUILD — Cargo`?"""
+    first = title.split(maxsplit=1)[0] if title else ""
+    standard, dash, family = first.partition("-")
+    codes = {*vocabulary.CHAPTERS.values(), vocabulary.CORE}
+    return bool(dash) and standard == prefix and family in codes
+
+
+def _is_scope(block: Block) -> bool:
+    """Is `block` the paragraph that scopes a chapter?"""
+    return isinstance(block, Paragraph) and block.text.startswith(SCOPE)
+
+
+#: A chapter named by its file: `` `references/errors.md` ``, or
+#: `` `errors.md` ``. Which stems are chapters is the vocabulary's.
+_FILE = re.compile(r"`(?:references/)?(?P<stem>[a-z0-9-]+)\.md`")
+
+
+def _named(skill: Skill) -> Iterator[Finding]:
+    """A chapter is named only in section 6 and in a `Scope:` paragraph.
+
+    Section 6 maps each family to its file, which is the one place a
+    reader needs the path; a scope says which chapters neighbour this
+    one. Anywhere else a citation is a bare rule ID (decision 3), and a
+    chapter named in passing is a second map.
+    """
+    for path, doc in skill.docs.items():
+        for block in _naming(doc, skill_md=path == skill.skill_md):
+            text = text_of((block,))
+            for m in _FILE.finditer(text):
+                if vocabulary.code_for(m["stem"]):
+                    line = block.line + text.count("\n", 0, m.start())
+                    yield fail(
+                        f"names the chapter {m.group(0)}; outside section 6 and a "
+                        f"`{SCOPE}` paragraph a rule is cited by its ID",
+                        skill.at(path, line),
+                        CHAPTER_NAMED,
+                    )
+
+
+def _naming(doc: Doc, *, skill_md: bool) -> Iterator[Block]:
+    """Each top-level block of `doc` in which naming a chapter is one.
+
+    Every block but an example, the history a rename table keeps,
+    `SKILL.md`'s section 6, and a chapter's `Scope:` paragraph.
+    """
+    section = ""
+    for block, held in history(doc):
+        if isinstance(block, Heading) and block.level == SECTION_LEVEL:
+            section = block.text
+        if held or isinstance(block, Fence):
+            continue
+        if (skill_md and section == shared.MAP) or (not skill_md and _is_scope(block)):
+            continue
+        yield block
+
+
+#: The level of a section's heading, and of a subsection's.
+SECTION_LEVEL, SUBSECTION_LEVEL = 2, 3
+
+#: The header of section 2.2's one table: old spelling, new, owner.
+REALITY_HEADER = ("Old", "New", "Rule")
+
+
+def reality_titles(skill: Skill) -> tuple[str, str, str]:
+    """Section 2's three subsections, in their order (decision 5)."""
+    target = f"{skill.profile.language} {skill.profile.target}"
+    return (
+        "2.1 Compiles, and behaves differently",
+        "2.2 No longer compiles",
+        f"2.3 What {target} gained",
+    )
+
+
+def _reality(skill: Skill) -> Iterator[Finding]:
+    """Section 2 is three subsections, and indexes the chapters.
+
+    What compiles and behaves differently, what no longer compiles (one
+    table: old, new, rule), what the target gained, in that order. Each
+    item names the rule that owns it, so section 2 holds nothing of its
+    own (decision 5).
+    """
+    title = shared.skill_sections(skill)[2]
+    section = next((s for s in skill.typed.sections if s.title == title), None)
+    if section is None:
+        return  # `section` reports a missing or misnamed section 2
+    where = skill.at(SKILL_MD, section.line)
+    before, parts = _subsections(section.lead)
+    want = reality_titles(skill)
+    found = [heading.text for heading, _ in parts]
+    if before or found != list(want):
+        yield fail(
+            f"section 2 holds {found or 'no subsection'}"
+            f"{' after text of its own' if before else ''}; it is "
+            f"{list(want)}, and nothing before them",
+            where,
+            REALITY_SECTIONS,
+        )
+    held = {heading.text: blocks for heading, blocks in parts}
+    gone = held.get(want[1])
+    if gone is not None and not (
+        len(gone) == 1
+        and isinstance(table := gone[0], Table)
+        and table.header == REALITY_HEADER
+    ):
+        yield fail(
+            f"{want[1]} is one table, `| {' | '.join(REALITY_HEADER)} |`",
+            where,
+            REALITY_TABLE,
+        )
+    for heading, blocks in parts:
+        if heading.text in want:
+            yield from _owned(skill, blocks)
+
+
+def _subsections(
+    lead: Sequence[Block],
+) -> tuple[tuple[Block, ...], list[tuple[Heading, tuple[Block, ...]]]]:
+    """A section's lead: what precedes its first `###`, then each `###`.
+
+    Each subsection is its heading and the blocks under it.
+    """
+    before: list[Block] = []
+    parts: list[tuple[Heading, tuple[Block, ...]]] = []
+    for block in lead:
+        if isinstance(block, Heading) and block.level == SUBSECTION_LEVEL:
+            parts.append((block, ()))
+        elif parts:
+            parts[-1] = (parts[-1][0], (*parts[-1][1], block))
+        else:
+            before.append(block)
+    return tuple(before), parts
+
+
+def _owned(skill: Skill, blocks: Sequence[Block]) -> Iterator[Finding]:
+    """Each item of a subsection names one of this standard's rules.
+
+    An item is a paragraph, a list item or a table row, and its owner
+    is any rule of this standard it cites. A row of a migration table
+    is owned by the rule in its Rule column (decision 9), so an item
+    naming that rule names the row's owner. Anything else — an example,
+    a quote — is content a chapter owns, and is reported as an item
+    naming none.
+    """
+    for block in blocks:
+        if not isinstance(block, (Paragraph, ListBlock, Table)):
+            yield fail(
+                f"section 2 holds a {type(block).__name__.lower()}, which names no "
+                "rule; section 2 indexes the chapters and holds nothing of its own",
+                skill.at(SKILL_MD, block.line),
+                REALITY_OWNER,
+            )
+            continue
+        for line, item in _stated(block):
+            if not any(cited(item, skill.prefix)):
+                said = " ".join(item.split())
+                yield fail(
+                    f"section 2 says {said[:60]!r} and names no rule that owns it; "
+                    "section 2 indexes the chapters and holds nothing of its own",
+                    skill.at(SKILL_MD, line),
+                    REALITY_OWNER,
+                )
+
+
+def _stated(block: Paragraph | ListBlock | Table) -> Iterator[tuple[int, str]]:
+    """Each item `block` states, as text, and its line."""
+    match block:
+        case Paragraph(line=line):
+            yield line, block.text
+        case ListBlock(items=items):
+            for item in items:
+                yield item.line, text_of(item.blocks)
+        case Table(rows=rows, line=line):
+            for k, row in enumerate(rows):
+                yield line + 2 + k, " | ".join(row)

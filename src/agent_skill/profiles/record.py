@@ -230,6 +230,17 @@ class Profile:
     prose: tuple[LineRule, ...] = ()
     #: This standard's own rules that read an example's structure.
     structural: tuple[Structural, ...] = ()
+    #: Whether the standard is in normal form, and held to it: one
+    #: chapter template, one rule shape, bare citations, Checks that run
+    #: what they name, section 2 as an index, tier as one predicate.
+    #:
+    #: Scaffolding with a stated end. Each property lands as a check
+    #: only a normalised standard is held to, a standard is normalised
+    #: in one step and sets this, and once all four have, the field and
+    #: every condition on it are deleted. Until then `fmt` prints the
+    #: normal form only for these, since the others still cite a core
+    #: rule's chapter by its path.
+    normalized: bool = False
 
     @property
     def all_marked(self) -> tuple[str, ...]:

@@ -17,7 +17,8 @@ from pathlib import Path
 lazy from collections.abc import Mapping
 
 from agent_skill import shared
-from agent_skill.doc import Doc, Fence, Item, ListBlock, Quote, canonical, walk
+from agent_skill.doc import Doc, Fence, Item, ListBlock, Quote, walk
+from agent_skill.doc.normal import normal
 from agent_skill.lang import execute, judged, toolchain_for
 from agent_skill.model import Block, Skill
 from agent_skill.report import Finding, Level, declare, fail, note
@@ -55,11 +56,22 @@ def _reprint(skill: Skill) -> list[Finding]:
     it is what `layout` holds every file to. The file is read with its
     newlines untranslated, as `layout` reads it, so a CR inside an
     example is left for a person rather than turned into a line break.
+
+    A normalised standard is printed in its normal form as well: every
+    citation bare, every rule's elements in order. Only a normalised
+    one, while `Profile.normalized` is the gate: the other standards
+    still cite a core rule's chapter by path, which `anatomy` reads
+    until section 4 is a projection, and are normalised a standard at a
+    time rather than by a formatter.
     """
     changed: list[Finding] = []
+    chapters = {c.path for c in skill.chapters}
     for path in skill.markdown:
         text = path.read_text(newline="")
-        if (printed := canonical(text)) != text:
+        tree = Doc.parse(text)
+        if skill.profile.normalized:
+            tree = normal(tree, chapter=path in chapters)
+        if (printed := str(tree)) != text:
             path.write_text(printed)
             changed.append(
                 note("re-printed in its canonical form", skill.at(path), REPRINTED)

@@ -26,6 +26,7 @@ from agent_skill.ids import (
     Version,
     cited,
     cited_at,
+    leading,
     parse_answer,
     print_range,
     ranges,
@@ -317,6 +318,23 @@ def test_an_id_is_cited_only_whole() -> None:
     assert [str(r) for r in cited(text)] == ["XS-ERR-03", "XS-OUT-12a"]
     assert [str(r) for r in cited(f"{text} YS-ERR-01", "YS")] == ["YS-ERR-01"]
     assert uncited("XS-ERR-03 and XS-OUT-01.") == " and ."
+
+
+@pytest.mark.parametrize(
+    ("text", "rid"),
+    [
+        ("XS-ERR-03", RuleId("XS", "ERR", 3)),
+        ("XS-ERR-03),", RuleId("XS", "ERR", 3)),
+        ("XS-ERR-03's", RuleId("XS", "ERR", 3)),
+        ("XS-CORE-12a.", RuleId("XS", "CORE", 12, "a")),
+        ("XS-ERR-03ab", None),
+        ("XS-ERR-03_", None),
+        ("(XS-ERR-03", None),
+        ("XS-ERR", None),
+    ],
+)
+def test_a_word_opens_with_the_id_it_cites(text: str, rid: RuleId | None) -> None:
+    assert leading(text) == rid
 
 
 def test_where_a_citation_ends_is_where_what_follows_it_begins() -> None:

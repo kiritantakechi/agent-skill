@@ -28,6 +28,7 @@ from agent_skill.checks import (
     check,
     citations,
     crossref,
+    demo,
     dialect,
     documented,
     frontmatter,
@@ -46,6 +47,7 @@ from agent_skill.checks import (
 from agent_skill.ids import Branch, Location
 from agent_skill.lang import python, rust, zig
 from agent_skill.layout import PLUGIN, SKILLS, root_of
+from agent_skill.model import SKILL_MD
 from agent_skill.profiles import bevy_style, python_style, rust_style, zig_style
 from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.checks import Check, by_name
@@ -53,7 +55,7 @@ lazy from agent_skill.harness import pinned
 lazy from agent_skill.lang import toolchain_for
 lazy from agent_skill.lang.python import INTERPRETER
 lazy from agent_skill.model import Skill, Tree, discover
-lazy from agent_skill.profiles import PROFILES
+lazy from agent_skill.profiles import PROFILES, Profile
 lazy from agent_skill.report import Finding, Result
 
 
@@ -188,11 +190,16 @@ class Control:
     lie in. `also` names each other branch of the check the defect
     cannot help reaching, with why — any other branch reporting it
     fails the control.
+
+    `profiles` reads a skill of the copy with a profile of its own, by
+    the skill's name, in place of the one `PROFILES` gives: the demo
+    standard's, which no skill ships with (`checks.demo`).
     """
 
     branch: Branch
     inject: Callable[[Path], Sequence[str]]
     also: Mapping[Branch, str] = field(default_factory=dict)
+    profiles: Mapping[str, Profile] = field(default_factory=dict)
 
 
 def exercise(control: Control, source: Path) -> list[Finding]:
@@ -219,7 +226,9 @@ def exercise(control: Control, source: Path) -> list[Finding]:
         # too. `run` decides which checks those are, from how the check
         # was written. An edit beside the skills names none, and the
         # check reads every skill.
-        tree = Tree.of(discover(copy))
+        tree = Tree.of(
+            Skill(s.root, control.profiles.get(s.name)) for s in discover(copy)
+        )
         about = {Path(rel).parts[0] for rel in edited}
         result = target.run(tree, about=about)
         read = {s.name for s in tree} & about or {s.name for s in tree}
@@ -548,6 +557,138 @@ def _orphan_exemption(tree: Path) -> Edited:
         "**Check:** grep public return types for `std::collections::`",
         "Grep public return types for `std::collections::`",
     )
+
+
+#: The demo's chapter of rules, as an edit names it.
+_DEMO_ERRORS = "references/errors.md"
+
+
+def _normal(branch: Branch, rel: str, old: str, new: str, count: int = 1) -> Control:
+    """A control on the demo standard, in normal form, and one edit.
+
+    Only a normalised standard is held to the normal form, and no
+    shipped one is normalised yet: each breaks most of its properties
+    at once, so flipping a shipped profile's flag would fire every
+    branch beside the one a control is for. The demo keeps every
+    property, and `rel` is a file of it.
+    """
+
+    def inject(tree: Path) -> Edited:
+        built = demo.build(tree)
+        return (*built, *edit(tree, f"{demo.PROFILE.name}/{rel}", old, new, count))
+
+    return Control(branch, inject, profiles={demo.PROFILE.name: demo.PROFILE})
+
+
+#: The one control per branch of the normal form, each on the demo.
+NORMAL_FORM: list[Control] = [
+    # The standard's own family code in the title, as seven rust-style
+    # chapters open.
+    _normal(skeleton.TITLE_CODE, _DEMO_ERRORS, "# Errors\n", "# DS-ERR — Errors\n"),
+    _normal(skeleton.NO_SCOPE, _DEMO_ERRORS, "Scope: what", "Covers what"),
+    _normal(
+        # A section after the tool table, which is last.
+        skeleton.DECIDED_LAST,
+        _DEMO_ERRORS,
+        "No tool decides any of this chapter on its own.\n",
+        "No tool decides any of this chapter on its own.\n\n## Afterword\n\nNone.\n",
+    ),
+    _normal(
+        skeleton.CHAPTER_NAMED,
+        _DEMO_ERRORS,
+        "**Why:** only the caller",
+        "**Why:** as `references/migration.md` shows, only the caller",
+    ),
+    _normal(
+        skeleton.REALITY_SECTIONS,
+        SKILL_MD,
+        "### 2.3 What Demo 1.2 gained",
+        "### 2.3 New",
+    ),
+    _normal(
+        skeleton.REALITY_TABLE,
+        SKILL_MD,
+        "| Old | New | Rule |",
+        "| Before | After | Rule |",
+    ),
+    _normal(
+        # The 2.1 item, its owner taken away.
+        skeleton.REALITY_OWNER,
+        SKILL_MD,
+        "stopped the program (DS-ERR-01).",
+        "stopped the program.",
+    ),
+    _normal(
+        anatomy.RESTATED_TITLE,
+        _DEMO_ERRORS,
+        "A caller decides what a failure means",
+        "Return an error for a failure the caller can handle: a caller decides what "
+        "a failure means",
+    ),
+    _normal(
+        # The Check before the Why, which `fmt` would put back.
+        anatomy.ELEMENT_ORDER,
+        _DEMO_ERRORS,
+        "**Why:** a library that stops its host takes the decision from the one "
+        "place that can make it.\n\n**Check:** `rg -n 'process::exit' src/` — every "
+        "hit in library code is the finding.\n",
+        "**Check:** `rg -n 'process::exit' src/` — every hit in library code is the "
+        "finding.\n\n**Why:** a library that stops its host takes the decision from "
+        "the one place that can make it.\n",
+    ),
+    _normal(
+        anatomy.STRAY,
+        _DEMO_ERRORS,
+        "open(path) -> File\n```\n",
+        "open(path) -> File\n```\n\nThe second example is the defect.\n",
+    ),
+    _normal(
+        # A second BAD, where a GOOD was.
+        anatomy.POLARITY,
+        _DEMO_ERRORS,
+        "// verified — GOOD\n",
+        "// verified — BAD\n",
+    ),
+    _normal(
+        anatomy.RELAXED_TIER,
+        _DEMO_ERRORS,
+        "**Why:** a library that stops its host",
+        "*Relaxed form:* a program may stop.\n\n**Why:** a library that stops its host",
+    ),
+    _normal(
+        anatomy.QUOTED_CITATION,
+        _DEMO_ERRORS,
+        "as DS-ERR-01 says",
+        "as `DS-ERR-01` says",
+    ),
+    _normal(
+        anatomy.PATH_CITATION,
+        _DEMO_ERRORS,
+        "as DS-ERR-01 says",
+        "as `references/errors.md` DS-ERR-01 says",
+    ),
+    _normal(
+        # The scenario the spec names: a pattern no one runs.
+        anatomy.PROSE_GREP,
+        _DEMO_ERRORS,
+        "**Check:** read each function that can fail;",
+        "**Check:** grep for `exit` in each function that can fail;",
+    ),
+    _normal(
+        anatomy.LOCAL_SCOPE,
+        _DEMO_ERRORS,
+        "so the function that meets one reports it.",
+        "so the function that meets one reports it. `[M!]` applies to libraries.",
+    ),
+    _normal(
+        # Heading and contents line alike, so only the mood is wrong.
+        anatomy.ADVICE_TITLE,
+        _DEMO_ERRORS,
+        "[M] Never stop the program from a library",
+        "[M] Prefer not to stop the program from a library",
+        2,
+    ),
+]
 
 
 CONTROLS: list[Control] = [
@@ -1894,6 +2035,7 @@ CONTROLS: list[Control] = [
             f"{_SYSTEM_SET}\npub enum Combat {{",
         ),
     ),
+    *NORMAL_FORM,
 ]
 
 

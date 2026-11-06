@@ -18,7 +18,8 @@ from agent_skill.doc import (
     printed,
     text_of,
 )
-from agent_skill.doc.chapter import WHY, citing
+from agent_skill.doc.chapter import LABEL, ORDER, WHY, Element, citing
+from agent_skill.doc.normal import qualified, quoted, runs
 from agent_skill.ids import (
     DASH,
     FAMILY,
@@ -30,7 +31,7 @@ from agent_skill.ids import (
     rule_id,
     uncited,
 )
-from agent_skill.model import SKILL_MD
+from agent_skill.model import SKILL_MD, Marker, marker_line
 from agent_skill.report import Level, declare, fail, note
 lazy from agent_skill.doc import Block
 lazy from agent_skill.doc.chapter import Entry, Rule
@@ -128,6 +129,18 @@ BELOW_TARGET = declare("anatomy", "below_target", Level.FAIL)
 WHY_LENGTH = declare("anatomy", "why_length", Level.FAIL)
 NUMBERING = declare("anatomy", "numbering", Level.FAIL)
 
+# The branches only a normalised standard is held to (`_normal_form`).
+RESTATED_TITLE = declare("anatomy", "restated_title", Level.FAIL)
+ELEMENT_ORDER = declare("anatomy", "element_order", Level.FAIL)
+STRAY = declare("anatomy", "stray", Level.FAIL)
+POLARITY = declare("anatomy", "polarity", Level.FAIL)
+RELAXED_TIER = declare("anatomy", "relaxed_tier", Level.FAIL)
+QUOTED_CITATION = declare("anatomy", "quoted_citation", Level.FAIL)
+PATH_CITATION = declare("anatomy", "path_citation", Level.FAIL)
+PROSE_GREP = declare("anatomy", "prose_grep", Level.FAIL)
+LOCAL_SCOPE = declare("anatomy", "local_scope", Level.FAIL)
+ADVICE_TITLE = declare("anatomy", "advice_title", Level.FAIL)
+
 
 def shingles(s: str, n: int = 4) -> set[tuple[str, ...]]:
     """Every run of `n` consecutive words in `s`, minus stop words."""
@@ -176,6 +189,8 @@ def anatomy(skill: Skill) -> Iterator[Finding]:
     yield from _abbreviated(skill)
     yield from _counts(skill)
     yield from _near_duplicates(skill, parts)
+    if skill.profile.normalized:
+        yield from _normal_form(skill)
 
 
 def _toc(chapter: Chapter) -> dict[RuleId, Entry]:
@@ -649,3 +664,236 @@ def structural(skill: Skill) -> Iterator[Finding]:
                         NUMBERING,
                     )
                     break
+
+
+# ------------------------------------------------------------------
+# the normal form: what a normalised standard is held to
+
+
+def _normal_form(skill: Skill) -> Iterator[Finding]:
+    """Each rule in one shape, and every citation a bare ID.
+
+    Only a standard whose profile is `normalized`, until all four are
+    (normalize-the-standards, decision 14): each property is a
+    consequence of a decision the others have not been brought into.
+    """
+    for chapter in skill.chapters:
+        for rule in chapter.typed.rules:
+            where = chapter.where(rule.line)
+            yield from _shaped(rule, where)
+            yield from _checked(rule, where)
+            yield from _one_predicate(rule, where)
+    yield from _cited_bare(skill)
+
+
+def plain(text: str) -> list[str]:
+    """The words of `text`, lowercase, code ticks and emphasis left out.
+
+    What a title and a statement are compared as: a statement that
+    quotes its title's code, or sets a word of it in bold, still says it
+    again.
+    """
+    return [m.group() for m in re.finditer(r"[a-z0-9]+", text.lower())]
+
+
+def restates(rule: Rule) -> bool:
+    """Does the rule's statement open by saying its title again?
+
+    The title is the statement's first words, however the sentence goes
+    on: "Never use features for mutually exclusive choices." after the
+    title of that name, or the same words followed by a colon and a
+    list. A statement says what the title cannot fit, or is left out.
+    """
+    first = rule.parts[0] if rule.parts else None
+    if first is None or first.element is not Element.STATEMENT:
+        return False
+    match first.blocks:
+        case (Paragraph() as opening, *_):
+            title = plain(rule.title)
+            return bool(title) and plain(opening.text)[: len(title)] == title
+        case _:
+            return False
+
+
+def disorder(rule: Rule) -> tuple[Element, Element] | None:
+    """The first element the rule states after one that follows it.
+
+    The element out of place, and the one it comes after. A stray block
+    has no place to be out of, and the relaxed form's place beside the
+    Why is `relaxed_order`'s to judge, so neither is compared.
+    """
+    furthest: Element | None = None
+    for part in rule.parts:
+        if part.element in {Element.STRAY, Element.RELAXED}:
+            continue
+        if furthest is not None and ORDER.index(part.element) < ORDER.index(furthest):
+            return part.element, furthest
+        if furthest is None or ORDER.index(part.element) > ORDER.index(furthest):
+            furthest = part.element
+    return None
+
+
+def _stray(rule: Rule) -> str | None:
+    """The rule's first stray block, said for a reader; or None."""
+    part = next((p for p in rule.parts if p.element is Element.STRAY), None)
+    if part is None:
+        return None
+    match part.blocks[0]:
+        case Heading(text=text):
+            return f"the heading `{text}`"
+        case Paragraph(text=text) if (label := LABEL.match(text)) is not None:
+            return f"the label `{label.group(0)}`, which the shape has no place for"
+        case _:
+            return "prose after an example"
+
+
+def _shaped(rule: Rule, where: Location) -> Iterator[Finding]:
+    """Statement, relaxed form, Why, Check, examples: in order, once.
+
+    Out of order is `fmt`'s to fix and reported until it has; a stray
+    block, a restated title and a second example of one side are a
+    person's (decision 2).
+    """
+    if restates(rule):
+        yield fail(
+            f"{rule.id}'s statement opens with its title again; a statement says "
+            "what the title cannot, or is left out",
+            where,
+            RESTATED_TITLE,
+        )
+    if (found := disorder(rule)) is not None:
+        late, early = found
+        yield fail(
+            f"{rule.id} states its {late.value} after its {early.value}; a rule "
+            "states statement, relaxed form, Why, Check, then examples — "
+            "`agent-skill fmt` puts them in order",
+            where,
+            ELEMENT_ORDER,
+        )
+    if (what := _stray(rule)) is not None:
+        yield fail(
+            f"{rule.id} holds {what}; no element of a rule holds it, so it "
+            "belongs in the statement, in another rule, or nowhere",
+            where,
+            STRAY,
+        )
+    sides = Counter(Marker(marker_line(f.body)).verdict for f in rule.examples)
+    if over := [side for side in ("GOOD", "BAD") if sides[side] > 1]:
+        yield fail(
+            f"{rule.id} carries {sides[over[0]]} {over[0]} examples; a second "
+            "defect is a second rule or a tool row",
+            where,
+            POLARITY,
+        )
+    relaxed = any(
+        _RELAXED.search(text_of((b,))) for b in rule.body if not isinstance(b, Fence)
+    )
+    if relaxed and rule.tier is not Tier.M_BANG:
+        yield fail(
+            f"{rule.id} is {rule.tier} and states a relaxed form; only an [M!] "
+            "rule relaxes, outside section 1's scope",
+            where,
+            RELAXED_TIER,
+        )
+
+
+#: A Check that names a search in prose: `grep for X`, `search for X`.
+#: Read with every code span taken out, so an `rg` command is not one.
+_SEARCH = re.compile(
+    r"\b(?:grep\w*|rg|ripgrep)\b|\bsearch(?:es|ing)?\s+(?:for|over|through)\b",
+    re.IGNORECASE,
+)
+
+
+def _checked(rule: Rule, where: Location) -> Iterator[Finding]:
+    """A Check that names a pattern runs it (decision 4).
+
+    A Check is judgement in prose, or `rg` commands and the finding
+    each reports. "grep for `X`" is neither: it reads like a command,
+    and no one runs it, `self-application` included.
+    """
+    said = _SPAN.sub(" ", text_of(rule.check))
+    if (m := _SEARCH.search(said)) is not None:
+        yield fail(
+            f"{rule.id}'s Check says `{m.group(0)}` and runs nothing; give the "
+            "`rg` command and the finding it reports, or state the judgement",
+            where,
+            PROSE_GREP,
+        )
+
+
+#: Titles that advise rather than command: a mandatory rule's title in
+#: the mood of a suggestion (decision 6).
+ADVICE = (
+    "Prefer",
+    "Consider",
+    "Know",
+    "Remember",
+    "Understand",
+    "Treat",
+    "Expect",
+    "Assume",
+    "Budget",
+)
+
+
+def _one_predicate(rule: Rule, where: Location) -> Iterator[Finding]:
+    """`[M!]` is section 1's scope, and a mandatory title commands.
+
+    A rule that says where `[M!]` applies redefines the tier for itself;
+    a condition on its subject belongs in its statement (decision 6).
+    """
+    prose = text_of(b for b in rule.body if not isinstance(b, Fence))
+    if str(Tier.M_BANG) in prose:
+        yield fail(
+            f"{rule.id} restates the {Tier.M_BANG} scope; section 1 states it once, "
+            "and a condition on the subject belongs in the statement",
+            where,
+            LOCAL_SCOPE,
+        )
+    first = rule.title.split(maxsplit=1)[0] if rule.title else ""
+    if rule.tier is not Tier.S and first in ADVICE:
+        yield fail(
+            f"{rule.id} is {rule.tier} and its title opens `{first}`; a mandatory "
+            "rule commands or prohibits, and only an [S] rule advises",
+            where,
+            ADVICE_TITLE,
+        )
+
+
+def _cited_bare(skill: Skill) -> Iterator[Finding]:
+    """Every rule is cited by its bare ID (decision 3).
+
+    Never quoted, never behind its chapter's path: section 6 maps each
+    family to its file. An example's words are code, and a rename
+    table's are history; neither is read.
+    """
+    for path, doc in skill.docs.items():
+        for block in citing(doc):
+            text = text_of((block,))
+            for _, run in runs(block):
+                for word in run:
+                    for rid in quoted(word):
+                        yield fail(
+                            f"`{rid}` is quoted; a rule is cited by its bare ID — "
+                            "`agent-skill fmt` unquotes it",
+                            skill.at(path, _line(block, text, f"`{rid}`")),
+                            QUOTED_CITATION,
+                        )
+                for _, chapter, rid in qualified(run):
+                    yield fail(
+                        f"`{chapter}` {rid} names the chapter; a rule is cited by its "
+                        "bare ID, and section 6 maps it to its file — "
+                        "`agent-skill fmt` drops the path",
+                        skill.at(path, _line(block, text, f"`{chapter}`")),
+                        PATH_CITATION,
+                    )
+
+
+def _line(block: Block, text: str, said: str) -> int:
+    """The line of `block` on which `said` first appears in `text`.
+
+    `text` is the block as printed, which is the file's own in every
+    file `layout` passes.
+    """
+    return block.line + text.count("\n", 0, max(text.find(said), 0))

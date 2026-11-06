@@ -33,9 +33,10 @@ IDS = "ids.py"
 #: The package that spells the column limit, a fence and a heading.
 DOC = "doc/"
 
-#: The markdown a negative control injects. Written to make a defect,
+#: The markdown the negative controls write: each control's defect, and
+#: the demo standard the controls of the normal form break. Written,
 #: never read, so a fence or a heading in it is text, not a reader.
-INJECTED = "checks/controls.py"
+INJECTED = frozenset({"checks/controls.py", "checks/demo.py"})
 
 #: The patterns composed from `ids.rule_id()` outside `ids`, by module
 #: and the name they are built in: a core rule's citation, a citation
@@ -218,7 +219,7 @@ def spellings(module: str, source: str) -> Iterator[tuple[str, Literal]]:
     literals, calls = read(source, module)
     for lit in literals:
         for what in _spelled(lit):
-            injected = module == INJECTED and HOME[what] == DOC
+            injected = module in INJECTED and HOME[what] == DOC
             if not module.startswith(HOME[what]) and not injected:
                 yield what, lit
     for call in calls:

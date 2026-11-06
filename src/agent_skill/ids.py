@@ -131,6 +131,18 @@ def uncited(text: str, standard: str = STANDARD) -> str:
     return _whole(standard).sub("", text)
 
 
+def leading(text: str) -> RuleId | None:
+    """The rule ID `text` opens with, or None when it opens otherwise.
+
+    As a word citing a rule does, whatever follows the ID: `RS-ERR-03),`
+    or `ZS-ERR-01's`. A word character after the ID and its inserted
+    letter would make it part of something else, so `RS-ERR-03ab`
+    opens with none.
+    """
+    m = re.match(rf"{rule_id()}\b", text)
+    return RuleId.parse(m.group()) if m else None
+
+
 #: The en dash a range of IDs is written with, as prose writes a range
 #: of numbers.
 DASH = "\u2013"

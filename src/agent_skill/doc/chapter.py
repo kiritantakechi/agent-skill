@@ -16,6 +16,7 @@ section 4.
 
 import re
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Self
 lazy from collections.abc import Iterator
 
@@ -46,7 +47,7 @@ RENAMED = re.compile(r"Rule IDs before the .+ revision")
 
 #: The labels a rule's parts open with, and the shape any label has.
 WHY, CHECK, RELAXED = "**Why:**", "**Check:**", "*Relaxed form:*"
-_LABEL = re.compile(r"\*\*[^*]+:\*\*|\*Relaxed form:\*")
+LABEL = re.compile(r"\*\*[^*]+:\*\*|\*Relaxed form:\*")
 
 #: The cells of a `Decided by tools` row: tool, lint, level, forbids.
 _LINT_CELLS = 4
@@ -130,6 +131,27 @@ class Rule:
         """Every fenced example under the rule, in order."""
         return tuple(b for b in self.body if isinstance(b, Fence))
 
+    @property
+    def parts(self) -> tuple[Part, ...]:
+        """The rule's body as the elements it states, in its order.
+
+        A label opens its element and a fence is an example; a block
+        with neither carries the element before it on, as `_part` reads
+        a second paragraph of a Why, except after an example, where
+        nothing is carried. A block no element holds is `STRAY`, and so
+        is what follows it until the next label or example.
+        """
+        out: list[Part] = []
+        for block in self.body:
+            opened = _opens(block)
+            if opened is None and out and out[-1].element is not Element.EXAMPLE:
+                out[-1] = Part(out[-1].element, (*out[-1].blocks, block))
+                continue
+            if opened is None:
+                opened = Element.STRAY if out else Element.STATEMENT
+            out.append(Part(opened, (block,)))
+        return tuple(out)
+
     def heading(self) -> Heading:
         """The `###` heading this rule is read from."""
         return Heading(3, f"{self.id} {self.tier} {self.title}", self.line)
@@ -138,8 +160,64 @@ class Rule:
 def _ends_part(block: Block) -> bool:
     """Does `block` end the labelled part before it?"""
     if isinstance(block, Paragraph):
-        return bool(_LABEL.match(block.text))
+        return bool(LABEL.match(block.text))
     return isinstance(block, (Fence, Heading))
+
+
+class Element(Enum):
+    """What a block of a rule states, in the order a rule states them.
+
+    A statement, the relaxed form an `[M!]` rule gives, a Why, a Check,
+    then examples. `STRAY` is a block none of them holds: prose after an
+    example, a heading inside the rule, a label the shape has no place
+    for. Each element can be put in its place by moving it whole; a
+    stray block can only be placed by someone reading it.
+    """
+
+    STATEMENT = "statement"
+    RELAXED = "relaxed form"
+    WHY = "Why"
+    CHECK = "Check"
+    EXAMPLE = "example"
+    STRAY = "stray"
+
+
+#: The order a rule states its elements in. A stray block has no place.
+ORDER = (
+    Element.STATEMENT,
+    Element.RELAXED,
+    Element.WHY,
+    Element.CHECK,
+    Element.EXAMPLE,
+)
+
+#: The element each label of the shape opens.
+_LABELLED = {RELAXED: Element.RELAXED, WHY: Element.WHY, CHECK: Element.CHECK}
+
+
+@dataclass(frozen=True, slots=True)
+class Part:
+    """One element of a rule, and the blocks that state it."""
+
+    element: Element
+    blocks: tuple[Block, ...]
+
+
+def _opens(block: Block) -> Element | None:
+    """The element `block` opens, or None when it carries one on.
+
+    A fence is an example and a label opens its element; a heading, or
+    a label the shape does not have, opens a stray run.
+    """
+    match block:
+        case Fence():
+            return Element.EXAMPLE
+        case Heading():
+            return Element.STRAY
+        case Paragraph() if m := LABEL.match(block.text):
+            return _LABELLED.get(m.group(0), Element.STRAY)
+        case _:
+            return None
 
 
 @dataclass(frozen=True, slots=True)
