@@ -169,29 +169,40 @@ class Revision:
     def apply(self) -> None:
         """Move the chapters, write every file, restate shared passages.
 
-        A shared passage carries a rule count of its own, which a
-        removal changed.
+        A move goes through a name of its own first, so chapters that
+        swap names — a permutation, like any renumbering — do not land
+        on each other. A shared passage carries a rule count of its own,
+        which a removal changed.
         """
-        for old, new in self.moves.items():
-            tracked = subprocess.run(  # noqa: S603 — a fixed argv, no shell
-                ["git", "ls-files", "--error-unmatch", str(old)],  # noqa: S607 — the git on PATH, as a person runs it
-                cwd=self.repo,
-                capture_output=True,
-                check=False,
-            )
-            if tracked.returncode == 0:
-                subprocess.run(  # noqa: S603 — a fixed argv, no shell
-                    ["git", "mv", str(old), str(new)],  # noqa: S607 — the git on PATH
-                    cwd=self.repo,
-                    check=True,
-                )
-            else:
-                old.rename(new)
+        aside = {old: old.with_name(f".{old.name}.revising") for old in self.moves}
+        for old, new in (
+            *aside.items(),
+            *((aside[o], n) for o, n in self.moves.items()),
+        ):
+            _move(self.repo, old, new)
         for path, text in self.writes.items():
             path.write_text(text)
         if self.moves or self.writes:
             for skill in self.skills:
                 shared.rewrite(Skill(skill.root, skill.profile))
+
+
+def _move(repo: Path, old: Path, new: Path) -> None:
+    """Move `old` to `new`, through git when git tracks it."""
+    tracked = subprocess.run(  # noqa: S603 — a fixed argv, no shell
+        ["git", "ls-files", "--error-unmatch", str(old)],  # noqa: S607 — the git on PATH, as a person runs it
+        cwd=repo,
+        capture_output=True,
+        check=False,
+    )
+    if tracked.returncode == 0:
+        subprocess.run(  # noqa: S603 — a fixed argv, no shell
+            ["git", "mv", str(old), str(new)],  # noqa: S607 — the git on PATH
+            cwd=repo,
+            check=True,
+        )
+    else:
+        old.rename(new)
 
 
 def revise(
@@ -906,11 +917,15 @@ class _Corpus:
         the text whose IDs are citations. A standard's own rename
         tables are history and are kept; another standard's cite this
         one's IDs to say what replaced a rule of its own, which is a
-        live citation and follows the revision.
+        live citation and follows the revision. Another standard's file
+        whose text the rewrite leaves as it is is not read as a tree at
+        all: nothing in it would change.
         """
-        original = Doc.parse(text)
-        doc = _doc(path, own) or original
-        keep = own is not None and own.skill.root in path.parents
+        if own is None and swap(text) == text:
+            return None, text
+        original = _parsed(path, own) or Doc.parse(text)
+        doc = own.edited[path].doc() if own and path in own.edited else original
+        keep = own is not None
         said = "\n\n".join(
             [doc.frontmatter or ""]
             + [text_of((b,)) for b, held in history(doc) if not (keep and held)]
@@ -949,15 +964,10 @@ def _owns(repo: Path, std: _Standard, path: Path) -> bool:
     return std.skill.root in path.parents or path == profile
 
 
-def _doc(path: Path, own: _Standard | None) -> Doc | None:
-    """A standard's markdown as the plan leaves it, before respelling.
-
-    None for a file the plan does not touch and no standard has parsed.
-    """
-    if own is None or own.skill.root not in path.parents:
+def _parsed(path: Path, own: _Standard | None) -> Doc | None:
+    """`own`'s parse of `SKILL.md` or a chapter, read once already."""
+    if own is None:
         return None
-    if path in own.edited:
-        return own.edited[path].doc()
     if path == own.skill.skill_md:
         return own.skill.doc
     return next((c.doc for c in own.skill.chapters if c.path == path), None)
