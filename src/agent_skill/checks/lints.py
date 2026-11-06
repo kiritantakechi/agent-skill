@@ -76,7 +76,7 @@ def lints(skill: Skill) -> Iterator[Finding]:
 
     # clippy's own configuration: the same two tables, compared the same
     # way.
-    asset = skill.root / CLIPPY
+    asset = skill.asset(CLIPPY)
     shipped_clippy = tomllib.loads(asset.read_text()) if asset.exists() else {}
     if shipped_clippy != crate.clippy:
         yield fail(

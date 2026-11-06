@@ -45,7 +45,8 @@ function-style one is `-> impl Command` with a closure returning `Result`.
 
 *Relaxed form:* a debug tool, an example, or a `#[cfg(test)]` system may `expect` where the
 condition is a genuine invariant of the test, and the message states the invariant. The shipped
-`clippy.toml` allows `unwrap` and `expect` inside tests, so only a test takes this form unannotated.
+`rust-style`'s `clippy.toml` allows `unwrap` and `expect` inside tests, so only a test takes this
+form unannotated.
 
 **Why:** the conditions that fail are ordinary — a stale entity id, a missing asset, a malformed
 file. A returned error reaches a handler that can log it and carry on; a panic stays fatal under

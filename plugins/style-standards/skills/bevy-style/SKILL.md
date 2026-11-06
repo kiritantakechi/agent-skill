@@ -334,6 +334,5 @@ asset and the rule cannot drift apart.
 | File | Contents |
 |---|---|
 | `assets/Cargo.toml` | The workspace manifest for a game: an exact Bevy pin with a feature collection, the lint table with its two Bevy relaxations and their reasons, and the profiles that keep debug builds playable |
-| `assets/clippy.toml` | clippy's own settings: `unwrap` and `expect` allowed inside tests, the relaxed form BV-ERR-01 states, as `rust-style`'s are |
 | `assets/ci.yml` | The workflow: the boundary and one-Bevy checks, clippy and tests under deny-warnings, docs, the weekly advisory audit, the MSRV job and the release build |
-| `assets/rust-toolchain.toml` | The pinned stable toolchain the game builds with |
+| `rust-style`'s `assets/clippy.toml`, `assets/rustfmt.toml` and `assets/rust-toolchain.toml` | Unchanged: a delta ships only the assets it departs in, and these it does not. Its `clippy.toml` already allows `unwrap` and `expect` inside tests, the relaxed form BV-ERR-01 states |

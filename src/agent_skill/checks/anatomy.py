@@ -454,7 +454,7 @@ def _paths(skill: Skill, home: dict[RuleId, str]) -> Iterator[Finding]:
         texts = [(block.line, text_of((block,))) for block in doc.blocks]
         for _, text in texts:
             for ref in re.findall(r"`((?:references|assets)/[A-Za-z0-9._-]+)`", text):
-                if not (skill.root / ref).exists():
+                if not skill.asset(ref).exists():
                     yield fail(f"missing file {ref}", skill.at(path), MISSING_FILE)
         for line, text in texts:
             for m in near.finditer(text):

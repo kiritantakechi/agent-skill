@@ -873,6 +873,19 @@ CONTROLS: list[Control] = [
         lambda t: write(t, f"{RS}/assets/orphan.toml", "x = 1\n"),
     ),
     Control(
+        # A second copy of the anchor's file, which only drifts.
+        assets.DELTA_UNCHANGED,
+        lambda t: write(
+            t,
+            f"{BV}/assets/rustfmt.toml",
+            (t / RS / "assets/rustfmt.toml").read_text(),
+        ),
+    ),
+    Control(
+        assets.DELTA_UNNAMED,
+        lambda t: edit(t, f"{BV}/SKILL.md", "`assets/rustfmt.toml` and ", "and "),
+    ),
+    Control(
         # The defect verbatim: the shipped template named itself
         # `acme-widget` and its package `acmewidget`, so no backend
         # could find the package.

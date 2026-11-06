@@ -320,6 +320,20 @@ class Skill:
         """`references/renames.md`, which holds every rename table."""
         return self.root / REFERENCES / RENAMES_MD
 
+    def asset(self, rel: str) -> Path:
+        """The file this skill applies under `rel`: `assets/ci.yml`.
+
+        Its own; or, for a delta that does not ship one, its anchor's.
+        A delta ships only the assets it departs in, so one it does not
+        ship is its anchor's, and every reader asks this rather than
+        joining the path itself.
+        """
+        own = self.root / rel
+        anchor = self.profile.anchor
+        if own.exists() or not anchor:
+            return own
+        return self.root.parent / anchor / rel
+
     @cached_property
     def text(self) -> str:
         """`SKILL.md`, read once."""

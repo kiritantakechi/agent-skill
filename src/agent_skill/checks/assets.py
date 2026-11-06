@@ -44,6 +44,8 @@ NO_WHEEL = declare("assets", "no_wheel", Level.FAIL)
 NO_PY_TYPED = declare("assets", "no_py_typed", Level.FAIL)
 WORKFLOW_KEY = declare("assets", "workflow_key", Level.FAIL)
 ODD_INDENT = declare("assets", "odd_indent", Level.FAIL)
+DELTA_UNCHANGED = declare("assets", "delta_unchanged", Level.FAIL)
+DELTA_UNNAMED = declare("assets", "delta_unnamed", Level.FAIL)
 
 
 @check(
@@ -65,6 +67,47 @@ def assets(skill: Skill) -> Iterator[Finding]:
     referenced = "\n".join(str(doc) for doc in skill.docs.values())
     for path in skill.assets:
         yield from _asset(skill, path, referenced)
+    yield from _delta(skill, referenced)
+
+
+def _delta(skill: Skill, referenced: str) -> Iterator[Finding]:
+    """A delta's assets are its anchor's, replaced where it departs.
+
+    So it ships an asset only where its own differs from its anchor's,
+    and every one of its anchor's it does not ship is named in its
+    text, which is how a reader learns the anchor's file applies. One
+    asset, one copy: a delta shipping its anchor's file unchanged holds
+    a second copy of a file that will drift from the first.
+    """
+    anchor = skill.profile.anchor
+    theirs = skill.root.parent / anchor / "assets"
+    if not anchor or not theirs.is_dir():
+        return
+    for path in sorted(theirs.iterdir()):
+        own = skill.root / "assets" / path.name
+        rel = f"assets/{path.name}"
+        if own.exists() and _same(own, path):
+            yield fail(
+                f"ships {anchor}'s `{rel}` unchanged; the anchor's applies",
+                skill.at(own),
+                DELTA_UNCHANGED,
+            )
+        elif not own.exists() and rel not in referenced:
+            yield fail(
+                f"applies {anchor}'s `{rel}` and never says so",
+                skill.at(),
+                DELTA_UNNAMED,
+            )
+
+
+def _same(a: Path, b: Path) -> bool:
+    """One asset: equal as data where both are TOML, else as text."""
+    if a.suffix == ".toml":
+        try:
+            return tomllib.loads(a.read_text()) == tomllib.loads(b.read_text())
+        except tomllib.TOMLDecodeError:
+            return False
+    return a.read_text() == b.read_text()
 
 
 def _asset(skill: Skill, path: Path, referenced: str) -> Iterator[Finding]:

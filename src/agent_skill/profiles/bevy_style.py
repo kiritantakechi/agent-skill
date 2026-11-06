@@ -12,7 +12,7 @@ import re
 from dataclasses import replace
 lazy from collections.abc import Iterator
 
-from agent_skill.lang.rust import BEVY, BEVY_STYLE
+from agent_skill.lang.rust import BEVY, BEVY_STYLE, RUST_STYLE
 from agent_skill.profiles.record import Delta, Mirror, NotDecisive, Profile
 from agent_skill.report import Finding, Level, declare, fail
 from agent_skill.text import group
@@ -49,14 +49,10 @@ PLUGIN_SUFFIX = declare("conventions", "bv_plugin_suffix", Level.FAIL)
 PLUGIN_DERIVE = declare("conventions", "bv_plugin_derive", Level.FAIL)
 SET_SUFFIX = declare("conventions", "bv_set_suffix", Level.FAIL)
 
-#: The verified crate under the `clippy.toml` the skill ships: the test
-#: allowances `rust-style` carries, which BV-ERR-01's relaxed form
-#: names. Without them the lint table rejected that relaxed form, and
-#: the examples' tests reached for `let … else { unreachable!() }`.
-CRATE = replace(
-    BEVY_STYLE,
-    clippy={"allow-unwrap-in-tests": True, "allow-expect-in-tests": True},
-)
+#: The verified crate under its anchor's `clippy.toml`: a delta ships
+#: only the assets it departs in, and clippy's settings are not one of
+#: them, so the configuration is `rust-style`'s itself, not a copy.
+CRATE = replace(BEVY_STYLE, clippy=RUST_STYLE.clippy)
 
 
 def component_shape(block: Block) -> Iterator[Finding]:
