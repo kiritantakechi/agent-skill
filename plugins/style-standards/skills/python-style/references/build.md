@@ -26,7 +26,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-BUILD-08 [M] Pin every tool that decides whether the build passes
   - PS-BUILD-09 [M] Give a library floors, not pins
   - PS-BUILD-10 [M] Commit `uv.lock`, and keep it the only lock artefact
-  - PS-BUILD-11 [M!] Refuse a dependency published in the last seven days
+  - PS-BUILD-11 [M] Lock nothing younger than seven days but what you pinned exactly
 - **Building**
   - PS-BUILD-12 [M] Build with `uv_build`, and never invoke `setup.py`
   - PS-BUILD-13 [M] Build the package from `src/`, and ship `py.typed`
@@ -168,22 +168,21 @@ cannot consume one — so it drifts silently until whoever trusted it finds it s
 **Check:** the lock file in `.gitignore` is the finding. A second lock artefact committed beside it
 is the other one.
 
-### PS-BUILD-11 [M!] Refuse a dependency published in the last seven days
+### PS-BUILD-11 [M] Lock nothing younger than seven days but what you pinned exactly
 
 `exclude-newer = "7 days"` under `[tool.uv]`, as `assets/pyproject.toml` ships it, so every
-`uv lock` resolves as if the last week's releases did not exist. `uv lock --exclude-newer` takes the
-same date or relative duration for one run. There is no `--cooldown`; `exclude-newer-package`
-exempts a dependency by name when a project needs the newest of something specific, as the asset
-does for the tools PS-BUILD-08 pins.
-
-*Relaxed form:* a project that reviews every dependency change by hand may skip the cooldown, and
-should say so in `pyproject.toml`, where the setting would otherwise be.
+`uv lock` resolves as if the last week's releases did not exist; and `exclude-newer-package` naming
+exactly the dependencies pinned with `==`, no more and no fewer. An exact pin is a review written
+down — moving it is the reviewed change — so it needs no week to be safe, while everything it pulls
+in still waits. `uv lock --exclude-newer` takes the same date or relative duration for one run;
+there is no `--cooldown`.
 
 **Why:** the window between a compromised release being published and being pulled is measured in
 hours — a documented incident had malicious versions live for two and a half and three and a half
 hours. Seven days covers that window many times over, for the cost of a week-old version.
 
-**Check:** the `[tool.uv]` table. No `exclude-newer` and no stated manual review is the finding.
+**Check:** the `[tool.uv]` table. No `exclude-newer`, or an `exclude-newer-package` whose exempt
+names differ from the `==` pins, is the finding.
 
 ## Building
 

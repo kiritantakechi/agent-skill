@@ -10,7 +10,8 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from agent_skill.lang.python import INTERPRETER
+from agent_skill.ids import Location
+from agent_skill.lang.python import INTERPRETER, cooldown
 from agent_skill.layout import SKILLS
 from agent_skill.proc import run
 
@@ -88,3 +89,10 @@ def test_the_harness_runs_on_the_target_the_standard_names() -> None:
     assert project["project"]["requires-python"] == f">={target['python-version']}"
     assert project["build-system"] == shipped["build-system"]
     assert (ROOT / ".python-version").read_text().strip() == str(INTERPRETER)
+
+
+def test_the_harness_keeps_the_cooldown_it_ships() -> None:
+    """PS-BUILD-11 holds of this project as of the template it ships."""
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    found = list(cooldown(project, Location(file="pyproject.toml")))
+    assert not found, [f.message for f in found]

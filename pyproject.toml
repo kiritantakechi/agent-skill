@@ -25,6 +25,12 @@ build-backend = "uv_build"
 # two releases. Moving either pin is a reviewed event, not a resolver decision.
 dev = ["pytest==9.2.0", "ruff==0.17.4", "ty==0.0.99", "ripgrep-bin==15.2.0"]
 
+[tool.uv]
+# PS-BUILD-11, kept as the template ships it: nothing younger than a week is
+# locked, except by name the exact pins above, whose pin is the review.
+exclude-newer = "7 days"
+exclude-newer-package = { pytest = false, ruff = false, ty = false, ripgrep-bin = false }
+
 [tool.ruff]
 # The configuration is the one python-style ships. Paths in an extended file
 # resolve against that file's directory, so `src` and the per-file globs are

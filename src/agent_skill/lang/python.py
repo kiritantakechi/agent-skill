@@ -64,6 +64,8 @@ WORKFLOW_OTHER = declare("pins", "workflow_other", Level.FAIL)
 PROJECT_UNPARSED = declare("pins", "project_unparsed", Level.UNRUN)
 PROJECT_PIN = declare("pins", "project_pin", Level.FAIL)
 PROJECT_INEXACT = declare("pins", "project_inexact", Level.FAIL)
+COOLDOWN_MISSING = declare("pins", "cooldown_missing", Level.FAIL)
+COOLDOWN_EXEMPT = declare("pins", "cooldown_exempt", Level.FAIL)
 UV_ABSENT = declare("pins", "uv_absent", Level.UNRUN)
 UV_SILENT = declare("pins", "uv_silent", Level.UNRUN)
 RELEASE_UNORDERED = declare("pins", "release_unordered", Level.UNRUN)
@@ -739,6 +741,48 @@ def _asset_pins(skill: Skill, interpreter: Pin) -> Iterator[Finding]:
             for tool in HARNESS.tools
         }
         yield from project_pins(project, harness, skill.at(PROJECT))
+        yield from cooldown(project, skill.at(PROJECT))
+
+
+def cooldown(project: dict[str, Any], where: Location) -> Iterator[Finding]:
+    """PS-BUILD-11 over a `pyproject.toml`: the week, and who skips it.
+
+    Nothing is locked younger than `exclude-newer`, except by name the
+    dependencies pinned with `==`: an exact pin is a review written
+    down. So the exempt names and the exact pins are one set, and a
+    difference either way is the finding — an exact pin left waiting,
+    or a floating requirement let through. The shipped template and the
+    harness's own project are both held to it.
+    """
+    uv = project.get("tool", {}).get("uv", {})
+    if "exclude-newer" not in uv:
+        yield fail(
+            "has no `exclude-newer` under `[tool.uv]`, so a release published "
+            "an hour ago can be locked",
+            where,
+            COOLDOWN_MISSING,
+        )
+        return
+    exempt = {
+        name.lower().replace("_", "-")
+        for name, waits in uv.get("exclude-newer-package", {}).items()
+        if waits is False
+    }
+    exact = set()
+    for requirement in _requirements(project):
+        m = REQUIREMENT.match(requirement)
+        spec = "".join(m["spec"].split()) if m else ""
+        if m and spec.startswith("==") and "," not in spec:
+            exact.add(m["name"].lower().replace("_", "-"))
+    if exempt != exact:
+        waiting, floating = sorted(exact - exempt), sorted(exempt - exact)
+        yield fail(
+            f"exempts {sorted(exempt)} from the cooldown where the `==` pins are "
+            f"{sorted(exact)}: pinned but waiting {waiting}, exempt but "
+            f"floating {floating}",
+            where,
+            COOLDOWN_EXEMPT,
+        )
 
 
 def workflow_pins(text: str, interpreter: str, where: Location) -> Iterator[Finding]:

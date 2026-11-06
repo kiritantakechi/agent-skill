@@ -809,6 +809,12 @@ CONTROLS: list[Control] = [
             f'"{pinned("ty")}"',
             '"ty>=0.0.60"',
         ),
+        also={
+            python.COOLDOWN_EXEMPT: (
+                "a pin loosened to a floor is no longer exact, so the name the "
+                "template exempts from the cooldown now floats"
+            )
+        },
     ),
     Control(python.WORKFLOW_NONE, _no_uv_interpreter),
     Control(
@@ -871,6 +877,17 @@ CONTROLS: list[Control] = [
     Control(
         assets.UNREFERENCED,
         lambda t: write(t, f"{RS}/assets/orphan.toml", "x = 1\n"),
+    ),
+    Control(
+        python.COOLDOWN_MISSING,
+        lambda t: edit(
+            t, f"{PY}/assets/pyproject.toml", 'exclude-newer = "7 days"\n', ""
+        ),
+    ),
+    Control(
+        # An exact pin left waiting out the week it was reviewed past.
+        python.COOLDOWN_EXEMPT,
+        lambda t: edit(t, f"{PY}/assets/pyproject.toml", ", ty = false }", " }"),
     ),
     Control(
         # A second copy of the anchor's file, which only drifts.
