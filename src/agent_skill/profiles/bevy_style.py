@@ -332,4 +332,7 @@ PROFILE = Profile(
         }
     ),
     structural=(component_shape, suffixes),
+    # In the normal form: every property normalize-the-standards gates
+    # holds of it (task 5.1).
+    normalized=True,
 )

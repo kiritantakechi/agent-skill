@@ -88,8 +88,18 @@ standard read as normalised now also fails: `core_rule` (bevy 24, python 26, rus
 
 ## 5. bevy-style
 
-- [ ] 5.1 Normalise bevy-style, including the delta map against rust-style's final IDs; set
-  `normalized`; full suite and its toolchain pass
+- [x] 5.1 Normalise bevy-style, including the delta map against rust-style's final IDs; set
+  `normalized`; full suite, its toolchain (every `gone` row probed absent in the pinned 0.20.1
+  crates, the ones the registry lacked fetched) and its mutation check pass — 24 core rules merged
+  into the chapter rules they abbreviated, one departures table of ten rows against rust-style's
+  final IDs, two restatements removed as citations, five merges and a split, fourteen migration
+  rules merged into the rules owning their rows, one migration table, and two probe fixes; see the
+  design's "As built (task 5.1)". `measure`, before → after: rules 194 → 174, element orders 5 → 3,
+  chapters named outside §6 8 → 0, citations bare/quoted/behind a path 116/22/46 → 502/0/0, prose
+  "grep" Checks 66 → 0, advice titles 4 → 0, core rules 24 → 0, rows saying no reason 3 → 0, rows
+  the anchor's 7 → 0, migration statuses 0 → 3, old spellings in two rows 1 → 0, section 2 3, 71
+  lines → 3, 212, laid out otherwise 1 → 0, items naming no rule 19 → 0, description 926 → 442
+  characters, SKILL.md 338 → 415 lines, dated statements 6 → 0
 
 ## 6. zig-style
 

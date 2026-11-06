@@ -541,6 +541,59 @@ As built (task 4.1), rust-style normalised; what it decided beyond task 3.1:
   zig-style, the one standard still stating core rules; `no_cargo_toml` says in `also` why every
   row owes a reason once no lint is set one by one.
 
+As built (task 5.1), bevy-style normalised; what a delta decided beyond tasks 3.1 and 4.1:
+
+- The delta map (decision 10): a departure is from the anchor rule whose *statement* the delta
+  contradicts, not its title — RS-BUILD-21 opens "Use caret requirements" for every crate, so a
+  game binary's exact pin departs from it (the old table's note that the two "never meet" read the
+  title's library clause alone). The departing rule is the one whose statement says the different
+  thing: RS-ERR-13's row names BV-ERR-02 (`BevyError` in a system's signature), not BV-ERR-03, which
+  keeps it out of the domain as the anchor asks. `extends` is a delta rule that widens the anchor's
+  domain (RS-API-36 to every component, RS-TEST-19 to every test); a delta rule that is an instance
+  of an anchor rule takes the anchor's tier and cites it (BV-ECS-22, -23 of RS-CONC-01, RS-PERF-01),
+  and one that says what the anchor rule says goes, `revise` removing it with the anchor rule as its
+  reason and the chapter's lead citing it with the Bevy part (BV-TEST-08 for RS-TEST-02, BV-ERR-09
+  for RS-CLI-24). Non-departures a reader would expect stay as one sentence after the table, each
+  citing why (`wildcard_imports` exempts preludes; RS-NAME-02 holds).
+- Tier (decision 6): a delta's section 1 is its anchor's word for word, and the profile's
+  `strict_scope` its anchor's, since `redefines` compares both. How the delta's domain reads the
+  predicate goes in `SKILL.md`'s opening, outside section 1: for a game, a shipped game is
+  high-reliability (a panic takes down the player's process or their session's server, an
+  authoritative server parses what clients send, saves and replays are data others cannot
+  reconstruct), a plugin crate is library code, and a jam prototype takes the relaxed forms. A rule
+  that requires CI is `[M]` where the anchor requires CI of every crate at `[M]` (RS-BUILD-27): the
+  delta adds a line to a job that exists in or out of section 1's scope (BV-ARCH-07).
+- Lint rows (decision 8): a delta's row of a lint its anchor sets alike goes, and its chapter's
+  `Decided by tools` with it when nothing is left; the chapter's lead cites the anchor's rows. A rule
+  demoted to such a row before still resolves: `skeleton`'s rename check reads a delta's anchor's
+  rows as well as its own, as `citations` reads its anchor's configuration. Two allows of one
+  decision — which of the anchor's lints the delta relaxes — are one rule (BV-BUILD-12, merging
+  -13 and -14, which BV-CORE-24 had stated as one sentence).
+- Migration (decision 9): a Bevy row's Old is the spelling a game writes — a type, a free function,
+  a method by its bare name where that name is Bevy's alone (`despawn_recursive`), a call shape where
+  it is not (`.get_single()`, beside the live `Gradient::get_single`), a feature as the manifest
+  quotes it (`"animation"`), a shader directive as the shader writes it (`#import`). A row may stand
+  for a family its 0.20 column names (`Pointer<Click>` for every `Pointer<X>`, `FontSource::SansSerif`
+  for the generic families). A `changed` row is a shape 0.20 rejects that no fixed string isolates
+  (`On<Add, T>`, `Camera { hdr }`) or a spelling that compiles and means something else, which keys
+  the silent changes the old chapter tabled by prose (`NextState::set`, `Bloom`); its owner's Check
+  carries the pattern, with its fixture. Section 2.2 is the table restricted to what no longer
+  compiles: every `gone` row and the rejected `changed` ones, 155 of 180. Rows about rendering and
+  reflection internals go, as the chapter's scope already excluded them. No row is an `alias`:
+  Bevy keeps no old name working beside its new one.
+- `gone` verification for Bevy: the registry holds every Bevy crate the standard names
+  (`bevy_pbr`, `bevy_feathers`, `bevy_post_process`, … fetched here with a manifest naming their
+  features), since a crate absent from it passes a `gone` row vacuously. The probe had two defects
+  the table showed: a doc example's `/// pub struct Parent<…>` read as a definition (a definition now
+  has no `/` before it), and a crate-qualified path was looked up by its last segment in every crate
+  (`bevy_math::primitives` through `bevy_gizmos`'s `mod primitives`); a path opening with a `bevy_*`
+  crate is looked up in that crate alone, and is unprobed when the registry lacks it.
+- Controls (decision 14's last item): the override table's branches (`override_title`, and
+  `delta_no_table` and `override_target` on the old path) read only a delta not yet normalised, and
+  none ships now: `override_title` runs on the demo delta read with `normalized` off and its
+  departure stated as an override row. The departures table's controls give `departs` in `also`
+  where the defect breaks a pair by construction — a missing table, a row naming no rule.
+
 ## Risks / Trade-offs
 
 - **CORE IDs disappear** → every citation of one resolves through `renames.md`; `revise` checks
