@@ -31,7 +31,7 @@ that can be wrong, fewer places where an early `return` skips a cleanup.
   - RS-FUNC-10 [M] Choose `iter`, `iter_mut`, or `into_iter` deliberately
   - RS-FUNC-11 [M] Chain adapters; do not collect in the middle
   - RS-FUNC-12 [S] Reserve `fold` for accumulation that no `collect` expresses
-  - RS-FUNC-13 [M] Short-circuit fallible iteration with `try_fold` / `try_for_each`
+  - RS-FUNC-13 [M] Stop fallible iteration at its first error
   - RS-FUNC-14 [S] Use `scan` only when the state belongs to the pipeline
   - RS-FUNC-15 [S] Use `peekable` and `by_ref` instead of a manual buffer
   - RS-FUNC-16 [M] Keep iterators lazy as far up the stack as you can
@@ -273,13 +273,19 @@ shorter and better optimized (RS-FUNC-17); `fold` is for an accumulator no colle
 
 **Check:** does the fold's accumulator end up being a collection? Try `collect` first.
 
-### RS-FUNC-13 [M] Short-circuit fallible iteration with `try_fold` / `try_for_each`
+### RS-FUNC-13 [M] Stop fallible iteration at its first error
 
-**Why:** they stop at the first error and compose with `?`, replacing a `for` loop with a mutable
-`result: Result<(), E>` that gets overwritten — a pattern that silently keeps only the *last* error
-and does the remaining work anyway.
+Where the first failure ends the work, collect into `Result<Vec<_>, _>` when the values are wanted,
+`try_for_each` for an effect, and `try_fold` for an accumulation: each stops at the first error and
+composes with `?`. A run that reports every failure instead is RS-ERR-34's.
 
-**Check:** grep for a mutable `Result` or `Option` binding assigned inside a loop.
+**Why:** a `for` loop that carries a mutable `result: Result<(), E>` and overwrites it keeps only
+the *last* error and does the remaining work anyway. The short-circuiting forms skip that work and
+keep the pipeline an expression.
+
+**Check:** is a `Result` or `Option` held in a `let mut` binding and assigned inside a loop? That is
+the finding. A `for` loop over fallible items that pushes into a `Vec` and returns early is the
+`collect`.
 
 ```rust
 // fragment — BAD: keeps only the last error, and does all the work
@@ -291,6 +297,17 @@ result?;
 ```rust
 // fragment — GOOD
 items.iter().try_for_each(write)?;
+```
+
+```rust
+// verified
+/// `collect` into `Result` short-circuits on the first failure.
+///
+/// # Errors
+/// Returns the first parse error encountered.
+pub fn parse_all(values: &[String]) -> Result<Vec<u32>, std::num::ParseIntError> {
+    values.iter().map(|value| value.parse()).collect()
+}
 ```
 
 ### RS-FUNC-14 [S] Use `scan` only when the state belongs to the pipeline
@@ -352,7 +369,9 @@ mod tests {
 
 ### RS-FUNC-16 [M] Keep iterators lazy as far up the stack as you can
 
-Take `impl IntoIterator<Item = T>`, return `impl Iterator<Item = T>`.
+Take `impl IntoIterator<Item = T>`, and return an iterator rather than a collection whenever the
+caller may consume only part of the sequence or feed it to another adapter; RS-TRAIT-15 spells the
+return type.
 
 **Why:** materialization belongs to whoever knows how much of the sequence is needed, which is the
 caller. Returning `Vec<T>` decides on their behalf that all of it is computed and all of it stored,
@@ -363,7 +382,7 @@ caller immediately `.iter()` or `.into_iter()` it, or index only the first eleme
 
 ```rust
 // verified
-/// Returning `impl Iterator` keeps the concrete adapter chain private, and lazy.
+/// Nothing is computed until the caller asks, and only as much as it asks for.
 pub fn non_empty(lines: &[String]) -> impl Iterator<Item = &str> {
     lines
         .iter()
@@ -379,7 +398,7 @@ pub fn non_empty(lines: &[String]) -> impl Iterator<Item = &str> {
 
 **Why:** collecting into a `Vec` and converting afterwards allocates twice and iterates twice, and
 `FromIterator` impls exist for exactly this reason. `Result<Vec<_>, _>` in particular is not a
-special case — it is the same mechanism (RS-ERR-25).
+special case — it is the same mechanism (RS-FUNC-13).
 
 **Check:** grep for `collect` followed by `into_iter().collect()`, `HashMap::from_iter`, or a `for`
 loop that inserts.
@@ -659,7 +678,7 @@ function that derives a value returns it, and its caller connects it to the sink
 
 **Why:** a function that both computes and writes cannot be tested without a sink, reused with
 another, or parallelized. A middle layer with no I/O, clock, or environment tests in milliseconds,
-which is what makes `run() -> Result<()>` testable (RS-MOD-21).
+which is what makes `run() -> Result<()>` testable (RS-MOD-19).
 
 **Check:** does the function both compute and print, log, write, or send? Split it. How deep in the
 call stack is the deepest I/O call? Everything below the entry layer should be pure.
@@ -726,7 +745,7 @@ same argument applies to randomness and to the current directory.
 ### RS-FUNC-40 [S] Model state transitions as values or as types
 
 Return the new state as a value; where misuse is costly and the states are few, make them types
-(RS-TRAIT-43).
+(RS-TRAIT-42).
 
 **Why:** an object that is "not yet initialized" for its first three method calls is two types
 wearing one name, and every method has to handle a state it should never see.
@@ -739,7 +758,7 @@ next state?
 `opt.map(f).filter(p).unwrap_or_default()`, `res.and_then(g).or_else(h)`.
 
 **Why:** the linear form reads top to bottom in the order the data flows, without the reader
-tracking which branch they are in. Choose the eager or lazy variant deliberately (RS-ERR-24).
+tracking which branch they are in. Choose the eager or lazy variant deliberately (RS-ERR-23).
 
 **Check:** does any nested `match` on `Option`/`Result` have arms that just forward?
 

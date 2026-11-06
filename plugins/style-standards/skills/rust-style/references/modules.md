@@ -13,60 +13,58 @@ wiring. Structure is what keeps a codebase comprehensible past ten thousand line
 
 - **Modules and files**
   - RS-MOD-01 [M] Give every module a documented concept
-  - RS-MOD-02 [M] Never create `utils`, `helpers`, `common`, or `misc`
-  - RS-MOD-03 [S] Prefer a few substantial modules to many tiny ones
-  - RS-MOD-04 [S] Split a file on a seam, not on a line count
-  - RS-MOD-05 [S] Keep a type, its impls, and its unit tests in one file
-  - RS-MOD-06 [S] Nest public modules at most two levels deep
-  - RS-MOD-07 [S] Nest private modules as deeply as is useful
-  - RS-MOD-08 [M] Confine platform differences to a `sys` module
-  - RS-MOD-09 [S] Isolate generated code in its own module
+  - RS-MOD-02 [S] Prefer a few substantial modules to many tiny ones
+  - RS-MOD-03 [S] Split a file on a seam, not on a line count
+  - RS-MOD-04 [S] Keep a type, its impls, and its unit tests in one file
+  - RS-MOD-05 [S] Nest public modules at most two levels deep
+  - RS-MOD-06 [S] Nest private modules as deeply as is useful
+  - RS-MOD-07 [M] Confine platform differences to a `sys` module
+  - RS-MOD-08 [S] Isolate generated code in its own module
 
 - **Visibility**
-  - RS-MOD-10 [M] Cross a parent-child edge with `pub(super)`, not `pub(crate)`
-  - RS-MOD-11 [M] Reserve `pub(crate)` for a genuine non-parent-child edge
-  - RS-MOD-12 [M] Assemble the public surface in the crate root and nowhere else
-  - RS-MOD-13 [M] Never make an item `pub` to satisfy a test
-  - RS-MOD-14 [S] Re-export with `pub use`; use `pub mod` only for real API paths
-  - RS-MOD-15 [M] Do not glob re-export from a library root
-  - RS-MOD-16 [S] Provide a `prelude` only for trait-heavy ecosystem crates
-  - RS-MOD-17 [M] Namespace `#[doc(hidden)] pub` macro support items
-  - RS-MOD-18 [M] Remember that enum variants inherit the enum's visibility
+  - RS-MOD-09 [M] Widen an item only as far as the edge it crosses
+  - RS-MOD-10 [M] Assemble the public surface in the crate root and nowhere else
+  - RS-MOD-11 [M] Never make an item `pub` to satisfy a test
+  - RS-MOD-12 [S] Re-export with `pub use`; use `pub mod` only for real API paths
+  - RS-MOD-13 [M] Do not glob re-export from a library root
+  - RS-MOD-14 [S] Provide a `prelude` only for trait-heavy ecosystem crates
+  - RS-MOD-15 [M] Namespace `#[doc(hidden)] pub` macro support items
+  - RS-MOD-16 [M] Remember that enum variants inherit the enum's visibility
 
 - **Crate and workspace layout**
-  - RS-MOD-19 [M] One crate, one purpose
-  - RS-MOD-20 [S] Follow the canonical workspace layout
-  - RS-MOD-21 [M] Split the binary from the library
-  - RS-MOD-22 [S] Give workspace members a shared prefix matching the facade
-  - RS-MOD-23 [S] Keep the facade crate nearly empty
-  - RS-MOD-24 [M] Keep member dependencies a shallow DAG
-  - RS-MOD-25 [S] Keep `examples/` compiling in CI
-  - RS-MOD-26 [M] Treat `build.rs` as a last resort
-  - RS-MOD-27 [S] Keep the repository root sparse
-  - RS-MOD-28 [M] Name the resolver explicitly in a virtual manifest
-  - RS-MOD-29 [M] Expect features to unify across everything built in one invocation
-  - RS-MOD-30 [M] Build every member alone in CI, not only `--workspace`
-  - RS-MOD-31 [M] Count the encapsulation a split costs, not only what it buys
-  - RS-MOD-32 [M] Leave `version` out of an unpublished member's manifest
-  - RS-MOD-33 [S] Give the directory and the crate the same name
-  - RS-MOD-34 [S] Keep `crates/` flat
-  - RS-MOD-35 [M] Point every dependency edge away from the facade
+  - RS-MOD-17 [M] One crate, one purpose
+  - RS-MOD-18 [S] Follow the canonical workspace layout
+  - RS-MOD-19 [M] Split the binary from the library
+  - RS-MOD-20 [S] Give workspace members a shared prefix matching the facade
+  - RS-MOD-21 [S] Keep the facade crate nearly empty
+  - RS-MOD-22 [M] Keep member dependencies a shallow DAG
+  - RS-MOD-23 [S] Keep `examples/` compiling in CI
+  - RS-MOD-24 [M] Treat `build.rs` as a last resort
+  - RS-MOD-25 [S] Keep the repository root sparse
+  - RS-MOD-26 [M] Name the resolver explicitly in a virtual manifest
+  - RS-MOD-27 [M] Expect features to unify across everything built in one invocation
+  - RS-MOD-28 [M] Build every member alone in CI, not only `--workspace`
+  - RS-MOD-29 [M] Count the encapsulation a split costs, not only what it buys
+  - RS-MOD-30 [M] Leave `version` out of an unpublished member's manifest
+  - RS-MOD-31 [S] Give the directory and the crate the same name
+  - RS-MOD-32 [S] Keep `crates/` flat
+  - RS-MOD-33 [M] Point every dependency edge away from the facade
 
 - **Imports and in-file order**
-  - RS-MOD-36 [S] Group imports std / external / crate
-  - RS-MOD-37 [S] Merge imports from the same crate
-  - RS-MOD-38 [S] Import types and traits; call functions through a short path
-  - RS-MOD-39 [S] Do not import an item used once when the path is short
-  - RS-MOD-40 [S] Resolve collisions by aliasing the module, not the item
-  - RS-MOD-41 [S] Order a file: docs, imports, public items, private items, tests
-  - RS-MOD-42 [S] Keep `impl` blocks in a predictable order
-  - RS-MOD-43 [S] Order struct fields for the reader
-  - RS-MOD-44 [S] Keep functions short enough to see whole
+  - RS-MOD-34 [S] Group imports std / external / crate
+  - RS-MOD-35 [S] Merge imports from the same crate
+  - RS-MOD-36 [S] Import types and traits; call functions through a short path
+  - RS-MOD-37 [S] Do not import an item used once when the path is short
+  - RS-MOD-38 [S] Resolve collisions by aliasing the module, not the item
+  - RS-MOD-39 [S] Order a file: docs, imports, public items, private items, tests
+  - RS-MOD-40 [S] Keep `impl` blocks in a predictable order
+  - RS-MOD-41 [S] Order struct fields for the reader
+  - RS-MOD-42 [S] Keep functions short enough to see whole
 
 - **Orthogonality**
-  - RS-MOD-45 [M] One concept, one mechanism
-  - RS-MOD-46 [M] Absorb a special case into the general path, or give it its own type
-  - RS-MOD-47 [S] Keep sibling modules structurally parallel
+  - RS-MOD-43 [M] One concept, one mechanism
+  - RS-MOD-44 [M] Absorb a special case into the general path, or give it its own type
+  - RS-MOD-45 [S] Keep sibling modules structurally parallel
 
 - Decided by tools
 
@@ -103,31 +101,7 @@ impl Pattern {
 }
 ```
 
-### RS-MOD-02 [M] Never create `utils`, `helpers`, `common`, or `misc`
-
-Also `shared`, `types`, `lib`, and `core` as a grab-bag.
-
-**Why:** these are not names — they are admissions that the boundary has not been found, so nobody
-can predict which function landed in one. They also grow monotonically, because nothing is ever
-obviously *not* a utility (RS-NAME-05).
-
-**Check:** grep the module tree for these names. For each function inside, name the type or concept
-it actually serves.
-
-```rust
-// verified
-// Named for the concept it serves, never `utils`.
-pub mod escaping {
-    //! Escapes text for terminal output.
-
-    #[must_use]
-    pub fn escape(input: &str) -> String {
-        input.replace('\x1b', "^[")
-    }
-}
-```
-
-### RS-MOD-03 [S] Prefer a few substantial modules to many tiny ones
+### RS-MOD-02 [S] Prefer a few substantial modules to many tiny ones
 
 **Why:** a 400-line module with a clear theme is easier to navigate than eight 50-line modules whose
 relationships you have to reconstruct from the import graph. Module count is a cost paid on every
@@ -161,7 +135,7 @@ pub mod reporting {
 }
 ```
 
-### RS-MOD-04 [S] Split a file on a seam, not on a line count
+### RS-MOD-03 [S] Split a file on a seam, not on a line count
 
 Roughly 600–1000 lines *and* an obvious internal boundary.
 
@@ -171,11 +145,11 @@ and the relationship between them.
 
 **Check:** when splitting, can you name both halves with a noun? If not, do not split yet.
 
-### RS-MOD-05 [S] Keep a type, its impls, and its unit tests in one file
+### RS-MOD-04 [S] Keep a type, its impls, and its unit tests in one file
 
 **Why:** scattering `impl Display for Foo` three files away from `Foo` makes every change a
 scavenger hunt and makes it easy to update one and forget the other. Rust does not require the
-split, so the only reason to do it is file size (RS-MOD-04).
+split, so the only reason to do it is file size (RS-MOD-03).
 
 **Check:** for each type, is any `impl` block in a different file? If so, why?
 
@@ -206,14 +180,14 @@ impl Position {
 }
 ```
 
-### RS-MOD-06 [S] Nest public modules at most two levels deep
+### RS-MOD-05 [S] Nest public modules at most two levels deep
 
 **Why:** `crate::search::matcher::regex::inner::Config` is a path nobody will type, and every
-segment of it is API you cannot reorganize. Flatten with re-exports at the root (RS-MOD-12).
+segment of it is API you cannot reorganize. Flatten with re-exports at the root (RS-MOD-10).
 
 **Check:** read the crate's own doc examples. How many `::` segments does the longest path have?
 
-### RS-MOD-07 [S] Nest private modules as deeply as is useful
+### RS-MOD-06 [S] Nest private modules as deeply as is useful
 
 **Why:** internal organization is free — it does not appear in any user's code and can be
 reorganized at any time. The two-level limit is about the *public* surface, not about how you
@@ -221,7 +195,7 @@ arrange your own files.
 
 **Check:** are you flattening internals for consistency with the public rule? Do not.
 
-### RS-MOD-08 [M] Confine platform differences to a `sys` module
+### RS-MOD-07 [M] Confine platform differences to a `sys` module
 
 `sys/unix.rs`, `sys/windows.rs`, selected by `#[cfg]` in one place behind a shared interface. Where
 one item needs an arm per platform, write `cfg_select!` rather than depending on `cfg-if`.
@@ -233,7 +207,7 @@ boundary means one place to keep in sync.
 **Check:** `rg -c 'cfg\(unix|cfg\(windows|cfg\(target_os' src/`. Anything outside `sys/` needs a
 reason.
 
-### RS-MOD-09 [S] Isolate generated code in its own module
+### RS-MOD-08 [S] Isolate generated code in its own module
 
 `include!`d from a dedicated module, never hand-edited, with a comment saying so at the top.
 
@@ -244,19 +218,21 @@ silently discards the fix. The comment and the isolation are what prevent it.
 
 ## Visibility
 
-### RS-MOD-10 [M] Cross a parent-child edge with `pub(super)`, not `pub(crate)`
+### RS-MOD-09 [M] Widen an item only as far as the edge it crosses
 
 Visibility escalates one step at a time: private, `pub(super)`, `pub(crate)`, `pub` (RS-API-01). An
-item a child module shares with its parent, or a parent shares with one child, is `pub(super)`. The
-two spellings coincide for a module directly under the crate root, where `super` *is* the root; the
-distinction starts one level further down, and so does this rule.
+item a child module shares with its parent, or a parent with one child, is `pub(super)`. An item
+shared by two modules with no ancestor relationship, or three or more levels apart, is `pub(crate)`,
+since `pub(super)` cannot reach that far. The two spellings coincide for a module directly under the
+crate root, where `super` *is* the root.
 
 **Why:** `pub(crate)` on a parent-child edge says any module may depend on the item, which is almost
-never what the code means. A reader who sees `pub(super)` knows the coupling stops one level up, and
-a reviewer who sees it spreading knows the seam is wrong before the coupling is load-bearing.
+never what the code means. Kept to the edges `pub(super)` cannot express, a `pub(crate)` in a diff
+says this item is crate infrastructure, a claim worth reading rather than a default.
 
 **Check:** for each `pub(crate)` item, list the modules that name it. If they all sit under one
-parent, it is a `pub(super)`.
+parent, it is a `pub(super)`; it is `pub(crate)` only with two consumers that share no parent below
+the crate root.
 
 ```rust
 // verified
@@ -274,21 +250,10 @@ mod syntax {
 }
 ```
 
-### RS-MOD-11 [M] Reserve `pub(crate)` for a genuine non-parent-child edge
-
-Two modules with no ancestor relationship, or an item three or more levels away.
-
-**Why:** at that distance `pub(super)` cannot express the edge, so `pub(crate)` is the honest
-spelling rather than a shortcut. Keeping it to that case means a `pub(crate)` in a diff is a claim
-worth reading — this item is crate infrastructure — instead of the default everything drifts to.
-
-**Check:** does the item have at least two consumers that share no parent below the crate root? If
-not, narrow it.
-
 ```rust
 // verified
 /// The consumers live under `front` and `back`, so `pub(super)` on `Interner` would reach neither.
-mod util {
+mod symbols {
     pub(crate) mod intern {
         #[derive(Debug, Default)]
         pub(crate) struct Interner {
@@ -306,7 +271,7 @@ mod util {
 
 mod front {
     mod render {
-        use crate::util::intern::Interner;
+        use crate::symbols::intern::Interner;
 
         pub(super) fn label(interner: &mut Interner, name: &str) -> usize {
             interner.intern(name)
@@ -316,7 +281,7 @@ mod front {
 
 mod back {
     mod store {
-        use crate::util::intern::Interner;
+        use crate::symbols::intern::Interner;
 
         pub(super) fn key(interner: &mut Interner, name: &str) -> usize {
             interner.intern(name)
@@ -325,11 +290,11 @@ mod back {
 }
 ```
 
-### RS-MOD-12 [M] Assemble the public surface in the crate root and nowhere else
+### RS-MOD-10 [M] Assemble the public surface in the crate root and nowhere else
 
 `lib.rs` holds the `pub use` statements that decide the API; no other file makes that decision. The
 single exception is `prelude.rs`, which may only re-export names `lib.rs` has already made public
-(RS-MOD-16) — and `pub mod prelude;` still appears in `lib.rs`.
+(RS-MOD-14) — and `pub mod prelude;` still appears in `lib.rs`.
 
 **Why:** the surface is then one file long and reviewable as a unit, and an addition is a visible
 edit to the file that owns it. Users write `grep::Searcher`, not the path to the file, so the file
@@ -373,7 +338,7 @@ pub use pattern::Pattern;
 pub use report::Summary;
 ```
 
-### RS-MOD-13 [M] Never make an item `pub` to satisfy a test
+### RS-MOD-11 [M] Never make an item `pub` to satisfy a test
 
 **Why:** tests inside the crate can see private items already, so a test that cannot is an
 integration test testing the wrong layer. Widening the API for a test makes the test's needs
@@ -408,7 +373,7 @@ impl Index {
 }
 ```
 
-### RS-MOD-14 [S] Re-export with `pub use`; use `pub mod` only for real API paths
+### RS-MOD-12 [S] Re-export with `pub use`; use `pub mod` only for real API paths
 
 **Why:** `pub mod` makes the module path part of the API, which is right for `error`, `prelude`, or
 a submodule holding many related types — and wrong for a module that exists because the file was
@@ -440,7 +405,7 @@ mod inner {
 pub use inner::Counter;
 ```
 
-### RS-MOD-15 [M] Do not glob re-export from a library root
+### RS-MOD-13 [M] Do not glob re-export from a library root
 
 `pub use inner::*;`
 
@@ -467,7 +432,7 @@ pub use matcher::Matcher;
 pub use printer::Printer;
 ```
 
-### RS-MOD-16 [S] Provide a `prelude` only for trait-heavy ecosystem crates
+### RS-MOD-14 [S] Provide a `prelude` only for trait-heavy ecosystem crates
 
 **Why:** a prelude is worth it when using the crate genuinely requires five traits in scope, as with
 `rayon` or `diesel`. For a crate with three public types it is ceremony that adds an import users
@@ -476,7 +441,7 @@ must learn about.
 **Check:** how many traits must be in scope for the primary use case? Fewer than three means no
 prelude.
 
-### RS-MOD-17 [M] Namespace `#[doc(hidden)] pub` macro support items
+### RS-MOD-15 [M] Namespace `#[doc(hidden)] pub` macro support items
 
 `__private`, `__internal`.
 
@@ -486,7 +451,7 @@ out of autocomplete's way.
 
 **Check:** grep `#[doc(hidden)]` on `pub` items. Are they under a namespaced module?
 
-### RS-MOD-18 [M] Remember that enum variants inherit the enum's visibility
+### RS-MOD-16 [M] Remember that enum variants inherit the enum's visibility
 
 **Why:** you cannot make one variant private. If some variants are internal, that is two types — a
 public one and a private one — not one enum with a convention. People discover this late, after the
@@ -497,7 +462,7 @@ design error, not a documentation problem.
 
 ## Crate and workspace layout
 
-### RS-MOD-19 [M] One crate, one purpose
+### RS-MOD-17 [M] One crate, one purpose
 
 Split into a workspace when a piece is independently useful, has a different dependency footprint,
 or must be versioned separately.
@@ -509,7 +474,7 @@ ripgrep's `grep-matcher`, `grep-regex`, `grep-searcher` and `grep-printer` are e
 **Check:** describe the crate in one sentence. A conjunction is a candidate split; which of the
 three criteria applies to it?
 
-### RS-MOD-20 [S] Follow the canonical workspace layout
+### RS-MOD-18 [S] Follow the canonical workspace layout
 
 **Why:** it is what the ecosystem expects, so contributors know where to look before reading
 anything. Deviating has a cost paid by every newcomer.
@@ -529,7 +494,7 @@ project/
 └── examples/
 ```
 
-### RS-MOD-21 [M] Split the binary from the library
+### RS-MOD-19 [M] Split the binary from the library
 
 `src/lib.rs` holds everything testable; `src/main.rs` is argument parsing, wiring, and reporting.
 That split is why ripgrep's search engine is `grep-searcher`, a crate others build on, rather than a
@@ -571,7 +536,7 @@ pub fn scan(lines: &[String], needle: &str) -> Stats {
 }
 ```
 
-### RS-MOD-22 [S] Give workspace members a shared prefix matching the facade
+### RS-MOD-20 [S] Give workspace members a shared prefix matching the facade
 
 `grep-matcher`, `grep-regex`, `grep-searcher`, facade `grep`.
 
@@ -580,7 +545,7 @@ guess the others. Unrelated names in one workspace force everyone to learn the m
 
 **Check:** does the member list sort into a readable group?
 
-### RS-MOD-23 [S] Keep the facade crate nearly empty
+### RS-MOD-21 [S] Keep the facade crate nearly empty
 
 `pub use` of the pieces, crate-level documentation, and the feature flags that turn optional members
 on and off.
@@ -590,7 +555,7 @@ makes the facade a fourth thing to version. Its job is curation.
 
 **Check:** how many lines of non-`pub use` code are in the facade?
 
-### RS-MOD-24 [M] Keep member dependencies a shallow DAG
+### RS-MOD-22 [M] Keep member dependencies a shallow DAG
 
 **Why:** if two members depend on each other's internals, they are one crate wearing two names — and
 Cargo will not let you make it a cycle, so the workaround is always worse than merging. Depth also
@@ -598,14 +563,14 @@ serializes the build.
 
 **Check:** draw the member graph. Any pair that would like to be mutual is a merge.
 
-### RS-MOD-25 [S] Keep `examples/` compiling in CI
+### RS-MOD-23 [S] Keep `examples/` compiling in CI
 
 **Why:** an example that no longer builds is worse than no example, because users copy it before
 discovering that. `cargo test` does not necessarily build them — `cargo build --examples` does.
 
 **Check:** is `cargo build --examples` in CI (RS-BUILD-39)?
 
-### RS-MOD-26 [M] Treat `build.rs` as a last resort
+### RS-MOD-24 [M] Treat `build.rs` as a last resort
 
 **Why:** it slows every build, runs arbitrary code on every user's machine, breaks cross-compilation
 in subtle ways, and is harder to audit than ordinary source. It is right for genuine codegen and C
@@ -613,7 +578,7 @@ compilation and wrong for convenience.
 
 **Check:** what does the build script do that a committed generated file or a `const fn` could not?
 
-### RS-MOD-27 [S] Keep the repository root sparse
+### RS-MOD-25 [S] Keep the repository root sparse
 
 `README.md`, `LICENSE-APACHE`, `LICENSE-MIT`, `CHANGELOG.md`, `Cargo.toml`, `rust-toolchain.toml`,
 `.github/`, and the directories above.
@@ -623,7 +588,7 @@ orientation. Everything else has a home inside one of those directories.
 
 **Check:** `ls` the root. Can you justify each entry in one clause?
 
-### RS-MOD-28 [M] Name the resolver explicitly in a virtual manifest
+### RS-MOD-26 [M] Name the resolver explicitly in a virtual manifest
 
 A root with no `[package]` has no edition to infer the resolver from, so Cargo falls back to
 `resolver = "1"`, the pre-2021 algorithm, however new the members are. It says so only in a warning:
@@ -636,7 +601,7 @@ its `rust-version` past yours rather than picking it (RS-BUILD-31).
 **Check:** does the workspace root name a resolver? A build that prints that warning is not
 configured, it is defaulted.
 
-### RS-MOD-29 [M] Expect features to unify across everything built in one invocation
+### RS-MOD-27 [M] Expect features to unify across everything built in one invocation
 
 Two members built together each see the union of their features on every shared dependency.
 Per-package unification (`resolver.feature-unification`) is nightly-only, so the working remedies
@@ -648,7 +613,7 @@ a feature in one member silently changes another member's binary.
 **Check:** for a dependency two members configure differently, compare `cargo tree -e features`
 alone against `--workspace`. Any difference is a member being built in a way nobody declared.
 
-### RS-MOD-30 [M] Build every member alone in CI, not only `--workspace`
+### RS-MOD-28 [M] Build every member alone in CI, not only `--workspace`
 
 **Why:** unification hides a missing feature declaration: a member that forgot `serde/derive` still
 compiles when a sibling asks for it, so `--workspace` is green while the published crate fails for
@@ -657,10 +622,10 @@ the first user who depends on it alone (RS-BUILD-39).
 **Check:** does CI build members individually — `cargo hack --each-feature`, or one `-p` per member
 — or only `--workspace`?
 
-### RS-MOD-31 [M] Count the encapsulation a split costs, not only what it buys
+### RS-MOD-29 [M] Count the encapsulation a split costs, not only what it buys
 
 Everything the new crate's siblings reach for must become `pub`. A seam that turns a handful of
-items public is a seam; a seam that turns dozens public is the wrong seam, whatever RS-MOD-19's
+items public is a seam; a seam that turns dozens public is the wrong seam, whatever RS-MOD-17's
 three criteria say about it.
 
 **Why:** a crate boundary is the one boundary `pub(crate)` cannot cross, so a split converts
@@ -669,7 +634,7 @@ internal items into public API — visible to every consumer, and bound by semve
 **Check:** list the items the split forces from `pub(crate)` to `pub`. Would you have made each one
 public on its own merits?
 
-### RS-MOD-32 [M] Leave `version` out of an unpublished member's manifest
+### RS-MOD-30 [M] Leave `version` out of an unpublished member's manifest
 
 Cargo reads a missing `version` as `0.0.0` and `publish = false`, so the one absence says both.
 Members that *are* published carry real versions and the full metadata (RS-BUILD-03).
@@ -681,7 +646,7 @@ accident, and no version states that the number carries no promise — an intern
 **Check:** for each member, is it published? If not, does its manifest omit `version`? A `version`
 line on an internal member is the finding.
 
-### RS-MOD-33 [S] Give the directory and the crate the same name
+### RS-MOD-31 [S] Give the directory and the crate the same name
 
 **Why:** the manifest's `path`, the directory listing, and the dependency name then agree, so one
 grep finds every mention and a rename is one operation. When they differ, every reader maintains the
@@ -689,7 +654,7 @@ mapping by hand.
 
 **Check:** does `ls crates/` read as the member list in the root manifest?
 
-### RS-MOD-34 [S] Keep `crates/` flat
+### RS-MOD-32 [S] Keep `crates/` flat
 
 **Why:** Cargo's crate namespace has no hierarchy — a dependency is named `foo-matcher`, never
 `foo::matcher` — so directory nesting encodes a structure the build system cannot represent, and it
@@ -697,7 +662,7 @@ decays into arguments about where a new crate belongs. Flat keeps `ls crates/` t
 
 **Check:** is there a directory under `crates/` that holds directories rather than a crate?
 
-### RS-MOD-35 [M] Point every dependency edge away from the facade
+### RS-MOD-33 [M] Point every dependency edge away from the facade
 
 Members do not depend on the crate that re-exports them. `dev-dependencies` are the documented
 exception: a cycle through them compiles, and it is the supported way for a member's tests to drive
@@ -705,14 +670,14 @@ the assembled facade.
 
 **Why:** Cargo rejects the cycle outright — `error: cyclic package dependency` — so the edge cannot
 exist, and reaching for the facade from inside a member is a sign the shared item belongs in a lower
-member instead (RS-MOD-23, RS-MOD-24).
+member instead (RS-MOD-21, RS-MOD-22).
 
 **Check:** grep the member manifests for the facade's name. Outside `[dev-dependencies]`, each hit
 is a layering error.
 
 ## Imports and in-file order
 
-### RS-MOD-36 [S] Group imports std / external / crate
+### RS-MOD-34 [S] Group imports std / external / crate
 
 Three blocks separated by blank lines — what `group_imports = "StdExternalCrate"` produces.
 
@@ -734,7 +699,7 @@ pub struct Manifest {
 }
 ```
 
-### RS-MOD-37 [S] Merge imports from the same crate
+### RS-MOD-35 [S] Merge imports from the same crate
 
 `use std::{fs, io::{self, Read, Write}, path::Path};` — `imports_granularity = "Crate"`.
 
@@ -743,7 +708,7 @@ lines to scan.
 
 **Check:** the rustfmt option handles it; the check is that the option is set.
 
-### RS-MOD-38 [S] Import types and traits; call functions through a short path
+### RS-MOD-36 [S] Import types and traits; call functions through a short path
 
 `use std::fs; fs::read_to_string(p)`.
 
@@ -754,7 +719,7 @@ where the path would be noise.
 **Check:** grep for imported free functions. Would the call site read better with one segment of
 path?
 
-### RS-MOD-39 [S] Do not import an item used once when the path is short
+### RS-MOD-37 [S] Do not import an item used once when the path is short
 
 `std::process::exit(2)` at one call site beats an import at the top.
 
@@ -763,7 +728,7 @@ two hundred lines down. The inline path is self-contained.
 
 **Check:** for each import, how many uses does it have? One plus a short path means inline it.
 
-### RS-MOD-40 [S] Resolve collisions by aliasing the module, not the item
+### RS-MOD-38 [S] Resolve collisions by aliasing the module, not the item
 
 `use std::fmt;` then `fmt::Result`, rather than `use std::fmt::Result as FmtResult;`.
 
@@ -773,7 +738,7 @@ module-qualified form uses names that already exist and reads the same as the do
 **Check:** grep `as ` in imports. Each is either a module alias or a case where the qualified form
 would have worked.
 
-### RS-MOD-41 [S] Order a file: docs, imports, public items, private items, tests
+### RS-MOD-39 [S] Order a file: docs, imports, public items, private items, tests
 
 **Why:** readers scan top-down looking for the public surface, and the compiler does not care.
 Private helpers first make a reader and a reviewer read the implementation before the interface.
@@ -781,7 +746,7 @@ Tests go last (RS-TEST-04).
 
 **Check:** in each file, is the first non-import item public?
 
-### RS-MOD-42 [S] Keep `impl` blocks in a predictable order
+### RS-MOD-40 [S] Keep `impl` blocks in a predictable order
 
 Inherent constructors, inherent methods, then trait impls grouped by trait, std traits before your
 own.
@@ -791,7 +756,7 @@ Multiple inherent `impl` blocks for one type need a reason — a `cfg`, or diffe
 
 **Check:** does the type have more than one inherent `impl` block, and why?
 
-### RS-MOD-43 [S] Order struct fields for the reader
+### RS-MOD-41 [S] Order struct fields for the reader
 
 Identifying field first, configuration next, caches and scratch last.
 
@@ -800,7 +765,7 @@ communication decision — use it to tell the reader what the type is about (RS-
 
 **Check:** does the first field identify the value, or is it whatever was added first?
 
-### RS-MOD-44 [S] Keep functions short enough to see whole
+### RS-MOD-42 [S] Keep functions short enough to see whole
 
 When one is not, the fix is almost always extracting a pure helper and leaving a thin caller
 (RS-FUNC-36).
@@ -813,7 +778,7 @@ once?
 
 ## Orthogonality
 
-### RS-MOD-45 [M] One concept, one mechanism
+### RS-MOD-43 [M] One concept, one mechanism
 
 A crate configures itself one way, reports progress one way, and spawns work one way. Two mechanisms
 for one concept means every future feature must choose, and every reader must learn both.
@@ -848,7 +813,7 @@ impl Config {
 }
 ```
 
-### RS-MOD-46 [M] Absorb a special case into the general path, or give it its own type
+### RS-MOD-44 [M] Absorb a special case into the general path, or give it its own type
 
 A branch that exists for one input is not a feature; it is an unfinished generalization. Either the
 general path handles it — usually by widening a parameter or adding a variant — or the case is
@@ -871,7 +836,7 @@ pub fn join(parts: &[String], separator: &str) -> String {
 }
 ```
 
-### RS-MOD-47 [S] Keep sibling modules structurally parallel
+### RS-MOD-45 [S] Keep sibling modules structurally parallel
 
 Modules at the same level of the tree have the same internal shape: if `parser` has `mod error` and
 a `Config`, then `renderer` does too, or the difference is explained.

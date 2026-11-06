@@ -1,7 +1,7 @@
 ---
 name: rust-style
 description: >-
-  The modern Rust 1.99 (edition 2024) engineering standard — a 605-rule library merging the Rust API
+  The modern Rust 1.99 (edition 2024) engineering standard — a 597-rule library merging the Rust API
   Guidelines, the empirical conventions of ripgrep and the BurntSushi crates, and a functional-first
   default. Covers naming, API design, errors and panics, iterator and combinator style, ownership
   and lifetimes, traits and generics, module and workspace layout, Cargo/features/lints/CI, testing
@@ -81,7 +81,7 @@ dangerous ones, because the compiler says nothing about them.
 1. **Integer overflow panics in debug and wraps in release.** Arithmetic on attacker-influenced
    values must be `checked_*`, `saturating_*` or `wrapping_*` explicitly, or debug and release
    disagree about what your program does. `strict_*` panics in both profiles, so it belongs where
-   overflow is a bug rather than an input (RS-ERR-31).
+   overflow is a bug rather than an input (RS-ERR-28).
 2. **`as` casts truncate silently at run time.** `len as u32` on a 5 GB buffer is a wrong answer
    with no error. rustc accepts it; clippy's `cast_possible_truncation`, a warning in
    `assets/Cargo.toml`, is what flags it. Use `u32::try_from(len)?` on any conversion that can lose
@@ -147,9 +147,9 @@ questions, in order:
    loop that mutates data.
 4. **What is asymmetric?** If `from_x` exists, does `to_x`? Do sibling functions take their
    arguments in the same order? Do the error variants share one shape? A missing half is either a
-   restriction the documentation must state, or an oversight (RS-API-58 … RS-API-61).
+   restriction the documentation must state, or an oversight (RS-API-57 … RS-API-60).
 5. **What is special-cased?** A branch that exists for one input is a design that has not absorbed
-   that input. Fold it into the general case, or name it as its own type (RS-MOD-45, RS-MOD-46).
+   that input. Fold it into the general case, or name it as its own type (RS-MOD-43, RS-MOD-44).
 
 Readability outranks all five. A combinator chain that requires the reader to track three type
 transformations is worse than the `match` it replaced (RS-FUNC-42), and a symmetry nobody can see is
@@ -172,7 +172,7 @@ not worth the name it costs.
   - RS-API-22 [M] Do not build stringly-typed APIs
   - RS-API-27 [M] Prefer unrepresentable to rejected, and rejected to checked
   - RS-API-36 [M] Implement `Debug` on every public type
-  - RS-API-54 [M] Decide `#[non_exhaustive]` for every published enum and struct
+  - RS-API-53 [M] Decide `#[non_exhaustive]` for every published enum and struct
 - **Errors, `Result`, Panics, and Exit Codes**
   - RS-ERR-01 [M] Split failures into recoverable, caller-bug, and self-bug
   - RS-ERR-03 [M!] No `unwrap`, `expect`, or `panic!` on a recoverable path
@@ -243,24 +243,24 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-605 rules live here; section 4 lists by ID those that bind on their own.
+597 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
 | `references/naming.md` | `RS-NAME` (35) | Casing, conversion prefixes (`as_`/`to_`/`into_`), getters, predicates, iterator names, word order, generic parameters and lifetimes |
-| `references/api.md` | `RS-API` (62) | Public surface shape, parameters and returns, encapsulation, type safety and newtypes, `#[must_use]`/`#[non_exhaustive]`, the std trait impl set, constructors and builders, semver evolution |
-| `references/errors.md` | `RS-ERR` (37) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, explicit overflow, exit codes |
+| `references/api.md` | `RS-API` (61) | Public surface shape, parameters and returns, encapsulation, type safety and newtypes, `#[must_use]`/`#[non_exhaustive]`, the std trait impl set, constructors and builders, semver evolution |
+| `references/errors.md` | `RS-ERR` (34) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, explicit overflow, exit codes |
 | `references/functional.md` | `RS-FUNC` (47) | Expression orientation, the iterator adapter set, immutability and shadowing, closures and bounds, purity, parse-don't-validate, when to stop |
 | `references/ownership.md` | `RS-OWN` (39) | Borrow-vs-own signatures, clone discipline, `Cow`, lifetimes and elision, arenas and indices, smart pointers, interior mutability, `Drop` and RAII |
-| `references/traits.md` | `RS-TRAIT` (47) | Trait design and contracts, static vs dynamic dispatch, dyn compatibility, coherence and blanket impls, sealing, bounds, associated types, GATs, const generics, typestate |
-| `references/modules.md` | `RS-MOD` (47) | Module boundaries, `foo.rs` + `foo/`, visibility escalation, the library/binary split, workspace layout and facades, imports and in-file declaration order |
+| `references/traits.md` | `RS-TRAIT` (46) | Trait design and contracts, static vs dynamic dispatch, dyn compatibility, coherence and blanket impls, sealing, bounds, associated types, GATs, const generics, typestate |
+| `references/modules.md` | `RS-MOD` (45) | Module boundaries, `foo.rs` + `foo/`, visibility escalation, the library/binary split, workspace layout and facades, imports and in-file declaration order |
 | `references/build.md` | `RS-BUILD` (46) | Manifest and metadata, docs.rs, additive features, dependency discipline, the `[lints]` table, supply chain and semver, toolchain, profiles, CI |
 | `references/testing.md` | `RS-TEST` (34) | Unit/integration/doc test split, table-driven tests, property and differential testing, fuzzing, snapshots, CLI end-to-end, flakes |
 | `references/documentation.md` | `RS-DOC` (34) | Crate and module docs, the section order, `# Errors`/`# Panics`/`# Safety`, prose style, intra-doc links, README |
 | `references/performance.md` | `RS-PERF` (39) | Measure-first discipline, allocation and buffer reuse, collection choice and layout, buffered I/O and syscalls, monomorphization and `#[inline]`, integer widths and casts, SIMD, benchmarking |
 | `references/concurrency.md` | `RS-CONC` (47) | Choosing a model, scoped threads and channels, shared state and lock discipline, async fundamentals and cancellation safety, `rayon`, `loom` and determinism |
 | `references/unsafe.md` | `RS-UNSAFE` (33) | `// SAFETY:` discipline, the UB list, layout and `repr`, `PhantomData` and variance, `unsafe trait`, C interop and `catch_unwind`, Miri and sanitizers |
-| `references/cli.md` | `RS-CLI` (33) | The `LowArgs`→`HiArgs` two-stage model, the flag table, streams and colour, `BrokenPipe`, signals, config precedence |
+| `references/cli.md` | `RS-CLI` (32) | The `LowArgs`→`HiArgs` two-stage model, the flag table, streams and colour, `BrokenPipe`, signals, config precedence |
 | `references/migration.md` | `RS-MIG` (3) | The crates std replaced, the APIs deprecated through 1.99, when each API the rules prescribe arrived, and what changed silently by release |
 | `references/macros.md` | `RS-MACRO` (22) | When not to write a macro, `macro_rules!` hygiene and fragment specifiers, proc-macro crate split, spans and diagnostics, `trybuild` |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |

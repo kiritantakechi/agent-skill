@@ -503,25 +503,28 @@ pub fn contains(sorted: &[u32], needle: u32) -> bool {
 
 ### RS-PERF-19 [M] Always buffer
 
-Always buffer. `BufReader`/`BufWriter` around files, sockets, and pipes; an unbuffered `Write` in a
-loop is one syscall per call and is the most common reason a Rust CLI is slower than its C
-equivalent.
+A file, socket, pipe or standard stream read or written more than once goes through a `BufReader` or
+`BufWriter`, and stdout is locked once rather than per line: `println!` locks, formats and writes on
+every call, and Rust's stdout is line-buffered whether it is a terminal, a pipe or a file.
 
-**Why:** a syscall costs microseconds against nanoseconds for a memcpy into a buffer. Unbuffered
-line-at-a-time I/O makes the kernel the bottleneck for work that never needed to enter it.
+**Why:** a syscall costs microseconds against nanoseconds for a memcpy into a buffer, so a million
+unbuffered lines are a million `write`s, and the kernel becomes the bottleneck for work that never
+needed it — the most common reason a Rust CLI is slower than its C equivalent.
 
-**Check:** grep for `File::create`/`File::open` whose handle is written or read directly in a loop.
+**Check:** is any `File`, socket, `stdout()` or `stderr()` handle read or written directly inside a
+loop, or `println!` called in one? Each is a syscall per iteration: wrap the handle, locked, once
+outside the loop.
 
 ```rust
 // verified
 use std::io::{self, BufWriter, Write};
 
-/// Buffered: one syscall per block instead of one per line.
+/// The lock is taken once and the writer is buffered, not re-locked per line.
 ///
 /// # Errors
 /// Propagates the first write or flush error.
-pub fn emit(sink: impl Write, lines: &[String]) -> io::Result<()> {
-    let mut out = BufWriter::new(sink);
+pub fn print_all(lines: &[String]) -> io::Result<()> {
+    let mut out = BufWriter::new(io::stdout().lock());
     for line in lines {
         writeln!(out, "{line}")?;
     }

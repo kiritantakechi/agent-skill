@@ -576,7 +576,7 @@ permitted dependencies, so neither the MSRV nor the lower bounds are exercised o
 
 Run `cargo semver-checks` before every release and trust it over intuition about what is breaking.
 It catches removed impls, narrowed bounds, changed variant shapes, and newly private items that
-human review misses (RS-API-55).
+human review misses (RS-API-54).
 
 *Relaxed form:* an unpublished internal crate with one consumer can rely on that consumer's build.
 The moment there are two, the tool is cheaper than the coordination.
@@ -591,7 +591,7 @@ remembers?
 ### RS-BUILD-33 [M] Follow semver strictly, including the 0.x rule
 
 Follow semver strictly, including the 0.x rule that 0.y.z treats `y` as the major. Do not ship a
-breaking change as a patch because "nobody uses it yet". RS-API-55 lists which changes break.
+breaking change as a patch because "nobody uses it yet". RS-API-54 lists which changes break.
 
 **Why:** Cargo's resolver implements these rules exactly, so a breaking patch release breaks every
 existing build that resolves to it, without any action by the user. "Nobody uses it" is not
@@ -700,7 +700,7 @@ Cargo turns incremental compilation off when `CI` is set, so CI needs no `CARGO_
 
 `[profile.release]` defaults are reasonable; change them with measurements. `lto = "thin"` is
 usually a good trade, `codegen-units = 1` buys a few percent for much slower builds, and
-`panic = "abort"` is an application decision (RS-ERR-32).
+`panic = "abort"` is an application decision (RS-ERR-29).
 
 **Why:** each of these trades build time or behaviour for runtime, and the sizes of both sides are
 project-specific. `panic = "abort"` in particular changes semantics — `catch_unwind` stops working —

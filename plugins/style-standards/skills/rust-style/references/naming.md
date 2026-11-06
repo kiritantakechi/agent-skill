@@ -122,39 +122,35 @@ Two words is the ceiling for a leaf crate; three for a facade (`regex-automata`,
 
 **Why:** the name appears in every dependent's manifest, in every `use`, and in conversation. If it
 needs four words to describe the crate, the crate does too much — the name is reporting a design
-problem (RS-MOD-19).
+problem (RS-MOD-17).
 
 **Check:** say the name out loud. If you have to spell it, or if it does not fit in the `Cargo.toml`
 line without wrapping, shorten it or split the crate.
 
 ### RS-NAME-05 [M] Name a module for its concept; never `utils`, `helpers`, `common`
 
-Module names are singular nouns describing one concept: `matcher`, `printer`, `config`, `walk`.
+Module names are singular nouns describing one concept: `matcher`, `printer`, `config`, `walk`. A
+grab-bag name — `utils`, `helpers`, `common`, `misc`, `shared`, or `types`, `lib` and `core` used as
+one — names a container, and a container can hold anything.
 
 **Why:** the module name is the first half of every path — `matcher::Config` says which concept
-`Config` belongs to. A singular noun forces that concept to exist and to be one thing; a category
-name names a container, and a container can hold anything (RS-MOD-02).
+`Config` belongs to. A grab-bag admits the boundary has not been found, so nobody can predict what
+landed in it, and it only grows: nothing is ever obviously *not* a utility.
 
-**Check:** for each module, write one sentence describing what belongs in it and what does not. If
-the sentence is "things used in more than one place", the module needs dissolving.
+**Check:** `rg -n '\bmod (utils?|helpers?|common|misc|shared)\b' -g '*.rs'` finds each grab-bag
+module; every hit is the finding, and each item in it moves to the type or concept it serves. For
+the other modules, write one sentence saying what belongs in each: "things used in more than one
+place" means it needs dissolving.
 
 ```rust
 // verified
-/// The module names one concept, so the item names need not repeat it.
-#[derive(Debug, Default)]
-pub struct Matcher {
-    patterns: Vec<String>,
-}
-
-impl Matcher {
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.patterns.len()
-    }
+// Named for the concept it serves, never `utils`.
+pub mod escaping {
+    //! Escapes text for terminal output.
 
     #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.patterns.is_empty()
+    pub fn escape(input: &str) -> String {
+        input.replace('\x1b', "^[")
     }
 }
 ```
@@ -850,7 +846,7 @@ A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`clos
 exists.
 
 **Why:** matched names are what make a pair recognizable as a pair, which is how a reader knows the
-inverse exists without looking (RS-API-58). Mismatched halves read as unrelated operations, and the
+inverse exists without looking (RS-API-57). Mismatched halves read as unrelated operations, and the
 reader searches for a `decode` that is spelled `parse`.
 
 **Check:** list every operation with an inverse and read the two names together. If they do not

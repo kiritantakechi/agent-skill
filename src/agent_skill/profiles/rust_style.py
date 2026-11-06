@@ -142,8 +142,8 @@ PROFILE = Profile(
     # `sensitivity` insists on, so the list only shrinks.
     unproven=rules(
         "RS-API-15",
-        "RS-MOD-08",
-        "RS-MOD-12",
+        "RS-MOD-07",
+        "RS-MOD-10",
         "RS-OWN-36",
     ),
     # Measured, not judged: each of these was promoted to accuse and
@@ -170,7 +170,7 @@ PROFILE = Profile(
                 "whether the signature is public decides, and their number chooses "
                 "between an enum and an options struct",
             ),
-            "RS-API-50": NotDecisive(
+            "RS-API-49": NotDecisive(
                 "fn set_",
                 "the span finds every `set_` method; whether the type is a builder "
                 "decides, and an ordinary struct's setter is not this rule's subject",
@@ -180,7 +180,7 @@ PROFILE = Profile(
                 "the span finds every environment read, the sanctioned one included; "
                 "whether it sits outside the single construction path decides",
             ),
-            "RS-CLI-31": NotDecisive(
+            "RS-CLI-30": NotDecisive(
                 "env::var",
                 "the span finds every environment read; whether that name is prefixed "
                 "and documented in the help output decides, and neither fact is on "
@@ -217,7 +217,7 @@ PROFILE = Profile(
                 "the span finds every erased error; whether the erasure is a "
                 "commented decision rather than an oversight decides",
             ),
-            "RS-ERR-24": NotDecisive(
+            "RS-ERR-23": NotDecisive(
                 "ok_or(",
                 "the span finds every eager combinator; whether its argument is a "
                 "`Copy` constant, rather than something that allocates or calls, "
@@ -285,7 +285,7 @@ PROFILE = Profile(
                 "for; the defect is an `as` cast that could exceed the target range, "
                 "which this span does not find",
             ),
-            "RS-MOD-13": NotDecisive(
+            "RS-MOD-11": NotDecisive(
                 "pub(crate)",
                 "the span matches `pub(crate)`; whether the item is used only from "
                 "`#[cfg(test)]`, and was widened to satisfy a test, decides",

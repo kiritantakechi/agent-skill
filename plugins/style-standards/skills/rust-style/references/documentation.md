@@ -9,7 +9,7 @@ use case from `docs.rs` alone, without reading the source.
 - **Crate and module documentation**
   - RS-DOC-01 [M] Answer four questions, in order, in the crate root
   - RS-DOC-02 [M] Document every feature flag with what it enables and its cost
-  - RS-DOC-03 [S] Document crate-wide invariants once and link to them
+  - RS-DOC-03 [S] Document a crate-wide fact once and link to it
   - RS-DOC-04 [S] Position the crate against its obvious alternatives
   - RS-DOC-05 [S] Keep the crate root example runnable and one screen long
 
@@ -79,17 +79,34 @@ the manifest alone tells them the names but never the trade.
 **Check:** for each entry in `[features]`, find the sentence in the crate docs that says what
 turning it on adds and what it costs. A missing sentence is a violation (RS-BUILD-13).
 
-### RS-DOC-03 [S] Document crate-wide invariants once and link to them
+### RS-DOC-03 [S] Document a crate-wide fact once and link to it
 
-Document crate-wide invariants once, in the root, and link to them from the items they constrain:
-thread-safety guarantees, allocation behaviour, Unicode handling, platform differences.
+State each fact once, where it belongs — thread-safety guarantees, allocation behaviour, Unicode
+handling and platform differences in the crate root, the error taxonomy on the error type — and link
+to it with an intra-doc link from every item it constrains, each `# Errors` section included.
 
-**Why:** restating an invariant at every item guarantees the copies drift. One authoritative
-statement plus intra-doc links keeps them in sync by construction, and gives the reader one place to
-learn the model rather than twelve partial views of it.
+**Why:** restating a fact at every item guarantees the copies drift, and drifted documentation is
+worse than none because readers trust it. One statement plus links keeps them in sync by
+construction and gives the reader one place to learn the model.
 
-**Check:** grep the docs for a repeated invariant sentence. More than one copy means it wants to be
-a root section with links.
+**Check:** do two items, or two `# Errors` sections, describe the same guarantee or variant in
+different words? That is the drift already happening: one becomes the statement and the rest link to
+it.
+
+```rust
+// verified
+/// One error type per crate boundary, documented once and linked to from each `# Errors`.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum Error {
+    /// The pattern could not be compiled.
+    #[error("invalid pattern at byte {offset}")]
+    Pattern { offset: usize },
+    /// The search was cancelled before completion.
+    #[error("cancelled")]
+    Cancelled,
+}
+```
 
 ### RS-DOC-04 [S] Position the crate against its obvious alternatives
 

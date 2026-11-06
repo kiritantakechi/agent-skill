@@ -617,7 +617,7 @@ while the game runs. If so it is a `Result` with the path in the message.
 
 ### BV-ERR-09 [M] Report through `tracing`, never through `println!`
 
-`info!`, `warn!`, `error!`, `debug!`, `trace!`, as `rust-style`'s RS-CLI-25 asks. In Bevy,
+`info!`, `warn!`, `error!`, `debug!`, `trace!`, as `rust-style`'s RS-CLI-24 asks. In Bevy,
 `LogPlugin` is the subscriber, and on wasm `println!` never reaches the browser console.
 
 **Why:** `LogPlugin` gives every record a level, a target and a filter, so a shipped build turns the

@@ -143,7 +143,7 @@ test in a distant directory does not, and that is how suites rot. The child modu
 to private items, which is what makes unit testing possible at all.
 
 **Check:** for each module with non-trivial logic, is there a `mod tests`? Clippy's
-`items_after_test_module` holds it at the bottom, where RS-MOD-41's file order puts it.
+`items_after_test_module` holds it at the bottom, where RS-MOD-39's file order puts it.
 
 ```rust
 // verified
@@ -176,9 +176,9 @@ README shows it?
 
 ### RS-TEST-06 [M] Share integration helpers through `#[path]`, not a `mod.rs`
 
-Put helpers in a subdirectory of `tests/` and pull them in with
-`#[path = "support/helpers.rs"] mod helpers;`, or promote them to a `testutil` workspace crate once
-several suites need them or the helpers gain dependencies or tests of their own.
+Put shared test code in a subdirectory of `tests/` and pull it in with
+`#[path = "support/fixtures.rs"] mod fixtures;`, or promote it to a `test-support` workspace crate
+once several suites need it or it gains dependencies or tests of its own.
 
 **Why:** Cargo compiles every *top-level* file in `tests/` as its own test binary, so
 `tests/helpers.rs` becomes a test crate with no tests. A subdirectory escapes that, and `#[path]`
@@ -473,7 +473,7 @@ mod tests {
 
 Tests must be deterministic and order-independent. `cargo test` runs them in parallel on multiple
 threads; anything relying on a shared directory, a fixed port, an environment variable, or the
-current working directory will flake. Pass a test its environment through a lookup, as RS-CLI-31's
+current working directory will flake. Pass a test its environment through a lookup, as RS-CLI-30's
 `read` takes one: `env::set_var` is `unsafe` in edition 2024, so `unsafe_code = "forbid"` rejects
 it.
 

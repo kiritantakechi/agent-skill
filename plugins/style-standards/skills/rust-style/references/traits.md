@@ -14,7 +14,7 @@ type. Where there is one implementation and no double, the concrete type is the 
 The Rust API Guidelines and the BurntSushi crates advise the opposite — extract a trait only once a
 second implementation exists. Trait-first buys a boundary that is total and symmetric because no
 concrete type shaped it, and costs indirection, extra rustdoc, and a generic parameter at use sites
-a concrete struct would not need. RS-TRAIT-46 and RS-TRAIT-02 keep that cost from becoming damage:
+a concrete struct would not need. RS-TRAIT-45 and RS-TRAIT-02 keep that cost from becoming damage:
 if either is being bent to make a trait fit, the trait is wrong and the fallback is a concrete type,
 not a partial impl.
 
@@ -53,31 +53,30 @@ not a partial impl.
   - RS-TRAIT-26 [M] Document that a trait is sealed and why
   - RS-TRAIT-27 [M] Do not seal a trait users are meant to implement
   - RS-TRAIT-28 [M] Do not design around specialization
-  - RS-TRAIT-29 [M] Know that a blanket `From<T>` conflicts with the reflexive impl
 
 - **Bounds, where clauses, inference**
-  - RS-TRAIT-30 [S] Put simple bounds inline and anything longer in a `where` clause
-  - RS-TRAIT-31 [S] Bound at the point of use, not on the struct
-  - RS-TRAIT-32 [M] Minimize bounds
-  - RS-TRAIT-33 [S] Genericize a parameter only where the flexibility is used
-  - RS-TRAIT-34 [S] Do not return a type the caller must turbofish
-  - RS-TRAIT-35 [S] Use type aliases to tame long generic types
-  - RS-TRAIT-36 [S] Comment a type alias that hides genuine complexity
-  - RS-TRAIT-37 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
+  - RS-TRAIT-29 [S] Put simple bounds inline and anything longer in a `where` clause
+  - RS-TRAIT-30 [S] Bound at the point of use, not on the struct
+  - RS-TRAIT-31 [M] Minimize bounds
+  - RS-TRAIT-32 [S] Genericize a parameter only where the flexibility is used
+  - RS-TRAIT-33 [S] Do not return a type the caller must turbofish
+  - RS-TRAIT-34 [S] Use type aliases to tame long generic types
+  - RS-TRAIT-35 [S] Comment a type alias that hides genuine complexity
+  - RS-TRAIT-36 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
 
 - **Associated types, GATs, const generics**
-  - RS-TRAIT-38 [M] Associated type for one-per-implementor, parameter for many
-  - RS-TRAIT-39 [S] Bound associated types at their declaration
-  - RS-TRAIT-40 [S] Reach for a GAT only after a plain associated type has failed
-  - RS-TRAIT-41 [S] Use const generics where the size is genuinely compile-time
-  - RS-TRAIT-42 [S] Do not emulate variadics past a small arity
-  - RS-TRAIT-43 [S] Use typestate where misuse is costly and the states are few
-  - RS-TRAIT-44 [S] Do not build a typestate machine with many states
-  - RS-TRAIT-45 [M] Make marker traits zero-method and documented
+  - RS-TRAIT-37 [M] Associated type for one-per-implementor, parameter for many
+  - RS-TRAIT-38 [S] Bound associated types at their declaration
+  - RS-TRAIT-39 [S] Reach for a GAT only after a plain associated type has failed
+  - RS-TRAIT-40 [S] Use const generics where the size is genuinely compile-time
+  - RS-TRAIT-41 [S] Do not emulate variadics past a small arity
+  - RS-TRAIT-42 [S] Use typestate where misuse is costly and the states are few
+  - RS-TRAIT-43 [S] Do not build a typestate machine with many states
+  - RS-TRAIT-44 [M] Make marker traits zero-method and documented
 
 - **Totality and symmetry of impls**
-  - RS-TRAIT-46 [M] Make every impl total — no `unimplemented!()` arms
-  - RS-TRAIT-47 [S] Keep the impl set symmetric across a family of types
+  - RS-TRAIT-45 [M] Make every impl total — no `unimplemented!()` arms
+  - RS-TRAIT-46 [S] Keep the impl set symmetric across a family of types
 
 ---
 
@@ -88,7 +87,7 @@ not a partial impl.
 At a seam that will carry two plausible implementations, or a test double, write the trait first, in
 terms of what a caller needs, then implement it. Program against the trait — take `impl Read`, not
 `File` — so the first implementation is never privileged. A type with one implementation and no
-double stays concrete (RS-TRAIT-33), and a closed set is an enum (RS-TRAIT-18).
+double stays concrete (RS-TRAIT-32), and a closed set is an enum (RS-TRAIT-18).
 
 **Why:** a boundary extracted from an existing type inherits its accidents: its error cases, its
 argument order, its assumption that a handle is always available. Designed against the caller's
@@ -236,7 +235,7 @@ every implementor that cannot provide them — a type holding a file handle, a c
 pointer. The convenience is yours; the exclusion is theirs.
 
 **Check:** for each supertrait, is it needed by the trait's own default methods, or only by your
-call sites? If the latter, bound at the call site instead (RS-TRAIT-31).
+call sites? If the latter, bound at the call site instead (RS-TRAIT-30).
 
 ```rust
 // verified
@@ -460,7 +459,7 @@ pub fn longer_than(limit: usize) -> impl Fn(&str) -> bool {
 
 No generic methods, no `Self` in return position, no associated constants. An associated constant
 becomes a method returning the value, one indirect call that keeps `Box<dyn Trait>` available. A
-generic method takes `where Self: Sized` (RS-TRAIT-37), or the trait splits into a dyn-compatible
+generic method takes `where Self: Sized` (RS-TRAIT-36), or the trait splits into a dyn-compatible
 core plus a generic extension trait.
 
 **Why:** dyn compatibility (formerly "object safety") cannot be added later without a breaking
@@ -554,7 +553,7 @@ the newtype that would have worked.
 
 **Why:** it is the sanctioned mechanism, it is zero-cost with `#[repr(transparent)]`, and it lets
 you add the impl without any coordination. Add `AsRef`/`Deref` only if the newtype genuinely *is*
-the inner type for all purposes (RS-API-45).
+the inner type for all purposes (RS-API-44).
 
 **Check:** does the newtype expose the inner type's whole API, or only the part that makes sense?
 
@@ -660,18 +659,9 @@ a runtime check.
 
 **Check:** grep for `default fn` and `#![feature(specialization)]`. Both mean nightly-only forever.
 
-### RS-TRAIT-29 [M] Know that a blanket `From<T>` conflicts with the reflexive impl
-
-**Why:** `impl<T> From<T> for MyType` overlaps with core's `impl<T> From<T> for T` at `T = MyType`,
-so rustc rejects it with E0119 and names the reflexive impl in `core`. A conversion API designed
-around a blanket `From` is redesigned the first time it is compiled.
-
-**Check:** narrow the bound (`impl<T: Display> From<T> for MyType` still conflicts at `T = MyType`
-if `MyType: Display`) or write per-type impls.
-
 ## Bounds, where clauses, inference
 
-### RS-TRAIT-30 [S] Put simple bounds inline and anything longer in a `where` clause
+### RS-TRAIT-29 [S] Put simple bounds inline and anything longer in a `where` clause
 
 **Why:** a signature that wraps across three lines because of inline bounds is harder to read than
 the same one with the bounds moved below, where they align and can be commented individually.
@@ -696,7 +686,7 @@ where
 }
 ```
 
-### RS-TRAIT-31 [S] Bound at the point of use, not on the struct
+### RS-TRAIT-30 [S] Bound at the point of use, not on the struct
 
 **Why:** `struct Cache<K, V>` with bounds only on the `impl` blocks that need them stays usable in
 contexts where the bound is irrelevant — a field declaration, a `PhantomData`, a `Default` impl.
@@ -730,7 +720,7 @@ impl<T: std::fmt::Display> Bag<T> {
 }
 ```
 
-### RS-TRAIT-32 [M] Minimize bounds
+### RS-TRAIT-31 [M] Minimize bounds
 
 **Why:** each bound is a requirement on every caller. `T: Clone` when you only need `&T` is a
 needless restriction; `T: Ord` when `PartialOrd` suffices excludes floats; `T: Debug` for a log line
@@ -751,7 +741,7 @@ pub fn render<T: std::fmt::Display>(items: &[T]) -> String {
 }
 ```
 
-### RS-TRAIT-33 [S] Genericize a parameter only where the flexibility is used
+### RS-TRAIT-32 [S] Genericize a parameter only where the flexibility is used
 
 **Why:** `impl AsRef<Path>` is worth it because callers genuinely hold four different path-like
 types. `impl Into<u32>` is not, because they hold a `u32`. Genericity has an inference cost, a
@@ -760,14 +750,14 @@ documentation cost, and a monomorphization cost.
 **Check:** list the concrete types this parameter will be instantiated with. One means make it
 concrete.
 
-### RS-TRAIT-34 [S] Do not return a type the caller must turbofish
+### RS-TRAIT-33 [S] Do not return a type the caller must turbofish
 
 **Why:** if users must write `::<Vec<_>>` at every call site, the API is asking them to do
 inference's job. Either return a concrete type or take the target as a parameter they already have.
 
 **Check:** write a call in a doc example without any annotation. Does it compile?
 
-### RS-TRAIT-35 [S] Use type aliases to tame long generic types
+### RS-TRAIT-34 [S] Use type aliases to tame long generic types
 
 `pub type Result<T> = std::result::Result<T, Error>;`
 
@@ -796,7 +786,7 @@ impl std::fmt::Debug for Router {
 }
 ```
 
-### RS-TRAIT-36 [S] Comment a type alias that hides genuine complexity
+### RS-TRAIT-35 [S] Comment a type alias that hides genuine complexity
 
 An alias for
 `Box<dyn Fn(&Request) -> Pin<Box<dyn Future<Output = Result<Response, Error>> + Send>> + Send + Sync>`
@@ -806,7 +796,7 @@ is right, and so is a comment explaining the shape.
 
 **Check:** could a new contributor reconstruct the expansion from the alias name alone?
 
-### RS-TRAIT-37 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
+### RS-TRAIT-36 [S] Use `where Self: Sized` on methods rather than losing dyn compatibility
 
 **Why:** this is how `Iterator` keeps `Box<dyn Iterator>` working while still offering `map`,
 `collect`, and the rest — the generic methods are excluded from the vtable rather than excluding the
@@ -816,7 +806,7 @@ trait from `dyn` (RS-TRAIT-16).
 
 ## Associated types, GATs, const generics
 
-### RS-TRAIT-38 [M] Associated type for one-per-implementor, parameter for many
+### RS-TRAIT-37 [M] Associated type for one-per-implementor, parameter for many
 
 `Iterator` has one `Item`; `From<T>` has many `T`. Were `Item` a parameter, every use site would
 write `fn f<I: Iterator<Item = T>, T>` where `fn f<I: Iterator>` does.
@@ -839,7 +829,7 @@ pub trait Source {
 }
 ```
 
-### RS-TRAIT-39 [S] Bound associated types at their declaration
+### RS-TRAIT-38 [S] Bound associated types at their declaration
 
 `type Error: std::error::Error + Send + Sync + 'static;`
 
@@ -849,7 +839,7 @@ it and no implementor can supply something unusable. Adding the bound later is b
 **Check:** does any generic function repeat a bound on `T::Error` or `I::Item`? That bound belongs
 on the declaration.
 
-### RS-TRAIT-40 [S] Reach for a GAT only after a plain associated type has failed
+### RS-TRAIT-39 [S] Reach for a GAT only after a plain associated type has failed
 
 **Why:** GATs are the right tool for lending iterators and for associated types that borrow from
 `&self`, and they are a significant complexity cost in error messages and in implementor burden.
@@ -858,7 +848,7 @@ Most designs that reach for them first do not need them.
 **Check:** does the associated type genuinely need to name a lifetime from `&self`? Write the plain
 version first and let it fail.
 
-### RS-TRAIT-41 [S] Use const generics where the size is genuinely compile-time
+### RS-TRAIT-40 [S] Use const generics where the size is genuinely compile-time
 
 `struct Chunk<const N: usize>`, `fn hash<const OUT: usize>(…) -> [u8; OUT]`.
 
@@ -883,7 +873,7 @@ impl<const BYTES: usize> Digest<BYTES> {
 }
 ```
 
-### RS-TRAIT-42 [S] Do not emulate variadics past a small arity
+### RS-TRAIT-41 [S] Do not emulate variadics past a small arity
 
 **Why:** the ecosystem convention is tuple impls up to 12, generated by a macro. Past that the
 compile time and the rustdoc noise grow faster than the convenience, and a slice or a struct is
@@ -891,7 +881,7 @@ clearer anyway.
 
 **Check:** is the macro generating impls for arities nobody uses?
 
-### RS-TRAIT-43 [S] Use typestate where misuse is costly and the states are few
+### RS-TRAIT-42 [S] Use typestate where misuse is costly and the states are few
 
 `Connection<Idle>` → `Connection<Open>`.
 
@@ -955,7 +945,7 @@ impl Connection<Open> {
 }
 ```
 
-### RS-TRAIT-44 [S] Do not build a typestate machine with many states
+### RS-TRAIT-43 [S] Do not build a typestate machine with many states
 
 **Why:** the error messages and the documentation cost grow faster than the safety benefit. Past a
 handful of states, users cannot tell which method is available when, and a runtime state enum with a
@@ -964,7 +954,7 @@ clear error is kinder.
 **Check:** count the states. More than about four and the rustdoc becomes a state diagram nobody
 reads.
 
-### RS-TRAIT-45 [M] Make marker traits zero-method and documented
+### RS-TRAIT-44 [M] Make marker traits zero-method and documented
 
 **Why:** a marker trait's whole content is its invariant, so if the invariant is not written down
 the trait means nothing. If violating it causes unsoundness, it must be `unsafe trait`
@@ -987,7 +977,7 @@ impl RedactionFree for RequestId {}
 
 ## Totality and symmetry of impls
 
-### RS-TRAIT-46 [M] Make every impl total — no `unimplemented!()` arms
+### RS-TRAIT-45 [M] Make every impl total — no `unimplemented!()` arms
 
 Every implementor supports every method for real. An impl that panics, returns `Err(Unsupported)`,
 or silently does nothing for part of the trait is a partial impl, and partial impls are the failure
@@ -1032,7 +1022,7 @@ impl Storage for Snapshot {
 }
 ```
 
-### RS-TRAIT-47 [S] Keep the impl set symmetric across a family of types
+### RS-TRAIT-46 [S] Keep the impl set symmetric across a family of types
 
 Related types carry the same trait impls: if one wrapper is `Serialize`, `Debug`, and `Clone`, its
 siblings are too, or the omission is documented.

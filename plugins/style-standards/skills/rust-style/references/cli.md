@@ -25,28 +25,27 @@ what "production-grade Rust CLI" means in practice.
   - RS-CLI-13 [S] Split brief `-h` from complete `--help`, and end with real examples
   - RS-CLI-14 [S] Support `--version`, with the git hash and target triple
   - RS-CLI-15 [S] Add subcommands only when the tool genuinely does several things
-  - RS-CLI-16 [M] Reserve exit code `2` for usage errors and print the specific problem
+  - RS-CLI-16 [M] On a usage error, print the one problem and a pointer to `--help`
 
 - **Output and streams**
   - RS-CLI-17 [M] Send results to stdout and diagnostics to stderr
-  - RS-CLI-18 [M] Lock stdout once and write through a `BufWriter`
-  - RS-CLI-19 [M] Handle `BrokenPipe` by exiting quietly with success
-  - RS-CLI-20 [M] Adapt presentation to whether stdout is a terminal — never the data
-  - RS-CLI-21 [M] Respect `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`
-  - RS-CLI-22 [S] Provide a machine-readable mode and version its schema
-  - RS-CLI-23 [S] Say which output format is stable, and do not promise the other
-  - RS-CLI-24 [M] Send progress to stderr, suppressed when not a terminal
-  - RS-CLI-25 [M] Use structured logging for diagnostics, never `println!`
+  - RS-CLI-18 [M] Handle `BrokenPipe` by exiting quietly with success
+  - RS-CLI-19 [M] Adapt presentation to whether stdout is a terminal — never the data
+  - RS-CLI-20 [M] Respect `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`
+  - RS-CLI-21 [S] Provide a machine-readable mode and version its schema
+  - RS-CLI-22 [S] Say which output format is stable, and do not promise the other
+  - RS-CLI-23 [M] Send progress to stderr, suppressed when not a terminal
+  - RS-CLI-24 [M] Use structured logging for diagnostics, never `println!`
 
 - **Behaviour, environment, signals**
-  - RS-CLI-26 [M] Read stdin when given no files, and treat `-` as stdin
-  - RS-CLI-27 [M!] Make destructive operations opt-in, and never prompt when not a terminal
-  - RS-CLI-28 [M!] Write output atomically where a partial file would be harmful
-  - RS-CLI-29 [M] On `SIGINT`, restore the terminal and remove temporary files, then re-raise it
-  - RS-CLI-30 [S] Respect the platform's directory conventions
-  - RS-CLI-31 [M] Namespace and document every environment variable you read
-  - RS-CLI-32 [M] Do not phone home, auto-update, or collect telemetry without opt-in
-  - RS-CLI-33 [S] Ship a single binary with artifacts and checksums for three platforms
+  - RS-CLI-25 [M] Read stdin when given no files, and treat `-` as stdin
+  - RS-CLI-26 [M!] Make destructive operations opt-in, and never prompt when not a terminal
+  - RS-CLI-27 [M!] Write output atomically where a partial file would be harmful
+  - RS-CLI-28 [M] On `SIGINT`, restore the terminal and remove temporary files, then re-raise it
+  - RS-CLI-29 [S] Respect the platform's directory conventions
+  - RS-CLI-30 [M] Namespace and document every environment variable you read
+  - RS-CLI-31 [M] Do not phone home, auto-update, or collect telemetry without opt-in
+  - RS-CLI-32 [S] Ship a single binary with artifacts and checksums for three platforms
 
 - Decided by tools
 
@@ -460,17 +459,16 @@ different, and cost otherwise.
 **Check:** do the subcommands share most of their flags? If so, they are one command with a mode
 flag.
 
-### RS-CLI-16 [M] Reserve exit code `2` for usage errors and print the specific problem
+### RS-CLI-16 [M] On a usage error, print the one problem and a pointer to `--help`
 
-Reserve exit code `2` for usage errors and print the specific problem plus a pointer to `--help` —
-never dump the entire help text on a typo (RS-ERR-35).
+Name the flag or value that was wrong, point at `--help`, and exit with the usage code RS-ERR-32
+assigns — never the entire help text on a typo.
 
-**Why:** the convention lets scripts distinguish "you called me wrong" from "the operation failed",
-which are different recovery paths. Dumping the full help scrolls the actual error off the screen,
-which is the one thing the user needed.
+**Why:** dumping the full help scrolls the actual error off the screen, which is the one thing the
+user needed, and leaves them to find which of forty flags they mistyped.
 
 **Check:** run the tool with a bad flag. The output should be one line naming the flag, plus a
-pointer, and the exit code should be `2`.
+pointer, and the exit code should be RS-ERR-32's usage code.
 
 ```rust
 // verified
@@ -521,36 +519,7 @@ pub fn emit(
 }
 ```
 
-### RS-CLI-18 [M] Lock stdout once and write through a `BufWriter`
-
-Lock stdout once and write through a `BufWriter`. `println!` in a loop locks and flushes per line
-and is frequently the reason a tool is ten times slower than it should be. Buffering in general is
-RS-PERF-19.
-
-**Why:** `println!` locks, formats and writes every call, and Rust's stdout is line-buffered whether
-it is a terminal, a pipe or a file, so every line is a `write` syscall. A million lines is a million
-of each, and that dominates the runtime of anything that prints a lot.
-
-**Check:** grep for `println!` inside loops. Each is a lock and a flush.
-
-```rust
-// verified
-use std::io::{self, BufWriter, Write};
-
-/// The lock is taken once and the writer is buffered, not re-locked per line.
-///
-/// # Errors
-/// Propagates the first write or flush error.
-pub fn print_all(lines: &[String]) -> io::Result<()> {
-    let mut out = BufWriter::new(io::stdout().lock());
-    for line in lines {
-        writeln!(out, "{line}")?;
-    }
-    out.flush()
-}
-```
-
-### RS-CLI-19 [M] Handle `BrokenPipe` by exiting quietly with success
+### RS-CLI-18 [M] Handle `BrokenPipe` by exiting quietly with success
 
 Handle `BrokenPipe` by exiting quietly with success. Every `tool | head` will otherwise print an
 error, and this is the most common polish defect in Rust CLIs. Match on `io::ErrorKind::BrokenPipe`
@@ -563,7 +532,7 @@ signal, a Rust write returns `BrokenPipe` and `println!` panics on it.
 
 **Check:** run `tool | head -1`. Any error output or non-zero exit is a violation.
 
-### RS-CLI-20 [M] Adapt presentation to whether stdout is a terminal — never the data
+### RS-CLI-19 [M] Adapt presentation to whether stdout is a terminal — never the data
 
 Detect whether stdout is a terminal and adapt: colour, progress bars, and column alignment when
 interactive; plain, stable, line-oriented output when piped. Never change the *data*, only the
@@ -594,7 +563,7 @@ pub fn render(row: &str, style: Style) -> String {
 }
 ```
 
-### RS-CLI-21 [M] Respect `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`
+### RS-CLI-20 [M] Respect `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`
 
 Respect `NO_COLOR`, `CLICOLOR_FORCE`, and `TERM=dumb`, and provide `--color=auto|always|never` with
 `auto` as the default. Use `anstream`/`termcolor` rather than emitting escape codes by hand —
@@ -648,7 +617,7 @@ pub fn should_use_colour(choice: ColourChoice, env: EnvColour, stream: Stream) -
 }
 ```
 
-### RS-CLI-22 [S] Provide a machine-readable mode and version its schema
+### RS-CLI-21 [S] Provide a machine-readable mode and version its schema
 
 Provide a machine-readable output mode (`--json`, or NDJSON for streaming) for anything a script
 might consume, and treat its schema as a versioned API.
@@ -660,7 +629,7 @@ without freezing the display.
 **Check:** is there a documented, stable output format? If users are grepping the pretty output, the
 answer is no.
 
-### RS-CLI-23 [S] Say which output format is stable, and do not promise the other
+### RS-CLI-22 [S] Say which output format is stable, and do not promise the other
 
 Keep human-readable output stable enough to grep but do not promise it. Say in the docs which format
 is stable (the JSON one) so users script against the right thing.
@@ -670,7 +639,7 @@ than a broken promise. Silence is read as a guarantee.
 
 **Check:** does the documentation say, in words, which format is covered by semver?
 
-### RS-CLI-24 [M] Send progress to stderr, suppressed when not a terminal
+### RS-CLI-23 [M] Send progress to stderr, suppressed when not a terminal
 
 Progress and status go to stderr, are suppressed when not a terminal, and are suppressible with
 `--quiet`. A progress bar in a log file is a megabyte of carriage returns.
@@ -782,7 +751,7 @@ mod tests {
 }
 ```
 
-### RS-CLI-25 [M] Use structured logging for diagnostics, never `println!`
+### RS-CLI-24 [M] Use structured logging for diagnostics, never `println!`
 
 Use structured logging (`tracing` or `log` plus `env_logger`) for diagnostics, controlled by
 `-v`/`-vv` or `RUST_LOG`. Never `println!` for debugging in shipped code, and deny
@@ -797,7 +766,7 @@ in logs.
 
 ## Behaviour, environment, signals
 
-### RS-CLI-26 [M] Read stdin when given no files, and treat `-` as stdin
+### RS-CLI-25 [M] Read stdin when given no files, and treat `-` as stdin
 
 Read from stdin when no file arguments are given, and treat `-` as stdin explicitly. This is the
 Unix convention that makes a tool a filter.
@@ -835,7 +804,7 @@ pub fn sources(args: &[PathBuf]) -> Vec<Source> {
 }
 ```
 
-### RS-CLI-27 [M!] Make destructive operations opt-in, and never prompt when not a terminal
+### RS-CLI-26 [M!] Make destructive operations opt-in, and never prompt when not a terminal
 
 Make destructive operations opt-in: a dry-run mode by default for anything that deletes or
 overwrites, or at minimum a `--force`/`-i` prompt when interactive. Never prompt when not a terminal
@@ -883,7 +852,7 @@ pub fn decide(force: Force, terminal: Terminal) -> Decision {
 }
 ```
 
-### RS-CLI-28 [M!] Write output atomically where a partial file would be harmful
+### RS-CLI-27 [M!] Write output atomically where a partial file would be harmful
 
 Write output atomically where a partial file would be harmful: write to a temporary file in the same
 directory, then rename. A crash mid-write should not destroy the user's input. Open the temporary
@@ -920,7 +889,7 @@ pub fn create_staging(target: &Path) -> io::Result<File> {
 }
 ```
 
-### RS-CLI-29 [M] On `SIGINT`, restore the terminal and remove temporary files, then re-raise it
+### RS-CLI-28 [M] On `SIGINT`, restore the terminal and remove temporary files, then re-raise it
 
 A tool that changes terminal modes (raw mode, the alternate screen, a hidden cursor) or creates
 temporary files handles `SIGINT`/`Ctrl-C`: it restores the terminal, removes the files, then
@@ -937,7 +906,7 @@ shell's loop carries on past, where a death by `SIGINT` would have stopped it.
 gone, and `$?` should be `130`. A handler that ends in `exit(130)` rather than re-raising is the
 finding.
 
-### RS-CLI-30 [S] Respect the platform's directory conventions
+### RS-CLI-29 [S] Respect the platform's directory conventions
 
 Respect the platform's directory conventions with `directories` or `etcetera` — `$XDG_CONFIG_HOME`,
 `~/Library/Application Support`, `%APPDATA%` — rather than hard-coding `~/.toolrc`. For `$HOME`
@@ -948,7 +917,7 @@ sync tools handle them correctly. A hard-coded dotfile also breaks on Windows en
 
 **Check:** grep for `~/.` and `$HOME` string concatenation. Each is a hard-coded path.
 
-### RS-CLI-31 [M] Namespace and document every environment variable you read
+### RS-CLI-30 [M] Namespace and document every environment variable you read
 
 Namespace environment variables with the tool's name (`RIPGREP_CONFIG_PATH`, `MYTOOL_LOG`), document
 every one in `--help`, and never read an undocumented variable.
@@ -989,7 +958,7 @@ pub fn read(lookup: impl Fn(&str) -> Option<String>) -> Environment {
 }
 ```
 
-### RS-CLI-32 [M] Do not phone home, auto-update, or collect telemetry without opt-in
+### RS-CLI-31 [M] Do not phone home, auto-update, or collect telemetry without opt-in
 
 Do not phone home, auto-update, or collect telemetry without an explicit, documented opt-in. A CLI
 that makes a network call the user did not ask for will be removed from their machine.
@@ -1000,7 +969,7 @@ servers. An unexpected network call is a security finding in all three, regardle
 **Check:** run the tool with the network blocked. Any behaviour change means there is a call you did
 not declare.
 
-### RS-CLI-33 [S] Ship a single binary with artifacts and checksums for three platforms
+### RS-CLI-32 [S] Ship a single binary with artifacts and checksums for three platforms
 
 Ship the tool as a static-ish single binary where possible, with release artifacts for the three
 major platforms and a checksum. Distribution friction is the main reason good tools go unused.

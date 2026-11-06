@@ -168,7 +168,7 @@ Nothing else is relaxed: a divergence not listed here is a defect, not a dialect
 | `RS-BUILD-25` Never blanket-`allow` at crate level to make CI green | `BV-BUILD-12` — `elided_lifetimes_in_paths` is allowed | It fires on every `Query`, `Res`, `ResMut`, `Commands`, `MessageReader` and `Local` parameter. Writing the `'_`s does satisfy it, and buys nothing but noise. |
 | `RS-BUILD-22` Turn off default features on heavy dependencies | `BV-BUILD-02` — start from a feature collection | Bevy's feature graph has 177 entries in 0.20 and moves every release; a hand-picked list goes stale silently, as an unmeasured one always does. |
 | `RS-FUNC-03` A `for` loop that only pushes is a `collect` | `BV-ECS-18` — a loop that writes through a query is a `for` | Only the loop that writes: a write through `Mut<T>` is effect, not transformation, so there is nothing to collect. A read-only pass over a query that only pushes is a `collect` here too. |
-| `RS-API-54` Decide `#[non_exhaustive]` for every published enum and struct | `BV-ECS-05` — components are exhaustive | Struct-literal construction is how components are spawned, and `#[non_exhaustive]` forbids it outside the defining crate. Required components are the growth mechanism instead. |
+| `RS-API-53` Decide `#[non_exhaustive]` for every published enum and struct | `BV-ECS-05` — components are exhaustive | Struct-literal construction is how components are spawned, and `#[non_exhaustive]` forbids it outside the defining crate. Required components are the growth mechanism instead. |
 
 Two rows that look like they belong here and do not. `RS-BUILD-24` asks for `pedantic` at warn and
 allows "individual lints with a comment giving the reason" — which is exactly what `BV-BUILD-13`

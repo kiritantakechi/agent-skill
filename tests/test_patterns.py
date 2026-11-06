@@ -122,10 +122,10 @@ def test_a_filter_is_not_a_pattern_to_find() -> None:
 
 
 def test_a_filtered_check_is_run_and_said(skills: list[Skill]) -> None:
-    """RS-MOD-12 was skipped whole, with no finding of any kind."""
+    """RS-MOD-10 was skipped whole, with no finding of any kind."""
     rust = next(s for s in skills if s.name == "rust-style")
     said = [
-        f.message for f in selfapply.each(rust) if f.message.startswith("RS-MOD-12")
+        f.message for f in selfapply.each(rust) if f.message.startswith("RS-MOD-10")
     ]
     assert said, "the only filtered Check in the standards is silent again"
     assert "/pub use/" in said[0]

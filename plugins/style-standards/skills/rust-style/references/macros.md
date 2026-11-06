@@ -126,7 +126,7 @@ per field.
 
 **Why:** generated `.rs` files you can read, diff, and set a breakpoint in beat a proc macro nobody
 can inspect — especially for large, stable output like tables, FFI bindings, or protocol types. The
-cost is a regeneration step (RS-MOD-09).
+cost is a regeneration step (RS-MOD-08).
 
 **Check:** does the generated code change less often than the crate does? Then generating it once is
 cheaper than generating it on every build.
@@ -357,7 +357,7 @@ will see.
 `syn::Error::combine`.
 
 **Why:** a user with five bad field attributes otherwise gets five build-edit cycles. Accumulating
-is the same argument as RS-ERR-26, applied at compile time where the cycle is slower.
+is the same argument as RS-ERR-34, applied at compile time where the cycle is slower.
 
 **Check:** does the macro return on the first bad field?
 

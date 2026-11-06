@@ -500,7 +500,7 @@ MARKETPLACE = ".claude-plugin/marketplace.json"
 #: warns on it, and `--strict` fails on a warning.
 _STRICT = "`claude plugin validate --strict` warns on it, and fails on a warning"
 
-#: The title zig-style's mirror pairs `ZS-DATA-36` with, as `RS-API-58`
+#: The title zig-style's mirror pairs `ZS-DATA-36` with, as `RS-API-57`
 #: states it.
 _INVERSE = "Give every operation its inverse, or document why there is none"
 
@@ -1622,8 +1622,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             f"{RS}/references/api.md",
-            f"### RS-API-58 [M] {_INVERSE}",
-            f"### RS-API-58 [M] {_INVERSE}, ever",
+            f"### RS-API-57 [M] {_INVERSE}",
+            f"### RS-API-57 [M] {_INVERSE}, ever",
         ),
     ),
     # A rule outside the mirror's pairs takes the title of one inside.
@@ -1632,8 +1632,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             f"{RS}/references/api.md",
-            "### RS-API-57 [S] Prefer additive evolution; batch the breaking changes",
-            f"### RS-API-57 [S] {_INVERSE}",
+            "### RS-API-56 [S] Prefer additive evolution; batch the breaking changes",
+            f"### RS-API-56 [S] {_INVERSE}",
         ),
     ),
     Control(
