@@ -52,6 +52,12 @@
   — `shared/description.md`, `Use when …. Applies to …. Targets {language} {target}.`;
   `frontmatter.template`, `counted`, `bounded` (500); `skeleton.skill_md_lines`; `prose.dated`
 
+Section 2 as built: FAIL branches 220 → 243, controls 198 → 220, exemptions 22 → 23
+(`toolchain.gone_live`, as `COMPILES`); `check --fast --verbose` byte-identical throughout. Each
+standard read as normalised now also fails: `core_rule` (bevy 24, python 26, rust 28, zig 29),
+`migration_table` (one each), `frontmatter.template`, `counted`, `bounded` (one each),
+`skill_md_lines` (zig), and, for bevy, `crossref.delta_no_table` and `redefines`.
+
 ## 3. python-style
 
 - [ ] 3.1 Normalise python-style to every property in section 2, merging and demoting with

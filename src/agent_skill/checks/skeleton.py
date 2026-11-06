@@ -826,11 +826,11 @@ def _migration(skill: Skill) -> Iterator[Finding]:
             if others
             else ""
         )
-        first = (*others, *mine)
+        held = (*others, *mine)
         yield fail(
             f"`{chapter.name}` holds {said} headed `| {' | '.join(header)} |`{also}; "
             "it holds exactly one, and it is the only map of old spellings",
-            chapter.where(first[0].line if first else None),
+            chapter.where(held[0].line if held else None),
             MIGRATION_TABLE,
         )
     if len(mine) != 1:
