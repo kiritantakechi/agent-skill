@@ -280,4 +280,7 @@ PROFILE = Profile(
     ),
     conventions=CONVENTIONS,
     prose=PROSE,
+    # In the normal form: every property normalize-the-standards gates
+    # holds of it (task 3.1).
+    normalized=True,
 )

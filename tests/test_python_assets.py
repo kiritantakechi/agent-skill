@@ -153,9 +153,10 @@ def test_a_normalised_standards_examples_are_linted_as_it_ships(
     """
     python = next(s for s in skills if s.name == "python-style")
     normal = Skill(python.root, replace(python.profile, normalized=True))
+    plain = Skill(python.root, replace(python.profile, normalized=False))
     snippet = normal.profile.toolchain
     assert isinstance(snippet, PythonSnippet)
-    assert _shipped(python) is None
+    assert _shipped(plain) is None
     assert _shipped(normal) == RUFF_TOML.resolve()
     assert snippet.ruff_args(_shipped(normal)) == [
         "--no-cache",

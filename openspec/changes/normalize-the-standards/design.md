@@ -446,6 +446,47 @@ What this leaves for the standards' own steps:
   Status, Rule; 2.9 may want one convention for both. (2.9: one — section 2.2 is the migration
   header without Status.)
 
+As built (task 3.1), python-style normalised; what it decided for the standards after it:
+
+- Core rules (decision 7): `revise` takes a `*-CORE-NN` in a plan, as a `merge` into the chapter
+  rule it abbreviated or a `remove` with its reason, never a row (a row is a chapter's). Its item in
+  section 4 becomes that rule's contents line, written with the pre-revision ID so the one rewrite
+  respells it; every citation of the core ID follows the merge; and the rename table states the
+  core family's range and a row per core rule — joining the table the revision already started,
+  whose ranges sentence is restated, or stopping when that sentence is not the one `revise` writes.
+  Section 4 then lists the union of the chapter rules the core rules cited, less any about to be a
+  row; `fmt` renders it. All 26 of python-style's merged; none said what no chapter rule says.
+- Moving a rule to another chapter (decision 11): `revise` has no move, so a rule moves as a copy
+  under its new ID and a merge of the original into the copy; renames.md records where it went.
+  Python's module rules moved that way into a new `modules` chapter, the vocabulary's.
+- Chapter titles (decision 1): `<concept>: <what it covers>`, the concept the file's (`Concurrency`,
+  not `Free Threading`; `Build`, not `Packaging`). A title labels its rules in section 4, so a long
+  one costs every reader of section 4.
+- Lint rows (decision 8): a row of a lint `ALL` sets is kept when it says what the configuration
+  does not — the option that widens or decides it (`convention = "google"` for the `D` rows,
+  `max-doc-length` for `W505`, `raises-require-match-for` for `PT011`), or the rule a demotion
+  replaced, which renames.md resolves to it — and goes otherwise: a sibling of a kept row, or a row
+  a rule's Check already names, whose Check then cites the code itself. A rule whose Check reads as
+  only a lint is demoted only when the lint decides its whole statement: `UP040` decides
+  PS-TYPE-10's `TypeAlias` half and not its bare-assignment half, so its Check gained the review
+  half it always had, and it stays a rule.
+- Migration (decision 9): Old is the spelling a toolchain can look up, so Python's are fully
+  qualified (`glob.glob0`, `wave.Wave_read.getmark`), and the generated `rg -F` finds the qualified
+  form only; a call shape a release rejects (`RLock(*args)`, a field-less `TypedDict`) is `changed`,
+  since no fixed string finds it, and its owning rule's Check does; one row may stand for a family
+  of spellings its rule lists (`<module>.__version__`). Python's probe reads a C API name as absent
+  — it is no Python object — so a C row passes vacuously, and a live one would too; a command line
+  (`python -m http.server --cgi`) is unprobed, a note. Section 2.2 is the table restricted to what
+  raises: the Python `gone` rows and the rejected shapes.
+- Tier (decision 6): a relaxed form states what is acceptable outside section 1's scope and nothing
+  conditional on the subject; where one stated the complement of its own rule's domain (PS-CONC-16:
+  a pure, cheap memo has no expensive miss), it said nothing, and was rewritten.
+- Controls (decision 14's last item): the older controls that inject into python-style were each
+  retargeted to a rule or chapter the normal form leaves alone, or given an `also` where the normal
+  form reads the same defect a second way by construction (`relaxed_label`'s unknown label is
+  `stray`; a path-qualified citation is `path_citation`). The core-citation controls and the map's
+  "other N live here" count moved to rust-style, which still states core rules.
+
 ## Risks / Trade-offs
 
 - **CORE IDs disappear** → every citation of one resolves through `renames.md`; `revise` checks

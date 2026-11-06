@@ -103,9 +103,10 @@ def test_every_rename_row_and_range_is_read(skills: list[Skill]) -> None:
 
 
 def test_every_core_rule_is_an_item_of_section_4(skills: list[Skill]) -> None:
+    """Core rules until a standard is normalised, then none."""
     for skill in skills:
         core = skill.core
-        assert core, skill.name
+        assert bool(core) != skill.profile.normalized, skill.name
         assert all(r.id.family == "CORE" and not r.title for r in core), skill.name
 
 

@@ -60,8 +60,16 @@ standard read as normalised now also fails: `core_rule` (bevy 24, python 26, rus
 
 ## 3. python-style
 
-- [ ] 3.1 Normalise python-style to every property in section 2, merging and demoting with
-  `revise`; set `normalized`; full suite and its toolchain pass
+- [x] 3.1 Normalise python-style to every property in section 2, merging and demoting with
+  `revise`; set `normalized`; full suite and its toolchain pass — 26 core rules merged into the
+  chapter rules they abbreviated (`revise` learned to take them), a `modules` chapter, one migration
+  table, two demotions and three merges; see the design's "As built (task 3.1)". `measure`, before
+  → after: rules 236 → 232, chapters with a family code 13 → 14, element orders 5 → 4, out of order
+  1 → 0, citations bare/quoted/behind a path 80/8/30 → 204/0/0, prose "grep" Checks 5 → 0, advice
+  titles 10 → 0, core rules 26 → 0, unrowed lints 17 of 17 → 0 of 17, only-lint Checks 2 → 0, rows
+  saying no reason 46 → 0, migration statuses 0 → 4, section 2 4 subsections, 50 lines → 3, 73,
+  laid out otherwise 1 → 0, items naming no rule 17 → 0, description 1011 → 412 characters,
+  SKILL.md 312 → 284 lines, dated statements 7 → 0
 
 ## 4. rust-style
 
