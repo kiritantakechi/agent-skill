@@ -4,6 +4,7 @@ lazy from pathlib import Path
 
 import pytest
 
+from agent_skill.checks.toolchain import verify
 from agent_skill.lang.zig import ZIG, force_analysis, libc
 from agent_skill.model import Skill
 from agent_skill.proc import have
@@ -95,6 +96,6 @@ def test_a_private_function_is_analysed(tmp_path: Path) -> None:
     )
     extraction = ZIG.extract(Skill(skill, None), tmp_path / "out")
 
-    findings = list(ZIG.verify(extraction))
+    findings = list(verify(ZIG, extraction))
 
     assert any("expected type 'bool'" in f.message for f in findings), findings

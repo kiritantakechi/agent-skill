@@ -4,61 +4,70 @@ lazy from pathlib import Path
 
 from agent_skill import shared
 from agent_skill.doc import canonical
-from agent_skill.fmt import format_skill
-from agent_skill.lang.rust import BEVY_STYLE, INJECTED, RUST_STYLE, module_bodies
+from agent_skill.fmt import format_skill, put_back
+from agent_skill.lang.rust import BEVY_STYLE, RUST_STYLE, rebase, unrebase
 from agent_skill.profiles import PROFILES
 from agent_skill.report import Level
 from structure_fixture import build, edit, reparse
 
 
-def test_bodies_dedents_and_drops_the_injected_attribute(tmp_path: Path) -> None:
-    src = tmp_path / "chapter.rs"
-    src.write_text(
-        "//! header\n\n"
-        "pub mod bv_ecs_01 {\n"
-        f"    {INJECTED}\n"
-        "    // verified\n"
-        "    fn a() {}\n"
-        "}\n\n"
-        "pub mod bv_ecs_02 {\n"
-        f"    {INJECTED}\n"
-        "    // verified\n"
-        "    fn b() {}\n"
-        "}\n"
-    )
-    assert module_bodies(src, BEVY_STYLE) == [
-        "// verified\nfn a() {}\n",
-        "// verified\nfn b() {}\n",
-    ]
-
-
-def test_bodies_undoes_the_extractor_rebasing(tmp_path: Path) -> None:
+def test_rebasing_points_a_block_into_its_module_and_back() -> None:
     """`fmt` writes bodies back, so it must not store harness paths.
 
-    `lang.rust._module` rewrites `crate::` and `mycrate::` to reach
-    inside the wrapper module. Storing that rewrite is how the apparatus
-    leaks its own crate name into an example a reader copies.
+    `rebase` rewrites `crate::` and `mycrate::` to reach the block's
+    module file. Storing that rewrite is how the apparatus leaks its
+    own crate name into an example a reader copies.
     """
-    src = tmp_path / "structure.rs"
-    src.write_text(
-        "//! header\n\n"
-        "pub mod rs_str_15 {\n"
-        f"    {INJECTED}\n"
-        "    // verified\n"
-        "    use crate::structure::rs_str_15::util::Interner;\n"
-        "    use rust_style_verify::structure::rs_str_15::parse;\n"
-        "    macro_rules! m {\n"
-        "        () => {\n"
-        "            $crate::thing\n"
-        "        };\n"
-        "    }\n"
+    body = (
+        "// verified\n"
+        "use crate::util::Interner;\n"
+        "use mycrate::parse;\n"
+        "macro_rules! m {\n"
+        "    () => {\n"
+        "        $crate::thing\n"
+        "    };\n"
         "}\n"
     )
-    body = module_bodies(src, RUST_STYLE)[0]
-    assert "use crate::util::Interner;" in body
-    assert "use mycrate::parse;" in body
-    assert "$crate::thing" in body
-    assert "rs_str_15" not in body
+    rebased = rebase(body, RUST_STYLE, "structure", "rs_str_15")
+    assert "use crate::structure::rs_str_15::util::Interner;" in rebased
+    assert "use rust_style_verify::structure::rs_str_15::parse;" in rebased
+    assert "$crate::structure::rs_str_15::thing" in rebased
+    assert unrebase(rebased, RUST_STYLE, "structure", "rs_str_15") == body
+
+
+def test_a_block_is_put_back_by_its_line(tmp_path: Path) -> None:
+    """Two blocks with one body: the one asked for is the one rewritten.
+
+    Found by its text, a block written twice in a chapter could not be
+    told from its twin and was skipped.
+    """
+    demo = build(tmp_path)
+    chapter = demo.root / "references" / "errors.md"
+    fence = "```rust\n// verified\nfn a() {}\n```\n"
+    chapter.write_text(chapter.read_text() + f"\n{fence}\n{fence}")
+    demo = reparse(demo)
+    first, second = demo.blocks("rust")
+    assert first.body == second.body
+
+    (changed,) = put_back(demo, {second: "// verified\nfn a() -> u8 {\n    0\n}\n"})
+
+    assert changed.level is Level.NOTE
+    text = chapter.read_text()
+    assert text.count(fence) == 1
+    assert text.endswith("```rust\n// verified\nfn a() -> u8 {\n    0\n}\n```\n")
+
+
+def test_a_block_that_moved_is_skipped(tmp_path: Path) -> None:
+    demo = build(tmp_path)
+    chapter = demo.root / "references" / "errors.md"
+    chapter.write_text(chapter.read_text() + "\n```rust\n// verified\nfn a() {}\n```\n")
+    (block,) = reparse(demo).blocks("rust")
+    chapter.write_text("\n" + chapter.read_text())
+
+    (skipped,) = put_back(demo, {block: "// verified\nfn b() {}\n"})
+
+    assert skipped.level is Level.FAIL
+    assert "fn b" not in chapter.read_text()
 
 
 def test_each_skill_compiles_as_its_own_crate() -> None:

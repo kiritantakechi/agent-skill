@@ -1,9 +1,8 @@
 """zig-style's examples, one standalone file each.
 
-The rust side compiles its blocks as modules of one crate; Zig has no
-such container, so each block becomes a standalone file — which is also
-the stronger claim, and the one `// verified` should mean: this text
-compiles as written.
+Zig has no container to compile blocks in, so each block becomes a
+standalone file — which is also the stronger claim, and the one
+`// verified` should mean: this text compiles as written.
 
 And everything else the harness knows about Zig: that a compiler row is
 proved by a probe the compiler rejects, that the pin follows this
@@ -20,24 +19,13 @@ from types import MappingProxyType
 lazy from collections.abc import Callable, Iterable, Iterator, Mapping
 
 from agent_skill.ids import Pin
-from agent_skill.lang import Extraction, Language, Unit, inconclusive, timed_out
+from agent_skill.lang import Extraction, Language, Step, Unit, extracted
 from agent_skill.proc import have, run
-from agent_skill.report import Finding, Level, declare, fail, note, unrun
+from agent_skill.report import Finding, Level, declare, fail, unrun
 lazy from agent_skill.checks.citations import Row, rows_of
 lazy from agent_skill.ids import Location
-lazy from agent_skill.model import Skill
-
-# The branches of `toolchain` and of `mutation` Zig's steps report
-# through.
-BUILD_TIMEOUT = declare("toolchain", "zig_build_timeout", Level.FAIL)
-BUILD = declare("toolchain", "zig_build", Level.FAIL)
-TEST_TIMEOUT = declare("toolchain", "zig_test_timeout", Level.FAIL)
-TEST = declare("toolchain", "zig_test", Level.FAIL)
-FMT_TIMEOUT = declare("toolchain", "zig_fmt_timeout", Level.FAIL)
-FMT = declare("toolchain", "zig_fmt", Level.FAIL)
-FMT_UNREAD = declare("toolchain", "zig_fmt_unread", Level.FAIL)
-HUNG = declare("mutation", "zig_inconclusive", Level.NOTE)
-SURVIVOR = declare("mutation", "zig_survivor", Level.NOTE)
+lazy from agent_skill.model import Block, Skill
+lazy from agent_skill.proc import Ran
 
 # The branches of `citations` a compiler row reports through.
 ROWS_ABSENT = declare("citations", "zig_absent", Level.UNRUN)
@@ -79,7 +67,19 @@ def inside_tests(body: str) -> set[int]:
     return inside
 
 
-LANGUAGE = Language("zig", suffix=".zig", tests=inside_tests)
+#: A mutant deletes no binding or discard, which Zig refuses to compile
+#: unused or missing, and no assertion: a defensive assertion earns its
+#: place on the path the tests do *not* reach, and deleting one and
+#: staying green is what it is for, not a gap.
+LANGUAGE = Language(
+    "zig",
+    suffix=".zig",
+    tests=inside_tests,
+    kept=(
+        *("const ", "var ", "pub const", "pub var", "}", "_ = "),
+        *("assert(", "std.debug.assert("),
+    ),
+)
 
 _EXTERN_FN = re.compile(r'\bextern\s+(?:"[^"]*"\s+)?fn\b')
 
@@ -164,12 +164,9 @@ def force_analysis(body: str) -> str:
     return f"\ncomptime {{\n{refs}}}\n"
 
 
-#: A statement worth deleting: not a declaration, a brace, or a discard.
-_SKIP = ("//", "const ", "var ", "pub const", "pub var", "}", "_ = ")
-
-#: A defensive assertion earns its place on the path the tests do *not*
-#: reach — deleting one and staying green is what it is for, not a gap.
-_ASSERT = re.compile(r"^(std\.debug\.)?assert\s*\(")
+#: The line between a block and what the harness adds after it. A
+#: comment, so `zig fmt` leaves it as it is, and `restore` cuts there.
+SENTINEL = "// The block ends above; the harness forces its analysis below."
 
 
 class Zig:
@@ -188,98 +185,96 @@ class Zig:
     pins_with: tuple[str, ...] = ("zig",)
     asset_suffixes: tuple[str, ...] = (".zig", ".zon")
     assets_with: tuple[str, ...] = ("zig",)
+    #: A test that hangs is deleted loop progress; a passing one takes a
+    #: second.
+    mutant_timeout: float = 15
+    outside: re.Pattern[str] | None = None
 
     def missing(self) -> list[str]:
         """`zig` itself, when it is not on PATH."""
         return [f"`{tool}` is not on PATH" for tool in self.needs if not have(tool)]
 
     def extract(self, skill: Skill, out: Path) -> Extraction:
-        """Write each verified block as a file that forces analysis."""
+        """Write each verified block as a file that forces analysis.
+
+        The block as written, then `SENTINEL`, then the analysis it
+        forces: after the body, so the file's line `i` is the body's.
+        """
         out = out.resolve()
         out.mkdir(parents=True, exist_ok=True)
-        for stale in out.glob("*.zig"):
+        for stale in out.glob(f"*{LANGUAGE.suffix}"):
             stale.unlink()
 
-        ex = Extraction(out, skill=skill.name)
+        ex = Extraction(out, skill)
         seen: Counter[str] = Counter()
-        for b in skill.blocks("zig", verified=True):
+        for b in extracted(skill, LANGUAGE):
             stem = Path(b.file).stem.replace("-", "_")
-            name = f"{stem}_{seen[stem]:03d}.zig"
+            path = out / f"{stem}_{seen[stem]:03d}{LANGUAGE.suffix}"
             seen[stem] += 1
-            path = out / name
-            path.write_text(b.body.rstrip("\n") + "\n" + force_analysis(b.body))
-            ex.units.append(Unit(path, b.file, b.line, b.rule, skill.name))
+            path.write_text(f"{b.body}\n{SENTINEL}\n{force_analysis(b.body)}")
+            ex.units.append(Unit(path, b))
         return ex
 
-    def verify(self, ex: Extraction) -> Iterable[Finding]:
-        """Analyse each block, run its tests, and check `zig fmt`."""
+    def restore(self, ex: Extraction) -> dict[Block, str]:
+        """Each block's file up to `SENTINEL`.
+
+        The blank line before it is the extractor's; one `zig fmt` drops
+        is not taken from the block.
+        """
+        restored: dict[Block, str] = {}
+        for u in ex.units:
+            head, _, _ = u.path.read_text().rpartition(f"\n{SENTINEL}\n")
+            restored[u.block] = head if head.endswith("\n") else f"{head}\n"
+        return restored
+
+    def steps(self, ex: Extraction) -> Iterator[Step]:
+        """Analyse each block, then run the tests it ships."""
         for unit in ex.units:
-            source = unit.path.read_text()
             # semantic analysis of every declaration, without linking or
             # running
-            r = run(
-                ["zig", "build-obj", str(unit.path), "-fno-emit-bin", *libc(source)],
-                cwd=ex.root,
-                timeout=180,
+            yield Step(
+                "build-obj",
+                (
+                    "zig",
+                    "build-obj",
+                    str(unit.path),
+                    "-fno-emit-bin",
+                    *libc(unit.block.body),
+                ),
+                ex.root,
+                180,
+                unit=unit,
+                diagnostics=True,
             )
-            if r.timed_out:
-                yield timed_out("build-obj", 180, unit.where, BUILD_TIMEOUT)
-                continue
-            if not r.ok:
-                first = next(
-                    (ln for ln in r.err.split("\n") if ": error:" in ln), r.err[:100]
-                )
-                yield fail(
-                    first.split(f"{unit.path.name}:")[-1].strip()[:96],
-                    unit.where,
-                    BUILD,
-                )
-                continue
+            if LANGUAGE.tests(unit.block.body) and (t := self.tests(ex, unit)):
+                yield t
 
-            # A block that ships a `test` gets its assertions executed —
-            # unless it declares an `extern fn`, which needs a C object
-            # to link against. `extern struct` is a layout qualifier and
-            # links fine; testing for the substring `extern ` excluded
-            # two blocks whose four tests pass.
-            if _has_test(source) and not needs_c_object(source):
-                t = run(
-                    ["zig", "test", str(unit.path), *libc(source)],
-                    cwd=ex.root,
-                    timeout=180,
-                )
-                if t.timed_out:
-                    yield timed_out("the test run", 180, unit.where, TEST_TIMEOUT)
-                elif not t.ok:
-                    first = next(
-                        (
-                            ln
-                            for ln in t.err.split("\n")
-                            if ": error:" in ln or "FAIL" in ln
-                        ),
-                        t.err[:100],
-                    )
-                    yield fail(f"test run: {first.strip()[:84]}", unit.where, TEST)
+    def formatter(self, ex: Extraction) -> Step:
+        """`zig fmt`, over the whole directory.
 
-        # One invocation for the whole directory. Spawning `zig fmt` per
-        # block cost 215 process launches for a check that names each
-        # file anyway.
-        r = run(["zig", "fmt", "--check", str(ex.root)], cwd=ex.root, timeout=180)
-        if r.timed_out:
-            yield timed_out("`zig fmt --check`", 180, ex.where, FMT_TIMEOUT)
-            return
-        by_file = {u.path.name: u for u in ex.units}
-        named = [line.strip() for line in r.out.splitlines() if line.strip()]
-        for line in named:
-            unit = by_file.get(Path(line).name)
-            where, which = (unit.where, "") if unit else (ex.where, f": {line}")
-            yield fail(f"not `zig fmt` clean{which}", where, FMT)
-        if not r.ok and not named:
-            said = (r.err or r.out).strip()[:100] or "nothing"
-            yield fail(
-                f"`zig fmt --check` exited {r.rc}, naming no file: {said}",
-                ex.where,
-                FMT_UNREAD,
-            )
+        One invocation: spawning it per block cost 215 process launches
+        for a step that names each file anyway.
+        """
+        return Step("zig fmt", ("zig", "fmt", str(ex.root)), ex.root, 180)
+
+    def tests(self, ex: Extraction, unit: Unit) -> Step | None:
+        """`zig test` over the unit's file; None when it cannot link.
+
+        A block that declares an `extern fn` needs a C object to link
+        against. `extern struct` is a layout qualifier and links fine;
+        testing for the substring `extern ` excluded two blocks whose
+        four tests pass.
+        """
+        if needs_c_object(unit.block.body):
+            return None
+        return Step(
+            "tests",
+            ("zig", "test", str(unit.path), *libc(unit.block.body)),
+            ex.root,
+            180,
+            unit=unit,
+            said=_failed_test,
+        )
 
     def cite(self, skill: Skill) -> Iterator[Finding]:
         """The compiler rows, each against the probe that proves it."""
@@ -346,60 +341,13 @@ class Zig:
             # not
             yield fail(first.split(f"{path}:")[-1].strip()[:84], where, ASSET_AST)
 
-    def format(self, skill: Skill) -> list[Finding]:  # noqa: ARG002 — nothing rewrites a zig block yet
-        """Nothing: no formatter writes a zig block back yet."""
-        return []
 
-    def mutate(self, ex: Extraction) -> Iterable[Finding]:
-        """Statements a shipped test does not pin.
-
-        A survivor is a question, not a verdict: an illustrative
-        example's test pins the case its name describes, and a guard
-        clause outside that case is expected to survive. The defect this
-        catches — a test that cannot fail on its *own* stated case —
-        shows up as a survivor inside the very function the test is
-        named for. So survivors are notes.
-        """
-        for unit in ex.units:
-            text = unit.path.read_text()
-            if not _has_test(text) or needs_c_object(text):
-                continue
-            base = run(
-                ["zig", "test", str(unit.path), *libc(text)], cwd=ex.root, timeout=60
-            )
-            if base.timed_out or not base.ok:
-                continue  # not runnable here; verify() reports why
-
-            lines = text.split("\n")
-            in_test = inside_tests(text)
-            for i, line in enumerate(lines):
-                s = line.strip()
-                if i in in_test or not s.endswith(";") or s.startswith(_SKIP):
-                    continue
-                if _ASSERT.match(s):
-                    continue
-                unit.path.write_text("\n".join(lines[:i] + lines[i + 1 :]))
-                try:
-                    r = run(
-                        ["zig", "test", str(unit.path), *libc(text)],
-                        cwd=ex.root,
-                        timeout=15,
-                    )
-                    where = unit.where_at(i)
-                    if r.timed_out:
-                        yield inconclusive(s, where, HUNG)
-                    elif r.ok:
-                        yield note(
-                            f"`{s[:52]}` can be deleted and every test still passes",
-                            where,
-                            SURVIVOR,
-                        )
-                finally:
-                    unit.path.write_text(text)
-
-
-def _has_test(source: str) -> bool:
-    return "\ntest " in source or source.startswith("test ")
+def _failed_test(ran: Ran) -> str:
+    """What a failed `zig test` said first: an error, or a test."""
+    return next(
+        (ln.strip() for ln in ran.err.split("\n") if ": error:" in ln or "FAIL" in ln),
+        ran.err.strip()[:100] or f"exited {ran.rc} and said nothing",
+    )
 
 
 def _running() -> str:

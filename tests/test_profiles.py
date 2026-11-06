@@ -16,6 +16,7 @@ lazy from collections.abc import Iterator
 import pytest
 
 import agent_skill
+from agent_skill.checks import all_checks
 from agent_skill.checks.pins import _sort_key
 from agent_skill.lang import toolchain_for
 from agent_skill.lang.python import RELEASE, PythonSnippet
@@ -185,5 +186,40 @@ def test_no_generic_module_names_a_skill_or_a_toolchain() -> None:
         if path.relative_to(PACKAGE).parts[0] not in OWNERS
         for line, value in _literals(path)
         if naming.search(value)
+    ]
+    assert not found, "\n".join(found)
+
+
+def _compared(path: Path) -> Iterator[tuple[int, str]]:
+    """Each literal `path` compares with, matches on, or indexes by."""
+    for node in ast.walk(ast.parse(path.read_text())):
+        match node:
+            case ast.Compare(left=left, comparators=rest):
+                operands = [left, *rest]
+            case ast.Subscript(slice=index):
+                operands = [index]
+            case ast.MatchValue(value=value):
+                operands = [value]
+            case _:
+                continue
+        for operand in operands:
+            if isinstance(operand, ast.Constant) and isinstance(operand.value, str):
+                yield node.lineno, operand.value
+
+
+def test_no_module_branches_on_a_check_name() -> None:
+    """A fact about one check is a field of its registration.
+
+    `documented` asked `if "controls" in rows`: the next check whose
+    README row states a scope would have been the one it forgot. A
+    check's name is spelled where it is registered and where a branch
+    is declared under it; nothing compares against it.
+    """
+    names = {c.name for c in all_checks()}
+    found = [
+        f"{path.relative_to(PACKAGE)}:{line}: {value!r}"
+        for path in sorted(PACKAGE.rglob("*.py"))
+        for line, value in _compared(path)
+        if value in names
     ]
     assert not found, "\n".join(found)

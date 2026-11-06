@@ -232,15 +232,16 @@ its own illustration would have failed for demonstrating itself correctly.
 
 ## Formatting is a command, not a diff to read
 
-`cargo fmt --check` judges an example as the extractor wrote it — indented inside
-a `pub mod`, where rustfmt's `chain_width` and `struct_lit_width` bite earlier
-than they do at column zero. That made the check report diffs a reader of the
-markdown could not have predicted, so `agent-skill fmt` runs the same extraction,
-formats it, and writes the result back. It rewrites a drifted shared passage from
-its template the same way, keeping what the skill wrote in the passage's free
-regions, and prints every markdown file in its canonical form: the one fill of
-each paragraph that `layout` holds the file to, which `renumber` and `demote`
-write too.
+A toolchain's formatter judges an example as the extractor wrote it, so
+`agent-skill fmt` runs the same extraction, formats it, and writes the result
+back: extract, format, restore, the same three steps for every language. The
+extractor writes each block to a file of its own, at column zero. A Rust block
+used to sit indented inside a `pub mod`, where rustfmt breaks lines four columns
+earlier than a reader's `cargo fmt` would, so the markdown carried wraps no reader
+could have predicted. `fmt` also rewrites a drifted shared passage from its
+template, keeping what the skill wrote in the passage's free regions, and prints
+every markdown file in its canonical form: the one fill of each paragraph that
+`layout` holds the file to, which `renumber` and `demote` write too.
 
 ## `self-application` runs the real `rg`
 

@@ -34,7 +34,6 @@ from agent_skill.ids import Location
 from agent_skill.layout import root_of
 from agent_skill.report import Level, declare, fail
 lazy from agent_skill.checks import all_checks
-lazy from agent_skill.checks.controls import EXEMPT
 lazy from agent_skill.model import Tree
 lazy from agent_skill.report import Finding
 
@@ -52,12 +51,6 @@ ROW = re.compile(r"^\|\s*`([a-z-]+)`\s*\|(.*)\|\s*$", re.MULTILINE)
 #: be asked of the whole reason.
 CELL = re.compile(r"(?<!\\)\|")
 
-#: How the `controls` row must describe what it covers. Stating the rule
-#: rather than a count is what keeps it true when a check is added:
-#: "every other check" was false the moment one was exempted, and "15 of
-#: 18" would be false the next time one is registered.
-CONTROLS_SCOPE = "every branch that can fail a run, except those exempted"
-
 #: The cells a row needs after the name: what it catches, and why it was
 #: added.
 MIN_CELLS = 2
@@ -70,7 +63,7 @@ NO_README = declare("documented", "no_readme", Level.FAIL)
 UNDOCUMENTED = declare("documented", "undocumented", Level.FAIL)
 STALE_ROW = declare("documented", "stale_row", Level.FAIL)
 NO_REASON = declare("documented", "no_reason", Level.FAIL)
-CONTROLS_ROW = declare("documented", "controls_scope", Level.FAIL)
+SCOPE = declare("documented", "scope", Level.FAIL)
 
 
 def readme(tree: Tree) -> Path:
@@ -112,7 +105,8 @@ def documented(tree: Tree) -> Iterator[Finding]:
         return
 
     rows = documented_rows(source.read_text())
-    registered = {c.name for c in all_checks()}
+    registered_checks = all_checks()
+    registered = {c.name for c in registered_checks}
 
     for name in sorted(registered - set(rows)):
         yield fail(
@@ -139,16 +133,16 @@ def documented(tree: Tree) -> Iterator[Finding]:
                 NO_REASON,
             )
 
-    # The one row that describes another check's coverage, and so can go
-    # stale when an exemption is added rather than when the README is
-    # edited.
-    if "controls" in rows and CONTROLS_SCOPE not in rows["controls"][0]:
-        yield fail(
-            "the `controls` row describes its scope as "
-            f"{rows['controls'][0].strip()!r}, which does not say {CONTROLS_SCOPE!r} "
-            "— it covers every such branch except the "
-            f"{len(EXEMPT)} in `EXEMPT`, and a row stating a "
-            "count or an 'every' goes stale the next time that mapping changes",
-            where,
-            CONTROLS_ROW,
-        )
+    # A row that describes a check's coverage as a rule over a set that
+    # changes goes stale when the set does, not when the README is
+    # edited. Which rows those are is the checks' to say (`covers`).
+    for c in registered_checks:
+        if c.covers and c.name in rows and c.covers not in rows[c.name][0]:
+            yield fail(
+                f"the `{c.name}` row describes its scope as "
+                f"{rows[c.name][0].strip()!r}, which does not say {c.covers!r} — a "
+                "row stating a count or an 'every' goes stale the next time what "
+                "it covers changes",
+                where,
+                SCOPE,
+            )

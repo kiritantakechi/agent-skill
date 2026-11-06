@@ -62,6 +62,12 @@ class Check:
     #: against what the source does name, so forgetting to declare one
     #: is a failure rather than a gap.
     needs: tuple[str, ...] = ()
+    #: What the README's row for this check must say it covers, when
+    #: that is a rule over a set that changes — every branch, except
+    #: those exempted — rather than the set itself. A row stating a
+    #: count, or an "every", goes stale the next time the set changes
+    #: and nobody edits the README. "" for a row that may say anything.
+    covers: str = ""
 
     def wants(self, name: str) -> bool:
         """Does this check take that keyword?
@@ -109,6 +115,7 @@ def check[F: Callable[..., Iterable[Finding]]](
     *,
     slow: bool = False,
     needs: tuple[str, ...] = (),
+    covers: str = "",
 ) -> Callable[[F], F]:
     """Register the decorated check of the tree as `name`, unchanged.
 
@@ -117,7 +124,7 @@ def check[F: Callable[..., Iterable[Finding]]](
     """
 
     def wrap(fn: F) -> F:
-        REGISTRY.append(Check(name, label, fn, slow, needs))
+        REGISTRY.append(Check(name, label, fn, slow, needs, covers))
         return fn
 
     return wrap

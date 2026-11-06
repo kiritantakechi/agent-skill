@@ -1,46 +1,31 @@
-"""A skill's rust examples, as a crate.
+"""A skill's rust examples, as a crate of one module file per block.
 
 And everything else the harness knows about Rust: how a `Decided by
-tools` row is checked against the shipped `[workspace.lints]`, how the
-`rust-version` and a library's pin are compared with what runs and what
-is released, and how `fmt` rewrites a block the way rustfmt would.
+tools` row is checked against the shipped `[workspace.lints]`, and how
+the `rust-version` and a library's pin are compared with what runs and
+what is released.
 """
 
 import json
 import re
-import tempfile
+import shutil
 from dataclasses import dataclass, field
 from functools import cache
-from itertools import groupby
 from pathlib import Path
 from types import MappingProxyType
 lazy import urllib.request
 lazy from collections.abc import Iterable, Iterator, Mapping
 
 from agent_skill.ids import Op, Pin, Version
-from agent_skill.lang import Extraction, Language, Unit, inconclusive, timed_out
-from agent_skill.proc import Ran, have, run
+from agent_skill.lang import Extraction, Language, Step, Unit, extracted, unquoted
+from agent_skill.proc import have, run
 from agent_skill.report import Finding, Level, declare, fail, unrun
 from agent_skill.text import group
 lazy from agent_skill.checks.citations import Row, rows_of
 lazy from agent_skill.checks.lints import CARGO, table
 lazy from agent_skill.checks.pins import _sort_key
-lazy from agent_skill.fmt import (
-    CARGO_FMT,
-    MODULES,
-    put_back,
-)
 lazy from agent_skill.ids import Location
-lazy from agent_skill.model import Skill
-
-# The branches of `toolchain` and of `mutation` Rust's steps report
-# through. A crate is built whole, so each finding lies in the skill.
-STEP_TIMEOUT = declare("toolchain", "rust_timeout", Level.FAIL)
-STEP = declare("toolchain", "rust_step", Level.FAIL)
-BASE_TIMEOUT = declare("mutation", "rust_base_timeout", Level.FAIL)
-BASE = declare("mutation", "rust_base", Level.FAIL)
-HUNG = declare("mutation", "rust_inconclusive", Level.NOTE)
-SURVIVOR = declare("mutation", "rust_survivor", Level.FAIL)
+lazy from agent_skill.model import Block, Skill
 
 # The branches of `citations` Rust's lint rows report through.
 TOOL_ABSENT = declare("citations", "rust_tool_absent", Level.UNRUN)
@@ -64,9 +49,46 @@ SECTION = {"rustc": "rust", "clippy": "clippy", "rustdoc": "rustdoc"}
 #: The levels at which a Rust lint fails a run, under `-D warnings`.
 LINT_LEVELS = frozenset({"warn", "deny", "forbid"})
 
+#: An attribute that makes the item under it a test.
+_TEST = re.compile(r"^\s*#\[(?:cfg\(test\)|test)\]")
+
+
+def inside_tests(body: str) -> set[int]:
+    """Body-line indices inside a test, by brace depth.
+
+    From a `#[cfg(test)]` or `#[test]` to the brace that closes the item
+    it marks: a test module, or a test function outside one.
+    """
+    inside: set[int] = set()
+    depth, active, opened = 0, False, False
+    for i, line in enumerate(body.split("\n")):
+        code = unquoted(LANGUAGE.uncommented(line), LANGUAGE.quotes)
+        if not active and _TEST.match(code):
+            active, depth, opened = True, 0, False
+        if active:
+            inside.add(i)
+            depth += code.count("{") - code.count("}")
+            opened = opened or "{" in code
+            if opened and depth <= 0:
+                active = False
+    return inside
+
+
 #: `'` opens a lifetime (`&'a str`) rather than a string, so only `"`
 #: delimits one: as a delimiter it swallowed the rest of the line.
-LANGUAGE = Language("rust", suffix=".rs")
+#:
+#: A mutant deletes no binding or item declaration: removing one stops
+#: the build, so it could only be killed, at the cost of a build.
+LANGUAGE = Language(
+    "rust",
+    suffix=".rs",
+    tests=inside_tests,
+    kept=(
+        *("use ", "let ", "pub ", "const ", "static ", "type ", "fn ", "mod "),
+        *("struct ", "enum ", "trait ", "impl ", "extern ", "}"),
+        *("assert!", "assert_eq!", "assert_ne!", "debug_assert"),
+    ),
+)
 
 #: Shared, gitignored, and safe to delete: cargo rebuilds it.
 CACHE = Path(__file__).resolve().parents[3] / ".cache" / "target"
@@ -208,9 +230,9 @@ RUST_STYLE = RustCrate(
         "upper-case-acronyms-aggressive": True,
     },
     #: `allow_attributes*` join the two above for the same reason they
-    #: are unverifiable in `BEVY_STYLE`: the extractor injects a bare
-    #: `#![allow(dead_code, unused_imports)]` into every block module,
-    #: and a lint about the author's attributes cannot be judged on the
+    #: are unverifiable in `BEVY_STYLE`: the extractor puts a bare
+    #: `#![allow(dead_code, unused_imports)]` at the crate's root, and a
+    #: lint about the author's attributes cannot be judged on the
     #: harness's.
     unverifiable=frozenset(
         {
@@ -287,9 +309,9 @@ BEVY_STYLE = RustCrate(
     name="bevy-style-verify",
     library=BEVY,
     #: `missing_docs` because a block documents items selectively;
-    #: `allow_attributes*` because the extractor itself injects a bare
-    #: `#![allow(dead_code, unused_imports)]` into every block module,
-    #: and a lint about the author's attributes cannot be judged on the
+    #: `allow_attributes*` because the extractor itself puts a bare
+    #: `#![allow(dead_code, unused_imports)]` at the crate's root, and a
+    #: lint about the author's attributes cannot be judged on the
     #: harness's.
     unverifiable=frozenset(
         {
@@ -329,7 +351,7 @@ BEVY_STYLE = RustCrate(
 
 
 class Rust:
-    """The `cargo` toolchain: every verified block, in one crate."""
+    """The `cargo` toolchain: a crate of one module per block."""
 
     name = "rust"
     tool = "cargo"
@@ -344,149 +366,129 @@ class Rust:
     pins_with: tuple[str, ...] = ("rustc",)
     asset_suffixes: tuple[str, ...] = ()
     assets_with: tuple[str, ...] = ()
+    #: A mutant rebuilds the crate before its tests run.
+    mutant_timeout: float = 180
+    outside: re.Pattern[str] | None = None
 
     def missing(self) -> list[str]:
         """`cargo` itself, when it is not on PATH."""
         return [f"`{tool}` is not on PATH" for tool in self.needs if not have(tool)]
 
     def extract(self, skill: Skill, out: Path) -> Extraction:
-        """Write the verified blocks as a crate of chapter modules."""
-        crate = skill.profile.crate
-        if crate is None:
-            msg = f"{skill.name} compiles rust examples and its profile names no crate"
-            raise ValueError(msg)
+        """Write each verified block as a module file of one crate.
+
+        `src/<chapter>/<rule>.rs`, holding the block as written, at
+        column zero, with its paths rebased (`rebase`). The block's own
+        file is what rustfmt and the compiler judge, so a diff or a
+        diagnostic is about the block a reader sees: inside a wrapping
+        `pub mod`, rustfmt broke lines four columns early and the
+        markdown had to carry the wrap.
+        """
+        crate = _crate(skill)
+        out = out.resolve()
         src = out / "src"
-        src.mkdir(parents=True, exist_ok=True)
         # A renamed chapter otherwise leaves a module lib.rs never
-        # declares, which the mutation pass still globs: deleting a line
-        # in a file nothing compiles can never change a test result, so
-        # every statement survives.
-        for stale in src.glob("*.rs"):
-            stale.unlink()
+        # declares: deleting a line in a file nothing compiles can
+        # never change a test result, so every statement survives.
+        shutil.rmtree(src, ignore_errors=True)
+        src.mkdir(parents=True)
 
-        ex = Extraction(out, crate=crate, skill=skill.name)
-        chapters: list[str] = []
-        for chapter, blocks in groupby(skill.blocks("rust"), key=lambda b: b.file):
-            mods: list[tuple[str, str]] = []
-            for b in blocks:
-                if not b.marker.verified or b.rule == "?":
-                    continue
-                base = b.rule.lower().replace("-", "_")
-                n = sum(1 for m, _ in mods if m == base or m.startswith(base + "_"))
-                mods.append((base if n == 0 else f"{base}_{n}", b.body))
-                ex.units.append(Unit(src, chapter, b.line, b.rule, skill.name))
-            if not mods:
-                continue
-            stem = module_name(chapter)
-            chapters.append(stem)
-            (src / f"{stem}.rs").write_text(_module(crate, stem, chapter, mods))
+        ex = Extraction(out, skill)
+        chapters: dict[str, list[str]] = {}
+        for b in extracted(skill, LANGUAGE):
+            stem = module_name(b.file)
+            mods = chapters.setdefault(stem, [])
+            base = b.rule.lower().replace("-", "_") if b.rule != "?" else "block"
+            n = sum(1 for m in mods if m == base or m.startswith(f"{base}_"))
+            mod = base if n == 0 else f"{base}_{n}"
+            mods.append(mod)
+            path = src / stem / f"{mod}.rs"
+            path.parent.mkdir(exist_ok=True)
+            path.write_text(rebase(b.body, crate, stem, mod))
+            ex.units.append(Unit(path, b))
 
-        lib = [
-            (
-                f"//! Every `// verified` block in {skill.name}, "
-                "extracted from the markdown."
+        for stem, mods in chapters.items():
+            chapter = next(u.block.file for u in ex.units if u.path.parent.name == stem)
+            head = f"//! Blocks extracted from `{skill.at(chapter).file}`.\n\n"
+            (src / f"{stem}.rs").write_text(
+                head + "".join(f"pub mod {m};\n" for m in sorted(mods))
             )
-        ]
-        lib += [f"pub mod {s};" for s in sorted(chapters)]
-        (src / "lib.rs").write_text("\n".join(lib) + "\n")
+        (src / "lib.rs").write_text(
+            f"//! Every `// verified` block in {skill.name}, extracted from the "
+            "markdown.\n\n"
+            # Once, for the crate: a block is an excerpt, so an item it
+            # declares for the reader is not one it must use.
+            f"{INJECTED}\n\n" + "".join(f"pub mod {s};\n" for s in sorted(chapters))
+        )
         (out / "Cargo.toml").write_text(crate.manifest())
         if crate.clippy:
             (out / "clippy.toml").write_text(crate.clippy_toml())
         return ex
 
-    def verify(self, ex: Extraction) -> Iterable[Finding]:
-        """Build, lint, test, format-check and document the crate."""
-        manifest = str(ex.root / "Cargo.toml")
-        env = _crate(ex).env
-        steps = [
-            ("compiles", ["cargo", "build", "--quiet", "--manifest-path", manifest]),
-            # `-D warnings` so the whole shipped table binds. Half of it
-            # is `warn`, and clippy exits 0 on a warning — so without
-            # this the check could only ever fail on the `deny` half.
-            (
-                "clippy",
-                [
-                    "cargo",
-                    "clippy",
-                    "--quiet",
-                    "--all-targets",
-                    "--manifest-path",
-                    manifest,
-                    "--",
-                    "-D",
-                    "warnings",
-                ],
-            ),
-            ("tests", ["cargo", "test", "--quiet", "--manifest-path", manifest]),
-            ("rustfmt", ["cargo", "fmt", "--manifest-path", manifest, "--", "--check"]),
-            (
-                "intra-doc links",
-                ["cargo", "doc", "--quiet", "--no-deps", "--manifest-path", manifest],
-            ),
-        ]
-        for label, cmd in steps:
-            r = run(cmd, cwd=ex.root, timeout=_STEP, env=env)
-            if r.timed_out:
-                yield timed_out(label, _STEP, ex.where, STEP_TIMEOUT)
-            elif not r.ok:
-                remedy = (
-                    " — `agent-skill fmt` rewrites the blocks"
-                    if label == "rustfmt"
-                    else ""
-                )
-                yield fail(f"{label}: {_first_error(r)[:150]}{remedy}", ex.where, STEP)
+    def restore(self, ex: Extraction) -> dict[Block, str]:
+        """Each block's module file, its paths rebased back."""
+        crate = _crate(ex.skill)
+        return {
+            u.block: unrebase(
+                u.path.read_text(), crate, u.path.parent.name, u.path.stem
+            )
+            for u in ex.units
+        }
 
-    def mutate(self, ex: Extraction) -> Iterable[Finding]:
-        """A shipped test must be able to fail.
+    def steps(self, ex: Extraction) -> Iterator[Step]:
+        """Build, lint, test and document the crate."""
+        yield self._cargo(ex, "compiles", "build", diagnostics=True)
+        # `-D warnings` so the whole shipped table binds. Half of it is
+        # `warn`, and clippy exits 0 on a warning — so without this the
+        # check could only ever fail on the `deny` half.
+        yield self._cargo(
+            ex, "clippy", "clippy", "--all-targets", diagnostics=True, then=DENY
+        )
+        yield self._cargo(ex, "tests", "test")
+        yield self._cargo(ex, "intra-doc links", "doc", "--no-deps", diagnostics=True)
 
-        A block once carried a test that passed whether or not the
-        function did anything: the assertion only checked that a buffer
-        stayed empty, and gutting the function kept it empty.
+    def formatter(self, ex: Extraction) -> Step:
+        """`cargo fmt`, over every module file."""
+        return self._cargo(ex, "rustfmt", "fmt")
+
+    def tests(self, ex: Extraction, unit: Unit) -> Step:  # noqa: ARG002 — a crate's tests run whole
+        """The crate's tests: every unit's are one run."""
+        return self._cargo(ex, "tests", "test")
+
+    def _cargo(
+        self,
+        ex: Extraction,
+        name: str,
+        command: str,
+        *args: str,
+        diagnostics: bool = False,
+        then: tuple[str, ...] = (),
+    ) -> Step:
+        """`cargo command` over the extracted crate, in its build cache.
+
+        A step whose tool names lines prints them one to a line
+        (`--message-format=short`), as `path:line:col: message`.
         """
-        src = ex.root / "src"
-        env = _crate(ex).env
-        base = run(["cargo", "test", "-q"], cwd=ex.root, timeout=_STEP, env=env)
-        if base.timed_out:
-            yield timed_out(
-                "the unmutated crate's tests", _STEP, ex.where, BASE_TIMEOUT
-            )
-            return
-        if not base.ok:
-            yield fail(
-                "the unmutated crate does not pass; nothing to mutate", ex.where, BASE
-            )
-            return
-
-        for path, lineno, stmt in _targets(src):
-            original = path.read_text()
-            lines = original.split("\n")
-            # The crate's module file, not the markdown: tracing a line
-            # of it back to its block needs the block each module holds.
-            spot = f"{path.name}:{lineno + 1}"
-            path.write_text("\n".join(lines[:lineno] + lines[lineno + 1 :]))
-            try:
-                r = run(["cargo", "test", "-q"], cwd=ex.root, timeout=180, env=env)
-                if r.timed_out:
-                    yield inconclusive(stmt, ex.where, HUNG, extracted=spot)
-                elif r.ok:
-                    # Survivors are rare, so a second opinion is nearly
-                    # free — and it is what stands between a transient
-                    # and a reported defect that the example does not
-                    # actually have.
-                    again = run(
-                        ["cargo", "test", "-q"], cwd=ex.root, timeout=300, env=env
-                    )
-                    if again.timed_out:
-                        yield inconclusive(stmt, ex.where, HUNG, extracted=spot)
-                    elif again.ok:
-                        yield fail(
-                            f"{spot}: `{stmt[:56]}` can be deleted and every test "
-                            "still passes",
-                            ex.where,
-                            SURVIVOR,
-                        )
-            finally:
-                path.write_text(original)
+        manifest = str(ex.root / "Cargo.toml")
+        quiet = () if command == "fmt" else ("--quiet",)
+        short = ("--message-format=short",) if diagnostics else ()
+        return Step(
+            name,
+            (
+                "cargo",
+                command,
+                *quiet,
+                *short,
+                *args,
+                "--manifest-path",
+                manifest,
+                *then,
+            ),
+            ex.root,
+            _STEP,
+            _crate(ex.skill).env,
+            diagnostics=diagnostics,
+        )
 
     def cite(self, skill: Skill) -> Iterator[Finding]:
         """The Rust rows, against the shipped `[workspace.lints]`."""
@@ -539,68 +541,21 @@ class Rust:
         """Nothing: `assets` reads a manifest as TOML, as any other."""
         return iter(())
 
-    def format(self, skill: Skill) -> list[Finding]:
-        """Rewrite each `// verified` rust block as rustfmt would."""
-        # `RUST.extract` builds from this crate, so this is
-        # `extraction.crate`, with the type that field does not carry.
-        crate = skill.profile.crate
-        if crate is None:
-            return []
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
-            extraction = self.extract(skill, Path(work) / "out")
-            if not extraction:
-                return []
-            r = run(["cargo", "fmt"], cwd=extraction.root, timeout=300, env=crate.env)
-            if not r.ok:
-                said = (r.err or r.out).strip()[:160]
-                return [fail(f"cargo fmt failed: {said}", skill.at(), CARGO_FMT)]
-
-            changed: list[Finding] = []
-            fence = LANGUAGE.fence
-            for chapter, blocks in groupby(skill.blocks(fence), key=lambda b: b.file):
-                wanted = [b for b in blocks if b.marker.verified and b.rule != "?"]
-                src = extraction.root / "src" / f"{module_name(chapter)}.rs"
-                if not wanted or not src.exists():
-                    continue
-                bodies = module_bodies(src, crate)
-                if len(bodies) != len(wanted):
-                    changed.append(
-                        fail(
-                            f"{len(wanted)} blocks, {len(bodies)} modules; skipped",
-                            skill.at(chapter),
-                            MODULES,
-                        )
-                    )
-                    continue
-                # Last first, so an earlier replacement cannot move a
-                # later block.
-                edits = reversed(list(zip(wanted, bodies, strict=True)))
-                changed += put_back(skill, chapter, fence, edits)
-            return changed
-
 
 #: How long one cargo step may take: Bevy builds from cold in minutes.
 _STEP = 900
 
-
-def _first_error(r: Ran) -> str:
-    """The line of `r`'s output that says what went wrong.
-
-    The first `error` or `Diff` line, else the start of the output, and
-    the exit status when there was no output at all.
-    """
-    said = (r.err or r.out).strip()
-    lines = said.split("\n")
-    first = next((ln for ln in lines if ln.startswith(("error", "Diff"))), said[:120])
-    return first or f"exited {r.rc} and said nothing"
+#: What clippy is given after `--`: every warning a failure.
+DENY = ("--", "-D", "warnings")
 
 
-def _crate(ex: Extraction) -> RustCrate:
-    """The crate `Rust.extract` recorded on `ex`."""
-    if ex.crate is None:
-        msg = "a rust extraction carries the crate it was extracted as"
+def _crate(skill: Skill) -> RustCrate:
+    """The crate `skill`'s examples are compiled as."""
+    crate = skill.profile.crate
+    if crate is None:
+        msg = f"{skill.name} compiles rust examples and its profile names no crate"
         raise ValueError(msg)
-    return ex.crate
+    return crate
 
 
 #: Words a chapter may be named that Rust will not take as a module
@@ -653,104 +608,48 @@ def module_name(chapter: str) -> str:
     """The module a chapter's blocks are compiled as.
 
     `unsafe.md` -> `unsafe_`: the shared vocabulary names a chapter
-    `unsafe`, and `pub mod unsafe;` does not parse.
+    `unsafe`, and `pub mod unsafe;` does not parse. `SKILL.md` ->
+    `skill`, since a module's name is snake case.
     """
-    stem = Path(chapter).stem.replace("-", "_")
+    stem = Path(chapter).stem.replace("-", "_").lower()
     return f"{stem}_" if stem in KEYWORDS else stem
 
 
-def _module(
-    crate: RustCrate, stem: str, chapter: str, mods: list[tuple[str, str]]
-) -> str:
-    out = [f"//! Blocks extracted from `references/{chapter}`.", ""]
-    for mod, body in mods:
-        # `mycrate::` is the placeholder a reader replaces with their
-        # own crate. Point it at this crate so the doctest runs; the
-        # skill keeps the placeholder, which is why the old apparatus
-        # leaked its own crate name.
-        code = body.replace("mycrate::", f"{crate.ident}::{stem}::{mod}::")
-        # `crate::` in a block means the reader's own crate root.
-        # Wrapping the block in a module moves that root, so rebase it
-        # here rather than making the published example spell a path it
-        # does not mean. `$crate::` names the same root from inside a
-        # macro, so it moves with it — the replace covers both
-        # spellings, and `fmt` undoes both the same way.
-        code = code.replace("crate::", f"crate::{stem}::{mod}::")
-        out.append(f"pub mod {mod} {{")
-        out.append("    #![allow(dead_code, unused_imports)]")
-        out += [
-            ("    " + ln) if ln.strip() else "" for ln in code.rstrip("\n").split("\n")
-        ]
-        out += ["}", ""]
-    return "\n".join(out).rstrip("\n") + "\n"
+def _rebasings(crate: RustCrate, stem: str, mod: str) -> tuple[tuple[str, str], ...]:
+    """Each path a block spells, and what it becomes in its module.
 
-
-#: A statement worth deleting: not a declaration, brace, attribute, or
-#: doc. Excluding `let mut ` but not `let ` was arbitrary — deleting
-#: either breaks compilation, so both are mutants that cost a full
-#: `cargo test` and can only ever be killed. The zig side draws the same
-#: line at `const`/`var`.
-_SKIP = ("use ", "//", "#", "let ", "pub ", "}")
-
-
-def _targets(src: Path) -> Iterator[tuple[Path, int, str]]:
-    """Each statement outside a test worth deleting, and where it is."""
-    for path in sorted(src.glob("*.rs")):
-        text = path.read_text()
-        for m in re.finditer(r"^pub mod (\w+) \{$", text, re.MULTILINE):
-            start = m.start()
-            nxt = text.find("\npub mod ", start + 1)
-            seg = text[start : nxt if nxt != -1 else len(text)]
-            if "#[cfg(test)]" not in seg:
-                continue
-            body_start = text[:start].count("\n")
-            for j, line in enumerate(seg[: seg.index("#[cfg(test)]")].split("\n")):
-                s = line.strip()
-                if (
-                    s.endswith(";")
-                    and not s.startswith(_SKIP)
-                    and "struct" not in s
-                    and "enum" not in s
-                ):
-                    yield path, body_start + j, s
-
-
-#: The line the extractor injects into every block module.
-INJECTED = "#![allow(dead_code, unused_imports)]"
-
-_MODULE = re.compile(r"^pub mod (\w+) \{$", re.MULTILINE)
-
-
-def module_bodies(path: Path, crate: RustCrate) -> list[str]:
-    """Each `pub mod`'s dedented body, the extractor's rebasing undone.
-
-    `_module` rewrites `crate::` and `mycrate::` to point inside the
-    wrapper module, so the block compiles where it is put. Writing that
-    back would store the harness's own path in the skill — the leak the
-    extractor's comment warns about, arriving by the other door — so it
-    is inverted here. Round-tripping a block through `fmt` has to be the
-    identity on everything except whitespace.
+    `mycrate::` is the placeholder a reader replaces with their own
+    crate; it points at this one, so the doctest runs. `crate::` in a
+    block means the reader's own crate root, and a module file is not
+    that root, so it is rebased here rather than making the published
+    example spell a path it does not mean. `$crate::` names the same
+    root from inside a macro, so it moves with it.
     """
-    text = path.read_text()
-    starts = list(_MODULE.finditer(text))
-    out: list[str] = []
-    for i, m in enumerate(starts):
-        end = starts[i + 1].start() if i + 1 < len(starts) else len(text)
-        lines = text[m.end() : end].split("\n")[1:]
-        while lines and not lines[-1].strip():
-            lines.pop()
-        if lines and lines[-1] == "}":
-            lines.pop()
-        body = [ln.removeprefix("    ") for ln in lines if ln.strip() != INJECTED]
-        while body and not body[0].strip():
-            body.pop(0)
-        rebased = f"{path.stem}::{m.group(1)}::"
-        out.append(
-            ("\n".join(body) + "\n")
-            .replace(f"{crate.ident}::{rebased}", "mycrate::")
-            .replace(f"crate::{rebased}", "crate::")
-        )
-    return out
+    here = f"{stem}::{mod}::"
+    return (("mycrate::", f"{crate.ident}::{here}"), ("crate::", f"crate::{here}"))
+
+
+def rebase(body: str, crate: RustCrate, stem: str, mod: str) -> str:
+    """`body` with its paths pointed into module `stem::mod`."""
+    for spelled, rebased in _rebasings(crate, stem, mod):
+        body = body.replace(spelled, rebased)
+    return body
+
+
+def unrebase(text: str, crate: RustCrate, stem: str, mod: str) -> str:
+    """`rebase` undone: the block's paths as the skill spells them.
+
+    Writing the rebased form back would store the harness's own path in
+    the skill — the leak the old apparatus had, arriving by the other
+    door — so `restore` inverts it, in the reverse order.
+    """
+    for spelled, rebased in reversed(_rebasings(crate, stem, mod)):
+        text = text.replace(rebased, spelled)
+    return text
+
+
+#: The line the extractor puts at the top of the crate.
+INJECTED = "#![allow(dead_code, unused_imports)]"
 
 
 def rust_rows(
@@ -827,13 +726,13 @@ def _read_help(
     members: dict[str, set[str]],
 ) -> None:
     """Fold one tool's `-W help` listing into `out` and `members`."""
-    section = "lints"
+    in_groups = False
     for line in text.split("\n"):
         if line.startswith("Lint groups"):
-            section = "groups"
+            in_groups = True
         elif line.startswith("Lint checks"):
-            section = "lints"
-        if section == "lints":
+            in_groups = False
+        if not in_groups:
             if m := re.match(r"^\s+(\S+)\s+(allow|warn|deny|forbid)\s", line):
                 out[_key(m.group(1))] = (m.group(2), set())
         elif m := re.match(r"^\s+(\S+)\s+(\S.*)$", line):

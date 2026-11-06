@@ -13,14 +13,13 @@ does not. Neither alone is enough.
 
 And everything else the harness knows about Python: how a rule's
 citation of a ruff code and a `Decided by tools` row are checked against
-the shipped `ruff.toml` and `ty.toml`, how the interpreter pin is held
-against the assets that install it and against `uv`'s releases, and how
-`fmt` rewrites a block the way `ruff format` would.
+the shipped `ruff.toml` and `ty.toml`, and how the interpreter pin is
+held against the assets that install it and against `uv`'s releases.
 """
 
+import ast
 import json
 import re
-import tempfile
 import tomllib
 from collections import Counter
 from dataclasses import dataclass, field
@@ -32,27 +31,15 @@ lazy from collections.abc import Iterable, Iterator, Mapping
 
 from agent_skill.harness import HARNESS, pinned
 from agent_skill.ids import Pin
-from agent_skill.lang import Extraction, Language, Unit, inconclusive, timed_out
-from agent_skill.proc import Ran, have, run
-from agent_skill.report import Finding, Level, declare, fail, note, unrun
+from agent_skill.lang import Extraction, Language, Step, Unit, extracted
+from agent_skill.proc import have, run
+from agent_skill.report import Finding, Level, declare, fail, unrun
 lazy from agent_skill.checks.citations import Row, rows_of
 lazy from agent_skill.checks.pins import SortKey, _sort_key
 lazy from agent_skill.doc import text_of
-lazy from agent_skill.fmt import RUFF_FORMAT, put_back
 lazy from agent_skill.ids import Location
 lazy from agent_skill.model import Block, Skill
-
-# The branches of `toolchain` and of `mutation` Python's steps report
-# through.
-OUTSIDE = declare("toolchain", "py_outside", Level.FAIL)
-RUN_TIMEOUT = declare("toolchain", "py_run_timeout", Level.FAIL)
-RUN = declare("toolchain", "py_run", Level.FAIL)
-TY_TIMEOUT = declare("toolchain", "py_ty_timeout", Level.FAIL)
-RUFF_TIMEOUT = declare("toolchain", "py_ruff_timeout", Level.FAIL)
-REPORTED = declare("toolchain", "py_diagnostic", Level.FAIL)
-UNREAD = declare("toolchain", "py_unread", Level.FAIL)
-HUNG = declare("mutation", "py_inconclusive", Level.NOTE)
-SURVIVOR = declare("mutation", "py_survivor", Level.NOTE)
+lazy from agent_skill.proc import Ran
 
 # The branches of `citations` Python's citations and rows report
 # through.
@@ -107,9 +94,59 @@ def inside_tests(body: str) -> set[int]:
     return inside
 
 
+def statements(body: str) -> set[int]:
+    """Body-line indices holding whole statements that do something.
+
+    Python ends a statement at a line's end only outside brackets and
+    strings, so its parser says which lines hold one: every statement
+    that starts on the line ends there too. A line whose statements do
+    nothing when run — `pass`, a docstring, a bare annotation — is left
+    out, since no test could notice it gone. Nothing, when the body does
+    not parse: running it reports why.
+    """
+    try:
+        tree = ast.parse(body)
+    except SyntaxError:
+        return set()
+    starting: dict[int, list[ast.stmt]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.stmt):
+            starting.setdefault(node.lineno, []).append(node)
+    return {
+        line - 1
+        for line, nodes in starting.items()
+        if all(n.end_lineno == line for n in nodes) and not all(map(_inert, nodes))
+    }
+
+
+def _inert(node: ast.stmt) -> bool:
+    """Does `node` do nothing when it runs?"""
+    match node:
+        case ast.Pass() | ast.Expr(value=ast.Constant()):
+            return True
+        case ast.AnnAssign(value=None):
+            return True
+        case _:
+            return False
+
+
 #: Python's comment is `#`, and `//` is floor division: reading it as a
 #: comment truncated every line after one. Both quotes open a string.
-LANGUAGE = Language("python", "#", "\"'", ".py", inside_tests)
+#:
+#: A mutant deletes no declaration or import, which only stops the
+#: block running, and no assertion.
+LANGUAGE = Language(
+    "python",
+    "#",
+    "\"'",
+    ".py",
+    inside_tests,
+    statements=statements,
+    kept=(
+        *("def ", "async def ", "class ", "import ", "from ", "@"),
+        *("global ", "nonlocal ", "type ", "assert "),
+    ),
+)
 
 #: The interpreter the examples are written for, resolved through `uv`
 #: rather than through PATH. PATH here is a GIL build, and verifying
@@ -214,30 +251,24 @@ class PythonSnippet:
 
 PYTHON_STYLE = PythonSnippet()
 
-#: `path:line:col: CODE message` — the one output shape both tools
-#: share, and the only `ty` format that keeps warn distinct from error.
-DIAGNOSTIC = re.compile(r"^(?P<file>[^:]+):(?P<line>\d+):\d+:\s*(?P<rest>.+)$")
-
-#: A statement worth deleting when hunting for a test that cannot fail:
-#: not a declaration, an import, or a bare expression.
-_SKIP = ("def ", "class ", "import ", "from ", "@", "#", "assert ", "return", "yield")
+#: The type checker's configuration, written into the extraction. Its
+#: diagnostics are asked for as `path:line:col: CODE message`, the one
+#: output shape both tools share, and the only `ty` format that keeps
+#: warn distinct from error.
+TY_CONFIG = "ty.toml"
 
 
-def _has_tests(source: str) -> bool:
-    return "\ndef test_" in source or source.startswith("def test_")
+def _last_line(ran: Ran) -> str:
+    """The last unindented line of a failed run: the exception raised.
 
-
-def _reaches_outside(source: str) -> bool:
-    """Does the block need what a sealed temp directory cannot give?
-
-    Such a block is not eligible to be `# verified`; the rule that shows
-    it marks it `# fragment`. Checked rather than trusted, because "it
-    worked on my machine" is exactly the claim `# verified` is supposed
-    to replace.
+    A traceback, or pytest's report, ends in what went wrong.
     """
-    return bool(
-        re.search(r"\b(urlopen|requests\.|socket\.|time\.sleep|input\()", source)
+    detail = (ran.err or ran.out).strip().split("\n")
+    last = next(
+        (ln for ln in reversed(detail) if ln.strip() and not ln.startswith(" ")),
+        detail[-1] if detail else "",
     )
+    return last.strip() or f"exited {ran.rc} and said nothing"
 
 
 def _pinned() -> str:
@@ -269,6 +300,15 @@ class Python:
     pins_with: tuple[str, ...] = ("uv",)
     asset_suffixes: tuple[str, ...] = ()
     assets_with: tuple[str, ...] = ()
+    mutant_timeout: float = 60
+    #: What a sealed temporary directory cannot give a block: the
+    #: network, the clock, stdin. Such a block is not eligible to be
+    #: `# verified`; the rule that shows it marks it `# fragment`.
+    #: Checked rather than trusted, because "it worked on my machine"
+    #: is exactly the claim `# verified` is supposed to replace.
+    outside: re.Pattern[str] | None = re.compile(
+        r"\b(urlopen|requests\.|socket\.|time\.sleep|input\()"
+    )
 
     def missing(self) -> list[str]:
         """The interpreter, venv and tools it needs and cannot find."""
@@ -292,125 +332,75 @@ class Python:
         return absent
 
     def extract(self, skill: Skill, out: Path) -> Extraction:
-        """Write each verified block as a file of its own."""
+        """Write each verified block to a file, and `ty.toml`.
+
+        The type checker's configuration is the skill's own snippet's,
+        written beside the blocks it judges.
+        """
         out = out.resolve()
         out.mkdir(parents=True, exist_ok=True)
         for stale in out.glob("*.py"):
             stale.unlink()
+        (out / TY_CONFIG).write_text(_snippet(skill).ty_config())
 
-        ex = Extraction(out, skill=skill.name)
+        ex = Extraction(out, skill)
         seen: Counter[str] = Counter()
-        for b in skill.blocks("python", verified=True):
+        for b in extracted(skill, LANGUAGE):
             stem = Path(b.file).stem.replace("-", "_")
-            name = f"{stem}_{seen[stem]:03d}.py"
+            path = out / f"{stem}_{seen[stem]:03d}{LANGUAGE.suffix}"
             seen[stem] += 1
-            path = out / name
-            path.write_text(b.body.rstrip("\n") + "\n")
-            ex.units.append(Unit(path, b.file, b.line, b.rule, skill.name))
+            path.write_text(b.body)
+            ex.units.append(Unit(path, b))
         return ex
 
-    def verify(self, ex: Extraction) -> Iterable[Finding]:
-        """Run each block, type-check them all, and lint them all."""
-        yield from self._run_each(ex)
-        yield from self._analyse(ex, ["ty", "check", "--config-file"], "ty")
-        yield from self._lint(ex)
+    def restore(self, ex: Extraction) -> dict[Block, str]:
+        """Each block's file, as it stands: nothing was added to it."""
+        return {u.block: u.path.read_text() for u in ex.units}
 
-    def _run_each(self, ex: Extraction) -> Iterable[Finding]:
-        """Execute every block, and run the tests any of them ship."""
-        for unit in ex.units:
-            source = unit.path.read_text()
-            if _reaches_outside(source):
-                yield fail(
-                    "a `# verified` block may not need the network, the clock, "
-                    "or stdin; mark it `# fragment`",
-                    unit.where,
-                    OUTSIDE,
-                )
-                continue
-            cmd = (
-                [
-                    str(PYTHON),
-                    "-m",
-                    "pytest",
-                    "-q",
-                    "-p",
-                    "no:cacheprovider",
-                    unit.path.name,
-                ]
-                if _has_tests(source)
-                else [str(PYTHON), unit.path.name]
-            )
-            # cwd is the extraction directory, so a block that writes a
-            # file writes it somewhere the run owns and the caller
-            # deletes.
-            r = run(cmd, cwd=ex.root, timeout=120)
-            if r.timed_out:
-                yield timed_out("the block", 120, unit.where, RUN_TIMEOUT)
-            elif not r.ok:
-                detail = (r.err or r.out).strip().split("\n")
-                last = next(
-                    (
-                        ln
-                        for ln in reversed(detail)
-                        if ln.strip() and not ln.startswith(" ")
-                    ),
-                    detail[-1] if detail else "",
-                )
-                yield fail(last.strip()[:120], unit.where, RUN)
+    def steps(self, ex: Extraction) -> Iterator[Step]:
+        """Run each block, then type-check and lint them all.
 
-    def _analyse(
-        self, ex: Extraction, prefix: list[str], label: str
-    ) -> Iterable[Finding]:
-        """Type-check every declaration, even those nothing executes."""
-        config = ex.root / "ty.toml"
-        config.write_text(PYTHON_STYLE.ty_config())
-        r = run(
-            [*prefix, str(config), "--python", str(VENV), str(ex.root)], timeout=300
-        )
-        if r.timed_out:
-            yield timed_out(label, 300, ex.where, TY_TIMEOUT)
-            return
-        yield from self._report(ex, r, label)
-
-    def _lint(self, ex: Extraction) -> Iterable[Finding]:
-        r = run(["ruff", "check", *PYTHON_STYLE.ruff_args(), str(ex.root)], timeout=300)
-        if r.timed_out:
-            yield timed_out("ruff", 300, ex.where, RUFF_TIMEOUT)
-            return
-        yield from self._report(ex, r, "ruff")
-
-    def _report(self, ex: Extraction, r: Ran, label: str) -> Iterable[Finding]:
-        """Diagnostics decide; the exit code only corroborates.
-
-        The README records what reading the exit status costs: clippy
-        was reported clean because half the table is `warn` and it exits
-        0 on a warning. So the output is parsed, and a non-zero exit
-        that produced no parsed diagnostic is its own finding — that
-        combination means the harness did not understand the output,
-        which is worse than either answer.
+        Execution covers what runs; `ty` covers what does not.
         """
-        by_name = {u.path.name: u for u in ex.units}
-        found = 0
-        for line in (r.out + "\n" + r.err).split("\n"):
-            m = DIAGNOSTIC.match(line.strip())
-            if not m:
-                continue
-            unit = by_name.get(Path(m["file"]).name)
-            if unit is None:
-                continue
-            found += 1
-            yield fail(
-                f"{label}: {m['rest'].strip()[:110]}",
-                unit.where_at(int(m["line"]) - 1),
-                REPORTED,
-            )
-        if not r.ok and not found:
-            yield fail(
-                f"{label} exited {r.rc} without a diagnostic this harness could read: "
-                f"{(r.err or r.out).strip()[:100]}",
-                ex.where,
-                UNREAD,
-            )
+        for unit in ex.units:
+            if LANGUAGE.tests(unit.block.body):
+                yield self.tests(ex, unit)
+            else:
+                # cwd is the extraction directory, so a block that
+                # writes a file writes it somewhere the run owns and the
+                # caller deletes.
+                yield Step(
+                    "runs",
+                    (str(PYTHON), unit.path.name),
+                    ex.root,
+                    120,
+                    unit=unit,
+                    said=_last_line,
+                )
+        snippet = _snippet(ex.skill)
+        config = str(ex.root / TY_CONFIG)
+        ty = ("ty", "check", "--config-file", config, "--python", str(VENV))
+        yield Step("ty", (*ty, str(ex.root)), ex.root, 300, diagnostics=True)
+        ruff = ("ruff", "check", *snippet.ruff_args(), str(ex.root))
+        yield Step("ruff", ruff, ex.root, 300, diagnostics=True)
+
+    def formatter(self, ex: Extraction) -> Step:
+        """`ruff format`, under the configuration the skill ships."""
+        shipped = ex.skill.root / RUFF_TOML
+        config = ("--config", str(shipped)) if shipped.exists() else ("--isolated",)
+        return Step(
+            "ruff format",
+            ("ruff", "format", "--no-cache", *config, str(ex.root)),
+            ex.root,
+            300,
+        )
+
+    def tests(self, ex: Extraction, unit: Unit) -> Step:
+        """`pytest` over the unit's file."""
+        pytest = (str(PYTHON), "-m", "pytest", "-q", "-p", "no:cacheprovider")
+        return Step(
+            "tests", (*pytest, unit.path.name), ex.root, 120, unit=unit, said=_last_line
+        )
 
     def cite(self, skill: Skill) -> Iterator[Finding]:
         """Each python row and cited code, against what is shipped."""
@@ -464,108 +454,6 @@ class Python:
         """Nothing: `assets` builds a `pyproject.toml` as any other."""
         return iter(())
 
-    def format(self, skill: Skill) -> list[Finding]:
-        """Rewrite each `# verified` block as `ruff format` would.
-
-        Simpler than the Rust path because each block is already its own
-        file: there is no crate to reassemble, so a block that fails to
-        format is reported alone rather than taking its chapter's
-        siblings with it.
-        """
-        config = skill.root / RUFF_TOML
-        if not config.exists():
-            return []
-        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
-            extraction = self.extract(skill, Path(work) / "out")
-            if not extraction:
-                return []
-            r = run(
-                [
-                    "ruff",
-                    "format",
-                    "--no-cache",
-                    "--config",
-                    str(config),
-                    str(extraction.root),
-                ],
-                timeout=300,
-            )
-            if not r.ok:
-                said = (r.err or r.out).strip()[:160]
-                return [fail(f"ruff format failed: {said}", skill.at(), RUFF_FORMAT)]
-
-            changed: list[Finding] = []
-            by_chapter: dict[str, list[Unit]] = {}
-            for unit in extraction.units:
-                by_chapter.setdefault(unit.chapter, []).append(unit)
-            for chapter, units in by_chapter.items():
-                # Last first, so an earlier replacement cannot move a
-                # later block.
-                ordered = sorted(units, key=lambda u: u.line, reverse=True)
-                edits = _formatted(skill, chapter, ordered)
-                changed += put_back(skill, chapter, LANGUAGE.fence, edits)
-            return changed
-
-    def mutate(self, ex: Extraction) -> Iterable[Finding]:
-        """A shipped test must be able to fail.
-
-        Survivors are notes, not verdicts: an illustrative example's
-        test pins the case its name describes, and a guard outside that
-        case is expected to survive. The defect this catches is a test
-        that cannot fail on its own stated case.
-        """
-        for unit in ex.units:
-            original = unit.path.read_text()
-            if not _has_tests(original):
-                continue
-            base = run(
-                [
-                    str(PYTHON),
-                    "-m",
-                    "pytest",
-                    "-q",
-                    "-p",
-                    "no:cacheprovider",
-                    unit.path.name,
-                ],
-                cwd=ex.root,
-                timeout=120,
-            )
-            if not base.ok:
-                continue  # not runnable here; verify() reports why
-
-            lines = original.split("\n")
-            for i, line in enumerate(lines):
-                stripped = line.strip()
-                if not stripped or stripped.startswith(_SKIP) or "=" not in stripped:
-                    continue
-                unit.path.write_text("\n".join(lines[:i] + lines[i + 1 :]))
-                try:
-                    r = run(
-                        [
-                            str(PYTHON),
-                            "-m",
-                            "pytest",
-                            "-q",
-                            "-p",
-                            "no:cacheprovider",
-                            unit.path.name,
-                        ],
-                        cwd=ex.root,
-                        timeout=60,
-                    )
-                    if r.timed_out:
-                        yield inconclusive(stripped, unit.where_at(i), HUNG)
-                    elif r.ok:
-                        yield note(
-                            f"`{stripped[:52]}` can be deleted "
-                            "and every test still passes",
-                            unit.where_at(i),
-                            SURVIVOR,
-                        )
-                finally:
-                    unit.path.write_text(original)
-
 
 def _snippet(skill: Skill) -> PythonSnippet:
     """How `skill`'s examples are checked: its profile's snippet."""
@@ -578,18 +466,6 @@ def _snippet(skill: Skill) -> PythonSnippet:
 
 #: The local label of an interpreter built without the GIL.
 FREE_THREADED = "freethreaded"
-
-
-def _formatted(
-    skill: Skill, chapter: str, units: Iterable[Unit]
-) -> Iterator[tuple[Block, str]]:
-    """Each unit's formatted body, with the block it was cut from."""
-    for unit in units:
-        body = unit.path.read_text()
-        same = (b for b in skill.blocks(LANGUAGE.fence) if b.file == chapter)
-        block = next((b for b in same if b.line == unit.line), None)
-        if block is not None:
-            yield block, body
 
 
 #: `PS-CONC-02` and `3.15` are not ruff codes; `ANN401` and `B008` are.

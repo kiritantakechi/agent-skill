@@ -1513,10 +1513,8 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
-        documented.CONTROLS_ROW,
-        lambda t: edit(
-            root_of(t), "README.md", documented.CONTROLS_SCOPE, "every other check"
-        ),
+        documented.SCOPE,
+        lambda t: edit(root_of(t), "README.md", SCOPE, "every other check"),
     ),
     # frontmatter
     Control(
@@ -1905,29 +1903,27 @@ EXEMPT: dict[Branch, str] = {
         "pinned one does not, and a control cannot install another"
     ),
     toolchain.EMPTY: COMPILES,
-    python.OUTSIDE: COMPILES,
-    python.RUN_TIMEOUT: COMPILES,
-    python.RUN: COMPILES,
-    python.TY_TIMEOUT: COMPILES,
-    python.RUFF_TIMEOUT: COMPILES,
-    python.REPORTED: COMPILES,
-    python.UNREAD: COMPILES,
-    rust.STEP_TIMEOUT: COMPILES,
-    rust.STEP: COMPILES,
-    rust.BASE_TIMEOUT: COMPILES,
-    rust.BASE: COMPILES,
-    rust.SURVIVOR: COMPILES,
-    zig.BUILD_TIMEOUT: COMPILES,
-    zig.BUILD: COMPILES,
-    zig.TEST_TIMEOUT: COMPILES,
-    zig.TEST: COMPILES,
-    zig.FMT_TIMEOUT: COMPILES,
-    zig.FMT: COMPILES,
-    zig.FMT_UNREAD: COMPILES,
+    toolchain.OUTSIDE: COMPILES,
+    toolchain.TIMEOUT: COMPILES,
+    toolchain.FAILED: COMPILES,
+    toolchain.UNFORMATTED: COMPILES,
+    toolchain.UNMUTATED_TIMEOUT: COMPILES,
+    toolchain.UNMUTATED: COMPILES,
 }
 
 
-@check("controls", "each branch that can fail a run still fails on its own defect")
+#: What `controls` covers, as the README's row must state it: the rule,
+#: not a count, so the row stays true when a check or an exemption is
+#: added. "Every other check" was false the moment one was exempted, and
+#: "15 of 18" would be false the next time one is registered.
+SCOPE = "every branch that can fail a run, except those exempted"
+
+
+@check(
+    "controls",
+    "each branch that can fail a run still fails on its own defect",
+    covers=SCOPE,
+)
 def controls(tree: Tree, *, fast: bool = False) -> Iterator[Finding]:
     """A finding for each control that no longer fires as its branch.
 

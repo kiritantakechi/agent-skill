@@ -1,51 +1,48 @@
 """Format a skill the way its checks demand.
 
 Each shared passage is rewritten from its template and every markdown
-file printed canonically; then each verified block is rewritten the way
-its toolchain's formatter would (`Toolchain.format`).
+file printed canonically; then every verified block is rewritten as its
+toolchain's formatter would: `restore ∘ format ∘ extract`, the same
+composition for every toolchain, so each gets write-back with no code
+of its own. Zig had none, and `zig fmt --check` named a block a reader
+then had to fix by hand.
 
-`cargo fmt --check` decides whether a rust block is formatted, and it
-judges the block as the extractor wrote it — indented inside a
-`pub mod`, where rustfmt's `chain_width` and `struct_lit_width` bite
-earlier than they do at column zero. That made the check report diffs
-a reader of the markdown could not have predicted. A formatter runs the
-same extraction, formats it, and writes the result back with
-`put_back`, so the check is actionable rather than merely correct.
+The formatter judges the file the extractor wrote, so what `toolchain`
+calls unformatted is exactly what this rewrites: the check is
+actionable rather than merely correct.
 """
 
-lazy from collections.abc import Iterable
+import tempfile
+from pathlib import Path
+lazy from collections.abc import Mapping
 
 from agent_skill import shared
 from agent_skill.doc import canonical
-from agent_skill.lang import toolchain_for
+from agent_skill.lang import execute, judged, toolchain_for
+from agent_skill.model import Block, Skill
 from agent_skill.report import Finding, Level, declare, fail, note
-lazy from agent_skill.model import Block, Skill
 
 # The branches `fmt` reports through. It is a command rather than a
 # check, so no control is owed them.
 REPRINTED = declare("fmt", "reprinted", Level.NOTE)
-CARGO_FMT = declare("fmt", "cargo_fmt", Level.FAIL)
-MODULES = declare("fmt", "modules", Level.FAIL)
+FORMATTER = declare("fmt", "formatter", Level.FAIL)
+FORMATTER_TIMEOUT = declare("fmt", "formatter_timeout", Level.FAIL)
 UNLOCATABLE = declare("fmt", "unlocatable", Level.FAIL)
 REFORMATTED = declare("fmt", "reformatted", Level.NOTE)
-RUFF_FORMAT = declare("fmt", "ruff_format", Level.FAIL)
 
 
 def format_skill(skill: Skill) -> list[Finding]:
-    """Rewrite a skill's verified blocks and shared passages.
+    """Rewrite a skill's shared passages, markdown and verified blocks.
 
-    Each verified block the way that language's formatter would, and
-    each shared passage the way its template says.
-
-    Returns a note per passage or chapter changed, and a failure for
-    each thing that could not be rewritten — a formatter that failed, a
-    block that was skipped — so the command can say it did not finish.
-    The text comes first, shared passages and then every file's
-    canonical form: it needs no toolchain to rewrite.
+    Returns a note per passage or file changed, and a failure for each
+    thing that could not be rewritten — a formatter that failed, a block
+    that was skipped — so the command can say it did not finish. The
+    text comes first, shared passages and then every file's canonical
+    form: it needs no toolchain to rewrite.
     """
     changed = shared.rewrite(skill) + _reprint(skill)
-    toolchain = toolchain_for(skill.profile.toolchain)
-    return changed + (toolchain.format(skill) if toolchain else [])
+    # Read again: the text just written moved the blocks' lines.
+    return changed + _examples(Skill(skill.root, skill.profile))
 
 
 def _reprint(skill: Skill) -> list[Finding]:
@@ -69,33 +66,56 @@ def _reprint(skill: Skill) -> list[Finding]:
     return changed
 
 
-def put_back(
-    skill: Skill, chapter: str, fence: str, edits: Iterable[tuple[Block, str]]
-) -> list[Finding]:
-    """Write each new body over its block in `path`, in the order given.
-
-    Returns a failure per block skipped, then a note for the chapter if
-    it changed. A block whose fenced text is not found exactly once is
-    skipped rather than guessed at.
-    """
-    path = skill.path_of(chapter)
-    text = path.read_text()
-    changed: list[Finding] = []
-    hits = 0
-    for block, body in edits:
-        if block.body == body:
-            continue
-        old = f"```{fence}\n{block.body}```"
-        if text.count(old) != 1:
-            changed.append(
-                fail("not uniquely locatable; skipped", block.where, UNLOCATABLE)
-            )
-            continue
-        text = text.replace(old, f"```{fence}\n{body}```")
-        hits += 1
-    if hits:
-        path.write_text(text)
-        changed.append(
-            note(f"{hits} block(s) reformatted", skill.at(chapter), REFORMATTED)
+def _examples(skill: Skill) -> list[Finding]:
+    """Each verified block, as its toolchain's formatter prints it."""
+    tc = toolchain_for(skill.profile.toolchain)
+    if tc is None:
+        return []
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
+        ex = tc.extract(skill, Path(work) / "out")
+        if not ex:
+            return []
+        step = tc.formatter(ex)
+        failed = judged(
+            step, execute(step), ex, failed=FORMATTER, timeout=FORMATTER_TIMEOUT
         )
+        if failed:
+            return failed
+        restored = tc.restore(ex)
+    return put_back(skill, {b: body for b, body in restored.items() if body != b.body})
+
+
+def put_back(skill: Skill, bodies: Mapping[Block, str]) -> list[Finding]:
+    """Write each new body over its block's lines, last block first.
+
+    A block is found by its line, as the skill was read: last first, so
+    a body that grows or shrinks cannot move one above it. One whose
+    lines no longer hold its body, or whose fence does not open above
+    them, is skipped rather than guessed at.
+
+    Returns a failure per block skipped, then a note per file changed.
+    """
+    changed: list[Finding] = []
+    by_file: dict[str, list[Block]] = {}
+    for block in bodies:
+        by_file.setdefault(block.file, []).append(block)
+    for document, blocks in by_file.items():
+        path = skill.path_of(document)
+        lines = path.read_text().split("\n")
+        hits = 0
+        for block in sorted(blocks, key=lambda b: b.line, reverse=True):
+            first, count = block.line - 1, block.body.count("\n")
+            held = "".join(f"{ln}\n" for ln in lines[first : first + count])
+            if held != block.body or lines[first - 1] != f"```{block.lang}":
+                changed.append(
+                    fail("not where it was read; skipped", block.where, UNLOCATABLE)
+                )
+                continue
+            lines[first : first + count] = bodies[block].removesuffix("\n").split("\n")
+            hits += 1
+        if hits:
+            path.write_text("\n".join(lines))
+            changed.append(
+                note(f"{hits} block(s) reformatted", skill.at(document), REFORMATTED)
+            )
     return changed
