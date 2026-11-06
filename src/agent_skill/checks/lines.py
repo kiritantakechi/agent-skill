@@ -125,7 +125,10 @@ def prose(skill: Skill) -> Iterator[Finding]:
     for chapter in skill.chapters:
         text = str(chapter.doc)
         lines = text.split("\n")
-        for block, rid in owned(Doc.parse(text)):
+        # A canonical file is its own printed text, and its parse is the
+        # one the chapter holds.
+        printed_doc = chapter.doc if text == chapter.text else Doc.parse(text)
+        for block, rid in owned(printed_doc):
             if isinstance(block, Fence) or _checks(block):
                 continue
             for k, line in enumerate(printed(block)):
