@@ -33,7 +33,7 @@ the game do not mention the engine.
 - **The app**
   - BV-ARCH-15 [M] Keep `main` to plugins and the two error policies
   - BV-ARCH-16 [M] Return `AppExit` from `main`
-  - BV-ARCH-17 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
+  - BV-ARCH-17 [M] Configure `DefaultPlugins` where it is added, not by patching afterwards
 
 ---
 
@@ -476,7 +476,8 @@ violation.
 
 ### BV-ARCH-07 [M] Make the boundary a job, not a paragraph
 
-The rule that some directory may not mention Bevy is executable in one line. Write it as a CI step.
+The rule that some directory may not mention Bevy is executable in one line. Write it as a step of
+the CI RS-BUILD-27 requires of every crate.
 
 **Why:** an architectural boundary written only in a README is re-crossed by the first contributor
 who has not read it, and by every agent that has not been shown it. The failure is silent for as
@@ -841,13 +842,11 @@ failure look like a clean shutdown to everything outside the process.
 **Check:** does `fn main` return `AppExit`, and is the value the one `run` returned? A `main` that
 returns a fabricated `AppExit` has the right signature and still discards the real one.
 
-### BV-ARCH-17 [M!] Configure `DefaultPlugins` where it is added, not by patching afterwards
+### BV-ARCH-17 [M] Configure `DefaultPlugins` where it is added, not by patching afterwards
 
-Window title, asset path, log filter and render settings are set with `.set(…)` on the plugin group
-at the point it is added.
-
-*Relaxed form:* a value that is genuinely only known at runtime — a window size read from a settings
-file — is inserted afterwards, and the code that does so sits next to the `add_plugins` call.
+Window title, asset path, log filter and render settings known when the plugin group is added are
+set with `.set(…)` on it, at that point. A value known only at run time — a window size read from a
+settings file — is written afterwards, by code beside the `add_plugins` call.
 
 **Why:** `.set()` replaces the configuration before the plugin builds; mutating the resource
 afterwards runs the original first. The window is created at the default size and visibly resized,

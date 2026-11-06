@@ -24,7 +24,7 @@ subscriber, and on wasm `println!` never reaches the browser console.
   - BV-ERR-06 [S] Override the handler per schedule only where the phase differs
 
 - **The panicking half**
-  - BV-ERR-07 [M] Prefer the non-panicking half of every pair
+  - BV-ERR-07 [M] Call the non-panicking half of every pair outside a test
   - BV-ERR-08 [M] Never panic to report bad content
 
 - **Elsewhere**
@@ -475,13 +475,13 @@ could not have expressed it.
 
 ## The panicking half
 
-### BV-ERR-07 [M] Prefer the non-panicking half of every pair
+### BV-ERR-07 [M] Call the non-panicking half of every pair outside a test
 
-Bevy ships both halves for most `World` lookups. Take the one that returns `Option` or `Result`. A
-query, an asset collection and an `EntityRef` return one already, and unwrapping it is the
-`unwrap_used` row. This is about game code: a `#[cfg(test)]` body may take the panicking half,
-because a test asserting on the world wants the panic (BV-TEST-06), and routing it through
-`get_resource` would only add an `expect` that says what the panic already says.
+Bevy ships both halves for most `World` lookups, and game code takes the one that returns `Option`
+or `Result`. A query, an asset collection and an `EntityRef` return one already, and unwrapping it
+is the `unwrap_used` row. In a `#[cfg(test)]` body the panicking half is the assertion: the test
+wants the panic (BV-TEST-06), and `get_resource` would only add an `expect` saying what the panic
+says.
 
 **Why:** the panicking half exists for examples and for code where the invariant is structural, and
 game code is neither. The pairs are easy to miss because the panicking name is the shorter one — it
@@ -637,8 +637,8 @@ Return `Recover` only from the `ErrorType::DeviceLost` arm. An `OutOfMemory` or 
 comes from how the GPU is being used, so it recurs on a rebuilt device as it does under `Ignore`,
 and `bevy_render` itself warns that hitting one repeatedly strobes; those arms stop rendering.
 
-*Relaxed form:* a tool or an example may take the default, and then the rule is that nobody reports
-its clean exit as a crash.
+*Relaxed form:* the default policy, which quits on every render error, with nothing that reads that
+exit as a crash.
 
 **Why:** the default logs and writes `AppExit::error()` for **every** `RenderError`, so a transient
 GPU fault closes the player's window and BV-ARCH-16 turns it into an exit that reads as a crash.

@@ -17,12 +17,18 @@ description: >-
 
 A **delta on top of `rust-style`**. Everything that standard says about naming, errors, ownership,
 functional style, modules, documentation and Cargo still holds; this one states what changes when
-Bevy is in the dependency list, and nothing else. Section 3 lists every place the two disagree and
-which one wins.
+Bevy is in the dependency list, and nothing else. Section 3 lists every place the two depart.
+
+Its tiers are `rust-style`'s, and so is the code `[M!]` binds in. Read for a game: a shipped game is
+high-reliability code, since a panic takes down a process someone else owns — the player's, or the
+server their session lives on — an authoritative server parses what its clients send, and saves and
+replays are data others cannot reconstruct. A plugin crate others depend on is library code. A jam
+prototype, editor scratch, an example scene and a throwaway tool are none of these, and take each
+`[M!]` rule's relaxed form.
 
 **Target: Bevy 0.20 on Rust 1.99, edition 2024.** Bevy's API turns over faster than any other
 dependency a game has, and most Bevy code on the public internet — and most of what a language model
-has read — is 0.15 or older. Section 2 and `references/migration.md` exist for that reason.
+has read — is 0.15 or older. Section 2 and the migration chapter exist for that reason.
 
 ## How to use this standard
 
@@ -63,15 +69,15 @@ Every rule carries a tier. Apply it literally.
 | Tag | Meaning |
 |---|---|
 | `[M]` | **Mandatory** in all Bevy code. No exceptions without an explicit instruction from the user. |
-| `[M!]` | **Mandatory in shipped and long-running code**; strongly recommended elsewhere. Each `[M!]` rule states its relaxed form. |
+| `[M!]` | **Mandatory in library and high-reliability code**; strongly recommended elsewhere. Each `[M!]` rule states its relaxed form. |
 | `[S]` | **Should.** The default. Deviating is allowed but must be justified in a comment on the line that deviates. |
 
-**Code is "shipped or long-running" — `[M!]` applies as `[M]` — if any of these hold:** players run
-it; it is a plugin crate published for others to depend on; a panic ends a session someone cannot
-resume (a dedicated server, a long play session, a build step); it writes save data or replays; or
-it is the authority in a networked game. **Otherwise** — jam prototypes, editor scratch, example
-scenes, throwaway tools — `[M!]` rules are recommendations, and the relaxed form given with each
-rule is acceptable.
+**Code is "library or high-reliability" — `[M!]` applies as `[M]` — if any of these hold:** it is
+published to a registry or consumed by code you do not control; a panic takes down a process that
+someone else owns (a server, a plugin, an embedded target); it is a security boundary (parsers on
+untrusted input, cryptography, sandboxes, allocators); or it stores data others cannot reconstruct.
+**Otherwise** — scripts, internal binaries, prototypes, examples — `[M!]` rules are recommendations,
+and the relaxed form given with each rule is acceptable.
 
 When you cannot tell which category the code is in, ask, or state your assumption in one line and
 proceed with the stricter reading.
@@ -193,13 +199,13 @@ with an underscore in upstream's namespace, and a package published from this st
   - BV-ECS-12 [M] Register each instantiation of a generic reflected type
   - BV-ECS-16 [M] Put a zero-sized marker in the filter, never in the data
   - BV-ECS-19 [M] Name a query type once it needs two lines
-  - BV-ECS-24 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
+  - BV-ECS-24 [M] Write with `set_if_neq` wherever a `Changed` filter is watching
 - **Scheduling: Schedules, Sets, Ordering, Run Conditions, Time**
   - BV-SCHED-01 [M] Simulate in `FixedUpdate`, present in `Update`
   - BV-SCHED-05 [M] Take the delta from the schedule's own clock
   - BV-SCHED-09 [M] Never read per-frame input from a fixed-rate schedule
   - BV-SCHED-10 [M] Group system parameters by what they are together
-  - BV-SCHED-12 [M!] Express ordering through named sets
+  - BV-SCHED-12 [M] Express ordering through named sets
   - BV-SCHED-16 [M] Express a precondition as a run condition, not an early return
 - **Events: Messages, Events, Entity Events, Observers**
   - BV-EVENT-01 [M] Send a `Message` to fan out, trigger an `Event` to react
@@ -210,7 +216,7 @@ with an underscore in upstream's namespace, and a package published from this st
 - **Errors: Fallible Systems, the Error Handler, Panicking APIs**
   - BV-ERR-01 [M!] Return `Result` from a system that can fail
   - BV-ERR-05 [M] Choose the fallback error handler deliberately
-  - BV-ERR-07 [M] Prefer the non-panicking half of every pair
+  - BV-ERR-07 [M] Call the non-panicking half of every pair outside a test
 - **Cargo: Features, Version Pinning, Lints, CI**
   - BV-BUILD-02 [M] Start from a feature collection
   - BV-BUILD-03 [M] Hand-pick features only against a recorded measurement
@@ -235,8 +241,8 @@ protocol — severity model, mechanical pass, output format — in `references/r
    registered? (BV-ECS-03, BV-ECS-12)
 8. **Tests.** Is the rule tested without an `App`, and the plugin with the smallest one?
    (BV-ARCH-01, BV-TEST-02)
-9. **Relaxed forms.** Is anything `[M!]` relying on its relaxed form, and which shipped-code
-   condition does not hold?
+9. **Relaxed forms.** Is anything `[M!]` relying on its relaxed form, and which of section 1's
+   conditions does not hold?
 
 ## 6. Reference map
 

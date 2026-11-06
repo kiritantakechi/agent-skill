@@ -18,7 +18,7 @@ Every rule ID a revision of this standard changed, and what it became, is in
 ## Contents
 
 - **Using this chapter**
-  - BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.20 until checked
+  - BV-MIG-01 [M] Check unfamiliar Bevy code against this chapter before adapting it
   - BV-MIG-02 [M] Follow a rename to its 0.20 spelling, not its first hop
 
 - **0.15: bundles and text**
@@ -55,7 +55,7 @@ Every rule ID a revision of this standard changed, and what it became, is in
 
 ## Using this chapter
 
-### BV-MIG-01 [M] Assume unfamiliar Bevy code predates 0.20 until checked
+### BV-MIG-01 [M] Check unfamiliar Bevy code against this chapter before adapting it
 
 Code from a tutorial, a blog post, an answer, or a language model was written against an older Bevy
 until something proves otherwise — often 0.15, and at best 0.19. Check it against these tables

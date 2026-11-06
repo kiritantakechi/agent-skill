@@ -18,7 +18,7 @@ standard; this chapter is the Bevy delta.
 - **Profiles**
   - BV-BUILD-07 [M] Compile dependencies optimised in the dev profile
   - BV-BUILD-08 [S] Keep `dynamic_linking` off the committed manifest
-  - BV-BUILD-09 [M!] Keep `overflow-checks` on in release where release must match debug
+  - BV-BUILD-09 [M] Keep `overflow-checks` on in release where release must match debug
   - BV-BUILD-10 [M] Keep tracing and dev tooling behind off-by-default features
   - BV-BUILD-11 [S] Take the overlays from `bevy_dev_tools`, behind the feature BV-BUILD-10 asks for
 
@@ -160,14 +160,11 @@ it is a developer's local choice; in the manifest it is everybody's.
 **Check:** grep the manifest for `dynamic_linking`. It belongs in a shell alias or a
 `.cargo/config.toml` that is not committed.
 
-### BV-BUILD-09 [M!] Keep `overflow-checks` on in release where release must match debug
+### BV-BUILD-09 [M] Keep `overflow-checks` on in release where release must match debug
 
 `[profile.release] overflow-checks = true` for any game with replays, rollback, lockstep networking
 or golden test vectors. The trap is a panic, so it needs BV-ERR-05's shipped handler, which resumes
 a panic: a handler that only logs catches the trap and runs the next frame.
-
-*Relaxed form:* a single-player game with no recorded state may take the default, and then the rule
-is that nothing compares a release run against a debug one.
 
 **Why:** integer overflow panics in debug and wraps in release, so the two builds compute different
 numbers — a replay recorded in development desynchronises on a player's machine, invisibly to every

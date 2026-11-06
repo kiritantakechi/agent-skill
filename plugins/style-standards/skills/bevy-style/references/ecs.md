@@ -36,7 +36,7 @@ chapter.
   - BV-ECS-23 [M] Reach for `contiguous_iter` only against a measured hot loop
 
 - **Change detection**
-  - BV-ECS-24 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
+  - BV-ECS-24 [M] Write with `set_if_neq` wherever a `Changed` filter is watching
   - BV-ECS-25 [M] Put `Changed<T>` in the filter so the system can be skipped
   - BV-ECS-26 [M] Do not use `Changed<T>` to mean `Added<T>`
   - BV-ECS-27 [S] Bypass change detection only where the write is bookkeeping
@@ -858,20 +858,19 @@ mod tests {
 
 ## Change detection
 
-### BV-ECS-24 [M!] Write with `set_if_neq` wherever a `Changed` filter is watching
+### BV-ECS-24 [M] Write with `set_if_neq` wherever a `Changed` filter is watching
 
 `health.set_if_neq(Health(new))` rather than `*health = Health(new)` when the new value is often the
-old one.
-
-*Relaxed form:* a component nothing filters on, and nothing reacts to, may be assigned directly —
-but that is a fact about today's readers, and it changes the moment someone adds a `Changed` filter.
+old one and anything reads the component's changes: a `Changed<T>` filter, an `is_changed`, or a
+`Ref<T>`.
 
 **Why:** `DerefMut` on `Mut<T>` marks the component changed, so assigning the same value every frame
 marks every entity changed every frame. Every downstream `Changed<T>` filter then matches
 everything: it goes on compiling and matching, and no longer means anything.
 
 **Check:** for each `*component = …` in a system that runs every frame, ask whether the value can be
-unchanged. If so, and anything filters on it, that is the defect.
+unchanged. If so, and anything reads its changes, that is the defect — and a `Changed` filter added
+later makes every such write one.
 
 ```rust
 // verified

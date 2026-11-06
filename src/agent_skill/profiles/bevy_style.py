@@ -171,7 +171,9 @@ PROFILE = Profile(
     verified_as=(
         "compiles as written against Bevy {pin} on Rust {toolchain}, edition 2024"
     ),
-    strict_scope="shipped and long-running",
+    # rust-style's: a delta's `[M!]` is its anchor's (normalize-the-standards,
+    # decision 10), and SKILL.md says how a game reads it.
+    strict_scope="library and high-reliability",
     delta=Delta(
         anchor="rust-style",
         step=(

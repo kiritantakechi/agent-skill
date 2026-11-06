@@ -21,7 +21,7 @@ event is in the events chapter.
 - **Systems**
   - BV-SCHED-10 [M] Group system parameters by what they are together
   - BV-SCHED-11 [S] Make a system a step in the frame, not a container for code
-  - BV-SCHED-12 [M!] Express ordering through named sets
+  - BV-SCHED-12 [M] Express ordering through named sets
   - BV-SCHED-13 [M] Configure a set once and join it at each system
   - BV-SCHED-14 [S] Keep `chain` to a short pipeline inside one plugin
   - BV-SCHED-15 [M] Add each system to each schedule exactly once
@@ -438,14 +438,12 @@ single opaque bar where three would have told you which part is slow.
 
 **Check:** write the system's name as a sentence. If it needs an "and", split it.
 
-### BV-SCHED-12 [M!] Express ordering through named sets
+### BV-SCHED-12 [M] Express ordering through named sets
 
-Systems that must run in a particular order join `SystemSet`s, and the sets are ordered once. A
-system orders itself against a set, never against another system's function:
+Systems that must run in a particular order join `SystemSet`s, and the sets are ordered once, unless
+the systems are one pipeline added in one call of one plugin, which `.chain()` orders (BV-SCHED-14).
+A system orders itself against a set, never against another system's function:
 `.after(CombatSystems::Resolve)`, not `.after(damage_systems::apply)`.
-
-*Relaxed form:* two systems in one plugin, added in one call, may be ordered with `.chain()` — see
-BV-SCHED-14 for the boundary.
 
 **Why:** a set names a phase, so a new system joins it without anyone editing an ordering graph. A
 function is the other plugin's implementation detail: renaming or splitting it breaks the ordering,

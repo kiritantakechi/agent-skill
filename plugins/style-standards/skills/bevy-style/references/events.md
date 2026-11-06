@@ -22,7 +22,7 @@ chapter; when a reader runs is in the scheduling chapter.
   - BV-EVENT-08 [M] Give an event about one entity the `EntityEvent` derive and an entity field
   - BV-EVENT-09 [M] Read the target from the named field
   - BV-EVENT-10 [S] Turn propagation on deliberately, and stop it deliberately
-  - BV-EVENT-11 [M] Treat an entity event as immutable
+  - BV-EVENT-11 [M] Never retarget an entity event in flight
 
 - **Observers**
   - BV-EVENT-12 [M] Observe a lifecycle event rather than polling for it
@@ -339,10 +339,10 @@ is consumed again above it, which is how a single click closes two menus.
 **Check:** for each propagating event, find the observers that act on it. Any that fully handles the
 event and does not call `propagate(false)` is letting it continue.
 
-### BV-EVENT-11 [M] Treat an entity event as immutable
+### BV-EVENT-11 [M] Never retarget an entity event in flight
 
-The mutating half of `EntityEvent` is a separate trait, `SetEntityEventTarget`. Retargeting an event
-in flight is not something game code does.
+The mutating half of `EntityEvent` is a separate trait, `SetEntityEventTarget`, for propagation's
+machinery; game code reads an event's target and does not set it.
 
 **Why:** every observer for an event sees the same value, so retargeting it mid-flight changes what
 later observers are told happened — and which observers count as later depends on registration

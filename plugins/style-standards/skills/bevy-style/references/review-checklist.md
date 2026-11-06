@@ -43,8 +43,8 @@ invalidate the work of reading the next.
    registered? (`BV-ECS`)
 8. **Tests.** Are the rules of the game tested without an `App`, and each plugin with the smallest
    one that exercises it? (`BV-TEST`)
-9. **Relaxed forms.** Is anything `[M!]` relying on its relaxed form? If so, which of the
-   shipped-code conditions does not hold?
+9. **Relaxed forms.** Is anything `[M!]` relying on its relaxed form? If so, which of section 1's
+   conditions does not hold?
 
 ## Mechanical pass
 
