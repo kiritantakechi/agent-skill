@@ -229,19 +229,32 @@ pub struct Tags {
     inner: Vec<String>,
 }
 
+/// What `Tags::iter` returns: its own type, so the `Vec` stays private (RS-API-04).
+#[derive(Debug)]
+#[must_use = "iterators are lazy and do nothing unless consumed"]
+pub struct Iter<'tags>(std::slice::Iter<'tags, String>);
+
+impl<'tags> Iterator for Iter<'tags> {
+    type Item = &'tags String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
 impl Tags {
     /// The inherent form, which callers reach for first.
-    pub fn iter(&self) -> std::slice::Iter<'_, String> {
-        self.inner.iter()
+    pub fn iter(&self) -> Iter<'_> {
+        Iter(self.inner.iter())
     }
 }
 
 impl<'tags> IntoIterator for &'tags Tags {
     type Item = &'tags String;
-    type IntoIter = std::slice::Iter<'tags, String>;
+    type IntoIter = Iter<'tags>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.inner.iter()
+        self.iter()
     }
 }
 ```

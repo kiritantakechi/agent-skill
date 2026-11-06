@@ -411,46 +411,86 @@ yield something other than the elements?
 
 ```rust
 // verified
-/// The three canonical iterator constructors, with the conventional receivers.
+/// The three canonical iterator constructors, each returning a type named for
+/// it (RS-NAME-20) that keeps the `Vec` behind it private (RS-API-04).
 #[derive(Debug, Default)]
 pub struct Set {
     items: Vec<u32>,
 }
 
+/// What `Set::iter` returns.
+#[derive(Debug)]
+#[must_use = "iterators are lazy and do nothing unless consumed"]
+pub struct Iter<'set>(std::slice::Iter<'set, u32>);
+
+impl<'set> Iterator for Iter<'set> {
+    type Item = &'set u32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+/// What `Set::iter_mut` returns.
+#[derive(Debug)]
+#[must_use = "iterators are lazy and do nothing unless consumed"]
+pub struct IterMut<'set>(std::slice::IterMut<'set, u32>);
+
+impl<'set> Iterator for IterMut<'set> {
+    type Item = &'set mut u32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+/// What `Set::into_iter` returns.
+#[derive(Debug)]
+#[must_use = "iterators are lazy and do nothing unless consumed"]
+pub struct IntoIter(std::vec::IntoIter<u32>);
+
+impl Iterator for IntoIter {
+    type Item = u32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
 impl Set {
-    pub fn iter(&self) -> std::slice::Iter<'_, u32> {
-        self.items.iter()
+    pub fn iter(&self) -> Iter<'_> {
+        Iter(self.items.iter())
     }
 
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, u32> {
-        self.items.iter_mut()
+    pub fn iter_mut(&mut self) -> IterMut<'_> {
+        IterMut(self.items.iter_mut())
     }
 }
 
 impl<'set> IntoIterator for &'set Set {
     type Item = &'set u32;
-    type IntoIter = std::slice::Iter<'set, u32>;
+    type IntoIter = Iter<'set>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.items.iter()
+        self.iter()
     }
 }
 
 impl<'set> IntoIterator for &'set mut Set {
     type Item = &'set mut u32;
-    type IntoIter = std::slice::IterMut<'set, u32>;
+    type IntoIter = IterMut<'set>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.items.iter_mut()
+        self.iter_mut()
     }
 }
 
 impl IntoIterator for Set {
     type Item = u32;
-    type IntoIter = std::vec::IntoIter<u32>;
+    type IntoIter = IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.items.into_iter()
+        IntoIter(self.items.into_iter())
     }
 }
 ```
