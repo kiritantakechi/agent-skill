@@ -487,6 +487,58 @@ As built (task 3.1), python-style normalised; what it decided for the standards 
   `stray`; a path-qualified citation is `path_citation`). The core-citation controls and the map's
   "other N live here" count moved to rust-style, which still states core rules.
 
+As built (task 4.1), rust-style normalised; what it decided beyond task 3.1:
+
+- Core rules (decision 7): a core rule merges into the chapter rule that states its concept, which
+  need not be one it cited — RS-CORE-09, "make illegal states unrepresentable", cited three of its
+  instances and merged into RS-API-27, which states it; section 4 lists the instances too. A core
+  rule's sentence that is a lint (RS-CORE-07's `&Vec<T>`, `ptr_arg`) is that lint's row already.
+  The five core/chapter tier mismatches went by projection; each chapter tier was then read on its
+  own (RS-UNSAFE-30 became `[M]` for its own reasons, below).
+- One concept, one owner (decision 11): a pair is one concept when one rule is an instance of the
+  other (RS-ERR-20's error taxonomy of RS-DOC-03's crate-wide facts, RS-CLI-18's stdout of
+  RS-PERF-19's buffering) or the two halves of one choice (RS-MOD-10/11's `pub(super)` and
+  `pub(crate)`); the merged rule takes the higher tier with its condition in the statement
+  (RS-ERR-26 into RS-ERR-37, RS-API-39 into RS-API-28, both `[M]`). Two rules that share an example
+  but answer different questions are not merged: the overlap goes, and each cites the other's owner
+  (RS-FUNC-16 when to return an iterator, RS-TRAIT-15 how to spell it; RS-ERR-35 the exit code,
+  RS-CLI-16 the usage message). A rule the compiler always enforces is removed with that reason
+  (RS-TRAIT-29, E0119): Rust has no compiler rows.
+- Migration (decision 9): a Rust row's Old is the spelling the code names, so the generated `rg -F`
+  finds it and nothing else — a crate's API path (`once_cell::sync::Lazy`, `num_cpus::get`), a macro
+  (`lazy_static!`), an attribute (`#[no_mangle]`), an edition-changed construct (`if let`, `gen`) —
+  never a crate name, which finds its replacement and prose too. `alias` is a crate's API the
+  standard library replaced: it still builds and is rewritten wherever it stands, python's alias
+  read operationally. A crate still right for part of its use (`async-trait` behind a `dyn`) has no
+  row, as a discouraged name has none. An idiom a newer feature superseded (`let ... else` for a
+  `match`, `#[expect]` for `#[allow]`) is no spelling; its rule owns it, and its date joins the
+  table of when an API arrived, which maps an API to a release, not an old spelling to a new one.
+  A change no spelling keys (Cargo's incremental default in CI) stays in RS-MIG-03's table, keyed by
+  release. Edition rows with no topical rule are RS-BUILD-01's, the edition's own rule.
+- `gone` verification for Rust: a path is searched for in the standard library's source, which the
+  pinned toolchain ships only with `rust-src` (task 4.1 added it to the 1.99 toolchain here with
+  `rustup component add rust-src --toolchain 1.99`); without it a path row is `gone_unprobed`, a
+  note, never a pass. An attribute is compiled on an exported function under edition 2021 and then
+  2024 (`lang.rust._compiled`): 0 while 2024 accepts it, 1 when only 2021 does, 2 when neither does,
+  so a malformed probe is the driver's `failed` rather than a verified row.
+- Tier (decision 6): a relaxed form that relaxed frequency (RS-CONC-41, RS-UNSAFE-30) states the
+  floor every crate meets — run before every release, on every push where CI's time allows — and
+  the rule is `[M]`; a rule whose relaxed form, once its condition moved into the statement, has
+  nothing left to relax is `[M]` too (RS-CONC-09, -33, -40, RS-CLI-27, RS-PERF-31, RS-TEST-23,
+  whose untrusted input section 1 puts inside the scope by definition). A relaxed form that restates
+  the scope ("for an internal binary") loses the restatement.
+- Checks (decision 4): a prose "grep" became an `rg` command where the pattern is the defect, each
+  with a `fires` fixture and none unproven, and judgement where the code around the hit decides; a
+  `not_decisive` entry whose span no longer runs goes. The anchor's commands run over the delta's
+  examples too (`crossref`), which found RS-CONC-27's `static mut ` inside bevy-style's
+  `&'static mut`. RS-API-04's command found RS-NAME-19's and RS-FUNC-10's examples returning
+  `std::slice::Iter` from a public `iter()`, as an `IntoIterator` impl must name it: RS-API-04's
+  Check is judgement naming both places, and the tension is the iterator examples' to resolve.
+- Controls (decision 14's last item): the core-citation controls, `map_here`, and the
+  `frontmatter` branches a normalised standard does not run (`length`, `rule_count`) inject into
+  zig-style, the one standard still stating core rules; `no_cargo_toml` says in `also` why every
+  row owes a reason once no lint is set one by one.
+
 ## Risks / Trade-offs
 
 - **CORE IDs disappear** → every citation of one resolves through `renames.md`; `revise` checks

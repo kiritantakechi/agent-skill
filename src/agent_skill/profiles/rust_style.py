@@ -219,4 +219,7 @@ PROFILE = Profile(
     ),
     conventions=CONVENTIONS,
     structural=(unused_defaults,),
+    # In the normal form: every property normalize-the-standards gates
+    # holds of it (task 4.1).
+    normalized=True,
 )

@@ -73,7 +73,18 @@ standard read as normalised now also fails: `core_rule` (bevy 24, python 26, rus
 
 ## 4. rust-style
 
-- [ ] 4.1 Normalise rust-style; set `normalized`; full suite and its toolchain pass
+- [x] 4.1 Normalise rust-style to every property in section 2, merging and removing with `revise`;
+  set `normalized`; full suite, its toolchain (every `gone` row probed, the standard library's
+  source added as `rust-src`) and its mutation check pass — 28 core rules merged into the chapter
+  rules they abbreviated, seven merges and one removal (E0119), one migration table, and an
+  attribute probe; see the design's "As built (task 4.1)". `measure`, before → after: rules 605 →
+  597, chapter titles carrying a family code 7 → 0, chapters with no `Scope:` 7 → 0, chapters named
+  outside §6 1 → 0, element orders 8 → 6, out of order 1 → 0, restated titles 84 → 0, citations
+  bare/quoted/behind a path 84/81/101 → 282/0/0, prose "grep" Checks 122 → 0, advice titles 29 →
+  0, core rules 28 → 0, core tier mismatches 5 → 0, unrowed lints 3 of 25 → 0 of 25, rows saying no
+  reason 47 → 0, migration statuses 0 → 4, section 2 3 subsections, 51 lines → 3, 44, laid out
+  otherwise 1 → 0, items naming no rule 11 → 0, description 1020 → 432 characters, SKILL.md 348 →
+  267 lines, dated statements 14 → 0
 
 ## 5. bevy-style
 
