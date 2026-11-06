@@ -12,8 +12,8 @@ from pathlib import Path
 from weakref import WeakKeyDictionary
 
 lazy from agent_skill.checks.patterns import Pattern
+lazy from agent_skill.lang import language
 lazy from agent_skill.model import Skill
-lazy from agent_skill.text import strip_comment, syntax_for
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,8 +59,7 @@ class Corpus:
     def build(self, skill: Skill, lang: str, work: Path) -> Corpus:
         """Fill the corpus with `skill`'s verified `lang` advice."""
         self.lang = lang
-        comment, quotes = syntax_for(lang)
-        suffix = {"rust": ".rs", "python": ".py", "zig": ".zig"}.get(lang, ".txt")
+        read = language(lang)
         self.raw_dir, self.code_dir = work / "raw", work / "code"
         self.raw_dir.mkdir(parents=True, exist_ok=True)
         self.code_dir.mkdir(parents=True, exist_ok=True)
@@ -75,7 +74,7 @@ class Corpus:
         base = 0
         for n, b in enumerate(advice):
             self.starts.append(base)
-            self.in_test |= {base + i for i in skill.profile.inside_tests(b.body)}
+            self.in_test |= {base + i for i in read.tests(b.body)}
             # The marker classifies the block; it is not part of the
             # example.
             raw = ["" if line == b.marker.raw else line for line in b.lines]
@@ -84,11 +83,11 @@ class Corpus:
                     b.file,
                     b.rule,
                     raw,
-                    [strip_comment(x, comment, quotes) for x in raw],
+                    [read.uncommented(x) for x in raw],
                     [b.at(j) for j in range(len(b.lines))],
                 )
             )
-            name = f"{n:04d}{suffix}"
+            name = f"{n:04d}{read.suffix}"
             (self.raw_dir / name).write_text("\n".join(raw) + "\n")
             (self.code_dir / name).write_text("\n".join(self.units[-1].code) + "\n")
             base += len(raw)

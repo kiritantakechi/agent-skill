@@ -13,7 +13,7 @@ from agent_skill.harness import version_mismatch
 from agent_skill.proc import have, run, tool_path
 lazy from agent_skill.checks.corpus import Corpus
 lazy from agent_skill.checks.patterns import Pattern
-lazy from agent_skill.text import strip_comment, syntax_for
+lazy from agent_skill.lang import language
 
 
 @dataclass(frozen=True, slots=True, order=True)
@@ -144,10 +144,7 @@ def matches(snippet: str, pattern: Pattern, lang: str) -> bool | None:
     pattern the corpus path can never fire on.
     """
     if not pattern.over_comments(lang):
-        comment, quotes = syntax_for(lang)
-        snippet = "\n".join(
-            strip_comment(x, comment, quotes) for x in snippet.split("\n")
-        )
+        snippet = language(lang).code(snippet)
 
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
         target = Path(work) / "fixture.txt"

@@ -9,7 +9,7 @@ running anything.
 import re
 from dataclasses import dataclass
 
-from agent_skill.text import syntax_for
+lazy from agent_skill.lang import language
 
 #: A backticked span is worth running only if it looks like code, not
 #: prose.
@@ -62,7 +62,7 @@ class Pattern:
         was run over the code with every comment stripped, and could
         never fire.
         """
-        return syntax_for(lang)[0] in self.text
+        return language(lang).comment in self.text
 
 
 def dialect_of(command: str) -> str:

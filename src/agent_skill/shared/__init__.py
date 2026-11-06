@@ -25,8 +25,8 @@ lazy from collections.abc import Iterator
 
 from agent_skill.doc import Block, Doc, Heading, Paragraph, printed
 from agent_skill.report import Finding, Level, declare, fail, note
-from agent_skill.text import syntax_for
 lazy from agent_skill.ids import Location
+lazy from agent_skill.lang import language
 lazy from agent_skill.model import Skill, located
 
 HERE = Path(__file__).parent
@@ -138,7 +138,7 @@ def slots(skill: Skill) -> dict[str, str]:
     profile = skill.profile
     crate = profile.crate
     pin = profile.pin()
-    comment = syntax_for(profile.languages[0] if profile.languages else "")[0]
+    comment = language(profile.languages[0] if profile.languages else "").comment
     return {
         "language": profile.language,
         "target": major_minor(pin),

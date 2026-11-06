@@ -6,7 +6,7 @@ from itertools import groupby
 from pathlib import Path
 lazy from collections.abc import Iterable, Iterator
 
-from agent_skill.lang import Extraction, Unit, inconclusive, timed_out
+from agent_skill.lang import Extraction, Language, Unit, inconclusive, timed_out
 from agent_skill.proc import Ran, have, run
 from agent_skill.report import Finding, Level, declare, fail
 lazy from agent_skill.model import Skill
@@ -19,6 +19,10 @@ BASE_TIMEOUT = declare("mutation", "rust_base_timeout", Level.FAIL)
 BASE = declare("mutation", "rust_base", Level.FAIL)
 HUNG = declare("mutation", "rust_inconclusive", Level.NOTE)
 SURVIVOR = declare("mutation", "rust_survivor", Level.FAIL)
+
+#: `'` opens a lifetime (`&'a str`) rather than a string, so only `"`
+#: delimits one: as a delimiter it swallowed the rest of the line.
+LANGUAGE = Language("rust", suffix=".rs")
 
 #: Shared, gitignored, and safe to delete: cargo rebuilds it.
 CACHE = Path(__file__).resolve().parents[3] / ".cache" / "target"
@@ -242,6 +246,7 @@ class Rust:
 
     name = "rust"
     tool = "cargo"
+    language = LANGUAGE
 
     def missing(self) -> list[str]:
         """`cargo` itself, when it is not on PATH."""

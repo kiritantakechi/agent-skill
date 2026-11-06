@@ -7,8 +7,8 @@ lazy from collections.abc import Iterable
 
 from agent_skill.profiles import NotDecisive, Profile, register
 from agent_skill.report import Finding, Level, declare, fail
-from agent_skill.text import group, strip_comment, syntax_for
-lazy from agent_skill.lang.python import INTERPRETER
+from agent_skill.text import group
+lazy from agent_skill.lang.python import INTERPRETER, LANGUAGE, inside_tests
 lazy from agent_skill.model import Skill, prose_lines
 
 # The branches of `conventions` and of `prose` this standard's own rules
@@ -38,29 +38,6 @@ META = re.compile(
     r"for the purposes of)\b",
     re.IGNORECASE,
 )
-
-
-def _inside_tests(body: str) -> set[int]:
-    """Body-line indices inside a `def test_*` function, by indentation.
-
-    Python has no block delimiter to count, so the end of a test is the
-    next line at or below the `def`'s own indentation that is not blank.
-    """
-    inside: set[int] = set()
-    lines = body.split("\n")
-    depth: int | None = None
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        indent = len(line) - len(line.lstrip())
-        if depth is not None:
-            if stripped and indent <= depth:
-                depth = None
-            else:
-                inside.add(i)
-                continue
-        if re.match(r"^\s*(?:async\s+)?def\s+test_", line):
-            depth, _ = indent, inside.add(i)
-    return inside
 
 
 @dataclass
@@ -280,11 +257,10 @@ class PythonStyle(Profile):
     @override
     def conventions(self, skill: Skill) -> Iterable[Finding]:
         """python-style's own rules, applied to its own examples."""
-        comment, quotes = syntax_for("python")
         for b in skill.advice("python"):
             for j, raw in enumerate(b.lines):
                 where = b.where_at(j)
-                code = strip_comment(raw, comment, quotes)
+                code = LANGUAGE.uncommented(raw)
 
                 if FUTURE_ANNOTATIONS.match(code):
                     yield fail(
@@ -313,7 +289,7 @@ class PythonStyle(Profile):
     @override
     def inside_tests(self, body: str) -> set[int]:
         """Body-line indices inside a `def test_*`, by indentation."""
-        return _inside_tests(body)
+        return inside_tests(body)
 
     @override
     def prose(self, skill: Skill) -> Iterable[Finding]:

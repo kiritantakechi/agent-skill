@@ -11,11 +11,10 @@ from collections import Counter
 from pathlib import Path
 lazy from collections.abc import Iterable
 
-from agent_skill.lang import Extraction, Unit, inconclusive, timed_out
-from agent_skill.model import Skill, inside_tests, needs_c_object
+from agent_skill.lang import Extraction, Language, Unit, inconclusive, timed_out
 from agent_skill.proc import have, run
 from agent_skill.report import Finding, Level, declare, fail, note
-from agent_skill.text import code_only
+lazy from agent_skill.model import Skill
 
 # The branches of `toolchain` and of `mutation` Zig's steps report
 # through.
@@ -28,6 +27,44 @@ FMT = declare("toolchain", "zig_fmt", Level.FAIL)
 FMT_UNREAD = declare("toolchain", "zig_fmt_unread", Level.FAIL)
 HUNG = declare("mutation", "zig_inconclusive", Level.NOTE)
 SURVIVOR = declare("mutation", "zig_survivor", Level.NOTE)
+
+
+def inside_tests(body: str) -> set[int]:
+    """Indices of the lines inside a `test` block, by brace depth.
+
+    Several rules are scoped to test bodies ("no `std.debug.print` in a
+    test"), and a `const log = std.log.scoped(...)` at container scope
+    is not what they hunt. Container scope is order-independent, so a
+    `test` may sit anywhere.
+    """
+    inside: set[int] = set()
+    depth, active = 0, False
+    for i, line in enumerate(body.split("\n")):
+        code = LANGUAGE.uncommented(line)
+        if not active and re.match(r"^\s*test\b", code):
+            active, depth = True, 0
+        if active:
+            depth += code.count("{") - code.count("}")
+            inside.add(i)
+            if depth <= 0 and "}" in code:
+                active = False
+    return inside
+
+
+LANGUAGE = Language("zig", suffix=".zig", tests=inside_tests)
+
+_EXTERN_FN = re.compile(r'\bextern\s+(?:"[^"]*"\s+)?fn\b')
+
+
+def needs_c_object(source: str) -> bool:
+    """Does this block declare a symbol only a C object can supply?
+
+    `extern struct` and `extern union` are layout qualifiers and link
+    fine. Testing for the substring `extern ` excluded two blocks whose
+    four tests pass.
+    """
+    return bool(_EXTERN_FN.search(LANGUAGE.code(source)))
+
 
 #: The compiler `zig-style` is verified against. It follows this
 #: machine's `zig` rather than upstream's newest release, so `pins`
@@ -46,7 +83,7 @@ _LIBC = re.compile(r'\bstd\.c\b|\bextern\s+"c"|c_allocator\b|@cImport\b')
 
 def libc(source: str) -> list[str]:
     """`-lc` for a block that names something only libc supplies."""
-    return ["-lc"] if _LIBC.search(code_only(source)) else []
+    return ["-lc"] if _LIBC.search(LANGUAGE.code(source)) else []
 
 
 #: A top-level declaration as a block writes it, at column zero: its
@@ -91,6 +128,7 @@ class Zig:
 
     name = "zig"
     tool = "zig"
+    language = LANGUAGE
 
     def missing(self) -> list[str]:
         """`zig` itself, when it is not on PATH."""

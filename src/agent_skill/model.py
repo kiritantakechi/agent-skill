@@ -17,8 +17,9 @@ lazy from collections.abc import Collection, Iterable, Iterator
 from agent_skill.doc import Doc
 from agent_skill.doc import chapter as layer
 from agent_skill.ids import Location, RuleId, rule_id
-from agent_skill.text import code_only, group, strip_comment, syntax_for
+from agent_skill.text import group
 from agent_skill.vocabulary import CORE
+lazy from agent_skill.lang import language
 lazy from agent_skill.profiles import Profile, profile_for
 
 #: Every fenced example declares what it is, and the marker leads the
@@ -171,7 +172,7 @@ class Block:
         Comments are found the way the block's own language spells them,
         and the line count is kept.
         """
-        return code_only(self.body, *syntax_for(self.lang))
+        return language(self.lang).code(self.body)
 
     def at(self, index: int) -> int:
         """The file line number of body line `index`."""
@@ -802,38 +803,3 @@ def prose_lines(text: str, prefix: str) -> Iterator[tuple[int, str, str, bool]]:
         elif line.startswith("**") or not line.strip():
             in_check = False
         yield i, line, rid, in_check
-
-
-def inside_tests(body: str) -> set[int]:
-    """Indices of the lines inside a zig `test` block, by brace depth.
-
-    Several rules are scoped to test bodies ("no `std.debug.print` in a
-    test"), and a `const log = std.log.scoped(...)` at container scope
-    is not what they hunt. Container scope is order-independent, so a
-    `test` may sit anywhere.
-    """
-    inside: set[int] = set()
-    depth, active = 0, False
-    for i, line in enumerate(body.split("\n")):
-        code = strip_comment(line)
-        if not active and re.match(r"^\s*test\b", code):
-            active, depth = True, 0
-        if active:
-            depth += code.count("{") - code.count("}")
-            inside.add(i)
-            if depth <= 0 and "}" in code:
-                active = False
-    return inside
-
-
-_EXTERN_FN = re.compile(r'\bextern\s+(?:"[^"]*"\s+)?fn\b')
-
-
-def needs_c_object(source: str) -> bool:
-    """Does this block declare a symbol only a C object can supply?
-
-    `extern struct` and `extern union` are layout qualifiers and link
-    fine. Testing for the substring `extern ` excluded two blocks whose
-    four tests pass.
-    """
-    return bool(_EXTERN_FN.search(code_only(source)))

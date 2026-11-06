@@ -5,11 +5,11 @@ from dataclasses import dataclass, field
 from typing import override
 lazy from collections.abc import Iterable
 
-from agent_skill.model import Skill, inside_tests, prose_lines
+from agent_skill.lang.zig import LANGUAGE, inside_tests
+from agent_skill.model import Skill, prose_lines
 from agent_skill.profiles import Exemption, NotDecisive, Profile, register
 from agent_skill.profiles.rust_style import META
 from agent_skill.report import Finding, Level, declare, fail
-from agent_skill.text import strip_comment
 lazy from agent_skill.lang.zig import ZIG_VERSION
 lazy from agent_skill.proc import have, run
 
@@ -403,7 +403,7 @@ class ZigStyle(Profile):
             lines = b.lines
             for j, raw in enumerate(lines):
                 where = b.where_at(j)
-                code = strip_comment(raw)
+                code = LANGUAGE.uncommented(raw)
 
                 # ZS-ERR-09 and ZS-ERR-10 [M] — a `catch unreachable`
                 # carries its proof, and a `catch {}` its justification,

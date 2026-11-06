@@ -5,11 +5,11 @@ from dataclasses import dataclass, field
 from typing import override
 lazy from collections.abc import Iterable, Iterator
 
-from agent_skill.lang.rust import RUST_STYLE, Crate
+from agent_skill.lang.rust import LANGUAGE, RUST_STYLE, Crate
 from agent_skill.model import Block, Skill, repr_c_above
 from agent_skill.profiles import Exemption, NotDecisive, Profile, register
 from agent_skill.report import Finding, Level, declare, fail, note
-from agent_skill.text import group, strip_comment
+from agent_skill.text import group
 lazy from agent_skill.ids import Location
 
 #: RS-NAME-22 — a `bool`-returning method reads as a question.
@@ -254,7 +254,7 @@ class RustStyle(Profile):
 def _line(b: Block, lines: list[str], j: int, raw: str) -> Iterator[Finding]:
     """What line `j` of example `b` breaks."""
     where = b.where_at(j)
-    code = strip_comment(raw)
+    code = LANGUAGE.uncommented(raw)
 
     # RS-API-19 — a public signature never takes a bare `bool`
     m = re.search(r"\bpub (?:async )?fn (\w+)\s*(?:<[^>]*>)?\(([^)]*)\)", code)

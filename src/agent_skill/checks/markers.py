@@ -9,15 +9,23 @@ import re
 lazy from collections.abc import Iterator
 
 from agent_skill.checks import check, per_skill
+from agent_skill.lang import comments
 from agent_skill.model import MARKERS
 from agent_skill.report import Finding, Level, declare, fail
 lazy from agent_skill.model import Block, Skill
 
-#: A verdict on its own line used to open a section inside a fence: rust
-#: spelled the two halves `// bad` / `// good` in one block, zig spelled
-#: them `// BAD` / `// GOOD`. Both are one fence per half now, so a
-#: verdict line that is not the marker is a leftover.
-STRAY_VERDICT = re.compile(r"^(?://|#) (GOOD|BAD)( —|:|$)", re.IGNORECASE)
+
+def _stray_verdict() -> re.Pattern[str]:
+    """A verdict on its own line, after any language's comment token.
+
+    It used to open a section inside a fence: one standard spelled the
+    two halves `// bad` / `// good` in one block, another `// BAD` /
+    `// GOOD`. Both are one fence per half now, so a verdict line that
+    is not the marker is a leftover.
+    """
+    opens = "|".join(re.escape(c) for c in comments())
+    return re.compile(rf"^(?:{opens}) (GOOD|BAD)( —|:|$)", re.IGNORECASE)
+
 
 # The branches a finding of this check comes from.
 NO_MARKER = declare("markers", "no_marker", Level.FAIL)
@@ -29,7 +37,12 @@ SECOND_MARKER = declare("markers", "second_marker", Level.FAIL)
 
 
 def _leads(words: tuple[str, ...]) -> tuple[str, ...]:
-    return tuple(f"// {m}" for m in words) + tuple(f"# {m}" for m in words)
+    """Each word, after each language's comment token.
+
+    Every marked fence takes either token, whatever its tag: a `toml`
+    or `bash` block comments with `#`, which no toolchain declares.
+    """
+    return tuple(f"{c} {m}" for c in comments() for m in words)
 
 
 @check("markers", "one block, one marker, and the marker leads it")
@@ -73,10 +86,11 @@ def _leading(
 
 def _second(b: Block, leads: tuple[str, ...]) -> Iterator[Finding]:
     """Every line in `b`, besides its marker, that reads as one."""
+    stray = _stray_verdict()
     for j, line in enumerate(b.lines):
         if line == b.marker.raw:
             continue
-        if line.startswith(leads) or STRAY_VERDICT.match(line):
+        if line.startswith(leads) or stray.match(line):
             yield fail(
                 f"a second marker line, `{line[:40]}` — one block, one marker",
                 b.where_at(j),

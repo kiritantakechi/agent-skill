@@ -7,16 +7,10 @@ lazy from pathlib import Path
 
 import pytest
 
-from agent_skill.model import (
-    Marker,
-    Rename,
-    Skill,
-    inside_tests,
-    needs_c_object,
-    repr_c_above,
-)
+from agent_skill.lang import language
+from agent_skill.lang.zig import inside_tests, needs_c_object
+from agent_skill.model import Marker, Rename, Skill, repr_c_above
 from agent_skill.profiles import Profile
-from agent_skill.text import code_only, strip_comment, syntax_for
 
 
 @pytest.mark.parametrize(
@@ -57,14 +51,14 @@ def test_quotation_is_evidence() -> None:
 
 def test_strip_comment_keeps_a_url() -> None:
     assert (
-        strip_comment('const u = "https://example.com"; // note')
+        language("rust").uncommented('const u = "https://example.com"; // note')
         == 'const u = "https://example.com"; '
     )
 
 
 def test_code_only_preserves_line_count() -> None:
     body = "a // x\n// y\nb"
-    assert len(code_only(body).split("\n")) == 3
+    assert len(language("rust").code(body).split("\n")) == 3
 
 
 def test_python_floor_division_is_not_a_comment() -> None:
@@ -75,22 +69,22 @@ def test_python_floor_division_is_not_a_comment() -> None:
     something after a floor division could not fire at all.
     """
     line = "q = total // count"
-    assert strip_comment(line) == "q = total "
-    assert strip_comment(line, *syntax_for("python")) == line
+    assert language("rust").uncommented(line) == "q = total "
+    assert language("python").uncommented(line) == line
 
 
 def test_python_hash_comment_is_stripped_but_not_inside_a_string() -> None:
-    py = syntax_for("python")
-    assert strip_comment("x = a // b  # note", *py) == "x = a // b  "
-    assert strip_comment("u = 'http://x'  # n", *py) == "u = 'http://x'  "
-    assert strip_comment('d = {"#": 1}  # y', *py) == 'd = {"#": 1}  '
+    py = language("python")
+    assert py.uncommented("x = a // b  # note") == "x = a // b  "
+    assert py.uncommented("u = 'http://x'  # n") == "u = 'http://x'  "
+    assert py.uncommented('d = {"#": 1}  # y') == 'd = {"#": 1}  '
 
 
 def test_rust_keeps_the_default_and_single_quotes_stay_lifetimes() -> None:
     """A `'` delimiter for Rust would swallow the rest of the line."""
-    assert strip_comment("fn f<'a>(s: &'a str) -> &'a str { s } // tail") == (
-        "fn f<'a>(s: &'a str) -> &'a str { s } "
-    )
+    assert language("rust").uncommented(
+        "fn f<'a>(s: &'a str) -> &'a str { s } // tail"
+    ) == ("fn f<'a>(s: &'a str) -> &'a str { s } ")
 
 
 def test_repr_c_is_per_item_not_per_block() -> None:

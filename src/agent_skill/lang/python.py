@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 lazy from collections.abc import Iterable
 
-from agent_skill.lang import Extraction, Unit, inconclusive, timed_out
+from agent_skill.lang import Extraction, Language, Unit, inconclusive, timed_out
 from agent_skill.proc import Ran, have, run
 from agent_skill.report import Finding, Level, declare, fail, note
 from agent_skill.text import group
@@ -35,6 +35,34 @@ REPORTED = declare("toolchain", "py_diagnostic", Level.FAIL)
 UNREAD = declare("toolchain", "py_unread", Level.FAIL)
 HUNG = declare("mutation", "py_inconclusive", Level.NOTE)
 SURVIVOR = declare("mutation", "py_survivor", Level.NOTE)
+
+
+def inside_tests(body: str) -> set[int]:
+    """Body-line indices inside a `def test_*` function, by indentation.
+
+    Python has no block delimiter to count, so the end of a test is the
+    next line at or below the `def`'s own indentation that is not blank.
+    """
+    inside: set[int] = set()
+    lines = body.split("\n")
+    depth: int | None = None
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        indent = len(line) - len(line.lstrip())
+        if depth is not None:
+            if stripped and indent <= depth:
+                depth = None
+            else:
+                inside.add(i)
+                continue
+        if re.match(r"^\s*(?:async\s+)?def\s+test_", line):
+            depth, _ = indent, inside.add(i)
+    return inside
+
+
+#: Python's comment is `#`, and `//` is floor division: reading it as a
+#: comment truncated every line after one. Both quotes open a string.
+LANGUAGE = Language("python", "#", "\"'", ".py", inside_tests)
 
 #: The interpreter the examples are written for, resolved through `uv`
 #: rather than through PATH. PATH here is a GIL build, and verifying
@@ -176,6 +204,7 @@ class Python:
 
     name = "python"
     tool = "python"
+    language = LANGUAGE
 
     def missing(self) -> list[str]:
         """The interpreter, venv and tools it needs and cannot find."""

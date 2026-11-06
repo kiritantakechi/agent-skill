@@ -9,12 +9,13 @@ direction makes that state unreachable.
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
-lazy from collections.abc import Iterable
+lazy from collections.abc import Callable, Iterable
 lazy from pathlib import Path
 
 from agent_skill.ids import Branch, Location
 from agent_skill.model import located
 from agent_skill.report import fail, note
+from agent_skill.text import code_only, strip_comment
 lazy from agent_skill.lang import python, rust, zig
 lazy from agent_skill.model import Skill
 lazy from agent_skill.report import Finding
@@ -24,6 +25,42 @@ if TYPE_CHECKING:
     # is built, and reifying this one then would import `rust`, which
     # imports this package before `Extraction` exists.
     from agent_skill.lang.rust import Crate
+
+
+def no_tests(body: str) -> set[int]:  # noqa: ARG001 — the language marks no test
+    """No line: the harness reads no test in this language."""
+    return set()
+
+
+@dataclass(frozen=True, slots=True)
+class Language:
+    """How the harness reads a fence's language: comments, files, tests.
+
+    Declared beside the toolchain that compiles it, because each is a
+    fact about the language. Python's comment is `#`, and `//` is floor
+    division there; in Rust `'` opens a lifetime rather than a string;
+    a Python test is a `def test_*` by indentation and a Zig test a
+    `test` block by its braces. A language no toolchain declares is
+    read with the defaults.
+    """
+
+    fence: str
+    #: what opens a line comment
+    comment: str = "//"
+    #: what delimits a string
+    quotes: str = '"'
+    #: what a file of it is named
+    suffix: str = ".txt"
+    #: body-line indices inside a test, for a rule scoped to test code
+    tests: Callable[[str], set[int]] = no_tests
+
+    def uncommented(self, line: str) -> str:
+        """`line` without its comment, as this language spells one."""
+        return strip_comment(line, self.comment, self.quotes)
+
+    def code(self, body: str) -> str:
+        """`body` with every comment removed and the line count kept."""
+        return code_only(body, self.comment, self.quotes)
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +109,7 @@ class Toolchain(Protocol):
 
     name: str
     tool: str
+    language: Language
 
     def missing(self) -> list[str]:
         """What this toolchain needs and cannot find.
@@ -124,8 +162,22 @@ def inconclusive(
     return note(f"{extracted}: {said}" if extracted else said, where, branch)
 
 
+def toolchains() -> tuple[Toolchain, ...]:
+    """Every toolchain the harness can verify examples with."""
+    return (python.PYTHON_TOOLCHAIN, rust.RUST, zig.ZIG)
+
+
 def toolchain_for(name: str) -> Toolchain | None:
     """The toolchain called `name`, or None when there is none."""
-    return {"rust": rust.RUST, "zig": zig.ZIG, "python": python.PYTHON_TOOLCHAIN}.get(
-        name
-    )
+    return next((tc for tc in toolchains() if tc.name == name), None)
+
+
+def language(fence: str) -> Language:
+    """The language a fence tag names, or one read with the defaults."""
+    found = (tc.language for tc in toolchains() if tc.language.fence == fence)
+    return next(found, Language(fence))
+
+
+def comments() -> tuple[str, ...]:
+    """Every token that opens a line comment in a declared language."""
+    return tuple(dict.fromkeys(tc.language.comment for tc in toolchains()))
