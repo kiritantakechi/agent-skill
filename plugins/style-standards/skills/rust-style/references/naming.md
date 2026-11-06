@@ -881,9 +881,8 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| rustc | `non_camel_case_types` | warn | a type, trait or enum variant not in `UpperCamelCase` |
-| rustc | `non_snake_case` | warn | a function, method, local, field or module not in `snake_case` |
-| rustc | `non_upper_case_globals` | warn | a constant, static or const generic parameter not in `SCREAMING_SNAKE_CASE` |
-| clippy | `upper_case_acronyms` | warn | a run of capitals in a type name — `Http`, not `HTTP`, with the shipped aggressive setting |
-| clippy | `enum_variant_names` | warn | three or more variants sharing a prefix or suffix, such as `ReadFailed`, `WriteFailed`, `SeekFailed` |
-| clippy | `wrong_self_convention` | warn | an `as_`, `to_` or `into_` method whose receiver breaks its prefix: an `into_*` taking `&self` |
+| rustc | `non_camel_case_types` | warn | a type, trait or enum variant not in `UpperCamelCase` — listed because the casing rule a revision demoted to the three rustc casing lints holds here; `non_snake_case` is the third |
+| rustc | `non_upper_case_globals` | warn | a constant, static or const generic parameter not in `SCREAMING_SNAKE_CASE` — listed because the casing rule a revision demoted to the three rustc casing lints holds here |
+| clippy | `upper_case_acronyms` | warn | a run of capitals in a type name — `Http`, not `HTTP`, with the shipped aggressive setting — listed because `upper-case-acronyms-aggressive = true` widens it to two-letter runs, and `avoid-breaking-exported-api = false` to public items, both in the shipped `clippy.toml` (RS-NAME-01) |
+| clippy | `enum_variant_names` | warn | three or more variants sharing a prefix or suffix, such as `ReadFailed`, `WriteFailed`, `SeekFailed` — listed because `avoid-breaking-exported-api = false` in the shipped `clippy.toml` turns it on for public enums, which RS-NAME-08 is about |
+| clippy | `wrong_self_convention` | warn | an `as_`, `to_` or `into_` method whose receiver breaks its prefix: an `into_*` taking `&self` — listed because `avoid-breaking-exported-api = false` in the shipped `clippy.toml` turns it on for public methods, which RS-NAME-12 to RS-NAME-14 are about |

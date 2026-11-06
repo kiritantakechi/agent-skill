@@ -661,7 +661,7 @@ program, which an error code avoids.
 
 **Check:** every `pub extern "C" fn` and every `#[unsafe(no_mangle)]` function body is wrapped in
 `catch_unwind`, and the error path maps to a documented return code. A std symbol redefined is the
-`invalid_runtime_symbol_definitions` row.
+rustc's `invalid_runtime_symbol_definitions`.
 
 ```rust
 // verified
@@ -764,7 +764,7 @@ which fixes a miscompilation of FFI `bool` returns.
 header. The assertion is what catches a `long` that is 32 bits on one platform and 64 on another.
 
 **Check:** each FFI struct has the `const` layout assertions of RS-UNSAFE-14, and the expected
-numbers came from the C side rather than from Rust. A `-> c_void` is the `c_void_returns` row.
+numbers came from the C side rather than from Rust. A `-> c_void` is rustc's `c_void_returns`.
 
 ```rust
 // verified
@@ -853,7 +853,3 @@ A tool settles these on its own; the shipped configuration enables each at the l
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
 | rustc | `unsafe_code` | forbid | any `unsafe` — `deny` only in a crate whose point is `unsafe` (RS-UNSAFE-01) |
-| clippy | `missing_safety_doc` | warn | a public `unsafe fn` with no `# Safety` section |
-| rustc | `integer_to_ptr_transmutes` | warn | a `transmute` from an integer to a pointer, which carries no provenance |
-| rustc | `invalid_runtime_symbol_definitions` | deny | an exported symbol std relies on, defined with another signature |
-| rustc | `c_void_returns` | warn | a C function declared `-> c_void` instead of with no return type |

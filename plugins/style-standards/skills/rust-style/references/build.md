@@ -794,7 +794,7 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| clippy | `lint_groups_priority` | deny | a lint group at the same priority as a lint in it — give groups `priority = -1` |
+| clippy | `lint_groups_priority` | deny | a lint group at the same priority as a lint in it — give groups `priority = -1` — listed because it is what keeps `pedantic` at `priority = -1` (RS-BUILD-24) below the lints set one by one, which a revision demoted a rule to |
 | clippy | `unwrap_used` | deny | `unwrap()` outside tests |
 | clippy | `expect_used` | deny | `expect()` outside tests |
 | clippy | `panic` | deny | `panic!` in library code |
@@ -804,4 +804,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 | clippy | `undocumented_unsafe_blocks` | deny | an `unsafe` block without a `// SAFETY:` comment |
 | clippy | `allow_attributes` | warn | `#[allow]` — `#[expect(…, reason = "…")]` warns once it is no longer needed |
 | clippy | `allow_attributes_without_reason` | warn | a lint attribute without `reason = "…"` |
-| rustc | `linker_messages` | warn | linker output, which sits outside `warnings` — read it, and allow it only per platform |
+| rustc | `linker_messages` | warn | linker output, which sits outside `warnings` — read it, and allow it only per platform — listed because it sits outside the `warnings` group, so `CARGO_BUILD_WARNINGS=deny` (RS-BUILD-26) does not reach it |

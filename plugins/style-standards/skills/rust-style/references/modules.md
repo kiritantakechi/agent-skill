@@ -892,4 +892,5 @@ A tool settles these on its own; the shipped configuration enables each at the l
 |---|---|---|---|
 | clippy | `mod_module_files` | warn | `foo/mod.rs` — `foo.rs` beside `foo/` |
 | rustc | `unreachable_pub` | warn | a `pub` item the crate root does not re-export |
-| clippy | `wildcard_imports` | warn | a glob import outside a test module and a prelude |
+| rustc | `unused_qualifications` | warn | a path qualified further than its imports need |
+| clippy | `wildcard_imports` | warn | a glob import outside a test module and a prelude — listed because an explicit import list is what RS-MOD-36's short paths read from, the rule a revision demoted to it |

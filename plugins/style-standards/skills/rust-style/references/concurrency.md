@@ -520,8 +520,8 @@ unbounded; a `std::sync` guard held across an `.await` blocks the executor threa
 second lock creates the ordering that deadlocks (RS-CONC-23).
 
 **Check:** is there an `.await` between a `lock()` and the end of its scope? Read each critical
-section for I/O calls, channel sends, and further lock acquisitions. The `await_holding_lock` row
-below catches the async shape.
+section for I/O calls, channel sends, and further lock acquisitions. clippy's `await_holding_lock`
+catches the async shape.
 
 ```rust
 // verified
@@ -1041,6 +1041,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| clippy | `unused_async` | warn | an `async fn` that never awaits |
-| clippy | `await_holding_lock` | warn | a `std::sync` guard held across an `.await` |
-| clippy | `non_std_lazy_statics` | warn | `lazy_static!` or `once_cell` where `std::sync::LazyLock` serves |
+| clippy | `unused_async` | warn | an `async fn` that never awaits — listed because an `async fn` that never awaits colours every caller for nothing (RS-CONC-03), the rule a revision demoted to it |

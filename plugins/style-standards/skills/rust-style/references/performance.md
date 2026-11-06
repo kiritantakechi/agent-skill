@@ -416,8 +416,7 @@ Box the fat variant: `Parse(Box<ParseError>)`.
 errors are the rare case. Boxing the large variant makes the common return cheap.
 
 **Check:** add a `const` assertion on `size_of` for hot `Result` and enum types (RS-UNSAFE-14), so
-growth fails the build. The `large_enum_variant` and `result_large_err` rows below catch the gross
-cases.
+growth fails the build. clippy's `large_enum_variant` and `result_large_err` catch the gross cases.
 
 ```rust
 // verified
@@ -885,11 +884,9 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| clippy | `map_entry` | warn | `contains_key` then `insert` — one lookup with `entry()` |
-| clippy | `needless_range_loop` | warn | a range loop that only indexes — iterate, and the bounds checks go |
-| clippy | `inline_always` | warn | `#[inline(always)]` — `#[expect]` it, citing the benchmark that justifies it |
-| clippy | `large_enum_variant` | warn | an enum variant far larger than the others — box it |
-| clippy | `result_large_err` | warn | a `Result` whose error type is large — box the fat variant |
+| clippy | `map_entry` | warn | `contains_key` then `insert` — one lookup with `entry()` — listed because one lookup with `entry()` is the rule a revision demoted to it |
+| clippy | `needless_range_loop` | warn | a range loop that only indexes — iterate, and the bounds checks go — listed because an iterator in place of indices is the rule a revision demoted to it |
+| clippy | `inline_always` | warn | `#[inline(always)]` — `#[expect]` it, citing the benchmark that justifies it — listed because `#[inline]` only with a benchmark (RS-PERF-25) is the rule a revision demoted to it |
 | clippy | `cast_possible_truncation` | warn | an `as` cast that can drop high bits |
 | clippy | `cast_sign_loss` | warn | an `as` cast from signed to unsigned |
 | clippy | `cast_precision_loss` | warn | an `as` cast to a float that cannot hold every value |

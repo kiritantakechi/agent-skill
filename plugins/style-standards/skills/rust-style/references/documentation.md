@@ -242,7 +242,7 @@ error variant is produced. "Returns an error if the operation fails" is not docu
 cannot tell which variants are reachable handles all of them badly.
 
 **Check:** for each `Result`-returning public function, list its reachable variants and find each
-one named in the `# Errors` section. The `missing_errors_doc` row checks only that the section
+one named in the `# Errors` section. clippy's `missing_errors_doc` checks only that the section
 exists.
 
 ```rust
@@ -289,7 +289,7 @@ place that can be written.
 
 **Check:** read the body for `panic!`, `unwrap`, `expect`, `assert`, indexing, slicing, integer
 division and `Duration` arithmetic. Each reachable one must correspond to a documented condition.
-The `missing_panics_doc` row catches only a missing section.
+clippy's `missing_panics_doc` catches only a missing section.
 
 ```rust
 // verified
@@ -745,6 +745,3 @@ A tool settles these on its own; the shipped configuration enables each at the l
 |---|---|---|---|
 | rustdoc | `broken_intra_doc_links` | deny | an intra-doc link that no longer resolves |
 | rustc | `missing_docs` | deny | a public item with no documentation |
-| clippy | `doc_markdown` | warn | an identifier in doc prose without backticks |
-| clippy | `missing_errors_doc` | warn | a public function returning `Result` with no `# Errors` section |
-| clippy | `missing_panics_doc` | warn | a public function that can panic with no `# Panics` section |

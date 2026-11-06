@@ -18,7 +18,6 @@ Every rule ID a revision of this standard changed, and what it became, is in
 - When an API arrived
 - **What changed silently**
   - RS-MIG-03 [M] Re-read what changed silently on every toolchain bump
-- Decided by tools
 
 ---
 
@@ -185,11 +184,3 @@ the moment the toolchain moves. A version bump that skips this step ships behavi
 
 **Check:** a review matter: on a toolchain bump, read each row newer than the old toolchain against
 the diff's feature sets, `Ord` impls, drop order and anything that parses panic messages.
-
-## Decided by tools
-
-A tool settles these on its own; the shipped configuration enables each at the level shown.
-
-| Tool | Lint | Level | Forbids |
-|---|---|---|---|
-| rustc | `deprecated` | warn | a deprecated API — CI denies warnings, so treat it as already removed |

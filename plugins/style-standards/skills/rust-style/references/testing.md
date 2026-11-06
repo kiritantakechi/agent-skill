@@ -840,6 +840,5 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| clippy | `should_panic_without_expect` | warn | `#[should_panic]` without `expected = "…"` — or return an `Err` instead |
-| clippy | `items_after_test_module` | warn | an item after the `#[cfg(test)]` module, which belongs at the bottom of the file |
+| clippy | `should_panic_without_expect` | warn | `#[should_panic]` without `expected = "…"` — or return an `Err` instead — listed because a panic test names its message, the rule a revision demoted to it |
 | clippy | `redundant_test_prefix` | warn | a `test_` prefix on a function `#[test]` already marks |

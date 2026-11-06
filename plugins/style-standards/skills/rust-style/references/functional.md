@@ -668,7 +668,7 @@ which is exactly how ripgrep's flag table dispatches. A `Box<dyn Fn>` in the sam
 allocation each and cannot be `const`.
 
 **Check:** do the handlers capture anything? If not, they are `fn` pointers. An `==` between two of
-them is the `unpredictable_function_pointer_comparisons` row.
+them is rustc's `unpredictable_function_pointer_comparisons`.
 
 ## Purity, effects, composition
 
@@ -884,13 +884,9 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| clippy | `needless_return` | warn | a trailing `return` |
-| clippy | `match_like_matches_macro` | warn | a `match` that returns `true` or `false` — `matches!` |
-| clippy | `map_clone` | warn | `.map(\|x\| x.clone())` — `.cloned()` |
-| clippy | `filter_map_identity` | warn | `.filter_map(\|x\| x)` — `.flatten()` |
-| clippy | `flat_map_identity` | warn | `.flat_map(\|x\| x)` — `.flatten()` |
-| clippy | `needless_late_init` | warn | a binding declared before it is initialised |
-| clippy | `manual_inspect` | warn | a `map` that returns its argument unchanged — `inspect` |
-| clippy | `redundant_closure` | warn | `\|x\| f(x)` — pass `f` |
-| clippy | `redundant_closure_for_method_calls` | warn | `\|x\| x.method()` — pass `T::method` |
-| rustc | `unpredictable_function_pointer_comparisons` | warn | `==` between function pointers, whose addresses are not unique |
+| clippy | `needless_return` | warn | a trailing `return` — listed because a body that ends in its value is RS-FUNC-01's expression orientation, the rule a revision demoted to it |
+| clippy | `match_like_matches_macro` | warn | a `match` that returns `true` or `false` — `matches!` — listed because `matches!` is RS-FUNC-01's vocabulary, the rule a revision demoted to it |
+| clippy | `map_clone` | warn | `.map(\|x\| x.clone())` — `.cloned()` — listed because the adapter that names the operation is the iterator rules' word, the rule a revision demoted to it |
+| clippy | `needless_late_init` | warn | a binding declared before it is initialised — listed because a binding declared before its value is the mutable slot RS-FUNC-01 forbids, the rule a revision demoted to it |
+| clippy | `manual_inspect` | warn | a `map` that returns its argument unchanged — `inspect` — listed because `inspect` is the adapter for a side effect in a pipeline, the rule a revision demoted to it |
+| clippy | `redundant_closure` | warn | `\|x\| f(x)` — pass `f` — listed because passing the function is the closure rules' point-free form, the rule a revision demoted to it; `redundant_closure_for_method_calls` is the method half |

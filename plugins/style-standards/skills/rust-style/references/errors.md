@@ -58,8 +58,6 @@ and an exit code.
   - RS-ERR-33 [S] Print the cause chain, not a backtrace
   - RS-ERR-34 [M] Report every failure of a run over independent inputs, and finish the run
 
-- Decided by tools
-
 ---
 
 ## Fundamentals
@@ -516,7 +514,7 @@ lookup succeeds.
 
 **Check:** is the argument of an `ok_or(`, `unwrap_or(` or `map_or(`, or of a `.context(format!`,
 something that allocates, formats, or calls a function? Each is the finding — a `Copy` constant is
-fine. The converse — a closure around a constant — is `unnecessary_lazy_evaluations`, a row below.
+fine. The converse — a closure around a constant — is clippy's `unnecessary_lazy_evaluations`.
 
 ```rust
 // verified
@@ -764,11 +762,3 @@ pub fn run_all(inputs: &[Result<u32, String>]) -> ExitCode {
     }
 }
 ```
-
-## Decided by tools
-
-A tool settles these on its own; the shipped configuration enables each at the level shown.
-
-| Tool | Lint | Level | Forbids |
-|---|---|---|---|
-| clippy | `unnecessary_lazy_evaluations` | warn | the lazy combinator around a value that costs nothing to build, such as a unit variant |

@@ -1574,4 +1574,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
 | rustc | `missing_debug_implementations` | deny | a public type without a `Debug` impl |
-| clippy | `must_use_candidate` | warn | a pure public function without `#[must_use]` |
+| clippy | `float_cmp` | warn | `==` or `!=` between floats, where `total_cmp` or a tolerance says what equal means |

@@ -99,8 +99,8 @@ owned value now pays for a clone they could have avoided by moving, and the call
 pays exactly what they would have paid anyway.
 
 **Check:** is `.clone()` or `.to_owned()` applied to a parameter in a function's first lines? Each
-is a signature that should have taken ownership. The other direction is the `needless_pass_by_value`
-row below.
+is a signature that should have taken ownership. The other direction is clippy's
+`needless_pass_by_value`.
 
 ```rust
 // verified
@@ -524,8 +524,8 @@ the fat pointer.
 
 **Check:** `rg -n '(Arc|Rc)<String>' -g '*.rs'` finds a string behind two pointers; each hit is the
 finding — `Arc<str>`. An `Arc<Vec<T>>` is the same double indirection unless `make_mut` grows it
-(RS-OWN-31). `Box<Vec<T>>` and a box inside an `Rc` or `Arc` are the `box_collection` and
-`redundant_allocation` rows below.
+(RS-OWN-31). `Box<Vec<T>>` and a box inside an `Rc` or `Arc` are clippy's `box_collection` and
+`redundant_allocation`.
 
 ### RS-OWN-31 [S] Use `make_mut` and `unwrap_or_clone` for copy-on-write
 
@@ -613,7 +613,7 @@ that needed it runs: a bug that compiles and looks correct. rustc rejects it for
 (`let_underscore_lock`), not for a `RefCell`'s or another crate's lock; `let _guard = …` holds both.
 
 **Check:** `rg -n 'let _ = .*\.(borrow|borrow_mut|enter|read|write)\('`. A std `Mutex` or `RwLock`
-guard is the `let_underscore_lock` row below; any other hit compiles, and is the defect.
+guard is rustc's `let_underscore_lock`; any other hit compiles, and is the defect.
 
 ```rust
 // rejected — rustc: non-binding let on a synchronization lock (`let_underscore_lock`)
@@ -680,13 +680,8 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| clippy | `ptr_arg` | warn | `&Vec<T>`, `&String` or `&PathBuf` where `&[T]`, `&str` or `&Path` serves |
-| clippy | `needless_pass_by_value` | warn | an owned parameter the body only reads — borrow it |
+| clippy | `ptr_arg` | warn | `&Vec<T>`, `&String` or `&PathBuf` where `&[T]`, `&str` or `&Path` serves — listed because it is the borrowed-view half of RS-API-07, the rule a revision demoted to it |
 | rustc | `elided_lifetimes_in_paths` | warn | a type whose lifetime the path hides — write `Iter<'_, T>` |
-| rustc | `mismatched_lifetime_syntaxes` | warn | a lifetime hidden in the return type while the input names it |
-| clippy | `elidable_lifetime_names` | warn | a named lifetime where `'_` says the same |
-| clippy | `needless_lifetimes` | warn | a lifetime parameter elision would supply |
-| clippy | `box_collection` | warn | `Box<Vec<T>>`, `Box<String>`: a pointer to a pointer |
-| clippy | `redundant_allocation` | warn | `Rc<Box<T>>`, `Box<&T>` and the other boxes around a pointer |
-| rustc | `let_underscore_lock` | deny | `let _ = mutex.lock()`, which unlocks before the next line |
+| rustc | `explicit_outlives_requirements` | warn | a `T: 'a` bound on a struct, which the compiler infers |
+| clippy | `needless_lifetimes` | warn | a lifetime parameter elision would supply — listed because writing only the lifetimes elision cannot supply is the rule a revision demoted to it |
 | clippy | `mem_forget` | deny | `mem::forget`, which skips a `Drop` someone relies on |
