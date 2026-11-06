@@ -32,6 +32,9 @@ ROWS = """
 
 RANGES = f"Before the revision the families ran `DS-ERR-01`{DASH}`DS-ERR-09`."
 
+#: The rename history's opening, which the tables below follow.
+HISTORY = "# Renamed Rule IDs\n"
+
 RENAMES = f"""
 
 ## Rule IDs before the Demo 1.2 revision
@@ -347,8 +350,8 @@ def test_python_rows_against_the_shipped_configuration(demo: Skill) -> None:
 def test_a_rename_table_that_resolves(demo: Skill) -> None:
     rows = demo.root / "references" / "errors.md"
     rows.write_text(rows.read_text() + ROWS)
-    path = demo.root / "references" / "migration.md"
-    path.write_text(path.read_text() + RENAMES)
+    path = demo.root / "references" / "renames.md"
+    path.write_text(HISTORY + RENAMES)
     skill = reparse(demo)
     assert len(skill.renames) == 3
     assert [
@@ -357,10 +360,9 @@ def test_a_rename_table_that_resolves(demo: Skill) -> None:
 
 
 def test_a_rename_table_states_its_ranges(demo: Skill) -> None:
-    path = demo.root / "references" / "migration.md"
+    path = demo.root / "references" / "renames.md"
     path.write_text(
-        path.read_text()
-        + RENAMES.replace("`DS-ERR-09`.", "`DS-ERR-09` and `DS-MIG-01`.")
+        HISTORY + RENAMES.replace("`DS-ERR-09`.", "`DS-ERR-09` and `DS-MIG-01`.")
     )
     (table,) = reparse(demo).rename_tables
     assert table.ranges == (("DS-ERR", 1, 9), ("DS-MIG", 1, 1))
@@ -369,47 +371,81 @@ def test_a_rename_table_states_its_ranges(demo: Skill) -> None:
 
 
 def test_an_unlisted_id_no_rule_carries(demo: Skill) -> None:
-    path = demo.root / "references" / "migration.md"
-    path.write_text(path.read_text() + RENAMES)
+    path = demo.root / "references" / "renames.md"
+    path.write_text(HISTORY + RENAMES)
     found = shape(reparse(demo))
     assert "DS-ERR-01 has no row" not in " ".join(found)
     assert any(m.startswith("DS-ERR-03 has no row") for m in found)
 
 
 def test_a_table_that_states_no_ranges(demo: Skill) -> None:
-    path = demo.root / "references" / "migration.md"
-    path.write_text(path.read_text() + RENAMES.replace(f"{RANGES}\n\n", ""))
+    path = demo.root / "references" / "renames.md"
+    path.write_text(HISTORY + RENAMES.replace(f"{RANGES}\n\n", ""))
     assert any("states no ranges" in m for m in shape(reparse(demo)))
 
 
 def test_a_row_mapping_an_id_to_itself(demo: Skill) -> None:
-    path = demo.root / "references" / "migration.md"
-    path.write_text(path.read_text() + RENAMES + "| `DS-ERR-01` | `DS-ERR-01` |\n")
+    path = demo.root / "references" / "renames.md"
+    path.write_text(HISTORY + RENAMES + "| `DS-ERR-01` | `DS-ERR-01` |\n")
     assert any("becoming itself" in m for m in shape(reparse(demo)))
 
 
 def test_a_rename_into_a_rule_that_was_deleted(demo: Skill) -> None:
-    path = demo.root / "references" / "migration.md"
-    path.write_text(
-        path.read_text() + RENAMES.replace("`DS-ERR-02` |", "`DS-ERR-05` |")
-    )
+    path = demo.root / "references" / "renames.md"
+    path.write_text(HISTORY + RENAMES.replace("`DS-ERR-02` |", "`DS-ERR-05` |"))
     skill = reparse(demo)
     assert any("which no rule carries" in m for m in shape(skill))
 
 
 def test_a_demotion_into_a_row_no_chapter_lists(demo: Skill) -> None:
-    path = demo.root / "references" / "migration.md"
-    path.write_text(path.read_text() + RENAMES)
+    path = demo.root / "references" / "renames.md"
+    path.write_text(HISTORY + RENAMES)
     skill = reparse(demo)
     assert any("which no chapter lists" in m for m in shape(skill))
 
 
 def test_a_removal_without_a_reason(demo: Skill) -> None:
-    path = demo.root / "references" / "migration.md"
+    path = demo.root / "references" / "renames.md"
     text = RENAMES.replace("removed — said nothing the compiler does not", "removed — ")
-    path.write_text(path.read_text() + text)
+    path.write_text(HISTORY + text)
     skill = reparse(demo)
     assert any("gives no reason" in m for m in shape(skill))
+
+
+def test_a_rename_table_outside_renames_md(demo: Skill) -> None:
+    """It is reported where it is, and nothing else reads its rows."""
+    path = demo.root / "references" / "migration.md"
+    path.write_text(path.read_text() + RENAMES)
+    (found,) = shape(reparse(demo))
+    assert found.startswith("`migration.md` holds a rename table; every one lives")
+
+
+def test_renames_md_is_named_once_by_the_migration_chapter(demo: Skill) -> None:
+    (demo.root / "references" / "renames.md").write_text(HISTORY)
+    unnamed = shape(reparse(demo))
+    assert unnamed == [
+        (
+            "`migration.md` names `renames.md` 0 times; once tells a reader "
+            "holding an old ID where to look"
+        )
+    ]
+    path = demo.root / "references" / "migration.md"
+    path.write_text(
+        path.read_text().replace(
+            "## Contents", "Old IDs are in `references/renames.md`.\n\n## Contents"
+        )
+    )
+    assert shape(reparse(demo)) == []
+
+
+def test_skill_md_does_not_name_renames_md(demo: Skill) -> None:
+    broken = edit(demo, "SKILL.md", "Subtract.", "Subtract. See renames.md.")
+    (message,) = shape(broken)
+    assert message.startswith("`SKILL.md` names `renames.md`")
+    (finding,) = list(skeleton.each(broken))
+    assert finding.where.file == "SKILL.md"
+    assert finding.where.line is not None
+    assert "renames.md" in broken.text.split("\n")[finding.where.line - 1]
 
 
 def test_rust_rows_against_the_shipped_lint_table() -> None:

@@ -42,7 +42,7 @@ the detailed statement and wins; sections 1 and 3 govern how to break a genuine 
 A chapter ends with **Decided by tools** when a tool settles part of its subject on its own: each
 lint or compiler error, the level it fails a build at, and what it forbids. Those are not rules —
 the tool enforces them, so they carry no Why and no Check. When rules are renumbered,
-`references/migration.md` maps every old ID to its new one.
+`references/migration.md` names the file that maps every old ID to its new one.
 
 Every fenced example carries a marker on its first line. `// verified` — the block compiles as
 written against Rust 1.99, edition 2024, and any test it ships passes. `// fragment` — shown in
@@ -331,7 +331,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/concurrency.md` | `RS-CONC` (47) | Choosing a model, scoped threads and channels, shared state and lock discipline, async fundamentals and cancellation safety, `rayon`, `loom` and determinism |
 | `references/unsafe.md` | `RS-UNSAFE` (33) | `// SAFETY:` discipline, the UB list, layout and `repr`, `PhantomData` and variance, `unsafe trait`, C interop and `catch_unwind`, Miri and sanitizers |
 | `references/cli.md` | `RS-CLI` (33) | The `LowArgs`→`HiArgs` two-stage model, the flag table, streams and colour, `BrokenPipe`, signals, config precedence |
-| `references/migration.md` | `RS-MIG` (3) | The crates std replaced, the APIs deprecated through 1.99, when each API the rules prescribe arrived, what changed silently by release, and the rename table |
+| `references/migration.md` | `RS-MIG` (3) | The crates std replaced, the APIs deprecated through 1.99, when each API the rules prescribe arrived, and what changed silently by release |
 | `references/macros.md` | `RS-MACRO` (22) | When not to write a macro, `macro_rules!` hygiene and fragment specifiers, proc-macro crate split, spans and diagnostics, `trybuild` |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |
 

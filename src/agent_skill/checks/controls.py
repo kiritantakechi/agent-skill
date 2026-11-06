@@ -481,6 +481,7 @@ ASYNC = f"{PY}/references/async.md"
 UNSAFE = f"{RS}/references/unsafe.md"
 DATA = f"{ZS}/references/data.md"
 MANIFEST = f"{PLUGIN}/.claude-plugin/plugin.json"
+RENAMES_PY = f"{PY}/references/renames.md"
 MARKETPLACE = ".claude-plugin/marketplace.json"
 
 #: Why the validator refuses what `plugin`'s own branches report: it
@@ -503,7 +504,7 @@ _SYSTEM_SET = "#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]"
 
 def _no_ranges(tree: Path) -> Edited:
     """The paragraph stating the old ranges, left saying none."""
-    rel = f"{PY}/references/migration.md"
+    rel = RENAMES_PY
     text = (tree / rel).read_text()
     start = text.find("Before the revision the families ran")
     end = text.find("an ID it does not list is unchanged.\n", start)
@@ -576,14 +577,45 @@ CONTROLS: list[Control] = [
         lambda t: append(t, f"{PY}/references/testing.md", MISFILED),
     ),
     Control(
-        # A block between the contents and the first section belongs to
-        # no section, so the chapter layer refuses the file, and every
-        # check reads it as a chapter with no rules. The migration
-        # chapter, because refusing one whose rules a rename row names
-        # leaves that row pointing at nothing.
+        # A contents section with no `---` after its list, so the
+        # chapter layer refuses the file, and every check reads it as
+        # one with no rules and no tables. The rename history, since
+        # refusing a chapter whose rules or lint rows a rename row
+        # names leaves that row pointing at nothing.
         skeleton.UNREAD,
         lambda t: edit(
-            t, f"{PY}/references/migration.md", "\n---\n\n## ", "\n---\n\nStray.\n\n## "
+            t,
+            RENAMES_PY,
+            "\n## Rule IDs before",
+            "\n## Contents\n\n- Rule IDs\n\n## Rule IDs before",
+        ),
+    ),
+    Control(
+        # A table the migration chapter keeps for itself, which `revise`
+        # would not carry through a revision.
+        skeleton.RENAME_ELSEWHERE,
+        lambda t: append(
+            t,
+            f"{PY}/references/migration.md",
+            "\n## Rule IDs before the Python 3.14 revision\n\n"
+            "Before the revision the families ran `PS-MIG-01`.\n",
+        ),
+    ),
+    Control(
+        skeleton.RENAMES_NAMED,
+        lambda t: drop_paragraph(
+            t, f"{PY}/references/migration.md", "Every rule ID a revision"
+        ),
+    ),
+    Control(
+        # The history listed on the reading path, as a chapter would be.
+        skeleton.RENAMES_ON_PATH,
+        lambda t: edit(
+            t,
+            f"{PY}/SKILL.md",
+            "| `references/review-checklist.md` |",
+            "| `references/renames.md` | — | every old rule ID |\n"
+            "| `references/review-checklist.md` |",
         ),
     ),
     Control(
@@ -603,7 +635,7 @@ CONTROLS: list[Control] = [
         skeleton.RENAME_TARGET,
         lambda t: edit(
             t,
-            f"{PY}/references/migration.md",
+            RENAMES_PY,
             "| `PS-ERR-09` | lint `ruff:E722` |",
             "| `PS-ERR-09` | `PS-ERR-99` |",
         ),
@@ -612,7 +644,7 @@ CONTROLS: list[Control] = [
         skeleton.RENAME_SELF,
         lambda t: edit(
             t,
-            f"{PY}/references/migration.md",
+            RENAMES_PY,
             "| `PS-ERR-09` | lint `ruff:E722` |",
             "| `PS-ERR-09` | `PS-ERR-09` |",
         ),
@@ -620,9 +652,7 @@ CONTROLS: list[Control] = [
     # An old ID dropped from the rename table while no rule carries it.
     Control(
         skeleton.UNCHANGED_GONE,
-        lambda t: edit(
-            t, f"{PY}/references/migration.md", "| `PS-API-22` | `PS-DOC-10` |\n", ""
-        ),
+        lambda t: edit(t, RENAMES_PY, "| `PS-API-22` | `PS-DOC-10` |\n", ""),
     ),
     Control(
         shared.DIFFERS,
@@ -1223,8 +1253,11 @@ CONTROLS: list[Control] = [
         ),
     ),
     Control(
+        # The review protocol, not the migration chapter: the rename
+        # history names the migration chapter's rules and lint rows, so
+        # removing it leaves those rows pointing at nothing as well.
         skeleton.REQUIRED_CHAPTER,
-        lambda t: remove(t, f"{PY}/references/migration.md"),
+        lambda t: remove(t, f"{PY}/references/review-checklist.md"),
     ),
     Control(
         skeleton.REVIEW_TITLE,
@@ -1248,7 +1281,7 @@ CONTROLS: list[Control] = [
         skeleton.RENAME_LINT,
         lambda t: edit(
             t,
-            f"{PY}/references/migration.md",
+            RENAMES_PY,
             "| `PS-ERR-09` | lint `ruff:E722` |",
             "| `PS-ERR-09` | lint `ruff:E7229` |",
         ),
@@ -1257,7 +1290,7 @@ CONTROLS: list[Control] = [
         skeleton.RENAME_REASON,
         lambda t: edit(
             t,
-            f"{BV}/references/migration.md",
+            f"{BV}/references/renames.md",
             "| `BV-CAR-16` | removed — RS-BUILD-23 states it, "
             "and assets/Cargo.toml does it |",
             "| `BV-CAR-16` | removed — |",
@@ -1267,7 +1300,7 @@ CONTROLS: list[Control] = [
         skeleton.RENAME_SHAPE,
         lambda t: edit(
             t,
-            f"{PY}/references/migration.md",
+            RENAMES_PY,
             "| `PS-ERR-09` | lint `ruff:E722` |",
             "| `PS-ERR-09` | gone |",
         ),

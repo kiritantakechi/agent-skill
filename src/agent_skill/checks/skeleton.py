@@ -20,18 +20,21 @@ lazy from collections.abc import Iterable, Iterator
 from agent_skill import shared, vocabulary
 from agent_skill.checks import check, per_skill
 from agent_skill.doc import ListBlock, Paragraph, Table, printed
-from agent_skill.doc.chapter import CONTENTS, Demoted, Removed
+from agent_skill.doc.chapter import CONTENTS, RENAMED, Demoted, Removed
 from agent_skill.ids import RuleId
-from agent_skill.model import SKILL_MD
+from agent_skill.model import REFERENCES, RENAMES_MD, SKILL_MD
 from agent_skill.report import Level, declare, fail
-lazy from agent_skill.doc.chapter import Section
+lazy from agent_skill.doc.chapter import RenameTable, Section
 lazy from agent_skill.model import Chapter, Skill
 lazy from agent_skill.report import Finding
 
 #: The reference map's columns, in order.
 MAP_HEADER = ("File", "Rule IDs", "Covers")
 
-#: The chapter that keeps the rename tables.
+#: The file every rename table lives in, as a location names it.
+RENAMES = f"{REFERENCES}/{RENAMES_MD}"
+
+#: The chapter a reader holding an old ID opens, which names `RENAMES`.
 MIGRATION = "migration.md"
 
 # The branches a finding of this check comes from.
@@ -54,6 +57,9 @@ RENAME_REASON = declare("skeleton", "rename_reason", Level.FAIL)
 RENAME_SHAPE = declare("skeleton", "rename_shape", Level.FAIL)
 NO_RANGES = declare("skeleton", "no_ranges", Level.FAIL)
 UNCHANGED_GONE = declare("skeleton", "unchanged_gone", Level.FAIL)
+RENAME_ELSEWHERE = declare("skeleton", "rename_elsewhere", Level.FAIL)
+RENAMES_NAMED = declare("skeleton", "renames_named", Level.FAIL)
+RENAMES_ON_PATH = declare("skeleton", "renames_on_path", Level.FAIL)
 
 
 @check("skeleton", "every standard has the same shape")
@@ -63,15 +69,65 @@ def skeleton(skill: Skill) -> Iterator[Finding]:
     yield from _skill_md(skill)
     yield from _chapters(skill)
     yield from _review(skill)
+    yield from _home(skill)
     yield from _renames(skill)
     yield from _unchanged(skill)
+
+
+def _history(skill: Skill) -> tuple[RenameTable, ...]:
+    """The rename tables `renames.md` holds; none when there is none.
+
+    A table anywhere else is read by nothing but `_home`, which says
+    where it belongs: `revise` carries only these through a revision.
+    """
+    found = (c.typed.renames for c in skill.chapters if c.path == skill.renames_md)
+    return next(found, ())
+
+
+def _home(skill: Skill) -> Iterator[Finding]:
+    """Every rename table is in `renames.md`, named once, off the path.
+
+    The rename history was most of a migration chapter, loaded on every
+    lookup of an old spelling. It lives apart now: the migration chapter
+    names it once, for a reader holding an old ID, and `SKILL.md` never,
+    so nothing on the reading path loads it.
+    """
+    for c in skill.chapters:
+        if c.path != skill.renames_md and c.typed.renames:
+            yield fail(
+                f"`{c.name}` holds a rename table; every one lives in `{RENAMES}`",
+                c.where(),
+                RENAME_ELSEWHERE,
+            )
+    if any(RENAMED.fullmatch(s.title) for s in skill.typed.sections):
+        yield fail(
+            f"`{SKILL_MD}` holds a rename table; every one lives in `{RENAMES}`",
+            skill.at(SKILL_MD),
+            RENAME_ELSEWHERE,
+        )
+    migration = next((c for c in skill.chapters if c.name == MIGRATION), None)
+    named = migration.text.count(RENAMES_MD) if migration is not None else 1
+    if skill.renames_md.is_file() and named != 1:
+        yield fail(
+            f"`{MIGRATION}` names `{RENAMES_MD}` {named} times; once tells a reader "
+            "holding an old ID where to look",
+            skill.at(f"{REFERENCES}/{MIGRATION}"),
+            RENAMES_NAMED,
+        )
+    if (at := skill.text.find(RENAMES_MD)) >= 0:
+        yield fail(
+            f"`{SKILL_MD}` names `{RENAMES_MD}`, which nothing on the reading path "
+            "loads; the migration chapter names it",
+            skill.at(SKILL_MD, skill.text.count("\n", 0, at) + 1),
+            RENAMES_ON_PATH,
+        )
 
 
 def _renames(skill: Skill) -> Iterator[Finding]:
     """Every rename row leads somewhere a reader can follow."""
     rows = {(row.tool, row.lint) for c in skill.chapters for row in c.typed.tools}
-    where = skill.at(MIGRATION)
-    for table in (t for c in skill.chapters for t in c.typed.renames):
+    where = skill.at(RENAMES)
+    for table in _history(skill):
         for r in table.rows:
             match r.now:
                 case RuleId() as target if target == r.before:
@@ -115,8 +171,8 @@ def _unchanged(skill: Skill) -> Iterator[Finding]:
     An ID in range without a row is still a rule: the table says that ID
     is unchanged.
     """
-    where = skill.at(MIGRATION)
-    for table in (t for c in skill.chapters for t in c.typed.renames):
+    where = skill.at(RENAMES)
+    for table in _history(skill):
         if not table.ranges:
             yield fail(
                 f"`## {table.heading}` states no ranges, "

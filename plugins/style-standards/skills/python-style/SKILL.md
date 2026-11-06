@@ -44,7 +44,7 @@ the detailed statement and wins; sections 1 and 3 govern how to break a genuine 
 A chapter ends with **Decided by tools** when a tool settles part of its subject on its own: each
 lint or compiler error, the level it fails a build at, and what it forbids. Those are not rules —
 the tool enforces them, so they carry no Why and no Check. When rules are renumbered,
-`references/migration.md` maps every old ID to its new one.
+`references/migration.md` names the file that maps every old ID to its new one.
 
 Every fenced example carries a marker on its first line. `# verified` — the block runs as written on
 free-threaded CPython 3.15.2, and any test it ships passes. `# fragment` — shown in context rather

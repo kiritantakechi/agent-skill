@@ -8,8 +8,9 @@ that reads them.
 uv run agent-skill check             # every check
 uv run agent-skill check --fast      # skip the ones that compile every example
 uv run agent-skill fmt               # rewrite examples and shared text as they are required to read
-uv run agent-skill renumber NAME     # rename chapters, renumber rules densely, rewrite every citation
-uv run agent-skill demote NAME PLAN  # turn rules into lint rows, merges or removals
+uv run agent-skill revise NAME PLAN  # merge, demote or remove rules, renumber, rewrite every citation
+uv run agent-skill renumber NAME     # revise with no plan: rename chapters, renumber densely
+uv run agent-skill demote NAME PLAN  # revise with a plan: rules to lint rows, merges or removals
 uv run agent-skill install           # symlink each skill into every agent present
 uv run agent-skill build             # package each as dist/<name>.skill
 uv run agent-skill list              # each skill's prefix, counts and toolchain
@@ -31,25 +32,30 @@ its reason, so adding another is an edit beside its reason rather than a line in
 Rules are numbered densely, so a renumbering reuses IDs: the old `-03` is the new
 `-02` while a different rule becomes the new `-03`. Done as a chain of
 replacements, every overlap turns into a citation of the wrong rule, and the result
-reads exactly like a correct one. `agent-skill renumber` rewrites every citation in
-the skills, `src/`, `tests/` and this file in one pass from one dictionary, checks
-that each old ID still reaches a rule with the same title, and writes nothing
-unless it does. It keeps the standard's `migration.md` rename table current, so a
-reader holding an old ID can look it up: the table states the range each family ran
-before the revision and lists only the IDs that changed, and `skeleton` fails if an
-unlisted ID in range no longer names a rule.
+reads exactly like a correct one. So merging, demoting, removing and renumbering
+rules, and renaming chapters, are one operation, `agent-skill revise`. A plan names
+some rules and what each becomes — the rule it merged into, the lint-table row that
+replaces it, or its removal and the reason — and dense renumbering closes it. One
+pass from one dictionary then rewrites every citation in the skills, `src/`,
+`tests/` and this file, and nothing is written unless each kept rule still has its
+title under its new ID. `renumber` is `revise` with no plan, and `demote` is
+`revise` with one.
 
-What it cannot do is catch an old ID typed in by hand afterwards: under dense
-numbering that ID is now another rule's, and nothing can tell the two apart. So a
-citation is never rewritten by hand.
+It refuses, writing nothing, while a citation names a rule the plan takes away —
+whether that citation should name the lint, another rule or nothing is for a person
+to decide — and while a citation names an ID that no rule holds and that the
+renumbering would give to one, which is the capture nothing could tell from a
+correct citation afterwards. What it cannot catch is an old ID typed in by hand
+later: under dense numbering that ID is now another rule's. So a citation is never
+rewritten by hand.
 
-`agent-skill demote` is the other half. A plan names each rule and what it becomes:
-lint-table rows, a row that already exists, the rule it merged into, or a removal
-with its reason. It removes each rule and its contents line, adds the rows, records
-each disposition in the rename table, and reports every citation left behind.
-`renumber` then closes the gaps, once those citations are resolved: it refuses,
-writing nothing, while a citation names an ID that no rule holds and that the
-renumbering would give to another rule — the one case where it can tell.
+The history lives in each standard's `references/renames.md`, which `revise` keeps
+current: a table per revision, stating the range each family ran before it and
+listing only the IDs that changed, each with the ID, lint row or removal it became.
+`migration.md` names the file once and `SKILL.md` not at all, so a reader holding an
+old ID can look it up and nothing on the reading path loads it. `skeleton` fails if
+an unlisted ID in range no longer names a rule, or a rename table sits anywhere
+else.
 
 ## Layout
 
@@ -70,7 +76,7 @@ src/agent_skill/
   checks/                        what a skill must be true of
   lang/                          turning examples back into code a compiler accepts
   fmt.py                         rewriting examples and shared passages as required
-  renumber.py                    renaming chapters and renumbering rules, citations and all
+  revise.py                      merging, demoting, renumbering, renaming: one map, citations and all
   profiles/<name>.py             what a check needs to know about one skill
 ```
 
@@ -96,7 +102,7 @@ All four standards share it, and checks hold them to it rather than imitation:
   is merged into it, and a Why is three lines at most (`anatomy`).
 - A rule's prose names no release older than the target: history is the
   migration chapter's and §2's (`anatomy`).
-- Rule numbers are dense; `migration.md` maps every old ID to what it became.
+- Rule numbers are dense; `renames.md` maps every old ID to what it became.
 
 `zig-style`'s compiler pin
 follows this machine's `zig` rather than upstream's newest release, so the zig
@@ -241,7 +247,7 @@ earlier than a reader's `cargo fmt` would, so the markdown carried wraps no read
 could have predicted. `fmt` also rewrites a drifted shared passage from its
 template, keeping what the skill wrote in the passage's free regions, and prints
 every markdown file in its canonical form: the one fill of each paragraph that
-`layout` holds the file to, which `renumber` and `demote` write too.
+`layout` holds the file to, which `revise` writes too.
 
 ## `self-application` runs the real `rg`
 
