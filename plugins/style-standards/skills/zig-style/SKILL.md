@@ -35,10 +35,11 @@ single highest-value part of this skill; read it before writing any line of Zig.
    Load a second chapter only when the task genuinely spans two; never load all of them.
 4. **Walk section 5** before handing back a diff.
 
-Rules are cited by ID — `ZS-ERR-03`, `ZS-TEST-05`. The prefix identifies the owning chapter (section
-6 maps prefix to file), so cite the ID when justifying a change and the reader can find the full
-rule and its rationale. When a rule in a chapter and a rule here appear to conflict, the chapter is
-the detailed statement and wins; sections 1 and 3 govern how to break a genuine tie.
+Rules are cited by ID: `ZS-`, then the family of the chapter that owns the rule, then its number.
+Section 6 maps each family to its chapter, so cite the ID when justifying a change and the reader
+can find the full rule and its rationale. When a rule in a chapter and a rule here appear to
+conflict, the chapter is the detailed statement and wins; sections 1 and 3 govern how to break a
+genuine tie.
 
 A chapter ends with **Decided by tools** when a tool settles part of its subject on its own: each
 lint or compiler error, the level it fails a build at, and what it forbids. Those are not rules —

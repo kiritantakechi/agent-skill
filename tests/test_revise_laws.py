@@ -12,7 +12,6 @@ much.
 """
 
 import random
-import re
 import shutil
 from collections import Counter
 from pathlib import Path
@@ -20,7 +19,7 @@ lazy from collections.abc import Iterator
 
 import pytest
 
-from agent_skill import cli, revise, vocabulary
+from agent_skill import cli, revise, shared, vocabulary
 from agent_skill.doc import Doc, text_of
 from agent_skill.doc.chapter import (
     Chapter,
@@ -43,17 +42,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 #: The parts of the repository a revision reads and rewrites.
 PARTS = ("plugins", "src", "tests")
-
-#: The families the shared passages illustrate citation with, spelled
-#: `{prefix}-ERR-03` in a template. Renaming one of those chapters is a
-#: change to the template, which a revision of one standard cannot make:
-#: `shared.rewrite` puts the old example back, and the inverse renaming
-#: then refuses it as a capture, rightly.
-ILLUSTRATED = frozenset(
-    m
-    for template in (ROOT / "src/agent_skill/shared").glob("*.md")
-    for m in re.findall(r"\{prefix\}-([A-Z]+)-\d+", template.read_text())
-)
 
 
 def seeded(seed: int) -> random.Random:
@@ -106,11 +94,7 @@ def renamings(shipped: Path, seed: int) -> tuple[str, dict[str, str]]:
     rng = seeded(seed)
     standard = rng.choice(discover(shipped / SKILLS))
     stems = sorted(c.path.stem for c in standard.chapters)
-    movable = [
-        c.path.stem
-        for c in standard.chapters
-        if c.typed.rules and vocabulary.code_for(c.path.stem) not in ILLUSTRATED
-    ]
+    movable = [c.path.stem for c in standard.chapters if c.typed.rules]
     free = [s for s in vocabulary.CHAPTERS if s not in stems]
     chosen = rng.sample(movable, rng.randint(1, 3))
     targets = rng.sample([*chosen, *free], len(chosen))
@@ -137,6 +121,31 @@ def test_a_renaming_then_its_inverse_restores_every_byte(
     after = snapshot(repo)
     assert sorted(after.keys() ^ before.keys()) == []
     assert [p for p in before if before[p] != after[p]] == []
+
+
+@pytest.mark.parametrize("name", ["python-style", "zig-style"])
+def test_renaming_errors_and_testing_then_back_restores_every_byte(
+    repo: Path, name: str
+) -> None:
+    """The chapters the shared how-to-use passage used to cite by hand.
+
+    Its template named `-ERR-03` and `-TEST-05`, so `shared.rewrite` put
+    them back after the renaming, and the inverse refused them as
+    captures. The examples are the skill's own now, read from its map.
+    """
+    stems = {c.path.stem for c in skill(repo, name).chapters}
+    free = [s for s in vocabulary.CHAPTERS if s not in stems]
+    renaming = {"errors": free[0], "testing": free[1]}
+    before = snapshot(repo)
+
+    forward = apply(repo, name, chapters=renaming)
+    renamed = skill(repo, name)
+    assert {c.path.stem for c in renamed.chapters} >= set(renaming.values())
+    assert list(shared.compare(renamed)) == []
+    apply(repo, name, chapters={new: old for old, new in renaming.items()})
+
+    assert forward.renamed, renaming
+    assert snapshot(repo) == before
 
 
 def test_a_swap_is_one_permutation_and_its_own_inverse(repo: Path) -> None:

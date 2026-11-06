@@ -35,10 +35,11 @@ has read — is 0.15 or older. Section 2 and `references/migration.md` exist for
 4. **Load `rust-style` as well** for anything that is a Rust question rather than a Bevy question.
 5. **Walk section 5** before handing back a diff.
 
-Rules are cited by ID — `BV-ERR-03`, `BV-TEST-05`. The prefix identifies the owning chapter (section
-6 maps prefix to file), so cite the ID when justifying a change and the reader can find the full
-rule and its rationale. When a rule in a chapter and a rule here appear to conflict, the chapter is
-the detailed statement and wins; sections 1 and 3 govern how to break a genuine tie.
+Rules are cited by ID: `BV-`, then the family of the chapter that owns the rule, then its number.
+Section 6 maps each family to its chapter, so cite the ID when justifying a change and the reader
+can find the full rule and its rationale. When a rule in a chapter and a rule here appear to
+conflict, the chapter is the detailed statement and wins; sections 1 and 3 govern how to break a
+genuine tie.
 
 Rules from the other standard keep their own prefix, so an `RS-` citation is always a pointer out of
 this document.

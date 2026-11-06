@@ -6,6 +6,7 @@ import pytest
 
 from agent_skill import shared
 from agent_skill.doc import Doc, ListBlock
+from agent_skill.ids import cited
 lazy from agent_skill.model import Skill
 
 
@@ -35,3 +36,17 @@ def test_the_title_rendered_is_the_one_each_standard_ships(
     """Named by its pin's series: a patch release moves the pin only."""
     for skill in skills:
         assert shared.title(skill).text == skill.typed.title, skill.name
+
+
+def test_no_template_cites_a_rule() -> None:
+    """A rule a shared passage cites is cited in every standard.
+
+    `revise` refuses to remove or demote a cited rule, and `fmt` puts
+    the passage back, so the citation could never be resolved; and a
+    renaming of the chapter it names left it citing no rule. The
+    templates said `-ERR-03` and `-TEST-05` until a renaming of
+    `errors` failed `revise`'s inverse law on them.
+    """
+    for passage in shared.PASSAGES:
+        rendered = passage.text().replace("{prefix}", "XS")
+        assert list(cited(rendered)) == [], passage.template
