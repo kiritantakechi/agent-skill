@@ -40,7 +40,7 @@ merges or adds rules also runs `check --skill <each standard it touched> --only 
   verify the controls ↔ branches bijection both ways and `check --only concepts`
 - [x] 2.4 Make `fmt` render each realisation row's tier cell from its rule; verify the `stale_tier`
   control and `fmt`'s idempotence on `abstract/`
-- [ ] 2.5 Add `domain` to profiles; create an empty abstract chapter, in the template, for every
+- [x] 2.5 Add `domain` to profiles; create an empty abstract chapter, in the template, for every
   vocabulary word that two or more base standards ship; declare each base standard's other chapters
   as domain chapters with their features, and bevy-style's; verify `check --fast` passes with no
   entries yet, and the `undeclared_domain`, `domain_realises` and `domain_missing` controls

@@ -210,6 +210,12 @@ class Profile:
     #: its row: a probe nothing cites would prove an error the standard
     #: never mentions.
     probes: Mapping[str, str] = field(default_factory=dict)
+    #: Each domain chapter: a chapter whose word names no chapter of the
+    #: abstract standard, and the feature of this standard's domain that
+    #: owns it — rust-style's `ownership`, the borrow checker. Every
+    #: other chapter is an abstract chapter's, and holds the standard's
+    #: realisations of its concepts (one-abstract-standard, decision 4).
+    domain: Mapping[str, str] = field(default_factory=dict)
     #: This standard's own rules, held to each line of its own examples.
     conventions: tuple[LineRule, ...] = ()
     #: This standard's own rules, held to each line of the prose around

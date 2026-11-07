@@ -228,6 +228,14 @@ PROFILE = Profile(
             "RS-API-15": Unless(near=(REPR_C,)),
         }
     ),
+    domain={
+        "ownership": "the borrow checker",
+        "traits": "traits and their dispatch",
+        "functional": "expressions and iterator adapters",
+        "macros": "declarative and procedural macros",
+        "unsafe": "unsafe code and the soundness it takes on",
+        "cli": "a binary's command line: arguments, environment and signals",
+    },
     conventions=CONVENTIONS,
     structural=(unused_defaults,),
 )

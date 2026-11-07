@@ -750,6 +750,42 @@ CONCEPTS: list[Control] = [
         concepts.WRONG_CHAPTER,
         _abstract("errors.md", _ROW, _ROW.replace("DS-ERR-02", "DS-MIG-01")),
     ),
+    # The abstract migration chapter gone: the demo's and the delta's
+    # migration chapters are an abstract chapter's no longer, and no
+    # profile declares them.
+    _on_concepts(
+        concepts.UNDECLARED_DOMAIN,
+        lambda t: remove(root_of(t), f"{ABSTRACT}/migration.md"),
+    ),
+    # Migration a declared domain chapter of both, and the demo's rule
+    # of it realising an errors entry.
+    _on_concepts(
+        concepts.DOMAIN_REALISES,
+        lambda t: (
+            *remove(root_of(t), f"{ABSTRACT}/migration.md"),
+            *_abstract("errors.md", _ROW, _ROW.replace("DS-ERR-02", "DS-MIG-01"))(t),
+        ),
+        profiles={
+            p.name: replace(p, domain={"migration": "the demo's release history"})
+            for p in demo.PROFILES.values()
+        },
+    ),
+    _on_concepts(
+        concepts.DOMAIN_MISSING,
+        lambda _: (),
+        profiles={
+            demo.PROFILE.name: replace(demo.PROFILE, domain={"macros": "demo macros"})
+        },
+    ),
+    _on_concepts(
+        concepts.DOMAIN_ABSTRACT,
+        lambda _: (),
+        profiles={
+            demo.PROFILE.name: replace(
+                demo.PROFILE, domain={"migration": "the demo's release history"}
+            )
+        },
+    ),
     _on_concepts(
         concepts.ABSTRACT_CITED,
         lambda t: append(

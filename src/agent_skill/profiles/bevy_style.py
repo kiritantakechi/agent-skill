@@ -329,5 +329,16 @@ PROFILE = Profile(
             ),
         }
     ),
+    # Bevy's own subsystems: every chapter but those its anchor's
+    # concepts give it a word for.
+    domain={
+        "architecture": "Bevy's plugins and the app they build",
+        "ecs": "Bevy's entity-component-system",
+        "scheduling": "Bevy's schedules and system ordering",
+        "events": "Bevy's messages, events and observers",
+        "state": "Bevy's resources and states",
+        "assets": "Bevy's asset server",
+        "view": "Bevy's UI and rendering",
+    },
     structural=(component_shape, suffixes),
 )

@@ -276,6 +276,10 @@ PROFILE = Profile(
             ),
         }
     ),
+    domain={
+        "types": "gradual typing",
+        "async": "asyncio",
+    },
     conventions=CONVENTIONS,
     prose=PROSE,
 )

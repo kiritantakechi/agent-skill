@@ -16,6 +16,7 @@ lazy from collections.abc import Iterator
 import pytest
 
 import agent_skill
+from agent_skill import vocabulary
 from agent_skill.checks import all_checks
 from agent_skill.checks.skeleton import gone_rows
 from agent_skill.ids import Version
@@ -116,6 +117,18 @@ def test_every_profile_names_a_toolchain_the_harness_has() -> None:
     for profile in PROFILED:
         if profile.toolchain is not None:
             assert toolchain_for(profile.toolchain) is not None, profile.name
+
+
+@pytest.mark.parametrize("profile", PROFILED, ids=lambda p: p.name)
+def test_a_domain_chapter_is_a_word_and_names_its_owner(profile) -> None:  # noqa: ANN001 — a profile, as parametrised
+    """What `concepts` cannot read wrong: the word, and the owner.
+
+    That the chapter exists, and is no abstract chapter's, is the
+    check's; a word with no family code names no chapter at all.
+    """
+    for word, feature in profile.domain.items():
+        assert vocabulary.code_for(word), (profile.name, word)
+        assert feature.strip(), (profile.name, word)
 
 
 #: The package, every module of which is read for literals.

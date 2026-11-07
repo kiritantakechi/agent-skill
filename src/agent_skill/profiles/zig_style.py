@@ -450,6 +450,12 @@ PROFILE = Profile(
             "}\n"
         ),
     },
+    domain={
+        "comptime": "compile-time execution",
+        "memory": "explicit allocators",
+        "assertions": "assertions and the optimize modes",
+        "interop": "the C ABI and cross-target builds",
+    },
     conventions=CONVENTIONS,
     prose=PROSE,
     structural=(import_order,),

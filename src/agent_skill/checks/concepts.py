@@ -57,6 +57,12 @@ WRONG_CHAPTER = declare("concepts", "wrong_chapter", Level.FAIL)
 # The branches of what a skill may say about the abstract standard.
 ABSTRACT_CITED = declare("concepts", "abstract_cited", Level.FAIL)
 
+# The branches of a standard's chapters: abstract, or declared domain.
+UNDECLARED_DOMAIN = declare("concepts", "undeclared_domain", Level.FAIL)
+DOMAIN_REALISES = declare("concepts", "domain_realises", Level.FAIL)
+DOMAIN_MISSING = declare("concepts", "domain_missing", Level.FAIL)
+DOMAIN_ABSTRACT = declare("concepts", "domain_abstract", Level.FAIL)
+
 # The detector.
 LOOK_ALIKE = declare("concepts", "look_alike", Level.NOTE)
 
@@ -74,6 +80,7 @@ def concepts(tree: Tree) -> Iterator[Finding]:
     abstract = abstract_of(tree)
     yield from _form(abstract)
     yield from _rows(abstract, tree)
+    yield from _domains(abstract, tree)
     yield from _cited(abstract, tree)
     yield from _look_alike(abstract, tree)
 
@@ -328,13 +335,7 @@ def _row(
             rule, held = found
             tier = rule.tier
             if held.path.stem != stem:
-                yield fail(
-                    f"{rule.id} realises {concept.id} from `{held.name}`; a concept "
-                    f"lives in one chapter in every standard, `{stem}.md`, and "
-                    "`revise` moves it there",
-                    held.where(rule.line, rule.id),
-                    WRONG_CHAPTER,
-                )
+                yield _misplaced(skill, concept, rule, held, stem)
     elif relation is Relation.DECIDED and row.lint not in _lints(skill, stem):
         yield fail(
             f"{concept.id}'s row for {row.standard} is decided by "
@@ -374,6 +375,77 @@ def _row(
                 where,
                 NO_REASON,
             )
+
+
+def _misplaced(
+    skill: Skill, concept: Concept, rule: Rule, held: Chapter, stem: str
+) -> Finding:
+    """A rule realising an entry from a chapter other than the entry's.
+
+    Its own domain's chapter, or another concept's: either way the
+    entry's chapter is the concept's address, and `revise` moves it.
+    """
+    feature = skill.profile.domain.get(held.path.stem)
+    if feature is not None:
+        return fail(
+            f"{rule.id} realises {concept.id} from `{held.name}`, a domain chapter "
+            f"{feature} owns; a domain chapter realises no concept, and the rule "
+            f"belongs in `{stem}.md`",
+            held.where(rule.line, rule.id),
+            DOMAIN_REALISES,
+        )
+    return fail(
+        f"{rule.id} realises {concept.id} from `{held.name}`; a concept lives in one "
+        f"chapter in every standard, `{stem}.md`, and `revise` moves it there",
+        held.where(rule.line, rule.id),
+        WRONG_CHAPTER,
+    )
+
+
+# ------------------------------------------------------------------
+# a standard's chapters
+
+
+def _domains(abstract: Abstract, tree: Tree) -> Iterator[Finding]:
+    """Each chapter is an abstract chapter's, or a declared domain's.
+
+    A chapter whose word names a chapter of the abstract standard holds
+    the standard's realisations of its concepts; any other is declared
+    in the profile with the domain feature that owns it, and a declared
+    one exists and is no abstract chapter's.
+    """
+    words = abstract.words
+    for skill in tree:
+        declared = skill.profile.domain
+        shipped = {}
+        for chapter in skill.chapters:
+            stem = chapter.path.stem
+            if not vocabulary.code_for(stem):
+                continue
+            shipped[stem] = chapter
+            if stem not in words and stem not in declared:
+                yield fail(
+                    f"`{chapter.name}` is no chapter of the abstract standard, and "
+                    "the profile declares no domain feature that owns it",
+                    chapter.where(),
+                    UNDECLARED_DOMAIN,
+                )
+        for stem, feature in declared.items():
+            if stem in words:
+                yield fail(
+                    f"the profile declares `{stem}.md` a domain chapter, owned by "
+                    f"{feature}, and it is a chapter of the abstract standard; it is "
+                    "one or the other",
+                    skill.at(shipped[stem].path if stem in shipped else ""),
+                    DOMAIN_ABSTRACT,
+                )
+            elif stem not in shipped:
+                yield fail(
+                    f"the profile declares `{stem}.md` a domain chapter, owned by "
+                    f"{feature}, and {skill.name} ships no such chapter",
+                    skill.at(),
+                    DOMAIN_MISSING,
+                )
 
 
 # ------------------------------------------------------------------
