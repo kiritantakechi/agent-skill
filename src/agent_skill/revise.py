@@ -1,11 +1,17 @@
 """Revise a standard's rules: one operation, with laws.
 
-Removing, merging, demoting and renumbering rules, and renaming the
-chapters that hold them, were two commands run in order with a hand
+Removing, merging, demoting, moving and renumbering rules, and renaming
+the chapters that hold them, were two commands run in order with a hand
 edit between them. They are one map here. A plan says what some old IDs
 become — the rule each merged into, the lint-table row that replaces
-it, or its removal and why — and dense renumbering closes it, mapping
-the rules each family keeps, in order, onto 01, 02, …. One rewrite then
+it, its removal and why, or the place in another chapter it moves to —
+and dense renumbering closes it, mapping the rules each family keeps,
+in order, onto 01, 02, …. A move is a permutation of places before the
+renumbering, so it is closed by the same renumbering: the rule takes
+its new chapter's code, and both families close up. A move into a
+chapter the standard does not ship creates it, in the chapter template
+with its scope left to write, and section 6 names it; a chapter a plan
+leaves with nothing in it goes, with its row. One rewrite then
 applies the renumbering and the plan's merges to every rule ID in the
 repository at once, so an ID that dense numbering hands to another rule
 is never rewritten twice, and `references/renames.md` records what
@@ -19,17 +25,20 @@ takes away; and no citation of an ID that named no rule comes to name
 one. The last is the capture a person cannot see afterwards, because a
 captured citation reads exactly like a correct one.
 
+The rewrite reaches the abstract standard, whose rows each name a rule.
+
 The laws are tested on throwaway copies of the shipped standards
 (`tests/test_revise_laws.py`): a pure renumbering or chapter rename,
-followed by its inverse, restores every file byte for byte; an empty
-plan writes nothing and reports nothing; and every ID cited before a
+followed by its inverse, restores every file byte for byte; so does a
+move followed by the move back to the rule's old place; an empty plan
+writes nothing and reports nothing; and every ID cited before a
 revision names the same rule after it, or the rename table says what it
 became.
 """
 
 import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 lazy from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 lazy from pathlib import Path
 
@@ -59,18 +68,39 @@ from agent_skill.doc.chapter import (
     parse_becomes,
     print_becomes,
 )
+from agent_skill.doc.normal import listed, projection
 from agent_skill.ids import FAMILY, RuleId, cited, print_range, respell
-from agent_skill.layout import SKILLS, root_of
-from agent_skill.model import SKILL_MD, Skill
+from agent_skill.layout import ABSTRACT, SKILLS, root_of
+from agent_skill.model import REFERENCES, SKILL_MD, Skill
 lazy from agent_skill.doc import Block
+lazy from agent_skill.doc.normal import Mapped
 lazy from agent_skill.lang import toolchains
 lazy from agent_skill.model import Chapter, Tree
 
+
+@dataclass(frozen=True, slots=True)
+class Moved:
+    """A rule moved to another chapter of its standard, and where in it.
+
+    `chapter` is the stem of the chapter it goes to, `references/x.md`
+    as `x`. `after` is the rule it follows there, or the title of the
+    section it opens, `## Streams` as `Streams`. A chapter the standard
+    does not ship is created, in the chapter template, with its scope
+    left for its author to write. The rule takes the target family's
+    code, and dense renumbering closes both families.
+    """
+
+    chapter: str
+    after: RuleId | str
+
+
 #: What a plan says an old ID becomes: the rule it merges into, the
-#: lint-table row that replaces it, or its removal and why. A row is
-#: whole, since a demotion may have to add it; the rename table records
-#: its tool and lint, `Demoted`, which is all a table cell says.
-type Becomes = RuleId | LintRow | Removed
+#: lint-table row that replaces it, its removal and why, or the place
+#: it moves to. A row is whole, since a demotion may have to add it;
+#: the rename table records its tool and lint, `Demoted`, which is all
+#: a table cell says. A moved rule is renumbered, so its row is its new
+#: ID.
+type Becomes = RuleId | LintRow | Removed | Moved
 
 #: Some chapter rules, each with what it becomes. Every other rule is
 #: kept, and dense renumbering closes the plan.
@@ -165,11 +195,13 @@ class Revision:
     writes: Mapping[Path, str]
     #: what a person should look at: citations left as they were
     leftovers: tuple[str, ...]
+    #: each chapter the plan leaves with nothing in it, which goes
+    deleted: tuple[Path, ...] = ()
 
     @property
     def empty(self) -> bool:
         """Does the revision change nothing and report nothing?"""
-        return not (self.moves or self.writes or self.leftovers)
+        return not (self.moves or self.writes or self.leftovers or self.deleted)
 
     def apply(self) -> None:
         """Move the chapters, write every file, restate shared passages.
@@ -187,6 +219,8 @@ class Revision:
             _move(self.repo, old, new)
         for path, text in self.writes.items():
             path.write_text(text)
+        for path in self.deleted:
+            path.unlink()
         if self.moves or self.writes:
             for skill in self.skills:
                 shared.rewrite(Skill(skill.root, skill.profile))
@@ -241,6 +275,9 @@ def revise(
         ) is not None:
             writes[std.skill.renames_md] = renames
     for std in standards:
+        if std.relocated and (md := _reprojected(std, writes)) is not None:
+            writes[std.skill.skill_md] = md
+    for std in standards:
         std.verify(writes, rewrite.swap(std))
     leftovers = [
         line
@@ -256,6 +293,7 @@ def revise(
         {k: v for s in standards for k, v in s.moves.items()},
         writes,
         tuple(sorted(set(leftovers + corpus.unnamed))),
+        tuple(sorted(p for s in standards for p in s.deleted)),
     )
 
 
@@ -320,7 +358,14 @@ class _Standard:
     #: each renamed chapter's stem -> its new stem
     stems: dict[str, str]
     #: `SKILL.md` as the plan leaves it, when the plan names a core rule
+    #: or creates or deletes a chapter
     skill_md: Doc | None = None
+    #: each chapter a move creates, as it reads after the plan
+    created: dict[Path, layer.Chapter] = field(default_factory=dict)
+    #: each chapter the plan leaves with nothing in it, which goes
+    deleted: frozenset[Path] = frozenset()
+    #: every rule the plan moves to another chapter
+    relocated: frozenset[RuleId] = frozenset()
 
     @classmethod
     def read(cls, skill: Skill, plan: Plan, chapters: Mapping[str, str]) -> _Standard:
@@ -332,7 +377,8 @@ class _Standard:
         stems = _stems(skill, chapters)
         asked = {rid: b for rid, b in plan.items() if rid.standard == skill.prefix}
         home = {r.id: c for c in skill.chapters for r in c.typed.rules}
-        rows = _rows(skill, asked, home)
+        moving = {rid: b for rid, b in asked.items() if isinstance(b, Moved)}
+        rows = _rows(skill, {r: b for r, b in asked.items() if r not in moving}, home)
         edited = {
             c.path: _with_rows(
                 _without(c.typed, [rid for rid in asked if home.get(rid) is c]),
@@ -342,17 +388,28 @@ class _Standard:
             for c in skill.chapters
             if any(home.get(rid) is c for rid in asked)
         }
+        created = _placed(skill, moving, home, edited)
+        deleted = frozenset(
+            path for path, c in edited.items() if not c.rules and not c.sections
+        )
         sigma: dict[RuleId, RuleId] = {}
         spelled: dict[str, set[str]] = {}
-        for c in skill.chapters:
-            stem = stems.get(c.path.stem, c.path.stem)
+        held = [
+            (c.path, stems.get(c.path.stem, c.path.stem), edited.get(c.path, c.typed))
+            for c in skill.chapters
+            if c.path not in deleted
+        ]
+        held += [(path, path.stem, c) for path, c in created.items()]
+        for _, stem, typed in held:
             code = vocabulary.code_for(stem)
-            kept = edited.get(c.path, c.typed).rules
+            kept = typed.rules
             if kept and not code:
                 msg = f"`{stem}.md` has no family code, and it holds rules"
                 raise ReviseError(msg)
             for i, rule in enumerate(kept, 1):
                 sigma[rule.id] = RuleId(skill.prefix, code, i)
+                if rule.id in moving:
+                    continue  # a move renames no family, though it leaves one
                 was = f"{rule.id.standard}-{rule.id.family}"
                 spelled.setdefault(was, set()).add(f"{skill.prefix}-{code}")
         families = {
@@ -373,11 +430,27 @@ class _Standard:
         gone: dict[RuleId, Demoted | Removed] = {
             rid: Demoted(b.tool, b.lint) if isinstance(b, LintRow) else b
             for rid, b in asked.items()
-            if not isinstance(b, RuleId)
+            if isinstance(b, (LintRow, Removed))
         }
         core = {rid: b for rid, b in asked.items() if rid not in home}
         skill_md = _core_edited(skill, core, home) if core else None
-        return cls(skill, moves, edited, sigma, merged, gone, families, stems, skill_md)
+        if created or deleted:
+            md = skill_md or skill.doc
+            skill_md = _remapped(skill, md, created, deleted)
+        return cls(
+            skill,
+            moves,
+            edited,
+            sigma,
+            merged,
+            gone,
+            families,
+            stems,
+            skill_md,
+            created,
+            deleted,
+            frozenset(moving),
+        )
 
     @property
     def renamed(self) -> dict[RuleId, layer.Becomes]:
@@ -496,12 +569,19 @@ class _Standard:
         the same rewrite applied.
         """
         after: dict[RuleId, str] = {}
-        for c in self.skill.chapters:
-            text = writes.get(self.moves.get(c.path, c.path))
+        kept = [
+            (c.name, c.typed, writes.get(self.moves.get(c.path, c.path)))
+            for c in self.skill.chapters
+            if c.path not in self.deleted
+        ]
+        kept += [
+            (path.name, typed, writes[path]) for path, typed in self.created.items()
+        ]
+        for name, was, text in kept:
             try:
-                typed = c.typed if text is None else layer.Chapter.read(Doc.parse(text))
+                typed = was if text is None else layer.Chapter.read(Doc.parse(text))
             except ValueError as e:
-                msg = f"the revision would leave `{c.name}` unreadable: {e}"
+                msg = f"the revision would leave `{name}` unreadable: {e}"
                 raise ReviseError(msg) from None
             after |= {r.id: r.title for r in typed.rules}
         titles = {r.id: r.title for r in self.skill.chapter_rules}
@@ -517,6 +597,51 @@ class _Standard:
         if len(after) != len(self.sigma):
             msg = f"{len(self.sigma)} rules kept and {len(after)} after the rewrite"
             raise ReviseError(msg)
+
+
+def _reprojected(std: _Standard, writes: Mapping[Path, str]) -> str | None:
+    """`SKILL.md` with section 4 rendered from the chapters as written.
+
+    As `fmt` renders it (normalize-the-standards, decision 7): the rules
+    section 4 lists, grouped by chapter in section 6's order, each line
+    its rule's. None when section 4 is no list to render, which
+    `skeleton` reports, or renders as it stands.
+    """
+    path = std.skill.skill_md
+    md = layer.SkillMd.read(Doc.parse(writes.get(path) or path.read_text()))
+    title = shared.skill_sections(std.skill)[4]
+    at = next((i for i, s in enumerate(md.sections) if s.title == title), None)
+    ids = listed(md.sections[at].blocks()[1:]) if at is not None else None
+    if at is None or ids is None:
+        return None
+    was = {new: old for old, new in std.moves.items()}
+    chapters: list[Mapped] = []
+    for stem in _map_stems(md):
+        chapter = std.skill.root / REFERENCES / f"{stem}.md"
+        if not vocabulary.code_for(stem) or chapter in std.deleted:
+            continue
+        on_disk = was.get(chapter, chapter)
+        text = writes.get(chapter) or (on_disk.read_text() if on_disk.is_file() else "")
+        typed = layer.Chapter.read(Doc.parse(text))
+        entries = tuple(layer.Entry(r.id, r.tier, r.title) for r in typed.rules)
+        chapters.append((typed.title, entries))
+    section = md.sections[at]
+    rendered = layer.Section(title, projection(ids, chapters), (), section.line)
+    sections = (*md.sections[:at], rendered, *md.sections[at + 1 :])
+    text = str(layer.SkillMd(md.frontmatter, md.title, md.preamble, sections).doc())
+    return text if text != (writes.get(path) or path.read_text()) else None
+
+
+#: A row of section 6 names its chapter's file: `references/errors.md`.
+_MAPPED = re.compile(rf"`{REFERENCES}/(?P<stem>[a-z0-9-]+)\.md`")
+
+
+def _map_stems(md: layer.SkillMd) -> list[str]:
+    """The chapter each row of section 6 names, in its order."""
+    section = next((s for s in md.sections if s.title == shared.MAP), None)
+    tables = [b for b in section.lead if isinstance(b, Table)] if section else []
+    rows = tables[0].rows if tables else ()
+    return [m["stem"] for row in rows if row and (m := _MAPPED.fullmatch(row[0]))]
 
 
 def _readable(skill: Skill) -> None:
@@ -750,6 +875,224 @@ def _with_rows(
     return layer.Chapter(chapter.title, chapter.scope, contents, tuple(sections))
 
 
+#: What a chapter a move creates opens with, where its scope belongs:
+#: a paragraph that is no `Scope:`, so `skeleton` fails the chapter
+#: until its author has written what it owns.
+UNSCOPED = (
+    "TODO: write this chapter's `Scope:` paragraph — what it owns, and which chapters "
+    "neighbour it — in place of this one."
+)
+
+#: What a chapter a move creates says it covers in section 6, until its
+#: author says otherwise.
+UNCOVERED = "TODO"
+
+
+def _placed(
+    skill: Skill,
+    moving: Mapping[RuleId, Moved],
+    home: Mapping[RuleId, Chapter],
+    edited: dict[Path, layer.Chapter],
+) -> dict[Path, layer.Chapter]:
+    """Put each moved rule in its place, in plan order: new chapters.
+
+    `edited` already holds each source chapter without the rules that
+    leave it, and gains each target chapter with them. A target the
+    standard does not ship is created in the chapter template: its
+    title the vocabulary word, its scope `UNSCOPED`. Returned are the
+    chapters created, by the path each will have.
+    """
+    created: dict[Path, layer.Chapter] = {}
+    shipped = {c.path.stem: c for c in skill.chapters}
+    for rid, moved in moving.items():
+        source = home.get(rid)
+        if source is None:
+            msg = f"{skill.name} has no chapter rule {rid}; only a chapter rule moves"
+            raise ReviseError(msg)
+        if not vocabulary.code_for(moved.chapter):
+            msg = f"{rid}: `{moved.chapter}` is no chapter the vocabulary gives a code"
+            raise ReviseError(msg)
+        if moved.chapter == source.path.stem:
+            msg = f"{rid} is in `{source.name}` already"
+            raise ReviseError(msg)
+        rule = next(r for r in source.typed.rules if r.id == rid)
+        if (target := shipped.get(moved.chapter)) is not None:
+            path = target.path
+            into = edited.get(path, target.typed)
+        else:
+            path = skill.root / REFERENCES / f"{moved.chapter}.md"
+            into = created.get(path) or layer.Chapter(
+                moved.chapter.capitalize(),
+                (Paragraph(words(UNSCOPED)),),
+                layer.Contents(()),
+                (),
+            )
+        placed = _inserted(into, rule, moved.after)
+        (created if target is None else edited)[path] = placed
+    return created
+
+
+def _inserted(
+    chapter: layer.Chapter, rule: layer.Rule, after: RuleId | str
+) -> layer.Chapter:
+    """`chapter` with `rule` after `after`, or opening a section.
+
+    A section title the chapter has no section for opens a new one,
+    before `Decided by tools`, which a chapter states last. The rule's
+    contents line goes where the rule does: after the line of the rule
+    it follows, or first under the section's label, or before the line
+    of the section's first rule when the contents has no labels.
+    """
+    entry = layer.Entry(rule.id, rule.tier, rule.title)
+    if chapter.contents is None:
+        msg = f"{rule.id}: the target chapter has no contents to list it in"
+        raise ReviseError(msg)
+    sections = list(chapter.sections)
+    items = chapter.contents.items
+    if isinstance(after, RuleId):
+        at = next(
+            (i for i, s in enumerate(sections) if any(r.id == after for r in s.rules)),
+            None,
+        )
+        if at is None or after == rule.id:
+            msg = f"{rule.id}: {after} is no other rule of the chapter it moves to"
+            raise ReviseError(msg)
+        s = sections[at]
+        k = next(i for i, r in enumerate(s.rules) if r.id == after) + 1
+        sections[at] = layer.Section(
+            s.title, s.lead, (*s.rules[:k], rule, *s.rules[k:]), s.line
+        )
+        items = _listed_after(items, after, entry)
+    else:
+        at = next((i for i, s in enumerate(sections) if s.title == after), None)
+        if at is None:
+            last = len(sections) - (bool(sections) and sections[-1].title == DECIDED)
+            sections.insert(last, layer.Section(after, (), (rule,)))
+            items = _labelled(items, layer.Group(f"**{after}**", (entry,)))
+        else:
+            s = sections[at]
+            first = s.rules[0].id if s.rules else None
+            sections[at] = layer.Section(s.title, s.lead, (rule, *s.rules), s.line)
+            items = _opened(items, after, first, entry)
+    contents = layer.Contents(items, chapter.contents.loose, chapter.contents.line)
+    return layer.Chapter(chapter.title, chapter.scope, contents, tuple(sections))
+
+
+def _listed_after(
+    items: tuple[layer.Group | layer.Entry, ...], after: RuleId, entry: layer.Entry
+) -> tuple[layer.Group | layer.Entry, ...]:
+    """Contents `items`, `entry` after `after`'s line, where it is."""
+    out, found = _after(items, after, entry)
+    if not found:
+        msg = f"{entry.id}: the contents list no line for {after} to follow"
+        raise ReviseError(msg)
+    return out
+
+
+def _after(
+    items: tuple[layer.Group | layer.Entry, ...], after: RuleId, entry: layer.Entry
+) -> tuple[tuple[layer.Group | layer.Entry, ...], bool]:
+    """Contents `items`, `entry` after `after`'s line; was it there?"""
+    out: list[layer.Group | layer.Entry] = []
+    found = False
+    for item in items:
+        if isinstance(item, layer.Entry):
+            out.append(item)
+            if item.id == after:
+                out.append(entry)
+                found = True
+        else:
+            children, inner = _after(item.children, after, entry)
+            found |= inner
+            out.append(layer.Group(item.label, children, item.line))
+    return tuple(out), found
+
+
+def _labelled(
+    items: tuple[layer.Group | layer.Entry, ...], group: layer.Group
+) -> tuple[layer.Group | layer.Entry, ...]:
+    """Contents `items`, a new section's `group` before the tools'."""
+    last = len(items) - (
+        bool(items)
+        and isinstance(items[-1], layer.Group)
+        and items[-1].label == DECIDED
+    )
+    return (*items[:last], group, *items[last:])
+
+
+def _opened(
+    items: tuple[layer.Group | layer.Entry, ...],
+    title: str,
+    first: RuleId | None,
+    entry: layer.Entry,
+) -> tuple[layer.Group | layer.Entry, ...]:
+    """Contents `items`, `entry` first among section `title`'s."""
+    out: list[layer.Group | layer.Entry] = []
+    placed = False
+    for item in items:
+        if isinstance(item, layer.Group) and item.label.strip("*") == title:
+            out.append(layer.Group(item.label, (entry, *item.children), item.line))
+            placed = True
+        elif isinstance(item, layer.Entry) and item.id == first and not placed:
+            out += [entry, item]
+            placed = True
+        else:
+            out.append(item)
+    if not placed:
+        msg = f"{entry.id}: the contents list nothing for `## {title}` to open"
+        raise ReviseError(msg)
+    return tuple(out)
+
+
+def _remapped(
+    skill: Skill,
+    md: Doc,
+    created: Mapping[Path, layer.Chapter],
+    deleted: Collection[Path],
+) -> Doc:
+    """`SKILL.md` with section 6 naming the chapters the plan leaves.
+
+    A created chapter's row goes before the migration chapter's, which
+    the reference map keeps last of the chapters of rules; a deleted
+    chapter's row goes. Each row names its family and its count of
+    rules, which the rewrite then restates with every other count.
+    """
+    typed = layer.SkillMd.read(md)
+    gone = {f"`{REFERENCES}/{p.name}`" for p in deleted}
+    rows_new = [
+        (
+            f"`{REFERENCES}/{p.name}`",
+            f"`{skill.prefix}-{vocabulary.code_for(p.stem)}` ({len(c.rules)})",
+            UNCOVERED,
+        )
+        for p, c in created.items()
+    ]
+    sections = []
+    for s in typed.sections:
+        if s.title != shared.MAP:
+            sections.append(s)
+            continue
+        lead = []
+        for block in s.lead:
+            if not isinstance(block, Table):
+                lead.append(block)
+                continue
+            rows = [r for r in block.rows if not r or r[0] not in gone]
+            last = f"`{REFERENCES}/{_MIGRATION}`"
+            at = next((i for i, r in enumerate(rows) if r and r[0] == last), len(rows))
+            rows[at:at] = rows_new
+            lead.append(Table(block.header, block.align, tuple(rows), block.line))
+        sections.append(layer.Section(s.title, tuple(lead), s.rules, s.line))
+    return layer.SkillMd(
+        typed.frontmatter, typed.title, typed.preamble, tuple(sections)
+    ).doc()
+
+
+#: The migration chapter, which the reference map lists last of those
+#: that hold rules.
+_MIGRATION = "migration.md"
+
+
 def _carried(
     section: layer.Section, now: Callable[[RuleId], layer.Becomes | None]
 ) -> layer.Section:
@@ -977,11 +1320,13 @@ _TEXT = {".md", ".toml", ".yml", ".yaml", ".zig", ".zon", ".py", ".rs", ""}
 def corpus(repo: Path) -> list[Path]:
     """Every file a citation can live in.
 
+    The abstract standard is one: each realisation row names a rule.
     The archived OpenSpec changes are history, and keep the IDs they
     were written with.
     """
     skills = repo / SKILLS
     out = [p for p in sorted(skills.rglob("*")) if p.is_file() and p.suffix in _TEXT]
+    out += sorted((repo / ABSTRACT).glob("*.md"))
     out += sorted((repo / "src").rglob("*.py")) + sorted((repo / "tests").rglob("*.py"))
     readme = repo / "README.md"
     return out + ([readme] if readme.is_file() else [])
@@ -1012,28 +1357,44 @@ class _Corpus:
         self.leftovers: dict[Path, list[str]] = {}
         #: files outside the skills that name a renamed chapter bare
         self.unnamed: list[str] = []
-        prefixes = {s.skill.prefix for s in standards}
+        self.prefixes = {s.skill.prefix for s in standards}
         skills = repo / SKILLS
+        trees = (skills, repo / ABSTRACT)
         for path in corpus(repo):
             own = next((s for s in standards if _owns(repo, s, path)), None)
             target = own.moves.get(path, path) if own else path
             swap = rewrite.swap(own)
             text = path.read_text()
             new: str | None
-            if path.suffix == ".md" and skills in path.parents:
+            if path.suffix == ".md" and any(t in path.parents for t in trees):
                 new, said = self._markdown(path, text, own, swap)
             else:
                 new, said = swap(text), text
                 if new == text and target == path:
                     new = None
-            found = {rid for p in prefixes for rid in cited(said, p)}
-            for rid in sorted(found):
-                self.cites.setdefault(rid, []).append(path.relative_to(repo))
+            if own is not None and path in own.deleted:
+                new = None
+            self._cited(path, said)
             if new is not None:
                 self.writes[target] = new
-                self.leftovers[target] = self._unknown(path, found)
+                self.leftovers[target] = self._unknown(path, self._found(said))
             if skills not in path.parents and own is None:
                 self.unnamed += _bare(path.relative_to(repo), new or text, standards)
+        for std in standards:
+            for path, chapter in std.created.items():
+                doc = chapter.doc()
+                self._cited(path, "\n\n".join(text_of((b,)) for b in doc.blocks))
+                self.writes[path] = str(_respelled(doc, rewrite.swap(std), keep=True))
+
+    def _found(self, said: str) -> set[RuleId]:
+        """Every ID `said` cites under a revised standard's prefix."""
+        return {rid for p in self.prefixes for rid in cited(said, p)}
+
+    def _cited(self, path: Path, said: str) -> None:
+        """Record what `said`, the citing text of `path`, cites."""
+        where = path.relative_to(self.repo)
+        for rid in sorted(self._found(said)):
+            self.cites.setdefault(rid, []).append(where)
 
     def _markdown(
         self, path: Path, text: str, own: _Standard | None, swap: Callable[[str], str]
@@ -1197,8 +1558,11 @@ def _owners(
 # plan, as a file states it
 
 
-#: The four things a plan's entry can say, each the key of its object.
-KINDS = ("rows", "lint", "merge", "remove")
+#: The five things a plan's entry can say, each the key of its object.
+KINDS = ("rows", "lint", "merge", "remove", "move")
+
+#: How a move's `after` names a section, rather than a rule.
+_HEADING = "## "
 
 #: What each kind of entry holds, said as the refusal of anything else.
 _SHAPES = {
@@ -1206,6 +1570,10 @@ _SHAPES = {
     "lint": "a lint is [tool, lint]",
     "merge": "a merge names the rule it went into",
     "remove": "a removal needs its reason",
+    "move": (
+        'a move names the chapter and what the rule follows there: {"move": '
+        '"<chapter>", "after": "<rule ID>"}, or "after": "## <section>" to open it'
+    ),
 }
 
 
@@ -1215,8 +1583,11 @@ def read_plan(raw: object, skill: Skill) -> Plan:
     It maps each rule ID to an object holding one of `KINDS`:
     `{"rows": [[tool, lint, level, forbids]]}`, the row the rule
     becomes; `{"lint": [tool, lint]}`, a row `skill` lists already;
-    `{"merge": "ID"}`, the rule it was folded into; or `{"remove":
-    "reason"}`. Anything else stops here, before a rule is read.
+    `{"merge": "ID"}`, the rule it was folded into; `{"remove":
+    "reason"}`; or `{"move": "stem", "after": "ID"}`, the chapter it
+    moves to and the rule it follows there, `"after": "## Title"` for
+    the first rule of that section. Anything else stops here, before a
+    rule is read.
     """
     if not isinstance(raw, dict) or not raw:
         msg = "a plan is a JSON object naming at least one rule"
@@ -1228,6 +1599,8 @@ def read_plan(raw: object, skill: Skill) -> Plan:
         one = isinstance(what, dict) and len(what) == 1
         kind, value = next(iter(what.items())) if one else ("", "")
         becomes = _entry(str(kind), value) if one else None
+        if isinstance(what, dict) and "move" in what:
+            kind, becomes = "move", _move_entry(what)
         if rid is None:
             msg = f"{key}: not a rule ID"
             raise PlanError(msg)
@@ -1265,6 +1638,24 @@ def _entry(kind: str, value: object) -> Becomes | Demoted | None:
     elif kind == "remove" and isinstance(value, str) and value.strip():
         return Removed(value.strip())
     return None
+
+
+def _move_entry(what: object) -> Moved | None:
+    """`{"move": stem, "after": ID or "## Title"}` as its move."""
+    if not isinstance(what, dict):
+        return None
+    fields: dict[object, object] = dict(what.items())
+    if set(fields) != {"move", "after"}:
+        return None
+    chapter, after = fields["move"], fields["after"]
+    if not isinstance(chapter, str):
+        return None
+    if not isinstance(after, str):
+        return None
+    if after.startswith(_HEADING) and (title := after.removeprefix(_HEADING).strip()):
+        return Moved(chapter, title)
+    rid = RuleId.try_parse(after)
+    return Moved(chapter, rid) if rid is not None else None
 
 
 def _strings(value: Sequence[object], n: int) -> list[str] | None:

@@ -44,7 +44,7 @@ merges or adds rules also runs `check --skill <each standard it touched> --only 
   vocabulary word that two or more base standards ship; declare each base standard's other chapters
   as domain chapters with their features, and bevy-style's; verify `check --fast` passes with no
   entries yet, and the `undeclared_domain`, `domain_realises` and `domain_missing` controls
-- [ ] 2.6 Add `move` to `revise` (target chapter, `after` a rule or a section heading, creation of a
+- [x] 2.6 Add `move` to `revise` (target chapter, `after` a rule or a section heading, creation of a
   missing chapter and its section 6 row); verify the move-and-back law by property tests on copies of
   the shipped tree with random moves, beside the existing laws
 - [ ] 2.7 Write `abstract/principles.md` and the section 3 check; decide zig-style's third question

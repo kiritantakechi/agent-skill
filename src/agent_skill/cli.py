@@ -267,6 +267,8 @@ def _show(repo: Path, plan: revise.Plan, revision: revise.Revision) -> None:
     print(f"  ids     {len(revision.renamed)} of {revision.rules} changed")
     for path in sorted(revision.writes):
         print(f"  write   {path.relative_to(repo)}")
+    for path in revision.deleted:
+        print(f"  delete  {path.relative_to(repo)}")
     for line in revision.leftovers:
         print(f"  look    {line}")
 

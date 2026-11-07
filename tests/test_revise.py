@@ -690,6 +690,12 @@ def test_a_core_rule_only_merges_into_a_chapter_rule_or_goes(
         ({"DS-ERR-02": {"merge": "DS-ERR-02"}}, "keeps"),
         ({"DS-ERR-02": {"merge": "DS-ERR-03"}, "DS-ERR-03": {"remove": "x"}}, "keeps"),
         ({"no-rule": {"remove": "x"}}, "not a rule ID"),
+        ({"DS-ERR-02": {"move": "migration"}}, "a move names"),
+        ({"DS-ERR-02": {"move": "migration", "after": "first"}}, "a move names"),
+        ({"DS-ERR-02": {"move": "errors", "after": "DS-ERR-01"}}, "already"),
+        ({"DS-ERR-02": {"move": "nowhere", "after": "## X"}}, "no chapter the voc"),
+        ({"DS-ERR-02": {"move": "migration", "after": "DS-ERR-01"}}, "no other rule"),
+        ({"DS-ERR-09": {"move": "migration", "after": "## X"}}, "no chapter rule"),
     ],
 )
 def test_a_plan_that_cannot_be_done_writes_nothing(
@@ -716,6 +722,44 @@ def test_a_plan_file_says_each_kind_as_the_plan_types_it(planned: Path) -> None:
         rid("DS-ERR-02"): rid("DS-ERR-01"),
         rid("DS-MIG-01"): Removed("gone"),
     }
+
+
+def test_a_move_names_the_rule_it_follows_or_the_section_it_opens(
+    planned: Path,
+) -> None:
+    read = revise.read_plan(
+        {
+            "DS-ERR-02": {"move": "migration", "after": "DS-MIG-01"},
+            "DS-ERR-03": {"move": "migration", "after": "## Moving"},
+        },
+        demo(planned),
+    )
+    assert read == {
+        rid("DS-ERR-02"): revise.Moved("migration", rid("DS-MIG-01")),
+        rid("DS-ERR-03"): revise.Moved("migration", "Moving"),
+    }
+
+
+def test_a_moved_rule_takes_its_new_family_and_its_citations_follow(
+    planned: Path,
+) -> None:
+    """DS-ERR-03 opens the migration section; both families close up."""
+    revision = run(planned, {rid("DS-ERR-03"): revise.Moved("migration", "Moving")})
+    assert revision.renamed == {
+        rid("DS-ERR-03"): rid("DS-MIG-01"),
+        rid("DS-MIG-01"): rid("DS-MIG-02"),
+    }
+    root = planned / SKILLS / "demo-style"
+    migration = Chapter.read(Doc.parse((root / "references/migration.md").read_text()))
+    assert [(r.id, r.title) for r in migration.rules] == [
+        (rid("DS-MIG-01"), "Catch narrowly"),
+        (rid("DS-MIG-02"), "Use the new name"),
+    ]
+    assert migration.contents is not None
+    assert [e.id for e in migration.contents.entries] == [r.id for r in migration.rules]
+    errors = Chapter.read(Doc.parse((root / "references/errors.md").read_text()))
+    assert [s.title for s in errors.sections] == ["Raising"]
+    assert "DS-MIG-01 catches." in (root / "SKILL.md").read_text()
 
 
 def test_a_revision_leaves_a_conforming_skill_conforming(tmp_path: Path) -> None:

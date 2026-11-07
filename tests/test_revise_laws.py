@@ -20,6 +20,7 @@ lazy from collections.abc import Iterator
 import pytest
 
 from agent_skill import cli, revise, shared, vocabulary
+from agent_skill.checks import skeleton
 from agent_skill.doc import Doc, text_of
 from agent_skill.doc.chapter import (
     Chapter,
@@ -34,14 +35,14 @@ from agent_skill.doc.chapter import (
     citing,
 )
 from agent_skill.ids import RuleId, cited, uncited
-from agent_skill.layout import SKILLS
+from agent_skill.layout import ABSTRACT, SKILLS
 from agent_skill.model import Skill, Tree, discover
 lazy from agent_skill.doc.chapter import Becomes
 
 ROOT = Path(__file__).resolve().parents[1]
 
 #: The parts of the repository a revision reads and rewrites.
-PARTS = ("plugins", "src", "tests")
+PARTS = ("plugins", "src", "tests", "abstract")
 
 
 def seeded(seed: int) -> random.Random:
@@ -146,6 +147,169 @@ def test_renaming_errors_and_testing_then_back_restores_every_byte(
 
     assert forward.renamed, renaming
     assert snapshot(repo) == before
+
+
+def moves(shipped: Path, seed: int) -> tuple[str, RuleId, revise.Moved, revise.Moved]:
+    """A skill, one of its rules, a move, and the move back.
+
+    The rule is one of two or more in its section, so the move leaves
+    the section standing for the move back to return it to. The move
+    goes after a rule of another chapter, or opens a section of it; the
+    move back goes after the rule that preceded it, or opens its
+    section when it was first, spelled before the forward move: the
+    test respells it.
+    """
+    rng = seeded(seed)
+    standard = rng.choice(discover(shipped / SKILLS))
+    chapters = [c for c in standard.chapters if c.typed.rules]
+    placed = [
+        (c, s, k)
+        for c in chapters
+        for s in c.typed.sections
+        if len(s.rules) > 1
+        for k in range(len(s.rules))
+    ]
+    chapter, section, k = rng.choice(placed)
+    target = rng.choice([c for c in chapters if c.path != chapter.path])
+    opened = [s.title for s in target.typed.sections if s.rules]
+    after: RuleId | str = (
+        rng.choice(target.typed.rules).id if rng.random() < 0.5 else rng.choice(opened)
+    )
+    back: RuleId | str = section.rules[k - 1].id if k else section.title
+    return (
+        standard.name,
+        section.rules[k].id,
+        revise.Moved(target.path.stem, after),
+        revise.Moved(chapter.path.stem, back),
+    )
+
+
+def respelled(after: RuleId | str, revision: revise.Revision) -> RuleId | str:
+    """`after` as the revision left it: a rule's new ID, or a title."""
+    if isinstance(after, RuleId):
+        now = revision.renamed.get(after, after)
+        assert isinstance(now, RuleId)
+        return now
+    return after
+
+
+@pytest.mark.parametrize("seed", [8, 9, 10, 11, 12, 13])
+def test_a_move_and_the_move_back_restore_every_byte(
+    shipped: Path, repo: Path, seed: int
+) -> None:
+    name, rid, there, back = moves(shipped, seed)
+    before = snapshot(repo)
+
+    forward = apply(repo, name, {rid: there})
+    moved = forward.renamed[rid]
+    assert isinstance(moved, RuleId)
+    assert moved.family == vocabulary.code_for(there.chapter)
+    apply(
+        repo, name, {moved: revise.Moved(back.chapter, respelled(back.after, forward))}
+    )
+
+    after = snapshot(repo)
+    assert sorted(after.keys() ^ before.keys()) == []
+    assert [p for p in before if before[p] != after[p]] == []
+
+
+def test_a_move_into_a_chapter_not_shipped_creates_it_and_back_removes_it(
+    repo: Path,
+) -> None:
+    """The template, a scope left to write, and its section 6 row."""
+    name = "zig-style"
+    standard = skill(repo, name)
+    assert "documentation" not in {c.path.stem for c in standard.chapters}
+    naming = next(c for c in standard.chapters if c.path.stem == "naming")
+    first, second = naming.typed.rules[19:21]
+    before = snapshot(repo)
+
+    forward = apply(
+        repo,
+        name,
+        {
+            first.id: revise.Moved("documentation", "Doc comments"),
+            second.id: revise.Moved("documentation", first.id),
+        },
+    )
+
+    created = skill(repo, name)
+    chapter = next(c for c in created.chapters if c.path.stem == "documentation")
+    typed = chapter.typed
+    assert [r.title for r in typed.rules] == [first.title, second.title]
+    # Spelled by its parts: this file is in the copy, and an ID spelled
+    # whole would be a citation the move captures, which it refuses.
+    family = vocabulary.code_for("documentation")
+    assert [r.id for r in typed.rules] == [RuleId("ZS", family, n) for n in (1, 2)]
+    assert typed.title == "Documentation"
+    assert [s.title for s in typed.sections] == ["Doc comments"]
+    assert typed.contents is not None
+    assert [e.id for e in typed.contents.entries] == [r.id for r in typed.rules]
+    assert f"`references/documentation.md` | `ZS-{family}` (2) |" in created.text
+    unscoped = [
+        f for f in skeleton.skeleton.each(created) if f.branch == skeleton.NO_SCOPE
+    ]
+    assert [f.where.file for f in unscoped] == ["references/documentation.md"]
+
+    doc = forward.renamed[first.id]
+    assert isinstance(doc, RuleId)
+    section = next(s for s in naming.typed.sections if first in s.rules)
+    k = section.rules.index(first)
+    back: RuleId | str = section.rules[k - 1].id if k else section.title
+    apply(
+        repo,
+        name,
+        {
+            doc: revise.Moved("naming", respelled(back, forward)),
+            RuleId(doc.standard, doc.family, 2): revise.Moved("naming", doc),
+        },
+    )
+    assert snapshot(repo) == before
+
+
+#: An abstract entry naming one rule of each base standard, by title.
+NAMED = (
+    "Name the two halves of a pair symmetrically",
+    "python-style",
+    "rust-style",
+    "zig-style",
+)
+
+
+def named(repo: Path) -> dict[str, RuleId]:
+    """The rule each base standard gives `NAMED`'s title, by name."""
+    title, *standards = NAMED
+    return {
+        name: next(r.id for r in skill(repo, name).chapter_rules if r.title == title)
+        for name in standards
+    }
+
+
+def test_a_rule_the_abstract_standard_names_is_renumbered_in_its_row(
+    repo: Path,
+) -> None:
+    """The spec's scenario: the row follows its rule, in one go."""
+    rows = named(repo)
+    entry = repo / ABSTRACT / "naming.md"
+    table = "\n".join(
+        f"| {name} | {rid} | realises | [M] | |" for name, rid in rows.items()
+    )
+    entry.write_text(
+        entry.read_text()
+        + f"\n### AS-NAME-01 [M] {NAMED[0]}\n\nSaid.\n\n"
+        + "| Standard | Rule | Relation | Tier | Reason |\n|---|---|---|---|---|\n"
+        + f"{table}\n"
+    )
+    python = rows["python-style"]
+    earlier = RuleId(python.standard, python.family, python.number - 1)
+    before = RuleId(python.standard, python.family, python.number - 2)
+
+    revision = apply(repo, "python-style", {earlier: before})
+
+    now = revision.renamed[python]
+    assert now == earlier
+    assert f"| python-style | {now} | realises |" in entry.read_text()
+    assert f"| rust-style | {rows['rust-style']} | realises |" in entry.read_text()
 
 
 def test_a_swap_is_one_permutation_and_its_own_inverse(repo: Path) -> None:
