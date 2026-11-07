@@ -337,7 +337,34 @@ time of deletion (both tiers `[M]` unless marked):
   and reader mechanics (ZS-CONC-04 to -22 at the time) and `std.Progress`. Decided: ZS-MEM-14 (a library
   propagates `error.OutOfMemory`) is the memory chapter's, as one case of AS-ERR-05, and stays. Left for
   `performance`: RS-PERF-19 (always buffer), RS-PERF-21, -23 and PS-OUT-05 (bytes when the data is bytes).
-- [ ] 3.12 `performance`
+- [x] 3.12 `performance`: 17 entries (`AS-PERF-01` to `-17`), in deciding what to change (measure before
+  optimising and keep a change only for its measured gain, complexity before the constant, an estimate on
+  paper first, the cost stated where a caller would guess), measuring (the build that ships, a harness that
+  repeats and keeps the optimiser from deleting the work, the benchmark kept to run again), work inside a
+  loop (hoist by hand, allocate outside and reuse, reserve capacity) and data and input and output (batch,
+  stream, bytes as bytes, the collection by access pattern, columns for a column scan, a file mapped only
+  for random access, a thin generic layer over a non-generic core); realisations: python-style 13
+  `realises`, 4 `absent` (no optimisation mode, no capacity to reserve, no layout choice, no generic
+  copies); rust-style 17 `realises`; zig-style 16 `realises`, 1 `absent` (a string is a byte slice, no
+  decoding step). Moves 9: PS-OUT-05 into python-style's performance (PS-PERF-10);
+  RS-DOC-11 (RS-PERF-04) and RS-FUNC-15 (RS-PERF-22) into rust-style's; ZS-MEM-16, -17, ZS-CONC-12, -20,
+  ZS-DATA-22, ZS-COMPTIME-08 into zig-style's (ZS-PERF-09, -10, -07, -08, -12, -15). Merges 6: PS-PERF-17
+  into -01, RS-PERF-03 into -01, RS-PERF-32 into -30, RS-PERF-08 into -07, RS-PERF-20 and -23 into -19. New rules 5: PS-PERF-12 (map a file only for random access),
+  PS-PERF-14 (time with a harness); RS-PERF-03 (estimate first); ZS-PERF-05 (cost in the doc comment),
+  ZS-PERF-16 (container by access pattern). Tier changes 5: PS-PERF-04 to `[S]`, PS-PERF-11 to `[M]`,
+  RS-PERF-08 to `[S]` (merged with an `[M]`), ZS-PERF-02 to `[S]`, ZS-PERF-07 to `[M]`. Look-alike
+  notes 1 -> 1 (BV-MIG-03 / RS-MIG-02, for `migration`). Not registered, one standard: the profiler
+  rule (PS-PERF-02), repeated concatenation, the free-threaded build (PS-PERF-15 to -18), realistic
+  inputs and sizes, throughput, CI machine class, binary size and failed attempts (RS-PERF-05, -31 to
+  -35), small-vector and arena choice, the hasher, hot struct and enum size, bounds checks, sorting,
+  binary search, static against dynamic dispatch (RS-PERF-25 with RS-TRAIT-10, -11), `Rc` clone
+  traffic, SIMD (RS-PERF-28 with ZS-PERF-23, -24), ranking by cost times frequency, control and data
+  plane, the one long lane, locality, the hourglass, explicit options and cache-line alignment
+  (ZS-PERF-03, -04, -11, -14, -17 to -19, -21, -23 to -26); RS-CONC-01 to -03 (choose the
+  concurrency model by the workload: no other standard states it), RS-BUILD-40, ZS-BUILD-19 (release
+  profile; `build`'s), ZS-DATA-18, -24. Left for `api` or later: PS-API-12, RS-FUNC-35 and ZS-PERF-20 state
+  principle 3 (a value instead of an effect: return the change, apply it in one place) in three chapters,
+  and nothing registers it; `api` is closed, so 3.14 decides its chapter.
 - [ ] 3.13 `migration`
 - [ ] 3.14 Remove an abstract chapter that holds no entry, or record why it stays; declare a chapter
   the sweep emptied of realisations as domain, or remove it; verify every look-alike note left has a

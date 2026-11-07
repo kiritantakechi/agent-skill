@@ -319,10 +319,10 @@ def _references(skill: Skill, seen: dict[RuleId, str]) -> Iterator[Finding]:
 
 
 #: A rule ID followed by a bare number that leans on it: `ZS-ASSERT-03,
-#: -07 and -20`, or the range `ZS-PERF-09..23`. `renumber` rewrites whole
-#: IDs only, so the bare ones kept their old numbers and named other
-#: rules. Matched in a block's text, which the document model keeps
-#: whole.
+#: -07 and -20`, or the range `ZS-PERF-09..23`. `renumber` rewrites
+#: whole IDs only, so the bare ones kept their old numbers and named
+#: other rules. Matched in a block's text, which the document model
+#: keeps whole.
 _ABBREVIATED = re.compile(
     rf"\b{rule_id()}"
     rf"(?:(?:,\s*|\s+(?:and|or)\s+|\s*/\s*)-{NUMBER}\b|(?:\.\.|{DASH}){NUMBER}\b)+"

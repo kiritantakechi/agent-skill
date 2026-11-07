@@ -209,7 +209,8 @@ with tempfile.TemporaryFile() as handle:
     handle.write(bytes(range(256)) * 4)
     handle.flush()
     with mmap.mmap(handle.fileno(), 0, access=mmap.ACCESS_READ) as view:
-        assert view[256] == 0 and view[1023] == 255
+        assert view[256] == 0
+        assert view[1023] == 255
 ```
 
 ## Allocation and layout
