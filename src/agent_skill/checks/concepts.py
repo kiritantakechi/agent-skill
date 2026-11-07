@@ -545,19 +545,56 @@ def _held(abstract: Abstract, tree: Tree) -> set[frozenset[RuleId]]:
         named = [r.rid for r in concept.rows if r.rid is not None]
         pairs |= {frozenset((a, b)) for a in named for b in named if a != b}
     for skill in tree:
-        if not skill.profile.anchor:
-            continue
-        header = departures_header(skill.profile.anchor, skill.name)
-        tables = (
-            b
-            for b in walk(skill.doc.blocks)
-            if isinstance(b, Table) and b.header == header
-        )
-        for row in (d for t in tables for d in departures(t)):
-            ours, theirs = RuleId.try_parse(row.ours), RuleId.try_parse(row.theirs)
-            if ours is not None and theirs is not None:
-                pairs.add(frozenset((ours, theirs)))
+        for theirs, (_, ours) in departed(skill).items():
+            pairs.add(frozenset((ours, theirs)))
     return pairs
+
+
+def departed(skill: Skill) -> dict[RuleId, tuple[Relation, RuleId]]:
+    """Each anchor rule a delta departs from: how, and by which rule.
+
+    Empty for a base standard. A row whose relation or rules do not
+    read is `crossref`'s to report, and departs from nothing here.
+    """
+    if not skill.profile.anchor:
+        return {}
+    header = departures_header(skill.profile.anchor, skill.name)
+    tables = (
+        b for b in walk(skill.doc.blocks) if isinstance(b, Table) and b.header == header
+    )
+    out: dict[RuleId, tuple[Relation, RuleId]] = {}
+    for row in (d for t in tables for d in departures(t)):
+        ours, theirs = RuleId.try_parse(row.ours), RuleId.try_parse(row.theirs)
+        if ours is not None and theirs is not None and row.related is not None:
+            out[theirs] = (row.related, ours)
+    return out
+
+
+def realised(
+    abstract: Abstract, tree: Tree
+) -> dict[str, list[tuple[Concept, Relation, RuleId | None]]]:
+    """Each standard's realisation of each entry, by its name.
+
+    A base standard's is its row: the relation, and the rule it names,
+    if it names one. A delta's is its anchor's (decision 2): unless its
+    departures table departs from the anchor's realising rule, when it
+    is the departing rule, by the departure's relation. A row that does
+    not read, or is for no base standard, realises nothing.
+    """
+    base = {s.name for s in tree if not s.profile.anchor}
+    out: dict[str, list[tuple[Concept, Relation, RuleId | None]]] = {
+        s.name: [] for s in tree
+    }
+    for _, concept in abstract.concepts:
+        for row in concept.rows:
+            if row.standard in base and (relation := row.related) is not None:
+                out[row.standard].append((concept, relation, row.rid))
+    for skill in tree:
+        departs = departed(skill)
+        for concept, relation, rid in out.get(skill.profile.anchor, []):
+            how = departs.get(rid) if rid is not None else None
+            out[skill.name].append((concept, *(how or (relation, rid))))
+    return out
 
 
 def compared(tree: Tree) -> Iterator[tuple[Skill, Skill]]:

@@ -23,7 +23,7 @@ from agent_skill.layout import SKILLS, root_of
 from agent_skill.model import Skill, Tree, discover
 from agent_skill.report import Level, Result
 lazy from agent_skill import revise
-lazy from agent_skill.measure import table
+lazy from agent_skill.measure import entries, table
 lazy from agent_skill.report import Finding
 
 REPO = Path(__file__).resolve().parents[2]
@@ -320,8 +320,14 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 
 def cmd_measure(args: argparse.Namespace) -> int:
-    """Print how far each standard is from the normal form."""
-    print(table(discover(args.skills)))
+    """Print how far each standard is from the normal form.
+
+    Then the abstract standard's entries, a row per abstract chapter.
+    """
+    skills = discover(args.skills)
+    print(table(skills))
+    print()
+    print(entries(skills))
     return 0
 
 

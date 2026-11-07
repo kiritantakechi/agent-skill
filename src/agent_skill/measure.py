@@ -2,11 +2,12 @@
 
 `normalize-the-standards` moved these counts a standard at a time: its
 task 1.1 recorded them before any standard was normalised, and 7.2
-after all four were. What a check of the normal form decides is counted
-by running that check over the standard, so a count is what the check
-reports, not a second reading of the property; the rest are read from
-the chapter layer and the shipped configuration, each as its function
-says.
+after all four were. `one-abstract-standard` adds the counts against
+the abstract standard, recorded before its sweep (task 2.8) and after.
+What a check of the normal form decides is counted by running that
+check over the standard, so a count is what the check reports, not a
+second reading of the property; the rest are read from the chapter
+layer and the shipped configuration, each as its function says.
 """
 
 import re
@@ -14,12 +15,15 @@ from collections import Counter
 lazy from collections.abc import Iterable, Iterator, Sequence
 
 from agent_skill import shared, vocabulary
+from agent_skill.abstract import abstract_of
 from agent_skill.checks import anatomy, citations, prose, skeleton
+from agent_skill.checks.concepts import look_alikes, realised
 from agent_skill.checks.frontmatter import described
 from agent_skill.doc import Heading, Table, entry, text_of, walk
 from agent_skill.doc.chapter import Element, citing
 from agent_skill.doc.normal import qualified, quoted, runs
-from agent_skill.ids import cited, leading
+from agent_skill.ids import Relation, cited, leading
+from agent_skill.model import Tree
 lazy from agent_skill.ids import Branch
 lazy from agent_skill.model import Skill
 
@@ -106,12 +110,60 @@ def measured(skill: Skill) -> dict[str, str]:
     }
 
 
+def concepts_measured(skills: Sequence[Skill]) -> dict[str, dict[str, str]]:
+    """The abstract standard's counts per standard, by what each is.
+
+    Read against every standard at once (one-abstract-standard, decision
+    12): realisations by relation, a delta's derived through its anchor;
+    pairs that look alike and that no entry holds, each counted in both
+    standards it joins; the domain chapters a standard ships; and the
+    rules of its abstract chapters that realise nothing, which an
+    abstract chapter may hold.
+    """
+    tree = Tree.of(skills)
+    abstract = abstract_of(tree)
+    found = realised(abstract, tree)
+    alike = Counter(
+        name for a, _, b, _ in look_alikes(abstract, tree) for name in (a.name, b.name)
+    )
+    out: dict[str, dict[str, str]] = {}
+    for skill in skills:
+        by = Counter(relation for _, relation, _ in found[skill.name])
+        named = {rid for _, _, rid in found[skill.name] if rid is not None}
+        shipped = {c.path.stem for c in skill.chapters}
+        idle = [
+            r
+            for c in skill.chapters
+            if c.path.stem in abstract.words
+            for r in c.typed.rules
+            if r.id not in named
+        ]
+        out[skill.name] = {
+            **{f"realisations `{r}`": str(by[r]) for r in Relation},
+            "look-alike pairs no entry holds": str(alike[skill.name]),
+            "domain chapters": str(len(shipped & set(skill.profile.domain))),
+            "rules in abstract chapters realising nothing": str(len(idle)),
+        }
+    return out
+
+
 def table(skills: Sequence[Skill]) -> str:
     """Every count, a row each, a column per standard, as markdown."""
-    columns = [measured(s) for s in skills]
+    abstract = concepts_measured(skills)
+    columns = [measured(s) | abstract[s.name] for s in skills]
     head = ["Measure", *(s.name for s in skills)]
     lines = [_row(head), _row(["---"] * len(head))]
     lines += [_row([label, *(c[label] for c in columns)]) for label in columns[0]]
+    return "\n".join(lines)
+
+
+def entries(skills: Sequence[Skill]) -> str:
+    """The abstract standard's entries, one row per chapter."""
+    abstract = abstract_of(Tree.of(skills))
+    held = Counter(c.path.stem for c, _ in abstract.concepts)
+    lines = [_row(["Abstract chapter", "Entries"]), _row(["---"] * 2)]
+    lines += [_row([c.path.stem, str(held[c.path.stem])]) for c in abstract.chapters]
+    lines.append(_row(["all", str(len(abstract.concepts))]))
     return "\n".join(lines)
 
 

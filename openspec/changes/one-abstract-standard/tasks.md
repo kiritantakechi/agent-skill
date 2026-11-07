@@ -50,10 +50,43 @@ merges or adds rules also runs `check --skill <each standard it touched> --only 
 - [x] 2.7 Write `abstract/principles.md` and the section 3 check; decide zig-style's third question
   (the shared question, answered for Zig, or zig-style's own after the five) and make every base
   standard's section 3 open with the questions; verify the `principles` control and `check --fast`
-- [ ] 2.8 Add the abstract rows to `measure` (design decision 12) and record the baseline here;
+- [x] 2.8 Add the abstract rows to `measure` (design decision 12) and record the baseline here;
   verify `measure` prints them for all four standards and the demo
 - [ ] 2.9 Document the abstract standard, `concepts`, domain chapters and `revise` `move` in the
   README; verify `check --only documented`
+
+Baseline (task 2.8), before the sweep: the rows `agent-skill measure` adds for the abstract
+standard, as it prints them, and its second table. No entry is registered yet, so every realisation
+count is 0; the look-alike pairs count each pair in both standards it joins (14 pairs: 13 between
+base standards, 1 of bevy-style with its anchor).
+
+| Measure | bevy-style | python-style | rust-style | zig-style |
+| --- | --- | --- | --- | --- |
+| realisations `realises` | 0 | 0 | 0 | 0 |
+| realisations `extends` | 0 | 0 | 0 | 0 |
+| realisations `tightens` | 0 | 0 | 0 | 0 |
+| realisations `overrides` | 0 | 0 | 0 | 0 |
+| realisations `decided` | 0 | 0 | 0 | 0 |
+| realisations `absent` | 0 | 0 | 0 | 0 |
+| look-alike pairs no entry holds | 1 | 7 | 9 | 11 |
+| domain chapters | 7 | 2 | 6 | 4 |
+| rules in abstract chapters realising nothing | 37 | 194 | 378 | 251 |
+
+| Abstract chapter | Entries |
+| --- | --- |
+| api | 0 |
+| build | 0 |
+| concurrency | 0 |
+| data | 0 |
+| documentation | 0 |
+| errors | 0 |
+| migration | 0 |
+| modules | 0 |
+| naming | 0 |
+| output | 0 |
+| performance | 0 |
+| testing | 0 |
+| all | 0 |
 
 ## 3. The sweep
 

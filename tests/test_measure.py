@@ -10,9 +10,11 @@ lazy from pathlib import Path
 import pytest
 
 from agent_skill.checks import demo
+from agent_skill.ids import Relation
 from agent_skill.lang import toolchain_for
-from agent_skill.measure import found, measured, table
+from agent_skill.measure import concepts_measured, entries, found, measured, table
 from agent_skill.model import Skill
+from structure_fixture import repository
 
 
 def test_every_standard_is_measured_on_every_row(skills: list[Skill]) -> None:
@@ -61,3 +63,42 @@ def test_a_compiler_ships_no_configuration(skills: list[Skill]) -> None:
         toolchain = toolchain_for(skill.profile.toolchain)
         if toolchain is not None and toolchain.compilers >= set(toolchain.rows):
             assert not toolchain.configured(skill), skill.name
+
+
+#: The rows the abstract standard adds, as `measure` labels them.
+ABSTRACT_ROWS = (
+    *(f"realisations `{r}`" for r in Relation),
+    "look-alike pairs no entry holds",
+    "domain chapters",
+    "rules in abstract chapters realising nothing",
+)
+
+
+def test_the_abstract_rows_are_measured_for_every_standard(skills: list[Skill]) -> None:
+    labels = [
+        row.split(" | ")[0].removeprefix("| ") for row in table(skills).split("\n")
+    ]
+    assert set(ABSTRACT_ROWS) <= set(labels)
+    counts = concepts_measured(skills)
+    assert set(counts) == {s.name for s in skills}
+    for skill in skills:
+        assert counts[skill.name]["domain chapters"] == str(len(skill.profile.domain))
+
+
+def test_a_delta_realises_through_its_anchor_and_departs_by_its_table(
+    tmp_path: Path,
+) -> None:
+    """The demo realises its three entries; its delta tightens one."""
+    skills = list(repository(tmp_path))
+    counts = concepts_measured(skills)
+    demo_counts, delta = counts[demo.PROFILE.name], counts[demo.DELTA.name]
+    assert (
+        demo_counts["realisations `realises`"],
+        demo_counts["realisations `decided`"],
+    ) == ("2", "1")
+    assert delta["realisations `tightens`"] == "1"
+    assert delta["realisations `realises`"] == "1"
+    assert delta["realisations `decided`"] == "1"
+    assert demo_counts["rules in abstract chapters realising nothing"] == "1"
+    printed = entries(skills).split("\n")
+    assert printed[2:] == ["| errors | 3 |", "| migration | 0 |", "| all | 3 |"]
