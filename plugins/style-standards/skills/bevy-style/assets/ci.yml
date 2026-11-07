@@ -1,6 +1,6 @@
 # CI for a Bevy 0.20 game. Referenced by BV-BUILD-05, BV-BUILD-13,
-# BV-BUILD-14 and RS-BUILD-40, by BV-ARCH-07 for the boundary job, and by
-# RS-BUILD-28 for the audit job.
+# BV-BUILD-14 and RS-BUILD-39, by BV-ARCH-07 for the boundary job, and by
+# RS-BUILD-27 for the audit job.
 name: ci
 
 on:
@@ -107,7 +107,7 @@ jobs:
       - run: cargo doc --no-deps --workspace
 
   audit:
-    # A dependency's advisory does not wait for a pull request. See RS-BUILD-28.
+    # A dependency's advisory does not wait for a pull request. See RS-BUILD-27.
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -119,7 +119,7 @@ opens fifty files should just open them.
 
 **Why:** async's benefit appears at high concurrency, and fifty sequential file reads have none.
 What you do get is a function-colouring constraint through the whole codebase and a much larger
-build (RS-BUILD-19). It is RS-CONC-02's choice, made for the commonest case.
+build (RS-BUILD-18). It is RS-CONC-02's choice, made for the commonest case.
 
 **Check:** how many operations are in flight at once? Below a few hundred, blocking I/O on a small
 pool is simpler and usually faster.
@@ -606,7 +606,7 @@ defensible; in a library, propagate or use a non-poisoning mutex (`parking_lot`)
 broken. A library that unwraps decides on the application's behalf that the process should die.
 
 **Check:** `rg -n -F '.lock().unwrap()' -g '*.rs'` finds a poisoned lock turned into a panic; each
-hit in library code is an undocumented panic (RS-DOC-11).
+hit in library code is an undocumented panic (RS-DOC-10).
 
 ### RS-CONC-25 [M] Reserve atomics for counters, flags, and provable algorithms
 

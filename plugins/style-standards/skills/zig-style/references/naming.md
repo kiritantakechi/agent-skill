@@ -1,12 +1,12 @@
-# Naming, Files, Module Layout, Declaration Order, Comments
+# Naming, Files, Module Layout, Declaration Order, Formatting
 
 Scope: how identifiers are cased and worded, how a `.zig` file is named and laid out, the order of
-declarations inside a file and inside a struct, `pub` discipline, the three comment forms and the
-phrasings std uses for API contracts, and the formatting mechanics (`zig fmt`, the trailing comma,
-100 columns). Semantics of the things being named live elsewhere: error-set design in the errors
-chapter, `init`/`deinit`/ownership contracts in the memory chapter, `format` and `std.Io` in the
-concurrency chapter, `test` mechanics and fuzzing in the testing chapter, and `build.zig` naming in
-the build chapter.
+declarations inside a file and inside a struct, `pub` discipline, and the formatting mechanics
+(`zig fmt`, the trailing comma, 100 columns). Semantics of the things being named live elsewhere:
+error-set design in the errors chapter, `init`/`deinit`/ownership contracts in the memory chapter,
+`format` and `std.Io` in the concurrency chapter, `test` mechanics and fuzzing in the testing
+chapter, `build.zig` naming in the build chapter, and what a comment says (the three comment forms,
+std's contract phrasings) in the documentation chapter.
 
 Two sources are merged here: the **official Zig style guide** (langref 0.17.0 §Style Guide, quoted
 verbatim where it is normative) and **TigerStyle** (TigerBeetle's house standard). Where they
@@ -42,21 +42,16 @@ matters to the rule, it is named in the comment above it.
   - ZS-NAME-19 [M] Order a struct body: fields → types → `init`/`deinit` → methods → tests
   - ZS-NAME-20 [S] Put the entry point and the most important declarations first
   - ZS-NAME-21 [M] Default to non-`pub`; mark `pub` only what a caller outside the file needs
-- **Comments**
-  - ZS-NAME-22 [M] Write a declaration's contract in `///` and the reasoning behind it in `//`
-  - ZS-NAME-23 [M] Use std's contract phrasings verbatim
-  - ZS-NAME-24 [M] Say why, not what — including at the top of every test
-  - ZS-NAME-25 [S] Comment typography: space after the slashes, capital letter, full stop
 - **Formatting**
-  - ZS-NAME-26 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
-  - ZS-NAME-27 [M] Hard-limit every line to 100 columns
+  - ZS-NAME-22 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
+  - ZS-NAME-23 [M] Hard-limit every line to 100 columns
 - **Names beyond the source file**
-  - ZS-NAME-28 [M] One term, one meaning, project-wide
-  - ZS-NAME-29 [M] Write the commit message; a pull-request description is not one
+  - ZS-NAME-24 [M] One term, one meaning, project-wide
+  - ZS-NAME-25 [M] Write the commit message; a pull-request description is not one
 - **Symmetry across a codebase**
-  - ZS-NAME-30 [M] Name the two halves of a pair symmetrically
-  - ZS-NAME-31 [M] One concept, one mechanism
-  - ZS-NAME-32 [S] Keep sibling modules structurally parallel
+  - ZS-NAME-26 [M] Name the two halves of a pair symmetrically
+  - ZS-NAME-27 [M] One concept, one mechanism
+  - ZS-NAME-28 [S] Keep sibling modules structurally parallel
 - Decided by tools
 
 ---
@@ -861,141 +856,9 @@ later without a breaking change; the compiler will not tell you which `pub`s are
 
 **Check:** a `pub` added in the diff whose name no file but its own uses should not be `pub`.
 
-## Comments
-
-### ZS-NAME-22 [M] Write a declaration's contract in `///` and the reasoning behind it in `//`
-
-`///` documents the declaration, field or parameter it precedes, and every `pub` one carries it;
-`//!` documents the module; `//` is an implementation note that stays out of the generated docs.
-Where each may stand is the compiler's (the three doc-comment rows below). Which of `///` and `//` a
-sentence belongs in is not: a contract goes in `///`, and why the design is so goes in `//`, on the
-line above it.
-
-std places both on adjacent lines to separate "why the design" from "what the contract is", as the
-first example shows.
-
-std also documents **individual parameters in place**, inside the signature, and so may you, as the
-second example does.
-
-**Why:** the generated docs show `///` and `//!` and nothing else, so a contract in `//` is
-invisible to the caller, and an implementation reason in `///` tells the caller about something they
-may not rely on.
-
-**Check:** a `pub` declaration with no `///` at all, and a `///` that states an implementation
-reason ("we do it this way because…") rather than a contract — that one belongs on `//`, immediately
-above the `///`.
-
-```zig
-// fragment
-// Having a countdown to grow reduces the number of instructions to
-// execute when determining if the hashmap has enough capacity already.
-/// Number of available slots before a grow is needed to satisfy the
-/// `max_load_percentage`.
-available: Size = 0,
-```
-
-```zig
-// fragment
-pub fn allocWithOptions(
-    self: Allocator,
-    comptime Elem: type,
-    n: usize,
-    /// null means naturally aligned
-    comptime optional_alignment: ?Alignment,
-    comptime optional_sentinel: ?Elem,
-) ...
-```
-
-### ZS-NAME-23 [M] Use std's contract phrasings verbatim
-
-Reuse the house sentences rather than inventing synonyms:
-
-Counts are occurrences of the **bolded stem** of each phrase over `lib/zig/std/**/*.zig` at 0.17.0,
-case-sensitive — reproduce any row with `rg -I -o '<stem>' -g '*.zig' . | wc -l`. They count the
-phrase family, not the full sentence in the left column.
-
-| Phrase | Meaning | std count |
-|---|---|---|
-| **`Asserts that`** … | violating it trips a safety-checked assertion | 135 |
-| **`Assumes`** … | violating it is unchecked Illegal Behavior | 55 |
-| **`Invalidates`** element pointers if additional memory is needed. | reallocation may move them | 94 |
-| **`Deinitialize with`** \`deinit\`. | ownership: call this | 10 |
-| **`Caller owns`** returned memory. | ownership transfers out | 19 |
-| **`Thread-safe.`** / **`Not threadsafe`**. | concurrency contract | 18 / 9 |
-| **`It is illegal to`** … | hard precondition | 4 |
-| **`Deprecated in favor of`** \`x\`. | one line, immediately above the alias | 36, of 237 `/// Deprecated` |
-| **`See also:`** + `* \`decl\`` bullets | cross-reference block | 136 |
-
-The full invalidation sentence, `Invalidates element pointers if additional memory is needed.`,
-appears 33 times across std, 24 of them in `array_list.zig`. Cross-reference by backticked
-identifier always: only backticks become links in generated docs, and 5473 `///` lines in std carry
-a backticked identifier (lines matching `^\s*///` that contain `` `name` ``, 0.17.0).
-
-Omit doc comments that restate the name (langref rule 1). `handle: Handle` is undocumented in
-`Io/File.zig` for a reason.
-
-**Why:** these are pattern-matched, not read: a reader who has seen the invalidation sentence across
-std recognizes the pointer-invalidation hazard at a glance, while a paraphrase forces them to parse
-the sentence and decide whether it means the same thing.
-
-**Check:** a doc comment that paraphrases a row of the table — "the caller must free this" instead
-of `Caller owns returned memory.`, "pointers may move" instead of the invalidation sentence, "this
-is thread-safe" instead of `Thread-safe.` And: any declaration named in a doc comment without
-backticks, which is a cross-reference that will not become a link.
-
-### ZS-NAME-24 [M] Say why, not what — including at the top of every test
-
-Comments explain the reasoning that is not in the code: why this constant, why not the obvious
-design, what invariant is being preserved, what upstream bug is being worked around and when the
-workaround can be deleted. Open each test with a sentence stating its goal and method.
-
-TigerBeetle's highest-frequency comment categories, in order, are: why this number; why this design
-and not the obvious one; invariants; correctness proofs for derived constants; links to the paper or
-issue the idea came from; upstream-bug annotations with a removal condition.
-
-**Why:** TigerStyle: "Code alone is not documentation." Restating the code duplicates a fact that
-will drift, while a rationale cannot be recovered from the source at all, so it is the only thing a
-comment adds that the code cannot.
-
-**Check:** a comment whose words are the identifiers on the line below it —
-`// Increment the sector count.` above `sector_count += 1` — is the canonical violation; delete it
-or replace it with the reason. Second: a magic number introduced with no comment naming its
-derivation. Third: a `test` block whose first line is code rather than a sentence stating goal and
-method.
-
-```zig
-// fragment — BAD
-// Increment the sector count.
-journal.sector_count += 1;
-```
-
-```zig
-// fragment — GOOD
-// Bump before the fsync so a torn write is detected as a short journal on
-// replay rather than as a valid sector with garbage contents.
-journal.sector_count += 1;
-
-// TODO(zig): remove once https://github.com/ziglang/zig/issues/NNNNN lands;
-// the alignment downcast works around a 0.16.0 codegen bug.
-```
-
-### ZS-NAME-25 [S] Comment typography: space after the slashes, capital letter, full stop
-
-Comments are sentences: `// Like this.` A colon replaces the full stop when the comment introduces
-what follows: `// Two cases:`. End-of-line comments may be unpunctuated phrases:
-`+ two index blocks`.
-
-**Why:** TigerStyle N19. Sentence-shaped comments force the author to state a complete thought;
-fragments let half-formed ones through. The cost is zero and the consistency is visible at a
-distance.
-
-**Check:** `rg -n '//[^ /!\n]'` catches the missing space. Then scan standalone comment lines for a
-lower-case first word or a missing `.`/`:` terminator. End-of-line comments are exempt, so restrict
-the scan to comments that start their own line.
-
 ## Formatting
 
-### ZS-NAME-26 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
+### ZS-NAME-22 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
 
 `zig fmt` owns indentation (4 spaces), brace placement, spacing, and blank-line collapsing. The one
 decision you make is the **trailing comma**: adding one to a parameter list, struct literal, or enum
@@ -1038,7 +901,7 @@ fn f(
 }
 ```
 
-### ZS-NAME-27 [M] Hard-limit every line to 100 columns
+### ZS-NAME-23 [M] Hard-limit every line to 100 columns
 
 Including comments, doc comments, and string literals. Set a column ruler. Wrap by adding a trailing
 comma and re-running `zig fmt`. Enforce it in CI: it is a one-line check and the only formatting
@@ -1056,7 +919,7 @@ so it needs its own CI line.
 
 ## Names beyond the source file
 
-### ZS-NAME-28 [M] One term, one meaning, project-wide
+### ZS-NAME-24 [M] One term, one meaning, project-wide
 
 A word that already has a technical meaning in your project may not be reused for a second,
 context-dependent meaning. Before introducing a term, grep the codebase and the design documents for
@@ -1089,10 +952,10 @@ pub fn postPending(transfer: *PendingTransfer) void {}
 pub fn voidPending(transfer: *PendingTransfer) void {}
 ```
 
-### ZS-NAME-29 [M] Write the commit message; a pull-request description is not one
+### ZS-NAME-25 [M] Write the commit message; a pull-request description is not one
 
 Every commit gets a descriptive message: a subject line naming what changed, and a body giving the
-reasoning ZS-NAME-24 keeps out of the code. Do not put the explanation only in a pull-request
+reasoning ZS-DOC-07 keeps out of the code. Do not put the explanation only in a pull-request
 description.
 
 `git blame` on a suspicious line is the single highest-yield debugging move in an unfamiliar
@@ -1123,7 +986,7 @@ fix                                   journal: bump sector_count before fsync
 
 ## Symmetry across a codebase
 
-### ZS-NAME-30 [M] Name the two halves of a pair symmetrically
+### ZS-NAME-26 [M] Name the two halves of a pair symmetrically
 
 A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`close`, not
 `open`/`release`; `acquire`/`release`, not `acquire`/`free`. Where std has already fixed the pair,
@@ -1136,7 +999,7 @@ operations, so the reader hunts for a `decode` that was spelled `parse`.
 **Check:** list every operation with an inverse and read the two names aloud together. If they do
 not sound like a pair, rename the odd half.
 
-### ZS-NAME-31 [M] One concept, one mechanism
+### ZS-NAME-27 [M] One concept, one mechanism
 
 A project configures itself one way, reports progress one way, allocates one way, and spawns work
 one way. Two mechanisms for one concept means every future change must choose between them and every
@@ -1149,7 +1012,7 @@ because the first was inconvenient in one place — a local fix with a global co
 **Check:** name the single mechanism for each cross-cutting concern: configuration, errors, logging,
 allocation, I/O, concurrency. More than one per concern needs a migration plan, not an exception.
 
-### ZS-NAME-32 [S] Keep sibling modules structurally parallel
+### ZS-NAME-28 [S] Keep sibling modules structurally parallel
 
 Modules at the same level of the tree have the same internal shape: if `parser.zig` has an `Error`
 set, a `Config`, and a test block at the bottom, then `renderer.zig` does too, or the difference is
@@ -1178,6 +1041,3 @@ The compiler rejects each of these on its own; no setting turns one off.
 | zig | `… shadows … from outer scope` | error | a local named like a local of an enclosing scope |
 | zig | `name shadows primitive …` | error | a name such as `u8`, `type` or `true` |
 | zig | `unused … label` | error | a block or loop label nothing breaks to or continues |
-| zig | `unattached documentation comment` | error | a `///` comment with no declaration after it |
-| zig | `expected statement, found 'a document comment'` | error | a `///` comment on a statement inside a function body |
-| zig | `expected type expression, found 'a document comment'` | error | a `//!` comment after the first declaration of a file |

@@ -144,15 +144,15 @@ PROFILE = Profile(
             "RS-NAME-05": ("pub mod utils;", "mod helpers {"),
             "RS-API-12": ("pub fn items(&self) -> &Vec<Item> {",),
             "RS-API-49": ("pub fn set_limit(&mut self, limit: usize) -> &mut Self {",),
-            "RS-BUILD-14": ('serde = { version = "1", optional = true }',),
-            "RS-BUILD-47": (
+            "RS-BUILD-13": ('serde = { version = "1", optional = true }',),
+            "RS-BUILD-46": (
                 "- uses: actions/checkout@v7",
                 "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
             ),
-            "RS-BUILD-21": ('serde = "=1.0.200"',),
-            "RS-BUILD-23": ("#![deny(missing_docs)]",),
-            "RS-BUILD-24": ('pedantic = "allow"',),
-            "RS-BUILD-26": (
+            "RS-BUILD-20": ('serde = "=1.0.200"',),
+            "RS-BUILD-22": ("#![deny(missing_docs)]",),
+            "RS-BUILD-23": ('pedantic = "allow"',),
+            "RS-BUILD-25": (
                 'RUSTFLAGS="-Dwarnings" cargo build',
                 'RUSTDOCFLAGS="-D warnings" cargo doc',
             ),
@@ -161,7 +161,7 @@ PROFILE = Profile(
                 "static mut COUNTER: u32 = 0;",
                 "static CACHE: Mutex<Option<Config>> = Mutex::new(None);",
             ),
-            "RS-DOC-25": ("    // TODO: handle the empty case",),
+            "RS-DOC-26": ("    // TODO: handle the empty case",),
             "RS-ERR-08": ("let n = s.parse::<u32>().map_err(|_| Error::Parse)?;",),
             "RS-ERR-27": ('panic = "abort"',),
             "RS-MOD-13": ("pub use crate::matcher::*;",),
@@ -185,8 +185,8 @@ PROFILE = Profile(
                 "counter.fetch_update(Ordering::SeqCst, Ordering::SeqCst, step)",
                 "let ceiling = std::i32::MAX;",
             ),
-            "RS-DOC-19": ("    // let unused = compute_total(&items);",),
-            "RS-DOC-27": ("/// See [the guide](https://docs.rs/serde/latest/serde/).",),
+            "RS-DOC-20": ("    // let unused = compute_total(&items);",),
+            "RS-DOC-28": ("/// See [the guide](https://docs.rs/serde/latest/serde/).",),
         }
     ),
     # Each of these ships an `rg` pattern that no fixture in `fires`

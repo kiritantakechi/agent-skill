@@ -918,7 +918,7 @@ impl Valve {
 
 Code, comments, doc comments and string literals stay within 100 columns. `rustfmt` wraps code to
 that width and leaves a comment, a string literal and a URL as written, so the author wraps those.
-Leave `max_width` unset (RS-BUILD-27).
+Leave `max_width` unset (RS-BUILD-26).
 
 **Why:** 100 columns is the width `rustfmt` and nearly all of `std` use, and a line past it is the
 one a side-by-side diff cuts off. A project that sets another width reopens an argument the default

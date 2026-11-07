@@ -189,11 +189,11 @@ not worth the name it costs.
   - RS-TRAIT-06 [S] Prefer composition to supertrait hierarchies
   - RS-TRAIT-18 [M] Model a closed set of implementations as an enum, not a trait object
 - **Build: Manifest, Features, Dependencies, Lints, Toolchain, and CI**
-  - RS-BUILD-19 [M] Justify every dependency by more than an hour of saved work
-  - RS-BUILD-27 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
+  - RS-BUILD-18 [M] Justify every dependency by more than an hour of saved work
+  - RS-BUILD-26 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
 - **Documentation: Rustdoc, Sections, Examples, and the README**
-  - RS-DOC-06 [M] Give every public item a summary, and every non-trivial one an example
-  - RS-DOC-11 [M] Give every panicking function a `# Panics` section
+  - RS-DOC-06 [M] Give every non-trivial public item an example that runs as a test
+  - RS-DOC-10 [M] Give every panicking function a `# Panics` section
 - **Unsafe: Soundness, Undefined Behaviour, Layout, and FFI**
   - RS-UNSAFE-01 [M] Forbid `unsafe` unless it is the crate's point, and justify each use
   - RS-UNSAFE-02 [M] Confine `unsafe` to the smallest module behind a safe API
@@ -240,9 +240,9 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/ownership.md` | `RS-OWN` (37) | Borrow-vs-own signatures, clone discipline, `Cow`, lifetimes and elision, arenas and indices, smart pointers, interior mutability, `Drop` and RAII |
 | `references/traits.md` | `RS-TRAIT` (46) | Trait design and contracts, static vs dynamic dispatch, dyn compatibility, coherence and blanket impls, sealing, bounds, associated types, GATs, const generics, typestate |
 | `references/modules.md` | `RS-MOD` (45) | Module boundaries, `foo.rs` + `foo/`, visibility escalation, the library/binary split, workspace layout and facades, imports and in-file declaration order |
-| `references/build.md` | `RS-BUILD` (47) | Manifest and metadata, docs.rs, additive features, dependency discipline, the `[lints]` table, supply chain and semver, toolchain, profiles, CI |
+| `references/build.md` | `RS-BUILD` (46) | Manifest and metadata, docs.rs, additive features, dependency discipline, the `[lints]` table, supply chain and semver, toolchain, profiles, CI |
 | `references/testing.md` | `RS-TEST` (34) | Unit/integration/doc test split, table-driven tests, property and differential testing, fuzzing, snapshots, CLI end-to-end, flakes |
-| `references/documentation.md` | `RS-DOC` (34) | Crate and module docs, the section order, `# Errors`/`# Panics`/`# Safety`, prose style, intra-doc links, README |
+| `references/documentation.md` | `RS-DOC` (35) | Crate and module docs, the section order, `# Errors`/`# Panics`/`# Safety`, prose style, the changelog, intra-doc links, README |
 | `references/performance.md` | `RS-PERF` (39) | Measure-first discipline, allocation and buffer reuse, collection choice and layout, buffered I/O and syscalls, monomorphization and `#[inline]`, integer widths and casts, SIMD, benchmarking |
 | `references/concurrency.md` | `RS-CONC` (47) | Choosing a model, scoped threads and channels, shared state and lock discipline, async fundamentals and cancellation safety, `rayon`, `loom` and determinism |
 | `references/unsafe.md` | `RS-UNSAFE` (33) | `// SAFETY:` discipline, the UB list, layout and `repr`, `PhantomData` and variance, `unsafe trait`, C interop and `catch_unwind`, Miri and sanitizers |

@@ -49,7 +49,7 @@ either a third-party plugin crate or a subcrate dependency that needs a reason.
 
 ### BV-BUILD-02 [M] Start from a feature collection
 
-Departs from RS-BUILD-22. `default-features = false` plus `features = ["2d"]`, `["3d", "ui"]`, or
+Departs from RS-BUILD-21. `default-features = false` plus `features = ["2d"]`, `["3d", "ui"]`, or
 the mid-level `2d_api` / `default_app` / `default_platform` where the backends are not wanted. Not
 thirty individual names — and not a collection *without* `default-features = false`, which selects
 nothing: `default` is already `["2d", "3d", "ui", "audio"]`.
@@ -102,8 +102,8 @@ bevy = { version = "=0.20.1", default-features = false, features = [
 
 ### BV-BUILD-04 [M] Pin Bevy exactly in a binary and with a caret in a library
 
-Departs from RS-BUILD-21. A game binary writes `bevy = "=0.20.1"`. A crate other people depend on
-writes `bevy = "0.20"`, as RS-BUILD-21 asks of every library.
+Departs from RS-BUILD-20. A game binary writes `bevy = "=0.20.1"`. A crate other people depend on
+writes `bevy = "0.20"`, as RS-BUILD-20 asks of every library.
 
 **Why:** a caret on `0.20` stops at the minor, so what the pin holds is the patch: `cargo update`
 run for any other crate moves Bevy's too, and with it every `bevy_*` crate at once. In a library it
@@ -138,7 +138,7 @@ version?
 
 ### BV-BUILD-07 [M] Compile dependencies optimised in the dev profile
 
-Departs from RS-BUILD-43. `[profile.dev.package."*"] opt-level = 3`, with the game's own crates left
+Departs from RS-BUILD-42. `[profile.dev.package."*"] opt-level = 3`, with the game's own crates left
 at the dev default, whether or not the tests are slow.
 
 **Why:** an unoptimised Bevy is slow enough that frame rate stops being a signal about the game, and
@@ -223,7 +223,7 @@ dev = ["bevy/bevy_dev_tools", "bevy/bevy_ui_debug"]
 
 ### BV-BUILD-12 [M] Relax `elided_lifetimes_in_paths` and `needless_pass_by_value`, and nothing else
 
-Departs from RS-BUILD-25. Of `rust-style`'s lint table, two entries are `allow` here, each with a
+Departs from RS-BUILD-24. Of `rust-style`'s lint table, two entries are `allow` here, each with a
 comment saying which kind of divergence it is. `elided_lifetimes_in_paths` fires on every system
 parameter, because each carries the world and state lifetimes — fourteen warnings in one five-system
 plugin — and its compliant form, `Query<'_, '_, &mut Shield>` or `Res<'_, Time>`, compiles and buys
@@ -247,7 +247,7 @@ other, name the Bevy API that forces it — if the answer is the game's own code
 
 If the release build uses `default-features = false` and a list, CI builds that list. Building only
 the default feature set proves nothing about the artefact. This is the configuration of
-`rust-style`'s RS-BUILD-18 matrix that a game cannot leave out.
+`rust-style`'s RS-BUILD-17 matrix that a game cannot leave out.
 
 **Why:** a feature-gated compile error is invisible until somebody builds that configuration, and
 the configuration nobody builds locally is the shipped one. Feature-conditional code also rots

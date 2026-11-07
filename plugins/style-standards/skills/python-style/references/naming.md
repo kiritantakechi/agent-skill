@@ -1,11 +1,11 @@
-# Naming: Casing, Words, Formatting, Comments, and Symmetry
+# Naming: Casing, Words, Formatting, and Symmetry
 
 Scope: how identifiers are cased and worded, modules and packages included, what `ruff format`
-settles and what it leaves to you, comment discipline, and the symmetry questions that apply to
-names rather than to types. Semantics of the things being named live elsewhere: what a dataclass
-should hold is in the data chapter, what a package accepts and re-exports is in the API chapter, how
-a package is laid out and imported is in the modules chapter, and thread-safety of module state is
-in the concurrency chapter.
+settles and what it leaves to you, and the symmetry questions that apply to names rather than to
+types. What a comment says is the documentation chapter's. Semantics of the things being named live
+elsewhere: what a dataclass should hold is in the data chapter, what a package accepts and
+re-exports is in the API chapter, how a package is laid out and imported is in the modules chapter,
+and thread-safety of module state is in the concurrency chapter.
 
 Unless a block shows its own imports, it assumes nothing beyond the standard library.
 
@@ -22,16 +22,14 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-NAME-08 [M] Name a module in short lowercase; never put an underscore in a package name
   - PS-NAME-09 [M] Name a module for its concept; never `utils`, `helpers` or `common`
   - PS-NAME-10 [M] Do not repeat a type's name in its members
-- **Formatting and comments**
+- **Formatting**
   - PS-NAME-11 [M] Hold lines to 88 columns, and know this departs from PEP 8
   - PS-NAME-12 [M] Let the magic trailing comma decide when a call explodes
-  - PS-NAME-13 [M] Say why, not what
-  - PS-NAME-14 [S] Write comments as prose
 - **Symmetry of names**
-  - PS-NAME-15 [M] Name the two halves of a pair symmetrically
-  - PS-NAME-16 [M] One concept, one mechanism
-  - PS-NAME-17 [M] One term, one meaning, project-wide
-  - PS-NAME-18 [S] Keep sibling modules and types structurally parallel
+  - PS-NAME-13 [M] Name the two halves of a pair symmetrically
+  - PS-NAME-14 [M] One concept, one mechanism
+  - PS-NAME-15 [M] One term, one meaning, project-wide
+  - PS-NAME-16 [S] Keep sibling modules and types structurally parallel
 - Decided by tools
 
 ---
@@ -162,7 +160,7 @@ If one is `read_timeout_seconds`, its sibling is `write_timeout_seconds`, not `w
 
 **Why:** a reader who has learned one name should be able to guess the others. Where they can, the
 API teaches itself; where they cannot, every name must be looked up individually. This is the naming
-half of PS-NAME-15.
+half of PS-NAME-13.
 
 **Check:** read each class body and each module's public surface as a list. A name that breaks the
 pattern its neighbours establish is the finding.
@@ -231,7 +229,7 @@ assert Color.RED.value == "red"
 assert Account(id=1, name="ada").id == 1
 ```
 
-## Formatting and comments
+## Formatting
 
 ### PS-NAME-11 [M] Hold lines to 88 columns, and know this departs from PEP 8
 
@@ -272,34 +270,9 @@ tall = [
 assert short == tall
 ```
 
-### PS-NAME-13 [M] Say why, not what
-
-Code says what it does. A comment exists to record the reasoning — why this algorithm, why this
-default — the alternative rejected, and the constraint that is not visible locally.
-
-**Why:** a comment restating the code is a second copy that will drift, invisibly. A comment
-recording *why* cannot be derived from the code at all: without it the next person re-derives the
-reason, usually by reverting the decision and rediscovering it.
-
-**Check:** every non-obvious constant, every hand-rolled algorithm and every `# noqa` carries its
-reason. For every other comment, ask whether the line below it would have told you the same thing: a
-comment that restates is the finding. `ERA001` catches the commented-out-code case.
-
-### PS-NAME-14 [S] Write comments as prose
-
-A space after the `#`, a capital letter, a full stop. An end-of-line comment may be a bare phrase.
-
-**Why:** comments are the part of the file a reader reads at reading speed rather than at parsing
-speed, and the typography is what makes that possible. `ruff format` does not touch comment text, so
-this is one of the few things left to discipline.
-
-**Check:** a review matter, and deliberately so. The two pycodestyle rules that would decide the
-marker and the space are both **preview**, and the shipped configuration runs stable rules only —
-citing them would claim an enforcement this standard's own configuration does not provide.
-
 ## Symmetry of names
 
-### PS-NAME-15 [M] Name the two halves of a pair symmetrically
+### PS-NAME-13 [M] Name the two halves of a pair symmetrically
 
 `open`/`close`, `acquire`/`release`, `encode`/`decode`, `push`/`pop`, `to_json`/`from_json`. Never
 `open`/`shutdown`, never `encode`/`parse`. Whether the inverse must exist is PS-DATA-18's rule; this
@@ -312,7 +285,7 @@ one spelled unguessably.
 **Check:** list every public verb that has an inverse. A pair whose names are not each other's
 mirror is the finding.
 
-### PS-NAME-16 [M] One concept, one mechanism
+### PS-NAME-14 [M] One concept, one mechanism
 
 If configuration comes from a dataclass, it does not also come from a dict. If errors are
 exceptions, they are not also sentinel return values.
@@ -324,7 +297,7 @@ convenience added for one call site and then spreads.
 **Check:** for each concept in the module — configuration, errors, identity, time — name the
 mechanism. Two mechanisms for one concept is the finding.
 
-### PS-NAME-17 [M] One term, one meaning, project-wide
+### PS-NAME-15 [M] One term, one meaning, project-wide
 
 If a row from the database is an `Account`, it is not a `User` in the next module and a `Customer`
 in the one after.
@@ -336,7 +309,7 @@ then decide, for each new name, whether it is a third synonym or a genuinely dif
 **Check:** keep a glossary. A name that is not in it is either new — add it — or a synonym, which is
 the finding.
 
-### PS-NAME-18 [S] Keep sibling modules and types structurally parallel
+### PS-NAME-16 [S] Keep sibling modules and types structurally parallel
 
 If `readers/json.py` exposes `load`, `loads` and a `JSONError`, then `readers/toml.py` exposes
 `load`, `loads` and a `TOMLError`. If `Request` is a frozen slotted dataclass with
@@ -356,4 +329,3 @@ A tool settles these on its own; the shipped configuration enables each at the l
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
 | ruff | `A001` | error | a variable named after a builtin — take a trailing underscore, `id_` — listed because its fix is PS-NAME-01's trailing underscore |
-| ruff | `ERA001` | error | commented-out code — version control keeps it — listed because PS-NAME-13's comments say why, and code commented out says nothing |

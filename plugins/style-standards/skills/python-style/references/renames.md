@@ -63,7 +63,7 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-DATA-19` | `PS-DATA-16` |
 | `PS-DATA-20` | `PS-DATA-17` |
 | `PS-DATA-21` | `PS-DATA-18` |
-| `PS-DATA-22` | `PS-NAME-18` |
+| `PS-DATA-22` | `PS-NAME-16` |
 | `PS-DOC-01` | lint `ruff:D100` |
 | `PS-DOC-02` | `PS-DOC-01` |
 | `PS-DOC-03` | lint `ruff:D205` |
@@ -74,7 +74,7 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-DOC-08` | `PS-DOC-04` |
 | `PS-DOC-09` | `PS-DOC-05` |
 | `PS-DOC-10` | `PS-PERF-04` |
-| `PS-DOC-11` | `PS-NAME-13` |
+| `PS-DOC-11` | `PS-DOC-13` |
 | `PS-DOC-12` | `PS-DOC-06` |
 | `PS-DOC-13` | `PS-DOC-07` |
 | `PS-DOC-14` | `PS-DOC-08` |
@@ -152,13 +152,13 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-NAME-17` | `PS-BUILD-20` |
 | `PS-NAME-18` | `PS-NAME-11` |
 | `PS-NAME-19` | `PS-NAME-12` |
-| `PS-NAME-20` | `PS-NAME-13` |
-| `PS-NAME-21` | `PS-NAME-14` |
+| `PS-NAME-20` | `PS-DOC-13` |
+| `PS-NAME-21` | `PS-DOC-14` |
 | `PS-NAME-22` | lint `ruff:ERA001` |
-| `PS-NAME-23` | `PS-NAME-15` |
-| `PS-NAME-24` | `PS-NAME-16` |
-| `PS-NAME-25` | `PS-NAME-17` |
-| `PS-NAME-26` | `PS-NAME-18` |
+| `PS-NAME-23` | `PS-NAME-13` |
+| `PS-NAME-24` | `PS-NAME-14` |
+| `PS-NAME-25` | `PS-NAME-15` |
+| `PS-NAME-26` | `PS-NAME-16` |
 | `PS-PKG-01` | `PS-BUILD-01` |
 | `PS-PKG-02` | `PS-BUILD-02` |
 | `PS-PKG-03` | `PS-BUILD-03` |
@@ -243,7 +243,7 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-CORE-01` | `PS-NAME-01` |
 | `PS-CORE-02` | `PS-NAME-05` |
 | `PS-CORE-03` | `PS-ERR-16` |
-| `PS-CORE-04` | `PS-NAME-13` |
+| `PS-CORE-04` | `PS-DOC-13` |
 | `PS-CORE-05` | `PS-TYPE-01` |
 | `PS-CORE-06` | `PS-TYPE-04` |
 | `PS-CORE-07` | `PS-TYPE-07` |

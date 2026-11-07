@@ -423,7 +423,7 @@ the type is unhashable.
 
 If `to_json` exists, `from_json` exists. If `__str__` is meant to round-trip, something parses it.
 The same holds for every verb a type pairs, `encode` with `decode` and `push` with `pop`; how the
-two are spelled is PS-NAME-15.
+two are spelled is PS-NAME-13.
 
 **Why:** a one-way conversion produces a value you can never recover, and the gap stays invisible
 until someone needs the inverse, by which point the format has already shipped. Writing the pair

@@ -569,7 +569,7 @@ serializes the build.
 **Why:** an example that no longer builds is worse than no example, because users copy it before
 discovering that. `cargo test` does not necessarily build them — `cargo build --examples` does.
 
-**Check:** is `cargo build --examples` in CI (RS-BUILD-39)?
+**Check:** is `cargo build --examples` in CI (RS-BUILD-38)?
 
 ### RS-MOD-24 [M] Write a `build.rs` only for codegen or C compilation
 
@@ -597,7 +597,7 @@ A root with no `[package]` has no edition to infer the resolver from, so Cargo f
 
 **Why:** the versions are not interchangeable: `"2"` stops features unifying across build-, dev-,
 and inactive target-specific dependencies, and `"3"` passes over a dependency release that raises
-its `rust-version` past yours rather than picking it (RS-BUILD-31).
+its `rust-version` past yours rather than picking it (RS-BUILD-30).
 
 **Check:** does the workspace root name a resolver? A build that prints that warning is not
 configured, it is defaulted.
@@ -618,7 +618,7 @@ alone against `--workspace`. Any difference is a member being built in a way nob
 
 **Why:** unification hides a missing feature declaration: a member that forgot `serde/derive` still
 compiles when a sibling asks for it, so `--workspace` is green while the published crate fails for
-the first user who depends on it alone (RS-BUILD-39).
+the first user who depends on it alone (RS-BUILD-38).
 
 **Check:** does CI build members individually — `cargo hack --each-feature`, or one `-p` per member
 — or only `--workspace`?
@@ -684,7 +684,7 @@ Three blocks separated by blank lines — what `group_imports = "StdExternalCrat
 
 **Why:** the grouping tells a reader at a glance how much of the file's vocabulary is foreign, and
 where a name came from. Setting it in `rustfmt.toml` makes it enforced rather than remembered
-(RS-BUILD-27).
+(RS-BUILD-26).
 
 **Check:** is the option set, and does CI run `cargo fmt --check`?
 

@@ -807,8 +807,8 @@ Two traps:
   `lib/zig/compiler/Maker/Step/Fmt.zig` since 0.17, only ever appends `--check`, paths, and
   excludes. The `zig build fmt` step and the CI `--ast-check` run are two different checks; do both.
 
-What `zig fmt` decides, and the trailing comma that is your one lever over it, are ZS-NAME-26; the
-100-column limit it cannot enforce is ZS-NAME-27.
+What `zig fmt` decides, and the trailing comma that is your one lever over it, are ZS-NAME-22; the
+100-column limit it cannot enforce is ZS-NAME-23.
 
 **Why:** `zig fmt` is canonical — there is no style bikeshed to have, so a formatting diff in review
 is pure waste. `--ast-check` runs AstGen over each file and catches a real class of defect that

@@ -30,7 +30,7 @@ developers on one commit; a pin makes each upgrade a reviewed change with its ow
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-BUILD-08 | realises | [M] | |
-| rust-style | RS-BUILD-36 | realises | [M] | |
+| rust-style | RS-BUILD-35 | realises | [M] | |
 | zig-style | ZS-BUILD-29 | realises | [M] | |
 
 ### AS-BUILD-02 [M] Commit the lock file, and keep it the only one
@@ -54,7 +54,7 @@ a different version; reproducibility belongs to the application's lock file.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-BUILD-09 | realises | [M] | |
-| rust-style | RS-BUILD-21 | realises | [M] | |
+| rust-style | RS-BUILD-20 | realises | [M] | |
 | zig-style | | absent | | Zig has no version ranges: a dependency is one address and one content hash, so there is no range to widen |
 
 ### AS-BUILD-04 [M] Justify every dependency; the default is none
@@ -67,7 +67,7 @@ costs are permanent and shared.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-BUILD-12 | realises | [M] | |
-| rust-style | RS-BUILD-19 | realises | [M] | |
+| rust-style | RS-BUILD-18 | realises | [M] | |
 | zig-style | ZS-BUILD-31 | realises | [M] | |
 
 ## What ships
@@ -95,7 +95,7 @@ a formatter that runs sometimes puts its diff noise on whoever touches the file 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-BUILD-20 | realises | [M] | |
-| rust-style | RS-BUILD-27 | realises | [M] | |
+| rust-style | RS-BUILD-26 | realises | [M] | |
 | zig-style | ZS-BUILD-26 | realises | [M] | |
 
 ### AS-BUILD-07 [M] Pin every third-party CI action to a full commit, with its release as a comment
@@ -108,5 +108,5 @@ run someone else's code with the workflow's credentials.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-BUILD-21 | realises | [M] | |
-| rust-style | RS-BUILD-47 | realises | [M] | |
+| rust-style | RS-BUILD-46 | realises | [M] | |
 | zig-style | ZS-BUILD-32 | realises | [M] | |

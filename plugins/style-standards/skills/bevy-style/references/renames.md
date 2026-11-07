@@ -62,12 +62,12 @@ changed, and what it is now; an ID it does not list is unchanged.
 | `BV-CAR-13` | `BV-BUILD-12` |
 | `BV-CAR-14` | `BV-BUILD-12` |
 | `BV-CAR-15` | `BV-BUILD-12` |
-| `BV-CAR-16` | removed — RS-BUILD-23 states it, and assets/Cargo.toml does it |
+| `BV-CAR-16` | removed — RS-BUILD-22 states it, and assets/Cargo.toml does it |
 | `BV-CAR-17` | removed — `bevy_lint` is a community linter the Bevy project does not maintain, and it has stalled; every rule it backed keeps its own Check |
 | `BV-CAR-18` | `BV-BUILD-13` |
 | `BV-CAR-19` | `BV-BUILD-14` |
-| `BV-CAR-20` | removed — RS-BUILD-06 and RS-BUILD-34 state it |
-| `BV-CAR-21` | removed — RS-BUILD-40 states it |
+| `BV-CAR-20` | removed — RS-BUILD-06 and RS-BUILD-33 state it |
+| `BV-CAR-21` | removed — RS-BUILD-39 states it |
 | `BV-ECS-08` | `BV-ECS-06` |
 | `BV-ECS-09` | `BV-ECS-08` |
 | `BV-ECS-10` | `BV-ECS-09` |

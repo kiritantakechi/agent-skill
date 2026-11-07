@@ -445,7 +445,7 @@ pub fn deltas(values: &[i64]) -> Vec<i64> {
 
 **Why:** `tuple_windows`, `sorted_by`, `partition_map`, `izip!`, and `chunk_by` on an iterator have
 no `std` equivalent and earn the dependency. On a slice, `chunk_by`, `array_windows`, and
-`Vec::dedup_by` are `std`, and "we already depend on it" is no justification (RS-BUILD-19).
+`Vec::dedup_by` are `std`, and "we already depend on it" is no justification (RS-BUILD-18).
 
 **Check:** list the distinct `itertools::` adapters the crate uses. If the list is one entry and
 `std` has an equivalent, drop the dependency.

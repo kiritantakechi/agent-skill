@@ -1,8 +1,8 @@
 # Documentation: Docstrings, Comments in Public Places, and What Ships
 
 Scope: what a docstring must say and how it is shaped, which convention this standard picks and why,
-and the documents that live outside the code. Comment typography and the say-why rule are in the
-naming chapter; what a signature must promise is the API chapter.
+the comments that explain the code, and the documents that live outside it. What a name is called is
+the naming chapter's; what a signature must promise is the API chapter's.
 
 Unless a block shows its own imports, it assumes nothing beyond the standard library.
 
@@ -18,12 +18,15 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 - **Convention**
   - PS-DOC-06 [M] Set a docstring convention, and know what the choice disables
   - PS-DOC-07 [M] Never let the docstring and the signature disagree
-  - PS-DOC-08 [S] Write examples as doctests, and run them
+  - PS-DOC-08 [M] Write examples as doctests, and run them
 - **Beyond the code**
-  - PS-DOC-09 [M] Give the package a README that answers "what" before "how"
-  - PS-DOC-10 [M] Keep a changelog, and write the entry with the change
+  - PS-DOC-09 [S] Give the package a README that answers "what" before "how"
+  - PS-DOC-10 [S] Keep a changelog, and write the entry with the change
   - PS-DOC-11 [S] Keep a design note beside each significant component
   - PS-DOC-12 [M] Never document what was checked, only what is true
+- **Comments**
+  - PS-DOC-13 [M] Say why, not what
+  - PS-DOC-14 [S] Write comments as prose
 - Decided by tools
 
 ---
@@ -132,7 +135,7 @@ from editing one and not the other.
 documented parameter the signature lost, has only a preview rule, which the shipped configuration
 does not run — so that half is review, with defaults, exceptions and units.
 
-### PS-DOC-08 [S] Write examples as doctests, and run them
+### PS-DOC-08 [M] Write examples as doctests, and run them
 
 `>>>` in the docstring, and `--doctest-modules` in the test run. The shipped `ruff.toml` sets
 `docstring-code-format = true`, so the formatter keeps them formatted too.
@@ -146,7 +149,7 @@ finding.
 
 ## Beyond the code
 
-### PS-DOC-09 [M] Give the package a README that answers "what" before "how"
+### PS-DOC-09 [S] Give the package a README that answers "what" before "how"
 
 What problem it solves, who it is for, and one example — before installation instructions.
 
@@ -157,7 +160,7 @@ all the attention the decision gets.
 **Check:** the first screen of the README. If it starts with an install command, it answers the
 second question first.
 
-### PS-DOC-10 [M] Keep a changelog, and write the entry with the change
+### PS-DOC-10 [S] Keep a changelog, and write the entry with the change
 
 Each entry says added, changed, deprecated, removed or fixed, under the version it ships in. Write
 it in the same commit as the change, not assembled at release time.
@@ -191,6 +194,33 @@ does not. State the property; if it needs evidence, that is a test.
 **Check:** `rg -ni 'we (verified|checked|tested)|as of [0-9]{4}' src/`, plus any sentence naming a
 date, a host, or a person. Every hit is provenance rather than content.
 
+## Comments
+
+### PS-DOC-13 [M] Say why, not what
+
+Code says what it does. A comment exists to record the reasoning — why this algorithm, why this
+default — the alternative rejected, and the constraint that is not visible locally.
+
+**Why:** a comment restating the code is a second copy that will drift, invisibly. A comment
+recording *why* cannot be derived from the code at all: without it the next person re-derives the
+reason, usually by reverting the decision and rediscovering it.
+
+**Check:** every non-obvious constant, every hand-rolled algorithm and every `# noqa` carries its
+reason. For every other comment, ask whether the line below it would have told you the same thing: a
+comment that restates is the finding. `ERA001` catches the commented-out-code case.
+
+### PS-DOC-14 [S] Write comments as prose
+
+A space after the `#`, a capital letter, a full stop. An end-of-line comment may be a bare phrase.
+
+**Why:** comments are the part of the file a reader reads at reading speed rather than at parsing
+speed, and the typography is what makes that possible. `ruff format` does not touch comment text, so
+this is one of the few things left to discipline.
+
+**Check:** a review matter, and deliberately so. The two pycodestyle rules that would decide the
+marker and the space are both **preview**, and the shipped configuration runs stable rules only —
+citing them would claim an enforcement this standard's own configuration does not provide.
+
 ## Decided by tools
 
 A tool settles these on its own; the shipped configuration enables each at the level shown.
@@ -207,5 +237,6 @@ A tool settles these on its own; the shipped configuration enables each at the l
 | ruff | `D107` | error | `__init__` without a docstring — listed because `convention = "google"` (PS-DOC-06) keeps it |
 | ruff | `D205` | error | no blank line between a docstring's summary and its body — listed because `convention = "google"` (PS-DOC-06) keeps it |
 | ruff | `D209` | error | a multi-line docstring's closing quotes not on their own line — listed because `convention = "google"` (PS-DOC-06) keeps it |
+| ruff | `ERA001` | error | commented-out code — version control keeps it — listed because PS-DOC-13's comments say why, and code commented out says nothing |
 | ruff | `W505` | error | docstring or comment text past 72 columns, PEP 8's limit for prose — listed because it does nothing until `max-doc-length` is set, and the shipped configuration sets 72 |
 | ruff | `D417` | error | a parameter missing from a docstring's `Args:` — document every one, or none — listed because `google` alone of the three conventions keeps it (PS-DOC-06) |

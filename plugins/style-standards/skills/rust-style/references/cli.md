@@ -756,7 +756,7 @@ mod tests {
 
 Use structured logging (`tracing` or `log` plus `env_logger`) for diagnostics, controlled by
 `-v`/`-vv` or `RUST_LOG`. Never `println!` for debugging in shipped code, and deny
-`clippy::dbg_macro` (RS-BUILD-23).
+`clippy::dbg_macro` (RS-BUILD-22).
 
 **Why:** logging gives levels, targets, and runtime filtering; `println!` gives none of those and
 cannot be turned off by the user. Debug prints that ship are also the most common way secrets end up

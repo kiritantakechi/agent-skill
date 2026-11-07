@@ -477,7 +477,7 @@ violation.
 ### BV-ARCH-07 [M] Make the boundary a job, not a paragraph
 
 The rule that some directory may not mention Bevy is executable in one line. Write it as a step of
-the CI RS-BUILD-27 requires of every crate.
+the CI RS-BUILD-26 requires of every crate.
 
 **Why:** an architectural boundary written only in a README is re-crossed by the first contributor
 who has not read it, and by every agent that has not been shown it. The failure is silent for as

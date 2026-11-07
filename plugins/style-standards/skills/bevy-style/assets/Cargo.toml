@@ -1,6 +1,6 @@
 # Canonical workspace manifest for a Bevy 0.20 game.
 # Copy, then delete what does not apply.
-# Referenced by BV-BUILD-02, BV-BUILD-04, BV-BUILD-07 and RS-BUILD-23.
+# Referenced by BV-BUILD-02, BV-BUILD-04, BV-BUILD-07 and RS-BUILD-22.
 
 [workspace]
 resolver = "3"                       # implied by edition 2024; explicit is fine

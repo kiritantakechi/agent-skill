@@ -1844,7 +1844,7 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             f"{BV}/references/renames.md",
-            "| `BV-CAR-16` | removed — RS-BUILD-23 states it, "
+            "| `BV-CAR-16` | removed — RS-BUILD-22 states it, "
             "and assets/Cargo.toml does it |",
             "| `BV-CAR-16` | removed — |",
         ),
@@ -1958,7 +1958,7 @@ CONTROLS: list[Control] = [
     Control(
         anatomy.MAP_FAMILY,
         lambda t: (
-            *edit(t, f"{PY}/SKILL.md", "`PS-NAME` (18)", "`PS-NAME` (19)"),
+            *edit(t, f"{PY}/SKILL.md", "`PS-NAME` (16)", "`PS-NAME` (17)"),
             *edit(t, f"{PY}/SKILL.md", "`PS-TYPE` (20)", "`PS-TYPE` (19)"),
         ),
     ),

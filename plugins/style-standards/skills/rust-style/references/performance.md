@@ -155,7 +155,7 @@ completely different. A debug measurement can rank two implementations in the op
 release.
 
 **Check:** was the measurement taken with `--release` and with the same `[profile.release]` settings
-that ship (RS-BUILD-41)?
+that ship (RS-BUILD-40)?
 
 ## Allocation
 
@@ -264,7 +264,7 @@ spill, and it complicates the types. It is a real win in the case a profile show
 pessimization otherwise.
 
 **Check:** is there a profile showing allocator time dominated by small, short-lived collections?
-Without one, the dependency is not earning its place (RS-BUILD-19).
+Without one, the dependency is not earning its place (RS-BUILD-18).
 
 ### RS-PERF-10 [S] Use an arena for arena-shaped workloads
 

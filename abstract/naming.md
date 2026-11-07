@@ -136,9 +136,9 @@ fixed a pair, it is copied.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-NAME-15 | realises | [M] | |
+| python-style | PS-NAME-13 | realises | [M] | |
 | rust-style | RS-NAME-34 | realises | [M] | |
-| zig-style | ZS-NAME-30 | realises | [M] | |
+| zig-style | ZS-NAME-26 | realises | [M] | |
 
 ### AS-NAME-10 [M] Give one concept one term, project-wide
 
@@ -148,9 +148,9 @@ that touches the concept.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-NAME-17 | realises | [M] | |
+| python-style | PS-NAME-15 | realises | [M] | |
 | rust-style | RS-NAME-25 | realises | [M] | |
-| zig-style | ZS-NAME-28 | realises | [M] | |
+| zig-style | ZS-NAME-24 | realises | [M] | |
 
 ## Layout
 
@@ -164,7 +164,7 @@ a project that picks another width reopens an argument the default closes.
 |---|---|---|---|---|
 | python-style | PS-NAME-11 | realises | [M] | |
 | rust-style | RS-NAME-35 | realises | [M] | |
-| zig-style | ZS-NAME-27 | realises | [M] | |
+| zig-style | ZS-NAME-23 | realises | [M] | |
 
 ### AS-NAME-12 [M] Let a trailing comma decide when a list explodes
 
@@ -177,4 +177,4 @@ element. Running the formatter in the build is the build chapter's.
 |---|---|---|---|---|
 | python-style | PS-NAME-12 | realises | [M] | |
 | rust-style | | absent | | rustfmt lays a list out by width alone and ignores a trailing comma, so the author holds no such lever |
-| zig-style | ZS-NAME-26 | realises | [M] | |
+| zig-style | ZS-NAME-22 | realises | [M] | |

@@ -330,7 +330,7 @@ saves per use by its uses, against its build cost.
 
 **Why:** a `proc-macro = true` crate can export nothing but macros, so it cannot hold your types.
 Splitting also lets users who do not want the derive turn it off and skip the compile cost
-(RS-BUILD-14).
+(RS-BUILD-13).
 
 **Check:** does a user depend on one crate, and can they disable the derive?
 

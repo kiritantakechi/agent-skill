@@ -139,7 +139,7 @@ Every `deprecated` row the rule column gives to RS-MIG-02: `Atomic*::fetch_updat
 
 ## When an API arrived
 
-The rules write what 1.99 offers. A crate whose MSRV is older (RS-BUILD-31) checks each API it uses
+The rules write what 1.99 offers. A crate whose MSRV is older (RS-BUILD-30) checks each API it uses
 against this table, which keeps the dates the rules no longer carry.
 
 | API | Stable since |

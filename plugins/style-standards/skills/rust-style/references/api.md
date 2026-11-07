@@ -526,7 +526,7 @@ type is checked once, at the boundary; one in prose is re-checked by every reade
 
 **Check:** read every public signature for two consecutive parameters of the same primitive type,
 and its doc comment for "must", "should be", "expects" and range notation; each such phrase is a
-type or a `# Panics` section you owe (RS-DOC-11). For the rest of the primitive-typed fields and
+type or a `# Panics` section you owe (RS-DOC-10). For the rest of the primitive-typed fields and
 parameters, is a different value of the same type nonsense here?
 
 ```rust
@@ -904,7 +904,7 @@ says *what will silently not happen*, which is the information they are missing.
 your crate for a mistake in theirs. `Vec::remove` and `slice` indexing both use it, which is why
 their panics are actionable.
 
-**Check:** for each documented panic (RS-DOC-11), does the message name the caller's line?
+**Check:** for each documented panic (RS-DOC-10), does the message name the caller's line?
 
 ## Standard trait implementations
 
@@ -1120,7 +1120,7 @@ And derive with `#[serde(deny_unknown_fields)]` for config types.
 
 **Why:** `serde` and `serde_derive` are a substantial compile-time cost for users who do not
 serialize, and `deny_unknown_fields` turns a silently-ignored typo in a config file into an error
-the user can act on (RS-BUILD-14).
+the user can act on (RS-BUILD-13).
 
 **Check:** is `serde` in `[dependencies]` without `optional = true`? Does a misspelled config key
 produce an error or a silent default?
@@ -1348,7 +1348,7 @@ defaulted method to a sealed trait.
 break shipped as a minor version fails every downstream build that trusted the version number.
 
 **Check:** before tagging, classify every change in the diff. If you are unsure,
-`cargo semver-checks` is the answer (RS-BUILD-32).
+`cargo semver-checks` is the answer (RS-BUILD-31).
 
 ```rust
 // verified
@@ -1389,7 +1389,7 @@ ecosystem splits across majors whose types do not interoperate. Batching the nec
 that cost once instead of three times, as `regex` and `rand` do.
 
 **Check:** does the release contain exactly one breaking change that could have waited? Is there a
-migration section in the changelog (RS-BUILD-11)?
+migration section in the changelog (RS-DOC-27)?
 
 ## Symmetry of the public surface
 

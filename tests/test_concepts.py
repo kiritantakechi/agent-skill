@@ -47,7 +47,7 @@ def test_two_standards_neither_of_which_is_rust_style_are_compared(
         (str(rule.id), str(other.id))
         for _, rule, _, other in look_alikes(abstract_of(tree), tree)
     }
-    assert ("PS-NAME-16", "ZS-NAME-31") in noted
+    assert ("PS-NAME-14", "ZS-NAME-27") in noted
 
 
 def test_an_entry_holding_two_rules_takes_their_pair_out_of_the_notes(
@@ -60,18 +60,18 @@ def test_an_entry_holding_two_rules_takes_their_pair_out_of_the_notes(
         "# Naming\n\nScope: s.\n\n## Contents\n\n- AS-NAME-01 [M] Pair names\n\n---\n\n"
         "## Pairs\n\n### AS-NAME-01 [M] Pair names\n\nSaid.\n\n"
         "| Standard | Rule | Relation | Tier | Reason |\n|---|---|---|---|---|\n"
-        "| python-style | PS-NAME-15 | realises | [M] | |\n"
+        "| python-style | PS-NAME-13 | realises | [M] | |\n"
         "| rust-style | RS-NAME-34 | realises | [M] | |\n"
-        "| zig-style | ZS-NAME-30 | realises | [M] | |\n"
+        "| zig-style | ZS-NAME-26 | realises | [M] | |\n"
     )
     tree = Tree.of(discover(scratch))
     noted = {
         frozenset((str(rule.id), str(other.id)))
         for _, rule, _, other in look_alikes(abstract_of(tree), tree)
     }
-    assert frozenset(("PS-NAME-15", "ZS-NAME-30")) not in noted
-    assert frozenset(("RS-NAME-34", "ZS-NAME-30")) not in noted
-    assert frozenset(("PS-NAME-16", "ZS-NAME-31")) in noted
+    assert frozenset(("PS-NAME-13", "ZS-NAME-26")) not in noted
+    assert frozenset(("RS-NAME-34", "ZS-NAME-26")) not in noted
+    assert frozenset(("PS-NAME-14", "ZS-NAME-27")) in noted
 
 
 def test_a_delta_rule_its_departures_relate_to_an_anchor_rule_is_held(
