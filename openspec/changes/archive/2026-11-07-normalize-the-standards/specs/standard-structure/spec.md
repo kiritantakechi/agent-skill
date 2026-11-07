@@ -43,6 +43,21 @@ chapter that owns its subject; a row for a lint that is on by default SHALL say 
 - **WHEN** a rule's Check consists of nothing but a lint code the configuration enables
 - **THEN** the run fails: the rule is that row
 
+### Requirement: Rule family codes come from one table
+
+Every rule's family code SHALL be the code the shared table assigns to the chapter that holds it.
+The same concept SHALL carry the same code in every standard.
+
+#### Scenario: A rule's code does not match its chapter
+
+- **WHEN** a rule in `testing.md` carries a code other than the one the table assigns to `testing`
+- **THEN** the run fails, naming the rule and the expected code
+
+#### Scenario: Two standards abbreviate one concept differently
+
+- **WHEN** the same concept would be `TST` in one standard and `TEST` in another
+- **THEN** that cannot occur, because both read the code from one table
+
 ## ADDED Requirements
 
 ### Requirement: A chapter has one template
