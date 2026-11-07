@@ -149,9 +149,10 @@ comptime {
 ### ZS-DATA-03 [M!] Give bounded domain quantities a width that encodes the bound
 
 A replica id, an opcode, a slot number, a nesting depth — anything with a real domain limit — gets
-the narrowest type that expresses the limit, not `usize` and not a reflex `u32`. *Relaxed form:*
-keep the reflex `u32`, but the limit gets a named `const` and every value entering the field is
-asserted against it, so the bound still exists in one named place.
+the narrowest type that expresses the limit, not `usize` and not a reflex `u32`.
+
+*Relaxed form:* keep the reflex `u32`, but the limit gets a named `const` and every value entering
+the field is asserted against it, so the bound still exists in one named place.
 
 **Why:** the type becomes the invariant. `replica: u3` with `replica_count_max = 6` makes an
 out-of-range replica id unrepresentable rather than merely unlikely, and `std.math.IntFittingRange`
@@ -244,14 +245,16 @@ silently. `@divExact` is safety-checked: a nonzero remainder panics with
 `exact division produced remainder`. `@divCeil`, new in 0.17, is checked the same way (a zero
 denominator panics with `division by zero`); where a zero denominator is an operating condition
 rather than a bug, use `std.math.divCeil`, which returns `error{DivisionByZero, Overflow}!T`.
+TigerStyle's `div_ceil` helper (their own `stdx`) is `@divCeil` here; do not reimplement it.
 
 **Why:** floor and truncation disagree on negatives, and an unexpected remainder is a silent
 rounding bug. A named builtin states which rounding was meant, and `@divExact` turns a wrong
 assumption about the remainder into a crash at the line that made it.
 
-**Check:** grep a diff for `/ ` and `%` on integer operands, and for the hand-rolled ceil idiom
-`(x + k - 1) / k`. Each hit must be either an unsigned truncation whose remainder is provably
-irrelevant, or replaced by a named builtin.
+**Check:** `rg -n '\+ (\w+ - 1|\d+)\) / ' -g '*.zig'` finds the hand-rolled ceil idiom,
+`(x + k - 1) / k` or `(x + 4095) / 4096`; each hit is the finding, and `@divCeil` its replacement.
+Every other `/` and `%` on integer operands in a diff is read: an unsigned truncation whose
+remainder is provably irrelevant, or a named builtin.
 
 ```zig
 // fragment — BAD
@@ -284,9 +287,6 @@ test "signed division and remainder are two independent choices" {
     try std.testing.expectEqual(1, @mod(a, b)); // ...with the remainder signed like `b`.
 }
 ```
-
-> TigerStyle calls this helper `div_ceil` (their own `stdx`). On 0.17 use the `@divCeil` builtin, or
-> `std.math.divCeil` where a zero denominator is an operating error; do not reimplement it.
 
 ### ZS-DATA-07 [M] Let integer overflow trap; never reach for `+%` to silence a panic
 
@@ -359,6 +359,10 @@ fn boostLevel(level: u8, amount: u8) u8 {
   `@intFromEnum` are their deprecated spellings, and `zig fmt` rewrites them to these.
 - `@ptrCast` / `@alignCast` — pointers only, and each needs its own justification.
 
+0.17 accepts `@truncate` to a *wider* type, though the langref describes its result as "a smaller or
+same-sized integer type": do not rely on the compiler to catch a mis-widened `@truncate`, and widen
+with `@intCast`.
+
 **Why:** all four are one token long and all four compile in the same slot, so the choice carries
 the entire signal about what the programmer believes. `@truncate` where `@intCast` was meant is the
 classic silent-corruption bug: it turns `300` into `44` with no diagnostic in any build mode.
@@ -393,10 +397,6 @@ test "cast intent" {
 }
 ```
 
-> Note: 0.17.0 accepts `@truncate` to a *wider* type even though the langref describes it as
-> "resulting in a smaller or same-sized integer type". Do not rely on the compiler to catch a
-> mis-widened `@truncate`; use `@intCast` when widening.
-
 ### ZS-DATA-10 [M] Use the checked `std.math` helpers where a bad value is an operating error
 
 At a trust boundary — parsed input, network frames, on-disk headers, FFI returns — an out-of-range
@@ -404,6 +404,9 @@ value is *expected*, not a bug. Use `std.math.cast(T, x) ?T`, `std.math.add/sub/
 (`error{Overflow}!T`), and `std.math.div*` so the failure becomes an error you handle, not a panic.
 This is TigerStyle's line between assertions, which detect programmer errors (ZS-DATA-07,
 ZS-DATA-09), and operating errors, which must be handled.
+
+Text is parsed with `std.fmt.parseInt` into the narrowest type the field admits, which is the range
+check (ZS-OUT-14).
 
 **Why:** `@intCast` and `+` panic, which is right for a programmer error and wrong for adversarial
 input: a peer sending a 5-byte length field must not be able to abort your process.
@@ -428,9 +431,6 @@ test "checked arithmetic and conversion at the boundary" {
     try std.testing.expectError(error.Overflow, payloadSizeBytes(0x8000_0000, 4)); // overflows u32
 }
 ```
-
-Text is parsed with `std.fmt.parseInt` into the narrowest type the field admits, which is the range
-check (ZS-OUT-14).
 
 ### ZS-DATA-11 [M] Convert float to int with `@trunc`/`@round`, after a range check
 
@@ -467,8 +467,6 @@ fn ticksFromSeconds(seconds: f64) ?i32 {
 }
 ```
 
----
-
 ## Struct construction and initialization
 
 ### ZS-DATA-12 [M] Write `const x: T = .{ ... }`, not `const x = T{ ... }`
@@ -484,9 +482,9 @@ because the result *type* is what makes the leading dot resolve.
 **Why:** `const x: T = .{ ... }` desugars to writing each field directly into `x`'s storage, while
 `const x = T{ ... }` may build a temporary and copy it.
 
-**Check:** grep the diff for `= [A-Z][A-Za-z0-9_.]*{` — a `TitleCase` name immediately followed by a
-brace on the right of an assignment. Every hit should become an annotated declaration plus
-`.{ ... }` or a decl literal.
+**Check:** `rg -n '= [A-Z][A-Za-z0-9_.]*\{' -g '*.zig'` finds a `TitleCase` name immediately
+followed by a brace on the right of an assignment; each hit is the finding, and becomes an annotated
+declaration plus `.{ ... }` or a decl literal.
 
 ```zig
 // verified — GOOD
@@ -517,6 +515,10 @@ test "decl literals" {
 `std.array_list.Managed(T)`, marked `/// Deprecated.` The allocator is passed per call (ZS-MEM-05),
 and `std.ArrayList(T).init(gpa)` does not compile.
 
+Other decl literals in std: `std.MultiArrayList(T) = .empty`,
+`std.StringHashMapUnmanaged(V) = .empty`, `std.Deque(T) = .empty`, `std.EnumSet(E) = .empty` /
+`.full` (there is no `.initEmpty()` or `.initFull()`), and `std.mem.Alignment = .fromByteUnits(n)`.
+
 **Why:** `.empty` is a `pub const empty: Self` in `array_list.zig`, so it costs nothing at runtime
 and works in a struct field default. Keeping the allocator out also lets the container sit in a
 `packed`/`extern`-adjacent struct, be memcpy'd, and be stored in a `MultiArrayList`.
@@ -537,10 +539,6 @@ test "arraylist decl literal" {
     try std.testing.expectEqualSlices(u32, &.{ 1, 2, 3 }, list.items);
 }
 ```
-
-Other decl literals in std: `std.MultiArrayList(T) = .empty`,
-`std.StringHashMapUnmanaged(V) = .empty`, `std.Deque(T) = .empty`, `std.EnumSet(E) = .empty` /
-`.full` (there is no `.initEmpty()` or `.initFull()`), and `std.mem.Alignment = .fromByteUnits(n)`.
 
 ### ZS-DATA-14 [M] Give every allocating type a paired `init`/`deinit` with a matching signature
 
@@ -665,14 +663,16 @@ test "in-place init" {
 ### ZS-DATA-17 [M!] In-place initialization is viral — propagate it to every containing struct
 
 If any field of `T` must be initialized in place, `T` itself gets an out-pointer `init`, and so does
-anything that embeds a `T` by value. The trigger is ZS-DATA-16's. *Relaxed form:* ZS-DATA-16's.
+anything that embeds a `T` by value. The trigger is ZS-DATA-16's.
+
+*Relaxed form:* ZS-DATA-16's.
 
 **Why:** an out-pointer `init` on the inner type buys nothing if the outer type is still constructed
 by value and copied: the inner object's self-pointer would point at the outer temporary.
 
-**Check:** for every type that has an out-pointer `init`, grep for its name used as a field type.
-Each struct that embeds it by value must also have an out-pointer `init`; one that still has a
-value-returning `init` is the break in the chain, and it is the containing struct that is wrong.
+**Check:** for every type that has an out-pointer `init`, each struct that embeds it by value as a
+field must also have an out-pointer `init`; one that still has a value-returning `init` is the break
+in the chain, and it is the containing struct that is wrong.
 
 ```zig
 // fragment — GOOD: `Engine` here is the out-pointer version from ZS-DATA-16
@@ -728,8 +728,6 @@ fn quorum(config: *const Config) u8 {
     return @divFloor(config.replica_count, 2) + 1;
 }
 ```
-
----
 
 ## Memory layout
 
@@ -939,7 +937,7 @@ test "fixed-capacity list" {
 ```
 
 ```zig
-// verified — GOOD: intrusive list, pointer-stable
+// verified — an intrusive list: stable addresses
 const std = @import("std");
 const Job = struct {
     node: std.DoublyLinkedList.Node = .{},
@@ -988,8 +986,6 @@ const Cache = struct {
     }
 };
 ```
-
----
 
 ## Modeling with enums, unions, and optionals
 
@@ -1223,8 +1219,6 @@ fn openPath(gpa: std.mem.Allocator, path: []const u8) !c_int {
 }
 ```
 
----
-
 ## Text: UTF-8, WTF-8, and ASCII
 
 ZS-DATA-29 settles the *slice* question for strings. These four rules settle the *encoding*
@@ -1249,17 +1243,16 @@ There are *three* units, not two:
 
 Name the variable for its unit — `size_bytes`, `codepoint_count`, `byte_index` — per ZS-DATA-04.
 
+`std.unicode.utf8Decode` and `std.unicode.wtf8Decode` are both marked "Deprecated. This function has
+an awkward API that is too easy to use incorrectly" — they take a `[]const u8` whose length they
+*assert* rather than check, so a caller who guesses the length wrong gets `unreachable`. Replace
+them with the iterator, or, when you already hold a fixed-size array, with the checked `utf8Decode2`
+/ `utf8Decode3` / `utf8Decode4` (and `utf8Decode3AllowSurrogateHalf` for WTF-8), whose parameter
+types are `[2]u8` / `[3]u8` / `[4]u8` and therefore cannot be given a wrong length.
+
 **Why:** this is ZS-DATA-04's index/count/size confusion applied to text, and the name is the only
 guard rail, because `usize` is `usize`. Slicing at a byte offset the iterator did not give you
 splits a codepoint in half and yields bytes that are not UTF-8.
-
-**Deprecated:** `std.unicode.utf8Decode` and `std.unicode.wtf8Decode` are both marked "Deprecated.
-This function has an awkward API that is too easy to use incorrectly" — they take a `[]const u8`
-whose length they *assert* rather than check, so a caller who guesses the length wrong gets
-`unreachable`. Replace them with the iterator, or, when you already hold a fixed-size array, with
-the checked `utf8Decode2` / `utf8Decode3` / `utf8Decode4` (and `utf8Decode3AllowSurrogateHalf` for
-WTF-8), whose parameter types are `[2]u8` / `[3]u8` / `[4]u8` and therefore cannot be given a wrong
-length.
 
 **Check:** in a diff, flag `utf8Decode(` and `wtf8Decode(` (deprecated), any `[i]` or `[a..b]` on a
 string where the bound did not come from an iterator, and any variable named `len`/`count` holding a
@@ -1353,8 +1346,6 @@ test "ascii case mapping silently ignores non-ascii" {
 }
 ```
 
----
-
 ## Arithmetic and type-system rules with silent-wrong-code potential
 
 The migration table holds every spelling that changed. The two rules below cover only the entries
@@ -1421,10 +1412,10 @@ compiles* means, one is a cast that can lose a bound, and two turn latent bugs i
 is a cast that compiles and can lose a bound; items 4 and 5 turn latent bugs into diagnostics, which
 is worth knowing so the diagnostic is not "fixed" by casting around it.
 
-**Check:** five greps, one per item — `@ptrCast` whose destination is a slice type; `@"comptime"`
-used to filter fields; `std.meta.eql`, `switch`, or `==` over `type` values where alignment could
-differ; a non-scalar sentinel in an array type; and `@memcpy` on two ranges derived from the same
-backing buffer.
+**Check:** five questions, one per item — a `@ptrCast` whose destination is a slice type;
+`@"comptime"` used to filter fields; `std.meta.eql`, `switch`, or `==` over `type` values where
+alignment could differ; a non-scalar sentinel in an array type; and `@memcpy` on two ranges derived
+from the same backing buffer.
 
 ```zig
 // verified — GOOD
@@ -1445,8 +1436,6 @@ test "pointer and builtin rules" {
     comptime assert(!@typeInfo(@TypeOf(tuple)).@"struct".field_attrs[0].@"comptime");
 }
 ```
-
----
 
 ## Serialization
 

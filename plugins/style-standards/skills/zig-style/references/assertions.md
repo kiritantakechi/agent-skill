@@ -106,7 +106,10 @@ consequences follow, and conflating them is the usual mistake:
 
 TigerStyle's claim that assertions downgrade correctness bugs into liveness bugs therefore holds
 only in `debug` and `safe`; in `fast` a violated assertion *upgrades* a correctness bug into
-arbitrary miscompilation.
+arbitrary miscompilation. Called with `sink == 0`, the first example's `classify` panics under
+`-O safe` with `reached unreachable code` in `std.debug.assert`, exit 134, the stack trace pointing
+at the violated assertion; under `-O fast` it gives no diagnostic of any kind and dies on a trap
+instruction, SIGTRAP, exit 133 — the branch that would have returned `"zero"` is gone.
 
 So keep the condition pure and cheap: hoist a side effect into a statement of its own, and gate an
 expensive condition behind `verify` (ZS-ASSERT-16). The optimizer is entitled to treat the result as
@@ -123,7 +126,7 @@ an assignment, or a call whose name starts with a mutating verb; one containing 
 document claiming the assert "is compiled out" or "costs nothing in release".
 
 ```zig
-// verified — BAD
+// verified
 const std = @import("std");
 const assert = std.debug.assert;
 var sink: u32 = 0;
@@ -134,13 +137,6 @@ noinline fn classify(x: u32) []const u8 {
     return "nonzero";
 }
 ```
-
-Calling `classify(sink)` with `sink == 0` on Zig 0.17.0, observed:
-
-- `-O safe`: `thread N panic: reached unreachable code` in `std.debug.assert`, exit 134 — the stack
-  trace points straight at the violated assertion.
-- `-O fast`: no diagnostic of any kind. The process dies on a trap instruction, SIGTRAP, exit 133 —
-  the branch that would have returned `"zero"` was gone.
 
 ```zig
 // fragment — BAD
@@ -227,7 +223,8 @@ pub fn assertAlways(ok: bool, comptime message: []const u8) void {
 
 Never reach for `fast` whole-binary to speed up one loop. Keep the build `safe` and disable safety
 in the smallest scope that contains the hot arithmetic, with a comment proving the check is
-redundant.
+redundant. `@optimizeFor`, which the langref names as `@setRuntimeSafety`'s planned replacement, is
+no 0.17 builtin: it is `error: invalid builtin function: '@optimizeFor'`.
 
 **Why:** `@setRuntimeSafety` sets safety for the scope containing the call and is overridable at any
 nested scope, so the blast radius is exactly what you write — whereas `fast`'s blast radius is every
@@ -253,10 +250,6 @@ fn sumUnchecked(values: []const u8) u32 {
 }
 ```
 
-> [!NOTE] The 0.17.0 langref states that `@setRuntimeSafety` is *planned* to be replaced by
-> `@optimizeFor`. `@optimizeFor` does not exist in 0.17.0: it is
-> `error: invalid builtin function: '@optimizeFor'`.
-
 ### ZS-ASSERT-06 [M] In doc comments, "assert" means safety-checked and "assume" means unchecked
 
 The langref style guide makes this a lexical rule: use the word **assert** to describe an invariant
@@ -267,9 +260,9 @@ unchecked illegal behavior. Never swap them.
 "assumes" knows there is nothing to test and that they own the proof. Swapping the words hides which
 side of the memory-safety line a function sits on.
 
-**Check:** grep `///` lines for `ssert` and `ssume`, then match each against the body. "Asserts"
-with no `assert(`, no safety-checked index, and no checked cast in the body is a lie; "assumes"
-above a body that does check is merely stale, and both mislead in the same direction.
+**Check:** read each doc comment that says "asserts" or "assumes" against the body below it.
+"Asserts" with no `assert(`, no safety-checked index, and no checked cast in the body is a lie;
+"assumes" above a body that does check is merely stale, and both mislead in the same direction.
 
 ```zig
 // fragment — GOOD
@@ -279,8 +272,6 @@ pub fn get(ring: *const Ring, index: u32) u8 { ... }
 /// Assumes `bytes` is aligned to `@alignOf(Header)`; misalignment is unchecked.
 pub fn headerCast(bytes: []align(@alignOf(Header)) const u8) *const Header { ... }
 ```
-
----
 
 ## Part 2 — Where the assertions go
 
@@ -322,6 +313,11 @@ control plane runs well above that floor: at its commit 97c7a8e, `rg -c 'assert\
 `rg -c '^[ \t]*(pub )?fn '` gives `src/vsr/replica.zig` 5.90 per function (1582/268, one per 7.8
 lines), `src/vsr/journal.zig` 4.15 and `src/state_machine.zig` 3.87.
 
+std is far sparser than two per function, and deliberately so — it prefers error unions and
+documented illegal behavior at public boundaries. Do not "fix" std-style code by sprinkling asserts
+into public API entry points where the input is untrusted (ZS-ERR-01); add them to the internal
+helpers where the input is your own.
+
 *Relaxed form:* in ordinary application code the honest rule is: **every function whose contract is
 not already enforced by its parameter types asserts that contract, and every function that computes
 a value with a checkable property asserts it.** A pure function from `Color` to `[]const u8` needs
@@ -334,11 +330,6 @@ I actually know here?" on every function rather than only the scary ones.
 **Check:** ratio of `rg -c '\bassert\('` to `rg -c '^[ \t]*(pub )?fn '` over the module. Per diff,
 the finding is any added function that takes a relationship between two parameters — an `offset` and
 a `len`, an index and a count, two slices that must be the same length — and asserts none of it.
-
-> Honest divergence: std is far sparser than two per function and deliberately so — it prefers error
-> unions and documented illegal behavior at public boundaries. Do not "fix" std-style code by
-> sprinkling asserts into public API entry points where the input is untrusted (ZS-ERR-01); add them
-> to the internal helpers where the input is your own.
 
 ### ZS-ASSERT-09 [M] Split compound assertions
 
@@ -406,7 +397,7 @@ the function reads without either asserting or `maybe`-ing it. A module whose di
 never `maybe` is the aggregate smell.
 
 ```zig
-// verified — GOOD
+// verified
 /// The dual of `assert`: this condition is sometimes true and sometimes false
 /// here. Documents the negative space; compiles to nothing.
 const std = @import("std");
@@ -485,7 +476,8 @@ Collect the type's whole-object invariants in one private function taking `*cons
 mutator opens with `x.assertInvariants(); defer x.assertInvariants();`. TigerBeetle's
 `src/vsr/repair_budget.zig` uses this shape 19 times in 464 lines (tigerbeetle 97c7a8e — spelled
 `assert_invariants` there, TigerBeetle's snake_case function convention; this standard follows std's
-`camelCase` for callables, ZS-NAME-01).
+`camelCase` for callables, ZS-NAME-01). State the same invariants in prose in the type's doc comment
+as well, as the second example does — prose alone rots, code alone is unreadable.
 
 **Why:** `defer` runs on *every* exit path, including early returns and error returns, so one line
 covers exits you have not written yet. The invariant also gets a single home: adding a field means
@@ -522,11 +514,8 @@ const RepairBudget = struct {
 };
 ```
 
-State the same invariant in prose in the type's doc comment as well as in code — prose alone rots,
-code alone is unreadable:
-
 ```zig
-// fragment — GOOD
+// fragment
 /// Invariant: suspend_size <= process_size <= advance_size <= receive_size.
 pub const MessageBuffer = struct { ... };
 ```
@@ -537,13 +526,20 @@ Every structure written to disk or sent over a wire is checked by an assertion r
 written and again right after it is read back: two *different* code paths for one property, since
 its stored bytes outlive the process and a silent encoding bug becomes permanent corruption.
 
+Note that pairing a property does **not** mean pairing the *mechanism*. The write path owns bytes
+this process just built, so it asserts; the read path owns bytes a peer chose, so it validates and
+returns an error (ZS-ERR-01). Asserting on the read path would turn every corrupt or hostile frame
+into a remote panic — and in `fast` into an optimizer assumption that deletes the very bounds check
+a later `connections[header.replica_index]` depends on. Same predicates, two mechanisms, chosen by
+who controls the bytes.
+
 **Why:** a write-path assertion proves only that the *in-memory* value was sane, not the encoder,
 the padding, the storage layer or bit rot. The read side checks a different byte sequence, so it
 catches every bug between the two, and when only one of the pair fires, the failure is localized.
 
 **Check:** a `*Validate` or `*Verify` helper called from exactly one of an encode/decode,
-serialize/deserialize, or write/read pair. Grep the callers of the validator: one call site means
-half the property is unchecked.
+serialize/deserialize, or write/read pair: a validator with one caller leaves half the property
+unchecked.
 
 ```zig
 // fragment — GOOD
@@ -592,16 +588,6 @@ fn readBlock(source: []const u8) HeaderInvalid!Header {
 }
 ```
 
-Note that pairing a property does **not** mean pairing the *mechanism*. The write path owns bytes
-this process just built, so it asserts; the read path owns bytes a peer chose, so it validates and
-returns an error (ZS-ERR-01). Asserting on the read path would turn every corrupt or hostile frame
-into a remote panic — and in `fast` into an optimizer assumption that deletes the very bounds check
-a later `connections[header.replica_index]` depends on. Same predicates, two mechanisms, chosen by
-who controls the bytes.
-
-The same idea inside one function: assert the structural invariant at both ends, so a bug in the
-middle is bracketed rather than merely detected somewhere downstream.
-
 ### ZS-ASSERT-16 [M] Assert unconditionally when O(1), and gate an O(N) check of O(1) work behind `verify`
 
 Two tiers. In the control plane — anything batched, where per-operation overhead is amortized —
@@ -623,7 +609,7 @@ weaker at finding the very bug the check was written for.
 preceded by `if (verify)` on the same line.
 
 ```zig
-// verified — GOOD
+// verified
 /// Expensive O(N) checks are compiled only when `verify` is true.
 const builtin = @import("builtin");
 pub const verify = builtin.optimize.runtimeSafety();
@@ -638,14 +624,26 @@ pub fn push(queue: *Queue, link: *Link) void {
 }
 ```
 
----
-
 ## Part 3 — Compile-time contracts
 
 ### ZS-ASSERT-17 [M] Assert the relationships between compile-time constants in a `comptime` block
 
 Every derived or co-dependent constant gets a `comptime {}` block stating the relationship that must
 hold.
+
+You **may** also assert a fact that is blatantly true today, where a comment would be weaker:
+`assert(KiB == 1024)` cannot drift the way `// KiB is 1024` can, and it is free. The permission is
+not limited to constants: any load-bearing fact that is obvious *today* is better asserted than
+commented, at runtime too, because the assertion cannot go out of date. It is a permission, not an
+obligation. This deliberately contradicts NASA's Power of Ten rule 5, which forbids assertions a
+static checker can prove always hold; TigerStyle overrides that because the value here is
+communicative and drift-proofing, not detection. Reserve it for load-bearing facts — an
+`assert(true)` next to trivia is noise.
+
+Be aware of the diagnostic quality: a failing `comptime assert` reports
+`error: reached unreachable code` inside `std.debug.assert` with a `note: called at comptime here`
+pointing at your line. You get the location but not the reason — which is why caller-facing
+contracts use `@compileError` instead (ZS-COMPTIME-07).
 
 **Why:** a comptime assertion is free, and it is the one kind that is **always on in every optimize
 mode**, because it never reaches codegen. It also fails the build on the edit that breaks the
@@ -664,20 +662,6 @@ comptime {
     assert(connection_count_max > 0);
 }
 ```
-
-You **may** also assert a fact that is blatantly true today, where a comment would be weaker:
-`assert(KiB == 1024)` cannot drift the way `// KiB is 1024` can, and it is free. The permission is
-not limited to constants: any load-bearing fact that is obvious *today* is better asserted than
-commented, at runtime too, because the assertion cannot go out of date. It is a permission, not an
-obligation. This deliberately contradicts NASA's Power of Ten rule 5, which forbids assertions a
-static checker can prove always hold; TigerStyle overrides that because the value here is
-communicative and drift-proofing, not detection. Reserve it for load-bearing facts — an
-`assert(true)` next to trivia is noise.
-
-Be aware of the diagnostic quality: a failing `comptime assert` reports
-`error: reached unreachable code` inside `std.debug.assert` with a `note: called at comptime here`
-pointing at your line. You get the location but not the reason — which is why caller-facing
-contracts use `@compileError` instead (ZS-COMPTIME-07).
 
 ### ZS-ASSERT-18 [M] Give every wire, disk, C-ABI, and comptime-built type a layout `comptime` block
 
@@ -1034,7 +1018,12 @@ Every fuzz target is paired with the assertions or the model oracle that give it
 come first: assertions written *after* the code tend to restate what it does rather than what it
 must do, a tautology that catches nothing. TigerStyle's order — mental model, then assertions, then
 code, then the fuzzer — is the process form of the same claim, offered as advice. Writing the target
-itself, `std.testing.fuzz` over a `*std.testing.Smith`, is ZS-TEST-18.
+itself, `std.testing.fuzz` over a `*std.testing.Smith`, is ZS-TEST-19.
+
+In the example, the signal comes entirely from the assertions `messageParse` (ZS-ERR-01) and
+`readBlock` (ZS-ASSERT-15) make once their guards have passed — remove them and this target proves
+nothing. Note also that fuzz builds must have assertions enabled: run them in `debug` or `safe`, and
+make `verify` true (ZS-ASSERT-16).
 
 **Why:** coverage-guided input generation explores paths; assertions are what convert an explored
 path into a signal. A fuzz target over a parser with no postconditions tests only that the parser
@@ -1058,8 +1047,3 @@ fn fuzzOne(context: void, smith: *std.testing.Smith) !void {
     }
 }
 ```
-
-The signal here comes entirely from the assertions `messageParse` (ZS-ERR-01) and `readBlock`
-(ZS-ASSERT-15) make once their guards have passed — remove them and this target proves nothing. Note
-also that fuzz builds must have assertions enabled: run them in `debug` or `safe`, and make `verify`
-true (ZS-ASSERT-16).

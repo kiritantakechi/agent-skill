@@ -10,7 +10,7 @@ the build chapter.
 
 Two sources are merged here: the **official Zig style guide** (langref 0.17.0 §Style Guide, quoted
 verbatim where it is normative) and **TigerStyle** (TigerBeetle's house standard). Where they
-disagree, the disagreement is stated outright in the rule, with a recommendation keyed to the tier.
+disagree, the disagreement is stated outright in the rule, with the side this standard takes.
 
 Unless a block shows its own imports, it assumes the preamble this chapter prescribes in ZS-NAME-16:
 `const std = @import("std");` and `const assert = std.debug.assert;`. Where a snippet's file name
@@ -68,18 +68,18 @@ every other callable. `snake_case` for everything else, including 0-field struct
 namespaces. The langref is explicit: "If `x` is a struct with 0 fields and is never meant to be
 instantiated then `x` is considered to be a 'namespace' and should be `snake_case`."
 
-> TigerStyle conflicts here: N2 mandates `snake_case` for **function** names too (`read_sector`, not
-> `readSector`). TigerBeetle is internally consistent about it and it works for them, but any call
-> into std in the same expression is `camelCase`, so a mixed-case expression is unavoidable.
-> **Recommendation: use `camelCase` functions ([M]).** Uniform `snake_case` functions are defensible
-> only in a closed codebase with zero public API surface, and only if enforced mechanically.
+TigerStyle conflicts here: N2 mandates `snake_case` for **function** names too (`read_sector`, not
+`readSector`). TigerBeetle is internally consistent about it, but any call into std in the same
+expression is `camelCase`, so a mixed-case expression is unavoidable: functions are `camelCase`.
+Uniform `snake_case` functions are defensible only in a closed codebase with zero public API
+surface, and only if enforced mechanically.
 
 **Why:** these are the rules the compiler's own diagnostics, `std`, and every published package
 follow, so casing carries information: seeing `foo.Bar` you know `Bar` is a type without looking it
 up, and seeing `foo.bar()` you know `bar` returns a value. Mixed conventions destroy that signal.
 
-**Check:** three greps over the diff. A `fn` whose name starts with a capital and whose return type
-is not `type`; a `const`/`var` bound to a non-type value in `TitleCase`; a `fn` name containing `_`
+**Check:** three shapes in a diff. A `fn` whose name starts with a capital and whose return type is
+not `type`; a `const`/`var` bound to a non-type value in `TitleCase`; a `fn` name containing `_`
 that is not an `export fn`/`extern fn` C-ABI symbol. A 0-field struct declared as
 `const Foo = struct {` and never instantiated is the fourth case — it should be `snake_case`.
 
@@ -119,16 +119,16 @@ Even acronyms that are only 2 letters long are subject to these conventions." AL
 in std exist essentially only as C-ABI or on-disk-format mirrors (`os/windows*`, `c/*`, `elf.zig`,
 `dwarf/TAG.zig`) — the "established convention such as `ENOENT`" carve-out.
 
-> TigerStyle conflicts head-on: "Use proper capitalization for acronyms (`VSRState`, not
-> `VsrState`)." **Recommendation: langref form ([M]).** Use ALL-CAPS only for identifiers that
-> mirror a foreign symbol byte-for-byte.
+TigerStyle conflicts head-on: "Use proper capitalization for acronyms (`VSRState`, not `VsrState`)."
+This standard takes the langref's form, and ALL-CAPS only for an identifier that mirrors a foreign
+symbol byte-for-byte.
 
 **Why:** an acronym is a word like any other, and casing it as one keeps word boundaries decodable:
 `HTTPSProxy` has no readable split; `HttpsProxy` does.
 
-**Check:** grep new identifiers for two or more consecutive capitals — `[A-Z]{2}`. Every hit must
-mirror a foreign symbol byte-for-byte (a C `#define`, an ELF/DWARF tag, an on-disk constant);
-anything else is a casing violation, including a two-letter one like `IOUring`.
+**Check:** a new identifier with two or more consecutive capitals. Every one must mirror a foreign
+symbol byte-for-byte (a C `#define`, an ELF/DWARF tag, an on-disk constant); anything else is a
+casing violation, including a two-letter one like `IOUring`.
 
 ```zig
 // fragment — BAD
@@ -210,8 +210,8 @@ inner scopes."
 every future reader a guess, `receive_buffer_size_bytes` costs the author six seconds. The
 exceptions survive because they are *public* dictionaries a reader has already learned.
 
-**Check:** grep a diff for new identifiers that drop vowels or truncate a word (`cfg`, `msg`, `buf`,
-`cnt`, `sz`, `src`, `dst`, `len_`); each must be on the list above or be spelled out.
+**Check:** a new identifier in a diff that drops vowels or truncates a word (`cfg`, `msg`, `buf`,
+`cnt`, `sz`, `src`, `dst`, `len_`) is on the list above, or is spelled out.
 
 ```zig
 // fragment — BAD
@@ -250,7 +250,7 @@ name.
 **Why:** langref, verbatim: "Everything is a value, all types are data, everything is context, all
 logic manages state. Nothing is communicated by using a word that applies to all types."
 
-**Check:** grep new type names for `Value`, `Data`, `Context`, `Manager`, `State`, `utils`, and
+**Check:** a new type name containing `Value`, `Data`, `Context`, `Manager`, `State`, `utils`, or
 `misc`. Then read each new declaration name beside its own file name: a repeated segment
 (`json.JsonValue`, `wire.WireHeader`, `http.HttpClient`) is the other half of this rule, and the fix
 is to delete the segment, not to rename the file.
@@ -341,12 +341,12 @@ try queue.add(item, .{ .retry_count = 3 });
 `readSector` calls `readSectorFill` and `readSectorVerify`.
 
 **Why:** TigerStyle. The prefix encodes the call graph in the identifier: a reader landing on
-`readSectorFill` from a stack trace or a grep knows its one caller, and a `readSector*` grep
+`readSectorFill` from a stack trace or a search knows its one caller, and a search for `readSector`
 enumerates the subsystem. Reusing the helper elsewhere would require renaming it.
 
-**Check:** for each new non-`pub` helper, grep its single caller's name as a prefix. If the helper's
-name does not appear in those results, it is misnamed. A helper with two callers that share no name
-prefix is the second finding — it is no longer a helper and should be named for what it does.
+**Check:** each new non-`pub` helper's name begins with its single caller's name, or it is misnamed.
+A helper with two callers that share no name prefix is the second finding — it is no longer a helper
+and should be named for what it does.
 
 ```zig
 // verified
@@ -363,8 +363,20 @@ fn readSectorFill(buffer: []u8, index: u32) void {
 
 TigerStyle states the hard form: a function taking two `u64` **must** use an options struct. Extend
 it to any pair of same-typed parameters a caller could transpose, and to any parameter whose `null`
-would be unreadable at the call site. std does this at scale: 158 `pub const …Options = struct`
-declarations, 449 parameters typed `…Options`.
+would be unreadable at the call site. std does this at scale, with an `…Options` struct for almost
+every call that takes more than a couple of settings.
+
+Singleton dependencies with unique types (an allocator, an `Io`, a tracer) stay **positional** and
+are threaded most-general to most-specific, because their types already prevent transposition.
+
+A `_max` / `_min` companion sitting beside the value it bounds is exempt too:
+`(op: u64, op_max: u64)` is two `u64`s and stays positional — as in ZS-ASSERT-13's
+`fn sendPrepareOk(status: Status, view: u32, op: u64, op_max: u64) bool`. The pair is not
+transposable in practice: `op_max` is named *after* `op` and reads as its ceiling, so a swapped call
+is wrong at a glance in a way that `copyRange(x, y, 4, 0, 2)` is not. This adjacency is exactly what
+ZS-NAME-06's big-endian naming exists to create, and burying the pair in an options struct destroys
+it. The exemption covers a bounded value and its bound only; it does not extend to two unrelated
+`u64`s.
 
 **Why:** Zig has no named arguments; an options struct is how you get them. Transposed same-typed
 arguments type-check and produce wrong behavior at run time — the compiler cannot help. Field names
@@ -372,7 +384,7 @@ at the call site turn that into a compile error.
 
 **Check:** any `fn` signature in the diff with two adjacent parameters of the same type, or any
 parameter of type `?T` whose `null` a reader could not name at the call site. Then apply the two
-exemptions below: a singleton dependency with a unique type, and a value beside its `_max`/`_min`
+exemptions above: a singleton dependency with a unique type, and a value beside its `_max`/`_min`
 companion. Everything else is an options struct.
 
 ```zig
@@ -397,20 +409,8 @@ pub fn copyRange(source: []const u8, target: []u8, options: CopyOptions) void {
 // call site: copyRange(source, target, .{ .source_offset = 1, .target_offset = 0, .len = 2 });
 ```
 
-Singleton dependencies with unique types (an allocator, an `Io`, a tracer) stay **positional** and
-are threaded most-general to most-specific, because their types already prevent transposition.
-
-**Exempt: a `_max` / `_min` companion sitting beside the value it bounds.** `(op: u64, op_max: u64)`
-is two `u64`s and stays positional — as in ZS-ASSERT-13's
-`fn sendPrepareOk(status: Status, view: u32, op: u64, op_max: u64) bool`. The pair is not
-transposable in practice: `op_max` is named *after* `op` and reads as its ceiling, so a swapped call
-is wrong at a glance in a way that `copyRange(x, y, 4, 0, 2)` is not. This adjacency is exactly what
-ZS-NAME-06's big-endian naming exists to create, and burying the pair in an options struct destroys
-it. The exemption covers a bounded value and its bound only; it does not extend to two unrelated
-`u64`s.
-
 ```zig
-// fragment — GOOD: a body, with `assert` as the ZS-NAME-16 alias
+// fragment — the exempt pair, with `assert` as the ZS-NAME-16 alias
 // `op_max` is `op`'s ceiling, not a second interchangeable argument.
 fn opCommitted(op: u64, op_max: u64) bool {
     assert(op_max >= 1);
@@ -427,14 +427,7 @@ and do not invent a parameter order: copy `std.sort`'s.
 
 The shape to copy comes from `sort.zig` at 0.17.0 — `insertion`, `heap`, `pdq`, `block`, `argMin`,
 `argMax`, `min`, `max`, `isSorted`, `binarySearch`, `lowerBound`, `upperBound`, `equalRange`, and
-`std.mem.sort` / `sortUnstable` all take:
-
-```text
-(comptime T: type,
- items: []T,
- context: anytype,
- comptime lessThanFn: fn (@TypeOf(context), lhs: T, rhs: T) bool)
-```
+`std.mem.sort` / `sortUnstable` all take the first example's parameter list.
 
 What is uniform across all of them is the **slot order**, not the spelling. std names that parameter
 `lessThanFn` in `insertion`/`heap`/`pdq`/`block`/`mem.sort`/`mem.sortUnstable`, `compareFn` in the
@@ -454,6 +447,13 @@ carry its state in the context without a closure. When the behavior is baked int
 of a call, it moves to the type's comptime parameter list —
 `PriorityQueue(comptime T: type, comptime Context: type, comptime compareFn: …)` — and the data
 arrives later through the methods.
+
+```text
+(comptime T: type,
+ items: []T,
+ context: anytype,
+ comptime lessThanFn: fn (@TypeOf(context), lhs: T, rhs: T) bool)
+```
 
 **Why:** a written-out function type puts the contract in the signature, so a mismatched callback
 fails at the call site rather than inside your loop. TigerStyle's "callbacks go last" served
@@ -527,8 +527,6 @@ particular any `take*` that transfers ownership rather than consuming from a str
 non-allocating twin not spelled `…AssumeCapacity`, or an allocating twin not spelled `…Alloc`, is
 the same finding.
 
----
-
 ## Receivers
 
 ### ZS-NAME-12 [M] Name the receiver after its type; keep `self` for anonymous generic containers
@@ -563,7 +561,7 @@ pub fn append(journal: *Journal, sector: []const u8) WriteError!void {}
 ```
 
 ```zig
-// verified — GOOD: a generic container has no concrete name, so `Self` is correct here.
+// verified — a generic container has no concrete name, so `Self` is correct here.
 const std = @import("std");
 pub fn Stack(comptime T: type) type {
     return struct {
@@ -600,8 +598,20 @@ the `snake_case` direction: no `snake_case.zig` file has top-level fields, and t
 files with none are the "established convention" carve-out (`dwarf/TAG.zig`,
 `heap/PageAllocator.zig`, …).
 
+This is the sharpest conflict in the whole standard. TigerStyle N2 rejects the convention outright:
+"We don't use Zig's `CamelCase.zig` style for 'struct' files to keep the convention simple and
+consistent." TigerBeetle's reason is real — one casing rule for functions, variables, **and** files
+means there is nothing to remember and nothing to get wrong, and their tidy lint can enforce it with
+a single regex. Modern std went the other way and hard: `Io.zig`, `Build.zig`, `Target.zig`,
+`Progress.zig`, `Uri.zig`, `Thread.zig`, `Random.zig`, `SemanticVersion.zig`, `BitStack.zig`,
+`DoublyLinkedList.zig` and `SinglyLinkedList.zig` are all top-level `TitleCase.zig` type files. This
+standard follows the langref: anyone reading your code has read std, the casing of a filename is
+free type information, and importing `Foo.zig` to get a type is the dominant idiom. TigerStyle's
+uniform `snake_case` is a coherent alternative only for a closed codebase that enforces it
+mechanically and never exports a file path in its public API.
+
 **Why:** `@import("x/Foo.zig")` versus `@import("x/foo.zig")` tells you at the import site whether
-you got a type or a namespace, which is exactly the information the langref example encodes:
+you got a type or a namespace, which is exactly the information the langref example encodes.
 
 ```zig
 // fragment
@@ -609,23 +619,9 @@ const namespace_name = @import("dir_name/file_name.zig");
 const TypeName = @import("dir_name/TypeName.zig");
 ```
 
-> **This is the sharpest conflict in the whole standard.** TigerStyle N2 rejects the convention
-> outright: "We don't use Zig's `CamelCase.zig` style for 'struct' files to keep the convention
-> simple and consistent." TigerBeetle's reason is real — one casing rule for functions, variables,
-> **and** files means there is nothing to remember and nothing to get wrong, and their tidy lint can
-> enforce it with a single regex. Modern std went the other way and hard: `Io.zig`, `Build.zig`,
-> `Target.zig`, `Progress.zig`, `Uri.zig`, `Thread.zig`, `Random.zig`, `SemanticVersion.zig`,
-> `BitStack.zig`, `DoublyLinkedList.zig`, `SinglyLinkedList.zig` are all top-level `TitleCase.zig`
-> type files, and 143 exist tree-wide.
->
-> **Recommendation: follow the langref ([M]).** Anyone reading your code has read std; the casing of
-> a filename is free type information, and importing `Foo.zig` to get a type is now the dominant
-> idiom. TigerStyle's uniform `snake_case` is a coherent alternative only for a closed codebase that
-> enforces it mechanically and never exports a file path in its public API.
-
 **Check:** for every file added or renamed in the diff, does it declare top-level fields? A
-`snake_case.zig` with fields, or a `TitleCase.zig` without them, is the violation. The grep is
-"first non-comment, non-`const`, non-`fn` line at column 0 that looks like `name: Type,`".
+`snake_case.zig` with fields, or a `TitleCase.zig` without them, is the violation. A top-level field
+is a line at column 0 that reads `name: Type,`, and is not a comment, a `const` or a `fn`.
 
 ```
 // BAD                          // GOOD
@@ -807,10 +803,7 @@ A declaration starts private and becomes `pub` when a caller in another file nee
 **Why:** `pub` is the module's API contract and everything `pub` is something you cannot rename
 later without a breaking change; the compiler will not tell you which `pub`s are unused.
 
-**Check:** for every `pub` added in the diff, grep the name across the tree outside its own file. No
-external hit means it should not be `pub`.
-
----
+**Check:** a `pub` added in the diff whose name no file but its own uses should not be `pub`.
 
 ## Comments
 
@@ -822,6 +815,12 @@ Where each may stand is the compiler's (the three doc-comment rows below). Which
 sentence belongs in is not: a contract goes in `///`, and why the design is so goes in `//`, on the
 line above it.
 
+std places both on adjacent lines to separate "why the design" from "what the contract is", as the
+first example shows.
+
+std also documents **individual parameters in place**, inside the signature, and so may you, as the
+second example does.
+
 **Why:** the generated docs show `///` and `//!` and nothing else, so a contract in `//` is
 invisible to the caller, and an implementation reason in `///` tells the caller about something they
 may not rely on.
@@ -829,8 +828,6 @@ may not rely on.
 **Check:** a `pub` declaration with no `///` at all, and a `///` that states an implementation
 reason ("we do it this way because…") rather than a contract — that one belongs on `//`, immediately
 above the `///`.
-
-std places both on adjacent lines to separate "why the design" from "what the contract is":
 
 ```zig
 // fragment
@@ -840,8 +837,6 @@ std places both on adjacent lines to separate "why the design" from "what the co
 /// `max_load_percentage`.
 available: Size = 0,
 ```
-
-std also documents **individual parameters in place**, inside the signature, and so may you:
 
 ```zig
 // fragment
@@ -942,8 +937,6 @@ distance.
 lower-case first word or a missing `.`/`:` terminator. End-of-line comments are exempt, so restrict
 the scan to comments that start their own line.
 
----
-
 ## Formatting
 
 ### ZS-NAME-24 [M] Run `zig fmt`; the trailing comma is your only formatting lever
@@ -954,6 +947,11 @@ forces one item per line; removing it collapses the list to a single line if it 
 rewrites hard tabs to 4 spaces, collapses runs of blank lines to one, and splits `_ = a; _ = b;`
 onto separate lines. The langref: "If a list of things is longer than 2, put each item on its own
 line and exercise the ability to put an extra comma at the end."
+
+`zig fmt` will **not** order your imports, group your blank lines, order your declarations, or wrap
+a long expression — those are ZS-NAME-16 through ZS-NAME-18 and your own judgement.
+`// zig fmt: off` … `// zig fmt: on` exists, and std uses it only for hand-aligned tables. Source is
+UTF-8 with LF endings and a trailing newline.
 
 **Why:** `zig fmt` *collapses* a multi-line signature that lacks a trailing comma back onto one
 line, so a hand-wrapped signature without a trailing comma will be silently un-wrapped.
@@ -977,11 +975,6 @@ fn f(
     return a + b;
 }
 ```
-
-`zig fmt` will **not** order your imports, group your blank lines, order your declarations, or wrap
-a long expression — those are ZS-NAME-16 through ZS-NAME-18 and your own judgement.
-`// zig fmt: off` … `// zig fmt: on` exists but appears only 32 times in all of std, exclusively for
-hand-aligned tables. Source is UTF-8 with LF endings and a trailing newline.
 
 **Check:** the CI gate of ZS-BUILD-26 —
 `zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .` — is the whole rule for

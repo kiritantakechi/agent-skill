@@ -229,7 +229,9 @@ A test binary collects `test` blocks from exactly **one** module: the one passed
 There is no aggregate "test everything" artifact and no way to add a second root to a `Step.Compile`
 — the count of `addTest` calls *is* the count of modules under test. Every module that contains
 tests needs its own `addTest`, its own `addRunArtifact`, and a `dependOn` from a step you actually
-invoke. This is the owning rule for test wiring.
+invoke — a module reached only as an `.imports` entry of another is **not** covered by that module's
+test binary, since imports supply declarations, not test blocks. This is the owning rule for test
+wiring.
 
 The full checklist for each module that has tests:
 
@@ -259,12 +261,6 @@ const test_step = b.step("test", "Run tests");
 test_step.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = lib_mod })).step);
 test_step.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = exe_mod })).step);
 ```
-
-A module reached only as an `.imports` entry of another module is **not** covered by that module's
-test binary — imports supply declarations, not test blocks. Each imported module still needs its own
-`addTest`. So every extra module costs one more test binary, and is worth it where you want an
-`@import` boundary: a different compilation setting (target, optimize, `link_libc`,
-`single_threaded`) or a separately publishable API. Organizing folders is what files are for.
 
 ### ZS-BUILD-05 [M] Linking, C sources, and include paths are `Module` methods
 
@@ -346,13 +342,13 @@ const examples_step = b.step("examples", "Build examples");
 examples_step.dependOn(&b.addInstallArtifact(example_exe, .{}).step);
 ```
 
----
-
 ## build.zig.zon
 
 ### ZS-BUILD-09 [M] `.name` is an enum literal, not a string
 
 `.name = .myproj`. A string is `error: expected enum literal`.
+
+Do not include "zig" in the name — it is already inside the Zig package namespace.
 
 **Why:** the manifest is ZON and the name is an identifier in the package namespace, not free text.
 It also means the name must be a valid Zig identifier — no dashes.
@@ -381,8 +377,6 @@ no `zig`. A quoted name is `error: expected enum literal`.
     .paths = .{ "build.zig", "build.zig.zon", "src", "LICENSE" },
 }
 ```
-
-Do not include "zig" in the name — it is already inside the Zig package namespace.
 
 ### ZS-BUILD-10 [M] Never hand-write, copy, or edit `.fingerprint`
 
@@ -487,6 +481,11 @@ options, forwarded to its `build.zig`. `dep.module(name)` looks up a name the de
 with `b.addModule`, and `dep.artifact(name)` a name it passed to `installArtifact`. Both **panic at
 configure time** on a typo — `unable to find module "x"` — rather than returning an error.
 
+`zig build --fetch` resolves the whole tree and exits; `--fetch=all` also pulls lazy dependencies.
+Run it as its own CI step so "dependency resolution failed" is distinguishable from "the code
+broke". `--fork=<path>` overrides one project in the dependency tree with a local checkout without
+editing the manifest — use it for bisecting an upstream bug, never in committed CI.
+
 **Why:** a dependency built at the default target will not link into a cross-compiled artifact, so
 `.target` and `.optimize` must be forwarded. A wrong name is a build-script crash, not a link
 failure.
@@ -501,19 +500,16 @@ const greet_dep = b.dependency("greet", .{ .target = target, .optimize = optimiz
 exe_mod.addImport("greet", greet_dep.module("greet"));
 ```
 
-`zig build --fetch` resolves the whole tree and exits; `--fetch=all` also pulls lazy dependencies.
-Run it as its own CI step so "dependency resolution failed" is distinguishable from "the code
-broke". `--fork=<path>` overrides one project in the dependency tree with a local checkout without
-editing the manifest — use it for bisecting an upstream bug, never in committed CI.
-
----
-
 ## Project layout
 
 ### ZS-BUILD-15 [M] `src/root.zig` is the module root and the entire public surface
 
 Consumers can only reach declarations reachable from the root source file. Re-export everything
 public from `root.zig`; anything not re-exported is private by construction.
+
+`src/main.zig` is the CLI root module and imports the library by name (`@import("myproj")`), not by
+path. Keeping business logic out of `main.zig` is what makes the library independently testable and
+embeddable.
 
 **Why:** Zig has no `pub(crate)` and no export lists — the reachability graph from the module root
 *is* the visibility system. This makes the public API a single reviewable file, and it means adding
@@ -534,10 +530,6 @@ pub const Parser = @import("parser.zig").Parser;
 pub const version = @import("build_options").version;
 ```
 
-`src/main.zig` is the CLI root module and imports the library by name (`@import("myproj")`), not by
-path. Keeping business logic out of `main.zig` is what makes the library independently testable and
-embeddable.
-
 ### ZS-BUILD-16 [M] Reference every source file from the module root, or its tests never run
 
 Wiring a module into the `test` step (ZS-BUILD-04) is necessary but not sufficient. A `test` block
@@ -554,6 +546,9 @@ On 0.17.0 with `root.zig` (1 test) + `parser.zig` (2 tests), reached only via
 | `comptime { _ = @import("parser.zig"); }` | `3 pass (3 total)` |
 | `test { _ = @import("parser.zig"); }` | `4 pass (4 total)` — the anonymous `test` block is itself a test |
 | `test { std.testing.refAllDecls(@This()); }` | `4 pass (4 total)` |
+
+`std.testing.refAllDecls(@This())` also collects them, but it is a compile smoke test that names no
+file (ZS-TEST-23), so it hides which files you meant to cover. Prefer the explicit imports.
 
 **Why:** Zig analyses container-level declarations lazily, so a re-export in `root.zig` that nothing
 uses never resolves its `@import`, and that file's tests do not exist. The failure is silent and
@@ -574,15 +569,13 @@ comptime {
 }
 ```
 
-`std.testing.refAllDecls(@This())` also collects them, but it is a compile smoke test that names no
-file (ZS-TEST-22), so it hides which files you meant to cover. Prefer the explicit imports.
-
 ### ZS-BUILD-17 [M!] The limits file is `src/constants.zig`, at the module root, in `.paths`
 
 The *placement* half of the centralized-limits rule: one file named `constants.zig`, directly under
 `src/`, re-exported from `root.zig` as `pub const constants = @import("constants.zig");`, listed in
 `.paths` (ZS-BUILD-11), and referenced from the root's `comptime` import block (ZS-BUILD-16) so its
-`comptime` cross-checks are always analysed. What goes *in* the file is ZS-ASSERT-20.
+`comptime` cross-checks are always analysed. What goes *in* the file is ZS-ASSERT-20, and its limits
+are named per ZS-NAME-06.
 
 *Relaxed form:* the file still sits at `src/constants.zig`, re-exported and in `.paths`; naming it
 in the `comptime` import block, which is what guarantees its cross-checks run, becomes optional.
@@ -603,8 +596,6 @@ comptime {
     _ = @import("constants.zig"); // so its comptime cross-checks are analysed
 }
 ```
-
-The limits in it are named per ZS-NAME-06.
 
 ### ZS-BUILD-18 [S] Keep `tests/`, `tools/`, `examples/`, and `scripts/` outside `src/`
 
@@ -685,9 +676,11 @@ zig-pkg/
 
 ### ZS-BUILD-21 [M] Count the encapsulation a module boundary costs, not only what it buys
 
-Everything across the boundary must become `pub`. A seam that exports a handful of declarations is a
-seam, and one that exports dozens is the wrong seam, however much an `@import` boundary is wanted
-there (ZS-BUILD-04).
+A module is worth its boundary where you want a different compilation setting (target, optimize,
+`link_libc`, `single_threaded`) or a separately publishable API; organizing folders is what files
+are for. Each module costs one more test binary (ZS-BUILD-04), and everything across the boundary
+must become `pub`: a seam that exports a handful of declarations is a seam, and one that exports
+dozens is the wrong seam, however much an `@import` boundary is wanted there.
 
 **Why:** inside one module a file can keep its helpers unexported; promoting it to a module converts
 those internals into public surface — for a separately published module, surface that outside code
@@ -733,8 +726,6 @@ release command you control (TigerBeetle uses it), and wrong for a library whose
 or release script in the repository may pass `-Doptimize=` — that flag does not exist in that
 project, and every such invocation exits 1.
 
----
-
 ## Options and cross-compilation
 
 ### ZS-BUILD-24 [S] Inject build-time configuration as one generated `build_options` module
@@ -761,7 +752,7 @@ lib_mod.addOptions("build_options", options);
 ```
 
 ```zig
-// fragment — GOOD: src/log.zig
+// fragment — src/log.zig, reading the option
 const std = @import("std");
 const build_options = @import("build_options");
 
@@ -799,8 +790,6 @@ const target = b.standardTargetOptions(.{ .whitelist = &.{
 } });
 ```
 
----
-
 ## Tooling and CI
 
 ### ZS-BUILD-26 [M] `zig fmt --check` gates CI, and `--ast-check` rides along
@@ -817,6 +806,9 @@ Two traps:
   `lib/zig/compiler/Maker/Step/Fmt.zig` since 0.17, only ever appends `--check`, paths, and
   excludes. The `zig build fmt` step and the CI `--ast-check` run are two different checks; do both.
 
+What `zig fmt` decides, and the trailing comma that is your one lever over it, are ZS-NAME-24; the
+100-column limit it cannot enforce is ZS-NAME-25.
+
 **Why:** `zig fmt` is canonical — there is no style bikeshed to have, so a formatting diff in review
 is pure waste. `--ast-check` runs AstGen over each file and catches a real class of defect that
 formatting alone does not.
@@ -828,9 +820,6 @@ finding; so is a workflow whose only formatting gate is `zig build fmt`, which c
 ```bash
 zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .
 ```
-
-What `zig fmt` decides, and the trailing comma that is your one lever over it, are ZS-NAME-24; the
-100-column limit it cannot enforce is ZS-NAME-25.
 
 ### ZS-BUILD-27 [S] Add a `check` step whose artifacts are never installed or run
 
@@ -879,12 +868,17 @@ The rules, which `assets/ci.yml` applies:
 
 1. **Pin the exact Zig version.** Never `latest`, never `master`, never a range.
 2. **Gate on `zig fmt --check --ast-check`** with `zig-pkg` and `.zig-cache` excluded (ZS-BUILD-26).
-3. **Run the suite in `debug` and `safe`** (ZS-TEST-25), with `--summary all` so a cached no-op is
+3. **Run the suite in `debug` and `safe`** (ZS-TEST-26), with `--summary all` so a cached no-op is
    distinguishable from a real pass.
 4. **Cross-compile matrix**: build *and* `zig build test` each supported triple. The test binaries
    compile and the runs report `skipped`, which is the whole point (ZS-BUILD-28).
 5. **The cache key must include every matrix axis.** With one shared key all matrix legs fight over
    one cache entry and each evicts the others.
+
+Locally, `zig build --watch --debounce 100` re-runs the graph on save. `-fincremental` enables
+incremental compilation, and the 0.17.0 release notes say `zig build -fincremental --watch` now
+works for most `x86_64-linux` projects — read ZS-BUILD-34 before turning it on, because on ELF it
+switches to the new linker, which is still off by default.
 
 **Why:** a Zig minor release is a breaking release. Pinning turns "the toolchain moved" into a
 deliberate one-line commit with its own CI run, and `safe` alongside `debug` catches UB that only
@@ -902,11 +896,6 @@ manifests under a release memory layout while keeping safety checks armed.
 
 **Check:** the workflow contains a literal `0.17.0` (or whatever you pin) and no `latest`; the
 cache-key expression mentions every `matrix.*` key the job declares.
-
-Locally, `zig build --watch --debounce 100` re-runs the graph on save. `-fincremental` enables
-incremental compilation, and the 0.17.0 release notes say `zig build -fincremental --watch` now
-works for most `x86_64-linux` projects — read ZS-BUILD-34 before turning it on, because on ELF it
-switches to the new linker, which is still off by default.
 
 ### ZS-BUILD-30 [S] Write automation as `scripts/*.zig`, wired into `build.zig`
 
@@ -962,8 +951,6 @@ top of you.
 **Check:** every entry in `.dependencies` traces to a commit whose message says what it replaces and
 why writing it yourself was rejected. After `zig build --fetch`, every directory under `zig-pkg/` is
 one somebody named — a transitive package nobody can account for is the finding.
-
----
 
 ## Strictness, toolchain pinning, and backends
 
@@ -1033,22 +1020,23 @@ pub fn build(b: *std.Build) void {
 
 ### ZS-BUILD-33 [S] Hard-error on a toolchain mismatch with a `comptime builtin.zig_version` guard
 
-When your project pins one exact Zig version, put the check in `build.zig` where it fires before
-anything else. `.minimum_zig_version` cannot do this: it is documentation, not enforcement. The
-compiler never reads it, so `"0.99.0"` builds clean on 0.17.0 (ZS-BUILD-09's annotated manifest).
-`builtin.zig_version` is a `std.SemanticVersion` and is comptime-known inside `build.zig`, so the
-whole check costs nothing.
+A project that pins one exact Zig version — an application with a reproducible release process, a
+high-reliability service, anything with a vendored or Nix-pinned compiler, as TigerBeetle does —
+puts the check in `build.zig`, where it fires before anything else. `.minimum_zig_version` cannot do
+this: it is documentation, not enforcement. The compiler never reads it, so `"0.99.0"` builds clean
+on 0.17.0 (ZS-BUILD-09's annotated manifest). `builtin.zig_version` is a `std.SemanticVersion` and
+is comptime-known inside `build.zig`, so the whole check costs nothing. A *library* has no guard: a
+hard equality check makes it unusable in any dependency tree whose root is on a different patch
+release, so it compiles across the whole minor version, states `.minimum_zig_version`, and lets the
+consumer pin.
+
+The example prints with `{f}`, not `{}`: `SemanticVersion` has a custom `format` method, and in 0.17
+only `{f}` dispatches to it (ZS-OUT-01). Use `.order(...) != .eq` for an exact pin; use
+`.order(...) == .lt` if you want a floor rather than a pin.
 
 **Why:** a Zig minor release is a breaking release, so the failure mode without a guard is a wall of
 unrelated compile errors deep in std, from which nobody deduces "you are on the wrong toolchain".
 The guard converts that into one sentence naming both versions.
-
-**When it is appropriate:** a project that pins an exact toolchain — an application with a
-reproducible release process, a high-reliability service, anything with a vendored or Nix-pinned
-compiler. TigerBeetle does exactly this. **When `.minimum_zig_version` is enough:** a *library*,
-where a hard equality check makes your package unusable in any dependency tree whose root is on a
-different patch release. A library should compile across the whole minor version and let the
-consumer pin.
 
 ```zig
 // verified — GOOD: with `.patch = 1` this is
@@ -1067,10 +1055,6 @@ comptime {
     ));
 }
 ```
-
-Note the `{f}`, not `{}`: `SemanticVersion` has a custom `format` method, and in 0.17 only `{f}`
-dispatches to it (ZS-OUT-01). Use `.order(...) != .eq` for an exact pin; use `.order(...) == .lt` if
-you want a floor rather than a pin.
 
 **Check:** `rg -n 'zig_version' build.zig` — a project that claims a pinned toolchain in its README
 or CI has this block, and its version literal matches the one CI installs.
@@ -1092,10 +1076,19 @@ section table of the produced binaries):
 | `-fno-llvm` | forces self-hosted | avoid; on aarch64-macos a hello-world did not finish within 90 seconds |
 | `-fnew-linker` / `exe.use_new_linker = true` | emits DWARF and `.eh_frame`; off by default, and not at feature parity with the default linker in 0.17 | do not ship |
 | `-fincremental` | opt-in, off by default, and **implies the new ELF linker** | local iteration only, never in CI or a release |
-| LLVM loop vectorization | **disabled in 0.17.x** (LLVM 22) | do not micro-tune vector loops against these numbers |
+| LLVM loop vectorization | **disabled in 0.17.x** (LLVM 22, ZS-PERF-15) | do not micro-tune vector loops against these numbers |
 
-Every linker emits full debug information. Building `pub fn main() void {}` for `x86_64-linux-gnu`
-on 0.17.0 and dumping the section headers:
+Every linker emits full debug information: the example lists the section headers of
+`pub fn main() void {}` built for `x86_64-linux-gnu` each way, where a plain build uses the
+self-hosted `.stage2_x86_64` backend and the legacy self-hosted ELF linker (`--verbose-link` prints
+`zig ld`).
+
+So `-fincremental` costs no debugging information, but it still selects a linker that is off by
+default: a fine trade for a save-recompile loop, and not one to make for a binary you ship.
+
+All three are `?bool` fields on `Step.Compile` (`use_llvm`, `use_lld`, `use_new_linker`), assigned
+after `addExecutable` returns; `use_llvm` and `use_lld` can also be passed in `ExecutableOptions`,
+and none of them is a field of `Module`.
 
 ```text
 default:           .debug_abbrev .debug_aranges .debug_info .debug_line .debug_line_str
@@ -1107,27 +1100,12 @@ default:           .debug_abbrev .debug_aranges .debug_info .debug_line .debug_l
 -fincremental:     (identical to -fnew-linker — it selects that linker on ELF)
 ```
 
-So `-fincremental` costs no debugging information, but it still selects a linker that is off by
-default: a fine trade for a save-recompile loop, and not one to make for a binary you ship.
-
-> [!NOTE] The new ELF linker is off by default, and the default under `-fincremental`. A plain
-> `zig build-exe -target x86_64-linux-gnu` uses the self-hosted `.stage2_x86_64` backend and the
-> legacy self-hosted ELF linker (`--verbose-link` prints `zig ld`), with full DWARF.
-
-LLVM loop vectorization is off in 0.17 (ZS-PERF-15).
-
-All three are `?bool` fields on `Step.Compile` (`use_llvm`, `use_lld`, `use_new_linker`), assigned
-after `addExecutable` returns; `use_llvm` and `use_lld` can also be passed in `ExecutableOptions`,
-and none of them is a field of `Module`.
-
 **Why:** the self-hosted backends and the new ELF linker are large, fast, and incomplete; the 0.17
 release notes say the new linker is not at feature parity with the legacy one, which is why it stays
 off by default.
 
 **Check:** `rg -n 'use_new_linker|use_llvm|use_lld|fincremental|fnew-linker' build.zig .github/`
 returns nothing, or every hit has a comment saying why and is confined to a local-only step.
-
----
 
 ## The program's own interfaces: CLI and config files
 
@@ -1150,6 +1128,10 @@ Three details that are easy to get wrong:
 - **`std.process.fatal` has no exit-code and no writer parameter**: it logs an error and exits 1,
   with the signature ZS-OUT-17 gives.
 - `argv[0]` is the program name. Start the loop at index 1.
+
+Keep `parseArgs` a pure function of a `[]const [:0]const u8` rather than reading `init` directly:
+that is what makes the example's cases a unit test instead of a subprocess test. `main` then does
+one thing — `const cli = parseArgs(try init.minimal.args.toSlice(arena));`.
 
 **Why:** the shape of the answer is so obvious that a model will confidently invent
 `std.process.argsParse`, `std.cli`, or a second `main` parameter, and none of them exist — the
@@ -1205,10 +1187,6 @@ test "flags, --, and operands" {
     try std.testing.expectEqualStrings("--not-a-flag", cli.rest[0]);
 }
 ```
-
-Keep `parseArgs` a pure function of a `[]const [:0]const u8` rather than reading `init` directly:
-that is what makes the table of cases above a unit test instead of a subprocess test. `main` then
-does one thing — `const cli = parseArgs(try init.minimal.args.toSlice(arena));`.
 
 **Check:** no `std.process.argsAlloc`, no invented `argsParse`/`ArgIterator.parse`, no `main` with a
 second parameter; every `std.process.fatal` call site passes exactly two arguments; and the parser

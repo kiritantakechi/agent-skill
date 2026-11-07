@@ -53,7 +53,6 @@ target set matters to the rule, the block's marker names it.
   - ZS-INTEROP-19 [M] `-fsingle-threaded` removes task concurrency and cancellation
   - ZS-INTEROP-20 [M] On WASI, resolve directories through `init.preopens`, never `Io.Dir.cwd()`
   - ZS-INTEROP-21 [M] Derive `link_libc`, `single_threaded`, and `entry` from the resolved target
-- **Boundary review checklist**
 - Decided by tools
 
 ---
@@ -71,6 +70,10 @@ Convert in one `fromError` switch; it is exhaustive, so a new Zig error fails th
 given a status. Never smuggle the error out as an `int` either: the error set is a
 compile-time-assigned integer whose numbering is not stable across builds, so the number would mean
 something different next compile.
+
+A `bool` return is the right shape when there is exactly one failure mode and the C caller cannot
+act on a reason — see ZS-DATA-27 on reducing dimensionality at the call site. Anything richer gets
+the enum.
 
 **Why:** an error union is a Zig-only tagged representation with no C spelling, so the compiler
 rejects it in a C signature outright. Converting once is what keeps the error vocabulary the C
@@ -143,10 +146,6 @@ export fn zs_parse(text: [*:0]const u8) !u32 {
 }
 ```
 
-A `bool` return is the right shape when there is exactly one failure mode and the C caller cannot
-act on a reason — see ZS-DATA-27 on reducing dimensionality at the call site. Anything richer gets
-the enum.
-
 ### ZS-INTEROP-02 [M!] Validate everything C hands you; do not assert it
 
 At an exported entry point, check pointers for null, lengths against the buffer you were also given,
@@ -154,18 +153,15 @@ and integers against the enum or range they claim to be — with `if` and an err
 `assert`. Check an enum value before any cast: `@fromBackingInt` on an out-of-range value is illegal
 behavior in every mode, not a panic you can catch, and so is a `@bitCast` to an enum. That check is
 what `std.enums.fromInt(E, integer) ?E` is for; it accepts any integer type, where `@fromBackingInt`
-accepts only the enum's exact backing type.
+accepts only the enum's exact backing type. A C caller not built from this repository — a plugin
+ABI, a shared library with third-party consumers, an FFI surface for a scripting runtime, anything
+reachable from a network-facing process — is outside your trust boundary even when it is friendly,
+because it is compiled separately and can go stale.
 
-**Trigger criteria — treat as `[M]`** when any of the SKILL.md high-reliability conditions hold, and
-additionally whenever **the C side is not built from this repository**: a plugin ABI, a shared
-library with third-party consumers, an FFI surface for a scripting runtime, or anything reachable
-from a network-facing process. In all of those the C caller is outside your trust boundary even if
-it is friendly, because it is compiled separately and can go stale.
-
-*Relaxed form:* always null-check pointers and always bound lengths — those two are never optional,
-because in a `fast` build a violated assert is not a crash but a memory-safety bug (see
-ZS-ASSERT-02). Exhaustive enum and range validation may be skipped for a C shim that lives in the
-same repository and is compiled by the same `build.zig`.
+*Relaxed form:* a C shim that lives in this repository and is compiled by the same `build.zig` may
+skip exhaustive enum and range validation; its pointers are still null-checked and its lengths still
+bounded, because in a `fast` build a violated assert is not a crash but a memory-safety bug
+(ZS-ASSERT-02).
 
 **Why:** this is ZS-ASSERT-08's boundary clause, applied to the one boundary where it bites hardest.
 An `assert` on data from another compilation unit is a remote denial of service in a `safe` build
@@ -216,8 +212,6 @@ test "hostile inputs produce a status, not a panic" {
 }
 ```
 
----
-
 ## Exporting Zig to C
 
 ### ZS-INTEROP-03 [M] `export fn` when the Zig name is the symbol; `@export(&f, …)` when it is not
@@ -234,6 +228,8 @@ place of the pointer fails loudly: `error: expected pointer type, found 'fn () c
 `section: ?[]const u8 = null`, and `visibility: SymbolVisibility = .default` — everything but `name`
 has a default, and per ZS-PERF-17 pass the ones that matter to you explicitly. `GlobalLinkage` is
 only `.strong` or `.weak`.
+
+`export var` works the same way for globals: `export var zs_version: c_int = 3;`.
 
 **Why:** `@export` separates the symbol from the declaration, so one Zig function can back several
 symbols, which is how you ship a compatibility alias without duplicating the body.
@@ -263,8 +259,6 @@ comptime {
 }
 ```
 
-`export var` works the same way for globals: `export var zs_version: c_int = 3;`.
-
 ### ZS-INTEROP-04 [M] Spell the C calling convention `.c`, never one architecture's member
 
 Write `callconv(.c)`. `std.lang.CallingConvention` is a `union(enum(u8))` whose members name one
@@ -272,10 +266,11 @@ architecture's convention each and carry a payload; `.c` is a `pub const` the ta
 C convention, and `.winapi` and `.kernel` are the other two portable ones. An architecture's member,
 a payload literal such as `.{ .x86_64_sysv = .{} }`, is for code that runs on that architecture
 alone. The spellings the union does not have are the compiler's (the row below), and a stack
-alignment is `CallingConvention.withStackAlign(.c, n)`, evaluated at `comptime`.
+alignment is `CallingConvention.withStackAlign(.c, n)`, evaluated at `comptime`. The first example
+quotes the type.
 
 **Why:** nearly every member names one architecture's convention, so `.c`, the alias the target
-resolves, is the one spelling right on every target. The type is:
+resolves, is the one spelling right on every target.
 
 ```zig
 // fragment — (quoted from std/lang.zig, `CallingConvention`)
@@ -326,8 +321,6 @@ static library collides at link time with any other library that had the same id
 **Check:** every `export fn`, `export var`, and `@export` `.name` in the diff begins with the
 project's agreed prefix. A generic-sounding exported symbol — `init`, `open`, `read`, `free`,
 `version` — is the finding.
-
----
 
 ## Calling C from Zig
 
@@ -419,13 +412,12 @@ parameters.
 
 **Why:** ZS-INTEROP-09, ZS-INTEROP-10, and ZS-INTEROP-11 each say "convert here, once", which is
 enforceable only if there is a *here*. Once `[*c]` and `c_long` spread, each conversion site is a
-separate decision under different assumptions, and a grep for `[*c]` stops being a review tool.
+separate decision under different assumptions, and a search for `[*c]` stops being a review tool.
 
-**Check:** grep the whole tree for `c_int`, `c_long`, `c_char`, `c_uint`, `[*c]`, `?*anyopaque`,
-`extern "c"`, `extern fn`, `@extern`, and `@export`. Every hit outside the designated boundary
-module is the finding; the grep returning hits in more than one file per C library is the summary.
-
----
+**Check:**
+`rg -l 'c_(u?int|u?long|u?short|char|longlong)\b|\[\*c\]|\?\*anyopaque|extern "c"|extern fn|@extern|@export' -g '*.zig'`
+lists every file naming a C type such as `c_int` or a C declaration. Every file it lists other than
+the designated boundary module is the finding, and more than one file per C library is the summary.
 
 ## Pointers, strings, and integers
 
@@ -448,7 +440,8 @@ the boundary makes the null case a visible branch exactly once.
 
 **Check:** `[*c]` anywhere but a parameter of an `export fn` or `callconv(.c)` function — in a
 struct field, a return type, a `const`/`var` declaration, a local binding, or the parameter list of
-a plain Zig function. One grep for `[*c]` answers this rule completely.
+a plain Zig function. `rg -n -F '[*c]' -g '*.zig'` finds every one; each hit that is not a parameter
+of an `export fn` or `callconv(.c)` function is the finding.
 
 ```zig
 // verified
@@ -585,8 +578,6 @@ test "checked narrowing rejects what @intCast would corrupt" {
 }
 ```
 
----
-
 ## Structs, callbacks, and ownership
 
 ### ZS-INTEROP-12 [M] A C callback cannot capture; all state travels through `userdata`
@@ -715,6 +706,10 @@ strings — which is what crosses the boundary anyway. It is a `@compileError` w
 this pattern and freestanding are mutually exclusive by construction. The library-owned form is
 strictly safer, because it survives a caller who links a different libc.
 
+A release function such as the example's `zs_release` takes the `Handle` back rather than a bare
+pointer, because ZS-MEM-14 requires freeing exactly the slice that was allocated — C must hand the
+length back with the pointer.
+
 **Why:** `free()` is not a generic deallocator; it is libc's, and it requires a pointer that libc's
 `malloc` produced. Every other allocator in ZS-MEM-03 keeps bookkeeping libc cannot see: an arena
 frees nothing per object, and `SafeAllocator` trails each block with a checksummed footer.
@@ -773,11 +768,6 @@ test "libc-owned buffer round trip" {
 }
 ```
 
-Note `zs_release` takes the `Handle` back rather than a bare pointer, because ZS-MEM-14 requires
-freeing exactly the slice that was allocated — C must hand the length back with the pointer.
-
----
-
 ## Getting the declarations
 
 ### ZS-INTEROP-15 [S] Hand-write `extern` declarations; use `b.addTranslateC` for large headers
@@ -801,6 +791,9 @@ caches takes 0.09 s, and the build step caches its output in `.zig-cache`.
 If you do use it: declare include paths and macros once in `build.zig`, rather than at every import
 site, import the result as a module, and pin the parts you depend on with `addCheckFile` so a
 toolchain upgrade that changes the translation fails the build instead of silently changing a type.
+
+Either way, the translated or transcribed declarations are still C types, so they stay behind the
+boundary module and get converted per ZS-INTEROP-09 through ZS-INTEROP-11.
 
 **Why:** hand-written declarations carry this chapter's rules — `?[*:0]const u8` for `[*c]const u8`,
 `enum(c_int)` for `c_int`, who frees what — and translate-c cannot infer any of it. But two hundred
@@ -828,11 +821,6 @@ boundary_mod.addImport("c", translate_c.createModule());
 const check = translate_c.addCheckFile(&.{"pub extern fn zs_c_add"});
 b.getInstallStep().dependOn(&check.step);
 ```
-
-Either way, the translated or transcribed declarations are still C types, so they stay behind the
-boundary module and get converted per ZS-INTEROP-09 through ZS-INTEROP-11.
-
----
 
 ## Targets
 
@@ -938,6 +926,10 @@ with `-Dtarget`. Use a `switch` whose `else` is `@compileError`, so a new target
 rather than a wrong default. Per-target `extern` declarations branch the same way, which keeps the
 boundary module of ZS-INTEROP-08 to one file.
 
+A value std already derives per target is std's to give: the page size is `std.heap.page_size_min`,
+`page_size_max`, and `pageSize()`, which already `@compileError` a target whose page size is
+unknown.
+
 **Why:** these are `comptime`-known, so the untaken arm is never semantically analysed: one file can
 hold a `linux` path calling `std.posix` and a `windows` path calling Win32. A silent fallback gives
 whoever first cross-compiles to a new platform wrong behavior, not a message naming the file.
@@ -966,10 +958,6 @@ comptime {
     assert(control_endpoint.len > 0);
 }
 ```
-
-A value std already derives per target is std's to give: the page size is `std.heap.page_size_min`,
-`page_size_max`, and `pageSize()`, which already `@compileError` a target whose page size is
-unknown.
 
 ### ZS-INTEROP-19 [M] `-fsingle-threaded` removes task concurrency and cancellation
 
@@ -1134,27 +1122,6 @@ pub fn build(b: *std.Build) void {
     }
 }
 ```
-
----
-
-## Boundary review checklist
-
-1. Does any exported function return `!T`, or an error smuggled as an integer? (ZS-INTEROP-01)
-2. Is every pointer parameter null-checked and every length bounded before use? (ZS-INTEROP-02)
-3. Does `[*c]` appear anywhere but an exported parameter list? (ZS-INTEROP-09)
-4. Is `std.mem.span` being applied to a fixed-size NUL-padded C array where `sliceTo` belongs?
-   (ZS-INTEROP-10)
-5. Any `@intCast`/`@truncate` on a `c_int`/`c_long`/`c_char` instead of `std.math.cast`?
-   (ZS-INTEROP-11)
-6. Does every struct shared with C have fixed-width fields and `comptime` layout assertions?
-   (ZS-DATA-02, ZS-ASSERT-18)
-7. Does any callback `try`, `catch unreachable`, or `@panic` across the C frame? (ZS-INTEROP-13)
-8. For each buffer that crosses: which side frees it, is it written down, and does the allocator
-   match? (ZS-INTEROP-14)
-9. Does the code assume `std.process.Init`, `Io`, or a default panic handler on a target that has
-   none? (ZS-INTEROP-16, ZS-INTEROP-17)
-10. Does any design depend on two tasks overlapping in a build that may be `-fsingle-threaded`?
-    (ZS-INTEROP-19)
 
 ## Decided by tools
 

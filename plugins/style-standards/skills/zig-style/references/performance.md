@@ -107,7 +107,7 @@ change that adds work outside every loop needs nothing.
 with it, a reviewer checks arithmetic. It also catches an optimization aimed at a resource that was
 never the bottleneck: a hand-vectorized parser in front of a 1 ms `fsync` per record buys nothing.
 
-**Check:** grep the diff for new work inside a loop body. If the loop's bound is unbounded or
+**Check:** new work inside a loop body in the diff. If the loop's bound is unbounded or
 input-derived and the commit message contains no cost statement, that is the finding.
 
 ```zig
@@ -261,8 +261,8 @@ element — lives in ZS-DATA-22 (`MultiArrayList`).
 unpredictable one costs a pipeline flush of around 15–20 cycles, a 4x slowdown on a 5-cycle loop
 body. Splitting the loop by condition gives each resulting loop a perfectly predicted branch.
 
-**Check:** any `if` inside a loop whose condition does not depend on the loop variable. That is a
-mechanical grep and it is almost always a mistake.
+**Check:** any `if` inside a loop whose condition does not depend on the loop variable. It is almost
+always a mistake.
 
 ```zig
 // verified — BAD: the condition is re-tested on every element
@@ -361,8 +361,6 @@ fn checksumSectors(bytes: []const u8, length: u32) u64 {
 }
 ```
 
----
-
 ## Part 2 — The discipline of locality
 
 These five rules are one idea seen from five sides: **the distance between where a fact is
@@ -445,6 +443,11 @@ Do not introduce a variable before it is needed, and do not leave a check far fr
 protects. The gap between the place of check and the place of use is a **POCPOU** bug waiting to
 happen — place-of-check to place-of-use, the spatial cousin of the temporal TOCTOU.
 
+The BAD example hides a second bug: `header.offset + header.length` can overflow `u32` before the
+comparison, so the check can pass on input that should be rejected. In `debug`/`safe` that panics;
+in `fast` it wraps and the slice goes out of bounds. Distance concealed it — see ZS-DATA-10 for
+`std.math.add`.
+
 **Why:** nothing in the type system connects a check at line 10 to the slice it guards at line 60;
 only proximity does, and in between someone re-slices `buffer` or adds a `continue` that skips the
 check. Adjacent, they are verified by reading two consecutive lines, not the whole function.
@@ -480,11 +483,6 @@ fn readPayload(buffer: []const u8, header: Header) ![]const u8 {
     return buffer[start..end];
 }
 ```
-
-Note the second bug the BAD version hides: `header.offset + header.length` can overflow `u32` before
-the comparison, so the check can pass on input that should be rejected. In `debug`/`safe` that
-panics; in `fast` it wraps and the slice goes out of bounds. Distance concealed it — see ZS-DATA-10
-for `std.math.add`.
 
 ### ZS-PERF-12 [S] Centralize state manipulation: helpers compute the change, the parent applies it
 
@@ -604,8 +602,6 @@ fn parseFrame(bytes: []const u8) ?Frame {
     return .{ .kind = kind, .length = length, .payload_checksum = payload_checksum };
 }
 ```
-
----
 
 ## Part 3 — Zig 0.17 mechanics
 
@@ -733,21 +729,22 @@ test "blend and permute" {
 Pass explicitly every field of an options struct whose defaults decide what the machine does, rather
 than inheriting a library default:
 `@prefetch(ptr, .{ .cache = .data, .rw = .read, .locality = 3 })`, not `@prefetch(ptr, .{})`, and
-`@export`'s linkage and visibility (ZS-INTEROP-03). This is the chapter home of **ZS-PERF-17**. A
-default that only spares typing, such as `std.testing.tmpDir(.{})`, is not one of these.
-`std.lang.PrefetchOptions` defaults to `.rw = .read, .locality = 3, .cache = .data` — three
-independent knobs (`Rw`, `u2`, `Cache`), and nothing pins them. `.locality = 0` means "stream it,
-drop it after one touch" and `.locality = 3` means "keep it, we will come back". The builtin lowers
-to a real instruction on aarch64: the example's loop emits `prfm pldl1keep`.
+`@export`'s linkage and visibility (ZS-INTEROP-03). A default that only spares typing, such as
+`std.testing.tmpDir(.{})`, is not one of these. `std.lang.PrefetchOptions` defaults to
+`.rw = .read, .locality = 3, .cache = .data` — three independent knobs (`Rw`, `u2`, `Cache`), and
+nothing pins them. `.locality = 0` means "stream it, drop it after one touch" and `.locality = 3`
+means "keep it, we will come back". The builtin lowers to a real instruction on aarch64: the
+example's loop emits `prfm pldl1keep`.
 
 **Why:** call sites do not get re-reviewed when a library default moves, so an inherited default is
 a latent bug waiting for the library to change. The explicit form is also the only self-documenting
 one: `.{}` hides whether the data is streamed once or kept, a difference in real cache behavior.
 
-**Check:** grep for `@prefetch(` with a `.{}` or a partial options literal, and for an options
-literal elsewhere that leaves a field deciding codegen, linkage, or memory behavior to its default.
-Every such field spelled out, or it is a finding — and the prefetch distance should have a comment
-saying why that stride.
+**Check:** `rg -n '@prefetch\([^,]+, \.\{\}\)' -g '*.zig'` finds a prefetch that inherits every
+option; each hit is the finding. A partial options literal, and an options literal elsewhere that
+leaves a field deciding codegen, linkage, or memory behavior to its default, are read: every such
+field is spelled out, or it is a finding — and the prefetch distance has a comment saying why that
+stride.
 
 ```zig
 // verified
@@ -807,6 +804,11 @@ through inline assembly so the computation must happen. Dividing by the iteratio
 wall-clock number into the per-operation number the ZS-PERF-02 sketch is written in, which is the
 only form comparable across machines.
 
+A mean over N iterations hides the tail. If the requirement is a latency bound rather than a
+throughput number, record the per-iteration durations and report a high percentile — a p99 that is
+50x the mean is the normal case for anything that allocates or does I/O, and it is usually the
+number that matters.
+
 **Why:** at `fast` a discarded pure result is dead code and LLVM removes it — the classic "1000x
 speedup" that is really an empty loop. And the first iteration pays a cold i-cache, d-cache and TLB
 and an untrained branch predictor, which on a short benchmark can be most of the time it reports.
@@ -831,16 +833,14 @@ fn measure(io: Io, comptime work: fn ([]const u32) u32, input: []const u32) Io.D
 }
 ```
 
-One honest caveat: a mean over N iterations hides the tail. If the requirement is a latency bound
-rather than a throughput number, record the per-iteration durations and report a high percentile — a
-p99 that is 50x the mean is the normal case for anything that allocates or does I/O, and it is
-usually the number that matters.
-
 ### ZS-PERF-20 [M] Add a `bench` step pinned to `.fast` and not installed by default
 
 Add a `bench` step whose module hard-codes `.optimize = .fast` rather than inheriting `-Doptimize`,
 and wire it up with `addRunArtifact` only — never `installArtifact` — so a bare `zig build` does not
 pay for it.
+
+The benchmark's own `main` follows ZS-PERF-14, ZS-PERF-19 and ZS-CONC-32, and prints per-iteration
+cost so the number can be compared with the ZS-PERF-02 sketch, as the second example shows.
 
 **Why:** an inherited `-Doptimize` makes `zig build bench` silently measure a `debug` build
 (ZS-PERF-14); an installed artifact puts the benchmark on the critical path of every `zig build` and
@@ -895,9 +895,6 @@ pub fn build(b: *std.Build) void {
 }
 ```
 
-The benchmark's own `main` follows ZS-PERF-14, ZS-PERF-19 and ZS-CONC-32, and prints per-iteration
-cost so the number can be compared with the ZS-PERF-02 sketch:
-
 ```zig
 // fragment — prints e.g. "sum: 3.495ms total, 3.495us per iteration"
 const builtin = @import("builtin");
@@ -927,8 +924,6 @@ pub fn main(init: std.process.Init) !void {
     try out.flush(); // ZS-CONC-04: buffered output prints nothing without this.
 }
 ```
-
----
 
 ## Part 5 — The counterweight
 

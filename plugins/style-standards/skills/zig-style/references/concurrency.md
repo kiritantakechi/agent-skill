@@ -9,7 +9,7 @@ buffer-then-flush writing discipline, `Io.Reader`, authoring custom stream imple
 specifiers — `{f}`, `{t}`, `{?}` and the custom `format` method — and which bytes are program output
 and which are diagnostics (ZS-OUT-16) are the output chapter's; allocator choice and
 `defer`/`errdefer` layout the memory chapter's; `std.testing.io` and `Io.failing` mechanics are
-ZS-TEST-07; every 0.13 to 0.17 spelling is a row of the migration table; the non-I/O half of
+ZS-TEST-08; every 0.13 to 0.17 spelling is a row of the migration table; the non-I/O half of
 batching is ZS-PERF-05; scoped library logging is ZS-OUT-18.
 
 Every example assumes a file opening with
@@ -83,6 +83,12 @@ Every example assumes a file opening with
 `Io` parameter; it never manufactures one and never reaches for
 `Io.Threaded.global_single_threaded`.
 
+Outside `main` — a custom runtime, a benchmark harness, a `build.zig` step — construct one
+explicitly and pair it with `deinit`, as the second example does.
+
+`Io.Threaded.init_single_threaded` is the exception: it holds a failing allocator and
+`concurrent_limit = .nothing`, so it needs no allocator and no `deinit`.
+
 **Why:** the entire point of the design is that the caller chooses the backend. A library that
 constructs its own `Io.Threaded` spawns a second, invisible thread pool, and a library that grabs
 the global escape hatch cannot be driven by an evented or fiber-based caller at all.
@@ -118,18 +124,12 @@ fn emitReport(gpa: std.mem.Allocator, w: *Io.Writer, values: []const u32) Io.Wri
 }
 ```
 
-Outside `main` — a custom runtime, a benchmark harness, a `build.zig` step — construct one
-explicitly and pair it with `deinit`:
-
 ```zig
 // fragment
 var threaded: Io.Threaded = .init(gpa, .{});
 defer threaded.deinit();
 const io = threaded.io();
 ```
-
-`Io.Threaded.init_single_threaded` is the exception: it holds a failing allocator and
-`concurrent_limit = .nothing`, so it needs no allocator and no `deinit`.
 
 ### ZS-CONC-02 [M] Thread `io: Io` as an explicit parameter, using std's ordering
 
@@ -138,6 +138,10 @@ const io = threaded.io();
 writes it: on a method of a resource type (`Dir`, `File`, `Mutex`, `Queue`) `io` comes immediately
 after the receiver; on a free function `gpa` comes before `io`, then domain parameters, then an
 options struct last.
+
+Capturing `io` in a long-lived struct is acceptable only for a top-level application object
+constructed in `main` from `init.io`, where there is exactly one backend by construction. Anything
+reusable takes it as a parameter.
 
 **Why:** an `Io` parameter is the only thing that makes a function's blocking behavior visible in
 its signature, and it lets the same function run on a thread pool in production and on
@@ -173,10 +177,6 @@ const Server = struct {
 };
 ```
 
-Capturing `io` in a long-lived struct is acceptable only for a top-level application object
-constructed in `main` from `init.io`, where there is exactly one backend by construction. Anything
-reusable takes it as a parameter.
-
 ### ZS-CONC-03 [S] Default to `Io.Threaded`; treat `Io.Evented` as experimental
 
 `Io.Threaded` is the production backend. `Io.Evented` resolves to `Io.Uring` on Linux, `Io.Kqueue`
@@ -198,14 +198,17 @@ so it is the only one a default can rest on; an evented backend earns its place 
 comment stating the measurement that justified it, and none of them may appear on a code path that
 reaches `std.Io.net`, whose vtable slots they do not implement.
 
----
-
 ## Writing: buffer, then flush
 
 ### ZS-CONC-04 [M] Flush every buffered writer before it goes out of scope
 
 `Io.Writer` buffers into a caller-supplied `[]u8`. Data sitting in that buffer when the writer dies
 is silently discarded — no error, no diagnostic, exit code 0.
+
+Prefer `try w.flush()` as a real statement over `defer w.flush() catch {}`: the deferred form
+swallows `error.WriteFailed`, which is exactly the disk-full / broken-pipe case you needed to know
+about. A zero-length buffer (`&.{}`) means unbuffered and makes `flush` a no-op — use it
+deliberately, never by accident.
 
 **Why:** it is the commonest bug in new code. The program below compiles cleanly, runs cleanly,
 exits 0, and prints nothing.
@@ -233,11 +236,6 @@ try stdout.flush(); // last statement of the writer's lifetime
 `flush()` on every success path leaving that scope. Also any `defer w.flush() catch {}`, and any
 `return` between the last `print`/`writeAll` and the `flush`.
 
-Prefer `try w.flush()` as a real statement over `defer w.flush() catch {}`: the deferred form
-swallows `error.WriteFailed`, which is exactly the disk-full / broken-pipe case you needed to know
-about. A zero-length buffer (`&.{}`) means unbuffered and makes `flush` a no-op — use it
-deliberately, never by accident.
-
 ### ZS-CONC-05 [M] Stream to stdout; keep the positional `writer` for files you opened
 
 `File.writer(io, &buffer)` and `Io.File.Writer.init(file, io, &buffer)` are the same constructor and
@@ -245,6 +243,9 @@ set `.mode = .positional`: every write goes to an explicit offset, starting at 0
 `File.writerStreaming(io, &buffer)` / `Io.File.Writer.initStreaming` set `.mode = .streaming` and
 write at the descriptor's own offset. Program output to stdout or stderr is always streaming; the
 positional constructor is for a file this program opened and whose offset it owns.
+`Io.File.Writer.initDetect(file, io, &buffer)` looks like it would pick the mode for you, but it
+**does not compile** in 0.17: it calls `Mode.detect(...)`, and `Io.File.Reader.Mode` has no `detect`
+member — `error: enum 'Io.File.Reader.Mode' has no member named 'detect'`.
 
 **Why:** stdout may be a regular file someone already wrote to. A positional writer starts at offset
 0, so `(echo header; prog) > f` overwrites the header, as does `prog >> f` on macOS; a pipe or a tty
@@ -264,11 +265,6 @@ var log_writer = log_file.writer(io, &log_buffer); // a file we opened: position
 // fragment — BAD: under `(echo header; prog) > report.txt`, this overwrites the header
 var stdout_writer: Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
 ```
-
-> [!NOTE] `Io.File.Writer.initDetect(file, io, &buffer)` exists in the source and looks like it
-> would pick the mode for you, but it **does not compile** in 0.17.0: it calls `Mode.detect(...)`,
-> and `Io.File.Reader.Mode` has no `detect` member —
-> `error: enum 'Io.File.Reader.Mode' has no member named 'detect'`.
 
 ### ZS-CONC-06 [M] Reusable code takes `*Io.Writer` and returns `Io.Writer.Error!void`
 
@@ -310,6 +306,9 @@ test "the exact bytes, with no process and no files" {
 has a no-op `flush`. Deviate for a single `print` (use `gpa.print`) or a size you can bound (use
 `std.mem.print` over a fixed array).
 
+`Allocating`'s error surface is `Io.Writer.Error`, so allocation failure arrives as
+`error.WriteFailed`. Map it back at the boundary the way std does, as the second example shows.
+
 **Why:** it is one allocation strategy and one error path instead of an `ArrayList` plus manual
 `appendSlice`/`print` bookkeeping, and it is what `Allocator.print` is implemented in terms of.
 
@@ -330,9 +329,6 @@ test "writer allocating" {
     try std.testing.expectEqualStrings("x=7\n", aw.written());
 }
 ```
-
-`Allocating`'s error surface is `Io.Writer.Error`, so allocation failure arrives as
-`error.WriteFailed`. Map it back at the boundary the way std does:
 
 ```zig
 // fragment
@@ -398,8 +394,6 @@ const locked = try io.lockStderr(&stderr_buffer, null);
 defer io.unlockStderr(); // unlockStderr flushes; no manual flush needed
 try locked.file_writer.interface.writeAll("done\n");
 ```
-
----
 
 ## Reading
 
@@ -517,7 +511,7 @@ defer gpa.free(text);
 ```
 
 ```zig
-// verified — GOOD
+// verified — the limit on the reader bounds a read-all through it
 const std = @import("std");
 const Io = std.Io;
 test "limit" {
@@ -550,7 +544,7 @@ try source_dir.copyFile("input.bin", dest_dir, "output.bin", io, .{});
 ```
 
 ```zig
-// fragment — GOOD: between handles already open
+// fragment — between handles already open
 var read_buffer: [copy_buffer_max]u8 = undefined;
 var write_buffer: [copy_buffer_max]u8 = undefined;
 var fr = source.reader(io, &read_buffer);
@@ -558,8 +552,6 @@ var fw = target.writer(io, &write_buffer);
 _ = try fw.interface.sendFileAll(&fr, .unlimited); // asserts fw buffer is nonempty
 try fw.flush(); // the concrete flush reports the real error (ZS-CONC-08)
 ```
-
----
 
 ## Authoring custom streams
 
@@ -570,13 +562,19 @@ Only `drain` is required (`sendFile`, `flush`, `rebase` have defaults). A correc
 `data` but the last, in order; (3) emits the **last** element `splat` times in total, which may be
 zero; (4) returns the count consumed **from `data` only**, excluding buffer bytes.
 
+Override `flush` with `Io.Writer.noopFlush` only if your sink has no residual state (`Allocating`
+does this). Override `rebase` only if your buffer can grow or must never move. Override `sendFile`
+only if you have a genuine fd-to-fd fast path; the default returns `error.Unimplemented`, which
+callers handle.
+
 **Why:** each broken clause corrupts output: skipping (1) reorders the stream, assuming
 `data.len == 1` drops vectored writes, ignoring `splat` turns `splatByteAll('-', 1_000_000)` into
 one dash, and counting buffer bytes makes the caller skip bytes of `data` never written.
 
 **Check:** read the `drain` body against the four numbered clauses — no `w.buffered()` before the
-first emit; `data[0]` indexed instead of iterated; the `splat` parameter unused (grep: `_ = splat`);
-or the returned count accumulating anything emitted from `w.buffered()`. Each is one line to spot.
+first emit; `data[0]` indexed instead of iterated; or the returned count accumulating anything
+emitted from `w.buffered()`. Each is one line to spot. `rg -n '_ = splat;' -g '*.zig'` finds the
+`splat` parameter discarded; each hit in a `drain` is the finding.
 
 ```zig
 // verified — GOOD
@@ -620,11 +618,6 @@ const UpperWriter = struct {
     }
 };
 ```
-
-Override `flush` with `Io.Writer.noopFlush` only if your sink has no residual state (`Allocating`
-does this). Override `rebase` only if your buffer can grow or must never move. Override `sendFile`
-only if you have a genuine fd-to-fd fast path; the default returns `error.Unimplemented`, which
-callers handle.
 
 ### ZS-CONC-16 [M] A custom `Reader` signals end of stream with `error.EndOfStream`, never `0`
 
@@ -682,8 +675,7 @@ const RepeatReader = struct {
 considers written. It is a silent data bug with no compile error.
 
 **Check:** a `writableSliceGreedy` with no `w.advance(n)` before the next write on that writer, and
-an `advance` following a `writableSlice`/`writableArray`, both of which advanced already. Grep the
-three names and pair each with the presence or absence of `advance`.
+an `advance` following a `writableSlice`/`writableArray`, both of which advanced already.
 
 ```zig
 // verified — GOOD
@@ -704,8 +696,6 @@ test "zero copy writes: advance semantics differ" {
     try std.testing.expectEqualStrings("123456", aw.written());
 }
 ```
-
----
 
 ## Filesystem
 
@@ -760,6 +750,9 @@ concurrently — and for every file that is *updated*, meaning read, modified an
 because its pre-write contents are the only copy of the data being replaced. A file regenerated from
 scratch on every run — a build artifact, a cache, a scratch file — may use plain `writeFile`.
 
+`af.deinit(io)` is safe to `defer` unconditionally: it removes the ephemeral file if
+`replace`/`link` was never reached.
+
 **Why:** truncating a file in place has a window in which the file is empty or half-written. If the
 process dies there, the on-disk state is unrecoverable — the old contents are already gone and the
 new ones are not there yet.
@@ -791,9 +784,6 @@ test "atomic replace" {
     try std.testing.expectEqualStrings("new", try tmp.dir.readFile(io, "state.json", &read_buf));
 }
 ```
-
-`af.deinit(io)` is safe to `defer` unconditionally: it removes the ephemeral file if
-`replace`/`link` was never reached.
 
 ### ZS-CONC-20 [S] Pick the traversal API by who decides to descend
 
@@ -920,8 +910,6 @@ when the slice and the file agree, mapped or not.
 read whole; a `createMemoryMap` with no `defer mm.destroy(io)`; a change to `.memory` meant to
 persist with no `mm.write(io)` after it; a read-write map of a handle opened read-only.
 
----
-
 ## Structured concurrency
 
 ### ZS-CONC-23 [M] Every started `Future` is awaited or canceled exactly once, on every path
@@ -929,6 +917,10 @@ persist with no `mm.write(io)` after it; a read-write map of a handle opened rea
 `io.async(f, args)` returns a `Future(R)` — `await` and `cancel` are idempotent but **not**
 threadsafe. An early `return` that skips remaining futures abandons them. The correct fan-out shape
 awaits *all* futures and only then propagates the first error.
+
+The call's shape is `io.async(function, args_tuple)` — arguments go in a tuple, `Io` itself is
+usually the first of them. `async` and `await` are no longer language keywords, which is why
+`io.async` and `f.await(io)` are ordinary declarations.
 
 **Why:** under `Io.Threaded` each future is a heap allocation plus a claimed slot against
 `async_limit`; abandoning it leaks both and leaves a worker writing into a result slot whose stack
@@ -977,10 +969,6 @@ fn fetchAll(io: Io, out: []u32) FetchError!void {
     if (first_error) |err| return err;
 }
 ```
-
-Note the shape of the call: `io.async(function, args_tuple)` — arguments go in a tuple, `Io` itself
-is usually the first of them. `async` and `await` are no longer language keywords, which is why
-`io.async` and `f.await(io)` are ordinary declarations.
 
 ### ZS-CONC-24 [S] Prefer `io.async`; use `io.concurrent` only for simultaneous progress
 
@@ -1060,7 +1048,7 @@ test "group" {
 ```
 
 ```zig
-// verified — GOOD: `cancel` is the abandonment-safe exit
+// verified — `cancel` is the abandonment-safe exit
 const std = @import("std");
 const Io = std.Io;
 fn worker(io: Io) Io.Cancelable!void {
@@ -1141,9 +1129,9 @@ server, a database or a consensus node does, where every long CPU-bound loop get
 uninterruptible, so a shutdown, a deadline, or a watchdog cannot preempt it — the task keeps burning
 a carrier thread while whoever requested the cancel blocks in `await`.
 
-**Check:** a loop with no `io.*` call anywhere in its body whose bound is not a small compile-time
-constant, and no `io.checkCancel()` on a stride inside it. Grep the diff for `while (true)` and for
-`for (0..` over a runtime length in a function that takes an `io`.
+**Check:** in a function that takes an `io`, a loop — a `while (true)`, or a `for (0..n)` over a
+runtime length — with no `io.*` call anywhere in its body, a bound that is not a small compile-time
+constant, and no `io.checkCancel()` on a stride inside it.
 
 ```zig
 // verified — GOOD
@@ -1284,8 +1272,8 @@ decomposed. Use the `.duration` form only for a genuinely single wait.
 **Check:** two or more `.duration` timeouts on the steps of one logical operation — connect, then
 write, then read, each given its own budget. The fix is one deadline made at entry and threaded
 through: `timeout.toDeadline(io)` turns whatever the caller passed into one, and `.none` stays
-`.none`. Grep for the absence of a single shared `Io.Timeout` value in any function that performs
-more than one waiting call.
+`.none`. A function that performs more than one waiting call holds one `Io.Timeout` value, or it is
+the finding.
 
 ```zig
 // verified — GOOD
@@ -1310,8 +1298,6 @@ test "timeout as a deadline, not a per-call duration" {
 }
 ```
 
----
-
 ## TigerStyle, re-derived for `std.Io`
 
 ### ZS-CONC-34 [M] Drain a batch of what a peer sends; do not wake once per event
@@ -1325,6 +1311,13 @@ Anything that crosses the process boundary is amortized over a batch — one `fl
 `writeVecAll` per batch of records, never per record. A per-event `getOne` loop is acceptable only
 where the event rate is bounded by a human or by a file the program already holds, not by a peer.
 The non-I/O half of this is ZS-PERF-05.
+
+`Io.Batch` + `Io.Operation` is the lowest-level form of the same idea: N operations submitted
+together, results collected with `batch.next()`. `awaitAsync` returns once *at least one* has
+completed, so collect until every submitted operation has been seen — a count of the `add` calls,
+not `storage.len`, which is only the capacity: awaiting an operation that was never added blocks
+forever. `read_batch_max` is that capacity's named bound (ZS-CONC-37). Reach for `Io.Batch` only
+when `Future`/`Group` measurably costs too much per operation.
 
 **Why:** one wake-up per event means one context switch, one scheduler round-trip, and one set of
 assertion re-checks per event. Batching amortizes all three and bounds work per time period, which
@@ -1376,15 +1369,8 @@ const Batcher = struct {
 };
 ```
 
-`Io.Batch` + `Io.Operation` is the lowest-level form of the same idea: N operations submitted
-together, results collected with `batch.next()`. `awaitAsync` returns once *at least one* has
-completed, so collect until every submitted operation has been seen — a count of the `add` calls,
-not `storage.len`, which is only the capacity: awaiting an operation that was never added blocks
-forever. `read_batch_max` is that capacity's named bound (ZS-CONC-37). Reach for `Io.Batch` only
-when `Future`/`Group` measurably costs too much per operation.
-
 ```zig
-// fragment — GOOD: two reads submitted as one batch, both collected
+// fragment — `Io.Batch`: two reads submitted as one batch, both collected
 var storage: [read_batch_max]Io.Operation.Storage = undefined;
 var batch: Io.Batch = .init(&storage);
 defer batch.cancel(io);
@@ -1411,6 +1397,11 @@ assertions are true throughout the lifetime of the function.* Under `io.async` t
 followed literally — any `io.*` call is a suspension point. The 0.17 form of the rule: assert about
 shared state only in a region where you hold exclusive access, and re-establish the assertion after
 every `io.*` call.
+
+The pure-function corollary still holds and is now easier to satisfy: a function that takes only its
+own inputs and no `io` cannot suspend, so its preconditions hold for its whole body. Push `io` calls
+to the edges and keep the computational core `io`-free — that is where TigerStyle's assertion
+density belongs.
 
 *Relaxed form:* do not write an assertion about shared state *above* a suspension point at all: move
 it below the acquisition or delete it. That is weaker than re-establishing the invariant after every
@@ -1451,11 +1442,6 @@ const Account = struct {
     }
 };
 ```
-
-The pure-function corollary still holds and is now easier to satisfy: a function that takes only its
-own inputs and no `io` cannot suspend, so its preconditions hold for its whole body. Push `io` calls
-to the edges and keep the computational core `io`-free — that is where TigerStyle's assertion
-density belongs.
 
 ### ZS-CONC-36 [M] Replace completion callbacks with `io.async` and `await`
 
@@ -1525,6 +1511,10 @@ the combined `addr:port` / `[v6addr]:port` spellings. For a DNS name, use
 `net.HostName.connect(host, io, port, options)`, which is a Happy-Eyeballs racer built on
 `io.async` + `Io.Queue` — do not hand-roll one.
 
+`ListenOptions` defaults to `.{ .mode = .stream, .protocol = .tcp, .kernel_backlog = 128 }` and
+`reuse_address = false`; `BindOptions` and `ConnectOptions` require `mode` explicitly, because a
+datagram socket and a stream socket are not interchangeable and std refuses to guess.
+
 **Why:** routing everything through a parsed `IpAddress` means the parse failure and the connect
 failure are separate error sets at separate call sites, instead of one function that can fail for
 either reason.
@@ -1542,16 +1532,18 @@ test "address parsing" {
 }
 ```
 
-`ListenOptions` defaults to `.{ .mode = .stream, .protocol = .tcp, .kernel_backlog = 128 }` and
-`reuse_address = false`; `BindOptions` and `ConnectOptions` require `mode` explicitly, because a
-datagram socket and a stream socket are not interchangeable and std refuses to guess.
-
 ### ZS-CONC-39 [M] A socket is an ordinary stream source — and `.limited` is not optional on one
 
 `stream.reader(io, &buffer)` and `stream.writer(io, &buffer)` return `net.Stream.Reader` /
 `net.Stream.Writer`, each with an `interface` field and an `err` field, so the buffer-then-flush
 rules apply unchanged (ZS-CONC-04, ZS-CONC-06, ZS-CONC-08). Every socket read and write is also a
 cancellation point (ZS-CONC-26): a `catch {}` around one strands a shutdown on a silent peer.
+
+The example's accept side runs under `io.concurrent`, not `io.async`: the server must make progress
+while the client connects, which is exactly the interleaving requirement of ZS-CONC-24.
+`net.Stream.Writer.sendFile` is `error.Unimplemented` in 0.17, so `sendFileAll` over a socket
+silently falls back to the userspace copy loop — the ZS-CONC-14 zero-copy argument does not apply to
+sockets in 0.17.
 
 **Why:** the peer chooses how many bytes arrive and when, which makes a socket the canonical
 untrusted input boundary of ZS-CONC-13: `.unlimited` there is an attacker-controlled allocation, and
@@ -1597,12 +1589,6 @@ test "tcp loopback: listen, connect, read with an explicit limit" {
 }
 ```
 
-Note the accept side runs under `io.concurrent`, not `io.async`: the server must make progress while
-the client connects, which is exactly the interleaving requirement of ZS-CONC-24.
-`net.Stream.Writer.sendFile` is `error.Unimplemented` in 0.17.0 (a `TODO` in std), so `sendFileAll`
-over a socket silently falls back to the userspace copy loop — the ZS-CONC-14 zero-copy argument
-does not apply to sockets in 0.17.
-
 ### ZS-CONC-40 [M] Close every socket on every path; `shutdown` is how you unblock a blocked peer
 
 `stream.close(io)`, `socket.close(io)`, and `server.deinit(io)` each take the `Io`, exactly like
@@ -1611,18 +1597,16 @@ parked in `accept` or a read, call `stream.shutdown(io, .recv/.send/.both)` from
 is documented behavior, not a trick: `Server.accept`'s `error.SocketNotListening` carries the
 comment "This allows `shutdown` to be used as a concurrent cancellation mechanism."
 
+`net.Socket.closeMany(io, sockets)` closes a batch in one call. `Socket.createPair(io, .{})`
+defaults to `.family = .ip4`, which `socketpair` rejects on Darwin: there it returns
+`error.Unexpected`.
+
 **Why:** a socket is a file descriptor, so a leaked one fails like a leaked `Dir` (ZS-CONC-18). On a
 graceful-shutdown path, `shutdown` is how an accept loop returns so its `Group` can be awaited
 rather than abandoned (ZS-CONC-23).
 
 **Check:** an `accept`/`connect`/`createPair` result not followed by its `defer …close(io)` the way
 ZS-MEM-10 requires; an accept loop with no way to be woken.
-
-> [!NOTE] `net.Socket.closeMany(io, sockets)` closes a batch in one call.
-> `Socket.createPair(io, .{})` defaults to `.family = .ip4`, which `socketpair` rejects on Darwin:
-> there it returns `error.Unexpected`.
-
----
 
 ## Subprocesses
 
@@ -1632,14 +1616,7 @@ the stream.
 
 ### ZS-CONC-41 [M] `std.process.run` for the output; `std.process.spawn` for the stream
 
-Exact signatures, from `std/process.zig`:
-
-```zig
-// fragment — from std/process.zig
-pub fn spawn(io: Io, options: SpawnOptions) SpawnError!Child;
-pub fn run(gpa: Allocator, io: Io, options: RunOptions) RunError!RunResult;
-pub fn replace(io: Io, options: ReplaceOptions) ReplaceError; // never returns on success
-```
+The exact signatures are the first example's, from `std/process.zig`.
 
 `RunResult` is `{ term: Child.Term, stdout: []u8, stderr: []u8 }` and **the caller owns both
 slices**. `RunOptions` carries `exe`, `argv`, `stdout_limit`/`stderr_limit` (`Io.Limit`),
@@ -1655,6 +1632,13 @@ rule holds: `run` is a free function so `gpa` precedes `io` (ZS-CONC-02).
 `Io.File.MultiReader` that drains both pipes concurrently. Use `spawn` only when you need the output
 *incrementally* — a build tool relaying a compiler's diagnostics as they appear — or need a `StdIo`
 shape `run` does not offer.
+
+```zig
+// fragment — from std/process.zig
+pub fn spawn(io: Io, options: SpawnOptions) SpawnError!Child;
+pub fn run(gpa: Allocator, io: Io, options: RunOptions) RunError!RunResult;
+pub fn replace(io: Io, options: ReplaceOptions) ReplaceError; // never returns on success
+```
 
 **Why:** draining concurrently is the whole point: a child that fills the stderr pipe blocks forever
 while you read stdout, and hand-rolling `spawn` plus two sequential reads reintroduces exactly that
@@ -1692,6 +1676,11 @@ test "process.run collects stdout with an explicit limit" {
 between spawn and `wait` does not leave an orphan, and let `wait` be the single release point on the
 success path.
 
+`stdin = .pipe` is the mirror image: write to the child's `stdin` through a `File.Writer`, `flush`,
+and then let `wait` close it — but a child that is still reading stdin will not exit, so a program
+that both feeds and drains a child needs the two directions on separate tasks (`io.concurrent`,
+ZS-CONC-24), not sequentially.
+
 **Why:** `?File` looks like a handle you own, but closing it before `wait` is a double close that
 panics in `wait`'s cleanup: `std.Io.Threaded.closeFd` maps `.BADF => recoverableOsBugDetected()`,
 which is `reached unreachable code` in a `debug` build.
@@ -1725,13 +1714,6 @@ test "process.spawn streams a child's stdout incrementally" {
     try std.testing.expectEqual(2, lines);
 }
 ```
-
-`stdin = .pipe` is the mirror image: write to the child's `stdin` through a `File.Writer`, `flush`,
-and then let `wait` close it — but a child that is still reading stdin will not exit, so a program
-that both feeds and drains a child needs the two directions on separate tasks (`io.concurrent`,
-ZS-CONC-24), not sequentially.
-
----
 
 ## Terminals and progress
 

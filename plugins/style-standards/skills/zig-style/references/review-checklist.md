@@ -53,6 +53,27 @@ invalidate the work of reading the next.
 10. **Build and project.** New dependencies justified? `build.zig.zon` `.paths` correct? Does
     `zig build check` pass? (`ZS-BUILD`)
 
+### At a C boundary
+
+At an `export fn`, a `callconv(.c)` function or an `extern` declaration, ask these as well:
+
+1. Does any exported function return `!T`, or an error smuggled as an integer? (ZS-INTEROP-01)
+2. Is every pointer parameter null-checked and every length bounded before use? (ZS-INTEROP-02)
+3. Does `[*c]` appear anywhere but an exported parameter list? (ZS-INTEROP-09)
+4. Is `std.mem.span` being applied to a fixed-size NUL-padded C array where `sliceTo` belongs?
+   (ZS-INTEROP-10)
+5. Any `@intCast`/`@truncate` on a `c_int`/`c_long`/`c_char` instead of `std.math.cast`?
+   (ZS-INTEROP-11)
+6. Does every struct shared with C have fixed-width fields and `comptime` layout assertions?
+   (ZS-DATA-02, ZS-ASSERT-18)
+7. Does any callback `try`, `catch unreachable`, or `@panic` across the C frame? (ZS-INTEROP-13)
+8. For each buffer that crosses: which side frees it, is it written down, and does the allocator
+   match? (ZS-INTEROP-14)
+9. Does the code assume `std.process.Init`, `Io`, or a default panic handler on a target that has
+   none? (ZS-INTEROP-16, ZS-INTEROP-17)
+10. Does any design depend on two tasks overlapping in a build that may be `-fsingle-threaded`?
+    (ZS-INTEROP-19)
+
 ## Mechanical pass
 
 Run these before reading anything, and report what could not be run rather than implying it passed.
@@ -61,7 +82,7 @@ Run these before reading anything, and report what could not be run rather than 
 zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .  # ZS-BUILD-26
 zig build check                       # semantic check, no binary emitted
 zig build test                        # debug
-zig build test -Doptimize=safe        # ZS-TEST-25: the suite must pass in both
+zig build test -Doptimize=safe        # ZS-TEST-26: the suite must pass in both
 zig build test-integration
 zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-28)
 ```

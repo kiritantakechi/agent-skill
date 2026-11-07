@@ -20,13 +20,35 @@ the shape early does not remove those costs; it means choosing which one you pay
 ZS-COMPTIME-11, and ZS-COMPTIME-15 keep the cost from becoming damage: if any is being bent to make
 an interface fit, the interface is wrong and the fallback is a concrete type.
 
+std chose the other way for its three central abstractions: `std.mem.Allocator`, `std.Io` and
+`std.Io.Writer`/`Reader` are runtime vtables, trading static dispatch for storability, ABI stability
+and one compiled copy of every consumer, which is why ZS-COMPTIME-09 takes them as runtime
+interfaces. TigerBeetle, which predates `std.Io`, parameterizes its whole storage and replica stack
+on comptime types instead, so every call is direct.
+
 Unlike the other chapters, the blocks here carry their own `const std = @import("std");` rather than
 assuming a file-scope preamble — several of them are whole files, and the point of a type function
 is often what it does at the top of a file.
 
+Each symptom below, and the rule it breaks:
+
+| Symptom | Rule |
+|---|---|
+| `fn F(comptime T: type)` with one caller ever | ZS-COMPTIME-10 |
+| `comptime` keyword at container scope | the compiler (Decided by tools) |
+| `inline fn` on a non-trivial function | ZS-COMPTIME-03 |
+| `inline for` over a homogeneous array | ZS-COMPTIME-04 |
+| `@setEvalBranchQuota(1000000)` | ZS-COMPTIME-05 |
+| Generic over the allocator or writer type | ZS-COMPTIME-09 |
+| Bare `anytype` in a `pub fn` | ZS-COMPTIME-11, ZS-COMPTIME-12 |
+| `@Type(...)`, `std.meta.Int`, `std.meta.Tuple` | ZS-COMPTIME-14 |
+| `@typeInfo(T).Struct`, `.@"struct".fields`, a raw `default_value_ptr` | ZS-COMPTIME-14 |
+| Hand-rolled vtable for a closed set of impls | ZS-COMPTIME-19 |
+| `usingnamespace` | ZS-BUILD-15 |
+| `error: unable to resolve comptime value` with no visible cause | ZS-COMPTIME-20 |
+
 ## Contents
 
-- **Anti-pattern index**
 - **Deciding to use comptime at all**
   - ZS-COMPTIME-01 [M] Force comptime with a labeled block, and keep its product small
   - ZS-COMPTIME-02 [M] Use `comptime var` only as an accumulator driven by an `inline` loop
@@ -54,27 +76,7 @@ is often what it does at the top of a file.
   - ZS-COMPTIME-19 [M] A closed set of implementations is a tagged union, not an interface
 - **Debugging comptime**
   - ZS-COMPTIME-20 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
-- **Where TigerStyle and std disagree**
 - Decided by tools
-
----
-
-## Anti-pattern index
-
-| Symptom | Rule |
-|---|---|
-| `fn F(comptime T: type)` with one caller ever | ZS-COMPTIME-10 |
-| `comptime` keyword at container scope | the compiler (Decided by tools) |
-| `inline fn` on a non-trivial function | ZS-COMPTIME-03 |
-| `inline for` over a homogeneous array | ZS-COMPTIME-04 |
-| `@setEvalBranchQuota(1000000)` | ZS-COMPTIME-05 |
-| Generic over the allocator or writer type | ZS-COMPTIME-09 |
-| Bare `anytype` in a `pub fn` | ZS-COMPTIME-11, ZS-COMPTIME-12 |
-| `@Type(...)`, `std.meta.Int`, `std.meta.Tuple` | ZS-COMPTIME-14 |
-| `@typeInfo(T).Struct`, `.@"struct".fields`, a raw `default_value_ptr` | ZS-COMPTIME-14 |
-| Hand-rolled vtable for a closed set of impls | ZS-COMPTIME-19 |
-| `usingnamespace` | ZS-BUILD-15 |
-| `error: unable to resolve comptime value` with no visible cause | ZS-COMPTIME-20 |
 
 ---
 
@@ -132,8 +134,6 @@ export fn tripleSum() u32 {
     return acc;
 }
 ```
-
----
 
 ## `inline` and its real costs
 
@@ -382,6 +382,10 @@ For a generic container, write the data structure once over type-erased links or
 in a thin `fn Foo(comptime T: type) type` whose methods are `inline fn` one-liners. This is
 TigerBeetle's R39, and the one place where `inline fn` and generics are both justified.
 
+This is how a hot path gets TigerStyle's static dispatch — direct calls every layer of which the
+optimizer sees — without N-fold monomorphization; off a hot path, one indirect call is not worth
+designing around.
+
 **Why:** the algorithm is compiled once however many element types exist, and the shims inline away
 to nothing, so the call cost matches the fully monomorphized version while compile time and binary
 size scale with *methods*, not methods × types.
@@ -472,10 +476,10 @@ none of them speak yours; every one of them would have to be re-implemented agai
 and it is the difference between a type your callers can store in a struct field and one they
 cannot. Either deviation costs the same thing: composition.
 
-**Check:** grep a diff for `comptime .*: type` whose name ends in `Allocator`, `Alloc`, `Writer`,
-`Reader`, or `Io`, and for any new struct with a `vtable` field whose operations are "write bytes",
-"read bytes", or "allocate". Both are this rule, and so is a parameter typed `*Io.File` where a
-`*Io.Reader` or `*Io.Writer` would do.
+**Check:** `rg -n 'comptime \w*(Allocator|Alloc|Writer|Reader|Io): type' -g '*.zig'` finds a type
+parameter standing for a std interface; each hit is the finding. So is a new struct with a `vtable`
+field whose operations are "write bytes", "read bytes", or "allocate", and a parameter typed
+`*Io.File` where a `*Io.Reader` or `*Io.Writer` would do.
 
 ```zig
 // fragment — BAD: parameterizing over what is already type-erased
@@ -510,12 +514,10 @@ returning that value.
 **Why:** the parameter still forces one instantiation per distinct argument, and the instantiations
 are bit-identical machine code. You pay for monomorphization and receive nothing.
 
-**Check:** for each `comptime` parameter, grep its call sites and count the distinct arguments. One
+**Check:** for each `comptime` parameter, count the distinct arguments its call sites pass. One
 distinct argument across the whole tree means one instantiation and no reason for the parameter. In
 the body, a `comptime T: type` that appears only in the signature — never in a field type, a
 `@sizeOf`, a cast, or a `@typeInfo` — is the same finding.
-
----
 
 ## `anytype`
 
@@ -653,8 +655,9 @@ migration table rather than enumerated here. This rule is about the parts that s
 code that calls them survives a representation change, and code that reads the raw fields does not.
 
 **Check:** every `@typeInfo` in a diff must be followed by an `inline for` or an equivalent list
-walk; if it is followed by a single field or decl access, a narrow builtin does it better. Grep for
-`default_value_ptr` and `sentinel_ptr` — both should be `defaultValue(FieldType)` / `sentinel()`.
+walk; if it is followed by a single field or decl access, a narrow builtin does it better.
+`rg -n 'default_value_ptr|sentinel_ptr' -g '*.zig'` finds a raw pointer field read; each hit is the
+finding, and `defaultValue(FieldType)` / `sentinel()` its replacement.
 
 ```zig
 // verified — GOOD
@@ -687,8 +690,6 @@ test "accessors" {
     try std.testing.expectEqualStrings("retries=3;", w.buffered());
 }
 ```
-
----
 
 ## Interfaces
 
@@ -904,6 +905,20 @@ It is the single highest-value flag for this chapter's failure surface: ZS-COMPT
 unguarded type parameters, and every `@compileError` you emit are all reported at a line the caller
 did not write.
 
+`@compileLog` needs its own discipline. `@compileLog` is not a print statement: reaching one is
+itself `error: found compile log statement`, and the values are dumped in a `Compile Log Output:`
+block after the error. So the build fails by design, a `@compileLog` left in a shared branch breaks
+everyone's build, and it can never be committed. Three consequences:
+
+- Treat it exactly like a debugger breakpoint — add, read, delete, in one sitting. Never commit one.
+- It renders comptime *values*, not types: log `@typeName(T)` rather than `T`, and `@sizeOf(T)`
+  rather than a type expression, or you get `@as(type, ...)` noise.
+- Because it aborts, you get one shot per compile. Log several values in one call —
+  `@compileLog(@typeName(T), @sizeOf(T), i)` — rather than bisecting across builds.
+
+For a check that should *stay* in the source, use `comptime { assert(...) }` or `@compileError` with
+a message naming the requirement (ZS-COMPTIME-07), not `@compileLog`.
+
 **Why:** `error: unable to resolve comptime value` names the line where a runtime value met a
 `comptime` parameter, but the bug is at the call site that made the value runtime-known, which may
 be forty frames up. The reference trace is the only artifact connecting the two.
@@ -919,20 +934,6 @@ referenced by:
     outer: bad.zig:4:29
     4 reference(s) hidden; use '-freference-trace=6' to see all references
 ```
-
-**`@compileLog` discipline.** `@compileLog` is not a print statement: reaching one is itself
-`error: found compile log statement`, and the values are dumped in a `Compile Log Output:` block
-after the error. So the build fails by design, a `@compileLog` left in a shared branch breaks
-everyone's build, and it can never be committed. Three consequences:
-
-- Treat it exactly like a debugger breakpoint — add, read, delete, in one sitting. Never commit one.
-- It renders comptime *values*, not types: log `@typeName(T)` rather than `T`, and `@sizeOf(T)`
-  rather than a type expression, or you get `@as(type, ...)` noise.
-- Because it aborts, you get one shot per compile. Log several values in one call —
-  `@compileLog(@typeName(T), @sizeOf(T), i)` — rather than bisecting across builds.
-
-For a check that should *stay* in the source, use `comptime { assert(...) }` or `@compileError` with
-a message naming the requirement (ZS-COMPTIME-07), not `@compileLog`.
 
 **Check:** `rg -n "@compileLog"` over the diff must return nothing. If a comptime bug report in a
 review says only "unable to resolve comptime value", ask for the output with `-freference-trace`
@@ -952,40 +953,6 @@ comptime {
     _ = sizeOfLogged(u32);
 }
 ```
-
----
-
-## Where TigerStyle and std disagree
-
-TigerBeetle pins Zig 0.14.1 and predates `std.Io`, so TigerStyle's position on dispatch was formed
-without a std interface to lean on.
-
-**TigerStyle's position:** minimize abstractions; where an abstraction is unavoidable, prefer static
-dispatch — TigerBeetle parameterizes its whole storage/replica stack on comptime types
-(`fn ReplicaType(comptime ...)`), so every call is direct and every layer is visible to the
-optimizer and to a reader following one instantiation.
-
-**std's position:** the opposite for the three central abstractions. `std.mem.Allocator`, `std.Io`,
-and `std.Io.Writer`/`Reader` are all runtime vtables. std explicitly traded static dispatch away for
-storability, ABI stability, and one compiled copy of every consumer.
-
-**Recommendation, keyed to the tiers:**
-
-- [M] Take `Allocator`, `*Io.Writer`, `*Io.Reader`, and `Io` as runtime interfaces (ZS-COMPTIME-09).
-  This is not a style preference: hand-rolling around them costs you the entire std ecosystem, and
-  comptime-parameterizing on an allocator type is a pattern std deliberately deleted.
-- [S] For your *own* abstractions, follow TigerStyle: prefer no abstraction, then a tagged union
-  (ZS-COMPTIME-19), then an interface. Reach for a vtable only when the implementation set is
-  genuinely open.
-- [M!] In high-reliability code — databases, consensus, embedded, crypto, allocators, anything where
-  a crash or corruption is unacceptable — apply TigerStyle's static-dispatch preference to the hot
-  path, and use ZS-COMPTIME-08 (type-erased core + `inline fn` shims) to get direct calls without
-  N-fold monomorphization. Elsewhere, one indirect call is not worth designing around.
-
-A smaller disagreement: TigerStyle uses `inline fn` freely for shims, while the langref says "it is
-generally better to let the compiler decide when to inline a function." ZS-COMPTIME-03 resolves it:
-the shim case, a one-line forwarder over a type-erased core (ZS-COMPTIME-08), is a sanction of its
-own beside the langref's three reasons, so both are satisfied.
 
 ## Decided by tools
 

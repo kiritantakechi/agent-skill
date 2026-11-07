@@ -56,13 +56,13 @@ CONVENTIONS = (
         "`orelse unreachable` with the proof beside it",
         unless_own=RuleId.parse("ZS-ERR-26"),
     ),
-    # ZS-TEST-04 [M] — "drop the `@as` wrapper": peer resolution already
+    # ZS-TEST-05 [M] — "drop the `@as` wrapper": peer resolution already
     # handles a literal on the other side.
     LineRule(
         AS_WRAPPER,
         r"expectEqual\(@as\([a-zA-Z0-9_]+, [^()]*\), ",
         "`@as` wrapper inside `expectEqual`; peer resolution already handles it "
-        "(ZS-TEST-04)",
+        "(ZS-TEST-05)",
     ),
     LineRule(
         META_DOC,
@@ -128,10 +128,10 @@ PROFILE = Profile(
             # containers" — a receiver typed `Self` is the case the
             # rule permits.
             "ZS-NAME-12": Unless(near=(Near("Self"),)),
-            # ZS-TEST-09: "`rg …` inside `test` blocks — every hit must
+            # ZS-TEST-10: "`rg …` inside `test` blocks — every hit must
             # be on an `errdefer` line". Container-scope logging is not
             # the target.
-            "ZS-TEST-09": Unless(near=(Near("errdefer"),), outside_tests=True),
+            "ZS-TEST-10": Unless(near=(Near("errdefer"),), outside_tests=True),
         }
     ),
     # Each snippet is the defect its rule forbids, written the way it
@@ -146,6 +146,25 @@ PROFILE = Profile(
                 "if (std.mem.containsAtLeastScalar(u8, list, 3, 'a')) return;",
                 "if (std.mem.eql(f64, readings, baseline)) return;",
             ),
+            "ZS-CONC-15": ("        _ = splat;",),
+            "ZS-DATA-06": ("const pages = (size_bytes + page_size - 1) / page_size;",),
+            "ZS-DATA-12": ("const config = Config{ .port = 8080, .verbose = false };",),
+            "ZS-ERR-02": (
+                '    return parseInner(gpa, text) catch @panic("bad input");',
+            ),
+            "ZS-ERR-03": ("pub fn load(gpa: Allocator, path: []const u8) ![]u8 {",),
+            "ZS-ERR-05": (
+                "pub fn run(io: Io, args: []const []const u8) anyerror!void {",
+            ),
+            "ZS-ERR-26": ("const first = list.first.?;",),
+            "ZS-INTEROP-08": ("fn area(width: c_int, height: c_int) c_int {",),
+            "ZS-INTEROP-09": ("const Buffer = struct { data: [*c]u8, len: usize };",),
+            "ZS-COMPTIME-09": ("pub fn Store(comptime Allocator: type) type {",),
+            "ZS-COMPTIME-14": (
+                "const default = field.default_value_ptr orelse return null;",
+            ),
+            "ZS-OUT-10": ('try w.print("{:>8}", .{level});',),
+            "ZS-PERF-17": ("@prefetch(&values[i + stride], .{});",),
         }
     ),
     # Each of these ships an `rg` pattern that no fixture in `fires`
@@ -166,12 +185,12 @@ PROFILE = Profile(
         "ZS-NAME-23",
         "ZS-NAME-26",
         "ZS-TEST-02",
-        "ZS-TEST-05",
         "ZS-TEST-06",
         "ZS-TEST-07",
-        "ZS-TEST-09",
-        "ZS-TEST-13",
-        "ZS-TEST-23",
+        "ZS-TEST-08",
+        "ZS-TEST-10",
+        "ZS-TEST-14",
+        "ZS-TEST-24",
     ),
     # Measured, not judged: each of these was promoted to accuse and
     # hit the standard's own compliant examples. The reason names what
@@ -193,63 +212,20 @@ PROFILE = Profile(
                 "`export fn` or a `callconv(.c)` function — the one place it is "
                 "allowed — decides",
             ),
-            "ZS-COMPTIME-10": NotDecisive(
-                "comptime T: type",
-                "the span finds every `comptime` parameter; how many distinct "
-                "arguments its call sites pass decides, which is a count over the "
-                "whole tree",
-            ),
             "ZS-ERR-02": NotDecisive(
-                "@panic(",
-                "the span finds every `@panic(`; whether the file is a library rather "
-                "than `main` or `build.zig` decides",
+                "@panic\\(",
+                "the pattern finds every `@panic(` and `std.process.exit`; whether the "
+                "file is a library rather than `main` or `build.zig` decides",
             ),
             "ZS-ERR-03": NotDecisive(
-                ") ![",
-                "the span finds every inferred error set; whether the function is "
-                "`pub`, and neither `main` nor a test, decides",
-            ),
-            "ZS-OUT-10": NotDecisive(
-                "{b64}",
-                "the span finds every `{b64}`; whether a width or precision is "
-                "applied to it over a slice decides, and both spellings build cleanly",
-            ),
-            "ZS-CONC-15": NotDecisive(
-                "w.buffered()",
-                "the span finds every `w.buffered()`; whether it runs before the "
-                "first emit in a `drain` body decides, which is an ordering the line "
-                "does not carry",
-            ),
-            "ZS-MEM-07": NotDecisive(
-                ".allocator()",
-                "the span finds every `.allocator()`; whether its receiver is a local "
-                "`var` in the same frame that returns decides, which is a fact about "
-                "the declaration above it",
-            ),
-            "ZS-NAME-04": NotDecisive(
-                "len_",
-                "the span finds every truncated identifier; whether it is on the "
-                "sanctioned abbreviation list decides",
+                "pub fn \\w+",
+                "the pattern finds every public inferred error set; whether the "
+                "function is `main` decides",
             ),
             "ZS-PERF-12": NotDecisive(
                 "*Self",
                 "the span finds every `*Self` receiver; whether the helper assigns to "
                 "a field the parent could apply instead decides",
-            ),
-            "ZS-PERF-17": NotDecisive(
-                "@prefetch(",
-                "the span finds every `@prefetch(`; whether its options literal "
-                "spells every field out, rather than leaning on defaults, decides",
-            ),
-            "ZS-TEST-04": NotDecisive(
-                "@as(",
-                "the span finds every `@as(`; whether it wraps an `expectEqual` "
-                "argument, where it is the wrapper the rule removes, decides",
-            ),
-            "ZS-TEST-16": NotDecisive(
-                ".init(seed)",
-                "the span finds every seeded PRNG; whether it is the simulation's "
-                "*second* one decides, which is a count over the test body",
             ),
             "ZS-ASSERT-20": NotDecisive(
                 "returns hits only from",
@@ -269,7 +245,7 @@ PROFILE = Profile(
                 "a presence assertion, and scoped to `build.zig`: the finding is a "
                 "missing guard, which no hit can show",
             ),
-            "ZS-TEST-13": NotDecisive(
+            "ZS-TEST-14": NotDecisive(
                 "is the finding",
                 "the pattern finds every PRNG; the `.init(` seed argument decides, and "
                 "`std.testing.random_seed` is the compliant one",
