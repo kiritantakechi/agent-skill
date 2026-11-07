@@ -8,13 +8,13 @@ that reads them.
 uv run agent-skill check             # every check
 uv run agent-skill check --fast      # skip the ones that compile every example
 uv run agent-skill fmt               # print every file in its normal form, and rewrite its examples
-uv run agent-skill revise NAME PLAN  # merge, demote or remove rules, renumber, rewrite every citation
+uv run agent-skill revise NAME PLAN  # merge, demote, remove or move rules, renumber, rewrite every citation
 uv run agent-skill renumber NAME     # revise with no plan: rename chapters, renumber densely
 uv run agent-skill demote NAME PLAN  # revise with a plan: rules to lint rows, merges or removals
 uv run agent-skill install           # symlink each skill into every agent present
 uv run agent-skill build             # package each as dist/<name>.skill
 uv run agent-skill list              # each skill's prefix, counts and toolchain
-uv run agent-skill measure           # count, per standard, what the normal form's checks find
+uv run agent-skill measure           # count, per standard, what the normal form's checks find, and its concepts
 uv run pytest                        # the same checks, as tests
 ```
 
@@ -36,13 +36,22 @@ replacements, every overlap turns into a citation of the wrong rule, and the res
 reads exactly like a correct one. So merging, demoting, removing and renumbering
 rules, and renaming chapters, are one operation, `agent-skill revise`. A plan names
 some rules and what each becomes — the rule it merged into, the lint-table row that
-replaces it, or its removal and the reason — and dense renumbering closes it. One
-pass from one dictionary then rewrites every citation in the skills, `src/`,
-`tests/` and this file, and nothing is written unless each kept rule still has its
-title under its new ID. `renumber` is `revise` with no plan, and `demote` is
-`revise` with one. It is also how a concept keeps one owner: two rules saying one
-thing are a merge, and a rule moves to another chapter as a copy there under a new
-ID, with the original merged into it, so every citation follows.
+replaces it, its removal and the reason, or its place in another chapter — and dense
+renumbering closes it. One pass from one dictionary then rewrites every citation in
+the skills, the abstract standard, `src/`, `tests/` and this file, and nothing is
+written unless each kept rule still has its title under its new ID. `renumber` is
+`revise` with no plan, and `demote` is `revise` with one. It is also how a concept
+keeps one owner: two rules saying one thing are a merge, and a rule in the wrong
+chapter is a move.
+
+A move is a plan entry `{"<rule ID>": {"move": "<chapter>", "after": "<rule ID>"}}`,
+or `"after": "## <section>"` to make the rule the first of that section, which the
+chapter gains if it has none. The rule takes its new chapter's family code and both
+families close up, its contents line and its §4 line go with it, and the rename
+table records every ID that changed. A move into a chapter the standard does not
+ship creates it in the chapter template, with a TODO where its `Scope:` belongs that
+`skeleton` fails until it is written, and adds its row to §6; a chapter a plan
+leaves with nothing in it is deleted, with its row.
 
 It refuses, writing nothing, while a citation names a rule the plan takes away —
 whether that citation should name the lint, another rule or nothing is for a person
@@ -59,7 +68,8 @@ the citation back, and renaming the `errors` chapter left the template citing a
 rule that did not exist, which the inverse renaming then refused as a capture.
 `revise` followed by its inverse restores every byte of the repository; the tests
 hold it to that on copies of the shipped standards, renaming `errors` and `testing`
-among them.
+among them, and so does a move followed by the move back to the rule's old place,
+drawn at random across all four standards, a move that creates a chapter among them.
 
 The history lives in each standard's `references/renames.md`, which `revise` keeps
 current: a table per revision, stating the range each family ran before it and
@@ -73,6 +83,7 @@ else.
 
 ```
 .claude-plugin/marketplace.json  the marketplace this repository is: one plugin
+abstract/                        the abstract standard: every shared concept, once; installs with nothing
 plugins/style-standards/         the plugin, the only part an install copies
   .claude-plugin/plugin.json     its manifest: name, the one version, license, icon
   skills/<name>/                 content only — symlinked live into each agent
@@ -84,13 +95,14 @@ src/agent_skill/
   doc/                           the one parser and printer of markdown, and the chapter layer
   ids.py                         rule ID, tier, location, version, pin, answer: one type each
   model.py                       a skill's files, each parsed once; where an example sits
+  abstract.py                    the abstract standard, read as a standard's chapters are
   vocabulary.py                  what a chapter may be called, and its rules' family code
   layout.py                      where the plugin and its skills live
   shared/                        the passages every standard carries, as templates
   checks/                        what a skill must be true of
   lang/                          turning examples back into code a compiler accepts
   fmt.py                         rewriting examples and shared passages as required
-  revise.py                      merging, demoting, renumbering, renaming: one map, citations and all
+  revise.py                      merging, demoting, moving, renumbering, renaming: one map, citations and all
   profiles/<name>.py             what a check needs to know about one skill
 ```
 
@@ -121,6 +133,39 @@ pattern outside `ids`, a fence or a heading found by its text, or a column limit
 outside `doc`. The one allowance is the citation grammar `anatomy` reads inside a
 block's text, composed from `ids.rule_id()` in two named places.
 
+## One abstract standard
+
+Where two or more standards say the same thing, `abstract/` says it once. It holds
+one file per abstract chapter, named from the vocabulary, for every chapter word two
+base standards ship, and `principles.md`, the design questions every §3 opens with.
+A chapter is in the chapter template, and an entry is rule-shaped: `### AS-ERR-03
+[M] Title`, a statement that names no construct of any one language, then one table
+with a row for each base standard:
+
+```markdown
+| Standard | Rule | Relation | Tier | Reason |
+|---|---|---|---|---|
+```
+
+The rule is the standard's realisation of the concept, in the chapter whose word
+holds the entry. The relation is one of six, the type a delta's departures have:
+`realises` and `extends` keep the entry's tier, `tightens` raises it, `overrides`
+says something else at any tier, `decided` names the row of the chapter's `Decided
+by tools` table a tool settles it by, and `absent` says why the domain has no
+instance; every relation but `realises` gives its reason. One function holds both
+maps to that law (`ids.breaches`). The Tier cell is the rule's, rendered by `fmt`. A
+delta has no row: it realises a concept through its anchor's, unless its departures
+table departs from the anchor's realising rule. Two rules that realise one entry
+are the pair `mirror` used to declare by title; a rule realises one entry, and a
+standard has one rule for an entry.
+
+No skill cites the abstract standard: a skill is installed alone, and its reader has
+none to look in. It is the harness's and the authors': `concepts` holds it, `fmt`
+prints it, `revise` rewrites its rows with every other citation, and `measure`
+counts each standard's realisations of it. Rules of two standards whose titles
+overlap and that no entry holds are noted, for every pair of base standards and a
+delta with its anchor, so a concept a sweep missed is still seen.
+
 ## Every standard has one shape
 
 All four standards share it, and checks hold them to it rather than imitation:
@@ -144,6 +189,12 @@ All four standards share it, and checks hold them to it rather than imitation:
 - A rule's prose names no release older than the target: history is the
   migration chapter's and §2's (`anatomy`).
 - Rule numbers are dense; `renames.md` maps every old ID to what it became.
+- §3 opens with the abstract standard's design questions, in order and word for
+  word, each answered in the standard's own terms; a standard's own questions
+  follow them. A delta's §3 is its departures table (`concepts`).
+- A chapter is an abstract chapter's, named by a file under `abstract/`, or a
+  domain chapter its profile declares with the feature of the domain that owns it
+  — rust-style's `ownership`, the borrow checker (`concepts`).
 
 Below the sections and chapters, every statement has one normal form, which `fmt`
 prints where a formatter can and a check holds where only a person can:
@@ -198,8 +249,10 @@ prints where a formatter can and a check holds where only a person can:
   (`frontmatter`, `skeleton`, `prose`).
 
 `agent-skill measure` prints, a row per property and a column per standard, how
-far each standard is from that form. A count a check decides is that check's
-findings, so a check and its count cannot disagree.
+far each standard is from that form, and its realisations of the abstract standard
+by relation, a delta's through its anchor, with a table of each abstract chapter's
+entries. A count a check decides is that check's findings, so a check and its count
+cannot disagree.
 
 `zig-style`'s compiler pin
 follows this machine's `zig` rather than upstream's newest release, so the zig
@@ -307,8 +360,8 @@ the time. The note after each is the defect it would have caught.
 | `prose` | no build provenance, one marker legend, unbroken blockquotes, no positional cross-references, no statement dated by its writing | Sixty-odd lines said *we checked X* where the standard should say *X*, and twelve chapters each restated the legend in their own wording — two of them describing a convention the library had stopped using. |
 | `assets` | the files a reader copies verbatim: `zig fmt` and `ast-check`, a TOML parse, workflow keys and indentation, and that nothing is shipped unreferenced | Six assets shipped and nothing validated any of them. |
 | `lints` | the shipped lint table and `clippy.toml` equal the ones the examples are verified against | The asset set `indexing_slicing = "warn"` where a rule requires deny, and the verified crate quietly omitted a third lint while its comment named two. |
-| `concepts` | the abstract standard under `abstract/` — each chapter in the template and as `fmt` prints it, entries dense, in their chapter's family, a statement then one realisation table, no construct of one language — and its map: one row per base standard and none for a delta, each naming a rule (or a `Decided by tools` row) of its standard in the entry's chapter, a relation its tiers obey with its reason, no rule the row of two entries; no skill citing an abstract ID; and, as notes, rules of two standards that look alike and that no entry holds | `mirror` held twelve pairs, keyed by title against rust-style alone: python-style and zig-style were never compared, and a concept three standards state was at best three pairs, none saying which was wrong. |
-| `crossref` | ids cited into another skill, the departures table a delta must state against the anchor its profile names — each row's relation and its two tiers against the rules, each departing rule's opening against the rows, and `[M!]` the anchor's — and the anchor's own patterns run over the delta's examples | `bevy-style` is a delta on `rust-style` and cites it by id, which nothing was checking; its "where this standard departs" table quoted eight `rust-style` titles that nothing compared against the originals; and two `rust-style` `[M]` rules were firing on nineteen and thirty-five lines of its examples with nothing saying so. |
+| `concepts` | the abstract standard under `abstract/` — each chapter in the template and as `fmt` prints it, entries dense, in their chapter's family, a statement then one realisation table, no construct of one language — and its map: one row per base standard and none for a delta, each naming a rule (or a `Decided by tools` row) of its standard in the entry's chapter, a relation its tiers obey with its reason, a Tier cell as `fmt` renders it, no rule the row of two entries; every chapter an abstract chapter's or a domain chapter its profile declares, and a domain chapter realising nothing; §3 opening with the design questions; no skill citing an abstract ID; and, as notes, rules of two standards that look alike and that no entry holds | `mirror` held twelve pairs, keyed by title against rust-style alone: python-style and zig-style were never compared, and a concept three standards state was at best three pairs, none saying which was wrong. |
+| `crossref` | ids cited into another skill, the departures table a delta must state against the anchor its profile names — each row's relation, held to the tier law the abstract standard's rows are with its reason, and its two tiers against the rules, each departing rule's opening against the rows, and `[M!]` the anchor's — and the anchor's own patterns run over the delta's examples | `bevy-style` is a delta on `rust-style` and cites it by id, which nothing was checking; its "where this standard departs" table quoted eight `rust-style` titles that nothing compared against the originals; and two `rust-style` `[M]` rules were firing on nineteen and thirty-five lines of its examples with nothing saying so. |
 | `self-application` | every `rg` command a `**Check:**` ships, run over every `// verified` block | A standard whose examples fail its own patterns is not a standard, and nobody was running them. |
 | `toolchain` | every `// verified` block compiles, with every declaration analysed, and the tests it ships run; every `gone` migration row is absent from the pinned release | 210 zig blocks claimed `// verified` and nothing compiled them; only 61 actually did. |
 | `citations` | a rule's cited check is one the shipped configuration actually enables; every lint the configuration sets one by one has exactly one row, a row of a default lint says why it is listed, no Check is only a lint, and each lint the examples are excused from says why | A standard that cites its checks by tool code can cite one the config disables, one the tool withdrew, or one that never existed — `ASYNC101` was invented, four more were preview and therefore unreachable, and every one of them read as enforced. |

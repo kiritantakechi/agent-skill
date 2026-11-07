@@ -52,7 +52,7 @@ merges or adds rules also runs `check --skill <each standard it touched> --only 
   standard's section 3 open with the questions; verify the `principles` control and `check --fast`
 - [x] 2.8 Add the abstract rows to `measure` (design decision 12) and record the baseline here;
   verify `measure` prints them for all four standards and the demo
-- [ ] 2.9 Document the abstract standard, `concepts`, domain chapters and `revise` `move` in the
+- [x] 2.9 Document the abstract standard, `concepts`, domain chapters and `revise` `move` in the
   README; verify `check --only documented`
 
 Baseline (task 2.8), before the sweep: the rows `agent-skill measure` adds for the abstract
