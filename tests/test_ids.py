@@ -14,16 +14,20 @@ import pytest
 
 from agent_skill.ids import (
     DASH,
+    DEPARTING,
     Answered,
     Branch,
+    Breach,
     Location,
     NoAnswer,
     Op,
     Pin,
+    Relation,
     RuleId,
     Stage,
     Tier,
     Version,
+    breaches,
     cited,
     cited_at,
     cited_lines,
@@ -418,3 +422,69 @@ def test_a_release_belongs_to_its_major_minor(text: str, series: str) -> None:
 def test_a_release_prose_names_is_its_major_minor() -> None:
     text = "since 3.9, in 3.13.1, not 3.5x faster, ~3.2 ns, 0.05 or 13.14"
     assert [str(v) for v in releases(text, 3)] == ["3.9", "3.13"]
+
+
+# ------------------------------------------------------------------
+# the relation a rule stands in, and the law it is held to
+
+
+def test_a_relation_reads_back_as_it_was_printed() -> None:
+    for relation in Relation:
+        assert Relation.parse(str(relation)) is relation
+    assert Relation.try_parse("replaces") is None
+    assert Relation.try_parse("Realises") is None
+
+
+def test_a_tier_binds_more_code_up_the_order() -> None:
+    assert Tier.S.binding < Tier.M_BANG.binding < Tier.M.binding
+
+
+def test_a_delta_departs_by_the_three_relations_that_name_a_rule() -> None:
+    assert set(DEPARTING) == {Relation.OVERRIDES, Relation.TIGHTENS, Relation.EXTENDS}
+    assert all(r.ruled for r in DEPARTING)
+
+
+S, MB, M = Tier.S, Tier.M_BANG, Tier.M
+TIER, REASON = Breach.TIER, Breach.REASON
+
+#: The law, row by row: the relation, the tier held against, the rule's
+#: tier, whether a reason is given, and how the row breaks it.
+LAW = [
+    (Relation.REALISES, M, M, False, ()),
+    (Relation.REALISES, M, M, True, ()),
+    (Relation.REALISES, M, S, False, (TIER,)),
+    (Relation.REALISES, S, MB, False, (TIER,)),
+    (Relation.EXTENDS, MB, MB, True, ()),
+    (Relation.EXTENDS, M, MB, True, (TIER,)),
+    (Relation.EXTENDS, M, M, False, (REASON,)),
+    (Relation.TIGHTENS, S, M, True, ()),
+    (Relation.TIGHTENS, MB, M, True, ()),
+    (Relation.TIGHTENS, S, MB, True, ()),
+    (Relation.TIGHTENS, M, M, True, (TIER,)),
+    (Relation.TIGHTENS, M, MB, True, (TIER,)),
+    (Relation.TIGHTENS, M, S, False, (TIER, REASON)),
+    (Relation.OVERRIDES, M, S, True, ()),
+    (Relation.OVERRIDES, S, M, True, ()),
+    (Relation.OVERRIDES, M, M, False, (REASON,)),
+    (Relation.DECIDED, M, None, True, ()),
+    (Relation.DECIDED, M, None, False, (REASON,)),
+    (Relation.DECIDED, M, M, True, (TIER,)),
+    (Relation.ABSENT, S, None, True, ()),
+    (Relation.ABSENT, S, None, False, (REASON,)),
+    (Relation.ABSENT, S, S, True, (TIER,)),
+    # A tier not known breaks nothing: no rule is another finding.
+    (Relation.REALISES, M, None, False, ()),
+    (Relation.TIGHTENS, None, M, True, ()),
+]
+
+
+@pytest.mark.parametrize(("relation", "held", "tier", "said", "broken"), LAW)
+def test_a_row_is_held_to_its_relations_law(
+    relation: Relation,
+    held: Tier | None,
+    tier: Tier | None,
+    said: bool,  # noqa: FBT001 — a column of the table above
+    broken: tuple[Breach, ...],
+) -> None:
+    reason = "the domain's reason" if said else " "
+    assert breaches(relation, held, tier, reason) == broken

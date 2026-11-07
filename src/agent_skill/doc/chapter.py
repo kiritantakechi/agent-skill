@@ -33,7 +33,7 @@ from agent_skill.doc import (
     entry,
     words,
 )
-from agent_skill.ids import RuleId, Tier, Version, ranges
+from agent_skill.ids import Relation, RuleId, Tier, Version, ranges
 
 #: The section a chapter lists its tool-decided claims under.
 DECIDED = "Decided by tools"
@@ -757,10 +757,6 @@ def migrations(table: Table) -> tuple[Migration, ...]:
     )
 
 
-#: How a delta rule relates to the anchor rule it departs from: it says
-#: the opposite, it binds harder, or it says more (decision 10).
-RELATIONS = ("overrides", "tightens", "extends")
-
 #: What separates the tier before from the tier after in a departure.
 ARROW = "\u2192"
 
@@ -780,6 +776,15 @@ class Departure:
     tier: str
     reason: str
     line: int = field(default=0, compare=False)
+
+    @property
+    def related(self) -> Relation | None:
+        """The relation the row states, or None when it states none.
+
+        One of `ids.DEPARTING` in a table that reads right; the type is
+        the one the abstract standard's realisations are read as.
+        """
+        return Relation.try_parse(self.relation)
 
     @property
     def tiers(self) -> tuple[Tier, Tier] | None:

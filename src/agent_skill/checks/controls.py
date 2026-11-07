@@ -851,6 +851,15 @@ NORMAL_FORM: list[Control] = [
         "[M!] → [M!]",
     ),
     _on_delta(
+        # A departure that says not why: the law the abstract standard's
+        # realisations are held to as well.
+        crossref.DEPARTURE_REASON,
+        SKILL_MD,
+        "| [M!] → [M] | every delta program is a library, so no caller is ever "
+        "absent |",
+        "| [M!] → [M] | |",
+    ),
+    _on_delta(
         # The rule no longer says what it departs from.
         crossref.DEPARTS,
         _DEMO_ERRORS,

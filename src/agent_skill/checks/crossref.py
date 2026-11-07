@@ -17,8 +17,16 @@ lazy from pathlib import Path
 from agent_skill import shared
 from agent_skill.checks import check
 from agent_skill.doc import Paragraph, Table, text_of, walk
-from agent_skill.doc.chapter import RELATIONS, departures, departures_header
-from agent_skill.ids import Location, RuleId, cited, cited_lines
+from agent_skill.doc.chapter import departures, departures_header
+from agent_skill.ids import (
+    DEPARTING,
+    Breach,
+    Location,
+    RuleId,
+    breaches,
+    cited,
+    cited_lines,
+)
 from agent_skill.layout import root_of
 from agent_skill.model import SKILL_MD
 from agent_skill.report import Level, declare, fail, unrun
@@ -45,6 +53,7 @@ ANCHOR_HIT = declare("crossref", "anchor_hit", Level.FAIL)
 # The branches of the delta map (`_departures`).
 RELATION = declare("crossref", "relation", Level.FAIL)
 DEPARTURE_TIER = declare("crossref", "departure_tier", Level.FAIL)
+DEPARTURE_REASON = declare("crossref", "departure_reason", Level.FAIL)
 DEPARTS = declare("crossref", "departs", Level.FAIL)
 REDEFINES = declare("crossref", "redefines", Level.FAIL)
 
@@ -264,12 +273,19 @@ def _departure(
     theirs: dict[RuleId, Rule],
     ours: dict[RuleId, Rule],
 ) -> Iterator[Finding]:
-    """One departure: its relation, its rule here, and its two tiers."""
+    """One departure: its relation, its rule here, and its two tiers.
+
+    The relation is held to the law the abstract standard's realisations
+    are held to (`ids.breaches`), over the tiers the two rules carry: a
+    tier the row misstates is `departure_tier`'s, not the relation's.
+    """
     where = skill.at(SKILL_MD, row.line)
-    if row.relation not in RELATIONS:
+    relation = row.related
+    if relation not in DEPARTING:
+        named = ", ".join(str(r) for r in DEPARTING[:-1])
         yield fail(
             f"a departure from {row.theirs} is `{row.relation}`; a delta rule "
-            f"{', '.join(RELATIONS[:-1])} or {RELATIONS[-1]} its anchor's",
+            f"{named} or {DEPARTING[-1]} its anchor's",
             where,
             RELATION,
         )
@@ -293,6 +309,25 @@ def _departure(
             where,
             DEPARTURE_TIER,
         )
+    if relation is None or relation not in DEPARTING:
+        return
+    held = before.tier if before is not None else None
+    tier = after.tier if after is not None else None
+    for breach in breaches(relation, held, tier, row.reason):
+        if breach is Breach.TIER:
+            yield fail(
+                f"{row.ours} {relation} {row.theirs}, and the rules are {held} → "
+                f"{tier}; a rule that {relation} another takes {relation.asks}",
+                where,
+                RELATION,
+            )
+        else:
+            yield fail(
+                f"{row.ours} {relation} {row.theirs} and the row gives no reason; "
+                "every departure says why",
+                where,
+                DEPARTURE_REASON,
+            )
 
 
 #: What a departing delta rule's statement opens with, before the ID.

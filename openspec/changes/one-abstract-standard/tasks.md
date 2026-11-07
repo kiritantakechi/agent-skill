@@ -29,7 +29,7 @@ merges or adds rules also runs `check --skill <each standard it touched> --only 
 
 ## 2. Machinery
 
-- [ ] 2.1 Add `Relation` to `ids` (`realises`, `extends`, `tightens`, `overrides`, `decided`,
+- [x] 2.1 Add `Relation` to `ids` (`realises`, `extends`, `tightens`, `overrides`, `decided`,
   `absent`) and one tier law with its reason rule; make the delta's departures use it; verify the
   law table by unit tests and that every existing `crossref` control still fires
 - [ ] 2.2 Read the abstract standard: a profile-shaped record (prefix `AS`), chapters in the

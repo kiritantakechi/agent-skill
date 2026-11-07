@@ -234,10 +234,133 @@ class Tier(Enum):
             raise ValueError(msg)
         return cls(inner)
 
+    @property
+    def binding(self) -> int:
+        """How widely the tier binds: `[S]`, then `[M!]`, then `[M]`.
+
+        `[S]` is a default a comment may depart from, `[M!]` binds in
+        the code section 1 scopes it to, and `[M]` binds in all code,
+        so a rule moved up this order binds more code than it did.
+        """
+        return (Tier.S, Tier.M_BANG, Tier.M).index(self)
+
     @override
     def __str__(self) -> str:
         """`[M]`, `[M!]` or `[S]`."""
         return f"[{self.value}]"
+
+
+class Relation(Enum):
+    """How a rule stands to what it is held against.
+
+    What it is held against is a concept of the abstract standard, which
+    a base standard's rule realises, or an anchor's rule, which a
+    delta's rule departs from (one-abstract-standard, decision 2): one
+    type for both maps, so they cannot read a relation two ways. A rule
+    `realises` what it is held against at its tier, `extends` it over a
+    wider domain at its tier, `tightens` it to a tier that binds more
+    code, or `overrides` it by saying something else. A concept a tool
+    decides is `decided` by a row of a `Decided by tools` table, and one
+    the standard's domain has no instance of is `absent`: neither names
+    a rule, so neither has a tier.
+    """
+
+    REALISES = "realises"
+    EXTENDS = "extends"
+    TIGHTENS = "tightens"
+    OVERRIDES = "overrides"
+    DECIDED = "decided"
+    ABSENT = "absent"
+
+    @classmethod
+    def parse(cls, text: str) -> Relation:
+        """The relation `text` spells, as a table cell spells it."""
+        if text not in {r.value for r in cls}:
+            msg = f"not a relation: {text!r}"
+            raise ValueError(msg)
+        return cls(text)
+
+    @classmethod
+    def try_parse(cls, text: str) -> Relation | None:
+        """The relation `text` spells, or None when it spells none."""
+        try:
+            return cls.parse(text)
+        except ValueError:
+            return None
+
+    @property
+    def ruled(self) -> bool:
+        """Does a row of this relation name a rule, and so a tier?"""
+        return self not in {Relation.DECIDED, Relation.ABSENT}
+
+    @property
+    def asks(self) -> str:
+        """What this relation asks of the rule's tier, in words."""
+        match self:
+            case Relation.REALISES | Relation.EXTENDS:
+                return "the tier it is held against"
+            case Relation.TIGHTENS:
+                return "a tier that binds more code than the one it is held against"
+            case Relation.OVERRIDES:
+                return "any tier"
+            case Relation.DECIDED | Relation.ABSENT:
+                return "no tier, since it names no rule"
+
+    @override
+    def __str__(self) -> str:
+        """The relation as a table cell spells it: `tightens`."""
+        return self.value
+
+
+#: The relations a delta's rule may stand in to its anchor's: a delta
+#: says nothing of a concept its anchor does not, so it departs from a
+#: rule or defers to it (normalize-the-standards, decision 10).
+DEPARTING = (Relation.OVERRIDES, Relation.TIGHTENS, Relation.EXTENDS)
+
+
+class Breach(Enum):
+    """How a row breaks the law its relation states."""
+
+    #: the rule's tier is not one the relation allows
+    TIER = "tier"
+    #: the row departs from what it is held against and says not why
+    REASON = "reason"
+
+
+def breaches(
+    relation: Relation, held: Tier | None, tier: Tier | None, reason: str
+) -> tuple[Breach, ...]:
+    """Each way a row of `relation` breaks the law, or none.
+
+    `held` is the tier of what the rule is held against — the concept's,
+    or the anchor rule's — and `tier` is the rule's own, None for a row
+    that names no rule. The law: `realises` and `extends` keep the tier,
+    `tightens` raises it (`Tier.binding`), `overrides` may set any, and
+    `decided` and `absent` name no rule and so no tier; and every
+    relation but `realises` gives its reason. One function, which the
+    abstract standard's realisations and a delta's departures are both
+    held to, so the two maps cannot come to read one relation two ways.
+    A tier that is not known, of a rule that is not there, breaks
+    nothing here: what names no rule is another finding.
+    """
+    found: list[Breach] = []
+    if relation.ruled:
+        if held is not None and tier is not None:
+            kept = tier.binding == held.binding
+            raised = tier.binding > held.binding
+            lawful = {
+                Relation.REALISES: kept,
+                Relation.EXTENDS: kept,
+                Relation.TIGHTENS: raised,
+                Relation.OVERRIDES: True,
+            }[relation]
+            if not lawful:
+                found.append(Breach.TIER)
+    elif tier is not None:
+        found.append(Breach.TIER)
+    if relation is not Relation.REALISES and not reason.strip():
+        found.append(Breach.REASON)
+    return tuple(found)
 
 
 #: A skill's directory name.
