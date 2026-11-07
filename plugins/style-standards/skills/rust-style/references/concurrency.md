@@ -661,7 +661,7 @@ algorithm, and is it `loom`-tested (RS-CONC-40)? A retry loop that only recomput
 ### RS-CONC-27 [M] Use `OnceLock`/`LazyLock` for lazily initialized globals
 
 Not `static mut`, which edition 2024 denies through `static_mut_refs`, and not a `Mutex<Option<T>>`
-(RS-OWN-25). Data known at compile time needs neither: it is a `const`.
+(RS-OWN-24). Data known at compile time needs neither: it is a `const`.
 
 **Why:** these types give a safe, race-free single initialization with no lock on the read path
 after it. A `Mutex<Option<T>>` pays for a lock on every access to emulate the same thing.

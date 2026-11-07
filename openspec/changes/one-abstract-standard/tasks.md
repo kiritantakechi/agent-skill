@@ -230,7 +230,34 @@ time of deletion (both tiers `[M]` unless marked):
   rest of rust-style's encapsulation, type-safety, trait and constructor rules (RS-API-19 to -60,
   -61), PS-API-07 (annotations), PS-DATA-05 / RS-API-17 (a tuple return), ZS-DATA-27 (the weakest
   return). ZS-ERR-03 (name a public error set) is stated by one standard; ZS-ERR-05 is AS-ERR-09's.
-- [ ] 3.8 `data`
+- [x] 3.8 `data`: 10 entries (`AS-DATA-01` to `-10`), in the shape of a value (alternatives as one type, a
+  type of its own for a unit or domain, a record over a tuple, a handle over a pointer), validity
+  (unrepresentable first, refused at construction, a view never the container), equality and hashing,
+  and numbers (a fixed width for what is stored, a chosen overflow behaviour); realisations: python-style
+  7 `realises`, 3 `absent` (a handle, integer width, overflow: unbounded integers and a collected heap);
+  rust-style 9 `realises`, 1 `extends` (RS-DATA-09 also checks narrowing conversions); zig-style 9
+  `realises`, 1 `overrides` (ZS-DATA-04: no operator overloading, so the role travels in the name).
+  Moves 10: RS-API-17, -20, -21, -22, -30, -31, -43, RS-OWN-21, RS-ERR-26, RS-PERF-30 into rust-style's
+  new `data.md` (RS-DATA-01 to -10; `data` is abstract, so not in `domain`). Merges 4: RS-API-31 and
+  RS-API-33 into the newtype rule (units, index spaces), RS-API-29 into the enum rule (correlated
+  fields), RS-API-21 into RS-API-20 (no `&mut` to invariant-bearing state). New rules 6: RS-API-18
+  (split off the newtype rule: adjacent parameters of one type, now AS-API-05's rust row); ZS-DATA-30
+  (named struct over tuple), -31 (unrepresentable first), -32 (validate in `init`), -33 (const view),
+  -34 (`eql` and `hash` agree). Tier changes 4: PS-DATA-15 to `[M]` (relaxed form dropped), RS-DATA-03
+  (ex RS-API-17) to `[S]`, ZS-DATA-10 to `[M!]` with a relaxed form; PS-DATA-03 and ZS-DATA-25 gained
+  the payload and flag clauses. Look-alike notes 1 -> 1 (BV-MIG-03 / RS-MIG-02, for `migration`).
+  Not registered, one standard: python-style's dataclass shape rules (PS-DATA-01, -02, -04, -06, -07,
+  -08 to -10, -12, -13: frozen record, `slots`, `StrEnum`, `TypedDict`, `Protocol`, mutable default,
+  import-time default, field order, `replace`, `frozendict`), rust-style's `Default`, builder and
+  constructor rules (RS-API-35 to -40 at the time, -54 to -60) and RS-API-28 (an enum over an `Option`
+  with meaning), zig-style's decl literals and `init`/`deinit` (ZS-DATA-12 to -17), integer and cast
+  rules (ZS-DATA-01, -03, -05 to -09, -11), layout (ZS-DATA-19, -20) and text (ZS-DATA-30 to -32 at
+  the time). Decided: ZS-DATA-27 and -28 (the weakest return, absence) are `errors`' absence ladder
+  (AS-ERR-03, RS-API-58 / RS-ERR-23), not AS-API-04's return side, which asks for the most specific
+  type, and stay unregistered; defaults and builders are each a language's spelling (mutable default,
+  `Default`, decl literal) and share no claim. Left for `performance`: ZS-DATA-22 and RS-PERF-13
+  (struct of arrays), ZS-DATA-24 (fixed array), ZS-DATA-18 (pass by pointer). Left for `types`: PS-DATA-07
+  (a `Protocol`) with RS-TRAIT, PS-TYPE-15.
 - [ ] 3.9 `types`
 - [ ] 3.10 `concurrency` (python-style's `async.md` among the candidates)
 - [ ] 3.11 `output` (rust-style's `cli.md` streams and exit codes among the candidates)

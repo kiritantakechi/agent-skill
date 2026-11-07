@@ -51,18 +51,17 @@ follow.
   - RS-PERF-27 [S] Do not assume static dispatch beats dynamic
   - RS-PERF-28 [M] Hoist loop invariants the compiler cannot
   - RS-PERF-29 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
-  - RS-PERF-30 [M] Choose integer widths deliberately and convert with `try_from`
-  - RS-PERF-31 [M] Write SIMD only beside a scalar fallback and a differential test
+  - RS-PERF-30 [M] Write SIMD only beside a scalar fallback and a differential test
 
 - **Benchmarking**
-  - RS-PERF-32 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
-  - RS-PERF-33 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
-  - RS-PERF-34 [M] Wrap inputs and results in `black_box`
-  - RS-PERF-35 [M] Benchmark realistic sizes
-  - RS-PERF-36 [S] Report throughput rather than latency for data-processing code
-  - RS-PERF-37 [M] Pin CI benchmark comparisons to one machine class, or distrust them
-  - RS-PERF-38 [S] Track binary size and compile time alongside runtime
-  - RS-PERF-39 [S] Record every optimization attempt, including the failures
+  - RS-PERF-31 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
+  - RS-PERF-32 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
+  - RS-PERF-33 [M] Wrap inputs and results in `black_box`
+  - RS-PERF-34 [M] Benchmark realistic sizes
+  - RS-PERF-35 [S] Report throughput rather than latency for data-processing code
+  - RS-PERF-36 [M] Pin CI benchmark comparisons to one machine class, or distrust them
+  - RS-PERF-37 [S] Track binary size and compile time alongside runtime
+  - RS-PERF-38 [S] Record every optimization attempt, including the failures
 
 - Decided by tools
 
@@ -270,7 +269,7 @@ Without one, the dependency is not earning its place (RS-BUILD-18).
 
 For arena-shaped workloads (a parser producing a tree, a graph built once and read many times), an
 arena (`bumpalo`, or a `Vec` plus index newtypes) turns thousands of allocations into one and
-improves locality (RS-OWN-21).
+improves locality (RS-DATA-04).
 
 **Why:** when everything dies at the same time, individual allocation and freeing is entirely wasted
 bookkeeping. An arena replaces it with a pointer bump and one free, and the resulting contiguity
@@ -437,7 +436,7 @@ Where bounds checks genuinely dominate and the profile proves it, reach for slic
 `as_chunks`, `iter().zip()`, or `get_unchecked` inside a narrowly scoped `unsafe` with a
 `// SAFETY:` proof — in that order. At a constant width use `as_chunks::<N>()` rather than
 `chunks_exact(N)`: it yields `&[[T; N]]`, so the width is carried by the type and the pattern needs
-no `_ =>` arm (RS-API-35). `as_array` (a slice of exactly `N`) and `array_windows` (overlapping
+no `_ =>` arm (RS-DATA-05). `as_array` (a slice of exactly `N`) and `array_windows` (overlapping
 windows) carry the width the same way.
 
 **Why:** the safe forms give the optimizer the same proof the `unsafe` would assert, at zero
@@ -537,7 +536,7 @@ pub fn print_all(lines: &[String]) -> io::Result<()> {
 
 ### RS-PERF-20 [M] Flush explicitly before exiting, and check the result
 
-`BufWriter` flushes on drop but swallows the error (RS-ERR-34).
+`BufWriter` flushes on drop but swallows the error (RS-ERR-33).
 
 **Why:** buffering means the last write is still in memory when `main` returns, and `Drop` cannot
 report a failure. A full disk or a closed pipe silently truncates the output — the failure
@@ -729,32 +728,7 @@ several threads cloning the same `Arc`, that line ping-pongs between cores and c
 **Check:** for hot paths, could the value be borrowed instead of cloned? A clone per iteration
 usually can be hoisted (RS-OWN-09).
 
-### RS-PERF-30 [M] Choose integer widths deliberately and convert with `try_from`
-
-Prefer `u32`/`u64` deliberately over `usize` for values that are serialized or bounded, and `usize`
-for lengths and indices. Casting with `as` truncates silently — use `try_from` on any conversion
-that could lose data. A same-width sign change loses no bits and is not a `try_from` case: spell it
-`cast_signed()` or `cast_unsigned()` rather than `as`.
-
-**Why:** `usize` varies by platform, so a serialized `usize` has a different width on a 32-bit
-target — a portability bug that only appears there. `as` truncates at run time without any error,
-which is why it is the wrong default for narrowing.
-
-**Check:** is `as u32`, `as usize` or `as i32` applied to a value that could exceed the target
-range? Each wants `try_from`; the `cast_*` rows below flag the casts that can lose data.
-
-```rust
-// verified
-/// `try_from` on any narrowing conversion; `as` would truncate silently.
-///
-/// # Errors
-/// Returns the conversion error when `len` exceeds `u32::MAX`.
-pub fn header_len(len: usize) -> Result<u32, std::num::TryFromIntError> {
-    u32::try_from(len)
-}
-```
-
-### RS-PERF-31 [M] Write SIMD only beside a scalar fallback and a differential test
+### RS-PERF-30 [M] Write SIMD only beside a scalar fallback and a differential test
 
 Before hand-writing it, check whether `memchr`, `bstr`, or `regex-automata` already does it for you
 — they almost certainly do it better. Hand-written SIMD keeps the scalar version as its reference
@@ -770,7 +744,7 @@ path has no oracle; the comparison is RS-TEST-21's differential test.
 
 ## Benchmarking
 
-### RS-PERF-32 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
+### RS-PERF-31 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
 
 Benchmark with `criterion` or `divan`, not `std::time::Instant` in a loop. They handle warmup,
 outlier detection, and statistical comparison — without which small differences are
@@ -783,7 +757,7 @@ loops are noise.
 **Check:** does the benchmark report a distribution or a single number? A single number is not a
 measurement.
 
-### RS-PERF-33 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
+### RS-PERF-32 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
 
 Keep benchmarks in `benches/` with fixed inputs, checked in or generated from a seed, so results are
 comparable across commits. Build them in CI even if you do not time them there.
@@ -795,7 +769,7 @@ out of a default `cargo test`, so uncompiled they rot until the day you need one
 **Check:** are the benchmark inputs checked in or seeded (RS-TEST-09), and does CI run
 `cargo build --benches`?
 
-### RS-PERF-34 [M] Wrap inputs and results in `black_box`
+### RS-PERF-33 [M] Wrap inputs and results in `black_box`
 
 Use `std::hint::black_box` around inputs and results so the optimizer cannot delete the work the
 benchmark times. A benchmark that got 1000× faster deleted itself.
@@ -822,7 +796,7 @@ pub fn bench_once(input: &[u8]) -> u32 {
 }
 ```
 
-### RS-PERF-35 [M] Benchmark realistic sizes
+### RS-PERF-34 [M] Benchmark realistic sizes
 
 Microbenchmarks on ten-element inputs measure function-call overhead; the algorithmic difference
 only appears at scale.
@@ -834,7 +808,7 @@ point is often well above the size people benchmark.
 **Check:** does the benchmark sweep several sizes? A single small size cannot show an asymptotic
 difference.
 
-### RS-PERF-36 [S] Report throughput rather than latency for data-processing code
+### RS-PERF-35 [S] Report throughput rather than latency for data-processing code
 
 Report throughput (`Throughput::Bytes`) rather than latency for data-processing code, so results are
 comparable across input sizes.
@@ -844,7 +818,7 @@ the history. Bytes per second normalizes that and makes the number meaningful on
 
 **Check:** are the benchmark results expressed in a unit that survives an input change?
 
-### RS-PERF-37 [M] Pin CI benchmark comparisons to one machine class, or distrust them
+### RS-PERF-36 [M] Pin CI benchmark comparisons to one machine class, or distrust them
 
 Pin CI benchmark comparisons to the same machine class, or do not trust them. Cross-runner
 comparisons are noise, and treating them as signal produces a permanent stream of false regressions.
@@ -856,7 +830,7 @@ it is right.
 **Check:** does the benchmark job pin the runner type, and does it compare against a baseline from
 the same class?
 
-### RS-PERF-38 [S] Track binary size and compile time alongside runtime
+### RS-PERF-37 [S] Track binary size and compile time alongside runtime
 
 A CLI's users notice a 40 MB binary and a five-minute build as surely as a slow run.
 
@@ -866,7 +840,7 @@ the same dashboard.
 
 **Check:** is release binary size recorded per release? A number nobody tracks only grows.
 
-### RS-PERF-39 [S] Record every optimization attempt, including the failures
+### RS-PERF-38 [S] Record every optimization attempt, including the failures
 
 Record the result of every optimization attempt, including the ones that did not work, in the commit
 message or a comment. The next person will otherwise try the same thing.

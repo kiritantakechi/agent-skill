@@ -143,7 +143,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `mem.indexOfMin` | `mem.findMin` | alias | 0.16 | ZS-MIG-01 |
 | `mem.indexOfMax` | `mem.findMax` | alias | 0.16 | ZS-MIG-01 |
 | `mem.indexOfMinMax` | `mem.findMinMax` | alias | 0.16 | ZS-MIG-01 |
-| `std.ascii.indexOfIgnoreCase` | `std.ascii.findIgnoreCase`; the `Pos` and `PosLinear` forms likewise | gone | 0.17 | ZS-DATA-32 |
+| `std.ascii.indexOfIgnoreCase` | `std.ascii.findIgnoreCase`; the `Pos` and `PosLinear` forms likewise | gone | 0.17 | ZS-DATA-37 |
 | `std.mem.containsAtLeastScalar` | the same name with its last two parameters swapped, `(T, list, element, minimum)`: for an integer `T` a 0.16 call type-checks and asks another question | changed | 0.17 | ZS-MIG-01 |
 | `std.mem.containsAtLeastScalar2` | `std.mem.containsAtLeastScalar(T, list, element, minimum)` | gone | 0.17 | ZS-MIG-01 |
 | `std.mem.readPackedIntNative` | `std.mem.readPackedInt(T, bytes, bit_offset, .native)`; `readPackedIntForeign` takes `.foreign` | gone | 0.17 | ZS-MIG-01 |
@@ -285,13 +285,13 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `.name = "…"` | `.name = .myproject` in `build.zig.zon`, an enum literal; `build.zig` still takes a string | gone | 0.14 | ZS-BUILD-09 |
 | `std.tar.PipeOptions` | `std.tar.ExtractOptions` | alias | 0.16 | ZS-MIG-01 |
 | `std.tar.pipeToFileSystem` | `std.tar.extract(io, dir, reader, options)`, which it is an alias of | alias | 0.16 | ZS-MIG-01 |
-| `std.unicode.utf8Decode` | `std.unicode.Utf8View` to iterate, or `utf8ByteSequenceLength` and then `utf8Decode2`, `utf8Decode3` or `utf8Decode4` for one codepoint | alias | 0.14 | ZS-DATA-30 |
-| `std.unicode.wtf8Decode` | `std.unicode.Wtf8View` to iterate, or `utf8ByteSequenceLength` and then `utf8Decode2`, `utf8Decode3AllowSurrogateHalf` or `utf8Decode4` | alias | 0.14 | ZS-DATA-31 |
+| `std.unicode.utf8Decode` | `std.unicode.Utf8View` to iterate, or `utf8ByteSequenceLength` and then `utf8Decode2`, `utf8Decode3` or `utf8Decode4` for one codepoint | alias | 0.14 | ZS-DATA-35 |
+| `std.unicode.wtf8Decode` | `std.unicode.Wtf8View` to iterate, or `utf8ByteSequenceLength` and then `utf8Decode2`, `utf8Decode3AllowSurrogateHalf` or `utf8Decode4` | alias | 0.14 | ZS-DATA-36 |
 | `std.zig.CrossTarget` | `std.Target.Query` | gone | 0.14 | ZS-INTEROP-18 |
 | `std.Target.SubSystem` | `std.zig.Subsystem`; `builtin.subsystem` has no replacement | gone | 0.17 | ZS-INTEROP-18 |
-| `std.math.sign` | the same name, now returning the narrowest integer that holds `-1`, `0` and `1`, not the argument's type | changed | 0.15 | ZS-DATA-33 |
-| `std.zon.parse.fromSliceAlloc` | `std.zon.parse.fromSlice(T, .{ .gpa = gpa, .arena = arena, .source = source, .diagnostics = &diag })`, which allocates the result into `.arena`; the form that allocates nothing is `fromSliceNoAlloc` | gone | 0.17 | ZS-DATA-35 |
-| `std.zon.parse.free` | nothing: the result lives in the arena `fromSlice` was given | gone | 0.17 | ZS-DATA-35 |
+| `std.math.sign` | the same name, now returning the narrowest integer that holds `-1`, `0` and `1`, not the argument's type | changed | 0.15 | ZS-DATA-38 |
+| `std.zon.parse.fromSliceAlloc` | `std.zon.parse.fromSlice(T, .{ .gpa = gpa, .arena = arena, .source = source, .diagnostics = &diag })`, which allocates the result into `.arena`; the form that allocates nothing is `fromSliceNoAlloc` | gone | 0.17 | ZS-DATA-40 |
+| `std.zon.parse.free` | nothing: the result lives in the arena `fromSlice` was given | gone | 0.17 | ZS-DATA-40 |
 | `readAlloc` | `reader.readAllocAll` | alias | 0.17 | ZS-CONC-13 |
 | `path.resolve` | `path.resolveAlloc` | alias | 0.17 | ZS-MIG-01 |
 | `path.relative` | `path.relativeAlloc` | alias | 0.17 | ZS-MIG-01 |

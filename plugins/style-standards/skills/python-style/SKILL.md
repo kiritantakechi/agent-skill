@@ -206,7 +206,7 @@ name it costs.
   - PS-DATA-02 [M] Add `slots=True` unless something needs the instance dict
   - PS-DATA-08 [M] Never give a mutable default
   - PS-DATA-09 [M] Never compute a default at import time
-  - PS-DATA-15 [M!] Make the invalid state unrepresentable before validating against it
+  - PS-DATA-15 [M] Make the invalid state unrepresentable before validating against it
 - **Errors and Control Flow: Exceptions, Guards, and the Shape of a Function**
   - PS-ERR-07 [M] Never use `assert` to validate input
   - PS-ERR-08 [M] Never catch what you cannot handle

@@ -155,7 +155,7 @@ must remember at each exit is missed on the exit nobody tested.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-ERR-14 | realises | [M] | |
-| rust-style | RS-ERR-33 | realises | [M] | |
+| rust-style | RS-ERR-32 | realises | [M] | |
 | zig-style | ZS-ERR-11 | realises | [M] | |
 
 ### AS-ERR-11 [M] A cleanup path does not itself fail
@@ -167,7 +167,7 @@ must see, that is a separate, explicit step.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-ERR-15 | realises | [M] | |
-| rust-style | RS-ERR-34 | realises | [M] | |
+| rust-style | RS-ERR-33 | realises | [M] | |
 | zig-style | ZS-ERR-16 | realises | [M] | |
 
 ## The shape of a function
@@ -182,7 +182,7 @@ its whole purpose.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-ERR-17 | realises | [M] | |
-| rust-style | RS-ERR-37 | realises | [M] | |
+| rust-style | RS-ERR-36 | realises | [M] | |
 | zig-style | ZS-ERR-20 | realises | [M] | |
 
 ### AS-ERR-13 [S] Dispatch on one value with a multi-way branch, not a chain of tests
@@ -194,7 +194,7 @@ conditions is not this concept.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-ERR-18 | overrides | [S] | A match destructures structure, and against constants it reads as an if chain wearing a costume, so a chain over plain values stays a chain |
-| rust-style | RS-ERR-35 | tightens | [M] | A Rust enum is the usual subject of the chain, and a match turns a missed variant into a compile error where a chain falls through silently |
+| rust-style | RS-ERR-34 | tightens | [M] | A Rust enum is the usual subject of the chain, and a match turns a missed variant into a compile error where a chain falls through silently |
 | zig-style | ZS-ERR-19 | realises | [S] | |
 
 ### AS-ERR-14 [M!] Use an explicit worklist where the input decides the recursion depth
@@ -206,5 +206,5 @@ constant bounds the depth, asserted at the entry.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-ERR-21 | realises | [M!] | |
-| rust-style | RS-ERR-36 | realises | [M!] | |
+| rust-style | RS-ERR-35 | realises | [M!] | |
 | zig-style | ZS-ERR-23 | realises | [M!] | |

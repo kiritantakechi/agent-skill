@@ -340,13 +340,13 @@ def _unaccounted_anchor_rule(tree: Path) -> Edited:
     the sweep stayed dead.
 
     The rule is chosen for a property that could stop holding, so the
-    property is asserted rather than assumed. `RS-OWN-34` works because
+    property is asserted rather than assumed. `RS-OWN-33` works because
     `bevy-style` never names it; the day it does, the injection would be
     accounted for and this control would pass while proving nothing.
     """
-    if "RS-OWN-34" in (tree / f"{BV}/SKILL.md").read_text():
+    if "RS-OWN-33" in (tree / f"{BV}/SKILL.md").read_text():
         msg = (
-            f"{BV}/SKILL.md now names RS-OWN-34, so its defect is accounted "
+            f"{BV}/SKILL.md now names RS-OWN-33, so its defect is accounted "
             "for and no longer reaches the anchor sweep"
         )
         raise FixtureGoneError(msg)
@@ -1580,7 +1580,7 @@ CONTROLS: list[Control] = [
     ),
     Control(
         # Added beside the rules the delta names rather than in place of
-        # one. Renaming the override row's `RS-API-23` also stopped the
+        # one. Renaming the override row's `RS-API-20` also stopped the
         # delta naming that rule, so the anchor sweep ran its pattern,
         # hit, and fired with the citation branch gone.
         crossref.FOREIGN_CITATION,

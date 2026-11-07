@@ -129,7 +129,7 @@ type does both, the interactions are being decided in the parser.
 // verified
 use std::path::PathBuf;
 
-/// A two-variant enum, so the call site reads `set_quiet(Quiet::Yes)` (RS-API-27).
+/// A two-variant enum, so the call site reads `set_quiet(Quiet::Yes)` (RS-API-23).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Quiet {
     Yes,
@@ -372,7 +372,7 @@ the config file a trap.
 
 **Check:** for each boolean readable from config, is there a `--no-` form? Each missing one is a
 setting the user cannot turn off. The pair is a *flag* pair on the command line; inside the program
-it lands as a two-variant enum, never as a `bool` parameter (RS-API-27).
+it lands as a two-variant enum, never as a `bool` parameter (RS-API-23).
 
 ```rust
 // verified
@@ -463,14 +463,14 @@ flag.
 
 ### RS-CLI-16 [M] On a usage error, print the one problem and a pointer to `--help`
 
-Name the flag or value that was wrong, point at `--help`, and exit with the usage code RS-ERR-30
+Name the flag or value that was wrong, point at `--help`, and exit with the usage code RS-ERR-29
 assigns — never the entire help text on a typo.
 
 **Why:** dumping the full help scrolls the actual error off the screen, which is the one thing the
 user needed, and leaves them to find which of forty flags they mistyped.
 
 **Check:** run the tool with a bad flag. The output should be one line naming the flag, plus a
-pointer, and the exit code should be RS-ERR-30's usage code.
+pointer, and the exit code should be RS-ERR-29's usage code.
 
 ```rust
 // verified

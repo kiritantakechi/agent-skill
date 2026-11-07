@@ -60,10 +60,10 @@ the replacement — or `2024` for a change the edition made; section 2.1 lists t
 | `atty::is` | `std::io::IsTerminal` | alias | 1.70 | RS-CLI-19 |
 | `is_terminal::IsTerminal` | `std::io::IsTerminal` | alias | 1.70 | RS-CLI-19 |
 | `memoffset::offset_of` | `std::mem::offset_of!`, nested fields included | alias | 1.82 | RS-UNSAFE-14 |
-| `criterion::black_box` | `std::hint::black_box` | alias | 1.66 | RS-PERF-34 |
-| `test::black_box` | `std::hint::black_box` | alias | 1.66 | RS-PERF-34 |
+| `criterion::black_box` | `std::hint::black_box` | alias | 1.66 | RS-PERF-33 |
+| `test::black_box` | `std::hint::black_box` | alias | 1.66 | RS-PERF-33 |
 | `$e:expr` | matches `_` and `const { … }` as well, so a later `_` arm stops firing; `expr_2021` keeps the old fragment | changed | 2024 | RS-MACRO-09 |
-| `-> impl Trait` | captures every lifetime in scope, so a caller can fail to borrow; narrow it with `+ use<'a, T>` | changed | 2024 | RS-OWN-22 |
+| `-> impl Trait` | captures every lifetime in scope, so a caller can fail to borrow; narrow it with `+ use<'a, T>` | changed | 2024 | RS-OWN-21 |
 | `Box<[T]>::into_iter` | yields `T`, by value, where it yielded `&T` | changed | 2024 | RS-BUILD-01 |
 | `if let` | a temporary in the scrutinee drops before the `else` block, which shortens a lock guard's life | changed | 2024 | RS-BUILD-01 |
 | `RangeInclusive` | once exhausted, reports a different `start()` and `end()`, and slices differently | changed | 1.99 | RS-MIG-03 |

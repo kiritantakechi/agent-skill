@@ -357,7 +357,7 @@ will see.
 `syn::Error::combine`.
 
 **Why:** a user with five bad field attributes otherwise gets five build-edit cycles. Accumulating
-is the same argument as RS-ERR-32, applied at compile time where the cycle is slower.
+is the same argument as RS-ERR-31, applied at compile time where the cycle is slower.
 
 **Check:** does the macro return on the first bad field?
 

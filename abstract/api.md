@@ -86,7 +86,7 @@ its own, so that swapping them is an error rather than a bug found in production
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-08 | realises | [M] | |
-| rust-style | RS-API-26 | extends | [M] | It gives a type to any unit, domain or validity condition, of which two transposable parameters of one type are the commonest case |
+| rust-style | RS-API-18 | realises | [M] | |
 | zig-style | ZS-API-04 | realises | [M] | |
 
 ### AS-API-06 [M] Never take a flag that selects between two behaviours
@@ -99,7 +99,7 @@ parameter.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-10 | realises | [M] | |
-| rust-style | RS-API-27 | realises | [M] | |
+| rust-style | RS-API-23 | realises | [M] | |
 | zig-style | ZS-API-03 | realises | [M] | |
 
 ### AS-API-07 [M] State who owns what a function returns
@@ -125,7 +125,7 @@ the absence is stated; silence reads as an oversight and is worked around.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-17 | realises | [M] | |
-| rust-style | RS-API-65 | realises | [M] | |
+| rust-style | RS-API-55 | realises | [M] | |
 | zig-style | ZS-API-07 | realises | [M] | |
 
 ### AS-API-09 [M] Keep argument order identical across sibling functions
@@ -137,7 +137,7 @@ disagreement among them is a swapped argument that no check catches.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-18 | realises | [M] | |
-| rust-style | RS-API-66 | realises | [M] | |
+| rust-style | RS-API-56 | realises | [M] | |
 | zig-style | ZS-API-08 | realises | [M] | |
 
 ### AS-API-10 [M] Give sibling failures a uniform shape
@@ -149,7 +149,7 @@ makes that handler grow a special case.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-19 | realises | [M] | |
-| rust-style | RS-API-67 | realises | [M] | |
+| rust-style | RS-API-57 | realises | [M] | |
 | zig-style | ZS-API-09 | realises | [M] | |
 
 ## Evolution
@@ -163,5 +163,5 @@ on, and not as a build that no longer compiles.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-15 | realises | [M] | |
-| rust-style | RS-API-63 | realises | [M] | |
+| rust-style | RS-API-53 | realises | [M] | |
 | zig-style | ZS-API-10 | realises | [M] | |

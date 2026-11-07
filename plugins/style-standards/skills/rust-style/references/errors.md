@@ -48,24 +48,23 @@ and an exit code.
 - **Panics**
   - RS-ERR-24 [S] Prefer restructuring, then `unreachable!`, then `panic!`
   - RS-ERR-25 [M] Choose `assert!` or `debug_assert!` by what a release build relies on
-  - RS-ERR-26 [M!] Make overflow behaviour explicit on untrusted arithmetic and computed sizes
-  - RS-ERR-27 [M] Do not choose `panic = "abort"` on a library's behalf
+  - RS-ERR-26 [M] Do not choose `panic = "abort"` on a library's behalf
 
 - **Binaries, reporting, exit codes**
-  - RS-ERR-28 [S] Use `anyhow` inside binaries and only there
-  - RS-ERR-29 [S] Return `ExitCode` and format the error yourself
-  - RS-ERR-30 [M] Assign exit codes by convention, and document them
-  - RS-ERR-31 [S] Print the cause chain, not a backtrace
-  - RS-ERR-32 [M] Report every failure of a run over independent inputs, and finish the run
+  - RS-ERR-27 [S] Use `anyhow` inside binaries and only there
+  - RS-ERR-28 [S] Return `ExitCode` and format the error yourself
+  - RS-ERR-29 [M] Assign exit codes by convention, and document them
+  - RS-ERR-30 [S] Print the cause chain, not a backtrace
+  - RS-ERR-31 [M] Report every failure of a run over independent inputs, and finish the run
 
 - **Cleanup**
-  - RS-ERR-33 [M] Acquire in the constructor, release in `Drop`
-  - RS-ERR-34 [M] Make `Drop` infallible and offer an explicit `finish`
+  - RS-ERR-32 [M] Acquire in the constructor, release in `Drop`
+  - RS-ERR-33 [M] Make `Drop` infallible and offer an explicit `finish`
 
 - **The shape of a function**
-  - RS-ERR-35 [M] Write a `match`, not an `if`/`else if` chain, on one value
-  - RS-ERR-36 [M!] Use an explicit worklist where recursion depth is unbounded
-  - RS-ERR-37 [M] State a branch condition as the invariant that holds
+  - RS-ERR-34 [M] Write a `match`, not an `if`/`else if` chain, on one value
+  - RS-ERR-35 [M!] Use an explicit worklist where recursion depth is unbounded
+  - RS-ERR-36 [M] State a branch condition as the invariant that holds
 
 ---
 
@@ -338,7 +337,7 @@ If not, the variant needs a field.
 
 Not `Box<dyn Error>`, not `anyhow::Error`, and not an `Other(String)` variant (nor `Msg(String)`,
 nor `Custom(String)`): not as the error type, not as a variant payload, not behind a type alias. In
-a binary, where nobody matches, `anyhow::Error` is correct (RS-ERR-28).
+a binary, where nobody matches, `anyhow::Error` is correct (RS-ERR-27).
 
 **Why:** it erases the variant set, so callers cannot match, recover selectively, or test for a
 specific failure. An `Other(String)` is `Box<dyn Error>` with extra steps: every failure nobody
@@ -577,7 +576,7 @@ impl Headers {
 ### RS-ERR-24 [S] Prefer restructuring, then `unreachable!`, then `panic!`
 
 **Why:** a branch that "cannot happen" is usually a type that is too wide, and making it
-unrepresentable removes the branch entirely (RS-API-29). Where the branch must exist,
+unrepresentable removes the branch entirely (RS-DATA-01). Where the branch must exist,
 `unreachable!("…")` says *why* you believe it, the information RS-ERR-04 asks for.
 
 **Check:** for each `unreachable!`, can the enum, the newtype, or the signature be narrowed so the
@@ -606,36 +605,7 @@ pub fn split_point(low: u32, high: u32) -> u32 {
 }
 ```
 
-### RS-ERR-26 [M!] Make overflow behaviour explicit on untrusted arithmetic and computed sizes
-
-Integer overflow panics in debug and wraps in release, by default. On untrusted values and on sizes
-computed from the input — lengths, offsets, parsed numbers — choose the behaviour: `checked_*`,
-`saturating_*`, `wrapping_*`, or `strict_*`, which panics in both profiles where overflow is a bug
-rather than an input. A value with a proven internal bound, such as a counter over a fixed array,
-asserts that bound instead.
-
-*Relaxed form:* the default behaviour, with a `debug_assert!` of each bound the arithmetic assumes.
-
-**Why:** that is a correctness fork: debug and release are two different programs on the same input.
-On attacker-influenced values the release behaviour is a silent wrong answer that frequently becomes
-a bounds bug two lines later.
-
-**Check:** for each arithmetic on lengths, offsets, and parsed numbers, can either operand originate
-outside the process, or grow with the input? If yes, it must be one of the four, chosen
-deliberately, not whichever compiles.
-
-```rust
-// verified
-/// On untrusted sizes the behaviour must not depend on the build profile.
-#[must_use]
-pub fn total_len(parts: &[usize]) -> Option<usize> {
-    parts
-        .iter()
-        .try_fold(0_usize, |acc, &part| acc.checked_add(part))
-}
-```
-
-### RS-ERR-27 [M] Do not choose `panic = "abort"` on a library's behalf
+### RS-ERR-26 [M] Do not choose `panic = "abort"` on a library's behalf
 
 It is the application's decision, set in its own profile.
 
@@ -648,7 +618,7 @@ binary's profile is the finding.
 
 ## Binaries, reporting, exit codes
 
-### RS-ERR-28 [S] Use `anyhow` inside binaries and only there
+### RS-ERR-27 [S] Use `anyhow` inside binaries and only there
 
 Or `eyre`, if you want custom report handlers.
 
@@ -658,7 +628,7 @@ a defect in a library for exactly the reason it is right here (RS-ERR-13).
 
 **Check:** is `anyhow` in the library crate's `[dependencies]`? It should be in the binary's.
 
-### RS-ERR-29 [S] Return `ExitCode` and format the error yourself
+### RS-ERR-28 [S] Return `ExitCode` and format the error yourself
 
 Rather than `fn main() -> Result<…>`, which prints the `Debug` representation.
 
@@ -668,7 +638,7 @@ Formatting it yourself gives you the cause chain in prose, and control over the 
 
 **Check:** does the program's failure output look like something you would show a user?
 
-### RS-ERR-30 [M] Assign exit codes by convention, and document them
+### RS-ERR-29 [M] Assign exit codes by convention, and document them
 
 `0` success, `1` a handled failure, `2` a usage error. Search-style tools follow grep: `0` match
 found, `1` no match, `2` error.
@@ -704,7 +674,7 @@ pub enum Failure {
 }
 ```
 
-### RS-ERR-31 [S] Print the cause chain, not a backtrace
+### RS-ERR-30 [S] Print the cause chain, not a backtrace
 
 Let `RUST_BACKTRACE=1` add the rest.
 
@@ -714,7 +684,7 @@ know, so opting in costs them nothing.
 
 **Check:** does a routine failure — a missing file, a bad flag — produce more than a few lines?
 
-### RS-ERR-32 [M] Report every failure of a run over independent inputs, and finish the run
+### RS-ERR-31 [M] Report every failure of a run over independent inputs, and finish the run
 
 A run over inputs that do not depend on each other — the files of a traversal, the entries of a
 configuration, the fields of a form — attempts each one and reports each failure, on stderr in a
@@ -756,7 +726,7 @@ pub fn run_all(inputs: &[Result<u32, String>]) -> ExitCode {
 
 ## Cleanup
 
-### RS-ERR-33 [M] Acquire in the constructor, release in `Drop`
+### RS-ERR-32 [M] Acquire in the constructor, release in `Drop`
 
 **Why:** RAII makes the release unforgettable, including on early return and on panic. Exposing
 `open`/`close` pairs means every caller must get every path right, and the one they miss is the
@@ -765,7 +735,7 @@ error path they never tested.
 **Check:** does the API have a `close`, `release`, `unlock`, or `end` that a caller must remember to
 call? That is a guard type.
 
-### RS-ERR-34 [M] Make `Drop` infallible and offer an explicit `finish`
+### RS-ERR-33 [M] Make `Drop` infallible and offer an explicit `finish`
 
 Offer `fn finish(self) -> Result<T, Error>` for the path that can fail, and let `Drop` be the
 best-effort fallback for the path that forgot.
@@ -795,7 +765,7 @@ pub fn write_all(mut sink: impl Write, lines: &[String]) -> io::Result<()> {
 
 ## The shape of a function
 
-### RS-ERR-35 [M] Write a `match`, not an `if`/`else if` chain, on one value
+### RS-ERR-34 [M] Write a `match`, not an `if`/`else if` chain, on one value
 
 **Why:** `match` gives exhaustiveness checking, so adding an enum variant produces a compile error
 instead of silently falling through to the `else`. It also reads as a table rather than as a
@@ -804,7 +774,7 @@ sequence of tests, which is what it actually is.
 **Check:** do two or more `else if` arms test the same subject? If the subject is an enum, this is a
 missing exhaustiveness check, not a style preference.
 
-### RS-ERR-36 [M!] Use an explicit worklist where recursion depth is unbounded
+### RS-ERR-35 [M!] Use an explicit worklist where recursion depth is unbounded
 
 A recursion whose depth a constant bounds — an expression AST from your own builder, a directory
 walk with a depth cap — asserts that constant at entry and stays recursive.
@@ -818,7 +788,7 @@ still functional in spirit, is bounded by the heap, and can be depth-limited wit
 **Check:** for each recursive function, what bounds the depth? If the answer is "the input", it
 needs a worklist or an asserted cap.
 
-### RS-ERR-37 [M] State a branch condition as the invariant that holds
+### RS-ERR-36 [M] State a branch condition as the invariant that holds
 
 `if index < len { … } else { … }`, not `if index >= len { … } else { … }`, and not
 `if !found { … } else { … }`. An early-return guard is exempt: `if index >= len { return None; }`

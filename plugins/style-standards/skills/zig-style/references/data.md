@@ -28,7 +28,7 @@ const assert = std.debug.assert;
   - ZS-DATA-07 [M] Let integer overflow trap; never reach for `+%` to silence a panic
   - ZS-DATA-08 [M] Use wrapping and saturating operators only where the semantics demand them
   - ZS-DATA-09 [M] Choose the cast builtin by intent, not by whichever one compiles
-  - ZS-DATA-10 [M] Use the checked `std.math` helpers where a bad value is an operating error
+  - ZS-DATA-10 [M!] Use the checked `std.math` helpers where a bad value is an operating error
   - ZS-DATA-11 [M] Convert float to int with `@trunc`/`@round`, after a range check
 - **Struct construction and initialization**
   - ZS-DATA-12 [M] Write `const x: T = .{ ... }`, not `const x = T{ ... }`
@@ -52,15 +52,21 @@ const assert = std.debug.assert;
   - ZS-DATA-27 [M] Return the lowest-dimensionality type that can carry the answer
   - ZS-DATA-28 [M] Express absence with the weakest construct that fits
   - ZS-DATA-29 [M] `[]const u8` is the default string; `[:0]const u8` only where a NUL is required
+  - ZS-DATA-30 [S] Prefer a named struct to a tuple whose elements could be swapped
+- **Validity and equality**
+  - ZS-DATA-31 [M] Make an invalid state unrepresentable before asserting against it
+  - ZS-DATA-32 [M] Validate in `init` and return an error rather than correct
+  - ZS-DATA-33 [M] Hand out a const view of owned state, never the container or a mutable slice
+  - ZS-DATA-34 [M] Never let `eql` and `hash` disagree
 - **Text: UTF-8, WTF-8, and ASCII**
-  - ZS-DATA-30 [M] A byte index is not a codepoint index; iterate with `Utf8View`
-  - ZS-DATA-31 [M] Windows filenames are WTF-8, not UTF-8 — use the `wtf8` family for paths
-  - ZS-DATA-32 [M] `std.ascii` operates on bytes; never let it stand in for Unicode
+  - ZS-DATA-35 [M] A byte index is not a codepoint index; iterate with `Utf8View`
+  - ZS-DATA-36 [M] Windows filenames are WTF-8, not UTF-8 — use the `wtf8` family for paths
+  - ZS-DATA-37 [M] `std.ascii` operates on bytes; never let it stand in for Unicode
 - **Arithmetic and type-system rules with silent-wrong-code potential**
-  - ZS-DATA-33 [M] `std.math.sign` returns the narrowest integer, not the argument's type
-  - ZS-DATA-34 [M] Check type-level code against the five rules older Zig code trips on
+  - ZS-DATA-38 [M] `std.math.sign` returns the narrowest integer, not the argument's type
+  - ZS-DATA-39 [M] Check type-level code against the five rules older Zig code trips on
 - **Serialization**
-  - ZS-DATA-35 [M] ZON for formats you own, `std.json` for interop; bound both on untrusted input
+  - ZS-DATA-40 [M] ZON for formats you own, `std.json` for interop; bound both on untrusted input
 
 ---
 
@@ -393,7 +399,7 @@ test "cast intent" {
 }
 ```
 
-### ZS-DATA-10 [M] Use the checked `std.math` helpers where a bad value is an operating error
+### ZS-DATA-10 [M!] Use the checked `std.math` helpers where a bad value is an operating error
 
 At a trust boundary — parsed input, network frames, on-disk headers, FFI returns — an out-of-range
 value is *expected*, not a bug. Use `std.math.cast(T, x) ?T`, `std.math.add/sub/mul(T, a, b)`
@@ -403,6 +409,9 @@ ZS-DATA-09), and operating errors, which must be handled.
 
 Text is parsed with `std.fmt.parseInt` into the narrowest type the field admits, which is the range
 check (ZS-OUT-14).
+
+*Relaxed form:* inside a trusted core whose every operand has a proven bound, the builtin with an
+`assert` that states the bound (ZS-ASSERT-07).
 
 **Why:** `@intCast` and `+` panic, which is right for a programmer error and wrong for adversarial
 input: a peer sending a 5-byte length field must not be able to abort your process.
@@ -988,9 +997,9 @@ const Cache = struct {
 ### ZS-DATA-25 [M] Model variants as a tagged union, not a struct with a kind field
 
 A value that is "one of N shapes" is a `union(enum)`, not a struct with a kind field and several
-maybe-valid members. Switch over it exhaustively (ZS-ERR-27). Reading a payload field while another
-is active is safety-checked illegal behavior
-(`access of union field 'b' while field 'a' is active`).
+maybe-valid members, and not an integer or a group of `bool` flags standing in for the tag. Switch
+over it exhaustively (ZS-ERR-27). Reading a payload field while another is active is safety-checked
+illegal behavior (`access of union field 'b' while field 'a' is active`).
 
 **Why:** a payload is reachable only through its active tag, never as stale bytes, and adding a
 variant is a compile error at every exhaustive switch that must change.
@@ -1215,13 +1224,230 @@ fn openPath(gpa: std.mem.Allocator, path: []const u8) !c_int {
 }
 ```
 
+### ZS-DATA-30 [S] Prefer a named struct to a tuple whose elements could be swapped
+
+Return `struct { start: usize, end: usize }`, not `struct { usize, usize }`. A tuple is for a pair
+that is genuinely a pair, such as a value and its remainder, where the position is the meaning.
+
+**Why:** two elements of one type are silently transposable, since `const a, const b = f();`
+compiles just as well with the pair swapped. A named field cannot be misread, and a third piece of
+information is one more field, not a changed arity at every destructuring site.
+
+**Check:** a public function returning a tuple of three or more elements, or two elements of one
+type. Each is a struct with named fields.
+
+```zig
+// fragment — BAD
+fn trim(bytes: []const u8) struct { usize, usize } {
+    // The caller must remember which is the start and which the end.
+    return .{ 0, bytes.len };
+}
+```
+
+```zig
+// verified — GOOD
+const std = @import("std");
+
+const Span = struct { start: usize, end: usize };
+
+fn trim(bytes: []const u8) Span {
+    var start: usize = 0;
+    var end: usize = bytes.len;
+    while (start < end and bytes[start] == ' ') start += 1;
+    while (end > start and bytes[end - 1] == ' ') end -= 1;
+    return .{ .start = start, .end = end };
+}
+
+test "named fields cannot be swapped" {
+    const span = trim("  ab ");
+    try std.testing.expectEqual(2, span.start);
+    try std.testing.expectEqual(4, span.end);
+}
+```
+
+## Validity and equality
+
+### ZS-DATA-31 [M] Make an invalid state unrepresentable before asserting against it
+
+Pick the type that has no invalid value: an enum for a closed set, a tagged union for variants
+(ZS-DATA-25), the narrowest integer for a bounded range (ZS-DATA-03), a non-optional for a value
+that is always there. Only what the type cannot express is checked, first by an error returned from
+`init` (ZS-DATA-32), then by an `assert`.
+
+**Why:** an `assert` is repeated at every site that needs it and can be forgotten at any of them; a
+type is checked by the compiler everywhere. Every state made unrepresentable is a branch never
+written and a test never needed.
+
+**Check:** every `assert` or `if` that rejects a value of a parameter or field. Ask what type would
+make the check unnecessary.
+
+```zig
+// fragment — BAD
+fn turn(direction: u8) u8 {
+    assert(direction < 4); // A type with four values would not need this line.
+    return (direction + 1) % 4;
+}
+```
+
+```zig
+// verified — GOOD
+const std = @import("std");
+
+/// All four values of a `u2` are directions, so no value needs checking.
+const Direction = enum(u2) { north, east, south, west };
+
+fn quarterTurns(direction: Direction) u2 {
+    return @backingInt(direction);
+}
+
+test "every u2 is a valid direction" {
+    const direction: Direction = @fromBackingInt(@intCast(3));
+    try std.testing.expectEqual(Direction.west, direction);
+    try std.testing.expectEqual(3, quarterTurns(direction));
+}
+```
+
+### ZS-DATA-32 [M] Validate in `init` and return an error rather than correct
+
+A type whose fields carry an invariant is built by one `init` that checks it and returns an error
+when it fails. Do not clamp, coerce, or substitute a default. Fields are always public in Zig, so
+the type states in its doc comment that `init` is the way in, and the invariant is re-asserted where
+a mutator ends (ZS-ASSERT-14).
+
+**Why:** a corrected value hides the caller's bug and leaves them reasoning about the value they
+passed, not the one they got. An error puts the construction site in the trace and leaves one place
+to read the rule.
+
+**Check:** every struct with a field whose valid range is narrower than its type. No `init` that
+checks it is the finding, and so is an `init` that returns the struct whatever the arguments.
+
+```zig
+// fragment — BAD
+fn init(number: u16) Port {
+    return .{ .number = @max(number, 1) }; // The caller asked for 0 and silently got 1.
+}
+```
+
+```zig
+// verified — GOOD
+const std = @import("std");
+
+const Port = struct {
+    number: u16,
+
+    /// Build a `Port` only through `init`; zero is not a port.
+    fn init(number: u16) error{PortOutOfRange}!Port {
+        if (number == 0) return error.PortOutOfRange;
+        return .{ .number = number };
+    }
+};
+
+test "an invalid port is refused, not corrected" {
+    try std.testing.expectError(error.PortOutOfRange, Port.init(0));
+    try std.testing.expectEqual(8080, (try Port.init(8080)).number);
+}
+```
+
+### ZS-DATA-33 [M] Hand out a const view of owned state, never the container or a mutable slice
+
+`fn bytes(log: *const Log) []const u8`, not a `[]u8` over the buffer or a pointer to the list that
+holds it. The operation the caller came for is a method, not a field to reach through.
+
+**Why:** a mutable slice of internal storage is a licence to break every invariant the type holds,
+here that `len` agrees with the bytes written, and no doc comment prevents it. A const view names
+what the caller may do and lets the storage change without touching a caller.
+
+**Check:** every `pub fn` returning `[]T` or `*T` into a field, or a pointer to the container
+itself. Each wants `[]const T`, or a method that does the work.
+
+```zig
+// fragment — BAD
+fn buffer(log: *Log) []u8 {
+    return log.buffer[0..]; // Writable, and `len` no longer describes it.
+}
+```
+
+```zig
+// verified — GOOD
+const std = @import("std");
+
+const Log = struct {
+    buffer: [8]u8 = undefined,
+    len: usize = 0,
+
+    fn append(log: *Log, byte: u8) void {
+        std.debug.assert(log.len < log.buffer.len);
+        log.buffer[log.len] = byte;
+        log.len += 1;
+    }
+
+    /// A view of what was logged: the caller can read it and cannot grow or shrink it.
+    fn bytes(log: *const Log) []const u8 {
+        return log.buffer[0..log.len];
+    }
+};
+
+test "the view shows what was appended" {
+    var log: Log = .{};
+    log.append('a');
+    log.append('b');
+    try std.testing.expectEqualSlices(u8, "ab", log.bytes());
+}
+```
+
+### ZS-DATA-34 [M] Never let `eql` and `hash` disagree
+
+Two keys that compare equal hash equal. A context whose `eql` ignores something, such as case or
+padding, has a `hash` that ignores it too.
+
+**Why:** a hash map finds a key by hash first and equality second, so an equal pair that hashes
+differently lands in different buckets and the lookup misses, silently and only for some keys.
+
+**Check:** every custom hash map context (`hash` and `eql` together). Read what `eql` ignores, then
+confirm `hash` feeds on the same reduced form.
+
+```zig
+// fragment — BAD
+pub fn hash(_: Context, key: []const u8) u64 {
+    return std.hash.Wyhash.hash(0, key); // Hashes the case that `eql` ignores.
+}
+
+pub fn eql(_: Context, a: []const u8, b: []const u8) bool {
+    return std.ascii.eqlIgnoreCase(a, b);
+}
+```
+
+```zig
+// verified — GOOD
+const std = @import("std");
+
+/// Keys equal ignoring ASCII case, so they must hash ignoring it too.
+const CaseInsensitive = struct {
+    pub fn hash(_: CaseInsensitive, key: []const u8) u64 {
+        var hasher = std.hash.Wyhash.init(0);
+        for (key) |byte| hasher.update(&.{std.ascii.toLower(byte)});
+        return hasher.final();
+    }
+
+    pub fn eql(_: CaseInsensitive, a: []const u8, b: []const u8) bool {
+        return std.ascii.eqlIgnoreCase(a, b);
+    }
+};
+
+test "equal keys hash equal" {
+    const context: CaseInsensitive = .{};
+    try std.testing.expectEqual(context.hash("Content-Type"), context.hash("content-type"));
+    try std.testing.expect(context.eql("Content-Type", "content-type"));
+}
+```
+
 ## Text: UTF-8, WTF-8, and ASCII
 
 ZS-DATA-29 settles the *slice* question for strings. These four rules settle the *encoding*
 question. `[]const u8` in Zig is a byte slice and nothing more — no type in the language records
 that a byte slice is valid UTF-8, so the discipline is entirely yours.
 
-### ZS-DATA-30 [M] A byte index is not a codepoint index; iterate with `Utf8View`
+### ZS-DATA-35 [M] A byte index is not a codepoint index; iterate with `Utf8View`
 
 `text.len` is a size in bytes. To count codepoints, call `std.unicode.utf8CountCodepoints`, which
 validates as it counts. To visit them, validate once with `std.unicode.Utf8View.init` (returns
@@ -1278,7 +1504,7 @@ test "decode one codepoint without the deprecated API" {
 }
 ```
 
-### ZS-DATA-31 [M] Windows filenames are WTF-8, not UTF-8 — use the `wtf8` family for paths
+### ZS-DATA-36 [M] Windows filenames are WTF-8, not UTF-8 — use the `wtf8` family for paths
 
 A Windows path is a sequence of arbitrary `u16` values, which may contain unpaired surrogates and is
 therefore not always valid UTF-16 and has no UTF-8 encoding. Convert with
@@ -1313,7 +1539,7 @@ test "wtf8 round-trips an unpaired surrogate; utf8 cannot" {
 }
 ```
 
-### ZS-DATA-32 [M] `std.ascii` operates on bytes; never let it stand in for Unicode
+### ZS-DATA-37 [M] `std.ascii` operates on bytes; never let it stand in for Unicode
 
 `std.ascii.toUpper`, `toLower`, `upperString`, `lowerString`, `eqlIgnoreCase`, `isAlphabetic`,
 `isWhitespace` and friends all take `u8` and only understand code units below 128. Use them for
@@ -1348,7 +1574,7 @@ The migration table holds every spelling that changed. The two rules below cover
 that produce **wrong behavior rather than a compile error**, because this is the chapter a reader
 consults when choosing a type — not the one they consult when a build breaks.
 
-### ZS-DATA-33 [M] `std.math.sign` returns the narrowest integer, not the argument's type
+### ZS-DATA-38 [M] `std.math.sign` returns the narrowest integer, not the argument's type
 
 `sign` returns `SignOf(@TypeOf(n))`: `i2` for a signed integer *or a float*, `u1` for an unsigned
 integer, and the elementwise equivalent for a vector. It does not return `T`. Convert explicitly at
@@ -1378,7 +1604,7 @@ test "sign returns the narrowest int, never the input type" {
 }
 ```
 
-### ZS-DATA-34 [M] Check type-level code against the five rules older Zig code trips on
+### ZS-DATA-39 [M] Check type-level code against the five rules older Zig code trips on
 
 The migration table holds every removed spelling. Of these five, two change what code that *still
 compiles* means, one is a cast that can lose a bound, and two turn latent bugs into compile errors.
@@ -1435,7 +1661,7 @@ test "pointer and builtin rules" {
 
 ## Serialization
 
-### ZS-DATA-35 [M] ZON for formats you own, `std.json` for interop; bound both on untrusted input
+### ZS-DATA-40 [M] ZON for formats you own, `std.json` for interop; bound both on untrusted input
 
 For configuration, fixtures, and any data format whose only consumer is your own program, use ZON:
 `std.zon.parse.fromSlice(T, .{ .gpa, .arena, .source, .diagnostics })` to read,

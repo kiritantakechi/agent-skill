@@ -3,7 +3,7 @@
 Scope: who owns what and for how long. Choosing between `&T`, `&mut T`, and `T` in a signature;
 clone discipline and `Cow`; lifetimes, elision, and when a type should not have one; smart pointers
 and interior mutability; the guard types and `Drop` details around them. Releasing a resource on
-every path (RAII) and a `Drop` that must not fail are the errors chapter's (RS-ERR-33, RS-ERR-34).
+every path (RAII) and a `Drop` that must not fail are the errors chapter's (RS-ERR-32, RS-ERR-33).
 The *allocation cost* of these choices is in the performance chapter; the *style* of the resulting
 function bodies is in the functional chapter; `Send`/`Sync` and lock discipline are in the
 concurrency chapter.
@@ -39,27 +39,26 @@ one thing, or one owner for two things. The fix is almost never `.clone()`.
   - RS-OWN-18 [M] Do not leak to satisfy a `'static` bound
   - RS-OWN-19 [S] Write higher-ranked bounds rather than avoiding borrowed callbacks
   - RS-OWN-20 [M] Do not build self-referential structs
-  - RS-OWN-21 [S] Prefer indices to references for graph-shaped data
-  - RS-OWN-22 [M] Narrow edition-2024 `impl Trait` capture with `use<>`
-  - RS-OWN-23 [S] Re-examine the data model when a lifetime error resists three attempts
+  - RS-OWN-21 [M] Narrow edition-2024 `impl Trait` capture with `use<>`
+  - RS-OWN-22 [S] Re-examine the data model when a lifetime error resists three attempts
 
 - **Smart pointers and interior mutability**
-  - RS-OWN-24 [M] Justify every use of interior mutability in a comment
-  - RS-OWN-25 [S] Pick the interior-mutability primitive for the actual access pattern
-  - RS-OWN-26 [M] Keep `RefCell` borrows short and out of `Drop`
-  - RS-OWN-27 [S] Use `Rc` in one thread and `Arc` across threads
-  - RS-OWN-28 [M] Break reference cycles with `Weak`
-  - RS-OWN-29 [S] Use `Box` for heap placement, not for borrow-checker relief
-  - RS-OWN-30 [S] Avoid double indirection in pointer types
-  - RS-OWN-31 [S] Use `make_mut` and `unwrap_or_clone` for copy-on-write
+  - RS-OWN-23 [M] Justify every use of interior mutability in a comment
+  - RS-OWN-24 [S] Pick the interior-mutability primitive for the actual access pattern
+  - RS-OWN-25 [M] Keep `RefCell` borrows short and out of `Drop`
+  - RS-OWN-26 [S] Use `Rc` in one thread and `Arc` across threads
+  - RS-OWN-27 [M] Break reference cycles with `Weak`
+  - RS-OWN-28 [S] Use `Box` for heap placement, not for borrow-checker relief
+  - RS-OWN-29 [S] Avoid double indirection in pointer types
+  - RS-OWN-30 [S] Use `make_mut` and `unwrap_or_clone` for copy-on-write
 
 - **`Drop` and resources**
-  - RS-OWN-32 [S] Do not implement `Drop` for logging alone
-  - RS-OWN-33 [S] Keep guard types small
-  - RS-OWN-34 [M] Name a guard binding; never bind it to `_`
-  - RS-OWN-35 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
-  - RS-OWN-36 [S] Prefer scope-based cleanup to defer-style crates
-  - RS-OWN-37 [M] Install process-wide resources once, at the top of `main`
+  - RS-OWN-31 [S] Do not implement `Drop` for logging alone
+  - RS-OWN-32 [S] Keep guard types small
+  - RS-OWN-33 [M] Name a guard binding; never bind it to `_`
+  - RS-OWN-34 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
+  - RS-OWN-35 [S] Prefer scope-based cleanup to defer-style crates
+  - RS-OWN-36 [M] Install process-wide resources once, at the top of `main`
 
 - Decided by tools
 
@@ -396,47 +395,7 @@ under move — which the compiler will not stop you from doing. Use indices into
 
 **Check:** does any struct hold a pointer or reference into another of its own fields?
 
-### RS-OWN-21 [S] Prefer indices to references for graph-shaped data
-
-`Vec<Node>` plus `NodeId(u32)`.
-
-**Why:** it sidesteps lifetimes entirely, it is cache-friendly, it serializes trivially, and it
-makes cycles representable without `Weak`. Newtype the index so it cannot be confused with a length
-or with an index into a different arena (RS-API-33).
-
-**Check:** does the graph type have a lifetime parameter? Indices remove it.
-
-```rust
-// verified
-/// Index newtypes instead of pointers: one allocation, and the graph stays `Send`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct NodeId(u32);
-
-#[derive(Debug, Default)]
-pub struct Tree {
-    nodes: Vec<Node>,
-}
-
-#[derive(Debug)]
-struct Node {
-    parent: Option<NodeId>,
-}
-
-impl Tree {
-    pub fn push(&mut self, parent: Option<NodeId>) -> NodeId {
-        let id = NodeId(u32::try_from(self.nodes.len()).unwrap_or(u32::MAX));
-        self.nodes.push(Node { parent });
-        id
-    }
-
-    #[must_use]
-    pub fn parent(&self, NodeId(index): NodeId) -> Option<NodeId> {
-        self.nodes.get(index as usize).and_then(|node| node.parent)
-    }
-}
-```
-
-### RS-OWN-22 [M] Narrow edition-2024 `impl Trait` capture with `use<>`
+### RS-OWN-21 [M] Narrow edition-2024 `impl Trait` capture with `use<>`
 
 Write `+ use<'a, T>` (precise capturing) to state what is actually borrowed.
 
@@ -447,7 +406,7 @@ mutate an unrelated argument while holding it.
 **Check:** does a returned `impl Trait` keep an argument borrowed that its implementation never
 touches?
 
-### RS-OWN-23 [S] Re-examine the data model when a lifetime error resists three attempts
+### RS-OWN-22 [S] Re-examine the data model when a lifetime error resists three attempts
 
 **Why:** almost every intractable lifetime puzzle in application code is a design that has a borrow
 where it wants ownership. Adding parameters makes the signature worse without fixing the cause; the
@@ -458,7 +417,7 @@ index?
 
 ## Smart pointers and interior mutability
 
-### RS-OWN-24 [M] Justify every use of interior mutability in a comment
+### RS-OWN-23 [M] Justify every use of interior mutability in a comment
 
 When the honest note is "this could be threaded through `&mut self`, but the refactor is large",
 write that down rather than leaving it implied.
@@ -469,7 +428,7 @@ declaration is the one place a reader can learn that state changes behind a shar
 
 **Check:** does every such field have a comment on its declaration?
 
-### RS-OWN-25 [S] Pick the interior-mutability primitive for the actual access pattern
+### RS-OWN-24 [S] Pick the interior-mutability primitive for the actual access pattern
 
 `Cell<T>` for `Copy` types, `RefCell<T>` for the rest in single-threaded code, `Mutex`/`RwLock`
 across threads, `OnceLock`/`LazyLock` for one-time initialization.
@@ -480,16 +439,16 @@ across threads, `OnceLock`/`LazyLock` for one-time initialization.
 
 **Check:** is a `RefCell<T>` holding a `T: Copy`? That is a `Cell`.
 
-### RS-OWN-26 [M] Keep `RefCell` borrows short and out of `Drop`
+### RS-OWN-25 [M] Keep `RefCell` borrows short and out of `Drop`
 
 **Why:** a `RefCell` borrow conflict is a panic rather than a compile error, and a panic inside
-`Drop` during unwinding aborts the process (RS-ERR-34). Holding a `Ref` across a call that can
+`Drop` during unwinding aborts the process (RS-ERR-33). Holding a `Ref` across a call that can
 re-enter is the classic way to hit it.
 
 **Check:** does any `borrow()`/`borrow_mut()` result live across a function call? Bind it in the
 smallest possible scope.
 
-### RS-OWN-27 [S] Use `Rc` in one thread and `Arc` across threads
+### RS-OWN-26 [S] Use `Rc` in one thread and `Arc` across threads
 
 **Why:** `Arc`'s refcount operations are atomic, which is not free — and using it in single-threaded
 code out of habit pays for a guarantee nobody needs. The compiler tells you when you need `Arc`; it
@@ -497,7 +456,7 @@ does not tell you when you do not.
 
 **Check:** does the `Arc` ever cross a thread boundary or enter a `Send` bound? If not, `Rc`.
 
-### RS-OWN-28 [M] Break reference cycles with `Weak`
+### RS-OWN-27 [M] Break reference cycles with `Weak`
 
 **Why:** `Rc`/`Arc` cycles never drop — the memory and everything it owns leaks for the life of the
 process. Parent pointers, observer registries, and back-references in doubly-linked structures are
@@ -506,7 +465,7 @@ the usual sites. Document which direction is strong.
 **Check:** for each `Rc`/`Arc` field, can the graph contain a cycle through it? A tree with parent
 pointers always can.
 
-### RS-OWN-29 [S] Use `Box` for heap placement, not for borrow-checker relief
+### RS-OWN-28 [S] Use `Box` for heap placement, not for borrow-checker relief
 
 **Why:** `Box` is for recursive types, large values you move often, and trait objects. It is not a
 general-purpose wrapper that makes lifetime errors go away — reaching for it in that role usually
@@ -514,7 +473,7 @@ means the value should have been owned somewhere else.
 
 **Check:** for each `Box`, which of the three reasons applies?
 
-### RS-OWN-30 [S] Avoid double indirection in pointer types
+### RS-OWN-29 [S] Avoid double indirection in pointer types
 
 `Box<[T]>` not `Box<Vec<T>>`; `Arc<str>` not `Arc<String>`; `Rc<[T]>` not `Rc<Vec<T>>`.
 
@@ -524,10 +483,10 @@ the fat pointer.
 
 **Check:** `rg -n '(Arc|Rc)<String>' -g '*.rs'` finds a string behind two pointers; each hit is the
 finding — `Arc<str>`. An `Arc<Vec<T>>` is the same double indirection unless `make_mut` grows it
-(RS-OWN-31). `Box<Vec<T>>` and a box inside an `Rc` or `Arc` are clippy's `box_collection` and
+(RS-OWN-30). `Box<Vec<T>>` and a box inside an `Rc` or `Arc` are clippy's `box_collection` and
 `redundant_allocation`.
 
-### RS-OWN-31 [S] Use `make_mut` and `unwrap_or_clone` for copy-on-write
+### RS-OWN-30 [S] Use `make_mut` and `unwrap_or_clone` for copy-on-write
 
 `Arc::make_mut` and `Rc::make_mut` to change the value in place; `Arc::unwrap_or_clone` and
 `Rc::unwrap_or_clone` to take it out.
@@ -554,14 +513,14 @@ pub fn into_sorted(shared: Arc<Vec<u32>>) -> Vec<u32> {
 
 ## `Drop` and resources
 
-### RS-OWN-32 [S] Do not implement `Drop` for logging alone
+### RS-OWN-31 [S] Do not implement `Drop` for logging alone
 
 **Why:** a `Drop` impl prevents destructuring the type by move, prevents partial moves out of it,
 and surprises callers who expected a plain value. That is a large ergonomic cost for a log line.
 
 **Check:** does the `Drop` release a resource, or only observe? If only observe, remove it.
 
-### RS-OWN-33 [S] Keep guard types small
+### RS-OWN-32 [S] Keep guard types small
 
 **Why:** a type with `Drop` cannot be partially moved out of, so anything the guard holds is held
 until the guard dies. A guard that carries the whole context keeps the whole context alive and
@@ -569,7 +528,7 @@ borrowed.
 
 **Check:** does the guard hold more than the release needs?
 
-### RS-OWN-34 [M] Name a guard binding; never bind it to `_`
+### RS-OWN-33 [M] Name a guard binding; never bind it to `_`
 
 **Why:** `let _ = cell.borrow_mut();` drops the guard at once, ending the borrow before the code
 that needed it runs: a bug that compiles and looks correct. rustc rejects it for a std lock guard
@@ -588,7 +547,7 @@ let _ = self.state.lock();
 let _guard = self.state.lock();
 ```
 
-### RS-OWN-35 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
+### RS-OWN-34 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
 
 **Why:** both are safe functions with unsafe consequences for other people's invariants — leaking a
 guard, skipping a `Drop` that another type relies on. They are legitimate inside an abstraction that
@@ -598,7 +557,7 @@ knows the whole picture and dangerous anywhere else.
 it applies to? `mem::forget` is the `mem_forget` row below, so each needs an `#[expect]` with its
 reason.
 
-### RS-OWN-36 [S] Prefer scope-based cleanup to defer-style crates
+### RS-OWN-35 [S] Prefer scope-based cleanup to defer-style crates
 
 **Why:** a block, a guard struct, or a closure taking `&mut T` all express "cleanup happens" using
 only the language, with no dependency and no macro. A `defer!` macro also runs at end of scope, so
@@ -606,7 +565,7 @@ it buys nothing except unfamiliarity.
 
 **Check:** is there a `defer`-style dependency? What does it do that a guard struct does not?
 
-### RS-OWN-37 [M] Install process-wide resources once, at the top of `main`
+### RS-OWN-36 [M] Install process-wide resources once, at the top of `main`
 
 Signal handlers, terminal raw mode, the global logger, panic hooks.
 

@@ -337,7 +337,7 @@ DEPARTS_FROM = ("Departs", "from")
 def departs_from(rule: Rule) -> RuleId | None:
     """The anchor rule `rule` opens by departing from, if it does.
 
-    Its statement's first words are `Departs from RS-API-23.`
+    Its statement's first words are `Departs from RS-API-20.`
     """
     first = next(iter(rule.statement), None)
     words = first.words if isinstance(first, Paragraph) else ()

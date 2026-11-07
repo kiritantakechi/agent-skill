@@ -1116,7 +1116,7 @@ test "flags, --, and operands" {
 
 ### ZS-BUILD-33 [S] `.zon` is a usable project config format, not just `build.zig.zon`
 
-A config file you control is ZON before it is JSON, TOML, or YAML; ZS-DATA-35 owns reading it, with
+A config file you control is ZON before it is JSON, TOML, or YAML; ZS-DATA-40 owns reading it, with
 `@import("config.zon")` at comptime or `std.zon.parse` at runtime. Prefer the comptime form for
 anything fixed at build time (feature toggles, table sizes, endpoints per environment). This rule is
 about where the file goes:

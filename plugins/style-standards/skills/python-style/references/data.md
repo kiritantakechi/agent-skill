@@ -27,7 +27,7 @@ Unless a block shows its own imports, it assumes `from dataclasses import datacl
   - PS-DATA-13 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
 - **Validity**
   - PS-DATA-14 [M] Validate in `__post_init__`, and raise rather than correct
-  - PS-DATA-15 [M!] Make the invalid state unrepresentable before validating against it
+  - PS-DATA-15 [M] Make the invalid state unrepresentable before validating against it
   - PS-DATA-16 [M] Give a domain value its own type rather than a bare `str` or `int`
   - PS-DATA-17 [M] Never let `__eq__` and `__hash__` disagree
 - Decided by tools
@@ -101,14 +101,17 @@ assert not hasattr(node, "__dict__")
 
 ### PS-DATA-03 [M] Model a closed set of alternatives as an enum
 
-Not string constants, not a `Literal` union of strings, not integers with a comment.
+Not string constants, not a `Literal` union of strings, not integers with a comment. Alternatives
+that carry different data are a union of one dataclass per member, not one class with a `kind` field
+and attributes that are meaningful for some kinds only.
 
 **Why:** an enum names the set, gives each member a readable `repr` in a traceback, and is the one
 place to add a member, which PS-TYPE-14's `assert_never` turns into a type error wherever the set is
 consumed. A `Literal` union gets the narrowing and none of the rest.
 
 **Check:** `rg -n '^[A-Z_]+[ \t]*[:=][ \t]*["\x27]' src/` — a group of module-level string constants
-that are only ever compared against each other is an enum.
+that are only ever compared against each other is an enum. A class with a `kind` attribute and
+fields used for some kinds only is the union written without the type checker's help.
 
 ### PS-DATA-04 [M] Use `StrEnum` or `IntEnum` only when the value crosses a boundary
 
@@ -360,13 +363,10 @@ def test_out_of_range_is_rejected() -> None:
 assert Port(8080).number == 8080
 ```
 
-### PS-DATA-15 [M!] Make the invalid state unrepresentable before validating against it
+### PS-DATA-15 [M] Make the invalid state unrepresentable before validating against it
 
 An enum instead of a validated string. A `Port` type instead of an `int` you check. Two types
 instead of one type with a flag that says which it is.
-
-*Relaxed form:* a primitive validated exactly once, where it enters, and never passed on as the
-primitive.
 
 **Why:** validation must be repeated at every construction site and can be forgotten at any of them;
 a type is a check the type checker makes everywhere for free. Every state made unrepresentable is a

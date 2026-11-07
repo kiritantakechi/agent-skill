@@ -106,7 +106,7 @@ Since; its owning rule's Check finds it.
 | `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | ZS-COMPTIME-14 |
 | `std.fmt.bufPrintZ` | `std.mem.printSentinel(buffer, fmt, args, 0)` | ZS-OUT-11 |
 | `std.Io.File.OpenFlags` | `std.Io.Dir.OpenFileOptions`; `CreateFlags` is `Io.Dir.CreateFileOptions` and `OpenMode` is `Io.Dir.OpenFileOptions.Mode` | ZS-CONC-18 |
-| `std.ascii.indexOfIgnoreCase` | `std.ascii.findIgnoreCase`; the `Pos` and `PosLinear` forms likewise | ZS-DATA-32 |
+| `std.ascii.indexOfIgnoreCase` | `std.ascii.findIgnoreCase`; the `Pos` and `PosLinear` forms likewise | ZS-DATA-37 |
 | `std.mem.containsAtLeastScalar2` | `std.mem.containsAtLeastScalar(T, list, element, minimum)` | ZS-MIG-01 |
 | `std.mem.readPackedIntNative` | `std.mem.readPackedInt(T, bytes, bit_offset, .native)`; `readPackedIntForeign` takes `.foreign` | ZS-MIG-01 |
 | `std.mem.writePackedIntNative` | `std.mem.writePackedInt(T, bytes, bit_offset, value, .native)`; `writePackedIntForeign` takes `.foreign` | ZS-MIG-01 |
@@ -133,8 +133,8 @@ Since; its owning rule's Check finds it.
 | `--build-runner` | nothing | ZS-MIG-01 |
 | `--verbose-llvm-bc` | nothing | ZS-MIG-01 |
 | `std.Target.SubSystem` | `std.zig.Subsystem`; `builtin.subsystem` has no replacement | ZS-INTEROP-18 |
-| `std.zon.parse.fromSliceAlloc` | `std.zon.parse.fromSlice(T, .{ .gpa = gpa, .arena = arena, .source = source, .diagnostics = &diag })`, which allocates the result into `.arena`; the form that allocates nothing is `fromSliceNoAlloc` | ZS-DATA-35 |
-| `std.zon.parse.free` | nothing: the result lives in the arena `fromSlice` was given | ZS-DATA-35 |
+| `std.zon.parse.fromSliceAlloc` | `std.zon.parse.fromSlice(T, .{ .gpa = gpa, .arena = arena, .source = source, .diagnostics = &diag })`, which allocates the result into `.arena`; the form that allocates nothing is `fromSliceNoAlloc` | ZS-DATA-40 |
+| `std.zon.parse.free` | nothing: the result lives in the arena `fromSlice` was given | ZS-DATA-40 |
 | `std.Uri.getHost` | `std.Io.net.HostName.fromUri(uri, &buffer)`, which validates the name | ZS-CONC-38 |
 | `std.gpu` | `std.spirv` | ZS-MIG-01 |
 | `dupeZ` | `allocator.dupeSentinel(u8, s, 0)` | ZS-INTEROP-10 |
@@ -299,12 +299,12 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-364 rules live here; section 4 lists by ID those that bind on their own.
+369 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
 | `references/naming.md` | `ZS-NAME` (19) | Naming rules in full, the casing of a file name, formatting |
-| `references/data.md` | `ZS-DATA` (35) | Integer choice, off-by-one discipline, casts, struct design, decl literals, result location semantics, in-place init, layout, data-oriented design |
+| `references/data.md` | `ZS-DATA` (40) | Integer choice, off-by-one discipline, casts, struct design, decl literals, result location semantics, in-place init, layout, data-oriented design |
 | `references/errors.md` | `ZS-ERR` (32) | Error sets, `try`/`catch`/`errdefer`, the error-vs-assert-vs-panic decision table, labeled switch, `@branchHint` |
 | `references/memory.md` | `ZS-MEM` (23) | Allocator taxonomy, the allocator vtable, ownership rules, arena patterns, the static-allocation tiering |
 | `references/concurrency.md` | `ZS-CONC` (44) | `std.Io` in full: `Reader`/`Writer`, custom streams, `Io.Dir`/`Io.File`, `async`/`concurrent`/`Group`/`Select`, cancellation, timeouts |

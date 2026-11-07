@@ -645,7 +645,7 @@ Three more traps: pointer and field alignment, `.pointer.attrs.@"align"` and
 `.field_attrs[i].@"align"`, are `?usize` (`null` means natural alignment), not `comptime_int`;
 `@typeInfo(E).error_set.error_names` is `?[]const [:0]const u8` where `null` means `anyerror`, so a
 `null` check is not an "empty set" check; and a zero-bit tuple field is not implicitly `comptime`
-(ZS-DATA-34).
+(ZS-DATA-39).
 
 The `.Int` -> `.int` / `.Struct` -> `.@"struct"` renames and 0.17's move from `.fields` to
 `.field_names`/`.field_types`/`.field_attrs` are hard compile errors, so they are rows of the
