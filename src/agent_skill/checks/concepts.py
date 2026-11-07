@@ -16,10 +16,11 @@ every pair of base standards and for a delta with its anchor.
 
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 lazy from collections.abc import Iterator, Mapping
 
 from agent_skill import vocabulary
-from agent_skill.abstract import Concept, abstract_of
+from agent_skill.abstract import Concept, abstract_of, tier_cell
 from agent_skill.checks import check
 from agent_skill.checks.anatomy import overlap
 from agent_skill.checks.skeleton import SCOPE, coded, is_scope
@@ -50,6 +51,7 @@ TWO_ROWS_ONE_RULE = declare("concepts", "two_rows_one_rule", Level.FAIL)
 NOT_A_RULE = declare("concepts", "not_a_rule", Level.FAIL)
 RELATION = declare("concepts", "relation", Level.FAIL)
 NO_REASON = declare("concepts", "no_reason", Level.FAIL)
+STALE_TIER = declare("concepts", "stale_tier", Level.FAIL)
 WRONG_CHAPTER = declare("concepts", "wrong_chapter", Level.FAIL)
 
 # The branches of what a skill may say about the abstract standard.
@@ -195,6 +197,7 @@ def _rows(abstract: Abstract, tree: Tree) -> Iterator[Finding]:
     """
     base = {s.name: s for s in tree if not s.profile.anchor}
     deltas = {s.name for s in tree if s.profile.anchor}
+    held = {name: _Standard(skill, _home(skill)) for name, skill in base.items()}
     holders: dict[tuple[str, str], list[RuleId]] = defaultdict(list)
     for chapter, concept in abstract.concepts:
         found: dict[str, list[Realisation]] = defaultdict(list)
@@ -216,7 +219,7 @@ def _rows(abstract: Abstract, tree: Tree) -> Iterator[Finding]:
                 )
             else:
                 found[row.standard].append(row)
-                yield from _row(abstract, chapter, concept, row, skill)
+                yield from _row(abstract, chapter, concept, row, held[skill.name])
                 if (named := _named(row, skill, chapter)) is not None:
                     holders[row.standard, named].append(concept.id)
         yield from _answered(abstract, chapter, concept, base, found)
@@ -263,6 +266,14 @@ def _home(skill: Skill) -> dict[RuleId, tuple[Rule, Chapter]]:
     return {r.id: (r, c) for c in skill.chapters for r in c.typed.rules}
 
 
+@dataclass(frozen=True, slots=True)
+class _Standard:
+    """A base standard, read for its rows: each rule and its chapter."""
+
+    skill: Skill
+    home: Mapping[RuleId, tuple[Rule, Chapter]]
+
+
 def _named(row: Realisation, skill: Skill, chapter: Chapter) -> str | None:
     """What a row names that no other entry may: a rule, or a lint."""
     relation = row.related
@@ -287,9 +298,10 @@ def _row(
     chapter: Chapter,
     concept: Concept,
     row: Realisation,
-    skill: Skill,
+    standard: _Standard,
 ) -> Iterator[Finding]:
     """One row: what it names, where that stands, and its relation."""
+    skill, home = standard.skill, standard.home
     where = abstract.at(chapter.path, row.line, concept.id)
     relation = row.related
     if relation is None:
@@ -304,7 +316,7 @@ def _row(
     stem = chapter.path.stem
     tier = None
     if relation.ruled:
-        found = _home(skill).get(row.rid) if row.rid is not None else None
+        found = home.get(row.rid) if row.rid is not None else None
         if found is None:
             yield fail(
                 f"{concept.id}'s row for {row.standard} names {row.rule or 'nothing'}, "
@@ -313,14 +325,14 @@ def _row(
                 NOT_A_RULE,
             )
         else:
-            rule, home = found
+            rule, held = found
             tier = rule.tier
-            if home.path.stem != stem:
+            if held.path.stem != stem:
                 yield fail(
-                    f"{rule.id} realises {concept.id} from `{home.name}`; a concept "
+                    f"{rule.id} realises {concept.id} from `{held.name}`; a concept "
                     f"lives in one chapter in every standard, `{stem}.md`, and "
                     "`revise` moves it there",
-                    home.where(rule.line, rule.id),
+                    held.where(rule.line, rule.id),
                     WRONG_CHAPTER,
                 )
     elif relation is Relation.DECIDED and row.lint not in _lints(skill, stem):
@@ -337,6 +349,14 @@ def _row(
             "a domain with no instance has no rule",
             where,
             NOT_A_RULE,
+        )
+    tiers = {rid: rule.tier for rid, (rule, _) in home.items()}
+    if (cell := tier_cell(row, tiers)) is not None and cell != row.tier:
+        yield fail(
+            f"{concept.id}'s row for {row.standard} shows `{row.tier}`, and what it "
+            f"names is `{cell}` — `agent-skill fmt` renders the cell from the rule",
+            where,
+            STALE_TIER,
         )
     for breach in breaches(relation, concept.tier, tier, row.reason):
         if breach is Breach.TIER:

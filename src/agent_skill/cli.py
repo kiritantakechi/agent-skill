@@ -194,7 +194,9 @@ def cmd_fmt(args: argparse.Namespace) -> int:
     ]
     abstract = abstract_of(Tree.of(skills))
     if not args.skill and abstract.root is not None and abstract.root.is_dir():
-        formatted.append((abstract.profile.name, partial(format_abstract, abstract)))
+        formatted.append(
+            (abstract.profile.name, partial(format_abstract, abstract, skills))
+        )
     for name, formatting in formatted:
         findings = formatting()
         print(f"  {name}")

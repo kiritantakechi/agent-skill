@@ -38,7 +38,7 @@ merges or adds rules also runs `check --skill <each standard it touched> --only 
 - [x] 2.3 Add the `concepts` check (branches of design decision 3) with one control each on the demo,
   and delete `checks/mirror.py`, `profiles.record.Mirror`, every `mirror=` and the mirror controls;
   verify the controls ↔ branches bijection both ways and `check --only concepts`
-- [ ] 2.4 Make `fmt` render each realisation row's tier cell from its rule; verify the `stale_tier`
+- [x] 2.4 Make `fmt` render each realisation row's tier cell from its rule; verify the `stale_tier`
   control and `fmt`'s idempotence on `abstract/`
 - [ ] 2.5 Add `domain` to profiles; create an empty abstract chapter, in the template, for every
   vocabulary word that two or more base standards ship; declare each base standard's other chapters

@@ -29,9 +29,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture
-def abstract(tmp_path: Path) -> Abstract:
+def tree(tmp_path: Path) -> Tree:
+    """The demo and its delta, laid out as a repository."""
+    return repository(tmp_path)
+
+
+@pytest.fixture
+def abstract(tree: Tree) -> Abstract:
     """The demo abstract standard, beside the demo and its delta."""
-    return abstract_of(repository(tmp_path))
+    return abstract_of(tree)
 
 
 def test_the_abstract_standard_is_found_beside_the_skills(
@@ -117,22 +123,26 @@ def test_print_after_parse_is_the_identity_on_the_demo_abstract_standard(
     assert canonical(text) == text
 
 
-def test_formatting_the_abstract_standard_is_idempotent(abstract: Abstract) -> None:
+def test_formatting_the_abstract_standard_is_idempotent(
+    abstract: Abstract, tree: Tree
+) -> None:
     assert abstract.root is not None
+    skills = list(tree)
     before = {p: p.read_text() for p in abstract.markdown}
-    assert format_abstract(Abstract(abstract.root)) == []
-    assert format_abstract(Abstract(abstract.root)) == []
+    assert format_abstract(Abstract(abstract.root), skills) == []
+    assert format_abstract(Abstract(abstract.root), skills) == []
     assert {p: p.read_text() for p in abstract.markdown} == before
 
 
-def test_formatting_prints_an_entry_canonically(abstract: Abstract) -> None:
+def test_formatting_prints_an_entry_canonically(abstract: Abstract, tree: Tree) -> None:
     assert abstract.root is not None
+    skills = list(tree)
     path = abstract.root / "errors.md"
     text = path.read_text()
     path.write_text(
         text.replace("so the unit that meets one", "so the unit\nthat meets one")
     )
-    (note,) = format_abstract(Abstract(abstract.root))
+    (note,) = format_abstract(Abstract(abstract.root), skills)
     assert str(note.where) == f"./{ABSTRACT}/errors.md"
     assert path.read_text() == text
 
@@ -143,3 +153,22 @@ def test_the_shipped_abstract_standard_prints_as_it_is_read() -> None:
         text = path.read_text()
         assert canonical(text) == text, path
     assert (ROOT / ABSTRACT / PRINCIPLES).exists() or shipped.principles is None
+
+
+def test_formatting_renders_each_tier_cell_from_its_rule(
+    abstract: Abstract, tree: Tree
+) -> None:
+    """A tier changed in a standard reaches each row naming the rule."""
+    assert abstract.root is not None
+    path = abstract.root / "errors.md"
+    text = path.read_text()
+    row = f"| {demo.PROFILE.name} | DS-ERR-02 | realises | [M] | |"
+    decided = "| `division-by-zero` | decided | | the checker"
+    path.write_text(
+        text.replace(row, row.replace("[M]", "[S]")).replace(
+            decided, decided.replace("| decided | |", "| decided | [M] |")
+        )
+    )
+    (note,) = format_abstract(Abstract(abstract.root), list(tree))
+    assert note.where.file == f"{ABSTRACT}/errors.md"
+    assert path.read_text() == text

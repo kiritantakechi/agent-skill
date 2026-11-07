@@ -14,9 +14,10 @@ actionable rather than merely correct.
 
 import tempfile
 from pathlib import Path
-lazy from collections.abc import Mapping
+lazy from collections.abc import Iterable, Mapping
 
 from agent_skill import shared
+from agent_skill.abstract import with_tiers
 from agent_skill.doc import Doc, Fence, Item, ListBlock, Quote, walk
 from agent_skill.doc.chapter import Section, SkillMd, migration_header
 from agent_skill.doc.normal import listed, normal, projection, with_command
@@ -91,18 +92,22 @@ def _reprint(skill: Skill) -> list[Finding]:
     return changed
 
 
-def format_abstract(abstract: Abstract) -> list[Finding]:
+def format_abstract(abstract: Abstract, skills: Iterable[Skill]) -> list[Finding]:
     """Print every file of the abstract standard in its normal form.
 
     As a standard's chapters are printed: canonically, citations bare
-    and each entry's parts in order; `principles.md` canonically. A
+    and each entry's parts in order; `principles.md` canonically. Each
+    realisation row's Tier cell is rendered from the rule it names, one
+    of `skills`', so a tier changed in a standard reaches its rows. A
     note per file changed, each where the repository keeps it.
     """
+    tiers = {r.id: r.tier for skill in skills for r in skill.chapter_rules}
     changed: list[Finding] = []
     chapters = {c.path for c in abstract.chapters}
     for path in abstract.markdown:
         text = path.read_text(newline="")
-        printed = str(normal(Doc.parse(text), chapter=path in chapters))
+        tree = normal(Doc.parse(text), chapter=path in chapters)
+        printed = str(with_tiers(tree, tiers) if path in chapters else tree)
         if printed != text:
             path.write_text(printed)
             changed.append(

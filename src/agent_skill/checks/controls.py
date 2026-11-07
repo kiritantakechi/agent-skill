@@ -731,6 +731,11 @@ CONCEPTS: list[Control] = [
         concepts.RELATION,
         _abstract("errors.md", "AS-ERR-02 [M]", "AS-ERR-02 [S]", 2),
     ),
+    # The cell kept by hand: the rule is `[M]`, and so is the entry.
+    _on_concepts(
+        concepts.STALE_TIER,
+        _abstract("errors.md", _ROW, _ROW.replace("| [M] |", "| [S] |")),
+    ),
     _on_concepts(
         concepts.NO_REASON,
         _abstract(

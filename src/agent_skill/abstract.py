@@ -18,16 +18,16 @@ of a profile (`profiles.abstract`), as a standard's is.
 import re
 from dataclasses import dataclass, field
 from functools import cached_property
-lazy from collections.abc import Iterable, Iterator
+lazy from collections.abc import Iterable, Iterator, Mapping
 lazy from pathlib import Path
 
-from agent_skill.doc import ListBlock, Paragraph, Table
+from agent_skill.doc import Doc, ListBlock, Paragraph, Table
 from agent_skill.doc.chapter import LABEL, Rule
 from agent_skill.ids import Location, Relation, RuleId, Tier
 from agent_skill.layout import ABSTRACT, in_repository, root_of
 from agent_skill.model import Chapter
 from agent_skill.profiles.abstract import PROFILE
-lazy from agent_skill.doc import Block, Doc
+lazy from agent_skill.doc import Block
 lazy from agent_skill.model import Tree
 lazy from agent_skill.profiles import Profile
 
@@ -76,13 +76,60 @@ class Realisation:
         return self.lint or self.rule
 
 
+def tier_cell(row: Realisation, tiers: Mapping[RuleId, Tier]) -> str | None:
+    """The Tier cell `row` holds, rendered from what it names.
+
+    A row naming a rule shows that rule's tier, so the cell cannot
+    drift from the rule; a `decided` or `absent` row names none and
+    shows none. None when it cannot be rendered: no relation, or a rule
+    that is not there, which is another finding.
+    """
+    relation = row.related
+    if relation is None:
+        return None
+    if not relation.ruled:
+        return ""
+    tier = tiers.get(row.rid) if row.rid is not None else None
+    return None if tier is None else str(tier)
+
+
+def with_tiers(doc: Doc, tiers: Mapping[RuleId, Tier]) -> Doc:
+    """`doc` with each realisation row's Tier cell rendered.
+
+    A cell that cannot be rendered is left as written.
+    """
+    column = HEADER.index("Tier")
+
+    def rendered(table: Table) -> Table:
+        rows = []
+        for row, read in zip(table.rows, _read(table), strict=True):
+            cell = tier_cell(read, tiers) if read is not None else None
+            if cell is None or len(row) != len(HEADER):
+                rows.append(row)
+            else:
+                rows.append((*row[:column], cell, *row[column + 1 :]))
+        return Table(table.header, table.align, tuple(rows), table.line)
+
+    blocks = tuple(
+        rendered(b) if isinstance(b, Table) and b.header == HEADER else b
+        for b in doc.blocks
+    )
+    return Doc(doc.frontmatter, blocks)
+
+
+def _read(table: Table) -> Iterator[Realisation | None]:
+    """Each row of `table` as a realisation; None where it is not."""
+    for k, row in enumerate(table.rows):
+        cells = tuple(c.replace("\\|", "|") for c in row)
+        if len(cells) == len(HEADER):
+            yield Realisation(*cells, line=table.line + 2 + k)
+        else:
+            yield None
+
+
 def realisations(table: Table) -> tuple[Realisation, ...]:
     """The rows of `table`, read as a realisation table's."""
-    return tuple(
-        Realisation(*(c.replace("\\|", "|") for c in row), line=table.line + 2 + k)
-        for k, row in enumerate(table.rows)
-        if len(row) == len(HEADER)
-    )
+    return tuple(r for r in _read(table) if r is not None)
 
 
 @dataclass(frozen=True, slots=True)
