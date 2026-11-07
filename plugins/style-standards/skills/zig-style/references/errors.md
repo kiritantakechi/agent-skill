@@ -6,9 +6,9 @@ and the shape of the control flow in between (conditions, loops, `switch`, label
 `@branchHint`, and the 70-line function limit).
 
 This chapter does not own assertion *density* or the design of bounded limits — those are
-`references/assertions.md` ZS-ASSERT-09 and ZS-ASSERT-23. Allocator ownership and OOM lifetimes are
-`references/memory.md`; `std.Io` stream errors and cancellation are `references/concurrency.md`;
-error-name formatting with `{t}` is `references/output.md` ZS-OUT-05. It cites them.
+ZS-ASSERT-09 and ZS-ASSERT-23. Allocator ownership and OOM lifetimes are `references/memory.md`;
+`std.Io` stream errors and cancellation are `references/concurrency.md`; error-name formatting with
+`{t}` is ZS-OUT-05. It cites them.
 
 Blocks that do not declare their own imports assume a file opening with
 `const std = @import("std");` and `const assert = std.debug.assert;`.
@@ -74,7 +74,7 @@ expected and must be handled.** Pick the mechanism from the classification, not 
 The test is who can violate the condition. If anything outside your process can — a peer, a file, a
 user, the network, the disk — it is an operating condition and an error union. If only your own code
 being wrong can, it is an assertion. An assertion that fires on hostile input is a remote denial of
-service, and in a `fast` build a remote memory-safety bug (`references/assertions.md` ZS-ASSERT-03).
+service, and in a `fast` build a remote memory-safety bug (ZS-ASSERT-03).
 
 **Why:** the two have opposite correct responses. After a violated precondition the program's model
 of itself is wrong, and continuing corrupts more state; a failed `open()` means the *world* did not
@@ -119,7 +119,7 @@ fn parseHeader(bytes: []const u8) error{Truncated}!u32 {
 ```
 
 Both mechanisms meet at a boundary. With `Header`, `HeaderInvalid` and `readBlock` from
-`references/assertions.md` ZS-ASSERT-16, and `message_size_bytes_max` from ZS-ASSERT-21:
+ZS-ASSERT-16, and `message_size_bytes_max` from ZS-ASSERT-21:
 
 ```zig
 // fragment — BAD
@@ -159,11 +159,10 @@ or for `build.zig`. Output follows the same split: a library renders into the ca
 never opens stdout, and never decides where its output goes.
 
 It does **not** govern assertions. A violated internal invariant has exactly one correct response in
-any code, library or not, so `assert` and a project-local always-on `assertAlways`
-(`references/assertions.md` ZS-ASSERT-05) are legal in a library — including in allocators and
-crypto, which are libraries by construction. What a library may not do is choose its consumer's
-optimize mode: document which invariants it asserts and what it costs to run it in a `safe` build,
-and let the consumer decide (`references/build.md` ZS-BUILD-24).
+any code, library or not, so `assert` and a project-local always-on `assertAlways` (ZS-ASSERT-05)
+are legal in a library — including in allocators and crypto, which are libraries by construction.
+What a library may not do is choose its consumer's optimize mode: document which invariants it
+asserts and what it costs to run it in a `safe` build, and let the consumer decide (ZS-BUILD-24).
 
 **Why:** a library does not know whether its caller can recover. Aborting the process removes the
 caller's ability to retry, degrade, or report, and makes the library untestable — a test cannot
@@ -427,8 +426,7 @@ test formatCode {
 the expression is folded by the compiler, so a failure is
 `error: caught unexpected error 'Overflow'` at build time and can never be illegal behavior at
 runtime — there is nothing to prove and no comment is required. This is why a derived limit
-(`references/assertions.md` ZS-ASSERT-21/ZS-ASSERT-22) whose derivation has a fallible `std.math`
-step is written without one:
+(ZS-ASSERT-21/ZS-ASSERT-22) whose derivation has a fallible `std.math` step is written without one:
 
 ```zig
 // fragment — GOOD: comptime-evaluated, so failure is a compile error
@@ -473,9 +471,8 @@ Note the cleanup call has to be one that can actually fail. `Io.File.close` is
 `try` and no `catch` (ZS-CONC-19, ZS-MEM-10).
 
 `deleteFile`'s error set contains `Io.Cancelable`, so the `catch` above also absorbs
-`error.Canceled`. That is legal only on a path that is already leaving, a distinction
-`references/concurrency.md` ZS-CONC-24 owns: read it before copying this shape onto a path that
-continues.
+`error.Canceled`. That is legal only on a path that is already leaving, a distinction ZS-CONC-24
+owns: read it before copying this shape onto a path that continues.
 
 ---
 
@@ -733,7 +730,7 @@ fn acceptNested(f: Frame) bool {
 }
 ```
 
-Assertions follow the same rule: `references/assertions.md` ZS-ASSERT-10.
+Assertions follow the same rule: ZS-ASSERT-10.
 
 ### ZS-ERR-17 [S] Prefer a `switch` to an `else if` chain; if you flatten chains into trees, say why
 
@@ -806,8 +803,8 @@ one-line comment in the empty half, or an assertion stating what is true when th
 false.
 
 **Why:** an `if` with no `else` claims the other half of the input space needs nothing, and silence
-cannot tell a decision from an oversight — the negative space of `references/assertions.md`
-ZS-ASSERT-12. A comment or an assertion is a claim a reviewer can dispute.
+cannot tell a decision from an oversight — the negative space of ZS-ASSERT-12. A comment or an
+assertion is a claim a reviewer can dispute.
 
 **Check:** in a diff, an added `if` with no `else` whose surrounding block has no comment and no
 following `assert` naming the negative case.
@@ -850,7 +847,7 @@ fn clamp(value: u32, limit: u32) u32 {
 }
 ```
 
-Implications in assertions take the same one-line form: `references/assertions.md` ZS-ASSERT-11.
+Implications in assertions take the same one-line form: ZS-ASSERT-11.
 
 ### ZS-ERR-21 [M!] No recursion; where recursion is allowed, bound the depth explicitly
 
@@ -1143,10 +1140,9 @@ fn decodeTag(byte: u8) error{ReservedTag}!u8 {
 `const log = std.log.scoped(.mylib);` at the top of the file, then `log.warn(…)`. One scope per
 module, named for the module. std itself logs 29 times in 456 KLOC: the bar is high.
 
-That `std.debug.print` and raw stderr writes are never program output is owned by
-`references/concurrency.md` ZS-CONC-04 and ZS-CONC-05; that they are never acceptable in a library,
-by ZS-ERR-02. Program *output* is not logging: write it to a `*std.Io.Writer` you were handed, and
-`flush()`.
+That `std.debug.print` and raw stderr writes are never program output is owned by ZS-CONC-04 and
+ZS-CONC-05; that they are never acceptable in a library, by ZS-ERR-02. Program *output* is not
+logging: write it to a `*std.Io.Writer` you were handed, and `flush()`.
 
 **Why:** `std.log` routes through `std.options.logFn`, so the *application* decides format,
 destination, filtering, and whether a library is audible at all. `log_scope_levels` filters by scope
@@ -1208,8 +1204,8 @@ included. *Relaxed form:* a function longer than one screen needs a stated reaso
 `switch` with one short arm per protocol opcode is the usual honest one.
 
 Where to cut is what the shape rules decide: the control flow stays in the parent (ZS-ERR-22), so
-does the state it manipulates (`references/performance.md` ZS-PERF-12), and each piece comes out
-narrow at both ends and wide inside (ZS-PERF-13).
+does the state it manipulates (ZS-PERF-12), and each piece comes out narrow at both ends and wide
+inside (ZS-PERF-13).
 
 **Why:** a function that fits on a screen can be checked for "is every case handled?" by looking;
 one you must scroll is reconstructed from memory, which is where the missed branch lives. The split
@@ -1282,8 +1278,8 @@ test "diagnostics carry the position the error set cannot" {
 ```
 
 The application then renders it — `"{s}:{d}:{d}: {t}"` with `{t}` for the error name (see
-`references/output.md` ZS-OUT-05). Give `Diagnostics` a rendering method when the rendering is
-fixed, as `std.zon.parse.Diagnostics` does: its `fmt(path)` returns a value printed with `{f}`, and
+ZS-OUT-05). Give `Diagnostics` a rendering method when the rendering is fixed, as
+`std.zon.parse.Diagnostics` does: its `fmt(path)` returns a value printed with `{f}`, and
 `log(path)` and `fatal(path)` print it for you.
 
 **Check:** an error set with members like `InvalidCharacterInHeader` or `BadFieldAtLine`, or a parse
@@ -1325,7 +1321,7 @@ fn captureHere(addr_buf: []usize) std.debug.StackTrace {
 Two costs to budget for. `std.options.allow_stack_tracing` gates the whole family: when it is false
 every capture returns an empty trace, so a capture-based diagnostic silently produces nothing.
 Unwinding is also not cheap — it is a debug-path tool, so keep it off the hot path and behind the
-same `verify`-style constant as an O(N) assertion (`references/assertions.md` ZS-ASSERT-17).
+same `verify`-style constant as an O(N) assertion (ZS-ASSERT-17).
 
 **Check:** any surviving `std.debug.StackIterator`, `.dumpStackTrace(@errorReturnTrace())`, or a
 `dumpCurrentStackTrace(start_addr)` call passing a bare `?usize` where it takes

@@ -6,9 +6,8 @@ discipline of bounding every loop, buffer, queue and retry count with a named co
 does **not** own error-union design, `errdefer`, or the operating-error side of the split — that is
 `references/errors.md`. Allocator lifetime and `undefined` poisoning are `references/memory.md`;
 test structure and the `build.zig` wiring of fuzz steps are `references/testing.md` and
-`references/build.md`; the optimize-mode table is `references/build.md` ZS-BUILD-24. Naming
-(`connection_count_max`, not `max_connections`) is specified in `references/naming.md` and applied
-here without re-deriving it.
+`references/build.md`; the optimize-mode table is ZS-BUILD-24. Naming (`connection_count_max`, not
+`max_connections`) is specified in `references/naming.md` and applied here without re-deriving it.
 
 A `// fragment` block here uses types and constants declared elsewhere in this chapter. Every
 example assumes a file opening with `const std = @import("std");`,
@@ -191,9 +190,8 @@ fn read(buffer: []const u8, offset: usize) u8 {
 
 ### ZS-ASSERT-04 [M] Pick deliberately among `assert`, `unreachable`, `@panic`, and `fatal`
 
-Which situation calls for which construct is `references/errors.md` ZS-ERR-01's decision table. This
-table adds the column that settles the choice once the situation is known: whether the check
-survives a `fast` build.
+Which situation calls for which construct is ZS-ERR-01's decision table. This table adds the column
+that settles the choice once the situation is known: whether the check survives a `fast` build.
 
 | Construct | Survives `fast`? | On violation |
 |---|---|---|
@@ -242,11 +240,11 @@ acceptable, provided the README names the shipping optimize mode explicitly inst
 implicit.
 
 TigerBeetle's answer is to ship `safe`; how a build selects its shipping mode, and why
-`-Doptimize=safe` on a plain `standardOptimizeOption(.{})` is the default, is `references/build.md`
-ZS-BUILD-24 and ZS-BUILD-25. If you cannot pay `safe`'s cost, use the two-line `assertAlways` helper
-in the example: under `-O fast` on 0.17.0 it panics where the equivalent `assert` dies on a bare
-trap. `assertAlways` is legal in a library: it reports a violated invariant, not an operating error,
-so it does not take a recovery option away from the caller (`references/errors.md` ZS-ERR-02).
+`-Doptimize=safe` on a plain `standardOptimizeOption(.{})` is the default, is ZS-BUILD-24 and
+ZS-BUILD-25. If you cannot pay `safe`'s cost, use the two-line `assertAlways` helper in the example:
+under `-O fast` on 0.17.0 it panics where the equivalent `assert` dies on a bare trap.
+`assertAlways` is legal in a library: it reports a violated invariant, not an operating error, so it
+does not take a recovery option away from the caller (ZS-ERR-02).
 
 **Why:** std ships no always-on assert: `std.debug.assert` is the only one, and its check does not
 survive `fast` (ZS-ASSERT-02). Where a violated invariant must halt the process, only the shipping
@@ -340,7 +338,7 @@ before returning it. A function must not operate blindly on data it has not chec
 
 *Relaxed form:* stated once, by ZS-ASSERT-09 — assert the contract of every function whose parameter
 types do not already enforce it. A boundary taking untrusted input gets `if` + error, never an
-assert (`references/errors.md` ZS-ERR-01, ZS-ASSERT-24).
+assert (ZS-ERR-01, ZS-ASSERT-24).
 
 **Why:** a precondition at the top of the callee fires at the first wrong caller, with that caller
 on the stack, not three frames deeper in code that is behaving correctly. A postcondition catches
@@ -726,19 +724,19 @@ communicative and drift-proofing, not detection. Reserve it for load-bearing fac
 Be aware of the diagnostic quality: a failing `comptime assert` reports
 `error: reached unreachable code` inside `std.debug.assert` with a `note: called at comptime here`
 pointing at your line. You get the location but not the reason — which is why caller-facing
-contracts use `@compileError` instead (`references/comptime.md` ZS-COMPTIME-07).
+contracts use `@compileError` instead (ZS-COMPTIME-07).
 
 ### ZS-ASSERT-19 [M] Give every wire, disk, C-ABI, and comptime-built type a layout `comptime` block
 
 Any `extern struct` or `packed struct` that is serialized, persisted, hashed, or passed across a C
 boundary carries a `comptime {}` asserting `@sizeOf`, `@alignOf`, the `@offsetOf` of each field a
 foreign reader locates by offset, and the absence of padding. That covers every type built under
-`references/data.md` ZS-DATA-19 and ZS-DATA-20.
+ZS-DATA-19 and ZS-DATA-20.
 
 Everything comptime generates gets the same block: a comptime-built table, or a type whose layout
 comptime derives, asserts its size. A table sized from a `comptime_int` grows from 1 KiB to 16 MiB
 of `.rodata` when someone bumps that constant, and nothing in the build output says so; bounding the
-generation itself is `references/comptime.md` ZS-COMPTIME-05.
+generation itself is ZS-COMPTIME-05.
 
 For the padding check on an `extern struct` use `std.meta.hasUniqueRepresentation(T)`, which
 compares `@sizeOf(T)` against the sum of the field sizes, and which also decides whether hashing or
@@ -809,8 +807,8 @@ comptime {
 
 Every buffer, queue, batch, connection table, retry count, timeout, recursion depth, and message
 size has a fixed upper bound expressed as a named comptime constant. No bare literals at the use
-site; no "it grows as needed" without a stated ceiling. The name follows `references/naming.md`
-ZS-NAME-06: `latency_ms_max`, not `max_latency_ms`.
+site; no "it grows as needed" without a stated ceiling. The name follows ZS-NAME-06:
+`latency_ms_max`, not `max_latency_ms`.
 
 **Why:** everything has a limit; the only question is whether you chose it or production discovers
 it as an OOM, an unbounded queue, or a tail-latency spike. A named constant is assertable
@@ -902,8 +900,8 @@ the derivation needs locals, and keep the derived constant next to its inputs in
 (ZS-ASSERT-21).
 
 The *rounding* half — `@divExact` / `@divFloor` / `@divTrunc` / `@divCeil` (new in 0.17), never a
-bare `/` — is owned by `references/data.md` ZS-DATA-06. `@divExact` is the strongest of the four
-because it asserts the remainder is zero, which is usually the claim a derived limit means to make.
+bare `/` — is owned by ZS-DATA-06. `@divExact` is the strongest of the four because it asserts the
+remainder is zero, which is usually the claim a derived limit means to make.
 
 **Why:** a hand-copied `16` beside a computed `message_size_bytes_max / block_size_bytes` is
 invisible in review, because both are right on the day they are written. Deriving it makes a
@@ -1018,8 +1016,8 @@ intended.
 
 Reject an over-limit value at the point of entry — the socket read, the CLI parse, the file header —
 not at the point of use. After the boundary check, the bound becomes an asserted invariant
-everywhere downstream. This is the shape `references/errors.md` ZS-ERR-01's `messageParse` shows:
-`if` + error at the door, `assert` immediately after.
+everywhere downstream. This is the shape ZS-ERR-01's `messageParse` shows: `if` + error at the door,
+`assert` immediately after.
 
 **Why:** the distance between where a bad value is admitted and where it does damage is the whole
 difficulty of debugging. A boundary check leaves one function reasoning about hostile input; every
@@ -1032,14 +1030,14 @@ first reads the socket, opens the file, or parses `argv`.
 
 A fixed-capacity `push` asserts `!full()` rather than returning `error.Overflow`. Return an error
 only from operations whose length comes from *outside* — `fromSlice`, `resize`, a decoder. On a
-fixed backing array (`references/data.md` ZS-DATA-23) the two are `ArrayList`'s two method families,
-neither of which allocates: `appendAssumeCapacity` and its siblings where your design guarantees the
-room, and `appendBounded`, `appendSliceBounded`, `addOneBounded` and `insertBounded`, which return
+fixed backing array (ZS-DATA-23) the two are `ArrayList`'s two method families, neither of which
+allocates: `appendAssumeCapacity` and its siblings where your design guarantees the room, and
+`appendBounded`, `appendSliceBounded`, `addOneBounded` and `insertBounded`, which return
 `error.OutOfMemory`, where the caller chose the length.
 
 **Why:** when the capacity is a comptime constant chosen to be big enough, pushing past it is a
-design error in your code (`references/errors.md` ZS-ERR-01), and an error return makes every call
-site handle a case that cannot happen — the "dimensionality" tax that propagates up the call chain.
+design error in your code (ZS-ERR-01), and an error return makes every call site handle a case that
+cannot happen — the "dimensionality" tax that propagates up the call chain.
 
 **Check:** a method on a fixed-capacity container returning `error.Overflow` or `error.OutOfMemory`
 when that capacity is a comptime constant; and the converse — a `fromSlice`, `resize`, or decoder
@@ -1083,7 +1081,7 @@ Every fuzz target is paired with the assertions or the model oracle that give it
 come first: assertions written *after* the code tend to restate what it does rather than what it
 must do, a tautology that catches nothing. TigerStyle's order — mental model, then assertions, then
 code, then the fuzzer — is the process form of the same claim, offered as advice. Writing the target
-itself, `std.testing.fuzz` over a `*std.testing.Smith`, is `references/testing.md` ZS-TEST-18.
+itself, `std.testing.fuzz` over a `*std.testing.Smith`, is ZS-TEST-18.
 
 **Why:** coverage-guided input generation explores paths; assertions are what convert an explored
 path into a signal. A fuzz target over a parser with no postconditions tests only that the parser
@@ -1108,7 +1106,7 @@ fn fuzzOne(context: void, smith: *std.testing.Smith) !void {
 }
 ```
 
-The signal here comes entirely from the assertions `messageParse` (`references/errors.md` ZS-ERR-01)
-and `readBlock` (ZS-ASSERT-16) make once their guards have passed — remove them and this target
-proves nothing. Note also that fuzz builds must have assertions enabled: run them in `debug` or
-`safe`, and make `verify` true (ZS-ASSERT-17).
+The signal here comes entirely from the assertions `messageParse` (ZS-ERR-01) and `readBlock`
+(ZS-ASSERT-16) make once their guards have passed — remove them and this target proves nothing. Note
+also that fuzz builds must have assertions enabled: run them in `debug` or `safe`, and make `verify`
+true (ZS-ASSERT-17).

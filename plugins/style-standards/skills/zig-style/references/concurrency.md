@@ -9,10 +9,9 @@ buffer-then-flush writing discipline, `Io.Reader`, authoring custom stream imple
 
 This chapter does not own format specifiers — `{f}`, `{t}`, `{?}` and the custom `format` method are
 `references/output.md`. Allocator choice and `defer`/`errdefer` layout are `references/memory.md`;
-`std.testing.io` and `Io.failing` mechanics are `references/testing.md` ZS-TEST-07; every 0.13 to
-0.17 spelling is a row of the migration table; the non-I/O half of batching is
-`references/performance.md` ZS-PERF-05; scoped library logging is `references/errors.md` ZS-ERR-28.
-It cites them.
+`std.testing.io` and `Io.failing` mechanics are ZS-TEST-07; every 0.13 to 0.17 spelling is a row of
+the migration table; the non-I/O half of batching is ZS-PERF-05; scoped library logging is
+ZS-ERR-28. It cites them.
 
 Every example assumes a file opening with
 `const std = @import("std"); const Io = std.Io; const net = std.Io.net;`, and
@@ -268,8 +267,8 @@ handed, so under an evented backend it is the one write that does not cooperate 
 **Check:** any `std.debug.print` surviving in a diff **outside a `test` block**. In library and
 application code there is no legitimate committed use: if the line is worth keeping it is
 `std.log.debug`, and if it is not, delete it. Tests are the one exception — a failure diagnostic on
-an `errdefer` line is required there by `references/testing.md` ZS-TEST-09, because a test binary's
-stderr is captured by the build runner and `std.log` would not be attributed to the failing test.
+an `errdefer` line is required there by ZS-TEST-09, because a test binary's stderr is captured by
+the build runner and `std.log` would not be attributed to the failing test.
 
 ```zig
 // fragment — BAD: program output on the diagnostic channel
@@ -282,8 +281,8 @@ try stdout.print("processed {d} rows\n", .{n});   // output
 std.log.debug("row cursor now {d}", .{cursor});   // diagnostic
 ```
 
-`references/errors.md` ZS-ERR-02 (a library never prints) and ZS-ERR-28 (library logging through a
-scoped `std.log` namespace) point here for the "never program output" half of the rule.
+ZS-ERR-02 (a library never prints) and ZS-ERR-28 (library logging through a scoped `std.log`
+namespace) point here for the "never program output" half of the rule.
 
 ### ZS-CONC-06 [M] Stream to stdout; keep the positional `writer` for files you opened
 
@@ -329,7 +328,7 @@ buffers, hashers, and test doubles — which is what makes a function's exact ou
 **Check:** a `pub fn` that writes and takes `anytype`, a `comptime Writer: type`, an `Io.File`, or
 an `Io` where `*Io.Writer` would do; a write helper returning `anyerror!void` rather than
 `Io.Writer.Error!void`; and any `GenericWriter` or `AnyWriter`, names that do not exist. The general
-form of this rule, for every std interface, is `references/comptime.md` ZS-COMPTIME-09.
+form of this rule, for every std interface, is ZS-COMPTIME-09.
 
 ```zig
 // verified — GOOD: the same function writes to stdout in `main` and to memory under test
@@ -1386,8 +1385,7 @@ What `std.Io` kills is the callback-**driven I/O** pattern: the `read_sector()` 
 machine that exists only to remember where to resume. Do not write those. `io.async(f, args)`
 returns a `Future` and `f.await(io)` resumes in the caller's own lexical scope, so there is no
 completion to name and nothing to position. TigerStyle's *other* callback rule — a function value
-passed as data goes last, after its `context` — survives, and `references/naming.md` ZS-NAME-10 owns
-it.
+passed as data goes last, after its `context` — survives, and ZS-NAME-10 owns it.
 
 **Why:** callback-driven I/O exists where there is no I/O interface to suspend through, so
 TigerBeetle hand-rolled a callback-threaded event loop. The interface is the replacement, and it
@@ -1403,9 +1401,9 @@ density — are independent of the I/O model and carry over unchanged.
 
 Reader buffers, writer buffers, `Io.Queue` storage, `Io.Select` storage, `Io.Batch` storage, and
 `Io.Group` fan-out width are all caller-provided fixed arrays. Size each from a `const` with a name
-and a comment saying what it bounds, not from a literal at the call site. This is
-`references/assertions.md` ZS-ASSERT-20 applied to `std.Io`, where the length of the array is also
-the maximum line, message, or fan-out width.
+and a comment saying what it bounds, not from a literal at the call site. This is ZS-ASSERT-20
+applied to `std.Io`, where the length of the array is also the maximum line, message, or fan-out
+width.
 
 **Why:** the API already refuses to allocate on your behalf, so the only question is whether the
 bound is documented or accidental. A name also lets an assertion state the relationship

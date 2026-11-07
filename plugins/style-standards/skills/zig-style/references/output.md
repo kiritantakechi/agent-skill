@@ -10,8 +10,7 @@ flushing, and authoring a custom writer are `references/concurrency.md` (ZS-CONC
 ZS-CONC-07, ZS-CONC-10). Error classification and the log-versus-return decision are
 `references/errors.md` (ZS-ERR-02, ZS-ERR-15, ZS-ERR-28, ZS-ERR-29). **Source-code** formatting —
 `zig fmt`, the trailing comma as your only wrapping lever, 100 columns — is a different subject and
-lives in `references/naming.md` ZS-NAME-24 and ZS-NAME-25. This chapter cites them rather than
-repeating them.
+lives in ZS-NAME-24 and ZS-NAME-25. This chapter cites them rather than repeating them.
 
 Every example assumes a file opening with `const std = @import("std");`, `const Io = std.Io;`,
 `const Writer = std.Io.Writer;` and `const assert = std.debug.assert;` — assertions are called bare,
@@ -283,7 +282,7 @@ test "{t} prints names, {} prints syntax" {
 ```
 
 `{t}` is also the right specifier for logging a captured error — `log.err("failed: {t}", .{err})` —
-which is the form used throughout `references/errors.md` ZS-ERR-15.
+which is the form used throughout ZS-ERR-15.
 
 ### ZS-OUT-06 [M] Give `{?}` and `{!}` an inner specifier for the payload
 
@@ -312,8 +311,8 @@ test "optionals and error unions carry an inner specifier" {
 ```
 
 Formatting an error union is a *debugging* convenience, not error handling: it consumes the error
-without propagating it, which destroys the error return trace (`references/errors.md` ZS-ERR-15).
-Handle the error, then format the outcome.
+without propagating it, which destroys the error return trace (ZS-ERR-15). Handle the error, then
+format the outcome.
 
 ### ZS-OUT-07 [S] Treat `{any}` as a debugging dump — never as an output format
 
@@ -499,9 +498,9 @@ deprecated aliases of these two.)
 *Relaxed form:* `gpa.print` is fine for one-shot, human-facing strings; keep `std.mem.print` for
 anything on a hot path or inside a loop.
 
-**Why:** this is the bounded-limits principle (`references/assertions.md` ZS-ASSERT-20 and
-ZS-ASSERT-22) applied to formatting. A derived bound removes an allocation, an error path, a
-`defer gpa.free` and one way to leak, and it *states* the maximum length a reviewer needs.
+**Why:** this is the bounded-limits principle (ZS-ASSERT-20 and ZS-ASSERT-22) applied to formatting.
+A derived bound removes an allocation, an error path, a `defer gpa.free` and one way to leak, and it
+*states* the maximum length a reviewer needs.
 
 **Check:** an `Allocator.print`/`printSentinel` call (`gpa.print(`), or the deprecated
 `allocPrint`/`allocPrintSentinel`, whose format string contains only fixed-width integer, float,
@@ -532,7 +531,7 @@ The `catch unreachable` above is only legitimate because the constant one line u
 the sense ZS-ERR-09 requires. Without a derived bound, handle `error.NoSpaceLeft`: `std.mem.print`
 writes as much as fits and then fails, so the partial output must not be used. Note also that
 `Io.Writer.Allocating` reports allocation failure as `error.WriteFailed`, whereas `Allocator.print`
-maps it back to `error.OutOfMemory` for you (`references/concurrency.md` ZS-CONC-08).
+maps it back to `error.OutOfMemory` for you (ZS-CONC-08).
 
 ### ZS-OUT-13 [S] Use `comptimePrint` for compile-time strings and `count` for exact sizing
 
@@ -610,9 +609,9 @@ tooling consumes, anything with a version number. Output only a person reads ins
 `std.testing.expectFmt` test of the exact expected string for at least the boundary values, which
 catches the same class of regression without requiring a parser.
 
-**Why:** this is `references/assertions.md` ZS-ASSERT-16 — check a property on both code paths —
-applied to serialization, and the cheapest defence against the ZS-OUT-01 failure mode: a `{}` that
-should have been `{f}` changes the output, and the round-trip test notices.
+**Why:** this is ZS-ASSERT-16 — check a property on both code paths — applied to serialization, and
+the cheapest defence against the ZS-OUT-01 failure mode: a `{}` that should have been `{f}` changes
+the output, and the round-trip test notices.
 
 **Check:** a type declaring both `format` and a `parse`/`decode`/`fromBytes` function, with no test
 whose body calls one on the output of the other. Also any diff that edits a `format` method of a
@@ -675,9 +674,9 @@ Three mechanisms, one decision:
 | Something went wrong and the program continues | `std.log.err(fmt, args)` | one line on stderr, exit code unchanged |
 | A bug, or a failure whose *origin* is the diagnostic | `return err` from `main` | `error: Name` plus the error return trace |
 
-`std.process.fatal` is `noreturn`, with the signature `references/errors.md` ZS-ERR-01's table
-gives. Its body is `std.log.err(format, format_arguments); exit(1);`, so it honours the
-application's `logFn` and the same stderr lock, unlike a hand-rolled `stderr.print` + `exit`.
+`std.process.fatal` is `noreturn`, with the signature ZS-ERR-01's table gives. Its body is
+`std.log.err(format, format_arguments); exit(1);`, so it honours the application's `logFn` and the
+same stderr lock, unlike a hand-rolled `stderr.print` + `exit`.
 
 On 0.17.0, the example's `fatal` printed `error: 'abc' is not a number` and exited 1 with stdout
 empty; returning `error.UnluckyCount` from `main` printed the error name *and* the `return` site
@@ -708,9 +707,8 @@ pub fn main(init: std.process.Init) !void {
 }
 ```
 
-Note the error return trace exists only in `debug` and `safe` (`references/errors.md` ZS-ERR-15), so
-`return err` from `main` degrades to a bare `error: Name` in `fast` — another reason to ship `safe`
-(ZS-ASSERT-02).
+Note the error return trace exists only in `debug` and `safe` (ZS-ERR-15), so `return err` from
+`main` degrades to a bare `error: Name` in `fast` — another reason to ship `safe` (ZS-ASSERT-02).
 
 ---
 

@@ -145,10 +145,9 @@ three uses it addresses: (a) ensuring certain stack frames are in the call stack
 for integrating with assembly, (b) forcing comptime-known arguments to propagate to the return
 value, and (c) working around limitations of a compiler backend. Otherwise let the optimizer decide.
 Deviating needs a comment naming which of the three applies. Speed is not one of them: a performance
-`inline` rests on a measurement the comment cites (`references/performance.md` ZS-PERF-21). The
-one-line forwarding shims of ZS-COMPTIME-08 are a sanction of their own, without a fresh
-measurement, because there the `inline` is what makes the type-erased core cost what the
-monomorphized version would.
+`inline` rests on a measurement the comment cites (ZS-PERF-21). The one-line forwarding shims of
+ZS-COMPTIME-08 are a sanction of their own, without a fresh measurement, because there the `inline`
+is what makes the type-erased core cost what the monomorphized version would.
 
 At an `inline fn` call site, comptime-known arguments are treated as comptime parameters, which no
 `@inlineCall`-style hint can achieve.
@@ -289,7 +288,7 @@ const crc_table: [256]u32 = blk: {
 Write the `comptime` keyword on type parameters even though `T: type` also compiles. std writes it
 on ~94% of type parameters; the 52 bare `X: type` occurrences are the outliers. Inside the returned
 anonymous struct the type has no name, so `const Self = @This();` and a `self` receiver are where
-`references/naming.md` ZS-NAME-12 allows them.
+ZS-NAME-12 allows them.
 
 **Why:** it is std's spelling, and it states at the declaration that the parameter is resolved at
 compile time, which `T: type` leaves the reader to infer from the type.
@@ -644,7 +643,7 @@ Three more traps: pointer and field alignment, `.pointer.attrs.@"align"` and
 `.field_attrs[i].@"align"`, are `?usize` (`null` means natural alignment), not `comptime_int`;
 `@typeInfo(E).error_set.error_names` is `?[]const [:0]const u8` where `null` means `anyerror`, so a
 `null` check is not an "empty set" check; and a zero-bit tuple field is not implicitly `comptime`
-(`references/data.md` ZS-DATA-34).
+(ZS-DATA-34).
 
 The `.Int` -> `.int` / `.Struct` -> `.@"struct"` renames and 0.17's move from `.fields` to
 `.field_names`/`.field_types`/`.field_attrs` are hard compile errors, so they are rows of the
@@ -859,8 +858,8 @@ function is the default that was not declared.
 ### ZS-COMPTIME-19 [M] A closed set of implementations is a tagged union, not an interface
 
 If every implementation is known at compile time and lives in your own tree, model it as
-`union(enum)` with methods that `switch` exhaustively (`references/errors.md` ZS-ERR-25).
-`std.Build.LazyPath` is the canonical std example.
+`union(enum)` with methods that `switch` exhaustively (ZS-ERR-25). `std.Build.LazyPath` is the
+canonical std example.
 
 **Why:** the switch is a jump table the optimizer can see through and often inline, and the union
 value can live in an array, so you keep storability, direct calls and exhaustiveness at once.

@@ -115,7 +115,7 @@ The C-named integers are target-dependent too. On 0.17, `extern struct { a: c_in
 `x86_64-windows-gnu`, `arm-linux-gnueabihf` and `wasm32-wasi`. So a struct you define and share with
 C takes fixed-width fields, and one set of layout assertions holds on every target. Where the struct
 is C's and its field types are not yours to choose, keep the assertion and put it in a `comptime`
-branch on `builtin.target` (`references/interop.md` ZS-INTEROP-18) rather than dropping it.
+branch on `builtin.target` (ZS-INTEROP-18) rather than dropping it.
 
 **Why:** `@sizeOf(usize)` is target-dependent. A record with a `usize` field is 8 bytes on x86_64
 and 4 on wasm32/arm32, so the same program, cross-compiled, cannot read its own files, and a
@@ -229,8 +229,8 @@ test "index count size" {
 
 ### ZS-DATA-06 [M] Show rounding intent with an explicit division operation
 
-This rule owns division and rounding for the whole standard; `references/assertions.md` ZS-ASSERT-22
-(derive dependent limits) points here for the rounding half.
+This rule owns division and rounding for the whole standard; ZS-ASSERT-22 (derive dependent limits)
+points here for the rounding half.
 
 For integers, use `@divExact`, `@divFloor`, `@divTrunc`, or `@divCeil`. Reserve bare `/` for
 unsigned operands where truncation is obviously intended and obviously irrelevant. The same applies
@@ -431,7 +431,7 @@ test "checked arithmetic and conversion at the boundary" {
 ```
 
 Text is parsed with `std.fmt.parseInt` into the narrowest type the field admits, which is the range
-check (`references/output.md` ZS-OUT-14).
+check (ZS-OUT-14).
 
 ### ZS-DATA-11 [M] Convert float to int with `@trunc`/`@round`, after a range check
 
@@ -515,8 +515,8 @@ test "decl literals" {
 
 `var list: std.ArrayList(T) = .empty;` is the form. `std.ArrayList` *is* the unmanaged list;
 `std.ArrayListUnmanaged` is a deprecated alias for it, and the managed variant is
-`std.array_list.Managed(T)`, marked `/// Deprecated.` The allocator is passed per call
-(`references/memory.md` ZS-MEM-05), and `std.ArrayList(T).init(gpa)` does not compile.
+`std.array_list.Managed(T)`, marked `/// Deprecated.` The allocator is passed per call (ZS-MEM-05),
+and `std.ArrayList(T).init(gpa)` does not compile.
 
 **Why:** `.empty` is a `pub const empty: Self` in `array_list.zig`, so it costs nothing at runtime
 and works in a struct field default. Keeping the allocator out also lets the container sit in a
@@ -546,8 +546,7 @@ Other decl literals in std: `std.MultiArrayList(T) = .empty`,
 ### ZS-DATA-14 [M] Give every allocating type a paired `init`/`deinit` with a matching signature
 
 If `init` (or `.empty` plus an allocating method) took a `gpa`, `deinit` takes the same `gpa`. What
-else `deinit` owes — no failure, no allocation, and the poisoning store at the end — is
-`references/memory.md` ZS-MEM-12.
+else `deinit` owes — no failure, no allocation, and the poisoning store at the end — is ZS-MEM-12.
 
 **Why:** the allocator is not stored, so `deinit` cannot recover it; passing it back is the contract
 std uses throughout.
@@ -998,8 +997,8 @@ const Cache = struct {
 ### ZS-DATA-25 [M] Model variants as a tagged union, not a struct with a kind field
 
 A value that is "one of N shapes" is a `union(enum)`, not a struct with a kind field and several
-maybe-valid members. Switch over it exhaustively (`references/errors.md` ZS-ERR-25). Reading a
-payload field while another is active is safety-checked illegal behavior
+maybe-valid members. Switch over it exhaustively (ZS-ERR-25). Reading a payload field while another
+is active is safety-checked illegal behavior
 (`access of union field 'b' while field 'a' is active`).
 
 **Why:** a payload is reachable only through its active tag, never as stale bytes, and adding a
@@ -1037,10 +1036,10 @@ fn opcodeWidth(op: Op) usize {
 ### ZS-DATA-26 [M] Make an enum non-exhaustive only for values that come from outside
 
 Add a trailing `_` field (which requires an explicit integer tag type) when the integer comes from a
-peer, a file, or a kernel, and switch on it with a `_ =>` prong (`references/errors.md` ZS-ERR-25).
-With `_`, "`@fromBackingInt` on a non-exhaustive enum always results in a valid enum value"; its
-operand must already have the tag type, so the only check left is the `@intCast` that narrows a
-wider wire integer to it. A non-exhaustive enum without a tag type is
+peer, a file, or a kernel, and switch on it with a `_ =>` prong (ZS-ERR-25). With `_`,
+"`@fromBackingInt` on a non-exhaustive enum always results in a valid enum value"; its operand must
+already have the tag type, so the only check left is the `@intCast` that narrows a wider wire
+integer to it. A non-exhaustive enum without a tag type is
 `error: non-exhaustive enum missing integer tag type`.
 
 **Why:** without `_`, `@fromBackingInt` of an unrecognized value is safety-checked illegal behavior,
@@ -1095,7 +1094,7 @@ Three specific reductions, in descending order of payoff:
 
 - A function whose error set is empty in practice returns `T`, not `!T`. If it can only fail through
   the allocator, say `error{OutOfMemory}!T` rather than an inferred `!T`, so the set does not grow
-  silently (`references/errors.md` ZS-ERR-03).
+  silently (ZS-ERR-03).
 - A `?T` whose `null` the caller can only turn back into a default belongs behind a function that
   applies the default and returns `T`.
 - A `bool` that every caller immediately switches on, alongside other state, is usually an enum or a
@@ -1198,8 +1197,8 @@ fn findScalarIndex(haystack: []const u8, needle: u8) ?usize {
 
 Use a sentinel-terminated slice or pointer at a C boundary and nowhere else. `[:0]const u8` coerces
 to `[]const u8` for free; the reverse requires an allocation. Keep the NUL at the edge;
-`references/interop.md` ZS-INTEROP-10 gives the conversion for each direction. Slicing with
-`data[a..b :0]` asserts the sentinel at runtime (`panic: sentinel mismatch: expected 0, found 1`).
+ZS-INTEROP-10 gives the conversion for each direction. Slicing with `data[a..b :0]` asserts the
+sentinel at runtime (`panic: sentinel mismatch: expected 0, found 1`).
 
 **Why:** the sentinel is a guarantee you must maintain, so a `[:0]` in an internal API forces every
 intermediate function to preserve a terminator it does not use.
@@ -1334,10 +1333,9 @@ protocol tokens, identifiers, hex digits, and HTTP header names. Do not use them
 has no Unicode case mapping or collation at all; correct casing is locale-dependent (Turkish dotless
 ı, German ß) and needs a library.
 
-This is a live caveat on `references/concurrency.md` ZS-CONC-16, whose `drain` example uppercases
-every byte passing through a `Writer` with `std.ascii.toUpper`. As a demonstration of the `drain`
-contract it is correct; as a text transform it is ASCII-only, and a stream carrying UTF-8 will pass
-through half-uppercased.
+This is a live caveat on ZS-CONC-16, whose `drain` example uppercases every byte passing through a
+`Writer` with `std.ascii.toUpper`. As a demonstration of the `drain` contract it is correct; as a
+text transform it is ASCII-only, and a stream carrying UTF-8 will pass through half-uppercased.
 
 **Why:** they are safe but silent. No UTF-8 lead byte (0xC2..0xF4) or continuation byte (0x80..0xBF)
 falls in `'a'..'z'`, so the encoding survives, but every non-ASCII letter is left alone: `"café"`
@@ -1473,9 +1471,8 @@ Two constraints apply to both formats:
   allocating shortcut in the blessed path, so the buffering and flushing rules in
   `references/concurrency.md` apply unchanged.
 - **Both need an explicit `Io.Limit` on untrusted input.** Neither parser bounds the *source* it is
-  handed; the bound belongs on the read that produced the slice. See `references/concurrency.md`
-  ZS-CONC-14 — spell `.limited(n)` with a justified `n`, and reserve `.unlimited` for bytes you
-  produced yourself.
+  handed; the bound belongs on the read that produced the slice. See ZS-CONC-14 — spell
+  `.limited(n)` with a justified `n`, and reserve `.unlimited` for bytes you produced yourself.
 
 Note the spellings, which are not symmetric with `std.json`: the ZON serializer namespace is
 lowercase `std.zon.stringify` (with `serialize`, `serializeMaxDepth`, `serializeArbitraryDepth`),

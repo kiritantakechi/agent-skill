@@ -8,12 +8,10 @@ function shape. Then the 0.17-specific mechanics — build modes, the disabled l
 `@Vector`, explicit options and `@prefetch`, cache lines — and finally **how to measure**, since
 rules throughout this standard ask for a profile, and this is the chapter that says how to take one.
 
-This chapter does not own data layout: struct-of-arrays and `MultiArrayList` are
-`references/data.md` ZS-DATA-22, handles-versus-pointers is ZS-DATA-21, and passing large aggregates
-as `*const T` is ZS-DATA-18. It does not own I/O batching (`references/concurrency.md` ZS-CONC-32),
-assertion cost budgeting (`references/assertions.md` ZS-ASSERT-17), the optimize-mode table
-(`references/build.md` ZS-BUILD-24), `@branchHint` (`references/errors.md` ZS-ERR-27), or
-`inline fn` (`references/comptime.md` ZS-COMPTIME-03). It cites them.
+This chapter does not own data layout: struct-of-arrays and `MultiArrayList` are ZS-DATA-22,
+handles-versus-pointers is ZS-DATA-21, and passing large aggregates as `*const T` is ZS-DATA-18. It
+does not own I/O batching (ZS-CONC-32), assertion cost budgeting (ZS-ASSERT-17), the optimize-mode
+table (ZS-BUILD-24), `@branchHint` (ZS-ERR-27), or `inline fn` (ZS-COMPTIME-03). It cites them.
 
 **Read ZS-PERF-21 first if you are tempted to apply this chapter to code that is not hot.** Roughly
 half of these rules are about correctness and readability and apply everywhere; the other half
@@ -160,8 +158,7 @@ The **control plane** runs once per batch, per connection, per epoch — it may 
 including O(N) checks. The **data plane** runs once per item and gets O(1) assertions only. Say
 which one a function is in, in its doc comment, when it is not obvious from the name. TigerBeetle
 runs 2–3x the two-assertions-per-function floor in its control plane and gates the O(N) checks
-behind a verify flag in its data plane; the budgeting rule itself is `references/assertions.md`
-ZS-ASSERT-17.
+behind a verify flag in its data plane; the budgeting rule itself is ZS-ASSERT-17.
 
 **Why:** batching creates the control plane: an O(N) check of a batch of N items costs O(1) *per
 item*, so it becomes affordable exactly because of the batch. Without the split every assertion is
@@ -258,7 +255,7 @@ const Sink = struct {
 Hoist a loop-invariant condition out of the loop, and group items by kind before processing rather
 than branching per item. Let the CPU be a sprinter doing the 100m: predictable, uninterrupted,
 straight. The memory-layout version of the same argument — do not drag 8 unused bytes into cache per
-element — lives in `references/data.md` ZS-DATA-22 (`MultiArrayList`).
+element — lives in ZS-DATA-22 (`MultiArrayList`).
 
 **Why:** an invariant branch still costs a predictor slot and blocks the loop from being widened; an
 unpredictable one costs a pipeline flush of around 15–20 cycles, a 4x slowdown on a 5-cycle loop
@@ -325,11 +322,11 @@ const Grid = struct {
 
 Extract the kernel into a stand-alone function whose parameters are the exact slices and scalars it
 reads. The wrapper method stays, and does the field access once. Without a profile, hoist the field
-into a local above the loop instead (ZS-PERF-07). This does not contradict `references/naming.md`
-ZS-NAME-12: receivers stay correct everywhere else, and a codebase does not delete them wholesale on
-the strength of this rule. A kernel whose bounds are two integers of one type is exempt from
-ZS-NAME-09's options struct, because a struct would reintroduce the aggregate load the extraction
-removes; document the order instead.
+into a local above the loop instead (ZS-PERF-07). This does not contradict ZS-NAME-12: receivers
+stay correct everywhere else, and a codebase does not delete them wholesale on the strength of this
+rule. A kernel whose bounds are two integers of one type is exempt from ZS-NAME-09's options struct,
+because a struct would reintroduce the aggregate load the extraction removes; document the order
+instead.
 
 **Why:** aliasing. Through a `*Journal`, a store to `journal.sectors[i]` may in principle alias
 `journal.sector_count`, so every iteration must reload the count; passed by value, the count cannot
@@ -427,7 +424,7 @@ fn countMatches(haystack: []const u8, needle: u8) u32 {
 One fact, one storage location. Do not copy a field into a local that outlives a mutation of the
 field. ZS-PERF-07's hoist is no exception: hoisting is legal precisely when the loop cannot mutate
 the hoisted fact, and the hoisted `const` dies at the end of the loop. A pointer into a container is
-the same mistake with a worse failure, and `references/memory.md` ZS-MEM-15 owns it: hold the index.
+the same mistake with a worse failure, and ZS-MEM-15 owns it: hold the index.
 
 **Why:** two copies of one fact are two things to update, and one will eventually be missed — the
 plain form of cache invalidation.
@@ -486,17 +483,17 @@ fn readPayload(buffer: []const u8, header: Header) ![]const u8 {
 
 Note the second bug the BAD version hides: `header.offset + header.length` can overflow `u32` before
 the comparison, so the check can pass on input that should be rejected. In `debug`/`safe` that
-panics; in `fast` it wraps and the slice goes out of bounds. Distance concealed it — see
-`references/data.md` ZS-DATA-10 for `std.math.add`.
+panics; in `fast` it wraps and the slice goes out of bounds. Distance concealed it — see ZS-DATA-10
+for `std.math.add`.
 
 ### ZS-PERF-12 [S] Centralize state manipulation: helpers compute the change, the parent applies it
 
 Let the parent function hold the state in locals or in one receiver, and let helpers *return* what
 should change rather than applying it. Keep leaf functions pure. TigerStyle pairs this with
 "centralize control flow" (ZS-ERR-22, push `if`s up and `for`s down). The single apply site is the
-one place to bracket with `assertInvariants` (`references/assertions.md` ZS-ASSERT-15) and to make
-transactional with `errdefer`; pure leaves let you compute all the deltas first and apply them in
-one pass, which is what makes batching (ZS-PERF-05) possible.
+one place to bracket with `assertInvariants` (ZS-ASSERT-15) and to make transactional with
+`errdefer`; pure leaves let you compute all the deltas first and apply them in one pass, which is
+what makes batching (ZS-PERF-05) possible.
 
 **Why:** if every leaf may mutate, the states reachable at any point are the product of every leaf's
 behavior, and no single function can assert the invariant. With one apply site there is one place to
@@ -572,12 +569,12 @@ const Account = struct {
 Few parameters, a simple return type, and a lot of meaty logic between the braces. If a function is
 mostly signature, it is in the wrong place: nine parameters around three lines of body is the
 hourglass the right way up, and a sign the caller is doing the work. This is TigerStyle's rule of
-thumb for *where* to cut a function that exceeds the 70-line limit (`references/errors.md`
-ZS-ERR-30): not every split is equal, and the good ones produce inverted hourglasses.
+thumb for *where* to cut a function that exceeds the 70-line limit (ZS-ERR-30): not every split is
+equal, and the good ones produce inverted hourglasses.
 
 **Why:** a wide signature exports internal state to every call site, so changing it changes them
-all, and each extra return dimension propagates up the call chain (ZS-DATA-27 / `references/data.md`
-ZS-DATA-27). A signature wider than its body is relocation, not abstraction.
+all, and each extra return dimension propagates up the call chain (ZS-DATA-27). A signature wider
+than its body is relocation, not abstraction.
 
 **Check:** parameter count above roughly four, or a body shorter than the signature, or a return
 type of `!?Something` where the caller must handle three outcomes. Each is a prompt to ask whether
@@ -736,12 +733,12 @@ test "blend and permute" {
 Pass explicitly every field of an options struct whose defaults decide what the machine does, rather
 than inheriting a library default:
 `@prefetch(ptr, .{ .cache = .data, .rw = .read, .locality = 3 })`, not `@prefetch(ptr, .{})`, and
-`@export`'s linkage and visibility (`references/interop.md` ZS-INTEROP-03). This is the chapter home
-of **ZS-PERF-17**. A default that only spares typing, such as `std.testing.tmpDir(.{})`, is not one
-of these. `std.lang.PrefetchOptions` defaults to `.rw = .read, .locality = 3, .cache = .data` —
-three independent knobs (`Rw`, `u2`, `Cache`), and nothing pins them. `.locality = 0` means "stream
-it, drop it after one touch" and `.locality = 3` means "keep it, we will come back". The builtin
-lowers to a real instruction on aarch64: the example's loop emits `prfm pldl1keep`.
+`@export`'s linkage and visibility (ZS-INTEROP-03). This is the chapter home of **ZS-PERF-17**. A
+default that only spares typing, such as `std.testing.tmpDir(.{})`, is not one of these.
+`std.lang.PrefetchOptions` defaults to `.rw = .read, .locality = 3, .cache = .data` — three
+independent knobs (`Rw`, `u2`, `Cache`), and nothing pins them. `.locality = 0` means "stream it,
+drop it after one touch" and `.locality = 3` means "keep it, we will come back". The builtin lowers
+to a real instruction on aarch64: the example's loop emits `prfm pldl1keep`.
 
 **Why:** call sites do not get re-reviewed when a library default moves, so an inherited default is
 a latent bug waiting for the library to change. The explicit form is also the only self-documenting
@@ -898,8 +895,8 @@ pub fn build(b: *std.Build) void {
 }
 ```
 
-The benchmark's own `main` follows ZS-PERF-14, ZS-PERF-19 and `references/concurrency.md`
-ZS-CONC-30, and prints per-iteration cost so the number can be compared with the ZS-PERF-02 sketch:
+The benchmark's own `main` follows ZS-PERF-14, ZS-PERF-19 and ZS-CONC-30, and prints per-iteration
+cost so the number can be compared with the ZS-PERF-02 sketch:
 
 ```zig
 // fragment — prints e.g. "sum: 3.495ms total, 3.495us per iteration"

@@ -7,10 +7,9 @@ memory copies, and the graduated ladder from "allocate freely" to TigerStyle's "
 startup".
 
 This chapter does not own error-set design, `try`/`catch` selection, or `unreachable`-versus-error —
-those are `references/errors.md`. `Io.Reader`/`Io.Writer` buffer sizing is
-`references/concurrency.md` ZS-CONC-11 and ZS-CONC-35; assertion density and bounded loops are
-`references/assertions.md`; `MultiArrayList` layout choices are `references/data.md` ZS-DATA-22;
-allocation-failure testing is `references/testing.md` ZS-TEST-11. It cites them.
+those are `references/errors.md`. `Io.Reader`/`Io.Writer` buffer sizing is ZS-CONC-11 and
+ZS-CONC-35; assertion density and bounded loops are `references/assertions.md`; `MultiArrayList`
+layout choices are ZS-DATA-22; allocation-failure testing is ZS-TEST-11. It cites them.
 
 Every example assumes a file opening with `const std = @import("std");` and
 `const assert = std.debug.assert;` — assertions are called bare, per ZS-ASSERT-01.
@@ -113,7 +112,7 @@ Library code takes `gpa: std.mem.Allocator` as a parameter. `std.heap.*` may not
 a reusable module — not `page_allocator`, not `c_allocator`, not `smp_allocator`, not a
 `SafeAllocator` field. A library's C-ABI export layer is its root, the one place that picks an
 allocator, because no Zig caller is there to pass one: an `export fn` whose result C releases with
-`free()` allocates through `std.heap.c_allocator` (`references/interop.md` ZS-INTEROP-14).
+`free()` allocates through `std.heap.c_allocator` (ZS-INTEROP-14).
 
 **Why:** the allocator is the caller's memory policy. Picking `page_allocator` forces a syscall per
 allocation on a caller who wanted an arena; picking `c_allocator` forces a libc link. The vtable
@@ -187,9 +186,9 @@ build or changes the program's syscall profile by a factor of thousands.
 
 `SafeAllocator.deinit()` returns the number of leaks as a `usize`. Turn a non-zero count into a
 failure — an error or a non-zero exit — and never `_ = sa.deinit();`. Not inside an `assert` either:
-`deinit` is a side effect, and an `assert`'s argument must have none (`references/assertions.md`
-ZS-ASSERT-02). It replaced `DebugAllocator`, deprecated in 0.17, whose `deinit()` returned
-`std.heap.Check` (`.ok` / `.leak`) under the same rule.
+`deinit` is a side effect, and an `assert`'s argument must have none (ZS-ASSERT-02). It replaced
+`DebugAllocator`, deprecated in 0.17, whose `deinit()` returned `std.heap.Check` (`.ok` / `.leak`)
+under the same rule.
 
 **Why:** the leak report is written by `deinit`, but the *decision* is the return value. Discarding
 it means a leaking build exits 0 and CI stays green. Construct it with `.init(backing, .{})`: it has
@@ -200,7 +199,7 @@ no default value, and it is thread-safe only if `backing` is.
 
 Applies **only when you cannot take `init.gpa`** (see ZS-MEM-01) — a benchmark harness, a custom
 runtime, a `build.zig` step. `main` takes `std.process.Init` and never hand-rolls this, and a test
-takes `std.testing.allocator` (`references/testing.md` ZS-TEST-03):
+takes `std.testing.allocator` (ZS-TEST-03):
 
 ```zig
 // verified — a benchmark harness, not `main` and not a `test`
@@ -433,15 +432,15 @@ The same shape applies to every acquisition, not just allocation: `Io.File`/`Io.
 (`defer file.close(io)`), `Io.Mutex` (`defer m.unlock(io)`), `Io.Group` (`defer g.cancel(io)`), and
 `Io.Future` (`defer _ = f.cancel(io);`, which is idempotent, so a later `await` still returns the
 result). Where the release itself is fallible or cancelable, use the `*Uncancelable` variant — a
-`defer` body cannot propagate an error (see `references/concurrency.md` ZS-CONC-26). What happens
-once the pair is in place — the order of teardown, the point ownership transfers, the scope inside a
-loop — is `references/errors.md` ZS-ERR-11, ZS-ERR-12 and ZS-ERR-13.
+`defer` body cannot propagate an error (see ZS-CONC-26). What happens once the pair is in place —
+the order of teardown, the point ownership transfers, the scope inside a loop — is ZS-ERR-11,
+ZS-ERR-12 and ZS-ERR-13.
 
 ### ZS-MEM-11 [M] `errdefer` every fallible construction step, until ownership transfers
 
 Multi-step `init` puts an `errdefer` after each allocation, up to the point where ownership moves to
 a value the caller will `deinit`. Where that point is, and what an `errdefer` covers inside a loop,
-are `references/errors.md` ZS-ERR-12 and ZS-ERR-13.
+are ZS-ERR-12 and ZS-ERR-13.
 
 **Why:** a `try` on step 3 unwinds steps 1 and 2 only if they registered `errdefer`s, and a missing
 one is a leak that only appears under memory pressure.
@@ -623,13 +622,13 @@ result is bound to a `const`/`var` that outlives the next container call. The sa
 pointer, uses it, and lets it die inside one statement or one tight block with no mutation in
 between.
 
-`references/data.md` ZS-DATA-21 is the structural fix: a handle newtype instead of a pointer.
+ZS-DATA-21 is the structural fix: a handle newtype instead of a pointer.
 
 ### ZS-MEM-16 [M] If you need stable pointers, use `std.heap.MemoryPool(T)` or store indices
 
 For "many nodes, pointers must not move", use `MemoryPool(T)`, optionally with the intrusive
 `std.SinglyLinkedList` / `std.DoublyLinkedList` (a `Node` holds links only; recover the payload with
-`@fieldParentPtr`). `references/data.md` ZS-DATA-23 covers the containers std no longer has.
+`@fieldParentPtr`). ZS-DATA-23 covers the containers std no longer has.
 
 **Why:** `MemoryPool` allocates in arena chunks and never moves an existing item; freed items go on
 a freelist and are reused in place. Indices, by contrast, cost a bounds check and survive every
@@ -826,8 +825,8 @@ test "allocation is a startup-only privilege" {
 > bounds, writing them down as `_max` constants and `comptime`-asserting them holds in either.
 
 TigerStyle's bounded containers `assert(!full())` on push, treating overflow as a programmer error.
-std offers both the asserting and the error-returning form, and `references/data.md` ZS-DATA-23 says
-which a call site picks.
+std offers both the asserting and the error-returning form, and ZS-DATA-23 says which a call site
+picks.
 
 ### ZS-MEM-19 [S] Arena per request, per phase, per iteration
 
@@ -903,10 +902,10 @@ test "reserve the bound exactly, then AssumeCapacity in the hot path" {
 ### ZS-MEM-21 [S] Impose a hard ceiling with a fixed backing buffer
 
 For work with a natural bound, allocate from a `[N]u8` — either `ArrayList.initBuffer`, std's
-fixed-capacity list (`references/data.md` ZS-DATA-23), or `std.heap.FixedBufferAllocator` when a
-subsystem demands an `Allocator`. `initBuffer` gives a list with `capacity = buffer.len` and no
-allocator at all; only the `*AssumeCapacity` and `*Bounded` methods are legal on it, and the
-`*Bounded` ones return `error{OutOfMemory}` without taking a `gpa`.
+fixed-capacity list (ZS-DATA-23), or `std.heap.FixedBufferAllocator` when a subsystem demands an
+`Allocator`. `initBuffer` gives a list with `capacity = buffer.len` and no allocator at all; only
+the `*AssumeCapacity` and `*Bounded` methods are legal on it, and the `*Bounded` ones return
+`error{OutOfMemory}` without taking a `gpa`.
 
 **Why:** the bound becomes a compile-time constant that the reader can see and the reviewer can
 audit, and exhaustion surfaces as `error.OutOfMemory` at a known point instead of as unbounded RSS
@@ -1041,10 +1040,9 @@ const Bump = struct {
 };
 ```
 
-Hand the `Allocator` out as `references/comptime.md` ZS-COMPTIME-16 hands out any vtable interface:
-from a method taking `*Self`, with `.ptr = self` (ZS-MEM-07). A stateless allocator sets
-`.ptr = undefined` and exposes `pub const vtable: Allocator.VTable`, as `PageAllocator` and
-`SmpAllocator` do.
+Hand the `Allocator` out as ZS-COMPTIME-16 hands out any vtable interface: from a method taking
+`*Self`, with `.ptr = self` (ZS-MEM-07). A stateless allocator sets `.ptr = undefined` and exposes
+`pub const vtable: Allocator.VTable`, as `PageAllocator` and `SmpAllocator` do.
 
 ### ZS-MEM-23 [M] Test a custom allocator with std's own conformance helpers
 
@@ -1201,8 +1199,7 @@ test "wipe secrets before the frame returns" {
 }
 ```
 
-Choosing the layout and asserting it are `references/data.md` ZS-DATA-19 and ZS-DATA-20 and
-`references/assertions.md` ZS-ASSERT-19.
+Choosing the layout and asserting it are ZS-DATA-19 and ZS-DATA-20 and ZS-ASSERT-19.
 
 ## Decided by tools
 

@@ -5,9 +5,9 @@ manifest (`build.zig.zon`), where files go on disk, which optimize mode ships, a
 
 This chapter does not own language-level style (`references/naming.md`, `references/data.md`,
 `references/errors.md`), allocator discipline (`references/memory.md`), `std.Io`
-(`references/concurrency.md`), what goes *inside* `src/constants.zig` (`references/assertions.md`
-ZS-ASSERT-21), or how to write a test or a fuzz target (`references/testing.md`) — only how tests
-get *wired into the build*. Older build spellings are rows of the migration table.
+(`references/concurrency.md`), what goes *inside* `src/constants.zig` (ZS-ASSERT-21), or how to
+write a test or a fuzz target (`references/testing.md`) — only how tests get *wired into the build*.
+Older build spellings are rows of the migration table.
 
 Every `zig` block here is `build.zig` code and assumes the file opens with
 `const std = @import("std");`; every `zon` block is a `build.zig.zon` fragment.
@@ -585,8 +585,7 @@ file (ZS-TEST-22), so it hides which files you meant to cover. Prefer the explic
 The *placement* half of the centralized-limits rule: one file named `constants.zig`, directly under
 `src/`, re-exported from `root.zig` as `pub const constants = @import("constants.zig");`, listed in
 `.paths` (ZS-BUILD-11), and referenced from the root's `comptime` import block (ZS-BUILD-16) so its
-`comptime` cross-checks are always analysed. What goes *in* the file is `references/assertions.md`
-ZS-ASSERT-21.
+`comptime` cross-checks are always analysed. What goes *in* the file is ZS-ASSERT-21.
 
 *Relaxed form:* the file still sits at `src/constants.zig`, re-exported and in `.paths`; naming it
 in the `comptime` import block, which is what guarantees its cross-checks run, becomes optional.
@@ -608,7 +607,7 @@ comptime {
 }
 ```
 
-The limits in it are named per `references/naming.md` ZS-NAME-06.
+The limits in it are named per ZS-NAME-06.
 
 ### ZS-BUILD-18 [S] Keep `tests/`, `tools/`, `examples/`, and `scripts/` outside `src/`
 
@@ -733,7 +732,7 @@ comment naming the constraint.
 form:* `fast` or `small` is allowed, but only with the benchmark number or the named constraint
 recorded at the `-Doptimize=` site, and only once the assertion question is answered: either the
 module does not lean on `std.debug.assert` for anything a user can trigger, or it uses the always-on
-helper of `references/assertions.md` ZS-ASSERT-05.
+helper of ZS-ASSERT-05.
 
 What each mode keeps:
 
@@ -753,9 +752,9 @@ not choose its consumer's optimize mode — a library should be correct in all f
 invariants it asserts rather than dictating a mode.
 
 If you cannot pay the cost of `safe`, the escape hatch is a project-local always-on assert —
-`references/assertions.md` ZS-ASSERT-05 owns that helper and its contract. Do not adopt TigerStyle's
-assertion density while shipping `fast` builds with no such helper: the code then reads as if it is
-checked and none of it is.
+ZS-ASSERT-05 owns that helper and its contract. Do not adopt TigerStyle's assertion density while
+shipping `fast` builds with no such helper: the code then reads as if it is checked and none of it
+is.
 
 **Why:** a `fast` build does not merely disable your assertions — it turns each one into a licence
 for the optimizer to assume the condition, so an assertion that would have caught corruption becomes
@@ -885,8 +884,8 @@ finding; so is a workflow whose only formatting gate is `zig build fmt`, which c
 zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .
 ```
 
-What `zig fmt` decides, and the trailing comma that is your one lever over it, are
-`references/naming.md` ZS-NAME-24; the 100-column limit it cannot enforce is ZS-NAME-25.
+What `zig fmt` decides, and the trailing comma that is your one lever over it, are ZS-NAME-24; the
+100-column limit it cannot enforce is ZS-NAME-25.
 
 ### ZS-BUILD-29 [S] Add a `check` step whose artifacts are never installed or run
 
@@ -1170,7 +1169,7 @@ default: a fine trade for a save-recompile loop, and not one to make for a binar
 > `zig build-exe -target x86_64-linux-gnu` uses the self-hosted `.stage2_x86_64` backend and the
 > legacy self-hosted ELF linker (`--verbose-link` prints `zig ld`), with full DWARF.
 
-LLVM loop vectorization is off in 0.17 (`references/performance.md` ZS-PERF-15).
+LLVM loop vectorization is off in 0.17 (ZS-PERF-15).
 
 All three are `?bool` fields on `Step.Compile` (`use_llvm`, `use_lld`, `use_new_linker`), assigned
 after `addExecutable` returns; `use_llvm` and `use_lld` can also be passed in `ExecutableOptions`,
@@ -1204,7 +1203,7 @@ Three details that are easy to get wrong:
 - `init.minimal.args.toSlice(arena)` returns `[]const [:0]const u8` — sentinel-terminated elements,
   because they may be handed to a `execve`-shaped API. Match that type in your signatures.
 - **`std.process.fatal` has no exit-code and no writer parameter**: it logs an error and exits 1,
-  with the signature `references/errors.md` ZS-ERR-01's table gives.
+  with the signature ZS-ERR-01's table gives.
 - `argv[0]` is the program name. Start the loop at index 1.
 
 **Why:** the shape of the answer is so obvious that a model will confidently invent
@@ -1272,10 +1271,10 @@ has a `--` case and a test for it.
 
 ### ZS-BUILD-38 [S] `.zon` is a usable project config format, not just `build.zig.zon`
 
-A config file you control is ZON before it is JSON, TOML, or YAML; `references/data.md` ZS-DATA-35
-owns reading it, with `@import("config.zon")` at comptime or `std.zon.parse` at runtime. Prefer the
-comptime form for anything fixed at build time (feature toggles, table sizes, endpoints per
-environment). This rule is about where the file goes:
+A config file you control is ZON before it is JSON, TOML, or YAML; ZS-DATA-35 owns reading it, with
+`@import("config.zon")` at comptime or `std.zon.parse` at runtime. Prefer the comptime form for
+anything fixed at build time (feature toggles, table sizes, endpoints per environment). This rule is
+about where the file goes:
 
 - a `.zon` file is a compilation input, so it sits inside `.paths` (ZS-BUILD-11), or consumers get a
   missing-file error;

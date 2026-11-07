@@ -185,9 +185,9 @@ No abbreviations in declaration names, parameters, or fields. Four exceptions, a
 2. Short receiver abbreviations in a type file (ZS-NAME-12): `w: *Writer`, `r: *Reader`,
    `b: *Build`, `m: *Module`.
 3. The established std **role names** for singleton dependencies: `gpa`, `arena`, `scratch`
-   (`references/memory.md` ZS-MEM-06), and `io`. These are not contractions of longer words — they
-   name a role the whole ecosystem already agrees on, so expanding them
-   (`general_purpose_allocator`) loses recognition rather than gaining clarity.
+   (ZS-MEM-06), and `io`. These are not contractions of longer words — they name a role the whole
+   ecosystem already agrees on, so expanding them (`general_purpose_allocator`) loses recognition
+   rather than gaining clarity.
 4. A name std itself has already fixed. When you bind the result of a std call, mirror std's
    spelling — `var tmp = std.testing.tmpDir(.{})` reads as `tmpDir` does — and when you implement a
    signature std documents, use std's parameter names verbatim, e.g. the panic handler
@@ -686,7 +686,7 @@ import they derive from. Do not alphabetize across groups.
 The standard alias block, by frequency in std: `const assert = std.debug.assert;` (172 files),
 `const mem = std.mem;` (137), `const testing = std.testing;` (129), `const math = std.math;` (119),
 `const Allocator = std.mem.Allocator;` (94), `const Io = std.Io;` (75). Why `assert` is always
-aliased is `references/assertions.md` ZS-ASSERT-01.
+aliased is ZS-ASSERT-01.
 
 Application code always writes `@import("std")`. `@import("../std.zig")` is internal to std itself.
 
@@ -801,8 +801,7 @@ the two mechanical readings; the rest of this rule is a tie-break, not a check.
 ### ZS-NAME-19 [M] Default to non-`pub`; mark `pub` only what a caller outside the file needs
 
 A declaration starts private and becomes `pub` when a caller in another file needs it. Which of the
-`pub` names form the package's surface is decided once, in `root.zig` (`references/build.md`
-ZS-BUILD-15).
+`pub` names form the package's surface is decided once, in `root.zig` (ZS-BUILD-15).
 
 **Why:** `pub` is the module's API contract and everything `pub` is something you cannot rename
 later without a breaking change; the compiler will not tell you which `pub`s are unused.
@@ -983,7 +982,7 @@ a long expression — those are ZS-NAME-16 through ZS-NAME-18 and your own judge
 `// zig fmt: off` … `// zig fmt: on` exists but appears only 32 times in all of std, exclusively for
 hand-aligned tables. Source is UTF-8 with LF endings and a trailing newline.
 
-**Check:** the CI gate of `references/build.md` ZS-BUILD-28 —
+**Check:** the CI gate of ZS-BUILD-28 —
 `zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .` — is the whole rule for
 indentation and spacing. The reviewable residue is a multi-line parameter list, struct literal, or
 enum with **no** trailing comma — `zig fmt` will silently collapse it back onto one line — and any

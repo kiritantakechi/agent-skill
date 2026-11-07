@@ -186,19 +186,18 @@ five questions, in order:
 1. **What can be deleted?** Fewer types, fewer parameters, fewer allocations, fewer dependencies,
    fewer states.
 2. **What can be made unrepresentable?** Encode the bound in the type and give the limit a name, so
-   an invalid value cannot be constructed rather than being caught after the fact (`ZS-DATA-03`,
-   `ZS-ASSERT-20`).
+   an invalid value cannot be constructed rather than being caught after the fact (ZS-DATA-03,
+   ZS-ASSERT-20).
 3. **What can be asserted instead of assumed?** An invariant the code depends on is checked at the
-   boundary or written down as an assumption — never left implicit (`ZS-ERR-01`, `ZS-ASSERT-08`).
+   boundary or written down as an assumption — never left implicit (ZS-ERR-01, ZS-ASSERT-08).
 4. **What is asymmetric?** If `init` exists, does `deinit`? Do sibling functions take their
    parameters in the same order? Does every operation have its inverse? A missing half is either a
-   restriction the documentation must state, or an oversight (`ZS-DATA-36`, `ZS-DATA-37`,
-   `ZS-NAME-28`).
+   restriction the documentation must state, or an oversight (ZS-DATA-36, ZS-DATA-37, ZS-NAME-28).
 5. **What is special-cased?** A branch that exists for one input is a design that has not absorbed
-   that input. Fold it into the general path, or give it its own type (`ZS-ERR-34`, `ZS-NAME-29`).
+   that input. Fold it into the general path, or give it its own type (ZS-ERR-34, ZS-NAME-29).
 
 Simplicity outranks all five. A `comptime` construction that makes the reader hold three levels of
-type substitution is worse than the duplication it removed (`ZS-COMPTIME-12`), and a symmetry nobody
+type substitution is worse than the duplication it removed (ZS-COMPTIME-12), and a symmetry nobody
 can see is not worth the name it costs.
 
 ## 4. Core rules
@@ -284,7 +283,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 6. **Public API.** Units last and descending, receivers named after their type rather than `self`,
    no abbreviations? Unpaired operations, siblings disagreeing on parameter order, error-set members
    with uneven detail, two mechanisms for one concept, a branch that exists for one input
-   (`ZS-DATA-36` … `ZS-DATA-38`, `ZS-ERR-33`, `ZS-ERR-34`, `ZS-NAME-28` … `ZS-NAME-30`)?
+   (ZS-DATA-36 … ZS-DATA-38, ZS-ERR-33, ZS-ERR-34, ZS-NAME-28 … ZS-NAME-30)?
 7. **Concurrency.** Every `Io.async` awaited or cancelled, every `Group` and `Select` closed, and
    nothing held across a suspension point?
 8. **Function bodies.** `zig fmt` clean, ≤100 columns, functions that fit on a screen, control flow
