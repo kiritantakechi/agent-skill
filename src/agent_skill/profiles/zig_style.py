@@ -6,7 +6,6 @@ from agent_skill.ids import RuleId
 from agent_skill.lang.zig import ZIG_STYLE
 from agent_skill.profiles.record import (
     LineRule,
-    Mirror,
     Near,
     NotDecisive,
     Profile,
@@ -251,51 +250,6 @@ PROFILE = Profile(
                 "`std.testing.random_seed` is the compliant one",
             ),
         }
-    ),
-    # Each rule here, and the title of the rust-style rule it restates.
-    mirror=Mirror(
-        "rust-style",
-        pairs=(
-            (
-                RuleId.parse("ZS-DATA-36"),
-                "Give every operation its inverse, or document why there is none",
-            ),
-            (
-                RuleId.parse("ZS-DATA-37"),
-                "Keep argument order identical across sibling functions",
-            ),
-            (
-                RuleId.parse("ZS-DATA-38"),
-                "Replace a `bool` parameter: split the function, or name the flag",
-            ),
-            (RuleId.parse("ZS-ERR-31"), "Give sibling error variants a uniform shape"),
-            (
-                RuleId.parse("ZS-ERR-32"),
-                "Absorb a special case into the general path, or give it its own type",
-            ),
-            (RuleId.parse("ZS-NAME-28"), "Name the two halves of a pair symmetrically"),
-            (RuleId.parse("ZS-NAME-29"), "One concept, one mechanism"),
-            (RuleId.parse("ZS-NAME-30"), "Keep sibling modules structurally parallel"),
-            (
-                RuleId.parse("ZS-COMPTIME-15"),
-                (
-                    "Name the capability as a trait before writing the type that "
-                    "provides it"
-                ),
-            ),
-            (
-                RuleId.parse("ZS-BUILD-21"),
-                "Count the encapsulation a split costs, not only what it buys",
-            ),
-            (
-                RuleId.parse("ZS-NAME-14"),
-                "Give the directory and the crate the same name",
-            ),
-            (
-                RuleId.parse("ZS-NAME-02"),
-                "Capitalize acronyms as ordinary English words",
-            ),
-        ),
     ),
     # One probe per `zig` row in the chapters' `Decided by tools`
     # tables, each compiled on 0.17.0 and rejected with the row's

@@ -26,7 +26,6 @@ from agent_skill.profiles import bevy_style, python_style, rust_style, zig_style
 from agent_skill.profiles.record import (
     Delta,
     LineRule,
-    Mirror,
     Near,
     NotDecisive,
     Profile,
@@ -38,7 +37,6 @@ __all__ = [
     "PROFILES",
     "Delta",
     "LineRule",
-    "Mirror",
     "Near",
     "NotDecisive",
     "Profile",

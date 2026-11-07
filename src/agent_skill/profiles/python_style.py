@@ -3,7 +3,6 @@
 from agent_skill.lang.python import PYTHON_STYLE
 from agent_skill.profiles.record import (
     LineRule,
-    Mirror,
     Near,
     NotDecisive,
     Profile,
@@ -91,7 +90,6 @@ PROFILE = Profile(
     strict_scope="library and high-reliability",
     toolchain=PYTHON_STYLE,
     # Compared with rust-style for tier, as every standard is.
-    mirror=Mirror("rust-style"),
     # Each snippet is the defect its rule forbids, written the way it
     # appears in real code rather than tailored to the pattern — a
     # fixture shaped to match proves the fixture, not the pattern.

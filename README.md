@@ -188,8 +188,10 @@ prints where a formatter can and a check holds where only a person can:
 - A delta states every departure from its anchor in one table — the anchor's
   rule, `overrides`, `tightens` or `extends`, its own rule, the tier before and
   after, and the reason — and each departing rule opens `Departs from <ID>.`. A
-  delta rule that restates an anchor rule, a tier changed with no row, and an
-  `[M!]` scoped otherwise than the anchor's all fail (`crossref`, `mirror`).
+  relation its tiers contradict, a departure with no reason, a tier changed with
+  no row, and an `[M!]` scoped otherwise than the anchor's all fail (`crossref`),
+  and a delta rule that looks like an anchor rule it does not depart from is
+  noted (`concepts`).
 - The description fills one template, in at most 500 characters and with no
   count of rules: `Use when …. Applies to …. Targets <language> <target>.`
   `SKILL.md` is under 500 lines, and no statement is dated by its writing
@@ -305,7 +307,7 @@ the time. The note after each is the defect it would have caught.
 | `prose` | no build provenance, one marker legend, unbroken blockquotes, no positional cross-references, no statement dated by its writing | Sixty-odd lines said *we checked X* where the standard should say *X*, and twelve chapters each restated the legend in their own wording — two of them describing a convention the library had stopped using. |
 | `assets` | the files a reader copies verbatim: `zig fmt` and `ast-check`, a TOML parse, workflow keys and indentation, and that nothing is shipped unreferenced | Six assets shipped and nothing validated any of them. |
 | `lints` | the shipped lint table and `clippy.toml` equal the ones the examples are verified against | The asset set `indexing_slicing = "warn"` where a rule requires deny, and the verified crate quietly omitted a third lint while its comment named two. |
-| `mirror` | rules that say the same thing in two skills agree on tier, and a delta restates no rule of its anchor | A renumbering pass twice pointed the table at unrelated rules. It is anchored on titles now, and notices a pair it does not yet hold. |
+| `concepts` | the abstract standard under `abstract/` — each chapter in the template and as `fmt` prints it, entries dense, in their chapter's family, a statement then one realisation table, no construct of one language — and its map: one row per base standard and none for a delta, each naming a rule (or a `Decided by tools` row) of its standard in the entry's chapter, a relation its tiers obey with its reason, no rule the row of two entries; no skill citing an abstract ID; and, as notes, rules of two standards that look alike and that no entry holds | `mirror` held twelve pairs, keyed by title against rust-style alone: python-style and zig-style were never compared, and a concept three standards state was at best three pairs, none saying which was wrong. |
 | `crossref` | ids cited into another skill, the departures table a delta must state against the anchor its profile names — each row's relation and its two tiers against the rules, each departing rule's opening against the rows, and `[M!]` the anchor's — and the anchor's own patterns run over the delta's examples | `bevy-style` is a delta on `rust-style` and cites it by id, which nothing was checking; its "where this standard departs" table quoted eight `rust-style` titles that nothing compared against the originals; and two `rust-style` `[M]` rules were firing on nineteen and thirty-five lines of its examples with nothing saying so. |
 | `self-application` | every `rg` command a `**Check:**` ships, run over every `// verified` block | A standard whose examples fail its own patterns is not a standard, and nobody was running them. |
 | `toolchain` | every `// verified` block compiles, with every declaration analysed, and the tests it ships run; every `gone` migration row is absent from the pinned release | 210 zig blocks claimed `// verified` and nothing compiled them; only 61 actually did. |

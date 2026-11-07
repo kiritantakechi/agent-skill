@@ -35,7 +35,7 @@ merges or adds rules also runs `check --skill <each standard it touched> --only 
 - [x] 2.2 Read the abstract standard: a profile-shaped record (prefix `AS`), chapters in the
   template, entries (heading, statement, realisation table) and `principles.md`; add a demo abstract
   standard beside `checks.demo`; verify `print ∘ parse` is the identity on it, and `fmt` idempotent
-- [ ] 2.3 Add the `concepts` check (branches of design decision 3) with one control each on the demo,
+- [x] 2.3 Add the `concepts` check (branches of design decision 3) with one control each on the demo,
   and delete `checks/mirror.py`, `profiles.record.Mirror`, every `mirror=` and the mirror controls;
   verify the controls ↔ branches bijection both ways and `check --only concepts`
 - [ ] 2.4 Make `fmt` render each realisation row's tier cell from its rule; verify the `stale_tier`
@@ -70,6 +70,31 @@ Each task is verified when `check --fast` passes, each touched standard's toolch
 bevy-style's departures still resolve. Each task then records its counts here: entries,
 realisations by relation, moves, merges, new rules, tier changes, and look-alike notes before and
 after. Each is pushed when green.
+
+Seeds. Before task 2.3 deleted `Mirror`, it held these pairs, and its detector noted three more. The
+sweep starts from them: each is a concept two standards state, or a recorded reason it is not. The
+zig-style pairs were keyed by the rust-style rule's title, resolved here to the rule's ID at the
+time of deletion (both tiers `[M]` unless marked):
+
+- zig-style's 12 mirror pairs:
+  - ZS-DATA-36 and RS-API-57: give every operation its inverse, or document why there is none
+  - ZS-DATA-37 and RS-API-58: keep parameter (argument) order identical across sibling functions
+  - ZS-DATA-38 and RS-API-19: split a function rather than adding a mode (`bool`) parameter
+  - ZS-ERR-31 and RS-API-59: give the members of one error set (sibling variants) a uniform shape
+  - ZS-ERR-32 and RS-MOD-44: absorb a special case into the general path, or give it its own type
+  - ZS-NAME-28 and RS-NAME-35: name the two halves of a pair symmetrically
+  - ZS-NAME-29 and RS-MOD-43: one concept, one mechanism
+  - ZS-NAME-30 and RS-MOD-45 (both `[S]`): keep sibling modules structurally parallel
+  - ZS-COMPTIME-15 and RS-TRAIT-01: pick the interface shape (name the capability as a trait)
+    before writing the code that provides it
+  - ZS-BUILD-21 and RS-MOD-29: count the encapsulation a module boundary (a split) costs, not only
+    what it buys
+  - ZS-NAME-14 and RS-MOD-31 (both `[S]`): name a directory after what it roots (the crate)
+  - ZS-NAME-02 and RS-NAME-01: capitalize acronyms as ordinary English words
+- The detector's three notes (`check --only mirror --verbose`):
+  - PS-NAME-14 and RS-NAME-35: name the two halves of a pair symmetrically
+  - PS-NAME-15 and RS-MOD-43: one concept, one mechanism
+  - BV-MIG-03 and RS-MIG-02: do not call an API the target deprecated (a delta and its anchor)
 
 - [ ] 3.1 `errors`
 - [ ] 3.2 `testing`

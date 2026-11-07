@@ -13,12 +13,13 @@ lazy from pathlib import Path
 
 import pytest
 
-from agent_skill.checks import by_name, demo
+from agent_skill.checks import by_name
 from agent_skill.checks.crossref import departs_from
 from agent_skill.doc import Doc
 from agent_skill.doc.chapter import Departure, Rule
 from agent_skill.ids import RuleId, Tier
-from agent_skill.model import Skill, Tree
+from structure_fixture import repository
+lazy from agent_skill.model import Tree
 
 #: The checks a delta is read by, beside the ones the demo is held to.
 HELD = (
@@ -28,16 +29,18 @@ HELD = (
     "shared-text",
     "citations",
     "crossref",
-    "mirror",
+    "concepts",
 )
 
 
 @pytest.fixture
 def tree(tmp_path: Path) -> Tree:
-    """The demo and its delta, each read with its own profile."""
-    demo.build(tmp_path)
-    demo.build_delta(tmp_path)
-    return Tree.of(Skill(tmp_path / name, p) for name, p in demo.PROFILES.items())
+    """The demo and its delta, each read with its own profile.
+
+    Laid out as a repository, with the demo abstract standard beside
+    them, which `concepts` holds the two to.
+    """
+    return repository(tmp_path)
 
 
 @pytest.mark.parametrize("name", HELD)

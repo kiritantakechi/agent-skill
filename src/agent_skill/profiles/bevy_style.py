@@ -15,7 +15,6 @@ lazy from collections.abc import Iterator
 from agent_skill.lang.rust import BEVY, BEVY_STYLE, RUST_STYLE
 from agent_skill.profiles.record import (
     Delta,
-    Mirror,
     NotDecisive,
     Profile,
     keyed,
@@ -185,7 +184,6 @@ PROFILE = Profile(
     # The engine, not the language: what the H1 names.
     subject=BEVY.pin,
     # Compared with rust-style for tier, as every standard is.
-    mirror=Mirror("rust-style"),
     # Each snippet is the defect its rule forbids, written the way it
     # turns up in real code. A fixture shaped to match proves the
     # fixture, not the pattern.

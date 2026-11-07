@@ -27,6 +27,7 @@ from agent_skill.checks import (
     assets,
     check,
     citations,
+    concepts,
     crossref,
     demo,
     dialect,
@@ -35,7 +36,6 @@ from agent_skill.checks import (
     layout,
     lints,
     markers,
-    mirror,
     pins,
     plugin,
     prose,
@@ -44,12 +44,12 @@ from agent_skill.checks import (
     skeleton,
     toolchain,
 )
-from agent_skill.ids import Branch, Location, RuleId
+from agent_skill.ids import Branch, Location
 from agent_skill.lang import python, rust, zig
 from agent_skill.lang.python import PythonSnippet
 from agent_skill.layout import ABSTRACT, PLUGIN, SKILLS, root_of
 from agent_skill.model import SKILL_MD
-from agent_skill.profiles import Mirror, bevy_style, python_style, rust_style, zig_style
+from agent_skill.profiles import bevy_style, python_style, rust_style, zig_style
 from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.checks import Check, by_name
 lazy from agent_skill.harness import pinned
@@ -509,10 +509,6 @@ APPARATUS_CITED = "\nThe last assertion is ZS-ASSERT-93.\n"
 #: warns on it, and `--strict` fails on a warning.
 _STRICT = "`claude plugin validate --strict` warns on it, and fails on a warning"
 
-#: The title zig-style's mirror pairs `ZS-DATA-36` with, as `RS-API-57`
-#: states it.
-_INVERSE = "Give every operation its inverse, or document why there is none"
-
 
 #: A line of a zig GOOD example with no comment in the three above it.
 _SIZED = "    assert(@sizeOf(Record) == 16);\n"
@@ -620,9 +616,142 @@ def _on_delta(branch: Branch, rel: str, old: str, new: str) -> Control:
     return _on_demo(branch, edits)
 
 
-def rules_paired(*pairs: tuple[str, str]) -> tuple[tuple[RuleId, str], ...]:
-    """Mirror pairs, each rule spelled as a reader cites it."""
-    return tuple((RuleId.parse(rid), title) for rid, title in pairs)
+def _on_concepts(
+    branch: Branch,
+    edits: Callable[[Path], Edited],
+    profiles: Mapping[str, Profile] | None = None,
+) -> Control:
+    """A control on the demo standards and their abstract standard.
+
+    The shipped standards go from the copy, and the demo abstract
+    standard takes the shipped one's place: its entries name the demo's
+    rules and no shipped standard's, and a shipped standard read beside
+    it would answer none of them. `edits` then makes one defect.
+    """
+
+    def inject(tree: Path) -> Edited:
+        for skill in discover(tree):
+            shutil.rmtree(skill.root)
+        built = (
+            *demo.build(tree),
+            *demo.build_delta(tree),
+            *demo.build_abstract(root_of(tree)),
+        )
+        return (*built, *edits(tree))
+
+    return Control(branch, inject, {}, {**demo.PROFILES, **(profiles or {})})
+
+
+def _abstract(rel: str, old: str, new: str, count: int = 1) -> Callable[[Path], Edited]:
+    """One edit to a file of the demo abstract standard."""
+    return lambda t: edit(root_of(t), f"{ABSTRACT}/{rel}", old, new, count)
+
+
+#: The demo's row of its second entry, which several controls edit.
+_ROW = f"| {demo.PROFILE.name} | DS-ERR-02 | realises | [M] | |\n"
+
+#: The demo's decided row, of its third entry.
+_DECIDED = (
+    f"| {demo.PROFILE.name} | `division-by-zero` | decided | | the checker proves it "
+    "on its own |\n"
+)
+
+
+#: One control per branch of `concepts`, each on the demo alone.
+CONCEPTS: list[Control] = [
+    _on_concepts(
+        concepts.UNREAD,
+        lambda t: write(root_of(t), f"{ABSTRACT}/notes.md", "# Notes\n"),
+    ),
+    _on_concepts(
+        concepts.TEMPLATE,
+        _abstract("errors.md", "Scope: what a unit does", "Covers what a unit does"),
+    ),
+    # Two spaces where one is printed: the scope is still a scope.
+    _on_concepts(
+        concepts.CANONICAL,
+        _abstract("errors.md", "Scope: what a unit", "Scope:  what a unit"),
+    ),
+    # The heading and its contents line alike: only the number is off.
+    _on_concepts(
+        concepts.NUMBERING,
+        _abstract("errors.md", "AS-ERR-03 [M]", "AS-ERR-04 [M]", 2),
+    ),
+    _on_concepts(
+        concepts.WRONG_FAMILY,
+        _abstract("errors.md", "AS-ERR-03 [M]", "AS-MIG-03 [M]", 2),
+    ),
+    _on_concepts(
+        concepts.ENTRY_SHAPE,
+        _abstract(
+            "errors.md",
+            "the program decides whether to stop.\n",
+            "the program decides whether to stop.\n\n**Why:** it alone knows.\n",
+        ),
+    ),
+    _on_concepts(
+        concepts.INLINE_CODE,
+        _abstract(
+            "errors.md", "that meets one reports it.", "that meets one returns `Err`."
+        ),
+    ),
+    _on_concepts(concepts.MISSING_ROW, _abstract("errors.md", _ROW, "")),
+    _on_concepts(
+        concepts.DELTA_ROW,
+        _abstract(
+            "errors.md",
+            _ROW,
+            f"{_ROW}| {demo.DELTA.name} | DL-ERR-02 | realises | [M] | |\n",
+        ),
+    ),
+    _on_concepts(
+        concepts.UNKNOWN_STANDARD,
+        _abstract(
+            "errors.md", _ROW, f"{_ROW}| ghost-style | GS-ERR-02 | realises | [M] | |\n"
+        ),
+    ),
+    _on_concepts(
+        concepts.TWO_RULES_ONE_ENTRY,
+        _abstract(
+            "errors.md",
+            _DECIDED,
+            f"{_DECIDED}| {demo.PROFILE.name} | | absent | | no such value |\n",
+        ),
+    ),
+    # The second entry decided by the third's lint, so one row is two
+    # entries' and every other property holds.
+    _on_concepts(concepts.TWO_ROWS_ONE_RULE, _abstract("errors.md", _ROW, _DECIDED)),
+    _on_concepts(
+        concepts.NOT_A_RULE,
+        _abstract("errors.md", _ROW, _ROW.replace("DS-ERR-02", "DS-ERR-09")),
+    ),
+    # The entry made `[S]`, heading and contents alike: its rule is
+    # `[M]`, and a row that keeps the tier says `realises`.
+    _on_concepts(
+        concepts.RELATION,
+        _abstract("errors.md", "AS-ERR-02 [M]", "AS-ERR-02 [S]", 2),
+    ),
+    _on_concepts(
+        concepts.NO_REASON,
+        _abstract(
+            "errors.md",
+            "| decided | | the checker proves it on its own |",
+            "| decided | | |",
+        ),
+    ),
+    # A rule of the migration chapter, also `[M]`, realising an errors
+    # entry.
+    _on_concepts(
+        concepts.WRONG_CHAPTER,
+        _abstract("errors.md", _ROW, _ROW.replace("DS-ERR-02", "DS-MIG-01")),
+    ),
+    _on_concepts(
+        concepts.ABSTRACT_CITED,
+        lambda t: append(
+            t, f"{demo.PROFILE.name}/{_DEMO_ERRORS}", "\nAS-ERR-01 states it.\n"
+        ),
+    ),
+]
 
 
 def _normal(
@@ -874,22 +1003,6 @@ NORMAL_FORM: list[Control] = [
         SKILL_MD,
         '**Code is "library"** — if it is published.',
         '**Code is "library"** — if it is published or long-running.',
-    ),
-    _on_demo(
-        # A delta rule declared to say what an anchor rule says.
-        mirror.RESTATED,
-        demo.build_delta,
-        profiles={
-            demo.DELTA.name: replace(
-                demo.DELTA,
-                mirror=Mirror(
-                    demo.PROFILE.name,
-                    rules_paired(
-                        ("DL-ERR-02", "Never stop the program from a library")
-                    ),
-                ),
-            )
-        },
     ),
     _on_demo(
         # The examples excused from a lint, with no reason given.
@@ -1621,43 +1734,6 @@ CONTROLS: list[Control] = [
             t, f"{ZS}/references/build.md", "has this block", "carries the guard"
         ),
     ),
-    Control(
-        mirror.TIER,
-        lambda t: edit(
-            t,
-            f"{ZS}/references/naming.md",
-            "### ZS-NAME-02 [M] Capitalize acronyms as ordinary English words",
-            "### ZS-NAME-02 [S] Capitalize acronyms as ordinary English words",
-        ),
-    ),
-    Control(
-        mirror.NO_ANCHOR_RULE,
-        lambda t: edit(
-            t,
-            f"{RS}/references/api.md",
-            f"### RS-API-57 [M] {_INVERSE}",
-            f"### RS-API-57 [M] {_INVERSE}, ever",
-        ),
-    ),
-    # A rule outside the mirror's pairs takes the title of one inside.
-    Control(
-        mirror.AMBIGUOUS,
-        lambda t: edit(
-            t,
-            f"{RS}/references/api.md",
-            "### RS-API-56 [S] Prefer additive evolution; batch the breaking changes",
-            f"### RS-API-56 [S] {_INVERSE}",
-        ),
-    ),
-    Control(
-        mirror.NOT_A_RULE,
-        lambda t: edit(
-            t,
-            f"{ZS}/references/data.md",
-            "### ZS-DATA-36 [",
-            "### ZS-DATA-96 [",
-        ),
-    ),
     # skeleton
     Control(
         skeleton.TITLE,
@@ -2317,6 +2393,7 @@ CONTROLS: list[Control] = [
         ),
     ),
     *NORMAL_FORM,
+    *CONCEPTS,
 ]
 
 

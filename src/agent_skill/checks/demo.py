@@ -22,7 +22,7 @@ from agent_skill.ids import Pin
 from agent_skill.lang.python import PythonSnippet
 from agent_skill.layout import ABSTRACT
 from agent_skill.model import REFERENCES, SKILL_MD, Skill
-from agent_skill.profiles import Delta, Mirror, Profile
+from agent_skill.profiles import Delta, Profile
 from agent_skill.profiles.record import rules
 
 #: The demo's profile: Demo 1.2. It names no language, so no example
@@ -293,7 +293,6 @@ DELTA = Profile(
     toolchain=PythonSnippet(),
     subject=Pin.parse("delta==1.2.3"),
     unproven=rules("DL-ERR-02", "DL-MIG-01"),
-    mirror=Mirror(PROFILE.name),
 )
 
 #: The delta's one departure, as its table states it.

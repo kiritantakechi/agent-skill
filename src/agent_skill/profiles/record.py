@@ -131,21 +131,6 @@ class Delta:
 
 
 @dataclass(frozen=True, slots=True)
-class Mirror:
-    """Rules that say what another standard's rules say, at their tier.
-
-    Each pair names a rule here and the **title** of its counterpart in
-    the anchor: titles survive renumbering, and a renumbering pass twice
-    pointed an ID-keyed table at unrelated rules. A rule here that
-    looks like an anchor rule and is in no pair is noted, so a standard
-    with no pairs still declares which standard it is compared with.
-    """
-
-    anchor: str
-    pairs: tuple[tuple[RuleId, str], ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
 class Profile:
     """What one skill's checks need to know about it."""
 
@@ -225,9 +210,6 @@ class Profile:
     #: its row: a probe nothing cites would prove an error the standard
     #: never mentions.
     probes: Mapping[str, str] = field(default_factory=dict)
-    #: The standard this one's rules are compared with for tier, and the
-    #: pairs it holds.
-    mirror: Mirror | None = None
     #: This standard's own rules, held to each line of its own examples.
     conventions: tuple[LineRule, ...] = ()
     #: This standard's own rules, held to each line of the prose around

@@ -464,14 +464,14 @@ def _template(skill: Skill) -> Iterator[Finding]:
         if not code or chapter.refused is not None:
             continue
         typed = chapter.typed
-        if _coded(typed.title, skill.prefix):
+        if coded(typed.title, skill.prefix):
             yield fail(
                 f"`{chapter.name}` opens `{_h1(typed.title)}`; a title names the "
                 f"chapter's concept, and `{skill.prefix}-{code}` is the file's",
                 chapter.where(1),
                 TITLE_CODE,
             )
-        if not (typed.scope and _is_scope(typed.scope[0])):
+        if not (typed.scope and is_scope(typed.scope[0])):
             yield fail(
                 f"`{chapter.name}` does not open with a `{SCOPE}` paragraph saying "
                 "what it owns and which chapters neighbour it",
@@ -488,7 +488,7 @@ def _template(skill: Skill) -> Iterator[Finding]:
             )
 
 
-def _coded(title: str, prefix: str) -> bool:
+def coded(title: str, prefix: str) -> bool:
     """Does `title` open with a family code: `RS-BUILD — Cargo`?"""
     first = title.split(maxsplit=1)[0] if title else ""
     standard, dash, family = first.partition("-")
@@ -496,7 +496,7 @@ def _coded(title: str, prefix: str) -> bool:
     return bool(dash) and standard == prefix and family in codes
 
 
-def _is_scope(block: Block) -> bool:
+def is_scope(block: Block) -> bool:
     """Is `block` the paragraph that scopes a chapter?"""
     return isinstance(block, Paragraph) and block.text.startswith(SCOPE)
 
@@ -543,7 +543,7 @@ def _naming(doc: Doc, *, skill_md: bool) -> Iterator[Block]:
             section = block.text
         if held or isinstance(block, Fence):
             continue
-        if (skill_md and section == shared.MAP) or (not skill_md and _is_scope(block)):
+        if (skill_md and section == shared.MAP) or (not skill_md and is_scope(block)):
             continue
         yield block
 
