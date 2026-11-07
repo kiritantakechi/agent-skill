@@ -2,8 +2,9 @@
 
 A check that cannot fail looks exactly like a check that passes, so the
 controls are tests in their own right rather than a claim in a README.
-They run through the runner the `controls` check uses, so a control
-cannot fire in one and not the other.
+They run through the runner the `controls` check uses, its thread pool
+included, so a control cannot fire in one and not the other, and the
+suite waits for them no longer than the check does.
 
 The controls are a bijection onto the branches that can fail a run:
 each such branch has one control or one exemption with its reason. The
@@ -19,10 +20,9 @@ import pytest
 
 import agent_skill
 from agent_skill.checks import all_checks
-from agent_skill.checks.controls import CONTROLS, EXEMPT, exercise
+from agent_skill.checks.controls import CONTROLS, EXEMPT, exercise_all
 from agent_skill.layout import SKILLS
 from agent_skill.report import DECLARED, Level
-lazy from agent_skill.checks.controls import Control
 lazy from agent_skill.ids import Branch
 
 SKILLS_DIR = Path(__file__).resolve().parents[1] / SKILLS
@@ -32,12 +32,17 @@ SKILLS_DIR = Path(__file__).resolve().parents[1] / SKILLS
 COMMANDS = {"fmt"}
 
 
-@pytest.mark.parametrize("control", CONTROLS, ids=lambda c: str(c.branch))
-def test_control_fires(control: Control) -> None:
-    found = exercise(control, SKILLS_DIR)
-    if any(f.level is Level.UNRUN for f in found):
-        pytest.skip(found[0].message)
-    assert not found, "\n".join(str(f) for f in found)
+def test_control_fires() -> None:
+    """Each control fires its branch alone; each that does not is named.
+
+    A control whose check could not run here is not exercised, which is
+    reported as a skip once every other control has passed.
+    """
+    found = list(exercise_all(CONTROLS, SKILLS_DIR))
+    failed = [str(f) for f in found if f.level is not Level.UNRUN]
+    assert not failed, f"{len(failed)} control(s) failed:\n" + "\n".join(failed)
+    if unrun := [f.message for f in found if f.level is Level.UNRUN]:
+        pytest.skip("\n".join(unrun))
 
 
 def declared() -> dict[Branch, Level]:

@@ -2396,10 +2396,20 @@ def controls(tree: Tree, *, fast: bool = False) -> Iterator[Finding]:
     # A control on a slow check would compile and run every example
     # once per control — the exact cost `--fast` exists to avoid.
     chosen = [c for c in CONTROLS if not (fast and _target(c).slow)]
+    yield from exercise_all(chosen, source)
+    yield from _empty_corpus()
+
+
+def exercise_all(chosen: Sequence[Control], source: Path) -> Iterator[Finding]:
+    """What `controls` says of each of `chosen`, run at once, in order.
+
+    The one pool, which the `controls` check and the test suite both
+    call, as they both call `exercise`: each control runs over its own
+    copy of the tree, so nothing they share is written.
+    """
     with ThreadPoolExecutor() as pool:
         for found in pool.map(partial(exercise, source=source), chosen):
             yield from found
-    yield from _empty_corpus()
 
 
 def _empty_corpus() -> Iterator[Finding]:
