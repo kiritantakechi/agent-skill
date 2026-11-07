@@ -62,7 +62,7 @@ promise left in an ordinary comment is invisible to the person who needs it.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-DOC-03 | realises | [M] | |
-| rust-style | RS-DOC-16 | realises | [M] | |
+| rust-style | RS-DOC-15 | realises | [M] | |
 | zig-style | ZS-DOC-03 | realises | [M] | |
 
 ### AS-DOC-04 [M] Document the errors a caller can get, and when
@@ -113,7 +113,7 @@ invariant kept, the constraint that is not visible locally.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-DOC-13 | realises | [M] | |
-| rust-style | RS-DOC-18 | realises | [M] | |
+| rust-style | RS-DOC-17 | realises | [M] | |
 | zig-style | ZS-DOC-07 | realises | [M] | |
 
 ### AS-DOC-08 [S] Write a comment as a sentence
@@ -126,7 +126,7 @@ comment.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-DOC-14 | realises | [S] | |
-| rust-style | RS-DOC-19 | realises | [S] | |
+| rust-style | RS-DOC-18 | realises | [S] | |
 | zig-style | ZS-DOC-08 | realises | [S] | |
 
 ### AS-DOC-09 [M] Delete commented-out code
@@ -138,7 +138,7 @@ which without digging. It is also never updated with the code around it.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | `ERA001` | decided | | Ruff rejects commented-out code, so the standard states no rule of its own |
-| rust-style | RS-DOC-20 | realises | [M] | |
+| rust-style | RS-DOC-19 | realises | [M] | |
 | zig-style | ZS-DOC-09 | realises | [M] | |
 
 ### AS-DOC-10 [M] Change a comment in the same edit as the code it describes
@@ -150,7 +150,7 @@ the two drift, so the same edit updates both.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-DOC-07 | realises | [M] | |
-| rust-style | RS-DOC-21 | realises | [M] | |
+| rust-style | RS-DOC-20 | realises | [M] | |
 | zig-style | ZS-DOC-10 | realises | [M] | |
 
 ## Beside the code
@@ -165,7 +165,7 @@ nobody asked while hiding the change that affects them.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-DOC-10 | realises | [S] | |
-| rust-style | RS-DOC-27 | realises | [S] | |
+| rust-style | RS-DOC-26 | realises | [S] | |
 | zig-style | ZS-DOC-11 | realises | [S] | |
 
 ### AS-DOC-12 [S] Open the README with what the project is for and an example, before how to install it
@@ -177,5 +177,5 @@ seconds, which is all the attention the decision gets.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-DOC-09 | realises | [S] | |
-| rust-style | RS-DOC-32 | realises | [S] | |
+| rust-style | RS-DOC-31 | realises | [S] | |
 | zig-style | ZS-DOC-12 | realises | [S] | |

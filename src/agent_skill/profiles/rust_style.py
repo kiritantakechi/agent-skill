@@ -164,7 +164,7 @@ PROFILE = Profile(
                 "static mut COUNTER: u32 = 0;",
                 "static CACHE: Mutex<Option<Config>> = Mutex::new(None);",
             ),
-            "RS-DOC-26": ("    // TODO: handle the empty case",),
+            "RS-DOC-25": ("    // TODO: handle the empty case",),
             "RS-ERR-08": ("let n = s.parse::<u32>().map_err(|_| Error::Parse)?;",),
             "RS-ERR-26": ('panic = "abort"',),
             "RS-API-06": ("pub use crate::matcher::*;",),
@@ -178,7 +178,7 @@ PROFILE = Profile(
                 + 'peer before the handshake finished");',
             ),
             "RS-OWN-29": ("let shared: Arc<String> = Arc::new(name);",),
-            "RS-PERF-20": ("reader.read(&mut [0u8; 1])?;",),
+            "RS-PERF-19": ("reader.read(&mut [0u8; 1])?;",),
             "RS-TEST-18": ('let path = Path::new("/tmp/out.txt");',),
             "RS-TRAIT-25": (
                 "default fn describe(&self) -> String {",
@@ -188,8 +188,8 @@ PROFILE = Profile(
                 "counter.fetch_update(Ordering::SeqCst, Ordering::SeqCst, step)",
                 "let ceiling = std::i32::MAX;",
             ),
-            "RS-DOC-20": ("    // let unused = compute_total(&items);",),
-            "RS-DOC-28": ("/// See [the guide](https://docs.rs/serde/latest/serde/).",),
+            "RS-DOC-19": ("    // let unused = compute_total(&items);",),
+            "RS-DOC-27": ("/// See [the guide](https://docs.rs/serde/latest/serde/).",),
         }
     ),
     # Each of these ships an `rg` pattern that no fixture in `fires`
@@ -230,7 +230,7 @@ PROFILE = Profile(
                 "the pattern finds every print and exit; whether the file is library "
                 "code rather than `main`, a test or an example decides",
             ),
-            "RS-PERF-07": NotDecisive(
+            "RS-PERF-08": NotDecisive(
                 "Vec::new",
                 "the span finds every `Vec::new`; whether it sits inside a loop body "
                 "decides, which is a fact about what encloses it",

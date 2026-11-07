@@ -226,9 +226,9 @@ name it costs.
 - **Output: Encoding, Interpolation, Logging, and Program Output**
   - PS-OUT-01 [M] Pass `encoding=` explicitly to every text open
   - PS-OUT-02 [M] Never assume UTF-8 mode moved only `open`
-  - PS-OUT-11 [M] Log with `%`-style arguments, never with an f-string
-  - PS-OUT-12 [M] Get a library's logger by `__name__`, and configure nothing in it
-  - PS-OUT-15 [M] Write each record to a shared text stream in one call, never with `print`
+  - PS-OUT-10 [M] Log with `%`-style arguments, never with an f-string
+  - PS-OUT-11 [M] Get a library's logger by `__name__`, and configure nothing in it
+  - PS-OUT-14 [M] Write each record to a shared text stream in one call, never with `print`
 - **API: The Public Surface, Signatures, and Evolution**
   - PS-API-02 [M] Re-export through `__all__`, never by a bare import
   - PS-API-07 [M] Annotate every parameter and every return of a public function
@@ -265,7 +265,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-258 rules live here; section 4 lists by ID those that bind on their own.
+259 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -275,8 +275,8 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/errors.md` | `PS-ERR` (21) | Designing an exception hierarchy, raising and catching, `except*`, `finally` after PEP 765, and the control-flow shapes that keep a function readable |
 | `references/concurrency.md` | `PS-CONC` (30) | What the GIL guaranteed and no longer does, sharing objects between threads, iterators and generators, caches and context, hold times, starting and owning tasks, cancellation and timeouts, and not blocking the loop |
 | `references/async.md` | `PS-ASYNC` (8) | What only `asyncio` has: the policy API, ending a `TaskGroup` early, the thread boundary of a loop, and async resources and iterators |
-| `references/output.md` | `PS-OUT` (24) | Encoding and UTF-8 mode, interpolation and template strings, logging discipline, stdout against stderr, what a library may not do, colour, how a failure is reported and the exit status, and how a type renders |
-| `references/performance.md` | `PS-PERF` (17) | Measuring with the 3.15 profiling package, complexity before constants, allocation, and what the free-threaded build costs |
+| `references/output.md` | `PS-OUT` (23) | Encoding and UTF-8 mode, interpolation and template strings, logging discipline, stdout against stderr, what a library may not do, colour, how a failure is reported and the exit status, and how a type renders |
+| `references/performance.md` | `PS-PERF` (19) | Measuring with the 3.15 profiling package, complexity before constants, allocation, and what the free-threaded build costs |
 | `references/api.md` | `PS-API` (19) | Declaring the public surface, re-export and `py.typed`, signature and default discipline, the pairs and siblings a surface keeps alike, and evolving without breaking |
 | `references/modules.md` | `PS-MOD` (14) | What a module boundary costs, module and package names, layout under `src/`, what a module does when imported, `lazy import`, the import graph, and the order of a module and a class |
 | `references/documentation.md` | `PS-DOC` (14) | Docstring shape and content, choosing a convention and what that choice disables, doctests, the comments that explain the code, and the documents outside it |

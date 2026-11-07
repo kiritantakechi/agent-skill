@@ -108,7 +108,7 @@ rust-version = "1.99"        # a real, tested MSRV — see RS-BUILD-30
 ### RS-BUILD-02 [S] Choose an MSRV policy and publish it
 
 The policy is one of "latest stable", "stable minus two", or a pinned old version for distribution
-packagers, stated where RS-DOC-34 puts it. Bumping the MSRV is at least a minor version bump.
+packagers, stated where RS-DOC-33 puts it. Bumping the MSRV is at least a minor version bump.
 
 **Why:** downstream users plan around your policy — distribution packagers especially, who may be on
 a toolchain two years old. Publishing the policy converts an unpredictable breakage into a scheduled

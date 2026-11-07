@@ -319,7 +319,7 @@ def _references(skill: Skill, seen: dict[RuleId, str]) -> Iterator[Finding]:
 
 
 #: A rule ID followed by a bare number that leans on it: `ZS-ASSERT-03,
-#: -07 and -20`, or the range `ZS-MEM-16..23`. `renumber` rewrites whole
+#: -07 and -20`, or the range `ZS-PERF-09..23`. `renumber` rewrites whole
 #: IDs only, so the bare ones kept their old numbers and named other
 #: rules. Matched in a block's text, which the document model keeps
 #: whole.

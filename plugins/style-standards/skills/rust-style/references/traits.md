@@ -307,7 +307,7 @@ pub fn count_matching<P: Fn(&str) -> bool>(lines: &[String], predicate: P) -> us
 
 **Why:** a vtable call costs a few nanoseconds and a predictable indirect branch; forty
 monomorphized copies of a large function cost kilobytes of instruction cache. A `Vec` of mixed
-implementations needs `dyn` outright (RS-PERF-26).
+implementations needs `dyn` outright (RS-PERF-25).
 
 **Check:** how many instantiations does this generic actually get? `cargo bloat` will tell you if
 you suspect the answer is "too many".
@@ -795,7 +795,7 @@ clearer anyway.
 `Connection<Idle>` → `Connection<Open>`.
 
 **Why:** it turns "write before connect" from a runtime panic into a compile error, which is
-strictly better when the mistake is expensive and the transitions are few (RS-FUNC-39).
+strictly better when the mistake is expensive and the transitions are few (RS-FUNC-38).
 
 **Check:** does any method start by checking a state flag and erroring? That check is a type.
 

@@ -149,7 +149,7 @@ PROFILE = Profile(
                 "if (std.mem.containsAtLeastScalar(u8, list, 3, 'a')) return;",
                 "if (std.mem.eql(f64, readings, baseline)) return;",
             ),
-            "ZS-CONC-13": ("        _ = splat;",),
+            "ZS-CONC-12": ("        _ = splat;",),
             "ZS-DATA-06": ("const pages = (size_bytes + page_size - 1) / page_size;",),
             "ZS-DATA-12": ("const config = Config{ .port = 8080, .verbose = false };",),
             "ZS-OUT-19": (
@@ -162,12 +162,12 @@ PROFILE = Profile(
             "ZS-ERR-26": ("const first = list.first.?;",),
             "ZS-INTEROP-08": ("fn area(width: c_int, height: c_int) c_int {",),
             "ZS-INTEROP-09": ("const Buffer = struct { data: [*c]u8, len: usize };",),
-            "ZS-COMPTIME-09": ("pub fn Store(comptime Allocator: type) type {",),
-            "ZS-COMPTIME-12": (
+            "ZS-COMPTIME-08": ("pub fn Store(comptime Allocator: type) type {",),
+            "ZS-COMPTIME-11": (
                 "const default = field.default_value_ptr orelse return null;",
             ),
             "ZS-OUT-10": ('try w.print("{:>8}", .{level});',),
-            "ZS-PERF-17": ("@prefetch(&values[i + stride], .{});",),
+            "ZS-PERF-25": ("@prefetch(&values[i + stride], .{});",),
         }
     ),
     # Each of these ships an `rg` pattern that no fixture in `fires`
@@ -180,7 +180,7 @@ PROFILE = Profile(
         "ZS-BUILD-19",
         "ZS-BUILD-30",
         "ZS-BUILD-31",
-        "ZS-COMPTIME-16",
+        "ZS-COMPTIME-15",
         "ZS-MEM-04",
         "ZS-MEM-06",
         "ZS-NAME-13",
@@ -225,7 +225,7 @@ PROFILE = Profile(
                 "the pattern finds every public inferred error set; whether the "
                 "function is `main` decides",
             ),
-            "ZS-PERF-12": NotDecisive(
+            "ZS-PERF-20": NotDecisive(
                 "*Self",
                 "the span finds every `*Self` receiver; whether the helper assigns to "
                 "a field the parent could apply instead decides",

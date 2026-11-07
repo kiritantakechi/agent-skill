@@ -394,10 +394,10 @@ is laundering, which ZS-ERR-16 owns.
 A justified `catch` is on a call that can actually fail. `Io.File.close` is
 `pub fn close(file: File, io: Io) void` — it returns no error at all, so `file.close(io) catch …` is
 `error: expected error union type, found 'void'`. Closing is spelled `defer file.close(io);` with no
-`try` and no `catch` (ZS-CONC-16, ZS-ERR-10).
+`try` and no `catch` (ZS-CONC-15, ZS-ERR-10).
 
 `deleteFile`'s error set contains `Io.Cancelable`, so the GOOD example's `catch` also absorbs
-`error.Canceled`. That is legal only on a path that is already leaving, a distinction ZS-CONC-24
+`error.Canceled`. That is legal only on a path that is already leaving, a distinction ZS-CONC-22
 owns: read it before copying this shape onto a path that continues.
 
 **Why:** Yuan et al. (OSDI '14, *Simple Testing Can Prevent Most Critical Failures*) found that 92%
@@ -407,7 +407,7 @@ the software had already signalled: detected, then thrown away.
 **Check:** `catch {}`, `catch {};`, and `_ = … catch` with no comment on the same or the preceding
 line saying why the failure is genuinely not information. A `catch` that logs and continues is a
 different rule (ZS-ERR-06) and is not a hit here — but if the call took an `io`, it is a hit under
-ZS-CONC-24, which treats log-and-continue as a dropped cancellation.
+ZS-CONC-22, which treats log-and-continue as a dropped cancellation.
 
 ```zig
 // fragment — BAD
@@ -434,7 +434,7 @@ The same shape applies to every acquisition, not just allocation: `Io.File`/`Io.
 (`defer file.close(io)`), `Io.Mutex` (`defer m.unlock(io)`), `Io.Group` (`defer g.cancel(io)`), and
 `Io.Future` (`defer _ = f.cancel(io);`, which is idempotent, so a later `await` still returns the
 result). Where the release itself is fallible or cancelable, use the `*Uncancelable` variant — a
-`defer` body cannot propagate an error (see ZS-CONC-26). What happens once the pair is in place —
+`defer` body cannot propagate an error (see ZS-CONC-24). What happens once the pair is in place —
 the order of teardown, the point ownership transfers, the scope inside a loop — is ZS-ERR-11,
 ZS-ERR-12 and ZS-ERR-13.
 
@@ -1089,8 +1089,8 @@ fn decodeTag(byte: u8) error{ReservedTag}!u8 {
 included.
 
 Where to cut is what the shape rules decide: the control flow stays in the parent (ZS-ERR-23), so
-does the state it manipulates (ZS-PERF-12), and each piece comes out narrow at both ends and wide
-inside (ZS-PERF-13).
+does the state it manipulates (ZS-PERF-20), and each piece comes out narrow at both ends and wide
+inside (ZS-PERF-21).
 
 *Relaxed form:* a function longer than one screen needs a stated reason in a comment — a `switch`
 with one short arm per protocol opcode is the usual honest one.

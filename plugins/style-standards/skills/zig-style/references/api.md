@@ -74,7 +74,7 @@ When a parameter selects behavior rather than supplying data, the function has b
 sharing a body. Split it and let the shared part be a private helper.
 
 **Why:** a mode parameter makes the return type and the error set the union of both modes, so every
-caller handles cases that cannot arise in its mode — the opposite of ZS-DATA-27. Splitting gives
+caller handles cases that cannot arise in its mode — the opposite of ZS-DATA-26. Splitting gives
 each caller a precise signature and makes the shared logic explicit.
 
 **Check:** for each parameter, does the body branch on it at the top level? If the two branches

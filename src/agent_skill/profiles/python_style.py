@@ -107,8 +107,8 @@ PROFILE = Profile(
             # shipped, and matched nothing; this is the line it was
             # written to find.
             "PS-MIG-05": ("if json.__version__ < (2, 0):",),
-            "PS-OUT-16": ("        sys.exit(2)",),
-            "PS-OUT-18": ('RED = "\\x1b[31m"',),
+            "PS-OUT-15": ("        sys.exit(2)",),
+            "PS-OUT-17": ('RED = "\\x1b[31m"',),
             "PS-TYPE-17": ("    @functools.singledispatchmethod",),
         }
     ),
@@ -139,7 +139,7 @@ PROFILE = Profile(
         "PS-CONC-14",
         "PS-CONC-17",
         "PS-CONC-18",
-        "PS-OUT-15",
+        "PS-OUT-14",
         "PS-CONC-19",
         "PS-CONC-20",
         "PS-DATA-01",
@@ -159,11 +159,11 @@ PROFILE = Profile(
         "PS-MOD-08",
         "PS-OUT-02",
         "PS-OUT-03",
-        "PS-OUT-07",
-        "PS-OUT-10",
-        "PS-OUT-12",
-        "PS-OUT-14",
-        "PS-OUT-22",
+        "PS-OUT-06",
+        "PS-OUT-09",
+        "PS-OUT-11",
+        "PS-OUT-13",
+        "PS-OUT-21",
         "PS-PERF-02",
         "PS-PERF-06",
         "PS-PERF-07",
@@ -218,17 +218,17 @@ PROFILE = Profile(
                 "the pattern finds any indented name followed by a parenthesis, which "
                 "matches ordinary prose as readily as a docstring type",
             ),
-            "PS-OUT-14": NotDecisive(
+            "PS-OUT-13": NotDecisive(
                 "is each write part of the result",
                 "the pattern finds every write to standard output; whether the text "
                 "is the result rather than a diagnostic decides",
             ),
-            "PS-OUT-16": NotDecisive(
+            "PS-OUT-15": NotDecisive(
                 "outside the entry point",
                 "the pattern finds every exit call; whether the file is the entry "
                 "point decides, and `main` ends the process by design",
             ),
-            "PS-OUT-18": NotDecisive(
+            "PS-OUT-17": NotDecisive(
                 "outside the one function that decides colour",
                 "the pattern finds every escape sequence; whether it sits behind the "
                 "one function that decides colour is what the rule asks",
@@ -283,7 +283,7 @@ PROFILE = Profile(
                 "the pattern finds every thread start; what the target closes over "
                 "decides, and starting a thread is not itself a defect",
             ),
-            "PS-OUT-15": NotDecisive(
+            "PS-OUT-14": NotDecisive(
                 "inside any thread target",
                 "the pattern finds every `print`; the calling thread decides, and a "
                 "module-level print is not a hit",

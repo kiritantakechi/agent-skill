@@ -998,7 +998,7 @@ section table of the produced binaries):
 | `-fno-llvm` | forces self-hosted | avoid; on aarch64-macos a hello-world did not finish within 90 seconds |
 | `-fnew-linker` / `exe.use_new_linker = true` | emits DWARF and `.eh_frame`; off by default, and not at feature parity with the default linker in 0.17 | do not ship |
 | `-fincremental` | opt-in, off by default, and **implies the new ELF linker** | local iteration only, never in CI or a release |
-| LLVM loop vectorization | **disabled in 0.17.x** (LLVM 22, ZS-PERF-15) | do not micro-tune vector loops against these numbers |
+| LLVM loop vectorization | **disabled in 0.17.x** (LLVM 22, ZS-PERF-23) | do not micro-tune vector loops against these numbers |
 
 Every linker emits full debug information: the example lists the section headers of
 `pub fn main() void {}` built for `x86_64-linux-gnu` each way, where a plain build uses the
@@ -1116,7 +1116,7 @@ test "flags, --, and operands" {
 
 ### ZS-BUILD-33 [S] `.zon` is a usable project config format, not just `build.zig.zon`
 
-A config file you control is ZON before it is JSON, TOML, or YAML; ZS-DATA-40 owns reading it, with
+A config file you control is ZON before it is JSON, TOML, or YAML; ZS-DATA-39 owns reading it, with
 `@import("config.zon")` at comptime or `std.zon.parse` at runtime. Prefer the comptime form for
 anything fixed at build time (feature toggles, table sizes, endpoints per environment). This rule is
 about where the file goes:

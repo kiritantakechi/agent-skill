@@ -303,7 +303,7 @@ Both the unit and the extremum belong at the end, extremum last.
 
 The word has to be *qualifying* a noun to be a hit. Where it **is** the noun it is already
 big-endian and stays: `total_before` / `total_after` name a total taken at two points in time, and
-`before` is the qualifier correctly trailing it — that is the shape ZS-PERF-12's GOOD example uses.
+`before` is the qualifier correctly trailing it — that is the shape ZS-PERF-20's GOOD example uses.
 `total_size_bytes` is the finding because `total` qualifies `size`; `total_before` is not, because
 nothing follows `total` except its own qualifier. Read the name, do not just match the prefix.
 
@@ -434,7 +434,7 @@ arrives later through the methods.
 
 **Why:** a written-out function type puts the contract in the signature, so a mismatched callback
 fails at the call site rather than inside your loop. TigerStyle's "callbacks go last" served
-hand-threaded continuations, which ZS-CONC-41 retires: an `io.async` `Future` is awaited in place.
+hand-threaded continuations, which ZS-CONC-39 retires: an `io.async` `Future` is awaited in place.
 
 **Check:** any new function taking a `comptime …Fn` should be diff-able against a `std.sort`
 signature; if the fn is not adjacent to its `context`, or the data is not before both, it is a

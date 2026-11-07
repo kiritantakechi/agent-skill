@@ -38,20 +38,20 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | Old | Zig 0.17 | Status | Since | Rule |
 |---|---|---|---|---|
 | `usingnamespace` | an explicit re-export, one `pub const` per name: `pub const encode = helpers.encode;`; a declaration once mixed in conditionally is `pub const x = if (cond) a else b;` | gone | 0.15 | ZS-API-02 |
-| `@Type` | `@Int`, `@Tuple`, `@Struct`, `@Union`, `@Enum`, `@Pointer`, `@Fn` or `@EnumLiteral`; a float, array, optional or error set has its own syntax | gone | 0.16 | ZS-COMPTIME-12 |
+| `@Type` | `@Int`, `@Tuple`, `@Struct`, `@Union`, `@Enum`, `@Pointer`, `@Fn` or `@EnumLiteral`; a float, array, optional or error set has its own syntax | gone | 0.16 | ZS-COMPTIME-11 |
 | `@setCold` | `@branchHint(.cold)`, the branch's first statement | gone | 0.14 | ZS-ERR-27 |
 | `@fence` | nothing: strengthen the orderings of the atomic operations it stood between | gone | 0.14 | ZS-MIG-01 |
 | `@setAlignStack` | `callconv(.withStackAlign(.c, n))`, evaluated at `comptime` | gone | 0.14 | ZS-INTEROP-04 |
 | `callconv(.C)` | `callconv(.c)`; `.Naked` is `.naked`, and an x86 `.Stdcall` is `.winapi` or `.{ .x86_stdcall = .{} }` | gone | 0.15 | ZS-INTEROP-04 |
 | `@export(f, …)` | `@export(&f, …)`: the first argument is a pointer | gone | 0.14 | ZS-INTEROP-03 |
-| `@typeInfo(…).Struct` | `@typeInfo(T).@"struct"`; every tag is lowercase: `.int`, `.pointer`, `.comptime_int`, and `.one` for `Size.One` | gone | 0.14 | ZS-COMPTIME-12 |
+| `@typeInfo(…).Struct` | `@typeInfo(T).@"struct"`; every tag is lowercase: `.int`, `.pointer`, `.comptime_int`, and `.one` for `Size.One` | gone | 0.14 | ZS-COMPTIME-11 |
 | `asm volatile (… ::: "…")` | a clobber struct: `::: .{ .rcx = true, .r11 = true }` | gone | 0.15 | ZS-MIG-01 |
-| `v[…]` | on a runtime `@Vector` with a runtime index, copy to an array (`const a: [n]T = v;`), index it, and store back with `v = a;` | gone | 0.16 | ZS-PERF-16 |
+| `v[…]` | on a runtime `@Vector` with a runtime index, copy to an array (`const a: [n]T = v;`), index it, and store back with `v = a;` | gone | 0.16 | ZS-PERF-24 |
 | `pub fn panic` | `pub const panic = std.debug.FullPanic(handler);`, the handler a `fn ([]const u8, ?usize) noreturn` | alias | 0.14 | ZS-INTEROP-17 |
 | `@cImport` | `b.addTranslateC(…)` in `build.zig` and its `.createModule()`, imported as a module | gone | 0.17 | ZS-INTEROP-15 |
 | `@intFromEnum` | `@backingInt`, which also takes a tagged union or a packed type with an explicit backing integer; `zig fmt` rewrites it | alias | 0.17 | ZS-DATA-09 |
 | `@enumFromInt` | `@fromBackingInt`, whose operand already has the backing type, so `@intCast` a wider one first; `zig fmt` rewrites it, wrapping the operand in an `@intCast` that a value of the backing type does not need | alias | 0.17 | ZS-DATA-09 |
-| `**` | `@splat(v)` with a result type: `const a: [n]T = @splat(v);` | gone | 0.17 | ZS-DATA-24 |
+| `**` | `@splat(v)` with a result type: `const a: [n]T = @splat(v);` | gone | 0.17 | ZS-DATA-23 |
 | `void{}` | `{}` | gone | 0.17 | ZS-MIG-01 |
 | `errdefer \|err\|` | the body in an inner function, and at the call `inner() catch \|err\| { …; return err; }` | gone | 0.17 | ZS-ERR-14 |
 | `i0` | `u0` | gone | 0.17 | ZS-MIG-01 |
@@ -59,14 +59,14 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `.link_once` | `.weak` | gone | 0.17 | ZS-INTEROP-03 |
 | `@bitCast` | the same call, which on an array or a vector now reinterprets logical bits independent of endianness, so a big-endian target gets another result; a cast to an enum compiles and is safety-checked like `@fromBackingInt`, and one of an `extern struct` or `extern union` is rejected — `@ptrCast` a pointer to it | changed | 0.17 | ZS-DATA-09 |
 | `@bitSizeOf(…)` | `@sizeOf(T) * 8` for a type that is not `packed`, whose padding `@bitSizeOf` counted: it takes a `packed` type only | gone | 0.17 | ZS-DATA-19 |
-| `@hasDecl` | `false` for a declaration that is not `pub`, even in the same file, with no diagnostic | changed | 0.17 | ZS-COMPTIME-12 |
-| `enum(u8) {}` | `enum(noreturn) {}`: an empty exhaustive enum is backed by `noreturn` | gone | 0.17 | ZS-DATA-26 |
-| `.@"struct".fields` | `.field_names[i]`, `.field_types[i]`, and `.field_attrs[i]` for `@"comptime"`, `@"align"` and `defaultValue(T)`; an enum's are `.field_names` and `.field_values`, with `.mode == .exhaustive` for `is_exhaustive`, and a union's add `.backing_integer` | gone | 0.17 | ZS-COMPTIME-12 |
-| `.decls` | `.decl_names[i]`, on a struct, enum, union or opaque | gone | 0.17 | ZS-COMPTIME-12 |
-| `.@"fn".params` | `.param_types[i]`; `calling_convention` and `is_var_args` are `.attrs.@"callconv"` and `.attrs.varargs` | gone | 0.17 | ZS-COMPTIME-12 |
-| `.pointer.is_const` | `.pointer.attrs.@"const"`; `is_volatile`, `alignment`, `address_space` and `is_allowzero` likewise | gone | 0.17 | ZS-COMPTIME-12 |
-| `std.builtin.Type.Error` | nothing: `@typeInfo(E).error_set` is a struct whose `error_names`, a `?[]const [:0]const u8`, lists the names, and whose `null` still means `anyerror` | gone | 0.17 | ZS-COMPTIME-12 |
-| `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | gone | 0.17 | ZS-COMPTIME-12 |
+| `@hasDecl` | `false` for a declaration that is not `pub`, even in the same file, with no diagnostic | changed | 0.17 | ZS-COMPTIME-11 |
+| `enum(u8) {}` | `enum(noreturn) {}`: an empty exhaustive enum is backed by `noreturn` | gone | 0.17 | ZS-DATA-25 |
+| `.@"struct".fields` | `.field_names[i]`, `.field_types[i]`, and `.field_attrs[i]` for `@"comptime"`, `@"align"` and `defaultValue(T)`; an enum's are `.field_names` and `.field_values`, with `.mode == .exhaustive` for `is_exhaustive`, and a union's add `.backing_integer` | gone | 0.17 | ZS-COMPTIME-11 |
+| `.decls` | `.decl_names[i]`, on a struct, enum, union or opaque | gone | 0.17 | ZS-COMPTIME-11 |
+| `.@"fn".params` | `.param_types[i]`; `calling_convention` and `is_var_args` are `.attrs.@"callconv"` and `.attrs.varargs` | gone | 0.17 | ZS-COMPTIME-11 |
+| `.pointer.is_const` | `.pointer.attrs.@"const"`; `is_volatile`, `alignment`, `address_space` and `is_allowzero` likewise | gone | 0.17 | ZS-COMPTIME-11 |
+| `std.builtin.Type.Error` | nothing: `@typeInfo(E).error_set` is a struct whose `error_names`, a `?[]const [:0]const u8`, lists the names, and whose `null` still means `anyerror` | gone | 0.17 | ZS-COMPTIME-11 |
+| `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | gone | 0.17 | ZS-COMPTIME-11 |
 | `std.io` | `std.Io` | gone | 0.16 | ZS-CONC-05 |
 | `std.io.GenericWriter` | `*std.Io.Writer`, one non-generic struct with the buffer you give it; `AnyWriter` and `std.io.Writer` likewise | gone | 0.16 | ZS-CONC-05 |
 | `std.io.GenericReader` | `*std.Io.Reader`; `AnyReader` and `std.io.Reader` likewise | gone | 0.16 | ZS-CONC-05 |
@@ -97,33 +97,33 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `std.fmt.allocPrint` | `gpa.print(fmt, args)`; `allocPrintSentinel` is `gpa.printSentinel(fmt, args, 0)` | alias | 0.17 | ZS-OUT-11 |
 | `std.fmt.bufPrint` | `std.mem.print`; `bufPrintSentinel` and `BufPrintError` are `std.mem.printSentinel` and `std.mem.PrintError` | alias | 0.17 | ZS-OUT-11 |
 | `std.fmt.bufPrintZ` | `std.mem.printSentinel(buffer, fmt, args, 0)` | gone | 0.17 | ZS-OUT-11 |
-| `std.fs.cwd` | `std.Io.Dir.cwd()`; every `Io.Dir` and `Io.File` method takes `io` after the receiver | gone | 0.16 | ZS-CONC-16 |
-| `std.fs.Dir` | `std.Io.Dir`, each method taking `io` after the receiver; `chmod` and `chown` are `setPermissions` and `setOwner`, and `setAsCwd` is `std.process.setCurrentDir(io, dir)` | gone | 0.16 | ZS-CONC-16 |
-| `std.fs.File` | `std.Io.File`, each method taking `io` after the receiver: `read` and `readv` are `readStreaming`, `pread` and `preadv` `readPositional`, `write`, `writev` and `writeAll` `writeStreaming` and `writeStreamingAll`; its `Mode` is `Io.File.Permissions`, and its `OpenFlags` and `CreateFlags` are `Io.Dir.OpenFileOptions` and `CreateFileOptions` | gone | 0.16 | ZS-CONC-16 |
-| `std.Io.File.OpenFlags` | `std.Io.Dir.OpenFileOptions`; `CreateFlags` is `Io.Dir.CreateFileOptions` and `OpenMode` is `Io.Dir.OpenFileOptions.Mode` | gone | 0.17 | ZS-CONC-16 |
-| `std.fs.MAX_PATH_BYTES` | `std.Io.Dir.max_path_bytes` | gone | 0.14 | ZS-CONC-16 |
-| `std.fs.path` | `std.Io.Dir.path` | alias | 0.16 | ZS-CONC-16 |
-| `std.fs.max_path_bytes` | `std.Io.Dir.max_path_bytes` | alias | 0.16 | ZS-CONC-16 |
-| `std.fs.max_name_bytes` | `std.Io.Dir.max_name_bytes` | alias | 0.16 | ZS-CONC-16 |
-| `std.fs.base64_alphabet` | `std.base64.url_safe_alphabet_chars` | alias | 0.16 | ZS-CONC-16 |
-| `std.fs.base64_encoder` | `std.base64.url_safe.Encoder` | alias | 0.16 | ZS-CONC-16 |
-| `std.fs.base64_decoder` | `std.base64.url_safe.Decoder` | alias | 0.16 | ZS-CONC-16 |
-| `makeDir` | `dir.createDir(io, path, permissions)` | gone | 0.16 | ZS-CONC-16 |
-| `makePath` | `dir.createDirPath(io, path)` | gone | 0.16 | ZS-CONC-16 |
-| `makeOpenPath` | `dir.createDirPathOpen(io, path, options)` | gone | 0.16 | ZS-CONC-16 |
-| `realpathAlloc` | `dir.realPathFileAlloc(io, path, gpa)`, a `[:0]u8`; `dir.realpath` is `dir.realPathFile(io, path, &out)`, which returns a length, not a slice | gone | 0.16 | ZS-CONC-16 |
-| `std.fs.realpath` | `std.Io.Dir.realPathFileAbsolute(io, path, &out)`, or its `…Alloc` form | gone | 0.16 | ZS-CONC-16 |
-| `getEndPos` | `file.length(io)`; `setEndPos` is `file.setLength(io, n)` | gone | 0.16 | ZS-CONC-16 |
-| `setAsCwd` | `std.process.setCurrentDir(io, dir)` | gone | 0.16 | ZS-CONC-16 |
-| `std.fs.openSelfExe` | `std.process.openExecutable(io, flags)` | gone | 0.16 | ZS-CONC-16 |
-| `std.fs.selfExePath` | `std.process.executablePath(io, buffer)`; `selfExePathAlloc` likewise | gone | 0.16 | ZS-CONC-16 |
-| `std.fs.selfExeDirPath` | `std.process.executableDirPath(io, buffer)`; `selfExeDirPathAlloc` likewise | gone | 0.16 | ZS-CONC-16 |
-| `std.fs.getAppDataDir` | nothing in std | gone | 0.16 | ZS-CONC-16 |
-| `std.net` | `std.Io.net` | gone | 0.16 | ZS-CONC-43 |
+| `std.fs.cwd` | `std.Io.Dir.cwd()`; every `Io.Dir` and `Io.File` method takes `io` after the receiver | gone | 0.16 | ZS-CONC-15 |
+| `std.fs.Dir` | `std.Io.Dir`, each method taking `io` after the receiver; `chmod` and `chown` are `setPermissions` and `setOwner`, and `setAsCwd` is `std.process.setCurrentDir(io, dir)` | gone | 0.16 | ZS-CONC-15 |
+| `std.fs.File` | `std.Io.File`, each method taking `io` after the receiver: `read` and `readv` are `readStreaming`, `pread` and `preadv` `readPositional`, `write`, `writev` and `writeAll` `writeStreaming` and `writeStreamingAll`; its `Mode` is `Io.File.Permissions`, and its `OpenFlags` and `CreateFlags` are `Io.Dir.OpenFileOptions` and `CreateFileOptions` | gone | 0.16 | ZS-CONC-15 |
+| `std.Io.File.OpenFlags` | `std.Io.Dir.OpenFileOptions`; `CreateFlags` is `Io.Dir.CreateFileOptions` and `OpenMode` is `Io.Dir.OpenFileOptions.Mode` | gone | 0.17 | ZS-CONC-15 |
+| `std.fs.MAX_PATH_BYTES` | `std.Io.Dir.max_path_bytes` | gone | 0.14 | ZS-CONC-15 |
+| `std.fs.path` | `std.Io.Dir.path` | alias | 0.16 | ZS-CONC-15 |
+| `std.fs.max_path_bytes` | `std.Io.Dir.max_path_bytes` | alias | 0.16 | ZS-CONC-15 |
+| `std.fs.max_name_bytes` | `std.Io.Dir.max_name_bytes` | alias | 0.16 | ZS-CONC-15 |
+| `std.fs.base64_alphabet` | `std.base64.url_safe_alphabet_chars` | alias | 0.16 | ZS-CONC-15 |
+| `std.fs.base64_encoder` | `std.base64.url_safe.Encoder` | alias | 0.16 | ZS-CONC-15 |
+| `std.fs.base64_decoder` | `std.base64.url_safe.Decoder` | alias | 0.16 | ZS-CONC-15 |
+| `makeDir` | `dir.createDir(io, path, permissions)` | gone | 0.16 | ZS-CONC-15 |
+| `makePath` | `dir.createDirPath(io, path)` | gone | 0.16 | ZS-CONC-15 |
+| `makeOpenPath` | `dir.createDirPathOpen(io, path, options)` | gone | 0.16 | ZS-CONC-15 |
+| `realpathAlloc` | `dir.realPathFileAlloc(io, path, gpa)`, a `[:0]u8`; `dir.realpath` is `dir.realPathFile(io, path, &out)`, which returns a length, not a slice | gone | 0.16 | ZS-CONC-15 |
+| `std.fs.realpath` | `std.Io.Dir.realPathFileAbsolute(io, path, &out)`, or its `…Alloc` form | gone | 0.16 | ZS-CONC-15 |
+| `getEndPos` | `file.length(io)`; `setEndPos` is `file.setLength(io, n)` | gone | 0.16 | ZS-CONC-15 |
+| `setAsCwd` | `std.process.setCurrentDir(io, dir)` | gone | 0.16 | ZS-CONC-15 |
+| `std.fs.openSelfExe` | `std.process.openExecutable(io, flags)` | gone | 0.16 | ZS-CONC-15 |
+| `std.fs.selfExePath` | `std.process.executablePath(io, buffer)`; `selfExePathAlloc` likewise | gone | 0.16 | ZS-CONC-15 |
+| `std.fs.selfExeDirPath` | `std.process.executableDirPath(io, buffer)`; `selfExeDirPathAlloc` likewise | gone | 0.16 | ZS-CONC-15 |
+| `std.fs.getAppDataDir` | nothing in std | gone | 0.16 | ZS-CONC-15 |
+| `std.net` | `std.Io.net` | gone | 0.16 | ZS-CONC-41 |
 | `error.RenameAcrossMountPoints` | `error.CrossDevice`, as is `error.NotSameFileSystem`: std returns neither name, so a comparison with it is never true | changed | 0.16 | ZS-ERR-07 |
 | `error.SharingViolation` | `error.FileBusy`: std returns the old name no more, so a comparison with it is never true | changed | 0.16 | ZS-ERR-07 |
 | `error.EnvironmentVariableNotFound` | `error.EnvironmentVariableMissing`: std returns the old name no more, so a comparison with it is never true | changed | 0.16 | ZS-ERR-07 |
-| `error.PathAlreadyExists` | what `rename` onto a directory that is not empty no longer returns: it returns `error.DirNotEmpty` | changed | 0.16 | ZS-CONC-19 |
+| `error.PathAlreadyExists` | what `rename` onto a directory that is not empty no longer returns: it returns `error.DirNotEmpty` | changed | 0.16 | ZS-CONC-18 |
 | `mem.indexOf` | `mem.find` | alias | 0.16 | ZS-MIG-01 |
 | `mem.indexOfPos` | `mem.findPos` | alias | 0.16 | ZS-MIG-01 |
 | `mem.indexOfPosLinear` | `mem.findPosLinear` | alias | 0.16 | ZS-MIG-01 |
@@ -143,7 +143,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `mem.indexOfMin` | `mem.findMin` | alias | 0.16 | ZS-MIG-01 |
 | `mem.indexOfMax` | `mem.findMax` | alias | 0.16 | ZS-MIG-01 |
 | `mem.indexOfMinMax` | `mem.findMinMax` | alias | 0.16 | ZS-MIG-01 |
-| `std.ascii.indexOfIgnoreCase` | `std.ascii.findIgnoreCase`; the `Pos` and `PosLinear` forms likewise | gone | 0.17 | ZS-DATA-37 |
+| `std.ascii.indexOfIgnoreCase` | `std.ascii.findIgnoreCase`; the `Pos` and `PosLinear` forms likewise | gone | 0.17 | ZS-DATA-36 |
 | `std.mem.containsAtLeastScalar` | the same name with its last two parameters swapped, `(T, list, element, minimum)`: for an integer `T` a 0.16 call type-checks and asks another question | changed | 0.17 | ZS-MIG-01 |
 | `std.mem.containsAtLeastScalar2` | `std.mem.containsAtLeastScalar(T, list, element, minimum)` | gone | 0.17 | ZS-MIG-01 |
 | `std.mem.readPackedIntNative` | `std.mem.readPackedInt(T, bytes, bit_offset, .native)`; `readPackedIntForeign` takes `.foreign` | gone | 0.17 | ZS-MIG-01 |
@@ -152,20 +152,20 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `std.mem.eql` | on a float slice holding NaN, `false` for the slice compared with itself: the same slice no longer short-circuits; `findDiff` likewise | changed | 0.17 | ZS-MIG-01 |
 | `std.mem.tokenize` | `tokenizeScalar`, `tokenizeAny` or `tokenizeSequence` | gone | 0.14 | ZS-MIG-01 |
 | `std.mem.split` | `splitScalar`, `splitAny` or `splitSequence`; `splitBackwards` likewise | gone | 0.14 | ZS-MIG-01 |
-| `std.mem.page_size` | `std.heap.page_size_min`, `page_size_max` or `pageSize()` | gone | 0.14 | ZS-MEM-21 |
-| `std.mem.copyForwards` | `@memmove(dest[0..source.len], source)`; `copyBackwards` likewise | alias | 0.15 | ZS-MEM-22 |
+| `std.mem.page_size` | `std.heap.page_size_min`, `page_size_max` or `pageSize()` | gone | 0.14 | ZS-MEM-19 |
+| `std.mem.copyForwards` | `@memmove(dest[0..source.len], source)`; `copyBackwards` likewise | alias | 0.15 | ZS-MEM-20 |
 | `std.ArrayList(…).init(…)` | `var list: std.ArrayList(T) = .empty;`, the allocator passed to every method that allocates and to `deinit` | gone | 0.15 | ZS-DATA-13 |
 | `std.ArrayListUnmanaged` | `std.ArrayList` | alias | 0.15 | ZS-DATA-13 |
 | `std.ArrayListAligned` | `std.array_list.Aligned(T, alignment)`; `ArrayListAlignedUnmanaged` likewise | alias | 0.15 | ZS-DATA-13 |
 | `std.array_list.Managed` | `std.ArrayList`, with the allocator per call; `array_list.AlignedManaged` likewise | alias | 0.15 | ZS-DATA-13 |
-| `std.BoundedArray` | `var list: std.ArrayList(T) = .initBuffer(&buffer);`, then `appendBounded` where `BoundedArray` returned an error, and `appendAssumeCapacity` where the capacity is proved | gone | 0.15 | ZS-DATA-23 |
+| `std.BoundedArray` | `var list: std.ArrayList(T) = .initBuffer(&buffer);`, then `appendBounded` where `BoundedArray` returned an error, and `appendAssumeCapacity` where the capacity is proved | gone | 0.15 | ZS-DATA-22 |
 | `std.ArrayHashMap` | `std.array_hash_map.Custom` | gone | 0.16 | ZS-DATA-13 |
 | `std.AutoArrayHashMap` | `std.array_hash_map.Auto` | gone | 0.16 | ZS-DATA-13 |
 | `std.StringArrayHashMap` | `std.array_hash_map.String` | gone | 0.16 | ZS-DATA-13 |
 | `std.ArrayHashMapUnmanaged` | `std.array_hash_map.Custom` | alias | 0.16 | ZS-DATA-13 |
 | `std.AutoArrayHashMapUnmanaged` | `std.array_hash_map.Auto` | alias | 0.16 | ZS-DATA-13 |
 | `std.StringArrayHashMapUnmanaged` | `std.array_hash_map.String` | alias | 0.16 | ZS-DATA-13 |
-| `std.SegmentedList` | `std.heap.MemoryPool(T)` for stable addresses, or indices into a list | gone | 0.16 | ZS-DATA-23 |
+| `std.SegmentedList` | `std.heap.MemoryPool(T)` for stable addresses, or indices into a list | gone | 0.16 | ZS-DATA-22 |
 | `std.TailQueue` | `std.DoublyLinkedList`, intrusive: a `Node` field recovered with `@fieldParentPtr` | gone | 0.14 | ZS-MEM-13 |
 | `std.ComptimeStringMap` | `std.StaticStringMap` | gone | 0.13 | ZS-MIG-01 |
 | `std.heap.MemoryPoolAligned` | `std.heap.memory_pool.Aligned`; `MemoryPoolExtra` and `MemoryPoolOptions` are `memory_pool.Extra` and `memory_pool.Options` | gone | 0.17 | ZS-MEM-13 |
@@ -190,24 +190,24 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `std.process.getEnvVarOwned` | `init.environ_map.get(key)`, a borrowed `?[]const u8`; or `try init.minimal.environ.getAlloc(gpa, key)`, which the caller frees and which fails with `error.EnvironmentVariableMissing` | gone | 0.16 | ZS-MEM-01 |
 | `std.posix.getenv` | `init.environ_map.get(key)`; on POSIX, `init.minimal.environ.getPosix(key)`, a `?[:0]const u8` read without allocating | gone | 0.16 | ZS-MEM-01 |
 | `std.process.hasEnvVar` | `init.environ_map.contains(key)`, or `try init.minimal.environ.contains(gpa, key)`; `hasEnvVarConstant(key)` is `init.minimal.environ.containsConstant(key)` | gone | 0.16 | ZS-MEM-01 |
-| `std.ChildProcess` | `std.process.spawn(io, .{ .argv = …, .stdout = .pipe })` | gone | 0.13 | ZS-CONC-46 |
-| `std.process.Child.init` | `std.process.spawn(io, .{ .argv = …, .stdout = .pipe })`, which spawns as well | gone | 0.16 | ZS-CONC-46 |
-| `std.process.Child.run` | `std.process.run(gpa, io, options)` | gone | 0.16 | ZS-CONC-46 |
-| `std.process.execv` | `std.process.replace(io, .{ .argv = … })` | gone | 0.16 | ZS-CONC-46 |
-| `std.process.spawnPath` | `std.process.spawn(io, .{ .exe = .{ .path = dir }, … })`; `replacePath` is `replace` with the same `.exe` | gone | 0.17 | ZS-CONC-46 |
-| `std.Thread.Mutex` | `std.Io.Mutex` | gone | 0.16 | ZS-CONC-28 |
-| `std.Thread.Condition` | `std.Io.Condition` | gone | 0.16 | ZS-CONC-28 |
-| `std.Thread.ResetEvent` | `std.Io.Event` | gone | 0.16 | ZS-CONC-28 |
-| `std.Thread.Semaphore` | `std.Io.Semaphore` | gone | 0.16 | ZS-CONC-28 |
-| `std.Thread.RwLock` | `std.Io.RwLock` | gone | 0.16 | ZS-CONC-28 |
-| `std.Thread.Futex` | `io.futexWait` and `io.futexWake`; there is no `Io.Futex` type | gone | 0.16 | ZS-CONC-28 |
-| `std.Thread.WaitGroup` | `std.Io.Group` | gone | 0.16 | ZS-CONC-23 |
-| `std.Thread.Pool` | `io.async` and `Io.Group`; `Io.Threaded`'s `async_limit` is the pool size | gone | 0.16 | ZS-CONC-23 |
-| `std.once` | nothing in std | gone | 0.16 | ZS-CONC-28 |
-| `std.time.Timer` | `std.Io.Timestamp`, read from an `Io.Clock`; `std.time` holds unit constants and `epoch` | gone | 0.16 | ZS-CONC-31 |
-| `std.time.Instant` | `std.Io.Timestamp` | gone | 0.16 | ZS-CONC-31 |
-| `std.time.timestamp` | `std.Io.Timestamp.now(io, clock)`; `milliTimestamp` and `nanoTimestamp` likewise | gone | 0.16 | ZS-CONC-31 |
-| `std.time.sleep` | `io.sleep(duration, clock)`, the duration an `Io.Duration` such as `.fromMilliseconds(10)` | gone | 0.15 | ZS-CONC-31 |
+| `std.ChildProcess` | `std.process.spawn(io, .{ .argv = …, .stdout = .pipe })` | gone | 0.13 | ZS-CONC-44 |
+| `std.process.Child.init` | `std.process.spawn(io, .{ .argv = …, .stdout = .pipe })`, which spawns as well | gone | 0.16 | ZS-CONC-44 |
+| `std.process.Child.run` | `std.process.run(gpa, io, options)` | gone | 0.16 | ZS-CONC-44 |
+| `std.process.execv` | `std.process.replace(io, .{ .argv = … })` | gone | 0.16 | ZS-CONC-44 |
+| `std.process.spawnPath` | `std.process.spawn(io, .{ .exe = .{ .path = dir }, … })`; `replacePath` is `replace` with the same `.exe` | gone | 0.17 | ZS-CONC-44 |
+| `std.Thread.Mutex` | `std.Io.Mutex` | gone | 0.16 | ZS-CONC-26 |
+| `std.Thread.Condition` | `std.Io.Condition` | gone | 0.16 | ZS-CONC-26 |
+| `std.Thread.ResetEvent` | `std.Io.Event` | gone | 0.16 | ZS-CONC-26 |
+| `std.Thread.Semaphore` | `std.Io.Semaphore` | gone | 0.16 | ZS-CONC-26 |
+| `std.Thread.RwLock` | `std.Io.RwLock` | gone | 0.16 | ZS-CONC-26 |
+| `std.Thread.Futex` | `io.futexWait` and `io.futexWake`; there is no `Io.Futex` type | gone | 0.16 | ZS-CONC-26 |
+| `std.Thread.WaitGroup` | `std.Io.Group` | gone | 0.16 | ZS-CONC-21 |
+| `std.Thread.Pool` | `io.async` and `Io.Group`; `Io.Threaded`'s `async_limit` is the pool size | gone | 0.16 | ZS-CONC-21 |
+| `std.once` | nothing in std | gone | 0.16 | ZS-CONC-26 |
+| `std.time.Timer` | `std.Io.Timestamp`, read from an `Io.Clock`; `std.time` holds unit constants and `epoch` | gone | 0.16 | ZS-CONC-29 |
+| `std.time.Instant` | `std.Io.Timestamp` | gone | 0.16 | ZS-CONC-29 |
+| `std.time.timestamp` | `std.Io.Timestamp.now(io, clock)`; `milliTimestamp` and `nanoTimestamp` likewise | gone | 0.16 | ZS-CONC-29 |
+| `std.time.sleep` | `io.sleep(duration, clock)`, the duration an `Io.Duration` such as `.fromMilliseconds(10)` | gone | 0.15 | ZS-CONC-29 |
 | `std.crypto.random` | `io.random(&buffer)`, or `io.randomSecure(&buffer)` where the entropy must be guaranteed | gone | 0.16 | ZS-TEST-20 |
 | `std.posix.getrandom` | `io.random(&buffer)`, or `io.randomSecure(&buffer)` | gone | 0.16 | ZS-TEST-20 |
 | `crypto_always_getrandom` | nothing: `io.randomSecure`; `crypto_fork_safety` likewise | gone | 0.16 | ZS-TEST-20 |
@@ -218,14 +218,14 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `std.debug.walkStackWindows` | `std.debug.captureCurrentStackTrace`; `writeStackTraceWindows` is `writeCurrentStackTrace` | gone | 0.16 | ZS-ERR-30 |
 | `std.debug.StackIterator` | nothing public: `captureCurrentStackTrace` | gone | 0.16 | ZS-ERR-30 |
 | `std.debug.runtime_safety` | `@import("builtin").optimize.runtimeSafety()`: your module's mode, where `runtime_safety` reports std's | alias | 0.14 | ZS-ASSERT-16 |
-| `std.meta.Int` | `@Int(signedness, bits)` | gone | 0.17 | ZS-COMPTIME-12 |
-| `std.meta.Tuple` | `@Tuple(types)` | gone | 0.17 | ZS-COMPTIME-12 |
-| `std.meta.declList` | `@typeInfo(T)`'s `decl_names` | gone | 0.16 | ZS-COMPTIME-12 |
-| `std.meta.fields` | `@typeInfo(T)` | gone | 0.17 | ZS-COMPTIME-12 |
-| `std.meta.declarationInfo` | `@hasDecl`, and `@typeInfo(T)` | gone | 0.17 | ZS-COMPTIME-12 |
-| `std.meta.declarations` | the same name, now returning the declarations' names, a `[]const [:0]const u8`, where it returned `[]const Declaration` | changed | 0.17 | ZS-COMPTIME-12 |
-| `std.meta.fieldInfo` | `@typeInfo(T)`; `fieldNames` is its `field_names` | alias | 0.17 | ZS-COMPTIME-12 |
-| `std.meta.fieldNames` | `@typeInfo(T)`'s `field_names` | alias | 0.17 | ZS-COMPTIME-12 |
+| `std.meta.Int` | `@Int(signedness, bits)` | gone | 0.17 | ZS-COMPTIME-11 |
+| `std.meta.Tuple` | `@Tuple(types)` | gone | 0.17 | ZS-COMPTIME-11 |
+| `std.meta.declList` | `@typeInfo(T)`'s `decl_names` | gone | 0.16 | ZS-COMPTIME-11 |
+| `std.meta.fields` | `@typeInfo(T)` | gone | 0.17 | ZS-COMPTIME-11 |
+| `std.meta.declarationInfo` | `@hasDecl`, and `@typeInfo(T)` | gone | 0.17 | ZS-COMPTIME-11 |
+| `std.meta.declarations` | the same name, now returning the declarations' names, a `[]const [:0]const u8`, where it returned `[]const Declaration` | changed | 0.17 | ZS-COMPTIME-11 |
+| `std.meta.fieldInfo` | `@typeInfo(T)`; `fieldNames` is its `field_names` | alias | 0.17 | ZS-COMPTIME-11 |
+| `std.meta.fieldNames` | `@typeInfo(T)`'s `field_names` | alias | 0.17 | ZS-COMPTIME-11 |
 | `std.meta.intToEnum` | `std.enums.fromInt(E, n)`, which returns `?E` | gone | 0.16 | ZS-INTEROP-02 |
 | `std.builtin` | `std.lang`: `std.builtin.Type` is `std.lang.Type`, `CallingConvention` `std.lang.CallingConvention`, and so for every member | alias | 0.17 | ZS-MIG-01 |
 | `std.builtin.OptimizeMode` | `std.lang.Optimize` | alias | 0.17 | ZS-ASSERT-04 |
@@ -247,7 +247,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `b.build_root` | `b.root`, a `Cache.Path` | gone | 0.17 | ZS-MIG-01 |
 | `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | gone | 0.17 | ZS-BUILD-22 |
 | `lazyDependency` | `b.dependency(name, args)`, which fetches a lazy package itself, or `try b.dependencyLazy(name, args)` to fetch several at once | alias | 0.17 | ZS-BUILD-13 |
-| `b.reference_trace` | `zig build -freference-trace=n` | gone | 0.17 | ZS-COMPTIME-16 |
+| `b.reference_trace` | `zig build -freference-trace=n` | gone | 0.17 | ZS-COMPTIME-15 |
 | `std.Build.LazyPath.getPath` | nothing: the configure phase resolves no path, so the `LazyPath` goes to the step that reads it; `getPath2`, `getPath3` and `getPath4` likewise | gone | 0.17 | ZS-MIG-01 |
 | `std.Build.GeneratedFile` | nothing: a step's output is a `LazyPath` | gone | 0.17 | ZS-MIG-01 |
 | `getDisplayName` | `{f}` on the `LazyPath` | alias | 0.17 | ZS-MIG-01 |
@@ -285,13 +285,13 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `.name = "…"` | `.name = .myproject` in `build.zig.zon`, an enum literal; `build.zig` still takes a string | gone | 0.14 | ZS-BUILD-09 |
 | `std.tar.PipeOptions` | `std.tar.ExtractOptions` | alias | 0.16 | ZS-MIG-01 |
 | `std.tar.pipeToFileSystem` | `std.tar.extract(io, dir, reader, options)`, which it is an alias of | alias | 0.16 | ZS-MIG-01 |
-| `std.unicode.utf8Decode` | `std.unicode.Utf8View` to iterate, or `utf8ByteSequenceLength` and then `utf8Decode2`, `utf8Decode3` or `utf8Decode4` for one codepoint | alias | 0.14 | ZS-DATA-35 |
-| `std.unicode.wtf8Decode` | `std.unicode.Wtf8View` to iterate, or `utf8ByteSequenceLength` and then `utf8Decode2`, `utf8Decode3AllowSurrogateHalf` or `utf8Decode4` | alias | 0.14 | ZS-DATA-36 |
+| `std.unicode.utf8Decode` | `std.unicode.Utf8View` to iterate, or `utf8ByteSequenceLength` and then `utf8Decode2`, `utf8Decode3` or `utf8Decode4` for one codepoint | alias | 0.14 | ZS-DATA-34 |
+| `std.unicode.wtf8Decode` | `std.unicode.Wtf8View` to iterate, or `utf8ByteSequenceLength` and then `utf8Decode2`, `utf8Decode3AllowSurrogateHalf` or `utf8Decode4` | alias | 0.14 | ZS-DATA-35 |
 | `std.zig.CrossTarget` | `std.Target.Query` | gone | 0.14 | ZS-INTEROP-18 |
 | `std.Target.SubSystem` | `std.zig.Subsystem`; `builtin.subsystem` has no replacement | gone | 0.17 | ZS-INTEROP-18 |
-| `std.math.sign` | the same name, now returning the narrowest integer that holds `-1`, `0` and `1`, not the argument's type | changed | 0.15 | ZS-DATA-38 |
-| `std.zon.parse.fromSliceAlloc` | `std.zon.parse.fromSlice(T, .{ .gpa = gpa, .arena = arena, .source = source, .diagnostics = &diag })`, which allocates the result into `.arena`; the form that allocates nothing is `fromSliceNoAlloc` | gone | 0.17 | ZS-DATA-40 |
-| `std.zon.parse.free` | nothing: the result lives in the arena `fromSlice` was given | gone | 0.17 | ZS-DATA-40 |
+| `std.math.sign` | the same name, now returning the narrowest integer that holds `-1`, `0` and `1`, not the argument's type | changed | 0.15 | ZS-DATA-37 |
+| `std.zon.parse.fromSliceAlloc` | `std.zon.parse.fromSlice(T, .{ .gpa = gpa, .arena = arena, .source = source, .diagnostics = &diag })`, which allocates the result into `.arena`; the form that allocates nothing is `fromSliceNoAlloc` | gone | 0.17 | ZS-DATA-39 |
+| `std.zon.parse.free` | nothing: the result lives in the arena `fromSlice` was given | gone | 0.17 | ZS-DATA-39 |
 | `readAlloc` | `reader.readAllocAll` | alias | 0.17 | ZS-CONC-11 |
 | `path.resolve` | `path.resolveAlloc` | alias | 0.17 | ZS-MIG-01 |
 | `path.relative` | `path.relativeAlloc` | alias | 0.17 | ZS-MIG-01 |
@@ -299,7 +299,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `path.resolveWindows` | `path.resolveAllocWindows` | alias | 0.17 | ZS-MIG-01 |
 | `path.relativePosix` | `path.relativeAllocPosix` | alias | 0.17 | ZS-MIG-01 |
 | `path.relativeWindows` | `path.relativeAllocWindows` | alias | 0.17 | ZS-MIG-01 |
-| `std.Uri.getHost` | `std.Io.net.HostName.fromUri(uri, &buffer)`, which validates the name | gone | 0.17 | ZS-CONC-43 |
+| `std.Uri.getHost` | `std.Io.net.HostName.fromUri(uri, &buffer)`, which validates the name | gone | 0.17 | ZS-CONC-41 |
 | `std.gpu` | `std.spirv` | gone | 0.17 | ZS-MIG-01 |
 | `isAARCH64` | `isAarch64` | alias | 0.17 | ZS-INTEROP-18 |
 | `isMIPS` | `isMips` | alias | 0.17 | ZS-INTEROP-18 |

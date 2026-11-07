@@ -583,7 +583,7 @@ def _contents_swapped(tree: Path) -> Edited:
 
 
 def _orphan_exemption(tree: Path) -> Edited:
-    """`RS-PERF-07`'s Check unlabelled: its exemption claims nothing."""
+    """`RS-PERF-08`'s Check unlabelled: its exemption claims nothing."""
     return edit(
         tree,
         f"{RS}/references/performance.md",
@@ -1603,9 +1603,9 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             f"{ZS}/references/data.md",
-            "ZS-DATA-27 [M] Return the lowest-dimensionality type "
+            "ZS-DATA-26 [M] Return the lowest-dimensionality type "
             "that can carry the answer",
-            "ZS-DATA-27 [M] Reference long-lived elements by handle, not by pointer",
+            "ZS-DATA-26 [M] Reference long-lived elements by handle, not by pointer",
             2,
         ),
     ),

@@ -10,13 +10,13 @@ about wire and disk layout the assertions chapter's.
 
 Every abstraction costs something, and in Zig the cost is concrete: a comptime abstraction costs
 binary size and compile time, a vtable costs an indirect call and an optimization barrier. Choosing
-the shape is ZS-TYPE-01's; ZS-COMPTIME-10 keeps the cost from becoming damage: if a `comptime`
+the shape is ZS-TYPE-01's; ZS-COMPTIME-09 keeps the cost from becoming damage: if a `comptime`
 parameter is being bent to make an interface fit, the interface is wrong and the fallback is a
 concrete type.
 
 std chose the other way for its three central abstractions: `std.mem.Allocator`, `std.Io` and
 `std.Io.Writer`/`Reader` are runtime vtables, trading static dispatch for storability, ABI stability
-and one compiled copy of every consumer, which is why ZS-COMPTIME-09 takes them as runtime
+and one compiled copy of every consumer, which is why ZS-COMPTIME-08 takes them as runtime
 interfaces. TigerBeetle, which predates `std.Io`, parameterizes its whole storage and replica stack
 on comptime types instead, so every call is direct.
 
@@ -28,18 +28,18 @@ Each symptom below, and the rule it breaks:
 
 | Symptom | Rule |
 |---|---|
-| `fn F(comptime T: type)` with one caller ever | ZS-COMPTIME-10 |
+| `fn F(comptime T: type)` with one caller ever | ZS-COMPTIME-09 |
 | `comptime` keyword at container scope | the compiler (Decided by tools) |
 | `inline fn` on a non-trivial function | ZS-COMPTIME-03 |
 | `inline for` over a homogeneous array | ZS-COMPTIME-04 |
 | `@setEvalBranchQuota(1000000)` | ZS-COMPTIME-05 |
-| Generic over the allocator or writer type | ZS-COMPTIME-09 |
+| Generic over the allocator or writer type | ZS-COMPTIME-08 |
 | Bare `anytype` in a `pub fn` | ZS-TYPE-04, ZS-TYPE-05 |
-| `@Type(...)`, `std.meta.Int`, `std.meta.Tuple` | ZS-COMPTIME-12 |
-| `@typeInfo(T).Struct`, `.@"struct".fields`, a raw `default_value_ptr` | ZS-COMPTIME-12 |
+| `@Type(...)`, `std.meta.Int`, `std.meta.Tuple` | ZS-COMPTIME-11 |
+| `@typeInfo(T).Struct`, `.@"struct".fields`, a raw `default_value_ptr` | ZS-COMPTIME-11 |
 | Hand-rolled vtable for a closed set of impls | ZS-TYPE-02 |
 | `usingnamespace` | ZS-API-02 |
-| `error: unable to resolve comptime value` with no visible cause | ZS-COMPTIME-16 |
+| `error: unable to resolve comptime value` with no visible cause | ZS-COMPTIME-15 |
 
 ## Contents
 
@@ -53,19 +53,18 @@ Each symptom below, and the rule it breaks:
 - **Generic type functions**
   - ZS-COMPTIME-06 [M] Write `comptime` on the type parameters of a type function
   - ZS-COMPTIME-07 [M!] Validate a caller's comptime parameters with `@compileError`, before any use
-  - ZS-COMPTIME-08 [S] Non-generic core, generic wrapper of `inline fn` shims
-  - ZS-COMPTIME-09 [M] Consume the std interface; never parameterize over it
-  - ZS-COMPTIME-10 [M] A `comptime` parameter the body does not depend on is a bug
+  - ZS-COMPTIME-08 [M] Consume the std interface; never parameterize over it
+  - ZS-COMPTIME-09 [M] A `comptime` parameter the body does not depend on is a bug
 - **`anytype`**
-  - ZS-COMPTIME-11 [S] Use `anytype` where std uses it, and constrain it with `std.meta` predicates
+  - ZS-COMPTIME-10 [S] Use `anytype` where std uses it, and constrain it with `std.meta` predicates
 - **Type introspection**
-  - ZS-COMPTIME-12 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
+  - ZS-COMPTIME-11 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
 - **Interfaces**
-  - ZS-COMPTIME-13 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
-  - ZS-COMPTIME-14 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
-  - ZS-COMPTIME-15 [S] Give vtable members defaults so implementations only override what they must
+  - ZS-COMPTIME-12 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
+  - ZS-COMPTIME-13 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
+  - ZS-COMPTIME-14 [S] Give vtable members defaults so implementations only override what they must
 - **Debugging comptime**
-  - ZS-COMPTIME-16 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
+  - ZS-COMPTIME-15 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
 - Decided by tools
 
 ---
@@ -135,9 +134,9 @@ three uses it addresses: (a) ensuring certain stack frames are in the call stack
 for integrating with assembly, (b) forcing comptime-known arguments to propagate to the return
 value, and (c) working around limitations of a compiler backend. Otherwise let the optimizer decide.
 Deviating needs a comment naming which of the three applies. Speed is not one of them: a performance
-`inline` rests on a measurement the comment cites (ZS-PERF-21). The one-line forwarding shims of
-ZS-COMPTIME-08 are a sanction of their own, without a fresh measurement, because there the `inline`
-is what makes the type-erased core cost what the monomorphized version would.
+`inline` rests on a measurement the comment cites (ZS-PERF-29). The one-line forwarding shims of
+ZS-PERF-15 are a sanction of their own, without a fresh measurement, because there the `inline` is
+what makes the type-erased core cost what the monomorphized version would.
 
 At an `inline fn` call site, comptime-known arguments are treated as comptime parameters, which no
 `@inlineCall`-style hint can achieve.
@@ -366,82 +365,7 @@ pub fn Queue(comptime T: type) type {
 }
 ```
 
-### ZS-COMPTIME-08 [S] Non-generic core, generic wrapper of `inline fn` shims
-
-For a generic container, write the data structure once over type-erased links or bytes, then wrap it
-in a thin `fn Foo(comptime T: type) type` whose methods are `inline fn` one-liners. This is
-TigerBeetle's R39, and the one place where `inline fn` and generics are both justified.
-
-This is how a hot path gets TigerStyle's static dispatch — direct calls every layer of which the
-optimizer sees — without N-fold monomorphization; off a hot path, one indirect call is not worth
-designing around.
-
-**Why:** the algorithm is compiled once however many element types exist, and the shims inline away
-to nothing, so the call cost matches the fully monomorphized version while compile time and binary
-size scale with *methods*, not methods × types.
-
-**Check:** a `fn Foo(comptime T: type) type` whose returned struct holds more than one or two
-non-`inline` method bodies — that is the whole algorithm being monomorphized per element type. The
-conforming shape is a type-erased struct at file scope plus `pub inline fn` one-liners that forward
-into it.
-
-```zig
-// verified — GOOD
-const std = @import("std");
-const assert = std.debug.assert;
-
-pub const Link = struct { next: ?*Link = null };
-
-const QueueAny = struct {
-    in: ?*Link = null,
-    out: ?*Link = null,
-    count: u64 = 0,
-
-    fn push(q: *QueueAny, link: *Link) void {
-        assert(link.next == null);
-        if (q.in) |in| {
-            in.next = link;
-            q.in = link;
-        } else {
-            assert(q.out == null);
-            q.in = link;
-            q.out = link;
-        }
-        q.count += 1;
-    }
-
-    fn pop(q: *QueueAny) ?*Link {
-        const link = q.out orelse return null;
-        q.out = link.next;
-        if (q.in == link) q.in = null;
-        link.next = null;
-        q.count -= 1;
-        return link;
-    }
-};
-
-/// Intrusive FIFO. `T` must have a field `link: Link`.
-pub fn Queue(comptime T: type) type {
-    if (!@hasField(T, "link") or @FieldType(T, "link") != Link)
-        @compileError(@typeName(T) ++ " must have a field `link: Link`");
-    return struct {
-        const Self = @This();
-
-        any: QueueAny = .{},
-
-        pub inline fn push(self: *Self, item: *T) void {
-            self.any.push(&item.link);
-        }
-
-        pub inline fn pop(self: *Self) ?*T {
-            const link = self.any.pop() orelse return null;
-            return @alignCast(@fieldParentPtr("link", link));
-        }
-    };
-}
-```
-
-### ZS-COMPTIME-09 [M] Consume the std interface; never parameterize over it
+### ZS-COMPTIME-08 [M] Consume the std interface; never parameterize over it
 
 Take `gpa: std.mem.Allocator`, `w: *std.Io.Writer`, `r: *std.Io.Reader`, `io: std.Io` as ordinary
 runtime parameters. This is one rule with two failure modes, and both are common:
@@ -494,7 +418,7 @@ test "printReport composes with any std writer" {
 }
 ```
 
-### ZS-COMPTIME-10 [M] A `comptime` parameter the body does not depend on is a bug
+### ZS-COMPTIME-09 [M] A `comptime` parameter the body does not depend on is a bug
 
 If deleting the `comptime T: type` parameter and substituting the one type actually used leaves the
 body unchanged, delete it. Same for a `comptime` value parameter that is only ever passed one value.
@@ -511,7 +435,7 @@ the body, a `comptime T: type` that appears only in the signature — never in a
 
 ## `anytype`
 
-### ZS-COMPTIME-11 [S] Use `anytype` where std uses it, and constrain it with `std.meta` predicates
+### ZS-COMPTIME-10 [S] Use `anytype` where std uses it, and constrain it with `std.meta` predicates
 
 The idiomatic uses are format-argument tuples (`args: anytype`), opaque user contexts
 (`context: anytype`), hashers, and pointer-shaped duck typing (`allocation: anytype` in
@@ -542,7 +466,7 @@ fn resetAll(comptime T: type, items: []T) void {
 
 ## Type introspection
 
-### ZS-COMPTIME-12 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
+### ZS-COMPTIME-11 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
 
 Two halves, in order of application.
 
@@ -567,7 +491,7 @@ Three more traps: pointer and field alignment, `.pointer.attrs.@"align"` and
 `.field_attrs[i].@"align"`, are `?usize` (`null` means natural alignment), not `comptime_int`;
 `@typeInfo(E).error_set.error_names` is `?[]const [:0]const u8` where `null` means `anyerror`, so a
 `null` check is not an "empty set" check; and a zero-bit tuple field is not implicitly `comptime`
-(ZS-DATA-39).
+(ZS-DATA-38).
 
 The `.Int` -> `.int` / `.Struct` -> `.@"struct"` renames and 0.17's move from `.fields` to
 `.field_names`/`.field_types`/`.field_attrs` are hard compile errors, so they are rows of the
@@ -615,7 +539,7 @@ test "accessors" {
 
 ## Interfaces
 
-### ZS-COMPTIME-13 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
+### ZS-COMPTIME-12 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
 
 Fields are a type-erased context pointer plus `vtable: *const VTable`. `std.mem.Allocator` spells it
 `ptr: *anyopaque, vtable: *const VTable`; `std.Io` spells it
@@ -677,7 +601,7 @@ pub const CountingSink = struct {
 };
 ```
 
-### ZS-COMPTIME-14 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
+### ZS-COMPTIME-13 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
 
 This is the modern std house pattern. The implementation struct declares `interface: std.Io.Writer`
 (or `Reader`) as a field **by value**, hands out `&self.interface`, and every vtable function starts
@@ -739,7 +663,7 @@ pub const CountingWriter = struct {
 };
 ```
 
-### ZS-COMPTIME-15 [S] Give vtable members defaults so implementations only override what they must
+### ZS-COMPTIME-14 [S] Give vtable members defaults so implementations only override what they must
 
 Declare optional operations with a default implementation in the `VTable` struct itself, so an
 implementation's vtable literal lists only the required functions. std does this:
@@ -757,7 +681,7 @@ function is the default that was not declared.
 
 ## Debugging comptime
 
-### ZS-COMPTIME-16 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
+### ZS-COMPTIME-15 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
 
 Every failure mode in this chapter reports at the innermost frame, which is almost never the frame
 that caused it. Two tools address that, and both need discipline.

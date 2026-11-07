@@ -38,7 +38,7 @@ change.
 |---|---|---|---|---|
 | python-style | PS-DATA-03 | realises | [M] | |
 | rust-style | RS-DATA-01 | realises | [M] | |
-| zig-style | ZS-DATA-25 | realises | [M] | |
+| zig-style | ZS-DATA-24 | realises | [M] | |
 
 ### AS-DATA-02 [M] Give a value with a unit, a domain or a validity condition a type of its own
 
@@ -64,7 +64,7 @@ record, where a new element changes the shape at every site that unpacks it.
 |---|---|---|---|---|
 | python-style | PS-DATA-05 | realises | [S] | |
 | rust-style | RS-DATA-03 | realises | [S] | |
-| zig-style | ZS-DATA-30 | realises | [S] | |
+| zig-style | ZS-DATA-29 | realises | [S] | |
 
 ### AS-DATA-04 [S] Refer to a long-lived element by a handle into its container, not by a pointer
 
@@ -93,7 +93,7 @@ written and a test never needed.
 |---|---|---|---|---|
 | python-style | PS-DATA-14 | realises | [M] | |
 | rust-style | RS-DATA-05 | realises | [M] | |
-| zig-style | ZS-DATA-31 | realises | [M] | |
+| zig-style | ZS-DATA-30 | realises | [M] | |
 
 ### AS-DATA-06 [M] Refuse an invalid value where it is built; never correct it
 
@@ -106,7 +106,7 @@ refusal names the place that made it.
 |---|---|---|---|---|
 | python-style | PS-DATA-13 | realises | [M] | |
 | rust-style | RS-DATA-06 | realises | [M] | |
-| zig-style | ZS-DATA-32 | realises | [M] | |
+| zig-style | ZS-DATA-31 | realises | [M] | |
 
 ### AS-DATA-07 [M] Hand out a view of state, never the container or a mutable handle on it
 
@@ -119,7 +119,7 @@ documentation prevents, and a view lets the representation change without touchi
 |---|---|---|---|---|
 | python-style | PS-DATA-10 | realises | [M] | |
 | rust-style | RS-DATA-07 | realises | [M] | |
-| zig-style | ZS-DATA-33 | realises | [M] | |
+| zig-style | ZS-DATA-32 | realises | [M] | |
 
 ## Equality
 
@@ -133,7 +133,7 @@ misses, silently and only for some keys.
 |---|---|---|---|---|
 | python-style | PS-DATA-16 | realises | [M] | |
 | rust-style | RS-DATA-08 | realises | [M] | |
-| zig-style | ZS-DATA-34 | realises | [M] | |
+| zig-style | ZS-DATA-33 | realises | [M] | |
 
 ## Numbers
 

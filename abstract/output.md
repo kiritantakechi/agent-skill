@@ -36,7 +36,7 @@ else, and an operator who redirects the output still sees the diagnostics.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-14 | realises | [M] | |
+| python-style | PS-OUT-13 | realises | [M] | |
 | rust-style | RS-OUT-01 | realises | [M] | |
 | zig-style | ZS-OUT-16 | realises | [M] | |
 
@@ -48,7 +48,7 @@ writes lets another writer's output land inside it, and the log that results can
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-15 | realises | [M] | |
+| python-style | PS-OUT-14 | realises | [M] | |
 | rust-style | RS-OUT-02 | realises | [M] | |
 | zig-style | ZS-OUT-17 | realises | [M] | |
 
@@ -61,7 +61,7 @@ passed in, or logs through the host's facade.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-16 | realises | [M] | |
+| python-style | PS-OUT-15 | realises | [M] | |
 | rust-style | RS-OUT-03 | realises | [M] | |
 | zig-style | ZS-OUT-19 | realises | [M] | |
 
@@ -73,7 +73,7 @@ disk or a closed pipe silently truncates the output, or is reported where nothin
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-17 | realises | [M] | |
+| python-style | PS-OUT-16 | realises | [M] | |
 | rust-style | RS-OUT-04 | realises | [M] | |
 | zig-style | ZS-OUT-18 | realises | [M] | |
 
@@ -86,7 +86,7 @@ the decision. Escape codes written unconditionally are visible garbage in a file
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-18 | realises | [M] | |
+| python-style | PS-OUT-17 | realises | [M] | |
 | rust-style | RS-OUT-05 | realises | [M] | |
 | zig-style | ZS-OUT-20 | realises | [M] | |
 
@@ -114,7 +114,7 @@ initialisation happens last.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-12 | realises | [M] | |
+| python-style | PS-OUT-11 | realises | [M] | |
 | rust-style | RS-OUT-07 | realises | [M] | |
 | zig-style | ZS-OUT-23 | realises | [M] | |
 
@@ -129,7 +129,7 @@ happened.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-23 | realises | [M] | |
+| python-style | PS-OUT-22 | realises | [M] | |
 | rust-style | RS-OUT-08 | realises | [M] | |
 | zig-style | ZS-OUT-21 | realises | [M] | |
 
@@ -142,7 +142,7 @@ them.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-24 | realises | [M] | |
+| python-style | PS-OUT-23 | realises | [M] | |
 | rust-style | RS-OUT-09 | realises | [M] | |
 | zig-style | ZS-OUT-22 | realises | [M] | |
 
@@ -157,7 +157,7 @@ derives it, and its absence costs every user of a type that contains this one.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-19 | realises | [M] | |
+| python-style | PS-OUT-18 | realises | [M] | |
 | rust-style | RS-OUT-10 | realises | [M] | |
 | zig-style | | absent | | The formatter renders any value structurally without a declaration, so no type has a programmer's rendering to write |
 
@@ -170,7 +170,7 @@ publishes the type's internal structure.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-20 | overrides | [S] | `str` falls back to `repr`, so the two are kept apart by defining `str` only where the human form differs from the programmer's, and a type with one form needs no second rendering |
+| python-style | PS-OUT-19 | overrides | [S] | `str` falls back to `repr`, so the two are kept apart by defining `str` only where the human form differs from the programmer's, and a type with one form needs no second rendering |
 | rust-style | RS-OUT-11 | realises | [M] | |
 | zig-style | ZS-OUT-07 | realises | [M] | |
 
@@ -183,6 +183,6 @@ caller who wants the other would otherwise rebuild it.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-21 | realises | [S] | |
+| python-style | PS-OUT-20 | realises | [S] | |
 | rust-style | RS-OUT-12 | realises | [S] | |
 | zig-style | ZS-OUT-03 | realises | [S] | |

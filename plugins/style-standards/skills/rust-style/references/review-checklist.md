@@ -91,7 +91,7 @@ findings that deserve discussion.
 |---|---|---|---|---|
 | Incorrect | RS-ERR-03 | `src/config.rs:88` | `unwrap()` on a user-supplied path | Return `Error::Config` and propagate with `?` |
 | Design | RS-API-23 | `src/search.rs:31` | Three `bool` parameters in `search()` | Replace with `SearchOptions` or three two-variant enums |
-| Performance | RS-PERF-07 | `src/scan.rs:54` | `String` allocated per line | Hoist the buffer and `clear()` per iteration |
+| Performance | RS-PERF-08 | `src/scan.rs:54` | `String` allocated per line | Hoist the buffer and `clear()` per iteration |
 
 ## Discussion
 

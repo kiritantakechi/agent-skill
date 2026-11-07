@@ -967,7 +967,7 @@ first reads the socket, opens the file, or parses `argv`.
 
 A fixed-capacity `push` asserts `!full()` rather than returning `error.Overflow`. Return an error
 only from operations whose length comes from *outside* — `fromSlice`, `resize`, a decoder. On a
-fixed backing array (ZS-DATA-23) the two are `ArrayList`'s two method families, neither of which
+fixed backing array (ZS-DATA-22) the two are `ArrayList`'s two method families, neither of which
 allocates: `appendAssumeCapacity` and its siblings where your design guarantees the room, and
 `appendBounded`, `appendSliceBounded`, `addOneBounded` and `insertBounded`, which return
 `error.OutOfMemory`, where the caller chose the length.

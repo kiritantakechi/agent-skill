@@ -43,30 +43,29 @@ const assert = std.debug.assert;
   - ZS-DATA-20 [M] Always spell the backing integer and enum tag type in `extern`/`packed`/`export`
 - **Containers and data-oriented layout**
   - ZS-DATA-21 [S] Reference long-lived elements by handle, not by pointer
-  - ZS-DATA-22 [S] Use `std.MultiArrayList` when hot loops read a subset of the fields
-  - ZS-DATA-23 [M] Build a fixed-capacity list with `ArrayList.initBuffer`; get stable addresses from a pool or a list
-  - ZS-DATA-24 [S] Prefer a fixed array when the bound is comptime-known
+  - ZS-DATA-22 [M] Build a fixed-capacity list with `ArrayList.initBuffer`; get stable addresses from a pool or a list
+  - ZS-DATA-23 [S] Prefer a fixed array when the bound is comptime-known
 - **Modeling with enums, unions, and optionals**
-  - ZS-DATA-25 [M] Model variants as a tagged union, not a struct with a kind field
-  - ZS-DATA-26 [M] Make an enum non-exhaustive only for values that come from outside
-  - ZS-DATA-27 [M] Return the lowest-dimensionality type that can carry the answer
-  - ZS-DATA-28 [M] Express absence with the weakest construct that fits
-  - ZS-DATA-29 [M] `[]const u8` is the default string; `[:0]const u8` only where a NUL is required
-  - ZS-DATA-30 [S] Prefer a named struct to a tuple whose elements could be swapped
+  - ZS-DATA-24 [M] Model variants as a tagged union, not a struct with a kind field
+  - ZS-DATA-25 [M] Make an enum non-exhaustive only for values that come from outside
+  - ZS-DATA-26 [M] Return the lowest-dimensionality type that can carry the answer
+  - ZS-DATA-27 [M] Express absence with the weakest construct that fits
+  - ZS-DATA-28 [M] `[]const u8` is the default string; `[:0]const u8` only where a NUL is required
+  - ZS-DATA-29 [S] Prefer a named struct to a tuple whose elements could be swapped
 - **Validity and equality**
-  - ZS-DATA-31 [M] Make an invalid state unrepresentable before asserting against it
-  - ZS-DATA-32 [M] Validate in `init` and return an error rather than correct
-  - ZS-DATA-33 [M] Hand out a const view of owned state, never the container or a mutable slice
-  - ZS-DATA-34 [M] Never let `eql` and `hash` disagree
+  - ZS-DATA-30 [M] Make an invalid state unrepresentable before asserting against it
+  - ZS-DATA-31 [M] Validate in `init` and return an error rather than correct
+  - ZS-DATA-32 [M] Hand out a const view of owned state, never the container or a mutable slice
+  - ZS-DATA-33 [M] Never let `eql` and `hash` disagree
 - **Text: UTF-8, WTF-8, and ASCII**
-  - ZS-DATA-35 [M] A byte index is not a codepoint index; iterate with `Utf8View`
-  - ZS-DATA-36 [M] Windows filenames are WTF-8, not UTF-8 — use the `wtf8` family for paths
-  - ZS-DATA-37 [M] `std.ascii` operates on bytes; never let it stand in for Unicode
+  - ZS-DATA-34 [M] A byte index is not a codepoint index; iterate with `Utf8View`
+  - ZS-DATA-35 [M] Windows filenames are WTF-8, not UTF-8 — use the `wtf8` family for paths
+  - ZS-DATA-36 [M] `std.ascii` operates on bytes; never let it stand in for Unicode
 - **Arithmetic and type-system rules with silent-wrong-code potential**
-  - ZS-DATA-38 [M] `std.math.sign` returns the narrowest integer, not the argument's type
-  - ZS-DATA-39 [M] Check type-level code against the five rules older Zig code trips on
+  - ZS-DATA-37 [M] `std.math.sign` returns the narrowest integer, not the argument's type
+  - ZS-DATA-38 [M] Check type-level code against the five rules older Zig code trips on
 - **Serialization**
-  - ZS-DATA-40 [M] ZON for formats you own, `std.json` for interop; bound both on untrusted input
+  - ZS-DATA-39 [M] ZON for formats you own, `std.json` for interop; bound both on untrusted input
 
 ---
 
@@ -621,7 +620,7 @@ return by value.
 itself dangling. An out pointer fixes the address before the first field is written.
 
 **Check:** a `pub fn init(...) T` returning by value on a type any of whose fields is a pointer into
-itself, an `interface` field (ZS-COMPTIME-14), an intrusive node, or a fixed buffer whose address is
+itself, an `interface` field (ZS-COMPTIME-13), an intrusive node, or a fixed buffer whose address is
 handed out. The expected shape at the call site is `var x: T = undefined; x.init(...);`, not
 `const x: T = .init(...);`.
 
@@ -825,7 +824,7 @@ const Message = extern struct {
 ### ZS-DATA-21 [S] Reference long-lived elements by handle, not by pointer
 
 Store an index newtype (`enum(u32) { none = maxInt(u32), _ }`) and resolve it through the container
-at each use. Where you need pointer *stability* rather than handles, ZS-DATA-23 gives the containers
+at each use. Where you need pointer *stability* rather than handles, ZS-DATA-22 gives the containers
 that provide it.
 
 **Why:** handles survive reallocation, are half the size of a pointer, serialize cleanly, and make
@@ -861,48 +860,7 @@ const Tree = struct {
 };
 ```
 
-### ZS-DATA-22 [S] Use `std.MultiArrayList` when hot loops read a subset of the fields
-
-`MultiArrayList(T)` stores one array per field (struct-of-arrays) behind one allocation. Access
-whole columns with `.items(.field)`, or take `.slice()` once and pull several columns from it.
-
-It has two costs: `get(i)`/`set(i)` reassemble the struct field by field, and you cannot take a `*T`
-to an element at all, so it is the wrong choice when elements are handled one at a time or passed
-around by pointer. A plain `ArrayList` stays the default; reach for `MultiArrayList` when a profile
-names a column-scan workload.
-
-**Why:** an array-of-structs loop that reads one `f32` out of a 12-byte element brings the other 8
-bytes into cache on every iteration and defeats vectorization. SoA makes the hot column contiguous,
-and since padding is per column rather than per element, mixed field alignments shrink the total.
-
-**Check:** in both directions. A `for (list.items) |item|` that touches only one or two fields of a
-multi-field element, on a path with a measurement behind it, is the `MultiArrayList` case. A
-`MultiArrayList` whose call sites use `get(i)`/`set(i)` more often than `items(.field)` is paying
-the reassembly cost for nothing and should be a plain `ArrayList`.
-
-```zig
-// verified — GOOD
-const std = @import("std");
-const Row = struct { id: u32, score: f32, live: bool };
-
-test "column scan" {
-    const gpa = std.testing.allocator;
-    var rows: std.MultiArrayList(Row) = .empty;
-    defer rows.deinit(gpa);
-    try rows.setCapacity(gpa, 2); // exactly 2: `ensureTotalCapacity` would round the bound up
-    rows.appendAssumeCapacity(.{ .id = 1, .score = 0.5, .live = true });
-    rows.appendAssumeCapacity(.{ .id = 2, .score = 1.5, .live = false });
-
-    const s = rows.slice();
-    var sum: f32 = 0;
-    for (s.items(.score), s.items(.live)) |score, live| {
-        if (live) sum += score;
-    }
-    try std.testing.expectEqual(0.5, sum);
-}
-```
-
-### ZS-DATA-23 [M] Build a fixed-capacity list with `ArrayList.initBuffer`; get stable addresses from a pool or a list
+### ZS-DATA-22 [M] Build a fixed-capacity list with `ArrayList.initBuffer`; get stable addresses from a pool or a list
 
 `std.BoundedArray` and `std.SegmentedList` do not exist. For a fixed-capacity list, use
 `std.ArrayList(T).initBuffer(&backing)` plus the `AssumeCapacity` / `Bounded` methods. For pointer
@@ -966,7 +924,7 @@ test "intrusive list" {
 }
 ```
 
-### ZS-DATA-24 [S] Prefer a fixed array when the bound is comptime-known
+### ZS-DATA-23 [S] Prefer a fixed array when the bound is comptime-known
 
 A `[N]T` field, or `[N]?T` when slots can be empty, beats any list when `N` is a constant.
 
@@ -994,7 +952,7 @@ const Cache = struct {
 
 ## Modeling with enums, unions, and optionals
 
-### ZS-DATA-25 [M] Model variants as a tagged union, not a struct with a kind field
+### ZS-DATA-24 [M] Model variants as a tagged union, not a struct with a kind field
 
 A value that is "one of N shapes" is a `union(enum)`, not a struct with a kind field and several
 maybe-valid members, and not an integer or a group of `bool` flags standing in for the tag. Switch
@@ -1033,7 +991,7 @@ fn opcodeWidth(op: Op) usize {
 }
 ```
 
-### ZS-DATA-26 [M] Make an enum non-exhaustive only for values that come from outside
+### ZS-DATA-25 [M] Make an enum non-exhaustive only for values that come from outside
 
 Add a trailing `_` field (which requires an explicit integer tag type) when the integer comes from a
 peer, a file, or a kernel, and switch on it with a `_ =>` prong (ZS-TYPE-03). With `_`,
@@ -1072,9 +1030,9 @@ test "unknown tag is well defined" {
 }
 ```
 
-### ZS-DATA-27 [M] Return the lowest-dimensionality type that can carry the answer
+### ZS-DATA-26 [M] Return the lowest-dimensionality type that can carry the answer
 
-This rule owns the dimensionality ladder for the whole standard, and ZS-DATA-28 (optional for
+This rule owns the dimensionality ladder for the whole standard, and ZS-DATA-27 (optional for
 absence, error union for failure) resolves the top two rungs.
 
 TigerStyle's ordering, weakest first — each rung is a strict superset of the one below:
@@ -1098,11 +1056,11 @@ Three specific reductions, in descending order of payoff:
 - A `?T` whose `null` the caller can only turn back into a default belongs behind a function that
   applies the default and returns `T`.
 - A `bool` that every caller immediately switches on, alongside other state, is usually an enum or a
-  tagged union (ZS-DATA-25) — that is climbing *sideways*, not up, and it costs nothing.
+  tagged union (ZS-DATA-24) — that is climbing *sideways*, not up, and it costs nothing.
 
 This is not a licence to hide failures. If the caller must distinguish outcomes, the dimension is
 real and removing it is worse than paying for it: swallowing an error into a `bool` or a sentinel is
-the bug ZS-DATA-28 exists to prevent. The rule is about removing dimensions that carry *no*
+the bug ZS-DATA-27 exists to prevent. The rule is about removing dimensions that carry *no*
 information.
 
 **Why:** each rung up multiplies the branches every caller must write, and dimensionality is viral:
@@ -1157,7 +1115,7 @@ test "dimensionality" {
 }
 ```
 
-### ZS-DATA-28 [M] Express absence with the weakest construct that fits
+### ZS-DATA-27 [M] Express absence with the weakest construct that fits
 
 - **Optional `?T`** — absence is an ordinary, expected outcome the caller inspects (lookup miss,
   empty queue, unset field). One extra branch, no error set.
@@ -1193,7 +1151,7 @@ fn findScalarIndex(haystack: []const u8, needle: u8) ?usize {
 }
 ```
 
-### ZS-DATA-29 [M] `[]const u8` is the default string; `[:0]const u8` only where a NUL is required
+### ZS-DATA-28 [M] `[]const u8` is the default string; `[:0]const u8` only where a NUL is required
 
 Use a sentinel-terminated slice or pointer at a C boundary and nowhere else. `[:0]const u8` coerces
 to `[]const u8` for free; the reverse requires an allocation. Keep the NUL at the edge;
@@ -1224,7 +1182,7 @@ fn openPath(gpa: std.mem.Allocator, path: []const u8) !c_int {
 }
 ```
 
-### ZS-DATA-30 [S] Prefer a named struct to a tuple whose elements could be swapped
+### ZS-DATA-29 [S] Prefer a named struct to a tuple whose elements could be swapped
 
 Return `struct { start: usize, end: usize }`, not `struct { usize, usize }`. A tuple is for a pair
 that is genuinely a pair, such as a value and its remainder, where the position is the meaning.
@@ -1267,12 +1225,12 @@ test "named fields cannot be swapped" {
 
 ## Validity and equality
 
-### ZS-DATA-31 [M] Make an invalid state unrepresentable before asserting against it
+### ZS-DATA-30 [M] Make an invalid state unrepresentable before asserting against it
 
 Pick the type that has no invalid value: an enum for a closed set, a tagged union for variants
-(ZS-DATA-25), the narrowest integer for a bounded range (ZS-DATA-03), a non-optional for a value
+(ZS-DATA-24), the narrowest integer for a bounded range (ZS-DATA-03), a non-optional for a value
 that is always there. Only what the type cannot express is checked, first by an error returned from
-`init` (ZS-DATA-32), then by an `assert`.
+`init` (ZS-DATA-31), then by an `assert`.
 
 **Why:** an `assert` is repeated at every site that needs it and can be forgotten at any of them; a
 type is checked by the compiler everywhere. Every state made unrepresentable is a branch never
@@ -1307,7 +1265,7 @@ test "every u2 is a valid direction" {
 }
 ```
 
-### ZS-DATA-32 [M] Validate in `init` and return an error rather than correct
+### ZS-DATA-31 [M] Validate in `init` and return an error rather than correct
 
 A type whose fields carry an invariant is built by one `init` that checks it and returns an error
 when it fails. Do not clamp, coerce, or substitute a default. Fields are always public in Zig, so
@@ -1348,7 +1306,7 @@ test "an invalid port is refused, not corrected" {
 }
 ```
 
-### ZS-DATA-33 [M] Hand out a const view of owned state, never the container or a mutable slice
+### ZS-DATA-32 [M] Hand out a const view of owned state, never the container or a mutable slice
 
 `fn bytes(log: *const Log) []const u8`, not a `[]u8` over the buffer or a pointer to the list that
 holds it. The operation the caller came for is a method, not a field to reach through.
@@ -1395,7 +1353,7 @@ test "the view shows what was appended" {
 }
 ```
 
-### ZS-DATA-34 [M] Never let `eql` and `hash` disagree
+### ZS-DATA-33 [M] Never let `eql` and `hash` disagree
 
 Two keys that compare equal hash equal. A context whose `eql` ignores something, such as case or
 padding, has a `hash` that ignores it too.
@@ -1443,11 +1401,11 @@ test "equal keys hash equal" {
 
 ## Text: UTF-8, WTF-8, and ASCII
 
-ZS-DATA-29 settles the *slice* question for strings. These four rules settle the *encoding*
+ZS-DATA-28 settles the *slice* question for strings. These four rules settle the *encoding*
 question. `[]const u8` in Zig is a byte slice and nothing more — no type in the language records
 that a byte slice is valid UTF-8, so the discipline is entirely yours.
 
-### ZS-DATA-35 [M] A byte index is not a codepoint index; iterate with `Utf8View`
+### ZS-DATA-34 [M] A byte index is not a codepoint index; iterate with `Utf8View`
 
 `text.len` is a size in bytes. To count codepoints, call `std.unicode.utf8CountCodepoints`, which
 validates as it counts. To visit them, validate once with `std.unicode.Utf8View.init` (returns
@@ -1504,7 +1462,7 @@ test "decode one codepoint without the deprecated API" {
 }
 ```
 
-### ZS-DATA-36 [M] Windows filenames are WTF-8, not UTF-8 — use the `wtf8` family for paths
+### ZS-DATA-35 [M] Windows filenames are WTF-8, not UTF-8 — use the `wtf8` family for paths
 
 A Windows path is a sequence of arbitrary `u16` values, which may contain unpaired surrogates and is
 therefore not always valid UTF-16 and has no UTF-8 encoding. Convert with
@@ -1539,7 +1497,7 @@ test "wtf8 round-trips an unpaired surrogate; utf8 cannot" {
 }
 ```
 
-### ZS-DATA-37 [M] `std.ascii` operates on bytes; never let it stand in for Unicode
+### ZS-DATA-36 [M] `std.ascii` operates on bytes; never let it stand in for Unicode
 
 `std.ascii.toUpper`, `toLower`, `upperString`, `lowerString`, `eqlIgnoreCase`, `isAlphabetic`,
 `isWhitespace` and friends all take `u8` and only understand code units below 128. Use them for
@@ -1547,7 +1505,7 @@ protocol tokens, identifiers, hex digits, and HTTP header names. Do not use them
 has no Unicode case mapping or collation at all; correct casing is locale-dependent (Turkish dotless
 ı, German ß) and needs a library.
 
-This is a live caveat on ZS-CONC-13, whose `drain` example uppercases every byte passing through a
+This is a live caveat on ZS-CONC-12, whose `drain` example uppercases every byte passing through a
 `Writer` with `std.ascii.toUpper`. As a demonstration of the `drain` contract it is correct; as a
 text transform it is ASCII-only, and a stream carrying UTF-8 will pass through half-uppercased.
 
@@ -1574,7 +1532,7 @@ The migration table holds every spelling that changed. The two rules below cover
 that produce **wrong behavior rather than a compile error**, because this is the chapter a reader
 consults when choosing a type — not the one they consult when a build breaks.
 
-### ZS-DATA-38 [M] `std.math.sign` returns the narrowest integer, not the argument's type
+### ZS-DATA-37 [M] `std.math.sign` returns the narrowest integer, not the argument's type
 
 `sign` returns `SignOf(@TypeOf(n))`: `i2` for a signed integer *or a float*, `u1` for an unsigned
 integer, and the elementwise equivalent for a vector. It does not return `T`. Convert explicitly at
@@ -1604,7 +1562,7 @@ test "sign returns the narrowest int, never the input type" {
 }
 ```
 
-### ZS-DATA-39 [M] Check type-level code against the five rules older Zig code trips on
+### ZS-DATA-38 [M] Check type-level code against the five rules older Zig code trips on
 
 The migration table holds every removed spelling. Of these five, two change what code that *still
 compiles* means, one is a cast that can lose a bound, and two turn latent bugs into compile errors.
@@ -1626,7 +1584,7 @@ compiles* means, one is a cast that can lose a bound, and two turn latent bugs i
    `error: pointer element type 'i8' cannot coerce into element type 'u8'`, and overlapping operands
    in a comptime call are `error: '@memcpy' arguments alias`. At runtime overlap is illegal behavior
    and undetected — use `@memmove` when ranges overlap. (`std.mem.copyForwards` / `copyBackwards`
-   are deprecated and are a review finding under ZS-MEM-22; they also push the direction choice onto
+   are deprecated and are a review finding under ZS-MEM-20; they also push the direction choice onto
    you, and picking the wrong one smears the first element across the range with no diagnostic in
    any build mode.)
 
@@ -1661,7 +1619,7 @@ test "pointer and builtin rules" {
 
 ## Serialization
 
-### ZS-DATA-40 [M] ZON for formats you own, `std.json` for interop; bound both on untrusted input
+### ZS-DATA-39 [M] ZON for formats you own, `std.json` for interop; bound both on untrusted input
 
 For configuration, fixtures, and any data format whose only consumer is your own program, use ZON:
 `std.zon.parse.fromSlice(T, .{ .gpa, .arena, .source, .diagnostics })` to read,

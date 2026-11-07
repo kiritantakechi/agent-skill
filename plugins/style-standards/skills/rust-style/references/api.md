@@ -527,7 +527,7 @@ pub fn stem(path: impl AsRef<Path>) -> Option<String> {
 `&mut Vec<T>` to be filled is justified when reuse is the point, as in `Read::read_to_end`.
 
 **Why:** out-parameters break composition — the result cannot be fed into an adapter, and the
-function cannot be used in an expression. Reuse across a loop is a real reason (RS-PERF-07); "it was
+function cannot be used in an expression. Reuse across a loop is a real reason (RS-PERF-08); "it was
 easier to write" is not.
 
 **Check:** is the buffer reused across calls by the intended caller? Say so in the docs and name the
@@ -706,7 +706,7 @@ impl Budget {
 A struct literal is not available once fields are private, so the type states how it is built:
 `new`, a named alternative constructor (RS-NAME-20), a builder, or a `TryFrom`.
 
-**Why:** a named entry point is where validation lives (RS-FUNC-36), where defaults are decided, and
+**Why:** a named entry point is where validation lives (RS-FUNC-35), where defaults are decided, and
 where a later invariant is enforced without touching a call site. Every instance traces back to a
 function you can grep, named for its starting state.
 
@@ -1347,7 +1347,7 @@ ecosystem splits across majors whose types do not interoperate. Batching the nec
 that cost once instead of three times, as `regex` and `rand` do.
 
 **Check:** does the release contain exactly one breaking change that could have waited? Is there a
-migration section in the changelog (RS-DOC-27)?
+migration section in the changelog (RS-DOC-26)?
 
 ## Symmetry of the public surface
 

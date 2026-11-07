@@ -34,45 +34,44 @@ that can be wrong, fewer places where an early `return` skips a cleanup.
   - RS-FUNC-12 [M] Stop fallible iteration at its first error
   - RS-FUNC-13 [S] Use `scan` only when the state belongs to the pipeline
   - RS-FUNC-14 [S] Use `peekable` and `by_ref` instead of a manual buffer
-  - RS-FUNC-15 [M] Keep iterators lazy as far up the stack as you can
-  - RS-FUNC-16 [S] Collect directly into the collection the caller needs
-  - RS-FUNC-17 [S] Do not build a collection to measure it
-  - RS-FUNC-18 [S] Replace index arithmetic with the adapters that encode it
-  - RS-FUNC-19 [S] Justify `itertools` by naming the adapters you use
-  - RS-FUNC-20 [S] Break a pipeline the reader cannot hold
+  - RS-FUNC-15 [S] Collect directly into the collection the caller needs
+  - RS-FUNC-16 [S] Do not build a collection to measure it
+  - RS-FUNC-17 [S] Replace index arithmetic with the adapters that encode it
+  - RS-FUNC-18 [S] Justify `itertools` by naming the adapters you use
+  - RS-FUNC-19 [S] Break a pipeline the reader cannot hold
 
 - **Immutability and bindings**
-  - RS-FUNC-21 [S] Treat every `let mut` as a proof obligation
-  - RS-FUNC-22 [S] Prefer shadowing to mutation for stepwise refinement
-  - RS-FUNC-23 [M] Do not shadow across a large scope or with a new meaning
-  - RS-FUNC-24 [S] Push constants into `const` and `const fn`
-  - RS-FUNC-25 [S] Use the in-place operations that have functional signatures
-  - RS-FUNC-26 [M] Never mutate a captured variable from inside `map`
-  - RS-FUNC-27 [S] Reserve `mem::take` / `mem::replace` for state machines
-  - RS-FUNC-28 [S] Give a build-once type no `&mut self` methods at all
+  - RS-FUNC-20 [S] Treat every `let mut` as a proof obligation
+  - RS-FUNC-21 [S] Prefer shadowing to mutation for stepwise refinement
+  - RS-FUNC-22 [M] Do not shadow across a large scope or with a new meaning
+  - RS-FUNC-23 [S] Push constants into `const` and `const fn`
+  - RS-FUNC-24 [S] Use the in-place operations that have functional signatures
+  - RS-FUNC-25 [M] Never mutate a captured variable from inside `map`
+  - RS-FUNC-26 [S] Reserve `mem::take` / `mem::replace` for state machines
+  - RS-FUNC-27 [S] Give a build-once type no `&mut self` methods at all
 
 - **Closures and functions as values**
-  - RS-FUNC-29 [M] Choose the loosest closure bound the callee needs
-  - RS-FUNC-30 [S] Take closures generically when hot, boxed when stored
-  - RS-FUNC-31 [S] Capture as little as possible
-  - RS-FUNC-32 [M] Bind what a `move` closure should only borrow outside it
-  - RS-FUNC-33 [S] Name a closure that outgrows a few lines
-  - RS-FUNC-34 [S] Use `fn` pointers for tables of handlers
+  - RS-FUNC-28 [M] Choose the loosest closure bound the callee needs
+  - RS-FUNC-29 [S] Take closures generically when hot, boxed when stored
+  - RS-FUNC-30 [S] Capture as little as possible
+  - RS-FUNC-31 [M] Bind what a `move` closure should only borrow outside it
+  - RS-FUNC-32 [S] Name a closure that outgrows a few lines
+  - RS-FUNC-33 [S] Use `fn` pointers for tables of handlers
 
 - **Purity, effects, composition**
-  - RS-FUNC-35 [M] Separate computing from doing, and push the doing to the edges
-  - RS-FUNC-36 [M] Parse, don't validate
-  - RS-FUNC-37 [S] Make functions total where you can
-  - RS-FUNC-38 [S] Take the clock, the RNG, and the filesystem as parameters
-  - RS-FUNC-39 [S] Model state transitions as values or as types
-  - RS-FUNC-40 [S] Keep the happy path linear with combinators
-  - RS-FUNC-41 [M] Write the `match` once a chain no longer reads aloud
-  - RS-FUNC-42 [S] Expose a custom sequence by implementing `Iterator`
-  - RS-FUNC-43 [S] Treat a hard-to-write pipeline as information about the data model
+  - RS-FUNC-34 [M] Separate computing from doing, and push the doing to the edges
+  - RS-FUNC-35 [M] Parse, don't validate
+  - RS-FUNC-36 [S] Make functions total where you can
+  - RS-FUNC-37 [S] Take the clock, the RNG, and the filesystem as parameters
+  - RS-FUNC-38 [S] Model state transitions as values or as types
+  - RS-FUNC-39 [S] Keep the happy path linear with combinators
+  - RS-FUNC-40 [M] Write the `match` once a chain no longer reads aloud
+  - RS-FUNC-41 [S] Expose a custom sequence by implementing `Iterator`
+  - RS-FUNC-42 [S] Treat a hard-to-write pipeline as information about the data model
 
 - **Closure and uniformity**
-  - RS-FUNC-44 [M] Make an operation on `T` return `T` where nothing else is carried
-  - RS-FUNC-45 [S] Keep the stages of a pipeline uniform in shape
+  - RS-FUNC-43 [M] Make an operation on `T` return `T` where nothing else is carried
+  - RS-FUNC-44 [S] Keep the stages of a pipeline uniform in shape
 
 - Decided by tools
 
@@ -182,7 +181,7 @@ stops fitting on two lines — a five-clause chain is its own readability proble
 ### RS-FUNC-08 [S] Reach for the most specific adapter that says the intent
 
 `filter_map` over `filter().map()` when the predicate and the transform are the same computation;
-`flat_map` over `map().flatten()`; and the adapters RS-FUNC-18 lists over index arithmetic.
+`flat_map` over `map().flatten()`; and the adapters RS-FUNC-17 lists over index arithmetic.
 
 **Why:** the specific adapter names the operation, so the reader recognizes the pattern instead of
 reconstructing it. It also usually avoids computing something twice —
@@ -272,7 +271,7 @@ let lengths: Vec<usize> = line.split_whitespace().map(str::len).collect();
 ### RS-FUNC-11 [S] Reserve `fold` for accumulation that no `collect` expresses
 
 **Why:** when the accumulator is a collection, `collect` with the right `FromIterator` is both
-shorter and better optimized (RS-FUNC-16); `fold` is for an accumulator no collection is.
+shorter and better optimized (RS-FUNC-15); `fold` is for an accumulator no collection is.
 
 **Check:** does the fold's accumulator end up being a collection? Try `collect` first.
 
@@ -370,31 +369,7 @@ mod tests {
 }
 ```
 
-### RS-FUNC-15 [M] Keep iterators lazy as far up the stack as you can
-
-Take `impl IntoIterator<Item = T>`, and return an iterator rather than a collection whenever the
-caller may consume only part of the sequence or feed it to another adapter; RS-TRAIT-13 spells the
-return type.
-
-**Why:** materialization belongs to whoever knows how much of the sequence is needed, which is the
-caller. Returning `Vec<T>` decides on their behalf that all of it is computed and all of it stored,
-and feeding it to another adapter costs a second allocation.
-
-**Check:** does the function return a collection the caller might only partially consume? Does the
-caller immediately `.iter()` or `.into_iter()` it, or index only the first element?
-
-```rust
-// verified
-/// Nothing is computed until the caller asks, and only as much as it asks for.
-pub fn non_empty(lines: &[String]) -> impl Iterator<Item = &str> {
-    lines
-        .iter()
-        .map(String::as_str)
-        .filter(|line| !line.is_empty())
-}
-```
-
-### RS-FUNC-16 [S] Collect directly into the collection the caller needs
+### RS-FUNC-15 [S] Collect directly into the collection the caller needs
 
 `collect::<HashMap<_, _>>()`, `collect::<BTreeSet<_>>()`, `collect::<String>()`,
 `collect::<Result<Vec<_>, _>>()`.
@@ -406,7 +381,7 @@ special case — it is the same mechanism (RS-FUNC-12).
 **Check:** is a `collect` followed by `into_iter().collect()`, `HashMap::from_iter`, or a `for` loop
 that inserts?
 
-### RS-FUNC-17 [S] Do not build a collection to measure it
+### RS-FUNC-16 [S] Do not build a collection to measure it
 
 **Why:** calling `.len()` on a freshly built `Vec` just to size the next one means two passes and an
 allocation you did not need. Either `count()` the iterator (which consumes it, so clone the source
@@ -414,7 +389,7 @@ or restructure), or produce both outputs in one pass.
 
 **Check:** is `.len()` called on a binding the preceding `collect` created?
 
-### RS-FUNC-18 [S] Replace index arithmetic with the adapters that encode it
+### RS-FUNC-17 [S] Replace index arithmetic with the adapters that encode it
 
 `rev`, `skip`, `take`, `step_by`, `chain`, `cycle`, `zip`, and over a slice `array_windows` and
 `chunks_exact`, which hand each group over as an array to destructure.
@@ -441,7 +416,7 @@ pub fn deltas(values: &[i64]) -> Vec<i64> {
 }
 ```
 
-### RS-FUNC-19 [S] Justify `itertools` by naming the adapters you use
+### RS-FUNC-18 [S] Justify `itertools` by naming the adapters you use
 
 **Why:** `tuple_windows`, `sorted_by`, `partition_map`, `izip!`, and `chunk_by` on an iterator have
 no `std` equivalent and earn the dependency. On a slice, `chunk_by`, `array_windows`, and
@@ -450,7 +425,7 @@ no `std` equivalent and earn the dependency. On a slice, `chunk_by`, `array_wind
 **Check:** list the distinct `itertools::` adapters the crate uses. If the list is one entry and
 `std` has an equivalent, drop the dependency.
 
-### RS-FUNC-20 [S] Break a pipeline the reader cannot hold
+### RS-FUNC-19 [S] Break a pipeline the reader cannot hold
 
 Roughly five adapters, or two screen lines.
 
@@ -477,7 +452,7 @@ pub fn report(lines: &[String]) -> String {
 
 ## Immutability and bindings
 
-### RS-FUNC-21 [S] Treat every `let mut` as a proof obligation
+### RS-FUNC-20 [S] Treat every `let mut` as a proof obligation
 
 State, at least to yourself, why no fold, `collect`, `scan`, or shadowing expresses this.
 
@@ -499,7 +474,7 @@ pub fn initials(name: &str) -> String {
 }
 ```
 
-### RS-FUNC-22 [S] Prefer shadowing to mutation for stepwise refinement
+### RS-FUNC-21 [S] Prefer shadowing to mutation for stepwise refinement
 
 **Why:** shadowing keeps each intermediate immutable and lets the *type* change along the way, which
 mutation cannot do. It also makes the sequence of transformations visible as a sequence, rather than
@@ -523,7 +498,7 @@ pub fn parse_port(input: &str) -> Result<u16, ParseIntError> {
 }
 ```
 
-### RS-FUNC-23 [M] Do not shadow across a large scope or with a new meaning
+### RS-FUNC-22 [M] Do not shadow across a large scope or with a new meaning
 
 **Why:** shadowing is a refinement tool, not a name-recycling tool. Two different concepts sharing a
 name three screens apart means a reader who scrolls up finds the wrong definition — which is
@@ -532,7 +507,7 @@ strictly worse than a second name, because it looks correct.
 **Check:** does each shadow refine the same concept, and does it occur within a few lines of the
 binding it shadows?
 
-### RS-FUNC-24 [S] Push constants into `const` and `const fn`
+### RS-FUNC-23 [S] Push constants into `const` and `const fn`
 
 **Why:** a `const` is computed at compile time, has no address, and cannot be accidentally mutated
 or shadowed by a local. Derived constants computed with `const fn` cost nothing at runtime and keep
@@ -552,7 +527,7 @@ pub const fn kib(count: u64) -> u64 {
 pub const BUFFER: u64 = kib(64);
 ```
 
-### RS-FUNC-25 [S] Use the in-place operations that have functional signatures
+### RS-FUNC-24 [S] Use the in-place operations that have functional signatures
 
 `retain`, `sort_unstable_by_key`, `dedup`, `truncate`, `fill`. To remove by predicate and keep what
 was removed, `extract_if`, on `Vec`, `HashMap`, `HashSet`, `BTreeMap`, and `BTreeSet`. To pop an end
@@ -567,7 +542,7 @@ shuffling correctly, which hand-written versions frequently do not.
 the first? Both are `retain`, or `extract_if` when the removed items are used.
 `clippy::manual_pop_if` flags a `last()` test followed by a `pop()`.
 
-### RS-FUNC-26 [M] Never mutate a captured variable from inside `map`
+### RS-FUNC-25 [M] Never mutate a captured variable from inside `map`
 
 **Why:** `map` with a side effect is `for_each` lying about its purpose. It also breaks the moment
 someone adds `.rev()`, `.par_iter()`, or a `take` that short-circuits — because `map` promises
@@ -576,7 +551,7 @@ nothing about order or about being run at all.
 **Check:** does any `map` closure assign to something declared outside it, or call a method taking
 `&mut` on a captured value?
 
-### RS-FUNC-27 [S] Reserve `mem::take` / `mem::replace` for state machines
+### RS-FUNC-26 [S] Reserve `mem::take` / `mem::replace` for state machines
 
 **Why:** they are exactly right for moving out of `&mut self` during a state transition, and a smell
 everywhere else — where they usually mean the function should have taken `self` by value, or the
@@ -585,7 +560,7 @@ field should have been an `Option` the caller manages.
 **Check:** for each `mem::take`, is the enclosing type a state machine? If not, what would taking
 `self` by value cost?
 
-### RS-FUNC-28 [S] Give a build-once type no `&mut self` methods at all
+### RS-FUNC-27 [S] Give a build-once type no `&mut self` methods at all
 
 **Why:** if a type is constructed and then only read, expressing that in the API means the compiler
 enforces the immutability you intended, and callers can share it behind `&` or `Arc` without a lock.
@@ -596,7 +571,7 @@ fold them into the builder.
 
 ## Closures and functions as values
 
-### RS-FUNC-29 [M] Choose the loosest closure bound the callee needs
+### RS-FUNC-28 [M] Choose the loosest closure bound the callee needs
 
 `FnOnce` if it is called once, `FnMut` if repeatedly with state, `Fn` only when it must be callable
 from a shared reference or in parallel. An async callback takes the same order over `AsyncFnOnce`,
@@ -609,7 +584,7 @@ workaround is to clone.
 **Check:** for each `F: Fn`, is the closure ever called more than once, or from behind `&self`? If
 not, loosen it.
 
-### RS-FUNC-30 [S] Take closures generically when hot, boxed when stored
+### RS-FUNC-29 [S] Take closures generically when hot, boxed when stored
 
 `f: impl Fn(&T) -> U` for small, frequently called callbacks; `Box<dyn Fn(&T) -> U>` when it must
 live in a struct field or when monomorphization bloat is measurable. Take an async callback as
@@ -622,7 +597,7 @@ an indirect call and an allocation but keeps the code size flat and the type nam
 **Check:** does the closure get stored, or does the function get instantiated for many types? Either
 answer points at boxing.
 
-### RS-FUNC-31 [S] Capture as little as possible
+### RS-FUNC-30 [S] Capture as little as possible
 
 A closure captures only the fields it names, so `self.filter` inside it borrows that field alone. A
 method call on `self` still borrows all of it.
@@ -645,7 +620,7 @@ let limit = self.limit;
 self.items.retain(|&item| item <= limit);
 ```
 
-### RS-FUNC-32 [M] Bind what a `move` closure should only borrow outside it
+### RS-FUNC-31 [M] Bind what a `move` closure should only borrow outside it
 
 **Why:** `move` is not selective. To move one field into a closure and borrow another, bind them
 outside first — this is the standard fix for "cannot move out of `self`", and reaching for `clone()`
@@ -654,14 +629,14 @@ instead is exactly the defect in RS-OWN-08.
 **Check:** for each `move` closure, list what it captures. Is anything captured by move that the
 surrounding scope still needs?
 
-### RS-FUNC-33 [S] Name a closure that outgrows a few lines
+### RS-FUNC-32 [S] Name a closure that outgrows a few lines
 
 **Why:** a five-line closure has a purpose, and the purpose deserves a name — for the reader, and
 for the profiler, where an anonymous closure shows up as a mangled symbol nobody can attribute.
 
 **Check:** any closure spanning more than about five lines, or containing its own control flow.
 
-### RS-FUNC-34 [S] Use `fn` pointers for tables of handlers
+### RS-FUNC-33 [S] Use `fn` pointers for tables of handlers
 
 Dispatch through them; do not compare two for identity. One function can have several addresses and
 two can share one, which `unpredictable_function_pointer_comparisons` warns on.
@@ -675,7 +650,7 @@ them is rustc's `unpredictable_function_pointer_comparisons`.
 
 ## Purity, effects, composition
 
-### RS-FUNC-35 [M] Separate computing from doing, and push the doing to the edges
+### RS-FUNC-34 [M] Separate computing from doing, and push the doing to the edges
 
 Parse and read at the entry, compute over plain data in the middle, write and log at the exit. A
 function that derives a value returns it, and its caller connects it to the sink.
@@ -687,7 +662,7 @@ which is what makes `run() -> Result<()>` testable (RS-MOD-12).
 **Check:** does the function both compute and print, log, write, or send? Split it. How deep in the
 call stack is the deepest I/O call? Everything below the entry layer should be pure.
 
-### RS-FUNC-36 [M] Parse, don't validate
+### RS-FUNC-35 [M] Parse, don't validate
 
 Convert untrusted input into a type that cannot be invalid, at the boundary — a CLI flag, a config
 file, a request — and let every downstream function take the parsed type. Its constructor or
@@ -725,16 +700,16 @@ impl FromStr for Port {
 }
 ```
 
-### RS-FUNC-37 [S] Make functions total where you can
+### RS-FUNC-36 [S] Make functions total where you can
 
 **Why:** a signature that cannot fail is easier to call, easier to compose, and easier to test than
 one returning `Result` because a caller *might* pass nonsense. Making the nonsense unconstructible
-moves the check to one place instead of every entry point (RS-FUNC-36).
+moves the check to one place instead of every entry point (RS-FUNC-35).
 
 **Check:** for each `Result`-returning function, is the error reachable given properly typed inputs?
 If not, the types should absorb it.
 
-### RS-FUNC-38 [S] Take the clock, the RNG, and the filesystem as parameters
+### RS-FUNC-37 [S] Take the clock, the RNG, and the filesystem as parameters
 
 `fn expire(now: Instant, …)` rather than `Instant::now()` inside.
 
@@ -745,7 +720,7 @@ same argument applies to randomness and to the current directory.
 **Check:** does code below the entry layer call `Instant::now`, `SystemTime::now`, `rand::random`,
 `env::var`, or `env::current_dir`? Each is an input the caller should pass.
 
-### RS-FUNC-39 [S] Model state transitions as values or as types
+### RS-FUNC-38 [S] Model state transitions as values or as types
 
 Return the new state as a value; where misuse is costly and the states are few, make them types
 (RS-TRAIT-38).
@@ -756,7 +731,7 @@ name, and every method has to handle a state it should never see.
 **Check:** does a transition mutate a state field in place where it could take `self` and return the
 next state?
 
-### RS-FUNC-40 [S] Keep the happy path linear with combinators
+### RS-FUNC-39 [S] Keep the happy path linear with combinators
 
 `opt.map(f).filter(p).unwrap_or_default()`, `res.and_then(g).or_else(h)`.
 
@@ -774,24 +749,24 @@ pub fn width_or_default(value: Option<u32>) -> u32 {
 }
 ```
 
-### RS-FUNC-41 [M] Write the `match` once a chain no longer reads aloud
+### RS-FUNC-40 [M] Write the `match` once a chain no longer reads aloud
 
 **Why:** readability is the objective; functional style is the usual means, not the end. A chain
 that requires the reader to track three type transformations is worse than the `match` it replaced,
 and "but it is more functional" is not a defence. This rule outranks every `[S]` in this chapter.
 
 **Check:** read the expression aloud. If you cannot say what it produces without re-reading, split
-it (RS-FUNC-20) or write the `match`.
+it (RS-FUNC-19) or write the `match`.
 
-### RS-FUNC-42 [S] Expose a custom sequence by implementing `Iterator`
+### RS-FUNC-41 [S] Expose a custom sequence by implementing `Iterator`
 
 **Why:** a newtype with an `Iterator` impl keeps laziness at the boundary and gives users the whole
 adapter library for free. Returning a `Vec` from a method named like a query decides materialization
-for them (RS-FUNC-15).
+for them (RS-PERF-22).
 
 **Check:** does any method named as a query (`entries`, `matches`, `children`) return a collection?
 
-### RS-FUNC-43 [S] Treat a hard-to-write pipeline as information about the data model
+### RS-FUNC-42 [S] Treat a hard-to-write pipeline as information about the data model
 
 **Why:** a pipeline that resists being written usually means the data has the wrong shape, not that
 the problem is imperative: flags that should be an enum, parallel `Vec`s that should be one `Vec` of
@@ -802,7 +777,7 @@ structs. Once the shape is right, the functional form falls out.
 
 ## Closure and uniformity
 
-### RS-FUNC-44 [M] Make an operation on `T` return `T` where nothing else is carried
+### RS-FUNC-43 [M] Make an operation on `T` return `T` where nothing else is carried
 
 An operation on `T` that returns `T` composes with itself; one that returns a near-miss —
 `Result<U, _>` where `T` would do, or a tuple that must be unpacked and rebuilt — does not.
@@ -839,10 +814,10 @@ impl Span {
 }
 ```
 
-### RS-FUNC-45 [S] Keep the stages of a pipeline uniform in shape
+### RS-FUNC-44 [S] Keep the stages of a pipeline uniform in shape
 
 Stages take one value and return one value. Resist a stage that also mutates a captured accumulator
-(in a `map`, RS-FUNC-26 forbids it outright), one that returns a tuple only the next stage
+(in a `map`, RS-FUNC-25 forbids it outright), one that returns a tuple only the next stage
 understands, or one that is a `for` loop because it was easier.
 
 **Why:** uniform stages can be reordered, tested individually, and parallelized (RS-CONC-35); one

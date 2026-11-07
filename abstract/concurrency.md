@@ -58,7 +58,7 @@ mid-operation when the program ends.
 |---|---|---|---|---|
 | python-style | PS-CONC-24 | realises | [M] | |
 | rust-style | RS-CONC-44 | realises | [M] | |
-| zig-style | ZS-CONC-21 | realises | [M] | |
+| zig-style | ZS-CONC-19 | realises | [M] | |
 
 ## Cancellation and time
 
@@ -72,7 +72,7 @@ hang and a timeout never takes effect.
 |---|---|---|---|---|
 | python-style | PS-CONC-25 | realises | [M] | |
 | rust-style | | absent | | A future is cancelled by being dropped, and a drop is not a signal the future can catch and carry on from, so there is nothing to swallow; the cleanup it owes is AS-CONC-04's |
-| zig-style | ZS-CONC-24 | realises | [M] | |
+| zig-style | ZS-CONC-22 | realises | [M] | |
 
 ### AS-CONC-04 [M] Leave no state half-updated at a point where a task can be cancelled
 
@@ -85,7 +85,7 @@ sees what was left, and no error reports it.
 |---|---|---|---|---|
 | python-style | PS-CONC-26 | realises | [M] | |
 | rust-style | RS-CONC-32 | realises | [M] | |
-| zig-style | ZS-CONC-27 | realises | [M] | |
+| zig-style | ZS-CONC-25 | realises | [M] | |
 
 ### AS-CONC-05 [M] Protect only the step that must finish from cancellation, and bound it
 
@@ -98,7 +98,7 @@ mechanism that shutdown and timeouts rest on.
 |---|---|---|---|---|
 | python-style | PS-CONC-27 | realises | [M] | |
 | rust-style | | absent | | A drop runs no further wait, so a cleanup has no cancellation point to protect; the work that must finish moves to a task that outlives the future or to a synchronous drop, which AS-CONC-02 and AS-CONC-04 already state |
-| zig-style | ZS-CONC-26 | realises | [M] | |
+| zig-style | ZS-CONC-24 | realises | [M] | |
 
 ### AS-CONC-06 [M] Give every wait on an outside party a timeout
 
@@ -110,7 +110,7 @@ holds its task, and everything the task holds, for as long as the other side sta
 |---|---|---|---|---|
 | python-style | PS-CONC-28 | realises | [M] | |
 | rust-style | RS-CONC-34 | realises | [M] | |
-| zig-style | ZS-CONC-33 | realises | [M] | |
+| zig-style | ZS-CONC-31 | realises | [M] | |
 
 ## Not blocking the scheduler
 
@@ -125,7 +125,7 @@ the form that waits cooperatively.
 |---|---|---|---|---|
 | python-style | PS-CONC-29 | realises | [M] | |
 | rust-style | RS-CONC-29 | realises | [M] | |
-| zig-style | ZS-CONC-28 | realises | [M] | |
+| zig-style | ZS-CONC-26 | realises | [M] | |
 
 ### AS-CONC-08 [M] Do not mark a function asynchronous unless it waits
 
@@ -150,7 +150,7 @@ value that cannot change has no race, and a lock around it is paid for by every 
 |---|---|---|---|---|
 | python-style | PS-CONC-09 | realises | [M] | |
 | rust-style | RS-CONC-05 | realises | [M] | |
-| zig-style | ZS-CONC-34 | realises | [M] | |
+| zig-style | ZS-CONC-32 | realises | [M] | |
 
 ### AS-CONC-10 [S] Give each worker its own data, and combine the results once
 
@@ -162,7 +162,7 @@ each other, and the work scales with them; the merge is a single step.
 |---|---|---|---|---|
 | python-style | PS-CONC-04 | realises | [S] | |
 | rust-style | RS-CONC-06 | realises | [S] | |
-| zig-style | ZS-CONC-36 | realises | [S] | |
+| zig-style | ZS-CONC-34 | realises | [S] | |
 
 ### AS-CONC-11 [M] Hand work between tasks through a queue, not a structure behind a lock
 
@@ -175,7 +175,7 @@ lock gives up all three and leaves a graph of who may touch what.
 |---|---|---|---|---|
 | python-style | PS-CONC-10 | realises | [M] | |
 | rust-style | RS-CONC-04 | realises | [M] | |
-| zig-style | ZS-CONC-35 | realises | [M] | |
+| zig-style | ZS-CONC-33 | realises | [M] | |
 
 ### AS-CONC-12 [M] Bound every queue that a producer can outrun
 
@@ -187,7 +187,7 @@ unbounded queue turns a burst into memory, and the process fails hours later, fa
 |---|---|---|---|---|
 | python-style | PS-CONC-11 | realises | [M] | |
 | rust-style | RS-CONC-09 | realises | [M] | |
-| zig-style | ZS-CONC-42 | realises | [M] | |
+| zig-style | ZS-CONC-40 | realises | [M] | |
 
 ### AS-CONC-13 [M] Hold a lock for the shortest span, and never across a call that waits
 
@@ -200,7 +200,7 @@ slowest peer takes, and is the shape of every deadlock.
 |---|---|---|---|---|
 | python-style | PS-CONC-21 | realises | [M] | |
 | rust-style | RS-CONC-20 | realises | [M] | |
-| zig-style | ZS-CONC-37 | realises | [M] | |
+| zig-style | ZS-CONC-35 | realises | [M] | |
 
 ## Building and replacing what others share
 
@@ -215,7 +215,7 @@ the value missing both build it, and the second result replaces the first or lea
 |---|---|---|---|---|
 | python-style | PS-CONC-16 | realises | [M] | |
 | rust-style | RS-CONC-27 | realises | [M] | |
-| zig-style | ZS-CONC-38 | realises | [M] | |
+| zig-style | ZS-CONC-36 | realises | [M] | |
 
 ### AS-CONC-15 [M] Replace a file others read by renaming a finished temporary over it
 
@@ -229,4 +229,4 @@ every run may be written in place.
 |---|---|---|---|---|
 | python-style | PS-CONC-22 | realises | [M] | |
 | rust-style | RS-CONC-46 | realises | [M] | |
-| zig-style | ZS-CONC-17 | realises | [M] | |
+| zig-style | ZS-CONC-16 | realises | [M] | |

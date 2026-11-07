@@ -9,7 +9,7 @@ freestanding and WebAssembly — including the places where the rest of this sta
 apply** because there is no operating system to apply it to.
 
 Layout and string rules for the types themselves live in the data chapter (ZS-DATA-19, ZS-DATA-20,
-ZS-DATA-29), with their layout assertions in ZS-ASSERT-18 and alignment in ZS-MEM-21; allocator
+ZS-DATA-28), with their layout assertions in ZS-ASSERT-18 and alignment in ZS-MEM-19; allocator
 selection and ownership vocabulary live in the memory chapter; wiring `link_libc` and C sources into
 a build lives in the build chapter (ZS-BUILD-05). This chapter cites those rather than repeating
 them, and adds only what is specific to the boundary, including translating C headers in the build
@@ -72,7 +72,7 @@ compile-time-assigned integer whose numbering is not stable across builds, so th
 something different next compile.
 
 A `bool` return is the right shape when there is exactly one failure mode and the C caller cannot
-act on a reason — see ZS-DATA-27 on reducing dimensionality at the call site. Anything richer gets
+act on a reason — see ZS-DATA-26 on reducing dimensionality at the call site. Anything richer gets
 the enum.
 
 **Why:** an error union is a Zig-only tagged representation with no C spelling, so the compiler
@@ -226,7 +226,7 @@ The signature is
 place of the pointer fails loudly: `error: expected pointer type, found 'fn () callconv(.c) u32'`.
 `ExportOptions` has the fields `name: []const u8`, `linkage: GlobalLinkage = .strong`,
 `section: ?[]const u8 = null`, and `visibility: SymbolVisibility = .default` — everything but `name`
-has a default, and per ZS-PERF-17 pass the ones that matter to you explicitly. `GlobalLinkage` is
+has a default, and per ZS-PERF-25 pass the ones that matter to you explicitly. `GlobalLinkage` is
 only `.strong` or `.weak`.
 
 `export var` works the same way for globals: `export var zs_version: c_int = 3;`.
@@ -468,7 +468,7 @@ test "null C pointer becomes an empty slice, not a crash" {
 
 ### ZS-INTEROP-10 [M] `span` in, `[]const u8` inside, `dupeSentinel` out, `sliceTo` for fixed arrays
 
-ZS-DATA-29 already sets the policy: `[]const u8` is the internal string type and the NUL lives only
+ZS-DATA-28 already sets the policy: `[]const u8` is the internal string type and the NUL lives only
 at the edge. The boundary mechanics are these four cases:
 
 | Direction | Shape | Convert with |
@@ -831,7 +831,7 @@ take `std.process.Init` in `main` and use the `gpa`, `arena`, and `io` it hands 
 `*-freestanding` there is no such thing, and those two rules do not apply. The freestanding entry
 point is one or more `export fn` symbols: `_start` (or whatever the reset vector names) for bare
 metal, and the exported API surface for a WebAssembly module. Allocation comes from a
-`FixedBufferAllocator` over a static array (ZS-MEM-18), or from `std.heap.wasm_allocator` on wasm.
+`FixedBufferAllocator` over a static array (ZS-MEM-16), or from `std.heap.wasm_allocator` on wasm.
 There is also no usable `Io`: `Io.Threaded`, the only backend std ships that would apply, does not
 compile for either freestanding target, so no `Io.Dir`, `Io.File`, `io.async`, or `io.sleep`.
 
@@ -980,7 +980,7 @@ point in opposite directions.
 the colorless design — but a design whose *correctness* needs two tasks to overlap will deadlock or
 hang, and a cancellation-based timeout will not fire.
 
-**Check:** ZS-CONC-22's finding, an `io.async` whose tasks must overlap to make progress, in a
+**Check:** ZS-CONC-20's finding, an `io.async` whose tasks must overlap to make progress, in a
 module that any build target may compile `-fsingle-threaded`, where it stops being latent. Also
 `std.heap.smp_allocator` in a module built for wasm or freestanding, and `std.heap.wasm_allocator`
 in one that is not.

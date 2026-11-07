@@ -15,30 +15,29 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-OUT-02 [M] Never assume UTF-8 mode moved only `open`
   - PS-OUT-03 [M] Ask `locale.getencoding()` for the locale's encoding
   - PS-OUT-04 [M!] Choose the error handler deliberately
-  - PS-OUT-05 [M] Read and write bytes when the data is bytes
 - **Interpolation**
-  - PS-OUT-06 [M] Interpolate with an f-string
-  - PS-OUT-07 [M] Never build a query, a path, or markup by interpolation
-  - PS-OUT-08 [S] Reach for a template string when the interpolation must be inspected
-  - PS-OUT-09 [M] Use `!r` when the value's identity matters to the reader
-  - PS-OUT-10 [S] Use `=` in an f-string for a debug line, then delete it
+  - PS-OUT-05 [M] Interpolate with an f-string
+  - PS-OUT-06 [M] Never build a query, a path, or markup by interpolation
+  - PS-OUT-07 [S] Reach for a template string when the interpolation must be inspected
+  - PS-OUT-08 [M] Use `!r` when the value's identity matters to the reader
+  - PS-OUT-09 [S] Use `=` in an f-string for a debug line, then delete it
 - **Logging**
-  - PS-OUT-11 [M] Log with `%`-style arguments, never with an f-string
-  - PS-OUT-12 [M] Get a library's logger by `__name__`, and configure nothing in it
-  - PS-OUT-13 [S] Log the identifier, not the object
+  - PS-OUT-10 [M] Log with `%`-style arguments, never with an f-string
+  - PS-OUT-11 [M] Get a library's logger by `__name__`, and configure nothing in it
+  - PS-OUT-12 [S] Log the identifier, not the object
 - **Program output**
-  - PS-OUT-14 [M] Send program output to stdout and diagnostics to stderr
-  - PS-OUT-15 [M] Write each record to a shared text stream in one call, never with `print`
-  - PS-OUT-16 [M] Never print, and never end the process, from a library
-  - PS-OUT-17 [M] Flush standard output before `main` returns, so a failure to write raises
-  - PS-OUT-18 [M] Colour only a terminal, and honour `NO_COLOR` and `CLICOLOR_FORCE`
-  - PS-OUT-19 [M] Give a type a `__repr__` that says what it is
-  - PS-OUT-20 [S] Give a type a `__str__` only when it has a human form
-  - PS-OUT-21 [S] Offer a second rendering through `__format__`'s spec, never a second `__str__`
-  - PS-OUT-22 [M] Never let output formatting depend on the locale
+  - PS-OUT-13 [M] Send program output to stdout and diagnostics to stderr
+  - PS-OUT-14 [M] Write each record to a shared text stream in one call, never with `print`
+  - PS-OUT-15 [M] Never print, and never end the process, from a library
+  - PS-OUT-16 [M] Flush standard output before `main` returns, so a failure to write raises
+  - PS-OUT-17 [M] Colour only a terminal, and honour `NO_COLOR` and `CLICOLOR_FORCE`
+  - PS-OUT-18 [M] Give a type a `__repr__` that says what it is
+  - PS-OUT-19 [S] Give a type a `__str__` only when it has a human form
+  - PS-OUT-20 [S] Offer a second rendering through `__format__`'s spec, never a second `__str__`
+  - PS-OUT-21 [M] Never let output formatting depend on the locale
 - **Failure and exit status**
-  - PS-OUT-23 [M] Report an expected failure as one message on stderr, and let a bug keep its traceback
-  - PS-OUT-24 [M] Exit non-zero on failure, with a code of its own for each class a caller must tell apart
+  - PS-OUT-22 [M] Report an expected failure as one message on stderr, and let a bug keep its traceback
+  - PS-OUT-23 [M] Exit non-zero on failure, with a code of its own for each class a caller must tell apart
 - Decided by tools
 
 ---
@@ -111,23 +110,12 @@ round-trips undecodable bytes so a path can be reopened, and `replace` destroys 
 **Check:** every `errors=` argument needs a comment. Every text `open` on data from outside the
 process without one is the finding.
 
-### PS-OUT-05 [M] Read and write bytes when the data is bytes
-
-`Path.read_bytes()`, `open(path, "rb")`. Not a text mode with a made-up encoding.
-
-**Why:** decoding binary data as text and re-encoding it does not round-trip, so a "text" read of a
-file that is not text is a lossy transformation you did not intend. Any hashing, signing, or
-byte-level comparison must be on the bytes.
-
-**Check:** every `open` and `read_text` whose file may not be text. Every `hashlib` call whose input
-came from a text read is the finding.
-
 ## Interpolation
 
-### PS-OUT-06 [M] Interpolate with an f-string
+### PS-OUT-05 [M] Interpolate with an f-string
 
-Not `%`, not `str.format`, not concatenation. The exceptions are logging (PS-OUT-11) and templates
-(PS-OUT-08).
+Not `%`, not `str.format`, not concatenation. The exceptions are logging (PS-OUT-10) and templates
+(PS-OUT-07).
 
 **Why:** the f-string puts the expression where the value appears, which is the only form a reader
 can check without counting arguments. It is also the fastest, because the interpolation is compiled
@@ -135,7 +123,7 @@ rather than parsed at runtime.
 
 **Check:** ruff `UP031` and `UP032` rewrite the two older forms automatically.
 
-### PS-OUT-07 [M] Never build a query, a path, or markup by interpolation
+### PS-OUT-06 [M] Never build a query, a path, or markup by interpolation
 
 SQL takes parameters. Paths take `pathlib`. HTML takes an escaping template. Shell takes an argument
 list.
@@ -147,7 +135,7 @@ parameterised query is the same length as the interpolated one.
 **Check:** ruff `S608` for SQL, `S602`–`S607` for shell.
 `rg -n 'f"[^"\n]*(SELECT|INSERT|UPDATE|DELETE) ' src/` for what the linter misses.
 
-### PS-OUT-08 [S] Reach for a template string when the interpolation must be inspected
+### PS-OUT-07 [S] Reach for a template string when the interpolation must be inspected
 
 A PEP 750 template string, `t"SELECT * FROM {table}"`, produces a `Template` whose static parts and
 interpolations are separate values, so a library can escape each one correctly. This is `[S]`
@@ -161,7 +149,7 @@ consumer sees the structure and can escape, parameterise, or reject.
 **Check:** every library that takes a pre-formatted string and must escape part of it. That
 signature should take a `Template`.
 
-### PS-OUT-09 [M] Use `!r` when the value's identity matters to the reader
+### PS-OUT-08 [M] Use `!r` when the value's identity matters to the reader
 
 `f"port must be a number, got {raw!r}"` — so an empty string, a string with a trailing space, and
 the word `None` are distinguishable from each other.
@@ -173,7 +161,7 @@ between a five-second diagnosis and a session with a debugger.
 **Check:** every exception message and log line interpolating a value that came from outside. No
 `!r` is the finding.
 
-### PS-OUT-10 [S] Use `=` in an f-string for a debug line, then delete it
+### PS-OUT-09 [S] Use `=` in an f-string for a debug line, then delete it
 
 `f"{value=}"` prints `value=42`. It is a debugging tool, not an output format.
 
@@ -186,7 +174,7 @@ comment.
 
 ## Logging
 
-### PS-OUT-11 [M] Log with `%`-style arguments, never with an f-string
+### PS-OUT-10 [M] Log with `%`-style arguments, never with an f-string
 
 `logger.info("retrying %s after %s", url, exc)`. Not `logger.info(f"retrying {url}")`.
 
@@ -212,7 +200,7 @@ def fetch(url: str) -> None:
 fetch("https://example.invalid")
 ```
 
-### PS-OUT-12 [M] Get a library's logger by `__name__`, and configure nothing in it
+### PS-OUT-11 [M] Get a library's logger by `__name__`, and configure nothing in it
 
 `logger = logging.getLogger(__name__)` at module scope. Not the root logger, and not a hand-written
 string. Getting a logger is all a library does: no `basicConfig`, no handlers, no level setting, no
@@ -227,7 +215,7 @@ Configuration is the application's decision: a library that makes it wins whiche
 names, and `rg -n 'basicConfig|dictConfig|setLevel|addHandler' src/` — every hit outside the
 application entry point is the finding.
 
-### PS-OUT-13 [S] Log the identifier, not the object
+### PS-OUT-12 [S] Log the identifier, not the object
 
 `logger.info("user %s", user.id)`, not `logger.info("user %s", user)`.
 
@@ -239,7 +227,7 @@ type changes every log line that mentions it.
 
 ## Program output
 
-### PS-OUT-14 [M] Send program output to stdout and diagnostics to stderr
+### PS-OUT-13 [M] Send program output to stdout and diagnostics to stderr
 
 The result goes to stdout, written with `sys.stdout.write`. Progress, warnings and errors go to
 stderr, through `logging`. `print` is for neither: `T201` reads every one as a forgotten debug line.
@@ -251,7 +239,7 @@ stdout hides the errors you most needed to see.
 **Check:** `rg -n 'sys\.stdout\.write' src/` — is each write part of the result? If not, it belongs
 in `logging`.
 
-### PS-OUT-15 [M] Write each record to a shared text stream in one call, never with `print`
+### PS-OUT-14 [M] Write each record to a shared text stream in one call, never with `print`
 
 `open()` in text mode returns a `TextIOWrapper`, and so do `sys.stdout` and `sys.stderr`, which
 every thread that prints already shares. `print` is not one call to it: it writes each argument,
@@ -265,9 +253,9 @@ as single `write` calls arrived whole; under the GIL, `print` garbled a handful.
 **Check:** `rg -n '\bprint\(|\.write\(' src/` inside any thread target. A `print` is the finding,
 and so is a `write` that sends part of a record.
 
-### PS-OUT-16 [M] Never print, and never end the process, from a library
+### PS-OUT-15 [M] Never print, and never end the process, from a library
 
-A library returns a value or raises, and records what it saw through `logging` (PS-OUT-12). The
+A library returns a value or raises, and records what it saw through `logging` (PS-OUT-11). The
 calls that write to the process's streams or end it, `print`, `sys.exit`, `raise SystemExit`, `quit`
 and `os._exit`, belong to the entry point, which is the one place that knows what the process should
 say and how it should end.
@@ -308,7 +296,7 @@ def port(raw: str) -> int:
     return int(raw)
 ```
 
-### PS-OUT-17 [M] Flush standard output before `main` returns, so a failure to write raises
+### PS-OUT-16 [M] Flush standard output before `main` returns, so a failure to write raises
 
 `sys.stdout` is buffered when it is not a terminal. Call `sys.stdout.flush()` as the last act of the
 entry point, inside the code that can report a failure, rather than leaving the flush to the
@@ -337,7 +325,7 @@ def main(lines: list[str]) -> int:
 assert main([]) == 0
 ```
 
-### PS-OUT-18 [M] Colour only a terminal, and honour `NO_COLOR` and `CLICOLOR_FORCE`
+### PS-OUT-17 [M] Colour only a terminal, and honour `NO_COLOR` and `CLICOLOR_FORCE`
 
 Write escape sequences only when `--color=auto|always|never` says so, with `auto` the default. Under
 `auto`, a non-empty `CLICOLOR_FORCE` turns colour on, a non-empty `NO_COLOR` or `TERM=dumb` turns it
@@ -393,7 +381,7 @@ assert use_colour("auto", Pipe(), {"CLICOLOR_FORCE": "1"})
 assert not use_colour("never", Pipe(), {"CLICOLOR_FORCE": "1"})
 ```
 
-### PS-OUT-19 [M] Give a type a `__repr__` that says what it is
+### PS-OUT-18 [M] Give a type a `__repr__` that says what it is
 
 Ideally one that could be evaluated back: `Point(x=1, y=2)`.
 
@@ -404,7 +392,7 @@ one for free, which is one more reason to reach for it.
 **Check:** every class that is not a dataclass and has no `__repr__`. `RUF` does not catch this; it
 is a review matter.
 
-### PS-OUT-20 [S] Give a type a `__str__` only when it has a human form
+### PS-OUT-19 [S] Give a type a `__str__` only when it has a human form
 
 If `str(x)` and `repr(x)` would say the same thing, define only `__repr__`.
 
@@ -414,7 +402,7 @@ amount, a duration — and let `repr` stay the precise one.
 
 **Check:** every class defining both. If the two bodies are the same shape, delete `__str__`.
 
-### PS-OUT-21 [S] Offer a second rendering through `__format__`'s spec, never a second `__str__`
+### PS-OUT-20 [S] Offer a second rendering through `__format__`'s spec, never a second `__str__`
 
 `str(x)` takes no options, so a type with two reasonable renderings, short and verbose or absolute
 and relative, implements `__format__` and lets the spec choose, `f"{span:long}"`, or gives the
@@ -454,7 +442,7 @@ assert f"{Span(125)}" == "2m05s"
 assert f"{Span(125):long}" == "2 minutes 5 seconds"
 ```
 
-### PS-OUT-22 [M] Never let output formatting depend on the locale
+### PS-OUT-21 [M] Never let output formatting depend on the locale
 
 No `locale.format_string`, no `%c`/`%x` date codes, no thousands separators from the environment.
 
@@ -468,7 +456,7 @@ failure only appears on a machine configured differently from yours. Format expl
 
 ## Failure and exit status
 
-### PS-OUT-23 [M] Report an expected failure as one message on stderr, and let a bug keep its traceback
+### PS-OUT-22 [M] Report an expected failure as one message on stderr, and let a bug keep its traceback
 
 The entry point catches the package's base exception (PS-ERR-01), writes one line to stderr that
 names the problem and then each `__cause__` beneath it, and returns a non-zero status. An exception
@@ -522,7 +510,7 @@ def main(argv: list[str]) -> int:
 assert main(["8080"]) == 0
 ```
 
-### PS-OUT-24 [M] Exit non-zero on failure, with a code of its own for each class a caller must tell apart
+### PS-OUT-23 [M] Exit non-zero on failure, with a code of its own for each class a caller must tell apart
 
 `0` for success, `1` for a failure of the run, `2` for a usage error, which is the code `argparse`
 already uses, and a distinct code for any other class a script must branch on. `main` returns the
@@ -568,4 +556,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
 | ruff | `TRY400` | error | `logger.error` in a handler — `logger.exception` keeps the traceback — listed because a handler's log line is where a traceback is lost |
-| ruff | `T201` | error | `print`, a debug line — results go to `sys.stdout.write`, diagnostics to `logging` — listed because PS-OUT-14 leaves `print` no channel |
+| ruff | `T201` | error | `print`, a debug line — results go to `sys.stdout.write`, diagnostics to `logging` — listed because PS-OUT-13 leaves `print` no channel |

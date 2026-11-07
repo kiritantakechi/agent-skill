@@ -1,9 +1,10 @@
 # Performance: Measurement, Allocation, Layout, I/O, and Codegen
 
-Scope: making code fast without making it wrong — measuring first, allocation and buffer reuse,
-collection choice and memory layout, buffered I/O and syscalls, monomorphization and `#[inline]`,
-integer widths and casts, SIMD, and benchmarking. What ownership costs is the ownership chapter's;
-parallelism is the concurrency chapter's; build profiles are the build chapter's.
+Scope: making code fast without making it wrong — measuring first, documenting cost, allocation and
+buffer reuse, collection choice and memory layout, buffered I/O and syscalls, lazy iteration,
+monomorphization and `#[inline]`, integer widths and casts, SIMD, and benchmarking. What ownership
+costs is the ownership chapter's; parallelism is the concurrency chapter's; build profiles are the
+build chapter's.
 
 Rust's promise is that you do not pay for what you do not use, and that you can have the fast
 version without giving up safety. Delivering on that requires discipline about two things:
@@ -14,16 +15,16 @@ follow.
 ## Contents
 
 - **Measure first**
-  - RS-PERF-01 [M] Do not optimize without a profile
+  - RS-PERF-01 [M] Do not optimize without a profile, and keep a change only for the delta it shows
   - RS-PERF-02 [M] Optimize the algorithm before the constant factor
-  - RS-PERF-03 [M] Establish a baseline and report the delta
-  - RS-PERF-04 [S] Optimize for the realistic input distribution
-  - RS-PERF-05 [M] Measure in release mode with the profile you ship
+  - RS-PERF-03 [S] Write the back-of-envelope before the benchmark
+  - RS-PERF-04 [S] Document complexity and allocation where users would guess
+  - RS-PERF-05 [S] Optimize for the realistic input distribution
+  - RS-PERF-06 [M] Measure in release mode with the profile you ship
 
 - **Allocation**
-  - RS-PERF-06 [S] Know when `collect()` can pre-size and when it cannot
-  - RS-PERF-07 [M] Hoist allocations out of loops
-  - RS-PERF-08 [M] Write into a reused buffer instead of `format!` in a hot loop
+  - RS-PERF-07 [S] Know when `collect()` can pre-size and when it cannot
+  - RS-PERF-08 [S] Hoist allocations out of loops, and write into a reused buffer
   - RS-PERF-09 [S] Reach for `SmallVec`/`ArrayVec` only on profiler evidence
   - RS-PERF-10 [S] Use an arena for arena-shaped workloads
 
@@ -38,29 +39,27 @@ follow.
   - RS-PERF-18 [S] Binary-search a sorted `Vec` for build-once, query-many data
 
 - **I/O and syscalls**
-  - RS-PERF-19 [M] Always buffer
-  - RS-PERF-20 [M] Read in large chunks, never byte-at-a-time
-  - RS-PERF-21 [S] Treat memory maps as a per-file runtime choice, not a default
-  - RS-PERF-22 [M] Work on `&[u8]` and validate UTF-8 only where required
-  - RS-PERF-23 [S] Batch syscalls
+  - RS-PERF-19 [M] Always buffer, read in large chunks, and batch syscalls
+  - RS-PERF-20 [S] Treat memory maps as a per-file runtime choice, not a default
+  - RS-PERF-21 [M] Work on `&[u8]` and validate UTF-8 only where required
+  - RS-PERF-22 [M] Keep iterators lazy as far up the stack as you can
 
 - **Codegen and the compiler**
-  - RS-PERF-24 [M] Use `#[inline]` for small cross-crate non-generic functions only
-  - RS-PERF-25 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
-  - RS-PERF-26 [S] Do not assume static dispatch beats dynamic
-  - RS-PERF-27 [M] Hoist loop invariants the compiler cannot
-  - RS-PERF-28 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
-  - RS-PERF-29 [M] Write SIMD only beside a scalar fallback and a differential test
+  - RS-PERF-23 [M] Use `#[inline]` for small cross-crate non-generic functions only
+  - RS-PERF-24 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
+  - RS-PERF-25 [S] Do not assume static dispatch beats dynamic
+  - RS-PERF-26 [M] Hoist loop invariants the compiler cannot
+  - RS-PERF-27 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
+  - RS-PERF-28 [M] Write SIMD only beside a scalar fallback and a differential test
 
 - **Benchmarking**
-  - RS-PERF-30 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
-  - RS-PERF-31 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
-  - RS-PERF-32 [M] Wrap inputs and results in `black_box`
-  - RS-PERF-33 [M] Benchmark realistic sizes
-  - RS-PERF-34 [S] Report throughput rather than latency for data-processing code
-  - RS-PERF-35 [M] Pin CI benchmark comparisons to one machine class, or distrust them
-  - RS-PERF-36 [S] Track binary size and compile time alongside runtime
-  - RS-PERF-37 [S] Record every optimization attempt, including the failures
+  - RS-PERF-29 [M] Benchmark with `criterion` or `divan`, and wrap inputs and results in `black_box`
+  - RS-PERF-30 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
+  - RS-PERF-31 [M] Benchmark realistic sizes
+  - RS-PERF-32 [S] Report throughput rather than latency for data-processing code
+  - RS-PERF-33 [M] Pin CI benchmark comparisons to one machine class, or distrust them
+  - RS-PERF-34 [S] Track binary size and compile time alongside runtime
+  - RS-PERF-35 [S] Record every optimization attempt, including the failures
 
 - Decided by tools
 
@@ -68,17 +67,20 @@ follow.
 
 ## Measure first
 
-### RS-PERF-01 [M] Do not optimize without a profile
+### RS-PERF-01 [M] Do not optimize without a profile, and keep a change only for the delta it shows
 
-`perf`, `samply`, `cargo flamegraph`, and Instruments all take minutes to set up and routinely show
-that the hot spot is somewhere nobody guessed.
+Take a baseline number before the change with `perf`, `samply`, `cargo flamegraph` or Instruments,
+which take minutes to set up and routinely show that the hot spot is somewhere nobody guessed, and
+report the delta after. "Feels faster" is not a result; "3.4× on the 1 GB corpus, unchanged on small
+inputs" is. A change whose delta is within noise is reverted.
 
-**Why:** intuition about hot spots is reliably wrong, because the expensive thing is usually a
-syscall, an allocation, or a cache miss rather than the arithmetic you were looking at. Optimizing
-without a profile spends real complexity on code that was not the problem.
+**Why:** intuition about hot spots is reliably wrong: the expensive thing is usually a syscall, an
+allocation or a cache miss, not the arithmetic you looked at. Without a profile and a baseline you
+spend complexity on the wrong code and cannot tell a gain from noise.
 
-**Check:** for each optimization in the diff, name the profile that identified it. No profile means
-the change is speculative.
+**Check:** for each optimization in the diff, name the profile that identified it, and find the
+before and after numbers, with the input described, in the commit message or PR. Neither means the
+change is speculative.
 
 ```rust
 // verified
@@ -118,18 +120,50 @@ pub fn duplicates(values: &[u32]) -> Vec<u32> {
 }
 ```
 
-### RS-PERF-03 [M] Establish a baseline and report the delta
+### RS-PERF-03 [S] Write the back-of-envelope before the benchmark
 
-Establish a baseline number before the change and report the delta after. "Feels faster" is not a
-result; "3.4× on the 1 GB corpus, unchanged on small inputs" is.
+How many items, how many bytes, how many syscalls or round trips, at what rate, set against what the
+hardware does: a syscall costs microseconds, a cache miss around a hundred nanoseconds, an `fsync`
+about a millisecond. Put the arithmetic in the design note or the commit message.
 
-**Why:** without a baseline you cannot distinguish an improvement from noise, and you cannot tell
-whether the complexity you just added bought anything. The delta is also what a reviewer needs to
-judge whether the trade was worth it.
+**Why:** the arithmetic usually settles the question in a minute, and it says what the benchmark
+should report, so a benchmark that disagrees has found something. It also catches an optimization
+aimed at a resource that was never the bottleneck, such as SIMD in front of a per-record `fsync`.
 
-**Check:** does the commit message or PR contain before and after numbers with the input described?
+**Check:** does the design note or the change describe the expected cost in numbers before any
+benchmark is quoted? Prose that says only "should be fast" is the finding.
 
-### RS-PERF-04 [S] Optimize for the realistic input distribution
+### RS-PERF-04 [S] Document complexity and allocation where users would guess
+
+Document complexity and allocation behaviour where users would otherwise guess: "runs in O(n log n)
+and allocates once", "does not allocate if the input is already normalized". This is what makes a
+library usable in a hot loop with confidence.
+
+**Why:** without it, the careful user benchmarks your function to learn what one sentence could have
+told them, and the careless user calls it in a loop. Documenting it also pins the behaviour as
+something you intend to preserve.
+
+**Check:** for each function on a plausible hot path, does the reader know whether it allocates? If
+answering requires reading the body, document it.
+
+```rust
+// verified
+/// Returns the unique values, in first-seen order.
+///
+/// Runs in O(n log n) and allocates once for the result and once for the
+/// seen-set; the input is left untouched.
+#[must_use]
+pub fn unique(values: &[u32]) -> Vec<u32> {
+    let mut seen = std::collections::BTreeSet::new();
+    values
+        .iter()
+        .filter(|&&value| seen.insert(value))
+        .copied()
+        .collect()
+}
+```
+
+### RS-PERF-05 [S] Optimize for the realistic input distribution
 
 The benchmark you happen to have is not it: a search tool is dominated by files that do not match, a
 parser by inputs that are valid. Make the common case fast and the rare case correct, and say which
@@ -143,7 +177,7 @@ not a detail.
 **Check:** describe the input distribution the benchmark uses and compare it to production. A
 benchmark where every input matches is measuring the rare case.
 
-### RS-PERF-05 [M] Measure in release mode with the profile you ship
+### RS-PERF-06 [M] Measure in release mode with the profile you ship
 
 Debug-build timings are meaningless — bounds checks, no inlining, and overflow checks make them
 differ by an order of magnitude.
@@ -157,7 +191,7 @@ that ship (RS-BUILD-40)?
 
 ## Allocation
 
-### RS-PERF-06 [S] Know when `collect()` can pre-size and when it cannot
+### RS-PERF-07 [S] Know when `collect()` can pre-size and when it cannot
 
 `collect()` uses the iterator's `size_hint`, so it pre-sizes correctly for slices, ranges, and `map`
 over them — but not after `filter`, `flat_map`, or `chars`. Where the count is known independently
@@ -182,20 +216,23 @@ pub fn concat(words: &[&str]) -> Vec<u8> {
 }
 ```
 
-### RS-PERF-07 [M] Hoist allocations out of loops
+### RS-PERF-08 [S] Hoist allocations out of loops, and write into a reused buffer
 
-Do not allocate inside a loop when the allocation can be hoisted. This is the highest-frequency
+Do not allocate inside a hot loop when the allocation can be hoisted. This is the highest-frequency
 performance defect in otherwise good Rust.
 
 For line input, hoist one `String` or `Vec<u8>` and `clear()` it before each `read_line` or
-`read_until`: the pattern behind ripgrep and every fast line-oriented tool.
+`read_until`: the pattern behind ripgrep and every fast line-oriented tool. `format!` allocates on
+every call, so `write!` into a reused `String` (via `fmt::Write`) or `Vec<u8>` (via `io::Write`), or
+`push_str` where no formatting is needed. For a bare integer, `format_into` with a reused
+`NumBuffer` replaces `itoa`.
 
 **Why:** an allocation is a synchronized call into the allocator plus, eventually, a free. Doing it
 per iteration converts a linear pass into one dominated by allocator traffic, and it is usually
 removable by moving one binding above the loop.
 
 **Check:** look for `Vec::new`, `String::new`, `to_vec`, `to_string`, and `format!` inside loop
-bodies.
+bodies on a path a profile names.
 
 ```rust
 // verified
@@ -218,37 +255,6 @@ pub fn count_matching(mut source: impl BufRead, needle: &str) -> io::Result<usiz
         }
     }
     Ok(matches)
-}
-```
-
-### RS-PERF-08 [M] Write into a reused buffer instead of `format!` in a hot loop
-
-`format!` allocates. In a hot loop, `write!` into a reused `String` (via `fmt::Write`) or a reused
-`Vec<u8>` (via `io::Write`), and reach for `push_str`/`push` where no formatting is needed. For a
-bare integer, `format_into` with a reused `NumBuffer` skips the formatting machinery and replaces
-`itoa`.
-
-**Why:** `format!` is `String::new` plus formatting plus a return by value, so it allocates every
-call. `write!` into an existing buffer does the same formatting with no allocation.
-
-**Check:** is `format!` called inside a loop? Each is an allocation that `write!` would avoid.
-
-```rust
-// verified
-use std::fmt::NumBuffer;
-
-/// One reused `String` and one reused `NumBuffer` instead of `format!` per iteration.
-#[must_use]
-pub fn join_ids(ids: &[u32]) -> String {
-    let mut out = String::with_capacity(ids.len() * 4);
-    let mut digits = NumBuffer::new();
-    for (index, id) in ids.iter().enumerate() {
-        if index > 0 {
-            out.push(',');
-        }
-        out.push_str(id.format_into(&mut digits));
-    }
-    out
 }
 ```
 
@@ -502,19 +508,24 @@ pub fn contains(sorted: &[u32], needle: u32) -> bool {
 
 ## I/O and syscalls
 
-### RS-PERF-19 [M] Always buffer
+### RS-PERF-19 [M] Always buffer, read in large chunks, and batch syscalls
 
 A file, socket, pipe or standard stream read or written more than once goes through a `BufReader` or
 `BufWriter`, and stdout is locked once rather than per line: `println!` locks, formats and writes on
-every call, and Rust's stdout is line-buffered whether it is a terminal, a pipe or a file.
+every call, and Rust's stdout is line-buffered whether it is a terminal, a pipe or a file. Read in
+large chunks, never byte-at-a-time: `read_until`, `read_to_end` and `fill_buf`/`consume` give you
+the bytes without a call per byte, and `skip_until` passes over them without copying. Batch the
+syscalls that remain: `write_vectored` for scattered buffers, one `stat` instead of `exists()`
+followed by `metadata()`, and a traversal crate (`ignore`, `walkdir`) that already minimizes them.
 
 **Why:** a syscall costs microseconds against nanoseconds for a memcpy into a buffer, so a million
 unbuffered lines are a million `write`s, and the kernel becomes the bottleneck for work that never
 needed it — the most common reason a Rust CLI is slower than its C equivalent.
 
-**Check:** is any `File`, socket, `stdout()` or `stderr()` handle read or written directly inside a
-loop, or `println!` called in one? Each is a syscall per iteration: wrap the handle, locked, once
-outside the loop.
+**Check:** `rg -n -F 'read(&mut [0u8; 1])' -g '*.rs'` finds a one-byte read; each hit is the
+finding, and so is any `File`, socket, `stdout()` or `stderr()` handle read or written directly
+inside a loop, `println!` called in one, or an `exists()` followed by a `metadata` call on the same
+path.
 
 ```rust
 // verified
@@ -533,37 +544,7 @@ pub fn print_all(lines: &[String]) -> io::Result<()> {
 }
 ```
 
-### RS-PERF-20 [M] Read in large chunks, never byte-at-a-time
-
-Prefer reading in large chunks over byte-at-a-time. `read_until`, `read_to_end`, and
-`fill_buf`/`consume` give you the bytes without a syscall per byte, and `skip_until` passes over
-them without copying them anywhere.
-
-**Why:** per-byte reads multiply the per-call overhead by the input size, even with buffering,
-because each call still goes through the `Read` machinery. `fill_buf` hands you the whole buffered
-slice with no copy at all.
-
-**Check:** `rg -n -F 'read(&mut [0u8; 1])' -g '*.rs'` finds a one-byte read; each hit is the
-finding, and so is any loop that reads or writes a byte per call.
-
-```rust
-// verified
-use std::io::{self, BufRead};
-
-/// Counts lines a buffer at a time, without copying a byte out of the reader.
-///
-/// # Errors
-/// Propagates any read error.
-pub fn count_lines(mut source: impl BufRead) -> io::Result<usize> {
-    let mut lines = 0;
-    while source.skip_until(b'\n')? > 0 {
-        lines += 1;
-    }
-    Ok(lines)
-}
-```
-
-### RS-PERF-21 [S] Treat memory maps as a per-file runtime choice, not a default
+### RS-PERF-20 [S] Treat memory maps as a per-file runtime choice, not a default
 
 Memory maps are not automatically faster. They win for large files read repeatedly and lose for
 small files, for pipes, and for network filesystems — and they introduce SIGBUS risk if the file is
@@ -577,7 +558,7 @@ from an error into a process death.
 **Check:** is `mmap` used unconditionally? If so, measure it against buffered reads on the
 small-file case.
 
-### RS-PERF-22 [M] Work on `&[u8]` and validate UTF-8 only where required
+### RS-PERF-21 [M] Work on `&[u8]` and validate UTF-8 only where required
 
 `memchr`, `memmem`, and `bstr` operate on bytes at SIMD speed; forcing every input through
 `str::from_utf8` costs a pass over the data and rejects legitimate files.
@@ -597,22 +578,33 @@ pub fn first_field(line: &[u8]) -> &[u8] {
 }
 ```
 
-### RS-PERF-23 [S] Batch syscalls
+### RS-PERF-22 [M] Keep iterators lazy as far up the stack as you can
 
-`write_vectored` for scattered buffers, one `stat` instead of `exists()` followed by `metadata()`,
-and directory traversal via a crate (`ignore`, `walkdir`) that already minimizes them. Where
-existence alone is the question, `fs::exists` answers it and reports a permission error that
-`Path::exists` turns into `false`.
+Take `impl IntoIterator<Item = T>`, and return an iterator rather than a collection whenever the
+caller may consume only part of the sequence or feed it to another adapter; RS-TRAIT-13 spells the
+return type.
 
-**Why:** syscalls dominate metadata-heavy workloads, and the redundant ones are easy to introduce —
-`exists()` then `metadata()` is two stats for one question. Traversal crates have already done this
-optimization carefully.
+**Why:** materialization belongs to whoever knows how much of the sequence is needed, which is the
+caller. Returning `Vec<T>` decides on their behalf that all of it is computed and all of it stored,
+and feeding it to another adapter costs a second allocation.
 
-**Check:** is `exists()` immediately followed by an open or a `metadata` call on the same path?
+**Check:** does the function return a collection the caller might only partially consume? Does the
+caller immediately `.iter()` or `.into_iter()` it, or index only the first element?
+
+```rust
+// verified
+/// Nothing is computed until the caller asks, and only as much as it asks for.
+pub fn non_empty(lines: &[String]) -> impl Iterator<Item = &str> {
+    lines
+        .iter()
+        .map(String::as_str)
+        .filter(|line| !line.is_empty())
+}
+```
 
 ## Codegen and the compiler
 
-### RS-PERF-24 [M] Use `#[inline]` for small cross-crate non-generic functions only
+### RS-PERF-23 [M] Use `#[inline]` for small cross-crate non-generic functions only
 
 `#[inline]` is for small functions that must inline *across crate boundaries* — non-generic
 functions in a library. Generic functions are already available for inlining. Applying it everywhere
@@ -625,7 +617,7 @@ boundary, which is the one thing the attribute is for.
 **Check:** is `#[inline]` on a generic function or a private one? Both are usually noise. For the
 rest, is the function non-generic, small, and hot in another crate?
 
-### RS-PERF-25 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
+### RS-PERF-24 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
 
 Monomorphization is a size/speed trade. A large generic function instantiated for twenty types is
 twenty copies; extract the type-independent body into a non-generic inner function and keep the
@@ -654,7 +646,7 @@ pub fn read_config(path: impl AsRef<Path>) -> std::io::Result<String> {
 }
 ```
 
-### RS-PERF-26 [S] Do not assume static dispatch beats dynamic
+### RS-PERF-25 [S] Do not assume static dispatch beats dynamic
 
 Static dispatch is not automatically faster than dynamic: a vtable call is a predictable indirect
 branch, while twenty monomorphized copies can evict the i-cache. Measure before converting `dyn` to
@@ -667,7 +659,7 @@ the whole program.
 **Check:** was a `dyn` to generic conversion justified by a benchmark, or by the belief that static
 is faster?
 
-### RS-PERF-27 [M] Hoist loop invariants the compiler cannot
+### RS-PERF-26 [M] Hoist loop invariants the compiler cannot
 
 Hoist invariants out of loops explicitly when the compiler cannot: a regex compiled once outside the
 loop rather than per iteration, a `LazyLock` for an expensive computed global, a `const` for data
@@ -693,7 +685,7 @@ pub fn field_count(lines: &[String]) -> usize {
 }
 ```
 
-### RS-PERF-28 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
+### RS-PERF-27 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
 
 Atomic increments are cheap but not free, and contention on a shared refcount across threads is
 measurable.
@@ -704,7 +696,7 @@ several threads cloning the same `Arc`, that line ping-pongs between cores and c
 **Check:** for hot paths, could the value be borrowed instead of cloned? A clone per iteration
 usually can be hoisted (RS-OWN-09).
 
-### RS-PERF-29 [M] Write SIMD only beside a scalar fallback and a differential test
+### RS-PERF-28 [M] Write SIMD only beside a scalar fallback and a differential test
 
 Before hand-writing it, check whether `memchr`, `bstr`, or `regex-automata` already does it for you
 — they almost certainly do it better. Hand-written SIMD keeps the scalar version as its reference
@@ -720,41 +712,19 @@ path has no oracle; the comparison is RS-TEST-22's differential test.
 
 ## Benchmarking
 
-### RS-PERF-30 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
+### RS-PERF-29 [M] Benchmark with `criterion` or `divan`, and wrap inputs and results in `black_box`
 
 Benchmark with `criterion` or `divan`, not `std::time::Instant` in a loop. They handle warmup,
 outlier detection, and statistical comparison — without which small differences are
-indistinguishable from noise.
+indistinguishable from noise. Use `std::hint::black_box` around inputs and results so the optimizer
+cannot delete the work the benchmark times: a benchmark that got 1000× faster deleted itself.
 
 **Why:** a hand-rolled timing loop measures the first iterations cold, includes scheduler noise, and
-reports a single number with no confidence interval. Most reported "10% improvements" from such
-loops are noise.
+reports one number with no interval. And the compiler, seeing the result unused and the input
+constant, may remove the whole computation, so the number measures an empty loop.
 
 **Check:** does the benchmark report a distribution or a single number? A single number is not a
-measurement.
-
-### RS-PERF-31 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
-
-Keep benchmarks in `benches/` with fixed inputs, checked in or generated from a seed, so results are
-comparable across commits. Build them in CI even if you do not time them there.
-
-**Why:** comparability requires the input to be identical; a benchmark that downloads a corpus or
-reads the developer's home directory measures the network and the filesystem. Benchmarks are left
-out of a default `cargo test`, so uncompiled they rot until the day you need one.
-
-**Check:** are the benchmark inputs checked in or seeded (RS-TEST-09), and does CI run
-`cargo build --benches`?
-
-### RS-PERF-32 [M] Wrap inputs and results in `black_box`
-
-Use `std::hint::black_box` around inputs and results so the optimizer cannot delete the work the
-benchmark times. A benchmark that got 1000× faster deleted itself.
-
-**Why:** the compiler can see the result is unused and the input is constant, so it is entitled to
-remove the entire computation. The resulting number measures an empty loop, and it looks like a
-triumph.
-
-**Check:** any benchmark reporting sub-nanosecond times for real work has been optimized away.
+measurement, and sub-nanosecond times for real work mean it was optimized away.
 
 ```rust
 // verified
@@ -772,7 +742,19 @@ pub fn bench_once(input: &[u8]) -> u32 {
 }
 ```
 
-### RS-PERF-33 [M] Benchmark realistic sizes
+### RS-PERF-30 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
+
+Keep benchmarks in `benches/` with fixed inputs, checked in or generated from a seed, so results are
+comparable across commits. Build them in CI even if you do not time them there.
+
+**Why:** comparability requires the input to be identical; a benchmark that downloads a corpus or
+reads the developer's home directory measures the network and the filesystem. Benchmarks are left
+out of a default `cargo test`, so uncompiled they rot until the day you need one.
+
+**Check:** are the benchmark inputs checked in or seeded (RS-TEST-09), and does CI run
+`cargo build --benches`?
+
+### RS-PERF-31 [M] Benchmark realistic sizes
 
 Microbenchmarks on ten-element inputs measure function-call overhead; the algorithmic difference
 only appears at scale.
@@ -784,7 +766,7 @@ point is often well above the size people benchmark.
 **Check:** does the benchmark sweep several sizes? A single small size cannot show an asymptotic
 difference.
 
-### RS-PERF-34 [S] Report throughput rather than latency for data-processing code
+### RS-PERF-32 [S] Report throughput rather than latency for data-processing code
 
 Report throughput (`Throughput::Bytes`) rather than latency for data-processing code, so results are
 comparable across input sizes.
@@ -794,7 +776,7 @@ the history. Bytes per second normalizes that and makes the number meaningful on
 
 **Check:** are the benchmark results expressed in a unit that survives an input change?
 
-### RS-PERF-35 [M] Pin CI benchmark comparisons to one machine class, or distrust them
+### RS-PERF-33 [M] Pin CI benchmark comparisons to one machine class, or distrust them
 
 Pin CI benchmark comparisons to the same machine class, or do not trust them. Cross-runner
 comparisons are noise, and treating them as signal produces a permanent stream of false regressions.
@@ -806,7 +788,7 @@ it is right.
 **Check:** does the benchmark job pin the runner type, and does it compare against a baseline from
 the same class?
 
-### RS-PERF-36 [S] Track binary size and compile time alongside runtime
+### RS-PERF-34 [S] Track binary size and compile time alongside runtime
 
 A CLI's users notice a 40 MB binary and a five-minute build as surely as a slow run.
 
@@ -816,7 +798,7 @@ the same dashboard.
 
 **Check:** is release binary size recorded per release? A number nobody tracks only grows.
 
-### RS-PERF-37 [S] Record every optimization attempt, including the failures
+### RS-PERF-35 [S] Record every optimization attempt, including the failures
 
 Record the result of every optimization attempt, including the ones that did not work, in the commit
 message or a comment. The next person will otherwise try the same thing.
@@ -836,7 +818,7 @@ A tool settles these on its own; the shipped configuration enables each at the l
 |---|---|---|---|
 | clippy | `map_entry` | warn | `contains_key` then `insert` — one lookup with `entry()` — listed because one lookup with `entry()` is the rule a revision demoted to it |
 | clippy | `needless_range_loop` | warn | a range loop that only indexes — iterate, and the bounds checks go — listed because an iterator in place of indices is the rule a revision demoted to it |
-| clippy | `inline_always` | warn | `#[inline(always)]` — `#[expect]` it, citing the benchmark that justifies it — listed because `#[inline]` only with a benchmark (RS-PERF-24) is the rule a revision demoted to it |
+| clippy | `inline_always` | warn | `#[inline(always)]` — `#[expect]` it, citing the benchmark that justifies it — listed because `#[inline]` only with a benchmark (RS-PERF-23) is the rule a revision demoted to it |
 | clippy | `cast_possible_truncation` | warn | an `as` cast that can drop high bits |
 | clippy | `cast_sign_loss` | warn | an `as` cast from signed to unsigned |
 | clippy | `cast_precision_loss` | warn | an `as` cast to a float that cannot hold every value |
