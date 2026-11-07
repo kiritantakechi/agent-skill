@@ -216,40 +216,48 @@ def test_a_move_and_the_move_back_restore_every_byte(
 def test_a_move_into_a_chapter_not_shipped_creates_it_and_back_removes_it(
     repo: Path,
 ) -> None:
-    """The template, a scope left to write, and its section 6 row."""
+    """The template, a scope left to write, and its section 6 row.
+
+    The target is a word of the vocabulary the standard does not ship,
+    and the rules the first two of a naming section holding two or
+    more: read from the tree, so a sweep that ships a chapter or moves
+    a rule leaves the law's premise true.
+    """
     name = "zig-style"
     standard = skill(repo, name)
-    assert "documentation" not in {c.path.stem for c in standard.chapters}
+    shipped = {c.path.stem for c in standard.chapters}
+    target = next(w for w in vocabulary.CHAPTERS if w not in shipped)
     naming = next(c for c in standard.chapters if c.path.stem == "naming")
-    first, second = naming.typed.rules[19:21]
+    held = next(s for s in naming.typed.sections if len(s.rules) >= 2)
+    first, second = held.rules[:2]
     before = snapshot(repo)
 
     forward = apply(
         repo,
         name,
         {
-            first.id: revise.Moved("documentation", "Doc comments"),
-            second.id: revise.Moved("documentation", first.id),
+            first.id: revise.Moved(target, "Moved here"),
+            second.id: revise.Moved(target, first.id),
         },
     )
 
     created = skill(repo, name)
-    chapter = next(c for c in created.chapters if c.path.stem == "documentation")
+    chapter = next(c for c in created.chapters if c.path.stem == target)
     typed = chapter.typed
     assert [r.title for r in typed.rules] == [first.title, second.title]
     # Spelled by its parts: this file is in the copy, and an ID spelled
     # whole would be a citation the move captures, which it refuses.
-    family = vocabulary.code_for("documentation")
+    family = vocabulary.code_for(target)
     assert [r.id for r in typed.rules] == [RuleId("ZS", family, n) for n in (1, 2)]
-    assert typed.title == "Documentation"
-    assert [s.title for s in typed.sections] == ["Doc comments"]
+    assert typed.title == target.capitalize()
+    assert [s.title for s in typed.sections] == ["Moved here"]
     assert typed.contents is not None
     assert [e.id for e in typed.contents.entries] == [r.id for r in typed.rules]
-    assert f"`references/documentation.md` | `ZS-{family}` (2) |" in created.text
+    assert f"`references/{target}.md` | `ZS-{family}` (2) |" in created.text
     unscoped = [
         f for f in skeleton.skeleton.each(created) if f.branch == skeleton.NO_SCOPE
     ]
-    assert [f.where.file for f in unscoped] == ["references/documentation.md"]
+    assert [f.where.file for f in unscoped] == [f"references/{target}.md"]
 
     doc = forward.renamed[first.id]
     assert isinstance(doc, RuleId)
