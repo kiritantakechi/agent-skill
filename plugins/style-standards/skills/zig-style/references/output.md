@@ -454,8 +454,8 @@ the dangerous ones — silent deprecation aliases, the same category of stalenes
 
 **Check:** `std.fmt.Formatter`, `std.fmt.FormatOptions`, or `std.fmt.bufPrintZ` anywhere in the
 diff, and any `std.fmt.bufPrint`, `bufPrintSentinel`, `BufPrintError`, `allocPrint` or
-`allocPrintSentinel`. Only those last five still compile; `references/migration.md` ZS-MIG-13's
-denylist is the standing CI grep for them.
+`allocPrintSentinel`. Only those last five still compile; the command after the migration table
+finds them, and ZS-MIG-03 runs it in CI.
 
 ```zig
 // verified — GOOD

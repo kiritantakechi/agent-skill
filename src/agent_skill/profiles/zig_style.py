@@ -139,21 +139,12 @@ PROFILE = Profile(
     # fixture, not the pattern.
     fires=keyed(
         {
-            # Four patterns, because one line of alternation is
-            # unreadable — so four fixtures. While there was one, three
-            # of the four were counted as proven by a snippet none of
-            # them matched, and any of the three could have been
-            # narrowed to match nothing without this noticing. Each is
-            # the *old* spelling from that pattern's own row in the
-            # table, written as the call site had it.
-            "ZS-MIG-12": (
-                "const seen = EnumSet(Color).initEmpty();",
-                (
-                    "try std.tar.pipeToFileSystem(dest, reader, "
-                    ".{ .mode_mode = .ignore });"
-                ),
-                "std.debug.captureStackTrace(@returnAddress(), &trace);",
-                "const cp = try std.unicode.utf8Decode(bytes[i..][0..len]);",
+            # Two patterns, so two fixtures: each the call a `changed`
+            # row of ZS-MIG-01's says to re-read, written as a 0.16 call
+            # site had it.
+            "ZS-MIG-01": (
+                "if (std.mem.containsAtLeastScalar(u8, list, 3, 'a')) return;",
+                "if (std.mem.eql(f64, readings, baseline)) return;",
             ),
         }
     ),
@@ -170,9 +161,6 @@ PROFILE = Profile(
         "ZS-COMPTIME-21",
         "ZS-MEM-04",
         "ZS-MEM-06",
-        "ZS-MIG-04",
-        "ZS-MIG-05",
-        "ZS-MIG-08",
         "ZS-NAME-12",
         "ZS-NAME-15",
         "ZS-NAME-23",
@@ -237,11 +225,6 @@ PROFILE = Profile(
                 "the span finds every `.allocator()`; whether its receiver is a local "
                 "`var` in the same frame that returns decides, which is a fact about "
                 "the declaration above it",
-            ),
-            "ZS-MIG-11": NotDecisive(
-                "root_source_file",
-                "the span finds every `root_source_file`; whether it sits inside a "
-                "`createModule` literal rather than an `addExecutable` one decides",
             ),
             "ZS-NAME-04": NotDecisive(
                 "len_",

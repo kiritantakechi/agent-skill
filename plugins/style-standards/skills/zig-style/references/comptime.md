@@ -74,7 +74,7 @@ is often what it does at the top of a file.
 | `@Type(...)`, `std.meta.Int`, `std.meta.Tuple` | ZS-COMPTIME-14 |
 | `@typeInfo(T).Struct`, `.@"struct".fields`, a raw `default_value_ptr` | ZS-COMPTIME-15 |
 | Hand-rolled vtable for a closed set of impls | ZS-COMPTIME-20 |
-| `usingnamespace` | `references/migration.md` ZS-MIG-02 |
+| `usingnamespace` | ZS-BUILD-16 |
 | `error: unable to resolve comptime value` with no visible cause | ZS-COMPTIME-21 |
 
 ---
@@ -696,10 +696,9 @@ Three more traps: pointer and field alignment, `.pointer.attrs.@"align"` and
 `null` check is not an "empty set" check; and a zero-bit tuple field is not implicitly `comptime`
 (`references/data.md` ZS-DATA-34).
 
-The `.Int` -> `.int` / `.Struct` -> `.@"struct"` renames (ZS-MIG-02) and 0.17's move from `.fields`
-to `.field_names`/`.field_types`/`.field_attrs` are hard compile errors, so they are listed in the
-migration tables of `references/migration.md` rather than enumerated here. This rule is about the
-parts that still compile.
+The `.Int` -> `.int` / `.Struct` -> `.@"struct"` renames and 0.17's move from `.fields` to
+`.field_names`/`.field_types`/`.field_attrs` are hard compile errors, so they are rows of the
+migration table rather than enumerated here. This rule is about the parts that still compile.
 
 **Why:** the accessor methods encapsulate the `default_value_ptr`/`sentinel_ptr` representation, so
 code that calls them survives a representation change, and code that reads the raw fields does not.

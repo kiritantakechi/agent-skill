@@ -374,9 +374,12 @@ def reality(
     spelling and rule, in the table's order, so the subsection is a
     function of the table alone; then the line saying where the other
     rows are. No table when no row landed in the target: a header over
-    no row says nothing.
+    no row says nothing. A row's cells are read with each escaped pipe
+    a pipe (`errdefer |err|`), so each is escaped again to be a cell.
     """
     kept = landed(rows, since, status)
-    cells = tuple((r.old, r.new, r.rule) for r in kept)
+    cells = tuple(
+        tuple(c.replace("|", "\\|") for c in (r.old, r.new, r.rule)) for r in kept
+    )
     table = Table(tuple(header), (Align.NONE,) * len(header), cells)
     return (*((table,) if kept else ()), older(family, status))

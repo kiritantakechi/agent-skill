@@ -345,6 +345,27 @@ def test_fmt_renders_each_row_of_the_target_under_its_status(built: Skill) -> No
     assert (_subsection(again, CHANGED), _subsection(again, GONE)) == (changed, gone)
 
 
+def test_a_cell_holding_a_pipe_is_rendered_as_one_cell(built: Skill) -> None:
+    """A pipe in a cell is escaped in the rendering, as in its row.
+
+    A cell is read with its escaped pipes as pipes, so a rendering that
+    printed it as read split `errdefer |err|` into three cells.
+    """
+    edited = edit(
+        built,
+        MIGRATION,
+        "| `old_name` | `new_name` | gone | 1.2 | DS-MIG-01 |\n",
+        "| `old_name` | `new_name` | gone | 1.2 | DS-MIG-01 |\n"
+        "| `errdefer \\|err\\|` | `inner() catch \\|err\\|` "
+        "| gone | 1.2 | DS-MIG-01 |\n",
+    )
+    format_skill(edited)
+    fixed = Skill(built.root, built.profile)
+    assert fired(fixed, "skeleton") == []
+    row = "| `errdefer \\|err\\|` | `inner() catch \\|err\\|` | DS-MIG-01 |"
+    assert row in _subsection(fixed, GONE)
+
+
 @pytest.mark.parametrize("status", ["alias", "deprecated"])
 def test_a_row_that_still_means_what_it_did_is_in_no_subsection(
     built: Skill, status: str

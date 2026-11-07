@@ -14,11 +14,11 @@ something the harness can infer.
 
 **Every** pattern, which is what the title says and what the code did
 not do. It asserted `any`, so one pattern matching stood as evidence for
-the rest: measured, `ZS-MIG-12` ships four patterns over four disjoint
-families of dead API and its one fixture matched the first, leaving
-three counted as proven by a snippet none of them touched. Any of those
-three could have been narrowed until it matched nothing at all and this
-check would have kept reporting the rule covered.
+the rest: a zig-style migration rule shipped four patterns over four
+disjoint families of dead API and its one fixture matched the first,
+leaving three counted as proven by a snippet none of them touched. Any
+of those three could have been narrowed until it matched nothing at all
+and this check would have kept reporting the rule covered.
 
 The cover is asserted in both directions — every pattern hits some
 fixture, and every fixture is hit by some pattern. The second is what

@@ -197,11 +197,11 @@ class Profile:
     #: this.
     #:
     #: Several snippets, not one, because a rule's Check may ship
-    #: several patterns and one snippet cannot exhibit them all —
-    #: `ZS-MIG-12` covers four disjoint families of dead API. While this
-    #: was one snippet the assertion could only be `any`, so three of
-    #: that rule's four patterns were counted as proven by a fixture
-    #: none of them matched.
+    #: several patterns and one snippet cannot exhibit them all — a
+    #: migration rule once covered four disjoint families of dead API.
+    #: While this was one snippet the assertion could only be `any`, so
+    #: three of that rule's four patterns were counted as proven by a
+    #: fixture none of them matched.
     #:
     #: Matched as a cover in both directions: every command pattern hits
     #: some snippet, and every snippet is hit by some pattern. The

@@ -442,10 +442,10 @@ The unary float builtins convert directly to an integer result type:
 `export fn a(x: f64) i32 { return @trunc(x); }` compiles. The langref marks `@intFromFloat`
 "Deprecated. Equivalent to @trunc." and nothing else does: it emits no warning, `zig fmt` leaves it
 alone, and std still uses it (`std.math.lossyCast` does). It is the less informative spelling, which
-is why this rule prefers `@trunc`/`@round` — see ZS-MIG-02, where the row is an *alias*, not a
-removal. Whichever you use, an out-of-range value is safety-checked illegal behavior:
-`panic: integer part of floating point value out of bounds`. NaN fails every comparison, so the
-range guard must be a positive in-range test, not a negated out-of-range test.
+is why this rule prefers `@trunc`/`@round`. Whichever you use, an out-of-range value is
+safety-checked illegal behavior: `panic: integer part of floating point value out of bounds`. NaN
+fails every comparison, so the range guard must be a positive in-range test, not a negated
+out-of-range test.
 
 **Why:** float-to-int is two decisions — which direction to round, and what to do about values
 outside the destination range. `@intFromFloat` names neither; `@round(x)` names the first, and an
@@ -1401,9 +1401,8 @@ test "sign returns the narrowest int, never the input type" {
 
 ### ZS-DATA-34 [M] Know the five type-system rules that older Zig code trips on
 
-`references/migration.md` ZS-MIG-02 holds the full removed-syntax table. Of these five, two change
-what code that *still compiles* means, one is a cast that can lose a bound, and two turn latent bugs
-into compile errors.
+The migration table holds every removed spelling. Of these five, two change what code that *still
+compiles* means, one is a cast that can lose a bound, and two turn latent bugs into compile errors.
 
 1. **`*u8` and `*align(1) u8` are distinct types**, though `*u8` still coerces to `*align(1) u8`.
    `@TypeOf` comparisons, `switch` on a type, `std.meta.eql` over type values, and any hand-rolled

@@ -1,7 +1,7 @@
 ---
 name: zig-style
 description: >-
-  The modern Zig 0.17 engineering standard — a 356-rule library merging the official Zig style
+  The modern Zig 0.17 engineering standard — a 346-rule library merging the official Zig style
   guide, the empirical conventions of the 0.17 standard library, and TigerBeetle's TigerStyle.
   Covers naming, types and data layout, errors and control flow, memory and allocators, std.Io
   streams and structured concurrency, assertions and bounded limits, API symmetry, comptime and
@@ -76,211 +76,91 @@ proceed with the stricter reading.
 
 ## 2. Zig 0.17 reality check
 
-Zig 0.15, 0.16 and 0.17 each broke code written for the release before, and most Zig in circulation
-predates all three. The traps come in the order that matters: first the ones that still compile and
-now do something else, which no build catches; then the ones the compiler rejects; then the
-toolchain. Every snippet here was compiled against Zig 0.17.0.
+### 2.1 Compiles, and behaves differently
 
-### 2.1 What 0.17 changed without breaking the build
-
-| Change | What silently differs |
-|---|---|
-| The optimize modes are `.debug`, `.safe`, `.fast` and `.small` (`std.lang.Optimize`), and `@import("builtin").mode` is now `.optimize` | The old names survive as deprecated declarations, so `.optimize = .ReleaseSafe` and a `.ReleaseFast =>` prong still compile — but `builtin.mode == .Debug` does not. `@tagName` and `{t}` now print `debug` and `safe`, so every artifact name and log line built from a mode changes. To ask whether safety checks are on, write `builtin.optimize.runtimeSafety()`: not a hand-written switch, and not `std.debug.runtime_safety`, which reports std's mode rather than yours. |
-| `std.mem.containsAtLeastScalar` takes `(T, list, element, minimum)` | 0.16 took `(minimum, element)`, and its `containsAtLeastScalar2` is gone. For an integer `T` both orders type-check, so a 0.16 call compiles and asks a different question. Re-read every call. |
-| `@hasDecl` sees only `pub` declarations, even from the same file | Feature detection over a private declaration — `if (@hasDecl(@This(), "x"))` — turns `false` with no diagnostic. |
-| `@bitCast` on an array or a vector reinterprets logical bits, independent of endianness | A big-endian target gets a different result from 0.16. A cast to an enum now compiles and is safety-checked, and a cast of an `extern struct` or `extern union` is now rejected — use `@ptrCast` or an `extern union`. |
-| `std.mem.eql` and `findDiff` on floats no longer short-circuit on the same slice | A slice holding NaN is no longer equal to itself. |
-| `init.gpa` and `std.testing.allocator` are `std.heap.SafeAllocator` | `init.gpa` is a `SafeAllocator` in `debug` **and** `safe` builds, whether or not libc is linked; 0.16 gave a `ReleaseSafe` build that linked libc the `c_allocator`. A `safe` binary's allocation profile changes, and its leak report still never changes the exit code. |
-| `zig fmt` rewrites `@intFromEnum` and `@enumFromInt` | Both are deprecated in favour of `@backingInt` and `@fromBackingInt`, and `zig fmt` does the rewrite, so a `zig fmt --check` gate fails on code nobody touched. The rewrite wraps `@fromBackingInt`'s operand in an `@intCast` even when it already has the backing type; delete that cast. |
-| Build-system behavior | `run.addPassthruArgs()`, the replacement for `b.args`, makes the run step uncached, and the build script never sees the arguments. A bare `zig fetch <url>` fills only the global cache; `zig fetch --save` and `zig build` fill `zig-pkg/`. `b.dependency` now fetches a lazy package itself instead of panicking, which makes `b.lazyDependency` a deprecated alias. |
-
-### 2.2 `{}` does not call your `format` method — only `{f}` does
-
-This 0.16 change is still the most dangerous one here, because it produces **wrong output instead of
-a compile error**.
-
-```zig
-// fragment — prints: [.{ .x = 1 }] [CUSTOM3]
-const P = struct {
-    x: u32,
-    pub fn format(p: P, w: *std.Io.Writer) std.Io.Writer.Error!void {
-        try w.print("CUSTOM{d}", .{p.x});
-    }
-};
-try w.print("[{}] [{f}]", .{ P{ .x = 1 }, P{ .x = 3 } });
-```
-
-`{}` falls back to the compiler's default struct dump and silently ignores `format`. **Use `{f}` for
-any type with a custom `format`.** The signature is
-`fn (value, w: *std.Io.Writer) std.Io.Writer.Error!void` — it takes a writer and no longer takes a
-format string or options. `{D}` no longer works. 0.17 adds `{q}`, which prints a double-quoted,
-escaped string, and `{qf}`, which escapes what `format` writes. Related trap: width or precision on
-a bare `{}` over an enum or error set is a **runtime panic**, not a compile error — write `{t:>8}`.
-Full specifier set in `references/output.md`.
-
-### 2.3 Deprecated spellings still compile — emit the new ones
-
-This is **silent** staleness: the old names remain as aliases, so nothing fails to build.
-
-| Stale, still compiles | Write |
-|---|---|
-| `std.builtin.Type`, `std.builtin.CallingConvention`, any `std.builtin.X` | `std.lang.X` |
-| `@import("builtin").cpu`, `.os`, `.abi`, `.object_format` | `.target.cpu`, `.target.os`, `.target.abi`, `.target.ofmt` |
-| `std.heap.DebugAllocator(.{})`, constructed with `.init` | `std.heap.SafeAllocator`, constructed with `.init(backing, .{})`; its `deinit()` returns the leak count |
-| `std.fmt.allocPrint(gpa, f, args)`, `allocPrintSentinel` | `gpa.print(f, args)`, `gpa.printSentinel(f, args, 0)` |
-| `std.fmt.bufPrint`, `bufPrintSentinel` | `std.mem.print`, `std.mem.printSentinel` |
-| `list.getLastOrNull()`, `list.getLast()` | `list.last()`, which returns `?T`: where `getLast` returned `T`, handle the `null`; the borrow is `list.lastPtr()` |
-| `bit_set.IntegerBitSet`, `ArrayBitSet`, `StaticBitSet`, `DynamicBitSetUnmanaged` | `bit_set.Integer`, `Array`, `Static`, `Dynamic` |
-| `std.meta.fieldInfo`, `fieldNames`, `fieldTypes` | `@typeInfo`, `@FieldType` |
-| `b.lazyDependency(name, args)` | `b.dependency(name, args)`, or `try b.dependencyLazy(name, args)` |
-| `std.ArrayListUnmanaged(T)` | `std.ArrayList(T)` — the managed one is now the deprecated one |
-| `std.fs.path`, `std.fs.max_path_bytes`, `max_name_bytes` | `std.Io.Dir.path`, `std.Io.Dir.max_path_bytes`, `max_name_bytes` |
-
-`std.mem.indexOf*` was renamed to `find*` in 0.16, and the old names still compile: `indexOf` is
-`find`, `lastIndexOfScalar` is `findScalarLast`, and `references/migration.md` ZS-MIG-05 has every
-pair. Part 7 there lists what 0.17 deprecated, with a pattern for each row, and ZS-MIG-13 is the
-denylist that collects the chapter's alias rows and fails a build on them.
-
-### 2.4 `main` takes a parameter now
-
-```zig
-// verified
-const std = @import("std");
-const Io = std.Io;
-
-/// Bytes of program output held before a write reaches the kernel.
-const stdout_buffer_max = 4096;
-
-pub fn main(init: std.process.Init) !void {
-    const io = init.io; // Io implementation chosen for the target
-    const gpa = init.gpa; // SafeAllocator in debug and safe builds: leaks are reported
-    const arena = init.arena.allocator(); // whole-process storage, freed on exit
-
-    var stdout_buffer: [stdout_buffer_max]u8 = undefined;
-    var stdout_writer = Io.File.stdout().writerStreaming(io, &stdout_buffer);
-    const out = &stdout_writer.interface;
-
-    const args = try init.minimal.args.toSlice(arena); // arena: no free to write
-    for (args) |arg| try out.print("{s}\n", .{arg});
-
-    const summary = try gpa.print("{d} argument(s)\n", .{args.len});
-    defer gpa.free(summary); // gpa: the free is yours — that is the whole difference
-    try out.writeAll(summary);
-
-    try out.flush(); // Output is buffered. Forgetting this prints nothing.
-}
-```
-
-`std.process.Init` gives you `minimal` (`args`, `environ`), `arena`, `gpa`, `io`, `environ_map`,
-`preopens`. It replaces the old `pub fn main() !void` plus manual `GeneralPurposeAllocator` and
-`std.process.argsAlloc` boilerplate (`references/migration.md` ZS-MIG-08). Program output to stdout
-is a *streaming* writer: a positional one, which `zig init` emits, starts at offset 0 and overwrites
-what a `>>` redirect already wrote (`references/concurrency.md` ZS-CONC-06).
-
-### 2.5 There is no `std.io`, and `std.fs` is a deprecation shim
-
-I/O, the filesystem, networking, time, and concurrency all live under `std.Io` now. `std/fs.zig` is
-about twenty lines, and every member of it is marked `Deprecated`.
-
-| Dead | Use |
-|---|---|
-| `std.io.getStdOut().writer()`, `bufferedWriter` | `Io.File.stdout().writerStreaming(io, &buffer)`, then `flush()` |
-| `std.io.Writer` / `GenericWriter` / `AnyWriter` | `*std.Io.Writer` (non-generic, buffer supplied by you) |
-| `std.fs.cwd()`, `std.fs.File`, `std.fs.Dir` | `std.Io.Dir`, `std.Io.File` — every call takes an `io` |
-| `async` / `await` keywords | `io.async(f, args)` → `Future(T)`, then `future.await(io)` |
-| `std.heap.GeneralPurposeAllocator` | `std.heap.SafeAllocator` (0.16 called it `DebugAllocator`) |
-
-The full tables are ZS-MIG-03 for streams and ZS-MIG-04 for the filesystem, in
-`references/migration.md`.
-
-### 2.6 Containers are unmanaged, except the non-array hash maps
-
-```zig
-// fragment
-var list: std.ArrayList(i32) = .empty;   // decl literal, not .init(gpa)
-defer list.deinit(gpa);                  // gpa passed to deinit
-try list.append(gpa, 42);                // ...and to every allocating method
-const owned = try list.toOwnedSlice(gpa);
-```
-
-The allocator is the **second** parameter, after the receiver. Non-allocating methods (`pop`,
-`last`) take no allocator. `std.HashMap`, `std.AutoHashMap`, `std.StringHashMap` and `std.BufMap`
-are still managed and not deprecated: they take the allocator once, in `.init(gpa)`, and `deinit()`
-takes none; the three `…HashMapUnmanaged` forms take it per call. Every container rename is a row of
-`references/migration.md` ZS-MIG-06.
-
-### 2.7 Concurrency is colorless and goes through `Io`
-
-```zig
-// fragment
-fn fetch(io: Io, id: u32) !u32 {
-    try io.sleep(.fromMilliseconds(10), .awake);
-    return id * 2;
-}
-
-test "run two tasks concurrently and await both" {
-    const io = std.testing.io; // tests that do I/O use this
-
-    var a = io.async(fetch, .{ io, 1 });
-    var b = io.async(fetch, .{ io, 2 });
-
-    // Await BOTH before inspecting either. A `try` between the spawns and the
-    // last await abandons the other future and leaks it — see ZS-CONC-21.
-    const first = a.await(io);
-    const second = b.await(io);
-
-    try std.testing.expectEqual(2, try first);
-    try std.testing.expectEqual(4, try second);
-}
-```
-
-The *same* function body runs threaded, evented, or single-threaded-blocking depending on which `Io`
-you pass. That is the point of the design. Note `Io.Clock` has no `.monotonic` — the variants are
-`real`, `awake`, `boot`, `cpu_process`, `cpu_thread`. `Io.Duration` constructors are spelled out in
-full: `fromNanoseconds`, `fromMicroseconds`, `fromMilliseconds`, `fromSeconds`. What moved off
-`std.Thread` and `std.time` is `references/migration.md` ZS-MIG-09.
-
-### 2.8 Testing moved too
-
-`std.testing.io` is a real `Io` for tests. `expectEqual(expected, actual)` takes `anytype` for both
-and peer-resolves, so `@as(T, x)` wrapping is usually unnecessary. Fuzz targets receive
-`*std.testing.Smith`, not `[]const u8` (`references/migration.md` ZS-MIG-10).
-
-### 2.9 Things that no longer exist at all
-
-The compiler rejects each of these, so none of them ships by accident; they are here because they
-are what a reader reaches for first.
-
-| Gone | Removed | Use |
+| Old | Zig 0.17 | Rule |
 |---|---|---|
-| `@Type` (removed builtin) | by 0.16 | `@Int`, `@Tuple`, `@Pointer`, `@Fn`, `@Struct`, `@Union`, `@Enum`, `@EnumLiteral` |
-| `std.Thread.Mutex`/`Condition`/`Semaphore`/`RwLock`/`ResetEvent`/`WaitGroup`/`Pool`/`Futex` | by 0.16 | `Io.Mutex`, `Io.Condition`, `Io.Semaphore`, `Io.RwLock`, `Io.Event`, `io.futexWait`/`futexWake` |
-| `std.time.Timer`, `Instant`, `timestamp()`, `sleep()` | by 0.16 | `Io.Timestamp`, `Io.Duration`, `Io.Clock`, `io.sleep(d, clock)` — `std.time` is now only unit constants |
-| `std.BoundedArray` | by 0.16 | `var list: std.ArrayList(T) = .initBuffer(&backing);`, then `appendBounded` where `BoundedArray` returned an error, `appendAssumeCapacity` where the capacity is proved |
-| `usingnamespace` | by 0.16 | explicit re-export: `pub const foo = @import("foo.zig").foo;` |
-| `@typeInfo(T).@"struct".fields`, `.decls` | 0.17 | `.field_names`, `.field_types`, `.field_attrs`, `.decl_names` — every `std.lang.Type` variant is now a struct of arrays |
-| `errdefer \|err\|` | 0.17 | split the function, and handle the error at the call's `catch \|err\|` |
-| `@cImport` | 0.17 | `b.addTranslateC` in `build.zig`, or the translate-c package |
-| `b.args` | 0.17 | `run.addPassthruArgs()` |
+| `@bitCast` | the same call, which on an array or a vector now reinterprets logical bits independent of endianness, so a big-endian target gets another result; a cast to an enum compiles and is safety-checked like `@fromBackingInt`, and one of an `extern struct` or `extern union` is rejected — `@ptrCast` a pointer to it | ZS-DATA-09 |
+| `@hasDecl` | `false` for a declaration that is not `pub`, even in the same file, with no diagnostic | ZS-COMPTIME-15 |
+| `std.mem.containsAtLeastScalar` | the same name with its last two parameters swapped, `(T, list, element, minimum)`: for an integer `T` a 0.16 call type-checks and asks another question | ZS-MIG-01 |
+| `std.mem.eql` | on a float slice holding NaN, `false` for the slice compared with itself: the same slice no longer short-circuits; `findDiff` likewise | ZS-MIG-01 |
+| `init.gpa` | a `SafeAllocator` in `debug` and `safe` builds whether or not libc is linked, as `std.testing.allocator` is; a `safe` build that links libc no longer gets `c_allocator`, and its leak report still never changes the exit code | ZS-MEM-01 |
+| `std.meta.declarations` | the same name, now returning the declarations' names, a `[]const [:0]const u8`, where it returned `[]const Declaration` | ZS-COMPTIME-15 |
+| `addOptionPath` | an option naming a file: a directory is `addOptionPathDirectory`, and `addOptionPathUntracked` opts out of tracking | ZS-BUILD-27 |
+| `zig fetch` | without `--save`, a command that fills only the global cache: `zig fetch --save` and `zig build` fill `zig-pkg/` | ZS-BUILD-13 |
 
-The `std.Thread` one is a **correctness** requirement, not a preference: an OS-level mutex blocks
-the whole carrier thread and will deadlock green threads under the fiber/evented backends. The rest
-of what 0.17 removed — `std.meta.Int`, `bufPrintZ`, `.initEmpty()`, `a ** n`, `stackFallback`,
-`std.zon.parse.fromSlice`'s old signature, `b.build_root`, `LazyPath.getPath*` and more — is
-`references/migration.md` Part 7, and what 0.16 removed is ZS-MIG-02, ZS-MIG-06 and ZS-MIG-09.
+A `changed` row of an earlier release is in the migration table, `ZS-MIG` in section 6, with its
+Since; its owning rule's Check finds it.
 
-### 2.10 What changed in the toolchain
+### 2.2 No longer compiles
 
-- `zig build test --fuzz` and `zig reduce` work again; neither built on 0.16.0.
-- The new ELF linker — `-fnew-linker`, and so `-fincremental` — emits DWARF and `.eh_frame`, and
-  `zig build -fincremental --watch` now works for most `x86_64-linux` projects.
-- No ZLS release supports Zig 0.17.0.
-- `zig build`: `--zig-lib-dir` is now `--zig-lib=`, and `--global-cache-dir`, `--build-runner`,
-  `--debug-rt` and `--verbose-llvm-bc` are gone. `--help` lists the modes as `debug`, `safe`, `fast`
-  and `small`; `-Doptimize=ReleaseSafe` still parses, through the deprecated `Optimize.fromString`.
-- `zig fmt --complexity` prints a complexity report for each file.
-- LLVM 22 still runs with loop vectorization disabled, until 0.18 re-enables it, so write `@Vector`
-  by hand where SIMD matters.
+| Old | Zig 0.17 | Rule |
+|---|---|---|
+| `@cImport` | `b.addTranslateC(…)` in `build.zig` and its `.createModule()`, imported as a module | ZS-INTEROP-15 |
+| `**` | `@splat(v)` with a result type: `const a: [n]T = @splat(v);` | ZS-DATA-24 |
+| `void{}` | `{}` | ZS-MIG-01 |
+| `errdefer \|err\|` | the body in an inner function, and at the call `inner() catch \|err\| { …; return err; }` | ZS-ERR-14 |
+| `i0` | `u0` | ZS-MIG-01 |
+| `.linkage = .internal` | no `@export`: a symbol that is not exported is internal; `std.lang.GlobalLinkage` is `.strong` and `.weak` | ZS-INTEROP-03 |
+| `.link_once` | `.weak` | ZS-INTEROP-03 |
+| `@bitSizeOf(…)` | `@sizeOf(T) * 8` for a type that is not `packed`, whose padding `@bitSizeOf` counted: it takes a `packed` type only | ZS-DATA-19 |
+| `enum(u8) {}` | `enum(noreturn) {}`: an empty exhaustive enum is backed by `noreturn` | ZS-DATA-26 |
+| `.@"struct".fields` | `.field_names[i]`, `.field_types[i]`, and `.field_attrs[i]` for `@"comptime"`, `@"align"` and `defaultValue(T)`; an enum's are `.field_names` and `.field_values`, with `.mode == .exhaustive` for `is_exhaustive`, and a union's add `.backing_integer` | ZS-COMPTIME-15 |
+| `.decls` | `.decl_names[i]`, on a struct, enum, union or opaque | ZS-COMPTIME-15 |
+| `.@"fn".params` | `.param_types[i]`; `calling_convention` and `is_var_args` are `.attrs.@"callconv"` and `.attrs.varargs` | ZS-COMPTIME-15 |
+| `.pointer.is_const` | `.pointer.attrs.@"const"`; `is_volatile`, `alignment`, `address_space` and `is_allowzero` likewise | ZS-COMPTIME-15 |
+| `std.builtin.Type.Error` | nothing: `@typeInfo(E).error_set` is a struct whose `error_names`, a `?[]const [:0]const u8`, lists the names, and whose `null` still means `anyerror` | ZS-COMPTIME-15 |
+| `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | ZS-COMPTIME-15 |
+| `std.fmt.bufPrintZ` | `std.mem.printSentinel(buffer, fmt, args, 0)` | ZS-OUT-11 |
+| `std.Io.File.OpenFlags` | `std.Io.Dir.OpenFileOptions`; `CreateFlags` is `Io.Dir.CreateFileOptions` and `OpenMode` is `Io.Dir.OpenFileOptions.Mode` | ZS-CONC-19 |
+| `std.ascii.indexOfIgnoreCase` | `std.ascii.findIgnoreCase`; the `Pos` and `PosLinear` forms likewise | ZS-DATA-32 |
+| `std.mem.containsAtLeastScalar2` | `std.mem.containsAtLeastScalar(T, list, element, minimum)` | ZS-MIG-01 |
+| `std.mem.readPackedIntNative` | `std.mem.readPackedInt(T, bytes, bit_offset, .native)`; `readPackedIntForeign` takes `.foreign` | ZS-MIG-01 |
+| `std.mem.writePackedIntNative` | `std.mem.writePackedInt(T, bytes, bit_offset, value, .native)`; `writePackedIntForeign` takes `.foreign` | ZS-MIG-01 |
+| `std.heap.MemoryPoolAligned` | `std.heap.memory_pool.Aligned`; `MemoryPoolExtra` and `MemoryPoolOptions` are `memory_pool.Extra` and `memory_pool.Options` | ZS-MEM-16 |
+| `std.heap.memory_pool.Managed` | `std.heap.memory_pool.Aligned` or `.Extra`, with the allocator per call; `AlignedManaged` and `ExtraManaged` likewise | ZS-MEM-16 |
+| `.initEmpty()` | `.empty` on an `EnumSet`, a `bit_set.Integer` or a `bit_set.Array`; `.initFull()` is `.full`; `bit_set.Dynamic.initEmpty(gpa, n)` keeps its name | ZS-DATA-13 |
+| `std.heap.stackFallback` | `var bfa: std.heap.BufferFirstAllocator = .init(&buffer, fallback);`, then `bfa.allocator()` as often as you like; `StackFallbackAllocator` likewise | ZS-MEM-03 |
+| `std.process.spawnPath` | `std.process.spawn(io, .{ .exe = .{ .path = dir }, … })`; `replacePath` is `replace` with the same `.exe` | ZS-CONC-39 |
+| `std.meta.Int` | `@Int(signedness, bits)` | ZS-COMPTIME-15 |
+| `std.meta.Tuple` | `@Tuple(types)` | ZS-COMPTIME-15 |
+| `std.meta.fields` | `@typeInfo(T)` | ZS-COMPTIME-15 |
+| `std.meta.declarationInfo` | `@hasDecl`, and `@typeInfo(T)` | ZS-COMPTIME-15 |
+| `b.args` | `run.addPassthruArgs()`, which makes the step uncached and keeps the arguments from the build script | ZS-BUILD-08 |
+| `b.build_root` | `b.root`, a `Cache.Path` | ZS-MIG-01 |
+| `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | ZS-BUILD-29 |
+| `b.reference_trace` | `zig build -freference-trace=n` | ZS-COMPTIME-21 |
+| `std.Build.LazyPath.getPath` | nothing: the configure phase resolves no path, so the `LazyPath` goes to the step that reads it; `getPath2`, `getPath3` and `getPath4` likewise | ZS-MIG-01 |
+| `std.Build.GeneratedFile` | nothing: a step's output is a `LazyPath` | ZS-MIG-01 |
+| `std.Build.LazyPath.basename` | nothing in std | ZS-MIG-01 |
+| `b.findProgram(&…)` | `b.findProgramLazy(.{ .names = names })`, a `LazyPath`; `b.findProgram(.{ .names = names })` is a `?[]const u8` that poisons the configure cache | ZS-MIG-01 |
+| `.include_guard_override` | `.include_guard` on a `ConfigHeader` | ZS-MIG-01 |
+| `--zig-lib-dir` | `--zig-lib=path` | ZS-MIG-01 |
+| `--global-cache-dir` | nothing; `--build-runner` and `--verbose-llvm-bc` likewise | ZS-MIG-01 |
+| `--build-runner` | nothing | ZS-MIG-01 |
+| `--verbose-llvm-bc` | nothing | ZS-MIG-01 |
+| `std.Target.SubSystem` | `std.zig.Subsystem`; `builtin.subsystem` has no replacement | ZS-INTEROP-18 |
+| `std.zon.parse.fromSliceAlloc` | `std.zon.parse.fromSlice(T, .{ .gpa = gpa, .arena = arena, .source = source, .diagnostics = &diag })`, which allocates the result into `.arena`; the form that allocates nothing is `fromSliceNoAlloc` | ZS-DATA-35 |
+| `std.zon.parse.free` | nothing: the result lives in the arena `fromSlice` was given | ZS-DATA-35 |
+| `std.Uri.getHost` | `std.Io.net.HostName.fromUri(uri, &buffer)`, which validates the name | ZS-CONC-36 |
+| `std.gpu` | `std.spirv` | ZS-MIG-01 |
+| `dupeZ` | `allocator.dupeSentinel(u8, s, 0)` | ZS-INTEROP-10 |
+
+A `gone` row of an earlier release is in the migration table, `ZS-MIG` in section 6, with its Since;
+the `rg` command after that table finds every `gone` and `alias` spelling but a shape, whatever its
+release.
+
+### 2.3 What Zig 0.17 gained
+
+- `@backingInt` and `@fromBackingInt`, in place of `@intFromEnum` and `@enumFromInt`, and for a
+  tagged union or a packed type with an explicit backing integer as well (ZS-DATA-09).
+- `@divCeil(a, b)`, in place of `std.math.divCeil(T, a, b) catch unreachable` (ZS-DATA-06).
+- `{q}` and `{qf}`, a double-quoted, escaped string, and what a `format` method writes, escaped
+  (ZS-OUT-04).
+- `std.heap.BufferFirstAllocator`, a buffer first and an allocator after it, as often as you like
+  (ZS-MEM-03).
+- `b.dependency`, which fetches a lazy package itself, and `b.dependencyLazy`, which fetches several
+  at once (ZS-BUILD-14).
 
 ## 3. Design principles
 
@@ -392,20 +272,9 @@ can see is not worth the name it costs.
 When reviewing or self-reviewing a Zig diff, walk this list. It is the review order of the full
 protocol — severity model, mechanical pass, output format — in `references/review-checklist.md`.
 
-1. **Stale API.** Any `std.io.*`, `std.fs.File`/`Dir`/`cwd`, `GeneralPurposeAllocator`,
-   `usingnamespace`, `async`/`await` keywords, `@setCold`, `@Type`, `std.Thread.Mutex`,
-   `std.time.Timer`, `BoundedArray`, `b.args`, `errdefer |err|`, `@cImport`, or
-   `@typeInfo(T).@"struct".fields`? None of them builds on 0.17. `pub fn main() !void` still builds,
-   but hands you no `Io`, `gpa` or arguments (ZS-MIG-08). The ones that still **compile** are the
-   ones to grep for, because nothing else catches them: `indexOf*`, `ArrayListUnmanaged`,
-   `*ArrayHashMapUnmanaged`, `std.fs.path`, `std.builtin`, `builtin.mode` and the TitleCase mode
-   names, `DebugAllocator`, `std.fmt.allocPrint`/`bufPrint`, `getLast`, the `*BitSet` names,
-   `lazyDependency`, `utf8Decode`/`wtf8Decode`, `std.debug.runtime_safety`. Then re-read every
-   `containsAtLeastScalar` call and every `@hasDecl` on a private declaration: both compile and now
-   mean something else. `references/migration.md` ZS-MIG-13 carries the complete denylist as one
-   runnable `rg`; run that rather than eyeballing this sentence. And any `{}` applied to a type that
-   defines `format`: that silently prints a default struct dump instead of calling it — it must be
-   `{f}`.
+1. **Stale API.** Does the command after the migration table find anything, and does each call a
+   `changed` row names still mean what the author meant — `{}` on a type with a `format` method,
+   `containsAtLeastScalar`, `@hasDecl` on a declaration that is not `pub`? (ZS-MIG-01, ZS-OUT-01)
 2. **Memory and ownership.** Every allocation paired with a `defer`/`errdefer` at the same nesting
    level, and proved by the test allocator? Any pointer held across a container mutation? Allocators
    named for their lifetime?
@@ -435,7 +304,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The 0
-`ZS-CORE-*` rules live in section 4 above; the other 356 live here.
+`ZS-CORE-*` rules live in section 4 above; the other 346 live here.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -451,7 +320,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/comptime.md` | `ZS-COMPTIME` (21) | comptime rules, `anytype` and its costs, type introspection, the three interface shapes, anti-patterns |
 | `references/testing.md` | `ZS-TEST` (26) | `std.testing` in 0.17, `Smith` fuzzing, allocation-failure testing, deterministic simulation |
 | `references/build.md` | `ZS-BUILD` (39) | Annotated `build.zig` and `build.zig.zon`, dependencies, project layout, build modes, CI |
-| `references/migration.md` | `ZS-MIG` (13) | Complete 0.13→0.17 migration tables and a stale-code smell test |
+| `references/migration.md` | `ZS-MIG` (3) | Every old spelling 0.13 through 0.17 left behind, with its status, Since and owning rule, and the command the table generates |
 | `references/review-checklist.md` | — | The audit protocol: seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |
 
 ## 7. Bundled assets

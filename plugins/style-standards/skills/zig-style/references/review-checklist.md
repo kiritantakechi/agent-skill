@@ -71,9 +71,9 @@ zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-31)
 ### Stale-API greps
 
 These are the highest-yield greps in this file, because they find code that still **compiles**. Run
-the denylist of `references/migration.md` ZS-MIG-13: it carries every alias row of that chapter as
-one `rg` whose exit status is the gate, so there is no second copy to drift from it here. Then read
-each call site this one finds — the spelling did not change, and its meaning did:
+the command after the migration table: it finds every `gone` and `alias` spelling, and it is
+generated from the table, so there is no second copy to drift from it here. Then read each call site
+this one finds — the spelling did not change, and its meaning did:
 
 ```sh
 rg -n 'containsAtLeastScalar\(|@hasDecl\(' # 0.17: (element, minimum); pub declarations only
@@ -82,7 +82,7 @@ rg -n 'containsAtLeastScalar\(|@hasDecl\(' # 0.17: (element, minimum); pub decla
 A spelling 0.17 removed needs no grep wherever a build analyses it: `zig build check` and the
 per-target builds of the mechanical pass reject it, and the name in the diagnostic is a row in
 `references/migration.md`. Code no build analyses — a function nothing references, a branch for a
-target you do not build — keeps one silently; the patterns of ZS-MIG-12 find those.
+target you do not build — keeps one silently; the same command finds those (ZS-MIG-02).
 
 ### Discipline greps
 
@@ -113,7 +113,7 @@ findings that deserve discussion.
 
 | Severity | Rule | Location | Finding | Fix |
 |---|---|---|---|---|
-| Stale | ZS-MIG-05 | `src/scan.zig:41` | `std.mem.indexOf` — compiles, but is the pre-0.16 name | Rename to `std.mem.find`; it is a pure rename |
+| Stale | ZS-MIG-01 | `src/scan.zig:41` | `std.mem.indexOf` — compiles, but is the pre-0.16 name | Rename to `std.mem.find`; it is a pure rename |
 | Unsound | ZS-MEM-15 | `src/index.zig:88` | Pointer into `list.items` held across an `append` | Re-index after the append, or reserve capacity up front |
 | Contract | ZS-ERR-05 | `src/api.zig:12` | Public `parse` returns `anyerror` | Declare the explicit error set |
 

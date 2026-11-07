@@ -7,8 +7,7 @@ This chapter does not own language-level style (`references/naming.md`, `referen
 `references/errors.md`), allocator discipline (`references/memory.md`), `std.Io`
 (`references/concurrency.md`), what goes *inside* `src/constants.zig` (`references/assertions.md`
 ZS-ASSERT-21), or how to write a test or a fuzz target (`references/testing.md`) — only how tests
-get *wired into the build*. The rename table for older build spellings is `references/migration.md`
-ZS-MIG-11.
+get *wired into the build*. Older build spellings are rows of the migration table.
 
 Every `zig` block here is `build.zig` code and assumes the file opens with
 `const std = @import("std");`; every `zon` block is a `build.zig.zon` fragment.

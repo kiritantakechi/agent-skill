@@ -1573,17 +1573,17 @@ CONTROLS: list[Control] = [
     Control(
         # A pattern beside proven ones that no fixture of its rule
         # matches. Proving a rule by `any` of its patterns read this as
-        # covered: that is how three of `ZS-MIG-12`'s four patterns were
-        # counted as proven by a fixture none of them touched. Narrowing
-        # one of them instead leaves its fixture unmatched too, which is
-        # the branch below.
+        # covered: that is how three of four patterns of the migration
+        # rule that once held them were counted as proven by a fixture
+        # none of them touched. Narrowing one of them instead leaves its
+        # fixture unmatched too, which is the branch below.
         sensitivity.PATTERN_UNCOVERED,
         lambda t: edit(
             t,
             f"{ZS}/references/migration.md",
-            "`rg -n 'captureStackTrace|dumpStackTraceFromBase|walkStackWindows' src/`",
-            "`rg -n 'captureStackTrace|dumpStackTraceFromBase|walkStackWindows' src/` "
-            "and `rg -n 'dumpCurrentStackTraceInjected' src/`",
+            "`rg -n 'containsAtLeastScalar\\(' src/`",
+            "`rg -n 'containsAtLeastScalar\\(' src/`, "
+            "`rg -n 'dumpCurrentStackTraceInjected' src/`",
         ),
     ),
     Control(
@@ -1597,8 +1597,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             f"{ZS}/references/migration.md",
-            "rg -n 'captureStackTrace|dumpStackTraceFromBase|walkStackWindows' src/",
-            "rg -n 'utf8Decode\\b' src/",
+            "rg -n 'mem\\.eql\\(f(16|32|64|80|128),' src/",
+            "rg -n 'containsAtLeastScalar' src/",
         ),
     ),
     Control(
@@ -1887,8 +1887,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             f"{ZS}/SKILL.md",
-            "the other 356 live here",
-            "the other 355 live here",
+            "the other 346 live here",
+            "the other 345 live here",
         ),
     ),
     # citations
@@ -2098,7 +2098,7 @@ CONTROLS: list[Control] = [
     ),
     Control(
         frontmatter.RULE_COUNT,
-        lambda t: edit(t, f"{ZS}/SKILL.md", "a 356-rule library", "a 357-rule library"),
+        lambda t: edit(t, f"{ZS}/SKILL.md", "a 346-rule library", "a 347-rule library"),
     ),
     # layout
     Control(layout.UNCLOSED, lambda t: append(t, DATA, "\n```text\nnever closed\n")),
