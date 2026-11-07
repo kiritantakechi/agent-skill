@@ -548,7 +548,7 @@ On 0.17.0 with `root.zig` (1 test) + `parser.zig` (2 tests), reached only via
 | `test { std.testing.refAllDecls(@This()); }` | `4 pass (4 total)` |
 
 `std.testing.refAllDecls(@This())` also collects them, but it is a compile smoke test that names no
-file (ZS-TEST-27), so it hides which files you meant to cover. Prefer the explicit imports.
+file (ZS-TEST-28), so it hides which files you meant to cover. Prefer the explicit imports.
 
 **Why:** Zig analyses container-level declarations lazily, so a re-export in `root.zig` that nothing
 uses never resolves its `@import`, and that file's tests do not exist. The failure is silent and
@@ -868,7 +868,7 @@ The rules, which `assets/ci.yml` applies:
 
 1. **Pin the exact Zig version.** Never `latest`, never `master`, never a range.
 2. **Gate on `zig fmt --check --ast-check`** with `zig-pkg` and `.zig-cache` excluded (ZS-BUILD-26).
-3. **Run the suite in `debug` and `safe`** (ZS-TEST-30), with `--summary all` so a cached no-op is
+3. **Run the suite in `debug` and `safe`** (ZS-TEST-31), with `--summary all` so a cached no-op is
    distinguishable from a real pass.
 4. **Cross-compile matrix**: build *and* `zig build test` each supported triple. The test binaries
    compile and the runs report `skipped`, which is the whole point (ZS-BUILD-28).

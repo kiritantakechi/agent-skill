@@ -297,7 +297,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-347 rules live here; section 4 lists by ID those that bind on their own.
+348 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -311,7 +311,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/interop.md` | `ZS-INTEROP` (21) | `export`/`extern`/`callconv(.c)`, `[*c]` pointers, C strings and integers, callbacks with `userdata`, plus freestanding/WASM/single-threaded targets |
 | `references/assertions.md` | `ZS-ASSERT` (25) | Assertion philosophy and density, pair assertions, comptime assertions, the optimize modes and which one ships, `_max` constants |
 | `references/comptime.md` | `ZS-COMPTIME` (20) | comptime rules, `anytype` and its costs, type introspection, the three interface shapes, anti-patterns |
-| `references/testing.md` | `ZS-TEST` (31) | `std.testing` in 0.17, `Smith` fuzzing, allocation-failure testing, deterministic simulation |
+| `references/testing.md` | `ZS-TEST` (32) | `std.testing` in 0.17, `Smith` fuzzing, allocation-failure testing, deterministic simulation |
 | `references/build.md` | `ZS-BUILD` (36) | Annotated `build.zig` and `build.zig.zon`, dependencies, project layout, selecting the optimize mode, CI |
 | `references/migration.md` | `ZS-MIG` (3) | Every old spelling 0.13 through 0.17 left behind, with its status, Since and owning rule, and the command the table generates |
 | `references/review-checklist.md` | — | The audit protocol: seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |

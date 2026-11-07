@@ -30,27 +30,28 @@ rule is not about.
   - ZS-TEST-12 [M] Assert one claim per test
   - ZS-TEST-13 [S] Arrange, act, assert, with a blank line between the phases
   - ZS-TEST-14 [S] Drive a family of similar cases from one table
+  - ZS-TEST-15 [M] Name the error a failure path returns with `expectError`, never only that it failed
 - **Part 3 — Negative space and allocation failure**
-  - ZS-TEST-15 [M] Test the negative space, not just the happy path
-  - ZS-TEST-16 [M!] Every allocating API gets a `checkAllAllocationFailures` test
-  - ZS-TEST-17 [S] Use `failing_allocator` or `FailingAllocator` for one targeted OOM path
+  - ZS-TEST-16 [M] Test the negative space, not just the happy path
+  - ZS-TEST-17 [M!] Every allocating API gets a `checkAllAllocationFailures` test
+  - ZS-TEST-18 [S] Use `failing_allocator` or `FailingAllocator` for one targeted OOM path
 - **Part 4 — Randomised, model-based, and simulation testing**
-  - ZS-TEST-18 [M] Seed randomised tests from `std.testing.random_seed`; print the seed on failure
-  - ZS-TEST-19 [M] A seeded test must be a pure function of its seed
-  - ZS-TEST-20 [S] Give every container and state machine a model-based swarm test
-  - ZS-TEST-21 [M!] Test stateful systems by deterministic simulation with injected faults
-  - ZS-TEST-22 [S] Snapshot-test complex output against an inline multiline literal
+  - ZS-TEST-19 [M] Seed randomised tests from `std.testing.random_seed`; print the seed on failure
+  - ZS-TEST-20 [M] A seeded test must be a pure function of its seed
+  - ZS-TEST-21 [S] Give every container and state machine a model-based swarm test
+  - ZS-TEST-22 [M!] Test stateful systems by deterministic simulation with injected faults
+  - ZS-TEST-23 [S] Snapshot-test complex output against an inline multiline literal
 - **Part 5 — Fuzzing with `Smith`**
-  - ZS-TEST-23 [M] Write fuzz targets with `std.testing.fuzz` and `*std.testing.Smith`
-  - ZS-TEST-24 [M] Pin every fuzz-found failure into the target's `.corpus`
-  - ZS-TEST-25 [M] Ask `Smith.value` for a fixed-width integer, and draw an index with `Smith.index`
-  - ZS-TEST-26 [S] Steer `Smith` with ranges and weights instead of generating-then-rejecting
+  - ZS-TEST-24 [M] Write fuzz targets with `std.testing.fuzz` and `*std.testing.Smith`
+  - ZS-TEST-25 [M] Pin every fuzz-found failure into the target's `.corpus`
+  - ZS-TEST-26 [M] Ask `Smith.value` for a fixed-width integer, and draw an index with `Smith.index`
+  - ZS-TEST-27 [S] Steer `Smith` with ranges and weights instead of generating-then-rejecting
 - **Part 6 — Running and maintaining the suite**
-  - ZS-TEST-27 [M] `refAllDecls` is a compile smoke test, not coverage
-  - ZS-TEST-28 [S] `error.SkipZigTest` marks inapplicable tests, never known-failing ones
-  - ZS-TEST-29 [S] Set `std.testing.log_level` only around the test that needs it, and restore it
-  - ZS-TEST-30 [M] Run the whole suite in `safe` as well as `debug`
-  - ZS-TEST-31 [M] Every bug fix ships with the test that would have caught it
+  - ZS-TEST-28 [M] `refAllDecls` is a compile smoke test, not coverage
+  - ZS-TEST-29 [S] `error.SkipZigTest` marks inapplicable tests, never known-failing ones
+  - ZS-TEST-30 [S] Set `std.testing.log_level` only around the test that needs it, and restore it
+  - ZS-TEST-31 [M] Run the whole suite in `safe` as well as `debug`
+  - ZS-TEST-32 [M] Every bug fix ships with the test that would have caught it
 - Decided by tools
 
 ---
@@ -172,8 +173,8 @@ reduce to this rule.
 The surface at 0.17.0, `std.testing.allocator` and `std.testing.allocator_instance`:
 
 - `pub const allocator` — `allocator_instance.allocator()`, an `std.mem.Allocator` interface value,
-  and the allocator you pass as the *backing* allocator to `checkAllAllocationFailures` (ZS-TEST-16)
-  and `FailingAllocator` (ZS-TEST-17). Outside `builtin.is_test` it is
+  and the allocator you pass as the *backing* allocator to `checkAllAllocationFailures` (ZS-TEST-17)
+  and `FailingAllocator` (ZS-TEST-18). Outside `builtin.is_test` it is
   `@compileError("not testing")`, so it cannot leak into production.
 - `pub var allocator_instance: std.heap.SafeAllocator` — the backing instance. It has no
   `detectLeaks`: the runner calls `allocator_instance.deinit()` after each test, and the `usize` it
@@ -418,7 +419,7 @@ step succeeded and the build exits 0. An `errdefer` message appears directly abo
 test's stack trace in the runner's report, and the build runner's own footer echoes the same
 `--seed`, so the reproduction command you printed and the one the tool printed agree.
 
-ZS-TEST-18's example is the compliant shape: the seed is printed from an `errdefer`.
+ZS-TEST-19's example is the compliant shape: the seed is printed from an `errdefer`.
 
 **Why:** every stray `print` produces output that reads like a failure and is not attributed to the
 test that emitted it; `errdefer` output appears only when, and where, a test fails.
@@ -567,9 +568,47 @@ test "parsePort accepts both limits" {
 }
 ```
 
+### ZS-TEST-15 [M] Name the error a failure path returns with `expectError`, never only that it failed
+
+Call `try std.testing.expectError(error.Overflow, parsePort("65536"))`. Do not catch the error and
+discard it, and do not match on a bare `isError`: both pass for any error.
+
+**Why:** an error code is the contract a caller switches on, and a test that accepts any error keeps
+passing when the function starts failing for a different reason. `expectError` also fails, with both
+codes shown, when the call succeeds.
+
+**Check:** every `catch` or `if (...) |_| ... else |_|` in a test whose handler does not compare the
+error code.
+
+```zig
+// verified — BAD: any error, or none matched, passes
+const std = @import("std");
+
+fn parsePort(text: []const u8) !u16 {
+    return std.fmt.parseInt(u16, text, 10);
+}
+
+test "parsePort fails on an out-of-range port" {
+    if (parsePort("65536")) |_| return error.TestUnexpectedResult else |_| {}
+}
+```
+
+```zig
+// verified — GOOD
+const std = @import("std");
+
+fn parsePort(text: []const u8) !u16 {
+    return std.fmt.parseInt(u16, text, 10);
+}
+
+test "parsePort fails with Overflow on an out-of-range port" {
+    try std.testing.expectError(error.Overflow, parsePort("65536"));
+}
+```
+
 ## Part 3 — Negative space and allocation failure
 
-### ZS-TEST-15 [M] Test the negative space, not just the happy path
+### ZS-TEST-16 [M] Test the negative space, not just the happy path
 
 For every input domain, test invalid data *and* valid data crossing into invalid — the boundary, one
 past it, the empty case, the maximum case, and the truncated case. This is TigerStyle's golden rule
@@ -604,7 +643,7 @@ test parsePort {
 }
 ```
 
-### ZS-TEST-16 [M!] Every allocating API gets a `checkAllAllocationFailures` test
+### ZS-TEST-17 [M!] Every allocating API gets a `checkAllAllocationFailures` test
 
 `checkAllAllocationFailures(backing_allocator, test_fn, extra_args)` runs `test_fn` once to count
 its allocations, then re-runs it N times failing allocation *i* each time, asserting each run
@@ -619,7 +658,7 @@ The backing allocator you pass is `std.testing.allocator` (ZS-TEST-04) — the t
 `FailingAllocator` per run, so leak detection still applies to every one of the N re-runs. Extra
 arguments are forwarded as a tuple after the allocator, which is why `test_fn` must take
 `std.mem.Allocator` first and cannot close over the test's locals. For a single targeted OOM path
-rather than the exhaustive sweep, use `FailingAllocator` directly (ZS-TEST-17). It fails
+rather than the exhaustive sweep, use `FailingAllocator` directly (ZS-TEST-18). It fails
 allocations, never a resize, so a list that grows in place is swept only at its first allocation:
 the `errdefer` it tests is the one between two separate allocations.
 
@@ -682,7 +721,7 @@ test "entryAlloc survives every allocation failure point" {
 }
 ```
 
-### ZS-TEST-17 [S] Use `failing_allocator` or `FailingAllocator` for one targeted OOM path
+### ZS-TEST-18 [S] Use `failing_allocator` or `FailingAllocator` for one targeted OOM path
 
 `std.testing.failing_allocator` fails on allocation index 0 — every allocation. For a specific
 index, construct `testing.FailingAllocator.init(backing, .{ .fail_index = n })`, or use
@@ -720,7 +759,7 @@ test "explicit FailingAllocator at a chosen index" {
 
 ## Part 4 — Randomised, model-based, and simulation testing
 
-### ZS-TEST-18 [M] Seed randomised tests from `std.testing.random_seed`; print the seed on failure
+### ZS-TEST-19 [M] Seed randomised tests from `std.testing.random_seed`; print the seed on failure
 
 Never call an unseeded RNG in a test. Take `std.testing.random_seed` (a `u32`, set by the runner
 from its `--seed=` argument), feed it to `std.Random.DefaultPrng`, and emit the reproduction command
@@ -764,7 +803,7 @@ test "seeded randomness, seed reported on failure" {
 }
 ```
 
-### ZS-TEST-19 [M] A seeded test must be a pure function of its seed
+### ZS-TEST-20 [M] A seeded test must be a pure function of its seed
 
 Given the same seed, a test must take the same path every time. That forbids, inside the tested
 region: wall-clock or monotonic time, thread scheduling, address-order iteration (`HashMap`
@@ -781,7 +820,7 @@ build; the order is still unspecified and still must not be asserted on.
 
 **Why:** a seed that does not reproduce the failure is a seed that costs you a day, and the usual
 culprit is incidental nondeterminism rather than obvious randomness. Substituting a simulated clock
-and a simulated disk (ZS-TEST-21) is what makes a seed a complete description of a run.
+and a simulated disk (ZS-TEST-22) is what makes a seed a complete description of a run.
 
 **Check:** inside a seeded test, a `HashMap`/`ArrayHashMap` iterator whose result feeds an
 assertion, `@intFromPtr`, a pointer comparison, `Io.Timestamp.now`, `std.testing.environ` or
@@ -812,7 +851,7 @@ std.mem.sortUnstable([]const u8, names.items, {}, struct {
 try std.testing.expectEqualStrings("alice", names.items[0]);
 ```
 
-### ZS-TEST-20 [S] Give every container and state machine a model-based swarm test
+### ZS-TEST-21 [S] Give every container and state machine a model-based swarm test
 
 Pick a simpler reference implementation (usually a `std` container), drive both with a seeded random
 sequence of actions chosen from an enum, and compare after every action and at the end. Deriving the
@@ -863,7 +902,7 @@ test "Stack matches an ArrayList model under a random action swarm" {
 }
 ```
 
-### ZS-TEST-21 [M!] Test stateful systems by deterministic simulation with injected faults
+### ZS-TEST-22 [M!] Test stateful systems by deterministic simulation with injected faults
 
 Replace every source of nondeterminism — clock, disk, network, thread scheduling — with a simulated
 implementation driven by the one seeded PRNG. Run the system in a single thread, inject faults
@@ -877,7 +916,7 @@ into a safety phase (arbitrary faults; the invariant must never break) and a liv
 stop; the system must converge within a bounded number of ticks). Print every knob at startup, and
 print the seed on failure.
 
-*Relaxed form:* ZS-TEST-20's seeded model-based swarm test against an in-memory model, with no
+*Relaxed form:* ZS-TEST-21's seeded model-based swarm test against an in-memory model, with no
 simulated clock and no fault injection, plus one hand-written test per failure mode you can name (a
 crash between two writes, a short read, a duplicated message).
 
@@ -953,7 +992,7 @@ test "simulation: recovery yields exactly the flushed prefix" {
 }
 ```
 
-### ZS-TEST-22 [S] Snapshot-test complex output against an inline multiline literal
+### ZS-TEST-23 [S] Snapshot-test complex output against an inline multiline literal
 
 When the expected value is a structure whose readable form is a block of text — a formatted tree, a
 disassembly, a diagnostic — render it to an `Io.Writer` and compare with `expectEqualStrings`
@@ -996,7 +1035,7 @@ test "snapshot: tree layout" {
 
 ## Part 5 — Fuzzing with `Smith`
 
-### ZS-TEST-23 [M] Write fuzz targets with `std.testing.fuzz` and `*std.testing.Smith`
+### ZS-TEST-24 [M] Write fuzz targets with `std.testing.fuzz` and `*std.testing.Smith`
 
 The shape is `try std.testing.fuzz(context, testOne, .{})`, where the target is declared
 `fn testOne(context: C, smith: *std.testing.Smith) !void`; the input is a `*Smith`, never a
@@ -1010,7 +1049,7 @@ The shape is `try std.testing.fuzz(context, testOne, .{})`, where the target is 
 unions, so you generate typed operations directly instead of hand-decoding bytes. Run the targets by
 passing `--fuzz` to `zig build test`; `--fuzz=20K` bounds the iteration count, and a bare `--fuzz`
 with no limit implies `--webui`. A fuzz target is best kept beside the parser or state machine it
-exercises, with its corpus (ZS-TEST-24), so it is compiled into that module's own test binary.
+exercises, with its corpus (ZS-TEST-25), so it is compiled into that module's own test binary.
 
 **Why:** `Smith` is a *structured* input source, not a byte buffer. Each call site is identified by
 its return address, so the coverage-guided fuzzer learns which decision points matter and mutates
@@ -1046,7 +1085,7 @@ fn fuzzRoundTrip(context: void, smith: *std.testing.Smith) !void {
 }
 ```
 
-### ZS-TEST-24 [M] Pin every fuzz-found failure into the target's `.corpus`
+### ZS-TEST-25 [M] Pin every fuzz-found failure into the target's `.corpus`
 
 `FuzzInputOptions` has one field, `corpus: []const []const u8`. When a fuzz run finds a crashing
 input, add its bytes to that slice in the same commit as the fix. In a binary *not* built in fuzz
@@ -1072,7 +1111,7 @@ test "fuzz: encode then decode is the identity" {
 }
 ```
 
-### ZS-TEST-25 [M] Ask `Smith.value` for a fixed-width integer, and draw an index with `Smith.index`
+### ZS-TEST-26 [M] Ask `Smith.value` for a fixed-width integer, and draw an index with `Smith.index`
 
 `smith.value(usize)` and `smith.value(c_int)` compile, and the integer they return is as wide as the
 target's: draw a `u32` or `u64` for a value. For an in-bounds index, `Smith.index(len)` takes a
@@ -1093,7 +1132,7 @@ const weight = smith.valueRangeAtMost(u32, 1, 100); // a value: a fixed-width ty
 const i = smith.index(items.len); // an index: usize in, usize out, always in bounds
 ```
 
-### ZS-TEST-26 [S] Steer `Smith` with ranges and weights instead of generating-then-rejecting
+### ZS-TEST-27 [S] Steer `Smith` with ranges and weights instead of generating-then-rejecting
 
 Prefer `valueRangeAtMost`/`index`/`bytesWeighted`/`sliceWeighted` over drawing an arbitrary value
 and `continue`-ing when it is out of range. Weights let you do swarm testing at the input level:
@@ -1125,7 +1164,7 @@ smith.bytesWeighted(&name, letters);
 
 ## Part 6 — Running and maintaining the suite
 
-### ZS-TEST-27 [M] `refAllDecls` is a compile smoke test, not coverage
+### ZS-TEST-28 [M] `refAllDecls` is a compile smoke test, not coverage
 
 `std.testing.refAllDecls(@This())` forces semantic analysis of every declaration in a container. Use
 it at most once per module root, and never count it as testing. It is also shallow — it references
@@ -1158,7 +1197,7 @@ test add {
 }
 ```
 
-### ZS-TEST-28 [S] `error.SkipZigTest` marks inapplicable tests, never known-failing ones
+### ZS-TEST-29 [S] `error.SkipZigTest` marks inapplicable tests, never known-failing ones
 
 Return `error.SkipZigTest` when the test cannot meaningfully run here — wrong OS, missing hardware
 feature, unsupported backend. Never use it to park a failing test. `std.testing.fuzz`'s `testOne`
@@ -1182,7 +1221,7 @@ test "skip when the environment cannot support the test" {
 }
 ```
 
-### ZS-TEST-29 [S] Set `std.testing.log_level` only around the test that needs it, and restore it
+### ZS-TEST-30 [S] Set `std.testing.log_level` only around the test that needs it, and restore it
 
 `testing.log_level` defaults to `.warn`; the runner resets it before each test. If a test needs to
 observe or suppress log output, save the old value and restore it with `defer`.
@@ -1205,7 +1244,7 @@ test "log_level lets a noisy module be quieted" {
 }
 ```
 
-### ZS-TEST-30 [M] Run the whole suite in `safe` as well as `debug`
+### ZS-TEST-31 [M] Run the whole suite in `safe` as well as `debug`
 
 The suite MUST execute in both modes. Drive it from a CI matrix over `-Doptimize` — the canonical
 shape in ZS-BUILD-29, `matrix: optimize: [debug, safe]`, which is also how the OS matrix already
@@ -1218,7 +1257,7 @@ one wall-clock test run rather than two serially.
 A `debug` build keeps all runtime safety checks and does no inlining or reordering. `undefined`
 memory is filled with `0xaa` in `debug` and `safe` builds but not in `fast` or `small` ones, so a
 read of uninitialised memory can pass in one mode and produce garbage in another. Long-running
-simulation tests (ZS-TEST-21) should run in `safe` specifically, because that is the only mode where
+simulation tests (ZS-TEST-22) should run in `safe` specifically, because that is the only mode where
 you get both safety checks and enough speed to explore a meaningful number of seeds.
 
 **Why:** the two modes execute different programs. A `safe` build keeps the safety checks but
@@ -1257,10 +1296,10 @@ for ([_]std.lang.Optimize{ .debug, .safe }) |mode| {
 }
 ```
 
-### ZS-TEST-31 [M] Every bug fix ships with the test that would have caught it
+### ZS-TEST-32 [M] Every bug fix ships with the test that would have caught it
 
 A fix commit contains both the change and a test that fails before it and passes after. If the bug
-came from a fuzzer, the failing input goes into `.corpus` (ZS-TEST-24); if from production, the
+came from a fuzzer, the failing input goes into `.corpus` (ZS-TEST-25); if from production, the
 minimal reproduction goes into a named test referencing the issue. Name the test after the invariant
 that was violated, not the ticket number, and put the ticket number in a comment.
 

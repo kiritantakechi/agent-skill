@@ -606,7 +606,7 @@ catches the same class of regression without requiring a parser.
 
 In the example, `RecordId.text_max` is counted by `std.fmt.count` over the widest values, not by
 hand — the ZS-OUT-12 and ZS-OUT-13 discipline again. A `std.testing.Smith` fuzz target over the same
-pair is the natural next step (ZS-TEST-23).
+pair is the natural next step (ZS-TEST-24).
 
 **Why:** this is ZS-ASSERT-15 — check a property on both code paths — applied to serialization, and
 the cheapest defence against the ZS-OUT-01 failure mode: a `{}` that should have been `{f}` changes

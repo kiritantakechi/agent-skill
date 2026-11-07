@@ -1018,7 +1018,7 @@ Every fuzz target is paired with the assertions or the model oracle that give it
 come first: assertions written *after* the code tend to restate what it does rather than what it
 must do, a tautology that catches nothing. TigerStyle's order — mental model, then assertions, then
 code, then the fuzzer — is the process form of the same claim, offered as advice. Writing the target
-itself, `std.testing.fuzz` over a `*std.testing.Smith`, is ZS-TEST-23.
+itself, `std.testing.fuzz` over a `*std.testing.Smith`, is ZS-TEST-24.
 
 In the example, the signal comes entirely from the assertions `messageParse` (ZS-ERR-01) and
 `readBlock` (ZS-ASSERT-15) make once their guards have passed — remove them and this target proves

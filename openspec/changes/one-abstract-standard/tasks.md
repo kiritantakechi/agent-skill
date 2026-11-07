@@ -137,13 +137,13 @@ time of deletion (both tiers `[M]` unless marked):
   only. Look-alike notes 14 → 14. ZS-ERR-33 (with RS-API-59) is left for `api`, ZS-ERR-34 (with
   RS-MOD-44) for `modules`.
 - [x] 3.2 `testing`: 14 entries (`AS-TEST-01` to `-14`); realisations: python-style 10 `realises`, 1
-  `extends`, 1 `tightens`, 1 `decided`, 1 `absent`; rust-style 14 `realises`; zig-style 13
-  `realises`, 1 `absent`. Moves 0; merges 0. New rules 10: PS-TEST-11, -12, -13, -23, -24, -25 (PS-TEST-11
-  split from PS-TEST-06, now only "one claim") and ZS-TEST-11 to -14. Tier changes 2: PS-TEST-07 to `[S]`,
-  ZS-TEST-15 (negative space) to `[M]`, its relaxed form dropped. Look-alike notes 14 → 14. Left for
+  `extends`, 1 `tightens`, 1 `decided`, 1 `absent`; rust-style 14 `realises`; zig-style 14
+  `realises`. Moves 0; merges 0. New rules 11: PS-TEST-11, -12, -13, -23, -24, -25 (PS-TEST-11
+  split from PS-TEST-06, now only "one claim") and ZS-TEST-11 to -15 (-15: `expectError`). Tier changes 2: PS-TEST-07 to `[S]`,
+  ZS-TEST-16 (negative space) to `[M]`, its relaxed form dropped. Look-alike notes 14 → 14. Left for
   `concurrency`: PS-TEST-26 and -27, RS-CONC-42 with PS-TEST-21 (no sleep), RS-FUNC-38 with PS-TEST-22
-  (inject the clock). Not registered: RS-TEST-16 with ZS-TEST-19 (a deterministic test), RS-TEST-23
-  with ZS-TEST-23 (fuzz targets), as no python rule states either whole.
+  (inject the clock). Not registered: RS-TEST-16 with ZS-TEST-20 (a deterministic test), RS-TEST-23
+  with ZS-TEST-24 (fuzz targets), as no python rule states either whole.
 - [ ] 3.3 `build`, including the concept that every third-party CI action is pinned to a commit,
   realised by a new rule in each base standard
 - [ ] 3.4 `naming`

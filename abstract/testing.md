@@ -112,7 +112,7 @@ improvement to a message.
 |---|---|---|---|---|
 | python-style | `PT011` | decided | | A built-in exception class is shared by unrelated failures, so the lint requires a message pattern where the class alone cannot tell them apart |
 | rust-style | RS-TEST-13 | realises | [M] | |
-| zig-style | | absent | | An error is a bare code with no message text, so the kind is all a test can name and there is no wording to couple to |
+| zig-style | ZS-TEST-15 | realises | [M] | |
 
 ### AS-TEST-08 [M] Test the boundaries and the invalid input, not only the happy path
 
@@ -124,7 +124,7 @@ optimistic path and never the rejection logic.
 |---|---|---|---|---|
 | python-style | PS-TEST-12 | realises | [M] | |
 | rust-style | RS-TEST-14 | realises | [M] | |
-| zig-style | ZS-TEST-15 | realises | [M] | |
+| zig-style | ZS-TEST-16 | realises | [M] | |
 
 ## Shaping and parametrising tests
 
@@ -163,7 +163,7 @@ test is the only thing that prevents its return; writing it first proves the bug
 |---|---|---|---|---|
 | python-style | PS-TEST-13 | realises | [M] | |
 | rust-style | RS-TEST-19 | realises | [M] | |
-| zig-style | ZS-TEST-31 | realises | [M] | |
+| zig-style | ZS-TEST-32 | realises | [M] | |
 
 ### AS-TEST-12 [S] Test a fast implementation against a simple reference over generated input
 
@@ -175,7 +175,7 @@ oracle than an expected value written by the author of the fast one.
 |---|---|---|---|---|
 | python-style | PS-TEST-23 | realises | [S] | |
 | rust-style | RS-TEST-21 | realises | [S] | |
-| zig-style | ZS-TEST-20 | realises | [S] | |
+| zig-style | ZS-TEST-21 | realises | [S] | |
 
 ### AS-TEST-13 [M] Pin every failing input a generator finds as a fixed test
 
@@ -187,7 +187,7 @@ pinned input has a test that can pass by missing it.
 |---|---|---|---|---|
 | python-style | PS-TEST-24 | realises | [M] | |
 | rust-style | RS-TEST-22 | realises | [M] | |
-| zig-style | ZS-TEST-24 | realises | [M] | |
+| zig-style | ZS-TEST-25 | realises | [M] | |
 
 ### AS-TEST-14 [S] Snapshot large, exact output, and review every change to it
 
@@ -199,4 +199,4 @@ test into a change log that cannot fail.
 |---|---|---|---|---|
 | python-style | PS-TEST-25 | realises | [S] | |
 | rust-style | RS-TEST-25 | realises | [S] | |
-| zig-style | ZS-TEST-22 | realises | [S] | |
+| zig-style | ZS-TEST-23 | realises | [S] | |
