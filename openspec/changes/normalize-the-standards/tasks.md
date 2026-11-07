@@ -103,9 +103,17 @@ standard read as normalised now also fails: `core_rule` (bevy 24, python 26, rus
 
 ## 6. zig-style
 
-- [ ] 6.1 Normalise zig-style, including section 2's restructuring and SKILL.md under 500 lines; set
-  `normalized`; full suite and its toolchain pass
-  Part 1 of 2 done: core rules, one migration table and section 2, compiler rows, tiers, description.
+- [x] 6.1 Normalise zig-style, including section 2's restructuring and SKILL.md under 500 lines; set
+  `normalized`; full suite, its toolchain and its mutation check pass — core rules merged, one
+  migration table, compiler rows, merges and moves to one owner, every Check run or judged; see the
+  design's "As built (task 6.1)". `measure`, before → after: rules 356 → 343, chapters with no
+  `Scope:` 5 → 0, chapters named outside §6 36 → 0, element orders 28 → 4, out of order 30 → 0,
+  stray blocks 153 → 0, doubled verdicts 21 → 0, relaxed forms off `[M!]` 1 → 0, citations
+  bare/quoted/behind a path 426/27/168 → 842/0/0, prose "grep" Checks 49 → 0, `[M!]` scope restated
+  30 → 0, advice titles 3 → 0, core rules 29 → 0, core tier mismatches 5 → 0, migration statuses 25
+  (3) → 4 (0), old spellings in two rows 9 → 0, section 2 10, 208 lines → 3, 88, laid out otherwise
+  1 → 0, items naming no rule 49 → 0, description 1015 → 411 characters, SKILL.md 560 → 326 lines,
+  dated statements 27 → 0
 
 ## 7. Close
 

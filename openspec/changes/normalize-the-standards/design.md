@@ -770,6 +770,60 @@ As built (task 5.1), bevy-style normalised; what a delta decided beyond tasks 3.
   departure stated as an override row. The departures table's controls give `departs` in `also`
   where the defect breaks a pair by construction — a missing table, a row naming no rule.
 
+As built (task 6.1), zig-style normalised; what it decided beyond tasks 3.1, 4.1 and 5.1:
+
+- Core rules (decision 7): all 29 merged, the suffixed ZS-CORE-01b, -12a and -12b among them, which
+  showed `revise` a defect: its ranges sentence dropped a suffixed ID, so a rename row named an ID
+  no range stated. `_stated` gives a suffixed ID a range of its own and `RenameTable.originals`
+  reads a range of one as that ID. None said what no chapter rule says; what only a core rule said
+  was a dated std count, and went with it.
+- Migration (decision 9): fifteen maps, a hand-kept denylist and four section 2 maps are one table
+  of 277 rows (`gone` 153, `alias` 105, `changed` 15, `deprecated` 4), each Since found by looking
+  the row up in every release from 0.12.1 to 0.17.0; a `deprecated` row is one only the release
+  notes deprecate, or one no fixed string tells from a live name. A Zig row keys a method std's
+  types alone had by its bare name, as code calls it, and a namespace by its `std.` path, which the
+  probe compiles. The eleven per-topic migration rules merged into the rules owning their rows.
+- Compiler rows (decision 8, for a compiler): seven rules stated a compiler error, wholly or in
+  part; each error is a row proved by a probe 0.17.0 rejects, and the rule keeps what the compiler
+  does not decide (ZS-TEST-21 forbids `Smith.value(usize)`, which builds, beside the row for the
+  `valueRange*` calls that do not).
+- Tier (decision 6): a restatement `local_scope` cannot see names `[M]`, not `[M!]`: ZS-INTEROP-02's
+  "Trigger criteria — treat as `[M]`" widened the scope to every C caller not built from the
+  repository. That condition is the subject's, so it is the statement's, and the relaxed form covers
+  only a shim built here. Prose saying which side of a disagreement the standard takes no longer
+  names a tier (ZS-NAME-01, -02, -13, ZS-ERR-17: "Recommendation … ([M])").
+- One concept, one owner (decision 11), as task 4.1 judged pairs, three classes more. A concept with
+  two homes moves whole to the chapter whose Scope claims it, by copy and merge: logging (ZS-ERR-28,
+  -29 to ZS-OUT-18, -19 beside the `logFn` rule), where bytes go (ZS-CONC-05 to ZS-OUT-16); rules of
+  one concept in two sections of one chapter become adjacent and `revise` renumbers them (the
+  filesystem rules, ZS-CONC-18 to -22). Two rules whose relaxed forms differ for one choice are
+  halves of it ("Production builds are `safe`", ZS-BUILD-24, into "Ship `safe` builds, or define a
+  project-local always-on assert", now ZS-ASSERT-04), as is a rule that says it adds a column to
+  another's table ("Pick deliberately among `assert`, `unreachable`, `@panic`, and `fatal`",
+  ZS-ASSERT-04 then, into ZS-ERR-01). A title that names a second concept splits (ZS-CONC-21's
+  `createMemoryMap`, no race, is ZS-CONC-22, its synchronization read off std's `MemoryMap`). Rules
+  356 → 343.
+- Rule shape (decision 2): zig-style alone put `---` between sections, and the chapter layer reads
+  one as a block of the section's last rule: 42 stray rules held one, and only the break after the
+  contents list stays. A second GOOD or BAD that shows a case the statement names, not a second
+  defect, loses its side (18 of the 20 doubled verdicts: ZS-ERR-21's second block is its relaxed
+  form, ZS-NAME-12's the generic container its title allows); one that states a second claim is a
+  rule of its own (ZS-TEST-03, a scenario test's name). Prose after an example joins the statement
+  and cites the example by its place, as "the second example"; a label the shape lacks (`**What it
+  costs:**`) and a `> [!NOTE]` are statement prose.
+- Checks (decision 4): of the 36 prose greps the migration merges left, 13 name a shape that is
+  itself the defect and run it with a `fires` fixture (ZS-ERR-26's `rg -n -F '.?'`), re-anchoring
+  `not_decisive` where the file a hit is in decides (ZS-INTEROP-08's boundary module); 23 are
+  judgement, and eight `not_decisive` entries whose span no longer runs went. A passage outside
+  every rule that holds no rule moves to where it is read: comptime's anti-pattern index to the
+  chapter's lead, interop's boundary checklist to the review protocol, under Review order, since
+  `review_sections` fixes the protocol's `##` sections.
+- Controls (decision 14's last item): no shipped standard is un-normalised, so the controls of the
+  branches only such a standard runs — the core-citation three, `map_here`, `frontmatter.length` and
+  `rule_count` — read the demo with `normalized` off (`_on_unnormal`), its shared passages rewritten
+  for that profile after the edit, so a core rule the edit states is counted. `prose.provenance`'s
+  injected line no longer says "Measured", which `prose.dated` reads too.
+
 ## Risks / Trade-offs
 
 - **CORE IDs disappear** → every citation of one resolves through `renames.md`; `revise` checks
