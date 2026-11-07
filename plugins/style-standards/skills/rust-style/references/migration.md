@@ -44,7 +44,7 @@ the replacement — or `2024` for a change the edition made; section 2.1 lists t
 | `env::remove_var` | an `unsafe fn`, so a call outside `unsafe` is rejected, and `unsafe_code = "forbid"` rejects one inside; pass the code under test a lookup | gone | 2024 | RS-TEST-16 |
 | `env::set_var` | an `unsafe fn`, so a call outside `unsafe` is rejected, and `unsafe_code = "forbid"` rejects one inside; pass the code under test a lookup | gone | 2024 | RS-TEST-16 |
 | `extern "C" { … }` | rejected; `unsafe extern "C" { … }`, where an item marked `safe fn` is called without `unsafe` | gone | 2024 | RS-UNSAFE-23 |
-| `gen` | a reserved keyword, so rejected as a name; `r#gen` where the name must stay | gone | 2024 | RS-BUILD-01 |
+| `gen` | `r#gen` where the name must stay; `gen` is a reserved keyword, so rejected as a name | gone | 2024 | RS-BUILD-01 |
 | `lazy_static!` | `std::sync::LazyLock` | alias | 1.80 | RS-CONC-27 |
 | `once_cell::sync::Lazy` | `std::sync::LazyLock` | alias | 1.80 | RS-CONC-27 |
 | `once_cell::sync::OnceCell` | `std::sync::OnceLock` | alias | 1.70 | RS-CONC-27 |

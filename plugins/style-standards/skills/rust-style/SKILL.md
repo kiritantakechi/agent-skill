@@ -88,7 +88,7 @@ Since; its owning rule's Check finds it.
 | `env::remove_var` | an `unsafe fn`, so a call outside `unsafe` is rejected, and `unsafe_code = "forbid"` rejects one inside; pass the code under test a lookup | RS-TEST-16 |
 | `env::set_var` | an `unsafe fn`, so a call outside `unsafe` is rejected, and `unsafe_code = "forbid"` rejects one inside; pass the code under test a lookup | RS-TEST-16 |
 | `extern "C" { … }` | rejected; `unsafe extern "C" { … }`, where an item marked `safe fn` is called without `unsafe` | RS-UNSAFE-23 |
-| `gen` | a reserved keyword, so rejected as a name; `r#gen` where the name must stay | RS-BUILD-01 |
+| `gen` | `r#gen` where the name must stay; `gen` is a reserved keyword, so rejected as a name | RS-BUILD-01 |
 
 A `gone` row of an earlier release is in the migration table, `RS-MIG` in section 6, with its Since;
 the `rg` command after that table finds every `gone` and `alias` spelling the code writes out but a
