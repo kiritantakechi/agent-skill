@@ -145,6 +145,10 @@ PROFILE = Profile(
             "RS-API-12": ("pub fn items(&self) -> &Vec<Item> {",),
             "RS-API-49": ("pub fn set_limit(&mut self, limit: usize) -> &mut Self {",),
             "RS-BUILD-14": ('serde = { version = "1", optional = true }',),
+            "RS-BUILD-47": (
+                "- uses: actions/checkout@v7",
+                "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            ),
             "RS-BUILD-21": ('serde = "=1.0.200"',),
             "RS-BUILD-23": ("#![deny(missing_docs)]",),
             "RS-BUILD-24": ('pedantic = "allow"',),

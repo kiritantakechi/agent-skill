@@ -65,7 +65,7 @@ assert load_config("a.toml") == {"path": "a.toml"}
 also what makes it safe to add a second line later without changing the delimiter.
 
 **Check:** `ruff format` writes every docstring with triple double quotes whatever its `quote-style`
-says, so `ruff format --check` (PS-BUILD-18) is the gate; the lint rule for the quote style sits on
+says, so `ruff format --check` (PS-BUILD-20) is the gate; the lint rule for the quote style sits on
 ruff's formatter-conflict list and is disabled. `D301` requires a docstring containing a backslash
 to be raw.
 

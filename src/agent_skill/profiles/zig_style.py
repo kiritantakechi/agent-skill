@@ -138,6 +138,10 @@ PROFILE = Profile(
     # fixture, not the pattern.
     fires=keyed(
         {
+            "ZS-BUILD-32": (
+                "- uses: actions/checkout@v7",
+                "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            ),
             # Two patterns, so two fixtures: each the call a `changed`
             # row of ZS-MIG-01's says to re-read, written as a 0.16 call
             # site had it.
@@ -174,8 +178,8 @@ PROFILE = Profile(
         "ZS-ASSERT-20",
         "ZS-ASSERT-04",
         "ZS-BUILD-23",
-        "ZS-BUILD-33",
         "ZS-BUILD-34",
+        "ZS-BUILD-35",
         "ZS-COMPTIME-20",
         "ZS-MEM-04",
         "ZS-MEM-06",
@@ -239,7 +243,7 @@ PROFILE = Profile(
             # Polarity: this Check asserts the shape is *present*, so
             # its hits are evidence of compliance and reading them as
             # defects inverts the rule.
-            "ZS-BUILD-33": NotDecisive(
+            "ZS-BUILD-34": NotDecisive(
                 "has this block",
                 "a presence assertion, and scoped to `build.zig`: the finding is a "
                 "missing guard, which no hit can show",

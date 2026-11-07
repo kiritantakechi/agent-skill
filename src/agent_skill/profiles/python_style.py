@@ -95,6 +95,10 @@ PROFILE = Profile(
     # fixture shaped to match proves the fixture, not the pattern.
     fires=keyed(
         {
+            "PS-BUILD-21": (
+                "- uses: actions/checkout@v7",
+                "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            ),
             "PS-API-05": ("from acmewidget._internal import helper",),
             "PS-ASYNC-01": ("loop = asyncio.new_event_loop()",),
             "PS-ASYNC-02": ("loop = asyncio.get_event_loop()",),
@@ -120,9 +124,9 @@ PROFILE = Profile(
         "PS-BUILD-03",
         "PS-BUILD-04",
         "PS-BUILD-09",
-        "PS-BUILD-12",
         "PS-BUILD-13",
-        "PS-BUILD-21",
+        "PS-BUILD-14",
+        "PS-BUILD-24",
         "PS-CONC-02",
         "PS-CONC-03",
         "PS-CONC-05",

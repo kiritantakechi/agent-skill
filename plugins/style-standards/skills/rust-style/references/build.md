@@ -73,6 +73,7 @@ Rust ships a stable release every six weeks and has no LTS channel, so the rules
   - RS-BUILD-44 [M] Keep `target/` and local `.cargo/config.toml` paths out of version control
   - RS-BUILD-45 [S] Prefer `cargo xtask` to shell scripts
   - RS-BUILD-46 [S] Measure build time with `cargo build --timings` before optimizing it
+  - RS-BUILD-47 [M] Pin every third-party CI action to a full commit, with its release as a comment
 
 - Decided by tools
 
@@ -785,6 +786,21 @@ the fix is targeted rather than architectural. Guessing leads to splitting your 
 rarely helps.
 
 **Check:** has `--timings` been run? The report names the crate and shows what blocks pipelining.
+
+### RS-BUILD-47 [M] Pin every third-party CI action to a full commit, with its release as a comment
+
+`uses: Swatinem/rust-cache@<40 hex digits>  # v2.9.3`, as `assets/ci.yml` ships it. Not `@v2`, not a
+branch, and not a commit without the release beside it, which a reviewer could not read. Choose the
+newest release at least seven days old, so that a compromised one has been pulled before you adopt
+it. `dtolnay/rust-toolchain` has no releases and names the toolchain by its ref, so it is pinned to
+a `master` commit with `# master` and takes the toolchain as `with: { toolchain: 1.99.1 }`.
+
+**Why:** a tag or a branch can be moved after review, and the commit it names moves with it; the
+action then runs someone else's code with the workflow's token. A full commit names one tree for
+good, and the comment keeps the upgrade a reviewed diff that says what it upgrades to.
+
+**Check:** `rg -n 'uses: [^@ ]+@([0-9a-f]{0,39}([^0-9a-f]|$)|[0-9a-f]{40}\s*$)' .github/` — each hit
+is a ref that is not a full commit, or a commit with no release comment.
 
 ## Decided by tools
 

@@ -608,7 +608,7 @@ analysed; rewrite it to the row's 0.17 column, or delete it if nothing calls it.
 
 Add a CI step that runs the command after the table and fails on a hit, pin the toolchain for real —
 `.minimum_zig_version` is documentation only, so use a pinned CI version and the
-`comptime builtin.zig_version` guard (ZS-BUILD-29, ZS-BUILD-33) — and treat a toolchain bump as a
+`comptime builtin.zig_version` guard (ZS-BUILD-29, ZS-BUILD-34) — and treat a toolchain bump as a
 migration with its own review. One spelling over-matches: `.Debug` also finds a tag of your own
 enum, and the fix is to rename the tag, not to drop the row.
 

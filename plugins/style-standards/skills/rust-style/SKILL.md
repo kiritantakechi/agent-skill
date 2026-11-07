@@ -229,7 +229,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-596 rules live here; section 4 lists by ID those that bind on their own.
+597 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -240,7 +240,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/ownership.md` | `RS-OWN` (37) | Borrow-vs-own signatures, clone discipline, `Cow`, lifetimes and elision, arenas and indices, smart pointers, interior mutability, `Drop` and RAII |
 | `references/traits.md` | `RS-TRAIT` (46) | Trait design and contracts, static vs dynamic dispatch, dyn compatibility, coherence and blanket impls, sealing, bounds, associated types, GATs, const generics, typestate |
 | `references/modules.md` | `RS-MOD` (45) | Module boundaries, `foo.rs` + `foo/`, visibility escalation, the library/binary split, workspace layout and facades, imports and in-file declaration order |
-| `references/build.md` | `RS-BUILD` (46) | Manifest and metadata, docs.rs, additive features, dependency discipline, the `[lints]` table, supply chain and semver, toolchain, profiles, CI |
+| `references/build.md` | `RS-BUILD` (47) | Manifest and metadata, docs.rs, additive features, dependency discipline, the `[lints]` table, supply chain and semver, toolchain, profiles, CI |
 | `references/testing.md` | `RS-TEST` (34) | Unit/integration/doc test split, table-driven tests, property and differential testing, fuzzing, snapshots, CLI end-to-end, flakes |
 | `references/documentation.md` | `RS-DOC` (34) | Crate and module docs, the section order, `# Errors`/`# Panics`/`# Safety`, prose style, intra-doc links, README |
 | `references/performance.md` | `RS-PERF` (39) | Measure-first discipline, allocation and buffer reuse, collection choice and layout, buffered I/O and syscalls, monomorphization and `#[inline]`, integer widths and casts, SIMD, benchmarking |

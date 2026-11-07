@@ -60,7 +60,7 @@ now; an ID it does not list is unchanged.
 | `ZS-BUILD-10` | `ZS-BUILD-09` |
 | `ZS-BUILD-11` | `ZS-BUILD-10` |
 | `ZS-BUILD-12` | `ZS-BUILD-11` |
-| `ZS-BUILD-13` | `ZS-BUILD-33` |
+| `ZS-BUILD-13` | `ZS-BUILD-34` |
 | `ZS-BUILD-14` | `ZS-BUILD-12` |
 | `ZS-BUILD-15` | `ZS-BUILD-13` |
 | `ZS-BUILD-16` | `ZS-BUILD-14` |
@@ -86,11 +86,11 @@ now; an ID it does not list is unchanged.
 | `ZS-BUILD-36` | `ZS-INTEROP-15` |
 | `ZS-BUILD-37` | `ZS-BUILD-30` |
 | `ZS-BUILD-38` | `ZS-BUILD-31` |
-| `ZS-BUILD-39` | `ZS-BUILD-32` |
-| `ZS-BUILD-40` | `ZS-BUILD-33` |
-| `ZS-BUILD-41` | `ZS-BUILD-34` |
-| `ZS-BUILD-42` | `ZS-BUILD-35` |
-| `ZS-BUILD-43` | `ZS-BUILD-36` |
+| `ZS-BUILD-39` | `ZS-BUILD-33` |
+| `ZS-BUILD-40` | `ZS-BUILD-34` |
+| `ZS-BUILD-41` | `ZS-BUILD-35` |
+| `ZS-BUILD-42` | `ZS-BUILD-36` |
+| `ZS-BUILD-43` | `ZS-BUILD-37` |
 | `ZS-CAPI-01` | `ZS-INTEROP-01` |
 | `ZS-CAPI-02` | lint `zig:… not allowed in function with calling convention …` |
 | `ZS-CAPI-03` | `ZS-INTEROP-02` |

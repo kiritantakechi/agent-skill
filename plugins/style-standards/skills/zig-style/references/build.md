@@ -53,14 +53,15 @@ in a scratch directory and diff.
   - ZS-BUILD-28 [M] Cross-compiled test steps set `skip_foreign_checks`
   - ZS-BUILD-29 [M] Pin the Zig version in CI; gate on fmt, two optimize modes, and a cross matrix
   - ZS-BUILD-30 [S] Write automation as `scripts/*.zig`, wired into `build.zig`
-  - ZS-BUILD-31 [M!] Justify every dependency; default to none
+  - ZS-BUILD-31 [M] Justify every dependency; default to none
+  - ZS-BUILD-32 [M] Pin every third-party CI action to a full commit, with its release as a comment
 - **Strictness, toolchain pinning, and backends**
-  - ZS-BUILD-32 [M] There is no `-Wall`; the strictest-setting rule translates to six concrete gates
-  - ZS-BUILD-33 [S] Hard-error on a toolchain mismatch with a `comptime builtin.zig_version` guard
-  - ZS-BUILD-34 [S] Leave the codegen backend and linker alone; know what the three flags cost
+  - ZS-BUILD-33 [M] There is no `-Wall`; the strictest-setting rule translates to six concrete gates
+  - ZS-BUILD-34 [S] Hard-error on a toolchain mismatch with a `comptime builtin.zig_version` guard
+  - ZS-BUILD-35 [S] Leave the codegen backend and linker alone; know what the three flags cost
 - **The program's own interfaces: CLI and config files**
-  - ZS-BUILD-35 [M] Hand-roll CLI parsing; std has no argument parser
-  - ZS-BUILD-36 [S] `.zon` is a usable project config format, not just `build.zig.zon`
+  - ZS-BUILD-36 [M] Hand-roll CLI parsing; std has no argument parser
+  - ZS-BUILD-37 [S] `.zon` is a usable project config format, not just `build.zig.zon`
 - Decided by tools
 
 ---
@@ -370,7 +371,7 @@ no `zig`. A quoted name is `error: expected enum literal`.
     // dependencies alike. The compiler never reads it; `mlugg/setup-zig` does,
     // resolving the toolchain from it when the workflow omits `version`. Real
     // enforcement is a pinned CI version (ZS-BUILD-29) plus, for a project that
-    // pins an exact toolchain, the comptime guard in ZS-BUILD-33.
+    // pins an exact toolchain, the comptime guard in ZS-BUILD-34.
     .minimum_zig_version = "0.17.0",
     .dependencies = .{},
     // Defines the package hash and is all a consumer receives (ZS-BUILD-11).
@@ -877,7 +878,7 @@ The rules, which `assets/ci.yml` applies:
 
 Locally, `zig build --watch --debounce 100` re-runs the graph on save. `-fincremental` enables
 incremental compilation, and the 0.17.0 release notes say `zig build -fincremental --watch` now
-works for most `x86_64-linux` projects — read ZS-BUILD-34 before turning it on, because on ELF it
+works for most `x86_64-linux` projects — read ZS-BUILD-35 before turning it on, because on ELF it
 switches to the new linker, which is still off by default.
 
 **Why:** a Zig minor release is a breaking release. Pinning turns "the toolchain moved" into a
@@ -925,18 +926,17 @@ run_script.addPassthruArgs();
 b.step("script:release", "Cut a release").dependOn(&run_script.step);
 ```
 
-### ZS-BUILD-31 [M!] Justify every dependency; default to none
+### ZS-BUILD-31 [M] Justify every dependency; default to none
 
 TigerStyle mandates a **zero-dependency policy** apart from the Zig toolchain itself. Treat that as
 the default and require a written justification — in the commit that adds it — for each entry in
 `.dependencies`.
 
-Ship zero runtime dependencies; vendor one with `.path` if you must, so its source sits in your
-repository and in review. A build-time or test-only dependency is cheaper, but it still executes on
-your developers' and CI machines, so it is justified the same way. *Relaxed form:* runtime
-dependencies are allowed, but each is a reviewed decision: few, small, pinned to a tag or SHA
-(ZS-BUILD-12), optional ones marked `.lazy = true` (ZS-BUILD-13), and never a transitive tree you
-have not read — `zig build --fetch`, then read `zig-pkg/`.
+A runtime dependency is a reviewed decision: few, small, pinned to a tag or SHA (ZS-BUILD-12),
+optional ones marked `.lazy = true` (ZS-BUILD-13), and never a transitive tree you have not read —
+`zig build --fetch`, then read `zig-pkg/`. Vendor one with `.path` if you must, so its source sits
+in your repository and in review. A build-time or test-only dependency is cheaper, but it still
+executes on your developers' and CI machines, so it is justified the same way.
 
 It is a *policy choice*, not a law of the language, and the countervailing costs are real. Zig's
 package manager is content-addressed: the `hash`, not the URL, is the source of truth, `.paths`
@@ -952,9 +952,23 @@ top of you.
 why writing it yourself was rejected. After `zig build --fetch`, every directory under `zig-pkg/` is
 one somebody named — a transitive package nobody can account for is the finding.
 
+### ZS-BUILD-32 [M] Pin every third-party CI action to a full commit, with its release as a comment
+
+`uses: mlugg/setup-zig@<40 hex digits>  # v2.2.1`, as `assets/ci.yml` ships it. Not `@v2`, not a
+branch, and not a commit without the release beside it, which a reviewer could not read. Choose the
+newest release at least seven days old, so that a compromised one has been pulled before you adopt
+it.
+
+**Why:** a tag or a branch can be moved after review, and the commit it names moves with it; the
+action then runs someone else's code with the workflow's token. A full commit names one tree for
+good, and the comment keeps the upgrade a reviewed diff.
+
+**Check:** `rg -n 'uses: [^@ ]+@([0-9a-f]{0,39}([^0-9a-f]|$)|[0-9a-f]{40}\s*$)' .github/` — each hit
+is a ref that is not a full commit, or a commit with no release comment.
+
 ## Strictness, toolchain pinning, and backends
 
-### ZS-BUILD-32 [M] There is no `-Wall`; the strictest-setting rule translates to six concrete gates
+### ZS-BUILD-33 [M] There is no `-Wall`; the strictest-setting rule translates to six concrete gates
 
 TigerStyle says to appreciate, from day one, all compiler warnings at the compiler's strictest
 setting. Zig has **no warnings and no warning flags** for Zig code — a diagnostic is either a
@@ -1018,7 +1032,7 @@ pub fn build(b: *std.Build) void {
 }
 ```
 
-### ZS-BUILD-33 [S] Hard-error on a toolchain mismatch with a `comptime builtin.zig_version` guard
+### ZS-BUILD-34 [S] Hard-error on a toolchain mismatch with a `comptime builtin.zig_version` guard
 
 A project that pins one exact Zig version — an application with a reproducible release process, a
 high-reliability service, anything with a vendored or Nix-pinned compiler, as TigerBeetle does —
@@ -1059,7 +1073,7 @@ comptime {
 }
 ```
 
-### ZS-BUILD-34 [S] Leave the codegen backend and linker alone; know what the three flags cost
+### ZS-BUILD-35 [S] Leave the codegen backend and linker alone; know what the three flags cost
 
 Ship the defaults unless you have a measurement, and never turn on `-fincremental` or `-fnew-linker`
 in a build whose artifacts you ship.
@@ -1109,7 +1123,7 @@ default:           .debug_abbrev .debug_aranges .debug_info .debug_line .debug_l
 
 ## The program's own interfaces: CLI and config files
 
-### ZS-BUILD-35 [M] Hand-roll CLI parsing; std has no argument parser
+### ZS-BUILD-36 [M] Hand-roll CLI parsing; std has no argument parser
 
 `std.process.Init` hands you `args`; nothing in std turns them into flags. There is no argument
 parser anywhere in `std`, and `std.process.Args` offers only `iterate()`, `iterateAllocator(gpa)`,
@@ -1192,7 +1206,7 @@ test "flags, --, and operands" {
 }
 ```
 
-### ZS-BUILD-36 [S] `.zon` is a usable project config format, not just `build.zig.zon`
+### ZS-BUILD-37 [S] `.zon` is a usable project config format, not just `build.zig.zon`
 
 A config file you control is ZON before it is JSON, TOML, or YAML; ZS-DATA-35 owns reading it, with
 `@import("config.zon")` at comptime or `std.zon.parse` at runtime. Prefer the comptime form for

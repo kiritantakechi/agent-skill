@@ -235,8 +235,8 @@ name it costs.
   - PS-API-02 [M] Re-export through `__all__`, never by a bare import
   - PS-API-06 [M] Annotate every parameter and every return of a public function
 - **Build: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel**
-  - PS-BUILD-18 [M] Run `ruff format`; it is not a suggestion
-  - PS-BUILD-19 [M] A free-threaded wheel tag is not a declaration of thread safety
+  - PS-BUILD-20 [M] Run `ruff format`; it is not a suggestion
+  - PS-BUILD-22 [M] A free-threaded wheel tag is not a declaration of thread safety
 
 ## 5. Review checklist
 
@@ -265,7 +265,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-239 rules live here; section 4 lists by ID those that bind on their own.
+242 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -281,7 +281,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/modules.md` | `PS-MOD` (6) | Package layout under `src/`, what a module does when imported, `lazy import`, and the shape of the import graph |
 | `references/documentation.md` | `PS-DOC` (12) | Docstring shape and content, choosing a convention and what that choice disables, doctests, and the documents outside the code |
 | `references/testing.md` | `PS-TEST` (27) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
-| `references/build.md` | `PS-BUILD` (21) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
+| `references/build.md` | `PS-BUILD` (24) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
 | `references/migration.md` | `PS-MIG` (8) | Every old spelling 3.14 and 3.15 removed, changed, aliased or deprecated, with its status and owning rule; the command the table generates; what to write now for 3.16; and pytest's own ladder |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, the mechanical pass, and the output format |
 

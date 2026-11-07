@@ -202,7 +202,7 @@ means "fit it on one line if it fits".
 formatter then executes. It is also the single lever that keeps a growing argument list from
 producing a one-line diff that touches every argument.
 
-**Check:** `ruff format --check` (PS-BUILD-18). With `skip-magic-trailing-comma = false`, ruff's
+**Check:** `ruff format --check` (PS-BUILD-20). With `skip-magic-trailing-comma = false`, ruff's
 default and the shipped `[format]` setting, the formatter enforces this itself; flake8-commas, the
 lint that looks like it, is on ruff's formatter-conflict list and stays disabled.
 
