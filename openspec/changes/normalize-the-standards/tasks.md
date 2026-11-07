@@ -124,7 +124,12 @@ standard read as normalised now also fails: `core_rule` (bevy 24, python 26, rus
   `tests/structure_fixture.py` builds `checks.demo`, the one demo; see the design's "As built (task
   7.1)". FAIL branches 243 → 236, controls 220 → 213, exemptions 23; `fmt` changes nothing in the
   shipped tree, and `check --fast --verbose` is byte-identical
-- [ ] 7.2 Re-measure section 1.1's counts and record them here; run the full check once
+- [x] 7.2 Re-measure section 1.1's counts and record them here; run the full check once — "After
+  (measured)" below: every count of the normal form is 0 in every standard; rules 174, 232, 597,
+  343; descriptions 442, 412, 432, 411 characters; `SKILL.md` 293, 299, 266, 327 lines. On
+  `8c6cc71`: `check`, toolchains and mutation included, all passed in 26 min 34 s; `pytest -q`
+  1,116 passed in 42 min 8 s, the toolchain tests among them; `ruff check`, `ruff format --check`
+  and `ty check` clean
 - [x] 7.3 README sections that describe the standards' shape; `documented` passes — "Every standard
   has one shape" states the normal form (chapter template, rule shape, bare-ID citations, Checks as
   `rg` commands or judgement, tier as one predicate, §4 and §2's 2.1 and 2.2 as projections, the
@@ -195,3 +200,47 @@ rows of lints it sets as rust-style does are the anchor's (the two rows 2.8 adde
 a newline (846, 924, 940, 948 before 2.10 fixed it; every finding stayed the same).
 `check --fast` 23 s, all passed; pytest 1,002 passed, 7 deselected, 2 min 14 s; FAIL branches 203 →
 220, controls 181 → 198, exemptions 22.
+
+## After (measured)
+
+Taken after task 7.1 deleted the gate, on `8c6cc71`, and printed as `uv run agent-skill measure`
+prints it. Each standard is read as it is, since every check of the normal form now holds every
+standard. The baseline's row of a 2.2 subsection that is not one table is two rows here, one per
+subsection the migration table renders (design, decision 9).
+
+| Measure | bevy-style | python-style | rust-style | zig-style |
+| --- | --- | --- | --- | --- |
+| chapters with a family code | 11 | 14 | 16 | 13 |
+| chapter titles carrying a family code | 0 | 0 | 0 | 0 |
+| chapters with no `Scope:` paragraph | 0 | 0 | 0 | 0 |
+| chapters with a section after `Decided by tools` | 0 | 0 | 0 | 0 |
+| chapters named outside §6 and a `Scope:`, no ID after | 0 | 0 | 0 | 0 |
+| rules | 174 | 232 | 597 | 343 |
+| distinct element orders | 3 | 4 | 6 | 4 |
+| rules with their elements out of order | 0 | 0 | 0 | 0 |
+| rules holding a block no element holds | 0 | 0 | 0 | 0 |
+| restated titles | 0 | 0 | 0 | 0 |
+| rules with more than one GOOD or BAD | 0 | 0 | 0 | 0 |
+| relaxed forms on a rule that is not `[M!]` | 0 | 0 | 0 | 0 |
+| citations bare | 381 | 219 | 286 | 842 |
+| citations quoted | 0 | 0 | 0 | 0 |
+| citations behind a chapter's path | 0 | 0 | 0 | 0 |
+| prose "grep" Checks | 0 | 0 | 0 | 0 |
+| rules restating the `[M!]` scope | 0 | 0 | 0 | 0 |
+| `[M]` and `[M!]` titles in the mood of advice | 0 | 0 | 0 | 0 |
+| core rules | 0 | 0 | 0 | 0 |
+| core rules at another tier than a rule they cite | 0 | 0 | 0 | 0 |
+| lints the configuration sets one by one with no row | none | 0 of 17 | 0 of 25 | none |
+| rules whose Check is only a lint | 0 | 0 | 0 | 0 |
+| rows of a lint not set one by one, saying no reason | 0 | 0 | 0 | 0 |
+| rows of a lint another row, or the anchor's, lists | 0 | 0 | 0 | 0 |
+| migration status values used (declared) | 3 (0) | 4 (0) | 4 (0) | 4 (0) |
+| old spellings in two migration rows | 0 | 0 | 0 | 0 |
+| section 2 subsections, lines | 3, 90 | 3, 88 | 3, 43 | 3, 89 |
+| section 2 laid out otherwise than 2.1-2.3 | 0 | 0 | 0 | 0 |
+| a 2.1 subsection that is not its rendering | 0 | 0 | 0 | 0 |
+| a 2.2 subsection that is not its rendering | 0 | 0 | 0 | 0 |
+| section 2 items naming no rule | 0 | 0 | 0 | 0 |
+| description characters | 442 | 412 | 432 | 411 |
+| SKILL.md lines | 293 | 299 | 266 | 327 |
+| statements dated by their writing | 0 | 0 | 0 | 0 |
