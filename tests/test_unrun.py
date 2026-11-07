@@ -31,7 +31,7 @@ lazy from collections.abc import Callable, Iterator
 import pytest
 
 import agent_skill.proc
-from agent_skill.checks import all_checks, by_name, controls, crossref, pins
+from agent_skill.checks import all_checks, by_name, controls, crossref, evals, pins
 from agent_skill.checks import toolchain as toolchain_check
 from agent_skill.lang import python, rust, toolchain_for
 from agent_skill.layout import SKILLS
@@ -287,6 +287,10 @@ NOT_BY_ABSENCE: dict[Branch, str] = {
     controls.UNEXERCISED: (
         "fires when a control's own check could not run; each check's absent tool "
         "is covered here, and `controls` runs every other check rather than a tool"
+    ),
+    evals.UNCOMPARED: (
+        "fires on a refused selection, which leaves no suite to compare the "
+        "directory with; the check asks for no tool, so no absence reaches it"
     ),
     crossref.ANCHOR_ABSENT: (
         "fires on a tree without the delta's anchor skill, which a run of the "

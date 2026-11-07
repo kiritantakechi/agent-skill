@@ -25,6 +25,7 @@ lazy from collections.abc import Mapping
 from agent_skill.profiles import bevy_style, python_style, rust_style, zig_style
 from agent_skill.profiles.record import (
     Delta,
+    Evals,
     LineRule,
     Near,
     NotDecisive,
@@ -36,6 +37,7 @@ from agent_skill.profiles.record import (
 __all__ = [
     "PROFILES",
     "Delta",
+    "Evals",
     "LineRule",
     "Near",
     "NotDecisive",

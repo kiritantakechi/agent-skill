@@ -464,14 +464,65 @@ time of deletion (both tiers `[M]` unless marked):
 
 ## 5. Evals
 
-- [ ] 5.1 Add `Evals` selections to the profiles (two review rules, two old spellings each) and the
-  selection-validity branches, with controls; verify each invalid selection fires its branch alone
-- [ ] 5.2 Write the generator and `agent-skill evals`, and the `evals` check (`drift`, `extra`), with
+- [x] 5.1 Add `Evals` selections to the profiles (two review rules, two old spellings each) and the
+  selection-validity branches, with controls; verify each invalid selection fires its branch alone.
+  Result: `Profile.evals` is `Evals(review, migrate)`, None for a standard the suite holds no case
+  of. Selections, review then migrate (target span, owning rule):
+  - bevy-style: BV-ECS-02, BV-ARCH-01; `remove_children` (`detach_children`, BV-ECS-11),
+    `DefaultErrorHandler` (`FallbackErrorHandler`, BV-ERR-05).
+  - python-style: PS-OUT-15, PS-ERR-21; `__cached__` (`__spec__.cached`, PS-MIG-04),
+    `types.CodeType.co_lnotab` (`co_lines()`, PS-MIG-04).
+  - rust-style: RS-OUT-02, RS-OUT-03; `#[no_mangle]` (`#[unsafe(no_mangle)]`, RS-BUILD-01), `gen`
+    (`r#gen`, RS-BUILD-01).
+  - zig-style: ZS-DATA-15, ZS-TEST-15; `std.ascii.indexOfIgnoreCase` (`std.ascii.findIgnoreCase`,
+    ZS-DATA-36), `std.gpu` (`std.spirv`, ZS-MIG-01).
+  - the demo: DS-ERR-01; `old_name`. It gains `marked_languages=("text",)`, so its `text` examples
+    are read for a BAD block; `markers` is the only other reader of that field, and they pass.
+
+  A spelling's Since is the target's as section 2.2 reads it (`Profile.since`), so rust-style's
+  edition-2024 rows count: it has no `gone` row of 1.99. Of its four that are no shape, only
+  `#[no_mangle]` opened its target cell with a code span, so the `gen` row's cell now opens with
+  `r#gen` (same meaning; §2.2 re-rendered). Passed over: a span a correct reply writes otherwise
+  (`glob.glob()`, called with arguments), one any reply holds (`{}`, `re`), and one inside its old
+  spelling (`PyImport_ImportModule`); a test holds that no grader matches its own case's prompt.
+  Branches `unknown_rule`, `no_bad` (the scenario: the rule's only example GOOD), `bad_cites`,
+  `not_gone` (the row's Since an earlier release), `shape` (a `gone` shape row selected) and
+  `no_code_span`, each with one control on the demo alone, each firing alone. A refused selection
+  leaves the suite undefined, so nothing is compared, and `evals.uncompared` (`UNRUN`, in no skill,
+  so `--skill` cannot hide it) says so; `test_unrun` lists it as reached by no absent tool.
+- [x] 5.2 Write the generator and `agent-skill evals`, and the `evals` check (`drift`, `extra`), with
   controls; verify by tests that each escaped literal matches itself and nothing else, and that the
-  negative case's prompt is another language's
-- [ ] 5.3 Generate the suite, ignore `plugins/style-standards/evals/results/`, run the no-case load
+  negative case's prompt is another language's. Result: `agent_skill.evals` generates the suite as
+  files by path; `agent-skill evals` writes what differs, removes what it does not generate (a
+  run's `results/` left alone, emptied directories pruned), exits 1 writing nothing on a refused
+  selection and 2 outside a repository's layout. The prompt is printed by `doc`'s printer, and the
+  target cell's first span read by `doc.opening_span`. Graders as decision 8 has them; the negative
+  one also sets `min: 0`, which the documented "never called" needs (`min` defaults to 1). Language,
+  for the negative case, is the fence tag a standard's examples are written under first, so
+  rust-style and bevy-style take python-style's prompt and the other two bevy-style's. `drift` is
+  a generated file missing or different, `extra` a file the generation does not hold; their
+  controls (a prompt edited by hand; a hand-written `llm` grader) run on the shipped copy, which now
+  carries the suite without its results. `tests/test_evals.py` (32): the documented `prompt.md`
+  keys and each free grader type's options, no judge type, no grader body; a scored grader in every
+  case; every literal and each one-character substitution and deletion of it, in Python's `re` and
+  in Node's `new RegExp` (dropping `.` from the escaper fails both); the negative prompt is the
+  first review of the first other-language standard; writing twice writes nothing; a package holds
+  nothing of the suite; the results directory is ignored. `test_install`'s ignore test reads a
+  path entry as one outside every skill. FAIL branches 258 → 266, controls 235 → 243, exemptions 23.
+- [x] 5.3 Generate the suite, ignore `plugins/style-standards/evals/results/`, run the no-case load
   test and record what it showed, and give the owner's command in the README; verify `check --only
-  evals` and `documented`
+  evals` and `documented`. Result: 20 cases, 64 files: per standard 2 review, 2 migration and 1
+  negative. The docs say a filter matching no case is "No eval cases found", exit 1, and that only
+  a run with a case writes results; and that a directory not yet trusted, run with no terminal, is
+  refused before anything loads, so the load test added `--trust-plugin` (it grants nothing else).
+  Calibrated first on a scratch plugin holding one case with an unknown key: under the same filter
+  it printed that key's error and "1 case file(s) failed to load", ran 0 cases at $0.00, exit 1, so
+  every case is loaded before the filter. Run once on the plugin, from the root:
+  `claude plugin eval plugins/style-standards --case '__no_such_case__' --no-publish --ablation
+  none --trust-plugin` printed `No eval cases found matching --case "__no_such_case__" under
+  /home/user/agent-skill/plugins/style-standards.` and `Run without --case to see all cases.`, exit
+  1, no results directory: every case loaded. `check --only evals`, `documented` and `plugin`
+  (`claude plugin validate --strict` with `evals/` inside the plugin) pass; the suite was not run.
 
 ## 6. Close
 

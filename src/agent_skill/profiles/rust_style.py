@@ -7,12 +7,14 @@ lazy from collections.abc import Iterator
 from agent_skill.ids import RuleId, Version
 from agent_skill.lang.rust import EDITION, RUST_STYLE
 from agent_skill.profiles.record import (
+    Evals,
     LineRule,
     Near,
     NotDecisive,
     Profile,
     Unless,
     keyed,
+    listed,
     rules,
 )
 from agent_skill.report import Level, declare, note
@@ -252,6 +254,12 @@ PROFILE = Profile(
         "unsafe": "unsafe code and the soundness it takes on",
         "cli": "a binary's command line: arguments, environment and signals",
     },
+    # The eval suite's cases: two BAD examples to review, two spellings
+    # the target rejects (one-abstract-standard, decision 8).
+    evals=Evals(
+        review=listed("RS-OUT-02", "RS-OUT-03"),
+        migrate=("#[no_mangle]", "gen"),
+    ),
     conventions=CONVENTIONS,
     structural=(unused_defaults,),
 )

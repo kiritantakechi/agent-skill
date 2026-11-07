@@ -22,18 +22,20 @@ from agent_skill.ids import Pin
 from agent_skill.lang.python import PythonSnippet
 from agent_skill.layout import ABSTRACT
 from agent_skill.model import REFERENCES, SKILL_MD, Skill
-from agent_skill.profiles import Delta, Profile
-from agent_skill.profiles.record import rules
+from agent_skill.profiles import Delta, Evals, Profile
+from agent_skill.profiles.record import listed, rules
 
 #: The demo's profile: Demo 1.2. It names no language, so no example
-#: is compiled or searched; its two `rg` patterns are listed unproven,
-#: as a shipped standard's are. Its lint configuration is a `ty.toml`,
-#: read as Python's toolchain reads one, so the lint bijection has a
-#: configuration to hold its rows to; it ships no `ruff.toml`, so
-#: nothing is asked of `ruff`.
+#: is compiled or searched; its `text` examples carry markers, which is
+#: what its eval selection reads a BAD example by. Its two `rg` patterns
+#: are listed unproven, as a shipped standard's are. Its lint
+#: configuration is a `ty.toml`, read as Python's toolchain reads one,
+#: so the lint bijection has a configuration to hold its rows to; it
+#: ships no `ruff.toml`, so nothing is asked of `ruff`.
 PROFILE = Profile(
     name="demo-style",
     prefix="DS",
+    marked_languages=("text",),
     tools=("democ", "ty"),
     language="Demo",
     verified_as="compiles as written against Demo {pin}",
@@ -41,6 +43,7 @@ PROFILE = Profile(
     toolchain=PythonSnippet(),
     subject=Pin.parse("demo==1.2.3"),
     unproven=rules("DS-ERR-02", "DS-MIG-01"),
+    evals=Evals(review=listed("DS-ERR-01"), migrate=("old_name",)),
 )
 
 #: The stages of the review, in §5 and in the protocol's review order.

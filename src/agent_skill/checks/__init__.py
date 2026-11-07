@@ -142,6 +142,7 @@ MODULES = (
     "crossref",
     "dialect",
     "documented",
+    "evals",
     "frontmatter",
     "layout",
     "lints",

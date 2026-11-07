@@ -9,6 +9,7 @@ import pytest
 
 from agent_skill import build, cli
 from agent_skill.build import EXCLUDE, TARGETS, install, package
+from agent_skill.layout import SKILLS
 from agent_skill.model import Skill
 lazy from agent_skill.build import Target
 
@@ -151,8 +152,15 @@ def test_the_package_leaves_out_what_the_repository_ignores(tmp_path: Path) -> N
 
 
 def test_the_exclusions_cover_everything_the_repository_ignores() -> None:
-    ignored = (REPO / ".gitignore").read_text().split()
-    assert {line.rstrip("/") for line in ignored} <= set(EXCLUDE)
+    """A name ignored wherever it stands is one no package holds.
+
+    A path ignored in one place, as the eval suite's results are, lies
+    outside every skill, where no package reaches.
+    """
+    ignored = [line.rstrip("/") for line in (REPO / ".gitignore").read_text().split()]
+    assert {line for line in ignored if "/" not in line} <= set(EXCLUDE)
+    paths = [Path(line) for line in ignored if "/" in line]
+    assert not [p for p in paths if p.is_relative_to(SKILLS)]
 
 
 def test_the_package_holds_only_the_skill(tmp_path: Path, skill: Skill) -> None:

@@ -16,10 +16,11 @@ from agent_skill import build
 from agent_skill.abstract import abstract_of
 from agent_skill.checks import all_checks
 from agent_skill.doc.chapter import print_becomes
+from agent_skill.evals import generate, write
 from agent_skill.fmt import format_abstract, format_skill
 from agent_skill.ids import RuleId
 from agent_skill.lang import toolchain_for
-from agent_skill.layout import SKILLS, root_of
+from agent_skill.layout import EVALS, SKILLS, in_repository, root_of
 from agent_skill.model import Skill, Tree, discover
 from agent_skill.report import Level, Result
 lazy from agent_skill import revise
@@ -35,8 +36,9 @@ DEFAULT_SKILLS = REPO / SKILLS
 DESCRIPTION = (
     "`agent-skill` — check the skills in this repository; fmt them; revise "
     "their rules, or renumber and demote, which are revise by other names; "
-    "build them into packages, install them into each agent, list them, and "
-    "measure how far each is from the normal form."
+    "build them into packages, install them into each agent, list them, "
+    "measure how far each is from the normal form, and write the evals the "
+    "plugin is run against."
 )
 
 
@@ -319,6 +321,38 @@ def cmd_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_evals(args: argparse.Namespace) -> int:
+    """Write the eval suite the standards generate; print what changed.
+
+    Each file written and each removed, under the plugin's eval
+    directory; a run's results there are left alone. Exit 1, having
+    written nothing, when a selection names nothing a case can be built
+    from, and 2 when `--skills` is not a repository's.
+    """
+    skills = args.skills.resolve()
+    if not in_repository(skills):
+        print(
+            f"evals: {args.skills} is not a repository's `{SKILLS}`, so there is no "
+            f"`{EVALS}` to write",
+            file=sys.stderr,
+        )
+        return 2
+    suite = generate(Tree.of(discover(skills)))
+    if suite.refused:
+        for refused in suite.refused:
+            print(f"  FAIL  {refused}")
+        print("nothing was written", file=sys.stderr)
+        return 1
+    written, removed = write(root_of(skills), suite)
+    for rel in written:
+        print(f"  write   {EVALS / rel}")
+    for rel in removed:
+        print(f"  remove  {EVALS / rel}")
+    if not written and not removed:
+        print(f"  {len(suite.cases)} cases, already as generated")
+    return 0
+
+
 def cmd_measure(args: argparse.Namespace) -> int:
     """Print how far each standard is from the normal form.
 
@@ -415,6 +449,13 @@ def main(argv: list[str] | None = None) -> int:
         cmd.set_defaults(func=cmd_revise, plan=None)
     sub.add_parser("list", help="what is in this repository").set_defaults(
         func=cmd_list
+    )
+    writes = (
+        "write the plugin's eval suite as the standards and their profiles' "
+        "selections generate it, and remove any other case; it runs nothing"
+    )
+    sub.add_parser("evals", help=writes, description=writes).set_defaults(
+        func=cmd_evals
     )
     measured = "how far each standard is from the normal form, as a table"
     sub.add_parser("measure", help=measured, description=measured).set_defaults(

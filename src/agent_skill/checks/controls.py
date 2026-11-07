@@ -33,6 +33,7 @@ from agent_skill.checks import (
     demo,
     dialect,
     documented,
+    evals,
     frontmatter,
     layout,
     lints,
@@ -48,9 +49,18 @@ from agent_skill.checks import (
 from agent_skill.ids import Branch, Location
 from agent_skill.lang import python, rust, zig
 from agent_skill.lang.python import PythonSnippet
-from agent_skill.layout import ABSTRACT, PLUGIN, SKILLS, WORKFLOWS, root_of
+from agent_skill.layout import (
+    ABSTRACT,
+    EVALS,
+    PLUGIN,
+    RESULTS,
+    SKILLS,
+    WORKFLOWS,
+    root_of,
+)
 from agent_skill.model import SKILL_MD
 from agent_skill.profiles import bevy_style, python_style, rust_style, zig_style
+from agent_skill.profiles.record import Evals, listed
 from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.checks import Check, by_name
 lazy from agent_skill.harness import pinned
@@ -198,6 +208,16 @@ def throwaway_tree(source: Path, into: Path) -> Path:
     for kept in (ABSTRACT, WORKFLOWS):
         if (root / kept).is_dir():
             shutil.copytree(root / kept, into / kept)
+    # The eval suite, without what a run of it left behind: the results
+    # are no file of the suite's, and can be many.
+    if (root / EVALS).is_dir():
+        shutil.copytree(
+            root / EVALS,
+            into / EVALS,
+            ignore=lambda at, _: (
+                [RESULTS.name] if Path(at) == root / RESULTS.parent else []
+            ),
+        )
     for manifests in (Path(".claude-plugin"), PLUGIN / ".claude-plugin"):
         if (root / manifests).is_dir():
             shutil.copytree(root / manifests, into / manifests)
@@ -889,6 +909,117 @@ CONCEPTS: list[Control] = [
         concepts.ABSTRACT_CITED,
         lambda t: append(
             t, f"{demo.PROFILE.name}/{_DEMO_ERRORS}", "\nAS-ERR-01 states it.\n"
+        ),
+    ),
+]
+
+
+def _on_selection(
+    branch: Branch,
+    edits: Callable[[Path], Edited] = lambda _: (),
+    chosen: Evals | None = None,
+) -> Control:
+    """A control on the demo alone and its eval selection.
+
+    The shipped standards go from the copy, so the selection refused is
+    the demo's and no other; `edits` breaks what it names, and `chosen`
+    reads the demo with a selection other than its own. A refused
+    selection leaves nothing to compare, so the copy's suite is no
+    defect beside it.
+    """
+
+    def inject(tree: Path) -> Edited:
+        for skill in discover(tree):
+            shutil.rmtree(skill.root)
+        return (*demo.build(tree), *edits(tree))
+
+    read = demo.PROFILE if chosen is None else replace(demo.PROFILE, evals=chosen)
+    return Control(branch, inject, {}, {demo.PROFILE.name: read})
+
+
+#: The demo's errors chapter, its migration chapter, and the one row of
+#: the migration table its selection names.
+_DEMO_ERRORS_MD = f"{demo.PROFILE.name}/{_DEMO_ERRORS}"
+_DEMO_MIGRATION_MD = f"{demo.PROFILE.name}/{_DEMO_MIGRATION}"
+_OLD_NAME = "| `old_name` | `new_name` | gone | 1.2 | DS-MIG-01 |\n"
+
+
+def _first_case(tree: Path) -> str:
+    """The first case of the copy's eval suite, by its path there."""
+    root = root_of(tree)
+    found = sorted((root / EVALS).glob("*/*/prompt.md"))
+    if not found:
+        msg = f"{EVALS}: no case"
+        raise FixtureGoneError(msg)
+    return found[0].parent.relative_to(root).as_posix()
+
+
+#: One control per branch of `evals`: each refused selection on the demo
+#: alone, then the suite on disk against the shipped standards'.
+EVALS_CONTROLS: list[Control] = [
+    _on_selection(
+        evals.UNKNOWN_RULE,
+        chosen=Evals(review=listed("DS-ERR-09"), migrate=("old_name",)),
+    ),
+    # The rule's only example is GOOD.
+    _on_selection(
+        evals.NO_BAD,
+        lambda t: edit(
+            t,
+            _DEMO_ERRORS_MD,
+            "// verified — BAD\nopen(path) -> File\n",
+            "// verified — GOOD\nopen(path) -> Result<File>\n",
+        ),
+    ),
+    _on_selection(
+        evals.BAD_CITES,
+        lambda t: edit(
+            t,
+            _DEMO_ERRORS_MD,
+            "open(path) -> File\n",
+            "open(path) -> File // DS-ERR-02 forbids what follows\n",
+        ),
+    ),
+    # The row is an earlier release's, so section 2.2 does not list it.
+    _on_selection(
+        evals.NOT_GONE,
+        lambda t: edit(
+            t, _DEMO_MIGRATION_MD, _OLD_NAME, _OLD_NAME.replace("| 1.2 |", "| 1.1 |")
+        ),
+    ),
+    _on_selection(
+        evals.SHAPE,
+        lambda t: edit(
+            t,
+            _DEMO_MIGRATION_MD,
+            _OLD_NAME,
+            f"{_OLD_NAME}| `old_call(…)` | `new_call(…)` | gone | 1.2 | DS-MIG-01 |\n",
+        ),
+        Evals(review=listed("DS-ERR-01"), migrate=("old_call(…)",)),
+    ),
+    _on_selection(
+        evals.NO_CODE_SPAN,
+        lambda t: edit(
+            t,
+            _DEMO_MIGRATION_MD,
+            _OLD_NAME,
+            _OLD_NAME.replace("`new_name`", "new_name"),
+        ),
+    ),
+    # A case's prompt, edited by hand.
+    Control(
+        evals.DRIFT,
+        lambda t: append(
+            root_of(t), f"{_first_case(t)}/prompt.md", "\nAnswer in one word.\n"
+        ),
+    ),
+    # A grader written by hand, and a judge, which no generated case is.
+    Control(
+        evals.EXTRA,
+        lambda t: write(
+            root_of(t),
+            f"{_first_case(t)}/graders/judge.md",
+            "---\ntype: llm\n---\n\nPASS if the reply names the rule it applies.\n",
         ),
     ),
 ]
@@ -2537,6 +2668,7 @@ CONTROLS: list[Control] = [
     ),
     *NORMAL_FORM,
     *CONCEPTS,
+    *EVALS_CONTROLS,
 ]
 
 

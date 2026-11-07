@@ -277,6 +277,26 @@ def words(text: str) -> tuple[str, ...]:
     return tuple(out)
 
 
+def opening_span(text: str) -> str | None:
+    """The code of the span `text` opens with, or None if it has none.
+
+    As CommonMark reads a code span: a run of backticks, closed by the
+    next run of exactly as many, its line breaks read as spaces and one
+    space taken from each end when both have one and the code is not
+    only spaces. None, too, for a span that holds nothing but spaces.
+    """
+    if not text.startswith("`"):
+        return None
+    run = _run(text, 0)
+    close = _closing(text, run, run)
+    if close < 0:
+        return None
+    code = text[run:close].replace("\n", " ")
+    if len(code) > 1 and code[0] == code[-1] == " " and code.strip(" "):
+        code = code[1:-1]
+    return code if code.strip(" ") else None
+
+
 def _inline_end(text: str, i: int) -> int:
     """Where the code span, link or escape starting at `i` ends.
 

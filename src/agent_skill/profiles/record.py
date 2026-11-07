@@ -38,6 +38,11 @@ def rules(*spelled: str) -> frozenset[RuleId]:
     return frozenset(RuleId.parse(text) for text in spelled)
 
 
+def listed(*spelled: str) -> tuple[RuleId, ...]:
+    """The rules `spelled` names, in the order it names them."""
+    return tuple(RuleId.parse(text) for text in spelled)
+
+
 @dataclass(frozen=True, slots=True)
 class Near:
     """A pattern on a hit's line, or on the lines around it.
@@ -131,6 +136,26 @@ class Delta:
 
 
 @dataclass(frozen=True, slots=True)
+class Evals:
+    """What a standard's behavioural evals are built from.
+
+    The suite is generated from these and the standard's text, so a
+    case cannot test a rule as it once read (one-abstract-standard,
+    decision 8). Each is checked, since a selection naming nothing a
+    case can be built from would build a case that cannot fail, or
+    cannot pass.
+    """
+
+    #: Rules each given a review case: its verified BAD example, which
+    #: cites no rule ID, sent for review and graded on the rule's ID.
+    review: tuple[RuleId, ...] = ()
+    #: Old spellings each given a migration case: a `gone` row of the
+    #: migration table whose Since is the target's, not a shape, and
+    #: whose target cell opens with the code span the grader seeks.
+    migrate: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class Profile:
     """What one skill's checks need to know about it."""
 
@@ -221,6 +246,9 @@ class Profile:
     #: repository's workflows share with its shipped workflow is taken
     #: as that step stands (`self-application`). One profile says so.
     harness: bool = False
+    #: What the eval suite's cases for this standard are built from;
+    #: None for a standard the suite holds no case of.
+    evals: Evals | None = None
     #: This standard's own rules, held to each line of its own examples.
     conventions: tuple[LineRule, ...] = ()
     #: This standard's own rules, held to each line of the prose around

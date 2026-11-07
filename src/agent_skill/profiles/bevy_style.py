@@ -15,9 +15,11 @@ lazy from collections.abc import Iterator
 from agent_skill.lang.rust import BEVY, BEVY_STYLE, RUST_STYLE
 from agent_skill.profiles.record import (
     Delta,
+    Evals,
     NotDecisive,
     Profile,
     keyed,
+    listed,
     rules,
 )
 from agent_skill.report import Finding, Level, declare, fail
@@ -339,5 +341,11 @@ PROFILE = Profile(
         "assets": "Bevy's asset server",
         "view": "Bevy's UI and rendering",
     },
+    # The eval suite's cases: two BAD examples to review, two spellings
+    # the target rejects (one-abstract-standard, decision 8).
+    evals=Evals(
+        review=listed("BV-ECS-02", "BV-ARCH-01"),
+        migrate=("remove_children", "DefaultErrorHandler"),
+    ),
     structural=(component_shape, suffixes),
 )

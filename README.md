@@ -15,6 +15,7 @@ uv run agent-skill install           # symlink each skill into every agent prese
 uv run agent-skill build             # package each as dist/<name>.skill
 uv run agent-skill list              # each skill's prefix, counts and toolchain
 uv run agent-skill measure           # count, per standard, what the normal form's checks find, and its concepts
+uv run agent-skill evals             # write the plugin's eval suite from the standards; it runs nothing
 uv run pytest                        # the same checks, as tests
 ```
 
@@ -91,6 +92,7 @@ plugins/style-standards/         the plugin, the only part an install copies
     python-style/                an anchor; its toolchain runs rather than compiles
     bevy-style/                  a delta on rust-style
     zig-style/                   an anchor; its pin follows this machine's `zig`
+  evals/<standard>/<case>/       the eval suite `agent-skill evals` writes; `results/` is ignored
 src/agent_skill/
   doc/                           the one parser and printer of markdown, and the chapter layer
   ids.py                         rule ID, tier, location, version, pin, answer: one type each
@@ -98,6 +100,7 @@ src/agent_skill/
   abstract.py                    the abstract standard, read as a standard's chapters are
   vocabulary.py                  what a chapter may be called, and its rules' family code
   layout.py                      where the plugin and its skills live
+  evals.py                       the eval suite, generated from the standards and their selections
   shared/                        the passages every standard carries, as templates
   checks/                        what a skill must be true of
   lang/                          turning examples back into code a compiler accepts
@@ -299,6 +302,37 @@ or none. `revise` renumbered the rule IDs of every standard, and removed the
 subject. Each standard's `references/renames.md` maps every ID that changed to
 the rule, lint row or removal it became.
 
+## The evals
+
+`plugins/style-standards/evals/` is the suite `claude plugin eval` runs against the plugin,
+and `agent-skill evals` writes it from the standards and each profile's selection
+(`Profile.evals`). Per standard there is a review case for each rule selected, which sends
+the rule's verified BAD example for review and passes when the reply cites the rule; a
+migration case for each old spelling selected, a `gone` row of the target's, which asks what
+the target writes in its place and passes when the reply gives the code span the row's target
+cell opens with and cites the row's rule; and one negative case, the first review prompt of a
+standard written in another language, which passes when this standard's skill does not fire.
+Each case is tagged with its standard and its kind, so `--tag python-style` or `--tag
+negative` runs a part of it. Every grader is a regex over the reply or a count of a tool's
+calls, so no case calls a judge; each review and migration case also reports whether its
+skill fired, which a run comparing the plugin with no plugin leaves out of the score, since
+without the plugin it cannot pass. The `evals` check fails
+on a file that is not as the standards generate it, on one they do not generate, and on a
+selection naming what no case can be built from.
+
+No check and no test runs the suite: each run is a model session on the owner's credential.
+The owner runs it with
+
+```bash
+claude plugin eval plugins/style-standards --runs 1 --max-cost-usd 20 --no-publish
+```
+
+Each case runs twice, with the plugin and without it, so a run costs two sessions per case,
+and `--max-cost-usd` stops it starting another once its estimate reaches $20. The report gives
+each case's score with the plugin and without it, and the difference. Its results go to
+`plugins/style-standards/evals/results/`, which git ignores. The first run in a directory
+Claude Code does not yet trust asks before it loads anything.
+
 ## Installing for development
 
 `install` symlinks each skill into every agent on this machine that reads the
@@ -369,6 +403,7 @@ the time. The note after each is the defect it would have caught.
 | `pins` | a pinned version that has been superseded — the Python tools and interpreter, the Rust toolchain, the Bevy crate — a pin that follows the local toolchain against what runs here, an asset installing a build the harness did not verify against, and an action a shipped or repository workflow names by a ref that can move, or by a commit with no release beside it | The plan said "on 1 September, move the interpreter pin" — a note nobody reads, in a place nobody looks, about a date nobody remembers. |
 | `dialect` | a pattern carrying syntax from a grammar it will not be read in | `\|` is alternation to `grep` and a literal pipe to `rg`. Twenty patterns carried it through the migration, and each one matched nothing while reporting clean. The same defect from the reader's side: two commands wrapped at the column limit put a raw newline in the pattern, which the harness accepts under `--multiline` and `rg` rejects for anyone running the command as printed. That half is `layout`'s now: the tree reads a code span as one word, so a wrapped command is a line not in canonical form, and `fmt` joins it. |
 | `sensitivity` | the `rg` patterns of each rule its profile gives fixtures, every one shown to hit one of them and every fixture hit by one; each other rule that ships a pattern is listed in the profile as unproven, and an entry that stopped being true fails | `self-application` proves a pattern does not fire on compliant code. Nothing proved one fires at all, and a pattern that matches nothing passes that test perfectly. It then asserted `any`: a migration rule shipped four patterns over four disjoint families and one fixture, so three were counted as proven by a snippet none of them matched. And it skipped a rule with no fixture without a word, so this row claimed every pattern while most had none. |
+| `evals` | the plugin's eval suite against what the standards and each profile's selection generate: a file that differs or that they do not generate, and a selection naming a rule with no verified BAD example or one whose example cites a rule ID, or an old spelling that is no `gone` row of the target, is a shape, or is replaced by no code span | A suite written once by hand goes on testing a rule as it once read, and one whose grader seeks text the prompt holds passes without the model doing anything. Nothing measured whether a skill fires on the work it is for, cites the rule it applies, or knows what replaced a spelling its target removed. |
 | `documented` | the README's claims about the checks, against the checks | This table said sixteen rows against eighteen checks, and the `controls` row claimed "every other check" while three were exempt — in the file whose note on `controls` records that an unverified claim in a README is what `controls` exists for. |
 | `mutation` | statements a shipped test does not pin | A shipped test passed whether or not the function it tested did anything. |
 | `controls` | that every branch that can fail a run, except those exempted, still fails on the defect it owns and no other branch does, with each exemption naming its reason | "Every check carries a negative control" was a claim in a file, verified by hand once and never again. |

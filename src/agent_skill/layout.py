@@ -14,6 +14,15 @@ PLUGIN = Path("plugins") / "style-standards"
 #: Every skill, one directory each.
 SKILLS = PLUGIN / "skills"
 
+#: The plugin's behavioural eval suite, as `claude plugin eval` reads it
+#: and `agent-skill evals` writes it: a directory per standard, a case
+#: per directory under it. Inside the plugin, where the command looks.
+EVALS = PLUGIN / "evals"
+
+#: Where each run of the suite writes its results: ignored by git, and
+#: left alone by the harness, which neither writes nor compares them.
+RESULTS = EVALS / "results"
+
 #: The abstract standard: one file per abstract chapter, and the design
 #: questions. Outside the plugin, since no skill reads it: it is the
 #: harness's and the authors', and installs with nothing.

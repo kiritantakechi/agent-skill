@@ -2,12 +2,14 @@
 
 from agent_skill.lang.python import PYTHON_STYLE
 from agent_skill.profiles.record import (
+    Evals,
     LineRule,
     Near,
     NotDecisive,
     Profile,
     Unless,
     keyed,
+    listed,
     rules,
 )
 from agent_skill.report import Level, declare
@@ -301,6 +303,12 @@ PROFILE = Profile(
     domain={
         "async": "asyncio",
     },
+    # The eval suite's cases: two BAD examples to review, two spellings
+    # the target rejects (one-abstract-standard, decision 8).
+    evals=Evals(
+        review=listed("PS-OUT-15", "PS-ERR-21"),
+        migrate=("__cached__", "types.CodeType.co_lnotab"),
+    ),
     conventions=CONVENTIONS,
     prose=PROSE,
 )

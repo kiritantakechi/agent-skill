@@ -5,12 +5,14 @@ lazy from collections.abc import Iterator
 from agent_skill.ids import RuleId
 from agent_skill.lang.zig import ZIG_STYLE
 from agent_skill.profiles.record import (
+    Evals,
     LineRule,
     Near,
     NotDecisive,
     Profile,
     Unless,
     keyed,
+    listed,
     rules,
 )
 from agent_skill.profiles.rust_style import META
@@ -460,6 +462,12 @@ PROFILE = Profile(
         "assertions": "assertions and the optimize modes",
         "interop": "the C ABI and cross-target builds",
     },
+    # The eval suite's cases: two BAD examples to review, two spellings
+    # the target rejects (one-abstract-standard, decision 8).
+    evals=Evals(
+        review=listed("ZS-DATA-15", "ZS-TEST-15"),
+        migrate=("std.ascii.indexOfIgnoreCase", "std.gpu"),
+    ),
     conventions=CONVENTIONS,
     prose=PROSE,
     structural=(import_order,),
