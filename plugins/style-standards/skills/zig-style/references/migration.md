@@ -208,11 +208,11 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `std.time.Instant` | `std.Io.Timestamp` | gone | 0.16 | ZS-CONC-32 |
 | `std.time.timestamp` | `std.Io.Timestamp.now(io, clock)`; `milliTimestamp` and `nanoTimestamp` likewise | gone | 0.16 | ZS-CONC-32 |
 | `std.time.sleep` | `io.sleep(duration, clock)`, the duration an `Io.Duration` such as `.fromMilliseconds(10)` | gone | 0.15 | ZS-CONC-32 |
-| `std.crypto.random` | `io.random(&buffer)`, or `io.randomSecure(&buffer)` where the entropy must be guaranteed | gone | 0.16 | ZS-TEST-14 |
-| `std.posix.getrandom` | `io.random(&buffer)`, or `io.randomSecure(&buffer)` | gone | 0.16 | ZS-TEST-14 |
-| `crypto_always_getrandom` | nothing: `io.randomSecure`; `crypto_fork_safety` likewise | gone | 0.16 | ZS-TEST-14 |
-| `std.rand` | `std.Random` | gone | 0.14 | ZS-TEST-14 |
-| `std.testing.refAllDeclsRecursive` | `std.testing.refAllDecls` in each file, or `comptime { _ = @import(…); }` in the module root | gone | 0.16 | ZS-TEST-23 |
+| `std.crypto.random` | `io.random(&buffer)`, or `io.randomSecure(&buffer)` where the entropy must be guaranteed | gone | 0.16 | ZS-TEST-18 |
+| `std.posix.getrandom` | `io.random(&buffer)`, or `io.randomSecure(&buffer)` | gone | 0.16 | ZS-TEST-18 |
+| `crypto_always_getrandom` | nothing: `io.randomSecure`; `crypto_fork_safety` likewise | gone | 0.16 | ZS-TEST-18 |
+| `std.rand` | `std.Random` | gone | 0.14 | ZS-TEST-18 |
+| `std.testing.refAllDeclsRecursive` | `std.testing.refAllDecls` in each file, or `comptime { _ = @import(…); }` in the module root | gone | 0.16 | ZS-TEST-27 |
 | `std.debug.captureStackTrace` | `std.debug.captureCurrentStackTrace(options, addresses)` | gone | 0.16 | ZS-ERR-32 |
 | `std.debug.dumpStackTraceFromBase` | `std.debug.dumpCurrentStackTrace(options)`, which takes a `StackUnwindOptions` where it took a start address | gone | 0.16 | ZS-ERR-32 |
 | `std.debug.walkStackWindows` | `std.debug.captureCurrentStackTrace`; `writeStackTraceWindows` is `writeCurrentStackTrace` | gone | 0.16 | ZS-ERR-32 |

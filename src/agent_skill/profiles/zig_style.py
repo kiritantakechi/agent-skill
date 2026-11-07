@@ -188,8 +188,8 @@ PROFILE = Profile(
         "ZS-TEST-07",
         "ZS-TEST-08",
         "ZS-TEST-10",
-        "ZS-TEST-14",
-        "ZS-TEST-24",
+        "ZS-TEST-18",
+        "ZS-TEST-28",
     ),
     # Measured, not judged: each of these was promoted to accuse and
     # hit the standard's own compliant examples. The reason names what
@@ -244,7 +244,7 @@ PROFILE = Profile(
                 "a presence assertion, and scoped to `build.zig`: the finding is a "
                 "missing guard, which no hit can show",
             ),
-            "ZS-TEST-14": NotDecisive(
+            "ZS-TEST-18": NotDecisive(
                 "is the finding",
                 "the pattern finds every PRNG; the `.init(` seed argument decides, and "
                 "`std.testing.random_seed` is the compliant one",

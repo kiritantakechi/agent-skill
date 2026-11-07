@@ -8,7 +8,7 @@ allocation after startup". Error-set design, `try`/`catch` selection, `unreachab
 `defer` directly after an acquisition (ZS-ERR-11) and a `deinit` that cannot fail (ZS-ERR-16) are
 the errors chapter's; `Io.Reader`/`Io.Writer` buffer sizing is ZS-CONC-10 and ZS-CONC-37; assertion
 density and bounded loops are the assertions chapter's; `MultiArrayList` layout choices are
-ZS-DATA-22; allocation-failure testing is ZS-TEST-12.
+ZS-DATA-22; allocation-failure testing is ZS-TEST-16.
 
 Every example assumes a file opening with `const std = @import("std");` and
 `const assert = std.debug.assert;` — assertions are called bare, per ZS-ASSERT-01.

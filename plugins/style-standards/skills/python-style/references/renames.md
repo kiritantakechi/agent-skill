@@ -210,11 +210,18 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-FMT-18` | `PS-OUT-16` |
 | `PS-FMT-19` | `PS-OUT-17` |
 | `PS-FMT-20` | `PS-OUT-18` |
+| `PS-TEST-11` | `PS-TEST-14` |
+| `PS-TEST-12` | `PS-TEST-15` |
+| `PS-TEST-13` | `PS-TEST-16` |
+| `PS-TEST-14` | `PS-TEST-17` |
+| `PS-TEST-15` | `PS-TEST-18` |
+| `PS-TEST-16` | `PS-TEST-19` |
+| `PS-TEST-17` | `PS-TEST-20` |
 | `PS-TEST-18` | lint `ruff:PT011` |
-| `PS-TEST-19` | `PS-TEST-18` |
-| `PS-TEST-20` | `PS-TEST-19` |
-| `PS-TEST-21` | `PS-TEST-20` |
-| `PS-TEST-22` | `PS-TEST-21` |
+| `PS-TEST-19` | `PS-TEST-21` |
+| `PS-TEST-20` | `PS-TEST-22` |
+| `PS-TEST-21` | `PS-TEST-26` |
+| `PS-TEST-22` | `PS-TEST-27` |
 | `PS-TYPE-05` | lint `ruff:UP037` |
 | `PS-TYPE-06` | `PS-TYPE-05` |
 | `PS-TYPE-07` | `PS-TYPE-06` |

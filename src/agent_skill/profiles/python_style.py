@@ -165,10 +165,10 @@ PROFILE = Profile(
         "PS-PERF-07",
         "PS-TEST-01",
         "PS-TEST-08",
-        "PS-TEST-15",
-        "PS-TEST-16",
         "PS-TEST-18",
         "PS-TEST-19",
+        "PS-TEST-21",
+        "PS-TEST-22",
         "PS-TYPE-04",
         "PS-TYPE-05",
         "PS-TYPE-10",
@@ -204,7 +204,7 @@ PROFILE = Profile(
                 "the pattern finds every context read; passing the context explicitly "
                 "is the compliant form and matches the same pattern",
             ),
-            "PS-TEST-18": NotDecisive(
+            "PS-TEST-21": NotDecisive(
                 "sleep\\(' tests/",
                 "scoped to the test suite: `await asyncio.sleep(...)` in ordinary "
                 "code is correct, and the pattern cannot see which tree it is in",

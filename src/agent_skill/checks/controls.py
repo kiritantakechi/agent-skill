@@ -550,13 +550,13 @@ def _duplicate_id(tree: Path) -> Edited:
 
 
 def _contents_swapped(tree: Path) -> Edited:
-    """The contents lines of `PS-TEST-20` and `PS-TEST-21`, swapped."""
+    """The contents lines of `PS-TEST-26` and `PS-TEST-27`, swapped."""
     lines = (tree / TESTING).read_text().splitlines(keepends=True)
     first = next(
-        (i for i, ln in enumerate(lines) if ln.startswith("  - PS-TEST-20 ")), None
+        (i for i, ln in enumerate(lines) if ln.startswith("  - PS-TEST-26 ")), None
     )
-    if first is None or not lines[first + 1].startswith("  - PS-TEST-21 "):
-        msg = f"{TESTING}: PS-TEST-20 then PS-TEST-21 in the contents"
+    if first is None or not lines[first + 1].startswith("  - PS-TEST-27 "):
+        msg = f"{TESTING}: PS-TEST-26 then PS-TEST-27 in the contents"
         raise FixtureGoneError(msg)
     lines[first : first + 2] = [lines[first + 1], lines[first]]
     return write(tree, TESTING, "".join(lines))
@@ -1883,7 +1883,7 @@ CONTROLS: list[Control] = [
     Control(anatomy.DUPLICATE, _duplicate_id),
     Control(
         anatomy.CONTENTS_MISSING,
-        lambda t: drop_line(t, TESTING, "  - PS-TEST-21 [M]"),
+        lambda t: drop_line(t, TESTING, "  - PS-TEST-27 [M]"),
         also={
             anatomy.CONTENTS_ORDER: (
                 "a contents list missing an entry differs from the headings, "
@@ -1893,7 +1893,7 @@ CONTROLS: list[Control] = [
     ),
     Control(
         anatomy.CONTENTS_TIER,
-        lambda t: edit(t, TESTING, "  - PS-TEST-21 [M]", "  - PS-TEST-21 [S]"),
+        lambda t: edit(t, TESTING, "  - PS-TEST-27 [M]", "  - PS-TEST-27 [S]"),
     ),
     Control(
         anatomy.CONTENTS_TITLE,
@@ -1919,7 +1919,7 @@ CONTROLS: list[Control] = [
         lambda t: _why(
             t,
             TESTING,
-            "PS-TEST-21",
+            "PS-TEST-27",
             "pytest itself is not thread-safe: those fixtures are not safe to use "
             "from several threads, and the maintainers have said they do not "
             "intend to make pytest so.",
@@ -1927,7 +1927,7 @@ CONTROLS: list[Control] = [
     ),
     Control(
         anatomy.NEAR_DUPLICATE_TEXT,
-        lambda t: _why(t, TESTING, "PS-TEST-21", _why_of(t, TESTING, "PS-TEST-20")),
+        lambda t: _why(t, TESTING, "PS-TEST-27", _why_of(t, TESTING, "PS-TEST-26")),
     ),
     Control(anatomy.DANGLING, lambda t: append(t, TESTING, "\nSee PS-TEST-99.\n")),
     Control(

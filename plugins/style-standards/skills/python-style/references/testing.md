@@ -15,26 +15,33 @@ Unless a block shows its own imports, it assumes `import pytest`.
   - PS-TEST-04 [M] Declare every marker
 - **What a test asserts**
   - PS-TEST-05 [M] Test the behaviour, never the implementation
-  - PS-TEST-06 [M] Assert one thing, and name the test after it
-  - PS-TEST-07 [M] Arrange, act, assert — in that order, with blank lines between
+  - PS-TEST-06 [M] Assert one claim per test
+  - PS-TEST-07 [S] Arrange, act, assert — in that order, with blank lines between
   - PS-TEST-08 [M] Never put a branch or a loop in a test
   - PS-TEST-09 [M] Assert on values, not on the shape of a call
   - PS-TEST-10 [M] Make every test fail before you make it pass
+  - PS-TEST-11 [M] Name a test for the claim it makes
+  - PS-TEST-12 [M] Test the boundaries and the invalid input, not only the happy path
+  - PS-TEST-13 [M] Give every bug fix a test that failed before it
 - **Parametrisation**
-  - PS-TEST-11 [M] Parametrise over cases rather than repeating a test
-  - PS-TEST-12 [S] Use subtests when the cases are not a product
-  - PS-TEST-13 [M] Give every parametrised case a readable id
+  - PS-TEST-14 [M] Parametrise over cases rather than repeating a test
+  - PS-TEST-15 [S] Use subtests when the cases are not a product
+  - PS-TEST-16 [M] Give every parametrised case a readable id
 - **Fixtures**
-  - PS-TEST-14 [M] Use the narrowest fixture scope that works
-  - PS-TEST-15 [M] Use `tmp_path` and `monkeypatch`, never the real filesystem or environment
-  - PS-TEST-16 [M] Never let a fixture assert
-  - PS-TEST-17 [S] Prefer a factory fixture to a fixture per variation
+  - PS-TEST-17 [M] Use the narrowest fixture scope that works
+  - PS-TEST-18 [M] Use `tmp_path` and `monkeypatch`, never the real filesystem or environment
+  - PS-TEST-19 [M] Never let a fixture assert
+  - PS-TEST-20 [S] Prefer a factory fixture to a fixture per variation
 - **Failures and time**
-  - PS-TEST-18 [M] Never sleep in a test
-  - PS-TEST-19 [M] Inject the clock rather than reading it
+  - PS-TEST-21 [M] Never sleep in a test
+  - PS-TEST-22 [M] Inject the clock rather than reading it
+- **Generated inputs and recorded output**
+  - PS-TEST-23 [S] Test a fast implementation against a simple reference over generated input
+  - PS-TEST-24 [M] Pin every failing input a generator finds as a fixed test
+  - PS-TEST-25 [S] Snapshot large, exact output, and review every change to it
 - **Concurrency**
-  - PS-TEST-20 [M!] Assert an invariant, not merely that threads ran
-  - PS-TEST-21 [M] Never use `capsys`, `monkeypatch` or `tmp_path` in a test run on several threads
+  - PS-TEST-26 [M!] Assert an invariant, not merely that threads ran
+  - PS-TEST-27 [M] Never use `capsys`, `monkeypatch` or `tmp_path` in a test run on several threads
 - Decided by tools
 
 ---
@@ -107,17 +114,18 @@ nothing. It also cannot catch the bug where the helper is called correctly and t
 
 **Check:** every assertion mentioning a private name, a call count, or a mock's internals.
 
-### PS-TEST-06 [M] Assert one thing, and name the test after it
+### PS-TEST-06 [M] Assert one claim per test
 
-`test_rejects_a_port_above_the_range`, not `test_port`.
+A test with assertions on unrelated properties is several tests. The setup can be shared through a
+fixture; the assertion should not be.
 
-**Why:** when a test with six assertions fails, the name tells you nothing and the first failure
-hides the rest. One behaviour per test means the name is the failure message, and the report reads
-as a specification. The setup can be shared through a fixture; the assertion should not be.
+**Why:** when a test with six assertions fails, the first failure hides the rest and nothing says
+which of the six claims was the one that broke. One claim per test means each failure is a single
+sentence that stopped being true.
 
-**Check:** every test with assertions on unrelated properties, and every test whose name is a noun.
+**Check:** every test with assertions on unrelated properties.
 
-### PS-TEST-07 [M] Arrange, act, assert — in that order, with blank lines between
+### PS-TEST-07 [S] Arrange, act, assert — in that order, with blank lines between
 
 Three blocks. Setup, the single call under test, the assertions.
 
@@ -162,9 +170,88 @@ fail is the only check that catches all of them.
 Mutation testing does the same across a codebase — delete or invert a statement, and see whether any
 test notices.
 
+### PS-TEST-11 [M] Name a test for the claim it makes
+
+`test_rejects_a_port_above_the_range`, not `test_port` or `test_port_2`.
+
+**Why:** a failing test is reported by its name alone, in a list of hundreds. A name that states the
+claim makes the report read as a specification of what stopped being true; a noun or a number sends
+the reader into the file to learn what was being tested.
+
+**Check:** every test whose name is a noun, a bare function name or a number.
+
+### PS-TEST-12 [M] Test the boundaries and the invalid input, not only the happy path
+
+Test the empty input, the exact limit, one past it, and each way the input can be invalid, naming
+the failure each time with `pytest.raises`.
+
+**Why:** bugs cluster where valid data becomes invalid, because that is where the code changes its
+mind about what the data means. A suite that feeds only valid input verifies the optimistic path and
+never the rejection logic that malformed input exercises.
+
+**Check:** for each function that validates its input, list the limits it enforces and the failures
+it raises; one with no test is the finding, and so is a test in which every input is valid.
+
+```python
+# verified — GOOD
+import pytest
+
+
+def parse_port(text: str) -> int:
+    """Parse a TCP port number."""
+    port = int(text)
+    if not 0 <= port <= 65_535:
+        msg = f"port out of range: {port}"
+        raise ValueError(msg)
+    return port
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [("0", 0), ("65535", 65_535)],
+    ids=["lowest", "highest"],
+)
+def test_parse_port_accepts_both_limits(text: str, expected: int) -> None:
+    assert parse_port(text) == expected
+
+
+def test_parse_port_rejects_one_past_the_highest() -> None:
+    with pytest.raises(ValueError, match="out of range"):
+        parse_port("65536")
+
+
+def test_parse_port_rejects_text_that_is_not_a_number() -> None:
+    with pytest.raises(ValueError, match="invalid literal"):
+        parse_port("80o80")
+```
+
+### PS-TEST-13 [M] Give every bug fix a test that failed before it
+
+A fix is committed with a test that fails without it and passes with it, named for the behaviour
+that was wrong, with the issue number in a comment.
+
+**Why:** a bug that occurred once shows that this area is easy to get wrong, so it is where it is
+most likely to recur, and the test is the only artefact that prevents that: the fix alone prevents
+it once. Writing the test first also proves the bug was reproduced, not an adjacent thing changed.
+
+**Check:** a commit whose message says "fix" and whose diff touches no test. Then revert the fix and
+run the new test (PS-TEST-10): one that still passes does not cover the bug.
+
+```python
+# verified — GOOD
+def strip_bom(text: str) -> str:
+    """Drop a leading byte order mark."""
+    return text.removeprefix("\ufeff")
+
+
+def test_strip_bom_removes_a_leading_byte_order_mark() -> None:
+    # Regression: a leading BOM was counted as content (#412).
+    assert strip_bom("\ufeffname") == "name"
+```
+
 ## Parametrisation
 
-### PS-TEST-11 [M] Parametrise over cases rather than repeating a test
+### PS-TEST-14 [M] Parametrise over cases rather than repeating a test
 
 `@pytest.mark.parametrize` with the cases as data.
 
@@ -193,7 +280,7 @@ def test_clamp(value: int, expected: int) -> None:
     assert clamp(value, 0, 10) == expected
 ```
 
-### PS-TEST-12 [S] Use subtests when the cases are not a product
+### PS-TEST-15 [S] Use subtests when the cases are not a product
 
 New in pytest 9. `with subtests.test(path=p):` inside one test, when the cases are discovered rather
 than enumerated.
@@ -205,7 +292,7 @@ give independent failures inside one test, the right shape for a property of eve
 **Check:** every test that loops over discovered items with one assertion inside — see PS-TEST-08.
 That loop is what subtests replace.
 
-### PS-TEST-13 [M] Give every parametrised case a readable id
+### PS-TEST-16 [M] Give every parametrised case a readable id
 
 `ids=[...]`, or parameters whose `repr` is already readable.
 
@@ -218,7 +305,7 @@ the finding.
 
 ## Fixtures
 
-### PS-TEST-14 [M] Use the narrowest fixture scope that works
+### PS-TEST-17 [M] Use the narrowest fixture scope that works
 
 Function scope by default. Widen only when the setup is genuinely expensive, and say why.
 
@@ -228,7 +315,7 @@ independence, and independence is what makes a failure mean something.
 
 **Check:** ruff `PT003` for the redundant explicit scope. Every non-function scope needs a comment.
 
-### PS-TEST-15 [M] Use `tmp_path` and `monkeypatch`, never the real filesystem or environment
+### PS-TEST-18 [M] Use `tmp_path` and `monkeypatch`, never the real filesystem or environment
 
 `tmp_path` for files, `monkeypatch.setenv` for the environment, `monkeypatch.chdir` for the
 directory.
@@ -239,7 +326,7 @@ and machine-dependent, and the failure appears somewhere other than the test tha
 
 **Check:** `rg -n 'os\.environ\[|open\(["\x27]/|Path\(["\x27]/' tests/` — every hit is the finding.
 
-### PS-TEST-16 [M] Never let a fixture assert
+### PS-TEST-19 [M] Never let a fixture assert
 
 A fixture arranges. Assertions belong in the test.
 
@@ -249,7 +336,7 @@ fail meaningfully, that is a test of the setup.
 
 **Check:** `rg -nA10 '@pytest.fixture' tests/` for an `assert` in the body.
 
-### PS-TEST-17 [S] Prefer a factory fixture to a fixture per variation
+### PS-TEST-20 [S] Prefer a factory fixture to a fixture per variation
 
 One fixture returning a callable, rather than `user`, `admin_user`, `locked_user`.
 
@@ -260,7 +347,7 @@ and puts the variation at the call site where it is visible in the test that nee
 
 ## Failures and time
 
-### PS-TEST-18 [M] Never sleep in a test
+### PS-TEST-21 [M] Never sleep in a test
 
 No `time.sleep` to wait for something. Poll with a deadline, or make the thing synchronous.
 
@@ -270,7 +357,7 @@ a suite that people stop running. Wait on the condition instead of on the clock.
 
 **Check:** `rg -n 'sleep\(' tests/` — every hit is the finding.
 
-### PS-TEST-19 [M] Inject the clock rather than reading it
+### PS-TEST-22 [M] Inject the clock rather than reading it
 
 Take `now: Callable[[], datetime]` as a parameter, or freeze it with `monkeypatch`.
 
@@ -281,9 +368,48 @@ tests. It also removes a source of flakiness where a test straddles a second bou
 **Check:** ruff `DTZ005` for a naive `datetime.now()`. `rg -n 'datetime.now|time.time' src/` for the
 injection question.
 
+## Generated inputs and recorded output
+
+### PS-TEST-23 [S] Test a fast implementation against a simple reference over generated input
+
+Where a parser, a matcher or a codec has a slow, obviously correct counterpart, run both on the same
+generated input with a property-testing library such as Hypothesis and assert they agree.
+
+**Why:** for these functions the right output is hard to state as a property but easy to compute
+slowly. The simple version is then the specification, and any disagreement is a bug in one of the
+two, which is a stronger oracle than an expected value written by the author of the fast one.
+
+**Check:** for each optimised parser, matcher or codec, is there a simple reference it is compared
+against on generated input? If the reference was deleted, the oracle went with it.
+
+### PS-TEST-24 [M] Pin every failing input a generator finds as a fixed test
+
+When a generated or fuzzed input fails, reduce it and keep it as an ordinary test with the input
+written out, or as an explicit example on the generating test.
+
+**Why:** a generator finds a failure by chance and may not find it again, so a fix without the
+pinned input is a fix whose test can pass by missing it. A minimal input is also the version a
+reader can debug; the original is often kilobytes of noise.
+
+**Check:** for each failure a property test or fuzzer reported, is there now a deterministic test or
+example holding the minimal input?
+
+### PS-TEST-25 [S] Snapshot large, exact output, and review every change to it
+
+For output that is large, exact and readable by a person, such as a rendered report or a generated
+file, compare it with a stored expected value through a snapshot plugin or an expected literal in
+the test. Review each change to the snapshot as a change to the behaviour.
+
+**Why:** a hundred-line expected value written by hand is never read, and an assertion on a part of
+it misses the rest. A snapshot makes an intended change a one-line diff to review; accepted without
+reading, it turns the test into a change log that cannot fail.
+
+**Check:** for each test asserting on a long rendered string, is it a snapshot or an expected
+literal beside the test? For each snapshot change in a diff, did a reviewer read it?
+
 ## Concurrency
 
-### PS-TEST-20 [M!] Assert an invariant, not merely that threads ran
+### PS-TEST-26 [M!] Assert an invariant, not merely that threads ran
 
 The test must check a property that a race would break — a count, a sum, a set of unique values. A
 test that only runs the code under threads is a crash check: worth having, named as one, beside a
@@ -329,7 +455,7 @@ def test_allocator_never_issues_an_id_twice() -> None:
     assert sorted(issued) == list(range(4_000))
 ```
 
-### PS-TEST-21 [M] Never use `capsys`, `monkeypatch` or `tmp_path` in a test run on several threads
+### PS-TEST-27 [M] Never use `capsys`, `monkeypatch` or `tmp_path` in a test run on several threads
 
 pytest itself is not thread-safe: those fixtures are not safe to use from several threads, and the
 maintainers have said they do not intend to make pytest so. Code that needs them is tested
