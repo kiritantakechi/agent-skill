@@ -242,7 +242,7 @@ can see is not worth the name it costs.
   - ZS-MEM-10 [M] Put `defer` / `errdefer` on the line immediately after the acquisition
   - ZS-MEM-15 [M] Pointers into container storage die on any capacity change
   - ZS-MEM-16 [M] If you need stable pointers, use `std.heap.MemoryPool(T)` or store indices
-  - ZS-MEM-18 [M!] Allocate all memory at startup; allocate nothing in steady state
+  - ZS-MEM-18 [M] Allocate all memory at startup where every bound is known then; otherwise name the rung
 - **Performance and the discipline of locality**
   - ZS-PERF-13 [S] Shape functions like an inverted hourglass: narrow in, narrow out, wide inside
   - ZS-PERF-17 [M] Spell out the options that decide behavior; never inherit their defaults
@@ -254,7 +254,7 @@ can see is not worth the name it costs.
   - ZS-ASSERT-11 [M] Write an implication as a single-line `if (a) assert(b);`
   - ZS-ASSERT-12 [M] Assert the negative space, and mark deliberate non-invariants with `maybe`
   - ZS-ASSERT-13 [M] State a biconditional as one `==` between two booleans
-  - ZS-ASSERT-16 [M!] Pair every property across two code paths
+  - ZS-ASSERT-16 [M] Check every persisted or transmitted structure on its write path and its read path
   - ZS-ASSERT-20 [M] Put a limit on everything, and give the limit a name ending in `_max`
   - ZS-ASSERT-23 [M] Give every loop a provable bound; an unbounded loop must say so and assert it
   - ZS-ASSERT-24 [M] Fail fast: check the bound at the boundary where untrusted input enters

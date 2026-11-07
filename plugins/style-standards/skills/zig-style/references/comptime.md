@@ -336,11 +336,9 @@ requirements it depends on — required fields, required decls, size bounds — 
 parameter, and rejects with a message that names the requirement. Reserve `comptime assert` for
 relationships internal to your own module. The same construct documents a deliberately absent API:
 `pub const intExclusive = @compileError("intentionally not implemented: ranges are closed");`.
-`[M!]` applies to published library code and to any codebase where a misuse must not reach runtime —
-databases, consensus, crypto, allocators, parsers on untrusted input. *Relaxed form:* state the
-requirement in the doc comment in the words the guard would have used, and make the body's *first*
-use of `T` the one that fails — so the diagnostic still lands on the required field or decl rather
-than forty lines into the returned struct.
+*Relaxed form:* state the requirement in the doc comment in the words the guard would have used, and
+make the body's *first* use of `T` the one that fails — so the diagnostic still lands on the
+required field or decl rather than forty lines into the returned struct.
 
 The body of a type function is ordinary function scope, not comptime scope, so
 `comptime assert(capacity > 0);` there compiles: the compiler's `redundant comptime keyword` row

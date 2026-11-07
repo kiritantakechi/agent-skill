@@ -26,7 +26,7 @@ Blocks that do not declare their own imports assume a file opening with
 - **3. `try`, `catch`, and `catch unreachable`**
   - ZS-ERR-07 [M] Make `try` the default, and take every other form from this table
   - ZS-ERR-08 [M] Switch on the captured error, and omit `else` when the set is explicit
-  - ZS-ERR-09 [M] `catch unreachable` is a latent bug unless the proof is in a comment next to it
+  - ZS-ERR-09 [M!] Keep `catch unreachable` off every runtime path
   - ZS-ERR-10 [M] Every error is handled somewhere; `catch {}` needs a justification comment
 - **4. `defer` and `errdefer`**
   - ZS-ERR-11 [M] Order `defer`/`errdefer` so LIFO teardown cannot outrun what a handler reads
@@ -387,18 +387,15 @@ fn drain(err: Wide) error{ Canceled, OutOfMemory }!void {
 `@errorCast` also narrows a set, but it asserts rather than proves — use it only directly after an
 `assert` that rules out the excluded members.
 
-### ZS-ERR-09 [M] `catch unreachable` is a latent bug unless the proof is in a comment next to it
+### ZS-ERR-09 [M!] Keep `catch unreachable` off every runtime path
 
-`catch unreachable` claims *this error is impossible given local invariants*. Write the one-line
-proof. If you cannot write it, you have a bug, not an invariant. The usual false claim is an OOM or
-an I/O error that "obviously can't happen" until the machine is under memory pressure or the disk
-fills. std has 310 uses; each sits next to a buffer whose size is fixed at compile time.
-
-`[M!]` sharpening — in high-reliability code (databases, consensus and replication, crypto,
-allocators, kernel and embedded firmware: anywhere a crash or silent corruption is unacceptable), do
-not use `catch unreachable` on a *runtime* path at all. Return the error, or restructure so the
-fallible call is not on that path; the `comptime` form exempted below stays legal. *Relaxed form:*
-elsewhere, the proof-comment rule above.
+`catch unreachable` claims *this error is impossible given local invariants*. On a runtime path,
+return the error instead, or restructure so the fallible call is not on that path; the `comptime`
+form exempted below stays legal. *Relaxed form:* a `catch unreachable` carries its one-line proof in
+a comment next to it. If you cannot write the proof, you have a bug, not an invariant: the usual
+false claim is an OOM or an I/O error that "obviously can't happen" until the machine is under
+memory pressure or the disk fills. std's uses each sit next to a buffer whose size is fixed at
+compile time.
 
 **Why:** `unreachable` is a safety-checked panic in `debug`/`safe` builds and **illegal behavior**
 in `fast`/`small` builds. A wrong `catch unreachable` therefore does not crash in production — it
@@ -857,13 +854,10 @@ Implications in assertions take the same one-line form: `references/assertions.m
 
 ### ZS-ERR-21 [M!] No recursion; where recursion is allowed, bound the depth explicitly
 
-`[M!]` — mandatory in high-reliability code, meaning any codebase where a crash or memory corruption
-is unacceptable: databases, consensus and replication, crypto, allocators, kernel and embedded
-firmware with no growable stack, parsers and decoders on untrusted input. There, write the iterative
-form with an explicit worklist of fixed size. *Relaxed form:* elsewhere, recursion is permitted only
-when the maximum depth is a named constant asserted at entry, or a `comptime` parameter, which makes
-the bound a compile-time fact. A recursive descent over attacker-controlled nesting depth is a
-remote crash primitive.
+Write the iterative form, with an explicit worklist of fixed size. *Relaxed form:* recursion is
+permitted only when the maximum depth is a named constant asserted at entry, or a `comptime`
+parameter, which makes the bound a compile-time fact. A recursive descent over attacker-controlled
+nesting depth is a remote crash primitive.
 
 **Why:** without recursion the call graph is acyclic, so a bound on stack use can be derived
 statically. With it, stack exhaustion is the one failure Zig's safety checks do not catch: a fault
@@ -916,11 +910,9 @@ fn depthSum(comptime depth: u8, values: []const u32) u32 {
 
 ### ZS-ERR-22 [M!] Push `if`s up and `for`s down
 
-`[M!]` — mandatory in high-reliability code (databases, consensus, crypto, allocators, kernel and
-embedded firmware, parsers on untrusted input), matching ZS-ERR-30. Keep branching in the parent
-function; give leaf helpers primitive arguments and no control flow. *Relaxed form:* elsewhere, a
-leaf helper that branches on a condition its caller already knows is a review comment, not a build
-failure.
+Keep branching in the parent function; give leaf helpers primitive arguments and no control flow.
+*Relaxed form:* a leaf helper that branches on a condition its caller already knows is a review
+comment, not a build failure.
 
 **Why:** it concentrates the decisions in one readable place, and it makes the leaf a straight-line
 function that the compiler can vectorise and a reader can check without tracing callers. It is also
@@ -1211,11 +1203,9 @@ Log *or* return, not both, unless you are adding context and re-propagating (ZS-
 
 ### ZS-ERR-30 [M!] Hard limit of 70 lines per function
 
-`[M!]` — mandatory in high-reliability code (databases, consensus and replication, crypto,
-allocators, kernel and embedded firmware, parsers on untrusted input). There, 70 lines between the
-braces is a hard ceiling, counted as written including blank lines and comments. *Relaxed form:*
-elsewhere, a function longer than one screen needs a stated reason in a comment — a `switch` with
-one short arm per protocol opcode is the usual honest one.
+70 lines between the braces is a hard ceiling, counted as written, blank lines and comments
+included. *Relaxed form:* a function longer than one screen needs a stated reason in a comment — a
+`switch` with one short arm per protocol opcode is the usual honest one.
 
 Where to cut is what the shape rules decide: the control flow stays in the parent (ZS-ERR-22), so
 does the state it manipulates (`references/performance.md` ZS-PERF-12), and each piece comes out

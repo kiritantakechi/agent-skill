@@ -588,11 +588,8 @@ The *placement* half of the centralized-limits rule: one file named `constants.z
 `comptime` cross-checks are always analysed. What goes *in* the file is `references/assertions.md`
 ZS-ASSERT-21.
 
-**`[M!]` trigger:** high-reliability code — a database, consensus layer, allocator, crypto
-primitive, parser on untrusted input, or embedded firmware, where an unbounded queue means
-corruption rather than a slow request. *Relaxed form:* elsewhere, the file still sits at
-`src/constants.zig`, re-exported and in `.paths`; naming it in the `comptime` import block, which is
-what guarantees its cross-checks run, becomes optional.
+*Relaxed form:* the file still sits at `src/constants.zig`, re-exported and in `.paths`; naming it
+in the `comptime` import block, which is what guarantees its cross-checks run, becomes optional.
 
 **Why:** omitted from `.paths`, the file is absent for consumers and its import fails only
 downstream; unreachable from `root.zig`, its `comptime` cross-checks silently never run
@@ -732,11 +729,8 @@ mapping.
 Ship `-Doptimize=safe`. Choosing `fast` or `small` requires a benchmark in the commit message or a
 comment naming the constraint.
 
-**`[M!]` trigger:** high-reliability code — databases, storage engines, consensus, allocators,
-crypto, parsers on untrusted input, embedded control — where a wrong answer is worse than a crash.
-There, `safe` *is* the shipping mode and a release artifact built any other way is a defect.
-*Relaxed form:* elsewhere — CLI tools, games, compression kernels, build-time tools, application
-code — `fast` or `small` is allowed, but only with the benchmark number or the named constraint
+`safe` *is* the shipping mode, and a release artifact built any other way is a defect. *Relaxed
+form:* `fast` or `small` is allowed, but only with the benchmark number or the named constraint
 recorded at the `-Doptimize=` site, and only once the assertion question is answered: either the
 module does not lean on `std.debug.assert` for anything a user can trigger, or it uses the always-on
 helper of `references/assertions.md` ZS-ASSERT-05.
@@ -1007,28 +1001,18 @@ TigerStyle mandates a **zero-dependency policy** apart from the Zig toolchain it
 the default and require a written justification — in the commit that adds it — for each entry in
 `.dependencies`.
 
-**`[M!]` trigger:** a database, consensus layer, allocator, crypto library, or embedded firmware —
-anything whose dependency cost is multiplied across everything built on top of it. *Relaxed form:*
-elsewhere, dependencies are allowed but each is a reviewed decision — few, small, pinned to a tag or
-SHA, optional ones marked `.lazy = true`, and no unaccounted transitive package. The full breakdown
-is below.
+Ship zero runtime dependencies; vendor one with `.path` if you must, so its source sits in your
+repository and in review. A build-time or test-only dependency is cheaper, but it still executes on
+your developers' and CI machines, so it is justified the same way. *Relaxed form:* runtime
+dependencies are allowed, but each is a reviewed decision: few, small, pinned to a tag or SHA
+(ZS-BUILD-12), optional ones marked `.lazy = true` (ZS-BUILD-13), and never a transitive tree you
+have not read — `zig build --fetch`, then read `zig-pkg/`.
 
 It is a *policy choice*, not a law of the language, and the countervailing costs are real. Zig's
 package manager is content-addressed: the `hash`, not the URL, is the source of truth, `.paths`
 constrains what is fetched, and `zig build --fetch` gives reproducible offline builds — which
 neutralizes a good part of the classic supply-chain argument. Re-implementing a well-tested TLS
 stack or Zstd decoder yourself is usually *worse* for correctness than depending on one.
-
-Recommendation by tier:
-
-- **[M!] high-reliability code** (database, consensus, allocator, crypto, embedded firmware): zero
-  runtime dependencies. Vendor with `.path` if you must, so the source sits in your repo and in
-  review.
-- **[S] everything else**: dependencies are allowed, but each is a reviewed decision. Prefer few,
-  small, and pinned to a tag or SHA (ZS-BUILD-12); mark optional ones `.lazy = true` (ZS-BUILD-13);
-  and never take a transitive tree you have not read — `zig build --fetch`, then read `zig-pkg/`.
-- Build-time and test-only dependencies are cheaper than runtime ones, but they still execute on
-  your developers' and CI machines. Hold them to the same bar.
 
 **Why:** each dependency is supply-chain, safety and performance risk you did not audit, and a
 slower install; for foundational infrastructure, that cost is multiplied across everything built on

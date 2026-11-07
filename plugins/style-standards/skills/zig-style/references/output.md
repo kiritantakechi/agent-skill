@@ -38,7 +38,7 @@ union declared beside the test.
   - ZS-OUT-12 [M!] Use `std.mem.print`, not `gpa.print`, when a constant bounds the size
   - ZS-OUT-13 [S] Use `comptimePrint` for compile-time strings and `count` for exact sizing
   - ZS-OUT-14 [M] Parse with `parseInt`/`parseFloat` and handle both failure modes by name
-  - ZS-OUT-15 [M!] Round-trip every format you persist or transmit, in a test
+  - ZS-OUT-15 [M] Round-trip every format you persist or transmit, in a test
 - **5. Where the bytes go**
   - ZS-OUT-16 [M] Pick the failure channel by who needs to read it
 - **6. Logging**
@@ -496,10 +496,8 @@ constant, format into a fixed array with `std.mem.print`. Reach for `Allocator.p
 only when the length genuinely depends on unbounded runtime data. (`bufPrint` and `allocPrint` are
 deprecated aliases of these two.)
 
-`[M!]` applies where an unbounded or failing allocation is unacceptable: embedded and firmware,
-databases and other must-not-OOM services, crypto, and any formatter reachable from untrusted input.
-*Relaxed form:* elsewhere, `gpa.print` is fine for one-shot, human-facing strings; keep
-`std.mem.print` for anything on a hot path or inside a loop.
+*Relaxed form:* `gpa.print` is fine for one-shot, human-facing strings; keep `std.mem.print` for
+anything on a hot path or inside a loop.
 
 **Why:** this is the bounded-limits principle (`references/assertions.md` ZS-ASSERT-20 and
 ZS-ASSERT-22) applied to formatting. A derived bound removes an allocation, an error path, a
@@ -601,15 +599,15 @@ Note that the destination type *is* the range check: `parseInt(u16, ...)` reject
 so choose the narrowest type the field admits rather than parsing into `u64` and comparing
 afterwards.
 
-### ZS-OUT-15 [M!] Round-trip every format you persist or transmit, in a test
+### ZS-OUT-15 [M] Round-trip every format you persist or transmit, in a test
 
 For any rendering that will be written to disk, sent over a wire, or read back by another program,
 write a test that formats a value and parses it back, and assert equality over a set of values that
 includes the extremes.
 
-`[M!]` applies to formats you cannot change later: on-disk records, wire protocols, log formats
-consumed by tooling, anything with a version number. *Relaxed form:* for human-facing output: assert
-the exact expected string with `std.testing.expectFmt` for at least the boundary values, which
+That is every format you cannot change later: an on-disk record, a wire protocol, a log format
+tooling consumes, anything with a version number. Output only a person reads instead gets an
+`std.testing.expectFmt` test of the exact expected string for at least the boundary values, which
 catches the same class of regression without requiring a parser.
 
 **Why:** this is `references/assertions.md` ZS-ASSERT-16 — check a property on both code paths —

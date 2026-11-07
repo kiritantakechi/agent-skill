@@ -36,7 +36,7 @@ const assert = std.debug.assert;
   - ZS-DATA-13 [M] Construct std containers with their decl literals
   - ZS-DATA-14 [M] Give every allocating type a paired `init`/`deinit` with a matching signature
   - ZS-DATA-15 [M] Never build a value out of its own fields through an anonymous initializer
-  - ZS-DATA-16 [M!] Initialize large or self-referential structs in place through an out pointer
+  - ZS-DATA-16 [M] Initialize a self-referential struct in place through an out pointer
   - ZS-DATA-17 [M!] In-place initialization is viral — propagate it to every containing struct
   - ZS-DATA-18 [S] Pass aggregates larger than 16 bytes as `*const T`
 - **Memory layout**
@@ -59,7 +59,7 @@ const assert = std.debug.assert;
   - ZS-DATA-32 [M] `std.ascii` operates on bytes; never let it stand in for Unicode
 - **Arithmetic and type-system rules with silent-wrong-code potential**
   - ZS-DATA-33 [M] `std.math.sign` returns the narrowest integer, not the argument's type
-  - ZS-DATA-34 [M] Know the five type-system rules that older Zig code trips on
+  - ZS-DATA-34 [M] Check type-level code against the five rules older Zig code trips on
 - **Serialization**
   - ZS-DATA-35 [M] ZON for formats you own, `std.json` for interop; bound both on untrusted input
 - **Symmetry of an API surface**
@@ -151,11 +151,9 @@ comptime {
 ### ZS-DATA-03 [M!] Give bounded domain quantities a width that encodes the bound
 
 A replica id, an opcode, a slot number, a nesting depth — anything with a real domain limit — gets
-the narrowest type that expresses the limit, not `usize` and not a reflex `u32`. `[M!]` applies to
-databases, consensus, allocators, crypto, firmware, and file formats — anywhere a crash or a
-corrupted record is unacceptable. *Relaxed form:* keep the reflex `u32`, but the limit gets a named
-`const` and every value entering the field is asserted against it, so the bound still exists in one
-named place.
+the narrowest type that expresses the limit, not `usize` and not a reflex `u32`. *Relaxed form:*
+keep the reflex `u32`, but the limit gets a named `const` and every value entering the field is
+asserted against it, so the bound still exists in one named place.
 
 **Why:** the type becomes the invariant. `replica: u3` with `replica_count_max = 6` makes an
 out-of-range replica id unrepresentable rather than merely unlikely, and `std.math.IntFittingRange`
@@ -608,17 +606,15 @@ test "swap" {
 }
 ```
 
-### ZS-DATA-16 [M!] Initialize large or self-referential structs in place through an out pointer
+### ZS-DATA-16 [M] Initialize a self-referential struct in place through an out pointer
 
 Write `pub fn init(x: *T, ...) void { x.* = .{ ... }; }` and call it as
-`var x: T = undefined; x.init(...);` rather than returning `T` by value. `[M!]` applies where
-pointer stability is a correctness requirement — a struct that stores a pointer into itself, an
-allocator or arena embedded in a larger object, an intrusive list head, a pinned I/O buffer, or a
-struct large enough that an extra stack copy matters (embedded, kernel, hot paths). *Relaxed form:*
-return by value, but only for types with no interior self-reference — a type that stores a pointer
-to one of its own fields, hands one out, or is registered anywhere by address keeps the out-pointer
-`init` regardless of tier. The relaxation applies to the size argument, never to the self-reference
-argument.
+`var x: T = undefined; x.init(...);` rather than returning `T` by value, for a type whose address is
+part of its correctness: one that stores a pointer to one of its own fields or hands one out, an
+allocator or arena embedded in a larger object, an intrusive list head, a pinned I/O buffer, or
+anything registered by address. A struct large enough that the copy matters — on an embedded or
+kernel stack, or on a hot path a profile names — is initialized the same way. Any other type may
+return by value.
 
 **Why:** a `return T{ ... }` does not propagate the caller's result location, so a value-returning
 `init` may build the object in the callee's frame and copy it out, leaving any pointer it stored to
@@ -1399,7 +1395,7 @@ test "sign returns the narrowest int, never the input type" {
 }
 ```
 
-### ZS-DATA-34 [M] Know the five type-system rules that older Zig code trips on
+### ZS-DATA-34 [M] Check type-level code against the five rules older Zig code trips on
 
 The migration table holds every removed spelling. Of these five, two change what code that *still
 compiles* means, one is a cast that can lose a bound, and two turn latent bugs into compile errors.

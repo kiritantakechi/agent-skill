@@ -858,8 +858,8 @@ A `main` written there anyway fails two ways on 0.17.0:
   (`error: struct 'posix.system__struct_…' has no member named 'getrandom'`).
 
 **Why:** `std.process.Init` is populated by `std/start.zig`, which runs only when there *is* a
-start, so on bare metal a `main` silently yields a binary that never runs your code. Firmware is the
-`[M!]` audience of the rest of this standard, so the exemption is stated rather than left implicit.
+start, so on bare metal a `main` silently yields a binary that never runs your code. Firmware is
+code section 1's scope reaches, so the exemption is stated rather than left implicit.
 
 **Check:** in any file reachable from a `*-freestanding` build: `pub fn main(`, `std.process.Init`,
 `init.io`, `Io.Dir`, `Io.File`, `io.async`, `io.sleep`, or `Io.Threaded`. Conversely, a freestanding

@@ -40,7 +40,7 @@ Every example assumes a file opening with `const std = @import("std");` and
 - **OOM policy**
   - ZS-MEM-17 [M] Libraries propagate `error.OutOfMemory`; only an application's top level may abort
 - **Static allocation and the graduated ladder**
-  - ZS-MEM-18 [M!] Allocate all memory at startup; allocate nothing in steady state
+  - ZS-MEM-18 [M] Allocate all memory at startup where every bound is known then; otherwise name the rung
   - ZS-MEM-19 [S] Arena per request, per phase, per iteration
   - ZS-MEM-20 [S] Preallocate to the known bound, then use `AssumeCapacity` in the hot path
   - ZS-MEM-21 [S] Impose a hard ceiling with a fixed backing buffer
@@ -50,7 +50,7 @@ Every example assumes a file opening with `const std = @import("std");` and
   - ZS-MEM-24 [M] Alignment is `std.mem.Alignment`, never a raw integer
 - **Raw memory**
   - ZS-MEM-25 [M] `@memcpy` for disjoint copies, `@memmove` for overlapping ones
-  - ZS-MEM-26 [M!] Zero padding before it leaves the process, and wipe secrets on the way out
+  - ZS-MEM-26 [M] Zero padding before it leaves the process, and wipe secrets on the way out
 - Decided by tools
 
 ---
@@ -696,32 +696,26 @@ in 0.17.
 
 ## Static allocation and the graduated ladder
 
-### ZS-MEM-18 [M!] Allocate all memory at startup; allocate nothing in steady state
+### ZS-MEM-18 [M] Allocate all memory at startup where every bound is known then; otherwise name the rung
 
 TigerStyle, verbatim: "All memory must be statically allocated at startup. **No memory may be
-dynamically allocated (or freed and reallocated) after initialization.**" Adopt this in full only
-when the criteria below hold; otherwise adopt the graduated forms ZS-MEM-19 through ZS-MEM-21, which
-are `[S]` for all code.
+dynamically allocated (or freed and reallocated) after initialization.**" That is the rule for a
+program of which all of these hold: (1) every resource bound is derivable from configuration at
+startup — max connections, max message bytes, max in-flight operations; (2) the process is
+long-lived and a restart is expensive or externally visible (a replica, a controller, an embedded
+device, a hard-real-time loop); (3) rejecting work is a better failure than growing memory — an OOM
+kill would cost correctness, quorum, or a machine; (4) you own the dependency tree and call no
+library that allocates on your behalf; (5) it is an application or a service, not a library —
+forcing this policy on your callers is not your decision to make. Input whose size is unbounded and
+user-supplied (compilers, CLIs over arbitrary files, general-purpose servers with variable
+payloads), a std subsystem that allocates at use time, or a library is outside it.
 
-**`[M!]` trigger — adopt it in full only when all of these hold:** (1) every resource bound is
-derivable from configuration at startup — max connections, max message bytes, max in-flight
-operations; (2) the process is long-lived and a restart is expensive or externally visible (a
-replica, a controller, an embedded device, a hard-real-time loop); (3) rejecting work is a better
-failure than growing memory — i.e. an OOM kill would cost correctness, quorum, or a machine; (4) you
-own the dependency tree and are not calling into libraries that allocate on your behalf; (5) it is
-an application or a service, not a library — forcing this policy on your callers is not your
-decision to make.
-
-**Do not adopt it when:** input size is unbounded and user-supplied (compilers, CLIs over arbitrary
-files, general-purpose servers with variable payloads), or you depend on std subsystems that
-allocate at use time, or you are writing a library.
-
-*Relaxed form:* the graduated ladder, in descending strength — ZS-MEM-21, a hard ceiling from a
-fixed backing buffer (`ArrayList.initBuffer` or `FixedBufferAllocator`); ZS-MEM-19, an arena per
-request or phase, reset at the boundary; ZS-MEM-20, exactly the bound reserved up front and
-`*AssumeCapacity` in the hot path. Pick exactly one rung, name it in the module's doc comment, and
-treat an allocation inside a hot loop or on a request path as a design smell requiring a justifying
-comment. What does not relax at any tier: derive the bounds, write them down as `_max` constants,
+Any other program picks exactly one rung of the graduated ladder, in descending strength —
+ZS-MEM-21, a hard ceiling from a fixed backing buffer (`ArrayList.initBuffer` or
+`FixedBufferAllocator`); ZS-MEM-19, an arena per request or phase, reset at the boundary; ZS-MEM-20,
+exactly the bound reserved up front and `*AssumeCapacity` in the hot path — names it in the module's
+doc comment, and treats an allocation inside a hot loop or on a request path as a design smell
+requiring a justifying comment. Either way, derive the bounds, write them down as `_max` constants,
 and `comptime`-assert them.
 
 **Why:** peak RSS is known before the first request, so a spike cannot OOM-kill the process. The
@@ -739,11 +733,11 @@ you must derive every bound (in-flight operations, message size, queue depth), s
 - std has no bounded-array type, so the bounded containers you need are `ArrayList` over a fixed
   buffer (ZS-MEM-21), your own fixed pools, or third-party code.
 
-**Check:** under the trigger, an `alloc`/`create`/`dupe`/`append`/`ensureTotalCapacity` reachable
-from a request path rather than from `init` — and, before that, the absence of the `StaticAllocator`
-gate itself, which is what converts this from a review question into an assertion failure. Under the
-relaxed form: an allocation inside a loop or on a per-request path with no comment naming which rung
-(ZS-MEM-19, ZS-MEM-20 or ZS-MEM-21) the module chose.
+**Check:** in a program of which the five hold, an `alloc`/`create`/`dupe`/`append`/
+`ensureTotalCapacity` reachable from a request path rather than from `init` — and, before that, the
+absence of the `StaticAllocator` gate itself, which is what converts this from a review question
+into an assertion failure. In any other: an allocation inside a loop or on a per-request path with
+no comment naming which rung (ZS-MEM-19, ZS-MEM-20 or ZS-MEM-21) the module chose.
 
 The enforcement mechanism that turns the policy into an invariant is an allocator gate: allocate
 during `init`, then flip a state flag so that any later `alloc` trips an assert.
@@ -827,12 +821,9 @@ test "allocation is a startup-only privilege" {
 > allocator-passing: `ArrayList`, every hash map, `std.json`, and `Io.Writer.Allocating` all
 > allocate at use time, and std has no bounded array, the container that would make "no allocation
 > after init" ergonomic. TigerStyle's position is that this is a design smell for systems that must
-> not fail. Both are right about their own domain. The recommendation, keyed to the tiers: `[M!]`
-> full static allocation with a gate for high-reliability systems meeting the five criteria above;
-> `[S]` for everyone else, meaning **allocate during `init`, treat an allocation inside a hot loop
-> or on a request path as a design smell requiring a justifying comment**, and use ZS-MEM-19,
-> ZS-MEM-20 and ZS-MEM-21 where a bound is natural. What you keep in every case is the cultural
-> payoff: know your bounds, write them down as `_max` constants, and `comptime`-assert them.
+> not fail. Both are right about their own domain, which is why the five conditions above decide
+> between full static allocation with a gate and one rung of the ladder, and why knowing your
+> bounds, writing them down as `_max` constants and `comptime`-asserting them holds in either.
 
 TigerStyle's bounded containers `assert(!full())` on push, treating overflow as a programmer error.
 std offers both the asserting and the error-returning form, and `references/data.md` ZS-DATA-23 says
@@ -1154,7 +1145,7 @@ test "disjoint copy vs overlapping copy" {
 }
 ```
 
-### ZS-MEM-26 [M!] Zero padding before it leaves the process, and wipe secrets on the way out
+### ZS-MEM-26 [M] Zero padding before it leaves the process, and wipe secrets on the way out
 
 Any buffer written to disk, sent on the wire, or handed to another process must have every byte
 defined — including struct padding and the unused tail of a fixed-size frame. Wipe key material with
@@ -1162,12 +1153,8 @@ defined — including struct padding and the unused tail of a fixed-size frame. 
 afterwards is dead-store-eliminated by the optimizer, while `secureZero` takes `[]volatile T`, which
 "Prevents the store from being optimized out".
 
-**`[M!]` trigger:** the bytes cross a trust or durability boundary — key material and other secrets,
-anything sent to a peer you do not control, anything persisted, and anything checksummed,
-replicated, or record-and-replayed. *Relaxed form:* everywhere else, initialize any buffer that
-leaves the process with `= @splat(0)` rather than `= undefined`, and give serialized types `extern`
-or `packed` layout with named, `0`-defaulted reserved fields. `secureZero` is required only where
-key material is involved; nothing relaxes the requirement that padding be a named field.
+Initialize such a buffer with `= @splat(0)` rather than `= undefined`, and give a serialized type
+`extern` or `packed` layout with named, `0`-defaulted reserved fields, so padding is a field.
 
 **Why:** this is the Heartbleed class of bug, a buffer *underflow*: unused bytes and padding never
 zeroed carry uninitialized heap contents (previous requests, keys) out with the message. It also

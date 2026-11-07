@@ -43,8 +43,8 @@ ever find.
   - ZS-ASSERT-13 [M] State a biconditional as one `==` between two booleans
   - ZS-ASSERT-14 [M] Re-assert the narrowed state after every early-return guard
   - ZS-ASSERT-15 [S] Give each stateful type one `assertInvariants`, and bracket mutators with it
-  - ZS-ASSERT-16 [M!] Pair every property across two code paths
-  - ZS-ASSERT-17 [M] Budget assertion cost: unconditional when O(1), gated when O(N) over O(1)
+  - ZS-ASSERT-16 [M] Check every persisted or transmitted structure on its write path and its read path
+  - ZS-ASSERT-17 [M] Assert unconditionally when O(1), and gate an O(N) check of O(1) work behind `verify`
 - **Part 3 — Compile-time contracts**
   - ZS-ASSERT-18 [M] Assert the relationships between compile-time constants in a `comptime` block
   - ZS-ASSERT-19 [M] Give every wire, disk, C-ABI, and comptime-built type a layout `comptime` block
@@ -236,12 +236,10 @@ if (checkpoint_local != checkpoint_remote) {
 
 Decide the shipping optimize mode *before* you adopt assertion density.
 
-`[M!]` applies to databases, consensus and replication, allocators, crypto, and embedded or kernel
-control loops — anywhere a corrupt write or a silent miscompilation is unacceptable. There the
-shipped binary must either be built with `-O safe` or route its critical invariants through an
-assertion that survives `fast`. *Relaxed form:* `std.debug.assert` plus a `safe` test and staging
-build is acceptable, provided the README names the shipping optimize mode explicitly instead of
-leaving it implicit.
+The shipped binary is built with `-O safe`, or routes its critical invariants through an assertion
+that survives `fast`. *Relaxed form:* `std.debug.assert` plus a `safe` test and staging build is
+acceptable, provided the README names the shipping optimize mode explicitly instead of leaving it
+implicit.
 
 TigerBeetle's answer is to ship `safe`; how a build selects its shipping mode, and why
 `-Doptimize=safe` on a plain `standardOptimizeOption(.{})` is the default, is `references/build.md`
@@ -340,11 +338,9 @@ pub fn headerCast(bytes: []align(@alignOf(Header)) const u8) *const Header { ...
 Preconditions first, before any early return. Postconditions on the computed value, immediately
 before returning it. A function must not operate blindly on data it has not checked.
 
-`[M!]` applies to databases, storage engines, consensus and replication, allocators, crypto, parsers
-on untrusted input, and embedded control — anywhere a wrong answer outlives the process or goes
-unobserved. *Relaxed form:* stated once, by ZS-ASSERT-09 — assert the contract of every function
-whose parameter types do not already enforce it. A boundary taking untrusted input gets `if` +
-error, never an assert (`references/errors.md` ZS-ERR-01, ZS-ASSERT-24).
+*Relaxed form:* stated once, by ZS-ASSERT-09 — assert the contract of every function whose parameter
+types do not already enforce it. A boundary taking untrusted input gets `if` + error, never an
+assert (`references/errors.md` ZS-ERR-01, ZS-ASSERT-24).
 
 **Why:** a precondition at the top of the callee fires at the first wrong caller, with that caller
 on the stack, not three frames deeper in code that is behaving correctly. A postcondition catches
@@ -370,12 +366,10 @@ fn writeBlock(target: []u8, header: *const Header, body: []const u8) void {
 
 ### ZS-ASSERT-09 [M!] Average at least two assertions per function
 
-`[M!]` applies to databases, storage engines, consensus and replication, allocators, crypto, and
-embedded or kernel firmware — anything where a crash beats a wrong answer. There the assertion
-density of the codebase must average a minimum of two assertions per function. Measured in real
-TigerBeetle source the control plane runs well above that floor — counted at tigerbeetle 97c7a8e,
-`rg -c 'assert\('` over `rg -c '^[ \t]*(pub )?fn '`: `src/vsr/replica.zig` 5.90 per function
-(1582/268, one per 7.8 lines), `src/vsr/journal.zig` 4.15, `src/state_machine.zig` 3.87.
+The assertion density of the codebase averages at least two assertions per function. TigerBeetle's
+control plane runs well above that floor: at its commit 97c7a8e, `rg -c 'assert\('` over
+`rg -c '^[ \t]*(pub )?fn '` gives `src/vsr/replica.zig` 5.90 per function (1582/268, one per 7.8
+lines), `src/vsr/journal.zig` 4.15 and `src/state_machine.zig` 3.87.
 
 *Relaxed form:* in ordinary application code the honest rule is: **every function whose contract is
 not already enforced by its parameter types asserts that contract, and every function that computes
@@ -586,17 +580,11 @@ code alone is unreadable:
 pub const MessageBuffer = struct { ... };
 ```
 
-### ZS-ASSERT-16 [M!] Pair every property across two code paths
+### ZS-ASSERT-16 [M] Check every persisted or transmitted structure on its write path and its read path
 
-For every property you want to enforce, find at least two *different* code paths where an assertion
-can check it. The canonical pair is: assert validity right before writing to disk, and again
-immediately after reading back.
-
-`[M!]` applies to databases, filesystems, ledgers, replication and consensus, wire codecs, and
-crypto — anything whose stored or transmitted bytes outlive the process, so that a silent encoding
-bug becomes permanent corruption. There, every serialized or persisted structure is checked on both
-paths. *Relaxed form:* pair the property for at least the formats you cannot change later — anything
-persisted or sent over a wire.
+Every structure written to disk or sent over a wire is checked by an assertion right before it is
+written and again right after it is read back: two *different* code paths for one property, since
+its stored bytes outlive the process and a silent encoding bug becomes permanent corruption.
 
 **Why:** a write-path assertion proves only that the *in-memory* value was sane, not the encoder,
 the padding, the storage layer or bit rot. The read side checks a different byte sequence, so it
@@ -663,7 +651,7 @@ who controls the bytes.
 The same idea inside one function: assert the structural invariant at both ends, so a bug in the
 middle is bracketed rather than merely detected somewhere downstream.
 
-### ZS-ASSERT-17 [M] Budget assertion cost: unconditional when O(1), gated when O(N) over O(1)
+### ZS-ASSERT-17 [M] Assert unconditionally when O(1), and gate an O(N) check of O(1) work behind `verify`
 
 Two tiers. In the control plane — anything batched, where per-operation overhead is amortized —
 assert unconditionally; it is acceptable to spend O(N) verifying an O(1) computation there. In the
@@ -674,8 +662,7 @@ The gate must be `if (verify)` around the *whole statement*, not the assert alon
 the condition inside an `assert` still runs in `fast`, so `assert(queue.contains(link))` pays the
 O(N) scan in release and gets nothing for it. Define `verify` from your own module's
 `@import("builtin").optimize.runtimeSafety()` — `std.debug.runtime_safety` is deprecated in its
-favour (to be removed after 0.18.0) because it reports the *standard library's* optimize mode, not
-your module's.
+favour because it reports the *standard library's* optimize mode, not your module's.
 
 **Why:** slow assertions reduce total coverage. Randomized testing finds bugs in proportion to the
 iterations it can run, so an O(N) check on an O(1) hot-path mutation makes the fuzzer quadratically

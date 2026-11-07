@@ -23,10 +23,10 @@ require a measurement before you are allowed to invoke them.
 
 - **Part 1 — Performance is decided in the design phase**
   - ZS-PERF-01 [M] Decide the performance-relevant shape of a design before implementing it
-  - ZS-PERF-02 [M!] Sketch the cost across the four resources, and write the sketch down
+  - ZS-PERF-02 [M] Sketch a hot-path change's cost across the four resources, and write it down
   - ZS-PERF-03 [M] Rank the resources by cost *times frequency*, and optimize the top of that list
   - ZS-PERF-04 [S] Say whether a function is control plane or data plane, and budget it
-  - ZS-PERF-05 [M!] Amortize every expensive acquisition over a bounded batch
+  - ZS-PERF-05 [M] Amortize every expensive acquisition on a hot path over a bounded batch
   - ZS-PERF-06 [S] Give the CPU one long lane; do not make it change lanes per item
   - ZS-PERF-07 [M] Be explicit; never depend on an optimization the compiler is not obliged to make
   - ZS-PERF-08 [S] Hand a measured hot loop its data as slices and integers, not as a receiver
@@ -80,14 +80,14 @@ public entry point on a path that will be called in bulk is the specific thing t
 // fragment
 ```
 
-### ZS-PERF-02 [M!] Sketch the cost across the four resources, and write the sketch down
+### ZS-PERF-02 [M] Sketch a hot-path change's cost across the four resources, and write it down
 
 Before a change lands on a hot path, sketch its cost against the four resources — **network, disk,
 memory, CPU** — and their two characteristics — **bandwidth** and **latency**. Put the sketch in the
 commit message or in a comment above the function. Sketches are cheap and being roughly right lands
 you within 90% of the achievable maximum.
 
-Order-of-magnitude anchors for 2026 server hardware. These are correct to within roughly 10x; the
+Order-of-magnitude anchors for server hardware. These are correct to within roughly 10x; the
 *ratios* are the point, not the digits.
 
 | Resource | Bandwidth | Latency |
@@ -98,15 +98,12 @@ Order-of-magnitude anchors for 2026 server hardware. These are correct to within
 | Memory | 10–50 GiB/s | ~1 ns L1 hit; ~100 ns miss to DRAM |
 | CPU | 1–4 instructions/cycle | ~0.3 ns per cycle; ~5 ns branch mispredict |
 
-**`[M!]` trigger:** the code has a stated throughput or latency requirement, or it is on a path
-executed per request, per record, per packet, or per block — databases, storage engines, consensus,
-codecs, network services, embedded control loops. In those codebases a hot-path PR without a sketch
-is not reviewable and should be sent back.
-
-*Relaxed form:* everywhere else, no written sketch is required, but a change that adds work *inside*
-an existing loop — an allocation, a syscall, a lock, a hash, a `format` call — states in one line
-why that is acceptable at the loop's trip count. A change that adds work outside every loop needs
-nothing.
+A hot path is code with a stated throughput or latency requirement, or code executed per request,
+per record, per packet, or per block — a database, a storage engine, a consensus layer, a codec, a
+network service, an embedded control loop — and a change to one without a sketch is not reviewable.
+Anywhere else, a change that adds work *inside* an existing loop — an allocation, a syscall, a lock,
+a hash, a `format` call — states in one line why that is acceptable at the loop's trip count, and a
+change that adds work outside every loop needs nothing.
 
 **Why:** without the sketch, "is this fast enough?" is opinion and review degenerates into taste;
 with it, a reviewer checks arithmetic. It also catches an optimization aimed at a resource that was
@@ -211,7 +208,7 @@ const Table = struct {
 };
 ```
 
-### ZS-PERF-05 [M!] Amortize every expensive acquisition over a bounded batch
+### ZS-PERF-05 [M] Amortize every expensive acquisition on a hot path over a bounded batch
 
 One syscall, one lock acquisition, one allocation, one flush, one round trip **per batch** — never
 per item. The batch has a named `_max` constant and the code asserts it (ZS-ASSERT-20). The bound is
@@ -222,10 +219,9 @@ The I/O half of this rule — draining an event queue instead of reacting per ev
 instead of a write per record — is `references/concurrency.md` **ZS-CONC-32**; do not duplicate it.
 This rule covers the non-I/O half: locks, allocations, and per-item work inside a lock.
 
-**`[M!]` trigger:** the same criteria as ZS-PERF-02 — a stated throughput or latency requirement, or
-per-request/per-record/per-packet execution. *Relaxed form:* batch anything whose per-item cost
-crosses a process boundary (syscall, lock, allocator), and leave pure in-memory per-item work alone
-until measured.
+A hot path is ZS-PERF-02's. Anywhere else, batch whatever crosses a process boundary per item — a
+syscall, a lock, an allocation — and leave pure in-memory per-item work alone until a profile names
+it.
 
 **Why:** each has a fixed cost that dwarfs the per-item work: a syscall's mode switch costs hundreds
 of nanoseconds, an uncontended lock tens, a contended one a scheduler round trip, a `realloc` a copy

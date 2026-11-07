@@ -427,10 +427,9 @@ past it, the empty case, the maximum case, and the truncated case. This is Tiger
 of assertions applied to tests. An `expectError` per error variant proves the error is reachable,
 which also proves it is not dead code.
 
-`[M!]` applies to code that parses untrusted bytes, manages durable state, or enforces a security or
-consistency invariant — decoders, wire formats, journals, allocators, permission checks. *Relaxed
-form:* one `expectError` for every variant in the function's declared error set, plus the empty
-input and the maximum input; the boundary, one-past-the-boundary, and truncated cases drop to `[S]`.
+*Relaxed form:* one `expectError` for every variant in the function's declared error set, plus the
+empty input and the maximum input; the boundary, one-past-the-boundary, and truncated cases drop to
+`[S]`.
 
 **Why:** bugs cluster where data crosses the valid/invalid boundary, because that is where the code
 changes its mind about what the data means. A suite that only feeds valid input verifies the
@@ -479,11 +478,9 @@ rather than the exhaustive sweep, use `FailingAllocator` directly (ZS-TEST-12). 
 allocations, never a resize, so a list that grows in place is swept only at its first allocation:
 the `errdefer` it tests is the one between two separate allocations.
 
-`[M!]` applies wherever an OOM must not corrupt state or lose data — databases, storage engines,
-allocators, long-running network servers. *Relaxed form:* one `checkAllAllocationFailures` test per
-**public** allocating entry point of the module, and for everything private, an `errdefer` audit
-instead: every function with two or more `try` allocations must free the earlier ones on the failure
-path of the later ones.
+*Relaxed form:* one `checkAllAllocationFailures` test per **public** allocating entry point of the
+module, and for everything private, an `errdefer` audit instead: every function with two or more
+`try` allocations must free the earlier ones on the failure path of the later ones.
 
 **Why:** the bug it finds is invisible to normal tests: a function that allocates twice and frees
 both on the success path but forgets `errdefer` on the first leaks only when the *second* allocation
@@ -736,11 +733,9 @@ into a safety phase (arbitrary faults; the invariant must never break) and a liv
 stop; the system must converge within a bounded number of ticks). Print every knob at startup, and
 print the seed on failure.
 
-`[M!]` applies to systems with durable state or multiple participants — storage engines,
-replication, queues, consensus, embedded firmware with persistence. *Relaxed form:* ZS-TEST-15's
-seeded model-based swarm test against an in-memory model, with no simulated clock and no fault
-injection, plus one hand-written test per failure mode you can name (a crash between two writes, a
-short read, a duplicated message).
+*Relaxed form:* ZS-TEST-15's seeded model-based swarm test against an in-memory model, with no
+simulated clock and no fault injection, plus one hand-written test per failure mode you can name (a
+crash between two writes, a short read, a duplicated message).
 
 **Why:** this is what TigerBeetle's VOPR does, and it works because a whole cluster's history
 collapses into a single `u64`. Real concurrency and real disks produce failures you cannot replay; a

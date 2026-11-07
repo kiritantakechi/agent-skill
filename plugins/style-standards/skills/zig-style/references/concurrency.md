@@ -35,7 +35,7 @@ Every example assumes a file opening with
 - **Reading**
   - ZS-CONC-11 [M] Size the reader buffer deliberately — it is your maximum token length
   - ZS-CONC-12 [M] Iterate lines with `takeDelimiter`, never `takeDelimiterExclusive`
-  - ZS-CONC-13 [M] Treat slices from `peek`/`take`/`takeDelimiter` as borrowed until the next fill
+  - ZS-CONC-13 [M] Never keep a slice from `peek`/`take`/`takeDelimiter` past the reader's next call
   - ZS-CONC-14 [M] Give every read-all API an explicit `Io.Limit`
   - ZS-CONC-15 [S] Stream large data; only read whole objects you have already bounded
 - **Authoring custom streams**
@@ -44,13 +44,13 @@ Every example assumes a file opening with
   - ZS-CONC-18 [M] Pair `writableSliceGreedy` with `advance`; never `advance` after `writableSlice`
 - **Filesystem**
   - ZS-CONC-19 [M] Pair every open with `defer close(io)`, and iterate with the iterator's own buffer
-  - ZS-CONC-20 [M!] Replace files atomically with `createFileAtomic` + `replace`
+  - ZS-CONC-20 [M] Replace a file another reader depends on atomically, with `createFileAtomic`
 - **Structured concurrency**
   - ZS-CONC-21 [M] Every started `Future` is awaited or canceled exactly once, on every path
   - ZS-CONC-22 [S] Prefer `io.async`; use `io.concurrent` only for simultaneous progress
   - ZS-CONC-23 [S] Pick the right aggregate: `Group`, `Select`, or `Queue`
   - ZS-CONC-24 [M] Never ignore `error.Canceled`
-  - ZS-CONC-25 [M!] Call `io.checkCancel()` inside long CPU-bound loops
+  - ZS-CONC-25 [M] Call `io.checkCancel()` inside long CPU-bound loops
   - ZS-CONC-26 [M] Use the `*Uncancelable` variants in `defer` and cleanup paths
   - ZS-CONC-27 [M] Synchronize with the `Io` primitives, never OS primitives
   - ZS-CONC-28 [M] Write colorless code: never branch on which backend you were handed
@@ -58,7 +58,7 @@ Every example assumes a file opening with
   - ZS-CONC-30 [M] Time is `Io`: `Io.Timestamp`, `Io.Duration`, `Io.Clock`, `io.sleep`
   - ZS-CONC-31 [S] Express a multi-step timeout as one shared deadline, not a duration per call
 - **TigerStyle, re-derived for `std.Io`**
-  - ZS-CONC-32 [M!] Run at your own pace: drain a batch, do not react per event
+  - ZS-CONC-32 [M] Drain a batch of what a peer sends; do not wake once per event
   - ZS-CONC-33 [M!] A suspension point invalidates every entry-time assertion about shared state
   - ZS-CONC-34 [M] Replace completion callbacks with `io.async` and `await`
   - ZS-CONC-35 [M] Bound every stream buffer and queue with a named compile-time constant
@@ -518,7 +518,7 @@ test "line iteration" {
 }
 ```
 
-### ZS-CONC-13 [M] Treat slices from `peek`/`take`/`takeDelimiter` as borrowed until the next fill
+### ZS-CONC-13 [M] Never keep a slice from `peek`/`take`/`takeDelimiter` past the reader's next call
 
 They point into the reader's buffer. The next `fill`, `peek`, `take`, or `rebase` may move or
 overwrite them.
@@ -800,18 +800,17 @@ test "directory iteration" {
 }
 ```
 
-### ZS-CONC-20 [M!] Replace files atomically with `createFileAtomic` + `replace`
+### ZS-CONC-20 [M] Replace a file another reader depends on atomically, with `createFileAtomic`
 
 `dir.createFileAtomic(io, sub_path, .{ .replace = true })` returns a `File.Atomic` holding an
 unnamed ephemeral file. Write, flush, then `af.replace(io)`. `af.link(io)` is the create-if-absent
 variant; `.replace` in the options must match which one you will call, or `replace` asserts.
 
-**`[M!]` trigger:** the file is authoritative state that some later reader depends on — databases
-and WALs, configuration a service reads at boot, key material, lockfiles, anything another process
-reads concurrently. *Relaxed form:* a file that is regenerated from scratch on every run — a build
-artifact, a cache, a scratch file — may use plain `writeFile`; but a file that is *updated*, meaning
-read, modified, and written back, still goes through `createFileAtomic` + `replace` at every tier,
-because the pre-write contents are the only copy of the data being replaced.
+This holds for a file that is authoritative state some later reader depends on — a database or a
+WAL, configuration a service reads at boot, key material, a lockfile, anything another process reads
+concurrently — and for every file that is *updated*, meaning read, modified and written back,
+because its pre-write contents are the only copy of the data being replaced. A file regenerated from
+scratch on every run — a build artifact, a cache, a scratch file — may use plain `writeFile`.
 
 **Why:** truncating a file in place has a window in which the file is empty or half-written. If the
 process dies there, the on-disk state is unrecoverable — the old contents are already gone and the
@@ -1055,16 +1054,15 @@ test "cancel protection around cleanup" {
 }
 ```
 
-### ZS-CONC-25 [M!] Call `io.checkCancel()` inside long CPU-bound loops
+### ZS-CONC-25 [M] Call `io.checkCancel()` inside long CPU-bound loops
 
 `checkCancel` is a pure cancellation point that performs no I/O. Check on a power-of-two stride so
 the check itself is not the cost.
 
-**`[M!]` trigger:** the system has a shutdown path, a request deadline, or a watchdog — servers,
-databases, consensus nodes, anything long-running that must be able to stop on demand. *Relaxed
-form:* elsewhere, put a `checkCancel` in any loop whose trip count comes from input, a file, or the
-network rather than from a compile-time constant; a loop bounded by a named `_max` may skip it,
-because its worst-case duration is already known and reviewable.
+Every loop whose trip count comes from input, a file or the network rather than from a compile-time
+constant gets one; a loop bounded by a named `_max` may skip it, because its worst-case duration is
+known and reviewable — unless the system has a shutdown path, a request deadline or a watchdog, as a
+server, a database or a consensus node does, where every long CPU-bound loop gets one.
 
 **Why:** cancellation only takes effect at cancellation points. A loop that does no I/O is
 uninterruptible, so a shutdown, a deadline, or a watchdog cannot preempt it — the task keeps burning
@@ -1243,20 +1241,17 @@ test "timeout as a deadline, not a per-call duration" {
 
 ## TigerStyle, re-derived for `std.Io`
 
-### ZS-CONC-32 [M!] Run at your own pace: drain a batch, do not react per event
+### ZS-CONC-32 [M] Drain a batch of what a peer sends; do not wake once per event
 
 TigerStyle: *don't do things directly in reaction to external events; your program should run at its
 own pace.* In 0.17 that means `q.get(io, &batch, 1)` — which returns up to `batch.len` items in one
 wake-up — rather than `q.getOne(io)` in a loop, and `writeVecAll`/`sendFileAll` rather than a write
 per record.
 
-**`[M!]` trigger:** throughput or worst-case latency is a stated requirement, or the code runs per
-request, per record, or per packet — databases, consensus, network services, codecs. *Relaxed form:*
-elsewhere, still amortize anything that crosses the process boundary — one `flush` and one
-`writeVecAll` per batch of records rather than per record. What relaxes is the wake-up: a per-event
-`getOne` loop is acceptable when the event rate is bounded by a human or by a file the program
-already holds, rather than by a peer. The non-I/O half of this is `references/performance.md`
-ZS-PERF-05.
+Anything that crosses the process boundary is amortized over a batch — one `flush` and one
+`writeVecAll` per batch of records, never per record. A per-event `getOne` loop is acceptable only
+where the event rate is bounded by a human or by a file the program already holds, not by a peer.
+The non-I/O half of this is ZS-PERF-05.
 
 **Why:** one wake-up per event means one context switch, one scheduler round-trip, and one set of
 assertion re-checks per event. Batching amortizes all three and bounds work per time period, which
@@ -1344,11 +1339,9 @@ followed literally — any `io.*` call is a suspension point. The 0.17 form of t
 shared state only in a region where you hold exclusive access, and re-establish the assertion after
 every `io.*` call.
 
-**`[M!]` trigger:** a stale invariant corrupts data rather than merely misbehaving — ledgers,
-replicated or persisted state, allocators, anything where the wrong number becomes durable. *Relaxed
-form:* everywhere else, do not write an assertion about shared state *above* a suspension point at
-all: move it below the acquisition or delete it. That is weaker than re-establishing the invariant
-after every `io.*` call, but it still forbids the specific line that lies.
+*Relaxed form:* do not write an assertion about shared state *above* a suspension point at all: move
+it below the acquisition or delete it. That is weaker than re-establishing the invariant after every
+`io.*` call, but it still forbids the specific line that lies.
 
 **Why:** between `try a.lock.lock(io)` and its return, other tasks in the same `Io` run and mutate
 `a`, so an assertion written before the lock documents a fact that is false by the time the code
