@@ -68,7 +68,7 @@ command after the table finds every `gone` row.
 | `UiImageSize` | `ImageNodeSize` | gone | 0.15 | BV-VIEW-01 |
 | `ComputedNode::stack_index` | `ComputedStackIndex` | gone | 0.19 | BV-VIEW-03 |
 | `ComputedNodeTarget` | `ComputedUiTargetCamera` | gone | 0.17 | BV-VIEW-03 |
-| `CoreButton` | `bevy::ui_widgets::Button`; every `Core*` widget component is its name without `Core` | gone | 0.19 | BV-VIEW-07 |
+| `CoreScrollbarThumb` | `ScrollbarThumb`; `CoreScrollbarDragState` and `CoreSliderDragState` lose `Core` likewise | gone | 0.19 | BV-VIEW-07 |
 | `button_bundle` | the feathers `FeathersButton` with `FeathersButtonProps`, used from `bsn!`; each `*_bundle` spawn function likewise | gone | 0.20 | BV-VIEW-07 |
 | `FeathersPlugin` | `FeathersCorePlugin` | gone | 0.19 | BV-VIEW-07 |
 | `EditableTextInputPlugin` | `TextInputPlugin` | gone | 0.20 | BV-VIEW-08 |
@@ -164,7 +164,7 @@ command after the table finds every `gone` row.
 | `"bevy_ui_picking_backend"` | `"ui_picking"` | gone | 0.18 | BV-BUILD-03 |
 | `"bevy_mesh_picking_backend"` | `"mesh_picking"` | gone | 0.18 | BV-BUILD-03 |
 | `"experimental_bevy_feathers"` | `"bevy_feathers"` | gone | 0.19 | BV-BUILD-03 |
-| `"experimental_ui_widgets"` | `"bevy_ui_widgets"` | gone | 0.19 | BV-BUILD-03 |
+| `"experimental_bevy_ui_widgets"` | `"bevy_ui_widgets"` | gone | 0.19 | BV-BUILD-03 |
 | `"bevy_math/curve"` | `"bevy/bevy_curve"` | gone | 0.20 | BV-BUILD-03 |
 | `Trigger<E>` | `On<E>`, read by the event's own name; `Trigger` is now a trait | changed | 0.18 | BV-EVENT-13 |
 | `On<Add, T>` | `On<Add<T>>`, and so for `Insert`, `Discard`, `Remove` and `Despawn`; a custom `On<E, B>` is a `PhantomData` wrapper implementing `EventPattern` | changed | 0.20 | BV-EVENT-13 |
@@ -251,7 +251,7 @@ rg -n -F \
   -e 'UiImageSize' \
   -e 'ComputedNode::stack_index' \
   -e 'ComputedNodeTarget' \
-  -e 'CoreButton' \
+  -e 'CoreScrollbarThumb' \
   -e 'button_bundle' \
   -e 'FeathersPlugin' \
   -e 'EditableTextInputPlugin' \
@@ -347,7 +347,7 @@ rg -n -F \
   -e '"bevy_ui_picking_backend"' \
   -e '"bevy_mesh_picking_backend"' \
   -e '"experimental_bevy_feathers"' \
-  -e '"experimental_ui_widgets"' \
+  -e '"experimental_bevy_ui_widgets"' \
   -e '"bevy_math/curve"' \
   .
 ```
