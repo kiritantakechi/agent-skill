@@ -310,7 +310,33 @@ time of deletion (both tiers `[M]` unless marked):
   the replace-by-rename claim and stay unregistered; Zig has no `Once` in std 0.17, so its lazy-value
   rule builds under an `Io.Mutex`. Left for `performance`: PS-PERF-12 to -15 and ZS-PERF-18 (model by workload,
   cache-line alignment).
-- [ ] 3.11 `output` (rust-style's `cli.md` streams and exit codes among the candidates)
+- [x] 3.11 `output`: 12 entries (`AS-OUT-01` to `-12`), in where output goes (stdout against stderr, a
+  record written whole, a library neither prints nor ends the process, an explicit checked flush, colour
+  for a terminal honouring `NO_COLOR`), logging (diagnostics through the facade, a library logs under its
+  own name and configures nothing), failure and exit status (a message, not a dump; a non-zero code of its
+  own per class) and rendering a value (a programmer's rendering, kept from the user's, a second one
+  named); realisations: python-style 10 `realises`, 1 `decided` (ruff `T201`), 1 `overrides` (PS-OUT-20:
+  `str` falls back to `repr`); rust-style 12 `realises`; zig-style 11 `realises`, 1 `absent` (`{any}`
+  renders every value, so no per-type programmer's rendering). Moves 14: RS-CLI-17, -20, -24, RS-PERF-20,
+  RS-ERR-28, -29, RS-API-35, -36, -37 into rust-style's new `output.md` (RS-OUT-01 to -12; `output` is
+  abstract, so not in `domain`; `cli` stays a domain chapter of argument parsing, a closed pipe,
+  terminal-adaptive presentation, progress and signals); PS-CONC-19 into PS-OUT-15; ZS-CONC-09, -04,
+  ZS-ERR-02 (retitled: a library never ends the process and never prints), ZS-CONC-50 into ZS-OUT-17 to
+  -20. Merges 2: RS-ERR-30 into RS-ERR-28 (the cause chain in prose, no `Debug`, no backtrace), PS-OUT-12
+  into PS-OUT-13 (a library's logger by `__name__`, configured by nothing). New rules 10: PS-OUT-16
+  (library), -17 (flush), -18 (colour), -21 (second rendering), -23 (failure message), -24 (exit status);
+  RS-OUT-02 (record in one locked call), -03 (library), -07 (library logs through the facade, installs no
+  logger; `log` added to the rust verify crate's dependencies); ZS-OUT-22 (exit status). Tier changes 4:
+  RS-ERR-28 to `[M]` (merged with `[S]` and `[S]`), ZS-OUT-07, -20, -24 to `[M]` (drift from `[S]`; the
+  deviation clause folded into the statement). Look-alike notes 1 -> 1 (BV-MIG-03 / RS-MIG-02, for
+  `migration`). Not registered, one standard: python-style's encoding, interpolation and locale rules
+  (PS-OUT-01 to -11, -13, -22: Python alone names an encoding per open), rust-style's `BrokenPipe`
+  (RS-CLI-18), terminal-adaptive presentation, machine-readable and stable format, progress (RS-CLI-19 to
+  -23), `anyhow` in binaries and reporting every failure of a run (RS-ERR-27, -31), RS-CONC-42 (log with
+  a task id), zig-style's specifier set, `std.fmt` API and `logFn` (ZS-OUT-01 to -15, -25), the writer
+  and reader mechanics (ZS-CONC-04 to -22 at the time) and `std.Progress`. Decided: ZS-MEM-14 (a library
+  propagates `error.OutOfMemory`) is the memory chapter's, as one case of AS-ERR-05, and stays. Left for
+  `performance`: RS-PERF-19 (always buffer), RS-PERF-21, -23 and PS-OUT-05 (bytes when the data is bytes).
 - [ ] 3.12 `performance`
 - [ ] 3.13 `migration`
 - [ ] 3.14 Remove an abstract chapter that holds no entry, or record why it stays; declare a chapter
