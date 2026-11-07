@@ -125,7 +125,14 @@ standard read as normalised now also fails: `core_rule` (bevy 24, python 26, rus
   7.1)". FAIL branches 243 → 236, controls 220 → 213, exemptions 23; `fmt` changes nothing in the
   shipped tree, and `check --fast --verbose` is byte-identical
 - [ ] 7.2 Re-measure section 1.1's counts and record them here; run the full check once
-- [ ] 7.3 README sections that describe the standards' shape; `documented` passes
+- [x] 7.3 README sections that describe the standards' shape; `documented` passes — "Every standard
+  has one shape" states the normal form (chapter template, rule shape, bare-ID citations, Checks as
+  `rg` commands or judgement, tier as one predicate, §4 and §2's 2.1 and 2.2 as projections, the
+  migration table's statuses and Since, the lint bijection, the departures table, the description
+  template) and what `measure` counts; the command list, `revise`, `fmt`, a Python snippet's
+  allowlist, and the `frontmatter`, `anatomy`, `skeleton`, `prose`, `mirror`, `crossref`,
+  `toolchain` and `citations` rows say what each checks now; nothing describes the gate, a core rule
+  or the override table, and the `mis_cited` note is recorded as gone with §4's own rules
 
 ## Baseline (measured)
 
