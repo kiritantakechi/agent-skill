@@ -1,13 +1,12 @@
 # Assertions, invariants, and putting a limit on everything
 
-This chapter covers what to assert, where to put the assertion, what `std.debug.assert` actually
-compiles to in each optimize mode, how to keep assertions alive in a release build, and the
-discipline of bounding every loop, buffer, queue and retry count with a named comptime constant. It
-does **not** own error-union design, `errdefer`, or the operating-error side of the split — that is
-`references/errors.md`. Allocator lifetime and `undefined` poisoning are `references/memory.md`;
-test structure and the `build.zig` wiring of fuzz steps are `references/testing.md` and
-`references/build.md`; the optimize-mode table is ZS-BUILD-24. Naming (`connection_count_max`, not
-`max_connections`) is specified in `references/naming.md` and applied here without re-deriving it.
+Scope: what to assert, where to put the assertion, what `std.debug.assert` compiles to in each
+optimize mode, how to keep assertions alive in a release build, and the discipline of bounding every
+loop, buffer, queue and retry count with a named comptime constant. Error-union design, `errdefer`
+and the operating-error side of the split are the errors chapter's; allocator lifetime and
+`undefined` poisoning the memory chapter's; test structure the testing chapter's, and the
+`build.zig` wiring of fuzz steps the build chapter's, whose ZS-BUILD-24 holds the optimize-mode
+table. A limit's name (`connection_count_max`, not `max_connections`) is ZS-NAME-06's, applied here.
 
 A `// fragment` block here uses types and constants declared elsewhere in this chapter. Every
 example assumes a file opening with `const std = @import("std");`,

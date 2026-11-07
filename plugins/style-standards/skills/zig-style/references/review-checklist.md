@@ -78,8 +78,8 @@ rg -n 'containsAtLeastScalar\(|@hasDecl\(' # 0.17: (element, minimum); pub decla
 ```
 
 A spelling 0.17 removed needs no grep wherever a build analyses it: `zig build check` and the
-per-target builds of the mechanical pass reject it, and the name in the diagnostic is a row in
-`references/migration.md`. Code no build analyses — a function nothing references, a branch for a
+per-target builds of the mechanical pass reject it, and the name in the diagnostic is a row of the
+migration table (ZS-MIG-01). Code no build analyses — a function nothing references, a branch for a
 target you do not build — keeps one silently; the same command finds those (ZS-MIG-02).
 
 ### Discipline greps
@@ -91,7 +91,7 @@ rg -n '@(intCast|ptrCast|alignCast|bitCast)' # each needs an established precond
 rg -n '\bundefined\b'                   # every one is a proof obligation
 rg -n 'anyerror'                        # widening in a public signature
 rg -nUP '(alloc|create).*\n(?!\s*(err)?defer\b)'  # candidates: no defer on the next line
-rg -n '\.items\b' -B2 | rg 'const .* = .*\.items'  # pointer into a resizable container
+rg -n 'const .* = .*\.items\b'          # pointer into a resizable container
 rg -c 'assert\(' ; rg -c '^\s*(pub )?fn '          # two counts: aim for ~2:1
 rg -n 'while \(true\)'                  # unbounded loop — where is the limit?
 rg -n 'std\.debug\.print'               # program output must not go through this
@@ -142,8 +142,8 @@ Rules for the review itself:
 Do it in this order, one mechanical step per commit, so that each commit is reviewable and
 revertible:
 
-1. Fix stale API spellings, one table of `references/migration.md` per commit. These are pure
-   renames with no behavior change, so they should never share a commit with anything else.
+1. Fix stale API spellings, one release's rows of the migration table (ZS-MIG-01) per commit. These
+   are pure renames with no behavior change, so they should never share a commit with anything else.
 2. Fix ownership: move stored allocators to parameters, pair every allocation with a
    `defer`/`errdefer`, and give every type that owns memory a `deinit`.
 3. Narrow error sets: replace `anyerror` with explicit sets, and turn every `catch unreachable` into

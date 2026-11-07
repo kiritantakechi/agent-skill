@@ -3,12 +3,10 @@
 Scope: how a Zig 0.17 function reports failure (error sets, optionals, assertions, panics), how a
 caller consumes it (`try`, `catch`, `errdefer`, error return traces, `*Diagnostics` out-parameters),
 and the shape of the control flow in between (conditions, loops, `switch`, labeled constructs,
-`@branchHint`, and the 70-line function limit).
-
-This chapter does not own assertion *density* or the design of bounded limits — those are
-ZS-ASSERT-09 and ZS-ASSERT-23. Allocator ownership and OOM lifetimes are `references/memory.md`;
-`std.Io` stream errors and cancellation are `references/concurrency.md`; error-name formatting with
-`{t}` is ZS-OUT-05. It cites them.
+`@branchHint`, and the 70-line function limit). Assertion *density* and the design of bounded limits
+are ZS-ASSERT-09 and ZS-ASSERT-23; allocator ownership and OOM lifetimes are the memory chapter's;
+`std.Io` stream errors and cancellation the concurrency chapter's; error-name formatting with `{t}`
+is ZS-OUT-05.
 
 Blocks that do not declare their own imports assume a file opening with
 `const std = @import("std");` and `const assert = std.debug.assert;`.

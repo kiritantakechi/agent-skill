@@ -1,12 +1,10 @@
 # build.zig, build.zig.zon, project layout, CI
 
-Everything about how a Zig 0.17.0 project is *assembled*: the build graph (`build.zig`), the package
-manifest (`build.zig.zon`), where files go on disk, which optimize mode ships, and what CI must run.
-
-This chapter does not own language-level style (`references/naming.md`, `references/data.md`,
-`references/errors.md`), allocator discipline (`references/memory.md`), `std.Io`
-(`references/concurrency.md`), what goes *inside* `src/constants.zig` (ZS-ASSERT-21), or how to
-write a test or a fuzz target (`references/testing.md`) — only how tests get *wired into the build*.
+Scope: how a Zig 0.17 project is *assembled* — the build graph (`build.zig`), the package manifest
+(`build.zig.zon`), where files go on disk, which optimize mode ships, what CI must run, and how
+tests get *wired into the build*. Language-level style is the naming, data and errors chapters';
+allocator discipline the memory chapter's; `std.Io` the concurrency chapter's; how to write a test
+or a fuzz target the testing chapter's; what goes *inside* `src/constants.zig` is ZS-ASSERT-21.
 Older build spellings are rows of the migration table.
 
 Every `zig` block here is `build.zig` code and assumes the file opens with
@@ -1124,8 +1122,8 @@ comptime {
 ```
 
 Note the `{f}`, not `{}`: `SemanticVersion` has a custom `format` method, and in 0.17 only `{f}`
-dispatches to it (`references/output.md`). Use `.order(...) != .eq` for an exact pin; use
-`.order(...) == .lt` if you want a floor rather than a pin.
+dispatches to it (ZS-OUT-01). Use `.order(...) != .eq` for an exact pin; use `.order(...) == .lt` if
+you want a floor rather than a pin.
 
 **Check:** `rg -n 'zig_version' build.zig` — a project that claims a pinned toolchain in its README
 or CI has this block, and its version literal matches the one CI installs.

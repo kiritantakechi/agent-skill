@@ -1,11 +1,11 @@
 # comptime, generics, and interfaces
 
-Rules for compile-time evaluation (`comptime` params, blocks, `inline`, `@setEvalBranchQuota`),
-generic type functions, `anytype` and its contracts, type introspection with the 0.17 builtins, and
-the three interface shapes Zig offers (comptime duck typing, runtime vtable, tagged union). Naming
-of type functions and receivers lives in the naming chapter; `std.Io.Writer`/`Reader` usage and
-buffering live in the concurrency chapter; `comptime {}` assertions about wire/disk layout live in
-the assertions chapter — this chapter only covers how the interfaces themselves are *shaped*.
+Scope: compile-time evaluation (`comptime` params, blocks, `inline`, `@setEvalBranchQuota`), generic
+type functions, `anytype` and its contracts, type introspection with the 0.17 builtins, and the
+three interface shapes Zig offers (comptime duck typing, runtime vtable, tagged union). Naming of
+type functions and receivers is the naming chapter's; `std.Io.Writer`/`Reader` usage and buffering
+the concurrency chapter's; `comptime {}` assertions about wire and disk layout the assertions
+chapter's — this chapter covers how the interfaces themselves are *shaped*.
 
 The discipline here is **interface-first**: pick which of Zig's three interface shapes fits —
 comptime duck typing, runtime vtable, or tagged union — name it, and write the concrete type against

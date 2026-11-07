@@ -3,14 +3,12 @@
 Scope: turning values into bytes (`{f}` and the custom `format` method, the complete 0.17 specifier
 set, width/fill/alignment/precision, the `std.fmt` API, `parseInt`/`parseFloat`), and where those
 bytes are allowed to go (buffered `*Io.Writer` for program output, `std.log` for diagnostics,
-`std.process.fatal` for a fatal CLI condition, a custom `logFn` for structured logs).
-
-This chapter does not own stream mechanics: obtaining `Io`, `Io.Writer` internals, buffering,
-flushing, and authoring a custom writer are `references/concurrency.md` (ZS-CONC-04, ZS-CONC-05,
-ZS-CONC-07, ZS-CONC-10). Error classification and the log-versus-return decision are
-`references/errors.md` (ZS-ERR-02, ZS-ERR-15, ZS-ERR-28, ZS-ERR-29). **Source-code** formatting —
-`zig fmt`, the trailing comma as your only wrapping lever, 100 columns — is a different subject and
-lives in ZS-NAME-24 and ZS-NAME-25. This chapter cites them rather than repeating them.
+`std.process.fatal` for a fatal CLI condition, a custom `logFn` for structured logs). Stream
+mechanics — obtaining `Io`, `Io.Writer` internals, buffering, flushing, and authoring a custom
+writer — are the concurrency chapter's (ZS-CONC-04, ZS-CONC-05, ZS-CONC-07, ZS-CONC-10); error
+classification and the log-versus-return decision the errors chapter's (ZS-ERR-02, ZS-ERR-15,
+ZS-ERR-28, ZS-ERR-29). **Source-code** formatting — `zig fmt`, the trailing comma, 100 columns — is
+another subject, ZS-NAME-24 and ZS-NAME-25.
 
 Every example assumes a file opening with `const std = @import("std");`, `const Io = std.Io;`,
 `const Writer = std.Io.Writer;` and `const assert = std.debug.assert;` — assertions are called bare,
@@ -658,7 +656,7 @@ test "format and parse are checked against each other" {
 
 `RecordId.text_max` is counted by `std.fmt.count` over the widest values, not by hand — the
 ZS-OUT-12 and ZS-OUT-13 discipline again. A `std.testing.Smith` fuzz target over the same pair is
-the natural next step (`references/testing.md`).
+the natural next step (ZS-TEST-18).
 
 ---
 

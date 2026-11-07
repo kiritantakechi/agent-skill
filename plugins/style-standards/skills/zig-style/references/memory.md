@@ -4,12 +4,10 @@ Scope: choosing an allocator in Zig 0.17, the `std.mem.Allocator` vtable and its
 a custom allocator, expressing and enforcing ownership (who allocates, who frees, what a returned
 slice means), `defer`/`errdefer` discipline, pointer-invalidation traps, OOM policy, alignment, raw
 memory copies, and the graduated ladder from "allocate freely" to TigerStyle's "no allocation after
-startup".
-
-This chapter does not own error-set design, `try`/`catch` selection, or `unreachable`-versus-error —
-those are `references/errors.md`. `Io.Reader`/`Io.Writer` buffer sizing is ZS-CONC-11 and
-ZS-CONC-35; assertion density and bounded loops are `references/assertions.md`; `MultiArrayList`
-layout choices are ZS-DATA-22; allocation-failure testing is ZS-TEST-11. It cites them.
+startup". Error-set design, `try`/`catch` selection and `unreachable`-versus-error are the errors
+chapter's; `Io.Reader`/`Io.Writer` buffer sizing is ZS-CONC-11 and ZS-CONC-35; assertion density and
+bounded loops are the assertions chapter's; `MultiArrayList` layout choices are ZS-DATA-22;
+allocation-failure testing is ZS-TEST-11.
 
 Every example assumes a file opening with `const std = @import("std");` and
 `const assert = std.debug.assert;` — assertions are called bare, per ZS-ASSERT-01.

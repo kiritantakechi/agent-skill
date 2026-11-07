@@ -8,8 +8,7 @@ unions, optionals and sentinels. Naming rules live in the naming chapter; error-
 `try`/`catch` shape live in the errors chapter; allocator lifetime and ownership live in the memory
 chapter; `comptime` metaprogramming and generic-type authoring live in the comptime chapter.
 
-Every snippet below assumes this file-scope preamble, per ZS-ASSERT-01 in
-`references/assertions.md`:
+Every snippet below assumes this file-scope preamble, per ZS-ASSERT-01:
 
 ```zig
 // fragment
@@ -1468,8 +1467,8 @@ Two constraints apply to both formats:
 
 - **Both write through a `*std.Io.Writer`** after Writergate —
   `std.zon.stringify.serialize(val, opts, w)` and `std.json.Stringify`. There is no `toString`-style
-  allocating shortcut in the blessed path, so the buffering and flushing rules in
-  `references/concurrency.md` apply unchanged.
+  allocating shortcut in the blessed path, so the buffering and flushing rules (ZS-CONC-04) apply
+  unchanged.
 - **Both need an explicit `Io.Limit` on untrusted input.** Neither parser bounds the *source* it is
   handed; the bound belongs on the read that produced the slice. See ZS-CONC-14 — spell
   `.limited(n)` with a justified `n`, and reserve `.unlimited` for bytes you produced yourself.

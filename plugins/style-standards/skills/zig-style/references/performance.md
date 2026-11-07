@@ -213,8 +213,8 @@ not optional: an unbounded batch converts a throughput win into an unbounded-lat
 unbounded-memory bug.
 
 The I/O half of this rule — draining an event queue instead of reacting per event, `writeVecAll`
-instead of a write per record — is `references/concurrency.md` **ZS-CONC-32**; do not duplicate it.
-This rule covers the non-I/O half: locks, allocations, and per-item work inside a lock.
+instead of a write per record — is ZS-CONC-32; do not duplicate it. This rule covers the non-I/O
+half: locks, allocations, and per-item work inside a lock.
 
 A hot path is ZS-PERF-02's. Anywhere else, batch whatever crosses a process boundary per item — a
 syscall, a lock, an allocation — and leave pure in-memory per-item work alone until a profile names
@@ -614,9 +614,9 @@ fn parseFrame(bytes: []const u8) ?Frame {
 Benchmarks build at `fast` or at the mode you actually ship; a number from a `debug` build is not
 evidence of anything. Know what each mode costs before you invoke one in an argument. For
 `x86_64-linux`, `debug` also uses the self-hosted x86_64 backend, which trades machine-code quality
-for compile speed. The mode table and the argument for shipping `safe` are `references/build.md`
-**ZS-BUILD-24** — read it before choosing `fast` for a shipped artifact, because in `fast` every
-`std.debug.assert` becomes a licence for the optimizer rather than a check (ZS-ASSERT-02).
+for compile speed. The mode table and the argument for shipping `safe` are ZS-BUILD-24 — read it
+before choosing `fast` for a shipped artifact, because in `fast` every `std.debug.assert` becomes a
+licence for the optimizer rather than a check (ZS-ASSERT-02).
 
 **Why:** `debug` applies no optimization at all, and the gap between `debug` and `fast` on a tight
 loop is routinely 10–50x. That swamps every effect this chapter discusses, so a "2x speedup" from a
@@ -844,7 +844,7 @@ pay for it.
 
 **Why:** an inherited `-Doptimize` makes `zig build bench` silently measure a `debug` build
 (ZS-PERF-14); an installed artifact puts the benchmark on the critical path of every `zig build` and
-CI smoke test (`references/build.md` **ZS-BUILD-08**). Pinned, the numbers stay comparable.
+CI smoke test (ZS-BUILD-08). Pinned, the numbers stay comparable.
 
 **Check:** does `build.zig` have a `bench` step at all? Does its module set `.optimize` explicitly,
 or does it pass the shared `optimize` variable? Is the benchmark artifact reachable from the default

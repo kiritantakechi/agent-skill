@@ -1,17 +1,15 @@
 # std.Io: streams, filesystem, and structured concurrency
 
-Everything in Zig 0.17 that can block, fail nondeterministically, or touch the outside world goes
-through one value: `std.Io`. This chapter covers obtaining and threading that value, the
+Scope: everything in Zig 0.17 that can block, fail nondeterministically, or touch the outside world,
+all of which goes through one value, `std.Io` — obtaining and threading that value, the
 buffer-then-flush writing discipline, `Io.Reader`, authoring custom stream implementations, the
 `std.Io.Dir`/`std.Io.File` filesystem API that replaced `std.fs`, structured concurrency
 (`io.async`, `Io.Group`, `Io.Select`, `Io.Queue`, cancellation, timeouts, `Io` sync primitives),
-`std.Io.net`, subprocesses via `std.process.spawn`/`run`, and `Io.Terminal` / `std.Progress`.
-
-This chapter does not own format specifiers — `{f}`, `{t}`, `{?}` and the custom `format` method are
-`references/output.md`. Allocator choice and `defer`/`errdefer` layout are `references/memory.md`;
-`std.testing.io` and `Io.failing` mechanics are ZS-TEST-07; every 0.13 to 0.17 spelling is a row of
-the migration table; the non-I/O half of batching is ZS-PERF-05; scoped library logging is
-ZS-ERR-28. It cites them.
+`std.Io.net`, subprocesses via `std.process.spawn`/`run`, and `Io.Terminal` / `std.Progress`. Format
+specifiers — `{f}`, `{t}`, `{?}` and the custom `format` method — are the output chapter's;
+allocator choice and `defer`/`errdefer` layout the memory chapter's; `std.testing.io` and
+`Io.failing` mechanics are ZS-TEST-07; every 0.13 to 0.17 spelling is a row of the migration table;
+the non-I/O half of batching is ZS-PERF-05; scoped library logging is ZS-ERR-28.
 
 Every example assumes a file opening with
 `const std = @import("std"); const Io = std.Io; const net = std.Io.net;`, and
