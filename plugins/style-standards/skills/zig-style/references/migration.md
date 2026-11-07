@@ -33,9 +33,7 @@ ever had is keyed by its bare name, as code calls it; a name std reaches through
 path from `std`. A row may stand for a family its 0.17 column names. Since is the release from which
 the row's status holds: for a `gone` row the first without the spelling, for an `alias` the one that
 deprecated it, for a `changed` row the one that changed it. Section 2.1 lists the `changed` rows of
-0.17 and section 2.2 the `gone` ones. Each row was checked against the standard library of every
-release from 0.12 to 0.17, by compiling a reference to the spelling or reading its declaration; a
-row only the release notes claim says so.
+0.17 and section 2.2 the `gone` ones. A row only the release notes claim says so.
 
 | Old | Zig 0.17 | Status | Since | Rule |
 |---|---|---|---|---|

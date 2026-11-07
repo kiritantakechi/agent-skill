@@ -105,6 +105,7 @@ standard read as normalised now also fails: `core_rule` (bevy 24, python 26, rus
 
 - [ ] 6.1 Normalise zig-style, including section 2's restructuring and SKILL.md under 500 lines; set
   `normalized`; full suite and its toolchain pass
+  Part 1 of 2 done: core rules, one migration table and section 2, compiler rows, tiers, description.
 
 ## 7. Close
 
