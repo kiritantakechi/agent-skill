@@ -844,6 +844,9 @@ remainder is zero, which is usually the claim a derived limit means to make.
 invisible in review, because both are right on the day they are written. Deriving it makes a
 forgotten update impossible and makes the *relationship* the reviewable artifact.
 
+**Check:** two `pub const … _max` declarations in `constants.zig` where one is an integer literal
+that equals an arithmetic combination of the others.
+
 ```zig
 // fragment — BAD
 pub const blocks_per_message_max: u32 = 16; // Wrong the moment block_size_bytes changes.
@@ -857,9 +860,6 @@ pub const blocks_per_message_max: u32 = @divCeil(message_size_bytes_max, block_s
 
 pub const sectors_per_block: u32 = @divExact(block_size_bytes, sector_size_bytes);
 ```
-
-**Check:** two `pub const … _max` declarations in `constants.zig` where one is an integer literal
-that equals an arithmetic combination of the others.
 
 ### ZS-ASSERT-22 [M] Give every loop a provable bound; an unbounded loop must say so and assert it
 
@@ -885,6 +885,10 @@ queues, buffers, retry counts, backlogs. Everything has a limit; name it (ZS-ASS
 **Why:** an unbounded loop over a data structure turns a corrupt pointer — a cycle, a stale index —
 from a crash into a hang or a tail-latency spike, harder to diagnose and, in a replicated system,
 worse than crashing. A bound converts both into a crash with a stack trace.
+
+**Check:** a `while` whose condition is not `it.next()`, `stack.pop()`, or a counter comparison,
+with no `_max` constant asserted in its body; and any `while (true)` with no comment saying it is
+intended.
 
 ```zig
 // verified — GOOD
@@ -944,10 +948,6 @@ fn eventLoopIterations(budget: u32) u32 {
     return ticks;
 }
 ```
-
-**Check:** a `while` whose condition is not `it.next()`, `stack.pop()`, or a counter comparison,
-with no `_max` constant asserted in its body; and any `while (true)` with no comment saying it is
-intended.
 
 ### ZS-ASSERT-23 [M] Fail fast: check the bound at the boundary where untrusted input enters
 

@@ -105,6 +105,9 @@ rejected example shows.
 **Why:** the decltest form is a compile-checked reference. Rename or delete `add` and the test stops
 compiling instead of silently drifting into a test named after a function that no longer exists.
 
+**Check:** `rg 'test "'` in a diff — each hit must span several declarations or describe a scenario;
+a string that merely repeats an identifier should be a decltest.
+
 ```zig
 // fragment — BAD
 test "add" { // string that merely repeats a name; nothing checks it still exists
@@ -128,9 +131,6 @@ test go { // error: use of undeclared identifier 'go'
     _ = S;
 }
 ```
-
-**Check:** `rg 'test "'` in a diff — each hit must span several declarations or describe a scenario;
-a string that merely repeats an identifier should be a decltest.
 
 ### ZS-TEST-03 [M] Name a scenario test with a claim that can be true or false
 
@@ -336,18 +336,18 @@ test and tears down after; `testing.io` is the `std.Io` interface value taken fr
 error rather than a runtime surprise. Filesystem access additionally goes through `testing.tmpDir`
 (ZS-TEST-09), which is where the `io` argument usually first appears.
 
-```zig
-// fragment — (quoted from std/testing.zig)
-pub var io_instance: Io.Threaded = undefined;
-pub const io = if (builtin.is_test) io_instance.io() else @compileError("not testing");
-```
-
 **Why:** the runner leak-checks that backing allocator around every test, so an `Io` resource you
 fail to close is reported like any other leak (ZS-TEST-04). A privately constructed backend
 allocates outside that window and escapes the check entirely.
 
 **Check:** `rg -n 'Io.Threaded|Io.Uring|Io.Kqueue'` in test files — any hit is a privately
 constructed backend that the runner's leak check cannot see.
+
+```zig
+// fragment — (quoted from std/testing.zig)
+pub var io_instance: Io.Threaded = undefined;
+pub const io = if (builtin.is_test) io_instance.io() else @compileError("not testing");
+```
 
 ```zig
 // verified — GOOD
@@ -1094,6 +1094,10 @@ you get both safety checks and enough speed to explore a meaningful number of se
 applies the full optimizer, so it catches illegal behavior that only manifests once code is inlined,
 and it catches performance regressions and stack-overflow-in-release bugs.
 
+**Check:** the CI config must name both `debug` and `safe` (or the TitleCase `Debug` and
+`ReleaseSafe` that 0.17 still parses), or `build.zig` must construct two `addTest` artifacts. One
+`zig build test` invocation with no `-Doptimize` axis anywhere is the failure this rule names.
+
 ```yaml
 # GOOD — CI, the primary form (full workflow in ZS-BUILD-29)
 strategy:
@@ -1104,10 +1108,6 @@ strategy:
 steps:
   - run: zig build test -Doptimize=${{ matrix.optimize }} --summary all
 ```
-
-**Check:** the CI config must name both `debug` and `safe` (or the TitleCase `Debug` and
-`ReleaseSafe` that 0.17 still parses), or `build.zig` must construct two `addTest` artifacts. One
-`zig build test` invocation with no `-Doptimize` axis anywhere is the failure this rule names.
 
 ```zig
 // fragment — GOOD: the fallback for a project with no CI

@@ -272,6 +272,9 @@ quotes the type.
 **Why:** nearly every member names one architecture's convention, so `.c`, the alias the target
 resolves, is the one spelling right on every target.
 
+**Check:** a payload literal inside `callconv(` in a file that does not branch on
+`builtin.target.cpu.arch` (ZS-INTEROP-18): one architecture's convention, compiled for every target.
+
 ```zig
 // fragment — (quoted from std/lang.zig, `CallingConvention`)
 pub const CallingConvention = union(enum(u8)) {
@@ -290,9 +293,6 @@ pub const CallingConvention = union(enum(u8)) {
     // ... one member per architecture-specific convention
 };
 ```
-
-**Check:** a payload literal inside `callconv(` in a file that does not branch on
-`builtin.target.cpu.arch` (ZS-INTEROP-18): one architecture's convention, compiled for every target.
 
 ```zig
 // verified

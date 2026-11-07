@@ -584,6 +584,11 @@ ZS-DATA-21 is the structural fix: a handle newtype instead of a pointer.
 old block to `undefined`: a retained element pointer reads poison, or in a `fast` build whatever
 reused the page. It is the most common memory bug in Zig code that otherwise has no leaks.
 
+**Check:** in a diff, any `&…items[`, `.getPtr(`, `.value_ptr`, `.items.ptr`, or `.slice()` whose
+result is bound to a `const`/`var` that outlives the next container call. The safe shape binds the
+pointer, uses it, and lets it die inside one statement or one tight block with no mutation in
+between.
+
 ```zig
 // fragment — BAD
 var list: std.ArrayList(u32) = .empty;
@@ -608,11 +613,6 @@ test "element pointers die on append; indices do not" {
     try std.testing.expectEqual(1, list.items[index]);
 }
 ```
-
-**Check:** in a diff, any `&…items[`, `.getPtr(`, `.value_ptr`, `.items.ptr`, or `.slice()` whose
-result is bound to a `const`/`var` that outlives the next container call. The safe shape binds the
-pointer, uses it, and lets it die inside one statement or one tight block with no mutation in
-between.
 
 ### ZS-MEM-16 [M] If you need stable pointers, use `std.heap.MemoryPool(T)` or store indices
 
@@ -1069,6 +1069,10 @@ never an integer.
 where one is expected is a compile error rather than a 4096-fold misinterpretation, and its own
 operations replace hand-rolled masking.
 
+**Check:** any `align` or alignment-named parameter, field, or `const` typed as an integer; any
+`@alignOf(T)` or `1 << n` passed where an `Alignment` belongs; any hand-rolled `& ~(align - 1)`
+masking.
+
 ```zig
 // verified
 const std = @import("std");
@@ -1083,10 +1087,6 @@ test "alignment is mem.Alignment, not an integer" {
     defer gpa.free(nodes);
 }
 ```
-
-**Check:** any `align` or alignment-named parameter, field, or `const` typed as an integer; any
-`@alignOf(T)` or `1 << n` passed where an `Alignment` belongs; any hand-rolled `& ~(align - 1)`
-masking.
 
 ## Raw memory
 

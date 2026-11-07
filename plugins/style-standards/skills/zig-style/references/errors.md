@@ -402,6 +402,10 @@ std's uses each sit next to a buffer whose size is fixed at compile time.
 in `fast`/`small` builds. A wrong `catch unreachable` therefore does not crash in production — it
 miscompiles the surrounding code.
 
+**Check:** every runtime `catch unreachable` has a comment on the same or the preceding line naming
+the fixed bound that makes failure impossible. The short spelling `.?` has no proof form at all —
+ZS-ERR-26 forbids it outright.
+
 ```zig
 // fragment — BAD: allocation can always fail
 const copy = gpa.dupe(u8, name) catch unreachable;
@@ -429,10 +433,6 @@ test formatCode {
 pub const blocks_total_max: u32 =
     std.math.mul(u32, blocks_per_message_max, messages_max) catch unreachable;
 ```
-
-**Check:** every runtime `catch unreachable` has a comment on the same or the preceding line naming
-the fixed bound that makes failure impossible. The short spelling `.?` has no proof form at all —
-ZS-ERR-26 forbids it outright.
 
 ### ZS-ERR-10 [M] Every error is handled somewhere; `catch {}` needs a justification comment
 
@@ -649,6 +649,9 @@ reason to prefer `try` all the way up in application code.
 produced the error. Once it has been converted to `null` or `false`, that chain is gone and you are
 debugging an absence.
 
+**Check:** a function returning `?T` or `bool` whose body contains `catch null`, `catch false`, or
+`catch return null` over a call that had a real error set.
+
 ```zig
 // verified — GOOD: `return err` keeps the trace intact
 const std = @import("std");
@@ -682,9 +685,6 @@ fn caller() void {
     };
 }
 ```
-
-**Check:** a function returning `?T` or `bool` whose body contains `catch null`, `catch false`, or
-`catch return null` over a call that had a real error set.
 
 ## 6. Simple, explicit control flow (TigerStyle)
 
@@ -769,6 +769,9 @@ guard form is used by ZS-ERR-20, ZS-ERR-22 and ZS-ASSERT-13.
 (`while (index < length)`) and in the assertion (`assert(index < length)`), so the reader compares
 identical expressions instead of mentally negating one. Negations are where off-by-one errors hide.
 
+**Check:** an `if (a >= b)` / `if (!ok)` whose body is a block rather than a single early `return`,
+`break`, or `continue`, in a function that also writes the same relation the other way round.
+
 ```zig
 // verified — GOOD
 fn atIndex(items: []const u32, index: usize) ?u32 {
@@ -779,9 +782,6 @@ fn atIndex(items: []const u32, index: usize) ?u32 {
     }
 }
 ```
-
-**Check:** an `if (a >= b)` / `if (!ok)` whose body is a block rather than a single early `return`,
-`break`, or `continue`, in a function that also writes the same relation the other way round.
 
 ### ZS-ERR-19 [S] An `if` with no `else` over a validated domain carries a comment or an assertion
 
@@ -904,6 +904,10 @@ comment, not a build failure.
 function that the compiler can vectorise and a reader can check without tracing callers. It is also
 the mechanism that keeps parents under the 70-line limit (ZS-ERR-28) without scattering the logic.
 
+**Check:** a private helper called from exactly one site whose first statement is an `if` on a
+condition the caller already tested, or a caller that loops calling a helper that could have taken
+the whole slice.
+
 ```zig
 // verified — GOOD
 const std = @import("std");
@@ -920,10 +924,6 @@ fn copyIfRoom(target: []u8, source: []const u8) bool {
     return true;
 }
 ```
-
-**Check:** a private helper called from exactly one site whose first statement is an `if` on a
-condition the caller already tested, or a caller that loops calling a helper that could have taken
-the whole slice.
 
 ## 7. Modern Zig control flow the standard prefers
 
@@ -1171,6 +1171,10 @@ ZS-OUT-05). Give `Diagnostics` a rendering method when the rendering is fixed, a
 still allowing "line 12, col 3", which the set cannot carry: Zig error values have no payload, so
 `error.InvalidCharacterAtLine12` does not exist and cannot.
 
+**Check:** an error set with members like `InvalidCharacterInHeader` or `BadFieldAtLine`, or a parse
+function taking an `Allocator` used only to build an error string. Both are a `*Diagnostics` written
+the wrong way.
+
 ```zig
 // verified — GOOD: ZS-ERR-03's `parseDecimal`, now able to point at the byte
 const std = @import("std");
@@ -1208,10 +1212,6 @@ test "diagnostics carry the position the error set cannot" {
 }
 ```
 
-**Check:** an error set with members like `InvalidCharacterInHeader` or `BadFieldAtLine`, or a parse
-function taking an `Allocator` used only to build an error string. Both are a `*Diagnostics` written
-the wrong way.
-
 ### ZS-ERR-30 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
 
 To record where you are *without* aborting — a leak tracker, an audit log, a "who called this" probe
@@ -1241,6 +1241,10 @@ same `verify`-style constant as an O(N) assertion (ZS-ASSERT-16).
 **Why:** this family is easy to get wrong from memory: older code reaches for an iterator that is
 private, and for a trace type that is not the one an error return trace uses.
 
+**Check:** any surviving `std.debug.StackIterator`, `.dumpStackTrace(@errorReturnTrace())`, or a
+`dumpCurrentStackTrace(start_addr)` call passing a bare `?usize` where it takes
+`StackUnwindOptions`.
+
 ```zig
 // fragment — GOOD
 fn captureHere(addr_buf: []usize) std.debug.StackTrace {
@@ -1248,10 +1252,6 @@ fn captureHere(addr_buf: []usize) std.debug.StackTrace {
     return std.debug.captureCurrentStackTrace(.{ .first_address = @returnAddress() }, addr_buf);
 }
 ```
-
-**Check:** any surviving `std.debug.StackIterator`, `.dumpStackTrace(@errorReturnTrace())`, or a
-`dumpCurrentStackTrace(start_addr)` call passing a bare `?usize` where it takes
-`StackUnwindOptions`.
 
 ## Uniformity of failure and control flow
 

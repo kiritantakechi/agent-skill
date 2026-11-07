@@ -528,18 +528,6 @@ _STRICT = "`claude plugin validate --strict` warns on it, and fails on a warning
 #: states it.
 _INVERSE = "Give every operation its inverse, or document why there is none"
 
-#: Where a core rule stood in zig-style's section 4. A core rule's
-#: citations are read only in a standard not yet normalised, and no
-#: shipped standard states one since `revise` merged them, so each
-#: core-citation control states one there, citing as `cites` says.
-_CORE_AT = "## 4. Core rules\n\n"
-
-
-def _core(tree: Path, cites: str) -> Edited:
-    """zig-style's section 4, stating a core rule that cites `cites`."""
-    rule = f"- **ZS-CORE-90 `[M]`** Put units and qualifiers last ({cites}).\n"
-    return edit(tree, f"{ZS}/SKILL.md", _CORE_AT, _CORE_AT + rule)
-
 
 #: A line of a zig GOOD example with no comment in the three above it.
 _SIZED = "    assert(@sizeOf(Record) == 16);\n"
@@ -665,6 +653,51 @@ def _normal(
     return _on_demo(
         branch, lambda t: edit(t, f"{demo.PROFILE.name}/{rel}", old, new), also
     )
+
+
+#: The demo read as a standard not yet normalised: the one kind whose
+#: core rules, "the other N live here" and description count are read.
+#: Every shipped standard is normalised, so the controls of those
+#: branches read the demo so.
+_UNNORMAL = replace(demo.PROFILE, normalized=False)
+
+#: Where a core rule stands in the demo's section 4.
+_CORE_AT = "## 4. Core rules\n\n"
+
+
+def _unnormal(tree: Path) -> Edited:
+    """The demo's shared passages, as `_UNNORMAL` reads them.
+
+    `demo.build` writes them for its own profile, which is normalised:
+    "All N rules live here" rather than the count of core rules and
+    the others.
+    """
+    shared.rewrite(Skill(tree / demo.PROFILE.name, _UNNORMAL))
+    return (f"{demo.PROFILE.name}/{SKILL_MD}",)
+
+
+def _on_unnormal(
+    branch: Branch,
+    edits: Callable[[Path], Edited],
+    also: Mapping[Branch, str] | None = None,
+) -> Control:
+    """A control on the demo read as not yet normalised, and `edits`.
+
+    The edits come first, so the shared passages are rewritten for the
+    rules they leave: a core rule an edit states is counted as one.
+    """
+    return _on_demo(
+        branch,
+        lambda t: (*edits(t), *_unnormal(t)),
+        also,
+        {demo.PROFILE.name: _UNNORMAL},
+    )
+
+
+def _core(tree: Path, cites: str) -> Edited:
+    """The demo's section 4, stating a core rule that cites `cites`."""
+    rule = f"- **DS-CORE-90 `[M]`** Return an error the caller can handle ({cites}).\n"
+    return edit(tree, f"{demo.PROFILE.name}/{SKILL_MD}", _CORE_AT, _CORE_AT + rule)
 
 
 #: The one control per branch of the normal form, each on the demo.
@@ -1441,13 +1474,13 @@ CONTROLS: list[Control] = [
         frontmatter.REQUIRED,
         lambda t: edit(t, f"{RS}/SKILL.md", f"name: {RS}\n", ""),
     ),
-    Control(
+    _on_unnormal(
         # The second ID of the list. `_paths` reads the first ID after
         # a path, and caught a wrong first one, so the control fired
         # with `_core_citations` gone; a core rule's whole list is read,
         # which is the reason that branch exists.
         anatomy.CORE_WRONG_CHAPTER,
-        lambda t: _core(t, "`references/naming.md` ZS-NAME-06, ZS-ERR-03"),
+        lambda t: _core(t, "`references/errors.md` DS-ERR-01, DS-MIG-01"),
     ),
     Control(
         anatomy.SHARED_TITLE,
@@ -1549,7 +1582,7 @@ CONTROLS: list[Control] = [
         lambda t: append(
             t,
             f"{ZS}/references/data.md",
-            "\nMeasured on this machine: the layout is stable.\n",
+            "\nChecked on this machine: the layout is stable.\n",
         ),
     ),
     # Prose recommending a forbidden spelling.
@@ -1852,14 +1885,14 @@ CONTROLS: list[Control] = [
             )
         },
     ),
-    Control(
+    _on_unnormal(
         anatomy.CORE_UNCITED,
-        lambda t: _core(t, "the naming chapter"),
+        lambda t: _core(t, "the errors chapter"),
     ),
     # A core rule's ID is a rule of the skill and not a chapter's.
-    Control(
+    _on_unnormal(
         anatomy.CORE_NOT_A_RULE,
-        lambda t: _core(t, "`references/naming.md` ZS-CORE-90"),
+        lambda t: _core(t, "`references/errors.md` DS-CORE-90"),
     ),
     # A family listed twice: each agrees, and the sum does not.
     Control(
@@ -1881,15 +1914,20 @@ CONTROLS: list[Control] = [
     ),
     # The count a standard stating core rules gives its chapters; a
     # normalised one says "All N rules live here", which `map_total`
-    # holds.
-    Control(
+    # holds. The demo states three: it is the count `_unnormal` writes
+    # that the edit changes.
+    _on_demo(
         anatomy.MAP_HERE,
-        lambda t: edit(
-            t,
-            f"{ZS}/SKILL.md",
-            "the other 343 live here",
-            "the other 342 live here",
+        lambda t: (
+            *_unnormal(t),
+            *edit(
+                t,
+                f"{demo.PROFILE.name}/{SKILL_MD}",
+                "the other 3 live here",
+                "the other 2 live here",
+            ),
         ),
+        profiles={demo.PROFILE.name: _UNNORMAL},
     ),
     # citations
     Control(
@@ -2083,11 +2121,13 @@ CONTROLS: list[Control] = [
         frontmatter.FOLDED,
         lambda t: edit(t, f"{RS}/SKILL.md", "description: >-\n", "description: >\n"),
     ),
-    Control(
+    # The 1024-character bound a standard not yet normalised is held to;
+    # a normalised one is held to 500 (`bounded`).
+    _on_unnormal(
         frontmatter.LENGTH,
         lambda t: edit(
             t,
-            f"{ZS}/SKILL.md",
+            f"{demo.PROFILE.name}/{SKILL_MD}",
             "description: >-\n",
             "description: >-\n  " + "padding " * 130 + "\n",
         ),
@@ -2096,13 +2136,14 @@ CONTROLS: list[Control] = [
         frontmatter.ANGLE_BRACKET,
         lambda t: edit(t, f"{RS}/SKILL.md", "an async task", "an <async> task"),
     ),
-    # A description that counts its rules, and miscounts them: zig-style
-    # is not normalised yet, so its count is read, and it states none.
-    Control(
+    # A description that counts its rules, and miscounts them: the
+    # count is read in a standard not yet normalised, and the demo
+    # states three rules.
+    _on_unnormal(
         frontmatter.RULE_COUNT,
         lambda t: edit(
             t,
-            f"{ZS}/SKILL.md",
+            f"{demo.PROFILE.name}/{SKILL_MD}",
             "description: >-\n  Use when",
             "description: >-\n  A 1-rule standard. Use when",
         ),

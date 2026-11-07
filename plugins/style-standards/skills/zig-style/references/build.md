@@ -884,6 +884,9 @@ switches to the new linker, which is still off by default.
 deliberate one-line commit with its own CI run, and `safe` alongside `debug` catches UB that only
 manifests under a release memory layout while keeping safety checks armed.
 
+**Check:** the workflow contains a literal `0.17.0` (or whatever you pin) and no `latest`; the
+cache-key expression mentions every `matrix.*` key the job declares.
+
 ```yaml
 # fragment — illustrative only, not a workflow to copy wholesale.
 # Verify the action names and versions yourself; only the `run:` lines are rules.
@@ -893,9 +896,6 @@ manifests under a release memory layout while keeping safety checks armed.
 - run: zig build test -Dtarget=${{ matrix.target }} --summary all
 # cache-key must name every axis, e.g. ${{ matrix.os }}-${{ matrix.optimize }}
 ```
-
-**Check:** the workflow contains a literal `0.17.0` (or whatever you pin) and no `latest`; the
-cache-key expression mentions every `matrix.*` key the job declares.
 
 ### ZS-BUILD-30 [S] Write automation as `scripts/*.zig`, wired into `build.zig`
 
@@ -994,6 +994,9 @@ On 0.17.0:
 entire category into hard errors, so "strictest setting" is already at maximum for Zig code.
 Pretending Zig has a `-Wall` leads people to add imaginary flags instead of the gates that exist.
 
+**Check:** every `addCSourceFile`/`addCSourceFiles` call in `build.zig` has `-Werror` in its
+`flags`; CI runs `zig ast-check` as well as `zig fmt --check`; and nobody has invented a `-Wall`.
+
 ```zig
 // fragment — GOOD: build.zig — the two knobs that actually exist
 pub fn build(b: *std.Build) void {
@@ -1015,9 +1018,6 @@ pub fn build(b: *std.Build) void {
 }
 ```
 
-**Check:** every `addCSourceFile`/`addCSourceFiles` call in `build.zig` has `-Werror` in its
-`flags`; CI runs `zig ast-check` as well as `zig fmt --check`; and nobody has invented a `-Wall`.
-
 ### ZS-BUILD-33 [S] Hard-error on a toolchain mismatch with a `comptime builtin.zig_version` guard
 
 A project that pins one exact Zig version — an application with a reproducible release process, a
@@ -1038,6 +1038,9 @@ only `{f}` dispatches to it (ZS-OUT-01). Use `.order(...) != .eq` for an exact p
 unrelated compile errors deep in std, from which nobody deduces "you are on the wrong toolchain".
 The guard converts that into one sentence naming both versions.
 
+**Check:** `rg -n 'zig_version' build.zig` — a project that claims a pinned toolchain in its README
+or CI has this block, and its version literal matches the one CI installs.
+
 ```zig
 // verified — GOOD: with `.patch = 1` this is
 // `error: unsupported zig version: expected 0.17.1, found 0.17.0`
@@ -1055,9 +1058,6 @@ comptime {
     ));
 }
 ```
-
-**Check:** `rg -n 'zig_version' build.zig` — a project that claims a pinned toolchain in its README
-or CI has this block, and its version literal matches the one CI installs.
 
 ### ZS-BUILD-34 [S] Leave the codegen backend and linker alone; know what the three flags cost
 
@@ -1090,6 +1090,13 @@ All three are `?bool` fields on `Step.Compile` (`use_llvm`, `use_lld`, `use_new_
 after `addExecutable` returns; `use_llvm` and `use_lld` can also be passed in `ExecutableOptions`,
 and none of them is a field of `Module`.
 
+**Why:** the self-hosted backends and the new ELF linker are large, fast, and incomplete; the 0.17
+release notes say the new linker is not at feature parity with the legacy one, which is why it stays
+off by default.
+
+**Check:** `rg -n 'use_new_linker|use_llvm|use_lld|fincremental|fnew-linker' build.zig .github/`
+returns nothing, or every hit has a comment saying why and is confined to a local-only step.
+
 ```text
 default:           .debug_abbrev .debug_aranges .debug_info .debug_line .debug_line_str
                    .debug_loc .debug_loclists .debug_pubnames .debug_pubtypes .debug_ranges
@@ -1099,13 +1106,6 @@ default:           .debug_abbrev .debug_aranges .debug_info .debug_line .debug_l
                    .debug_str_offsets  + .eh_frame .eh_frame_hdr
 -fincremental:     (identical to -fnew-linker — it selects that linker on ELF)
 ```
-
-**Why:** the self-hosted backends and the new ELF linker are large, fast, and incomplete; the 0.17
-release notes say the new linker is not at feature parity with the legacy one, which is why it stays
-off by default.
-
-**Check:** `rg -n 'use_new_linker|use_llvm|use_lld|fincremental|fnew-linker' build.zig .github/`
-returns nothing, or every hit has a comment saying why and is confined to a local-only step.
 
 ## The program's own interfaces: CLI and config files
 
@@ -1136,6 +1136,10 @@ one thing — `const cli = parseArgs(try init.minimal.args.toSlice(arena));`.
 **Why:** the shape of the answer is so obvious that a model will confidently invent
 `std.process.argsParse`, `std.cli`, or a second `main` parameter, and none of them exist — the
 single highest-risk gap in the 0.17 std for generated code.
+
+**Check:** no `std.process.argsAlloc`, no invented `argsParse`/`ArgIterator.parse`, no `main` with a
+second parameter; every `std.process.fatal` call site passes exactly two arguments; and the parser
+has a `--` case and a test for it.
 
 ```zig
 // verified — GOOD
@@ -1187,10 +1191,6 @@ test "flags, --, and operands" {
     try std.testing.expectEqualStrings("--not-a-flag", cli.rest[0]);
 }
 ```
-
-**Check:** no `std.process.argsAlloc`, no invented `argsParse`/`ArgIterator.parse`, no `main` with a
-second parameter; every `std.process.fatal` call site passes exactly two arguments; and the parser
-has a `--` case and a test for it.
 
 ### ZS-BUILD-36 [S] `.zon` is a usable project config format, not just `build.zig.zon`
 

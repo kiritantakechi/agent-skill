@@ -31,9 +31,8 @@ single highest-value part of this skill; read it before writing any line of Zig.
 
 Rules are cited by ID: `ZS-`, then the family of the chapter that owns the rule, then its number.
 Section 6 maps each family to its chapter, so cite the ID when justifying a change and the reader
-can find the full rule and its rationale. When a rule in a chapter and a rule here appear to
-conflict, the chapter is the detailed statement and wins; sections 1 and 3 govern how to break a
-genuine tie.
+can find the full rule and its rationale. When two rules appear to conflict, sections 1 and 3 govern
+how to break the tie.
 
 A chapter ends with **Decided by tools** when a tool settles part of its subject on its own: each
 lint or compiler error, the level it fails a build at, and what it forbids. Those are not rules —
@@ -294,8 +293,8 @@ protocol — severity model, mechanical pass, output format — in `references/r
 ## 6. Reference map
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
-listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The 0
-`ZS-CORE-*` rules live in section 4 above; the other 343 live here.
+listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
+343 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|

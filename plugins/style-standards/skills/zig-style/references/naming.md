@@ -448,13 +448,6 @@ of a call, it moves to the type's comptime parameter list —
 `PriorityQueue(comptime T: type, comptime Context: type, comptime compareFn: …)` — and the data
 arrives later through the methods.
 
-```text
-(comptime T: type,
- items: []T,
- context: anytype,
- comptime lessThanFn: fn (@TypeOf(context), lhs: T, rhs: T) bool)
-```
-
 **Why:** a written-out function type puts the contract in the signature, so a mismatched callback
 fails at the call site rather than inside your loop. TigerStyle's "callbacks go last" served
 hand-threaded continuations, which ZS-CONC-36 retires: an `io.async` `Future` is awaited in place.
@@ -463,6 +456,13 @@ hand-threaded continuations, which ZS-CONC-36 retires: an `io.async` `Future` is
 signature; if the fn is not adjacent to its `context`, or the data is not before both, it is a
 private convention. A `comptime Context: type` parameter beside a `context` value is the tell that
 the signature was written from memory.
+
+```text
+(comptime T: type,
+ items: []T,
+ context: anytype,
+ comptime lessThanFn: fn (@TypeOf(context), lhs: T, rhs: T) bool)
+```
 
 ```zig
 // verified
@@ -613,15 +613,15 @@ mechanically and never exports a file path in its public API.
 **Why:** `@import("x/Foo.zig")` versus `@import("x/foo.zig")` tells you at the import site whether
 you got a type or a namespace, which is exactly the information the langref example encodes.
 
+**Check:** for every file added or renamed in the diff, does it declare top-level fields? A
+`snake_case.zig` with fields, or a `TitleCase.zig` without them, is the violation. A top-level field
+is a line at column 0 that reads `name: Type,`, and is not a comment, a `const` or a `fn`.
+
 ```zig
 // fragment
 const namespace_name = @import("dir_name/file_name.zig");
 const TypeName = @import("dir_name/TypeName.zig");
 ```
-
-**Check:** for every file added or renamed in the diff, does it declare top-level fields? A
-`snake_case.zig` with fields, or a `TitleCase.zig` without them, is the violation. A top-level field
-is a line at column 0 that reads `name: Type,`, and is not a comment, a `const` or a `fn`.
 
 ```
 // BAD                          // GOOD
@@ -956,6 +956,12 @@ UTF-8 with LF endings and a trailing newline.
 **Why:** `zig fmt` *collapses* a multi-line signature that lacks a trailing comma back onto one
 line, so a hand-wrapped signature without a trailing comma will be silently un-wrapped.
 
+**Check:** the CI gate of ZS-BUILD-26 —
+`zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .` — is the whole rule for
+indentation and spacing. The reviewable residue is a multi-line parameter list, struct literal, or
+enum with **no** trailing comma — `zig fmt` will silently collapse it back onto one line — and any
+new `// zig fmt: off` that is not guarding a hand-aligned table.
+
 ```zig
 // fragment — (`zig fmt` input)
 const x = S{ .a = 1, .b = 2, };
@@ -975,12 +981,6 @@ fn f(
     return a + b;
 }
 ```
-
-**Check:** the CI gate of ZS-BUILD-26 —
-`zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .` — is the whole rule for
-indentation and spacing. The reviewable residue is a multi-line parameter list, struct literal, or
-enum with **no** trailing comma — `zig fmt` will silently collapse it back onto one line — and any
-new `// zig fmt: off` that is not guarding a hand-aligned table.
 
 ### ZS-NAME-25 [M] Hard-limit every line to 100 columns
 

@@ -923,6 +923,10 @@ a message naming the requirement (ZS-COMPTIME-07), not `@compileLog`.
 `comptime` parameter, but the bug is at the call site that made the value runtime-known, which may
 be forty frames up. The reference trace is the only artifact connecting the two.
 
+**Check:** `rg -n "@compileLog"` over the diff must return nothing. If a comptime bug report in a
+review says only "unable to resolve comptime value", ask for the output with `-freference-trace`
+raised — the bare diagnostic does not identify the caller.
+
 ```text
 $ zig build-obj bad.zig
 bad.zig:3:35: error: unable to resolve comptime value
@@ -934,10 +938,6 @@ referenced by:
     outer: bad.zig:4:29
     4 reference(s) hidden; use '-freference-trace=6' to see all references
 ```
-
-**Check:** `rg -n "@compileLog"` over the diff must return nothing. If a comptime bug report in a
-review says only "unable to resolve comptime value", ask for the output with `-freference-trace`
-raised — the bare diagnostic does not identify the caller.
 
 ```zig
 // rejected — zig: found compile log statement; never commit one

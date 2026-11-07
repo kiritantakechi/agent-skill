@@ -499,4 +499,7 @@ PROFILE = Profile(
     conventions=CONVENTIONS,
     prose=PROSE,
     structural=(import_order,),
+    # In the normal form: every property normalize-the-standards gates
+    # holds of it (task 6.1).
+    normalized=True,
 )

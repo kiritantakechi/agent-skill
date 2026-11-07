@@ -213,6 +213,10 @@ deliberately, never by accident.
 **Why:** it is the commonest bug in new code. The program below compiles cleanly, runs cleanly,
 exits 0, and prints nothing.
 
+**Check:** for every `writerStreaming(`, `.writer(io,`, or `Io.File.Writer.init(` in a diff, a
+`flush()` on every success path leaving that scope. Also any `defer w.flush() catch {}`, and any
+`return` between the last `print`/`writeAll` and the `flush`.
+
 ```zig
 // fragment — BAD: compiles, runs, exits 0, prints NOTHING
 pub fn main(init: std.process.Init) !void {
@@ -231,10 +235,6 @@ const stdout = &fw.interface;
 try stdout.print("visible\n", .{});
 try stdout.flush(); // last statement of the writer's lifetime
 ```
-
-**Check:** for every `writerStreaming(`, `.writer(io,`, or `Io.File.Writer.init(` in a diff, a
-`flush()` on every success path leaving that scope. Also any `defer w.flush() catch {}`, and any
-`return` between the last `print`/`writeAll` and the `flush`.
 
 ### ZS-CONC-05 [M] Stream to stdout; keep the positional `writer` for files you opened
 
@@ -407,6 +407,11 @@ unmodified.
 `var buffer: [4096]u8` is choosing a 4 KiB maximum line, and a hostile 4 GiB line without a newline
 becomes `error.StreamTooLong` instead of an OOM.
 
+**Check:** any `takeDelimiter`/`peek` call site that does not handle `error.StreamTooLong`
+distinctly from a real I/O failure — silently treating an over-long line as EOF truncates input.
+That the size comes from a named constant is ZS-CONC-37, which owns it for buffers, queues, and
+every other caller-provided fixed array.
+
 ```zig
 // verified — GOOD
 const std = @import("std");
@@ -418,11 +423,6 @@ test "StreamTooLong when the reader buffer cannot hold a line" {
     try std.testing.expectError(error.StreamTooLong, limited.interface.takeDelimiter('\n'));
 }
 ```
-
-**Check:** any `takeDelimiter`/`peek` call site that does not handle `error.StreamTooLong`
-distinctly from a real I/O failure — silently treating an over-long line as EOF truncates input.
-That the size comes from a named constant is ZS-CONC-37, which owns it for buffers, queues, and
-every other caller-provided fixed array.
 
 ### ZS-CONC-11 [M] Iterate lines with `takeDelimiter`, never `takeDelimiterExclusive`
 
@@ -1633,13 +1633,6 @@ rule holds: `run` is a free function so `gpa` precedes `io` (ZS-CONC-02).
 *incrementally* — a build tool relaying a compiler's diagnostics as they appear — or need a `StdIo`
 shape `run` does not offer.
 
-```zig
-// fragment — from std/process.zig
-pub fn spawn(io: Io, options: SpawnOptions) SpawnError!Child;
-pub fn run(gpa: Allocator, io: Io, options: RunOptions) RunError!RunResult;
-pub fn replace(io: Io, options: ReplaceOptions) ReplaceError; // never returns on success
-```
-
 **Why:** draining concurrently is the whole point: a child that fills the stderr pipe blocks forever
 while you read stdout, and hand-rolling `spawn` plus two sequential reads reintroduces exactly that
 deadlock.
@@ -1647,6 +1640,13 @@ deadlock.
 **Check:** `stdout_limit`/`stderr_limit` left at their `.unlimited` default on a child whose output
 is not bounded by construction (ZS-CONC-13); `run`'s `result.stdout`/`result.stderr` without a
 `defer gpa.free`; any surviving `std.process.Child.init`.
+
+```zig
+// fragment — from std/process.zig
+pub fn spawn(io: Io, options: SpawnOptions) SpawnError!Child;
+pub fn run(gpa: Allocator, io: Io, options: RunOptions) RunError!RunResult;
+pub fn replace(io: Io, options: ReplaceOptions) ReplaceError; // never returns on success
+```
 
 ```zig
 // verified — GOOD
