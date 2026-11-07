@@ -211,7 +211,25 @@ time of deletion (both tiers `[M]` unless marked):
   -22, -24 to -29, -31, -33, -34), RS-MOD-02, -05 to -09, -36 to -39 and -42, ZS-MOD-08 (the import
   block in one place), ZS-BUILD-16. Not registered, no chapter: function length (RS-MOD-43 `[S]`, "no
   limit worth enforcing", against ZS-ERR-30 `[M!]`, 70 lines; python's `PLR0915` is on) for 3.14.
-- [ ] 3.7 `api`
+- [x] 3.7 `api`: 11 entries (`AS-API-01` to `-11`), in the public surface (private until needed, decided in
+  one place, enumerated), signatures (general in and specific out, transposable parameters, no mode
+  flag, ownership of a return), the asymmetry cluster (inverse, argument order, uniform sibling
+  failures) and deprecation; realisations: python-style 11 `realises`; rust-style 9 `realises`, 1
+  `extends` (RS-API-26: newtypes, of which transposable parameters are one case), 1 `absent` (the
+  signature states ownership); zig-style 10 `realises`, 1 `absent` (no wildcard export). Moves 18:
+  PS-MOD-07 and PS-DATA-18 into python-style's api; RS-MOD-10 to -17 into rust-style's; ZS-NAME-16,
+  ZS-BUILD-15, ZS-NAME-11, ZS-MEM-09, ZS-DATA-36 to -38 and ZS-ERR-33 into zig-style's new `api.md`
+  (ZS-API-01 to -10; `api` is abstract, so not in `domain`). Merges 0. New rules 4: PS-API-18 (argument
+  order), PS-API-19 (sibling exceptions); ZS-API-06 (take the slice or the interface), ZS-API-10
+  (deprecation). Tier changes 1: PS-API-10 (no mode flag) to `[M]`, its `[S]` toggle clause folded in.
+  PS-DATA-18 retitled to the other two's words. Look-alike notes 2 -> 1 (BV-MIG-03 / RS-MIG-02, for
+  `migration`). Not registered, one standard: PS-API-02 (typing spec's re-export), -04, -06, -07, -11,
+  -12 (return or effect), -13 (document what is not done), -16 (add a keyword-only parameter);
+  RS-API-02, -03 (no `pub` for a test), -05, -07, -08, -09, -10 to -14, -16 to -18, RS-API-62 and -64
+  (breaking changes, additive evolution), -68, -69. Left for `data` and `types`: the
+  rest of rust-style's encapsulation, type-safety, trait and constructor rules (RS-API-19 to -60,
+  -61), PS-API-07 (annotations), PS-DATA-05 / RS-API-17 (a tuple return), ZS-DATA-27 (the weakest
+  return). ZS-ERR-03 (name a public error set) is stated by one standard; ZS-ERR-05 is AS-ERR-09's.
 - [ ] 3.8 `data`
 - [ ] 3.9 `types`
 - [ ] 3.10 `concurrency` (python-style's `async.md` among the candidates)
