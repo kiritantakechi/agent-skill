@@ -23,14 +23,15 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false   # nothing here pushes, so no token on disk
-      - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
         with:
+          toolchain: 1.99.1  # matches rust-toolchain.toml
           components: clippy
       # Bevy is most of the build and changes only when the pin changes.
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       # Bevy needs these to build on Linux; without them the job fails in the
       # dependency build with a linker error that names nothing useful.
       - name: Install Linux dependencies
@@ -65,11 +66,12 @@ jobs:
     # This list is the one in the release manifest. See BV-BUILD-13.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false   # nothing here pushes, so no token on disk
-      - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: 1.99.1 }  # matches rust-toolchain.toml
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -81,21 +83,22 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with: { persist-credentials: false }
-      - uses: dtolnay/rust-toolchain@nightly     # rustfmt.toml's import options are nightly-only
-        with: { components: rustfmt }
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: nightly, components: rustfmt }  # rustfmt.toml's import options are nightly-only
       - run: cargo +nightly fmt --all --check   # `+`: rust-toolchain.toml outranks the install
 
   docs:
     # `CARGO_BUILD_WARNINGS` above denies rustdoc's lints too, but only if something runs rustdoc.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false   # nothing here pushes, so no token on disk
-      - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: 1.99.1 }  # matches rust-toolchain.toml
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -111,21 +114,22 @@ jobs:
       checks: write   # the advisories as a check run, on a push or a pull request
       issues: write   # an issue per advisory, on the weekly schedule
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false   # nothing here pushes, so no token on disk
-      - uses: rustsec/audit-check@v2
+      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998  # v2.0.0
         with: { token: "${{ secrets.GITHUB_TOKEN }}" }
 
   msrv:
     # The manifest's `rust-version` is a claim; this is what makes it true.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false   # nothing here pushes, so no token on disk
-      - uses: dtolnay/rust-toolchain@1.99        # must match `rust-version`
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: 1.99 }  # must match `rust-version`
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -137,11 +141,12 @@ jobs:
     # Only if the game ships to the web. See BV-BUILD-14.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false   # nothing here pushes, so no token on disk
-      - uses: dtolnay/rust-toolchain@1.99.1      # matches rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
         with:
+          toolchain: 1.99.1  # matches rust-toolchain.toml
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       - run: cargo build --target wasm32-unknown-unknown --no-default-features --features web

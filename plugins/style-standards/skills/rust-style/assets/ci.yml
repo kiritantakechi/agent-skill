@@ -23,11 +23,11 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with: { persist-credentials: false }
-      - uses: dtolnay/rust-toolchain@1.99.1      # must match assets/rust-toolchain.toml
-        with: { components: clippy }
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: 1.99.1, components: clippy }  # must match assets/rust-toolchain.toml
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       - run: cargo clippy --all-targets --all-features
       - run: cargo test --all-features
       - run: cargo test --no-default-features
@@ -38,29 +38,31 @@ jobs:
   features:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with: { persist-credentials: false }
-      - uses: dtolnay/rust-toolchain@1.99.1      # must match assets/rust-toolchain.toml
-      - uses: taiki-e/install-action@v2
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: 1.99.1 }  # must match assets/rust-toolchain.toml
+      - uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68  # v2.88.1
         with: { tool: cargo-hack }
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
       - run: cargo hack check --workspace --each-feature --no-dev-deps
 
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with: { persist-credentials: false }
-      - uses: dtolnay/rust-toolchain@nightly     # rustfmt.toml's import options are nightly-only
-        with: { components: rustfmt }
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: nightly, components: rustfmt }  # rustfmt.toml's import options are nightly-only
       - run: cargo +nightly fmt --all --check   # `+`: rust-toolchain.toml outranks the install
 
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with: { persist-credentials: false }
-      - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: 1.99.1 }
       - run: cargo doc --no-deps --all-features
 
   # While `rust-version` equals the pin in rust-toolchain.toml, `1.99` resolves
@@ -69,9 +71,10 @@ jobs:
   msrv:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with: { persist-credentials: false }
-      - uses: dtolnay/rust-toolchain@1.99        # must match `rust-version`
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: 1.99 }  # must match `rust-version`
       - run: cargo +1.99 check --all-features
 
   # Six weeks' warning of a regression. `+beta`, because a committed
@@ -80,19 +83,20 @@ jobs:
   beta:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with: { persist-credentials: false }
-      - uses: dtolnay/rust-toolchain@beta
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+        with: { toolchain: beta }
       - run: cargo +beta test --all-features
 
   # Enable when the crate contains `unsafe`.
   # miri:
   #   runs-on: ubuntu-latest
   #   steps:
-  #     - uses: actions/checkout@v7
+  #     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
   #       with: { persist-credentials: false }
-  #     - uses: dtolnay/rust-toolchain@nightly
-  #       with: { components: miri }
+  #     - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # master
+  #       with: { toolchain: nightly, components: miri }
   #     - run: cargo +nightly miri test
 
   audit:
@@ -102,14 +106,14 @@ jobs:
       checks: write                    # reports advisories as a check
       issues: write                    # opens an issue per advisory on the schedule
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with: { persist-credentials: false }
-      - uses: rustsec/audit-check@v2
+      - uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998  # v2.0.0
         with: { token: "${{ secrets.GITHUB_TOKEN }}" }
 
   semver:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with: { persist-credentials: false }
-      - uses: obi1kenobi/cargo-semver-checks-action@v2
+      - uses: obi1kenobi/cargo-semver-checks-action@6b69fcf40e9b5fb17adeb57e4b6ecd020649a239  # v2.9

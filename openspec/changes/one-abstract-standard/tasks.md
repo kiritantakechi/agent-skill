@@ -162,10 +162,11 @@ time of deletion (both tiers `[M]` unless marked):
 
 ## 4. Actions and CI
 
-- [ ] 4.1 Add the eight action repositories to the session read-only, and pin every `uses:` in the
+- [x] 4.1 Add the eight action repositories to the session read-only, and pin every `uses:` in the
   four `ci.yml` assets to the commit of its newest release at least seven days old, with the version
   comment; `dtolnay/rust-toolchain` is pinned to a `master` commit and takes `toolchain:`; verify the
-  assets' checks and toolchains pass
+  assets' checks and toolchains pass. Pinned: checkout v7.0.1, setup-uv v10.3.3, rust-toolchain master,
+  rust-cache v2.9.3, install-action v2.88.1, audit-check v2.0.0, semver-checks-action v2.9, setup-zig v2.2.1
 - [ ] 4.2 Add `pins.movable_action` and `pins.unversioned_action`, with controls; verify both fire
   alone and pass on the shipped assets
 - [ ] 4.3 Write `.github/workflows/check.yml` (design decision 10), and make `selfapply` hold its
