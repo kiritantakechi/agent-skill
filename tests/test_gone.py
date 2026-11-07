@@ -8,6 +8,7 @@ interpreter, a search of the pinned crates' source, a compile — and the
 driver runs the step it gives.
 """
 
+from dataclasses import replace
 lazy from pathlib import Path
 
 import pytest
@@ -131,8 +132,13 @@ def test_rust_looks_up_the_language_in_the_pinned_toolchain(
         ('extern "C" { \u2026 }', False),
         ("gen", False),
         ("probe_name", True),
-        # A call has no source the harness can write for it.
-        ("env::set_var", None),
+        # A function the edition made `unsafe`, as the call the crate
+        # gives for it, which the target rejects as E0133.
+        ("env::set_var", False),
+        ("env::remove_var", False),
+        # A call the crate gives none for has no source the harness can
+        # write for it.
+        ("env::var", None),
     ],
 )
 def test_rust_compiles_a_row_the_edition_made_under_both_editions(
@@ -144,6 +150,55 @@ def test_rust_compiles_a_row_the_edition_made_under_both_editions(
     rust = next(s for s in skills if s.name == "rust-style")
     step = RUST.probe(rust, spelling, tmp_path, Version.parse("2024"))
     assert provides(step) is live
+
+
+def with_call(skill: Skill, spelling: str, call: str) -> Skill:
+    """`skill`, its crate also giving `call` for `spelling`."""
+    crate = skill.profile.crate
+    assert crate is not None
+    calls = {**crate.unsafe_calls, spelling: call}
+    toolchain = replace(crate, unsafe_calls=calls)
+    return Skill(skill.root, replace(skill.profile, toolchain=toolchain))
+
+
+@pytest.mark.parametrize(
+    ("call", "rc"),
+    [
+        # Live: the target accepts it outside `unsafe`.
+        ('std::env::var("KEY")', 0),
+        # The target rejects it, and not as an `unsafe` call.
+        ("let gen = 1", 2),
+        # The older edition rejects it too.
+        ('std::env::set_var("KEY")', 2),
+    ],
+)
+def test_rust_verifies_a_call_only_by_the_unsafe_call_error(
+    skills: list[Skill], tmp_path: Path, call: str, rc: int
+) -> None:
+    rust = next(s for s in skills if s.name == "rust-style")
+    probed = with_call(rust, "env::var", call)
+    step = RUST.probe(probed, "env::var", tmp_path, Version.parse("2024"))
+    assert step is not None
+    assert execute(step).rc == rc
+
+
+def test_the_driver_fails_a_gone_call_the_edition_accepts(
+    scratch: Path, tmp_path: Path
+) -> None:
+    """A `gone` row naming a function the target calls safely fails.
+
+    The shipped rows probe clean beside it: the two `env` calls are
+    rejected as `unsafe`, so only the injected row is reported.
+    """
+    root = scratch / "rust-style"
+    migration = root / "references" / "migration.md"
+    live = "| `env::var` | a lookup | gone | 2024 | RS-TEST-16 |"
+    row = "| `env::set_var` |"
+    migration.write_text(migration.read_text().replace(row, f"{live}\n{row}", 1))
+    line = migration.read_text().split("\n").index(live) + 1
+    skill = with_call(Skill(root), "env::var", 'std::env::var("KEY")')
+    found = list(gone(RUST, skill, tmp_path / "out"))
+    assert [(str(f.branch), f.where.line) for f in found] == [(str(GONE_LIVE), line)]
 
 
 def test_rust_reads_an_attribute_no_edition_accepts_as_a_broken_probe(

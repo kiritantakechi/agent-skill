@@ -17,12 +17,14 @@ import pytest
 
 import agent_skill
 from agent_skill.checks import all_checks
+from agent_skill.checks.skeleton import gone_rows
 from agent_skill.ids import Version
 from agent_skill.lang import toolchain_for
 from agent_skill.lang.python import PythonSnippet, listed
 from agent_skill.lang.rust import RustCrate
 from agent_skill.lang.zig import ZigBuild
 from agent_skill.profiles import PROFILES
+lazy from agent_skill.model import Skill
 
 PROFILED = list(PROFILES.values())
 
@@ -85,6 +87,23 @@ def test_a_crate_pins_rust_and_its_library_exactly(name: str, crate: RustCrate) 
     assert len(crate.rust.version.release) >= 2, name  # major.minor
     if crate.library is not None:
         assert crate.library.pin.exact, name
+
+
+def test_each_unsafe_call_a_crate_gives_probes_a_gone_row(skills: list[Skill]) -> None:
+    """A call no `gone` row of the edition names is probed by nothing.
+
+    So it would stand in the profile, unread, after its row went.
+    """
+    for skill in skills:
+        crate = skill.profile.crate
+        if crate is None:
+            continue
+        edition = {
+            row.spelling
+            for row, _ in gone_rows(skill)
+            if row.landed is not None and row.landed.edition
+        }
+        assert set(crate.unsafe_calls) <= edition, skill.name
 
 
 @pytest.mark.parametrize(("name", "build"), _configs(ZigBuild))

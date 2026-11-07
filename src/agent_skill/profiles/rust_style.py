@@ -1,6 +1,7 @@
 """rust-style: its own `[M]` rules, applied to its own examples."""
 
 import re
+from dataclasses import replace
 lazy from collections.abc import Iterator
 
 from agent_skill.ids import RuleId, Version
@@ -120,7 +121,16 @@ PROFILE = Profile(
     language="Rust",
     verified_as="compiles as written against Rust {toolchain}, edition 2024",
     strict_scope="library and high-reliability",
-    toolchain=RUST_STYLE,
+    # Each `env` function edition 2024 made `unsafe`, as a call: the
+    # migration table's `gone` row names it, and its probe compiles the
+    # call outside `unsafe`.
+    toolchain=replace(
+        RUST_STYLE,
+        unsafe_calls={
+            "env::remove_var": 'std::env::remove_var("KEY")',
+            "env::set_var": 'std::env::set_var("KEY", "value")',
+        },
+    ),
     edition=Version.parse(EDITION),
     # Each snippet is the defect its rule forbids, written the way it
     # turns up in real code. A fixture shaped to match proves the

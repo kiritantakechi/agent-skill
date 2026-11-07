@@ -171,6 +171,12 @@ class RustCrate:
     #: the crate the examples are written against, for a standard whose
     #: subject is a library rather than the language
     library: Library | None = None
+    #: Each `gone` spelling of a function the edition made `unsafe`, and
+    #: a call of it: the spelling names the function, and a call needs
+    #: arguments it does not give. The probe compiles the call outside
+    #: `unsafe`, under each edition, and only `UNSAFE_CALL` from the
+    #: target's verifies the row.
+    unsafe_calls: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def pin(self) -> Pin:
@@ -595,7 +601,9 @@ class Rust:
 
         An attribute is no item to find, so it is compiled; so is a
         spelling whose row the edition made (`since`), since the edition
-        is what rejects it (`_compiled`). Any other is searched for in
+        is what rejects it (`_compiled`): a function the edition made
+        `unsafe` as the call the crate gives for it (`unsafe_calls`),
+        in a function body. Any other is searched for in
         the source of the release: the library's crates as the registry
         holds them at its pin — `bevy-0.20.1` and every `bevy_*-0.20.1`
         — or, for a standard about the language, the standard library's
@@ -614,6 +622,10 @@ class Rust:
         if ATTRIBUTE.fullmatch(spelling):
             return _compiled(f'{spelling}\npub extern "C" fn probe() {{}}\n', out)
         if since is not None and since.edition:
+            call = _crate(skill).unsafe_calls.get(spelling)
+            if call is not None:
+                source = f"pub fn probe() {{\n    {call};\n}}\n"
+                return _compiled(source, out, UNSAFE_CALL)
             source = _edition_source(spelling)
             return None if source is None else _compiled(source, out)
         name = spelling.removesuffix("()").removesuffix("!")
@@ -659,6 +671,9 @@ ATTRIBUTE = re.compile(r"#\[[^\[\]]+\]")
 #: The edition the examples are written in, and the one before it.
 EDITION = "2024"
 PREVIOUS_EDITION = "2021"
+
+#: What rustc reports for a call to an `unsafe fn` outside `unsafe`.
+UNSAFE_CALL = "E0133"
 
 
 def _tidy(crate: RustCrate) -> None:
@@ -706,7 +721,8 @@ def _edition_source(spelling: str) -> str | None:
 
     An item with its body left out, `extern "C" { … }`, with the body
     empty; a name, as a function's. Any other spelling — a call, a
-    path — has no source the harness can write for it.
+    path — has no source the harness can write for it alone: a call
+    needs its arguments, which `RustCrate.unsafe_calls` gives.
     """
     if spelling.endswith(f"{{ {ELIDED} }}"):
         return spelling.replace(ELIDED, "") + "\n"
@@ -715,23 +731,31 @@ def _edition_source(spelling: str) -> str | None:
     return None
 
 
-def _compiled(source: str, out: Path) -> Step:
+def _compiled(source: str, out: Path, error: str | None = None) -> Step:
     """A step that exits 0 while the target edition accepts `source`.
 
     The crate root is compiled under the edition before the target's,
     then under the target's: 1 when only the older edition accepts it,
     which is what `gone` claims, and 2 when neither does — the probe
     itself is wrong, and the driver says so rather than reading a
-    broken probe as a verified row.
+    broken probe as a verified row. With `error`, the target's
+    rejection is 1 only when it reports that error code, and 2, its
+    diagnostics on stderr, when it reports another: a probe the target
+    rejects for another reason says nothing about the row.
     """
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"probe_{len(list(out.glob('probe_*.rs'))):03d}.rs"
     path.write_text(source)
     rustc = "rustc --crate-type lib --emit metadata --out-dir . --edition"
-    script = (
-        f'{rustc} {PREVIOUS_EDITION} "$1" 2>/dev/null || exit 2; '
-        f'exec {rustc} {EDITION} "$1"'
-    )
+    older = f'{rustc} {PREVIOUS_EDITION} "$1" 2>/dev/null || exit 2; '
+    if error is None:
+        script = older + f'exec {rustc} {EDITION} "$1"'
+    else:
+        script = older + (
+            f'{rustc} {EDITION} "$1" 2>"$1.err" && exit 0; '
+            f'grep -q "^error\\[{error}\\]" "$1.err" && exit 1; '
+            'cat "$1.err" >&2; exit 2'
+        )
     return Step("probe", ("sh", "-c", script, "probe", path.name), out, 120)
 
 
