@@ -26,6 +26,7 @@ from agent_skill.ids import (
     Version,
     cited,
     cited_at,
+    cited_lines,
     leading,
     parse_answer,
     print_range,
@@ -342,6 +343,17 @@ def test_an_id_is_cited_only_whole() -> None:
     assert [str(r) for r in cited(text)] == ["XS-ERR-03", "XS-OUT-12a"]
     assert [str(r) for r in cited(f"{text} YS-ERR-01", "YS")] == ["YS-ERR-01"]
     assert uncited("XS-ERR-03 and XS-OUT-01.") == " and ."
+
+
+def test_a_citation_is_found_on_its_line() -> None:
+    """A form feed ends no line here, as it ends none in an editor."""
+    text = "XS-ERR-03\n\nsee XS-OUT-12a and\fXS-ERR-04\nYS-ERR-01"
+    assert [(str(r), n) for r, n in cited_lines(text)] == [
+        ("XS-ERR-03", 1),
+        ("XS-OUT-12a", 3),
+        ("XS-ERR-04", 3),
+        ("YS-ERR-01", 4),
+    ]
 
 
 @pytest.mark.parametrize(

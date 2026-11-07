@@ -13,9 +13,13 @@ from pathlib import Path
 import pytest
 
 from agent_skill.checks import crossref
+from agent_skill.checks.controls import APPARATUS_CITED, CONTROLS
 from agent_skill.checks.patterns import patterns_of
 from agent_skill.doc import Table, text_of, walk
 from agent_skill.doc.chapter import departures, departures_header
+from agent_skill.ids import Location
+from agent_skill.layout import root_of
+from agent_skill.model import Tree, discover
 from agent_skill.report import Level
 lazy from agent_skill.model import Skill
 
@@ -134,3 +138,21 @@ def test_an_anchor_missing_from_the_tree_is_unrun(bevy: Bevy) -> None:
     assert by_name[delta.profile.anchor] is not None
     found = list(crossref._anchor_patterns(delta, alone))
     assert [f.level for f in found] == [Level.UNRUN]
+
+
+def test_an_apparatus_citation_is_reported_at_its_line(scratch: Path) -> None:
+    """The control's finding names the README line it wrote.
+
+    A finding with no line sends its reader searching the whole README
+    for an ID that is, by the finding, not there to search for.
+    """
+    (control,) = (c for c in CONTROLS if c.branch == crossref.APPARATUS_CITATION)
+    control.inject(scratch)
+    readme = (root_of(scratch) / "README.md").read_text().split("\n")
+    line = readme.index(APPARATUS_CITED.strip()) + 1
+    found = [
+        f.where
+        for f in crossref.crossref(Tree.of(discover(scratch)))
+        if f.branch == crossref.APPARATUS_CITATION
+    ]
+    assert found == [Location(file="README.md", line=line)]

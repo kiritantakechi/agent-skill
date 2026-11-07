@@ -11,14 +11,15 @@ A citation into a skill that is not in the tree is not checked, because
 it cannot be: the claim is about a document nobody here can read.
 """
 
-from pathlib import Path
 lazy from collections.abc import Iterator
+lazy from pathlib import Path
 
 from agent_skill import shared
 from agent_skill.checks import check
 from agent_skill.doc import Paragraph, Table, text_of, walk
 from agent_skill.doc.chapter import RELATIONS, departures, departures_header
-from agent_skill.ids import Location, RuleId, cited
+from agent_skill.ids import Location, RuleId, cited, cited_lines
+from agent_skill.layout import root_of
 from agent_skill.model import SKILL_MD
 from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.checks.corpus import Corpus, corpus_for
@@ -62,15 +63,15 @@ FIXTURES = ("checks/controls.py", "tests/test_crossref.py")
 
 
 def _apparatus_citations(
-    known: dict[str, frozenset[RuleId]], root: Path | None = None
+    known: dict[str, frozenset[RuleId]], root: Path
 ) -> Iterator[Finding]:
     """A rule id named in the code or the README still has to resolve.
 
-    `root` is injectable so this has a real test: the control harness
-    copies the skills and the README and nothing else, so it cannot
-    reach the files this reads.
+    `root` is the repository the checked tree sits in, not the one this
+    file sits in: a control's copy holds the README beside the skills,
+    and its code and tests not at all, so a control reaches this branch
+    through the copy's README, at the line it wrote.
     """
-    root = root or Path(__file__).resolve().parents[3]
     files: list[Path] = []
     for name in APPARATUS:
         target = root / name
@@ -79,11 +80,11 @@ def _apparatus_citations(
         rel = path.relative_to(root).as_posix()
         if not path.exists() or any(rel.endswith(f) for f in FIXTURES):
             continue
-        for rid in cited(path.read_text()):
+        for rid, line in cited_lines(path.read_text()):
             if rid.standard in known and rid not in known[rid.standard]:
                 yield fail(
                     f"cites {rid}, which is not a rule",
-                    Location(file=rel),
+                    Location(file=rel, line=line),
                     APPARATUS_CITATION,
                 )
 
@@ -109,7 +110,8 @@ def crossref(tree: Tree) -> Iterator[Finding]:
     # The harness cites the standards it ships; a fixture's IDs in a
     # test (a demo standard's, made up to be wrong) are not citations.
     shipped = {p: ids for p, ids in known.items() if by_prefix[p].name in PROFILES}
-    yield from _apparatus_citations(shipped)
+    if shipped:
+        yield from _apparatus_citations(shipped, root_of(tree.skills[0].root.parent))
 
 
 def _named(doc: Doc) -> Iterator[RuleId]:

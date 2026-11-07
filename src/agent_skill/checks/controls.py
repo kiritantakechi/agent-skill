@@ -499,6 +499,9 @@ DATA = f"{ZS}/references/data.md"
 MANIFEST = f"{PLUGIN}/.claude-plugin/plugin.json"
 RENAMES_PY = f"{PY}/references/renames.md"
 MARKETPLACE = ".claude-plugin/marketplace.json"
+#: A line citing what is no rule, which `crossref.apparatus` must report
+#: at the line it ends the README on.
+APPARATUS_CITED = "\nThe last assertion is ZS-ASSERT-93.\n"
 
 #: Why the validator refuses what `plugin`'s own branches report: it
 #: warns on it, and `--strict` fails on a warning.
@@ -1922,15 +1925,11 @@ CONTROLS: list[Control] = [
         ),
     ),
     # crossref
-    # The README cites it, and the copy no longer has it.
+    # The copy's README cites a rule past zig-style's last assertion;
+    # its finding is at the README's last line, as a test holds it.
     Control(
         crossref.APPARATUS_CITATION,
-        lambda t: edit(
-            t,
-            f"{ZS}/references/assertions.md",
-            "### ZS-ASSERT-03 [",
-            "### ZS-ASSERT-93 [",
-        ),
+        lambda t: append(root_of(t), "README.md", APPARATUS_CITED),
     ),
     _on_demo(
         # The departure row's rule here, renumbered past the last rule.

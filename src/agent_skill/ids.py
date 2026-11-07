@@ -126,6 +126,19 @@ def cited_at(text: str, standard: str = STANDARD) -> Iterator[tuple[RuleId, int]
         yield RuleId.parse(m.group()), m.end()
 
 
+def cited_lines(text: str, standard: str = STANDARD) -> Iterator[tuple[RuleId, int]]:
+    """Each rule ID `text` names under `standard`, and its line, from 1.
+
+    For a file read whole, outside the document model, whose findings
+    still need a line: an ID never spans one, so each line is searched
+    alone. A line ends at a newline and nowhere else, as an editor
+    counts them; `str.splitlines` also ends one at a form feed.
+    """
+    for number, line in enumerate(text.split("\n"), 1):
+        for rid in cited(line, standard):
+            yield rid, number
+
+
 def uncited(text: str, standard: str = STANDARD) -> str:
     """`text` with each rule ID it names under `standard` taken out."""
     return _whole(standard).sub("", text)
