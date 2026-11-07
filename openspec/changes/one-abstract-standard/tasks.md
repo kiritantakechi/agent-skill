@@ -10,18 +10,18 @@ merges or adds rules also runs `check --skill <each standard it touched> --only 
   skills`, `openspec update`), removing `.claude/commands/opsx/` if the update leaves it; verify with
   a test that every `.claude/skills/openspec-*/SKILL.md` names one `generatedBy`, 1.16.0, that the
   commands directory is absent, and that `openspec validate --all --strict` passes
-- [ ] 1.2 Move `plugin.json` to 2.0.0; verify `check --only plugin` passes and the README states the
+- [x] 1.2 Move `plugin.json` to 2.0.0; verify `check --only plugin` passes and the README states the
   version's reason (rule IDs renumbered, `CORE` removed)
-- [ ] 1.3 Give `crossref.apparatus` findings their line (`ids.cited` yields positions); verify its
+- [x] 1.3 Give `crossref.apparatus` findings their line (`ids.cited` yields positions); verify its
   control's finding carries the line it injected
-- [ ] 1.4 Take cargo's lock on the target directory around the post-run cache cleanup; verify with a
+- [x] 1.4 Take cargo's lock on the target directory around the post-run cache cleanup; verify with a
   test that cleanup waits on a held lock, and one rust-style toolchain run
-- [ ] 1.5 Probe the Rust `env::*` rows by compiling the call outside `unsafe` under edition 2024,
+- [x] 1.5 Probe the Rust `env::*` rows by compiling the call outside `unsafe` under edition 2024,
   expecting E0133; verify `check --skill rust-style --only toolchain` reports them verified, not
   unprobed
-- [ ] 1.6 Make `test_control_fires` use the thread-pooled runner `check --only controls` uses;
+- [x] 1.6 Make `test_control_fires` use the thread-pooled runner `check --only controls` uses;
   verify every control still fires its branch alone and record the time before and after
-- [ ] 1.7 Make `install` exit non-zero when it leaves a differing directory alone and zero when the
+- [x] 1.7 Make `install` exit non-zero when it leaves a differing directory alone and zero when the
   directory is identical; verify with tests for both, and that no test runs a real install into the
   user's directory
 
