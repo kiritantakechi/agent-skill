@@ -17,8 +17,9 @@ action-pinning requirement the shipped assets meet.
 #### Scenario: A pull request
 
 - **WHEN** a pull request is opened
-- **THEN** the fast job runs and its result shows on the pull request, without the toolchains the
-  full job installs
+- **THEN** the fast job runs every check but the toolchain and mutation runs, with the tools those
+  checks call (the compilers `assets`, `citations` and `pins` ask for a version, and the plugin
+  validator), and its result shows on the pull request
 
 #### Scenario: The full harness
 

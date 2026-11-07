@@ -275,7 +275,9 @@ is its departures table.
 
 - **`fast`**, on push to `main` and on pull requests: python-style's lint and test steps, with its
   uv and Python pins, running `check --fast`, `pytest -m "not toolchain"`, `ruff check`, `ruff format
-  --check` and `ty check`.
+  --check` and `ty check`. `--fast` skips the compiling runs, not the tools: `assets`, `citations`,
+  `pins` and `plugin` ask Rust, Zig and Claude Code for their versions, so the job installs them at
+  their pins and compiles nothing (as built, task 4.3).
 - **`full`**, weekly and on `workflow_dispatch`: those steps, plus Rust 1.99 with clippy, rustfmt and
   rust-src, and Zig 0.17.0 through the assets' own actions. It runs `agent-skill check` and `pytest
   -q`.
