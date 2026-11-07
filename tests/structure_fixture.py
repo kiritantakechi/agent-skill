@@ -9,7 +9,8 @@ lazy from pathlib import Path
 
 from agent_skill import shared
 from agent_skill.checks import demo
-from agent_skill.model import Skill
+from agent_skill.layout import SKILLS
+from agent_skill.model import Skill, Tree
 lazy from agent_skill.profiles import Profile
 
 #: The demo's profile: a standard verified against Demo 1.2.3.
@@ -42,3 +43,19 @@ def edit(skill: Skill, rel: str, old: str, new: str) -> Skill:
     assert old in text, f"{rel}: {old!r} not found"
     path.write_text(text.replace(old, new, 1))
     return reparse(skill)
+
+
+def repository(root: Path) -> Tree:
+    """The demo, its delta and the demo abstract standard, laid out.
+
+    Laid out as a repository is, under `root`: the skills where a
+    plugin keeps them, the abstract standard beside them at the root,
+    so a check that reads what sits beside the skills finds it. Each
+    standard is read with its own profile.
+    """
+    skills = root / SKILLS
+    skills.mkdir(parents=True)
+    demo.build(skills)
+    demo.build_delta(skills)
+    demo.build_abstract(root)
+    return Tree.of(Skill(skills / name, p) for name, p in demo.PROFILES.items())

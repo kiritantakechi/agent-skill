@@ -11,13 +11,16 @@ skill ships with. Its shared passages are filled by `shared.rewrite`, as
 `fmt` fills a shipped standard's, and every file is printed canonically.
 """
 
+import shutil
 lazy from pathlib import Path
 
 from agent_skill import shared
+from agent_skill.abstract import PRINCIPLES
 from agent_skill.doc import canonical
 from agent_skill.doc.normal import older
 from agent_skill.ids import Pin
 from agent_skill.lang.python import PythonSnippet
+from agent_skill.layout import ABSTRACT
 from agent_skill.model import REFERENCES, SKILL_MD, Skill
 from agent_skill.profiles import Delta, Mirror, Profile
 from agent_skill.profiles.record import rules
@@ -358,3 +361,95 @@ def build_delta(tree: Path) -> tuple[str, ...]:
 
 #: Every profile a demo standard is read with, by its name.
 PROFILES = {PROFILE.name: PROFILE, DELTA.name: DELTA}
+
+
+# ------------------------------------------------------------------
+# the abstract standard the demo realises (one-abstract-standard)
+
+#: The demo's abstract errors chapter: three entries, the demo's two
+#: rules and its one lint row each realising one, in the template.
+_ABSTRACT_ERRORS = f"""# Errors
+
+Scope: what a unit does when it meets a failure, and how its caller learns of it.
+
+## Contents
+
+- **Failing**
+  - AS-ERR-01 [M!] Report a failure the caller can handle to the caller
+  - AS-ERR-02 [M] Leave stopping the program to the program
+  - AS-ERR-03 [M] Never divide by a value proven to be zero
+
+---
+
+## Failing
+
+### AS-ERR-01 [M!] Report a failure the caller can handle to the caller
+
+A caller decides what a failure means to it, so the unit that meets one reports it.
+
+| Standard | Rule | Relation | Tier | Reason |
+|---|---|---|---|---|
+| {PROFILE.name} | DS-ERR-01 | realises | [M!] | |
+
+### AS-ERR-02 [M] Leave stopping the program to the program
+
+A library returns every failure it meets, and the program decides whether to stop.
+
+| Standard | Rule | Relation | Tier | Reason |
+|---|---|---|---|---|
+| {PROFILE.name} | DS-ERR-02 | realises | [M] | |
+
+### AS-ERR-03 [M] Never divide by a value proven to be zero
+
+A division whose divisor is known to be zero is a defect wherever it stands.
+
+| Standard | Rule | Relation | Tier | Reason |
+|---|---|---|---|---|
+| {PROFILE.name} | `division-by-zero` | decided | | the checker proves it on its own |
+"""
+
+#: The demo's abstract migration chapter: the template, no entry yet.
+_ABSTRACT_MIGRATION = """# Migration
+
+Scope: the spellings a release removed or changed, and what replaces each.
+
+## Contents
+
+- **Concepts**
+
+---
+
+## Concepts
+"""
+
+#: The questions the demo's section 3 opens with.
+_PRINCIPLES = """# Design principles
+
+Scope: the questions section 3 of every base standard opens with, in this
+order, each answered in the standard's own terms.
+
+1. **What can be deleted?** Fewer parts, each of which earns its place.
+"""
+
+#: Each file of the demo abstract standard, by its path in `abstract/`.
+ABSTRACT_FILES = {
+    "errors.md": _ABSTRACT_ERRORS,
+    "migration.md": _ABSTRACT_MIGRATION,
+    PRINCIPLES: _PRINCIPLES,
+}
+
+
+def build_abstract(root: Path) -> tuple[str, ...]:
+    """Write the demo abstract standard at `root`, in place of any.
+
+    `root` is the repository the demo's skills sit in, and the paths
+    returned are relative to it. A control's copy holds the shipped
+    abstract standard, whose entries name no demo rule, so it goes.
+    """
+    target = root / ABSTRACT
+    if target.exists():
+        shutil.rmtree(target)
+    target.mkdir()
+    for rel, text in ABSTRACT_FILES.items():
+        (target / rel).write_text(canonical(text))
+    return tuple(f"{ABSTRACT}/{rel}" for rel in ABSTRACT_FILES)

@@ -32,7 +32,7 @@ merges or adds rules also runs `check --skill <each standard it touched> --only 
 - [x] 2.1 Add `Relation` to `ids` (`realises`, `extends`, `tightens`, `overrides`, `decided`,
   `absent`) and one tier law with its reason rule; make the delta's departures use it; verify the
   law table by unit tests and that every existing `crossref` control still fires
-- [ ] 2.2 Read the abstract standard: a profile-shaped record (prefix `AS`), chapters in the
+- [x] 2.2 Read the abstract standard: a profile-shaped record (prefix `AS`), chapters in the
   template, entries (heading, statement, realisation table) and `principles.md`; add a demo abstract
   standard beside `checks.demo`; verify `print ∘ parse` is the identity on it, and `fmt` idempotent
 - [ ] 2.3 Add the `concepts` check (branches of design decision 3) with one control each on the demo,

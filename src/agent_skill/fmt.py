@@ -24,6 +24,7 @@ from agent_skill.lang import execute, judged, toolchain_for
 from agent_skill.model import Block, Skill
 from agent_skill.report import Finding, Level, declare, fail, note
 lazy from agent_skill import doc
+lazy from agent_skill.abstract import Abstract
 lazy from agent_skill.checks.skeleton import (
     MIGRATION_STEM,
     chapters_mapped,
@@ -86,6 +87,26 @@ def _reprint(skill: Skill) -> list[Finding]:
             path.write_text(printed)
             changed.append(
                 note("re-printed in its canonical form", skill.at(path), REPRINTED)
+            )
+    return changed
+
+
+def format_abstract(abstract: Abstract) -> list[Finding]:
+    """Print every file of the abstract standard in its normal form.
+
+    As a standard's chapters are printed: canonically, citations bare
+    and each entry's parts in order; `principles.md` canonically. A
+    note per file changed, each where the repository keeps it.
+    """
+    changed: list[Finding] = []
+    chapters = {c.path for c in abstract.chapters}
+    for path in abstract.markdown:
+        text = path.read_text(newline="")
+        printed = str(normal(Doc.parse(text), chapter=path in chapters))
+        if printed != text:
+            path.write_text(printed)
+            changed.append(
+                note("re-printed in its canonical form", abstract.at(path), REPRINTED)
             )
     return changed
 

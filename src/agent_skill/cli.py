@@ -8,13 +8,15 @@ docstring, so rewrapping one never rewords the other.
 import argparse
 import json
 import sys
+from functools import partial
 from pathlib import Path
 lazy from collections.abc import Callable
 
 from agent_skill import build
+from agent_skill.abstract import abstract_of
 from agent_skill.checks import all_checks
 from agent_skill.doc.chapter import print_becomes
-from agent_skill.fmt import format_skill
+from agent_skill.fmt import format_abstract, format_skill
 from agent_skill.ids import RuleId
 from agent_skill.lang import toolchain_for
 from agent_skill.layout import SKILLS, root_of
@@ -22,6 +24,7 @@ from agent_skill.model import Skill, Tree, discover
 from agent_skill.report import Level, Result
 lazy from agent_skill import revise
 lazy from agent_skill.measure import table
+lazy from agent_skill.report import Finding
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_SKILLS = REPO / SKILLS
@@ -173,6 +176,8 @@ def cmd_install(args: argparse.Namespace) -> int:
 def cmd_fmt(args: argparse.Namespace) -> int:
     """Format each skill in place, and print what changed.
 
+    The abstract standard beside them is formatted too, unless the run
+    names the skills it formats: its tier cells are its standards'.
     Exit 1 when anything could not be rewritten — a formatter failed, or
     a block or passage was skipped — and 2 when a `--skill` asked for is
     not there.
@@ -182,11 +187,17 @@ def cmd_fmt(args: argparse.Namespace) -> int:
         print(complaint, file=sys.stderr)
         return 2
     failed = False
-    for skill in skills:
-        if args.skill and skill.name not in args.skill:
-            continue
-        findings = format_skill(skill)
-        print(f"  {skill.name}")
+    formatted: list[tuple[str, Callable[[], list[Finding]]]] = [
+        (skill.name, partial(format_skill, skill))
+        for skill in skills
+        if not args.skill or skill.name in args.skill
+    ]
+    abstract = abstract_of(Tree.of(skills))
+    if not args.skill and abstract.root is not None and abstract.root.is_dir():
+        formatted.append((abstract.profile.name, partial(format_abstract, abstract)))
+    for name, formatting in formatted:
+        findings = formatting()
+        print(f"  {name}")
         for finding in findings:
             label = "FAIL  " if finding.level is Level.FAIL else ""
             print(f"      {label}{finding}")

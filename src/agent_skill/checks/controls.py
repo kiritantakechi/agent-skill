@@ -47,7 +47,7 @@ from agent_skill.checks import (
 from agent_skill.ids import Branch, Location, RuleId
 from agent_skill.lang import python, rust, zig
 from agent_skill.lang.python import PythonSnippet
-from agent_skill.layout import PLUGIN, SKILLS, root_of
+from agent_skill.layout import ABSTRACT, PLUGIN, SKILLS, root_of
 from agent_skill.model import SKILL_MD
 from agent_skill.profiles import Mirror, bevy_style, python_style, rust_style, zig_style
 from agent_skill.report import Level, declare, fail, unrun
@@ -176,6 +176,8 @@ def throwaway_tree(source: Path, into: Path) -> Path:
     for beside in ("README.md", "LICENSE"):
         if (root / beside).is_file():
             shutil.copy2(root / beside, into / beside)
+    if (root / ABSTRACT).is_dir():
+        shutil.copytree(root / ABSTRACT, into / ABSTRACT)
     for manifests in (Path(".claude-plugin"), PLUGIN / ".claude-plugin"):
         if (root / manifests).is_dir():
             shutil.copytree(root / manifests, into / manifests)
