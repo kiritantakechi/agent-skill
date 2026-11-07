@@ -105,9 +105,9 @@ SHALL fail.
 ### Requirement: Section 2 has three subsections in one order
 
 Section 2 of every `SKILL.md` SHALL have exactly three subsections, in this order: what compiles and
-behaves differently, what no longer compiles, and what the target gained. The second SHALL be one
-table of old spelling, new spelling and owning rule. Every item SHALL name the rule or migration row
-that owns it.
+behaves differently, what no longer compiles, and what the target gained. The second SHALL be the
+migration table's rows whose since is the target's, rendered from it, as the migration requirement
+states. Every other item SHALL name the rule or migration row that owns it.
 
 #### Scenario: An item with no owner
 
@@ -143,14 +143,30 @@ from its chapter rule's tier and title. There SHALL be no `CORE` family.
 ### Requirement: Migration is a function from old spelling to row
 
 Each migration chapter SHALL hold one table keyed uniquely by old spelling, with columns old
-spelling, target spelling, status and owning rule, where status is one of `gone`, `alias`, `changed`
-or `deprecated`. The command a reader runs to find old spellings SHALL be generated from the `gone`
-and `alias` rows, and every `gone` row SHALL be verified absent from the pinned release.
+spelling, target spelling, status, since and owning rule, where status is one of `gone`, `alias`,
+`changed` or `deprecated`, and since is the release from which the status holds — for a language
+whose changes land in editions as well as releases, the edition when the edition made the change —
+in one form per standard, no later than the target. The command a reader runs to find old spellings
+SHALL be generated from the `gone` and `alias` rows, and every `gone` row SHALL be verified absent
+from the pinned release. Section 2.2 of `SKILL.md` SHALL be the table restricted to the rows whose
+since is the target's, with columns old spelling, target spelling and owning rule, followed by one
+line saying where the other rows are and naming the command, rendered from the table.
 
 #### Scenario: One old spelling in two rows
 
 - **WHEN** an old spelling appears in two rows
 - **THEN** the run fails
+
+#### Scenario: A since the target has not reached
+
+- **WHEN** a Python 3.15 standard's row gives since `3.16`, or `3.15.0`
+- **THEN** the run fails: since is a release's series, no later than the target's
+
+#### Scenario: Section 2.2 kept by hand
+
+- **WHEN** section 2.2 lists a row whose since is an older release, or leaves out one whose since is
+  the target's
+- **THEN** `fmt` renders it from the migration table, and the run fails until it has
 
 #### Scenario: A gone row naming a live API
 
