@@ -144,8 +144,19 @@ time of deletion (both tiers `[M]` unless marked):
   `concurrency`: PS-TEST-26 and -27, RS-CONC-42 with PS-TEST-21 (no sleep), RS-FUNC-38 with PS-TEST-22
   (inject the clock). Not registered: RS-TEST-16 with ZS-TEST-20 (a deterministic test), RS-TEST-23
   with ZS-TEST-24 (fuzz targets), as no python rule states either whole.
-- [ ] 3.3 `build`, including the concept that every third-party CI action is pinned to a commit,
-  realised by a new rule in each base standard
+- [x] 3.3 `build`, including the concept that every third-party CI action is pinned to a commit,
+  realised by a new rule in each base standard: 7 entries (`AS-BUILD-01` to `-07`); realisations:
+  python-style 7 `realises`; rust-style 7 `realises`; zig-style 5 `realises`, 2 `absent` (no lock
+  file, no version ranges). Moves 1: PS-NAME-09 into python-style's build (now PS-BUILD-20). Merges
+  0. New rules 5: PS-BUILD-12, -16, -21, RS-BUILD-47, ZS-BUILD-32 (the action pin is PS-BUILD-21,
+  RS-BUILD-47, ZS-BUILD-32).
+  Tier changes 1: ZS-BUILD-31 to `[M]`, relaxed form folded in. Look-alike notes 14 -> 14. Left for
+  `modules`: ZS-BUILD-21 with RS-MOD-29 (the seed: a module boundary's cost). Not registered:
+  PS-BUILD-04 / RS-BUILD-02, -31 / ZS-BUILD-34 (the oldest toolchain a library supports; three
+  different claims), PS-BUILD-11 (cooldown; no other standard states one), RS-BUILD-28, -29 (audit;
+  rust only), RS-BUILD-41 / ZS-BUILD-23 (release profile, for `performance`), PS-BUILD-15 (a build
+  from the repository alone; rust-style and zig-style state no rule), RS-BUILD-26 / ZS-BUILD-33
+  (denied warnings; different constructs).
 - [ ] 3.4 `naming`
 - [ ] 3.5 `documentation` (zig-style's doc-comment rules among the candidates for a move)
 - [ ] 3.6 `modules` (zig-style's file and module layout among the candidates)
