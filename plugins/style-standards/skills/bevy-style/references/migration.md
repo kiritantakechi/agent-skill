@@ -35,7 +35,9 @@ old name working beside its new one. A spelling with `…` in it is a shape: cod
 from which it does so: for a `gone` row the first without the item, which for a name deprecated
 first is a release after the one that renamed it. Section 2.1 lists the `changed` rows of 0.20 and
 section 2.2 the `gone` ones. A row may stand for a family its 0.20 column names. The command after
-the table finds every `gone` row but a shape.
+the table finds every `gone` spelling the code writes out but a shape; a removed method keyed by its
+type, `Timer::finished`, is called on a value, `timer.finished()`, which names no type a fixed
+string can see, and the compiler rejects it.
 
 | Old | Bevy 0.20 | Status | Since | Rule |
 |---|---|---|---|---|
@@ -370,16 +372,16 @@ rg -n -F -w \
 
 Code from a tutorial, a blog post, an answer or a language model was written against an older Bevy
 until something proves otherwise — often 0.15, and at best 0.19. Run the command after the table
-over it before adapting it, then read it for the `changed` rows and the shapes, which no fixed
-string finds.
+over it before adapting it, then read it for the `changed` rows, the shapes and the removed methods
+it calls on a value (`timer.finished()`), which no fixed string finds.
 
 **Why:** 0.17 renamed the event system, the observer parameter and every system set; 0.20 moved the
 observer's bundle and flattened the pointer events. Nearly all Bevy material online predates one or
 both, and adapting a pattern that no longer exists costs time and keeps the old names in mind.
 
 **Check:** a hit of the command after the table dates the sample, and so does a hit of the Check of
-a rule that owns a `changed` row or a shape; a sample with neither is read against those rows by
-hand.
+a rule that owns a `changed` row or a shape, or the compiler rejecting a `gone` row's method; a
+sample with none of them is read against those rows by hand.
 
 ### BV-MIG-02 [M] Follow a rename to its 0.20 spelling, not its first hop
 

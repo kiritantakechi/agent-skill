@@ -90,9 +90,9 @@ zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-28)
 ### Stale-API greps
 
 These are the highest-yield greps in this file, because they find code that still **compiles**. Run
-the command after the migration table: it finds every `gone` and `alias` spelling, and it is
-generated from the table, so there is no second copy to drift from it here. Then read each call site
-this one finds — the spelling did not change, and its meaning did:
+the command after the migration table: it finds every `gone` and `alias` spelling the code writes
+out, and it is generated from the table, so there is no second copy to drift from it here. Then read
+each call site this one finds — the spelling did not change, and its meaning did:
 
 ```sh
 rg -n 'containsAtLeastScalar\(|@hasDecl\(' # 0.17: (element, minimum); pub declarations only

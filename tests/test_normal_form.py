@@ -328,7 +328,9 @@ def test_fmt_renders_each_row_of_the_target_under_its_status(built: Skill) -> No
     assert "old_call" not in changed
     assert "old_name" not in changed + gone
     assert " ".join(changed.split()).endswith("its owning rule's Check finds it.")
-    assert " ".join(gone.split()).endswith("whatever its release.")
+    assert " ".join(gone.split()).endswith(
+        "the type checker every `gone` member the code reaches through a value."
+    )
     format_skill(fixed)
     again = Skill(built.root, built.profile)
     assert (_subsection(again, CHANGED), _subsection(again, GONE)) == (changed, gone)

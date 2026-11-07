@@ -91,8 +91,9 @@ Since; its owning rule's Check finds it.
 | `gen` | a reserved keyword, so rejected as a name; `r#gen` where the name must stay | RS-BUILD-01 |
 
 A `gone` row of an earlier release is in the migration table, `RS-MIG` in section 6, with its Since;
-the `rg` command after that table finds every `gone` and `alias` spelling but a shape, whatever its
-release.
+the `rg` command after that table finds every `gone` and `alias` spelling the code writes out but a
+shape, whatever its release, and the type checker every `gone` member the code reaches through a
+value.
 
 ### 2.3 What Rust 1.99 gained
 

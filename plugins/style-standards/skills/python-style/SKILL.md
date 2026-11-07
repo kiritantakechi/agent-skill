@@ -131,8 +131,9 @@ Since; its owning rule's Check finds it.
 | `typing.TypedDict("…")` | raises `TypeError` given a name and no fields; `class TD(TypedDict)` | PS-MIG-04 |
 
 A `gone` row of an earlier release is in the migration table, `PS-MIG` in section 6, with its Since;
-the `rg` command after that table finds every `gone` and `alias` spelling but a shape, whatever its
-release.
+the `rg` command after that table finds every `gone` and `alias` spelling the code writes out but a
+shape, whatever its release, and the type checker every `gone` member the code reaches through a
+value.
 
 ### 2.3 What Python 3.15 gained
 

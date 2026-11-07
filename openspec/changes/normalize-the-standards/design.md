@@ -470,6 +470,14 @@ statuses mean the sections; both projections do.
   take a reference, which the edition denies); Python's call shapes as `gone` rather than `changed`
   (a `TypeError` where a call was accepted, as an `AttributeError` is where a name was).
 
+As built (after task 7.1): 2.2's line said the command "finds every `gone` and `alias` spelling but
+a shape", which a row whose Old is a member (`Timer::finished`, `pathlib.PurePath.is_reserved`,
+`std.Build.LazyPath.getPath`) belies: code calls it on a value, which names no type a fixed string
+sees, and a bare `.finished(` would hit live members of the name. The line now says the command finds
+each spelling the code writes out, and the type checker each `gone` member reached through a value
+(`ty`'s `unresolved-attribute`, verified; rustc and zig on code they analyse), and PS-MIG-01, -03,
+BV-MIG-01, ZS-MIG-02 and their chapters' leads say the same.
+
 ### 10. The delta is a typed map
 
 bevy-style's departures are one table: rust-style rule | relation (`overrides`, `tightens`,

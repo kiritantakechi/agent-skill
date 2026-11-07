@@ -140,8 +140,9 @@ Since; its owning rule's Check finds it.
 | `dupeZ` | `allocator.dupeSentinel(u8, s, 0)` | ZS-INTEROP-10 |
 
 A `gone` row of an earlier release is in the migration table, `ZS-MIG` in section 6, with its Since;
-the `rg` command after that table finds every `gone` and `alias` spelling but a shape, whatever its
-release.
+the `rg` command after that table finds every `gone` and `alias` spelling the code writes out but a
+shape, whatever its release, and the type checker every `gone` member the code reaches through a
+value.
 
 ### 2.3 What Zig 0.17 gained
 

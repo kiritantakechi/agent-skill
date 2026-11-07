@@ -261,6 +261,14 @@ def sought(rows: Sequence[Migration]) -> tuple[str, ...]:
     stands. One that changed behaviour, or is deprecated and still
     works, is a rule's to judge, not a hit; so is a shape, which no
     fixed string finds (`Migration.shape`).
+
+    A spelling is found where the code writes it out. A member keyed by
+    its type, `Timer::finished`, is not there when the code calls it on
+    a value, `timer.finished()`, which names no type a fixed string can
+    see; and a bare `.finished(` cannot fail a build, since a live
+    member may share the name (`EntityCommands::observe`). The type
+    checker finds that call: `ty` as `unresolved-attribute`, `rustc`
+    and `zig` as an error, on code they analyse.
     """
     found = (r.spelling for r in rows if r.status in SOUGHT and not r.shape)
     return tuple(dict.fromkeys(s for s in found if s is not None))
@@ -336,12 +344,14 @@ def landed(
 
 #: What the line after each subsection's table says of the rows of
 #: an earlier release, by the status the subsection projects: how a
-#: reader finds a spelling of it in their code.
+#: reader finds a spelling of it in their code. A `gone` member the
+#: code reaches through a value is no fixed string's (`sought`).
 _FOUND = {
     "changed": "its owning rule's Check finds it",
     "gone": (
         "the `rg` command after that table finds every `gone` and `alias` "
-        "spelling but a shape, whatever its release"
+        "spelling the code writes out but a shape, whatever its release, and "
+        "the type checker every `gone` member the code reaches through a value"
     ),
 }
 
@@ -352,7 +362,9 @@ def older(family: str, status: str) -> Paragraph:
     `family` is the migration chapter's, `PS-MIG`: section 6 maps it to
     its file, so the line names no path. A `changed` row is found by
     its rule; a `gone` one by the command the migration table
-    generates, unless it is a shape.
+    generates where the code writes its spelling out, unless it is a
+    shape, and by the type checker where the code reaches a member
+    through a value.
     """
     said = (
         f"A `{status}` row of an earlier release is in the migration table, "

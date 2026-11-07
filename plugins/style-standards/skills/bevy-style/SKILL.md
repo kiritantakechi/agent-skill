@@ -141,8 +141,9 @@ Since; its owning rule's Check finds it.
 | `MeshTag(…)` | `MeshTag::new(x)`, read as `tag.value` | BV-MIG-02 |
 
 A `gone` row of an earlier release is in the migration table, `BV-MIG` in section 6, with its Since;
-the `rg` command after that table finds every `gone` and `alias` spelling but a shape, whatever its
-release.
+the `rg` command after that table finds every `gone` and `alias` spelling the code writes out but a
+shape, whatever its release, and the type checker every `gone` member the code reaches through a
+value.
 
 ### 2.3 What Bevy 0.20 gained
 

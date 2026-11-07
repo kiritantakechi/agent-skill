@@ -594,7 +594,9 @@ grep -rn "pub fn takeDelimiter" "$(zig env | grep std_dir)"/Io/Reader.zig
 A `gone` spelling survives a passing build wherever the compiler never analysed it: a function
 nothing references, a file the module root does not import, or a `builtin.target.os.tag` branch for
 a target the build does not compile. Run the command after the table over the whole tree, not only
-over what the build touched.
+over what the build touched. A `gone` method the table keys by its type's path,
+`std.Build.LazyPath.getPath`, is called there on a value, `lazy_path.getPath(b)`, which names no
+type a fixed string can see: read that code for those rows.
 
 **Why:** Zig analyses lazily, so `zig build` reports a removed name only in code it reaches; the
 rest waits for the first caller, often on another platform and long after the migration.

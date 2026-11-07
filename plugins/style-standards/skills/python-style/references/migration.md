@@ -147,7 +147,8 @@ A row's status says what 3.15 does with the old spelling, and so how to find it:
 
 - `gone` — 3.15 rejects it: the name is absent, an `AttributeError`, an `ImportError` or a failed
   build where it is reached, or the call shape raises a `TypeError` or `ValueError` where it was
-  accepted. The command after the table finds every one but a shape.
+  accepted. The command after the table finds every one the code spells out but a shape, and `ty`
+  every removed method or attribute the code reaches through a value.
 - `changed` — 3.15 accepts it, and it does something else. Its owning rule's Check finds it.
 - `alias` — 3.15 accepts it, and it resolves to its replacement. The command finds it; rewrite it.
 - `deprecated` — 3.15 accepts it, and it works as it did; most warn on use, and a release removes
@@ -189,13 +190,17 @@ the finding.
 ### PS-MIG-03 [M] Do not use a name 3.15 removed
 
 Every `gone` row the rule column gives to PS-MIG-03 is a name 3.15 removed, from Python or from its
-C API, and names its replacement or says there is none.
+C API, and names its replacement or says there is none. A row keyed by its class,
+`pathlib.PurePath.is_reserved`, is a method or attribute the code reaches through an instance,
+`p.is_reserved()`, which names no class a fixed string can see; `ty` reports that call as an
+`unresolved-attribute`.
 
 **Why:** a Python name raises where it is reached, usually not where the module is imported, so the
 failure appears in production on a path the tests did not take; a C API name fails the build, but
-only of an extension built against 3.15. The command finds both statically.
+only of an extension built against 3.15. Both are found statically.
 
-**Check:** the command after the table; every hit is the finding.
+**Check:** the command after the table, and `ty check` under the shipped `ty.toml`; every hit, and
+every `unresolved-attribute` on a name a row removes, is the finding.
 
 ### PS-MIG-04 [M] Never call a live name in a shape 3.15 rejects
 
