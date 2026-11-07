@@ -129,7 +129,13 @@ time of deletion (both tiers `[M]` unless marked):
   - PS-NAME-15 and RS-MOD-43: one concept, one mechanism
   - BV-MIG-03 and RS-MIG-02: do not call an API the target deprecated (a delta and its anchor)
 
-- [ ] 3.1 `errors`
+- [x] 3.1 `errors`: 14 entries (`AS-ERR-01` to `-14`); realisations: python-style 12 `realises`, 1
+  `overrides`, 1 `absent`; rust-style 13 `realises`, 1 `tightens`; zig-style 11 `realises`, 2
+  `overrides`, 1 `absent`. Moves 6: RS-OWN-32, RS-OWN-33, RS-FUNC-02, RS-FUNC-43 into rust-style's
+  errors; ZS-MEM-10, ZS-MEM-12 into zig-style's. Merges 2: RS-ERR-16 into RS-ERR-10, RS-ERR-17 into
+  RS-ERR-13 (now `[M]`, `[M!]` before). New rules 2: PS-ERR-21 and RS-ERR-37. Tier changes: RS-ERR-13
+  only. Look-alike notes 14 → 14. ZS-ERR-33 (with RS-API-59) is left for `api`, ZS-ERR-34 (with
+  RS-MOD-44) for `modules`.
 - [ ] 3.2 `testing`
 - [ ] 3.3 `build`, including the concept that every third-party CI action is pinned to a commit,
   realised by a new rule in each base standard
