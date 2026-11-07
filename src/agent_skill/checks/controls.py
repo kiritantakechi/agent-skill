@@ -696,12 +696,6 @@ NORMAL_FORM: list[Control] = [
         "### 2.3 New",
     ),
     _normal(
-        skeleton.REALITY_TABLE,
-        SKILL_MD,
-        "| Old | Demo 1.2 | Rule |",
-        "| Old | New | Rule |",
-    ),
-    _normal(
         # The 2.1 item, its owner taken away.
         skeleton.REALITY_OWNER,
         SKILL_MD,
@@ -817,24 +811,25 @@ NORMAL_FORM: list[Control] = [
         # the migration table, and one maps old spellings beside it.
         skeleton.MIGRATION_TABLE,
         _DEMO_MIGRATION,
-        "| Old | Demo 1.2 | Status | Rule |",
-        "| Old | Demo 1.1 | Status | Rule |",
+        "| Old | Demo 1.2 | Status | Since | Rule |",
+        "| Old | Demo 1.1 | Status | Since | Rule |",
     ),
     _normal(
-        # The alias row, which section 2.2 does not restrict to.
+        # The alias row, of 1.1, which section 2.2 does not restrict to.
         skeleton.MIGRATION_ROW,
         _DEMO_MIGRATION,
-        "| `old_flag` | `new_flag` | alias | DS-MIG-01 |",
-        "| `old_flag` | `new_flag` | alias | the renaming rule |",
+        "| `old_flag` | `new_flag` | alias | 1.1 | DS-MIG-01 |",
+        "| `old_flag` | `new_flag` | alias | 1.1 | the renaming rule |",
     ),
     _normal(
         # A second row for one old spelling, at a status the command
-        # does not seek, so only the key is wrong.
+        # does not seek and a release section 2.2 does not list, so
+        # only the key is wrong.
         skeleton.MIGRATION_TWICE,
         _DEMO_MIGRATION,
-        "| `old_flag` | `new_flag` | alias | DS-MIG-01 |\n",
-        "| `old_flag` | `new_flag` | alias | DS-MIG-01 |\n"
-        "| `old_flag` | `newer_flag` | changed | DS-MIG-01 |\n",
+        "| `old_flag` | `new_flag` | alias | 1.1 | DS-MIG-01 |\n",
+        "| `old_flag` | `new_flag` | alias | 1.1 | DS-MIG-01 |\n"
+        "| `old_flag` | `newer_flag` | changed | 1.1 | DS-MIG-01 |\n",
     ),
     _normal(
         # The command, kept by hand, a row behind the table.
@@ -844,10 +839,14 @@ NORMAL_FORM: list[Control] = [
         "",
     ),
     _normal(
-        skeleton.REALITY_ROW,
+        # Section 2.2 kept by hand, a row of 1.1 beside the one of 1.2:
+        # the alias row, which the migration table states, is no row
+        # the target made, so the subsection is not its rendering.
+        skeleton.REALITY_DRIFT,
         SKILL_MD,
-        "| `old_name` | `new_name` | DS-MIG-01 |",
-        "| `old_name` | `newer_name` | DS-MIG-01 |",
+        "| `old_name` | `new_name` | DS-MIG-01 |\n",
+        "| `old_name` | `new_name` | DS-MIG-01 |\n"
+        "| `old_flag` | `new_flag` | DS-MIG-01 |\n",
     ),
     _on_delta(
         crossref.RELATION,

@@ -88,13 +88,23 @@ proceed with the stricter reading.
 | Old | Rust 1.99 | Rule |
 |---|---|---|
 | `#[no_mangle]` | `#[unsafe(no_mangle)]`; `#[export_name]` and `#[link_section]` likewise | RS-BUILD-01 |
+| `filetime::set_file_times` | `fs::set_times`, `File::set_times` | RS-MIG-01 |
+| `$e:expr` | matches `_` and `const { … }` as well, so a later `_` arm stops firing; `expr_2021` keeps the old fragment | RS-MACRO-09 |
 | `-> impl Trait` | captures every lifetime in scope, so a caller can fail to borrow; narrow it with `+ use<'a, T>` | RS-OWN-22 |
+| `Box<[T]>::into_iter` | yields `T`, by value, where it yielded `&T` | RS-BUILD-01 |
 | `env::remove_var` | `unsafe`, which `unsafe_code = "forbid"` rejects; pass the code under test a lookup | RS-TEST-16 |
 | `env::set_var` | `unsafe`, which `unsafe_code = "forbid"` rejects; pass the code under test a lookup | RS-TEST-16 |
 | `extern "C" { … }` | rejected; `unsafe extern "C" { … }`, where an item marked `safe fn` is called without `unsafe` | RS-UNSAFE-23 |
 | `gen` | a reserved keyword, so rejected as a name; `r#gen` where the name must stay | RS-BUILD-01 |
+| `if let` | a temporary in the scrutinee drops before the `else` block, which shortens a lock guard's life | RS-BUILD-01 |
 | `static mut` | a reference to one is `static_mut_refs`, denied; `OnceLock`, `LazyLock` or an atomic | RS-CONC-27 |
 | `unsafe fn` | its body is no longer one `unsafe` block: `unsafe_op_in_unsafe_fn` warns on each operation, and CI denies warnings | RS-UNSAFE-06 |
+| `Atomic*::fetch_update` | `try_update`, which it now aliases | RS-CONC-25 |
+| `std::<int>::MAX` | `<int>::MAX`; `MIN` and the other module constants likewise | RS-MIG-02 |
+
+What an earlier release changed is in the migration table, `RS-MIG` in section 6, each row with its
+Since; the `rg` command after that table finds every `gone` and `alias` spelling, whatever its
+release.
 
 ### 2.3 What Rust 1.99 gained
 

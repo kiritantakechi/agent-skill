@@ -18,6 +18,7 @@ lazy from pathlib import Path
 
 from agent_skill import shared
 from agent_skill.doc import canonical
+from agent_skill.doc.normal import older
 from agent_skill.ids import Pin
 from agent_skill.lang.python import PythonSnippet
 from agent_skill.model import REFERENCES, SKILL_MD, Skill
@@ -45,6 +46,10 @@ PROFILE = Profile(
 
 #: The stages of the review, in §5 and in the protocol's review order.
 _STAGES = "1. **Soundness.** Look.\n2. **Errors.** Look.\n"
+
+#: The line section 2.2 closes with, as `fmt` renders it: where the
+#: rows of an older release are.
+OLDER = older("DS-MIG").text
 
 _SKILL_MD = f"""---
 name: {PROFILE.name}
@@ -74,6 +79,8 @@ A demo standard in normal form.
 | Old | Demo 1.2 | Rule |
 |---|---|---|
 | `old_name` | `new_name` | DS-MIG-01 |
+
+{OLDER}
 
 ### 2.3 What Demo 1.2 gained
 
@@ -163,7 +170,7 @@ that can make it.
 
 _MIGRATION = """# Migration
 
-Scope: the spellings Demo 1.2 renamed, and what replaces each.
+Scope: the spellings Demo 1.1 and 1.2 renamed, and what replaces each.
 
 ## Contents
 
@@ -173,10 +180,10 @@ Scope: the spellings Demo 1.2 renamed, and what replaces each.
 
 ## Renamed
 
-| Old | Demo 1.2 | Status | Rule |
-|---|---|---|---|
-| `old_name` | `new_name` | gone | DS-MIG-01 |
-| `old_flag` | `new_flag` | alias | DS-MIG-01 |
+| Old | Demo 1.2 | Status | Since | Rule |
+|---|---|---|---|---|
+| `old_name` | `new_name` | gone | 1.2 | DS-MIG-01 |
+| `old_flag` | `new_flag` | alias | 1.1 | DS-MIG-01 |
 
 ```sh
 rg -n -F \\

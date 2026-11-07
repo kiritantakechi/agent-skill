@@ -8,7 +8,7 @@ standard can be read without running anything.
 from dataclasses import dataclass, field
 lazy from collections.abc import Callable, Iterable, Mapping
 
-from agent_skill.ids import RuleId
+from agent_skill.ids import RuleId, Version
 lazy from agent_skill.ids import Branch, Pin
 lazy from agent_skill.lang import Config
 lazy from agent_skill.lang.rust import RustCrate
@@ -176,6 +176,11 @@ class Profile:
     #: What the standard is verified against when that is not its
     #: toolchain's own release: the library a delta is about.
     subject: Pin | None = None
+    #: The edition the target compiles under, for a standard about a
+    #: language whose changes land in editions as well as releases:
+    #: Rust's `2024`. A migration row's Since may name it, and section
+    #: 2.2 lists the rows that do (normalize-the-standards, decision 9).
+    edition: Version | None = None
     #: above this many hits a pattern enumerates rather than accuses
     judgement: int = 15
     #: Rule id -> what, around a hit of its pattern, makes the hit the
@@ -278,6 +283,18 @@ class Profile:
         target.
         """
         return str(self.pin.version.series) if self.pin is not None else ""
+
+    @property
+    def since(self) -> frozenset[Version]:
+        """What a migration row's Since names when the target made it.
+
+        The series `pin` belongs to, and the edition, where the language
+        has one: Rust 1.99 targets `1.99` and `2024` both, since its
+        examples compile under that release and that edition. Section
+        2.2 is the migration table's rows whose Since is one of these.
+        """
+        found = (Version.try_parse(self.target), self.edition)
+        return frozenset(v for v in found if v is not None)
 
     @property
     def anchor(self) -> str:

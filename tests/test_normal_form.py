@@ -283,10 +283,10 @@ def test_fmt_writes_the_command_the_migration_table_generates(built: Skill) -> N
     added = edit(
         built,
         MIGRATION,
-        "| `old_flag` | `new_flag` | alias | DS-MIG-01 |\n",
-        "| `old_flag` | `new_flag` | alias | DS-MIG-01 |\n"
-        "| `it's` | `its` | gone | DS-MIG-01 |\n"
-        "| `old_mode` | `new_mode` | changed | DS-MIG-01 |\n",
+        "| `old_flag` | `new_flag` | alias | 1.1 | DS-MIG-01 |\n",
+        "| `old_flag` | `new_flag` | alias | 1.1 | DS-MIG-01 |\n"
+        "| `it's` | `its` | gone | 1.1 | DS-MIG-01 |\n"
+        "| `old_mode` | `new_mode` | changed | 1.1 | DS-MIG-01 |\n",
     )
     assert fired(added, "skeleton") == ["skeleton.migration_command"]
     format_skill(added)
@@ -295,3 +295,71 @@ def test_fmt_writes_the_command_the_migration_table_generates(built: Skill) -> N
     text = (fixed.root / MIGRATION).read_text()
     assert "  -e 'old_flag' \\\n  -e 'it'\\''s' \\\n  .\n" in text
     assert "old_mode' \\" not in text
+
+
+def _gone_section(skill: Skill) -> str:
+    """Section 2.2 of `skill`'s `SKILL.md`, heading to next heading."""
+    text = (skill.root / "SKILL.md").read_text()
+    start = text.index("### 2.2 No longer compiles")
+    return text[start : text.index("### 2.3", start)]
+
+
+def test_fmt_renders_section_2_2_from_the_rows_the_target_made(built: Skill) -> None:
+    """A row of 1.2 joins section 2.2; one moved to 1.1 leaves it."""
+    edited = edit(
+        built,
+        MIGRATION,
+        "| `old_name` | `new_name` | gone | 1.2 | DS-MIG-01 |\n",
+        "| `old_name` | `new_name` | gone | 1.1 | DS-MIG-01 |\n"
+        "| `old_mode` | `new_mode` | changed | 1.2 | DS-MIG-01 |\n",
+    )
+    assert fired(edited, "skeleton") == ["skeleton.reality_drift"]
+    format_skill(edited)
+    fixed = Skill(built.root, built.profile)
+    assert fired(fixed, "skeleton") == []
+    section = _gone_section(fixed)
+    assert "| `old_mode` | `new_mode` | DS-MIG-01 |" in section
+    assert "old_name" not in section
+    assert " ".join(section.split()).endswith("whatever its release.")
+    format_skill(fixed)
+    assert _gone_section(Skill(built.root, built.profile)) == section
+
+
+def test_section_2_2_with_no_row_of_the_target_is_its_closing_line(
+    built: Skill,
+) -> None:
+    """No table over no row: the line saying where they are stays."""
+    edited = edit(
+        built,
+        MIGRATION,
+        "| `old_name` | `new_name` | gone | 1.2 | DS-MIG-01 |",
+        "| `old_name` | `new_name` | gone | 1.1 | DS-MIG-01 |",
+    )
+    format_skill(edited)
+    fixed = Skill(built.root, built.profile)
+    assert fired(fixed, "skeleton") == []
+    section = _gone_section(fixed)
+    assert "|" not in section
+    assert "`DS-MIG` in section 6" in section
+
+
+@pytest.mark.parametrize(
+    ("since", "said"),
+    [
+        ("1.3", "after the target's, `1.2`"),
+        ("1.2.0", "not a release's series, `1.2`"),
+        ("2024", "is no release"),
+        ("soon", "is no release"),
+    ],
+)
+def test_a_since_the_target_cannot_have_is_a_row_misread(
+    built: Skill, since: str, said: str
+) -> None:
+    edited = edit(
+        built,
+        MIGRATION,
+        "| `old_flag` | `new_flag` | alias | 1.1 | DS-MIG-01 |",
+        f"| `old_flag` | `new_flag` | alias | {since} | DS-MIG-01 |",
+    )
+    assert fired(edited, "skeleton") == ["skeleton.migration_row"]
+    assert said in fails(edited, "skeleton")[0]

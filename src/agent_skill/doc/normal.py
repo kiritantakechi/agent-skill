@@ -16,9 +16,10 @@ belongs; `anatomy` reports it until they have.
 
 import itertools
 import re
-lazy from collections.abc import Iterable, Iterator, Sequence
+lazy from collections.abc import Collection, Iterable, Iterator, Sequence
 
 from agent_skill.doc import (
+    Align,
     Block,
     Doc,
     Fence,
@@ -46,7 +47,7 @@ from agent_skill.doc.chapter import (
     history,
     migrations,
 )
-from agent_skill.ids import RuleId, leading
+from agent_skill.ids import RuleId, Version, leading
 
 #: A code span of one backtick on each side, and what it holds.
 _SPAN = re.compile(r"(?<!`)`([^`]+)`(?!`)")
@@ -316,3 +317,49 @@ def with_command(doc: Doc, header: Sequence[str]) -> Doc:
     rest = doc.blocks[at + 1 + (stated(doc, at) is not None) :]
     blocks = (*doc.blocks[: at + 1], *((want,) if want else ()), *rest)
     return Doc(doc.frontmatter, blocks)
+
+
+# ------------------------------------------------------------------
+# section 2.2, a projection of the migration table (decision 9)
+
+
+def landed(
+    rows: Iterable[Migration], since: Collection[Version]
+) -> tuple[Migration, ...]:
+    """The rows whose Since is one of `since`, in the table's order."""
+    return tuple(r for r in rows if r.landed in since)
+
+
+def older(family: str) -> Paragraph:
+    """The line after section 2.2's table: where an older change is.
+
+    `family` is the migration chapter's, `PS-MIG`: section 6 maps it to
+    its file, so the line names no path, and the command it names is
+    the one the migration table generates.
+    """
+    said = (
+        "What an earlier release changed is in the migration table, "
+        f"`{family}` in section 6, each row with its Since; the `rg` command "
+        "after that table finds every `gone` and `alias` spelling, whatever "
+        "its release."
+    )
+    return Paragraph(words(said))
+
+
+def reality(
+    rows: Sequence[Migration],
+    since: Collection[Version],
+    header: Sequence[str],
+    family: str,
+) -> tuple[Block, ...]:
+    """Section 2.2: the migration table restricted to the target.
+
+    Each row whose Since is the target's, its Old, target spelling and
+    rule, in the table's order, so the subsection is a function of the
+    table alone, and the line saying where the other rows are. No table
+    when no row landed in the target: a header over no row says nothing.
+    """
+    kept = landed(rows, since)
+    cells = tuple((r.old, r.new, r.rule) for r in kept)
+    table = Table(tuple(header), (Align.NONE,) * len(header), cells)
+    return (*((table,) if kept else ()), older(family))

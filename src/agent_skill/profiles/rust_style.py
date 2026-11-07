@@ -3,8 +3,8 @@
 import re
 lazy from collections.abc import Iterator
 
-from agent_skill.ids import RuleId
-from agent_skill.lang.rust import RUST_STYLE
+from agent_skill.ids import RuleId, Version
+from agent_skill.lang.rust import EDITION, RUST_STYLE
 from agent_skill.profiles.record import (
     LineRule,
     Near,
@@ -121,6 +121,7 @@ PROFILE = Profile(
     verified_as="compiles as written against Rust {toolchain}, edition 2024",
     strict_scope="library and high-reliability",
     toolchain=RUST_STYLE,
+    edition=Version.parse(EDITION),
     # Each snippet is the defect its rule forbids, written the way it
     # turns up in real code. A fixture shaped to match proves the
     # fixture, not the pattern.

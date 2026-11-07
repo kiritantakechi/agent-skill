@@ -51,7 +51,7 @@ _ROWS: tuple[tuple[str, Branch], ...] = (
 )
 _REALITY: tuple[tuple[str, Branch], ...] = (
     ("section 2 laid out otherwise than 2.1-2.3", skeleton.REALITY_SECTIONS),
-    ("a 2.2 subsection that is not one old/new/rule table", skeleton.REALITY_TABLE),
+    ("a 2.2 subsection that is not its rendering", skeleton.REALITY_DRIFT),
     ("section 2 items naming no rule", skeleton.REALITY_OWNER),
 )
 

@@ -1,9 +1,9 @@
 # Migration: What 3.14 and 3.15 Removed, Changed, and Deprecated
 
-Scope: every spelling 3.14 and 3.15 removed, changed, aliased or deprecated, keyed by the old
-spelling, with the rule that owns it; how to read a row; and what to write now so that 3.16 does not
-break it. Why a spelling is wrong is its owning rule's to say; this chapter is the table and the
-command it generates.
+Scope: every spelling that is removed, aliased, changed or deprecated on 3.15, keyed by the old
+spelling, with the release since which it is and the rule that owns it; how to read a row; and what
+to write now so that 3.16 does not break it. Why a spelling is wrong is its owning rule's to say;
+this chapter is the table and the command it generates.
 
 Every rule ID a revision of this standard changed, and what it became, is in
 `references/renames.md`.
@@ -29,72 +29,72 @@ Every rule ID a revision of this standard changed, and what it became, is in
 
 ## Old spellings
 
-| Old | Python 3.15 | Status | Rule |
-|---|---|---|---|
-| `__cached__` | `__spec__.cached`; a module's `__cached__` is no longer set or read | gone | PS-MIG-03 |
-| `ctypes.SetPointerType` | nothing; it was undocumented | gone | PS-MIG-03 |
-| `glob.glob0` | `glob.glob()` with `root_dir=` | gone | PS-MIG-03 |
-| `glob.glob1` | `glob.glob()` with `root_dir=` | gone | PS-MIG-03 |
-| `http.server.CGIHTTPRequestHandler` | nothing | gone | PS-MIG-03 |
-| `python -m http.server --cgi` | nothing | gone | PS-MIG-03 |
-| `importlib.abc.Loader.load_module` | `exec_module()`; the import system no longer calls it | gone | PS-MIG-03 |
-| `pathlib.PurePath.is_reserved` | `os.path.isreserved()` | gone | PS-MIG-03 |
-| `platform.java_ver` | nothing | gone | PS-MIG-03 |
-| `sre_compile` | `re` | gone | PS-MIG-03 |
-| `sre_constants` | `re` | gone | PS-MIG-03 |
-| `sre_parse` | `re` | gone | PS-MIG-03 |
-| `types.CodeType.co_lnotab` | `co_lines()` | gone | PS-MIG-03 |
-| `typing.no_type_check_decorator` | nothing | gone | PS-TYPE-11 |
-| `wave.Wave_read.getmark` | nothing | gone | PS-MIG-03 |
-| `wave.Wave_read.getmarkers` | nothing | gone | PS-MIG-03 |
-| `wave.Wave_write.getmark` | nothing | gone | PS-MIG-03 |
-| `wave.Wave_write.getmarkers` | nothing | gone | PS-MIG-03 |
-| `wave.Wave_write.setmark` | nothing | gone | PS-MIG-03 |
-| `zipimport.zipimporter.load_module` | `exec_module()` | gone | PS-MIG-03 |
-| `PyImport_ImportModuleNoBlock` | `PyImport_ImportModule` | gone | PS-MIG-03 |
-| `PySys_ResetWarnOptions` | nothing | gone | PS-MIG-03 |
-| `PyUnicode_AsDecodedObject` | `PyCodec_Decode` | gone | PS-MIG-03 |
-| `PyUnicode_AsDecodedUnicode` | `PyCodec_Decode` | gone | PS-MIG-03 |
-| `PyUnicode_AsEncodedObject` | `PyCodec_Encode` | gone | PS-MIG-03 |
-| `PyUnicode_AsEncodedUnicode` | `PyCodec_Encode` | gone | PS-MIG-03 |
-| `PyWeakref_GET_OBJECT` | `PyWeakref_GetRef` | gone | PS-MIG-03 |
-| `PyWeakref_GetObject` | `PyWeakref_GetRef` | gone | PS-MIG-03 |
-| `Py_GetExecPrefix` | `PyConfig_Get()` | gone | PS-MIG-03 |
-| `Py_GetPath` | `PyConfig_Get()` | gone | PS-MIG-03 |
-| `Py_GetPrefix` | `PyConfig_Get()` | gone | PS-MIG-03 |
-| `Py_GetProgramFullPath` | `PyConfig_Get()` | gone | PS-MIG-03 |
-| `Py_GetProgramName` | `PyConfig_Get()` | gone | PS-MIG-03 |
-| `Py_GetPythonHome` | `PyConfig_Get()` | gone | PS-MIG-03 |
-| `ast.<Node>(...)` | raises `TypeError` for a field missing or a keyword no field has; give each of the node's `_fields`, and only those | changed | PS-MIG-04 |
-| `datetime.strptime(s, "%d/%m")` | raises `ValueError`; give the format a year directive | changed | PS-MIG-04 |
-| `importlib.resources.files(package=...)` | raises `TypeError`; pass the package positionally | changed | PS-MIG-04 |
-| `sysconfig.is_python_build(check_home=...)` | raises `TypeError`; call it with no argument | changed | PS-MIG-04 |
-| `threading.RLock(*args)` | raises `TypeError`; `threading.RLock()`, which never used them | changed | PS-MIG-04 |
-| `typing.NamedTuple("P", x=int)` | raises `TypeError`; `class P(NamedTuple)` | changed | PS-MIG-04 |
-| `typing.TypedDict("TD")` | raises `TypeError`; `class TD(TypedDict)` | changed | PS-MIG-04 |
-| `asyncio.get_event_loop` | raises `RuntimeError` with no running loop; `asyncio.get_running_loop()` | changed | PS-ASYNC-02 |
-| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | changed | PS-CONC-21 |
-| `from __future__ import annotations` | stringifies every annotation, so `annotationlib`'s `VALUE` and `FORWARDREF` return bare strings | changed | PS-TYPE-04 |
-| `functools.singledispatchmethod` | called through its class, dispatches on the argument after the instance | changed | PS-TYPE-17 |
-| `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | changed | PS-DATA-13 |
-| `locale.getpreferredencoding` | `'utf-8'` under UTF-8 mode, whatever the locale; `locale.getencoding()` | changed | PS-OUT-03 |
-| `obj.n += 1` | on `3.15t`, loses updates when two threads run it | changed | PS-CONC-02 |
-| `open(path)` | UTF-8 whatever the locale, while UTF-8 mode is on | changed | PS-OUT-02 |
-| `cProfile` | `profiling.tracing` | alias | PS-PERF-02 |
-| `typing.Text` | `str` | alias | PS-TYPE-11 |
-| `<module>.__version__` | `sys.version_info`, or `importlib.metadata.version()`; removed in 3.20 | deprecated | PS-MIG-05 |
-| `array.array("u")` | `array.array("w")`; removed in 3.16 | deprecated | PS-MIG-06 |
-| `asyncio.AbstractEventLoopPolicy` | `asyncio.Runner`; removed in 3.16 | deprecated | PS-ASYNC-02 |
-| `asyncio.DefaultEventLoopPolicy` | `asyncio.Runner`; removed in 3.16 | deprecated | PS-ASYNC-02 |
-| `asyncio.WindowsProactorEventLoopPolicy` | `loop_factory=`; removed in 3.16 | deprecated | PS-ASYNC-02 |
-| `asyncio.WindowsSelectorEventLoopPolicy` | `loop_factory=`; removed in 3.16 | deprecated | PS-ASYNC-02 |
-| `asyncio.get_event_loop_policy` | `asyncio.run(main(), loop_factory=...)`; removed in 3.16 | deprecated | PS-ASYNC-02 |
-| `asyncio.set_event_loop_policy` | `asyncio.run(main(), loop_factory=...)`; removed in 3.16 | deprecated | PS-ASYNC-02 |
-| `collections.abc.ByteString` | `collections.abc.Buffer`; removed in 3.17 | deprecated | PS-TYPE-11 |
-| `profile` | `profiling.tracing`; removed in 3.17 | deprecated | PS-PERF-02 |
-| `shutil.ExecError` | nothing; no `shutil` function raises it; removed in 3.16 | deprecated | PS-MIG-06 |
-| `typing.AnyStr` | a constrained type parameter, `def f[S: (str, bytes)](s: S) -> S`; removed in 3.18 | deprecated | PS-TYPE-11 |
-| `typing.ByteString` | `collections.abc.Buffer`; removed in 3.17 | deprecated | PS-TYPE-11 |
+| Old | Python 3.15 | Status | Since | Rule |
+|---|---|---|---|---|
+| `__cached__` | `__spec__.cached`; a module's `__cached__` is no longer set or read | gone | 3.15 | PS-MIG-03 |
+| `ctypes.SetPointerType` | nothing; it was undocumented | gone | 3.15 | PS-MIG-03 |
+| `glob.glob0` | `glob.glob()` with `root_dir=` | gone | 3.15 | PS-MIG-03 |
+| `glob.glob1` | `glob.glob()` with `root_dir=` | gone | 3.15 | PS-MIG-03 |
+| `http.server.CGIHTTPRequestHandler` | nothing | gone | 3.15 | PS-MIG-03 |
+| `python -m http.server --cgi` | nothing | gone | 3.15 | PS-MIG-03 |
+| `importlib.abc.Loader.load_module` | `exec_module()`; the import system no longer calls it | gone | 3.15 | PS-MIG-03 |
+| `pathlib.PurePath.is_reserved` | `os.path.isreserved()` | gone | 3.15 | PS-MIG-03 |
+| `platform.java_ver` | nothing | gone | 3.15 | PS-MIG-03 |
+| `sre_compile` | `re` | gone | 3.15 | PS-MIG-03 |
+| `sre_constants` | `re` | gone | 3.15 | PS-MIG-03 |
+| `sre_parse` | `re` | gone | 3.15 | PS-MIG-03 |
+| `types.CodeType.co_lnotab` | `co_lines()` | gone | 3.15 | PS-MIG-03 |
+| `typing.no_type_check_decorator` | nothing | gone | 3.15 | PS-TYPE-11 |
+| `wave.Wave_read.getmark` | nothing | gone | 3.15 | PS-MIG-03 |
+| `wave.Wave_read.getmarkers` | nothing | gone | 3.15 | PS-MIG-03 |
+| `wave.Wave_write.getmark` | nothing | gone | 3.15 | PS-MIG-03 |
+| `wave.Wave_write.getmarkers` | nothing | gone | 3.15 | PS-MIG-03 |
+| `wave.Wave_write.setmark` | nothing | gone | 3.15 | PS-MIG-03 |
+| `zipimport.zipimporter.load_module` | `exec_module()` | gone | 3.15 | PS-MIG-03 |
+| `PyImport_ImportModuleNoBlock` | `PyImport_ImportModule` | gone | 3.15 | PS-MIG-03 |
+| `PySys_ResetWarnOptions` | nothing | gone | 3.15 | PS-MIG-03 |
+| `PyUnicode_AsDecodedObject` | `PyCodec_Decode` | gone | 3.15 | PS-MIG-03 |
+| `PyUnicode_AsDecodedUnicode` | `PyCodec_Decode` | gone | 3.15 | PS-MIG-03 |
+| `PyUnicode_AsEncodedObject` | `PyCodec_Encode` | gone | 3.15 | PS-MIG-03 |
+| `PyUnicode_AsEncodedUnicode` | `PyCodec_Encode` | gone | 3.15 | PS-MIG-03 |
+| `PyWeakref_GET_OBJECT` | `PyWeakref_GetRef` | gone | 3.15 | PS-MIG-03 |
+| `PyWeakref_GetObject` | `PyWeakref_GetRef` | gone | 3.15 | PS-MIG-03 |
+| `Py_GetExecPrefix` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
+| `Py_GetPath` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
+| `Py_GetPrefix` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
+| `Py_GetProgramFullPath` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
+| `Py_GetProgramName` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
+| `Py_GetPythonHome` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
+| `ast.<Node>(...)` | raises `TypeError` for a field missing or a keyword no field has; give each of the node's `_fields`, and only those | changed | 3.15 | PS-MIG-04 |
+| `datetime.strptime(s, "%d/%m")` | raises `ValueError`; give the format a year directive | changed | 3.15 | PS-MIG-04 |
+| `importlib.resources.files(package=...)` | raises `TypeError`; pass the package positionally | changed | 3.15 | PS-MIG-04 |
+| `sysconfig.is_python_build(check_home=...)` | raises `TypeError`; call it with no argument | changed | 3.15 | PS-MIG-04 |
+| `threading.RLock(*args)` | raises `TypeError`; `threading.RLock()`, which never used them | changed | 3.15 | PS-MIG-04 |
+| `typing.NamedTuple("P", x=int)` | raises `TypeError`; `class P(NamedTuple)` | changed | 3.15 | PS-MIG-04 |
+| `typing.TypedDict("TD")` | raises `TypeError`; `class TD(TypedDict)` | changed | 3.15 | PS-MIG-04 |
+| `asyncio.get_event_loop` | raises `RuntimeError` with no running loop; `asyncio.get_running_loop()` | changed | 3.14 | PS-ASYNC-02 |
+| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | changed | 3.15 | PS-CONC-21 |
+| `from __future__ import annotations` | stringifies every annotation, so `annotationlib`'s `VALUE` and `FORWARDREF` return bare strings | changed | 3.14 | PS-TYPE-04 |
+| `functools.singledispatchmethod` | called through its class, dispatches on the argument after the instance | changed | 3.15 | PS-TYPE-17 |
+| `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | changed | 3.15 | PS-DATA-13 |
+| `locale.getpreferredencoding` | `'utf-8'` under UTF-8 mode, whatever the locale; `locale.getencoding()` | changed | 3.15 | PS-OUT-03 |
+| `obj.n += 1` | on `3.15t`, loses updates when two threads run it | changed | 3.13 | PS-CONC-02 |
+| `open(path)` | UTF-8 whatever the locale, while UTF-8 mode is on | changed | 3.15 | PS-OUT-02 |
+| `cProfile` | `profiling.tracing` | alias | 3.15 | PS-PERF-02 |
+| `typing.Text` | `str` | alias | 3.11 | PS-TYPE-11 |
+| `<module>.__version__` | `sys.version_info`, or `importlib.metadata.version()`; removed in 3.20 | deprecated | 3.15 | PS-MIG-05 |
+| `array.array("u")` | `array.array("w")`; removed in 3.16 | deprecated | 3.13 | PS-MIG-06 |
+| `asyncio.AbstractEventLoopPolicy` | `asyncio.Runner`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-02 |
+| `asyncio.DefaultEventLoopPolicy` | `asyncio.Runner`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-02 |
+| `asyncio.WindowsProactorEventLoopPolicy` | `loop_factory=`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-02 |
+| `asyncio.WindowsSelectorEventLoopPolicy` | `loop_factory=`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-02 |
+| `asyncio.get_event_loop_policy` | `asyncio.run(main(), loop_factory=...)`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-02 |
+| `asyncio.set_event_loop_policy` | `asyncio.run(main(), loop_factory=...)`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-02 |
+| `collections.abc.ByteString` | `collections.abc.Buffer`; removed in 3.17 | deprecated | 3.15 | PS-TYPE-11 |
+| `profile` | `profiling.tracing`; removed in 3.17 | deprecated | 3.15 | PS-PERF-02 |
+| `shutil.ExecError` | nothing; no `shutil` function raises it; removed in 3.16 | deprecated | 3.14 | PS-MIG-06 |
+| `typing.AnyStr` | a constrained type parameter, `def f[S: (str, bytes)](s: S) -> S`; removed in 3.18 | deprecated | 3.13 | PS-TYPE-11 |
+| `typing.ByteString` | `collections.abc.Buffer`; removed in 3.17 | deprecated | 3.15 | PS-TYPE-11 |
 
 ```sh
 rg -n -F \
@@ -149,6 +149,10 @@ A row's status says what the old spelling does on 3.15, and so how to find it:
 - `changed` — the spelling resolves and does something else, or a call shape it accepted now raises.
   No fixed string finds a shape, so the owning rule says how to find it.
 - `deprecated` — it works, most warn on use, and a release removes it, which the row names.
+
+Its Since is the release from which it does so: the one that removed, aliased, changed or deprecated
+it. Section 2.2 lists the rows of 3.15; code written for an older release reads the rows since that
+one.
 
 A *discouraged* name has no row. `re.match` is the canonical one: soft-deprecated in favour of
 `re.prefixmatch`, and the documentation says outright, *"We do not plan to remove the older

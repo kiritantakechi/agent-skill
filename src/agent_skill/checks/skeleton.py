@@ -41,8 +41,8 @@ from agent_skill.doc.chapter import (
     migrations,
     reality_header,
 )
-from agent_skill.doc.normal import generated, listed, projection, stated
-from agent_skill.ids import RuleId, cited, leading
+from agent_skill.doc.normal import generated, listed, projection, reality, stated
+from agent_skill.ids import RuleId, Version, cited, leading
 from agent_skill.model import REFERENCES, RENAMES_MD, SKILL_MD
 from agent_skill.report import Level, declare, fail
 lazy from agent_skill.doc import Block, Doc
@@ -94,7 +94,6 @@ NO_SCOPE = declare("skeleton", "no_scope", Level.FAIL)
 DECIDED_LAST = declare("skeleton", "decided_last", Level.FAIL)
 CHAPTER_NAMED = declare("skeleton", "chapter_named", Level.FAIL)
 REALITY_SECTIONS = declare("skeleton", "reality_sections", Level.FAIL)
-REALITY_TABLE = declare("skeleton", "reality_table", Level.FAIL)
 REALITY_OWNER = declare("skeleton", "reality_owner", Level.FAIL)
 CORE_RULE = declare("skeleton", "core_rule", Level.FAIL)
 CORE_DRIFT = declare("skeleton", "core_drift", Level.FAIL)
@@ -102,7 +101,7 @@ MIGRATION_TABLE = declare("skeleton", "migration_table", Level.FAIL)
 MIGRATION_ROW = declare("skeleton", "migration_row", Level.FAIL)
 MIGRATION_TWICE = declare("skeleton", "migration_twice", Level.FAIL)
 MIGRATION_COMMAND = declare("skeleton", "migration_command", Level.FAIL)
-REALITY_ROW = declare("skeleton", "reality_row", Level.FAIL)
+REALITY_DRIFT = declare("skeleton", "reality_drift", Level.FAIL)
 SKILL_MD_LINES = declare("skeleton", "skill_md_lines", Level.FAIL)
 
 #: `SKILL.md` is under this many lines: it is loaded whole, every time
@@ -576,10 +575,12 @@ def reality_titles(skill: Skill) -> tuple[str, str, str]:
 def _reality(skill: Skill) -> Iterator[Finding]:
     """Section 2 is three subsections, and indexes the chapters.
 
-    What compiles and behaves differently, what no longer compiles (one
-    table: old, new, rule), what the target gained, in that order. Each
-    item names the rule that owns it, so section 2 holds nothing of its
-    own (decision 5): every item of the section, under whichever
+    What compiles and behaves differently, what no longer compiles, what
+    the target gained, in that order (decision 5). Section 2.2 is the
+    migration table restricted to the rows the target made, rendered
+    from it (decision 9), so it holds nothing a person writes; each item
+    of the other two names the rule that owns it, so section 2 holds
+    nothing of its own — every item of the section, under whichever
     subsection or none, so a section still to be laid out is read too.
     """
     title = shared.skill_sections(skill)[2]
@@ -587,7 +588,7 @@ def _reality(skill: Skill) -> Iterator[Finding]:
     if section is None:
         return  # `section` reports a missing or misnamed section 2
     where = skill.at(SKILL_MD, section.line)
-    before, parts = _subsections(section.lead)
+    before, parts = subsections(section.lead)
     want = reality_titles(skill)
     found = [heading.text for heading, _ in parts]
     if before or found != list(want):
@@ -598,46 +599,60 @@ def _reality(skill: Skill) -> Iterator[Finding]:
             where,
             REALITY_SECTIONS,
         )
-    held = {heading.text: blocks for heading, blocks in parts}
-    gone = held.get(want[1])
-    header = reality_header(target(skill))
-    match gone:
-        case None:
-            pass
-        case (Table() as table,) if table.header == header:
-            yield from _restricted(skill, table)
-        case _:
-            yield fail(
-                f"{want[1]} is one table, `| {' | '.join(header)} |`",
-                where,
-                REALITY_TABLE,
-            )
-    yield from _owned(skill, (*before, *(b for _, blocks in parts for b in blocks)))
+    rendered = reality_rendered(skill)
+    for heading, blocks in parts:
+        if heading.text == want[1] and rendered is not None and blocks != rendered:
+            yield _drifted(skill, heading, blocks, rendered)
+    written = (
+        b for heading, blocks in parts if heading.text != want[1] for b in blocks
+    )
+    yield from _owned(skill, (*before, *written))
 
 
-def _restricted(skill: Skill, table: Table) -> Iterator[Finding]:
-    """Each row of section 2.2 is a row of the migration table.
+def reality_rendered(skill: Skill) -> tuple[Block, ...] | None:
+    """Section 2.2 as the migration table renders it, or None.
 
-    Section 2.2 is the migration function restricted to what no longer
-    compiles, its status column left out: the same old spelling, new
-    spelling and rule (decision 9). Not read while the migration table
-    is not one table, which `migration_table` reports.
+    The rows whose Since is the target's — the series its pin belongs
+    to, or its edition (`Profile.since`) — under the migration table's
+    columns less Status and Since, then the line saying where the rest
+    are. None while the migration chapter holds no one table to render
+    from, which `migration_table` reports.
     """
     found = _migration_rows(skill)
     if found is None:
-        return
-    rows = {(m.old, m.new, m.rule) for m in found[1]}
-    for k, row in enumerate(table.rows):
-        if tuple(row) not in rows:
-            yield fail(
-                f"section 2.2 lists {row[0]} → {row[1]} ({row[2]}), which no row of "
-                "the migration table states; section 2.2 is that table restricted",
-                skill.at(SKILL_MD, table.line + 2 + k),
-                REALITY_ROW,
-            )
+        return None
+    family = f"{skill.prefix}-{vocabulary.code_for(MIGRATION_STEM)}"
+    header = reality_header(target(skill))
+    return reality(found[1], skill.profile.since, header, family)
 
 
-def _subsections(
+def _drifted(
+    skill: Skill,
+    heading: Heading,
+    held: Sequence[Block],
+    rendered: Sequence[Block],
+) -> Finding:
+    """Section 2.2 differs from its rendering: say how, and where."""
+    rows = {tuple(r) for b in held if isinstance(b, Table) for r in b.rows}
+    want = {tuple(r) for b in rendered if isinstance(b, Table) for r in b.rows}
+    extra, missing = sorted(rows - want), sorted(want - rows)
+    said = (
+        f"lists {extra[0][0]}, which is no migration row whose Since is the target's"
+        if extra
+        else f"leaves out {missing[0][0]}, a migration row whose Since is the target's"
+        if missing
+        else "differs from its rendering in its header, its order or its closing line"
+    )
+    since = ", ".join(sorted(map(str, skill.profile.since)))
+    return fail(
+        f"section 2.2 {said}; it is the migration table's rows whose Since is "
+        f"{since or 'the target'}, rendered — `agent-skill fmt` writes it",
+        skill.at(SKILL_MD, heading.line),
+        REALITY_DRIFT,
+    )
+
+
+def subsections(
     lead: Sequence[Block],
 ) -> tuple[tuple[Block, ...], list[tuple[Heading, tuple[Block, ...]]]]:
     """A section's lead: what precedes its first `###`, then each `###`.
@@ -818,11 +833,12 @@ def gone_rows(skill: Skill) -> Iterator[tuple[Migration, Location]]:
 def _migration(skill: Skill) -> Iterator[Finding]:
     """The migration chapter is one function from old spelling to row.
 
-    One table, `| Old | <target> | Status | Rule |`, keyed uniquely by
-    its old spelling, each row giving one of four statuses and the rule
-    that owns it; and after it the command a reader runs, which `fmt`
-    generates from the `gone` and `alias` rows (decision 9). Any other
-    table mapping old spellings is a second map, and fails with it.
+    One table, `| Old | <target> | Status | Since | Rule |`, keyed
+    uniquely by its old spelling, each row giving one of four statuses,
+    the release from which it holds and the rule that owns it; and
+    after it the command a reader runs, which `fmt` generates from the
+    `gone` and `alias` rows (decision 9). Any other table mapping old
+    spellings is a second map, and fails with it.
     """
     chapter = _migration_chapter(skill)
     if chapter is None:
@@ -876,7 +892,7 @@ def _migration(skill: Skill) -> Iterator[Finding]:
 def _rows_read(
     skill: Skill, chapter: Chapter, rows: Iterable[Migration]
 ) -> Iterator[Finding]:
-    """Each row whose spelling, status or rule cannot be read."""
+    """Each row whose spelling, status, since or rule cannot be read."""
     for row in rows:
         owner = row.owner
         wrong = (
@@ -884,9 +900,12 @@ def _rows_read(
             if row.spelling is None
             else f"its status `{row.status}` is not one of {', '.join(STATUSES)}"
             if row.status not in STATUSES
-            else f"its rule `{row.rule}` is not one rule ID of this standard"
-            if owner is None or owner.standard != skill.prefix
-            else ""
+            else _since_wrong(skill, row)
+            or (
+                f"its rule `{row.rule}` is not one rule ID of this standard"
+                if owner is None or owner.standard != skill.prefix
+                else ""
+            )
         )
         if wrong:
             yield fail(
@@ -894,3 +913,26 @@ def _rows_read(
                 chapter.where(row.line),
                 MIGRATION_ROW,
             )
+
+
+def _since_wrong(skill: Skill, row: Migration) -> str:
+    """What is wrong with `row`'s Since, or "" when nothing is.
+
+    One form per standard: a release as its series, `3.15`, or, in a
+    standard whose profile names an edition, an edition, `2024`. A
+    change the target has not reached is no row of its table.
+    """
+    landed = row.landed
+    edition = skill.profile.edition
+    series = Version.try_parse(skill.profile.target)
+    reached = edition if landed is not None and landed.edition else series
+    return (
+        f"its Since `{row.since}` is no release"
+        f"{' or edition' if edition is not None else ''}"
+        if landed is None or (landed.edition and edition is None)
+        else f"its Since `{row.since}` is not a release's series, `{landed.series}`"
+        if landed != landed.series
+        else f"its Since `{row.since}` is after the target's, `{reached}`"
+        if reached is not None and landed > reached
+        else ""
+    )

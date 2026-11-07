@@ -28,44 +28,46 @@ configuration: `gone` — the edition rejects it, so the build fails where it st
 still builds, and the standard library provides what it was for, so it is rewritten wherever it
 stands; `changed` — it compiles and means something else, or is rejected in a shape no fixed string
 finds, so its owning rule's Check finds it; `deprecated` — it builds with a warning, which
-`CARGO_BUILD_WARNINGS=deny` makes a failed build. The command after the table finds every `gone` and
-`alias` row.
+`CARGO_BUILD_WARNINGS=deny` makes a failed build. Its Since is the release from which it does so —
+for an `alias`, the one that stabilised the replacement — or `2024` for a change the edition made;
+section 2.2 lists the rows of 1.99 and of edition 2024. The command after the table finds every
+`gone` and `alias` row.
 
-| Old | Rust 1.99 | Status | Rule |
-|---|---|---|---|
-| `#[no_mangle]` | `#[unsafe(no_mangle)]`; `#[export_name]` and `#[link_section]` likewise | gone | RS-BUILD-01 |
-| `lazy_static!` | `std::sync::LazyLock` | alias | RS-CONC-27 |
-| `once_cell::sync::Lazy` | `std::sync::LazyLock` | alias | RS-CONC-27 |
-| `once_cell::sync::OnceCell` | `std::sync::OnceLock` | alias | RS-CONC-27 |
-| `cfg_if::cfg_if` | `cfg_select!` | alias | RS-MOD-07 |
-| `itoa::Buffer` | `<int>::format_into(&mut NumBuffer)` | alias | RS-MIG-01 |
-| `fs2::FileExt` | `File::lock`, `try_lock`, `lock_shared` | alias | RS-MIG-01 |
-| `fs4::fs_std::FileExt` | `File::lock`, `try_lock`, `lock_shared` | alias | RS-MIG-01 |
-| `fd_lock::RwLock` | `File::lock`, `lock_shared` | alias | RS-MIG-01 |
-| `filetime::set_file_times` | `fs::set_times`, `File::set_times` | alias | RS-MIG-01 |
-| `os_pipe::pipe` | `io::pipe` | alias | RS-MIG-01 |
-| `static_assertions::const_assert` | `const _: () = assert!(…)`, or `const { assert!(…) }` | alias | RS-MIG-01 |
-| `assert_matches::assert_matches` | `assert_matches!`, imported from `std` | alias | RS-TEST-13 |
-| `home::home_dir` | `std::env::home_dir` | alias | RS-CLI-29 |
-| `dirs::home_dir` | `std::env::home_dir` | alias | RS-CLI-29 |
-| `num_cpus::get` | `std::thread::available_parallelism` | alias | RS-CONC-14 |
-| `atty::is` | `std::io::IsTerminal` | alias | RS-CLI-19 |
-| `is_terminal::IsTerminal` | `std::io::IsTerminal` | alias | RS-CLI-19 |
-| `memoffset::offset_of` | `std::mem::offset_of!`, nested fields included | alias | RS-UNSAFE-14 |
-| `criterion::black_box` | `std::hint::black_box` | alias | RS-PERF-34 |
-| `test::black_box` | `std::hint::black_box` | alias | RS-PERF-34 |
-| `$e:expr` | matches `_` and `const { … }` as well, so a later `_` arm stops firing; `expr_2021` keeps the old fragment | changed | RS-MACRO-09 |
-| `-> impl Trait` | captures every lifetime in scope, so a caller can fail to borrow; narrow it with `+ use<'a, T>` | changed | RS-OWN-22 |
-| `Box<[T]>::into_iter` | yields `T`, by value, where it yielded `&T` | changed | RS-BUILD-01 |
-| `env::remove_var` | `unsafe`, which `unsafe_code = "forbid"` rejects; pass the code under test a lookup | changed | RS-TEST-16 |
-| `env::set_var` | `unsafe`, which `unsafe_code = "forbid"` rejects; pass the code under test a lookup | changed | RS-TEST-16 |
-| `extern "C" { … }` | rejected; `unsafe extern "C" { … }`, where an item marked `safe fn` is called without `unsafe` | changed | RS-UNSAFE-23 |
-| `gen` | a reserved keyword, so rejected as a name; `r#gen` where the name must stay | changed | RS-BUILD-01 |
-| `if let` | a temporary in the scrutinee drops before the `else` block, which shortens a lock guard's life | changed | RS-BUILD-01 |
-| `static mut` | a reference to one is `static_mut_refs`, denied; `OnceLock`, `LazyLock` or an atomic | changed | RS-CONC-27 |
-| `unsafe fn` | its body is no longer one `unsafe` block: `unsafe_op_in_unsafe_fn` warns on each operation, and CI denies warnings | changed | RS-UNSAFE-06 |
-| `Atomic*::fetch_update` | `try_update`, which it now aliases | deprecated | RS-CONC-25 |
-| `std::<int>::MAX` | `<int>::MAX`; `MIN` and the other module constants likewise | deprecated | RS-MIG-02 |
+| Old | Rust 1.99 | Status | Since | Rule |
+|---|---|---|---|---|
+| `#[no_mangle]` | `#[unsafe(no_mangle)]`; `#[export_name]` and `#[link_section]` likewise | gone | 2024 | RS-BUILD-01 |
+| `lazy_static!` | `std::sync::LazyLock` | alias | 1.80 | RS-CONC-27 |
+| `once_cell::sync::Lazy` | `std::sync::LazyLock` | alias | 1.80 | RS-CONC-27 |
+| `once_cell::sync::OnceCell` | `std::sync::OnceLock` | alias | 1.70 | RS-CONC-27 |
+| `cfg_if::cfg_if` | `cfg_select!` | alias | 1.95 | RS-MOD-07 |
+| `itoa::Buffer` | `<int>::format_into(&mut NumBuffer)` | alias | 1.98 | RS-MIG-01 |
+| `fs2::FileExt` | `File::lock`, `try_lock`, `lock_shared` | alias | 1.89 | RS-MIG-01 |
+| `fs4::fs_std::FileExt` | `File::lock`, `try_lock`, `lock_shared` | alias | 1.89 | RS-MIG-01 |
+| `fd_lock::RwLock` | `File::lock`, `lock_shared` | alias | 1.89 | RS-MIG-01 |
+| `filetime::set_file_times` | `fs::set_times`, `File::set_times` | alias | 1.99 | RS-MIG-01 |
+| `os_pipe::pipe` | `io::pipe` | alias | 1.87 | RS-MIG-01 |
+| `static_assertions::const_assert` | `const _: () = assert!(…)`, or `const { assert!(…) }` | alias | 1.57 | RS-MIG-01 |
+| `assert_matches::assert_matches` | `assert_matches!`, imported from `std` | alias | 1.96 | RS-TEST-13 |
+| `home::home_dir` | `std::env::home_dir` | alias | 1.87 | RS-CLI-29 |
+| `dirs::home_dir` | `std::env::home_dir` | alias | 1.87 | RS-CLI-29 |
+| `num_cpus::get` | `std::thread::available_parallelism` | alias | 1.59 | RS-CONC-14 |
+| `atty::is` | `std::io::IsTerminal` | alias | 1.70 | RS-CLI-19 |
+| `is_terminal::IsTerminal` | `std::io::IsTerminal` | alias | 1.70 | RS-CLI-19 |
+| `memoffset::offset_of` | `std::mem::offset_of!`, nested fields included | alias | 1.82 | RS-UNSAFE-14 |
+| `criterion::black_box` | `std::hint::black_box` | alias | 1.66 | RS-PERF-34 |
+| `test::black_box` | `std::hint::black_box` | alias | 1.66 | RS-PERF-34 |
+| `$e:expr` | matches `_` and `const { … }` as well, so a later `_` arm stops firing; `expr_2021` keeps the old fragment | changed | 2024 | RS-MACRO-09 |
+| `-> impl Trait` | captures every lifetime in scope, so a caller can fail to borrow; narrow it with `+ use<'a, T>` | changed | 2024 | RS-OWN-22 |
+| `Box<[T]>::into_iter` | yields `T`, by value, where it yielded `&T` | changed | 2024 | RS-BUILD-01 |
+| `env::remove_var` | `unsafe`, which `unsafe_code = "forbid"` rejects; pass the code under test a lookup | changed | 2024 | RS-TEST-16 |
+| `env::set_var` | `unsafe`, which `unsafe_code = "forbid"` rejects; pass the code under test a lookup | changed | 2024 | RS-TEST-16 |
+| `extern "C" { … }` | rejected; `unsafe extern "C" { … }`, where an item marked `safe fn` is called without `unsafe` | changed | 2024 | RS-UNSAFE-23 |
+| `gen` | a reserved keyword, so rejected as a name; `r#gen` where the name must stay | changed | 2024 | RS-BUILD-01 |
+| `if let` | a temporary in the scrutinee drops before the `else` block, which shortens a lock guard's life | changed | 2024 | RS-BUILD-01 |
+| `static mut` | a reference to one is `static_mut_refs`, denied; `OnceLock`, `LazyLock` or an atomic | changed | 2024 | RS-CONC-27 |
+| `unsafe fn` | its body is no longer one `unsafe` block: `unsafe_op_in_unsafe_fn` warns on each operation, and CI denies warnings | changed | 2024 | RS-UNSAFE-06 |
+| `Atomic*::fetch_update` | `try_update`, which it now aliases | deprecated | 1.99 | RS-CONC-25 |
+| `std::<int>::MAX` | `<int>::MAX`; `MIN` and the other module constants likewise | deprecated | 1.99 | RS-MIG-02 |
 
 ```sh
 rg -n -F \

@@ -112,6 +112,20 @@ proceed with the stricter reading.
 | `wave.Wave_write.getmarkers` | nothing | PS-MIG-03 |
 | `wave.Wave_write.setmark` | nothing | PS-MIG-03 |
 | `zipimport.zipimporter.load_module` | `exec_module()` | PS-MIG-03 |
+| `PyImport_ImportModuleNoBlock` | `PyImport_ImportModule` | PS-MIG-03 |
+| `PySys_ResetWarnOptions` | nothing | PS-MIG-03 |
+| `PyUnicode_AsDecodedObject` | `PyCodec_Decode` | PS-MIG-03 |
+| `PyUnicode_AsDecodedUnicode` | `PyCodec_Decode` | PS-MIG-03 |
+| `PyUnicode_AsEncodedObject` | `PyCodec_Encode` | PS-MIG-03 |
+| `PyUnicode_AsEncodedUnicode` | `PyCodec_Encode` | PS-MIG-03 |
+| `PyWeakref_GET_OBJECT` | `PyWeakref_GetRef` | PS-MIG-03 |
+| `PyWeakref_GetObject` | `PyWeakref_GetRef` | PS-MIG-03 |
+| `Py_GetExecPrefix` | `PyConfig_Get()` | PS-MIG-03 |
+| `Py_GetPath` | `PyConfig_Get()` | PS-MIG-03 |
+| `Py_GetPrefix` | `PyConfig_Get()` | PS-MIG-03 |
+| `Py_GetProgramFullPath` | `PyConfig_Get()` | PS-MIG-03 |
+| `Py_GetProgramName` | `PyConfig_Get()` | PS-MIG-03 |
+| `Py_GetPythonHome` | `PyConfig_Get()` | PS-MIG-03 |
 | `ast.<Node>(...)` | raises `TypeError` for a field missing or a keyword no field has; give each of the node's `_fields`, and only those | PS-MIG-04 |
 | `datetime.strptime(s, "%d/%m")` | raises `ValueError`; give the format a year directive | PS-MIG-04 |
 | `importlib.resources.files(package=...)` | raises `TypeError`; pass the package positionally | PS-MIG-04 |
@@ -119,6 +133,20 @@ proceed with the stricter reading.
 | `threading.RLock(*args)` | raises `TypeError`; `threading.RLock()`, which never used them | PS-MIG-04 |
 | `typing.NamedTuple("P", x=int)` | raises `TypeError`; `class P(NamedTuple)` | PS-MIG-04 |
 | `typing.TypedDict("TD")` | raises `TypeError`; `class TD(TypedDict)` | PS-MIG-04 |
+| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | PS-CONC-21 |
+| `functools.singledispatchmethod` | called through its class, dispatches on the argument after the instance | PS-TYPE-17 |
+| `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | PS-DATA-13 |
+| `locale.getpreferredencoding` | `'utf-8'` under UTF-8 mode, whatever the locale; `locale.getencoding()` | PS-OUT-03 |
+| `open(path)` | UTF-8 whatever the locale, while UTF-8 mode is on | PS-OUT-02 |
+| `cProfile` | `profiling.tracing` | PS-PERF-02 |
+| `<module>.__version__` | `sys.version_info`, or `importlib.metadata.version()`; removed in 3.20 | PS-MIG-05 |
+| `collections.abc.ByteString` | `collections.abc.Buffer`; removed in 3.17 | PS-TYPE-11 |
+| `profile` | `profiling.tracing`; removed in 3.17 | PS-PERF-02 |
+| `typing.ByteString` | `collections.abc.Buffer`; removed in 3.17 | PS-TYPE-11 |
+
+What an earlier release changed is in the migration table, `PS-MIG` in section 6, each row with its
+Since; the `rg` command after that table finds every `gone` and `alias` spelling, whatever its
+release.
 
 ### 2.3 What Python 3.15 gained
 

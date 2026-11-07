@@ -33,7 +33,7 @@ from agent_skill.doc import (
     entry,
     words,
 )
-from agent_skill.ids import RuleId, Tier, ranges
+from agent_skill.ids import RuleId, Tier, Version, ranges
 
 #: The section a chapter lists its tool-decided claims under.
 DECIDED = "Decided by tools"
@@ -725,22 +725,24 @@ STATUSES = ("gone", "alias", "changed", "deprecated")
 SOUGHT = ("gone", "alias")
 
 
-def migration_header(target: str) -> tuple[str, str, str, str]:
-    """A migration table's columns: old, `target`'s, status, rule.
+def migration_header(target: str) -> tuple[str, str, str, str, str]:
+    """A migration table's columns: old, target, status, since, rule.
 
     `target` is what the standard is for, as section 2 names it:
-    `Python 3.15`.
+    `Python 3.15`. Since is the release — or, for a language with
+    editions, the edition — from which the row's status holds.
     """
-    return ("Old", target, "Status", "Rule")
+    return ("Old", target, "Status", "Since", "Rule")
 
 
 def reality_header(target: str) -> tuple[str, str, str]:
-    """Section 2.2's columns: the migration table's but its status.
+    """Section 2.2's columns: the migration table's, less two.
 
-    Section 2.2 is the migration table restricted to what no longer
-    compiles, so it has the same columns but the one it restricts on.
+    Section 2.2 is the migration table restricted to the rows whose
+    Since is the target, rendered from it: Since is the target in every
+    row, and Status is the chapter's to read.
     """
-    old, new, _, rule = migration_header(target)
+    old, new, _, _, rule = migration_header(target)
     return (old, new, rule)
 
 
@@ -751,6 +753,7 @@ class Migration:
     old: str
     new: str
     status: str
+    since: str
     rule: str
     line: int = field(default=0, compare=False)
 
@@ -764,6 +767,11 @@ class Migration:
     def owner(self) -> RuleId | None:
         """The rule the row names as its owner, bare, else None."""
         return RuleId.try_parse(self.rule)
+
+    @property
+    def landed(self) -> Version | None:
+        """The release or edition the Since cell names, else None."""
+        return Version.try_parse(self.since)
 
 
 def migrations(table: Table) -> tuple[Migration, ...]:

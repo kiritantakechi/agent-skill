@@ -24,7 +24,14 @@ from agent_skill.lang import execute, judged, toolchain_for
 from agent_skill.model import Block, Skill
 from agent_skill.report import Finding, Level, declare, fail, note
 lazy from agent_skill import doc
-lazy from agent_skill.checks.skeleton import MIGRATION_STEM, chapters_mapped, target
+lazy from agent_skill.checks.skeleton import (
+    MIGRATION_STEM,
+    chapters_mapped,
+    reality_rendered,
+    reality_titles,
+    subsections,
+    target,
+)
 
 # The branches `fmt` reports through. It is a command rather than a
 # check, so no control is owed them.
@@ -77,6 +84,7 @@ def _reprint(skill: Skill) -> list[Finding]:
         if skill.profile.normalized and path == skill.skill_md:
             tree, unrendered = _projected(skill, tree)
             changed += unrendered
+            tree = _gone_rendered(skill, tree)
         if skill.profile.normalized and path.stem == MIGRATION_STEM:
             tree = with_command(tree, migration_header(target(skill)))
         if (printed := str(tree)) != text:
@@ -117,6 +125,39 @@ def _projected(skill: Skill, tree: Doc) -> tuple[Doc, list[Finding]]:
     rendered = Section(section.title, projection(ids, chapters), (), section.line)
     sections = (*md.sections[:at], rendered, *md.sections[at + 1 :])
     return SkillMd(md.frontmatter, md.title, md.preamble, sections).doc(), []
+
+
+def _gone_rendered(skill: Skill, tree: Doc) -> Doc:
+    """`SKILL.md` with section 2.2 rendered from the migration table.
+
+    The rows whose Since is the target's, and the line saying where the
+    rest are (decision 9): whatever stood under the subsection's heading
+    is replaced. A section 2 with no such subsection, or a migration
+    chapter with no one table to render from, is left as it is;
+    `skeleton` reports either.
+    """
+    rendered = reality_rendered(skill)
+    md = SkillMd.read(tree)
+    title = shared.skill_sections(skill)[2]
+    at = next((i for i, s in enumerate(md.sections) if s.title == title), None)
+    if rendered is None or at is None:
+        return tree
+    section = md.sections[at]
+    before, parts = subsections(section.lead)
+    gone = reality_titles(skill)[1]
+    if gone not in (heading.text for heading, _ in parts):
+        return tree
+    lead = (
+        *before,
+        *(
+            b
+            for heading, blocks in parts
+            for b in (heading, *(rendered if heading.text == gone else blocks))
+        ),
+    )
+    sections = list(md.sections)
+    sections[at] = Section(section.title, lead, section.rules, section.line)
+    return SkillMd(md.frontmatter, md.title, md.preamble, tuple(sections)).doc()
 
 
 def _examples(skill: Skill) -> list[Finding]:

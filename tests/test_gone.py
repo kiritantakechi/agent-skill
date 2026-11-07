@@ -155,11 +155,11 @@ def test_the_driver_fails_a_gone_row_the_release_provides(tmp_path: Path) -> Non
     migration = root / "references" / "migration.md"
     migration.write_text(
         migration.read_text().replace(
-            "| `old_flag` | `new_flag` | alias | DS-MIG-01 |\n",
-            "| `old_flag` | `new_flag` | alias | DS-MIG-01 |\n"
-            "| `os.getcwd` | `pathlib.Path.cwd` | gone | DS-MIG-01 |\n"
-            "| `glob.glob0` | `glob.glob` | gone | DS-MIG-01 |\n"
-            "| `print >>f` | `print(file=f)` | gone | DS-MIG-01 |\n",
+            "| `old_flag` | `new_flag` | alias | 1.1 | DS-MIG-01 |\n",
+            "| `old_flag` | `new_flag` | alias | 1.1 | DS-MIG-01 |\n"
+            "| `os.getcwd` | `pathlib.Path.cwd` | gone | 1.1 | DS-MIG-01 |\n"
+            "| `glob.glob0` | `glob.glob` | gone | 1.1 | DS-MIG-01 |\n"
+            "| `print >>f` | `print(file=f)` | gone | 1.1 | DS-MIG-01 |\n",
         )
     )
     found = list(gone(PYTHON_TOOLCHAIN, Skill(root, demo.PROFILE), tmp_path / "out"))
