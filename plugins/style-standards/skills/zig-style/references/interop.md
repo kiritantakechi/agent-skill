@@ -9,7 +9,7 @@ freestanding and WebAssembly — including the places where the rest of this sta
 apply** because there is no operating system to apply it to.
 
 Layout and string rules for the types themselves live in the data chapter (ZS-DATA-19, ZS-DATA-20,
-ZS-DATA-29), with their layout assertions in ZS-ASSERT-19 and alignment in ZS-MEM-24; allocator
+ZS-DATA-29), with their layout assertions in ZS-ASSERT-18 and alignment in ZS-MEM-24; allocator
 selection and ownership vocabulary live in the memory chapter; wiring `link_libc` and C sources into
 a build lives in the build chapter (ZS-BUILD-05). This chapter cites those rather than repeating
 them, and adds only what is specific to the boundary, including translating C headers in the build
@@ -167,7 +167,7 @@ because in a `fast` build a violated assert is not a crash but a memory-safety b
 ZS-ASSERT-02). Exhaustive enum and range validation may be skipped for a C shim that lives in the
 same repository and is compiled by the same `build.zig`.
 
-**Why:** this is ZS-ASSERT-09's boundary clause, applied to the one boundary where it bites hardest.
+**Why:** this is ZS-ASSERT-08's boundary clause, applied to the one boundary where it bites hardest.
 An `assert` on data from another compilation unit is a remote denial of service in a `safe` build
 and illegal behavior in a `fast` one.
 
@@ -790,7 +790,7 @@ hundreds of entry points, or one whose ABI changes between releases you track. `
 `b.addTranslateC` works there; the 0.17 release notes deprecate it in favour of the translate-c
 package (`b.dependency("translate_c", …)` and its `Translator`), the same implementation with more
 options, though the source does not mark it deprecated yet. That package is a dependency like any
-other (ZS-BUILD-33).
+other (ZS-BUILD-31).
 
 `zig translate-c` emits `[*c]` for every pointer, because a C `T *` really is nullable and
 unbounded, so its output is the least safe legal translation by construction. It is also
@@ -992,7 +992,7 @@ point in opposite directions.
 the colorless design — but a design whose *correctness* needs two tasks to overlap will deadlock or
 hang, and a cancellation-based timeout will not fire.
 
-**Check:** ZS-CONC-22's finding, an `io.async` whose tasks must overlap to make progress, in a
+**Check:** ZS-CONC-24's finding, an `io.async` whose tasks must overlap to make progress, in a
 module that any build target may compile `-fsingle-threaded`, where it stops being latent. Also
 `std.heap.smp_allocator` in a module built for wasm or freestanding, and `std.heap.wasm_allocator`
 in one that is not.
@@ -1147,7 +1147,7 @@ pub fn build(b: *std.Build) void {
 5. Any `@intCast`/`@truncate` on a `c_int`/`c_long`/`c_char` instead of `std.math.cast`?
    (ZS-INTEROP-11)
 6. Does every struct shared with C have fixed-width fields and `comptime` layout assertions?
-   (ZS-DATA-02, ZS-ASSERT-19)
+   (ZS-DATA-02, ZS-ASSERT-18)
 7. Does any callback `try`, `catch unreachable`, or `@panic` across the C frame? (ZS-INTEROP-13)
 8. For each buffer that crosses: which side frees it, is it written down, and does the allocator
    match? (ZS-INTEROP-14)

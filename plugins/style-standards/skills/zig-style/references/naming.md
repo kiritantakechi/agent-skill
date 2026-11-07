@@ -34,7 +34,7 @@ matters to the rule, it is named in the comment above it.
   - ZS-NAME-12 [M] Name the receiver after its type; keep `self` for anonymous generic containers
 - **Files and modules**
   - ZS-NAME-13 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
-  - ZS-NAME-14 [S] Name a directory after its companion file
+  - ZS-NAME-14 [S] Name a directory after its companion file, or after the module it roots
   - ZS-NAME-15 [M] Keep the `@This()` alias and the whole import block in one place
   - ZS-NAME-16 [S] Order imports `@This()` → `builtin` → `std` → local, and alias the hot names
   - ZS-NAME-17 [M] Order a struct body: fields → types → `init`/`deinit` → methods → tests
@@ -401,7 +401,7 @@ Singleton dependencies with unique types (an allocator, an `Io`, a tracer) stay 
 are threaded most-general to most-specific, because their types already prevent transposition.
 
 **Exempt: a `_max` / `_min` companion sitting beside the value it bounds.** `(op: u64, op_max: u64)`
-is two `u64`s and stays positional — as in ZS-ASSERT-14's
+is two `u64`s and stays positional — as in ZS-ASSERT-13's
 `fn sendPrepareOk(status: Status, view: u32, op: u64, op_max: u64) bool`. The pair is not
 transposable in practice: `op_max` is named *after* `op` and reads as its ceiling, so a swapped call
 is wrong at a glance in a way that `copyRange(x, y, 4, 0, 2)` is not. This adjacency is exactly what
@@ -457,7 +457,7 @@ arrives later through the methods.
 
 **Why:** a written-out function type puts the contract in the signature, so a mismatched callback
 fails at the call site rather than inside your loop. TigerStyle's "callbacks go last" served
-hand-threaded continuations, which ZS-CONC-34 retires: an `io.async` `Future` is awaited in place.
+hand-threaded continuations, which ZS-CONC-36 retires: an `io.async` `Future` is awaited in place.
 
 **Check:** any new function taking a `comptime …Fn` should be diff-able against a `std.sort`
 signature; if the fn is not adjacent to its `context`, or the data is not before both, it is a
@@ -633,20 +633,21 @@ src/journal.zig  (has fields)   src/Journal.zig
 src/WireFormat.zig (no fields)  src/wire_format.zig
 ```
 
-### ZS-NAME-14 [S] Name a directory after its companion file
+### ZS-NAME-14 [S] Name a directory after its companion file, or after the module it roots
 
 `Io/` sits beside `Io.zig`; `Build/`, `Build/Step/`, `Target/`, `Io/File/` likewise. The langref
-says "Directory names should be `snake_case`", but std does not do that: only 5 directories in the
-entire std tree lack a companion `<dir>.zig` sibling. Use `snake_case` directories only where there
-is no companion file.
+says "Directory names should be `snake_case`", but std does not do that: almost every std directory
+has a companion `<dir>.zig` sibling. Use `snake_case` directories only where there is no companion
+file. A directory that holds a module's sources takes the name `b.addModule` gives the module, so
+the module, its directory and the `@import` string agree.
 
-**Why:** the divergence from the langref is deliberate: a directory is the sub-namespace of the file
-it accompanies, so it takes that file's exact name, casing included, and `std.Io.File` maps
-mechanically to `Io/File.zig`.
+**Why:** a directory is the sub-namespace of the file or module it accompanies, so `std.Io.File`
+maps mechanically to `Io/File.zig`, one grep finds every mention of a module, and a rename is one
+operation; when the names differ, every reader carries the mapping.
 
 **Check:** for each new directory, `ls` its parent for `<dir>.zig`. If that sibling exists, the
 directory name must match it character for character, casing included; if it does not exist, the
-directory must be `snake_case`.
+directory must be `snake_case`. And the source tree reads as the module list in `build.zig`.
 
 ### ZS-NAME-15 [M] Keep the `@This()` alias and the whole import block in one place
 
@@ -982,7 +983,7 @@ a long expression — those are ZS-NAME-16 through ZS-NAME-18 and your own judge
 `// zig fmt: off` … `// zig fmt: on` exists but appears only 32 times in all of std, exclusively for
 hand-aligned tables. Source is UTF-8 with LF endings and a trailing newline.
 
-**Check:** the CI gate of ZS-BUILD-28 —
+**Check:** the CI gate of ZS-BUILD-26 —
 `zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .` — is the whole rule for
 indentation and spacing. The reviewable residue is a multi-line parameter list, struct literal, or
 enum with **no** trailing comma — `zig fmt` will silently collapse it back onto one line — and any

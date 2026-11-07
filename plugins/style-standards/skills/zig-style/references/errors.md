@@ -4,9 +4,9 @@ Scope: how a Zig 0.17 function reports failure (error sets, optionals, assertion
 caller consumes it (`try`, `catch`, `errdefer`, error return traces, `*Diagnostics` out-parameters),
 and the shape of the control flow in between (conditions, loops, `switch`, labeled constructs,
 `@branchHint`, and the 70-line function limit). Assertion *density* and the design of bounded limits
-are ZS-ASSERT-09 and ZS-ASSERT-23; allocator ownership and OOM lifetimes are the memory chapter's;
+are ZS-ASSERT-08 and ZS-ASSERT-22; allocator ownership and OOM lifetimes are the memory chapter's;
 `std.Io` stream errors and cancellation the concurrency chapter's; error-name formatting with `{t}`
-is ZS-OUT-05.
+is ZS-OUT-05, and logging the output chapter's.
 
 Blocks that do not declare their own imports assume a file opening with
 `const std = @import("std");` and `const assert = std.debug.assert;`.
@@ -47,16 +47,13 @@ Blocks that do not declare their own imports assume a file opening with
   - ZS-ERR-25 [M] Switch exhaustively with no `else`; use `_` on non-exhaustive enums
   - ZS-ERR-26 [M] Unwrap optionals with `orelse` or a capture, never with `.?`
   - ZS-ERR-27 [S] Mark cold and likely paths with `@branchHint`
-- **8. Logging**
-  - ZS-ERR-28 [M] A library logs through a scoped `std.log` namespace
-  - ZS-ERR-29 [S] Use std's four log levels, configured from the root file
-- **9. Function shape, user-facing diagnostics, and stack traces**
-  - ZS-ERR-30 [M!] Hard limit of 70 lines per function
-  - ZS-ERR-31 [S] Report position and context through a `*Diagnostics`, not the error set
-  - ZS-ERR-32 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
+- **8. Function shape, user-facing diagnostics, and stack traces**
+  - ZS-ERR-28 [M!] Hard limit of 70 lines per function
+  - ZS-ERR-29 [S] Report position and context through a `*Diagnostics`, not the error set
+  - ZS-ERR-30 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
 - **Uniformity of failure and control flow**
-  - ZS-ERR-33 [M] Give the members of one error set a uniform shape
-  - ZS-ERR-34 [M] Absorb a special case into the general path, or give it its own type
+  - ZS-ERR-31 [M] Give the members of one error set a uniform shape
+  - ZS-ERR-32 [M] Absorb a special case into the general path, or give it its own type
 - Decided by tools
 
 ---
@@ -72,7 +69,30 @@ expected and must be handled.** Pick the mechanism from the classification, not 
 The test is who can violate the condition. If anything outside your process can — a peer, a file, a
 user, the network, the disk — it is an operating condition and an error union. If only your own code
 being wrong can, it is an assertion. An assertion that fires on hostile input is a remote denial of
-service, and in a `fast` build a remote memory-safety bug (ZS-ASSERT-03).
+service, and in a `fast` build a remote memory-safety bug (ZS-ASSERT-03). Both mechanisms meet at a
+boundary, as the BAD and GOOD examples show with `Header`, `HeaderInvalid` and `readBlock` from
+ZS-ASSERT-15, and `message_size_bytes_max` from ZS-ASSERT-20.
+
+The situation picks the construct; whether the check survives a `fast` build settles it once the
+situation is known:
+
+| Situation | Mechanism | Survives `fast`? | Notes |
+|---|---|---|---|
+| Caller violated a documented precondition (index out of range, unsorted input to a binary search) | `assert(cond)` | no | Programmer error. `std.debug.assert` is `if (!ok) unreachable;`; one that must halt in every mode is `assertAlways` (ZS-ASSERT-04). |
+| A state the program's own invariants make impossible (a tag that cannot occur; a `switch` arm the type system cannot rule out) | `unreachable` | no | A safety-checked panic in `debug`/`safe`, **illegal behavior** in `fast`/`small`; `x catch unreachable` likewise (ZS-ERR-09). |
+| A relationship between compile-time constants or type sizes | `comptime assert(cond)` / `@compileError` | n/a | Fails before the program runs, with your message. |
+| The environment failed: I/O, OOM, parse failure, network, permission, malformed input from outside | **return an error** | yes | Operating condition. Expected. Must be handled by someone. |
+| A value is legitimately absent, and absence is not a failure (cache miss, "no such key") | **return an optional `?T`** | yes | An error union here forces callers to write `catch` for a non-event. |
+| A library cannot continue | **return an error** | yes | Never `@panic`, never `std.process.exit` (ZS-ERR-02). |
+| An application's top level cannot continue | `std.process.fatal(fmt, args)`, or `return err` from `main` | yes | Who must read the failure decides which (ZS-OUT-17). |
+| An application aborts with a fixed message | `@panic("literal")` | yes | Takes a runtime `[]const u8`; the message names the invariant. |
+| An application aborts and the message needs formatting | `std.debug.panic(fmt, args)` | yes | `fn panic(comptime format: []const u8, args: anytype) noreturn`; `std.debug.panicExtra(ret_addr, fmt, args)` controls the first trace frame. |
+| A build script cannot continue | `catch @panic("OOM")` | yes | Sanctioned **only** in `build.zig`, where std's own `Build` uses it. |
+| A check inside a `test` block | `std.testing.expect*` | yes | std's own doc: `assert` may not detect a test failure in `fast`/`small` builds. |
+
+Among the constructs that stop the program, each tells the reader something different: `unreachable`
+prints only `reached unreachable code`, `@panic` names the invariant, `std.debug.panic` names the
+values, and `std.process.fatal` exits 1 with a line the operator can act on instead of a crash dump.
 
 **Why:** the two have opposite correct responses. After a violated precondition the program's model
 of itself is wrong, and continuing corrupts more state; a failed `open()` means the *world* did not
@@ -82,24 +102,13 @@ cooperate, and crashing there turns a recoverable situation into an outage.
 variable, or a `pub` parse entry point — anything the process did not compute itself — is an
 operating condition asserted. And the mirror image: an error set member named `Invariant*`,
 `Corrupt*`, `Impossible*`, or `ShouldNotHappen` returned from a private helper — a programmer error
-returned.
-
-| Situation | Mechanism | Notes |
-|---|---|---|
-| Caller violated a documented precondition (index out of range, unsorted input to a binary search) | `assert(cond)` | Programmer error. `std.debug.assert` is literally `if (!ok) unreachable;` — same UB rules. |
-| A state the program's own invariants make impossible (a tag that cannot occur; a `switch` arm the type system cannot rule out) | `unreachable` | Safety-checked panic in `debug`/`safe` builds, **illegal behavior** in `fast`/`small` builds. |
-| A relationship between compile-time constants or type sizes | `comptime assert(cond)` / `@compileError` | Fails before the program runs. Always cheaper than a runtime check. |
-| The environment failed: I/O, OOM, parse failure, network, permission, malformed input from outside | **return an error** | Operating condition. Expected. Must be handled by someone. |
-| A value is legitimately absent, and absence is not a failure (cache miss, "no such key") | **return an optional `?T`** | An error union here forces callers to write `catch` for a non-event. |
-| A library cannot continue | **return an error** | Never `@panic`, never `std.process.exit`. See ZS-ERR-02. |
-| An application's top level cannot continue | `std.process.fatal(fmt, args)` | `= std.log.err(fmt, args); exit(1);` (the body of `std.process.fatal`). The right CLI failure primitive. It takes exactly two parameters, `(comptime format: []const u8, format_arguments: anytype)`; TigerBeetle's `fatal` with a leading `reason` enum is a project-local helper. |
-| An application aborts with a fixed message | `@panic("literal")` | What std does: 352 `@panic(` sites vs only 7 `std.debug.panic(`. |
-| An application aborts and the message needs formatting | `std.debug.panic(fmt, args)` | Or `std.debug.panicExtra(ret_addr, fmt, args)` to control the first trace frame. |
-| A build script cannot continue | `catch @panic("OOM")` | Sanctioned **only** in `build.zig`; all 174 `@panic("OOM")` sites in std are under `Build.zig`. |
-| A check inside a `test` block | `std.testing.expect*` | std's own doc: `assert` may not detect a test failure in `fast`/`small` builds. |
+returned. Among the constructs that stop the program: a `@panic(` whose message names no invariant
+(`@panic("unreachable")`, `@panic("bug")`, `@panic("error")`); a bare `unreachable` on a branch a
+reader cannot rule out by inspection; and any `std.process.exit(1)` not preceded by a logged reason
+— `std.process.fatal` does both in one call.
 
 ```zig
-// verified — GOOD
+// verified
 const std = @import("std");
 const assert = std.debug.assert;
 
@@ -115,9 +124,6 @@ fn parseHeader(bytes: []const u8) error{Truncated}!u32 {
     return std.mem.readInt(u32, bytes[0..4], .little);
 }
 ```
-
-Both mechanisms meet at a boundary. With `Header`, `HeaderInvalid` and `readBlock` from
-ZS-ASSERT-16, and `message_size_bytes_max` from ZS-ASSERT-21:
 
 ```zig
 // fragment — BAD
@@ -157,10 +163,9 @@ or for `build.zig`. Output follows the same split: a library renders into the ca
 never opens stdout, and never decides where its output goes.
 
 It does **not** govern assertions. A violated internal invariant has exactly one correct response in
-any code, library or not, so `assert` and a project-local always-on `assertAlways` (ZS-ASSERT-05)
+any code, library or not, so `assert` and a project-local always-on `assertAlways` (ZS-ASSERT-04)
 are legal in a library — including in allocators and crypto, which are libraries by construction.
-What a library may not do is choose its consumer's optimize mode: document which invariants it
-asserts and what it costs to run it in a `safe` build, and let the consumer decide (ZS-BUILD-24).
+The optimize mode is the consumer's to choose (ZS-ASSERT-04).
 
 **Why:** a library does not know whether its caller can recover. Aborting the process removes the
 caller's ability to retry, degrade, or report, and makes the library untestable — a test cannot
@@ -424,7 +429,7 @@ test formatCode {
 the expression is folded by the compiler, so a failure is
 `error: caught unexpected error 'Overflow'` at build time and can never be illegal behavior at
 runtime — there is nothing to prove and no comment is required. This is why a derived limit
-(ZS-ASSERT-21/ZS-ASSERT-22) whose derivation has a fallible `std.math` step is written without one:
+(ZS-ASSERT-20/ZS-ASSERT-21) whose derivation has a fallible `std.math` step is written without one:
 
 ```zig
 // fragment — GOOD: comptime-evaluated, so failure is a compile error
@@ -449,7 +454,7 @@ the software had already signalled: detected, then thrown away.
 **Check:** `catch {}`, `catch {};`, and `_ = … catch` with no comment on the same or the preceding
 line saying why the failure is genuinely not information. A `catch` that logs and continues is a
 different rule (ZS-ERR-07) and is not a hit here — but if the call took an `io`, it is a hit under
-ZS-CONC-24, which treats log-and-continue as a dropped cancellation.
+ZS-CONC-26, which treats log-and-continue as a dropped cancellation.
 
 ```zig
 // fragment — BAD
@@ -466,10 +471,10 @@ dir.deleteFile(io, scratch_path) catch |err| log.warn("removing scratch file: {t
 Note the cleanup call has to be one that can actually fail. `Io.File.close` is
 `pub fn close(file: File, io: Io) void` — it returns no error at all, so `file.close(io) catch …` is
 `error: expected error union type, found 'void'`. Closing is spelled `defer file.close(io);` with no
-`try` and no `catch` (ZS-CONC-19, ZS-MEM-10).
+`try` and no `catch` (ZS-CONC-18, ZS-MEM-10).
 
 `deleteFile`'s error set contains `Io.Cancelable`, so the `catch` above also absorbs
-`error.Canceled`. That is legal only on a path that is already leaving, a distinction ZS-CONC-24
+`error.Canceled`. That is legal only on a path that is already leaving, a distinction ZS-CONC-26
 owns: read it before copying this shape onto a path that continues.
 
 ---
@@ -674,7 +679,7 @@ reach for `std.debug.dumpStackTrace` here: in 0.17 that takes a `*const std.debu
 (`{ return_addresses: []usize, skipped: SkippedAddresses }`), which is a different type from
 `std.lang.StackTrace` (`{ index: usize, instruction_addresses: []usize }`) and will not compile:
 `error: expected type '*const debug.StackTrace', found '*lang.StackTrace'`. Capturing a *stack*
-trace is ZS-ERR-32.
+trace is ZS-ERR-30.
 
 ```zig
 // fragment — GOOD
@@ -728,7 +733,7 @@ fn acceptNested(f: Frame) bool {
 }
 ```
 
-Assertions follow the same rule: ZS-ASSERT-10.
+Assertions follow the same rule: ZS-ASSERT-09.
 
 ### ZS-ERR-17 [S] Prefer a `switch` to an `else if` chain; if you flatten chains into trees, say why
 
@@ -774,7 +779,7 @@ When an `if`/`else` splits the input space, write the branch condition as the in
 condition, which is the whole point of a guard, and guards are what ZS-ERR-16 asks for. What is
 forbidden is a non-guard `if` whose condition negates an invariant that the same function states
 positively elsewhere — the reader then has to hold both spellings of one relation in their head. The
-guard form is used by ZS-ERR-20, ZS-ERR-22 and ZS-ASSERT-14.
+guard form is used by ZS-ERR-20, ZS-ERR-22 and ZS-ASSERT-13.
 
 **Why:** the positive form matches how the same relation is written in the loop condition
 (`while (index < length)`) and in the assertion (`assert(index < length)`), so the reader compares
@@ -801,7 +806,7 @@ one-line comment in the empty half, or an assertion stating what is true when th
 false.
 
 **Why:** an `if` with no `else` claims the other half of the input space needs nothing, and silence
-cannot tell a decision from an oversight — the negative space of ZS-ASSERT-12. A comment or an
+cannot tell a decision from an oversight — the negative space of ZS-ASSERT-11. A comment or an
 assertion is a claim a reviewer can dispute.
 
 **Check:** in a diff, an added `if` with no `else` whose surrounding block has no comment and no
@@ -845,7 +850,7 @@ fn clamp(value: u32, limit: u32) u32 {
 }
 ```
 
-Implications in assertions take the same one-line form: ZS-ASSERT-11.
+Implications in assertions take the same one-line form: ZS-ASSERT-10.
 
 ### ZS-ERR-21 [M!] No recursion; where recursion is allowed, bound the depth explicitly
 
@@ -911,7 +916,7 @@ comment, not a build failure.
 
 **Why:** it concentrates the decisions in one readable place, and it makes the leaf a straight-line
 function that the compiler can vectorise and a reader can check without tracing callers. It is also
-the mechanism that keeps parents under the 70-line limit (ZS-ERR-30) without scattering the logic.
+the mechanism that keeps parents under the 70-line limit (ZS-ERR-28) without scattering the logic.
 
 ```zig
 // verified — GOOD
@@ -1105,7 +1110,7 @@ const found = for (items) |it| {
 
 `@branchHint(hint: std.lang.BranchHint) void`. The hints are exactly `.none`, `.likely`,
 `.unlikely`, `.cold`, `.unpredictable` (`std.lang.BranchHint`). Where it may stand is the compiler's
-(the `'@branchHint' must appear…` row below), so on a cold branch that also asserts (ZS-ASSERT-09),
+(the `'@branchHint' must appear…` row below), so on a cold branch that also asserts (ZS-ASSERT-08),
 the hint comes first and the assertion after it.
 
 **Why:** `.cold` lets the optimizer move a branch's code to a different page, keeping the hot path's
@@ -1131,71 +1136,9 @@ fn decodeTag(byte: u8) error{ReservedTag}!u8 {
 
 ---
 
-## 8. Logging
+## 8. Function shape, user-facing diagnostics, and stack traces
 
-### ZS-ERR-28 [M] A library logs through a scoped `std.log` namespace
-
-`const log = std.log.scoped(.mylib);` at the top of the file, then `log.warn(…)`. One scope per
-module, named for the module. std itself logs 29 times in 456 KLOC: the bar is high.
-
-That `std.debug.print` and raw stderr writes are never program output is owned by ZS-CONC-04 and
-ZS-CONC-05; that they are never acceptable in a library, by ZS-ERR-02. Program *output* is not
-logging: write it to a `*std.Io.Writer` you were handed, and `flush()`.
-
-**Why:** `std.log` routes through `std.options.logFn`, so the *application* decides format,
-destination, filtering, and whether a library is audible at all. `log_scope_levels` filters by scope
-(ZS-ERR-29); an unscoped log lands in `.default` and cannot be silenced alone.
-
-```zig
-// verified — GOOD
-const std = @import("std");
-const log = std.log.scoped(.mylib);
-
-pub fn parseHeader(bytes: []const u8) error{Truncated}!u32 {
-    if (bytes.len < 4) {
-        log.debug("header truncated: {d} bytes", .{bytes.len});
-        return error.Truncated;
-    }
-    return std.mem.readInt(u32, bytes[0..4], .little);
-}
-```
-
-**Check:** in a library file, `std.log.warn(` / `std.log.err(` used directly instead of through a
-file-level `scoped` alias.
-
-### ZS-ERR-29 [S] Use std's four log levels, configured from the root file
-
-`std.log.Level` is `{ err, warn, info, debug }`, documented as: `err` — something has gone wrong;
-`warn` — uncertain whether something has gone wrong, but worth investigating; `info` — general
-state; `debug` — only useful when debugging. `std.log.default_level` is `.debug` in `debug` builds
-and `.info` in `safe`, `fast` and `small` builds.
-
-**Why:** levels are a filter, not a severity vocabulary you get to redefine. If your library logs at
-`err` for a condition it also returns as an error, the application sees it twice and cannot suppress
-either copy independently.
-
-**Check:** a `log.err(` on a path that also `return`s an error from the same function — pick one.
-And a `pub const std_options` declared anywhere other than the root source file, where it is
-silently inert.
-
-```zig
-// fragment — GOOD: in the root source file
-pub const std_options: std.Options = .{
-    .log_level = .info,
-    .log_scope_levels = &.{
-        .{ .scope = .mylib, .level = .debug },
-    },
-};
-```
-
-Log *or* return, not both, unless you are adding context and re-propagating (ZS-ERR-07). In tests,
-`std.testing.log_level` defaults to `.warn`.
-
----
-
-## 9. Function shape, user-facing diagnostics, and stack traces
-
-### ZS-ERR-30 [M!] Hard limit of 70 lines per function
+### ZS-ERR-28 [M!] Hard limit of 70 lines per function
 
 70 lines between the braces is a hard ceiling, counted as written, blank lines and comments
 included. *Relaxed form:* a function longer than one screen needs a stated reason in a comment — a
@@ -1217,7 +1160,7 @@ awk '/^(pub )?fn /{s = NR; n = $0}
      /^}$/{if (s && NR - s > 70) print FILENAME":"s"  "NR - s" lines  "n; s = 0}'
 ```
 
-### ZS-ERR-31 [S] Report position and context through a `*Diagnostics`, not the error set
+### ZS-ERR-29 [S] Report position and context through a `*Diagnostics`, not the error set
 
 An error set says *what kind* of thing went wrong; it cannot say *where*. When a user has to fix the
 input — a config file, a query, a source file — pair a coarse error set with an optional
@@ -1232,7 +1175,7 @@ only need to know *whether* it failed do not have to declare a variable.
 The other alternatives are worse. A parse function that allocates and returns a formatted message
 forces an allocator into a signature that did not need one, and a `[]const u8` lifetime question on
 every caller; logging from the library takes the decision away from the application (ZS-ERR-02,
-ZS-ERR-28).
+ZS-OUT-18).
 
 **Why:** the out-parameter leaves the error set small and exhaustively switchable (ZS-ERR-08) while
 still allowing "line 12, col 3", which the set cannot carry: Zig error values have no payload, so
@@ -1284,7 +1227,7 @@ ZS-OUT-05). Give `Diagnostics` a rendering method when the rendering is fixed, a
 function taking an `Allocator` used only to build an error string. Both are a `*Diagnostics` written
 the wrong way.
 
-### ZS-ERR-32 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
+### ZS-ERR-30 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
 
 To record where you are *without* aborting — a leak tracker, an audit log, a "who called this" probe
 — use
@@ -1319,7 +1262,7 @@ fn captureHere(addr_buf: []usize) std.debug.StackTrace {
 Two costs to budget for. `std.options.allow_stack_tracing` gates the whole family: when it is false
 every capture returns an empty trace, so a capture-based diagnostic silently produces nothing.
 Unwinding is also not cheap — it is a debug-path tool, so keep it off the hot path and behind the
-same `verify`-style constant as an O(N) assertion (ZS-ASSERT-17).
+same `verify`-style constant as an O(N) assertion (ZS-ASSERT-16).
 
 **Check:** any surviving `std.debug.StackIterator`, `.dumpStackTrace(@errorReturnTrace())`, or a
 `dumpCurrentStackTrace(start_addr)` call passing a bare `?usize` where it takes
@@ -1327,7 +1270,7 @@ same `verify`-style constant as an O(N) assertion (ZS-ASSERT-17).
 
 ## Uniformity of failure and control flow
 
-### ZS-ERR-33 [M] Give the members of one error set a uniform shape
+### ZS-ERR-31 [M] Give the members of one error set a uniform shape
 
 Members of one error set describe failures at one level of detail. Do not mix
 `error.InvalidByteAtOffset` with a bare `error.Bad` in the same set, and do not let one call site
@@ -1341,7 +1284,7 @@ for the deficient members. Uniform shape is what lets one function render every 
 populated for most members and empty for one is either a missing detail or a member that belongs in
 a different set.
 
-### ZS-ERR-34 [M] Absorb a special case into the general path, or give it its own type
+### ZS-ERR-32 [M] Absorb a special case into the general path, or give it its own type
 
 A branch that exists for one input is not a feature; it is an unfinished generalization. Either the
 general path handles it — usually by widening a parameter or adding a tag — or the case differs

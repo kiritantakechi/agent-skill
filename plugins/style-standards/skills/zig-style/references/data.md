@@ -228,7 +228,7 @@ test "index count size" {
 
 ### ZS-DATA-06 [M] Show rounding intent with an explicit division operation
 
-This rule owns division and rounding for the whole standard; ZS-ASSERT-22 (derive dependent limits)
+This rule owns division and rounding for the whole standard; ZS-ASSERT-21 (derive dependent limits)
 points here for the rounding half.
 
 For integers, use `@divExact`, `@divFloor`, `@divTrunc`, or `@divCeil`. Reserve bare `/` for
@@ -1332,7 +1332,7 @@ protocol tokens, identifiers, hex digits, and HTTP header names. Do not use them
 has no Unicode case mapping or collation at all; correct casing is locale-dependent (Turkish dotless
 ı, German ß) and needs a library.
 
-This is a live caveat on ZS-CONC-16, whose `drain` example uppercases every byte passing through a
+This is a live caveat on ZS-CONC-15, whose `drain` example uppercases every byte passing through a
 `Writer` with `std.ascii.toUpper`. As a demonstration of the `drain` contract it is correct; as a
 text transform it is ASCII-only, and a stream carrying UTF-8 will pass through half-uppercased.
 
@@ -1470,7 +1470,7 @@ Two constraints apply to both formats:
   allocating shortcut in the blessed path, so the buffering and flushing rules (ZS-CONC-04) apply
   unchanged.
 - **Both need an explicit `Io.Limit` on untrusted input.** Neither parser bounds the *source* it is
-  handed; the bound belongs on the read that produced the slice. See ZS-CONC-14 — spell
+  handed; the bound belongs on the read that produced the slice. See ZS-CONC-13 — spell
   `.limited(n)` with a justified `n`, and reserve `.unlimited` for bytes you produced yourself.
 
 Note the spellings, which are not symmetric with `std.json`: the ZON serializer namespace is

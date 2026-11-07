@@ -41,13 +41,13 @@ invalidate the work of reading the next.
    a signature. (`ZS-ERR`, ZS-ERR-01, ZS-ERR-05)
 5. **Assertions and bounds.** Is the assertion density near two per function? Does every loop have a
    provable upper bound, every queue a limit, every recursion a proof or an explicit stack?
-   (`ZS-ASSERT`, ZS-ASSERT-09, ZS-ASSERT-20, ZS-ERR-21)
+   (`ZS-ASSERT`, ZS-ASSERT-08, ZS-ASSERT-19, ZS-ERR-21)
 6. **Public API.** What is newly `pub`? Is the ownership documented? Is the error set explicit and
    minimal? Would a caller be able to tell from the signature who frees what? (ZS-NAME-19, `ZS-ERR`)
 7. **Concurrency.** Every `Io.async` without a matching `await`, every `Group`/`Select`,
    cancellation paths, and anything holding a resource across a suspension point. (`ZS-CONC`)
 8. **Function bodies.** Now read the code. Compound conditions that want splitting, functions past
-   70 lines, control flow that wants a labeled switch. (ZS-ERR-16, ZS-ERR-30)
+   70 lines, control flow that wants a labeled switch. (ZS-ERR-16, ZS-ERR-28)
 9. **Tests.** Do they use `std.testing.allocator` so leaks fail? Is the error path covered? Is there
    a `checkAllAllocationFailures` for every allocating API? (`ZS-TEST`)
 10. **Build and project.** New dependencies justified? `build.zig.zon` `.paths` correct? Does
@@ -58,12 +58,12 @@ invalidate the work of reading the next.
 Run these before reading anything, and report what could not be run rather than implying it passed.
 
 ```sh
-zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .  # ZS-BUILD-28
+zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .  # ZS-BUILD-26
 zig build check                       # semantic check, no binary emitted
 zig build test                        # debug
 zig build test -Doptimize=safe        # ZS-TEST-25: the suite must pass in both
 zig build test-integration
-zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-30)
+zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-28)
 ```
 
 ### Stale-API greps
@@ -148,7 +148,7 @@ revertible:
    `defer`/`errdefer`, and give every type that owns memory a `deinit`.
 3. Narrow error sets: replace `anyerror` with explicit sets, and turn every `catch unreachable` into
    either an assertion (programmer error) or a propagated error (operating error).
-4. Add assertions to reach the density in ZS-ASSERT-09, starting with function preconditions and
+4. Add assertions to reach the density in ZS-ASSERT-08, starting with function preconditions and
    postconditions. This is the step that finds existing bugs, so expect it to stall while you fix
    them — that is the step working.
 5. Put a bound on everything unbounded: loops, queues, retries, recursion.

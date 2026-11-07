@@ -14,8 +14,8 @@
     // builds with no error and no warning, in the root package and in
     // dependencies alike. The compiler never reads it; `mlugg/setup-zig` does,
     // resolving the toolchain from it when the workflow omits `version`. Real
-    // enforcement is a pinned CI version (ZS-BUILD-31) plus, for a project that
-    // pins an exact toolchain, the comptime guard in ZS-BUILD-35.
+    // enforcement is a pinned CI version (ZS-BUILD-29) plus, for a project that
+    // pins an exact toolchain, the comptime guard in ZS-BUILD-33.
     .minimum_zig_version = "0.17.0",
     .dependencies = .{},
     // Defines the package hash and is all a consumer receives (ZS-BUILD-11).

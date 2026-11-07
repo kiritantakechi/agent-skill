@@ -152,12 +152,12 @@ PROFILE = Profile(
     # proves yet. Giving one a fixture means deleting it here, which
     # `sensitivity` insists on, so the list only shrinks.
     unproven=rules(
-        "ZS-ASSERT-09",
-        "ZS-ASSERT-21",
-        "ZS-BUILD-24",
-        "ZS-BUILD-25",
-        "ZS-BUILD-35",
-        "ZS-BUILD-36",
+        "ZS-ASSERT-08",
+        "ZS-ASSERT-20",
+        "ZS-ASSERT-04",
+        "ZS-BUILD-23",
+        "ZS-BUILD-33",
+        "ZS-BUILD-34",
         "ZS-COMPTIME-20",
         "ZS-MEM-04",
         "ZS-MEM-06",
@@ -214,7 +214,7 @@ PROFILE = Profile(
                 "the span finds every `{b64}`; whether a width or precision is "
                 "applied to it over a slice decides, and both spellings build cleanly",
             ),
-            "ZS-CONC-16": NotDecisive(
+            "ZS-CONC-15": NotDecisive(
                 "w.buffered()",
                 "the span finds every `w.buffered()`; whether it runs before the "
                 "first emit in a `drain` body decides, which is an ordering the line "
@@ -251,12 +251,12 @@ PROFILE = Profile(
                 "the span finds every seeded PRNG; whether it is the simulation's "
                 "*second* one decides, which is a count over the test body",
             ),
-            "ZS-ASSERT-21": NotDecisive(
+            "ZS-ASSERT-20": NotDecisive(
                 "returns hits only from",
                 "the Check asks which file a `_max` lives in, which a standalone "
                 "block cannot answer",
             ),
-            "ZS-BUILD-24": NotDecisive(
+            "ZS-ASSERT-04": NotDecisive(
                 ".github/ build.zig scripts/",
                 "scoped to the build and release scripts, where a hit is licensed "
                 "by a benchmark the pattern cannot see",
@@ -264,7 +264,7 @@ PROFILE = Profile(
             # Polarity: this Check asserts the shape is *present*, so
             # its hits are evidence of compliance and reading them as
             # defects inverts the rule.
-            "ZS-BUILD-35": NotDecisive(
+            "ZS-BUILD-33": NotDecisive(
                 "has this block",
                 "a presence assertion, and scoped to `build.zig`: the finding is a "
                 "missing guard, which no hit can show",
@@ -292,9 +292,9 @@ PROFILE = Profile(
                 RuleId.parse("ZS-DATA-38"),
                 "Replace a `bool` parameter: split the function, or name the flag",
             ),
-            (RuleId.parse("ZS-ERR-33"), "Give sibling error variants a uniform shape"),
+            (RuleId.parse("ZS-ERR-31"), "Give sibling error variants a uniform shape"),
             (
-                RuleId.parse("ZS-ERR-34"),
+                RuleId.parse("ZS-ERR-32"),
                 "Absorb a special case into the general path, or give it its own type",
             ),
             (RuleId.parse("ZS-NAME-28"), "Name the two halves of a pair symmetrically"),
@@ -312,7 +312,7 @@ PROFILE = Profile(
                 "Count the encapsulation a split costs, not only what it buys",
             ),
             (
-                RuleId.parse("ZS-BUILD-23"),
+                RuleId.parse("ZS-NAME-14"),
                 "Give the directory and the crate the same name",
             ),
             (

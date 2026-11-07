@@ -1887,8 +1887,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             f"{ZS}/SKILL.md",
-            "the other 344 live here",
-            "the other 343 live here",
+            "the other 342 live here",
+            "the other 341 live here",
         ),
     ),
     # citations

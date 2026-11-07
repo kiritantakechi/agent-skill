@@ -5,7 +5,7 @@ a custom allocator, expressing and enforcing ownership (who allocates, who frees
 slice means), `defer`/`errdefer` discipline, pointer-invalidation traps, OOM policy, alignment, raw
 memory copies, and the graduated ladder from "allocate freely" to TigerStyle's "no allocation after
 startup". Error-set design, `try`/`catch` selection and `unreachable`-versus-error are the errors
-chapter's; `Io.Reader`/`Io.Writer` buffer sizing is ZS-CONC-11 and ZS-CONC-35; assertion density and
+chapter's; `Io.Reader`/`Io.Writer` buffer sizing is ZS-CONC-10 and ZS-CONC-37; assertion density and
 bounded loops are the assertions chapter's; `MultiArrayList` layout choices are ZS-DATA-22;
 allocation-failure testing is ZS-TEST-11.
 
@@ -430,7 +430,7 @@ The same shape applies to every acquisition, not just allocation: `Io.File`/`Io.
 (`defer file.close(io)`), `Io.Mutex` (`defer m.unlock(io)`), `Io.Group` (`defer g.cancel(io)`), and
 `Io.Future` (`defer _ = f.cancel(io);`, which is idempotent, so a later `await` still returns the
 result). Where the release itself is fallible or cancelable, use the `*Uncancelable` variant — a
-`defer` body cannot propagate an error (see ZS-CONC-26). What happens once the pair is in place —
+`defer` body cannot propagate an error (see ZS-CONC-28). What happens once the pair is in place —
 the order of teardown, the point ownership transfers, the scope inside a loop — is ZS-ERR-11,
 ZS-ERR-12 and ZS-ERR-13.
 
@@ -1197,7 +1197,7 @@ test "wipe secrets before the frame returns" {
 }
 ```
 
-Choosing the layout and asserting it are ZS-DATA-19 and ZS-DATA-20 and ZS-ASSERT-19.
+Choosing the layout and asserting it are ZS-DATA-19 and ZS-DATA-20 and ZS-ASSERT-18.
 
 ## Decided by tools
 

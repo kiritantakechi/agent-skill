@@ -6,10 +6,11 @@ buffer-then-flush writing discipline, `Io.Reader`, authoring custom stream imple
 `std.Io.Dir`/`std.Io.File` filesystem API that replaced `std.fs`, structured concurrency
 (`io.async`, `Io.Group`, `Io.Select`, `Io.Queue`, cancellation, timeouts, `Io` sync primitives),
 `std.Io.net`, subprocesses via `std.process.spawn`/`run`, and `Io.Terminal` / `std.Progress`. Format
-specifiers — `{f}`, `{t}`, `{?}` and the custom `format` method — are the output chapter's;
-allocator choice and `defer`/`errdefer` layout the memory chapter's; `std.testing.io` and
-`Io.failing` mechanics are ZS-TEST-07; every 0.13 to 0.17 spelling is a row of the migration table;
-the non-I/O half of batching is ZS-PERF-05; scoped library logging is ZS-ERR-28.
+specifiers — `{f}`, `{t}`, `{?}` and the custom `format` method — and which bytes are program output
+and which are diagnostics (ZS-OUT-16) are the output chapter's; allocator choice and
+`defer`/`errdefer` layout the memory chapter's; `std.testing.io` and `Io.failing` mechanics are
+ZS-TEST-07; every 0.13 to 0.17 spelling is a row of the migration table; the non-I/O half of
+batching is ZS-PERF-05; scoped library logging is ZS-OUT-18.
 
 Every example assumes a file opening with
 `const std = @import("std"); const Io = std.Io; const net = std.Io.net;`, and
@@ -23,55 +24,54 @@ Every example assumes a file opening with
   - ZS-CONC-03 [S] Default to `Io.Threaded`; treat `Io.Evented` as experimental
 - **Writing: buffer, then flush**
   - ZS-CONC-04 [M] Flush every buffered writer before it goes out of scope
-  - ZS-CONC-05 [M] `std.debug.print` is a debugging tool, never program output
-  - ZS-CONC-06 [M] Stream to stdout; keep the positional `writer` for files you opened
-  - ZS-CONC-07 [M] Reusable code takes `*Io.Writer` and returns `Io.Writer.Error!void`
-  - ZS-CONC-08 [S] Build in-memory strings with `Io.Writer.Allocating`
-  - ZS-CONC-09 [M] Recover the real error from the concrete writer/reader
-  - ZS-CONC-10 [M] Write application stderr through `io.lockStderr`
+  - ZS-CONC-05 [M] Stream to stdout; keep the positional `writer` for files you opened
+  - ZS-CONC-06 [M] Reusable code takes `*Io.Writer` and returns `Io.Writer.Error!void`
+  - ZS-CONC-07 [S] Build in-memory strings with `Io.Writer.Allocating`
+  - ZS-CONC-08 [M] Recover the real error from the concrete writer/reader
+  - ZS-CONC-09 [M] Write application stderr through `io.lockStderr`
 - **Reading**
-  - ZS-CONC-11 [M] Size the reader buffer deliberately — it is your maximum token length
-  - ZS-CONC-12 [M] Iterate lines with `takeDelimiter`, never `takeDelimiterExclusive`
-  - ZS-CONC-13 [M] Never keep a slice from `peek`/`take`/`takeDelimiter` past the reader's next call
-  - ZS-CONC-14 [M] Give every read-all API an explicit `Io.Limit`
-  - ZS-CONC-15 [S] Stream large data; only read whole objects you have already bounded
+  - ZS-CONC-10 [M] Size the reader buffer deliberately — it is your maximum token length
+  - ZS-CONC-11 [M] Iterate lines with `takeDelimiter`, never `takeDelimiterExclusive`
+  - ZS-CONC-12 [M] Never keep a slice from `peek`/`take`/`takeDelimiter` past the reader's next call
+  - ZS-CONC-13 [M] Give every read-all API an explicit `Io.Limit`
+  - ZS-CONC-14 [S] Stream large data; only read whole objects you have already bounded
 - **Authoring custom streams**
-  - ZS-CONC-16 [M] Implement `drain` to the full contract
-  - ZS-CONC-17 [M] A custom `Reader` signals end of stream with `error.EndOfStream`, never `0`
-  - ZS-CONC-18 [M] Pair `writableSliceGreedy` with `advance`; never `advance` after `writableSlice`
+  - ZS-CONC-15 [M] Implement `drain` to the full contract
+  - ZS-CONC-16 [M] A custom `Reader` signals end of stream with `error.EndOfStream`, never `0`
+  - ZS-CONC-17 [M] Pair `writableSliceGreedy` with `advance`; never `advance` after `writableSlice`
 - **Filesystem**
-  - ZS-CONC-19 [M] Pair every open with `defer close(io)`, and iterate with the iterator's own buffer
-  - ZS-CONC-20 [M] Replace a file another reader depends on atomically, with `createFileAtomic`
+  - ZS-CONC-18 [M] Pair every open with `defer close(io)`, and iterate with the iterator's own buffer
+  - ZS-CONC-19 [M] Replace a file another reader depends on atomically, with `createFileAtomic`
+  - ZS-CONC-20 [S] Pick the traversal API by who decides to descend
+  - ZS-CONC-21 [M] Say which race you mean: `rename`, `renamePreserve` or `hardLink`
+  - ZS-CONC-22 [S] Map a large file you access at random with `createMemoryMap`
 - **Structured concurrency**
-  - ZS-CONC-21 [M] Every started `Future` is awaited or canceled exactly once, on every path
-  - ZS-CONC-22 [S] Prefer `io.async`; use `io.concurrent` only for simultaneous progress
-  - ZS-CONC-23 [S] Pick the right aggregate: `Group`, `Select`, or `Queue`
-  - ZS-CONC-24 [M] Never ignore `error.Canceled`
-  - ZS-CONC-25 [M] Call `io.checkCancel()` inside long CPU-bound loops
-  - ZS-CONC-26 [M] Use the `*Uncancelable` variants in `defer` and cleanup paths
-  - ZS-CONC-27 [M] Synchronize with the `Io` primitives, never OS primitives
-  - ZS-CONC-28 [M] Write colorless code: never branch on which backend you were handed
-  - ZS-CONC-29 [S] Use raw `std.Thread` only for dedicated, long-lived OS threads
-  - ZS-CONC-30 [M] Time is `Io`: `Io.Timestamp`, `Io.Duration`, `Io.Clock`, `io.sleep`
-  - ZS-CONC-31 [S] Express a multi-step timeout as one shared deadline, not a duration per call
+  - ZS-CONC-23 [M] Every started `Future` is awaited or canceled exactly once, on every path
+  - ZS-CONC-24 [S] Prefer `io.async`; use `io.concurrent` only for simultaneous progress
+  - ZS-CONC-25 [S] Pick the right aggregate: `Group`, `Select`, or `Queue`
+  - ZS-CONC-26 [M] Never ignore `error.Canceled`
+  - ZS-CONC-27 [M] Call `io.checkCancel()` inside long CPU-bound loops
+  - ZS-CONC-28 [M] Use the `*Uncancelable` variants in `defer` and cleanup paths
+  - ZS-CONC-29 [M] Synchronize with the `Io` primitives, never OS primitives
+  - ZS-CONC-30 [M] Write colorless code: never branch on which backend you were handed
+  - ZS-CONC-31 [S] Use raw `std.Thread` only for dedicated, long-lived OS threads
+  - ZS-CONC-32 [M] Time is `Io`: `Io.Timestamp`, `Io.Duration`, `Io.Clock`, `io.sleep`
+  - ZS-CONC-33 [S] Express a multi-step timeout as one shared deadline, not a duration per call
 - **TigerStyle, re-derived for `std.Io`**
-  - ZS-CONC-32 [M] Drain a batch of what a peer sends; do not wake once per event
-  - ZS-CONC-33 [M!] A suspension point invalidates every entry-time assertion about shared state
-  - ZS-CONC-34 [M] Replace completion callbacks with `io.async` and `await`
-  - ZS-CONC-35 [M] Bound every stream buffer and queue with a named compile-time constant
+  - ZS-CONC-34 [M] Drain a batch of what a peer sends; do not wake once per event
+  - ZS-CONC-35 [M!] A suspension point invalidates every entry-time assertion about shared state
+  - ZS-CONC-36 [M] Replace completion callbacks with `io.async` and `await`
+  - ZS-CONC-37 [M] Bound every stream buffer and queue with a named compile-time constant
 - **Networking**
-  - ZS-CONC-36 [M] Build the address first; `listen`, `bind`, and `connect` are methods on it
-  - ZS-CONC-37 [M] A socket is an ordinary stream source — and `.limited` is not optional on one
-  - ZS-CONC-38 [M] Close every socket on every path; `shutdown` is how you unblock a blocked peer
+  - ZS-CONC-38 [M] Build the address first; `listen`, `bind`, and `connect` are methods on it
+  - ZS-CONC-39 [M] A socket is an ordinary stream source — and `.limited` is not optional on one
+  - ZS-CONC-40 [M] Close every socket on every path; `shutdown` is how you unblock a blocked peer
 - **Subprocesses**
-  - ZS-CONC-39 [M] `std.process.run` for the output; `std.process.spawn` for the stream
-  - ZS-CONC-40 [M] `child.wait(io)` closes the pipes; never close `child.stdout`/`stderr` yourself
+  - ZS-CONC-41 [M] `std.process.run` for the output; `std.process.spawn` for the stream
+  - ZS-CONC-42 [M] `child.wait(io)` closes the pipes; never close `child.stdout`/`stderr` yourself
 - **Terminals and progress**
-  - ZS-CONC-41 [S] Decide color with `Io.Terminal`, not with your own `isatty` check
-  - ZS-CONC-42 [S] Report long work through `std.Progress`, and pass the node to children
-- **More of the `Io.Dir` / `Io.File` surface**
-  - ZS-CONC-43 [S] Pick the traversal API by who decides to descend
-  - ZS-CONC-44 [M] Say which race you mean: `renamePreserve`, `hardLink`, `createMemoryMap`
+  - ZS-CONC-43 [S] Decide color with `Io.Terminal`, not with your own `isatty` check
+  - ZS-CONC-44 [S] Report long work through `std.Progress`, and pass the node to children
 
 ---
 
@@ -238,51 +238,7 @@ swallows `error.WriteFailed`, which is exactly the disk-full / broken-pipe case 
 about. A zero-length buffer (`&.{}`) means unbuffered and makes `flush` a no-op — use it
 deliberately, never by accident.
 
-### ZS-CONC-05 [M] `std.debug.print` is a debugging tool, never program output
-
-Its own doc comment describes it as "a low-level debugging primitive that bypasses the `Io`
-interface": it formats through a 64-byte stack buffer that is flushed on every call, writes with the
-most basic syscalls available, does not switch threads or stacks, and `catch return`s every error.
-
-The three destinations, and the rule for each:
-
-| Kind | Destination | Never |
-|---|---|---|
-| Program output — what the program exists to produce | a `*Io.Writer` the caller handed you, then `flush()` | `std.debug.print`, `std.log` |
-| Diagnostics — progress, warnings, "what is it doing" | `std.log` (scoped in a library, ZS-ERR-28) | `std.debug.print` |
-| Temporary debugging you will delete before committing | `std.debug.print` | leaving it in a commit |
-
-The same ban covers raw stderr writes. `std.log` takes the stderr lock and so interleaves correctly
-with panics and `std.Progress`; reaching stderr outside it or `io.lockStderr` (ZS-CONC-10)
-interleaves your bytes with a `std.Progress` redraw or a panic trace. In a **library** all three of
-`std.debug.print`, `std.debug.lockStderr`, and unscoped `std.log.*` are defects — a library does not
-own the process's stderr policy.
-
-**Why:** it writes to stderr, so `prog > out.txt` leaves an empty file and a terminal full of
-results; it cannot be substituted in a test, is one syscall per call, and bypasses the `Io` you were
-handed, so under an evented backend it is the one write that does not cooperate with the scheduler.
-
-**Check:** any `std.debug.print` surviving in a diff **outside a `test` block**. In library and
-application code there is no legitimate committed use: if the line is worth keeping it is
-`std.log.debug`, and if it is not, delete it. Tests are the one exception — a failure diagnostic on
-an `errdefer` line is required there by ZS-TEST-09, because a test binary's stderr is captured by
-the build runner and `std.log` would not be attributed to the failing test.
-
-```zig
-// fragment — BAD: program output on the diagnostic channel
-std.debug.print("processed {d} rows\n", .{n});
-```
-
-```zig
-// fragment — GOOD
-try stdout.print("processed {d} rows\n", .{n});   // output
-std.log.debug("row cursor now {d}", .{cursor});   // diagnostic
-```
-
-ZS-ERR-02 (a library never prints) and ZS-ERR-28 (library logging through a scoped `std.log`
-namespace) point here for the "never program output" half of the rule.
-
-### ZS-CONC-06 [M] Stream to stdout; keep the positional `writer` for files you opened
+### ZS-CONC-05 [M] Stream to stdout; keep the positional `writer` for files you opened
 
 `File.writer(io, &buffer)` and `Io.File.Writer.init(file, io, &buffer)` are the same constructor and
 set `.mode = .positional`: every write goes to an explicit offset, starting at 0.
@@ -314,7 +270,7 @@ var stdout_writer: Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
 > and `Io.File.Reader.Mode` has no `detect` member —
 > `error: enum 'Io.File.Reader.Mode' has no member named 'detect'`.
 
-### ZS-CONC-07 [M] Reusable code takes `*Io.Writer` and returns `Io.Writer.Error!void`
+### ZS-CONC-06 [M] Reusable code takes `*Io.Writer` and returns `Io.Writer.Error!void`
 
 `Io.Writer` is already type-erased and non-generic. Never take a `File`, never take an `Io` just to
 write, never make the function generic over a writer type.
@@ -348,7 +304,7 @@ test "the exact bytes, with no process and no files" {
 }
 ```
 
-### ZS-CONC-08 [S] Build in-memory strings with `Io.Writer.Allocating`
+### ZS-CONC-07 [S] Build in-memory strings with `Io.Writer.Allocating`
 
 `Allocating` grows its own buffer, exposes `written()`, `toOwnedSlice()`, and `toArrayList()`, and
 has a no-op `flush`. Deviate for a single `print` (use `gpa.print`) or a size you can bound (use
@@ -385,7 +341,7 @@ aw.writer.print(fmt, args) catch |err| switch (err) {
 };
 ```
 
-### ZS-CONC-09 [M] Recover the real error from the concrete writer/reader
+### ZS-CONC-08 [M] Recover the real error from the concrete writer/reader
 
 `error.WriteFailed` and `error.ReadFailed` are placeholders. The actual OS error is stored on the
 concrete struct: `File.Writer.err`, `File.Reader.err`, `net.Stream.Writer.err`.
@@ -422,7 +378,7 @@ test "concrete error beats WriteFailed" {
 }
 ```
 
-### ZS-CONC-10 [M] Write application stderr through `io.lockStderr`
+### ZS-CONC-09 [M] Write application stderr through `io.lockStderr`
 
 `io.lockStderr(&buffer, null)` returns a `LockedStderr` with a `file_writer` field;
 `io.unlockStderr()` releases it and flushes.
@@ -447,7 +403,7 @@ try locked.file_writer.interface.writeAll("done\n");
 
 ## Reading
 
-### ZS-CONC-11 [M] Size the reader buffer deliberately — it is your maximum token length
+### ZS-CONC-10 [M] Size the reader buffer deliberately — it is your maximum token length
 
 `Io.Reader` reads into a caller-supplied `[]u8`. `takeDelimiter`, `peek`, and friends return
 `error.StreamTooLong` when the delimiter is not found within that buffer, leaving the stream
@@ -471,10 +427,10 @@ test "StreamTooLong when the reader buffer cannot hold a line" {
 
 **Check:** any `takeDelimiter`/`peek` call site that does not handle `error.StreamTooLong`
 distinctly from a real I/O failure — silently treating an over-long line as EOF truncates input.
-That the size comes from a named constant is ZS-CONC-35, which owns it for buffers, queues, and
+That the size comes from a named constant is ZS-CONC-37, which owns it for buffers, queues, and
 every other caller-provided fixed array.
 
-### ZS-CONC-12 [M] Iterate lines with `takeDelimiter`, never `takeDelimiterExclusive`
+### ZS-CONC-11 [M] Iterate lines with `takeDelimiter`, never `takeDelimiterExclusive`
 
 `takeDelimiter(r, '\n')` returns `?[]u8`, advances *past* the delimiter, treats EOF as a delimiter
 (so a final line without a newline is still returned), and has no `EndOfStream` in its error set.
@@ -510,7 +466,7 @@ test "line iteration" {
 }
 ```
 
-### ZS-CONC-13 [M] Never keep a slice from `peek`/`take`/`takeDelimiter` past the reader's next call
+### ZS-CONC-12 [M] Never keep a slice from `peek`/`take`/`takeDelimiter` past the reader's next call
 
 They point into the reader's buffer. The next `fill`, `peek`, `take`, or `rebase` may move or
 overwrite them.
@@ -541,7 +497,7 @@ test "take slices are invalidated by the next fill" {
 }
 ```
 
-### ZS-CONC-14 [M] Give every read-all API an explicit `Io.Limit`
+### ZS-CONC-13 [M] Give every read-all API an explicit `Io.Limit`
 
 `allocRemaining`, `appendRemaining`, `readFileAlloc`, and `Reader.limited` all take an `Io.Limit`.
 Spell it `.limited(n)` with a justified `n`; reserve `.unlimited` for data you produced yourself.
@@ -552,7 +508,7 @@ the peer.
 
 **Check:** `.unlimited` passed to `allocRemaining`, `appendRemaining`, `readFileAlloc`, or
 `Reader.limited` on bytes this process did not produce itself. A `.limited(n)` whose `n` is a bare
-literal rather than a named constant is the separate ZS-CONC-35 finding.
+literal rather than a named constant is the separate ZS-CONC-37 finding.
 
 ```zig
 // fragment — GOOD
@@ -574,7 +530,7 @@ test "limit" {
 }
 ```
 
-### ZS-CONC-15 [S] Stream large data; only read whole objects you have already bounded
+### ZS-CONC-14 [S] Stream large data; only read whole objects you have already bounded
 
 `w.sendFileAll(&file_reader, .unlimited)` uses the kernel's fd-to-fd path (sendfile,
 copy_file_range, fcopyfile) and falls back to a read/write loop on `error.Unimplemented`
@@ -600,14 +556,14 @@ var write_buffer: [copy_buffer_max]u8 = undefined;
 var fr = source.reader(io, &read_buffer);
 var fw = target.writer(io, &write_buffer);
 _ = try fw.interface.sendFileAll(&fr, .unlimited); // asserts fw buffer is nonempty
-try fw.flush(); // the concrete flush reports the real error (ZS-CONC-09)
+try fw.flush(); // the concrete flush reports the real error (ZS-CONC-08)
 ```
 
 ---
 
 ## Authoring custom streams
 
-### ZS-CONC-16 [M] Implement `drain` to the full contract
+### ZS-CONC-15 [M] Implement `drain` to the full contract
 
 Only `drain` is required (`sendFile`, `flush`, `rebase` have defaults). A correct `drain`: (1) emits
 `w.buffered()` first and clears it via `w.consume(n)`/`w.consumeAll()`; (2) emits each element of
@@ -670,7 +626,7 @@ does this). Override `rebase` only if your buffer can grow or must never move. O
 only if you have a genuine fd-to-fd fast path; the default returns `error.Unimplemented`, which
 callers handle.
 
-### ZS-CONC-17 [M] A custom `Reader` signals end of stream with `error.EndOfStream`, never `0`
+### ZS-CONC-16 [M] A custom `Reader` signals end of stream with `error.EndOfStream`, never `0`
 
 Only `stream` is required. A `0` return means "no progress this call", typically because the
 implementation filled `r.buffer` and bumped `seek`/`end` instead of writing to `w`.
@@ -716,7 +672,7 @@ const RepeatReader = struct {
 };
 ```
 
-### ZS-CONC-18 [M] Pair `writableSliceGreedy` with `advance`; never `advance` after `writableSlice`
+### ZS-CONC-17 [M] Pair `writableSliceGreedy` with `advance`; never `advance` after `writableSlice`
 
 `writableArray(len)` and `writableSlice(len)` advance by `len` before returning.
 `writableSliceGreedy(min)` returns all unused capacity and does **not** advance — you must call
@@ -753,7 +709,7 @@ test "zero copy writes: advance semantics differ" {
 
 ## Filesystem
 
-### ZS-CONC-19 [M] Pair every open with `defer close(io)`, and iterate with the iterator's own buffer
+### ZS-CONC-18 [M] Pair every open with `defer close(io)`, and iterate with the iterator's own buffer
 
 `file.close(io)` and `dir.close(io)` both take the `Io`. `dir.iterate()` returns an `Iterator` that
 embeds a 2 KiB buffer, so `it.next(io)` takes no buffer argument. The `Iterator` is ~2 KiB of stack
@@ -761,7 +717,7 @@ because it inlines its own `reader_buffer` (`next` re-points `reader.buffer` at 
 the value is movable) — bind it with `var` in the loop's own scope rather than nesting it inside a
 recursive walk. Open a directory you will iterate with `.iterate = true`: without it Linux returns
 an `O_PATH` descriptor and the first `next` fails with `BADF`, while macOS iterates it anyway. For
-recursive traversal, and for the allocation-free `Io.Dir.Reader` beneath `Iterator`, see ZS-CONC-43.
+recursive traversal, and for the allocation-free `Io.Dir.Reader` beneath `Iterator`, see ZS-CONC-20.
 
 **Why:** a `Dir` is a file descriptor exactly like a `File`; leaking directory handles exhausts the
 per-process fd quota just as fast, and the failure surfaces far from the leak as
@@ -792,7 +748,7 @@ test "directory iteration" {
 }
 ```
 
-### ZS-CONC-20 [M] Replace a file another reader depends on atomically, with `createFileAtomic`
+### ZS-CONC-19 [M] Replace a file another reader depends on atomically, with `createFileAtomic`
 
 `dir.createFileAtomic(io, sub_path, .{ .replace = true })` returns a `File.Atomic` holding an
 unnamed ephemeral file. Write, flush, then `af.replace(io)`. `af.link(io)` is the create-if-absent
@@ -839,11 +795,136 @@ test "atomic replace" {
 `af.deinit(io)` is safe to `defer` unconditionally: it removes the ephemeral file if
 `replace`/`link` was never reached.
 
+### ZS-CONC-20 [S] Pick the traversal API by who decides to descend
+
+Four levels, cheapest first. `Io.Dir.Reader` — you supply a `[Reader.min_buffer_len]u8` aligned to
+`usize` and batch entries with `read(io, &entries)`; no allocation. `dir.iterate()` — the ~2 KiB
+self-buffering `Iterator` of ZS-CONC-18, one entry at a time. `dir.walkSelectively(gpa)` —
+recursive, but *you* call `walker.enter(io, entry)` for each directory you want to descend into.
+`dir.walk(gpa)` — recursive and descends unconditionally. Choose `walkSelectively` whenever any
+subtree can be excluded; choose `Dir.Reader` when the traversal is hot enough that the `Iterator`'s
+one-entry-per-call round trip shows up, or when you cannot allocate at all. Both walkers hand back
+`Entry.path`/`basename` that are invalidated by the next `next` — copy before you keep one, exactly
+as with reader slices (ZS-CONC-12).
+
+**Why:** `walk` is `walkSelectively` with an automatic `enter` on every directory (its `Walker.next`
+calls `enter` on each entry), so it cannot skip `.git`, `node_modules`, or a looping bind mount, and
+filtering what it returns has already paid for the whole subtree.
+
+**Check:** `dir.walk(` followed by a `continue`/`if` that skips a directory subtree — that is
+`walkSelectively`. Also any `Entry.path` stored past the loop body without a `dupe`.
+
+```zig
+// verified — GOOD
+const std = @import("std");
+test "walkSelectively prunes a subtree that walk would descend into" {
+    const io = std.testing.io;
+    const gpa = std.testing.allocator;
+    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    defer tmp.cleanup();
+
+    try tmp.dir.createDirPath(io, "keep");
+    try tmp.dir.createDirPath(io, "skip");
+    try tmp.dir.writeFile(io, .{ .sub_path = "keep/a.txt", .data = "" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "skip/b.txt", .data = "" });
+
+    var walker = try tmp.dir.walkSelectively(gpa);
+    defer walker.deinit();
+
+    var files: usize = 0;
+    while (try walker.next(io)) |entry| {
+        if (entry.kind == .file) files += 1;
+        // Opt in per directory: `walk` would descend unconditionally.
+        if (entry.kind == .directory and !std.mem.eql(u8, entry.basename, "skip")) {
+            try walker.enter(io, entry);
+        }
+    }
+    try std.testing.expectEqual(1, files);
+}
+```
+
+```zig
+// fragment — the allocation-free form
+var buffer: [Io.Dir.Reader.min_buffer_len]u8 align(@alignOf(usize)) = undefined;
+var dr: Io.Dir.Reader = .init(dir, &buffer);
+var entries: [entry_batch_max]Io.Dir.Entry = undefined;
+var files: usize = 0;
+while (true) {
+    const n = try dr.read(io, &entries);
+    if (n == 0 and dr.state == .finished) break;
+    for (entries[0..n]) |e| if (e.kind == .file) {
+        files += 1;
+    };
+}
+```
+
+### ZS-CONC-21 [M] Say which race you mean: `rename`, `renamePreserve` or `hardLink`
+
+`dir.rename(old_sub_path, new_dir, new_sub_path, io)` **replaces** the destination silently.
+`dir.renamePreserve(...)` is the same call that returns `error.PathAlreadyExists` instead,
+atomically — or `error.OperationUnsupported` where the filesystem cannot do a non-replacing rename.
+`dir.hardLink(old_sub_path, new_dir, new_sub_path, io, options)` publishes a second name for one
+inode. Note the shape shared by all three: the two path arguments straddle the destination `Dir` and
+`io` comes **last**, before the options — this is the one family in `Io.Dir` that breaks the
+receiver-then-`io` rule of ZS-CONC-02, and getting it wrong is a compile error, not a bug.
+
+`hardLink` is the primitive behind content-addressed caches and atomic publication — link the new
+name, then `rename` over the old one — and unlike a copy it cannot half-succeed. For an in-place
+replacement of an existing file, ZS-CONC-19's `createFileAtomic` + `replace` remains the answer;
+these are for the naming operations around it.
+
+**Why:** "create this file only if it does not exist" and "create this file" are different programs,
+and doing the check yourself (`if (exists) return error.X;` then rename) is a TOCTOU window that
+another process wins. `renamePreserve` pushes the check into the same syscall.
+
+**Check:** a `dir.rename` whose surrounding code first tests for existence; a copy loop used only to
+duplicate a name within one filesystem.
+
+```zig
+// verified — GOOD
+const std = @import("std");
+test "renamePreserve refuses to clobber; rename replaces" {
+    const io = std.testing.io;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    try tmp.dir.writeFile(io, .{ .sub_path = "old.txt", .data = "v1" });
+    try tmp.dir.writeFile(io, .{ .sub_path = "new.txt", .data = "v2" });
+
+    try std.testing.expectError(
+        error.PathAlreadyExists,
+        tmp.dir.renamePreserve("old.txt", tmp.dir, "new.txt", io),
+    );
+    try tmp.dir.rename("old.txt", tmp.dir, "new.txt", io);
+
+    var buffer: [8]u8 = undefined;
+    try std.testing.expectEqualStrings("v1", try tmp.dir.readFile(io, "new.txt", &buffer));
+}
+```
+
+### ZS-CONC-22 [S] Map a large file you access at random with `createMemoryMap`
+
+`file.createMemoryMap(io, options)` returns a `MemoryMap` whose `.memory` is a plain
+`[]align(page_size_min) u8`. It may be a real mapping or file operations behind a buffer, so
+`mm.read(io)` and `mm.write(io)` are the synchronization points — a change no `write` follows may or
+may not reach the file — and `mm.destroy(io)` is the release. `CreateOptions.len` has no alignment
+requirement, `offset` must be page-aligned, and `protection` must not exceed the mode the file was
+opened with: the default `.{ .read = true, .write = true }` on a read-only handle is
+`error.AccessDenied`. A small file is `readFileAlloc`'s.
+
+**Why:** a `File.Reader` streams linearly, so random access over a large file through it is a seek
+and a buffer refill per access; the map makes the file a slice, and its explicit sync points say
+when the slice and the file agree, mapped or not.
+
+**Check:** a `File.Reader` or positional-read loop seeking back and forth over a file too large to
+read whole; a `createMemoryMap` with no `defer mm.destroy(io)`; a change to `.memory` meant to
+persist with no `mm.write(io)` after it; a read-write map of a handle opened read-only.
+
 ---
 
 ## Structured concurrency
 
-### ZS-CONC-21 [M] Every started `Future` is awaited or canceled exactly once, on every path
+### ZS-CONC-23 [M] Every started `Future` is awaited or canceled exactly once, on every path
 
 `io.async(f, args)` returns a `Future(R)` — `await` and `cancel` are idempotent but **not**
 threadsafe. An early `return` that skips remaining futures abandons them. The correct fan-out shape
@@ -901,7 +982,7 @@ Note the shape of the call: `io.async(function, args_tuple)` — arguments go in
 is usually the first of them. `async` and `await` are no longer language keywords, which is why
 `io.async` and `f.await(io)` are ordinary declarations.
 
-### ZS-CONC-22 [S] Prefer `io.async`; use `io.concurrent` only for simultaneous progress
+### ZS-CONC-24 [S] Prefer `io.async`; use `io.concurrent` only for simultaneous progress
 
 `io.async` guarantees only "already completed, or assigned a unit of concurrency" — it may run the
 function inline before returning. `io.concurrent` demands real concurrency and can fail with
@@ -943,7 +1024,7 @@ test "queue producer consumer" {
 }
 ```
 
-### ZS-CONC-23 [S] Pick the right aggregate: `Group`, `Select`, or `Queue`
+### ZS-CONC-25 [S] Pick the right aggregate: `Group`, `Select`, or `Queue`
 
 `Io.Group` is an unordered task set whose members return something coercible to `Cancelable!void`;
 it is a cancellation-propagation boundary, so a member returning `error.Canceled` is absorbed.
@@ -995,7 +1076,7 @@ test "cancel a group instead of abandoning it" {
 }
 ```
 
-### ZS-CONC-24 [M] Never ignore `error.Canceled`
+### ZS-CONC-26 [M] Never ignore `error.Canceled`
 
 A cancellation point is any `Io` call whose error set contains `error.Canceled`. After a cancel
 request, **only the next** cancellation point signals it; later ones do not re-signal. Respond by
@@ -1046,7 +1127,7 @@ test "cancel protection around cleanup" {
 }
 ```
 
-### ZS-CONC-25 [M] Call `io.checkCancel()` inside long CPU-bound loops
+### ZS-CONC-27 [M] Call `io.checkCancel()` inside long CPU-bound loops
 
 `checkCancel` is a pure cancellation point that performs no I/O. Check on a power-of-two stride so
 the check itself is not the cost.
@@ -1078,7 +1159,7 @@ fn grind(io: Io, iterations: usize) Io.Cancelable!u64 {
 }
 ```
 
-### ZS-CONC-26 [M] Use the `*Uncancelable` variants in `defer` and cleanup paths
+### ZS-CONC-28 [M] Use the `*Uncancelable` variants in `defer` and cleanup paths
 
 `Mutex.lockUncancelable`, `RwLock.lockUncancelable`, `RwLock.lockSharedUncancelable`,
 `Condition.waitUncancelable`, `Event.waitUncancelable`, `Semaphore.waitUncancelable`,
@@ -1103,9 +1184,9 @@ wearing different clothes: the `catch` is there only to paper over the wrong spe
 
 Scope: this rule is about primitives that *have* a correct uncancelable form. A `defer` cleanup with
 no such twin — `dir.deleteFile(io, path)`, which has no `deleteFileUncancelable` — is governed by
-ZS-CONC-24's already-leaving exemption instead, not by this rule. Do not report it here.
+ZS-CONC-26's already-leaving exemption instead, not by this rule. Do not report it here.
 
-### ZS-CONC-27 [M] Synchronize with the `Io` primitives, never OS primitives
+### ZS-CONC-29 [M] Synchronize with the `Io` primitives, never OS primitives
 
 `std.Thread` has **no** synchronization primitives in 0.17 — no `Mutex`, `Condition`, `Semaphore`,
 `RwLock`, `ResetEvent`, `WaitGroup`, `Pool`, or `Futex`. All of them moved to `std.Io` and take an
@@ -1134,7 +1215,7 @@ fn addLocked(io: Io, m: *Io.Mutex, n: u64) Io.Cancelable!void {
 }
 ```
 
-### ZS-CONC-28 [M] Write colorless code: never branch on which backend you were handed
+### ZS-CONC-30 [M] Write colorless code: never branch on which backend you were handed
 
 The same function body must be correct under `Io.Threaded`, `Io.Evented`, `init_single_threaded`,
 and `Io.failing`. Do not inspect `io.userdata`, do not compare `io.vtable`, do not gate behavior on
@@ -1150,7 +1231,7 @@ inside a function that also performs I/O; and any `if`/`switch` selecting betwee
 implementations of the same operation on that basis. The one legal backend-dependent branch is the
 `error.ConcurrencyUnavailable` arm of an `io.concurrent`.
 
-### ZS-CONC-29 [S] Use raw `std.Thread` only for dedicated, long-lived OS threads
+### ZS-CONC-31 [S] Use raw `std.Thread` only for dedicated, long-lived OS threads
 
 `std.Thread.spawn`/`join`/`detach`/`getCpuCount`/`yield` are correct, and so is `setName`, which
 takes an `Io`: `thread.setName(io, name)`. Use them for a thread that must own a resource for the
@@ -1166,7 +1247,7 @@ be `io.async`/`Group`, so it stays substitutable.
 is `io.async`. A legitimate use spawns once during startup and either `detach`es or joins during
 shutdown, and the entry function's body is a `while (true)` owning one resource.
 
-### ZS-CONC-30 [M] Time is `Io`: `Io.Timestamp`, `Io.Duration`, `Io.Clock`, `io.sleep`
+### ZS-CONC-32 [M] Time is `Io`: `Io.Timestamp`, `Io.Duration`, `Io.Clock`, `io.sleep`
 
 `std.time` is unit constants plus `std.time.epoch` and nothing else — no `Timer`, no `Instant`, no
 `timestamp()`, no `sleep()`. `Io.Clock` variants are exactly `real`, `awake`, `boot`, `cpu_process`,
@@ -1192,7 +1273,7 @@ const now: Io.Timestamp = .now(io, .awake);
 // Durations print with {f}: `Io.Duration.fromMilliseconds(1500)` renders as "1.5s".
 ```
 
-### ZS-CONC-31 [S] Express a multi-step timeout as one shared deadline, not a duration per call
+### ZS-CONC-33 [S] Express a multi-step timeout as one shared deadline, not a duration per call
 
 `Io.Timeout` is `union(enum) { none, duration: Clock.Duration, deadline: Clock.Timestamp }`.
 
@@ -1233,7 +1314,7 @@ test "timeout as a deadline, not a per-call duration" {
 
 ## TigerStyle, re-derived for `std.Io`
 
-### ZS-CONC-32 [M] Drain a batch of what a peer sends; do not wake once per event
+### ZS-CONC-34 [M] Drain a batch of what a peer sends; do not wake once per event
 
 TigerStyle: *don't do things directly in reaction to external events; your program should run at its
 own pace.* In 0.17 that means `q.get(io, &batch, 1)` — which returns up to `batch.len` items in one
@@ -1252,7 +1333,7 @@ is what makes the per-batch assertions affordable.
 **Check:** `q.getOne(io)` inside a `while`; a `writeAll`/`print` plus a `flush` per record inside a
 loop over records; an `io.async` per event rather than per batch. The batched forms are
 `q.get(io, &batch, 1)`, `writeVecAll`/`sendFileAll`, and one task per batch — and each batch array
-needs the named `_max` of ZS-CONC-35 plus an assertion on the returned count.
+needs the named `_max` of ZS-CONC-37 plus an assertion on the returned count.
 
 ```zig
 // fragment — BAD: one wake-up, one syscall, one round-trip per event
@@ -1299,7 +1380,7 @@ const Batcher = struct {
 together, results collected with `batch.next()`. `awaitAsync` returns once *at least one* has
 completed, so collect until every submitted operation has been seen — a count of the `add` calls,
 not `storage.len`, which is only the capacity: awaiting an operation that was never added blocks
-forever. `read_batch_max` is that capacity's named bound (ZS-CONC-35). Reach for `Io.Batch` only
+forever. `read_batch_max` is that capacity's named bound (ZS-CONC-37). Reach for `Io.Batch` only
 when `Future`/`Group` measurably costs too much per operation.
 
 ```zig
@@ -1323,7 +1404,7 @@ while (pending > 0) {
 }
 ```
 
-### ZS-CONC-33 [M!] A suspension point invalidates every entry-time assertion about shared state
+### ZS-CONC-35 [M!] A suspension point invalidates every entry-time assertion about shared state
 
 TigerStyle says: *ensure functions run to completion without suspending, so that precondition
 assertions are true throughout the lifetime of the function.* Under `io.async` that rule cannot be
@@ -1376,7 +1457,7 @@ own inputs and no `io` cannot suspend, so its preconditions hold for its whole b
 to the edges and keep the computational core `io`-free — that is where TigerStyle's assertion
 density belongs.
 
-### ZS-CONC-34 [M] Replace completion callbacks with `io.async` and `await`
+### ZS-CONC-36 [M] Replace completion callbacks with `io.async` and `await`
 
 What `std.Io` kills is the callback-**driven I/O** pattern: the `read_sector()` /
 `read_sector_callback()` pair, the continuation threaded through an `on_complete` field, the state
@@ -1395,11 +1476,11 @@ split into `doThing` / `doThingCallback` — all should be `io.async` + `await`.
 The TigerStyle rules this chapter *does* keep — bounded buffers, bounded queues, batching, assertion
 density — are independent of the I/O model and carry over unchanged.
 
-### ZS-CONC-35 [M] Bound every stream buffer and queue with a named compile-time constant
+### ZS-CONC-37 [M] Bound every stream buffer and queue with a named compile-time constant
 
 Reader buffers, writer buffers, `Io.Queue` storage, `Io.Select` storage, `Io.Batch` storage, and
 `Io.Group` fan-out width are all caller-provided fixed arrays. Size each from a `const` with a name
-and a comment saying what it bounds, not from a literal at the call site. This is ZS-ASSERT-20
+and a comment saying what it bounds, not from a literal at the call site. This is ZS-ASSERT-19
 applied to `std.Io`, where the length of the array is also the maximum line, message, or fan-out
 width.
 
@@ -1429,7 +1510,7 @@ var futures: [shard_max]Io.Future(FetchError!u32) = undefined;
 receiver, `Io.Limit` on reads, `error.Canceled` never swallowed, buffers sized deliberately. Only
 `Io.Threaded` implements it in 0.17.0 (ZS-CONC-03).
 
-### ZS-CONC-36 [M] Build the address first; `listen`, `bind`, and `connect` are methods on it
+### ZS-CONC-38 [M] Build the address first; `listen`, `bind`, and `connect` are methods on it
 
 `net.IpAddress` is `union(enum) { ip4: Ip4Address, ip6: Ip6Address }` and is the entry point for
 every connection. `address.listen(io, options) -> Server` for connection-oriented work,
@@ -1465,19 +1546,19 @@ test "address parsing" {
 `reuse_address = false`; `BindOptions` and `ConnectOptions` require `mode` explicitly, because a
 datagram socket and a stream socket are not interchangeable and std refuses to guess.
 
-### ZS-CONC-37 [M] A socket is an ordinary stream source — and `.limited` is not optional on one
+### ZS-CONC-39 [M] A socket is an ordinary stream source — and `.limited` is not optional on one
 
 `stream.reader(io, &buffer)` and `stream.writer(io, &buffer)` return `net.Stream.Reader` /
 `net.Stream.Writer`, each with an `interface` field and an `err` field, so the buffer-then-flush
-rules apply unchanged (ZS-CONC-04, ZS-CONC-07, ZS-CONC-09). Every socket read and write is also a
-cancellation point (ZS-CONC-24): a `catch {}` around one strands a shutdown on a silent peer.
+rules apply unchanged (ZS-CONC-04, ZS-CONC-06, ZS-CONC-08). Every socket read and write is also a
+cancellation point (ZS-CONC-26): a `catch {}` around one strands a shutdown on a silent peer.
 
 **Why:** the peer chooses how many bytes arrive and when, which makes a socket the canonical
-untrusted input boundary of ZS-CONC-14: `.unlimited` there is an attacker-controlled allocation, and
-an unsized reader buffer an attacker-controlled maximum message length (ZS-CONC-11).
+untrusted input boundary of ZS-CONC-13: `.unlimited` there is an attacker-controlled allocation, and
+an unsized reader buffer an attacker-controlled maximum message length (ZS-CONC-10).
 
 **Check:** `.unlimited` passed to any read over a `net.Stream`. A bare-literal socket buffer is the
-ZS-CONC-35 finding, and a missing `flush` before `stream.close(io)` the ZS-CONC-04 one.
+ZS-CONC-37 finding, and a missing `flush` before `stream.close(io)` the ZS-CONC-04 one.
 
 ```zig
 // fragment — GOOD
@@ -1517,12 +1598,12 @@ test "tcp loopback: listen, connect, read with an explicit limit" {
 ```
 
 Note the accept side runs under `io.concurrent`, not `io.async`: the server must make progress while
-the client connects, which is exactly the interleaving requirement of ZS-CONC-22.
+the client connects, which is exactly the interleaving requirement of ZS-CONC-24.
 `net.Stream.Writer.sendFile` is `error.Unimplemented` in 0.17.0 (a `TODO` in std), so `sendFileAll`
-over a socket silently falls back to the userspace copy loop — the ZS-CONC-15 zero-copy argument
+over a socket silently falls back to the userspace copy loop — the ZS-CONC-14 zero-copy argument
 does not apply to sockets in 0.17.
 
-### ZS-CONC-38 [M] Close every socket on every path; `shutdown` is how you unblock a blocked peer
+### ZS-CONC-40 [M] Close every socket on every path; `shutdown` is how you unblock a blocked peer
 
 `stream.close(io)`, `socket.close(io)`, and `server.deinit(io)` each take the `Io`, exactly like
 `file.close(io)` — pair each with a `defer` on the acquisition line (ZS-MEM-10). To wake a task
@@ -1530,9 +1611,9 @@ parked in `accept` or a read, call `stream.shutdown(io, .recv/.send/.both)` from
 is documented behavior, not a trick: `Server.accept`'s `error.SocketNotListening` carries the
 comment "This allows `shutdown` to be used as a concurrent cancellation mechanism."
 
-**Why:** a socket is a file descriptor, so a leaked one fails like a leaked `Dir` (ZS-CONC-19). On a
+**Why:** a socket is a file descriptor, so a leaked one fails like a leaked `Dir` (ZS-CONC-18). On a
 graceful-shutdown path, `shutdown` is how an accept loop returns so its `Group` can be awaited
-rather than abandoned (ZS-CONC-21).
+rather than abandoned (ZS-CONC-23).
 
 **Check:** an `accept`/`connect`/`createPair` result not followed by its `defer …close(io)` the way
 ZS-MEM-10 requires; an accept loop with no way to be woken.
@@ -1549,7 +1630,7 @@ ZS-MEM-10 requires; an accept loop with no way to be woken.
 points are free functions taking `io`, and the choice between them is whether you want the output or
 the stream.
 
-### ZS-CONC-39 [M] `std.process.run` for the output; `std.process.spawn` for the stream
+### ZS-CONC-41 [M] `std.process.run` for the output; `std.process.spawn` for the stream
 
 Exact signatures, from `std/process.zig`:
 
@@ -1580,7 +1661,7 @@ while you read stdout, and hand-rolling `spawn` plus two sequential reads reintr
 deadlock.
 
 **Check:** `stdout_limit`/`stderr_limit` left at their `.unlimited` default on a child whose output
-is not bounded by construction (ZS-CONC-14); `run`'s `result.stdout`/`result.stderr` without a
+is not bounded by construction (ZS-CONC-13); `run`'s `result.stdout`/`result.stderr` without a
 `defer gpa.free`; any surviving `std.process.Child.init`.
 
 ```zig
@@ -1603,7 +1684,7 @@ test "process.run collects stdout with an explicit limit" {
 }
 ```
 
-### ZS-CONC-40 [M] `child.wait(io)` closes the pipes; never close `child.stdout`/`stderr` yourself
+### ZS-CONC-42 [M] `child.wait(io)` closes the pipes; never close `child.stdout`/`stderr` yourself
 
 `Child` exposes `stdin`, `stdout`, `stderr` as `?File`, populated for each stream you set to
 `.pipe`. Read them through a normal `File.Reader`, then call `wait`. `wait` reaps the process
@@ -1648,13 +1729,13 @@ test "process.spawn streams a child's stdout incrementally" {
 `stdin = .pipe` is the mirror image: write to the child's `stdin` through a `File.Writer`, `flush`,
 and then let `wait` close it — but a child that is still reading stdin will not exit, so a program
 that both feeds and drains a child needs the two directions on separate tasks (`io.concurrent`,
-ZS-CONC-22), not sequentially.
+ZS-CONC-24), not sequentially.
 
 ---
 
 ## Terminals and progress
 
-### ZS-CONC-41 [S] Decide color with `Io.Terminal`, not with your own `isatty` check
+### ZS-CONC-43 [S] Decide color with `Io.Terminal`, not with your own `isatty` check
 
 `Io.Terminal` is `{ writer: *Io.Writer, mode: Mode }`, and `t.setColor(color)` emits through it. For
 stderr, `io.lockStderr(&buffer, null)` has already chosen the mode, from the handle and from
@@ -1691,7 +1772,7 @@ test "stderr color through the lock's own terminal" {
 }
 ```
 
-### ZS-CONC-42 [S] Report long work through `std.Progress`, and pass the node to children
+### ZS-CONC-44 [S] Report long work through `std.Progress`, and pass the node to children
 
 `std.Progress.start(io, .{ .root_name = "…" })` returns the root `Node`; `node.start(name, total)`
 opens a child, `completeOne`/`setCompletedItems`/`setEstimatedTotalItems` update it, `node.end()`
@@ -1705,7 +1786,7 @@ Deviate for a program with no interactive lifetime — a filter in a pipeline. `
 called once per process, so a library never calls it; a library takes a `Node` parameter and
 defaults it to `.none`.
 
-**Why:** it is why ZS-CONC-10 exists — `Progress` takes the same stderr lock as `std.log` and the
+**Why:** it is why ZS-CONC-09 exists — `Progress` takes the same stderr lock as `std.log` and the
 panic handler, so it is the *reason* ad-hoc stderr writes corrupt output, and the thing to use
 instead of printing "processing 5/100" yourself.
 
@@ -1715,7 +1796,7 @@ manual "N/M" counter printed to stderr; `std.Progress.start` in library code.
 ```zig
 // verified — GOOD: a `main`, because `start` is process-global
 const std = @import("std");
-/// Maximum shards indexed per run; bounds the progress denominator (ZS-CONC-35).
+/// Maximum shards indexed per run; bounds the progress denominator (ZS-CONC-37).
 const shard_max = 4;
 
 pub fn main(init: std.process.Init) !void {
@@ -1733,122 +1814,3 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 ```
-
----
-
-## More of the `Io.Dir` / `Io.File` surface
-
-### ZS-CONC-43 [S] Pick the traversal API by who decides to descend
-
-Four levels, cheapest first. `Io.Dir.Reader` — you supply a `[Reader.min_buffer_len]u8` aligned to
-`usize` and batch entries with `read(io, &entries)`; no allocation. `dir.iterate()` — the ~2 KiB
-self-buffering `Iterator` of ZS-CONC-19, one entry at a time. `dir.walkSelectively(gpa)` —
-recursive, but *you* call `walker.enter(io, entry)` for each directory you want to descend into.
-`dir.walk(gpa)` — recursive and descends unconditionally. Choose `walkSelectively` whenever any
-subtree can be excluded; choose `Dir.Reader` when the traversal is hot enough that the `Iterator`'s
-one-entry-per-call round trip shows up, or when you cannot allocate at all. Both walkers hand back
-`Entry.path`/`basename` that are invalidated by the next `next` — copy before you keep one, exactly
-as with reader slices (ZS-CONC-13).
-
-**Why:** `walk` is `walkSelectively` with an automatic `enter` on every directory (its `Walker.next`
-calls `enter` on each entry), so it cannot skip `.git`, `node_modules`, or a looping bind mount, and
-filtering what it returns has already paid for the whole subtree.
-
-**Check:** `dir.walk(` followed by a `continue`/`if` that skips a directory subtree — that is
-`walkSelectively`. Also any `Entry.path` stored past the loop body without a `dupe`.
-
-```zig
-// verified — GOOD
-const std = @import("std");
-test "walkSelectively prunes a subtree that walk would descend into" {
-    const io = std.testing.io;
-    const gpa = std.testing.allocator;
-    var tmp = std.testing.tmpDir(.{ .iterate = true });
-    defer tmp.cleanup();
-
-    try tmp.dir.createDirPath(io, "keep");
-    try tmp.dir.createDirPath(io, "skip");
-    try tmp.dir.writeFile(io, .{ .sub_path = "keep/a.txt", .data = "" });
-    try tmp.dir.writeFile(io, .{ .sub_path = "skip/b.txt", .data = "" });
-
-    var walker = try tmp.dir.walkSelectively(gpa);
-    defer walker.deinit();
-
-    var files: usize = 0;
-    while (try walker.next(io)) |entry| {
-        if (entry.kind == .file) files += 1;
-        // Opt in per directory: `walk` would descend unconditionally.
-        if (entry.kind == .directory and !std.mem.eql(u8, entry.basename, "skip")) {
-            try walker.enter(io, entry);
-        }
-    }
-    try std.testing.expectEqual(1, files);
-}
-```
-
-```zig
-// fragment — GOOD: ; the allocation-free form
-var buffer: [Io.Dir.Reader.min_buffer_len]u8 align(@alignOf(usize)) = undefined;
-var dr: Io.Dir.Reader = .init(dir, &buffer);
-var entries: [entry_batch_max]Io.Dir.Entry = undefined;
-var files: usize = 0;
-while (true) {
-    const n = try dr.read(io, &entries);
-    if (n == 0 and dr.state == .finished) break;
-    for (entries[0..n]) |e| if (e.kind == .file) {
-        files += 1;
-    };
-}
-```
-
-### ZS-CONC-44 [M] Say which race you mean: `renamePreserve`, `hardLink`, `createMemoryMap`
-
-`dir.rename(old_sub_path, new_dir, new_sub_path, io)` **replaces** the destination silently.
-`dir.renamePreserve(...)` is the same call that returns `error.PathAlreadyExists` instead,
-atomically — or `error.OperationUnsupported` where the filesystem cannot do a non-replacing rename.
-`dir.hardLink(old_sub_path, new_dir, new_sub_path, io, options)` publishes a second name for one
-inode. Note the shape shared by all three: the two path arguments straddle the destination `Dir` and
-`io` comes **last**, before the options — this is the one family in `Io.Dir` that breaks the
-receiver-then-`io` rule of ZS-CONC-02, and getting it wrong is a compile error, not a bug.
-
-`hardLink` is the primitive behind content-addressed caches and atomic publication — link the new
-name, then `rename` over the old one — and unlike a copy it cannot half-succeed. For an in-place
-replacement of an existing file, ZS-CONC-20's `createFileAtomic` + `replace` remains the answer;
-these are for the naming operations around it.
-
-**Why:** "create this file only if it does not exist" and "create this file" are different programs,
-and doing the check yourself (`if (exists) return error.X;` then rename) is a TOCTOU window that
-another process wins. `renamePreserve` pushes the check into the same syscall.
-
-**Check:** a `dir.rename` whose surrounding code first tests for existence; a copy loop used only to
-duplicate a name within one filesystem.
-
-```zig
-// verified — GOOD
-const std = @import("std");
-test "renamePreserve refuses to clobber; rename replaces" {
-    const io = std.testing.io;
-    var tmp = std.testing.tmpDir(.{});
-    defer tmp.cleanup();
-
-    try tmp.dir.writeFile(io, .{ .sub_path = "old.txt", .data = "v1" });
-    try tmp.dir.writeFile(io, .{ .sub_path = "new.txt", .data = "v2" });
-
-    try std.testing.expectError(
-        error.PathAlreadyExists,
-        tmp.dir.renamePreserve("old.txt", tmp.dir, "new.txt", io),
-    );
-    try tmp.dir.rename("old.txt", tmp.dir, "new.txt", io);
-
-    var buffer: [8]u8 = undefined;
-    try std.testing.expectEqualStrings("v1", try tmp.dir.readFile(io, "new.txt", &buffer));
-}
-```
-
-`file.createMemoryMap(io, options)` is the third primitive: it returns a `MemoryMap` whose `.memory`
-is a plain `[]align(page_size_min) u8`, with `mm.read(io)` and `mm.write(io)` as the explicit
-synchronization points and `mm.destroy(io)` as the release. `CreateOptions.len` has no alignment
-requirement, `offset` must be page-aligned, and `protection` must not exceed the mode the file was
-opened with — asking for the default `.{ .read = true, .write = true }` on a read-only handle is
-`error.AccessDenied`. Reach for it for random access over a large file that a `File.Reader` would
-stream linearly; it is not a substitute for `readFileAlloc` on a small one.

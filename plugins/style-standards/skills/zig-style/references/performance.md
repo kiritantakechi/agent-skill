@@ -10,8 +10,8 @@ rules throughout this standard ask for a profile, and this is the chapter that s
 
 This chapter does not own data layout: struct-of-arrays and `MultiArrayList` are ZS-DATA-22,
 handles-versus-pointers is ZS-DATA-21, and passing large aggregates as `*const T` is ZS-DATA-18. It
-does not own I/O batching (ZS-CONC-32), assertion cost budgeting (ZS-ASSERT-17), the optimize-mode
-table (ZS-BUILD-24), `@branchHint` (ZS-ERR-27), or `inline fn` (ZS-COMPTIME-03). It cites them.
+does not own I/O batching (ZS-CONC-34), assertion cost budgeting (ZS-ASSERT-16), the optimize-mode
+table (ZS-ASSERT-02), `@branchHint` (ZS-ERR-27), or `inline fn` (ZS-COMPTIME-03). It cites them.
 
 **Read ZS-PERF-21 first if you are tempted to apply this chapter to code that is not hot.** Roughly
 half of these rules are about correctness and readability and apply everywhere; the other half
@@ -158,14 +158,14 @@ The **control plane** runs once per batch, per connection, per epoch — it may 
 including O(N) checks. The **data plane** runs once per item and gets O(1) assertions only. Say
 which one a function is in, in its doc comment, when it is not obvious from the name. TigerBeetle
 runs 2–3x the two-assertions-per-function floor in its control plane and gates the O(N) checks
-behind a verify flag in its data plane; the budgeting rule itself is ZS-ASSERT-17.
+behind a verify flag in its data plane; the budgeting rule itself is ZS-ASSERT-16.
 
 **Why:** batching creates the control plane: an O(N) check of a batch of N items costs O(1) *per
 item*, so it becomes affordable exactly because of the batch. Without the split every assertion is
 priced per item, and the only options are to delete assertions or to pay for them on every item.
 
 **Check:** a function whose plane is not obvious from its name and whose doc comment does not say
-which. An O(N) assert reachable from a per-item function is ZS-ASSERT-17's finding: it moves up to
+which. An O(N) assert reachable from a per-item function is ZS-ASSERT-16's finding: it moves up to
 the batch boundary or behind the verify flag.
 
 ```zig
@@ -208,12 +208,12 @@ const Table = struct {
 ### ZS-PERF-05 [M] Amortize every expensive acquisition on a hot path over a bounded batch
 
 One syscall, one lock acquisition, one allocation, one flush, one round trip **per batch** — never
-per item. The batch has a named `_max` constant and the code asserts it (ZS-ASSERT-20). The bound is
+per item. The batch has a named `_max` constant and the code asserts it (ZS-ASSERT-19). The bound is
 not optional: an unbounded batch converts a throughput win into an unbounded-latency and
 unbounded-memory bug.
 
 The I/O half of this rule — draining an event queue instead of reacting per event, `writeVecAll`
-instead of a write per record — is ZS-CONC-32; do not duplicate it. This rule covers the non-I/O
+instead of a write per record — is ZS-CONC-34; do not duplicate it. This rule covers the non-I/O
 half: locks, allocations, and per-item work inside a lock.
 
 A hot path is ZS-PERF-02's. Anywhere else, batch whatever crosses a process boundary per item — a
@@ -491,7 +491,7 @@ for `std.math.add`.
 Let the parent function hold the state in locals or in one receiver, and let helpers *return* what
 should change rather than applying it. Keep leaf functions pure. TigerStyle pairs this with
 "centralize control flow" (ZS-ERR-22, push `if`s up and `for`s down). The single apply site is the
-one place to bracket with `assertInvariants` (ZS-ASSERT-15) and to make transactional with
+one place to bracket with `assertInvariants` (ZS-ASSERT-14) and to make transactional with
 `errdefer`; pure leaves let you compute all the deltas first and apply them in one pass, which is
 what makes batching (ZS-PERF-05) possible.
 
@@ -569,7 +569,7 @@ const Account = struct {
 Few parameters, a simple return type, and a lot of meaty logic between the braces. If a function is
 mostly signature, it is in the wrong place: nine parameters around three lines of body is the
 hourglass the right way up, and a sign the caller is doing the work. This is TigerStyle's rule of
-thumb for *where* to cut a function that exceeds the 70-line limit (ZS-ERR-30): not every split is
+thumb for *where* to cut a function that exceeds the 70-line limit (ZS-ERR-28): not every split is
 equal, and the good ones produce inverted hourglasses.
 
 **Why:** a wide signature exports internal state to every call site, so changing it changes them
@@ -614,9 +614,9 @@ fn parseFrame(bytes: []const u8) ?Frame {
 Benchmarks build at `fast` or at the mode you actually ship; a number from a `debug` build is not
 evidence of anything. Know what each mode costs before you invoke one in an argument. For
 `x86_64-linux`, `debug` also uses the self-hosted x86_64 backend, which trades machine-code quality
-for compile speed. The mode table and the argument for shipping `safe` are ZS-BUILD-24 — read it
-before choosing `fast` for a shipped artifact, because in `fast` every `std.debug.assert` becomes a
-licence for the optimizer rather than a check (ZS-ASSERT-02).
+for compile speed. The mode table is ZS-ASSERT-02, and the argument for shipping `safe` ZS-ASSERT-04
+— read them before choosing `fast` for a shipped artifact, because in `fast` every
+`std.debug.assert` becomes a licence for the optimizer rather than a check (ZS-ASSERT-02).
 
 **Why:** `debug` applies no optimization at all, and the gap between `debug` and `fast` on a tight
 loop is routinely 10–50x. That swamps every effect this chapter discusses, so a "2x speedup" from a
@@ -895,7 +895,7 @@ pub fn build(b: *std.Build) void {
 }
 ```
 
-The benchmark's own `main` follows ZS-PERF-14, ZS-PERF-19 and ZS-CONC-30, and prints per-iteration
+The benchmark's own `main` follows ZS-PERF-14, ZS-PERF-19 and ZS-CONC-32, and prints per-iteration
 cost so the number can be compared with the ZS-PERF-02 sketch:
 
 ```zig
@@ -909,7 +909,7 @@ pub fn main(init: std.process.Init) !void {
     comptime assert(builtin.optimize == .fast);
 
     var out_buffer: [stdout_buffer_max]u8 = undefined;
-    var out_writer = Io.File.stdout().writerStreaming(io, &out_buffer); // ZS-CONC-06
+    var out_writer = Io.File.stdout().writerStreaming(io, &out_buffer); // ZS-CONC-05
     const out = &out_writer.interface;
 
     var input: [4096]u32 = undefined;
@@ -945,7 +945,7 @@ rule needs a measurement to overturn it — not the reverse.
 |---|---|
 | ZS-PERF-01 design shape, ZS-PERF-02 sketch, ZS-PERF-03 frequency | Design phase. Always — the cost is minutes. |
 | ZS-PERF-09 – ZS-PERF-13 (the whole locality cluster) | **All code, always.** These are readability and correctness rules that happen to also help the register allocator. Never require a measurement. |
-| ZS-PERF-07 be explicit, ZS-PERF-14 measure in the shipped mode, ZS-PERF-17 explicit options, ZS-PERF-19 – ZS-PERF-20 how to measure, ZS-CONC-30's clock choice | All code. Following them costs nothing and not following them produces false numbers. |
+| ZS-PERF-07 be explicit, ZS-PERF-14 measure in the shipped mode, ZS-PERF-17 explicit options, ZS-PERF-19 – ZS-PERF-20 how to measure, ZS-CONC-32's clock choice | All code. Following them costs nothing and not following them produces false numbers. |
 | ZS-PERF-04 plane split, ZS-PERF-05 batching, ZS-PERF-15 no auto-vectorization | Any code with a stated throughput or latency requirement. Batching in particular is a design decision, so it is cheap now and expensive later. |
 | ZS-PERF-06 branch hoisting, ZS-PERF-08 primitive-argument kernels, ZS-PERF-16 explicit SIMD, `@branchHint` (ZS-ERR-27), adding a `@prefetch` at all (ZS-PERF-17), ZS-PERF-18 cache-line alignment, `inline fn` (ZS-COMPTIME-03) | **Hot paths a profile names, only.** Each one costs readability. A diff that applies them without a profile in the commit message is over-applying this chapter, and that is a review finding in its own right. |
 

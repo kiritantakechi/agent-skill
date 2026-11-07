@@ -1064,7 +1064,7 @@ test "log_level lets a noisy module be quieted" {
 ### ZS-TEST-25 [M] Run the whole suite in `safe` as well as `debug`
 
 The suite MUST execute in both modes. Drive it from a CI matrix over `-Doptimize` — the canonical
-shape in ZS-BUILD-31, `matrix: optimize: [debug, safe]`, which is also how the OS matrix already
+shape in ZS-BUILD-29, `matrix: optimize: [debug, safe]`, which is also how the OS matrix already
 works — keeping `build.zig` on a single `optimize` from `b.standardOptimizeOption` as in
 ZS-BUILD-01. For a project with no CI, loop both modes inside the `test` step instead. What is
 forbidden is a pipeline that only ever runs one mode. The matrix is preferred over an in-build loop
@@ -1082,7 +1082,7 @@ applies the full optimizer, so it catches illegal behavior that only manifests o
 and it catches performance regressions and stack-overflow-in-release bugs.
 
 ```yaml
-# GOOD — CI, the primary form (full workflow in ZS-BUILD-31)
+# GOOD — CI, the primary form (full workflow in ZS-BUILD-29)
 strategy:
   fail-fast: false
   matrix:
