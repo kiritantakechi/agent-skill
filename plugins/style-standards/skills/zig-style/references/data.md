@@ -1360,9 +1360,9 @@ test "ascii case mapping silently ignores non-ascii" {
 
 ## Arithmetic and type-system rules with silent-wrong-code potential
 
-`references/migration.md` carries the full migration tables. The two rules below cover only the
-entries that produce **wrong behavior rather than a compile error**, because this is the chapter a
-reader consults when choosing a type — not the one they consult when a build breaks.
+The migration table holds every spelling that changed. The two rules below cover only the entries
+that produce **wrong behavior rather than a compile error**, because this is the chapter a reader
+consults when choosing a type — not the one they consult when a build breaks.
 
 ### ZS-DATA-33 [M] `std.math.sign` returns the narrowest integer, not the argument's type
 

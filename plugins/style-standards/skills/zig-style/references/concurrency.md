@@ -9,8 +9,8 @@ buffer-then-flush writing discipline, `Io.Reader`, authoring custom stream imple
 
 This chapter does not own format specifiers — `{f}`, `{t}`, `{?}` and the custom `format` method are
 `references/output.md`. Allocator choice and `defer`/`errdefer` layout are `references/memory.md`;
-`std.testing.io` and `Io.failing` mechanics are `references/testing.md` ZS-TEST-07; the full
-0.13→0.17 migration tables are `references/migration.md`; the non-I/O half of batching is
+`std.testing.io` and `Io.failing` mechanics are `references/testing.md` ZS-TEST-07; every 0.13 to
+0.17 spelling is a row of the migration table; the non-I/O half of batching is
 `references/performance.md` ZS-PERF-05; scoped library logging is `references/errors.md` ZS-ERR-28.
 It cites them.
 
