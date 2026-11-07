@@ -88,47 +88,47 @@ Since; its owning rule's Check finds it.
 
 | Old | Python 3.15 | Rule |
 |---|---|---|
-| `__cached__` | `__spec__.cached`; a module's `__cached__` is no longer set or read | PS-MIG-03 |
-| `ctypes.SetPointerType` | nothing; it was undocumented | PS-MIG-03 |
-| `glob.glob0` | `glob.glob()` with `root_dir=` | PS-MIG-03 |
-| `glob.glob1` | `glob.glob()` with `root_dir=` | PS-MIG-03 |
-| `http.server.CGIHTTPRequestHandler` | nothing | PS-MIG-03 |
-| `python -m http.server --cgi` | nothing | PS-MIG-03 |
-| `importlib.abc.Loader.load_module` | `exec_module()`; the import system no longer calls it | PS-MIG-03 |
-| `pathlib.PurePath.is_reserved` | `os.path.isreserved()` | PS-MIG-03 |
-| `platform.java_ver` | nothing | PS-MIG-03 |
-| `sre_compile` | `re` | PS-MIG-03 |
-| `sre_constants` | `re` | PS-MIG-03 |
-| `sre_parse` | `re` | PS-MIG-03 |
-| `types.CodeType.co_lnotab` | `co_lines()` | PS-MIG-03 |
+| `__cached__` | `__spec__.cached`; a module's `__cached__` is no longer set or read | PS-MIG-04 |
+| `ctypes.SetPointerType` | nothing; it was undocumented | PS-MIG-04 |
+| `glob.glob0` | `glob.glob()` with `root_dir=` | PS-MIG-04 |
+| `glob.glob1` | `glob.glob()` with `root_dir=` | PS-MIG-04 |
+| `http.server.CGIHTTPRequestHandler` | nothing | PS-MIG-04 |
+| `python -m http.server --cgi` | nothing | PS-MIG-04 |
+| `importlib.abc.Loader.load_module` | `exec_module()`; the import system no longer calls it | PS-MIG-04 |
+| `pathlib.PurePath.is_reserved` | `os.path.isreserved()` | PS-MIG-04 |
+| `platform.java_ver` | nothing | PS-MIG-04 |
+| `sre_compile` | `re` | PS-MIG-04 |
+| `sre_constants` | `re` | PS-MIG-04 |
+| `sre_parse` | `re` | PS-MIG-04 |
+| `types.CodeType.co_lnotab` | `co_lines()` | PS-MIG-04 |
 | `typing.no_type_check_decorator` | nothing | PS-TYPE-11 |
-| `wave.Wave_read.getmark` | nothing | PS-MIG-03 |
-| `wave.Wave_read.getmarkers` | nothing | PS-MIG-03 |
-| `wave.Wave_write.getmark` | nothing | PS-MIG-03 |
-| `wave.Wave_write.getmarkers` | nothing | PS-MIG-03 |
-| `wave.Wave_write.setmark` | nothing | PS-MIG-03 |
-| `zipimport.zipimporter.load_module` | `exec_module()` | PS-MIG-03 |
-| `PyImport_ImportModuleNoBlock` | `PyImport_ImportModule` | PS-MIG-03 |
-| `PySys_ResetWarnOptions` | nothing | PS-MIG-03 |
-| `PyUnicode_AsDecodedObject` | `PyCodec_Decode` | PS-MIG-03 |
-| `PyUnicode_AsDecodedUnicode` | `PyCodec_Decode` | PS-MIG-03 |
-| `PyUnicode_AsEncodedObject` | `PyCodec_Encode` | PS-MIG-03 |
-| `PyUnicode_AsEncodedUnicode` | `PyCodec_Encode` | PS-MIG-03 |
-| `PyWeakref_GET_OBJECT` | `PyWeakref_GetRef` | PS-MIG-03 |
-| `PyWeakref_GetObject` | `PyWeakref_GetRef` | PS-MIG-03 |
-| `Py_GetExecPrefix` | `PyConfig_Get()` | PS-MIG-03 |
-| `Py_GetPath` | `PyConfig_Get()` | PS-MIG-03 |
-| `Py_GetPrefix` | `PyConfig_Get()` | PS-MIG-03 |
-| `Py_GetProgramFullPath` | `PyConfig_Get()` | PS-MIG-03 |
-| `Py_GetProgramName` | `PyConfig_Get()` | PS-MIG-03 |
-| `Py_GetPythonHome` | `PyConfig_Get()` | PS-MIG-03 |
-| `ast.<Node>(…)` | raises `TypeError` for a field missing or a keyword no field has; give each of the node's `_fields`, and only those | PS-MIG-04 |
-| `datetime.strptime(…, "%d/%m")` | raises `ValueError` for a day with no year; give the format a year directive | PS-MIG-04 |
-| `importlib.resources.files(package=…)` | raises `TypeError`; pass the package positionally | PS-MIG-04 |
-| `sysconfig.is_python_build(check_home=…)` | raises `TypeError`; call it with no argument | PS-MIG-04 |
-| `threading.RLock(…)` | raises `TypeError` given any argument; `threading.RLock()`, which never used them | PS-MIG-04 |
-| `typing.NamedTuple(…, x=…)` | raises `TypeError` for a field given as a keyword; `class P(NamedTuple)` | PS-MIG-04 |
-| `typing.TypedDict("…")` | raises `TypeError` given a name and no fields; `class TD(TypedDict)` | PS-MIG-04 |
+| `wave.Wave_read.getmark` | nothing | PS-MIG-04 |
+| `wave.Wave_read.getmarkers` | nothing | PS-MIG-04 |
+| `wave.Wave_write.getmark` | nothing | PS-MIG-04 |
+| `wave.Wave_write.getmarkers` | nothing | PS-MIG-04 |
+| `wave.Wave_write.setmark` | nothing | PS-MIG-04 |
+| `zipimport.zipimporter.load_module` | `exec_module()` | PS-MIG-04 |
+| `PyImport_ImportModuleNoBlock` | `PyImport_ImportModule` | PS-MIG-04 |
+| `PySys_ResetWarnOptions` | nothing | PS-MIG-04 |
+| `PyUnicode_AsDecodedObject` | `PyCodec_Decode` | PS-MIG-04 |
+| `PyUnicode_AsDecodedUnicode` | `PyCodec_Decode` | PS-MIG-04 |
+| `PyUnicode_AsEncodedObject` | `PyCodec_Encode` | PS-MIG-04 |
+| `PyUnicode_AsEncodedUnicode` | `PyCodec_Encode` | PS-MIG-04 |
+| `PyWeakref_GET_OBJECT` | `PyWeakref_GetRef` | PS-MIG-04 |
+| `PyWeakref_GetObject` | `PyWeakref_GetRef` | PS-MIG-04 |
+| `Py_GetExecPrefix` | `PyConfig_Get()` | PS-MIG-04 |
+| `Py_GetPath` | `PyConfig_Get()` | PS-MIG-04 |
+| `Py_GetPrefix` | `PyConfig_Get()` | PS-MIG-04 |
+| `Py_GetProgramFullPath` | `PyConfig_Get()` | PS-MIG-04 |
+| `Py_GetProgramName` | `PyConfig_Get()` | PS-MIG-04 |
+| `Py_GetPythonHome` | `PyConfig_Get()` | PS-MIG-04 |
+| `ast.<Node>(…)` | raises `TypeError` for a field missing or a keyword no field has; give each of the node's `_fields`, and only those | PS-MIG-05 |
+| `datetime.strptime(…, "%d/%m")` | raises `ValueError` for a day with no year; give the format a year directive | PS-MIG-05 |
+| `importlib.resources.files(package=…)` | raises `TypeError`; pass the package positionally | PS-MIG-05 |
+| `sysconfig.is_python_build(check_home=…)` | raises `TypeError`; call it with no argument | PS-MIG-05 |
+| `threading.RLock(…)` | raises `TypeError` given any argument; `threading.RLock()`, which never used them | PS-MIG-05 |
+| `typing.NamedTuple(…, x=…)` | raises `TypeError` for a field given as a keyword; `class P(NamedTuple)` | PS-MIG-05 |
+| `typing.TypedDict("…")` | raises `TypeError` given a name and no fields; `class TD(TypedDict)` | PS-MIG-05 |
 
 A `gone` row of an earlier release is in the migration table, `PS-MIG` in section 6, with its Since;
 the `rg` command after that table finds every `gone` and `alias` spelling the code writes out but a
@@ -265,7 +265,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-259 rules live here; section 4 lists by ID those that bind on their own.
+260 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -282,7 +282,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/documentation.md` | `PS-DOC` (14) | Docstring shape and content, choosing a convention and what that choice disables, doctests, the comments that explain the code, and the documents outside it |
 | `references/testing.md` | `PS-TEST` (27) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
 | `references/build.md` | `PS-BUILD` (23) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
-| `references/migration.md` | `PS-MIG` (8) | Every old spelling 3.14 and 3.15 removed, changed, aliased or deprecated, with its status and owning rule; the command the table generates; what to write now for 3.16; and pytest's own ladder |
+| `references/migration.md` | `PS-MIG` (9) | Every old spelling 3.14 and 3.15 removed, changed, aliased or deprecated, with its status and owning rule; the command the table generates; what to write now for 3.16; and pytest's own ladder |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, the mechanical pass, and the output format |
 
 ## 7. Bundled assets

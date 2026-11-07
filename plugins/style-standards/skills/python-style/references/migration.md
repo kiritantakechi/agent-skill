@@ -13,16 +13,17 @@ Every rule ID a revision of this standard changed, and what it became, is in
 - Old spellings
 - **Reading the table**
   - PS-MIG-01 [M] Read each row by its status, and give a discouraged name no row
-  - PS-MIG-02 [M] Run the dead-API command before reading a diff
+  - PS-MIG-02 [M] Run the dead-API command over the whole tree, before reading a diff
+  - PS-MIG-03 [M!] Fail the build on a hit of the dead-API command
 - **Removed and rejected**
-  - PS-MIG-03 [M] Do not use a name 3.15 removed
-  - PS-MIG-04 [M] Never call a live name in a shape 3.15 rejects
+  - PS-MIG-04 [M] Do not use a name 3.15 removed
+  - PS-MIG-05 [M] Never call a live name in a shape 3.15 rejects
 - **Deprecated**
-  - PS-MIG-05 [M] Stop reading `__version__` from a standard-library module
-  - PS-MIG-06 [S] Do not write against 3.16's other changes yet
+  - PS-MIG-06 [M] Stop reading `__version__` from a standard-library module
+  - PS-MIG-07 [S] Do not write against 3.16's other changes yet
 - **Tool migrations**
-  - PS-MIG-07 [M] Follow pytest's own removal ladder
-  - PS-MIG-08 [M] Re-verify this table on every interpreter bump
+  - PS-MIG-08 [M] Follow pytest's own removal ladder
+  - PS-MIG-09 [M] Re-verify this table on every interpreter bump
 - Decided by tools
 
 ---
@@ -31,47 +32,47 @@ Every rule ID a revision of this standard changed, and what it became, is in
 
 | Old | Python 3.15 | Status | Since | Rule |
 |---|---|---|---|---|
-| `__cached__` | `__spec__.cached`; a module's `__cached__` is no longer set or read | gone | 3.15 | PS-MIG-03 |
-| `ctypes.SetPointerType` | nothing; it was undocumented | gone | 3.15 | PS-MIG-03 |
-| `glob.glob0` | `glob.glob()` with `root_dir=` | gone | 3.15 | PS-MIG-03 |
-| `glob.glob1` | `glob.glob()` with `root_dir=` | gone | 3.15 | PS-MIG-03 |
-| `http.server.CGIHTTPRequestHandler` | nothing | gone | 3.15 | PS-MIG-03 |
-| `python -m http.server --cgi` | nothing | gone | 3.15 | PS-MIG-03 |
-| `importlib.abc.Loader.load_module` | `exec_module()`; the import system no longer calls it | gone | 3.15 | PS-MIG-03 |
-| `pathlib.PurePath.is_reserved` | `os.path.isreserved()` | gone | 3.15 | PS-MIG-03 |
-| `platform.java_ver` | nothing | gone | 3.15 | PS-MIG-03 |
-| `sre_compile` | `re` | gone | 3.15 | PS-MIG-03 |
-| `sre_constants` | `re` | gone | 3.15 | PS-MIG-03 |
-| `sre_parse` | `re` | gone | 3.15 | PS-MIG-03 |
-| `types.CodeType.co_lnotab` | `co_lines()` | gone | 3.15 | PS-MIG-03 |
+| `__cached__` | `__spec__.cached`; a module's `__cached__` is no longer set or read | gone | 3.15 | PS-MIG-04 |
+| `ctypes.SetPointerType` | nothing; it was undocumented | gone | 3.15 | PS-MIG-04 |
+| `glob.glob0` | `glob.glob()` with `root_dir=` | gone | 3.15 | PS-MIG-04 |
+| `glob.glob1` | `glob.glob()` with `root_dir=` | gone | 3.15 | PS-MIG-04 |
+| `http.server.CGIHTTPRequestHandler` | nothing | gone | 3.15 | PS-MIG-04 |
+| `python -m http.server --cgi` | nothing | gone | 3.15 | PS-MIG-04 |
+| `importlib.abc.Loader.load_module` | `exec_module()`; the import system no longer calls it | gone | 3.15 | PS-MIG-04 |
+| `pathlib.PurePath.is_reserved` | `os.path.isreserved()` | gone | 3.15 | PS-MIG-04 |
+| `platform.java_ver` | nothing | gone | 3.15 | PS-MIG-04 |
+| `sre_compile` | `re` | gone | 3.15 | PS-MIG-04 |
+| `sre_constants` | `re` | gone | 3.15 | PS-MIG-04 |
+| `sre_parse` | `re` | gone | 3.15 | PS-MIG-04 |
+| `types.CodeType.co_lnotab` | `co_lines()` | gone | 3.15 | PS-MIG-04 |
 | `typing.no_type_check_decorator` | nothing | gone | 3.15 | PS-TYPE-11 |
-| `wave.Wave_read.getmark` | nothing | gone | 3.15 | PS-MIG-03 |
-| `wave.Wave_read.getmarkers` | nothing | gone | 3.15 | PS-MIG-03 |
-| `wave.Wave_write.getmark` | nothing | gone | 3.15 | PS-MIG-03 |
-| `wave.Wave_write.getmarkers` | nothing | gone | 3.15 | PS-MIG-03 |
-| `wave.Wave_write.setmark` | nothing | gone | 3.15 | PS-MIG-03 |
-| `zipimport.zipimporter.load_module` | `exec_module()` | gone | 3.15 | PS-MIG-03 |
-| `PyImport_ImportModuleNoBlock` | `PyImport_ImportModule` | gone | 3.15 | PS-MIG-03 |
-| `PySys_ResetWarnOptions` | nothing | gone | 3.15 | PS-MIG-03 |
-| `PyUnicode_AsDecodedObject` | `PyCodec_Decode` | gone | 3.15 | PS-MIG-03 |
-| `PyUnicode_AsDecodedUnicode` | `PyCodec_Decode` | gone | 3.15 | PS-MIG-03 |
-| `PyUnicode_AsEncodedObject` | `PyCodec_Encode` | gone | 3.15 | PS-MIG-03 |
-| `PyUnicode_AsEncodedUnicode` | `PyCodec_Encode` | gone | 3.15 | PS-MIG-03 |
-| `PyWeakref_GET_OBJECT` | `PyWeakref_GetRef` | gone | 3.15 | PS-MIG-03 |
-| `PyWeakref_GetObject` | `PyWeakref_GetRef` | gone | 3.15 | PS-MIG-03 |
-| `Py_GetExecPrefix` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
-| `Py_GetPath` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
-| `Py_GetPrefix` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
-| `Py_GetProgramFullPath` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
-| `Py_GetProgramName` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
-| `Py_GetPythonHome` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
-| `ast.<Node>(…)` | raises `TypeError` for a field missing or a keyword no field has; give each of the node's `_fields`, and only those | gone | 3.15 | PS-MIG-04 |
-| `datetime.strptime(…, "%d/%m")` | raises `ValueError` for a day with no year; give the format a year directive | gone | 3.15 | PS-MIG-04 |
-| `importlib.resources.files(package=…)` | raises `TypeError`; pass the package positionally | gone | 3.15 | PS-MIG-04 |
-| `sysconfig.is_python_build(check_home=…)` | raises `TypeError`; call it with no argument | gone | 3.15 | PS-MIG-04 |
-| `threading.RLock(…)` | raises `TypeError` given any argument; `threading.RLock()`, which never used them | gone | 3.15 | PS-MIG-04 |
-| `typing.NamedTuple(…, x=…)` | raises `TypeError` for a field given as a keyword; `class P(NamedTuple)` | gone | 3.15 | PS-MIG-04 |
-| `typing.TypedDict("…")` | raises `TypeError` given a name and no fields; `class TD(TypedDict)` | gone | 3.15 | PS-MIG-04 |
+| `wave.Wave_read.getmark` | nothing | gone | 3.15 | PS-MIG-04 |
+| `wave.Wave_read.getmarkers` | nothing | gone | 3.15 | PS-MIG-04 |
+| `wave.Wave_write.getmark` | nothing | gone | 3.15 | PS-MIG-04 |
+| `wave.Wave_write.getmarkers` | nothing | gone | 3.15 | PS-MIG-04 |
+| `wave.Wave_write.setmark` | nothing | gone | 3.15 | PS-MIG-04 |
+| `zipimport.zipimporter.load_module` | `exec_module()` | gone | 3.15 | PS-MIG-04 |
+| `PyImport_ImportModuleNoBlock` | `PyImport_ImportModule` | gone | 3.15 | PS-MIG-04 |
+| `PySys_ResetWarnOptions` | nothing | gone | 3.15 | PS-MIG-04 |
+| `PyUnicode_AsDecodedObject` | `PyCodec_Decode` | gone | 3.15 | PS-MIG-04 |
+| `PyUnicode_AsDecodedUnicode` | `PyCodec_Decode` | gone | 3.15 | PS-MIG-04 |
+| `PyUnicode_AsEncodedObject` | `PyCodec_Encode` | gone | 3.15 | PS-MIG-04 |
+| `PyUnicode_AsEncodedUnicode` | `PyCodec_Encode` | gone | 3.15 | PS-MIG-04 |
+| `PyWeakref_GET_OBJECT` | `PyWeakref_GetRef` | gone | 3.15 | PS-MIG-04 |
+| `PyWeakref_GetObject` | `PyWeakref_GetRef` | gone | 3.15 | PS-MIG-04 |
+| `Py_GetExecPrefix` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-04 |
+| `Py_GetPath` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-04 |
+| `Py_GetPrefix` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-04 |
+| `Py_GetProgramFullPath` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-04 |
+| `Py_GetProgramName` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-04 |
+| `Py_GetPythonHome` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-04 |
+| `ast.<Node>(…)` | raises `TypeError` for a field missing or a keyword no field has; give each of the node's `_fields`, and only those | gone | 3.15 | PS-MIG-05 |
+| `datetime.strptime(…, "%d/%m")` | raises `ValueError` for a day with no year; give the format a year directive | gone | 3.15 | PS-MIG-05 |
+| `importlib.resources.files(package=…)` | raises `TypeError`; pass the package positionally | gone | 3.15 | PS-MIG-05 |
+| `sysconfig.is_python_build(check_home=…)` | raises `TypeError`; call it with no argument | gone | 3.15 | PS-MIG-05 |
+| `threading.RLock(…)` | raises `TypeError` given any argument; `threading.RLock()`, which never used them | gone | 3.15 | PS-MIG-05 |
+| `typing.NamedTuple(…, x=…)` | raises `TypeError` for a field given as a keyword; `class P(NamedTuple)` | gone | 3.15 | PS-MIG-05 |
+| `typing.TypedDict("…")` | raises `TypeError` given a name and no fields; `class TD(TypedDict)` | gone | 3.15 | PS-MIG-05 |
 | `asyncio.get_event_loop` | raises `RuntimeError` with no running loop; `asyncio.get_running_loop()` | changed | 3.14 | PS-ASYNC-01 |
 | `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | changed | 3.15 | PS-CONC-20 |
 | `from __future__ import annotations` | stringifies every annotation, so `annotationlib`'s `VALUE` and `FORWARDREF` return bare strings | changed | 3.14 | PS-TYPE-04 |
@@ -84,8 +85,8 @@ Every rule ID a revision of this standard changed, and what it became, is in
 | `sys.stdout` | writes with the `surrogateescape` error handler under UTF-8 mode, as `sys.stdin` reads, where an unencodable character raised | changed | 3.15 | PS-OUT-02 |
 | `cProfile` | `profiling.tracing` | alias | 3.15 | PS-PERF-02 |
 | `typing.Text` | `str` | alias | 3.11 | PS-TYPE-11 |
-| `<module>.__version__` | `sys.version_info`, or `importlib.metadata.version()`; removed in 3.20 | deprecated | 3.15 | PS-MIG-05 |
-| `array.array("u")` | `array.array("w")`; removed in 3.16 | deprecated | 3.13 | PS-MIG-06 |
+| `<module>.__version__` | `sys.version_info`, or `importlib.metadata.version()`; removed in 3.20 | deprecated | 3.15 | PS-MIG-06 |
+| `array.array("u")` | `array.array("w")`; removed in 3.16 | deprecated | 3.13 | PS-MIG-07 |
 | `asyncio.AbstractEventLoopPolicy` | `asyncio.Runner`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-01 |
 | `asyncio.DefaultEventLoopPolicy` | `asyncio.Runner`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-01 |
 | `asyncio.WindowsProactorEventLoopPolicy` | `loop_factory=`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-01 |
@@ -94,7 +95,7 @@ Every rule ID a revision of this standard changed, and what it became, is in
 | `asyncio.set_event_loop_policy` | `asyncio.run(main(), loop_factory=...)`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-01 |
 | `collections.abc.ByteString` | `collections.abc.Buffer`; removed in 3.17 | deprecated | 3.15 | PS-TYPE-11 |
 | `profile` | `profiling.tracing`; removed in 3.17 | deprecated | 3.15 | PS-PERF-02 |
-| `shutil.ExecError` | nothing; no `shutil` function raises it; removed in 3.16 | deprecated | 3.14 | PS-MIG-06 |
+| `shutil.ExecError` | nothing; no `shutil` function raises it; removed in 3.16 | deprecated | 3.14 | PS-MIG-07 |
 | `typing.AnyStr` | a constrained type parameter, `def f[S: (str, bytes)](s: S) -> S`; removed in 3.18 | deprecated | 3.13 | PS-TYPE-11 |
 | `typing.ByteString` | `collections.abc.Buffer`; removed in 3.17 | deprecated | 3.15 | PS-TYPE-11 |
 
@@ -173,23 +174,40 @@ removed, so treating one as an error discredits the whole table.
 **Check:** run the command after the table against a codebase you know is current: any hit is a real
 finding or a row whose status is wrong. A row naming a soft-deprecated name is the finding.
 
-### PS-MIG-02 [M] Run the dead-API command before reading a diff
+### PS-MIG-02 [M] Run the dead-API command over the whole tree, before reading a diff
 
-First, before anything else in the review: the command after the table, then the Check of each rule
-that owns a `changed` row or a shape.
+First, before anything else in the review: the command after the table, over the whole tree and not
+only the files the diff touches, then the Check of each rule that owns a `changed` row or a shape.
 
 **Why:** a superseded spelling means the author's model of the language is out of date, which makes
-every other judgement in the diff suspect — so finding one changes how you read the rest. It is also
-the cheapest check available: one command, generated from the table, so it cannot drift from it.
+every other judgement in the diff suspect; and a removed name raises only where it is reached, so a
+module no test imports keeps one. One command, generated from the table, finds both.
 
-**Check:** the review's order. One that ran the command after reading the diff, or not at all, is
-the finding.
+**Check:** the review's order. One that ran the command after reading the diff, over the diff alone,
+or not at all, is the finding.
+
+### PS-MIG-03 [M!] Fail the build on a hit of the dead-API command
+
+Add a CI step that runs the command after the table over the whole tree and fails on a hit, and
+treat the hits of the day it is added as its first commit. A row with `alias` status never fails a
+build or warns, so only this step stops the next one from arriving.
+
+*Relaxed form:* no CI gate; the same command runs by hand before each release, and a hit in a file
+you are already editing is fixed in that diff.
+
+**Why:** an alias works, so on a long-lived codebase they accumulate until an interpreter bump
+removes them all at once and the diff is too large to review. A gate makes the migration a cost of
+each change.
+
+**Check:** the CI workflow runs the command after the table and fails on a hit — its exit status
+checked, not swallowed by `|| true`. Run it once by hand when adding it: a hit means the gate is
+being added to a tree that already fails it.
 
 ## Removed and rejected
 
-### PS-MIG-03 [M] Do not use a name 3.15 removed
+### PS-MIG-04 [M] Do not use a name 3.15 removed
 
-Every `gone` row the rule column gives to PS-MIG-03 is a name 3.15 removed, from Python or from its
+Every `gone` row the rule column gives to PS-MIG-04 is a name 3.15 removed, from Python or from its
 C API, and names its replacement or says there is none. A row keyed by its class,
 `pathlib.PurePath.is_reserved`, is a method or attribute the code reaches through an instance,
 `p.is_reserved()`, which names no class a fixed string can see; `ty` reports that call as an
@@ -202,9 +220,9 @@ only of an extension built against 3.15. Both are found statically.
 **Check:** the command after the table, and `ty check` under the shipped `ty.toml`; every hit, and
 every `unresolved-attribute` on a name a row removes, is the finding.
 
-### PS-MIG-04 [M] Never call a live name in a shape 3.15 rejects
+### PS-MIG-05 [M] Never call a live name in a shape 3.15 rejects
 
-Every `gone` row the rule column gives to PS-MIG-04 is a call earlier releases accepted and 3.15
+Every `gone` row the rule column gives to PS-MIG-05 is a call earlier releases accepted and 3.15
 raises on: a keyword it removed, arguments it never used, a field an `ast` node needs, a functional
 form with no fields, or a day without a year. Each is a shape, which the command after the table
 does not find; this Check does.
@@ -221,7 +239,7 @@ the finding.
 
 ## Deprecated
 
-### PS-MIG-05 [M] Stop reading `__version__` from a standard-library module
+### PS-MIG-06 [M] Stop reading `__version__` from a standard-library module
 
 The `<module>.__version__` row: `argparse`, `csv`, `ctypes`, `decimal`, `http.server`, `imaplib`,
 `ipaddress`, `json`, `logging`, `optparse`, `platform`, `re`, `socketserver`, `tabnanny`,
@@ -236,7 +254,7 @@ the interpreter's — and code reading it was almost always answering the wrong 
 `rg -n '\b(argparse|csv|ctypes|decimal|imaplib|ipaddress|json|logging|optparse|platform|re|socketserver|tabnanny|zlib)\.__version__' src/`
 — every hit is the finding.
 
-### PS-MIG-06 [S] Do not write against 3.16's other changes yet
+### PS-MIG-07 [S] Do not write against 3.16's other changes yet
 
 Anything 3.16 adds can still be reverted before its first beta, so nothing written for 3.15 relies
 on one. What 3.16 removes is in the table already, each deprecated on 3.15 with a replacement that
@@ -250,7 +268,7 @@ position is that examples must run on the interpreter they target.
 
 ## Tool migrations
 
-### PS-MIG-07 [M] Follow pytest's own removal ladder
+### PS-MIG-08 [M] Follow pytest's own removal ladder
 
 pytest runs the same tiered process the interpreter does:
 
@@ -266,7 +284,7 @@ standard's own configuration sits on. The CI-detection change is the quiet one: 
 
 **Check:** run the suite with `-W error::DeprecationWarning` and read what fires.
 
-### PS-MIG-08 [M] Re-verify this table on every interpreter bump
+### PS-MIG-09 [M] Re-verify this table on every interpreter bump
 
 Not on every release of your own project — on every change to the interpreter you target.
 
@@ -282,5 +300,5 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ruff | `UP013` | error | the functional `TypedDict("TD", …)` form — listed because its fix is the class form, which PS-MIG-04's row asks for |
-| ruff | `UP014` | error | the functional `NamedTuple("P", …)` form — listed because its fix is the class form, which PS-MIG-04's row asks for |
+| ruff | `UP013` | error | the functional `TypedDict("TD", …)` form — listed because its fix is the class form, which PS-MIG-05's row asks for |
+| ruff | `UP014` | error | the functional `NamedTuple("P", …)` form — listed because its fix is the class form, which PS-MIG-05's row asks for |

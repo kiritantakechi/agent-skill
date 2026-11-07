@@ -555,16 +555,16 @@ def _no_ranges(tree: Path) -> Edited:
 
 
 def _duplicate_id(tree: Path) -> Edited:
-    """`PS-MIG-08`, uncited, renamed to an ID `async.md` holds.
+    """`PS-MIG-09`, uncited, renamed to an ID `async.md` holds.
 
     The map moves with it, so only the duplicate is wrong.
     """
     md = f"{PY}/SKILL.md"
     return (
         *edit(
-            tree, f"{PY}/references/migration.md", "PS-MIG-08 [M]", "PS-ASYNC-01 [M]", 2
+            tree, f"{PY}/references/migration.md", "PS-MIG-09 [M]", "PS-ASYNC-01 [M]", 2
         ),
-        *edit(tree, md, "`PS-MIG` (8)", "`PS-MIG` (7)"),
+        *edit(tree, md, "`PS-MIG` (9)", "`PS-MIG` (8)"),
         *edit(tree, md, "`PS-ASYNC` (8)", "`PS-ASYNC` (9)"),
     )
 
@@ -1245,7 +1245,7 @@ CONTROLS: list[Control] = [
         # citation behind.
         anatomy.NUMBERING,
         lambda t: edit(
-            t, f"{PY}/references/migration.md", "PS-MIG-08 [M]", "PS-MIG-17 [M]", 2
+            t, f"{PY}/references/migration.md", "PS-MIG-09 [M]", "PS-MIG-17 [M]", 2
         ),
     ),
     Control(

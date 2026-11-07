@@ -132,19 +132,18 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-FT-26` | `PS-CONC-21` |
 | `PS-MIG-02` | `PS-MIG-01` |
 | `PS-MIG-03` | `PS-MIG-02` |
-| `PS-MIG-04` | `PS-MIG-03` |
-| `PS-MIG-05` | `PS-MIG-03` |
+| `PS-MIG-05` | `PS-MIG-04` |
 | `PS-MIG-06` | lint `ruff:UP013` |
-| `PS-MIG-07` | `PS-MIG-04` |
+| `PS-MIG-07` | `PS-MIG-05` |
 | `PS-MIG-08` | `PS-TYPE-11` |
-| `PS-MIG-09` | `PS-MIG-05` |
+| `PS-MIG-09` | `PS-MIG-06` |
 | `PS-MIG-10` | `PS-CONC-20` |
 | `PS-MIG-11` | `PS-DATA-12` |
 | `PS-MIG-12` | `PS-OUT-02` |
 | `PS-MIG-13` | `PS-CONC-23` |
-| `PS-MIG-14` | `PS-MIG-06` |
-| `PS-MIG-15` | `PS-MIG-07` |
-| `PS-MIG-16` | `PS-MIG-08` |
+| `PS-MIG-14` | `PS-MIG-07` |
+| `PS-MIG-15` | `PS-MIG-08` |
+| `PS-MIG-16` | `PS-MIG-09` |
 | `PS-NAME-07` | lint `ruff:A001` |
 | `PS-NAME-08` | `PS-NAME-07` |
 | `PS-NAME-09` | `PS-MOD-04` |

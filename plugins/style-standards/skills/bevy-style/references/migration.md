@@ -413,4 +413,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| rustc | `deprecated` | warn | a deprecated Bevy API — listed because the shipped CI denies warnings, so a deprecated row fails its build (RS-MIG-02) |
+| rustc | `deprecated` | warn | a deprecated Bevy API — listed because the shipped CI denies warnings, so a deprecated row fails its build (RS-MIG-04) |

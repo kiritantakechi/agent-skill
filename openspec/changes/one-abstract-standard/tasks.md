@@ -365,7 +365,19 @@ time of deletion (both tiers `[M]` unless marked):
   profile; `build`'s), ZS-DATA-18, -24. Left for `api` or later: PS-API-12, RS-FUNC-35 and ZS-PERF-20 state
   principle 3 (a value instead of an effect: return the change, apply it in one place) in three chapters,
   and nothing registers it; `api` is closed, so 3.14 decides its chapter.
-- [ ] 3.13 `migration`
+- [x] 3.13 `migration`: 4 entries (`AS-MIG-01` to `-04`): search the whole tree for the old spellings,
+  fail the build on a hit of that search (`[M!]`), do not call an API the target deprecated, review every
+  toolchain bump against the release's own list of changes; realisations: 12 `realises` (4 in each of
+  python-style, rust-style and zig-style). Moves 0. Merges 0. Removed 1: BV-MIG-03, which restated
+  RS-MIG-02, now RS-MIG-04 (a delta rule says what its anchor says only by a departure; its one row passes to BV-MIG-02,
+  its fixture goes, and the test that expected the pair to be noted now expects no delta rule noted).
+  New rules 4: PS-MIG-03 and RS-MIG-02 (the `[M!]` gate on the generated search), RS-MIG-01 (run it over
+  code no build compiles), ZS-MIG-04 (a toolchain bump is a migration of its own, split out of ZS-MIG-03);
+  PS-MIG-02 widened to the whole tree. Tier changes 0. Look-alike notes 1 -> 0, the last one. Not
+  registered, one standard: reading a row by its status and the discouraged name (PS-MIG-01), the shape a
+  live name rejects (PS-MIG-05), pytest's ladder (PS-MIG-08), 3.16 (PS-MIG-07), the crate std replaced
+  (RS-MIG-03), checking unfamiliar code against the chapter (ZS-MIG-01, BV-MIG-01), the rename chain
+  (BV-MIG-02), the `Ref` clone (BV-MIG-03).
 - [ ] 3.14 Remove an abstract chapter that holds no entry, or record why it stays; declare a chapter
   the sweep emptied of realisations as domain, or remove it; verify every look-alike note left has a
   recorded reason the two rules answer different questions

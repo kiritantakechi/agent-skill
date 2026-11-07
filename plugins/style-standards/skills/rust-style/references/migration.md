@@ -12,12 +12,15 @@ Every rule ID a revision of this standard changed, and what it became, is in
 ## Contents
 
 - Old spellings
+- **Finding the old spellings**
+  - RS-MIG-01 [M] Run the command after the table over code no build compiles
+  - RS-MIG-02 [M!] Fail the build on a spelling the table marks `alias`
 - **What replaced what**
-  - RS-MIG-01 [M] Reach for the standard-library feature that replaced a crate
-  - RS-MIG-02 [M] Do not call an API deprecated through 1.99
+  - RS-MIG-03 [M] Reach for the standard-library feature that replaced a crate
+  - RS-MIG-04 [M] Do not call an API deprecated through 1.99
 - When an API arrived
 - **What changed silently**
-  - RS-MIG-03 [M] Re-read what changed silently on every toolchain bump
+  - RS-MIG-05 [M] Re-read what changed silently on every toolchain bump
 
 ---
 
@@ -46,13 +49,13 @@ the replacement — or `2024` for a change the edition made; section 2.1 lists t
 | `once_cell::sync::Lazy` | `std::sync::LazyLock` | alias | 1.80 | RS-CONC-27 |
 | `once_cell::sync::OnceCell` | `std::sync::OnceLock` | alias | 1.70 | RS-CONC-27 |
 | `cfg_if::cfg_if` | `cfg_select!` | alias | 1.95 | RS-MOD-08 |
-| `itoa::Buffer` | `<int>::format_into(&mut NumBuffer)` | alias | 1.98 | RS-MIG-01 |
-| `fs2::FileExt` | `File::lock`, `try_lock`, `lock_shared` | alias | 1.89 | RS-MIG-01 |
-| `fs4::fs_std::FileExt` | `File::lock`, `try_lock`, `lock_shared` | alias | 1.89 | RS-MIG-01 |
-| `fd_lock::RwLock` | `File::lock`, `lock_shared` | alias | 1.89 | RS-MIG-01 |
-| `filetime::set_file_times` | `fs::set_times`, `File::set_times` | alias | 1.99 | RS-MIG-01 |
-| `os_pipe::pipe` | `io::pipe` | alias | 1.87 | RS-MIG-01 |
-| `static_assertions::const_assert` | `const _: () = assert!(…)`, or `const { assert!(…) }` | alias | 1.57 | RS-MIG-01 |
+| `itoa::Buffer` | `<int>::format_into(&mut NumBuffer)` | alias | 1.98 | RS-MIG-03 |
+| `fs2::FileExt` | `File::lock`, `try_lock`, `lock_shared` | alias | 1.89 | RS-MIG-03 |
+| `fs4::fs_std::FileExt` | `File::lock`, `try_lock`, `lock_shared` | alias | 1.89 | RS-MIG-03 |
+| `fd_lock::RwLock` | `File::lock`, `lock_shared` | alias | 1.89 | RS-MIG-03 |
+| `filetime::set_file_times` | `fs::set_times`, `File::set_times` | alias | 1.99 | RS-MIG-03 |
+| `os_pipe::pipe` | `io::pipe` | alias | 1.87 | RS-MIG-03 |
+| `static_assertions::const_assert` | `const _: () = assert!(…)`, or `const { assert!(…) }` | alias | 1.57 | RS-MIG-03 |
 | `assert_matches::assert_matches` | `assert_matches!`, imported from `std` | alias | 1.96 | RS-TEST-13 |
 | `home::home_dir` | `std::env::home_dir` | alias | 1.87 | RS-CLI-25 |
 | `dirs::home_dir` | `std::env::home_dir` | alias | 1.87 | RS-CLI-25 |
@@ -66,15 +69,15 @@ the replacement — or `2024` for a change the edition made; section 2.1 lists t
 | `-> impl Trait` | captures every lifetime in scope, so a caller can fail to borrow; narrow it with `+ use<'a, T>` | changed | 2024 | RS-OWN-21 |
 | `Box<[T]>::into_iter` | yields `T`, by value, where it yielded `&T` | changed | 2024 | RS-BUILD-01 |
 | `if let` | a temporary in the scrutinee drops before the `else` block, which shortens a lock guard's life | changed | 2024 | RS-BUILD-01 |
-| `RangeInclusive` | once exhausted, reports a different `start()` and `end()`, and slices differently | changed | 1.99 | RS-MIG-03 |
-| `#[derive(PartialOrd, Ord)]` | the derived `partial_cmp` takes the `Ord` path, so the two can no longer disagree | changed | 1.98 | RS-MIG-03 |
-| `TcpStream::shutdown` | on Windows, a write after it reports `BrokenPipe` | changed | 1.97 | RS-MIG-03 |
-| `BTreeMap::append` | may panic when the key's `Ord` is inconsistent | changed | 1.96 | RS-MIG-03 |
-| `#[non_exhaustive]` | a `match` on such a type reads the discriminant, which changes what a closure captures | changed | 1.95 | RS-MIG-03 |
-| `panic!` | its message carries the thread ID | changed | 1.91 | RS-MIG-03 |
-| `extern "C" fn` | a panic that escapes one aborts the process | changed | 1.81 | RS-MIG-03 |
+| `RangeInclusive` | once exhausted, reports a different `start()` and `end()`, and slices differently | changed | 1.99 | RS-MIG-05 |
+| `#[derive(PartialOrd, Ord)]` | the derived `partial_cmp` takes the `Ord` path, so the two can no longer disagree | changed | 1.98 | RS-MIG-05 |
+| `TcpStream::shutdown` | on Windows, a write after it reports `BrokenPipe` | changed | 1.97 | RS-MIG-05 |
+| `BTreeMap::append` | may panic when the key's `Ord` is inconsistent | changed | 1.96 | RS-MIG-05 |
+| `#[non_exhaustive]` | a `match` on such a type reads the discriminant, which changes what a closure captures | changed | 1.95 | RS-MIG-05 |
+| `panic!` | its message carries the thread ID | changed | 1.91 | RS-MIG-05 |
+| `extern "C" fn` | a panic that escapes one aborts the process | changed | 1.81 | RS-MIG-05 |
 | `Atomic*::fetch_update` | `try_update`, which it now aliases | deprecated | 1.99 | RS-CONC-25 |
-| `std::<int>::MAX` | `<int>::MAX`; `MIN` and the other module constants likewise | deprecated | 1.99 | RS-MIG-02 |
+| `std::<int>::MAX` | `<int>::MAX`; `MIN` and the other module constants likewise | deprecated | 1.99 | RS-MIG-04 |
 | `static mut` | builds, and a reference to one is denied (`static_mut_refs`); `OnceLock`, `LazyLock` or an atomic | deprecated | 2024 | RS-CONC-27 |
 | `unsafe fn` | builds, and its body is no longer one `unsafe` block: `unsafe_op_in_unsafe_fn` warns on each operation, which CI denies | deprecated | 2024 | RS-UNSAFE-06 |
 
@@ -107,9 +110,41 @@ rg -n -F -w \
   .
 ```
 
+## Finding the old spellings
+
+### RS-MIG-01 [M] Run the command after the table over code no build compiles
+
+A `gone` spelling survives a passing build wherever rustc never compiled it: a `cfg` branch for a
+target or a feature the build does not select, a test module nobody ran, a crate outside the default
+members. Run the command after the table over the whole tree, not only over what the build compiled,
+and before reading a diff.
+
+**Why:** rustc rejects a removed name only in the configuration it compiles, so the rest waits for
+the first build that selects it, often on another platform and long after the migration.
+
+**Check:** a hit of the command on a `gone` row in a tree whose build passes is code no build
+compiled; rewrite it to the row's 1.99 column, or delete it if nothing builds it.
+
+### RS-MIG-02 [M!] Fail the build on a spelling the table marks `alias`
+
+Add a CI step that runs the command after the table and fails on a hit, and treat the hits of the
+day it is added as its first commit. An `alias` compiles with no warning, so nothing else stops the
+next one from arriving.
+
+*Relaxed form:* no CI gate; the same command runs by hand before each release, and an `alias` in a
+file you are already editing is fixed in that diff.
+
+**Why:** an `alias` never fails a build, so on a long-lived codebase they accumulate until an
+edition or toolchain bump deletes them all at once and the diff is too large to review. A gate turns
+that migration into a cost of each change.
+
+**Check:** the CI workflow runs the command after the table and fails on a hit — its exit status
+checked, not swallowed by `|| true`. Run it once by hand when adding it: a hit means the gate is
+being added to a tree that already fails it.
+
 ## What replaced what
 
-### RS-MIG-01 [M] Reach for the standard-library feature that replaced a crate
+### RS-MIG-03 [M] Reach for the standard-library feature that replaced a crate
 
 Every `alias` row is a crate, or a crate's API, that the standard library replaced; the rows with no
 topical rule are this rule's. A dependency on one is the finding, wherever the manifest declares it.
@@ -125,9 +160,9 @@ member's manifest, or a member's `foo.workspace = true` line:
 `rg -n -g '*.toml' '^(lazy_static|once_cell|cfg-if|itoa|fs[24]|filetime|num_cpus|memoffset)[ .=]'`
 `rg -n -g '*.toml' '^(atty|is-terminal|os_pipe|assert_matches|static_assertions|fd-lock)[ .=]'`
 
-### RS-MIG-02 [M] Do not call an API deprecated through 1.99
+### RS-MIG-04 [M] Do not call an API deprecated through 1.99
 
-Every `deprecated` row the rule column gives to RS-MIG-02: `Atomic*::fetch_update` is renamed
+Every `deprecated` row the rule column gives to RS-MIG-04: `Atomic*::fetch_update` is renamed
 `try_update`, and the module constants `std::i32::MAX` and the rest give way to the associated
 `i32::MAX`.
 
@@ -176,9 +211,9 @@ against this table, which keeps the dates the rules no longer carry.
 
 ## What changed silently
 
-### RS-MIG-03 [M] Re-read what changed silently on every toolchain bump
+### RS-MIG-05 [M] Re-read what changed silently on every toolchain bump
 
-Every `changed` row the rule column gives to RS-MIG-03 compiles before and after, and behaves
+Every `changed` row the rule column gives to RS-MIG-05 compiles before and after, and behaves
 differently; so do these, which no spelling keys:
 
 | Since | What changed |

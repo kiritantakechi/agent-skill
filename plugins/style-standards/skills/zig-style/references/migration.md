@@ -15,6 +15,7 @@ Every rule ID a revision of this standard changed, and what it became, is in
   - ZS-MIG-01 [M] Write 0.17 spellings; check an unfamiliar std symbol against the local std
   - ZS-MIG-02 [M] Run the command after the table over code no build analyses
   - ZS-MIG-03 [M!] Fail the build on a spelling the table marks `alias`
+  - ZS-MIG-04 [M] Review every toolchain bump as a migration of its own
 - Decided by tools
 
 ---
@@ -608,9 +609,8 @@ analysed; rewrite it to the row's 0.17 column, or delete it if nothing calls it.
 
 Add a CI step that runs the command after the table and fails on a hit, pin the toolchain for real —
 `.minimum_zig_version` is documentation only, so use a pinned CI version and the
-`comptime builtin.zig_version` guard (ZS-BUILD-25, ZS-BUILD-30) — and treat a toolchain bump as a
-migration with its own review. One spelling over-matches: `.Debug` also finds a tag of your own
-enum, and the fix is to rename the tag, not to drop the row.
+`comptime builtin.zig_version` guard (ZS-BUILD-25, ZS-BUILD-30). One spelling over-matches: `.Debug`
+also finds a tag of your own enum, and the fix is to rename the tag, not to drop the row.
 
 *Relaxed form:* no CI gate; the same command runs by hand before each release, and an `alias` in a
 file you are already editing is fixed in that diff.
@@ -622,6 +622,18 @@ migration into a per-change cost.
 **Check:** the CI workflow runs the command after the table and fails on a hit — its exit status
 checked, not swallowed by `|| true`. Run it once by hand when adding it: a hit means the gate is
 being added to a tree that already fails it, and those hits are the first commit.
+
+### ZS-MIG-04 [M] Review every toolchain bump as a migration of its own
+
+Before the pin moves, read the new release's notes against the table and the code: add the rows the
+notes claim and the table lacks, and review the bump as a change of its own, apart from the feature
+work around it.
+
+**Why:** the table is a snapshot, and Zig breaks std between releases, so the notes keep adding
+removals after the table was written. A bump folded into other work hides which change broke what.
+
+**Check:** the bump's diff touches the pin and the spellings it needs, and its description names the
+release notes it was read against.
 
 ## Decided by tools
 

@@ -75,7 +75,7 @@ rg -n 'Arc<Mutex<|Rc<RefCell<'
 rg -n '\.clone\(\)' -c                   # a count, then look at the outliers
 rg -n 'println!|eprintln!' src/          # in library code
 rg -n -A3 'lock\(\)' src/ | rg -v 'lock\(\)' | rg '\.await'   # an await after a lock: guard alive?
-rg -n '\.fetch_update\(|std::[iu](8|16|32|64|128|size)::(MAX|MIN)\b' src/   # RS-MIG-02
+rg -n '\.fetch_update\(|std::[iu](8|16|32|64|128|size)::(MAX|MIN)\b' src/   # RS-MIG-04
 ```
 
 ## Output format

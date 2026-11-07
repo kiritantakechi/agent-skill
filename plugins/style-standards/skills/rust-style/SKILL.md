@@ -75,7 +75,7 @@ proceed with the stricter reading.
 | `-> impl Trait` | captures every lifetime in scope, so a caller can fail to borrow; narrow it with `+ use<'a, T>` | RS-OWN-21 |
 | `Box<[T]>::into_iter` | yields `T`, by value, where it yielded `&T` | RS-BUILD-01 |
 | `if let` | a temporary in the scrutinee drops before the `else` block, which shortens a lock guard's life | RS-BUILD-01 |
-| `RangeInclusive` | once exhausted, reports a different `start()` and `end()`, and slices differently | RS-MIG-03 |
+| `RangeInclusive` | once exhausted, reports a different `start()` and `end()`, and slices differently | RS-MIG-05 |
 
 A `changed` row of an earlier release is in the migration table, `RS-MIG` in section 6, with its
 Since; its owning rule's Check finds it.
@@ -102,7 +102,7 @@ value.
 - `assert_matches!`, in place of `assert!(matches!(..))` and the `assert_matches` crate
   (RS-TEST-13).
 - `File::lock`, `try_lock` and `lock_shared`, in place of `fs2` and its forks; `fs::set_times`, in
-  place of `filetime` (RS-MIG-01).
+  place of `filetime` (RS-MIG-03).
 - `async fn` in traits, in place of `#[async_trait]` wherever no trait object is needed
   (RS-CONC-31).
 - `Atomic*::update` and `try_update`, in place of a `compare_exchange` loop and `fetch_update`
@@ -232,7 +232,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-591 rules live here; section 4 lists by ID those that bind on their own.
+593 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -253,7 +253,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/data.md` | `RS-DATA` (10) | Enums and sum types, records over tuples, indices over references, unrepresentable and rejected values, views over containers, equality and hashing, integer widths and explicit overflow |
 | `references/types.md` | `RS-TYPE` (4) | The capability named as a trait before the type that provides it, a closed set kept an enum, a trait's contract written down, and how far a parameter is generic |
 | `references/output.md` | `RS-OUT` (12) | Results to stdout and diagnostics to stderr, one record per write, the flush before exit, colour, logging from a binary and from a library, printing a failure and the exit status, `Debug` and `Display` |
-| `references/migration.md` | `RS-MIG` (3) | Every old spelling the 2024 edition and the releases through 1.99 left behind, with its status and owning rule; the command the table generates; when each API arrived; and what changed silently by release |
+| `references/migration.md` | `RS-MIG` (5) | Every old spelling the 2024 edition and the releases through 1.99 left behind, with its status and owning rule; the command the table generates; when each API arrived; and what changed silently by release |
 | `references/macros.md` | `RS-MACRO` (22) | When not to write a macro, `macro_rules!` hygiene and fragment specifiers, proc-macro crate split, spans and diagnostics, `trybuild` |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |
 

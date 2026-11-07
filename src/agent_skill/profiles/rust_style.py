@@ -139,7 +139,7 @@ PROFILE = Profile(
         {
             # A dependency the standard library replaced, one per
             # pattern.
-            "RS-MIG-01": ('lazy_static = "1.5"', 'fd-lock = "4"'),
+            "RS-MIG-03": ('lazy_static = "1.5"', 'fd-lock = "4"'),
             # A grab-bag module, declared inline and from a file.
             "RS-NAME-04": ("pub mod utils;", "mod helpers {"),
             "RS-DATA-07": ("pub fn items(&self) -> &Vec<Item> {",),
@@ -184,7 +184,7 @@ PROFILE = Profile(
                 "default fn describe(&self) -> String {",
                 "#![feature(specialization)]",
             ),
-            "RS-MIG-02": (
+            "RS-MIG-04": (
                 "counter.fetch_update(Ordering::SeqCst, Ordering::SeqCst, step)",
                 "let ceiling = std::i32::MAX;",
             ),

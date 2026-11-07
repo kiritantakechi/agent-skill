@@ -300,7 +300,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-380 rules live here; section 4 lists by ID those that bind on their own.
+381 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -320,7 +320,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/modules.md` | `ZS-MOD` (14) | What a module boundary costs, the tree on disk, imports and the module graph, the order of a file and a struct, and one mechanism per concept |
 | `references/api.md` | `ZS-API` (10) | What a package makes public and what `root.zig` exports, a public function's parameters and return, the pairs and siblings a surface keeps alike, and deprecating before removing |
 | `references/types.md` | `ZS-TYPE` (5) | The interface shape chosen before the type that provides it, a closed set kept a tagged union, a `switch` that names every member, an `anytype`'s contract, and how far a parameter is generic |
-| `references/migration.md` | `ZS-MIG` (3) | Every old spelling 0.13 through 0.17 left behind, with its status, Since and owning rule, and the command the table generates |
+| `references/migration.md` | `ZS-MIG` (4) | Every old spelling 0.13 through 0.17 left behind, with its status, Since and owning rule, and the command the table generates |
 | `references/review-checklist.md` | — | The audit protocol: seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |
 
 ## 7. Bundled assets

@@ -106,7 +106,7 @@ PROFILE = Profile(
             # The pattern carried a stray space for as long as it
             # shipped, and matched nothing; this is the line it was
             # written to find.
-            "PS-MIG-05": ("if json.__version__ < (2, 0):",),
+            "PS-MIG-06": ("if json.__version__ < (2, 0):",),
             "PS-OUT-15": ("        sys.exit(2)",),
             "PS-OUT-17": ('RED = "\\x1b[31m"',),
             "PS-TYPE-17": ("    @functools.singledispatchmethod",),
@@ -153,7 +153,7 @@ PROFILE = Profile(
         "PS-DOC-08",
         "PS-DOC-12",
         "PS-ERR-14",
-        "PS-MIG-04",
+        "PS-MIG-05",
         "PS-NAME-02",
         "PS-NAME-03",
         "PS-MOD-08",
