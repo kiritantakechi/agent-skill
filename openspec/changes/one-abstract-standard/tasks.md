@@ -460,7 +460,8 @@ time of deletion (both tiers `[M]` unless marked):
   reports nothing, `pins` and `self-application` pass on it, and the fast job's steps, run in a
   one-commit copy with only its tools on the PATH, pass (972 tests, 4 skipped: the re-print's
   history is not in a clone one commit deep). The full job was not run as a job here. The first
-  run's result is observed on the pull request after the push.
+  run on the pull request (run 42398849931, head dce0290) passed its `fast` job in about 6
+  minutes, and skipped `full`, as designed for a pull request.
 
 ## 5. Evals
 
@@ -526,8 +527,52 @@ time of deletion (both tiers `[M]` unless marked):
 
 ## 6. Close
 
-- [ ] 6.1 Record `measure`'s rows after the change beside the baseline; run the full `agent-skill
-  check` once and `pytest -q`; record both results and times here
+- [x] 6.1 Record `measure`'s rows after the change beside the baseline; run the full `agent-skill
+  check` once and `pytest -q`; record both results and times here. Result, at 7754a6a on four
+  cores, one after the other: `uv run agent-skill check` printed ALL CHECKS PASSED, every check
+  `ok`, `toolchain`, `mutation` and `controls` included, in 36 min 53 s (2213 s); `mutation` left
+  13 notes (11 statements of zig-style examples their tests do not pin, 2 timeouts read as
+  inconclusive), which are notes and fail nothing. `uv run pytest -q -p no:cacheprovider` passed
+  1060 tests, none skipped and none failed, in 40 min 9 s (2409 s; pytest's own count 40:07).
+  Nothing failed, so nothing was fixed or rerun.
+
+  After (measured), task 6.1: the same rows `agent-skill measure` prints for the abstract standard,
+  as it prints them, and its second table. Each standard's realisations sum to the 150 entries;
+  bevy-style's are derived through rust-style's rows and its departures table.
+
+  | Measure | bevy-style | python-style | rust-style | zig-style |
+  | --- | --- | --- | --- | --- |
+  | realisations `realises` | 135 | 129 | 139 | 139 |
+  | realisations `extends` | 3 | 1 | 1 | 1 |
+  | realisations `tightens` | 0 | 3 | 0 | 0 |
+  | realisations `overrides` | 3 | 2 | 1 | 3 |
+  | realisations `decided` | 5 | 7 | 5 | 0 |
+  | realisations `absent` | 4 | 8 | 4 | 7 |
+  | look-alike pairs no entry holds | 0 | 0 | 0 | 0 |
+  | domain chapters | 7 | 1 | 6 | 4 |
+  | rules in abstract chapters realising nothing | 33 | 119 | 248 | 158 |
+
+  | Abstract chapter | Entries |
+  | --- | --- |
+  | api | 12 |
+  | build | 7 |
+  | concurrency | 15 |
+  | data | 10 |
+  | documentation | 12 |
+  | errors | 14 |
+  | migration | 4 |
+  | modules | 14 |
+  | naming | 13 |
+  | output | 12 |
+  | performance | 17 |
+  | testing | 15 |
+  | types | 5 |
+  | all | 150 |
+
+  Against the baseline: every realisation was 0 and is now one row per entry per standard; the
+  look-alike notes went from 14 (1, 7, 9, 11) to 0; python-style's domain chapters from 2 to 1
+  (`types` became abstract in 3.9); the rules in abstract chapters realising nothing from 37, 194,
+  378, 251 to 33, 119, 248, 158; and `types` joined the twelve abstract chapters.
 - [ ] 6.2 Bring the README in line with everything above; verify `check --only documented`
 
 ## Workflow follow-up
