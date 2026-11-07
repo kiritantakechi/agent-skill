@@ -238,6 +238,12 @@ manifests to the layout and the skills, and runs `claude plugin validate` over
 them. Install either the plugin or the links below on one machine, not both:
 both would load every skill twice.
 
+The version is 2.0.0 because an ID cited under 1.0.0 may now name another rule,
+or none. `revise` renumbered the rule IDs of every standard, and removed the
+`CORE` family: each `*-CORE-NN` is now a rule of the chapter that owns its
+subject. Each standard's `references/renames.md` maps every ID that changed to
+the rule, lint row or removal it became.
+
 ## Installing for development
 
 `install` symlinks each skill into every agent on this machine that reads the

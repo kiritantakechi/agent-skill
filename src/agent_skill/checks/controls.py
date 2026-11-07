@@ -2083,7 +2083,7 @@ CONTROLS: list[Control] = [
     # plugin
     Control(
         plugin.MANIFEST_VERSION,
-        lambda t: edit(root_of(t), MANIFEST, '  "version": "1.0.0",\n', ""),
+        lambda t: drop_line(root_of(t), MANIFEST, '  "version": '),
         also={plugin.VALIDATE: _STRICT},
     ),
     Control(plugin.MANIFEST_LICENSE, lambda t: remove(root_of(t), "LICENSE")),
