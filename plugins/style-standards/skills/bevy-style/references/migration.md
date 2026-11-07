@@ -17,8 +17,7 @@ Every rule ID a revision of this standard changed, and what it became, is in
 - **Reading the table**
   - BV-MIG-01 [M] Check unfamiliar Bevy code against this chapter before adapting it
   - BV-MIG-02 [M] Follow a rename to its 0.20 spelling, not its first hop
-  - BV-MIG-03 [M] Do not call an API 0.20 deprecated
-  - BV-MIG-04 [M] Re-read every `Ref` that is cloned
+  - BV-MIG-03 [M] Re-read every `Ref` that is cloned
 - Decided by tools
 
 ---
@@ -198,7 +197,7 @@ string can see, and the compiler rejects it.
 | `App::set_error_handler` | receives every panic in a system, observer or command as an error carrying its payload | changed | 0.20 | BV-ERR-05 |
 | `Query::iter_many` | yields `Result` per id, so `.count()` and `for _ in` take ids the query does not match; `.matched()` is the old meaning | changed | 0.20 | BV-ECS-20 |
 | `Query<Entity>` | matches each resource's entity too, as `Query<EntityRef>` and `Query<EntityMut>` do | changed | 0.19 | BV-STATE-02 |
-| `Ref::clone` | another `Ref<T>`, where it produced a `T`; `r.deref().clone()` is the old meaning | changed | 0.19 | BV-MIG-04 |
+| `Ref::clone` | another `Ref<T>`, where it produced a `T`; `r.deref().clone()` is the old meaning | changed | 0.19 | BV-MIG-03 |
 | `Node` | the layout input, what was `Style`; the laid-out size is `ComputedNode`'s | changed | 0.15 | BV-VIEW-03 |
 | `TextSection` | a live trait; the old struct is a `TextSpan` on a child entity | changed | 0.15 | BV-VIEW-05 |
 | `TextFont::default` | sizes text at `FontSize::Rem(1.)`, not `Px(20.)`; `TextFont::from_font_size(FontSize::Px(…))` keeps a fixed size | changed | 0.20 | BV-VIEW-04 |
@@ -220,7 +219,7 @@ string can see, and the compiler rejects it.
 | `Interaction` | deprecated, with the prelude `Button`; `Hovered` plus `Pressed`, and `On<Activate>` | deprecated | 0.20 | BV-VIEW-06 |
 | `bevy::ui::widget::Button` | `bevy::ui_widgets::Button` | deprecated | 0.20 | BV-VIEW-06 |
 | `weak_handle!` | the `uuid_handle!("…")` macro | deprecated | 0.17 | BV-ASSET-03 |
-| `AssetId::invalid` | `Option<AssetId<_>>`; `AssetId::INVALID_UUID` likewise | deprecated | 0.20 | BV-MIG-03 |
+| `AssetId::invalid` | `Option<AssetId<_>>`; `AssetId::INVALID_UUID` likewise | deprecated | 0.20 | BV-MIG-02 |
 | `template_value` | the value itself, in `bsn!` | deprecated | 0.20 | BV-VIEW-09 |
 
 ```sh
@@ -396,19 +395,7 @@ looks up each `gone` row's; a name that is not there means the chain continued.
 `rg -n '\bMeshTag\(|\bAnchor::[A-Z][a-z]|\bcursor_options:' src/` finds three of this rule's shapes
 written the old way.
 
-### BV-MIG-03 [M] Do not call an API 0.20 deprecated
-
-Every `deprecated` row: the prelude `Button` and `Interaction`, `weak_handle!`, `AssetId::invalid`
-and `AssetId::INVALID_UUID`, and `template_value` in `bsn!`. Each still builds, with a warning.
-
-**Why:** the shipped CI denies warnings, so a deprecated name breaks the build the day it is
-compiled there, on code that has not changed; and the prelude `Button` shares its name with the live
-`bevy::ui_widgets::Button`, so only the compiler tells the two apart.
-
-**Check:** rustc's `deprecated` lint, under the shipped CI's `CARGO_BUILD_WARNINGS: deny`; before a
-build, `rg -n 'AssetId::(invalid|INVALID_UUID)|weak_handle!|template_value' src/`.
-
-### BV-MIG-04 [M] Re-read every `Ref` that is cloned
+### BV-MIG-03 [M] Re-read every `Ref` that is cloned
 
 Since 0.19 `Ref<T>` implements `Clone` and `Copy` itself. `value.clone()` on a `Ref<T>` now produces
 a `Ref<T>`, where it used to produce a `T`.
@@ -426,4 +413,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| rustc | `deprecated` | warn | a deprecated Bevy API — listed because the shipped CI denies warnings, so BV-MIG-03's rows fail its build |
+| rustc | `deprecated` | warn | a deprecated Bevy API — listed because the shipped CI denies warnings, so a deprecated row fails its build (RS-MIG-02) |

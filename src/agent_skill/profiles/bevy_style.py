@@ -264,7 +264,6 @@ PROFILE = Profile(
                 "commands.spawn((Mesh3d(mesh), MeshMaterial3d(material), MeshTag(7)));",
                 "Sprite { anchor: Anchor::Center, ..default() },",
             ),
-            "BV-MIG-03": ("let mut placeholder: AssetId<Image> = AssetId::invalid();",),
         }
     ),
     # Each of these ships an `rg` pattern that no fixture in `fires`
@@ -289,7 +288,7 @@ PROFILE = Profile(
                 "the span finds every handle; whether it sits bare inside a `spawn` "
                 "tuple rather than in a component of its own decides",
             ),
-            "BV-MIG-04": NotDecisive(
+            "BV-MIG-03": NotDecisive(
                 ".clone()",
                 "the span finds every `.clone()`; whether the receiver is a `Ref<`, "
                 "where the call's meaning changed, decides — and the type is not on "

@@ -263,7 +263,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-174 rules live here; section 4 lists by ID those that bind on their own.
+173 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -275,7 +275,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/errors.md` | `BV-ERR` (10) | Fallible systems, observers and commands, the fallback error handler, and the APIs that panic |
 | `references/assets.md` | `BV-ASSET` (10) | Handles and loading, hot reload, asset events, and asset lifetime |
 | `references/build.md` | `BV-BUILD` (14) | Feature collections, the exact Bevy pin, the lint divergences from rust-style, and CI |
-| `references/migration.md` | `BV-MIG` (4) | Every old spelling Bevy 0.15 through 0.20 left behind, with its status and owning rule, and the command the table generates |
+| `references/migration.md` | `BV-MIG` (3) | Every old spelling Bevy 0.15 through 0.20 left behind, with its status and owning rule, and the command the table generates |
 | `references/view.md` | `BV-VIEW` (20) | UI nodes and layout, text, cameras, materials and shaders, post-processing, and gizmos |
 | `references/testing.md` | `BV-TEST` (9) | Headless apps, deterministic fixed steps, and what a test asserts |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, mechanical pass, output format, and the order in which to refactor an existing game |

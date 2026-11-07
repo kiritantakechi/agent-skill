@@ -140,7 +140,7 @@ changed, and what it is now; an ID it does not list is unchanged.
 | `BV-MIG-15` | `BV-STATE-01` |
 | `BV-MIG-16` | `BV-MIG-02` |
 | `BV-MIG-17` | `BV-MIG-02` |
-| `BV-MIG-18` | `BV-MIG-04` |
+| `BV-MIG-18` | `BV-MIG-03` |
 | `BV-SCH-01` | `BV-SCHED-01` |
 | `BV-SCH-02` | `BV-SCHED-02` |
 | `BV-SCH-03` | `BV-SCHED-03` |

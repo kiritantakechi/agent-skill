@@ -89,17 +89,17 @@ def test_an_entry_holding_two_rules_takes_their_pair_out_of_the_notes(
     assert any(not any(i.startswith("RS-") for i in pair) for pair in noted)
 
 
-def test_a_delta_rule_its_departures_relate_to_an_anchor_rule_is_held(
+def test_no_delta_rule_restates_its_anchors_and_none_is_left_noted(
     skills: list[Skill],
 ) -> None:
+    """A delta rule departs from its anchor's, and never restates it."""
     tree = Tree.of(skills)
     noted = {
         (str(rule.id), str(other.id))
         for a, rule, _, other in look_alikes(abstract_of(tree), tree)
         if a.profile.anchor
     }
-    assert ("BV-MIG-03", "RS-MIG-02") in noted
-    assert not any(ours == "BV-ECS-01" for ours, _ in noted)
+    assert noted == set()
 
 
 def test_a_question_the_abstract_standard_asks_otherwise_fails(scratch: Path) -> None:

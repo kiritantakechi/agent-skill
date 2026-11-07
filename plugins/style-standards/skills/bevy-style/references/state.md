@@ -727,7 +727,7 @@ mod tests {
 
 `next.set(S)` runs `OnExit(S)` and `OnEnter(S)` even when the current state is already `S`. A system
 that calls `set` every frame must use `set_if_different`. `NextState::set_if_neq` and its relatives
-are the old spellings and no longer compile (BV-MIG-03); `Mut::set_if_neq` keeps its name.
+are the old spellings and no longer compile; `Mut::set_if_neq` keeps its name.
 
 **Why:** an unconditional `set` tears down and rebuilds the level every frame, and still compiles.
 Re-entering a state is sometimes exactly what is wanted, which is why the guard has to be asked for.
