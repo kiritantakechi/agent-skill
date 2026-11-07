@@ -89,6 +89,9 @@ PROFILE = Profile(
     verified_as="runs as written on free-threaded CPython {pin}",
     strict_scope="library and high-reliability",
     toolchain=PYTHON_STYLE,
+    # The harness is Python, linted and type-checked under these assets,
+    # and its CI is this standard's workflow plus what the harness runs.
+    harness=True,
     # Compared with rust-style for tier, as every standard is.
     # Each snippet is the defect its rule forbids, written the way it
     # appears in real code rather than tailored to the pattern — a

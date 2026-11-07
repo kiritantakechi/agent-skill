@@ -216,6 +216,11 @@ class Profile:
     #: other chapter is an abstract chapter's, and holds the standard's
     #: realisations of its concepts (one-abstract-standard, decision 4).
     domain: Mapping[str, str] = field(default_factory=dict)
+    #: Whether the harness is written to this standard: its assets are
+    #: the configuration in force in this repository, and each step the
+    #: repository's workflows share with its shipped workflow is taken
+    #: as that step stands (`self-application`). One profile says so.
+    harness: bool = False
     #: This standard's own rules, held to each line of its own examples.
     conventions: tuple[LineRule, ...] = ()
     #: This standard's own rules, held to each line of the prose around

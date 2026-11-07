@@ -9,23 +9,31 @@ it reads. Turning a Check into patterns is `patterns`, what they run
 over is `corpus`, and running them is `search` — three concerns that
 were in this file and that `crossref` was importing from a module named
 after a different check.
+
+The repository applies a standard to itself too: the one the harness is
+written to. Its workflow is that standard's shipped workflow plus what
+the harness runs, so every step the two share is held to the asset's.
 """
 
 lazy from collections.abc import Iterator
 
+from agent_skill import workflow
 from agent_skill.checks import check, per_skill
 from agent_skill.checks.corpus import corpus_for
 from agent_skill.checks.lines import excused
 from agent_skill.checks.patterns import NEGATED, check_text, filtered_of, patterns_of
 from agent_skill.checks.search import find, searcher_problem
+from agent_skill.ids import Location
+from agent_skill.layout import in_repository, root_of
 from agent_skill.report import Level, declare, fail, note, unrun
 lazy from agent_skill.checks.corpus import Corpus
 lazy from agent_skill.checks.patterns import Pattern
 lazy from agent_skill.checks.search import Span
 lazy from agent_skill.doc.chapter import Rule
 lazy from agent_skill.ids import RuleId
-lazy from agent_skill.model import Skill
+lazy from agent_skill.model import Skill, Tree
 lazy from agent_skill.report import Finding
+lazy from agent_skill.workflow import Step
 
 #: One pattern's surviving hits: the rule whose Check it is, the
 #: pattern, how it was searched, and the spans it matched.
@@ -45,15 +53,23 @@ NO_ANSWER = declare("self-application", "no_answer", Level.FAIL)
 DECIDES = declare("self-application", "decides", Level.FAIL)
 NARROWS = declare("self-application", "narrows", Level.NOTE)
 ENUMERATES = declare("self-application", "enumerates", Level.NOTE)
+DRIFTED_STEP = declare("self-application", "drifted_step", Level.FAIL)
 
 
 @check(
     "self-application",
-    "the standard's own patterns over its own examples",
+    "the standard's own patterns over its own examples, and the repository's "
+    "workflow over its standard's",
     needs=("rg",),
 )
+def selfapply(tree: Tree) -> Iterator[Finding]:
+    """Each skill's own patterns, then the repository's workflows."""
+    yield from own_patterns(tree)
+    yield from _workflows(tree)
+
+
 @per_skill
-def selfapply(skill: Skill) -> Iterator[Finding]:
+def own_patterns(skill: Skill) -> Iterator[Finding]:
     """The skill's own Check patterns, over the skill's own examples."""
     lang = skill.profile.languages[0] if skill.profile.languages else ""
     if not lang:
@@ -213,3 +229,43 @@ def _render(corpus: Corpus, row: Row, *, limit: int = 8) -> str:
     if len(hits) > limit:
         head += f"\n      … {len(hits) - limit} more"
     return head
+
+
+def _workflows(tree: Tree) -> Iterator[Finding]:
+    """Each step a repository workflow shares with its standard's.
+
+    The standard is the one the harness is written to, as its profile
+    says, and its workflows are those it ships in `assets/`. Two steps
+    are shared when `Step.identity` says they are one step; a shared
+    step must use the same action at the same commit with the same
+    `with:`, or run the same command, as one of the asset's does. So uv
+    set up at another version, the interpreter installed at another
+    release, or an action named at another commit, fails on the step
+    that moved. A step the asset does not take is the repository's own
+    and is not compared.
+    """
+    if not tree.skills or not in_repository(skills := tree.skills[0].root.parent):
+        return
+    standard = next((s for s in tree if s.profile.harness), None)
+    if standard is None:
+        return
+    # Each step of the asset's, once for each way the asset takes it.
+    asset: dict[str, list[Step]] = {}
+    for path in workflow.shipped(standard.assets):
+        for step in workflow.steps(path.read_text()):
+            taken = asset.setdefault(step.identity, [])
+            if all(step.held != other.held for other in taken):
+                taken.append(step)
+    root = root_of(skills)
+    for path in workflow.run_by(root):
+        rel = path.relative_to(root).as_posix()
+        for step in workflow.steps(path.read_text()):
+            taken = asset.get(step.identity, [])
+            if taken and all(step.held != other.held for other in taken):
+                theirs = " or ".join(other.stated for other in taken)
+                yield fail(
+                    f"{step.stated}, where {standard.name}'s workflow has {theirs}: "
+                    "a step the two share is taken as the standard takes it",
+                    Location(file=rel, line=step.line),
+                    DRIFTED_STEP,
+                )

@@ -14,7 +14,7 @@ from agent_skill.checks.patterns import (
     filtered_of,
     patterns_of,
 )
-from agent_skill.checks.selfapply import selfapply
+from agent_skill.checks.selfapply import own_patterns
 lazy from agent_skill.model import Skill
 
 
@@ -125,7 +125,7 @@ def test_a_filtered_check_is_run_and_said(skills: list[Skill]) -> None:
     """RS-API-04 was skipped whole, with no finding of any kind."""
     rust = next(s for s in skills if s.name == "rust-style")
     said = [
-        f.message for f in selfapply.each(rust) if f.message.startswith("RS-API-04")
+        f.message for f in own_patterns.each(rust) if f.message.startswith("RS-API-04")
     ]
     assert said, "the only filtered Check in the standards is silent again"
     assert "/pub use/" in said[0]

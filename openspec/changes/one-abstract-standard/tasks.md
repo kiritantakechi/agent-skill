@@ -436,9 +436,31 @@ time of deletion (both tiers `[M]` unless marked):
   Controls: python-style's checkout named by its tag, and rust-style's commented-out `miri` checkout
   with its release dropped; each fires its branch alone. FAIL branches 255 → 257, controls 232 → 234,
   exemptions 23. The controls' copy of the tree now carries `.github/workflows/`.
-- [ ] 4.3 Write `.github/workflows/check.yml` (design decision 10), and make `selfapply` hold its
+- [x] 4.3 Write `.github/workflows/check.yml` (design decision 10), and make `selfapply` hold its
   shared steps to python-style's `ci.yml`; verify `check --fast`, a control for a drifted step, and
-  the first run's result on the pull request
+  the first run's result on the pull request. Result: `fast` (push to `main`, pull requests) takes
+  python-style's four setup steps at its pins (checkout v7.0.1 without persisted credentials,
+  setup-uv v10.3.3 with uv 0.13.7, `uv python install cpython-3.15.2+freethreaded`, `uv sync --group
+  dev`), then Rust 1.99.1 with clippy, Zig 0.17.0 and Claude Code 2.1.316, and runs `check --fast`,
+  `pytest -q -m "not toolchain"`, `ruff check`, `ruff format --check` and `ty check`, the last three
+  as the asset spells them. `full` (Mondays 04:17 UTC, and on dispatch) adds rustfmt and rust-src
+  and runs `agent-skill check` and `pytest -q`, 75 and 90 minutes each. One departure from decision
+  10: the fast job installs the toolchains too. `--fast` skips only the compiling checks, and
+  `assets`, `citations`, `pins` and `plugin` still ask zig, rustc, clippy-driver, rustdoc and
+  claude, an absent one withholding the pass: with them off the PATH, `check --fast` exits 1 and
+  five tests fail. Claude Code is the newest release at least seven days old, as the actions are,
+  and `claude plugin validate` needs no login. `self-application` is now a check of the tree: each
+  skill's own patterns, then `drifted_step`, which holds every step a repository workflow shares
+  with the shipped workflow of the standard whose profile says `harness` (python-style) to one the
+  asset takes: the same action at the same commit with the same `with:`, or the same command. Two
+  steps are one step by the action, or by a command's words up to the first holding a digit, which
+  is where it names its pin. Control: uv's version moved in the copy's workflow. FAIL branches 257 →
+  258, controls 234 → 235, exemptions 23. Verified here: the workflow parses, the reader's steps
+  equal a YAML parser's on it and the four assets, actionlint 1.7.12 (run once through `uvx`)
+  reports nothing, `pins` and `self-application` pass on it, and the fast job's steps, run in a
+  one-commit copy with only its tools on the PATH, pass (972 tests, 4 skipped: the re-print's
+  history is not in a clone one commit deep). The full job was not run as a job here. The first
+  run's result is observed on the pull request after the push.
 
 ## 5. Evals
 

@@ -593,6 +593,9 @@ def _orphan_exemption(tree: Path) -> Edited:
     )
 
 
+#: The repository's own workflow, as an edit names it from the root.
+CHECK_YML = f"{WORKFLOWS.as_posix()}/check.yml"
+
 #: A `uses:` naming its action's commit, then the release it is; the
 #: line's lead is what comes before the key: a step's `- `, and a `#`
 #: when the line is commented out.
@@ -637,6 +640,25 @@ def _no_release(tree: Path) -> Edited:
     found = _pinned_use(tree, rel, kept=True)
     named = f"{found['lead']}uses: {found['action']}@{found['commit']}"
     return edit(tree, rel, found[0], named)
+
+
+#: How the repository's workflow gives uv its version, and the version
+#: no release of uv has.
+_UV_VERSION = re.compile(r'with: \{ version: "[^"]*" \}')
+_NO_UV = 'with: { version: "0.0.0" }'
+
+
+def _uv_elsewhere(tree: Path) -> Edited:
+    """The repository's workflow sets uv up at another version.
+
+    The asset's step otherwise, so it is the same step, moved.
+    """
+    root = root_of(tree)
+    found = _UV_VERSION.search((root / CHECK_YML).read_text())
+    if found is None:
+        msg = f"{CHECK_YML}: a step given uv's version"
+        raise FixtureGoneError(msg)
+    return edit(root, CHECK_YML, found[0], _NO_UV)
 
 
 #: The demo's chapter of rules, as an edit names it.
@@ -2353,6 +2375,8 @@ CONTROLS: list[Control] = [
             "`rg -n 'f_locals(' src/`",
         ),
     ),
+    # The repository's workflow moves a step it shares with the asset.
+    Control(selfapply.DRIFTED_STEP, _uv_elsewhere),
     # sensitivity
     Control(
         sensitivity.ORPHAN_FIXTURE,
