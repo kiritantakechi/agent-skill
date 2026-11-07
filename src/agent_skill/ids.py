@@ -330,6 +330,10 @@ _VERSION = re.compile(
 #: A local label: what follows a `+`.
 _LOCAL = re.compile(r"[a-z0-9]+(?:\.[a-z0-9]+)*")
 
+#: An edition: a year, four digits, as Rust names one. One number where
+#: a release has at least two, so neither reads as the other.
+_EDITION = re.compile(r"[1-9]\d{3}")
+
 #: A version among other words: no word character or dot on either
 #: side, so a version is never read out of a longer token.
 _NAMED = re.compile(rf"(?<![\w.]){_VERSION.pattern}(?![\w.])")
@@ -351,6 +355,12 @@ class Version:
     interpreter: `3.15.2+freethreaded` is release 3.15.2, built free of
     the GIL. It is part of what a pin holds the tool to, and not of the
     release a title names, which is `public`.
+
+    An edition is a version too: a year, one number, `2024`. A language
+    whose changes land in editions as well as releases keys a migration
+    row by either, and one parser reads both (normalize-the-standards,
+    decision 9). It orders among editions; it is never found among
+    other words, and it is never a published release.
     """
 
     release: tuple[int, ...]
@@ -361,7 +371,7 @@ class Version:
     def __post_init__(self) -> None:
         """Refuse a version its own printer could not spell."""
         if (
-            len(self.release) < _MAJOR_MINOR
+            (len(self.release) < _MAJOR_MINOR and not self._spells_edition)
             or min(self.release) < 0
             or self.candidate < 0
             or (self.stage is Stage.FINAL and self.candidate != 0)
@@ -372,7 +382,9 @@ class Version:
 
     @classmethod
     def parse(cls, text: str) -> Self:
-        """The version `text` spells: `0.17.3`, `3.15.0rc1+debug`."""
+        """The version `text` spells: `0.17.3`, `3.15.0rc1`, `2024`."""
+        if _EDITION.fullmatch(text):
+            return cls((int(text),))
         m = _VERSION.fullmatch(text)
         if m is None:
             msg = f"not a version this can order: {text!r}"
@@ -424,6 +436,21 @@ class Version:
         if found is None or len(found.release) != _RELEASED or found.local:
             return None
         return found
+
+    @property
+    def _spells_edition(self) -> bool:
+        """Is this one number `_EDITION` reads, and nothing else?"""
+        return (
+            len(self.release) == 1
+            and _EDITION.fullmatch(str(self.release[0])) is not None
+            and self.stage is Stage.FINAL
+            and not self.local
+        )
+
+    @property
+    def edition(self) -> bool:
+        """Is this an edition, `2024`, rather than a release?"""
+        return len(self.release) == 1
 
     @property
     def public(self) -> Version:

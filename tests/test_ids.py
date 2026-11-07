@@ -65,6 +65,8 @@ def _rule_id(rng: random.Random) -> RuleId:
 
 
 def _version(rng: random.Random) -> Version:
+    if rng.random() < 0.1:
+        return Version((rng.randint(1000, 9999),))  # an edition
     release = tuple(rng.randint(0, 20) for _ in range(rng.randint(2, 4)))
     stage = rng.choice(list(Stage))
     candidate = 0 if stage is Stage.FINAL else rng.randint(0, 12)
@@ -197,12 +199,34 @@ def test_a_final_release_follows_its_candidates() -> None:
     assert [str(v) for v in versions] == spelled
 
 
+def test_an_edition_is_a_year_and_orders_among_editions() -> None:
+    """Rust's editions read, print and order as versions do."""
+    spelled = ["2015", "2018", "2021", "2024"]
+    editions = [Version.parse(t) for t in spelled]
+    assert [str(e) for e in editions] == spelled
+    assert sorted(shuffled(editions)) == editions
+    assert all(e.edition and e.series == e for e in editions)
+    assert not Version.parse("1.99").edition
+    assert Version.released("2024") is None
+    assert Version.search("edition 2024") is None
+
+
+@pytest.mark.parametrize("parts", [(24,), (99999,)])
+def test_one_number_that_is_no_year_is_no_version(parts: tuple[int, ...]) -> None:
+    with pytest.raises(ValueError, match="not the parts of a version"):
+        Version(parts)
+
+
 def test_minor_numbers_order_as_numbers() -> None:
     assert Version.parse("0.9.0") < Version.parse("0.10.0")
 
 
 @pytest.mark.parametrize(
-    "text", ["3", "1.2.3.post1", "01.2", "1.2rc", "1..2", "v1.2", "1.2-rc1", ""]
+    "text",
+    [
+        *("3", "1.2.3.post1", "01.2", "1.2rc", "1..2", "v1.2", "1.2-rc1", ""),
+        *("999", "10000", "0999", "2024rc1", "2024+x"),
+    ],
 )
 def test_what_cannot_be_ordered_is_not_a_version(text: str) -> None:
     with pytest.raises(ValueError, match="not a version this can order"):
