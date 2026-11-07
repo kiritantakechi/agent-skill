@@ -276,7 +276,7 @@ pub enum Error {
 
 Every function that can panic has a `# Panics` section naming the exact condition — index out of
 bounds, capacity overflow, a violated precondition. An undocumented panic is an undocumented API
-contract. Mark a function that panics on caller error `#[track_caller]` (RS-API-35).
+contract. Mark a function that panics on caller error `#[track_caller]` (RS-API-43).
 
 **Why:** a panic is part of the signature that the type system does not express. A caller in a
 server or a plugin needs to know which calls can take the process down, and the docs are the only
@@ -356,7 +356,7 @@ A `SortedVec` documents that it is sorted; a `Utf8Path` documents that it is val
 guarantees are the reason the type exists.
 
 **Why:** the guarantee is the entire value of the newtype — it is what lets callers skip a check
-(RS-API-18). Documenting only the field tells the reader what you could have written as `Vec<T>` and
+(RS-API-26). Documenting only the field tells the reader what you could have written as `Vec<T>` and
 omits the part that matters.
 
 **Check:** for each newtype and each type with a private constructor, state the invariant in one

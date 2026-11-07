@@ -6,7 +6,7 @@ comments that explain the code and their typography, and the documents beside th
 changelog and the README. Which of the three comment forms may stand where is the compiler's, and
 its rows are at the end. What a name is called, and the file and declaration order, are the naming
 chapter's; the `test` mechanics are the testing chapter's; the ownership phrasings std puts on
-allocating functions are the memory chapter's (ZS-MEM-09).
+allocating functions are the memory chapter's (ZS-API-05).
 
 Unless a block shows its own imports, it assumes the preamble `const std = @import("std");`.
 

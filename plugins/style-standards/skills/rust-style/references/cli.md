@@ -129,7 +129,7 @@ type does both, the interactions are being decided in the parser.
 // verified
 use std::path::PathBuf;
 
-/// A two-variant enum, so the call site reads `set_quiet(Quiet::Yes)` (RS-API-19).
+/// A two-variant enum, so the call site reads `set_quiet(Quiet::Yes)` (RS-API-27).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Quiet {
     Yes,
@@ -372,7 +372,7 @@ the config file a trap.
 
 **Check:** for each boolean readable from config, is there a `--no-` form? Each missing one is a
 setting the user cannot turn off. The pair is a *flag* pair on the command line; inside the program
-it lands as a two-variant enum, never as a `bool` parameter (RS-API-19).
+it lands as a two-variant enum, never as a `bool` parameter (RS-API-27).
 
 ```rust
 // verified

@@ -18,18 +18,17 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
 - **Layout**
   - PS-MOD-05 [M] Put the package under `src/`
   - PS-MOD-06 [M] Give the distribution and the module the same name
-  - PS-MOD-07 [M] Give every package an `__init__.py` that is a table of contents
 - **Imports and the graph**
-  - PS-MOD-08 [M] Do no work at import time
-  - PS-MOD-09 [S] Defer a costly import with `lazy import` at module scope
-  - PS-MOD-10 [M] Keep the dependency graph acyclic and shallow
+  - PS-MOD-07 [M] Do no work at import time
+  - PS-MOD-08 [S] Defer a costly import with `lazy import` at module scope
+  - PS-MOD-09 [M] Keep the dependency graph acyclic and shallow
 - **Order within a file**
-  - PS-MOD-11 [S] Put a module's public names before its private helpers
-  - PS-MOD-12 [S] Order a class body: fields, constructors, public methods, private methods
+  - PS-MOD-10 [S] Put a module's public names before its private helpers
+  - PS-MOD-11 [S] Order a class body: fields, constructors, public methods, private methods
 - **Orthogonality**
-  - PS-MOD-13 [M] One concept, one mechanism
-  - PS-MOD-14 [S] Keep sibling modules and types structurally parallel
-  - PS-MOD-15 [M] Absorb a special case into the general path, or give it its own type
+  - PS-MOD-12 [M] One concept, one mechanism
+  - PS-MOD-13 [S] Keep sibling modules and types structurally parallel
+  - PS-MOD-14 [M] Absorb a special case into the general path, or give it its own type
 - Decided by tools
 
 ---
@@ -76,7 +75,7 @@ its leading underscore or is imported across the boundary under a private name. 
 a handful of names is a seam; one that exposes dozens is the wrong seam, whatever PS-MOD-02 says
 about its audiences.
 
-**Why:** the underscore is the only encapsulation a module has (PS-API-04), so a split turns
+**Why:** the underscore is the only encapsulation a module has (PS-API-05), so a split turns
 internals into names other modules may depend on, and the package owes them compatibility from then
 on.
 
@@ -121,21 +120,9 @@ fails outright until a `module-name` override papers over it; matched, the layou
 **Check:** `rg -n '^name' pyproject.toml` against the directory under `src/`. Any difference is the
 finding.
 
-### PS-MOD-07 [M] Give every package an `__init__.py` that is a table of contents
-
-Re-exports, `__all__` and a docstring, and nothing else. That it does no work is PS-MOD-08, which
-holds for every module.
-
-**Why:** the `__init__` is what every importer of the package runs, so anything in it is a cost paid
-by everyone, including those who wanted one submodule. Kept declarative, it reads as the package's
-index.
-
-**Check:** every `__init__.py`. Anything other than imports, `__all__` and a docstring is the
-finding.
-
 ## Imports and the graph
 
-### PS-MOD-08 [M] Do no work at import time
+### PS-MOD-07 [M] Do no work at import time
 
 No registry population, no monkey-patching, no configuration reads, no network, no logging setup.
 Importing a module defines names; it does not do things.
@@ -147,7 +134,7 @@ import populates itself at an unpredictable moment or not at all.
 **Check:** read every module body for a statement that is not a definition, a constant, or an
 import. Each is a candidate; a call is the finding.
 
-### PS-MOD-09 [S] Defer a costly import with `lazy import` at module scope
+### PS-MOD-08 [S] Defer a costly import with `lazy import` at module scope
 
 `lazy import pandas`. Not an import moved inside a function. `lazy` is module-scope only; inside a
 function, a class body, or a `try` it is a `SyntaxError`.
@@ -162,7 +149,7 @@ encloses it — indentation alone cannot tell a function body from an `if` block
 inside a function is the finding unless it exists to break a cycle, which needs a comment saying so.
 Ruff `TID255` flags the opposite mistake: a `lazy` import that module load resolves at once anyway.
 
-### PS-MOD-10 [M] Keep the dependency graph acyclic and shallow
+### PS-MOD-09 [M] Keep the dependency graph acyclic and shallow
 
 No import cycles, and no chain of internal imports deeper than a few levels. The commonest cycle is
 a submodule importing its own package: `acme/reader.py` doing `from acme import thing` runs
@@ -178,7 +165,7 @@ longer than three or four is a design question.
 
 ## Order within a file
 
-### PS-MOD-11 [S] Put a module's public names before its private helpers
+### PS-MOD-10 [S] Put a module's public names before its private helpers
 
 Docstring, imports, `__all__`, the public functions and classes, then the private helpers they call.
 A function body looks its names up when it runs, so a helper may follow the function that calls it.
@@ -209,7 +196,7 @@ def _first_sentence(text: str) -> str:
 assert summarise("One. Two.") == "One"
 ```
 
-### PS-MOD-12 [S] Order a class body: fields, constructors, public methods, private methods
+### PS-MOD-11 [S] Order a class body: fields, constructors, public methods, private methods
 
 Class-level attributes and fields first, then `__init__` and the alternative constructors, then the
 other special methods and the public methods, and the private methods last.
@@ -252,7 +239,7 @@ assert Counter.starting_at(2).add(3).total == 5
 
 ## Orthogonality
 
-### PS-MOD-13 [M] One concept, one mechanism
+### PS-MOD-12 [M] One concept, one mechanism
 
 If configuration comes from a dataclass, it does not also come from a dict. If errors are
 exceptions, they are not also sentinel return values.
@@ -264,7 +251,7 @@ convenience added for one call site and then spreads.
 **Check:** for each concept in the module — configuration, errors, identity, time — name the
 mechanism. Two mechanisms for one concept is the finding.
 
-### PS-MOD-14 [S] Keep sibling modules and types structurally parallel
+### PS-MOD-13 [S] Keep sibling modules and types structurally parallel
 
 If `readers/json.py` exposes `load`, `loads` and a `JSONError`, then `readers/toml.py` exposes
 `load`, `loads` and a `TOMLError`. If `Request` is a frozen slotted dataclass with
@@ -277,7 +264,7 @@ siblings substitutable, which is what lets a caller pick one at runtime.
 **Check:** list the public names of each sibling module or type side by side. A name present in one
 column and absent from another is either a deliberate difference — say why — or the finding.
 
-### PS-MOD-15 [M] Absorb a special case into the general path, or give it its own type
+### PS-MOD-14 [M] Absorb a special case into the general path, or give it its own type
 
 A branch that exists for one input is not a feature; it is an unfinished generalisation. Either the
 general path handles it, usually by widening a parameter or adding a variant, or the case differs

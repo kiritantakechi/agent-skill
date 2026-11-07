@@ -86,7 +86,7 @@ findings that deserve discussion.
 |---|---|---|---|---|
 | Unsound | PS-CONC-04 | `worker.py:41` | `self.count += 1` is a read-modify-write on state three threads reach | Accumulate locally and merge under the lock that already guards `self.totals` |
 | Stale | PS-TYPE-04 | `models.py:3` | `from __future__ import annotations` | Delete it; annotations are lazy already |
-| Contract | PS-API-03 | `pyproject.toml` | The package is typed and ships no `py.typed` | Add the marker to the package data |
+| Contract | PS-API-04 | `pyproject.toml` | The package is typed and ships no `py.typed` | Add the marker to the package data |
 
 ## Discussion
 

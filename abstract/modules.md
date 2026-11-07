@@ -66,7 +66,7 @@ beside what it buys.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-MOD-03 | realises | [M] | |
-| rust-style | RS-MOD-30 | realises | [M] | |
+| rust-style | RS-MOD-22 | realises | [M] | |
 | zig-style | ZS-MOD-03 | realises | [M] | |
 
 ### AS-MOD-04 [S] Keep a module's name to few words
@@ -91,7 +91,7 @@ anything, and an integration test reaches the library the way a consumer does.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-MOD-05 | tightens | [M] | Python puts the working directory on the import path, so a package outside its own source directory lets the tests import the working copy and the packaging is never exercised; a Cargo or Zig test reaches the library by name |
-| rust-style | RS-MOD-19 | realises | [S] | |
+| rust-style | RS-MOD-11 | realises | [S] | |
 | zig-style | ZS-MOD-05 | realises | [S] | |
 
 ### AS-MOD-06 [S] Name a directory for the module it roots
@@ -103,7 +103,7 @@ rename is one operation; where the names differ, every reader keeps the mapping 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-MOD-06 | tightens | [M] | A Python build backend finds the package by normalising the distribution name, so a mismatch fails the build outright; Cargo and Zig read the path from the manifest, where a difference costs only the reader |
-| rust-style | RS-MOD-32 | realises | [S] | |
+| rust-style | RS-MOD-24 | realises | [S] | |
 | zig-style | ZS-MOD-06 | realises | [S] | |
 
 ## Imports and the graph
@@ -116,8 +116,8 @@ along a path a reader can follow instead of around a loop.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-MOD-10 | realises | [M] | |
-| rust-style | RS-MOD-23 | realises | [M] | |
+| python-style | PS-MOD-09 | realises | [M] | |
+| rust-style | RS-MOD-15 | realises | [M] | |
 | zig-style | ZS-MOD-07 | realises | [M] | |
 
 ### AS-MOD-08 [S] Group imports by origin, in one fixed order
@@ -129,7 +129,7 @@ a name came from. Where a tool fixes the order, the order is that tool's.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | `I001` | decided | | Ruff's import-sorting rule rejects imports out of the standard library, third party and local grouping, so the standard states no rule of its own |
-| rust-style | RS-MOD-35 | realises | [S] | |
+| rust-style | RS-MOD-27 | realises | [S] | |
 | zig-style | ZS-MOD-09 | realises | [S] | |
 
 ### AS-MOD-09 [M] Never import every name of a module at once
@@ -154,8 +154,8 @@ reader, and a private helper first makes the reader take in the implementation b
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-MOD-11 | realises | [S] | |
-| rust-style | RS-MOD-40 | realises | [S] | |
+| python-style | PS-MOD-10 | realises | [S] | |
+| rust-style | RS-MOD-32 | realises | [S] | |
 | zig-style | ZS-MOD-10 | realises | [S] | |
 
 ### AS-MOD-11 [S] Order the parts of a type in one fixed sequence
@@ -166,8 +166,8 @@ invariants reads top-down, and a reviewer knows where to look.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-MOD-12 | realises | [S] | |
-| rust-style | RS-MOD-41 | realises | [S] | |
+| python-style | PS-MOD-11 | realises | [S] | |
+| rust-style | RS-MOD-33 | realises | [S] | |
 | zig-style | ZS-MOD-11 | realises | [S] | |
 
 ## Orthogonality
@@ -181,8 +181,8 @@ states a maintainer has to hold.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-MOD-13 | realises | [M] | |
-| rust-style | RS-MOD-44 | realises | [M] | |
+| python-style | PS-MOD-12 | realises | [M] | |
+| rust-style | RS-MOD-36 | realises | [M] | |
 | zig-style | ZS-MOD-12 | realises | [M] | |
 
 ### AS-MOD-13 [S] Keep sibling modules structurally parallel
@@ -193,8 +193,8 @@ hole in the pattern instead of an absence nobody notices.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-MOD-14 | realises | [S] | |
-| rust-style | RS-MOD-46 | realises | [S] | |
+| python-style | PS-MOD-13 | realises | [S] | |
+| rust-style | RS-MOD-38 | realises | [S] | |
 | zig-style | ZS-MOD-13 | realises | [S] | |
 
 ### AS-MOD-14 [M] Absorb a special case into the general path, or give it its own type
@@ -206,6 +206,6 @@ be checked against it.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-MOD-15 | realises | [M] | |
-| rust-style | RS-MOD-45 | realises | [M] | |
+| python-style | PS-MOD-14 | realises | [M] | |
+| rust-style | RS-MOD-37 | realises | [M] | |
 | zig-style | ZS-MOD-14 | realises | [M] | |

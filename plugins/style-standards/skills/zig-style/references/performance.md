@@ -71,7 +71,7 @@ public entry point on a path that will be called in bulk is the specific thing t
 //!
 //! Dominant cost: disk bandwidth. One sequential read of each input level, one sequential
 //! write of the output level, no random access, no read amplification beyond 2x. Memory is
-//! two 64 KiB streaming buffers, allocated once at startup (ZS-MEM-16).
+//! two 64 KiB streaming buffers, allocated once at startup (ZS-MEM-15).
 //!
 //! Rejected: an in-memory merge of whole levels. It is simpler and ~1.3x faster per byte,
 //! but its memory is O(level size), which removes the static-allocation bound.
@@ -322,9 +322,9 @@ const Grid = struct {
 
 Extract the kernel into a stand-alone function whose parameters are the exact slices and scalars it
 reads. The wrapper method stays, and does the field access once. Without a profile, hoist the field
-into a local above the loop instead (ZS-PERF-07). This does not contradict ZS-NAME-14: receivers
+into a local above the loop instead (ZS-PERF-07). This does not contradict ZS-NAME-13: receivers
 stay correct everywhere else, and a codebase does not delete them wholesale on the strength of this
-rule. A kernel whose bounds are two integers of one type is exempt from ZS-NAME-11's options struct,
+rule. A kernel whose bounds are two integers of one type is exempt from ZS-API-04's options struct,
 because a struct would reintroduce the aggregate load the extraction removes; document the order
 instead.
 
@@ -422,13 +422,13 @@ fn countMatches(haystack: []const u8, needle: u8) u32 {
 One fact, one storage location. Do not copy a field into a local that outlives a mutation of the
 field. ZS-PERF-07's hoist is no exception: hoisting is legal precisely when the loop cannot mutate
 the hoisted fact, and the hoisted `const` dies at the end of the loop. A pointer into a container is
-the same mistake with a worse failure, and ZS-MEM-13 owns it: hold the index.
+the same mistake with a worse failure, and ZS-MEM-12 owns it: hold the index.
 
 **Why:** two copies of one fact are two things to update, and one will eventually be missed — the
 plain form of cache invalidation.
 
 **Check:** every local that copies a field — is the field written between the copy and the last use
-of the local? A pointer-typed local into a container is the ZS-MEM-13 check.
+of the local? A pointer-typed local into a container is the ZS-MEM-12 check.
 
 ```zig
 // fragment — BAD: `count` is a second copy of `queue.count`, stale after `push`

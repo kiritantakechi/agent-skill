@@ -1,5 +1,5 @@
 # Minimal CI that enforces this standard. Referenced by RS-BUILD-38; the
-# features job encodes RS-BUILD-17 and RS-MOD-29, msrv RS-BUILD-30, beta
+# features job encodes RS-BUILD-17 and RS-MOD-21, msrv RS-BUILD-30, beta
 # RS-BUILD-36.
 name: ci
 

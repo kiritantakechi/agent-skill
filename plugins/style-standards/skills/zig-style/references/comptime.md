@@ -44,7 +44,7 @@ Each symptom below, and the rule it breaks:
 | `@Type(...)`, `std.meta.Int`, `std.meta.Tuple` | ZS-COMPTIME-14 |
 | `@typeInfo(T).Struct`, `.@"struct".fields`, a raw `default_value_ptr` | ZS-COMPTIME-14 |
 | Hand-rolled vtable for a closed set of impls | ZS-COMPTIME-19 |
-| `usingnamespace` | ZS-BUILD-15 |
+| `usingnamespace` | ZS-API-02 |
 | `error: unable to resolve comptime value` with no visible cause | ZS-COMPTIME-20 |
 
 ## Contents
@@ -288,7 +288,7 @@ const crc_table: [256]u32 = blk: {
 Write the `comptime` keyword on type parameters even though `T: type` also compiles. std writes it
 on ~94% of type parameters; the 52 bare `X: type` occurrences are the outliers. Inside the returned
 anonymous struct the type has no name, so `const Self = @This();` and a `self` receiver are where
-ZS-NAME-14 allows them.
+ZS-NAME-13 allows them.
 
 **Why:** it is std's spelling, and it states at the declaration that the parameter is resolved at
 compile time, which `T: type` leaves the reader to infer from the type.

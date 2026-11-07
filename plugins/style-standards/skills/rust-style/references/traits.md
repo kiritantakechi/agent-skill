@@ -282,7 +282,7 @@ Matchers, queries, builders — values that describe rather than act. Mark each 
 
 **Why:** constructing one and discarding it is always a mistake. On the trait the attribute covers
 only an `impl Trait` or `dyn Trait` value; a discarded concrete implementor warns only if its own
-type carries the attribute (RS-API-33).
+type carries the attribute (RS-API-41).
 
 **Check:** would discarding a value of this trait ever be correct? Does every implementor carry the
 attribute as well?
@@ -553,7 +553,7 @@ the newtype that would have worked.
 
 **Why:** it is the sanctioned mechanism, it is zero-cost with `#[repr(transparent)]`, and it lets
 you add the impl without any coordination. Add `AsRef`/`Deref` only if the newtype genuinely *is*
-the inner type for all purposes (RS-API-44).
+the inner type for all purposes (RS-API-52).
 
 **Check:** does the newtype expose the inner type's whole API, or only the part that makes sense?
 
@@ -1032,7 +1032,7 @@ sibling missing one impl excludes it from every such function — usually discov
 type was added. The asymmetry is almost never deliberate.
 
 **Check:** tabulate the family against the trait set. A missing cell is either an oversight or a
-documented restriction; there is no third case (RS-API-36).
+documented restriction; there is no third case (RS-API-44).
 
 ```rust
 // verified

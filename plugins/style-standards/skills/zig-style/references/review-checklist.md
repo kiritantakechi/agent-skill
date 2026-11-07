@@ -32,7 +32,7 @@ invalidate the work of reading the next.
    (`ZS-MIG`)
 2. **Memory and ownership.** Who allocates, who frees, and what the lifetime is. Every allocation
    has a `defer`/`errdefer` on the next line. No allocator stored in a long-lived struct. No pointer
-   retained into a container that can resize. (`ZS-MEM`, ZS-MEM-05, ZS-ERR-11, ZS-MEM-13, ZS-MEM-16)
+   retained into a container that can resize. (`ZS-MEM`, ZS-MEM-05, ZS-ERR-11, ZS-MEM-12, ZS-MEM-15)
 3. **Illegal behavior.** Every `@intCast`, `@ptrCast`, `@alignCast`, and `@bitCast`: is the
    precondition established? Every `undefined`. Every `noalias`. Every `unreachable` reachable from
    operating input. Ask what `fast` does with each, not what `debug` does. (`ZS-DATA`, `ZS-ASSERT`)
@@ -43,7 +43,7 @@ invalidate the work of reading the next.
    provable upper bound, every queue a limit, every recursion a proof or an explicit stack?
    (`ZS-ASSERT`, ZS-ASSERT-08, ZS-ASSERT-19, ZS-ERR-23)
 6. **Public API.** What is newly `pub`? Is the ownership documented? Is the error set explicit and
-   minimal? Would a caller be able to tell from the signature who frees what? (ZS-NAME-16, `ZS-ERR`)
+   minimal? Would a caller be able to tell from the signature who frees what? (ZS-API-01, `ZS-ERR`)
 7. **Concurrency.** Every `Io.async` without a matching `await`, every `Group`/`Select`,
    cancellation paths, and anything holding a resource across a suspension point. (`ZS-CONC`)
 8. **Function bodies.** Now read the code. Compound conditions that want splitting, functions past
@@ -79,12 +79,12 @@ At an `export fn`, a `callconv(.c)` function or an `extern` declaration, ask the
 Run these before reading anything, and report what could not be run rather than implying it passed.
 
 ```sh
-zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .  # ZS-BUILD-23
+zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .  # ZS-BUILD-22
 zig build check                       # semantic check, no binary emitted
 zig build test                        # debug
 zig build test -Doptimize=safe        # ZS-TEST-31: the suite must pass in both
 zig build test-integration
-zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-25)
+zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-24)
 ```
 
 ### Stale-API greps
@@ -133,7 +133,7 @@ findings that deserve discussion.
 | Severity | Rule | Location | Finding | Fix |
 |---|---|---|---|---|
 | Stale | ZS-MIG-01 | `src/scan.zig:41` | `std.mem.indexOf` — compiles, but is the pre-0.16 name | Rename to `std.mem.find`; it is a pure rename |
-| Unsound | ZS-MEM-13 | `src/index.zig:88` | Pointer into `list.items` held across an `append` | Re-index after the append, or reserve capacity up front |
+| Unsound | ZS-MEM-12 | `src/index.zig:88` | Pointer into `list.items` held across an `append` | Re-index after the append, or reserve capacity up front |
 | Contract | ZS-ERR-05 | `src/api.zig:12` | Public `parse` returns `anyerror` | Declare the explicit error set |
 
 ## Discussion

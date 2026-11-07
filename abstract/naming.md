@@ -126,7 +126,7 @@ variant of an operation extends the base name rather than reordering it.
 |---|---|---|---|---|
 | python-style | PS-NAME-07 | realises | [S] | |
 | rust-style | RS-NAME-23 | realises | [S] | |
-| zig-style | ZS-NAME-13 | realises | [S] | |
+| zig-style | ZS-NAME-12 | realises | [S] | |
 
 ### AS-NAME-09 [M] Name the two halves of a pair symmetrically
 
@@ -138,7 +138,7 @@ fixed a pair, it is copied.
 |---|---|---|---|---|
 | python-style | PS-NAME-12 | realises | [M] | |
 | rust-style | RS-NAME-33 | realises | [M] | |
-| zig-style | ZS-NAME-21 | realises | [M] | |
+| zig-style | ZS-NAME-19 | realises | [M] | |
 
 ### AS-NAME-10 [M] Give one concept one term, project-wide
 
@@ -150,7 +150,7 @@ that touches the concept.
 |---|---|---|---|---|
 | python-style | PS-NAME-13 | realises | [M] | |
 | rust-style | RS-NAME-24 | realises | [M] | |
-| zig-style | ZS-NAME-19 | realises | [M] | |
+| zig-style | ZS-NAME-17 | realises | [M] | |
 
 ## Layout
 
@@ -164,7 +164,7 @@ a project that picks another width reopens an argument the default closes.
 |---|---|---|---|---|
 | python-style | PS-NAME-10 | realises | [M] | |
 | rust-style | RS-NAME-34 | realises | [M] | |
-| zig-style | ZS-NAME-18 | realises | [M] | |
+| zig-style | ZS-NAME-16 | realises | [M] | |
 
 ### AS-NAME-12 [M] Let a trailing comma decide when a list explodes
 
@@ -177,4 +177,4 @@ element. Running the formatter in the build is the build chapter's.
 |---|---|---|---|---|
 | python-style | PS-NAME-11 | realises | [M] | |
 | rust-style | | absent | | rustfmt lays a list out by width alone and ignores a trailing comma, so the author holds no such lever |
-| zig-style | ZS-NAME-17 | realises | [M] | |
+| zig-style | ZS-NAME-15 | realises | [M] | |

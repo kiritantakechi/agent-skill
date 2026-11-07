@@ -194,11 +194,11 @@ pub trait Decoder {
 
 `MAX_RETRIES`, `DEFAULT_BUFFER_SIZE`, `TIMEOUT_MS`. Not `BUF_SIZE_USIZE`, and not `TIMEOUT` with the
 unit hidden in a comment. For a parameter or field whose type cannot carry the unit, the name must
-(RS-API-23).
+(RS-API-31).
 
 **Why:** the type is visible in the declaration, so encoding it in the name is redundant; the unit
 is *not* visible in `u64`, so it must be somewhere the call site can see it. Better still, make it a
-`Duration` and drop the suffix (RS-API-23).
+`Duration` and drop the suffix (RS-API-31).
 
 **Check:** every numeric constant, parameter, and field whose value has a physical unit — time,
 bytes, counts of a specific thing — either names the unit or has a type that does.
@@ -374,7 +374,7 @@ impl Buffer {
 
 **Check:** does every `&mut`-returning accessor end in `_mut`? Does any getter's name differ from
 the field it exposes? Note that exposing `&mut` to invariant-bearing state is a separate, more
-serious defect (RS-API-13).
+serious defect (RS-API-21).
 
 ### RS-NAME-17 [M] Mark fallible conversions `try_`
 
@@ -419,7 +419,7 @@ yield something other than the elements?
 ```rust
 // verified
 /// The three canonical iterator constructors, each returning a type named for
-/// it (RS-NAME-19) that keeps the `Vec` behind it private (RS-API-04).
+/// it (RS-NAME-19) that keeps the `Vec` behind it private (RS-API-12).
 #[derive(Debug, Default)]
 pub struct Set {
     items: Vec<u32>,
@@ -870,7 +870,7 @@ A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`clos
 exists.
 
 **Why:** matched names are what make a pair recognizable as a pair, which is how a reader knows the
-inverse exists without looking (RS-API-57). Mismatched halves read as unrelated operations, and the
+inverse exists without looking (RS-API-65). Mismatched halves read as unrelated operations, and the
 reader searches for a `decode` that is spelled `parse`.
 
 **Check:** list every operation with an inverse and read the two names together. If they do not

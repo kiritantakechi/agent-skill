@@ -72,7 +72,7 @@ it transitively `@import`s, so co-located tests are picked up with zero wiring.
 
 TigerBeetle also co-locates tests, and additionally maintains `src/unit_tests.zig`, a
 `comptime { _ = @import("..."); }` block naming every file, because its test binary has a single
-root module. That is an aggregation mechanism (ZS-BUILD-16), not an argument for separate test
+root module. That is an aggregation mechanism (ZS-BUILD-15), not an argument for separate test
 files.
 
 **Why:** a test in the same file can reach private declarations without widening their visibility,
@@ -662,7 +662,7 @@ rather than the exhaustive sweep, use `FailingAllocator` directly (ZS-TEST-18). 
 allocations, never a resize, so a list that grows in place is swept only at its first allocation:
 the `errdefer` it tests is the one between two separate allocations.
 
-Under static allocation (ZS-MEM-16) the test is moot, because nothing allocates after startup: there
+Under static allocation (ZS-MEM-15) the test is moot, because nothing allocates after startup: there
 the bound is a fixed backing buffer plus `AssumeCapacity` methods, OOM is impossible by
 construction, and the corresponding test is a capacity assertion.
 
@@ -1247,7 +1247,7 @@ test "log_level lets a noisy module be quieted" {
 ### ZS-TEST-31 [M] Run the whole suite in `safe` as well as `debug`
 
 The suite MUST execute in both modes. Drive it from a CI matrix over `-Doptimize` — the canonical
-shape in ZS-BUILD-26, `matrix: optimize: [debug, safe]`, which is also how the OS matrix already
+shape in ZS-BUILD-25, `matrix: optimize: [debug, safe]`, which is also how the OS matrix already
 works — keeping `build.zig` on a single `optimize` from `b.standardOptimizeOption` as in
 ZS-BUILD-01. For a project with no CI, loop both modes inside the `test` step instead. What is
 forbidden is a pipeline that only ever runs one mode. The matrix is preferred over an in-build loop
@@ -1269,7 +1269,7 @@ and it catches performance regressions and stack-overflow-in-release bugs.
 `zig build test` invocation with no `-Doptimize` axis anywhere is the failure this rule names.
 
 ```yaml
-# GOOD — CI, the primary form (full workflow in ZS-BUILD-26)
+# GOOD — CI, the primary form (full workflow in ZS-BUILD-25)
 strategy:
   fail-fast: false
   matrix:

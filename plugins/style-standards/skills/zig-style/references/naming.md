@@ -1,9 +1,9 @@
-# Naming, Files, `pub`, Formatting
+# Naming, Files, Formatting
 
-Scope: how identifiers are cased and worded, how a `.zig` file is cased, `pub` discipline, and the
-formatting mechanics (`zig fmt`, the trailing comma, 100 columns). How a project is divided into
-files, how they are laid out and ordered, and how long a file name runs are the modules chapter.
-Semantics of the things being named live elsewhere: error-set design in the errors chapter,
+Scope: how identifiers are cased and worded, how a `.zig` file is cased, and the formatting
+mechanics (`zig fmt`, the trailing comma, 100 columns). How a project is divided into files, how
+they are laid out and ordered, and how long a file name runs are the modules chapter. Semantics of
+the things being named live elsewhere: error-set design in the errors chapter,
 `init`/`deinit`/ownership contracts in the memory chapter, `format` and `std.Io` in the concurrency
 chapter, `test` mechanics and fuzzing in the testing chapter, `build.zig` naming in the build
 chapter, and what a comment says (the three comment forms, std's contract phrasings) in the
@@ -30,22 +30,20 @@ file name matters to the rule, it is named in the comment above it.
   - ZS-NAME-08 [S] Name the thing so it survives being said out loud
   - ZS-NAME-09 [M] Name a predicate so it reads as a question
   - ZS-NAME-10 [M] Prefix a helper with the name of the function that calls it
-  - ZS-NAME-11 [M] Use an options struct whenever two adjacent parameters share a type
-  - ZS-NAME-12 [S] Reach for `io.async` first; give the function values that remain std's slot order
-  - ZS-NAME-13 [S] Use std's suffix vocabulary for method variants
+  - ZS-NAME-11 [S] Reach for `io.async` first; give the function values that remain std's slot order
+  - ZS-NAME-12 [S] Use std's suffix vocabulary for method variants
 - **Receivers**
-  - ZS-NAME-14 [M] Name the receiver after its type; keep `self` for anonymous generic containers
+  - ZS-NAME-13 [M] Name the receiver after its type; keep `self` for anonymous generic containers
 - **Files and `pub`**
-  - ZS-NAME-15 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
-  - ZS-NAME-16 [M] Default to non-`pub`; mark `pub` only what a caller outside the file needs
+  - ZS-NAME-14 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
 - **Formatting**
-  - ZS-NAME-17 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
-  - ZS-NAME-18 [M] Hard-limit every line to 100 columns
+  - ZS-NAME-15 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
+  - ZS-NAME-16 [M] Hard-limit every line to 100 columns
 - **Names beyond the source file**
-  - ZS-NAME-19 [M] One term, one meaning, project-wide
-  - ZS-NAME-20 [M] Write the commit message; a pull-request description is not one
+  - ZS-NAME-17 [M] One term, one meaning, project-wide
+  - ZS-NAME-18 [M] Write the commit message; a pull-request description is not one
 - **Symmetry across a codebase**
-  - ZS-NAME-21 [M] Name the two halves of a pair symmetrically
+  - ZS-NAME-19 [M] Name the two halves of a pair symmetrically
 - Decided by tools
 
 ---
@@ -173,7 +171,7 @@ const Parser = struct {
 No abbreviations in declaration names, parameters, or fields. Four exceptions, and only four:
 
 1. Primitive integer indices passed to a sort or matrix routine (`i`, `j`, `a`, `b`).
-2. Short receiver abbreviations in a type file (ZS-NAME-14): `w: *Writer`, `r: *Reader`,
+2. Short receiver abbreviations in a type file (ZS-NAME-13): `w: *Writer`, `r: *Reader`,
    `b: *Build`, `m: *Module`.
 3. The established std **role names** for singleton dependencies: `gpa`, `arena`, `scratch`
    (ZS-MEM-06), and `io`. These are not contractions of longer words — they name a role the whole
@@ -404,66 +402,7 @@ fn readSectorFill(buffer: []u8, index: u32) void {
 }
 ```
 
-### ZS-NAME-11 [M] Use an options struct whenever two adjacent parameters share a type
-
-TigerStyle states the hard form: a function taking two `u64` **must** use an options struct. Extend
-it to any pair of same-typed parameters a caller could transpose, and to any parameter whose `null`
-would be unreadable at the call site. std does this at scale, with an `…Options` struct for almost
-every call that takes more than a couple of settings.
-
-Singleton dependencies with unique types (an allocator, an `Io`, a tracer) stay **positional** and
-are threaded most-general to most-specific, because their types already prevent transposition.
-
-A `_max` / `_min` companion sitting beside the value it bounds is exempt too:
-`(op: u64, op_max: u64)` is two `u64`s and stays positional — as in ZS-ASSERT-13's
-`fn sendPrepareOk(status: Status, view: u32, op: u64, op_max: u64) bool`. The pair is not
-transposable in practice: `op_max` is named *after* `op` and reads as its ceiling, so a swapped call
-is wrong at a glance in a way that `copyRange(x, y, 4, 0, 2)` is not. This adjacency is exactly what
-ZS-NAME-07's big-endian naming exists to create, and burying the pair in an options struct destroys
-it. The exemption covers a bounded value and its bound only; it does not extend to two unrelated
-`u64`s.
-
-**Why:** Zig has no named arguments; an options struct is how you get them. Transposed same-typed
-arguments type-check and produce wrong behavior at run time — the compiler cannot help. Field names
-at the call site turn that into a compile error.
-
-**Check:** any `fn` signature in the diff with two adjacent parameters of the same type, or any
-parameter of type `?T` whose `null` a reader could not name at the call site. Then apply the two
-exemptions above: a singleton dependency with a unique type, and a value beside its `_max`/`_min`
-companion. Everything else is an options struct.
-
-```zig
-// fragment — BAD: this compiles, which is exactly the problem.
-copyRange(source, target, 4, 0, 2); // which offset is which?
-```
-
-```zig
-// verified — GOOD
-pub const CopyOptions = struct {
-    source_offset: usize,
-    target_offset: usize,
-    len: usize,
-};
-
-pub fn copyRange(source: []const u8, target: []u8, options: CopyOptions) void {
-    @memcpy(
-        target[options.target_offset..][0..options.len],
-        source[options.source_offset..][0..options.len],
-    );
-}
-// call site: copyRange(source, target, .{ .source_offset = 1, .target_offset = 0, .len = 2 });
-```
-
-```zig
-// fragment — the exempt pair, with `assert` as the ZS-MOD-09 alias
-// `op_max` is `op`'s ceiling, not a second interchangeable argument.
-fn opCommitted(op: u64, op_max: u64) bool {
-    assert(op_max >= 1);
-    return op <= op_max;
-}
-```
-
-### ZS-NAME-12 [S] Reach for `io.async` first; give the function values that remain std's slot order
+### ZS-NAME-11 [S] Reach for `io.async` first; give the function values that remain std's slot order
 
 Before designing a callback at all, check whether `io.async(function, args)` and `Io.Future` express
 the same thing. For the function values that genuinely remain — comparators, visitors, vtable
@@ -552,7 +491,7 @@ test countWhere {
 }
 ```
 
-### ZS-NAME-13 [S] Use std's suffix vocabulary for method variants
+### ZS-NAME-12 [S] Use std's suffix vocabulary for method variants
 
 `…AssumeCapacity` (non-allocating twin, asserts capacity), `…Alloc` (allocating twin), `…Context`
 (explicit context parameter), `…Adapted` (different key type), `…Sentinel` (sentinel-terminated),
@@ -574,7 +513,7 @@ the same finding.
 
 ## Receivers
 
-### ZS-NAME-14 [M] Name the receiver after its type; keep `self` for anonymous generic containers
+### ZS-NAME-13 [M] Name the receiver after its type; keep `self` for anonymous generic containers
 
 In a file that *is* a type, write `const Journal = @This();` and name receivers `journal: *Journal`
 (or a consistent 1–2 letter abbreviation like `w: *Writer`). Use `const Self = @This();` and `self:`
@@ -630,7 +569,7 @@ pub fn Stack(comptime T: type) type {
 
 ## Files and `pub`
 
-### ZS-NAME-15 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
+### ZS-NAME-14 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
 
 A file with top-level fields *is* a struct type: `Journal.zig`, `Io.zig`, `Build.zig`. A file with
 no top-level fields is a namespace: `array_list.zig`, `wire_format.zig`. Directory names follow
@@ -674,19 +613,9 @@ src/journal.zig  (has fields)   src/Journal.zig
 src/WireFormat.zig (no fields)  src/wire_format.zig
 ```
 
-### ZS-NAME-16 [M] Default to non-`pub`; mark `pub` only what a caller outside the file needs
-
-A declaration starts private and becomes `pub` when a caller in another file needs it. Which of the
-`pub` names form the package's surface is decided once, in `root.zig` (ZS-BUILD-15).
-
-**Why:** `pub` is the module's API contract and everything `pub` is something you cannot rename
-later without a breaking change; the compiler will not tell you which `pub`s are unused.
-
-**Check:** a `pub` added in the diff whose name no file but its own uses should not be `pub`.
-
 ## Formatting
 
-### ZS-NAME-17 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
+### ZS-NAME-15 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
 
 `zig fmt` owns indentation (4 spaces), brace placement, spacing, and blank-line collapsing. The one
 decision you make is the **trailing comma**: adding one to a parameter list, struct literal, or enum
@@ -703,7 +632,7 @@ endings and a trailing newline.
 **Why:** `zig fmt` *collapses* a multi-line signature that lacks a trailing comma back onto one
 line, so a hand-wrapped signature without a trailing comma will be silently un-wrapped.
 
-**Check:** the CI gate of ZS-BUILD-23 —
+**Check:** the CI gate of ZS-BUILD-22 —
 `zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .` — is the whole rule for
 indentation and spacing. The reviewable residue is a multi-line parameter list, struct literal, or
 enum with **no** trailing comma — `zig fmt` will silently collapse it back onto one line — and any
@@ -729,7 +658,7 @@ fn f(
 }
 ```
 
-### ZS-NAME-18 [M] Hard-limit every line to 100 columns
+### ZS-NAME-16 [M] Hard-limit every line to 100 columns
 
 Including comments, doc comments, and string literals. Set a column ruler. Wrap by adding a trailing
 comma and re-running `zig fmt`. Enforce it in CI: it is a one-line check and the only formatting
@@ -747,7 +676,7 @@ so it needs its own CI line.
 
 ## Names beyond the source file
 
-### ZS-NAME-19 [M] One term, one meaning, project-wide
+### ZS-NAME-17 [M] One term, one meaning, project-wide
 
 A word that already has a technical meaning in your project may not be reused for a second,
 context-dependent meaning. Before introducing a term, grep the codebase and the design documents for
@@ -780,7 +709,7 @@ pub fn postPending(transfer: *PendingTransfer) void {}
 pub fn voidPending(transfer: *PendingTransfer) void {}
 ```
 
-### ZS-NAME-20 [M] Write the commit message; a pull-request description is not one
+### ZS-NAME-18 [M] Write the commit message; a pull-request description is not one
 
 Every commit gets a descriptive message: a subject line naming what changed, and a body giving the
 reasoning ZS-DOC-07 keeps out of the code. Do not put the explanation only in a pull-request
@@ -814,15 +743,15 @@ fix                                   journal: bump sector_count before fsync
 
 ## Symmetry across a codebase
 
-### ZS-NAME-21 [M] Name the two halves of a pair symmetrically
+### ZS-NAME-19 [M] Name the two halves of a pair symmetrically
 
 A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`close`, not
 `open`/`release`; `acquire`/`release`, not `acquire`/`free`. Where std has already fixed the pair,
 copy it.
 
 **Why:** matched names are what make a pair recognizable as a pair, which is how a reader knows the
-inverse exists without searching for it (ZS-DATA-36). Mismatched halves read as unrelated
-operations, so the reader hunts for a `decode` that was spelled `parse`.
+inverse exists without searching for it (ZS-API-07). Mismatched halves read as unrelated operations,
+so the reader hunts for a `decode` that was spelled `parse`.
 
 **Check:** list every operation with an inverse and read the two names aloud together. If they do
 not sound like a pair, rename the odd half.

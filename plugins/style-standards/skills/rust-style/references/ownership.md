@@ -402,7 +402,7 @@ under move — which the compiler will not stop you from doing. Use indices into
 
 **Why:** it sidesteps lifetimes entirely, it is cache-friendly, it serializes trivially, and it
 makes cycles representable without `Weak`. Newtype the index so it cannot be confused with a length
-or with an index into a different arena (RS-API-25).
+or with an index into a different arena (RS-API-33).
 
 **Check:** does the graph type have a lifetime parameter? Indices remove it.
 
@@ -643,7 +643,7 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| clippy | `ptr_arg` | warn | `&Vec<T>`, `&String` or `&PathBuf` where `&[T]`, `&str` or `&Path` serves — listed because it is the borrowed-view half of RS-API-07, the rule a revision demoted to it |
+| clippy | `ptr_arg` | warn | `&Vec<T>`, `&String` or `&PathBuf` where `&[T]`, `&str` or `&Path` serves — listed because it is the borrowed-view half of RS-API-15, the rule a revision demoted to it |
 | rustc | `elided_lifetimes_in_paths` | warn | a type whose lifetime the path hides — write `Iter<'_, T>` |
 | rustc | `explicit_outlives_requirements` | warn | a `T: 'a` bound on a struct, which the compiler infers |
 | clippy | `needless_lifetimes` | warn | a lifetime parameter elision would supply — listed because writing only the lifetimes elision cannot supply is the rule a revision demoted to it |

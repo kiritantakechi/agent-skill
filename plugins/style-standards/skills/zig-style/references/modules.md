@@ -3,8 +3,8 @@
 Scope: how a Zig project is divided into modules and files, what each boundary costs, how the tree
 is laid out on disk, how imports are written and the graph they form, the order of declarations in a
 file and in a struct, and the one-mechanism-per-concept discipline across them. What a file is
-called and which declarations are `pub` are the naming chapter; what `src/root.zig` exports is the
-build chapter (ZS-BUILD-15); what a `//!` comment may say is the documentation chapter.
+called is the naming chapter; which declarations are `pub`, and what `src/root.zig` exports
+(ZS-API-02), are the API chapter; what a `//!` comment may say is the documentation chapter.
 
 Unless a block shows its own imports, it assumes the preamble ZS-MOD-09 prescribes:
 `const std = @import("std");` and `const assert = std.debug.assert;`.

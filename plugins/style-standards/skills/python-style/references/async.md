@@ -316,6 +316,6 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| ty | `deprecated` | warn | a deprecated API — `asyncio.iscoroutinefunction` among them; use `inspect.iscoroutinefunction` — listed because it is how PS-API-14's `warnings.deprecated` reaches a caller, and `ty` reports it unasked |
+| ty | `deprecated` | warn | a deprecated API — `asyncio.iscoroutinefunction` among them; use `inspect.iscoroutinefunction` — listed because it is how PS-API-15's `warnings.deprecated` reaches a caller, and `ty` reports it unasked |
 | ruff | `RUF006` | error | a `create_task` result nothing keeps — the loop holds only a weak reference — listed because a task started outside a `TaskGroup` (PS-ASYNC-03) is collected unless something keeps it |
 | ruff | `ASYNC251` | error | `time.sleep` in a coroutine — `await asyncio.sleep` — listed because it is the one blocking call PS-ASYNC-09's codes leave out |

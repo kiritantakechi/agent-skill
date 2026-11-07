@@ -113,7 +113,7 @@ can find your issue tracker without guessing. Ad-hoc labels render as plain text
 
 ### PS-BUILD-06 [M] Classify the package honestly, including its typing and threading status
 
-`Typing :: Typed` when you ship `py.typed` (PS-API-03). The free-threading classifier when you have
+`Typing :: Typed` when you ship `py.typed` (PS-API-04). The free-threading classifier when you have
 tested it.
 
 **Why:** the classifiers are how a consumer filters, and a wrong one wastes their time in the

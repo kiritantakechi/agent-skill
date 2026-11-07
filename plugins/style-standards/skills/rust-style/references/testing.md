@@ -148,7 +148,7 @@ test in a distant directory does not, and that is how suites rot. The child modu
 to private items, which is what makes unit testing possible at all.
 
 **Check:** for each module with non-trivial logic, is there a `mod tests`? Clippy's
-`items_after_test_module` holds it at the bottom, where RS-MOD-40's file order puts it.
+`items_after_test_module` holds it at the bottom, where RS-MOD-32's file order puts it.
 
 ```rust
 // verified

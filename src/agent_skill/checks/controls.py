@@ -1580,7 +1580,7 @@ CONTROLS: list[Control] = [
     ),
     Control(
         # Added beside the rules the delta names rather than in place of
-        # one. Renaming the override row's `RS-API-15` also stopped the
+        # one. Renaming the override row's `RS-API-23` also stopped the
         # delta naming that rule, so the anchor sweep ran its pattern,
         # hit, and fired with the citation branch gone.
         crossref.FOREIGN_CITATION,
@@ -1792,7 +1792,7 @@ CONTROLS: list[Control] = [
         selfapply.FILTERED_NO_ANSWER,
         lambda t: edit(
             t,
-            f"{RS}/references/modules.md",
+            f"{RS}/references/api.md",
             "`rg -n 'pub use' -g '*.rs' src/ | rg -v",
             "`rg -n 'pub use(' -g '*.rs' src/ | rg -v",
         ),
@@ -2304,7 +2304,7 @@ CONTROLS: list[Control] = [
     # sensitivity
     Control(
         sensitivity.ORPHAN_FIXTURE,
-        lambda t: drop_rule(t, f"{PY}/references/api.md", "PS-API-05"),
+        lambda t: drop_rule(t, f"{PY}/references/api.md", "PS-API-06"),
     ),
     Control(
         sensitivity.NO_CHECK,

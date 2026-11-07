@@ -54,8 +54,6 @@ Blocks that do not declare their own imports assume a file opening with
   - ZS-ERR-30 [M!] Hard limit of 70 lines per function
   - ZS-ERR-31 [S] Report position and context through a `*Diagnostics`, not the error set
   - ZS-ERR-32 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
-- **Uniformity of failure and control flow**
-  - ZS-ERR-33 [M] Give the members of one error set a uniform shape
 - Decided by tools
 
 ---
@@ -1313,22 +1311,6 @@ fn captureHere(addr_buf: []usize) std.debug.StackTrace {
     return std.debug.captureCurrentStackTrace(.{ .first_address = @returnAddress() }, addr_buf);
 }
 ```
-
-## Uniformity of failure and control flow
-
-### ZS-ERR-33 [M] Give the members of one error set a uniform shape
-
-Members of one error set describe failures at one level of detail. Do not mix
-`error.InvalidByteAtOffset` with a bare `error.Bad` in the same set, and do not let one call site
-carry rich diagnostics through a side channel while its siblings carry none.
-
-**Why:** the caller writes one `switch` over the set, and asymmetric members make that switch
-asymmetric — some arms can report a position, some cannot, so the reporting code grows special cases
-for the deficient members. Uniform shape is what lets one function render every failure.
-
-**Check:** tabulate the set's members against the diagnostic context each one can supply. A column
-populated for most members and empty for one is either a missing detail or a member that belongs in
-a different set.
 
 ## Decided by tools
 

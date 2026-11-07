@@ -31,7 +31,7 @@ developers on one commit; a pin makes each upgrade a reviewed change with its ow
 |---|---|---|---|---|
 | python-style | PS-BUILD-08 | realises | [M] | |
 | rust-style | RS-BUILD-35 | realises | [M] | |
-| zig-style | ZS-BUILD-26 | realises | [M] | |
+| zig-style | ZS-BUILD-25 | realises | [M] | |
 
 ### AS-BUILD-02 [M] Commit the lock file, and keep it the only one
 
@@ -68,7 +68,7 @@ costs are permanent and shared.
 |---|---|---|---|---|
 | python-style | PS-BUILD-12 | realises | [M] | |
 | rust-style | RS-BUILD-18 | realises | [M] | |
-| zig-style | ZS-BUILD-28 | realises | [M] | |
+| zig-style | ZS-BUILD-27 | realises | [M] | |
 
 ## What ships
 
@@ -96,7 +96,7 @@ a formatter that runs sometimes puts its diff noise on whoever touches the file 
 |---|---|---|---|---|
 | python-style | PS-BUILD-19 | realises | [M] | |
 | rust-style | RS-BUILD-26 | realises | [M] | |
-| zig-style | ZS-BUILD-23 | realises | [M] | |
+| zig-style | ZS-BUILD-22 | realises | [M] | |
 
 ### AS-BUILD-07 [M] Pin every third-party CI action to a full commit, with its release as a comment
 
@@ -109,4 +109,4 @@ run someone else's code with the workflow's credentials.
 |---|---|---|---|---|
 | python-style | PS-BUILD-20 | realises | [M] | |
 | rust-style | RS-BUILD-46 | realises | [M] | |
-| zig-style | ZS-BUILD-29 | realises | [M] | |
+| zig-style | ZS-BUILD-28 | realises | [M] | |

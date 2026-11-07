@@ -437,7 +437,7 @@ Where bounds checks genuinely dominate and the profile proves it, reach for slic
 `as_chunks`, `iter().zip()`, or `get_unchecked` inside a narrowly scoped `unsafe` with a
 `// SAFETY:` proof — in that order. At a constant width use `as_chunks::<N>()` rather than
 `chunks_exact(N)`: it yields `&[[T; N]]`, so the width is carried by the type and the pattern needs
-no `_ =>` arm (RS-API-27). `as_array` (a slice of exactly `N`) and `array_windows` (overlapping
+no `_ =>` arm (RS-API-35). `as_array` (a slice of exactly `N`) and `array_windows` (overlapping
 windows) carry the width the same way.
 
 **Why:** the safe forms give the optimizer the same proof the `unsafe` would assert, at zero

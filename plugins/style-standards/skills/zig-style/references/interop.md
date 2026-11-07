@@ -9,7 +9,7 @@ freestanding and WebAssembly — including the places where the rest of this sta
 apply** because there is no operating system to apply it to.
 
 Layout and string rules for the types themselves live in the data chapter (ZS-DATA-19, ZS-DATA-20,
-ZS-DATA-29), with their layout assertions in ZS-ASSERT-18 and alignment in ZS-MEM-22; allocator
+ZS-DATA-29), with their layout assertions in ZS-ASSERT-18 and alignment in ZS-MEM-21; allocator
 selection and ownership vocabulary live in the memory chapter; wiring `link_libc` and C sources into
 a build lives in the build chapter (ZS-BUILD-05). This chapter cites those rather than repeating
 them, and adds only what is specific to the boundary, including translating C headers in the build
@@ -692,7 +692,7 @@ test "callback failure surfaces after the C call returns" {
 
 ### ZS-INTEROP-14 [M] Whoever calls `free` picks the allocator: `std.heap.c_allocator` if C does
 
-Decide, per function, which side owns each buffer, and write it in the doc comment (ZS-MEM-09). If C
+Decide, per function, which side owns each buffer, and write it in the doc comment (ZS-API-05). If C
 will call `free()` on it, allocate it with `std.heap.c_allocator`. If your library will free it,
 export a `zs_release`-style function and use any allocator you like. Never hand C a pointer from a
 `SafeAllocator`, arena, `FixedBufferAllocator`, or `smp_allocator` and expect `free()` to work. The
@@ -707,7 +707,7 @@ this pattern and freestanding are mutually exclusive by construction. The librar
 strictly safer, because it survives a caller who links a different libc.
 
 A release function such as the example's `zs_release` takes the `Handle` back rather than a bare
-pointer, because ZS-MEM-12 requires freeing exactly the slice that was allocated — C must hand the
+pointer, because ZS-MEM-11 requires freeing exactly the slice that was allocated — C must hand the
 length back with the pointer.
 
 **Why:** `free()` is not a generic deallocator; it is libc's, and it requires a pointer that libc's
@@ -780,7 +780,7 @@ hundreds of entry points, or one whose ABI changes between releases you track. `
 `b.addTranslateC` works there; the 0.17 release notes deprecate it in favour of the translate-c
 package (`b.dependency("translate_c", …)` and its `Translator`), the same implementation with more
 options, though the source does not mark it deprecated yet. That package is a dependency like any
-other (ZS-BUILD-28).
+other (ZS-BUILD-27).
 
 `zig translate-c` emits `[*c]` for every pointer, because a C `T *` really is nullable and
 unbounded, so its output is the least safe legal translation by construction. It is also
@@ -831,7 +831,7 @@ take `std.process.Init` in `main` and use the `gpa`, `arena`, and `io` it hands 
 `*-freestanding` there is no such thing, and those two rules do not apply. The freestanding entry
 point is one or more `export fn` symbols: `_start` (or whatever the reset vector names) for bare
 metal, and the exported API surface for a WebAssembly module. Allocation comes from a
-`FixedBufferAllocator` over a static array (ZS-MEM-19), or from `std.heap.wasm_allocator` on wasm.
+`FixedBufferAllocator` over a static array (ZS-MEM-18), or from `std.heap.wasm_allocator` on wasm.
 There is also no usable `Io`: `Io.Threaded`, the only backend std ships that would apply, does not
 compile for either freestanding target, so no `Io.Dir`, `Io.File`, `io.async`, or `io.sleep`.
 

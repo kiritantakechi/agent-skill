@@ -34,31 +34,30 @@ in a scratch directory and diff.
   - ZS-BUILD-13 [S] Mark optional dependencies `.lazy = true`; `b.dependency` fetches them
   - ZS-BUILD-14 [M] Consume a dependency as `b.dependency(...).module(...)` and fetch it in CI
 - **Project layout**
-  - ZS-BUILD-15 [M] `src/root.zig` is the module root and the entire public surface
-  - ZS-BUILD-16 [M] Reference every source file from the module root, or its tests never run
-  - ZS-BUILD-17 [M!] The limits file is `src/constants.zig`, at the module root, in `.paths`
-  - ZS-BUILD-18 [M] Build tools and scripts target `b.graph.host`, never `target`
-  - ZS-BUILD-19 [M] Gitignore `.zig-cache/`, `zig-out/`, and `zig-pkg/`
+  - ZS-BUILD-15 [M] Reference every source file from the module root, or its tests never run
+  - ZS-BUILD-16 [M!] The limits file is `src/constants.zig`, at the module root, in `.paths`
+  - ZS-BUILD-17 [M] Build tools and scripts target `b.graph.host`, never `target`
+  - ZS-BUILD-18 [M] Gitignore `.zig-cache/`, `zig-out/`, and `zig-pkg/`
 - **Build modes**
-  - ZS-BUILD-20 [S] Know what `.preferred_optimize_mode` takes away before you set it
+  - ZS-BUILD-19 [S] Know what `.preferred_optimize_mode` takes away before you set it
 - **Options and cross-compilation**
-  - ZS-BUILD-21 [S] Inject build-time configuration as one generated `build_options` module
-  - ZS-BUILD-22 [S] Declare every knob with `b.option`, and whitelist targets when the set is fixed
+  - ZS-BUILD-20 [S] Inject build-time configuration as one generated `build_options` module
+  - ZS-BUILD-21 [S] Declare every knob with `b.option`, and whitelist targets when the set is fixed
 - **Tooling and CI**
-  - ZS-BUILD-23 [M] `zig fmt --check` gates CI, and `--ast-check` rides along
-  - ZS-BUILD-24 [S] Add a `check` step whose artifacts are never installed or run
-  - ZS-BUILD-25 [M] Cross-compiled test steps set `skip_foreign_checks`
-  - ZS-BUILD-26 [M] Pin the Zig version in CI; gate on fmt, two optimize modes, and a cross matrix
-  - ZS-BUILD-27 [S] Write automation as `scripts/*.zig`, wired into `build.zig`
-  - ZS-BUILD-28 [M] Justify every dependency; default to none
-  - ZS-BUILD-29 [M] Pin every third-party CI action to a full commit, with its release as a comment
+  - ZS-BUILD-22 [M] `zig fmt --check` gates CI, and `--ast-check` rides along
+  - ZS-BUILD-23 [S] Add a `check` step whose artifacts are never installed or run
+  - ZS-BUILD-24 [M] Cross-compiled test steps set `skip_foreign_checks`
+  - ZS-BUILD-25 [M] Pin the Zig version in CI; gate on fmt, two optimize modes, and a cross matrix
+  - ZS-BUILD-26 [S] Write automation as `scripts/*.zig`, wired into `build.zig`
+  - ZS-BUILD-27 [M] Justify every dependency; default to none
+  - ZS-BUILD-28 [M] Pin every third-party CI action to a full commit, with its release as a comment
 - **Strictness, toolchain pinning, and backends**
-  - ZS-BUILD-30 [M] There is no `-Wall`; the strictest-setting rule translates to six concrete gates
-  - ZS-BUILD-31 [S] Hard-error on a toolchain mismatch with a `comptime builtin.zig_version` guard
-  - ZS-BUILD-32 [S] Leave the codegen backend and linker alone; know what the three flags cost
+  - ZS-BUILD-29 [M] There is no `-Wall`; the strictest-setting rule translates to six concrete gates
+  - ZS-BUILD-30 [S] Hard-error on a toolchain mismatch with a `comptime builtin.zig_version` guard
+  - ZS-BUILD-31 [S] Leave the codegen backend and linker alone; know what the three flags cost
 - **The program's own interfaces: CLI and config files**
-  - ZS-BUILD-33 [M] Hand-roll CLI parsing; std has no argument parser
-  - ZS-BUILD-34 [S] `.zon` is a usable project config format, not just `build.zig.zon`
+  - ZS-BUILD-32 [M] Hand-roll CLI parsing; std has no argument parser
+  - ZS-BUILD-33 [S] `.zon` is a usable project config format, not just `build.zig.zon`
 - Decided by tools
 
 ---
@@ -69,7 +68,7 @@ in a scratch directory and diff.
 
 A `build.zig` is the project's user interface. `zig build`, `zig build test`, `zig build fmt`, and
 `zig build check` must work in every repository, with no README-only incantations. `check` is the
-step an editor's language server builds on save (ZS-BUILD-24).
+step an editor's language server builds on save (ZS-BUILD-23).
 
 **Why:** `zig build --list-steps` is the only discovery mechanism a newcomer or a CI job has. A step
 that exists only as a shell command in a README is a step that rots.
@@ -236,7 +235,7 @@ The full checklist for each module that has tests:
 1. `b.addTest(.{ .root_module = mod, .filters = test_filters })` — pass `filters` so `-Dtest-filter`
    reaches every binary, not just the first.
 2. `b.addRunArtifact(t)` — `addTest` alone only *compiles*; without a run artifact nothing executes.
-3. `run.skip_foreign_checks = true` (ZS-BUILD-25), or the cross matrix breaks.
+3. `run.skip_foreign_checks = true` (ZS-BUILD-24), or the cross matrix breaks.
 4. `dependOn` from `test` for unit tests, and from a separate step for the slow ones, as
    ZS-BUILD-01's `test-integration` does.
 
@@ -367,8 +366,8 @@ no `zig`. A quoted name is `error: expected enum literal`.
     // builds with no error and no warning, in the root package and in
     // dependencies alike. The compiler never reads it; `mlugg/setup-zig` does,
     // resolving the toolchain from it when the workflow omits `version`. Real
-    // enforcement is a pinned CI version (ZS-BUILD-26) plus, for a project that
-    // pins an exact toolchain, the comptime guard in ZS-BUILD-31.
+    // enforcement is a pinned CI version (ZS-BUILD-25) plus, for a project that
+    // pins an exact toolchain, the comptime guard in ZS-BUILD-30.
     .minimum_zig_version = "0.17.0",
     .dependencies = .{},
     // Defines the package hash and is all a consumer receives (ZS-BUILD-11).
@@ -500,35 +499,7 @@ exe_mod.addImport("greet", greet_dep.module("greet"));
 
 ## Project layout
 
-### ZS-BUILD-15 [M] `src/root.zig` is the module root and the entire public surface
-
-Consumers can only reach declarations reachable from the root source file. Re-export everything
-public from `root.zig`; anything not re-exported is private by construction.
-
-`src/main.zig` is the CLI root module and imports the library by name (`@import("myproj")`), not by
-path. Keeping business logic out of `main.zig` is what makes the library independently testable and
-embeddable.
-
-**Why:** Zig has no `pub(crate)` and no export lists — the reachability graph from the module root
-*is* the visibility system. This makes the public API a single reviewable file, and it means adding
-a file under `src/` does not silently widen your API.
-
-**Check:** `git ls-files 'src/*.zig'` against the `pub` declaration chain from `root.zig` — a type
-the README tells consumers to use that is not reachable from `root.zig` is the finding. And
-`src/main.zig` reaches the library as `@import("myproj")`, never as `@import("root.zig")`.
-
-```zig
-//! Public API surface of the `myproj` module. Anything a consumer may touch is
-//! re-exported here; files not reachable from this file are private.
-// fragment — GOOD: src/root.zig
-const std = @import("std");
-
-pub const constants = @import("constants.zig");
-pub const Parser = @import("parser.zig").Parser;
-pub const version = @import("build_options").version;
-```
-
-### ZS-BUILD-16 [M] Reference every source file from the module root, or its tests never run
+### ZS-BUILD-15 [M] Reference every source file from the module root, or its tests never run
 
 Wiring a module into the `test` step (ZS-BUILD-04) is necessary but not sufficient. A `test` block
 in a file reached only through a *lazily-analyzed* declaration is **not collected**. End `root.zig`
@@ -567,11 +538,11 @@ comptime {
 }
 ```
 
-### ZS-BUILD-17 [M!] The limits file is `src/constants.zig`, at the module root, in `.paths`
+### ZS-BUILD-16 [M!] The limits file is `src/constants.zig`, at the module root, in `.paths`
 
 The *placement* half of the centralized-limits rule: one file named `constants.zig`, directly under
 `src/`, re-exported from `root.zig` as `pub const constants = @import("constants.zig");`, listed in
-`.paths` (ZS-BUILD-11), and referenced from the root's `comptime` import block (ZS-BUILD-16) so its
+`.paths` (ZS-BUILD-11), and referenced from the root's `comptime` import block (ZS-BUILD-15) so its
 `comptime` cross-checks are always analysed. What goes *in* the file is ZS-ASSERT-20, and its limits
 are named per ZS-NAME-07.
 
@@ -580,7 +551,7 @@ in the `comptime` import block, which is what guarantees its cross-checks run, b
 
 **Why:** omitted from `.paths`, the file is absent for consumers and its import fails only
 downstream; unreachable from `root.zig`, its `comptime` cross-checks silently never run
-(ZS-BUILD-16); re-exported, the project's bounds become reviewable public surface (ZS-BUILD-15).
+(ZS-BUILD-15); re-exported, the project's bounds become reviewable public surface (ZS-API-02).
 
 **Check:** exactly one `src/constants.zig`, covered by an entry in `.paths`, and named in both
 `root.zig`'s re-exports and its `comptime` import block. Whether every limit lives in it is
@@ -595,7 +566,7 @@ comptime {
 }
 ```
 
-### ZS-BUILD-18 [M] Build tools and scripts target `b.graph.host`, never `target`
+### ZS-BUILD-17 [M] Build tools and scripts target `b.graph.host`, never `target`
 
 Anything the build itself executes — code generators, asset packers, release scripts — must be built
 for the host.
@@ -620,7 +591,7 @@ const codegen = b.addExecutable(.{
 });
 ```
 
-### ZS-BUILD-19 [M] Gitignore `.zig-cache/`, `zig-out/`, and `zig-pkg/`
+### ZS-BUILD-18 [M] Gitignore `.zig-cache/`, `zig-out/`, and `zig-pkg/`
 
 `zig init` writes no `.gitignore`. All three directories are generated. `zig build` and
 `zig fetch --save` unpack dependencies **into the build root** at
@@ -641,7 +612,7 @@ zig-pkg/
 
 ## Build modes
 
-### ZS-BUILD-20 [S] Know what `.preferred_optimize_mode` takes away before you set it
+### ZS-BUILD-19 [S] Know what `.preferred_optimize_mode` takes away before you set it
 
 `b.standardOptimizeOption(.{ .preferred_optimize_mode = .safe })` **removes `-Doptimize=` entirely**
 and replaces it with a `-Drelease=[bool]` flag: `zig build -Doptimize=safe` then fails with
@@ -666,7 +637,7 @@ project, and every such invocation exits 1.
 
 ## Options and cross-compilation
 
-### ZS-BUILD-21 [S] Inject build-time configuration as one generated `build_options` module
+### ZS-BUILD-20 [S] Inject build-time configuration as one generated `build_options` module
 
 `b.addOptions()` → `opts.addOption(T, name, value)` → `mod.addOptions("build_options", opts)`, then
 `@import("build_options")` in source. `opts.addOptionPath(name, lazy)` records a generated file's
@@ -700,7 +671,7 @@ pub fn trace(comptime fmt: []const u8, args: anytype) void {
 }
 ```
 
-### ZS-BUILD-22 [S] Declare every knob with `b.option`, and whitelist targets when the set is fixed
+### ZS-BUILD-21 [S] Declare every knob with `b.option`, and whitelist targets when the set is fixed
 
 `b.option(T, name, description) ?T` registers the flag in `zig build --help`. Pass
 `.whitelist = &.{...}` to `standardTargetOptions` when you genuinely support only some targets.
@@ -730,7 +701,7 @@ const target = b.standardTargetOptions(.{ .whitelist = &.{
 
 ## Tooling and CI
 
-### ZS-BUILD-23 [M] `zig fmt --check` gates CI, and `--ast-check` rides along
+### ZS-BUILD-22 [M] `zig fmt --check` gates CI, and `--ast-check` rides along
 
 Non-negotiable. Run `zig fmt --check --ast-check` over your own sources, excluding generated and
 fetched directories. A file containing `var x: u8 = 1; _ = x;` passes `zig fmt --check` (exit 0) and
@@ -744,8 +715,8 @@ Two traps:
   `lib/zig/compiler/Maker/Step/Fmt.zig` since 0.17, only ever appends `--check`, paths, and
   excludes. The `zig build fmt` step and the CI `--ast-check` run are two different checks; do both.
 
-What `zig fmt` decides, and the trailing comma that is your one lever over it, are ZS-NAME-17; the
-100-column limit it cannot enforce is ZS-NAME-18.
+What `zig fmt` decides, and the trailing comma that is your one lever over it, are ZS-NAME-15; the
+100-column limit it cannot enforce is ZS-NAME-16.
 
 **Why:** `zig fmt` is canonical — there is no style bikeshed to have, so a formatting diff in review
 is pure waste. `--ast-check` runs AstGen over each file and catches a real class of defect that
@@ -759,7 +730,7 @@ finding; so is a workflow whose only formatting gate is `zig build fmt`, which c
 zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .
 ```
 
-### ZS-BUILD-24 [S] Add a `check` step whose artifacts are never installed or run
+### ZS-BUILD-23 [S] Add a `check` step whose artifacts are never installed or run
 
 An editor's language server builds a top-level step named `check` for its on-save diagnostics.
 `Step.Compile` creates `generated_bin` lazily, and the build system's maker process
@@ -781,7 +752,7 @@ check_step.dependOn(&b.addExecutable(.{ .name = "myproj-check", .root_module = e
 check_step.dependOn(&b.addTest(.{ .root_module = lib_mod }).step);
 ```
 
-### ZS-BUILD-25 [M] Cross-compiled test steps set `skip_foreign_checks`
+### ZS-BUILD-24 [M] Cross-compiled test steps set `skip_foreign_checks`
 
 `zig build test -Dtarget=<foreign>` fails by default with
 `error: the host system ... is unable to execute binaries from the target ...`. Set
@@ -798,24 +769,24 @@ target-specific type errors, missing translated-C symbols, and `usize` width ass
 calls over `b.addTest` results — the two counts must match. Running
 `zig build test -Dtarget=<foreign-triple>` locally is the same check, executed.
 
-### ZS-BUILD-26 [M] Pin the Zig version in CI; gate on fmt, two optimize modes, and a cross matrix
+### ZS-BUILD-25 [M] Pin the Zig version in CI; gate on fmt, two optimize modes, and a cross matrix
 
 Never `latest` — it will move to 0.18 and break everything at once, in a PR that changed a comment.
 
 The rules, which `assets/ci.yml` applies:
 
 1. **Pin the exact Zig version.** Never `latest`, never `master`, never a range.
-2. **Gate on `zig fmt --check --ast-check`** with `zig-pkg` and `.zig-cache` excluded (ZS-BUILD-23).
+2. **Gate on `zig fmt --check --ast-check`** with `zig-pkg` and `.zig-cache` excluded (ZS-BUILD-22).
 3. **Run the suite in `debug` and `safe`** (ZS-TEST-31), with `--summary all` so a cached no-op is
    distinguishable from a real pass.
 4. **Cross-compile matrix**: build *and* `zig build test` each supported triple. The test binaries
-   compile and the runs report `skipped`, which is the whole point (ZS-BUILD-25).
+   compile and the runs report `skipped`, which is the whole point (ZS-BUILD-24).
 5. **The cache key must include every matrix axis.** With one shared key all matrix legs fight over
    one cache entry and each evicts the others.
 
 Locally, `zig build --watch --debounce 100` re-runs the graph on save. `-fincremental` enables
 incremental compilation, and the 0.17.0 release notes say `zig build -fincremental --watch` now
-works for most `x86_64-linux` projects — read ZS-BUILD-32 before turning it on, because on ELF it
+works for most `x86_64-linux` projects — read ZS-BUILD-31 before turning it on, because on ELF it
 switches to the new linker, which is still off by default.
 
 **Why:** a Zig minor release is a breaking release. Pinning turns "the toolchain moved" into a
@@ -835,7 +806,7 @@ cache-key expression mentions every `matrix.*` key the job declares.
 # cache-key must name every axis, e.g. ${{ matrix.os }}-${{ matrix.optimize }}
 ```
 
-### ZS-BUILD-27 [S] Write automation as `scripts/*.zig`, wired into `build.zig`
+### ZS-BUILD-26 [S] Write automation as `scripts/*.zig`, wired into `build.zig`
 
 Replace `scripts/release.sh` with `scripts/release.zig` behind a `zig build script:release` step.
 Draw the line at *any script CI depends on* — those must be Zig. Genuinely local one-liners can stay
@@ -863,7 +834,7 @@ run_script.addPassthruArgs();
 b.step("script:release", "Cut a release").dependOn(&run_script.step);
 ```
 
-### ZS-BUILD-28 [M] Justify every dependency; default to none
+### ZS-BUILD-27 [M] Justify every dependency; default to none
 
 TigerStyle mandates a **zero-dependency policy** apart from the Zig toolchain itself. Treat that as
 the default and require a written justification — in the commit that adds it — for each entry in
@@ -889,7 +860,7 @@ top of you.
 why writing it yourself was rejected. After `zig build --fetch`, every directory under `zig-pkg/` is
 one somebody named — a transitive package nobody can account for is the finding.
 
-### ZS-BUILD-29 [M] Pin every third-party CI action to a full commit, with its release as a comment
+### ZS-BUILD-28 [M] Pin every third-party CI action to a full commit, with its release as a comment
 
 `uses: mlugg/setup-zig@<40 hex digits>  # v2.2.1`, as `assets/ci.yml` ships it. Not `@v2`, not a
 branch, and not a commit without the release beside it, which a reviewer could not read. Choose the
@@ -905,7 +876,7 @@ is a ref that is not a full commit, or a commit with no release comment.
 
 ## Strictness, toolchain pinning, and backends
 
-### ZS-BUILD-30 [M] There is no `-Wall`; the strictest-setting rule translates to six concrete gates
+### ZS-BUILD-29 [M] There is no `-Wall`; the strictest-setting rule translates to six concrete gates
 
 TigerStyle says to appreciate, from day one, all compiler warnings at the compiler's strictest
 setting. Zig has **no warnings and no warning flags** for Zig code — a diagnostic is either a
@@ -916,8 +887,8 @@ these six, all of which belong in CI:
 | Gate | Command / setting | Catches |
 |---|---|---|
 | Compile errors are already fatal | `zig build test` | everything the frontend can prove |
-| Canonical formatting | `zig fmt --check` (ZS-BUILD-23) | formatting drift; **not** semantics |
-| AstGen-level defects | `zig ast-check` (ZS-BUILD-23) | unused/never-mutated locals, unreachable code |
+| Canonical formatting | `zig fmt --check` (ZS-BUILD-22) | formatting drift; **not** semantics |
+| AstGen-level defects | `zig ast-check` (ZS-BUILD-22) | unused/never-mutated locals, unreachable code |
 | Runtime safety armed in release | `-Doptimize=safe` (ZS-ASSERT-04) | overflow, bounds, bad casts, `unreachable` |
 | Comptime failure chains | `zig build -freference-trace=N` | *which* instantiation produced the error |
 | Actual C warnings | `-Wall -Wextra -Werror` in `addCSourceFile` flags | everything C's frontend has to say |
@@ -969,7 +940,7 @@ pub fn build(b: *std.Build) void {
 }
 ```
 
-### ZS-BUILD-31 [S] Hard-error on a toolchain mismatch with a `comptime builtin.zig_version` guard
+### ZS-BUILD-30 [S] Hard-error on a toolchain mismatch with a `comptime builtin.zig_version` guard
 
 A project that pins one exact Zig version — an application with a reproducible release process, a
 high-reliability service, anything with a vendored or Nix-pinned compiler, as TigerBeetle does —
@@ -1010,7 +981,7 @@ comptime {
 }
 ```
 
-### ZS-BUILD-32 [S] Leave the codegen backend and linker alone; know what the three flags cost
+### ZS-BUILD-31 [S] Leave the codegen backend and linker alone; know what the three flags cost
 
 Ship the defaults unless you have a measurement, and never turn on `-fincremental` or `-fnew-linker`
 in a build whose artifacts you ship.
@@ -1060,7 +1031,7 @@ default:           .debug_abbrev .debug_aranges .debug_info .debug_line .debug_l
 
 ## The program's own interfaces: CLI and config files
 
-### ZS-BUILD-33 [M] Hand-roll CLI parsing; std has no argument parser
+### ZS-BUILD-32 [M] Hand-roll CLI parsing; std has no argument parser
 
 `std.process.Init` hands you `args`; nothing in std turns them into flags. There is no argument
 parser anywhere in `std`, and `std.process.Args` offers only `iterate()`, `iterateAllocator(gpa)`,
@@ -1143,7 +1114,7 @@ test "flags, --, and operands" {
 }
 ```
 
-### ZS-BUILD-34 [S] `.zon` is a usable project config format, not just `build.zig.zon`
+### ZS-BUILD-33 [S] `.zon` is a usable project config format, not just `build.zig.zon`
 
 A config file you control is ZON before it is JSON, TOML, or YAML; ZS-DATA-35 owns reading it, with
 `@import("config.zon")` at comptime or `std.zon.parse` at runtime. Prefer the comptime form for

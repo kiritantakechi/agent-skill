@@ -99,7 +99,7 @@ PROFILE = Profile(
                 "- uses: actions/checkout@v7",
                 "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
             ),
-            "PS-API-05": ("from acmewidget._internal import helper",),
+            "PS-API-06": ("from acmewidget._internal import helper",),
             "PS-ASYNC-01": ("loop = asyncio.new_event_loop()",),
             "PS-ASYNC-02": ("loop = asyncio.get_event_loop()",),
             "PS-ASYNC-03": ("task = asyncio.create_task(worker())",),
@@ -114,7 +114,7 @@ PROFILE = Profile(
     # proves yet. Giving one a fixture means deleting it here, which
     # `sensitivity` insists on, so the list only shrinks.
     unproven=rules(
-        "PS-MOD-10",
+        "PS-MOD-09",
         "PS-ASYNC-04",
         "PS-ASYNC-05",
         "PS-ASYNC-13",
@@ -155,7 +155,7 @@ PROFILE = Profile(
         "PS-MIG-04",
         "PS-NAME-02",
         "PS-NAME-03",
-        "PS-MOD-09",
+        "PS-MOD-08",
         "PS-OUT-02",
         "PS-OUT-03",
         "PS-OUT-07",
@@ -258,7 +258,7 @@ PROFILE = Profile(
                 "read for `slots=`",
                 "the pattern finds every dataclass; the `slots=` argument decides",
             ),
-            "PS-MOD-09": NotDecisive(
+            "PS-MOD-08": NotDecisive(
                 "read each hit for what",
                 "the pattern finds every indented import; what encloses it decides, "
                 "and an `if TYPE_CHECKING:` block is indented too",

@@ -577,7 +577,7 @@ impl Headers {
 ### RS-ERR-24 [S] Prefer restructuring, then `unreachable!`, then `panic!`
 
 **Why:** a branch that "cannot happen" is usually a type that is too wide, and making it
-unrepresentable removes the branch entirely (RS-API-21). Where the branch must exist,
+unrepresentable removes the branch entirely (RS-API-29). Where the branch must exist,
 `unreachable!("…")` says *why* you believe it, the information RS-ERR-04 asks for.
 
 **Check:** for each `unreachable!`, can the enum, the newtype, or the signature be narrowed so the

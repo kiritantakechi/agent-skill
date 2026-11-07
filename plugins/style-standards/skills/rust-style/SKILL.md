@@ -133,9 +133,9 @@ questions, in order:
    loop that mutates data.
 4. **What is asymmetric?** If `from_x` exists, does `to_x`? Do sibling functions take their
    arguments in the same order? Do the error variants share one shape? A missing half is either a
-   restriction the documentation must state, or an oversight (RS-API-57 … RS-API-60).
+   restriction the documentation must state, or an oversight (RS-API-65 … RS-API-68).
 5. **What is special-cased?** A branch that exists for one input is a design that has not absorbed
-   that input. Fold it into the general case, or name it as its own type (RS-MOD-44, RS-MOD-45).
+   that input. Fold it into the general case, or name it as its own type (RS-MOD-36, RS-MOD-37).
 
 Readability outranks all five. A combinator chain that requires the reader to track three type
 transformations is worse than the `match` it replaced (RS-FUNC-41), and a symmetry nobody can see is
@@ -150,15 +150,15 @@ not worth the name it costs.
   - RS-NAME-25 [M] Spell names out; abbreviate only where the abbreviation is the standard word
 - **API: The Public Surface, Signatures, Invariants, and Evolution**
   - RS-API-01 [M] Keep everything private until proven public
-  - RS-API-07 [M] Be generic in what you accept, concrete in what you return
-  - RS-API-15 [M] Keep every field of a published struct private, including the ones with no invariant
-  - RS-API-16 [M] Give the caller the question it is asking, not the field it would have read
-  - RS-API-19 [M] Replace a `bool` parameter: split the function, or name the flag
-  - RS-API-21 [M] Collapse correlated fields into the sum type they already are
-  - RS-API-22 [M] Do not build stringly-typed APIs
-  - RS-API-27 [M] Make a bad value unrepresentable, else rejected at construction, else checked
-  - RS-API-36 [M] Implement `Debug` on every public type
-  - RS-API-53 [M] Decide `#[non_exhaustive]` for every published enum and struct
+  - RS-API-15 [M] Be generic in what you accept, concrete in what you return
+  - RS-API-23 [M] Keep every field of a published struct private, including the ones with no invariant
+  - RS-API-24 [M] Give the caller the question it is asking, not the field it would have read
+  - RS-API-27 [M] Replace a `bool` parameter: split the function, or name the flag
+  - RS-API-29 [M] Collapse correlated fields into the sum type they already are
+  - RS-API-30 [M] Do not build stringly-typed APIs
+  - RS-API-35 [M] Make a bad value unrepresentable, else rejected at construction, else checked
+  - RS-API-44 [M] Implement `Debug` on every public type
+  - RS-API-61 [M] Decide `#[non_exhaustive]` for every published enum and struct
 - **Errors: `Result`, Panics, and Exit Codes**
   - RS-ERR-01 [M] Split failures into recoverable, caller-bug, and self-bug
   - RS-ERR-03 [M!] No `unwrap`, `expect`, or `panic!` on a recoverable path
@@ -234,12 +234,12 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | File | Rule IDs | Covers |
 |---|---|---|
 | `references/naming.md` | `RS-NAME` (34) | Casing, conversion prefixes (`as_`/`to_`/`into_`), getters, predicates, iterator names, word order, generic parameters and lifetimes |
-| `references/api.md` | `RS-API` (61) | Public surface shape, parameters and returns, encapsulation, type safety and newtypes, `#[must_use]`/`#[non_exhaustive]`, the std trait impl set, constructors and builders, semver evolution |
+| `references/api.md` | `RS-API` (69) | Public surface shape and visibility, parameters and returns, encapsulation, type safety and newtypes, `#[must_use]`/`#[non_exhaustive]`, the std trait impl set, constructors and builders, semver evolution |
 | `references/errors.md` | `RS-ERR` (37) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, explicit overflow, exit codes |
 | `references/functional.md` | `RS-FUNC` (45) | Expression orientation, the iterator adapter set, immutability and shadowing, closures and bounds, purity, parse-don't-validate, when to stop |
 | `references/ownership.md` | `RS-OWN` (37) | Borrow-vs-own signatures, clone discipline, `Cow`, lifetimes and elision, arenas and indices, smart pointers, interior mutability, `Drop` and RAII |
 | `references/traits.md` | `RS-TRAIT` (46) | Trait design and contracts, static vs dynamic dispatch, dyn compatibility, coherence and blanket impls, sealing, bounds, associated types, GATs, const generics, typestate |
-| `references/modules.md` | `RS-MOD` (46) | Module boundaries and crate names, `foo.rs` + `foo/`, visibility escalation, the library/binary split, workspace layout and facades, imports and in-file declaration order |
+| `references/modules.md` | `RS-MOD` (38) | Module boundaries and crate names, `foo.rs` + `foo/`, the library/binary split, workspace layout and facades, imports and in-file declaration order |
 | `references/build.md` | `RS-BUILD` (46) | Manifest and metadata, docs.rs, additive features, dependency discipline, the `[lints]` table, supply chain and semver, toolchain, profiles, CI |
 | `references/testing.md` | `RS-TEST` (34) | Unit/integration/doc test split, table-driven tests, property and differential testing, fuzzing, snapshots, CLI end-to-end, flakes |
 | `references/documentation.md` | `RS-DOC` (35) | Crate and module docs, the section order, `# Errors`/`# Panics`/`# Safety`, prose style, the changelog, intra-doc links, README |

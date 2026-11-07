@@ -123,10 +123,10 @@ PROFILE = Profile(
     toolchain=ZIG_STYLE,
     exempt=keyed(
         {
-            # ZS-NAME-14: "keep `self` for anonymous generic
+            # ZS-NAME-13: "keep `self` for anonymous generic
             # containers" — a receiver typed `Self` is the case the
             # rule permits.
-            "ZS-NAME-14": Unless(near=(Near("Self"),)),
+            "ZS-NAME-13": Unless(near=(Near("Self"),)),
             # ZS-TEST-10: "`rg …` inside `test` blocks — every hit must
             # be on an `errdefer` line". Container-scope logging is not
             # the target.
@@ -138,7 +138,7 @@ PROFILE = Profile(
     # fixture, not the pattern.
     fires=keyed(
         {
-            "ZS-BUILD-29": (
+            "ZS-BUILD-28": (
                 "- uses: actions/checkout@v7",
                 "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
             ),
@@ -177,16 +177,16 @@ PROFILE = Profile(
         "ZS-ASSERT-08",
         "ZS-ASSERT-20",
         "ZS-ASSERT-04",
-        "ZS-BUILD-20",
+        "ZS-BUILD-19",
+        "ZS-BUILD-30",
         "ZS-BUILD-31",
-        "ZS-BUILD-32",
         "ZS-COMPTIME-20",
         "ZS-MEM-04",
         "ZS-MEM-06",
-        "ZS-NAME-14",
+        "ZS-NAME-13",
         "ZS-MOD-08",
         "ZS-DOC-08",
-        "ZS-NAME-19",
+        "ZS-NAME-17",
         "ZS-TEST-02",
         "ZS-TEST-06",
         "ZS-TEST-07",
@@ -243,7 +243,7 @@ PROFILE = Profile(
             # Polarity: this Check asserts the shape is *present*, so
             # its hits are evidence of compliance and reading them as
             # defects inverts the rule.
-            "ZS-BUILD-31": NotDecisive(
+            "ZS-BUILD-30": NotDecisive(
                 "has this block",
                 "a presence assertion, and scoped to `build.zig`: the finding is a "
                 "missing guard, which no hit can show",

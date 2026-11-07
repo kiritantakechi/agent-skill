@@ -30,8 +30,6 @@ Unless a block shows its own imports, it assumes `from dataclasses import datacl
   - PS-DATA-15 [M!] Make the invalid state unrepresentable before validating against it
   - PS-DATA-16 [M] Give a domain value its own type rather than a bare `str` or `int`
   - PS-DATA-17 [M] Never let `__eq__` and `__hash__` disagree
-- **Symmetry of a data type**
-  - PS-DATA-18 [M] Give every serialiser its inverse
 - Decided by tools
 
 ---
@@ -416,52 +414,6 @@ right: `eq=True` without `frozen=True` sets `__hash__` to `None`, leaving it unh
 
 **Check:** `rg -n 'def __eq__' src/` — every hit needs a matching `__hash__` or a documented reason
 the type is unhashable.
-
-## Symmetry of a data type
-
-### PS-DATA-18 [M] Give every serialiser its inverse
-
-If `to_json` exists, `from_json` exists. If `__str__` is meant to round-trip, something parses it.
-The same holds for every verb a type pairs, `encode` with `decode` and `push` with `pop`; how the
-two are spelled is PS-NAME-12.
-
-**Why:** a one-way conversion produces a value you can never recover, and the gap stays invisible
-until someone needs the inverse, by which point the format has already shipped. Writing the pair
-together also tests the format: a round-trip assertion is the cheapest schema check there is.
-
-**Check:** every `to_*`, `__str__` and paired verb on a data type. A missing inverse is either
-deliberate — say so in the docstring — or the finding.
-
-```python
-# verified — GOOD
-from dataclasses import dataclass
-from typing import Self
-lazy from collections.abc import Mapping
-
-
-@dataclass(frozen=True, slots=True)
-class Point:
-    """A point on the integer grid."""
-
-    x: int
-    y: int
-
-    def to_dict(self) -> dict[str, int]:
-        """Return the point as a mapping of its fields."""
-        # Not `asdict`: it returns `dict[str, Any]`, and laundering
-        # `Any` into an annotated return is what PS-TYPE-12 stops.
-        return {"x": self.x, "y": self.y}
-
-    @classmethod
-    def from_dict(cls, raw: Mapping[str, int]) -> Self:
-        """Return the point `to_dict` gave `raw`."""
-        return cls(x=raw["x"], y=raw["y"])
-
-
-original = Point(1, 2)
-assert Point.from_dict(original.to_dict()) == original
-assert Point.from_dict(frozendict(x=1, y=2)) == original  # any mapping, not only a dict
-```
 
 ## Decided by tools
 

@@ -88,7 +88,7 @@ project's own acronyms to it.
 ### PS-NAME-03 [M] Use two leading underscores only for name mangling
 
 `__slot` means "I need name mangling, because a subclass might define the same name". That one
-leading underscore marks a non-public name is PS-API-04's rule.
+leading underscore marks a non-public name is PS-API-05's rule.
 
 **Why:** the double underscore buys name mangling and nothing else, since `_Class__name` is right
 there. Using it for privacy makes the attribute painful to reach in a debugger and in a test without
@@ -259,7 +259,7 @@ assert short == tall
 ### PS-NAME-12 [M] Name the two halves of a pair symmetrically
 
 `open`/`close`, `acquire`/`release`, `encode`/`decode`, `push`/`pop`, `to_json`/`from_json`. Never
-`open`/`shutdown`, never `encode`/`parse`. Whether the inverse must exist is PS-DATA-18's rule; this
+`open`/`shutdown`, never `encode`/`parse`. Whether the inverse must exist is PS-API-17's rule; this
 one is how it is spelled.
 
 **Why:** an asymmetric pair forces the reader to remember two words where one would have implied the

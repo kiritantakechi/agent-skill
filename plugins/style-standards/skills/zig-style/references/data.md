@@ -61,10 +61,6 @@ const assert = std.debug.assert;
   - ZS-DATA-34 [M] Check type-level code against the five rules older Zig code trips on
 - **Serialization**
   - ZS-DATA-35 [M] ZON for formats you own, `std.json` for interop; bound both on untrusted input
-- **Symmetry of an API surface**
-  - ZS-DATA-36 [M] Give every operation its inverse, or document why there is none
-  - ZS-DATA-37 [M] Keep parameter order identical across sibling functions
-  - ZS-DATA-38 [M] Split a function rather than adding a mode parameter
 
 ---
 
@@ -902,7 +898,7 @@ test "column scan" {
 `std.BoundedArray` and `std.SegmentedList` do not exist. For a fixed-capacity list, use
 `std.ArrayList(T).initBuffer(&backing)` plus the `AssumeCapacity` / `Bounded` methods. For pointer
 stability across growth, use an intrusive `std.DoublyLinkedList` or `std.SinglyLinkedList` with
-nodes owned by an arena, or `std.heap.MemoryPool(T)` (ZS-MEM-14).
+nodes owned by an arena, or `std.heap.MemoryPool(T)` (ZS-MEM-13).
 
 `appendAssumeCapacity` asserts, so a bug crashes; `appendBounded` returns `error{OutOfMemory}`, so
 an operating error is handled. std's linked lists are intrusive: the list holds `?*Node`, the node
@@ -1404,7 +1400,7 @@ compiles* means, one is a cast that can lose a bound, and two turn latent bugs i
    `error: pointer element type 'i8' cannot coerce into element type 'u8'`, and overlapping operands
    in a comptime call are `error: '@memcpy' arguments alias`. At runtime overlap is illegal behavior
    and undetected — use `@memmove` when ranges overlap. (`std.mem.copyForwards` / `copyBackwards`
-   are deprecated and are a review finding under ZS-MEM-23; they also push the direction choice onto
+   are deprecated and are a review finding under ZS-MEM-22; they also push the direction choice onto
    you, and picking the wrong one smears the first element across the range with no diagnostic in
    any build mode.)
 
@@ -1512,42 +1508,3 @@ test "zon round trip" {
     );
 }
 ```
-
-## Symmetry of an API surface
-
-### ZS-DATA-36 [M] Give every operation its inverse, or document why there is none
-
-`init` implies `deinit` (ZS-DATA-14 is this rule's most important instance), but so does
-`append`/`pop`, `open`/`close`, `encode`/`decode`, `acquire`/`release`, `register`/`unregister`.
-
-**Why:** a caller who learns half a pair assumes the other half exists. When it is genuinely absent,
-the absence is meaningful — the operation is lossy, the handle is consumed, the resource is owned
-elsewhere — and silence reads as an oversight that gets worked around.
-
-**Check:** list the public operations on each type in pairs. Every unpaired one either gains its
-inverse or gains a doc comment saying why it cannot have one.
-
-### ZS-DATA-37 [M] Keep parameter order identical across sibling functions
-
-Fix the order once and do not vary it: if one function takes `(io, gpa, target, source)`, its
-siblings do too. ZS-NAME-12 fixes the order for function-value slots by copying `std.sort`; this
-rule is the same discipline applied to your own functions.
-
-**Why:** siblings are called from the same code, often adjacent, and the reader generalizes from the
-first one they learn. When the types match, an inconsistent order compiles, so the failure is a
-silently swapped argument at a call site that looks correct.
-
-**Check:** list every function in the file taking two or more parameters of related type and compare
-their orders. Any disagreement is the finding, and the outlier is what changes.
-
-### ZS-DATA-38 [M] Split a function rather than adding a mode parameter
-
-When a parameter selects behavior rather than supplying data, the function has become two functions
-sharing a body. Split it and let the shared part be a private helper.
-
-**Why:** a mode parameter makes the return type and the error set the union of both modes, so every
-caller handles cases that cannot arise in its mode — the opposite of ZS-DATA-27. Splitting gives
-each caller a precise signature and makes the shared logic explicit.
-
-**Check:** for each parameter, does the body branch on it at the top level? If the two branches
-share little, it is two functions with two names.

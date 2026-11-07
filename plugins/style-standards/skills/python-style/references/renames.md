@@ -15,20 +15,22 @@ that changed, and what it is now; an ID it does not list is unchanged.
 
 | Before | Now |
 |---|---|
+| `PS-API-03` | `PS-API-04` |
+| `PS-API-04` | `PS-API-05` |
+| `PS-API-05` | `PS-API-06` |
+| `PS-API-06` | `PS-API-07` |
+| `PS-API-07` | `PS-API-08` |
 | `PS-API-08` | lint `ruff:FBT001` |
-| `PS-API-09` | `PS-API-08` |
-| `PS-API-10` | `PS-API-09` |
-| `PS-API-11` | `PS-API-10` |
 | `PS-API-12` | `PS-DATA-08` |
-| `PS-API-13` | `PS-API-11` |
-| `PS-API-14` | `PS-API-12` |
-| `PS-API-15` | `PS-API-13` |
-| `PS-API-16` | `PS-MOD-07` |
-| `PS-API-17` | `PS-MOD-10` |
+| `PS-API-13` | `PS-API-12` |
+| `PS-API-14` | `PS-API-13` |
+| `PS-API-15` | `PS-API-14` |
+| `PS-API-16` | `PS-API-03` |
+| `PS-API-17` | `PS-MOD-09` |
 | `PS-API-18` | `PS-MOD-02` |
-| `PS-API-19` | `PS-MOD-10` |
-| `PS-API-20` | `PS-API-14` |
-| `PS-API-21` | `PS-API-15` |
+| `PS-API-19` | `PS-MOD-09` |
+| `PS-API-20` | `PS-API-15` |
+| `PS-API-21` | `PS-API-16` |
 | `PS-API-22` | `PS-DOC-10` |
 | `PS-ASYNC-03` | lint `ty:deprecated` |
 | `PS-ASYNC-04` | `PS-ASYNC-03` |
@@ -53,7 +55,7 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-DATA-09` | `PS-DATA-08` |
 | `PS-DATA-10` | `PS-DATA-09` |
 | `PS-DATA-11` | `PS-DATA-10` |
-| `PS-DATA-12` | `PS-API-07` |
+| `PS-DATA-12` | `PS-API-08` |
 | `PS-DATA-13` | `PS-DATA-11` |
 | `PS-DATA-14` | `PS-DATA-12` |
 | `PS-DATA-15` | `PS-DATA-13` |
@@ -62,8 +64,8 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-DATA-18` | `PS-DATA-15` |
 | `PS-DATA-19` | `PS-DATA-16` |
 | `PS-DATA-20` | `PS-DATA-17` |
-| `PS-DATA-21` | `PS-DATA-18` |
-| `PS-DATA-22` | `PS-MOD-14` |
+| `PS-DATA-21` | `PS-API-17` |
+| `PS-DATA-22` | `PS-MOD-13` |
 | `PS-DOC-01` | lint `ruff:D100` |
 | `PS-DOC-02` | `PS-DOC-01` |
 | `PS-DOC-03` | lint `ruff:D205` |
@@ -146,8 +148,8 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-NAME-11` | lint `ruff:TID252` |
 | `PS-NAME-12` | lint `ruff:F403` |
 | `PS-NAME-13` | `PS-API-02` |
-| `PS-NAME-14` | `PS-MOD-08` |
-| `PS-NAME-15` | `PS-MOD-09` |
+| `PS-NAME-14` | `PS-MOD-07` |
+| `PS-NAME-15` | `PS-MOD-08` |
 | `PS-NAME-16` | `PS-MOD-05` |
 | `PS-NAME-17` | `PS-BUILD-19` |
 | `PS-NAME-18` | `PS-NAME-10` |
@@ -156,9 +158,9 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-NAME-21` | `PS-DOC-14` |
 | `PS-NAME-22` | lint `ruff:ERA001` |
 | `PS-NAME-23` | `PS-NAME-12` |
-| `PS-NAME-24` | `PS-MOD-13` |
+| `PS-NAME-24` | `PS-MOD-12` |
 | `PS-NAME-25` | `PS-NAME-13` |
-| `PS-NAME-26` | `PS-MOD-14` |
+| `PS-NAME-26` | `PS-MOD-13` |
 | `PS-PKG-01` | `PS-BUILD-01` |
 | `PS-PKG-02` | `PS-BUILD-02` |
 | `PS-PKG-03` | `PS-BUILD-03` |
@@ -171,7 +173,7 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-PKG-10` | `PS-BUILD-10` |
 | `PS-PKG-11` | `PS-BUILD-11` |
 | `PS-PKG-12` | `PS-BUILD-13` |
-| `PS-PKG-13` | `PS-API-03` |
+| `PS-PKG-13` | `PS-API-04` |
 | `PS-PKG-14` | `PS-MOD-06` |
 | `PS-PKG-15` | `PS-BUILD-14` |
 | `PS-PKG-16` | `PS-BUILD-16` |
@@ -231,7 +233,7 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-TYPE-11` | `PS-TYPE-09` |
 | `PS-TYPE-12` | `PS-TYPE-10` |
 | `PS-TYPE-13` | `PS-TYPE-11` |
-| `PS-TYPE-14` | `PS-API-08` |
+| `PS-TYPE-14` | `PS-API-09` |
 | `PS-TYPE-15` | `PS-TYPE-12` |
 | `PS-TYPE-16` | `PS-TYPE-13` |
 | `PS-TYPE-17` | `PS-TYPE-14` |
@@ -262,7 +264,7 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-CORE-20` | `PS-CONC-15` |
 | `PS-CORE-21` | `PS-CONC-19` |
 | `PS-CORE-22` | `PS-ASYNC-03` |
-| `PS-CORE-23` | `PS-API-06` |
+| `PS-CORE-23` | `PS-API-07` |
 | `PS-CORE-24` | `PS-OUT-01` |
 | `PS-CORE-25` | `PS-OUT-11` |
 | `PS-CORE-26` | `PS-CONC-01` |
