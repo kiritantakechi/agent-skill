@@ -6,10 +6,12 @@ merges or adds rules also runs `check --skill <each standard it touched> --only 
 
 ## 1. Repository items and harness debts
 
-- [ ] 1.1 Update OpenSpec to 1.16.0 with skills as the one delivery (`openspec config set delivery
+- [x] 1.1 Update OpenSpec to 1.16.0 with skills as the one delivery (`openspec config set delivery
   skills`, `openspec update`), removing `.claude/commands/opsx/` if the update leaves it; verify with
   a test that every `.claude/skills/openspec-*/SKILL.md` names one `generatedBy`, 1.16.0, that the
-  commands directory is absent, and that `openspec validate --all --strict` passes
+  commands directory is absent, that `openspec validate --all` passes, and that this change passes
+  `--strict` (the main specs' 15 requirements over 500 characters, a warning 1.15.0 gives too, stay
+  whole: OpenSpec splits an existing requirement only when its owner asks)
 - [x] 1.2 Move `plugin.json` to 2.0.0; verify `check --only plugin` passes and the README states the
   version's reason (rule IDs renumbered, `CORE` removed)
 - [x] 1.3 Give `crossref.apparatus` findings their line (`ids.cited` yields positions); verify its
@@ -119,5 +121,5 @@ after. Each is pushed when green.
 ## Workflow follow-up
 
 - Archive with the OpenSpec CLI (`openspec archive one-abstract-standard`), syncing the specs, and
-  check `openspec validate --all --strict`.
+  check `openspec validate --all`, and `--strict` on every requirement this change added.
 - Update the pull request's description, then stop for the owner's review of Phase D.
