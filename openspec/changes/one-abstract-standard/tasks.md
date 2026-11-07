@@ -47,7 +47,7 @@ merges or adds rules also runs `check --skill <each standard it touched> --only 
 - [x] 2.6 Add `move` to `revise` (target chapter, `after` a rule or a section heading, creation of a
   missing chapter and its section 6 row); verify the move-and-back law by property tests on copies of
   the shipped tree with random moves, beside the existing laws
-- [ ] 2.7 Write `abstract/principles.md` and the section 3 check; decide zig-style's third question
+- [x] 2.7 Write `abstract/principles.md` and the section 3 check; decide zig-style's third question
   (the shared question, answered for Zig, or zig-style's own after the five) and make every base
   standard's section 3 open with the questions; verify the `principles` control and `check --fast`
 - [ ] 2.8 Add the abstract rows to `measure` (design decision 12) and record the baseline here;

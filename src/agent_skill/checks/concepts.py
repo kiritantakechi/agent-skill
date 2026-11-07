@@ -19,14 +19,15 @@ from collections import defaultdict
 from dataclasses import dataclass
 lazy from collections.abc import Iterator, Mapping
 
-from agent_skill import vocabulary
-from agent_skill.abstract import Concept, abstract_of, tier_cell
+from agent_skill import shared, vocabulary
+from agent_skill.abstract import PRINCIPLES, Concept, abstract_of, questions, tier_cell
 from agent_skill.checks import check
 from agent_skill.checks.anatomy import overlap
 from agent_skill.checks.skeleton import SCOPE, coded, is_scope
 from agent_skill.doc import Table, canonical, walk
 from agent_skill.doc.chapter import departures, departures_header
 from agent_skill.ids import Breach, Location, Relation, RuleId, breaches, cited_lines
+from agent_skill.model import SKILL_MD
 from agent_skill.report import Level, declare, fail, note
 lazy from agent_skill.abstract import Abstract, Realisation
 lazy from agent_skill.doc.chapter import Rule
@@ -63,6 +64,9 @@ DOMAIN_REALISES = declare("concepts", "domain_realises", Level.FAIL)
 DOMAIN_MISSING = declare("concepts", "domain_missing", Level.FAIL)
 DOMAIN_ABSTRACT = declare("concepts", "domain_abstract", Level.FAIL)
 
+# The branch of the design questions every section 3 opens with.
+QUESTIONS = declare("concepts", "principles", Level.FAIL)
+
 # The detector.
 LOOK_ALIKE = declare("concepts", "look_alike", Level.NOTE)
 
@@ -81,6 +85,7 @@ def concepts(tree: Tree) -> Iterator[Finding]:
     yield from _form(abstract)
     yield from _rows(abstract, tree)
     yield from _domains(abstract, tree)
+    yield from _principles(abstract, tree)
     yield from _cited(abstract, tree)
     yield from _look_alike(abstract, tree)
 
@@ -446,6 +451,50 @@ def _domains(abstract: Abstract, tree: Tree) -> Iterator[Finding]:
                     skill.at(),
                     DOMAIN_MISSING,
                 )
+
+
+# ------------------------------------------------------------------
+# the design questions
+
+
+def _principles(abstract: Abstract, tree: Tree) -> Iterator[Finding]:
+    """Section 3 of every base standard opens with the design questions.
+
+    In their order, each question's bold wording the abstract
+    standard's, and its answer the standard's own; a standard's own
+    questions follow them. A delta's section 3 is its departures table,
+    and its reader loads the questions with its anchor.
+    """
+    asked = abstract.questions
+    if not asked:
+        yield fail(
+            f"the abstract standard states no design questions: `{PRINCIPLES}` holds "
+            "them, a numbered list, each item opening with its question in bold",
+            abstract.at(PRINCIPLES),
+            QUESTIONS,
+        )
+        return
+    for skill in tree:
+        if skill.profile.anchor:
+            continue
+        title = shared.skill_sections(skill)[3]
+        section = next((s for s in skill.typed.sections if s.title == title), None)
+        if section is None:
+            continue  # `skeleton.section` reports a missing section 3
+        own = questions(section.lead)
+        for k, shared_question in enumerate(asked):
+            said = own[k] if k < len(own) else None
+            if said is not None and said.question == shared_question.question:
+                continue
+            found = f"asks {said.question!r}" if said else "asks nothing"
+            yield fail(
+                f"section 3's question {k + 1} {found} where the abstract standard "
+                f"asks {shared_question.question!r}; the shared questions come first, "
+                "in order and word for word, and a standard's own follow them",
+                skill.at(SKILL_MD, said.line if said else section.line),
+                QUESTIONS,
+            )
+            break
 
 
 # ------------------------------------------------------------------

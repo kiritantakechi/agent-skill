@@ -9,7 +9,13 @@ entry takes out of it.
 lazy from pathlib import Path
 
 from agent_skill.abstract import abstract_of
-from agent_skill.checks.concepts import LOOK_ALIKE, compared, concepts, look_alikes
+from agent_skill.checks.concepts import (
+    LOOK_ALIKE,
+    QUESTIONS,
+    compared,
+    concepts,
+    look_alikes,
+)
 from agent_skill.layout import ABSTRACT, root_of
 from agent_skill.model import Tree, discover
 from structure_fixture import repository
@@ -79,3 +85,25 @@ def test_a_delta_rule_its_departures_relate_to_an_anchor_rule_is_held(
     }
     assert ("BV-MIG-03", "RS-MIG-02") in noted
     assert not any(ours == "BV-ECS-01" for ours, _ in noted)
+
+
+def test_a_question_the_abstract_standard_asks_otherwise_fails(scratch: Path) -> None:
+    """The spec's scenario: zig's assertion question, third again."""
+    md = scratch / "zig-style" / "SKILL.md"
+    text = md.read_text()
+    third = "3. **What can be made a value instead of an effect?**"
+    assert third in text
+    md.write_text(
+        text.replace(third, "3. **What can be asserted instead of assumed?**")
+    )
+    found = [f for f in concepts(Tree.of(discover(scratch))) if f.branch == QUESTIONS]
+    assert [(f.where.skill, f.where.file) for f in found] == [("zig-style", "SKILL.md")]
+
+
+def test_a_delta_does_not_restate_the_questions(skills: list[Skill]) -> None:
+    """Its section 3 is its departures table; its anchor asks them."""
+    tree = Tree.of(skills)
+    asked = [f.where.skill for f in concepts(tree) if f.branch == QUESTIONS]
+    assert asked == []
+    bevy = next(s for s in skills if s.profile.anchor)
+    assert "**What can be deleted?**" not in bevy.text

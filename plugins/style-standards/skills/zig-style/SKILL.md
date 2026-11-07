@@ -180,23 +180,25 @@ must be. The point is not perfectionism — it is that the second pass frequentl
 "we will fix it later" is usually a decision to ship it permanently.
 
 When two rules appear to conflict and their tiers are equal, the goal ordering decides it: safety
-first, then performance, then developer experience. Where that does not separate them, use these
-five questions, in order:
+first, then performance, then developer experience. Where that does not separate them, use these six
+questions, in order: the five every standard asks, then the one safety adds.
 
 1. **What can be deleted?** Fewer types, fewer parameters, fewer allocations, fewer dependencies,
    fewer states.
 2. **What can be made unrepresentable?** Encode the bound in the type and give the limit a name, so
    an invalid value cannot be constructed rather than being caught after the fact (ZS-DATA-03,
    ZS-ASSERT-19).
-3. **What can be asserted instead of assumed?** An invariant the code depends on is checked at the
-   boundary or written down as an assumption — never left implicit (ZS-ERR-01, ZS-ASSERT-07).
+3. **What can be made a value instead of an effect?** Let a helper return the change and its parent
+   apply it, so the leaves stay pure and one apply site can assert the invariant (ZS-PERF-12).
 4. **What is asymmetric?** If `init` exists, does `deinit`? Do sibling functions take their
    parameters in the same order? Does every operation have its inverse? A missing half is either a
    restriction the documentation must state, or an oversight (ZS-DATA-36, ZS-DATA-37, ZS-NAME-28).
 5. **What is special-cased?** A branch that exists for one input is a design that has not absorbed
    that input. Fold it into the general path, or give it its own type (ZS-ERR-32, ZS-NAME-29).
+6. **What can be asserted instead of assumed?** An invariant the code depends on is checked at the
+   boundary or written down as an assumption — never left implicit (ZS-ERR-01, ZS-ASSERT-07).
 
-Simplicity outranks all five. A `comptime` construction that makes the reader hold three levels of
+Simplicity outranks all six. A `comptime` construction that makes the reader hold three levels of
 type substitution is worse than the duplication it removed (ZS-COMPTIME-12), and a symmetry nobody
 can see is not worth the name it costs.
 

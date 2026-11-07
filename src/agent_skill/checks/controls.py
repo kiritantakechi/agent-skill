@@ -786,6 +786,16 @@ CONCEPTS: list[Control] = [
             )
         },
     ),
+    # The demo's one question reworded, its answer kept.
+    _on_concepts(
+        concepts.QUESTIONS,
+        lambda t: edit(
+            t,
+            f"{demo.PROFILE.name}/{SKILL_MD}",
+            "1. **What can be deleted?**",
+            "1. **What can be removed?**",
+        ),
+    ),
     _on_concepts(
         concepts.ABSTRACT_CITED,
         lambda t: append(

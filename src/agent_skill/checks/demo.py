@@ -94,6 +94,8 @@ A demo standard in normal form.
 
 Subtract.
 
+1. **What can be deleted?** A rule that a tool decides.
+
 ## 4. Core rules
 
 - **Errors**
