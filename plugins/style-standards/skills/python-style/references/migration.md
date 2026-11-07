@@ -73,7 +73,7 @@ Every rule ID a revision of this standard changed, and what it became, is in
 | `typing.NamedTuple(…, x=…)` | raises `TypeError` for a field given as a keyword; `class P(NamedTuple)` | gone | 3.15 | PS-MIG-04 |
 | `typing.TypedDict("…")` | raises `TypeError` given a name and no fields; `class TD(TypedDict)` | gone | 3.15 | PS-MIG-04 |
 | `asyncio.get_event_loop` | raises `RuntimeError` with no running loop; `asyncio.get_running_loop()` | changed | 3.14 | PS-ASYNC-01 |
-| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | changed | 3.15 | PS-CONC-21 |
+| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | changed | 3.15 | PS-CONC-20 |
 | `from __future__ import annotations` | stringifies every annotation, so `annotationlib`'s `VALUE` and `FORWARDREF` return bare strings | changed | 3.14 | PS-TYPE-04 |
 | `functools.singledispatchmethod` | called through its class, dispatches on the argument after the instance | changed | 3.15 | PS-TYPE-17 |
 | `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | changed | 3.15 | PS-DATA-12 |

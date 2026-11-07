@@ -3,12 +3,12 @@
 Scope: turning values into bytes (`{f}` and the custom `format` method, the complete 0.17 specifier
 set, width/fill/alignment/precision, the `std.fmt` API, `parseInt`/`parseFloat`), and where those
 bytes are allowed to go (buffered `*Io.Writer` for program output, `std.log` for diagnostics,
-`std.process.fatal` for a fatal CLI condition), and logging (`std.log`, its levels and scopes, and a
-custom `logFn`). Stream mechanics — obtaining `Io`, `Io.Writer` internals, buffering, flushing, and
-authoring a custom writer — are the concurrency chapter's (ZS-CONC-04, ZS-CONC-06, ZS-CONC-09);
-classifying a failure is the errors chapter's (ZS-ERR-01, ZS-ERR-02, ZS-ERR-17). **Source-code**
-formatting — `zig fmt`, the trailing comma, 100 columns — is another subject, ZS-NAME-15 and
-ZS-NAME-16.
+`std.process.fatal` for a fatal CLI condition), the stderr lock, flushing, colour, what a library
+may not do, the exit status, and logging (`std.log`, its levels and scopes, and a custom `logFn`).
+Stream mechanics — obtaining `Io`, `Io.Writer` internals, buffering, and authoring a custom writer —
+are the concurrency chapter's (ZS-CONC-04, ZS-CONC-05); classifying a failure is the errors
+chapter's (ZS-ERR-01, ZS-ERR-16). **Source-code** formatting — `zig fmt`, the trailing comma, 100
+columns — is another subject, ZS-NAME-15 and ZS-NAME-16.
 
 Every example assumes a file opening with `const std = @import("std");`, `const Io = std.Io;`,
 `const Writer = std.Io.Writer;` and `const assert = std.debug.assert;` — assertions are called bare,
@@ -25,7 +25,7 @@ union declared beside the test.
   - ZS-OUT-04 [M] Choose the specifier deliberately; this is the complete 0.17 set
   - ZS-OUT-05 [M] Print an enum, union tag, or error name with `{t}`
   - ZS-OUT-06 [M] Give `{?}` and `{!}` an inner specifier for the payload
-  - ZS-OUT-07 [S] Treat `{any}` as a debugging dump — never as an output format
+  - ZS-OUT-07 [M] Never use `{any}` as an output format: it is a debugging dump
   - ZS-OUT-08 [S] `{*}` prints an address; keep addresses out of anything compared or persisted
 - **3. Width, fill, alignment, precision**
   - ZS-OUT-09 [M] Width is counted in bytes, so it does not align non-ASCII text
@@ -38,11 +38,16 @@ union declared beside the test.
   - ZS-OUT-15 [M] Round-trip every format you persist or transmit, in a test
 - **5. Where the bytes go**
   - ZS-OUT-16 [M] `std.debug.print` is a debugging tool, never program output
-  - ZS-OUT-17 [M] Pick the failure channel by who needs to read it
+  - ZS-OUT-17 [M] Write application stderr through `io.lockStderr`
+  - ZS-OUT-18 [M] Flush every buffered writer before it goes out of scope
+  - ZS-OUT-19 [M] A library never ends the process and never prints
+  - ZS-OUT-20 [M] Decide color with `Io.Terminal`, not with your own `isatty` check
+  - ZS-OUT-21 [M] Pick the failure channel by who needs to read it
+  - ZS-OUT-22 [M] Exit non-zero on failure, with a code of its own for each class a caller must tell apart
 - **6. Logging**
-  - ZS-OUT-18 [M] A library logs through a scoped `std.log` namespace
-  - ZS-OUT-19 [S] Use std's four log levels, configured from the root file
-  - ZS-OUT-20 [S] A custom `std.options.logFn` is the only route to timestamps or a sink
+  - ZS-OUT-23 [M] A library logs through a scoped `std.log` namespace
+  - ZS-OUT-24 [M] Use std's four log levels, configured from the root file
+  - ZS-OUT-25 [S] A custom `std.options.logFn` is the only route to timestamps or a sink
 
 ---
 
@@ -259,7 +264,7 @@ prints the tag's integer value, not its name — three different renderings of t
 one of which is usually what you want.
 
 `{t}` is also the right specifier for logging a captured error — `log.err("failed: {t}", .{err})` —
-which is the form used throughout ZS-ERR-17.
+which is the form used throughout ZS-ERR-16.
 
 **Why:** the two are for different audiences: `{t}` is the name for a log line, a wire protocol, a
 JSON field, or a user-facing message; `{}` is a debug dump that happens to be paste-able Zig, so
@@ -289,7 +294,7 @@ test "{t} prints names, {} prints syntax" {
 error". The character after `?` or `!` is the payload's specifier.
 
 Formatting an error union is a *debugging* convenience, not error handling: it consumes the error
-without propagating it, which destroys the error return trace (ZS-ERR-17). Handle the error, then
+without propagating it, which destroys the error return trace (ZS-ERR-16). Handle the error, then
 format the outcome.
 
 **Why:** a bare `{?}` or `{!}` applies the *default* rendering to the payload, which for a slice
@@ -313,11 +318,11 @@ test "optionals and error unions carry an inner specifier" {
 }
 ```
 
-### ZS-OUT-07 [S] Treat `{any}` as a debugging dump — never as an output format
+### ZS-OUT-07 [M] Never use `{any}` as an output format: it is a debugging dump
 
 `{any}` prints the compiler's structural rendering and stops at `std.options.fmt_max_depth` (default
-3), replacing anything deeper with `.{ ... }`. Deviate freely inside `log.debug` and while bisecting
-a bug.
+3), replacing anything deeper with `.{ ... }`. It is the right tool inside `log.debug` and while
+bisecting a bug.
 
 **Why:** the output is silently *truncated* rather than wrong-but-complete, and its exact shape is a
 compiler implementation detail that has already changed twice. Anything a machine will read, a user
@@ -492,10 +497,10 @@ only when the length genuinely depends on unbounded runtime data. (`bufPrint` an
 deprecated aliases of these two.)
 
 The example's `catch unreachable` is only legitimate because the constant one line up *is* the
-proof, in the sense ZS-ERR-09 requires. Without a derived bound, handle `error.NoSpaceLeft`:
+proof, in the sense ZS-ERR-08 requires. Without a derived bound, handle `error.NoSpaceLeft`:
 `std.mem.print` writes as much as fits and then fails, so the partial output must not be used. Note
 also that `Io.Writer.Allocating` reports allocation failure as `error.WriteFailed`, whereas
-`Allocator.print` maps it back to `error.OutOfMemory` for you (ZS-CONC-07).
+`Allocator.print` maps it back to `error.OutOfMemory` for you (ZS-CONC-06).
 
 *Relaxed form:* `gpa.print` is fine for one-shot, human-facing strings; keep `std.mem.print` for
 anything on a hot path or inside a loop.
@@ -666,15 +671,15 @@ Each kind of byte has one destination:
 
 | Kind | Destination | Never |
 |---|---|---|
-| Program output — what the program exists to produce | a `*Io.Writer` the caller handed you, then `flush()` (ZS-CONC-04) | `std.debug.print`, `std.log` |
-| Diagnostics — progress, warnings, "what is it doing" | `std.log`, scoped in a library (ZS-OUT-18) | `std.debug.print` |
+| Program output — what the program exists to produce | a `*Io.Writer` the caller handed you, then `flush()` (ZS-OUT-18) | `std.debug.print`, `std.log` |
+| Diagnostics — progress, warnings, "what is it doing" | `std.log`, scoped in a library (ZS-OUT-23) | `std.debug.print` |
 | Temporary debugging you will delete before committing | `std.debug.print` | leaving it in a commit |
 
 The same ban covers raw stderr writes. `std.log` takes the stderr lock and so interleaves correctly
-with panics and `std.Progress`; reaching stderr outside it or `io.lockStderr` (ZS-CONC-09)
+with panics and `std.Progress`; reaching stderr outside it or `io.lockStderr` (ZS-OUT-17)
 interleaves your bytes with a `std.Progress` redraw or a panic trace. In a **library** all three of
 `std.debug.print`, `std.debug.lockStderr`, and unscoped `std.log.*` are defects — a library does not
-own the process's stderr policy (ZS-ERR-02).
+own the process's stderr policy (ZS-OUT-19).
 
 **Why:** it writes to stderr, so `prog > out.txt` leaves an empty file and a terminal full of
 results; it cannot be substituted in a test, is one syscall per call, and bypasses the `Io` you were
@@ -697,7 +702,148 @@ try stdout.print("processed {d} rows\n", .{n});   // output
 std.log.debug("row cursor now {d}", .{cursor});   // diagnostic
 ```
 
-### ZS-OUT-17 [M] Pick the failure channel by who needs to read it
+### ZS-OUT-17 [M] Write application stderr through `io.lockStderr`
+
+`io.lockStderr(&buffer, null)` returns a `LockedStderr` with a `file_writer` field;
+`io.unlockStderr()` releases it and flushes.
+
+**Why:** `std.log`, the panic handler, and `std.Progress` all take the same lock. Writing to stderr
+outside it interleaves your bytes with a progress bar's escape sequences or a panic trace.
+`std.debug.lockStderr` is the `Io`-bypassing variant reserved for debugging.
+
+**Check:** any write reaching `Io.File.stderr()` that is not inside an `io.lockStderr` /
+`io.unlockStderr` pair, and any `lockStderr` whose `defer io.unlockStderr()` is not on the very next
+line (ZS-ERR-10).
+
+```zig
+// fragment — GOOD
+var stderr_buffer: [stderr_buffer_max]u8 = undefined;
+const locked = try io.lockStderr(&stderr_buffer, null);
+defer io.unlockStderr(); // unlockStderr flushes; no manual flush needed
+try locked.file_writer.interface.writeAll("done\n");
+```
+
+### ZS-OUT-18 [M] Flush every buffered writer before it goes out of scope
+
+`Io.Writer` buffers into a caller-supplied `[]u8`. Data sitting in that buffer when the writer dies
+is silently discarded — no error, no diagnostic, exit code 0.
+
+Prefer `try w.flush()` as a real statement over `defer w.flush() catch {}`: the deferred form
+swallows `error.WriteFailed`, which is exactly the disk-full / broken-pipe case you needed to know
+about. A zero-length buffer (`&.{}`) means unbuffered and makes `flush` a no-op — use it
+deliberately, never by accident.
+
+**Why:** it is the commonest bug in new code. The program below compiles cleanly, runs cleanly,
+exits 0, and prints nothing.
+
+**Check:** for every `writerStreaming(`, `.writer(io,`, or `Io.File.Writer.init(` in a diff, a
+`flush()` on every success path leaving that scope. Also any `defer w.flush() catch {}`, and any
+`return` between the last `print`/`writeAll` and the `flush`.
+
+```zig
+// fragment — BAD: compiles, runs, exits 0, prints NOTHING
+pub fn main(init: std.process.Init) !void {
+    const io = init.io;
+    var buffer: [stdout_buffer_max]u8 = undefined;
+    var fw = std.Io.File.stdout().writerStreaming(io, &buffer);
+    try fw.interface.print("this line is silently lost\n", .{});
+}
+```
+
+```zig
+// fragment — GOOD
+var buffer: [stdout_buffer_max]u8 = undefined;
+var fw = Io.File.stdout().writerStreaming(io, &buffer);
+const stdout = &fw.interface;
+try stdout.print("visible\n", .{});
+try stdout.flush(); // last statement of the writer's lifetime
+```
+
+### ZS-OUT-19 [M] A library never ends the process and never prints
+
+A reusable module returns errors. This governs *operating* errors: a library must never convert a
+recoverable condition into a process abort. `@panic`, `std.process.exit`, `std.process.fatal`,
+`std.debug.print`, and writing to stderr are all reserved for the application's top level (`main`)
+or for `build.zig`. Output follows the same split: a library renders into the caller's
+`w: *Io.Writer`, returning `Io.Writer.Error!void`, or returns an owned `[]u8` the caller frees. It
+never opens stdout, and never decides where its output goes.
+
+It does **not** govern assertions. A violated internal invariant has exactly one correct response in
+any code, library or not, so `assert` and a project-local always-on `assertAlways` (ZS-ASSERT-04)
+are legal in a library — including in allocators and crypto, which are libraries by construction.
+The optimize mode is the consumer's to choose (ZS-ASSERT-04).
+
+**Why:** a library does not know whether its caller can recover. Aborting the process removes the
+caller's ability to retry, degrade, or report, and makes the library untestable — a test cannot
+assert on a process that has already exited.
+
+**Check:** `rg -n '@panic\(|process\.(exit|fatal)\(|debug\.print\(|\.std(out|err)\(\)' -g '*.zig'` —
+each hit in a file that is neither `main.zig` nor `build.zig` is the finding; `assert(`,
+`unreachable` and `assertAlways(` are not hits. The milder form is a `pub fn` that renders a value
+and returns `void` without taking a `w: *Io.Writer`.
+
+```zig
+// fragment — BAD
+pub fn parse(gpa: Allocator, text: []const u8) Ast {
+    return parseInner(gpa, text) catch @panic("bad input"); // Caller had a fallback. Too late.
+}
+```
+
+```zig
+// verified — GOOD
+const std = @import("std");
+
+pub fn main(init: std.process.Init) !void {
+    const args = init.minimal.args.toSlice(init.arena.allocator()) catch
+        std.process.fatal("out of memory reading argv", .{});
+    if (args.len < 2) std.process.fatal("usage: {s} <count>", .{args[0]});
+
+    const count = std.fmt.parseInt(u32, args[1], 10) catch |err| switch (err) {
+        error.InvalidCharacter => std.process.fatal("'{s}' is not a number", .{args[1]}),
+        error.Overflow => std.process.fatal("'{s}' does not fit in u32", .{args[1]}),
+    };
+    _ = count;
+}
+```
+
+### ZS-OUT-20 [M] Decide color with `Io.Terminal`, not with your own `isatty` check
+
+`Io.Terminal` is `{ writer: *Io.Writer, mode: Mode }`, and `t.setColor(color)` emits through it. For
+stderr, `io.lockStderr(&buffer, null)` has already chosen the mode, from the handle and from
+`NO_COLOR` and `CLICOLOR_FORCE` in the process environment: take `locked.terminal()`. For any other
+file, build the mode with `Io.Terminal.Mode.detect(io, file, NO_COLOR, CLICOLOR_FORCE)`, where the
+two `bool`s mean "the environment variable is present and non-empty" — read them from
+`init.environ_map`. `detect` calls `file.enableAnsiEscapeCodes`, which on Windows mutates console
+mode. `Mode` is `union(enum) { no_color, escape_codes, windows_api }`, so `.no_color` makes
+`setColor` a no-op and the same code path serves a pipe.
+
+A format whose color is part of the data rather than a presentation choice is outside this rule; say
+so in a comment.
+
+**Why:** the mode folds four decisions into one value — is the handle a terminal, can ANSI escapes
+be *enabled* on it, does `NO_COLOR` forbid color, does `CLICOLOR_FORCE` demand it anyway — and
+hand-rolling them gets the Windows console path and the `NO_COLOR` convention wrong.
+
+**Check:** any `isatty`, `std.io.tty`, or hard-coded `"\x1b[31m"` in a diff; reading `NO_COLOR`
+without also honoring `CLICOLOR_FORCE`; and a `Mode.detect` on stderr, whose lock already holds the
+mode.
+
+```zig
+// verified — GOOD
+const std = @import("std");
+test "stderr color through the lock's own terminal" {
+    const io = std.testing.io;
+    var buffer: [64]u8 = undefined;
+    // The lock detected the mode, honoring NO_COLOR and CLICOLOR_FORCE.
+    const locked = try io.lockStderr(&buffer, null);
+    defer io.unlockStderr();
+    const t = locked.terminal();
+    try t.setColor(.red);
+    try t.setColor(.reset);
+}
+```
+
+### ZS-OUT-21 [M] Pick the failure channel by who needs to read it
 
 Three mechanisms, one decision:
 
@@ -705,7 +851,7 @@ Three mechanisms, one decision:
 |---|---|---|
 | Bad arguments, missing input, unusable environment — the user must fix something | `std.process.fatal(fmt, args)` | one line on stderr, exit code 1 |
 | Something went wrong and the program continues | `std.log.err(fmt, args)` | one line on stderr, exit code unchanged |
-| A bug, or a failure whose *origin* is the diagnostic | `return err` from `main` | `error: Name` plus the error return trace, which exists only in `debug` and `safe` (ZS-ERR-17): a `fast` build prints the bare `error: Name` |
+| A bug, or a failure whose *origin* is the diagnostic | `return err` from `main` | `error: Name` plus the error return trace, which exists only in `debug` and `safe` (ZS-ERR-16): a `fast` build prints the bare `error: Name` |
 
 `std.process.fatal(comptime format: []const u8, format_arguments: anytype) noreturn` is
 `std.log.err(format, format_arguments); exit(1);`, so it honours the application's `logFn` and the
@@ -739,9 +885,51 @@ pub fn main(init: std.process.Init) !void {
 }
 ```
 
+### ZS-OUT-22 [M] Exit non-zero on failure, with a code of its own for each class a caller must tell apart
+
+`std.process.fatal` and a `main` that returns an error both exit `1`, and where nobody needs more
+than that, `1` is the whole contract. When a script must tell one failure from another, a bad
+argument from a failed run or no match from an error, `main` returns `u8` and returns one named
+constant per class: `0` for success, `1` for a failure of the run, `2` for a usage error. Document
+the codes in the usage text.
+
+**Why:** a script branches on the exit code and cannot branch on prose. With only `1`, a usage
+mistake, a missing input and a bug are the same status, and a script cannot retry the first and
+report the last.
+
+**Check:** a program whose callers branch on its status and that still reaches `fatal` or
+`std.process.exit(1)` for a usage error is the finding; so is a code that is a bare number.
+
+```zig
+// verified — GOOD
+const std = @import("std");
+
+/// What a run returns to the shell; each class a script must tell apart has its own value.
+const Status = enum(u8) {
+    ok = 0,
+    failed = 1,
+    usage = 2,
+    no_match = 3,
+};
+
+pub fn main(init: std.process.Init) !u8 {
+    const args = try init.minimal.args.toSlice(init.arena.allocator());
+    if (args.len < 2) {
+        std.log.err("usage: {s} <count>", .{args[0]});
+        return @backingInt(Status.usage);
+    }
+    const count = std.fmt.parseInt(u32, args[1], 10) catch {
+        std.log.err("'{s}' is not a number", .{args[1]});
+        return @backingInt(Status.usage);
+    };
+    if (count == 0) return @backingInt(Status.no_match);
+    return @backingInt(Status.ok);
+}
+```
+
 ## 6. Logging
 
-### ZS-OUT-18 [M] A library logs through a scoped `std.log` namespace
+### ZS-OUT-23 [M] A library logs through a scoped `std.log` namespace
 
 `const log = std.log.scoped(.mylib);` at the top of the file, then `log.warn(…)`. One scope per
 module, named for the module. std itself logs rarely: the bar is high. Program *output* is not
@@ -749,7 +937,7 @@ logging (ZS-OUT-16).
 
 **Why:** `std.log` routes through `std.options.logFn`, so the *application* decides format,
 destination, filtering, and whether a library is audible at all. `log_scope_levels` filters by scope
-(ZS-OUT-19); an unscoped log lands in `.default` and cannot be silenced alone.
+(ZS-OUT-24); an unscoped log lands in `.default` and cannot be silenced alone.
 
 **Check:** in a library file, `std.log.warn(` / `std.log.err(` used directly instead of through a
 file-level `scoped` alias.
@@ -768,14 +956,14 @@ pub fn parseHeader(bytes: []const u8) error{Truncated}!u32 {
 }
 ```
 
-### ZS-OUT-19 [S] Use std's four log levels, configured from the root file
+### ZS-OUT-24 [M] Use std's four log levels, configured from the root file
 
 `std.log.Level` is `{ err, warn, info, debug }`, documented as: `err` — something has gone wrong;
 `warn` — uncertain whether something has gone wrong, but worth investigating; `info` — general
 state; `debug` — only useful when debugging. `std.log.default_level` is `.debug` in `debug` builds
 and `.info` in `safe`, `fast` and `small` builds; in tests, `std.testing.log_level` defaults to
 `.warn`. Log *or* return an error, not both, unless you are adding context and re-propagating
-(ZS-ERR-07).
+(ZS-ERR-06).
 
 **Why:** levels are a filter, not a severity vocabulary you get to redefine. If your library logs at
 `err` for a condition it also returns as an error, the application sees it twice and cannot suppress
@@ -795,7 +983,7 @@ pub const std_options: std.Options = .{
 };
 ```
 
-### ZS-OUT-20 [S] A custom `std.options.logFn` is the only route to timestamps or a sink
+### ZS-OUT-25 [S] A custom `std.options.logFn` is the only route to timestamps or a sink
 
 `std.log.defaultLog` writes `level(scope): message` to stderr with color and nothing else — no
 timestamp, no key/value structure, no destination choice. Overriding `logFn` in the root source file
@@ -803,10 +991,10 @@ is the whole extension mechanism; keep `defaultLog` whenever stderr text is enou
 `logFn` is infrastructure to maintain. Its signature, the `logFn` field of `std.Options` shown first
 below, decides what the body may do. It receives **no `Io`**, so it cannot await, cannot do async
 I/O, and must not call anything that suspends: it takes `std.debug.lockStderr`, the `Io`-bypassing
-variant, where code holding an `Io` takes `io.lockStderr` (ZS-CONC-09). Its first three parameters
+variant, where code holding an `Io` takes `io.lockStderr` (ZS-OUT-17). Its first three parameters
 are `comptime`, so level, scope, and the format string cost nothing at runtime and can be
 concatenated into a prefix at compile time. And it is one global function, so filtering by scope
-belongs in `std_options.log_scope_levels` (ZS-OUT-19), not in an `if` chain in the body.
+belongs in `std_options.log_scope_levels` (ZS-OUT-24), not in an `if` chain in the body.
 
 Taking the lock is not optional: `std.log`, the panic handler, and `std.Progress` all serialize on
 it, and `lockStderr` clears any progress bar before you write (`LockedStderr.clear`). `unlockStderr`

@@ -10,7 +10,7 @@ returns goes to the fallback error handler that `App::set_error_handler` install
 dispatches on a `Severity` carried by the error (`Severity::Panic` unless annotated), and a panic in
 a system, observer or command reaches it too, as an error carrying the panic's payload.
 
-Diagnostics go through `tracing`, as RS-CLI-24 says of any program: here `LogPlugin` is the
+Diagnostics go through `tracing`, as RS-OUT-06 says of any program: here `LogPlugin` is the
 subscriber, and on wasm `println!` never reaches the browser console. The lints that fail a build on
 `unwrap`, `expect`, `panic!`, `todo!`, `unimplemented!`, indexing and `dbg!` are `rust-style`'s
 rows, which `assets/Cargo.toml` sets as that standard does.

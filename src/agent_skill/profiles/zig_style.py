@@ -31,29 +31,29 @@ UNWRAP_PROSE = declare("prose", "zs_unwrap", Level.FAIL)
 COMMENTED = Unless(near=(Near("//"), Near(r"^\s*//", above=3, own=False)))
 
 CONVENTIONS = (
-    # ZS-ERR-09 and ZS-ERR-10 [M] — a `catch unreachable` carries its
+    # ZS-ERR-08 and ZS-ERR-09 [M] — a `catch unreachable` carries its
     # proof, and a `catch {}` its justification, in a comment, which
     # may sit on the line above.
     LineRule(
         CATCH,
         r"catch\s*unreachable",
-        "`{0}` without the comment ZS-ERR-09 requires",
+        "`{0}` without the comment ZS-ERR-08 requires",
         unless=COMMENTED,
     ),
     LineRule(
         CATCH,
         r"catch\s*\{\s*\}",
-        "`{0}` without the comment ZS-ERR-10 requires",
+        "`{0}` without the comment ZS-ERR-09 requires",
         unless=COMMENTED,
     ),
-    # ZS-ERR-27 [M] — "every hit is a defect, including inside
+    # ZS-ERR-26 [M] — "every hit is a defect, including inside
     # `comptime` blocks and `const` initializers".
     LineRule(
         UNWRAP,
         r"\.\?",
-        "`.?` unwrap; ZS-ERR-27 asks for `orelse`, a capture, or "
+        "`.?` unwrap; ZS-ERR-26 asks for `orelse`, a capture, or "
         "`orelse unreachable` with the proof beside it",
-        unless_own=RuleId.parse("ZS-ERR-27"),
+        unless_own=RuleId.parse("ZS-ERR-26"),
     ),
     # ZS-TEST-05 [M] — "drop the `@as` wrapper": peer resolution already
     # handles a literal on the other side.
@@ -72,7 +72,7 @@ CONVENTIONS = (
 )
 
 PROSE = (
-    # ZS-ERR-27 forbids `.?` outright. Prose naming it is therefore
+    # ZS-ERR-26 forbids `.?` outright. Prose naming it is therefore
     # either hunting it (inside a `**Check:**`) or is the rule that bans
     # it. Anything else is the standard recommending a spelling it
     # forbids, which is how three passages survived the rule being
@@ -80,9 +80,9 @@ PROSE = (
     LineRule(
         UNWRAP_PROSE,
         r"`[^`\n]*\.\?[^`\n]*`",
-        "prose names `.?` outside a **Check:** and outside ZS-ERR-27",
-        unless_own=RuleId.parse("ZS-ERR-27"),
-        unless=Unless(near=(Near("ZS-ERR-27"),)),
+        "prose names `.?` outside a **Check:** and outside ZS-ERR-26",
+        unless_own=RuleId.parse("ZS-ERR-26"),
+        unless=Unless(near=(Near("ZS-ERR-26"),)),
     ),
 )
 
@@ -149,17 +149,17 @@ PROFILE = Profile(
                 "if (std.mem.containsAtLeastScalar(u8, list, 3, 'a')) return;",
                 "if (std.mem.eql(f64, readings, baseline)) return;",
             ),
-            "ZS-CONC-15": ("        _ = splat;",),
+            "ZS-CONC-13": ("        _ = splat;",),
             "ZS-DATA-06": ("const pages = (size_bytes + page_size - 1) / page_size;",),
             "ZS-DATA-12": ("const config = Config{ .port = 8080, .verbose = false };",),
-            "ZS-ERR-02": (
+            "ZS-OUT-19": (
                 '    return parseInner(gpa, text) catch @panic("bad input");',
             ),
-            "ZS-ERR-03": ("pub fn load(gpa: Allocator, path: []const u8) ![]u8 {",),
-            "ZS-ERR-05": (
+            "ZS-ERR-02": ("pub fn load(gpa: Allocator, path: []const u8) ![]u8 {",),
+            "ZS-ERR-04": (
                 "pub fn run(io: Io, args: []const []const u8) anyerror!void {",
             ),
-            "ZS-ERR-27": ("const first = list.first.?;",),
+            "ZS-ERR-26": ("const first = list.first.?;",),
             "ZS-INTEROP-08": ("fn area(width: c_int, height: c_int) c_int {",),
             "ZS-INTEROP-09": ("const Buffer = struct { data: [*c]u8, len: usize };",),
             "ZS-COMPTIME-09": ("pub fn Store(comptime Allocator: type) type {",),
@@ -215,12 +215,12 @@ PROFILE = Profile(
                 "`export fn` or a `callconv(.c)` function — the one place it is "
                 "allowed — decides",
             ),
-            "ZS-ERR-02": NotDecisive(
+            "ZS-OUT-19": NotDecisive(
                 "@panic\\(",
                 "the pattern finds every `@panic(` and `std.process.exit`; whether the "
                 "file is a library rather than `main` or `build.zig` decides",
             ),
-            "ZS-ERR-03": NotDecisive(
+            "ZS-ERR-02": NotDecisive(
                 "pub fn \\w+",
                 "the pattern finds every public inferred error set; whether the "
                 "function is `main` decides",

@@ -10,8 +10,8 @@ rules throughout this standard ask for a profile, and this is the chapter that s
 
 This chapter does not own data layout: struct-of-arrays and `MultiArrayList` are ZS-DATA-22,
 handles-versus-pointers is ZS-DATA-21, and passing large aggregates as `*const T` is ZS-DATA-18. It
-does not own I/O batching (ZS-CONC-41), assertion cost budgeting (ZS-ASSERT-16), the optimize-mode
-table (ZS-ASSERT-02), `@branchHint` (ZS-ERR-28), or `inline fn` (ZS-COMPTIME-03). It cites them.
+does not own I/O batching (ZS-CONC-39), assertion cost budgeting (ZS-ASSERT-16), the optimize-mode
+table (ZS-ASSERT-02), `@branchHint` (ZS-ERR-27), or `inline fn` (ZS-COMPTIME-03). It cites them.
 
 **Read ZS-PERF-21 first if you are tempted to apply this chapter to code that is not hot.** Roughly
 half of these rules are about correctness and readability and apply everywhere; the other half
@@ -213,7 +213,7 @@ not optional: an unbounded batch converts a throughput win into an unbounded-lat
 unbounded-memory bug.
 
 The I/O half of this rule — draining an event queue instead of reacting per event, `writeVecAll`
-instead of a write per record — is ZS-CONC-41; do not duplicate it. This rule covers the non-I/O
+instead of a write per record — is ZS-CONC-39; do not duplicate it. This rule covers the non-I/O
 half: locks, allocations, and per-item work inside a lock.
 
 A hot path is ZS-PERF-02's. Anywhere else, batch whatever crosses a process boundary per item — a
@@ -488,7 +488,7 @@ fn readPayload(buffer: []const u8, header: Header) ![]const u8 {
 
 Let the parent function hold the state in locals or in one receiver, and let helpers *return* what
 should change rather than applying it. Keep leaf functions pure. TigerStyle pairs this with
-"centralize control flow" (ZS-ERR-24, push `if`s up and `for`s down). The single apply site is the
+"centralize control flow" (ZS-ERR-23, push `if`s up and `for`s down). The single apply site is the
 one place to bracket with `assertInvariants` (ZS-ASSERT-14) and to make transactional with
 `errdefer`; pure leaves let you compute all the deltas first and apply them in one pass, which is
 what makes batching (ZS-PERF-05) possible.
@@ -567,7 +567,7 @@ const Account = struct {
 Few parameters, a simple return type, and a lot of meaty logic between the braces. If a function is
 mostly signature, it is in the wrong place: nine parameters around three lines of body is the
 hourglass the right way up, and a sign the caller is doing the work. This is TigerStyle's rule of
-thumb for *where* to cut a function that exceeds the 70-line limit (ZS-ERR-29): not every split is
+thumb for *where* to cut a function that exceeds the 70-line limit (ZS-ERR-28): not every split is
 equal, and the good ones produce inverted hourglasses.
 
 **Why:** a wide signature exports internal state to every call site, so changing it changes them
@@ -839,7 +839,7 @@ Add a `bench` step whose module hard-codes `.optimize = .fast` rather than inher
 and wire it up with `addRunArtifact` only — never `installArtifact` — so a bare `zig build` does not
 pay for it.
 
-The benchmark's own `main` follows ZS-PERF-14, ZS-PERF-19 and ZS-CONC-33, and prints per-iteration
+The benchmark's own `main` follows ZS-PERF-14, ZS-PERF-19 and ZS-CONC-31, and prints per-iteration
 cost so the number can be compared with the ZS-PERF-02 sketch, as the second example shows.
 
 **Why:** an inherited `-Doptimize` makes `zig build bench` silently measure a `debug` build
@@ -906,7 +906,7 @@ pub fn main(init: std.process.Init) !void {
     comptime assert(builtin.optimize == .fast);
 
     var out_buffer: [stdout_buffer_max]u8 = undefined;
-    var out_writer = Io.File.stdout().writerStreaming(io, &out_buffer); // ZS-CONC-05
+    var out_writer = Io.File.stdout().writerStreaming(io, &out_buffer); // ZS-CONC-04
     const out = &out_writer.interface;
 
     var input: [4096]u32 = undefined;
@@ -921,7 +921,7 @@ pub fn main(init: std.process.Init) !void {
     const per_iteration: Io.Duration =
         .fromNanoseconds(@divFloor(elapsed.toNanoseconds(), iterations));
     try out.print("sum: {f} total, {f} per iteration\n", .{ elapsed, per_iteration });
-    try out.flush(); // ZS-CONC-04: buffered output prints nothing without this.
+    try out.flush(); // ZS-OUT-18: buffered output prints nothing without this.
 }
 ```
 
@@ -940,9 +940,9 @@ rule needs a measurement to overturn it — not the reverse.
 |---|---|
 | ZS-PERF-01 design shape, ZS-PERF-02 sketch, ZS-PERF-03 frequency | Design phase. Always — the cost is minutes. |
 | ZS-PERF-09 – ZS-PERF-13 (the whole locality cluster) | **All code, always.** These are readability and correctness rules that happen to also help the register allocator. Never require a measurement. |
-| ZS-PERF-07 be explicit, ZS-PERF-14 measure in the shipped mode, ZS-PERF-17 explicit options, ZS-PERF-19 – ZS-PERF-20 how to measure, ZS-CONC-33's clock choice | All code. Following them costs nothing and not following them produces false numbers. |
+| ZS-PERF-07 be explicit, ZS-PERF-14 measure in the shipped mode, ZS-PERF-17 explicit options, ZS-PERF-19 – ZS-PERF-20 how to measure, ZS-CONC-31's clock choice | All code. Following them costs nothing and not following them produces false numbers. |
 | ZS-PERF-04 plane split, ZS-PERF-05 batching, ZS-PERF-15 no auto-vectorization | Any code with a stated throughput or latency requirement. Batching in particular is a design decision, so it is cheap now and expensive later. |
-| ZS-PERF-06 branch hoisting, ZS-PERF-08 primitive-argument kernels, ZS-PERF-16 explicit SIMD, `@branchHint` (ZS-ERR-28), adding a `@prefetch` at all (ZS-PERF-17), ZS-PERF-18 cache-line alignment, `inline fn` (ZS-COMPTIME-03) | **Hot paths a profile names, only.** Each one costs readability. A diff that applies them without a profile in the commit message is over-applying this chapter, and that is a review finding in its own right. |
+| ZS-PERF-06 branch hoisting, ZS-PERF-08 primitive-argument kernels, ZS-PERF-16 explicit SIMD, `@branchHint` (ZS-ERR-27), adding a `@prefetch` at all (ZS-PERF-17), ZS-PERF-18 cache-line alignment, `inline fn` (ZS-COMPTIME-03) | **Hot paths a profile names, only.** Each one costs readability. A diff that applies them without a profile in the commit message is over-applying this chapter, and that is a review finding in its own right. |
 
 **Why:** shape is decided up front and cheaply; constants are decided later and with evidence
 (ZS-PERF-01). A sketch costs five minutes and is reversible, so it is never premature; a

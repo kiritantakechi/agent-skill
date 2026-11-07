@@ -548,7 +548,7 @@ test "arraylist decl literal" {
 ### ZS-DATA-14 [M] Give every allocating type a paired `init`/`deinit` with a matching signature
 
 If `init` (or `.empty` plus an allocating method) took a `gpa`, `deinit` takes the same `gpa`. What
-else `deinit` owes — no failure, no allocation, and the poisoning store at the end — is ZS-ERR-16.
+else `deinit` owes — no failure, no allocation, and the poisoning store at the end — is ZS-ERR-15.
 
 **Why:** the allocator is not stored, so `deinit` cannot recover it; passing it back is the contract
 std uses throughout.
@@ -1094,7 +1094,7 @@ Three specific reductions, in descending order of payoff:
 
 - A function whose error set is empty in practice returns `T`, not `!T`. If it can only fail through
   the allocator, say `error{OutOfMemory}!T` rather than an inferred `!T`, so the set does not grow
-  silently (ZS-ERR-03).
+  silently (ZS-ERR-02).
 - A `?T` whose `null` the caller can only turn back into a default belongs behind a function that
   applies the default and returns `T`.
 - A `bool` that every caller immediately switches on, alongside other state, is usually an enum or a
@@ -1547,7 +1547,7 @@ protocol tokens, identifiers, hex digits, and HTTP header names. Do not use them
 has no Unicode case mapping or collation at all; correct casing is locale-dependent (Turkish dotless
 ı, German ß) and needs a library.
 
-This is a live caveat on ZS-CONC-15, whose `drain` example uppercases every byte passing through a
+This is a live caveat on ZS-CONC-13, whose `drain` example uppercases every byte passing through a
 `Writer` with `std.ascii.toUpper`. As a demonstration of the `drain` contract it is correct; as a
 text transform it is ASCII-only, and a stream carrying UTF-8 will pass through half-uppercased.
 
@@ -1678,10 +1678,10 @@ Two constraints apply to both formats:
 
 - **Both write through a `*std.Io.Writer`** after Writergate —
   `std.zon.stringify.serialize(val, opts, w)` and `std.json.Stringify`. There is no `toString`-style
-  allocating shortcut in the blessed path, so the buffering and flushing rules (ZS-CONC-04) apply
+  allocating shortcut in the blessed path, so the buffering and flushing rules (ZS-OUT-18) apply
   unchanged.
 - **Both need an explicit `Io.Limit` on untrusted input.** Neither parser bounds the *source* it is
-  handed; the bound belongs on the read that produced the slice. See ZS-CONC-13 — spell
+  handed; the bound belongs on the read that produced the slice. See ZS-CONC-11 — spell
   `.limited(n)` with a justified `n`, and reserve `.unlimited` for bytes you produced yourself.
 
 Note the spellings, which are not symmetric with `std.json`: the ZON serializer namespace is

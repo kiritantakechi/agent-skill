@@ -54,14 +54,14 @@ the replacement — or `2024` for a change the edition made; section 2.1 lists t
 | `os_pipe::pipe` | `io::pipe` | alias | 1.87 | RS-MIG-01 |
 | `static_assertions::const_assert` | `const _: () = assert!(…)`, or `const { assert!(…) }` | alias | 1.57 | RS-MIG-01 |
 | `assert_matches::assert_matches` | `assert_matches!`, imported from `std` | alias | 1.96 | RS-TEST-13 |
-| `home::home_dir` | `std::env::home_dir` | alias | 1.87 | RS-CLI-28 |
-| `dirs::home_dir` | `std::env::home_dir` | alias | 1.87 | RS-CLI-28 |
+| `home::home_dir` | `std::env::home_dir` | alias | 1.87 | RS-CLI-25 |
+| `dirs::home_dir` | `std::env::home_dir` | alias | 1.87 | RS-CLI-25 |
 | `num_cpus::get` | `std::thread::available_parallelism` | alias | 1.59 | RS-CONC-14 |
-| `atty::is` | `std::io::IsTerminal` | alias | 1.70 | RS-CLI-19 |
-| `is_terminal::IsTerminal` | `std::io::IsTerminal` | alias | 1.70 | RS-CLI-19 |
+| `atty::is` | `std::io::IsTerminal` | alias | 1.70 | RS-CLI-18 |
+| `is_terminal::IsTerminal` | `std::io::IsTerminal` | alias | 1.70 | RS-CLI-18 |
 | `memoffset::offset_of` | `std::mem::offset_of!`, nested fields included | alias | 1.82 | RS-UNSAFE-14 |
-| `criterion::black_box` | `std::hint::black_box` | alias | 1.66 | RS-PERF-33 |
-| `test::black_box` | `std::hint::black_box` | alias | 1.66 | RS-PERF-33 |
+| `criterion::black_box` | `std::hint::black_box` | alias | 1.66 | RS-PERF-32 |
+| `test::black_box` | `std::hint::black_box` | alias | 1.66 | RS-PERF-32 |
 | `$e:expr` | matches `_` and `const { … }` as well, so a later `_` arm stops firing; `expr_2021` keeps the old fragment | changed | 2024 | RS-MACRO-09 |
 | `-> impl Trait` | captures every lifetime in scope, so a caller can fail to borrow; narrow it with `+ use<'a, T>` | changed | 2024 | RS-OWN-21 |
 | `Box<[T]>::into_iter` | yields `T`, by value, where it yielded `&T` | changed | 2024 | RS-BUILD-01 |

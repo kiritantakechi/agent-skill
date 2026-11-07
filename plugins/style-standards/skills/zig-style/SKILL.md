@@ -92,7 +92,7 @@ Since; its owning rule's Check finds it.
 | `@cImport` | `b.addTranslateC(…)` in `build.zig` and its `.createModule()`, imported as a module | ZS-INTEROP-15 |
 | `**` | `@splat(v)` with a result type: `const a: [n]T = @splat(v);` | ZS-DATA-24 |
 | `void{}` | `{}` | ZS-MIG-01 |
-| `errdefer \|err\|` | the body in an inner function, and at the call `inner() catch \|err\| { …; return err; }` | ZS-ERR-15 |
+| `errdefer \|err\|` | the body in an inner function, and at the call `inner() catch \|err\| { …; return err; }` | ZS-ERR-14 |
 | `i0` | `u0` | ZS-MIG-01 |
 | `.linkage = .internal` | no `@export`: a symbol that is not exported is internal; `std.lang.GlobalLinkage` is `.strong` and `.weak` | ZS-INTEROP-03 |
 | `.link_once` | `.weak` | ZS-INTEROP-03 |
@@ -105,7 +105,7 @@ Since; its owning rule's Check finds it.
 | `std.builtin.Type.Error` | nothing: `@typeInfo(E).error_set` is a struct whose `error_names`, a `?[]const [:0]const u8`, lists the names, and whose `null` still means `anyerror` | ZS-COMPTIME-12 |
 | `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | ZS-COMPTIME-12 |
 | `std.fmt.bufPrintZ` | `std.mem.printSentinel(buffer, fmt, args, 0)` | ZS-OUT-11 |
-| `std.Io.File.OpenFlags` | `std.Io.Dir.OpenFileOptions`; `CreateFlags` is `Io.Dir.CreateFileOptions` and `OpenMode` is `Io.Dir.OpenFileOptions.Mode` | ZS-CONC-18 |
+| `std.Io.File.OpenFlags` | `std.Io.Dir.OpenFileOptions`; `CreateFlags` is `Io.Dir.CreateFileOptions` and `OpenMode` is `Io.Dir.OpenFileOptions.Mode` | ZS-CONC-16 |
 | `std.ascii.indexOfIgnoreCase` | `std.ascii.findIgnoreCase`; the `Pos` and `PosLinear` forms likewise | ZS-DATA-37 |
 | `std.mem.containsAtLeastScalar2` | `std.mem.containsAtLeastScalar(T, list, element, minimum)` | ZS-MIG-01 |
 | `std.mem.readPackedIntNative` | `std.mem.readPackedInt(T, bytes, bit_offset, .native)`; `readPackedIntForeign` takes `.foreign` | ZS-MIG-01 |
@@ -114,7 +114,7 @@ Since; its owning rule's Check finds it.
 | `std.heap.memory_pool.Managed` | `std.heap.memory_pool.Aligned` or `.Extra`, with the allocator per call; `AlignedManaged` and `ExtraManaged` likewise | ZS-MEM-13 |
 | `.initEmpty()` | `.empty` on an `EnumSet`, a `bit_set.Integer` or a `bit_set.Array`; `.initFull()` is `.full`; `bit_set.Dynamic.initEmpty(gpa, n)` keeps its name | ZS-DATA-13 |
 | `std.heap.stackFallback` | `var bfa: std.heap.BufferFirstAllocator = .init(&buffer, fallback);`, then `bfa.allocator()` as often as you like; `StackFallbackAllocator` likewise | ZS-MEM-03 |
-| `std.process.spawnPath` | `std.process.spawn(io, .{ .exe = .{ .path = dir }, … })`; `replacePath` is `replace` with the same `.exe` | ZS-CONC-48 |
+| `std.process.spawnPath` | `std.process.spawn(io, .{ .exe = .{ .path = dir }, … })`; `replacePath` is `replace` with the same `.exe` | ZS-CONC-46 |
 | `std.meta.Int` | `@Int(signedness, bits)` | ZS-COMPTIME-12 |
 | `std.meta.Tuple` | `@Tuple(types)` | ZS-COMPTIME-12 |
 | `std.meta.fields` | `@typeInfo(T)` | ZS-COMPTIME-12 |
@@ -135,7 +135,7 @@ Since; its owning rule's Check finds it.
 | `std.Target.SubSystem` | `std.zig.Subsystem`; `builtin.subsystem` has no replacement | ZS-INTEROP-18 |
 | `std.zon.parse.fromSliceAlloc` | `std.zon.parse.fromSlice(T, .{ .gpa = gpa, .arena = arena, .source = source, .diagnostics = &diag })`, which allocates the result into `.arena`; the form that allocates nothing is `fromSliceNoAlloc` | ZS-DATA-40 |
 | `std.zon.parse.free` | nothing: the result lives in the arena `fromSlice` was given | ZS-DATA-40 |
-| `std.Uri.getHost` | `std.Io.net.HostName.fromUri(uri, &buffer)`, which validates the name | ZS-CONC-45 |
+| `std.Uri.getHost` | `std.Io.net.HostName.fromUri(uri, &buffer)`, which validates the name | ZS-CONC-43 |
 | `std.gpu` | `std.spirv` | ZS-MIG-01 |
 | `dupeZ` | `allocator.dupeSentinel(u8, s, 0)` | ZS-INTEROP-10 |
 
@@ -217,16 +217,16 @@ see is not worth the name it costs.
   - ZS-DATA-27 [M] Return the lowest-dimensionality type that can carry the answer
 - **Errors, control flow, assertions vs errors vs panics**
   - ZS-ERR-01 [M] Classify a failure as a programmer error or an operating condition first
-  - ZS-ERR-05 [M] Never put `anyerror` in a public signature
-  - ZS-ERR-10 [M] Every error is handled somewhere; `catch {}` needs a justification comment
-  - ZS-ERR-11 [M] Put `defer` / `errdefer` on the line immediately after the acquisition
-  - ZS-ERR-18 [M] Split compound conditions into separate checks
-  - ZS-ERR-19 [S] Prefer a `switch` to an `else if` chain; if you flatten chains into trees, say why
-  - ZS-ERR-20 [M] State invariants positively when an `if`/`else` splits the input space
-  - ZS-ERR-21 [S] An `if` with no `else` over a validated domain carries a comment or an assertion
-  - ZS-ERR-23 [M!] No recursion; where recursion is allowed, bound the depth explicitly
-  - ZS-ERR-24 [M!] Push `if`s up and `for`s down
-  - ZS-ERR-29 [M!] Hard limit of 70 lines per function
+  - ZS-ERR-04 [M] Never put `anyerror` in a public signature
+  - ZS-ERR-09 [M] Every error is handled somewhere; `catch {}` needs a justification comment
+  - ZS-ERR-10 [M] Put `defer` / `errdefer` on the line immediately after the acquisition
+  - ZS-ERR-17 [M] Split compound conditions into separate checks
+  - ZS-ERR-18 [S] Prefer a `switch` to an `else if` chain; if you flatten chains into trees, say why
+  - ZS-ERR-19 [M] State invariants positively when an `if`/`else` splits the input space
+  - ZS-ERR-20 [S] An `if` with no `else` over a validated domain carries a comment or an assertion
+  - ZS-ERR-22 [M!] No recursion; where recursion is allowed, bound the depth explicitly
+  - ZS-ERR-23 [M!] Push `if`s up and `for`s down
+  - ZS-ERR-28 [M!] Hard limit of 70 lines per function
 - **Memory, allocators, ownership lifetimes**
   - ZS-MEM-05 [M] Pass the allocator per call; do not store it in a field
   - ZS-MEM-06 [M] Name the allocator for its role — `gpa`, `arena`, `scratch` — and place it after the receiver
@@ -300,16 +300,16 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-377 rules live here; section 4 lists by ID those that bind on their own.
+378 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
 | `references/naming.md` | `ZS-NAME` (19) | Naming rules in full, the casing of a file name, formatting |
 | `references/data.md` | `ZS-DATA` (40) | Integer choice, off-by-one discipline, casts, struct design, decl literals, result location semantics, in-place init, layout, data-oriented design |
-| `references/errors.md` | `ZS-ERR` (31) | Error sets, `try`/`catch`/`errdefer`, the error-vs-assert-vs-panic decision table, labeled switch, `@branchHint` |
+| `references/errors.md` | `ZS-ERR` (30) | Error sets, `try`/`catch`/`errdefer`, the error-vs-assert-vs-panic decision table, labeled switch, `@branchHint` |
 | `references/memory.md` | `ZS-MEM` (23) | Allocator taxonomy, the allocator vtable, ownership rules, arena patterns, the static-allocation tiering |
-| `references/concurrency.md` | `ZS-CONC` (51) | `std.Io` in full: `Reader`/`Writer`, custom streams, `Io.Dir`/`Io.File`, `async`/`concurrent`/`Group`/`Select`, cancellation, timeouts |
-| `references/output.md` | `ZS-OUT` (20) | `{}` vs `{f}`, the specifier set, custom `format` methods, `std.fmt`, program output vs logging vs `std.debug.print` |
+| `references/concurrency.md` | `ZS-CONC` (48) | `std.Io` in full: `Reader`, `Writer` mechanics, custom streams, `Io.Dir`/`Io.File`, `async`/`concurrent`/`Group`/`Select`, cancellation, timeouts |
+| `references/output.md` | `ZS-OUT` (25) | `{}` vs `{f}`, the specifier set, custom `format` methods, `std.fmt`, program output vs logging vs `std.debug.print`, the stderr lock, flushing, colour, what a library may not do, the exit status |
 | `references/performance.md` | `ZS-PERF` (21) | Design-phase performance, back-of-envelope sketches, batching, `@prefetch`/`@Vector`, and the locality discipline (smallest scope, no aliasing, POCPOU, pure leaves) |
 | `references/interop.md` | `ZS-INTEROP` (21) | `export`/`extern`/`callconv(.c)`, `[*c]` pointers, C strings and integers, callbacks with `userdata`, plus freestanding/WASM/single-threaded targets |
 | `references/assertions.md` | `ZS-ASSERT` (25) | Assertion philosophy and density, pair assertions, comptime assertions, the optimize modes and which one ships, `_max` constants |

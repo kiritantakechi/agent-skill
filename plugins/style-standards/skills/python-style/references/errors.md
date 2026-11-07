@@ -284,7 +284,7 @@ catches it as well.
 ### PS-ERR-14 [M] Release with a context manager rather than with `finally`
 
 `with lock:`, `with open(...) as f:`, `with contextlib.closing(x):`. Not `try/finally`, and not a
-decorator built from a context manager where the hold time matters (PS-CONC-21).
+decorator built from a context manager where the hold time matters (PS-CONC-20).
 
 **Why:** the context manager puts the acquisition and the release in one place where they cannot
 drift apart, and it makes the pair impossible to forget at a new call site. Hand-written

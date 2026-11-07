@@ -100,7 +100,7 @@ changed, and what it is now; an ID it does not list is unchanged.
 | `BV-ERR-11` | removed — RS-ERR-02 states it |
 | `BV-ERR-12` | `BV-MIG-02` |
 | `BV-ERR-13` | `BV-ERR-01` |
-| `BV-ERR-14` | removed — RS-CLI-24 states it: the errors chapter cites it, with LogPlugin as the subscriber |
+| `BV-ERR-14` | removed — RS-OUT-06 states it: the errors chapter cites it, with LogPlugin as the subscriber |
 | `BV-ERR-15` | `BV-ERR-05` |
 | `BV-ERR-16` | `BV-ERR-09` |
 | `BV-ERR-17` | `BV-ERR-10` |

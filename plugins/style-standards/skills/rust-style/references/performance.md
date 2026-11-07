@@ -39,29 +39,28 @@ follow.
 
 - **I/O and syscalls**
   - RS-PERF-19 [M] Always buffer
-  - RS-PERF-20 [M] Flush explicitly before exiting, and check the result
-  - RS-PERF-21 [M] Read in large chunks, never byte-at-a-time
-  - RS-PERF-22 [S] Treat memory maps as a per-file runtime choice, not a default
-  - RS-PERF-23 [M] Work on `&[u8]` and validate UTF-8 only where required
-  - RS-PERF-24 [S] Batch syscalls
+  - RS-PERF-20 [M] Read in large chunks, never byte-at-a-time
+  - RS-PERF-21 [S] Treat memory maps as a per-file runtime choice, not a default
+  - RS-PERF-22 [M] Work on `&[u8]` and validate UTF-8 only where required
+  - RS-PERF-23 [S] Batch syscalls
 
 - **Codegen and the compiler**
-  - RS-PERF-25 [M] Use `#[inline]` for small cross-crate non-generic functions only
-  - RS-PERF-26 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
-  - RS-PERF-27 [S] Do not assume static dispatch beats dynamic
-  - RS-PERF-28 [M] Hoist loop invariants the compiler cannot
-  - RS-PERF-29 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
-  - RS-PERF-30 [M] Write SIMD only beside a scalar fallback and a differential test
+  - RS-PERF-24 [M] Use `#[inline]` for small cross-crate non-generic functions only
+  - RS-PERF-25 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
+  - RS-PERF-26 [S] Do not assume static dispatch beats dynamic
+  - RS-PERF-27 [M] Hoist loop invariants the compiler cannot
+  - RS-PERF-28 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
+  - RS-PERF-29 [M] Write SIMD only beside a scalar fallback and a differential test
 
 - **Benchmarking**
-  - RS-PERF-31 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
-  - RS-PERF-32 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
-  - RS-PERF-33 [M] Wrap inputs and results in `black_box`
-  - RS-PERF-34 [M] Benchmark realistic sizes
-  - RS-PERF-35 [S] Report throughput rather than latency for data-processing code
-  - RS-PERF-36 [M] Pin CI benchmark comparisons to one machine class, or distrust them
-  - RS-PERF-37 [S] Track binary size and compile time alongside runtime
-  - RS-PERF-38 [S] Record every optimization attempt, including the failures
+  - RS-PERF-30 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
+  - RS-PERF-31 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
+  - RS-PERF-32 [M] Wrap inputs and results in `black_box`
+  - RS-PERF-33 [M] Benchmark realistic sizes
+  - RS-PERF-34 [S] Report throughput rather than latency for data-processing code
+  - RS-PERF-35 [M] Pin CI benchmark comparisons to one machine class, or distrust them
+  - RS-PERF-36 [S] Track binary size and compile time alongside runtime
+  - RS-PERF-37 [S] Record every optimization attempt, including the failures
 
 - Decided by tools
 
@@ -534,30 +533,7 @@ pub fn print_all(lines: &[String]) -> io::Result<()> {
 }
 ```
 
-### RS-PERF-20 [M] Flush explicitly before exiting, and check the result
-
-`BufWriter` flushes on drop but swallows the error (RS-ERR-33).
-
-**Why:** buffering means the last write is still in memory when `main` returns, and `Drop` cannot
-report a failure. A full disk or a closed pipe silently truncates the output — the failure
-introduced by the optimization in RS-PERF-19.
-
-**Check:** is there an explicit `flush()` whose `Result` is handled before exit?
-
-```rust
-// verified
-use std::io::{self, Write};
-
-/// The flush is explicit and its result is propagated, not dropped by `Drop`.
-///
-/// # Errors
-/// Returns the flush error if the final block cannot be written.
-pub fn finish(mut sink: impl Write) -> io::Result<()> {
-    sink.flush()
-}
-```
-
-### RS-PERF-21 [M] Read in large chunks, never byte-at-a-time
+### RS-PERF-20 [M] Read in large chunks, never byte-at-a-time
 
 Prefer reading in large chunks over byte-at-a-time. `read_until`, `read_to_end`, and
 `fill_buf`/`consume` give you the bytes without a syscall per byte, and `skip_until` passes over
@@ -587,7 +563,7 @@ pub fn count_lines(mut source: impl BufRead) -> io::Result<usize> {
 }
 ```
 
-### RS-PERF-22 [S] Treat memory maps as a per-file runtime choice, not a default
+### RS-PERF-21 [S] Treat memory maps as a per-file runtime choice, not a default
 
 Memory maps are not automatically faster. They win for large files read repeatedly and lose for
 small files, for pipes, and for network filesystems — and they introduce SIGBUS risk if the file is
@@ -601,7 +577,7 @@ from an error into a process death.
 **Check:** is `mmap` used unconditionally? If so, measure it against buffered reads on the
 small-file case.
 
-### RS-PERF-23 [M] Work on `&[u8]` and validate UTF-8 only where required
+### RS-PERF-22 [M] Work on `&[u8]` and validate UTF-8 only where required
 
 `memchr`, `memmem`, and `bstr` operate on bytes at SIMD speed; forcing every input through
 `str::from_utf8` costs a pass over the data and rejects legitimate files.
@@ -621,7 +597,7 @@ pub fn first_field(line: &[u8]) -> &[u8] {
 }
 ```
 
-### RS-PERF-24 [S] Batch syscalls
+### RS-PERF-23 [S] Batch syscalls
 
 `write_vectored` for scattered buffers, one `stat` instead of `exists()` followed by `metadata()`,
 and directory traversal via a crate (`ignore`, `walkdir`) that already minimizes them. Where
@@ -636,7 +612,7 @@ optimization carefully.
 
 ## Codegen and the compiler
 
-### RS-PERF-25 [M] Use `#[inline]` for small cross-crate non-generic functions only
+### RS-PERF-24 [M] Use `#[inline]` for small cross-crate non-generic functions only
 
 `#[inline]` is for small functions that must inline *across crate boundaries* — non-generic
 functions in a library. Generic functions are already available for inlining. Applying it everywhere
@@ -649,7 +625,7 @@ boundary, which is the one thing the attribute is for.
 **Check:** is `#[inline]` on a generic function or a private one? Both are usually noise. For the
 rest, is the function non-generic, small, and hot in another crate?
 
-### RS-PERF-26 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
+### RS-PERF-25 [S] Keep the generic wrapper thin and put the work in a non-generic inner fn
 
 Monomorphization is a size/speed trade. A large generic function instantiated for twenty types is
 twenty copies; extract the type-independent body into a non-generic inner function and keep the
@@ -678,7 +654,7 @@ pub fn read_config(path: impl AsRef<Path>) -> std::io::Result<String> {
 }
 ```
 
-### RS-PERF-27 [S] Do not assume static dispatch beats dynamic
+### RS-PERF-26 [S] Do not assume static dispatch beats dynamic
 
 Static dispatch is not automatically faster than dynamic: a vtable call is a predictable indirect
 branch, while twenty monomorphized copies can evict the i-cache. Measure before converting `dyn` to
@@ -691,7 +667,7 @@ the whole program.
 **Check:** was a `dyn` to generic conversion justified by a benchmark, or by the belief that static
 is faster?
 
-### RS-PERF-28 [M] Hoist loop invariants the compiler cannot
+### RS-PERF-27 [M] Hoist loop invariants the compiler cannot
 
 Hoist invariants out of loops explicitly when the compiler cannot: a regex compiled once outside the
 loop rather than per iteration, a `LazyLock` for an expensive computed global, a `const` for data
@@ -717,7 +693,7 @@ pub fn field_count(lines: &[String]) -> usize {
 }
 ```
 
-### RS-PERF-29 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
+### RS-PERF-28 [S] Avoid `Rc`/`Arc` clone traffic in hot loops
 
 Atomic increments are cheap but not free, and contention on a shared refcount across threads is
 measurable.
@@ -728,7 +704,7 @@ several threads cloning the same `Arc`, that line ping-pongs between cores and c
 **Check:** for hot paths, could the value be borrowed instead of cloned? A clone per iteration
 usually can be hoisted (RS-OWN-09).
 
-### RS-PERF-30 [M] Write SIMD only beside a scalar fallback and a differential test
+### RS-PERF-29 [M] Write SIMD only beside a scalar fallback and a differential test
 
 Before hand-writing it, check whether `memchr`, `bstr`, or `regex-automata` already does it for you
 — they almost certainly do it better. Hand-written SIMD keeps the scalar version as its reference
@@ -744,7 +720,7 @@ path has no oracle; the comparison is RS-TEST-22's differential test.
 
 ## Benchmarking
 
-### RS-PERF-31 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
+### RS-PERF-30 [M] Benchmark with `criterion` or `divan`, not `Instant` in a loop
 
 Benchmark with `criterion` or `divan`, not `std::time::Instant` in a loop. They handle warmup,
 outlier detection, and statistical comparison — without which small differences are
@@ -757,7 +733,7 @@ loops are noise.
 **Check:** does the benchmark report a distribution or a single number? A single number is not a
 measurement.
 
-### RS-PERF-32 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
+### RS-PERF-31 [M] Keep benchmarks in `benches/` with fixed inputs, built in CI
 
 Keep benchmarks in `benches/` with fixed inputs, checked in or generated from a seed, so results are
 comparable across commits. Build them in CI even if you do not time them there.
@@ -769,7 +745,7 @@ out of a default `cargo test`, so uncompiled they rot until the day you need one
 **Check:** are the benchmark inputs checked in or seeded (RS-TEST-09), and does CI run
 `cargo build --benches`?
 
-### RS-PERF-33 [M] Wrap inputs and results in `black_box`
+### RS-PERF-32 [M] Wrap inputs and results in `black_box`
 
 Use `std::hint::black_box` around inputs and results so the optimizer cannot delete the work the
 benchmark times. A benchmark that got 1000× faster deleted itself.
@@ -796,7 +772,7 @@ pub fn bench_once(input: &[u8]) -> u32 {
 }
 ```
 
-### RS-PERF-34 [M] Benchmark realistic sizes
+### RS-PERF-33 [M] Benchmark realistic sizes
 
 Microbenchmarks on ten-element inputs measure function-call overhead; the algorithmic difference
 only appears at scale.
@@ -808,7 +784,7 @@ point is often well above the size people benchmark.
 **Check:** does the benchmark sweep several sizes? A single small size cannot show an asymptotic
 difference.
 
-### RS-PERF-35 [S] Report throughput rather than latency for data-processing code
+### RS-PERF-34 [S] Report throughput rather than latency for data-processing code
 
 Report throughput (`Throughput::Bytes`) rather than latency for data-processing code, so results are
 comparable across input sizes.
@@ -818,7 +794,7 @@ the history. Bytes per second normalizes that and makes the number meaningful on
 
 **Check:** are the benchmark results expressed in a unit that survives an input change?
 
-### RS-PERF-36 [M] Pin CI benchmark comparisons to one machine class, or distrust them
+### RS-PERF-35 [M] Pin CI benchmark comparisons to one machine class, or distrust them
 
 Pin CI benchmark comparisons to the same machine class, or do not trust them. Cross-runner
 comparisons are noise, and treating them as signal produces a permanent stream of false regressions.
@@ -830,7 +806,7 @@ it is right.
 **Check:** does the benchmark job pin the runner type, and does it compare against a baseline from
 the same class?
 
-### RS-PERF-37 [S] Track binary size and compile time alongside runtime
+### RS-PERF-36 [S] Track binary size and compile time alongside runtime
 
 A CLI's users notice a 40 MB binary and a five-minute build as surely as a slow run.
 
@@ -840,7 +816,7 @@ the same dashboard.
 
 **Check:** is release binary size recorded per release? A number nobody tracks only grows.
 
-### RS-PERF-38 [S] Record every optimization attempt, including the failures
+### RS-PERF-37 [S] Record every optimization attempt, including the failures
 
 Record the result of every optimization attempt, including the ones that did not work, in the commit
 message or a comment. The next person will otherwise try the same thing.
@@ -860,7 +836,7 @@ A tool settles these on its own; the shipped configuration enables each at the l
 |---|---|---|---|
 | clippy | `map_entry` | warn | `contains_key` then `insert` — one lookup with `entry()` — listed because one lookup with `entry()` is the rule a revision demoted to it |
 | clippy | `needless_range_loop` | warn | a range loop that only indexes — iterate, and the bounds checks go — listed because an iterator in place of indices is the rule a revision demoted to it |
-| clippy | `inline_always` | warn | `#[inline(always)]` — `#[expect]` it, citing the benchmark that justifies it — listed because `#[inline]` only with a benchmark (RS-PERF-25) is the rule a revision demoted to it |
+| clippy | `inline_always` | warn | `#[inline(always)]` — `#[expect]` it, citing the benchmark that justifies it — listed because `#[inline]` only with a benchmark (RS-PERF-24) is the rule a revision demoted to it |
 | clippy | `cast_possible_truncation` | warn | an `as` cast that can drop high bits |
 | clippy | `cast_sign_loss` | warn | an `as` cast from signed to unsigned |
 | clippy | `cast_precision_loss` | warn | an `as` cast to a float that cannot hold every value |

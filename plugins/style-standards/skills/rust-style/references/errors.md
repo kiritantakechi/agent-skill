@@ -1,13 +1,14 @@
-# Errors: `Result`, Panics, and Exit Codes
+# Errors: `Result`, Panics, and Cleanup
 
 Scope: when a failure is a `Result` and when it is a panic, how a library's error type is shaped and
 what it must carry, how errors propagate and accumulate context, the panic rules including
-`panic = "abort"`, how a binary reports failure and chooses an exit code, how a resource is released
-on every path out (RAII, and a `Drop` that must not fail), and the shape of a function body around a
-failure (`match` over a chain, a bounded recursion). A panic at the FFI boundary is RS-UNSAFE-24.
-Naming of error types is in the naming chapter (RS-NAME-30); the `# Errors` and `# Panics` rustdoc
-sections are in the documentation chapter; the deny rows that mechanically enforce this chapter are
-in the build chapter's table.
+`panic = "abort"`, what a binary uses for its errors and how a run over independent inputs reports
+every failure, how a resource is released on every path out (RAII, and a `Drop` that must not fail),
+and the shape of a function body around a failure (`match` over a chain, a bounded recursion). A
+panic at the FFI boundary is RS-UNSAFE-24. Naming of error types is in the naming chapter
+(RS-NAME-30); the `# Errors` and `# Panics` rustdoc sections are in the documentation chapter; the
+deny rows that mechanically enforce this chapter are in the build chapter's table. How a failure is
+printed and which exit code a run chooses are in the output chapter.
 
 The dividing line that organizes everything here: **libraries** must hand callers structured,
 matchable, non-lossy errors, because the caller knows things the library does not. **Binaries** are
@@ -50,21 +51,18 @@ and an exit code.
   - RS-ERR-25 [M] Choose `assert!` or `debug_assert!` by what a release build relies on
   - RS-ERR-26 [M] Do not choose `panic = "abort"` on a library's behalf
 
-- **Binaries, reporting, exit codes**
+- **Binaries and reports**
   - RS-ERR-27 [S] Use `anyhow` inside binaries and only there
-  - RS-ERR-28 [S] Return `ExitCode` and format the error yourself
-  - RS-ERR-29 [M] Assign exit codes by convention, and document them
-  - RS-ERR-30 [S] Print the cause chain, not a backtrace
-  - RS-ERR-31 [M] Report every failure of a run over independent inputs, and finish the run
+  - RS-ERR-28 [M] Report every failure of a run over independent inputs, and finish the run
 
 - **Cleanup**
-  - RS-ERR-32 [M] Acquire in the constructor, release in `Drop`
-  - RS-ERR-33 [M] Make `Drop` infallible and offer an explicit `finish`
+  - RS-ERR-29 [M] Acquire in the constructor, release in `Drop`
+  - RS-ERR-30 [M] Make `Drop` infallible and offer an explicit `finish`
 
 - **The shape of a function**
-  - RS-ERR-34 [M] Write a `match`, not an `if`/`else if` chain, on one value
-  - RS-ERR-35 [M!] Use an explicit worklist where recursion depth is unbounded
-  - RS-ERR-36 [M] State a branch condition as the invariant that holds
+  - RS-ERR-31 [M] Write a `match`, not an `if`/`else if` chain, on one value
+  - RS-ERR-32 [M!] Use an explicit worklist where recursion depth is unbounded
+  - RS-ERR-33 [M] State a branch condition as the invariant that holds
 
 ---
 
@@ -616,7 +614,7 @@ harnesses, FFI wrappers (RS-UNSAFE-24), and worker pools that isolate task failu
 **Check:** `rg -n 'panic = "abort"' -g '*.toml'` finds the setting; each hit outside the top-level
 binary's profile is the finding.
 
-## Binaries, reporting, exit codes
+## Binaries and reports
 
 ### RS-ERR-27 [S] Use `anyhow` inside binaries and only there
 
@@ -628,63 +626,7 @@ a defect in a library for exactly the reason it is right here (RS-ERR-13).
 
 **Check:** is `anyhow` in the library crate's `[dependencies]`? It should be in the binary's.
 
-### RS-ERR-28 [S] Return `ExitCode` and format the error yourself
-
-Rather than `fn main() -> Result<…>`, which prints the `Debug` representation.
-
-**Why:** `Debug` output is developer-facing and leaks the error's internal structure into a
-user-facing channel: `Error: Read { path: "/etc/x", source: Os { code: 2, kind: NotFound, … } }`.
-Formatting it yourself gives you the cause chain in prose, and control over the exit code.
-
-**Check:** does the program's failure output look like something you would show a user?
-
-### RS-ERR-29 [M] Assign exit codes by convention, and document them
-
-`0` success, `1` a handled failure, `2` a usage error. Search-style tools follow grep: `0` match
-found, `1` no match, `2` error.
-
-**Why:** scripts branch on the exit code and cannot branch on prose. Choosing them casually — or
-returning `1` for a usage error — breaks `set -e` pipelines in ways that are very hard to debug from
-the other side.
-
-**Check:** are the codes documented in `--help` and the man page, and covered by an end-to-end test
-(RS-TEST-29)?
-
-```rust
-// verified
-use std::process::ExitCode;
-
-/// Distinct exit codes let a script tell the failure modes apart.
-#[must_use]
-pub fn code_for(outcome: Result<u32, Failure>) -> ExitCode {
-    match outcome {
-        Ok(_) => ExitCode::SUCCESS,
-        Err(Failure::Usage) => ExitCode::from(2),
-        Err(Failure::NotFound) => ExitCode::from(1),
-    }
-}
-
-/// Why the run did not succeed.
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-pub enum Failure {
-    #[error("bad usage")]
-    Usage,
-    #[error("nothing matched")]
-    NotFound,
-}
-```
-
-### RS-ERR-30 [S] Print the cause chain, not a backtrace
-
-Let `RUST_BACKTRACE=1` add the rest.
-
-**Why:** a backtrace on every failure trains users to ignore the output, and it exposes internal
-structure that is not part of your contract. The environment variable is a convention users already
-know, so opting in costs them nothing.
-
-**Check:** does a routine failure — a missing file, a bad flag — produce more than a few lines?
-
-### RS-ERR-31 [M] Report every failure of a run over independent inputs, and finish the run
+### RS-ERR-28 [M] Report every failure of a run over independent inputs, and finish the run
 
 A run over inputs that do not depend on each other — the files of a traversal, the entries of a
 configuration, the fields of a form — attempts each one and reports each failure, on stderr in a
@@ -726,7 +668,7 @@ pub fn run_all(inputs: &[Result<u32, String>]) -> ExitCode {
 
 ## Cleanup
 
-### RS-ERR-32 [M] Acquire in the constructor, release in `Drop`
+### RS-ERR-29 [M] Acquire in the constructor, release in `Drop`
 
 **Why:** RAII makes the release unforgettable, including on early return and on panic. Exposing
 `open`/`close` pairs means every caller must get every path right, and the one they miss is the
@@ -735,7 +677,7 @@ error path they never tested.
 **Check:** does the API have a `close`, `release`, `unlock`, or `end` that a caller must remember to
 call? That is a guard type.
 
-### RS-ERR-33 [M] Make `Drop` infallible and offer an explicit `finish`
+### RS-ERR-30 [M] Make `Drop` infallible and offer an explicit `finish`
 
 Offer `fn finish(self) -> Result<T, Error>` for the path that can fail, and let `Drop` be the
 best-effort fallback for the path that forgot.
@@ -765,7 +707,7 @@ pub fn write_all(mut sink: impl Write, lines: &[String]) -> io::Result<()> {
 
 ## The shape of a function
 
-### RS-ERR-34 [M] Write a `match`, not an `if`/`else if` chain, on one value
+### RS-ERR-31 [M] Write a `match`, not an `if`/`else if` chain, on one value
 
 **Why:** `match` gives exhaustiveness checking, so adding an enum variant produces a compile error
 instead of silently falling through to the `else`. It also reads as a table rather than as a
@@ -774,7 +716,7 @@ sequence of tests, which is what it actually is.
 **Check:** do two or more `else if` arms test the same subject? If the subject is an enum, this is a
 missing exhaustiveness check, not a style preference.
 
-### RS-ERR-35 [M!] Use an explicit worklist where recursion depth is unbounded
+### RS-ERR-32 [M!] Use an explicit worklist where recursion depth is unbounded
 
 A recursion whose depth a constant bounds — an expression AST from your own builder, a directory
 walk with a depth cap — asserts that constant at entry and stays recursive.
@@ -788,7 +730,7 @@ still functional in spirit, is bounded by the heap, and can be depth-limited wit
 **Check:** for each recursive function, what bounds the depth? If the answer is "the input", it
 needs a worklist or an asserted cap.
 
-### RS-ERR-36 [M] State a branch condition as the invariant that holds
+### RS-ERR-33 [M] State a branch condition as the invariant that holds
 
 `if index < len { … } else { … }`, not `if index >= len { … } else { … }`, and not
 `if !found { … } else { … }`. An early-return guard is exempt: `if index >= len { return None; }`

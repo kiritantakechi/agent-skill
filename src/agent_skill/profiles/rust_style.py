@@ -143,7 +143,10 @@ PROFILE = Profile(
             # A grab-bag module, declared inline and from a file.
             "RS-NAME-04": ("pub mod utils;", "mod helpers {"),
             "RS-DATA-07": ("pub fn items(&self) -> &Vec<Item> {",),
-            "RS-API-47": ("pub fn set_limit(&mut self, limit: usize) -> &mut Self {",),
+            "RS-OUT-02": ('    print!("{name}: ");',),
+            "RS-OUT-03": ("        std::process::exit(2);",),
+            "RS-OUT-07": ("    env_logger::init();",),
+            "RS-API-44": ("pub fn set_limit(&mut self, limit: usize) -> &mut Self {",),
             "RS-BUILD-13": ('serde = { version = "1", optional = true }',),
             "RS-BUILD-46": (
                 "- uses: actions/checkout@v7",
@@ -175,7 +178,7 @@ PROFILE = Profile(
                 + 'peer before the handshake finished");',
             ),
             "RS-OWN-29": ("let shared: Arc<String> = Arc::new(name);",),
-            "RS-PERF-21": ("reader.read(&mut [0u8; 1])?;",),
+            "RS-PERF-20": ("reader.read(&mut [0u8; 1])?;",),
             "RS-TEST-18": ('let path = Path::new("/tmp/out.txt");',),
             "RS-TRAIT-25": (
                 "default fn describe(&self) -> String {",
@@ -206,7 +209,7 @@ PROFILE = Profile(
     # fields away and nothing re-measures.
     not_decisive=keyed(
         {
-            "RS-API-47": NotDecisive(
+            "RS-API-44": NotDecisive(
                 "fn set_",
                 "the span finds every `set_` method; whether the type is a builder "
                 "decides, and an ordinary struct's setter is not this rule's subject",
@@ -221,6 +224,11 @@ PROFILE = Profile(
                 "the span finds every `get_`; whether the method returns `Option` or "
                 "`Result`, or is the `_unchecked`/`_mut` sibling of one that does, "
                 "decides",
+            ),
+            "RS-OUT-03": NotDecisive(
+                "each hit in library code",
+                "the pattern finds every print and exit; whether the file is library "
+                "code rather than `main`, a test or an example decides",
             ),
             "RS-PERF-07": NotDecisive(
                 "Vec::new",

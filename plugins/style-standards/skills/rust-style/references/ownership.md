@@ -3,7 +3,7 @@
 Scope: who owns what and for how long. Choosing between `&T`, `&mut T`, and `T` in a signature;
 clone discipline and `Cow`; lifetimes, elision, and when a type should not have one; smart pointers
 and interior mutability; the guard types and `Drop` details around them. Releasing a resource on
-every path (RAII) and a `Drop` that must not fail are the errors chapter's (RS-ERR-32, RS-ERR-33).
+every path (RAII) and a `Drop` that must not fail are the errors chapter's (RS-ERR-29, RS-ERR-30).
 The *allocation cost* of these choices is in the performance chapter; the *style* of the resulting
 function bodies is in the functional chapter; `Send`/`Sync` and lock discipline are in the
 concurrency chapter.
@@ -442,7 +442,7 @@ across threads, `OnceLock`/`LazyLock` for one-time initialization.
 ### RS-OWN-25 [M] Keep `RefCell` borrows short and out of `Drop`
 
 **Why:** a `RefCell` borrow conflict is a panic rather than a compile error, and a panic inside
-`Drop` during unwinding aborts the process (RS-ERR-33). Holding a `Ref` across a call that can
+`Drop` during unwinding aborts the process (RS-ERR-30). Holding a `Ref` across a call that can
 re-enter is the classic way to hit it.
 
 **Check:** does any `borrow()`/`borrow_mut()` result live across a function call? Bind it in the

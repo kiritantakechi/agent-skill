@@ -46,7 +46,7 @@ invalidate the work of reading the next.
    catch the bug this change fixes? (`RS-TEST`)
 8. **Symmetry.** Unpaired operations, sibling functions disagreeing on argument order, error
    variants with uneven context, two mechanisms for one concept, a branch that exists for one input.
-   (RS-API-55 … RS-API-59, RS-NAME-24, RS-MOD-36 … RS-MOD-38)
+   (RS-API-52 … RS-API-56, RS-NAME-24, RS-MOD-36 … RS-MOD-38)
 9. **Manifest and lints.** New dependencies justified? Features additive? Lints still enforced?
    (`RS-BUILD`)
 

@@ -35,24 +35,23 @@ free-threaded build. Where a rule depends on the build, the block probes it rath
   - PS-CONC-16 [M] Put a lock around a memo whose miss is expensive or has an effect
   - PS-CONC-17 [M] Create every `ContextVar` at module scope
   - PS-CONC-18 [M] Never rely on a thread inheriting context; the default differs by build
-- **Streams, randomness, and hold times**
-  - PS-CONC-19 [M] Write each record to a shared text stream in one call, never with `print`
-  - PS-CONC-20 [M] Give each thread its own `random.Random`
-  - PS-CONC-21 [M] Hold a context in a generator with `with`, not with a decorator
-  - PS-CONC-22 [M] Never hold a lock across a call you do not control
+- **Randomness and hold times**
+  - PS-CONC-19 [M] Give each thread its own `random.Random`
+  - PS-CONC-20 [M] Hold a context in a generator with `with`, not with a decorator
+  - PS-CONC-21 [M] Never hold a lock across a call you do not control
 - **Files shared with other processes**
-  - PS-CONC-23 [M] Replace a file other processes read by renaming a finished temporary over it
+  - PS-CONC-22 [M] Replace a file other processes read by renaming a finished temporary over it
 - **Starting and owning tasks**
-  - PS-CONC-24 [M] Enter with `asyncio.run`, and configure with `loop_factory`
-  - PS-CONC-25 [M] Start every task inside a `TaskGroup`
+  - PS-CONC-23 [M] Enter with `asyncio.run`, and configure with `loop_factory`
+  - PS-CONC-24 [M] Start every task inside a `TaskGroup`
 - **Cancellation and timeouts**
-  - PS-CONC-26 [M] Never swallow `CancelledError`
-  - PS-CONC-27 [M] Leave no state half-updated across an `await`
-  - PS-CONC-28 [M] Shield only what must not be interrupted, and bound it
-  - PS-CONC-29 [M] Give every wait a timeout, with `asyncio.timeout`
+  - PS-CONC-25 [M] Never swallow `CancelledError`
+  - PS-CONC-26 [M] Leave no state half-updated across an `await`
+  - PS-CONC-27 [M] Shield only what must not be interrupted, and bound it
+  - PS-CONC-28 [M] Give every wait a timeout, with `asyncio.timeout`
 - **Blocking and colour**
-  - PS-CONC-30 [M] Never run blocking work on the event loop; move it with `asyncio.to_thread`
-  - PS-CONC-31 [M] Do not mark a function `async` unless it awaits
+  - PS-CONC-29 [M] Never run blocking work on the event loop; move it with `asyncio.to_thread`
+  - PS-CONC-30 [M] Do not mark a function `async` unless it awaits
 
 ---
 
@@ -772,23 +771,9 @@ assert seen == ["abc"]
 assert request_id.get() == "-", "leaving the block reset the variable"
 ```
 
-## Streams, randomness, and hold times
+## Randomness and hold times
 
-### PS-CONC-19 [M] Write each record to a shared text stream in one call, never with `print`
-
-`open()` in text mode returns a `TextIOWrapper`, and so do `sys.stdout` and `sys.stderr`, which
-every thread that prints already shares. `print` is not one call to it: it writes each argument,
-each separator and then `end` separately, so another thread's output lands inside the line. Send a
-record as one `write` of the whole line, or through `logging`, whose handlers lock around each emit.
-
-**Why:** the `io` docs call `TextIOWrapper` "not thread-safe" and promise nothing finer. On `3.15t`
-eight threads printing 20,000 lines each garbled thousands of the 160,000, while the same lines sent
-as single `write` calls arrived whole; under the GIL, `print` garbled a handful.
-
-**Check:** `rg -n '\bprint\(|\.write\(' src/` inside any thread target. A `print` is the finding,
-and so is a `write` that sends part of a record.
-
-### PS-CONC-20 [M] Give each thread its own `random.Random`
+### PS-CONC-19 [M] Give each thread its own `random.Random`
 
 The module-level functions all share one instance. Seed each thread's from the operating system, as
 `random.Random()` does with no argument: one fixed seed would give every thread the same stream.
@@ -834,7 +819,7 @@ for thread in threads:
 assert len(set(draws)) == 4, "four threads, four independent streams"
 ```
 
-### PS-CONC-21 [M] Hold a context in a generator with `with`, not with a decorator
+### PS-CONC-20 [M] Hold a context in a generator with `with`, not with a decorator
 
 In 3.15 a `@contextmanager`-derived decorator applied to a generator function keeps the context open
 until the generator is exhausted. Previously it closed when the generator object was created. The
@@ -882,13 +867,13 @@ assert list(rows()) == [1, 2, 3]
 assert held == ["in", "out"]
 ```
 
-### PS-CONC-22 [M] Never hold a lock across a call you do not control
+### PS-CONC-21 [M] Never hold a lock across a call you do not control
 
 A callback, a plugin hook, an I/O call, or anything that can block. Compute under the lock, call
 outside it.
 
 **Why:** a lock held across arbitrary code is a lock whose hold time you cannot bound, and one whose
-acquisition order you cannot see: the shape of every lock-ordering deadlock. Under PS-CONC-21, a
+acquisition order you cannot see: the shape of every lock-ordering deadlock. Under PS-CONC-20, a
 decorator whose hold time silently grew now spans calls it never used to.
 
 **Check:** read every `with <lock>:` body for a call that is not a local function or a container
@@ -897,7 +882,7 @@ case say so in a comment.
 
 ## Files shared with other processes
 
-### PS-CONC-23 [M] Replace a file other processes read by renaming a finished temporary over it
+### PS-CONC-22 [M] Replace a file other processes read by renaming a finished temporary over it
 
 Write the new contents to a temporary file in the same directory, flush and `fsync` it, then
 `Path.replace` it over the target; remove the temporary if anything fails. This holds for a file
@@ -948,7 +933,7 @@ with tempfile.TemporaryDirectory() as tmp:
 
 ## Starting and owning tasks
 
-### PS-CONC-24 [M] Enter with `asyncio.run`, and configure with `loop_factory`
+### PS-CONC-23 [M] Enter with `asyncio.run`, and configure with `loop_factory`
 
 `asyncio.run(main())`, or `asyncio.Runner` when you need several entries into one loop. Where the
 loop needs configuring, `loop_factory` is the supported hook and is what survives 3.16.
@@ -974,7 +959,7 @@ async def main() -> str:
 assert asyncio.run(main(), loop_factory=asyncio.EventLoop) == "done"
 ```
 
-### PS-CONC-25 [M] Start every task inside a `TaskGroup`
+### PS-CONC-24 [M] Start every task inside a `TaskGroup`
 
 `async with asyncio.TaskGroup() as tg: tg.create_task(...)`.
 
@@ -1007,7 +992,7 @@ assert asyncio.run(main()) == [0, 2, 4]
 
 ## Cancellation and timeouts
 
-### PS-CONC-26 [M] Never swallow `CancelledError`
+### PS-CONC-25 [M] Never swallow `CancelledError`
 
 Catch it to clean up, then re-raise. It inherits from `BaseException` precisely so that
 `except Exception` will not take it.
@@ -1019,7 +1004,7 @@ prevents the process from exiting cleanly.
 **Check:** `rg -n 'except.*CancelledError' src/` — every handler must end in `raise`. Ruff `ASYNC`
 and `BLE001` catch the `except Exception` variants that would also take it on older code.
 
-### PS-CONC-27 [M] Leave no state half-updated across an `await`
+### PS-CONC-26 [M] Leave no state half-updated across an `await`
 
 Every `await` is a cancellation point: between the line before it and the line after it, the task
 may be cancelled and never resume. Make the pair atomic with a context manager, or arrange that the
@@ -1031,7 +1016,7 @@ can leak.
 
 **Check:** every `await` inside a `try`, a lock, or between two writes to the same object.
 
-### PS-CONC-28 [M] Shield only what must not be interrupted, and bound it
+### PS-CONC-27 [M] Shield only what must not be interrupted, and bound it
 
 `asyncio.shield` around a commit that must complete. Never around a whole operation. Shield the
 smallest thing whose partial completion would be unrecoverable: writing the commit record, not
@@ -1043,7 +1028,7 @@ A shielded region with no timeout of its own is a task that cannot be stopped by
 
 **Check:** every `shield`. Name what would break if it were interrupted; if you cannot, remove it.
 
-### PS-CONC-29 [M] Give every wait a timeout, with `asyncio.timeout`
+### PS-CONC-28 [M] Give every wait a timeout, with `asyncio.timeout`
 
 `async with asyncio.timeout(5):`. Not `wait_for`, which is the older spelling.
 
@@ -1077,7 +1062,7 @@ assert asyncio.run(main()) == "bounded"
 
 ## Blocking and colour
 
-### PS-CONC-30 [M] Never run blocking work on the event loop; move it with `asyncio.to_thread`
+### PS-CONC-29 [M] Never run blocking work on the event loop; move it with `asyncio.to_thread`
 
 No `requests.get`, no `open(...).read()` on a large file, no `subprocess.run`, no `sleep`. Move the
 call with `await asyncio.to_thread(blocking_call, arg)`, not a hand-made executor unless you need to
@@ -1095,7 +1080,7 @@ through `ASYNC222` for subprocesses, and `ASYNC250` for `input`; each hit needs 
 explicit executor. For the stretch with no call to name, read each coroutine for a loop or
 comprehension over a large collection with no `await` inside it.
 
-### PS-CONC-31 [M] Do not mark a function `async` unless it awaits
+### PS-CONC-30 [M] Do not mark a function `async` unless it awaits
 
 An `async def` with no `await` is a synchronous function that forces every caller into a coroutine.
 

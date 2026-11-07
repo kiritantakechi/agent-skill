@@ -100,13 +100,15 @@ PROFILE = Profile(
                 "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
             ),
             "PS-API-06": ("from acmewidget._internal import helper",),
-            "PS-CONC-24": ("loop = asyncio.new_event_loop()",),
+            "PS-CONC-23": ("loop = asyncio.new_event_loop()",),
             "PS-ASYNC-01": ("loop = asyncio.get_event_loop()",),
-            "PS-CONC-25": ("task = asyncio.create_task(worker())",),
+            "PS-CONC-24": ("task = asyncio.create_task(worker())",),
             # The pattern carried a stray space for as long as it
             # shipped, and matched nothing; this is the line it was
             # written to find.
             "PS-MIG-05": ("if json.__version__ < (2, 0):",),
+            "PS-OUT-16": ("        sys.exit(2)",),
+            "PS-OUT-18": ('RED = "\\x1b[31m"',),
             "PS-TYPE-17": ("    @functools.singledispatchmethod",),
         }
     ),
@@ -116,7 +118,7 @@ PROFILE = Profile(
     unproven=rules(
         "PS-MOD-09",
         "PS-ASYNC-02",
-        "PS-CONC-26",
+        "PS-CONC-25",
         "PS-ASYNC-04",
         "PS-ASYNC-05",
         "PS-ASYNC-06",
@@ -137,9 +139,9 @@ PROFILE = Profile(
         "PS-CONC-14",
         "PS-CONC-17",
         "PS-CONC-18",
+        "PS-OUT-15",
         "PS-CONC-19",
         "PS-CONC-20",
-        "PS-CONC-21",
         "PS-DATA-01",
         "PS-DATA-02",
         "PS-DATA-03",
@@ -160,9 +162,8 @@ PROFILE = Profile(
         "PS-OUT-07",
         "PS-OUT-10",
         "PS-OUT-12",
-        "PS-OUT-13",
-        "PS-OUT-15",
-        "PS-OUT-18",
+        "PS-OUT-14",
+        "PS-OUT-22",
         "PS-PERF-02",
         "PS-PERF-06",
         "PS-PERF-07",
@@ -217,7 +218,22 @@ PROFILE = Profile(
                 "the pattern finds any indented name followed by a parenthesis, which "
                 "matches ordinary prose as readily as a docstring type",
             ),
-            "PS-CONC-25": NotDecisive(
+            "PS-OUT-14": NotDecisive(
+                "is each write part of the result",
+                "the pattern finds every write to standard output; whether the text "
+                "is the result rather than a diagnostic decides",
+            ),
+            "PS-OUT-16": NotDecisive(
+                "outside the entry point",
+                "the pattern finds every exit call; whether the file is the entry "
+                "point decides, and `main` ends the process by design",
+            ),
+            "PS-OUT-18": NotDecisive(
+                "outside the one function that decides colour",
+                "the pattern finds every escape sequence; whether it sits behind the "
+                "one function that decides colour is what the rule asks",
+            ),
+            "PS-CONC-24": NotDecisive(
                 "every hit outside a `TaskGroup`",
                 "the pattern finds every task start; being inside a `TaskGroup` is "
                 "what makes it compliant, and the pattern cannot see the block",
@@ -267,12 +283,12 @@ PROFILE = Profile(
                 "the pattern finds every thread start; what the target closes over "
                 "decides, and starting a thread is not itself a defect",
             ),
-            "PS-CONC-19": NotDecisive(
+            "PS-OUT-15": NotDecisive(
                 "inside any thread target",
                 "the pattern finds every `print`; the calling thread decides, and a "
                 "module-level print is not a hit",
             ),
-            "PS-CONC-21": NotDecisive(
+            "PS-CONC-20": NotDecisive(
                 "applied to a `def` containing `yield`",
                 "the pattern finds every `@contextmanager`; what it decorates decides, "
                 "and the `with` form the rule recommends matches too",

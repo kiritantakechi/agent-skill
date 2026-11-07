@@ -39,7 +39,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 |---|---|---|---|---|
 | `usingnamespace` | an explicit re-export, one `pub const` per name: `pub const encode = helpers.encode;`; a declaration once mixed in conditionally is `pub const x = if (cond) a else b;` | gone | 0.15 | ZS-API-02 |
 | `@Type` | `@Int`, `@Tuple`, `@Struct`, `@Union`, `@Enum`, `@Pointer`, `@Fn` or `@EnumLiteral`; a float, array, optional or error set has its own syntax | gone | 0.16 | ZS-COMPTIME-12 |
-| `@setCold` | `@branchHint(.cold)`, the branch's first statement | gone | 0.14 | ZS-ERR-28 |
+| `@setCold` | `@branchHint(.cold)`, the branch's first statement | gone | 0.14 | ZS-ERR-27 |
 | `@fence` | nothing: strengthen the orderings of the atomic operations it stood between | gone | 0.14 | ZS-MIG-01 |
 | `@setAlignStack` | `callconv(.withStackAlign(.c, n))`, evaluated at `comptime` | gone | 0.14 | ZS-INTEROP-04 |
 | `callconv(.C)` | `callconv(.c)`; `.Naked` is `.naked`, and an x86 `.Stdcall` is `.winapi` or `.{ .x86_stdcall = .{} }` | gone | 0.15 | ZS-INTEROP-04 |
@@ -53,7 +53,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `@enumFromInt` | `@fromBackingInt`, whose operand already has the backing type, so `@intCast` a wider one first; `zig fmt` rewrites it, wrapping the operand in an `@intCast` that a value of the backing type does not need | alias | 0.17 | ZS-DATA-09 |
 | `**` | `@splat(v)` with a result type: `const a: [n]T = @splat(v);` | gone | 0.17 | ZS-DATA-24 |
 | `void{}` | `{}` | gone | 0.17 | ZS-MIG-01 |
-| `errdefer \|err\|` | the body in an inner function, and at the call `inner() catch \|err\| { …; return err; }` | gone | 0.17 | ZS-ERR-15 |
+| `errdefer \|err\|` | the body in an inner function, and at the call `inner() catch \|err\| { …; return err; }` | gone | 0.17 | ZS-ERR-14 |
 | `i0` | `u0` | gone | 0.17 | ZS-MIG-01 |
 | `.linkage = .internal` | no `@export`: a symbol that is not exported is internal; `std.lang.GlobalLinkage` is `.strong` and `.weak` | gone | 0.17 | ZS-INTEROP-03 |
 | `.link_once` | `.weak` | gone | 0.17 | ZS-INTEROP-03 |
@@ -67,22 +67,22 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `.pointer.is_const` | `.pointer.attrs.@"const"`; `is_volatile`, `alignment`, `address_space` and `is_allowzero` likewise | gone | 0.17 | ZS-COMPTIME-12 |
 | `std.builtin.Type.Error` | nothing: `@typeInfo(E).error_set` is a struct whose `error_names`, a `?[]const [:0]const u8`, lists the names, and whose `null` still means `anyerror` | gone | 0.17 | ZS-COMPTIME-12 |
 | `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | gone | 0.17 | ZS-COMPTIME-12 |
-| `std.io` | `std.Io` | gone | 0.16 | ZS-CONC-06 |
-| `std.io.GenericWriter` | `*std.Io.Writer`, one non-generic struct with the buffer you give it; `AnyWriter` and `std.io.Writer` likewise | gone | 0.16 | ZS-CONC-06 |
-| `std.io.GenericReader` | `*std.Io.Reader`; `AnyReader` and `std.io.Reader` likewise | gone | 0.16 | ZS-CONC-06 |
-| `std.io.bufferedWriter` | a buffer passed to the writer's constructor: `file.writerStreaming(io, &buffer)`, then `flush()` | gone | 0.15 | ZS-CONC-04 |
-| `std.io.bufferedReader` | a buffer passed to the reader's constructor: `file.reader(io, &buffer)` | gone | 0.15 | ZS-CONC-10 |
-| `std.io.fixedBufferStream` | `std.Io.Writer.fixed(&buffer)` to write, `std.Io.Reader.fixed(bytes)` to read | gone | 0.16 | ZS-CONC-06 |
-| `std.io.getStdOut` | `std.Io.File.stdout().writerStreaming(io, &buffer)`, then `&w.interface` | gone | 0.15 | ZS-CONC-05 |
-| `std.io.getStdErr` | `io.lockStderr(&buffer, null)`, or `std.Io.File.stderr()` | gone | 0.15 | ZS-CONC-09 |
-| `std.io.getStdIn` | `std.Io.File.stdin()` | gone | 0.15 | ZS-CONC-10 |
-| `std.io.null_writer` | `var d: std.Io.Writer.Discarding = .init(&scratch);`, then `&d.writer` | gone | 0.16 | ZS-CONC-06 |
-| `std.io.countingWriter` | `std.Io.Writer.Discarding`: its `count`, and `fullCount()` with the buffered bytes | gone | 0.15 | ZS-CONC-06 |
-| `std.io.CountingReader` | `reader.discard(limit)`, which returns the count | gone | 0.16 | ZS-CONC-06 |
-| `std.io.tty.detectConfig` | `std.Io.Terminal.Mode.detect(io, file, NO_COLOR, CLICOLOR_FORCE)`; for stderr, the `.terminal()` of `io.lockStderr(&buffer, null)` | gone | 0.16 | ZS-CONC-50 |
-| `std.fifo.LinearFifo` | `std.Io.Reader` and `std.Io.Writer`, or `std.Deque(T)` | gone | 0.15 | ZS-CONC-06 |
-| `std.RingBuffer` | `std.Io.Reader` and `std.Io.Writer`, or `std.Deque(T)` | gone | 0.15 | ZS-CONC-06 |
-| `std.fmt.format` | `w.print(fmt, args)` | gone | 0.16 | ZS-CONC-06 |
+| `std.io` | `std.Io` | gone | 0.16 | ZS-CONC-05 |
+| `std.io.GenericWriter` | `*std.Io.Writer`, one non-generic struct with the buffer you give it; `AnyWriter` and `std.io.Writer` likewise | gone | 0.16 | ZS-CONC-05 |
+| `std.io.GenericReader` | `*std.Io.Reader`; `AnyReader` and `std.io.Reader` likewise | gone | 0.16 | ZS-CONC-05 |
+| `std.io.bufferedWriter` | a buffer passed to the writer's constructor: `file.writerStreaming(io, &buffer)`, then `flush()` | gone | 0.15 | ZS-OUT-18 |
+| `std.io.bufferedReader` | a buffer passed to the reader's constructor: `file.reader(io, &buffer)` | gone | 0.15 | ZS-CONC-08 |
+| `std.io.fixedBufferStream` | `std.Io.Writer.fixed(&buffer)` to write, `std.Io.Reader.fixed(bytes)` to read | gone | 0.16 | ZS-CONC-05 |
+| `std.io.getStdOut` | `std.Io.File.stdout().writerStreaming(io, &buffer)`, then `&w.interface` | gone | 0.15 | ZS-CONC-04 |
+| `std.io.getStdErr` | `io.lockStderr(&buffer, null)`, or `std.Io.File.stderr()` | gone | 0.15 | ZS-OUT-17 |
+| `std.io.getStdIn` | `std.Io.File.stdin()` | gone | 0.15 | ZS-CONC-08 |
+| `std.io.null_writer` | `var d: std.Io.Writer.Discarding = .init(&scratch);`, then `&d.writer` | gone | 0.16 | ZS-CONC-05 |
+| `std.io.countingWriter` | `std.Io.Writer.Discarding`: its `count`, and `fullCount()` with the buffered bytes | gone | 0.15 | ZS-CONC-05 |
+| `std.io.CountingReader` | `reader.discard(limit)`, which returns the count | gone | 0.16 | ZS-CONC-05 |
+| `std.io.tty.detectConfig` | `std.Io.Terminal.Mode.detect(io, file, NO_COLOR, CLICOLOR_FORCE)`; for stderr, the `.terminal()` of `io.lockStderr(&buffer, null)` | gone | 0.16 | ZS-OUT-20 |
+| `std.fifo.LinearFifo` | `std.Io.Reader` and `std.Io.Writer`, or `std.Deque(T)` | gone | 0.15 | ZS-CONC-05 |
+| `std.RingBuffer` | `std.Io.Reader` and `std.Io.Writer`, or `std.Deque(T)` | gone | 0.15 | ZS-CONC-05 |
+| `std.fmt.format` | `w.print(fmt, args)` | gone | 0.16 | ZS-CONC-05 |
 | `std.fmt.FormatOptions` | `std.fmt.Options` | gone | 0.16 | ZS-OUT-11 |
 | `std.fmt.Formatter` | `std.fmt.Alt(Data, formatFn)`, built with `std.fmt.alt(ctx, .funcName)` | gone | 0.16 | ZS-OUT-03 |
 | `std.fmt.formatType` | `w.printValue(…)` | gone | 0.15 | ZS-OUT-02 |
@@ -97,33 +97,33 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `std.fmt.allocPrint` | `gpa.print(fmt, args)`; `allocPrintSentinel` is `gpa.printSentinel(fmt, args, 0)` | alias | 0.17 | ZS-OUT-11 |
 | `std.fmt.bufPrint` | `std.mem.print`; `bufPrintSentinel` and `BufPrintError` are `std.mem.printSentinel` and `std.mem.PrintError` | alias | 0.17 | ZS-OUT-11 |
 | `std.fmt.bufPrintZ` | `std.mem.printSentinel(buffer, fmt, args, 0)` | gone | 0.17 | ZS-OUT-11 |
-| `std.fs.cwd` | `std.Io.Dir.cwd()`; every `Io.Dir` and `Io.File` method takes `io` after the receiver | gone | 0.16 | ZS-CONC-18 |
-| `std.fs.Dir` | `std.Io.Dir`, each method taking `io` after the receiver; `chmod` and `chown` are `setPermissions` and `setOwner`, and `setAsCwd` is `std.process.setCurrentDir(io, dir)` | gone | 0.16 | ZS-CONC-18 |
-| `std.fs.File` | `std.Io.File`, each method taking `io` after the receiver: `read` and `readv` are `readStreaming`, `pread` and `preadv` `readPositional`, `write`, `writev` and `writeAll` `writeStreaming` and `writeStreamingAll`; its `Mode` is `Io.File.Permissions`, and its `OpenFlags` and `CreateFlags` are `Io.Dir.OpenFileOptions` and `CreateFileOptions` | gone | 0.16 | ZS-CONC-18 |
-| `std.Io.File.OpenFlags` | `std.Io.Dir.OpenFileOptions`; `CreateFlags` is `Io.Dir.CreateFileOptions` and `OpenMode` is `Io.Dir.OpenFileOptions.Mode` | gone | 0.17 | ZS-CONC-18 |
-| `std.fs.MAX_PATH_BYTES` | `std.Io.Dir.max_path_bytes` | gone | 0.14 | ZS-CONC-18 |
-| `std.fs.path` | `std.Io.Dir.path` | alias | 0.16 | ZS-CONC-18 |
-| `std.fs.max_path_bytes` | `std.Io.Dir.max_path_bytes` | alias | 0.16 | ZS-CONC-18 |
-| `std.fs.max_name_bytes` | `std.Io.Dir.max_name_bytes` | alias | 0.16 | ZS-CONC-18 |
-| `std.fs.base64_alphabet` | `std.base64.url_safe_alphabet_chars` | alias | 0.16 | ZS-CONC-18 |
-| `std.fs.base64_encoder` | `std.base64.url_safe.Encoder` | alias | 0.16 | ZS-CONC-18 |
-| `std.fs.base64_decoder` | `std.base64.url_safe.Decoder` | alias | 0.16 | ZS-CONC-18 |
-| `makeDir` | `dir.createDir(io, path, permissions)` | gone | 0.16 | ZS-CONC-18 |
-| `makePath` | `dir.createDirPath(io, path)` | gone | 0.16 | ZS-CONC-18 |
-| `makeOpenPath` | `dir.createDirPathOpen(io, path, options)` | gone | 0.16 | ZS-CONC-18 |
-| `realpathAlloc` | `dir.realPathFileAlloc(io, path, gpa)`, a `[:0]u8`; `dir.realpath` is `dir.realPathFile(io, path, &out)`, which returns a length, not a slice | gone | 0.16 | ZS-CONC-18 |
-| `std.fs.realpath` | `std.Io.Dir.realPathFileAbsolute(io, path, &out)`, or its `…Alloc` form | gone | 0.16 | ZS-CONC-18 |
-| `getEndPos` | `file.length(io)`; `setEndPos` is `file.setLength(io, n)` | gone | 0.16 | ZS-CONC-18 |
-| `setAsCwd` | `std.process.setCurrentDir(io, dir)` | gone | 0.16 | ZS-CONC-18 |
-| `std.fs.openSelfExe` | `std.process.openExecutable(io, flags)` | gone | 0.16 | ZS-CONC-18 |
-| `std.fs.selfExePath` | `std.process.executablePath(io, buffer)`; `selfExePathAlloc` likewise | gone | 0.16 | ZS-CONC-18 |
-| `std.fs.selfExeDirPath` | `std.process.executableDirPath(io, buffer)`; `selfExeDirPathAlloc` likewise | gone | 0.16 | ZS-CONC-18 |
-| `std.fs.getAppDataDir` | nothing in std | gone | 0.16 | ZS-CONC-18 |
-| `std.net` | `std.Io.net` | gone | 0.16 | ZS-CONC-45 |
-| `error.RenameAcrossMountPoints` | `error.CrossDevice`, as is `error.NotSameFileSystem`: std returns neither name, so a comparison with it is never true | changed | 0.16 | ZS-ERR-08 |
-| `error.SharingViolation` | `error.FileBusy`: std returns the old name no more, so a comparison with it is never true | changed | 0.16 | ZS-ERR-08 |
-| `error.EnvironmentVariableNotFound` | `error.EnvironmentVariableMissing`: std returns the old name no more, so a comparison with it is never true | changed | 0.16 | ZS-ERR-08 |
-| `error.PathAlreadyExists` | what `rename` onto a directory that is not empty no longer returns: it returns `error.DirNotEmpty` | changed | 0.16 | ZS-CONC-21 |
+| `std.fs.cwd` | `std.Io.Dir.cwd()`; every `Io.Dir` and `Io.File` method takes `io` after the receiver | gone | 0.16 | ZS-CONC-16 |
+| `std.fs.Dir` | `std.Io.Dir`, each method taking `io` after the receiver; `chmod` and `chown` are `setPermissions` and `setOwner`, and `setAsCwd` is `std.process.setCurrentDir(io, dir)` | gone | 0.16 | ZS-CONC-16 |
+| `std.fs.File` | `std.Io.File`, each method taking `io` after the receiver: `read` and `readv` are `readStreaming`, `pread` and `preadv` `readPositional`, `write`, `writev` and `writeAll` `writeStreaming` and `writeStreamingAll`; its `Mode` is `Io.File.Permissions`, and its `OpenFlags` and `CreateFlags` are `Io.Dir.OpenFileOptions` and `CreateFileOptions` | gone | 0.16 | ZS-CONC-16 |
+| `std.Io.File.OpenFlags` | `std.Io.Dir.OpenFileOptions`; `CreateFlags` is `Io.Dir.CreateFileOptions` and `OpenMode` is `Io.Dir.OpenFileOptions.Mode` | gone | 0.17 | ZS-CONC-16 |
+| `std.fs.MAX_PATH_BYTES` | `std.Io.Dir.max_path_bytes` | gone | 0.14 | ZS-CONC-16 |
+| `std.fs.path` | `std.Io.Dir.path` | alias | 0.16 | ZS-CONC-16 |
+| `std.fs.max_path_bytes` | `std.Io.Dir.max_path_bytes` | alias | 0.16 | ZS-CONC-16 |
+| `std.fs.max_name_bytes` | `std.Io.Dir.max_name_bytes` | alias | 0.16 | ZS-CONC-16 |
+| `std.fs.base64_alphabet` | `std.base64.url_safe_alphabet_chars` | alias | 0.16 | ZS-CONC-16 |
+| `std.fs.base64_encoder` | `std.base64.url_safe.Encoder` | alias | 0.16 | ZS-CONC-16 |
+| `std.fs.base64_decoder` | `std.base64.url_safe.Decoder` | alias | 0.16 | ZS-CONC-16 |
+| `makeDir` | `dir.createDir(io, path, permissions)` | gone | 0.16 | ZS-CONC-16 |
+| `makePath` | `dir.createDirPath(io, path)` | gone | 0.16 | ZS-CONC-16 |
+| `makeOpenPath` | `dir.createDirPathOpen(io, path, options)` | gone | 0.16 | ZS-CONC-16 |
+| `realpathAlloc` | `dir.realPathFileAlloc(io, path, gpa)`, a `[:0]u8`; `dir.realpath` is `dir.realPathFile(io, path, &out)`, which returns a length, not a slice | gone | 0.16 | ZS-CONC-16 |
+| `std.fs.realpath` | `std.Io.Dir.realPathFileAbsolute(io, path, &out)`, or its `…Alloc` form | gone | 0.16 | ZS-CONC-16 |
+| `getEndPos` | `file.length(io)`; `setEndPos` is `file.setLength(io, n)` | gone | 0.16 | ZS-CONC-16 |
+| `setAsCwd` | `std.process.setCurrentDir(io, dir)` | gone | 0.16 | ZS-CONC-16 |
+| `std.fs.openSelfExe` | `std.process.openExecutable(io, flags)` | gone | 0.16 | ZS-CONC-16 |
+| `std.fs.selfExePath` | `std.process.executablePath(io, buffer)`; `selfExePathAlloc` likewise | gone | 0.16 | ZS-CONC-16 |
+| `std.fs.selfExeDirPath` | `std.process.executableDirPath(io, buffer)`; `selfExeDirPathAlloc` likewise | gone | 0.16 | ZS-CONC-16 |
+| `std.fs.getAppDataDir` | nothing in std | gone | 0.16 | ZS-CONC-16 |
+| `std.net` | `std.Io.net` | gone | 0.16 | ZS-CONC-43 |
+| `error.RenameAcrossMountPoints` | `error.CrossDevice`, as is `error.NotSameFileSystem`: std returns neither name, so a comparison with it is never true | changed | 0.16 | ZS-ERR-07 |
+| `error.SharingViolation` | `error.FileBusy`: std returns the old name no more, so a comparison with it is never true | changed | 0.16 | ZS-ERR-07 |
+| `error.EnvironmentVariableNotFound` | `error.EnvironmentVariableMissing`: std returns the old name no more, so a comparison with it is never true | changed | 0.16 | ZS-ERR-07 |
+| `error.PathAlreadyExists` | what `rename` onto a directory that is not empty no longer returns: it returns `error.DirNotEmpty` | changed | 0.16 | ZS-CONC-19 |
 | `mem.indexOf` | `mem.find` | alias | 0.16 | ZS-MIG-01 |
 | `mem.indexOfPos` | `mem.findPos` | alias | 0.16 | ZS-MIG-01 |
 | `mem.indexOfPosLinear` | `mem.findPosLinear` | alias | 0.16 | ZS-MIG-01 |
@@ -176,8 +176,8 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `StaticBitSet` | `bit_set.Static` | alias | 0.17 | ZS-DATA-13 |
 | `DynamicBitSetUnmanaged` | `bit_set.Dynamic` | alias | 0.17 | ZS-DATA-13 |
 | `DynamicBitSet` | `bit_set.Dynamic`, with the allocator per call; `bit_set.DynamicManaged` likewise | alias | 0.17 | ZS-DATA-13 |
-| `getLastOrNull` | `list.last()`, a `?T` copy; the borrow is `list.lastPtr()` | alias | 0.17 | ZS-ERR-27 |
-| `getLast` | `list.last()`, which returns `?T` where `getLast` returned `T`, so the call site handles the `null` | alias | 0.17 | ZS-ERR-27 |
+| `getLastOrNull` | `list.last()`, a `?T` copy; the borrow is `list.lastPtr()` | alias | 0.17 | ZS-ERR-26 |
+| `getLast` | `list.last()`, which returns `?T` where `getLast` returned `T`, so the call site handles the `null` | alias | 0.17 | ZS-ERR-26 |
 | `std.DoublyLinkedList.pop` | `popLast` | deprecated | 0.17 | ZS-MEM-13 |
 | `std.heap.GeneralPurposeAllocator` | `init.gpa`, or `var sa: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});` | gone | 0.16 | ZS-MEM-04 |
 | `std.heap.DebugAllocator` | `std.heap.SafeAllocator`, not generic: `.init(backing, .{})`, always thread-safe, its `Options` `stack_trace_frames`, `check_write_after_free`, `canary`, `bucket_size_log2` and `block_size_log2` | alias | 0.17 | ZS-MEM-04 |
@@ -190,33 +190,33 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `std.process.getEnvVarOwned` | `init.environ_map.get(key)`, a borrowed `?[]const u8`; or `try init.minimal.environ.getAlloc(gpa, key)`, which the caller frees and which fails with `error.EnvironmentVariableMissing` | gone | 0.16 | ZS-MEM-01 |
 | `std.posix.getenv` | `init.environ_map.get(key)`; on POSIX, `init.minimal.environ.getPosix(key)`, a `?[:0]const u8` read without allocating | gone | 0.16 | ZS-MEM-01 |
 | `std.process.hasEnvVar` | `init.environ_map.contains(key)`, or `try init.minimal.environ.contains(gpa, key)`; `hasEnvVarConstant(key)` is `init.minimal.environ.containsConstant(key)` | gone | 0.16 | ZS-MEM-01 |
-| `std.ChildProcess` | `std.process.spawn(io, .{ .argv = …, .stdout = .pipe })` | gone | 0.13 | ZS-CONC-48 |
-| `std.process.Child.init` | `std.process.spawn(io, .{ .argv = …, .stdout = .pipe })`, which spawns as well | gone | 0.16 | ZS-CONC-48 |
-| `std.process.Child.run` | `std.process.run(gpa, io, options)` | gone | 0.16 | ZS-CONC-48 |
-| `std.process.execv` | `std.process.replace(io, .{ .argv = … })` | gone | 0.16 | ZS-CONC-48 |
-| `std.process.spawnPath` | `std.process.spawn(io, .{ .exe = .{ .path = dir }, … })`; `replacePath` is `replace` with the same `.exe` | gone | 0.17 | ZS-CONC-48 |
-| `std.Thread.Mutex` | `std.Io.Mutex` | gone | 0.16 | ZS-CONC-30 |
-| `std.Thread.Condition` | `std.Io.Condition` | gone | 0.16 | ZS-CONC-30 |
-| `std.Thread.ResetEvent` | `std.Io.Event` | gone | 0.16 | ZS-CONC-30 |
-| `std.Thread.Semaphore` | `std.Io.Semaphore` | gone | 0.16 | ZS-CONC-30 |
-| `std.Thread.RwLock` | `std.Io.RwLock` | gone | 0.16 | ZS-CONC-30 |
-| `std.Thread.Futex` | `io.futexWait` and `io.futexWake`; there is no `Io.Futex` type | gone | 0.16 | ZS-CONC-30 |
-| `std.Thread.WaitGroup` | `std.Io.Group` | gone | 0.16 | ZS-CONC-25 |
-| `std.Thread.Pool` | `io.async` and `Io.Group`; `Io.Threaded`'s `async_limit` is the pool size | gone | 0.16 | ZS-CONC-25 |
-| `std.once` | nothing in std | gone | 0.16 | ZS-CONC-30 |
-| `std.time.Timer` | `std.Io.Timestamp`, read from an `Io.Clock`; `std.time` holds unit constants and `epoch` | gone | 0.16 | ZS-CONC-33 |
-| `std.time.Instant` | `std.Io.Timestamp` | gone | 0.16 | ZS-CONC-33 |
-| `std.time.timestamp` | `std.Io.Timestamp.now(io, clock)`; `milliTimestamp` and `nanoTimestamp` likewise | gone | 0.16 | ZS-CONC-33 |
-| `std.time.sleep` | `io.sleep(duration, clock)`, the duration an `Io.Duration` such as `.fromMilliseconds(10)` | gone | 0.15 | ZS-CONC-33 |
+| `std.ChildProcess` | `std.process.spawn(io, .{ .argv = …, .stdout = .pipe })` | gone | 0.13 | ZS-CONC-46 |
+| `std.process.Child.init` | `std.process.spawn(io, .{ .argv = …, .stdout = .pipe })`, which spawns as well | gone | 0.16 | ZS-CONC-46 |
+| `std.process.Child.run` | `std.process.run(gpa, io, options)` | gone | 0.16 | ZS-CONC-46 |
+| `std.process.execv` | `std.process.replace(io, .{ .argv = … })` | gone | 0.16 | ZS-CONC-46 |
+| `std.process.spawnPath` | `std.process.spawn(io, .{ .exe = .{ .path = dir }, … })`; `replacePath` is `replace` with the same `.exe` | gone | 0.17 | ZS-CONC-46 |
+| `std.Thread.Mutex` | `std.Io.Mutex` | gone | 0.16 | ZS-CONC-28 |
+| `std.Thread.Condition` | `std.Io.Condition` | gone | 0.16 | ZS-CONC-28 |
+| `std.Thread.ResetEvent` | `std.Io.Event` | gone | 0.16 | ZS-CONC-28 |
+| `std.Thread.Semaphore` | `std.Io.Semaphore` | gone | 0.16 | ZS-CONC-28 |
+| `std.Thread.RwLock` | `std.Io.RwLock` | gone | 0.16 | ZS-CONC-28 |
+| `std.Thread.Futex` | `io.futexWait` and `io.futexWake`; there is no `Io.Futex` type | gone | 0.16 | ZS-CONC-28 |
+| `std.Thread.WaitGroup` | `std.Io.Group` | gone | 0.16 | ZS-CONC-23 |
+| `std.Thread.Pool` | `io.async` and `Io.Group`; `Io.Threaded`'s `async_limit` is the pool size | gone | 0.16 | ZS-CONC-23 |
+| `std.once` | nothing in std | gone | 0.16 | ZS-CONC-28 |
+| `std.time.Timer` | `std.Io.Timestamp`, read from an `Io.Clock`; `std.time` holds unit constants and `epoch` | gone | 0.16 | ZS-CONC-31 |
+| `std.time.Instant` | `std.Io.Timestamp` | gone | 0.16 | ZS-CONC-31 |
+| `std.time.timestamp` | `std.Io.Timestamp.now(io, clock)`; `milliTimestamp` and `nanoTimestamp` likewise | gone | 0.16 | ZS-CONC-31 |
+| `std.time.sleep` | `io.sleep(duration, clock)`, the duration an `Io.Duration` such as `.fromMilliseconds(10)` | gone | 0.15 | ZS-CONC-31 |
 | `std.crypto.random` | `io.random(&buffer)`, or `io.randomSecure(&buffer)` where the entropy must be guaranteed | gone | 0.16 | ZS-TEST-20 |
 | `std.posix.getrandom` | `io.random(&buffer)`, or `io.randomSecure(&buffer)` | gone | 0.16 | ZS-TEST-20 |
 | `crypto_always_getrandom` | nothing: `io.randomSecure`; `crypto_fork_safety` likewise | gone | 0.16 | ZS-TEST-20 |
 | `std.rand` | `std.Random` | gone | 0.14 | ZS-TEST-20 |
 | `std.testing.refAllDeclsRecursive` | `std.testing.refAllDecls` in each file, or `comptime { _ = @import(…); }` in the module root | gone | 0.16 | ZS-TEST-29 |
-| `std.debug.captureStackTrace` | `std.debug.captureCurrentStackTrace(options, addresses)` | gone | 0.16 | ZS-ERR-31 |
-| `std.debug.dumpStackTraceFromBase` | `std.debug.dumpCurrentStackTrace(options)`, which takes a `StackUnwindOptions` where it took a start address | gone | 0.16 | ZS-ERR-31 |
-| `std.debug.walkStackWindows` | `std.debug.captureCurrentStackTrace`; `writeStackTraceWindows` is `writeCurrentStackTrace` | gone | 0.16 | ZS-ERR-31 |
-| `std.debug.StackIterator` | nothing public: `captureCurrentStackTrace` | gone | 0.16 | ZS-ERR-31 |
+| `std.debug.captureStackTrace` | `std.debug.captureCurrentStackTrace(options, addresses)` | gone | 0.16 | ZS-ERR-30 |
+| `std.debug.dumpStackTraceFromBase` | `std.debug.dumpCurrentStackTrace(options)`, which takes a `StackUnwindOptions` where it took a start address | gone | 0.16 | ZS-ERR-30 |
+| `std.debug.walkStackWindows` | `std.debug.captureCurrentStackTrace`; `writeStackTraceWindows` is `writeCurrentStackTrace` | gone | 0.16 | ZS-ERR-30 |
+| `std.debug.StackIterator` | nothing public: `captureCurrentStackTrace` | gone | 0.16 | ZS-ERR-30 |
 | `std.debug.runtime_safety` | `@import("builtin").optimize.runtimeSafety()`: your module's mode, where `runtime_safety` reports std's | alias | 0.14 | ZS-ASSERT-16 |
 | `std.meta.Int` | `@Int(signedness, bits)` | gone | 0.17 | ZS-COMPTIME-12 |
 | `std.meta.Tuple` | `@Tuple(types)` | gone | 0.17 | ZS-COMPTIME-12 |
@@ -292,14 +292,14 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `std.math.sign` | the same name, now returning the narrowest integer that holds `-1`, `0` and `1`, not the argument's type | changed | 0.15 | ZS-DATA-38 |
 | `std.zon.parse.fromSliceAlloc` | `std.zon.parse.fromSlice(T, .{ .gpa = gpa, .arena = arena, .source = source, .diagnostics = &diag })`, which allocates the result into `.arena`; the form that allocates nothing is `fromSliceNoAlloc` | gone | 0.17 | ZS-DATA-40 |
 | `std.zon.parse.free` | nothing: the result lives in the arena `fromSlice` was given | gone | 0.17 | ZS-DATA-40 |
-| `readAlloc` | `reader.readAllocAll` | alias | 0.17 | ZS-CONC-13 |
+| `readAlloc` | `reader.readAllocAll` | alias | 0.17 | ZS-CONC-11 |
 | `path.resolve` | `path.resolveAlloc` | alias | 0.17 | ZS-MIG-01 |
 | `path.relative` | `path.relativeAlloc` | alias | 0.17 | ZS-MIG-01 |
 | `path.resolvePosix` | `path.resolveAllocPosix` | alias | 0.17 | ZS-MIG-01 |
 | `path.resolveWindows` | `path.resolveAllocWindows` | alias | 0.17 | ZS-MIG-01 |
 | `path.relativePosix` | `path.relativeAllocPosix` | alias | 0.17 | ZS-MIG-01 |
 | `path.relativeWindows` | `path.relativeAllocWindows` | alias | 0.17 | ZS-MIG-01 |
-| `std.Uri.getHost` | `std.Io.net.HostName.fromUri(uri, &buffer)`, which validates the name | gone | 0.17 | ZS-CONC-45 |
+| `std.Uri.getHost` | `std.Io.net.HostName.fromUri(uri, &buffer)`, which validates the name | gone | 0.17 | ZS-CONC-43 |
 | `std.gpu` | `std.spirv` | gone | 0.17 | ZS-MIG-01 |
 | `isAARCH64` | `isAarch64` | alias | 0.17 | ZS-INTEROP-18 |
 | `isMIPS` | `isMips` | alias | 0.17 | ZS-INTEROP-18 |

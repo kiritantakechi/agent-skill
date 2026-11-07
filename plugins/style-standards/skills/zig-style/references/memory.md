@@ -5,8 +5,8 @@ a custom allocator, expressing and enforcing ownership (who allocates, who frees
 slice means), `errdefer` on a construction in progress, pointer-invalidation traps, OOM policy,
 alignment, raw memory copies, and the graduated ladder from "allocate freely" to TigerStyle's "no
 allocation after startup". Error-set design, `try`/`catch` selection, `unreachable`-versus-error,
-`defer` directly after an acquisition (ZS-ERR-11) and a `deinit` that cannot fail (ZS-ERR-16) are
-the errors chapter's; `Io.Reader`/`Io.Writer` buffer sizing is ZS-CONC-10 and ZS-CONC-44; assertion
+`defer` directly after an acquisition (ZS-ERR-10) and a `deinit` that cannot fail (ZS-ERR-15) are
+the errors chapter's; `Io.Reader`/`Io.Writer` buffer sizing is ZS-CONC-08 and ZS-CONC-42; assertion
 density and bounded loops are the assertions chapter's; `MultiArrayList` layout choices are
 ZS-DATA-22; allocation-failure testing is ZS-TEST-18.
 
@@ -354,7 +354,7 @@ list.deinit(arena.allocator());
 
 Multi-step `init` puts an `errdefer` after each allocation, up to the point where ownership moves to
 a value the caller will `deinit`. Where that point is, and what an `errdefer` covers inside a loop,
-are ZS-ERR-13 and ZS-ERR-14.
+are ZS-ERR-12 and ZS-ERR-13.
 
 **Why:** a `try` on step 3 unwinds steps 1 and 2 only if they registered `errdefer`s, and a missing
 one is a leak that only appears under memory pressure.

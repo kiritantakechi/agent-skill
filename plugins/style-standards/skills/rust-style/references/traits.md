@@ -307,7 +307,7 @@ pub fn count_matching<P: Fn(&str) -> bool>(lines: &[String], predicate: P) -> us
 
 **Why:** a vtable call costs a few nanoseconds and a predictable indirect branch; forty
 monomorphized copies of a large function cost kilobytes of instruction cache. A `Vec` of mixed
-implementations needs `dyn` outright (RS-PERF-27).
+implementations needs `dyn` outright (RS-PERF-26).
 
 **Check:** how many instantiations does this generic actually get? `cargo bloat` will tell you if
 you suspect the answer is "too many".
@@ -471,7 +471,7 @@ the newtype that would have worked.
 
 **Why:** it is the sanctioned mechanism, it is zero-cost with `#[repr(transparent)]`, and it lets
 you add the impl without any coordination. Add `AsRef`/`Deref` only if the newtype genuinely *is*
-the inner type for all purposes (RS-API-42).
+the inner type for all purposes (RS-API-39).
 
 **Check:** does the newtype expose the inner type's whole API, or only the part that makes sense?
 
@@ -941,7 +941,7 @@ sibling missing one impl excludes it from every such function — usually discov
 type was added. The asymmetry is almost never deliberate.
 
 **Check:** tabulate the family against the trait set. A missing cell is either an oversight or a
-documented restriction; there is no third case (RS-API-35).
+documented restriction; there is no third case (RS-OUT-10).
 
 ```rust
 // verified

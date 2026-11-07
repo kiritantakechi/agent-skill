@@ -64,7 +64,7 @@ panic = "deny"
 todo = "deny"
 unimplemented = "deny"
 indexing_slicing = "deny"            # `get` where an entity count reaches the index
-dbg_macro = "deny"                   # RS-CLI-24
+dbg_macro = "deny"                   # RS-OUT-06
 undocumented_unsafe_blocks = "deny"  # inert under `forbid`, live the moment that drops to "deny"
 mem_forget = "deny"
 

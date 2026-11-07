@@ -31,7 +31,7 @@ Unless a block shows its own imports, it assumes `import asyncio`.
 
 Not `get_event_loop`, `set_event_loop_policy`, `AbstractEventLoopPolicy`, or the Windows policy
 classes. Inside a coroutine the correct call is `asyncio.get_running_loop()`. To choose a loop, pass
-`loop_factory` to `asyncio.run` or `asyncio.Runner` (PS-CONC-24), which replaces every policy class,
+`loop_factory` to `asyncio.run` or `asyncio.Runner` (PS-CONC-23), which replaces every policy class,
 the Windows ones included.
 
 **Why:** the whole policy system is **removed in 3.16**, and `get_event_loop` raises `RuntimeError`
@@ -130,5 +130,5 @@ A tool settles these on its own; the shipped configuration enables each at the l
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
 | ty | `deprecated` | warn | a deprecated API — `asyncio.iscoroutinefunction` among them; use `inspect.iscoroutinefunction` — listed because it is how PS-API-15's `warnings.deprecated` reaches a caller, and `ty` reports it unasked |
-| ruff | `RUF006` | error | a `create_task` result nothing keeps — the loop holds only a weak reference — listed because a task started outside a `TaskGroup` (PS-CONC-25) is collected unless something keeps it |
-| ruff | `ASYNC251` | error | `time.sleep` in a coroutine — `await asyncio.sleep` — listed because it is the one blocking call PS-CONC-30's codes leave out |
+| ruff | `RUF006` | error | a `create_task` result nothing keeps — the loop holds only a weak reference — listed because a task started outside a `TaskGroup` (PS-CONC-24) is collected unless something keeps it |
+| ruff | `ASYNC251` | error | `time.sleep` in a coroutine — `await asyncio.sleep` — listed because it is the one blocking call PS-CONC-29's codes leave out |

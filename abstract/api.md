@@ -125,7 +125,7 @@ the absence is stated; silence reads as an oversight and is worked around.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-17 | realises | [M] | |
-| rust-style | RS-API-55 | realises | [M] | |
+| rust-style | RS-API-52 | realises | [M] | |
 | zig-style | ZS-API-07 | realises | [M] | |
 
 ### AS-API-09 [M] Keep argument order identical across sibling functions
@@ -137,7 +137,7 @@ disagreement among them is a swapped argument that no check catches.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-18 | realises | [M] | |
-| rust-style | RS-API-56 | realises | [M] | |
+| rust-style | RS-API-53 | realises | [M] | |
 | zig-style | ZS-API-08 | realises | [M] | |
 
 ### AS-API-10 [M] Give sibling failures a uniform shape
@@ -149,7 +149,7 @@ makes that handler grow a special case.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-19 | realises | [M] | |
-| rust-style | RS-API-57 | realises | [M] | |
+| rust-style | RS-API-54 | realises | [M] | |
 | zig-style | ZS-API-09 | realises | [M] | |
 
 ## Evolution
@@ -163,5 +163,5 @@ on, and not as a build that no longer compiles.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-15 | realises | [M] | |
-| rust-style | RS-API-53 | realises | [M] | |
+| rust-style | RS-API-50 | realises | [M] | |
 | zig-style | ZS-API-10 | realises | [M] | |

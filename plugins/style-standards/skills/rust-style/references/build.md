@@ -574,7 +574,7 @@ permitted dependencies, so neither the MSRV nor the lower bounds are exercised o
 ### RS-BUILD-31 [M!] Run `cargo semver-checks` before every release
 
 Trust it over intuition about what is breaking. It catches removed impls, narrowed bounds, changed
-variant shapes, and newly private items that human review misses (RS-API-52).
+variant shapes, and newly private items that human review misses (RS-API-49).
 
 *Relaxed form:* rely on the consumers' own builds, run before each release, to find a break.
 
@@ -588,7 +588,7 @@ remembers?
 ### RS-BUILD-32 [M] Follow semver strictly, including the 0.x rule
 
 0.y.z treats `y` as the major. Do not ship a breaking change as a patch because "nobody uses it
-yet". RS-API-52 lists which changes break.
+yet". RS-API-49 lists which changes break.
 
 **Why:** Cargo's resolver implements these rules exactly, so a breaking patch release breaks every
 existing build that resolves to it, without any action by the user. "Nobody uses it" is not

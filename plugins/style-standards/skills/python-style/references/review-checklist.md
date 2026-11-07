@@ -38,9 +38,9 @@ invalidate the work of reading the next.
    raises; everything else is silent. (PS-CONC-13 … PS-CONC-15)
 5. **Things that look safe.** Caches, `cached_property`, `print`, the module-level `random`, and
    every `ContextVar`. Each has a documented caveat that reads like a guarantee. (PS-CONC-16 …
-   PS-CONC-20)
+   PS-CONC-19)
 6. **Hold times.** Every `contextmanager` used as a decorator, and every lock spanning a call you do
-   not control. (PS-CONC-21, PS-CONC-22)
+   not control. (PS-CONC-20, PS-CONC-21)
 7. **The public surface.** What is newly public? Is it annotated, is the ownership documented, does
    the package ship `py.typed`?
 8. **Function bodies.** Now read the code.

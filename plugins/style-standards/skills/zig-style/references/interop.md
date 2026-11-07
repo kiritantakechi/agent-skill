@@ -980,7 +980,7 @@ point in opposite directions.
 the colorless design — but a design whose *correctness* needs two tasks to overlap will deadlock or
 hang, and a cancellation-based timeout will not fire.
 
-**Check:** ZS-CONC-24's finding, an `io.async` whose tasks must overlap to make progress, in a
+**Check:** ZS-CONC-22's finding, an `io.async` whose tasks must overlap to make progress, in a
 module that any build target may compile `-fsingle-threaded`, where it stops being latent. Also
 `std.heap.smp_allocator` in a module built for wasm or freestanding, and `std.heap.wasm_allocator`
 in one that is not.

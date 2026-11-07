@@ -133,7 +133,7 @@ questions, in order:
    loop that mutates data.
 4. **What is asymmetric?** If `from_x` exists, does `to_x`? Do sibling functions take their
    arguments in the same order? Do the error variants share one shape? A missing half is either a
-   restriction the documentation must state, or an oversight (RS-API-55 … RS-API-58).
+   restriction the documentation must state, or an oversight (RS-API-52 … RS-API-55).
 5. **What is special-cased?** A branch that exists for one input is a design that has not absorbed
    that input. Fold it into the general case, or name it as its own type (RS-MOD-36, RS-MOD-37).
 
@@ -155,9 +155,8 @@ not worth the name it costs.
   - RS-API-21 [M] Give the caller the question it is asking, not the field it would have read
   - RS-API-23 [M] Replace a `bool` parameter: split the function, or name the flag
   - RS-API-25 [M] Do not build stringly-typed APIs
-  - RS-API-35 [M] Implement `Debug` on every public type
-  - RS-API-51 [M] Decide `#[non_exhaustive]` for every published enum and struct
-- **Errors: `Result`, Panics, and Exit Codes**
+  - RS-API-48 [M] Decide `#[non_exhaustive]` for every published enum and struct
+- **Errors: `Result`, Panics, and Cleanup**
   - RS-ERR-01 [M] Split failures into recoverable, caller-bug, and self-bug
   - RS-ERR-03 [M!] No `unwrap`, `expect`, or `panic!` on a recoverable path
   - RS-ERR-04 [M] Make an `expect` message state the invariant, not the symptom
@@ -201,6 +200,8 @@ not worth the name it costs.
 - **Types**
   - RS-TYPE-01 [M] Name the capability as a trait before writing the type that provides it
   - RS-TYPE-02 [M] Model a closed set of implementations as an enum, not a trait object
+- **Output: Streams, Logging, Exit Status, and Rendering**
+  - RS-OUT-10 [M] Implement `Debug` on every public type
 
 ## 5. Review checklist
 
@@ -231,13 +232,13 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-593 rules live here; section 4 lists by ID those that bind on their own.
+595 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
 | `references/naming.md` | `RS-NAME` (34) | Casing, conversion prefixes (`as_`/`to_`/`into_`), getters, predicates, iterator names, word order, generic parameters and lifetimes |
-| `references/api.md` | `RS-API` (59) | Public surface shape and visibility, parameters and returns, encapsulation, type safety, `#[must_use]`/`#[non_exhaustive]`, the std trait impl set, constructors and builders, semver evolution |
-| `references/errors.md` | `RS-ERR` (36) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, exit codes |
+| `references/api.md` | `RS-API` (56) | Public surface shape and visibility, parameters and returns, encapsulation, type safety, `#[must_use]`/`#[non_exhaustive]`, the std trait impl set, constructors and builders, semver evolution |
+| `references/errors.md` | `RS-ERR` (33) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, reporting every failure of a run |
 | `references/functional.md` | `RS-FUNC` (45) | Expression orientation, the iterator adapter set, immutability and shadowing, closures and bounds, purity, parse-don't-validate, when to stop |
 | `references/ownership.md` | `RS-OWN` (36) | Borrow-vs-own signatures, clone discipline, `Cow`, lifetimes and elision, arenas, smart pointers, interior mutability, `Drop` and RAII |
 | `references/traits.md` | `RS-TRAIT` (42) | Trait design and contracts, static vs dynamic dispatch, dyn compatibility, coherence and blanket impls, sealing, bounds, associated types, GATs, const generics, typestate |
@@ -245,12 +246,13 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/build.md` | `RS-BUILD` (46) | Manifest and metadata, docs.rs, additive features, dependency discipline, the `[lints]` table, supply chain and semver, toolchain, profiles, CI |
 | `references/testing.md` | `RS-TEST` (35) | Unit/integration/doc test split, table-driven tests, property and differential testing, fuzzing, snapshots, CLI end-to-end, flakes |
 | `references/documentation.md` | `RS-DOC` (35) | Crate and module docs, the section order, `# Errors`/`# Panics`/`# Safety`, prose style, the changelog, intra-doc links, README |
-| `references/performance.md` | `RS-PERF` (38) | Measure-first discipline, allocation and buffer reuse, collection choice and layout, buffered I/O and syscalls, monomorphization and `#[inline]`, SIMD, benchmarking |
+| `references/performance.md` | `RS-PERF` (37) | Measure-first discipline, allocation and buffer reuse, collection choice and layout, buffered I/O and syscalls, monomorphization and `#[inline]`, SIMD, benchmarking |
 | `references/concurrency.md` | `RS-CONC` (46) | Choosing a model, scoped threads and channels, shared state and lock discipline, async fundamentals and cancellation safety, `rayon`, `loom` and determinism |
 | `references/unsafe.md` | `RS-UNSAFE` (33) | `// SAFETY:` discipline, the UB list, layout and `repr`, `PhantomData` and variance, `unsafe trait`, C interop and `catch_unwind`, Miri and sanitizers |
-| `references/cli.md` | `RS-CLI` (31) | The `LowArgs`→`HiArgs` two-stage model, the flag table, streams and colour, `BrokenPipe`, signals, config precedence |
+| `references/cli.md` | `RS-CLI` (28) | The `LowArgs`→`HiArgs` two-stage model, the flag table, `BrokenPipe`, presentation that adapts to a terminal, progress, signals, config precedence |
 | `references/data.md` | `RS-DATA` (10) | Enums and sum types, records over tuples, indices over references, unrepresentable and rejected values, views over containers, equality and hashing, integer widths and explicit overflow |
 | `references/types.md` | `RS-TYPE` (4) | The capability named as a trait before the type that provides it, a closed set kept an enum, a trait's contract written down, and how far a parameter is generic |
+| `references/output.md` | `RS-OUT` (12) | Results to stdout and diagnostics to stderr, one record per write, the flush before exit, colour, logging from a binary and from a library, printing a failure and the exit status, `Debug` and `Display` |
 | `references/migration.md` | `RS-MIG` (3) | Every old spelling the 2024 edition and the releases through 1.99 left behind, with its status and owning rule; the command the table generates; when each API arrived; and what changed silently by release |
 | `references/macros.md` | `RS-MACRO` (22) | When not to write a macro, `macro_rules!` hygiene and fragment specifiers, proc-macro crate split, spans and diagnostics, `trybuild` |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |

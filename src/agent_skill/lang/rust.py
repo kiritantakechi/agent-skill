@@ -274,7 +274,7 @@ class RustCrate:
 #: saying so, which left `undocumented_unsafe_blocks` unverified.
 RUST_STYLE = RustCrate(
     name="rust-style-verify",
-    dependencies=('thiserror = "2"',),
+    dependencies=('thiserror = "2"', 'log = "0.4"'),
     clippy={
         "avoid-breaking-exported-api": False,
         "allow-unwrap-in-tests": True,

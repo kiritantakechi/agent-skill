@@ -122,7 +122,7 @@ fn regenerate_shields(mut stats: Query<&mut Stats>) {
 
 ### BV-ECS-03 [M] Derive `Debug` and `Reflect` on every component
 
-Departs from RS-API-35. `#[derive(Component, Debug, Reflect)]`, plus `#[reflect(Component)]`, on
+Departs from RS-OUT-10. `#[derive(Component, Debug, Reflect)]`, plus `#[reflect(Component)]`, on
 every component, public or not. Add `Clone`, `Copy`, `PartialEq` and `Default` where each of them
 means something for the type; `PartialEq` is what `set_if_neq` (BV-ECS-24) needs.
 
@@ -159,7 +159,7 @@ live: a query for `&Speed` reads as a sentence, and one for `&f32` as a type puz
 
 ### BV-ECS-05 [M] Never mark a component `#[non_exhaustive]`
 
-Departs from RS-API-51. Components are constructed by struct literal, at every spawn site, in every
+Departs from RS-API-48. Components are constructed by struct literal, at every spawn site, in every
 crate. Grow one by adding a *new component* plus a `#[require]`, which breaks no existing spawn.
 
 **Why:** `#[non_exhaustive]` forbids literal construction outside the defining crate, and a literal

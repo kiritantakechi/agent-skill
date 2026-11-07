@@ -1048,7 +1048,7 @@ Three details that are easy to get wrong:
 - `init.minimal.args.toSlice(arena)` returns `[]const [:0]const u8` — sentinel-terminated elements,
   because they may be handed to a `execve`-shaped API. Match that type in your signatures.
 - **`std.process.fatal` has no exit-code and no writer parameter**: it logs an error and exits 1,
-  with the signature ZS-OUT-17 gives.
+  with the signature ZS-OUT-21 gives.
 - `argv[0]` is the program name. Start the loop at index 1.
 
 Keep `parseArgs` a pure function of a `[]const [:0]const u8` rather than reading `init` directly:

@@ -241,7 +241,7 @@ derived from the actual input size, the way std does
 
 Hitting the quota means *one* comptime evaluation took too many backwards branches: it is a signal
 to bound the computation, and only sometimes a signal to raise the number. Comptime recursion whose
-depth depends on user-supplied data is prohibited, as all such recursion is (ZS-ERR-23).
+depth depends on user-supplied data is prohibited, as all such recursion is (ZS-ERR-22).
 
 **Why:** the quota is the only guardrail against a comptime evaluation that does not terminate, and
 a big round number turns a fast error into a long hang. A quota derived from the input documents the

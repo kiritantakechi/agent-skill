@@ -66,37 +66,34 @@ and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
   - RS-API-34 [S] Use `#[track_caller]` on functions that panic on caller error
 
 - **Standard trait implementations**
-  - RS-API-35 [M] Implement `Debug` on every public type
-  - RS-API-36 [M] Keep `Debug` for programmers and `Display` for users
-  - RS-API-37 [S] Implement `Display` only when there is one obvious rendering
-  - RS-API-38 [S] Implement `FromStr` for any type with a canonical textual form
-  - RS-API-39 [M] Implement `From` for infallible and `TryFrom` for fallible conversions
-  - RS-API-40 [S] Implement `FromIterator`, `Extend`, and `IntoIterator` on collections
-  - RS-API-41 [S] Implement `AsRef` and `Borrow` only when the type genuinely is the target
-  - RS-API-42 [M] Do not abuse `Deref` for inheritance
-  - RS-API-43 [S] Gate `serde` behind an off-by-default feature
+  - RS-API-35 [S] Implement `FromStr` for any type with a canonical textual form
+  - RS-API-36 [M] Implement `From` for infallible and `TryFrom` for fallible conversions
+  - RS-API-37 [S] Implement `FromIterator`, `Extend`, and `IntoIterator` on collections
+  - RS-API-38 [S] Implement `AsRef` and `Borrow` only when the type genuinely is the target
+  - RS-API-39 [M] Do not abuse `Deref` for inheritance
+  - RS-API-40 [S] Gate `serde` behind an off-by-default feature
 
 - **Constructors, builders, conversions**
-  - RS-API-44 [S] Let `new()` take only what the type cannot exist without
-  - RS-API-45 [S] Reach for a builder past three optional parameters
-  - RS-API-46 [S] Prefer the `&mut self -> &mut Self` builder shape
-  - RS-API-47 [S] Name builder setters after the property, without `set_`
-  - RS-API-48 [M] Validate in `build()`, not in the setters
-  - RS-API-49 [M!] Convert through `From`, `TryFrom` and `FromStr`, not an inherent `from_*`
-  - RS-API-50 [M] Mark an unchecked constructor `unsafe`, and name it `*_unchecked`
+  - RS-API-41 [S] Let `new()` take only what the type cannot exist without
+  - RS-API-42 [S] Reach for a builder past three optional parameters
+  - RS-API-43 [S] Prefer the `&mut self -> &mut Self` builder shape
+  - RS-API-44 [S] Name builder setters after the property, without `set_`
+  - RS-API-45 [M] Validate in `build()`, not in the setters
+  - RS-API-46 [M!] Convert through `From`, `TryFrom` and `FromStr`, not an inherent `from_*`
+  - RS-API-47 [M] Mark an unchecked constructor `unsafe`, and name it `*_unchecked`
 
 - **Future-proofing and evolution**
-  - RS-API-51 [M] Decide `#[non_exhaustive]` for every published enum and struct
-  - RS-API-52 [M] Classify every change as breaking or not before tagging a release
-  - RS-API-53 [M] Deprecate before removing, and say what to use instead
-  - RS-API-54 [S] Prefer additive evolution; batch the breaking changes
+  - RS-API-48 [M] Decide `#[non_exhaustive]` for every published enum and struct
+  - RS-API-49 [M] Classify every change as breaking or not before tagging a release
+  - RS-API-50 [M] Deprecate before removing, and say what to use instead
+  - RS-API-51 [S] Prefer additive evolution; batch the breaking changes
 
 - **Symmetry of the public surface**
-  - RS-API-55 [M] Give every operation its inverse, or document why there is none
-  - RS-API-56 [M] Keep argument order identical across sibling functions
-  - RS-API-57 [M] Give sibling error variants a uniform shape
-  - RS-API-58 [M] Choose `Option` or `Result` uniformly for the same kind of absence
-  - RS-API-59 [S] Give comparable sibling methods the same receiver
+  - RS-API-52 [M] Give every operation its inverse, or document why there is none
+  - RS-API-53 [M] Keep argument order identical across sibling functions
+  - RS-API-54 [M] Give sibling error variants a uniform shape
+  - RS-API-55 [M] Choose `Option` or `Result` uniformly for the same kind of absence
+  - RS-API-56 [S] Give comparable sibling methods the same receiver
 
 - Decided by tools
 
@@ -447,7 +444,7 @@ exception, and it is one you can justify in a sentence.
 
 **Why:** a crate of thirty loose functions has no centre: the reader must hold the whole list, a new
 operation is one more name nobody watches, and any two functions drift apart in naming, argument
-order, and error type unnoticed (RS-API-56, RS-NAME-24).
+order, and error type unnoticed (RS-API-53, RS-NAME-24).
 
 **Check:** list what the crate root exports. What is the ratio of types to free functions? For each
 free function, name the type it would be a method on — if you can name one, it belongs there
@@ -986,95 +983,15 @@ their panics are actionable.
 
 ## Standard trait implementations
 
-### RS-API-35 [M] Implement `Debug` on every public type
-
-No exceptions for "internal" types that appear in a public struct.
-
-**Why:** a missing `Debug` poisons `#[derive(Debug)]` for every type containing it, makes
-`assert_eq!` unusable in users' tests, and makes the value invisible in a debugger and in `tracing`
-fields. The blast radius is far larger than the one type.
-
-**Check:** rustc `missing_debug_implementations`, denied by the shipped configuration, fails the
-build on a public type without one. Manual impls are fine; absence is not.
-
-### RS-API-36 [M] Keep `Debug` for programmers and `Display` for users
-
-**Why:** `Debug` output may change at any time and favours completeness; `Display` is part of the
-contract and favours clarity. A `Display` that delegates to `Debug` publishes internal structure,
-the defect in RS-ERR-28.
-
-**Check:** does any `Display` impl call `{:?}`? Does any `Debug` impl omit a field to look tidier?
-
-### RS-API-37 [S] Implement `Display` only when there is one obvious rendering
-
-**Why:** `Display` takes no options, so if there are two reasonable renderings — short and verbose,
-coloured and plain, absolute and relative — the trait forces you to pick one and users must
-reimplement the other. Explicit methods can take arguments.
-
-**Check:** are there two ways a user would reasonably want to print this? Then ship two methods,
-each returning an `impl fmt::Display` built with `fmt::from_fn`, and skip the trait.
-
-```rust
-// verified
-use std::fmt;
-
-/// `Display` is for users; `Debug` is for developers. They are not the same text.
-#[derive(Debug, Clone, Copy)]
-pub struct Bytes(u64);
-
-impl fmt::Display for Bytes {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self(raw) = *self;
-        if raw < 1024 {
-            write!(f, "{raw} B")
-        } else {
-            write!(f, "{} KiB", raw / 1024)
-        }
-    }
-}
-```
-
-```rust
-// verified
-use std::fmt;
-
-/// Two renderings, so two methods and no `Display`; neither allocates.
-#[derive(Debug, Clone, Copy)]
-pub struct Elapsed(u64);
-
-impl Elapsed {
-    #[must_use]
-    pub fn short(self) -> impl fmt::Display {
-        fmt::from_fn(move |f| write!(f, "{}s", self.0))
-    }
-
-    #[must_use]
-    pub fn verbose(self) -> impl fmt::Display {
-        fmt::from_fn(move |f| write!(f, "{} seconds", self.0))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Elapsed;
-
-    #[test]
-    fn renders_both_forms() {
-        assert_eq!(Elapsed(3).short().to_string(), "3s");
-        assert_eq!(Elapsed(3).verbose().to_string(), "3 seconds");
-    }
-}
-```
-
-### RS-API-38 [S] Implement `FromStr` for any type with a canonical textual form
+### RS-API-35 [S] Implement `FromStr` for any type with a canonical textual form
 
 **Why:** it makes `"1.2.3".parse::<Version>()` work and plugs into every argument parser and config
 deserializer without them knowing your type. An inherent `parse` works only for callers who read
-your docs (RS-API-49).
+your docs (RS-API-46).
 
 **Check:** does the type have a textual form used in config, CLI flags, or serialization?
 
-### RS-API-39 [M] Implement `From` for infallible and `TryFrom` for fallible conversions
+### RS-API-36 [M] Implement `From` for infallible and `TryFrom` for fallible conversions
 
 Never a `From` impl that panics.
 
@@ -1097,7 +1014,7 @@ impl From<Millis> for std::time::Duration {
 }
 ```
 
-### RS-API-40 [S] Implement `FromIterator`, `Extend`, and `IntoIterator` on collections
+### RS-API-37 [S] Implement `FromIterator`, `Extend`, and `IntoIterator` on collections
 
 Including `IntoIterator` for `&Collection` and `&mut Collection` where meaningful.
 
@@ -1124,7 +1041,7 @@ impl FromIterator<String> for Tags {
 }
 ```
 
-### RS-API-41 [S] Implement `AsRef` and `Borrow` only when the type genuinely is the target
+### RS-API-38 [S] Implement `AsRef` and `Borrow` only when the type genuinely is the target
 
 **Why:** `AsRef<T>` claims a cheap reference conversion; `Borrow<T>` also requires `Eq`, `Ord`, and
 `Hash` to agree between the two forms, which is what makes `HashMap<String, _>::get(&str)` work. A
@@ -1146,7 +1063,7 @@ impl AsRef<str> for Name {
 }
 ```
 
-### RS-API-42 [M] Do not abuse `Deref` for inheritance
+### RS-API-39 [M] Do not abuse `Deref` for inheritance
 
 **Why:** `Deref` is for smart pointers (`Box`, `Arc`, `MutexGuard`) and transparent newtypes. Using
 it to inherit methods produces confusing autocompletion, method resolution that surprises everyone,
@@ -1155,7 +1072,7 @@ no way to override, and a type whose API changes when the inner type's does.
 **Check:** does the `Deref` target have methods you would not want on the outer type? Then it is
 inheritance, not a smart pointer.
 
-### RS-API-43 [S] Gate `serde` behind an off-by-default feature
+### RS-API-40 [S] Gate `serde` behind an off-by-default feature
 
 And derive with `#[serde(deny_unknown_fields)]` for config types.
 
@@ -1168,7 +1085,7 @@ produce an error or a silent default?
 
 ## Constructors, builders, conversions
 
-### RS-API-44 [S] Let `new()` take only what the type cannot exist without
+### RS-API-41 [S] Let `new()` take only what the type cannot exist without
 
 **Why:** a `new` that takes every option is the builder written badly — positional, unnamable, and
 breaking every time an option is added. If the essential argument count is zero, that is
@@ -1209,7 +1126,7 @@ impl Ratio {
 }
 ```
 
-### RS-API-45 [S] Reach for a builder past three optional parameters
+### RS-API-42 [S] Reach for a builder past three optional parameters
 
 Or when construction is fallible in several distinct ways, or when options will grow.
 
@@ -1285,7 +1202,7 @@ pub fn count(haystack: &str, needle: &str, options: SearchOptions) -> usize {
 }
 ```
 
-### RS-API-46 [S] Prefer the `&mut self -> &mut Self` builder shape
+### RS-API-43 [S] Prefer the `&mut self -> &mut Self` builder shape
 
 As used by `SearcherBuilder` and `RegexBuilder`, terminating in `fn build(&self) -> Result<T, E>`.
 
@@ -1295,7 +1212,7 @@ fine for small one-shot builders — mark it `#[must_use]` (RS-API-32).
 
 **Check:** can a caller configure the builder inside an `if` without reassigning it?
 
-### RS-API-47 [S] Name builder setters after the property, without `set_`
+### RS-API-44 [S] Name builder setters after the property, without `set_`
 
 `.case_insensitive(true)`, `.max_depth(Some(3))`, `.threads(4)`.
 
@@ -1306,7 +1223,7 @@ line is noise. It also matches the convention every major crate uses, so users g
 **Check:** `rg -n 'fn set_\w+\(&mut self' -g '*.rs'` lists the `set_` methods; each on a builder is
 the finding.
 
-### RS-API-48 [M] Validate in `build()`, not in the setters
+### RS-API-45 [M] Validate in `build()`, not in the setters
 
 **Why:** setters that validate make the result depend on the order options were set — a pattern that
 is invalid until a later setter fixes it becomes an error the caller cannot avoid. Validating once
@@ -1314,7 +1231,7 @@ in `build()` lets callers configure in any order and produces one coherent error
 
 **Check:** does any setter return `Result`, or panic? Move that check to `build()`.
 
-### RS-API-49 [M!] Convert through `From`, `TryFrom` and `FromStr`, not an inherent `from_*`
+### RS-API-46 [M!] Convert through `From`, `TryFrom` and `FromStr`, not an inherent `from_*`
 
 A conversion from one source type is a trait impl, which gives callers `.into()`, `?` and generic
 code for free. Where the impl would be ambiguous — several conversions from one source type, as with
@@ -1330,7 +1247,7 @@ need names. An inherent `Config::from_path(p)` works only for a caller who knows
 **Check:** for each inherent `from_*`, could it be a `From`/`TryFrom` impl without ambiguity? If
 yes, make it one and keep the inherent version only as a thin forwarder.
 
-### RS-API-50 [M] Mark an unchecked constructor `unsafe`, and name it `*_unchecked`
+### RS-API-47 [M] Mark an unchecked constructor `unsafe`, and name it `*_unchecked`
 
 Document its precondition in a `# Safety` section. The suffix names the check that was skipped; the
 keyword makes the caller prove it (RS-UNSAFE-04).
@@ -1344,7 +1261,7 @@ function lack `unsafe`?
 
 ## Future-proofing and evolution
 
-### RS-API-51 [M] Decide `#[non_exhaustive]` for every published enum and struct
+### RS-API-48 [M] Decide `#[non_exhaustive]` for every published enum and struct
 
 Mark a published enum whose variant set may grow. A genuinely closed set —
 `enum Endianness { Big, Little }` — stays exhaustive, because there the attribute only removes the
@@ -1378,7 +1295,7 @@ pub enum Endianness {
 }
 ```
 
-### RS-API-52 [M] Classify every change as breaking or not before tagging a release
+### RS-API-49 [M] Classify every change as breaking or not before tagging a release
 
 Breaking: adding a type parameter, changing a concrete return type, narrowing a bound, adding a
 non-defaulted trait method, removing a derive, making a public item private. Not breaking: widening
@@ -1413,7 +1330,7 @@ impl Report {
 }
 ```
 
-### RS-API-53 [M] Deprecate before removing, and say what to use instead
+### RS-API-50 [M] Deprecate before removing, and say what to use instead
 
 `#[deprecated(since = "1.4.0", note = "use `Searcher::search_reader` instead")]`.
 
@@ -1423,7 +1340,7 @@ cycle so upgraders get a warning rather than a compile error.
 
 **Check:** does every `#[deprecated]` carry both `since` and a `note` naming the replacement?
 
-### RS-API-54 [S] Prefer additive evolution; batch the breaking changes
+### RS-API-51 [S] Prefer additive evolution; batch the breaking changes
 
 **Why:** every major version is a migration cost on every user, and not all of them pay it: the
 ecosystem splits across majors whose types do not interoperate. Batching the necessary breaks pays
@@ -1434,7 +1351,7 @@ migration section in the changelog (RS-DOC-27)?
 
 ## Symmetry of the public surface
 
-### RS-API-55 [M] Give every operation its inverse, or document why there is none
+### RS-API-52 [M] Give every operation its inverse, or document why there is none
 
 If a type can be built from bytes it should be convertible back to them; `insert` implies `remove`,
 `push` implies `pop`, `open` implies `close`, `encode` implies `decode`, `subscribe` implies
@@ -1464,7 +1381,7 @@ pub fn decode(bytes: [u8; 8]) -> Key {
 }
 ```
 
-### RS-API-56 [M] Keep argument order identical across sibling functions
+### RS-API-53 [M] Keep argument order identical across sibling functions
 
 If `copy(src, dst)` takes source first, then `move`, `link`, and `render` in the same module do too.
 Fix the order once per crate and never vary it.
@@ -1493,7 +1410,7 @@ pub fn move_len(source: &mut Vec<u8>, target: &mut Vec<u8>) -> usize {
 }
 ```
 
-### RS-API-57 [M] Give sibling error variants a uniform shape
+### RS-API-54 [M] Give sibling error variants a uniform shape
 
 Variants of one error enum carry comparable context: if `Read` records the path, `Write` records it
 too. Do not mix one variant with four fields and one with none unless the difference is real.
@@ -1520,7 +1437,7 @@ pub enum Error {
 }
 ```
 
-### RS-API-58 [M] Choose `Option` or `Result` uniformly for the same kind of absence
+### RS-API-55 [M] Choose `Option` or `Result` uniformly for the same kind of absence
 
 Within one type, "not found" is always `Option` or always `Result` — never `get` returning `Option`
 while `lookup` returns `Result<_, NotFound>` for the same condition.
@@ -1559,7 +1476,7 @@ impl Registry {
 }
 ```
 
-### RS-API-59 [S] Give comparable sibling methods the same receiver
+### RS-API-56 [S] Give comparable sibling methods the same receiver
 
 Methods doing comparable work take comparable receivers: if `len` takes `&self`, `capacity` does
 too; if one builder step takes `self`, they all do.

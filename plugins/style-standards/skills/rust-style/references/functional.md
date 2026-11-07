@@ -1,8 +1,8 @@
 # Functional: Expressions, Iterators, Immutability, and Purity
 
 Scope: the shape of a function body. Expression orientation and the `let else`/`matches!` vocabulary
-(the choice of `match` over a chain, and bounded recursion, are the errors chapter's: RS-ERR-34,
-RS-ERR-35), the iterator adapter set and when each one is the right word, the discipline around
+(the choice of `match` over a chain, and bounded recursion, are the errors chapter's: RS-ERR-31,
+RS-ERR-32), the iterator adapter set and when each one is the right word, the discipline around
 `mut` and shadowing, closures and their bounds, and the separation of computation from effect.
 Ownership consequences of these choices are in the ownership chapter; the allocation cost of the
 same choices is in the performance chapter; what a *signature* should look like is in the API
@@ -280,7 +280,7 @@ shorter and better optimized (RS-FUNC-16); `fold` is for an accumulator no colle
 
 Where the first failure ends the work, collect into `Result<Vec<_>, _>` when the values are wanted,
 `try_for_each` for an effect, and `try_fold` for an accumulation: each stops at the first error and
-composes with `?`. A run that reports every failure instead is RS-ERR-31's.
+composes with `?`. A run that reports every failure instead is RS-ERR-28's.
 
 **Why:** a `for` loop that carries a mutable `result: Result<(), E>` and overwrites it keeps only
 the *last* error and does the remaining work anyway. The short-circuiting forms skip that work and

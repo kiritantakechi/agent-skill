@@ -54,7 +54,7 @@ relax this.
 |---|---|---|---|---|
 | python-style | | absent | | A failed call raises to a handler the caller can still write, and no operator turns that into an unconditional abort, so there is nothing to unwrap |
 | rust-style | RS-ERR-03 | realises | [M!] | |
-| zig-style | ZS-ERR-09 | realises | [M!] | |
+| zig-style | ZS-ERR-08 | realises | [M!] | |
 
 ## Reporting a failure
 
@@ -68,7 +68,7 @@ by the domain's own meaning, such as an optional field, is not a failure and kee
 |---|---|---|---|---|
 | python-style | PS-ERR-20 | realises | [M] | |
 | rust-style | RS-ERR-23 | realises | [M] | |
-| zig-style | ZS-ERR-17 | realises | [M] | |
+| zig-style | ZS-ERR-16 | realises | [M] | |
 
 ### AS-ERR-04 [M] Never discard an error silently
 
@@ -80,7 +80,7 @@ re-derive which, unless a comment says.
 |---|---|---|---|---|
 | python-style | PS-ERR-09 | realises | [M] | |
 | rust-style | RS-ERR-02 | realises | [M] | |
-| zig-style | ZS-ERR-10 | realises | [M] | |
+| zig-style | ZS-ERR-09 | realises | [M] | |
 
 ### AS-ERR-05 [M] Handle a failure where it can be repaired, and otherwise pass it to the caller
 
@@ -92,7 +92,7 @@ from travelling is a place its information is lost.
 |---|---|---|---|---|
 | python-style | PS-ERR-08 | realises | [M] | |
 | rust-style | RS-ERR-09 | realises | [M] | |
-| zig-style | ZS-ERR-07 | realises | [M] | |
+| zig-style | ZS-ERR-06 | realises | [M] | |
 
 ### AS-ERR-06 [M] A failure translated from a layer below keeps that failure as its cause
 
@@ -116,7 +116,7 @@ failure is found and unrecoverable afterwards, because the code that knew them h
 |---|---|---|---|---|
 | python-style | PS-ERR-03 | realises | [M] | |
 | rust-style | RS-ERR-12 | realises | [M] | |
-| zig-style | ZS-ERR-30 | overrides | [S] | An error value carries no payload, so the position and context travel in an optional diagnostics out-parameter, needed only where a user has to fix the input |
+| zig-style | ZS-ERR-29 | overrides | [S] | An error value carries no payload, so the position and context travel in an optional diagnostics out-parameter, needed only where a user has to fix the input |
 
 ## Designing the failures a package reports
 
@@ -130,7 +130,7 @@ differently, not by the call site that found them or the component that noticed.
 |---|---|---|---|---|
 | python-style | PS-ERR-01 | realises | [M] | |
 | rust-style | RS-ERR-10 | realises | [M] | |
-| zig-style | ZS-ERR-04 | overrides | [S] | A failure set is declared per operation and composed from reusable sets, so a caller of several operations holds their union and the package has no single name for it |
+| zig-style | ZS-ERR-03 | overrides | [S] | A failure set is declared per operation and composed from reusable sets, so a caller of several operations holds their union and the package has no single name for it |
 
 ### AS-ERR-09 [M] Never report a public failure as a catch-all
 
@@ -142,7 +142,7 @@ tell apart, and every failure nobody modelled lands in the catch-all and stays t
 |---|---|---|---|---|
 | python-style | PS-ERR-05 | realises | [M] | |
 | rust-style | RS-ERR-13 | realises | [M] | |
-| zig-style | ZS-ERR-05 | realises | [M] | |
+| zig-style | ZS-ERR-04 | realises | [M] | |
 
 ## Cleanup
 
@@ -155,8 +155,8 @@ must remember at each exit is missed on the exit nobody tested.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-ERR-14 | realises | [M] | |
-| rust-style | RS-ERR-32 | realises | [M] | |
-| zig-style | ZS-ERR-11 | realises | [M] | |
+| rust-style | RS-ERR-29 | realises | [M] | |
+| zig-style | ZS-ERR-10 | realises | [M] | |
 
 ### AS-ERR-11 [M] A cleanup path does not itself fail
 
@@ -167,8 +167,8 @@ must see, that is a separate, explicit step.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-ERR-15 | realises | [M] | |
-| rust-style | RS-ERR-33 | realises | [M] | |
-| zig-style | ZS-ERR-16 | realises | [M] | |
+| rust-style | RS-ERR-30 | realises | [M] | |
+| zig-style | ZS-ERR-15 | realises | [M] | |
 
 ## The shape of a function
 
@@ -182,8 +182,8 @@ its whole purpose.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-ERR-17 | realises | [M] | |
-| rust-style | RS-ERR-36 | realises | [M] | |
-| zig-style | ZS-ERR-20 | realises | [M] | |
+| rust-style | RS-ERR-33 | realises | [M] | |
+| zig-style | ZS-ERR-19 | realises | [M] | |
 
 ### AS-ERR-13 [S] Dispatch on one value with a multi-way branch, not a chain of tests
 
@@ -194,8 +194,8 @@ conditions is not this concept.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-ERR-18 | overrides | [S] | A match destructures structure, and against constants it reads as an if chain wearing a costume, so a chain over plain values stays a chain |
-| rust-style | RS-ERR-34 | tightens | [M] | A Rust enum is the usual subject of the chain, and a match turns a missed variant into a compile error where a chain falls through silently |
-| zig-style | ZS-ERR-19 | realises | [S] | |
+| rust-style | RS-ERR-31 | tightens | [M] | A Rust enum is the usual subject of the chain, and a match turns a missed variant into a compile error where a chain falls through silently |
+| zig-style | ZS-ERR-18 | realises | [S] | |
 
 ### AS-ERR-14 [M!] Use an explicit worklist where the input decides the recursion depth
 
@@ -206,5 +206,5 @@ constant bounds the depth, asserted at the entry.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-ERR-21 | realises | [M!] | |
-| rust-style | RS-ERR-35 | realises | [M!] | |
-| zig-style | ZS-ERR-23 | realises | [M!] | |
+| rust-style | RS-ERR-32 | realises | [M!] | |
+| zig-style | ZS-ERR-22 | realises | [M!] | |

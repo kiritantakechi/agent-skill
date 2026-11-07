@@ -870,7 +870,7 @@ A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`clos
 exists.
 
 **Why:** matched names are what make a pair recognizable as a pair, which is how a reader knows the
-inverse exists without looking (RS-API-55). Mismatched halves read as unrelated operations, and the
+inverse exists without looking (RS-API-52). Mismatched halves read as unrelated operations, and the
 reader searches for a `decode` that is spelled `parse`.
 
 **Check:** list every operation with an inverse and read the two names together. If they do not

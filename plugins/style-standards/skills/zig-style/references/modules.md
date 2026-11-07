@@ -363,7 +363,7 @@ enough to deserve its own type and its own function.
 
 **Why:** special-case branches compound. Each is locally cheap and globally expensive: every later
 change must be checked against every branch, nothing records which combinations are reachable, and
-ZS-ERR-18's simple control flow erodes one plausible patch at a time.
+ZS-ERR-17's simple control flow erodes one plausible patch at a time.
 
 **Check:** for each `if` whose condition names a specific input — a particular length, an empty
 slice treated unlike others, a sentinel value — ask what the general case would need to be for the
