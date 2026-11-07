@@ -146,7 +146,7 @@ value.
 - `TypedDict(closed=True)` and `extra_items=` (PEP 728), for a wire format that forbids or
   constrains unknown keys; specified, which is the bar this standard uses (PS-TYPE-19, PS-TYPE-02).
 - `@disjoint_base` (PEP 800), declaring that two bases cannot be combined (PS-TYPE-15).
-- `lazy import` (PEP 810), in place of an import moved into a function for startup time (PS-MOD-05).
+- `lazy import` (PEP 810), in place of an import moved into a function for startup time (PS-MOD-09).
 - Unpacking in a comprehension (PEP 798), `[*sub for sub in lists]`, in place of `sum(lists, [])`
   (PS-PERF-06).
 - `threading.serialize_iterator`, `concurrent_tee` and `synchronized_iterator`, for an iterator
@@ -236,8 +236,8 @@ name it costs.
 - **Documentation: Docstrings, Comments in Public Places, and What Ships**
   - PS-DOC-13 [M] Say why, not what
 - **Build: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel**
-  - PS-BUILD-20 [M] Run `ruff format`; it is not a suggestion
-  - PS-BUILD-22 [M] A free-threaded wheel tag is not a declaration of thread safety
+  - PS-BUILD-19 [M] Run `ruff format`; it is not a suggestion
+  - PS-BUILD-21 [M] A free-threaded wheel tag is not a declaration of thread safety
 
 ## 5. Review checklist
 
@@ -266,11 +266,11 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-244 rules live here; section 4 lists by ID those that bind on their own.
+249 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
-| `references/naming.md` | `PS-NAME` (16) | Casing and word choice, module and package names, what `ruff format` settles, and the symmetry of names |
+| `references/naming.md` | `PS-NAME` (13) | Casing and word choice, what `ruff format` settles, and the symmetry of names |
 | `references/types.md` | `PS-TYPE` (20) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, and what 3.15 adds |
 | `references/data.md` | `PS-DATA` (18) | Choosing between dataclass, enum, protocol and TypedDict, fields and defaults, immutability, validity, and the symmetry of a data type |
 | `references/errors.md` | `PS-ERR` (21) | Designing an exception hierarchy, raising and catching, `except*`, `finally` after PEP 765, and the control-flow shapes that keep a function readable |
@@ -279,10 +279,10 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/output.md` | `PS-OUT` (18) | Encoding and UTF-8 mode, interpolation and template strings, logging discipline, and the difference between program output and diagnostics |
 | `references/performance.md` | `PS-PERF` (17) | Measuring with the 3.15 profiling package, complexity before constants, allocation, and what the free-threaded build costs |
 | `references/api.md` | `PS-API` (15) | Declaring the public surface, re-export and `py.typed`, signature and default discipline, and evolving without breaking |
-| `references/modules.md` | `PS-MOD` (6) | Package layout under `src/`, what a module does when imported, `lazy import`, and the shape of the import graph |
+| `references/modules.md` | `PS-MOD` (15) | What a module boundary costs, module and package names, layout under `src/`, what a module does when imported, `lazy import`, the import graph, and the order of a module and a class |
 | `references/documentation.md` | `PS-DOC` (14) | Docstring shape and content, choosing a convention and what that choice disables, doctests, the comments that explain the code, and the documents outside it |
 | `references/testing.md` | `PS-TEST` (27) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
-| `references/build.md` | `PS-BUILD` (24) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
+| `references/build.md` | `PS-BUILD` (23) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
 | `references/migration.md` | `PS-MIG` (8) | Every old spelling 3.14 and 3.15 removed, changed, aliased or deprecated, with its status and owning rule; the command the table generates; what to write now for 3.16; and pytest's own ladder |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, the mechanical pass, and the output format |
 

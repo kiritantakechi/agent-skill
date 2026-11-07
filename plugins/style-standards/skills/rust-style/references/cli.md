@@ -364,7 +364,7 @@ pub fn to_paths(raw: Vec<OsString>) -> Vec<PathBuf> {
 
 Provide a negation for every boolean flag that a config file can enable (`--color` / `--no-color`,
 `--hidden` / `--no-hidden`), so a user can override their own configuration on the command line
-(RS-NAME-28).
+(RS-NAME-27).
 
 **Why:** precedence (RS-CLI-04) is only useful if the higher-precedence level can express both
 values. Without a negation, a config-file `true` is unreachable from the command line, which makes

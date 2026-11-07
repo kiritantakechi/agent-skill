@@ -88,7 +88,7 @@ PROSE = (
 
 
 def import_order(b: Block) -> Iterator[Finding]:
-    """ZS-NAME-18 — imports run `@This()`, `builtin`, `std`, then local.
+    """ZS-MOD-09 — imports run `@This()`, `builtin`, `std`, then local.
 
     The rule is [S], but a suggestion the library declines to follow in
     its own examples is not a suggestion. Which of two lines comes first
@@ -103,7 +103,7 @@ def import_order(b: Block) -> Iterator[Finding]:
     }
     if "builtin" in first and "std" in first and first["builtin"] > first["std"]:
         yield fail(
-            '`@import("builtin")` below `@import("std")` (ZS-NAME-18)',
+            '`@import("builtin")` below `@import("std")` (ZS-MOD-09)',
             b.where_at(first["builtin"]),
             IMPORT_ORDER,
         )
@@ -138,7 +138,7 @@ PROFILE = Profile(
     # fixture, not the pattern.
     fires=keyed(
         {
-            "ZS-BUILD-32": (
+            "ZS-BUILD-29": (
                 "- uses: actions/checkout@v7",
                 "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
             ),
@@ -177,16 +177,16 @@ PROFILE = Profile(
         "ZS-ASSERT-08",
         "ZS-ASSERT-20",
         "ZS-ASSERT-04",
-        "ZS-BUILD-23",
-        "ZS-BUILD-34",
-        "ZS-BUILD-35",
+        "ZS-BUILD-20",
+        "ZS-BUILD-31",
+        "ZS-BUILD-32",
         "ZS-COMPTIME-20",
         "ZS-MEM-04",
         "ZS-MEM-06",
         "ZS-NAME-14",
-        "ZS-NAME-17",
+        "ZS-MOD-08",
         "ZS-DOC-08",
-        "ZS-NAME-24",
+        "ZS-NAME-19",
         "ZS-TEST-02",
         "ZS-TEST-06",
         "ZS-TEST-07",
@@ -243,7 +243,7 @@ PROFILE = Profile(
             # Polarity: this Check asserts the shape is *present*, so
             # its hits are evidence of compliance and reading them as
             # defects inverts the rule.
-            "ZS-BUILD-34": NotDecisive(
+            "ZS-BUILD-31": NotDecisive(
                 "has this block",
                 "a presence assertion, and scoped to `build.zig`: the finding is a "
                 "missing guard, which no hit can show",

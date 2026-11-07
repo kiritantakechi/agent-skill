@@ -183,7 +183,7 @@ def _build(data: dict[str, Any], text: str, tag: Location) -> Iterator[Finding]:
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         # The directory is the *distribution* name, not the name a
-        # backend normalises it to. That is the point: PS-BUILD-14
+        # backend normalises it to. That is the point: PS-MOD-06
         # requires the two to match, so a name needing an override fails
         # here rather than silently working because the fixture was
         # built to suit it.

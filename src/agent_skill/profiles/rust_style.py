@@ -49,7 +49,7 @@ CONVENTIONS = (
         "`{1}` takes a bool parameter (RS-API-19)",
         unless_own=RuleId.parse("RS-API-19"),
     ),
-    # RS-NAME-22 — a `bool`-returning method reads as a question.
+    # RS-NAME-21 — a `bool`-returning method reads as a question.
     LineRule(
         QUESTION_NAME,
         r"\bpub (?:async )?fn "
@@ -57,7 +57,7 @@ CONVENTIONS = (
         r"contains|starts_with|ends_with|matches|intersects|all_|any_|"
         r"exceeds|fits|owns|holds|knows)"
         r"(\w+)\([^)]*\)\s*->\s*bool\b",
-        "`{1}` returns bool but does not read as a question (RS-NAME-22)",
+        "`{1}` returns bool but does not read as a question (RS-NAME-21)",
     ),
     # RS-API-15 — no public field, tuple fields included.
     LineRule(
@@ -141,7 +141,7 @@ PROFILE = Profile(
             # pattern.
             "RS-MIG-01": ('lazy_static = "1.5"', 'fd-lock = "4"'),
             # A grab-bag module, declared inline and from a file.
-            "RS-NAME-05": ("pub mod utils;", "mod helpers {"),
+            "RS-NAME-04": ("pub mod utils;", "mod helpers {"),
             "RS-API-12": ("pub fn items(&self) -> &Vec<Item> {",),
             "RS-API-49": ("pub fn set_limit(&mut self, limit: usize) -> &mut Self {",),
             "RS-BUILD-13": ('serde = { version = "1", optional = true }',),
@@ -164,13 +164,13 @@ PROFILE = Profile(
             "RS-DOC-26": ("    // TODO: handle the empty case",),
             "RS-ERR-08": ("let n = s.parse::<u32>().map_err(|_| Error::Parse)?;",),
             "RS-ERR-27": ('panic = "abort"',),
-            "RS-MOD-13": ("pub use crate::matcher::*;",),
-            "RS-NAME-07": ("use-simd = []",),
-            "RS-NAME-16": ("pub fn get_name(&self) -> &str {",),
-            "RS-NAME-21": ("pub fn new_with_capacity(capacity: usize) -> Self {",),
-            "RS-NAME-29": ("pub trait ParserTrait {",),
-            "RS-NAME-33": ("fn first<'life>(items: &'life [u8]) -> &'life u8 {",),
-            "RS-NAME-35": (
+            "RS-MOD-14": ("pub use crate::matcher::*;",),
+            "RS-NAME-06": ("use-simd = []",),
+            "RS-NAME-15": ("pub fn get_name(&self) -> &str {",),
+            "RS-NAME-20": ("pub fn new_with_capacity(capacity: usize) -> Self {",),
+            "RS-NAME-28": ("pub trait ParserTrait {",),
+            "RS-NAME-32": ("fn first<'life>(items: &'life [u8]) -> &'life u8 {",),
+            "RS-NAME-34": (
                 'let message = format!("the connection to {host} was closed by the '
                 + 'peer before the handshake finished");',
             ),
@@ -194,8 +194,8 @@ PROFILE = Profile(
     # `sensitivity` insists on, so the list only shrinks.
     unproven=rules(
         "RS-API-15",
-        "RS-MOD-07",
-        "RS-MOD-10",
+        "RS-MOD-08",
+        "RS-MOD-11",
         "RS-OWN-34",
     ),
     # Measured, not judged: each of these was promoted to accuse and
@@ -216,7 +216,7 @@ PROFILE = Profile(
                 "the span finds every erased error; whether the erasure is a "
                 "commented decision rather than an oversight decides",
             ),
-            "RS-NAME-16": NotDecisive(
+            "RS-NAME-15": NotDecisive(
                 "fn get_",
                 "the span finds every `get_`; whether the method returns `Option` or "
                 "`Result`, or is the `_unchecked`/`_mut` sibling of one that does, "

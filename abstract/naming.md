@@ -64,7 +64,7 @@ the word.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-NAME-04 | realises | [M] | |
-| rust-style | RS-NAME-26 | realises | [M] | |
+| rust-style | RS-NAME-25 | realises | [M] | |
 | zig-style | ZS-NAME-04 | realises | [M] | |
 
 ### AS-NAME-04 [M] Put a name's unit and qualifiers last, the most significant first
@@ -76,7 +76,7 @@ shows. A value whose type carries its unit needs none in its name.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-NAME-05 | realises | [M] | |
-| rust-style | RS-NAME-09 | overrides | [S] | The Rust API Guidelines order a name verb, object, qualifier and the standard library leads a limit with its qualifier, so Rust keeps only the unit last |
+| rust-style | RS-NAME-08 | overrides | [S] | The Rust API Guidelines order a name verb, object, qualifier and the standard library leads a limit with its qualifier, so Rust keeps only the unit last |
 | zig-style | ZS-NAME-07 | realises | [M] | |
 
 ### AS-NAME-05 [M] Name a predicate so it reads as a question
@@ -88,7 +88,7 @@ whether it succeeded.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-NAME-06 | realises | [M] | |
-| rust-style | RS-NAME-22 | realises | [M] | |
+| rust-style | RS-NAME-21 | realises | [M] | |
 | zig-style | ZS-NAME-09 | realises | [M] | |
 
 ### AS-NAME-06 [M] Name a thing for its concept, never for a container
@@ -99,8 +99,8 @@ anything: it admits that the boundary has not been found, and it only grows.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-NAME-09 | realises | [M] | |
-| rust-style | RS-NAME-05 | realises | [M] | |
+| python-style | PS-NAME-08 | realises | [M] | |
+| rust-style | RS-NAME-04 | realises | [M] | |
 | zig-style | ZS-NAME-06 | realises | [M] | |
 
 ### AS-NAME-07 [M] Do not repeat in a name what the type or module containing it already says
@@ -110,8 +110,8 @@ member's name is said twice at every use. The name carries what the path does no
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-NAME-10 | realises | [M] | |
-| rust-style | RS-NAME-08 | realises | [M] | |
+| python-style | PS-NAME-09 | realises | [M] | |
+| rust-style | RS-NAME-07 | realises | [M] | |
 | zig-style | ZS-NAME-05 | realises | [M] | |
 
 ## Families of names
@@ -125,7 +125,7 @@ variant of an operation extends the base name rather than reordering it.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-NAME-07 | realises | [S] | |
-| rust-style | RS-NAME-24 | realises | [S] | |
+| rust-style | RS-NAME-23 | realises | [S] | |
 | zig-style | ZS-NAME-13 | realises | [S] | |
 
 ### AS-NAME-09 [M] Name the two halves of a pair symmetrically
@@ -136,9 +136,9 @@ fixed a pair, it is copied.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-NAME-13 | realises | [M] | |
-| rust-style | RS-NAME-34 | realises | [M] | |
-| zig-style | ZS-NAME-26 | realises | [M] | |
+| python-style | PS-NAME-12 | realises | [M] | |
+| rust-style | RS-NAME-33 | realises | [M] | |
+| zig-style | ZS-NAME-21 | realises | [M] | |
 
 ### AS-NAME-10 [M] Give one concept one term, project-wide
 
@@ -148,9 +148,9 @@ that touches the concept.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-NAME-15 | realises | [M] | |
-| rust-style | RS-NAME-25 | realises | [M] | |
-| zig-style | ZS-NAME-24 | realises | [M] | |
+| python-style | PS-NAME-13 | realises | [M] | |
+| rust-style | RS-NAME-24 | realises | [M] | |
+| zig-style | ZS-NAME-19 | realises | [M] | |
 
 ## Layout
 
@@ -162,9 +162,9 @@ a project that picks another width reopens an argument the default closes.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-NAME-11 | realises | [M] | |
-| rust-style | RS-NAME-35 | realises | [M] | |
-| zig-style | ZS-NAME-23 | realises | [M] | |
+| python-style | PS-NAME-10 | realises | [M] | |
+| rust-style | RS-NAME-34 | realises | [M] | |
+| zig-style | ZS-NAME-18 | realises | [M] | |
 
 ### AS-NAME-12 [M] Let a trailing comma decide when a list explodes
 
@@ -175,6 +175,6 @@ element. Running the formatter in the build is the build chapter's.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-NAME-12 | realises | [M] | |
+| python-style | PS-NAME-11 | realises | [M] | |
 | rust-style | | absent | | rustfmt lays a list out by width alone and ignores a trailing comma, so the author holds no such lever |
-| zig-style | ZS-NAME-22 | realises | [M] | |
+| zig-style | ZS-NAME-17 | realises | [M] | |

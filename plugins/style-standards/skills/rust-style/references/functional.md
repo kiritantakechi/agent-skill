@@ -682,7 +682,7 @@ function that derives a value returns it, and its caller connects it to the sink
 
 **Why:** a function that both computes and writes cannot be tested without a sink, reused with
 another, or parallelized. A middle layer with no I/O, clock, or environment tests in milliseconds,
-which is what makes `run() -> Result<()>` testable (RS-MOD-19).
+which is what makes `run() -> Result<()>` testable (RS-MOD-20).
 
 **Check:** does the function both compute and print, log, write, or send? Split it. How deep in the
 call stack is the deepest I/O call? Everything below the entry layer should be pure.

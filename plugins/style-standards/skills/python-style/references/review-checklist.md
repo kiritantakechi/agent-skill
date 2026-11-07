@@ -61,7 +61,7 @@ uv run python -c "import sys; assert sys.abi_info.free_threaded"
 uv run python -c "import sys, acmewidget; assert not sys._is_gil_enabled()"
 ```
 
-The two assertions are PS-BUILD-23's: the build, then the runtime once the package is imported. Then
+The two assertions are PS-BUILD-22's: the build, then the runtime once the package is imported. Then
 the greps that no linter carries, because Ruff has no free-threading rule at all:
 
 ```sh

@@ -79,7 +79,7 @@ proceed with the stricter reading.
 | `std.mem.eql` | on a float slice holding NaN, `false` for the slice compared with itself: the same slice no longer short-circuits; `findDiff` likewise | ZS-MIG-01 |
 | `init.gpa` | a `SafeAllocator` in `debug` and `safe` builds whether or not libc is linked, as `std.testing.allocator` is; a `safe` build that links libc no longer gets `c_allocator`, and its leak report still never changes the exit code | ZS-MEM-01 |
 | `std.meta.declarations` | the same name, now returning the declarations' names, a `[]const [:0]const u8`, where it returned `[]const Declaration` | ZS-COMPTIME-14 |
-| `addOptionPath` | an option naming a file: a directory is `addOptionPathDirectory`, and `addOptionPathUntracked` opts out of tracking | ZS-BUILD-24 |
+| `addOptionPath` | an option naming a file: a directory is `addOptionPathDirectory`, and `addOptionPathUntracked` opts out of tracking | ZS-BUILD-21 |
 | `zig fetch` | without `--save`, a command that fills only the global cache: `zig fetch --save` and `zig build` fill `zig-pkg/` | ZS-BUILD-12 |
 
 A `changed` row of an earlier release is in the migration table, `ZS-MIG` in section 6, with its
@@ -121,7 +121,7 @@ Since; its owning rule's Check finds it.
 | `std.meta.declarationInfo` | `@hasDecl`, and `@typeInfo(T)` | ZS-COMPTIME-14 |
 | `b.args` | `run.addPassthruArgs()`, which makes the step uncached and keeps the arguments from the build script | ZS-BUILD-07 |
 | `b.build_root` | `b.root`, a `Cache.Path` | ZS-MIG-01 |
-| `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | ZS-BUILD-26 |
+| `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | ZS-BUILD-23 |
 | `b.reference_trace` | `zig build -freference-trace=n` | ZS-COMPTIME-20 |
 | `std.Build.LazyPath.getPath` | nothing: the configure phase resolves no path, so the `LazyPath` goes to the step that reads it; `getPath2`, `getPath3` and `getPath4` likewise | ZS-MIG-01 |
 | `std.Build.GeneratedFile` | nothing: a step's output is a `LazyPath` | ZS-MIG-01 |
@@ -192,9 +192,9 @@ questions, in order: the five every standard asks, then the one safety adds.
    apply it, so the leaves stay pure and one apply site can assert the invariant (ZS-PERF-12).
 4. **What is asymmetric?** If `init` exists, does `deinit`? Do sibling functions take their
    parameters in the same order? Does every operation have its inverse? A missing half is either a
-   restriction the documentation must state, or an oversight (ZS-DATA-36, ZS-DATA-37, ZS-NAME-26).
+   restriction the documentation must state, or an oversight (ZS-DATA-36, ZS-DATA-37, ZS-NAME-21).
 5. **What is special-cased?** A branch that exists for one input is a design that has not absorbed
-   that input. Fold it into the general path, or give it its own type (ZS-ERR-34, ZS-NAME-27).
+   that input. Fold it into the general path, or give it its own type (ZS-MOD-14, ZS-MOD-12).
 6. **What can be asserted instead of assumed?** An invariant the code depends on is checked at the
    boundary or written down as an assumption — never left implicit (ZS-ERR-01, ZS-ASSERT-07).
 
@@ -204,18 +204,15 @@ can see is not worth the name it costs.
 
 ## 4. Core rules
 
-- **Naming, Files, Module Layout, Declaration Order, Formatting**
+- **Naming, Files, `pub`, Formatting**
   - ZS-NAME-01 [M] Apply the official casing rules exactly
   - ZS-NAME-02 [M] Capitalize acronyms as ordinary English words
   - ZS-NAME-04 [M] Spell names out; abbreviate only as scope tightens
   - ZS-NAME-07 [M] Put units and qualifiers last, sorted by descending significance
   - ZS-NAME-14 [M] Name the receiver after its type; keep `self` for anonymous generic containers
   - ZS-NAME-15 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
-  - ZS-NAME-17 [M] Keep the `@This()` alias and the whole import block in one place
-  - ZS-NAME-19 [M] Order a struct body: fields → types → `init`/`deinit` → methods → tests
-  - ZS-NAME-20 [S] Put the entry point and the most important declarations first
-  - ZS-NAME-22 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
-  - ZS-NAME-23 [M] Hard-limit every line to 100 columns
+  - ZS-NAME-17 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
+  - ZS-NAME-18 [M] Hard-limit every line to 100 columns
 - **Type selection, integers, structs, data layout**
   - ZS-DATA-27 [M] Return the lowest-dimensionality type that can carry the answer
 - **Errors, control flow, assertions vs errors vs panics**
@@ -260,6 +257,10 @@ can see is not worth the name it costs.
 - **Documentation: Doc Comments, Comments, and the Documents Beside the Code**
   - ZS-DOC-07 [M] Say why, not what — including at the top of every test
   - ZS-DOC-08 [S] Comment typography: space after the slashes, capital letter, full stop
+- **Modules: Boundaries, Layout, Imports, Order, and Orthogonality**
+  - ZS-MOD-08 [M] Keep the `@This()` alias and the whole import block in one place
+  - ZS-MOD-10 [S] Put the entry point and the most important declarations first
+  - ZS-MOD-11 [S] Order a struct body: fields → types → `init`/`deinit` → methods → tests
 
 ## 5. Review checklist
 
@@ -284,7 +285,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 6. **Public API.** Units last and descending, receivers named after their type rather than `self`,
    no abbreviations? Unpaired operations, siblings disagreeing on parameter order, error-set members
    with uneven detail, two mechanisms for one concept, a branch that exists for one input
-   (ZS-DATA-36 … ZS-DATA-38, ZS-ERR-33, ZS-ERR-34, ZS-NAME-26 … ZS-NAME-28)?
+   (ZS-DATA-36 … ZS-DATA-38, ZS-ERR-33, ZS-NAME-21, ZS-MOD-12 … ZS-MOD-14)?
 7. **Concurrency.** Every `Io.async` awaited or cancelled, every `Group` and `Select` closed, and
    nothing held across a suspension point?
 8. **Function bodies.** `zig fmt` clean, ≤100 columns, functions that fit on a screen, control flow
@@ -298,13 +299,13 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-359 rules live here; section 4 lists by ID those that bind on their own.
+362 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
-| `references/naming.md` | `ZS-NAME` (28) | Naming rules in full, file and module layout, declaration order, formatting |
+| `references/naming.md` | `ZS-NAME` (21) | Naming rules in full, the casing of a file name, `pub` discipline, formatting |
 | `references/data.md` | `ZS-DATA` (38) | Integer choice, off-by-one discipline, casts, struct design, decl literals, result location semantics, in-place init, layout, data-oriented design |
-| `references/errors.md` | `ZS-ERR` (34) | Error sets, `try`/`catch`/`errdefer`, the error-vs-assert-vs-panic decision table, labeled switch, `@branchHint` |
+| `references/errors.md` | `ZS-ERR` (33) | Error sets, `try`/`catch`/`errdefer`, the error-vs-assert-vs-panic decision table, labeled switch, `@branchHint` |
 | `references/memory.md` | `ZS-MEM` (24) | Allocator taxonomy, the allocator vtable, ownership rules, arena patterns, the static-allocation tiering |
 | `references/concurrency.md` | `ZS-CONC` (44) | `std.Io` in full: `Reader`/`Writer`, custom streams, `Io.Dir`/`Io.File`, `async`/`concurrent`/`Group`/`Select`, cancellation, timeouts |
 | `references/output.md` | `ZS-OUT` (20) | `{}` vs `{f}`, the specifier set, custom `format` methods, `std.fmt`, program output vs logging vs `std.debug.print` |
@@ -313,8 +314,9 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/assertions.md` | `ZS-ASSERT` (25) | Assertion philosophy and density, pair assertions, comptime assertions, the optimize modes and which one ships, `_max` constants |
 | `references/comptime.md` | `ZS-COMPTIME` (20) | comptime rules, `anytype` and its costs, type introspection, the three interface shapes, anti-patterns |
 | `references/testing.md` | `ZS-TEST` (32) | `std.testing` in 0.17, `Smith` fuzzing, allocation-failure testing, deterministic simulation |
-| `references/build.md` | `ZS-BUILD` (37) | Annotated `build.zig` and `build.zig.zon`, dependencies, project layout, selecting the optimize mode, CI |
+| `references/build.md` | `ZS-BUILD` (34) | Annotated `build.zig` and `build.zig.zon`, dependencies, project layout, selecting the optimize mode, CI |
 | `references/documentation.md` | `ZS-DOC` (12) | Doc comments and std's contract phrasings, the comments that explain the code, the changelog and the README |
+| `references/modules.md` | `ZS-MOD` (14) | What a module boundary costs, the tree on disk, imports and the module graph, the order of a file and a struct, and one mechanism per concept |
 | `references/migration.md` | `ZS-MIG` (3) | Every old spelling 0.13 through 0.17 left behind, with its status, Since and owning rule, and the command the table generates |
 | `references/review-checklist.md` | — | The audit protocol: seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |
 
@@ -328,4 +330,4 @@ asset and the rule cannot drift apart.
 |---|---|
 | `assets/build.zig` | The complete library + CLI `build.zig` from ZS-BUILD-01, at 0.17.0: module-level `target`/`optimize`, one test binary per module, a separate `test-integration` step, a host-only codegen tool, and the `fmt` and `check` steps |
 | `assets/build.zig.zon` | The annotated manifest from ZS-BUILD-09…12: enum-literal `.name`, the `.fingerprint` warning, what `.minimum_zig_version` does and does not do, and `.paths` as the thing that defines the package hash |
-| `assets/ci.yml` | The five CI requirements of ZS-BUILD-29 as a workflow — pinned toolchain, `fmt --check --ast-check`, `debug` and `safe`, the cross-compile matrix of ZS-BUILD-28, and a cache key naming every matrix axis. Only the `run:` lines are rules; verify the action versions yourself |
+| `assets/ci.yml` | The five CI requirements of ZS-BUILD-26 as a workflow — pinned toolchain, `fmt --check --ast-check`, `debug` and `safe`, the cross-compile matrix of ZS-BUILD-25, and a cache key naming every matrix axis. Only the `run:` lines are rules; verify the action versions yourself |

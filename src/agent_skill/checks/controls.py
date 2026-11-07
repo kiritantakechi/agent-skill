@@ -13,6 +13,7 @@ control still passing. A control that stops firing is itself a failure,
 and so is a fixture whose anchor text has drifted out of the skill.
 """
 
+import re
 import shutil
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
@@ -100,6 +101,24 @@ def edit(tree: Path, rel: str, old: str, new: str, count: int = 1) -> Edited:
         raise FixtureGoneError(msg)
     path.write_text(text.replace(old, new, count))
     return (rel,)
+
+
+def _off_by_one(tree: Path, rel: str, up: str, down: str) -> Edited:
+    """Miscount a map: one more rule in `up`, one fewer in `down`.
+
+    The counts are read from the file, so a move between chapters
+    leaves the control standing.
+    """
+    text = (tree / rel).read_text()
+    edited: Edited = ()
+    for family, step in ((up, 1), (down, -1)):
+        found = re.search(rf"`PS-{family}` \((\d+)\)", text)
+        if found is None:
+            msg = f"{rel}: PS-{family} count"
+            raise FixtureGoneError(msg)
+        count = int(found.group(1))
+        edited += edit(tree, rel, found.group(0), f"`PS-{family}` ({count + step})")
+    return edited
 
 
 def append(tree: Path, rel: str, text: str) -> Edited:
@@ -1957,10 +1976,7 @@ CONTROLS: list[Control] = [
     # Two families off by one each way, so the total still agrees.
     Control(
         anatomy.MAP_FAMILY,
-        lambda t: (
-            *edit(t, f"{PY}/SKILL.md", "`PS-NAME` (16)", "`PS-NAME` (17)"),
-            *edit(t, f"{PY}/SKILL.md", "`PS-TYPE` (20)", "`PS-TYPE` (19)"),
-        ),
+        lambda t: _off_by_one(t, f"{PY}/SKILL.md", "NAME", "TYPE"),
     ),
     # citations
     Control(

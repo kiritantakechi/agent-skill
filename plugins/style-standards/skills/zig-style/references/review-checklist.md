@@ -43,7 +43,7 @@ invalidate the work of reading the next.
    provable upper bound, every queue a limit, every recursion a proof or an explicit stack?
    (`ZS-ASSERT`, ZS-ASSERT-08, ZS-ASSERT-19, ZS-ERR-23)
 6. **Public API.** What is newly `pub`? Is the ownership documented? Is the error set explicit and
-   minimal? Would a caller be able to tell from the signature who frees what? (ZS-NAME-21, `ZS-ERR`)
+   minimal? Would a caller be able to tell from the signature who frees what? (ZS-NAME-16, `ZS-ERR`)
 7. **Concurrency.** Every `Io.async` without a matching `await`, every `Group`/`Select`,
    cancellation paths, and anything holding a resource across a suspension point. (`ZS-CONC`)
 8. **Function bodies.** Now read the code. Compound conditions that want splitting, functions past
@@ -79,12 +79,12 @@ At an `export fn`, a `callconv(.c)` function or an `extern` declaration, ask the
 Run these before reading anything, and report what could not be run rather than implying it passed.
 
 ```sh
-zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .  # ZS-BUILD-26
+zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .  # ZS-BUILD-23
 zig build check                       # semantic check, no binary emitted
 zig build test                        # debug
 zig build test -Doptimize=safe        # ZS-TEST-31: the suite must pass in both
 zig build test-integration
-zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-28)
+zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-25)
 ```
 
 ### Stale-API greps

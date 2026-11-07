@@ -98,7 +98,7 @@ value.
 ### 2.3 What Rust 1.99 gained
 
 - `LazyLock` and `OnceLock`, in place of `lazy_static` and `once_cell` (RS-CONC-27).
-- `cfg_select!`, in place of `cfg-if` (RS-MOD-07).
+- `cfg_select!`, in place of `cfg-if` (RS-MOD-08).
 - `assert_matches!`, in place of `assert!(matches!(..))` and the `assert_matches` crate
   (RS-TEST-13).
 - `File::lock`, `try_lock` and `lock_shared`, in place of `fs2` and its forks; `fs::set_times`, in
@@ -135,7 +135,7 @@ questions, in order:
    arguments in the same order? Do the error variants share one shape? A missing half is either a
    restriction the documentation must state, or an oversight (RS-API-57 … RS-API-60).
 5. **What is special-cased?** A branch that exists for one input is a design that has not absorbed
-   that input. Fold it into the general case, or name it as its own type (RS-MOD-43, RS-MOD-44).
+   that input. Fold it into the general case, or name it as its own type (RS-MOD-44, RS-MOD-45).
 
 Readability outranks all five. A combinator chain that requires the reader to track three type
 transformations is worse than the `match` it replaced (RS-FUNC-41), and a symmetry nobody can see is
@@ -145,9 +145,9 @@ not worth the name it costs.
 
 - **Naming: Casing, Conversions, Word Order, and Generics**
   - RS-NAME-01 [M] Capitalize acronyms as ordinary English words
-  - RS-NAME-12 [M] `as_` is a free borrowed view
-  - RS-NAME-16 [M] Getters omit `get_`
-  - RS-NAME-26 [M] Spell names out; abbreviate only where the abbreviation is the standard word
+  - RS-NAME-11 [M] `as_` is a free borrowed view
+  - RS-NAME-15 [M] Getters omit `get_`
+  - RS-NAME-25 [M] Spell names out; abbreviate only where the abbreviation is the standard word
 - **API: The Public Surface, Signatures, Invariants, and Evolution**
   - RS-API-01 [M] Keep everything private until proven public
   - RS-API-07 [M] Be generic in what you accept, concrete in what you return
@@ -233,13 +233,13 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 
 | File | Rule IDs | Covers |
 |---|---|---|
-| `references/naming.md` | `RS-NAME` (35) | Casing, conversion prefixes (`as_`/`to_`/`into_`), getters, predicates, iterator names, word order, generic parameters and lifetimes |
+| `references/naming.md` | `RS-NAME` (34) | Casing, conversion prefixes (`as_`/`to_`/`into_`), getters, predicates, iterator names, word order, generic parameters and lifetimes |
 | `references/api.md` | `RS-API` (61) | Public surface shape, parameters and returns, encapsulation, type safety and newtypes, `#[must_use]`/`#[non_exhaustive]`, the std trait impl set, constructors and builders, semver evolution |
 | `references/errors.md` | `RS-ERR` (37) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, explicit overflow, exit codes |
 | `references/functional.md` | `RS-FUNC` (45) | Expression orientation, the iterator adapter set, immutability and shadowing, closures and bounds, purity, parse-don't-validate, when to stop |
 | `references/ownership.md` | `RS-OWN` (37) | Borrow-vs-own signatures, clone discipline, `Cow`, lifetimes and elision, arenas and indices, smart pointers, interior mutability, `Drop` and RAII |
 | `references/traits.md` | `RS-TRAIT` (46) | Trait design and contracts, static vs dynamic dispatch, dyn compatibility, coherence and blanket impls, sealing, bounds, associated types, GATs, const generics, typestate |
-| `references/modules.md` | `RS-MOD` (45) | Module boundaries, `foo.rs` + `foo/`, visibility escalation, the library/binary split, workspace layout and facades, imports and in-file declaration order |
+| `references/modules.md` | `RS-MOD` (46) | Module boundaries and crate names, `foo.rs` + `foo/`, visibility escalation, the library/binary split, workspace layout and facades, imports and in-file declaration order |
 | `references/build.md` | `RS-BUILD` (46) | Manifest and metadata, docs.rs, additive features, dependency discipline, the `[lints]` table, supply chain and semver, toolchain, profiles, CI |
 | `references/testing.md` | `RS-TEST` (34) | Unit/integration/doc test split, table-driven tests, property and differential testing, fuzzing, snapshots, CLI end-to-end, flakes |
 | `references/documentation.md` | `RS-DOC` (35) | Crate and module docs, the section order, `# Errors`/`# Panics`/`# Safety`, prose style, the changelog, intra-doc links, README |

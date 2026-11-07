@@ -1,20 +1,21 @@
-# Naming, Files, Module Layout, Declaration Order, Formatting
+# Naming, Files, `pub`, Formatting
 
-Scope: how identifiers are cased and worded, how a `.zig` file is named and laid out, the order of
-declarations inside a file and inside a struct, `pub` discipline, and the formatting mechanics
-(`zig fmt`, the trailing comma, 100 columns). Semantics of the things being named live elsewhere:
-error-set design in the errors chapter, `init`/`deinit`/ownership contracts in the memory chapter,
-`format` and `std.Io` in the concurrency chapter, `test` mechanics and fuzzing in the testing
-chapter, `build.zig` naming in the build chapter, and what a comment says (the three comment forms,
-std's contract phrasings) in the documentation chapter.
+Scope: how identifiers are cased and worded, how a `.zig` file is cased, `pub` discipline, and the
+formatting mechanics (`zig fmt`, the trailing comma, 100 columns). How a project is divided into
+files, how they are laid out and ordered, and how long a file name runs are the modules chapter.
+Semantics of the things being named live elsewhere: error-set design in the errors chapter,
+`init`/`deinit`/ownership contracts in the memory chapter, `format` and `std.Io` in the concurrency
+chapter, `test` mechanics and fuzzing in the testing chapter, `build.zig` naming in the build
+chapter, and what a comment says (the three comment forms, std's contract phrasings) in the
+documentation chapter.
 
 Two sources are merged here: the **official Zig style guide** (langref 0.17.0 §Style Guide, quoted
 verbatim where it is normative) and **TigerStyle** (TigerBeetle's house standard). Where they
 disagree, the disagreement is stated outright in the rule, with the side this standard takes.
 
-Unless a block shows its own imports, it assumes the preamble this chapter prescribes in ZS-NAME-18:
-`const std = @import("std");` and `const assert = std.debug.assert;`. Where a snippet's file name
-matters to the rule, it is named in the comment above it.
+Unless a block shows its own imports, it assumes the preamble the modules chapter prescribes in
+ZS-MOD-09: `const std = @import("std");` and `const assert = std.debug.assert;`. Where a snippet's
+file name matters to the rule, it is named in the comment above it.
 
 ## Contents
 
@@ -34,24 +35,17 @@ matters to the rule, it is named in the comment above it.
   - ZS-NAME-13 [S] Use std's suffix vocabulary for method variants
 - **Receivers**
   - ZS-NAME-14 [M] Name the receiver after its type; keep `self` for anonymous generic containers
-- **Files and modules**
+- **Files and `pub`**
   - ZS-NAME-15 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
-  - ZS-NAME-16 [S] Name a directory after its companion file, or after the module it roots
-  - ZS-NAME-17 [M] Keep the `@This()` alias and the whole import block in one place
-  - ZS-NAME-18 [S] Order imports `@This()` → `builtin` → `std` → local, and alias the hot names
-  - ZS-NAME-19 [M] Order a struct body: fields → types → `init`/`deinit` → methods → tests
-  - ZS-NAME-20 [S] Put the entry point and the most important declarations first
-  - ZS-NAME-21 [M] Default to non-`pub`; mark `pub` only what a caller outside the file needs
+  - ZS-NAME-16 [M] Default to non-`pub`; mark `pub` only what a caller outside the file needs
 - **Formatting**
-  - ZS-NAME-22 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
-  - ZS-NAME-23 [M] Hard-limit every line to 100 columns
+  - ZS-NAME-17 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
+  - ZS-NAME-18 [M] Hard-limit every line to 100 columns
 - **Names beyond the source file**
-  - ZS-NAME-24 [M] One term, one meaning, project-wide
-  - ZS-NAME-25 [M] Write the commit message; a pull-request description is not one
+  - ZS-NAME-19 [M] One term, one meaning, project-wide
+  - ZS-NAME-20 [M] Write the commit message; a pull-request description is not one
 - **Symmetry across a codebase**
-  - ZS-NAME-26 [M] Name the two halves of a pair symmetrically
-  - ZS-NAME-27 [M] One concept, one mechanism
-  - ZS-NAME-28 [S] Keep sibling modules structurally parallel
+  - ZS-NAME-21 [M] Name the two halves of a pair symmetrically
 - Decided by tools
 
 ---
@@ -461,7 +455,7 @@ pub fn copyRange(source: []const u8, target: []u8, options: CopyOptions) void {
 ```
 
 ```zig
-// fragment — the exempt pair, with `assert` as the ZS-NAME-18 alias
+// fragment — the exempt pair, with `assert` as the ZS-MOD-09 alias
 // `op_max` is `op`'s ceiling, not a second interchangeable argument.
 fn opCommitted(op: u64, op_max: u64) bool {
     assert(op_max >= 1);
@@ -634,13 +628,13 @@ pub fn Stack(comptime T: type) type {
 }
 ```
 
-## Files and modules
+## Files and `pub`
 
 ### ZS-NAME-15 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
 
 A file with top-level fields *is* a struct type: `Journal.zig`, `Io.zig`, `Build.zig`. A file with
 no top-level fields is a namespace: `array_list.zig`, `wire_format.zig`. Directory names follow
-ZS-NAME-16.
+ZS-MOD-06.
 
 The langref, verbatim: "File names fall into two categories: types and namespaces. If the file
 (implicitly a struct) has top level fields, it should be named like any other struct with fields
@@ -680,173 +674,7 @@ src/journal.zig  (has fields)   src/Journal.zig
 src/WireFormat.zig (no fields)  src/wire_format.zig
 ```
 
-### ZS-NAME-16 [S] Name a directory after its companion file, or after the module it roots
-
-`Io/` sits beside `Io.zig`; `Build/`, `Build/Step/`, `Target/`, `Io/File/` likewise. The langref
-says "Directory names should be `snake_case`", but std does not do that: almost every std directory
-has a companion `<dir>.zig` sibling. Use `snake_case` directories only where there is no companion
-file. A directory that holds a module's sources takes the name `b.addModule` gives the module, so
-the module, its directory and the `@import` string agree.
-
-**Why:** a directory is the sub-namespace of the file or module it accompanies, so `std.Io.File`
-maps mechanically to `Io/File.zig`, one grep finds every mention of a module, and a rename is one
-operation; when the names differ, every reader carries the mapping.
-
-**Check:** for each new directory, `ls` its parent for `<dir>.zig`. If that sibling exists, the
-directory name must match it character for character, casing included; if it does not exist, the
-directory must be `snake_case`. And the source tree reads as the module list in `build.zig`.
-
-### ZS-NAME-17 [M] Keep the `@This()` alias and the whole import block in one place
-
-Top form: `//!` doc, then `const Foo = @This();`, then imports, then fields. Bottom form: everything
-else first, imports and the `@This()` alias as the final block. Pick one per file. Both are house
-style: the median std file has its first `@import` on line 2, but 19 files of 40 lines or more —
-`zig/Parse.zig`, `heap/ArenaAllocator.zig` and `http/HeadParser.zig` among them — put the whole
-block in their last half so that line 1 is the type's documentation rather than boilerplate.
-
-**Why:** a split import block is not house style: `zig fmt` never reorders or moves imports, so a
-scattered block stays scattered forever, and a reader cannot answer "what does this file depend on?"
-without reading all of it.
-
-**Check:** `rg -n '@import\(' <file>` — the line numbers must form one contiguous run (allowing the
-alias lines derived from them). A second run further down the file is a split block, and the
-`const Foo = @This();` line must sit at the same end as that run.
-
-```zig
-//! An append-only journal of fixed-size sectors held in one allocation.
-// verified
-
-const Journal = @This();
-
-const builtin = @import("builtin");
-const is_debug = builtin.optimize == .debug;
-
-const std = @import("std");
-const assert = std.debug.assert;
-const Allocator = std.mem.Allocator;
-```
-
-### ZS-NAME-18 [S] Order imports `@This()` → `builtin` → `std` → local, and alias the hot names
-
-Group in that order, each group separated by a blank line, derived aliases immediately under the
-import they derive from. Do not alphabetize across groups.
-
-The standard alias block, by frequency in std: `const assert = std.debug.assert;` (172 files),
-`const mem = std.mem;` (137), `const testing = std.testing;` (129), `const math = std.math;` (119),
-`const Allocator = std.mem.Allocator;` (94), `const Io = std.Io;` (75). Why `assert` is always
-aliased is ZS-ASSERT-01.
-
-Application code always writes `@import("std")`. `@import("../std.zig")` is internal to std itself.
-
-**Why:** the ordering is the std habit and it goes from most-fixed to most-local, so the interesting
-lines (your own modules) are last and closest to the code. `zig fmt` will never reorder imports, so
-a convention is the only thing keeping them consistent.
-
-**Check:** `@import("builtin")` appearing below `@import("std")`, a local `@import` above either, an
-alias separated from the import it derives from, or `@import("../std.zig")` outside std.
-
-### ZS-NAME-19 [M] Order a struct body: fields → types → `init`/`deinit` → methods → tests
-
-Fields carry no `pub`. Nested `pub const Foo = struct {…}` types and `pub const empty: Self = …`
-decl literals come after the fields and before the methods. TigerStyle places the
-`const Self = @This();` line at the *end* of the types section; std places the named `@This()` alias
-at the very top of the file (ZS-NAME-17). Prefer the std placement for a `TitleCase.zig` file and
-the TigerStyle placement for a nested struct.
-
-TigerStyle: "the order is fields then types then methods". std does the same (`Io/File.zig`,
-`Io/Dir.zig`, `Build/Step.zig`, `Io/Writer.zig`, `heap/ArenaAllocator.zig` all match). If a nested
-type grows complex, promote it to its own top-level file.
-
-**Why:** the layout is memory-shaped: the fields are the data and everything below is derived from
-them, so a reader reconstructing the invariants reads top-down and never has to scroll back.
-
-**Check:** read the struct body top to bottom and note the first `fn`. A field declaration or a
-nested `pub const … = struct` below it is out of order, as is a `test` block above the last method,
-or `init`/`deinit` appearing after another method.
-
-```zig
-//! An append-only journal of fixed-size sectors held in one allocation.
-// verified
-
-const Journal = @This();
-
-const std = @import("std");
-const assert = std.debug.assert;
-const Allocator = std.mem.Allocator;
-
-/// Backing storage for every sector. Owned by this `Journal`.
-sectors: []u8,
-/// Number of sectors written so far. Never exceeds `sector_count_max`.
-sector_count: u32,
-
-pub const sector_size_bytes: u32 = 512;
-pub const sector_count_max: u32 = 1024;
-
-pub const Options = struct {
-    sector_count: u32 = sector_count_max,
-};
-
-pub const AppendError = error{Full};
-
-comptime {
-    assert(sector_count_max > 0);
-    assert(sector_size_bytes % 8 == 0);
-}
-
-/// Deinitialize with `deinit`.
-pub fn init(gpa: Allocator, options: Options) Allocator.Error!Journal {
-    assert(options.sector_count <= sector_count_max);
-    const bytes = try gpa.alloc(u8, options.sector_count * sector_size_bytes);
-    return .{ .sectors = bytes, .sector_count = 0 };
-}
-
-pub fn deinit(journal: *Journal, gpa: Allocator) void {
-    gpa.free(journal.sectors);
-    journal.* = undefined;
-}
-
-/// Asserts that `sector.len` is exactly `sector_size_bytes`.
-/// Invalidates slices previously returned by `sectorAt`.
-pub fn append(journal: *Journal, sector: []const u8) AppendError!void {
-    assert(sector.len == sector_size_bytes);
-    const offset = journal.sector_count * sector_size_bytes;
-    if (offset == journal.sectors.len) return error.Full;
-    @memcpy(journal.sectors[offset..][0..sector_size_bytes], sector);
-    journal.sector_count += 1;
-}
-
-/// Asserts that `index` is in bounds.
-pub fn sectorAt(journal: *const Journal, index: u32) []const u8 {
-    assert(index < journal.sector_count);
-    return journal.sectors[index * sector_size_bytes ..][0..sector_size_bytes];
-}
-
-test append {
-    const gpa = std.testing.allocator;
-    var journal: Journal = try .init(gpa, .{ .sector_count = 1 });
-    defer journal.deinit(gpa);
-
-    const sector: [sector_size_bytes]u8 = @splat('a');
-    try journal.append(&sector);
-    try std.testing.expectError(error.Full, journal.append(&sector));
-    try std.testing.expectEqualSlices(u8, &sector, journal.sectorAt(0));
-}
-```
-
-### ZS-NAME-20 [S] Put the entry point and the most important declarations first
-
-`main` goes first in a file that has one. Public API before private helpers. Where no ordering is
-obviously right, sort alphabetically and let ZS-NAME-07's big-endian naming do the grouping.
-
-**Why:** TigerStyle: "On the first read, a file is read top-down, so put important things near the
-top." Order has no semantic effect in Zig — declaration order is irrelevant to the compiler — which
-means it is pure signal, and wasting it costs nothing to fix.
-
-**Check:** in a file declaring `main`, is `main` the first declaration after the import block? In
-any other file, does a non-`pub` helper appear above the `pub` declaration that calls it? Those are
-the two mechanical readings; the rest of this rule is a tie-break, not a check.
-
-### ZS-NAME-21 [M] Default to non-`pub`; mark `pub` only what a caller outside the file needs
+### ZS-NAME-16 [M] Default to non-`pub`; mark `pub` only what a caller outside the file needs
 
 A declaration starts private and becomes `pub` when a caller in another file needs it. Which of the
 `pub` names form the package's surface is decided once, in `root.zig` (ZS-BUILD-15).
@@ -858,7 +686,7 @@ later without a breaking change; the compiler will not tell you which `pub`s are
 
 ## Formatting
 
-### ZS-NAME-22 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
+### ZS-NAME-17 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
 
 `zig fmt` owns indentation (4 spaces), brace placement, spacing, and blank-line collapsing. The one
 decision you make is the **trailing comma**: adding one to a parameter list, struct literal, or enum
@@ -868,14 +696,14 @@ onto separate lines. The langref: "If a list of things is longer than 2, put eac
 line and exercise the ability to put an extra comma at the end."
 
 `zig fmt` will **not** order your imports, group your blank lines, order your declarations, or wrap
-a long expression — those are ZS-NAME-18 through ZS-NAME-20 and your own judgement.
-`// zig fmt: off` … `// zig fmt: on` exists, and std uses it only for hand-aligned tables. Source is
-UTF-8 with LF endings and a trailing newline.
+a long expression — those are ZS-MOD-09 through ZS-MOD-10 and your own judgement. `// zig fmt: off`
+… `// zig fmt: on` exists, and std uses it only for hand-aligned tables. Source is UTF-8 with LF
+endings and a trailing newline.
 
 **Why:** `zig fmt` *collapses* a multi-line signature that lacks a trailing comma back onto one
 line, so a hand-wrapped signature without a trailing comma will be silently un-wrapped.
 
-**Check:** the CI gate of ZS-BUILD-26 —
+**Check:** the CI gate of ZS-BUILD-23 —
 `zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .` — is the whole rule for
 indentation and spacing. The reviewable residue is a multi-line parameter list, struct literal, or
 enum with **no** trailing comma — `zig fmt` will silently collapse it back onto one line — and any
@@ -901,7 +729,7 @@ fn f(
 }
 ```
 
-### ZS-NAME-23 [M] Hard-limit every line to 100 columns
+### ZS-NAME-18 [M] Hard-limit every line to 100 columns
 
 Including comments, doc comments, and string literals. Set a column ruler. Wrap by adding a trailing
 comma and re-running `zig fmt`. Enforce it in CI: it is a one-line check and the only formatting
@@ -919,7 +747,7 @@ so it needs its own CI line.
 
 ## Names beyond the source file
 
-### ZS-NAME-24 [M] One term, one meaning, project-wide
+### ZS-NAME-19 [M] One term, one meaning, project-wide
 
 A word that already has a technical meaning in your project may not be reused for a second,
 context-dependent meaning. Before introducing a term, grep the codebase and the design documents for
@@ -952,7 +780,7 @@ pub fn postPending(transfer: *PendingTransfer) void {}
 pub fn voidPending(transfer: *PendingTransfer) void {}
 ```
 
-### ZS-NAME-25 [M] Write the commit message; a pull-request description is not one
+### ZS-NAME-20 [M] Write the commit message; a pull-request description is not one
 
 Every commit gets a descriptive message: a subject line naming what changed, and a body giving the
 reasoning ZS-DOC-07 keeps out of the code. Do not put the explanation only in a pull-request
@@ -986,7 +814,7 @@ fix                                   journal: bump sector_count before fsync
 
 ## Symmetry across a codebase
 
-### ZS-NAME-26 [M] Name the two halves of a pair symmetrically
+### ZS-NAME-21 [M] Name the two halves of a pair symmetrically
 
 A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`close`, not
 `open`/`release`; `acquire`/`release`, not `acquire`/`free`. Where std has already fixed the pair,
@@ -998,32 +826,6 @@ operations, so the reader hunts for a `decode` that was spelled `parse`.
 
 **Check:** list every operation with an inverse and read the two names aloud together. If they do
 not sound like a pair, rename the odd half.
-
-### ZS-NAME-27 [M] One concept, one mechanism
-
-A project configures itself one way, reports progress one way, allocates one way, and spawns work
-one way. Two mechanisms for one concept means every future change must choose between them and every
-reader must learn both.
-
-**Why:** mechanisms multiply combinations. Two configuration paths and two logging paths is four
-states a maintainer has to hold at once, and the second mechanism is nearly always introduced
-because the first was inconvenient in one place — a local fix with a global cost.
-
-**Check:** name the single mechanism for each cross-cutting concern: configuration, errors, logging,
-allocation, I/O, concurrency. More than one per concern needs a migration plan, not an exception.
-
-### ZS-NAME-28 [S] Keep sibling modules structurally parallel
-
-Modules at the same level of the tree have the same internal shape: if `parser.zig` has an `Error`
-set, a `Config`, and a test block at the bottom, then `renderer.zig` does too, or the difference is
-explained in a comment. ZS-NAME-19 fixes the order inside one file; this rule fixes it across files.
-
-**Why:** parallel structure lets a reader who has learned one module navigate the next without
-reading it, which compounds across a codebase. The convention costs almost nothing to keep and is
-paid for on every visit by every contributor.
-
-**Check:** list the declaration kinds in each sibling module side by side. A row present in three of
-four siblings is either missing from the fourth or unnecessary in the others.
 
 ## Decided by tools
 

@@ -574,7 +574,7 @@ mod tests {
 
 ### BV-ARCH-10 [M] Suffix a `Plugin` type `Plugin` and a `SystemSet` type `Systems`
 
-Departs from RS-NAME-29. A type implementing `Plugin` ends in `Plugin`, and one implementing
+Departs from RS-NAME-28. A type implementing `Plugin` ends in `Plugin`, and one implementing
 `SystemSet` ends in `Systems` — `CombatPlugin`, `MovementSystems` — and no other type ends in either
 word.
 

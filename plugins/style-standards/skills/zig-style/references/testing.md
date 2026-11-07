@@ -63,10 +63,10 @@ rule is not about.
 A unit `test` block belongs in the same file as the declaration it exercises, below the
 implementation — never shadowed into a parallel `tests/` tree that mirrors `src/` file for file.
 This is a rule about unit tests only: **integration tests live outside `src/`** in their own
-directory, with their own `addTest` and their own build step (ZS-BUILD-18, ZS-BUILD-04), because
-their whole purpose is to exercise the published module surface rather than internals.
+directory, with their own `addTest` and their own build step (ZS-MOD-05, ZS-BUILD-04), because their
+whole purpose is to exercise the published module surface rather than internals.
 
-Within the file, tests come last in the struct body (ZS-NAME-19). Prefer the decltest form
+Within the file, tests come last in the struct body (ZS-MOD-11). Prefer the decltest form
 (ZS-TEST-02), which names file-scope declarations only. `zig test` compiles the file plus everything
 it transitively `@import`s, so co-located tests are picked up with zero wiring.
 
@@ -1247,7 +1247,7 @@ test "log_level lets a noisy module be quieted" {
 ### ZS-TEST-31 [M] Run the whole suite in `safe` as well as `debug`
 
 The suite MUST execute in both modes. Drive it from a CI matrix over `-Doptimize` — the canonical
-shape in ZS-BUILD-29, `matrix: optimize: [debug, safe]`, which is also how the OS matrix already
+shape in ZS-BUILD-26, `matrix: optimize: [debug, safe]`, which is also how the OS matrix already
 works — keeping `build.zig` on a single `optimize` from `b.standardOptimizeOption` as in
 ZS-BUILD-01. For a project with no CI, loop both modes inside the `test` step instead. What is
 forbidden is a pipeline that only ever runs one mode. The matrix is preferred over an in-build loop
@@ -1269,7 +1269,7 @@ and it catches performance regressions and stack-overflow-in-release bugs.
 `zig build test` invocation with no `-Doptimize` axis anywhere is the failure this rule names.
 
 ```yaml
-# GOOD — CI, the primary form (full workflow in ZS-BUILD-29)
+# GOOD — CI, the primary form (full workflow in ZS-BUILD-26)
 strategy:
   fail-fast: false
   matrix:

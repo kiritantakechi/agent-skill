@@ -34,7 +34,7 @@ jobs:
       # The build first, then the runtime with the package imported: the GIL
       # can be re-enabled at import time, process-wide, permanently and with
       # only a RuntimeWarning, so one unported dependency silently costs the
-      # whole feature (PS-BUILD-23). `acmewidget` is the template's package.
+      # whole feature (PS-BUILD-22). `acmewidget` is the template's package.
       - run: uv run python -c "import sys; assert sys.abi_info.free_threaded"
       - run: uv run python -c "import sys, acmewidget; assert not sys._is_gil_enabled()"
 

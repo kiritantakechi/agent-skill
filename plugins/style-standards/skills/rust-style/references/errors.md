@@ -5,7 +5,7 @@ what it must carry, how errors propagate and accumulate context, the panic rules
 `panic = "abort"`, how a binary reports failure and chooses an exit code, how a resource is released
 on every path out (RAII, and a `Drop` that must not fail), and the shape of a function body around a
 failure (`match` over a chain, a bounded recursion). A panic at the FFI boundary is RS-UNSAFE-24.
-Naming of error types is in the naming chapter (RS-NAME-31); the `# Errors` and `# Panics` rustdoc
+Naming of error types is in the naming chapter (RS-NAME-30); the `# Errors` and `# Panics` rustdoc
 sections are in the documentation chapter; the deny rows that mechanically enforce this chapter are
 in the build chapter's table.
 

@@ -13,48 +13,47 @@ chapter, module *boundaries* in the modules chapter, and feature *semantics* in 
   - RS-NAME-01 [M] Capitalize acronyms as ordinary English words
   - RS-NAME-02 [M] Let Cargo translate between package and crate names
   - RS-NAME-03 [S] Never prefix or suffix a crate with `rust`
-  - RS-NAME-04 [S] Keep crate names short, lowercase, and pronounceable
-  - RS-NAME-05 [M] Name a module for its concept; never `utils`, `helpers`, `common`
-  - RS-NAME-06 [M] Name a feature for the capability, not the dependency
-  - RS-NAME-07 [S] Do not prefix a feature with `use-`, `with-`, or `enable-`
-  - RS-NAME-08 [M] Do not repeat a type's name in the members it contains
-  - RS-NAME-09 [S] Name a quantity for what it measures, with the unit as a suffix
-  - RS-NAME-10 [S] Name a type parameter by its role: a conventional letter, else a word
-  - RS-NAME-11 [M] Name the file after the module, without re-stating the directory
+  - RS-NAME-04 [M] Name a module for its concept; never `utils`, `helpers`, `common`
+  - RS-NAME-05 [M] Name a feature for the capability, not the dependency
+  - RS-NAME-06 [S] Do not prefix a feature with `use-`, `with-`, or `enable-`
+  - RS-NAME-07 [M] Do not repeat a type's name in the members it contains
+  - RS-NAME-08 [S] Name a quantity for what it measures, with the unit as a suffix
+  - RS-NAME-09 [S] Name a type parameter by its role: a conventional letter, else a word
+  - RS-NAME-10 [M] Name the file after the module, without re-stating the directory
 
 - **Conversions and access**
-  - RS-NAME-12 [M] `as_` is a free borrowed view
-  - RS-NAME-13 [M] `to_` costs something
-  - RS-NAME-14 [M] `into_` consumes the receiver
-  - RS-NAME-15 [M] Do not use a conversion prefix for a computation
-  - RS-NAME-16 [M] Getters omit `get_`
-  - RS-NAME-17 [M] Match the getter to the field, and suffix the mutable variant `_mut`
-  - RS-NAME-18 [M] Mark fallible conversions `try_`
-  - RS-NAME-19 [M] Use the three canonical iterator constructor names
-  - RS-NAME-20 [S] Name an iterator type after the method that produces it
-  - RS-NAME-21 [S] Name secondary constructors `with_*` / `from_*`, never `new_with_*`
-  - RS-NAME-22 [M] Predicates read as questions and return `bool`
+  - RS-NAME-11 [M] `as_` is a free borrowed view
+  - RS-NAME-12 [M] `to_` costs something
+  - RS-NAME-13 [M] `into_` consumes the receiver
+  - RS-NAME-14 [M] Do not use a conversion prefix for a computation
+  - RS-NAME-15 [M] Getters omit `get_`
+  - RS-NAME-16 [M] Match the getter to the field, and suffix the mutable variant `_mut`
+  - RS-NAME-17 [M] Mark fallible conversions `try_`
+  - RS-NAME-18 [M] Use the three canonical iterator constructor names
+  - RS-NAME-19 [S] Name an iterator type after the method that produces it
+  - RS-NAME-20 [S] Name secondary constructors `with_*` / `from_*`, never `new_with_*`
+  - RS-NAME-21 [M] Predicates read as questions and return `bool`
 
 - **Words and word order**
-  - RS-NAME-23 [S] Verbs do something; nouns give something
-  - RS-NAME-24 [S] Follow `std`'s word order, extend by suffix, and keep parallel names parallel
-  - RS-NAME-25 [M] One term, one meaning, crate-wide
-  - RS-NAME-26 [M] Spell names out; abbreviate only where the abbreviation is the standard word
-  - RS-NAME-27 [S] Restrict single-letter locals to short, genuinely generic bindings
-  - RS-NAME-28 [S] Name the positive; convert negations once, at the boundary
-  - RS-NAME-29 [M] Never suffix a name with the language construct
-  - RS-NAME-30 [S] Apply role suffixes consistently or not at all
-  - RS-NAME-31 [M] Pick one error-type spelling per crate
+  - RS-NAME-22 [S] Verbs do something; nouns give something
+  - RS-NAME-23 [S] Follow `std`'s word order, extend by suffix, and keep parallel names parallel
+  - RS-NAME-24 [M] One term, one meaning, crate-wide
+  - RS-NAME-25 [M] Spell names out; abbreviate only where the abbreviation is the standard word
+  - RS-NAME-26 [S] Restrict single-letter locals to short, genuinely generic bindings
+  - RS-NAME-27 [S] Name the positive; convert negations once, at the boundary
+  - RS-NAME-28 [M] Never suffix a name with the language construct
+  - RS-NAME-29 [S] Apply role suffixes consistently or not at all
+  - RS-NAME-30 [M] Pick one error-type spelling per crate
 
 - **Generic parameters and lifetimes**
-  - RS-NAME-32 [S] Name a lifetime for the source of the borrow once several coexist
-  - RS-NAME-33 [M] Never restate the kind in a parameter's name
+  - RS-NAME-31 [S] Name a lifetime for the source of the borrow once several coexist
+  - RS-NAME-32 [M] Never restate the kind in a parameter's name
 
 - **Symmetry of names**
-  - RS-NAME-34 [M] Name the two halves of a pair symmetrically
+  - RS-NAME-33 [M] Name the two halves of a pair symmetrically
 
 - **Formatting**
-  - RS-NAME-35 [M] Hold every line to 100 columns, rustfmt's default
+  - RS-NAME-34 [M] Hold every line to 100 columns, rustfmt's default
 
 - Decided by tools
 
@@ -113,18 +112,7 @@ name is already taken by an unrelated ecosystem-wide term.
 **Check:** does the crate name contain `rust` or end in `-rs`? If yes, is the unprefixed name
 actually taken by something a user could confuse it with?
 
-### RS-NAME-04 [S] Keep crate names short, lowercase, and pronounceable
-
-Two words is the ceiling for a leaf crate; three for a facade (`regex-automata`, `grep-searcher`).
-
-**Why:** the name appears in every dependent's manifest, in every `use`, and in conversation. If it
-needs four words to describe the crate, the crate does too much — the name is reporting a design
-problem (RS-MOD-17).
-
-**Check:** say the name out loud. If you have to spell it, or if it does not fit in the `Cargo.toml`
-line without wrapping, shorten it or split the crate.
-
-### RS-NAME-05 [M] Name a module for its concept; never `utils`, `helpers`, `common`
+### RS-NAME-04 [M] Name a module for its concept; never `utils`, `helpers`, `common`
 
 Module names are singular nouns describing one concept: `matcher`, `printer`, `config`, `walk`. A
 grab-bag name — `utils`, `helpers`, `common`, `misc`, `shared`, or `types`, `lib` and `core` used as
@@ -152,7 +140,7 @@ pub mod escaping {
 }
 ```
 
-### RS-NAME-06 [M] Name a feature for the capability, not the dependency
+### RS-NAME-05 [M] Name a feature for the capability, not the dependency
 
 `simd-accel`, `pcre2`, `unicode`. A feature named after its dependency is acceptable only when it
 exists solely to enable that dependency's impls — `serde`, `rayon`.
@@ -164,7 +152,7 @@ you chose, and swapping it becomes a breaking change.
 **Check:** for each feature, can a user who has never read your source predict what turning it off
 removes? If not, rename it.
 
-### RS-NAME-07 [S] Do not prefix a feature with `use-`, `with-`, or `enable-`
+### RS-NAME-06 [S] Do not prefix a feature with `use-`, `with-`, or `enable-`
 
 Write `features = ["simd"]`, not `features = ["use-simd"]`.
 
@@ -174,7 +162,7 @@ line of every dependent's manifest, and it sorts all your features under one let
 **Check:** `rg -n '^(use|with|enable)-' -g '*.toml'` finds the prefixed features; each hit is the
 finding.
 
-### RS-NAME-08 [M] Do not repeat a type's name in the members it contains
+### RS-NAME-07 [M] Do not repeat a type's name in the members it contains
 
 `Shape::Circle`, not `Shape::ShapeCircle`. `Error::Io`, not `Error::IoError`. An associated type is
 named for the thing it produces — `type Item`, `type Output`, `type Error` — and never prefixed with
@@ -202,7 +190,7 @@ pub trait Decoder {
 }
 ```
 
-### RS-NAME-09 [S] Name a quantity for what it measures, with the unit as a suffix
+### RS-NAME-08 [S] Name a quantity for what it measures, with the unit as a suffix
 
 `MAX_RETRIES`, `DEFAULT_BUFFER_SIZE`, `TIMEOUT_MS`. Not `BUF_SIZE_USIZE`, and not `TIMEOUT` with the
 unit hidden in a comment. For a parameter or field whose type cannot carry the unit, the name must
@@ -215,7 +203,7 @@ is *not* visible in `u64`, so it must be somewhere the call site can see it. Bet
 **Check:** every numeric constant, parameter, and field whose value has a physical unit — time,
 bytes, counts of a specific thing — either names the unit or has a type that does.
 
-### RS-NAME-10 [S] Name a type parameter by its role: a conventional letter, else a word
+### RS-NAME-09 [S] Name a type parameter by its role: a conventional letter, else a word
 
 A role the ecosystem has a letter for takes it: `T`/`U` for values, `E` for an error, `K`/`V` for
 map keys and values, `F` for a closure, `I` for an iterator, `S` for string-like, and `R`/`W` for a
@@ -244,7 +232,7 @@ pub fn copy<R: Read, W: Write>(reader: &mut R, writer: &mut W) -> io::Result<u64
 }
 ```
 
-### RS-NAME-11 [M] Name the file after the module, without re-stating the directory
+### RS-NAME-10 [M] Name the file after the module, without re-stating the directory
 
 `searcher.rs` inside `grep/`, not `grep_searcher.rs` inside `grep/`.
 
@@ -255,7 +243,7 @@ directory listing hard to scan, and breaks alphabetical grouping when a second p
 
 ## Conversions and access
 
-### RS-NAME-12 [M] `as_` is a free borrowed view
+### RS-NAME-11 [M] `as_` is a free borrowed view
 
 `str::as_bytes`, `Path::as_os_str`, `String::as_str`. Borrow in, borrow out, no allocation, no
 computation beyond a pointer adjustment.
@@ -281,7 +269,7 @@ impl Line {
 }
 ```
 
-### RS-NAME-13 [M] `to_` costs something
+### RS-NAME-12 [M] `to_` costs something
 
 `str::to_owned`, `f64::to_string`, `Path::to_path_buf`. It allocates, copies, or computes.
 
@@ -292,7 +280,7 @@ already fixed the spelling — mirror `std` rather than "correcting" it.
 **Check:** an expensive `as_*` and a free `to_*` are both violations; the free case is the milder
 one, but it still misinforms.
 
-### RS-NAME-14 [M] `into_` consumes the receiver
+### RS-NAME-13 [M] `into_` consumes the receiver
 
 `String::into_bytes`, `BufWriter::into_inner`, `Vec::into_boxed_slice`. It takes `self` and hands
 back ownership, ideally without copying.
@@ -333,7 +321,7 @@ impl Buffer {
 }
 ```
 
-### RS-NAME-15 [M] Do not use a conversion prefix for a computation
+### RS-NAME-14 [M] Do not use a conversion prefix for a computation
 
 A method that performs work and happens to return a different type is `compute_*`, `parse`,
 `render`, or `build` — not `to_*`.
@@ -344,7 +332,7 @@ for the second and not the first, and the difference shows up as a profiler surp
 **Check:** would a reader be surprised to learn this method runs a regex, hits the filesystem, or
 sorts? If yes, the name must say so.
 
-### RS-NAME-16 [M] Getters omit `get_`
+### RS-NAME-15 [M] Getters omit `get_`
 
 `fn len(&self)`, `fn name(&self)`, `fn config(&self)`.
 
@@ -376,7 +364,7 @@ impl Buffer {
 }
 ```
 
-### RS-NAME-17 [M] Match the getter to the field, and suffix the mutable variant `_mut`
+### RS-NAME-16 [M] Match the getter to the field, and suffix the mutable variant `_mut`
 
 `fn matcher(&self) -> &Matcher` and `fn matcher_mut(&mut self) -> &mut Matcher`. Setters are
 `set_name`, and exist only when a builder is inappropriate.
@@ -388,7 +376,7 @@ impl Buffer {
 the field it exposes? Note that exposing `&mut` to invariant-bearing state is a separate, more
 serious defect (RS-API-13).
 
-### RS-NAME-18 [M] Mark fallible conversions `try_`
+### RS-NAME-17 [M] Mark fallible conversions `try_`
 
 `try_into_inner`, `usize::try_from`, or an implementation of `TryFrom`.
 
@@ -416,7 +404,7 @@ impl Age {
 }
 ```
 
-### RS-NAME-19 [M] Use the three canonical iterator constructor names
+### RS-NAME-18 [M] Use the three canonical iterator constructor names
 
 `iter`, `iter_mut`, `into_iter`. Any other iterator-returning method describes what it yields:
 `lines`, `char_indices`, `split_whitespace`, `ancestors`.
@@ -431,7 +419,7 @@ yield something other than the elements?
 ```rust
 // verified
 /// The three canonical iterator constructors, each returning a type named for
-/// it (RS-NAME-20) that keeps the `Vec` behind it private (RS-API-04).
+/// it (RS-NAME-19) that keeps the `Vec` behind it private (RS-API-04).
 #[derive(Debug, Default)]
 pub struct Set {
     items: Vec<u32>,
@@ -514,7 +502,7 @@ impl IntoIterator for Set {
 }
 ```
 
-### RS-NAME-20 [S] Name an iterator type after the method that produces it
+### RS-NAME-19 [S] Name an iterator type after the method that produces it
 
 `lines()` → `Lines`, `split_terminator()` → `SplitTerminator`, `iter()` → `Iter<'_, T>`.
 
@@ -541,7 +529,7 @@ impl Log {
 }
 ```
 
-### RS-NAME-21 [S] Name secondary constructors `with_*` / `from_*`, never `new_with_*`
+### RS-NAME-20 [S] Name secondary constructors `with_*` / `from_*`, never `new_with_*`
 
 `Vec::with_capacity`, `u32::from_str_radix`, `Searcher::from_parts`.
 
@@ -579,7 +567,7 @@ impl Retry {
 }
 ```
 
-### RS-NAME-22 [M] Predicates read as questions and return `bool`
+### RS-NAME-21 [M] Predicates read as questions and return `bool`
 
 `is_empty`, `is_ascii`, `has_root`, `contains`, `starts_with`.
 
@@ -613,7 +601,7 @@ impl Entry {
 
 ## Words and word order
 
-### RS-NAME-23 [S] Verbs do something; nouns give something
+### RS-NAME-22 [S] Verbs do something; nouns give something
 
 `parse()`, `flush()`, `search()`, `spawn()` versus `len()`, `capacity()`, `stdout()`.
 
@@ -623,7 +611,7 @@ its effect is invisible.
 
 **Check:** for each noun-named method, does it mutate, allocate significantly, or perform I/O?
 
-### RS-NAME-24 [S] Follow `std`'s word order, extend by suffix, and keep parallel names parallel
+### RS-NAME-23 [S] Follow `std`'s word order, extend by suffix, and keep parallel names parallel
 
 Verb-object-qualifier: `Vec::insert`, `Result::unwrap_or_else`, `str::parse`. When adding a variant
 of an existing method, extend the suffix rather than reordering: `write_all`, `write_fmt`,
@@ -673,7 +661,7 @@ impl Limits {
 }
 ```
 
-### RS-NAME-25 [M] One term, one meaning, crate-wide
+### RS-NAME-24 [M] One term, one meaning, crate-wide
 
 If the crate says `matcher`, never introduce `pattern_engine` for the same concept in a new module;
 not `path` here and `file` there for one argument, nor `id`, `key`, and `handle` for one identifier.
@@ -703,7 +691,7 @@ pub fn parent_of(path: &Path) -> Option<&Path> {
 }
 ```
 
-### RS-NAME-26 [M] Spell names out; abbreviate only where the abbreviation is the standard word
+### RS-NAME-25 [M] Spell names out; abbreviate only where the abbreviation is the standard word
 
 `config`, `regex`, `buf`, `ctx` in narrow scopes, `idx` in a loop, `recv`/`send` on channels — these
 are public dictionaries. `rslt`, `mngr`, `hdlr`, `cfgmgr` are private ones.
@@ -726,7 +714,7 @@ pub fn is_same_volume(source: &Path, target: &Path) -> bool {
 }
 ```
 
-### RS-NAME-27 [S] Restrict single-letter locals to short, genuinely generic bindings
+### RS-NAME-26 [S] Restrict single-letter locals to short, genuinely generic bindings
 
 Closure parameters in a two-line chain, loop indices, and mathematical code where the letter is the
 domain notation.
@@ -737,7 +725,7 @@ determined by the two lines around it and fatal when it is not.
 **Check:** does any single-letter binding live longer than about ten lines, or cross a block
 boundary? Give it a name.
 
-### RS-NAME-28 [S] Name the positive; convert negations once, at the boundary
+### RS-NAME-27 [S] Name the positive; convert negations once, at the boundary
 
 `no_color`, `disable_cache`, and `skip_hidden` compose into double negation: `if !no_color`. The CLI
 flag may be negative because the convention demands it — convert to a positive field once, where the
@@ -787,7 +775,7 @@ impl Default for Options {
 }
 ```
 
-### RS-NAME-29 [M] Never suffix a name with the language construct
+### RS-NAME-28 [M] Never suffix a name with the language construct
 
 No `ConfigTrait`, `ErrorEnum`, `WrapperStruct`, `HandlerImpl`, `FooType`.
 
@@ -797,7 +785,7 @@ mechanism instead of the concept — it is the naming equivalent of a comment th
 **Check:** `rg -n '\b(struct|enum|trait|type) \w+(Trait|Enum|Struct|Impl|Class|Object)\b' -g '*.rs'`
 finds a type named for its construct; each hit is the finding.
 
-### RS-NAME-30 [S] Apply role suffixes consistently or not at all
+### RS-NAME-29 [S] Apply role suffixes consistently or not at all
 
 `Builder`, `Guard`, `Handle`, `Ref`, `Iter`, `Error`, `Config`: use the suffix whenever the type
 plays that role, and never when it does not.
@@ -808,7 +796,7 @@ absence of `Guard` means "not a guard" or "we forgot". `SearcherBuilder`, `Mutex
 
 **Check:** list every type playing each role. Is the suffix present on all of them, or on none?
 
-### RS-NAME-31 [M] Pick one error-type spelling per crate
+### RS-NAME-30 [M] Pick one error-type spelling per crate
 
 Either `Error` inside its own module (`io::Error`, `parse::Error`) or `FooError` at the crate root
 when several coexist. Never both spellings in one crate.
@@ -821,7 +809,7 @@ with two error types (RS-ERR-10).
 
 ## Generic parameters and lifetimes
 
-### RS-NAME-32 [S] Name a lifetime for the source of the borrow once several coexist
+### RS-NAME-31 [S] Name a lifetime for the source of the borrow once several coexist
 
 `'a` when there is one. `'src`, `'input`, `'haystack` when there are several and it matters which is
 which. Use `'_` wherever it is accepted (rustc `elided_lifetimes_in_paths`).
@@ -852,11 +840,11 @@ impl<'input> Cursor<'input> {
 }
 ```
 
-### RS-NAME-33 [M] Never restate the kind in a parameter's name
+### RS-NAME-32 [M] Never restate the kind in a parameter's name
 
 No `'life`, no `'lifetime`, no type parameter named `Type` or `Generic`.
 
-**Why:** the sigil already conveys the kind, exactly as with RS-NAME-29. `<'lifetime, Type>` is
+**Why:** the sigil already conveys the kind, exactly as with RS-NAME-28. `<'lifetime, Type>` is
 noise in every signature that mentions it.
 
 **Check:** `rg -n "'life\b|'lifetime\b|<Type\b|<Generic\b" -g '*.rs'` finds a parameter named for
@@ -875,7 +863,7 @@ pub fn read_config(config: &Path) -> Option<&str> {
 
 ## Symmetry of names
 
-### RS-NAME-34 [M] Name the two halves of a pair symmetrically
+### RS-NAME-33 [M] Name the two halves of a pair symmetrically
 
 A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`close`, not
 `open`/`release`; `lock`/`unlock`, not `lock`/`release`. Reuse the ecosystem's pair where one
@@ -914,7 +902,7 @@ impl Valve {
 
 ## Formatting
 
-### RS-NAME-35 [M] Hold every line to 100 columns, rustfmt's default
+### RS-NAME-34 [M] Hold every line to 100 columns, rustfmt's default
 
 Code, comments, doc comments and string literals stay within 100 columns. `rustfmt` wraps code to
 that width and leaves a comment, a string literal and a URL as written, so the author wraps those.
@@ -936,5 +924,5 @@ A tool settles these on its own; the shipped configuration enables each at the l
 | rustc | `non_camel_case_types` | warn | a type, trait or enum variant not in `UpperCamelCase` — listed because the casing rule a revision demoted to the three rustc casing lints holds here; `non_snake_case` is the third |
 | rustc | `non_upper_case_globals` | warn | a constant, static or const generic parameter not in `SCREAMING_SNAKE_CASE` — listed because the casing rule a revision demoted to the three rustc casing lints holds here |
 | clippy | `upper_case_acronyms` | warn | a run of capitals in a type name — `Http`, not `HTTP`, with the shipped aggressive setting — listed because `upper-case-acronyms-aggressive = true` widens it to two-letter runs, and `avoid-breaking-exported-api = false` to public items, both in the shipped `clippy.toml` (RS-NAME-01) |
-| clippy | `enum_variant_names` | warn | three or more variants sharing a prefix or suffix, such as `ReadFailed`, `WriteFailed`, `SeekFailed` — listed because `avoid-breaking-exported-api = false` in the shipped `clippy.toml` turns it on for public enums, which RS-NAME-08 is about |
-| clippy | `wrong_self_convention` | warn | an `as_`, `to_` or `into_` method whose receiver breaks its prefix: an `into_*` taking `&self` — listed because `avoid-breaking-exported-api = false` in the shipped `clippy.toml` turns it on for public methods, which RS-NAME-12 to RS-NAME-14 are about |
+| clippy | `enum_variant_names` | warn | three or more variants sharing a prefix or suffix, such as `ReadFailed`, `WriteFailed`, `SeekFailed` — listed because `avoid-breaking-exported-api = false` in the shipped `clippy.toml` turns it on for public enums, which RS-NAME-07 is about |
+| clippy | `wrong_self_convention` | warn | an `as_`, `to_` or `into_` method whose receiver breaks its prefix: an `into_*` taking `&self` — listed because `avoid-breaking-exported-api = false` in the shipped `clippy.toml` turns it on for public methods, which RS-NAME-11 to RS-NAME-13 are about |

@@ -39,39 +39,54 @@ def test_every_pair_of_base_standards_is_compared_and_a_delta_with_its_anchor(
     }
 
 
-def test_two_standards_neither_of_which_is_rust_style_are_compared(
-    skills: list[Skill],
-) -> None:
-    tree = Tree.of(skills)
-    noted = {
-        (str(rule.id), str(other.id))
+EMPTY = "# {0}\n\nScope: s.\n\n## Contents\n\n- **Concepts**\n\n---\n\n## Concepts\n"
+
+
+def _unheld(scratch: Path, chapter: str) -> Tree:
+    """The copy with `chapter` emptied, so its pairs are noted again."""
+    root = root_of(scratch)
+    (root / ABSTRACT / f"{chapter}.md").write_text(EMPTY.format(chapter.title()))
+    return Tree.of(discover(scratch))
+
+
+def _noted(tree: Tree) -> set[frozenset[str]]:
+    return {
+        frozenset((str(rule.id), str(other.id)))
         for _, rule, _, other in look_alikes(abstract_of(tree), tree)
     }
-    assert ("PS-NAME-14", "ZS-NAME-27") in noted
+
+
+def test_two_standards_neither_of_which_is_rust_style_are_compared(
+    scratch: Path,
+) -> None:
+    """An unheld pair with no Rust rule in it, read from the tree."""
+    noted = _noted(_unheld(scratch, "modules"))
+    assert any(not any(i.startswith("RS-") for i in pair) for pair in noted)
 
 
 def test_an_entry_holding_two_rules_takes_their_pair_out_of_the_notes(
     scratch: Path,
 ) -> None:
     """The spec's pair: two rules one entry names are one concept."""
+    held = next(
+        c
+        for _, c in abstract_of(Tree.of(discover(scratch))).concepts
+        if c.title == "Name the two halves of a pair symmetrically"
+    )
+    rows = "".join(
+        f"| {r.standard} | {r.rule} | realises | [M] | |\n" for r in held.rows
+    )
     root = root_of(scratch)
-    (root / ABSTRACT).mkdir(exist_ok=True)
     (root / ABSTRACT / "naming.md").write_text(
         "# Naming\n\nScope: s.\n\n## Contents\n\n- AS-NAME-01 [M] Pair names\n\n---\n\n"
         "## Pairs\n\n### AS-NAME-01 [M] Pair names\n\nSaid.\n\n"
-        "| Standard | Rule | Relation | Tier | Reason |\n|---|---|---|---|---|\n"
-        "| python-style | PS-NAME-13 | realises | [M] | |\n"
-        "| rust-style | RS-NAME-34 | realises | [M] | |\n"
-        "| zig-style | ZS-NAME-26 | realises | [M] | |\n"
+        "| Standard | Rule | Relation | Tier | Reason |\n|---|---|---|---|---|\n" + rows
     )
-    tree = Tree.of(discover(scratch))
-    noted = {
-        frozenset((str(rule.id), str(other.id)))
-        for _, rule, _, other in look_alikes(abstract_of(tree), tree)
-    }
-    assert frozenset(("PS-NAME-13", "ZS-NAME-26")) not in noted
-    assert frozenset(("RS-NAME-34", "ZS-NAME-26")) not in noted
-    assert frozenset(("PS-NAME-14", "ZS-NAME-27")) in noted
+    tree = _unheld(scratch, "modules")
+    noted = _noted(tree)
+    ours = [r.rule for r in held.rows]
+    assert not any(frozenset((a, b)) in noted for a in ours for b in ours)
+    assert any(not any(i.startswith("RS-") for i in pair) for pair in noted)
 
 
 def test_a_delta_rule_its_departures_relate_to_an_anchor_rule_is_held(

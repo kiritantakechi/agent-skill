@@ -45,7 +45,7 @@ the replacement — or `2024` for a change the edition made; section 2.1 lists t
 | `lazy_static!` | `std::sync::LazyLock` | alias | 1.80 | RS-CONC-27 |
 | `once_cell::sync::Lazy` | `std::sync::LazyLock` | alias | 1.80 | RS-CONC-27 |
 | `once_cell::sync::OnceCell` | `std::sync::OnceLock` | alias | 1.70 | RS-CONC-27 |
-| `cfg_if::cfg_if` | `cfg_select!` | alias | 1.95 | RS-MOD-07 |
+| `cfg_if::cfg_if` | `cfg_select!` | alias | 1.95 | RS-MOD-08 |
 | `itoa::Buffer` | `<int>::format_into(&mut NumBuffer)` | alias | 1.98 | RS-MIG-01 |
 | `fs2::FileExt` | `File::lock`, `try_lock`, `lock_shared` | alias | 1.89 | RS-MIG-01 |
 | `fs4::fs_std::FileExt` | `File::lock`, `try_lock`, `lock_shared` | alias | 1.89 | RS-MIG-01 |

@@ -56,7 +56,6 @@ Blocks that do not declare their own imports assume a file opening with
   - ZS-ERR-32 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
 - **Uniformity of failure and control flow**
   - ZS-ERR-33 [M] Give the members of one error set a uniform shape
-  - ZS-ERR-34 [M] Absorb a special case into the general path, or give it its own type
 - Decided by tools
 
 ---
@@ -1330,20 +1329,6 @@ for the deficient members. Uniform shape is what lets one function render every 
 **Check:** tabulate the set's members against the diagnostic context each one can supply. A column
 populated for most members and empty for one is either a missing detail or a member that belongs in
 a different set.
-
-### ZS-ERR-34 [M] Absorb a special case into the general path, or give it its own type
-
-A branch that exists for one input is not a feature; it is an unfinished generalization. Either the
-general path handles it — usually by widening a parameter or adding a tag — or the case differs
-enough to deserve its own type and its own function.
-
-**Why:** special-case branches compound. Each is locally cheap and globally expensive: every later
-change must be checked against every branch, nothing records which combinations are reachable, and
-ZS-ERR-18's simple control flow erodes one plausible patch at a time.
-
-**Check:** for each `if` whose condition names a specific input — a particular length, an empty
-slice treated unlike others, a sentinel value — ask what the general case would need to be for the
-branch to disappear. That is usually the correct design.
 
 ## Decided by tools
 

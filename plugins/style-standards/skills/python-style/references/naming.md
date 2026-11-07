@@ -19,17 +19,14 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-NAME-05 [M] Put units and qualifiers last, sorted by descending significance
   - PS-NAME-06 [M] Name a predicate so it reads as a question
   - PS-NAME-07 [S] Give related names the same shape
-  - PS-NAME-08 [M] Name a module in short lowercase; never put an underscore in a package name
-  - PS-NAME-09 [M] Name a module for its concept; never `utils`, `helpers` or `common`
-  - PS-NAME-10 [M] Do not repeat a type's name in its members
+  - PS-NAME-08 [M] Name a module for its concept; never `utils`, `helpers` or `common`
+  - PS-NAME-09 [M] Do not repeat a type's name in its members
 - **Formatting**
-  - PS-NAME-11 [M] Hold lines to 88 columns, and know this departs from PEP 8
-  - PS-NAME-12 [M] Let the magic trailing comma decide when a call explodes
+  - PS-NAME-10 [M] Hold lines to 88 columns, and know this departs from PEP 8
+  - PS-NAME-11 [M] Let the magic trailing comma decide when a call explodes
 - **Symmetry of names**
-  - PS-NAME-13 [M] Name the two halves of a pair symmetrically
-  - PS-NAME-14 [M] One concept, one mechanism
-  - PS-NAME-15 [M] One term, one meaning, project-wide
-  - PS-NAME-16 [S] Keep sibling modules and types structurally parallel
+  - PS-NAME-12 [M] Name the two halves of a pair symmetrically
+  - PS-NAME-13 [M] One term, one meaning, project-wide
 - Decided by tools
 
 ---
@@ -160,25 +157,12 @@ If one is `read_timeout_seconds`, its sibling is `write_timeout_seconds`, not `w
 
 **Why:** a reader who has learned one name should be able to guess the others. Where they can, the
 API teaches itself; where they cannot, every name must be looked up individually. This is the naming
-half of PS-NAME-13.
+half of PS-NAME-12.
 
 **Check:** read each class body and each module's public surface as a list. A name that breaks the
 pattern its neighbours establish is the finding.
 
-### PS-NAME-08 [M] Name a module in short lowercase; never put an underscore in a package name
-
-`retry.py`, not `retry_policy_helpers.py`. `acmewidget`, not `acme_widget`, for the importable
-package.
-
-**Why:** a long module name is usually a module doing more than one thing — `retry_policy_helpers`
-is three nouns, which is three modules or one badly named one. PEP 8 permits underscores in module
-names "if it improves readability" and discourages them in package names outright.
-
-**Check:** `find src -name '[!_]*_*_*.py' -o -name '_*_*_*.py' ! -name '__*'` — a third word in a
-module name, not counting a private module's leading underscore or a dunder like `__init__.py`, is a
-module worth splitting. Any underscore in a directory under `src/` is the finding.
-
-### PS-NAME-09 [M] Name a module for its concept; never `utils`, `helpers` or `common`
+### PS-NAME-08 [M] Name a module for its concept; never `utils`, `helpers` or `common`
 
 A module is named for the one concept it holds: `retry`, `billing`, `parsing`. A name that fits
 anything — `utils`, `helpers`, `common`, `misc`, `shared` — names a container, and a container can
@@ -194,7 +178,7 @@ hit is the finding, and each item in it moves to the module of the concept it se
 modules, write one sentence saying what belongs in each: "things used in more than one place" means
 it needs dissolving.
 
-### PS-NAME-10 [M] Do not repeat a type's name in its members
+### PS-NAME-09 [M] Do not repeat a type's name in its members
 
 `Color.RED`, not `Color.COLOR_RED`; `account.id`, not `account.account_id`.
 
@@ -231,7 +215,7 @@ assert Account(id=1, name="ada").id == 1
 
 ## Formatting
 
-### PS-NAME-11 [M] Hold lines to 88 columns, and know this departs from PEP 8
+### PS-NAME-10 [M] Hold lines to 88 columns, and know this departs from PEP 8
 
 88 for code. 72 for the text inside a docstring or comment, which is PEP 8's number and which the
 formatter does not enforce for you. PEP 8 says 79 for code, and CPython itself uses 79.
@@ -244,7 +228,7 @@ for an agreeing team explicitly does not lift the 72-column limit on docstrings 
 formatter makes only a best-effort attempt at 88, so `E501` stays enabled as the backstop rather
 than being ignored as redundant.
 
-### PS-NAME-12 [M] Let the magic trailing comma decide when a call explodes
+### PS-NAME-11 [M] Let the magic trailing comma decide when a call explodes
 
 A trailing comma in a collection or call means "one element per line, always". No trailing comma
 means "fit it on one line if it fits".
@@ -253,7 +237,7 @@ means "fit it on one line if it fits".
 formatter then executes. It is also the single lever that keeps a growing argument list from
 producing a one-line diff that touches every argument.
 
-**Check:** `ruff format --check` (PS-BUILD-20). With `skip-magic-trailing-comma = false`, ruff's
+**Check:** `ruff format --check` (PS-BUILD-19). With `skip-magic-trailing-comma = false`, ruff's
 default and the shipped `[format]` setting, the formatter enforces this itself; flake8-commas, the
 lint that looks like it, is on ruff's formatter-conflict list and stays disabled.
 
@@ -272,7 +256,7 @@ assert short == tall
 
 ## Symmetry of names
 
-### PS-NAME-13 [M] Name the two halves of a pair symmetrically
+### PS-NAME-12 [M] Name the two halves of a pair symmetrically
 
 `open`/`close`, `acquire`/`release`, `encode`/`decode`, `push`/`pop`, `to_json`/`from_json`. Never
 `open`/`shutdown`, never `encode`/`parse`. Whether the inverse must exist is PS-DATA-18's rule; this
@@ -285,19 +269,7 @@ one spelled unguessably.
 **Check:** list every public verb that has an inverse. A pair whose names are not each other's
 mirror is the finding.
 
-### PS-NAME-14 [M] One concept, one mechanism
-
-If configuration comes from a dataclass, it does not also come from a dict. If errors are
-exceptions, they are not also sentinel return values.
-
-**Why:** two mechanisms for one concept doubles the surface every caller must handle and every test
-must cover, and the second one is invariably less complete than the first. It usually arrives as a
-convenience added for one call site and then spreads.
-
-**Check:** for each concept in the module — configuration, errors, identity, time — name the
-mechanism. Two mechanisms for one concept is the finding.
-
-### PS-NAME-15 [M] One term, one meaning, project-wide
+### PS-NAME-13 [M] One term, one meaning, project-wide
 
 If a row from the database is an `Account`, it is not a `User` in the next module and a `Customer`
 in the one after.
@@ -308,19 +280,6 @@ then decide, for each new name, whether it is a third synonym or a genuinely dif
 
 **Check:** keep a glossary. A name that is not in it is either new — add it — or a synonym, which is
 the finding.
-
-### PS-NAME-16 [S] Keep sibling modules and types structurally parallel
-
-If `readers/json.py` exposes `load`, `loads` and a `JSONError`, then `readers/toml.py` exposes
-`load`, `loads` and a `TOMLError`. If `Request` is a frozen slotted dataclass with
-`to_dict`/`from_dict`, so is `Response`.
-
-**Why:** parallel siblings let a reader learn one and use all of them, and they make a missing piece
-visible as a hole in the pattern rather than as an absence nobody notices. It also makes the
-siblings substitutable, which is what lets a caller pick one at runtime.
-
-**Check:** list the public names of each sibling module or type side by side. A name present in one
-column and absent from another is either a deliberate difference — say why — or the finding.
 
 ## Decided by tools
 

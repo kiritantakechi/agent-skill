@@ -7,8 +7,8 @@ bytes are allowed to go (buffered `*Io.Writer` for program output, `std.log` for
 custom `logFn`). Stream mechanics — obtaining `Io`, `Io.Writer` internals, buffering, flushing, and
 authoring a custom writer — are the concurrency chapter's (ZS-CONC-04, ZS-CONC-06, ZS-CONC-09);
 classifying a failure is the errors chapter's (ZS-ERR-01, ZS-ERR-02, ZS-ERR-17). **Source-code**
-formatting — `zig fmt`, the trailing comma, 100 columns — is another subject, ZS-NAME-22 and
-ZS-NAME-23.
+formatting — `zig fmt`, the trailing comma, 100 columns — is another subject, ZS-NAME-17 and
+ZS-NAME-18.
 
 Every example assumes a file opening with `const std = @import("std");`, `const Io = std.Io;`,
 `const Writer = std.Io.Writer;` and `const assert = std.debug.assert;` — assertions are called bare,

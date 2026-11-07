@@ -245,7 +245,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `addRemoveDirTree` | nothing: a scratch directory is `b.addTempFiles()` or `b.tmpPath()`, deleted when the build succeeds | gone | 0.16 | ZS-MIG-01 |
 | `b.args` | `run.addPassthruArgs()`, which makes the step uncached and keeps the arguments from the build script | gone | 0.17 | ZS-BUILD-07 |
 | `b.build_root` | `b.root`, a `Cache.Path` | gone | 0.17 | ZS-MIG-01 |
-| `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | gone | 0.17 | ZS-BUILD-26 |
+| `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | gone | 0.17 | ZS-BUILD-23 |
 | `lazyDependency` | `b.dependency(name, args)`, which fetches a lazy package itself, or `try b.dependencyLazy(name, args)` to fetch several at once | alias | 0.17 | ZS-BUILD-13 |
 | `b.reference_trace` | `zig build -freference-trace=n` | gone | 0.17 | ZS-COMPTIME-20 |
 | `std.Build.LazyPath.getPath` | nothing: the configure phase resolves no path, so the `LazyPath` goes to the step that reads it; `getPath2`, `getPath3` and `getPath4` likewise | gone | 0.17 | ZS-MIG-01 |
@@ -272,7 +272,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `runAllowFail` | `b.runFallible(…)` | alias | 0.17 | ZS-MIG-01 |
 | `enableTestRunnerMode` | `run.enableProtocolMode()` | alias | 0.17 | ZS-MIG-01 |
 | `b.findProgram(&…)` | `b.findProgramLazy(.{ .names = names })`, a `LazyPath`; `b.findProgram(.{ .names = names })` is a `?[]const u8` that poisons the configure cache | gone | 0.17 | ZS-MIG-01 |
-| `addOptionPath` | an option naming a file: a directory is `addOptionPathDirectory`, and `addOptionPathUntracked` opts out of tracking | changed | 0.17 | ZS-BUILD-24 |
+| `addOptionPath` | an option naming a file: a directory is `addOptionPathDirectory`, and `addOptionPathUntracked` opts out of tracking | changed | 0.17 | ZS-BUILD-21 |
 | `.include_guard_override` | `.include_guard` on a `ConfigHeader` | gone | 0.17 | ZS-MIG-01 |
 | `addTranslateC` | the translate-c package: `zig fetch --save git+https://codeberg.org/ziglang/translate-c`, then `Translator.init(b.dependency("translate_c", .{}), .{ .c_source_file = … })`; the release notes deprecate it, and the source does not mark it | deprecated | 0.17 | ZS-INTEROP-15 |
 | `addWin32ResourceFile` | nothing in std: the release notes move the resource APIs, `.win32_manifest`, `.rc_includes` and `Compile.out_filename` with it, to an external `rc` package | deprecated | 0.17 | ZS-MIG-01 |
@@ -608,7 +608,7 @@ analysed; rewrite it to the row's 0.17 column, or delete it if nothing calls it.
 
 Add a CI step that runs the command after the table and fails on a hit, pin the toolchain for real —
 `.minimum_zig_version` is documentation only, so use a pinned CI version and the
-`comptime builtin.zig_version` guard (ZS-BUILD-29, ZS-BUILD-34) — and treat a toolchain bump as a
+`comptime builtin.zig_version` guard (ZS-BUILD-26, ZS-BUILD-31) — and treat a toolchain bump as a
 migration with its own review. One spelling over-matches: `.Debug` also finds a tag of your own
 enum, and the fix is to rename the tag, not to drop the row.
 

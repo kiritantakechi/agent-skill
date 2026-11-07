@@ -205,7 +205,7 @@ exception, and it is one you can justify in a sentence.
 
 **Why:** a crate of thirty loose functions has no centre: the reader must hold the whole list, a new
 operation is one more name nobody watches, and any two functions drift apart in naming, argument
-order, and error type unnoticed (RS-API-58, RS-NAME-25).
+order, and error type unnoticed (RS-API-58, RS-NAME-24).
 
 **Check:** list what the crate root exports. What is the ratio of types to free functions? For each
 free function, name the type it would be a method on — if you can name one, it belongs there
@@ -474,7 +474,7 @@ impl Budget {
 ### RS-API-17 [M] Make every construction path a named one
 
 A struct literal is not available once fields are private, so the type states how it is built:
-`new`, a named alternative constructor (RS-NAME-21), a builder, or a `TryFrom`.
+`new`, a named alternative constructor (RS-NAME-20), a builder, or a `TryFrom`.
 
 **Why:** a named entry point is where validation lives (RS-FUNC-36), where defaults are decided, and
 where a later invariant is enforced without touching a call site. Every instance traces back to a
@@ -650,7 +650,7 @@ data itself, or a stand-in for a type the crate has not written?
 
 `Duration` rather than `timeout_ms: u64`; a `ByteSize` newtype rather than `size: u64`. Where a
 newtype would be disproportionate — a private helper, a single call site — the unit goes in the name
-(RS-NAME-09); never omit both.
+(RS-NAME-08); never omit both.
 
 **Why:** unit confusion is a bug class the type system eliminates completely — the compiler rejects
 passing a byte count where a millisecond count belongs, and no test suite reliably catches the
@@ -1260,7 +1260,7 @@ fine for small one-shot builders — mark it `#[must_use]` (RS-API-33).
 
 **Why:** the builder call chain reads as a description of the configuration, and `set_` on every
 line is noise. It also matches the convention every major crate uses, so users guess correctly
-(RS-NAME-17).
+(RS-NAME-16).
 
 **Check:** `rg -n 'fn set_\w+\(&mut self' -g '*.rs'` lists the `set_` methods; each on a builder is
 the finding.
@@ -1397,7 +1397,7 @@ migration section in the changelog (RS-DOC-27)?
 
 If a type can be built from bytes it should be convertible back to them; `insert` implies `remove`,
 `push` implies `pop`, `open` implies `close`, `encode` implies `decode`, `subscribe` implies
-`unsubscribe`. How the two halves are named is RS-NAME-34.
+`unsubscribe`. How the two halves are named is RS-NAME-33.
 
 **Why:** a caller who learns half a pair looks for the other half. A genuine absence usually means
 something — the operation is lossy, irreversible, or belongs to another type — and silence makes the

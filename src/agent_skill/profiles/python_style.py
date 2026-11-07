@@ -95,7 +95,7 @@ PROFILE = Profile(
     # fixture shaped to match proves the fixture, not the pattern.
     fires=keyed(
         {
-            "PS-BUILD-21": (
+            "PS-BUILD-20": (
                 "- uses: actions/checkout@v7",
                 "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
             ),
@@ -114,7 +114,7 @@ PROFILE = Profile(
     # proves yet. Giving one a fixture means deleting it here, which
     # `sensitivity` insists on, so the list only shrinks.
     unproven=rules(
-        "PS-MOD-06",
+        "PS-MOD-10",
         "PS-ASYNC-04",
         "PS-ASYNC-05",
         "PS-ASYNC-13",
@@ -125,8 +125,8 @@ PROFILE = Profile(
         "PS-BUILD-04",
         "PS-BUILD-09",
         "PS-BUILD-13",
-        "PS-BUILD-14",
-        "PS-BUILD-24",
+        "PS-MOD-06",
+        "PS-BUILD-23",
         "PS-CONC-02",
         "PS-CONC-03",
         "PS-CONC-05",
@@ -155,7 +155,7 @@ PROFILE = Profile(
         "PS-MIG-04",
         "PS-NAME-02",
         "PS-NAME-03",
-        "PS-MOD-05",
+        "PS-MOD-09",
         "PS-OUT-02",
         "PS-OUT-03",
         "PS-OUT-07",
@@ -258,7 +258,7 @@ PROFILE = Profile(
                 "read for `slots=`",
                 "the pattern finds every dataclass; the `slots=` argument decides",
             ),
-            "PS-MOD-05": NotDecisive(
+            "PS-MOD-09": NotDecisive(
                 "read each hit for what",
                 "the pattern finds every indented import; what encloses it decides, "
                 "and an `if TYPE_CHECKING:` block is indented too",
