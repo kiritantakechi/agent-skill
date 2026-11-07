@@ -189,7 +189,28 @@ time of deletion (both tiers `[M]` unless marked):
   missing inverse), ZS-MEM-09 (ownership in the doc comment). Not registered, one standard: `# Panics`
   (RS-DOC-10), `# Safety` (RS-UNSAFE-04), the design note, provenance, TODO owner (RS-DOC-26), ZS-NAME-25
   (commit message; belongs to `build` or nowhere, left in naming).
-- [ ] 3.6 `modules` (zig-style's file and module layout among the candidates)
+- [x] 3.6 `modules`: 14 entries (`AS-MOD-01` to `-14`), in dividing code into modules, layout, imports
+  and the graph, order within a file, and orthogonality; realisations: python-style 10 `realises`, 2
+  `tightens` (the `src/` layout, the distribution's name), 2 `decided` (`I001`, `F403`); rust-style 12
+  `realises`, 1 `decided` (`wildcard_imports`); zig-style 13 `realises`, 1 `absent` (no wholesale
+  import). Moves 16: PS-NAME-08, PS-BUILD-14, PS-NAME-14, -16 into python-style's modules; RS-NAME-04
+  into rust-style's; ZS-BUILD-18, -21, -22, ZS-NAME-16 to -20, -27, -28 and ZS-ERR-34 into zig-style's
+  new `modules.md` (ZS-MOD-01 to -14 with the new rules; `modules` is abstract, so not in `domain`).
+  Merges 0. New rules 8: PS-MOD-01 (a module docstring states one concept), -03 (count the names a
+  split makes public), -11 (public names first), -12 (class body order), -15 (absorb a special case);
+  ZS-MOD-01 (a `//!` comment), -02 (split on a seam), -04 (a file name of few words). Tier changes 2:
+  PS-MOD-04 (ex PS-NAME-08) and ZS-MOD-11 (ex ZS-NAME-19) to `[S]`. Look-alike notes 7 -> 2 pairs
+  (RS-API-57 / ZS-DATA-36 for `api`, BV-MIG-03 / RS-MIG-02). Decided: "one concept, one mechanism" and
+  "absorb a special case" are `modules`' (rust-style already holds both there, with "sibling modules
+  parallel"; principles.md's questions 4 and 5 ask them of every standard). The module names of
+  PS-NAME-09 / RS-NAME-05 / ZS-NAME-06 stay `naming`'s (AS-NAME-06); ZS-NAME-15 (a file's casing by
+  whether it has fields) and RS-NAME-11 (a file not repeating its directory) stay in `naming`,
+  each stated by one standard. Left for `api`: the visibility and surface rules (RS-MOD-10 to -17,
+  PS-MOD-07's `__init__` as a table of contents, ZS-NAME-16 `pub`, ZS-BUILD-15, PS-API-01 to -05). Not registered, one standard: do no
+  work at import (PS-MOD-08), `lazy import` (PS-MOD-09), crate and workspace layout (RS-MOD-18, -20 to
+  -22, -24 to -29, -31, -33, -34), RS-MOD-02, -05 to -09, -36 to -39 and -42, ZS-MOD-08 (the import
+  block in one place), ZS-BUILD-16. Not registered, no chapter: function length (RS-MOD-43 `[S]`, "no
+  limit worth enforcing", against ZS-ERR-30 `[M!]`, 70 lines; python's `PLR0915` is on) for 3.14.
 - [ ] 3.7 `api`
 - [ ] 3.8 `data`
 - [ ] 3.9 `types`
