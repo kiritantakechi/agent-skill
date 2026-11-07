@@ -23,7 +23,7 @@ from agent_skill.lang import Extraction, Language, Step, Unit, extracted
 from agent_skill.proc import have, run
 from agent_skill.report import Finding, Level, declare, fail, unrun
 lazy from agent_skill.checks.citations import Row, rows_of
-lazy from agent_skill.ids import Location
+lazy from agent_skill.ids import Location, Version
 lazy from agent_skill.model import Block, Skill
 lazy from agent_skill.proc import Ran
 
@@ -344,7 +344,13 @@ class Zig:
             # not
             yield fail(first.split(f"{path}:")[-1].strip()[:84], where, ASSET_AST)
 
-    def probe(self, skill: Skill, spelling: str, out: Path) -> Step | None:  # noqa: ARG002 — one compiler for every skill
+    def probe(
+        self,
+        skill: Skill,  # noqa: ARG002 — one compiler for every skill
+        spelling: str,
+        out: Path,
+        since: Version | None = None,  # noqa: ARG002 — a release, read as the pin's
+    ) -> Step | None:
         """Compile a reference to the name: it builds while it is there.
 
         `std.mem.copy` becomes `_ = std.mem.copy;` in a `comptime`

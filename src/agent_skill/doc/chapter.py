@@ -724,6 +724,10 @@ STATUSES = ("gone", "alias", "changed", "deprecated")
 #: whose spelling is to be rewritten wherever it stands.
 SOUGHT = ("gone", "alias")
 
+#: What stands for code a spelling leaves out: `extern "C" { … }`. A
+#: spelling holding one is a shape, which no fixed string finds.
+ELIDED = "\u2026"
+
 
 def migration_header(target: str) -> tuple[str, str, str, str, str]:
     """A migration table's columns: old, target, status, since, rule.

@@ -97,16 +97,17 @@ def toolchain(skill: Skill) -> Iterator[Finding]:
 def gone(tc: Toolchain, skill: Skill, out: Path) -> Iterator[Finding]:
     """Each migration row marked `gone` the pinned release provides.
 
-    A row says its old spelling no longer exists in the target; the
-    toolchain looks it up there (`Toolchain.probe`), so a row naming a
-    live API fails rather than sending a reader to rewrite working code.
-    A spelling the toolchain cannot look up is noted, not passed: the
+    A row says the target rejects its old spelling; the toolchain looks
+    it up there, or compiles it under the edition its Since names
+    (`Toolchain.probe`), so a row naming a live API fails rather than
+    sending a reader to rewrite working code. A spelling the toolchain
+    can do neither with — a shape, a call — is noted, not passed: the
     row stands unverified, and the note says so.
     """
     out.mkdir(parents=True, exist_ok=True)
     for row, where in gone_rows(skill):
         spelling = row.spelling or ""
-        step = tc.probe(skill, spelling, out)
+        step = tc.probe(skill, spelling, out, row.landed)
         if step is None:
             yield note(
                 f"`{spelling}` is marked gone, and {tc.name}'s probe cannot look it up "

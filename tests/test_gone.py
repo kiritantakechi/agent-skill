@@ -14,6 +14,7 @@ import pytest
 
 from agent_skill.checks import demo
 from agent_skill.checks.toolchain import GONE_LIVE, GONE_UNPROBED, gone
+from agent_skill.ids import Version
 from agent_skill.lang import Step, execute
 from agent_skill.lang.python import PYTHON, PYTHON_TOOLCHAIN
 from agent_skill.lang.rust import RUST
@@ -75,6 +76,12 @@ def test_python_imports_the_name_on_the_pinned_interpreter(
         # alone: `bevy_gizmos` has a `mod primitives`, `bevy_math` not.
         ("bevy_math::primitives", False),
         ("bevy_shape::Circle", True),
+        # A method is looked up where its type is implemented: another
+        # type's `observe` or `get_single` does not keep it.
+        ("App::observe", False),
+        ("EntityCommands::observe", True),
+        ("Query::get_single", False),
+        ("Query::single", True),
     ],
 )
 def test_rust_searches_the_pinned_crates_source(
@@ -114,6 +121,28 @@ def test_rust_looks_up_the_language_in_the_pinned_toolchain(
     step = RUST.probe(rust, spelling, tmp_path)
     if live is not None and step is None:
         pytest.skip("the pinned toolchain ships no standard-library source here")
+    assert provides(step) is live
+
+
+@pytest.mark.parametrize(
+    ("spelling", "live"),
+    [
+        # A row the edition made is compiled under 2021, then 2024.
+        ('extern "C" { \u2026 }', False),
+        ("gen", False),
+        ("probe_name", True),
+        # A call has no source the harness can write for it.
+        ("env::set_var", None),
+    ],
+)
+def test_rust_compiles_a_row_the_edition_made_under_both_editions(
+    skills: list[Skill],
+    tmp_path: Path,
+    spelling: str,
+    live: bool | None,  # noqa: FBT001 — a parametrised expectation
+) -> None:
+    rust = next(s for s in skills if s.name == "rust-style")
+    step = RUST.probe(rust, spelling, tmp_path, Version.parse("2024"))
     assert provides(step) is live
 
 

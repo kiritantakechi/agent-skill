@@ -31,7 +31,7 @@ from agent_skill.model import Block, located
 from agent_skill.proc import run
 from agent_skill.report import fail
 from agent_skill.text import code_only, strip_comment
-lazy from agent_skill.ids import Branch, Location
+lazy from agent_skill.ids import Branch, Location, Version
 lazy from agent_skill.lang import python, rust, zig
 lazy from agent_skill.model import Skill
 lazy from agent_skill.proc import Ran
@@ -397,14 +397,18 @@ class Toolchain(Protocol):
         """What is wrong with a shipped asset of `asset_suffixes`."""
         ...
 
-    def probe(self, skill: Skill, spelling: str, out: Path) -> Step | None:
+    def probe(
+        self, skill: Skill, spelling: str, out: Path, since: Version | None = None
+    ) -> Step | None:
         """What looks `spelling` up in the release `skill` is pinned to.
 
         A step that exits 0 when the release still provides it and 1
         when it does not, any file it needs written under `out`; None
-        for a spelling this toolchain cannot look up. A migration row
-        marked `gone` is verified by it (normalize-the-standards,
-        decision 9), and the driver runs it.
+        for a spelling this toolchain cannot look up. `since` is the
+        row's Since: an edition, where the language has them, is what
+        made the change, and so what the spelling is compiled under. A
+        migration row marked `gone` is verified by it
+        (normalize-the-standards, decision 9), and the driver runs it.
         """
         ...
 

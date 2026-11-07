@@ -17,6 +17,7 @@ from types import MappingProxyType
 lazy import urllib.request
 lazy from collections.abc import Iterable, Iterator, Mapping
 
+from agent_skill.doc.chapter import ELIDED
 from agent_skill.ids import Op, Pin, Version
 from agent_skill.lang import Extraction, Language, Step, Unit, extracted, unquoted
 from agent_skill.proc import have, run
@@ -542,28 +543,42 @@ class Rust:
         """Nothing: `assets` reads a manifest as TOML, as any other."""
         return iter(())
 
-    def probe(self, skill: Skill, spelling: str, out: Path) -> Step | None:
-        """Search the pinned source for a public definition of the name.
+    def probe(
+        self, skill: Skill, spelling: str, out: Path, since: Version | None = None
+    ) -> Step | None:
+        """Compile the spelling, or search the pinned source for it.
 
-        The library's crates as the registry holds them at its pin —
-        `bevy-0.20.1` and every `bevy_*-0.20.1` — or, for a standard
-        about the language, the standard library's source when the
-        toolchain ships it. A path is looked up by its last segment:
-        `Commands::spawn` by a `fn spawn`. A path that opens with one of
-        those crates' names is looked up in that crate alone, as the
-        compiler resolves it: `bevy_math::primitives` moved out of
-        `bevy_math`, and a `mod primitives` elsewhere does not keep it
-        there. An attribute is no item to find, so it is compiled
-        (`_compiled`). None for any other spelling, or when no source is
-        there to search — a crate the registry does not hold included.
+        An attribute is no item to find, so it is compiled; so is a
+        spelling whose row the edition made (`since`), since the edition
+        is what rejects it (`_compiled`). Any other is searched for in
+        the source of the release: the library's crates as the registry
+        holds them at its pin — `bevy-0.20.1` and every `bevy_*-0.20.1`
+        — or, for a standard about the language, the standard library's
+        source when the toolchain ships it. A path is looked up by its
+        last segment: `despawn_recursive` by a public `fn` of that name.
+        A method of a type is looked up where the type is implemented:
+        `App::observe` in the files holding an `impl` of `App`, so that
+        `EntityCommands::observe` does not keep it. A path that opens
+        with one of those crates' names is looked up in that crate
+        alone, as the compiler resolves it: `bevy_math::primitives`
+        moved out of `bevy_math`, and a `mod primitives` elsewhere does
+        not keep it there. None for any other spelling, or when no
+        source is there to search — a crate the registry does not hold
+        included.
         """
         if ATTRIBUTE.fullmatch(spelling):
-            return _compiled(spelling, out)
+            return _compiled(f'{spelling}\npub extern "C" fn probe() {{}}\n', out)
+        if since is not None and since.edition:
+            source = _edition_source(spelling)
+            return None if source is None else _compiled(source, out)
         name = spelling.removesuffix("()").removesuffix("!")
         sources = _within(name, _sources(skill))
         if not PATH.fullmatch(name) or not sources:
             return None
-        last = name.rsplit("::", 1)[-1]
+        *_, owner, last = ("", *name.split("::"))
+        if owner[:1].isupper() and last[:1].islower():
+            args = (_implements(owner), _defines(last), *map(str, sources))
+            return Step("probe", ("sh", "-c", _METHOD, "probe", *args), out, 120)
         cmd = ("rg", "-n", "-m1", "--no-heading", "-t", "rust", "-e", _defines(last))
         return Step("probe", (*cmd, *map(str, sources)), out, 120)
 
@@ -601,18 +616,36 @@ EDITION = "2024"
 PREVIOUS_EDITION = "2021"
 
 
-def _compiled(attribute: str, out: Path) -> Step:
-    """A step that exits 0 while the target edition accepts `attribute`.
+#: An identifier: a name an edition can reserve, as 2024 did `gen`.
+IDENT = re.compile(r"[A-Za-z_]\w*")
 
-    The attribute is compiled on an exported function under the edition
-    before the target's, then under the target's: 1 when only the older
-    edition accepts it, which is what `gone` claims, and 2 when neither
-    does — the probe itself is wrong, and the driver says so rather than
-    reading a broken probe as a verified row.
+
+def _edition_source(spelling: str) -> str | None:
+    """`spelling` as a crate root an edition can reject, or None.
+
+    An item with its body left out, `extern "C" { … }`, with the body
+    empty; a name, as a function's. Any other spelling — a call, a
+    path — has no source the harness can write for it.
+    """
+    if spelling.endswith(f"{{ {ELIDED} }}"):
+        return spelling.replace(ELIDED, "") + "\n"
+    if IDENT.fullmatch(spelling):
+        return f"pub fn {spelling}() {{}}\n"
+    return None
+
+
+def _compiled(source: str, out: Path) -> Step:
+    """A step that exits 0 while the target edition accepts `source`.
+
+    The crate root is compiled under the edition before the target's,
+    then under the target's: 1 when only the older edition accepts it,
+    which is what `gone` claims, and 2 when neither does — the probe
+    itself is wrong, and the driver says so rather than reading a
+    broken probe as a verified row.
     """
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"probe_{len(list(out.glob('probe_*.rs'))):03d}.rs"
-    path.write_text(f'{attribute}\npub extern "C" fn probe() {{}}\n')
+    path.write_text(source)
     rustc = "rustc --crate-type lib --emit metadata --out-dir . --edition"
     script = (
         f'{rustc} {PREVIOUS_EDITION} "$1" 2>/dev/null || exit 2; '
@@ -636,6 +669,21 @@ def _defines(name: str) -> str:
         rf"|^[^/]*\bmacro_rules!\s*{name}\b"
         rf"|^\s+{qualifiers}fn\s+{name}\b"
     )
+
+
+def _implements(owner: str) -> str:
+    """A line opening an `impl` of `owner`, its own or a trait's."""
+    return rf"^[^/]*\bimpl\b[^{{;]*\b{owner}\b"
+
+
+#: Searches the files that implement a type for its method: `$1` the
+#: `impl` line, `$2` the method's definition, then the directories.
+#: Exits as `rg` does — 1 when no file implements the type, or none
+#: of them defines the method.
+_METHOD = (
+    'impl=$1; def=$2; shift 2; files=$(rg -l -t rust -e "$impl" -- "$@") || exit $?; '
+    'exec rg -n -m1 --no-heading -e "$def" -- $files'
+)
 
 
 def _within(name: str, sources: list[Path]) -> list[Path]:

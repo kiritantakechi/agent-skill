@@ -543,7 +543,13 @@ class Python:
         """Nothing: `assets` builds a `pyproject.toml` as any other."""
         return iter(())
 
-    def probe(self, skill: Skill, spelling: str, out: Path) -> Step | None:  # noqa: ARG002 — one interpreter for every skill
+    def probe(
+        self,
+        skill: Skill,  # noqa: ARG002 — one interpreter for every skill
+        spelling: str,
+        out: Path,
+        since: Version | None = None,  # noqa: ARG002 — a release, read as the pin's
+    ) -> Step | None:
         """Import the longest module the name opens with, then the rest.
 
         On the pinned interpreter: `glob.glob0` imports `glob` and asks
