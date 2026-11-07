@@ -108,8 +108,8 @@ blank lines a second way. A rule's Why is measured, and a finding's line counted
 in the text as printed — in a file `layout` passes, the file's own.
 
 The values the harness reasons about have one type each in `ids`, with one parser
-and one printer: a rule ID (which keeps an inserted letter, as `ZS-CORE-12a`
-does), a tier, a location, a version, a pin, an answer a tool did or did not give,
+and one printer: a rule ID (which keeps an inserted letter, as `XS-ERR-12a`
+would), a tier, a location, a version, a pin, an answer a tool did or did not give,
 and the branch a finding came from. A rule-ID pattern that dropped the inserted
 letter is how a renumbering once left a rename row pointing at an ID that no
 longer existed; a version read by hand as three numbers is how an index's

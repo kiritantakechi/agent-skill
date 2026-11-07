@@ -457,11 +457,21 @@ class RenameTable:
 
     @property
     def originals(self) -> tuple[RuleId, ...]:
-        """Every ID the families ran before the revision, in order."""
+        """Every ID the families ran before the revision, in order.
+
+        A range of one is that ID, an inserted letter and all.
+        """
         return tuple(
-            RuleId(first.standard, first.family, n)
+            rid
             for first, last in self.ranges
-            for n in range(first.number, last.number + 1)
+            for rid in (
+                (first,)
+                if first == last
+                else (
+                    RuleId(first.standard, first.family, n)
+                    for n in range(first.number, last.number + 1)
+                )
+            )
         )
 
     @property
@@ -656,7 +666,7 @@ _CORE_TIERS = {f"`{t}`**": t for t in Tier}
 def core_rule(item: Item) -> Rule | None:
     """The core rule a list item states, if it states one.
 
-    Its paragraph opens with the two words `**ZS-CORE-01 `[M]`**`.
+    Its paragraph opens with the two words `**XS-CORE-01 `[M]`**`.
     """
     if not item.blocks or not isinstance(first := item.blocks[0], Paragraph):
         return None

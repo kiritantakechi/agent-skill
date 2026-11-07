@@ -136,14 +136,14 @@ def test_no_answer_is_not_an_answer_of_any_value() -> None:
 
 @pytest.mark.parametrize(
     "text",
-    ["RS-ERR-03", "ZS-CORE-01b", "ZS-CORE-12a", "PS-DATA-17", "XS-ECS-100"],
+    ["RS-ERR-03", "XS-CORE-01b", "XS-ERR-12a", "PS-DATA-17", "XS-ECS-100"],
 )
 def test_a_canonical_rule_id_prints_as_it_was_read(text: str) -> None:
     assert str(RuleId.parse(text)) == text
 
 
 def test_a_rule_id_keeps_its_inserted_letter() -> None:
-    rid = RuleId.parse("ZS-CORE-12a")
+    rid = RuleId.parse("XS-ERR-12a")
     assert (rid.number, rid.suffix) == (12, "a")
 
 

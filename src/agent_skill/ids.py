@@ -26,7 +26,7 @@ STANDARD = r"[A-Z]{2}"
 FAMILY = r"[A-Z]+"
 
 #: The number a rule ID ends in. A letter after it marks a rule
-#: inserted between two others, as `ZS-CORE-12a` is, until a
+#: inserted between two others, as in `XS-ERR-12a`, until a
 #: renumbering closes the gap. The letter is part of every spelling:
 #: a pattern that leaves it out reads an inserted rule as no rule.
 NUMBER = r"\d+[a-z]?"
@@ -69,7 +69,7 @@ class RuleId:
 
     @classmethod
     def parse(cls, text: str) -> Self:
-        """The rule ID `text` spells: `RS-ERR-03`, `ZS-CORE-12a`."""
+        """The rule ID `text` spells: `RS-ERR-03`, `XS-ERR-12a`."""
         if not re.fullmatch(rule_id(), text):
             msg = f"not a rule ID: {text!r}"
             raise ValueError(msg)

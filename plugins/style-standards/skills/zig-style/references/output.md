@@ -403,7 +403,7 @@ helper in `std/Io/Writer.zig`. The fix is always to name the rendering you want:
 
 **Why:** the check is an assertion, not a `@compileError`, so `"{:>8}"` on an enum builds cleanly
 and then panics with `reached unreachable code` in `debug` and `safe` — or, in `fast`, silently
-proceeds with a violated invariant (see ZS-CORE-10).
+proceeds with a violated invariant (see ZS-ASSERT-02).
 
 **Check:** a placeholder whose specifier is empty but which carries a `:` — the literal patterns
 `{:` and `{[`…`]:` with no specifier letter — and a width on `{x}`/`{X}`/`{b64}` over a slice. These
@@ -570,8 +570,8 @@ whose total is `dw.fullCount()`.
 
 `std.fmt.parseInt(T, text, base)` fails with `error.InvalidCharacter` or `error.Overflow`;
 `parseFloat(T, text)` fails with `error.InvalidCharacter`. Base `0` infers from a `0x`/`0o`/`0b`
-prefix. This is the canonical boundary check from ZS-CORE-08: text arriving from outside the process
-is validated with an error, never an assertion.
+prefix. This is the canonical boundary check from ZS-ASSERT-09: text arriving from outside the
+process is validated with an error, never an assertion.
 
 **Why:** the two integer errors need different messages — one means "that is not a number", the
 other means "that number is too big for this field" — and collapsing them into a single "bad input"
@@ -712,7 +712,7 @@ pub fn main(init: std.process.Init) !void {
 
 Note the error return trace exists only in `debug` and `safe` (`references/errors.md` ZS-ERR-15), so
 `return err` from `main` degrades to a bare `error: Name` in `fast` — another reason to ship `safe`
-(ZS-CORE-10).
+(ZS-ASSERT-02).
 
 ---
 

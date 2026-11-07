@@ -528,10 +528,18 @@ _STRICT = "`claude plugin validate --strict` warns on it, and fails on a warning
 #: states it.
 _INVERSE = "Give every operation its inverse, or document why there is none"
 
-#: `ZS-CORE-04`'s citation of the chapter stating it. A core rule's
-#: citations are read only in a standard that still states core rules,
-#: which python-style and rust-style, normalised, do not.
-_CORE_04 = "(`references/naming.md` ZS-NAME-06)"
+#: Where a core rule stood in zig-style's section 4. A core rule's
+#: citations are read only in a standard not yet normalised, and no
+#: shipped standard states one since `revise` merged them, so each
+#: core-citation control states one there, citing as `cites` says.
+_CORE_AT = "## 4. Core rules\n\n"
+
+
+def _core(tree: Path, cites: str) -> Edited:
+    """zig-style's section 4, stating a core rule that cites `cites`."""
+    rule = f"- **ZS-CORE-90 `[M]`** Put units and qualifiers last ({cites}).\n"
+    return edit(tree, f"{ZS}/SKILL.md", _CORE_AT, _CORE_AT + rule)
+
 
 #: A line of a zig GOOD example with no comment in the three above it.
 _SIZED = "    assert(@sizeOf(Record) == 16);\n"
@@ -1439,12 +1447,7 @@ CONTROLS: list[Control] = [
         # with `_core_citations` gone; a core rule's whole list is read,
         # which is the reason that branch exists.
         anatomy.CORE_WRONG_CHAPTER,
-        lambda t: edit(
-            t,
-            f"{ZS}/SKILL.md",
-            "`references/naming.md` ZS-NAME-24, ZS-NAME-25",
-            "`references/naming.md` ZS-NAME-24, ZS-ERR-03",
-        ),
+        lambda t: _core(t, "`references/naming.md` ZS-NAME-06, ZS-ERR-03"),
     ),
     Control(
         anatomy.SHARED_TITLE,
@@ -1851,17 +1854,12 @@ CONTROLS: list[Control] = [
     ),
     Control(
         anatomy.CORE_UNCITED,
-        lambda t: edit(t, f"{ZS}/SKILL.md", _CORE_04, "(the naming chapter)"),
+        lambda t: _core(t, "the naming chapter"),
     ),
     # A core rule's ID is a rule of the skill and not a chapter's.
     Control(
         anatomy.CORE_NOT_A_RULE,
-        lambda t: edit(
-            t,
-            f"{ZS}/SKILL.md",
-            _CORE_04,
-            _CORE_04.replace("ZS-NAME-06", "ZS-CORE-01"),
-        ),
+        lambda t: _core(t, "`references/naming.md` ZS-CORE-90"),
     ),
     # A family listed twice: each agrees, and the sum does not.
     Control(
@@ -2100,7 +2098,7 @@ CONTROLS: list[Control] = [
     ),
     Control(
         frontmatter.RULE_COUNT,
-        lambda t: edit(t, f"{ZS}/SKILL.md", "a 385-rule library", "a 386-rule library"),
+        lambda t: edit(t, f"{ZS}/SKILL.md", "a 356-rule library", "a 357-rule library"),
     ),
     # layout
     Control(layout.UNCLOSED, lambda t: append(t, DATA, "\n```text\nnever closed\n")),

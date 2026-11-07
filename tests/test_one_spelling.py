@@ -3,7 +3,7 @@
 A rule ID and a version are read by `ids`; the column limit, a fence
 and a heading by `doc`. A second spelling agrees with the first on the
 files it was written against and on nothing else: a rule-ID pattern
-that left out the inserted letter read `ZS-CORE-12a` as no rule, a
+that left out the inserted letter read an inserted rule as no rule, a
 `## ` scanner that knew nothing of fences cut a rule in half at a
 heading inside its own example, and two fillers at one width made a
 renumbering and its inverse disagree. This reads every module of the

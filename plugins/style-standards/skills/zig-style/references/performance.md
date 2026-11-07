@@ -73,7 +73,7 @@ public entry point on a path that will be called in bulk is the specific thing t
 //!
 //! Dominant cost: disk bandwidth. One sequential read of each input level, one sequential
 //! write of the output level, no random access, no read amplification beyond 2x. Memory is
-//! two 64 KiB streaming buffers, allocated once at startup (ZS-CORE-16).
+//! two 64 KiB streaming buffers, allocated once at startup (ZS-MEM-18).
 //!
 //! Rejected: an in-memory merge of whole levels. It is simpler and ~1.3x faster per byte,
 //! but its memory is O(level size), which removes the static-allocation bound.
@@ -580,7 +580,7 @@ thumb for *where* to cut a function that exceeds the 70-line limit (`references/
 ZS-ERR-30): not every split is equal, and the good ones produce inverted hourglasses.
 
 **Why:** a wide signature exports internal state to every call site, so changing it changes them
-all, and each extra return dimension propagates up the call chain (ZS-CORE-24 / `references/data.md`
+all, and each extra return dimension propagates up the call chain (ZS-DATA-27 / `references/data.md`
 ZS-DATA-27). A signature wider than its body is relocation, not abstraction.
 
 **Check:** parameter count above roughly four, or a body shorter than the signature, or a return
@@ -623,7 +623,7 @@ evidence of anything. Know what each mode costs before you invoke one in an argu
 `x86_64-linux`, `debug` also uses the self-hosted x86_64 backend, which trades machine-code quality
 for compile speed. The mode table and the argument for shipping `safe` are `references/build.md`
 **ZS-BUILD-25** — read it before choosing `fast` for a shipped artifact, because in `fast` every
-`std.debug.assert` becomes a licence for the optimizer rather than a check (ZS-CORE-10).
+`std.debug.assert` becomes a licence for the optimizer rather than a check (ZS-ASSERT-02).
 
 **Why:** `debug` applies no optimization at all, and the gap between `debug` and `fast` on a tight
 loop is routinely 10–50x. That swamps every effect this chapter discusses, so a "2x speedup"
@@ -741,7 +741,7 @@ Pass explicitly every field of an options struct whose defaults decide what the 
 than inheriting a library default:
 `@prefetch(ptr, .{ .cache = .data, .rw = .read, .locality = 3 })`, not `@prefetch(ptr, .{})`, and
 `@export`'s linkage and visibility (`references/interop.md` ZS-INTEROP-03). This is the chapter home
-of **ZS-CORE-27**. A default that only spares typing, such as `std.testing.tmpDir(.{})`, is not one
+of **ZS-PERF-17**. A default that only spares typing, such as `std.testing.tmpDir(.{})`, is not one
 of these. `std.lang.PrefetchOptions` defaults to `.rw = .read, .locality = 3, .cache = .data` —
 three independent knobs (`Rw`, `u2`, `Cache`), and nothing pins them. `.locality = 0` means "stream
 it, drop it after one touch" and `.locality = 3` means "keep it, we will come back". The builtin

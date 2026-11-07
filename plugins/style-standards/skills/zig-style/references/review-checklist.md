@@ -32,23 +32,24 @@ invalidate the work of reading the next.
    (`ZS-MIG`)
 2. **Memory and ownership.** Who allocates, who frees, and what the lifetime is. Every allocation
    has a `defer`/`errdefer` on the next line. No allocator stored in a long-lived struct. No pointer
-   retained into a container that can resize. (`ZS-MEM`, `ZS-CORE-13` … `ZS-CORE-16`)
+   retained into a container that can resize. (`ZS-MEM`, `ZS-MEM-05`, `ZS-MEM-10`, `ZS-MEM-15`,
+   `ZS-MEM-18`)
 3. **Illegal behavior.** Every `@intCast`, `@ptrCast`, `@alignCast`, and `@bitCast`: is the
    precondition established? Every `undefined`. Every `noalias`. Every `unreachable` reachable from
    operating input. Ask what `fast` does with each, not what `debug` does. (`ZS-DATA`, `ZS-ASSERT`)
 4. **Errors.** Every `catch unreachable` and `catch |_|`: is this a programmer error (assert) or an
    operating error (propagate)? Any `anyerror` in a public signature. Any error swallowed to satisfy
-   a signature. (`ZS-ERR`, `ZS-CORE-07`, `ZS-CORE-19`)
+   a signature. (`ZS-ERR`, `ZS-ERR-01`, `ZS-ERR-05`)
 5. **Assertions and bounds.** Is the assertion density near two per function? Does every loop have a
    provable upper bound, every queue a limit, every recursion a proof or an explicit stack?
-   (`ZS-ASSERT`, `ZS-CORE-08`, `ZS-CORE-11`, `ZS-CORE-20`)
+   (`ZS-ASSERT`, `ZS-ASSERT-09`, `ZS-ASSERT-20`, `ZS-ERR-21`)
 6. **Public API.** What is newly `pub`? Is the ownership documented? Is the error set explicit and
    minimal? Would a caller be able to tell from the signature who frees what? (`ZS-NAME-19`,
    `ZS-ERR`)
 7. **Concurrency.** Every `Io.async` without a matching `await`, every `Group`/`Select`,
    cancellation paths, and anything holding a resource across a suspension point. (`ZS-CONC`)
 8. **Function bodies.** Now read the code. Compound conditions that want splitting, functions past
-   70 lines, control flow that wants a labeled switch. (`ZS-CORE-17`, `ZS-CORE-21`)
+   70 lines, control flow that wants a labeled switch. (`ZS-ERR-16`, `ZS-ERR-30`)
 9. **Tests.** Do they use `std.testing.allocator` so leaks fail? Is the error path covered? Is there
    a `checkAllAllocationFailures` for every allocating API? (`ZS-TEST`)
 10. **Build and project.** New dependencies justified? `build.zig.zon` `.paths` correct? Does
@@ -99,7 +100,7 @@ rg -n 'std\.debug\.print'               # program output must not go through thi
 ```
 
 The allocation grep lists each line containing `alloc` or `create` whose next line is no `defer` or
-`errdefer`, the pairing ZS-CORE-14 requires; each hit is a candidate to read, not a proven leak. Its
+`errdefer`, the pairing ZS-MEM-10 requires; each hit is a candidate to read, not a proven leak. Its
 look-ahead needs `-P`, so it needs an `rg` whose `rg --version` lists `+pcre2`.
 
 ## Output format
@@ -149,7 +150,7 @@ revertible:
    `defer`/`errdefer`, and give every type that owns memory a `deinit`.
 3. Narrow error sets: replace `anyerror` with explicit sets, and turn every `catch unreachable` into
    either an assertion (programmer error) or a propagated error (operating error).
-4. Add assertions to reach the density in `ZS-CORE-08`, starting with function preconditions and
+4. Add assertions to reach the density in `ZS-ASSERT-09`, starting with function preconditions and
    postconditions. This is the step that finds existing bugs, so expect it to stall while you fix
    them — that is the step working.
 5. Put a bound on everything unbounded: loops, queues, retries, recursion.

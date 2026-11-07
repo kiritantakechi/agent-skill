@@ -394,8 +394,9 @@ class _Standard:
         """What `rid`, if it names a rule before the revision, is after.
 
         A core rule keeps its ID unless the plan names it: core rules
-        are `SKILL.md`'s, not a family's, so no renumbering moves one
-        (`ZS-CORE-01b` ships). None for an ID that names no rule.
+        are `SKILL.md`'s, not a family's, so no renumbering moves one,
+        and one with an inserted letter keeps it. None for an ID that
+        names no rule.
         """
         if rid in self.renamed:
             return self.renamed[rid]
@@ -849,18 +850,23 @@ def _extended(
 def _stated(ids: Sequence[RuleId]) -> str:
     """The runs of consecutive numbers each family held, as prose.
 
-    In the order the families appear. A suffixed ID such as `-03a`
-    belongs to no run; dense numbering always gives it a row.
+    In the order the families appear. A suffixed ID such as `-03a` is a
+    run of its own, between the numbers it sits between, so the ranges
+    state every ID the rows list; dense numbering always gives it a row.
     """
-    numbers: dict[tuple[str, str], list[int]] = {}
+    held: dict[tuple[str, str], list[RuleId]] = {}
     for rid in ids:
-        if not rid.suffix:
-            numbers.setdefault((rid.standard, rid.family), []).append(rid.number)
+        held.setdefault((rid.standard, rid.family), []).append(rid)
     runs: list[tuple[RuleId, RuleId]] = []
-    for (standard, family), held in numbers.items():
-        for n in sorted(held):
-            rid = RuleId(standard, family, n)
-            if runs and runs[-1][1].family == family and runs[-1][1].number == n - 1:
+    for family in held.values():
+        for rid in sorted(family):
+            last = runs[-1][1] if runs else None
+            if (
+                last is not None
+                and (last.standard, last.family) == (rid.standard, rid.family)
+                and not (last.suffix or rid.suffix)
+                and last.number == rid.number - 1
+            ):
                 runs[-1] = (runs[-1][0], rid)
             else:
                 runs.append((rid, rid))

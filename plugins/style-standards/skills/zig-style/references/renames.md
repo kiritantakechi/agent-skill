@@ -9,8 +9,10 @@ holding a citation made before a revision.
 Before the revision the families ran `ZS-ASRT-01`–`ZS-ASRT-33`, `ZS-BUILD-01`–`ZS-BUILD-43`,
 `ZS-CAPI-01`–`ZS-CAPI-23`, `ZS-CT-01`–`ZS-CT-28`, `ZS-ERR-01`–`ZS-ERR-38`, `ZS-FMT-01`–`ZS-FMT-20`,
 `ZS-IO-01`–`ZS-IO-48`, `ZS-MEM-01`–`ZS-MEM-28`, `ZS-MIG-01`–`ZS-MIG-14`, `ZS-NAME-01`–`ZS-NAME-37`,
-`ZS-PERF-01`–`ZS-PERF-24`, `ZS-TEST-01`–`ZS-TEST-29` and `ZS-TYPE-01`–`ZS-TYPE-41`. The table lists
-every ID in those ranges that changed, and what it is now; an ID it does not list is unchanged.
+`ZS-PERF-01`–`ZS-PERF-24`, `ZS-TEST-01`–`ZS-TEST-29`, `ZS-TYPE-01`–`ZS-TYPE-41`, `ZS-CORE-01`,
+`ZS-CORE-01b`, `ZS-CORE-02`–`ZS-CORE-11`, `ZS-CORE-12a`, `ZS-CORE-12b` and
+`ZS-CORE-13`–`ZS-CORE-27`. The table lists every ID in those ranges that changed, and what it is
+now; an ID it does not list is unchanged.
 
 | Before | Now |
 |---|---|
@@ -377,3 +379,32 @@ every ID in those ranges that changed, and what it is now; an ID it does not lis
 | `ZS-TYPE-39` | `ZS-DATA-36` |
 | `ZS-TYPE-40` | `ZS-DATA-37` |
 | `ZS-TYPE-41` | `ZS-DATA-38` |
+| `ZS-CORE-01` | `ZS-NAME-01` |
+| `ZS-CORE-01b` | `ZS-NAME-12` |
+| `ZS-CORE-02` | `ZS-MEM-06` |
+| `ZS-CORE-03` | `ZS-NAME-06` |
+| `ZS-CORE-04` | `ZS-NAME-04` |
+| `ZS-CORE-05` | `ZS-NAME-24` |
+| `ZS-CORE-06` | `ZS-NAME-15` |
+| `ZS-CORE-07` | `ZS-ERR-01` |
+| `ZS-CORE-08` | `ZS-ASSERT-09` |
+| `ZS-CORE-09` | `ZS-ASSERT-10` |
+| `ZS-CORE-10` | `ZS-ASSERT-02` |
+| `ZS-CORE-11` | `ZS-ASSERT-20` |
+| `ZS-CORE-12a` | `ZS-ASSERT-12` |
+| `ZS-CORE-12b` | `ZS-ASSERT-16` |
+| `ZS-CORE-13` | `ZS-MEM-05` |
+| `ZS-CORE-14` | `ZS-MEM-10` |
+| `ZS-CORE-15` | `ZS-MEM-15` |
+| `ZS-CORE-16` | `ZS-MEM-18` |
+| `ZS-CORE-17` | `ZS-ERR-16` |
+| `ZS-CORE-18` | `ZS-ERR-18` |
+| `ZS-CORE-19` | `ZS-ERR-05` |
+| `ZS-CORE-20` | `ZS-ERR-21` |
+| `ZS-CORE-21` | `ZS-ERR-30` |
+| `ZS-CORE-22` | `ZS-COMPTIME-16` |
+| `ZS-CORE-23` | `ZS-COMPTIME-17` |
+| `ZS-CORE-24` | `ZS-DATA-27` |
+| `ZS-CORE-25` | `ZS-NAME-22` |
+| `ZS-CORE-26` | `ZS-NAME-23` |
+| `ZS-CORE-27` | `ZS-PERF-17` |

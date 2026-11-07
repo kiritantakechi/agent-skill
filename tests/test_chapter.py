@@ -103,20 +103,35 @@ def test_every_rename_row_and_range_is_read(skills: list[Skill]) -> None:
 
 
 def test_every_core_rule_is_an_item_of_section_4(skills: list[Skill]) -> None:
-    """Core rules until a standard is normalised, then none."""
+    """No shipped standard states a core rule: `revise` merged each."""
     for skill in skills:
-        core = skill.core
-        assert bool(core) != skill.profile.normalized, skill.name
-        assert all(r.id.family == "CORE" and not r.title for r in core), skill.name
+        assert not skill.core, skill.name
+
+
+#: Section 4 as a standard stated core rules before `revise` merged
+#: them into the chapter rules they abbreviated.
+_CORE = """# Demo Style — 1.2
+
+## 4. Core rules
+
+- **XS-CORE-01 `[M]`** Return an error the caller can handle (XS-ERR-01).
+- **XS-CORE-12a `[M!]`** Pair every property across two code paths (XS-ERR-02).
+  *Relaxed form:* pair what is persisted.
+- XS-ERR-03 [M] A contents line, which states no rule
+"""
 
 
 def test_a_core_rule_and_a_chapter_rule_are_one_type(skills: list[Skill]) -> None:
-    zig = next(s for s in skills if s.name == "zig-style")
-    core = SkillMd.read(Doc.parse(zig.text)).core_rules
-    chapter = _read(zig.chapters[0].text).rules
+    core = SkillMd.read(Doc.parse(_CORE)).core_rules
+    chapter = _read(skills[0].chapters[0].text).rules
     assert {type(core[0]), type(chapter[0])} == {Rule}
     assert {type(core[0].tier), type(chapter[0].tier)} == {Tier}
-    assert RuleId.parse("ZS-CORE-12a") in {r.id for r in core}
+    assert [r.id for r in core] == [
+        RuleId.parse("XS-CORE-01"),
+        RuleId.parse("XS-CORE-12a"),
+    ]
+    assert [r.tier for r in core] == [Tier.M, Tier.M_BANG]
+    assert all(r.id.family == "CORE" and not r.title for r in core)
 
 
 def test_every_example_is_a_fence_of_the_tree(skills: list[Skill]) -> None:

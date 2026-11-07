@@ -781,9 +781,8 @@ When an `if`/`else` splits the input space, write the branch condition as the in
 **Early-return guards are exempt.** `if (index >= items.len) return null;` states the *rejection*
 condition, which is the whole point of a guard, and guards are what ZS-ERR-16 asks for. What is
 forbidden is a non-guard `if` whose condition negates an invariant that the same function states
-positively elsewhere — the reader then has to hold both spellings of one relation in their head.
-(Same wording as SKILL.md ZS-CORE-18; the guard form is used by ZS-ERR-20, ZS-ERR-22 and
-ZS-ASSERT-14.)
+positively elsewhere — the reader then has to hold both spellings of one relation in their head. The
+guard form is used by ZS-ERR-20, ZS-ERR-22 and ZS-ASSERT-14.
 
 **Why:** the positive form matches how the same relation is written in the loop condition
 (`while (index < length)`) and in the assertion (`assert(index < length)`), so the reader compares
@@ -918,10 +917,10 @@ fn depthSum(comptime depth: u8, values: []const u32) u32 {
 ### ZS-ERR-22 [M!] Push `if`s up and `for`s down
 
 `[M!]` — mandatory in high-reliability code (databases, consensus, crypto, allocators, kernel and
-embedded firmware, parsers on untrusted input), matching SKILL.md ZS-CORE-21 and ZS-ERR-30. Keep
-branching in the parent function; give leaf helpers primitive arguments and no control flow.
-*Relaxed form:* elsewhere, a leaf helper that branches on a condition its caller already knows is a
-review comment, not a build failure.
+embedded firmware, parsers on untrusted input), matching ZS-ERR-30. Keep branching in the parent
+function; give leaf helpers primitive arguments and no control flow. *Relaxed form:* elsewhere, a
+leaf helper that branches on a condition its caller already knows is a review comment, not a build
+failure.
 
 **Why:** it concentrates the decisions in one readable place, and it makes the leaf a straight-line
 function that the compiler can vectorise and a reader can check without tracing callers. It is also
@@ -1120,7 +1119,7 @@ const found = for (items) |it| {
 `@branchHint(hint: std.lang.BranchHint) void`. The hints are exactly `.none`, `.likely`,
 `.unlikely`, `.cold`, `.unpredictable` (`std.lang.BranchHint`). It is only valid as the first
 statement of a branch or a function, which the compiler enforces (the row below). So on a cold
-branch that also asserts (ZS-CORE-08), the hint comes first and the assertion after it. `@setCold`
+branch that also asserts (ZS-ASSERT-09), the hint comes first and the assertion after it. `@setCold`
 does not exist; the compiler rejects it (`references/migration.md`'s `invalid builtin function`
 row).
 
@@ -1237,8 +1236,7 @@ Log *or* return, not both, unless you are adding context and re-propagating (ZS-
 allocators, kernel and embedded firmware, parsers on untrusted input). There, 70 lines between the
 braces is a hard ceiling, counted as written including blank lines and comments. *Relaxed form:*
 elsewhere, a function longer than one screen needs a stated reason in a comment — a `switch` with
-one short arm per protocol opcode is the usual honest one. This is SKILL.md ZS-CORE-21; the full
-standard is here.
+one short arm per protocol opcode is the usual honest one.
 
 Where to cut is what the shape rules decide: the control flow stays in the parent (ZS-ERR-22), so
 does the state it manipulates (`references/performance.md` ZS-PERF-12), and each piece comes out
@@ -1388,7 +1386,7 @@ enough to deserve its own type and its own function.
 
 **Why:** special-case branches compound. Each is locally cheap and globally expensive: every later
 change must be checked against every branch, nothing records which combinations are reachable, and
-ZS-CORE-17's simple control flow erodes one plausible patch at a time.
+ZS-ERR-16's simple control flow erodes one plausible patch at a time.
 
 **Check:** for each `if` whose condition names a specific input — a particular length, an empty
 slice treated unlike others, a sentinel value — ask what the general case would need to be for the

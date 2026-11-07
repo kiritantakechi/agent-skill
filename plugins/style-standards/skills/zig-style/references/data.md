@@ -557,7 +557,7 @@ std uses throughout.
 
 **Check:** every `pub fn deinit` in a diff takes the same allocator parameter its `init` took. A
 `deinit` with no allocator parameter on a type that allocates means the allocator was stored in the
-struct instead (ZS-CORE-13).
+struct instead (ZS-MEM-05).
 
 ```zig
 // verified — GOOD
@@ -1080,9 +1080,8 @@ test "unknown tag is well defined" {
 
 ### ZS-DATA-27 [M] Return the lowest-dimensionality type that can carry the answer
 
-This rule owns the dimensionality ladder for the whole standard. `SKILL.md` ZS-CORE-24 is its
-one-line summary, and ZS-DATA-28 (optional for absence, error union for failure) resolves the top
-two rungs; everything below is here.
+This rule owns the dimensionality ladder for the whole standard, and ZS-DATA-28 (optional for
+absence, error union for failure) resolves the top two rungs.
 
 TigerStyle's ordering, weakest first — each rung is a strict superset of the one below:
 
@@ -1568,8 +1567,8 @@ When a parameter selects behavior rather than supplying data, the function has b
 sharing a body. Split it and let the shared part be a private helper.
 
 **Why:** a mode parameter makes the return type and the error set the union of both modes, so every
-caller handles cases that cannot arise in its mode — the opposite of ZS-CORE-24 and ZS-DATA-27.
-Splitting gives each caller a precise signature and makes the shared logic explicit.
+caller handles cases that cannot arise in its mode — the opposite of ZS-DATA-27. Splitting gives
+each caller a precise signature and makes the shared logic explicit.
 
 **Check:** for each parameter, does the body branch on it at the top level? If the two branches
 share little, it is two functions with two names.

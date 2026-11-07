@@ -144,7 +144,7 @@ export fn zs_parse(text: [*:0]const u8) !u32 {
 ```
 
 A `bool` return is the right shape when there is exactly one failure mode and the C caller cannot
-act on a reason — see ZS-CORE-24 on reducing dimensionality at the call site. Anything richer gets
+act on a reason — see ZS-DATA-27 on reducing dimensionality at the call site. Anything richer gets
 the enum.
 
 ### ZS-INTEROP-02 [M!] Validate everything C hands you; do not assert it
@@ -163,11 +163,11 @@ from a network-facing process. In all of those the C caller is outside your trus
 it is friendly, because it is compiled separately and can go stale.
 
 *Relaxed form:* always null-check pointers and always bound lengths — those two are never optional,
-because in a `fast` build a violated assert is not a crash but a memory-safety bug (see ZS-CORE-10).
-Exhaustive enum and range validation may be skipped for a C shim that lives in the same repository
-and is compiled by the same `build.zig`.
+because in a `fast` build a violated assert is not a crash but a memory-safety bug (see
+ZS-ASSERT-02). Exhaustive enum and range validation may be skipped for a C shim that lives in the
+same repository and is compiled by the same `build.zig`.
 
-**Why:** this is ZS-CORE-08's boundary clause, applied to the one boundary where it bites hardest.
+**Why:** this is ZS-ASSERT-09's boundary clause, applied to the one boundary where it bites hardest.
 An `assert` on data from another compilation unit is a remote denial of service in a `safe` build
 and illegal behavior in a `fast` one.
 
@@ -232,7 +232,7 @@ The signature is
 place of the pointer fails loudly: `error: expected pointer type, found 'fn () callconv(.c) u32'`.
 `ExportOptions` has the fields `name: []const u8`, `linkage: GlobalLinkage = .strong`,
 `section: ?[]const u8 = null`, and `visibility: SymbolVisibility = .default` — everything but `name`
-has a default, and per ZS-CORE-27 pass the ones that matter to you explicitly. `GlobalLinkage` is
+has a default, and per ZS-PERF-17 pass the ones that matter to you explicitly. `GlobalLinkage` is
 only `.strong` or `.weak`.
 
 **Why:** `@export` separates the symbol from the declaration, so one Zig function can back several
@@ -321,7 +321,7 @@ test "the calling convention is a union value" {
 ### ZS-INTEROP-05 [S] Prefix every exported symbol with the library name
 
 `zs_parse_u32`, not `parse_u32`. Apply it to `export fn`, `export var`, and every `@export` name.
-This is the one place in this standard where `snake_case` functions are correct despite ZS-CORE-01 —
+This is the one place in this standard where `snake_case` functions are correct despite ZS-NAME-01 —
 the C header is the contract and C's convention wins there. Keep the Zig-internal name `camelCase`
 and let the export do the translation, as in ZS-INTEROP-03.
 
@@ -650,8 +650,8 @@ test "C calls back into Zig and userdata survives the round trip" {
 A `callconv(.c)` callback cannot return an error (ZS-INTEROP-01) and must not `try` past the C
 frame. Give the userdata struct a `failure: ?SomeError = null` field, `catch` into it, make
 subsequent invocations a no-op, and check it once the C function has returned. The two tempting
-alternatives are both wrong: `catch unreachable` violates ZS-CORE-07 because allocation failure is
-an operating condition, and `@panic` unwinds through C frames that may hold locks or partially built
+alternatives are both wrong: `catch unreachable` violates ZS-ERR-01 because allocation failure is an
+operating condition, and `@panic` unwinds through C frames that may hold locks or partially built
 state.
 
 **Why:** the callback runs on a C stack frame that knows nothing about error unions or `errdefer`.
