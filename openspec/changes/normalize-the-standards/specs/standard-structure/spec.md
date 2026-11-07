@@ -105,14 +105,22 @@ SHALL fail.
 ### Requirement: Section 2 has three subsections in one order
 
 Section 2 of every `SKILL.md` SHALL have exactly three subsections, in this order: what compiles and
-behaves differently, what no longer compiles, and what the target gained. The second SHALL be the
-migration table's rows whose since is the target's, rendered from it, as the migration requirement
-states. Every other item SHALL name the rule or migration row that owns it.
+behaves differently, what no longer compiles, and what the target gained. The first SHALL be the
+migration table's `changed` rows whose since is the target's, and the second its `gone` rows whose
+since is the target's, each rendered from the table, as the migration requirement states; so the
+statuses and the first two subsections are one partition, and a row that still compiles and means
+what it did is in neither. Every item of the third SHALL name the rule that owns it.
 
 #### Scenario: An item with no owner
 
 - **WHEN** a section 2 item states a change no rule or migration row holds
 - **THEN** the run fails, because section 2 indexes the chapters and holds nothing of its own
+
+#### Scenario: A rejected spelling under what still compiles
+
+- **WHEN** section 2.1 lists a row whose status is `gone`, or section 2.2 one whose status is
+  `changed`, `alias` or `deprecated`
+- **THEN** `fmt` renders each from the migration table, and the run fails until it has
 
 ### Requirement: Tier is one predicate
 
@@ -143,14 +151,18 @@ from its chapter rule's tier and title. There SHALL be no `CORE` family.
 ### Requirement: Migration is a function from old spelling to row
 
 Each migration chapter SHALL hold one table keyed uniquely by old spelling, with columns old
-spelling, target spelling, status, since and owning rule, where status is one of `gone`, `alias`,
-`changed` or `deprecated`, and since is the release from which the status holds — for a language
-whose changes land in editions as well as releases, the edition when the edition made the change —
-in one form per standard, no later than the target. The command a reader runs to find old spellings
-SHALL be generated from the `gone` and `alias` rows, and every `gone` row SHALL be verified absent
-from the pinned release. Section 2.2 of `SKILL.md` SHALL be the table restricted to the rows whose
-since is the target's, with columns old spelling, target spelling and owning rule, followed by one
-line saying where the other rows are and naming the command, rendered from the table.
+spelling, target spelling, status, since and owning rule, where status is what the target does with
+the old spelling: `gone`, it rejects it (a compile, import or attribute error); `changed`, it
+accepts it and it means something else; `alias` or `deprecated`, it accepts it and it means what it
+did. Since is the release from which the status holds — for a language whose changes land in
+editions as well as releases, the edition when the edition made the change — in one form per
+standard, no later than the target. An old spelling with `…` in it is a shape, code left out where
+the `…` stands. The command a reader runs to find old spellings SHALL be generated from the `gone`
+and `alias` rows that are no shape, and every `gone` row the toolchain can look up or compile SHALL
+be verified rejected by the pinned release. Sections 2.1 and 2.2 of `SKILL.md` SHALL be the table
+restricted to the `changed` and to the `gone` rows whose since is the target's, each with columns
+old spelling, target spelling and owning rule, followed by one line saying where that status's
+other rows are and how a reader finds them, rendered from the table.
 
 #### Scenario: One old spelling in two rows
 
@@ -164,13 +176,19 @@ line saying where the other rows are and naming the command, rendered from the t
 
 #### Scenario: Section 2.2 kept by hand
 
-- **WHEN** section 2.2 lists a row whose since is an older release, or leaves out one whose since is
-  the target's
+- **WHEN** section 2.2 lists a row whose since is an older release, or leaves out a `gone` row whose
+  since is the target's
 - **THEN** `fmt` renders it from the migration table, and the run fails until it has
+
+#### Scenario: A shape in the command
+
+- **WHEN** a `gone` row's old spelling is `TextFont { line_height: … }`
+- **THEN** the generated command has no pattern for it, and its owning rule's Check finds it
 
 #### Scenario: A gone row naming a live API
 
-- **WHEN** a row marked `gone` names a symbol the pinned release still provides
+- **WHEN** a row marked `gone` names a symbol the pinned release still provides, or a spelling the
+  target edition still compiles
 - **THEN** the run fails
 
 ### Requirement: A delta's departures are one typed map
