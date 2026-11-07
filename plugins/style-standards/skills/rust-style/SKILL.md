@@ -182,9 +182,7 @@ not worth the name it costs.
   - RS-OWN-08 [M] Never clone to silence the borrow checker
   - RS-OWN-23 [M] Justify every use of interior mutability in a comment
 - **Traits: Generics, Dispatch, and Type-Level Design**
-  - RS-TRAIT-01 [M] Name the capability as a trait before writing the type that provides it
-  - RS-TRAIT-06 [S] Prefer composition to supertrait hierarchies
-  - RS-TRAIT-18 [M] Model a closed set of implementations as an enum, not a trait object
+  - RS-TRAIT-05 [S] Prefer composition to supertrait hierarchies
 - **Build: Manifest, Features, Dependencies, Lints, Toolchain, and CI**
   - RS-BUILD-18 [M] Justify every dependency by more than an hour of saved work
   - RS-BUILD-26 [M] Enforce `cargo fmt --check` in CI and keep `rustfmt.toml` minimal
@@ -200,6 +198,9 @@ not worth the name it costs.
   - RS-DATA-01 [M] Model a finite set of states as an enum that lists all of them
   - RS-DATA-04 [S] Prefer indices to references for graph-shaped data
   - RS-DATA-05 [M] Make a bad value unrepresentable, else rejected at construction, else checked
+- **Types**
+  - RS-TYPE-01 [M] Name the capability as a trait before writing the type that provides it
+  - RS-TYPE-02 [M] Model a closed set of implementations as an enum, not a trait object
 
 ## 5. Review checklist
 
@@ -239,7 +240,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/errors.md` | `RS-ERR` (36) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, exit codes |
 | `references/functional.md` | `RS-FUNC` (45) | Expression orientation, the iterator adapter set, immutability and shadowing, closures and bounds, purity, parse-don't-validate, when to stop |
 | `references/ownership.md` | `RS-OWN` (36) | Borrow-vs-own signatures, clone discipline, `Cow`, lifetimes and elision, arenas, smart pointers, interior mutability, `Drop` and RAII |
-| `references/traits.md` | `RS-TRAIT` (46) | Trait design and contracts, static vs dynamic dispatch, dyn compatibility, coherence and blanket impls, sealing, bounds, associated types, GATs, const generics, typestate |
+| `references/traits.md` | `RS-TRAIT` (42) | Trait design and contracts, static vs dynamic dispatch, dyn compatibility, coherence and blanket impls, sealing, bounds, associated types, GATs, const generics, typestate |
 | `references/modules.md` | `RS-MOD` (38) | Module boundaries and crate names, `foo.rs` + `foo/`, the library/binary split, workspace layout and facades, imports and in-file declaration order |
 | `references/build.md` | `RS-BUILD` (46) | Manifest and metadata, docs.rs, additive features, dependency discipline, the `[lints]` table, supply chain and semver, toolchain, profiles, CI |
 | `references/testing.md` | `RS-TEST` (34) | Unit/integration/doc test split, table-driven tests, property and differential testing, fuzzing, snapshots, CLI end-to-end, flakes |
@@ -249,6 +250,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/unsafe.md` | `RS-UNSAFE` (33) | `// SAFETY:` discipline, the UB list, layout and `repr`, `PhantomData` and variance, `unsafe trait`, C interop and `catch_unwind`, Miri and sanitizers |
 | `references/cli.md` | `RS-CLI` (32) | The `LowArgs`→`HiArgs` two-stage model, the flag table, streams and colour, `BrokenPipe`, signals, config precedence |
 | `references/data.md` | `RS-DATA` (10) | Enums and sum types, records over tuples, indices over references, unrepresentable and rejected values, views over containers, equality and hashing, integer widths and explicit overflow |
+| `references/types.md` | `RS-TYPE` (4) | The capability named as a trait before the type that provides it, a closed set kept an enum, a trait's contract written down, and how far a parameter is generic |
 | `references/migration.md` | `RS-MIG` (3) | Every old spelling the 2024 edition and the releases through 1.99 left behind, with its status and owning rule; the command the table generates; when each API arrived; and what changed silently by release |
 | `references/macros.md` | `RS-MACRO` (22) | When not to write a macro, `macro_rules!` hygiene and fragment specifiers, proc-macro crate split, spans and diagnostics, `trybuild` |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |

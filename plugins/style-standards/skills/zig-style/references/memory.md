@@ -852,7 +852,7 @@ Contracts, from the doc comments:
   so returning `null` is a *correct, cheap* answer, not a failure to be avoided.
 - **`free`** — same preconditions; invalidates the region.
 
-Hand the `Allocator` out as ZS-COMPTIME-16 hands out any vtable interface: from a method taking
+Hand the `Allocator` out as ZS-COMPTIME-13 hands out any vtable interface: from a method taking
 `*Self`, with `.ptr = self` (ZS-MEM-07). A stateless allocator sets `.ptr = undefined` and exposes
 `pub const vtable: Allocator.VTable`, as `PageAllocator` and `SmpAllocator` do.
 

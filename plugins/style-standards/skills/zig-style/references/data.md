@@ -621,7 +621,7 @@ return by value.
 itself dangling. An out pointer fixes the address before the first field is written.
 
 **Check:** a `pub fn init(...) T` returning by value on a type any of whose fields is a pointer into
-itself, an `interface` field (ZS-COMPTIME-17), an intrusive node, or a fixed buffer whose address is
+itself, an `interface` field (ZS-COMPTIME-14), an intrusive node, or a fixed buffer whose address is
 handed out. The expected shape at the call site is `var x: T = undefined; x.init(...);`, not
 `const x: T = .init(...);`.
 
@@ -998,7 +998,7 @@ const Cache = struct {
 
 A value that is "one of N shapes" is a `union(enum)`, not a struct with a kind field and several
 maybe-valid members, and not an integer or a group of `bool` flags standing in for the tag. Switch
-over it exhaustively (ZS-ERR-27). Reading a payload field while another is active is safety-checked
+over it exhaustively (ZS-TYPE-03). Reading a payload field while another is active is safety-checked
 illegal behavior (`access of union field 'b' while field 'a' is active`).
 
 **Why:** a payload is reachable only through its active tag, never as stale bytes, and adding a
@@ -1036,7 +1036,7 @@ fn opcodeWidth(op: Op) usize {
 ### ZS-DATA-26 [M] Make an enum non-exhaustive only for values that come from outside
 
 Add a trailing `_` field (which requires an explicit integer tag type) when the integer comes from a
-peer, a file, or a kernel, and switch on it with a `_ =>` prong (ZS-ERR-27). With `_`,
+peer, a file, or a kernel, and switch on it with a `_ =>` prong (ZS-TYPE-03). With `_`,
 "`@fromBackingInt` on a non-exhaustive enum always results in a valid enum value"; its operand must
 already have the tag type, so the only check left is the `@intCast` that narrows a wider wire
 integer to it. A non-exhaustive enum without a tag type is

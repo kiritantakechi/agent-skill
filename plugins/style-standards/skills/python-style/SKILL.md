@@ -75,7 +75,7 @@ proceed with the stricter reading.
 |---|---|---|
 | `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | PS-CONC-21 |
 | `functools.singledispatchmethod` | called through its class, dispatches on the argument after the instance | PS-TYPE-17 |
-| `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | PS-DATA-13 |
+| `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | PS-DATA-12 |
 | `locale.getpreferredencoding` | `'utf-8'` under UTF-8 mode, whatever the locale; `locale.getencoding()` | PS-OUT-03 |
 | `open(path)` | UTF-8 whatever the locale, while UTF-8 mode is on | PS-OUT-02 |
 | `sys.getfilesystemencoding` | `'utf-8'` under UTF-8 mode, so argv, environment variables and filenames decode as UTF-8 whatever the locale | PS-OUT-02 |
@@ -138,7 +138,7 @@ value.
 ### 2.3 What Python 3.15 gained
 
 - `frozendict` (PEP 814), an immutable mapping, in place of `types.MappingProxyType`, which was only
-  a view (PS-DATA-13).
+  a view (PS-DATA-12).
 - `sentinel()` (PEP 661), a missing-value marker the type system can name, in place of `object()`
   (PS-TYPE-20).
 - `TypeForm[T]` (PEP 747), for a parameter that receives a type expression, which `type[T]` rejects
@@ -201,12 +201,12 @@ name it costs.
   - PS-TYPE-09 [M] Declare an alias with the `type` statement
   - PS-TYPE-12 [M] Use `object` for "anything", and `Any` only with a reason
   - PS-TYPE-13 [M] Narrow with `TypeIs`, not `TypeGuard`
-- **Data: Dataclasses, Enums, Protocols, and Immutability**
+- **Data: Dataclasses, Enums, and Immutability**
   - PS-DATA-01 [M] Model a record as a frozen dataclass by default
   - PS-DATA-02 [M] Add `slots=True` unless something needs the instance dict
-  - PS-DATA-08 [M] Never give a mutable default
-  - PS-DATA-09 [M] Never compute a default at import time
-  - PS-DATA-15 [M] Make the invalid state unrepresentable before validating against it
+  - PS-DATA-07 [M] Never give a mutable default
+  - PS-DATA-08 [M] Never compute a default at import time
+  - PS-DATA-14 [M] Make the invalid state unrepresentable before validating against it
 - **Errors and Control Flow: Exceptions, Guards, and the Shape of a Function**
   - PS-ERR-07 [M] Never use `assert` to validate input
   - PS-ERR-08 [M] Never catch what you cannot handle
@@ -266,13 +266,13 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-251 rules live here; section 4 lists by ID those that bind on their own.
+254 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
 | `references/naming.md` | `PS-NAME` (13) | Casing and word choice, what `ruff format` settles, and the symmetry of names |
-| `references/types.md` | `PS-TYPE` (20) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, and what 3.15 adds |
-| `references/data.md` | `PS-DATA` (17) | Choosing between dataclass, enum, protocol and TypedDict, fields and defaults, immutability, validity, and the symmetry of a data type |
+| `references/types.md` | `PS-TYPE` (24) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, what 3.15 adds, and interfaces and generics |
+| `references/data.md` | `PS-DATA` (16) | Choosing between dataclass, enum and TypedDict, fields and defaults, immutability, validity, and the symmetry of a data type |
 | `references/errors.md` | `PS-ERR` (21) | Designing an exception hierarchy, raising and catching, `except*`, `finally` after PEP 765, and the control-flow shapes that keep a function readable |
 | `references/concurrency.md` | `PS-CONC` (22) | What the GIL guaranteed and no longer does, sharing objects between threads, iterators and generators, caches and context, streams and hold times |
 | `references/async.md` | `PS-ASYNC` (18) | Entering and leaving a loop, owning tasks with `TaskGroup`, cancellation and timeouts, not blocking the loop, and the thread boundary |

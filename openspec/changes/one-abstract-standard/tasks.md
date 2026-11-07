@@ -258,7 +258,28 @@ time of deletion (both tiers `[M]` unless marked):
   `Default`, decl literal) and share no claim. Left for `performance`: ZS-DATA-22 and RS-PERF-13
   (struct of arrays), ZS-DATA-24 (fixed array), ZS-DATA-18 (pass by pointer). Left for `types`: PS-DATA-07
   (a `Protocol`) with RS-TRAIT, PS-TYPE-15.
-- [ ] 3.9 `types`
+- [x] 3.9 `types`: 5 entries (`AS-TYPE-01` to `-05`), in interfaces and closed sets (the capability named as
+  an interface before what provides it, a closed set a sum type and not an interface, handled with no
+  catch-all) and generics (the contract a signature cannot state, generic only where used); realisations:
+  python-style 5 `realises`; rust-style 4 `realises`, 1 `decided` (clippy `wildcard_enum_match_arm`, added
+  to the shipped lints); zig-style 4 `realises`, 1 `extends` (ZS-TYPE-04 also requires a compile-time
+  guard). `types` is abstract now, so it left python-style's `domain` map. Moves 10: RS-TRAIT-01, -11, -18,
+  -32 into rust-style's new `types.md` (RS-TYPE-01 to -04); ZS-COMPTIME-11, -12, -15, -19 and ZS-ERR-27 into
+  zig-style's new `types.md` (ZS-TYPE-01 to -05); PS-DATA-07 into python-style's types (PS-TYPE-21). The
+  `traits` and `comptime` chapters stay domain chapters, their Scope and opening prose rewritten. Merges 0.
+  New rules 3, all python-style, `Protocol` having no counterpart of the others: PS-TYPE-22 (a closed set is
+  a union), -23 (a protocol's contract), -24 (a type parameter relates two positions); and one `Decided by
+  tools` row (rust-style, `wildcard_enum_match_arm`). Tier changes 0; PS-DATA-07 retitled and widened to
+  the seam it names (PS-TYPE-21). Look-alike notes 1 -> 1 (BV-MIG-03 / RS-MIG-02, for `migration`). Not
+  registered, one standard or another chapter's subject: PS-API-07 (annotate every public signature; Rust
+  and Zig signatures are typed by the language, so there is no second statement), PS-TYPE-12 (`Any` only
+  with a reason) and PS-TYPE-03 (suppress with a code) against rust-style's `allow_attributes*` rows in
+  `build`: suppressing a diagnostic is a build and lint concept, not type discipline, and left there;
+  ZS-COMPTIME-07 (validate comptime parameters), -13 (`std.meta` predicates) and RS-TRAIT bounds rules
+  (RS-TRAIT-29 to -31: where and how many bounds), each one language's mechanism; the rest of PS-TYPE
+  (checker, lazy annotations, spellings) python-only; casts (ZS-DATA-09, RS-UNSAFE-15) stay `data` and
+  the domain chapter `unsafe`. Left for `performance`: RS-TRAIT-12, -13 (static versus dynamic dispatch
+  cost) and ZS-COMPTIME-08.
 - [ ] 3.10 `concurrency` (python-style's `async.md` among the candidates)
 - [ ] 3.11 `output` (rust-style's `cli.md` streams and exit codes among the candidates)
 - [ ] 3.12 `performance`

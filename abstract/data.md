@@ -49,7 +49,7 @@ production, and the constraint is checked once, at the boundary, and not by ever
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-DATA-16 | realises | [M] | |
+| python-style | PS-DATA-15 | realises | [M] | |
 | rust-style | RS-DATA-02 | realises | [M] | |
 | zig-style | ZS-DATA-04 | overrides | [S] | Zig has no operator overloading and no cheap distinct integer, so a wrapper type loses the arithmetic its value would keep elsewhere; the role and unit travel in the name, and a handle gets a type of its own only where it is stored |
 
@@ -91,7 +91,7 @@ written and a test never needed.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-DATA-15 | realises | [M] | |
+| python-style | PS-DATA-14 | realises | [M] | |
 | rust-style | RS-DATA-05 | realises | [M] | |
 | zig-style | ZS-DATA-31 | realises | [M] | |
 
@@ -104,7 +104,7 @@ refusal names the place that made it.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-DATA-14 | realises | [M] | |
+| python-style | PS-DATA-13 | realises | [M] | |
 | rust-style | RS-DATA-06 | realises | [M] | |
 | zig-style | ZS-DATA-32 | realises | [M] | |
 
@@ -117,7 +117,7 @@ documentation prevents, and a view lets the representation change without touchi
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-DATA-11 | realises | [M] | |
+| python-style | PS-DATA-10 | realises | [M] | |
 | rust-style | RS-DATA-07 | realises | [M] | |
 | zig-style | ZS-DATA-33 | realises | [M] | |
 
@@ -131,7 +131,7 @@ misses, silently and only for some keys.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-DATA-17 | realises | [M] | |
+| python-style | PS-DATA-16 | realises | [M] | |
 | rust-style | RS-DATA-08 | realises | [M] | |
 | zig-style | ZS-DATA-34 | realises | [M] | |
 

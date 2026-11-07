@@ -76,7 +76,7 @@ Every rule ID a revision of this standard changed, and what it became, is in
 | `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | changed | 3.15 | PS-CONC-21 |
 | `from __future__ import annotations` | stringifies every annotation, so `annotationlib`'s `VALUE` and `FORWARDREF` return bare strings | changed | 3.14 | PS-TYPE-04 |
 | `functools.singledispatchmethod` | called through its class, dispatches on the argument after the instance | changed | 3.15 | PS-TYPE-17 |
-| `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | changed | 3.15 | PS-DATA-13 |
+| `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | changed | 3.15 | PS-DATA-12 |
 | `locale.getpreferredencoding` | `'utf-8'` under UTF-8 mode, whatever the locale; `locale.getencoding()` | changed | 3.15 | PS-OUT-03 |
 | `obj.n += 1` | on `3.15t`, loses updates when two threads run it | changed | 3.13 | PS-CONC-02 |
 | `open(path)` | UTF-8 whatever the locale, while UTF-8 mode is on | changed | 3.15 | PS-OUT-02 |

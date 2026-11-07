@@ -46,14 +46,14 @@ CONVENTIONS = (
         "`{0}` without the comment ZS-ERR-10 requires",
         unless=COMMENTED,
     ),
-    # ZS-ERR-28 [M] — "every hit is a defect, including inside
+    # ZS-ERR-27 [M] — "every hit is a defect, including inside
     # `comptime` blocks and `const` initializers".
     LineRule(
         UNWRAP,
         r"\.\?",
-        "`.?` unwrap; ZS-ERR-28 asks for `orelse`, a capture, or "
+        "`.?` unwrap; ZS-ERR-27 asks for `orelse`, a capture, or "
         "`orelse unreachable` with the proof beside it",
-        unless_own=RuleId.parse("ZS-ERR-28"),
+        unless_own=RuleId.parse("ZS-ERR-27"),
     ),
     # ZS-TEST-05 [M] — "drop the `@as` wrapper": peer resolution already
     # handles a literal on the other side.
@@ -72,7 +72,7 @@ CONVENTIONS = (
 )
 
 PROSE = (
-    # ZS-ERR-28 forbids `.?` outright. Prose naming it is therefore
+    # ZS-ERR-27 forbids `.?` outright. Prose naming it is therefore
     # either hunting it (inside a `**Check:**`) or is the rule that bans
     # it. Anything else is the standard recommending a spelling it
     # forbids, which is how three passages survived the rule being
@@ -80,9 +80,9 @@ PROSE = (
     LineRule(
         UNWRAP_PROSE,
         r"`[^`\n]*\.\?[^`\n]*`",
-        "prose names `.?` outside a **Check:** and outside ZS-ERR-28",
-        unless_own=RuleId.parse("ZS-ERR-28"),
-        unless=Unless(near=(Near("ZS-ERR-28"),)),
+        "prose names `.?` outside a **Check:** and outside ZS-ERR-27",
+        unless_own=RuleId.parse("ZS-ERR-27"),
+        unless=Unless(near=(Near("ZS-ERR-27"),)),
     ),
 )
 
@@ -159,11 +159,11 @@ PROFILE = Profile(
             "ZS-ERR-05": (
                 "pub fn run(io: Io, args: []const []const u8) anyerror!void {",
             ),
-            "ZS-ERR-28": ("const first = list.first.?;",),
+            "ZS-ERR-27": ("const first = list.first.?;",),
             "ZS-INTEROP-08": ("fn area(width: c_int, height: c_int) c_int {",),
             "ZS-INTEROP-09": ("const Buffer = struct { data: [*c]u8, len: usize };",),
             "ZS-COMPTIME-09": ("pub fn Store(comptime Allocator: type) type {",),
-            "ZS-COMPTIME-14": (
+            "ZS-COMPTIME-12": (
                 "const default = field.default_value_ptr orelse return null;",
             ),
             "ZS-OUT-10": ('try w.print("{:>8}", .{level});',),
@@ -180,7 +180,7 @@ PROFILE = Profile(
         "ZS-BUILD-19",
         "ZS-BUILD-30",
         "ZS-BUILD-31",
-        "ZS-COMPTIME-20",
+        "ZS-COMPTIME-16",
         "ZS-MEM-04",
         "ZS-MEM-06",
         "ZS-NAME-13",

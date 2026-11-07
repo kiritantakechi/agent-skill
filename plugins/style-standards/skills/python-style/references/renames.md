@@ -21,7 +21,7 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-API-06` | `PS-API-07` |
 | `PS-API-07` | `PS-API-08` |
 | `PS-API-08` | lint `ruff:FBT001` |
-| `PS-API-12` | `PS-DATA-08` |
+| `PS-API-12` | `PS-DATA-07` |
 | `PS-API-13` | `PS-API-12` |
 | `PS-API-14` | `PS-API-13` |
 | `PS-API-15` | `PS-API-14` |
@@ -52,18 +52,20 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-ASYNC-20` | `PS-ASYNC-16` |
 | `PS-ASYNC-21` | `PS-ASYNC-17` |
 | `PS-ASYNC-22` | `PS-ASYNC-18` |
-| `PS-DATA-09` | `PS-DATA-08` |
-| `PS-DATA-10` | `PS-DATA-09` |
-| `PS-DATA-11` | `PS-DATA-10` |
+| `PS-DATA-07` | `PS-TYPE-21` |
+| `PS-DATA-08` | `PS-DATA-07` |
+| `PS-DATA-09` | `PS-DATA-07` |
+| `PS-DATA-10` | `PS-DATA-08` |
+| `PS-DATA-11` | `PS-DATA-09` |
 | `PS-DATA-12` | `PS-API-08` |
-| `PS-DATA-13` | `PS-DATA-11` |
-| `PS-DATA-14` | `PS-DATA-12` |
-| `PS-DATA-15` | `PS-DATA-13` |
-| `PS-DATA-16` | `PS-DATA-11` |
-| `PS-DATA-17` | `PS-DATA-14` |
-| `PS-DATA-18` | `PS-DATA-15` |
-| `PS-DATA-19` | `PS-DATA-16` |
-| `PS-DATA-20` | `PS-DATA-17` |
+| `PS-DATA-13` | `PS-DATA-10` |
+| `PS-DATA-14` | `PS-DATA-11` |
+| `PS-DATA-15` | `PS-DATA-12` |
+| `PS-DATA-16` | `PS-DATA-10` |
+| `PS-DATA-17` | `PS-DATA-13` |
+| `PS-DATA-18` | `PS-DATA-14` |
+| `PS-DATA-19` | `PS-DATA-15` |
+| `PS-DATA-20` | `PS-DATA-16` |
 | `PS-DATA-21` | `PS-API-17` |
 | `PS-DATA-22` | `PS-MOD-13` |
 | `PS-DOC-01` | lint `ruff:D100` |
@@ -135,7 +137,7 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-MIG-08` | `PS-TYPE-11` |
 | `PS-MIG-09` | `PS-MIG-05` |
 | `PS-MIG-10` | `PS-CONC-21` |
-| `PS-MIG-11` | `PS-DATA-13` |
+| `PS-MIG-11` | `PS-DATA-12` |
 | `PS-MIG-12` | `PS-OUT-02` |
 | `PS-MIG-13` | `PS-ASYNC-01` |
 | `PS-MIG-14` | `PS-MIG-06` |
@@ -252,8 +254,8 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-CORE-08` | `PS-TYPE-12` |
 | `PS-CORE-09` | `PS-TYPE-13` |
 | `PS-CORE-10` | `PS-DATA-01` |
-| `PS-CORE-11` | `PS-DATA-08` |
-| `PS-CORE-12` | `PS-DATA-15` |
+| `PS-CORE-11` | `PS-DATA-07` |
+| `PS-CORE-12` | `PS-DATA-14` |
 | `PS-CORE-13` | `PS-ERR-08` |
 | `PS-CORE-14` | `PS-ERR-13` |
 | `PS-CORE-15` | `PS-ERR-07` |

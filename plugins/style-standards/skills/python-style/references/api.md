@@ -223,7 +223,7 @@ removes a class of misuse.
 ### PS-API-14 [M] Say who owns what the function returns
 
 Whether it is a view or a copy, and whether it must be closed: say it in the docstring. A container
-the caller should not edit is returned immutable instead, which is PS-DATA-11's rule.
+the caller should not edit is returned immutable instead, which is PS-DATA-10's rule.
 
 **Why:** returning a live view without saying so makes the caller's mutation your bug, and returning
 something that must be closed without saying so guarantees a leak. Both are invisible from the

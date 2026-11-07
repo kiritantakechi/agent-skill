@@ -47,13 +47,12 @@ Blocks that do not declare their own imports assume a file opening with
 - **7. Modern Zig control flow the standard prefers**
   - ZS-ERR-25 [S] Use labeled `switch` with `continue :label` for state machines and dispatch loops
   - ZS-ERR-26 [S] Use a labeled block to compute a value that needs statements
-  - ZS-ERR-27 [M] Switch exhaustively with no `else`; use `_` on non-exhaustive enums
-  - ZS-ERR-28 [M] Unwrap optionals with `orelse` or a capture, never with `.?`
-  - ZS-ERR-29 [S] Mark cold and likely paths with `@branchHint`
+  - ZS-ERR-27 [M] Unwrap optionals with `orelse` or a capture, never with `.?`
+  - ZS-ERR-28 [S] Mark cold and likely paths with `@branchHint`
 - **8. Function shape, user-facing diagnostics, and stack traces**
-  - ZS-ERR-30 [M!] Hard limit of 70 lines per function
-  - ZS-ERR-31 [S] Report position and context through a `*Diagnostics`, not the error set
-  - ZS-ERR-32 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
+  - ZS-ERR-29 [M!] Hard limit of 70 lines per function
+  - ZS-ERR-30 [S] Report position and context through a `*Diagnostics`, not the error set
+  - ZS-ERR-31 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
 - Decided by tools
 
 ---
@@ -404,7 +403,7 @@ miscompiles the surrounding code.
 
 **Check:** every runtime `catch unreachable` has a comment on the same or the preceding line naming
 the fixed bound that makes failure impossible. The short spelling `.?` has no proof form at all —
-ZS-ERR-28 forbids it outright.
+ZS-ERR-27 forbids it outright.
 
 ```zig
 // fragment — BAD: allocation can always fail
@@ -699,7 +698,7 @@ reach for `std.debug.dumpStackTrace` here: in 0.17 that takes a `*const std.debu
 (`{ return_addresses: []usize, skipped: SkippedAddresses }`), which is a different type from
 `std.lang.StackTrace` (`{ index: usize, instruction_addresses: []usize }`) and will not compile:
 `error: expected type '*const debug.StackTrace', found '*lang.StackTrace'`. Capturing a *stack*
-trace is ZS-ERR-32.
+trace is ZS-ERR-31.
 
 A `main` that returns `!void` prints the error name and its return trace automatically, which is the
 reason to prefer `try` all the way up in application code.
@@ -793,7 +792,7 @@ compiler check, and since `zig fmt` will not produce it, mixing both spellings i
 more than either convention alone.
 
 **Why:** a `switch` over an enum or tagged union is verified exhaustive at compile time, so adding a
-variant breaks the build at every dispatch site (ZS-ERR-27), while an `else if` chain over the same
+variant breaks the build at every dispatch site (ZS-TYPE-03), while an `else if` chain over the same
 values compiles and falls through to its last `else` at runtime.
 
 **Check:** an `else if` chain whose conditions all compare the *same* expression against different
@@ -961,7 +960,7 @@ comment, not a build failure.
 
 **Why:** it concentrates the decisions in one readable place, and it makes the leaf a straight-line
 function that the compiler can vectorise and a reader can check without tracing callers. It is also
-the mechanism that keeps parents under the 70-line limit (ZS-ERR-30) without scattering the logic.
+the mechanism that keeps parents under the 70-line limit (ZS-ERR-29) without scattering the logic.
 
 **Check:** a private helper called from exactly one site whose first statement is an `if` on a
 condition the caller already tested, or a caller that loops calling a helper that could have taken
@@ -1068,55 +1067,7 @@ const found = for (items) |it| {
 } else 0;
 ```
 
-### ZS-ERR-27 [M] Switch exhaustively with no `else`; use `_` on non-exhaustive enums
-
-For your own enums and unions, list every prong and do not add `else`. For a non-exhaustive enum —
-one with a trailing `_` field — use a `_ =>` prong rather than `else =>`: `_ =>` handles
-out-of-range values while *still* erroring if you forget a named tag, whereas `else =>` handles both
-and therefore checks neither.
-
-**Why:** exhaustiveness is a design tool. Adding a variant should produce a compile error at every
-site that must be updated, which is how you find them all; `else` converts that compile error into a
-runtime fallthrough.
-
-**Check:** an `else =>` prong in a `switch` over an enum or tagged union declared in this repo. If
-the enum's declaration ends in `_`, the prong should be `_ =>`; if it does not, the prong should not
-exist at all.
-
-```zig
-// rejected — zig: switch must handle all possibilities
-const std = @import("std");
-
-const State = enum { idle, running, stopped };
-
-fn label(s: State) []const u8 {
-    return switch (s) {
-        .idle => "idle",
-        .running => "running",
-        // error: switch must handle all possibilities
-        // note: unhandled enumeration value: 'stopped'
-    };
-}
-
-test {
-    _ = label(.idle);
-}
-```
-
-```zig
-// verified — GOOD
-const Opcode = enum(u8) { get = 1, put = 2, _ };
-
-fn opcodeName(op: Opcode) []const u8 {
-    return switch (op) {
-        .get => "get",
-        .put => "put",
-        _ => "unknown",
-    };
-}
-```
-
-### ZS-ERR-28 [M] Unwrap optionals with `orelse` or a capture, never with `.?`
+### ZS-ERR-27 [M] Unwrap optionals with `orelse` or a capture, never with `.?`
 
 `.?` is `orelse unreachable` in four characters. Where the proof rule (ZS-ERR-09) genuinely licenses
 an unreachable, write `orelse unreachable` and write the proof beside it, as std does on the rare
@@ -1150,7 +1101,7 @@ test "iterate with capture" {
 }
 ```
 
-### ZS-ERR-29 [S] Mark cold and likely paths with `@branchHint`
+### ZS-ERR-28 [S] Mark cold and likely paths with `@branchHint`
 
 `@branchHint(hint: std.lang.BranchHint) void`. The hints are exactly `.none`, `.likely`,
 `.unlikely`, `.cold`, `.unpredictable` (`std.lang.BranchHint`). Where it may stand is the compiler's
@@ -1180,7 +1131,7 @@ fn decodeTag(byte: u8) error{ReservedTag}!u8 {
 
 ## 8. Function shape, user-facing diagnostics, and stack traces
 
-### ZS-ERR-30 [M!] Hard limit of 70 lines per function
+### ZS-ERR-29 [M!] Hard limit of 70 lines per function
 
 70 lines between the braces is a hard ceiling, counted as written, blank lines and comments
 included.
@@ -1204,7 +1155,7 @@ awk '/^(pub )?fn /{s = NR; n = $0}
      /^}$/{if (s && NR - s > 70) print FILENAME":"s"  "NR - s" lines  "n; s = 0}'
 ```
 
-### ZS-ERR-31 [S] Report position and context through a `*Diagnostics`, not the error set
+### ZS-ERR-30 [S] Report position and context through a `*Diagnostics`, not the error set
 
 An error set says *what kind* of thing went wrong; it cannot say *where*. When a user has to fix the
 input — a config file, a query, a source file — pair a coarse error set with an optional
@@ -1271,7 +1222,7 @@ test "diagnostics carry the position the error set cannot" {
 }
 ```
 
-### ZS-ERR-32 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
+### ZS-ERR-31 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
 
 To record where you are *without* aborting — a leak tracker, an audit log, a "who called this" probe
 — use

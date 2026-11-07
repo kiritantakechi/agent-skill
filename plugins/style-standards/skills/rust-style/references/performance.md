@@ -682,7 +682,7 @@ pub fn read_config(path: impl AsRef<Path>) -> std::io::Result<String> {
 
 Static dispatch is not automatically faster than dynamic: a vtable call is a predictable indirect
 branch, while twenty monomorphized copies can evict the i-cache. Measure before converting `dyn` to
-generics for speed (RS-TRAIT-13).
+generics for speed (RS-TRAIT-11).
 
 **Why:** modern branch predictors handle a monomorphic indirect call well, so the vtable cost is
 often near zero. The code-size cost of monomorphization, by contrast, is paid in cache misses across

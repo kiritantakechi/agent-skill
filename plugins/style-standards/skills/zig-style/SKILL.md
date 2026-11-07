@@ -74,11 +74,11 @@ proceed with the stricter reading.
 | Old | Zig 0.17 | Rule |
 |---|---|---|
 | `@bitCast` | the same call, which on an array or a vector now reinterprets logical bits independent of endianness, so a big-endian target gets another result; a cast to an enum compiles and is safety-checked like `@fromBackingInt`, and one of an `extern struct` or `extern union` is rejected — `@ptrCast` a pointer to it | ZS-DATA-09 |
-| `@hasDecl` | `false` for a declaration that is not `pub`, even in the same file, with no diagnostic | ZS-COMPTIME-14 |
+| `@hasDecl` | `false` for a declaration that is not `pub`, even in the same file, with no diagnostic | ZS-COMPTIME-12 |
 | `std.mem.containsAtLeastScalar` | the same name with its last two parameters swapped, `(T, list, element, minimum)`: for an integer `T` a 0.16 call type-checks and asks another question | ZS-MIG-01 |
 | `std.mem.eql` | on a float slice holding NaN, `false` for the slice compared with itself: the same slice no longer short-circuits; `findDiff` likewise | ZS-MIG-01 |
 | `init.gpa` | a `SafeAllocator` in `debug` and `safe` builds whether or not libc is linked, as `std.testing.allocator` is; a `safe` build that links libc no longer gets `c_allocator`, and its leak report still never changes the exit code | ZS-MEM-01 |
-| `std.meta.declarations` | the same name, now returning the declarations' names, a `[]const [:0]const u8`, where it returned `[]const Declaration` | ZS-COMPTIME-14 |
+| `std.meta.declarations` | the same name, now returning the declarations' names, a `[]const [:0]const u8`, where it returned `[]const Declaration` | ZS-COMPTIME-12 |
 | `addOptionPath` | an option naming a file: a directory is `addOptionPathDirectory`, and `addOptionPathUntracked` opts out of tracking | ZS-BUILD-20 |
 | `zig fetch` | without `--save`, a command that fills only the global cache: `zig fetch --save` and `zig build` fill `zig-pkg/` | ZS-BUILD-12 |
 
@@ -98,12 +98,12 @@ Since; its owning rule's Check finds it.
 | `.link_once` | `.weak` | ZS-INTEROP-03 |
 | `@bitSizeOf(…)` | `@sizeOf(T) * 8` for a type that is not `packed`, whose padding `@bitSizeOf` counted: it takes a `packed` type only | ZS-DATA-19 |
 | `enum(u8) {}` | `enum(noreturn) {}`: an empty exhaustive enum is backed by `noreturn` | ZS-DATA-26 |
-| `.@"struct".fields` | `.field_names[i]`, `.field_types[i]`, and `.field_attrs[i]` for `@"comptime"`, `@"align"` and `defaultValue(T)`; an enum's are `.field_names` and `.field_values`, with `.mode == .exhaustive` for `is_exhaustive`, and a union's add `.backing_integer` | ZS-COMPTIME-14 |
-| `.decls` | `.decl_names[i]`, on a struct, enum, union or opaque | ZS-COMPTIME-14 |
-| `.@"fn".params` | `.param_types[i]`; `calling_convention` and `is_var_args` are `.attrs.@"callconv"` and `.attrs.varargs` | ZS-COMPTIME-14 |
-| `.pointer.is_const` | `.pointer.attrs.@"const"`; `is_volatile`, `alignment`, `address_space` and `is_allowzero` likewise | ZS-COMPTIME-14 |
-| `std.builtin.Type.Error` | nothing: `@typeInfo(E).error_set` is a struct whose `error_names`, a `?[]const [:0]const u8`, lists the names, and whose `null` still means `anyerror` | ZS-COMPTIME-14 |
-| `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | ZS-COMPTIME-14 |
+| `.@"struct".fields` | `.field_names[i]`, `.field_types[i]`, and `.field_attrs[i]` for `@"comptime"`, `@"align"` and `defaultValue(T)`; an enum's are `.field_names` and `.field_values`, with `.mode == .exhaustive` for `is_exhaustive`, and a union's add `.backing_integer` | ZS-COMPTIME-12 |
+| `.decls` | `.decl_names[i]`, on a struct, enum, union or opaque | ZS-COMPTIME-12 |
+| `.@"fn".params` | `.param_types[i]`; `calling_convention` and `is_var_args` are `.attrs.@"callconv"` and `.attrs.varargs` | ZS-COMPTIME-12 |
+| `.pointer.is_const` | `.pointer.attrs.@"const"`; `is_volatile`, `alignment`, `address_space` and `is_allowzero` likewise | ZS-COMPTIME-12 |
+| `std.builtin.Type.Error` | nothing: `@typeInfo(E).error_set` is a struct whose `error_names`, a `?[]const [:0]const u8`, lists the names, and whose `null` still means `anyerror` | ZS-COMPTIME-12 |
+| `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | ZS-COMPTIME-12 |
 | `std.fmt.bufPrintZ` | `std.mem.printSentinel(buffer, fmt, args, 0)` | ZS-OUT-11 |
 | `std.Io.File.OpenFlags` | `std.Io.Dir.OpenFileOptions`; `CreateFlags` is `Io.Dir.CreateFileOptions` and `OpenMode` is `Io.Dir.OpenFileOptions.Mode` | ZS-CONC-18 |
 | `std.ascii.indexOfIgnoreCase` | `std.ascii.findIgnoreCase`; the `Pos` and `PosLinear` forms likewise | ZS-DATA-37 |
@@ -115,14 +115,14 @@ Since; its owning rule's Check finds it.
 | `.initEmpty()` | `.empty` on an `EnumSet`, a `bit_set.Integer` or a `bit_set.Array`; `.initFull()` is `.full`; `bit_set.Dynamic.initEmpty(gpa, n)` keeps its name | ZS-DATA-13 |
 | `std.heap.stackFallback` | `var bfa: std.heap.BufferFirstAllocator = .init(&buffer, fallback);`, then `bfa.allocator()` as often as you like; `StackFallbackAllocator` likewise | ZS-MEM-03 |
 | `std.process.spawnPath` | `std.process.spawn(io, .{ .exe = .{ .path = dir }, … })`; `replacePath` is `replace` with the same `.exe` | ZS-CONC-41 |
-| `std.meta.Int` | `@Int(signedness, bits)` | ZS-COMPTIME-14 |
-| `std.meta.Tuple` | `@Tuple(types)` | ZS-COMPTIME-14 |
-| `std.meta.fields` | `@typeInfo(T)` | ZS-COMPTIME-14 |
-| `std.meta.declarationInfo` | `@hasDecl`, and `@typeInfo(T)` | ZS-COMPTIME-14 |
+| `std.meta.Int` | `@Int(signedness, bits)` | ZS-COMPTIME-12 |
+| `std.meta.Tuple` | `@Tuple(types)` | ZS-COMPTIME-12 |
+| `std.meta.fields` | `@typeInfo(T)` | ZS-COMPTIME-12 |
+| `std.meta.declarationInfo` | `@hasDecl`, and `@typeInfo(T)` | ZS-COMPTIME-12 |
 | `b.args` | `run.addPassthruArgs()`, which makes the step uncached and keeps the arguments from the build script | ZS-BUILD-07 |
 | `b.build_root` | `b.root`, a `Cache.Path` | ZS-MIG-01 |
 | `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | ZS-BUILD-22 |
-| `b.reference_trace` | `zig build -freference-trace=n` | ZS-COMPTIME-20 |
+| `b.reference_trace` | `zig build -freference-trace=n` | ZS-COMPTIME-16 |
 | `std.Build.LazyPath.getPath` | nothing: the configure phase resolves no path, so the `LazyPath` goes to the step that reads it; `getPath2`, `getPath3` and `getPath4` likewise | ZS-MIG-01 |
 | `std.Build.GeneratedFile` | nothing: a step's output is a `LazyPath` | ZS-MIG-01 |
 | `std.Build.LazyPath.basename` | nothing in std | ZS-MIG-01 |
@@ -199,8 +199,8 @@ questions, in order: the five every standard asks, then the one safety adds.
    boundary or written down as an assumption — never left implicit (ZS-ERR-01, ZS-ASSERT-07).
 
 Simplicity outranks all six. A `comptime` construction that makes the reader hold three levels of
-type substitution is worse than the duplication it removed (ZS-COMPTIME-12), and a symmetry nobody
-can see is not worth the name it costs.
+type substitution is worse than the duplication it removed (ZS-TYPE-05), and a symmetry nobody can
+see is not worth the name it costs.
 
 ## 4. Core rules
 
@@ -226,7 +226,7 @@ can see is not worth the name it costs.
   - ZS-ERR-21 [S] An `if` with no `else` over a validated domain carries a comment or an assertion
   - ZS-ERR-23 [M!] No recursion; where recursion is allowed, bound the depth explicitly
   - ZS-ERR-24 [M!] Push `if`s up and `for`s down
-  - ZS-ERR-30 [M!] Hard limit of 70 lines per function
+  - ZS-ERR-29 [M!] Hard limit of 70 lines per function
 - **Memory, allocators, ownership lifetimes**
   - ZS-MEM-05 [M] Pass the allocator per call; do not store it in a field
   - ZS-MEM-06 [M] Name the allocator for its role — `gpa`, `arena`, `scratch` — and place it after the receiver
@@ -250,10 +250,8 @@ can see is not worth the name it costs.
   - ZS-ASSERT-23 [M] Fail fast: check the bound at the boundary where untrusted input enters
 - **comptime, generics, and interfaces**
   - ZS-COMPTIME-10 [M] A `comptime` parameter the body does not depend on is a bug
-  - ZS-COMPTIME-15 [M] Pick the interface shape from this table before writing any dispatch code
-  - ZS-COMPTIME-16 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
-  - ZS-COMPTIME-17 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
-  - ZS-COMPTIME-19 [M] A closed set of implementations is a tagged union, not an interface
+  - ZS-COMPTIME-13 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
+  - ZS-COMPTIME-14 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
 - **Documentation: Doc Comments, Comments, and the Documents Beside the Code**
   - ZS-DOC-07 [M] Say why, not what — including at the top of every test
   - ZS-DOC-08 [S] Comment typography: space after the slashes, capital letter, full stop
@@ -261,6 +259,9 @@ can see is not worth the name it costs.
   - ZS-MOD-08 [M] Keep the `@This()` alias and the whole import block in one place
   - ZS-MOD-10 [S] Put the entry point and the most important declarations first
   - ZS-MOD-11 [S] Order a struct body: fields → types → `init`/`deinit` → methods → tests
+- **Types**
+  - ZS-TYPE-01 [M] Pick the interface shape from this table before writing any dispatch code
+  - ZS-TYPE-02 [M] A closed set of implementations is a tagged union, not an interface
 
 ## 5. Review checklist
 
@@ -305,19 +306,20 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 |---|---|---|
 | `references/naming.md` | `ZS-NAME` (19) | Naming rules in full, the casing of a file name, formatting |
 | `references/data.md` | `ZS-DATA` (40) | Integer choice, off-by-one discipline, casts, struct design, decl literals, result location semantics, in-place init, layout, data-oriented design |
-| `references/errors.md` | `ZS-ERR` (32) | Error sets, `try`/`catch`/`errdefer`, the error-vs-assert-vs-panic decision table, labeled switch, `@branchHint` |
+| `references/errors.md` | `ZS-ERR` (31) | Error sets, `try`/`catch`/`errdefer`, the error-vs-assert-vs-panic decision table, labeled switch, `@branchHint` |
 | `references/memory.md` | `ZS-MEM` (23) | Allocator taxonomy, the allocator vtable, ownership rules, arena patterns, the static-allocation tiering |
 | `references/concurrency.md` | `ZS-CONC` (44) | `std.Io` in full: `Reader`/`Writer`, custom streams, `Io.Dir`/`Io.File`, `async`/`concurrent`/`Group`/`Select`, cancellation, timeouts |
 | `references/output.md` | `ZS-OUT` (20) | `{}` vs `{f}`, the specifier set, custom `format` methods, `std.fmt`, program output vs logging vs `std.debug.print` |
 | `references/performance.md` | `ZS-PERF` (21) | Design-phase performance, back-of-envelope sketches, batching, `@prefetch`/`@Vector`, and the locality discipline (smallest scope, no aliasing, POCPOU, pure leaves) |
 | `references/interop.md` | `ZS-INTEROP` (21) | `export`/`extern`/`callconv(.c)`, `[*c]` pointers, C strings and integers, callbacks with `userdata`, plus freestanding/WASM/single-threaded targets |
 | `references/assertions.md` | `ZS-ASSERT` (25) | Assertion philosophy and density, pair assertions, comptime assertions, the optimize modes and which one ships, `_max` constants |
-| `references/comptime.md` | `ZS-COMPTIME` (20) | comptime rules, `anytype` and its costs, type introspection, the three interface shapes, anti-patterns |
+| `references/comptime.md` | `ZS-COMPTIME` (16) | comptime rules, `anytype` and its costs, type introspection, building the vtable and embedded interfaces, anti-patterns |
 | `references/testing.md` | `ZS-TEST` (32) | `std.testing` in 0.17, `Smith` fuzzing, allocation-failure testing, deterministic simulation |
 | `references/build.md` | `ZS-BUILD` (33) | Annotated `build.zig` and `build.zig.zon`, dependencies, project layout, selecting the optimize mode, CI |
 | `references/documentation.md` | `ZS-DOC` (12) | Doc comments and std's contract phrasings, the comments that explain the code, the changelog and the README |
 | `references/modules.md` | `ZS-MOD` (14) | What a module boundary costs, the tree on disk, imports and the module graph, the order of a file and a struct, and one mechanism per concept |
 | `references/api.md` | `ZS-API` (10) | What a package makes public and what `root.zig` exports, a public function's parameters and return, the pairs and siblings a surface keeps alike, and deprecating before removing |
+| `references/types.md` | `ZS-TYPE` (5) | The interface shape chosen before the type that provides it, a closed set kept a tagged union, a `switch` that names every member, an `anytype`'s contract, and how far a parameter is generic |
 | `references/migration.md` | `ZS-MIG` (3) | Every old spelling 0.13 through 0.17 left behind, with its status, Since and owning rule, and the command the table generates |
 | `references/review-checklist.md` | — | The audit protocol: seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |
 

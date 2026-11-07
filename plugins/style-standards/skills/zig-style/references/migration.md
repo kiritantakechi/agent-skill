@@ -38,13 +38,13 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | Old | Zig 0.17 | Status | Since | Rule |
 |---|---|---|---|---|
 | `usingnamespace` | an explicit re-export, one `pub const` per name: `pub const encode = helpers.encode;`; a declaration once mixed in conditionally is `pub const x = if (cond) a else b;` | gone | 0.15 | ZS-API-02 |
-| `@Type` | `@Int`, `@Tuple`, `@Struct`, `@Union`, `@Enum`, `@Pointer`, `@Fn` or `@EnumLiteral`; a float, array, optional or error set has its own syntax | gone | 0.16 | ZS-COMPTIME-14 |
-| `@setCold` | `@branchHint(.cold)`, the branch's first statement | gone | 0.14 | ZS-ERR-29 |
+| `@Type` | `@Int`, `@Tuple`, `@Struct`, `@Union`, `@Enum`, `@Pointer`, `@Fn` or `@EnumLiteral`; a float, array, optional or error set has its own syntax | gone | 0.16 | ZS-COMPTIME-12 |
+| `@setCold` | `@branchHint(.cold)`, the branch's first statement | gone | 0.14 | ZS-ERR-28 |
 | `@fence` | nothing: strengthen the orderings of the atomic operations it stood between | gone | 0.14 | ZS-MIG-01 |
 | `@setAlignStack` | `callconv(.withStackAlign(.c, n))`, evaluated at `comptime` | gone | 0.14 | ZS-INTEROP-04 |
 | `callconv(.C)` | `callconv(.c)`; `.Naked` is `.naked`, and an x86 `.Stdcall` is `.winapi` or `.{ .x86_stdcall = .{} }` | gone | 0.15 | ZS-INTEROP-04 |
 | `@export(f, …)` | `@export(&f, …)`: the first argument is a pointer | gone | 0.14 | ZS-INTEROP-03 |
-| `@typeInfo(…).Struct` | `@typeInfo(T).@"struct"`; every tag is lowercase: `.int`, `.pointer`, `.comptime_int`, and `.one` for `Size.One` | gone | 0.14 | ZS-COMPTIME-14 |
+| `@typeInfo(…).Struct` | `@typeInfo(T).@"struct"`; every tag is lowercase: `.int`, `.pointer`, `.comptime_int`, and `.one` for `Size.One` | gone | 0.14 | ZS-COMPTIME-12 |
 | `asm volatile (… ::: "…")` | a clobber struct: `::: .{ .rcx = true, .r11 = true }` | gone | 0.15 | ZS-MIG-01 |
 | `v[…]` | on a runtime `@Vector` with a runtime index, copy to an array (`const a: [n]T = v;`), index it, and store back with `v = a;` | gone | 0.16 | ZS-PERF-16 |
 | `pub fn panic` | `pub const panic = std.debug.FullPanic(handler);`, the handler a `fn ([]const u8, ?usize) noreturn` | alias | 0.14 | ZS-INTEROP-17 |
@@ -59,14 +59,14 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `.link_once` | `.weak` | gone | 0.17 | ZS-INTEROP-03 |
 | `@bitCast` | the same call, which on an array or a vector now reinterprets logical bits independent of endianness, so a big-endian target gets another result; a cast to an enum compiles and is safety-checked like `@fromBackingInt`, and one of an `extern struct` or `extern union` is rejected — `@ptrCast` a pointer to it | changed | 0.17 | ZS-DATA-09 |
 | `@bitSizeOf(…)` | `@sizeOf(T) * 8` for a type that is not `packed`, whose padding `@bitSizeOf` counted: it takes a `packed` type only | gone | 0.17 | ZS-DATA-19 |
-| `@hasDecl` | `false` for a declaration that is not `pub`, even in the same file, with no diagnostic | changed | 0.17 | ZS-COMPTIME-14 |
+| `@hasDecl` | `false` for a declaration that is not `pub`, even in the same file, with no diagnostic | changed | 0.17 | ZS-COMPTIME-12 |
 | `enum(u8) {}` | `enum(noreturn) {}`: an empty exhaustive enum is backed by `noreturn` | gone | 0.17 | ZS-DATA-26 |
-| `.@"struct".fields` | `.field_names[i]`, `.field_types[i]`, and `.field_attrs[i]` for `@"comptime"`, `@"align"` and `defaultValue(T)`; an enum's are `.field_names` and `.field_values`, with `.mode == .exhaustive` for `is_exhaustive`, and a union's add `.backing_integer` | gone | 0.17 | ZS-COMPTIME-14 |
-| `.decls` | `.decl_names[i]`, on a struct, enum, union or opaque | gone | 0.17 | ZS-COMPTIME-14 |
-| `.@"fn".params` | `.param_types[i]`; `calling_convention` and `is_var_args` are `.attrs.@"callconv"` and `.attrs.varargs` | gone | 0.17 | ZS-COMPTIME-14 |
-| `.pointer.is_const` | `.pointer.attrs.@"const"`; `is_volatile`, `alignment`, `address_space` and `is_allowzero` likewise | gone | 0.17 | ZS-COMPTIME-14 |
-| `std.builtin.Type.Error` | nothing: `@typeInfo(E).error_set` is a struct whose `error_names`, a `?[]const [:0]const u8`, lists the names, and whose `null` still means `anyerror` | gone | 0.17 | ZS-COMPTIME-14 |
-| `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | gone | 0.17 | ZS-COMPTIME-14 |
+| `.@"struct".fields` | `.field_names[i]`, `.field_types[i]`, and `.field_attrs[i]` for `@"comptime"`, `@"align"` and `defaultValue(T)`; an enum's are `.field_names` and `.field_values`, with `.mode == .exhaustive` for `is_exhaustive`, and a union's add `.backing_integer` | gone | 0.17 | ZS-COMPTIME-12 |
+| `.decls` | `.decl_names[i]`, on a struct, enum, union or opaque | gone | 0.17 | ZS-COMPTIME-12 |
+| `.@"fn".params` | `.param_types[i]`; `calling_convention` and `is_var_args` are `.attrs.@"callconv"` and `.attrs.varargs` | gone | 0.17 | ZS-COMPTIME-12 |
+| `.pointer.is_const` | `.pointer.attrs.@"const"`; `is_volatile`, `alignment`, `address_space` and `is_allowzero` likewise | gone | 0.17 | ZS-COMPTIME-12 |
+| `std.builtin.Type.Error` | nothing: `@typeInfo(E).error_set` is a struct whose `error_names`, a `?[]const [:0]const u8`, lists the names, and whose `null` still means `anyerror` | gone | 0.17 | ZS-COMPTIME-12 |
+| `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | gone | 0.17 | ZS-COMPTIME-12 |
 | `std.io` | `std.Io` | gone | 0.16 | ZS-CONC-06 |
 | `std.io.GenericWriter` | `*std.Io.Writer`, one non-generic struct with the buffer you give it; `AnyWriter` and `std.io.Writer` likewise | gone | 0.16 | ZS-CONC-06 |
 | `std.io.GenericReader` | `*std.Io.Reader`; `AnyReader` and `std.io.Reader` likewise | gone | 0.16 | ZS-CONC-06 |
@@ -176,8 +176,8 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `StaticBitSet` | `bit_set.Static` | alias | 0.17 | ZS-DATA-13 |
 | `DynamicBitSetUnmanaged` | `bit_set.Dynamic` | alias | 0.17 | ZS-DATA-13 |
 | `DynamicBitSet` | `bit_set.Dynamic`, with the allocator per call; `bit_set.DynamicManaged` likewise | alias | 0.17 | ZS-DATA-13 |
-| `getLastOrNull` | `list.last()`, a `?T` copy; the borrow is `list.lastPtr()` | alias | 0.17 | ZS-ERR-28 |
-| `getLast` | `list.last()`, which returns `?T` where `getLast` returned `T`, so the call site handles the `null` | alias | 0.17 | ZS-ERR-28 |
+| `getLastOrNull` | `list.last()`, a `?T` copy; the borrow is `list.lastPtr()` | alias | 0.17 | ZS-ERR-27 |
+| `getLast` | `list.last()`, which returns `?T` where `getLast` returned `T`, so the call site handles the `null` | alias | 0.17 | ZS-ERR-27 |
 | `std.DoublyLinkedList.pop` | `popLast` | deprecated | 0.17 | ZS-MEM-13 |
 | `std.heap.GeneralPurposeAllocator` | `init.gpa`, or `var sa: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});` | gone | 0.16 | ZS-MEM-04 |
 | `std.heap.DebugAllocator` | `std.heap.SafeAllocator`, not generic: `.init(backing, .{})`, always thread-safe, its `Options` `stack_trace_frames`, `check_write_after_free`, `canary`, `bucket_size_log2` and `block_size_log2` | alias | 0.17 | ZS-MEM-04 |
@@ -213,19 +213,19 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `crypto_always_getrandom` | nothing: `io.randomSecure`; `crypto_fork_safety` likewise | gone | 0.16 | ZS-TEST-19 |
 | `std.rand` | `std.Random` | gone | 0.14 | ZS-TEST-19 |
 | `std.testing.refAllDeclsRecursive` | `std.testing.refAllDecls` in each file, or `comptime { _ = @import(…); }` in the module root | gone | 0.16 | ZS-TEST-28 |
-| `std.debug.captureStackTrace` | `std.debug.captureCurrentStackTrace(options, addresses)` | gone | 0.16 | ZS-ERR-32 |
-| `std.debug.dumpStackTraceFromBase` | `std.debug.dumpCurrentStackTrace(options)`, which takes a `StackUnwindOptions` where it took a start address | gone | 0.16 | ZS-ERR-32 |
-| `std.debug.walkStackWindows` | `std.debug.captureCurrentStackTrace`; `writeStackTraceWindows` is `writeCurrentStackTrace` | gone | 0.16 | ZS-ERR-32 |
-| `std.debug.StackIterator` | nothing public: `captureCurrentStackTrace` | gone | 0.16 | ZS-ERR-32 |
+| `std.debug.captureStackTrace` | `std.debug.captureCurrentStackTrace(options, addresses)` | gone | 0.16 | ZS-ERR-31 |
+| `std.debug.dumpStackTraceFromBase` | `std.debug.dumpCurrentStackTrace(options)`, which takes a `StackUnwindOptions` where it took a start address | gone | 0.16 | ZS-ERR-31 |
+| `std.debug.walkStackWindows` | `std.debug.captureCurrentStackTrace`; `writeStackTraceWindows` is `writeCurrentStackTrace` | gone | 0.16 | ZS-ERR-31 |
+| `std.debug.StackIterator` | nothing public: `captureCurrentStackTrace` | gone | 0.16 | ZS-ERR-31 |
 | `std.debug.runtime_safety` | `@import("builtin").optimize.runtimeSafety()`: your module's mode, where `runtime_safety` reports std's | alias | 0.14 | ZS-ASSERT-16 |
-| `std.meta.Int` | `@Int(signedness, bits)` | gone | 0.17 | ZS-COMPTIME-14 |
-| `std.meta.Tuple` | `@Tuple(types)` | gone | 0.17 | ZS-COMPTIME-14 |
-| `std.meta.declList` | `@typeInfo(T)`'s `decl_names` | gone | 0.16 | ZS-COMPTIME-14 |
-| `std.meta.fields` | `@typeInfo(T)` | gone | 0.17 | ZS-COMPTIME-14 |
-| `std.meta.declarationInfo` | `@hasDecl`, and `@typeInfo(T)` | gone | 0.17 | ZS-COMPTIME-14 |
-| `std.meta.declarations` | the same name, now returning the declarations' names, a `[]const [:0]const u8`, where it returned `[]const Declaration` | changed | 0.17 | ZS-COMPTIME-14 |
-| `std.meta.fieldInfo` | `@typeInfo(T)`; `fieldNames` is its `field_names` | alias | 0.17 | ZS-COMPTIME-14 |
-| `std.meta.fieldNames` | `@typeInfo(T)`'s `field_names` | alias | 0.17 | ZS-COMPTIME-14 |
+| `std.meta.Int` | `@Int(signedness, bits)` | gone | 0.17 | ZS-COMPTIME-12 |
+| `std.meta.Tuple` | `@Tuple(types)` | gone | 0.17 | ZS-COMPTIME-12 |
+| `std.meta.declList` | `@typeInfo(T)`'s `decl_names` | gone | 0.16 | ZS-COMPTIME-12 |
+| `std.meta.fields` | `@typeInfo(T)` | gone | 0.17 | ZS-COMPTIME-12 |
+| `std.meta.declarationInfo` | `@hasDecl`, and `@typeInfo(T)` | gone | 0.17 | ZS-COMPTIME-12 |
+| `std.meta.declarations` | the same name, now returning the declarations' names, a `[]const [:0]const u8`, where it returned `[]const Declaration` | changed | 0.17 | ZS-COMPTIME-12 |
+| `std.meta.fieldInfo` | `@typeInfo(T)`; `fieldNames` is its `field_names` | alias | 0.17 | ZS-COMPTIME-12 |
+| `std.meta.fieldNames` | `@typeInfo(T)`'s `field_names` | alias | 0.17 | ZS-COMPTIME-12 |
 | `std.meta.intToEnum` | `std.enums.fromInt(E, n)`, which returns `?E` | gone | 0.16 | ZS-INTEROP-02 |
 | `std.builtin` | `std.lang`: `std.builtin.Type` is `std.lang.Type`, `CallingConvention` `std.lang.CallingConvention`, and so for every member | alias | 0.17 | ZS-MIG-01 |
 | `std.builtin.OptimizeMode` | `std.lang.Optimize` | alias | 0.17 | ZS-ASSERT-04 |
@@ -247,7 +247,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `b.build_root` | `b.root`, a `Cache.Path` | gone | 0.17 | ZS-MIG-01 |
 | `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | gone | 0.17 | ZS-BUILD-22 |
 | `lazyDependency` | `b.dependency(name, args)`, which fetches a lazy package itself, or `try b.dependencyLazy(name, args)` to fetch several at once | alias | 0.17 | ZS-BUILD-13 |
-| `b.reference_trace` | `zig build -freference-trace=n` | gone | 0.17 | ZS-COMPTIME-20 |
+| `b.reference_trace` | `zig build -freference-trace=n` | gone | 0.17 | ZS-COMPTIME-16 |
 | `std.Build.LazyPath.getPath` | nothing: the configure phase resolves no path, so the `LazyPath` goes to the step that reads it; `getPath2`, `getPath3` and `getPath4` likewise | gone | 0.17 | ZS-MIG-01 |
 | `std.Build.GeneratedFile` | nothing: a step's output is a `LazyPath` | gone | 0.17 | ZS-MIG-01 |
 | `getDisplayName` | `{f}` on the `LazyPath` | alias | 0.17 | ZS-MIG-01 |

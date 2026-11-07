@@ -177,7 +177,7 @@ PROFILE = Profile(
             "RS-OWN-29": ("let shared: Arc<String> = Arc::new(name);",),
             "RS-PERF-21": ("reader.read(&mut [0u8; 1])?;",),
             "RS-TEST-17": ('let path = Path::new("/tmp/out.txt");',),
-            "RS-TRAIT-28": (
+            "RS-TRAIT-25": (
                 "default fn describe(&self) -> String {",
                 "#![feature(specialization)]",
             ),

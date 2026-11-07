@@ -11,7 +11,7 @@ rules throughout this standard ask for a profile, and this is the chapter that s
 This chapter does not own data layout: struct-of-arrays and `MultiArrayList` are ZS-DATA-22,
 handles-versus-pointers is ZS-DATA-21, and passing large aggregates as `*const T` is ZS-DATA-18. It
 does not own I/O batching (ZS-CONC-34), assertion cost budgeting (ZS-ASSERT-16), the optimize-mode
-table (ZS-ASSERT-02), `@branchHint` (ZS-ERR-29), or `inline fn` (ZS-COMPTIME-03). It cites them.
+table (ZS-ASSERT-02), `@branchHint` (ZS-ERR-28), or `inline fn` (ZS-COMPTIME-03). It cites them.
 
 **Read ZS-PERF-21 first if you are tempted to apply this chapter to code that is not hot.** Roughly
 half of these rules are about correctness and readability and apply everywhere; the other half
@@ -567,7 +567,7 @@ const Account = struct {
 Few parameters, a simple return type, and a lot of meaty logic between the braces. If a function is
 mostly signature, it is in the wrong place: nine parameters around three lines of body is the
 hourglass the right way up, and a sign the caller is doing the work. This is TigerStyle's rule of
-thumb for *where* to cut a function that exceeds the 70-line limit (ZS-ERR-30): not every split is
+thumb for *where* to cut a function that exceeds the 70-line limit (ZS-ERR-29): not every split is
 equal, and the good ones produce inverted hourglasses.
 
 **Why:** a wide signature exports internal state to every call site, so changing it changes them
@@ -942,7 +942,7 @@ rule needs a measurement to overturn it — not the reverse.
 | ZS-PERF-09 – ZS-PERF-13 (the whole locality cluster) | **All code, always.** These are readability and correctness rules that happen to also help the register allocator. Never require a measurement. |
 | ZS-PERF-07 be explicit, ZS-PERF-14 measure in the shipped mode, ZS-PERF-17 explicit options, ZS-PERF-19 – ZS-PERF-20 how to measure, ZS-CONC-32's clock choice | All code. Following them costs nothing and not following them produces false numbers. |
 | ZS-PERF-04 plane split, ZS-PERF-05 batching, ZS-PERF-15 no auto-vectorization | Any code with a stated throughput or latency requirement. Batching in particular is a design decision, so it is cheap now and expensive later. |
-| ZS-PERF-06 branch hoisting, ZS-PERF-08 primitive-argument kernels, ZS-PERF-16 explicit SIMD, `@branchHint` (ZS-ERR-29), adding a `@prefetch` at all (ZS-PERF-17), ZS-PERF-18 cache-line alignment, `inline fn` (ZS-COMPTIME-03) | **Hot paths a profile names, only.** Each one costs readability. A diff that applies them without a profile in the commit message is over-applying this chapter, and that is a review finding in its own right. |
+| ZS-PERF-06 branch hoisting, ZS-PERF-08 primitive-argument kernels, ZS-PERF-16 explicit SIMD, `@branchHint` (ZS-ERR-28), adding a `@prefetch` at all (ZS-PERF-17), ZS-PERF-18 cache-line alignment, `inline fn` (ZS-COMPTIME-03) | **Hot paths a profile names, only.** Each one costs readability. A diff that applies them without a profile in the commit message is over-applying this chapter, and that is a review finding in its own right. |
 
 **Why:** shape is decided up front and cheaply; constants are decided later and with evidence
 (ZS-PERF-01). A sketch costs five minutes and is reversible, so it is never premature; a

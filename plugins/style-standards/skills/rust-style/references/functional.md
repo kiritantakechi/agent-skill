@@ -373,7 +373,7 @@ mod tests {
 ### RS-FUNC-15 [M] Keep iterators lazy as far up the stack as you can
 
 Take `impl IntoIterator<Item = T>`, and return an iterator rather than a collection whenever the
-caller may consume only part of the sequence or feed it to another adapter; RS-TRAIT-15 spells the
+caller may consume only part of the sequence or feed it to another adapter; RS-TRAIT-13 spells the
 return type.
 
 **Why:** materialization belongs to whoever knows how much of the sequence is needed, which is the
@@ -617,7 +617,7 @@ live in a struct field or when monomorphization bloat is measurable. Take an asy
 the argument (nor, under `FnMut`, the captured state).
 
 **Why:** the generic form inlines and costs a monomorphization per call site; the boxed form costs
-an indirect call and an allocation but keeps the code size flat and the type nameable (RS-TRAIT-13).
+an indirect call and an allocation but keeps the code size flat and the type nameable (RS-TRAIT-11).
 
 **Check:** does the closure get stored, or does the function get instantiated for many types? Either
 answer points at boxing.
@@ -748,7 +748,7 @@ same argument applies to randomness and to the current directory.
 ### RS-FUNC-39 [S] Model state transitions as values or as types
 
 Return the new state as a value; where misuse is costly and the states are few, make them types
-(RS-TRAIT-42).
+(RS-TRAIT-38).
 
 **Why:** an object that is "uninitialized" for its first three method calls is two types wearing one
 name, and every method has to handle a state it should never see.

@@ -116,7 +116,7 @@ failure is found and unrecoverable afterwards, because the code that knew them h
 |---|---|---|---|---|
 | python-style | PS-ERR-03 | realises | [M] | |
 | rust-style | RS-ERR-12 | realises | [M] | |
-| zig-style | ZS-ERR-31 | overrides | [S] | An error value carries no payload, so the position and context travel in an optional diagnostics out-parameter, needed only where a user has to fix the input |
+| zig-style | ZS-ERR-30 | overrides | [S] | An error value carries no payload, so the position and context travel in an optional diagnostics out-parameter, needed only where a user has to fix the input |
 
 ## Designing the failures a package reports
 

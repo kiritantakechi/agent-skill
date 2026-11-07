@@ -114,7 +114,7 @@ is the finding, while a word that is short already, such as `key` or `raw`, is s
 ### PS-NAME-05 [M] Put units and qualifiers last, sorted by descending significance
 
 `timeout_seconds`, `latency_ms_max`, `payload_size_bytes`. Not `max_latency_ms`, not
-`seconds_timeout`. A unit is one of the qualifiers: a value whose type carries its unit (PS-DATA-16)
+`seconds_timeout`. A unit is one of the qualifiers: a value whose type carries its unit (PS-DATA-15)
 needs none in its name, and a primitive that keeps one — the `float` of seconds a standard-library
 call takes — carries it here, last.
 

@@ -1,24 +1,18 @@
 # comptime, generics, and interfaces
 
 Scope: compile-time evaluation (`comptime` params, blocks, `inline`, `@setEvalBranchQuota`), generic
-type functions, `anytype` and its contracts, type introspection with the 0.17 builtins, and the
-three interface shapes Zig offers (comptime duck typing, runtime vtable, tagged union). Naming of
-type functions and receivers is the naming chapter's; `std.Io.Writer`/`Reader` usage and buffering
-the concurrency chapter's; `comptime {}` assertions about wire and disk layout the assertions
-chapter's — this chapter covers how the interfaces themselves are *shaped*.
+type functions, `anytype` and its costs, type introspection with the 0.17 builtins, and how the
+runtime interfaces are built (the vtable, the embedded interface). Which interface shape to pick,
+the closed set that is a tagged union instead, an `anytype`'s contract and how far a parameter is
+generic are the types chapter's. Naming of type functions and receivers is the naming chapter's;
+`std.Io.Writer`/`Reader` usage and buffering the concurrency chapter's; `comptime {}` assertions
+about wire and disk layout the assertions chapter's.
 
-The discipline here is **interface-first**: pick which of Zig's three interface shapes fits —
-comptime duck typing, runtime vtable, or tagged union — name it, and write the concrete type against
-it.
-
-TigerStyle advises the opposite: "only a minimum of excellent abstractions", introduced once a
-second implementation exists. Interface-first buys a boundary that is total and symmetric because no
-concrete type shaped it. TigerStyle's other claim stands and is the reason the choice matters —
-abstractions are never zero-cost, and in Zig the cost is concrete: a comptime abstraction costs
-binary size and compile time, a vtable costs an indirect call and an optimization barrier. Deciding
-the shape early does not remove those costs; it means choosing which one you pay. ZS-COMPTIME-10,
-ZS-COMPTIME-11, and ZS-COMPTIME-15 keep the cost from becoming damage: if any is being bent to make
-an interface fit, the interface is wrong and the fallback is a concrete type.
+Every abstraction costs something, and in Zig the cost is concrete: a comptime abstraction costs
+binary size and compile time, a vtable costs an indirect call and an optimization barrier. Choosing
+the shape is ZS-TYPE-01's; ZS-COMPTIME-10 keeps the cost from becoming damage: if a `comptime`
+parameter is being bent to make an interface fit, the interface is wrong and the fallback is a
+concrete type.
 
 std chose the other way for its three central abstractions: `std.mem.Allocator`, `std.Io` and
 `std.Io.Writer`/`Reader` are runtime vtables, trading static dispatch for storability, ABI stability
@@ -40,12 +34,12 @@ Each symptom below, and the rule it breaks:
 | `inline for` over a homogeneous array | ZS-COMPTIME-04 |
 | `@setEvalBranchQuota(1000000)` | ZS-COMPTIME-05 |
 | Generic over the allocator or writer type | ZS-COMPTIME-09 |
-| Bare `anytype` in a `pub fn` | ZS-COMPTIME-11, ZS-COMPTIME-12 |
-| `@Type(...)`, `std.meta.Int`, `std.meta.Tuple` | ZS-COMPTIME-14 |
-| `@typeInfo(T).Struct`, `.@"struct".fields`, a raw `default_value_ptr` | ZS-COMPTIME-14 |
-| Hand-rolled vtable for a closed set of impls | ZS-COMPTIME-19 |
+| Bare `anytype` in a `pub fn` | ZS-TYPE-04, ZS-TYPE-05 |
+| `@Type(...)`, `std.meta.Int`, `std.meta.Tuple` | ZS-COMPTIME-12 |
+| `@typeInfo(T).Struct`, `.@"struct".fields`, a raw `default_value_ptr` | ZS-COMPTIME-12 |
+| Hand-rolled vtable for a closed set of impls | ZS-TYPE-02 |
 | `usingnamespace` | ZS-API-02 |
-| `error: unable to resolve comptime value` with no visible cause | ZS-COMPTIME-20 |
+| `error: unable to resolve comptime value` with no visible cause | ZS-COMPTIME-16 |
 
 ## Contents
 
@@ -63,19 +57,15 @@ Each symptom below, and the rule it breaks:
   - ZS-COMPTIME-09 [M] Consume the std interface; never parameterize over it
   - ZS-COMPTIME-10 [M] A `comptime` parameter the body does not depend on is a bug
 - **`anytype`**
-  - ZS-COMPTIME-11 [M] `anytype` in a public API needs a documented contract and a guard
-  - ZS-COMPTIME-12 [S] Prefer a concrete parameter type, then `comptime T: type`, then `anytype`
-  - ZS-COMPTIME-13 [S] Use `anytype` where std uses it, and constrain it with `std.meta` predicates
+  - ZS-COMPTIME-11 [S] Use `anytype` where std uses it, and constrain it with `std.meta` predicates
 - **Type introspection**
-  - ZS-COMPTIME-14 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
+  - ZS-COMPTIME-12 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
 - **Interfaces**
-  - ZS-COMPTIME-15 [M] Pick the interface shape from this table before writing any dispatch code
-  - ZS-COMPTIME-16 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
-  - ZS-COMPTIME-17 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
-  - ZS-COMPTIME-18 [S] Give vtable members defaults so implementations only override what they must
-  - ZS-COMPTIME-19 [M] A closed set of implementations is a tagged union, not an interface
+  - ZS-COMPTIME-13 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
+  - ZS-COMPTIME-14 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
+  - ZS-COMPTIME-15 [S] Give vtable members defaults so implementations only override what they must
 - **Debugging comptime**
-  - ZS-COMPTIME-20 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
+  - ZS-COMPTIME-16 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
 - Decided by tools
 
 ---
@@ -521,75 +511,7 @@ the body, a `comptime T: type` that appears only in the signature — never in a
 
 ## `anytype`
 
-### ZS-COMPTIME-11 [M] `anytype` in a public API needs a documented contract and a guard
-
-Any `pub fn` with an `anytype` parameter must (a) document the required shape in an in-signature doc
-comment on that parameter, and (b) check it before doing any work in the body, emitting a
-`@compileError` that names the requirement and the offending type.
-
-Without the guard, passing a `u32` to an unconstrained `items: anytype` that is iterated produces
-`error: type 'u32' is not indexable and not a range` pointing at your `for` loop, with the caller
-only visible in the `referenced by:` trace.
-
-**Why:** `anytype` carries no signature contract: generated documentation shows the word `anytype`
-and nothing else, so the contract exists only in prose. The guard moves a violation's message back
-to something the caller can act on.
-
-**Check:** every `anytype` inside a `pub fn`. It needs a doc comment on the parameter line itself,
-and a `@compileError` guard before the value is first indexed, iterated, field-accessed, or fed to
-an operator. An `anytype` that reaches a `for` with nothing in between is this rule.
-
-```zig
-// fragment — BAD
-pub fn sum(items: anytype) i64 {
-    var total: i64 = 0;
-    for (items) |it| total += it; // error surfaces here, not at the call site
-    return total;
-}
-```
-
-```zig
-// verified — GOOD
-const std = @import("std");
-
-/// Writes `items` as comma-separated decimals.
-pub fn writeCsv(
-    w: *std.Io.Writer,
-    /// Must be a slice whose element type is an integer.
-    items: anytype,
-) std.Io.Writer.Error!void {
-    const T = @TypeOf(items);
-    const info = @typeInfo(T);
-    if (info != .pointer or info.pointer.size != .slice)
-        @compileError("writeCsv expects a slice, got " ++ @typeName(T));
-    if (@typeInfo(info.pointer.child) != .int)
-        @compileError("writeCsv expects integer elements, got " ++
-            @typeName(info.pointer.child));
-    for (items) |item| try w.print("{d},", .{item});
-}
-```
-
-### ZS-COMPTIME-12 [S] Prefer a concrete parameter type, then `comptime T: type`, then `anytype`
-
-Rank the three options in that order and take the first that works. `anytype` is the last resort,
-not the default way to avoid writing a type.
-
-**Why:** a concrete type is checked at the call site and shows up in docs. `comptime T: type` plus
-`items: []const T` still gives the compiler a shape to check against, so a wrong argument fails at
-the call site with a coercion error naming both types. Bare `anytype` gives up both.
-
-**Check:** an `anytype` parameter whose body uses it in exactly one shape — always indexed, always
-`.len`-ed, always printed with one specifier. Rewriting it as `[]const T` or a concrete type is then
-mechanical, and the fact that it is mechanical is the violation.
-
-```zig
-// fragment — GOOD
-pub fn writeCsvU32(w: *std.Io.Writer, items: []const u32) std.Io.Writer.Error!void {
-    for (items) |item| try w.print("{d},", .{item});
-}
-```
-
-### ZS-COMPTIME-13 [S] Use `anytype` where std uses it, and constrain it with `std.meta` predicates
+### ZS-COMPTIME-11 [S] Use `anytype` where std uses it, and constrain it with `std.meta` predicates
 
 The idiomatic uses are format-argument tuples (`args: anytype`), opaque user contexts
 (`context: anytype`), hashers, and pointer-shaped duck typing (`allocation: anytype` in
@@ -603,7 +525,7 @@ readers already know what the parameter means without reading the body.
 **Check:** a hand-rolled `@typeInfo(@TypeOf(x))` walk whose question is "does it have a decl named
 …" — that is `std.meta.hasFn`/`hasMethod`. And an `anytype` parameter that is not a format-args
 tuple, a `context`, a hasher, or a pointer-shaped allocation: it is outside the idiom and needs the
-ZS-COMPTIME-11 guard.
+ZS-TYPE-04 guard.
 
 ```zig
 // verified — GOOD
@@ -620,7 +542,7 @@ fn resetAll(comptime T: type, items: []T) void {
 
 ## Type introspection
 
-### ZS-COMPTIME-14 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
+### ZS-COMPTIME-12 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
 
 Two halves, in order of application.
 
@@ -693,30 +615,7 @@ test "accessors" {
 
 ## Interfaces
 
-### ZS-COMPTIME-15 [M] Pick the interface shape from this table before writing any dispatch code
-
-Zig has three shapes, plus one variant of the vtable shape. Choosing wrong is expensive to undo, so
-choose before the concrete type exists: a boundary extracted from an existing type inherits its
-accidents — its error set, its parameter order, its assumption that a handle is always available —
-where one shaped against the caller's need is total and symmetric.
-
-| Shape | Dispatch | Storable in a container? | Errors surface at | Use when |
-|---|---|---|---|---|
-| comptime duck typing (`anytype` / `comptime T`) | none, monomorphized | no — each impl is a distinct type | inside the callee body | one impl, hot, local; the whole call chain is comptime-known |
-| runtime vtable (`*anyopaque` + `*const VTable`) | one indirect call | yes, single concrete type | at the call site | open set of impls; crosses a module or plugin boundary |
-| embedded interface + `@fieldParentPtr` | indirect call, but only on the slow path | yes (`*Interface`) | at the call site | the interface owns a buffer/state the caller touches directly |
-| tagged union + exhaustive `switch` | one jump table, inlinable | yes | at the call site | closed set known at compile time |
-
-**Why:** the axis that matters is *who knows the set of implementations*. Comptime duck typing
-cannot be stored, returned as a common type, or crossed over an ABI boundary; a vtable gives up
-inlining to gain those three; a tagged union has storability and inlining for a closed set.
-
-**Check:** a diff that picks a row whose "use when" column is false for it. Two mechanical tells: an
-`anytype` or `comptime T` interface whose values are later stored in a struct field, a container, or
-a common return type — comptime duck typing cannot be stored; and a new `*const VTable` over a set
-of implementations that all live in your own tree — that is ZS-COMPTIME-19's tagged union.
-
-### ZS-COMPTIME-16 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
+### ZS-COMPTIME-13 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
 
 Fields are a type-erased context pointer plus `vtable: *const VTable`. `std.mem.Allocator` spells it
 `ptr: *anyopaque, vtable: *const VTable`; `std.Io` spells it
@@ -778,7 +677,7 @@ pub const CountingSink = struct {
 };
 ```
 
-### ZS-COMPTIME-17 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
+### ZS-COMPTIME-14 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
 
 This is the modern std house pattern. The implementation struct declares `interface: std.Io.Writer`
 (or `Reader`) as a field **by value**, hands out `&self.interface`, and every vtable function starts
@@ -840,7 +739,7 @@ pub const CountingWriter = struct {
 };
 ```
 
-### ZS-COMPTIME-18 [S] Give vtable members defaults so implementations only override what they must
+### ZS-COMPTIME-15 [S] Give vtable members defaults so implementations only override what they must
 
 Declare optional operations with a default implementation in the `VTable` struct itself, so an
 implementation's vtable literal lists only the required functions. std does this:
@@ -856,39 +755,9 @@ implementation in the ecosystem.
 more implementations whose vtable literals name the same function with the same body. That repeated
 function is the default that was not declared.
 
-### ZS-COMPTIME-19 [M] A closed set of implementations is a tagged union, not an interface
-
-If every implementation is known at compile time and lives in your own tree, model it as
-`union(enum)` with methods that `switch` exhaustively (ZS-ERR-27). `std.Build.LazyPath` is the
-canonical std example.
-
-**Why:** the switch is a jump table the optimizer can see through and often inline, and the union
-value can live in an array, so you keep storability, direct calls and exhaustiveness at once.
-Dynamic dispatch over a known set pays an indirect call for nothing.
-
-**Check:** a new `vtable: *const VTable` — enumerate its implementations. If every one lives in your
-own tree, it is a `union(enum)`.
-
-```zig
-// verified — GOOD
-const std = @import("std");
-
-pub const Shape = union(enum) {
-    circle: struct { r: f64 },
-    rect: struct { w: f64, h: f64 },
-
-    pub fn area(shape: Shape) f64 {
-        return switch (shape) {
-            .circle => |c| std.math.pi * c.r * c.r,
-            .rect => |r| r.w * r.h,
-        };
-    }
-};
-```
-
 ## Debugging comptime
 
-### ZS-COMPTIME-20 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
+### ZS-COMPTIME-16 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
 
 Every failure mode in this chapter reports at the innermost frame, which is almost never the frame
 that caused it. Two tools address that, and both need discipline.
@@ -901,7 +770,7 @@ the frame you want is usually the deepest non-std one. It works on `zig build-ob
 so `build.zig` can no longer set it).
 
 It is the single highest-value flag for this chapter's failure surface: ZS-COMPTIME-02's leaked
-`comptime var`, ZS-COMPTIME-04's runtime `inline for` bound, ZS-COMPTIME-07 and ZS-COMPTIME-11's
+`comptime var`, ZS-COMPTIME-04's runtime `inline for` bound, ZS-COMPTIME-07 and ZS-TYPE-04's
 unguarded type parameters, and every `@compileError` you emit are all reported at a line the caller
 did not write.
 

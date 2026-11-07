@@ -1,9 +1,11 @@
 # Types: Annotations, Generics, Narrowing, and the Checker
 
-Scope: how to spell a type, what the lazy annotation machinery does, which narrowing construct to
-reach for, how to read annotations at runtime without breaking, and which checker this standard
-mandates. What to put *in* a type is the data chapter; what a public signature should accept is the
-API chapter.
+Scope: how a type states what a seam needs and what a set lists: the capability named as a
+`Protocol`, a closed set kept a union and closed with `assert_never`, a protocol's contract, and how
+far a signature is generic; and how to spell a type, what the lazy annotation machinery does, which
+narrowing construct to reach for, how to read annotations at runtime without breaking, and which
+checker this standard mandates. What to put *in* a type is the data chapter; what a public signature
+should accept is the API chapter.
 
 Unless a block shows its own imports, it assumes `from typing import …` for the names it uses.
 
@@ -34,6 +36,11 @@ Unless a block shows its own imports, it assumes `from typing import …` for th
   - PS-TYPE-18 [M] Take a `TypeForm` when the argument is a type expression
   - PS-TYPE-19 [S] Close a `TypedDict` that models a fixed wire format
   - PS-TYPE-20 [M] Build a sentinel with `sentinel`, not with `object()`
+- **Interfaces and generics**
+  - PS-TYPE-21 [M] Name a seam's capability as a `Protocol`, not an ABC, unless you ship behaviour
+  - PS-TYPE-22 [M] Model a closed set of implementations as a union, not a `Protocol`
+  - PS-TYPE-23 [M] Document the contract of a `Protocol`, not just its signatures
+  - PS-TYPE-24 [S] Declare a type parameter only where it relates two positions
 - Decided by tools
 
 ---
@@ -428,6 +435,186 @@ distinction. PEP 661 sentinels narrow by `is` and have a `repr` readable in a tr
 **Check:** `rg -n '=[ \t]*object\(\)' src/` — every hit is a sentinel that should be declared.
 `ty`'s `mismatched-sentinel-name`, which the shipped configuration enables, catches a sentinel bound
 under a name other than its own.
+
+## Interfaces and generics
+
+### PS-TYPE-21 [M] Name a seam's capability as a `Protocol`, not an ABC, unless you ship behaviour
+
+At a seam that will carry two plausible implementations, or a test double, write the `Protocol`
+first, in terms of what the caller needs, and annotate the consumer with it, not with the class that
+happens to provide it. A class with one implementation and no double stays concrete. An ABC only
+when you have concrete methods subclasses inherit.
+
+**Why:** a boundary extracted from an existing class inherits its accidents, and one written against
+the caller's need comes out total, with the test double free. A protocol is structural, so neither
+side imports the other; an ABC forces inheritance and couples the implementer to you.
+
+**Check:** a parameter annotated with a concrete class that the body uses through two or three
+methods, where a second implementation or a test double exists, is the finding; so is every ABC with
+no concrete method, a protocol written the coupling way.
+
+```python
+# verified — GOOD
+from typing import Protocol
+
+
+class Sink(Protocol):
+    """Structural: a caller satisfies this without importing it."""
+
+    def write(self, line: str) -> None:
+        """Take one line."""
+
+
+class Collector:
+    """Keep every line written, in order."""
+
+    def __init__(self) -> None:
+        """Start with no lines."""
+        self.lines: list[str] = []
+
+    def write(self, line: str) -> None:
+        """Keep `line`."""
+        self.lines.append(line)
+
+
+def emit(sink: Sink, lines: list[str]) -> None:
+    for line in lines:
+        sink.write(line)
+
+
+collector = Collector()
+emit(collector, ["a", "b"])
+assert collector.lines == ["a", "b"]
+```
+
+### PS-TYPE-22 [M] Model a closed set of implementations as a union, not a `Protocol`
+
+When every implementation lives in your own tree and no caller outside it adds one, the set is a
+union of its classes, consumed with a `match` that ends in `assert_never` (PS-TYPE-14). A `Protocol`
+is for the set someone else extends.
+
+**Why:** a protocol is open, so the checker can never prove every implementation handled, and adding
+one is silent wherever the set is consumed. A union is closed, so a new member is a type error at
+every `match` that must change, and each member keeps its own data and can be told apart by shape.
+
+**Check:** for each `Protocol`, list the classes that satisfy it. If every one is in this repository
+and none is meant to be supplied from outside, it is a union.
+
+```python
+# verified — GOOD
+from dataclasses import dataclass
+from typing import assert_never
+
+
+@dataclass(frozen=True)
+class Circle:
+    """A circle of radius `r`."""
+
+    r: float
+
+
+@dataclass(frozen=True)
+class Rect:
+    """A rectangle of `w` by `h`."""
+
+    w: float
+    h: float
+
+
+type Shape = Circle | Rect
+
+
+def area(shape: Shape) -> float:
+    match shape:
+        case Circle(r=r):
+            return 3 * r * r
+        case Rect(w=w, h=h):
+            return w * h
+        case _:
+            # A third shape makes this a type error at every call.
+            assert_never(shape)
+
+
+assert area(Rect(2, 3)) == 6
+```
+
+### PS-TYPE-23 [M] Document the contract of a `Protocol`, not just its signatures
+
+What an implementer must uphold, what a caller may assume, whether calls may be concurrent, and what
+happens on error go in the protocol's docstring, and in the method's where it is specific to it.
+
+**Why:** the signatures constrain types and say nothing about behaviour, so a protocol without a
+documented contract can be implemented correctly only by accident. Structural typing makes this
+worse: an implementer never imports the protocol, so its docstring is the only place they meet it.
+
+**Check:** could someone write a conforming implementation from the docstring alone, without reading
+yours?
+
+```python
+# verified — GOOD
+from typing import Protocol
+
+
+class Normalizer(Protocol):
+    """Put text in canonical form.
+
+    An implementation must be idempotent, so that normalizing twice
+    gives what once did, and must never lengthen its input.
+    """
+
+    def normalize(self, text: str) -> str:
+        """Return `text` in canonical form."""
+
+
+class Lower:
+    """Lowercase the text."""
+
+    def normalize(self, text: str) -> str:
+        """Return `text` lowercased."""
+        return text.lower()
+
+
+def canonical(normalizer: Normalizer, text: str) -> str:
+    return normalizer.normalize(text)
+
+
+assert canonical(Lower(), "AbC") == "abc"
+```
+
+### PS-TYPE-24 [S] Declare a type parameter only where it relates two positions
+
+A type parameter earns its place by tying one position in a signature to another: the element type
+that goes in is the one that comes out. One that appears once is the bound it stands for, written
+longer.
+
+**Why:** each parameter costs the reader a name to track and the checker an inference to make, and a
+single-use one buys no precision over the type it stands for. The signature that names the type
+reads at a glance and fails at the call site with the type it expected.
+
+**Check:** for each generic function or class, find the positions where each parameter appears. Once
+is the finding.
+
+```python
+# verified — GOOD
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+
+def first[T](items: Sequence[T]) -> T:
+    """Return the first of `items`: the type in is the type out."""
+    return items[0]
+
+
+def count(items: Sequence[object]) -> int:
+    """Count `items`; no parameter, nothing is tied to the result."""
+    return len(items)
+
+
+assert first(["a", "b"]) == "a"
+assert count([1, 2]) == 2
+```
 
 ## Decided by tools
 

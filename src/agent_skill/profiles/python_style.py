@@ -144,10 +144,10 @@ PROFILE = Profile(
         "PS-DATA-01",
         "PS-DATA-02",
         "PS-DATA-03",
-        "PS-DATA-09",
+        "PS-DATA-08",
+        "PS-DATA-11",
         "PS-DATA-12",
-        "PS-DATA-13",
-        "PS-DATA-17",
+        "PS-DATA-16",
         "PS-DOC-04",
         "PS-DOC-08",
         "PS-DOC-12",
@@ -229,7 +229,7 @@ PROFILE = Profile(
                 "is how a context manager is implemented, not a call site that "
                 "should have used one",
             ),
-            "PS-DATA-09": NotDecisive(
+            "PS-DATA-08": NotDecisive(
                 "inside class bodies",
                 "the pattern finds every call on the right of an assignment; being "
                 "inside a class body is what makes it a default, which the pattern "
@@ -238,12 +238,12 @@ PROFILE = Profile(
             # Polarity: this Check asserts the shape is *present*, so
             # its hits are evidence of compliance and reading them as
             # defects inverts the rule.
-            "PS-DATA-12": NotDecisive(
+            "PS-DATA-11": NotDecisive(
                 "should be roughly as common as",
                 "a presence assertion: the finding is an absence, which no hit can "
                 "show",
             ),
-            "PS-DATA-13": NotDecisive(
+            "PS-DATA-12": NotDecisive(
                 "every hit is a place a `frozendict` would fail",
                 "the rule's own example demonstrates the failing test deliberately, "
                 "and a hit in application code is a candidate until the value's "
@@ -281,7 +281,6 @@ PROFILE = Profile(
         }
     ),
     domain={
-        "types": "gradual typing",
         "async": "asyncio",
     },
     conventions=CONVENTIONS,

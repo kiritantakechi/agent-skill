@@ -319,6 +319,7 @@ RUST_STYLE = RustCrate(
             "float_cmp": '"warn"',
             "redundant_test_prefix": '"warn"',
             "mod_module_files": '"warn"',
+            "wildcard_enum_match_arm": '"warn"',
         },
         "rustdoc": {
             "broken_intra_doc_links": '"deny"',

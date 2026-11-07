@@ -47,7 +47,7 @@ invalidate the work of reading the next.
 7. **Concurrency.** Every `Io.async` without a matching `await`, every `Group`/`Select`,
    cancellation paths, and anything holding a resource across a suspension point. (`ZS-CONC`)
 8. **Function bodies.** Now read the code. Compound conditions that want splitting, functions past
-   70 lines, control flow that wants a labeled switch. (ZS-ERR-18, ZS-ERR-30)
+   70 lines, control flow that wants a labeled switch. (ZS-ERR-18, ZS-ERR-29)
 9. **Tests.** Do they use `std.testing.allocator` so leaks fail? Is the error path covered? Is there
    a `checkAllAllocationFailures` for every allocating API? (`ZS-TEST`)
 10. **Build and project.** New dependencies justified? `build.zig.zon` `.paths` correct? Does

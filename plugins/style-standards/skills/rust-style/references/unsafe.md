@@ -516,7 +516,7 @@ the property is not pinned.
 A trait whose implementors must uphold an invariant that unsafe code relies on is an `unsafe trait`,
 with the obligation documented in a `# Safety` section on the trait itself. If a wrong
 implementation only produces wrong answers, the trait stays safe and documents its contract loudly
-(RS-TRAIT-11).
+(RS-TYPE-03).
 
 **Why:** if safe code can write a wrong implementation and thereby cause UB elsewhere, the trait is
 the unsound part. `unsafe trait` is how the obligation is transferred to the implementor, which is

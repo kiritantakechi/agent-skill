@@ -1,9 +1,9 @@
-# Data: Dataclasses, Enums, Protocols, and Immutability
+# Data: Dataclasses, Enums, and Immutability
 
-Scope: choosing the shape a value takes — dataclass, enum, protocol, `TypedDict`, `NamedTuple`,
-plain class — and what each obliges you to. How to spell the annotation on a field is the types
-chapter; whether the value is safe to share is the concurrency chapter; what a constructor should
-accept is the API chapter.
+Scope: choosing the shape a value takes — dataclass, enum, `TypedDict`, `NamedTuple`, plain class —
+and what each obliges you to. How to spell the annotation on a field, and the `Protocol` that names
+an interface, are the types chapter; whether the value is safe to share is the concurrency chapter;
+what a constructor should accept is the API chapter.
 
 Unless a block shows its own imports, it assumes `from dataclasses import dataclass`.
 
@@ -16,20 +16,19 @@ Unless a block shows its own imports, it assumes `from dataclasses import datacl
   - PS-DATA-04 [M] Use `StrEnum` or `IntEnum` only when the value crosses a boundary
   - PS-DATA-05 [S] Prefer a dataclass to a `NamedTuple` unless the value is genuinely a tuple
   - PS-DATA-06 [M] Use a `TypedDict` for a wire format, never for a domain object
-  - PS-DATA-07 [M] Define an interface as a `Protocol`, not an ABC, unless you ship behaviour
 - **Fields and defaults**
-  - PS-DATA-08 [M] Never give a mutable default
-  - PS-DATA-09 [M] Never compute a default at import time
-  - PS-DATA-10 [M] Order fields so every default follows every required field
+  - PS-DATA-07 [M] Never give a mutable default
+  - PS-DATA-08 [M] Never compute a default at import time
+  - PS-DATA-09 [M] Order fields so every default follows every required field
 - **Immutability**
-  - PS-DATA-11 [M] Freeze anything that crosses a boundary
-  - PS-DATA-12 [M] Replace rather than mutate, with `dataclasses.replace`
-  - PS-DATA-13 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
+  - PS-DATA-10 [M] Freeze anything that crosses a boundary
+  - PS-DATA-11 [M] Replace rather than mutate, with `dataclasses.replace`
+  - PS-DATA-12 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
 - **Validity**
-  - PS-DATA-14 [M] Validate in `__post_init__`, and raise rather than correct
-  - PS-DATA-15 [M] Make the invalid state unrepresentable before validating against it
-  - PS-DATA-16 [M] Give a domain value its own type rather than a bare `str` or `int`
-  - PS-DATA-17 [M] Never let `__eq__` and `__hash__` disagree
+  - PS-DATA-13 [M] Validate in `__post_init__`, and raise rather than correct
+  - PS-DATA-14 [M] Make the invalid state unrepresentable before validating against it
+  - PS-DATA-15 [M] Give a domain value its own type rather than a bare `str` or `int`
+  - PS-DATA-16 [M] Never let `__eq__` and `__hash__` disagree
 - Decided by tools
 
 ---
@@ -167,54 +166,9 @@ after `json.loads`, and not for anything that lives longer.
 **Check:** every `TypedDict`. If an instance is passed to more than one function, it should have
 been a dataclass by then.
 
-### PS-DATA-07 [M] Define an interface as a `Protocol`, not an ABC, unless you ship behaviour
-
-`class Reader(Protocol)` when you need a shape. An ABC when you have concrete methods subclasses
-inherit.
-
-**Why:** a protocol is structural, so a caller satisfies it with a type they already have and
-neither side imports the other, which is what makes it usable across a package boundary. An ABC
-forces inheritance, coupling the implementer to you and barring two interfaces whose bases conflict.
-
-**Check:** every ABC with no concrete method is a protocol written the coupling way.
-
-```python
-# verified — GOOD
-from typing import Protocol
-
-
-class Sink(Protocol):
-    """Structural: a caller satisfies this without importing it."""
-
-    def write(self, line: str) -> None:
-        """Take one line."""
-
-
-class Collector:
-    """Keep every line written, in order."""
-
-    def __init__(self) -> None:
-        """Start with no lines."""
-        self.lines: list[str] = []
-
-    def write(self, line: str) -> None:
-        """Keep `line`."""
-        self.lines.append(line)
-
-
-def emit(sink: Sink, lines: list[str]) -> None:
-    for line in lines:
-        sink.write(line)
-
-
-collector = Collector()
-emit(collector, ["a", "b"])
-assert collector.lines == ["a", "b"]
-```
-
 ## Fields and defaults
 
-### PS-DATA-08 [M] Never give a mutable default
+### PS-DATA-07 [M] Never give a mutable default
 
 `def f(items: list[int] = [])` and `field(default=[])` are the same bug. A field takes
 `field(default_factory=list)`, which runs once per instance.
@@ -246,7 +200,7 @@ first.items.append(1)
 assert second.items == []  # not shared
 ```
 
-### PS-DATA-09 [M] Never compute a default at import time
+### PS-DATA-08 [M] Never compute a default at import time
 
 `created_at: datetime = datetime.now()` freezes one timestamp into the class. So does reading an
 environment variable, or a file, or a random seed.
@@ -258,7 +212,7 @@ factory form defers it to construction, which is when the caller meant it.
 **Check:** `rg -n 'field\(default=|=[ \t]*[a-z_]+\.[a-z_]+\(\)' src/` inside class bodies — a call
 in a default is the finding unless it is `default_factory`.
 
-### PS-DATA-10 [M] Order fields so every default follows every required field
+### PS-DATA-09 [M] Order fields so every default follows every required field
 
 Or make the defaulted ones keyword-only with `KW_ONLY`.
 
@@ -271,7 +225,7 @@ interleaved.
 
 ## Immutability
 
-### PS-DATA-11 [M] Freeze anything that crosses a boundary
+### PS-DATA-10 [M] Freeze anything that crosses a boundary
 
 Anything returned from a public function, stored in a cache, used as a dict key, or handed to a
 thread. A container held on `self` leaves as `tuple(self._items)`, which also says the result is not
@@ -285,7 +239,7 @@ the attempt, and an immutable value needs no lock at all.
 unless the docstring transfers ownership explicitly, and a bare `return self._x` of a container is
 the finding outright.
 
-### PS-DATA-12 [M] Replace rather than mutate, with `dataclasses.replace`
+### PS-DATA-11 [M] Replace rather than mutate, with `dataclasses.replace`
 
 `updated = replace(original, status=Status.RETIRED)`.
 
@@ -296,7 +250,7 @@ constructor call is one more site to update every time a field is added.
 **Check:** `rg -n 'replace\(' src/` should be roughly as common as frozen dataclasses are. Their
 absence, alongside frozen types, means someone is rebuilding by hand.
 
-### PS-DATA-13 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
+### PS-DATA-12 [M] Use `frozendict` for an immutable mapping, and test `Mapping` not `dict`
 
 `frozendict`, new in 3.15, for the value, in place of `types.MappingProxyType`.
 `isinstance(x, collections.abc.Mapping)` for the check: `frozendict` is **not a `dict` subclass**;
@@ -324,7 +278,7 @@ assert DEFAULTS["retries"] == 3
 
 ## Validity
 
-### PS-DATA-14 [M] Validate in `__post_init__`, and raise rather than correct
+### PS-DATA-13 [M] Validate in `__post_init__`, and raise rather than correct
 
 Raise `ValueError`. Do not clamp, coerce, or substitute a default.
 
@@ -363,7 +317,7 @@ def test_out_of_range_is_rejected() -> None:
 assert Port(8080).number == 8080
 ```
 
-### PS-DATA-15 [M] Make the invalid state unrepresentable before validating against it
+### PS-DATA-14 [M] Make the invalid state unrepresentable before validating against it
 
 An enum instead of a validated string. A `Port` type instead of an `int` you check. Two types
 instead of one type with a flag that says which it is.
@@ -375,7 +329,7 @@ branch you never write and a test you never need.
 **Check:** every `if not valid: raise` in the codebase. Ask what type would make the check
 unnecessary.
 
-### PS-DATA-16 [M] Give a domain value its own type rather than a bare `str` or `int`
+### PS-DATA-15 [M] Give a domain value its own type rather than a bare `str` or `int`
 
 `UserId`, `Email`, `Cents` — a `NewType` at minimum, a frozen dataclass where there is behaviour. A
 quantity's unit is part of its type the same way: `Cents`, not an `int` that a name alone says is
@@ -403,7 +357,7 @@ def credit(user: UserId, amount: Cents) -> str:
 assert credit(UserId(7), Cents(250)) == "7:250"
 ```
 
-### PS-DATA-17 [M] Never let `__eq__` and `__hash__` disagree
+### PS-DATA-16 [M] Never let `__eq__` and `__hash__` disagree
 
 If two objects are equal they must hash equal. A mutable object that defines `__eq__` must not
 define `__hash__`.
