@@ -104,7 +104,7 @@ value.
 - `File::lock`, `try_lock` and `lock_shared`, in place of `fs2` and its forks; `fs::set_times`, in
   place of `filetime` (RS-MIG-01).
 - `async fn` in traits, in place of `#[async_trait]` wherever no trait object is needed
-  (RS-CONC-32).
+  (RS-CONC-31).
 - `Atomic*::update` and `try_update`, in place of a `compare_exchange` loop and `fetch_update`
   (RS-CONC-25).
 
@@ -231,7 +231,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-594 rules live here; section 4 lists by ID those that bind on their own.
+593 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -243,10 +243,10 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/traits.md` | `RS-TRAIT` (42) | Trait design and contracts, static vs dynamic dispatch, dyn compatibility, coherence and blanket impls, sealing, bounds, associated types, GATs, const generics, typestate |
 | `references/modules.md` | `RS-MOD` (38) | Module boundaries and crate names, `foo.rs` + `foo/`, the library/binary split, workspace layout and facades, imports and in-file declaration order |
 | `references/build.md` | `RS-BUILD` (46) | Manifest and metadata, docs.rs, additive features, dependency discipline, the `[lints]` table, supply chain and semver, toolchain, profiles, CI |
-| `references/testing.md` | `RS-TEST` (34) | Unit/integration/doc test split, table-driven tests, property and differential testing, fuzzing, snapshots, CLI end-to-end, flakes |
+| `references/testing.md` | `RS-TEST` (35) | Unit/integration/doc test split, table-driven tests, property and differential testing, fuzzing, snapshots, CLI end-to-end, flakes |
 | `references/documentation.md` | `RS-DOC` (35) | Crate and module docs, the section order, `# Errors`/`# Panics`/`# Safety`, prose style, the changelog, intra-doc links, README |
 | `references/performance.md` | `RS-PERF` (38) | Measure-first discipline, allocation and buffer reuse, collection choice and layout, buffered I/O and syscalls, monomorphization and `#[inline]`, SIMD, benchmarking |
-| `references/concurrency.md` | `RS-CONC` (47) | Choosing a model, scoped threads and channels, shared state and lock discipline, async fundamentals and cancellation safety, `rayon`, `loom` and determinism |
+| `references/concurrency.md` | `RS-CONC` (45) | Choosing a model, scoped threads and channels, shared state and lock discipline, async fundamentals and cancellation safety, `rayon`, `loom` and determinism |
 | `references/unsafe.md` | `RS-UNSAFE` (33) | `// SAFETY:` discipline, the UB list, layout and `repr`, `PhantomData` and variance, `unsafe trait`, C interop and `catch_unwind`, Miri and sanitizers |
 | `references/cli.md` | `RS-CLI` (32) | The `LowArgs`→`HiArgs` two-stage model, the flag table, streams and colour, `BrokenPipe`, signals, config precedence |
 | `references/data.md` | `RS-DATA` (10) | Enums and sum types, records over tuples, indices over references, unrepresentable and rejected values, views over containers, equality and hashing, integer widths and explicit overflow |

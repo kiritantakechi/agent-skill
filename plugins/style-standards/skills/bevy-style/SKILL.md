@@ -188,7 +188,7 @@ Nothing else departs: a divergence not listed here is a defect, not a dialect.
 | RS-BUILD-21 | overrides | BV-BUILD-02 | [M] → [M] | Bevy's 177 features move every release, so a hand-picked list goes stale silently; a collection is upstream's own |
 | RS-BUILD-24 | overrides | BV-BUILD-12 | [M] → [M] | Two lints fire on every system parameter, so no handful of items could carry the `allow` |
 | RS-BUILD-42 | tightens | BV-BUILD-07 | [S] → [M] | An unoptimised Bevy is too slow for frame rate to say anything about the game |
-| RS-TEST-19 | extends | BV-TEST-08 | [M] → [M] | Every test, not only a regression test: a Bevy test passes vacuously when its system was never added or its schedule never ran |
+| RS-TEST-20 | extends | BV-TEST-08 | [M] → [M] | Every test, not only a regression test: a Bevy test passes vacuously when its system was never added or its schedule never ran |
 
 Two that look like departures are not. `clippy::wildcard_imports` exempts preludes, and
 `use bevy::prelude::*` is one. And RS-NAME-02 holds as it stands: Bevy's packages spell `bevy_ecs`

@@ -1,11 +1,12 @@
-# Concurrency: Threads Without the GIL, Shared State, Iterators, Caches, and Context
+# Concurrency: Threads, Tasks, Shared State, Cancellation, Iterators, Caches, and Context
 
-Scope: writing Python that is correct when threads run in parallel — what the GIL used to make
+Scope: writing Python that is correct when work runs at the same time — what the GIL used to make
 unlikely, which standard-library objects hold their own locks and which do not, how to share an
-iterator, how caches and context behave, and how to ask which build is running. Choosing between
-`async` and threads at all is in the async chapter; the shape of the data being shared is in the
-data chapter; interpreter and allocator overhead, and when threads beat processes, are in the
-performance chapter; what a free-threaded wheel declares is in the build chapter.
+iterator, how caches and context behave, how to ask which build is running, and, for `asyncio`, how
+a program starts and owns its tasks, cancels them, bounds its waits and keeps blocking work off the
+loop. The shape of the data being shared is in the data chapter; interpreter and allocator overhead,
+and when threads beat processes, are in the performance chapter; what a free-threaded wheel declares
+is in the build chapter; what only `asyncio` has is in the async chapter.
 
 Unless a block shows its own imports, it assumes `import threading` and that the module runs on the
 free-threaded build. Where a rule depends on the build, the block probes it rather than assuming.
@@ -16,29 +17,41 @@ free-threaded build. Where a rule depends on the build, the block probes it rath
   - PS-CONC-01 [M] Probe the build with `sys.abi_info` and the runtime with `sys._is_gil_enabled`
   - PS-CONC-02 [M] Never treat a compound assignment as one step
   - PS-CONC-03 [M] Never treat check-then-act as one step
-  - PS-CONC-04 [M!] Accumulate per thread on a hot path, and merge once
+  - PS-CONC-04 [S] Accumulate per thread on a hot path, and merge once
   - PS-CONC-05 [M] Cite the thread-safety guarantees page, never the FAQ's bytecode argument
   - PS-CONC-06 [M] Name the invariant a lock guards, on the line that creates it
   - PS-CONC-07 [M] Never read `frame.f_locals` for a frame executing in another thread
 - **Sharing objects between threads**
   - PS-CONC-08 [M] Snapshot a container before iterating what another thread may mutate
-  - PS-CONC-09 [S] Send an immutable message rather than sharing a mutable object
+  - PS-CONC-09 [M] Send an immutable message rather than sharing a mutable object
   - PS-CONC-10 [M] Hand work between threads with `queue.Queue`
-  - PS-CONC-11 [S] Keep a shared object's lock inside the object that owns it
+  - PS-CONC-11 [M] Bound every `queue.Queue` that a producer can outrun with `maxsize`
+  - PS-CONC-12 [S] Keep a shared object's lock inside the object that owns it
 - **Iterators and generators**
-  - PS-CONC-12 [M] Serialise a shared iterator with `threading.serialize_iterator`
-  - PS-CONC-13 [M] Give each consumer a full stream with `threading.concurrent_tee`
-  - PS-CONC-14 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
+  - PS-CONC-13 [M] Serialise a shared iterator with `threading.serialize_iterator`
+  - PS-CONC-14 [M] Give each consumer a full stream with `threading.concurrent_tee`
+  - PS-CONC-15 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
 - **Caches, memoisation, and context**
-  - PS-CONC-15 [M] Never rely on `lru_cache` or `cached_property` to run a body once
-  - PS-CONC-16 [M!] Put a lock around a memo whose miss is expensive or has an effect
-  - PS-CONC-17 [M] Create every `ContextVar` at module scope
-  - PS-CONC-18 [M] Never rely on a thread inheriting context; the default differs by build
+  - PS-CONC-16 [M] Never rely on `lru_cache` or `cached_property` to run a body once
+  - PS-CONC-17 [M!] Put a lock around a memo whose miss is expensive or has an effect
+  - PS-CONC-18 [M] Create every `ContextVar` at module scope
+  - PS-CONC-19 [M] Never rely on a thread inheriting context; the default differs by build
 - **Streams, randomness, and hold times**
-  - PS-CONC-19 [M] Write each record to a shared text stream in one call, never with `print`
-  - PS-CONC-20 [M] Give each thread its own `random.Random`
-  - PS-CONC-21 [M] Hold a context in a generator with `with`, not with a decorator
-  - PS-CONC-22 [S] Never hold a lock across a call you do not control
+  - PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
+  - PS-CONC-21 [M] Give each thread its own `random.Random`
+  - PS-CONC-22 [M] Hold a context in a generator with `with`, not with a decorator
+  - PS-CONC-23 [M] Never hold a lock across a call you do not control
+- **Starting and owning tasks**
+  - PS-CONC-24 [M] Enter with `asyncio.run`, and configure with `loop_factory`
+  - PS-CONC-25 [M] Start every task inside a `TaskGroup`
+- **Cancellation and timeouts**
+  - PS-CONC-26 [M] Never swallow `CancelledError`
+  - PS-CONC-27 [M] Leave no state half-updated across an `await`
+  - PS-CONC-28 [M] Shield only what must not be interrupted, and bound it
+  - PS-CONC-29 [M] Give every wait a timeout, with `asyncio.timeout`
+- **Blocking and colour**
+  - PS-CONC-30 [M] Never run blocking work on the event loop; move it with `asyncio.to_thread`
+  - PS-CONC-31 [M] Do not mark a function `async` unless it awaits
 
 ---
 
@@ -181,15 +194,13 @@ for name in ("a", "b", "a"):
 assert (id_of("a"), id_of("b")) == (0, 1)
 ```
 
-### PS-CONC-04 [M!] Accumulate per thread on a hot path, and merge once
+### PS-CONC-04 [S] Accumulate per thread on a hot path, and merge once
 
 A worker that touches shared state on every iteration spends its time on cache-line ping-pong: give
 each thread a local accumulator, and merge once at the end. Off the hot path, one lock held across
 the whole read-modify-write is enough. The lock is what makes an update *right* and the accumulator
-what makes it *scale*; an update with neither is PS-CONC-02's defect.
-
-*Relaxed form:* one lock held across the whole update on a hot path too, which is correct and only
-slower.
+what makes it *scale*; an update with neither is PS-CONC-02's defect. One lock held across the whole
+update on a hot path too is correct and only slower.
 
 **Why:** every write to an object shared across cores is an atomic operation on its reference count
 as well as its value, which the free-threaded build pays on a slow path: a documented four-thread
@@ -332,7 +343,7 @@ def active_ids() -> list[int]:
 assert active_ids() == [1, 2]
 ```
 
-### PS-CONC-09 [S] Send an immutable message rather than sharing a mutable object
+### PS-CONC-09 [M] Send an immutable message rather than sharing a mutable object
 
 Hand a worker a `frozenset`, a `tuple`, a frozen dataclass, or a `frozendict`. Let it return a value
 rather than write into something you both hold.
@@ -411,7 +422,55 @@ for worker in workers:
 assert sorted(seen) == list(range(9))
 ```
 
-### PS-CONC-11 [S] Keep a shared object's lock inside the object that owns it
+### PS-CONC-11 [M] Bound every `queue.Queue` that a producer can outrun with `maxsize`
+
+`queue.Queue()` with no `maxsize` has no limit, and `put` never blocks. Give a queue that is fed by
+input the program does not control, such as requests, messages or lines read, a `maxsize`, so that
+`put` blocks the producer while the queue is full. Choose the number from how much work may wait,
+not from how much memory is free.
+
+**Why:** a producer that outruns its consumers converts the lag into memory, and the process is
+killed for it hours later, far from the cause. A bounded queue turns the same lag into a producer
+that waits.
+
+**Check:** every `queue.Queue()` and `queue.SimpleQueue()` fed from outside the process. No
+`maxsize` is the finding; `SimpleQueue` has no bound to give.
+
+```python
+# fragment — BAD: a burst of input becomes memory
+jobs: queue.Queue[bytes] = queue.Queue()
+```
+
+```python
+# verified — GOOD
+import queue
+import threading
+
+jobs: queue.Queue[int] = queue.Queue(maxsize=2)
+
+
+def produce() -> None:
+    for number in range(6):
+        jobs.put(number)  # blocks while two items wait, so the consumer sets the pace
+    jobs.shutdown()
+
+
+def consume() -> int:
+    total = 0
+    while True:
+        try:
+            total += jobs.get()
+        except queue.ShutDown:
+            return total
+
+
+producer = threading.Thread(target=produce)
+producer.start()
+assert consume() == 15
+producer.join()
+```
+
+### PS-CONC-12 [S] Keep a shared object's lock inside the object that owns it
 
 A module-level `_lock` beside a module-level `_cache` works until a second cache appears and takes
 the same lock. Put the lock on the class whose invariant it protects, and route every write through
@@ -464,7 +523,7 @@ assert tracker.position() == Position(3, 0)
 
 ## Iterators and generators
 
-### PS-CONC-12 [M] Serialise a shared iterator with `threading.serialize_iterator`
+### PS-CONC-13 [M] Serialise a shared iterator with `threading.serialize_iterator`
 
 Two threads calling `next()` on one iterator is the defect. `serialize_iterator` hands each item to
 exactly one caller, and it neither copies nor buffers. It is a class, not a function: wrap once, and
@@ -528,10 +587,10 @@ drained = sorted(i for part in got.values() for i in part)
 assert drained == list(range(9)), "each item goes to exactly one caller"
 ```
 
-### PS-CONC-13 [M] Give each consumer a full stream with `threading.concurrent_tee`
+### PS-CONC-14 [M] Give each consumer a full stream with `threading.concurrent_tee`
 
 When every consumer needs every item — not one each — `concurrent_tee(iterable, n)` is the split.
-Its derived iterators are each single-consumer: handing one branch to two threads is PS-CONC-12's
+Its derived iterators are each single-consumer: handing one branch to two threads is PS-CONC-13's
 defect again. `itertools.tee` is not a substitute, and its name is one word from the safe one: its
 docs say a `RuntimeError` "may be raised when simultaneously using iterators returned by the same
 `tee()` call, even if the original iterable is threadsafe", and concurrent use has segfaulted in
@@ -571,13 +630,13 @@ for thread in threads:
 assert sums == {"left": 10, "right": 10}, "both consumers saw the whole stream"
 ```
 
-### PS-CONC-14 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
+### PS-CONC-15 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
 
 A decorator on a function that returns an iterator, so callers get a safe one without knowing to
-wrap it. It applies only where you own the factory; where you are handed an iterator, PS-CONC-12 is
+wrap it. It applies only where you own the factory; where you are handed an iterator, PS-CONC-13 is
 the rule.
 
-**Why:** PS-CONC-12 puts the obligation on every caller, and an obligation every caller must
+**Why:** PS-CONC-13 puts the obligation on every caller, and an obligation every caller must
 remember is one some caller will forget. Decorating the factory moves it to the one place that can
 discharge it.
 
@@ -614,7 +673,7 @@ assert sorted(i for part in got.values() for i in part) == list(range(30))
 
 ## Caches, memoisation, and context
 
-### PS-CONC-15 [M] Never rely on `lru_cache` or `cached_property` to run a body once
+### PS-CONC-16 [M] Never rely on `lru_cache` or `cached_property` to run a body once
 
 Both are coherent — neither cache corrupts — and neither is single-flight. `functools.lru_cache`
 does not hold its lock across the call, so eight threads hitting one cold key ran the body seven
@@ -627,9 +686,9 @@ duplicated charge, write or connection, or a leaked handle, for one with an effe
 
 **Check:** `rg -nB3 -A5 '@lru_cache|@cache\b|cached_property' src/` and read each decorated body for
 effects — I/O, writes, metrics, anything needing cleanup. A pure function is fine; anything else
-needs PS-CONC-16.
+needs PS-CONC-17.
 
-### PS-CONC-16 [M!] Put a lock around a memo whose miss is expensive or has an effect
+### PS-CONC-17 [M!] Put a lock around a memo whose miss is expensive or has an effect
 
 Not around the cache read — around the miss. Memoise an effect only where "once" is what every
 caller wants, such as opening a connection: a cached charge or write happens once while each caller
@@ -639,7 +698,7 @@ accepted, so the next reader knows it was a decision.
 
 *Relaxed form:* an expensive miss with no effect may run more than once, with that comment.
 
-**Why:** PS-CONC-15's two decorators are one defect with two spellings. The double-checked shape
+**Why:** PS-CONC-16's two decorators are one defect with two spellings. The double-checked shape
 keeps the common case, a hit, lock-free while making the miss single-flight; without it, "cached"
 means "usually computed once", which is not what the word promises the reader.
 
@@ -678,7 +737,7 @@ assert connection("db") == "conn:db"
 assert len(_conns) == 1
 ```
 
-### PS-CONC-17 [M] Create every `ContextVar` at module scope
+### PS-CONC-18 [M] Create every `ContextVar` at module scope
 
 Never inside a function, a method, or a loop.
 
@@ -689,7 +748,7 @@ does not work".
 **Check:** `rg -nB5 'ContextVar\(' src/` — any hit whose preceding lines are inside a `def` or
 `class` body is the finding.
 
-### PS-CONC-18 [M] Never rely on a thread inheriting context; the default differs by build
+### PS-CONC-19 [M] Never rely on a thread inheriting context; the default differs by build
 
 `sys.flags.thread_inherit_context` is 1 on the free-threaded build and 0 on the GIL build, and so is
 `sys.flags.context_aware_warnings`, which makes `warnings.catch_warnings` context-local. Pass the
@@ -729,7 +788,7 @@ assert request_id.get() == "-", "leaving the block reset the variable"
 
 ## Streams, randomness, and hold times
 
-### PS-CONC-19 [M] Write each record to a shared text stream in one call, never with `print`
+### PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
 
 `open()` in text mode returns a `TextIOWrapper`, and so do `sys.stdout` and `sys.stderr`, which
 every thread that prints already shares. `print` is not one call to it: it writes each argument,
@@ -743,7 +802,7 @@ as single `write` calls arrived whole; under the GIL, `print` garbled a handful.
 **Check:** `rg -n '\bprint\(|\.write\(' src/` inside any thread target. A `print` is the finding,
 and so is a `write` that sends part of a record.
 
-### PS-CONC-20 [M] Give each thread its own `random.Random`
+### PS-CONC-21 [M] Give each thread its own `random.Random`
 
 The module-level functions all share one instance. Seed each thread's from the operating system, as
 `random.Random()` does with no argument: one fixed seed would give every thread the same stream.
@@ -789,7 +848,7 @@ for thread in threads:
 assert len(set(draws)) == 4, "four threads, four independent streams"
 ```
 
-### PS-CONC-21 [M] Hold a context in a generator with `with`, not with a decorator
+### PS-CONC-22 [M] Hold a context in a generator with `with`, not with a decorator
 
 In 3.15 a `@contextmanager`-derived decorator applied to a generator function keeps the context open
 until the generator is exhausted. Previously it closed when the generator object was created. The
@@ -837,15 +896,175 @@ assert list(rows()) == [1, 2, 3]
 assert held == ["in", "out"]
 ```
 
-### PS-CONC-22 [S] Never hold a lock across a call you do not control
+### PS-CONC-23 [M] Never hold a lock across a call you do not control
 
 A callback, a plugin hook, an I/O call, or anything that can block. Compute under the lock, call
 outside it.
 
 **Why:** a lock held across arbitrary code is a lock whose hold time you cannot bound, and one whose
-acquisition order you cannot see: the shape of every lock-ordering deadlock. Under PS-CONC-21, a
+acquisition order you cannot see: the shape of every lock-ordering deadlock. Under PS-CONC-22, a
 decorator whose hold time silently grew now spans calls it never used to.
 
 **Check:** read every `with <lock>:` body for a call that is not a local function or a container
 operation. A hit is a candidate, not a verdict — the lock may genuinely need to span it, in which
 case say so in a comment.
+
+## Starting and owning tasks
+
+### PS-CONC-24 [M] Enter with `asyncio.run`, and configure with `loop_factory`
+
+`asyncio.run(main())`, or `asyncio.Runner` when you need several entries into one loop. Where the
+loop needs configuring, `loop_factory` is the supported hook and is what survives 3.16.
+
+**Why:** `asyncio.run` creates the loop, runs the coroutine, cancels what is left, shuts down async
+generators and the default executor, and closes the loop, in that order. Hand-rolled lifecycles get
+the shutdown half wrong, which is where "task was destroyed but it is pending" comes from.
+
+**Check:** `rg -n 'new_event_loop|run_until_complete|loop.close\(\)' src/` — every hit is
+hand-rolled lifecycle.
+
+```python
+# verified — GOOD
+import asyncio
+
+
+async def main() -> str:
+    await asyncio.sleep(0)
+    return "done"
+
+
+# `loop_factory` is the hook that survives the 3.16 policy removal.
+assert asyncio.run(main(), loop_factory=asyncio.EventLoop) == "done"
+```
+
+### PS-CONC-25 [M] Start every task inside a `TaskGroup`
+
+`async with asyncio.TaskGroup() as tg: tg.create_task(...)`.
+
+**Why:** nothing escapes the block: if one task raises, the rest are cancelled and the group
+re-raises as an `ExceptionGroup`, which `except*` catches (PS-ERR-11); if it exits normally, every
+task has finished. A loose task has neither, so its failure surfaces, if at all, at shutdown.
+
+**Check:** `rg -n 'create_task|ensure_future' src/` — every hit outside a `TaskGroup` needs a
+reference kept to the task, which ruff `RUF006` checks.
+
+```python
+# verified — GOOD
+import asyncio
+
+
+async def work(n: int) -> int:
+    await asyncio.sleep(0)
+    return n * 2
+
+
+async def main() -> list[int]:
+    async with asyncio.TaskGroup() as tg:
+        tasks = [tg.create_task(work(i)) for i in range(3)]
+    # Past the block, every task is done: the group guarantees it.
+    return [t.result() for t in tasks]
+
+
+assert asyncio.run(main()) == [0, 2, 4]
+```
+
+## Cancellation and timeouts
+
+### PS-CONC-26 [M] Never swallow `CancelledError`
+
+Catch it to clean up, then re-raise. It inherits from `BaseException` precisely so that
+`except Exception` will not take it.
+
+**Why:** swallowing cancellation makes the task uncancellable, which turns a graceful shutdown into
+a hang and a timeout into a lie. `asyncio.run` cancels remaining tasks at exit, so a swallowing task
+prevents the process from exiting cleanly.
+
+**Check:** `rg -n 'except.*CancelledError' src/` — every handler must end in `raise`. Ruff `ASYNC`
+and `BLE001` catch the `except Exception` variants that would also take it on older code.
+
+### PS-CONC-27 [M] Leave no state half-updated across an `await`
+
+Every `await` is a cancellation point: between the line before it and the line after it, the task
+may be cancelled and never resume. Make the pair atomic with a context manager, or arrange that the
+half-state is valid.
+
+**Why:** this is the async analogue of PS-CONC-02: state you mutate in two steps around an `await`
+can be left half-updated forever, and a resource acquired before an `await` and released after it
+can leak.
+
+**Check:** every `await` inside a `try`, a lock, or between two writes to the same object.
+
+### PS-CONC-28 [M] Shield only what must not be interrupted, and bound it
+
+`asyncio.shield` around a commit that must complete. Never around a whole operation. Shield the
+smallest thing whose partial completion would be unrecoverable: writing the commit record, not
+fetching the data that goes in it. Give the shielded region a timeout of its own, so that a shield
+cannot become an unbounded wait.
+
+**Why:** shielding defeats cancellation, which is the mechanism timeouts and shutdown are built on.
+A shielded region with no timeout of its own is a task that cannot be stopped by any means.
+
+**Check:** every `shield`. Name what would break if it were interrupted; if you cannot, remove it.
+
+### PS-CONC-29 [M] Give every wait a timeout, with `asyncio.timeout`
+
+`async with asyncio.timeout(5):`. Not `wait_for`, which is the older spelling.
+
+**Why:** a wait with no bound is a hang with extra steps, and in an async program one hung task
+holds its whole logical operation open. `asyncio.timeout` is a context manager, so it composes with
+`TaskGroup` and applies to everything inside it rather than to one awaitable.
+
+**Check:** every `await` on network, subprocess, or queue I/O. No enclosing `timeout` is the
+finding.
+
+```python
+# verified — GOOD
+import asyncio
+
+
+async def slow() -> None:
+    await asyncio.sleep(10)
+
+
+async def main() -> str:
+    try:
+        async with asyncio.timeout(0.01):
+            await slow()
+    except TimeoutError:
+        return "bounded"
+    return "finished"
+
+
+assert asyncio.run(main()) == "bounded"
+```
+
+## Blocking and colour
+
+### PS-CONC-30 [M] Never run blocking work on the event loop; move it with `asyncio.to_thread`
+
+No `requests.get`, no `open(...).read()` on a large file, no `subprocess.run`, no `sleep`. Move the
+call with `await asyncio.to_thread(blocking_call, arg)`, not a hand-made executor unless you need to
+bound it; then `loop.run_in_executor` with your own executor is the escape, and the bound is the
+point. CPU work between two `await`s blocks the loop just as I/O does, so a long parse or a big
+comprehension belongs in `to_thread` too, and a stretch short enough not to matter stays inline.
+
+**Why:** the loop is one thread and cannot preempt, so a blocking call stops every task, not only
+the one that made it: a 200 ms disk read adds 200 ms to every concurrent request. A long stretch
+with no `await` calls nothing blocking, so no linter recognises it.
+
+**Check:** ruff's `ASYNC` family covers the common calls by name — `ASYNC230` for a blocking `open`,
+`ASYNC240` for a blocking `pathlib` method, `ASYNC210` and `ASYNC212` for blocking HTTP, `ASYNC220`
+through `ASYNC222` for subprocesses, and `ASYNC250` for `input`; each hit needs `to_thread` or an
+explicit executor. For the stretch with no call to name, read each coroutine for a loop or
+comprehension over a large collection with no `await` inside it.
+
+### PS-CONC-31 [M] Do not mark a function `async` unless it awaits
+
+An `async def` with no `await` is a synchronous function that forces every caller into a coroutine.
+
+**Why:** async is viral: making one function async makes every caller async, up to the entry point.
+Paying that cost for a function that never yields buys nothing and makes the code untestable without
+a loop. The exception is an interface a protocol requires to be async — say so in the docstring.
+
+**Check:** a review matter. The rule that decides it mechanically is **preview**, and the shipped
+configuration runs stable rules only; preview rules move between ruff releases.

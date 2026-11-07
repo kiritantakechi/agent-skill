@@ -30,28 +30,29 @@ goal.
   - RS-TEST-14 [M] Test the boundaries, because they are enumerable
   - RS-TEST-15 [S] Use table-driven tests for families of similar cases
   - RS-TEST-16 [M] Keep tests deterministic and order-independent
-  - RS-TEST-17 [M] Use `tempfile::TempDir`, never a fixed path
-  - RS-TEST-18 [S] Test at the highest level that still gives a precise failure
-  - RS-TEST-19 [M] Give every bug fix a regression test that failed before it
+  - RS-TEST-17 [M] Make concurrency tests deterministic — no `sleep`
+  - RS-TEST-18 [M] Use `tempfile::TempDir`, never a fixed path
+  - RS-TEST-19 [S] Test at the highest level that still gives a precise failure
+  - RS-TEST-20 [M] Give every bug fix a regression test that failed before it
 
 - **Property, fuzz, and snapshot testing**
-  - RS-TEST-20 [S] Use property testing where a law holds over a domain
-  - RS-TEST-21 [S] Reach for differential testing first for parsers, matchers, and codecs
-  - RS-TEST-22 [M] Pin every shrunk counterexample as a fixed regression test
-  - RS-TEST-23 [M] Fuzz anything that parses untrusted input
-  - RS-TEST-24 [S] Run fuzz targets briefly per PR and long on a schedule
-  - RS-TEST-25 [S] Use snapshot testing for large, exact, human-reviewable output
-  - RS-TEST-26 [M] Review snapshot diffs; never `--accept` reflexively
-  - RS-TEST-27 [M] Normalize timestamps, paths, hashes, and map order before snapshotting
-  - RS-TEST-28 [M] Test a CLI binary end to end, including its exit code
+  - RS-TEST-21 [S] Use property testing where a law holds over a domain
+  - RS-TEST-22 [S] Reach for differential testing first for parsers, matchers, and codecs
+  - RS-TEST-23 [M] Pin every shrunk counterexample as a fixed regression test
+  - RS-TEST-24 [M] Fuzz anything that parses untrusted input
+  - RS-TEST-25 [S] Run fuzz targets briefly per PR and long on a schedule
+  - RS-TEST-26 [S] Use snapshot testing for large, exact, human-reviewable output
+  - RS-TEST-27 [M] Review snapshot diffs; never `--accept` reflexively
+  - RS-TEST-28 [M] Normalize timestamps, paths, hashes, and map order before snapshotting
+  - RS-TEST-29 [M] Test a CLI binary end to end, including its exit code
 
 - **Doc tests, CI, and hygiene**
-  - RS-TEST-29 [M] Use `no_run` for examples that must not execute, and `ignore` almost never
-  - RS-TEST-30 [S] Use `compile_fail` doc tests to prove misuse is rejected
-  - RS-TEST-31 [M] Fix a flaky test as a bug, or quarantine it with an owner and a date
-  - RS-TEST-32 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
-  - RS-TEST-33 [S] Measure coverage to find untested branches, not to hit a number
-  - RS-TEST-34 [S] Delete tests that no longer test anything
+  - RS-TEST-30 [M] Use `no_run` for examples that must not execute, and `ignore` almost never
+  - RS-TEST-31 [S] Use `compile_fail` doc tests to prove misuse is rejected
+  - RS-TEST-32 [M] Fix a flaky test as a bug, or quarantine it with an owner and a date
+  - RS-TEST-33 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
+  - RS-TEST-34 [S] Measure coverage to find untested branches, not to hit a number
+  - RS-TEST-35 [S] Delete tests that no longer test anything
 
 - Decided by tools
 
@@ -507,7 +508,18 @@ mod tests {
 }
 ```
 
-### RS-TEST-17 [M] Use `tempfile::TempDir`, never a fixed path
+### RS-TEST-17 [M] Make concurrency tests deterministic — no `sleep`
+
+Make concurrency tests deterministic: fixed seeds, injected clocks, and explicit synchronization
+points instead of `sleep`. A test that sleeps to "let the thread finish" is a flake with a timer.
+
+**Why:** a sleep encodes an assumption about timing that holds on your machine and fails on a loaded
+CI runner. The resulting flake is then "fixed" by increasing the sleep, which makes the suite slower
+without making it correct (RS-TEST-16).
+
+**Check:** does a test call `sleep`? Each wants a barrier, a channel, or a condvar instead.
+
+### RS-TEST-18 [M] Use `tempfile::TempDir`, never a fixed path
 
 Use `tempfile::TempDir` for filesystem tests, never a fixed path under `/tmp` or the repository.
 Cleanup happens on drop, including on failure.
@@ -519,7 +531,7 @@ teardown code.
 **Check:** `rg -n -F '"/tmp/' -g '*.rs'` finds a fixed temporary path; each hit in a test is the
 finding, and so is a path relative to the repository root.
 
-### RS-TEST-18 [S] Test at the highest level that still gives a precise failure
+### RS-TEST-19 [S] Test at the highest level that still gives a precise failure
 
 An end-to-end test that fails with "output differs" is less useful than a unit test that fails with
 "escaping of `\t` is wrong" — but you need both.
@@ -531,7 +543,7 @@ coverage per test without giving up diagnosis.
 **Check:** when a test fails, does the name and message tell you where to look? If it says only
 "output differs", a lower-level test is missing.
 
-### RS-TEST-19 [M] Give every bug fix a regression test that failed before it
+### RS-TEST-20 [M] Give every bug fix a regression test that failed before it
 
 Every bug fix gets a regression test that fails before the fix and passes after, named for the
 behaviour, with the issue number in a comment. This is the highest-value test you will ever write.
@@ -564,11 +576,11 @@ mod tests {
 
 ## Property, fuzz, and snapshot testing
 
-### RS-TEST-20 [S] Use property testing where a law holds over a domain
+### RS-TEST-21 [S] Use property testing where a law holds over a domain
 
 Use property testing (`proptest`, `quickcheck`) where a law holds over a domain: round-trips
 (`parse(render(x)) == x`), invariants (a sorted output is sorted), and equivalences (the optimized
-path agrees with the naive one, RS-TEST-21).
+path agrees with the naive one, RS-TEST-22).
 
 **Why:** example-based tests check the cases you thought of, which excludes the ones causing your
 bugs. A property plus a generator explores the space you did not enumerate, and the failures it
@@ -603,7 +615,7 @@ mod tests {
 }
 ```
 
-### RS-TEST-21 [S] Reach for differential testing first for parsers, matchers, and codecs
+### RS-TEST-22 [S] Reach for differential testing first for parsers, matchers, and codecs
 
 The differential-testing pattern — run a simple reference implementation and the fast one on the
 same random input and compare — is the highest-yield property test for parsers, matchers, and
@@ -646,10 +658,10 @@ mod tests {
 }
 ```
 
-### RS-TEST-22 [M] Pin every shrunk counterexample as a fixed regression test
+### RS-TEST-23 [M] Pin every shrunk counterexample as a fixed regression test
 
 Shrinking is the point of property testing: when a case fails, report the minimal input, and add it
-as a fixed regression test (RS-TEST-19).
+as a fixed regression test (RS-TEST-20).
 
 **Why:** a 4KB random failing input is nearly undebuggable; the three-byte shrunk version usually
 makes the bug obvious. Pinning it as a fixed test also means the property test does not have to
@@ -658,7 +670,7 @@ rediscover it by chance.
 **Check:** for each historical property-test failure, is there now a deterministic test with the
 minimal input?
 
-### RS-TEST-23 [M] Fuzz anything that parses untrusted input
+### RS-TEST-24 [M] Fuzz anything that parses untrusted input
 
 `cargo fuzz` with `libfuzzer`, or `afl`. Check the corpus into a separate repository or CI cache,
 and add every crash as a unit test. A crash blocks the release; in a parser with `unsafe` it is
@@ -671,7 +683,7 @@ test author thinks about.
 **Check:** does every entry point that accepts external data have a fuzz target? And is the corpus
 retained between runs, so progress accumulates?
 
-### RS-TEST-24 [S] Run fuzz targets briefly per PR and long on a schedule
+### RS-TEST-25 [S] Run fuzz targets briefly per PR and long on a schedule
 
 Run fuzz targets in CI for a bounded time on every pull request and for a long time on a schedule.
 Five minutes per PR finds the shallow bugs that would otherwise reach users.
@@ -682,7 +694,7 @@ one means regressions land and are found days later.
 
 **Check:** are both jobs configured? A fuzzing setup that only runs manually is one nobody runs.
 
-### RS-TEST-25 [S] Use snapshot testing for large, exact, human-reviewable output
+### RS-TEST-26 [S] Use snapshot testing for large, exact, human-reviewable output
 
 Use snapshot testing (`insta`) for output that is large, exact, and human-reviewable: rendered
 reports, error messages, generated code, CLI help text. It makes intentional changes a one-line
@@ -694,7 +706,7 @@ diff.
 
 **Check:** is there any large output asserted with string concatenation? It wants a snapshot.
 
-### RS-TEST-26 [M] Review snapshot diffs; never `--accept` reflexively
+### RS-TEST-27 [M] Review snapshot diffs; never `--accept` reflexively
 
 Review snapshot diffs; do not accept them reflexively. `cargo insta review` exists because
 `--accept` on every change turns the snapshot suite into a change log rather than a test.
@@ -706,19 +718,19 @@ code happened to produce.
 **Check:** does CI run with `--check` so unreviewed snapshots fail? A pipeline that accepts
 automatically has no snapshot testing.
 
-### RS-TEST-27 [M] Normalize timestamps, paths, hashes, and map order before snapshotting
+### RS-TEST-28 [M] Normalize timestamps, paths, hashes, and map order before snapshotting
 
 Do not snapshot anything containing timestamps, paths, hashes, or iteration order of a `HashMap`.
 Normalize those first, or the suite becomes a flake generator.
 
 **Why:** each of these varies between runs and machines for reasons unrelated to correctness. A
 snapshot containing them fails constantly, and the team learns to accept diffs without reading them
-— which destroys RS-TEST-26.
+— which destroys RS-TEST-27.
 
 **Check:** does a snapshot hold an absolute path, a date, or a hex digest? Each needs a redaction or
 a sort.
 
-### RS-TEST-28 [M] Test a CLI binary end to end, including its exit code
+### RS-TEST-29 [M] Test a CLI binary end to end, including its exit code
 
 For CLI tools, test the binary end to end: run it with arguments in a temporary directory and assert
 on stdout, stderr, and the exit code (`assert_cmd`, `trycmd`, or a hand-rolled harness as ripgrep
@@ -735,7 +747,7 @@ the contract. And does any test use a non-UTF-8 filename?
 
 ## Doc tests, CI, and hygiene
 
-### RS-TEST-29 [M] Use `no_run` for examples that must not execute, and `ignore` almost never
+### RS-TEST-30 [M] Use `no_run` for examples that must not execute, and `ignore` almost never
 
 Use `no_run` for examples that must compile but should not execute (network calls, long
 computations), and `ignore` almost never — an `ignore`d example is unverified documentation. Explain
@@ -748,7 +760,7 @@ difference between verified and decorative.
 **Check:** is a doc-comment code block tagged `ignore`? Each needs a justification, and most should
 be `no_run`.
 
-### RS-TEST-30 [S] Use `compile_fail` doc tests to prove misuse is rejected
+### RS-TEST-31 [S] Use `compile_fail` doc tests to prove misuse is rejected
 
 Use `compile_fail` doc tests to prove that misuse is rejected: a typestate that forbids
 write-before-connect, a sealed trait, a lifetime that must not escape.
@@ -760,7 +772,7 @@ is accidentally relaxed.
 **Check:** for each "this must not compile" claim in the docs, is there a test? Unpinned claims
 drift.
 
-### RS-TEST-31 [M] Fix a flaky test as a bug, or quarantine it with an owner and a date
+### RS-TEST-32 [M] Fix a flaky test as a bug, or quarantine it with an owner and a date
 
 Quarantining is a temporary measure with an owner and a deadline, not a resolution.
 
@@ -770,7 +782,7 @@ is the bug rather than a property of the test.
 
 **Check:** is there a quarantine list? Every entry needs an owner and a date, or it is permanent.
 
-### RS-TEST-32 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
+### RS-TEST-33 [S] Keep the fast suite fast, and split the slow cases behind `#[ignore]`
 
 Keep the fast suite fast. If `cargo test` takes more than a minute or two, split the slow cases
 behind `#[ignore = "slow: run with --ignored"]` plus a nightly CI job that runs
@@ -782,7 +794,7 @@ every failure to CI and lengthens the feedback loop enormously. Speed is a featu
 
 **Check:** time `cargo test`. Past a couple of minutes, find the slow tests and move them.
 
-### RS-TEST-33 [S] Measure coverage to find untested branches, not to hit a number
+### RS-TEST-34 [S] Measure coverage to find untested branches, not to hit a number
 
 Measure coverage (`cargo llvm-cov`) to find untested branches, not to hit a number. Uncovered error
 paths are the finding that matters; a coverage target invites tests that execute code without
@@ -795,7 +807,7 @@ gaps.
 **Check:** look at the uncovered lines rather than the percentage. Uncovered `Err` arms are the list
 worth working through.
 
-### RS-TEST-34 [S] Delete tests that no longer test anything
+### RS-TEST-35 [S] Delete tests that no longer test anything
 
 A suite that everyone has learned to skim is worse than a smaller suite that everyone reads. The
 commonest case tests the standard library, the compiler or a dependency — that `Vec::push` increases

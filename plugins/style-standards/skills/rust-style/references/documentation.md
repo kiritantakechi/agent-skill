@@ -143,7 +143,7 @@ the API could have absorbed.
 
 A non-trivial public item gets an example in its doc comment. Examples are doc tests: each must
 compile and pass, so every CI run verifies it. One that must not execute (a network call, a long
-computation) is marked `no_run` and still type-checks (RS-TEST-29).
+computation) is marked `no_run` and still type-checks (RS-TEST-30).
 
 **Why:** an example is the only documentation that cannot silently rot, because the compiler checks
 it. Prose describing an API that changed last release is worse than no prose, since the reader

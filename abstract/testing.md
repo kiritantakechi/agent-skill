@@ -24,6 +24,8 @@ random. Running the tests in continuous integration is the build chapter's.
   - AS-TEST-12 [S] Test a fast implementation against a simple reference over generated input
   - AS-TEST-13 [M] Pin every failing input a generator finds as a fixed test
   - AS-TEST-14 [S] Snapshot large, exact output, and review every change to it
+- **Concurrent tests**
+  - AS-TEST-15 [M] Never sleep in a test to wait for another thread; wait on what it signals
 
 ---
 
@@ -50,7 +52,7 @@ the same machine, and leaves debris behind.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-TEST-18 | extends | [M] | The fixture also isolates the environment variables and the working directory, which undo themselves the same way |
-| rust-style | RS-TEST-17 | realises | [M] | |
+| rust-style | RS-TEST-18 | realises | [M] | |
 | zig-style | ZS-TEST-09 | realises | [M] | |
 
 ## What a test asserts
@@ -124,7 +126,7 @@ optimistic path and never the rejection logic.
 |---|---|---|---|---|
 | python-style | PS-TEST-12 | realises | [M] | |
 | rust-style | RS-TEST-14 | realises | [M] | |
-| zig-style | ZS-TEST-16 | realises | [M] | |
+| zig-style | ZS-TEST-17 | realises | [M] | |
 
 ## Shaping and parametrising tests
 
@@ -162,8 +164,8 @@ test is the only thing that prevents its return; writing it first proves the bug
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-TEST-13 | realises | [M] | |
-| rust-style | RS-TEST-19 | realises | [M] | |
-| zig-style | ZS-TEST-32 | realises | [M] | |
+| rust-style | RS-TEST-20 | realises | [M] | |
+| zig-style | ZS-TEST-33 | realises | [M] | |
 
 ### AS-TEST-12 [S] Test a fast implementation against a simple reference over generated input
 
@@ -174,8 +176,8 @@ oracle than an expected value written by the author of the fast one.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-TEST-23 | realises | [S] | |
-| rust-style | RS-TEST-21 | realises | [S] | |
-| zig-style | ZS-TEST-21 | realises | [S] | |
+| rust-style | RS-TEST-22 | realises | [S] | |
+| zig-style | ZS-TEST-22 | realises | [S] | |
 
 ### AS-TEST-13 [M] Pin every failing input a generator finds as a fixed test
 
@@ -186,8 +188,8 @@ pinned input has a test that can pass by missing it.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-TEST-24 | realises | [M] | |
-| rust-style | RS-TEST-22 | realises | [M] | |
-| zig-style | ZS-TEST-25 | realises | [M] | |
+| rust-style | RS-TEST-23 | realises | [M] | |
+| zig-style | ZS-TEST-26 | realises | [M] | |
 
 ### AS-TEST-14 [S] Snapshot large, exact output, and review every change to it
 
@@ -198,5 +200,20 @@ test into a change log that cannot fail.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-TEST-25 | realises | [S] | |
-| rust-style | RS-TEST-25 | realises | [S] | |
-| zig-style | ZS-TEST-23 | realises | [S] | |
+| rust-style | RS-TEST-26 | realises | [S] | |
+| zig-style | ZS-TEST-24 | realises | [S] | |
+
+## Concurrent tests
+
+### AS-TEST-15 [M] Never sleep in a test to wait for another thread; wait on what it signals
+
+A test that needs a worker to have finished waits on the event the worker sets, the queue it fills
+or the handle it returns, and then asserts. A sleep encodes a guess about timing that holds on one
+machine and fails on a loaded one, and the usual repair, a longer sleep, makes the suite slower
+without making it correct.
+
+| Standard | Rule | Relation | Tier | Reason |
+|---|---|---|---|---|
+| python-style | PS-TEST-21 | realises | [M] | |
+| rust-style | RS-TEST-17 | realises | [M] | |
+| zig-style | ZS-TEST-16 | realises | [M] | |

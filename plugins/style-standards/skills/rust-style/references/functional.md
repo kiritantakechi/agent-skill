@@ -845,7 +845,7 @@ Stages take one value and return one value. Resist a stage that also mutates a c
 (in a `map`, RS-FUNC-26 forbids it outright), one that returns a tuple only the next stage
 understands, or one that is a `for` loop because it was easier.
 
-**Why:** uniform stages can be reordered, tested individually, and parallelized (RS-CONC-36); one
+**Why:** uniform stages can be reordered, tested individually, and parallelized (RS-CONC-35); one
 stage with a side channel takes those properties from the whole chain, and it is where the bugs are,
 because nobody can reason about it locally.
 

@@ -280,7 +280,35 @@ time of deletion (both tiers `[M]` unless marked):
   (checker, lazy annotations, spellings) python-only; casts (ZS-DATA-09, RS-UNSAFE-15) stay `data` and
   the domain chapter `unsafe`. Left for `performance`: RS-TRAIT-12, -13 (static versus dynamic dispatch
   cost) and ZS-COMPTIME-08.
-- [ ] 3.10 `concurrency` (python-style's `async.md` among the candidates)
+- [x] 3.10 `concurrency`: 13 entries (`AS-CONC-01` to `-13`) and one in `testing` (`AS-TEST-15`), in starting and
+  owning tasks (the runtime started once at the entry, every task with an owner), cancellation and time
+  (never swallowed, no state half-updated, protect only the step that must finish, every outside wait
+  bounded), not blocking the scheduler (and no `async` that never waits) and sharing state (immutable
+  without a lock, own data merged once, a queue over a locked structure, bounded queues, the shortest lock
+  span); realisations: python-style 13 `realises`; rust-style 10 `realises`, 2 `absent` (cancellation is a
+  drop, so nothing to swallow or shield), 1 `decided` (clippy `unused_async`); zig-style 12 `realises`, 1
+  `absent` (no function colour). Moves 9: PS-ASYNC-01, -03, -05 to -09 and -16 into python-style's
+  concurrency (PS-CONC-24 to -31; `async.md` stays a domain chapter of 8 asyncio-only rules); RS-CONC-42
+  into rust-style's testing (RS-TEST-17). Merges 3: PS-ASYNC-10 and -11 into -09 (never block the loop),
+  RS-CONC-29 into RS-CONC-07 (the library takes the runtime). New rules 8: PS-CONC-11 (bound a
+  `queue.Queue`); ZS-CONC-29 (state consistent at a cancellation point), -35 (every outside wait times
+  out), -36 (share `const`), -37 (an `Io.Queue`), -38 (own accumulator, merge once), -39 (shortest
+  `Io.Mutex` span); ZS-TEST-16 (never sleep in a test). Tier changes 4: PS-CONC-04 (ex `[M!]`) to `[S]`,
+  PS-CONC-09 and -23 to `[M]`, PS-CONC-28 (ex PS-ASYNC-07) to `[M]` with its relaxed form folded in.
+  Look-alike notes 1 -> 1 (BV-MIG-03 / RS-MIG-02, for `migration`). Not registered, one standard or
+  another chapter's subject: the GIL and free-threading rules of python-style (PS-CONC-01 to -03, -05 to
+  -08, -13 to -22), iterators, memoisation (PS-CONC-16, -17 with RS-CONC-27 `OnceLock`: a lazy value
+  built once is stated by two standards, left without a Zig counterpart for 3.14), RS-CONC-11 to -18,
+  -21 to -28, -33 to -45 (scoped threads, pools, poisoning, atomics, rayon, loom), RS-CONC-23 (lock
+  order), the asyncio thread boundary (PS-ASYNC-03 to -06), ZS-CONC-27, -31 to -34, -40 to -42 (checkCancel
+  in a loop, colourless code, deadline, batching, assertions at a suspension, callbacks); PS-TEST-22 /
+  RS-FUNC-38 / ZS-CONC-33 (the clock as a parameter: a test rule, a functional-core rule and std's time API
+  answer different questions); PS-TEST-26, -27 (python's threaded-test hazards). Left for `output`: PS-CONC-20
+  (one `write` per record), ZS-CONC-09 (`io.lockStderr`), RS-CONC-42 (log with a task id); the Zig
+  readers, writers, files, sockets and subprocesses (ZS-CONC-04 to -22, -44 to -49) are `output`'s or
+  no entry's, and the atomic file replacement (ZS-CONC-19, -21, RS-CLI-27, PS-CONC-03's `exists` race)
+  is for `output`/`errors`. Left for `performance`: PS-PERF-12 to -15 and ZS-PERF-18 (model by workload,
+  cache-line alignment).
 - [ ] 3.11 `output` (rust-style's `cli.md` streams and exit codes among the candidates)
 - [ ] 3.12 `performance`
 - [ ] 3.13 `migration`

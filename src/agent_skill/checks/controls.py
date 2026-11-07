@@ -515,6 +515,7 @@ MISFILED = "\n### PS-ASYNC-99 [M] Misfiled\n\nX.\n\n**Why:** y.\n\n**Check:** z.
 
 TESTING = f"{PY}/references/testing.md"
 ASYNC = f"{PY}/references/async.md"
+CONCURRENCY = f"{PY}/references/concurrency.md"
 UNSAFE = f"{RS}/references/unsafe.md"
 DATA = f"{ZS}/references/data.md"
 MANIFEST = f"{PLUGIN}/.claude-plugin/plugin.json"
@@ -564,7 +565,7 @@ def _duplicate_id(tree: Path) -> Edited:
             tree, f"{PY}/references/migration.md", "PS-MIG-08 [M]", "PS-ASYNC-01 [M]", 2
         ),
         *edit(tree, md, "`PS-MIG` (8)", "`PS-MIG` (7)"),
-        *edit(tree, md, "`PS-ASYNC` (18)", "`PS-ASYNC` (19)"),
+        *edit(tree, md, "`PS-ASYNC` (8)", "`PS-ASYNC` (9)"),
     )
 
 
@@ -2310,7 +2311,7 @@ CONTROLS: list[Control] = [
         sensitivity.NO_CHECK,
         lambda t: edit(
             t,
-            ASYNC,
+            CONCURRENCY,
             "**Check:** `rg -n 'create_task|ensure_future' src/`",
             "Look for `rg -n 'create_task|ensure_future' src/`",
         ),
@@ -2319,7 +2320,7 @@ CONTROLS: list[Control] = [
         sensitivity.NO_COMMAND,
         lambda t: edit(
             t,
-            ASYNC,
+            CONCURRENCY,
             "`rg -n 'create_task|ensure_future' src/`",
             "every `create_task` or `ensure_future` call",
         ),
@@ -2328,7 +2329,7 @@ CONTROLS: list[Control] = [
         sensitivity.NO_ANSWER,
         lambda t: edit(
             t,
-            ASYNC,
+            CONCURRENCY,
             "`rg -n 'create_task|ensure_future' src/`",
             "`rg -n 'create_task|ensure_future(' src/`",
         ),

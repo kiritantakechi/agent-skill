@@ -346,7 +346,7 @@ mod tests {
 
 ### BV-TEST-08 [M] Watch a test fail before trusting it
 
-Departs from RS-TEST-19. Break the system, run the test, see red, put it back — for every test, not
+Departs from RS-TEST-20. Break the system, run the test, see red, put it back — for every test, not
 only a regression test.
 
 **Why:** a Bevy test has more ways to pass vacuously than an ordinary one: the system was never

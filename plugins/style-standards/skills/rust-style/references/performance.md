@@ -740,7 +740,7 @@ detection and a fallback anyway. The libraries have already absorbed that comple
 fuzzed against their scalar versions for years.
 
 **Check:** is the scalar version still present and compared against in a test? Without it the SIMD
-path has no oracle; the comparison is RS-TEST-21's differential test.
+path has no oracle; the comparison is RS-TEST-22's differential test.
 
 ## Benchmarking
 

@@ -39,7 +39,7 @@ Unless a block shows its own imports, it assumes `from dataclasses import datacl
 
 `@dataclass(frozen=True, slots=True)`. Reach for a mutable one, or a plain class, only when you can
 say what it buys. One that two threads can reach is frozen, or owns a lock that every write takes
-(PS-CONC-11).
+(PS-CONC-12).
 
 **Why:** one decorator buys `__init__`, `__repr__`, `__eq__` and a field list tooling can read.
 Freezing removes the largest class of record bug — being changed by whoever you handed it to — and

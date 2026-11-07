@@ -72,8 +72,8 @@ Every rule ID a revision of this standard changed, and what it became, is in
 | `threading.RLock(…)` | raises `TypeError` given any argument; `threading.RLock()`, which never used them | gone | 3.15 | PS-MIG-04 |
 | `typing.NamedTuple(…, x=…)` | raises `TypeError` for a field given as a keyword; `class P(NamedTuple)` | gone | 3.15 | PS-MIG-04 |
 | `typing.TypedDict("…")` | raises `TypeError` given a name and no fields; `class TD(TypedDict)` | gone | 3.15 | PS-MIG-04 |
-| `asyncio.get_event_loop` | raises `RuntimeError` with no running loop; `asyncio.get_running_loop()` | changed | 3.14 | PS-ASYNC-02 |
-| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | changed | 3.15 | PS-CONC-21 |
+| `asyncio.get_event_loop` | raises `RuntimeError` with no running loop; `asyncio.get_running_loop()` | changed | 3.14 | PS-ASYNC-01 |
+| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | changed | 3.15 | PS-CONC-22 |
 | `from __future__ import annotations` | stringifies every annotation, so `annotationlib`'s `VALUE` and `FORWARDREF` return bare strings | changed | 3.14 | PS-TYPE-04 |
 | `functools.singledispatchmethod` | called through its class, dispatches on the argument after the instance | changed | 3.15 | PS-TYPE-17 |
 | `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | changed | 3.15 | PS-DATA-12 |
@@ -86,12 +86,12 @@ Every rule ID a revision of this standard changed, and what it became, is in
 | `typing.Text` | `str` | alias | 3.11 | PS-TYPE-11 |
 | `<module>.__version__` | `sys.version_info`, or `importlib.metadata.version()`; removed in 3.20 | deprecated | 3.15 | PS-MIG-05 |
 | `array.array("u")` | `array.array("w")`; removed in 3.16 | deprecated | 3.13 | PS-MIG-06 |
-| `asyncio.AbstractEventLoopPolicy` | `asyncio.Runner`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-02 |
-| `asyncio.DefaultEventLoopPolicy` | `asyncio.Runner`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-02 |
-| `asyncio.WindowsProactorEventLoopPolicy` | `loop_factory=`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-02 |
-| `asyncio.WindowsSelectorEventLoopPolicy` | `loop_factory=`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-02 |
-| `asyncio.get_event_loop_policy` | `asyncio.run(main(), loop_factory=...)`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-02 |
-| `asyncio.set_event_loop_policy` | `asyncio.run(main(), loop_factory=...)`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-02 |
+| `asyncio.AbstractEventLoopPolicy` | `asyncio.Runner`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-01 |
+| `asyncio.DefaultEventLoopPolicy` | `asyncio.Runner`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-01 |
+| `asyncio.WindowsProactorEventLoopPolicy` | `loop_factory=`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-01 |
+| `asyncio.WindowsSelectorEventLoopPolicy` | `loop_factory=`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-01 |
+| `asyncio.get_event_loop_policy` | `asyncio.run(main(), loop_factory=...)`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-01 |
+| `asyncio.set_event_loop_policy` | `asyncio.run(main(), loop_factory=...)`; removed in 3.16 | deprecated | 3.14 | PS-ASYNC-01 |
 | `collections.abc.ByteString` | `collections.abc.Buffer`; removed in 3.17 | deprecated | 3.15 | PS-TYPE-11 |
 | `profile` | `profiling.tracing`; removed in 3.17 | deprecated | 3.15 | PS-PERF-02 |
 | `shutil.ExecError` | nothing; no `shutil` function raises it; removed in 3.16 | deprecated | 3.14 | PS-MIG-06 |

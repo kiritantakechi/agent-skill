@@ -79,7 +79,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `std.io.null_writer` | `var d: std.Io.Writer.Discarding = .init(&scratch);`, then `&d.writer` | gone | 0.16 | ZS-CONC-06 |
 | `std.io.countingWriter` | `std.Io.Writer.Discarding`: its `count`, and `fullCount()` with the buffered bytes | gone | 0.15 | ZS-CONC-06 |
 | `std.io.CountingReader` | `reader.discard(limit)`, which returns the count | gone | 0.16 | ZS-CONC-06 |
-| `std.io.tty.detectConfig` | `std.Io.Terminal.Mode.detect(io, file, NO_COLOR, CLICOLOR_FORCE)`; for stderr, the `.terminal()` of `io.lockStderr(&buffer, null)` | gone | 0.16 | ZS-CONC-43 |
+| `std.io.tty.detectConfig` | `std.Io.Terminal.Mode.detect(io, file, NO_COLOR, CLICOLOR_FORCE)`; for stderr, the `.terminal()` of `io.lockStderr(&buffer, null)` | gone | 0.16 | ZS-CONC-49 |
 | `std.fifo.LinearFifo` | `std.Io.Reader` and `std.Io.Writer`, or `std.Deque(T)` | gone | 0.15 | ZS-CONC-06 |
 | `std.RingBuffer` | `std.Io.Reader` and `std.Io.Writer`, or `std.Deque(T)` | gone | 0.15 | ZS-CONC-06 |
 | `std.fmt.format` | `w.print(fmt, args)` | gone | 0.16 | ZS-CONC-06 |
@@ -119,7 +119,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `std.fs.selfExePath` | `std.process.executablePath(io, buffer)`; `selfExePathAlloc` likewise | gone | 0.16 | ZS-CONC-18 |
 | `std.fs.selfExeDirPath` | `std.process.executableDirPath(io, buffer)`; `selfExeDirPathAlloc` likewise | gone | 0.16 | ZS-CONC-18 |
 | `std.fs.getAppDataDir` | nothing in std | gone | 0.16 | ZS-CONC-18 |
-| `std.net` | `std.Io.net` | gone | 0.16 | ZS-CONC-38 |
+| `std.net` | `std.Io.net` | gone | 0.16 | ZS-CONC-44 |
 | `error.RenameAcrossMountPoints` | `error.CrossDevice`, as is `error.NotSameFileSystem`: std returns neither name, so a comparison with it is never true | changed | 0.16 | ZS-ERR-08 |
 | `error.SharingViolation` | `error.FileBusy`: std returns the old name no more, so a comparison with it is never true | changed | 0.16 | ZS-ERR-08 |
 | `error.EnvironmentVariableNotFound` | `error.EnvironmentVariableMissing`: std returns the old name no more, so a comparison with it is never true | changed | 0.16 | ZS-ERR-08 |
@@ -190,29 +190,29 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `std.process.getEnvVarOwned` | `init.environ_map.get(key)`, a borrowed `?[]const u8`; or `try init.minimal.environ.getAlloc(gpa, key)`, which the caller frees and which fails with `error.EnvironmentVariableMissing` | gone | 0.16 | ZS-MEM-01 |
 | `std.posix.getenv` | `init.environ_map.get(key)`; on POSIX, `init.minimal.environ.getPosix(key)`, a `?[:0]const u8` read without allocating | gone | 0.16 | ZS-MEM-01 |
 | `std.process.hasEnvVar` | `init.environ_map.contains(key)`, or `try init.minimal.environ.contains(gpa, key)`; `hasEnvVarConstant(key)` is `init.minimal.environ.containsConstant(key)` | gone | 0.16 | ZS-MEM-01 |
-| `std.ChildProcess` | `std.process.spawn(io, .{ .argv = …, .stdout = .pipe })` | gone | 0.13 | ZS-CONC-41 |
-| `std.process.Child.init` | `std.process.spawn(io, .{ .argv = …, .stdout = .pipe })`, which spawns as well | gone | 0.16 | ZS-CONC-41 |
-| `std.process.Child.run` | `std.process.run(gpa, io, options)` | gone | 0.16 | ZS-CONC-41 |
-| `std.process.execv` | `std.process.replace(io, .{ .argv = … })` | gone | 0.16 | ZS-CONC-41 |
-| `std.process.spawnPath` | `std.process.spawn(io, .{ .exe = .{ .path = dir }, … })`; `replacePath` is `replace` with the same `.exe` | gone | 0.17 | ZS-CONC-41 |
-| `std.Thread.Mutex` | `std.Io.Mutex` | gone | 0.16 | ZS-CONC-29 |
-| `std.Thread.Condition` | `std.Io.Condition` | gone | 0.16 | ZS-CONC-29 |
-| `std.Thread.ResetEvent` | `std.Io.Event` | gone | 0.16 | ZS-CONC-29 |
-| `std.Thread.Semaphore` | `std.Io.Semaphore` | gone | 0.16 | ZS-CONC-29 |
-| `std.Thread.RwLock` | `std.Io.RwLock` | gone | 0.16 | ZS-CONC-29 |
-| `std.Thread.Futex` | `io.futexWait` and `io.futexWake`; there is no `Io.Futex` type | gone | 0.16 | ZS-CONC-29 |
+| `std.ChildProcess` | `std.process.spawn(io, .{ .argv = …, .stdout = .pipe })` | gone | 0.13 | ZS-CONC-47 |
+| `std.process.Child.init` | `std.process.spawn(io, .{ .argv = …, .stdout = .pipe })`, which spawns as well | gone | 0.16 | ZS-CONC-47 |
+| `std.process.Child.run` | `std.process.run(gpa, io, options)` | gone | 0.16 | ZS-CONC-47 |
+| `std.process.execv` | `std.process.replace(io, .{ .argv = … })` | gone | 0.16 | ZS-CONC-47 |
+| `std.process.spawnPath` | `std.process.spawn(io, .{ .exe = .{ .path = dir }, … })`; `replacePath` is `replace` with the same `.exe` | gone | 0.17 | ZS-CONC-47 |
+| `std.Thread.Mutex` | `std.Io.Mutex` | gone | 0.16 | ZS-CONC-30 |
+| `std.Thread.Condition` | `std.Io.Condition` | gone | 0.16 | ZS-CONC-30 |
+| `std.Thread.ResetEvent` | `std.Io.Event` | gone | 0.16 | ZS-CONC-30 |
+| `std.Thread.Semaphore` | `std.Io.Semaphore` | gone | 0.16 | ZS-CONC-30 |
+| `std.Thread.RwLock` | `std.Io.RwLock` | gone | 0.16 | ZS-CONC-30 |
+| `std.Thread.Futex` | `io.futexWait` and `io.futexWake`; there is no `Io.Futex` type | gone | 0.16 | ZS-CONC-30 |
 | `std.Thread.WaitGroup` | `std.Io.Group` | gone | 0.16 | ZS-CONC-25 |
 | `std.Thread.Pool` | `io.async` and `Io.Group`; `Io.Threaded`'s `async_limit` is the pool size | gone | 0.16 | ZS-CONC-25 |
-| `std.once` | nothing in std | gone | 0.16 | ZS-CONC-29 |
-| `std.time.Timer` | `std.Io.Timestamp`, read from an `Io.Clock`; `std.time` holds unit constants and `epoch` | gone | 0.16 | ZS-CONC-32 |
-| `std.time.Instant` | `std.Io.Timestamp` | gone | 0.16 | ZS-CONC-32 |
-| `std.time.timestamp` | `std.Io.Timestamp.now(io, clock)`; `milliTimestamp` and `nanoTimestamp` likewise | gone | 0.16 | ZS-CONC-32 |
-| `std.time.sleep` | `io.sleep(duration, clock)`, the duration an `Io.Duration` such as `.fromMilliseconds(10)` | gone | 0.15 | ZS-CONC-32 |
-| `std.crypto.random` | `io.random(&buffer)`, or `io.randomSecure(&buffer)` where the entropy must be guaranteed | gone | 0.16 | ZS-TEST-19 |
-| `std.posix.getrandom` | `io.random(&buffer)`, or `io.randomSecure(&buffer)` | gone | 0.16 | ZS-TEST-19 |
-| `crypto_always_getrandom` | nothing: `io.randomSecure`; `crypto_fork_safety` likewise | gone | 0.16 | ZS-TEST-19 |
-| `std.rand` | `std.Random` | gone | 0.14 | ZS-TEST-19 |
-| `std.testing.refAllDeclsRecursive` | `std.testing.refAllDecls` in each file, or `comptime { _ = @import(…); }` in the module root | gone | 0.16 | ZS-TEST-28 |
+| `std.once` | nothing in std | gone | 0.16 | ZS-CONC-30 |
+| `std.time.Timer` | `std.Io.Timestamp`, read from an `Io.Clock`; `std.time` holds unit constants and `epoch` | gone | 0.16 | ZS-CONC-33 |
+| `std.time.Instant` | `std.Io.Timestamp` | gone | 0.16 | ZS-CONC-33 |
+| `std.time.timestamp` | `std.Io.Timestamp.now(io, clock)`; `milliTimestamp` and `nanoTimestamp` likewise | gone | 0.16 | ZS-CONC-33 |
+| `std.time.sleep` | `io.sleep(duration, clock)`, the duration an `Io.Duration` such as `.fromMilliseconds(10)` | gone | 0.15 | ZS-CONC-33 |
+| `std.crypto.random` | `io.random(&buffer)`, or `io.randomSecure(&buffer)` where the entropy must be guaranteed | gone | 0.16 | ZS-TEST-20 |
+| `std.posix.getrandom` | `io.random(&buffer)`, or `io.randomSecure(&buffer)` | gone | 0.16 | ZS-TEST-20 |
+| `crypto_always_getrandom` | nothing: `io.randomSecure`; `crypto_fork_safety` likewise | gone | 0.16 | ZS-TEST-20 |
+| `std.rand` | `std.Random` | gone | 0.14 | ZS-TEST-20 |
+| `std.testing.refAllDeclsRecursive` | `std.testing.refAllDecls` in each file, or `comptime { _ = @import(…); }` in the module root | gone | 0.16 | ZS-TEST-29 |
 | `std.debug.captureStackTrace` | `std.debug.captureCurrentStackTrace(options, addresses)` | gone | 0.16 | ZS-ERR-31 |
 | `std.debug.dumpStackTraceFromBase` | `std.debug.dumpCurrentStackTrace(options)`, which takes a `StackUnwindOptions` where it took a start address | gone | 0.16 | ZS-ERR-31 |
 | `std.debug.walkStackWindows` | `std.debug.captureCurrentStackTrace`; `writeStackTraceWindows` is `writeCurrentStackTrace` | gone | 0.16 | ZS-ERR-31 |
@@ -299,7 +299,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `path.resolveWindows` | `path.resolveAllocWindows` | alias | 0.17 | ZS-MIG-01 |
 | `path.relativePosix` | `path.relativeAllocPosix` | alias | 0.17 | ZS-MIG-01 |
 | `path.relativeWindows` | `path.relativeAllocWindows` | alias | 0.17 | ZS-MIG-01 |
-| `std.Uri.getHost` | `std.Io.net.HostName.fromUri(uri, &buffer)`, which validates the name | gone | 0.17 | ZS-CONC-38 |
+| `std.Uri.getHost` | `std.Io.net.HostName.fromUri(uri, &buffer)`, which validates the name | gone | 0.17 | ZS-CONC-44 |
 | `std.gpu` | `std.spirv` | gone | 0.17 | ZS-MIG-01 |
 | `isAARCH64` | `isAarch64` | alias | 0.17 | ZS-INTEROP-18 |
 | `isMIPS` | `isMips` | alias | 0.17 | ZS-INTEROP-18 |

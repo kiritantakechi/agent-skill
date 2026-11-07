@@ -48,29 +48,27 @@ concurrent".
 
 - **Async fundamentals**
   - RS-CONC-28 [M] Await, spawn or join every future you create
-  - RS-CONC-29 [M] Keep libraries runtime-agnostic where possible
-  - RS-CONC-30 [M] Do not block in async
-  - RS-CONC-31 [M] Implement `Future` by hand only for a leaf primitive
-  - RS-CONC-32 [M] Decide explicitly whether your trait needs `Send` futures
-  - RS-CONC-33 [M] Make a future that can be dropped mid-flight correct at every `.await`
-  - RS-CONC-34 [M] Do not `select!` over branches that lose data on cancellation
-  - RS-CONC-35 [M] Apply a caller-supplied timeout at every boundary that can hang
+  - RS-CONC-29 [M] Do not block in async
+  - RS-CONC-30 [M] Implement `Future` by hand only for a leaf primitive
+  - RS-CONC-31 [M] Decide explicitly whether your trait needs `Send` futures
+  - RS-CONC-32 [M] Make a future that can be dropped mid-flight correct at every `.await`
+  - RS-CONC-33 [M] Do not `select!` over branches that lose data on cancellation
+  - RS-CONC-34 [M] Apply a caller-supplied timeout at every boundary that can hang
 
 - **Data parallelism**
-  - RS-CONC-36 [S] Reach for `rayon` — it is the highest return-on-effort parallelism in Rust
-  - RS-CONC-37 [M] Parallelize at a coarse granularity
-  - RS-CONC-38 [M] Keep the closure passed to a parallel iterator pure
-  - RS-CONC-39 [M] Reorder or serialize parallel output deliberately
+  - RS-CONC-35 [S] Reach for `rayon` — it is the highest return-on-effort parallelism in Rust
+  - RS-CONC-36 [M] Parallelize at a coarse granularity
+  - RS-CONC-37 [M] Keep the closure passed to a parallel iterator pure
+  - RS-CONC-38 [M] Reorder or serialize parallel output deliberately
 
 - **Testing and debugging**
-  - RS-CONC-40 [M] Test a hand-written synchronization algorithm with `loom`
-  - RS-CONC-41 [M] Run code with `unsafe` sharing under ThreadSanitizer before every release
-  - RS-CONC-42 [M] Make concurrency tests deterministic — no `sleep`
-  - RS-CONC-43 [S] Stress-test beyond core count, behind `#[ignore]`
-  - RS-CONC-44 [M] Log with a task or thread identifier
-  - RS-CONC-45 [S] Reproduce deadlocks by capturing backtraces, not by reasoning
-  - RS-CONC-46 [M] Give every task a parent that outlives it and joins it
-  - RS-CONC-47 [M] Document the threading contract of every public type
+  - RS-CONC-39 [M] Test a hand-written synchronization algorithm with `loom`
+  - RS-CONC-40 [M] Run code with `unsafe` sharing under ThreadSanitizer before every release
+  - RS-CONC-41 [S] Stress-test beyond core count, behind `#[ignore]`
+  - RS-CONC-42 [M] Log with a task or thread identifier
+  - RS-CONC-43 [S] Reproduce deadlocks by capturing backtraces, not by reasoning
+  - RS-CONC-44 [M] Give every task a parent that outlives it and joins it
+  - RS-CONC-45 [M] Document the threading contract of every public type
 
 - Decided by tools
 
@@ -224,14 +222,16 @@ pub fn sum_partitioned(values: &[u64], workers: usize) -> u64 {
 ### RS-CONC-07 [M] Keep the concurrency at one layer, ideally the top
 
 A library that spawns its own threads or requires a specific runtime constrains every application
-that uses it. Offer a synchronous API and let the caller parallelize (RS-CONC-29).
+that uses it. Offer a synchronous API and let the caller parallelize. Where the library must be
+async, keep it runtime-agnostic: depend on `futures`/`std` traits rather than `tokio` internals, and
+gate runtime-specific code behind features.
 
-**Why:** the application knows its own thread budget and runtime; the library does not. A library
-that spawns threads cannot be used inside another parallel context without oversubscribing, and one
-that requires a runtime cannot be used outside it at all.
+**Why:** the application knows its own thread budget and runtime; the library does not. One that
+spawns threads oversubscribes inside another parallel context, and one that requires a runtime
+cannot be used outside it, since two runtimes cannot generally coexist.
 
 **Check:** does the library spawn threads or require a runtime? If so, can the parallelism be lifted
-to the caller?
+to the caller, or the runtime dependency feature-gated?
 
 ### RS-CONC-08 [M] Decide the parallelism model before writing the data structures
 
@@ -655,7 +655,7 @@ testing cannot observe, and peer-reviewed algorithms have shipped with bugs foun
 libraries have been verified with `loom` and used at scale.
 
 **Check:** is there hand-written `compare_exchange` in the crate? If so, is it a published
-algorithm, and is it `loom`-tested (RS-CONC-40)? A retry loop that only recomputes one value is an
+algorithm, and is it `loom`-tested (RS-CONC-39)? A retry loop that only recomputes one value is an
 `update` or `try_update` call (RS-CONC-25).
 
 ### RS-CONC-27 [M] Use `OnceLock`/`LazyLock` for lazily initialized globals
@@ -708,20 +708,7 @@ pub async fn doubled(value: u32) -> u32 {
 }
 ```
 
-### RS-CONC-29 [M] Keep libraries runtime-agnostic where possible
-
-Libraries should be runtime-agnostic where possible: depend on `futures`/`std` traits rather than
-`tokio` internals, and gate runtime-specific code behind features. A library that hard-requires one
-runtime excludes half the ecosystem.
-
-**Why:** the runtime is an application-level choice, and two runtimes cannot generally coexist. A
-library that picks one makes itself unusable to everyone who picked the other, for a dependency the
-library did not need to expose.
-
-**Check:** does the library depend on a runtime unconditionally? If so, can the dependency be
-feature-gated?
-
-### RS-CONC-30 [M] Do not block in async
+### RS-CONC-29 [M] Do not block in async
 
 A synchronous file read, a `std::sync` lock held across a poll, or a CPU-bound loop stalls the whole
 executor thread. Use `spawn_blocking` for blocking work and the async equivalents for I/O.
@@ -733,7 +720,7 @@ runtime deadlocks.
 **Check:** does an async body call `std::fs`, `std::net` or `thread::sleep`, or lock a
 `std::sync::Mutex`? Each stalls the executor thread.
 
-### RS-CONC-31 [M] Implement `Future` by hand only for a leaf primitive
+### RS-CONC-30 [M] Implement `Future` by hand only for a leaf primitive
 
 Everything else is an `async fn` or an `impl Future` the compiler generates. A hand-written `Future`
 respects the contract: it registers the waker on every `Pending` return.
@@ -745,7 +732,7 @@ never wakes — a hang with no diagnostic.
 **Check:** for each manual `impl Future`, confirm every `Pending` path registered the waker first.
 Test one without a runtime: `pin!` it and poll it with `Context::from_waker(Waker::noop())`.
 
-### RS-CONC-32 [M] Decide explicitly whether your trait needs `Send` futures
+### RS-CONC-31 [M] Decide explicitly whether your trait needs `Send` futures
 
 `async fn` in traits does not produce a `Send` future automatically, and is not dyn-compatible.
 Decide explicitly whether your trait needs `Send` futures — `trait_variant`, an explicit
@@ -771,7 +758,7 @@ pub trait Fetch {
 }
 ```
 
-### RS-CONC-33 [M] Make a future that can be dropped mid-flight correct at every `.await`
+### RS-CONC-32 [M] Make a future that can be dropped mid-flight correct at every `.await`
 
 Cancellation in async is a drop, at whichever `.await` the future is suspended. A future that can be
 dropped before it completes — inside a `select!`, under a `timeout`, or in a task that can be
@@ -785,10 +772,10 @@ data silently.
 **Check:** for each `.await` in a function holding state, ask what happens if the future is dropped
 there. Is the state still consistent?
 
-### RS-CONC-34 [M] Do not `select!` over branches that lose data on cancellation
+### RS-CONC-33 [M] Do not `select!` over branches that lose data on cancellation
 
 Do not use `select!` with branches that lose data on cancellation (a partially consumed read, a
-half-sent message) unless the future is documented as cancel-safe (RS-CONC-33). Prefer a loop over a
+half-sent message) unless the future is documented as cancel-safe (RS-CONC-32). Prefer a loop over a
 channel with an explicit shutdown signal.
 
 **Why:** `select!` drops the losing branches, so any partial progress inside them is discarded. With
@@ -797,7 +784,7 @@ a buffered read that means silently dropped bytes, which shows up much later as 
 **Check:** for each `select!` branch, is the future documented as cancel-safe? `tokio` documents
 this per-method; anything undocumented should be assumed unsafe to cancel.
 
-### RS-CONC-35 [M] Apply a caller-supplied timeout at every boundary that can hang
+### RS-CONC-34 [M] Apply a caller-supplied timeout at every boundary that can hang
 
 Apply timeouts at the boundary of any operation that can hang — network, IPC, subprocess — and make
 the timeout a parameter, not a constant buried in the implementation.
@@ -811,7 +798,7 @@ mitigation.
 
 ## Data parallelism
 
-### RS-CONC-36 [S] Reach for `rayon` — it is the highest return-on-effort parallelism in Rust
+### RS-CONC-35 [S] Reach for `rayon` — it is the highest return-on-effort parallelism in Rust
 
 `rayon` turns a functional pipeline into a parallel one by changing `iter()` to `par_iter()`. This
 is the highest return-on-effort parallelism available in Rust, and it is available only because the
@@ -826,7 +813,7 @@ for writing pipelines rather than loops.
 If so, `par_iter` is nearly free. If `par_iter()` would not compile, what state is shared — and does
 it need to be?
 
-### RS-CONC-37 [M] Parallelize at a coarse granularity
+### RS-CONC-36 [M] Parallelize at a coarse granularity
 
 `par_iter()` over a million one-microsecond items spends its time in the scheduler; chunk first
 (`par_chunks`, `with_min_len`).
@@ -836,7 +823,7 @@ parallel version slower than the sequential one. Chunking amortizes it across ma
 
 **Check:** estimate the per-item cost. Below roughly a microsecond, chunk before parallelizing.
 
-### RS-CONC-38 [M] Keep the closure passed to a parallel iterator pure
+### RS-CONC-37 [M] Keep the closure passed to a parallel iterator pure
 
 Shared mutation inside means locks, which serialize exactly the thing you parallelized; use `map`
 plus `reduce`/`fold` with an identity instead.
@@ -848,7 +835,7 @@ without any shared state.
 **Check:** does the closure capture anything by mutable reference or take a lock? Both defeat the
 parallelism.
 
-### RS-CONC-39 [M] Reorder or serialize parallel output deliberately
+### RS-CONC-38 [M] Reorder or serialize parallel output deliberately
 
 Parallel output must be reordered or serialized deliberately. Either collect in order
 (`par_iter().map(..).collect::<Vec<_>>()` preserves order) or funnel through a single writer —
@@ -883,7 +870,7 @@ pub fn lengths(inputs: &[String]) -> Vec<usize> {
 
 ## Testing and debugging
 
-### RS-CONC-40 [M] Test a hand-written synchronization algorithm with `loom`
+### RS-CONC-39 [M] Test a hand-written synchronization algorithm with `loom`
 
 A lock-free structure or synchronization primitive you write yourself, rather than assemble from
 `std` and `crossbeam` used in the obvious way, has `loom` tests: `loom` explores interleavings
@@ -896,7 +883,7 @@ interleavings instead of sampling them.
 
 **Check:** for each hand-written synchronization primitive, is there a `loom` test?
 
-### RS-CONC-41 [M] Run code with `unsafe` sharing under ThreadSanitizer before every release
+### RS-CONC-40 [M] Run code with `unsafe` sharing under ThreadSanitizer before every release
 
 CI runs it on every push; where the sanitized run outgrows CI's time, it runs on a schedule and
 before every release, and never having run it is the finding. Miri, for the `unsafe` itself, is
@@ -908,22 +895,11 @@ happens-before relation rather than the outcome. That is a categorically stronge
 
 **Check:** does CI run the suite under ThreadSanitizer?
 
-### RS-CONC-42 [M] Make concurrency tests deterministic — no `sleep`
-
-Make concurrency tests deterministic: fixed seeds, injected clocks, and explicit synchronization
-points instead of `sleep`. A test that sleeps to "let the thread finish" is a flake with a timer.
-
-**Why:** a sleep encodes an assumption about timing that holds on your machine and fails on a loaded
-CI runner. The resulting flake is then "fixed" by increasing the sleep, which makes the suite slower
-without making it correct (RS-TEST-16).
-
-**Check:** does a test call `sleep`? Each wants a barrier, a channel, or a condvar instead.
-
-### RS-CONC-43 [S] Stress-test beyond core count, behind `#[ignore]`
+### RS-CONC-41 [S] Stress-test beyond core count, behind `#[ignore]`
 
 Stress-test with more threads than cores and with a loop count high enough to shake out races, but
 keep that test behind `#[ignore = "stress test: run with --ignored"]` or a feature so the fast suite
-stays fast (RS-TEST-32). The reason is not optional: clippy's `ignore_without_reason` (pedantic)
+stays fast (RS-TEST-33). The reason is not optional: clippy's `ignore_without_reason` (pedantic)
 rejects a bare `#[ignore]`.
 
 **Why:** oversubscription forces preemption at points a well-behaved run never reaches, which is
@@ -931,7 +907,7 @@ what makes rare interleavings appear. It is also slow, so it belongs outside the
 
 **Check:** is there a stress test, and is it excluded from the default run?
 
-### RS-CONC-44 [M] Log with a task or thread identifier
+### RS-CONC-42 [M] Log with a task or thread identifier
 
 Interleaved logs without one are unreadable, and `tracing` spans exist precisely to solve this.
 
@@ -942,7 +918,7 @@ debugging job.
 **Check:** does a log line identify which worker produced it? If not, concurrent logs cannot be
 read.
 
-### RS-CONC-45 [S] Reproduce deadlocks by capturing backtraces, not by reasoning
+### RS-CONC-43 [S] Reproduce deadlocks by capturing backtraces, not by reasoning
 
 Reproduce deadlocks by capturing all thread backtraces (`gdb -p`, `rust-gdb`, `tokio-console` for
 async) rather than by reasoning. The stacks name the two locks.
@@ -954,7 +930,7 @@ possible orderings is a search.
 **Check:** when a hang occurs, was a backtrace captured before restarting? Restarting destroys the
 evidence.
 
-### RS-CONC-46 [M] Give every task a parent that outlives it and joins it
+### RS-CONC-44 [M] Give every task a parent that outlives it and joins it
 
 `thread::scope`, task groups, and `JoinSet` all encode a parent responsible for each task's
 shutdown; bare `spawn`-and-forget does not.
@@ -994,7 +970,7 @@ impl Workers {
 }
 ```
 
-### RS-CONC-47 [M] Document the threading contract of every public type
+### RS-CONC-45 [M] Document the threading contract of every public type
 
 State whether it is `Send`, whether it is `Sync`, whether methods may be called concurrently, and
 whether it spawns anything. Users cannot infer this from the type signature alone, and getting it
@@ -1035,4 +1011,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| clippy | `unused_async` | warn | an `async fn` that never awaits — listed because an `async fn` that never awaits colours every caller for nothing (RS-CONC-03), the rule a revision demoted to it |
+| clippy | `unused_async` | warn | an `async fn` that never awaits — listed because an `async fn` that never awaits colours every caller for nothing, the rule a revision demoted to it |

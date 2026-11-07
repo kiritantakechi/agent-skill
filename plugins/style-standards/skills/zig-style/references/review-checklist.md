@@ -82,7 +82,7 @@ Run these before reading anything, and report what could not be run rather than 
 zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .  # ZS-BUILD-22
 zig build check                       # semantic check, no binary emitted
 zig build test                        # debug
-zig build test -Doptimize=safe        # ZS-TEST-31: the suite must pass in both
+zig build test -Doptimize=safe        # ZS-TEST-32: the suite must pass in both
 zig build test-integration
 zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-24)
 ```

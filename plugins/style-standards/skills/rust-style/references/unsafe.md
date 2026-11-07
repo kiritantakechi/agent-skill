@@ -273,12 +273,12 @@ pub fn first_index(haystack: &str, needle: char) -> Option<usize> {
 ### RS-UNSAFE-10 [M!] Write the safe version first, keep it, and test the two against each other
 
 Write the safe version first, test it, keep it, and gate the `unsafe` version behind a feature with
-a differential test proving they agree (RS-TEST-21).
+a differential test proving they agree (RS-TEST-22).
 
 *Relaxed form:* keep the safe version in a test rather than behind a feature flag. What matters is
 that an independent implementation exists to disagree with the fast one.
 
-**Why:** the safe implementation is the specification and the oracle (RS-TEST-21), and in `unsafe`
+**Why:** the safe implementation is the specification and the oracle (RS-TEST-22), and in `unsafe`
 code the disagreement it catches is memory corruption, not a wrong answer.
 
 **Check:** is there a test that runs both implementations on the same input and compares? If the
@@ -501,7 +501,7 @@ impl<T> ThreadBound<T> {
 
 Variance mistakes are silent unsoundness. If your type contains a raw pointer, decide deliberately
 whether it should be covariant, contravariant, or invariant, and add a `compile_fail` test pinning
-the decision (RS-TEST-30). Pin every other forbidden misuse the same way, such as a `Send` the type
+the decision (RS-TEST-31). Pin every other forbidden misuse the same way, such as a `Send` the type
 must not have.
 
 **Why:** variance is inferred from the fields and an auto trait from their types, so an innocuous
@@ -799,7 +799,7 @@ on a schedule and before every release, and never having run it is the finding. 
 produces correct behaviour on your machine today and a crash on a user's machine next year. Keep
 secrets out of the Miri job's environment, and out of any job that writes a `target/` cache a pull
 request can read. A hand-rolled concurrent structure also runs under `loom` or ThreadSanitizer
-(RS-CONC-40).
+(RS-CONC-39).
 
 **Why:** Miri is an interpreter that checks the rules the optimizer assumes — aliasing, provenance,
 alignment, initialization. It finds the class of bug that testing cannot, because testing observes

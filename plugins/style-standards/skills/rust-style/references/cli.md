@@ -301,7 +301,7 @@ flags.
 Long-running work belongs behind a trait or a callback so the CLI layer can be tested without doing
 it. A CLI whose only test is "run the binary" has no fast tests.
 
-**Why:** end-to-end tests are necessary (RS-TEST-28) but too slow to run per keystroke. A seam
+**Why:** end-to-end tests are necessary (RS-TEST-29) but too slow to run per keystroke. A seam
 between "decide what to do" and "do it" gives you fast tests for the decisions, which is where most
 of the bugs are.
 
@@ -347,7 +347,7 @@ directories. Print them with `Path::display` or `OsStr::display`, never `{:?}`, 
 Forcing `String` makes the tool fail on exactly the files the user most needs a tool for, and the
 failure looks like the tool is broken rather than opinionated.
 
-**Check:** is any path-shaped argument typed `String`? Test with a non-UTF-8 filename (RS-TEST-28).
+**Check:** is any path-shaped argument typed `String`? Test with a non-UTF-8 filename (RS-TEST-29).
 
 ```rust
 // verified

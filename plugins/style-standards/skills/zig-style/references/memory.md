@@ -6,9 +6,9 @@ slice means), `errdefer` on a construction in progress, pointer-invalidation tra
 alignment, raw memory copies, and the graduated ladder from "allocate freely" to TigerStyle's "no
 allocation after startup". Error-set design, `try`/`catch` selection, `unreachable`-versus-error,
 `defer` directly after an acquisition (ZS-ERR-11) and a `deinit` that cannot fail (ZS-ERR-16) are
-the errors chapter's; `Io.Reader`/`Io.Writer` buffer sizing is ZS-CONC-10 and ZS-CONC-37; assertion
+the errors chapter's; `Io.Reader`/`Io.Writer` buffer sizing is ZS-CONC-10 and ZS-CONC-43; assertion
 density and bounded loops are the assertions chapter's; `MultiArrayList` layout choices are
-ZS-DATA-22; allocation-failure testing is ZS-TEST-17.
+ZS-DATA-22; allocation-failure testing is ZS-TEST-18.
 
 Every example assumes a file opening with `const std = @import("std");` and
 `const assert = std.debug.assert;` — assertions are called bare, per ZS-ASSERT-01.

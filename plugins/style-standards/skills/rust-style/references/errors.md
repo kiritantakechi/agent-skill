@@ -648,7 +648,7 @@ returning `1` for a usage error — breaks `set -e` pipelines in ways that are v
 the other side.
 
 **Check:** are the codes documented in `--help` and the man page, and covered by an end-to-end test
-(RS-TEST-28)?
+(RS-TEST-29)?
 
 ```rust
 // verified

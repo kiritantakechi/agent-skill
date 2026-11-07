@@ -291,7 +291,7 @@ expansion the generated code. `CONTRIBUTING.md` says how to run `cargo expand`.
 
 **Why:** a macro's messages and its expansion are both interface, and both regress silently:
 reordering arms turns a good message into the default one, and a refactor changes the shipped code
-with every test green (RS-TEST-30, RS-TEST-25).
+with every test green (RS-TEST-31, RS-TEST-26).
 
 **Check:** is there a `tests/ui/` directory with a `.stderr` file per failure case, and a snapshot
 of one representative expansion, reviewed rather than auto-accepted?

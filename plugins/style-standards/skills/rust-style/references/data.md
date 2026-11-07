@@ -239,7 +239,7 @@ an equal one, a `BTreeMap` loses entries, `BTreeMap::append` may panic, and a de
 beside a derived `Ord` answers with `cmp`, not with each field's `partial_cmp`.
 
 **Check:** if you hand-implement one of the four, review all four in the same commit. Property-test
-the laws (RS-TEST-20).
+the laws (RS-TEST-21).
 
 ```rust
 // verified

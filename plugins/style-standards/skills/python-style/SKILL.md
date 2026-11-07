@@ -73,7 +73,7 @@ proceed with the stricter reading.
 
 | Old | Python 3.15 | Rule |
 |---|---|---|
-| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | PS-CONC-21 |
+| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | PS-CONC-22 |
 | `functools.singledispatchmethod` | called through its class, dispatches on the argument after the instance | PS-TYPE-17 |
 | `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | PS-DATA-12 |
 | `locale.getpreferredencoding` | `'utf-8'` under UTF-8 mode, whatever the locale; `locale.getencoding()` | PS-OUT-03 |
@@ -150,9 +150,9 @@ value.
 - Unpacking in a comprehension (PEP 798), `[*sub for sub in lists]`, in place of `sum(lists, [])`
   (PS-PERF-06).
 - `threading.serialize_iterator`, `concurrent_tee` and `synchronized_iterator`, for an iterator
-  threads share (PS-CONC-12, PS-CONC-13, PS-CONC-14).
+  threads share (PS-CONC-13, PS-CONC-14, PS-CONC-15).
 - The `profiling` package (PEP 799): `profiling.tracing` and `profiling.sampling` (PS-PERF-02).
-- `TaskGroup.cancel()`, which ends a group without an exception (PS-ASYNC-04).
+- `TaskGroup.cancel()`, which ends a group without an exception (PS-ASYNC-02).
 - `sys.abi_info.free_threaded`, which says how the interpreter was built (PS-CONC-01).
 
 ## 3. Design principles
@@ -214,17 +214,16 @@ name it costs.
   - PS-ERR-11 [M] Use `except*` for a group, and never mix it with `except`
   - PS-ERR-13 [M] Never `return`, `break` or `continue` inside `finally`
   - PS-ERR-16 [M] Reject at the top with a guard, then proceed unindented
-- **Concurrency: Threads Without the GIL, Shared State, Iterators, Caches, and Context**
+- **Concurrency: Threads, Tasks, Shared State, Cancellation, Iterators, Caches, and Context**
   - PS-CONC-01 [M] Probe the build with `sys.abi_info` and the runtime with `sys._is_gil_enabled`
   - PS-CONC-02 [M] Never treat a compound assignment as one step
   - PS-CONC-03 [M] Never treat check-then-act as one step
-  - PS-CONC-12 [M] Serialise a shared iterator with `threading.serialize_iterator`
-  - PS-CONC-15 [M] Never rely on `lru_cache` or `cached_property` to run a body once
-  - PS-CONC-19 [M] Write each record to a shared text stream in one call, never with `print`
-- **Async: Tasks, Cancellation, Lifecycle, and the Thread Boundary**
-  - PS-ASYNC-03 [M] Start every task inside a `TaskGroup`
-  - PS-ASYNC-05 [M] Never swallow `CancelledError`
-  - PS-ASYNC-08 [M] Give every wait a timeout, with `asyncio.timeout`
+  - PS-CONC-13 [M] Serialise a shared iterator with `threading.serialize_iterator`
+  - PS-CONC-16 [M] Never rely on `lru_cache` or `cached_property` to run a body once
+  - PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
+  - PS-CONC-25 [M] Start every task inside a `TaskGroup`
+  - PS-CONC-26 [M] Never swallow `CancelledError`
+  - PS-CONC-29 [M] Give every wait a timeout, with `asyncio.timeout`
 - **Output: Encoding, Interpolation, Logging, and Program Output**
   - PS-OUT-01 [M] Pass `encoding=` explicitly to every text open
   - PS-OUT-02 [M] Never assume UTF-8 mode moved only `open`
@@ -266,7 +265,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-254 rules live here; section 4 lists by ID those that bind on their own.
+253 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -274,8 +273,8 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/types.md` | `PS-TYPE` (24) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, what 3.15 adds, and interfaces and generics |
 | `references/data.md` | `PS-DATA` (16) | Choosing between dataclass, enum and TypedDict, fields and defaults, immutability, validity, and the symmetry of a data type |
 | `references/errors.md` | `PS-ERR` (21) | Designing an exception hierarchy, raising and catching, `except*`, `finally` after PEP 765, and the control-flow shapes that keep a function readable |
-| `references/concurrency.md` | `PS-CONC` (22) | What the GIL guaranteed and no longer does, sharing objects between threads, iterators and generators, caches and context, streams and hold times |
-| `references/async.md` | `PS-ASYNC` (18) | Entering and leaving a loop, owning tasks with `TaskGroup`, cancellation and timeouts, not blocking the loop, and the thread boundary |
+| `references/concurrency.md` | `PS-CONC` (31) | What the GIL guaranteed and no longer does, sharing objects between threads, iterators and generators, caches and context, streams and hold times, starting and owning tasks, cancellation and timeouts, and not blocking the loop |
+| `references/async.md` | `PS-ASYNC` (8) | What only `asyncio` has: the policy API, ending a `TaskGroup` early, the thread boundary of a loop, and async resources and iterators |
 | `references/output.md` | `PS-OUT` (18) | Encoding and UTF-8 mode, interpolation and template strings, logging discipline, and the difference between program output and diagnostics |
 | `references/performance.md` | `PS-PERF` (17) | Measuring with the 3.15 profiling package, complexity before constants, allocation, and what the free-threaded build costs |
 | `references/api.md` | `PS-API` (19) | Declaring the public surface, re-export and `py.typed`, signature and default discipline, the pairs and siblings a surface keeps alike, and evolving without breaking |

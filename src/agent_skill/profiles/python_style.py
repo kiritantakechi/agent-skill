@@ -100,9 +100,9 @@ PROFILE = Profile(
                 "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
             ),
             "PS-API-06": ("from acmewidget._internal import helper",),
-            "PS-ASYNC-01": ("loop = asyncio.new_event_loop()",),
-            "PS-ASYNC-02": ("loop = asyncio.get_event_loop()",),
-            "PS-ASYNC-03": ("task = asyncio.create_task(worker())",),
+            "PS-CONC-24": ("loop = asyncio.new_event_loop()",),
+            "PS-ASYNC-01": ("loop = asyncio.get_event_loop()",),
+            "PS-CONC-25": ("task = asyncio.create_task(worker())",),
             # The pattern carried a stray space for as long as it
             # shipped, and matched nothing; this is the line it was
             # written to find.
@@ -115,12 +115,12 @@ PROFILE = Profile(
     # `sensitivity` insists on, so the list only shrinks.
     unproven=rules(
         "PS-MOD-09",
+        "PS-ASYNC-02",
+        "PS-CONC-26",
         "PS-ASYNC-04",
         "PS-ASYNC-05",
-        "PS-ASYNC-13",
-        "PS-ASYNC-14",
-        "PS-ASYNC-15",
-        "PS-ASYNC-18",
+        "PS-ASYNC-06",
+        "PS-ASYNC-08",
         "PS-BUILD-03",
         "PS-BUILD-04",
         "PS-BUILD-09",
@@ -133,14 +133,14 @@ PROFILE = Profile(
         "PS-CONC-07",
         "PS-CONC-08",
         "PS-CONC-10",
-        "PS-CONC-12",
         "PS-CONC-13",
-        "PS-CONC-15",
-        "PS-CONC-17",
+        "PS-CONC-14",
+        "PS-CONC-16",
         "PS-CONC-18",
         "PS-CONC-19",
         "PS-CONC-20",
         "PS-CONC-21",
+        "PS-CONC-22",
         "PS-DATA-01",
         "PS-DATA-02",
         "PS-DATA-03",
@@ -198,12 +198,12 @@ PROFILE = Profile(
                 "the pattern finds the test; whether a lock spans the test and the "
                 "write decides",
             ),
-            "PS-CONC-17": NotDecisive(
+            "PS-CONC-18": NotDecisive(
                 "any hit whose preceding lines are inside",
                 "the pattern finds every ContextVar; the scope it is created in "
                 "decides, which a line-oriented pattern cannot see",
             ),
-            "PS-CONC-18": NotDecisive(
+            "PS-CONC-19": NotDecisive(
                 "whose value was set outside it",
                 "the pattern finds every context read; passing the context explicitly "
                 "is the compliant form and matches the same pattern",
@@ -218,7 +218,7 @@ PROFILE = Profile(
                 "the pattern finds any indented name followed by a parenthesis, which "
                 "matches ordinary prose as readily as a docstring type",
             ),
-            "PS-ASYNC-03": NotDecisive(
+            "PS-CONC-25": NotDecisive(
                 "every hit outside a `TaskGroup`",
                 "the pattern finds every task start; being inside a `TaskGroup` is "
                 "what makes it compliant, and the pattern cannot see the block",
@@ -263,17 +263,17 @@ PROFILE = Profile(
                 "the pattern finds every indented import; what encloses it decides, "
                 "and an `if TYPE_CHECKING:` block is indented too",
             ),
-            "PS-CONC-12": NotDecisive(
+            "PS-CONC-13": NotDecisive(
                 "read what the target closes over",
                 "the pattern finds every thread start; what the target closes over "
                 "decides, and starting a thread is not itself a defect",
             ),
-            "PS-CONC-19": NotDecisive(
+            "PS-CONC-20": NotDecisive(
                 "inside any thread target",
                 "the pattern finds every `print`; the calling thread decides, and a "
                 "module-level print is not a hit",
             ),
-            "PS-CONC-21": NotDecisive(
+            "PS-CONC-22": NotDecisive(
                 "applied to a `def` containing `yield`",
                 "the pattern finds every `@contextmanager`; what it decorates decides, "
                 "and the `with` form the rule recommends matches too",

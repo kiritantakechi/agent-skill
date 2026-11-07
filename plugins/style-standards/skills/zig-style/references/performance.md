@@ -10,7 +10,7 @@ rules throughout this standard ask for a profile, and this is the chapter that s
 
 This chapter does not own data layout: struct-of-arrays and `MultiArrayList` are ZS-DATA-22,
 handles-versus-pointers is ZS-DATA-21, and passing large aggregates as `*const T` is ZS-DATA-18. It
-does not own I/O batching (ZS-CONC-34), assertion cost budgeting (ZS-ASSERT-16), the optimize-mode
+does not own I/O batching (ZS-CONC-40), assertion cost budgeting (ZS-ASSERT-16), the optimize-mode
 table (ZS-ASSERT-02), `@branchHint` (ZS-ERR-28), or `inline fn` (ZS-COMPTIME-03). It cites them.
 
 **Read ZS-PERF-21 first if you are tempted to apply this chapter to code that is not hot.** Roughly
@@ -213,7 +213,7 @@ not optional: an unbounded batch converts a throughput win into an unbounded-lat
 unbounded-memory bug.
 
 The I/O half of this rule — draining an event queue instead of reacting per event, `writeVecAll`
-instead of a write per record — is ZS-CONC-34; do not duplicate it. This rule covers the non-I/O
+instead of a write per record — is ZS-CONC-40; do not duplicate it. This rule covers the non-I/O
 half: locks, allocations, and per-item work inside a lock.
 
 A hot path is ZS-PERF-02's. Anywhere else, batch whatever crosses a process boundary per item — a
@@ -839,7 +839,7 @@ Add a `bench` step whose module hard-codes `.optimize = .fast` rather than inher
 and wire it up with `addRunArtifact` only — never `installArtifact` — so a bare `zig build` does not
 pay for it.
 
-The benchmark's own `main` follows ZS-PERF-14, ZS-PERF-19 and ZS-CONC-32, and prints per-iteration
+The benchmark's own `main` follows ZS-PERF-14, ZS-PERF-19 and ZS-CONC-33, and prints per-iteration
 cost so the number can be compared with the ZS-PERF-02 sketch, as the second example shows.
 
 **Why:** an inherited `-Doptimize` makes `zig build bench` silently measure a `debug` build
@@ -940,7 +940,7 @@ rule needs a measurement to overturn it — not the reverse.
 |---|---|
 | ZS-PERF-01 design shape, ZS-PERF-02 sketch, ZS-PERF-03 frequency | Design phase. Always — the cost is minutes. |
 | ZS-PERF-09 – ZS-PERF-13 (the whole locality cluster) | **All code, always.** These are readability and correctness rules that happen to also help the register allocator. Never require a measurement. |
-| ZS-PERF-07 be explicit, ZS-PERF-14 measure in the shipped mode, ZS-PERF-17 explicit options, ZS-PERF-19 – ZS-PERF-20 how to measure, ZS-CONC-32's clock choice | All code. Following them costs nothing and not following them produces false numbers. |
+| ZS-PERF-07 be explicit, ZS-PERF-14 measure in the shipped mode, ZS-PERF-17 explicit options, ZS-PERF-19 – ZS-PERF-20 how to measure, ZS-CONC-33's clock choice | All code. Following them costs nothing and not following them produces false numbers. |
 | ZS-PERF-04 plane split, ZS-PERF-05 batching, ZS-PERF-15 no auto-vectorization | Any code with a stated throughput or latency requirement. Batching in particular is a design decision, so it is cheap now and expensive later. |
 | ZS-PERF-06 branch hoisting, ZS-PERF-08 primitive-argument kernels, ZS-PERF-16 explicit SIMD, `@branchHint` (ZS-ERR-28), adding a `@prefetch` at all (ZS-PERF-17), ZS-PERF-18 cache-line alignment, `inline fn` (ZS-COMPTIME-03) | **Hot paths a profile names, only.** Each one costs readability. A diff that applies them without a profile in the commit message is over-applying this chapter, and that is a review finding in its own right. |
 

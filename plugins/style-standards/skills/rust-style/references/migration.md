@@ -114,7 +114,7 @@ rg -n -F -w \
 Every `alias` row is a crate, or a crate's API, that the standard library replaced; the rows with no
 topical rule are this rule's. A dependency on one is the finding, wherever the manifest declares it.
 A crate that is still the right tool for part of its use — `async-trait` where a trait object needs
-`async fn` — is no row: RS-CONC-32 decides it.
+`async fn` — is no row: RS-CONC-31 decides it.
 
 **Why:** a dependency the standard library covers is code to audit, update and build for nothing,
 and the crate's spelling outlives the reason it existed. The std version is also the one every
