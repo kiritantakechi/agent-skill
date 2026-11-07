@@ -1,17 +1,11 @@
 ---
 name: zig-style
 description: >-
-  The modern Zig 0.17 engineering standard — a 344-rule library merging the official Zig style
-  guide, the empirical conventions of the 0.17 standard library, and TigerBeetle's TigerStyle.
-  Covers naming, types and data layout, errors and control flow, memory and allocators, std.Io
-  streams and structured concurrency, assertions and bounded limits, API symmetry, comptime and
-  interfaces, testing and fuzzing, formatting and output, performance and locality, C interop and
-  cross-target builds, build.zig/build.zig.zon, and the complete 0.13-to-0.17 migration tables. Use
-  this whenever writing, reviewing, refactoring, scaffolding, or debugging ANY Zig — a whole
-  project, one function, a build.zig, an error set, an allocator choice, a test — even if the user
-  never mentions "style", "standards", or "quality". Also use when asked to make Zig "idiomatic",
-  "modern", "clean", or "production-grade", when auditing a Zig codebase, when the current spelling
-  of a std symbol is uncertain, and when migrating code to Zig 0.17.
+  Use when writing, reviewing, refactoring, scaffolding, porting or debugging any Zig code, auditing
+  a Zig codebase, checking how a std symbol is spelled now, or bringing code written for an older Zig
+  up to date, even when no one asks for "style" or "standards". Applies to a `.zig` file, a
+  function, an error set, an allocator choice, a test or fuzz target, a `build.zig` and a
+  `build.zig.zon`. Targets Zig 0.17.
 ---
 
 # Zig Style — 0.17
@@ -331,6 +325,6 @@ asset and the rule cannot drift apart.
 
 | File | Contents |
 |---|---|
-| `assets/build.zig` | The complete library + CLI `build.zig` from ZS-BUILD-01, at 0.17.0: module-level `target`/`optimize`, one test binary per module, a separate `test-integration` step, a host-only codegen tool, and the `fmt` and `check` steps (`check` is the build-on-save step ZLS used; no ZLS release supports 0.17.0) |
+| `assets/build.zig` | The complete library + CLI `build.zig` from ZS-BUILD-01, at 0.17.0: module-level `target`/`optimize`, one test binary per module, a separate `test-integration` step, a host-only codegen tool, and the `fmt` and `check` steps |
 | `assets/build.zig.zon` | The annotated manifest from ZS-BUILD-09…12: enum-literal `.name`, the `.fingerprint` warning, what `.minimum_zig_version` does and does not do, and `.paths` as the thing that defines the package hash |
 | `assets/ci.yml` | The five CI requirements of ZS-BUILD-31 as a workflow — pinned toolchain, `fmt --check --ast-check`, `debug` and `safe`, the cross-compile matrix of ZS-BUILD-30, and a cache key naming every matrix axis. Only the `run:` lines are rules; verify the action versions yourself |

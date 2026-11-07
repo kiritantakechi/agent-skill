@@ -137,10 +137,10 @@ const io = threaded.io();
 ### ZS-CONC-02 [M] Thread `io: Io` as an explicit parameter, using std's ordering
 
 `Io` is a two-field fat pointer (`userdata: ?*anyopaque`, `vtable: *const VTable`) dispatched as
-`io.vtable.op(io.userdata, ...)`. Pass it by value, exactly like an `Allocator`. Ordering, measured
-against std: on a method of a resource type (`Dir`, `File`, `Mutex`, `Queue`) `io` comes immediately
-after the receiver; on a free function `gpa` comes before `io` (15 occurrences to 4 in std), then
-domain parameters, then an options struct last.
+`io.vtable.op(io.userdata, ...)`. Pass it by value, exactly like an `Allocator`. Ordering, as std
+writes it: on a method of a resource type (`Dir`, `File`, `Mutex`, `Queue`) `io` comes immediately
+after the receiver; on a free function `gpa` comes before `io`, then domain parameters, then an
+options struct last.
 
 **Why:** an `Io` parameter is the only thing that makes a function's blocking behavior visible in
 its signature, and it lets the same function run on a thread pool in production and on
@@ -190,9 +190,9 @@ a slot that 0.17 removed from `Io.VTable`, so `Dispatch` and `Uring` fail with
 `no field named 'processReplacePath' in struct 'Io.VTable'` and `Kqueue` with the same error for
 `'fileWriteStreaming'`. None implements networking either — `Uring` and `Dispatch` wire the `net*`
 vtable slots to `…Unavailable` stubs and `Kqueue`'s `listen` and `accept` are `@panic("TODO")` — so
-every rule in the networking section requires `Io.Threaded` today. Deviate once a backend builds
-again and you have measured that `Io.Threaded`'s one-thread-per-blocked-task model is your
-bottleneck, and say so in a comment.
+every rule in the networking section requires `Io.Threaded` in 0.17. Deviate only for a backend that
+builds and implements `std.Io.net`, once a profile shows `Io.Threaded`'s one-thread-per-blocked-task
+model is your bottleneck, and say so in a comment.
 
 **Why:** in 0.17.0 `Io.Threaded` is the only backend that both builds and implements `std.Io.net`,
 so it is the only one a default can rest on; an evented backend earns its place by a measurement.
@@ -200,10 +200,6 @@ so it is the only one a default can rest on; an evented backend earns its place 
 **Check:** `Io.Evented`, `Io.Uring`, `Io.Kqueue`, or `Io.Dispatch` named in a diff — each needs a
 comment stating the measurement that justified it, and none of them may appear on a code path that
 reaches `std.Io.net`, whose vtable slots they do not implement.
-
-> [!NOTE] At 0.17.0 each backend was compiled (`zig build-obj -fno-emit-bin`) in a program that
-> calls `init`, `io()`, and `deinit`, for `aarch64-macos`, `x86_64-linux`, and `x86_64-freebsd`;
-> none was run, and the networking stubs are read from source. Re-check on a toolchain bump.
 
 ---
 
@@ -319,8 +315,7 @@ var stdout_writer: Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
 > [!NOTE] `Io.File.Writer.initDetect(file, io, &buffer)` exists in the source and looks like it
 > would pick the mode for you, but it **does not compile** in 0.17.0: it calls `Mode.detect(...)`,
 > and `Io.File.Reader.Mode` has no `detect` member —
-> `error: enum 'Io.File.Reader.Mode' has no member named 'detect'`. At 0.17.0; re-check on toolchain
-> bump.
+> `error: enum 'Io.File.Reader.Mode' has no member named 'detect'`.
 
 ### ZS-CONC-07 [M] Reusable code takes `*Io.Writer` and returns `Io.Writer.Error!void`
 
@@ -1529,7 +1524,7 @@ Note the accept side runs under `io.concurrent`, not `io.async`: the server must
 the client connects, which is exactly the interleaving requirement of ZS-CONC-22.
 `net.Stream.Writer.sendFile` is `error.Unimplemented` in 0.17.0 (a `TODO` in std), so `sendFileAll`
 over a socket silently falls back to the userspace copy loop — the ZS-CONC-15 zero-copy argument
-does not yet apply to sockets.
+does not apply to sockets in 0.17.
 
 ### ZS-CONC-38 [M] Close every socket on every path; `shutdown` is how you unblock a blocked peer
 
@@ -1546,9 +1541,9 @@ rather than abandoned (ZS-CONC-21).
 **Check:** an `accept`/`connect`/`createPair` result not followed by its `defer …close(io)` the way
 ZS-MEM-10 requires; an accept loop with no way to be woken.
 
-> [!NOTE] At 0.17.0, re-check on a toolchain bump: `net.Socket.closeMany(io, sockets)` closes a
-> batch in one call. `Socket.createPair(io, .{})` defaults to `.family = .ip4`, which `socketpair`
-> rejects on Darwin: there it returns `error.Unexpected`.
+> [!NOTE] `net.Socket.closeMany(io, sockets)` closes a batch in one call.
+> `Socket.createPair(io, .{})` defaults to `.family = .ip4`, which `socketpair` rejects on Darwin:
+> there it returns `error.Unexpected`.
 
 ---
 

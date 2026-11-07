@@ -537,15 +537,11 @@ In a file that *is* a type, write `const Journal = @This();` and name receivers 
 (or a consistent 1–2 letter abbreviation like `w: *Writer`). Use `const Self = @This();` and `self:`
 only inside a `fn Foo(comptime T: type) type` body, where the type has no name.
 
-A naive grep hides how std does this. `rg "\(self: *"` over std returns ~2100 hits, but counting
-only *true* receivers — a first parameter whose type is the file's own `TitleCase` name or a
-`@This()` alias declared in that file — the 3061 receivers in 0.17 std split `self` **44.2%** vs
-named after the type **55.8%**. The split is by file kind, not taste: only **6 of 143**
-`TitleCase.zig` files still declare `const Self = @This();`, while every generic container does.
-Per-file receiver histograms, counted as `rg -c 'fn \w+\(<recv>: <Type>' <file>`: `Io/Writer.zig` →
-`w: *Writer` ×69, `Io/Reader.zig` → `r: *Reader` ×70, `Build.zig` → `b: *Build` ×70,
-`Build/Module.zig` → `m: *Module` ×24, `Target.zig` → `target: *const Target` ×28. TigerBeetle bans
-`Self` outright and enforces it with a lint.
+In std the split is by file kind, not taste: a `TitleCase.zig` file names its receiver after its
+type — `w: *Writer` in `Io/Writer.zig`, `r: *Reader` in `Io/Reader.zig`, `b: *Build` in `Build.zig`,
+`m: *Module` in `Build/Module.zig`, `target: *const Target` in `Target.zig` — and a generic
+container, which has no name, declares `const Self = @This();`. TigerBeetle bans `Self` outright and
+enforces it with a lint.
 
 **Why:** std and TigerStyle agree on this. A named receiver also survives copy-paste into a
 different type — `self` silently reads correctly in the wrong file.
@@ -599,10 +595,10 @@ ZS-NAME-14.
 
 The langref, verbatim: "File names fall into two categories: types and namespaces. If the file
 (implicitly a struct) has top level fields, it should be named like any other struct with fields
-using `TitleCase`. Otherwise, it should use `snake_case`." Measured over 563 std files, the rule
-holds with **zero counterexamples in the snake_case direction**: 0 of 420 `snake_case.zig` files
-have top-level fields. Nine of 143 `TitleCase.zig` files have no fields, and all nine are the
-"established convention" carve-out (`dwarf/TAG.zig`, `heap/PageAllocator.zig`, …).
+using `TitleCase`. Otherwise, it should use `snake_case`." std holds to it with no counterexample in
+the `snake_case` direction: no `snake_case.zig` file has top-level fields, and the `TitleCase.zig`
+files with none are the "established convention" carve-out (`dwarf/TAG.zig`,
+`heap/PageAllocator.zig`, …).
 
 **Why:** `@import("x/Foo.zig")` versus `@import("x/foo.zig")` tells you at the import site whether
 you got a type or a namespace, which is exactly the information the langref example encodes:
@@ -998,8 +994,8 @@ new `// zig fmt: off` that is not guarding a hand-aligned table.
 Including comments, doc comments, and string literals. Set a column ruler. Wrap by adding a trailing
 comma and re-running `zig fmt`. Enforce it in CI: it is a one-line check and the only formatting
 rule `zig fmt` cannot do for you. TigerStyle F3 is absolute — "Use it up. Never go beyond." The
-langref is softer ("Line length: aim for 100; use common sense.") but the number agrees, and std
-measured over 416 956 non-empty lines is 92.6% ≤80 columns and 97.4% ≤100.
+langref is softer ("Line length: aim for 100; use common sense.") but the number agrees, and nearly
+every line of std fits in 100 columns.
 
 **Why:** TigerStyle motivates the number physically: 100 columns is just enough to fit two copies of
 the code side by side, which is what code review and diffing actually do. Nothing should ever be

@@ -536,8 +536,7 @@ test "span, sliceTo and dupeSentinel across the boundary" {
 `c_int`, `c_long`, `c_char` and friends appear in the exported signature and nowhere inside. Convert
 with `std.math.cast(T, x) orelse return .invalid_argument` — never a bare `@intCast`, which is
 illegal behavior on overflow, and never `@truncate`, which is silent. Where you genuinely mean "the
-byte", write `u8` and `@bitCast`, not `c_char`. Their widths, measured on 0.17.0 by compiling the
-same source for eight targets:
+byte", write `u8` and `@bitCast`, not `c_char`. Their widths on eight targets:
 
 | Target | `c_int` | `c_long` | `c_char` |
 |---|---|---|---|
@@ -807,7 +806,7 @@ toolchain upgrade that changes the translation fails the build instead of silent
 `enum(c_int)` for `c_int`, who frees what — and translate-c cannot infer any of it. But two hundred
 transcribed functions will hold a wrong parameter order that compiles and corrupts memory.
 
-**Check:** any `@cImport(` site — a compile error, so it marks code not yet ported. A
+**Check:** any `@cImport(` site — a compile error, so it marks code nobody ported. A
 `b.addTranslateC` step with no `addCheckFile` pinning the declarations the code depends on, and the
 include paths or `-D` macros for one header declared in more than one place. And, from the other
 side, a hand-written `extern` block that has grown past a few dozen declarations, or one whose

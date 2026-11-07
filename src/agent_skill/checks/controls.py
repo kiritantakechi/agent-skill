@@ -2096,9 +2096,16 @@ CONTROLS: list[Control] = [
         frontmatter.ANGLE_BRACKET,
         lambda t: edit(t, f"{RS}/SKILL.md", "an async task", "an <async> task"),
     ),
+    # A description that counts its rules, and miscounts them: zig-style
+    # is not normalised yet, so its count is read, and it states none.
     Control(
         frontmatter.RULE_COUNT,
-        lambda t: edit(t, f"{ZS}/SKILL.md", "a 344-rule library", "a 345-rule library"),
+        lambda t: edit(
+            t,
+            f"{ZS}/SKILL.md",
+            "description: >-\n  Use when",
+            "description: >-\n  A 1-rule standard. Use when",
+        ),
     ),
     # layout
     Control(layout.UNCLOSED, lambda t: append(t, DATA, "\n```text\nnever closed\n")),

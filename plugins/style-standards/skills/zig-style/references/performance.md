@@ -6,7 +6,7 @@ and data-plane split, batching, and giving the CPU predictable work. Then the lo
 smallest scope, no aliases, place-of-check next to place-of-use, centralized state manipulation, and
 function shape. Then the 0.17-specific mechanics — build modes, the disabled loop vectorizer,
 `@Vector`, explicit options and `@prefetch`, cache lines — and finally **how to measure**, since
-rules throughout this standard say "unless you have measured" and this is the chapter that says how.
+rules throughout this standard ask for a profile, and this is the chapter that says how to take one.
 
 This chapter does not own data layout: struct-of-arrays and `MultiArrayList` are
 `references/data.md` ZS-DATA-22, handles-versus-pointers is ZS-DATA-21, and passing large aggregates
@@ -29,7 +29,7 @@ require a measurement before you are allowed to invoke them.
   - ZS-PERF-05 [M] Amortize every expensive acquisition on a hot path over a bounded batch
   - ZS-PERF-06 [S] Give the CPU one long lane; do not make it change lanes per item
   - ZS-PERF-07 [M] Be explicit; never depend on an optimization the compiler is not obliged to make
-  - ZS-PERF-08 [S] Hand a measured hot loop its data as slices and integers, not as a receiver
+  - ZS-PERF-08 [S] Hand a hot loop a profile names its data as slices and integers, not as a receiver
 - **Part 2 — The discipline of locality**
   - ZS-PERF-09 [M] Declare every variable at the smallest scope that can hold it
   - ZS-PERF-10 [M] Never duplicate a variable, and never hold an alias to one
@@ -43,7 +43,7 @@ require a measurement before you are allowed to invoke them.
   - ZS-PERF-17 [M] Spell out the options that decide behavior; never inherit their defaults
   - ZS-PERF-18 [S] Align independently written concurrent fields to `std.atomic.cache_line`
 - **Part 4 — How to measure**
-  - ZS-PERF-19 [M] Warm up, repeat, and defend the measured expression from dead-code elimination
+  - ZS-PERF-19 [M] Warm up, repeat, and defend the benchmarked expression from dead-code elimination
   - ZS-PERF-20 [M] Add a `bench` step pinned to `.fast` and not installed by default
 - **Part 5 — The counterweight**
   - ZS-PERF-21 [M] Apply the always-on rules everywhere; require a number before invoking the rest
@@ -321,7 +321,7 @@ const Grid = struct {
 };
 ```
 
-### ZS-PERF-08 [S] Hand a measured hot loop its data as slices and integers, not as a receiver
+### ZS-PERF-08 [S] Hand a hot loop a profile names its data as slices and integers, not as a receiver
 
 Extract the kernel into a stand-alone function whose parameters are the exact slices and scalars it
 reads. The wrapper method stays, and does the field access once. Without a profile, hoist the field
@@ -622,8 +622,8 @@ for compile speed. The mode table and the argument for shipping `safe` are `refe
 `std.debug.assert` becomes a licence for the optimizer rather than a check (ZS-ASSERT-02).
 
 **Why:** `debug` applies no optimization at all, and the gap between `debug` and `fast` on a tight
-loop is routinely 10–50x. That swamps every effect this chapter discusses, so a "2x speedup"
-measured in `debug` is noise.
+loop is routinely 10–50x. That swamps every effect this chapter discusses, so a "2x speedup" from a
+`debug` run is noise.
 
 **Check:** any performance claim in a commit message or comment must name the optimize mode. A
 `bench` step that inherits `-Doptimize` instead of pinning its own mode is the structural version of
@@ -644,7 +644,7 @@ comptime {
 Zig 0.17 builds with LLVM loop vectorization disabled, to work around an LLVM miscompilation that
 corrupted the compiler itself. The fix is not in LLVM 22, which 0.17 uses, and the release notes
 keep the workaround until the move to LLVM 23 — so this is not an inconvenience to wait out. If a
-loop must use SIMD, write the vectors yourself (ZS-PERF-16). A performance budget measured on a
+loop must use SIMD, write the vectors yourself (ZS-PERF-16). A performance budget taken on a
 toolchain that vectorized does not transfer.
 
 **Why:** the loss is real and specific to the *automatic* path. At `fast` on `aarch64`, a scalar
@@ -799,10 +799,9 @@ test "no false sharing" {
 
 ## Part 4 — How to measure
 
-Rules across this standard say "unless you have measured". This is what measuring looks like in
-0.17.
+Rules across this standard ask for a profile or a benchmark. This is how to take one in 0.17.
 
-### ZS-PERF-19 [M] Warm up, repeat, and defend the measured expression from dead-code elimination
+### ZS-PERF-19 [M] Warm up, repeat, and defend the benchmarked expression from dead-code elimination
 
 A benchmark runs the work once to warm caches and the branch predictor, then repeats it a known
 number of times, then divides. Feed every result to `std.mem.doNotOptimizeAway` or the optimizer
@@ -813,7 +812,7 @@ only form comparable across machines.
 
 **Why:** at `fast` a discarded pure result is dead code and LLVM removes it — the classic "1000x
 speedup" that is really an empty loop. And the first iteration pays a cold i-cache, d-cache and TLB
-and an untrained branch predictor, which on a short benchmark can be most of the measured time.
+and an untrained branch predictor, which on a short benchmark can be most of the time it reports.
 
 **Check:** a benchmark with no warm-up iteration, no repetition count, or a computed result that is
 assigned to `_`. All three are the same bug.
@@ -951,7 +950,7 @@ rule needs a measurement to overturn it — not the reverse.
 | ZS-PERF-09 – ZS-PERF-13 (the whole locality cluster) | **All code, always.** These are readability and correctness rules that happen to also help the register allocator. Never require a measurement. |
 | ZS-PERF-07 be explicit, ZS-PERF-14 measure in the shipped mode, ZS-PERF-17 explicit options, ZS-PERF-19 – ZS-PERF-20 how to measure, ZS-CONC-30's clock choice | All code. Following them costs nothing and not following them produces false numbers. |
 | ZS-PERF-04 plane split, ZS-PERF-05 batching, ZS-PERF-15 no auto-vectorization | Any code with a stated throughput or latency requirement. Batching in particular is a design decision, so it is cheap now and expensive later. |
-| ZS-PERF-06 branch hoisting, ZS-PERF-08 primitive-argument kernels, ZS-PERF-16 explicit SIMD, `@branchHint` (ZS-ERR-27), adding a `@prefetch` at all (ZS-PERF-17), ZS-PERF-18 cache-line alignment, `inline fn` (ZS-COMPTIME-03) | **Measured hot paths only.** Each one costs readability. A diff that applies them without a profile in the commit message is over-applying this chapter, and that is a review finding in its own right. |
+| ZS-PERF-06 branch hoisting, ZS-PERF-08 primitive-argument kernels, ZS-PERF-16 explicit SIMD, `@branchHint` (ZS-ERR-27), adding a `@prefetch` at all (ZS-PERF-17), ZS-PERF-18 cache-line alignment, `inline fn` (ZS-COMPTIME-03) | **Hot paths a profile names, only.** Each one costs readability. A diff that applies them without a profile in the commit message is over-applying this chapter, and that is a review finding in its own right. |
 
 **Why:** shape is decided up front and cheaply; constants are decided later and with evidence
 (ZS-PERF-01). A sketch costs five minutes and is reversible, so it is never premature; a

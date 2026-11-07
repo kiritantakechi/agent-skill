@@ -74,7 +74,7 @@ in a scratch directory and diff.
 
 A `build.zig` is the project's user interface. `zig build`, `zig build test`, `zig build fmt`, and
 `zig build check` must work in every repository, with no README-only incantations. `check` is the
-step ZLS runs for build-on-save diagnostics (ZS-BUILD-29).
+step an editor's language server builds on save (ZS-BUILD-29).
 
 **Why:** `zig build --list-steps` is the only discovery mechanism a newcomer or a CI job has. A step
 that exists only as a shell command in a README is a step that rots.
@@ -890,11 +890,11 @@ What `zig fmt` decides, and the trailing comma that is your one lever over it, a
 
 ### ZS-BUILD-29 [S] Add a `check` step whose artifacts are never installed or run
 
-ZLS auto-detects a top-level step named `check` for build-on-save diagnostics, though the 0.17.0
-release notes say ZLS does not yet work with 0.17.0. `Step.Compile` creates `generated_bin` lazily,
-and the build system's maker process (`lib/zig/compiler/Maker/Step/Compile.zig` since 0.17) passes
-`-fno-emit-bin` when nobody ever asked for the binary. Adding `b.installArtifact(check_exe)` makes
-the flag disappear and the speedup with it.
+An editor's language server builds a top-level step named `check` for its on-save diagnostics.
+`Step.Compile` creates `generated_bin` lazily, and the build system's maker process
+(`lib/zig/compiler/Maker/Step/Compile.zig` since 0.17) passes `-fno-emit-bin` when nobody ever asked
+for the binary. Adding `b.installArtifact(check_exe)` makes the flag disappear and the speedup with
+it.
 
 **Why:** it is a real speedup, not a naming convention: a duplicate `addExecutable` that is neither
 installed nor run does semantic analysis only — no LLVM, no codegen, no link.
@@ -909,9 +909,6 @@ const check_step = b.step("check", "Semantic check only, no binary emitted");
 check_step.dependOn(&b.addExecutable(.{ .name = "myproj-check", .root_module = exe_mod }).step);
 check_step.dependOn(&b.addTest(.{ .root_module = lib_mod }).step);
 ```
-
-Use the same Zig and ZLS minor version. For 0.17.0 there is none yet, so build-on-save waits for a
-ZLS release that supports it; `zig build check` on the command line works today.
 
 ### ZS-BUILD-30 [M] Cross-compiled test steps set `skip_foreign_checks`
 
@@ -1149,7 +1146,7 @@ section table of the produced binaries):
 | Any `safe`/`fast` build, incl. x86_64-linux | `.stage2_llvm` | leave alone; release codegen is LLVM everywhere |
 | `-fllvm` / `exe.use_llvm = true` | forces LLVM (x86_64-linux `debug` flips to `.stage2_llvm`, linked by LLD) | only to bisect a suspected self-hosted-backend bug |
 | `-fno-llvm` | forces self-hosted | avoid; on aarch64-macos a hello-world did not finish within 90 seconds |
-| `-fnew-linker` / `exe.use_new_linker = true` | emits DWARF and `.eh_frame`; off by default and not yet at feature parity | do not ship |
+| `-fnew-linker` / `exe.use_new_linker = true` | emits DWARF and `.eh_frame`; off by default, and not at feature parity with the default linker in 0.17 | do not ship |
 | `-fincremental` | opt-in, off by default, and **implies the new ELF linker** | local iteration only, never in CI or a release |
 | LLVM loop vectorization | **disabled in 0.17.x** (LLVM 22) | do not micro-tune vector loops against these numbers |
 
@@ -1179,9 +1176,9 @@ All three are `?bool` fields on `Step.Compile` (`use_llvm`, `use_lld`, `use_new_
 after `addExecutable` returns; `use_llvm` and `use_lld` can also be passed in `ExecutableOptions`,
 and none of them is a field of `Module`.
 
-**Why:** the self-hosted backends and the new ELF linker are large, fast, and incomplete; the 0.17.0
-release notes say the new linker is not yet at feature parity with the legacy one, which is why it
-stays off by default.
+**Why:** the self-hosted backends and the new ELF linker are large, fast, and incomplete; the 0.17
+release notes say the new linker is not at feature parity with the legacy one, which is why it stays
+off by default.
 
 **Check:** `rg -n 'use_new_linker|use_llvm|use_lld|fincremental|fnew-linker' build.zig .github/`
 returns nothing, or every hit has a comment saying why and is confined to a local-only step.

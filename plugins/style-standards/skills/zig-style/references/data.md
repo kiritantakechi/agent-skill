@@ -110,13 +110,12 @@ Any integer that is written to disk, put on the wire, hashed, fed to a checksum,
 struct shared with C must have an explicit width and, where endianness matters, an explicit
 endianness.
 
-The C-named integers are target-dependent too. Measured on 0.17.0,
-`extern struct { a: c_int, b: c_long }` is 16 bytes with `b` at offset 8 on `x86_64-linux-gnu`, and
-8 bytes with `b` at offset 4 on `x86_64-windows-gnu`, `arm-linux-gnueabihf` and `wasm32-wasi`. So a
-struct you define and share with C takes fixed-width fields, and one set of layout assertions holds
-on every target. Where the struct is C's and its field types are not yours to choose, keep the
-assertion and put it in a `comptime` branch on `builtin.target` (`references/interop.md`
-ZS-INTEROP-18) rather than dropping it.
+The C-named integers are target-dependent too. On 0.17, `extern struct { a: c_int, b: c_long }` is
+16 bytes with `b` at offset 8 on `x86_64-linux-gnu`, and 8 bytes with `b` at offset 4 on
+`x86_64-windows-gnu`, `arm-linux-gnueabihf` and `wasm32-wasi`. So a struct you define and share with
+C takes fixed-width fields, and one set of layout assertions holds on every target. Where the struct
+is C's and its field types are not yours to choose, keep the assertion and put it in a `comptime`
+branch on `builtin.target` (`references/interop.md` ZS-INTEROP-18) rather than dropping it.
 
 **Why:** `@sizeOf(usize)` is target-dependent. A record with a `usize` field is 8 bytes on x86_64
 and 4 on wasm32/arm32, so the same program, cross-compiled, cannot read its own files, and a
@@ -868,8 +867,8 @@ whole columns with `.items(.field)`, or take `.slice()` once and pull several co
 
 It has two costs: `get(i)`/`set(i)` reassemble the struct field by field, and you cannot take a `*T`
 to an element at all, so it is the wrong choice when elements are handled one at a time or passed
-around by pointer. A plain `ArrayList` stays the default; reach for `MultiArrayList` when you have a
-measured column-scan workload.
+around by pointer. A plain `ArrayList` stays the default; reach for `MultiArrayList` when a profile
+names a column-scan workload.
 
 **Why:** an array-of-structs loop that reads one `f32` out of a 12-byte element brings the other 8
 bytes into cache on every iteration and defeats vectorization. SoA makes the hot column contiguous,
