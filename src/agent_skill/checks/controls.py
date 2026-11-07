@@ -696,11 +696,11 @@ NORMAL_FORM: list[Control] = [
         "### 2.3 New",
     ),
     _normal(
-        # The 2.1 item, its owner taken away.
+        # The 2.3 item, its owner taken away.
         skeleton.REALITY_OWNER,
         SKILL_MD,
-        "stopped the program (DS-ERR-01).",
-        "stopped the program.",
+        "as an error (DS-ERR-02).",
+        "as an error.",
     ),
     _normal(
         anatomy.RESTATED_TITLE,
@@ -839,10 +839,22 @@ NORMAL_FORM: list[Control] = [
         "",
     ),
     _normal(
+        # Section 2.1 kept by hand, the `gone` row of 1.2 beside the
+        # `changed` one: a spelling the target rejects is no row of
+        # what compiles and behaves differently, though the target
+        # made it, so the subsection is not its rendering.
+        skeleton.CHANGED_DRIFT,
+        SKILL_MD,
+        "| `open()` | returns an error for a missing file | DS-ERR-01 |\n",
+        "| `open()` | returns an error for a missing file | DS-ERR-01 |\n"
+        "| `old_name` | `new_name` | DS-MIG-01 |\n",
+    ),
+    _normal(
         # Section 2.2 kept by hand, a row of 1.1 beside the one of 1.2:
-        # the alias row, which the migration table states, is no row
-        # the target made, so the subsection is not its rendering.
-        skeleton.REALITY_DRIFT,
+        # the alias row, which the migration table states, still
+        # compiles and is no row the target made, so the subsection is
+        # not its rendering.
+        skeleton.GONE_DRIFT,
         SKILL_MD,
         "| `old_name` | `new_name` | DS-MIG-01 |\n",
         "| `old_name` | `new_name` | DS-MIG-01 |\n"

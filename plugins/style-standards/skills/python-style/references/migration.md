@@ -65,13 +65,13 @@ Every rule ID a revision of this standard changed, and what it became, is in
 | `Py_GetProgramFullPath` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
 | `Py_GetProgramName` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
 | `Py_GetPythonHome` | `PyConfig_Get()` | gone | 3.15 | PS-MIG-03 |
-| `ast.<Node>(...)` | raises `TypeError` for a field missing or a keyword no field has; give each of the node's `_fields`, and only those | changed | 3.15 | PS-MIG-04 |
-| `datetime.strptime(s, "%d/%m")` | raises `ValueError`; give the format a year directive | changed | 3.15 | PS-MIG-04 |
-| `importlib.resources.files(package=...)` | raises `TypeError`; pass the package positionally | changed | 3.15 | PS-MIG-04 |
-| `sysconfig.is_python_build(check_home=...)` | raises `TypeError`; call it with no argument | changed | 3.15 | PS-MIG-04 |
-| `threading.RLock(*args)` | raises `TypeError`; `threading.RLock()`, which never used them | changed | 3.15 | PS-MIG-04 |
-| `typing.NamedTuple("P", x=int)` | raises `TypeError`; `class P(NamedTuple)` | changed | 3.15 | PS-MIG-04 |
-| `typing.TypedDict("TD")` | raises `TypeError`; `class TD(TypedDict)` | changed | 3.15 | PS-MIG-04 |
+| `ast.<Node>(…)` | raises `TypeError` for a field missing or a keyword no field has; give each of the node's `_fields`, and only those | gone | 3.15 | PS-MIG-04 |
+| `datetime.strptime(…, "%d/%m")` | raises `ValueError` for a day with no year; give the format a year directive | gone | 3.15 | PS-MIG-04 |
+| `importlib.resources.files(package=…)` | raises `TypeError`; pass the package positionally | gone | 3.15 | PS-MIG-04 |
+| `sysconfig.is_python_build(check_home=…)` | raises `TypeError`; call it with no argument | gone | 3.15 | PS-MIG-04 |
+| `threading.RLock(…)` | raises `TypeError` given any argument; `threading.RLock()`, which never used them | gone | 3.15 | PS-MIG-04 |
+| `typing.NamedTuple(…, x=…)` | raises `TypeError` for a field given as a keyword; `class P(NamedTuple)` | gone | 3.15 | PS-MIG-04 |
+| `typing.TypedDict("…")` | raises `TypeError` given a name and no fields; `class TD(TypedDict)` | gone | 3.15 | PS-MIG-04 |
 | `asyncio.get_event_loop` | raises `RuntimeError` with no running loop; `asyncio.get_running_loop()` | changed | 3.14 | PS-ASYNC-02 |
 | `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | changed | 3.15 | PS-CONC-21 |
 | `from __future__ import annotations` | stringifies every annotation, so `annotationlib`'s `VALUE` and `FORWARDREF` return bare strings | changed | 3.14 | PS-TYPE-04 |
@@ -80,6 +80,8 @@ Every rule ID a revision of this standard changed, and what it became, is in
 | `locale.getpreferredencoding` | `'utf-8'` under UTF-8 mode, whatever the locale; `locale.getencoding()` | changed | 3.15 | PS-OUT-03 |
 | `obj.n += 1` | on `3.15t`, loses updates when two threads run it | changed | 3.13 | PS-CONC-02 |
 | `open(path)` | UTF-8 whatever the locale, while UTF-8 mode is on | changed | 3.15 | PS-OUT-02 |
+| `sys.getfilesystemencoding` | `'utf-8'` under UTF-8 mode, so argv, environment variables and filenames decode as UTF-8 whatever the locale | changed | 3.15 | PS-OUT-02 |
+| `sys.stdout` | writes with the `surrogateescape` error handler under UTF-8 mode, as `sys.stdin` reads, where an unencodable character raised | changed | 3.15 | PS-OUT-02 |
 | `cProfile` | `profiling.tracing` | alias | 3.15 | PS-PERF-02 |
 | `typing.Text` | `str` | alias | 3.11 | PS-TYPE-11 |
 | `<module>.__version__` | `sys.version_info`, or `importlib.metadata.version()`; removed in 3.20 | deprecated | 3.15 | PS-MIG-05 |
@@ -97,7 +99,7 @@ Every rule ID a revision of this standard changed, and what it became, is in
 | `typing.ByteString` | `collections.abc.Buffer`; removed in 3.17 | deprecated | 3.15 | PS-TYPE-11 |
 
 ```sh
-rg -n -F \
+rg -n -F -w \
   -e '__cached__' \
   -e 'ctypes.SetPointerType' \
   -e 'glob.glob0' \
@@ -141,18 +143,22 @@ rg -n -F \
 
 ### PS-MIG-01 [M] Read each row by its status, and give a discouraged name no row
 
-A row's status says what the old spelling does on 3.15, and so how to find it:
+A row's status says what 3.15 does with the old spelling, and so how to find it:
 
-- `gone` — the name is absent: `AttributeError`, `ImportError` or a failed build where it is
-  reached. The command after the table finds every one.
-- `alias` — the name resolves, to its replacement. The command finds it; rewrite it.
-- `changed` — the spelling resolves and does something else, or a call shape it accepted now raises.
-  No fixed string finds a shape, so the owning rule says how to find it.
-- `deprecated` — it works, most warn on use, and a release removes it, which the row names.
+- `gone` — 3.15 rejects it: the name is absent, an `AttributeError`, an `ImportError` or a failed
+  build where it is reached, or the call shape raises a `TypeError` or `ValueError` where it was
+  accepted. The command after the table finds every one but a shape.
+- `changed` — 3.15 accepts it, and it does something else. Its owning rule's Check finds it.
+- `alias` — 3.15 accepts it, and it resolves to its replacement. The command finds it; rewrite it.
+- `deprecated` — 3.15 accepts it, and it works as it did; most warn on use, and a release removes
+  it, which the row names.
+
+A spelling with `…` in it is a shape: code left out where the `…` stands, which no fixed string
+finds, so the command leaves it to its owning rule's Check.
 
 Its Since is the release from which it does so: the one that removed, aliased, changed or deprecated
-it. Section 2.2 lists the rows of 3.15; code written for an older release reads the rows since that
-one.
+it. Section 2.1 lists the `changed` rows of 3.15 and section 2.2 the `gone` ones; code written for
+an older release reads the rows since that one.
 
 A *discouraged* name has no row. `re.match` is the canonical one: soft-deprecated in favour of
 `re.prefixmatch`, and the documentation says outright, *"We do not plan to remove the older
@@ -168,8 +174,8 @@ finding or a row whose status is wrong. A row naming a soft-deprecated name is t
 
 ### PS-MIG-02 [M] Run the dead-API command before reading a diff
 
-First, before anything else in the review: the command after the table, then each `changed` row's
-rule.
+First, before anything else in the review: the command after the table, then the Check of each rule
+that owns a `changed` row or a shape.
 
 **Why:** a superseded spelling means the author's model of the language is out of date, which makes
 every other judgement in the diff suspect — so finding one changes how you read the rest. It is also
@@ -193,9 +199,10 @@ only of an extension built against 3.15. The command finds both statically.
 
 ### PS-MIG-04 [M] Never call a live name in a shape 3.15 rejects
 
-Every `changed` row the rule column gives to PS-MIG-04 is a call earlier releases accepted and 3.15
+Every `gone` row the rule column gives to PS-MIG-04 is a call earlier releases accepted and 3.15
 raises on: a keyword it removed, arguments it never used, a field an `ast` node needs, a functional
-form with no fields, or a day without a year.
+form with no fields, or a day without a year. Each is a shape, which the command after the table
+does not find; this Check does.
 
 **Why:** each was accepted silently — ignoring what it was given, or filling a default as `strptime`
 filled the year 1900, a wrong date rather than an error. Now each raises, and like a removed name it

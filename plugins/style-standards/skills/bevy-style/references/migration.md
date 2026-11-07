@@ -2,11 +2,11 @@
 
 Scope: every spelling a game writes that Bevy 0.15 through 0.20 removed, renamed, changed or
 deprecated, keyed by the old spelling, with the rule that owns it. What changed under existing code
-with no spelling to key it is section 2.1's, each item citing its owner. Why a spelling is wrong is
-its owning rule's to say; this chapter is the table and the command it generates. The engine's
-rendering internals, render graph, pipeline specialisation and reflection internals changed as much
-and are not in it: no rule of this standard reaches them, and the upstream migration guides are
-their reference.
+with no spelling to key it is its owning rule's to state. Why a spelling is wrong is its owning
+rule's to say; this chapter is the table and the command it generates. The engine's rendering
+internals, render graph, pipeline specialisation and reflection internals changed as much and are
+not in it: no rule of this standard reaches them, and the upstream migration guides are their
+reference.
 
 Every rule ID a revision of this standard changed, and what it became, is in
 `references/renames.md`.
@@ -25,15 +25,17 @@ Every rule ID a revision of this standard changed, and what it became, is in
 
 ## Old spellings
 
-A row's status says what its old spelling does under Bevy 0.20 with the shipped configuration:
-`gone` — 0.20 has no such item, so the build fails where it stands; `changed` — it compiles and
-means something else, or 0.20 rejects it in a shape no fixed string finds, so its owning rule's
-Check finds it; `deprecated` — it builds with a warning, which the shipped CI's
-`CARGO_BUILD_WARNINGS: deny` makes a failed build. No row is an `alias`: Bevy keeps no old name
-working beside its new one. Its Since is the release from which it does so: for a `gone` row the
-first without the item, which for a name deprecated first is a release after the one that renamed
-it. Section 2.2 lists the rows of 0.20. A row may stand for a family its 0.20 column names. The
-command after the table finds every `gone` row.
+A row's status says what Bevy 0.20 does with its old spelling under the shipped configuration:
+`gone` — it rejects it, as an item it does not have or a shape it does not accept, so the build
+fails where it stands; `changed` — it accepts it, and it means something else, so its owning rule's
+Check finds it; `deprecated` — it accepts it, and it means what it did, with a warning, which the
+shipped CI's `CARGO_BUILD_WARNINGS: deny` makes a failed build. No row is an `alias`: Bevy keeps no
+old name working beside its new one. A spelling with `…` in it is a shape: code left out where the
+`…` stands, which no fixed string finds, so its owning rule's Check does. Its Since is the release
+from which it does so: for a `gone` row the first without the item, which for a name deprecated
+first is a release after the one that renamed it. Section 2.1 lists the `changed` rows of 0.20 and
+section 2.2 the `gone` ones. A row may stand for a family its 0.20 column names. The command after
+the table finds every `gone` row but a shape.
 
 | Old | Bevy 0.20 | Status | Since | Rule |
 |---|---|---|---|---|
@@ -166,51 +168,52 @@ command after the table finds every `gone` row.
 | `"experimental_bevy_feathers"` | `"bevy_feathers"` | gone | 0.19 | BV-BUILD-03 |
 | `"experimental_bevy_ui_widgets"` | `"bevy_ui_widgets"` | gone | 0.19 | BV-BUILD-03 |
 | `"bevy_math/curve"` | `"bevy/bevy_curve"` | gone | 0.20 | BV-BUILD-03 |
-| `Trigger<E>` | `On<E>`, read by the event's own name; `Trigger` is now a trait | changed | 0.18 | BV-EVENT-13 |
-| `On<Add, T>` | `On<Add<T>>`, and so for `Insert`, `Discard`, `Remove` and `Despawn`; a custom `On<E, B>` is a `PhantomData` wrapper implementing `EventPattern` | changed | 0.20 | BV-EVENT-13 |
-| `On<Add>` | `On<Add<()>>`, for an observer of dynamic components (`.with_component(id)`) | changed | 0.20 | BV-EVENT-13 |
+| `Trigger<…>` | `On<E>`, read by the event's own name; `Trigger` is now a trait | gone | 0.18 | BV-EVENT-13 |
+| `On<Add, …>` | `On<Add<T>>`, and so for `Insert`, `Discard`, `Remove` and `Despawn`; a custom `On<E, B>` is a `PhantomData` wrapper implementing `EventPattern` | gone | 0.20 | BV-EVENT-13 |
+| `On<Add>` | `On<Add<()>>`, for an observer of dynamic components (`.with_component(id)`) | gone | 0.20 | BV-EVENT-13 |
+| `App::add_event` | `.add_message::<M>()`; `AnimationClip::add_event` is live | gone | 0.18 | BV-EVENT-04 |
+| `on_event::<…>()` | `on_message::<M>()`, or a `PopulatedMessageReader` | gone | 0.18 | BV-EVENT-05 |
+| `App::observe` | `App::add_observer`, as `Commands::observe` is `Commands::add_observer`; `EntityCommands::observe` is live | gone | 0.15 | BV-EVENT-15 |
+| `NextState::set_if_neq` | `set_if_different`; `Mut::set_if_neq` is live | gone | 0.20 | BV-STATE-17 |
+| `Query::get_single` | `Query::single()`, which returns `Result`; `Gradient::get_single` is live | gone | 0.17 | BV-ERR-01 |
+| `impl Command<Result>` | `impl Command { type Out = Result; }`; `-> impl Command` with a closure returning `Result` | gone | 0.19 | BV-ERR-01 |
+| `Handle<AnimationGraph>` | `AnimationGraphHandle(handle)` as the component; a `Handle` is no component | gone | 0.15 | BV-ECS-13 |
+| `Text { sections: … }` | a `Text` root with `TextSpan` children | gone | 0.15 | BV-VIEW-05 |
+| `TextFont { line_height: … }` | the `LineHeight` component | gone | 0.18 | BV-VIEW-04 |
+| `TextFont { font: handle, … }` | `TextFont { font: FontSource::Handle(handle), .. }` | gone | 0.19 | BV-VIEW-04 |
+| `TextFont { font_size: f32, … }` | `TextFont { font_size: FontSize::Px(…), .. }` | gone | 0.19 | BV-VIEW-04 |
+| `Camera { hdr: … }` | the separate `Hdr` component | gone | 0.17 | BV-VIEW-12 |
+| `Camera { target: … }` | `RenderTarget` as its own component | gone | 0.18 | BV-VIEW-14 |
+| `bevy_pbr::mesh_view_bindings` | `bevy_pbr::render::mesh_view_bindings` | gone | 0.20 | BV-VIEW-18 |
+| `Condition` | `SystemCondition` | gone | 0.17 | BV-SCHED-17 |
+| `Window { cursor_options: … }` | the separate `CursorOptions` component, which `Window` requires | gone | 0.17 | BV-MIG-02 |
+| `Sprite { anchor: … }` | the separate `Anchor` component, which `Sprite` requires: a `Vec2` newtype, `Anchor::CENTER` for `Anchor::Center` and `Anchor(v)` for `Anchor::Custom(v)` | gone | 0.17 | BV-MIG-02 |
+| `Skybox { image: handle, … }` | `Skybox { image: Some(handle), .. }`: the field is an `Option<Handle<Image>>` | gone | 0.19 | BV-MIG-02 |
+| `BorderRadius { top_left: Val::Px(…), … }` | `CornerRadius` fields, such as `px(10.).into()` | gone | 0.20 | BV-MIG-02 |
+| `MeshTag(…)` | `MeshTag::new(x)`, read as `tag.value` | gone | 0.20 | BV-MIG-02 |
 | `#[derive(Event)]` | `#[derive(Message)]` for a buffered event; `Event` is an observed one | changed | 0.17 | BV-EVENT-01 |
-| `.add_event::<M>()` | `.add_message::<M>()`; `AnimationClip::add_event` is live | changed | 0.18 | BV-EVENT-04 |
-| `on_event::<M>()` | `on_message::<M>()`, or a `PopulatedMessageReader` | changed | 0.18 | BV-EVENT-05 |
-| `App::observe` | `App::add_observer`, as `Commands::observe` is `Commands::add_observer`; `EntityCommands::observe` is live | changed | 0.15 | BV-EVENT-15 |
-| `NextState::set_if_neq` | `set_if_different`; `Mut::set_if_neq` is live, so the name finds both | changed | 0.20 | BV-STATE-17 |
 | `NextState::set` | runs `OnExit(S)` and `OnEnter(S)` when the state is already `S`; `set_if_different` is the old meaning | changed | 0.18 | BV-STATE-17 |
-| `.get_single()` | `Query::single()`, which returns `Result`; `Gradient::get_single` is live | changed | 0.17 | BV-ERR-01 |
-| `impl Command<Result>` | `impl Command { type Out = Result; }`; `-> impl Command` with a closure returning `Result` | changed | 0.19 | BV-ERR-01 |
 | `App::set_error_handler` | receives every panic in a system, observer or command as an error carrying its payload | changed | 0.20 | BV-ERR-05 |
 | `Query::iter_many` | yields `Result` per id, so `.count()` and `for _ in` take ids the query does not match; `.matched()` is the old meaning | changed | 0.20 | BV-ECS-20 |
 | `Query<Entity>` | matches each resource's entity too, as `Query<EntityRef>` and `Query<EntityMut>` do | changed | 0.19 | BV-STATE-02 |
 | `Ref::clone` | another `Ref<T>`, where it produced a `T`; `r.deref().clone()` is the old meaning | changed | 0.19 | BV-MIG-04 |
-| `Handle<AnimationGraph>` | `AnimationGraphHandle(handle)` as the component | changed | 0.15 | BV-ECS-13 |
 | `Node` | the layout input, what was `Style`; the laid-out size is `ComputedNode`'s | changed | 0.15 | BV-VIEW-03 |
 | `TextSection` | a live trait; the old struct is a `TextSpan` on a child entity | changed | 0.15 | BV-VIEW-05 |
-| `Text { sections }` | a `Text` root with `TextSpan` children | changed | 0.15 | BV-VIEW-05 |
 | `TextFont::default` | sizes text at `FontSize::Rem(1.)`, not `Px(20.)`; `TextFont::from_font_size(FontSize::Px(…))` keeps a fixed size | changed | 0.20 | BV-VIEW-04 |
-| `TextFont { line_height }` | the `LineHeight` component | changed | 0.18 | BV-VIEW-04 |
-| `TextFont { font: handle }` | `TextFont { font: FontSource::Handle(handle), .. }` | changed | 0.19 | BV-VIEW-04 |
-| `TextFont { font_size: f32 }` | `TextFont { font_size: FontSize::Px(…), .. }` | changed | 0.19 | BV-VIEW-04 |
 | `EditableText` | spawned alone, inert; spawn `TextInput`, which requires it | changed | 0.20 | BV-VIEW-08 |
-| `Camera { hdr }` | the separate `Hdr` component | changed | 0.17 | BV-VIEW-12 |
 | `Camera2d` | brings `Tonemapping::Linear`, and with `Hdr` runs the tonemapping pass | changed | 0.20 | BV-VIEW-12 |
 | `Camera3d` | no longer requires `ScreenSpaceTransmission`; a camera drawing transmissive materials adds it | changed | 0.20 | BV-VIEW-12 |
-| `Camera { target }` | `RenderTarget` as its own component | changed | 0.18 | BV-VIEW-14 |
 | `Bloom` | judges luminance in linear, so a tint tuned against sRGB blooms more | changed | 0.19 | BV-VIEW-11 |
+| `Aabb` | added and kept up to date by Bevy whenever its mesh or sprite changes, so a system that writes or removes one fights the engine; `NoAutoAabb` opts out | changed | 0.18 | BV-VIEW-16 |
 | `Tonemapping::None` | a full passthrough: no `ColorGrading`, no `DebandDither`, no clamping; `Tonemapping::Linear` is no curve | changed | 0.20 | BV-VIEW-20 |
 | `SpriteMaterial` | a new public type, unrelated to the internal one of the same name, which is `SpriteMeshMaterial` | changed | 0.20 | BV-VIEW-17 |
-| `bevy_pbr::mesh_view_bindings` | `bevy_pbr::render::mesh_view_bindings` | changed | 0.20 | BV-VIEW-18 |
 | `AssetEvent::Modified` | raised only by an actual mutation, so a `get_mut` that only reads raises none | changed | 0.19 | BV-ASSET-09 |
 | `UiSystems` | ordered weakly, as the render schedules' sets are: systems the ECS sees no conflict between are unordered | changed | 0.20 | BV-SCHED-14 |
-| `Condition` | `SystemCondition`; the new name contains the old, so read each bound | changed | 0.17 | BV-SCHED-17 |
 | `bevy_scene` | the `bsn!` scene system; the old scene crate is `bevy_world_serialization` | changed | 0.19 | BV-MIG-02 |
 | `Scene` | a trait of the `bsn!` system; the asset is `WorldAsset` | changed | 0.19 | BV-MIG-02 |
 | `ScenePlugin` | the `bsn!` system's plugin; the old one is `WorldSerializationPlugin` | changed | 0.19 | BV-MIG-02 |
-| `Window { cursor_options }` | the separate `CursorOptions` component, which `Window` requires | changed | 0.17 | BV-MIG-02 |
-| `Sprite { anchor }` | the separate `Anchor` component, which `Sprite` requires: a `Vec2` newtype, `Anchor::CENTER` for `Anchor::Center` and `Anchor(v)` for `Anchor::Custom(v)` | changed | 0.17 | BV-MIG-02 |
 | `AmbientLight` | a camera component; the resource is `GlobalAmbientLight` | changed | 0.18 | BV-MIG-02 |
 | `Atmosphere` | a component of its own entity, not of the camera | changed | 0.19 | BV-MIG-02 |
-| `Skybox { image }` | `Option<Handle<Image>>` | changed | 0.19 | BV-MIG-02 |
-| `BorderRadius { top_left }` | `CornerRadius` fields, such as `px(10.).into()` | changed | 0.20 | BV-MIG-02 |
-| `MeshTag(x)` | `MeshTag::new(x)`, read as `tag.value` | changed | 0.20 | BV-MIG-02 |
 | `"compressed_image_saver"` | a BCn/ASTC backend; the Basis one is `"compressed_image_saver_universal"` | changed | 0.20 | BV-BUILD-03 |
 | `Interaction` | deprecated, with the prelude `Button`; `Hovered` plus `Pressed`, and `On<Activate>` | deprecated | 0.20 | BV-VIEW-06 |
 | `bevy::ui::widget::Button` | `bevy::ui_widgets::Button` | deprecated | 0.20 | BV-VIEW-06 |
@@ -219,7 +222,7 @@ command after the table finds every `gone` row.
 | `template_value` | the value itself, in `bsn!` | deprecated | 0.20 | BV-VIEW-09 |
 
 ```sh
-rg -n -F \
+rg -n -F -w \
   -e 'SpriteBundle' \
   -e 'SpriteSheetBundle' \
   -e 'PbrBundle' \
@@ -349,6 +352,15 @@ rg -n -F \
   -e '"experimental_bevy_feathers"' \
   -e '"experimental_bevy_ui_widgets"' \
   -e '"bevy_math/curve"' \
+  -e 'On<Add>' \
+  -e 'App::add_event' \
+  -e 'App::observe' \
+  -e 'NextState::set_if_neq' \
+  -e 'Query::get_single' \
+  -e 'impl Command<Result>' \
+  -e 'Handle<AnimationGraph>' \
+  -e 'bevy_pbr::mesh_view_bindings' \
+  -e 'Condition' \
   .
 ```
 
@@ -358,14 +370,16 @@ rg -n -F \
 
 Code from a tutorial, a blog post, an answer or a language model was written against an older Bevy
 until something proves otherwise — often 0.15, and at best 0.19. Run the command after the table
-over it before adapting it, then read it for the `changed` rows, which no fixed string finds.
+over it before adapting it, then read it for the `changed` rows and the shapes, which no fixed
+string finds.
 
 **Why:** 0.17 renamed the event system, the observer parameter and every system set; 0.20 moved the
 observer's bundle and flattened the pointer events. Nearly all Bevy material online predates one or
 both, and adapting a pattern that no longer exists costs time and keeps the old names in mind.
 
-**Check:** a hit of the command after the table dates the sample, and so does a hit of a `changed`
-row's owning rule's Check; a sample with neither is read against the `changed` rows by hand.
+**Check:** a hit of the command after the table dates the sample, and so does a hit of the Check of
+a rule that owns a `changed` row or a shape; a sample with neither is read against those rows by
+hand.
 
 ### BV-MIG-02 [M] Follow a rename to its 0.20 spelling, not its first hop
 
@@ -377,7 +391,7 @@ in 0.20. Applying one release's guide and stopping leaves a name that was alread
 
 **Check:** look each new name a guide gives up in the pinned release's source, as the toolchain
 looks up each `gone` row's; a name that is not there means the chain continued.
-`rg -n '\bMeshTag\(|\bAnchor::[A-Z][a-z]|\bcursor_options:' src/` finds this rule's `changed` rows
+`rg -n '\bMeshTag\(|\bAnchor::[A-Z][a-z]|\bcursor_options:' src/` finds three of this rule's shapes
 written the old way.
 
 ### BV-MIG-03 [M] Do not call an API 0.20 deprecated

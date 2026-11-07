@@ -715,14 +715,24 @@ def _opening_id(cell: str) -> tuple[RuleId | None, str]:
     return RuleId.try_parse(span), rest.strip()
 
 
-#: The statuses a migration row may give an old spelling: removed, kept
-#: as an alias of the new one, kept and behaving otherwise, kept and
-#: scheduled for removal (normalize-the-standards, decision 9).
+#: The statuses a migration row may give an old spelling, by what the
+#: target does with it (normalize-the-standards, decision 9): `gone`,
+#: it rejects it — a compile, import or attribute error; `changed`, it
+#: accepts it and it means something else; `alias` and `deprecated`, it
+#: accepts it and it means what it meant, the replacement there to
+#: rewrite it to, or the spelling scheduled for removal.
 STATUSES = ("gone", "alias", "changed", "deprecated")
 
 #: The statuses whose old spelling the reader's command finds: those
 #: whose spelling is to be rewritten wherever it stands.
 SOUGHT = ("gone", "alias")
+
+#: The status each subsection of section 2 projects, in decision 5's
+#: order: what compiles and behaves differently, and what no longer
+#: compiles. What the target gained is no old spelling, so the third
+#: projects none; `alias` and `deprecated` still compile and mean what
+#: they did, so no subsection holds them.
+PROJECTED = ("changed", "gone")
 
 #: What stands for code a spelling leaves out: `extern "C" { … }`. A
 #: spelling holding one is a shape, which no fixed string finds.
@@ -740,11 +750,11 @@ def migration_header(target: str) -> tuple[str, str, str, str, str]:
 
 
 def reality_header(target: str) -> tuple[str, str, str]:
-    """Section 2.2's columns: the migration table's, less two.
+    """Section 2.1's and 2.2's columns: the migration table's, less two.
 
-    Section 2.2 is the migration table restricted to the rows whose
-    Since is the target, rendered from it: Since is the target in every
-    row, and Status is the chapter's to read.
+    Each is the migration table restricted to one status and to the
+    rows whose Since is the target, rendered from it: the subsection
+    names the status, and Since is the target in every row.
     """
     old, new, _, _, rule = migration_header(target)
     return (old, new, rule)
@@ -766,6 +776,16 @@ class Migration:
         """The old spelling: the code span the cell is, else None."""
         inner = self.old.removeprefix("`").removesuffix("`")
         return inner if self.old == f"`{inner}`" and "`" not in inner else None
+
+    @property
+    def shape(self) -> bool:
+        """Is the old spelling a shape, code left out where `…` stands?
+
+        `TextFont { line_height: … }` is every literal setting that
+        field: a fixed string finds none of them, so the reader's
+        command leaves the row to its owning rule's Check.
+        """
+        return ELIDED in (self.spelling or "")
 
     @property
     def owner(self) -> RuleId | None:

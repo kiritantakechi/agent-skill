@@ -28,7 +28,6 @@ lazy from agent_skill.checks.skeleton import (
     MIGRATION_STEM,
     chapters_mapped,
     reality_rendered,
-    reality_titles,
     subsections,
     target,
 )
@@ -84,7 +83,7 @@ def _reprint(skill: Skill) -> list[Finding]:
         if skill.profile.normalized and path == skill.skill_md:
             tree, unrendered = _projected(skill, tree)
             changed += unrendered
-            tree = _gone_rendered(skill, tree)
+            tree = _reality_rendered(skill, tree)
         if skill.profile.normalized and path.stem == MIGRATION_STEM:
             tree = with_command(tree, migration_header(target(skill)))
         if (printed := str(tree)) != text:
@@ -127,14 +126,14 @@ def _projected(skill: Skill, tree: Doc) -> tuple[Doc, list[Finding]]:
     return SkillMd(md.frontmatter, md.title, md.preamble, sections).doc(), []
 
 
-def _gone_rendered(skill: Skill, tree: Doc) -> Doc:
-    """`SKILL.md` with section 2.2 rendered from the migration table.
+def _reality_rendered(skill: Skill, tree: Doc) -> Doc:
+    """`SKILL.md`, sections 2.1 and 2.2 rendered from migration rows.
 
-    The rows whose Since is the target's, and the line saying where the
-    rest are (decision 9): whatever stood under the subsection's heading
-    is replaced. A section 2 with no such subsection, or a migration
-    chapter with no one table to render from, is left as it is;
-    `skeleton` reports either.
+    Each its status's rows whose Since is the target's, and the line
+    saying where the rest are (decision 9): whatever stood under the
+    subsection's heading is replaced. A section 2 with no such
+    subsection, or a migration chapter with no one table to render
+    from, is left as it is; `skeleton` reports either.
     """
     rendered = reality_rendered(skill)
     md = SkillMd.read(tree)
@@ -144,15 +143,12 @@ def _gone_rendered(skill: Skill, tree: Doc) -> Doc:
         return tree
     section = md.sections[at]
     before, parts = subsections(section.lead)
-    gone = reality_titles(skill)[1]
-    if gone not in (heading.text for heading, _ in parts):
-        return tree
     lead = (
         *before,
         *(
             b
             for heading, blocks in parts
-            for b in (heading, *(rendered if heading.text == gone else blocks))
+            for b in (heading, *rendered.get(heading.text, blocks))
         ),
     )
     sections = list(md.sections)

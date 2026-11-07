@@ -259,22 +259,26 @@ def sought(rows: Sequence[Migration]) -> tuple[str, ...]:
 
     Each `gone` or `alias` row's: a spelling to rewrite wherever it
     stands. One that changed behaviour, or is deprecated and still
-    works, is a rule's to judge, not a hit.
+    works, is a rule's to judge, not a hit; so is a shape, which no
+    fixed string finds (`Migration.shape`).
     """
-    found = (r.spelling for r in rows if r.status in SOUGHT)
+    found = (r.spelling for r in rows if r.status in SOUGHT and not r.shape)
     return tuple(dict.fromkeys(s for s in found if s is not None))
 
 
 def command(spellings: Sequence[str]) -> Fence | None:
-    """The reader's command: every spelling, as a fixed string; or None.
+    """The reader's command: every spelling, as a whole word; or None.
 
     One pattern a line, so a row added is a line added. Generated from
     the table rather than kept beside it, so the two cannot disagree.
+    A fixed string, matched where no word character runs on either
+    side of it (`-w`): `Style` is not `TextStyle`, and `gen`, the name
+    edition 2024 reserved, is not `generic`.
     """
     if not spellings:
         return None
     patterns = (f"  -e {_shell(s)} \\" for s in spellings)
-    return Fence(SHELL, "\n".join(["rg -n -F \\", *patterns, "  ."]) + "\n")
+    return Fence(SHELL, "\n".join(["rg -n -F -w \\", *patterns, "  ."]) + "\n")
 
 
 def _shell(word: str) -> str:
@@ -320,28 +324,39 @@ def with_command(doc: Doc, header: Sequence[str]) -> Doc:
 
 
 # ------------------------------------------------------------------
-# section 2.2, a projection of the migration table (decision 9)
+# sections 2.1 and 2.2, projections of the migration table (decision 9)
 
 
 def landed(
-    rows: Iterable[Migration], since: Collection[Version]
+    rows: Iterable[Migration], since: Collection[Version], status: str
 ) -> tuple[Migration, ...]:
-    """The rows whose Since is one of `since`, in the table's order."""
-    return tuple(r for r in rows if r.landed in since)
+    """The rows of `status` whose Since is one of `since`, in order."""
+    return tuple(r for r in rows if r.status == status and r.landed in since)
 
 
-def older(family: str) -> Paragraph:
-    """The line after section 2.2's table: where an older change is.
+#: What the line after each subsection's table says of the rows of
+#: an earlier release, by the status the subsection projects: how a
+#: reader finds a spelling of it in their code.
+_FOUND = {
+    "changed": "its owning rule's Check finds it",
+    "gone": (
+        "the `rg` command after that table finds every `gone` and `alias` "
+        "spelling but a shape, whatever its release"
+    ),
+}
+
+
+def older(family: str, status: str) -> Paragraph:
+    """The line after a subsection's table: where an older change is.
 
     `family` is the migration chapter's, `PS-MIG`: section 6 maps it to
-    its file, so the line names no path, and the command it names is
-    the one the migration table generates.
+    its file, so the line names no path. A `changed` row is found by
+    its rule; a `gone` one by the command the migration table
+    generates, unless it is a shape.
     """
     said = (
-        "What an earlier release changed is in the migration table, "
-        f"`{family}` in section 6, each row with its Since; the `rg` command "
-        "after that table finds every `gone` and `alias` spelling, whatever "
-        "its release."
+        f"A `{status}` row of an earlier release is in the migration table, "
+        f"`{family}` in section 6, with its Since; {_FOUND[status]}."
     )
     return Paragraph(words(said))
 
@@ -351,15 +366,17 @@ def reality(
     since: Collection[Version],
     header: Sequence[str],
     family: str,
+    status: str,
 ) -> tuple[Block, ...]:
-    """Section 2.2: the migration table restricted to the target.
+    """Section 2.1 or 2.2: the migration table restricted to the target.
 
-    Each row whose Since is the target's, its Old, target spelling and
-    rule, in the table's order, so the subsection is a function of the
-    table alone, and the line saying where the other rows are. No table
-    when no row landed in the target: a header over no row says nothing.
+    Each row of `status` whose Since is the target's, its Old, target
+    spelling and rule, in the table's order, so the subsection is a
+    function of the table alone; then the line saying where the other
+    rows are. No table when no row landed in the target: a header over
+    no row says nothing.
     """
-    kept = landed(rows, since)
+    kept = landed(rows, since, status)
     cells = tuple((r.old, r.new, r.rule) for r in kept)
     table = Table(tuple(header), (Align.NONE,) * len(header), cells)
-    return (*((table,) if kept else ()), older(family))
+    return (*((table,) if kept else ()), older(family, status))

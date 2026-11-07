@@ -81,31 +81,21 @@ proceed with the stricter reading.
 
 ### 2.1 Compiles, and behaves differently
 
-- `next.set(S)` runs `OnExit(S)` and `OnEnter(S)` when the state is already `S`, so code that sets
-  it every frame re-runs every setup and teardown; `set_if_different` is the old behaviour
-  (BV-STATE-17).
-- A resource is a component on an entity of its own: `Query<Entity>`, `Query<EntityRef>` and
-  `Query<EntityMut>` match it, a sweep that despawns all it matches panics under the default error
-  handler, and `Query<EntityMut>` beside any `Res` panics with B0002 (BV-STATE-02).
-- A panic in a system, observer or command reaches the fallback error handler, so a release handler
-  that only logs keeps running past it, overflow traps included (BV-ERR-05).
-- `iter_many` yields a `Result` per id, so `.count()` and `for _ in` count ids the query does not
-  match; `.matched()` is the old meaning (BV-ECS-20).
-- `value.clone()` on a `Ref<T>` is another `Ref<T>`, where it was a `T` (BV-MIG-04).
-- Bevy adds and updates the `Aabb` of meshes and sprites, so a system that writes one fights the
-  engine (BV-VIEW-16).
-- `AssetEvent::Modified` fires only on an actual mutation, so a `get_mut` that only reads raises
-  none (BV-ASSET-09).
-- Bloom judges luminance in linear, so a tint tuned against sRGB blooms more (BV-VIEW-11).
-- `EditableText` spawned alone ignores the keyboard; `TextInput` requires it and drives it
-  (BV-VIEW-08).
-- Inside `UiSystems` and the render schedules' sets, systems the ECS sees no conflict between are
-  unordered, so one relying on hidden ordering races (BV-SCHED-14).
-- `Camera2d` brings `Tonemapping::Linear`, and `Camera3d` no longer requires
-  `ScreenSpaceTransmission` (BV-VIEW-12); `Tonemapping::None` is a full passthrough (BV-VIEW-20).
-- `TextFont::default()` sizes text at `FontSize::Rem(1.)`, which follows `RemSize` (BV-VIEW-04).
-- `bevy_scene` names the `bsn!` scene system, the old one being `bevy_world_serialization`
-  (BV-MIG-02), and the `compressed_image_saver` feature selects a BCn/ASTC backend (BV-BUILD-03).
+| Old | Bevy 0.20 | Rule |
+|---|---|---|
+| `App::set_error_handler` | receives every panic in a system, observer or command as an error carrying its payload | BV-ERR-05 |
+| `Query::iter_many` | yields `Result` per id, so `.count()` and `for _ in` take ids the query does not match; `.matched()` is the old meaning | BV-ECS-20 |
+| `TextFont::default` | sizes text at `FontSize::Rem(1.)`, not `Px(20.)`; `TextFont::from_font_size(FontSize::Px(…))` keeps a fixed size | BV-VIEW-04 |
+| `EditableText` | spawned alone, inert; spawn `TextInput`, which requires it | BV-VIEW-08 |
+| `Camera2d` | brings `Tonemapping::Linear`, and with `Hdr` runs the tonemapping pass | BV-VIEW-12 |
+| `Camera3d` | no longer requires `ScreenSpaceTransmission`; a camera drawing transmissive materials adds it | BV-VIEW-12 |
+| `Tonemapping::None` | a full passthrough: no `ColorGrading`, no `DebandDither`, no clamping; `Tonemapping::Linear` is no curve | BV-VIEW-20 |
+| `SpriteMaterial` | a new public type, unrelated to the internal one of the same name, which is `SpriteMeshMaterial` | BV-VIEW-17 |
+| `UiSystems` | ordered weakly, as the render schedules' sets are: systems the ECS sees no conflict between are unordered | BV-SCHED-14 |
+| `"compressed_image_saver"` | a BCn/ASTC backend; the Basis one is `"compressed_image_saver_universal"` | BV-BUILD-03 |
+
+A `changed` row of an earlier release is in the migration table, `BV-MIG` in section 6, with its
+Since; its owning rule's Check finds it.
 
 ### 2.2 No longer compiles
 
@@ -143,29 +133,15 @@ proceed with the stricter reading.
 | `"shader_format_glsl"` | nothing: GLSL is gone | BV-VIEW-18 |
 | `"shader_format_wesl"` | nothing: WESL is the only shader language | BV-VIEW-18 |
 | `"bevy_math/curve"` | `"bevy/bevy_curve"` | BV-BUILD-03 |
-| `On<Add, T>` | `On<Add<T>>`, and so for `Insert`, `Discard`, `Remove` and `Despawn`; a custom `On<E, B>` is a `PhantomData` wrapper implementing `EventPattern` | BV-EVENT-13 |
+| `On<Add, …>` | `On<Add<T>>`, and so for `Insert`, `Discard`, `Remove` and `Despawn`; a custom `On<E, B>` is a `PhantomData` wrapper implementing `EventPattern` | BV-EVENT-13 |
 | `On<Add>` | `On<Add<()>>`, for an observer of dynamic components (`.with_component(id)`) | BV-EVENT-13 |
-| `NextState::set_if_neq` | `set_if_different`; `Mut::set_if_neq` is live, so the name finds both | BV-STATE-17 |
-| `App::set_error_handler` | receives every panic in a system, observer or command as an error carrying its payload | BV-ERR-05 |
-| `Query::iter_many` | yields `Result` per id, so `.count()` and `for _ in` take ids the query does not match; `.matched()` is the old meaning | BV-ECS-20 |
-| `TextFont::default` | sizes text at `FontSize::Rem(1.)`, not `Px(20.)`; `TextFont::from_font_size(FontSize::Px(…))` keeps a fixed size | BV-VIEW-04 |
-| `EditableText` | spawned alone, inert; spawn `TextInput`, which requires it | BV-VIEW-08 |
-| `Camera2d` | brings `Tonemapping::Linear`, and with `Hdr` runs the tonemapping pass | BV-VIEW-12 |
-| `Camera3d` | no longer requires `ScreenSpaceTransmission`; a camera drawing transmissive materials adds it | BV-VIEW-12 |
-| `Tonemapping::None` | a full passthrough: no `ColorGrading`, no `DebandDither`, no clamping; `Tonemapping::Linear` is no curve | BV-VIEW-20 |
-| `SpriteMaterial` | a new public type, unrelated to the internal one of the same name, which is `SpriteMeshMaterial` | BV-VIEW-17 |
+| `NextState::set_if_neq` | `set_if_different`; `Mut::set_if_neq` is live | BV-STATE-17 |
 | `bevy_pbr::mesh_view_bindings` | `bevy_pbr::render::mesh_view_bindings` | BV-VIEW-18 |
-| `UiSystems` | ordered weakly, as the render schedules' sets are: systems the ECS sees no conflict between are unordered | BV-SCHED-14 |
-| `BorderRadius { top_left }` | `CornerRadius` fields, such as `px(10.).into()` | BV-MIG-02 |
-| `MeshTag(x)` | `MeshTag::new(x)`, read as `tag.value` | BV-MIG-02 |
-| `"compressed_image_saver"` | a BCn/ASTC backend; the Basis one is `"compressed_image_saver_universal"` | BV-BUILD-03 |
-| `Interaction` | deprecated, with the prelude `Button`; `Hovered` plus `Pressed`, and `On<Activate>` | BV-VIEW-06 |
-| `bevy::ui::widget::Button` | `bevy::ui_widgets::Button` | BV-VIEW-06 |
-| `AssetId::invalid` | `Option<AssetId<_>>`; `AssetId::INVALID_UUID` likewise | BV-MIG-03 |
-| `template_value` | the value itself, in `bsn!` | BV-VIEW-09 |
+| `BorderRadius { top_left: Val::Px(…), … }` | `CornerRadius` fields, such as `px(10.).into()` | BV-MIG-02 |
+| `MeshTag(…)` | `MeshTag::new(x)`, read as `tag.value` | BV-MIG-02 |
 
-What an earlier release changed is in the migration table, `BV-MIG` in section 6, each row with its
-Since; the `rg` command after that table finds every `gone` and `alias` spelling, whatever its
+A `gone` row of an earlier release is in the migration table, `BV-MIG` in section 6, with its Since;
+the `rg` command after that table finds every `gone` and `alias` spelling but a shape, whatever its
 release.
 
 ### 2.3 What Bevy 0.20 gained

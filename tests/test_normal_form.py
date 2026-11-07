@@ -297,36 +297,77 @@ def test_fmt_writes_the_command_the_migration_table_generates(built: Skill) -> N
     assert "old_mode' \\" not in text
 
 
-def _gone_section(skill: Skill) -> str:
-    """Section 2.2 of `skill`'s `SKILL.md`, heading to next heading."""
+def _subsection(skill: Skill, title: str) -> str:
+    """A subsection of `skill`'s section 2, heading to next heading."""
     text = (skill.root / "SKILL.md").read_text()
-    start = text.index("### 2.2 No longer compiles")
-    return text[start : text.index("### 2.3", start)]
+    start = text.index(f"### {title}")
+    return text[start : text.index("### ", start + 4)]
 
 
-def test_fmt_renders_section_2_2_from_the_rows_the_target_made(built: Skill) -> None:
-    """A row of 1.2 joins section 2.2; one moved to 1.1 leaves it."""
+#: Section 2's projected subsections, as the demo titles them.
+CHANGED, GONE = "2.1 Compiles, and behaves differently", "2.2 No longer compiles"
+
+
+def test_fmt_renders_each_row_of_the_target_under_its_status(built: Skill) -> None:
+    """A `changed` row of 1.2 is in 2.1, a `gone` one in 2.2.
+
+    The status is the partition: a row the target made is in exactly
+    the subsection its status names, and a row of an older release in
+    neither, whatever its status: 1.1 is in none.
+    """
     edited = edit(
         built,
         MIGRATION,
         "| `old_name` | `new_name` | gone | 1.2 | DS-MIG-01 |\n",
         "| `old_name` | `new_name` | gone | 1.1 | DS-MIG-01 |\n"
-        "| `old_mode` | `new_mode` | changed | 1.2 | DS-MIG-01 |\n",
+        "| `old_mode` | `new_mode` | changed | 1.2 | DS-MIG-01 |\n"
+        "| `old_call` | `new_call` | gone | 1.2 | DS-MIG-01 |\n",
     )
-    assert fired(edited, "skeleton") == ["skeleton.reality_drift"]
+    assert fired(edited, "skeleton") == [
+        "skeleton.changed_drift",
+        "skeleton.gone_drift",
+        "skeleton.migration_command",
+    ]
     format_skill(edited)
     fixed = Skill(built.root, built.profile)
     assert fired(fixed, "skeleton") == []
-    section = _gone_section(fixed)
-    assert "| `old_mode` | `new_mode` | DS-MIG-01 |" in section
-    assert "old_name" not in section
-    assert " ".join(section.split()).endswith("whatever its release.")
+    changed, gone = _subsection(fixed, CHANGED), _subsection(fixed, GONE)
+    assert "| `old_mode` | `new_mode` | DS-MIG-01 |" in changed
+    assert "| `open()` | returns an error for a missing file | DS-ERR-01 |" in changed
+    assert "| `old_call` | `new_call` | DS-MIG-01 |" in gone
+    assert "old_mode" not in gone
+    assert "old_call" not in changed
+    assert "old_name" not in changed + gone
+    assert " ".join(changed.split()).endswith("its owning rule's Check finds it.")
+    assert " ".join(gone.split()).endswith("whatever its release.")
     format_skill(fixed)
-    assert _gone_section(Skill(built.root, built.profile)) == section
+    again = Skill(built.root, built.profile)
+    assert (_subsection(again, CHANGED), _subsection(again, GONE)) == (changed, gone)
 
 
-def test_section_2_2_with_no_row_of_the_target_is_its_closing_line(
-    built: Skill,
+@pytest.mark.parametrize("status", ["alias", "deprecated"])
+def test_a_row_that_still_means_what_it_did_is_in_no_subsection(
+    built: Skill, status: str
+) -> None:
+    """An `alias` or `deprecated` row of 1.2 is the table's alone."""
+    edited = edit(
+        built,
+        MIGRATION,
+        "| `old_flag` | `new_flag` | alias | 1.1 | DS-MIG-01 |",
+        f"| `old_flag` | `new_flag` | {status} | 1.2 | DS-MIG-01 |",
+    )
+    sought = status == "alias"
+    assert fired(edited, "skeleton") == (
+        [] if sought else ["skeleton.migration_command"]
+    )
+    format_skill(edited)
+    fixed = Skill(built.root, built.profile)
+    assert "old_flag" not in _subsection(fixed, CHANGED) + _subsection(fixed, GONE)
+
+
+@pytest.mark.parametrize("title", [CHANGED, GONE])
+def test_a_subsection_with_no_row_of_the_target_is_its_closing_line(
+    built: Skill, title: str
 ) -> None:
     """No table over no row: the line saying where they are stays."""
     edited = edit(
@@ -335,12 +376,29 @@ def test_section_2_2_with_no_row_of_the_target_is_its_closing_line(
         "| `old_name` | `new_name` | gone | 1.2 | DS-MIG-01 |",
         "| `old_name` | `new_name` | gone | 1.1 | DS-MIG-01 |",
     )
+    row = (
+        "| `open()` | returns an error for a missing file | changed | {} | DS-ERR-01 |"
+    )
+    edited = edit(built, MIGRATION, row.format("1.2"), row.format("1.1"))
     format_skill(edited)
     fixed = Skill(built.root, built.profile)
     assert fired(fixed, "skeleton") == []
-    section = _gone_section(fixed)
+    section = _subsection(fixed, title)
     assert "|" not in section
     assert "`DS-MIG` in section 6" in section
+
+
+def test_a_shape_is_no_pattern_of_the_command(built: Skill) -> None:
+    """A spelling with `…` in it is code left out: no fixed string."""
+    added = edit(
+        built,
+        MIGRATION,
+        "| `old_flag` | `new_flag` | alias | 1.1 | DS-MIG-01 |\n",
+        "| `old_flag` | `new_flag` | alias | 1.1 | DS-MIG-01 |\n"
+        "| `Old { field: \u2026 }` | `New` | gone | 1.1 | DS-MIG-01 |\n",
+    )
+    assert fired(added, "skeleton") == []
+    assert "Old {" not in (built.root / MIGRATION).read_text().split("```sh")[1]
 
 
 @pytest.mark.parametrize(

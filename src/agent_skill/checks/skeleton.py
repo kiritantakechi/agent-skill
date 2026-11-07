@@ -31,6 +31,7 @@ from agent_skill.doc import (
 from agent_skill.doc.chapter import (
     CONTENTS,
     DECIDED,
+    PROJECTED,
     RENAMED,
     STATUSES,
     Demoted,
@@ -101,7 +102,8 @@ MIGRATION_TABLE = declare("skeleton", "migration_table", Level.FAIL)
 MIGRATION_ROW = declare("skeleton", "migration_row", Level.FAIL)
 MIGRATION_TWICE = declare("skeleton", "migration_twice", Level.FAIL)
 MIGRATION_COMMAND = declare("skeleton", "migration_command", Level.FAIL)
-REALITY_DRIFT = declare("skeleton", "reality_drift", Level.FAIL)
+CHANGED_DRIFT = declare("skeleton", "changed_drift", Level.FAIL)
+GONE_DRIFT = declare("skeleton", "gone_drift", Level.FAIL)
 SKILL_MD_LINES = declare("skeleton", "skill_md_lines", Level.FAIL)
 
 #: `SKILL.md` is under this many lines: it is loaded whole, every time
@@ -576,12 +578,13 @@ def _reality(skill: Skill) -> Iterator[Finding]:
     """Section 2 is three subsections, and indexes the chapters.
 
     What compiles and behaves differently, what no longer compiles, what
-    the target gained, in that order (decision 5). Section 2.2 is the
-    migration table restricted to the rows the target made, rendered
-    from it (decision 9), so it holds nothing a person writes; each item
-    of the other two names the rule that owns it, so section 2 holds
-    nothing of its own — every item of the section, under whichever
-    subsection or none, so a section still to be laid out is read too.
+    the target gained, in that order (decision 5). Sections 2.1 and 2.2
+    are the migration table's `changed` and `gone` rows the target made,
+    rendered from it (decision 9), so they hold nothing a person writes;
+    each item of 2.3 names the rule that owns it, so section 2 holds
+    nothing of its own — every item of the section outside the two
+    projections, under whichever subsection or none, so a section still
+    to be laid out is read too.
     """
     title = shared.skill_sections(skill)[2]
     section = next((s for s in skill.typed.sections if s.title == title), None)
@@ -600,30 +603,42 @@ def _reality(skill: Skill) -> Iterator[Finding]:
             REALITY_SECTIONS,
         )
     rendered = reality_rendered(skill)
+    projected = dict(zip(want, PROJECTED, strict=False))
     for heading, blocks in parts:
-        if heading.text == want[1] and rendered is not None and blocks != rendered:
-            yield _drifted(skill, heading, blocks, rendered)
+        status = projected.get(heading.text)
+        if rendered is None or status is None or blocks == rendered[heading.text]:
+            continue
+        yield _drifted(skill, heading, blocks, rendered[heading.text], status)
     written = (
-        b for heading, blocks in parts if heading.text != want[1] for b in blocks
+        b for heading, blocks in parts if heading.text not in projected for b in blocks
     )
     yield from _owned(skill, (*before, *written))
 
 
-def reality_rendered(skill: Skill) -> tuple[Block, ...] | None:
-    """Section 2.2 as the migration table renders it, or None.
+def reality_rendered(skill: Skill) -> dict[str, tuple[Block, ...]] | None:
+    """Sections 2.1 and 2.2, each as the migration table renders it.
 
-    The rows whose Since is the target's — the series its pin belongs
-    to, or its edition (`Profile.since`) — under the migration table's
-    columns less Status and Since, then the line saying where the rest
-    are. None while the migration chapter holds no one table to render
-    from, which `migration_table` reports.
+    Each by its title: the rows of the status it projects (`PROJECTED`)
+    whose Since is the target's — the series its pin belongs to, or its
+    edition (`Profile.since`) — under the migration table's columns
+    less Status and Since, then the line saying where the rest are.
+    None while the migration chapter holds no one table to render from,
+    which `migration_table` reports.
     """
     found = _migration_rows(skill)
     if found is None:
         return None
     family = f"{skill.prefix}-{vocabulary.code_for(MIGRATION_STEM)}"
     header = reality_header(target(skill))
-    return reality(found[1], skill.profile.since, header, family)
+    since = skill.profile.since
+    return {
+        title: reality(found[1], since, header, family, status)
+        for title, status in zip(reality_titles(skill), PROJECTED, strict=False)
+    }
+
+
+#: The branch each projected subsection drifts through, by its status.
+_DRIFT = {"changed": CHANGED_DRIFT, "gone": GONE_DRIFT}
 
 
 def _drifted(
@@ -631,24 +646,27 @@ def _drifted(
     heading: Heading,
     held: Sequence[Block],
     rendered: Sequence[Block],
+    status: str,
 ) -> Finding:
-    """Section 2.2 differs from its rendering: say how, and where."""
+    """A projected subsection is not its rendering: say how, where."""
     rows = {tuple(r) for b in held if isinstance(b, Table) for r in b.rows}
     want = {tuple(r) for b in rendered if isinstance(b, Table) for r in b.rows}
     extra, missing = sorted(rows - want), sorted(want - rows)
+    row = f"a `{status}` migration row whose Since is the target's"
     said = (
-        f"lists {extra[0][0]}, which is no migration row whose Since is the target's"
+        f"lists {extra[0][0]}, which is no {row.removeprefix('a ')}"
         if extra
-        else f"leaves out {missing[0][0]}, a migration row whose Since is the target's"
+        else f"leaves out {missing[0][0]}, {row}"
         if missing
         else "differs from its rendering in its header, its order or its closing line"
     )
     since = ", ".join(sorted(map(str, skill.profile.since)))
     return fail(
-        f"section 2.2 {said}; it is the migration table's rows whose Since is "
-        f"{since or 'the target'}, rendered — `agent-skill fmt` writes it",
+        f"section {heading.text.split()[0]} {said}; it is the migration table's "
+        f"`{status}` rows whose Since is {since or 'the target'}, rendered — "
+        "`agent-skill fmt` writes it",
         skill.at(SKILL_MD, heading.line),
-        REALITY_DRIFT,
+        _DRIFT[status],
     )
 
 

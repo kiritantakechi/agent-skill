@@ -71,22 +71,18 @@ proceed with the stricter reading.
 
 ### 2.1 Compiles, and behaves differently
 
-- A `contextlib.contextmanager`-derived decorator on a generator function holds its context until
-  the generator is exhausted, where it used to close when the generator was created: every lock,
-  transaction, `chdir` and `contextvars` token held that way changed duration (PS-CONC-21).
-- UTF-8 mode is on by default, and it moves more than `open()`: the filesystem encoding,
-  `locale.getpreferredencoding()` and the standard streams' error handler move with it (PS-OUT-02).
-- `frozendict` is not a `dict` subclass, so `isinstance(x, dict)` is `False` for one; test
-  `collections.abc.Mapping` (PS-DATA-13).
-- A `functools.singledispatchmethod` called through its class dispatches on the argument after the
-  instance, so a different registered implementation runs (PS-TYPE-17).
-- On `3.15t` the GIL is gone, so a read-modify-write on shared state that worked by luck loses
-  updates (PS-CONC-02). The FAQ's reason that each bytecode instruction is atomic was the GIL; the
-  thread-safety guarantees page is the one to cite (PS-CONC-05).
-- `from __future__ import annotations` stringifies annotations that are lazy anyway, so
-  `annotationlib` hands back bare strings (PS-TYPE-04).
-- `asyncio.get_event_loop()` raises `RuntimeError` when no loop is running, where it used to create
-  one (PS-ASYNC-02).
+| Old | Python 3.15 | Rule |
+|---|---|---|
+| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | PS-CONC-21 |
+| `functools.singledispatchmethod` | called through its class, dispatches on the argument after the instance | PS-TYPE-17 |
+| `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | PS-DATA-13 |
+| `locale.getpreferredencoding` | `'utf-8'` under UTF-8 mode, whatever the locale; `locale.getencoding()` | PS-OUT-03 |
+| `open(path)` | UTF-8 whatever the locale, while UTF-8 mode is on | PS-OUT-02 |
+| `sys.getfilesystemencoding` | `'utf-8'` under UTF-8 mode, so argv, environment variables and filenames decode as UTF-8 whatever the locale | PS-OUT-02 |
+| `sys.stdout` | writes with the `surrogateescape` error handler under UTF-8 mode, as `sys.stdin` reads, where an unencodable character raised | PS-OUT-02 |
+
+A `changed` row of an earlier release is in the migration table, `PS-MIG` in section 6, with its
+Since; its owning rule's Check finds it.
 
 ### 2.2 No longer compiles
 
@@ -126,26 +122,16 @@ proceed with the stricter reading.
 | `Py_GetProgramFullPath` | `PyConfig_Get()` | PS-MIG-03 |
 | `Py_GetProgramName` | `PyConfig_Get()` | PS-MIG-03 |
 | `Py_GetPythonHome` | `PyConfig_Get()` | PS-MIG-03 |
-| `ast.<Node>(...)` | raises `TypeError` for a field missing or a keyword no field has; give each of the node's `_fields`, and only those | PS-MIG-04 |
-| `datetime.strptime(s, "%d/%m")` | raises `ValueError`; give the format a year directive | PS-MIG-04 |
-| `importlib.resources.files(package=...)` | raises `TypeError`; pass the package positionally | PS-MIG-04 |
-| `sysconfig.is_python_build(check_home=...)` | raises `TypeError`; call it with no argument | PS-MIG-04 |
-| `threading.RLock(*args)` | raises `TypeError`; `threading.RLock()`, which never used them | PS-MIG-04 |
-| `typing.NamedTuple("P", x=int)` | raises `TypeError`; `class P(NamedTuple)` | PS-MIG-04 |
-| `typing.TypedDict("TD")` | raises `TypeError`; `class TD(TypedDict)` | PS-MIG-04 |
-| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | PS-CONC-21 |
-| `functools.singledispatchmethod` | called through its class, dispatches on the argument after the instance | PS-TYPE-17 |
-| `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | PS-DATA-13 |
-| `locale.getpreferredencoding` | `'utf-8'` under UTF-8 mode, whatever the locale; `locale.getencoding()` | PS-OUT-03 |
-| `open(path)` | UTF-8 whatever the locale, while UTF-8 mode is on | PS-OUT-02 |
-| `cProfile` | `profiling.tracing` | PS-PERF-02 |
-| `<module>.__version__` | `sys.version_info`, or `importlib.metadata.version()`; removed in 3.20 | PS-MIG-05 |
-| `collections.abc.ByteString` | `collections.abc.Buffer`; removed in 3.17 | PS-TYPE-11 |
-| `profile` | `profiling.tracing`; removed in 3.17 | PS-PERF-02 |
-| `typing.ByteString` | `collections.abc.Buffer`; removed in 3.17 | PS-TYPE-11 |
+| `ast.<Node>(…)` | raises `TypeError` for a field missing or a keyword no field has; give each of the node's `_fields`, and only those | PS-MIG-04 |
+| `datetime.strptime(…, "%d/%m")` | raises `ValueError` for a day with no year; give the format a year directive | PS-MIG-04 |
+| `importlib.resources.files(package=…)` | raises `TypeError`; pass the package positionally | PS-MIG-04 |
+| `sysconfig.is_python_build(check_home=…)` | raises `TypeError`; call it with no argument | PS-MIG-04 |
+| `threading.RLock(…)` | raises `TypeError` given any argument; `threading.RLock()`, which never used them | PS-MIG-04 |
+| `typing.NamedTuple(…, x=…)` | raises `TypeError` for a field given as a keyword; `class P(NamedTuple)` | PS-MIG-04 |
+| `typing.TypedDict("…")` | raises `TypeError` given a name and no fields; `class TD(TypedDict)` | PS-MIG-04 |
 
-What an earlier release changed is in the migration table, `PS-MIG` in section 6, each row with its
-Since; the `rg` command after that table finds every `gone` and `alias` spelling, whatever its
+A `gone` row of an earlier release is in the migration table, `PS-MIG` in section 6, with its Since;
+the `rg` command after that table finds every `gone` and `alias` spelling but a shape, whatever its
 release.
 
 ### 2.3 What Python 3.15 gained

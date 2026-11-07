@@ -47,9 +47,10 @@ PROFILE = Profile(
 #: The stages of the review, in §5 and in the protocol's review order.
 _STAGES = "1. **Soundness.** Look.\n2. **Errors.** Look.\n"
 
-#: The line section 2.2 closes with, as `fmt` renders it: where the
-#: rows of an older release are.
-OLDER = older("DS-MIG").text
+#: The lines sections 2.1 and 2.2 close with, as `fmt` renders them:
+#: where the rows of an older release are.
+OLDER_CHANGED = older("DS-MIG", "changed").text
+OLDER_GONE = older("DS-MIG", "gone").text
 
 _SKILL_MD = f"""---
 name: {PROFILE.name}
@@ -72,7 +73,11 @@ A demo standard in normal form.
 
 ### 2.1 Compiles, and behaves differently
 
-- `open()` on a missing file returns an error where it stopped the program (DS-ERR-01).
+| Old | Demo 1.2 | Rule |
+|---|---|---|
+| `open()` | returns an error for a missing file | DS-ERR-01 |
+
+{OLDER_CHANGED}
 
 ### 2.2 No longer compiles
 
@@ -80,7 +85,7 @@ A demo standard in normal form.
 |---|---|---|
 | `old_name` | `new_name` | DS-MIG-01 |
 
-{OLDER}
+{OLDER_GONE}
 
 ### 2.3 What Demo 1.2 gained
 
@@ -170,7 +175,7 @@ that can make it.
 
 _MIGRATION = """# Migration
 
-Scope: the spellings Demo 1.1 and 1.2 renamed, and what replaces each.
+Scope: the spellings Demo 1.1 and 1.2 renamed or changed, and what replaces each.
 
 ## Contents
 
@@ -184,9 +189,10 @@ Scope: the spellings Demo 1.1 and 1.2 renamed, and what replaces each.
 |---|---|---|---|---|
 | `old_name` | `new_name` | gone | 1.2 | DS-MIG-01 |
 | `old_flag` | `new_flag` | alias | 1.1 | DS-MIG-01 |
+| `open()` | returns an error for a missing file | changed | 1.2 | DS-ERR-01 |
 
 ```sh
-rg -n -F \\
+rg -n -F -w \\
   -e 'old_name' \\
   -e 'old_flag' \\
   .
