@@ -1,13 +1,11 @@
-"""The normal form a normalised standard is held to, and printed in.
+"""The normal form every standard is held to, and printed in.
 
-No shipped standard is normalised yet (normalize-the-standards, decision
-14), so the properties are tried on the demo standard their controls
-break (`checks.demo`), and the normaliser's laws on every shipped file,
-in memory: when a standard is normalised, `fmt` must already be a map
-that loses no example and that a second run leaves alone.
+The properties are tried on the demo standard their controls break
+(`checks.demo`), and the normaliser's laws on every shipped file, in
+memory: `fmt` is a map that loses no example and that a second run
+leaves alone.
 """
 
-from dataclasses import replace
 lazy from pathlib import Path
 
 import pytest
@@ -179,7 +177,7 @@ def test_a_citation_is_set_bare(text: str, expected: str) -> None:
     assert " ".join(bare(words(text))) == expected
 
 
-def test_fmt_prints_a_normalized_standard_in_normal_form(built: Skill) -> None:
+def test_fmt_prints_a_standard_in_normal_form(built: Skill) -> None:
     broken = edit(
         built, ERRORS, "as DS-ERR-01 says", "as `references/errors.md` `DS-ERR-01` says"
     )
@@ -196,23 +194,14 @@ def test_fmt_prints_a_normalized_standard_in_normal_form(built: Skill) -> None:
     assert "as DS-ERR-01 says" in (fixed.root / ERRORS).read_text()
 
 
-def test_fmt_leaves_a_standard_that_is_not_normalized_as_it_is(built: Skill) -> None:
-    """While the gate stands, a standard's citations are its own."""
-    plain = Skill(built.root, replace(demo.PROFILE, normalized=False))
-    quoted = edit(plain, ERRORS, "as DS-ERR-01 says", "as `DS-ERR-01` says")
-    before = (quoted.root / ERRORS).read_text()
-    format_skill(quoted)
-    assert (quoted.root / ERRORS).read_text() == before
-    assert fails(quoted, "anatomy") == []
-
-
 def test_the_normal_form_is_a_law_abiding_map_on_every_shipped_file(
     skills: list[Skill],
 ) -> None:
     """Idempotent, read back as printed, and no example touched.
 
-    So normalising a standard is one run of `fmt` and a reading of what
-    it could not place, never a repair of what it broke.
+    So bringing a standard into the normal form is one run of `fmt` and
+    a reading of what it could not place, never a repair of what it
+    broke.
     """
     for skill in skills:
         chapters = {c.path for c in skill.chapters}

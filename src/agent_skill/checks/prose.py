@@ -65,7 +65,7 @@ BROKEN_QUOTE = declare("prose", "broken_quote", Level.FAIL)
 POSITIONAL_REFERENCE = declare("prose", "positional", Level.FAIL)
 LEGEND_COUNT = declare("prose", "legend", Level.FAIL)
 
-# The branch only a normalised standard is held to (decision 13).
+# The branch of dated statements (normalize-the-standards, decision 13).
 DATED = declare("prose", "dated", Level.FAIL)
 
 #: Words that date a statement by its writing, or say how it was made:
@@ -105,8 +105,7 @@ def prose(skill: Skill) -> Iterator[Finding]:
         )
 
     yield from own_rules(skill)
-    if skill.profile.normalized:
-        yield from dated(skill)
+    yield from dated(skill)
 
 
 def dated(skill: Skill) -> Iterator[Finding]:

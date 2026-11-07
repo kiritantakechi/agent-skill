@@ -39,12 +39,11 @@ DOC = "doc/"
 INJECTED = frozenset({"checks/controls.py", "checks/demo.py"})
 
 #: The patterns composed from `ids.rule_id()` outside `ids`, by module
-#: and the name they are built in: a core rule's citation, a citation
-#: near its chapter, and an abbreviated ID. Each reads inline grammar
-#: inside one block's text, which the tree keeps whole.
+#: and the name they are built in: a citation near its chapter, and an
+#: abbreviated ID. Each reads inline grammar inside one block's text,
+#: which the tree keeps whole.
 COMPOSED = frozenset(
     {
-        ("checks/anatomy.py", "_citation"),
         ("checks/anatomy.py", "_paths"),
         ("checks/anatomy.py", "_ABBREVIATED"),
     }
@@ -246,7 +245,7 @@ def test_no_concept_is_spelled_twice() -> None:
     assert found == []
 
 
-def test_the_composed_citation_patterns_are_the_three_in_anatomy() -> None:
+def test_the_composed_citation_patterns_are_the_two_in_anatomy() -> None:
     """The allowance is spent, not merely permitted."""
     built = {
         (module, call.within)

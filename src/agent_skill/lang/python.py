@@ -174,10 +174,13 @@ class PythonSnippet:
     declares its table, the asset ships one, and the check compares
     them.
 
-    The selection is narrower than the asset because these are snippets,
-    not a project: a fenced example has no module docstring and no
-    `__init__.py`, and holding it to rules about project shape would
-    teach nothing.
+    `ruff` is the exception, decision 12 of normalize-the-standards:
+    the examples are linted with the `ruff.toml` the standard ships,
+    less `allowlist`, since a narrower selection would let an example
+    teach what the reader's build rejects. A fenced example has no
+    module docstring and no `__init__.py`, so the allowlist names the
+    rules about a project's shape, each with its reason. `select` and
+    `ignore` are the selection for a standard that ships no `ruff.toml`.
     """
 
     #: the build every example runs on
@@ -197,7 +200,7 @@ class PythonSnippet:
         "B008",  # a call in a default is the point of some examples
         "RUF001",  # the prose uses en-dashes deliberately
     )
-    #: What a normalised standard's examples are excused from of the
+    #: What a standard's examples are excused from of the
     #: configuration it ships, each with its reason: rules about the
     #: shape of a project, which a fenced snippet cannot have
     #: (normalize-the-standards, decision 12). Everything else the
@@ -262,8 +265,8 @@ class PythonSnippet:
     def ruff_args(self, shipped: Path | None = None) -> list[str]:
         """The `ruff check` arguments that apply this selection.
 
-        Given the configuration a normalised standard ships, that
-        configuration less the allowlist; otherwise the narrower
+        Given the configuration a standard ships, that configuration
+        less the allowlist; for one that ships none, the narrower
         selection declared here.
         """
         if shipped is not None:
@@ -581,13 +584,13 @@ class Python:
 
 
 def _shipped(skill: Skill) -> Path | None:
-    """The `ruff.toml` a normalised standard's examples are linted with.
+    """The `ruff.toml` a standard's examples are linted with.
 
-    None while the standard is not normalised, or ships none: its
-    examples are linted with the selection its snippet declares.
+    None when the standard ships none: its examples are linted with the
+    selection its snippet declares.
     """
     shipped = skill.asset(RUFF_TOML).resolve()
-    return shipped if skill.profile.normalized and shipped.exists() else None
+    return shipped if shipped.exists() else None
 
 
 def _snippet(skill: Skill) -> PythonSnippet:

@@ -29,9 +29,8 @@ from agent_skill.ids import (
     cited,
     releases,
     rule_id,
-    uncited,
 )
-from agent_skill.model import SKILL_MD, Marker, marker_line
+from agent_skill.model import Marker, marker_line
 from agent_skill.report import Level, declare, fail, note
 lazy from agent_skill.doc import Block
 lazy from agent_skill.doc.chapter import Entry, Rule
@@ -91,14 +90,6 @@ SHORT_SECTION = 60
 #: Above this overlap, two Whys or two Checks are one text kept twice.
 NEAR_DUPLICATE = 0.45
 
-#: A word this short or shorter carries no signal when matching a
-#: summary to the rule it cites.
-SHORT_WORD = 2
-
-#: How much closer, absolutely, another rule must match a summary than
-#: the rule it cites before the citation reads as off by one.
-CLOSER_BY = 0.15
-
 # The branches a finding of this check comes from.
 BOLD_DEFINITIONS = declare("anatomy", "bold_definitions", Level.FAIL)
 DUPLICATE = declare("anatomy", "duplicate", Level.FAIL)
@@ -112,24 +103,19 @@ RESTATES_RULE = declare("anatomy", "restates", Level.FAIL)
 CONTENTS_ORDER = declare("anatomy", "contents_order", Level.FAIL)
 SHARED_TITLE = declare("anatomy", "shared_title", Level.FAIL)
 UNSTATED = declare("anatomy", "unstated", Level.FAIL)
-MIS_CITED = declare("anatomy", "mis_cited", Level.NOTE)
 ABBREVIATED = declare("anatomy", "abbreviated", Level.FAIL)
 DANGLING = declare("anatomy", "dangling", Level.FAIL)
 MISSING_FILE = declare("anatomy", "missing_file", Level.FAIL)
 WRONG_CHAPTER = declare("anatomy", "wrong_chapter", Level.FAIL)
-CORE_UNCITED = declare("anatomy", "core_uncited", Level.FAIL)
-CORE_NOT_A_RULE = declare("anatomy", "core_not_a_rule", Level.FAIL)
-CORE_WRONG_CHAPTER = declare("anatomy", "core_wrong_chapter", Level.FAIL)
 MAP_TOTAL = declare("anatomy", "map_total", Level.FAIL)
 MAP_FAMILY = declare("anatomy", "map_family", Level.FAIL)
-MAP_HERE = declare("anatomy", "map_here", Level.FAIL)
 NEAR_DUPLICATE_TEXT = declare("anatomy", "near_duplicate", Level.FAIL)
 JUNK = declare("anatomy", "junk", Level.NOTE)
 BELOW_TARGET = declare("anatomy", "below_target", Level.FAIL)
 WHY_LENGTH = declare("anatomy", "why_length", Level.FAIL)
 NUMBERING = declare("anatomy", "numbering", Level.FAIL)
 
-# The branches only a normalised standard is held to (`_normal_form`).
+# The branches of the normal form (`_normal_form`).
 RESTATED_TITLE = declare("anatomy", "restated_title", Level.FAIL)
 ELEMENT_ORDER = declare("anatomy", "element_order", Level.FAIL)
 STRAY = declare("anatomy", "stray", Level.FAIL)
@@ -184,14 +170,11 @@ def anatomy(skill: Skill) -> Iterator[Finding]:
     yield from structural(skill)
     yield from _contents_order(skill)
     yield from _unique_titles(skill, titles)
-    if not skill.profile.normalized:
-        yield from _mis_cited(skill)
     yield from _references(skill, seen)
     yield from _abbreviated(skill)
     yield from _counts(skill)
     yield from _near_duplicates(skill, parts)
-    if skill.profile.normalized:
-        yield from _normal_form(skill)
+    yield from _normal_form(skill)
 
 
 def _toc(chapter: Chapter) -> dict[RuleId, Entry]:
@@ -329,94 +312,10 @@ def _shape(rule: Rule, where: Location) -> Iterator[Finding]:
         yield fail(f"{rule.id} states no {which}", where, UNSTATED)
 
 
-def _citation(prefix: str) -> re.Pattern[str]:
-    """A core rule's citation: a chapter, then the IDs it holds.
-
-    `` `references/api.md` RS-API-15, RS-API-16 ``. Matched in the
-    rule's text, which the document model keeps whole.
-    """
-    one = rule_id(prefix)
-    return re.compile(
-        rf"`references/([a-z0-9-]+\.md)` ((?:{one})(?:,? (?:and )?{one})*)"
-    )
-
-
-def _unnamed(text: str) -> str:
-    """`text` without the chapters and rules it cites.
-
-    A citation carries no signal when matching a summary to the rule it
-    cites.
-    """
-    return uncited(re.sub(r"`references/[^`]+`", "", text))
-
-
-def _words(text: str) -> set[str]:
-    return {
-        w
-        for w in re.findall(r"[a-z_]+", text.lower())
-        if w not in STOP and len(w) > SHORT_WORD
-    }
-
-
-def _mis_cited(skill: Skill) -> Iterator[Finding]:
-    """A core rule citing a sibling of the rule it is actually about.
-
-    One of bevy-style's core rules summarised the `EntityEvent` rule
-    and cited the rule above it. Everything mechanical passed: the id
-    existed and lived in the cited chapter, which is all `_references`
-    asks.
-
-    The test is **relative**, not a threshold. A well-written summary
-    says the same thing in different words, so absolute overlap
-    separates nothing — a correct citation here scores 0.000. What does
-    separate is another rule in the same chapter scoring much higher,
-    which is what an off-by-one looks like. A note rather than a
-    failure: the metric is text, and two of its five hits over three
-    skills were coincidence.
-    """
-    by_file = {c.name: c.typed.rules for c in skill.chapters}
-    by_id = {r.id: r for r in skill.chapter_rules}
-    pre = skill.prefix
-    cite = _citation(pre)
-    for core in skill.core:
-        flat = " ".join(text_of(core.body).split())
-        cites = cite.findall(flat)
-        named = {t for _, ids in cites for t in cited(ids, pre)}
-        summary = _words(_unnamed(flat))
-        for fname, ids in cites:
-            for target in cited(ids, pre):
-                rule = by_id.get(target)
-                if rule is None:
-                    continue
-                mine = overlap(summary, _words(_summary(rule)))
-                for other in by_file.get(fname, ()):
-                    if other.id in named:
-                        continue
-                    theirs = overlap(summary, _words(_summary(other)))
-                    if theirs > mine * 2 and theirs - mine > CLOSER_BY:
-                        yield note(
-                            f"{core.id} cites {target} ({rule.title!r}) but "
-                            f"{other.id} ({other.title!r}) is a closer match",
-                            skill.at(),
-                            MIS_CITED,
-                        )
-
-
-def _summary(rule: Rule) -> str:
-    """A chapter rule's title and statement: what a summary restates."""
-    return f"{rule.title} {text_of(rule.statement)}"
-
-
 def _references(skill: Skill, seen: dict[RuleId, str]) -> Iterator[Finding]:
     """Every cited id resolves, in the chapter the citation names."""
     yield from _dangling(skill)
-    home = dict(seen.items())
-    yield from _paths(skill, home)
-    # A normalised standard's section 4 is a projection of its chapter
-    # rules, with no rule of its own to cite one: `skeleton` reports any
-    # core rule left, and nothing is left to cite by path.
-    if not skill.profile.normalized:
-        yield from _core_citations(skill, home)
+    yield from _paths(skill, dict(seen.items()))
 
 
 #: A rule ID followed by a bare number that leans on it: `ZS-ASSERT-03,
@@ -488,36 +387,6 @@ def _paths(skill: Skill, home: dict[RuleId, str]) -> Iterator[Finding]:
                     )
 
 
-def _core_citations(skill: Skill, home: dict[RuleId, str]) -> Iterator[Finding]:
-    """A core rule cites the chapter rule that states it in full.
-
-    A core rule is a summary; the reader who wants the full statement
-    needs to be told where it lives.
-    """
-    pre = skill.prefix
-    cite = _citation(pre)
-    for core in skill.core:
-        cites = cite.findall(" ".join(text_of(core.body).split()))
-        if not cites:
-            yield fail(f"{core.id} cites no chapter rule", skill.at(), CORE_UNCITED)
-            continue
-        for fname, ids in cites:
-            for target in cited(ids, pre):
-                if target not in home:
-                    yield fail(
-                        f"{core.id} cites {target}, which is not a rule",
-                        skill.at(),
-                        CORE_NOT_A_RULE,
-                    )
-                elif home[target] != fname:
-                    yield fail(
-                        f"{core.id} cites {fname} for {target}, "
-                        f"which is in {home[target]}",
-                        skill.at(),
-                        CORE_WRONG_CHAPTER,
-                    )
-
-
 def _counts(skill: Skill) -> Iterator[Finding]:
     """The reference map's counts, per family and in total, are true.
 
@@ -545,12 +414,6 @@ def _counts(skill: Skill) -> Iterator[Finding]:
             yield fail(
                 f"{pre}-{family} stated {want}, actual {got}", skill.at(), MAP_FAMILY
             )
-
-    here = re.search(r"the other (\d+) live here", text)
-    if here and int(here.group(1)) != total:
-        yield fail(
-            f"'other {here.group(1)} live here' != {total}", skill.at(), MAP_HERE
-        )
 
 
 def _near_duplicates(
@@ -621,7 +484,6 @@ def _below_target(skill: Skill) -> Iterator[Finding]:
         if chapter.path.stem != "migration"
         for rule in chapter.typed.rules
     ]
-    rules += [(core, skill.at(SKILL_MD)) for core in skill.core]
     for rule, where in rules:
         prose = "\n".join([rule.title, *_prose(rule.body)])
         older = sorted(
@@ -673,16 +535,11 @@ def structural(skill: Skill) -> Iterator[Finding]:
 
 
 # ------------------------------------------------------------------
-# the normal form: what a normalised standard is held to
+# the normal form (normalize-the-standards, decisions 2, 3, 4 and 6)
 
 
 def _normal_form(skill: Skill) -> Iterator[Finding]:
-    """Each rule in one shape, and every citation a bare ID.
-
-    Only a standard whose profile is `normalized`, until all four are
-    (normalize-the-standards, decision 14): each property is a
-    consequence of a decision the others have not been brought into.
-    """
+    """Each rule in one shape, and every citation a bare ID."""
     for chapter in skill.chapters:
         for rule in chapter.typed.rules:
             where = chapter.where(rule.line)

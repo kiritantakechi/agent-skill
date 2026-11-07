@@ -318,25 +318,11 @@ def test_only_the_rename_tables_section_cites_nothing() -> None:
 
 SKILL_MD = """# Delta Style — 1.2
 
-## 2. Delta 1.2 reality check
-
-| Other rule | What applies instead | Why |
-|---|---|---|
-| `RS-API-15` Keep every struct field private | `XS-OUT-01` — public | Reasons. |
-| Not an ID | `XS-OUT-01` | Skipped. |
-
 ## 4. Core rules
 
 - **XS-CORE-01 `[M!]`** Say it. *Relaxed form:* less.
 - **XS-CORE-02 `[X]`** Not a tier, so not a rule.
 """
-
-
-def test_an_override_row_names_both_rules_and_quotes_a_title() -> None:
-    (row,) = SkillMd.read(Doc.parse(SKILL_MD)).overrides
-    assert row.theirs == RuleId.parse("RS-API-15")
-    assert row.quoted == "Keep every struct field private"
-    assert row.ours == RuleId.parse("XS-OUT-01")
 
 
 def test_a_core_item_with_no_tier_is_no_rule() -> None:

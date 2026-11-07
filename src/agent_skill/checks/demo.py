@@ -1,17 +1,14 @@
-"""A small standard in normal form, for the controls of the normal form.
+"""A small standard in normal form, for the controls and the tests.
 
-No shipped standard is normalised yet, so nothing in the tree reaches a
-property only a normalised standard is held to, and a control cannot
-flip a shipped standard's flag instead: each of them breaks most of
-those properties at once, and a control fires its branch alone. This
-standard keeps every property `anatomy` and `skeleton` hold any
-standard to, and the normal form's besides, so one edit breaks one.
+It keeps every property `anatomy` and `skeleton` hold a standard to,
+the normal form's among them, so one edit breaks one: a control on it
+fires its branch alone, where an edit to a shipped standard of hundreds
+of rules could reach a branch beside its own. A test builds it to try a
+check or a command on a standard small enough to read whole.
 
-It is written into the controls' throwaway tree and read with `PROFILE`,
-which no skill ships with, so the copy is read as `normalized` while
-every shipped profile stays as it is. Its shared passages are filled by
-`shared.rewrite`, as `fmt` fills a shipped standard's, and every file is
-printed canonically.
+It is written into a throwaway tree and read with `PROFILE`, which no
+skill ships with. Its shared passages are filled by `shared.rewrite`, as
+`fmt` fills a shipped standard's, and every file is printed canonically.
 """
 
 lazy from pathlib import Path
@@ -25,12 +22,12 @@ from agent_skill.model import REFERENCES, SKILL_MD, Skill
 from agent_skill.profiles import Delta, Mirror, Profile
 from agent_skill.profiles.record import rules
 
-#: The demo's profile: Demo 1.2, in normal form. It names no language,
-#: so no example is compiled or searched; its two `rg` patterns are
-#: listed unproven, as a shipped standard's are. Its lint configuration
-#: is a `ty.toml`, read as Python's toolchain reads one, so the lint
-#: bijection has a configuration to hold its rows to; it ships no
-#: `ruff.toml`, so nothing is asked of `ruff`.
+#: The demo's profile: Demo 1.2. It names no language, so no example
+#: is compiled or searched; its two `rg` patterns are listed unproven,
+#: as a shipped standard's are. Its lint configuration is a `ty.toml`,
+#: read as Python's toolchain reads one, so the lint bijection has a
+#: configuration to hold its rows to; it ships no `ruff.toml`, so
+#: nothing is asked of `ruff`.
 PROFILE = Profile(
     name="demo-style",
     prefix="DS",
@@ -41,7 +38,6 @@ PROFILE = Profile(
     toolchain=PythonSnippet(),
     subject=Pin.parse("demo==1.2.3"),
     unproven=rules("DS-ERR-02", "DS-MIG-01"),
-    normalized=True,
 )
 
 #: The stages of the review, in §5 and in the protocol's review order.
@@ -295,7 +291,6 @@ DELTA = Profile(
     subject=Pin.parse("delta==1.2.3"),
     unproven=rules("DL-ERR-02", "DL-MIG-01"),
     mirror=Mirror(PROFILE.name),
-    normalized=True,
 )
 
 #: The delta's one departure, as its table states it.

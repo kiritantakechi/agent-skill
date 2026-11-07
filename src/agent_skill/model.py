@@ -346,7 +346,7 @@ class Skill:
 
     @cached_property
     def typed(self) -> layer.SkillMd:
-        """`SKILL.md`'s title, sections, core rules and overrides."""
+        """`SKILL.md`'s title, sections and core rules."""
         return layer.SkillMd.read(self.doc)
 
     @cached_property

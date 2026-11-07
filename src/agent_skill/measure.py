@@ -1,17 +1,16 @@
 """How far each standard is from the normal form, counted.
 
-`normalize-the-standards` moves these counts a standard at a time: its
-task 1.1 records them before any standard is normalised, and 7.2 after
-all four are. What a check of the normal form decides is counted by
-running that check over the standard read as normalised, so a count is
-what the check will report there, not a second reading of the property;
-the rest are read from the chapter layer and the shipped configuration,
-each as its function says.
+`normalize-the-standards` moved these counts a standard at a time: its
+task 1.1 recorded them before any standard was normalised, and 7.2
+after all four were. What a check of the normal form decides is counted
+by running that check over the standard, so a count is what the check
+reports, not a second reading of the property; the rest are read from
+the chapter layer and the shipped configuration, each as its function
+says.
 """
 
 import re
 from collections import Counter
-from dataclasses import replace
 lazy from collections.abc import Iterable, Iterator, Sequence
 
 from agent_skill import shared, vocabulary
@@ -21,8 +20,8 @@ from agent_skill.doc import Heading, Table, entry, text_of, walk
 from agent_skill.doc.chapter import Element, citing
 from agent_skill.doc.normal import qualified, quoted, runs
 from agent_skill.ids import cited, leading
-from agent_skill.model import Skill
 lazy from agent_skill.ids import Branch
+lazy from agent_skill.model import Skill
 
 #: What each branch of the normal form counts, in the order of task 1.1.
 _BRANCHES: tuple[tuple[str, Branch], ...] = (
@@ -58,17 +57,16 @@ _REALITY: tuple[tuple[str, Branch], ...] = (
 
 
 def found(skill: Skill) -> Counter[Branch]:
-    """What the normal form's checks find in `skill`, read as normal.
+    """What the normal form's checks find in `skill`.
 
-    `anatomy` and `skeleton`, and the lint bijection of `citations`:
-    the checks that need no tool to say it.
+    `anatomy` and `skeleton`, the lint bijection of `citations`, and
+    `prose`'s dated statements: the checks that need no tool to say it.
     """
-    normal = Skill(skill.root, replace(skill.profile, normalized=True))
     findings = (
-        *anatomy.anatomy.each(normal),
-        *skeleton.skeleton.each(normal),
-        *citations.bijection(normal),
-        *prose.dated(normal),
+        *anatomy.anatomy.each(skill),
+        *skeleton.skeleton.each(skill),
+        *citations.bijection(skill),
+        *prose.dated(skill),
     )
     return Counter(f.branch for f in findings)
 

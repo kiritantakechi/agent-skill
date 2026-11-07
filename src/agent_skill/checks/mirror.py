@@ -94,10 +94,10 @@ def _held(mirrored: Skill, anchor: Skill) -> Iterator[Finding]:
                 Location(mirrored.name),
                 NOT_A_RULE,
             )
-        elif mirrored.profile.normalized and mirrored.profile.anchor == anchor.name:
-            # A normalised delta does not restate its anchor (decision
-            # 10): a rule saying what an anchor rule says is a citation
-            # of it, or a departure its table states.
+        elif mirrored.profile.anchor == anchor.name:
+            # A delta does not restate its anchor (decision 10): a rule
+            # saying what an anchor rule says is a citation of it, or a
+            # departure its table states.
             changed = (
                 f" at {other.tier} where it is {matches[0].tier}, a silent tier change"
                 if matches[0].tier != other.tier

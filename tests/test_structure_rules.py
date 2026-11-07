@@ -1,6 +1,7 @@
 """Rule shape under standard-structure.
 
-Numbering, Why length, lint rows, and rename tables.
+Numbering, Why length, lint rows, and rename tables, each tried on the
+demo (`checks.demo`) broken one way.
 """
 
 from dataclasses import replace
@@ -21,15 +22,24 @@ from agent_skill.model import Tree
 from structure_fixture import DEMO, build, edit, reparse
 lazy from agent_skill.model import Skill
 
-ROWS = """
+#: The demo's errors chapter.
+ERRORS = "references/errors.md"
 
-## Decided by tools
+#: The one row of the demo's `Decided by tools`.
+ROW = "| ty | `division-by-zero` | error | a division the checker proves is by zero |\n"
 
-| Tool | Lint | Level | Forbids |
-|---|---|---|---|
-| ruff | `B006` | error | a mutable default argument |
+#: Two rows a test puts in its place.
+ROWS = """| ruff | `B006` | error | a mutable default argument |
 | ty | `possibly-unresolved-reference` | warn | a name that may not be bound |
 """
+
+#: DS-ERR-01's reason, and DS-ERR-02's Why and Check, as printed.
+REASON = "only the caller knows whether a missing file is fatal or expected."
+WHY = (
+    "**Why:** a library that stops its host takes the decision from the one place "
+    "that can make it."
+)
+FINDING = "every hit in library code is the finding."
 
 RANGES = f"Before the revision the families ran `DS-ERR-01`{DASH}`DS-ERR-09`."
 
@@ -64,36 +74,31 @@ def shape(skill: Skill) -> list[str]:
     return [f.message for f in skeleton.each(skill)]
 
 
+def rowed(skill: Skill, rows: str = ROWS) -> Skill:
+    """`skill` with `rows` in place of the errors chapter's one row."""
+    return edit(skill, ERRORS, ROW, rows)
+
+
 def test_a_gap_in_the_numbering(demo: Skill) -> None:
-    broken = edit(demo, "references/errors.md", "DS-ERR-02", "DS-ERR-03")
-    broken = edit(broken, "references/errors.md", "DS-ERR-02", "DS-ERR-03")
+    broken = edit(demo, ERRORS, "DS-ERR-02", "DS-ERR-03")
+    broken = edit(broken, ERRORS, "DS-ERR-02", "DS-ERR-03")
     assert any("should be DS-ERR-02" in m for m in structural_messages(broken))
 
 
 def test_a_suffixed_number(demo: Skill) -> None:
-    broken = edit(demo, "references/errors.md", "### DS-ERR-02", "### DS-ERR-01a")
-    broken = edit(broken, "references/errors.md", "- DS-ERR-02", "- DS-ERR-01a")
+    broken = edit(demo, ERRORS, "### DS-ERR-02", "### DS-ERR-01a")
+    broken = edit(broken, ERRORS, "- DS-ERR-02", "- DS-ERR-01a")
     assert any("no suffix" in m for m in structural_messages(broken))
 
 
 def test_a_four_line_why(demo: Skill) -> None:
     """A Why is measured as filled: forty words fill four lines."""
-    broken = edit(
-        demo,
-        "references/errors.md",
-        "**Why:** one line of reason.",
-        "**Why:**" + " reason." * 40,
-    )
+    broken = edit(demo, ERRORS, WHY, "**Why:**" + " reason." * 40)
     assert any("Why runs 4 lines" in m for m in structural_messages(broken))
 
 
 def test_a_line_break_is_no_line_of_a_why(demo: Skill) -> None:
-    fine = edit(
-        demo,
-        "references/errors.md",
-        "**Why:** one line of reason.",
-        "**Why:** a\nb\nc\nd.",
-    )
+    fine = edit(demo, ERRORS, WHY, "**Why:** a\nb\nc\nd.")
     assert not any("Why runs" in m for m in structural_messages(fine))
 
 
@@ -103,13 +108,16 @@ def anatomy_messages(skill: Skill) -> list[str]:
     return [f.message for f in check.run(Tree.of([skill])).findings]
 
 
+#: DS-ERR-01's relaxed form, as printed.
+RELAXED = (
+    "*Relaxed form:* outside a library, a program may stop where no caller is left "
+    "to decide.\n\n"
+)
+
+
 def test_a_relaxed_form_after_the_why_fails(demo: Skill) -> None:
-    broken = edit(
-        demo,
-        "references/errors.md",
-        "**Check:** read it.",
-        "**Check:** read it.\n\n*Relaxed form:* skip it in tests.",
-    )
+    broken = edit(demo, ERRORS, RELAXED, "")
+    broken = edit(broken, ERRORS, f"{REASON}\n\n", f"{REASON}\n\n{RELAXED}")
     assert (
         "DS-ERR-01's relaxed form follows its Why; it is part of the statement, "
         "so it comes first" in anatomy_messages(broken)
@@ -117,12 +125,7 @@ def test_a_relaxed_form_after_the_why_fails(demo: Skill) -> None:
 
 
 def test_a_relaxed_form_has_one_label(demo: Skill) -> None:
-    broken = edit(
-        demo,
-        "references/errors.md",
-        "Return errors.\n",
-        "Return errors.\n\n**Relaxed form:** x.\n",
-    )
+    broken = edit(demo, ERRORS, "*Relaxed form:*", "**Relaxed form:**")
     assert any(
         "labels its relaxed form `**Relaxed form:**`" in m
         for m in anatomy_messages(broken)
@@ -133,16 +136,14 @@ def test_a_relaxed_label_filled_across_two_lines_is_still_its_label(
     demo: Skill,
 ) -> None:
     """Filling breaks a paragraph between any two words, these too."""
-    marked = edit(demo, "references/errors.md", "- DS-ERR-01 [M]", "- DS-ERR-01 [M!]")
-    marked = edit(
-        marked, "references/errors.md", "### DS-ERR-01 [M]", "### DS-ERR-01 [M!]"
-    )
+    marked = edit(demo, ERRORS, "- DS-ERR-02 [M]", "- DS-ERR-02 [M!]")
+    marked = edit(marked, ERRORS, "### DS-ERR-02 [M]", "### DS-ERR-02 [M!]")
     assert any("[M!] with no relaxed form" in m for m in anatomy_messages(marked))
     marked = edit(
         marked,
-        "references/errors.md",
-        "Return errors.\n",
-        "Return errors. *Relaxed\nform:* x.\n",
+        ERRORS,
+        "leaves stopping to the program.\n",
+        "leaves stopping to the program. *Relaxed\nform:* x.\n",
     )
     assert not any("relaxed form" in m for m in anatomy_messages(marked))
 
@@ -150,23 +151,18 @@ def test_a_relaxed_label_filled_across_two_lines_is_still_its_label(
 def test_a_bold_citation_that_opens_a_line_defines_nothing(demo: Skill) -> None:
     cited = edit(
         demo,
-        "references/errors.md",
-        "Return errors.\n",
-        "Return errors, as\n**DS-ERR-02** says.\n",
+        ERRORS,
+        "so the function that meets one reports it.\n",
+        "so the function that meets one reports it, as\n**DS-ERR-02** says.\n",
     )
     assert "bold-inline rule definitions" not in anatomy_messages(cited)
-    defined = edit(
-        cited, "references/errors.md", "Name them.\n", "**DS-ERR-02** Name them.\n"
-    )
+    defined = edit(cited, ERRORS, "Library code returns", "**DS-ERR-02** returns")
     assert "bold-inline rule definitions" in anatomy_messages(defined)
 
 
 def test_a_citation_broken_across_lines_is_still_read(demo: Skill) -> None:
     broken = edit(
-        demo,
-        "references/errors.md",
-        "read it.",
-        "read `references/migration.md`\nDS-ERR-01.",
+        demo, ERRORS, FINDING, f"{FINDING} Read `references/migration.md`\nDS-ERR-01."
     )
     assert (
         "says migration.md for DS-ERR-01, which lives in errors.md"
@@ -175,7 +171,7 @@ def test_a_citation_broken_across_lines_is_still_read(demo: Skill) -> None:
 
 
 def test_an_abbreviated_id_list_fails(demo: Skill) -> None:
-    broken = edit(demo, "references/errors.md", "read it.", "read DS-ERR-01, -02.")
+    broken = edit(demo, ERRORS, FINDING, "read DS-ERR-01, -02.")
     check = by_name("anatomy")
     assert check is not None
     messages = [f.message for f in check.run(Tree.of([broken])).findings]
@@ -186,8 +182,8 @@ def test_a_rule_that_only_points_at_its_owner_fails(demo: Skill) -> None:
     """No pointer form exists any more: a rule without a Why is one."""
     broken = edit(
         demo,
-        "references/errors.md",
-        "Name them.\n\n**Why:** one line of reason.\n\n**Check:** read it.",
+        ERRORS,
+        f"{WHY}\n\n**Check:** `rg -n 'process::exit' src/` — {FINDING}",
         "Owned by DS-ERR-01.",
     )
     check = by_name("anatomy")
@@ -197,12 +193,7 @@ def test_a_rule_that_only_points_at_its_owner_fails(demo: Skill) -> None:
 
 
 def test_a_three_line_why_is_fine(demo: Skill) -> None:
-    fine = edit(
-        demo,
-        "references/errors.md",
-        "**Why:** one line of reason.",
-        "**Why:** a\nb\nc.",
-    )
+    fine = edit(demo, ERRORS, WHY, "**Why:** a\nb\nc.")
     assert structural_messages(fine) == []
 
 
@@ -216,9 +207,7 @@ def twenty(tmp_path: Path) -> Skill:
 
 
 def test_a_rule_naming_an_older_release(twenty: Skill) -> None:
-    broken = edit(
-        twenty, "references/errors.md", "one line of reason.", "stable since 1.13."
-    )
+    broken = edit(twenty, ERRORS, REASON, "stable since 1.13.")
     assert [m for m in structural_messages(broken) if " names " in m] == [
         (
             "DS-ERR-01 names 1.13, below its target 1.20: a rule speaks of its "
@@ -230,7 +219,7 @@ def test_a_rule_naming_an_older_release(twenty: Skill) -> None:
 @pytest.mark.parametrize("prose", ["stable since 1.9.", "1.9 and 1.13 added it."])
 def test_a_one_digit_minor_is_an_older_release(twenty: Skill, prose: str) -> None:
     """Two digits were needed: `since 3.9` passed, `since 3.13` not."""
-    broken = edit(twenty, "references/errors.md", "one line of reason.", prose)
+    broken = edit(twenty, ERRORS, REASON, prose)
     assert any("DS-ERR-01 names 1.9" in m for m in structural_messages(broken)), (
         structural_messages(broken)
     )
@@ -239,44 +228,22 @@ def test_a_one_digit_minor_is_an_older_release(twenty: Skill, prose: str) -> Non
 def test_a_title_naming_an_older_release(twenty: Skill) -> None:
     broken = edit(
         twenty,
-        "references/errors.md",
-        "### DS-ERR-02 [M] Name them",
+        ERRORS,
+        "### DS-ERR-02 [M] Never stop the program from a library",
         "### DS-ERR-02 [M] As 1.13",
     )
     assert any("DS-ERR-02 names 1.13" in m for m in structural_messages(broken))
 
 
-def test_a_core_rule_naming_an_older_release(twenty: Skill) -> None:
-    broken = edit(
-        twenty,
-        "SKILL.md",
-        "## 4. Core rules\n\nNone.",
-        "## 4. Core rules\n\n- **DS-CORE-01 `[M]`** Use the call 1.18 added.",
-    )
-    assert any("DS-CORE-01 names 1.18" in m for m in structural_messages(broken))
-
-
 @pytest.mark.parametrize(
     ("rel", "old", "new"),
     [
-        ("references/migration.md", "one line of reason.", "1.13 renamed it."),
-        ("SKILL.md", "Nothing changed.", "1.13 renamed it."),
+        ("references/migration.md", "the old name fails", "1.13 renamed it, and fails"),
+        ("SKILL.md", "a failed flush", "a failed flush since 1.13"),
         ("references/review-checklist.md", "Run the tools.", "Grep for 1.13's name."),
-        (
-            "references/errors.md",
-            "**Check:** read it.",
-            '**Check:** read it.\n\n```rust\n// fragment\nlet v = "1.13";\n```',
-        ),
-        (
-            "references/errors.md",
-            "one line of reason.",
-            "1.20 and 1.21 are fine, and so are 1.5x faster and 1.05 s.",
-        ),
-        (
-            "references/errors.md",
-            "one line of reason.",
-            'a caret `"1.2"`, a literal `wait(\n1.5)` and ~1.3 ns.',
-        ),
+        (ERRORS, FINDING, f'{FINDING}\n\n```rust\n// fragment\nlet v = "1.13";\n```'),
+        (ERRORS, REASON, "1.20 and 1.21 are fine, and so are 1.5x faster and 1.05 s."),
+        (ERRORS, REASON, 'a caret `"1.2"`, a literal `wait(\n1.5)` and ~1.3 ns.'),
     ],
     ids=["migration", "reality check", "protocol", "fenced", "not older", "code"],
 )
@@ -288,9 +255,7 @@ def test_a_version_that_is_history_or_no_release(
 
 
 def test_lint_rows_are_parsed_and_are_not_rules(demo: Skill) -> None:
-    path = demo.root / "references" / "errors.md"
-    path.write_text(path.read_text() + ROWS)
-    skill = reparse(demo)
+    skill = rowed(demo)
     rows = [row for c in skill.chapters for row in c.typed.tools]
     assert [(r.tool, r.lint, r.level) for r in rows] == [
         ("ruff", "B006", "error"),
@@ -307,25 +272,19 @@ def test_lint_rows_are_parsed_and_are_not_rules(demo: Skill) -> None:
 
 
 def test_a_row_for_a_tool_the_standard_does_not_require(demo: Skill) -> None:
-    path = demo.root / "references" / "errors.md"
-    path.write_text(path.read_text() + ROWS)
-    skill = reparse(demo)
+    skill = rowed(demo)
     found = [f.message for f in row_shape(rows_of(skill), ("python", "ruff"))]
     assert found == ["`ty` is not a tool this standard requires"]
 
 
 def test_a_row_at_a_level_that_fails_nothing(demo: Skill) -> None:
-    path = demo.root / "references" / "errors.md"
-    path.write_text(path.read_text() + ROWS.replace("| warn |", "| ignore |"))
-    skill = reparse(demo)
+    skill = rowed(demo, ROWS.replace("| warn |", "| ignore |"))
     found = [f.message for f in row_shape(rows_of(skill), ("ruff", "ty"))]
     assert any("fails no run" in m for m in found)
 
 
 def test_python_rows_against_the_shipped_configuration(demo: Skill) -> None:
-    path = demo.root / "references" / "errors.md"
-    path.write_text(path.read_text() + ROWS)
-    rows = rows_of(reparse(demo))
+    rows = rows_of(rowed(demo))
     assert (
         list(python_rows(rows, {"B006"}, {"possibly-unresolved-reference": "warn"}))
         == []
@@ -349,8 +308,7 @@ def test_python_rows_against_the_shipped_configuration(demo: Skill) -> None:
 
 
 def test_a_rename_table_that_resolves(demo: Skill) -> None:
-    rows = demo.root / "references" / "errors.md"
-    rows.write_text(rows.read_text() + ROWS)
+    rowed(demo)
     path = demo.root / "references" / "renames.md"
     path.write_text(HISTORY + RENAMES)
     skill = reparse(demo)
@@ -498,24 +456,13 @@ def test_the_rust_catalogue_reads_the_toolchain() -> None:
 def test_a_bold_phrase_inside_a_why_does_not_end_it(demo: Skill) -> None:
     """A Why ends at a label, not at any paragraph opening `**`."""
     long_why = "**Why:** one.\n\n**Two** is bold.\n\nthree.\n\nfour."
-    broken = edit(
-        demo, "references/errors.md", "**Why:** one line of reason.", long_why
-    )
+    broken = edit(demo, ERRORS, WHY, long_why)
     assert any("Why runs 4 lines" in m for m in structural_messages(broken))
 
 
 def test_an_escaped_pipe_stays_inside_its_cell(demo: Skill) -> None:
-    rows = """
-
-## Decided by tools
-
-| Tool | Lint | Level | Forbids |
-|---|---|---|---|
-| clippy | `map_clone` | warn | `.map(\\|x\\| x.clone())` — `.cloned()` |
-"""
-    path = demo.root / "references" / "errors.md"
-    path.write_text(path.read_text() + rows)
-    (row,) = (row for c in reparse(demo).chapters for row in c.typed.tools)
+    row = "| clippy | `map_clone` | warn | `.map(\\|x\\| x.clone())` — `.cloned()` |\n"
+    (row,) = (row for c in rowed(demo, row).chapters for row in c.typed.tools)
     assert (row.lint, row.forbids) == (
         "map_clone",
         "`.map(|x| x.clone())` — `.cloned()`",

@@ -16,7 +16,6 @@ ALLOWED = {
     "metadata",
     "compatibility",
 }
-MAX_DESCRIPTION = 1024
 
 # The branches a finding of this check comes from.
 MISSING = declare("frontmatter", "missing", Level.FAIL)
@@ -24,17 +23,16 @@ EXTRA_KEYS = declare("frontmatter", "extra_keys", Level.FAIL)
 REQUIRED = declare("frontmatter", "required", Level.FAIL)
 NAME = declare("frontmatter", "name", Level.FAIL)
 FOLDED = declare("frontmatter", "folded", Level.FAIL)
-LENGTH = declare("frontmatter", "length", Level.FAIL)
 ANGLE_BRACKET = declare("frontmatter", "angle_bracket", Level.FAIL)
-RULE_COUNT = declare("frontmatter", "rule_count", Level.FAIL)
 
-# The branches only a normalised standard is held to (decision 13).
+# The branches of the shared template (normalize-the-standards, decision
+# 13).
 TEMPLATE = declare("frontmatter", "template", Level.FAIL)
 COUNTED = declare("frontmatter", "counted", Level.FAIL)
 BOUNDED = declare("frontmatter", "bounded", Level.FAIL)
 
-#: A normalised standard's description is this short or shorter: a
-#: use case, what triggers it, and a target.
+#: A description is this short or shorter: a use case, what triggers
+#: it, and a target; well under the specification's 1024 characters.
 BOUND = 500
 
 #: A count of rules, as a description states one: `a 262-rule library`.
@@ -87,35 +85,15 @@ def frontmatter(skill: Skill) -> Iterator[Finding]:
     desc = folded or ""
     if "<" in desc or ">" in desc:
         yield fail("angle bracket in description", where, ANGLE_BRACKET)
-    if skill.profile.normalized:
-        yield from _templated(skill, desc)
-    else:
-        yield from _counted(skill, desc)
-
-
-def _counted(skill: Skill, desc: str) -> Iterator[Finding]:
-    """A description under the limit, and any count it states true."""
-    where = skill.at()
-    if len(desc) > MAX_DESCRIPTION:
-        yield fail(f"description {len(desc)} > {MAX_DESCRIPTION}", where, LENGTH)
-    stated = re.search(r"(\d+)-rule \w+", desc)
-    actual = len(skill.chapter_rules) + len(skill.core)
-    if stated and int(stated.group(1)) != actual:
-        yield fail(
-            f"description says {stated.group(1)} rules, actual {actual}",
-            where,
-            RULE_COUNT,
-        )
+    yield from _templated(skill, desc)
 
 
 def _templated(skill: Skill, desc: str) -> Iterator[Finding]:
-    """A normalised standard's description fills the shared template.
+    """The description fills the shared template.
 
     The use case first, the artifacts that trigger it, the target
     (`shared/description.md`); no count of rules, which every revision
     changes and which tells a reader nothing; and well under the limit.
-    A count stated is no longer compared with the rules: it is not
-    stated at all.
     """
     where = skill.at()
     if desc and shared.description(skill).fullmatch(desc) is None:

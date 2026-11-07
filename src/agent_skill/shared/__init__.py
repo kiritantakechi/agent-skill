@@ -107,11 +107,11 @@ PASSAGES: tuple[Passage, ...] = (
 )
 
 
-#: The template every normalised standard's frontmatter description
-#: follows: the use case first, the artifacts that trigger it, the
-#: target; each `…` the standard's own words (normalize-the-standards,
-#: decision 13). A frontmatter field rather than a section, so it is
-#: matched as one line of text rather than aligned as blocks.
+#: The template every standard's frontmatter description follows: the
+#: use case first, the artifacts that trigger it, the target; each `…`
+#: the standard's own words (normalize-the-standards, decision 13). A
+#: frontmatter field rather than a section, so it is matched as one line
+#: of text rather than aligned as blocks.
 DESCRIPTION = "description.md"
 
 
@@ -165,48 +165,8 @@ def slots(skill: Skill) -> dict[str, str]:
         "tools": ", ".join(f"`{t}`" for t in profile.tools),
         "strict_scope": profile.strict_scope,
         "delta_step": f"9. {profile.delta_step}" if profile.delta_step else "",
-        "held_here": _held_here(skill),
-        "conflict": _conflict(skill),
+        "rules": str(len(skill.chapter_rules)),
     }
-
-
-def _held_here(skill: Skill) -> str:
-    """Where the reference map says the rules live.
-
-    A normalised standard's section 4 lists chapter rules and states
-    none of its own (normalize-the-standards, decision 7), so every rule
-    lives in a chapter.
-    """
-    chapter = len(skill.chapter_rules)
-    if skill.profile.normalized:
-        return (
-            f"All {chapter} rules live here; section 4 lists by ID those that bind "
-            "on their own."
-        )
-    return (
-        f"The {len(skill.core)} `{skill.prefix}-CORE-*` rules live in section 4 above; "
-        f"the other {chapter} live here."
-    )
-
-
-def _conflict(skill: Skill) -> str:
-    """How the reading procedure settles two rules that disagree.
-
-    A section 4 that states rules of its own can disagree with the
-    chapter rule it summarises, and the chapter wins; a projection of
-    the chapters cannot, so only a tie between two chapter rules is
-    left (decision 7).
-    """
-    if skill.profile.normalized:
-        return (
-            "When two rules appear to conflict, sections 1 and 3 govern how to "
-            "break the tie."
-        )
-    return (
-        "When a rule in a chapter and a rule here appear to conflict, the chapter is "
-        "the detailed statement and wins; sections 1 and 3 govern how to break a "
-        "genuine tie."
-    )
 
 
 _SLOT = re.compile(r"\{([a-z_]+)\}")

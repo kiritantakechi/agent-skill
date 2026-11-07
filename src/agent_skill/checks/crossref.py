@@ -1,4 +1,4 @@
-"""Citations into another skill, and the table saying they disagree.
+"""Citations into another skill, and the table saying where they depart.
 
 `bevy-style` is a delta on `rust-style`: it states what changes when
 Bevy is in the dependency list and defers for everything else. That
@@ -20,30 +20,28 @@ from agent_skill.doc import Paragraph, Table, text_of, walk
 from agent_skill.doc.chapter import RELATIONS, departures, departures_header
 from agent_skill.ids import Location, RuleId, cited
 from agent_skill.model import SKILL_MD
-from agent_skill.report import Level, declare, fail, note, unrun
+from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.checks.corpus import Corpus, corpus_for
 lazy from agent_skill.checks.patterns import patterns_of
 lazy from agent_skill.checks.search import find, searcher_problem
 lazy from agent_skill.doc import Block, Doc
-lazy from agent_skill.doc.chapter import Departure, Override, Rule
+lazy from agent_skill.doc.chapter import Departure, Rule
 lazy from agent_skill.model import Skill, Tree
 lazy from agent_skill.profiles import PROFILES
 lazy from agent_skill.report import Finding
 
 # The branches a finding of this check comes from.
 APPARATUS_CITATION = declare("crossref", "apparatus", Level.FAIL)
-NO_TABLE = declare("crossref", "no_table", Level.NOTE)
 DELTA_NO_TABLE = declare("crossref", "delta_no_table", Level.FAIL)
 FOREIGN_CITATION = declare("crossref", "citation", Level.FAIL)
 OVERRIDE_TARGET = declare("crossref", "override_target", Level.FAIL)
-OVERRIDE_TITLE = declare("crossref", "override_title", Level.FAIL)
 ANCHOR_ABSENT = declare("crossref", "anchor_absent", Level.UNRUN)
 SEARCHER = declare("crossref", "searcher", Level.UNRUN)
 ANCHOR_EMPTY_CORPUS = declare("crossref", "anchor_empty_corpus", Level.FAIL)
 ANCHOR_NO_ANSWER = declare("crossref", "anchor_no_answer", Level.FAIL)
 ANCHOR_HIT = declare("crossref", "anchor_hit", Level.FAIL)
 
-# The branches only a normalised delta is held to (`_departures`).
+# The branches of the delta map (`_departures`).
 RELATION = declare("crossref", "relation", Level.FAIL)
 DEPARTURE_TIER = declare("crossref", "departure_tier", Level.FAIL)
 DEPARTS = declare("crossref", "departs", Level.FAIL)
@@ -90,57 +88,23 @@ def _apparatus_citations(
                 )
 
 
-def _plain(s: str) -> str:
-    """A title, comparable however it was quoted.
-
-    Titles are quoted with backticks in one place and not the other.
-    """
-    return " ".join(s.replace("`", "").split()).lower()
-
-
 @check(
     "crossref",
-    "citations into another skill, and the override table",
+    "citations into another skill, and the departures table",
     needs=("rg",),
 )
 def crossref(tree: Tree) -> Iterator[Finding]:
-    """Every citation across skills, and each delta's override table."""
+    """Every citation across skills, and each delta's departures."""
     by_prefix = {s.prefix: s for s in tree}
     by_name = {s.name: s for s in tree}
     known = {p: s.ids for p, s in by_prefix.items()}
-    titles = {p: {r.id: r.title for r in s.chapter_rules} for p, s in by_prefix.items()}
 
     for skill in tree:
         yield from _citations(skill, by_prefix, known)
-
-        # A normalised delta states its departures as one typed table
-        # (decision 10). Otherwise the override table: each row names a
-        # rule of the other standard, the rule that applies instead, and
-        # enough of the other's title to prove the row still points
-        # where it did when it was written.
-        rows: tuple[Override, ...] = ()
-        if skill.profile.normalized and skill.profile.anchor:
+        # A delta's departures are one typed table (decision 10).
+        if skill.profile.anchor:
             yield from _departures(skill, by_name.get(skill.profile.anchor))
-        else:
-            rows = skill.typed.overrides
-            yield from _override_rows(skill, rows, titles)
-            yield from _delta(skill, rows)
         yield from _anchor_patterns(skill, by_name)
-
-        # A skill that cites another standard at all should say where it
-        # disagrees with it; one that cites none needs no table. A delta
-        # is held to that by `_delta`, as a failure.
-        cites_other = any(
-            rid.standard != skill.prefix and rid.standard in known
-            for doc in skill.docs.values()
-            for rid in _named(doc)
-        )
-        if cites_other and not rows and not skill.profile.anchor:
-            yield note(
-                "cites another standard but states no override table",
-                skill.at(),
-                NO_TABLE,
-            )
 
     # The harness cites the standards it ships; a fixture's IDs in a
     # test (a demo standard's, made up to be wrong) are not citations.
@@ -152,25 +116,6 @@ def _named(doc: Doc) -> Iterator[RuleId]:
     """Every rule ID `doc` names, of any standard, block by block."""
     for block in doc.blocks:
         yield from cited(text_of((block,)))
-
-
-def _delta(skill: Skill, rows: tuple[Override, ...]) -> Iterator[Finding]:
-    """A delta states where it departs from its anchor.
-
-    A delta with no override table claims that it relaxes nothing —
-    which was the reading when the table was deleted outright, and the
-    anchor sweep switched off with it.
-    """
-    profile = skill.profile
-    departures = [row for row in rows if row.theirs.standard != skill.prefix]
-    if profile.anchor and not departures:
-        yield fail(
-            f"is a delta on {profile.anchor} and states no override table — "
-            "a delta that says where it departs from nothing has either departed "
-            "silently or lost its table",
-            skill.at(),
-            DELTA_NO_TABLE,
-        )
 
 
 def _citations(
@@ -190,39 +135,6 @@ def _citations(
                 )
 
 
-def _override_rows(
-    skill: Skill,
-    rows: tuple[Override, ...],
-    titles: dict[str, dict[RuleId, str]],
-) -> Iterator[Finding]:
-    """Each override row names a rule here and quotes a title whole."""
-    for row in rows:
-        theirs, quoted, ours = row.theirs, row.quoted, row.ours
-        if theirs.standard == skill.prefix or theirs.standard not in titles:
-            continue
-        if ours not in skill.ids:
-            yield fail(
-                f"override row names {ours}, which is not a rule here",
-                skill.at(),
-                OVERRIDE_TARGET,
-            )
-        actual = titles[theirs.standard].get(theirs)
-        if actual is None:
-            continue  # the citation check above already reported it
-        # The whole title, not a prefix of it. A title's tail is
-        # where its scope lives — `RS-BUILD-21` ends "in a library"
-        # — so a row that quotes a prefix can invent a divergence by
-        # dropping the clause that rules it out. Two rows did
-        # exactly that.
-        if quoted and _plain(actual) != _plain(quoted):
-            yield fail(
-                f"override row quotes {quoted!r} for {theirs}, "
-                f"which is titled {actual!r}",
-                skill.at(),
-                OVERRIDE_TITLE,
-            )
-
-
 def _anchor_patterns(skill: Skill, by_name: dict[str, Skill]) -> Iterator[Finding]:
     """The other standard's own patterns, run over this one's examples.
 
@@ -236,7 +148,7 @@ def _anchor_patterns(skill: Skill, by_name: dict[str, Skill]) -> Iterator[Findin
     travel: `assert_eq!` and `.iter()` matched a third of the corpus.
 
     A hit is allowed when the delta's `SKILL.md` names that rule
-    anywhere: in the override table, or in the prose that says why a
+    anywhere: in the departures table, or in the prose that says why a
     rule is *not* on it. Either way the reader has been told.
 
     The anchor is the one the profile declares. It used to be every
@@ -309,7 +221,7 @@ def _sweep(skill: Skill, corpus: Corpus, other: Skill, rule: Rule) -> Iterator[F
 
 
 # ------------------------------------------------------------------
-# the delta map: what a normalised delta is held to (decision 10)
+# the delta map (normalize-the-standards, decision 10)
 
 
 def _departures(skill: Skill, anchor: Skill | None) -> Iterator[Finding]:

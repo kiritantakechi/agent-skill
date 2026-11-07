@@ -117,7 +117,13 @@ standard read as normalised now also fails: `core_rule` (bevy 24, python 26, rus
 
 ## 7. Close
 
-- [ ] 7.1 Delete `Profile.normalized` and every condition on it
+- [x] 7.1 Delete `Profile.normalized` and every condition on it — every check, `fmt` and `measure`
+  hold every standard to the normal form; the branches only a standard not yet normalised reached
+  went with their controls (the core-citation three and the `mis_cited` note, `map_here`,
+  `frontmatter.length` and `rule_count`, the override table's `override_title` and `no_table`), and
+  `tests/structure_fixture.py` builds `checks.demo`, the one demo; see the design's "As built (task
+  7.1)". FAIL branches 243 → 236, controls 220 → 213, exemptions 23; `fmt` changes nothing in the
+  shipped tree, and `check --fast --verbose` is byte-identical
 - [ ] 7.2 Re-measure section 1.1's counts and record them here; run the full check once
 - [ ] 7.3 README sections that describe the standards' shape; `documented` passes
 

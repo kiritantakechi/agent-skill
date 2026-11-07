@@ -363,28 +363,8 @@ def _no_departures(tree: Path) -> Edited:
     return edit(tree, rel, _DEPARTURES + "\n".join(lines[:end]) + "\n", said + "\n")
 
 
-#: The demo delta's departure row, its rule here, and the override table
-#: a delta stated before the departures table: the other standard's
-#: rule with as much of its title as the row quotes, and the rule here.
+#: The demo delta's departure row: its rule here, and the two tiers.
 _DEMO_DEPARTS = "| DL-ERR-01 | [M!] → [M] |"
-_DEMO_OVERRIDE = (
-    f"| `{demo.PROFILE.name}` rule | What applies instead | Why |\n"
-    "|---|---|---|\n"
-    "| `DS-ERR-01` Return an error for every failure | `DL-ERR-01` — always | a "
-    "delta program is a library |\n"
-)
-
-
-def _demo_override(tree: Path) -> Edited:
-    """The demo delta, its departures stated as an override table.
-
-    An override table is how a delta not yet normalised states its
-    departures, and only such a delta's rows are read for a quoted
-    title; the row quotes DS-ERR-01's title wrong.
-    """
-    built = demo.build_delta(tree)
-    rel = f"{demo.DELTA.name}/{SKILL_MD}"
-    return (*built, *edit(tree, rel, demo.DEPARTURE, _DEMO_OVERRIDE))
 
 
 def _no_uv_interpreter(tree: Path) -> Edited:
@@ -611,12 +591,10 @@ def _on_demo(
 ) -> Control:
     """A control on the demo standards, in normal form, and `edits`.
 
-    Only a normalised standard is held to the normal form, and no
-    shipped one is normalised yet: each breaks most of its properties
-    at once, so flipping a shipped profile's flag would fire every
-    branch beside the one a control is for. The demo keeps every
-    property; `edits` makes one defect in a copy of it, and `profiles`
-    reads a standard of it with a profile other than its own.
+    The demo keeps every property, so one edit breaks one: `edits`
+    makes a defect in a copy of it, and `profiles` reads a standard of
+    it with a profile other than its own. An edit to a shipped standard
+    may break a property of the normal form beside its own.
     """
 
     def inject(tree: Path) -> Edited:
@@ -653,51 +631,6 @@ def _normal(
     return _on_demo(
         branch, lambda t: edit(t, f"{demo.PROFILE.name}/{rel}", old, new), also
     )
-
-
-#: The demo read as a standard not yet normalised: the one kind whose
-#: core rules, "the other N live here" and description count are read.
-#: Every shipped standard is normalised, so the controls of those
-#: branches read the demo so.
-_UNNORMAL = replace(demo.PROFILE, normalized=False)
-
-#: Where a core rule stands in the demo's section 4.
-_CORE_AT = "## 4. Core rules\n\n"
-
-
-def _unnormal(tree: Path) -> Edited:
-    """The demo's shared passages, as `_UNNORMAL` reads them.
-
-    `demo.build` writes them for its own profile, which is normalised:
-    "All N rules live here" rather than the count of core rules and
-    the others.
-    """
-    shared.rewrite(Skill(tree / demo.PROFILE.name, _UNNORMAL))
-    return (f"{demo.PROFILE.name}/{SKILL_MD}",)
-
-
-def _on_unnormal(
-    branch: Branch,
-    edits: Callable[[Path], Edited],
-    also: Mapping[Branch, str] | None = None,
-) -> Control:
-    """A control on the demo read as not yet normalised, and `edits`.
-
-    The edits come first, so the shared passages are rewritten for the
-    rules they leave: a core rule an edit states is counted as one.
-    """
-    return _on_demo(
-        branch,
-        lambda t: (*edits(t), *_unnormal(t)),
-        also,
-        {demo.PROFILE.name: _UNNORMAL},
-    )
-
-
-def _core(tree: Path, cites: str) -> Edited:
-    """The demo's section 4, stating a core rule that cites `cites`."""
-    rule = f"- **DS-CORE-90 `[M]`** Return an error the caller can handle ({cites}).\n"
-    return edit(tree, f"{demo.PROFILE.name}/{SKILL_MD}", _CORE_AT, _CORE_AT + rule)
 
 
 #: The one control per branch of the normal form, each on the demo.
@@ -1149,7 +1082,7 @@ CONTROLS: list[Control] = [
         also={
             anatomy.STRAY: (
                 "a label the rule shape has no element for is a block no element "
-                "holds, so a normalised standard reads it as stray as well"
+                "holds, so the normal form reads it as stray as well"
             )
         },
     ),
@@ -1461,26 +1394,11 @@ CONTROLS: list[Control] = [
             "And RS-NAME-02 holds as it stands, as RS-API-99 does:",
         ),
     ),
-    # Read as a delta not yet normalised, the one kind whose override
-    # table quotes its anchor's titles; no shipped delta is one now.
-    _on_demo(
-        crossref.OVERRIDE_TITLE,
-        _demo_override,
-        profiles={demo.DELTA.name: replace(demo.DELTA, normalized=False)},
-    ),
     # Frontmatter with no name. Misspelling the key instead also adds a
     # key the spec does not have.
     Control(
         frontmatter.REQUIRED,
         lambda t: edit(t, f"{RS}/SKILL.md", f"name: {RS}\n", ""),
-    ),
-    _on_unnormal(
-        # The second ID of the list. `_paths` reads the first ID after
-        # a path, and caught a wrong first one, so the control fired
-        # with `_core_citations` gone; a core rule's whole list is read,
-        # which is the reason that branch exists.
-        anatomy.CORE_WRONG_CHAPTER,
-        lambda t: _core(t, "`references/errors.md` DS-ERR-01, DS-MIG-01"),
     ),
     Control(
         anatomy.SHARED_TITLE,
@@ -1880,19 +1798,10 @@ CONTROLS: list[Control] = [
         lambda t: append(t, TESTING, "\nSee `references/api.md` PS-TEST-01.\n"),
         also={
             anatomy.PATH_CITATION: (
-                "a normalised standard cites no rule behind a chapter's path, so "
-                "the wrong path is a path as well"
+                "a standard cites no rule behind a chapter's path, so the wrong "
+                "path is a path as well"
             )
         },
-    ),
-    _on_unnormal(
-        anatomy.CORE_UNCITED,
-        lambda t: _core(t, "the errors chapter"),
-    ),
-    # A core rule's ID is a rule of the skill and not a chapter's.
-    _on_unnormal(
-        anatomy.CORE_NOT_A_RULE,
-        lambda t: _core(t, "`references/errors.md` DS-CORE-90"),
     ),
     # A family listed twice: each agrees, and the sum does not.
     Control(
@@ -1911,23 +1820,6 @@ CONTROLS: list[Control] = [
             *edit(t, f"{PY}/SKILL.md", "`PS-NAME` (17)", "`PS-NAME` (18)"),
             *edit(t, f"{PY}/SKILL.md", "`PS-TYPE` (20)", "`PS-TYPE` (19)"),
         ),
-    ),
-    # The count a standard stating core rules gives its chapters; a
-    # normalised one says "All N rules live here", which `map_total`
-    # holds. The demo states three: it is the count `_unnormal` writes
-    # that the edit changes.
-    _on_demo(
-        anatomy.MAP_HERE,
-        lambda t: (
-            *_unnormal(t),
-            *edit(
-                t,
-                f"{demo.PROFILE.name}/{SKILL_MD}",
-                "the other 3 live here",
-                "the other 2 live here",
-            ),
-        ),
-        profiles={demo.PROFILE.name: _UNNORMAL},
     ),
     # citations
     Control(
@@ -2017,8 +1909,7 @@ CONTROLS: list[Control] = [
         also={
             citations.ROW_REASON: (
                 "with no manifest the configuration sets no lint one by one, so "
-                "every row of a normalised standard owes the reason a row of a "
-                "lint on by default gives"
+                "every row owes the reason a row of a lint on by default gives"
             )
         },
     ),
@@ -2121,32 +2012,9 @@ CONTROLS: list[Control] = [
         frontmatter.FOLDED,
         lambda t: edit(t, f"{RS}/SKILL.md", "description: >-\n", "description: >\n"),
     ),
-    # The 1024-character bound a standard not yet normalised is held to;
-    # a normalised one is held to 500 (`bounded`).
-    _on_unnormal(
-        frontmatter.LENGTH,
-        lambda t: edit(
-            t,
-            f"{demo.PROFILE.name}/{SKILL_MD}",
-            "description: >-\n",
-            "description: >-\n  " + "padding " * 130 + "\n",
-        ),
-    ),
     Control(
         frontmatter.ANGLE_BRACKET,
         lambda t: edit(t, f"{RS}/SKILL.md", "an async task", "an <async> task"),
-    ),
-    # A description that counts its rules, and miscounts them: the
-    # count is read in a standard not yet normalised, and the demo
-    # states three rules.
-    _on_unnormal(
-        frontmatter.RULE_COUNT,
-        lambda t: edit(
-            t,
-            f"{demo.PROFILE.name}/{SKILL_MD}",
-            "description: >-\n  Use when",
-            "description: >-\n  A 1-rule standard. Use when",
-        ),
     ),
     # layout
     Control(layout.UNCLOSED, lambda t: append(t, DATA, "\n```text\nnever closed\n")),

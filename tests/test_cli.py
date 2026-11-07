@@ -118,11 +118,12 @@ def test_demote_closes_its_own_gap_so_renumber_has_nothing_left(
     """Both are `revise`: one with a plan, one without."""
     skills = str(repo / SKILLS)
     plan = repo / "plan.json"
-    plan.write_text('{"DS-ERR-01": {"remove": "said nothing"}}')
+    plan.write_text('{"DS-ERR-01": {"merge": "DS-ERR-02"}}')
 
     assert cli.main(["--skills", skills, "demote", "demo-style", str(plan)]) == 0
     out = capsys.readouterr().out
-    assert "revise  DS-ERR-01 -> removed — said nothing" in out
+    # Merged into DS-ERR-02, which the revision renumbers DS-ERR-01.
+    assert "revise  DS-ERR-01 -> `DS-ERR-01`" in out
     assert f"write   {SKILLS}/demo-style/references/errors.md" in out
     assert f"write   {SKILLS}/demo-style/references/renames.md" in out
     assert cli.main(["--skills", skills, "renumber", "demo-style"]) == 0
@@ -130,7 +131,7 @@ def test_demote_closes_its_own_gap_so_renumber_has_nothing_left(
 
     after = Skill(repo / SKILLS / "demo-style")
     assert [str(r.id) for r in after.chapter_rules] == ["DS-ERR-01", "DS-MIG-01"]
-    assert after.chapter_rules[0].title == "Name them"
+    assert after.chapter_rules[0].title == "Never stop the program from a library"
 
 
 def test_revise_takes_a_plan_and_chapter_renames_at_once(

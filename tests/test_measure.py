@@ -1,7 +1,7 @@
-"""The counts `normalize-the-standards` moves, and what they read.
+"""The counts `normalize-the-standards` moved, and what they read.
 
 The baseline in its tasks is this table, printed by `agent-skill
-measure`; 7.2 prints it again. A count a check of the normal form
+measure`, and so is 7.2's after. A count a check of the normal form
 decides is that check's, so a check and its count cannot disagree.
 """
 
@@ -27,7 +27,7 @@ def test_every_standard_is_measured_on_every_row(skills: list[Skill]) -> None:
         assert all(cells), row
 
 
-def test_a_normalised_standard_measures_nothing_left_to_do(tmp_path: Path) -> None:
+def test_a_standard_in_normal_form_measures_nothing_left_to_do(tmp_path: Path) -> None:
     """The demo holds the normal form, so each of its counts is zero."""
     demo.build(tmp_path)
     skill = Skill(tmp_path / demo.PROFILE.name, demo.PROFILE)

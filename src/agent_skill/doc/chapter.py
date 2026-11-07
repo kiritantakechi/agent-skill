@@ -55,9 +55,6 @@ _LINT_CELLS = 4
 #: The cells of a rename row: before, now.
 _RENAME_CELLS = 2
 
-#: The cells an override row opens with: the other's rule, then ours.
-_OVERRIDE_CELLS = 2
-
 
 def _code_id(text: str) -> RuleId | None:
     """The rule ID a code span spells, as `` `RS-ERR-03` `` does."""
@@ -643,20 +640,6 @@ class SkillMd:
             if (rule := core_rule(item)) is not None
         )
 
-    @property
-    def overrides(self) -> tuple[Override, ...]:
-        """Every row of a table that says where this standard departs.
-
-        Such a row opens its first cell with the other standard's rule
-        and its second with the rule here that applies instead.
-        """
-        return tuple(
-            row
-            for block in self.doc().blocks
-            for line, cells in _rows(block)
-            if (row := _override(cells, line)) is not None
-        )
-
 
 #: A core rule's tier as its bold label spells it, the label's end
 #: included: `` `[M]`** ``.
@@ -680,49 +663,6 @@ def core_rule(item: Item) -> Rule | None:
             return Rule(rid, tier, "", (*head, *item.blocks[1:]), item.line)
         case _:
             return None
-
-
-@dataclass(frozen=True, slots=True)
-class Override:
-    """One row of a delta's table of where it departs from another.
-
-    The other standard's rule, as much of its title as the row quotes,
-    and the rule here that applies instead.
-    """
-
-    theirs: RuleId
-    quoted: str
-    ours: RuleId
-    line: int = field(default=0, compare=False)
-
-
-def _override(cells: tuple[str, ...], line: int) -> Override | None:
-    """The override a table row states, if it states one.
-
-    Each of its first two cells opens with an ID in a code span.
-    """
-    if len(cells) < _OVERRIDE_CELLS:
-        return None
-    theirs, quoted = _opening_id(cells[0])
-    ours, _ = _opening_id(cells[1])
-    if theirs is None or ours is None:
-        return None
-    return Override(theirs, quoted, ours, line)
-
-
-def _opening_id(cell: str) -> tuple[RuleId | None, str]:
-    """The ID `cell` opens with, and what follows it.
-
-    In a code span of its own, `` `RS-API-15` Title ``, or bare, as
-    `fmt` sets a citation: `RS-API-15 Title`.
-    """
-    if not cell.startswith("`"):
-        first, _, rest = cell.partition(" ")
-        return RuleId.try_parse(first), rest.strip()
-    span, tick, rest = cell.removeprefix("`").partition("`")
-    if not tick:
-        return None, cell
-    return RuleId.try_parse(span), rest.strip()
 
 
 #: The statuses a migration row may give an old spelling, by what the

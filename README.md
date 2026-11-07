@@ -117,7 +117,7 @@ longer existed; a version read by hand as three numbers is how an index's
 every module as source and fails on a second spelling: a rule-ID or version
 pattern outside `ids`, a fence or a heading found by its text, or a column limit,
 outside `doc`. The one allowance is the citation grammar `anatomy` reads inside a
-block's text, composed from `ids.rule_id()` in three named places.
+block's text, composed from `ids.rule_id()` in two named places.
 
 ## Every standard has one shape
 

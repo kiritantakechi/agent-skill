@@ -1,10 +1,10 @@
 """A delta's departures from its anchor are one typed map.
 
 normalize-the-standards, decision 10: bevy-style related to rust-style
-in five forms, and only its override table was structured. A normalised
-delta states each departure as a row — anchor rule, relation, delta
-rule, tier before and after, reason — and each departing rule says what
-it departs from, so the table and the rules can be held to each other.
+in five forms, and only its override table was structured. A delta
+states each departure as a row — anchor rule, relation, delta rule,
+tier before and after, reason — and each departing rule says what it
+departs from, so the table and the rules can be held to each other.
 The demo's delta (`checks.demo.DELTA`) holds every property; the
 controls break it one property at a time.
 """
@@ -16,7 +16,7 @@ import pytest
 from agent_skill.checks import by_name, demo
 from agent_skill.checks.crossref import departs_from
 from agent_skill.doc import Doc
-from agent_skill.doc.chapter import Departure, Rule, SkillMd
+from agent_skill.doc.chapter import Departure, Rule
 from agent_skill.ids import RuleId, Tier
 from agent_skill.model import Skill, Tree
 
@@ -78,20 +78,3 @@ def test_a_departure_states_the_tier_before_and_after(
     cell: str, tiers: tuple[Tier, Tier] | None
 ) -> None:
     assert Departure("DS-ERR-01", "tightens", "DL-ERR-01", cell, "why").tiers == tiers
-
-
-def test_an_override_row_reads_its_ids_bare_or_quoted() -> None:
-    """`fmt` sets a citation bare, in a cell too, and the row stays."""
-    quoted = "| `RS-API-15` Keep fields private | `BV-ECS-01` — public | why |"
-    bare = "| RS-API-15 Keep fields private | BV-ECS-01 — public | why |"
-    head = "| rust-style rule | Instead | Why |\n|---|---|---|\n"
-
-    def rows(row: str) -> tuple[tuple[RuleId, str, RuleId], ...]:
-        md = SkillMd.read(Doc.parse(f"# T\n\n## 3. Design\n\n{head}{row}\n"))
-        return tuple((o.theirs, o.quoted, o.ours) for o in md.overrides)
-
-    assert (
-        rows(bare)
-        == rows(quoted)
-        == ((RuleId("RS", "API", 15), "Keep fields private", RuleId("BV", "ECS", 1)),)
-    )

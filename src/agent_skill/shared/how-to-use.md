@@ -10,7 +10,8 @@
 
 Rules are cited by ID: `{prefix}-`, then the family of the chapter that owns the rule, then its
 number. Section 6 maps each family to its chapter, so cite the ID when justifying a change and the
-reader can find the full rule and its rationale. {conflict}
+reader can find the full rule and its rationale. When two rules appear to conflict, sections 1 and 3
+govern how to break the tie.
 
 …
 

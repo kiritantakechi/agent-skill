@@ -89,7 +89,7 @@ RENAME_ELSEWHERE = declare("skeleton", "rename_elsewhere", Level.FAIL)
 RENAMES_NAMED = declare("skeleton", "renames_named", Level.FAIL)
 RENAMES_ON_PATH = declare("skeleton", "renames_on_path", Level.FAIL)
 
-# The branches only a normalised standard is held to (`_normal_form`).
+# The branches of the normal form (`_normal_form`).
 TITLE_CODE = declare("skeleton", "title_code", Level.FAIL)
 NO_SCOPE = declare("skeleton", "no_scope", Level.FAIL)
 DECIDED_LAST = declare("skeleton", "decided_last", Level.FAIL)
@@ -121,8 +121,7 @@ def skeleton(skill: Skill) -> Iterator[Finding]:
     yield from _home(skill)
     yield from _renames(skill)
     yield from _unchanged(skill)
-    if skill.profile.normalized:
-        yield from _normal_form(skill)
+    yield from _normal_form(skill)
 
 
 def _history(skill: Skill) -> tuple[RenameTable, ...]:
@@ -427,15 +426,11 @@ def _items(section: Section | None) -> list[str]:
 
 
 # ------------------------------------------------------------------
-# the normal form: what a normalised standard is held to
+# the normal form (normalize-the-standards, decisions 1, 5, 7, 9 and 13)
 
 
 def _normal_form(skill: Skill) -> Iterator[Finding]:
-    """One chapter template, and section 2 as an index into the rules.
-
-    Only a standard whose profile is `normalized`, until all four are
-    (normalize-the-standards, decision 14).
-    """
+    """One chapter template, and sections 2 and 4 as projections."""
     yield from _template(skill)
     yield from _named(skill)
     yield from _reality(skill)

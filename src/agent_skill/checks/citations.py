@@ -31,7 +31,7 @@ lazy from agent_skill.report import Finding
 ROW_TOOL = declare("citations", "row_tool", Level.FAIL)
 ROW_LEVEL = declare("citations", "row_level", Level.FAIL)
 
-# The branches only a normalised standard is held to (`_bijection`).
+# The branches of the lint bijection (`bijection`) and the allowlist.
 UNROWED = declare("citations", "unrowed", Level.FAIL)
 ROWED_TWICE = declare("citations", "rowed_twice", Level.FAIL)
 ROW_REASON = declare("citations", "row_reason", Level.FAIL)
@@ -94,9 +94,8 @@ def row_shape(rows: Iterable[Row], tools: tuple[str, ...]) -> Iterator[Finding]:
 def citations(skill: Skill) -> Iterator[Finding]:
     """Every lint row and cited code, against the shipped config."""
     yield from row_shape(rows_of(skill), skill.profile.tools)
-    if skill.profile.normalized:
-        yield from bijection(skill)
-        yield from _excused(skill)
+    yield from bijection(skill)
+    yield from _excused(skill)
     if (toolchain := toolchain_for(skill.profile.toolchain)) is not None:
         yield from toolchain.cite(skill)
 
@@ -104,10 +103,10 @@ def citations(skill: Skill) -> Iterator[Finding]:
 def _excused(skill: Skill) -> Iterator[Finding]:
     """Each lint the examples are excused from says why (decision 12).
 
-    A normalised standard's examples are linted with the configuration
-    it ships, less an allowlist of rules about a project's shape, which
-    a fenced snippet cannot have. An entry with no reason is an
-    exemption nobody can weigh.
+    A standard's examples are linted with the configuration it ships,
+    less an allowlist of rules about a project's shape, which a fenced
+    snippet cannot have. An entry with no reason is an exemption nobody
+    can weigh.
     """
     toolchain = toolchain_for(skill.profile.toolchain)
     excused = toolchain.excused(skill) if toolchain is not None else {}
@@ -122,7 +121,7 @@ def _excused(skill: Skill) -> Iterator[Finding]:
 
 
 # ------------------------------------------------------------------
-# the lint bijection: what a normalised standard is held to (decision 8)
+# the lint bijection (normalize-the-standards, decision 8)
 
 #: What a row for a lint the configuration does not set one by one says
 #: before the reason it is listed at all.

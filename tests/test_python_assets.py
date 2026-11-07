@@ -7,7 +7,6 @@ runs is a claim that stops being true without anyone noticing.
 import json
 import re
 import subprocess
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -143,22 +142,22 @@ def test_e501_is_enabled_as_the_line_length_backstop(tmp_path: Path) -> None:
     assert "E501" in enabled(RUFF_TOML, tmp_path)
 
 
-def test_a_normalised_standards_examples_are_linted_as_it_ships(
-    skills: list[Skill],
+def test_a_standards_examples_are_linted_as_it_ships(
+    skills: list[Skill], tmp_path: Path
 ) -> None:
     """The shipped `ruff.toml`, less the allowlist, and nothing else.
 
     normalize-the-standards, decision 12: a narrower selection than the
     one shipped lets an example teach what the reader's build rejects.
+    A standard that ships no `ruff.toml` is linted with the selection
+    its snippet declares.
     """
     python = next(s for s in skills if s.name == "python-style")
-    normal = Skill(python.root, replace(python.profile, normalized=True))
-    plain = Skill(python.root, replace(python.profile, normalized=False))
-    snippet = normal.profile.toolchain
+    snippet = python.profile.toolchain
     assert isinstance(snippet, PythonSnippet)
-    assert _shipped(plain) is None
-    assert _shipped(normal) == RUFF_TOML.resolve()
-    assert snippet.ruff_args(_shipped(normal)) == [
+    assert _shipped(Skill(tmp_path, python.profile)) is None
+    assert _shipped(python) == RUFF_TOML.resolve()
+    assert snippet.ruff_args(_shipped(python)) == [
         "--no-cache",
         "--config",
         str(RUFF_TOML.resolve()),

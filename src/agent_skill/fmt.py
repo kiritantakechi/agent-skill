@@ -66,25 +66,21 @@ def _reprint(skill: Skill) -> list[Finding]:
     newlines untranslated, as `layout` reads it, so a CR inside an
     example is left for a person rather than turned into a line break.
 
-    A normalised standard is printed in its normal form as well: every
-    citation bare, every rule's elements in order. Only a normalised
-    one, while `Profile.normalized` is the gate: the other standards
-    still cite a core rule's chapter by path, which `anatomy` reads
-    until section 4 is a projection, and are normalised a standard at a
-    time rather than by a formatter.
+    It is printed in its normal form as well: every citation bare,
+    every rule's elements in order; `SKILL.md`'s sections 4, 2.1 and
+    2.2 rendered as the projections they are, and the command after the
+    migration table generated from its rows.
     """
     changed: list[Finding] = []
     chapters = {c.path for c in skill.chapters}
     for path in skill.markdown:
         text = path.read_text(newline="")
-        tree = Doc.parse(text)
-        if skill.profile.normalized:
-            tree = normal(tree, chapter=path in chapters)
-        if skill.profile.normalized and path == skill.skill_md:
+        tree = normal(Doc.parse(text), chapter=path in chapters)
+        if path == skill.skill_md:
             tree, unrendered = _projected(skill, tree)
             changed += unrendered
             tree = _reality_rendered(skill, tree)
-        if skill.profile.normalized and path.stem == MIGRATION_STEM:
+        if path.stem == MIGRATION_STEM:
             tree = with_command(tree, migration_header(target(skill)))
         if (printed := str(tree)) != text:
             path.write_text(printed)

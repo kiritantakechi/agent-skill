@@ -824,6 +824,28 @@ As built (task 6.1), zig-style normalised; what it decided beyond tasks 3.1, 4.1
   for that profile after the edit, so a core rule the edit states is counted. `prose.provenance`'s
   injected line no longer says "Measured", which `prose.dated` reads too.
 
+As built (task 7.1), the gate deleted:
+
+- `Profile.normalized` is gone, and every condition on it: `anatomy`, `skeleton`, `citations`,
+  `crossref`, `mirror`, `frontmatter`, `prose` and `toolchain` hold every standard to the normal
+  form, `fmt` prints it for every standard, `measure` counts a standard as it is, and Python's
+  examples are linted with the `ruff.toml` a standard ships (the snippet's own selection is for one
+  that ships none, as the demo does).
+- What only a standard not yet normalised reached went with its controls and the `_on_unnormal`
+  helpers: the core-citation branches (`anatomy.core_uncited`, `core_not_a_rule`,
+  `core_wrong_chapter`, and the `mis_cited` note), `anatomy.map_here`, `frontmatter.length` and
+  `rule_count`, and the override table — `crossref.override_title`, the `no_table` note and the
+  layer's `Override` reader. A core rule is `skeleton.core_rule`'s alone, so `below_target` no
+  longer reads one. FAIL branches 243 → 236, controls 220 → 213, exemptions 23.
+- The reference map's and the reading procedure's slots (`held_here`, `conflict`) are the shared
+  templates' own text, the map's count a `{rules}` slot: every `SKILL.md` renders as it did.
+- One demo: `tests/structure_fixture.py` builds `checks.demo` and reads it with its profile, and the
+  tests that edited the older demo edit this one. Each of its rules is cited, so `revise` refuses to
+  remove one; the tests that removed one merge it instead, and the one that holds a revision to the
+  skeleton runs `fmt` after it, which renders section 4's line for the merged rule.
+- `fmt`, ungated, changes nothing in the shipped tree, and `check --fast --verbose` prints what it
+  printed before.
+
 ## Risks / Trade-offs
 
 - **CORE IDs disappear** → every citation of one resolves through `renames.md`; `revise` checks

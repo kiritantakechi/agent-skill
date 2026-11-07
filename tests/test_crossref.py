@@ -112,14 +112,6 @@ def test_the_sweep_has_something_to_sweep(bevy: Bevy) -> None:
     )
 
 
-def test_a_delta_with_no_override_table_fails(bevy: Bevy) -> None:
-    """Deleting the table used to delete the anchor, leaving a note."""
-    delta, _ = bevy
-    [found] = list(crossref._delta(delta, ()))
-    assert found.level is Level.FAIL
-    assert "states no override table" in found.message
-
-
 def test_the_shipped_delta_states_its_table(bevy: Bevy) -> None:
     """Normalised, it states its departures as one typed table."""
     delta, by_name = bevy

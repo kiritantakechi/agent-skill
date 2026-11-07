@@ -48,7 +48,7 @@ TIMEOUT = declare("toolchain", "timeout", Level.FAIL)
 FAILED = declare("toolchain", "failed", Level.FAIL)
 UNFORMATTED = declare("toolchain", "unformatted", Level.FAIL)
 
-# The branches of a normalised standard's `gone` rows (decision 9).
+# The branches of the migration table's `gone` rows (decision 9).
 GONE_LIVE = declare("toolchain", "gone_live", Level.FAIL)
 GONE_UNPROBED = declare("toolchain", "gone_unprobed", Level.NOTE)
 
@@ -81,8 +81,7 @@ def toolchain(skill: Skill) -> Iterator[Finding]:
             )
         return
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work:
-        if skill.profile.normalized:
-            yield from gone(tc, skill, Path(work) / "gone")
+        yield from gone(tc, skill, Path(work) / "gone")
         extraction = tc.extract(skill, Path(work) / "out")
         if not extraction:
             yield fail(

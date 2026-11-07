@@ -1,4 +1,4 @@
-"""A standard's normal form, which `fmt` prints for a normalised one.
+"""A standard's normal form, which `fmt` prints.
 
 Two rewrites a person need not judge: a rule is cited by its bare ID,
 never quoted and never behind its chapter's path, and a rule states its

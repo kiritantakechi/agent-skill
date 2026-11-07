@@ -10,11 +10,22 @@ from agent_skill.checks.anatomy import structural
 from agent_skill.checks.skeleton import skeleton
 from agent_skill.doc import WIDTH, Doc, canonical
 from agent_skill.doc.chapter import Chapter, Demoted, LintRow, Removed
+from agent_skill.fmt import format_skill
 from agent_skill.ids import DASH, RuleId
 from agent_skill.layout import SKILLS
 from agent_skill.model import Skill, Tree
-from structure_fixture import DEMO, RULE, build
+from structure_fixture import DEMO, build
 lazy from agent_skill.doc.chapter import Becomes, RenameTable
+
+#: A rule of the repositories built here, which no check reads whole.
+RULE = """### {id} [M] {title}
+
+{title}.
+
+**Why:** one line of reason.
+
+**Check:** read it.
+"""
 
 
 def chapter(title: str, rules: list[tuple[str, str]], extra: str = "") -> str:
@@ -708,10 +719,16 @@ def test_a_plan_file_says_each_kind_as_the_plan_types_it(planned: Path) -> None:
 
 
 def test_a_revision_leaves_a_conforming_skill_conforming(tmp_path: Path) -> None:
+    """Once `fmt` has rendered section 4 from the rules it lists.
+
+    A merge respells section 4's line for the rule it removes, and the
+    title and tier on it are the removed rule's until `fmt` renders it.
+    """
     built = build(tmp_path / SKILLS)
     (tmp_path / "src").mkdir()
     (tmp_path / "tests").mkdir()
-    run(tmp_path, {rid("DS-ERR-01"): Removed("said nothing")})
+    run(tmp_path, {rid("DS-ERR-01"): rid("DS-ERR-02")})
+    format_skill(Skill(built.root, DEMO))
     after = Skill(built.root, DEMO)
     assert list(titles(after)) == ["DS-ERR-01", "DS-MIG-01"]
     assert list(shared.compare(after)) == []
