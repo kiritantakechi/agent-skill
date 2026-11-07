@@ -34,6 +34,7 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-ERR-18 [S] Use `match` for structure, not as a switch
   - PS-ERR-19 [S] Bind with the walrus only where it removes a line without hiding one
   - PS-ERR-20 [M] Return one type from one function
+  - PS-ERR-21 [M!] Use an explicit stack where the input decides the recursion depth
 - Decided by tools
 
 ---
@@ -378,6 +379,62 @@ cannot ignore by accident.
 
 **Check:** every function returning `X | None`. Ask whether `None` is a value or a failure; if it is
 a failure, it is an exception.
+
+### PS-ERR-21 [M!] Use an explicit stack where the input decides the recursion depth
+
+A recursion whose depth a constant bounds — a tree your own builder makes, a directory walk with a
+depth cap — stays recursive and asserts that constant at entry.
+
+*Relaxed form:* code whose only inputs are ones its author nests, accepting the `RecursionError`.
+
+**Why:** CPython raises `RecursionError` past `sys.getrecursionlimit()`, 1000 frames by default, so
+recursion over attacker-controlled nesting is a crash the caller did not choose. Raising the limit
+only trades that exception for a stack overflow, which no `except` can catch.
+
+**Check:** for each function that calls itself, what bounds the depth? If the answer is "the input",
+it needs a `deque` worklist, or an asserted cap.
+
+```python
+# verified — BAD: the input decides how deep this goes
+def flatten(node: object) -> list[object]:
+    if not isinstance(node, list):
+        return [node]
+    return [leaf for child in node for leaf in flatten(child)]
+
+
+nested = 0
+for _ in range(5_000):
+    nested = [nested]
+
+try:
+    flatten(nested)
+except RecursionError as exc:
+    assert "recursion" in str(exc)
+```
+
+```python
+# verified — GOOD
+from collections import deque
+
+
+def flatten(node: object) -> list[object]:
+    leaves: list[object] = []
+    work = deque([node])
+    while work:
+        item = work.popleft()
+        if isinstance(item, list):
+            work.extendleft(reversed(item))
+        else:
+            leaves.append(item)
+    return leaves
+
+
+nested = 0
+for _ in range(5_000):
+    nested = [nested]
+
+assert flatten(nested) == [0]
+```
 
 ## Decided by tools
 

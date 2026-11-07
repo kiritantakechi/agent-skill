@@ -65,6 +65,7 @@ and an exit code.
 - **The shape of a function**
   - RS-ERR-35 [M] Write a `match`, not an `if`/`else if` chain, on one value
   - RS-ERR-36 [M!] Use an explicit worklist where recursion depth is unbounded
+  - RS-ERR-37 [M] State a branch condition as the invariant that holds
 
 ---
 
@@ -816,3 +817,33 @@ still functional in spirit, is bounded by the heap, and can be depth-limited wit
 
 **Check:** for each recursive function, what bounds the depth? If the answer is "the input", it
 needs a worklist or an asserted cap.
+
+### RS-ERR-37 [M] State a branch condition as the invariant that holds
+
+`if index < len { … } else { … }`, not `if index >= len { … } else { … }`, and not
+`if !found { … } else { … }`. An early-return guard is exempt: `if index >= len { return None; }`
+states the rejection, which is its whole point.
+
+**Why:** a positive condition is read once; a negated one is read and then inverted, and the
+inversion is where off-by-one errors hide. After a negated `if`, the `else` must be inverted again
+to learn what the second branch means.
+
+**Check:** read each `if` that has an `else` and whose condition is negated (`!`, `!=`) or a
+rejection (`>=` against a bound): swap the branches and drop the negation. An `if` whose body
+returns, breaks or continues is a guard and stays.
+
+```rust
+// verified — BAD: the first branch is the rejection, so the reader inverts twice
+#[must_use]
+pub fn place(index: usize, len: usize) -> &'static str {
+    if index >= len { "outside" } else { "inside" }
+}
+```
+
+```rust
+// verified — GOOD
+#[must_use]
+pub fn place(index: usize, len: usize) -> &'static str {
+    if index < len { "inside" } else { "outside" }
+}
+```
