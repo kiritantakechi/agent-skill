@@ -322,9 +322,9 @@ const Grid = struct {
 
 Extract the kernel into a stand-alone function whose parameters are the exact slices and scalars it
 reads. The wrapper method stays, and does the field access once. Without a profile, hoist the field
-into a local above the loop instead (ZS-PERF-07). This does not contradict ZS-NAME-12: receivers
+into a local above the loop instead (ZS-PERF-07). This does not contradict ZS-NAME-14: receivers
 stay correct everywhere else, and a codebase does not delete them wholesale on the strength of this
-rule. A kernel whose bounds are two integers of one type is exempt from ZS-NAME-09's options struct,
+rule. A kernel whose bounds are two integers of one type is exempt from ZS-NAME-11's options struct,
 because a struct would reintroduce the aggregate load the extraction removes; document the order
 instead.
 

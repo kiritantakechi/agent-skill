@@ -288,7 +288,7 @@ const crc_table: [256]u32 = blk: {
 Write the `comptime` keyword on type parameters even though `T: type` also compiles. std writes it
 on ~94% of type parameters; the 52 bare `X: type` occurrences are the outliers. Inside the returned
 anonymous struct the type has no name, so `const Self = @This();` and a `self` receiver are where
-ZS-NAME-12 allows them.
+ZS-NAME-14 allows them.
 
 **Why:** it is std's spelling, and it states at the declaration that the parameter is resolved at
 compile time, which `T: type` leaves the reader to infer from the type.

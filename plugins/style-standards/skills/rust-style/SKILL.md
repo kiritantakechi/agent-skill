@@ -147,7 +147,7 @@ not worth the name it costs.
   - RS-NAME-01 [M] Capitalize acronyms as ordinary English words
   - RS-NAME-12 [M] `as_` is a free borrowed view
   - RS-NAME-16 [M] Getters omit `get_`
-  - RS-NAME-26 [S] Spell names out; abbreviate only where the abbreviation is the standard word
+  - RS-NAME-26 [M] Spell names out; abbreviate only where the abbreviation is the standard word
 - **API: The Public Surface, Signatures, Invariants, and Evolution**
   - RS-API-01 [M] Keep everything private until proven public
   - RS-API-07 [M] Be generic in what you accept, concrete in what you return

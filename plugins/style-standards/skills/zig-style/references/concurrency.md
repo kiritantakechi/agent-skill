@@ -1450,7 +1450,7 @@ What `std.Io` kills is the callback-**driven I/O** pattern: the `read_sector()` 
 machine that exists only to remember where to resume. Do not write those. `io.async(f, args)`
 returns a `Future` and `f.await(io)` resumes in the caller's own lexical scope, so there is no
 completion to name and nothing to position. TigerStyle's *other* callback rule — a function value
-passed as data goes last, after its `context` — survives, and ZS-NAME-10 owns it.
+passed as data goes last, after its `context` — survives, and ZS-NAME-12 owns it.
 
 **Why:** callback-driven I/O exists where there is no I/O interface to suspend through, so
 TigerBeetle hand-rolled a callback-threaded event loop. The interface is the replacement, and it

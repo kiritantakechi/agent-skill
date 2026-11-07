@@ -192,9 +192,9 @@ questions, in order: the five every standard asks, then the one safety adds.
    apply it, so the leaves stay pure and one apply site can assert the invariant (ZS-PERF-12).
 4. **What is asymmetric?** If `init` exists, does `deinit`? Do sibling functions take their
    parameters in the same order? Does every operation have its inverse? A missing half is either a
-   restriction the documentation must state, or an oversight (ZS-DATA-36, ZS-DATA-37, ZS-NAME-28).
+   restriction the documentation must state, or an oversight (ZS-DATA-36, ZS-DATA-37, ZS-NAME-30).
 5. **What is special-cased?** A branch that exists for one input is a design that has not absorbed
-   that input. Fold it into the general path, or give it its own type (ZS-ERR-34, ZS-NAME-29).
+   that input. Fold it into the general path, or give it its own type (ZS-ERR-34, ZS-NAME-31).
 6. **What can be asserted instead of assumed?** An invariant the code depends on is checked at the
    boundary or written down as an assumption — never left implicit (ZS-ERR-01, ZS-ASSERT-07).
 
@@ -208,16 +208,16 @@ can see is not worth the name it costs.
   - ZS-NAME-01 [M] Apply the official casing rules exactly
   - ZS-NAME-02 [M] Capitalize acronyms as ordinary English words
   - ZS-NAME-04 [M] Spell names out; abbreviate only as scope tightens
-  - ZS-NAME-06 [M] Put units and qualifiers last, sorted by descending significance
-  - ZS-NAME-12 [M] Name the receiver after its type; keep `self` for anonymous generic containers
-  - ZS-NAME-13 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
-  - ZS-NAME-15 [M] Keep the `@This()` alias and the whole import block in one place
-  - ZS-NAME-17 [M] Order a struct body: fields → types → `init`/`deinit` → methods → tests
-  - ZS-NAME-18 [S] Put the entry point and the most important declarations first
-  - ZS-NAME-22 [M] Say why, not what — including at the top of every test
-  - ZS-NAME-23 [S] Comment typography: space after the slashes, capital letter, full stop
-  - ZS-NAME-24 [M] Run `zig fmt`; the trailing comma is your only formatting lever
-  - ZS-NAME-25 [M] Hard-limit every line to 100 columns
+  - ZS-NAME-07 [M] Put units and qualifiers last, sorted by descending significance
+  - ZS-NAME-14 [M] Name the receiver after its type; keep `self` for anonymous generic containers
+  - ZS-NAME-15 [M] Name a file `TitleCase.zig` if and only if it has top-level fields
+  - ZS-NAME-17 [M] Keep the `@This()` alias and the whole import block in one place
+  - ZS-NAME-19 [M] Order a struct body: fields → types → `init`/`deinit` → methods → tests
+  - ZS-NAME-20 [S] Put the entry point and the most important declarations first
+  - ZS-NAME-24 [M] Say why, not what — including at the top of every test
+  - ZS-NAME-25 [S] Comment typography: space after the slashes, capital letter, full stop
+  - ZS-NAME-26 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
+  - ZS-NAME-27 [M] Hard-limit every line to 100 columns
 - **Type selection, integers, structs, data layout**
   - ZS-DATA-27 [M] Return the lowest-dimensionality type that can carry the answer
 - **Errors, control flow, assertions vs errors vs panics**
@@ -283,7 +283,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 6. **Public API.** Units last and descending, receivers named after their type rather than `self`,
    no abbreviations? Unpaired operations, siblings disagreeing on parameter order, error-set members
    with uneven detail, two mechanisms for one concept, a branch that exists for one input
-   (ZS-DATA-36 … ZS-DATA-38, ZS-ERR-33, ZS-ERR-34, ZS-NAME-28 … ZS-NAME-30)?
+   (ZS-DATA-36 … ZS-DATA-38, ZS-ERR-33, ZS-ERR-34, ZS-NAME-30 … ZS-NAME-32)?
 7. **Concurrency.** Every `Io.async` awaited or cancelled, every `Group` and `Select` closed, and
    nothing held across a suspension point?
 8. **Function bodies.** `zig fmt` clean, ≤100 columns, functions that fit on a screen, control flow
@@ -297,11 +297,11 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-349 rules live here; section 4 lists by ID those that bind on their own.
+351 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
-| `references/naming.md` | `ZS-NAME` (30) | Naming rules in full, file and module layout, declaration order, doc comments, formatting |
+| `references/naming.md` | `ZS-NAME` (32) | Naming rules in full, file and module layout, declaration order, doc comments, formatting |
 | `references/data.md` | `ZS-DATA` (38) | Integer choice, off-by-one discipline, casts, struct design, decl literals, result location semantics, in-place init, layout, data-oriented design |
 | `references/errors.md` | `ZS-ERR` (34) | Error sets, `try`/`catch`/`errdefer`, the error-vs-assert-vs-panic decision table, labeled switch, `@branchHint` |
 | `references/memory.md` | `ZS-MEM` (24) | Allocator taxonomy, the allocator vtable, ownership rules, arena patterns, the static-allocation tiering |

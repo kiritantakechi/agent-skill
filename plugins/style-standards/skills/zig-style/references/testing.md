@@ -66,7 +66,7 @@ This is a rule about unit tests only: **integration tests live outside `src/`** 
 directory, with their own `addTest` and their own build step (ZS-BUILD-18, ZS-BUILD-04), because
 their whole purpose is to exercise the published module surface rather than internals.
 
-Within the file, tests come last in the struct body (ZS-NAME-17). Prefer the decltest form
+Within the file, tests come last in the struct body (ZS-NAME-19). Prefer the decltest form
 (ZS-TEST-02), which names file-scope declarations only. `zig test` compiles the file plus everything
 it transitively `@import`s, so co-located tests are picked up with zero wiring.
 

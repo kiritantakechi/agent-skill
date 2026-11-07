@@ -1530,7 +1530,7 @@ inverse or gains a doc comment saying why it cannot have one.
 ### ZS-DATA-37 [M] Keep parameter order identical across sibling functions
 
 Fix the order once and do not vary it: if one function takes `(io, gpa, target, source)`, its
-siblings do too. ZS-NAME-10 fixes the order for function-value slots by copying `std.sort`; this
+siblings do too. ZS-NAME-12 fixes the order for function-value slots by copying `std.sort`; this
 rule is the same discipline applied to your own functions.
 
 **Why:** siblings are called from the same code, often adjacent, and the reader generalizes from the

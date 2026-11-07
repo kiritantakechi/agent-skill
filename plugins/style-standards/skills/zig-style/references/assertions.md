@@ -6,7 +6,7 @@ loop, buffer, queue and retry count with a named comptime constant. Error-union 
 and the operating-error side of the split are the errors chapter's; allocator lifetime and
 `undefined` poisoning the memory chapter's; test structure the testing chapter's, and the
 `build.zig` wiring of fuzz steps the build chapter's. A limit's name (`connection_count_max`, not
-`max_connections`) is ZS-NAME-06's, applied here.
+`max_connections`) is ZS-NAME-07's, applied here.
 
 A `// fragment` block here uses types and constants declared elsewhere in this chapter. Every
 example assumes a file opening with `const std = @import("std");`,
@@ -744,7 +744,7 @@ comptime {
 
 Every buffer, queue, batch, connection table, retry count, timeout, recursion depth, and message
 size has a fixed upper bound expressed as a named comptime constant. No bare literals at the use
-site; no "it grows as needed" without a stated ceiling. The name follows ZS-NAME-06:
+site; no "it grows as needed" without a stated ceiling. The name follows ZS-NAME-07:
 `latency_ms_max`, not `max_latency_ms`.
 
 **Why:** everything has a limit; the only question is whether you chose it or production discovers

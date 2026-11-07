@@ -460,9 +460,9 @@ changed, and what it is now; an ID it does not list is unchanged.
 | `RS-NAM-38` | `RS-NAME-32` |
 | `RS-NAM-39` | `RS-NAME-33` |
 | `RS-NAM-40` | lint `rustc:non_upper_case_globals` |
-| `RS-NAM-41` | `RS-NAME-34` |
+| `RS-NAM-41` | `RS-NAME-08` |
 | `RS-NAM-42` | `RS-NAME-10` |
-| `RS-NAM-43` | `RS-NAME-35` |
+| `RS-NAM-43` | `RS-NAME-34` |
 | `RS-NAM-44` | `RS-NAME-24` |
 | `RS-OWN-02` | lint `clippy:ptr_arg` |
 | `RS-OWN-03` | `RS-OWN-02` |

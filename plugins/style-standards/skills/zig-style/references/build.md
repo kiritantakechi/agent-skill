@@ -576,7 +576,7 @@ The *placement* half of the centralized-limits rule: one file named `constants.z
 `src/`, re-exported from `root.zig` as `pub const constants = @import("constants.zig");`, listed in
 `.paths` (ZS-BUILD-11), and referenced from the root's `comptime` import block (ZS-BUILD-16) so its
 `comptime` cross-checks are always analysed. What goes *in* the file is ZS-ASSERT-20, and its limits
-are named per ZS-NAME-06.
+are named per ZS-NAME-07.
 
 *Relaxed form:* the file still sits at `src/constants.zig`, re-exported and in `.paths`; naming it
 in the `comptime` import block, which is what guarantees its cross-checks run, becomes optional.
@@ -807,8 +807,8 @@ Two traps:
   `lib/zig/compiler/Maker/Step/Fmt.zig` since 0.17, only ever appends `--check`, paths, and
   excludes. The `zig build fmt` step and the CI `--ast-check` run are two different checks; do both.
 
-What `zig fmt` decides, and the trailing comma that is your one lever over it, are ZS-NAME-24; the
-100-column limit it cannot enforce is ZS-NAME-25.
+What `zig fmt` decides, and the trailing comma that is your one lever over it, are ZS-NAME-26; the
+100-column limit it cannot enforce is ZS-NAME-27.
 
 **Why:** `zig fmt` is canonical — there is no style bikeshed to have, so a formatting diff in review
 is pure waste. `--ast-check` runs AstGen over each file and catches a real class of defect that

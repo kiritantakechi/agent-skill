@@ -43,7 +43,7 @@ invalidate the work of reading the next.
    provable upper bound, every queue a limit, every recursion a proof or an explicit stack?
    (`ZS-ASSERT`, ZS-ASSERT-08, ZS-ASSERT-19, ZS-ERR-23)
 6. **Public API.** What is newly `pub`? Is the ownership documented? Is the error set explicit and
-   minimal? Would a caller be able to tell from the signature who frees what? (ZS-NAME-19, `ZS-ERR`)
+   minimal? Would a caller be able to tell from the signature who frees what? (ZS-NAME-21, `ZS-ERR`)
 7. **Concurrency.** Every `Io.async` without a matching `await`, every `Group`/`Select`,
    cancellation paths, and anything holding a resource across a suspension point. (`ZS-CONC`)
 8. **Function bodies.** Now read the code. Compound conditions that want splitting, functions past

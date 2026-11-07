@@ -170,6 +170,10 @@ PROFILE = Profile(
             "RS-NAME-21": ("pub fn new_with_capacity(capacity: usize) -> Self {",),
             "RS-NAME-29": ("pub trait ParserTrait {",),
             "RS-NAME-33": ("fn first<'life>(items: &'life [u8]) -> &'life u8 {",),
+            "RS-NAME-35": (
+                'let message = format!("the connection to {host} was closed by the '
+                + 'peer before the handshake finished");',
+            ),
             "RS-OWN-30": ("let shared: Arc<String> = Arc::new(name);",),
             "RS-PERF-21": ("reader.read(&mut [0u8; 1])?;",),
             "RS-TEST-17": ('let path = Path::new("/tmp/out.txt");',),

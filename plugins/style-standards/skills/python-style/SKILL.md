@@ -193,7 +193,7 @@ name it costs.
 - **Naming: Casing, Words, Formatting, Comments, and Symmetry**
   - PS-NAME-01 [M] Apply PEP 8's casing rules mechanically
   - PS-NAME-05 [M] Put units and qualifiers last, sorted by descending significance
-  - PS-NAME-11 [M] Say why, not what
+  - PS-NAME-13 [M] Say why, not what
 - **Types: Annotations, Generics, Narrowing, and the Checker**
   - PS-TYPE-01 [M] Run `ty` at the pinned version, with the shipped configuration
   - PS-TYPE-04 [M] Never write `from __future__ import annotations`
@@ -265,11 +265,11 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-242 rules live here; section 4 lists by ID those that bind on their own.
+244 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
-| `references/naming.md` | `PS-NAME` (16) | Casing and word choice, module and package names, what `ruff format` settles, comment discipline, and the symmetry of names |
+| `references/naming.md` | `PS-NAME` (18) | Casing and word choice, module and package names, what `ruff format` settles, comment discipline, and the symmetry of names |
 | `references/types.md` | `PS-TYPE` (20) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, and what 3.15 adds |
 | `references/data.md` | `PS-DATA` (18) | Choosing between dataclass, enum, protocol and TypedDict, fields and defaults, immutability, validity, and the symmetry of a data type |
 | `references/errors.md` | `PS-ERR` (21) | Designing an exception hierarchy, raising and catching, `except*`, `finally` after PEP 765, and the control-flow shapes that keep a function readable |

@@ -88,7 +88,7 @@ PROSE = (
 
 
 def import_order(b: Block) -> Iterator[Finding]:
-    """ZS-NAME-16 — imports run `@This()`, `builtin`, `std`, then local.
+    """ZS-NAME-18 — imports run `@This()`, `builtin`, `std`, then local.
 
     The rule is [S], but a suggestion the library declines to follow in
     its own examples is not a suggestion. Which of two lines comes first
@@ -103,7 +103,7 @@ def import_order(b: Block) -> Iterator[Finding]:
     }
     if "builtin" in first and "std" in first and first["builtin"] > first["std"]:
         yield fail(
-            '`@import("builtin")` below `@import("std")` (ZS-NAME-16)',
+            '`@import("builtin")` below `@import("std")` (ZS-NAME-18)',
             b.where_at(first["builtin"]),
             IMPORT_ORDER,
         )
@@ -123,10 +123,10 @@ PROFILE = Profile(
     toolchain=ZIG_STYLE,
     exempt=keyed(
         {
-            # ZS-NAME-12: "keep `self` for anonymous generic
+            # ZS-NAME-14: "keep `self` for anonymous generic
             # containers" — a receiver typed `Self` is the case the
             # rule permits.
-            "ZS-NAME-12": Unless(near=(Near("Self"),)),
+            "ZS-NAME-14": Unless(near=(Near("Self"),)),
             # ZS-TEST-10: "`rg …` inside `test` blocks — every hit must
             # be on an `errdefer` line". Container-scope logging is not
             # the target.
@@ -183,10 +183,10 @@ PROFILE = Profile(
         "ZS-COMPTIME-20",
         "ZS-MEM-04",
         "ZS-MEM-06",
-        "ZS-NAME-12",
-        "ZS-NAME-15",
-        "ZS-NAME-23",
-        "ZS-NAME-26",
+        "ZS-NAME-14",
+        "ZS-NAME-17",
+        "ZS-NAME-25",
+        "ZS-NAME-28",
         "ZS-TEST-02",
         "ZS-TEST-06",
         "ZS-TEST-07",

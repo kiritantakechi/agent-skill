@@ -1397,7 +1397,7 @@ migration section in the changelog (RS-BUILD-11)?
 
 If a type can be built from bytes it should be convertible back to them; `insert` implies `remove`,
 `push` implies `pop`, `open` implies `close`, `encode` implies `decode`, `subscribe` implies
-`unsubscribe`. How the two halves are named is RS-NAME-35.
+`unsubscribe`. How the two halves are named is RS-NAME-34.
 
 **Why:** a caller who learns half a pair looks for the other half. A genuine absence usually means
 something — the operation is lossy, irreversible, or belongs to another type — and silence makes the

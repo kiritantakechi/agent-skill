@@ -2,10 +2,10 @@
 
 Scope: how identifiers are cased and worded, the cost contract carried by the `as_`/`to_`/`into_`
 prefixes, getter and predicate shape, how iterators and their types are named, how crates, modules,
-features, and files are named, and how generic parameters, lifetimes, and associated types are
-spelled. Semantics of the things being named live elsewhere: what a constructor should *take* is in
-the API chapter, error-type *design* in the errors chapter, module *boundaries* in the modules
-chapter, and feature *semantics* in the build chapter.
+features, and files are named, how generic parameters, lifetimes, and associated types are spelled,
+and the line width `rustfmt` leaves to the author. Semantics of the things being named live
+elsewhere: what a constructor should *take* is in the API chapter, error-type *design* in the errors
+chapter, module *boundaries* in the modules chapter, and feature *semantics* in the build chapter.
 
 ## Contents
 
@@ -17,7 +17,7 @@ chapter, and feature *semantics* in the build chapter.
   - RS-NAME-05 [M] Name a module for its concept; never `utils`, `helpers`, `common`
   - RS-NAME-06 [M] Name a feature for the capability, not the dependency
   - RS-NAME-07 [S] Do not prefix a feature with `use-`, `with-`, or `enable-`
-  - RS-NAME-08 [M] Do not repeat the enum's name in its variants
+  - RS-NAME-08 [M] Do not repeat a type's name in the members it contains
   - RS-NAME-09 [S] Name a quantity for what it measures, with the unit as a suffix
   - RS-NAME-10 [S] Name a type parameter by its role: a conventional letter, else a word
   - RS-NAME-11 [M] Name the file after the module, without re-stating the directory
@@ -39,7 +39,7 @@ chapter, and feature *semantics* in the build chapter.
   - RS-NAME-23 [S] Verbs do something; nouns give something
   - RS-NAME-24 [S] Follow `std`'s word order, extend by suffix, and keep parallel names parallel
   - RS-NAME-25 [M] One term, one meaning, crate-wide
-  - RS-NAME-26 [S] Spell names out; abbreviate only where the abbreviation is the standard word
+  - RS-NAME-26 [M] Spell names out; abbreviate only where the abbreviation is the standard word
   - RS-NAME-27 [S] Restrict single-letter locals to short, genuinely generic bindings
   - RS-NAME-28 [S] Name the positive; convert negations once, at the boundary
   - RS-NAME-29 [M] Never suffix a name with the language construct
@@ -49,10 +49,12 @@ chapter, and feature *semantics* in the build chapter.
 - **Generic parameters and lifetimes**
   - RS-NAME-32 [S] Name a lifetime for the source of the borrow once several coexist
   - RS-NAME-33 [M] Never restate the kind in a parameter's name
-  - RS-NAME-34 [S] Name an associated type for the thing it produces
 
 - **Symmetry of names**
-  - RS-NAME-35 [M] Name the two halves of a pair symmetrically
+  - RS-NAME-34 [M] Name the two halves of a pair symmetrically
+
+- **Formatting**
+  - RS-NAME-35 [M] Hold every line to 100 columns, rustfmt's default
 
 - Decided by tools
 
@@ -172,16 +174,33 @@ line of every dependent's manifest, and it sorts all your features under one let
 **Check:** `rg -n '^(use|with|enable)-' -g '*.toml'` finds the prefixed features; each hit is the
 finding.
 
-### RS-NAME-08 [M] Do not repeat the enum's name in its variants
+### RS-NAME-08 [M] Do not repeat a type's name in the members it contains
 
-`Shape::Circle`, not `Shape::ShapeCircle`. `Error::Io`, not `Error::IoError`.
+`Shape::Circle`, not `Shape::ShapeCircle`. `Error::Io`, not `Error::IoError`. An associated type is
+named for the thing it produces — `type Item`, `type Output`, `type Error` — and never prefixed with
+the trait's name.
 
 **Why:** the path already carries the type. The repetition costs characters at every match arm and
-reads as stuttering: `Error::IoError(e)`.
+reads as stuttering: `Error::IoError(e)`, and an associated type is always written qualified —
+`I::Item`, `T::Error` — so `type IteratorItem` renders as `I::IteratorItem`.
 
 **Check:** clippy `enum_variant_names` flags three or more variants sharing a prefix or suffix. It
 does not see one variant repeating the enum's name, or a synonym for it: for each enum, does any
-variant start or end with either?
+variant start or end with either? And does any associated type's name begin with the trait's name or
+an abbreviation of it?
+
+```rust
+// verified
+/// The associated type is named for the thing it produces.
+pub trait Decoder {
+    type Frame;
+    type Error;
+
+    /// # Errors
+    /// Returns `Self::Error` when the input is not a complete frame.
+    fn decode(&mut self, input: &[u8]) -> Result<Option<Self::Frame>, Self::Error>;
+}
+```
 
 ### RS-NAME-09 [S] Name a quantity for what it measures, with the unit as a suffix
 
@@ -684,7 +703,7 @@ pub fn parent_of(path: &Path) -> Option<&Path> {
 }
 ```
 
-### RS-NAME-26 [S] Spell names out; abbreviate only where the abbreviation is the standard word
+### RS-NAME-26 [M] Spell names out; abbreviate only where the abbreviation is the standard word
 
 `config`, `regex`, `buf`, `ctx` in narrow scopes, `idx` in a loop, `recv`/`send` on channels — these
 are public dictionaries. `rslt`, `mngr`, `hdlr`, `cfgmgr` are private ones.
@@ -854,31 +873,9 @@ pub fn read_config(config: &Path) -> Option<&str> {
 }
 ```
 
-### RS-NAME-34 [S] Name an associated type for the thing it produces
-
-`type Item`, `type Output`, `type Error`, `type Iter<'a>`. Do not prefix with the trait name.
-
-**Why:** the associated type is always written qualified — `I::Item`, `T::Error` — so the trait name
-is already present at every use site. `type IteratorItem` renders as `I::IteratorItem`.
-
-**Check:** does any associated type's name begin with the trait's name or an abbreviation of it?
-
-```rust
-// verified
-/// The associated type is named for the thing it produces.
-pub trait Decoder {
-    type Frame;
-    type Error;
-
-    /// # Errors
-    /// Returns `Self::Error` when the input is not a complete frame.
-    fn decode(&mut self, input: &[u8]) -> Result<Option<Self::Frame>, Self::Error>;
-}
-```
-
 ## Symmetry of names
 
-### RS-NAME-35 [M] Name the two halves of a pair symmetrically
+### RS-NAME-34 [M] Name the two halves of a pair symmetrically
 
 A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`close`, not
 `open`/`release`; `lock`/`unlock`, not `lock`/`release`. Reuse the ecosystem's pair where one
@@ -914,6 +911,21 @@ impl Valve {
     }
 }
 ```
+
+## Formatting
+
+### RS-NAME-35 [M] Hold every line to 100 columns, rustfmt's default
+
+Code, comments, doc comments and string literals stay within 100 columns. `rustfmt` wraps code to
+that width and leaves a comment, a string literal and a URL as written, so the author wraps those.
+Leave `max_width` unset (RS-BUILD-27).
+
+**Why:** 100 columns is the width `rustfmt` and nearly all of `std` use, and a line past it is the
+one a side-by-side diff cuts off. A project that sets another width reopens an argument the default
+closes.
+
+**Check:** `rg -n '.{101,}' -g '*.rs'` — a line over 100 characters is the finding, except a URL or
+a string literal that cannot be wrapped, which carries a comment saying so.
 
 ## Decided by tools
 
