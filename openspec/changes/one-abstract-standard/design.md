@@ -390,6 +390,8 @@ What the machinery decided beyond decisions 1 to 7 and 12, task by task:
   since moving a rule alone in its section takes the section with it, and the move back would have
   no section to open: six seeded draws in the suite, across the four standards, both kinds of
   `after`, and first-in-section moves back; 22 were run once.
+  Moves naming one `after` land in plan order, each following the one before it (task 3.14):
+  placed one by one after the same anchor they came out reversed.
 - **Section 3 (2.7).** The shared third question holds for Zig: zig-style's own ZS-PERF-12 is its
   answer, a helper returning the change and its parent applying it, so the leaves stay pure and one
   apply site asserts the invariant. "What can be asserted instead of assumed?" is TigerStyle's

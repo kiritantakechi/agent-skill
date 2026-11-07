@@ -1,6 +1,7 @@
 """`revise`, which `renumber` and `demote` alias, on throwaway repos."""
 
 import re
+import shutil
 lazy from pathlib import Path
 
 import pytest
@@ -760,6 +761,26 @@ def test_a_moved_rule_takes_its_new_family_and_its_citations_follow(
     errors = Chapter.read(Doc.parse((root / "references/errors.md").read_text()))
     assert [s.title for s in errors.sections] == ["Raising"]
     assert "DS-MIG-01 catches." in (root / "SKILL.md").read_text()
+
+
+def test_moves_naming_one_anchor_land_in_plan_order(planned: Path) -> None:
+    """Both rules follow the anchor, and each other, in plan order."""
+    for after in (rid("DS-MIG-01"), "Moving"):
+        again = planned / str(after)
+        shutil.copytree(planned, again)
+        moves = {
+            rid("DS-ERR-03"): revise.Moved("migration", after),
+            rid("DS-ERR-02"): revise.Moved("migration", after),
+        }
+        renamed = run(again, moves).renamed
+        path = again / SKILLS / "demo-style/references/migration.md"
+        ids = [r.id for r in Chapter.read(Doc.parse(path.read_text())).rules]
+        first, second = renamed[rid("DS-ERR-03")], renamed[rid("DS-ERR-02")]
+        assert isinstance(first, RuleId)
+        assert isinstance(second, RuleId)
+        assert ids.index(first) < ids.index(second)
+        if isinstance(after, RuleId):
+            assert ids.index(after) < ids.index(first)
 
 
 def test_a_revision_leaves_a_conforming_skill_conforming(tmp_path: Path) -> None:

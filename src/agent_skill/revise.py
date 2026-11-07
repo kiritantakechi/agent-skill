@@ -904,6 +904,9 @@ def _placed(
     """
     created: dict[Path, layer.Chapter] = {}
     shipped = {c.path.stem: c for c in skill.chapters}
+    #: the rule last placed at each anchor: moves naming one anchor go
+    #: in plan order, each after the one before it
+    last: dict[tuple[str, RuleId | str], RuleId] = {}
     for rid, moved in moving.items():
         source = home.get(rid)
         if source is None:
@@ -927,7 +930,9 @@ def _placed(
                 layer.Contents(()),
                 (),
             )
-        placed = _inserted(into, rule, moved.after)
+        anchor = (moved.chapter, moved.after)
+        placed = _inserted(into, rule, last.get(anchor, moved.after))
+        last[anchor] = rid
         (created if target is None else edited)[path] = placed
     return created
 
