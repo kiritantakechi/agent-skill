@@ -707,7 +707,7 @@ Cargo turns incremental compilation off when `CI` is set, so CI needs no `CARGO_
 
 `[profile.release]` defaults are reasonable; change them with measurements. `lto = "thin"` is
 usually a good trade, `codegen-units = 1` buys a few percent for much slower builds, and
-`panic = "abort"` is an application decision (RS-ERR-29).
+`panic = "abort"` is an application decision (RS-ERR-27).
 
 **Why:** each of these trades build time or behaviour for runtime, and the sizes of both sides are
 project-specific. `panic = "abort"` in particular changes semantics — `catch_unwind` stops working —

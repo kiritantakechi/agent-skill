@@ -183,7 +183,7 @@ Nothing else departs: a divergence not listed here is a defect, not a dialect.
 | RS-API-36 | extends | BV-ECS-03 | [M] → [M] | Every component, public or not: every panic, `info!` and failed test prints one |
 | RS-API-53 | overrides | BV-ECS-05 | [M] → [M] | A component is spawned by struct literal in every crate, which `#[non_exhaustive]` forbids; it grows by a required component instead |
 | RS-NAME-29 | overrides | BV-ARCH-10 | [M] → [M] | `add_plugins(X)` and `configure_sets(_, X)` are one shape with two meanings, so the name is the only signal, as Bevy's own plugins and sets carry it |
-| RS-ERR-13 | overrides | BV-ERR-02 | [M!] → [M] | A system has no caller to match on its error — the schedule hands it to the handler — and the schedule takes no other type; what a caller branches on stays a real type in the domain (BV-ERR-03) |
+| RS-ERR-13 | overrides | BV-ERR-02 | [M] → [M] | A system has no caller to match on its error — the schedule hands it to the handler — and the schedule takes no other type; what a caller branches on stays a real type in the domain (BV-ERR-03) |
 | RS-BUILD-21 | overrides | BV-BUILD-04 | [M] → [M] | In a game binary the exact pin makes every Bevy bump, patch included, a commit of its own; a library keeps the caret |
 | RS-BUILD-22 | overrides | BV-BUILD-02 | [M] → [M] | Bevy's 177 features move every release, so a hand-picked list goes stale silently; a collection is upstream's own |
 | RS-BUILD-25 | overrides | BV-BUILD-12 | [M] → [M] | Two lints fire on every system parameter, so no handful of items could carry the `allow` |

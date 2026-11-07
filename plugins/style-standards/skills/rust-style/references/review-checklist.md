@@ -32,7 +32,7 @@ invalidate the work of reading the next.
    `transmute`, raw pointer, and `repr`. (`RS-UNSAFE`)
 2. **Panics and error handling.** Grep for `unwrap`, `expect`, `panic!`, `todo!`, `unreachable!`,
    `[` indexing, integer arithmetic on untrusted values, and `as` casts. Each one is either
-   justified in a comment or a finding. (`RS-ERR`, RS-ERR-28)
+   justified in a comment or a finding. (`RS-ERR`, RS-ERR-26)
 3. **Public API.** What is newly `pub`? Is it documented? Is it the surface you would want to
    support for five years? Does it leak a dependency's types? Would `cargo semver-checks` complain?
    (`RS-API`, `RS-DOC`)

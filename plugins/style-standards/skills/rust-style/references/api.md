@@ -628,7 +628,7 @@ set.
 
 **Why:** the correlation is an invariant the compiler cannot see, so every reader must learn it and
 every path must handle the impossible combination, usually with an `unwrap` or an `unreachable!`
-(RS-ERR-26). The sum type deletes those branches.
+(RS-ERR-24). The sum type deletes those branches.
 
 **Check:** for each pair of fields, is there a combination of values that cannot legally occur? That
 pair is an enum.
@@ -923,7 +923,7 @@ build on a public type without one. Manual impls are fine; absence is not.
 
 **Why:** `Debug` output may change at any time and favours completeness; `Display` is part of the
 contract and favours clarity. A `Display` that delegates to `Debug` publishes internal structure,
-the defect in RS-ERR-31.
+the defect in RS-ERR-29.
 
 **Check:** does any `Display` impl call `{:?}`? Does any `Debug` impl omit a field to look tidier?
 

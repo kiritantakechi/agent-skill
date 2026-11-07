@@ -166,7 +166,7 @@ not worth the name it costs.
   - RS-ERR-05 [M] Implement `Error` with a correct `source()`
   - RS-ERR-08 [M] Never throw away an error's information
   - RS-ERR-10 [M] Define one error enum per library, one variant per branchable failure
-  - RS-ERR-13 [M!] Never expose `Box<dyn Error>` or `anyhow::Error` from a library
+  - RS-ERR-13 [M] Never expose a catch-all error from a library
   - RS-ERR-15 [S] Prefer a struct with a private `kind` to a single-variant enum
 - **Functional: Expressions, Iterators, Immutability, and Purity**
   - RS-FUNC-01 [M] Make everything that can be an expression one
@@ -229,13 +229,13 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. All
-597 rules live here; section 4 lists by ID those that bind on their own.
+595 rules live here; section 4 lists by ID those that bind on their own.
 
 | File | Rule IDs | Covers |
 |---|---|---|
 | `references/naming.md` | `RS-NAME` (35) | Casing, conversion prefixes (`as_`/`to_`/`into_`), getters, predicates, iterator names, word order, generic parameters and lifetimes |
 | `references/api.md` | `RS-API` (61) | Public surface shape, parameters and returns, encapsulation, type safety and newtypes, `#[must_use]`/`#[non_exhaustive]`, the std trait impl set, constructors and builders, semver evolution |
-| `references/errors.md` | `RS-ERR` (34) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, explicit overflow, exit codes |
+| `references/errors.md` | `RS-ERR` (32) | Error enum design, `thiserror` vs `anyhow`, `source()` chains, context, `?` discipline, panics, explicit overflow, exit codes |
 | `references/functional.md` | `RS-FUNC` (47) | Expression orientation, the iterator adapter set, immutability and shadowing, closures and bounds, purity, parse-don't-validate, when to stop |
 | `references/ownership.md` | `RS-OWN` (39) | Borrow-vs-own signatures, clone discipline, `Cow`, lifetimes and elision, arenas and indices, smart pointers, interior mutability, `Drop` and RAII |
 | `references/traits.md` | `RS-TRAIT` (46) | Trait design and contracts, static vs dynamic dispatch, dyn compatibility, coherence and blanket impls, sealing, bounds, associated types, GATs, const generics, typestate |

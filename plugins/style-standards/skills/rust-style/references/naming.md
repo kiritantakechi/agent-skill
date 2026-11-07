@@ -796,7 +796,7 @@ when several coexist. Never both spellings in one crate.
 
 **Why:** with both, `use` statements collide unpredictably and readers cannot guess the path of an
 error they have not met. The module-scoped spelling scales better; the flat one is fine for a crate
-with two error types (RS-ERR-16).
+with two error types (RS-ERR-10).
 
 **Check:** is every `Error` in a type position the same shape?
 

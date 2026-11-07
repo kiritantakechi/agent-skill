@@ -290,7 +290,7 @@ shorter and better optimized (RS-FUNC-17); `fold` is for an accumulator no colle
 
 Where the first failure ends the work, collect into `Result<Vec<_>, _>` when the values are wanted,
 `try_for_each` for an effect, and `try_fold` for an accumulation: each stops at the first error and
-composes with `?`. A run that reports every failure instead is RS-ERR-34's.
+composes with `?`. A run that reports every failure instead is RS-ERR-32's.
 
 **Why:** a `for` loop that carries a mutable `result: Result<(), E>` and overwrites it keeps only
 the *last* error and does the remaining work anyway. The short-circuiting forms skip that work and
@@ -771,7 +771,7 @@ next state?
 `opt.map(f).filter(p).unwrap_or_default()`, `res.and_then(g).or_else(h)`.
 
 **Why:** the linear form reads top to bottom in the order the data flows, without the reader
-tracking which branch they are in. Choose the eager or lazy variant deliberately (RS-ERR-23).
+tracking which branch they are in. Choose the eager or lazy variant deliberately (RS-ERR-21).
 
 **Check:** does any nested `match` on `Option`/`Result` have arms that just forward?
 

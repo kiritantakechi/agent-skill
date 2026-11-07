@@ -463,14 +463,14 @@ flag.
 
 ### RS-CLI-16 [M] On a usage error, print the one problem and a pointer to `--help`
 
-Name the flag or value that was wrong, point at `--help`, and exit with the usage code RS-ERR-32
+Name the flag or value that was wrong, point at `--help`, and exit with the usage code RS-ERR-30
 assigns — never the entire help text on a typo.
 
 **Why:** dumping the full help scrolls the actual error off the screen, which is the one thing the
 user needed, and leaves them to find which of forty flags they mistyped.
 
 **Check:** run the tool with a bad flag. The output should be one line naming the flag, plus a
-pointer, and the exit code should be RS-ERR-32's usage code.
+pointer, and the exit code should be RS-ERR-30's usage code.
 
 ```rust
 // verified

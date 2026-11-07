@@ -159,7 +159,7 @@ PROFILE = Profile(
             ),
             "RS-DOC-25": ("    // TODO: handle the empty case",),
             "RS-ERR-08": ("let n = s.parse::<u32>().map_err(|_| Error::Parse)?;",),
-            "RS-ERR-29": ('panic = "abort"',),
+            "RS-ERR-27": ('panic = "abort"',),
             "RS-MOD-13": ("pub use crate::matcher::*;",),
             "RS-NAME-07": ("use-simd = []",),
             "RS-NAME-16": ("pub fn get_name(&self) -> &str {",),
