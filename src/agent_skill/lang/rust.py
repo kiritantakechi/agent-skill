@@ -6,16 +6,18 @@ the `rust-version` and a library's pin are compared with what runs and
 what is released.
 """
 
+import fcntl
 import json
 import os
 import re
 import shutil
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
 from types import MappingProxyType
 lazy import urllib.request
-lazy from collections.abc import Iterable, Iterator, Mapping
+lazy from collections.abc import Generator, Iterable, Iterator, Mapping
 
 from agent_skill.doc.chapter import ELIDED
 from agent_skill.ids import Op, Pin, Version
@@ -93,6 +95,14 @@ LANGUAGE = Language(
 
 #: Shared, gitignored, and safe to delete: cargo rebuilds it.
 CACHE = Path(__file__).resolve().parents[3] / ".cache" / "target"
+
+#: The lock Cargo takes, with `flock`, on each profile directory of a
+#: build directory while it builds there (`debug/.cargo-lock`). Older
+#: Cargo took it exclusively; Cargo 1.99 takes it shared, beside an
+#: exclusive `.cargo-build-lock`. An exclusive hold on it therefore
+#: waits for a build by either to finish, and a build that starts while
+#: it is held waits ("Blocking waiting for file lock").
+CARGO_LOCK = ".cargo-lock"
 
 
 #: The Rust release a crate is compiled under unless it says otherwise.
@@ -195,6 +205,13 @@ class RustCrate:
         """
         return {"CARGO_TARGET_DIR": str(self.target), "CARGO_INCREMENTAL": "0"}
 
+    def profiles(self) -> list[Path]:
+        """The profile directories Cargo builds the crate in, sorted.
+
+        A directory Cargo builds in is one it locks: `debug`, not `doc`.
+        """
+        return sorted(lock.parent for lock in self.target.glob(f"*/{CARGO_LOCK}"))
+
     def superseded(self) -> Iterator[Path]:
         """What earlier builds of the crate left in its build directory.
 
@@ -205,7 +222,7 @@ class RustCrate:
         build worth keeping, and the next run reuses them as they are.
         """
         ident, name = self.ident, self.name
-        for profile in (p for p in self.target.iterdir() if p.is_dir()):
+        for profile in self.profiles():
             yield from profile.glob(f"deps/{ident}-*")
             yield from profile.glob(f"deps/lib{ident}-*")
             yield from profile.glob(f"lib{ident}.*")
@@ -649,14 +666,35 @@ def _tidy(crate: RustCrate) -> None:
 
     So the shared build directory holds the dependencies and at most
     one build of the crate itself, however many runs came before.
+
+    Under Cargo's own lock on each profile directory, held exclusively:
+    a Cargo building there, for another run over the same skill,
+    finishes before anything is removed, and one that starts waits
+    until the removal is done. No Cargo sees a build half removed.
+    Taken in one order, so two runs tidying at once cannot deadlock.
     """
     if not crate.target.is_dir():
         return
-    for path in list(crate.superseded()):
-        if path.is_dir():
-            shutil.rmtree(path, ignore_errors=True)
-        else:
-            path.unlink(missing_ok=True)
+    with ExitStack() as held:
+        for profile in crate.profiles():
+            held.enter_context(_exclusive(profile / CARGO_LOCK))
+        for path in list(crate.superseded()):
+            if path.is_dir():
+                shutil.rmtree(path, ignore_errors=True)
+            else:
+                path.unlink(missing_ok=True)
+
+
+@contextmanager
+def _exclusive(lock: Path) -> Generator[None]:
+    """Hold `lock` exclusively under `flock`, as Cargo locks it.
+
+    Waiting as long as another holder keeps it; closing the file
+    releases it.
+    """
+    with lock.open("rb") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        yield
 
 
 #: An identifier: a name an edition can reserve, as 2024 did `gen`.

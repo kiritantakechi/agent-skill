@@ -6,6 +6,8 @@ is a file of its own whose line `i` is the body's. None of it runs a
 compiler, so it runs in the fast suite.
 """
 
+import fcntl
+import threading
 from dataclasses import replace
 from pathlib import Path
 
@@ -194,13 +196,54 @@ def test_rust_leaves_its_build_directory_at_the_dependencies(
         ".fingerprint/thiserror-0123456789abcdef/lib",
         "build/thiserror-0123456789abcdef/out",
     ]
-    for rel in (*own, *kept):
+    for rel in (*own, *kept, rust.CARGO_LOCK):
         (debug / rel).parent.mkdir(parents=True, exist_ok=True)
         (debug / rel).write_text("")
     rust._tidy(RUST_STYLE)
     assert [rel for rel in own if (debug / rel).exists()] == []
     assert [rel for rel in kept if not (debug / rel).exists()] == []
     assert RUST_STYLE.env["CARGO_INCREMENTAL"] == "0"
+
+
+@pytest.mark.parametrize(
+    "hold", [fcntl.LOCK_SH, fcntl.LOCK_EX], ids=["cargo-1.99", "older-cargo"]
+)
+def test_rust_tidies_only_once_cargo_lets_go_of_the_build(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hold: int
+) -> None:
+    """A build over the same skill keeps its files until it ends.
+
+    The thread holds the build directory's lock as a Cargo building
+    there does: shared since fine-grained locking, exclusive before.
+    """
+    monkeypatch.setattr(rust, "CACHE", tmp_path)
+    debug = tmp_path / RUST_STYLE.name / "debug"
+    own = debug / "deps" / "librust_style_verify-0123456789abcdef.rlib"
+    own.parent.mkdir(parents=True)
+    own.write_text("")
+    lock = debug / rust.CARGO_LOCK
+    lock.write_text("")
+    holding, done = threading.Event(), threading.Event()
+
+    def cargo() -> None:
+        with lock.open("rb") as f:
+            fcntl.flock(f, hold)
+            holding.set()
+            done.wait(timeout=30)
+
+    building = threading.Thread(target=cargo)
+    building.start()
+    assert holding.wait(timeout=30)
+    tidying = threading.Thread(target=rust._tidy, args=(RUST_STYLE,))
+    tidying.start()
+    tidying.join(timeout=0.5)
+    assert tidying.is_alive(), "the cleanup did not wait for the build"
+    assert own.exists()
+    done.set()
+    building.join(timeout=30)
+    tidying.join(timeout=30)
+    assert not tidying.is_alive()
+    assert not own.exists()
 
 
 def test_zig_keeps_its_caches_in_the_run_s_directory(tmp_path: Path) -> None:
