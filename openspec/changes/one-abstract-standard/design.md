@@ -307,6 +307,99 @@ real run happens on the pull request, and its result arrives as a PR event.
 - domain chapters per standard;
 - rules in abstract chapters that realise nothing (informational).
 
+### As built (group 2)
+
+What the machinery decided beyond decisions 1 to 7 and 12, task by task:
+
+- **One law (2.1).** `ids.Relation` is the six relations, and `ids.breaches(relation, held, tier,
+  reason)` the one law: `realises` and `extends` keep the tier, `tightens` raises it, `overrides`
+  sets any, `decided` and `absent` name no rule and so no tier, and every relation but `realises`
+  gives its reason, `decided` and `absent` included. "Higher" is `Tier.binding`, the order in which
+  a tier binds more code: `[S]`, `[M!]`, `[M]`. Both maps apply the law to the rules' own tiers,
+  never to a cell: a delta's stated tiers are `departure_tier`'s, an entry's Tier cell
+  `stale_tier`'s, so one defect is one finding. `crossref` gained `departure_reason`; a tier the
+  law forbids is its `relation` branch, as a relation no delta may state was.
+- **The record (2.2).** `profiles.abstract.PROFILE` is `Profile(name="abstract", prefix="AS",
+  language="Abstract")`, and nothing else: no toolchain, languages or domain, and it is not in
+  `PROFILES`, since no skill ships it. `agent_skill.abstract` reads `abstract/` beside the skills,
+  found from the tree as `documented` finds the README, so a control's copy reads its own; a tree
+  outside a repository's layout reads as an abstract standard with no files, so what it would hold
+  is reported missing rather than passed over. A finding in it lies in no skill (`./abstract/
+  errors.md:12 [AS-ERR-01]`), so no `--skill` hides one. How each command takes it as a standard:
+  - `concepts` reads its prefix for `wrong_family` and `abstract_cited`;
+  - `fmt` prints its files in the normal form a standard's chapters are printed in, and renders
+    each Tier cell from the rules of every skill read, when the run names no skill;
+  - `measure` counts its entries per chapter;
+  - `revise` reads its files as part of the corpus: through the tree, so a respelled row is printed
+    canonically, and under the capture law, so a row naming no rule cannot be handed one. It does
+    not take the abstract standard as a revision's subject. Its IDs are cited by nothing, which
+    `abstract_cited` holds, so an entry is renumbered by editing it, `numbering` holds them dense,
+    and no rename history is owed to a reader who cannot hold an old one. The requirement that the
+    abstract standard is "revised by `revise` like any standard" is read as this: every revision
+    rewrites its rows as it rewrites a standard's citations.
+- **An empty chapter (2.5).** The layer reads a contents list only as a list with an item, so an
+  abstract chapter with no entry is its title, its `Scope:`, `- **Concepts**` as its contents and an
+  empty `## Concepts` section, which the sweep fills or replaces.
+- **`concepts` (2.3 to 2.7).** 23 FAIL branches and one note, each FAIL branch with one control on
+  the demo and its abstract standard. Those controls read the demo alone: the shipped standards go
+  from the copy and the demo abstract standard takes the shipped one's place, since a shipped
+  standard read beside the demo's entries would answer none of them.
+  - The abstract standard's form, seven, five of them beyond the design's list: `unread` (a file
+    the layer refuses, or named by no vocabulary word), `template` (a coded or missing title, no
+    `Scope:`, contents disagreeing with the entries), `canonical`, `numbering`, `wrong_family`,
+    `entry_shape` (a statement, then one realisation table, and nothing else: no Why, Check or
+    example), `inline_code` (in the title or the statement). A chapter that read as nothing, or an
+    entry that was not one, would otherwise pass every other branch silently.
+  - The map, ten: `missing_row`, `delta_row`, `unknown_standard` (beyond the design: a row for no
+    standard here), `two_rules_one_entry`, `two_rows_one_rule`, `not_a_rule` (a ruled row naming no
+    rule of its standard, a `decided` row naming no lint of the entry chapter's table, an `absent`
+    row naming anything), `relation` (no relation, or one the law forbids), `no_reason`,
+    `stale_tier` and `wrong_chapter`. `wrong_chapter` landed with the map in 2.3, as it needs no
+    domain declaration.
+  - The chapters, four: `undeclared_domain`, `domain_realises`, `domain_missing`, and
+    `domain_abstract` (beyond the design: a declared domain chapter whose word is an abstract
+    chapter's). A rule realising an entry from another chapter is `domain_realises` when that
+    chapter is declared domain and `wrong_chapter` otherwise, never both. A delta's realisations,
+    derived through its anchor, are not held to a chapter: bevy-style's departing rules stand in
+    Bevy's subsystems by design.
+  - `principles`, in `concepts` rather than `skeleton` (decision 7 put it there), since it reads
+    the abstract standard: section 3's first numbered items' bold questions equal `principles.md`'s,
+    in order, and a delta is exempt. And `abstract_cited`, over every text file of every skill.
+  - `look_alike`, the note: titles whose three-word runs (lowercased letters only) overlap, by
+    Jaccard index, above 0.5, `mirror`'s threshold, compared only where two titles share a run.
+    Held, and so not noted: two rules one entry's rows name, and a delta rule and the anchor rule
+    its departures table names. Every pair of base standards and each delta with its anchor gives
+    14 notes on the shipped tree, where `mirror` gave 3.
+  - FAIL branches 236 → 255 and controls 213 → 232 over the group: `departure_reason` +1, the five
+    `mirror` FAIL branches and their controls −5, `concepts` +23. Exemptions stay 23.
+- **Domain chapters (2.5).** The twelve abstract chapters are the words two or more base standards
+  ship. Every other chapter is declared domain: python-style's types and async; rust-style's
+  ownership, traits, functional, macros, unsafe and cli; zig-style's comptime, memory, assertions
+  and interop; bevy-style's architecture, ecs, scheduling, events, state, assets and view. A delta
+  is held to the declaration as a base standard is. `revise --chapters` does not rewrite a
+  profile's `domain`: the sweep updates the profile in the commit that turns a chapter from one
+  kind into the other, as decision 4 says.
+- **`move` (2.6).** `revise.Moved(chapter, after)`, read from `{"move": stem, "after": ID}` or
+  `"after": "## Title"`. A section title the target lacks opens a new section before `Decided by
+  tools`. A created chapter's title is the vocabulary word, capitalised, and its scope a TODO
+  paragraph that `skeleton.no_scope` fails until it is written; its §6 row goes before the
+  migration chapter's, with "TODO" for what it covers. A chapter any plan leaves with no rule and
+  no section is deleted, with its §6 row, which is what lets the move back undo a creation. A move
+  renames no family, even when it empties one. §4 is re-rendered, as `fmt` renders it, in a
+  revision that moves a rule. The law is drawn over rules that share their section with another,
+  since moving a rule alone in its section takes the section with it, and the move back would have
+  no section to open: six seeded draws in the suite, across the four standards, both kinds of
+  `after`, and first-in-section moves back; 22 were run once.
+- **Section 3 (2.7).** The shared third question holds for Zig: zig-style's own ZS-PERF-12 is its
+  answer, a helper returning the change and its parent applying it, so the leaves stay pure and one
+  apply site asserts the invariant. "What can be asserted instead of assumed?" is TigerStyle's
+  safety-first, the domain's, so it is zig-style's sixth question, after the five, and its section
+  3 asks six. No example changed.
+- **`measure` (2.8).** The per-standard rows join the normal form's table; the entries per abstract
+  chapter are a second table, since a chapter is no column.
+- **The seeds.** `Mirror`'s 12 zig-style pairs, resolved to rust-style's IDs, and the three notes
+  of its detector are recorded in tasks.md for the sweep.
+
 ## Risks / Trade-offs
 
 - **Cost.** The sweep is 13 agent passes over about 1,350 rules. Each pass reads three chapters
