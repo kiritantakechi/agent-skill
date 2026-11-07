@@ -157,7 +157,21 @@ time of deletion (both tiers `[M]` unless marked):
   rust only), RS-BUILD-41 / ZS-BUILD-23 (release profile, for `performance`), PS-BUILD-15 (a build
   from the repository alone; rust-style and zig-style state no rule), RS-BUILD-26 / ZS-BUILD-33
   (denied warnings; different constructs).
-- [ ] 3.4 `naming`
+- [x] 3.4 `naming`: 12 entries (`AS-NAME-01` to `-12`), in casing, word choice, families of names and a
+  layout section (line width, trailing comma; the formatter's CI gate stays AS-BUILD-06);
+  realisations: python-style 11 `realises`, 1 `overrides` (acronyms); rust-style 9 `realises`, 1
+  `overrides` (units last, word order), 1 `decided` (the casing lints), 1 `absent` (no trailing-comma
+  lever); zig-style 12 `realises`. Moves 0. Merges 1: RS-NAME-34 into RS-NAME-08 (associated types
+  join the enum variants). New rules 5: PS-NAME-09, PS-NAME-10, RS-NAME-35, ZS-NAME-09, ZS-NAME-06
+  (split out of ZS-NAME-05, which keeps the fully qualified name; ZS-NAME-26 loses "run `zig fmt`" to
+  ZS-BUILD-26). Tier changes 1: RS-NAME-26 to `[M]`. Look-alike notes 14 -> 7. Left for `modules`:
+  PS-NAME-16 / RS-MOD-43 / ZS-NAME-31 (one concept, one mechanism: a design rule, not a name),
+  PS-NAME-18 / RS-MOD-45 / ZS-NAME-32 (sibling modules parallel), ZS-NAME-16 / RS-MOD-31 (a directory
+  named for what it roots), module and file names (PS-NAME-08, RS-NAME-04, -11, ZS-NAME-15), and
+  zig-style's declaration order and `pub` (ZS-NAME-17 to -21). Left for `documentation`: PS-NAME-13,
+  -14 and ZS-NAME-22 to -25 (comments), ZS-NAME-29 (commit message). Not registered, stated by one
+  standard: the conversion prefixes, getters and iterator names (RS-NAME-12 to -21), RS-NAME-23, -27 to
+  -33, the `_` prefix (PS-NAME-03 / ZS-NAME-03), receivers and helper prefixes (ZS-NAME-10, -14).
 - [ ] 3.5 `documentation` (zig-style's doc-comment rules among the candidates for a move)
 - [ ] 3.6 `modules` (zig-style's file and module layout among the candidates)
 - [ ] 3.7 `api`
