@@ -288,3 +288,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
 | ruff | `A001` | error | a variable named after a builtin — take a trailing underscore, `id_` — listed because its fix is PS-NAME-01's trailing underscore |
+| ruff | `PLR0915` | error | a function of more than 50 statements — listed because `select = ["ALL"]` enables it at ruff's default of 50, which bounds a function's length without a rule of its own |

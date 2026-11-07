@@ -51,7 +51,7 @@ chapter.
 
 ### BV-ECS-01 [M] Leave component fields public
 
-Departs from RS-API-20. Component fields are `pub`: a component is the one struct in this standard
+Departs from RS-API-21. Component fields are `pub`: a component is the one struct in this standard
 whose storage is its interface.
 
 The single exception is a relationship **target**, the collection side of a `#[relationship_target]`
@@ -159,7 +159,7 @@ live: a query for `&Speed` reads as a sentence, and one for `&f32` as a type puz
 
 ### BV-ECS-05 [M] Never mark a component `#[non_exhaustive]`
 
-Departs from RS-API-48. Components are constructed by struct literal, at every spawn site, in every
+Departs from RS-API-49. Components are constructed by struct literal, at every spawn site, in every
 crate. Grow one by adding a *new component* plus a `#[require]`, which breaks no existing spawn.
 
 **Why:** `#[non_exhaustive]` forbids literal construction outside the defining crate, and a literal

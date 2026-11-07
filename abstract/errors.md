@@ -52,7 +52,7 @@ relax this.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | | absent | | A failed call raises to a handler the caller can still write, and no operator turns that into an unconditional abort, so there is nothing to unwrap |
+| python-style | | absent | | Python has no operation that forces a fallible result to succeed: a failed call raises to a handler the caller can still write. Its one instance of asserting that a failure cannot happen is `assert`, which PS-ERR-07 owns under AS-ERR-01 |
 | rust-style | RS-ERR-03 | realises | [M!] | |
 | zig-style | ZS-ERR-08 | realises | [M!] | |
 
@@ -116,7 +116,7 @@ failure is found and unrecoverable afterwards, because the code that knew them h
 |---|---|---|---|---|
 | python-style | PS-ERR-03 | realises | [M] | |
 | rust-style | RS-ERR-12 | realises | [M] | |
-| zig-style | ZS-ERR-29 | overrides | [S] | An error value carries no payload, so the position and context travel in an optional diagnostics out-parameter, needed only where a user has to fix the input |
+| zig-style | ZS-ERR-28 | overrides | [S] | An error value carries no payload, so the position and context travel in an optional diagnostics out-parameter, needed only where a user has to fix the input |
 
 ## Designing the failures a package reports
 
@@ -194,7 +194,7 @@ conditions is not this concept.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-ERR-18 | overrides | [S] | A match destructures structure, and against constants it reads as an if chain wearing a costume, so a chain over plain values stays a chain |
-| rust-style | RS-ERR-31 | tightens | [M] | A Rust enum is the usual subject of the chain, and a match turns a missed variant into a compile error where a chain falls through silently |
+| rust-style | RS-ERR-31 | realises | [S] | |
 | zig-style | ZS-ERR-18 | realises | [S] | |
 
 ### AS-ERR-14 [M!] Use an explicit worklist where the input decides the recursion depth

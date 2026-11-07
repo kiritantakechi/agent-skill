@@ -1,9 +1,9 @@
 # API
 
 Scope: the surface a unit offers its callers: what it makes public and where that is decided, how
-its signatures are shaped, which pairs and siblings it keeps alike, and how it evolves without
-breaking them. What a caller sees of a failure is the errors chapter's; how a value is shaped is the
-data chapter's.
+its signatures are shaped, which pairs and siblings it keeps alike, where it applies an effect, and
+how it evolves without breaking them. What a caller sees of a failure is the errors chapter's; how a
+value is shaped is the data chapter's.
 
 ## Contents
 
@@ -22,6 +22,8 @@ data chapter's.
   - AS-API-10 [M] Give sibling failures a uniform shape
 - **Evolution**
   - AS-API-11 [M] Deprecate before removing, and say what to use instead
+- **Effects**
+  - AS-API-12 [M] Return the change from a function, and apply it in one place
 
 ---
 
@@ -99,7 +101,7 @@ parameter.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-10 | realises | [M] | |
-| rust-style | RS-API-23 | realises | [M] | |
+| rust-style | RS-API-24 | realises | [M] | |
 | zig-style | ZS-API-03 | realises | [M] | |
 
 ### AS-API-07 [M] State who owns what a function returns
@@ -125,8 +127,8 @@ the absence is stated; silence reads as an oversight and is worked around.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-17 | realises | [M] | |
-| rust-style | RS-API-52 | realises | [M] | |
-| zig-style | ZS-API-07 | realises | [M] | |
+| rust-style | RS-API-53 | realises | [M] | |
+| zig-style | ZS-API-08 | realises | [M] | |
 
 ### AS-API-09 [M] Keep argument order identical across sibling functions
 
@@ -137,8 +139,8 @@ disagreement among them is a swapped argument that no check catches.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-18 | realises | [M] | |
-| rust-style | RS-API-53 | realises | [M] | |
-| zig-style | ZS-API-08 | realises | [M] | |
+| rust-style | RS-API-54 | realises | [M] | |
+| zig-style | ZS-API-09 | realises | [M] | |
 
 ### AS-API-10 [M] Give sibling failures a uniform shape
 
@@ -149,8 +151,8 @@ makes that handler grow a special case.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-19 | realises | [M] | |
-| rust-style | RS-API-54 | realises | [M] | |
-| zig-style | ZS-API-09 | realises | [M] | |
+| rust-style | RS-API-55 | realises | [M] | |
+| zig-style | ZS-API-10 | realises | [M] | |
 
 ## Evolution
 
@@ -163,5 +165,20 @@ on, and not as a build that no longer compiles.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-API-15 | realises | [M] | |
-| rust-style | RS-API-50 | realises | [M] | |
-| zig-style | ZS-API-10 | realises | [M] | |
+| rust-style | RS-API-51 | realises | [M] | |
+| zig-style | ZS-API-11 | realises | [M] | |
+
+## Effects
+
+### AS-API-12 [M] Return the change from a function, and apply it in one place
+
+A function that derives a result returns it as a value and does not also perform an effect. What
+should change is computed by the pure part, and one caller applies it, at the edge where the value
+meets its sink or its state. The pure part is tested without the effect, and the one place that
+applies it is where an invariant is checked and a failure is made all-or-nothing.
+
+| Standard | Rule | Relation | Tier | Reason |
+|---|---|---|---|---|
+| python-style | PS-API-12 | realises | [M] | |
+| rust-style | RS-API-19 | realises | [M] | |
+| zig-style | ZS-API-07 | realises | [M] | |

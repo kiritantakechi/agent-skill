@@ -25,6 +25,7 @@ performance chapter's.
   - RS-OUT-10 [M] Implement `Debug` on every public type
   - RS-OUT-11 [M] Keep `Debug` for programmers and `Display` for users
   - RS-OUT-12 [S] Implement `Display` only when there is one obvious rendering
+- Decided by tools
 
 ---
 
@@ -384,3 +385,11 @@ mod tests {
     }
 }
 ```
+
+## Decided by tools
+
+A tool settles these on its own; the shipped configuration enables each at the level shown.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| rustc | `missing_debug_implementations` | deny | a public type without a `Debug` impl |

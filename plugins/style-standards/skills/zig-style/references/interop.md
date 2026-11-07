@@ -226,7 +226,7 @@ The signature is
 place of the pointer fails loudly: `error: expected pointer type, found 'fn () callconv(.c) u32'`.
 `ExportOptions` has the fields `name: []const u8`, `linkage: GlobalLinkage = .strong`,
 `section: ?[]const u8 = null`, and `visibility: SymbolVisibility = .default` — everything but `name`
-has a default, and per ZS-PERF-25 pass the ones that matter to you explicitly. `GlobalLinkage` is
+has a default, and per ZS-PERF-24 pass the ones that matter to you explicitly. `GlobalLinkage` is
 only `.strong` or `.weak`.
 
 `export var` works the same way for globals: `export var zs_version: c_int = 3;`.
@@ -780,7 +780,7 @@ hundreds of entry points, or one whose ABI changes between releases you track. `
 `b.addTranslateC` works there; the 0.17 release notes deprecate it in favour of the translate-c
 package (`b.dependency("translate_c", …)` and its `Translator`), the same implementation with more
 options, though the source does not mark it deprecated yet. That package is a dependency like any
-other (ZS-BUILD-27).
+other (ZS-BUILD-28).
 
 `zig translate-c` emits `[*c]` for every pointer, because a C `T *` really is nullable and
 unbounded, so its output is the least safe legal translation by construction. It is also

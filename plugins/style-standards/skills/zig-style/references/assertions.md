@@ -192,7 +192,7 @@ invariant that must halt the process through a project-local assertion that surv
 `assertAlways`, below, which under `-O fast` panics with its message where the equivalent `assert`
 dies on a bare trap. A library does not choose its consumer's mode: it is correct in all four, and
 documents which invariants it asserts and what running it in a `safe` build costs. What each mode
-does with an assertion is ZS-ASSERT-02's table; how a build script selects the mode is ZS-BUILD-19.
+does with an assertion is ZS-ASSERT-02's table; how a build script selects the mode is ZS-BUILD-20.
 
 *Relaxed form:* `fast` or `small` with `std.debug.assert` alone, provided the tests and a staging
 build run in `safe` and the README names the shipping optimize mode.

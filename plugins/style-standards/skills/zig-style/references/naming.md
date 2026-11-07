@@ -39,11 +39,13 @@ file name matters to the rule, it is named in the comment above it.
 - **Formatting**
   - ZS-NAME-15 [M] Let the trailing comma decide when a list explodes; `zig fmt` does the rest
   - ZS-NAME-16 [M] Hard-limit every line to 100 columns
+  - ZS-NAME-17 [M!] Hard limit of 70 lines per function
 - **Names beyond the source file**
-  - ZS-NAME-17 [M] One term, one meaning, project-wide
-  - ZS-NAME-18 [M] Write the commit message; a pull-request description is not one
+  - ZS-NAME-18 [M] One term, one meaning, project-wide
+  - ZS-NAME-19 [M] Write the commit message; a pull-request description is not one
 - **Symmetry across a codebase**
-  - ZS-NAME-19 [M] Name the two halves of a pair symmetrically
+  - ZS-NAME-20 [M] Name the two halves of a pair symmetrically
+  - ZS-NAME-21 [S] Give the members of a family one shape: the same words in the same order
 - Decided by tools
 
 ---
@@ -303,7 +305,7 @@ Both the unit and the extremum belong at the end, extremum last.
 
 The word has to be *qualifying* a noun to be a hit. Where it **is** the noun it is already
 big-endian and stays: `total_before` / `total_after` name a total taken at two points in time, and
-`before` is the qualifier correctly trailing it — that is the shape ZS-PERF-20's GOOD example uses.
+`before` is the qualifier correctly trailing it — that is the shape ZS-API-07's GOOD example uses.
 `total_size_bytes` is the finding because `total` qualifies `size`; `total_before` is not, because
 nothing follows `total` except its own qualifier. Read the name, do not just match the prefix.
 
@@ -632,7 +634,7 @@ endings and a trailing newline.
 **Why:** `zig fmt` *collapses* a multi-line signature that lacks a trailing comma back onto one
 line, so a hand-wrapped signature without a trailing comma will be silently un-wrapped.
 
-**Check:** the CI gate of ZS-BUILD-22 —
+**Check:** the CI gate of ZS-BUILD-23 —
 `zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .` — is the whole rule for
 indentation and spacing. The reviewable residue is a multi-line parameter list, struct literal, or
 enum with **no** trailing comma — `zig fmt` will silently collapse it back onto one line — and any
@@ -674,9 +676,33 @@ hidden behind a horizontal scrollbar.
 violation, including inside a comment or a string literal. `zig fmt --check` will not report this,
 so it needs its own CI line.
 
+### ZS-NAME-17 [M!] Hard limit of 70 lines per function
+
+70 lines between the braces is a hard ceiling, counted as written, blank lines and comments
+included.
+
+Where to cut is what the shape rules decide: the control flow stays in the parent (ZS-ERR-23), so
+does the state it manipulates (ZS-API-07), and each piece comes out narrow at both ends and wide
+inside (ZS-PERF-20).
+
+*Relaxed form:* a function longer than one screen needs a stated reason in a comment — a `switch`
+with one short arm per protocol opcode is the usual honest one.
+
+**Why:** a function that fits on a screen can be checked for "is every case handled?" by looking;
+one you must scroll is reconstructed from memory, which is where the missed branch lives. The split
+that gets you under 70 lines nearly always names a concept you had not named.
+
+**Check:** any function whose closing brace you cannot see from its signature. Mechanically, over a
+file whose functions all start in column 0:
+
+```sh
+awk '/^(pub )?fn /{s = NR; n = $0}
+     /^}$/{if (s && NR - s > 70) print FILENAME":"s"  "NR - s" lines  "n; s = 0}'
+```
+
 ## Names beyond the source file
 
-### ZS-NAME-17 [M] One term, one meaning, project-wide
+### ZS-NAME-18 [M] One term, one meaning, project-wide
 
 A word that already has a technical meaning in your project may not be reused for a second,
 context-dependent meaning. Before introducing a term, grep the codebase and the design documents for
@@ -709,7 +735,7 @@ pub fn postPending(transfer: *PendingTransfer) void {}
 pub fn voidPending(transfer: *PendingTransfer) void {}
 ```
 
-### ZS-NAME-18 [M] Write the commit message; a pull-request description is not one
+### ZS-NAME-19 [M] Write the commit message; a pull-request description is not one
 
 Every commit gets a descriptive message: a subject line naming what changed, and a body giving the
 reasoning ZS-DOC-07 keeps out of the code. Do not put the explanation only in a pull-request
@@ -743,18 +769,60 @@ fix                                   journal: bump sector_count before fsync
 
 ## Symmetry across a codebase
 
-### ZS-NAME-19 [M] Name the two halves of a pair symmetrically
+### ZS-NAME-20 [M] Name the two halves of a pair symmetrically
 
 A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`close`, not
 `open`/`release`; `acquire`/`release`, not `acquire`/`free`. Where std has already fixed the pair,
 copy it.
 
 **Why:** matched names are what make a pair recognizable as a pair, which is how a reader knows the
-inverse exists without searching for it (ZS-API-07). Mismatched halves read as unrelated operations,
+inverse exists without searching for it (ZS-API-08). Mismatched halves read as unrelated operations,
 so the reader hunts for a `decode` that was spelled `parse`.
 
 **Check:** list every operation with an inverse and read the two names aloud together. If they do
 not sound like a pair, rename the odd half.
+
+### ZS-NAME-21 [S] Give the members of a family one shape: the same words in the same order
+
+Names that belong to a family follow one pattern. If the read side is `read_timeout_ms`, the write
+side is `write_timeout_ms`, not `write_timeout` or `timeout_write_ms`; if one buffer is
+`read_buffer_bytes`, its sibling is `write_buffer_bytes`. A variant of an operation extends the base
+name by a suffix (ZS-NAME-12) rather than reordering it.
+
+**Why:** a reader who has learned one name can guess the next, and the family sorts and greps
+together: `rg 'timeout_ms'` finds every member, and a missing one shows as a gap in the list.
+
+**Check:** list the fields of each struct and the public declarations of each file in sorted order.
+A name that breaks the pattern its neighbours establish, in word order, in its unit, or in its
+suffix, is the finding.
+
+```zig
+// fragment — BAD: three spellings for one family.
+const Limits = struct {
+    read_timeout_ms: u32,
+    write_timeout: u32,
+    timeout_flush_ms: u32,
+};
+```
+
+```zig
+// verified — GOOD
+const std = @import("std");
+
+const Limits = struct {
+    read_timeout_ms: u32 = 5_000,
+    write_timeout_ms: u32 = 5_000,
+    flush_timeout_ms: u32 = 1_000,
+
+    fn total(limits: Limits) u32 {
+        return limits.read_timeout_ms + limits.write_timeout_ms + limits.flush_timeout_ms;
+    }
+};
+
+test "a family of limits shares one shape" {
+    try std.testing.expectEqual(11_000, (Limits{}).total());
+}
+```
 
 ## Decided by tools
 

@@ -179,9 +179,9 @@ Nothing else departs: a divergence not listed here is a defect, not a dialect.
 
 | rust-style rule | Relation | bevy-style rule | Tier | Reason |
 |---|---|---|---|---|
-| RS-API-20 | overrides | BV-ECS-01 | [M] → [M] | The ECS is the accessor: reflection, scenes, `bsn!` and the remote protocol read fields directly, and a component cannot defend an invariant, so BV-ARCH-04 defends it in the domain |
+| RS-API-21 | overrides | BV-ECS-01 | [M] → [M] | The ECS is the accessor: reflection, scenes, `bsn!` and the remote protocol read fields directly, and a component cannot defend an invariant, so BV-ARCH-04 defends it in the domain |
 | RS-OUT-10 | extends | BV-ECS-03 | [M] → [M] | Every component, public or not: every panic, `info!` and failed test prints one |
-| RS-API-48 | overrides | BV-ECS-05 | [M] → [M] | A component is spawned by struct literal in every crate, which `#[non_exhaustive]` forbids; it grows by a required component instead |
+| RS-API-49 | overrides | BV-ECS-05 | [M] → [M] | A component is spawned by struct literal in every crate, which `#[non_exhaustive]` forbids; it grows by a required component instead |
 | RS-NAME-28 | overrides | BV-ARCH-10 | [M] → [M] | `add_plugins(X)` and `configure_sets(_, X)` are one shape with two meanings, so the name is the only signal, as Bevy's own plugins and sets carry it |
 | RS-ERR-13 | overrides | BV-ERR-02 | [M] → [M] | A system has no caller to match on its error — the schedule hands it to the handler — and the schedule takes no other type; what a caller branches on stays a real type in the domain (BV-ERR-03) |
 | RS-BUILD-20 | overrides | BV-BUILD-04 | [M] → [M] | In a game binary the exact pin makes every Bevy bump, patch included, a commit of its own; a library keeps the caret |

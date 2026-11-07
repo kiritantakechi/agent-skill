@@ -134,7 +134,7 @@ three uses it addresses: (a) ensuring certain stack frames are in the call stack
 for integrating with assembly, (b) forcing comptime-known arguments to propagate to the return
 value, and (c) working around limitations of a compiler backend. Otherwise let the optimizer decide.
 Deviating needs a comment naming which of the three applies. Speed is not one of them: a performance
-`inline` rests on a measurement the comment cites (ZS-PERF-29). The one-line forwarding shims of
+`inline` rests on a measurement the comment cites (ZS-PERF-28). The one-line forwarding shims of
 ZS-PERF-15 are a sanction of their own, without a fresh measurement, because there the `inline` is
 what makes the type-erased core cost what the monomorphized version would.
 

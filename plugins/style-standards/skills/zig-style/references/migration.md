@@ -47,7 +47,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `@export(f, …)` | `@export(&f, …)`: the first argument is a pointer | gone | 0.14 | ZS-INTEROP-03 |
 | `@typeInfo(…).Struct` | `@typeInfo(T).@"struct"`; every tag is lowercase: `.int`, `.pointer`, `.comptime_int`, and `.one` for `Size.One` | gone | 0.14 | ZS-COMPTIME-11 |
 | `asm volatile (… ::: "…")` | a clobber struct: `::: .{ .rcx = true, .r11 = true }` | gone | 0.15 | ZS-MIG-01 |
-| `v[…]` | on a runtime `@Vector` with a runtime index, copy to an array (`const a: [n]T = v;`), index it, and store back with `v = a;` | gone | 0.16 | ZS-PERF-24 |
+| `v[…]` | on a runtime `@Vector` with a runtime index, copy to an array (`const a: [n]T = v;`), index it, and store back with `v = a;` | gone | 0.16 | ZS-PERF-23 |
 | `pub fn panic` | `pub const panic = std.debug.FullPanic(handler);`, the handler a `fn ([]const u8, ?usize) noreturn` | alias | 0.14 | ZS-INTEROP-17 |
 | `@cImport` | `b.addTranslateC(…)` in `build.zig` and its `.createModule()`, imported as a module | gone | 0.17 | ZS-INTEROP-15 |
 | `@intFromEnum` | `@backingInt`, which also takes a tagged union or a packed type with an explicit backing integer; `zig fmt` rewrites it | alias | 0.17 | ZS-DATA-09 |
@@ -214,10 +214,10 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `crypto_always_getrandom` | nothing: `io.randomSecure`; `crypto_fork_safety` likewise | gone | 0.16 | ZS-TEST-20 |
 | `std.rand` | `std.Random` | gone | 0.14 | ZS-TEST-20 |
 | `std.testing.refAllDeclsRecursive` | `std.testing.refAllDecls` in each file, or `comptime { _ = @import(…); }` in the module root | gone | 0.16 | ZS-TEST-29 |
-| `std.debug.captureStackTrace` | `std.debug.captureCurrentStackTrace(options, addresses)` | gone | 0.16 | ZS-ERR-30 |
-| `std.debug.dumpStackTraceFromBase` | `std.debug.dumpCurrentStackTrace(options)`, which takes a `StackUnwindOptions` where it took a start address | gone | 0.16 | ZS-ERR-30 |
-| `std.debug.walkStackWindows` | `std.debug.captureCurrentStackTrace`; `writeStackTraceWindows` is `writeCurrentStackTrace` | gone | 0.16 | ZS-ERR-30 |
-| `std.debug.StackIterator` | nothing public: `captureCurrentStackTrace` | gone | 0.16 | ZS-ERR-30 |
+| `std.debug.captureStackTrace` | `std.debug.captureCurrentStackTrace(options, addresses)` | gone | 0.16 | ZS-ERR-29 |
+| `std.debug.dumpStackTraceFromBase` | `std.debug.dumpCurrentStackTrace(options)`, which takes a `StackUnwindOptions` where it took a start address | gone | 0.16 | ZS-ERR-29 |
+| `std.debug.walkStackWindows` | `std.debug.captureCurrentStackTrace`; `writeStackTraceWindows` is `writeCurrentStackTrace` | gone | 0.16 | ZS-ERR-29 |
+| `std.debug.StackIterator` | nothing public: `captureCurrentStackTrace` | gone | 0.16 | ZS-ERR-29 |
 | `std.debug.runtime_safety` | `@import("builtin").optimize.runtimeSafety()`: your module's mode, where `runtime_safety` reports std's | alias | 0.14 | ZS-ASSERT-16 |
 | `std.meta.Int` | `@Int(signedness, bits)` | gone | 0.17 | ZS-COMPTIME-11 |
 | `std.meta.Tuple` | `@Tuple(types)` | gone | 0.17 | ZS-COMPTIME-11 |
@@ -246,7 +246,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `addRemoveDirTree` | nothing: a scratch directory is `b.addTempFiles()` or `b.tmpPath()`, deleted when the build succeeds | gone | 0.16 | ZS-MIG-01 |
 | `b.args` | `run.addPassthruArgs()`, which makes the step uncached and keeps the arguments from the build script | gone | 0.17 | ZS-BUILD-07 |
 | `b.build_root` | `b.root`, a `Cache.Path` | gone | 0.17 | ZS-MIG-01 |
-| `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | gone | 0.17 | ZS-BUILD-22 |
+| `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | gone | 0.17 | ZS-BUILD-23 |
 | `lazyDependency` | `b.dependency(name, args)`, which fetches a lazy package itself, or `try b.dependencyLazy(name, args)` to fetch several at once | alias | 0.17 | ZS-BUILD-13 |
 | `b.reference_trace` | `zig build -freference-trace=n` | gone | 0.17 | ZS-COMPTIME-15 |
 | `std.Build.LazyPath.getPath` | nothing: the configure phase resolves no path, so the `LazyPath` goes to the step that reads it; `getPath2`, `getPath3` and `getPath4` likewise | gone | 0.17 | ZS-MIG-01 |
@@ -273,7 +273,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `runAllowFail` | `b.runFallible(…)` | alias | 0.17 | ZS-MIG-01 |
 | `enableTestRunnerMode` | `run.enableProtocolMode()` | alias | 0.17 | ZS-MIG-01 |
 | `b.findProgram(&…)` | `b.findProgramLazy(.{ .names = names })`, a `LazyPath`; `b.findProgram(.{ .names = names })` is a `?[]const u8` that poisons the configure cache | gone | 0.17 | ZS-MIG-01 |
-| `addOptionPath` | an option naming a file: a directory is `addOptionPathDirectory`, and `addOptionPathUntracked` opts out of tracking | changed | 0.17 | ZS-BUILD-20 |
+| `addOptionPath` | an option naming a file: a directory is `addOptionPathDirectory`, and `addOptionPathUntracked` opts out of tracking | changed | 0.17 | ZS-BUILD-21 |
 | `.include_guard_override` | `.include_guard` on a `ConfigHeader` | gone | 0.17 | ZS-MIG-01 |
 | `addTranslateC` | the translate-c package: `zig fetch --save git+https://codeberg.org/ziglang/translate-c`, then `Translator.init(b.dependency("translate_c", .{}), .{ .c_source_file = … })`; the release notes deprecate it, and the source does not mark it | deprecated | 0.17 | ZS-INTEROP-15 |
 | `addWin32ResourceFile` | nothing in std: the release notes move the resource APIs, `.win32_manifest`, `.rc_includes` and `Compile.out_filename` with it, to an external `rc` package | deprecated | 0.17 | ZS-MIG-01 |
@@ -609,7 +609,7 @@ analysed; rewrite it to the row's 0.17 column, or delete it if nothing calls it.
 
 Add a CI step that runs the command after the table and fails on a hit, pin the toolchain for real —
 `.minimum_zig_version` is documentation only, so use a pinned CI version and the
-`comptime builtin.zig_version` guard (ZS-BUILD-25, ZS-BUILD-30). One spelling over-matches: `.Debug`
+`comptime builtin.zig_version` guard (ZS-BUILD-26, ZS-BUILD-31). One spelling over-matches: `.Debug`
 also finds a tag of your own enum, and the fix is to rename the tag, not to drop the row.
 
 *Relaxed form:* no CI gate; the same command runs by hand before each release, and an `alias` in a

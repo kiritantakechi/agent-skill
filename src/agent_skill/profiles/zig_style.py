@@ -138,7 +138,7 @@ PROFILE = Profile(
     # fixture, not the pattern.
     fires=keyed(
         {
-            "ZS-BUILD-28": (
+            "ZS-BUILD-29": (
                 "- uses: actions/checkout@v7",
                 "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
             ),
@@ -167,7 +167,7 @@ PROFILE = Profile(
                 "const default = field.default_value_ptr orelse return null;",
             ),
             "ZS-OUT-10": ('try w.print("{:>8}", .{level});',),
-            "ZS-PERF-25": ("@prefetch(&values[i + stride], .{});",),
+            "ZS-PERF-24": ("@prefetch(&values[i + stride], .{});",),
         }
     ),
     # Each of these ships an `rg` pattern that no fixture in `fires`
@@ -177,16 +177,16 @@ PROFILE = Profile(
         "ZS-ASSERT-08",
         "ZS-ASSERT-20",
         "ZS-ASSERT-04",
-        "ZS-BUILD-19",
-        "ZS-BUILD-30",
+        "ZS-BUILD-20",
         "ZS-BUILD-31",
+        "ZS-BUILD-32",
         "ZS-COMPTIME-15",
         "ZS-MEM-04",
         "ZS-MEM-06",
         "ZS-NAME-13",
         "ZS-MOD-08",
         "ZS-DOC-08",
-        "ZS-NAME-17",
+        "ZS-NAME-18",
         "ZS-TEST-02",
         "ZS-TEST-06",
         "ZS-TEST-07",
@@ -225,7 +225,7 @@ PROFILE = Profile(
                 "the pattern finds every public inferred error set; whether the "
                 "function is `main` decides",
             ),
-            "ZS-PERF-20": NotDecisive(
+            "ZS-API-07": NotDecisive(
                 "*Self",
                 "the span finds every `*Self` receiver; whether the helper assigns to "
                 "a field the parent could apply instead decides",
@@ -243,7 +243,7 @@ PROFILE = Profile(
             # Polarity: this Check asserts the shape is *present*, so
             # its hits are evidence of compliance and reading them as
             # defects inverts the rule.
-            "ZS-BUILD-30": NotDecisive(
+            "ZS-BUILD-31": NotDecisive(
                 "has this block",
                 "a presence assertion, and scoped to `build.zig`: the finding is a "
                 "missing guard, which no hit can show",

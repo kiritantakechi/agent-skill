@@ -59,19 +59,18 @@ that can be wrong, fewer places where an early `return` skips a cleanup.
   - RS-FUNC-33 [S] Use `fn` pointers for tables of handlers
 
 - **Purity, effects, composition**
-  - RS-FUNC-34 [M] Separate computing from doing, and push the doing to the edges
-  - RS-FUNC-35 [M] Parse, don't validate
-  - RS-FUNC-36 [S] Make functions total where you can
-  - RS-FUNC-37 [S] Take the clock, the RNG, and the filesystem as parameters
-  - RS-FUNC-38 [S] Model state transitions as values or as types
-  - RS-FUNC-39 [S] Keep the happy path linear with combinators
-  - RS-FUNC-40 [M] Write the `match` once a chain no longer reads aloud
-  - RS-FUNC-41 [S] Expose a custom sequence by implementing `Iterator`
-  - RS-FUNC-42 [S] Treat a hard-to-write pipeline as information about the data model
+  - RS-FUNC-34 [M] Parse, don't validate
+  - RS-FUNC-35 [S] Make functions total where you can
+  - RS-FUNC-36 [S] Take the clock, the RNG, and the filesystem as parameters
+  - RS-FUNC-37 [S] Model state transitions as values or as types
+  - RS-FUNC-38 [S] Keep the happy path linear with combinators
+  - RS-FUNC-39 [M] Write the `match` once a chain no longer reads aloud
+  - RS-FUNC-40 [S] Expose a custom sequence by implementing `Iterator`
+  - RS-FUNC-41 [S] Treat a hard-to-write pipeline as information about the data model
 
 - **Closure and uniformity**
-  - RS-FUNC-43 [M] Make an operation on `T` return `T` where nothing else is carried
-  - RS-FUNC-44 [S] Keep the stages of a pipeline uniform in shape
+  - RS-FUNC-42 [M] Make an operation on `T` return `T` where nothing else is carried
+  - RS-FUNC-43 [S] Keep the stages of a pipeline uniform in shape
 
 - Decided by tools
 
@@ -650,19 +649,7 @@ them is rustc's `unpredictable_function_pointer_comparisons`.
 
 ## Purity, effects, composition
 
-### RS-FUNC-34 [M] Separate computing from doing, and push the doing to the edges
-
-Parse and read at the entry, compute over plain data in the middle, write and log at the exit. A
-function that derives a value returns it, and its caller connects it to the sink.
-
-**Why:** a function that both computes and writes cannot be tested without a sink, reused with
-another, or parallelized. A middle layer with no I/O, clock, or environment tests in milliseconds,
-which is what makes `run() -> Result<()>` testable (RS-MOD-12).
-
-**Check:** does the function both compute and print, log, write, or send? Split it. How deep in the
-call stack is the deepest I/O call? Everything below the entry layer should be pure.
-
-### RS-FUNC-35 [M] Parse, don't validate
+### RS-FUNC-34 [M] Parse, don't validate
 
 Convert untrusted input into a type that cannot be invalid, at the boundary — a CLI flag, a config
 file, a request — and let every downstream function take the parsed type. Its constructor or
@@ -700,16 +687,16 @@ impl FromStr for Port {
 }
 ```
 
-### RS-FUNC-36 [S] Make functions total where you can
+### RS-FUNC-35 [S] Make functions total where you can
 
 **Why:** a signature that cannot fail is easier to call, easier to compose, and easier to test than
 one returning `Result` because a caller *might* pass nonsense. Making the nonsense unconstructible
-moves the check to one place instead of every entry point (RS-FUNC-35).
+moves the check to one place instead of every entry point (RS-FUNC-34).
 
 **Check:** for each `Result`-returning function, is the error reachable given properly typed inputs?
 If not, the types should absorb it.
 
-### RS-FUNC-37 [S] Take the clock, the RNG, and the filesystem as parameters
+### RS-FUNC-36 [S] Take the clock, the RNG, and the filesystem as parameters
 
 `fn expire(now: Instant, …)` rather than `Instant::now()` inside.
 
@@ -720,7 +707,7 @@ same argument applies to randomness and to the current directory.
 **Check:** does code below the entry layer call `Instant::now`, `SystemTime::now`, `rand::random`,
 `env::var`, or `env::current_dir`? Each is an input the caller should pass.
 
-### RS-FUNC-38 [S] Model state transitions as values or as types
+### RS-FUNC-37 [S] Model state transitions as values or as types
 
 Return the new state as a value; where misuse is costly and the states are few, make them types
 (RS-TRAIT-38).
@@ -731,7 +718,7 @@ name, and every method has to handle a state it should never see.
 **Check:** does a transition mutate a state field in place where it could take `self` and return the
 next state?
 
-### RS-FUNC-39 [S] Keep the happy path linear with combinators
+### RS-FUNC-38 [S] Keep the happy path linear with combinators
 
 `opt.map(f).filter(p).unwrap_or_default()`, `res.and_then(g).or_else(h)`.
 
@@ -749,7 +736,7 @@ pub fn width_or_default(value: Option<u32>) -> u32 {
 }
 ```
 
-### RS-FUNC-40 [M] Write the `match` once a chain no longer reads aloud
+### RS-FUNC-39 [M] Write the `match` once a chain no longer reads aloud
 
 **Why:** readability is the objective; functional style is the usual means, not the end. A chain
 that requires the reader to track three type transformations is worse than the `match` it replaced,
@@ -758,7 +745,7 @@ and "but it is more functional" is not a defence. This rule outranks every `[S]`
 **Check:** read the expression aloud. If you cannot say what it produces without re-reading, split
 it (RS-FUNC-19) or write the `match`.
 
-### RS-FUNC-41 [S] Expose a custom sequence by implementing `Iterator`
+### RS-FUNC-40 [S] Expose a custom sequence by implementing `Iterator`
 
 **Why:** a newtype with an `Iterator` impl keeps laziness at the boundary and gives users the whole
 adapter library for free. Returning a `Vec` from a method named like a query decides materialization
@@ -766,7 +753,7 @@ for them (RS-PERF-22).
 
 **Check:** does any method named as a query (`entries`, `matches`, `children`) return a collection?
 
-### RS-FUNC-42 [S] Treat a hard-to-write pipeline as information about the data model
+### RS-FUNC-41 [S] Treat a hard-to-write pipeline as information about the data model
 
 **Why:** a pipeline that resists being written usually means the data has the wrong shape, not that
 the problem is imperative: flags that should be an enum, parallel `Vec`s that should be one `Vec` of
@@ -777,7 +764,7 @@ structs. Once the shape is right, the functional form falls out.
 
 ## Closure and uniformity
 
-### RS-FUNC-43 [M] Make an operation on `T` return `T` where nothing else is carried
+### RS-FUNC-42 [M] Make an operation on `T` return `T` where nothing else is carried
 
 An operation on `T` that returns `T` composes with itself; one that returns a near-miss —
 `Result<U, _>` where `T` would do, or a tuple that must be unpacked and rebuilt — does not.
@@ -814,7 +801,7 @@ impl Span {
 }
 ```
 
-### RS-FUNC-44 [S] Keep the stages of a pipeline uniform in shape
+### RS-FUNC-43 [S] Keep the stages of a pipeline uniform in shape
 
 Stages take one value and return one value. Resist a stage that also mutates a captured accumulator
 (in a `map`, RS-FUNC-25 forbids it outright), one that returns a tuple only the next stage

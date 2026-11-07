@@ -182,7 +182,7 @@ states a maintainer has to hold.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-MOD-12 | realises | [M] | |
-| rust-style | RS-MOD-36 | realises | [M] | |
+| rust-style | RS-MOD-35 | realises | [M] | |
 | zig-style | ZS-MOD-12 | realises | [M] | |
 
 ### AS-MOD-13 [S] Keep sibling modules structurally parallel
@@ -194,7 +194,7 @@ hole in the pattern instead of an absence nobody notices.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-MOD-13 | realises | [S] | |
-| rust-style | RS-MOD-38 | realises | [S] | |
+| rust-style | RS-MOD-37 | realises | [S] | |
 | zig-style | ZS-MOD-13 | realises | [S] | |
 
 ### AS-MOD-14 [M] Absorb a special case into the general path, or give it its own type
@@ -207,5 +207,5 @@ be checked against it.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-MOD-14 | realises | [M] | |
-| rust-style | RS-MOD-37 | realises | [M] | |
+| rust-style | RS-MOD-36 | realises | [M] | |
 | zig-style | ZS-MOD-14 | realises | [M] | |

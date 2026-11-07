@@ -16,14 +16,14 @@ ZS-DATA-18. It does not own the batching of events (ZS-CONC-37), assertion cost 
 (ZS-ASSERT-16), the optimize-mode table (ZS-ASSERT-02), `@branchHint` (ZS-ERR-27), or `inline fn`
 (ZS-COMPTIME-03). It cites them.
 
-**Read ZS-PERF-29 first if you are tempted to apply this chapter to code that is not hot.** Roughly
+**Read ZS-PERF-28 first if you are tempted to apply this chapter to code that is not hot.** Roughly
 half of these rules are about correctness and readability and apply everywhere; the other half
 require a measurement before you are allowed to invoke them.
 
 ## Contents
 
 - **Part 1 — Performance is decided in the design phase**
-  - ZS-PERF-01 [M] Decide the performance-relevant shape of a design before implementing it
+  - ZS-PERF-01 [M] Settle a design's performance shape and the class of its cost before implementing it
   - ZS-PERF-02 [S] Sketch a hot-path change's cost across the four resources, and write it down
   - ZS-PERF-03 [M] Rank the resources by cost *times frequency*, and optimize the top of that list
   - ZS-PERF-04 [S] Say whether a function is control plane or data plane, and budget it
@@ -43,30 +43,31 @@ require a measurement before you are allowed to invoke them.
   - ZS-PERF-17 [M] Declare every variable at the smallest scope that can hold it
   - ZS-PERF-18 [M] Never duplicate a variable, and never hold an alias to one
   - ZS-PERF-19 [M] Calculate and check a value next to where it is used — avoid POCPOU
-  - ZS-PERF-20 [S] Centralize state manipulation: helpers compute the change, the parent applies it
-  - ZS-PERF-21 [S] Shape functions like an inverted hourglass: narrow in, narrow out, wide inside
+  - ZS-PERF-20 [S] Shape functions like an inverted hourglass: narrow in, narrow out, wide inside
 - **Part 3 — Zig 0.17 mechanics**
-  - ZS-PERF-22 [M] Measure in the mode you ship, and never quote a `debug` number
-  - ZS-PERF-23 [M] Do not rely on auto-vectorization in 0.17 — the loop vectorizer is disabled
-  - ZS-PERF-24 [S] Write SIMD explicitly with `@Vector`, sized by `std.simd.suggestVectorLength`
-  - ZS-PERF-25 [M] Spell out the options that decide behavior; never inherit their defaults
-  - ZS-PERF-26 [S] Align independently written concurrent fields to `std.atomic.cache_line`
+  - ZS-PERF-21 [M] Measure in the mode you ship, and never quote a `debug` number
+  - ZS-PERF-22 [M] Do not rely on auto-vectorization in 0.17 — the loop vectorizer is disabled
+  - ZS-PERF-23 [S] Write SIMD explicitly with `@Vector`, sized by `std.simd.suggestVectorLength`
+  - ZS-PERF-24 [M] Spell out the options that decide behavior; never inherit their defaults
+  - ZS-PERF-25 [S] Align independently written concurrent fields to `std.atomic.cache_line`
 - **Part 4 — How to measure**
-  - ZS-PERF-27 [M] Warm up, repeat, and defend the benchmarked expression from dead-code elimination
-  - ZS-PERF-28 [M] Add a `bench` step pinned to `.fast` and not installed by default
+  - ZS-PERF-26 [M] Warm up, repeat, and defend the benchmarked expression from dead-code elimination
+  - ZS-PERF-27 [M] Add a `bench` step pinned to `.fast` and not installed by default
 - **Part 5 — The counterweight**
-  - ZS-PERF-29 [M] Apply the always-on rules everywhere; require a number before invoking the rest
+  - ZS-PERF-28 [M] Apply the always-on rules everywhere; require a number before invoking the rest
 
 ---
 
 ## Part 1 — Performance is decided in the design phase
 
-### ZS-PERF-01 [M] Decide the performance-relevant shape of a design before implementing it
+### ZS-PERF-01 [M] Settle a design's performance shape and the class of its cost before implementing it
 
 Before writing a subsystem, state — in the design note, the module doc comment, or the PR
 description — what its dominant cost is and what shape of work it does: how many round trips, how
 many passes over the data, how much it allocates, how much it copies. Choosing the shape is the
-1000x decision; the constant factors you can profile later are the 2x decisions. Work with the grain
+1000x decision; the constant factors you can profile later are the 2x decisions. Settle the class of
+the cost in the size of the input before any constant: a quadratic scan is not fixed by making each
+step cheaper, and the number of passes decides which inputs are feasible at all. Work with the grain
 of the machine: sequential access, contiguous memory, predictable branches, one syscall per batch.
 
 **Why:** a profiler tells you which line of the committed design is slowest, not that a different
@@ -74,8 +75,9 @@ design does not need that line. And once callers depend on a per-item API, movin
 breaks every call site, so the batch shape is cheapest before the first caller exists.
 
 **Check:** a PR that introduces a new module, a new public API, or a new inner loop names its
-dominant cost somewhere a reviewer can read. A PR that has no such statement and adds a per-item
-public entry point on a path that will be called in bulk is the specific thing to push back on.
+dominant cost, and how that cost grows with the input, somewhere a reviewer can read. A PR that has
+no such statement and adds a per-item public entry point on a path that will be called in bulk is
+the specific thing to push back on.
 
 ```zig
 //! Compaction merges two sorted levels into one.
@@ -128,7 +130,7 @@ const block_size_bytes = 64 * 1024;
 /// Cost sketch, per call, on a 4 KiB-page NVMe device:
 ///   disk:    1 read of 64 KiB          ~ 60 us  (bandwidth-bound at 1 GiB/s)
 ///   memory:  1 pass over 64 KiB        ~  6 us  (1024 cache lines, streaming)
-///   CPU:     1 byte-wise add per byte  ~ 20 us  (not vectorized: see ZS-PERF-23)
+///   CPU:     1 byte-wise add per byte  ~ 20 us  (not vectorized: see ZS-PERF-22)
 /// Disk dominates. Do not micro-optimize the adder until the read is batched.
 fn checksumBlock(block: *const [block_size_bytes]u8) u64 {
     var sum: u64 = 0;
@@ -493,7 +495,7 @@ through the pointer before it may cache a field in a register, and a `*Self` par
 defeats that proof.
 
 **Why:** LLVM's optimizations are best-effort — 0.17 builds with loop vectorization off
-(ZS-PERF-23), and every budget that assumed it regressed silently. A hand-written hoist costs one
+(ZS-PERF-22), and every budget that assumed it regressed silently. A hand-written hoist costs one
 line, documents the invariant, and shows a reviewer the redundant work.
 
 **Check:** a field load (`x.field`) inside a loop body where the loop also writes through a pointer.
@@ -797,90 +799,12 @@ fn readPayload(buffer: []const u8, header: Header) ![]const u8 {
 }
 ```
 
-### ZS-PERF-20 [S] Centralize state manipulation: helpers compute the change, the parent applies it
-
-Let the parent function hold the state in locals or in one receiver, and let helpers *return* what
-should change rather than applying it. Keep leaf functions pure. TigerStyle pairs this with
-"centralize control flow" (ZS-ERR-23, push `if`s up and `for`s down). The single apply site is the
-one place to bracket with `assertInvariants` (ZS-ASSERT-14) and to make transactional with
-`errdefer`; pure leaves let you compute all the deltas first and apply them in one pass, which is
-what makes batching (ZS-PERF-06) possible.
-
-**Why:** if every leaf may mutate, the states reachable at any point are the product of every leaf's
-behavior, and no single function can assert the invariant. With one apply site there is one place to
-assert it and one place to read when it breaks, and the pure leaves are directly testable.
-
-**Check:** count the assignments to a given field across the module. If more than one function
-mutates the same field, ask whether the inner one could return a value instead. A helper whose only
-parameter is `*Self` and whose body assigns to fields is the shape to look for.
-
-```zig
-// verified — BAD: two functions mutate, so no one function can assert the invariant
-const AccountBad = struct {
-    balance: u64,
-    reserved: u64,
-
-    fn releaseInner(account: *AccountBad, amount: u64) void {
-        account.balance += amount;
-    }
-
-    fn release(account: *AccountBad, amount: u64) void {
-        account.releaseInner(amount);
-        account.reserved -= amount;
-    }
-};
-```
-
-```zig
-// verified — GOOD: the leaf is pure, the parent is the single apply site
-const std = @import("std");
-const assert = std.debug.assert;
-const Account = struct {
-    balance: u64,
-    reserved: u64,
-
-    const Delta = struct { balance: i64, reserved: i64 };
-
-    /// Pure leaf: computes what should change, mutates nothing. Directly testable.
-    fn deltaForRelease(account: Account, amount: u64) Delta {
-        assert(amount <= account.reserved);
-        assert(amount <= std.math.maxInt(i64)); // The delta type must hold it.
-        return .{ .balance = @intCast(amount), .reserved = -@as(i64, @intCast(amount)) };
-    }
-
-    /// The only mutator. One apply site, so one place to assert the invariant.
-    fn release(account: *Account, amount: u64) void {
-        // u128: the ledger total may legitimately exceed maxInt(u64), so summing
-        // the two columns in their own type would overflow on a valid account.
-        const total_before = @as(u128, account.balance) + account.reserved;
-        const delta = account.deltaForRelease(amount);
-
-        // A release moves value between columns; it never creates or destroys any.
-        assert(delta.balance + delta.reserved == 0);
-        account.balance = applyDelta(account.balance, delta.balance);
-        account.reserved = applyDelta(account.reserved, delta.reserved);
-
-        // The invariant worth asserting is conservation — a property a wrong
-        // mutator can actually violate. `reserved <= balance + reserved` would
-        // hold for every u64 pair in existence and so checks nothing.
-        assert(@as(u128, account.balance) + account.reserved == total_before);
-    }
-
-    /// Applies a signed delta without round-tripping the `u64` through `i64`,
-    /// which would panic for any balance above `maxInt(i64)`.
-    fn applyDelta(value: u64, delta: i64) u64 {
-        if (delta < 0) return value - @abs(delta);
-        return value + @abs(delta);
-    }
-};
-```
-
-### ZS-PERF-21 [S] Shape functions like an inverted hourglass: narrow in, narrow out, wide inside
+### ZS-PERF-20 [S] Shape functions like an inverted hourglass: narrow in, narrow out, wide inside
 
 Few parameters, a simple return type, and a lot of meaty logic between the braces. If a function is
 mostly signature, it is in the wrong place: nine parameters around three lines of body is the
 hourglass the right way up, and a sign the caller is doing the work. This is TigerStyle's rule of
-thumb for *where* to cut a function that exceeds the 70-line limit (ZS-ERR-28): not every split is
+thumb for *where* to cut a function that exceeds the 70-line limit (ZS-NAME-17): not every split is
 equal, and the good ones produce inverted hourglasses.
 
 **Why:** a wide signature exports internal state to every call site, so changing it changes them
@@ -918,7 +842,7 @@ fn parseFrame(bytes: []const u8) ?Frame {
 
 ## Part 3 — Zig 0.17 mechanics
 
-### ZS-PERF-22 [M] Measure in the mode you ship, and never quote a `debug` number
+### ZS-PERF-21 [M] Measure in the mode you ship, and never quote a `debug` number
 
 Benchmarks build at `fast` or at the mode you actually ship; a number from a `debug` build is not
 evidence of anything. Know what each mode costs before you invoke one in an argument. For
@@ -933,7 +857,7 @@ loop is routinely 10–50x. That swamps every effect this chapter discusses, so 
 
 **Check:** any performance claim in a commit message or comment must name the optimize mode. A
 `bench` step that inherits `-Doptimize` instead of pinning its own mode is the structural version of
-the same bug — see ZS-PERF-28.
+the same bug — see ZS-PERF-27.
 
 ```zig
 // fragment
@@ -945,12 +869,12 @@ comptime {
 }
 ```
 
-### ZS-PERF-23 [M] Do not rely on auto-vectorization in 0.17 — the loop vectorizer is disabled
+### ZS-PERF-22 [M] Do not rely on auto-vectorization in 0.17 — the loop vectorizer is disabled
 
 Zig 0.17 builds with LLVM loop vectorization disabled, to work around an LLVM miscompilation that
 corrupted the compiler itself. The fix is not in LLVM 22, which 0.17 uses, and the release notes
 keep the workaround until the move to LLVM 23 — so this is not an inconvenience to wait out. If a
-loop must use SIMD, write the vectors yourself (ZS-PERF-24). A performance budget taken on a
+loop must use SIMD, write the vectors yourself (ZS-PERF-23). A performance budget taken on a
 toolchain that vectorized does not transfer.
 
 **Why:** the loss is real and specific to the *automatic* path. At `fast` on `aarch64`, a scalar
@@ -977,7 +901,7 @@ sumManual (explicit @Vector(8, u32)):
         add.4s  v1, v2, v1
 ```
 
-### ZS-PERF-24 [S] Write SIMD explicitly with `@Vector`, sized by `std.simd.suggestVectorLength`
+### ZS-PERF-23 [S] Write SIMD explicitly with `@Vector`, sized by `std.simd.suggestVectorLength`
 
 Use `@Vector(len, T)` with `len` from `std.simd.suggestVectorLength(T)`, `@splat` to broadcast,
 `@reduce` to fold, `@select` to blend, `@shuffle` to permute — and always keep a scalar tail loop
@@ -993,7 +917,7 @@ coercion between arrays and vectors is forbidden — but the by-value coercion
 
 **Why:** a width from the target keeps the kernel portable: it cross-compiles correctly instead of
 hard-coding a width that degrades to scalar emulation elsewhere. Hand-written vectors are also the
-only SIMD available in 0.17 (ZS-PERF-23).
+only SIMD available in 0.17 (ZS-PERF-22).
 
 **Check:** a hard-coded lane count (`@Vector(4, f32)`) with no comment explaining the target, or a
 vector loop with no scalar tail — the tail is where the off-by-one lives.
@@ -1037,7 +961,7 @@ test "blend and permute" {
 }
 ```
 
-### ZS-PERF-25 [M] Spell out the options that decide behavior; never inherit their defaults
+### ZS-PERF-24 [M] Spell out the options that decide behavior; never inherit their defaults
 
 Pass explicitly every field of an options struct whose defaults decide what the machine does, rather
 than inheriting a library default:
@@ -1074,7 +998,7 @@ fn sumPrefetched(values: []const u64) u64 {
 }
 ```
 
-### ZS-PERF-26 [S] Align independently written concurrent fields to `std.atomic.cache_line`
+### ZS-PERF-25 [S] Align independently written concurrent fields to `std.atomic.cache_line`
 
 When two threads write two different fields of the same struct, give each its own cache line with
 `align(std.atomic.cache_line)`. Do not do this to fields that are read together on one thread — that
@@ -1108,7 +1032,7 @@ test "no false sharing" {
 
 Rules across this standard ask for a profile or a benchmark. This is how to take one in 0.17.
 
-### ZS-PERF-27 [M] Warm up, repeat, and defend the benchmarked expression from dead-code elimination
+### ZS-PERF-26 [M] Warm up, repeat, and defend the benchmarked expression from dead-code elimination
 
 A benchmark runs the work once to warm caches and the branch predictor, then repeats it a known
 number of times, then divides. Feed every result to `std.mem.doNotOptimizeAway` or the optimizer
@@ -1146,17 +1070,17 @@ fn measure(io: Io, comptime work: fn ([]const u32) u32, input: []const u32) Io.D
 }
 ```
 
-### ZS-PERF-28 [M] Add a `bench` step pinned to `.fast` and not installed by default
+### ZS-PERF-27 [M] Add a `bench` step pinned to `.fast` and not installed by default
 
 Add a `bench` step whose module hard-codes `.optimize = .fast` rather than inheriting `-Doptimize`,
 and wire it up with `addRunArtifact` only — never `installArtifact` — so a bare `zig build` does not
 pay for it.
 
-The benchmark's own `main` follows ZS-PERF-22, ZS-PERF-27 and ZS-CONC-29, and prints per-iteration
+The benchmark's own `main` follows ZS-PERF-21, ZS-PERF-26 and ZS-CONC-29, and prints per-iteration
 cost so the number can be compared with the ZS-PERF-02 sketch, as the second example shows.
 
 **Why:** an inherited `-Doptimize` makes `zig build bench` silently measure a `debug` build
-(ZS-PERF-22); an installed artifact puts the benchmark on the critical path of every `zig build` and
+(ZS-PERF-21); an installed artifact puts the benchmark on the critical path of every `zig build` and
 CI smoke test (ZS-BUILD-08). Pinned, the numbers stay comparable.
 
 **Check:** does `build.zig` have a `bench` step at all? Does its module set `.optimize` explicitly,
@@ -1240,22 +1164,24 @@ pub fn main(init: std.process.Init) !void {
 
 ## Part 5 — The counterweight
 
-### ZS-PERF-29 [M] Apply the always-on rules everywhere; require a number before invoking the rest
+### ZS-PERF-28 [M] Apply the always-on rules everywhere; require a number before invoking the rest
 
 Half of this chapter is about correctness and legibility and costs nothing to follow. The other half
 trades readability for speed and may only be invoked with a measurement, in the shipped optimize
 mode, recorded where a reviewer can see it. Do not use this chapter as licence to micro-optimize.
 Safety outranks performance in this standard's ordering (SKILL.md §3): where a performance rule here
 conflicts with an assertion, a bound, or a safety check, the safety rule wins and the performance
-rule needs a measurement to overturn it — not the reverse.
+rule needs a measurement to overturn it — not the reverse. The measurement is of the whole operation
+that users wait for, before and after the change, on the same workload; a change whose gain is
+within the noise is reverted, because the readable version is the default.
 
 | Rule | When it applies |
 |---|---|
 | ZS-PERF-01 design shape, ZS-PERF-02 sketch, ZS-PERF-03 frequency | Design phase. Always — the cost is minutes. |
-| ZS-PERF-17 – ZS-PERF-21 (the whole locality cluster) | **All code, always.** These are readability and correctness rules that happen to also help the register allocator. Never require a measurement. |
-| ZS-PERF-13 be explicit, ZS-PERF-22 measure in the shipped mode, ZS-PERF-25 explicit options, ZS-PERF-27 – ZS-PERF-28 how to measure, ZS-CONC-29's clock choice | All code. Following them costs nothing and not following them produces false numbers. |
-| ZS-PERF-04 plane split, ZS-PERF-06 batching, ZS-PERF-23 no auto-vectorization | Any code with a stated throughput or latency requirement. Batching in particular is a design decision, so it is cheap now and expensive later. |
-| ZS-PERF-11 branch hoisting, ZS-PERF-14 primitive-argument kernels, ZS-PERF-24 explicit SIMD, `@branchHint` (ZS-ERR-27), adding a `@prefetch` at all (ZS-PERF-25), ZS-PERF-26 cache-line alignment, `inline fn` (ZS-COMPTIME-03) | **Hot paths a profile names, only.** Each one costs readability. A diff that applies them without a profile in the commit message is over-applying this chapter, and that is a review finding in its own right. |
+| ZS-PERF-17 – ZS-PERF-20 (the whole locality cluster) | **All code, always.** These are readability and correctness rules that happen to also help the register allocator. Never require a measurement. |
+| ZS-PERF-13 be explicit, ZS-PERF-21 measure in the shipped mode, ZS-PERF-24 explicit options, ZS-PERF-26 – ZS-PERF-27 how to measure, ZS-CONC-29's clock choice | All code. Following them costs nothing and not following them produces false numbers. |
+| ZS-PERF-04 plane split, ZS-PERF-06 batching, ZS-PERF-22 no auto-vectorization | Any code with a stated throughput or latency requirement. Batching in particular is a design decision, so it is cheap now and expensive later. |
+| ZS-PERF-11 branch hoisting, ZS-PERF-14 primitive-argument kernels, ZS-PERF-23 explicit SIMD, `@branchHint` (ZS-ERR-27), adding a `@prefetch` at all (ZS-PERF-24), ZS-PERF-25 cache-line alignment, `inline fn` (ZS-COMPTIME-03) | **Hot paths a profile names, only.** Each one costs readability. A diff that applies them without a profile in the commit message is over-applying this chapter, and that is a review finding in its own right. |
 
 **Why:** shape is decided up front and cheaply; constants are decided later and with evidence
 (ZS-PERF-01). A sketch costs five minutes and is reversible, so it is never premature; a
@@ -1263,7 +1189,7 @@ hand-unrolled SIMD kernel costs readability permanently and is premature until i
 
 **Check:** when reviewing a change that cites this chapter, ask which row it is in. If it is in the
 last row, ask for the number, the optimize mode, and the machine. If the answer is "it should be
-faster", the change is not ready.
+faster", or the second number is within the noise of the first, the change is not ready.
 
 ```zig
 // fragment

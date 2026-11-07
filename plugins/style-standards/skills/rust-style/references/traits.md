@@ -244,7 +244,7 @@ Matchers, queries, builders — values that describe rather than act. Mark each 
 
 **Why:** constructing one and discarding it is always a mistake. On the trait the attribute covers
 only an `impl Trait` or `dyn Trait` value; a discarded concrete implementor warns only if its own
-type carries the attribute (RS-API-32).
+type carries the attribute (RS-API-33).
 
 **Check:** would discarding a value of this trait ever be correct? Does every implementor carry the
 attribute as well?
@@ -471,7 +471,7 @@ the newtype that would have worked.
 
 **Why:** it is the sanctioned mechanism, it is zero-cost with `#[repr(transparent)]`, and it lets
 you add the impl without any coordination. Add `AsRef`/`Deref` only if the newtype genuinely *is*
-the inner type for all purposes (RS-API-39).
+the inner type for all purposes (RS-API-40).
 
 **Check:** does the newtype expose the inner type's whole API, or only the part that makes sense?
 
@@ -795,7 +795,7 @@ clearer anyway.
 `Connection<Idle>` → `Connection<Open>`.
 
 **Why:** it turns "write before connect" from a runtime panic into a compile error, which is
-strictly better when the mistake is expensive and the transitions are few (RS-FUNC-38).
+strictly better when the mistake is expensive and the transitions are few (RS-FUNC-37).
 
 **Check:** does any method start by checking a state flag and erroring? That check is a type.
 

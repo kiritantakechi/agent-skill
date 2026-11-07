@@ -170,7 +170,7 @@ tier leaves defensive branches nobody can prove unreachable, so none is ever del
 
 **Check:** for each validation in the body of a function, ask which tier it belongs to and whether
 an earlier tier was available. A check that could have been a `NonZeroUsize` is a defect
-(RS-API-26).
+(RS-API-27).
 
 ```rust
 // verified
@@ -223,7 +223,7 @@ licence to break every invariant, which targeted mutators (`insert`, `remove`) c
 **Check:** `rg -n 'fn \w+\(&self\) -> &(Vec<|String\b|PathBuf\b)' -g '*.rs'` finds an accessor
 returning the container; each hit is the finding — the slice, `&str` and `&Path` say the same thing
 without naming it. A map or a set has no borrowed view in std, so the answer there is not a
-different return type but a smaller question: `get`, `contains`, or an iterator (RS-API-21). For
+different return type but a smaller question: `get`, `contains`, or an iterator (RS-API-22). For
 each `&mut`-returning accessor, ask what invariant a caller could break with it; if the answer is
 "none", the accessor is still wrong, since the operation the caller came for is the thing to hand
 out, not the collection it would have reached through.

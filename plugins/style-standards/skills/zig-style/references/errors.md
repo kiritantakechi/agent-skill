@@ -49,9 +49,8 @@ Blocks that do not declare their own imports assume a file opening with
   - ZS-ERR-26 [M] Unwrap optionals with `orelse` or a capture, never with `.?`
   - ZS-ERR-27 [S] Mark cold and likely paths with `@branchHint`
 - **8. Function shape, user-facing diagnostics, and stack traces**
-  - ZS-ERR-28 [M!] Hard limit of 70 lines per function
-  - ZS-ERR-29 [S] Report position and context through a `*Diagnostics`, not the error set
-  - ZS-ERR-30 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
+  - ZS-ERR-28 [S] Report position and context through a `*Diagnostics`, not the error set
+  - ZS-ERR-29 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
 - Decided by tools
 
 ---
@@ -650,7 +649,7 @@ reach for `std.debug.dumpStackTrace` here: in 0.17 that takes a `*const std.debu
 (`{ return_addresses: []usize, skipped: SkippedAddresses }`), which is a different type from
 `std.lang.StackTrace` (`{ index: usize, instruction_addresses: []usize }`) and will not compile:
 `error: expected type '*const debug.StackTrace', found '*lang.StackTrace'`. Capturing a *stack*
-trace is ZS-ERR-30.
+trace is ZS-ERR-29.
 
 A `main` that returns `!void` prints the error name and its return trace automatically, which is the
 reason to prefer `try` all the way up in application code.
@@ -912,7 +911,7 @@ comment, not a build failure.
 
 **Why:** it concentrates the decisions in one readable place, and it makes the leaf a straight-line
 function that the compiler can vectorise and a reader can check without tracing callers. It is also
-the mechanism that keeps parents under the 70-line limit (ZS-ERR-28) without scattering the logic.
+the mechanism that keeps parents under the 70-line limit (ZS-NAME-17) without scattering the logic.
 
 **Check:** a private helper called from exactly one site whose first statement is an `if` on a
 condition the caller already tested, or a caller that loops calling a helper that could have taken
@@ -1083,31 +1082,7 @@ fn decodeTag(byte: u8) error{ReservedTag}!u8 {
 
 ## 8. Function shape, user-facing diagnostics, and stack traces
 
-### ZS-ERR-28 [M!] Hard limit of 70 lines per function
-
-70 lines between the braces is a hard ceiling, counted as written, blank lines and comments
-included.
-
-Where to cut is what the shape rules decide: the control flow stays in the parent (ZS-ERR-23), so
-does the state it manipulates (ZS-PERF-20), and each piece comes out narrow at both ends and wide
-inside (ZS-PERF-21).
-
-*Relaxed form:* a function longer than one screen needs a stated reason in a comment — a `switch`
-with one short arm per protocol opcode is the usual honest one.
-
-**Why:** a function that fits on a screen can be checked for "is every case handled?" by looking;
-one you must scroll is reconstructed from memory, which is where the missed branch lives. The split
-that gets you under 70 lines nearly always names a concept you had not named.
-
-**Check:** any function whose closing brace you cannot see from its signature. Mechanically, over a
-file whose functions all start in column 0:
-
-```sh
-awk '/^(pub )?fn /{s = NR; n = $0}
-     /^}$/{if (s && NR - s > 70) print FILENAME":"s"  "NR - s" lines  "n; s = 0}'
-```
-
-### ZS-ERR-29 [S] Report position and context through a `*Diagnostics`, not the error set
+### ZS-ERR-28 [S] Report position and context through a `*Diagnostics`, not the error set
 
 An error set says *what kind* of thing went wrong; it cannot say *where*. When a user has to fix the
 input — a config file, a query, a source file — pair a coarse error set with an optional
@@ -1174,7 +1149,7 @@ test "diagnostics carry the position the error set cannot" {
 }
 ```
 
-### ZS-ERR-30 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
+### ZS-ERR-29 [S] Capture a stack trace with `captureCurrentStackTrace` into a caller-owned buffer
 
 To record where you are *without* aborting — a leak tracker, an audit log, a "who called this" probe
 — use

@@ -275,7 +275,7 @@ pub enum Error {
 
 Every function that can panic has a `# Panics` section naming the exact condition — index out of
 bounds, capacity overflow, a violated precondition. An undocumented panic is an undocumented API
-contract. Mark a function that panics on caller error `#[track_caller]` (RS-API-34).
+contract. Mark a function that panics on caller error `#[track_caller]` (RS-API-35).
 
 **Why:** a panic is part of the signature that the type system does not express. A caller in a
 server or a plugin needs to know which calls can take the process down, and the docs are the only

@@ -190,6 +190,11 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-PERF-12` | `PS-PERF-13` |
 | `PS-PERF-13` | `PS-CONC-16` |
 | `PS-PERF-14` | lint `ruff:PERF401` |
+| `PS-PERF-15` | `PS-PERF-16` |
+| `PS-PERF-16` | `PS-PERF-17` |
+| `PS-PERF-17` | `PS-PERF-18` |
+| `PS-PERF-18` | `PS-PERF-19` |
+| `PS-PERF-19` | `PS-PERF-20` |
 | `PS-PERF-20` | `PS-PERF-01` |
 | `PS-FMT-01` | `PS-OUT-01` |
 | `PS-FMT-02` | `PS-OUT-02` |
@@ -210,7 +215,7 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-FMT-17` | lint `ruff:T201` |
 | `PS-FMT-18` | `PS-OUT-18` |
 | `PS-FMT-19` | `PS-OUT-19` |
-| `PS-FMT-20` | `PS-OUT-21` |
+| `PS-FMT-20` | `PS-OUT-22` |
 | `PS-TEST-11` | `PS-TEST-14` |
 | `PS-TEST-12` | `PS-TEST-15` |
 | `PS-TEST-13` | `PS-TEST-16` |

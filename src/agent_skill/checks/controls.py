@@ -1581,7 +1581,7 @@ CONTROLS: list[Control] = [
     ),
     Control(
         # Added beside the rules the delta names rather than in place of
-        # one. Renaming the override row's `RS-API-20` also stopped the
+        # one. Renaming the override row's `RS-API-21` also stopped the
         # delta naming that rule, so the anchor sweep ran its pattern,
         # hit, and fired with the citation branch gone.
         crossref.FOREIGN_CITATION,

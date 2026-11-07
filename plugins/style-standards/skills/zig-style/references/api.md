@@ -17,12 +17,13 @@ files the root sits among is the modules chapter's.
   - ZS-API-04 [M] Use an options struct whenever two adjacent parameters share a type
   - ZS-API-05 [M] Signal ownership transfer in the name and the doc comment
   - ZS-API-06 [M] Take the slice or the interface, not the container; return the concrete type
+  - ZS-API-07 [M] Centralize state manipulation: helpers compute the change, the parent applies it
 - **Symmetry**
-  - ZS-API-07 [M] Give every operation its inverse, or document why there is none
-  - ZS-API-08 [M] Keep parameter order identical across sibling functions
-  - ZS-API-09 [M] Give the members of one error set a uniform shape
+  - ZS-API-08 [M] Give every operation its inverse, or document why there is none
+  - ZS-API-09 [M] Keep parameter order identical across sibling functions
+  - ZS-API-10 [M] Give the members of one error set a uniform shape
 - **Evolution**
-  - ZS-API-10 [M] Keep a deprecated declaration for a release, and name its replacement
+  - ZS-API-11 [M] Keep a deprecated declaration for a release, and name its replacement
 
 ---
 
@@ -217,9 +218,87 @@ pub fn sum(values: *const std.ArrayList(u32)) u32 {
 }
 ```
 
+### ZS-API-07 [M] Centralize state manipulation: helpers compute the change, the parent applies it
+
+Let the parent function hold the state in locals or in one receiver, and let helpers *return* what
+should change rather than applying it. Keep leaf functions pure. TigerStyle pairs this with
+"centralize control flow" (ZS-ERR-23, push `if`s up and `for`s down). The single apply site is the
+one place to bracket with `assertInvariants` (ZS-ASSERT-14) and to make transactional with
+`errdefer`; pure leaves let you compute all the deltas first and apply them in one pass, which is
+what makes batching (ZS-PERF-06) possible.
+
+**Why:** if every leaf may mutate, the states reachable at any point are the product of every leaf's
+behavior, and no single function can assert the invariant. With one apply site there is one place to
+assert it and one place to read when it breaks, and the pure leaves are directly testable.
+
+**Check:** count the assignments to a given field across the module. If more than one function
+mutates the same field, ask whether the inner one could return a value instead. A helper whose only
+parameter is `*Self` and whose body assigns to fields is the shape to look for.
+
+```zig
+// verified — BAD: two functions mutate, so no one function can assert the invariant
+const AccountBad = struct {
+    balance: u64,
+    reserved: u64,
+
+    fn releaseInner(account: *AccountBad, amount: u64) void {
+        account.balance += amount;
+    }
+
+    fn release(account: *AccountBad, amount: u64) void {
+        account.releaseInner(amount);
+        account.reserved -= amount;
+    }
+};
+```
+
+```zig
+// verified — GOOD: the leaf is pure, the parent is the single apply site
+const std = @import("std");
+const assert = std.debug.assert;
+const Account = struct {
+    balance: u64,
+    reserved: u64,
+
+    const Delta = struct { balance: i64, reserved: i64 };
+
+    /// Pure leaf: computes what should change, mutates nothing. Directly testable.
+    fn deltaForRelease(account: Account, amount: u64) Delta {
+        assert(amount <= account.reserved);
+        assert(amount <= std.math.maxInt(i64)); // The delta type must hold it.
+        return .{ .balance = @intCast(amount), .reserved = -@as(i64, @intCast(amount)) };
+    }
+
+    /// The only mutator. One apply site, so one place to assert the invariant.
+    fn release(account: *Account, amount: u64) void {
+        // u128: the ledger total may legitimately exceed maxInt(u64), so summing
+        // the two columns in their own type would overflow on a valid account.
+        const total_before = @as(u128, account.balance) + account.reserved;
+        const delta = account.deltaForRelease(amount);
+
+        // A release moves value between columns; it never creates or destroys any.
+        assert(delta.balance + delta.reserved == 0);
+        account.balance = applyDelta(account.balance, delta.balance);
+        account.reserved = applyDelta(account.reserved, delta.reserved);
+
+        // The invariant worth asserting is conservation — a property a wrong
+        // mutator can actually violate. `reserved <= balance + reserved` would
+        // hold for every u64 pair in existence and so checks nothing.
+        assert(@as(u128, account.balance) + account.reserved == total_before);
+    }
+
+    /// Applies a signed delta without round-tripping the `u64` through `i64`,
+    /// which would panic for any balance above `maxInt(i64)`.
+    fn applyDelta(value: u64, delta: i64) u64 {
+        if (delta < 0) return value - @abs(delta);
+        return value + @abs(delta);
+    }
+};
+```
+
 ## Symmetry
 
-### ZS-API-07 [M] Give every operation its inverse, or document why there is none
+### ZS-API-08 [M] Give every operation its inverse, or document why there is none
 
 `init` implies `deinit` (ZS-DATA-14 is this rule's most important instance), but so does
 `append`/`pop`, `open`/`close`, `encode`/`decode`, `acquire`/`release`, `register`/`unregister`.
@@ -231,7 +310,7 @@ elsewhere — and silence reads as an oversight that gets worked around.
 **Check:** list the public operations on each type in pairs. Every unpaired one either gains its
 inverse or gains a doc comment saying why it cannot have one.
 
-### ZS-API-08 [M] Keep parameter order identical across sibling functions
+### ZS-API-09 [M] Keep parameter order identical across sibling functions
 
 Fix the order once and do not vary it: if one function takes `(io, gpa, target, source)`, its
 siblings do too. ZS-NAME-11 fixes the order for function-value slots by copying `std.sort`; this
@@ -244,7 +323,7 @@ silently swapped argument at a call site that looks correct.
 **Check:** list every function in the file taking two or more parameters of related type and compare
 their orders. Any disagreement is the finding, and the outlier is what changes.
 
-### ZS-API-09 [M] Give the members of one error set a uniform shape
+### ZS-API-10 [M] Give the members of one error set a uniform shape
 
 Members of one error set describe failures at one level of detail. Do not mix
 `error.InvalidByteAtOffset` with a bare `error.Bad` in the same set, and do not let one call site
@@ -260,7 +339,7 @@ a different set.
 
 ## Evolution
 
-### ZS-API-10 [M] Keep a deprecated declaration for a release, and name its replacement
+### ZS-API-11 [M] Keep a deprecated declaration for a release, and name its replacement
 
 A `pub` declaration that is renamed or replaced stays one release as an alias or a thin wrapper,
 with a doc comment that starts `Deprecated:` and names the new one; it is removed in the next major

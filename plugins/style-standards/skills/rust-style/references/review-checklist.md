@@ -39,14 +39,14 @@ invalidate the work of reading the next.
 4. **Concurrency.** Lock scopes, lock ordering, `.await` while holding a lock, unbounded channels,
    detached tasks, shutdown paths. (`RS-CONC`)
 5. **Data model.** Are illegal states representable? Are there `bool` parameters, paired `Option`s,
-   or stringly-typed fields that want an enum? (`RS-DATA`, RS-API-23 … RS-API-26)
+   or stringly-typed fields that want an enum? (`RS-DATA`, RS-API-24 … RS-API-27)
 6. **Function bodies.** Now read the code. Loops that are pipelines, `mut` that folds away, clones
    that borrows would remove, allocation in loops. (`RS-FUNC`, `RS-OWN`, `RS-PERF`)
 7. **Tests.** Do they test the contract or the implementation? Is the error path covered? Would they
    catch the bug this change fixes? (`RS-TEST`)
 8. **Symmetry.** Unpaired operations, sibling functions disagreeing on argument order, error
    variants with uneven context, two mechanisms for one concept, a branch that exists for one input.
-   (RS-API-52 … RS-API-56, RS-NAME-24, RS-MOD-36 … RS-MOD-38)
+   (RS-API-53 … RS-API-57, RS-NAME-24, RS-MOD-35 … RS-MOD-37)
 9. **Manifest and lints.** New dependencies justified? Features additive? Lints still enforced?
    (`RS-BUILD`)
 
@@ -90,7 +90,7 @@ findings that deserve discussion.
 | Severity | Rule | Location | Finding | Fix |
 |---|---|---|---|---|
 | Incorrect | RS-ERR-03 | `src/config.rs:88` | `unwrap()` on a user-supplied path | Return `Error::Config` and propagate with `?` |
-| Design | RS-API-23 | `src/search.rs:31` | Three `bool` parameters in `search()` | Replace with `SearchOptions` or three two-variant enums |
+| Design | RS-API-24 | `src/search.rs:31` | Three `bool` parameters in `search()` | Replace with `SearchOptions` or three two-variant enums |
 | Performance | RS-PERF-08 | `src/scan.rs:54` | `String` allocated per line | Hoist the buffer and `clear()` per iteration |
 
 ## Discussion

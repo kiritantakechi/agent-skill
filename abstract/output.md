@@ -129,7 +129,7 @@ happened.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-22 | realises | [M] | |
+| python-style | PS-OUT-23 | realises | [M] | |
 | rust-style | RS-OUT-08 | realises | [M] | |
 | zig-style | ZS-OUT-21 | realises | [M] | |
 
@@ -142,7 +142,7 @@ them.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-23 | realises | [M] | |
+| python-style | PS-OUT-24 | realises | [M] | |
 | rust-style | RS-OUT-09 | realises | [M] | |
 | zig-style | ZS-OUT-22 | realises | [M] | |
 
@@ -170,7 +170,7 @@ publishes the type's internal structure.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-OUT-19 | overrides | [S] | `str` falls back to `repr`, so the two are kept apart by defining `str` only where the human form differs from the programmer's, and a type with one form needs no second rendering |
+| python-style | PS-OUT-21 | realises | [M] | |
 | rust-style | RS-OUT-11 | realises | [M] | |
 | zig-style | ZS-OUT-07 | realises | [M] | |
 

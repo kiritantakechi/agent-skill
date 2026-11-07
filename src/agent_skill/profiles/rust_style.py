@@ -42,12 +42,12 @@ META_DOC = declare("conventions", "rs_meta_doc", Level.FAIL)
 UNUSED_DEFAULT = declare("conventions", "rs_unused_default", Level.NOTE)
 
 CONVENTIONS = (
-    # RS-API-23 — a public signature never takes a bare `bool`.
+    # RS-API-24 — a public signature never takes a bare `bool`.
     LineRule(
         BOOL_PARAMETER,
         r"\bpub (?:async )?fn (\w+)\s*(?:<[^>]*>)?\((?=[^)]*:\s*bool\b)[^)]*\)",
-        "`{1}` takes a bool parameter (RS-API-23)",
-        unless_own=RuleId.parse("RS-API-23"),
+        "`{1}` takes a bool parameter (RS-API-24)",
+        unless_own=RuleId.parse("RS-API-24"),
     ),
     # RS-NAME-21 — a `bool`-returning method reads as a question.
     LineRule(
@@ -59,15 +59,15 @@ CONVENTIONS = (
         r"(\w+)\([^)]*\)\s*->\s*bool\b",
         "`{1}` returns bool but does not read as a question (RS-NAME-21)",
     ),
-    # RS-API-20 — no public field, tuple fields included.
+    # RS-API-21 — no public field, tuple fields included.
     LineRule(
         PUBLIC_FIELD,
         r"^\s+pub [a-z_]\w*:",
-        "public struct field outside `#[repr(C)]` (RS-API-20)",
+        "public struct field outside `#[repr(C)]` (RS-API-21)",
         comments=True,
         unless=Unless(near=(REPR_C,)),
     ),
-    LineRule(TUPLE_FIELD, r"struct \w+\(\s*pub ", "public tuple field (RS-API-20)"),
+    LineRule(TUPLE_FIELD, r"struct \w+\(\s*pub ", "public tuple field (RS-API-21)"),
     # House convention — a by-value setter is `with_*`: a method that
     # takes `self` by value, assigns a field in its first lines, and
     # returns `Self` without taking another `Self`.
@@ -146,7 +146,7 @@ PROFILE = Profile(
             "RS-OUT-02": ('    print!("{name}: ");',),
             "RS-OUT-03": ("        std::process::exit(2);",),
             "RS-OUT-07": ("    env_logger::init();",),
-            "RS-API-44": ("pub fn set_limit(&mut self, limit: usize) -> &mut Self {",),
+            "RS-API-45": ("pub fn set_limit(&mut self, limit: usize) -> &mut Self {",),
             "RS-BUILD-13": ('serde = { version = "1", optional = true }',),
             "RS-BUILD-46": (
                 "- uses: actions/checkout@v7",
@@ -196,7 +196,7 @@ PROFILE = Profile(
     # proves yet. Giving one a fixture means deleting it here, which
     # `sensitivity` insists on, so the list only shrinks.
     unproven=rules(
-        "RS-API-20",
+        "RS-API-21",
         "RS-MOD-08",
         "RS-API-04",
         "RS-OWN-33",
@@ -209,7 +209,7 @@ PROFILE = Profile(
     # fields away and nothing re-measures.
     not_decisive=keyed(
         {
-            "RS-API-44": NotDecisive(
+            "RS-API-45": NotDecisive(
                 "fn set_",
                 "the span finds every `set_` method; whether the type is a builder "
                 "decides, and an ordinary struct's setter is not this rule's subject",
@@ -239,9 +239,9 @@ PROFILE = Profile(
     ),
     exempt=keyed(
         {
-            # RS-API-20: "Every hit that is not on a `#[repr(C)]` type
+            # RS-API-21: "Every hit that is not on a `#[repr(C)]` type
             # is a defect"
-            "RS-API-20": Unless(near=(REPR_C,)),
+            "RS-API-21": Unless(near=(REPR_C,)),
         }
     ),
     domain={

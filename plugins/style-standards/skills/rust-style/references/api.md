@@ -42,58 +42,59 @@ and the **empirical shape of `regex`, `ignore`, `grep-searcher`, and `std`**.
   - RS-API-16 [S] Take `impl Into<String>` when you store, `&str` when you read
   - RS-API-17 [S] Justify every out-parameter with buffer reuse
   - RS-API-18 [M] Never leave two adjacent parameters of one type that a caller could transpose
+  - RS-API-19 [M] Separate computing from doing, and push the doing to the edges
 
 - **Encapsulation and invariants**
-  - RS-API-19 [M] Find the invariant before choosing the methods
-  - RS-API-20 [M] Keep every field of a published struct private, including the ones with no invariant
-  - RS-API-21 [M] Give the caller the question it is asking, not the field it would have read
-  - RS-API-22 [M] Make every construction path a named one
+  - RS-API-20 [M] Find the invariant before choosing the methods
+  - RS-API-21 [M] Keep every field of a published struct private, including the ones with no invariant
+  - RS-API-22 [M] Give the caller the question it is asking, not the field it would have read
+  - RS-API-23 [M] Make every construction path a named one
 
 - **Type safety**
-  - RS-API-23 [M] Replace a `bool` parameter: split the function, or name the flag
-  - RS-API-24 [S] Prefer an enum to an `Option` whose `None` has meaning
-  - RS-API-25 [M] Do not build stringly-typed APIs
-  - RS-API-26 [S] Use `NonZero*` where zero is invalid
+  - RS-API-24 [M] Replace a `bool` parameter: split the function, or name the flag
+  - RS-API-25 [S] Prefer an enum to an `Option` whose `None` has meaning
+  - RS-API-26 [M] Do not build stringly-typed APIs
+  - RS-API-27 [S] Use `NonZero*` where zero is invalid
 
 - **Attributes and contracts**
-  - RS-API-27 [M] Derive every common trait the type's meaning allows
-  - RS-API-28 [M] Never derive a trait whose semantics are wrong for the type
-  - RS-API-29 [M] Document what a derived `Ord` orders by, or do not derive it
-  - RS-API-30 [S] Choose the `#[default]` variant deliberately
-  - RS-API-31 [S] Do not implement `Default` where there is no meaningful default
-  - RS-API-32 [S] Put `#[must_use]` on pure functions and pending obligations
-  - RS-API-33 [S] Give `#[must_use]` a message when the reason is not obvious
-  - RS-API-34 [S] Use `#[track_caller]` on functions that panic on caller error
+  - RS-API-28 [M] Derive every common trait the type's meaning allows
+  - RS-API-29 [M] Never derive a trait whose semantics are wrong for the type
+  - RS-API-30 [M] Document what a derived `Ord` orders by, or do not derive it
+  - RS-API-31 [S] Choose the `#[default]` variant deliberately
+  - RS-API-32 [S] Do not implement `Default` where there is no meaningful default
+  - RS-API-33 [S] Put `#[must_use]` on pure functions and pending obligations
+  - RS-API-34 [S] Give `#[must_use]` a message when the reason is not obvious
+  - RS-API-35 [S] Use `#[track_caller]` on functions that panic on caller error
 
 - **Standard trait implementations**
-  - RS-API-35 [S] Implement `FromStr` for any type with a canonical textual form
-  - RS-API-36 [M] Implement `From` for infallible and `TryFrom` for fallible conversions
-  - RS-API-37 [S] Implement `FromIterator`, `Extend`, and `IntoIterator` on collections
-  - RS-API-38 [S] Implement `AsRef` and `Borrow` only when the type genuinely is the target
-  - RS-API-39 [M] Do not abuse `Deref` for inheritance
-  - RS-API-40 [S] Gate `serde` behind an off-by-default feature
+  - RS-API-36 [S] Implement `FromStr` for any type with a canonical textual form
+  - RS-API-37 [M] Implement `From` for infallible and `TryFrom` for fallible conversions
+  - RS-API-38 [S] Implement `FromIterator`, `Extend`, and `IntoIterator` on collections
+  - RS-API-39 [S] Implement `AsRef` and `Borrow` only when the type genuinely is the target
+  - RS-API-40 [M] Do not abuse `Deref` for inheritance
+  - RS-API-41 [S] Gate `serde` behind an off-by-default feature
 
 - **Constructors, builders, conversions**
-  - RS-API-41 [S] Let `new()` take only what the type cannot exist without
-  - RS-API-42 [S] Reach for a builder past three optional parameters
-  - RS-API-43 [S] Prefer the `&mut self -> &mut Self` builder shape
-  - RS-API-44 [S] Name builder setters after the property, without `set_`
-  - RS-API-45 [M] Validate in `build()`, not in the setters
-  - RS-API-46 [M!] Convert through `From`, `TryFrom` and `FromStr`, not an inherent `from_*`
-  - RS-API-47 [M] Mark an unchecked constructor `unsafe`, and name it `*_unchecked`
+  - RS-API-42 [S] Let `new()` take only what the type cannot exist without
+  - RS-API-43 [S] Reach for a builder past three optional parameters
+  - RS-API-44 [S] Prefer the `&mut self -> &mut Self` builder shape
+  - RS-API-45 [S] Name builder setters after the property, without `set_`
+  - RS-API-46 [M] Validate in `build()`, not in the setters
+  - RS-API-47 [M!] Convert through `From`, `TryFrom` and `FromStr`, not an inherent `from_*`
+  - RS-API-48 [M] Mark an unchecked constructor `unsafe`, and name it `*_unchecked`
 
 - **Future-proofing and evolution**
-  - RS-API-48 [M] Decide `#[non_exhaustive]` for every published enum and struct
-  - RS-API-49 [M] Classify every change as breaking or not before tagging a release
-  - RS-API-50 [M] Deprecate before removing, and say what to use instead
-  - RS-API-51 [S] Prefer additive evolution; batch the breaking changes
+  - RS-API-49 [M] Decide `#[non_exhaustive]` for every published enum and struct
+  - RS-API-50 [M] Classify every change as breaking or not before tagging a release
+  - RS-API-51 [M] Deprecate before removing, and say what to use instead
+  - RS-API-52 [S] Prefer additive evolution; batch the breaking changes
 
 - **Symmetry of the public surface**
-  - RS-API-52 [M] Give every operation its inverse, or document why there is none
-  - RS-API-53 [M] Keep argument order identical across sibling functions
-  - RS-API-54 [M] Give sibling error variants a uniform shape
-  - RS-API-55 [M] Choose `Option` or `Result` uniformly for the same kind of absence
-  - RS-API-56 [S] Give comparable sibling methods the same receiver
+  - RS-API-53 [M] Give every operation its inverse, or document why there is none
+  - RS-API-54 [M] Keep argument order identical across sibling functions
+  - RS-API-55 [M] Give sibling error variants a uniform shape
+  - RS-API-56 [M] Choose `Option` or `Result` uniformly for the same kind of absence
+  - RS-API-57 [S] Give comparable sibling methods the same receiver
 
 - Decided by tools
 
@@ -444,7 +445,7 @@ exception, and it is one you can justify in a sentence.
 
 **Why:** a crate of thirty loose functions has no centre: the reader must hold the whole list, a new
 operation is one more name nobody watches, and any two functions drift apart in naming, argument
-order, and error type unnoticed (RS-API-53, RS-NAME-24).
+order, and error type unnoticed (RS-API-54, RS-NAME-24).
 
 **Check:** list what the crate root exports. What is the ratio of types to free functions? For each
 free function, name the type it would be a method on — if you can name one, it belongs there
@@ -575,15 +576,27 @@ pub fn distance(source: Source, destination: Destination) -> u32 {
 }
 ```
 
+### RS-API-19 [M] Separate computing from doing, and push the doing to the edges
+
+Parse and read at the entry, compute over plain data in the middle, write and log at the exit. A
+function that derives a value returns it, and its caller connects it to the sink.
+
+**Why:** a function that both computes and writes cannot be tested without a sink, reused with
+another, or parallelized. A middle layer with no I/O, clock, or environment tests in milliseconds,
+which is what makes `run() -> Result<()>` testable (RS-MOD-12).
+
+**Check:** does the function both compute and print, log, write, or send? Split it. How deep in the
+call stack is the deepest I/O call? Everything below the entry layer should be pure.
+
 ## Encapsulation and invariants
 
-### RS-API-19 [M] Find the invariant before choosing the methods
+### RS-API-20 [M] Find the invariant before choosing the methods
 
 Any constraint the type maintains — a sorted `Vec`, a cached length that must match, a value
 confined to a range, an index into a sibling field — is a contract the type owes, and it decides
 which methods may exist.
 
-**Why:** a published type's fields are private either way (RS-API-20), so privacy decides nothing;
+**Why:** a published type's fields are private either way (RS-API-21), so privacy decides nothing;
 the invariant decides what may exist. Unnamed, the next `&mut` method breaks it; named, it tells you
 construction is fallible, the field has no setter, and which accessor would leak it (RS-DATA-07).
 
@@ -618,7 +631,7 @@ impl Percent {
 }
 ```
 
-### RS-API-20 [M] Keep every field of a published struct private, including the ones with no invariant
+### RS-API-21 [M] Keep every field of a published struct private, including the ones with no invariant
 
 A published type has no "pure data bag" exemption. A struct whose fields are independent today is
 still a struct whose representation you have published. The single exception is a type whose layout
@@ -667,7 +680,7 @@ impl Config {
 }
 ```
 
-### RS-API-21 [M] Give the caller the question it is asking, not the field it would have read
+### RS-API-22 [M] Give the caller the question it is asking, not the field it would have read
 
 A method names the decision — `thread_count()`, `is_saturated()`, `remaining()` — rather than
 mirroring storage one accessor per field.
@@ -701,12 +714,12 @@ impl Budget {
 }
 ```
 
-### RS-API-22 [M] Make every construction path a named one
+### RS-API-23 [M] Make every construction path a named one
 
 A struct literal is not available once fields are private, so the type states how it is built:
 `new`, a named alternative constructor (RS-NAME-20), a builder, or a `TryFrom`.
 
-**Why:** a named entry point is where validation lives (RS-FUNC-35), where defaults are decided, and
+**Why:** a named entry point is where validation lives (RS-FUNC-34), where defaults are decided, and
 where a later invariant is enforced without touching a call site. Every instance traces back to a
 function you can grep, named for its starting state.
 
@@ -743,7 +756,7 @@ impl Retry {
 
 ## Type safety
 
-### RS-API-23 [M] Replace a `bool` parameter: split the function, or name the flag
+### RS-API-24 [M] Replace a `bool` parameter: split the function, or name the flag
 
 A flag that selects behaviour means the function has become two sharing a body: split it, and let
 the shared part be a private helper. A flag that is data is a two-variant enum. Three or more flags
@@ -800,7 +813,7 @@ pub fn render_numbered(items: &[String]) -> String {
 }
 ```
 
-### RS-API-24 [S] Prefer an enum to an `Option` whose `None` has meaning
+### RS-API-25 [S] Prefer an enum to an `Option` whose `None` has meaning
 
 **Why:** `Option<Duration>` for a timeout hides whether `None` means "no timeout" or "use the
 default" — and both readings are common, so users guess.
@@ -809,7 +822,7 @@ default" — and both readings are common, so users guess.
 **Check:** for each public `Option<T>`, is `None` genuinely just absence? If it carries a policy,
 name it.
 
-### RS-API-25 [M] Do not build stringly-typed APIs
+### RS-API-26 [M] Do not build stringly-typed APIs
 
 Errors returned as `String`; a config keyed by arbitrary strings; a parameter whose string stands in
 for a type. A parameter accepting `"json" | "text" | "csv"` is a finite set, which RS-DATA-01 makes
@@ -822,7 +835,7 @@ be found by the compiler when it is misspelled.
 **Check:** for each `&str` or `String` in a public signature or an error type, is the string the
 data itself, or a stand-in for a type the crate has not written?
 
-### RS-API-26 [S] Use `NonZero*` where zero is invalid
+### RS-API-27 [S] Use `NonZero*` where zero is invalid
 
 `NonZeroUsize`, `NonZeroU32`.
 
@@ -834,12 +847,12 @@ data itself, or a stand-in for a type the crate has not written?
 
 ## Attributes and contracts
 
-### RS-API-27 [M] Derive every common trait the type's meaning allows
+### RS-API-28 [M] Derive every common trait the type's meaning allows
 
 Each of `Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default` that the type's meaning
 allows: `Copy` only on a value that can never come to own a heap allocation or a handle, `Default`
-only where a meaningful default exists (RS-API-31), and an order only where one is meaningful
-(RS-API-28).
+only where a meaningful default exists (RS-API-32), and an order only where one is meaningful
+(RS-API-29).
 
 **Why:** C-COMMON-TRAITS. A missing derive is invisible until a user needs it, and the orphan rule
 leaves them a newtype or a pull request. Adding a derive later is a minor version; removing `Copy`
@@ -870,7 +883,7 @@ impl Version {
 }
 ```
 
-### RS-API-28 [M] Never derive a trait whose semantics are wrong for the type
+### RS-API-29 [M] Never derive a trait whose semantics are wrong for the type
 
 **Why:** deriving `PartialEq` on a struct with a cache field makes two logically equal values
 compare unequal — and the bug surfaces in a `HashMap` lookup three modules away. The derive is
@@ -879,7 +892,7 @@ convenient precisely because it is thoughtless, which is the hazard.
 **Check:** for each derived `PartialEq`/`Hash`/`Ord`, does every field participate in identity? Any
 cache, timestamp, or arena handle is a no.
 
-### RS-API-29 [M] Document what a derived `Ord` orders by, or do not derive it
+### RS-API-30 [M] Document what a derived `Ord` orders by, or do not derive it
 
 **Why:** `#[derive(Ord)]` fixes the ordering to the declaration order of the fields, permanently.
 Reordering fields for layout or readability then silently changes the sort order of every user's
@@ -888,7 +901,7 @@ data. If the ordering matters, document it; if it is arbitrary, do not derive `O
 **Check:** does the type's rustdoc say what the ordering means? If not, either write it or remove
 the derive.
 
-### RS-API-30 [S] Choose the `#[default]` variant deliberately
+### RS-API-31 [S] Choose the `#[default]` variant deliberately
 
 **Why:** `#[derive(Default)]` on an enum requires marking a variant, and the first one you happened
 to write is rarely the neutral case. The default is what every `..Default::default()` and every
@@ -905,7 +918,7 @@ pub fn first_line(text: &str) -> &str {
 }
 ```
 
-### RS-API-31 [S] Do not implement `Default` where there is no meaningful default
+### RS-API-32 [S] Do not implement `Default` where there is no meaningful default
 
 **Why:** `Default` on a `Connection` or a `File` yields an unusable value, which then flows through
 `unwrap_or_default()` and every containing `#[derive(Default)]` into places nobody intended. A
@@ -933,7 +946,7 @@ impl Counters {
 }
 ```
 
-### RS-API-32 [S] Put `#[must_use]` on pure functions and pending obligations
+### RS-API-33 [S] Put `#[must_use]` on pure functions and pending obligations
 
 Pure computations whose return value is the point; guards, builders, futures, and iterator adapters.
 
@@ -964,7 +977,7 @@ pub fn validate(input: &str) -> Validation {
 }
 ```
 
-### RS-API-33 [S] Give `#[must_use]` a message when the reason is not obvious
+### RS-API-34 [S] Give `#[must_use]` a message when the reason is not obvious
 
 `#[must_use = "iterators are lazy and do nothing unless consumed"]`.
 
@@ -973,7 +986,7 @@ says *what will silently not happen*, which is the information they are missing.
 
 **Check:** would a competent user understand the consequence from the default message alone?
 
-### RS-API-34 [S] Use `#[track_caller]` on functions that panic on caller error
+### RS-API-35 [S] Use `#[track_caller]` on functions that panic on caller error
 
 **Why:** without it the panic message points at your internals, so the user sees a location inside
 your crate for a mistake in theirs. `Vec::remove` and `slice` indexing both use it, which is why
@@ -983,15 +996,15 @@ their panics are actionable.
 
 ## Standard trait implementations
 
-### RS-API-35 [S] Implement `FromStr` for any type with a canonical textual form
+### RS-API-36 [S] Implement `FromStr` for any type with a canonical textual form
 
 **Why:** it makes `"1.2.3".parse::<Version>()` work and plugs into every argument parser and config
 deserializer without them knowing your type. An inherent `parse` works only for callers who read
-your docs (RS-API-46).
+your docs (RS-API-47).
 
 **Check:** does the type have a textual form used in config, CLI flags, or serialization?
 
-### RS-API-36 [M] Implement `From` for infallible and `TryFrom` for fallible conversions
+### RS-API-37 [M] Implement `From` for infallible and `TryFrom` for fallible conversions
 
 Never a `From` impl that panics.
 
@@ -1014,7 +1027,7 @@ impl From<Millis> for std::time::Duration {
 }
 ```
 
-### RS-API-37 [S] Implement `FromIterator`, `Extend`, and `IntoIterator` on collections
+### RS-API-38 [S] Implement `FromIterator`, `Extend`, and `IntoIterator` on collections
 
 Including `IntoIterator` for `&Collection` and `&mut Collection` where meaningful.
 
@@ -1041,7 +1054,7 @@ impl FromIterator<String> for Tags {
 }
 ```
 
-### RS-API-38 [S] Implement `AsRef` and `Borrow` only when the type genuinely is the target
+### RS-API-39 [S] Implement `AsRef` and `Borrow` only when the type genuinely is the target
 
 **Why:** `AsRef<T>` claims a cheap reference conversion; `Borrow<T>` also requires `Eq`, `Ord`, and
 `Hash` to agree between the two forms, which is what makes `HashMap<String, _>::get(&str)` work. A
@@ -1063,7 +1076,7 @@ impl AsRef<str> for Name {
 }
 ```
 
-### RS-API-39 [M] Do not abuse `Deref` for inheritance
+### RS-API-40 [M] Do not abuse `Deref` for inheritance
 
 **Why:** `Deref` is for smart pointers (`Box`, `Arc`, `MutexGuard`) and transparent newtypes. Using
 it to inherit methods produces confusing autocompletion, method resolution that surprises everyone,
@@ -1072,7 +1085,7 @@ no way to override, and a type whose API changes when the inner type's does.
 **Check:** does the `Deref` target have methods you would not want on the outer type? Then it is
 inheritance, not a smart pointer.
 
-### RS-API-40 [S] Gate `serde` behind an off-by-default feature
+### RS-API-41 [S] Gate `serde` behind an off-by-default feature
 
 And derive with `#[serde(deny_unknown_fields)]` for config types.
 
@@ -1085,7 +1098,7 @@ produce an error or a silent default?
 
 ## Constructors, builders, conversions
 
-### RS-API-41 [S] Let `new()` take only what the type cannot exist without
+### RS-API-42 [S] Let `new()` take only what the type cannot exist without
 
 **Why:** a `new` that takes every option is the builder written badly — positional, unnamable, and
 breaking every time an option is added. If the essential argument count is zero, that is
@@ -1126,7 +1139,7 @@ impl Ratio {
 }
 ```
 
-### RS-API-42 [S] Reach for a builder past three optional parameters
+### RS-API-43 [S] Reach for a builder past three optional parameters
 
 Or when construction is fallible in several distinct ways, or when options will grow.
 
@@ -1141,7 +1154,7 @@ than the exact count.
 // verified
 use std::borrow::Cow;
 
-/// Two-variant enums, so no option is set with a bare `true` (RS-API-23).
+/// Two-variant enums, so no option is set with a bare `true` (RS-API-24).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Case {
     #[default]
@@ -1202,17 +1215,17 @@ pub fn count(haystack: &str, needle: &str, options: SearchOptions) -> usize {
 }
 ```
 
-### RS-API-43 [S] Prefer the `&mut self -> &mut Self` builder shape
+### RS-API-44 [S] Prefer the `&mut self -> &mut Self` builder shape
 
 As used by `SearcherBuilder` and `RegexBuilder`, terminating in `fn build(&self) -> Result<T, E>`.
 
 **Why:** it works with a builder stored in a struct, it can be configured in a loop, and it does not
 require move gymnastics when a setter is called conditionally. The by-value `self -> Self` shape is
-fine for small one-shot builders — mark it `#[must_use]` (RS-API-32).
+fine for small one-shot builders — mark it `#[must_use]` (RS-API-33).
 
 **Check:** can a caller configure the builder inside an `if` without reassigning it?
 
-### RS-API-44 [S] Name builder setters after the property, without `set_`
+### RS-API-45 [S] Name builder setters after the property, without `set_`
 
 `.case_insensitive(true)`, `.max_depth(Some(3))`, `.threads(4)`.
 
@@ -1223,7 +1236,7 @@ line is noise. It also matches the convention every major crate uses, so users g
 **Check:** `rg -n 'fn set_\w+\(&mut self' -g '*.rs'` lists the `set_` methods; each on a builder is
 the finding.
 
-### RS-API-45 [M] Validate in `build()`, not in the setters
+### RS-API-46 [M] Validate in `build()`, not in the setters
 
 **Why:** setters that validate make the result depend on the order options were set — a pattern that
 is invalid until a later setter fixes it becomes an error the caller cannot avoid. Validating once
@@ -1231,7 +1244,7 @@ in `build()` lets callers configure in any order and produces one coherent error
 
 **Check:** does any setter return `Result`, or panic? Move that check to `build()`.
 
-### RS-API-46 [M!] Convert through `From`, `TryFrom` and `FromStr`, not an inherent `from_*`
+### RS-API-47 [M!] Convert through `From`, `TryFrom` and `FromStr`, not an inherent `from_*`
 
 A conversion from one source type is a trait impl, which gives callers `.into()`, `?` and generic
 code for free. Where the impl would be ambiguous — several conversions from one source type, as with
@@ -1247,7 +1260,7 @@ need names. An inherent `Config::from_path(p)` works only for a caller who knows
 **Check:** for each inherent `from_*`, could it be a `From`/`TryFrom` impl without ambiguity? If
 yes, make it one and keep the inherent version only as a thin forwarder.
 
-### RS-API-47 [M] Mark an unchecked constructor `unsafe`, and name it `*_unchecked`
+### RS-API-48 [M] Mark an unchecked constructor `unsafe`, and name it `*_unchecked`
 
 Document its precondition in a `# Safety` section. The suffix names the check that was skipped; the
 keyword makes the caller prove it (RS-UNSAFE-04).
@@ -1261,12 +1274,12 @@ function lack `unsafe`?
 
 ## Future-proofing and evolution
 
-### RS-API-48 [M] Decide `#[non_exhaustive]` for every published enum and struct
+### RS-API-49 [M] Decide `#[non_exhaustive]` for every published enum and struct
 
 Mark a published enum whose variant set may grow. A genuinely closed set —
 `enum Endianness { Big, Little }` — stays exhaustive, because there the attribute only removes the
 caller's exhaustiveness checking; say in the rustdoc that it is closed. A struct needs the attribute
-only where its fields are public, which RS-API-20 allows a published type for little but
+only where its fields are public, which RS-API-21 allows a published type for little but
 `#[repr(C)]`: a struct with private fields can already grow without a major version.
 
 **Why:** it costs downstream users a wildcard arm and a constructor call, and it buys you the
@@ -1295,7 +1308,7 @@ pub enum Endianness {
 }
 ```
 
-### RS-API-49 [M] Classify every change as breaking or not before tagging a release
+### RS-API-50 [M] Classify every change as breaking or not before tagging a release
 
 Breaking: adding a type parameter, changing a concrete return type, narrowing a bound, adding a
 non-defaulted trait method, removing a derive, making a public item private. Not breaking: widening
@@ -1330,7 +1343,7 @@ impl Report {
 }
 ```
 
-### RS-API-50 [M] Deprecate before removing, and say what to use instead
+### RS-API-51 [M] Deprecate before removing, and say what to use instead
 
 `#[deprecated(since = "1.4.0", note = "use `Searcher::search_reader` instead")]`.
 
@@ -1340,7 +1353,7 @@ cycle so upgraders get a warning rather than a compile error.
 
 **Check:** does every `#[deprecated]` carry both `since` and a `note` naming the replacement?
 
-### RS-API-51 [S] Prefer additive evolution; batch the breaking changes
+### RS-API-52 [S] Prefer additive evolution; batch the breaking changes
 
 **Why:** every major version is a migration cost on every user, and not all of them pay it: the
 ecosystem splits across majors whose types do not interoperate. Batching the necessary breaks pays
@@ -1351,7 +1364,7 @@ migration section in the changelog (RS-DOC-26)?
 
 ## Symmetry of the public surface
 
-### RS-API-52 [M] Give every operation its inverse, or document why there is none
+### RS-API-53 [M] Give every operation its inverse, or document why there is none
 
 If a type can be built from bytes it should be convertible back to them; `insert` implies `remove`,
 `push` implies `pop`, `open` implies `close`, `encode` implies `decode`, `subscribe` implies
@@ -1381,7 +1394,7 @@ pub fn decode(bytes: [u8; 8]) -> Key {
 }
 ```
 
-### RS-API-53 [M] Keep argument order identical across sibling functions
+### RS-API-54 [M] Keep argument order identical across sibling functions
 
 If `copy(src, dst)` takes source first, then `move`, `link`, and `render` in the same module do too.
 Fix the order once per crate and never vary it.
@@ -1410,7 +1423,7 @@ pub fn move_len(source: &mut Vec<u8>, target: &mut Vec<u8>) -> usize {
 }
 ```
 
-### RS-API-54 [M] Give sibling error variants a uniform shape
+### RS-API-55 [M] Give sibling error variants a uniform shape
 
 Variants of one error enum carry comparable context: if `Read` records the path, `Write` records it
 too. Do not mix one variant with four fields and one with none unless the difference is real.
@@ -1437,7 +1450,7 @@ pub enum Error {
 }
 ```
 
-### RS-API-55 [M] Choose `Option` or `Result` uniformly for the same kind of absence
+### RS-API-56 [M] Choose `Option` or `Result` uniformly for the same kind of absence
 
 Within one type, "not found" is always `Option` or always `Result` — never `get` returning `Option`
 while `lookup` returns `Result<_, NotFound>` for the same condition.
@@ -1476,7 +1489,7 @@ impl Registry {
 }
 ```
 
-### RS-API-56 [S] Give comparable sibling methods the same receiver
+### RS-API-57 [S] Give comparable sibling methods the same receiver
 
 Methods doing comparable work take comparable receivers: if `len` takes `&self`, `capacity` does
 too; if one builder step takes `self`, they all do.
@@ -1529,5 +1542,4 @@ A tool settles these on its own; the shipped configuration enables each at the l
 
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
-| rustc | `missing_debug_implementations` | deny | a public type without a `Debug` impl |
 | clippy | `float_cmp` | warn | `==` or `!=` between floats, where `total_cmp` or a tolerance says what equal means |

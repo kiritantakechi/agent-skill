@@ -22,6 +22,7 @@ comment says is the documentation chapter's.
 - **Layout**
   - AS-NAME-11 [M] Hold every line to one fixed width
   - AS-NAME-12 [M] Let a trailing comma decide when a list explodes
+  - AS-NAME-13 [M!] Hold a function to a length it can be read within
 
 ---
 
@@ -76,7 +77,7 @@ shows. A value whose type carries its unit needs none in its name.
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
 | python-style | PS-NAME-05 | realises | [M] | |
-| rust-style | RS-NAME-08 | overrides | [S] | The Rust API Guidelines order a name verb, object, qualifier and the standard library leads a limit with its qualifier, so Rust keeps only the unit last |
+| rust-style | RS-NAME-08 | overrides | [S] | Rust names follow the order of the standard library, which the API Guidelines set as verb, object, qualifier (RS-NAME-23): it leads a limit with its qualifier, as in `max_depth`, so RS-NAME-08 keeps only the unit last |
 | zig-style | ZS-NAME-07 | realises | [M] | |
 
 ### AS-NAME-05 [M] Name a predicate so it reads as a question
@@ -126,7 +127,7 @@ variant of an operation extends the base name rather than reordering it.
 |---|---|---|---|---|
 | python-style | PS-NAME-07 | realises | [S] | |
 | rust-style | RS-NAME-23 | realises | [S] | |
-| zig-style | ZS-NAME-12 | realises | [S] | |
+| zig-style | ZS-NAME-21 | realises | [S] | |
 
 ### AS-NAME-09 [M] Name the two halves of a pair symmetrically
 
@@ -138,7 +139,7 @@ fixed a pair, it is copied.
 |---|---|---|---|---|
 | python-style | PS-NAME-12 | realises | [M] | |
 | rust-style | RS-NAME-33 | realises | [M] | |
-| zig-style | ZS-NAME-19 | realises | [M] | |
+| zig-style | ZS-NAME-20 | realises | [M] | |
 
 ### AS-NAME-10 [M] Give one concept one term, project-wide
 
@@ -150,7 +151,7 @@ that touches the concept.
 |---|---|---|---|---|
 | python-style | PS-NAME-13 | realises | [M] | |
 | rust-style | RS-NAME-24 | realises | [M] | |
-| zig-style | ZS-NAME-17 | realises | [M] | |
+| zig-style | ZS-NAME-18 | realises | [M] | |
 
 ## Layout
 
@@ -178,3 +179,16 @@ element. Running the formatter in the build is the build chapter's.
 | python-style | PS-NAME-11 | realises | [M] | |
 | rust-style | | absent | | rustfmt lays a list out by width alone and ignores a trailing comma, so the author holds no such lever |
 | zig-style | ZS-NAME-15 | realises | [M] | |
+
+### AS-NAME-13 [M!] Hold a function to a length it can be read within
+
+A function is held to a bound counted in lines or statements, so that a reader sees all of it at
+once and can tell by looking whether every case is handled. The bound is a number the standard or a
+tool fixes, not a taste. A function over it is split at a seam, the control flow staying in the
+parent and each piece narrow at both ends, or states in a comment why one flat dispatch is longer.
+
+| Standard | Rule | Relation | Tier | Reason |
+|---|---|---|---|---|
+| python-style | `PLR0915` | decided | | Ruff enables it at its default of 50 statements through the `ALL` selection, so the standard states no rule of its own |
+| rust-style | RS-NAME-35 | realises | [M!] | |
+| zig-style | ZS-NAME-17 | realises | [M!] | |

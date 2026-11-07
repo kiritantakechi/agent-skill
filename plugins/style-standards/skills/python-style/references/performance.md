@@ -25,15 +25,16 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-PERF-12 [S] Map a file into memory only to read a large one at random
 - **Allocation and layout**
   - PS-PERF-13 [S] Reuse a buffer rather than allocating per iteration
+  - PS-PERF-14 [S] Keep a column per field when a hot loop reads one field of many records
 - **How to measure**
-  - PS-PERF-14 [M] Time a benchmark with a harness that repeats it, never with one clock reading
+  - PS-PERF-15 [M] Time a benchmark with a harness that repeats it, never with one clock reading
 - **What the build costs**
-  - PS-PERF-15 [M] Benchmark your workload on both builds before choosing free threading
-  - PS-PERF-16 [M] Never run a single-threaded workload on the free-threaded build
-  - PS-PERF-17 [M] Set a memory limit from the free-threaded build's own measurement
-  - PS-PERF-18 [M!] Give shared read-mostly data to threads, not to processes
+  - PS-PERF-16 [M] Benchmark your workload on both builds before choosing free threading
+  - PS-PERF-17 [M] Never run a single-threaded workload on the free-threaded build
+  - PS-PERF-18 [M] Set a memory limit from the free-threaded build's own measurement
+  - PS-PERF-19 [M!] Give shared read-mostly data to threads, not to processes
 - **Discipline**
-  - PS-PERF-19 [M] Never optimise without leaving the measurement behind
+  - PS-PERF-20 [M] Never optimise without leaving the measurement behind
 - Decided by tools
 
 ---
@@ -223,7 +224,7 @@ copies them and `del buf[:n]` then moves the rest.
 
 **Why:** allocation is the cost that dominates tight loops in Python, and it is invisible in the
 source — `chunk = data[i:i+n]` looks free and copies. Reuse trades readability for it, which is why
-this is `[S]`: do it where a profile says the loop matters, and say so as PS-PERF-19 asks.
+this is `[S]`: do it where a profile says the loop matters, and say so as PS-PERF-20 asks.
 
 **Check:** every slice inside a hot loop. `memoryview` avoids the copy where the consumer accepts
 one.
@@ -244,9 +245,54 @@ def records(stream: list[bytes], size: int) -> list[bytes]:
 assert records([b"abc", b"defg", b"h"], 4) == [b"abcd", b"efgh"]
 ```
 
+### PS-PERF-14 [S] Keep a column per field when a hot loop reads one field of many records
+
+A list of objects is a list of pointers, each to a separate heap allocation with its own header and
+every field. A loop over one field follows a pointer per record and drags the other fields through
+the cache for nothing. Keep that field in a column of its own, an `array.array` for numbers, which
+packs the values unboxed and contiguous, or a plain list per field, and index the columns together.
+
+**Why:** the cache fetches a line whatever the loop reads from it, so a loop over one field of
+records fetches the others too, while a column fetches only what the loop uses. A record no longer
+travels as one object, so this is `[S]`: do it where a profile says the loop matters (PS-PERF-20).
+
+**Check:** for each hot loop that reads one attribute of every item in a large list of objects,
+would a column let the loop read one contiguous buffer, and does a measurement of that loop show it?
+
+```python
+# verified — GOOD
+from array import array
+
+
+class Particles:
+    """Particles stored by column: a loop over `x` reads only `x`."""
+
+    def __init__(self) -> None:
+        """Start with no particles."""
+        self.x = array("d")
+        self.alive: list[bool] = []
+
+    def add(self, x: float, *, alive: bool) -> None:
+        """Append one particle to every column."""
+        self.x.append(x)
+        self.alive.append(alive)
+
+    def centre_x(self) -> float | None:
+        """The mean of `x`, or `None` for no particles."""
+        if not self.x:
+            return None
+        return sum(self.x) / len(self.x)
+
+
+particles = Particles()
+particles.add(1.0, alive=True)
+particles.add(3.0, alive=False)
+assert particles.centre_x() == 2.0
+```
+
 ## How to measure
 
-### PS-PERF-14 [M] Time a benchmark with a harness that repeats it, never with one clock reading
+### PS-PERF-15 [M] Time a benchmark with a harness that repeats it, never with one clock reading
 
 `timeit.repeat` or `pyperf`, not two `time.perf_counter()` readings around a single run. Build the
 input outside the timed statement and pass it in through `globals` or `setup`, so the compiler
@@ -271,7 +317,7 @@ assert best >= 0
 
 ## What the build costs
 
-### PS-PERF-15 [M] Benchmark your workload on both builds before choosing free threading
+### PS-PERF-16 [M] Benchmark your workload on both builds before choosing free threading
 
 The free-threaded build's single-threaded overhead is somewhere between 5% and 30% depending on the
 workload, and closer to 30% for allocation-heavy code. Budget from your own measurement, kept as a
@@ -284,7 +330,7 @@ allocation-heavy code pays much more: every reference to another thread's object
 **Check:** benchmark the same workload on both builds before committing to free threading. A
 decision made on the doc's number rather than on yours is the finding.
 
-### PS-PERF-16 [M] Never run a single-threaded workload on the free-threaded build
+### PS-PERF-17 [M] Never run a single-threaded workload on the free-threaded build
 
 The JIT is unavailable there: `--enable-experimental-jit` with `--disable-gil` builds a JIT that is
 never used, and CPython's own configure script warns about it.
@@ -295,7 +341,7 @@ parallelism". For code that will not use more than one core, that is a straightf
 
 **Check:** any project on the free-threaded build whose workload is single-threaded.
 
-### PS-PERF-17 [M] Set a memory limit from the free-threaded build's own measurement
+### PS-PERF-18 [M] Set a memory limit from the free-threaded build's own measurement
 
 The free-threaded build uses more memory: PEP 779's target is 20% more, and the build sits at
 1.19–1.22x.
@@ -306,7 +352,7 @@ that is a leak or tunable away; `gc.collect()` releasing what QSBR holds is the 
 
 **Check:** measure RSS on both builds before setting a memory limit.
 
-### PS-PERF-18 [M!] Give shared read-mostly data to threads, not to processes
+### PS-PERF-19 [M!] Give shared read-mostly data to threads, not to processes
 
 Where workers read a large structure and write only their own results, threads on the free-threaded
 build avoid the copy entirely. Where the payload marshals cheaply and the workers share nothing,
@@ -325,7 +371,7 @@ threads; small and copied favours processes; large and mutable needs a redesign.
 
 ## Discipline
 
-### PS-PERF-19 [M] Never optimise without leaving the measurement behind
+### PS-PERF-20 [M] Never optimise without leaving the measurement behind
 
 A benchmark that re-runs the workload, kept beside the code, and a comment naming the workload and
 that benchmark. Not a date: PS-DOC-12 keeps provenance out of comments, and a benchmark answers the

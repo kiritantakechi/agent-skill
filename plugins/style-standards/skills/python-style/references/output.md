@@ -34,10 +34,11 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-OUT-18 [M] Give a type a `__repr__` that says what it is
   - PS-OUT-19 [S] Give a type a `__str__` only when it has a human form
   - PS-OUT-20 [S] Offer a second rendering through `__format__`'s spec, never a second `__str__`
-  - PS-OUT-21 [M] Never let output formatting depend on the locale
+  - PS-OUT-21 [M] Never show a user a `repr`: no `__str__` that returns it, no `!r` of an object in a message
+  - PS-OUT-22 [M] Never let output formatting depend on the locale
 - **Failure and exit status**
-  - PS-OUT-22 [M] Report an expected failure as one message on stderr, and let a bug keep its traceback
-  - PS-OUT-23 [M] Exit non-zero on failure, with a code of its own for each class a caller must tell apart
+  - PS-OUT-23 [M] Report an expected failure as one message on stderr, and let a bug keep its traceback
+  - PS-OUT-24 [M] Exit non-zero on failure, with a code of its own for each class a caller must tell apart
 - Decided by tools
 
 ---
@@ -442,7 +443,75 @@ assert f"{Span(125)}" == "2m05s"
 assert f"{Span(125):long}" == "2 minutes 5 seconds"
 ```
 
-### PS-OUT-21 [M] Never let output formatting depend on the locale
+### PS-OUT-21 [M] Never show a user a `repr`: no `__str__` that returns it, no `!r` of an object in a message
+
+A message, a table or a prompt a person reads is built from `str` or a format spec of the value, or
+from the value's own fields, and a `__str__` is never `return repr(self)` or an f-string of its
+fields with `!r`. Quoting a string or number the user typed, with `!r`, to show exactly what was
+read is not this: that is the input, not a rendering of a type (PS-OUT-08).
+
+**Why:** `repr` is the programmer's rendering, free to change with the next field and complete
+enough to expose the class and its internals. A user who is shown it reads structure instead of the
+fact, and a test that compares it breaks when a field is added.
+
+**Check:** every `__str__` whose body is `repr(self)` or an f-string of `!r` fields, and every `!r`,
+`repr(...)` or `{obj!r}` in a message for a user whose value is an object rather than a string or
+number.
+
+```python
+# verified — BAD: the user-facing form is the programmer's, and publishes the fields
+from typing import override
+
+
+class Tag:
+    """A label with a name."""
+
+    def __init__(self, name: str) -> None:
+        """Hold `name`."""
+        self.name = name
+
+    @override
+    def __repr__(self) -> str:
+        """Say what this is, for a programmer."""
+        return f"Tag(name={self.name!r})"
+
+    @override
+    def __str__(self) -> str:
+        """Delegate to the programmer's form."""
+        return repr(self)
+
+
+assert str(Tag("urgent")) == "Tag(name='urgent')"
+```
+
+```python
+# verified — GOOD: a user reads the name, a programmer reads the repr
+from typing import override
+
+
+class Label:
+    """A label with a name."""
+
+    def __init__(self, name: str) -> None:
+        """Hold `name`."""
+        self.name = name
+
+    @override
+    def __repr__(self) -> str:
+        """Say what this is, for a programmer."""
+        return f"Label(name={self.name!r})"
+
+    @override
+    def __str__(self) -> str:
+        """Say what a user reads."""
+        return self.name
+
+
+assert str(Label("urgent")) == "urgent"
+assert repr(Label("urgent")) == "Label(name='urgent')"
+```
+
+### PS-OUT-22 [M] Never let output formatting depend on the locale
 
 No `locale.format_string`, no `%c`/`%x` date codes, no thousands separators from the environment.
 
@@ -456,7 +525,7 @@ failure only appears on a machine configured differently from yours. Format expl
 
 ## Failure and exit status
 
-### PS-OUT-22 [M] Report an expected failure as one message on stderr, and let a bug keep its traceback
+### PS-OUT-23 [M] Report an expected failure as one message on stderr, and let a bug keep its traceback
 
 The entry point catches the package's base exception (PS-ERR-01), writes one line to stderr that
 names the problem and then each `__cause__` beneath it, and returns a non-zero status. An exception
@@ -510,7 +579,7 @@ def main(argv: list[str]) -> int:
 assert main(["8080"]) == 0
 ```
 
-### PS-OUT-23 [M] Exit non-zero on failure, with a code of its own for each class a caller must tell apart
+### PS-OUT-24 [M] Exit non-zero on failure, with a code of its own for each class a caller must tell apart
 
 `0` for success, `1` for a failure of the run, `2` for a usage error, which is the code `argparse`
 already uses, and a distinct code for any other class a script must branch on. `main` returns the

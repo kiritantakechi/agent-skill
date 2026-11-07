@@ -50,12 +50,11 @@ wiring. Structure is what keeps a codebase comprehensible past ten thousand line
   - RS-MOD-32 [S] Order a file: docs, imports, public items, private items, tests
   - RS-MOD-33 [S] Keep `impl` blocks in a predictable order
   - RS-MOD-34 [S] Order struct fields for the reader
-  - RS-MOD-35 [S] Keep functions short enough to see whole
 
 - **Orthogonality**
-  - RS-MOD-36 [M] One concept, one mechanism
-  - RS-MOD-37 [M] Absorb a special case into the general path, or give it its own type
-  - RS-MOD-38 [S] Keep sibling modules structurally parallel
+  - RS-MOD-35 [M] One concept, one mechanism
+  - RS-MOD-36 [M] Absorb a special case into the general path, or give it its own type
+  - RS-MOD-37 [S] Keep sibling modules structurally parallel
 
 - Decided by tools
 
@@ -521,20 +520,9 @@ communication decision — use it to tell the reader what the type is about (RS-
 
 **Check:** does the first field identify the value, or is it whatever was added first?
 
-### RS-MOD-35 [S] Keep functions short enough to see whole
-
-When one is not, the fix is almost always extracting a pure helper and leaving a thin caller
-(RS-FUNC-34).
-
-**Why:** there is no line limit worth enforcing, but four levels of indentation or eight local
-mutable bindings means the reader is simulating the function rather than reading it.
-
-**Check:** what is the maximum indentation depth in the function, and how many `let mut` are live at
-once?
-
 ## Orthogonality
 
-### RS-MOD-36 [M] One concept, one mechanism
+### RS-MOD-35 [M] One concept, one mechanism
 
 A crate configures itself one way, reports progress one way, and spawns work one way. Two mechanisms
 for one concept means every future feature must choose, and every reader must learn both.
@@ -568,7 +556,7 @@ impl Config {
 }
 ```
 
-### RS-MOD-37 [M] Absorb a special case into the general path, or give it its own type
+### RS-MOD-36 [M] Absorb a special case into the general path, or give it its own type
 
 A branch that exists for one input is not a feature; it is an unfinished generalization. Either the
 general path handles it — usually by widening a parameter or adding a variant — or the case is
@@ -591,7 +579,7 @@ pub fn join(parts: &[String], separator: &str) -> String {
 }
 ```
 
-### RS-MOD-38 [S] Keep sibling modules structurally parallel
+### RS-MOD-37 [S] Keep sibling modules structurally parallel
 
 Modules at the same level of the tree have the same internal shape: if `parser` has `mod error` and
 a `Config`, then `renderer` does too, or the difference is explained.

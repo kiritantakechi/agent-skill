@@ -54,6 +54,7 @@ chapter, module *boundaries* in the modules chapter, and feature *semantics* in 
 
 - **Formatting**
   - RS-NAME-34 [M] Hold every line to 100 columns, rustfmt's default
+  - RS-NAME-35 [M!] Hold a function to 100 lines
 
 - Decided by tools
 
@@ -870,7 +871,7 @@ A pair uses matched words: `encode`/`decode`, not `encode`/`parse`; `open`/`clos
 exists.
 
 **Why:** matched names are what make a pair recognizable as a pair, which is how a reader knows the
-inverse exists without looking (RS-API-52). Mismatched halves read as unrelated operations, and the
+inverse exists without looking (RS-API-53). Mismatched halves read as unrelated operations, and the
 reader searches for a `decode` that is spelled `parse`.
 
 **Check:** list every operation with an inverse and read the two names together. If they do not
@@ -914,6 +915,22 @@ closes.
 
 **Check:** `rg -n '.{101,}' -g '*.rs'` — a line over 100 characters is the finding, except a URL or
 a string literal that cannot be wrapped, which carries a comment saying so.
+
+### RS-NAME-35 [M!] Hold a function to 100 lines
+
+A function body stays within the 100 lines `clippy::too_many_lines` counts, which `clippy::pedantic`
+turns on (RS-BUILD-23); a blank line and a comment do not count. When one is longer, the fix is
+almost always extracting a pure helper and leaving a thin caller (RS-API-19).
+
+*Relaxed form:* a function over the bound that is one flat `match` with a short arm per case carries
+`#[expect(clippy::too_many_lines, reason = "...")]` saying so.
+
+**Why:** a function that fits in view can be checked for a missed case by looking; past that the
+reader reconstructs it from memory. Four levels of indentation or eight live `let mut` bindings
+means the reader is simulating the function well before the bound.
+
+**Check:** `clippy::too_many_lines` fires on the function. Below the bound, what is the maximum
+indentation depth, and how many `let mut` are live at once?
 
 ## Decided by tools
 

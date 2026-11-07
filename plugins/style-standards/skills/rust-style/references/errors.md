@@ -60,7 +60,7 @@ and an exit code.
   - RS-ERR-30 [M] Make `Drop` infallible and offer an explicit `finish`
 
 - **The shape of a function**
-  - RS-ERR-31 [M] Write a `match`, not an `if`/`else if` chain, on one value
+  - RS-ERR-31 [S] Prefer a `match` to an `if`/`else if` chain on one value
   - RS-ERR-32 [M!] Use an explicit worklist where recursion depth is unbounded
   - RS-ERR-33 [M] State a branch condition as the invariant that holds
 
@@ -707,14 +707,13 @@ pub fn write_all(mut sink: impl Write, lines: &[String]) -> io::Result<()> {
 
 ## The shape of a function
 
-### RS-ERR-31 [M] Write a `match`, not an `if`/`else if` chain, on one value
+### RS-ERR-31 [S] Prefer a `match` to an `if`/`else if` chain on one value
 
-**Why:** `match` gives exhaustiveness checking, so adding an enum variant produces a compile error
-instead of silently falling through to the `else`. It also reads as a table rather than as a
-sequence of tests, which is what it actually is.
+**Why:** a `match` reads as a table rather than as a sequence of tests, which is what the dispatch
+is. Its exhaustiveness checking, so that a new enum variant breaks the build instead of falling
+through to the `else`, is the types chapter's: the `wildcard_enum_match_arm` lint decides it.
 
-**Check:** do two or more `else if` arms test the same subject? If the subject is an enum, this is a
-missing exhaustiveness check, not a style preference.
+**Check:** do two or more `else if` arms test the same subject? If so, write them as one `match`.
 
 ### RS-ERR-32 [M!] Use an explicit worklist where recursion depth is unbounded
 

@@ -45,7 +45,7 @@ nobody looked.
 |---|---|---|---|---|
 | python-style | PS-PERF-01 | realises | [M] | |
 | rust-style | RS-PERF-01 | realises | [M] | |
-| zig-style | ZS-PERF-29 | realises | [M] | |
+| zig-style | ZS-PERF-28 | realises | [M] | |
 
 ### AS-PERF-02 [M] Fix the complexity before the constant
 
@@ -97,9 +97,9 @@ the one that ships.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | | absent | | Python code has no optimisation mode to mistake for the shipped one: the interpreter that runs it is the one measured, and which interpreter build to choose is PS-PERF-15's |
+| python-style | | absent | | Python code has no optimisation mode to mistake for the shipped one: the interpreter that runs it is the one measured, and which interpreter build to choose is PS-PERF-16's |
 | rust-style | RS-PERF-06 | realises | [M] | |
-| zig-style | ZS-PERF-22 | realises | [M] | |
+| zig-style | ZS-PERF-21 | realises | [M] | |
 
 ### AS-PERF-06 [M] Time a benchmark with a harness that repeats it and keeps the optimiser from deleting the work
 
@@ -110,9 +110,9 @@ removed or folded away and the number measures the work and not an empty loop.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-PERF-14 | realises | [M] | |
+| python-style | PS-PERF-15 | realises | [M] | |
 | rust-style | RS-PERF-29 | realises | [M] | |
-| zig-style | ZS-PERF-27 | realises | [M] | |
+| zig-style | ZS-PERF-26 | realises | [M] | |
 
 ### AS-PERF-07 [M] Keep the benchmark of an optimised workload where it can be run again
 
@@ -123,9 +123,9 @@ the benefit.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-PERF-19 | realises | [M] | |
+| python-style | PS-PERF-20 | realises | [M] | |
 | rust-style | RS-PERF-30 | realises | [M] | |
-| zig-style | ZS-PERF-28 | realises | [M] | |
+| zig-style | ZS-PERF-27 | realises | [M] | |
 
 ## Work inside a loop
 
@@ -228,7 +228,7 @@ the loop that reads.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | | absent | | A Python object is a separate heap allocation reached by reference, and the language offers no layout to choose between records and columns |
+| python-style | PS-PERF-14 | realises | [S] | |
 | rust-style | RS-PERF-13 | realises | [S] | |
 | zig-style | ZS-PERF-12 | realises | [S] | |
 

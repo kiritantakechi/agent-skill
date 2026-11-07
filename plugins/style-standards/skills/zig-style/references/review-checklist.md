@@ -47,7 +47,7 @@ invalidate the work of reading the next.
 7. **Concurrency.** Every `Io.async` without a matching `await`, every `Group`/`Select`,
    cancellation paths, and anything holding a resource across a suspension point. (`ZS-CONC`)
 8. **Function bodies.** Now read the code. Compound conditions that want splitting, functions past
-   70 lines, control flow that wants a labeled switch. (ZS-ERR-17, ZS-ERR-28)
+   70 lines, control flow that wants a labeled switch. (ZS-ERR-17, ZS-NAME-17)
 9. **Tests.** Do they use `std.testing.allocator` so leaks fail? Is the error path covered? Is there
    a `checkAllAllocationFailures` for every allocating API? (`ZS-TEST`)
 10. **Build and project.** New dependencies justified? `build.zig.zon` `.paths` correct? Does
@@ -79,12 +79,12 @@ At an `export fn`, a `callconv(.c)` function or an `extern` declaration, ask the
 Run these before reading anything, and report what could not be run rather than implying it passed.
 
 ```sh
-zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .  # ZS-BUILD-22
+zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .  # ZS-BUILD-23
 zig build check                       # semantic check, no binary emitted
 zig build test                        # debug
 zig build test -Doptimize=safe        # ZS-TEST-32: the suite must pass in both
 zig build test-integration
-zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-24)
+zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-25)
 ```
 
 ### Stale-API greps
