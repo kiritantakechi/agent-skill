@@ -193,8 +193,7 @@ name it costs.
 - **Naming: Casing, Words, Formatting, Comments, and Symmetry**
   - PS-NAME-01 [M] Apply PEP 8's casing rules mechanically
   - PS-NAME-05 [M] Put units and qualifiers last, sorted by descending significance
-  - PS-NAME-09 [M] Run `ruff format`; it is not a suggestion
-  - PS-NAME-12 [M] Say why, not what
+  - PS-NAME-11 [M] Say why, not what
 - **Types: Annotations, Generics, Narrowing, and the Checker**
   - PS-TYPE-01 [M] Run `ty` at the pinned version, with the shipped configuration
   - PS-TYPE-04 [M] Never write `from __future__ import annotations`
@@ -236,7 +235,8 @@ name it costs.
   - PS-API-02 [M] Re-export through `__all__`, never by a bare import
   - PS-API-06 [M] Annotate every parameter and every return of a public function
 - **Build: Metadata, Dependencies, Locking, Publishing, and the Free-Threaded Wheel**
-  - PS-BUILD-18 [M] A free-threaded wheel tag is not a declaration of thread safety
+  - PS-BUILD-18 [M] Run `ruff format`; it is not a suggestion
+  - PS-BUILD-19 [M] A free-threaded wheel tag is not a declaration of thread safety
 
 ## 5. Review checklist
 
@@ -269,7 +269,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 
 | File | Rule IDs | Covers |
 |---|---|---|
-| `references/naming.md` | `PS-NAME` (17) | Casing and word choice, module and package names, what `ruff format` settles, comment discipline, and the symmetry of names |
+| `references/naming.md` | `PS-NAME` (16) | Casing and word choice, module and package names, what `ruff format` settles, comment discipline, and the symmetry of names |
 | `references/types.md` | `PS-TYPE` (20) | The mandated checker, lazy annotations and `annotationlib`, modern spellings, narrowing and precision, and what 3.15 adds |
 | `references/data.md` | `PS-DATA` (18) | Choosing between dataclass, enum, protocol and TypedDict, fields and defaults, immutability, validity, and the symmetry of a data type |
 | `references/errors.md` | `PS-ERR` (21) | Designing an exception hierarchy, raising and catching, `except*`, `finally` after PEP 765, and the control-flow shapes that keep a function readable |
@@ -281,7 +281,7 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/modules.md` | `PS-MOD` (6) | Package layout under `src/`, what a module does when imported, `lazy import`, and the shape of the import graph |
 | `references/documentation.md` | `PS-DOC` (12) | Docstring shape and content, choosing a convention and what that choice disables, doctests, and the documents outside the code |
 | `references/testing.md` | `PS-TEST` (27) | pytest 9 configuration and its discovery trap, what a test should assert, parametrisation and subtests, fixtures, and testing concurrency |
-| `references/build.md` | `PS-BUILD` (20) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
+| `references/build.md` | `PS-BUILD` (21) | Metadata against the living specs, dependency groups and pinning, locking, Trusted Publishing, and what the free-threaded build demands of a dependency tree |
 | `references/migration.md` | `PS-MIG` (8) | Every old spelling 3.14 and 3.15 removed, changed, aliased or deprecated, with its status and owning rule; the command the table generates; what to write now for 3.16; and pytest's own ladder |
 | `references/review-checklist.md` | — | The audit protocol: the shared seven-level severity model, review order, the mechanical pass, and the output format |
 

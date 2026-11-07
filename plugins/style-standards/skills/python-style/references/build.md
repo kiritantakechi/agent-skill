@@ -29,10 +29,12 @@ Unless a block shows its own imports, it assumes nothing beyond the standard lib
   - PS-BUILD-15 [M] Publish with Trusted Publishing, never a long-lived token
   - PS-BUILD-16 [S] Emit attestations, and do not rely on anyone verifying them
   - PS-BUILD-17 [M] Cut a new version rather than adding a file to an old release
+- **Continuous integration**
+  - PS-BUILD-18 [M] Run `ruff format`; it is not a suggestion
 - **The free-threaded build**
-  - PS-BUILD-18 [M] A free-threaded wheel tag is not a declaration of thread safety
-  - PS-BUILD-19 [M] Assert in CI that the GIL is actually off
-  - PS-BUILD-20 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
+  - PS-BUILD-19 [M] A free-threaded wheel tag is not a declaration of thread safety
+  - PS-BUILD-20 [M] Assert in CI that the GIL is actually off
+  - PS-BUILD-21 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
 
 ---
 
@@ -250,9 +252,23 @@ release. Back-filling a wheel is therefore no longer possible.
 
 **Check:** any process that expects to add artefacts to a published version.
 
+## Continuous integration
+
+### PS-BUILD-18 [M] Run `ruff format`; it is not a suggestion
+
+In CI, as a gate, with `--check`. Never as a matter of individual discipline.
+
+**Why:** formatting arguments have no right answer, so the only way to stop having them is to remove
+the choice. A formatter that runs sometimes is worse than none, because the diff noise it produces
+lands on whoever touches the file next rather than on whoever skipped it.
+
+**Check:** `ruff format --check` in CI. Its stderr also names an enabled lint rule that conflicts
+with the formatter — but only for some of the documented conflicts, so the rule set must be checked
+against that list directly rather than inferred from a quiet run.
+
 ## The free-threaded build
 
-### PS-BUILD-18 [M] A free-threaded wheel tag is not a declaration of thread safety
+### PS-BUILD-19 [M] A free-threaded wheel tag is not a declaration of thread safety
 
 `cp315t`, or `abi3t` for the free-threaded stable ABI: a package can ship either and still re-enable
 the GIL on import, and several do.
@@ -262,9 +278,9 @@ shipped one that re-enabled the GIL on import, and major numerical libraries cal
 "experimental" or "preliminary" and say explicitly that it does not mean the library is thread-safe.
 
 **Check:** import the whole dependency tree on the free-threaded build and assert the GIL is still
-off — PS-BUILD-19's command. The wheel tag cannot tell you this.
+off — PS-BUILD-20's command. The wheel tag cannot tell you this.
 
-### PS-BUILD-19 [M] Assert in CI that the GIL is actually off
+### PS-BUILD-20 [M] Assert in CI that the GIL is actually off
 
 Two assertions, because a GIL build fails the second for a different reason:
 
@@ -279,7 +295,7 @@ python -c "import sys; assert sys.abi_info.free_threaded"              # the CI 
 python -c "import sys, acmewidget; assert not sys._is_gil_enabled()"  # the dependency tree
 ```
 
-### PS-BUILD-20 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
+### PS-BUILD-21 [M] Never silence the re-enable warning with `PYTHON_GIL=0`
 
 Not in production, not in CI, not in a Dockerfile.
 
