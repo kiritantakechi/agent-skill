@@ -421,7 +421,7 @@ def main(argv: list[str] | None = None) -> int:
     fmt.add_argument("--skill", action="append", help="limit to one skill (repeatable)")
     fmt.set_defaults(func=cmd_fmt)
     revising = (
-        ("revise", "merge, demote or remove rules, then renumber densely", True),
+        ("revise", "merge, demote, remove or move rules, then renumber densely", True),
         ("renumber", "rename chapters, renumber rules densely", False),
         ("demote", "turn rules into lint-table rows, merges or removals", True),
     )
@@ -434,7 +434,7 @@ def main(argv: list[str] | None = None) -> int:
                 "plan",
                 type=Path,
                 nargs="?" if name == "revise" else None,
-                help="JSON: rule ID -> rows, lint, merge or remove",
+                help="JSON: rule ID -> rows, lint, merge, remove or move",
             )
         cmd.add_argument(
             "--chapters",

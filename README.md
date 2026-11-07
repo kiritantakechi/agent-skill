@@ -1,8 +1,8 @@
 # agent-skill
 
-Builds and verifies four engineering standards as agent skills, ships them as the
-`style-standards` Claude Code plugin, and links them into every agent on this machine
-that reads them.
+Builds and verifies four engineering standards as agent skills, holds them to one
+abstract standard of the concepts they share, ships them as the `style-standards`
+Claude Code plugin, and links them into every agent on this machine that reads them.
 
 ```bash
 uv run agent-skill check             # every check
@@ -14,7 +14,7 @@ uv run agent-skill demote NAME PLAN  # revise with a plan: rules to lint rows, m
 uv run agent-skill install           # symlink each skill into every agent present
 uv run agent-skill build             # package each as dist/<name>.skill
 uv run agent-skill list              # each skill's prefix, counts and toolchain
-uv run agent-skill measure           # count, per standard, what the normal form's checks find, and its concepts
+uv run agent-skill measure           # count, per standard, what the normal form's checks find and how it realises the abstract standard
 uv run agent-skill evals             # write the plugin's eval suite from the standards; it runs nothing
 uv run pytest                        # the same checks, as tests
 ```
@@ -28,6 +28,36 @@ uv run pytest                        # the same checks, as tests
 asks of a reader's code, on the interpreter it names. `tests/test_own_standard.py` runs both
 tools over `src/` and `tests/`. The one relaxation, `print` in `cli.py`, is listed there with
 its reason, so adding another is an edit beside its reason rather than a line in passing.
+
+The repository's CI is that standard's workflow too. `.github/workflows/check.yml` takes
+the setup steps of python-style's `assets/ci.yml` at its pins — checkout without persisted
+credentials, uv, the free-threaded interpreter, `uv sync --group dev` — and adds what the
+harness runs. Its `fast` job, on every push to `main` and every pull request, runs
+`check --fast`, the tests not marked `toolchain`, and `ruff check`, `ruff format --check`
+and `ty check` as the asset spells them. It installs Rust with clippy, Zig and Claude Code
+although it compiles nothing: `assets`, `citations`, `pins` and `plugin` still ask `zig`,
+`rustc`, `clippy-driver`, `rustdoc` and `claude` for an answer, and an absent tool
+withholds the pass. Its `full` job, weekly and on dispatch, adds rustfmt and rust-src and
+runs every check, `toolchain` and `mutation` included, and every test; a pull request
+skips it.
+
+`self-application` holds the workflow to the asset of the standard whose profile says
+`harness` (`Profile.harness`, python-style's alone). A step the two share is the asset's
+step exactly: the same action at the same commit with the same `with:`, or the same command.
+Two steps are one step when they name one action, or when a command's words agree up to the
+first that holds a digit, which is where a command names its pin, so moving uv's version in
+one file and not the other fails as `drifted_step`.
+
+Every action, in the workflows the standards ship and in the repository's own, is named by
+a full commit with its release beside it, `owner/action@<40 hexadecimal digits>  # v1.2.3`,
+taken from the newest release at least seven days old: a tag or a branch can be moved after
+review, and the commit a workflow runs moves with it. `pins` reads every `uses:`, a
+commented-out one included, and fails a ref that is not a full commit — a tag, a branch, a
+short hash — as `movable_action`, and a commit with no release beside it as
+`unversioned_action`. `dtolnay/rust-toolchain` publishes no releases, so it is pinned to a
+commit of `master`, which its comment names, and takes the toolchain as its `toolchain:`
+input. The rule is the abstract standard's `build` entry for actions, and each base
+standard realises it with a rule of its own.
 
 ## Renumbering is a command, never an edit
 
@@ -45,14 +75,19 @@ written unless each kept rule still has its title under its new ID. `renumber` i
 keeps one owner: two rules saying one thing are a merge, and a rule in the wrong
 chapter is a move.
 
-A move is a plan entry `{"<rule ID>": {"move": "<chapter>", "after": "<rule ID>"}}`,
-or `"after": "## <section>"` to make the rule the first of that section, which the
-chapter gains if it has none. The rule takes its new chapter's family code and both
-families close up, its contents line and its §4 line go with it, and the rename
-table records every ID that changed. A move into a chapter the standard does not
-ship creates it in the chapter template, with a TODO where its `Scope:` belongs that
-`skeleton` fails until it is written, and adds its row to §6; a chapter a plan
-leaves with nothing in it is deleted, with its row.
+The plan is a JSON file, an object from each rule ID it names to what that rule
+becomes: `{"merge": "<rule ID>"}`, `{"remove": "<reason>"}`, `{"lint": [tool, lint]}`
+for a row a chapter lists already, `{"rows": [[tool, lint, level, forbids]]}` for the
+row the rule becomes, or a move. A move is
+`{"move": "<chapter>", "after": "<rule ID>"}`, or `"after": "## <section>"` to make
+the rule the first of that section, which the chapter gains if it has none. The rule
+takes its new chapter's family code and both families close up, its contents line
+and its §4 line go with it, and the rename table records every ID that changed.
+Moves that name one `after` land in the plan's order, each after the one before it,
+so rules moved together keep the order the plan gives them. A move into a chapter
+the standard does not ship creates it in the chapter template, with a TODO where its
+`Scope:` belongs that `skeleton` fails until it is written, and adds its row to §6;
+a chapter a plan leaves with nothing in it is deleted, with its row.
 
 It refuses, writing nothing, while a citation names a rule the plan takes away —
 whether that citation should name the lint, another rule or nothing is for a person
@@ -84,7 +119,9 @@ else.
 
 ```
 .claude-plugin/marketplace.json  the marketplace this repository is: one plugin
+.github/workflows/check.yml      the repository's CI: python-style's workflow, plus the harness
 abstract/                        the abstract standard: every shared concept, once; installs with nothing
+  principles.md                  the design questions every base standard's §3 opens with
 plugins/style-standards/         the plugin, the only part an install copies
   .claude-plugin/plugin.json     its manifest: name, the one version, license, icon
   skills/<name>/                 content only — symlinked live into each agent
@@ -95,7 +132,7 @@ plugins/style-standards/         the plugin, the only part an install copies
   evals/<standard>/<case>/       the eval suite `agent-skill evals` writes; `results/` is ignored
 src/agent_skill/
   doc/                           the one parser and printer of markdown, and the chapter layer
-  ids.py                         rule ID, tier, location, version, pin, answer: one type each
+  ids.py                         rule ID, tier, relation, location, version, pin, answer: one type each
   model.py                       a skill's files, each parsed once; where an example sits
   abstract.py                    the abstract standard, read as a standard's chapters are
   vocabulary.py                  what a chapter may be called, and its rules' family code
@@ -106,7 +143,10 @@ src/agent_skill/
   lang/                          turning examples back into code a compiler accepts
   fmt.py                         rewriting examples and shared passages as required
   revise.py                      merging, demoting, moving, renumbering, renaming: one map, citations and all
-  profiles/<name>.py             what a check needs to know about one skill
+  workflow.py                    a workflow's steps and the action each names, read without a YAML parser
+  profiles/<name>.py             what a check needs to know about one skill: its domain chapters, its eval selection
+openspec/                        the changes planned here, and the specs they leave behind
+.claude/skills/openspec-*/       OpenSpec's workflow, delivered once, as skills
 ```
 
 ## One reader per concept
@@ -127,7 +167,8 @@ in the text as printed — in a file `layout` passes, the file's own.
 The values the harness reasons about have one type each in `ids`, with one parser
 and one printer: a rule ID (which keeps an inserted letter, as `XS-ERR-12a`
 would), a tier, a location, a version, a pin, an answer a tool did or did not give,
-and the branch a finding came from. A rule-ID pattern that dropped the inserted
+the relation a rule bears to the concept or anchor rule it is held against, and the
+branch a finding came from. A rule-ID pattern that dropped the inserted
 letter is how a renumbering once left a rename row pointing at an ID that no
 longer existed; a version read by hand as three numbers is how an index's
 `1.2.3.post1` compared as older than the pin. `tests/test_one_spelling.py` reads
@@ -158,14 +199,30 @@ by tools` table a tool settles it by, and `absent` says why the domain has no
 instance; every relation but `realises` gives its reason. One function holds both
 maps to that law (`ids.breaches`). The Tier cell is the rule's, rendered by `fmt`. A
 delta has no row: it realises a concept through its anchor's, unless its departures
-table departs from the anchor's realising rule. Two rules that realise one entry
-are the pair `mirror` used to declare by title; a rule realises one entry, and a
-standard has one rule for an entry.
+table departs from the anchor's realising rule. Rules of two standards say one thing
+exactly when they realise one entry, and a row names its rule by ID, which `revise`
+rewrites with every other citation; a rule realises one entry, and a standard has
+one rule for an entry.
+
+Every concept two base standards state is an entry. Each base standard realises it,
+departs from it with a reason, or says why its domain has none — a Python integer
+never overflows, a Zig error carries no cause to chain. A tier two standards
+disagree on ends as a tier change or a reasoned departure, and a standard silent on
+a concept its domain has gains the rule. A concept has one address: its realising
+rule stands in the chapter whose word holds the entry, under that chapter's family
+code, so a reader who knows where one standard keeps it finds it in the next. A
+chapter whose word names no abstract chapter is a domain chapter, declared in its
+profile (`Profile.domain`) with the feature of the domain that owns it —
+rust-style's `ownership`, the borrow checker; zig-style's `comptime`, compile-time
+execution — and it realises nothing. An abstract chapter may still hold rules that
+realise nothing, a domain's own rules on a shared concern, as python-style's
+free-threading rules stand in `concurrency.md`.
 
 No skill cites the abstract standard: a skill is installed alone, and its reader has
-none to look in. It is the harness's and the authors': `concepts` holds it, `fmt`
-prints it, `revise` rewrites its rows with every other citation, and `measure`
-counts each standard's realisations of it. Rules of two standards whose titles
+none to look in. It is the harness's and the authors': `concepts` holds its form,
+its map to each standard, each standard's chapters and §3 to it, `fmt` prints it,
+`revise` rewrites its rows with every other citation, and `measure` counts each
+standard's realisations of it. Rules of two standards whose titles
 overlap and that no entry holds are noted, for every pair of base standards and a
 delta with its anchor, so a concept a sweep missed is still seen.
 
@@ -195,9 +252,10 @@ All four standards share it, and checks hold them to it rather than imitation:
 - §3 opens with the abstract standard's design questions, in order and word for
   word, each answered in the standard's own terms; a standard's own questions
   follow them. A delta's §3 is its departures table (`concepts`).
-- A chapter is an abstract chapter's, named by a file under `abstract/`, or a
-  domain chapter its profile declares with the feature of the domain that owns it
-  — rust-style's `ownership`, the borrow checker (`concepts`).
+- A chapter is an abstract chapter's, named by a file under `abstract/`, and holds
+  the standard's realisations of that file's entries; or it is a domain chapter its
+  profile declares with the feature of the domain that owns it — rust-style's
+  `ownership`, the borrow checker — and realises none (`concepts`).
 
 Below the sections and chapters, every statement has one normal form, which `fmt`
 prints where a formatter can and a check holds where only a person can:
@@ -299,7 +357,10 @@ both would load every skill twice.
 The version is 2.0.0 because an ID cited under 1.0.0 may now name another rule,
 or none. `revise` renumbered the rule IDs of every standard, and removed the
 `CORE` family: each `*-CORE-NN` is now a rule of the chapter that owns its
-subject. Each standard's `references/renames.md` maps every ID that changed to
+subject. Then the sweep that wrote the abstract standard moved each realising rule
+into its concept's chapter, under that chapter's family code, merged two rules of
+one standard that said one thing, and removed a delta rule that restated its
+anchor's. Each standard's `references/renames.md` maps every ID that changed to
 the rule, lint row or removal it became.
 
 ## The evals
@@ -316,9 +377,11 @@ Each case is tagged with its standard and its kind, so `--tag python-style` or `
 negative` runs a part of it. Every grader is a regex over the reply or a count of a tool's
 calls, so no case calls a judge; each review and migration case also reports whether its
 skill fired, which a run comparing the plugin with no plugin leaves out of the score, since
-without the plugin it cannot pass. The `evals` check fails
-on a file that is not as the standards generate it, on one they do not generate, and on a
-selection naming what no case can be built from.
+without the plugin it cannot pass. `agent-skill evals` writes only the files that differ and
+removes any case the standards do not generate, leaving a run's `results/` alone. The `evals`
+check fails on a file that is not as the standards generate it, on one they do not generate,
+and on a selection naming what no case can be built from; a refused selection leaves the
+suite undefined, so nothing is compared, and the run says so rather than passing.
 
 No check and no test runs the suite: each run is a model session on the owner's credential.
 The owner runs it with
@@ -365,9 +428,16 @@ package of the skill would.
 
 Drop it in `plugins/style-standards/skills/` and it gets every generic check:
 frontmatter, rule anatomy, contents agreement, cross-references, layout, marker
-discipline, prose, assets. It needs a profile in `src/agent_skill/profiles/` — a
-`Profile` record, named in `PROFILES` — only to have *its own* rules applied to its
-own examples, or to be compiled. A profile's `toolchain` is that toolchain's settings
+discipline, prose, assets. Unless its profile names an anchor (`Profile.delta`), it is
+a base standard, and a base standard answers the abstract standard: every entry owes
+it a row, its §3 opens with the design questions, and a chapter whose word names no
+file under `abstract/` is declared in its profile's `domain` or fails. A delta owes no
+row, realising each concept through its anchor. A profile lives in
+`src/agent_skill/profiles/` — a `Profile` record, named in `PROFILES` — and a skill
+needs one to declare its domain chapters or its anchor, to have *its own* rules
+applied to its own examples, to be compiled, or to have cases in the eval suite,
+which holds a standard's only when its profile selects them (`Profile.evals`). A
+profile's `toolchain` is that toolchain's settings
 for the skill, and names the toolchain by its type. For Rust it is the `RustCrate` the
 examples are compiled as — the dependency line and the lint table are per skill, not
 per language: `bevy-style` needs Bevy on the dependency line and two lint entries
@@ -376,6 +446,16 @@ unverifiable. A toolchain that needs no manifest carries none: `python-style`'s 
 `PythonSnippet`, which declares instead the interpreter, the `ty` rule levels its
 examples are checked under, and the rules of the shipped `ruff.toml` a snippet is
 excused from, each with its reason.
+
+## Planning a change
+
+A change is planned with OpenSpec 1.16.0 in `openspec/changes/<name>/` — its proposal,
+design, the specs it changes and its tasks — and archived into `openspec/specs/` when it
+is done. OpenSpec's workflow reaches Claude Code once, as the skills `openspec update`
+writes under `.claude/skills/openspec-*/` once `openspec config set delivery skills` has
+made skills its one delivery: delivered as commands too, the same instructions would sit
+in `.claude/commands/opsx/` as a second copy to drift. `tests/test_openspec.py` holds
+every one of those skills to that release, and the commands directory absent.
 
 ## The checks
 
@@ -394,13 +474,13 @@ the time. The note after each is the defect it would have caught.
 | `prose` | no build provenance, one marker legend, unbroken blockquotes, no positional cross-references, no statement dated by its writing | Sixty-odd lines said *we checked X* where the standard should say *X*, and twelve chapters each restated the legend in their own wording — two of them describing a convention the library had stopped using. |
 | `assets` | the files a reader copies verbatim: `zig fmt` and `ast-check`, a TOML parse, workflow keys and indentation, and that nothing is shipped unreferenced | Six assets shipped and nothing validated any of them. |
 | `lints` | the shipped lint table and `clippy.toml` equal the ones the examples are verified against | The asset set `indexing_slicing = "warn"` where a rule requires deny, and the verified crate quietly omitted a third lint while its comment named two. |
-| `concepts` | the abstract standard under `abstract/` — each chapter in the template and as `fmt` prints it, entries dense, in their chapter's family, a statement then one realisation table, no construct of one language — and its map: one row per base standard and none for a delta, each naming a rule (or a `Decided by tools` row) of its standard in the entry's chapter, a relation its tiers obey with its reason, a Tier cell as `fmt` renders it, no rule the row of two entries; every chapter an abstract chapter's or a domain chapter its profile declares, and a domain chapter realising nothing; §3 opening with the design questions; no skill citing an abstract ID; and, as notes, rules of two standards that look alike and that no entry holds | `mirror` held twelve pairs, keyed by title against rust-style alone: python-style and zig-style were never compared, and a concept three standards state was at best three pairs, none saying which was wrong. |
+| `concepts` | the abstract standard under `abstract/` — each chapter a file the vocabulary names, in the template and as `fmt` prints it, entries dense, in their chapter's family, a statement then one realisation table, no construct of one language — and its map: one row per base standard, none for a delta or a standard not here, each naming a rule (or a `Decided by tools` row) of its standard in the entry's chapter, a relation its tiers obey with its reason, a Tier cell as `fmt` renders it, no rule the row of two entries and no two rules of one standard realising one; every chapter an abstract chapter's or a domain chapter its profile declares, a declared one shipped, no abstract chapter's word, and realising nothing; §3 opening with the design questions; no skill citing an abstract ID; and, as notes, rules of two standards, or of a delta and its anchor, that look alike and that no entry holds | Nothing compared python-style with zig-style: a concept all three base standards stated had no one statement to say which of them was wrong, the same concern stood in different chapters — rust-style's stdout and exit-status rules in `cli.md`, the others' in `output.md` — and §3's design questions were copied by hand, the third of zig-style's differing with no record of why. |
 | `crossref` | ids cited into another skill, the departures table a delta must state against the anchor its profile names — each row's relation, held to the tier law the abstract standard's rows are with its reason, and its two tiers against the rules, each departing rule's opening against the rows, and `[M!]` the anchor's — and the anchor's own patterns run over the delta's examples | `bevy-style` is a delta on `rust-style` and cites it by id, which nothing was checking; its "where this standard departs" table quoted eight `rust-style` titles that nothing compared against the originals; and two `rust-style` `[M]` rules were firing on nineteen and thirty-five lines of its examples with nothing saying so. |
 | `self-application` | every `rg` command a `**Check:**` ships, run over every `// verified` block; and each step the repository's workflow shares with python-style's `ci.yml`, held to the asset's action, commit, `with:` and command | A standard whose examples fail its own patterns is not a standard, and nobody was running them. The repository's CI is that standard's workflow plus the harness, and a copy that drifts from its asset is the same defect one file over. |
 | `toolchain` | every `// verified` block compiles, with every declaration analysed, and the tests it ships run; every `gone` migration row is absent from the pinned release | 210 zig blocks claimed `// verified` and nothing compiled them; only 61 actually did. |
 | `citations` | a rule's cited check is one the shipped configuration actually enables; every lint the configuration sets one by one has exactly one row, a row of a default lint says why it is listed, no Check is only a lint, and each lint the examples are excused from says why | A standard that cites its checks by tool code can cite one the config disables, one the tool withdrew, or one that never existed — `ASYNC101` was invented, four more were preview and therefore unreachable, and every one of them read as enforced. |
 | `plugin` | the plugin and marketplace manifests against the layout and the skills: the plugin's name, one version, a license, the marketplace entry's source; `claude plugin validate` over both, strict on the plugin | The skills became a Claude Code plugin, and the two JSON files that decide what a reader installs were read by nothing. |
-| `pins` | a pinned version that has been superseded — the Python tools and interpreter, the Rust toolchain, the Bevy crate — a pin that follows the local toolchain against what runs here, an asset installing a build the harness did not verify against, and an action a shipped or repository workflow names by a ref that can move, or by a commit with no release beside it | The plan said "on 1 September, move the interpreter pin" — a note nobody reads, in a place nobody looks, about a date nobody remembers. |
+| `pins` | a pinned version that has been superseded — the Python tools and interpreter, the Rust toolchain, the Bevy crate — a pin that follows the local toolchain against what runs here, an asset installing a build the harness did not verify against, and an action a shipped or repository workflow names by a ref that can move (`movable_action`) or by a commit with no release beside it (`unversioned_action`) | The plan said "on 1 September, move the interpreter pin" — a note nobody reads, in a place nobody looks, about a date nobody remembers. |
 | `dialect` | a pattern carrying syntax from a grammar it will not be read in | `\|` is alternation to `grep` and a literal pipe to `rg`. Twenty patterns carried it through the migration, and each one matched nothing while reporting clean. The same defect from the reader's side: two commands wrapped at the column limit put a raw newline in the pattern, which the harness accepts under `--multiline` and `rg` rejects for anyone running the command as printed. That half is `layout`'s now: the tree reads a code span as one word, so a wrapped command is a line not in canonical form, and `fmt` joins it. |
 | `sensitivity` | the `rg` patterns of each rule its profile gives fixtures, every one shown to hit one of them and every fixture hit by one; each other rule that ships a pattern is listed in the profile as unproven, and an entry that stopped being true fails | `self-application` proves a pattern does not fire on compliant code. Nothing proved one fires at all, and a pattern that matches nothing passes that test perfectly. It then asserted `any`: a migration rule shipped four patterns over four disjoint families and one fixture, so three were counted as proven by a snippet none of them matched. And it skipped a rule with no fixture without a word, so this row claimed every pattern while most had none. |
 | `evals` | the plugin's eval suite against what the standards and each profile's selection generate: a file that differs or that they do not generate, and a selection naming a rule with no verified BAD example or one whose example cites a rule ID, or an old spelling that is no `gone` row of the target, is a shape, or is replaced by no code span | A suite written once by hand goes on testing a rule as it once read, and one whose grader seeks text the prompt holds passes without the model doing anything. Nothing measured whether a skill fires on the work it is for, cites the rule it applies, or knows what replaced a spelling its target removed. |

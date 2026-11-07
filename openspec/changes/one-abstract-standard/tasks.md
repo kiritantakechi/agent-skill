@@ -573,7 +573,27 @@ time of deletion (both tiers `[M]` unless marked):
   look-alike notes went from 14 (1, 7, 9, 11) to 0; python-style's domain chapters from 2 to 1
   (`types` became abstract in 3.9); the rules in abstract chapters realising nothing from 37, 194,
   378, 251 to 33, 119, 248, 158; and `types` joined the twelve abstract chapters.
-- [ ] 6.2 Bring the README in line with everything above; verify `check --only documented`
+- [x] 6.2 Bring the README in line with everything above; verify `check --only documented`.
+  Result: the README now says that it holds the standards to one abstract standard; gives the
+  repository's CI (`fast` and `full`, what each runs and why the fast job installs the toolchains),
+  `self-application`'s `drifted_step` against the asset of the standard whose profile says
+  `harness`, and pinned actions (`pins.movable_action`, `pins.unversioned_action`,
+  `dtolnay/rust-toolchain` on a `master` commit with `toolchain:`); the plan file of `revise`, every
+  kind of entry, and that moves naming one `after` keep the plan's order; the sweep's outcome, a
+  concept's one address and domain chapters (`Profile.domain`) in "One abstract standard"; what a
+  base standard owes when a skill is added (a row of every entry, §3's questions, its `domain`), and
+  that the suite holds a standard's cases only when its profile selects them (`Profile.evals`); what
+  `agent-skill evals` writes and removes, and that a refused selection compares nothing and says
+  so; the sweep's moves in the 2.0.0 paragraph; OpenSpec 1.16.0, delivered as skills only, in a new
+  "Planning a change" section; `.github/workflows/check.yml`, `principles.md`, `workflow.py`,
+  `openspec/` and `.claude/skills/openspec-*/` in the layout; the relation among `ids`' types; the
+  `concepts` row (every branch in brief, `domain_missing` and `domain_abstract` added) and its
+  reason, the `pins` row's two branches, and `measure`'s line in the command list. Nothing in it
+  describes `Mirror` or a pair declared by title any more. The CLI's help for `revise` said "merge,
+  demote or remove" and its plan argument "rows, lint, merge or remove", so both name the move now.
+  Verified: `check --only documented` and `check --fast` pass, as do ruff, ruff format, ty and the
+  144 tests of the README, the CLI, `revise` and its laws, `crossref`'s README line, OpenSpec
+  and one spelling.
 
 ## Workflow follow-up
 
