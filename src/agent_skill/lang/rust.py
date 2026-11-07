@@ -173,17 +173,44 @@ class RustCrate:
         return self.name.replace("-", "_")
 
     @property
+    def target(self) -> Path:
+        """Its build directory, which outlives the extraction."""
+        return CACHE / self.name
+
+    @property
     def env(self) -> dict[str, str]:
-        """A build directory that outlives the extraction.
+        """A build directory that outlives the extraction, and no more.
 
         Extraction goes to a fresh temporary directory every run, so
-        without this every check rebuilds the dependency tree from
-        scratch — 47 seconds for Bevy, five times over (build, clippy,
-        test, doc, and again for the mutation pass). Keyed by crate name
-        so two skills with different dependency sets do not evict each
-        other.
+        without a shared directory every check rebuilds the dependency
+        tree from scratch — 47 seconds for Bevy, five times over (build,
+        clippy, test, doc, and again for the mutation pass). Keyed by
+        crate name so two skills with different dependency sets do not
+        evict each other.
+
+        Incremental compilation is off: it keeps a session per build of
+        this crate, and each run builds it afresh at a new path, so the
+        sessions were never read again — 6.6 GB of them for Bevy. The
+        dependencies, which the registry holds, are never incremental.
         """
-        return {"CARGO_TARGET_DIR": str(CACHE / self.name)}
+        return {"CARGO_TARGET_DIR": str(self.target), "CARGO_INCREMENTAL": "0"}
+
+    def superseded(self) -> Iterator[Path]:
+        """What earlier builds of the crate left in its build directory.
+
+        Each run extracts the crate to a new temporary directory, so
+        Cargo hashes it afresh and keeps every earlier build beside the
+        new one: 556 test binaries and libraries of `bevy-style-verify`
+        filled the disk. Its own files only — the dependencies' are the
+        build worth keeping, and the next run reuses them as they are.
+        """
+        ident, name = self.ident, self.name
+        for profile in (p for p in self.target.iterdir() if p.is_dir()):
+            yield from profile.glob(f"deps/{ident}-*")
+            yield from profile.glob(f"deps/lib{ident}-*")
+            yield from profile.glob(f"lib{ident}.*")
+            yield from profile.glob(f".fingerprint/{name}-*")
+            yield from profile.glob(f"incremental/{ident}-*")
 
     def clippy_toml(self) -> str:
         """The `clippy.toml` written beside the manifest."""
@@ -387,6 +414,7 @@ class Rust:
         markdown had to carry the wrap.
         """
         crate = _crate(skill)
+        _tidy(crate)
         out = out.resolve()
         src = out / "src"
         # A renamed chapter otherwise leaves a module lib.rs never
@@ -614,6 +642,21 @@ ATTRIBUTE = re.compile(r"#\[[^\[\]]+\]")
 #: The edition the examples are written in, and the one before it.
 EDITION = "2024"
 PREVIOUS_EDITION = "2021"
+
+
+def _tidy(crate: RustCrate) -> None:
+    """Remove what earlier builds of `crate` left, before this builds.
+
+    So the shared build directory holds the dependencies and at most
+    one build of the crate itself, however many runs came before.
+    """
+    if not crate.target.is_dir():
+        return
+    for path in list(crate.superseded()):
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            path.unlink(missing_ok=True)
 
 
 #: An identifier: a name an edition can reserve, as 2024 did `gen`.

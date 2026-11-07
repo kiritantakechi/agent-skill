@@ -11,10 +11,17 @@ from pathlib import Path
 
 import pytest
 
-from agent_skill.lang import Extraction, deletable, extracted, language, toolchain_for
+from agent_skill.lang import (
+    Extraction,
+    deletable,
+    extracted,
+    language,
+    rust,
+    toolchain_for,
+)
 from agent_skill.lang.python import PYTHON_STYLE
 from agent_skill.lang.rust import RUST_STYLE, rebase
-from agent_skill.lang.zig import SENTINEL, ZIG_STYLE
+from agent_skill.lang.zig import SENTINEL, ZIG_STYLE, throwaway
 from agent_skill.layout import SKILLS
 from agent_skill.model import discover
 from structure_fixture import DEMO, build, reparse
@@ -162,3 +169,48 @@ test "f" {
 }
 """
     assert deleted("zig", body) == ["v.* += 1;"]
+
+
+def test_rust_leaves_its_build_directory_at_the_dependencies(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Each run's own build of the crate goes before the next builds.
+
+    Extraction is to a new directory every run, so Cargo hashes the
+    crate afresh and kept every earlier build beside the new one; the
+    dependencies' files are the build worth keeping.
+    """
+    monkeypatch.setattr(rust, "CACHE", tmp_path)
+    debug = tmp_path / RUST_STYLE.name / "debug"
+    own = [
+        "deps/rust_style_verify-0123456789abcdef",
+        "deps/librust_style_verify-0123456789abcdef.rlib",
+        "librust_style_verify.rlib",
+        ".fingerprint/rust-style-verify-0123456789abcdef/lib",
+        "incremental/rust_style_verify-0123456789abcdef/s-1/x.o",
+    ]
+    kept = [
+        "deps/libthiserror-0123456789abcdef.rlib",
+        ".fingerprint/thiserror-0123456789abcdef/lib",
+        "build/thiserror-0123456789abcdef/out",
+    ]
+    for rel in (*own, *kept):
+        (debug / rel).parent.mkdir(parents=True, exist_ok=True)
+        (debug / rel).write_text("")
+    rust._tidy(RUST_STYLE)
+    assert [rel for rel in own if (debug / rel).exists()] == []
+    assert [rel for rel in kept if not (debug / rel).exists()] == []
+    assert RUST_STYLE.env["CARGO_INCREMENTAL"] == "0"
+
+
+def test_zig_keeps_its_caches_in_the_run_s_directory(tmp_path: Path) -> None:
+    """Both caches under the directory removed after the run, hidden.
+
+    Hidden, so `zig fmt` over the extraction does not walk into them.
+    """
+    env = throwaway(tmp_path)
+    assert sorted(env) == ["ZIG_GLOBAL_CACHE_DIR", "ZIG_LOCAL_CACHE_DIR"]
+    for value in env.values():
+        path = Path(value)
+        assert path.parent == tmp_path
+        assert path.name.startswith(".")

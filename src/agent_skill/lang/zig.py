@@ -246,6 +246,7 @@ class Zig:
                 ),
                 ex.root,
                 180,
+                throwaway(ex.root),
                 unit=unit,
                 diagnostics=True,
             )
@@ -275,6 +276,7 @@ class Zig:
             ("zig", "test", str(unit.path), *libc(unit.block.body)),
             ex.root,
             180,
+            throwaway(ex.root),
             unit=unit,
             said=_failed_test,
         )
@@ -354,8 +356,9 @@ class Zig:
         """Compile a reference to the name: it builds while it is there.
 
         `std.mem.copy` becomes `_ = std.mem.copy;` in a `comptime`
-        block, analysed and not linked. Only a path from `std` is looked
-        up: a builtin, a keyword or a call is not a declaration.
+        block, analysed and not linked, with its cache under `out`
+        (`throwaway`). Only a path from `std` is looked up: a builtin, a
+        keyword or a call is not a declaration.
         """
         name = spelling.removesuffix("()")
         if not STD_PATH.fullmatch(name):
@@ -366,7 +369,7 @@ class Zig:
             f'const std = @import("std");\n\ncomptime {{\n    _ = {name};\n}}\n'
         )
         cmd = ("zig", "build-obj", "-fno-emit-bin", path.name)
-        return Step("probe", cmd, out, 120)
+        return Step("probe", cmd, out, 120, throwaway(out))
 
     def excused(self, skill: Skill) -> Mapping[str, str]:  # noqa: ARG002 — no example is excused
         """Nothing: each example builds under what the skill ships."""
@@ -450,12 +453,38 @@ def zig_rows(
         )
 
 
+#: Where a throwaway compile keeps its caches, under the directory it
+#: runs in: a probe's, a block's or a mutant's build is never asked for
+#: again, and in the shared cache each was kept for good — 5.8 GB of
+#: them filled the disk. Zig reads both from the environment; each is
+#: hidden, so `zig fmt` over the directory does not walk into it.
+_CACHES = {
+    "ZIG_GLOBAL_CACHE_DIR": ".zig-global-cache",
+    "ZIG_LOCAL_CACHE_DIR": ".zig-cache",
+}
+
+
+def throwaway(work: Path) -> dict[str, str]:
+    """Zig's caches under `work`, gone when the directory is.
+
+    Every caller runs in a temporary directory that is removed when the
+    run ends: the extraction, the probes' directory, a citation probe's.
+    Within it the caches are shared, so the standard library and the
+    test runner are built once a run, not once a block.
+    """
+    return {var: str(work / name) for var, name in _CACHES.items()}
+
+
 def compile_errors(source: str) -> list[str] | None:
     """The `error:` lines zig prints for `source`; None if it builds."""
     with tempfile.TemporaryDirectory() as work:
         probe = Path(work) / "probe.zig"
         probe.write_text(source.rstrip("\n") + "\n" + force_analysis(source))
-        r = run(["zig", "build-obj", probe.name, "-fno-emit-bin"], cwd=Path(work))
+        r = run(
+            ["zig", "build-obj", probe.name, "-fno-emit-bin"],
+            cwd=Path(work),
+            env=throwaway(Path(work)),
+        )
     if r.ok:
         return None
     return [line for line in r.err.splitlines() if "error:" in line]

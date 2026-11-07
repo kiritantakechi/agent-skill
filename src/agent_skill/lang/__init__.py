@@ -403,12 +403,13 @@ class Toolchain(Protocol):
         """What looks `spelling` up in the release `skill` is pinned to.
 
         A step that exits 0 when the release still provides it and 1
-        when it does not, any file it needs written under `out`; None
-        for a spelling this toolchain cannot look up. `since` is the
-        row's Since: an edition, where the language has them, is what
-        made the change, and so what the spelling is compiled under. A
-        migration row marked `gone` is verified by it
-        (normalize-the-standards, decision 9), and the driver runs it.
+        when it does not, any file it needs written under `out` and any
+        cache it fills kept there; None for a spelling this toolchain
+        cannot look up. `since` is the row's Since: an edition, where
+        the language has them, is what made the change, and so what
+        the spelling is compiled under. A migration row marked `gone` is
+        verified by it (normalize-the-standards, decision 9), and the
+        driver runs it.
         """
         ...
 
