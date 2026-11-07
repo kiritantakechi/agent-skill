@@ -492,7 +492,7 @@ rather than the exhaustive sweep, use `FailingAllocator` directly (ZS-TEST-13). 
 allocations, never a resize, so a list that grows in place is swept only at its first allocation:
 the `errdefer` it tests is the one between two separate allocations.
 
-Under static allocation (ZS-MEM-18) the test is moot, because nothing allocates after startup: there
+Under static allocation (ZS-MEM-16) the test is moot, because nothing allocates after startup: there
 the bound is a fixed backing buffer plus `AssumeCapacity` methods, OOM is impossible by
 construction, and the corresponding test is a capacity assertion.
 

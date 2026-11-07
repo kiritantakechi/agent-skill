@@ -9,7 +9,7 @@ freestanding and WebAssembly — including the places where the rest of this sta
 apply** because there is no operating system to apply it to.
 
 Layout and string rules for the types themselves live in the data chapter (ZS-DATA-19, ZS-DATA-20,
-ZS-DATA-29), with their layout assertions in ZS-ASSERT-18 and alignment in ZS-MEM-24; allocator
+ZS-DATA-29), with their layout assertions in ZS-ASSERT-18 and alignment in ZS-MEM-22; allocator
 selection and ownership vocabulary live in the memory chapter; wiring `link_libc` and C sources into
 a build lives in the build chapter (ZS-BUILD-05). This chapter cites those rather than repeating
 them, and adds only what is specific to the boundary, including translating C headers in the build
@@ -707,7 +707,7 @@ this pattern and freestanding are mutually exclusive by construction. The librar
 strictly safer, because it survives a caller who links a different libc.
 
 A release function such as the example's `zs_release` takes the `Handle` back rather than a bare
-pointer, because ZS-MEM-14 requires freeing exactly the slice that was allocated — C must hand the
+pointer, because ZS-MEM-12 requires freeing exactly the slice that was allocated — C must hand the
 length back with the pointer.
 
 **Why:** `free()` is not a generic deallocator; it is libc's, and it requires a pointer that libc's
@@ -831,7 +831,7 @@ take `std.process.Init` in `main` and use the `gpa`, `arena`, and `io` it hands 
 `*-freestanding` there is no such thing, and those two rules do not apply. The freestanding entry
 point is one or more `export fn` symbols: `_start` (or whatever the reset vector names) for bare
 metal, and the exported API surface for a WebAssembly module. Allocation comes from a
-`FixedBufferAllocator` over a static array (ZS-MEM-21), or from `std.heap.wasm_allocator` on wasm.
+`FixedBufferAllocator` over a static array (ZS-MEM-19), or from `std.heap.wasm_allocator` on wasm.
 There is also no usable `Io`: `Io.Threaded`, the only backend std ships that would apply, does not
 compile for either freestanding target, so no `Io.Dir`, `Io.File`, `io.async`, or `io.sleep`.
 

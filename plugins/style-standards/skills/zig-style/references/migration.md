@@ -39,7 +39,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 |---|---|---|---|---|
 | `usingnamespace` | an explicit re-export, one `pub const` per name: `pub const encode = helpers.encode;`; a declaration once mixed in conditionally is `pub const x = if (cond) a else b;` | gone | 0.15 | ZS-BUILD-15 |
 | `@Type` | `@Int`, `@Tuple`, `@Struct`, `@Union`, `@Enum`, `@Pointer`, `@Fn` or `@EnumLiteral`; a float, array, optional or error set has its own syntax | gone | 0.16 | ZS-COMPTIME-14 |
-| `@setCold` | `@branchHint(.cold)`, the branch's first statement | gone | 0.14 | ZS-ERR-27 |
+| `@setCold` | `@branchHint(.cold)`, the branch's first statement | gone | 0.14 | ZS-ERR-29 |
 | `@fence` | nothing: strengthen the orderings of the atomic operations it stood between | gone | 0.14 | ZS-MIG-01 |
 | `@setAlignStack` | `callconv(.withStackAlign(.c, n))`, evaluated at `comptime` | gone | 0.14 | ZS-INTEROP-04 |
 | `callconv(.C)` | `callconv(.c)`; `.Naked` is `.naked`, and an x86 `.Stdcall` is `.winapi` or `.{ .x86_stdcall = .{} }` | gone | 0.15 | ZS-INTEROP-04 |
@@ -53,7 +53,7 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `@enumFromInt` | `@fromBackingInt`, whose operand already has the backing type, so `@intCast` a wider one first; `zig fmt` rewrites it, wrapping the operand in an `@intCast` that a value of the backing type does not need | alias | 0.17 | ZS-DATA-09 |
 | `**` | `@splat(v)` with a result type: `const a: [n]T = @splat(v);` | gone | 0.17 | ZS-DATA-24 |
 | `void{}` | `{}` | gone | 0.17 | ZS-MIG-01 |
-| `errdefer \|err\|` | the body in an inner function, and at the call `inner() catch \|err\| { …; return err; }` | gone | 0.17 | ZS-ERR-14 |
+| `errdefer \|err\|` | the body in an inner function, and at the call `inner() catch \|err\| { …; return err; }` | gone | 0.17 | ZS-ERR-15 |
 | `i0` | `u0` | gone | 0.17 | ZS-MIG-01 |
 | `.linkage = .internal` | no `@export`: a symbol that is not exported is internal; `std.lang.GlobalLinkage` is `.strong` and `.weak` | gone | 0.17 | ZS-INTEROP-03 |
 | `.link_once` | `.weak` | gone | 0.17 | ZS-INTEROP-03 |
@@ -152,8 +152,8 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `std.mem.eql` | on a float slice holding NaN, `false` for the slice compared with itself: the same slice no longer short-circuits; `findDiff` likewise | changed | 0.17 | ZS-MIG-01 |
 | `std.mem.tokenize` | `tokenizeScalar`, `tokenizeAny` or `tokenizeSequence` | gone | 0.14 | ZS-MIG-01 |
 | `std.mem.split` | `splitScalar`, `splitAny` or `splitSequence`; `splitBackwards` likewise | gone | 0.14 | ZS-MIG-01 |
-| `std.mem.page_size` | `std.heap.page_size_min`, `page_size_max` or `pageSize()` | gone | 0.14 | ZS-MEM-24 |
-| `std.mem.copyForwards` | `@memmove(dest[0..source.len], source)`; `copyBackwards` likewise | alias | 0.15 | ZS-MEM-25 |
+| `std.mem.page_size` | `std.heap.page_size_min`, `page_size_max` or `pageSize()` | gone | 0.14 | ZS-MEM-22 |
+| `std.mem.copyForwards` | `@memmove(dest[0..source.len], source)`; `copyBackwards` likewise | alias | 0.15 | ZS-MEM-23 |
 | `std.ArrayList(…).init(…)` | `var list: std.ArrayList(T) = .empty;`, the allocator passed to every method that allocates and to `deinit` | gone | 0.15 | ZS-DATA-13 |
 | `std.ArrayListUnmanaged` | `std.ArrayList` | alias | 0.15 | ZS-DATA-13 |
 | `std.ArrayListAligned` | `std.array_list.Aligned(T, alignment)`; `ArrayListAlignedUnmanaged` likewise | alias | 0.15 | ZS-DATA-13 |
@@ -166,19 +166,19 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `std.AutoArrayHashMapUnmanaged` | `std.array_hash_map.Auto` | alias | 0.16 | ZS-DATA-13 |
 | `std.StringArrayHashMapUnmanaged` | `std.array_hash_map.String` | alias | 0.16 | ZS-DATA-13 |
 | `std.SegmentedList` | `std.heap.MemoryPool(T)` for stable addresses, or indices into a list | gone | 0.16 | ZS-DATA-23 |
-| `std.TailQueue` | `std.DoublyLinkedList`, intrusive: a `Node` field recovered with `@fieldParentPtr` | gone | 0.14 | ZS-MEM-16 |
+| `std.TailQueue` | `std.DoublyLinkedList`, intrusive: a `Node` field recovered with `@fieldParentPtr` | gone | 0.14 | ZS-MEM-14 |
 | `std.ComptimeStringMap` | `std.StaticStringMap` | gone | 0.13 | ZS-MIG-01 |
-| `std.heap.MemoryPoolAligned` | `std.heap.memory_pool.Aligned`; `MemoryPoolExtra` and `MemoryPoolOptions` are `memory_pool.Extra` and `memory_pool.Options` | gone | 0.17 | ZS-MEM-16 |
-| `std.heap.memory_pool.Managed` | `std.heap.memory_pool.Aligned` or `.Extra`, with the allocator per call; `AlignedManaged` and `ExtraManaged` likewise | gone | 0.17 | ZS-MEM-16 |
+| `std.heap.MemoryPoolAligned` | `std.heap.memory_pool.Aligned`; `MemoryPoolExtra` and `MemoryPoolOptions` are `memory_pool.Extra` and `memory_pool.Options` | gone | 0.17 | ZS-MEM-14 |
+| `std.heap.memory_pool.Managed` | `std.heap.memory_pool.Aligned` or `.Extra`, with the allocator per call; `AlignedManaged` and `ExtraManaged` likewise | gone | 0.17 | ZS-MEM-14 |
 | `.initEmpty()` | `.empty` on an `EnumSet`, a `bit_set.Integer` or a `bit_set.Array`; `.initFull()` is `.full`; `bit_set.Dynamic.initEmpty(gpa, n)` keeps its name | gone | 0.17 | ZS-DATA-13 |
 | `IntegerBitSet` | `bit_set.Integer` | alias | 0.17 | ZS-DATA-13 |
 | `ArrayBitSet` | `bit_set.Array` | alias | 0.17 | ZS-DATA-13 |
 | `StaticBitSet` | `bit_set.Static` | alias | 0.17 | ZS-DATA-13 |
 | `DynamicBitSetUnmanaged` | `bit_set.Dynamic` | alias | 0.17 | ZS-DATA-13 |
 | `DynamicBitSet` | `bit_set.Dynamic`, with the allocator per call; `bit_set.DynamicManaged` likewise | alias | 0.17 | ZS-DATA-13 |
-| `getLastOrNull` | `list.last()`, a `?T` copy; the borrow is `list.lastPtr()` | alias | 0.17 | ZS-ERR-26 |
-| `getLast` | `list.last()`, which returns `?T` where `getLast` returned `T`, so the call site handles the `null` | alias | 0.17 | ZS-ERR-26 |
-| `std.DoublyLinkedList.pop` | `popLast` | deprecated | 0.17 | ZS-MEM-16 |
+| `getLastOrNull` | `list.last()`, a `?T` copy; the borrow is `list.lastPtr()` | alias | 0.17 | ZS-ERR-28 |
+| `getLast` | `list.last()`, which returns `?T` where `getLast` returned `T`, so the call site handles the `null` | alias | 0.17 | ZS-ERR-28 |
+| `std.DoublyLinkedList.pop` | `popLast` | deprecated | 0.17 | ZS-MEM-14 |
 | `std.heap.GeneralPurposeAllocator` | `init.gpa`, or `var sa: std.heap.SafeAllocator = .init(std.heap.page_allocator, .{});` | gone | 0.16 | ZS-MEM-04 |
 | `std.heap.DebugAllocator` | `std.heap.SafeAllocator`, not generic: `.init(backing, .{})`, always thread-safe, its `Options` `stack_trace_frames`, `check_write_after_free`, `canary`, `bucket_size_log2` and `block_size_log2` | alias | 0.17 | ZS-MEM-04 |
 | `std.heap.Check` | the leak count `SafeAllocator.deinit()` returns: `const leaks = sa.deinit();`, then `assert(leaks == 0)`, the call kept out of the assert | alias | 0.17 | ZS-MEM-04 |
@@ -213,10 +213,10 @@ deprecated it, for a `changed` row the one that changed it. Section 2.1 lists th
 | `crypto_always_getrandom` | nothing: `io.randomSecure`; `crypto_fork_safety` likewise | gone | 0.16 | ZS-TEST-14 |
 | `std.rand` | `std.Random` | gone | 0.14 | ZS-TEST-14 |
 | `std.testing.refAllDeclsRecursive` | `std.testing.refAllDecls` in each file, or `comptime { _ = @import(…); }` in the module root | gone | 0.16 | ZS-TEST-23 |
-| `std.debug.captureStackTrace` | `std.debug.captureCurrentStackTrace(options, addresses)` | gone | 0.16 | ZS-ERR-30 |
-| `std.debug.dumpStackTraceFromBase` | `std.debug.dumpCurrentStackTrace(options)`, which takes a `StackUnwindOptions` where it took a start address | gone | 0.16 | ZS-ERR-30 |
-| `std.debug.walkStackWindows` | `std.debug.captureCurrentStackTrace`; `writeStackTraceWindows` is `writeCurrentStackTrace` | gone | 0.16 | ZS-ERR-30 |
-| `std.debug.StackIterator` | nothing public: `captureCurrentStackTrace` | gone | 0.16 | ZS-ERR-30 |
+| `std.debug.captureStackTrace` | `std.debug.captureCurrentStackTrace(options, addresses)` | gone | 0.16 | ZS-ERR-32 |
+| `std.debug.dumpStackTraceFromBase` | `std.debug.dumpCurrentStackTrace(options)`, which takes a `StackUnwindOptions` where it took a start address | gone | 0.16 | ZS-ERR-32 |
+| `std.debug.walkStackWindows` | `std.debug.captureCurrentStackTrace`; `writeStackTraceWindows` is `writeCurrentStackTrace` | gone | 0.16 | ZS-ERR-32 |
+| `std.debug.StackIterator` | nothing public: `captureCurrentStackTrace` | gone | 0.16 | ZS-ERR-32 |
 | `std.debug.runtime_safety` | `@import("builtin").optimize.runtimeSafety()`: your module's mode, where `runtime_safety` reports std's | alias | 0.14 | ZS-ASSERT-16 |
 | `std.meta.Int` | `@Int(signedness, bits)` | gone | 0.17 | ZS-COMPTIME-14 |
 | `std.meta.Tuple` | `@Tuple(types)` | gone | 0.17 | ZS-COMPTIME-14 |

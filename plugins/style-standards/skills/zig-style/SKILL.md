@@ -92,7 +92,7 @@ Since; its owning rule's Check finds it.
 | `@cImport` | `b.addTranslateC(…)` in `build.zig` and its `.createModule()`, imported as a module | ZS-INTEROP-15 |
 | `**` | `@splat(v)` with a result type: `const a: [n]T = @splat(v);` | ZS-DATA-24 |
 | `void{}` | `{}` | ZS-MIG-01 |
-| `errdefer \|err\|` | the body in an inner function, and at the call `inner() catch \|err\| { …; return err; }` | ZS-ERR-14 |
+| `errdefer \|err\|` | the body in an inner function, and at the call `inner() catch \|err\| { …; return err; }` | ZS-ERR-15 |
 | `i0` | `u0` | ZS-MIG-01 |
 | `.linkage = .internal` | no `@export`: a symbol that is not exported is internal; `std.lang.GlobalLinkage` is `.strong` and `.weak` | ZS-INTEROP-03 |
 | `.link_once` | `.weak` | ZS-INTEROP-03 |
@@ -110,8 +110,8 @@ Since; its owning rule's Check finds it.
 | `std.mem.containsAtLeastScalar2` | `std.mem.containsAtLeastScalar(T, list, element, minimum)` | ZS-MIG-01 |
 | `std.mem.readPackedIntNative` | `std.mem.readPackedInt(T, bytes, bit_offset, .native)`; `readPackedIntForeign` takes `.foreign` | ZS-MIG-01 |
 | `std.mem.writePackedIntNative` | `std.mem.writePackedInt(T, bytes, bit_offset, value, .native)`; `writePackedIntForeign` takes `.foreign` | ZS-MIG-01 |
-| `std.heap.MemoryPoolAligned` | `std.heap.memory_pool.Aligned`; `MemoryPoolExtra` and `MemoryPoolOptions` are `memory_pool.Extra` and `memory_pool.Options` | ZS-MEM-16 |
-| `std.heap.memory_pool.Managed` | `std.heap.memory_pool.Aligned` or `.Extra`, with the allocator per call; `AlignedManaged` and `ExtraManaged` likewise | ZS-MEM-16 |
+| `std.heap.MemoryPoolAligned` | `std.heap.memory_pool.Aligned`; `MemoryPoolExtra` and `MemoryPoolOptions` are `memory_pool.Extra` and `memory_pool.Options` | ZS-MEM-14 |
+| `std.heap.memory_pool.Managed` | `std.heap.memory_pool.Aligned` or `.Extra`, with the allocator per call; `AlignedManaged` and `ExtraManaged` likewise | ZS-MEM-14 |
 | `.initEmpty()` | `.empty` on an `EnumSet`, a `bit_set.Integer` or a `bit_set.Array`; `.initFull()` is `.full`; `bit_set.Dynamic.initEmpty(gpa, n)` keeps its name | ZS-DATA-13 |
 | `std.heap.stackFallback` | `var bfa: std.heap.BufferFirstAllocator = .init(&buffer, fallback);`, then `bfa.allocator()` as often as you like; `StackFallbackAllocator` likewise | ZS-MEM-03 |
 | `std.process.spawnPath` | `std.process.spawn(io, .{ .exe = .{ .path = dir }, … })`; `replacePath` is `replace` with the same `.exe` | ZS-CONC-41 |
@@ -194,7 +194,7 @@ questions, in order: the five every standard asks, then the one safety adds.
    parameters in the same order? Does every operation have its inverse? A missing half is either a
    restriction the documentation must state, or an oversight (ZS-DATA-36, ZS-DATA-37, ZS-NAME-28).
 5. **What is special-cased?** A branch that exists for one input is a design that has not absorbed
-   that input. Fold it into the general path, or give it its own type (ZS-ERR-32, ZS-NAME-29).
+   that input. Fold it into the general path, or give it its own type (ZS-ERR-34, ZS-NAME-29).
 6. **What can be asserted instead of assumed?** An invariant the code depends on is checked at the
    boundary or written down as an assumption — never left implicit (ZS-ERR-01, ZS-ASSERT-07).
 
@@ -224,20 +224,20 @@ can see is not worth the name it costs.
   - ZS-ERR-01 [M] Classify a failure as a programmer error or an operating condition first
   - ZS-ERR-05 [M] Never put `anyerror` in a public signature
   - ZS-ERR-10 [M] Every error is handled somewhere; `catch {}` needs a justification comment
-  - ZS-ERR-16 [M] Split compound conditions into separate checks
-  - ZS-ERR-17 [S] Prefer a `switch` to an `else if` chain; if you flatten chains into trees, say why
-  - ZS-ERR-18 [M] State invariants positively when an `if`/`else` splits the input space
-  - ZS-ERR-19 [S] An `if` with no `else` over a validated domain carries a comment or an assertion
-  - ZS-ERR-21 [M!] No recursion; where recursion is allowed, bound the depth explicitly
-  - ZS-ERR-22 [M!] Push `if`s up and `for`s down
-  - ZS-ERR-28 [M!] Hard limit of 70 lines per function
+  - ZS-ERR-11 [M] Put `defer` / `errdefer` on the line immediately after the acquisition
+  - ZS-ERR-18 [M] Split compound conditions into separate checks
+  - ZS-ERR-19 [S] Prefer a `switch` to an `else if` chain; if you flatten chains into trees, say why
+  - ZS-ERR-20 [M] State invariants positively when an `if`/`else` splits the input space
+  - ZS-ERR-21 [S] An `if` with no `else` over a validated domain carries a comment or an assertion
+  - ZS-ERR-23 [M!] No recursion; where recursion is allowed, bound the depth explicitly
+  - ZS-ERR-24 [M!] Push `if`s up and `for`s down
+  - ZS-ERR-30 [M!] Hard limit of 70 lines per function
 - **Memory, allocators, ownership lifetimes**
   - ZS-MEM-05 [M] Pass the allocator per call; do not store it in a field
   - ZS-MEM-06 [M] Name the allocator for its role — `gpa`, `arena`, `scratch` — and place it after the receiver
-  - ZS-MEM-10 [M] Put `defer` / `errdefer` on the line immediately after the acquisition
-  - ZS-MEM-15 [M] Pointers into container storage die on any capacity change
-  - ZS-MEM-16 [M] If you need stable pointers, use `std.heap.MemoryPool(T)` or store indices
-  - ZS-MEM-18 [M] Allocate all memory at startup where every bound is known then; otherwise name the rung
+  - ZS-MEM-13 [M] Pointers into container storage die on any capacity change
+  - ZS-MEM-14 [M] If you need stable pointers, use `std.heap.MemoryPool(T)` or store indices
+  - ZS-MEM-16 [M] Allocate all memory at startup where every bound is known then; otherwise name the rung
 - **Performance and the discipline of locality**
   - ZS-PERF-13 [S] Shape functions like an inverted hourglass: narrow in, narrow out, wide inside
   - ZS-PERF-17 [M] Spell out the options that decide behavior; never inherit their defaults
@@ -283,7 +283,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 6. **Public API.** Units last and descending, receivers named after their type rather than `self`,
    no abbreviations? Unpaired operations, siblings disagreeing on parameter order, error-set members
    with uneven detail, two mechanisms for one concept, a branch that exists for one input
-   (ZS-DATA-36 … ZS-DATA-38, ZS-ERR-31, ZS-ERR-32, ZS-NAME-28 … ZS-NAME-30)?
+   (ZS-DATA-36 … ZS-DATA-38, ZS-ERR-33, ZS-ERR-34, ZS-NAME-28 … ZS-NAME-30)?
 7. **Concurrency.** Every `Io.async` awaited or cancelled, every `Group` and `Select` closed, and
    nothing held across a suspension point?
 8. **Function bodies.** `zig fmt` clean, ≤100 columns, functions that fit on a screen, control flow
@@ -303,8 +303,8 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 |---|---|---|
 | `references/naming.md` | `ZS-NAME` (30) | Naming rules in full, file and module layout, declaration order, doc comments, formatting |
 | `references/data.md` | `ZS-DATA` (38) | Integer choice, off-by-one discipline, casts, struct design, decl literals, result location semantics, in-place init, layout, data-oriented design |
-| `references/errors.md` | `ZS-ERR` (32) | Error sets, `try`/`catch`/`errdefer`, the error-vs-assert-vs-panic decision table, labeled switch, `@branchHint` |
-| `references/memory.md` | `ZS-MEM` (26) | Allocator taxonomy, the allocator vtable, ownership rules, arena patterns, the static-allocation tiering |
+| `references/errors.md` | `ZS-ERR` (34) | Error sets, `try`/`catch`/`errdefer`, the error-vs-assert-vs-panic decision table, labeled switch, `@branchHint` |
+| `references/memory.md` | `ZS-MEM` (24) | Allocator taxonomy, the allocator vtable, ownership rules, arena patterns, the static-allocation tiering |
 | `references/concurrency.md` | `ZS-CONC` (44) | `std.Io` in full: `Reader`/`Writer`, custom streams, `Io.Dir`/`Io.File`, `async`/`concurrent`/`Group`/`Select`, cancellation, timeouts |
 | `references/output.md` | `ZS-OUT` (20) | `{}` vs `{f}`, the specifier set, custom `format` methods, `std.fmt`, program output vs logging vs `std.debug.print` |
 | `references/performance.md` | `ZS-PERF` (21) | Design-phase performance, back-of-envelope sketches, batching, `@prefetch`/`@Vector`, and the locality discipline (smallest scope, no aliasing, POCPOU, pure leaves) |

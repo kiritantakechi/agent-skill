@@ -188,7 +188,7 @@ PROFILE = Profile(
         "RS-API-15",
         "RS-MOD-07",
         "RS-MOD-10",
-        "RS-OWN-36",
+        "RS-OWN-34",
     ),
     # Measured, not judged: each of these was promoted to accuse and
     # hit the standard's own compliant examples. The reason names what

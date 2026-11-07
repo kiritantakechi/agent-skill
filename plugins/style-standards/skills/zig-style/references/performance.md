@@ -11,7 +11,7 @@ rules throughout this standard ask for a profile, and this is the chapter that s
 This chapter does not own data layout: struct-of-arrays and `MultiArrayList` are ZS-DATA-22,
 handles-versus-pointers is ZS-DATA-21, and passing large aggregates as `*const T` is ZS-DATA-18. It
 does not own I/O batching (ZS-CONC-34), assertion cost budgeting (ZS-ASSERT-16), the optimize-mode
-table (ZS-ASSERT-02), `@branchHint` (ZS-ERR-27), or `inline fn` (ZS-COMPTIME-03). It cites them.
+table (ZS-ASSERT-02), `@branchHint` (ZS-ERR-29), or `inline fn` (ZS-COMPTIME-03). It cites them.
 
 **Read ZS-PERF-21 first if you are tempted to apply this chapter to code that is not hot.** Roughly
 half of these rules are about correctness and readability and apply everywhere; the other half
@@ -71,7 +71,7 @@ public entry point on a path that will be called in bulk is the specific thing t
 //!
 //! Dominant cost: disk bandwidth. One sequential read of each input level, one sequential
 //! write of the output level, no random access, no read amplification beyond 2x. Memory is
-//! two 64 KiB streaming buffers, allocated once at startup (ZS-MEM-18).
+//! two 64 KiB streaming buffers, allocated once at startup (ZS-MEM-16).
 //!
 //! Rejected: an in-memory merge of whole levels. It is simpler and ~1.3x faster per byte,
 //! but its memory is O(level size), which removes the static-allocation bound.
@@ -422,13 +422,13 @@ fn countMatches(haystack: []const u8, needle: u8) u32 {
 One fact, one storage location. Do not copy a field into a local that outlives a mutation of the
 field. ZS-PERF-07's hoist is no exception: hoisting is legal precisely when the loop cannot mutate
 the hoisted fact, and the hoisted `const` dies at the end of the loop. A pointer into a container is
-the same mistake with a worse failure, and ZS-MEM-15 owns it: hold the index.
+the same mistake with a worse failure, and ZS-MEM-13 owns it: hold the index.
 
 **Why:** two copies of one fact are two things to update, and one will eventually be missed — the
 plain form of cache invalidation.
 
 **Check:** every local that copies a field — is the field written between the copy and the last use
-of the local? A pointer-typed local into a container is the ZS-MEM-15 check.
+of the local? A pointer-typed local into a container is the ZS-MEM-13 check.
 
 ```zig
 // fragment — BAD: `count` is a second copy of `queue.count`, stale after `push`
@@ -488,7 +488,7 @@ fn readPayload(buffer: []const u8, header: Header) ![]const u8 {
 
 Let the parent function hold the state in locals or in one receiver, and let helpers *return* what
 should change rather than applying it. Keep leaf functions pure. TigerStyle pairs this with
-"centralize control flow" (ZS-ERR-22, push `if`s up and `for`s down). The single apply site is the
+"centralize control flow" (ZS-ERR-24, push `if`s up and `for`s down). The single apply site is the
 one place to bracket with `assertInvariants` (ZS-ASSERT-14) and to make transactional with
 `errdefer`; pure leaves let you compute all the deltas first and apply them in one pass, which is
 what makes batching (ZS-PERF-05) possible.
@@ -567,7 +567,7 @@ const Account = struct {
 Few parameters, a simple return type, and a lot of meaty logic between the braces. If a function is
 mostly signature, it is in the wrong place: nine parameters around three lines of body is the
 hourglass the right way up, and a sign the caller is doing the work. This is TigerStyle's rule of
-thumb for *where* to cut a function that exceeds the 70-line limit (ZS-ERR-28): not every split is
+thumb for *where* to cut a function that exceeds the 70-line limit (ZS-ERR-30): not every split is
 equal, and the good ones produce inverted hourglasses.
 
 **Why:** a wide signature exports internal state to every call site, so changing it changes them
@@ -942,7 +942,7 @@ rule needs a measurement to overturn it — not the reverse.
 | ZS-PERF-09 – ZS-PERF-13 (the whole locality cluster) | **All code, always.** These are readability and correctness rules that happen to also help the register allocator. Never require a measurement. |
 | ZS-PERF-07 be explicit, ZS-PERF-14 measure in the shipped mode, ZS-PERF-17 explicit options, ZS-PERF-19 – ZS-PERF-20 how to measure, ZS-CONC-32's clock choice | All code. Following them costs nothing and not following them produces false numbers. |
 | ZS-PERF-04 plane split, ZS-PERF-05 batching, ZS-PERF-15 no auto-vectorization | Any code with a stated throughput or latency requirement. Batching in particular is a design decision, so it is cheap now and expensive later. |
-| ZS-PERF-06 branch hoisting, ZS-PERF-08 primitive-argument kernels, ZS-PERF-16 explicit SIMD, `@branchHint` (ZS-ERR-27), adding a `@prefetch` at all (ZS-PERF-17), ZS-PERF-18 cache-line alignment, `inline fn` (ZS-COMPTIME-03) | **Hot paths a profile names, only.** Each one costs readability. A diff that applies them without a profile in the commit message is over-applying this chapter, and that is a review finding in its own right. |
+| ZS-PERF-06 branch hoisting, ZS-PERF-08 primitive-argument kernels, ZS-PERF-16 explicit SIMD, `@branchHint` (ZS-ERR-29), adding a `@prefetch` at all (ZS-PERF-17), ZS-PERF-18 cache-line alignment, `inline fn` (ZS-COMPTIME-03) | **Hot paths a profile names, only.** Each one costs readability. A diff that applies them without a profile in the commit message is over-applying this chapter, and that is a review finding in its own right. |
 
 **Why:** shape is decided up front and cheaply; constants are decided later and with evidence
 (ZS-PERF-01). A sketch costs five minutes and is reversible, so it is never premature; a

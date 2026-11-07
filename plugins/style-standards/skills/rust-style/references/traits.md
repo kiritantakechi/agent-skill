@@ -886,7 +886,7 @@ clearer anyway.
 `Connection<Idle>` → `Connection<Open>`.
 
 **Why:** it turns "write before connect" from a runtime panic into a compile error, which is
-strictly better when the mistake is expensive and the transitions are few (RS-FUNC-40).
+strictly better when the mistake is expensive and the transitions are few (RS-FUNC-39).
 
 **Check:** does any method start by checking a state flag and erroring? That check is a type.
 

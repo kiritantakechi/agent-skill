@@ -2,12 +2,13 @@
 
 Scope: choosing an allocator in Zig 0.17, the `std.mem.Allocator` vtable and its contracts, writing
 a custom allocator, expressing and enforcing ownership (who allocates, who frees, what a returned
-slice means), `defer`/`errdefer` discipline, pointer-invalidation traps, OOM policy, alignment, raw
-memory copies, and the graduated ladder from "allocate freely" to TigerStyle's "no allocation after
-startup". Error-set design, `try`/`catch` selection and `unreachable`-versus-error are the errors
-chapter's; `Io.Reader`/`Io.Writer` buffer sizing is ZS-CONC-10 and ZS-CONC-37; assertion density and
-bounded loops are the assertions chapter's; `MultiArrayList` layout choices are ZS-DATA-22;
-allocation-failure testing is ZS-TEST-12.
+slice means), `errdefer` on a construction in progress, pointer-invalidation traps, OOM policy,
+alignment, raw memory copies, and the graduated ladder from "allocate freely" to TigerStyle's "no
+allocation after startup". Error-set design, `try`/`catch` selection, `unreachable`-versus-error,
+`defer` directly after an acquisition (ZS-ERR-11) and a `deinit` that cannot fail (ZS-ERR-16) are
+the errors chapter's; `Io.Reader`/`Io.Writer` buffer sizing is ZS-CONC-10 and ZS-CONC-37; assertion
+density and bounded loops are the assertions chapter's; `MultiArrayList` layout choices are
+ZS-DATA-22; allocation-failure testing is ZS-TEST-12.
 
 Every example assumes a file opening with `const std = @import("std");` and
 `const assert = std.debug.assert;` — assertions are called bare, per ZS-ASSERT-01.
@@ -26,28 +27,26 @@ Every example assumes a file opening with `const std = @import("std");` and
   - ZS-MEM-08 [M] One object, one allocator, for its whole lifetime
 - **Ownership**
   - ZS-MEM-09 [M] Signal ownership transfer in the name and the doc comment
-  - ZS-MEM-10 [M] Put `defer` / `errdefer` on the line immediately after the acquisition
-  - ZS-MEM-11 [M] `errdefer` every fallible construction step, until ownership transfers
-  - ZS-MEM-12 [M] `deinit` never fails, never allocates, and poisons the struct
-  - ZS-MEM-13 [M] Use `toOwnedSlice` to hand a built buffer out of a builder
-  - ZS-MEM-14 [M] Free exactly the slice you allocated
+  - ZS-MEM-10 [M] `errdefer` every fallible construction step, until ownership transfers
+  - ZS-MEM-11 [M] Use `toOwnedSlice` to hand a built buffer out of a builder
+  - ZS-MEM-12 [M] Free exactly the slice you allocated
 - **Invalidation**
-  - ZS-MEM-15 [M] Pointers into container storage die on any capacity change
-  - ZS-MEM-16 [M] If you need stable pointers, use `std.heap.MemoryPool(T)` or store indices
+  - ZS-MEM-13 [M] Pointers into container storage die on any capacity change
+  - ZS-MEM-14 [M] If you need stable pointers, use `std.heap.MemoryPool(T)` or store indices
 - **OOM policy**
-  - ZS-MEM-17 [M] Libraries propagate `error.OutOfMemory`; only an application's top level may abort
+  - ZS-MEM-15 [M] Libraries propagate `error.OutOfMemory`; only an application's top level may abort
 - **Static allocation and the graduated ladder**
-  - ZS-MEM-18 [M] Allocate all memory at startup where every bound is known then; otherwise name the rung
-  - ZS-MEM-19 [S] Arena per request, per phase, per iteration
-  - ZS-MEM-20 [S] Preallocate to the known bound, then use `AssumeCapacity` in the hot path
-  - ZS-MEM-21 [S] Impose a hard ceiling with a fixed backing buffer
+  - ZS-MEM-16 [M] Allocate all memory at startup where every bound is known then; otherwise name the rung
+  - ZS-MEM-17 [S] Arena per request, per phase, per iteration
+  - ZS-MEM-18 [S] Preallocate to the known bound, then use `AssumeCapacity` in the hot path
+  - ZS-MEM-19 [S] Impose a hard ceiling with a fixed backing buffer
 - **The Allocator interface and custom allocators**
-  - ZS-MEM-22 [M] Implement all four vtable members to their exact contracts
-  - ZS-MEM-23 [M] Test a custom allocator with std's own conformance helpers
-  - ZS-MEM-24 [M] Alignment is `std.mem.Alignment`, never a raw integer
+  - ZS-MEM-20 [M] Implement all four vtable members to their exact contracts
+  - ZS-MEM-21 [M] Test a custom allocator with std's own conformance helpers
+  - ZS-MEM-22 [M] Alignment is `std.mem.Alignment`, never a raw integer
 - **Raw memory**
-  - ZS-MEM-25 [M] `@memcpy` for disjoint copies, `@memmove` for overlapping ones
-  - ZS-MEM-26 [M] Zero padding before it leaves the process, and wipe secrets on the way out
+  - ZS-MEM-23 [M] `@memcpy` for disjoint copies, `@memmove` for overlapping ones
+  - ZS-MEM-24 [M] Zero padding before it leaves the process, and wipe secrets on the way out
 - Decided by tools
 
 ---
@@ -385,54 +384,11 @@ pub fn titleView(doc: *const Doc) []const u8 {
 }
 ```
 
-### ZS-MEM-10 [M] Put `defer` / `errdefer` on the line immediately after the acquisition
-
-Two requirements, both binding. **Adjacency:** no statement may sit between an acquisition and its
-release, and the release names the exact thing acquired (`gpa.free(buffer)`, not
-`gpa.free(self.buffer)`). **Grouping:** the acquisition/release pair is separated from surrounding
-code by a blank line above and below, so each pair reads as a two-line visual unit.
-
-The same shape applies to every acquisition, not just allocation: `Io.File`/`Io.Dir` handles
-(`defer file.close(io)`), `Io.Mutex` (`defer m.unlock(io)`), `Io.Group` (`defer g.cancel(io)`), and
-`Io.Future` (`defer _ = f.cancel(io);`, which is idempotent, so a later `await` still returns the
-result). Where the release itself is fallible or cancelable, use the `*Uncancelable` variant — a
-`defer` body cannot propagate an error (see ZS-CONC-28). What happens once the pair is in place —
-the order of teardown, the point ownership transfers, the scope inside a loop — is ZS-ERR-11,
-ZS-ERR-12 and ZS-ERR-13.
-
-**Why:** the pairing is verified by eye. Any distance between the lines is where a future `return`,
-`try`, or early `break` slips in unnoticed, and the blank lines make the *absence* of a release
-visible: a one-line group is an unpaired acquisition, caught without reading the identifiers.
-
-**Check:** in a diff, every `alloc`/`create`/`open`/`lock`/`init` line must be followed on the very
-next line by `defer` or `errdefer`, and that two-line pair must be blank-line separated. Also flag a
-`defer` whose argument is not textually the value produced on the line above.
-
-```zig
-// fragment — BAD: three fallible statements between alloc and defer, and no grouping.
-const buffer = try gpa.alloc(u8, n);
-try validate(buffer);
-try prefill(buffer);
-defer gpa.free(buffer);
-```
-
-```zig
-// fragment — GOOD: adjacent, and blank-line grouped.
-var file = try dir.openFile(io, "cfg.txt", .{});
-defer file.close(io);
-
-const buffer = try gpa.alloc(u8, n);
-defer gpa.free(buffer);
-
-try validate(buffer);
-try prefill(buffer);
-```
-
-### ZS-MEM-11 [M] `errdefer` every fallible construction step, until ownership transfers
+### ZS-MEM-10 [M] `errdefer` every fallible construction step, until ownership transfers
 
 Multi-step `init` puts an `errdefer` after each allocation, up to the point where ownership moves to
 a value the caller will `deinit`. Where that point is, and what an `errdefer` covers inside a loop,
-are ZS-ERR-12 and ZS-ERR-13.
+are ZS-ERR-13 and ZS-ERR-14.
 
 **Why:** a `try` on step 3 unwinds steps 1 and 2 only if they registered `errdefer`s, and a missing
 one is a leak that only appears under memory pressure.
@@ -471,23 +427,7 @@ const Doc = struct {
 };
 ```
 
-### ZS-MEM-12 [M] `deinit` never fails, never allocates, and poisons the struct
-
-Signature `pub fn deinit(x: *T, gpa: Allocator) void`. It returns `void`, performs no fallible work,
-and ends with `x.* = undefined;`, as std's `MemoryPool.deinit` and `ArrayList.deinit` do. Zig has no
-idempotent-deinit convention: calling `deinit` twice is a double free.
-
-**Why:** `deinit` runs from `defer`, where an error has nowhere to go, and from error unwinding,
-where allocating may fail for the very reason you are unwinding. `x.* = undefined` turns a
-use-after-deinit into a detectable "branch on undefined value" in `debug` and `safe` builds.
-
-**Check:** a `deinit` whose return type is not `void`; a `try`, a `catch`, or an `alloc`/`dupe`/
-`create` inside a `deinit` body; and a `deinit` whose last statement is not `x.* = undefined;`.
-
-Exception, and it is a real trap: `ArenaAllocator.deinit` takes the arena **by value**
-(`pub fn deinit(arena: ArenaAllocator) void`), not by pointer.
-
-### ZS-MEM-13 [M] Use `toOwnedSlice` to hand a built buffer out of a builder
+### ZS-MEM-11 [M] Use `toOwnedSlice` to hand a built buffer out of a builder
 
 When a container's job was to build one slice, transfer with `toOwnedSlice(gpa)` and let the
 container fall back to `.empty` rather than copying and freeing by hand. On the static-allocation
@@ -517,7 +457,7 @@ test "toOwnedSlice transfers ownership" {
 }
 ```
 
-### ZS-MEM-14 [M] Free exactly the slice you allocated
+### ZS-MEM-12 [M] Free exactly the slice you allocated
 
 `free`, `resize`, and `remap` require `memory.len` to equal the length requested from the most
 recent successful `alloc`/`resize`/`remap`, and the alignment to equal the original. Never free a
@@ -560,7 +500,7 @@ const used = buffer[0..n];
 
 ## Invalidation
 
-### ZS-MEM-15 [M] Pointers into container storage die on any capacity change
+### ZS-MEM-13 [M] Pointers into container storage die on any capacity change
 
 Every allocating container operation may reallocate: `append`, `appendSlice`, `appendNTimes`,
 `insert`, `addOne`, `addManyAsSlice`, `ensureTotalCapacity`, `ensureUnusedCapacity`, `resize`,
@@ -573,7 +513,7 @@ The full set of container types this covers: `std.ArrayList`, `std.MultiArrayLis
 second invalidation source that `ArrayList` does not have: a `remove`/`swapRemove` reorders or
 tombstones entries even when capacity is unchanged, so an entry pointer is dead after *any* removal,
 not only after growth. `std.heap.MemoryPool(T)` is the exception — it never moves an existing item
-(ZS-MEM-16).
+(ZS-MEM-14).
 
 `MultiArrayList.slice()` must likewise be re-taken after any capacity change — it caches `ptrs`, one
 base pointer per field, so a stale `Slice` is *N* dangling pointers rather than one.
@@ -614,7 +554,7 @@ test "element pointers die on append; indices do not" {
 }
 ```
 
-### ZS-MEM-16 [M] If you need stable pointers, use `std.heap.MemoryPool(T)` or store indices
+### ZS-MEM-14 [M] If you need stable pointers, use `std.heap.MemoryPool(T)` or store indices
 
 For "many nodes, pointers must not move", use `MemoryPool(T)`, optionally with the intrusive
 `std.SinglyLinkedList` / `std.DoublyLinkedList` (a `Node` holds links only; recover the payload with
@@ -646,14 +586,14 @@ test "MemoryPool gives stable pointers" {
 
 ## OOM policy
 
-### ZS-MEM-17 [M] Libraries propagate `error.OutOfMemory`; only an application's top level may abort
+### ZS-MEM-15 [M] Libraries propagate `error.OutOfMemory`; only an application's top level may abort
 
 Return `Allocator.Error!T` (or a set containing it). Never `catch @panic`, never
 `catch unreachable`, never `catch return null` in reusable code. An application `main` may
 `return err`, or a CLI may `std.process.fatal("out of memory", .{})` at the outermost layer.
 
 To bound an application's heap rather than abort on it, give the bounded part a fixed backing buffer
-(ZS-MEM-21): allocations past it return `error.OutOfMemory` through the normal path. `SafeAllocator`
+(ZS-MEM-19): allocations past it return `error.OutOfMemory` through the normal path. `SafeAllocator`
 has no memory-limit option, and the allocator that had one,
 `DebugAllocator(.{ .enable_memory_limit = true })` with `da.requested_memory_limit`, is deprecated
 in 0.17.
@@ -683,7 +623,7 @@ pub fn parse(gpa: Allocator, source: []const u8) ParseError!Ast {
 
 ## Static allocation and the graduated ladder
 
-### ZS-MEM-18 [M] Allocate all memory at startup where every bound is known then; otherwise name the rung
+### ZS-MEM-16 [M] Allocate all memory at startup where every bound is known then; otherwise name the rung
 
 TigerStyle, verbatim: "All memory must be statically allocated at startup. **No memory may be
 dynamically allocated (or freed and reallocated) after initialization.**" That is the rule for a
@@ -698,8 +638,8 @@ user-supplied (compilers, CLIs over arbitrary files, general-purpose servers wit
 payloads), a std subsystem that allocates at use time, or a library is outside it.
 
 Any other program picks exactly one rung of the graduated ladder, in descending strength —
-ZS-MEM-21, a hard ceiling from a fixed backing buffer (`ArrayList.initBuffer` or
-`FixedBufferAllocator`); ZS-MEM-19, an arena per request or phase, reset at the boundary; ZS-MEM-20,
+ZS-MEM-19, a hard ceiling from a fixed backing buffer (`ArrayList.initBuffer` or
+`FixedBufferAllocator`); ZS-MEM-17, an arena per request or phase, reset at the boundary; ZS-MEM-18,
 exactly the bound reserved up front and `*AssumeCapacity` in the hot path — names it in the module's
 doc comment, and treats an allocation inside a hot loop or on a request path as a design smell
 requiring a justifying comment. Either way, derive the bounds, write them down as `_max` constants,
@@ -718,7 +658,7 @@ Full static allocation costs:
   parsing, `std.zig.Ast`, hash maps that grow, `Io.Writer.Allocating`. TigerBeetle's own answer was
   to write `src/stdx` and reimplement bounded arrays, bit sets, and PRNGs.
 - std has no bounded-array type, so the bounded containers you need are `ArrayList` over a fixed
-  buffer (ZS-MEM-21), your own fixed pools, or third-party code.
+  buffer (ZS-MEM-19), your own fixed pools, or third-party code.
 
 TigerStyle's bounded containers `assert(!full())` on push, treating overflow as a programmer error.
 std offers both the asserting and the error-returning form, and ZS-DATA-23 says which a call site
@@ -732,7 +672,7 @@ you must derive every bound (in-flight operations, message size, queue depth), s
 `ensureTotalCapacity` reachable from a request path rather than from `init` — and, before that, the
 absence of the `StaticAllocator` gate itself, which is what converts this from a review question
 into an assertion failure. In any other: an allocation inside a loop or on a per-request path with
-no comment naming which rung (ZS-MEM-19, ZS-MEM-20 or ZS-MEM-21) the module chose.
+no comment naming which rung (ZS-MEM-17, ZS-MEM-18 or ZS-MEM-19) the module chose.
 
 ```zig
 // verified
@@ -809,7 +749,7 @@ test "allocation is a startup-only privilege" {
 }
 ```
 
-### ZS-MEM-19 [S] Arena per request, per phase, per iteration
+### ZS-MEM-17 [S] Arena per request, per phase, per iteration
 
 Give each unit of work an `ArenaAllocator`; free the whole thing at the end of the unit instead of
 freeing individual objects. Reset with `.retain_capacity` between units, or
@@ -847,7 +787,7 @@ test "arena per phase" {
 }
 ```
 
-### ZS-MEM-20 [S] Preallocate to the known bound, then use `AssumeCapacity` in the hot path
+### ZS-MEM-18 [S] Preallocate to the known bound, then use `AssumeCapacity` in the hot path
 
 When you know the count, reserve exactly that count once outside the loop — `.initCapacity(gpa, n)`
 for a new list, `ensureTotalCapacityPrecise` for an existing one — and call `appendAssumeCapacity` /
@@ -880,7 +820,7 @@ test "reserve the bound exactly, then AssumeCapacity in the hot path" {
 }
 ```
 
-### ZS-MEM-21 [S] Impose a hard ceiling with a fixed backing buffer
+### ZS-MEM-19 [S] Impose a hard ceiling with a fixed backing buffer
 
 For work with a natural bound, allocate from a `[N]u8` — either `ArrayList.initBuffer`, std's
 fixed-capacity list (ZS-DATA-23), or `std.heap.FixedBufferAllocator` when a subsystem demands an
@@ -926,7 +866,7 @@ test "FixedBufferAllocator as a hard memory ceiling" {
 
 ## The Allocator interface and custom allocators
 
-### ZS-MEM-22 [M] Implement all four vtable members to their exact contracts
+### ZS-MEM-20 [M] Implement all four vtable members to their exact contracts
 
 The 0.17 `Allocator.VTable` is `alloc`, `resize`, `remap`, `free`. `remap` is newer than most Zig
 material — it is not optional and it is not `resize`. The vtable is a struct literal, so a missing
@@ -1023,7 +963,7 @@ const Bump = struct {
 };
 ```
 
-### ZS-MEM-23 [M] Test a custom allocator with std's own conformance helpers
+### ZS-MEM-21 [M] Test a custom allocator with std's own conformance helpers
 
 Run `std.heap.testAllocator`, `testAllocatorAligned`, `testAllocatorLargeAlignment`, and
 `testAllocatorAlignedShrink` against it, and wrap it in `std.mem.validationWrap` while developing.
@@ -1049,7 +989,7 @@ test "Bump obeys the Allocator contract" {
 }
 ```
 
-### ZS-MEM-24 [M] Alignment is `std.mem.Alignment`, never a raw integer
+### ZS-MEM-22 [M] Alignment is `std.mem.Alignment`, never a raw integer
 
 `alignedAlloc` takes `comptime alignment: ?Alignment`, where `null` means natural alignment. Build
 values with `.of(T)`, `.fromByteUnits(n)`, or the named variants `.@"1"` … `.@"64"`; only those are
@@ -1062,7 +1002,7 @@ Convert only at the boundary. An `Alignment` reaches a C API or a syscall throug
 and arrives from one through `.fromByteUnits(n)` (which asserts `n` is a power of two); in between,
 keep the `Alignment` and use its own operations — `forward` (round up), `backward` (round down),
 `check`, `order`, `max`, `min` — rather than reconstructing `(x + a - 1) & ~(a - 1)` by hand.
-Writing a custom allocator means implementing the vtable against `Alignment` directly (ZS-MEM-22),
+Writing a custom allocator means implementing the vtable against `Alignment` directly (ZS-MEM-20),
 never an integer.
 
 **Why:** `Alignment` is `enum(math.Log2Int(usize))`, the log2 of the byte count, so passing `4096`
@@ -1090,7 +1030,7 @@ test "alignment is mem.Alignment, not an integer" {
 
 ## Raw memory
 
-### ZS-MEM-25 [M] `@memcpy` for disjoint copies, `@memmove` for overlapping ones
+### ZS-MEM-23 [M] `@memcpy` for disjoint copies, `@memmove` for overlapping ones
 
 `@memcpy(dest, source)` requires the regions not to overlap and the lengths to match. When source
 and destination may overlap — a ring buffer, an in-place shift — use `@memmove`.
@@ -1120,7 +1060,7 @@ test "disjoint copy vs overlapping copy" {
 }
 ```
 
-### ZS-MEM-26 [M] Zero padding before it leaves the process, and wipe secrets on the way out
+### ZS-MEM-24 [M] Zero padding before it leaves the process, and wipe secrets on the way out
 
 Any buffer written to disk, sent on the wire, or handed to another process must have every byte
 defined — including struct padding and the unused tail of a fixed-size frame. Wipe key material with

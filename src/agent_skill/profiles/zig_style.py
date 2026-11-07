@@ -46,14 +46,14 @@ CONVENTIONS = (
         "`{0}` without the comment ZS-ERR-10 requires",
         unless=COMMENTED,
     ),
-    # ZS-ERR-26 [M] — "every hit is a defect, including inside
+    # ZS-ERR-28 [M] — "every hit is a defect, including inside
     # `comptime` blocks and `const` initializers".
     LineRule(
         UNWRAP,
         r"\.\?",
-        "`.?` unwrap; ZS-ERR-26 asks for `orelse`, a capture, or "
+        "`.?` unwrap; ZS-ERR-28 asks for `orelse`, a capture, or "
         "`orelse unreachable` with the proof beside it",
-        unless_own=RuleId.parse("ZS-ERR-26"),
+        unless_own=RuleId.parse("ZS-ERR-28"),
     ),
     # ZS-TEST-05 [M] — "drop the `@as` wrapper": peer resolution already
     # handles a literal on the other side.
@@ -72,7 +72,7 @@ CONVENTIONS = (
 )
 
 PROSE = (
-    # ZS-ERR-26 forbids `.?` outright. Prose naming it is therefore
+    # ZS-ERR-28 forbids `.?` outright. Prose naming it is therefore
     # either hunting it (inside a `**Check:**`) or is the rule that bans
     # it. Anything else is the standard recommending a spelling it
     # forbids, which is how three passages survived the rule being
@@ -80,9 +80,9 @@ PROSE = (
     LineRule(
         UNWRAP_PROSE,
         r"`[^`\n]*\.\?[^`\n]*`",
-        "prose names `.?` outside a **Check:** and outside ZS-ERR-26",
-        unless_own=RuleId.parse("ZS-ERR-26"),
-        unless=Unless(near=(Near("ZS-ERR-26"),)),
+        "prose names `.?` outside a **Check:** and outside ZS-ERR-28",
+        unless_own=RuleId.parse("ZS-ERR-28"),
+        unless=Unless(near=(Near("ZS-ERR-28"),)),
     ),
 )
 
@@ -155,7 +155,7 @@ PROFILE = Profile(
             "ZS-ERR-05": (
                 "pub fn run(io: Io, args: []const []const u8) anyerror!void {",
             ),
-            "ZS-ERR-26": ("const first = list.first.?;",),
+            "ZS-ERR-28": ("const first = list.first.?;",),
             "ZS-INTEROP-08": ("fn area(width: c_int, height: c_int) c_int {",),
             "ZS-INTEROP-09": ("const Buffer = struct { data: [*c]u8, len: usize };",),
             "ZS-COMPTIME-09": ("pub fn Store(comptime Allocator: type) type {",),

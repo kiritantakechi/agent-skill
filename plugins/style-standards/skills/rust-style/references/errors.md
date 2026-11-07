@@ -2,10 +2,12 @@
 
 Scope: when a failure is a `Result` and when it is a panic, how a library's error type is shaped and
 what it must carry, how errors propagate and accumulate context, the panic rules including
-`panic = "abort"`, and how a binary reports failure and chooses an exit code. A `Drop` that must not
-fail is RS-OWN-33, and a panic at the FFI boundary RS-UNSAFE-24. Naming of error types is in the
-naming chapter (RS-NAME-31); the `# Errors` and `# Panics` rustdoc sections are in the documentation
-chapter; the deny rows that mechanically enforce this chapter are in the build chapter's table.
+`panic = "abort"`, how a binary reports failure and chooses an exit code, how a resource is released
+on every path out (RAII, and a `Drop` that must not fail), and the shape of a function body around a
+failure (`match` over a chain, a bounded recursion). A panic at the FFI boundary is RS-UNSAFE-24.
+Naming of error types is in the naming chapter (RS-NAME-31); the `# Errors` and `# Panics` rustdoc
+sections are in the documentation chapter; the deny rows that mechanically enforce this chapter are
+in the build chapter's table.
 
 The dividing line that organizes everything here: **libraries** must hand callers structured,
 matchable, non-lossy errors, because the caller knows things the library does not. **Binaries** are
@@ -55,6 +57,14 @@ and an exit code.
   - RS-ERR-30 [M] Assign exit codes by convention, and document them
   - RS-ERR-31 [S] Print the cause chain, not a backtrace
   - RS-ERR-32 [M] Report every failure of a run over independent inputs, and finish the run
+
+- **Cleanup**
+  - RS-ERR-33 [M] Acquire in the constructor, release in `Drop`
+  - RS-ERR-34 [M] Make `Drop` infallible and offer an explicit `finish`
+
+- **The shape of a function**
+  - RS-ERR-35 [M] Write a `match`, not an `if`/`else if` chain, on one value
+  - RS-ERR-36 [M!] Use an explicit worklist where recursion depth is unbounded
 
 ---
 
@@ -742,3 +752,67 @@ pub fn run_all(inputs: &[Result<u32, String>]) -> ExitCode {
     }
 }
 ```
+
+## Cleanup
+
+### RS-ERR-33 [M] Acquire in the constructor, release in `Drop`
+
+**Why:** RAII makes the release unforgettable, including on early return and on panic. Exposing
+`open`/`close` pairs means every caller must get every path right, and the one they miss is the
+error path they never tested.
+
+**Check:** does the API have a `close`, `release`, `unlock`, or `end` that a caller must remember to
+call? That is a guard type.
+
+### RS-ERR-34 [M] Make `Drop` infallible and offer an explicit `finish`
+
+Offer `fn finish(self) -> Result<T, Error>` for the path that can fail, and let `Drop` be the
+best-effort fallback for the path that forgot.
+
+**Why:** `Drop` cannot return a `Result`, so a failing flush or commit is silently swallowed —
+`BufWriter` loses the last block and nobody finds out. A `Drop` that panics while another panic
+unwinds aborts the process, with no cleanup anywhere.
+
+**Check:** does any `Drop` impl perform I/O, commit, or flush? Is there a fallible alternative the
+caller can use? Does any `Drop` call `unwrap`, `expect`, `assert`, or anything else that can panic?
+
+```rust
+// verified
+use std::io::{self, Write};
+
+/// `Drop` on a buffered writer swallows the error, so flush explicitly and check it.
+///
+/// # Errors
+/// Returns the first write or flush error encountered.
+pub fn write_all(mut sink: impl Write, lines: &[String]) -> io::Result<()> {
+    for line in lines {
+        writeln!(sink, "{line}")?;
+    }
+    sink.flush()
+}
+```
+
+## The shape of a function
+
+### RS-ERR-35 [M] Write a `match`, not an `if`/`else if` chain, on one value
+
+**Why:** `match` gives exhaustiveness checking, so adding an enum variant produces a compile error
+instead of silently falling through to the `else`. It also reads as a table rather than as a
+sequence of tests, which is what it actually is.
+
+**Check:** do two or more `else if` arms test the same subject? If the subject is an enum, this is a
+missing exhaustiveness check, not a style preference.
+
+### RS-ERR-36 [M!] Use an explicit worklist where recursion depth is unbounded
+
+A recursion whose depth a constant bounds — an expression AST from your own builder, a directory
+walk with a depth cap — asserts that constant at entry and stays recursive.
+
+*Relaxed form:* recursion whose depth the input decides, accepting the stack overflow it risks.
+
+**Why:** Rust has no guaranteed tail-call elimination, so recursion over attacker-controlled depth
+is a stack overflow — which aborts immediately and cannot be caught. A `Vec` used as a worklist is
+still functional in spirit, is bounded by the heap, and can be depth-limited with one comparison.
+
+**Check:** for each recursive function, what bounds the depth? If the answer is "the input", it
+needs a worklist or an asserted cap.

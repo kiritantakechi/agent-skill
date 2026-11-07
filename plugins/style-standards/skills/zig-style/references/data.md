@@ -543,7 +543,7 @@ test "arraylist decl literal" {
 ### ZS-DATA-14 [M] Give every allocating type a paired `init`/`deinit` with a matching signature
 
 If `init` (or `.empty` plus an allocating method) took a `gpa`, `deinit` takes the same `gpa`. What
-else `deinit` owes — no failure, no allocation, and the poisoning store at the end — is ZS-MEM-12.
+else `deinit` owes — no failure, no allocation, and the poisoning store at the end — is ZS-ERR-16.
 
 **Why:** the allocator is not stored, so `deinit` cannot recover it; passing it back is the contract
 std uses throughout.
@@ -902,7 +902,7 @@ test "column scan" {
 `std.BoundedArray` and `std.SegmentedList` do not exist. For a fixed-capacity list, use
 `std.ArrayList(T).initBuffer(&backing)` plus the `AssumeCapacity` / `Bounded` methods. For pointer
 stability across growth, use an intrusive `std.DoublyLinkedList` or `std.SinglyLinkedList` with
-nodes owned by an arena, or `std.heap.MemoryPool(T)` (ZS-MEM-16).
+nodes owned by an arena, or `std.heap.MemoryPool(T)` (ZS-MEM-14).
 
 `appendAssumeCapacity` asserts, so a bug crashes; `appendBounded` returns `error{OutOfMemory}`, so
 an operating error is handled. std's linked lists are intrusive: the list holds `?*Node`, the node
@@ -992,7 +992,7 @@ const Cache = struct {
 ### ZS-DATA-25 [M] Model variants as a tagged union, not a struct with a kind field
 
 A value that is "one of N shapes" is a `union(enum)`, not a struct with a kind field and several
-maybe-valid members. Switch over it exhaustively (ZS-ERR-25). Reading a payload field while another
+maybe-valid members. Switch over it exhaustively (ZS-ERR-27). Reading a payload field while another
 is active is safety-checked illegal behavior
 (`access of union field 'b' while field 'a' is active`).
 
@@ -1031,7 +1031,7 @@ fn opcodeWidth(op: Op) usize {
 ### ZS-DATA-26 [M] Make an enum non-exhaustive only for values that come from outside
 
 Add a trailing `_` field (which requires an explicit integer tag type) when the integer comes from a
-peer, a file, or a kernel, and switch on it with a `_ =>` prong (ZS-ERR-25). With `_`,
+peer, a file, or a kernel, and switch on it with a `_ =>` prong (ZS-ERR-27). With `_`,
 "`@fromBackingInt` on a non-exhaustive enum always results in a valid enum value"; its operand must
 already have the tag type, so the only check left is the `@intCast` that narrows a wider wire
 integer to it. A non-exhaustive enum without a tag type is
@@ -1404,7 +1404,7 @@ compiles* means, one is a cast that can lose a bound, and two turn latent bugs i
    `error: pointer element type 'i8' cannot coerce into element type 'u8'`, and overlapping operands
    in a comptime call are `error: '@memcpy' arguments alias`. At runtime overlap is illegal behavior
    and undetected — use `@memmove` when ranges overlap. (`std.mem.copyForwards` / `copyBackwards`
-   are deprecated and are a review finding under ZS-MEM-25; they also push the direction choice onto
+   are deprecated and are a review finding under ZS-MEM-23; they also push the direction choice onto
    you, and picking the wrong one smears the first element across the range with no diagnostic in
    any build mode.)
 

@@ -548,11 +548,11 @@ signal; split by `With`/`Without` instead.
 
 `for item in &mut query` when the body writes — through `Mut<T>`, `Commands` or a `MessageWriter` —
 rather than `.iter_mut().for_each(…)`. A read-only pass that builds a value is a pipeline here as
-anywhere (`rust-style` RS-FUNC-03), the way the crossing point in BV-ARCH-03 collects its query. A
+anywhere (`rust-style` RS-FUNC-02), the way the crossing point in BV-ARCH-03 collects its query. A
 restriction goes in the query's filter, which skips entities before they are fetched, rather than in
 a `.filter()`.
 
-**Why:** a write is an effect, the case `rust-style` keeps `for` for (RS-FUNC-06): the write through
+**Why:** a write is an effect, the case `rust-style` keeps `for` for (RS-FUNC-05): the write through
 `Mut<T>` is the result, so there is nothing to collect, and `for` keeps the `?`, `continue` and
 `break` that `for_each` gives up.
 

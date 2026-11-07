@@ -476,7 +476,7 @@ impl Budget {
 A struct literal is not available once fields are private, so the type states how it is built:
 `new`, a named alternative constructor (RS-NAME-21), a builder, or a `TryFrom`.
 
-**Why:** a named entry point is where validation lives (RS-FUNC-37), where defaults are decided, and
+**Why:** a named entry point is where validation lives (RS-FUNC-36), where defaults are decided, and
 where a later invariant is enforced without touching a call site. Every instance traces back to a
 function you can grep, named for its starting state.
 

@@ -2,9 +2,11 @@
 
 Scope: who owns what and for how long. Choosing between `&T`, `&mut T`, and `T` in a signature;
 clone discipline and `Cow`; lifetimes, elision, and when a type should not have one; smart pointers
-and interior mutability; `Drop` and RAII. The *allocation cost* of these choices is in the
-performance chapter; the *style* of the resulting function bodies is in the functional chapter;
-`Send`/`Sync` and lock discipline are in the concurrency chapter.
+and interior mutability; the guard types and `Drop` details around them. Releasing a resource on
+every path (RAII) and a `Drop` that must not fail are the errors chapter's (RS-ERR-33, RS-ERR-34).
+The *allocation cost* of these choices is in the performance chapter; the *style* of the resulting
+function bodies is in the functional chapter; `Send`/`Sync` and lock discipline are in the
+concurrency chapter.
 
 Ownership is the design language of Rust, not an obstacle to route around. Most "the borrow checker
 won't let me" moments are the compiler correctly reporting that the data model has two owners for
@@ -52,14 +54,12 @@ one thing, or one owner for two things. The fix is almost never `.clone()`.
   - RS-OWN-31 [S] Use `make_mut` and `unwrap_or_clone` for copy-on-write
 
 - **`Drop` and resources**
-  - RS-OWN-32 [M] Acquire in the constructor, release in `Drop`
-  - RS-OWN-33 [M] Make `Drop` infallible and offer an explicit `finish`
-  - RS-OWN-34 [S] Do not implement `Drop` for logging alone
-  - RS-OWN-35 [S] Keep guard types small
-  - RS-OWN-36 [M] Name a guard binding; never bind it to `_`
-  - RS-OWN-37 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
-  - RS-OWN-38 [S] Prefer scope-based cleanup to defer-style crates
-  - RS-OWN-39 [M] Install process-wide resources once, at the top of `main`
+  - RS-OWN-32 [S] Do not implement `Drop` for logging alone
+  - RS-OWN-33 [S] Keep guard types small
+  - RS-OWN-34 [M] Name a guard binding; never bind it to `_`
+  - RS-OWN-35 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
+  - RS-OWN-36 [S] Prefer scope-based cleanup to defer-style crates
+  - RS-OWN-37 [M] Install process-wide resources once, at the top of `main`
 
 - Decided by tools
 
@@ -483,7 +483,7 @@ across threads, `OnceLock`/`LazyLock` for one-time initialization.
 ### RS-OWN-26 [M] Keep `RefCell` borrows short and out of `Drop`
 
 **Why:** a `RefCell` borrow conflict is a panic rather than a compile error, and a panic inside
-`Drop` during unwinding aborts the process (RS-OWN-33). Holding a `Ref` across a call that can
+`Drop` during unwinding aborts the process (RS-ERR-34). Holding a `Ref` across a call that can
 re-enter is the classic way to hit it.
 
 **Check:** does any `borrow()`/`borrow_mut()` result live across a function call? Bind it in the
@@ -554,51 +554,14 @@ pub fn into_sorted(shared: Arc<Vec<u32>>) -> Vec<u32> {
 
 ## `Drop` and resources
 
-### RS-OWN-32 [M] Acquire in the constructor, release in `Drop`
-
-**Why:** RAII makes the release unforgettable, including on early return and on panic. Exposing
-`open`/`close` pairs means every caller must get every path right, and the one they miss is the
-error path they never tested.
-
-**Check:** does the API have a `close`, `release`, `unlock`, or `end` that a caller must remember to
-call? That is a guard type.
-
-### RS-OWN-33 [M] Make `Drop` infallible and offer an explicit `finish`
-
-Offer `fn finish(self) -> Result<T, Error>` for the path that can fail, and let `Drop` be the
-best-effort fallback for the path that forgot.
-
-**Why:** `Drop` cannot return a `Result`, so a failing flush or commit is silently swallowed —
-`BufWriter` loses the last block and nobody finds out. A `Drop` that panics while another panic
-unwinds aborts the process, with no cleanup anywhere.
-
-**Check:** does any `Drop` impl perform I/O, commit, or flush? Is there a fallible alternative the
-caller can use? Does any `Drop` call `unwrap`, `expect`, `assert`, or anything else that can panic?
-
-```rust
-// verified
-use std::io::{self, Write};
-
-/// `Drop` on a buffered writer swallows the error, so flush explicitly and check it.
-///
-/// # Errors
-/// Returns the first write or flush error encountered.
-pub fn write_all(mut sink: impl Write, lines: &[String]) -> io::Result<()> {
-    for line in lines {
-        writeln!(sink, "{line}")?;
-    }
-    sink.flush()
-}
-```
-
-### RS-OWN-34 [S] Do not implement `Drop` for logging alone
+### RS-OWN-32 [S] Do not implement `Drop` for logging alone
 
 **Why:** a `Drop` impl prevents destructuring the type by move, prevents partial moves out of it,
 and surprises callers who expected a plain value. That is a large ergonomic cost for a log line.
 
 **Check:** does the `Drop` release a resource, or only observe? If only observe, remove it.
 
-### RS-OWN-35 [S] Keep guard types small
+### RS-OWN-33 [S] Keep guard types small
 
 **Why:** a type with `Drop` cannot be partially moved out of, so anything the guard holds is held
 until the guard dies. A guard that carries the whole context keeps the whole context alive and
@@ -606,7 +569,7 @@ borrowed.
 
 **Check:** does the guard hold more than the release needs?
 
-### RS-OWN-36 [M] Name a guard binding; never bind it to `_`
+### RS-OWN-34 [M] Name a guard binding; never bind it to `_`
 
 **Why:** `let _ = cell.borrow_mut();` drops the guard at once, ending the borrow before the code
 that needed it runs: a bug that compiles and looks correct. rustc rejects it for a std lock guard
@@ -625,7 +588,7 @@ let _ = self.state.lock();
 let _guard = self.state.lock();
 ```
 
-### RS-OWN-37 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
+### RS-OWN-35 [M] Confine `ManuallyDrop` and `mem::forget` to the module that owns the invariant
 
 **Why:** both are safe functions with unsafe consequences for other people's invariants — leaking a
 guard, skipping a `Drop` that another type relies on. They are legitimate inside an abstraction that
@@ -635,7 +598,7 @@ knows the whole picture and dangerous anywhere else.
 it applies to? `mem::forget` is the `mem_forget` row below, so each needs an `#[expect]` with its
 reason.
 
-### RS-OWN-38 [S] Prefer scope-based cleanup to defer-style crates
+### RS-OWN-36 [S] Prefer scope-based cleanup to defer-style crates
 
 **Why:** a block, a guard struct, or a closure taking `&mut T` all express "cleanup happens" using
 only the language, with no dependency and no macro. A `defer!` macro also runs at end of scope, so
@@ -643,7 +606,7 @@ it buys nothing except unfamiliarity.
 
 **Check:** is there a `defer`-style dependency? What does it do that a guard struct does not?
 
-### RS-OWN-39 [M] Install process-wide resources once, at the top of `main`
+### RS-OWN-37 [M] Install process-wide resources once, at the top of `main`
 
 Signal handlers, terminal raw mode, the global logger, panic hooks.
 

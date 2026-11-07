@@ -321,13 +321,13 @@ def _unaccounted_anchor_rule(tree: Path) -> Edited:
     the sweep stayed dead.
 
     The rule is chosen for a property that could stop holding, so the
-    property is asserted rather than assumed. `RS-OWN-36` works because
+    property is asserted rather than assumed. `RS-OWN-34` works because
     `bevy-style` never names it; the day it does, the injection would be
     accounted for and this control would pass while proving nothing.
     """
-    if "RS-OWN-36" in (tree / f"{BV}/SKILL.md").read_text():
+    if "RS-OWN-34" in (tree / f"{BV}/SKILL.md").read_text():
         msg = (
-            f"{BV}/SKILL.md now names RS-OWN-36, so its defect is accounted "
+            f"{BV}/SKILL.md now names RS-OWN-34, so its defect is accounted "
             "for and no longer reaches the anchor sweep"
         )
         raise FixtureGoneError(msg)

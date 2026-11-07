@@ -537,7 +537,7 @@ pub fn print_all(lines: &[String]) -> io::Result<()> {
 
 ### RS-PERF-20 [M] Flush explicitly before exiting, and check the result
 
-`BufWriter` flushes on drop but swallows the error (RS-OWN-33).
+`BufWriter` flushes on drop but swallows the error (RS-ERR-34).
 
 **Why:** buffering means the last write is still in memory when `main` returns, and `Drop` cannot
 report a failure. A full disk or a closed pipe silently truncates the output — the failure

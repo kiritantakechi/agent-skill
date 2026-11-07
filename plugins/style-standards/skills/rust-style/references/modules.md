@@ -767,7 +767,7 @@ communication decision — use it to tell the reader what the type is about (RS-
 ### RS-MOD-42 [S] Keep functions short enough to see whole
 
 When one is not, the fix is almost always extracting a pure helper and leaving a thin caller
-(RS-FUNC-36).
+(RS-FUNC-35).
 
 **Why:** there is no line limit worth enforcing, but four levels of indentation or eight local
 mutable bindings means the reader is simulating the function rather than reading it.

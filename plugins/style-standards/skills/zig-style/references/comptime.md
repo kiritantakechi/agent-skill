@@ -251,7 +251,7 @@ derived from the actual input size, the way std does
 
 Hitting the quota means *one* comptime evaluation took too many backwards branches: it is a signal
 to bound the computation, and only sometimes a signal to raise the number. Comptime recursion whose
-depth depends on user-supplied data is prohibited, as all such recursion is (ZS-ERR-21).
+depth depends on user-supplied data is prohibited, as all such recursion is (ZS-ERR-23).
 
 **Why:** the quota is the only guardrail against a comptime evaluation that does not terminate, and
 a big round number turns a fast error into a long hang. A quota derived from the input documents the
@@ -859,7 +859,7 @@ function is the default that was not declared.
 ### ZS-COMPTIME-19 [M] A closed set of implementations is a tagged union, not an interface
 
 If every implementation is known at compile time and lives in your own tree, model it as
-`union(enum)` with methods that `switch` exhaustively (ZS-ERR-25). `std.Build.LazyPath` is the
+`union(enum)` with methods that `switch` exhaustively (ZS-ERR-27). `std.Build.LazyPath` is the
 canonical std example.
 
 **Why:** the switch is a jump table the optimizer can see through and often inline, and the union

@@ -385,7 +385,7 @@ outside it interleaves your bytes with a progress bar's escape sequences or a pa
 
 **Check:** any write reaching `Io.File.stderr()` that is not inside an `io.lockStderr` /
 `io.unlockStderr` pair, and any `lockStderr` whose `defer io.unlockStderr()` is not on the very next
-line (ZS-MEM-10).
+line (ZS-ERR-11).
 
 ```zig
 // fragment — GOOD
@@ -714,7 +714,7 @@ per-process fd quota just as fast, and the failure surfaces far from the leak as
 `error.ProcessFdQuotaExceeded` on some unrelated open.
 
 **Check:** an `openFile`/`openDir`/`createFile`/`createFileAtomic` result not followed by its
-`defer ….close(io)` or `defer ….deinit(io)` the way ZS-MEM-10 requires; a `close()` written without
+`defer ….close(io)` or `defer ….deinit(io)` the way ZS-ERR-11 requires; a `close()` written without
 an `io` argument; an `Io.Dir.Iterator` stored in a struct field or returned from a function rather
 than bound to a `var` in the loop's own scope; and an `iterate()`, `walk(` or `walkSelectively(` on
 a directory opened without `.iterate = true`.
@@ -1592,7 +1592,7 @@ test "tcp loopback: listen, connect, read with an explicit limit" {
 ### ZS-CONC-40 [M] Close every socket on every path; `shutdown` is how you unblock a blocked peer
 
 `stream.close(io)`, `socket.close(io)`, and `server.deinit(io)` each take the `Io`, exactly like
-`file.close(io)` — pair each with a `defer` on the acquisition line (ZS-MEM-10). To wake a task
+`file.close(io)` — pair each with a `defer` on the acquisition line (ZS-ERR-11). To wake a task
 parked in `accept` or a read, call `stream.shutdown(io, .recv/.send/.both)` from another task. That
 is documented behavior, not a trick: `Server.accept`'s `error.SocketNotListening` carries the
 comment "This allows `shutdown` to be used as a concurrent cancellation mechanism."
@@ -1606,7 +1606,7 @@ graceful-shutdown path, `shutdown` is how an accept loop returns so its `Group` 
 rather than abandoned (ZS-CONC-23).
 
 **Check:** an `accept`/`connect`/`createPair` result not followed by its `defer …close(io)` the way
-ZS-MEM-10 requires; an accept loop with no way to be woken.
+ZS-ERR-11 requires; an accept loop with no way to be woken.
 
 ## Subprocesses
 
