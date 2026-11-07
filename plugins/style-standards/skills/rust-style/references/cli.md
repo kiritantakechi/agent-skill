@@ -46,12 +46,11 @@ what "production-grade Rust CLI" means in practice.
 - **Behaviour, environment, signals**
   - RS-CLI-25 [M] Read stdin when given no files, and treat `-` as stdin
   - RS-CLI-26 [M!] Make destructive operations opt-in, and never prompt when not a terminal
-  - RS-CLI-27 [M] Write output that cannot be regenerated atomically
-  - RS-CLI-28 [M] On `SIGINT`, restore the terminal and remove temporary files, then re-raise it
-  - RS-CLI-29 [S] Respect the platform's directory conventions
-  - RS-CLI-30 [M] Namespace and document every environment variable you read
-  - RS-CLI-31 [M] Do not phone home, auto-update, or collect telemetry without opt-in
-  - RS-CLI-32 [S] Ship a single binary with artifacts and checksums for three platforms
+  - RS-CLI-27 [M] On `SIGINT`, restore the terminal and remove temporary files, then re-raise it
+  - RS-CLI-28 [S] Respect the platform's directory conventions
+  - RS-CLI-29 [M] Namespace and document every environment variable you read
+  - RS-CLI-30 [M] Do not phone home, auto-update, or collect telemetry without opt-in
+  - RS-CLI-31 [S] Ship a single binary with artifacts and checksums for three platforms
 
 - Decided by tools
 
@@ -853,44 +852,7 @@ pub fn decide(force: Force, terminal: Terminal) -> Decision {
 }
 ```
 
-### RS-CLI-27 [M] Write output that cannot be regenerated atomically
-
-An output the tool cannot regenerate from inputs it leaves alone — every in-place edit among them —
-is written to a temporary file in the same directory, then renamed: a crash mid-write must not
-destroy the user's input. Open the temporary with `File::create_new`, which fails rather than
-truncate a file that is already there.
-
-**Why:** `rename` within a filesystem is atomic, so readers see either the old file or the new one
-and never a half-written one. Writing in place gives up that guarantee for nothing — the temporary
-file costs one extra path.
-
-**Check:** for each in-place edit, is there a temp-file-and-rename? Same directory matters, since
-`rename` across filesystems is not atomic.
-
-```rust
-// verified
-use std::{
-    fs::File,
-    io,
-    path::{Path, PathBuf},
-};
-
-/// Write to a temporary beside the target, then rename: readers never see a partial file.
-#[must_use]
-pub fn staging_path(target: &Path) -> PathBuf {
-    target.with_added_extension("tmp")
-}
-
-/// Opens the temporary exclusively, so it never truncates a file another run left there.
-///
-/// # Errors
-/// Fails with `AlreadyExists` when the temporary is already there.
-pub fn create_staging(target: &Path) -> io::Result<File> {
-    File::create_new(staging_path(target))
-}
-```
-
-### RS-CLI-28 [M] On `SIGINT`, restore the terminal and remove temporary files, then re-raise it
+### RS-CLI-27 [M] On `SIGINT`, restore the terminal and remove temporary files, then re-raise it
 
 A tool that changes terminal modes (raw mode, the alternate screen, a hidden cursor) or creates
 temporary files handles `SIGINT`/`Ctrl-C`: it restores the terminal, removes the files, then
@@ -907,7 +869,7 @@ shell's loop carries on past, where a death by `SIGINT` would have stopped it.
 gone, and `$?` should be `130`. A handler that ends in `exit(130)` rather than re-raising is the
 finding.
 
-### RS-CLI-29 [S] Respect the platform's directory conventions
+### RS-CLI-28 [S] Respect the platform's directory conventions
 
 Use `directories` or `etcetera` — `$XDG_CONFIG_HOME`, `~/Library/Application Support`, `%APPDATA%` —
 rather than hard-coding `~/.toolrc`. For `$HOME` alone, `std::env::home_dir` needs no crate.
@@ -917,7 +879,7 @@ sync tools handle them correctly. A hard-coded dotfile also breaks on Windows en
 
 **Check:** does a path start from a hard-coded `~/.` or a `$HOME` string? Each is a hard-coded path.
 
-### RS-CLI-30 [M] Namespace and document every environment variable you read
+### RS-CLI-29 [M] Namespace and document every environment variable you read
 
 Namespace environment variables with the tool's name (`RIPGREP_CONFIG_PATH`, `MYTOOL_LOG`), document
 every one in `--help`, and never read an undocumented variable.
@@ -958,7 +920,7 @@ pub fn read(lookup: impl Fn(&str) -> Option<String>) -> Environment {
 }
 ```
 
-### RS-CLI-31 [M] Do not phone home, auto-update, or collect telemetry without opt-in
+### RS-CLI-30 [M] Do not phone home, auto-update, or collect telemetry without opt-in
 
 Do not phone home, auto-update, or collect telemetry without an explicit, documented opt-in. A CLI
 that makes a network call the user did not ask for will be removed from their machine.
@@ -969,7 +931,7 @@ servers. An unexpected network call is a security finding in all three, regardle
 **Check:** run the tool with the network blocked. Any behaviour change means there is a call you did
 not declare.
 
-### RS-CLI-32 [S] Ship a single binary with artifacts and checksums for three platforms
+### RS-CLI-31 [S] Ship a single binary with artifacts and checksums for three platforms
 
 Ship the tool as a static-ish single binary where possible, with release artifacts for the three
 major platforms and a checksum. Distribution friction is the main reason good tools go unused.

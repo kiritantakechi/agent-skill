@@ -73,7 +73,7 @@ proceed with the stricter reading.
 
 | Old | Python 3.15 | Rule |
 |---|---|---|
-| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | PS-CONC-22 |
+| `contextlib.contextmanager` | a decorator built from one, on a generator function, holds until the generator is exhausted | PS-CONC-21 |
 | `functools.singledispatchmethod` | called through its class, dispatches on the argument after the instance | PS-TYPE-17 |
 | `isinstance(x, dict)` | `False` for a `frozendict`; `isinstance(x, collections.abc.Mapping)` | PS-DATA-12 |
 | `locale.getpreferredencoding` | `'utf-8'` under UTF-8 mode, whatever the locale; `locale.getencoding()` | PS-OUT-03 |
@@ -219,8 +219,8 @@ name it costs.
   - PS-CONC-02 [M] Never treat a compound assignment as one step
   - PS-CONC-03 [M] Never treat check-then-act as one step
   - PS-CONC-13 [M] Serialise a shared iterator with `threading.serialize_iterator`
-  - PS-CONC-16 [M] Never rely on `lru_cache` or `cached_property` to run a body once
-  - PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
+  - PS-CONC-16 [M] Put a lock around a memo whose miss is expensive or has an effect
+  - PS-CONC-19 [M] Write each record to a shared text stream in one call, never with `print`
   - PS-CONC-25 [M] Start every task inside a `TaskGroup`
   - PS-CONC-26 [M] Never swallow `CancelledError`
   - PS-CONC-29 [M] Give every wait a timeout, with `asyncio.timeout`

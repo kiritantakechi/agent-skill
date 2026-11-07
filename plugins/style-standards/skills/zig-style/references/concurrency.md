@@ -65,20 +65,21 @@ Every example assumes a file opening with
   - ZS-CONC-38 [S] Give each task its own accumulator, and merge once at the end
   - ZS-CONC-39 [M] Hold an `Io.Mutex` for the shortest span, never across a call that suspends
 - **TigerStyle, re-derived for `std.Io`**
-  - ZS-CONC-40 [M] Drain a batch of what a peer sends; do not wake once per event
-  - ZS-CONC-41 [M!] A suspension point invalidates every entry-time assertion about shared state
-  - ZS-CONC-42 [M] Replace completion callbacks with `io.async` and `await`
-  - ZS-CONC-43 [M] Bound every stream buffer and queue with a named compile-time constant
+  - ZS-CONC-40 [M] Build a lazily created shared value once, under an `Io.Mutex`
+  - ZS-CONC-41 [M] Drain a batch of what a peer sends; do not wake once per event
+  - ZS-CONC-42 [M!] A suspension point invalidates every entry-time assertion about shared state
+  - ZS-CONC-43 [M] Replace completion callbacks with `io.async` and `await`
+  - ZS-CONC-44 [M] Bound every stream buffer and queue with a named compile-time constant
 - **Networking**
-  - ZS-CONC-44 [M] Build the address first; `listen`, `bind`, and `connect` are methods on it
-  - ZS-CONC-45 [M] A socket is an ordinary stream source — and `.limited` is not optional on one
-  - ZS-CONC-46 [M] Close every socket on every path; `shutdown` is how you unblock a blocked peer
+  - ZS-CONC-45 [M] Build the address first; `listen`, `bind`, and `connect` are methods on it
+  - ZS-CONC-46 [M] A socket is an ordinary stream source — and `.limited` is not optional on one
+  - ZS-CONC-47 [M] Close every socket on every path; `shutdown` is how you unblock a blocked peer
 - **Subprocesses**
-  - ZS-CONC-47 [M] `std.process.run` for the output; `std.process.spawn` for the stream
-  - ZS-CONC-48 [M] `child.wait(io)` closes the pipes; never close `child.stdout`/`stderr` yourself
+  - ZS-CONC-48 [M] `std.process.run` for the output; `std.process.spawn` for the stream
+  - ZS-CONC-49 [M] `child.wait(io)` closes the pipes; never close `child.stdout`/`stderr` yourself
 - **Terminals and progress**
-  - ZS-CONC-49 [S] Decide color with `Io.Terminal`, not with your own `isatty` check
-  - ZS-CONC-50 [S] Report long work through `std.Progress`, and pass the node to children
+  - ZS-CONC-50 [S] Decide color with `Io.Terminal`, not with your own `isatty` check
+  - ZS-CONC-51 [S] Report long work through `std.Progress`, and pass the node to children
 
 ---
 
@@ -416,7 +417,7 @@ becomes `error.StreamTooLong` instead of an OOM.
 
 **Check:** any `takeDelimiter`/`peek` call site that does not handle `error.StreamTooLong`
 distinctly from a real I/O failure — silently treating an over-long line as EOF truncates input.
-That the size comes from a named constant is ZS-CONC-43, which owns it for buffers, queues, and
+That the size comes from a named constant is ZS-CONC-44, which owns it for buffers, queues, and
 every other caller-provided fixed array.
 
 ```zig
@@ -509,7 +510,7 @@ the peer.
 
 **Check:** `.unlimited` passed to `allocRemaining`, `appendRemaining`, `readFileAlloc`, or
 `Reader.limited` on bytes this process did not produce itself. A `.limited(n)` whose `n` is a bare
-literal rather than a named constant is the separate ZS-CONC-43 finding.
+literal rather than a named constant is the separate ZS-CONC-44 finding.
 
 ```zig
 // fragment — GOOD
@@ -1581,7 +1582,65 @@ test "the lock is released before the task suspends" {
 
 ## TigerStyle, re-derived for `std.Io`
 
-### ZS-CONC-40 [M] Drain a batch of what a peer sends; do not wake once per event
+### ZS-CONC-40 [M] Build a lazily created shared value once, under an `Io.Mutex`
+
+A value that the first task to need it builds, such as a table or a connection, sits behind an
+`Io.Mutex` with the question "is it built yet" asked after the lock is taken. std 0.17 has no `Once`
+type, so the flag and the lock are yours. The build is the one thing that may run under the lock,
+and it is plain computation; a build that waits belongs in a task of its own.
+
+**Why:** two tasks that both see the value missing both build it, and the second result either
+replaces the first while a task still uses it or leaks. Asking after the lock makes the build
+single-flight.
+
+**Check:** an `if (x == null)` or flag test on shared state that sits above the `lock(io)` of the
+write it guards, or a build with no lock at all.
+
+```zig
+// fragment — BAD: both tasks can pass the test before either builds
+if (self.value == null) {
+    try self.lock.lock(io);
+    defer self.lock.unlock(io);
+    self.value = build();
+}
+```
+
+```zig
+// verified — GOOD
+const std = @import("std");
+const Io = std.Io;
+
+const Lazy = struct {
+    lock: Io.Mutex = .init,
+    value: ?u32 = null,
+    builds: u32 = 0,
+
+    /// The first caller builds the value under the lock; every later caller finds it there.
+    fn get(l: *Lazy, io: Io) Io.Cancelable!u32 {
+        try l.lock.lock(io);
+        defer l.lock.unlock(io);
+        if (l.value) |built| return built;
+        l.builds += 1;
+        l.value = 42; // stands in for the expensive build
+        return 42;
+    }
+};
+
+fn ask(lazy: *Lazy, io: Io) Io.Cancelable!void {
+    _ = try lazy.get(io);
+}
+
+test "the value is built once however many tasks ask" {
+    const io = std.testing.io;
+    var lazy: Lazy = .{};
+    var group: Io.Group = .init;
+    for (0..4) |_| group.async(io, ask, .{ &lazy, io });
+    try group.await(io);
+    try std.testing.expectEqual(1, lazy.builds);
+}
+```
+
+### ZS-CONC-41 [M] Drain a batch of what a peer sends; do not wake once per event
 
 TigerStyle: *don't do things directly in reaction to external events; your program should run at its
 own pace.* In 0.17 that means `q.get(io, &batch, 1)` — which returns up to `batch.len` items in one
@@ -1597,7 +1656,7 @@ The non-I/O half of this is ZS-PERF-05.
 together, results collected with `batch.next()`. `awaitAsync` returns once *at least one* has
 completed, so collect until every submitted operation has been seen — a count of the `add` calls,
 not `storage.len`, which is only the capacity: awaiting an operation that was never added blocks
-forever. `read_batch_max` is that capacity's named bound (ZS-CONC-43). Reach for `Io.Batch` only
+forever. `read_batch_max` is that capacity's named bound (ZS-CONC-44). Reach for `Io.Batch` only
 when `Future`/`Group` measurably costs too much per operation.
 
 **Why:** one wake-up per event means one context switch, one scheduler round-trip, and one set of
@@ -1607,7 +1666,7 @@ is what makes the per-batch assertions affordable.
 **Check:** `q.getOne(io)` inside a `while`; a `writeAll`/`print` plus a `flush` per record inside a
 loop over records; an `io.async` per event rather than per batch. The batched forms are
 `q.get(io, &batch, 1)`, `writeVecAll`/`sendFileAll`, and one task per batch — and each batch array
-needs the named `_max` of ZS-CONC-43 plus an assertion on the returned count.
+needs the named `_max` of ZS-CONC-44 plus an assertion on the returned count.
 
 ```zig
 // fragment — BAD: one wake-up, one syscall, one round-trip per event
@@ -1671,7 +1730,7 @@ while (pending > 0) {
 }
 ```
 
-### ZS-CONC-41 [M!] A suspension point invalidates every entry-time assertion about shared state
+### ZS-CONC-42 [M!] A suspension point invalidates every entry-time assertion about shared state
 
 TigerStyle says: *ensure functions run to completion without suspending, so that precondition
 assertions are true throughout the lifetime of the function.* Under `io.async` that rule cannot be
@@ -1724,7 +1783,7 @@ const Account = struct {
 };
 ```
 
-### ZS-CONC-42 [M] Replace completion callbacks with `io.async` and `await`
+### ZS-CONC-43 [M] Replace completion callbacks with `io.async` and `await`
 
 What `std.Io` kills is the callback-**driven I/O** pattern: the `read_sector()` /
 `read_sector_callback()` pair, the continuation threaded through an `on_complete` field, the state
@@ -1743,7 +1802,7 @@ split into `doThing` / `doThingCallback` — all should be `io.async` + `await`.
 The TigerStyle rules this chapter *does* keep — bounded buffers, bounded queues, batching, assertion
 density — are independent of the I/O model and carry over unchanged.
 
-### ZS-CONC-43 [M] Bound every stream buffer and queue with a named compile-time constant
+### ZS-CONC-44 [M] Bound every stream buffer and queue with a named compile-time constant
 
 Reader buffers, writer buffers, `Io.Queue` storage, `Io.Select` storage, `Io.Batch` storage, and
 `Io.Group` fan-out width are all caller-provided fixed arrays. Size each from a `const` with a name
@@ -1777,7 +1836,7 @@ var futures: [shard_max]Io.Future(FetchError!u32) = undefined;
 receiver, `Io.Limit` on reads, `error.Canceled` never swallowed, buffers sized deliberately. Only
 `Io.Threaded` implements it in 0.17.0 (ZS-CONC-03).
 
-### ZS-CONC-44 [M] Build the address first; `listen`, `bind`, and `connect` are methods on it
+### ZS-CONC-45 [M] Build the address first; `listen`, `bind`, and `connect` are methods on it
 
 `net.IpAddress` is `union(enum) { ip4: Ip4Address, ip6: Ip6Address }` and is the entry point for
 every connection. `address.listen(io, options) -> Server` for connection-oriented work,
@@ -1813,7 +1872,7 @@ test "address parsing" {
 }
 ```
 
-### ZS-CONC-45 [M] A socket is an ordinary stream source — and `.limited` is not optional on one
+### ZS-CONC-46 [M] A socket is an ordinary stream source — and `.limited` is not optional on one
 
 `stream.reader(io, &buffer)` and `stream.writer(io, &buffer)` return `net.Stream.Reader` /
 `net.Stream.Writer`, each with an `interface` field and an `err` field, so the buffer-then-flush
@@ -1831,7 +1890,7 @@ untrusted input boundary of ZS-CONC-13: `.unlimited` there is an attacker-contro
 an unsized reader buffer an attacker-controlled maximum message length (ZS-CONC-10).
 
 **Check:** `.unlimited` passed to any read over a `net.Stream`. A bare-literal socket buffer is the
-ZS-CONC-43 finding, and a missing `flush` before `stream.close(io)` the ZS-CONC-04 one.
+ZS-CONC-44 finding, and a missing `flush` before `stream.close(io)` the ZS-CONC-04 one.
 
 ```zig
 // fragment — GOOD
@@ -1870,7 +1929,7 @@ test "tcp loopback: listen, connect, read with an explicit limit" {
 }
 ```
 
-### ZS-CONC-46 [M] Close every socket on every path; `shutdown` is how you unblock a blocked peer
+### ZS-CONC-47 [M] Close every socket on every path; `shutdown` is how you unblock a blocked peer
 
 `stream.close(io)`, `socket.close(io)`, and `server.deinit(io)` each take the `Io`, exactly like
 `file.close(io)` — pair each with a `defer` on the acquisition line (ZS-ERR-11). To wake a task
@@ -1895,7 +1954,7 @@ ZS-ERR-11 requires; an accept loop with no way to be woken.
 points are free functions taking `io`, and the choice between them is whether you want the output or
 the stream.
 
-### ZS-CONC-47 [M] `std.process.run` for the output; `std.process.spawn` for the stream
+### ZS-CONC-48 [M] `std.process.run` for the output; `std.process.spawn` for the stream
 
 The exact signatures are the first example's, from `std/process.zig`.
 
@@ -1949,7 +2008,7 @@ test "process.run collects stdout with an explicit limit" {
 }
 ```
 
-### ZS-CONC-48 [M] `child.wait(io)` closes the pipes; never close `child.stdout`/`stderr` yourself
+### ZS-CONC-49 [M] `child.wait(io)` closes the pipes; never close `child.stdout`/`stderr` yourself
 
 `Child` exposes `stdin`, `stdout`, `stderr` as `?File`, populated for each stream you set to
 `.pipe`. Read them through a normal `File.Reader`, then call `wait`. `wait` reaps the process
@@ -1998,7 +2057,7 @@ test "process.spawn streams a child's stdout incrementally" {
 
 ## Terminals and progress
 
-### ZS-CONC-49 [S] Decide color with `Io.Terminal`, not with your own `isatty` check
+### ZS-CONC-50 [S] Decide color with `Io.Terminal`, not with your own `isatty` check
 
 `Io.Terminal` is `{ writer: *Io.Writer, mode: Mode }`, and `t.setColor(color)` emits through it. For
 stderr, `io.lockStderr(&buffer, null)` has already chosen the mode, from the handle and from
@@ -2035,7 +2094,7 @@ test "stderr color through the lock's own terminal" {
 }
 ```
 
-### ZS-CONC-50 [S] Report long work through `std.Progress`, and pass the node to children
+### ZS-CONC-51 [S] Report long work through `std.Progress`, and pass the node to children
 
 `std.Progress.start(io, .{ .root_name = "…" })` returns the root `Node`; `node.start(name, total)`
 opens a child, `completeOne`/`setCompletedItems`/`setEstimatedTotalItems` update it, `node.end()`
@@ -2059,7 +2118,7 @@ manual "N/M" counter printed to stderr; `std.Progress.start` in library code.
 ```zig
 // verified — GOOD: a `main`, because `start` is process-global
 const std = @import("std");
-/// Maximum shards indexed per run; bounds the progress denominator (ZS-CONC-43).
+/// Maximum shards indexed per run; bounds the progress denominator (ZS-CONC-44).
 const shard_max = 4;
 
 pub fn main(init: std.process.Init) !void {

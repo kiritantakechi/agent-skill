@@ -70,6 +70,9 @@ concurrent".
   - RS-CONC-44 [M] Give every task a parent that outlives it and joins it
   - RS-CONC-45 [M] Document the threading contract of every public type
 
+- **Files shared between processes**
+  - RS-CONC-46 [M] Write output that cannot be regenerated atomically
+
 - Decided by tools
 
 ---
@@ -1002,6 +1005,45 @@ impl Registry {
             guard.push(name);
         }
     }
+}
+```
+
+## Files shared between processes
+
+### RS-CONC-46 [M] Write output that cannot be regenerated atomically
+
+An output the tool cannot regenerate from inputs it leaves alone — every in-place edit among them —
+is written to a temporary file in the same directory, then renamed: a crash mid-write must not
+destroy the user's input. Open the temporary with `File::create_new`, which fails rather than
+truncate a file that is already there.
+
+**Why:** `rename` within a filesystem is atomic, so readers see either the old file or the new one
+and never a half-written one. Writing in place gives up that guarantee for nothing — the temporary
+file costs one extra path.
+
+**Check:** for each in-place edit, is there a temp-file-and-rename? Same directory matters, since
+`rename` across filesystems is not atomic.
+
+```rust
+// verified
+use std::{
+    fs::File,
+    io,
+    path::{Path, PathBuf},
+};
+
+/// Write to a temporary beside the target, then rename: readers never see a partial file.
+#[must_use]
+pub fn staging_path(target: &Path) -> PathBuf {
+    target.with_added_extension("tmp")
+}
+
+/// Opens the temporary exclusively, so it never truncates a file another run left there.
+///
+/// # Errors
+/// Fails with `AlreadyExists` when the temporary is already there.
+pub fn create_staging(target: &Path) -> io::Result<File> {
+    File::create_new(staging_path(target))
 }
 ```
 

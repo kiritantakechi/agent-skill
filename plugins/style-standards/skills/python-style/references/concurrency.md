@@ -32,15 +32,16 @@ free-threaded build. Where a rule depends on the build, the block probes it rath
   - PS-CONC-14 [M] Give each consumer a full stream with `threading.concurrent_tee`
   - PS-CONC-15 [S] Publish a thread-safe iterator factory with `threading.synchronized_iterator`
 - **Caches, memoisation, and context**
-  - PS-CONC-16 [M] Never rely on `lru_cache` or `cached_property` to run a body once
-  - PS-CONC-17 [M!] Put a lock around a memo whose miss is expensive or has an effect
-  - PS-CONC-18 [M] Create every `ContextVar` at module scope
-  - PS-CONC-19 [M] Never rely on a thread inheriting context; the default differs by build
+  - PS-CONC-16 [M] Put a lock around a memo whose miss is expensive or has an effect
+  - PS-CONC-17 [M] Create every `ContextVar` at module scope
+  - PS-CONC-18 [M] Never rely on a thread inheriting context; the default differs by build
 - **Streams, randomness, and hold times**
-  - PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
-  - PS-CONC-21 [M] Give each thread its own `random.Random`
-  - PS-CONC-22 [M] Hold a context in a generator with `with`, not with a decorator
-  - PS-CONC-23 [M] Never hold a lock across a call you do not control
+  - PS-CONC-19 [M] Write each record to a shared text stream in one call, never with `print`
+  - PS-CONC-20 [M] Give each thread its own `random.Random`
+  - PS-CONC-21 [M] Hold a context in a generator with `with`, not with a decorator
+  - PS-CONC-22 [M] Never hold a lock across a call you do not control
+- **Files shared with other processes**
+  - PS-CONC-23 [M] Replace a file other processes read by renaming a finished temporary over it
 - **Starting and owning tasks**
   - PS-CONC-24 [M] Enter with `asyncio.run`, and configure with `loop_factory`
   - PS-CONC-25 [M] Start every task inside a `TaskGroup`
@@ -673,34 +674,19 @@ assert sorted(i for part in got.values() for i in part) == list(range(30))
 
 ## Caches, memoisation, and context
 
-### PS-CONC-16 [M] Never rely on `lru_cache` or `cached_property` to run a body once
+### PS-CONC-16 [M] Put a lock around a memo whose miss is expensive or has an effect
 
-Both are coherent — neither cache corrupts — and neither is single-flight. `functools.lru_cache`
-does not hold its lock across the call, so eight threads hitting one cold key ran the body seven
-times. `functools.cached_property` takes no lock at all, so two threads reaching a cold property
-both compute it, and one of the two results is discarded.
+Not around the cache read — around the miss. Neither `functools.lru_cache` nor
+`functools.cached_property` is single-flight: the first holds no lock across the call and the second
+takes none, so threads reaching a cold key each run the body. Memoise an effect only where "once" is
+what every caller wants, such as opening a connection: a cached charge or write happens once while
+each caller believes it happened for them. `functools.cache` also needs every argument to be
+hashable. A pure function, or an expensive miss with no effect, needs no lock: its plain decorator,
+with a comment saying duplicate runs were accepted, so the next reader knows it was a decision.
 
-**Why:** per the docs "it is possible for the wrapped function to be called more than once", and a
-lock in `cached_property` would serialise every instance behind one. Harmless for a pure body; a
-duplicated charge, write or connection, or a leaked handle, for one with an effect.
-
-**Check:** `rg -nB3 -A5 '@lru_cache|@cache\b|cached_property' src/` and read each decorated body for
-effects — I/O, writes, metrics, anything needing cleanup. A pure function is fine; anything else
-needs PS-CONC-17.
-
-### PS-CONC-17 [M!] Put a lock around a memo whose miss is expensive or has an effect
-
-Not around the cache read — around the miss. Memoise an effect only where "once" is what every
-caller wants, such as opening a connection: a cached charge or write happens once while each caller
-believes it happened for them. `functools.cache` also needs every argument to be hashable. A pure,
-cheap function needs no lock: its plain decorator, with a comment saying duplicate runs were
-accepted, so the next reader knows it was a decision.
-
-*Relaxed form:* an expensive miss with no effect may run more than once, with that comment.
-
-**Why:** PS-CONC-16's two decorators are one defect with two spellings. The double-checked shape
-keeps the common case, a hit, lock-free while making the miss single-flight; without it, "cached"
-means "usually computed once", which is not what the word promises the reader.
+**Why:** the docs say "it is possible for the wrapped function to be called more than once", which
+is harmless for a pure body and a duplicated charge, write or leaked handle for one with an effect.
+The double-checked shape keeps a hit lock-free while making the miss single-flight.
 
 **Check:** every `@cache`, `@lru_cache` and hand-written memo. Read the body for I/O, mutation,
 randomness, or time: an effect a caller expects on every call is the finding, and so is an effectful
@@ -737,7 +723,7 @@ assert connection("db") == "conn:db"
 assert len(_conns) == 1
 ```
 
-### PS-CONC-18 [M] Create every `ContextVar` at module scope
+### PS-CONC-17 [M] Create every `ContextVar` at module scope
 
 Never inside a function, a method, or a loop.
 
@@ -748,7 +734,7 @@ does not work".
 **Check:** `rg -nB5 'ContextVar\(' src/` — any hit whose preceding lines are inside a `def` or
 `class` body is the finding.
 
-### PS-CONC-19 [M] Never rely on a thread inheriting context; the default differs by build
+### PS-CONC-18 [M] Never rely on a thread inheriting context; the default differs by build
 
 `sys.flags.thread_inherit_context` is 1 on the free-threaded build and 0 on the GIL build, and so is
 `sys.flags.context_aware_warnings`, which makes `warnings.catch_warnings` context-local. Pass the
@@ -788,7 +774,7 @@ assert request_id.get() == "-", "leaving the block reset the variable"
 
 ## Streams, randomness, and hold times
 
-### PS-CONC-20 [M] Write each record to a shared text stream in one call, never with `print`
+### PS-CONC-19 [M] Write each record to a shared text stream in one call, never with `print`
 
 `open()` in text mode returns a `TextIOWrapper`, and so do `sys.stdout` and `sys.stderr`, which
 every thread that prints already shares. `print` is not one call to it: it writes each argument,
@@ -802,7 +788,7 @@ as single `write` calls arrived whole; under the GIL, `print` garbled a handful.
 **Check:** `rg -n '\bprint\(|\.write\(' src/` inside any thread target. A `print` is the finding,
 and so is a `write` that sends part of a record.
 
-### PS-CONC-21 [M] Give each thread its own `random.Random`
+### PS-CONC-20 [M] Give each thread its own `random.Random`
 
 The module-level functions all share one instance. Seed each thread's from the operating system, as
 `random.Random()` does with no argument: one fixed seed would give every thread the same stream.
@@ -848,7 +834,7 @@ for thread in threads:
 assert len(set(draws)) == 4, "four threads, four independent streams"
 ```
 
-### PS-CONC-22 [M] Hold a context in a generator with `with`, not with a decorator
+### PS-CONC-21 [M] Hold a context in a generator with `with`, not with a decorator
 
 In 3.15 a `@contextmanager`-derived decorator applied to a generator function keeps the context open
 until the generator is exhausted. Previously it closed when the generator object was created. The
@@ -896,18 +882,69 @@ assert list(rows()) == [1, 2, 3]
 assert held == ["in", "out"]
 ```
 
-### PS-CONC-23 [M] Never hold a lock across a call you do not control
+### PS-CONC-22 [M] Never hold a lock across a call you do not control
 
 A callback, a plugin hook, an I/O call, or anything that can block. Compute under the lock, call
 outside it.
 
 **Why:** a lock held across arbitrary code is a lock whose hold time you cannot bound, and one whose
-acquisition order you cannot see: the shape of every lock-ordering deadlock. Under PS-CONC-22, a
+acquisition order you cannot see: the shape of every lock-ordering deadlock. Under PS-CONC-21, a
 decorator whose hold time silently grew now spans calls it never used to.
 
 **Check:** read every `with <lock>:` body for a call that is not a local function or a container
 operation. A hit is a candidate, not a verdict — the lock may genuinely need to span it, in which
 case say so in a comment.
+
+## Files shared with other processes
+
+### PS-CONC-23 [M] Replace a file other processes read by renaming a finished temporary over it
+
+Write the new contents to a temporary file in the same directory, flush and `fsync` it, then
+`Path.replace` it over the target; remove the temporary if anything fails. This holds for a file
+another process reads, or one that is read, changed and written back. A file regenerated from
+scratch on every run may be written in place.
+
+**Why:** opening the target for writing truncates it, so a reader, or a crash, finds it empty or
+half-written and the old contents are gone. A rename within one filesystem is atomic, so a reader
+sees the old file or the new. Across filesystems it is not, hence the same directory.
+
+**Check:** an `open(path, "w")` or `Path.write_text` on a path the program or another process reads
+later. Each wants the staging file and the `replace`.
+
+```python
+# fragment — BAD: a reader or a crash sees a truncated file
+Path("state.json").write_text(text)
+```
+
+```python
+# verified — GOOD
+import os
+import tempfile
+from pathlib import Path
+
+
+def replace_file(path: Path, data: bytes) -> None:
+    """Readers see the old file or the new, never half of one."""
+    # Same directory: a rename across filesystems is not atomic.
+    fd, staging = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        Path(staging).replace(path)
+    except BaseException:
+        Path(staging).unlink(missing_ok=True)
+        raise
+
+
+with tempfile.TemporaryDirectory() as tmp:
+    target = Path(tmp) / "state.json"
+    target.write_bytes(b"old")
+    replace_file(target, b"new")
+    assert target.read_bytes() == b"new"
+    assert [p.name for p in Path(tmp).iterdir()] == ["state.json"]
+```
 
 ## Starting and owning tasks
 

@@ -123,13 +123,13 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-FT-17` | `PS-CONC-15` |
 | `PS-FT-18` | `PS-CONC-16` |
 | `PS-FT-19` | `PS-CONC-16` |
-| `PS-FT-20` | `PS-CONC-17` |
-| `PS-FT-21` | `PS-CONC-18` |
-| `PS-FT-22` | `PS-CONC-19` |
-| `PS-FT-23` | `PS-CONC-20` |
-| `PS-FT-24` | `PS-CONC-21` |
-| `PS-FT-25` | `PS-CONC-22` |
-| `PS-FT-26` | `PS-CONC-23` |
+| `PS-FT-20` | `PS-CONC-16` |
+| `PS-FT-21` | `PS-CONC-17` |
+| `PS-FT-22` | `PS-CONC-18` |
+| `PS-FT-23` | `PS-CONC-19` |
+| `PS-FT-24` | `PS-CONC-20` |
+| `PS-FT-25` | `PS-CONC-21` |
+| `PS-FT-26` | `PS-CONC-22` |
 | `PS-MIG-02` | `PS-MIG-01` |
 | `PS-MIG-03` | `PS-MIG-02` |
 | `PS-MIG-04` | `PS-MIG-03` |
@@ -138,7 +138,7 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-MIG-07` | `PS-MIG-04` |
 | `PS-MIG-08` | `PS-TYPE-11` |
 | `PS-MIG-09` | `PS-MIG-05` |
-| `PS-MIG-10` | `PS-CONC-22` |
+| `PS-MIG-10` | `PS-CONC-21` |
 | `PS-MIG-11` | `PS-DATA-12` |
 | `PS-MIG-12` | `PS-OUT-02` |
 | `PS-MIG-13` | `PS-CONC-24` |
@@ -188,7 +188,7 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-PKG-21` | `PS-BUILD-23` |
 | `PS-PERF-11` | `PS-DATA-02` |
 | `PS-PERF-12` | `PS-PERF-11` |
-| `PS-PERF-13` | `PS-CONC-17` |
+| `PS-PERF-13` | `PS-CONC-16` |
 | `PS-PERF-14` | lint `ruff:PERF401` |
 | `PS-PERF-15` | `PS-PERF-12` |
 | `PS-PERF-16` | `PS-PERF-13` |
@@ -266,7 +266,7 @@ that changed, and what it is now; an ID it does not list is unchanged.
 | `PS-CORE-18` | `PS-CONC-03` |
 | `PS-CORE-19` | `PS-CONC-13` |
 | `PS-CORE-20` | `PS-CONC-16` |
-| `PS-CORE-21` | `PS-CONC-20` |
+| `PS-CORE-21` | `PS-CONC-19` |
 | `PS-CORE-22` | `PS-CONC-25` |
 | `PS-CORE-23` | `PS-API-07` |
 | `PS-CORE-24` | `PS-OUT-01` |

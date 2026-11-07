@@ -10,7 +10,7 @@ rules throughout this standard ask for a profile, and this is the chapter that s
 
 This chapter does not own data layout: struct-of-arrays and `MultiArrayList` are ZS-DATA-22,
 handles-versus-pointers is ZS-DATA-21, and passing large aggregates as `*const T` is ZS-DATA-18. It
-does not own I/O batching (ZS-CONC-40), assertion cost budgeting (ZS-ASSERT-16), the optimize-mode
+does not own I/O batching (ZS-CONC-41), assertion cost budgeting (ZS-ASSERT-16), the optimize-mode
 table (ZS-ASSERT-02), `@branchHint` (ZS-ERR-28), or `inline fn` (ZS-COMPTIME-03). It cites them.
 
 **Read ZS-PERF-21 first if you are tempted to apply this chapter to code that is not hot.** Roughly
@@ -213,7 +213,7 @@ not optional: an unbounded batch converts a throughput win into an unbounded-lat
 unbounded-memory bug.
 
 The I/O half of this rule — draining an event queue instead of reacting per event, `writeVecAll`
-instead of a write per record — is ZS-CONC-40; do not duplicate it. This rule covers the non-I/O
+instead of a write per record — is ZS-CONC-41; do not duplicate it. This rule covers the non-I/O
 half: locks, allocations, and per-item work inside a lock.
 
 A hot path is ZS-PERF-02's. Anywhere else, batch whatever crosses a process boundary per item — a

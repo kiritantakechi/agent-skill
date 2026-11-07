@@ -2,8 +2,9 @@
 
 Scope: work that runs at the same time: who starts and owns a task, how a task is stopped and how
 long it may wait, what must not block the thread that runs other tasks, and how state is shared
-between threads or tasks. How a test waits for a task is the testing chapter's; what concurrency
-costs is the performance chapter's; where a task's output goes is the output chapter's.
+between threads or tasks, how a lazily built value is made once, and how a file other processes read
+is replaced. How a test waits for a task is the testing chapter's; what concurrency costs is the
+performance chapter's; where a task's output goes is the output chapter's.
 
 ## Contents
 
@@ -24,6 +25,9 @@ costs is the performance chapter's; where a task's output goes is the output cha
   - AS-CONC-11 [M] Hand work between tasks through a queue, not a structure behind a lock
   - AS-CONC-12 [M] Bound every queue that a producer can outrun
   - AS-CONC-13 [M] Hold a lock for the shortest span, and never across a call that waits
+- **Building and replacing what others share**
+  - AS-CONC-14 [M] Build a lazily created shared value once, under synchronisation
+  - AS-CONC-15 [M] Replace a file others read by renaming a finished temporary over it
 
 ---
 
@@ -183,7 +187,7 @@ unbounded queue turns a burst into memory, and the process fails hours later, fa
 |---|---|---|---|---|
 | python-style | PS-CONC-11 | realises | [M] | |
 | rust-style | RS-CONC-09 | realises | [M] | |
-| zig-style | ZS-CONC-43 | realises | [M] | |
+| zig-style | ZS-CONC-44 | realises | [M] | |
 
 ### AS-CONC-13 [M] Hold a lock for the shortest span, and never across a call that waits
 
@@ -194,6 +198,35 @@ slowest peer takes, and is the shape of every deadlock.
 
 | Standard | Rule | Relation | Tier | Reason |
 |---|---|---|---|---|
-| python-style | PS-CONC-23 | realises | [M] | |
+| python-style | PS-CONC-22 | realises | [M] | |
 | rust-style | RS-CONC-20 | realises | [M] | |
 | zig-style | ZS-CONC-39 | realises | [M] | |
+
+## Building and replacing what others share
+
+### AS-CONC-14 [M] Build a lazily created shared value once, under synchronisation
+
+A value that the first task to need it builds is built exactly once. Whether it is built yet is
+asked under the same synchronisation that guards the build, or by a construct made for the purpose,
+and a cache or memo decorator that is not single-flight does not provide it. Two tasks that both see
+the value missing both build it, and the second result replaces the first or leaks.
+
+| Standard | Rule | Relation | Tier | Reason |
+|---|---|---|---|---|
+| python-style | PS-CONC-16 | realises | [M] | |
+| rust-style | RS-CONC-27 | realises | [M] | |
+| zig-style | ZS-CONC-40 | realises | [M] | |
+
+### AS-CONC-15 [M] Replace a file others read by renaming a finished temporary over it
+
+A file that another process reads, or that is read, changed and written back, is replaced by writing
+the new contents to a temporary file beside it and renaming that over the original. Opening the
+original for writing truncates it, so a reader or a crash finds it empty or half-written and the old
+contents are gone; a rename within one filesystem is atomic. A file regenerated from scratch on
+every run may be written in place.
+
+| Standard | Rule | Relation | Tier | Reason |
+|---|---|---|---|---|
+| python-style | PS-CONC-23 | realises | [M] | |
+| rust-style | RS-CONC-46 | realises | [M] | |
+| zig-style | ZS-CONC-19 | realises | [M] | |

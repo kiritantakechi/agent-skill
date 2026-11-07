@@ -434,7 +434,7 @@ arrives later through the methods.
 
 **Why:** a written-out function type puts the contract in the signature, so a mismatched callback
 fails at the call site rather than inside your loop. TigerStyle's "callbacks go last" served
-hand-threaded continuations, which ZS-CONC-42 retires: an `io.async` `Future` is awaited in place.
+hand-threaded continuations, which ZS-CONC-43 retires: an `io.async` `Future` is awaited in place.
 
 **Check:** any new function taking a `comptime …Fn` should be diff-able against a `std.sort`
 signature; if the fn is not adjacent to its `context`, or the data is not before both, it is a

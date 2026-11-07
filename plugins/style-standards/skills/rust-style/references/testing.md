@@ -476,7 +476,7 @@ mod tests {
 
 Tests must be deterministic and order-independent. `cargo test` runs them in parallel on multiple
 threads; anything relying on a shared directory, a fixed port, an environment variable, or the
-current working directory will flake. Pass a test its environment through a lookup, as RS-CLI-30's
+current working directory will flake. Pass a test its environment through a lookup, as RS-CLI-29's
 `read` takes one: `env::set_var` is `unsafe` in edition 2024, so `unsafe_code = "forbid"` rejects
 it.
 

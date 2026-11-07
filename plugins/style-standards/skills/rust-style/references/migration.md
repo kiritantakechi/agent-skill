@@ -54,8 +54,8 @@ the replacement — or `2024` for a change the edition made; section 2.1 lists t
 | `os_pipe::pipe` | `io::pipe` | alias | 1.87 | RS-MIG-01 |
 | `static_assertions::const_assert` | `const _: () = assert!(…)`, or `const { assert!(…) }` | alias | 1.57 | RS-MIG-01 |
 | `assert_matches::assert_matches` | `assert_matches!`, imported from `std` | alias | 1.96 | RS-TEST-13 |
-| `home::home_dir` | `std::env::home_dir` | alias | 1.87 | RS-CLI-29 |
-| `dirs::home_dir` | `std::env::home_dir` | alias | 1.87 | RS-CLI-29 |
+| `home::home_dir` | `std::env::home_dir` | alias | 1.87 | RS-CLI-28 |
+| `dirs::home_dir` | `std::env::home_dir` | alias | 1.87 | RS-CLI-28 |
 | `num_cpus::get` | `std::thread::available_parallelism` | alias | 1.59 | RS-CONC-14 |
 | `atty::is` | `std::io::IsTerminal` | alias | 1.70 | RS-CLI-19 |
 | `is_terminal::IsTerminal` | `std::io::IsTerminal` | alias | 1.70 | RS-CLI-19 |

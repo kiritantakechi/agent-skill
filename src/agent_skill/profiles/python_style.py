@@ -135,12 +135,11 @@ PROFILE = Profile(
         "PS-CONC-10",
         "PS-CONC-13",
         "PS-CONC-14",
-        "PS-CONC-16",
+        "PS-CONC-17",
         "PS-CONC-18",
         "PS-CONC-19",
         "PS-CONC-20",
         "PS-CONC-21",
-        "PS-CONC-22",
         "PS-DATA-01",
         "PS-DATA-02",
         "PS-DATA-03",
@@ -198,12 +197,12 @@ PROFILE = Profile(
                 "the pattern finds the test; whether a lock spans the test and the "
                 "write decides",
             ),
-            "PS-CONC-18": NotDecisive(
+            "PS-CONC-17": NotDecisive(
                 "any hit whose preceding lines are inside",
                 "the pattern finds every ContextVar; the scope it is created in "
                 "decides, which a line-oriented pattern cannot see",
             ),
-            "PS-CONC-19": NotDecisive(
+            "PS-CONC-18": NotDecisive(
                 "whose value was set outside it",
                 "the pattern finds every context read; passing the context explicitly "
                 "is the compliant form and matches the same pattern",
@@ -268,12 +267,12 @@ PROFILE = Profile(
                 "the pattern finds every thread start; what the target closes over "
                 "decides, and starting a thread is not itself a defect",
             ),
-            "PS-CONC-20": NotDecisive(
+            "PS-CONC-19": NotDecisive(
                 "inside any thread target",
                 "the pattern finds every `print`; the calling thread decides, and a "
                 "module-level print is not a hit",
             ),
-            "PS-CONC-22": NotDecisive(
+            "PS-CONC-21": NotDecisive(
                 "applied to a `def` containing `yield`",
                 "the pattern finds every `@contextmanager`; what it decorates decides, "
                 "and the `with` form the rule recommends matches too",
