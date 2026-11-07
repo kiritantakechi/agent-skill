@@ -1,7 +1,7 @@
 ---
 name: zig-style
 description: >-
-  The modern Zig 0.17 engineering standard — a 346-rule library merging the official Zig style
+  The modern Zig 0.17 engineering standard — a 344-rule library merging the official Zig style
   guide, the empirical conventions of the 0.17 standard library, and TigerBeetle's TigerStyle.
   Covers naming, types and data layout, errors and control flow, memory and allocators, std.Io
   streams and structured concurrency, assertions and bounded limits, API symmetry, comptime and
@@ -81,13 +81,13 @@ proceed with the stricter reading.
 | Old | Zig 0.17 | Rule |
 |---|---|---|
 | `@bitCast` | the same call, which on an array or a vector now reinterprets logical bits independent of endianness, so a big-endian target gets another result; a cast to an enum compiles and is safety-checked like `@fromBackingInt`, and one of an `extern struct` or `extern union` is rejected — `@ptrCast` a pointer to it | ZS-DATA-09 |
-| `@hasDecl` | `false` for a declaration that is not `pub`, even in the same file, with no diagnostic | ZS-COMPTIME-15 |
+| `@hasDecl` | `false` for a declaration that is not `pub`, even in the same file, with no diagnostic | ZS-COMPTIME-14 |
 | `std.mem.containsAtLeastScalar` | the same name with its last two parameters swapped, `(T, list, element, minimum)`: for an integer `T` a 0.16 call type-checks and asks another question | ZS-MIG-01 |
 | `std.mem.eql` | on a float slice holding NaN, `false` for the slice compared with itself: the same slice no longer short-circuits; `findDiff` likewise | ZS-MIG-01 |
 | `init.gpa` | a `SafeAllocator` in `debug` and `safe` builds whether or not libc is linked, as `std.testing.allocator` is; a `safe` build that links libc no longer gets `c_allocator`, and its leak report still never changes the exit code | ZS-MEM-01 |
-| `std.meta.declarations` | the same name, now returning the declarations' names, a `[]const [:0]const u8`, where it returned `[]const Declaration` | ZS-COMPTIME-15 |
-| `addOptionPath` | an option naming a file: a directory is `addOptionPathDirectory`, and `addOptionPathUntracked` opts out of tracking | ZS-BUILD-27 |
-| `zig fetch` | without `--save`, a command that fills only the global cache: `zig fetch --save` and `zig build` fill `zig-pkg/` | ZS-BUILD-13 |
+| `std.meta.declarations` | the same name, now returning the declarations' names, a `[]const [:0]const u8`, where it returned `[]const Declaration` | ZS-COMPTIME-14 |
+| `addOptionPath` | an option naming a file: a directory is `addOptionPathDirectory`, and `addOptionPathUntracked` opts out of tracking | ZS-BUILD-26 |
+| `zig fetch` | without `--save`, a command that fills only the global cache: `zig fetch --save` and `zig build` fill `zig-pkg/` | ZS-BUILD-12 |
 
 A `changed` row of an earlier release is in the migration table, `ZS-MIG` in section 6, with its
 Since; its owning rule's Check finds it.
@@ -105,12 +105,12 @@ Since; its owning rule's Check finds it.
 | `.link_once` | `.weak` | ZS-INTEROP-03 |
 | `@bitSizeOf(…)` | `@sizeOf(T) * 8` for a type that is not `packed`, whose padding `@bitSizeOf` counted: it takes a `packed` type only | ZS-DATA-19 |
 | `enum(u8) {}` | `enum(noreturn) {}`: an empty exhaustive enum is backed by `noreturn` | ZS-DATA-26 |
-| `.@"struct".fields` | `.field_names[i]`, `.field_types[i]`, and `.field_attrs[i]` for `@"comptime"`, `@"align"` and `defaultValue(T)`; an enum's are `.field_names` and `.field_values`, with `.mode == .exhaustive` for `is_exhaustive`, and a union's add `.backing_integer` | ZS-COMPTIME-15 |
-| `.decls` | `.decl_names[i]`, on a struct, enum, union or opaque | ZS-COMPTIME-15 |
-| `.@"fn".params` | `.param_types[i]`; `calling_convention` and `is_var_args` are `.attrs.@"callconv"` and `.attrs.varargs` | ZS-COMPTIME-15 |
-| `.pointer.is_const` | `.pointer.attrs.@"const"`; `is_volatile`, `alignment`, `address_space` and `is_allowzero` likewise | ZS-COMPTIME-15 |
-| `std.builtin.Type.Error` | nothing: `@typeInfo(E).error_set` is a struct whose `error_names`, a `?[]const [:0]const u8`, lists the names, and whose `null` still means `anyerror` | ZS-COMPTIME-15 |
-| `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | ZS-COMPTIME-15 |
+| `.@"struct".fields` | `.field_names[i]`, `.field_types[i]`, and `.field_attrs[i]` for `@"comptime"`, `@"align"` and `defaultValue(T)`; an enum's are `.field_names` and `.field_values`, with `.mode == .exhaustive` for `is_exhaustive`, and a union's add `.backing_integer` | ZS-COMPTIME-14 |
+| `.decls` | `.decl_names[i]`, on a struct, enum, union or opaque | ZS-COMPTIME-14 |
+| `.@"fn".params` | `.param_types[i]`; `calling_convention` and `is_var_args` are `.attrs.@"callconv"` and `.attrs.varargs` | ZS-COMPTIME-14 |
+| `.pointer.is_const` | `.pointer.attrs.@"const"`; `is_volatile`, `alignment`, `address_space` and `is_allowzero` likewise | ZS-COMPTIME-14 |
+| `std.builtin.Type.Error` | nothing: `@typeInfo(E).error_set` is a struct whose `error_names`, a `?[]const [:0]const u8`, lists the names, and whose `null` still means `anyerror` | ZS-COMPTIME-14 |
+| `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | ZS-COMPTIME-14 |
 | `std.fmt.bufPrintZ` | `std.mem.printSentinel(buffer, fmt, args, 0)` | ZS-OUT-11 |
 | `std.Io.File.OpenFlags` | `std.Io.Dir.OpenFileOptions`; `CreateFlags` is `Io.Dir.CreateFileOptions` and `OpenMode` is `Io.Dir.OpenFileOptions.Mode` | ZS-CONC-19 |
 | `std.ascii.indexOfIgnoreCase` | `std.ascii.findIgnoreCase`; the `Pos` and `PosLinear` forms likewise | ZS-DATA-32 |
@@ -122,14 +122,14 @@ Since; its owning rule's Check finds it.
 | `.initEmpty()` | `.empty` on an `EnumSet`, a `bit_set.Integer` or a `bit_set.Array`; `.initFull()` is `.full`; `bit_set.Dynamic.initEmpty(gpa, n)` keeps its name | ZS-DATA-13 |
 | `std.heap.stackFallback` | `var bfa: std.heap.BufferFirstAllocator = .init(&buffer, fallback);`, then `bfa.allocator()` as often as you like; `StackFallbackAllocator` likewise | ZS-MEM-03 |
 | `std.process.spawnPath` | `std.process.spawn(io, .{ .exe = .{ .path = dir }, … })`; `replacePath` is `replace` with the same `.exe` | ZS-CONC-39 |
-| `std.meta.Int` | `@Int(signedness, bits)` | ZS-COMPTIME-15 |
-| `std.meta.Tuple` | `@Tuple(types)` | ZS-COMPTIME-15 |
-| `std.meta.fields` | `@typeInfo(T)` | ZS-COMPTIME-15 |
-| `std.meta.declarationInfo` | `@hasDecl`, and `@typeInfo(T)` | ZS-COMPTIME-15 |
-| `b.args` | `run.addPassthruArgs()`, which makes the step uncached and keeps the arguments from the build script | ZS-BUILD-08 |
+| `std.meta.Int` | `@Int(signedness, bits)` | ZS-COMPTIME-14 |
+| `std.meta.Tuple` | `@Tuple(types)` | ZS-COMPTIME-14 |
+| `std.meta.fields` | `@typeInfo(T)` | ZS-COMPTIME-14 |
+| `std.meta.declarationInfo` | `@hasDecl`, and `@typeInfo(T)` | ZS-COMPTIME-14 |
+| `b.args` | `run.addPassthruArgs()`, which makes the step uncached and keeps the arguments from the build script | ZS-BUILD-07 |
 | `b.build_root` | `b.root`, a `Cache.Path` | ZS-MIG-01 |
-| `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | ZS-BUILD-29 |
-| `b.reference_trace` | `zig build -freference-trace=n` | ZS-COMPTIME-21 |
+| `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | ZS-BUILD-28 |
+| `b.reference_trace` | `zig build -freference-trace=n` | ZS-COMPTIME-20 |
 | `std.Build.LazyPath.getPath` | nothing: the configure phase resolves no path, so the `LazyPath` goes to the step that reads it; `getPath2`, `getPath3` and `getPath4` likewise | ZS-MIG-01 |
 | `std.Build.GeneratedFile` | nothing: a step's output is a `LazyPath` | ZS-MIG-01 |
 | `std.Build.LazyPath.basename` | nothing in std | ZS-MIG-01 |
@@ -160,7 +160,7 @@ release.
 - `std.heap.BufferFirstAllocator`, a buffer first and an allocator after it, as often as you like
   (ZS-MEM-03).
 - `b.dependency`, which fetches a lazy package itself, and `b.dependencyLazy`, which fetches several
-  at once (ZS-BUILD-14).
+  at once (ZS-BUILD-13).
 
 ## 3. Design principles
 
@@ -260,12 +260,12 @@ can see is not worth the name it costs.
   - ZS-ASSERT-24 [M] Fail fast: check the bound at the boundary where untrusted input enters
 - **comptime, generics, and interfaces**
   - ZS-COMPTIME-10 [M] A `comptime` parameter the body does not depend on is a bug
-  - ZS-COMPTIME-16 [M] Pick the interface shape from this table before writing any dispatch code
-  - ZS-COMPTIME-17 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
-  - ZS-COMPTIME-18 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
-  - ZS-COMPTIME-20 [M] A closed set of implementations is a tagged union, not an interface
+  - ZS-COMPTIME-15 [M] Pick the interface shape from this table before writing any dispatch code
+  - ZS-COMPTIME-16 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
+  - ZS-COMPTIME-17 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
+  - ZS-COMPTIME-19 [M] A closed set of implementations is a tagged union, not an interface
 - **build.zig, build.zig.zon, project layout, CI**
-  - ZS-BUILD-25 [M!] Production builds are `safe` unless a measurement says otherwise
+  - ZS-BUILD-24 [M!] Production builds are `safe` unless a measurement says otherwise
 
 ## 5. Review checklist
 
@@ -304,7 +304,7 @@ protocol — severity model, mechanical pass, output format — in `references/r
 
 Load the chapter you need; do not load all of them. Every chapter opens with a table of contents
 listing each rule it owns, so a cited ID can be resolved without reading the chapter through. The 0
-`ZS-CORE-*` rules live in section 4 above; the other 346 live here.
+`ZS-CORE-*` rules live in section 4 above; the other 344 live here.
 
 | File | Rule IDs | Covers |
 |---|---|---|
@@ -317,9 +317,9 @@ listing each rule it owns, so a cited ID can be resolved without reading the cha
 | `references/performance.md` | `ZS-PERF` (21) | Design-phase performance, back-of-envelope sketches, batching, `@prefetch`/`@Vector`, and the locality discipline (smallest scope, no aliasing, POCPOU, pure leaves) |
 | `references/interop.md` | `ZS-INTEROP` (21) | `export`/`extern`/`callconv(.c)`, `[*c]` pointers, C strings and integers, callbacks with `userdata`, plus freestanding/WASM/single-threaded targets |
 | `references/assertions.md` | `ZS-ASSERT` (26) | Assertion philosophy and density, pair assertions, comptime assertions, build-mode mechanics, `_max` constants |
-| `references/comptime.md` | `ZS-COMPTIME` (21) | comptime rules, `anytype` and its costs, type introspection, the three interface shapes, anti-patterns |
+| `references/comptime.md` | `ZS-COMPTIME` (20) | comptime rules, `anytype` and its costs, type introspection, the three interface shapes, anti-patterns |
 | `references/testing.md` | `ZS-TEST` (26) | `std.testing` in 0.17, `Smith` fuzzing, allocation-failure testing, deterministic simulation |
-| `references/build.md` | `ZS-BUILD` (39) | Annotated `build.zig` and `build.zig.zon`, dependencies, project layout, build modes, CI |
+| `references/build.md` | `ZS-BUILD` (38) | Annotated `build.zig` and `build.zig.zon`, dependencies, project layout, build modes, CI |
 | `references/migration.md` | `ZS-MIG` (3) | Every old spelling 0.13 through 0.17 left behind, with its status, Since and owning rule, and the command the table generates |
 | `references/review-checklist.md` | — | The audit protocol: seven-level severity model, review order, mechanical greps, output format, and the order in which to refactor an existing codebase |
 
@@ -332,5 +332,5 @@ asset and the rule cannot drift apart.
 | File | Contents |
 |---|---|
 | `assets/build.zig` | The complete library + CLI `build.zig` from ZS-BUILD-01, at 0.17.0: module-level `target`/`optimize`, one test binary per module, a separate `test-integration` step, a host-only codegen tool, and the `fmt` and `check` steps (`check` is the build-on-save step ZLS used; no ZLS release supports 0.17.0) |
-| `assets/build.zig.zon` | The annotated manifest from ZS-BUILD-10…12: enum-literal `.name`, the `.fingerprint` warning, what `.minimum_zig_version` does and does not do, and `.paths` as the thing that defines the package hash |
-| `assets/ci.yml` | The five CI requirements of ZS-BUILD-32 as a workflow — pinned toolchain, `fmt --check --ast-check`, `debug` and `safe`, the cross-compile matrix of ZS-BUILD-31, and a cache key naming every matrix axis. Only the `run:` lines are rules; verify the action versions yourself |
+| `assets/build.zig.zon` | The annotated manifest from ZS-BUILD-09…12: enum-literal `.name`, the `.fingerprint` warning, what `.minimum_zig_version` does and does not do, and `.paths` as the thing that defines the package hash |
+| `assets/ci.yml` | The five CI requirements of ZS-BUILD-31 as a workflow — pinned toolchain, `fmt --check --ast-check`, `debug` and `safe`, the cross-compile matrix of ZS-BUILD-30, and a cache key naming every matrix axis. Only the `run:` lines are rules; verify the action versions yourself |

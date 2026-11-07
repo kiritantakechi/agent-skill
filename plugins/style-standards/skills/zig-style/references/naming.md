@@ -41,7 +41,7 @@ matters to the rule, it is named in the comment above it.
   - ZS-NAME-18 [S] Put the entry point and the most important declarations first
   - ZS-NAME-19 [M] Default to non-`pub`; mark `pub` only what a caller outside the file needs
 - **Comments**
-  - ZS-NAME-20 [M] `//!` at the file top, `///` on declarations, `//` for everything else
+  - ZS-NAME-20 [M] Write a declaration's contract in `///` and the reasoning behind it in `//`
   - ZS-NAME-21 [M] Use std's contract phrasings verbatim
   - ZS-NAME-22 [M] Say why, not what — including at the top of every test
   - ZS-NAME-23 [S] Comment typography: space after the slashes, capital letter, full stop
@@ -806,7 +806,7 @@ the two mechanical readings; the rest of this rule is a tie-break, not a check.
 
 A declaration starts private and becomes `pub` when a caller in another file needs it. Which of the
 `pub` names form the package's surface is decided once, in `root.zig` (`references/build.md`
-ZS-BUILD-16).
+ZS-BUILD-15).
 
 **Why:** `pub` is the module's API contract and everything `pub` is something you cannot rename
 later without a breaking change; the compiler will not tell you which `pub`s are unused.
@@ -818,41 +818,23 @@ external hit means it should not be `pub`.
 
 ## Comments
 
-### ZS-NAME-20 [M] `//!` at the file top, `///` on declarations, `//` for everything else
+### ZS-NAME-20 [M] Write a declaration's contract in `///` and the reasoning behind it in `//`
 
-`//!` is module documentation and must be the first thing in the file. `///` attaches to the next
-declaration, field, or parameter. `//` is an implementation note that deliberately stays out of the
-generated docs.
+`///` documents the declaration, field or parameter it precedes, and every `pub` one carries it;
+`//!` documents the module; `//` is an implementation note that stays out of the generated docs.
+Where each may stand is the compiler's (the three doc-comment rows below). Which of `///` and `//` a
+sentence belongs in is not: a contract goes in `///`, and why the design is so goes in `//`, on the
+line above it.
 
-**Why:** two of the three are enforced by the compiler, and the errors are worth knowing. All three
-at 0.17.0:
+**Why:** the generated docs show `///` and `//!` and nothing else, so a contract in `//` is
+invisible to the caller, and an implementation reason in `///` tells the caller about something they
+may not rely on.
 
-```zig
-// rejected — zig: expected statement, found 'a document comment'
-pub fn main() void {
-    /// This is a doc comment on a statement.
-    // error: expected statement, found 'a document comment'
-    const x: u32 = 1;
-    _ = x;
-}
-```
+**Check:** a `pub` declaration with no `///` at all, and a `///` that states an implementation
+reason ("we do it this way because…") rather than a contract — that one belongs on `//`, immediately
+above the `///`.
 
-```zig
-// rejected — zig: expected type expression, found 'a document comment'
-const std = @import("std");
-//! Module doc comment not at the top.
-// error: expected type expression, found 'a document comment'
-```
-
-```zig
-// rejected — zig: unattached documentation comment
-const std = @import("std");
-/// Dangling doc comment.
-// error: unattached documentation comment
-```
-
-The `///` vs `//` distinction is a deliberate editorial choice, not an accident — std places both on
-adjacent lines to separate "why the design" from "what the contract is":
+std places both on adjacent lines to separate "why the design" from "what the contract is":
 
 ```zig
 // fragment
@@ -863,8 +845,7 @@ adjacent lines to separate "why the design" from "what the contract is":
 available: Size = 0,
 ```
 
-std also documents **individual parameters in place**, inside the signature — a distinctive std
-habit, still there in 0.17, worth copying:
+std also documents **individual parameters in place**, inside the signature, and so may you:
 
 ```zig
 // fragment
@@ -877,11 +858,6 @@ pub fn allocWithOptions(
     comptime optional_sentinel: ?Elem,
 ) ...
 ```
-
-**Check:** the three misplacements above are compile errors, so `zig build` owns them. What a
-reviewer greps for is a `pub` declaration with no `///` at all, and a `///` that states an
-implementation reason ("we do it this way because…") rather than a contract — that one belongs on
-`//`, immediately above the `///`.
 
 ### ZS-NAME-21 [M] Use std's contract phrasings verbatim
 
@@ -1011,7 +987,7 @@ a long expression — those are ZS-NAME-16 through ZS-NAME-18 and your own judge
 `// zig fmt: off` … `// zig fmt: on` exists but appears only 32 times in all of std, exclusively for
 hand-aligned tables. Source is UTF-8 with LF endings and a trailing newline.
 
-**Check:** the CI gate of `references/build.md` ZS-BUILD-29 —
+**Check:** the CI gate of `references/build.md` ZS-BUILD-28 —
 `zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .` — is the whole rule for
 indentation and spacing. The reviewable residue is a multi-line parameter list, struct literal, or
 enum with **no** trailing comma — `zig fmt` will silently collapse it back onto one line — and any
@@ -1158,3 +1134,5 @@ The compiler rejects each of these on its own; no setting turns one off.
 | zig | `name shadows primitive …` | error | a name such as `u8`, `type` or `true` |
 | zig | `unused … label` | error | a block or loop label nothing breaks to or continues |
 | zig | `unattached documentation comment` | error | a `///` comment with no declaration after it |
+| zig | `expected statement, found 'a document comment'` | error | a `///` comment on a statement inside a function body |
+| zig | `expected type expression, found 'a document comment'` | error | a `//!` comment after the first declaration of a file |

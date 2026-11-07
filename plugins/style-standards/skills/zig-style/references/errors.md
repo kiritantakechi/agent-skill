@@ -48,7 +48,7 @@ Blocks that do not declare their own imports assume a file opening with
   - ZS-ERR-24 [S] Use a labeled block to compute a value that needs statements
   - ZS-ERR-25 [M] Switch exhaustively with no `else`; use `_` on non-exhaustive enums
   - ZS-ERR-26 [M] Unwrap optionals with `orelse` or a capture, never with `.?`
-  - ZS-ERR-27 [S] Mark cold and likely paths with `@branchHint`, as the branch's first statement
+  - ZS-ERR-27 [S] Mark cold and likely paths with `@branchHint`
 - **8. Logging**
   - ZS-ERR-28 [M] A library logs through a scoped `std.log` namespace
   - ZS-ERR-29 [S] Use std's four log levels, configured from the root file
@@ -163,7 +163,7 @@ any code, library or not, so `assert` and a project-local always-on `assertAlway
 (`references/assertions.md` ZS-ASSERT-05) are legal in a library — including in allocators and
 crypto, which are libraries by construction. What a library may not do is choose its consumer's
 optimize mode: document which invariants it asserts and what it costs to run it in a `safe` build,
-and let the consumer decide (`references/build.md` ZS-BUILD-25).
+and let the consumer decide (`references/build.md` ZS-BUILD-24).
 
 **Why:** a library does not know whether its caller can recover. Aborting the process removes the
 caller's ability to retry, degrade, or report, and makes the library untestable — a test cannot
@@ -1114,27 +1114,21 @@ const found = for (items) |it| {
 } else 0;
 ```
 
-### ZS-ERR-27 [S] Mark cold and likely paths with `@branchHint`, as the branch's first statement
+### ZS-ERR-27 [S] Mark cold and likely paths with `@branchHint`
 
 `@branchHint(hint: std.lang.BranchHint) void`. The hints are exactly `.none`, `.likely`,
-`.unlikely`, `.cold`, `.unpredictable` (`std.lang.BranchHint`). It is only valid as the first
-statement of a branch or a function, which the compiler enforces (the row below). So on a cold
-branch that also asserts (ZS-ASSERT-09), the hint comes first and the assertion after it. `@setCold`
-does not exist; the compiler rejects it (`references/migration.md`'s `invalid builtin function`
-row).
-
-std uses it deliberately: `.cold` ×132 on error paths (including inside `std.log.err` and
-`std.debug.panic`), `.unlikely` ×78, `.likely` ×66.
+`.unlikely`, `.cold`, `.unpredictable` (`std.lang.BranchHint`). Where it may stand is the compiler's
+(the `'@branchHint' must appear…` row below), so on a cold branch that also asserts (ZS-ASSERT-09),
+the hint comes first and the assertion after it.
 
 **Why:** `.cold` lets the optimizer move a branch's code to a different page, keeping the hot path's
 instruction cache dense; `.unpredictable` tells it to prefer branchless lowering where a mispredict
 would cost more than the extra work.
 
-**Check:** on a *measured* hot path, an error-returning branch or a `catch` block whose first
-statement is not `@branchHint(.cold)`; deviating needs only the measurement that says the branch is
-not hot. And the converse: a `.likely` or `.unlikely` on a branch nobody measured. A hint asserts a
-distribution, and a wrong one is worse than none. Placement is the compiler's
-`'@branchHint' must appear as the first statement…` row.
+**Check:** on a hot path a profile names, an error-returning branch or a `catch` block whose first
+statement is not `@branchHint(.cold)`; deviating needs only the profile that says the branch is not
+hot. And the converse: a `.likely` or `.unlikely` on a branch no profile names. A hint asserts a
+distribution, and a wrong one is worse than none.
 
 ```zig
 // verified — GOOD
@@ -1145,21 +1139,6 @@ fn decodeTag(byte: u8) error{ReservedTag}!u8 {
         @branchHint(.cold);
         return error.ReservedTag;
     }
-}
-```
-
-```zig
-// rejected — zig: `@branchHint` must be the first statement in its branch
-const std = @import("std");
-const assert = std.debug.assert;
-
-fn f(x: u32) u32 {
-    if (x == 0) {
-        assert(x == 0);
-        @branchHint(.cold); // error: must appear as the first statement
-        return 0;
-    }
-    return x;
 }
 ```
 

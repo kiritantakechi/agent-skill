@@ -60,12 +60,12 @@ invalidate the work of reading the next.
 Run these before reading anything, and report what could not be run rather than implying it passed.
 
 ```sh
-zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .  # ZS-BUILD-29
+zig fmt --check --ast-check --exclude zig-pkg --exclude .zig-cache .  # ZS-BUILD-28
 zig build check                       # semantic check, no binary emitted
 zig build test                        # debug
 zig build test -Doptimize=safe        # ZS-TEST-25: the suite must pass in both
 zig build test-integration
-zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-31)
+zig build -Dtarget=x86_64-linux-gnu   # plus every target you ship (ZS-BUILD-30)
 ```
 
 ### Stale-API greps

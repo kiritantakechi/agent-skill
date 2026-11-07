@@ -39,14 +39,14 @@ row only the release notes claim says so.
 
 | Old | Zig 0.17 | Status | Since | Rule |
 |---|---|---|---|---|
-| `usingnamespace` | an explicit re-export, one `pub const` per name: `pub const encode = helpers.encode;`; a declaration once mixed in conditionally is `pub const x = if (cond) a else b;` | gone | 0.15 | ZS-BUILD-16 |
-| `@Type` | `@Int`, `@Tuple`, `@Struct`, `@Union`, `@Enum`, `@Pointer`, `@Fn` or `@EnumLiteral`; a float, array, optional or error set has its own syntax | gone | 0.16 | ZS-COMPTIME-15 |
+| `usingnamespace` | an explicit re-export, one `pub const` per name: `pub const encode = helpers.encode;`; a declaration once mixed in conditionally is `pub const x = if (cond) a else b;` | gone | 0.15 | ZS-BUILD-15 |
+| `@Type` | `@Int`, `@Tuple`, `@Struct`, `@Union`, `@Enum`, `@Pointer`, `@Fn` or `@EnumLiteral`; a float, array, optional or error set has its own syntax | gone | 0.16 | ZS-COMPTIME-14 |
 | `@setCold` | `@branchHint(.cold)`, the branch's first statement | gone | 0.14 | ZS-ERR-27 |
 | `@fence` | nothing: strengthen the orderings of the atomic operations it stood between | gone | 0.14 | ZS-MIG-01 |
 | `@setAlignStack` | `callconv(.withStackAlign(.c, n))`, evaluated at `comptime` | gone | 0.14 | ZS-INTEROP-04 |
 | `callconv(.C)` | `callconv(.c)`; `.Naked` is `.naked`, and an x86 `.Stdcall` is `.winapi` or `.{ .x86_stdcall = .{} }` | gone | 0.15 | ZS-INTEROP-04 |
 | `@export(f, …)` | `@export(&f, …)`: the first argument is a pointer | gone | 0.14 | ZS-INTEROP-03 |
-| `@typeInfo(…).Struct` | `@typeInfo(T).@"struct"`; every tag is lowercase: `.int`, `.pointer`, `.comptime_int`, and `.one` for `Size.One` | gone | 0.14 | ZS-COMPTIME-15 |
+| `@typeInfo(…).Struct` | `@typeInfo(T).@"struct"`; every tag is lowercase: `.int`, `.pointer`, `.comptime_int`, and `.one` for `Size.One` | gone | 0.14 | ZS-COMPTIME-14 |
 | `asm volatile (… ::: "…")` | a clobber struct: `::: .{ .rcx = true, .r11 = true }` | gone | 0.15 | ZS-MIG-01 |
 | `v[…]` | on a runtime `@Vector` with a runtime index, copy to an array (`const a: [n]T = v;`), index it, and store back with `v = a;` | gone | 0.16 | ZS-PERF-16 |
 | `pub fn panic` | `pub const panic = std.debug.FullPanic(handler);`, the handler a `fn ([]const u8, ?usize) noreturn` | alias | 0.14 | ZS-INTEROP-17 |
@@ -61,14 +61,14 @@ row only the release notes claim says so.
 | `.link_once` | `.weak` | gone | 0.17 | ZS-INTEROP-03 |
 | `@bitCast` | the same call, which on an array or a vector now reinterprets logical bits independent of endianness, so a big-endian target gets another result; a cast to an enum compiles and is safety-checked like `@fromBackingInt`, and one of an `extern struct` or `extern union` is rejected — `@ptrCast` a pointer to it | changed | 0.17 | ZS-DATA-09 |
 | `@bitSizeOf(…)` | `@sizeOf(T) * 8` for a type that is not `packed`, whose padding `@bitSizeOf` counted: it takes a `packed` type only | gone | 0.17 | ZS-DATA-19 |
-| `@hasDecl` | `false` for a declaration that is not `pub`, even in the same file, with no diagnostic | changed | 0.17 | ZS-COMPTIME-15 |
+| `@hasDecl` | `false` for a declaration that is not `pub`, even in the same file, with no diagnostic | changed | 0.17 | ZS-COMPTIME-14 |
 | `enum(u8) {}` | `enum(noreturn) {}`: an empty exhaustive enum is backed by `noreturn` | gone | 0.17 | ZS-DATA-26 |
-| `.@"struct".fields` | `.field_names[i]`, `.field_types[i]`, and `.field_attrs[i]` for `@"comptime"`, `@"align"` and `defaultValue(T)`; an enum's are `.field_names` and `.field_values`, with `.mode == .exhaustive` for `is_exhaustive`, and a union's add `.backing_integer` | gone | 0.17 | ZS-COMPTIME-15 |
-| `.decls` | `.decl_names[i]`, on a struct, enum, union or opaque | gone | 0.17 | ZS-COMPTIME-15 |
-| `.@"fn".params` | `.param_types[i]`; `calling_convention` and `is_var_args` are `.attrs.@"callconv"` and `.attrs.varargs` | gone | 0.17 | ZS-COMPTIME-15 |
-| `.pointer.is_const` | `.pointer.attrs.@"const"`; `is_volatile`, `alignment`, `address_space` and `is_allowzero` likewise | gone | 0.17 | ZS-COMPTIME-15 |
-| `std.builtin.Type.Error` | nothing: `@typeInfo(E).error_set` is a struct whose `error_names`, a `?[]const [:0]const u8`, lists the names, and whose `null` still means `anyerror` | gone | 0.17 | ZS-COMPTIME-15 |
-| `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | gone | 0.17 | ZS-COMPTIME-15 |
+| `.@"struct".fields` | `.field_names[i]`, `.field_types[i]`, and `.field_attrs[i]` for `@"comptime"`, `@"align"` and `defaultValue(T)`; an enum's are `.field_names` and `.field_values`, with `.mode == .exhaustive` for `is_exhaustive`, and a union's add `.backing_integer` | gone | 0.17 | ZS-COMPTIME-14 |
+| `.decls` | `.decl_names[i]`, on a struct, enum, union or opaque | gone | 0.17 | ZS-COMPTIME-14 |
+| `.@"fn".params` | `.param_types[i]`; `calling_convention` and `is_var_args` are `.attrs.@"callconv"` and `.attrs.varargs` | gone | 0.17 | ZS-COMPTIME-14 |
+| `.pointer.is_const` | `.pointer.attrs.@"const"`; `is_volatile`, `alignment`, `address_space` and `is_allowzero` likewise | gone | 0.17 | ZS-COMPTIME-14 |
+| `std.builtin.Type.Error` | nothing: `@typeInfo(E).error_set` is a struct whose `error_names`, a `?[]const [:0]const u8`, lists the names, and whose `null` still means `anyerror` | gone | 0.17 | ZS-COMPTIME-14 |
+| `std.builtin.Type.StructField` | `std.lang.Type.Struct.FieldAttributes`; `UnionField` and `Fn.Param` are `Union.FieldAttributes` and `Fn.ParamAttributes` | gone | 0.17 | ZS-COMPTIME-14 |
 | `std.io` | `std.Io` | gone | 0.16 | ZS-CONC-07 |
 | `std.io.GenericWriter` | `*std.Io.Writer`, one non-generic struct with the buffer you give it; `AnyWriter` and `std.io.Writer` likewise | gone | 0.16 | ZS-CONC-07 |
 | `std.io.GenericReader` | `*std.Io.Reader`; `AnyReader` and `std.io.Reader` likewise | gone | 0.16 | ZS-CONC-07 |
@@ -220,36 +220,36 @@ row only the release notes claim says so.
 | `std.debug.walkStackWindows` | `std.debug.captureCurrentStackTrace`; `writeStackTraceWindows` is `writeCurrentStackTrace` | gone | 0.16 | ZS-ERR-32 |
 | `std.debug.StackIterator` | nothing public: `captureCurrentStackTrace` | gone | 0.16 | ZS-ERR-32 |
 | `std.debug.runtime_safety` | `@import("builtin").optimize.runtimeSafety()`: your module's mode, where `runtime_safety` reports std's | alias | 0.14 | ZS-ASSERT-17 |
-| `std.meta.Int` | `@Int(signedness, bits)` | gone | 0.17 | ZS-COMPTIME-15 |
-| `std.meta.Tuple` | `@Tuple(types)` | gone | 0.17 | ZS-COMPTIME-15 |
-| `std.meta.declList` | `@typeInfo(T)`'s `decl_names` | gone | 0.16 | ZS-COMPTIME-15 |
-| `std.meta.fields` | `@typeInfo(T)` | gone | 0.17 | ZS-COMPTIME-15 |
-| `std.meta.declarationInfo` | `@hasDecl`, and `@typeInfo(T)` | gone | 0.17 | ZS-COMPTIME-15 |
-| `std.meta.declarations` | the same name, now returning the declarations' names, a `[]const [:0]const u8`, where it returned `[]const Declaration` | changed | 0.17 | ZS-COMPTIME-15 |
-| `std.meta.fieldInfo` | `@typeInfo(T)`; `fieldNames` is its `field_names` | alias | 0.17 | ZS-COMPTIME-15 |
-| `std.meta.fieldNames` | `@typeInfo(T)`'s `field_names` | alias | 0.17 | ZS-COMPTIME-15 |
+| `std.meta.Int` | `@Int(signedness, bits)` | gone | 0.17 | ZS-COMPTIME-14 |
+| `std.meta.Tuple` | `@Tuple(types)` | gone | 0.17 | ZS-COMPTIME-14 |
+| `std.meta.declList` | `@typeInfo(T)`'s `decl_names` | gone | 0.16 | ZS-COMPTIME-14 |
+| `std.meta.fields` | `@typeInfo(T)` | gone | 0.17 | ZS-COMPTIME-14 |
+| `std.meta.declarationInfo` | `@hasDecl`, and `@typeInfo(T)` | gone | 0.17 | ZS-COMPTIME-14 |
+| `std.meta.declarations` | the same name, now returning the declarations' names, a `[]const [:0]const u8`, where it returned `[]const Declaration` | changed | 0.17 | ZS-COMPTIME-14 |
+| `std.meta.fieldInfo` | `@typeInfo(T)`; `fieldNames` is its `field_names` | alias | 0.17 | ZS-COMPTIME-14 |
+| `std.meta.fieldNames` | `@typeInfo(T)`'s `field_names` | alias | 0.17 | ZS-COMPTIME-14 |
 | `std.meta.intToEnum` | `std.enums.fromInt(E, n)`, which returns `?E` | gone | 0.16 | ZS-INTEROP-02 |
 | `std.builtin` | `std.lang`: `std.builtin.Type` is `std.lang.Type`, `CallingConvention` `std.lang.CallingConvention`, and so for every member | alias | 0.17 | ZS-MIG-01 |
-| `std.builtin.OptimizeMode` | `std.lang.Optimize` | alias | 0.17 | ZS-BUILD-25 |
-| `.Debug` | `.debug`; `.ReleaseSafe`, `.ReleaseFast` and `.ReleaseSmall` are `.safe`, `.fast` and `.small`. A field set to the old name compiles, `==` and `!=` reject it, and `@tagName` and `{t}` print the new name | alias | 0.17 | ZS-BUILD-25 |
-| `.ReleaseSafe` | `.safe` | alias | 0.17 | ZS-BUILD-25 |
-| `.ReleaseFast` | `.fast` | alias | 0.17 | ZS-BUILD-25 |
-| `.ReleaseSmall` | `.small` | alias | 0.17 | ZS-BUILD-25 |
-| `builtin.mode` | `builtin.optimize` | alias | 0.17 | ZS-BUILD-25 |
+| `std.builtin.OptimizeMode` | `std.lang.Optimize` | alias | 0.17 | ZS-BUILD-24 |
+| `.Debug` | `.debug`; `.ReleaseSafe`, `.ReleaseFast` and `.ReleaseSmall` are `.safe`, `.fast` and `.small`. A field set to the old name compiles, `==` and `!=` reject it, and `@tagName` and `{t}` print the new name | alias | 0.17 | ZS-BUILD-24 |
+| `.ReleaseSafe` | `.safe` | alias | 0.17 | ZS-BUILD-24 |
+| `.ReleaseFast` | `.fast` | alias | 0.17 | ZS-BUILD-24 |
+| `.ReleaseSmall` | `.small` | alias | 0.17 | ZS-BUILD-24 |
+| `builtin.mode` | `builtin.optimize` | alias | 0.17 | ZS-BUILD-24 |
 | `builtin.cpu` | `builtin.target.cpu`; `os`, `abi` and `object_format` are `target.os`, `target.abi` and `target.ofmt` | alias | 0.17 | ZS-INTEROP-18 |
 | `builtin.os` | `builtin.target.os` | alias | 0.17 | ZS-INTEROP-18 |
 | `builtin.abi` | `builtin.target.abi` | alias | 0.17 | ZS-INTEROP-18 |
 | `builtin.object_format` | `builtin.target.ofmt` | alias | 0.17 | ZS-INTEROP-18 |
-| `addExecutable(.{ …, .root_source_file = … })` | `.root_module = b.createModule(.{ .root_source_file = …, .target = …, .optimize = … })`: `root_source_file`, `target` and `optimize` are the module's, on `addLibrary`, `addObject` and `addTest` likewise | gone | 0.15 | ZS-BUILD-03 |
-| `addStaticLibrary` | `b.addLibrary(.{ .linkage = .static, … })`; `addSharedLibrary` is `.linkage = .dynamic` | gone | 0.15 | ZS-BUILD-07 |
-| `addSharedLibrary` | `b.addLibrary(.{ .linkage = .dynamic, … })` | gone | 0.15 | ZS-BUILD-07 |
-| `exe.linkLibC(…)` | the same method on the `*Module`, or `.link_libc = true` in `createModule`; `linkSystemLibrary`, `addIncludePath` and `addCSourceFile` likewise | gone | 0.16 | ZS-BUILD-06 |
+| `addExecutable(.{ …, .root_source_file = … })` | `.root_module = b.createModule(.{ .root_source_file = …, .target = …, .optimize = … })`: `root_source_file`, `target` and `optimize` are the module's, on `addLibrary`, `addObject` and `addTest` likewise | gone | 0.15 | ZS-BUILD-02 |
+| `addStaticLibrary` | `b.addLibrary(.{ .linkage = .static, … })`; `addSharedLibrary` is `.linkage = .dynamic` | gone | 0.15 | ZS-BUILD-06 |
+| `addSharedLibrary` | `b.addLibrary(.{ .linkage = .dynamic, … })` | gone | 0.15 | ZS-BUILD-06 |
+| `exe.linkLibC(…)` | the same method on the `*Module`, or `.link_libc = true` in `createModule`; `linkSystemLibrary`, `addIncludePath` and `addCSourceFile` likewise | gone | 0.16 | ZS-BUILD-05 |
 | `addRemoveDirTree` | nothing: a scratch directory is `b.addTempFiles()` or `b.tmpPath()`, deleted when the build succeeds | gone | 0.16 | ZS-MIG-01 |
-| `b.args` | `run.addPassthruArgs()`, which makes the step uncached and keeps the arguments from the build script | gone | 0.17 | ZS-BUILD-08 |
+| `b.args` | `run.addPassthruArgs()`, which makes the step uncached and keeps the arguments from the build script | gone | 0.17 | ZS-BUILD-07 |
 | `b.build_root` | `b.root`, a `Cache.Path` | gone | 0.17 | ZS-MIG-01 |
-| `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | gone | 0.17 | ZS-BUILD-29 |
-| `lazyDependency` | `b.dependency(name, args)`, which fetches a lazy package itself, or `try b.dependencyLazy(name, args)` to fetch several at once | alias | 0.17 | ZS-BUILD-14 |
-| `b.reference_trace` | `zig build -freference-trace=n` | gone | 0.17 | ZS-COMPTIME-21 |
+| `.paths = &.{…}` | `.paths = b.pathList(&.{…})` in `b.addFmt`, and so for `.exclude_paths` | gone | 0.17 | ZS-BUILD-28 |
+| `lazyDependency` | `b.dependency(name, args)`, which fetches a lazy package itself, or `try b.dependencyLazy(name, args)` to fetch several at once | alias | 0.17 | ZS-BUILD-13 |
+| `b.reference_trace` | `zig build -freference-trace=n` | gone | 0.17 | ZS-COMPTIME-20 |
 | `std.Build.LazyPath.getPath` | nothing: the configure phase resolves no path, so the `LazyPath` goes to the step that reads it; `getPath2`, `getPath3` and `getPath4` likewise | gone | 0.17 | ZS-MIG-01 |
 | `std.Build.GeneratedFile` | nothing: a step's output is a `LazyPath` | gone | 0.17 | ZS-MIG-01 |
 | `getDisplayName` | `{f}` on the `LazyPath` | alias | 0.17 | ZS-MIG-01 |
@@ -274,7 +274,7 @@ row only the release notes claim says so.
 | `runAllowFail` | `b.runFallible(…)` | alias | 0.17 | ZS-MIG-01 |
 | `enableTestRunnerMode` | `run.enableProtocolMode()` | alias | 0.17 | ZS-MIG-01 |
 | `b.findProgram(&…)` | `b.findProgramLazy(.{ .names = names })`, a `LazyPath`; `b.findProgram(.{ .names = names })` is a `?[]const u8` that poisons the configure cache | gone | 0.17 | ZS-MIG-01 |
-| `addOptionPath` | an option naming a file: a directory is `addOptionPathDirectory`, and `addOptionPathUntracked` opts out of tracking | changed | 0.17 | ZS-BUILD-27 |
+| `addOptionPath` | an option naming a file: a directory is `addOptionPathDirectory`, and `addOptionPathUntracked` opts out of tracking | changed | 0.17 | ZS-BUILD-26 |
 | `.include_guard_override` | `.include_guard` on a `ConfigHeader` | gone | 0.17 | ZS-MIG-01 |
 | `addTranslateC` | the translate-c package: `zig fetch --save git+https://codeberg.org/ziglang/translate-c`, then `Translator.init(b.dependency("translate_c", .{}), .{ .c_source_file = … })`; the release notes deprecate it, and the source does not mark it | deprecated | 0.17 | ZS-INTEROP-15 |
 | `addWin32ResourceFile` | nothing in std: the release notes move the resource APIs, `.win32_manifest`, `.rc_includes` and `Compile.out_filename` with it, to an external `rc` package | deprecated | 0.17 | ZS-MIG-01 |
@@ -282,9 +282,9 @@ row only the release notes claim says so.
 | `--global-cache-dir` | nothing; `--build-runner` and `--verbose-llvm-bc` likewise | gone | 0.17 | ZS-MIG-01 |
 | `--build-runner` | nothing | gone | 0.17 | ZS-MIG-01 |
 | `--verbose-llvm-bc` | nothing | gone | 0.17 | ZS-MIG-01 |
-| `-Doptimize=ReleaseSafe` | `-Doptimize=safe`; `ReleaseFast` and `ReleaseSmall`, and `-O` likewise; the old names parse through the deprecated `Optimize.fromString` | alias | 0.17 | ZS-BUILD-25 |
-| `zig fetch` | without `--save`, a command that fills only the global cache: `zig fetch --save` and `zig build` fill `zig-pkg/` | changed | 0.17 | ZS-BUILD-13 |
-| `.name = "…"` | `.name = .myproject` in `build.zig.zon`, an enum literal; `build.zig` still takes a string | gone | 0.14 | ZS-BUILD-10 |
+| `-Doptimize=ReleaseSafe` | `-Doptimize=safe`; `ReleaseFast` and `ReleaseSmall`, and `-O` likewise; the old names parse through the deprecated `Optimize.fromString` | alias | 0.17 | ZS-BUILD-24 |
+| `zig fetch` | without `--save`, a command that fills only the global cache: `zig fetch --save` and `zig build` fill `zig-pkg/` | changed | 0.17 | ZS-BUILD-12 |
+| `.name = "…"` | `.name = .myproject` in `build.zig.zon`, an enum literal; `build.zig` still takes a string | gone | 0.14 | ZS-BUILD-09 |
 | `std.tar.PipeOptions` | `std.tar.ExtractOptions` | alias | 0.16 | ZS-MIG-01 |
 | `std.tar.pipeToFileSystem` | `std.tar.extract(io, dir, reader, options)`, which it is an alias of | alias | 0.16 | ZS-MIG-01 |
 | `std.unicode.utf8Decode` | `std.unicode.Utf8View` to iterate, or `utf8ByteSequenceLength` and then `utf8Decode2`, `utf8Decode3` or `utf8Decode4` for one codepoint | alias | 0.14 | ZS-DATA-30 |
@@ -608,7 +608,7 @@ analysed; rewrite it to the row's 0.17 column, or delete it if nothing calls it.
 
 Add a CI step that runs the command after the table and fails on a hit, pin the toolchain for real —
 `.minimum_zig_version` is documentation only, so use a pinned CI version and the
-`comptime builtin.zig_version` guard (ZS-BUILD-32, ZS-BUILD-36) — and treat a toolchain bump as a
+`comptime builtin.zig_version` guard (ZS-BUILD-31, ZS-BUILD-35) — and treat a toolchain bump as a
 migration with its own review. One spelling over-matches: `.Debug` also finds a tag of your own
 enum, and the fix is to rename the tag, not to drop the row.
 

@@ -12,7 +12,7 @@ This chapter does not own data layout: struct-of-arrays and `MultiArrayList` are
 `references/data.md` ZS-DATA-22, handles-versus-pointers is ZS-DATA-21, and passing large aggregates
 as `*const T` is ZS-DATA-18. It does not own I/O batching (`references/concurrency.md` ZS-CONC-32),
 assertion cost budgeting (`references/assertions.md` ZS-ASSERT-17), the optimize-mode table
-(`references/build.md` ZS-BUILD-25), `@branchHint` (`references/errors.md` ZS-ERR-27), or
+(`references/build.md` ZS-BUILD-24), `@branchHint` (`references/errors.md` ZS-ERR-27), or
 `inline fn` (`references/comptime.md` ZS-COMPTIME-03). It cites them.
 
 **Read ZS-PERF-21 first if you are tempted to apply this chapter to code that is not hot.** Roughly
@@ -622,7 +622,7 @@ Benchmarks build at `fast` or at the mode you actually ship; a number from a `de
 evidence of anything. Know what each mode costs before you invoke one in an argument. For
 `x86_64-linux`, `debug` also uses the self-hosted x86_64 backend, which trades machine-code quality
 for compile speed. The mode table and the argument for shipping `safe` are `references/build.md`
-**ZS-BUILD-25** — read it before choosing `fast` for a shipped artifact, because in `fast` every
+**ZS-BUILD-24** — read it before choosing `fast` for a shipped artifact, because in `fast` every
 `std.debug.assert` becomes a licence for the optimizer rather than a check (ZS-ASSERT-02).
 
 **Why:** `debug` applies no optimization at all, and the gap between `debug` and `fast` on a tight
@@ -852,7 +852,7 @@ pay for it.
 
 **Why:** an inherited `-Doptimize` makes `zig build bench` silently measure a `debug` build
 (ZS-PERF-14); an installed artifact puts the benchmark on the critical path of every `zig build` and
-CI smoke test (`references/build.md` **ZS-BUILD-09**). Pinned, the numbers stay comparable.
+CI smoke test (`references/build.md` **ZS-BUILD-08**). Pinned, the numbers stay comparable.
 
 **Check:** does `build.zig` have a `bench` step at all? Does its module set `.optimize` explicitly,
 or does it pass the shared `optimize` variable? Is the benchmark artifact reachable from the default

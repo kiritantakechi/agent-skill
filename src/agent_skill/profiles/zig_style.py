@@ -154,11 +154,11 @@ PROFILE = Profile(
     unproven=rules(
         "ZS-ASSERT-09",
         "ZS-ASSERT-21",
+        "ZS-BUILD-24",
         "ZS-BUILD-25",
-        "ZS-BUILD-26",
+        "ZS-BUILD-35",
         "ZS-BUILD-36",
-        "ZS-BUILD-37",
-        "ZS-COMPTIME-21",
+        "ZS-COMPTIME-20",
         "ZS-MEM-04",
         "ZS-MEM-06",
         "ZS-NAME-12",
@@ -256,7 +256,7 @@ PROFILE = Profile(
                 "the Check asks which file a `_max` lives in, which a standalone "
                 "block cannot answer",
             ),
-            "ZS-BUILD-25": NotDecisive(
+            "ZS-BUILD-24": NotDecisive(
                 ".github/ build.zig scripts/",
                 "scoped to the build and release scripts, where a hit is licensed "
                 "by a benchmark the pattern cannot see",
@@ -264,7 +264,7 @@ PROFILE = Profile(
             # Polarity: this Check asserts the shape is *present*, so
             # its hits are evidence of compliance and reading them as
             # defects inverts the rule.
-            "ZS-BUILD-36": NotDecisive(
+            "ZS-BUILD-35": NotDecisive(
                 "has this block",
                 "a presence assertion, and scoped to `build.zig`: the finding is a "
                 "missing guard, which no hit can show",
@@ -301,18 +301,18 @@ PROFILE = Profile(
             (RuleId.parse("ZS-NAME-29"), "One concept, one mechanism"),
             (RuleId.parse("ZS-NAME-30"), "Keep sibling modules structurally parallel"),
             (
-                RuleId.parse("ZS-COMPTIME-16"),
+                RuleId.parse("ZS-COMPTIME-15"),
                 (
                     "Name the capability as a trait before writing the type that "
                     "provides it"
                 ),
             ),
             (
-                RuleId.parse("ZS-BUILD-22"),
+                RuleId.parse("ZS-BUILD-21"),
                 "Count the encapsulation a split costs, not only what it buys",
             ),
             (
-                RuleId.parse("ZS-BUILD-24"),
+                RuleId.parse("ZS-BUILD-23"),
                 "Give the directory and the crate the same name",
             ),
             (
@@ -371,6 +371,49 @@ PROFILE = Profile(
         ),
         "unattached documentation comment": (
             "const S = struct {\n    x: u32,\n    /// Nothing follows this.\n};\n"
+        ),
+        "expected statement, found 'a document comment'": (
+            "export fn probe() u32 {\n"
+            "    /// A doc comment on a statement.\n"
+            "    const x: u32 = 1;\n"
+            "    return x;\n"
+            "}\n"
+        ),
+        "expected type expression, found 'a document comment'": (
+            "const n: u32 = 1;\n//! A module doc comment after a declaration.\n"
+        ),
+        "union 'lang.CallingConvention' has no member named '…'": (
+            "export fn probe() callconv(.C) void {}\n"
+        ),
+        "type does not have a fixed bitsize: …": (
+            'const std = @import("std");\n'
+            "fn draw(smith: *std.testing.Smith, n: usize) usize {\n"
+            "    return smith.valueRangeLessThan(usize, 0, n);\n"
+            "}\n"
+            "comptime {\n"
+            "    _ = &draw;\n"
+            "}\n"
+        ),
+        "no field named '…' in struct 'Build.…Options'": (
+            'const std = @import("std");\n'
+            "fn build(b: *std.Build) void {\n"
+            "    _ = b.addExecutable(.{\n"
+            '        .name = "probe",\n'
+            '        .root_source_file = b.path("src/main.zig"),\n'
+            "    });\n"
+            "}\n"
+            "comptime {\n"
+            "    _ = &build;\n"
+            "}\n"
+        ),
+        "no field or member function named '…' in 'Build'": (
+            'const std = @import("std");\n'
+            "fn build(b: *std.Build) void {\n"
+            '    _ = b.addStaticLibrary(.{ .name = "probe" });\n'
+            "}\n"
+            "comptime {\n"
+            "    _ = &build;\n"
+            "}\n"
         ),
         "error … of type … is ignored": (
             "fn f() error{Oops}!void {\n"

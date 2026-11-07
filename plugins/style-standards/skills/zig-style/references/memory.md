@@ -1050,7 +1050,7 @@ const Bump = struct {
 };
 ```
 
-Hand the `Allocator` out as `references/comptime.md` ZS-COMPTIME-17 hands out any vtable interface:
+Hand the `Allocator` out as `references/comptime.md` ZS-COMPTIME-16 hands out any vtable interface:
 from a method taking `*Self`, with `.ptr = self` (ZS-MEM-07). A stateless allocator sets
 `.ptr = undefined` and exposes `pub const vtable: Allocator.VTable`, as `PageAllocator` and
 `SmpAllocator` do.

@@ -11,7 +11,7 @@ apply** because there is no operating system to apply it to.
 Layout and string rules for the types themselves live in the data chapter (ZS-DATA-19, ZS-DATA-20,
 ZS-DATA-29), with their layout assertions in ZS-ASSERT-19 and alignment in ZS-MEM-24; allocator
 selection and ownership vocabulary live in the memory chapter; wiring `link_libc` and C sources into
-a build lives in the build chapter (ZS-BUILD-06). This chapter cites those rather than repeating
+a build lives in the build chapter (ZS-BUILD-05). This chapter cites those rather than repeating
 them, and adds only what is specific to the boundary, including translating C headers in the build
 (ZS-INTEROP-15).
 
@@ -30,7 +30,7 @@ target set matters to the rule, the block's marker names it.
   - ZS-INTEROP-02 [M!] Validate everything C hands you; do not assert it
 - **Exporting Zig to C**
   - ZS-INTEROP-03 [M] `export fn` when the Zig name is the symbol; `@export(&f, …)` when it is not
-  - ZS-INTEROP-04 [M] Spell the calling convention `.c` — `CallingConvention` is a union
+  - ZS-INTEROP-04 [M] Spell the C calling convention `.c`, never one architecture's member
   - ZS-INTEROP-05 [S] Prefix every exported symbol with the library name
 - **Calling C from Zig**
   - ZS-INTEROP-06 [M] `extern "c" fn` for libc; bare `extern fn` for objects you link yourself
@@ -265,14 +265,17 @@ comptime {
 
 `export var` works the same way for globals: `export var zs_version: c_int = 3;`.
 
-### ZS-INTEROP-04 [M] Spell the calling convention `.c` — `CallingConvention` is a union
+### ZS-INTEROP-04 [M] Spell the C calling convention `.c`, never one architecture's member
 
-Write `callconv(.c)`. Not `.C`, not `.Stdcall`, not a string. `std.lang.CallingConvention` is a
-`union(enum(u8))`, so most of its members carry a payload and are written as struct literals; `.c`
-is a `pub const` alias that resolves to whatever the target's C convention is.
+Write `callconv(.c)`. `std.lang.CallingConvention` is a `union(enum(u8))` whose members name one
+architecture's convention each and carry a payload; `.c` is a `pub const` the target resolves to its
+C convention, and `.winapi` and `.kernel` are the other two portable ones. An architecture's member,
+a payload literal such as `.{ .x86_64_sysv = .{} }`, is for code that runs on that architecture
+alone. The spellings the union does not have are the compiler's (the row below), and a stack
+alignment is `CallingConvention.withStackAlign(.c, n)`, evaluated at `comptime`.
 
-**Why:** nearly every member names one architecture's convention and carries a payload, so `.c`, the
-alias the target resolves, is the one spelling right on every target. The type is:
+**Why:** nearly every member names one architecture's convention, so `.c`, the alias the target
+resolves, is the one spelling right on every target. The type is:
 
 ```zig
 // fragment — (quoted from std/lang.zig, `CallingConvention`)
@@ -293,17 +296,8 @@ pub const CallingConvention = union(enum(u8)) {
 };
 ```
 
-Practical consequences: `.c` is the only spelling you should normally write, because it is
-target-resolved; `.winapi` and `.kernel` are the other two portable aliases. An
-architecture-specific convention is a payload literal (`.{ .x86_64_sysv = .{} }`).
-`@setAlignStack(n)` is gone, and its replacement is
-`callconv(CallingConvention.withStackAlign(.c, n))` — note that `withStackAlign` does
-`@field(result, @tagName(tag))` internally, so it **must** be evaluated at comptime or you get
-`error: unable to evaluate comptime expression`.
-
-**Check:** `callconv(.C)`, `callconv(.Stdcall)`, `callconv(.Naked)`, `callconv(.Inline)`, or a
-string literal inside `callconv(` — none of them names a member, so none compiles. Also
-`@setAlignStack`, and any `withStackAlign` call not preceded by `comptime`.
+**Check:** a payload literal inside `callconv(` in a file that does not branch on
+`builtin.target.cpu.arch` (ZS-INTEROP-18): one architecture's convention, compiled for every target.
 
 ```zig
 // verified
@@ -343,7 +337,7 @@ project's agreed prefix. A generic-sounding exported symbol — `init`, `open`, 
 from a `.c` file you compile into the same artifact — or any object you link — write `extern fn`
 with no library name. In a module without libc, `extern "c"` is a hard error:
 `error: dependency on libc must be explicitly specified in the build command`. Set `link_libc` on
-the **module**, not the artifact (ZS-BUILD-06), and only for targets that have one (ZS-INTEROP-21).
+the **module**, not the artifact (ZS-BUILD-05), and only for targets that have one (ZS-INTEROP-21).
 `std.c` already declares much of libc (`std.c.abs`, `std.c.getpid`); declare by hand only what it
 lacks, so no symbol has two signatures to drift apart.
 
@@ -797,7 +791,7 @@ hundreds of entry points, or one whose ABI changes between releases you track. `
 `b.addTranslateC` works there; the 0.17 release notes deprecate it in favour of the translate-c
 package (`b.dependency("translate_c", …)` and its `Translator`), the same implementation with more
 options, though the source does not mark it deprecated yet. That package is a dependency like any
-other (ZS-BUILD-34).
+other (ZS-BUILD-33).
 
 `zig translate-c` emits `[*c]` for every pointer, because a C `T *` really is nullable and
 unbounded, so its output is the least safe legal translation by construction. It is also
@@ -1080,7 +1074,7 @@ Compute them from `target.result` rather than hard-coding. `link_libc` is true o
 targets. Leave `single_threaded` **unset** unless you mean it. `entry` is `.disabled` for a wasm
 library and `.{ .symbol_name = "_start" }` (or your reset symbol) for bare metal, and exported
 symbols go in `mod.export_symbol_names`. `link_libc` and `single_threaded` live on the `Module`, not
-the artifact; `entry` is a property of the executable (ZS-BUILD-06).
+the artifact; `entry` is a property of the executable (ZS-BUILD-05).
 
 Each of the three has a failure mode on 0.17.0:
 
@@ -1170,3 +1164,4 @@ The compiler rejects each of these on its own; no setting turns one off.
 | Tool | Lint | Level | Forbids |
 |---|---|---|---|
 | zig | `… not allowed in function with calling convention …` | error | a type with no C ABI in an `export` or `callconv(.c)` signature |
+| zig | `union 'lang.CallingConvention' has no member named '…'` | error | a calling convention the union does not have: `.C`, `.Naked`, `.Stdcall` |

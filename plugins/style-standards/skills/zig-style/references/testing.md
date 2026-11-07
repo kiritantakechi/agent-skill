@@ -38,7 +38,7 @@ rule is not about.
 - **Part 5 — Fuzzing with `Smith`**
   - ZS-TEST-18 [M] Write fuzz targets with `std.testing.fuzz` and `*std.testing.Smith`
   - ZS-TEST-19 [M] Pin every fuzz-found failure into the target's `.corpus`
-  - ZS-TEST-20 [M] Never ask `Smith` for a type without a fixed bit size
+  - ZS-TEST-20 [M] Ask `Smith.value` for a fixed-width integer, and draw an index with `Smith.index`
   - ZS-TEST-21 [S] Steer `Smith` with ranges and weights instead of generating-then-rejecting
 - **Part 6 — Running and maintaining the suite**
   - ZS-TEST-22 [M] `refAllDecls` is a compile smoke test, not coverage
@@ -46,6 +46,7 @@ rule is not about.
   - ZS-TEST-24 [S] Set `std.testing.log_level` only around the test that needs it, and restore it
   - ZS-TEST-25 [M] Run the whole suite in `safe` as well as `debug`
   - ZS-TEST-26 [M] Every bug fix ships with the test that would have caught it
+- Decided by tools
 
 ---
 
@@ -56,7 +57,7 @@ rule is not about.
 A unit `test` block belongs in the same file as the declaration it exercises, below the
 implementation — never shadowed into a parallel `tests/` tree that mirrors `src/` file for file.
 This is a rule about unit tests only: **integration tests live outside `src/`** in their own
-directory, with their own `addTest` and their own build step (ZS-BUILD-19, ZS-BUILD-05), because
+directory, with their own `addTest` and their own build step (ZS-BUILD-18, ZS-BUILD-04), because
 their whole purpose is to exercise the published module surface rather than internals.
 
 Within the file, tests come last in the struct body (ZS-NAME-17). Prefer the decltest form
@@ -86,7 +87,7 @@ test add {
 
 > TigerStyle divergence: TigerBeetle also co-locates tests, but additionally maintains
 > `src/unit_tests.zig`, a `comptime { _ = @import("..."); }` block naming every file, because its
-> test binary has a single root module. That is an aggregation mechanism (see ZS-BUILD-17), not an
+> test binary has a single root module. That is an aggregation mechanism (see ZS-BUILD-16), not an
 > argument for separate test files.
 
 ### ZS-TEST-02 [M] Use the decltest form `test declName` when a test targets exactly one declaration
@@ -932,27 +933,20 @@ test "fuzz: encode then decode is the identity" {
 }
 ```
 
-### ZS-TEST-20 [M] Never ask `Smith` for a type without a fixed bit size
+### ZS-TEST-20 [M] Ask `Smith.value` for a fixed-width integer, and draw an index with `Smith.index`
 
-`Smith.value`, `valueRangeAtMost`, and `valueRangeLessThan` reject `usize`, `isize`, `c_int`,
-`c_long`, `c_longdouble`, and the rest of the C types, with a `@compileError` reading "type does not
-have a fixed bitsize". Generate a `u32` or `u64` for a value. For an in-bounds index,
-`Smith.index(len)` takes a nonzero `usize` length and returns a `usize` below it.
+`smith.value(usize)` and `smith.value(c_int)` compile, and the integer they return is as wide as the
+target's: draw a `u32` or `u64` for a value. For an in-bounds index, `Smith.index(len)` takes a
+nonzero `usize` length and returns a `usize` below it. The range forms reject a type with no fixed
+bit size on their own (the row below).
 
 **Why:** the fuzzer serialises inputs to a corpus file that must be reproducible across targets. A
 `usize` is 32 bits on wasm32 and 64 on x86_64, so a corpus entry would decode differently per target
 and a crash found on one machine would not reproduce on another.
 
-**Check:** `usize`, `isize`, or any `c_*` type as the type argument to `smith.value`,
-`valueRangeAtMost`, or `valueRangeLessThan`. The compiler catches it, so the reviewable form is the
-near miss: a draw whose result is immediately `@intCast` to `usize` where `smith.index(len)` was the
+**Check:** `usize`, `isize` or a `c_*` type as the type argument to `smith.value`; and the near
+miss, a draw whose result is immediately `@intCast` to `usize` where `smith.index(len)` was the
 right call.
-
-```zig
-// rejected — zig: type does not have a fixed bitsize: usize
-const cut = smith.valueRangeLessThan(usize, 0, n);
-// error: type does not have a fixed bitsize: usize
-```
 
 ```zig
 // fragment — GOOD
@@ -1075,7 +1069,7 @@ test "log_level lets a noisy module be quieted" {
 ### ZS-TEST-25 [M] Run the whole suite in `safe` as well as `debug`
 
 The suite MUST execute in both modes. Drive it from a CI matrix over `-Doptimize` — the canonical
-shape in ZS-BUILD-32, `matrix: optimize: [debug, safe]`, which is also how the OS matrix already
+shape in ZS-BUILD-31, `matrix: optimize: [debug, safe]`, which is also how the OS matrix already
 works — keeping `build.zig` on a single `optimize` from `b.standardOptimizeOption` as in
 ZS-BUILD-01. For a project with no CI, loop both modes inside the `test` step instead. What is
 forbidden is a pipeline that only ever runs one mode. The matrix is preferred over an in-build loop
@@ -1093,7 +1087,7 @@ applies the full optimizer, so it catches illegal behavior that only manifests o
 and it catches performance regressions and stack-overflow-in-release bugs.
 
 ```yaml
-# GOOD — CI, the primary form (full workflow in ZS-BUILD-32)
+# GOOD — CI, the primary form (full workflow in ZS-BUILD-31)
 strategy:
   fail-fast: false
   matrix:
@@ -1147,3 +1141,11 @@ test "decode rejects a length prefix larger than the remaining input" {
     try std.testing.expectError(error.Truncated, Frame.decode("\xff\xffab"));
 }
 ```
+
+## Decided by tools
+
+The compiler rejects each of these on its own; no setting turns one off.
+
+| Tool | Lint | Level | Forbids |
+|---|---|---|---|
+| zig | `type does not have a fixed bitsize: …` | error | `Smith.valueRangeAtMost` or `valueRangeLessThan` over `usize`, `isize` or a C integer type |

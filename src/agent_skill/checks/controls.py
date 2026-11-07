@@ -1887,8 +1887,8 @@ CONTROLS: list[Control] = [
         lambda t: edit(
             t,
             f"{ZS}/SKILL.md",
-            "the other 346 live here",
-            "the other 345 live here",
+            "the other 344 live here",
+            "the other 343 live here",
         ),
     ),
     # citations
@@ -2098,7 +2098,7 @@ CONTROLS: list[Control] = [
     ),
     Control(
         frontmatter.RULE_COUNT,
-        lambda t: edit(t, f"{ZS}/SKILL.md", "a 346-rule library", "a 347-rule library"),
+        lambda t: edit(t, f"{ZS}/SKILL.md", "a 344-rule library", "a 345-rule library"),
     ),
     # layout
     Control(layout.UNCLOSED, lambda t: append(t, DATA, "\n```text\nnever closed\n")),

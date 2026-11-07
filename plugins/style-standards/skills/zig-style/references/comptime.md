@@ -17,7 +17,7 @@ concrete type shaped it. TigerStyle's other claim stands and is the reason the c
 abstractions are never zero-cost, and in Zig the cost is concrete: a comptime abstraction costs
 binary size and compile time, a vtable costs an indirect call and an optimization barrier. Deciding
 the shape early does not remove those costs; it means choosing which one you pay. ZS-COMPTIME-10,
-ZS-COMPTIME-11, and ZS-COMPTIME-16 keep the cost from becoming damage: if any is being bent to make
+ZS-COMPTIME-11, and ZS-COMPTIME-15 keep the cost from becoming damage: if any is being bent to make
 an interface fit, the interface is wrong and the fallback is a concrete type.
 
 Unlike the other chapters, the blocks here carry their own `const std = @import("std");` rather than
@@ -45,16 +45,15 @@ is often what it does at the top of a file.
   - ZS-COMPTIME-12 [S] Prefer a concrete parameter type, then `comptime T: type`, then `anytype`
   - ZS-COMPTIME-13 [S] Use `anytype` where std uses it, and constrain it with `std.meta` predicates
 - **Type introspection**
-  - ZS-COMPTIME-14 [M] Build types with `@Int`, `@Struct` and the other type builtins
-  - ZS-COMPTIME-15 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
+  - ZS-COMPTIME-14 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
 - **Interfaces**
-  - ZS-COMPTIME-16 [M] Pick the interface shape from this table before writing any dispatch code
-  - ZS-COMPTIME-17 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
-  - ZS-COMPTIME-18 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
-  - ZS-COMPTIME-19 [S] Give vtable members defaults so implementations only override what they must
-  - ZS-COMPTIME-20 [M] A closed set of implementations is a tagged union, not an interface
+  - ZS-COMPTIME-15 [M] Pick the interface shape from this table before writing any dispatch code
+  - ZS-COMPTIME-16 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
+  - ZS-COMPTIME-17 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
+  - ZS-COMPTIME-18 [S] Give vtable members defaults so implementations only override what they must
+  - ZS-COMPTIME-19 [M] A closed set of implementations is a tagged union, not an interface
 - **Debugging comptime**
-  - ZS-COMPTIME-21 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
+  - ZS-COMPTIME-20 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
 - **Where TigerStyle and std disagree**
 - Decided by tools
 
@@ -72,10 +71,10 @@ is often what it does at the top of a file.
 | Generic over the allocator or writer type | ZS-COMPTIME-09 |
 | Bare `anytype` in a `pub fn` | ZS-COMPTIME-11, ZS-COMPTIME-12 |
 | `@Type(...)`, `std.meta.Int`, `std.meta.Tuple` | ZS-COMPTIME-14 |
-| `@typeInfo(T).Struct`, `.@"struct".fields`, a raw `default_value_ptr` | ZS-COMPTIME-15 |
-| Hand-rolled vtable for a closed set of impls | ZS-COMPTIME-20 |
-| `usingnamespace` | ZS-BUILD-16 |
-| `error: unable to resolve comptime value` with no visible cause | ZS-COMPTIME-21 |
+| `@typeInfo(T).Struct`, `.@"struct".fields`, a raw `default_value_ptr` | ZS-COMPTIME-14 |
+| Hand-rolled vtable for a closed set of impls | ZS-COMPTIME-19 |
+| `usingnamespace` | ZS-BUILD-15 |
+| `error: unable to resolve comptime value` with no visible cause | ZS-COMPTIME-20 |
 
 ---
 
@@ -622,54 +621,7 @@ fn resetAll(comptime T: type, items: []T) void {
 
 ## Type introspection
 
-### ZS-COMPTIME-14 [M] Build types with `@Int`, `@Struct` and the other type builtins
-
-`@Type` does not exist — `error: invalid builtin function: '@Type'` — and neither do `std.meta.Int`
-and `std.meta.Tuple` (`error: root source file struct 'meta' has no member named 'Int'`). The type
-builtins are `@Int`, `@Tuple`, `@Struct`, `@Union`, `@Enum`, `@Pointer`, `@Fn`, `@EnumLiteral`.
-There is deliberately no `@Float`, `@Array`, `@Opaque`, `@Optional`, `@ErrorSet` or `@ErrorUnion` —
-those types have ordinary syntax, so reflection was never needed to build them.
-
-**Why:** each builtin takes the arguments its kind of type needs, typed in its signature, so a
-malformed type is an error at the call; every other spelling fails to build.
-
-**Check:** grep a diff for `@Type(`, `std.meta.Int`, and `std.meta.Tuple`. All three fail to build,
-so the grep is a pre-flight for carried-over code rather than something a reviewer has to catch by
-eye.
-
-Signatures, from the langref:
-
-```text
-@Int(comptime signedness: std.lang.Signedness, comptime bits: u16) type
-@Tuple(comptime field_types: []const type) type
-@Enum(comptime TagInt: type, comptime mode: std.lang.Type.Enum.Mode,
-      comptime field_names: []const []const u8,
-      comptime field_values: *const [field_names.len]TagInt) type
-@Struct(comptime layout: std.lang.Type.ContainerLayout, comptime BackingInt: ?type,
-        comptime field_names: []const []const u8,
-        comptime field_types: *const [field_names.len]type,
-        comptime field_attrs: *const [field_names.len]std.lang.Type.Struct.FieldAttributes) type
-@EnumLiteral() type
-```
-
-```zig
-// rejected — zig: invalid builtin function: '@Type'
-const T = @Type(.{ .int = .{ .signedness = .unsigned, .bits = 8 } });
-```
-
-```zig
-// verified — GOOD
-const std = @import("std");
-
-test "type builtins" {
-    try std.testing.expectEqual(u7, @Int(.unsigned, 7));
-    const Pair = @Tuple(&.{ u8, bool });
-    const p: Pair = .{ 3, true };
-    try std.testing.expectEqual(3, p[0]);
-}
-```
-
-### ZS-COMPTIME-15 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
+### ZS-COMPTIME-14 [M] Use `@typeInfo` only to walk lists, and use the 0.17 spellings and accessors
 
 Two halves, in order of application.
 
@@ -743,7 +695,7 @@ test "accessors" {
 
 ## Interfaces
 
-### ZS-COMPTIME-16 [M] Pick the interface shape from this table before writing any dispatch code
+### ZS-COMPTIME-15 [M] Pick the interface shape from this table before writing any dispatch code
 
 Zig has three shapes, plus one variant of the vtable shape. Choosing wrong is expensive to undo, so
 choose before the concrete type exists: a boundary extracted from an existing type inherits its
@@ -764,9 +716,9 @@ inlining to gain those three; a tagged union has storability and inlining for a 
 **Check:** a diff that picks a row whose "use when" column is false for it. Two mechanical tells: an
 `anytype` or `comptime T` interface whose values are later stored in a struct field, a container, or
 a common return type — comptime duck typing cannot be stored; and a new `*const VTable` over a set
-of implementations that all live in your own tree — that is ZS-COMPTIME-20's tagged union.
+of implementations that all live in your own tree — that is ZS-COMPTIME-19's tagged union.
 
-### ZS-COMPTIME-17 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
+### ZS-COMPTIME-16 [M] The runtime vtable is two fields; recover the impl by `@ptrCast(@alignCast(…))`
 
 Fields are a type-erased context pointer plus `vtable: *const VTable`. `std.mem.Allocator` spells it
 `ptr: *anyopaque, vtable: *const VTable`; `std.Io` spells it
@@ -828,7 +780,7 @@ pub const CountingSink = struct {
 };
 ```
 
-### ZS-COMPTIME-18 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
+### ZS-COMPTIME-17 [M] Embed a stateful interface as field `interface`; recover owner by `@fieldParentPtr`
 
 This is the modern std house pattern. The implementation struct declares `interface: std.Io.Writer`
 (or `Reader`) as a field **by value**, hands out `&self.interface`, and every vtable function starts
@@ -890,7 +842,7 @@ pub const CountingWriter = struct {
 };
 ```
 
-### ZS-COMPTIME-19 [S] Give vtable members defaults so implementations only override what they must
+### ZS-COMPTIME-18 [S] Give vtable members defaults so implementations only override what they must
 
 Declare optional operations with a default implementation in the `VTable` struct itself, so an
 implementation's vtable literal lists only the required functions. std does this:
@@ -906,7 +858,7 @@ implementation in the ecosystem.
 more implementations whose vtable literals name the same function with the same body. That repeated
 function is the default that was not declared.
 
-### ZS-COMPTIME-20 [M] A closed set of implementations is a tagged union, not an interface
+### ZS-COMPTIME-19 [M] A closed set of implementations is a tagged union, not an interface
 
 If every implementation is known at compile time and lives in your own tree, model it as
 `union(enum)` with methods that `switch` exhaustively (`references/errors.md` ZS-ERR-25).
@@ -938,7 +890,7 @@ pub const Shape = union(enum) {
 
 ## Debugging comptime
 
-### ZS-COMPTIME-21 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
+### ZS-COMPTIME-20 [M] Debug comptime errors with `-freference-trace`, and delete every `@compileLog`
 
 Every failure mode in this chapter reports at the innermost frame, which is almost never the frame
 that caused it. Two tools address that, and both need discipline.
@@ -1026,7 +978,7 @@ storability, ABI stability, and one compiled copy of every consumer.
   This is not a style preference: hand-rolling around them costs you the entire std ecosystem, and
   comptime-parameterizing on an allocator type is a pattern std deliberately deleted.
 - [S] For your *own* abstractions, follow TigerStyle: prefer no abstraction, then a tagged union
-  (ZS-COMPTIME-20), then an interface. Reach for a vtable only when the implementation set is
+  (ZS-COMPTIME-19), then an interface. Reach for a vtable only when the implementation set is
   genuinely open.
 - [M!] In high-reliability code — databases, consensus, embedded, crypto, allocators, anything where
   a crash or corruption is unacceptable — apply TigerStyle's static-dispatch preference to the hot

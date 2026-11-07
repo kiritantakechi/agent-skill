@@ -625,7 +625,7 @@ argument.
 itself dangling. An out pointer fixes the address before the first field is written.
 
 **Check:** a `pub fn init(...) T` returning by value on a type any of whose fields is a pointer into
-itself, an `interface` field (ZS-COMPTIME-18), an intrusive node, or a fixed buffer whose address is
+itself, an `interface` field (ZS-COMPTIME-17), an intrusive node, or a fixed buffer whose address is
 handed out. The expected shape at the call site is `var x: T = undefined; x.init(...);`, not
 `const x: T = .init(...);`.
 

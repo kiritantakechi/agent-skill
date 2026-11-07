@@ -1,7 +1,7 @@
 // Canonical build.zig for a library + CLI project, lifted verbatim from
 // references/build.md ZS-BUILD-01, where it is marked verified against
 // Zig 0.17.0. Rename `myproj` and delete the steps you do not need.
-// Referenced by ZS-BUILD-01, ZS-BUILD-02, ZS-BUILD-05, ZS-BUILD-30.
+// Referenced by ZS-BUILD-01, ZS-BUILD-04, ZS-BUILD-29.
 
 const std = @import("std");
 
@@ -44,7 +44,7 @@ pub fn build(b: *std.Build) void {
     run_cmd.addPassthruArgs();
     b.step("run", "Run the CLI").dependOn(&run_cmd.step);
 
-    // ONE test binary per module (ZS-BUILD-05). Unit tests hang off `test`.
+    // ONE test binary per module (ZS-BUILD-04). Unit tests hang off `test`.
     const test_step = b.step("test", "Run unit tests");
 
     const lib_tests = b.addTest(.{ .root_module = lib_mod, .filters = test_filters });
@@ -58,7 +58,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_exe_tests.step);
 
     // Integration tests get their OWN step, so `zig build test` stays fast
-    // (ZS-BUILD-05). CI runs both steps.
+    // (ZS-BUILD-04). CI runs both steps.
     const integration_tests = b.addTest(.{
         .name = "integration",
         .filters = test_filters,

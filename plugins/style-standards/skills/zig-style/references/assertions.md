@@ -6,7 +6,7 @@ discipline of bounding every loop, buffer, queue and retry count with a named co
 does **not** own error-union design, `errdefer`, or the operating-error side of the split — that is
 `references/errors.md`. Allocator lifetime and `undefined` poisoning are `references/memory.md`;
 test structure and the `build.zig` wiring of fuzz steps are `references/testing.md` and
-`references/build.md`; the optimize-mode table is `references/build.md` ZS-BUILD-25. Naming
+`references/build.md`; the optimize-mode table is `references/build.md` ZS-BUILD-24. Naming
 (`connection_count_max`, not `max_connections`) is specified in `references/naming.md` and applied
 here without re-deriving it.
 
@@ -245,7 +245,7 @@ leaving it implicit.
 
 TigerBeetle's answer is to ship `safe`; how a build selects its shipping mode, and why
 `-Doptimize=safe` on a plain `standardOptimizeOption(.{})` is the default, is `references/build.md`
-ZS-BUILD-25 and ZS-BUILD-26. If you cannot pay `safe`'s cost, use the two-line `assertAlways` helper
+ZS-BUILD-24 and ZS-BUILD-25. If you cannot pay `safe`'s cost, use the two-line `assertAlways` helper
 in the example: under `-O fast` on 0.17.0 it panics where the equivalent `assert` dies on a bare
 trap. `assertAlways` is legal in a library: it reports a violated invariant, not an operating error,
 so it does not take a recovery option away from the caller (`references/errors.md` ZS-ERR-02).
