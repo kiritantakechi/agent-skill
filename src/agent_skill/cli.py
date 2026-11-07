@@ -149,18 +149,25 @@ def cmd_build(args: argparse.Namespace) -> int:
 
 
 def cmd_install(args: argparse.Namespace) -> int:
-    """Link every skill into each agent this machine has installed."""
+    """Link every skill into each agent this machine has installed.
+
+    Exit 1 when a copy differing from its skill was left where a link
+    belongs: that agent still reads the copy.
+    """
     targets = [t for t in build.TARGETS if not args.target or t.name in args.target]
     skills = discover(args.skills)
+    failed = False
     for target in targets:
         if not target.present:
             print(f"  {target.name:<12} not installed on this machine; skipped")
             continue
         print(f"  {target.name}")
         for skill in skills:
-            link, how = build.install(skill, target)
-            print(f"      {link}  ({how})")
-    return 0
+            done = build.install(skill, target)
+            label = "" if done.ok else "FAIL  "
+            print(f"      {label}{done.link}  ({done.how})")
+            failed |= not done.ok
+    return 1 if failed else 0
 
 
 def cmd_fmt(args: argparse.Namespace) -> int:

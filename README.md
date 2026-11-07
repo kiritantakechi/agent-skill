@@ -267,7 +267,10 @@ A real directory standing in the way is moved to `skills-replaced/` *beside* the
 skills directory rather than renamed inside it: discovery walks
 `skills/*/SKILL.md` and reads the name from the frontmatter, so a
 `rust-style.replaced` sitting next to `rust-style` is a second skill claiming the
-same name.
+same name. A directory already moved there is never overwritten, so a second
+copy in the way is left alone. `install` then exits 1 if that copy differs from
+the skill, since the agent still reads it, and 0 if it holds exactly what a
+package of the skill would.
 
 ## Adding a skill
 
