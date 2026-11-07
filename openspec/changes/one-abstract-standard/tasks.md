@@ -172,7 +172,23 @@ time of deletion (both tiers `[M]` unless marked):
   -14 and ZS-NAME-22 to -25 (comments), ZS-NAME-29 (commit message). Not registered, stated by one
   standard: the conversion prefixes, getters and iterator names (RS-NAME-12 to -21), RS-NAME-23, -27 to
   -33, the `_` prefix (PS-NAME-03 / ZS-NAME-03), receivers and helper prefixes (ZS-NAME-10, -14).
-- [ ] 3.5 `documentation` (zig-style's doc-comment rules among the candidates for a move)
+- [x] 3.5 `documentation`: 12 entries (`AS-DOC-01` to `-12`), in documenting an item, comments, and the
+  documents beside the code; realisations: python-style 10 `realises`, 2 `decided` (`D103`, `ERA001`);
+  rust-style 11 `realises`, 1 `decided` (`missing_docs`); zig-style 12 `realises`. Moves 6: PS-NAME-13,
+  -14 into python-style's documentation (PS-DOC-13, -14); ZS-NAME-22 to -25 into zig-style's new
+  `documentation.md` (ZS-DOC-03, -05, -07, -08), with its three doc-comment rows and `ERA001`'s row.
+  Merges 3: RS-BUILD-11 into RS-DOC-26 (changelog), RS-DOC-08 into RS-DOC-07 (blank line after the
+  summary); RS-DOC-06 demoted to the `missing_docs` row once its example half was split out. New rules
+  10: RS-DOC-06 (examples run, split from the old RS-DOC-06), RS-DOC-16 (reasons out of a doc comment),
+  RS-DOC-19 (comment as a sentence); ZS-DOC-01, -02, -04, -06, -09, -10, -11, -12 (`pub` documented,
+  summary sentence, errors, examples as `test` blocks, commented-out code, comments updated, changelog,
+  README). Tier changes 3: PS-DOC-08 to `[M]`, PS-DOC-09 and -10 to `[S]`. Look-alike notes 7 -> 7.
+  Left for `modules`: RS-MOD-01 (a module has a documented concept; `//!`, `__init__` docstring, ZS-DOC-03's
+  `//!`). Left for `concurrency`/`api`/`types`: RS-CONC-47 (document the threading contract), RS-TRAIT-11 with
+  ZS-COMPTIME-11 (document a generic parameter's contract), PS-API-12, RS-API-57 / ZS-DATA-36 (document the
+  missing inverse), ZS-MEM-09 (ownership in the doc comment). Not registered, one standard: `# Panics`
+  (RS-DOC-10), `# Safety` (RS-UNSAFE-04), the design note, provenance, TODO owner (RS-DOC-26), ZS-NAME-25
+  (commit message; belongs to `build` or nowhere, left in naming).
 - [ ] 3.6 `modules` (zig-style's file and module layout among the candidates)
 - [ ] 3.7 `api`
 - [ ] 3.8 `data`
