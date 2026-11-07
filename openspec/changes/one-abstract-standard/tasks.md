@@ -378,9 +378,47 @@ time of deletion (both tiers `[M]` unless marked):
   live name rejects (PS-MIG-05), pytest's ladder (PS-MIG-08), 3.16 (PS-MIG-07), the crate std replaced
   (RS-MIG-03), checking unfamiliar code against the chapter (ZS-MIG-01, BV-MIG-01), the rename chain
   (BV-MIG-02), the `Ref` clone (BV-MIG-03).
-- [ ] 3.14 Remove an abstract chapter that holds no entry, or record why it stays; declare a chapter
+- [x] 3.14 Remove an abstract chapter that holds no entry, or record why it stays; declare a chapter
   the sweep emptied of realisations as domain, or remove it; verify every look-alike note left has a
-  recorded reason the two rules answer different questions
+  recorded reason the two rules answer different questions. Result: 150 entries (api 12, build 7,
+  concurrency 15, data 10, documentation 12, errors 14, migration 4, modules 14, naming 13, output 12,
+  performance 17, testing 15, types 5). No abstract chapter is empty (the least holds 4) and none was
+  emptied: every base standard's chapter of an abstract word still holds a realisation, and the
+  `domain` maps (python-style async; rust-style ownership, traits, functional, macros, unsafe, cli;
+  zig-style comptime, memory, assertions, interop) name exactly the chapters that realise nothing.
+  Look-alike notes 0, so none is owed a reason. Final realisations (python / rust / zig): `realises`
+  129 / 139 / 139, `extends` 1 / 1 / 1, `tightens` 3 / 0 / 0, `overrides` 2 / 1 / 3, `decided` 7 / 5 /
+  0, `absent` 8 / 4 / 7. Moves 4: RS-FUNC-34 to RS-API-19 and ZS-PERF-20 to ZS-API-07 (api),
+  RS-MOD-35 to RS-NAME-35 and ZS-ERR-28 to ZS-NAME-17 (naming). New rules 4: ZS-NAME-21, ZS-BUILD-15,
+  PS-OUT-21, PS-PERF-14. Judgement calls:
+  1. AS-ERR-13: RS-ERR-31 re-tiered to `[S]`, `realises`, retitled "Prefer a `match`...", its Why
+     leaves exhaustiveness to the types chapter's `wildcard_enum_match_arm`. Rust's `tightens` goes.
+  2. AS-ERR-02: python-style stays `absent`, the reason now says there is no operation forcing a
+     fallible result and `assert`, its one instance, is PS-ERR-07's under AS-ERR-01.
+  3. AS-NAME-04: rust-style stays `overrides` (RS-NAME-08, `[S]`): the reason names std's
+     verb-object-qualifier order, which RS-NAME-23 states and `max_depth` follows.
+  4. AS-NAME-08: ZS-NAME-12 is a suffix vocabulary, not the claim; ZS-NAME-21 is written (one shape
+     for a family, verified example) and is the row.
+  5. AS-BUILD-02: a gap, not `absent`; ZS-BUILD-15 (commit `build.zig.zon` with a `.hash` on every
+     fetched dependency, and no second lock) is the row, `realises`.
+  6. Function length: new entry AS-NAME-13 `[M!]` in naming's Layout. zig ZS-NAME-17 (70 lines) and
+     rust RS-NAME-35 (moved, re-tiered `[S]` to `[M!]`, bound 100 lines as `clippy::too_many_lines`
+     counts, which `pedantic` enables; no domain reason for Rust to differ) `realise`; python
+     `decided` by `PLR0915` (row added to python-style's naming Decided table).
+  7. AS-OUT-11: PS-OUT-19 (a `__str__` only for a human form) is not the claim, so python is not
+     `overrides`; the gap rule PS-OUT-21 (never show a user a `repr`) is written and `realises`.
+  8. `missing_debug_implementations` moved from rust-style's api to its output Decided table; AS-OUT-10
+     keeps RS-OUT-10; `lints` and `concepts` pass.
+  9. Principle 3: new entry AS-API-12 `[M]` (an "Effects" section): PS-API-12, RS-API-19 (moved from
+     functional) and ZS-API-07 (moved from performance, re-tiered `[S]` to `[M]`: no domain reason)
+     `realise`; principles.md's question 3 already says it.
+  10. AS-PERF-15: Python has the layout choice (`array.array`, a column per field), so `absent` goes;
+      PS-PERF-14 is written (`[S]`, verified example) and is the row.
+  11. AS-PERF-01 and -02: ZS-PERF-28 gains the whole-operation measurement and the revert within
+      noise; ZS-PERF-01 is retitled and gains the cost class in the size of the input.
+  Harness: `revise` places moves naming one `after` in plan order (a test fails without the fix).
+  Verified: `check --fast`, the 943 non-toolchain tests, ruff, ruff format, ty, and the toolchains of
+  python-style, rust-style, zig-style and bevy-style; no `rg` Check was added, so no mutation run.
 
 ## 4. Actions and CI
 

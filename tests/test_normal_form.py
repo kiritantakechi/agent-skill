@@ -163,7 +163,7 @@ def test_a_statement_that_opens_with_its_title_restates_it(
     [
         ("as `RS-ERR-03` says", "as RS-ERR-03 says"),
         ("(`references/errors.md` RS-ERR-03).", "(RS-ERR-03)."),
-        ("see `references/api.md` RS-API-20, RS-API-21", "see RS-API-20, RS-API-21"),
+        ("see `references/api.md` RS-API-21, RS-API-22", "see RS-API-21, RS-API-22"),
         ("`references/errors.md` `RS-ERR-03`'s table", "RS-ERR-03's table"),
         # A family is not a rule, and a path alone names a chapter,
         # which a person rewrites.
