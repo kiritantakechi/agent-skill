@@ -18,13 +18,15 @@ import pytest
 
 from agent_skill import harness
 from agent_skill.checks import pins as mod
-from agent_skill.checks.pins import _tool_pins
+from agent_skill.checks.pins import _actions, _actions_in, _tool_pins
 from agent_skill.harness import Harness, pinned
 from agent_skill.ids import Location, Pin, Version
 from agent_skill.lang import python
 from agent_skill.lang.rust import Library, library_pin, rust_pin
+from agent_skill.model import Tree
 from agent_skill.proc import Ran
 from agent_skill.report import Level
+lazy from agent_skill.model import Skill
 
 #: Where the pins below are said to be.
 HERE = Location("rust-style")
@@ -233,3 +235,80 @@ def test_a_requirement_anywhere_in_the_project_is_read() -> None:
     }
     [found] = python.project_pins(project, HARNESS, HERE)
     assert "requires `ruff>=0.1`" in found.message
+
+
+#: A commit of `actions/checkout`, as the assets pin it.
+COMMIT = "3d3c42e5aac5ba805825da76410c181273ba90b1"
+
+
+def _actions_of(text: str) -> list[tuple[str, int | None]]:
+    """Each finding about the actions in `text`: its branch and line."""
+
+    def at(line: int | None = None) -> Location:
+        return Location("python-style", "assets/ci.yml", line)
+
+    return [(f.branch.name, f.where.line) for f in _actions_in(text, at)]
+
+
+@pytest.mark.parametrize(
+    "named",
+    [
+        "actions/checkout@v7",  # a tag
+        "actions/checkout@v7.0.1",  # a release's tag
+        "actions/checkout@main",  # a branch
+        "actions/checkout@3d3c42e",  # a short hash
+        f"actions/checkout@{COMMIT[:39]}",  # one digit short
+        "actions/checkout",  # no ref at all
+        '"actions/checkout@v7"',  # quoted
+    ],
+)
+def test_an_action_by_a_ref_that_can_move_fails(named: str) -> None:
+    text = f"    steps:\n      - uses: {named}  # v7.0.1\n"
+    assert _actions_of(text) == [("movable_action", 2)]
+
+
+@pytest.mark.parametrize("comment", ["", "  #", "  #   "])
+def test_a_commit_with_no_release_beside_it_fails(comment: str) -> None:
+    text = f"      - uses: actions/checkout@{COMMIT}{comment}\n"
+    assert _actions_of(text) == [("unversioned_action", 1)]
+
+
+@pytest.mark.parametrize("comment", ["# v7.0.1", "# master", "#v7.0.1"])
+def test_a_commit_with_its_release_or_branch_is_quiet(comment: str) -> None:
+    text = f"      - uses: actions/checkout@{COMMIT}  {comment}\n"
+    assert _actions_of(text) == []
+
+
+def test_a_commented_out_action_counts() -> None:
+    """Enabling the job copies the line as it stands."""
+    text = (
+        "  # miri:\n"
+        "  #   steps:\n"
+        "  #     - uses: actions/checkout@v7\n"
+        f"  #     - uses: dtolnay/rust-toolchain@{COMMIT}\n"
+    )
+    assert _actions_of(text) == [("movable_action", 3), ("unversioned_action", 4)]
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "      - uses: ./.github/actions/lint",  # the repository's own code
+        "      - uses: docker://alpine:3.22",  # an image, not a release
+        "# Each uses: names a commit, with the release beside it.",  # prose
+        "        run: echo 'uses: actions/checkout@v7'",  # a command's text
+    ],
+)
+def test_what_is_no_third_party_action_is_quiet(line: str) -> None:
+    assert _actions_of(f"{line}\n") == []
+
+
+def test_a_job_calling_a_workflow_by_tag_fails() -> None:
+    """A reusable workflow is someone else's code as an action is."""
+    text = "jobs:\n  call:\n    uses: octo/ci/.github/workflows/ci.yml@v1\n"
+    assert _actions_of(text) == [("movable_action", 3)]
+
+
+def test_every_action_shipped_or_run_here_is_pinned(skills: list[Skill]) -> None:
+    """In every asset, and in every workflow the repository runs."""
+    assert [str(f) for f in _actions(Tree.of(skills))] == []

@@ -13,15 +13,20 @@ happen.
 The harness's own tool pins are compared here. A skill's pins are its
 toolchain's to compare (`Toolchain.pins`): what a release of Rust, of
 CPython or of Zig is, and where to ask for the newest, differs for each.
+So is every action a workflow names, shipped or run here: by the commit
+it runs, with the release that commit is beside it.
 """
 
 import re
-lazy from collections.abc import Iterator
+from functools import partial
+lazy from collections.abc import Callable, Iterator
 
+from agent_skill import workflow
 from agent_skill.checks import check, per_skill
 from agent_skill.harness import HARNESS, pinned, version_mismatch
-from agent_skill.ids import Version
+from agent_skill.ids import Location, Version
 from agent_skill.lang import needs, toolchain_for
+from agent_skill.layout import in_repository, root_of
 from agent_skill.proc import have, run, tool_path
 from agent_skill.report import Level, declare, fail, unrun
 lazy from agent_skill.model import Skill, Tree
@@ -36,6 +41,8 @@ INDEX_SILENT = declare("pins", "index_silent", Level.UNRUN)
 INDEX_UNREAD = declare("pins", "index_unread", Level.UNRUN)
 INDEX_UNORDERED = declare("pins", "index_unordered", Level.UNRUN)
 TOOL_STALE = declare("pins", "tool_stale", Level.FAIL)
+MOVABLE_ACTION = declare("pins", "movable_action", Level.FAIL)
+UNVERSIONED_ACTION = declare("pins", "unversioned_action", Level.FAIL)
 
 
 def _tool_pins() -> Iterator[Finding]:
@@ -126,11 +133,65 @@ def pins(tree: Tree) -> Iterator[Finding]:
 
     The harness's tool pins are asked once, when a skill verified with
     those tools is read; they pin the repository rather than a skill,
-    so their findings lie in no skill.
+    so their findings lie in no skill, as a finding in the repository's
+    own workflow does.
     """
     yield from per_skill(_skill_pins)(tree)
+    yield from _actions(tree)
     if any(set(_verifies_with(skill)) & set(HARNESS.binaries) for skill in tree):
         yield from _tool_pins()
+
+
+def _actions(tree: Tree) -> Iterator[Finding]:
+    """Every action each workflow names, shipped or run, by its commit.
+
+    The workflows a skill ships in `assets/`, and the repository's own.
+    A tag or a branch can be moved after review, and the commit it
+    names moves with it; a commit with no release beside it leaves a
+    reader unable to tell what a bump moves from. A `uses:` kept as a
+    comment counts, since enabling it copies it as it stands.
+
+    A local action (`./…`) and a `docker://` image are out of scope:
+    the first is the repository's own code, at the commit being run,
+    and the second names an image rather than a repository's release.
+    """
+    for skill in tree:
+        for path in workflow.shipped(skill.assets):
+            yield from _actions_in(path.read_text(), partial(skill.at, path))
+    if not tree.skills or not in_repository(skills := tree.skills[0].root.parent):
+        return
+    root = root_of(skills)
+    for path in workflow.run_by(root):
+        rel = path.relative_to(root).as_posix()
+        yield from _actions_in(
+            path.read_text(), lambda line, rel=rel: Location(file=rel, line=line)
+        )
+
+
+def _actions_in(text: str, at: Callable[..., Location]) -> Iterator[Finding]:
+    """Each `uses:` of a workflow not named by commit and release.
+
+    `at` locates a line of the workflow.
+    """
+    for uses in workflow.uses(text):
+        if not uses.third_party:
+            continue
+        if not uses.commit:
+            yield fail(
+                f"`uses: {uses.named}` names the action by a ref that can be moved "
+                "after review; name the commit, all 40 hexadecimal digits, with its "
+                "release in a comment",
+                at(line=uses.line),
+                MOVABLE_ACTION,
+            )
+        elif not uses.comment:
+            yield fail(
+                f"`uses: {uses.named}` names a commit and not the release it is; "
+                "give the release in a comment after it (`# v7.0.1`), or the branch "
+                "it was taken from for an action that publishes none",
+                at(line=uses.line),
+                UNVERSIONED_ACTION,
+            )
 
 
 def _skill_pins(skill: Skill) -> Iterator[Finding]:

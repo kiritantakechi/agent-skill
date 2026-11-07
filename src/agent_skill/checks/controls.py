@@ -48,7 +48,7 @@ from agent_skill.checks import (
 from agent_skill.ids import Branch, Location
 from agent_skill.lang import python, rust, zig
 from agent_skill.lang.python import PythonSnippet
-from agent_skill.layout import ABSTRACT, PLUGIN, SKILLS, root_of
+from agent_skill.layout import ABSTRACT, PLUGIN, SKILLS, WORKFLOWS, root_of
 from agent_skill.model import SKILL_MD
 from agent_skill.profiles import bevy_style, python_style, rust_style, zig_style
 from agent_skill.report import Level, declare, fail, unrun
@@ -195,8 +195,9 @@ def throwaway_tree(source: Path, into: Path) -> Path:
     for beside in ("README.md", "LICENSE"):
         if (root / beside).is_file():
             shutil.copy2(root / beside, into / beside)
-    if (root / ABSTRACT).is_dir():
-        shutil.copytree(root / ABSTRACT, into / ABSTRACT)
+    for kept in (ABSTRACT, WORKFLOWS):
+        if (root / kept).is_dir():
+            shutil.copytree(root / kept, into / kept)
     for manifests in (Path(".claude-plugin"), PLUGIN / ".claude-plugin"):
         if (root / manifests).is_dir():
             shutil.copytree(root / manifests, into / manifests)
@@ -590,6 +591,52 @@ def _orphan_exemption(tree: Path) -> Edited:
         "**Check:** look for `Vec::new`, `String::new`",
         "Look for `Vec::new`, `String::new`",
     )
+
+
+#: A `uses:` naming its action's commit, then the release it is; the
+#: line's lead is what comes before the key: a step's `- `, and a `#`
+#: when the line is commented out.
+_PINNED = re.compile(
+    r"^(?P<lead>[ #-]*)uses: (?P<action>\S+)@(?P<commit>[0-9a-f]{40}) +# "
+    r"(?P<release>\S+)$",
+    re.MULTILINE,
+)
+
+
+def _pinned_use(tree: Path, rel: str, *, kept: bool = False) -> re.Match[str]:
+    """The first `uses:` of `rel` naming a commit and its release.
+
+    The first on a commented-out line, when `kept`.
+    """
+    text = (tree / rel).read_text()
+    found = (m for m in _PINNED.finditer(text) if ("#" in m["lead"]) == kept)
+    if (first := next(found, None)) is None:
+        msg = f"{rel}: a `uses:` naming a commit and its release"
+        raise FixtureGoneError(msg)
+    return first
+
+
+def _by_tag(tree: Path) -> Edited:
+    """python-style's first action, named by the release it was.
+
+    `actions/checkout@v7.0.1`: a tag, which can be moved after review.
+    """
+    rel = f"{PY}/assets/ci.yml"
+    found = _pinned_use(tree, rel)
+    named = f"{found['lead']}uses: {found['action']}@{found['release']}"
+    return edit(tree, rel, found[0], named)
+
+
+def _no_release(tree: Path) -> Edited:
+    """rust-style's commented-out job, its first action's release gone.
+
+    Whoever enables the job copies the line as it stands, so a `uses:`
+    commented out is held as one that runs.
+    """
+    rel = f"{RS}/assets/ci.yml"
+    found = _pinned_use(tree, rel, kept=True)
+    named = f"{found['lead']}uses: {found['action']}@{found['commit']}"
+    return edit(tree, rel, found[0], named)
 
 
 #: The demo's chapter of rules, as an edit names it.
@@ -1422,6 +1469,10 @@ CONTROLS: list[Control] = [
         },
     ),
     Control(python.WORKFLOW_NONE, _no_uv_interpreter),
+    # An action named by a tag runs whatever the tag names by then; one
+    # named by a bare commit says nothing of the release a bump leaves.
+    Control(pins.MOVABLE_ACTION, _by_tag),
+    Control(pins.UNVERSIONED_ACTION, _no_release),
     Control(
         python_style.FUTURE,
         lambda t: edit(

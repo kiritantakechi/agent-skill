@@ -19,6 +19,10 @@ SKILLS = PLUGIN / "skills"
 #: harness's and the authors', and installs with nothing.
 ABSTRACT = Path("abstract")
 
+#: The repository's own CI: the workflows GitHub runs on it. Outside the
+#: plugin, since they check the repository rather than ship with it.
+WORKFLOWS = Path(".github") / "workflows"
+
 
 def root_of(skills: Path) -> Path:
     """The repository root a skills directory sits in.

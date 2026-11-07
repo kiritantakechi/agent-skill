@@ -427,8 +427,15 @@ time of deletion (both tiers `[M]` unless marked):
   comment; `dtolnay/rust-toolchain` is pinned to a `master` commit and takes `toolchain:`; verify the
   assets' checks and toolchains pass. Pinned: checkout v7.0.1, setup-uv v10.3.3, rust-toolchain master,
   rust-cache v2.9.3, install-action v2.88.1, audit-check v2.0.0, semver-checks-action v2.9, setup-zig v2.2.1
-- [ ] 4.2 Add `pins.movable_action` and `pins.unversioned_action`, with controls; verify both fire
-  alone and pass on the shipped assets
+- [x] 4.2 Add `pins.movable_action` and `pins.unversioned_action`, with controls; verify both fire
+  alone and pass on the shipped assets. Result: `pins` reads every `uses:` of each workflow a skill
+  ships in `assets/` and of each under `.github/workflows/`, a commented-out one included, through
+  `agent_skill.workflow` (no YAML parser: the key, its value and the comment after it); a local action
+  (`./…`) and a `docker://` image are out of scope. A ref that is not 40 hexadecimal digits (a tag, a
+  branch, a short hash, none) is `movable_action`; a commit with no comment is `unversioned_action`.
+  Controls: python-style's checkout named by its tag, and rust-style's commented-out `miri` checkout
+  with its release dropped; each fires its branch alone. FAIL branches 255 → 257, controls 232 → 234,
+  exemptions 23. The controls' copy of the tree now carries `.github/workflows/`.
 - [ ] 4.3 Write `.github/workflows/check.yml` (design decision 10), and make `selfapply` hold its
   shared steps to python-style's `ci.yml`; verify `check --fast`, a control for a drifted step, and
   the first run's result on the pull request
