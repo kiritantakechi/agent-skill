@@ -132,6 +132,7 @@ test "boundary wrapper maps every error to a status" {
     try std.testing.expectEqual(Status.ok, zs_parse_u32("123", &value));
     try std.testing.expectEqual(123, value);
     try std.testing.expectEqual(Status.invalid_argument, zs_parse_u32("12a", &value));
+    try std.testing.expectEqual(Status.invalid_argument, zs_parse_u32("", &value));
     try std.testing.expectEqual(Status.out_of_range, zs_parse_u32("99999999999", &value));
     try std.testing.expectEqual(Status.invalid_argument, zs_parse_u32(null, &value));
 }
@@ -207,6 +208,7 @@ test "hostile inputs produce a status, not a panic" {
     try std.testing.expectEqual(Status.ok, zs_open("f", 8, 1, &handle));
     try std.testing.expectEqual(Status.invalid_argument, zs_open(null, 8, 1, &handle));
     try std.testing.expectEqual(Status.invalid_argument, zs_open("f", 0, 1, &handle));
+    try std.testing.expectEqual(Status.invalid_argument, zs_open("", 8, 1, &handle));
     try std.testing.expectEqual(Status.invalid_argument, zs_open("f", 8, 99, &handle));
     try std.testing.expectEqual(Status.invalid_argument, zs_open("f", 8, -1, &handle));
 }

@@ -66,7 +66,7 @@ class Language:
     `test` block by its braces. A language no toolchain declares is
     read with the defaults.
 
-    The last three fields are the vocabulary of the one grammar a
+    The last four fields are the vocabulary of the one grammar a
     mutant is drawn from (`deletable`).
     """
 
@@ -87,6 +87,10 @@ class Language:
     #: binding, whose deletion only stops the build; an assertion, which
     #: earns its place on the path the tests do not reach; a brace.
     kept: tuple[str, ...] = ()
+    #: What ends a statement whose deletion is an equivalent mutant: no
+    #: well-defined run can tell it from the original, so no test can
+    #: kill it, and it is no mutant at all.
+    equivalent: tuple[str, ...] = ()
 
     def uncommented(self, line: str) -> str:
         """`line` without its comment, as this language spells one."""
@@ -158,7 +162,8 @@ def deletable(language: Language, body: str) -> Iterator[tuple[int, str]]:
 
     One grammar for every language, in that language's vocabulary: a
     line holding one whole statement, outside the block's tests, that
-    no word the language keeps opens. There were three: Python mutated
+    no word the language keeps opens and none it calls equivalent
+    ends. There were three: Python mutated
     only a line holding `=`, its tests' lines included; Rust only what
     came before a module's first `#[cfg(test)]`, its assertions
     included; Zig a line ending in `;` unless a comment followed it.
@@ -166,7 +171,11 @@ def deletable(language: Language, body: str) -> Iterator[tuple[int, str]]:
     lines = body.split("\n")
     for i in sorted(language.whole(body) - language.tests(body)):
         code = language.uncommented(lines[i]).strip()
-        if code and not code.startswith(language.kept):
+        if (
+            code
+            and not code.startswith(language.kept)
+            and not code.endswith(language.equivalent)
+        ):
             yield i, code
 
 

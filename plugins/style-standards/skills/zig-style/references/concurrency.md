@@ -1114,11 +1114,12 @@ const Ledger = struct {
     }
 };
 
-test "both fields change together" {
+test "both fields change together, and the lock is free after" {
     var ledger: Ledger = .{};
     try ledger.add(std.testing.io, 5);
     try std.testing.expectEqual(5, ledger.total);
     try std.testing.expectEqual(1, ledger.count);
+    try std.testing.expect(ledger.lock.tryLock());
 }
 ```
 
@@ -1432,14 +1433,15 @@ at a sleep, a wait, a queue operation or another lock is the finding.
 as the slowest peer takes to answer. A second lock taken inside the first is how two tasks end up
 each holding what the other needs.
 
-**Check:** a `defer … unlock(io)` whose scope contains another `try io.…` call or a `.wait(io)`.
+**Check:** a `defer … unlock(io)` whose scope contains another call that takes `io`: a `try io.…`, a
+queue's `getOne(io)` or `putOne(io, …)`, or a `.wait(io)`.
 
 ```zig
-// fragment — BAD: the lock is held through the sleep
+// fragment — BAD: the lock is held through the wait for a reply
 try c.lock.lock(io);
 defer c.lock.unlock(io);
 c.value += 1;
-try io.sleep(.fromMilliseconds(1), .awake);
+const reply = try replies.getOne(io);
 ```
 
 ```zig
@@ -1451,22 +1453,31 @@ const Counter = struct {
     lock: Io.Mutex = .init,
     value: u64 = 0,
 
-    /// The lock covers the update and nothing else: the sleep, a suspension point, runs after it.
-    fn bumpThenPause(c: *Counter, io: Io) Io.Cancelable!u64 {
+    /// The lock covers the update and nothing else: the wait for a reply, a suspension point,
+    /// runs after it.
+    fn bumpThenAwait(
+        c: *Counter,
+        io: Io,
+        replies: *Io.Queue(u64),
+    ) (Io.QueueClosedError || Io.Cancelable)!u64 {
         const seen = blk: {
             try c.lock.lock(io);
             defer c.lock.unlock(io);
             c.value += 1;
             break :blk c.value;
         };
-        try io.sleep(.fromMilliseconds(1), .awake);
-        return seen;
+        const reply = try replies.getOne(io);
+        return seen + reply;
     }
 };
 
 test "the lock is released before the task suspends" {
+    const io = std.testing.io;
+    var buffer: [1]u64 = undefined;
+    var replies: Io.Queue(u64) = .init(&buffer);
+    try replies.putOne(io, 10);
     var counter: Counter = .{};
-    try std.testing.expectEqual(1, try counter.bumpThenPause(std.testing.io));
+    try std.testing.expectEqual(11, try counter.bumpThenAwait(io, &replies));
     try std.testing.expect(counter.lock.tryLock());
 }
 ```

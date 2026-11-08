@@ -89,16 +89,12 @@ preserve a member solely because it was there before.
 - **WHEN** a value is assigned and no caller reads it
 - **THEN** it is deleted, and the work that produced it with it
 
-### Requirement: A claim the repository makes about its own checks is verified against them
+### Requirement: A claim the repository makes about its own checks is compared against the registry
 
 Where the repository states in prose which checks exist, what they cover, or that something holds of
 every check, that statement SHALL be compared against the registry and SHALL fail when the two
 disagree. A claim written for a reader SHALL NOT be exempt from verification because its audience is
 a person.
-
-Where the verification asks whether a field is present, it SHALL read the whole field. A parse that
-truncates the field it is judging can find content in what is empty, or emptiness in what is not, and
-either way it decides something other than the question it was asked.
 
 #### Scenario: A check ships without being documented
 
@@ -122,6 +118,18 @@ either way it decides something other than the question it was asked.
 - **THEN** the run fails, and the number or the exemptions it names come from the registry rather
   than from what someone typed
 
+#### Scenario: Prose drifts for reasons that are not defects
+
+- **WHEN** wording, column order, or style changes without changing which checks are named or
+  whether each carries a note
+- **THEN** nothing fails, because the claim has not changed
+
+### Requirement: A verification of a field's presence reads the whole field
+
+Where the verification asks whether a field is present, it SHALL read the whole field. A parse that
+truncates the field it is judging can find content in what is empty, or emptiness in what is not,
+and either way it decides something other than the question it was asked.
+
 #### Scenario: A documented field contains the delimiter of the format it is written in
 
 - **WHEN** a recorded reason contains a character the surrounding format uses as a separator, escaped
@@ -129,30 +137,15 @@ either way it decides something other than the question it was asked.
 - **THEN** the whole reason is read, because a check that stops at the escape judges a fragment and
   reports that a reason is present when only its first character is
 
-#### Scenario: Prose drifts for reasons that are not defects
-
-- **WHEN** wording, column order, or style changes without changing which checks are named or
-  whether each carries a note
-- **THEN** nothing fails, because the claim has not changed
-
-### Requirement: A negative control exercises the mechanism it names
+### Requirement: A negative control fails when the mechanism it is named for stops working
 
 A control SHALL fail when the mechanism it is named for stops working, and SHALL NOT be satisfied by
-a different part of the same check reporting on the same injected defect. Where a check reaches its
-verdict by more than one branch, the injected defect SHALL be one that only the named branch can
-report.
+a different part of the same check reporting on the same injected defect.
 
 A control is the evidence that a check can fail. A control that passes through a sibling branch
 proves that the check can fail, which was never in doubt, and proves nothing about the branch it
 claims to cover — so the branch can be deleted, made unreachable, or narrowed to nothing while the
 control stays green.
-
-#### Scenario: A check reaches its verdict by several branches
-
-- **WHEN** a check reports on more than one property of its input, and a control is written for one
-  of them
-- **THEN** the injected defect is one the other branches do not report, so the control's passing is
-  evidence about the branch it names
 
 #### Scenario: The named mechanism is made unreachable
 
@@ -166,6 +159,18 @@ control stays green.
 - **WHEN** a control is added for a branch of an existing check
 - **THEN** it is verified against the working code and against the code with that branch disabled,
   and it must fail in the second case before it is accepted
+
+### Requirement: A control for one branch of a check injects a defect only that branch reports
+
+Where a check reaches its verdict by more than one branch, the injected defect SHALL be one that
+only the named branch can report.
+
+#### Scenario: A check reaches its verdict by several branches
+
+- **WHEN** a check reports on more than one property of its input, and a control is written for one
+  of them
+- **THEN** the injected defect is one the other branches do not report, so the control's passing is
+  evidence about the branch it names
 
 ### Requirement: The harness meets the standard it ships for its own language
 
@@ -190,18 +195,28 @@ configuration is extended, with the reason, and SHALL NOT be made by weakening t
 - **THEN** the harness's own `requires-python` and target version move with it, because a harness
   that verifies against a version it does not itself run on is checking a claim it does not live by
 
-### Requirement: Negative controls are a bijection onto branches
+### Requirement: Every branch that can fail has one negative control or one recorded exemption
 
 Every place a check can report a finding SHALL be a named branch, declared with the one level it
 reports at, and every finding SHALL carry the branch that produced it. Every branch that can report
-a failure SHALL have exactly one negative control or exactly one recorded exemption with its
-reason, never both. A control SHALL pass only when a failure from its own branch is reported; a
-failure from any other branch SHALL NOT satisfy it, and a failure from another branch beside it
-SHALL fail the control unless the control states why the defect reaches that branch too. Every
-branch that reports that a check could not look SHALL be reached by making a tool the check
-declares absent, or be listed with the reason no absence reaches it. A branch that only informs
-SHALL fail no run, and is outside both. The `controls` check and the test suite SHALL run controls
-through one runner.
+a failure SHALL have exactly one negative control or exactly one recorded exemption with its reason,
+never both. The `controls` check and the test suite SHALL run controls through one runner.
+
+#### Scenario: A branch is added
+
+- **WHEN** a check gains a new failure site
+- **THEN** the suite fails until that branch has a control or a stated exemption
+
+#### Scenario: A branch is removed
+
+- **WHEN** a control or exemption names a branch no check declares
+- **THEN** the suite fails, because an exemption standing over nothing is one nobody re-examined
+
+### Requirement: A control passes only through the branch it names
+
+A control SHALL pass only when a failure from its own branch is reported; a failure from any other
+branch SHALL NOT satisfy it, and a failure from another branch beside it SHALL fail the control
+unless the control states why the defect reaches that branch too.
 
 #### Scenario: A control fires through a neighbouring branch
 
@@ -215,21 +230,18 @@ through one runner.
 - **THEN** the control fails, unless it names that branch with the reason its defect cannot help
   reaching it
 
-#### Scenario: A branch is added
+### Requirement: A branch that reports that a check could not look is reached by an absent tool
 
-- **WHEN** a check gains a new failure site
-- **THEN** the suite fails until that branch has a control or a stated exemption
+Every branch that reports that a check could not look SHALL be reached by making a tool the check
+declares absent, or be listed with the reason no absence reaches it. A branch that only informs
+SHALL fail no run, and is outside both the rule that a branch has one control or one exemption and
+the rule that a could-not-look branch is reached by an absent tool.
 
 #### Scenario: A branch reports that a check could not look
 
 - **WHEN** a check gains a branch at `UNRUN`
 - **THEN** the suite fails until making some declared tool absent reaches it, or it is listed with
   the reason none does
-
-#### Scenario: A branch is removed
-
-- **WHEN** a control or exemption names a branch no check declares
-- **THEN** the suite fails, because an exemption standing over nothing is one nobody re-examined
 
 ### Requirement: Per-skill facts live only in profiles, and profiles are data
 

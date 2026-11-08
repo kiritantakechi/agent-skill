@@ -212,25 +212,29 @@ default encoding, unpacking in comprehensions, and the typing additions.
   example thread-safety that no longer follows from the GIL, or an encoding default that moved
 - **THEN** the reality-check section calls it out explicitly as such
 
-### Requirement: Chapter coverage and a reference map
+### Requirement: The standard is split into chapters that cover a minimum range of subjects
 
 The standard SHALL be split into chapters, each owning one rule-ID family and opening with a
-contents table listing every rule it owns. `SKILL.md` SHALL carry a reference map from chapter to
-rule family to subject matter, and SHALL instruct the reader to load one chapter rather than all of
-them. Coverage SHALL span at minimum: naming and layout; typing; data modelling; errors and control
-flow; free-threading and concurrency; async; API design and packaging; testing; performance;
-formatting and output; and a migration chapter carrying the dead-API tables.
+contents table listing every rule it owns. Coverage SHALL span at minimum: naming and layout;
+typing; data modelling; errors and control flow; free-threading and concurrency; async; API design
+and packaging; testing; performance; formatting and output; and a migration chapter carrying the
+dead-API tables.
+
+#### Scenario: A rule is filed in the wrong chapter
+
+- **WHEN** a rule's ID prefix does not match the chapter it appears in
+- **THEN** the standard is non-conforming
+
+### Requirement: `SKILL.md` carries a reference map and tells the reader to load one chapter
+
+`SKILL.md` SHALL carry a reference map from chapter to rule family to subject matter, and SHALL
+instruct the reader to load one chapter rather than all of them.
 
 #### Scenario: A reader needs one rule
 
 - **WHEN** the reader has a rule ID
 - **THEN** the reference map resolves the prefix to a chapter, and that chapter's contents table
   resolves the ID to a rule, without reading the chapter through
-
-#### Scenario: A rule is filed in the wrong chapter
-
-- **WHEN** a rule's ID prefix does not match the chapter it appears in
-- **THEN** the standard is non-conforming
 
 ### Requirement: A review protocol
 
@@ -273,20 +277,12 @@ from the standard's text. An asset that describes a buildable project SHALL buil
 - **WHEN** a file in the asset directory is named by no rule and no table
 - **THEN** the standard is non-conforming
 
-### Requirement: The standard names the tools it requires and ships their configuration
+### Requirement: The standard names, pins and configures the tools it requires
 
 The standard SHALL name the linter, the type checker, the package manager, and the build backend a
 conforming project must run, SHALL ship the configuration for each as an asset, and SHALL state the
 exact version each is pinned to. Where a required tool offers no stability guarantee, the standard
-SHALL say so and SHALL give the procedure for moving the pin. Each role SHALL be filled by exactly
-one named tool: the standard SHALL NOT offer alternatives for a role, and SHALL NOT document a tool
-it does not require.
-
-#### Scenario: A role admits more than one plausible tool
-
-- **WHEN** more than one tool could fill a role the standard names
-- **THEN** the standard names exactly one and prescribes it unconditionally, rather than presenting
-  a choice it leaves the reader to resolve
+SHALL say so and SHALL give the procedure for moving the pin.
 
 #### Scenario: A reader adopts the standard
 
@@ -298,6 +294,17 @@ it does not require.
 
 - **WHEN** a mandated tool declares that its behaviour may change between any two releases
 - **THEN** the standard states that policy, pins the version exactly, and gives the bump procedure
+
+### Requirement: Each tool role is filled by exactly one named tool
+
+Each role SHALL be filled by exactly one named tool: the standard SHALL NOT offer alternatives for a
+role, and SHALL NOT document a tool it does not require.
+
+#### Scenario: A role admits more than one plausible tool
+
+- **WHEN** more than one tool could fill a role the standard names
+- **THEN** the standard names exactly one and prescribes it unconditionally, rather than presenting
+  a choice it leaves the reader to resolve
 
 #### Scenario: A project runs a second tool as well
 

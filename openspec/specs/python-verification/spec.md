@@ -29,14 +29,10 @@ tests run.
 - **WHEN** the free-threaded 3.15 build is absent from the machine
 - **THEN** the check reports that it could not run, and does not report success for any block
 
-### Requirement: Blocks are type-checked under a pinned strict configuration
+### Requirement: Every verified block is type-checked under a pinned configuration
 
 Every verified block SHALL be type-checked, and the configuration SHALL be pinned in the repository
-rather than left to the tool's defaults. Because the chosen type checker ships no strict preset, the
-configuration SHALL enable the opt-in soundness rules by naming each one, and SHALL set the analysis
-version to the target Python version. It SHALL NOT raise the severity of the whole rule set with a
-single wildcard: a checker that offers no stability guarantee can add rules in any release, and a
-wildcard silently enrols them.
+rather than left to the tool's defaults.
 
 #### Scenario: A block fails type checking
 
@@ -49,6 +45,20 @@ wildcard silently enrols them.
   defaults
 - **THEN** it is still a failure — the pinned configuration is the standard, not the default
 
+#### Scenario: Annotations are absent
+
+- **WHEN** a block defines a function or method with no annotation on a parameter or return
+- **THEN** it is reported, since the type checker alone does not require annotations and the lint
+  configuration is what supplies that requirement
+
+### Requirement: The type-checking configuration enables rules by name, never by wildcard
+
+Because the chosen type checker ships no strict preset, the configuration SHALL enable the opt-in
+soundness rules by naming each one, and SHALL set the analysis version to the target Python version.
+The configuration SHALL NOT raise the severity of the whole rule set with a single wildcard: a
+checker that offers no stability guarantee can add rules in any release, and a wildcard silently
+enrols them.
+
 #### Scenario: A tool release adds a rule
 
 - **WHEN** a new version of the pinned checker introduces a rule the configuration never named
@@ -59,12 +69,6 @@ wildcard silently enrols them.
 - **WHEN** a severity level below error already causes the tool to exit non-zero
 - **THEN** promoting those rules is not treated as a strictness increase, because it changes only
   the printed label
-
-#### Scenario: Annotations are absent
-
-- **WHEN** a block defines a function or method with no annotation on a parameter or return
-- **THEN** it is reported, since the type checker alone does not require annotations and the lint
-  configuration is what supplies that requirement
 
 ### Requirement: Blocks are linted against the shipped rule table
 

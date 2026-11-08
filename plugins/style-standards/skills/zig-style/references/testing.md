@@ -477,6 +477,12 @@ test "pop returns the byte pushed last" {
 
     try std.testing.expectEqual(9, s.pop());
 }
+
+test "pop on an empty stack returns null" {
+    var s: Stack = .{};
+
+    try std.testing.expectEqual(null, s.pop());
+}
 ```
 
 ### ZS-TEST-12 [M] Assert one claim per test

@@ -61,25 +61,13 @@ taken and is reported to a reader as though it were current.
 - **THEN** it is reported, because a suppression standing over a rule that changed is a suppression
   nobody re-examined
 
-### Requirement: A pattern that accuses ships with a positive control
+### Requirement: An accusing pattern is shown to match a fixture of its defect
 
 Every pattern whose hits are reported as defects SHALL be accompanied by a fixture containing the
 defect it exists to catch, and SHALL be shown to match that fixture. Where a rule's Check ships more
 than one command pattern, each of them SHALL be shown to fire; one pattern matching SHALL NOT stand
 as evidence for the rest. Not matching compliant code SHALL NOT by itself qualify a pattern to
 accuse — a pattern that matches nothing anywhere satisfies that test perfectly.
-
-A pattern whose hits are reported as candidates for a person to judge SHALL NOT require a fixture.
-The reader is already being asked to look; the cost of a false candidate is a glance, and requiring
-a fixture for every one of them was measured to demand 233 hand-written fixtures against 14 existing
-defect examples — which would produce fixtures reverse-engineered from patterns, evidence that
-proves the fixture rather than the pattern.
-
-#### Scenario: A Check is promoted from candidates to accusations
-
-- **WHEN** a Check that reported candidates is rewritten to report defects
-- **THEN** a fixture exhibiting that rule's defect is added with it, and the pattern matching that
-  fixture is asserted
 
 #### Scenario: A rule's Check ships several command patterns
 
@@ -97,6 +85,20 @@ proves the fixture rather than the pattern.
 - **WHEN** a later edit to a pattern makes it stop matching its own fixture
 - **THEN** that is a failure, because the pattern has lost the ability to catch what it was written
   for while continuing to report clean
+
+### Requirement: A pattern that reports candidates needs no fixture
+
+A pattern whose hits are reported as candidates for a person to judge SHALL NOT require a fixture.
+The reader is already being asked to look; the cost of a false candidate is a glance, and requiring
+a fixture for every one of them was measured to demand 233 hand-written fixtures against 14 existing
+defect examples — which would produce fixtures reverse-engineered from patterns, evidence that
+proves the fixture rather than the pattern.
+
+#### Scenario: A Check is promoted from candidates to accusations
+
+- **WHEN** a Check that reported candidates is rewritten to report defects
+- **THEN** a fixture exhibiting that rule's defect is added with it, and the pattern matching that
+  fixture is asserted
 
 ### Requirement: Promotion is decided per rule, never in bulk
 
